@@ -1,0 +1,4 @@
+interface:
+  display_name: "Justflows Quality"
+  short_description: "Test and verify Justflows changes"
+  default_prompt: "Use $justflows-quality to implement this Justflows task."

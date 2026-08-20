@@ -1,0 +1,36 @@
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="<%= typeof localePath === 'function' ? localePath(locale, '/', defaultLocale) : '/' %>" class="site-brand"><%= identity.siteTitle %></a>
+    <nav class="site-nav" style="display: flex; align-items: center; gap: 0.5rem;">
+      <% if (typeof navItems !== 'undefined' && navItems.length > 0) { %>
+        <% navItems.forEach(function(item) { %>
+          <% if (item.children && item.children.length) { %>
+            <span class="nav-item nav-item--has-children" style="position: relative; display: inline-block;">
+              <a href="<%= item.url %>"<% if (item.target) { %> target="<%= item.target %>" rel="noopener noreferrer"<% } %>><%= item.label %></a>
+              <span class="nav-submenu" style="display: none; position: absolute; top: 100%; left: 0; min-width: 160px; background: var(--color-surface, #fff); border: 1px solid var(--color-border, #e2e8f0); border-radius: 6px; padding: 0.35rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 20;">
+                <% item.children.forEach(function(child) { %>
+                  <a href="<%= child.url %>"<% if (child.target) { %> target="<%= child.target %>" rel="noopener noreferrer"<% } %> style="display: block; padding: 0.4rem 0.75rem; white-space: nowrap;"><%= child.label %></a>
+                <% }); %>
+              </span>
+            </span>
+          <% } else { %>
+            <a href="<%= item.url %>"<% if (item.target) { %> target="<%= item.target %>" rel="noopener noreferrer"<% } %>><%= item.label %></a>
+          <% } %>
+        <% }); %>
+      <% } %>
+      <% if (typeof languageLinks !== 'undefined' && languageLinks.length > 1) { %>
+        <span style="margin-left: 1rem; display: inline-flex; gap: 0.35rem; align-items: center;">
+          <% languageLinks.forEach(function(lang) { %>
+            <a href="<%= lang.href %>" style="font-size: 0.75rem; padding: 0.2rem 0.45rem; border-radius: 4px; <%= lang.current ? 'background: var(--color-surface, #f1f5f9); font-weight: 700;' : '' %>"><%= lang.code.toUpperCase() %></a>
+          <% }); %>
+        </span>
+      <% } %>
+    </nav>
+  </div>
+</header>
+<style>
+  .nav-item--has-children:hover .nav-submenu,
+  .nav-item--has-children:focus-within .nav-submenu {
+    display: block !important;
+  }
+</style>

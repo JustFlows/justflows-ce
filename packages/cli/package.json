@@ -1,0 +1,26 @@
+{
+  "name": "@justflows/cli",
+  "version": "0.1.0",
+  "description": "Justflows command-line interface",
+  "type": "module",
+  "bin": {
+    "justflows": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
+  },
+  "license": "MIT"
+}

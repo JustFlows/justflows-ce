@@ -1,0 +1,11 @@
+{
+  "nav.home": "Home",
+  "nav.admin": "Admin",
+  "home.tagline_fallback": "Your site is live and running on Justflows.",
+  "home.welcome": "Welcome to",
+  "home.description": "Head to the admin dashboard to write your first post, customize your theme, and make it your own.",
+  "home.cta": "Go to Admin →",
+  "404.title": "Page not found",
+  "404.back": "Back to home",
+  "footer.powered_by": "Powered by"
+}

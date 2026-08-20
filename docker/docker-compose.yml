@@ -1,0 +1,57 @@
+version: "3.9"
+
+# ── Justflows — one-command install with PostgreSQL ──────────────────────────
+#
+#   cp .env.production.example .env
+#   # set APP_URL, APP_SECRET, and DB_PASSWORD
+#   docker compose up
+#
+# Then open http://localhost:3000/install in your browser.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: justflows
+      POSTGRES_USER: justflows
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U justflows"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.all
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env to a unique 32+ character string}
+      DB_DRIVER: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: justflows
+      DB_USER: justflows
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_PATH: /app/uploads
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  uploads:

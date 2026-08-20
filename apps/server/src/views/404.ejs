@@ -1,0 +1,7 @@
+<%- include('partials/header') %>
+
+<main class="site-main" style="text-align: center; padding-top: 6rem;">
+  <h1 style="font-size: 4rem; font-weight: 900; color: var(--color-muted);">404</h1>
+  <p style="color: var(--color-muted); margin: 1rem 0 2rem;"><%= t('404.title') %></p>
+  <a href="<%= localePath(locale, '/', defaultLocale) %>" class="btn"><%= t('404.back') %></a>
+</main>

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Justflows Data"
+  short_description: "Evolve Justflows data across SQL dialects"
+  default_prompt: "Use $justflows-data to implement this Justflows task."

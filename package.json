@@ -1,0 +1,90 @@
+{
+  "name": "justflows",
+  "version": "0.1.0",
+  "private": false,
+  "description": "The open-source platform for building the web",
+  "license": "MIT",
+  "homepage": "https://github.com/JustFlows/justflows-ce#readme",
+  "bugs": {
+    "url": "https://github.com/JustFlows/justflows-ce/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JustFlows/justflows-ce.git"
+  },
+  "keywords": [
+    "cms",
+    "justflows",
+    "self-hosted",
+    "open-source"
+  ],
+  "workspaces": [
+    "apps/server",
+    "packages/blocks",
+    "packages/installer",
+    "packages/core",
+    "packages/auth",
+    "packages/sdk",
+    "packages/database",
+    "packages/plugin-api",
+    "packages/cache",
+    "packages/content",
+    "packages/media",
+    "packages/updater",
+    "packages/jobs",
+    "packages/cli"
+  ],
+  "main": "server.js",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean",
+    "setup": "node scripts/setup.js",
+    "start": "node server.js",
+    "install:all": "node scripts/install-all.js",
+    "install:production": "node scripts/install-all.js",
+    "build:server": "node scripts/install-all.js --build-only",
+    "make-zip": "bash scripts/make-zip.sh"
+  },
+  "dependencies": {
+    "@justflows/blocks": "workspace:*",
+    "@justflows/core": "workspace:*",
+    "@justflows/installer": "workspace:*",
+    "@justflows/plugin-api": "workspace:*",
+    "@justflows/sdk": "workspace:*",
+    "cookie-parser": "^1.4.7",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
+    "multer": "^2.2.0",
+    "mysql2": "^3.23.3",
+    "nodemailer": "^7.0.13",
+    "postgres": "^3.4.9",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/parser": "^8.67.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "esbuild": "0.28.2",
+    "eslint": "^10.8.1",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.11",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "fsevents@2.3.3": true
+  }
+}

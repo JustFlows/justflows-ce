@@ -1,0 +1,51 @@
+version: "3.9"
+# Use this file to run Justflows with MySQL instead of PostgreSQL
+# docker compose -f docker/docker-compose.mysql.yml --env-file .env up
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: justflows
+      MYSQL_USER: justflows
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.all
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env to a unique 32+ character string}
+      DB_DRIVER: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: justflows
+      DB_USER: justflows
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_PATH: /app/uploads
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+  uploads:

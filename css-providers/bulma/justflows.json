@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "type": "css-provider",
+  "id": "justflows.bulma",
+  "name": "Bulma",
+  "version": "1.0.2",
+  "publisher": "Jeremy Thomas",
+  "description": "Modern CSS framework based on Flexbox — CSS only, no JavaScript",
+  "license": "MIT",
+  "dependencies": {
+    "bulma": "1.0.2"
+  },
+  "stylesheets": [
+    { "href": "bulma/css/bulma.min.css" }
+  ],
+  "scripts": []
+}

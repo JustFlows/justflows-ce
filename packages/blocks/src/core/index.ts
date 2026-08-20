@@ -1,0 +1,384 @@
+import type { BlockDefinition } from "../registry/block-registry.js";
+import { sanitizeHtmlBlock, sanitizeRichText } from "../sanitize.js";
+import { esc, safeHref, safeMediaSrc } from "../safe-url.js";
+
+function str(raw: unknown, fallback = ""): string {
+  return typeof raw === "string" ? raw : fallback;
+}
+
+function num(raw: unknown, fallback: number): number {
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export const coreBlocks: BlockDefinition[] = [
+  {
+    type: "core.paragraph",
+    version: 1,
+    title: "Paragraph",
+    icon: "¶",
+    category: "content",
+    schema: { text: { type: "richtext", required: true } },
+    validateProps: (raw) => ({ text: str((raw as Record<string, unknown>)["text"]) }),
+    render: (props) => `<div class="jf-paragraph">${sanitizeRichText((props as { text: string }).text)}</div>`,
+  },
+  {
+    type: "core.heading",
+    version: 1,
+    title: "Heading",
+    icon: "H",
+    category: "content",
+    schema: {
+      text: { type: "text", required: true },
+      level: { type: "number", default: 2 },
+    },
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      return { text: str(r["text"]), level: Math.min(6, Math.max(1, num(r["level"], 2))) };
+    },
+    render: (props) => {
+      const { text, level } = props as { text: string; level: number };
+      return `<h${level}>${esc(text)}</h${level}>`;
+    },
+  },
+  {
+    type: "core.image",
+    version: 1,
+    title: "Image",
+    icon: "🖼",
+    category: "media",
+    schema: {
+      src: { type: "media", required: true },
+      alt: { type: "text" },
+      caption: { type: "text" },
+    },
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      return { src: str(r["src"]), alt: str(r["alt"]), caption: str(r["caption"]) };
+    },
+    render: (props) => {
+      const { src, alt, caption } = props as { src: string; alt: string; caption: string };
+      const img = `<img src="${safeMediaSrc(src)}" alt="${esc(alt)}" loading="lazy">`;
+      return caption ? `<figure>${img}<figcaption>${esc(caption)}</figcaption></figure>` : img;
+    },
+  },
+  {
+    type: "core.quote",
+    version: 1,
+    title: "Quote",
+    icon: "❝",
+    category: "content",
+    schema: { text: { type: "richtext", required: true }, attribution: { type: "text" } },
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      return { text: str(r["text"]), attribution: str(r["attribution"]) };
+    },
+    render: (props) => {
+      const { text, attribution } = props as { text: string; attribution: string };
+      return attribution
+        ? `<blockquote><div class="jf-quote__text">${sanitizeRichText(text)}</div><cite>${esc(attribution)}</cite></blockquote>`
+        : `<blockquote><div class="jf-quote__text">${sanitizeRichText(text)}</div></blockquote>`;
+    },
+  },
+  {
+    type: "core.button",
+    version: 1,
+    title: "Button",
+    icon: "⬛",
+    category: "content",
+    schema: {
+      label: { type: "text", required: true },
+      url: { type: "url", required: true },
+      variant: { type: "select", options: ["primary", "secondary", "outline"], default: "primary" },
+    },
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      return {
+        label: str(r["label"]),
+        url: str(r["url"]),
+        variant: ["primary", "secondary", "outline"].includes(str(r["variant"]))
+          ? str(r["variant"])
+          : "primary",
+      };
+    },
+    render: (props) => {
+      const { label, url, variant } = props as { label: string; url: string; variant: string };
+      return `<a href="${safeHref(url)}" class="btn btn--${variant}">${esc(label)}</a>`;
+    },
+  },
+  {
+    type: "core.divider",
+    version: 1,
+    title: "Divider",
+    icon: "—",
+    category: "layout",
+    schema: {},
+    validateProps: () => ({}),
+    render: () => "<hr>",
+  },
+  {
+    type: "core.spacer",
+    version: 1,
+    title: "Spacer",
+    icon: "↕",
+    category: "layout",
+    schema: { height: { type: "number", default: 40 } },
+    validateProps: (raw) => ({ height: num((raw as Record<string, unknown>)["height"], 40) }),
+    render: (props) => `<div style="height:${(props as { height: number }).height}px" aria-hidden="true"></div>`,
+  },
+  {
+    type: "core.html",
+    version: 1,
+    title: "HTML",
+    icon: "</>",
+    category: "content",
+    schema: { html: { type: "textarea", required: true } },
+    validateProps: (raw) => ({ html: str((raw as Record<string, unknown>)["html"]) }),
+    render: (props) => sanitizeHtmlBlock((props as { html: string }).html),
+  },
+  {
+    type: "core.code",
+    version: 1,
+    title: "Code",
+    icon: "{ }",
+    category: "content",
+    schema: {
+      code: { type: "textarea", required: true },
+      language: { type: "text" },
+    },
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      return { code: str(r["code"]), language: str(r["language"]) };
+    },
+    render: (props) => {
+      const { code, language } = props as { code: string; language: string };
+      return `<pre><code class="language-${esc(language)}">${esc(code)}</code></pre>`;
+    },
+  },
+  {
+    type: "core.embed",
+    version: 1,
+    title: "Embed",
+    icon: "⬡",
+    category: "media",
+    schema: { url: { type: "url", required: true }, caption: { type: "text" } },
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      return { url: str(r["url"]), caption: str(r["caption"]) };
+    },
+    render: (props) => {
+      const { url, caption } = props as { url: string; caption: string };
+      return `<figure class="embed"><a href="${safeHref(url)}">${esc(url)}</a>${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
+    },
+  },
+  {
+    type: "core.section",
+    version: 1,
+    title: "Section",
+    icon: "▭",
+    category: "layout",
+    schema: {
+      background: { type: "select", options: ["default", "muted", "primary", "dark", "gradient"], default: "default" },
+      padding: { type: "select", options: ["sm", "md", "lg", "xl"], default: "lg" },
+      align: { type: "select", options: ["left", "center"], default: "left" },
+    },
+    supportsChildren: true,
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      const bg = ["default", "muted", "primary", "dark", "gradient"].includes(str(r["background"]))
+        ? str(r["background"])
+        : "default";
+      const pad = ["sm", "md", "lg", "xl"].includes(str(r["padding"])) ? str(r["padding"]) : "lg";
+      const align = ["left", "center"].includes(str(r["align"])) ? str(r["align"]) : "left";
+      return { background: bg, padding: pad, align };
+    },
+    render: (props, children = "") => {
+      const { background, padding, align } = props as { background: string; padding: string; align: string };
+      return `<section class="jf-section jf-section--bg-${background} jf-section--pad-${padding} jf-section--align-${align}"><div class="jf-section__inner">${children}</div></section>`;
+    },
+  },
+  {
+    type: "core.container",
+    version: 1,
+    title: "Container",
+    icon: "⬚",
+    category: "layout",
+    schema: {
+      width: { type: "select", options: ["narrow", "default", "wide", "full"], default: "default" },
+    },
+    supportsChildren: true,
+    validateProps: (raw) => {
+      const w = str((raw as Record<string, unknown>)["width"]);
+      return {
+        width: ["narrow", "default", "wide", "full"].includes(w) ? w : "default",
+      };
+    },
+    render: (props, children = "") =>
+      `<div class="jf-container jf-container--${(props as { width: string }).width}">${children}</div>`,
+  },
+  {
+    type: "core.group",
+    version: 1,
+    title: "Group",
+    icon: "▢",
+    category: "layout",
+    schema: {},
+    supportsChildren: true,
+    validateProps: () => ({}),
+    render: (_props, children = "") => `<div class="jf-group">${children}</div>`,
+  },
+  {
+    type: "core.columns",
+    version: 1,
+    title: "Columns",
+    icon: "⊞",
+    category: "layout",
+    schema: {
+      columns: { type: "number", default: 2 },
+      gap: { type: "select", options: ["sm", "md", "lg"], default: "md" },
+    },
+    supportsChildren: true,
+    allowedChildTypes: ["core.column"],
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      const gap = ["sm", "md", "lg"].includes(str(r["gap"])) ? str(r["gap"]) : "md";
+      return { columns: Math.min(4, Math.max(2, num(r["columns"], 2))), gap };
+    },
+    render: (props, children = "") => {
+      const { columns, gap } = props as { columns: number; gap: string };
+      return `<div class="jf-columns jf-columns--${columns} jf-columns--gap-${gap}">${children}</div>`;
+    },
+  },
+  {
+    type: "core.column",
+    version: 1,
+    title: "Column",
+    icon: "▯",
+    category: "layout",
+    schema: {},
+    supportsChildren: true,
+    validateProps: () => ({}),
+    render: (_props, children = "") => `<div class="jf-column">${children}</div>`,
+  },
+  {
+    type: "core.hero",
+    version: 1,
+    title: "Hero",
+    icon: "★",
+    category: "sections",
+    schema: {
+      heading: { type: "text", required: true },
+      subheading: { type: "text" },
+      buttonLabel: { type: "text" },
+      buttonUrl: { type: "url" },
+      backgroundImage: { type: "media" },
+      align: { type: "select", options: ["left", "center"], default: "center" },
+    },
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      const align = ["left", "center"].includes(str(r["align"])) ? str(r["align"]) : "center";
+      return {
+        heading: str(r["heading"]),
+        subheading: str(r["subheading"]),
+        buttonLabel: str(r["buttonLabel"]),
+        buttonUrl: str(r["buttonUrl"]),
+        backgroundImage: str(r["backgroundImage"]),
+        align,
+      };
+    },
+    render: (props) => {
+      const { heading, subheading, buttonLabel, buttonUrl, backgroundImage, align } = props as {
+        heading: string;
+        subheading: string;
+        buttonLabel: string;
+        buttonUrl: string;
+        backgroundImage: string;
+        align: string;
+      };
+      const bgStyle = backgroundImage ? ` style="background-image:url('${safeMediaSrc(backgroundImage)}')"` : "";
+      const btn =
+        buttonLabel && buttonUrl
+          ? `<a href="${safeHref(buttonUrl)}" class="btn btn--primary jf-hero__btn">${esc(buttonLabel)}</a>`
+          : "";
+      return `<section class="jf-hero jf-hero--align-${align}"${bgStyle}><div class="jf-hero__inner"><h1 class="jf-hero__heading">${esc(heading)}</h1>${subheading ? `<p class="jf-hero__sub">${esc(subheading)}</p>` : ""}${btn}</div></section>`;
+    },
+  },
+  {
+    type: "core.features",
+    version: 1,
+    title: "Features",
+    icon: "◆",
+    category: "sections",
+    schema: {
+      heading: { type: "text" },
+      columns: { type: "number", default: 3 },
+    },
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      const items = Array.isArray(r["items"]) ? r["items"] : [];
+      return {
+        heading: str(r["heading"]),
+        columns: Math.min(4, Math.max(2, num(r["columns"], 3))),
+        items: items
+          .filter((i): i is Record<string, unknown> => i !== null && typeof i === "object")
+          .map((i) => ({
+            icon: str(i["icon"], "✦"),
+            title: str(i["title"]),
+            description: str(i["description"]),
+          })),
+      };
+    },
+    render: (props) => {
+      const { heading, columns, items } = props as {
+        heading: string;
+        columns: number;
+        items: Array<{ icon: string; title: string; description: string }>;
+      };
+      const cards = items
+        .map(
+          (item) =>
+            `<div class="jf-feature"><span class="jf-feature__icon">${esc(item.icon)}</span><h3 class="jf-feature__title">${esc(item.title)}</h3><p class="jf-feature__desc">${esc(item.description)}</p></div>`,
+        )
+        .join("");
+      return `<section class="jf-features"><div class="jf-container jf-container--wide">${heading ? `<h2 class="jf-features__heading">${esc(heading)}</h2>` : ""}<div class="jf-features__grid jf-features__grid--${columns}">${cards}</div></div></section>`;
+    },
+  },
+  {
+    type: "core.cta",
+    version: 1,
+    title: "Call to Action",
+    icon: "→",
+    category: "sections",
+    schema: {
+      heading: { type: "text", required: true },
+      text: { type: "text" },
+      buttonLabel: { type: "text" },
+      buttonUrl: { type: "url" },
+      variant: { type: "select", options: ["primary", "dark"], default: "primary" },
+    },
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      return {
+        heading: str(r["heading"]),
+        text: str(r["text"]),
+        buttonLabel: str(r["buttonLabel"]),
+        buttonUrl: str(r["buttonUrl"]),
+        variant: ["primary", "dark"].includes(str(r["variant"])) ? str(r["variant"]) : "primary",
+      };
+    },
+    render: (props) => {
+      const { heading, text, buttonLabel, buttonUrl, variant } = props as {
+        heading: string;
+        text: string;
+        buttonLabel: string;
+        buttonUrl: string;
+        variant: string;
+      };
+      const btn =
+        buttonLabel && buttonUrl
+          ? `<a href="${safeHref(buttonUrl)}" class="btn btn--primary jf-cta__btn">${esc(buttonLabel)}</a>`
+          : "";
+      return `<section class="jf-cta jf-cta--${variant}"><div class="jf-container jf-container--default"><h2 class="jf-cta__heading">${esc(heading)}</h2>${text ? `<p class="jf-cta__text">${esc(text)}</p>` : ""}${btn}</div></section>`;
+    },
+  },
+];

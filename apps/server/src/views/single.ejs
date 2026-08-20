@@ -1,0 +1,24 @@
+<%- include('partials/header') %>
+
+<% if (content.type === 'page') { %>
+<main class="site-main site-main--page">
+  <div class="block-content block-content--page">
+    <%- bodyHtml %>
+  </div>
+</main>
+<% } else { %>
+<main class="site-main">
+  <article>
+    <h1 class="post-title"><%= content.title %></h1>
+    <% if (formattedDate) { %>
+      <p class="post-meta"><%= formattedDate %></p>
+    <% } %>
+    <% if (content.excerpt) { %>
+      <p class="post-excerpt"><%= content.excerpt %></p>
+    <% } %>
+    <div class="block-content">
+      <%- bodyHtml %>
+    </div>
+  </article>
+</main>
+<% } %>

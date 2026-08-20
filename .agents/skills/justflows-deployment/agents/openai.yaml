@@ -1,0 +1,4 @@
+interface:
+  display_name: "Justflows Deployment"
+  short_description: "Ship and operate Justflows reliably"
+  default_prompt: "Use $justflows-deployment to implement this Justflows task."

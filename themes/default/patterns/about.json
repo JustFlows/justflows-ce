@@ -1,0 +1,118 @@
+{
+  "id": "about",
+  "title": "About page",
+  "description": "Company story with hero, two-column content, values grid, and CTA.",
+  "category": "pages",
+  "blocks": [
+    {
+      "id": "about-hero",
+      "type": "core.hero",
+      "version": 1,
+      "props": {
+        "heading": "We build tools for people who ship",
+        "subheading": "Justflows started as a reaction to bloated CMS platforms. We wanted something fast, honest, and yours to host.",
+        "buttonLabel": "",
+        "buttonUrl": "",
+        "backgroundImage": "",
+        "align": "left"
+      }
+    },
+    {
+      "id": "about-story",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "default", "padding": "lg", "align": "left" },
+      "children": [
+        {
+          "id": "about-story-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "about-story-cols",
+              "type": "core.columns",
+              "version": 1,
+              "props": { "columns": 2, "gap": "lg" },
+              "children": [
+                {
+                  "id": "about-col-1",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "about-h1",
+                      "type": "core.heading",
+                      "version": 1,
+                      "props": { "text": "Our story", "level": 2 }
+                    },
+                    {
+                      "id": "about-p1",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": {
+                        "text": "We believe content tools should respect your time. No mystery admin panels, no plugin roulette — just blocks, themes, and a clear path from draft to published."
+                      }
+                    },
+                    {
+                      "id": "about-p2",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": {
+                        "text": "The default theme you're looking at is both a starting point and a reference: patterns you can import, styles you can extend, and a demo homepage that shows what's possible out of the box."
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "about-col-2",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "about-quote",
+                      "type": "core.quote",
+                      "version": 1,
+                      "props": {
+                        "text": "Good CMS design is invisible until you need it — then it should feel obvious.",
+                        "attribution": "Justflows team"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "about-values",
+      "type": "core.features",
+      "version": 1,
+      "props": {
+        "heading": "What we care about",
+        "columns": 3,
+        "items": [
+          { "icon": "🎯", "title": "Clarity", "description": "Structured content, predictable layouts, no surprises in production." },
+          { "icon": "🛠", "title": "Craft", "description": "Polished defaults that still leave room for your brand." },
+          { "icon": "🤝", "title": "Ownership", "description": "Your data, your server, your themes — always." }
+        ]
+      }
+    },
+    {
+      "id": "about-cta",
+      "type": "core.cta",
+      "version": 1,
+      "props": {
+        "heading": "Want to say hello?",
+        "text": "Create a contact page from the landing pattern or wire up your own blocks.",
+        "buttonLabel": "Create a page",
+        "buttonUrl": "/admin",
+        "variant": "primary"
+      }
+    }
+  ]
+}

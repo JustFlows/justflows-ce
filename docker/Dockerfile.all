@@ -1,0 +1,68 @@
+# ── Justflows — single production image (Express) ────────────────────────────
+# One Node process on port 3000 — API + admin + public site.
+# ─────────────────────────────────────────────────────────────────────────────
+
+FROM node:22-alpine AS builder
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY packages/core/package.json        ./packages/core/
+COPY packages/cache/package.json       ./packages/cache/
+COPY packages/database/package.json    ./packages/database/
+COPY packages/sdk/package.json         ./packages/sdk/
+COPY packages/auth/package.json        ./packages/auth/
+COPY packages/content/package.json     ./packages/content/
+COPY packages/blocks/package.json      ./packages/blocks/
+COPY packages/media/package.json       ./packages/media/
+COPY packages/installer/package.json   ./packages/installer/
+COPY packages/updater/package.json     ./packages/updater/
+COPY packages/plugin-api/package.json  ./packages/plugin-api/
+COPY packages/jobs/package.json        ./packages/jobs/
+COPY packages/cli/package.json         ./packages/cli/
+COPY apps/server/package.json          ./apps/server/
+
+RUN pnpm install --frozen-lockfile
+
+COPY packages/ ./packages/
+COPY apps/server/ ./apps/server/
+COPY plugins/  ./plugins/
+COPY themes/   ./themes/
+COPY migrations/ ./migrations/
+
+RUN pnpm --filter @justflows/blocks build && \
+    pnpm --filter @justflows/installer build && \
+    pnpm --filter @justflows/server build
+
+# ── Production image ──────────────────────────────────────────────────────────
+FROM node:22-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+RUN apk add --no-cache tini unzip && \
+    addgroup --system --gid 1001 justflows && \
+    adduser  --system --uid 1001 justflows
+
+COPY --from=builder --chown=justflows:justflows /app/apps/server/dist ./apps/server/dist
+COPY --from=builder --chown=justflows:justflows /app/apps/server/admin-ui/dist ./apps/server/admin-ui/dist
+COPY --from=builder --chown=justflows:justflows /app/apps/server/src/views ./apps/server/dist/views
+COPY --from=builder --chown=justflows:justflows /app/node_modules ./node_modules
+COPY --from=builder --chown=justflows:justflows /app/apps/server/node_modules ./apps/server/node_modules
+COPY --from=builder --chown=justflows:justflows /app/packages ./packages
+COPY --from=builder --chown=justflows:justflows /app/migrations ./migrations
+COPY --from=builder --chown=justflows:justflows /app/server.js ./server.js
+COPY --from=builder --chown=justflows:justflows /app/package.json ./package.json
+
+COPY --chown=justflows:justflows docker/start.sh ./start.sh
+RUN chmod +x ./start.sh
+
+RUN mkdir -p /app/uploads && chown justflows:justflows /app/uploads
+
+USER justflows
+
+EXPOSE 3000
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["./start.sh"]

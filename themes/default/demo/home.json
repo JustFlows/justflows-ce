@@ -1,0 +1,198 @@
+{
+  "title": "Demo homepage",
+  "blocks": [
+    {
+      "id": "home-hero",
+      "type": "core.hero",
+      "version": 1,
+      "props": {
+        "heading": "Build beautiful pages without the bloat",
+        "subheading": "Justflows is a clean, self-hosted CMS with a visual page builder, theme customizer, and block-based content — everything you need, nothing you don't.",
+        "buttonLabel": "Open admin",
+        "buttonUrl": "/admin",
+        "backgroundImage": "",
+        "align": "center"
+      }
+    },
+    {
+      "id": "home-logos",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "muted", "padding": "md", "align": "center" },
+      "children": [
+        {
+          "id": "home-logos-inner",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "home-logos-html",
+              "type": "core.html",
+              "version": 1,
+              "props": {
+                "html": "<p class=\"jf-logos__label\">Trusted by teams who ship fast</p><div class=\"jf-logos\"><span>Acme</span><span>Nova</span><span>Pixel</span><span>Orbit</span><span>Lumen</span></div>"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home-features",
+      "type": "core.features",
+      "version": 1,
+      "props": {
+        "heading": "Everything you need to launch",
+        "columns": 3,
+        "items": [
+          { "icon": "⚡", "title": "Blazing fast", "description": "Server-rendered pages with minimal JavaScript on the public site." },
+          { "icon": "🧱", "title": "Block builder", "description": "Drag sections, columns, heroes, and CTAs — WordPress-like, but cleaner." },
+          { "icon": "🎨", "title": "Theme customizer", "description": "Colors, fonts, and layout tokens without touching code." },
+          { "icon": "🌍", "title": "Multilingual", "description": "Locale-aware URLs, translations, and language switcher built in." },
+          { "icon": "🔒", "title": "Self-hosted", "description": "Your content stays on your server. No SaaS lock-in." },
+          { "icon": "📦", "title": "Extensible", "description": "Themes and plugins via packages — grow when you're ready." }
+        ]
+      }
+    },
+    {
+      "id": "home-stats",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "gradient", "padding": "lg", "align": "center" },
+      "children": [
+        {
+          "id": "home-stats-inner",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "home-stats-html",
+              "type": "core.html",
+              "version": 1,
+              "props": {
+                "html": "<div class=\"jf-stats\"><div class=\"jf-stat\"><strong>50+</strong><span>Core blocks</span></div><div class=\"jf-stat\"><strong>100%</strong><span>Self-hosted</span></div><div class=\"jf-stat\"><strong>0</strong><span>Vendor lock-in</span></div><div class=\"jf-stat\"><strong>∞</strong><span>Pages you can build</span></div></div>"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home-split",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "default", "padding": "xl", "align": "left" },
+      "children": [
+        {
+          "id": "home-split-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "home-split-cols",
+              "type": "core.columns",
+              "version": 1,
+              "props": { "columns": 2, "gap": "lg" },
+              "children": [
+                {
+                  "id": "home-split-col-a",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "home-split-badge",
+                      "type": "core.html",
+                      "version": 1,
+                      "props": { "html": "<span class=\"jf-badge\">Page builder</span>" },
+                      "children": []
+                    },
+                    {
+                      "id": "home-split-h",
+                      "type": "core.heading",
+                      "version": 1,
+                      "props": { "text": "Design in sections, publish in seconds", "level": 2 },
+                      "children": []
+                    },
+                    {
+                      "id": "home-split-p",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": {
+                        "text": "Stack heroes, feature grids, and call-to-actions. Nest containers and columns for complex layouts — all stored as structured JSON you own."
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "home-split-btn",
+                      "type": "core.button",
+                      "version": 1,
+                      "props": { "label": "Try the builder", "url": "/admin", "variant": "primary" },
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "home-split-col-b",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "home-split-card",
+                      "type": "core.html",
+                      "version": 1,
+                      "props": {
+                        "html": "<div class=\"jf-preview-card\"><div class=\"jf-preview-card__bar\"><span></span><span></span><span></span></div><div class=\"jf-preview-card__body\"><div class=\"jf-preview-card__hero\"></div><div class=\"jf-preview-card__lines\"><span></span><span></span><span style=\"width:60%\"></span></div><div class=\"jf-preview-card__grid\"><span></span><span></span><span></span></div></div></div>"
+                      },
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home-testimonials",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "muted", "padding": "xl", "align": "center" },
+      "children": [
+        {
+          "id": "home-testimonials-inner",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "home-testimonials-html",
+              "type": "core.html",
+              "version": 1,
+              "props": {
+                "html": "<h2 class=\"jf-testimonials__heading\">Loved by builders</h2><div class=\"jf-testimonials\"><blockquote class=\"jf-testimonial\"><p>\"Finally a CMS that feels modern without a React jungle on the frontend.\"</p><footer>— Alex, indie dev</footer></blockquote><blockquote class=\"jf-testimonial\"><p>\"The block builder is exactly what we needed for marketing pages.\"</p><footer>— Sam, agency lead</footer></blockquote><blockquote class=\"jf-testimonial\"><p>\"Self-hosted, multilingual, and actually pleasant to customize.\"</p><footer>— Jordan, product team</footer></blockquote></div>"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home-cta",
+      "type": "core.cta",
+      "version": 1,
+      "props": {
+        "heading": "Ready to build your site?",
+        "text": "Install Justflows, open the admin, and start with the patterns included in this theme.",
+        "buttonLabel": "Go to admin",
+        "buttonUrl": "/admin",
+        "variant": "dark"
+      }
+    }
+  ]
+}

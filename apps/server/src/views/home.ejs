@@ -1,0 +1,22 @@
+<%- include('partials/header') %>
+
+<% if (typeof bodyHtml !== 'undefined' && bodyHtml) { %>
+<main class="site-main site-main--page">
+  <div class="block-content block-content--page">
+    <%- bodyHtml %>
+  </div>
+</main>
+<% } else { %>
+<section class="hero">
+  <div style="max-width: 700px; margin: 0 auto;">
+    <% if (identity.tagline) { %>
+      <span class="jf-badge"><%= identity.tagline %></span>
+    <% } else { %>
+      <span class="jf-badge"><%= t('home.tagline_fallback') %></span>
+    <% } %>
+    <h1><%= t('home.welcome') %><br><%= identity.siteTitle %></h1>
+    <p><%= t('home.description') %></p>
+    <a href="/admin" class="btn btn--primary"><%= t('home.cta') %></a>
+  </div>
+</section>
+<% } %>

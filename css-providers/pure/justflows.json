@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "type": "css-provider",
+  "id": "justflows.pure",
+  "name": "Pure.css",
+  "version": "3.0.0",
+  "publisher": "Yahoo",
+  "description": "Tiny set of responsive CSS modules — grid, forms, buttons, and menus",
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "purecss": "3.0.0"
+  },
+  "stylesheets": [
+    { "href": "purecss/build/pure-min.css" },
+    { "href": "purecss/build/grids-responsive-min.css" }
+  ],
+  "scripts": []
+}

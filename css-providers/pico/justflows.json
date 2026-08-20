@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "type": "css-provider",
+  "id": "justflows.pico",
+  "name": "Pico CSS",
+  "version": "2.0.6",
+  "publisher": "Pico",
+  "description": "Minimal CSS framework for semantic HTML — class-light styling",
+  "license": "MIT",
+  "dependencies": {
+    "@picocss/pico": "2.0.6"
+  },
+  "stylesheets": [
+    { "href": "@picocss/pico/css/pico.min.css" }
+  ],
+  "scripts": []
+}
