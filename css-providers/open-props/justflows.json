@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "type": "css-provider",
+  "id": "justflows.open-props",
+  "name": "Open Props",
+  "version": "1.7.12",
+  "publisher": "Adam Argyle",
+  "description": "CSS custom properties (design tokens) for colors, sizes, shadows, and animations",
+  "license": "MIT",
+  "dependencies": {
+    "open-props": "1.7.12"
+  },
+  "stylesheets": [
+    { "href": "open-props/open-props.min.css" },
+    { "href": "open-props/normalize.min.css" }
+  ],
+  "scripts": []
+}

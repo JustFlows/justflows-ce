@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "type": "css-provider",
+  "id": "justflows.milligram",
+  "name": "Milligram",
+  "version": "1.4.1",
+  "publisher": "CJ Patoilo",
+  "description": "Minimalist CSS framework designed for better performance and higher productivity",
+  "license": "MIT",
+  "dependencies": {
+    "milligram": "1.4.1",
+    "normalize.css": "8.0.1"
+  },
+  "stylesheets": [
+    { "href": "normalize.css/normalize.css" },
+    { "href": "milligram/dist/milligram.min.css" }
+  ],
+  "scripts": []
+}

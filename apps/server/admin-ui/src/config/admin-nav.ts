@@ -1,0 +1,158 @@
+export type NavItem = {
+  /** i18n catalog key, or a unique id when the item ships its own label. */
+  key: string;
+  /** Literal label used when `key` has no catalog entry (plugin-supplied items). */
+  label?: string;
+  to: string;
+  icon: string;
+  end?: boolean;
+  /** Kept at the end of its domain — plugin pages are inserted above it. */
+  trailing?: boolean;
+};
+
+export type NavDomain = {
+  key: string;
+  /** Matches the `domain` a plugin names in its manifest. */
+  slug: string;
+  icon: string;
+  items: NavItem[];
+};
+
+/** One admin page contributed by an installed plugin. */
+export type PluginMenuItem = {
+  pluginId: string;
+  id: string;
+  label: string;
+  labelKey?: string;
+  path: string;
+  icon: string;
+  domain: string;
+  end?: boolean;
+};
+
+export const ADMIN_DASHBOARD: NavItem = {
+  key: "nav.dashboard",
+  to: "/admin",
+  icon: "⊞",
+  end: true,
+};
+
+/**
+ * Pages the core always ships. Plugin pages (Analytics, Forms, …) are not
+ * listed here — they come from `/api/plugins/admin-menu` and only exist while
+ * the plugin that owns them is installed.
+ */
+export const ADMIN_NAV_DOMAINS: NavDomain[] = [
+  {
+    key: "nav.domains.content",
+    slug: "content",
+    icon: "📝",
+    items: [
+      { key: "nav.content", to: "/admin/content", icon: "📝" },
+      { key: "nav.contentTypes", to: "/admin/content-types", icon: "🗂" },
+      { key: "nav.media", to: "/admin/media", icon: "🖼" },
+      { key: "nav.comments", to: "/admin/comments", icon: "💬" },
+    ],
+  },
+  {
+    key: "nav.domains.appearance",
+    slug: "appearance",
+    icon: "🎨",
+    items: [
+      { key: "nav.themes", to: "/admin/themes", icon: "🎨" },
+      { key: "nav.design", to: "/admin/design", icon: "🎛" },
+      { key: "nav.menus", to: "/admin/menus", icon: "☰" },
+    ],
+  },
+  {
+    key: "nav.domains.extensions",
+    slug: "extensions",
+    icon: "🔌",
+    items: [
+      { key: "nav.plugins", to: "/admin/plugins", icon: "🔌" },
+      { key: "nav.marketplace", to: "/admin/marketplace", icon: "🛒", trailing: true },
+    ],
+  },
+  {
+    key: "nav.domains.security",
+    slug: "security",
+    icon: "🔒",
+    items: [
+      { key: "nav.securityOverview", to: "/admin/security", icon: "🛡", end: true },
+      { key: "nav.securityHeaders", to: "/admin/security/headers", icon: "📑" },
+      { key: "nav.securityAdvanced", to: "/admin/security/advanced", icon: "🧩" },
+    ],
+  },
+  {
+    key: "nav.domains.system",
+    slug: "system",
+    icon: "⚙",
+    items: [
+      { key: "nav.users", to: "/admin/users", icon: "👤" },
+      { key: "nav.settings", to: "/admin/settings", icon: "⚙" },
+      { key: "nav.languages", to: "/admin/languages", icon: "🌐" },
+      { key: "nav.tools", to: "/admin/tools", icon: "🔧" },
+      { key: "nav.health", to: "/admin/health", icon: "🩺" },
+      { key: "nav.updates", to: "/admin/updates", icon: "⬆" },
+    ],
+  },
+];
+
+function toNavItem(item: PluginMenuItem): NavItem {
+  return {
+    key: item.labelKey ?? `plugin.${item.pluginId}.${item.id}`,
+    label: item.label,
+    to: item.path,
+    icon: item.icon,
+    end: item.end,
+  };
+}
+
+/**
+ * Merge plugin-contributed pages into the core domains. Unknown domains fall
+ * back to Extensions so a plugin can never register an unreachable page.
+ */
+export function buildNavDomains(pluginItems: PluginMenuItem[]): NavDomain[] {
+  if (pluginItems.length === 0) return ADMIN_NAV_DOMAINS;
+
+  const slugs = new Set(ADMIN_NAV_DOMAINS.map((domain) => domain.slug));
+
+  return ADMIN_NAV_DOMAINS.map((domain) => {
+    const owned = pluginItems.filter((item) =>
+      (slugs.has(item.domain) ? item.domain : "extensions") === domain.slug,
+    );
+    if (owned.length === 0) return domain;
+
+    const core = domain.items.filter((item) => !item.trailing);
+    const trailing = domain.items.filter((item) => item.trailing);
+    return { ...domain, items: [...core, ...owned.map(toNavItem), ...trailing] };
+  });
+}
+
+function matchesNavItem(pathname: string, item: NavItem): boolean {
+  if (item.end) return pathname === item.to;
+  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+}
+
+export function findDomainForPath(
+  pathname: string,
+  domains: NavDomain[] = ADMIN_NAV_DOMAINS,
+): NavDomain | null {
+  for (const domain of domains) {
+    if (domain.items.some((item) => matchesNavItem(pathname, item))) {
+      return domain;
+    }
+  }
+  return null;
+}
+
+export function isDomainActive(domain: NavDomain, pathname: string): boolean {
+  return domain.items.some((item) => matchesNavItem(pathname, item));
+}
+
+/** Prefer the catalog translation; fall back to the label the plugin shipped. */
+export function navLabel(t: (key: string) => string, item: NavItem): string {
+  const translated = t(item.key);
+  if (translated !== item.key) return translated;
+  return item.label ?? item.key;
+}

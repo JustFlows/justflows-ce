@@ -1,0 +1,4 @@
+interface:
+  display_name: "Justflows Extensions"
+  short_description: "Build safe plugins and public SDK contracts"
+  default_prompt: "Use $justflows-extensions to implement this Justflows task."

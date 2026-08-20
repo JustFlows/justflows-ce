@@ -1,0 +1,118 @@
+{
+  "id": "landing",
+  "title": "Product landing",
+  "description": "Conversion-focused landing page with hero, benefits, pricing table, FAQ, and CTA.",
+  "category": "pages",
+  "blocks": [
+    {
+      "id": "landing-hero",
+      "type": "core.hero",
+      "version": 1,
+      "props": {
+        "heading": "Launch your next product page in an afternoon",
+        "subheading": "Import this pattern, swap the copy, publish. No rebuild, no deploy pipeline — just blocks and theme styles.",
+        "buttonLabel": "Get started free",
+        "buttonUrl": "/admin",
+        "backgroundImage": "",
+        "align": "center"
+      }
+    },
+    {
+      "id": "landing-benefits",
+      "type": "core.features",
+      "version": 1,
+      "props": {
+        "heading": "Why teams choose Justflows",
+        "columns": 2,
+        "items": [
+          { "icon": "📐", "title": "Layout blocks", "description": "Sections, containers, columns — compose pages like design tools, store them as JSON." },
+          { "icon": "🚀", "title": "Ship faster", "description": "Patterns give you a head start. Customize in the visual builder, not in template files." },
+          { "icon": "🧩", "title": "Theme system", "description": "CSS variables, global styles, and a customizer that actually maps to your design tokens." },
+          { "icon": "📱", "title": "Responsive by default", "description": "Grids and typography scale down cleanly on mobile without extra configuration." }
+        ]
+      }
+    },
+    {
+      "id": "landing-pricing",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "muted", "padding": "xl", "align": "center" },
+      "children": [
+        {
+          "id": "landing-pricing-inner",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "landing-pricing-html",
+              "type": "core.html",
+              "version": 1,
+              "props": {
+                "html": "<h2 class=\"jf-pricing__heading\">Simple pricing</h2><p class=\"jf-pricing__sub\">Self-hosted means you control cost — here's how we'd frame it on a landing page.</p><div class=\"jf-pricing\"><article class=\"jf-price-card\"><h3>Starter</h3><p class=\"jf-price-card__price\">$0<span>/mo</span></p><ul><li>Core blocks &amp; builder</li><li>Default theme</li><li>Single site</li></ul><a href=\"/admin\" class=\"btn btn--outline\">Start building</a></article><article class=\"jf-price-card jf-price-card--featured\"><span class=\"jf-badge\">Popular</span><h3>Pro</h3><p class=\"jf-price-card__price\">$29<span>/mo</span></p><ul><li>Everything in Starter</li><li>Priority updates</li><li>Multiple languages</li></ul><a href=\"/admin\" class=\"btn btn--primary\">Go Pro</a></article><article class=\"jf-price-card\"><h3>Team</h3><p class=\"jf-price-card__price\">Custom</p><ul><li>Multi-site</li><li>Custom themes</li><li>Support SLA</li></ul><a href=\"/admin\" class=\"btn btn--outline\">Contact sales</a></article></div>"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "landing-faq",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "default", "padding": "lg", "align": "left" },
+      "children": [
+        {
+          "id": "landing-faq-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "narrow" },
+          "children": [
+            {
+              "id": "landing-faq-h",
+              "type": "core.heading",
+              "version": 1,
+              "props": { "text": "FAQ", "level": 2 }
+            },
+            {
+              "id": "landing-faq-p1",
+              "type": "core.heading",
+              "version": 1,
+              "props": { "text": "Can I use my own theme?", "level": 3 }
+            },
+            {
+              "id": "landing-faq-a1",
+              "type": "core.paragraph",
+              "version": 1,
+              "props": { "text": "Yes. Upload a .jfpkg theme package or fork the default theme folder and adjust styles and patterns." }
+            },
+            {
+              "id": "landing-faq-p2",
+              "type": "core.heading",
+              "version": 1,
+              "props": { "text": "Do patterns overwrite my page?", "level": 3 }
+            },
+            {
+              "id": "landing-faq-a2",
+              "type": "core.paragraph",
+              "version": 1,
+              "props": { "text": "Patterns append to your canvas. Import on an empty page for a full layout, or cherry-pick sections by editing after import." }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "landing-cta",
+      "type": "core.cta",
+      "version": 1,
+      "props": {
+        "heading": "Start with this landing page",
+        "text": "Import the pattern in the page builder, then replace text and links with yours.",
+        "buttonLabel": "Open page builder",
+        "buttonUrl": "/admin",
+        "variant": "dark"
+      }
+    }
+  ]
+}

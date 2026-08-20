@@ -1,0 +1,70 @@
+import { statusCommand } from "./commands/status.js";
+import { pluginCommand } from "./commands/plugin.js";
+import { themeCommand } from "./commands/theme.js";
+import { userCommand } from "./commands/user.js";
+import { dbCommand } from "./commands/db.js";
+import { cacheCommand } from "./commands/cache.js";
+import { healthCommand } from "./commands/health.js";
+import { updateCommand } from "./commands/update.js";
+
+const VERSION = "0.1.0";
+
+const HELP = `
+Justflows CLI v${VERSION}
+
+Usage: justflows <command> [subcommand] [options]
+
+Commands:
+  status                  Show installation status
+  plugin list             List installed plugins
+  plugin install <path>   Install a plugin from a .jfpkg file
+  plugin activate <id>    Activate a plugin
+  plugin deactivate <id>  Deactivate a plugin
+  theme list              List installed themes
+  theme activate <id>     Activate a theme
+  user create             Create a new user interactively
+  db migrate              Run pending database migrations
+  cache clear             Clear the application cache
+  health                  Run site health checks
+  update                  Check for and apply updates
+
+Options:
+  --help, -h              Show help
+  --version, -v           Show version
+
+Environment:
+  ADMIN_URL               URL of the admin app (default: http://localhost:3001)
+`.trim();
+
+export async function run(args: string[]): Promise<void> {
+  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
+    console.log(HELP);
+    return;
+  }
+
+  if (args[0] === "--version" || args[0] === "-v") {
+    console.log(`justflows v${VERSION}`);
+    return;
+  }
+
+  const [command, ...rest] = args as [string, ...string[]];
+
+  try {
+    switch (command) {
+      case "status":   await statusCommand(rest); break;
+      case "plugin":   await pluginCommand(rest); break;
+      case "theme":    await themeCommand(rest); break;
+      case "user":     await userCommand(rest); break;
+      case "db":       await dbCommand(rest); break;
+      case "cache":    await cacheCommand(rest); break;
+      case "health":   await healthCommand(rest); break;
+      case "update":   await updateCommand(rest); break;
+      default:
+        console.error(`Unknown command: ${command}\nRun "justflows --help" for usage.`);
+        process.exitCode = 1;
+    }
+  } catch (err) {
+    console.error(`Error: ${String(err)}`);
+    process.exitCode = 1;
+  }
+}

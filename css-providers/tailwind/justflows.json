@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "type": "css-provider",
+  "id": "justflows.tailwind",
+  "name": "Tailwind CSS",
+  "version": "3.4.17",
+  "publisher": "Tailwind Labs",
+  "description": "Utility-first CSS framework installed locally and compiled on activation",
+  "license": "MIT",
+  "dependencies": {
+    "tailwindcss": "3.4.17"
+  },
+  "postInstall": {
+    "type": "tailwind",
+    "input": "css-providers/tailwind/input.css",
+    "output": "dist/tailwind.css"
+  },
+  "stylesheets": [
+    { "href": "dist/tailwind.css" }
+  ],
+  "scripts": []
+}

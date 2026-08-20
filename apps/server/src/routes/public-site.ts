@@ -1,0 +1,588 @@
+import { Router, type Request, type Response } from "express";
+import ejs from "ejs";
+import path from "node:path";
+import {
+  getPublishedContentBySlug,
+  getTranslationAlternates,
+} from "../lib/content-public.js";
+import {
+  getActiveLocaleCodes,
+  getDefaultLocale,
+  listLanguages,
+  resolveContentLocale,
+} from "../lib/i18n/languages-db.js";
+import { localePath } from "../lib/i18n/locales.js";
+import { formatContentDate } from "../lib/general-settings.js";
+import { createTranslator, type MessageCatalog } from "../lib/i18n/translate.js";
+import {
+  defaultModsFromSchema,
+  getNavigationMenuSlugs,
+  getSiteIdentity,
+  getThemeMods,
+  mergeMods,
+} from "../lib/theme-customize.js";
+import { getNavItemsForMenuSlug } from "../lib/menus-db.js";
+import { getEffectiveHomeBlocks } from "../lib/theme-home-blocks.js";
+import { ensureCssProvidersTable, getActiveCssProvider } from "../lib/css-providers-db.js";
+import { resolveProviderAssets } from "../lib/css-providers-files.js";
+import { ensureThemesTable, getActiveTheme, getSiteId } from "../lib/themes-db.js";
+import { viewsDir } from "../lib/jf-root.js";
+import { getJustflowsVersion } from "../lib/version.js";
+import { parseLocalePrefix, setLocaleCookie, LOCALE_COOKIE } from "../middleware/locale.js";
+import { isPreviewAllowed } from "../lib/auth-session.js";
+import {
+  canViewUnpublishedSite,
+  isSitePublic,
+  shouldDiscourageSearchEngines,
+} from "../lib/site-visibility.js";
+import { getRuntimeHooks } from "../lib/plugin-runtime.js";
+import {
+  buildSeoHeadHtml,
+  buildSitemapXml,
+  getSeoSettings,
+  isSeoPluginActive,
+  resolveSeoTitle,
+  seoTextFromContent,
+  siteOrigin,
+} from "../lib/seo-public.js";
+import {
+  CSS_PROVIDER_PREFIX,
+  getCachedPageHtml,
+  MENUS_PREFIX,
+  rememberPublic,
+  THEME_MODS_PREFIX,
+} from "../lib/public-cache.js";
+import { getJfCache } from "../lib/jf-cache.js";
+import { getRuntimeBlockRegistry } from "../lib/runtime-blocks.js";
+import type { BlockNode } from "../lib/types.js";
+import { FORMS_BLOCK_TYPE, renderFormBlockHtml } from "../lib/forms-public.js";
+import { isGalleryPluginEnabled, registerGalleryBlock } from "../lib/gallery-public.js";
+import { buildFaviconHeadHtml } from "../lib/favicon.js";
+
+const templateDir = viewsDir();
+const router = Router();
+const blockRegistry = getRuntimeBlockRegistry();
+
+const RESERVED = new Set([
+  "admin",
+  "api",
+  "install",
+  "login",
+  "register",
+  "uploads",
+  "assets",
+  "css-providers",
+  "favicon.ico",
+]);
+
+async function loadCatalog(locale: string): Promise<MessageCatalog> {
+  const base = locale.split("-")[0] ?? locale;
+  for (const code of [locale, base, "en"]) {
+    try {
+      return (await import(`../lib/i18n/catalogs/${code}.json`, { with: { type: "json" } }))
+        .default as MessageCatalog;
+    } catch {
+      // try next
+    }
+  }
+  return {};
+}
+
+async function loadThemeMods(preview = false): Promise<ReturnType<typeof mergeMods>> {
+  return rememberPublic(`${THEME_MODS_PREFIX}${preview ? "preview" : "live"}`, async () => {
+    await ensureThemesTable();
+    const siteId = await getSiteId();
+    if (!siteId) return defaultModsFromSchema();
+
+    const theme = await getActiveTheme(siteId);
+    const themeId = theme?.theme_id ?? "justflows.default";
+    const defaults = defaultModsFromSchema();
+    const published = (await getThemeMods(themeId, false)) ?? {};
+    const draft = preview ? ((await getThemeMods(themeId, true)) ?? {}) : {};
+    return mergeMods(mergeMods(defaults, published), draft);
+  }, preview);
+}
+
+async function loadIdentity(
+  preview = false,
+  locale?: string,
+): Promise<{ siteTitle: string; tagline: string; logoUrl: string; faviconUrl: string }> {
+  const mods = await loadThemeMods(preview);
+  const identity = await getSiteIdentity(mods, { preview });
+  const siteId = await getSiteId();
+  if (!siteId || !(await isSeoPluginActive(siteId))) return identity;
+
+  const seo = await getSeoSettings(siteId, locale);
+  return {
+    siteTitle: seo.siteTitle || identity.siteTitle,
+    tagline: seo.defaultDescription || identity.tagline,
+    logoUrl: identity.logoUrl,
+    faviconUrl: identity.faviconUrl,
+  };
+}
+
+async function loadCssProviderAssets(): Promise<ReturnType<typeof resolveProviderAssets>> {
+  return rememberPublic(`${CSS_PROVIDER_PREFIX}active`, async () => {
+    await ensureCssProvidersTable();
+    const siteId = await getSiteId();
+    if (!siteId) return { stylesheets: [] };
+    const provider = await getActiveCssProvider(siteId);
+    return resolveProviderAssets(provider);
+  });
+}
+
+function submittedFormIdFrom(req: Request): string | undefined {
+  return typeof req.query.submitted === "string" ? req.query.submitted : undefined;
+}
+
+async function renderBlockTree(blocks: BlockNode[], submittedFormId?: string): Promise<string> {
+  const parts: string[] = [];
+  for (const block of blocks) {
+    if (block.type === FORMS_BLOCK_TYPE) {
+      parts.push(await renderFormBlockHtml(block.props ?? {}, submittedFormId));
+      continue;
+    }
+    const def = blockRegistry.get(block.type);
+    const children = Array.isArray(block.children) ? block.children : [];
+    if (def?.supportsChildren && children.length > 0) {
+      try {
+        const childHtml = await renderBlockTree(children, submittedFormId);
+        parts.push(def.render(def.validateProps(block.props), childHtml));
+      } catch {
+        parts.push("");
+      }
+      continue;
+    }
+    try {
+      parts.push(blockRegistry.renderNode(block));
+    } catch {
+      parts.push("");
+    }
+  }
+  return parts.join("\n");
+}
+
+async function renderBlocksHtml(blocks: BlockNode[], submittedFormId?: string): Promise<string> {
+  if (await isGalleryPluginEnabled()) registerGalleryBlock();
+  try {
+    return await renderBlockTree(blocks, submittedFormId);
+  } catch {
+    return renderBlockTree(blocks, submittedFormId);
+  }
+}
+
+async function renderUnderConstruction(): Promise<string> {
+  const siteId = (await getSiteId()) ?? "";
+  const identity = await loadIdentity(false);
+  const hookContext = { siteId, siteTitle: identity.siteTitle, tagline: identity.tagline };
+
+  let html = await ejs.renderFile(path.join(templateDir, "under-construction.ejs"), {
+    siteTitle: identity.siteTitle,
+    tagline: identity.tagline,
+    faviconHead: buildFaviconHeadHtml(identity.faviconUrl),
+    justflowsVersion: getJustflowsVersion(),
+  });
+
+  const hooks = getRuntimeHooks();
+  if (hooks.has("site.underConstruction.render")) {
+    html = hooks.applyFilterSync(
+      "site.underConstruction.render",
+      html,
+      hookContext,
+      { siteId, source: "http" },
+    );
+  }
+
+  if (siteId) {
+    void hooks.dispatchAction(
+      "site.underConstruction.viewed",
+      { siteId },
+      { siteId, source: "http" },
+    );
+  }
+
+  return html;
+}
+
+async function ensureSiteIsPublic(req: Request, res: Response): Promise<boolean> {
+  if (await isSitePublic()) return true;
+  if (await canViewUnpublishedSite(req, res)) return true;
+
+  const html = await renderUnderConstruction();
+  res.status(503).type("html").send(html);
+  return false;
+}
+
+async function loadNavItems(
+  menuSlug: string,
+  locale: string,
+  defaultLocale: string,
+  preview: boolean,
+): Promise<Awaited<ReturnType<typeof getNavItemsForMenuSlug>>> {
+  return rememberPublic(
+    `${MENUS_PREFIX}${menuSlug}:${locale}:${defaultLocale}:${preview ? "preview" : "live"}`,
+    () => getNavItemsForMenuSlug(menuSlug, locale, defaultLocale, preview),
+    preview,
+  );
+}
+
+async function sendPublicHtml(
+  req: Request,
+  res: Response,
+  pageKey: string,
+  preview: boolean,
+  render: () => Promise<string>,
+  status = 200,
+): Promise<void> {
+  if (preview || typeof req.query.submitted === "string" || !getJfCache().enabled) {
+    res.locals.jfPageCache = "BYPASS";
+  }
+  const html = await getCachedPageHtml(
+    pageKey,
+    preview || typeof req.query.submitted === "string",
+    render,
+  );
+  res.status(status).type("html").send(html);
+  if (!preview && status < 400) {
+    void import("../lib/analytics-public.js")
+      .then(({ recordPublicPageview }) => recordPublicPageview(req))
+      .catch(() => undefined);
+  }
+}
+
+async function renderPage(view: string, data: Record<string, unknown>): Promise<string> {
+  const pageData = { ...data, localePath, justflowsVersion: getJustflowsVersion() };
+  const hooks = getRuntimeHooks();
+  const siteId = (await getSiteId()) ?? "";
+  const content = data.content as
+    | { title?: string; excerpt?: string | null; fields?: Record<string, unknown> }
+    | undefined;
+  const seoFromContent = content ? seoTextFromContent(content) : { title: "", description: "" };
+  const pageTitle = seoFromContent.title || String(data.title ?? "");
+  const pageDescription = seoFromContent.description || String(data.seoDescription ?? "");
+  let headExtra = "";
+  let documentTitle = pageTitle;
+  if (siteId && (await isSeoPluginActive(siteId))) {
+    const settings = await getSeoSettings(siteId, String(data.locale ?? ""));
+    const page = {
+      title: pageTitle,
+      description: pageDescription,
+      excerpt: content?.excerpt,
+      path: String(data.publicPath ?? data.restPath ?? "/"),
+    };
+    documentTitle = resolveSeoTitle(page, settings);
+    headExtra = buildSeoHeadHtml(page, settings);
+  }
+  const identity = data.identity as { faviconUrl?: string } | undefined;
+  const faviconHead = buildFaviconHeadHtml(identity?.faviconUrl ?? "");
+  if (faviconHead) {
+    headExtra = headExtra ? `${faviconHead}\n${headExtra}` : faviconHead;
+  }
+  if (hooks.has("html.head")) {
+    headExtra = hooks.applyFilterSync(
+      "html.head",
+      headExtra,
+      {
+        siteId,
+        path: String(data.restPath ?? "/"),
+        title: pageTitle,
+        contentId: typeof data.content === "object" && data.content && "id" in (data.content as object)
+          ? String((data.content as { id?: string }).id ?? "")
+          : undefined,
+      },
+      { siteId, source: "http" },
+    );
+  }
+  const body = await ejs.renderFile(path.join(templateDir, `${view}.ejs`), pageData);
+  let analyticsHead = "";
+  let analyticsBody = "";
+  if (!data.preview && siteId) {
+    const { getConfiguredGoogleTagId } = await import("../lib/analytics-public.js");
+    const { buildGoogleTagHead, buildGoogleTagBody } = await import("../lib/google-tag.js");
+    const googleTagId = await getConfiguredGoogleTagId();
+    if (googleTagId) {
+      analyticsHead = buildGoogleTagHead(googleTagId);
+      analyticsBody = buildGoogleTagBody(googleTagId);
+    }
+  }
+  return ejs.renderFile(path.join(templateDir, "layout.ejs"), {
+    ...pageData,
+    body,
+    headExtra,
+    analyticsHead,
+    analyticsBody,
+    title: documentTitle,
+  });
+}
+
+async function buildPageContext(reqPath: string, preview = false) {
+  const activeLocales = await getActiveLocaleCodes();
+  const defaultLocale = await getDefaultLocale();
+  const languages = await listLanguages(undefined, true);
+  const { locale: prefixLocale, restPath } = parseLocalePrefix(reqPath, activeLocales);
+
+  let locale = prefixLocale ?? defaultLocale;
+  locale = await resolveContentLocale(locale);
+
+  const catalog = await loadCatalog(locale);
+  const t = createTranslator(catalog);
+  const identity = await loadIdentity(preview, locale);
+  const cssProviderAssets = await loadCssProviderAssets();
+  const mods = await loadThemeMods(preview);
+  const discourageSearchEngines = await shouldDiscourageSearchEngines();
+  const { header: headerMenuSlug, footer: footerMenuSlug } = getNavigationMenuSlugs(mods);
+  const navItems = await loadNavItems(headerMenuSlug ?? "primary", locale, defaultLocale, preview);
+  const footerNavItems = await loadNavItems(footerMenuSlug ?? "footer", locale, defaultLocale, preview);
+
+  const languageLinks = languages.map((lang) => ({
+    code: lang.code,
+    name: lang.nativeName,
+    href: localePath(lang.code, restPath, defaultLocale),
+    current: lang.code === locale,
+  }));
+
+  const publicPath = localePath(locale, restPath, defaultLocale);
+
+  return {
+    locale,
+    defaultLocale,
+    restPath,
+    publicPath,
+    activeLocales,
+    languages,
+    languageLinks,
+    identity,
+    navItems,
+    footerNavItems,
+    headerMenuSlug,
+    footerMenuSlug,
+    t,
+    title: identity.siteTitle,
+    preview,
+    discourageSearchEngines,
+    cssProviderStylesheets: cssProviderAssets.stylesheets,
+  };
+}
+
+async function loadHomeDemoBlocks(preview = false): Promise<BlockNode[] | null> {
+  await ensureThemesTable();
+  const siteId = await getSiteId();
+  const themeId = siteId
+    ? ((await getActiveTheme(siteId))?.theme_id ?? "justflows.default")
+    : "justflows.default";
+  const doc = await getEffectiveHomeBlocks(themeId, preview);
+  return doc.blocks.length ? doc.blocks : null;
+}
+
+router.get("/favicon.ico", async (_req, res) => {
+  try {
+    const identity = await loadIdentity(false);
+    if (!identity.faviconUrl) {
+      res.status(404).end();
+      return;
+    }
+    res.redirect(302, identity.faviconUrl);
+  } catch {
+    res.status(404).end();
+  }
+});
+
+router.get("/robots.txt", async (_req, res) => {
+  try {
+    const noindex = await shouldDiscourageSearchEngines();
+    const siteId = await getSiteId();
+    const seoActive = siteId ? await isSeoPluginActive(siteId) : false;
+    const origin = siteOrigin();
+    const sitemapLine = seoActive && origin ? `Sitemap: ${origin}/sitemap.xml\n` : "";
+    const body = noindex
+      ? "User-agent: *\nDisallow: /\n"
+      : `User-agent: *\nAllow: /\n${sitemapLine}`;
+    res.type("text/plain").send(body);
+  } catch {
+    res.type("text/plain").send("User-agent: *\nDisallow: /\n");
+  }
+});
+
+router.get("/sitemap.xml", async (_req, res, next) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId || !(await isSeoPluginActive(siteId))) {
+      next();
+      return;
+    }
+    const xml = await buildSitemapXml(siteId);
+    res.type("application/xml").send(xml);
+  } catch (err) {
+    res.status(500).type("text/plain").send(String(err));
+  }
+});
+
+router.get("/", async (req, res, next) => {
+  if (req.path !== "/") {
+    next();
+    return;
+  }
+
+  try {
+    if (!(await ensureSiteIsPublic(req, res))) return;
+    const preview = await isPreviewAllowed(req, res);
+    await sendPublicHtml(req, res, req.path || "/", preview, async () => {
+      const ctx = await buildPageContext("/", preview);
+      const demoBlocks = await loadHomeDemoBlocks(preview);
+      const bodyHtml = demoBlocks?.length ? await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req)) : undefined;
+      return renderPage("home", {
+        ...ctx,
+        bodyHtml,
+        seoDescription: ctx.identity.tagline,
+      });
+    });
+  } catch (err) {
+    res.status(500).send(String(err));
+  }
+});
+
+router.get("/:segment", async (req, res, next) => {
+  const segment = req.params.segment!;
+  if (RESERVED.has(segment)) {
+    next();
+    return;
+  }
+
+  try {
+    if (!(await ensureSiteIsPublic(req, res))) return;
+    const activeLocales = await getActiveLocaleCodes();
+    const defaultLocale = await getDefaultLocale();
+    const preview = await isPreviewAllowed(req, res);
+    const ctx = await buildPageContext(req.path, preview);
+
+    if (activeLocales.includes(segment) && req.path === `/${segment}`) {
+      await sendPublicHtml(req, res, req.path, preview, async () => {
+        const ctx = await buildPageContext(req.path, preview);
+        const demoBlocks = await loadHomeDemoBlocks(preview);
+        const bodyHtml = demoBlocks?.length ? await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req)) : undefined;
+        return renderPage("home", {
+          ...ctx,
+          bodyHtml,
+          seoDescription: ctx.identity.tagline,
+        });
+      });
+      return;
+    }
+
+    const slug = activeLocales.includes(segment) ? "" : segment;
+    if (!slug) {
+      next();
+      return;
+    }
+
+    const content = await getPublishedContentBySlug(slug, ctx.locale);
+    if (!content) {
+      await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
+        const ctx404 = await buildPageContext(req.path, preview);
+        return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+      }, 404);
+      return;
+    }
+
+    let alternates: Array<{ locale: string; slug: string; href: string }> = [];
+    if (content.translationGroupId) {
+      const translations = await getTranslationAlternates(content.translationGroupId);
+      alternates = translations.map((tr) => ({
+        ...tr,
+        href: localePath(tr.locale, `/${tr.slug}`, defaultLocale),
+      }));
+    }
+
+    await sendPublicHtml(req, res, req.path, preview, async () => {
+      const pageCtx = await buildPageContext(req.path, preview);
+      const pageContent = await getPublishedContentBySlug(slug, pageCtx.locale);
+      if (!pageContent) {
+        return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
+      }
+      const bodyHtml = await renderBlocksHtml(pageContent.blocks.blocks, submittedFormIdFrom(req));
+      return renderPage("single", {
+        ...pageCtx,
+        content: pageContent,
+        bodyHtml,
+        alternates,
+        formattedDate: pageContent.publishedAt
+          ? await formatContentDate(pageContent.publishedAt)
+          : null,
+        title: pageContent.title,
+      });
+    });
+  } catch (err) {
+    res.status(500).send(String(err));
+  }
+});
+
+router.get("/:locale/:slug", async (req, res, next) => {
+  const localeSeg = req.params.locale!;
+  const slug = req.params.slug!;
+
+  if (RESERVED.has(localeSeg) || RESERVED.has(slug)) {
+    next();
+    return;
+  }
+
+  const activeLocales = await getActiveLocaleCodes();
+  if (!activeLocales.includes(localeSeg)) {
+    next();
+    return;
+  }
+
+  try {
+    if (!(await ensureSiteIsPublic(req, res))) return;
+    const defaultLocale = await getDefaultLocale();
+    const preview = await isPreviewAllowed(req, res);
+    const content = await getPublishedContentBySlug(slug, localeSeg);
+
+    if (!content) {
+      await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
+        const ctx404 = await buildPageContext(req.path, preview);
+        return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+      }, 404);
+      return;
+    }
+
+    let alternates: Array<{ locale: string; slug: string; href: string }> = [];
+    if (content.translationGroupId) {
+      const translations = await getTranslationAlternates(content.translationGroupId);
+      alternates = translations.map((tr) => ({
+        ...tr,
+        href: localePath(tr.locale, `/${tr.slug}`, defaultLocale),
+      }));
+    }
+
+    await sendPublicHtml(req, res, req.path, preview, async () => {
+      const pageCtx = await buildPageContext(req.path, preview);
+      const pageContent = await getPublishedContentBySlug(slug, localeSeg);
+      if (!pageContent) {
+        return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
+      }
+      const bodyHtml = await renderBlocksHtml(pageContent.blocks.blocks, submittedFormIdFrom(req));
+      return renderPage("single", {
+        ...pageCtx,
+        content: pageContent,
+        bodyHtml,
+        alternates,
+        formattedDate: pageContent.publishedAt
+          ? await formatContentDate(pageContent.publishedAt)
+          : null,
+        title: pageContent.title,
+      });
+    });
+  } catch (err) {
+    res.status(500).send(String(err));
+  }
+});
+
+router.post("/set-locale", async (req, res) => {
+  const locale = String(req.body?.locale ?? "");
+  const resolved = await resolveContentLocale(locale);
+  setLocaleCookie(res, resolved);
+  res.json({ ok: true, locale: resolved });
+});
+
+export { LOCALE_COOKIE };
+export default router;

@@ -1,0 +1,16 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/database" },
+    { "path": "./packages/sdk" },
+    { "path": "./packages/plugin-api" },
+    { "path": "./packages/auth" },
+    { "path": "./packages/content" },
+    { "path": "./packages/blocks" },
+    { "path": "./packages/media" },
+    { "path": "./packages/installer" },
+    { "path": "./packages/updater" },
+    { "path": "./plugins/hello-world" }
+  ]
+}

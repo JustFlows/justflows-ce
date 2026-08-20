@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "type": "css-provider",
+  "id": "justflows.uikit",
+  "name": "UIkit",
+  "version": "3.21.13",
+  "publisher": "YOOtheme",
+  "description": "Lightweight modular front-end framework with components and JavaScript",
+  "license": "MIT",
+  "dependencies": {
+    "uikit": "3.21.13"
+  },
+  "stylesheets": [
+    { "href": "uikit/dist/css/uikit.min.css" }
+  ],
+  "scripts": [
+    { "src": "uikit/dist/js/uikit.min.js", "defer": true },
+    { "src": "uikit/dist/js/uikit-icons.min.js", "defer": true }
+  ]
+}

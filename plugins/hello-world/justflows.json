@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "type": "plugin",
+  "id": "justflows.hello-world",
+  "name": "Hello World",
+  "version": "1.0.0",
+  "publisher": "Justflows",
+  "license": "GPL-2.0-or-later",
+  "description": "The official Justflows hello-world plugin — demonstrates the plugin lifecycle",
+  "permissions": []
+}

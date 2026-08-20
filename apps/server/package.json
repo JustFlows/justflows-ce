@@ -1,0 +1,52 @@
+{
+  "name": "@justflows/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Justflows — unified Express server (API + admin + public site)",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:admin": "vite --config admin-ui/vite.config.ts",
+    "build": "npm run build:admin-ui && npm run build:server",
+    "build:server": "tsc -p tsconfig.json && rm -rf dist/views && cp -r src/views dist/views && mkdir -p dist/lib/i18n && rm -rf dist/lib/i18n/catalogs dist/lib/i18n/admin && cp -r src/lib/i18n/catalogs src/lib/i18n/admin dist/lib/i18n/",
+    "build:admin-ui": "vite build --config admin-ui/vite.config.ts",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist admin-ui/dist"
+  },
+  "dependencies": {
+    "@justflows/blocks": "file:../../packages/blocks",
+    "@justflows/cache": "file:../../packages/cache",
+    "@justflows/core": "file:../../packages/core",
+    "@justflows/installer": "file:../../packages/installer",
+    "@justflows/plugin-api": "file:../../packages/plugin-api",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
+    "multer": "^2.2.0",
+    "mysql2": "^3.23.3",
+    "nodemailer": "^7.0.13",
+    "postgres": "^3.4.9",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.8.1",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/ejs": "^3.1.5",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.2.0",
+    "@types/nodemailer": "^8.0.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1"
+  },
+  "license": "MIT"
+}

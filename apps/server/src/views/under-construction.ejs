@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="generator" content="Justflows <%= justflowsVersion %>">
+  <title><%= siteTitle %> — Coming soon</title>
+  <%- typeof faviconHead !== 'undefined' ? faviconHead : '' %>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --jf-indigo: #4f46e5;
+      --jf-indigo-light: #818cf8;
+      --jf-slate-900: #0f172a;
+      --jf-slate-600: #475569;
+      --jf-slate-400: #94a3b8;
+      --jf-slate-100: #f1f5f9;
+      --jf-white: #ffffff;
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--jf-slate-900);
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(79, 70, 229, 0.12), transparent),
+        var(--jf-white);
+      -webkit-font-smoothing: antialiased;
+      padding: 2rem 1.5rem;
+    }
+
+    .uc-wrap {
+      width: 100%;
+      max-width: 520px;
+      text-align: center;
+    }
+
+    .uc-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .uc-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--jf-indigo), var(--jf-indigo-light));
+      color: var(--jf-white);
+      font-weight: 800;
+      font-size: 1.15rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: -0.03em;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+    }
+
+    .uc-site-name {
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+      color: var(--jf-slate-900);
+    }
+
+    .uc-card {
+      background: var(--jf-white);
+      border: 1px solid var(--jf-slate-100);
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06);
+    }
+
+    .uc-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--jf-indigo);
+      background: rgba(79, 70, 229, 0.08);
+      border: 1px solid rgba(79, 70, 229, 0.15);
+      border-radius: 999px;
+      padding: 0.3rem 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+    }
+
+    .uc-tagline {
+      margin: 0 0 1.75rem;
+      color: var(--jf-slate-600);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .uc-progress {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      margin-bottom: 0;
+    }
+
+    .uc-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--jf-indigo);
+      opacity: 0.25;
+      animation: uc-pulse 1.4s ease-in-out infinite;
+    }
+
+    .uc-dot:nth-child(2) { animation-delay: 0.2s; }
+    .uc-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes uc-pulse {
+      0%, 80%, 100% { opacity: 0.25; transform: scale(1); }
+      40% { opacity: 1; transform: scale(1.2); }
+    }
+
+    .uc-footer {
+      margin-top: 2.5rem;
+      font-size: 0.8rem;
+      color: var(--jf-slate-400);
+    }
+
+    .uc-footer a {
+      color: var(--jf-slate-400);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .uc-footer a:hover { color: var(--jf-indigo); }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --jf-slate-900: #f1f5f9;
+        --jf-slate-600: #94a3b8;
+        --jf-slate-400: #64748b;
+        --jf-slate-100: #1e293b;
+        --jf-white: #0f172a;
+      }
+
+      body {
+        background:
+          radial-gradient(ellipse 80% 60% at 50% -10%, rgba(129, 140, 248, 0.15), transparent),
+          #0f172a;
+      }
+
+      .uc-card {
+        background: #1e293b;
+        border-color: #334155;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+
+      .uc-badge {
+        color: var(--jf-indigo-light);
+        background: rgba(129, 140, 248, 0.1);
+        border-color: rgba(129, 140, 248, 0.2);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="uc-wrap">
+    <div class="uc-brand">
+      <div class="uc-mark" aria-hidden="true">J</div>
+      <span class="uc-site-name"><%= siteTitle %></span>
+    </div>
+
+    <div class="uc-card">
+      <span class="uc-badge">Under construction</span>
+      <h1>We&rsquo;re building something great</h1>
+      <% if (tagline) { %>
+        <p class="uc-tagline"><%= tagline %></p>
+      <% } else { %>
+        <p class="uc-tagline">This site isn&rsquo;t live yet. Check back soon.</p>
+      <% } %>
+      <div class="uc-progress" aria-hidden="true">
+        <span class="uc-dot"></span>
+        <span class="uc-dot"></span>
+        <span class="uc-dot"></span>
+      </div>
+    </div>
+
+    <p class="uc-footer">
+      Powered by <a href="https://github.com/justflows/justflows">Justflows</a>
+    </p>
+  </div>
+</body>
+</html>

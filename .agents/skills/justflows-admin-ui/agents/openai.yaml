@@ -1,0 +1,4 @@
+interface:
+  display_name: "Justflows Admin UI"
+  short_description: "Build accessible Justflows admin experiences"
+  default_prompt: "Use $justflows-admin-ui to implement this Justflows task."

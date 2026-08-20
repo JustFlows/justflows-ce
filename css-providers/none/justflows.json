@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "type": "css-provider",
+  "id": "justflows.none",
+  "name": "None",
+  "version": "1.0.0",
+  "publisher": "Justflows",
+  "description": "No external CSS framework — use theme styles only",
+  "license": "GPL-2.0-or-later",
+  "stylesheets": [],
+  "scripts": []
+}

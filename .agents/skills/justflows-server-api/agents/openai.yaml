@@ -1,0 +1,4 @@
+interface:
+  display_name: "Justflows Server & API"
+  short_description: "Build secure Justflows backend behavior"
+  default_prompt: "Use $justflows-server-api to implement this Justflows task."

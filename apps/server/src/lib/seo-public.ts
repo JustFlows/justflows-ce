@@ -1,0 +1,170 @@
+// SPDX-License-Identifier: MIT
+
+import { getPlugin } from "./plugins-db.js";
+import { getSiteSetting } from "./site-settings.js";
+import { listPublishedContent } from "./content-public.js";
+import { getDefaultLocale } from "./i18n/languages-db.js";
+import { localePath } from "./i18n/locales.js";
+
+export const SEO_PLUGIN_ID = "justflows.seo";
+
+export interface SeoSettings {
+  siteTitle: string;
+  titleTemplate: string;
+  defaultDescription: string;
+  twitterHandle: string;
+  extraSitemapPaths: string[];
+}
+
+export interface SeoPageInput {
+  title: string;
+  description?: string | null;
+  excerpt?: string | null;
+  path: string;
+}
+
+export function seoTextFromContent(content: {
+  title?: string;
+  excerpt?: string | null;
+  fields?: Record<string, unknown>;
+}): { title: string; description: string } {
+  const fields = content.fields ?? {};
+  const seoTitle = typeof fields.seoTitle === "string" ? fields.seoTitle.trim() : "";
+  const seoDescription = typeof fields.seoDescription === "string" ? fields.seoDescription.trim() : "";
+  return {
+    title: seoTitle || String(content.title ?? "").trim(),
+    description: seoDescription || String(content.excerpt ?? "").trim(),
+  };
+}
+
+function esc(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+export function siteOrigin(): string {
+  return (process.env.APP_URL ?? "").replace(/\/$/, "");
+}
+
+export async function isSeoPluginActive(siteId: string): Promise<boolean> {
+  const plugin = await getPlugin(siteId, SEO_PLUGIN_ID);
+  return plugin?.status === "active";
+}
+
+export function asLocaleMap(value: unknown, defaultLocale: string): Record<string, string> {
+  if (typeof value === "string") return value ? { [defaultLocale]: value } : {};
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const out: Record<string, string> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof entry === "string") out[key] = entry;
+    }
+    return out;
+  }
+  return {};
+}
+
+export function localizedString(
+  value: unknown,
+  locale: string,
+  defaultLocale: string,
+  fallback = "",
+): string {
+  if (typeof value === "string") return value;
+  const map = asLocaleMap(value, defaultLocale);
+  const exact = map[locale]?.trim();
+  if (exact) return exact;
+  const def = map[defaultLocale]?.trim();
+  if (def) return def;
+  const first = Object.values(map).find((entry) => entry.trim());
+  return first ?? fallback;
+}
+
+async function setting<T>(siteId: string, key: string, fallback: T): Promise<T> {
+  const value = await getSiteSetting<T>(siteId, `plugin.${SEO_PLUGIN_ID}:${key}`);
+  return value ?? fallback;
+}
+
+export async function getSeoSettings(siteId: string, locale?: string): Promise<SeoSettings> {
+  const defaultLocale = await getDefaultLocale();
+  const lang = locale || defaultLocale;
+  const extra = String((await setting(siteId, "extraSitemapPaths", "")) ?? "");
+  return {
+    siteTitle: localizedString(await setting(siteId, "siteTitle", ""), lang, defaultLocale),
+    titleTemplate: localizedString(await setting(siteId, "titleTemplate", "%s"), lang, defaultLocale, "%s") || "%s",
+    defaultDescription: localizedString(await setting(siteId, "defaultDescription", ""), lang, defaultLocale),
+    twitterHandle: String((await setting(siteId, "twitterHandle", "")) ?? ""),
+    extraSitemapPaths: extra.split("\n").map((line) => line.trim()).filter(Boolean),
+  };
+}
+
+export function resolveSeoDescription(
+  page: SeoPageInput,
+  settings: SeoSettings,
+): string {
+  const fromPage = (page.description ?? "").trim() || (page.excerpt ?? "").trim();
+  return fromPage || settings.defaultDescription.trim() || page.title.trim();
+}
+
+export function resolveSeoTitle(page: SeoPageInput, settings: SeoSettings): string {
+  const pageTitle = page.title.trim();
+  if (settings.titleTemplate.includes("%s")) {
+    return settings.titleTemplate.replace("%s", pageTitle);
+  }
+  return pageTitle || settings.titleTemplate;
+}
+
+export function buildSeoHeadHtml(
+  page: SeoPageInput,
+  settings: SeoSettings,
+  origin = siteOrigin(),
+): string {
+  const title = esc(resolveSeoTitle(page, settings));
+  const description = esc(resolveSeoDescription(page, settings));
+  const path = page.path.startsWith("/") ? page.path : `/${page.path}`;
+  const url = origin ? `${origin}${path}` : path;
+  const twitter = settings.twitterHandle.trim();
+
+  return [
+    description ? `<meta name="description" content="${description}">` : "",
+    title ? `<meta property="og:title" content="${title}">` : "",
+    description ? `<meta property="og:description" content="${description}">` : "",
+    url ? `<meta property="og:url" content="${esc(url)}">` : "",
+    `<meta property="og:type" content="website">`,
+    `<meta name="twitter:card" content="summary">`,
+    twitter ? `<meta name="twitter:site" content="${esc(twitter)}">` : "",
+    `<script type="application/ld+json">${JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: page.title,
+      description,
+      url,
+    })}</script>`,
+    `<link rel="canonical" href="${esc(url)}">`,
+    `<link rel="sitemap" type="application/xml" href="/sitemap.xml">`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export async function buildSitemapXml(siteId: string): Promise<string> {
+  const settings = await getSeoSettings(siteId);
+  const origin = siteOrigin();
+  const defaultLocale = await getDefaultLocale();
+  const published = await listPublishedContent(siteId);
+  const paths = new Set<string>(["/", ...settings.extraSitemapPaths]);
+
+  for (const item of published) {
+    const pagePath = item.slug === "home" || item.slug === "" ? "/" : `/${item.slug}`;
+    paths.add(localePath(item.locale, pagePath, defaultLocale));
+  }
+
+  const urls = [...paths].map((p) => {
+    const loc = origin ? `${origin}${p}` : p;
+    return `  <url><loc>${esc(loc)}</loc></url>`;
+  });
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`;
+}

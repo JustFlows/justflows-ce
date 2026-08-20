@@ -1,0 +1,51 @@
+version: "3.9"
+# Use this file to run Justflows with MariaDB instead of PostgreSQL
+# docker compose -f docker/docker-compose.mariadb.yml --env-file .env up
+
+services:
+  mariadb:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: justflows
+      MARIADB_USER: justflows
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.all
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env to a unique 32+ character string}
+      DB_DRIVER: mariadb
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_NAME: justflows
+      DB_USER: justflows
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_PATH: /app/uploads
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+volumes:
+  mariadb_data:
+  uploads:
