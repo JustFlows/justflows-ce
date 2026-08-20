@@ -64,6 +64,29 @@ Example:
 git commit -s -m "fix(auth): validate session expiry"
 ```
 
+## Branch model
+
+Do not push to `main`. Production releases are tagged from `main` after a pull request.
+
+| Branch | Purpose |
+| --- | --- |
+| `main` | Production. Protected. Update only by PR from `developers`. |
+| `developers` | Integration. Protected. Update only by PR from a feature branch. |
+| `feature/<name>` | Your work. Branch this off `developers`. |
+
+```bash
+git fetch origin
+git checkout developers
+git pull origin developers
+git checkout -b feature/short-description
+# make changes, commit with -s
+git push -u origin HEAD
+```
+
+Open a pull request **into `developers`**. After that lands, open a pull request from `developers` **into `main`** for the release.
+
+Use `feature/` for new work, `fix/` for bug fixes, and `hotfix/` only for production emergencies branched from `main`.
+
 ## Code guidelines
 
 - Match existing TypeScript style and package conventions
