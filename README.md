@@ -190,6 +190,10 @@ do not add folders to `plugins/`. See [`plugins/README.md`](plugins/README.md).
 
 MIT
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Work happens on `feature/*` branches. Open pull requests into `developers`. `main` is protected and only updated from `developers`.
+
 ## Security note
 
 - Never commit real `.env` files, credentials, or API keys.

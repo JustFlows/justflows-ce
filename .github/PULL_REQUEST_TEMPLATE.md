@@ -2,6 +2,10 @@
 
 <!-- What does this change, and why? -->
 
+## Target
+
+Default PR target is **`developers`**, not `main`.
+
 ## Test plan
 
 - [ ] `pnpm test`
