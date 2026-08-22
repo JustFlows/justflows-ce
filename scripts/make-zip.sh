@@ -16,6 +16,7 @@ pnpm --filter @justflows/cache build
 pnpm --filter @justflows/sdk build
 pnpm --filter @justflows/plugin-api build
 pnpm --filter @justflows/installer build
+pnpm --filter @justflows/content build
 pnpm --filter @justflows/server build
 node "$ROOT/scripts/bundle-server.js"
 
@@ -23,7 +24,14 @@ echo "==> Preparing npm-compatible package manifests…"
 node "$ROOT/scripts/prepare-hosting.js"
 
 echo "==> Generating npm lockfile for shared hosting…"
-npm install --omit=dev --ignore-scripts
+trap 'node "$ROOT/scripts/restore-hosting.js" 2>/dev/null || true' EXIT
+# --package-lock-only keeps the local pnpm node_modules intact.
+# npm 12 arborist can crash on file: packages mixed with a pnpm tree;
+# the zip is still usable — hosting runs `npm run install:all` on extract.
+if ! npm install --omit=dev --ignore-scripts --package-lock-only; then
+  echo "    (skipping lockfile — npm arborist failed; zip will still work)"
+  rm -f "$ROOT/package-lock.json"
+fi
 
 echo "==> Creating $OUT …"
 echo "    (includes LICENSE, LICENSING.md, licenses/GPL-2.0.txt)"
@@ -57,7 +65,11 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/.env.local" \
     -x "$NAME/.hosting-backup/*" \
     -x "$NAME/.agents/*" \
-    -x "$NAME/.github/*"
+    -x "$NAME/.github/*" \
+    -x "$NAME/.pnpm-store/*" \
+    -x "$NAME/**/.pnpm-store/*" \
+    -x "$NAME/.cache/*" \
+    -x "$NAME/tmp/*"
 else
   # Zip repo contents at archive root (no wrapper folder).
   cd "$ROOT"
@@ -81,7 +93,11 @@ else
     -x ".env.local" \
     -x ".hosting-backup/*" \
     -x ".agents/*" \
-    -x ".github/*"
+    -x ".github/*" \
+    -x ".pnpm-store/*" \
+    -x "**/.pnpm-store/*" \
+    -x ".cache/*" \
+    -x "tmp/*"
 fi
 
 echo "==> Restoring dev package manifests…"

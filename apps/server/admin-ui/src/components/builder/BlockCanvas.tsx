@@ -158,6 +158,7 @@ function BlockRow({
       >
         <span
           title="Drag to move"
+          aria-hidden="true"
           style={{ color: "#94a3b8", fontSize: "0.85rem", padding: "0 0.15rem", userSelect: "none", flexShrink: 0 }}
         >
           ⠿
@@ -166,9 +167,9 @@ function BlockRow({
           {meta?.icon} {meta?.title ?? block.type}
         </span>
         <div style={{ marginLeft: "auto", display: "flex", gap: "0.2rem" }} onClick={(e) => e.stopPropagation()}>
-          <button type="button" onClick={() => move(-1)} disabled={index === 0} style={iconBtn}>↑</button>
-          <button type="button" onClick={() => move(1)} disabled={index === total - 1} style={iconBtn}>↓</button>
-          <button type="button" onClick={remove} style={{ ...iconBtn, color: "#dc2626" }}>✕</button>
+          <button type="button" aria-label="Move block up" onClick={() => move(-1)} disabled={index === 0} style={iconBtn}>↑</button>
+          <button type="button" aria-label="Move block down" onClick={() => move(1)} disabled={index === total - 1} style={iconBtn}>↓</button>
+          <button type="button" aria-label="Remove block" onClick={remove} style={{ ...iconBtn, color: "#dc2626" }}>✕</button>
         </div>
       </div>
 

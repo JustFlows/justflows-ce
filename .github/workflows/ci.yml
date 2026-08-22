@@ -19,8 +19,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @justflows/sdk build
       - run: pnpm --filter @justflows/core build
+      - run: pnpm --filter @justflows/sdk test
       - run: pnpm --filter @justflows/core test
       - run: pnpm --filter @justflows/blocks test
       - run: pnpm --filter @justflows/installer test
       - run: pnpm --filter @justflows/plugin-api test
       - run: pnpm --filter @justflows/content test
+      - run: pnpm --filter @justflows/cache test
+      - run: pnpm --filter @justflows/server test
+      - run: pnpm --filter @justflows/sdk typecheck
+      - run: pnpm --filter @justflows/core typecheck
+      - run: pnpm --filter @justflows/installer typecheck
+      - run: pnpm --filter @justflows/content typecheck
+      - run: pnpm --filter @justflows/server typecheck

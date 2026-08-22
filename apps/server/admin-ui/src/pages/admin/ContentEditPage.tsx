@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import BlockEditor, { type BlockDocument } from "@components/BlockEditor";
+import MediaImageField from "@components/MediaImageField";
 import { useT } from "../../i18n/I18nProvider";
 
 interface ContentItem {
@@ -29,6 +30,14 @@ interface SiteLanguage {
   isDefault?: boolean;
 }
 
+interface ContentTypeField {
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "richtext" | "number" | "boolean" | "media" | "date" | "select";
+  required: boolean;
+  options?: string[];
+}
+
 function localePath(locale: string, slug: string, defaultLocale: string): string {
   const path = `/${slug}`;
   if (locale === defaultLocale) return path;
@@ -50,6 +59,8 @@ export default function EditContentPage() {
   const [languages, setLanguages] = useState<SiteLanguage[]>([]);
   const [translations, setTranslations] = useState<TranslationSummary[]>([]);
   const [defaultLocale, setDefaultLocale] = useState("en");
+  const [typeFields, setTypeFields] = useState<ContentTypeField[]>([]);
+  const [typeLabel, setTypeLabel] = useState("");
 
   useEffect(() => {
     fetch("/api/languages/active")
@@ -78,6 +89,16 @@ export default function EditContentPage() {
         setItem(data);
         setBaseline(JSON.stringify(data));
         const groupId = data.translationGroupId ?? data.id;
+        fetch(`/api/content-types/${encodeURIComponent(data.type)}`)
+          .then((tr) => tr.json())
+          .then((body: { type?: { label?: string; fields?: ContentTypeField[] } }) => {
+            setTypeLabel(body.type?.label ?? data.type);
+            setTypeFields(body.type?.fields ?? []);
+          })
+          .catch(() => {
+            setTypeLabel(data.type);
+            setTypeFields([]);
+          });
         return loadTranslations(groupId);
       })
       .catch((err: Error) => setError(err.message ?? "Failed to load content"))
@@ -177,7 +198,7 @@ export default function EditContentPage() {
     setItem((prev) => (prev ? { ...prev, ...changes } : prev));
   }
 
-  function patchField(key: string, value: string) {
+  function patchField(key: string, value: unknown) {
     patch({ fields: { ...(item?.fields ?? {}), [key]: value } });
   }
 
@@ -195,7 +216,7 @@ export default function EditContentPage() {
   }
 
   const isPage = item.type === "page";
-  const label = isPage ? t("content.editPage") : t("content.editPost");
+  const label = typeLabel || (isPage ? t("content.editPage") : t("content.editPost"));
   const itemLocale = item.locale ?? defaultLocale;
   const publicHref = localePath(itemLocale, item.slug ?? "", defaultLocale);
   const currentLang = languages.find((l) => l.code === itemLocale);
@@ -318,6 +339,24 @@ export default function EditContentPage() {
               </div>
             </div>
 
+            {typeFields.length > 0 && (
+              <div className="jf-card">
+                <div className="jf-card__head">
+                  <h2 className="jf-card__title">Fields</h2>
+                </div>
+                <div className="jf-card__body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  {typeFields.map((field) => (
+                    <TypeFieldInput
+                      key={field.key}
+                      field={field}
+                      value={item.fields?.[field.key]}
+                      onChange={(value) => patchField(field.key, value)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="jf-card">
               <div className="jf-card__head">
                 <h2 className="jf-card__title">Content</h2>
@@ -409,6 +448,24 @@ export default function EditContentPage() {
                     If empty, the excerpt or title is used. Shown in Google and Open Graph previews.
                   </span>
                 </div>
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-seo-canonical">Canonical URL</label>
+                  <input
+                    id="jf-seo-canonical"
+                    className="jf-input"
+                    value={typeof item.fields?.seoCanonical === "string" ? item.fields.seoCanonical : ""}
+                    onChange={(e) => patchField("seoCanonical", e.target.value)}
+                    placeholder={publicHref}
+                  />
+                  <span className="jf-field__hint">Leave empty to use this page’s permalink.</span>
+                </div>
+                <MediaImageField
+                  id="jf-seo-image"
+                  label="Social image"
+                  description="Used for Open Graph and Twitter cards. Falls back to no image if empty."
+                  value={typeof item.fields?.seoImage === "string" ? item.fields.seoImage : ""}
+                  onChange={(url) => patchField("seoImage", url)}
+                />
               </div>
             </div>
 
@@ -487,6 +544,93 @@ function SaveState({
 function StatusBadge({ status }: { status: string }) {
   const variant = status === "published" || status === "archived" ? ` jf-badge--${status}` : "";
   return <span className={`jf-badge${variant}`}>{status}</span>;
+}
+
+function fieldValue(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return "";
+}
+
+function TypeFieldInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: ContentTypeField;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
+  const id = `jf-cf-${field.key}`;
+  const current = fieldValue(value);
+
+  if (field.type === "boolean") {
+    return (
+      <label className="jf-row" style={{ gap: "0.5rem" }}>
+        <input
+          id={id}
+          type="checkbox"
+          checked={value === true || value === "true" || value === 1}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        {field.label}
+        {field.required ? " *" : ""}
+      </label>
+    );
+  }
+
+  if (field.type === "media") {
+    return (
+      <MediaImageField
+        id={id}
+        label={`${field.label}${field.required ? " *" : ""}`}
+        value={current}
+        onChange={onChange}
+      />
+    );
+  }
+
+  if (field.type === "select") {
+    return (
+      <div className="jf-field">
+        <label className="jf-field__label" htmlFor={id}>{field.label}{field.required ? " *" : ""}</label>
+        <select id={id} className="jf-input" value={current} onChange={(e) => onChange(e.target.value)}>
+          <option value="">Select…</option>
+          {(field.options ?? []).map((option) => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  if (field.type === "textarea" || field.type === "richtext") {
+    return (
+      <div className="jf-field">
+        <label className="jf-field__label" htmlFor={id}>{field.label}{field.required ? " *" : ""}</label>
+        <textarea
+          id={id}
+          className="jf-input"
+          rows={4}
+          value={current}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="jf-field">
+      <label className="jf-field__label" htmlFor={id}>{field.label}{field.required ? " *" : ""}</label>
+      <input
+        id={id}
+        className="jf-input"
+        type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+        value={current}
+        onChange={(e) => onChange(field.type === "number" ? Number(e.target.value) : e.target.value)}
+      />
+    </div>
+  );
 }
 
 function EditorSkeleton({ loadingLabel }: { loadingLabel: string }) {

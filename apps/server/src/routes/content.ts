@@ -16,11 +16,13 @@ import {
   CONTENT_WRITE_ROLES,
 } from "../lib/rbac.js";
 import { param } from "../lib/params.js";
+import { ContentTypeSlugSchema } from "@justflows/content";
+import { getContentTypeBySlug } from "../lib/content-types-db.js";
 
 const router = Router();
 
 const CreateSchema = z.object({
-  type: z.enum(["post", "page"]).default("post"),
+  type: ContentTypeSlugSchema.default("post"),
   title: z.string().min(1),
   slug: z.string().optional(),
   excerpt: z.string().optional(),
@@ -127,6 +129,11 @@ router.post("/", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
     }
 
     const { type, title, excerpt, blocks, fields } = body.data;
+    const registered = await getContentTypeBySlug(type, session.siteId);
+    if (!registered) {
+      res.status(400).json({ error: `Unknown content type "${type}"` });
+      return;
+    }
     const slug = body.data.slug ? slugify(body.data.slug) : slugify(title);
     const id = randomUUID();
     const locale = await resolveContentLocale(body.data.locale, session.siteId);

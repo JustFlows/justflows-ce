@@ -6,6 +6,9 @@ Create a folder here named after your plugin and start building. The pnpm
 workspace includes `plugins/*`, and a source checkout of the server lists
 whatever is in this directory.
 
+Author docs: [docs/README.md](../docs/README.md) (hooks, manifest, packaging,
+themes, blocks, testing).
+
 ```
 plugins/
 ├── hello-world/     Official example — copy this

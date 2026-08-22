@@ -52,7 +52,7 @@ export default function LoginPage() {
             <JustflowsLogo />
             Justflows
           </div>
-          <div className="jf-auth__sub">Sign in to your site</div>
+          <h1 className="jf-auth__sub">Sign in to your site</h1>
         </div>
 
         <form onSubmit={submit} className="jf-auth__body">

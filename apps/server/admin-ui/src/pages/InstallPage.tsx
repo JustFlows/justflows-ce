@@ -1,7 +1,7 @@
 /**
  * Justflows install wizard.
  */
-import { useState } from "react";
+import { cloneElement, isValidElement, useState, type ReactElement } from "react";
 import { useNavigate } from "react-router-dom";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 
@@ -187,16 +187,23 @@ export default function InstallPage() {
             <JustflowsLogo />
             Justflows
           </div>
-          <div className="jf-auth__sub">Installation</div>
+          <h1 className="jf-auth__sub">Installation</h1>
         </div>
 
         {/* Progress dots */}
         {step !== "installing" && step !== "done" && (
-          <div className="jf-steps">
+          <ol className="jf-steps" aria-label="Installation steps">
             {(["welcome", "database", "site", "account"] as const).map((s) => (
-              <div key={s} className="jf-steps__dot" data-current={s === step} />
+              <li
+                key={s}
+                className="jf-steps__dot"
+                data-current={s === step}
+                aria-current={s === step ? "step" : undefined}
+              >
+                <span className="jf-sr-only">{s}</span>
+              </li>
             ))}
-          </div>
+          </ol>
         )}
 
         <div className="jf-auth__body">
@@ -380,16 +387,19 @@ export default function InstallPage() {
               </div>
 
               <div className="jf-grid jf-grid--2">
-                <Field label="Password">
+                <Field
+                  label="Password"
+                  error={account.password.length > 0 && account.password.length < 8 ? "Password must be at least 8 characters" : undefined}
+                >
                   <input
-                    className="jf-input"
+                    className={`jf-input${account.password.length > 0 && account.password.length < 8 ? " jf-input--invalid" : ""}`}
                     type="password"
                     value={account.password}
                     autoComplete="new-password"
                     onChange={(e) => setAccount((a) => ({ ...a, password: e.target.value }))}
                   />
                 </Field>
-                <Field label="Confirm password">
+                <Field label="Confirm password" error={!passwordsMatch ? "Passwords do not match" : undefined}>
                   <input
                     className={`jf-input${!passwordsMatch ? " jf-input--invalid" : ""}`}
                     type="password"
@@ -401,17 +411,6 @@ export default function InstallPage() {
                   />
                 </Field>
               </div>
-
-              {!passwordsMatch && (
-                <p style={{ color: "#dc2626", fontSize: "0.8rem", marginTop: "-0.5rem" }}>
-                  Passwords do not match
-                </p>
-              )}
-              {account.password.length > 0 && account.password.length < 8 && (
-                <p style={{ color: "#f59e0b", fontSize: "0.8rem", marginTop: "-0.5rem" }}>
-                  Password must be at least 8 characters
-                </p>
-              )}
 
               <Row>
                 <button className="jf-btn jf-btn--ghost" onClick={() => setStep("site")}>← Back</button>
@@ -430,7 +429,7 @@ export default function InstallPage() {
           {step === "installing" && (
             <div className="jf-stack">
               <h2 className="jf-section-title">{fatalError ? "Installation failed" : "Installing…"}</h2>
-              <div className="jf-log">
+              <div className="jf-log" role="log" aria-live="polite" aria-relevant="additions">
                 {log.map((entry, i) => (
                   <p
                     key={i}
@@ -485,11 +484,34 @@ export default function InstallPage() {
 
 // ── small components ──────────────────────────────────────────────────────────
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: ReactElement<{ id?: string; "aria-invalid"?: boolean; "aria-describedby"?: string }>;
+}) {
+  const htmlFor = `jf-install-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+  const errorId = error ? `${htmlFor}-error` : undefined;
+  const control = isValidElement(children)
+    ? cloneElement(children, {
+        id: htmlFor,
+        "aria-invalid": error ? true : undefined,
+        "aria-describedby": errorId,
+      })
+    : children;
+
   return (
     <div className="jf-field">
-      <label className="jf-field__label">{label}</label>
-      {children}
+      <label className="jf-field__label" htmlFor={htmlFor}>{label}</label>
+      {control}
+      {error && (
+        <p id={errorId} className="jf-field__hint" role="alert" style={{ color: "var(--jf-danger)" }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
