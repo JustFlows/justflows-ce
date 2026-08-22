@@ -22,15 +22,31 @@ function assertSafeEntry(entryPath: string): void {
   }
 }
 
+/** Listing a full Justflows zip can exceed Node's 1 MB spawnSync default. */
+const ZIP_STDIO_MAX_BUFFER = 32 * 1024 * 1024;
+
+function runZipTool(cmd: string, args: string[]) {
+  return spawnSync(cmd, args, {
+    encoding: "utf-8",
+    stdio: "pipe",
+    maxBuffer: ZIP_STDIO_MAX_BUFFER,
+  });
+}
+
 function listZipEntries(zipPath: string): string[] {
   const attempts: [string, string[]][] = [
     ["unzip", ["-Z1", zipPath]],
     ["7z", ["l", "-ba", zipPath]],
   ];
 
+  const failures: string[] = [];
   for (const [cmd, args] of attempts) {
-    const result = spawnSync(cmd, args, { encoding: "utf-8", stdio: "pipe" });
-    if (result.status !== 0) continue;
+    const result = runZipTool(cmd, args);
+    if (result.status !== 0) {
+      const detail = (result.stderr || result.error?.message || `exit ${result.status ?? "null"}`).trim();
+      failures.push(`${cmd}: ${detail.slice(0, 300)}`);
+      continue;
+    }
 
     const lines = (result.stdout ?? "")
       .split("\n")
@@ -50,7 +66,8 @@ function listZipEntries(zipPath: string): string[] {
   }
 
   throw new ZipSafetyError(
-    "Could not inspect zip archive — ensure 'unzip' or '7z' is available on your server.",
+    "Could not inspect zip archive — ensure 'unzip' or '7z' is available on your server." +
+      (failures.length ? ` (${failures.join("; ")})` : ""),
   );
 }
 
@@ -64,12 +81,12 @@ export function extractZipSafely(zipPath: string, destDir: string): void {
   }
 
   const attempts: [string, string[]][] = [
-    ["unzip", ["-o", zipPath, "-d", destDir]],
+    ["unzip", ["-qo", zipPath, "-d", destDir]],
     ["7z", ["x", zipPath, `-o${destDir}`, "-y"]],
   ];
 
   for (const [cmd, args] of attempts) {
-    const result = spawnSync(cmd, args, { encoding: "utf-8", stdio: "pipe" });
+    const result = runZipTool(cmd, args);
     if (result.status === 0) return;
   }
 

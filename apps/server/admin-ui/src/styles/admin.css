@@ -15,7 +15,7 @@
   /* Text */
   --jf-text: #0f172a;
   --jf-text-2: #475569;
-  --jf-text-3: #94a3b8;
+  --jf-text-3: #64748b;
 
   /* Brand + intent */
   --jf-accent: #4f46e5;
@@ -71,7 +71,7 @@
 
     --jf-text: #e8ecf5;
     --jf-text-2: #a6b0c6;
-    --jf-text-3: #6d7893;
+    --jf-text-3: #94a3b8;
 
     --jf-accent: #818cf8;
     --jf-accent-hover: #a5b4fc;
@@ -1639,7 +1639,9 @@ input[type="range"] { width: 100%; accent-color: var(--jf-accent); }
   display: flex;
   gap: 6px;
   justify-content: center;
-  padding-top: 1.25rem;
+  margin: 0;
+  padding: 1.25rem 0 0;
+  list-style: none;
 }
 
 .jf-steps__dot {

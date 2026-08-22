@@ -69,6 +69,7 @@ export default function MediaPage() {
           type="file"
           multiple
           accept="image/*,video/*,audio/*,application/pdf"
+          aria-label="Choose files to upload"
           style={{ display: "none" }}
           onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); }}
         />
@@ -77,12 +78,22 @@ export default function MediaPage() {
       <div
         className="jf-dropzone"
         data-dragging={dragging}
+        role="button"
+        tabIndex={0}
+        aria-label="Upload files. Drop files here or press Enter to browse."
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
           if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+        }}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
         }}
       >
         {uploading ? "Uploading…" : "Drop files here to upload"}
