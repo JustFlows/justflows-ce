@@ -16,10 +16,12 @@ const PACKAGE_DIRS = [
   "packages/blocks",
   "packages/installer",
   "packages/core",
+  "packages/cache",
   "packages/auth",
   "packages/sdk",
   "packages/database",
   "packages/plugin-api",
+  "packages/content",
 ];
 
 for (const dir of PACKAGE_DIRS) {

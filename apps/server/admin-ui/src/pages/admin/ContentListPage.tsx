@@ -11,12 +11,17 @@ interface ContentItem {
   updatedAt: string;
 }
 
-const TYPE_FILTERS = ["all", "post", "page"] as const;
+interface ContentTypeSummary {
+  slug: string;
+  label: string;
+}
+
 const STATUS_FILTERS = ["all", "draft", "published"] as const;
 
 export default function ContentPage() {
   const [items, setItems] = useState<ContentItem[]>([]);
-  const [filter, setFilter] = useState<(typeof TYPE_FILTERS)[number]>("all");
+  const [types, setTypes] = useState<ContentTypeSummary[]>([]);
+  const [filter, setFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("all");
 
   useEffect(() => {
@@ -24,12 +29,21 @@ export default function ContentPage() {
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data.items)) setItems(data.items); })
       .catch(() => {});
+    fetch("/api/content-types")
+      .then((r) => r.json())
+      .then((data: { types?: ContentTypeSummary[] }) => {
+        if (Array.isArray(data.types)) setTypes(data.types);
+      })
+      .catch(() => {});
   }, []);
 
   const filtered = items.filter((i) =>
     (filter === "all" || i.type === filter) &&
     (statusFilter === "all" || i.status === statusFilter)
   );
+
+  const typeLabel = (slug: string) => types.find((t) => t.slug === slug)?.label ?? slug;
+  const primaryType = types.find((t) => t.slug === "post") ?? types[0];
 
   return (
     <div className="jf-page">
@@ -39,20 +53,28 @@ export default function ContentPage() {
           <p>Posts, pages and custom content types</p>
         </div>
         <div className="jf-pagehead__actions">
-          <Link to="/admin/content/new?type=page" className="jf-btn jf-btn--ghost">+ New page</Link>
-          <Link to="/admin/content/new?type=post" className="jf-btn jf-btn--primary">+ New post</Link>
+          {types.filter((t) => t.slug !== (primaryType?.slug ?? "post")).map((type) => (
+            <Link key={type.slug} to={`/admin/content/new?type=${encodeURIComponent(type.slug)}`} className="jf-btn jf-btn--ghost">
+              + New {type.label.toLowerCase()}
+            </Link>
+          ))}
+          {primaryType && (
+            <Link to={`/admin/content/new?type=${encodeURIComponent(primaryType.slug)}`} className="jf-btn jf-btn--primary">
+              + New {primaryType.label.toLowerCase()}
+            </Link>
+          )}
         </div>
       </header>
 
       <div className="jf-filterbar">
-        {TYPE_FILTERS.map((t) => (
+        {["all", ...types.map((t) => t.slug)].map((t) => (
           <button
             key={t}
             className="jf-chip"
             aria-pressed={filter === t}
             onClick={() => setFilter(t)}
           >
-            {t === "all" ? "All" : `${t[0]!.toUpperCase()}${t.slice(1)}s`}
+            {t === "all" ? "All" : typeLabel(t)}
           </button>
         ))}
         <span className="jf-filterbar__sep" aria-hidden="true" />
@@ -102,7 +124,7 @@ export default function ContentPage() {
                     <td className="jf-td--strong">
                       <Link to={`/admin/content/${item.id}`}>{item.title}</Link>
                     </td>
-                    <td>{item.type}</td>
+                    <td>{typeLabel(item.type)}</td>
                     <td className="jf-td--mono">{item.locale ?? "—"}</td>
                     <td><StatusBadge status={item.status} /></td>
                     <td className="jf-td--mono">/{item.slug}</td>

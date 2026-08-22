@@ -161,10 +161,9 @@ export default function UpdatesPage() {
         </div>
         <div className="jf-card__body jf-stack">
           <p className="jf-prose">
-            Upload a <code className="jf-code">justflows.zip</code> file. The system extracts it, runs{" "}
-            <strong>npm install</strong> and <strong>npm run build:server</strong>, then restarts
-            automatically via <code className="jf-code">tmp/restart.txt</code> (Plesk/Passenger).
-            Your <code className="jf-code">.env</code> and uploads are preserved.
+            Upload a <code className="jf-code">justflows.zip</code> file. Justflows extracts it,
+            updates the database, installs dependencies, and restarts the site by itself
+            (Plesk/Passenger). Your <code className="jf-code">.env</code> and uploads are preserved.
           </p>
 
           <input

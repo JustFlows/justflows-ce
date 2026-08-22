@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS languages (
 ALTER TABLE content ADD COLUMN locale VARCHAR(20) NOT NULL DEFAULT 'en';
 ALTER TABLE content ADD COLUMN translation_group_id CHAR(36) NULL;
 
-ALTER TABLE content DROP INDEX uq_content_slug;
+ALTER TABLE content DROP INDEX IF EXISTS uq_content_slug;
 ALTER TABLE content ADD UNIQUE KEY uq_content_slug_locale (site_id, type, slug(200), locale);
 ALTER TABLE content ADD KEY idx_content_locale (locale);
 ALTER TABLE content ADD KEY idx_content_translation_group (translation_group_id);

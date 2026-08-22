@@ -130,12 +130,14 @@ export default function PluginsPage() {
               if (file) handleFile(file);
             }}
             onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
+            aria-label="Upload a plugin package. Drop a .jfpkg file here or press Enter to browse."
           >
             <input
               ref={fileInputRef}
               type="file"
               accept=".jfpkg,.zip"
+              aria-label="Choose a plugin package"
               style={{ display: "none" }}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
             />
@@ -147,7 +149,7 @@ export default function PluginsPage() {
           </div>
 
           {uploadError && <div className="jf-alert jf-alert--error" role="alert">{uploadError}</div>}
-          {uploadSuccess && <div className="jf-alert jf-alert--success">{uploadSuccess}</div>}
+          {uploadSuccess && <div className="jf-alert jf-alert--success" role="status">{uploadSuccess}</div>}
         </div>
       </div>
 

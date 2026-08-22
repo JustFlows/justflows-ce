@@ -2,7 +2,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { migrationsDir } from "./jf-root.js";
 
-export const MIGRATION_ORDER = ["0001_initial", "0002_multilingual", "0003_css_providers", "0004_plugin_data"] as const;
+export const MIGRATION_ORDER = [
+  "0001_initial",
+  "0002_multilingual",
+  "0003_css_providers",
+  "0004_plugin_data",
+  "0005_content_types",
+] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";
 
@@ -31,10 +37,17 @@ export function splitSqlStatements(ddl: string, driver: DbDriver): string[] {
 /** Idempotent migration errors we can safely ignore on re-run. */
 export function isIgnorableMigrationError(err: unknown): boolean {
   const msg = String(err).toLowerCase();
+  const code =
+    err && typeof err === "object" && "code" in err ? String((err as { code: unknown }).code) : "";
+  // MySQL/MariaDB 1091: DROP INDEX / DROP COLUMN when the object is already gone.
+  if (code === "ER_CANT_DROP_FIELD_OR_KEY") return true;
   if (msg.includes("already exists")) return true;
   if (msg.includes("duplicate column")) return true;
   if (msg.includes("duplicate key name")) return true;
   if (msg.includes("duplicate entry")) return true;
+  if (msg.includes("check that it exists")) return true;
+  if (msg.includes("can't drop index")) return true;
+  if (msg.includes("can't drop foreign key")) return true;
   return false;
 }
 
@@ -56,16 +69,32 @@ export async function readMigrationDdl(name: string, driver: DbDriver): Promise<
   }
 }
 
+function withoutIfExists(sql: string): string {
+  return sql.replace(/\s+IF\s+EXISTS\b/gi, "");
+}
+
 export async function runMigrationStatements(
   sql: SqlRunner,
   ddl: string,
   driver: DbDriver,
 ): Promise<void> {
   for (const stmt of splitSqlStatements(ddl, driver)) {
-    await sql.run(stmt).catch((e: unknown) => {
-      if (isIgnorableMigrationError(e)) return;
-      throw e;
-    });
+    try {
+      await sql.run(stmt);
+    } catch (err: unknown) {
+      if (isIgnorableMigrationError(err)) continue;
+      // MySQL 8 rejects DROP INDEX IF EXISTS; retry the plain DROP, then ignore 1091.
+      if (driver !== "postgres" && /\bif\s+exists\b/i.test(stmt)) {
+        try {
+          await sql.run(withoutIfExists(stmt));
+          continue;
+        } catch (retryErr: unknown) {
+          if (isIgnorableMigrationError(retryErr)) continue;
+          throw retryErr;
+        }
+      }
+      throw err;
+    }
   }
 }
 
@@ -79,4 +108,13 @@ export async function runAllMigrations(
     if (!ddl) continue;
     await runMigrationStatements(sql, ddl, driver);
   }
+}
+
+/** Apply shipped schema updates for an already-installed site (zip/core update). */
+export async function applyPendingMigrations(): Promise<void> {
+  const { getDb } = await import("./db.js");
+  const db = await getDb();
+  const driver = process.env.DB_DRIVER as DbDriver | undefined;
+  if (!driver) return;
+  await runAllMigrations(db, driver);
 }

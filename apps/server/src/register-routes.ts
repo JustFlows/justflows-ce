@@ -3,14 +3,25 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { getJfRoot } from "./lib/jf-root.js";
-import { requireInstalled, blockIfInstalled } from "./middleware/install-guard.js";
+import { isInstalled, requireInstalled, blockIfInstalled } from "./middleware/install-guard.js";
 import { publicApiGuard } from "./middleware/public-api.js";
+import { publicApiCors } from "./middleware/public-api-cors.js";
+import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
 import { getSession } from "./lib/session.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** Register heavy routes (dynamic import — keeps Passenger startup fast). */
 export async function registerDeferredRoutes(app: express.Application): Promise<void> {
+  if (isInstalled()) {
+    try {
+      const { applyPendingMigrations } = await import("./lib/run-migrations.js");
+      await applyPendingMigrations();
+    } catch (err) {
+      console.error("[justflows] Pending migrations failed:", err);
+    }
+  }
+
   const { ensurePluginRuntime } = await import("./lib/plugin-runtime.js");
   await ensurePluginRuntime();
 
@@ -37,6 +48,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: blocksRoutes },
     { default: analyticsRoutes },
     { default: formsRoutes },
+    { default: contentTypesRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -60,6 +72,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/blocks.js"),
     import("./routes/analytics.js"),
     import("./routes/forms.js"),
+    import("./routes/content-types.js"),
   ]);
 
   app.use(blockIfInstalled);
@@ -86,13 +99,14 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/blocks", requireInstalled, blocksRoutes);
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/forms", requireInstalled, formsRoutes);
+  app.use("/api/content-types", requireInstalled, contentTypesRoutes);
   // Everything below is public-facing: one switch (Settings → Public API) takes
   // the whole surface offline. Mounted on the prefix so future public routes
   // inherit the guard automatically.
-  app.use("/api/v1", publicApiGuard);
+  app.use("/api/v1", publicApiGuard, publicApiCors, publicApiRateLimit);
   app.use("/api/site", publicApiGuard);
 
-  app.use("/api/v1/content", publicApiRoutes);
+  app.use("/api/v1", publicApiRoutes);
   app.use("/api/site", siteRoutes);
   app.get("/theme.css", serveThemeCss);
 
@@ -115,10 +129,10 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   app.get("/sitemap.xml", requireInstalled, async (_req, res, next) => {
     try {
-      const { isSeoPluginActive, buildSitemapXml } = await import("./lib/seo-public.js");
+      const { buildSitemapXml } = await import("./lib/seo-public.js");
       const { getSiteId } = await import("./lib/themes-db.js");
       const siteId = await getSiteId();
-      if (!siteId || !(await isSeoPluginActive(siteId))) {
+      if (!siteId) {
         next();
         return;
       }

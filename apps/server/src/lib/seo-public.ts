@@ -21,19 +21,25 @@ export interface SeoPageInput {
   description?: string | null;
   excerpt?: string | null;
   path: string;
+  canonical?: string | null;
+  image?: string | null;
 }
 
 export function seoTextFromContent(content: {
   title?: string;
   excerpt?: string | null;
   fields?: Record<string, unknown>;
-}): { title: string; description: string } {
+}): { title: string; description: string; canonical: string; image: string } {
   const fields = content.fields ?? {};
   const seoTitle = typeof fields.seoTitle === "string" ? fields.seoTitle.trim() : "";
   const seoDescription = typeof fields.seoDescription === "string" ? fields.seoDescription.trim() : "";
+  const seoCanonical = typeof fields.seoCanonical === "string" ? fields.seoCanonical.trim() : "";
+  const seoImage = typeof fields.seoImage === "string" ? fields.seoImage.trim() : "";
   return {
     title: seoTitle || String(content.title ?? "").trim(),
     description: seoDescription || String(content.excerpt ?? "").trim(),
+    canonical: seoCanonical,
+    image: seoImage,
   };
 }
 
@@ -125,7 +131,10 @@ export function buildSeoHeadHtml(
   const description = esc(resolveSeoDescription(page, settings));
   const path = page.path.startsWith("/") ? page.path : `/${page.path}`;
   const url = origin ? `${origin}${path}` : path;
+  const canonicalRaw = (page.canonical ?? "").trim() || url;
+  const image = (page.image ?? "").trim();
   const twitter = settings.twitterHandle.trim();
+  const twitterCard = image ? "summary_large_image" : "summary";
 
   return [
     description ? `<meta name="description" content="${description}">` : "",
@@ -133,16 +142,19 @@ export function buildSeoHeadHtml(
     description ? `<meta property="og:description" content="${description}">` : "",
     url ? `<meta property="og:url" content="${esc(url)}">` : "",
     `<meta property="og:type" content="website">`,
-    `<meta name="twitter:card" content="summary">`,
+    image ? `<meta property="og:image" content="${esc(image)}">` : "",
+    `<meta name="twitter:card" content="${twitterCard}">`,
     twitter ? `<meta name="twitter:site" content="${esc(twitter)}">` : "",
+    image ? `<meta name="twitter:image" content="${esc(image)}">` : "",
     `<script type="application/ld+json">${JSON.stringify({
       "@context": "https://schema.org",
       "@type": "WebPage",
       name: page.title,
       description,
       url,
+      ...(image ? { image } : {}),
     })}</script>`,
-    `<link rel="canonical" href="${esc(url)}">`,
+    `<link rel="canonical" href="${esc(canonicalRaw)}">`,
     `<link rel="sitemap" type="application/xml" href="/sitemap.xml">`,
   ]
     .filter(Boolean)
@@ -161,7 +173,14 @@ export async function buildSitemapXml(siteId: string): Promise<string> {
     paths.add(localePath(item.locale, pagePath, defaultLocale));
   }
 
-  const urls = [...paths].map((p) => {
+  const { getRuntimeHooks } = await import("./plugin-runtime.js");
+  const hooks = getRuntimeHooks();
+  let pathList = [...paths];
+  if (hooks.has("seo.sitemapPaths")) {
+    pathList = await hooks.applyFilter("seo.sitemapPaths", pathList, { siteId });
+  }
+
+  const urls = pathList.map((p) => {
     const loc = origin ? `${origin}${p}` : p;
     return `  <url><loc>${esc(loc)}</loc></url>`;
   });
