@@ -154,9 +154,9 @@ cp -R plugins/hello-world plugins/acme-seo
 pnpm --filter acme.seo build
 ```
 
-Copy [`plugins/hello-world`](plugins/hello-world). Give the plugin a namespaced
-id (`acme.seo`). Import types from `@justflows/sdk`. Build to `dist/index.js` —
-the runtime does not load TypeScript.
+See [`docs/PLUGINS.md`](docs/PLUGINS.md) for hooks, admin pages, packaging, and
+how to test against CE. [`plugins/README.md`](plugins/README.md) is the
+workspace quickstart.
 
 ```typescript
 // plugins/acme-seo/src/index.ts

@@ -40,7 +40,6 @@ import {
   buildSeoHeadHtml,
   buildSitemapXml,
   getSeoSettings,
-  isSeoPluginActive,
   resolveSeoTitle,
   seoTextFromContent,
   siteOrigin,
@@ -110,7 +109,7 @@ async function loadIdentity(
   const mods = await loadThemeMods(preview);
   const identity = await getSiteIdentity(mods, { preview });
   const siteId = await getSiteId();
-  if (!siteId || !(await isSeoPluginActive(siteId))) return identity;
+  if (!siteId) return identity;
 
   const seo = await getSeoSettings(siteId, locale);
   return {
@@ -257,18 +256,20 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   const content = data.content as
     | { title?: string; excerpt?: string | null; fields?: Record<string, unknown> }
     | undefined;
-  const seoFromContent = content ? seoTextFromContent(content) : { title: "", description: "" };
+  const seoFromContent = content ? seoTextFromContent(content) : { title: "", description: "", canonical: "", image: "" };
   const pageTitle = seoFromContent.title || String(data.title ?? "");
   const pageDescription = seoFromContent.description || String(data.seoDescription ?? "");
   let headExtra = "";
   let documentTitle = pageTitle;
-  if (siteId && (await isSeoPluginActive(siteId))) {
+  if (siteId) {
     const settings = await getSeoSettings(siteId, String(data.locale ?? ""));
     const page = {
       title: pageTitle,
       description: pageDescription,
       excerpt: content?.excerpt,
       path: String(data.publicPath ?? data.restPath ?? "/"),
+      canonical: seoFromContent.canonical || undefined,
+      image: seoFromContent.image || undefined,
     };
     documentTitle = resolveSeoTitle(page, settings);
     headExtra = buildSeoHeadHtml(page, settings);
@@ -390,10 +391,8 @@ router.get("/favicon.ico", async (_req, res) => {
 router.get("/robots.txt", async (_req, res) => {
   try {
     const noindex = await shouldDiscourageSearchEngines();
-    const siteId = await getSiteId();
-    const seoActive = siteId ? await isSeoPluginActive(siteId) : false;
     const origin = siteOrigin();
-    const sitemapLine = seoActive && origin ? `Sitemap: ${origin}/sitemap.xml\n` : "";
+    const sitemapLine = origin ? `Sitemap: ${origin}/sitemap.xml\n` : "";
     const body = noindex
       ? "User-agent: *\nDisallow: /\n"
       : `User-agent: *\nAllow: /\n${sitemapLine}`;
@@ -406,7 +405,7 @@ router.get("/robots.txt", async (_req, res) => {
 router.get("/sitemap.xml", async (_req, res, next) => {
   try {
     const siteId = await getSiteId();
-    if (!siteId || !(await isSeoPluginActive(siteId))) {
+    if (!siteId) {
       next();
       return;
     }

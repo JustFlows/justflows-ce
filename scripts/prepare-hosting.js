@@ -20,6 +20,7 @@ const PACKAGE_DIRS = [
   "packages/sdk",
   "packages/database",
   "packages/plugin-api",
+  "packages/content",
 ];
 
 function findPackageJson(name) {
@@ -54,6 +55,14 @@ function patchFile(pkgPath) {
       deps[name] = `file:${rel.replace(/\\/g, "/")}`;
       changed = true;
     }
+  }
+
+  // Local file: packages still pull devDependencies into npm's tree, which
+  // crashes arborist ("Cannot read properties of null (reading 'matches')")
+  // when mixed with a pnpm node_modules. Production zips do not need them.
+  if (pkg.devDependencies) {
+    delete pkg.devDependencies;
+    changed = true;
   }
 
   if (changed) {
@@ -94,6 +103,7 @@ function main() {
     zod: "^3.25.76",
     "@justflows/blocks": "file:packages/blocks",
     "@justflows/cache": "file:packages/cache",
+    "@justflows/content": "file:packages/content",
     "@justflows/core": "file:packages/core",
     "@justflows/installer": "file:packages/installer",
     "@justflows/plugin-api": "file:packages/plugin-api",

@@ -248,6 +248,7 @@ export interface FilterValueMap {
   "navigation.items": [NavigationItem[], { siteId: string; location: string }];
   "http.responseHeaders": [Record<string, string>, { method: string; path: string }];
   "html.head": [string, { siteId: string; path: string; title: string; contentId?: string }];
+  "seo.sitemapPaths": [string[], { siteId: string }];
   "site.underConstruction.render": [string, UnderConstructionContext];
 }
 

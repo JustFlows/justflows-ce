@@ -37,7 +37,7 @@ describe("createPluginCacheApi", () => {
 
   it("rejects empty or unsafe keys", async () => {
     const api = createPluginCacheApi("acme.shop", cache);
-    await expect(api.set("", 1)).rejects.toThrow();
-    await expect(api.set("plugin:other:x", 1)).rejects.toThrow();
+    expect(() => { void api.set("", 1); }).toThrow(/empty/);
+    expect(() => { void api.set("plugin:other:x", 1); }).toThrow();
   });
 });
