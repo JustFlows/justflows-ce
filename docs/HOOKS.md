@@ -353,7 +353,7 @@ ctx.hooks.action("content.published", reindex, { id: "search-reindex" });
 ## Synchronous hooks
 
 Most hooks are async. A few run on render paths that cannot wait — currently
-`content.render` and `http.responseHeaders` (see `SYNC_FILTERS` in the SDK).
+`content.render`, `http.responseHeaders`, `html.head`, and `site.underConstruction.render` (see `SYNC_FILTERS` in the SDK).
 
 **On a synchronous hook, your handler must be synchronous.** An `async` handler
 there gets skipped and logged, because there is no safe way to wait for it and
@@ -456,6 +456,8 @@ makes both correctness and performance attributable to a specific extension.
 | `media.metadata` | `Record<string, unknown>` | `{ siteId, mediaId }` |
 | `navigation.items` | `NavigationItem[]` | `{ siteId, location }` |
 | `http.responseHeaders` | `Record<string, string>` | `{ method, path }` |
+| `html.head` | `string` (extra `<head>` HTML) | `{ siteId, path, title, contentId? }` |
+| `seo.sitemapPaths` | `string[]` (URL paths) | `{ siteId }` |
 
 ---
 
@@ -575,7 +577,9 @@ hooks. Keep server logic in plugins, presentation defaults in themes.
 
 ## See also
 
-- `HOOKS_SPEC.md` — the normative specification and compatibility contract
-- `packages/core/src/hooks/registry.ts` — the implementation
+- [Plugin author guide](PLUGINS.md)
+- [Manifest reference](MANIFEST.md)
+- [Permissions](PERMISSIONS.md)
 - `packages/sdk/src/hooks.ts` — typed hook contracts
+- `packages/core/src/hooks/registry.ts` — the implementation
 - `packages/core/src/__tests__/hooks.test.ts` — behaviour, exhaustively

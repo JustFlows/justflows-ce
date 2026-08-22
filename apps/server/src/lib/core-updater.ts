@@ -60,6 +60,15 @@ async function walkFiles(dir: string, base = dir): Promise<string[]> {
   return files;
 }
 
+/** Run migrations from the just-copied dist, not this process's bundled modules. */
+function runCopiedMigrations(root: string): { ok: boolean; output: string } {
+  const entry = path.join(root, "apps/server/dist/lib/apply-pending-migrations-cli.js");
+  if (!fs.existsSync(entry)) {
+    return { ok: false, output: "Missing apps/server/dist/lib/apply-pending-migrations-cli.js" };
+  }
+  return runCommand("node", [entry], root, 5 * 60 * 1000);
+}
+
 function shouldPreserve(relativePath: string): boolean {
   const top = relativePath.split(path.sep)[0] ?? relativePath;
   if (PRESERVE_TOP_LEVEL.has(top)) return true;
@@ -224,6 +233,15 @@ export async function applyCoreUpdate(
       detail: `Updated ${copied} files (.env and uploads preserved)`,
     });
 
+    const migrate = runCopiedMigrations(root);
+    steps.push({
+      step: "migrate",
+      ok: migrate.ok,
+      detail: migrate.ok
+        ? "Database schema updated"
+        : migrate.output.slice(-500) || "Migration failed — will retry after restart",
+    });
+
     const npmInstall = runCommand("npm", ["install", "--ignore-scripts"], root);
     steps.push({
       step: "npm install",
@@ -265,18 +283,21 @@ export async function applyCoreUpdate(
       step: "restart",
       ok: restart.ok,
       detail: restart.ok
-        ? "Touched tmp/restart.txt — app reloads on next request"
+        ? "Site will reload on the next request"
         : restart.error ?? "Could not trigger restart",
     });
 
+    const ok = migrate.ok && restart.ok;
     steps.push({
       step: "complete",
-      ok: true,
-      detail: `Updated from v${currentVersion} to v${newVersion}`,
+      ok,
+      detail: ok
+        ? `Updated from v${currentVersion} to v${newVersion}`
+        : "Update copied; the site will finish remaining work after reload",
     });
 
     return {
-      ok: true,
+      ok,
       steps,
       currentVersion,
       newVersion,

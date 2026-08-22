@@ -94,10 +94,26 @@ Use `feature/` for new work, `fix/` for bug fixes, and `hotfix/` only for produc
 - Add `// SPDX-License-Identifier: MIT` to new core source files
 - Run tests and typecheck before opening a PR
 
+## Local verification
+
+From the repository root:
+
+```bash
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm --filter @justflows/installer test
+pnpm --filter @justflows/server test
+```
+
+`pnpm test` runs every workspace package that declares a `test` script (Turbo). Installer tests cover the `.jfpkg` manifest contract used by the plugin/theme installer. Server tests cover SEO helpers, the public OpenAPI document, and axe checks on login, install, content, media, and plugin admin routes.
+
+Pull requests into `developers` and `main` run the same core package tests, installer contract tests, and typechecks in GitHub Actions (`.github/workflows/ci.yml`). A green PR means those packages built and tested on CI, not only on a laptop.
+
 ## Plugin and theme contributions
 
 Write a new plugin in `plugins/<your-plugin-name>/`. Copy `plugins/hello-world`
-and change the id, manifest, and `src/`. See `plugins/README.md`.
+and change the id, manifest, and `src/`. See `plugins/README.md` and `docs/`.
 
 Extensions declare **their own license** in the manifest. Official Marketplace
 listings must use a **GPL-compatible license**. See `LICENSING.md` and

@@ -93,6 +93,7 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
         <input
           type="search"
           placeholder="Search blocks…"
+          aria-label="Search blocks"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{ width: "100%", boxSizing: "border-box", padding: "0.45rem 0.6rem", border: "1px solid #cbd5e1", borderRadius: 6, fontSize: "0.8rem" }}

@@ -12,11 +12,13 @@
     "build:admin-ui": "vite build --config admin-ui/vite.config.ts",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run && vitest run --config admin-ui/vitest.config.ts",
     "clean": "rm -rf dist admin-ui/dist"
   },
   "dependencies": {
     "@justflows/blocks": "file:../../packages/blocks",
     "@justflows/cache": "file:../../packages/cache",
+    "@justflows/content": "workspace:*",
     "@justflows/core": "file:../../packages/core",
     "@justflows/installer": "file:../../packages/installer",
     "@justflows/plugin-api": "file:../../packages/plugin-api",
@@ -31,6 +33,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.5",
     "@types/compression": "^1.8.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/ejs": "^3.1.5",
@@ -41,12 +46,15 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
+    "axe-core": "^4.13.0",
+    "jsdom": "^30.0.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",
-    "vite": "^8.2.1"
+    "vite": "^8.2.1",
+    "vitest": "^4.1.11"
   },
   "license": "MIT"
 }

@@ -83,9 +83,12 @@ export class ContentService {
     }
 
     const page = results.slice(start, start + limit);
-    const nextCursor = page.length === limit ? page[page.length - 1]?.id : undefined;
+    const nextId = page.length === limit ? page[page.length - 1]?.id : undefined;
 
-    return { items: page, nextCursor, total: results.length };
+    if (nextId) {
+      return { items: page, nextCursor: nextId, total: results.length };
+    }
+    return { items: page, total: results.length };
   }
 
   async update(id: string, patch: UpdateContentInput): Promise<ContentItem> {
@@ -108,7 +111,7 @@ export class ContentService {
     const updated: ContentItem = {
       ...item,
       title: patch.title ?? item.title,
-      excerpt: patch.excerpt !== undefined ? patch.excerpt : item.excerpt,
+      excerpt: patch.excerpt !== undefined ? patch.excerpt : item.excerpt ?? null,
       blocks: patch.blocks ?? item.blocks,
       fields: patch.fields != null ? { ...item.fields, ...patch.fields } : item.fields,
       status: patch.status ?? item.status,

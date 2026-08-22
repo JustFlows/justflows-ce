@@ -19,8 +19,9 @@ function slugify(title: string) {
 function NewContentForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const type = (searchParams.get("type") ?? "post") as "post" | "page";
+  const type = searchParams.get("type") ?? "post";
   const { t } = useT();
+  const [typeLabel, setTypeLabel] = useState(type);
 
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
@@ -41,7 +42,13 @@ function NewContentForm() {
         if (def) setLocale(def.code);
       })
       .catch(() => null);
-  }, []);
+    fetch(`/api/content-types/${encodeURIComponent(type)}`)
+      .then((r) => r.json())
+      .then((data: { type?: { label?: string } }) => {
+        if (data.type?.label) setTypeLabel(data.type.label);
+      })
+      .catch(() => null);
+  }, [type]);
 
   function handleTitleChange(v: string) {
     setTitle(v);
@@ -81,7 +88,7 @@ function NewContentForm() {
     }
   }
 
-  const label = type === "page" ? t("content.newPage") : t("content.newPost");
+  const label = type === "page" ? t("content.newPage") : type === "post" ? t("content.newPost") : `New ${typeLabel}`;
 
   return (
     <>
