@@ -4,7 +4,7 @@ import { HooksRegistry } from "../hooks/registry.js";
 import { SettingsStore } from "../settings/store.js";
 import { HealthMonitor, type HealthReport } from "../health/check.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 
 export type AppState = "created" | "starting" | "running" | "stopping" | "stopped";
 

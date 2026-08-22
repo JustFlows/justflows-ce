@@ -7,9 +7,11 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-08-22
+
 ### Added
 
-- Persisted custom content types and fields (PostgreSQL, MySQL, MariaDB)
+- Persisted custom content types and fields (PostgreSQL, MySQL, and MariaDB)
 - Public `/api/v1` REST surface with OpenAPI, CORS, and rate limiting
 - Built-in SEO: titles, canonicals, Open Graph, JSON-LD, sitemap, and robots.txt
 - Plugin and theme author documentation

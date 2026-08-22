@@ -22,7 +22,7 @@ export class HealthMonitor {
   private readonly startedAt = Date.now();
   private readonly version: string;
 
-  constructor(version = "0.1.0") {
+  constructor(version = "0.1.1") {
     this.version = version;
   }
 
