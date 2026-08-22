@@ -90,7 +90,7 @@ export default function AdminShell() {
           <button type="button" className="jf-sidebar__signout" onClick={logout}>
             {t("common.signOut")}
           </button>
-          <div className="jf-sidebar__version">Justflows v0.1.0</div>
+          <div className="jf-sidebar__version">Justflows v0.1.1</div>
         </div>
       </aside>
 

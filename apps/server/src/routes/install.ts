@@ -234,7 +234,7 @@ router.post("/", async (req, res) => {
       dbPassword: db.password,
       appUrl: site.url,
       appSecret: randomBytes(48).toString("hex"),
-      version: "0.1.0",
+      version: "0.1.1",
     });
 
     resetDb();
