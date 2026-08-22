@@ -7,7 +7,7 @@ import { cacheCommand } from "./commands/cache.js";
 import { healthCommand } from "./commands/health.js";
 import { updateCommand } from "./commands/update.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 
 const HELP = `
 Justflows CLI v${VERSION}

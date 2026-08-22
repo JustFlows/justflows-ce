@@ -9,11 +9,11 @@ const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
 
 router.get("/", requireSession, (_req, res) => {
-  res.json({ version: "0.1.0", updateAvailable: false });
+  res.json({ version: "0.1.1", updateAvailable: false });
 });
 
 router.post("/check", requireRole("administrator"), (_req, res) => {
-  res.json({ updateAvailable: false, currentVersion: "0.1.0", latestVersion: "0.1.0" });
+  res.json({ updateAvailable: false, currentVersion: "0.1.1", latestVersion: "0.1.1" });
 });
 
 router.post("/upload", requireRole("administrator"), upload.single("file"), async (req, res) => {
