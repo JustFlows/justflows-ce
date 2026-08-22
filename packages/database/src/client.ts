@@ -44,7 +44,7 @@ export function createDatabase(config: DatabaseConfig): DatabaseClient {
     database: parsed.database,
     connectionLimit: config.poolMax,
     waitForConnections: true,
-    ssl: config.ssl ? {} : undefined,
+    ...(config.ssl ? { ssl: {} } : {}),
   });
 
   // Note: Our current schema package is PostgreSQL-specific.
@@ -56,12 +56,7 @@ export function createDatabase(config: DatabaseConfig): DatabaseClient {
   }
 
   async function ping(): Promise<void> {
-    const conn = await pool.getConnection();
-    try {
-      await conn.query("SELECT 1");
-    } finally {
-      conn.release();
-    }
+    await pool.execute("SELECT 1");
   }
 
   return { dialect: config.driver, db, close, ping };
