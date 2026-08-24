@@ -128,6 +128,13 @@ describe("csrfProtection exemptions", () => {
     expect(run({ path: "/auth/register" }).passed).toBe(true);
   });
 
+  it("accepts login after the session cookie is gone when the anonymous token is present", () => {
+    const token = generateCsrfToken();
+    expect(
+      run({ path: "/auth/login", cookies: { jf_csrf: token }, header: token }).passed,
+    ).toBe(true);
+  });
+
   it("no longer exempts login", () => {
     expect(run({ path: "/auth/login" }).passed).toBe(false);
   });

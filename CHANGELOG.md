@@ -241,6 +241,12 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The admin sidebar reads the installed version from `package.json` instead of a
+  hardcoded `v0.1.1`.
+- Signing out no longer clears the CSRF cookie without replacing it. Client-side
+  navigation to `/login` then posted without a token and failed with "Invalid
+  CSRF token". Logout now issues a fresh anonymous token, and the login page
+  asks `/api/auth/csrf` if the cookie is missing.
 - Structured-data `description` is no longer HTML-encoded before being placed in
   JSON, so `&` and quotes reach consumers as written instead of as `&amp;`
 - `nodemailer` in `apps/server` was pinned to `^7.0.13` while the root manifest

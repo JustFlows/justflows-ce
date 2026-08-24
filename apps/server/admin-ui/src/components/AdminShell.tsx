@@ -15,12 +15,22 @@ export default function AdminShell() {
   const { pathname } = useLocation();
   const { t, locale, setLocale } = useT();
   const [navOpen, setNavOpen] = useState(false);
+  const [version, setVersion] = useState("");
   // Domains carry the pages of whichever plugins are installed right now.
   const { domains } = usePluginMenu();
   const activeDomain = findDomainForPath(pathname, domains);
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => setNavOpen(false), [pathname]);
+
+  useEffect(() => {
+    fetch("/api/updates")
+      .then((r) => r.json())
+      .then((data: { version?: string }) => {
+        if (data.version) setVersion(data.version);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!navOpen) return;
@@ -90,7 +100,7 @@ export default function AdminShell() {
           <button type="button" className="jf-sidebar__signout" onClick={logout}>
             {t("common.signOut")}
           </button>
-          <div className="jf-sidebar__version">Justflows v0.1.1</div>
+          <div className="jf-sidebar__version">{version ? `Justflows v${version}` : "Justflows"}</div>
         </div>
       </aside>
 

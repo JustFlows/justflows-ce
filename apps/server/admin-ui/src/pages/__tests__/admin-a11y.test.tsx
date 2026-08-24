@@ -26,6 +26,7 @@ function mockFetch(): void {
       if (path.includes("/api/bootstrap/status")) return jsonResponse({ ready: true });
       if (path.includes("/api/install/status")) return jsonResponse({ tokenRequired: false, tokenFile: null });
       if (path.includes("/api/auth/registration")) return jsonResponse({ enabled: false });
+      if (path.includes("/api/auth/csrf")) return jsonResponse({ ok: true });
       if (path.includes("/api/content-types")) {
         return jsonResponse({
           types: [

@@ -2,12 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import { readCsrfCookie } from "./lib/csrf";
 import "./styles/admin.css";
-
-function readCsrfCookie(): string | null {
-  const match = document.cookie.match(/(?:^|; )jf_csrf=([^;]*)/);
-  return match ? decodeURIComponent(match[1]!) : null;
-}
 
 /** The CSRF token authenticates requests to this origin; nowhere else may see it. */
 function isSameOrigin(input: RequestInfo | URL): boolean {
