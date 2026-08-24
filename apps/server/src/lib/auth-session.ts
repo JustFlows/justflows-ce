@@ -18,7 +18,7 @@ export async function revokeUserSessions(userId: string, siteId: string): Promis
       [userId, siteId],
     );
   } catch (err) {
-    console.error("[justflows] could not revoke sessions for user", logSafe(userId), err);
+    console.error("[justflows] could not revoke sessions for user", JSON.stringify(logSafe(userId)), err);
   }
 }
 

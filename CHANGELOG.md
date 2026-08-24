@@ -28,9 +28,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - Theme file reads (`justflows-theme.json`, patterns, demo home, styles) stay inside
   `themes/` or `packages-installed/`. A theme id or stored `installedPath` can no
   longer be joined straight into `readFileSync`.
-- `/install`, `/login`, and `/register` are rate-limited before they `sendFile` the
-  admin SPA. Unhandled-error and session-revocation logs no longer interpolate
-  request or user values into a `console` format string.
+- `/install`, `/login`, and `/register` are rate-limited with `express-rate-limit`
+  before they `sendFile` the admin SPA. Unhandled-error and session-revocation
+  logs pass request values through `logSafe` and `JSON.stringify` so they cannot
+  inject log lines or format strings.
 - CSS-provider default `input.css` is created with `wx` (no exists-then-write
   race). Bootstrap log tails `fstat` the already-open descriptor.
 - CI no longer runs `actions/dependency-review-action`. That action needs GitHub

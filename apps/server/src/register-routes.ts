@@ -208,7 +208,11 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // in development, and any handler that throws without its own catch would
   // otherwise leak internals to an anonymous caller.
   app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error("[justflows] unhandled error", logSafe(req.method), logSafe(req.path), err);
+    console.error(
+      "[justflows] unhandled error",
+      JSON.stringify({ method: logSafe(req.method), path: logSafe(req.path) }),
+      err,
+    );
     if (res.headersSent) return;
     if (req.path.startsWith("/api/")) {
       res.status(500).json({ error: "Internal server error" });
