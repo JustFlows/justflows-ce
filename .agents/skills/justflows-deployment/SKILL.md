@@ -16,3 +16,5 @@ Read affected paths in `docker/`, `scripts/`, `server.js`, `.env.production.exam
 - Preserve graceful shutdown, health behavior, writable paths, proxy headers, and non-root permissions.
 
 Verify the relevant artifact or container path when possible, not only compilation. Report production paths that could not be exercised.
+
+- When syncing private → public, keep `.github/workflows/ci.yml` free of `actions/dependency-review-action`. That action requires GitHub Dependency graph, which `justflows-ce` does not have, and has failed public PRs more than once. Leave advisory gating on `pnpm audit --audit-level high`.

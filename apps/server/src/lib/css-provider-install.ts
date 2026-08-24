@@ -77,18 +77,24 @@ async function runPostInstall(
         `CSS provider postInstall.input must stay inside the package directory (got "${inputRel}")`,
       );
     }
-    if (fs.existsSync(inputSrc)) {
+    try {
       await fsp.copyFile(inputSrc, inputDest);
       copied = true;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
     }
   }
 
-  if (!copied && !fs.existsSync(inputDest)) {
-    await fsp.writeFile(
-      inputDest,
-      "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n",
-      "utf-8",
-    );
+  if (!copied) {
+    try {
+      await fsp.writeFile(
+        inputDest,
+        "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n",
+        { encoding: "utf-8", flag: "wx" },
+      );
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    }
   }
 
   const outputRel = typeof cfg.output === "string" ? cfg.output.trim() : "";

@@ -25,6 +25,17 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Security
 
+- Theme file reads (`justflows-theme.json`, patterns, demo home, styles) stay inside
+  `themes/` or `packages-installed/`. A theme id or stored `installedPath` can no
+  longer be joined straight into `readFileSync`.
+- `/install`, `/login`, and `/register` are rate-limited before they `sendFile` the
+  admin SPA. Unhandled-error and session-revocation logs no longer interpolate
+  request or user values into a `console` format string.
+- CSS-provider default `input.css` is created with `wx` (no exists-then-write
+  race). Bootstrap log tails `fstat` the already-open descriptor.
+- CI no longer runs `actions/dependency-review-action`. That action needs GitHub
+  Dependency graph, which public `justflows-ce` does not enable, so the job failed
+  every PR. High/critical advisory gating remains `pnpm audit --audit-level high`.
 - Fixed stored cross-site scripting in the SEO JSON-LD block. `buildSeoHeadHtml`
   serialised the page name, description, URL, and image with `JSON.stringify`,
   which escapes neither `<` nor `/`, so a content title or `seoTitle` field

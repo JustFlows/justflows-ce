@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { getDb } from "./db.js";
+import { logSafe } from "./log-safe.js";
 import { getSession, setSessionCookie, type SessionPayload } from "./session.js";
 
 /**
@@ -17,7 +18,7 @@ export async function revokeUserSessions(userId: string, siteId: string): Promis
       [userId, siteId],
     );
   } catch (err) {
-    console.error("[justflows] could not revoke sessions for user", userId, err);
+    console.error("[justflows] could not revoke sessions for user", logSafe(userId), err);
   }
 }
 

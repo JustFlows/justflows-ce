@@ -88,19 +88,24 @@ function jobStatus(root) {
 
 function readLogTail(root, maxBytes = 64 * 1024) {
   const file = logFile(root);
+  let fd;
   try {
-    const stat = fs.statSync(file);
+    fd = fs.openSync(file, "r");
+    const stat = fs.fstatSync(fd);
     const start = Math.max(0, stat.size - maxBytes);
-    const fd = fs.openSync(file, "r");
-    try {
-      const buf = Buffer.alloc(stat.size - start);
-      fs.readSync(fd, buf, 0, buf.length, start);
-      return buf.toString("utf8");
-    } finally {
-      fs.closeSync(fd);
-    }
+    const buf = Buffer.alloc(stat.size - start);
+    fs.readSync(fd, buf, 0, buf.length, start);
+    return buf.toString("utf8");
   } catch {
     return "";
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // already closed or never usable
+      }
+    }
   }
 }
 

@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getJfRoot } from "./jf-root.js";
+import { resolvePathUnderBase } from "./safe-path.js";
 import type { BlockNode } from "./types.js";
+
+const THEME_ID_RE = /^[a-z0-9][a-z0-9._-]{0,120}$/i;
 
 export function themesDir(): string {
   return path.join(getJfRoot(), "themes");
@@ -12,17 +15,33 @@ export function packagesDir(): string {
   return path.isAbsolute(rel) ? rel : path.join(getJfRoot(), rel);
 }
 
+function safeThemeId(themeId: string): string | null {
+  const id = themeId.trim();
+  if (!THEME_ID_RE.test(id) || id.includes("..")) return null;
+  return id;
+}
+
 /** Map theme id (e.g. justflows.default) to folder slug (default). */
 export function themeSlugFromId(themeId: string): string {
   const parts = themeId.split(".");
   return parts[parts.length - 1] ?? themeId;
 }
 
+function themeDirUnderKnownRoots(dir: string): string | null {
+  const resolved = path.resolve(dir);
+  for (const root of [packagesDir(), themesDir()]) {
+    const rel = path.relative(root, resolved);
+    if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) continue;
+    const trusted = resolvePathUnderBase(root, rel);
+    if (trusted) return trusted;
+  }
+  return null;
+}
+
 function isThemePackageDir(dir: string): boolean {
-  return (
-    fs.existsSync(path.join(dir, "justflows-theme.json")) ||
-    fs.existsSync(path.join(dir, "justflows.json"))
-  );
+  const manifest = resolvePathUnderBase(dir, "justflows-theme.json");
+  const legacy = resolvePathUnderBase(dir, "justflows.json");
+  return Boolean((manifest && fs.existsSync(manifest)) || (legacy && fs.existsSync(legacy)));
 }
 
 function compareVersions(a: string, b: string): number {
@@ -37,44 +56,67 @@ function compareVersions(a: string, b: string): number {
 }
 
 function latestInstalledThemeDir(themeId: string): string | null {
-  const root = path.join(packagesDir(), "themes", themeId);
-  if (!fs.existsSync(root)) return null;
+  const id = safeThemeId(themeId);
+  if (!id) return null;
+  const themesRoot = resolvePathUnderBase(packagesDir(), "themes");
+  if (!themesRoot) return null;
+  const root = resolvePathUnderBase(themesRoot, id);
+  if (!root) return null;
+  try {
+    if (!fs.statSync(root).isDirectory()) return null;
+  } catch {
+    return null;
+  }
   if (isThemePackageDir(root)) return root;
 
-  const versions = fs
-    .readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort(compareVersions)
-    .reverse();
+  let versions: string[];
+  try {
+    versions = fs
+      .readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort(compareVersions)
+      .reverse();
+  } catch {
+    return null;
+  }
 
   for (const version of versions) {
-    const dir = path.join(root, version);
-    if (isThemePackageDir(dir)) return dir;
+    if (!THEME_ID_RE.test(version) || version.includes("..")) continue;
+    const dir = resolvePathUnderBase(root, version);
+    if (dir && isThemePackageDir(dir)) return dir;
   }
   return null;
 }
 
 export function resolveThemeDir(themeId: string, installedPath?: string | null): string | null {
-  if (installedPath && isThemePackageDir(installedPath)) return installedPath;
+  if (installedPath) {
+    const trusted = themeDirUnderKnownRoots(installedPath);
+    if (trusted && isThemePackageDir(trusted)) return trusted;
+  }
 
   const installed = latestInstalledThemeDir(themeId);
   if (installed) return installed;
 
-  const slug = themeSlugFromId(themeId);
-  const bundled = path.join(themesDir(), slug);
-  if (isThemePackageDir(bundled)) return bundled;
+  const id = safeThemeId(themeId);
+  if (!id) return null;
 
-  if (themeId === "justflows.default") {
-    const fallback = path.join(themesDir(), "default");
-    if (isThemePackageDir(fallback)) return fallback;
+  const slug = themeSlugFromId(id);
+  if (!THEME_ID_RE.test(slug) || slug.includes("..")) return null;
+  const bundled = resolvePathUnderBase(themesDir(), slug);
+  if (bundled && isThemePackageDir(bundled)) return bundled;
+
+  if (id === "justflows.default") {
+    const fallback = resolvePathUnderBase(themesDir(), "default");
+    if (fallback && isThemePackageDir(fallback)) return fallback;
   }
 
   return null;
 }
 
-function readJsonFile<T>(filePath: string): T | null {
-  if (!fs.existsSync(filePath)) return null;
+function readJsonFile<T>(baseDir: string, ...segments: string[]): T | null {
+  const filePath = resolvePathUnderBase(baseDir, ...segments);
+  if (!filePath) return null;
   try {
     return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
   } catch {
@@ -87,13 +129,25 @@ export function loadThemeStyles(themeId: string, installedPath?: string | null):
   const dir = resolveThemeDir(themeId, installedPath);
   if (!dir) return "";
 
-  const stylesDir = path.join(dir, "styles");
-  if (!fs.existsSync(stylesDir)) return "";
+  const stylesDir = resolvePathUnderBase(dir, "styles");
+  if (!stylesDir) return "";
+  try {
+    if (!fs.statSync(stylesDir).isDirectory()) return "";
+  } catch {
+    return "";
+  }
 
   return ["global.css", "components.css", "blocks.css"]
-    .map((name) => path.join(stylesDir, name))
-    .filter((file) => fs.existsSync(file))
-    .map((file) => fs.readFileSync(file, "utf8"))
+    .map((name) => resolvePathUnderBase(stylesDir, name))
+    .filter((file): file is string => Boolean(file))
+    .map((file) => {
+      try {
+        return fs.readFileSync(file, "utf8");
+      } catch {
+        return "";
+      }
+    })
+    .filter(Boolean)
     .join("\n\n");
 }
 
@@ -111,8 +165,13 @@ export interface ThemePattern extends ThemePatternMeta {
 function patternsDir(themeId: string, installedPath?: string | null): string | null {
   const dir = resolveThemeDir(themeId, installedPath);
   if (!dir) return null;
-  const patterns = path.join(dir, "patterns");
-  return fs.existsSync(patterns) ? patterns : null;
+  const patterns = resolvePathUnderBase(dir, "patterns");
+  if (!patterns) return null;
+  try {
+    return fs.statSync(patterns).isDirectory() ? patterns : null;
+  } catch {
+    return null;
+  }
 }
 
 export function listThemePatterns(themeId: string, installedPath?: string | null): ThemePatternMeta[] {
@@ -122,7 +181,7 @@ export function listThemePatterns(themeId: string, installedPath?: string | null
   const results: ThemePatternMeta[] = [];
   for (const name of fs.readdirSync(dir)) {
     if (!name.endsWith(".json")) continue;
-    const data = readJsonFile<ThemePatternMeta>(path.join(dir, name));
+    const data = readJsonFile<ThemePatternMeta>(dir, name);
     if (!data?.id) continue;
     results.push({
       id: data.id,
@@ -143,8 +202,8 @@ export function loadThemePattern(
   if (!dir) return null;
 
   const safeId = patternId.replace(/[^a-z0-9_-]/gi, "");
-  const file = path.join(dir, `${safeId}.json`);
-  const data = readJsonFile<ThemePattern>(file);
+  if (!safeId) return null;
+  const data = readJsonFile<ThemePattern>(dir, `${safeId}.json`);
   if (!data?.blocks || !Array.isArray(data.blocks)) return null;
 
   return {
@@ -160,8 +219,7 @@ export function loadThemeDemoHome(themeId: string, installedPath?: string | null
   const dir = resolveThemeDir(themeId, installedPath);
   if (!dir) return null;
 
-  const demoFile = path.join(dir, "demo", "home.json");
-  const data = readJsonFile<{ blocks?: BlockNode[] }>(demoFile);
+  const data = readJsonFile<{ blocks?: BlockNode[] }>(dir, "demo", "home.json");
   if (!data?.blocks || !Array.isArray(data.blocks)) return null;
   return data.blocks;
 }

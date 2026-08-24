@@ -11,6 +11,7 @@ function loadGate(): {
   bootstrapSpawnAllowed: (root: string, env?: NodeJS.ProcessEnv) => boolean;
   removeBootstrapIndex: (root: string, env?: NodeJS.ProcessEnv) => boolean;
   depsReady: (root: string) => boolean;
+  readLogTail: (root: string, maxBytes?: number) => string;
 } {
   const candidates = [
     path.resolve(process.cwd(), "../../scripts/bootstrap-gate.cjs"),
@@ -78,6 +79,14 @@ describe("bootstrap gate", () => {
   it("treats missing express as not ready", () => {
     const root = tempRoot();
     expect(gate.depsReady(root)).toBe(false);
+  });
+
+  it("reads the tail of the bootstrap log after opening the file", () => {
+    const root = tempRoot();
+    fs.mkdirSync(path.join(root, "tmp"));
+    fs.writeFileSync(path.join(root, "tmp", "bootstrap.log"), "hello-setup\n");
+    expect(gate.readLogTail(root)).toContain("hello-setup");
+    expect(gate.readLogTail(root, 5)).toBe("etup\n");
   });
 
   it("treats a present server bundle as satisfying workspace packages", () => {
