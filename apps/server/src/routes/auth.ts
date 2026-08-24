@@ -2,7 +2,7 @@ import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getDb } from "../lib/db.js";
-import { clearSessionCookie, getSession, setSessionCookie } from "../lib/session.js";
+import { clearSessionCookie, getSession, setCsrfCookie, setSessionCookie } from "../lib/session.js";
 import { clientIp, consumeRateLimit } from "../lib/rate-limit.js";
 import { hashPassword, needsRehash, verifyPassword } from "../lib/password.js";
 import { getGeneralSettings } from "../lib/general-settings.js";
@@ -10,6 +10,11 @@ import { getSiteId } from "../lib/site-settings.js";
 import { isInstalled } from "../middleware/install-guard.js";
 
 const router = Router();
+
+router.get("/csrf", (req, res) => {
+  if (!req.cookies?.jf_csrf) setCsrfCookie(res);
+  res.json({ ok: true });
+});
 
 const LoginSchema = z.object({
   email: z.string().email(),

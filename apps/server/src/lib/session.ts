@@ -121,7 +121,9 @@ export function setCsrfCookie(res: Response, userId?: string): void {
 
 export function clearSessionCookie(res: Response): void {
   res.clearCookie(COOKIE_NAME, { httpOnly: true, path: "/" });
-  res.clearCookie(CSRF_COOKIE, { httpOnly: false, path: "/" });
+  // Sign-out is a client-side navigate to /login, not a full GET /login, so
+  // the SPA would otherwise POST login with no jf_csrf cookie and fail CSRF.
+  setCsrfCookie(res);
 }
 
 export function generateCsrfToken(): string {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { JustflowsLogo } from "@components/JustflowsLogo";
+import { ensureCsrfCookie } from "../lib/csrf";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export default function LoginPage() {
     setError("");
 
     try {
+      await ensureCsrfCookie();
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
