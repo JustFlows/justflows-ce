@@ -161,6 +161,30 @@ function touchPassengerRestart() {
   fs.writeFileSync(path.join(tmp, "restart.txt"), `${Date.now()}\n`);
 }
 
+function hasPnpmNodeModules() {
+  return fs.existsSync(path.join(ROOT, "node_modules", ".pnpm"));
+}
+
+function stashPnpmNodeModules() {
+  if (!hasPnpmNodeModules()) return null;
+  const hidden = path.join(ROOT, "node_modules.pnpm-hidden");
+  log("Moving pnpm node_modules aside so npm can install a production tree…");
+  fs.rmSync(hidden, { recursive: true, force: true });
+  fs.renameSync(path.join(ROOT, "node_modules"), hidden);
+  return hidden;
+}
+
+function restorePnpmNodeModules(hidden) {
+  if (!hidden || !fs.existsSync(hidden)) return;
+  fs.rmSync(path.join(ROOT, "node_modules"), { recursive: true, force: true });
+  fs.renameSync(hidden, path.join(ROOT, "node_modules"));
+}
+
+function restoreDevManifests() {
+  if (!fs.existsSync(path.join(ROOT, ".git"))) return;
+  run("node", ["scripts/restore-hosting.js"]);
+}
+
 function main() {
   const buildOnly = process.argv.includes("--build-only");
   const [major] = process.versions.node.split(".").map(Number);
@@ -173,8 +197,18 @@ function main() {
     log("Patching package.json files for npm…");
     runOrFail("node", ["scripts/prepare-hosting.js"]);
 
+    const pnpmTree = stashPnpmNodeModules();
+
     log("Installing production dependencies…");
-    runOrFail("npm", ["install", "--omit=dev", "--ignore-scripts"]);
+    const installCode = run("npm", ["install", "--omit=dev", "--ignore-scripts"]);
+    if (installCode !== 0) {
+      restorePnpmNodeModules(pnpmTree);
+      restoreDevManifests();
+      process.exit(installCode);
+    }
+    if (pnpmTree) {
+      fs.rmSync(pnpmTree, { recursive: true, force: true });
+    }
   }
 
   if (needsBuild()) {
@@ -208,12 +242,12 @@ Plesk Node.js settings:
   • Application mode: production
   • Click "Restart App"
 
-Run Node.js commands tab (setup only):
-  npm run install:all
+Open your domain in a browser to finish setup.
+  (Optional terminal fallback: npm run install:all)
 
 Test in browser:
-  https://your-domain/api/healthz   ← first!
-  https://your-domain/install
+  https://your-domain/               ← first-run page, then /install
+  https://your-domain/api/healthz
 
 Clean up if present: .htaccess  .next/
 `);

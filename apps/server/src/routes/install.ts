@@ -6,8 +6,17 @@ import { resetDb } from "../lib/db.js";
 import { runAllMigrations } from "../lib/run-migrations.js";
 import { isInstalled } from "../middleware/install-guard.js";
 import { hashPassword } from "../lib/password.js";
+import {
+  installToken,
+  installTokenFileExists,
+  installTokenRequired,
+  isLoopbackAddress,
+  tokenMatches,
+} from "../lib/install-token.js";
+import { getJustflowsVersion } from "../lib/version.js";
 
 const router = Router();
+
 
 const Schema = z.object({
   db: z.object({
@@ -18,21 +27,40 @@ const Schema = z.object({
     username: z.string().min(1),
     password: z.string(),
   }),
+  token: z.string().optional(),
   site: z.object({
     name: z.string().min(1),
     description: z.string().optional(),
-    url: z.string().min(1),
+    url: z
+      .string()
+      .min(1)
+      .max(2048)
+      .refine((value) => {
+        try {
+          const parsed = new URL(value);
+          return parsed.protocol === "http:" || parsed.protocol === "https:";
+        } catch {
+          return false;
+        }
+      }, "Site URL must be a full http:// or https:// address"),
   }),
   account: z.object({
     email: z.string().email(),
     username: z.string().min(2).max(60),
     displayName: z.string().min(1),
-    password: z.string().min(8),
+    password: z.string().min(12, "Password must be at least 12 characters").max(1024),
   }),
 });
 
 function sseEvent(type: "step" | "done" | "error", message: string): string {
   return `data: ${JSON.stringify({ type, message })}\n\n`;
+}
+
+/** Emit a single error event and close the stream. */
+function emit0(res: { setHeader(k: string, v: string): unknown; write(s: string): unknown; end(): unknown }, message: string): void {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.write(sseEvent("error", message));
+  res.end();
 }
 
 function now(): string {
@@ -78,8 +106,20 @@ async function connectDb(driver: "postgres" | "mysql" | "mariadb", url: string):
   };
 }
 
-router.get("/status", (_req, res) => {
-  res.json({ installed: isInstalled() });
+router.get("/status", (req, res) => {
+  const installed = isInstalled();
+  // Mint on this request so `pnpm dev` (no root server.js) still writes the
+  // file before the owner is asked to paste it.
+  if (!installed && installTokenRequired()) {
+    installToken();
+  }
+  // Deliberately does not include the token. It reports only whether one is
+  // needed and where to find it, so the wizard can show the right instructions.
+  res.json({
+    installed,
+    tokenRequired: !installed && installTokenRequired() && !isLoopbackAddress(req.ip),
+    tokenFile: installTokenFileExists() ? "install-token/TOKEN.txt" : null,
+  });
 });
 
 router.get("/complete", (_req, res) => {
@@ -108,17 +148,39 @@ router.post("/", async (req, res) => {
     return;
   }
 
+  if (installTokenRequired() && !isLoopbackAddress(req.ip)) {
+    if (!tokenMatches(body.data.token)) {
+      emit0(
+        res,
+        installTokenFileExists()
+          ? "That installation token is not correct. Open install-token/TOKEN.txt in your site's " +
+              "folder (via FTP or your host's File Manager) and copy the token from there."
+          : "An installation token is required. Restart the app to generate one — it is written to " +
+              "install-token/TOKEN.txt in your site's folder and printed to the server log.",
+      );
+      return;
+    }
+  }
+
   const { db, site, account } = body.data;
   const encodedUser = encodeURIComponent(db.username);
   const encodedPass = encodeURIComponent(db.password);
-  const dbUrl = `${db.driver}://${encodedUser}:${encodedPass}@${db.host}:${db.port}/${db.database}`;
+  // Host and database name were interpolated raw, unlike the credentials, so a
+  // value containing "@" or "?" could rewrite the rest of the connection string.
+  const encodedHost = encodeURIComponent(db.host);
+  const encodedName = encodeURIComponent(db.database);
+  const dbUrl = `${db.driver}://${encodedUser}:${encodedPass}@${encodedHost}:${db.port}/${encodedName}`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
 
   const emit = (type: "step" | "done" | "error", message: string) => {
     res.write(sseEvent(type, message));
+    const flushable = res as typeof res & { flush?: () => void };
+    flushable.flush?.();
   };
 
   try {
@@ -127,9 +189,13 @@ router.post("/", async (req, res) => {
     try {
       sql = await connectDb(db.driver, dbUrl);
     } catch (e) {
+      // Deliberately uniform: reporting the driver's own message let an
+      // unauthenticated caller tell "connection refused" from "authentication
+      // failed" and map internal hosts through the install form.
+      console.error("[justflows] install: database connection failed:", e);
       emit(
         "error",
-        `Cannot connect to ${db.driver} at ${db.host}:${db.port}. Check the hostname, port, username and password. (${String(e)})`,
+        `Cannot connect to the ${db.driver} database. Check the hostname, port, database name, username and password.`,
       );
       res.end();
       return;
@@ -234,7 +300,7 @@ router.post("/", async (req, res) => {
       dbPassword: db.password,
       appUrl: site.url,
       appSecret: randomBytes(48).toString("hex"),
-      version: "0.1.1",
+      version: getJustflowsVersion(),
     });
 
     resetDb();

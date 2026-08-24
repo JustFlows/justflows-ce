@@ -51,6 +51,21 @@ function esc(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
+/**
+ * Characters that let a JSON string escape its <script> element or break the
+ * surrounding JavaScript. JSON.stringify leaves all of them literal, so a value
+ * containing "</script>" would close the block and the rest would parse as HTML.
+ */
+const SCRIPT_UNSAFE = /[<>&\u2028\u2029]/g;
+
+/** Serialize a value for embedding inside <script type="application/ld+json">. */
+export function jsonLdPayload(value: unknown): string {
+  return JSON.stringify(value).replace(
+    SCRIPT_UNSAFE,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
+}
+
 export function siteOrigin(): string {
   return (process.env.APP_URL ?? "").replace(/\/$/, "");
 }
@@ -127,8 +142,9 @@ export function buildSeoHeadHtml(
   settings: SeoSettings,
   origin = siteOrigin(),
 ): string {
+  const descriptionRaw = resolveSeoDescription(page, settings);
   const title = esc(resolveSeoTitle(page, settings));
-  const description = esc(resolveSeoDescription(page, settings));
+  const description = esc(descriptionRaw);
   const path = page.path.startsWith("/") ? page.path : `/${page.path}`;
   const url = origin ? `${origin}${path}` : path;
   const canonicalRaw = (page.canonical ?? "").trim() || url;
@@ -146,11 +162,11 @@ export function buildSeoHeadHtml(
     `<meta name="twitter:card" content="${twitterCard}">`,
     twitter ? `<meta name="twitter:site" content="${esc(twitter)}">` : "",
     image ? `<meta name="twitter:image" content="${esc(image)}">` : "",
-    `<script type="application/ld+json">${JSON.stringify({
+    `<script type="application/ld+json">${jsonLdPayload({
       "@context": "https://schema.org",
       "@type": "WebPage",
       name: page.title,
-      description,
+      description: descriptionRaw,
       url,
       ...(image ? { image } : {}),
     })}</script>`,

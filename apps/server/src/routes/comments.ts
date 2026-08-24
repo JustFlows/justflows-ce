@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { getDb } from "../lib/db.js";
-import { requireRole, requireSession } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -9,9 +9,14 @@ function now(): string {
   return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
 }
 
-router.get("/", requireSession, async (req, res) => {
+const COMMENT_STATUSES = new Set(["pending", "approved", "spam", "trash"]);
+
+// Comment rows carry commenter names and email addresses. Read access matches
+// the PATCH handler below rather than "any signed-in user".
+router.get("/", requireRole("administrator", "editor"), async (req, res) => {
   const session = req.session!;
-  const status = (req.query.status as string) ?? "pending";
+  const requested = (req.query.status as string) ?? "pending";
+  const status = COMMENT_STATUSES.has(requested) ? requested : "pending";
   const limit = Math.min(Number(req.query.limit ?? "30"), 100);
 
   const db = await getDb();

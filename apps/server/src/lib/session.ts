@@ -14,6 +14,14 @@ export interface SessionPayload {
   role: string;
   email: string;
   iat: number;
+  /**
+   * Bumped in the database whenever every existing session for this user must
+   * stop working — a password change, or an explicit "sign out everywhere".
+   * The token is stateless, so this counter is the only revocation mechanism;
+   * resolveSession compares it against the stored value on every request.
+   * Optional so that tokens issued before this field existed still verify.
+   */
+  tv?: number;
 }
 
 const EXAMPLE_SECRETS = new Set([
@@ -86,12 +94,23 @@ export function setSessionCookie(res: Response, payload: Omit<SessionPayload, "i
     maxAge: TTL_SECONDS * 1000,
     secure,
   });
-  setCsrfCookie(res);
+  setCsrfCookie(res, payload.userId);
 }
 
-export function setCsrfCookie(res: Response): void {
+/**
+ * Derive the CSRF token from the session rather than generating a fresh random
+ * value. A plain double-submit token only proves the caller can read a cookie on
+ * this domain, so anyone able to set one — via a subdomain they control, or a
+ * cookie-injection bug — could forge both halves. Deriving it from APP_SECRET
+ * and the user id means a token is only valid for the session it belongs to.
+ */
+export function csrfTokenFor(userId: string): string {
+  return createHmac("sha256", secret()).update(`csrf:${userId}`).digest("base64url");
+}
+
+export function setCsrfCookie(res: Response, userId?: string): void {
   const secure = process.env.NODE_ENV === "production" || (process.env.APP_URL ?? "").startsWith("https://");
-  res.cookie(CSRF_COOKIE, generateCsrfToken(), {
+  res.cookie(CSRF_COOKIE, userId ? csrfTokenFor(userId) : generateCsrfToken(), {
     httpOnly: false,
     sameSite: "lax",
     path: "/",

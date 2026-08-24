@@ -25,5 +25,9 @@ avoids that.
 Install by dropping the file on Admin → **Plugins**. The host does not run
 `npm install` or compile TypeScript from the archive — ship JavaScript.
 
-The installer rejects path traversal, oversized archives, and invalid
+Since 0.1.2 the installer refuses an unsigned `.jfpkg` unless you pin its
+SHA-256 digest in `JUSTFLOWS_TRUSTED_PACKAGE_DIGESTS`, or you set
+`JUSTFLOWS_ALLOW_UNSIGNED_PACKAGES=1` (local development only).
+
+The installer also rejects path traversal, oversized archives, and invalid
 manifests. See `packages/installer/src/archive-safety.ts`.

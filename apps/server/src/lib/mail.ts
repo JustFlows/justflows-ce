@@ -13,6 +13,7 @@ import {
   type SmtpSecure,
 } from "./mail-config.js";
 import { getSiteId, getSiteSetting, setSiteSetting } from "./site-settings.js";
+import { decryptSecret, encryptSecret } from "./secret-box.js";
 
 export type { MailConfig, MailTransport, SmtpSecure };
 
@@ -91,7 +92,11 @@ export async function getMailConfig(siteId?: string | null): Promise<MailConfig>
     smtpPort: asInt(raw.smtpPort ?? env.smtpPort, DEFAULT_MAIL_CONFIG.smtpPort),
     smtpSecure: isSmtpSecure(secureRaw) ? secureRaw : DEFAULT_MAIL_CONFIG.smtpSecure,
     smtpUser: asString(raw.smtpUser ?? env.smtpUser, DEFAULT_MAIL_CONFIG.smtpUser),
-    smtpPass: asString(raw.smtpPass ?? env.smtpPass, DEFAULT_MAIL_CONFIG.smtpPass),
+    // Stored encrypted since 0.1.2; decryptSecret passes plaintext through so
+    // configs written by an older release keep working until the next save.
+    smtpPass: raw.smtpPass
+      ? decryptSecret(raw.smtpPass)
+      : asString(env.smtpPass, DEFAULT_MAIL_CONFIG.smtpPass),
   };
 }
 
@@ -120,7 +125,10 @@ export async function saveMailConfig(
         ? current.smtpPass
         : patch.smtpPass,
   };
-  await setSiteSetting(siteId, "mail", next);
+  await setSiteSetting(siteId, "mail", {
+    ...next,
+    smtpPass: next.smtpPass ? encryptSecret(next.smtpPass) : "",
+  });
 }
 
 async function fromHeader(config: MailConfig): Promise<string | null> {

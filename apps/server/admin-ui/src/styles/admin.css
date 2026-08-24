@@ -1662,3 +1662,49 @@ input[type="range"] { width: 100%; accent-color: var(--jf-accent); }
 }
 
 .jf-input--invalid { border-color: var(--jf-danger); }
+
+/* ------------------------------------------------- setup key callout --- */
+/* Instructions for finding the install token. Shared-hosting customers reach
+   their files through cPanel or FTP and never see a terminal, so this has to
+   carry the whole explanation rather than pointing at a server log. */
+
+.jf-callout {
+  margin-top: 0.5rem;
+  padding: 0.85rem 1rem;
+  background: var(--jf-accent-soft);
+  border: 1px solid var(--jf-border);
+  border-radius: var(--jf-radius-sm);
+}
+
+.jf-callout__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--jf-text);
+}
+
+.jf-callout__steps {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--jf-text-2);
+}
+
+.jf-callout__steps code {
+  padding: 0.05em 0.3em;
+  background: var(--jf-surface);
+  border: 1px solid var(--jf-border);
+  border-radius: 3px;
+  font-size: 0.95em;
+}
+
+.jf-callout__note {
+  margin: 0.6rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--jf-text-3);
+}

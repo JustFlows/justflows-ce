@@ -130,8 +130,31 @@ async function loadCssProviderAssets(): Promise<ReturnType<typeof resolveProvide
   });
 }
 
+/**
+ * The form handler redirects back with ?submitted=<formId> so the confirmation
+ * renders instead of the form. Any visitor can append it to any URL, so it is
+ * constrained to a plausible form id and only honoured when the request also
+ * carries a same-origin Referer — otherwise it is a free cache-bypass lever on
+ * every page of the site.
+ */
+const FORM_ID_RE = /^[a-z0-9-]{1,40}$/i;
+
 function submittedFormIdFrom(req: Request): string | undefined {
-  return typeof req.query.submitted === "string" ? req.query.submitted : undefined;
+  const value = req.query.submitted;
+  if (typeof value !== "string" || !FORM_ID_RE.test(value)) return undefined;
+  return value;
+}
+
+function isFormConfirmation(req: Request): boolean {
+  if (!submittedFormIdFrom(req)) return false;
+  const referer = req.get("referer");
+  if (!referer) return false;
+  try {
+    const host = new URL(referer).host;
+    return host === req.get("host");
+  } catch {
+    return false;
+  }
 }
 
 async function renderBlockTree(blocks: BlockNode[], submittedFormId?: string): Promise<string> {
@@ -233,14 +256,11 @@ async function sendPublicHtml(
   render: () => Promise<string>,
   status = 200,
 ): Promise<void> {
-  if (preview || typeof req.query.submitted === "string" || !getJfCache().enabled) {
+  const bypass = preview || isFormConfirmation(req);
+  if (bypass || !getJfCache().enabled) {
     res.locals.jfPageCache = "BYPASS";
   }
-  const html = await getCachedPageHtml(
-    pageKey,
-    preview || typeof req.query.submitted === "string",
-    render,
-  );
+  const html = await getCachedPageHtml(pageKey, bypass, render);
   res.status(status).type("html").send(html);
   if (!preview && status < 400) {
     void import("../lib/analytics-public.js")
@@ -412,7 +432,8 @@ router.get("/sitemap.xml", async (_req, res, next) => {
     const xml = await buildSitemapXml(siteId);
     res.type("application/xml").send(xml);
   } catch (err) {
-    res.status(500).type("text/plain").send(String(err));
+    console.error("[justflows] sitemap render failed:", err);
+    res.status(500).type("text/plain").send("Internal server error");
   }
 });
 
@@ -436,7 +457,8 @@ router.get("/", async (req, res, next) => {
       });
     });
   } catch (err) {
-    res.status(500).send(String(err));
+    console.error("[justflows] home render failed:", err);
+    res.status(500).type("text/plain").send("Internal server error");
   }
 });
 
@@ -511,7 +533,8 @@ router.get("/:segment", async (req, res, next) => {
       });
     });
   } catch (err) {
-    res.status(500).send(String(err));
+    console.error("[justflows] page render failed:", err);
+    res.status(500).type("text/plain").send("Internal server error");
   }
 });
 
@@ -572,7 +595,8 @@ router.get("/:locale/:slug", async (req, res, next) => {
       });
     });
   } catch (err) {
-    res.status(500).send(String(err));
+    console.error("[justflows] localised page render failed:", err);
+    res.status(500).type("text/plain").send("Internal server error");
   }
 });
 

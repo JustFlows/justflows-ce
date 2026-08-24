@@ -10,7 +10,7 @@ const router = Router();
 
 const JUSTFLOWS_API_BASE = "https://api.justflows.com";
 
-router.get("/", async (req, res) => {
+router.get("/", requireRole("administrator"), async (req, res) => {
   try {
     const params = new URLSearchParams();
     for (const key of ["q", "category", "channel", "compatibleWith", "type"] as const) {
@@ -21,7 +21,9 @@ router.get("/", async (req, res) => {
     const url = `${JUSTFLOWS_API_BASE}/v1/marketplace${qs ? `?${qs}` : ""}`;
     const upstream = await fetch(url);
     const body = await upstream.text();
-    res.status(upstream.status).type(upstream.headers.get("content-type") ?? "application/json").send(body);
+    // Always JSON. Echoing the upstream Content-Type would let a compromised or
+    // misconfigured registry serve text/html from this site's origin.
+    res.status(upstream.status).type("application/json").send(body);
   } catch (err) {
     res.status(503).json({ error: `Marketplace API unavailable: ${String(err)}` });
   }

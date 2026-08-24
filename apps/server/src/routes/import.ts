@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
-import { getSession } from "../lib/session.js";
+import { requireRole } from "../middleware/auth.js";
 import { getDb } from "../lib/db.js";
 import multer from "multer";
 import { sanitizeHtmlBlock } from "@justflows/blocks";
@@ -34,12 +34,8 @@ function extractAll(xml: string, tag: string): string[] {
   return xml.match(re) ?? [];
 }
 
-router.post("/wordpress", upload.single("file"), async (req, res) => {
-  const session = getSession(req);
-  if (!session || session.role !== "administrator") {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
+router.post("/wordpress", requireRole("administrator"), upload.single("file"), async (req, res) => {
+  const session = req.session!;
 
   try {
     const file = req.file;

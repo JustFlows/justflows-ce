@@ -1,6 +1,6 @@
 {
   "name": "@justflows/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Justflows command-line interface",
   "type": "module",
   "bin": {

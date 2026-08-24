@@ -1,6 +1,6 @@
 {
   "name": "@justflows/server",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Justflows — unified Express server (API + admin + public site)",
   "type": "module",
@@ -28,7 +28,7 @@
     "express": "^5.2.1",
     "multer": "^2.2.0",
     "mysql2": "^3.23.3",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^9.0.5",
     "postgres": "^3.4.9",
     "zod": "^4.4.3"
   },

@@ -86,13 +86,12 @@ export function withGoogleTagCsp(csp: string, inlineScriptHashes: string[] = [])
     for (const source of sources) next.add(source);
     byName.set(directive, [...next]);
   }
+  // Only ever widen script-src with the exact hashes of the snippets we emit.
+  // Falling back to 'unsafe-inline' would silently undo the policy an operator
+  // deliberately configured; if we have no hash, the tag simply does not run.
   const scriptSrc = new Set(byName.get("script-src") ?? []);
   if (!scriptSrc.has("'unsafe-inline'")) {
-    if (inlineScriptHashes.length > 0) {
-      for (const hash of inlineScriptHashes) scriptSrc.add(hash);
-    } else {
-      scriptSrc.add("'unsafe-inline'");
-    }
+    for (const hash of inlineScriptHashes) scriptSrc.add(hash);
   }
   byName.set("script-src", [...scriptSrc]);
   if (!order.includes("script-src")) order.push("script-src");

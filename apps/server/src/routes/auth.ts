@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { pbkdf2, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getDb } from "../lib/db.js";
-import { clearSessionCookie, setSessionCookie } from "../lib/session.js";
+import { clearSessionCookie, getSession, setSessionCookie } from "../lib/session.js";
 import { clientIp, consumeRateLimit } from "../lib/rate-limit.js";
-import { hashPassword } from "../lib/password.js";
+import { hashPassword, needsRehash, verifyPassword } from "../lib/password.js";
 import { getGeneralSettings } from "../lib/general-settings.js";
 import { getSiteId } from "../lib/site-settings.js";
 import { isInstalled } from "../middleware/install-guard.js";
@@ -16,27 +16,6 @@ const LoginSchema = z.object({
   password: z.string().min(1),
 });
 
-const PBKDF2_ITERATIONS = 310_000;
-const KEY_LEN = 32;
-
-async function verifyPassword(password: string, stored: string): Promise<boolean> {
-  const parts = stored.split("$");
-  if (parts.length !== 5 || parts[1] !== "pbkdf2") return false;
-  const salt = parts[3]!;
-  const expected = parts[4]!;
-
-  return new Promise((resolve) => {
-    pbkdf2(password, salt, PBKDF2_ITERATIONS, KEY_LEN, "sha256", (err, key) => {
-      if (err) {
-        resolve(false);
-        return;
-      }
-      const a = Buffer.from(key.toString("hex"), "utf-8");
-      const b = Buffer.from(expected, "utf-8");
-      resolve(a.length === b.length && timingSafeEqual(a, b));
-    });
-  });
-}
 
 router.post("/login", async (req, res) => {
   const ip = clientIp(req);
@@ -67,9 +46,11 @@ router.post("/login", async (req, res) => {
       email: string;
       password_hash: string;
       role: string;
-    }>("SELECT id, site_id, email, password_hash, role FROM users WHERE email = ? LIMIT 1", [
-      normalizedEmail,
-    ]);
+      token_version: number | null;
+    }>(
+      "SELECT id, site_id, email, password_hash, role, token_version FROM users WHERE email = ? LIMIT 1",
+      [normalizedEmail],
+    );
 
     const user = rows[0];
     const valid = user ? await verifyPassword(password, user.password_hash) : false;
@@ -80,11 +61,26 @@ router.post("/login", async (req, res) => {
       return;
     }
 
+    // Successful login is the only moment the plaintext is available, so it is
+    // where an old work factor can be upgraded without asking the user to do
+    // anything. Failure here must not fail the login.
+    if (needsRehash(user.password_hash)) {
+      try {
+        await db.run("UPDATE users SET password_hash = ? WHERE id = ?", [
+          await hashPassword(password),
+          user.id,
+        ]);
+      } catch (err) {
+        console.error("Password rehash failed", err);
+      }
+    }
+
     setSessionCookie(res, {
       userId: user.id,
       siteId: user.site_id,
       role: user.role,
       email: user.email,
+      tv: Number(user.token_version ?? 0),
     });
     res.json({ ok: true });
   } catch (err) {
@@ -93,7 +89,14 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.post("/logout", (_req, res) => {
+router.post("/logout", async (req, res) => {
+  // Clearing the cookie alone left a captured token valid for its full 14-day
+  // life. Bumping the counter ends every session this user has.
+  const session = getSession(req);
+  if (session) {
+    const { revokeUserSessions } = await import("../lib/auth-session.js");
+    await revokeUserSessions(session.userId, session.siteId);
+  }
   clearSessionCookie(res);
   res.json({ ok: true });
 });
@@ -101,7 +104,10 @@ router.post("/logout", (_req, res) => {
 const RegisterSchema = z.object({
   email: z.string().email(),
   username: z.string().min(2).max(60).regex(/^[a-zA-Z0-9._-]+$/, "Username may only contain letters, numbers, dots, underscores and hyphens"),
-  password: z.string().min(8),
+  // NIST SP 800-63B: 8 is the floor, 12+ is the recommendation, and length is
+  // worth far more than composition rules. No breach-corpus check here — that
+  // needs an outbound call and is a deployment decision, not a default.
+  password: z.string().min(12, "Password must be at least 12 characters").max(1024),
   displayName: z.string().min(1).max(255).optional(),
 });
 
@@ -192,6 +198,7 @@ router.post("/register", async (req, res) => {
       siteId,
       role: general.defaultRole,
       email,
+      tv: 0,
     });
 
     const origin = (process.env.APP_URL ?? "").replace(/\/$/, "");
