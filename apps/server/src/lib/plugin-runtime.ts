@@ -65,8 +65,11 @@ async function registerKnownPlugins(): Promise<void> {
   if (!siteId) return;
 
   const db = await getDb();
+  // Only active plugins. Importing a module runs its top-level code, so loading
+  // every installed row meant "installed but not activated" already executed the
+  // package — leaving no safe state in which to inspect one before enabling it.
   const rows = await db.query<{ plugin_id: string; manifest: string | Record<string, unknown> }>(
-    "SELECT plugin_id, manifest FROM plugins WHERE site_id = ?",
+    "SELECT plugin_id, manifest FROM plugins WHERE site_id = ? AND status = 'active'",
     [siteId],
   );
 

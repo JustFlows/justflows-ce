@@ -33,6 +33,18 @@ function findPackageJson(name) {
   return null;
 }
 
+function isWorkspaceSpec(version) {
+  return typeof version === "string" && version.startsWith("workspace:");
+}
+
+function fileSpecFrom(fromDir, name) {
+  const target = findPackageJson(name);
+  if (!target) return null;
+  let rel = path.relative(fromDir, path.dirname(target));
+  if (!rel.startsWith(".")) rel = `./${rel}`;
+  return `file:${rel.replace(/\\/g, "/")}`;
+}
+
 function patchFile(pkgPath) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   let changed = false;
@@ -42,17 +54,15 @@ function patchFile(pkgPath) {
     if (!deps) continue;
 
     for (const [name, version] of Object.entries(deps)) {
-      if (version !== "workspace:*") continue;
+      if (!isWorkspaceSpec(version)) continue;
 
-      const target = findPackageJson(name);
-      if (!target) {
+      const spec = fileSpecFrom(path.dirname(pkgPath), name);
+      if (!spec) {
         console.warn(`[prepare-hosting] Unknown workspace package: ${name} in ${pkgPath}`);
         continue;
       }
 
-      let rel = path.relative(path.dirname(pkgPath), path.dirname(target));
-      if (!rel.startsWith(".")) rel = `./${rel}`;
-      deps[name] = `file:${rel.replace(/\\/g, "/")}`;
+      deps[name] = spec;
       changed = true;
     }
   }
@@ -68,6 +78,32 @@ function patchFile(pkgPath) {
   if (changed) {
     fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
   }
+}
+
+function hoistRootProductionDeps(root) {
+  const deps = { ...(root.dependencies ?? {}) };
+
+  for (const [name, version] of Object.entries(deps)) {
+    if (!isWorkspaceSpec(version)) continue;
+    const spec = fileSpecFrom(ROOT, name);
+    if (spec) deps[name] = spec;
+  }
+
+  const serverPkgPath = path.join(ROOT, "apps/server/package.json");
+  if (fs.existsSync(serverPkgPath)) {
+    const server = JSON.parse(fs.readFileSync(serverPkgPath, "utf-8"));
+    for (const [name, version] of Object.entries(server.dependencies ?? {})) {
+      if (deps[name]) continue;
+      if (isWorkspaceSpec(version) || name.startsWith("@justflows/")) {
+        const spec = fileSpecFrom(ROOT, name);
+        if (spec) deps[name] = spec;
+      } else {
+        deps[name] = version;
+      }
+    }
+  }
+
+  return deps;
 }
 
 function main() {
@@ -86,29 +122,12 @@ function main() {
     patchFile(pkgPath);
   }
 
-  // Root: add production deps npm can install (hoisted for apps/server).
+  // Root: hoist production deps npm can install (including apps/server).
   const rootPkgPath = path.join(ROOT, "package.json");
   fs.copyFileSync(rootPkgPath, path.join(BACKUP_DIR, "root.json"));
 
   const root = JSON.parse(fs.readFileSync(rootPkgPath, "utf-8"));
-  root.dependencies = {
-    express: "^5.1.0",
-    compression: "^1.8.1",
-    "cookie-parser": "^1.4.7",
-    ejs: "^3.1.10",
-    multer: "^2.0.2",
-    mysql2: "^3.15.2",
-    nodemailer: "^7.0.11",
-    postgres: "^3.4.9",
-    zod: "^3.25.76",
-    "@justflows/blocks": "file:packages/blocks",
-    "@justflows/cache": "file:packages/cache",
-    "@justflows/content": "file:packages/content",
-    "@justflows/core": "file:packages/core",
-    "@justflows/installer": "file:packages/installer",
-    "@justflows/plugin-api": "file:packages/plugin-api",
-    "@justflows/sdk": "file:packages/sdk",
-  };
+  root.dependencies = hoistRootProductionDeps(root);
   root.scripts = root.scripts ?? {};
   root.scripts["build:server"] = "node scripts/install-all.js --build-only";
   delete root.workspaces;

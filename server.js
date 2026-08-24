@@ -10,7 +10,10 @@
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
+const { spawn } = require("child_process");
 const { pathToFileURL } = require("url");
+const gate = require("./scripts/bootstrap-gate.cjs");
+const installToken = require("./scripts/install-token.cjs");
 
 const root = __dirname;
 process.env.JF_ROOT = process.env.JF_ROOT || root;
@@ -38,16 +41,53 @@ function loadDotEnv() {
 loadDotEnv();
 
 function isInstalled() {
-  if (process.env.STATE === "INSTALLED") return true;
+  return gate.isInstalled(root);
+}
+
+function sameOrigin(req) {
+  const origin = req.headers.origin;
+  if (!origin) return true;
   try {
-    const envPath = path.join(root, ".env");
-    const contents = fs.readFileSync(envPath, "utf-8");
-    const installed = contents.split("\n").some((line) => line.trim() === "STATE=INSTALLED");
-    if (installed) process.env.STATE = "INSTALLED";
-    return installed;
+    return new URL(origin).host === req.headers.host;
   } catch {
     return false;
   }
+}
+
+function startBootstrap() {
+  const job = gate.jobStatus(root);
+  if (job.status === "running") return { started: false, reason: "already_running" };
+  gate.writeStatus(root, {
+    status: "running",
+    pid: null,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    exitCode: null,
+    error: null,
+  });
+  const child = spawn(process.execPath, [path.join(root, "scripts/bootstrap-install.js")], {
+    cwd: root,
+    detached: true,
+    stdio: "ignore",
+    env: { ...process.env, NODE_ENV: process.env.NODE_ENV ?? "production" },
+  });
+  child.on("error", (err) => {
+    gate.writeStatus(root, {
+      status: "error",
+      finishedAt: new Date().toISOString(),
+      error: String(err.message || err),
+    });
+  });
+  child.unref();
+  return { started: true };
+}
+
+if (isInstalled()) {
+  gate.removeBootstrapIndex(root);
+} else if (installToken.installTokenRequired()) {
+  // Mint before the wizard so File Manager shows install-token/TOKEN.txt
+  // without waiting for the Express app to boot.
+  installToken.ensureInstallToken(root);
 }
 
 const adminDist = path.join(root, "apps/server/admin-ui/dist");
@@ -108,30 +148,35 @@ let bootPromise = null;
 let bootError = null;
 
 function bootFullApp() {
-  if (bootError) return Promise.reject(bootError);
-  if (!bootPromise) {
-    const entry = serverEntry();
-    if (!entry) {
-      bootError = new Error("Server not built — run: npm run install:all");
-      return Promise.reject(bootError);
-    }
-    bootPromise = import(pathToFileURL(entry).href)
-      .then(async (mod) => {
-        const app = typeof mod.createFullApp === "function" ? await mod.createFullApp() : mod.createApp();
-        fullApp = app;
-        return app;
-      })
-      .catch((err) => {
-        bootError = err;
-        console.error("[justflows] Boot failed:", err);
-        throw err;
-      });
+  if (fullApp) return Promise.resolve(fullApp);
+  if (bootPromise) return bootPromise;
+  const entry = serverEntry();
+  if (!entry) {
+    bootError = new Error("Server not built — open this site in a browser to finish setup");
+    return Promise.reject(bootError);
   }
+  const href = pathToFileURL(entry).href;
+  // Node caches a failed ESM evaluation; bust it after npm install finishes.
+  const url = bootError ? `${href}?retry=${Date.now()}` : href;
+  bootError = null;
+  bootPromise = import(url)
+    .then(async (mod) => {
+      const app = typeof mod.createFullApp === "function" ? await mod.createFullApp() : mod.createApp();
+      fullApp = app;
+      return app;
+    })
+    .catch((err) => {
+      bootError = err;
+      bootPromise = null;
+      console.error("[justflows] Boot failed:", err);
+      throw err;
+    });
   return bootPromise;
 }
 
 function needsFullApp(pathname) {
   if (pathname === "/api/healthz") return false;
+  if (pathname === "/api/bootstrap" || pathname === "/api/bootstrap/status") return false;
   if (pathname === "/install" || pathname === "/login") return false;
   if (pathname === "/") return isInstalled();
   if (pathname.startsWith("/assets/")) return false;
@@ -157,13 +202,65 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === "/api/bootstrap/status") {
+    sendJson(res, 200, {
+      installed: isInstalled(),
+      gitCheckout: gate.isGitCheckout(root),
+      allowed: gate.bootstrapSpawnAllowed(root),
+      ready: gate.depsReady(root),
+      job: gate.jobStatus(root),
+      log: gate.readLogTail(root),
+    });
+    return;
+  }
+
+  if (pathname === "/api/bootstrap" && req.method === "POST") {
+    if (!sameOrigin(req)) {
+      sendJson(res, 403, { error: "Forbidden" });
+      return;
+    }
+    if (isInstalled()) {
+      sendJson(res, 409, { error: "Already installed" });
+      return;
+    }
+    if (gate.depsReady(root)) {
+      sendJson(res, 200, { ok: true, ready: true });
+      return;
+    }
+    if (!gate.bootstrapSpawnAllowed(root)) {
+      sendJson(res, 403, { error: "Browser setup is only available on an unzipped release, before the site is installed." });
+      return;
+    }
+    const result = startBootstrap();
+    if (!result.started) {
+      sendJson(res, 409, { error: "Setup is already running", reason: result.reason });
+      return;
+    }
+    sendJson(res, 202, { ok: true, started: true });
+    return;
+  }
+
   if (pathname === "/" && !isInstalled()) {
+    if (gate.bootstrapPageEnabled(root) && !gate.isGitCheckout(root)) {
+      sendFile(res, gate.indexHtmlPath(root));
+      return;
+    }
     res.writeHead(302, { Location: "/install" });
     res.end();
     return;
   }
 
   if ((pathname === "/install" || pathname === "/login") && fs.existsSync(adminIndex)) {
+    if (
+      pathname === "/install" &&
+      !isInstalled() &&
+      !gate.depsReady(root) &&
+      gate.bootstrapPageEnabled(root)
+    ) {
+      res.writeHead(302, { Location: "/" });
+      res.end();
+      return;
+    }
     sendFile(res, adminIndex);
     return;
   }
@@ -182,13 +279,18 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (fullApp) {
-    dispatch(fullApp, req, res);
+  if (!fullApp && !gate.depsReady(root)) {
+    sendJson(res, 503, {
+      ok: false,
+      error: "not_ready",
+      message:
+        "Justflows is still installing dependencies. Wait for the first-run setup to finish, then try again.",
+    });
     return;
   }
 
-  if (bootError) {
-    sendJson(res, 503, { ok: false, error: "boot_failed", message: String(bootError.message || bootError) });
+  if (fullApp) {
+    dispatch(fullApp, req, res);
     return;
   }
 
@@ -215,6 +317,6 @@ if (typeof PhusionPassenger !== "undefined") {
   const host = process.env.HOSTNAME ?? "0.0.0.0";
   server.listen(port, host, () => {
     console.log(`> Justflows ready on http://${host}:${port}`);
-    console.log(`> Install: http://${host}:${port}/install`);
+    console.log(`> Open that URL in a browser to install`);
   });
 }

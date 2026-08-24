@@ -49,7 +49,33 @@ const Schema = z.object({
   favicon_url: z.string().max(2048).optional(),
 });
 
-router.get("/", requireSession, async (_req, res) => {
+/**
+ * Settings any signed-in user may read. Everything omitted here — the mail
+ * transport, the admin address, and the registration policy — is administrator
+ * only: a self-registered subscriber should not learn the SMTP host and
+ * username, which are enough to start guessing at the mail account.
+ */
+const SESSION_READABLE_KEYS = new Set([
+  "site_name",
+  "site_description",
+  "site_url",
+  "posts_per_page",
+  "timezone",
+  "timezones",
+  "utc_time",
+  "local_time",
+  "active_theme",
+  "site_public",
+  "site_language",
+  "languages",
+  "date_format",
+  "time_format",
+  "start_of_week",
+  "favicon_url",
+]);
+
+router.get("/", requireSession, async (req, res) => {
+  const isAdmin = req.session?.role === "administrator";
   try {
     const db = await getDb();
     const siteRows = await db.query<{ name: string; url: string; description: string | null }>(
@@ -76,7 +102,7 @@ router.get("/", requireSession, async (_req, res) => {
     const now = new Date();
     const timezone = general.timezone;
 
-    res.json({
+    const payload: Record<string, unknown> = {
       site_name: site.name,
       site_description: site.description ?? "",
       site_url: site.url,
@@ -112,7 +138,16 @@ router.get("/", requireSession, async (_req, res) => {
       smtp_user: mail.smtpUser,
       smtp_pass_set: mail.smtpPassSet,
       favicon_url: await resolveFaviconUrl(),
-    });
+    };
+
+    if (isAdmin) {
+      res.json(payload);
+      return;
+    }
+
+    res.json(
+      Object.fromEntries(Object.entries(payload).filter(([key]) => SESSION_READABLE_KEYS.has(key))),
+    );
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }

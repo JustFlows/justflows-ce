@@ -26,15 +26,13 @@ export function requestArea(path: string): RequestArea {
 }
 
 /**
- * `req.secure` only tells the truth when Express is configured to trust the
- * proxy, and most Justflows installs sit behind one without setting that. Fall
- * back to the forwarding headers so HSTS is not silently withheld.
+ * `req.secure` is authoritative now that the app sets `trust proxy` (see
+ * server.ts), because Express only honours X-Forwarded-Proto from a trusted
+ * hop. Reading the header directly, as this used to, meant any client could
+ * assert its own connection was secure.
  */
 export function isSecureRequest(req: Request): boolean {
-  if (req.secure) return true;
-  const proto = req.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
-  if (proto === "https") return true;
-  return req.get("x-forwarded-ssl")?.toLowerCase() === "on";
+  return req.secure;
 }
 
 export function securityHeaders(req: Request, res: Response, next: NextFunction): void {

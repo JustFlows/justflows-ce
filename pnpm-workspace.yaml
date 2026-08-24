@@ -22,3 +22,4 @@ minimumReleaseAgeExclude:
   - '@vitest/utils@4.1.11'
   - turbo@2.10.11
   - vitest@4.1.11
+  - mysql2@3.24.1

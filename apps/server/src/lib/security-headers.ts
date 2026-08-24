@@ -476,6 +476,13 @@ export function defaultConfig(): SecurityHeadersConfig {
     "x_content_type_options",
     "referrer_policy",
     "strict_transport_security",
+    // On by default since 0.1.2. CSP is the only header here that stops script
+    // injection from becoming account takeover, so it is worth the small chance
+    // that a third-party theme has to drop an inline <script>. Its scope is
+    // "public", so the React admin is untouched. A site that needs it off can
+    // clear it in Admin → Security, or set JF_SECURITY_HEADERS_DISABLED=1 to
+    // fall back to the shipped defaults without database access.
+    "content_security_policy",
   ]);
 
   for (const def of SECURITY_HEADER_DEFS) {
@@ -501,9 +508,9 @@ export function recommendedConfig(): SecurityHeadersConfig {
     const preferred = def.options?.find((o) => o.recommended)?.value;
     if (preferred) cfg.headers[def.id].value = preferred;
   }
-  // A brand new CSP is guesswork until it has been measured against a real
-  // theme, so recommend it in report-only mode rather than breaking the site.
-  cfg.headers.content_security_policy.mode = "report-only";
+  // CSP now ships enabled and enforcing (see defaultConfig), so the recommended
+  // configuration must not quietly downgrade it to report-only.
+  cfg.headers.content_security_policy.mode = "enforce";
   return cfg;
 }
 

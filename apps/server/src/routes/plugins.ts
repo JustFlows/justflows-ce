@@ -17,7 +17,8 @@ import { packagesInstalledDir } from "../lib/packages-dir.js";
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-router.get("/", requireSession, async (req, res) => {
+// The installed extension set and its versions fingerprint the site.
+router.get("/", requireRole("administrator", "editor"), async (req, res) => {
   const session = req.session!;
 
   try {
@@ -119,7 +120,7 @@ router.get("/admin-menu", requireSession, async (req, res) => {
   }
 });
 
-router.get("/:id", requireSession, async (req, res) => {
+router.get("/:id", requireRole("administrator", "editor"), async (req, res) => {
   const plugin = await getPlugin(req.session!.siteId, param(req.params.id));
   if (!plugin) {
     res.status(404).json({ error: "Plugin not found" });

@@ -15,6 +15,8 @@ These instructions apply to the entire repository. Load the focused skill in `.a
 - New core source files start with `// SPDX-License-Identifier: MIT`. Extension manifests declare their own license; Marketplace listings use a GPL-compatible license.
 - Do not commit credentials, real `.env` files, generated builds, uploads, caches, or dependency directories.
 - Preserve unrelated working-tree changes. Make the smallest coherent change and verify it at the narrowest useful scope.
+- Do not add `actions/dependency-review-action` as a required CI job. It needs GitHub Dependency graph, which public `justflows-ce` does not have, and fails with "Dependency review is not supported on this repository." Advisory gating is `pnpm audit --audit-level high` in the `security` job. Do not reintroduce that action when syncing to the public repo.
+- Treat CodeQL findings as real defects: constrain filesystem paths with `resolvePathUnderBase`, rate-limit public `sendFile` handlers with `express-rate-limit`, never interpolate request data into a `console.*` format string (use `.replace(/\n/g, "")` and `JSON.stringify`), and avoid exists-then-open races. Do not disable CodeQL to make a public PR green.
 
 ## Working map
 

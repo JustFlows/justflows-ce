@@ -24,14 +24,27 @@ echo "==> Preparing npm-compatible package manifests…"
 node "$ROOT/scripts/prepare-hosting.js"
 
 echo "==> Generating npm lockfile for shared hosting…"
-trap 'node "$ROOT/scripts/restore-hosting.js" 2>/dev/null || true' EXIT
-# --package-lock-only keeps the local pnpm node_modules intact.
-# npm 12 arborist can crash on file: packages mixed with a pnpm tree;
-# the zip is still usable — hosting runs `npm run install:all` on extract.
+# Hide a local pnpm tree so npm 12 arborist does not walk node_modules/.pnpm
+# ("Cannot read properties of null (reading 'matches')"). On extract, hosting
+# runs `npm run install:all`, which moves a pnpm tree aside before npm install.
+PNPM_HIDDEN=""
+restore_pnpm_node_modules() {
+  if [ -n "$PNPM_HIDDEN" ] && [ -d "$PNPM_HIDDEN" ]; then
+    rm -rf "$ROOT/node_modules"
+    mv "$PNPM_HIDDEN" "$ROOT/node_modules"
+    PNPM_HIDDEN=""
+  fi
+}
+trap 'restore_pnpm_node_modules; node "$ROOT/scripts/restore-hosting.js" 2>/dev/null || true' EXIT
+if [ -d "$ROOT/node_modules/.pnpm" ]; then
+  PNPM_HIDDEN="$ROOT/node_modules.pnpm-hidden"
+  mv "$ROOT/node_modules" "$PNPM_HIDDEN"
+fi
 if ! npm install --omit=dev --ignore-scripts --package-lock-only; then
   echo "    (skipping lockfile — npm arborist failed; zip will still work)"
   rm -f "$ROOT/package-lock.json"
 fi
+restore_pnpm_node_modules
 
 echo "==> Creating $OUT …"
 echo "    (includes LICENSE, LICENSING.md, licenses/GPL-2.0.txt)"
@@ -66,9 +79,18 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/.hosting-backup/*" \
     -x "$NAME/.agents/*" \
     -x "$NAME/.github/*" \
+    -x "$NAME/node_modules.pnpm-hidden/*" \
     -x "$NAME/.pnpm-store/*" \
     -x "$NAME/**/.pnpm-store/*" \
+    -x "$NAME/.cache" \
+    -x "$NAME/.cache/" \
     -x "$NAME/.cache/*" \
+    -x "$NAME/.cache/**" \
+    -x "$NAME/**/.cache" \
+    -x "$NAME/**/.cache/" \
+    -x "$NAME/**/.cache/*" \
+    -x "$NAME/**/.cache/**" \
+    -x "$NAME/install-token/*" \
     -x "$NAME/tmp/*"
 else
   # Zip repo contents at archive root (no wrapper folder).
@@ -94,9 +116,18 @@ else
     -x ".hosting-backup/*" \
     -x ".agents/*" \
     -x ".github/*" \
+    -x "node_modules.pnpm-hidden/*" \
     -x ".pnpm-store/*" \
     -x "**/.pnpm-store/*" \
+    -x ".cache" \
+    -x ".cache/" \
     -x ".cache/*" \
+    -x ".cache/**" \
+    -x "**/.cache" \
+    -x "**/.cache/" \
+    -x "**/.cache/*" \
+    -x "**/.cache/**" \
+    -x "install-token/*" \
     -x "tmp/*"
 fi
 
@@ -109,6 +140,5 @@ echo "✓ $OUT ($SIZE)"
 echo ""
 echo "On server (Plesk / cPanel):"
 echo "  1. Extract zip into application root"
-echo "  2. Run:  npm run install:all"
-echo "  3. Plesk Node.js → Startup file: server.js → Restart App"
-echo "  4. Open /install"
+echo "  2. Plesk Node.js → Startup file: server.js → Restart App"
+echo "  3. Open your domain in a browser (no terminal)"

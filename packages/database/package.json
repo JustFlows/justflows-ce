@@ -1,6 +1,6 @@
 {
   "name": "@justflows/database",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Justflows database — SQL adapters, schema, migrations, query helpers",
   "type": "module",
@@ -25,7 +25,7 @@
   "dependencies": {
     "@justflows/core": "file:../core",
     "drizzle-orm": "^0.45.2",
-    "mysql2": "^3.15.2",
+    "mysql2": "^3.24.1",
     "postgres": "^3.4.9"
   },
   "devDependencies": {

@@ -295,7 +295,9 @@ export const coreBlocks: BlockDefinition[] = [
         backgroundImage: string;
         align: string;
       };
-      const bgStyle = backgroundImage ? ` style="background-image:url('${safeMediaSrc(backgroundImage)}')"` : "";
+      const bgStyle = backgroundImage
+        ? ` style="background-image:url(&quot;${safeMediaSrc(backgroundImage)}&quot;)"`
+        : "";
       const btn =
         buttonLabel && buttonUrl
           ? `<a href="${safeHref(buttonUrl)}" class="btn btn--primary jf-hero__btn">${esc(buttonLabel)}</a>`

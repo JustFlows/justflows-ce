@@ -23,6 +23,8 @@ function mockFetch(): void {
     "fetch",
     vi.fn((input: RequestInfo | URL) => {
       const path = String(input);
+      if (path.includes("/api/bootstrap/status")) return jsonResponse({ ready: true });
+      if (path.includes("/api/install/status")) return jsonResponse({ tokenRequired: false, tokenFile: null });
       if (path.includes("/api/auth/registration")) return jsonResponse({ enabled: false });
       if (path.includes("/api/content-types")) {
         return jsonResponse({
@@ -75,6 +77,27 @@ describe("admin accessibility", () => {
     await user.keyboard("secret-password");
     await user.tab();
     expect(screen.getByRole("button", { name: /sign in/i })).toHaveFocus();
+  });
+
+  it("holds the site wizard until first-run files are ready", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const path = String(input);
+        if (path.includes("/api/bootstrap/status")) {
+          return jsonResponse({ ready: false, log: "npm install" });
+        }
+        return jsonResponse({});
+      }),
+    );
+    render(
+      <MemoryRouter>
+        <InstallPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole("heading", { name: "Preparing files…" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Welcome" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Database" })).not.toBeInTheDocument();
   });
 
   it("has no critical axe findings on the install wizard", async () => {

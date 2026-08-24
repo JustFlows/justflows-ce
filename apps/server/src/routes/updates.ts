@@ -2,18 +2,20 @@ import { Router } from "express";
 import { applyCoreUpdate } from "../lib/core-updater.js";
 import { runAllMigrations } from "../lib/run-migrations.js";
 import { getDb } from "../lib/db.js";
-import { requireRole, requireSession } from "../middleware/auth.js";
+import { getJustflowsVersion } from "../lib/version.js";
+import { requireRole } from "../middleware/auth.js";
 import multer from "multer";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
 
-router.get("/", requireSession, (_req, res) => {
-  res.json({ version: "0.1.1", updateAvailable: false });
+router.get("/", requireRole("administrator"), (_req, res) => {
+  res.json({ version: getJustflowsVersion(), updateAvailable: false });
 });
 
 router.post("/check", requireRole("administrator"), (_req, res) => {
-  res.json({ updateAvailable: false, currentVersion: "0.1.1", latestVersion: "0.1.1" });
+  const version = getJustflowsVersion();
+  res.json({ updateAvailable: false, currentVersion: version, latestVersion: version });
 });
 
 router.post("/upload", requireRole("administrator"), upload.single("file"), async (req, res) => {
