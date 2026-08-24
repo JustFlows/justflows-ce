@@ -25,3 +25,5 @@ Start by reading `AGENTS.md`, the affected package manifests, and existing imple
 6. Run focused checks, then broader checks in proportion to impact.
 
 Do not create duplicate abstractions to bypass package boundaries. Prefer established registries, services, hooks, and configuration schemas.
+
+Do not add `actions/dependency-review-action` when touching CI or syncing to `justflows-ce`. Public CE lacks Dependency graph; use `pnpm audit --audit-level high` and keep CodeQL on.

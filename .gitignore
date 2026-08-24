@@ -1,5 +1,6 @@
 # Dependencies and package-manager state
 node_modules/
+node_modules.pnpm-hidden/
 .pnpm-store/
 .pnp
 .pnp.*
@@ -28,6 +29,7 @@ test-results/
 playwright-report/
 
 # Runtime data and generated installations
+install-token/
 .cache/
 tmp/
 uploads/

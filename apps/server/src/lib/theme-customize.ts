@@ -128,6 +128,70 @@ function modsKey(themeId: string, draft = false): string {
   return draft ? `theme_mods_draft.${themeId}` : `theme_mods.${themeId}`;
 }
 
+// ─── CSS value validation ────────────────────────────────────────────────────
+//
+// Everything in `colors` and `typography` is interpolated straight into
+// theme.css as `${key}: ${value};`. Without a grammar check, an editor can
+// close the declaration and write arbitrary rules — which bypasses
+// sanitizeCustomCss entirely. Validate rather than escape: CSS has no general
+// escaping mechanism that survives in every declaration context.
+
+/** A custom property name: `--` followed by identifier characters only. */
+const CSS_CUSTOM_PROPERTY = /^--[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * A colour: hex, or a bounded function call over digits, commas, percent, and
+ * whitespace, or a plain CSS-wide / named colour keyword.
+ */
+const CSS_COLOR =
+  /^(#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla|oklch|oklab|lab|lch)\([0-9a-zA-Z.,%/\s+-]{1,80}\)|[a-zA-Z]{3,24})$/;
+
+/**
+ * A font stack: quoted or bare family names separated by commas. Deliberately
+ * narrow — no functions, no url(), no semicolons or braces.
+ */
+const CSS_FONT_STACK = /^[a-zA-Z0-9 ,._"'-]{1,200}$/;
+
+/** Characters that can end a declaration or open a new rule or comment. */
+const CSS_VALUE_FORBIDDEN = /[;{}<>@\\]|\/\*|\*\//;
+
+export function isSafeCssColor(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 100) return false;
+  if (CSS_VALUE_FORBIDDEN.test(trimmed)) return false;
+  return CSS_COLOR.test(trimmed);
+}
+
+export function isSafeCssFontStack(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (CSS_VALUE_FORBIDDEN.test(trimmed)) return false;
+  return CSS_FONT_STACK.test(trimmed);
+}
+
+export function isSafeCssVariableName(name: string): boolean {
+  return CSS_CUSTOM_PROPERTY.test(name);
+}
+
+/**
+ * Clamp a range control to a finite number inside the schema's bounds.
+ *
+ * Strings must be numeric in full. parseFloat would accept a numeric prefix and
+ * quietly turn "1; } html { display:none }" into 1 — the injection is dropped
+ * either way, but a value the operator never typed should not be stored.
+ */
+function clampNumber(raw: unknown, fallback: number, min: number, max: number): number {
+  let n: number;
+  if (typeof raw === "number") {
+    n = raw;
+  } else {
+    const text = String(raw ?? "").trim();
+    n = /^[+-]?(\d+\.?\d*|\.\d+)$/.test(text) ? Number(text) : Number.NaN;
+  }
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 export function defaultModsFromSchema(): ThemeMods {
   const mods: ThemeMods = {};
   for (const [sectionKey, section] of Object.entries(THEME_CUSTOMIZE_SCHEMA)) {
@@ -163,17 +227,37 @@ export function modsToCssVariables(
 ): Record<string, string> {
   const vars = { ...DEFAULT_THEME_CSS_VARS, ...themeVars };
 
+  // Both the name and the value reach theme.css verbatim, so both are checked.
+  // A rejected entry falls back to the default rather than failing the request:
+  // a bad colour should not take the whole stylesheet down.
   for (const [key, value] of Object.entries(mods.colors ?? {})) {
-    if (typeof value === "string" && value) vars[key] = value;
+    if (typeof value !== "string" || !value) continue;
+    if (!isSafeCssVariableName(key) || !isSafeCssColor(value)) continue;
+    vars[key] = value.trim();
   }
   for (const [key, value] of Object.entries(mods.typography ?? {})) {
-    if (key.startsWith("--") && typeof value === "string" && value) vars[key] = value;
+    if (typeof value !== "string" || !value) continue;
+    if (!isSafeCssVariableName(key) || !isSafeCssFontStack(value)) continue;
+    vars[key] = value.trim();
   }
+
+  const fontSize = THEME_CUSTOMIZE_SCHEMA.typography?.controls.baseFontSize;
+  const width = THEME_CUSTOMIZE_SCHEMA.layout?.controls.contentWidth;
   if (mods.typography?.baseFontSize != null) {
-    vars["--base-font-size"] = `${mods.typography.baseFontSize}px`;
+    vars["--base-font-size"] = `${clampNumber(
+      mods.typography.baseFontSize,
+      Number(fontSize?.default ?? 16),
+      fontSize?.min ?? 8,
+      fontSize?.max ?? 32,
+    )}px`;
   }
   if (mods.layout?.contentWidth != null) {
-    vars["--max-width"] = `${mods.layout.contentWidth}px`;
+    vars["--max-width"] = `${clampNumber(
+      mods.layout.contentWidth,
+      Number(width?.default ?? 720),
+      width?.min ?? 320,
+      width?.max ?? 2400,
+    )}px`;
   }
 
   return vars;
@@ -183,8 +267,13 @@ export function buildThemeStylesheet(
   vars: Record<string, string>,
   additionalCss = "",
 ): string {
+  // Last gate before the stylesheet. modsToCssVariables already validates
+  // editor input; this also covers css_variables supplied by a theme package,
+  // which is looser on purpose (themes legitimately set shadows, gradients and
+  // spacing) but still may not close the declaration or open a new rule.
   const declarations = Object.entries(vars)
-    .map(([k, v]) => `  ${k}: ${v};`)
+    .filter(([k, v]) => isSafeCssVariableName(k) && typeof v === "string" && !CSS_VALUE_FORBIDDEN.test(v))
+    .map(([k, v]) => `  ${k}: ${v.trim()};`)
     .join("\n");
 
   const baseSize = vars["--base-font-size"] ?? "16px";

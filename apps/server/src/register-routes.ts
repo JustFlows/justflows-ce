@@ -7,12 +7,19 @@ import { isInstalled, requireInstalled, blockIfInstalled } from "./middleware/in
 import { publicApiGuard } from "./middleware/public-api.js";
 import { publicApiCors } from "./middleware/public-api-cors.js";
 import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
+import { logSafe } from "./lib/log-safe.js";
 import { getSession } from "./lib/session.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** Register heavy routes (dynamic import — keeps Passenger startup fast). */
 export async function registerDeferredRoutes(app: express.Application): Promise<void> {
+  // .env can be lost (an ephemeral container, a botched restore) while the
+  // database is intact. Confirm against the schema so the install wizard cannot
+  // reopen on a live site.
+  const { confirmInstalledFromDatabase } = await import("./middleware/install-guard.js");
+  await confirmInstalledFromDatabase();
+
   if (isInstalled()) {
     try {
       const { applyPendingMigrations } = await import("./lib/run-migrations.js");
@@ -113,19 +120,37 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.post("/justflows-forms/submit", requireInstalled, async (req, res) => {
     try {
       const { acceptFormSubmission } = await import("./lib/forms-public.js");
+      const { clientIp } = await import("./lib/rate-limit.js");
       const result = await acceptFormSubmission({
         body: (req.body ?? {}) as Record<string, unknown>,
         referer: req.get("referer") ?? "/",
+        clientIp: clientIp(req),
       });
       if (result.location) {
         res.status(result.status === 303 ? 303 : result.status).location(result.location).end();
         return;
       }
-      res.status(result.status).type("html").send(result.error ?? "Unable to submit");
+      res.status(result.status).type("text/plain").send(result.error ?? "Unable to submit");
     } catch (err) {
-      res.status(500).type("html").send(String(err));
+      console.error("[justflows] form submission failed:", err);
+      res.status(500).type("text/plain").send("Internal server error");
     }
   });
+
+  // RFC 9116. Served from both the well-known location and the legacy root path.
+  const securityTxt = [
+    "Contact: mailto:security@justflows.com",
+    "Preferred-Languages: en",
+    "Canonical: /.well-known/security.txt",
+    "Policy: https://github.com/JustFlows/justflows-ce/blob/main/SECURITY.md",
+    "",
+  ].join("\n");
+
+  for (const route of ["/.well-known/security.txt", "/security.txt"]) {
+    app.get(route, (_req, res) => {
+      res.type("text/plain").send(securityTxt);
+    });
+  }
 
   app.get("/sitemap.xml", requireInstalled, async (_req, res, next) => {
     try {
@@ -138,7 +163,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       }
       res.type("application/xml").send(await buildSitemapXml(siteId));
     } catch (err) {
-      res.status(500).type("text/plain").send(String(err));
+      console.error("[justflows] sitemap build failed:", err);
+      res.status(500).type("text/plain").send("Internal server error");
     }
   });
 
@@ -177,4 +203,21 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   app.use(requireInstalled, (await import("./lib/plugin-http.js")).dispatchPluginHttp);
   app.use(requireInstalled, publicSiteRoutes);
+
+  // Backstop. Express's default handler prints the stack into the response body
+  // in development, and any handler that throws without its own catch would
+  // otherwise leak internals to an anonymous caller.
+  app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error(
+      "[justflows] unhandled error",
+      JSON.stringify({ method: logSafe(req.method), path: logSafe(req.path) }),
+      err,
+    );
+    if (res.headersSent) return;
+    if (req.path.startsWith("/api/")) {
+      res.status(500).json({ error: "Internal server error" });
+      return;
+    }
+    res.status(500).type("text/plain").send("Internal server error");
+  });
 }

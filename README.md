@@ -2,7 +2,13 @@
 
 **The open-source platform for building the web.**
 
-Justflows is a self-hostable website and content platform. A non-technical user installs it through a browser wizard — no terminal, no npm, no compilation. A TypeScript developer gets a stable, typed SDK and plugin API.
+Justflows is a self-hostable website and content platform. A non-technical user
+installs it through the browser — no terminal, no npm, no compilation. A
+TypeScript developer gets a stable, typed SDK and plugin API.
+
+**Requirements:** Node.js 22 or later on the host (Plesk / cPanel / VPS). Docker
+installs include Node for you. Developers also need pnpm 11+ and PostgreSQL,
+MySQL 8+, or MariaDB 10.6+.
 
 ---
 
@@ -14,7 +20,8 @@ There are three paths depending on your situation.
 
 ### Option A — Docker (easiest, recommended for most people)
 
-**What you need:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed on your computer or server. That's it.
+**What you need:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+installed on your computer or server. That's it.
 
 **Steps:**
 
@@ -22,42 +29,74 @@ There are three paths depending on your situation.
    - [Download the latest release](https://github.com/JustFlows/justflows-ce/releases/latest), or
    - Clone this repository
 2. Unzip or open the project folder
-3. Open the unzipped folder
-4. Copy `.env.production.example` to `.env` and open it in any text editor
-5. Set your domain (`APP_URL`) and a secret key (`APP_SECRET`)
-6. Open a terminal in that folder and run:
+3. Copy `.env.production.example` to `.env` and open it in any text editor
+4. Set your domain (`APP_URL`), a secret key (`APP_SECRET`, 32+ characters), and
+   `DB_PASSWORD`
+5. Open a terminal in that folder and run:
 
 ```
 docker compose -f docker/docker-compose.yml --env-file .env up
 ```
 
-7. Open **http://localhost:3000/install** in your browser
-8. The setup wizard walks you through the rest — database, site name, admin account
+6. Open **http://localhost:3000** in your browser
+7. The site wizard walks you through database confirmation, site name, and your
+   admin account. On a machine that is not localhost you will also paste the
+   setup key from `install-token/TOKEN.txt` (see below).
 
-> **No terminal after step 6.** Everything from the install wizard onwards is done in the browser, exactly like WordPress.
+> **No terminal after step 5.** Docker already has the app files. Everything
+> from the wizard onwards is done in the browser, exactly like WordPress.
 
-**On a VPS / server:** same steps, just run `docker compose up -d` (the `-d` keeps it running in the background).
+**On a VPS / server:** same steps, just run `docker compose up -d` (the `-d`
+keeps it running in the background), then open your domain.
 
 ---
 
-### Option B — Shared hosting / cPanel
+### Option B — Shared hosting / Plesk / cPanel (no terminal)
 
-If your host provides Node.js (Hostinger, SiteGround, A2 Hosting etc.):
+If your host provides Node.js (Plesk, cPanel, Hostinger, SiteGround, A2 Hosting,
+and similar):
 
-1. Download the latest release (or export this repo) and unzip it
-2. Upload the folder to your server via cPanel File Manager or FTP
-3. In cPanel, go to **Node.js** → create a new application pointing at the folder
-4. In the terminal tab of cPanel, run:
+1. [Download the latest release](https://github.com/JustFlows/justflows-ce/releases/latest)
+   and unzip it (or upload `justflows.zip`)
+2. Upload the folder to your application root via File Manager or FTP
+3. In **Node.js** settings, create an application pointing at that folder
+4. Set **Application startup file** to `server.js` (production mode) and click
+   **Restart App**
+5. Open **your domain** in a browser — not `/install` yet
 
-```
-npm run setup
-```
+The first page (`index.html`) installs Justflows in the browser. Click
+**Install Justflows** and keep the tab open. That downloads production
+dependencies (a few minutes). When it finishes, the **site wizard** opens.
 
-5. Open your domain in a browser — the install wizard starts automatically
+In the wizard you enter:
+
+1. Database type, host, name, username, and password
+2. Site name
+3. Admin email, username, and password (12+ characters)
+
+On the last step you paste a **setup key**. Open File Manager or FTP, go to
+`install-token/TOKEN.txt` in the application root, and copy the key. Justflows
+writes that file when Node starts; the folder is deleted after setup finishes.
+Do not skip this on a public host.
+
+The database is written only when you click **Install Justflows** on that last
+step. After the site is installed, `index.html` is removed automatically.
+
+You do not need a terminal, npm, or a command line.
+
+**If the first page says Node.js is not running:** set the startup file to
+`server.js`, click Restart App, and refresh.
+
+**Advanced (optional terminal):** `npm run setup` or `npm run install:all`
+still work if you prefer the command line. Git checkouts cannot use the browser
+installer — use Option C.
 
 ---
 
 ### Option C — Developers (full source)
+
+A git checkout does **not** run the first-run `index.html` installer. Use pnpm
+and open `/install` yourself.
 
 ```bash
 # Prerequisites: Node.js ≥ 22, pnpm ≥ 11, PostgreSQL/MySQL/MariaDB
@@ -71,6 +110,23 @@ pnpm --filter @justflows/server dev
 # → open http://localhost:3000/install
 ```
 
+Localhost is exempt from the setup key. On a remote URL, copy
+`install-token/TOKEN.txt` as in Option B.
+
+---
+
+### Setup key (`install-token/TOKEN.txt`)
+
+Until setup completes, whoever reaches the site first could claim it. Justflows
+writes a one-time key to `install-token/TOKEN.txt` (and prints it in the server
+log) as soon as Node starts. The wizard asks for it on the admin-account step.
+
+- Open it with the same File Manager or FTP app you used to upload Justflows
+- The folder includes an Apache deny rule; Node never serves it
+- Confirm your host does not publish that folder over HTTP
+- It is deleted automatically when setup finishes
+- Do not set `JUSTFLOWS_SKIP_INSTALL_TOKEN=1` on a reachable host
+
 ---
 
 ## Choosing a database
@@ -83,9 +139,11 @@ Justflows works with any of these — you do not need to know SQL:
 | **MySQL 8+** | Use this if your host already provides MySQL |
 | **MariaDB 10.6+** | Use this if your host already provides MariaDB |
 
-When using Docker you do not need to install or configure a database yourself — it is set up automatically.
+When using Docker you do not need to install or configure a database yourself —
+it is set up automatically.
 
 To use MySQL or MariaDB with Docker:
+
 ```bash
 # MySQL
 docker compose -f docker/docker-compose.mysql.yml --env-file .env up
@@ -94,11 +152,21 @@ docker compose -f docker/docker-compose.mysql.yml --env-file .env up
 docker compose -f docker/docker-compose.mariadb.yml --env-file .env up
 ```
 
+The shared-hosting wizard lets you pick the same three drivers and uses the
+database your host already gave you.
+
 ---
 
 ## Installing plugins and themes
 
-Once your site is running, open the Admin → **Plugins** or **Themes** page. You will see a drag-and-drop upload area. Download any `.jfpkg` package file and drop it there — exactly like WordPress. No terminal, no npm.
+Once your site is running, open Admin → **Plugins** or **Themes**. Download a
+`.jfpkg` and drop it on the upload area — exactly like WordPress. No terminal,
+no npm.
+
+Since 0.1.2 a package is refused unless it carries a valid marketplace
+signature or you pin its SHA-256 digest in `JUSTFLOWS_TRUSTED_PACKAGE_DIGESTS`.
+For local development only, `JUSTFLOWS_ALLOW_UNSIGNED_PACKAGES=1` restores the
+old behaviour. Do not set that on a public host.
 
 ---
 
@@ -120,6 +188,8 @@ Once your site is running, open the Admin → **Plugins** or **Themes** page. Yo
 
 ```
 justflows/
+├── index.html          First-run page on unzipped releases (removed after install)
+├── server.js           Plesk / cPanel / production entry
 ├── apps/
 │   └── server/         Unified Express app (API + admin SPA + public site)
 │       ├── src/        Express server, routes, lib, EJS views
@@ -130,13 +200,20 @@ justflows/
 │   ├── sdk/            Stable public API for plugin/theme developers
 │   ├── auth/           Password hashing, sessions, capabilities
 │   ├── content/        Content service + revisions
-│   ├── blocks/         Block registry + 11 core block types
+│   ├── blocks/         Block registry + core block types
 │   ├── media/          Upload, storage adapters, image derivatives
 │   ├── installer/      .jfpkg archive extractor + manifest validation
 │   ├── updater/        Update lifecycle + rollback
-│   └── plugin-api/     Plugin loader and runtime
+│   ├── plugin-api/     Plugin loader and runtime
+│   ├── cache/          Cache drivers and invalidation
+│   ├── jobs/           Background jobs
+│   └── cli/            Developer CLI
 ├── plugins/            Write your plugin here (one folder per plugin)
 │   └── hello-world/    Example — copy this folder to start
+├── themes/default      Bundled theme
+├── css-providers/      CSS provider integrations
+├── migrations/         SQL for PostgreSQL, MySQL, and MariaDB
+├── scripts/            Hosting install, zip, and bootstrap
 └── docker/             Docker Compose variants (Postgres, MySQL, MariaDB)
 ```
 
@@ -192,9 +269,13 @@ MIT
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Work happens on `feature/*` branches. Open pull requests into `developers`. `main` is protected and only updated from `developers`.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Work happens on `feature/*` branches.
+Open pull requests into `developers`. `main` is protected and only updated from
+`developers`.
 
 ## Security note
 
 - Never commit real `.env` files, credentials, or API keys.
 - Only commit example files such as `.env.example`.
+- See [SECURITY.md](SECURITY.md) for the install token, package signatures, and
+  how to report vulnerabilities.

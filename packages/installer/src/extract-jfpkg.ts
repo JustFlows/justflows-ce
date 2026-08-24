@@ -1,7 +1,43 @@
-import { gunzipSync } from "node:zlib";
+import { createGunzip } from "node:zlib";
+import { Readable } from "node:stream";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { ARCHIVE_LIMITS, ArchiveSafetyError, assertSafePath } from "./archive-safety.js";
+
+/**
+ * Inflate with a running ceiling. gunzipSync would materialise the whole stream
+ * before any limit could be applied, so a 50 MB archive that expands to tens of
+ * gigabytes exhausts memory before the check runs.
+ */
+async function gunzipBounded(archive: Buffer, maxBytes: number): Promise<Buffer> {
+  const gunzip = createGunzip();
+  const chunks: Buffer[] = [];
+  let total = 0;
+
+  const source = Readable.from(archive).pipe(gunzip);
+
+  await new Promise<void>((resolve, reject) => {
+    source.on("data", (chunk: Buffer) => {
+      total += chunk.byteLength;
+      if (total > maxBytes) {
+        source.destroy();
+        reject(new ArchiveSafetyError("Archive expanded size limit exceeded"));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    source.on("end", resolve);
+    source.on("error", (err) =>
+      reject(
+        err instanceof ArchiveSafetyError
+          ? err
+          : new ArchiveSafetyError("Invalid gzip in .jfpkg archive"),
+      ),
+    );
+  });
+
+  return Buffer.concat(chunks);
+}
 
 function readCString(block: Buffer, start: number, length: number): string {
   const slice = block.subarray(start, start + length);
@@ -18,16 +54,8 @@ export async function extractJfpkg(archive: Buffer, dest: string): Promise<void>
     throw new ArchiveSafetyError("Not a gzip .jfpkg archive");
   }
 
-  let tarBuf: Buffer;
-  try {
-    tarBuf = gunzipSync(archive);
-  } catch {
-    throw new ArchiveSafetyError("Invalid gzip in .jfpkg archive");
-  }
+  const tarBuf = await gunzipBounded(archive, ARCHIVE_LIMITS.maxExpandedBytes);
 
-  if (tarBuf.byteLength > ARCHIVE_LIMITS.maxExpandedBytes) {
-    throw new ArchiveSafetyError("Archive expanded size limit exceeded");
-  }
   if (tarBuf.byteLength / Math.max(archive.byteLength, 1) > ARCHIVE_LIMITS.maxDecompressionRatio) {
     throw new ArchiveSafetyError("Decompression ratio limit exceeded (possible bomb)");
   }

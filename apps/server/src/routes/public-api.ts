@@ -11,7 +11,7 @@ import { listContentTypes } from "../lib/content-types-db.js";
 import { PUBLIC_API_OPENAPI } from "../lib/openapi-v1.js";
 import { listMenus, getMenuBySlug, resolveMenuItems } from "../lib/menus-db.js";
 import { getRuntimeHooks } from "../lib/plugin-runtime.js";
-import { requireSession } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
 import { getSiteId } from "../lib/site-settings.js";
 import {
   canViewUnpublishedSite,
@@ -326,7 +326,9 @@ async function checkCache(): Promise<CheckResult> {
   }
 }
 
-healthRouter.get("/", requireSession, async (_req, res) => {
+// Health output carries database connection errors (which name the host and
+// driver), memory figures, and which environment variables are unset.
+healthRouter.get("/", requireRole("administrator"), async (_req, res) => {
   const [dbCheck, fsCheck, cacheCheck] = await Promise.all([
     checkDatabase(),
     checkFilesystem(),

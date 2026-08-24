@@ -13,6 +13,7 @@ Inspect `packages/blocks`, `themes/default`, `css-providers`, admin builder comp
 - Themes must handle missing settings/content and must not assume a CSS provider unless declared.
 - Preserve responsive output, semantic markup, keyboard accessibility, and visible focus.
 - Keep provider-specific classes and assets inside their provider or theme boundary.
+- Theme ids and `installedPath` values are untrusted. Resolve files only under `themes/` or `packages-installed/` via `resolvePathUnderBase`; do not `path.join` a raw id into `readFileSync`.
 - Update previews and public output together.
 
 Add serialization/rendering tests for meaningful schema changes and build affected packages plus admin/server surfaces.

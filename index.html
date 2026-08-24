@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<!-- First-run setup page. Removed automatically after the site is installed. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Justflows setup</title>
+    <meta name="robots" content="noindex" />
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --surface: #fff;
+        --text: #0f172a;
+        --muted: #475569;
+        --accent: #4f46e5;
+        --accent-hover: #4338ca;
+        --border: #e4e8ee;
+        --ok: #15803d;
+        --danger: #dc2626;
+        --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1020;
+          --surface: #121829;
+          --text: #e8ecf5;
+          --muted: #a6b0c6;
+          --accent: #818cf8;
+          --accent-hover: #a5b4fc;
+          --border: #242c42;
+          --ok: #4ade80;
+          --danger: #f87171;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 1.5rem;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+      }
+      main {
+        width: min(36rem, 100%);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 24px 48px -24px rgba(15, 23, 42, 0.35);
+      }
+      h1 { margin: 0 0 0.35rem; font-size: 1.5rem; }
+      p { margin: 0 0 1rem; color: var(--muted); line-height: 1.5; }
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 10px;
+        padding: 0.75rem 1.1rem;
+        background: var(--accent);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover { background: var(--accent-hover); }
+      button:disabled { opacity: 0.55; cursor: not-allowed; }
+      pre {
+        max-height: 16rem;
+        overflow: auto;
+        margin: 1rem 0 0;
+        padding: 0.85rem;
+        border-radius: 10px;
+        background: #0f172a;
+        color: #e2e8f0;
+        font: 0.75rem/1.45 var(--mono);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .status { font-weight: 600; margin-bottom: 0.75rem; }
+      .ok { color: var(--ok); }
+      .err { color: var(--danger); }
+      .hint { font-size: 0.9rem; }
+      ol { margin: 0 0 1rem; padding-left: 1.2rem; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="hint" style="letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.72rem; font-weight: 700; color: var(--accent); margin-bottom: 0.5rem;">Justflows</p>
+      <h1>Set up your site</h1>
+      <p id="lead">Justflows will install itself in the browser. You do not need a terminal.</p>
+      <p class="status" id="status" aria-live="polite"></p>
+      <div id="offline" hidden>
+        <p>The files are on the server, but the Node.js app is not running yet. In your host’s Node.js settings:</p>
+        <ol>
+          <li>Application startup file: <strong>server.js</strong></li>
+          <li>Click Restart App</li>
+          <li>Refresh this page</li>
+        </ol>
+      </div>
+      <button id="start" type="button" hidden>Install Justflows</button>
+      <pre id="log" hidden></pre>
+    </main>
+    <script>
+      const statusEl = document.getElementById("status");
+      const leadEl = document.getElementById("lead");
+      const startBtn = document.getElementById("start");
+      const logEl = document.getElementById("log");
+      const offlineEl = document.getElementById("offline");
+      let pollTimer = 0;
+
+      function setStatus(text, kind) {
+        statusEl.textContent = text;
+        statusEl.className = "status" + (kind ? " " + kind : "");
+      }
+
+      async function getJson(url, opts) {
+        const res = await fetch(url, opts);
+        const text = await res.text();
+        try { return { ok: res.ok, status: res.status, body: JSON.parse(text) }; }
+        catch { return { ok: res.ok, status: res.status, body: { error: text || res.statusText } }; }
+      }
+
+      function showLog(text) {
+        if (!text) return;
+        logEl.hidden = false;
+        logEl.textContent = text;
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      async function refresh() {
+        let health;
+        try {
+          health = await getJson("/api/healthz");
+        } catch {
+          offlineEl.hidden = false;
+          startBtn.hidden = true;
+          setStatus("Waiting for Node.js to start…", "err");
+          return;
+        }
+        if (!health.ok) {
+          offlineEl.hidden = false;
+          startBtn.hidden = true;
+          setStatus("Waiting for Node.js to start…", "err");
+          return;
+        }
+        offlineEl.hidden = true;
+
+        const { ok, body } = await getJson("/api/bootstrap/status");
+        if (!ok) {
+          setStatus(body.error || "Could not read setup status.", "err");
+          return;
+        }
+        if (body.installed) {
+          window.location.replace("/");
+          return;
+        }
+        if (body.ready) {
+          setStatus("Files are ready. Opening the site wizard…", "ok");
+          window.location.replace("/install");
+          return;
+        }
+        showLog(body.log);
+        if (body.job && body.job.status === "running") {
+          startBtn.hidden = true;
+          setStatus("Installing… this can take a few minutes. Keep this tab open.", "");
+          return;
+        }
+        if (body.job && body.job.status === "error") {
+          startBtn.hidden = false;
+          startBtn.textContent = "Try again";
+          setStatus(body.job.error || "Setup failed.", "err");
+          return;
+        }
+        startBtn.hidden = false;
+        startBtn.textContent = "Install Justflows";
+        setStatus("");
+        leadEl.textContent = "Click the button. Justflows will download what it needs, then open a short wizard for your database and admin account.";
+      }
+
+      startBtn.addEventListener("click", async () => {
+        startBtn.disabled = true;
+        setStatus("Starting installation…");
+        const { ok, body } = await getJson("/api/bootstrap", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        startBtn.disabled = false;
+        if (!ok) {
+          setStatus(body.error || "Could not start setup.", "err");
+          return;
+        }
+        await refresh();
+      });
+
+      refresh();
+      pollTimer = setInterval(refresh, 1500);
+      window.addEventListener("pagehide", () => clearInterval(pollTimer));
+    </script>
+  </body>
+</html>

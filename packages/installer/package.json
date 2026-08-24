@@ -1,6 +1,6 @@
 {
   "name": "@justflows/installer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "exports": {
@@ -20,7 +20,7 @@
     "@justflows/core": "file:../core",
     "@justflows/auth": "file:../auth",
     "@justflows/sdk": "file:../sdk",
-    "tar": "^7.4.3",
+    "tar": "^7.5.22",
     "zod": "^4.4.3"
   },
   "devDependencies": {

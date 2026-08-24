@@ -53,10 +53,25 @@ export async function getDb(): Promise<DbClient> {
     throw new Error("DB_DRIVER not set — run the install wizard first.");
   }
 
+  // Neither driver negotiates TLS on its own, so a managed database (Neon, RDS,
+  // PlanetScale) was reached in cleartext — credentials and content included.
+  // Default to requiring TLS whenever the host is not local; DB_SSL forces it
+  // either way.
+  const sslSetting = (process.env.DB_SSL ?? "").trim().toLowerCase();
+  const isLocalHost = ["localhost", "127.0.0.1", "::1", ""].includes(host.toLowerCase());
+  const useSsl = sslSetting === "" ? !isLocalHost : !["0", "false", "off", "disable"].includes(sslSetting);
+  // Set DB_SSL_REJECT_UNAUTHORIZED=0 only for a self-signed server certificate.
+  const rejectUnauthorized = !["0", "false", "off"].includes(
+    (process.env.DB_SSL_REJECT_UNAUTHORIZED ?? "").trim().toLowerCase(),
+  );
+
   if (driver === "postgres") {
     const { default: postgres } = await import("postgres");
     const url = `postgres://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
-    const sql = postgres(url, { max: 5 });
+    const sql = postgres(url, {
+      max: 5,
+      ssl: useSsl ? { rejectUnauthorized } : false,
+    });
 
     _client = {
       run: async (query, params = []) => {
@@ -82,6 +97,7 @@ export async function getDb(): Promise<DbClient> {
       database,
       waitForConnections: true,
       connectionLimit: 5,
+      ...(useSsl ? { ssl: { minVersion: "TLSv1.2", rejectUnauthorized } } : {}),
     });
 
     _client = {

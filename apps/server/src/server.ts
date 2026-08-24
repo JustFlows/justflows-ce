@@ -8,12 +8,15 @@ import fs from "node:fs";
 
 import { uploadsDir, getJfRoot, viewsDir } from "./lib/jf-root.js";
 import { isInstalled } from "./middleware/install-guard.js";
+import { installToken, installTokenRequired } from "./lib/install-token.js";
 import { serveAdminI18n } from "./lib/i18n/admin-catalog.js";
 import { csrfProtection } from "./middleware/csrf.js";
+import { setCsrfCookie } from "./lib/session.js";
 import { securityHeaders } from "./middleware/security-headers.js";
 import { cacheTraceMiddleware } from "./middleware/cache-trace.js";
 import { createGzipMiddleware } from "./middleware/gzip.js";
 import { browserCacheMiddleware, staticMaxAgeMs } from "./middleware/browser-cache.js";
+import { rateLimit } from "express-rate-limit";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,6 +53,16 @@ function loadDeferredRoutes(app: express.Application): Promise<void> {
 
 export function createApp(): express.Application {
   const app = express();
+
+  // Justflows is normally deployed behind nginx, Passenger, or a Docker proxy.
+  // Without this, req.ip is the proxy's address for every request, which
+  // collapses per-IP rate limiting into one shared bucket and makes req.secure
+  // always false. Defaults to "loopback" — the reverse proxy on the same host —
+  // and TRUST_PROXY accepts anything Express does ("1", a subnet, "false").
+  const trustProxy = process.env.TRUST_PROXY ?? "loopback";
+  if (trustProxy !== "false") {
+    app.set("trust proxy", /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
+  }
 
   app.disable("x-powered-by");
   app.use((_req, res, next) => {
@@ -89,7 +102,20 @@ export function createApp(): express.Application {
   app.use(securityHeaders);
 
   const staticMaxAge = staticMaxAgeMs();
-  app.use("/uploads", express.static(uploadsDir(), { maxAge: staticMaxAge }));
+  app.use(
+    "/uploads",
+    express.static(uploadsDir(), {
+      maxAge: staticMaxAge,
+      setHeaders: (res, filePath) => {
+        // A PDF rendered inline runs in this origin's context, where its own
+        // scripting and form actions apply. Uploads are user content, so hand
+        // them to the viewer as a download instead.
+        if (filePath.toLowerCase().endsWith(".pdf")) {
+          res.setHeader("Content-Disposition", "attachment");
+        }
+      },
+    }),
+  );
   app.use(express.static(path.join(getJfRoot(), "public"), { maxAge: staticMaxAge }));
 
   app.set("view engine", "ejs");
@@ -107,20 +133,37 @@ export function createApp(): express.Application {
 
   const sendAdminSpa = (_req: express.Request, res: express.Response) => {
     const indexPath = path.join(adminStatic, "index.html");
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
+    res.sendFile(indexPath, (err) => {
+      if (!err || res.headersSent) return;
       res.status(503).send("Admin UI not built.");
-    }
+    });
   };
 
   if (fs.existsSync(adminStatic)) {
     app.use("/assets", express.static(path.join(adminStatic, "assets")));
   }
 
-  app.get("/install", sendAdminSpa);
-  app.get("/login", sendAdminSpa);
-  app.get("/register", sendAdminSpa);
+  // Login is no longer exempt from CSRF, so the page that submits it needs a
+  // token before a session exists. Issuing it with the HTML means the attacker
+  // has to be able to write a cookie on this domain, not merely post a form.
+  // CodeQL js/missing-rate-limiting only models express-rate-limit (not a
+  // custom consumeRateLimit helper) as middleware that guards sendFile.
+  const authPageRateLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 120,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: "Too many requests",
+  });
+
+  const withCsrfCookie = (req: express.Request, res: express.Response) => {
+    if (!req.cookies?.jf_csrf) setCsrfCookie(res);
+    sendAdminSpa(req, res);
+  };
+
+  app.get("/install", authPageRateLimit, withCsrfCookie);
+  app.get("/login", authPageRateLimit, withCsrfCookie);
+  app.get("/register", authPageRateLimit, withCsrfCookie);
 
   app.get("/", (req, res, next) => {
     if (isInstalled()) {
@@ -171,6 +214,10 @@ export async function startServer(): Promise<void> {
   const app = createApp();
   await ensureCoreRoutes(app);
   await loadDeferredRoutes(app);
+
+  if (!isInstalled() && installTokenRequired()) {
+    installToken();
+  }
 
   const port = parseInt(process.env.PORT ?? "3000", 10);
   const hostname = process.env.HOSTNAME ?? "0.0.0.0";

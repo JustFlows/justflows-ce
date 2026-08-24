@@ -29,6 +29,9 @@ const RICHTEXT_OPTIONS: sanitizeHtmlLib.IOptions = {
     span: ["class"],
   },
   allowedSchemes: ["http", "https", "mailto"],
+  // Defaults to true, which lets <a href="//attacker.example"> through the
+  // scheme allowlist entirely — useful for phishing under the site's branding.
+  allowProtocolRelative: false,
   transformTags: {
     a: (_tagName: string, attribs: Record<string, string>) => ({
       tagName: "a",
@@ -67,6 +70,7 @@ const HTML_BLOCK_OPTIONS: sanitizeHtmlLib.IOptions = {
     th: ["colspan", "rowspan"],
   },
   allowedSchemes: ["http", "https", "mailto"],
+  allowProtocolRelative: false,
   allowedSchemesByTag: {
     img: ["http", "https"],
   },

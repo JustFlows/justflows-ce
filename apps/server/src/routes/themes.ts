@@ -37,7 +37,7 @@ import {
   themeInstalledPath,
 } from "../lib/themes-db.js";
 import { requireRole } from "../middleware/auth.js";
-import { THEME_CUSTOMIZE_ROLES } from "../lib/rbac.js";
+import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../lib/rbac.js";
 import { param } from "../lib/params.js";
 import multer from "multer";
 import { assertPackageIsTrusted } from "../lib/package-trust.js";
@@ -55,7 +55,7 @@ function extractCssVariables(manifest: Record<string, unknown>): Record<string, 
   return result;
 }
 
-router.get("/", async (_req, res) => {
+router.get("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -126,7 +126,7 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
   }
 });
 
-router.get("/patterns", async (_req, res) => {
+router.get("/patterns", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -138,13 +138,13 @@ router.get("/patterns", async (_req, res) => {
   }
 });
 
-router.get("/patterns/:slug", async (req, res) => {
+router.get("/patterns/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
     const theme = siteId ? await getActiveTheme(siteId) : null;
     const themeId = theme?.theme_id ?? "justflows.default";
-    const pattern = loadThemePattern(themeId, req.params.slug!, themeInstalledPath(theme));
+    const pattern = loadThemePattern(themeId, param(req.params.slug), themeInstalledPath(theme));
     if (!pattern) {
       res.status(404).json({ error: "Pattern not found" });
       return;

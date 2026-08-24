@@ -4,7 +4,7 @@ import { HooksRegistry } from "../hooks/registry.js";
 import { SettingsStore } from "../settings/store.js";
 import { HealthMonitor, type HealthReport } from "../health/check.js";
 
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 
 export type AppState = "created" | "starting" | "running" | "stopping" | "stopped";
 
@@ -34,7 +34,7 @@ export class App implements AppContext {
       freezeEvents: config.env !== "production",
     });
     this.settings = new SettingsStore();
-    this.health = new HealthMonitor();
+    this.health = new HealthMonitor(VERSION);
   }
 
   get state(): AppState {

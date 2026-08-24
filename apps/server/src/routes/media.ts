@@ -6,6 +6,7 @@ import { getDb } from "../lib/db.js";
 import { uploadsDir } from "../lib/jf-root.js";
 import { requireRole } from "../middleware/auth.js";
 import { MEDIA_WRITE_ROLES } from "../lib/rbac.js";
+import { contentMatchesMimeType } from "../lib/file-type.js";
 import multer from "multer";
 
 const router = Router();
@@ -80,6 +81,15 @@ router.post("/", requireRole(...MEDIA_WRITE_ROLES), upload.single("file"), async
   const ext = MIME_TO_EXT[file.mimetype];
   if (!ext) {
     res.status(415).json({ error: `File type not allowed: ${file.mimetype}` });
+    return;
+  }
+
+  // file.mimetype is the client's own claim. Confirm the bytes agree, so the
+  // library cannot be used to store arbitrary content under an image extension.
+  if (!contentMatchesMimeType(file.buffer, file.mimetype)) {
+    res.status(415).json({
+      error: `File contents do not match the declared type (${file.mimetype})`,
+    });
     return;
   }
 

@@ -15,11 +15,11 @@ import { param } from "../lib/params.js";
 
 const router = Router();
 
-router.get("/builtin", (_req, res) => {
+router.get("/builtin", requireSession, (_req, res) => {
   res.json({ languages: BUILTIN_LANGUAGES });
 });
 
-router.get("/", async (_req, res) => {
+router.get("/", requireSession, async (_req, res) => {
   try {
     const languages = await listLanguages();
     res.json({ languages });
@@ -28,7 +28,7 @@ router.get("/", async (_req, res) => {
   }
 });
 
-router.get("/active", async (_req, res) => {
+router.get("/active", requireSession, async (_req, res) => {
   try {
     const languages = await listLanguages(undefined, true);
     res.json({ languages });

@@ -154,7 +154,8 @@ cssProviderAssetsRouter.get("/*file", async (req, res) => {
     res.setHeader("Cache-Control", "public, max-age=86400, immutable");
     res.sendFile(path.resolve(filePath));
   } catch (err) {
-    res.status(500).send(String(err));
+    console.error("[justflows] css provider asset failed:", err);
+    res.status(500).type("text/plain").send("Internal server error");
   }
 });
 
