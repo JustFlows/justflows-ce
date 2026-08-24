@@ -1,11 +1,11 @@
 /**
  * Justflows install wizard.
  */
-import { cloneElement, isValidElement, useState, type ReactElement } from "react";
+import { cloneElement, isValidElement, useEffect, useState, type ReactElement } from "react";
 import { useNavigate } from "react-router-dom";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 
-type Step = "welcome" | "database" | "site" | "account" | "installing" | "done";
+type Step = "preparing" | "welcome" | "database" | "site" | "account" | "installing" | "done";
 
 interface DbForm {
   driver: "postgres" | "mysql" | "mariadb";
@@ -57,6 +57,64 @@ export default function InstallPage() {
   });
 
   const [site, setSite] = useState<SiteForm>({ name: "", description: "" });
+  const [installTokenValue, setInstallTokenValue] = useState("");
+  const [tokenRequired, setTokenRequired] = useState(false);
+  const [tokenFile, setTokenFile] = useState<string | null>(null);
+  const [bootstrapLog, setBootstrapLog] = useState("");
+
+  // First-run zip installs download npm packages before the site wizard. Do not
+  // collect database details — and never POST /api/install — until that finishes.
+  useEffect(() => {
+    let cancelled = false;
+    let timer = 0;
+
+    async function pollBootstrap() {
+      try {
+        const res = await fetch("/api/bootstrap/status");
+        if (cancelled) return;
+        if (res.status === 404) return;
+        const body = (await res.json()) as {
+          ready?: boolean;
+          installed?: boolean;
+          log?: string;
+        };
+        if (cancelled) return;
+        if (body.installed) return;
+        if (body.ready === false) {
+          setBootstrapLog(body.log ?? "");
+          setStep((current) =>
+            current === "installing" || current === "done" ? current : "preparing",
+          );
+          timer = window.setTimeout(pollBootstrap, 1500);
+          return;
+        }
+        setStep((current) => (current === "preparing" ? "welcome" : current));
+      } catch {
+        // Express-only `pnpm dev` has no bootstrap API; the wizard can continue.
+      }
+    }
+
+    void pollBootstrap();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  // Token check belongs on the last form step so visiting Database / Site does
+  // not boot the full app or generate TOKEN.txt.
+  useEffect(() => {
+    if (step !== "account") return;
+    fetch("/api/install/status")
+      .then((r) => r.json())
+      .then((data: { tokenRequired?: boolean; tokenFile?: string | null }) => {
+        setTokenRequired(Boolean(data.tokenRequired));
+        setTokenFile(data.tokenFile ?? null);
+      })
+      .catch(() => {
+        setTokenRequired(true);
+      });
+  }, [step]);
   const [account, setAccount] = useState<AccountForm>({
     email: "",
     username: "admin",
@@ -80,11 +138,28 @@ export default function InstallPage() {
     account.email.includes("@") &&
     account.username.length >= 2 &&
     account.displayName.length > 0 &&
-    account.password.length >= 8 &&
+    (!tokenRequired || installTokenValue.trim().length > 0) &&
+    account.password.length >= 12 &&
     account.password === account.confirmPassword;
 
   // ── install ───────────────────────────────────────────────────────────────
   async function runInstall() {
+    if (!canInstall) return;
+
+    try {
+      const bootstrap = await fetch("/api/bootstrap/status");
+      if (bootstrap.ok) {
+        const body = (await bootstrap.json()) as { ready?: boolean; log?: string };
+        if (body.ready === false) {
+          setBootstrapLog(body.log ?? "");
+          setStep("preparing");
+          return;
+        }
+      }
+    } catch {
+      // Express-only dev has no bootstrap API.
+    }
+
     setStep("installing");
     setLog([]);
     setFatalError("");
@@ -108,6 +183,7 @@ export default function InstallPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          token: installTokenValue.trim(),
           db: {
             driver: db.driver,
             host: db.host,
@@ -129,6 +205,23 @@ export default function InstallPage() {
           },
         }),
       });
+
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("text/event-stream")) {
+        const text = await res.text();
+        let message = text.trim() || `Install failed (${res.status})`;
+        try {
+          const json = JSON.parse(text) as { message?: string; error?: string };
+          if (json.error === "not_ready") {
+            setStep("preparing");
+            return;
+          }
+          message = json.message || json.error || message;
+        } catch {
+          // Use the raw body.
+        }
+        throw new Error(message);
+      }
 
       // Stream log events from the response body
       if (!res.body) throw new Error("No response body");
@@ -191,7 +284,7 @@ export default function InstallPage() {
         </div>
 
         {/* Progress dots */}
-        {step !== "installing" && step !== "done" && (
+        {step !== "preparing" && step !== "installing" && step !== "done" && (
           <ol className="jf-steps" aria-label="Installation steps">
             {(["welcome", "database", "site", "account"] as const).map((s) => (
               <li
@@ -207,6 +300,24 @@ export default function InstallPage() {
         )}
 
         <div className="jf-auth__body">
+          {/* ── PREPARING (first-run npm install) ──────────────────────── */}
+          {step === "preparing" && (
+            <div className="jf-stack">
+              <h2 className="jf-section-title">Preparing files…</h2>
+              <p className="jf-prose">
+                Justflows is still installing what it needs. The site wizard starts
+                after this finishes — your database is not touched yet.
+              </p>
+              {bootstrapLog ? (
+                <div className="jf-log" role="log" aria-live="polite" aria-relevant="additions">
+                  <pre className="jf-log__line" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+                    {bootstrapLog}
+                  </pre>
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {/* ── WELCOME ─────────────────────────────────────────────────── */}
           {step === "welcome" && (
             <div className="jf-stack">
@@ -357,6 +468,41 @@ export default function InstallPage() {
               <h2 className="jf-section-title">Admin account</h2>
               <p className="jf-prose">This will be your login to manage the site.</p>
 
+              {tokenRequired && (
+                <Field label="Setup key">
+                  <input
+                    className="jf-input"
+                    value={installTokenValue}
+                    placeholder="Paste the key from TOKEN.txt"
+                    autoComplete="off"
+                    spellCheck={false}
+                    onChange={(e) => setInstallTokenValue(e.target.value)}
+                  />
+                  <div className="jf-callout">
+                    <p className="jf-callout__title">Where to find your setup key</p>
+                    <ol className="jf-callout__steps">
+                      <li>
+                        Open your site&rsquo;s files the same way you uploaded Justflows — your
+                        host&rsquo;s File Manager (cPanel, Plesk, DirectAdmin) or an FTP app.
+                      </li>
+                      <li>
+                        Go into the <code>{tokenFile ? tokenFile.split("/")[0] : "install-token"}</code>{" "}
+                        folder and open <code>TOKEN.txt</code>.
+                      </li>
+                      <li>Copy the key from that file and paste it above.</li>
+                    </ol>
+                    <p className="jf-callout__note">
+                      This is how Justflows knows the person setting up the site is the person who
+                      owns it — nobody who simply finds your address can claim it first. The folder
+                      is deleted automatically once setup finishes.
+                    </p>
+                    <p className="jf-callout__note">
+                      Running your own server? The key is also printed in the startup log.
+                    </p>
+                  </div>
+                </Field>
+              )}
+
               <Field label="Your email">
                 <input
                   className="jf-input"
@@ -389,10 +535,10 @@ export default function InstallPage() {
               <div className="jf-grid jf-grid--2">
                 <Field
                   label="Password"
-                  error={account.password.length > 0 && account.password.length < 8 ? "Password must be at least 8 characters" : undefined}
+                  error={account.password.length > 0 && account.password.length < 12 ? "Password must be at least 12 characters" : undefined}
                 >
                   <input
-                    className={`jf-input${account.password.length > 0 && account.password.length < 8 ? " jf-input--invalid" : ""}`}
+                    className={`jf-input${account.password.length > 0 && account.password.length < 12 ? " jf-input--invalid" : ""}`}
                     type="password"
                     value={account.password}
                     autoComplete="new-password"

@@ -10,11 +10,30 @@ function readTrustedDigests(): Map<string, string> {
   return map;
 }
 
-export function requireSignedPackages(): boolean {
-  return process.env.JUSTFLOWS_REQUIRE_SIGNED_PACKAGES === "1";
+/**
+ * Package authenticity is required by default as of 0.1.2. Installing a package
+ * runs its code in this process, so an unverified upload is equivalent to shell
+ * access — that has to be a deliberate choice, not the path of least resistance.
+ *
+ * `JUSTFLOWS_ALLOW_UNSIGNED_PACKAGES=1` opts out, for local development and for
+ * operators who build their own packages and accept the risk.
+ * `JUSTFLOWS_REQUIRE_SIGNED_PACKAGES=1` is kept as a no-op alias so existing
+ * hardened deployments do not break; it can be removed once 0.1.x is retired.
+ */
+export function allowUnsignedPackages(): boolean {
+  if (process.env.JUSTFLOWS_REQUIRE_SIGNED_PACKAGES === "1") return false;
+  return process.env.JUSTFLOWS_ALLOW_UNSIGNED_PACKAGES === "1";
 }
 
-/** Verify HMAC-SHA256 signature over canonical manifest JSON (excluding signature fields). */
+/**
+ * Verify an operator's own countersignature over the canonical manifest JSON.
+ *
+ * This is NOT proof of provenance: the key is this installation's APP_SECRET, so
+ * it only attests that someone with access to this server's secret vouched for
+ * the package. It is the signed equivalent of pinning a digest, and carries the
+ * same weight — no more. Publisher identity comes only from
+ * verifyMarketplaceSignature, which checks a pinned Ed25519 public key.
+ */
 export function verifyManifestSignature(
   manifest: Record<string, unknown>,
   signature: string,
@@ -117,11 +136,24 @@ export function assertPackageIsTrusted(
     return;
   }
 
-  if (requireSignedPackages()) {
-    throw new Error(
-      "Package is not trusted — set JUSTFLOWS_TRUSTED_PACKAGE_DIGESTS or include a valid packageSignature",
+  if (allowUnsignedPackages()) {
+    console.warn(
+      `[justflows] SECURITY: installing unverified package "${packageId || "unknown"}" ` +
+        `(digest ${digest.slice(0, 12)}…). JUSTFLOWS_ALLOW_UNSIGNED_PACKAGES is set.`,
     );
+    return;
   }
+
+  throw new Error(
+    "This package could not be verified. Installing a package runs its code on your server, " +
+      "so Justflows only accepts packages that carry a valid marketplace signature or whose " +
+      "SHA-256 digest you have pinned.\n\n" +
+      `Digest of the package you uploaded: ${digest}\n\n` +
+      "To install it anyway, either pin it:\n" +
+      `  JUSTFLOWS_TRUSTED_PACKAGE_DIGESTS=${packageId || "<package-id>"}:${digest}\n` +
+      "or, if you build your own packages and accept the risk, allow unsigned installs:\n" +
+      "  JUSTFLOWS_ALLOW_UNSIGNED_PACKAGES=1",
+  );
 }
 
 /** Optional HMAC verification for core update archives. */

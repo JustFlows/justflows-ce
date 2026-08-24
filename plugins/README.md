@@ -79,3 +79,5 @@ actually serves; an unrouted path renders a dead link.
 
 Pack a `.jfpkg` and drop it on Admin → **Plugins**. Site owners never copy
 folders into `plugins/`; that path is for developers working in the CE source.
+Unsigned packages are refused unless you pin a digest or set
+`JUSTFLOWS_ALLOW_UNSIGNED_PACKAGES=1` (see [docs/PACKAGING.md](../docs/PACKAGING.md)).

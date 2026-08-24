@@ -7,6 +7,7 @@ import { getSiteId } from "./themes-db.js";
 import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
 import { getSiteSetting } from "./site-settings.js";
 import { getGeneralSettings } from "./general-settings.js";
+import { consumeRateLimit } from "./rate-limit.js";
 
 export const FORMS_PLUGIN_ID = "justflows.forms";
 export const FORMS_BLOCK_TYPE = "justflows.forms.form";
@@ -253,10 +254,36 @@ export async function renderFormBlockHtml(props: Record<string, unknown>, submit
   return renderFormHtml(fallback, submittedFormId === "inline");
 }
 
+/** Conservative address check for the Reply-To we derive from submitted data. */
+const EMAIL_RE = /^[^\s@<>,;:"'\\()[\]]{1,64}@[a-z0-9.-]{1,255}\.[a-z]{2,}$/i;
+
+export function safeReplyTo(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  // CRLF would split the header; the installed nodemailer has open advisories
+  // for exactly this, so reject rather than rely on the library encoding it.
+  if (/[\r\n\0]/.test(trimmed)) return undefined;
+  if (trimmed.length > 320) return undefined;
+  return EMAIL_RE.test(trimmed) ? trimmed : undefined;
+}
+
+/** Strip anything that could break out of a mail header line. */
+function headerText(value: string, max = 160): string {
+  return value.replace(/[\r\n\0]/g, " ").trim().slice(0, max);
+}
+
 export async function acceptFormSubmission(input: {
   body: Record<string, unknown>;
   referer?: string;
+  clientIp?: string;
 }): Promise<{ status: number; location?: string; error?: string }> {
+  // Unauthenticated write. Without a ceiling, a script fills plugin_data and
+  // burns the site's SMTP quota; the honeypot below only stops naive bots.
+  const ip = input.clientIp ?? "unknown";
+  if (!consumeRateLimit(`form:ip:${ip}`, 10, 10 * 60 * 1000)) {
+    return { status: 429, error: "Too many submissions. Please try again later." };
+  }
+
   const siteId = await getSiteId();
   if (!siteId || !(await isFormsPluginEnabled(siteId))) {
     return { status: 404, error: "Forms are not available" };
@@ -311,11 +338,12 @@ async function notifyFormSubmission(
       .join("\n");
     const replyTo = Object.entries(values).find(([key]) => key.toLowerCase().includes("email"))?.[1];
     const { sendMail } = await import("./mail.js");
+    const label = headerText(formTitle || formName);
     await sendMail({
       to,
-      subject: `Form submission: ${formTitle || formName}`,
-      text: `A new submission was received for “${formTitle || formName}”.\n\n${lines}`,
-      replyTo: replyTo?.includes("@") ? replyTo : undefined,
+      subject: `Form submission: ${label}`,
+      text: `A new submission was received for “${label}”.\n\n${lines}`,
+      replyTo: safeReplyTo(replyTo),
     });
   } catch (err) {
     console.error("Form notification mail failed:", err);

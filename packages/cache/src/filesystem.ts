@@ -1,6 +1,12 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { CacheAdapter } from "./adapter.js";
+
+/** Readable, filesystem-safe stem for a key. Lossy by design — the hash disambiguates. */
+function filePrefix(key: string): string {
+  return key.replace(/[^a-z0-9_-]/gi, "_").slice(0, 120);
+}
 
 interface Entry<T> {
   value: T;
@@ -13,9 +19,18 @@ export class FilesystemCache implements CacheAdapter {
     private readonly defaultTtlSeconds = 300,
   ) {}
 
+  /**
+   * Filenames are `<readable-prefix>-<hash>.json`.
+   *
+   * The prefix keeps `invalidate()` able to match by namespace and keeps the
+   * directory browsable. The hash is what makes the name unique: the previous
+   * scheme replaced every character outside [a-z0-9_-] with "_" and truncated at
+   * 200, so "/foo-bar", "/foo.bar", and "/foo/bar" all wrote to the same file —
+   * and whichever page rendered first was served for all of them until the TTL
+   * expired.
+   */
   private filePath(key: string): string {
-    const safe = key.replace(/[^a-z0-9_-]/gi, "_").slice(0, 200);
-    return path.join(this.dir, `${safe}.json`);
+    return path.join(this.dir, `${filePrefix(key)}-${createHash("sha256").update(key).digest("hex").slice(0, 32)}.json`);
   }
 
   async get<T = unknown>(key: string): Promise<T | undefined> {
@@ -49,7 +64,7 @@ export class FilesystemCache implements CacheAdapter {
   async invalidate(prefix: string): Promise<void> {
     try {
       const entries = await fs.readdir(this.dir);
-      const safe = prefix.replace(/[^a-z0-9_-]/gi, "_");
+      const safe = filePrefix(prefix);
       for (const name of entries) {
         if (name.startsWith(safe)) {
           await fs.unlink(path.join(this.dir, name)).catch(() => null);

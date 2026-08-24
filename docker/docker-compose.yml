@@ -6,7 +6,7 @@ version: "3.9"
 #   # set APP_URL, APP_SECRET, and DB_PASSWORD
 #   docker compose up
 #
-# Then open http://localhost:3000/install in your browser.
+# Then open http://localhost:3000 in your browser (the site wizard).
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:

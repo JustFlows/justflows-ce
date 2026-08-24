@@ -15,3 +15,10 @@ Start from observed behavior or the changed diff. Do not erase or reformat unrel
 - For admin UI work, cover types/build plus meaningful manual states when no UI harness exists.
 
 Use pnpm workspace filters during iteration. Escalate to root `pnpm typecheck`, `pnpm test`, and `pnpm build` based on blast radius. Distinguish new failures from pre-existing failures and report exact commands.
+
+## CI that must not come back
+
+- Never add `actions/dependency-review-action` as a required job in `.github/workflows/ci.yml`. Public `justflows-ce` does not enable Dependency graph, so the job fails every PR with "Dependency review is not supported on this repository." The advisory gate is `pnpm audit --audit-level high` in the `security` job.
+- Do not skip or suppress CodeQL to clear a public PR. Fix path, log-injection, format-string, rate-limit, and TOCTOU findings in code. When syncing private → public, keep CodeQL enabled and do not restore the dependency-review job.
+- `js/missing-rate-limiting` only recognizes `express-rate-limit` (and a few similar packages) as middleware. A custom in-process counter is not enough.
+- `js/log-injection` only treats `.replace(/\n/g, "")` / `.replace(/\r/g, "")` (empty replacement) or `JSON.stringify` as sanitizers. Replacing newlines with `_` inside a helper does not clear the alert.

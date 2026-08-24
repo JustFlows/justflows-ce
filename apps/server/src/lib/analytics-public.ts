@@ -9,6 +9,13 @@ import { parseGoogleTagId } from "./google-tag.js";
 
 export const ANALYTICS_PLUGIN_ID = "justflows.analytics";
 
+/** Ceiling on distinct referrer hostnames recorded per day (see recordPublicPageview). */
+const MAX_REFERRERS_PER_DAY = 200;
+
+function store(siteId: string) {
+  return createPluginDataApi(ANALYTICS_PLUGIN_ID, siteId);
+}
+
 const SKIP_PREFIXES = [
   "/admin",
   "/api",
@@ -89,9 +96,9 @@ async function bump(
   id: string,
   fields: Record<string, string>,
 ): Promise<void> {
-  const store = createPluginDataApi(ANALYTICS_PLUGIN_ID, siteId);
-  const existing = await store.get<AnalyticsCountRow>(collection, id);
-  await store.put(collection, id, {
+  const api = store(siteId);
+  const existing = await api.get<AnalyticsCountRow>(collection, id);
+  await api.put(collection, id, {
     ...fields,
     count: (existing?.data.count ?? 0) + 1,
   });
@@ -123,7 +130,20 @@ export async function recordPublicPageview(req: Request): Promise<void> {
     siteHost,
   );
   if (referrer) {
-    await bump(siteId, "referrers", `${day}:${referrer}`, { day, referrer });
+    // The hostname comes from the visitor's Referer, so the set of distinct
+    // values is unbounded and attacker-chosen — one row per referrer per day
+    // would let anyone grow the table without limit. Once the day's set is
+    // full, everything further is counted as "other".
+    const known = await store(siteId).get("referrers", `${day}:${referrer}`);
+    if (known) {
+      await bump(siteId, "referrers", `${day}:${referrer}`, { day, referrer });
+    } else {
+      const todays = (await store(siteId).list<AnalyticsCountRow>("referrers")).filter(
+        (row) => String(row.data.day ?? "") === day,
+      );
+      const label = todays.length >= MAX_REFERRERS_PER_DAY ? "other" : referrer;
+      await bump(siteId, "referrers", `${day}:${label}`, { day, referrer: label });
+    }
   }
 
   const device = deviceFromUa(ua);
@@ -160,11 +180,11 @@ export async function getAnalyticsSummary(siteId: string): Promise<AnalyticsSumm
   };
   if (!plugin) return empty;
 
-  const store = createPluginDataApi(ANALYTICS_PLUGIN_ID, siteId);
+  const api = store(siteId);
   const [pageviews, referrers, devices] = await Promise.all([
-    store.list<AnalyticsCountRow>("pageviews"),
-    store.list<AnalyticsCountRow>("referrers"),
-    store.list<AnalyticsCountRow>("devices"),
+    api.list<AnalyticsCountRow>("pageviews"),
+    api.list<AnalyticsCountRow>("referrers"),
+    api.list<AnalyticsCountRow>("devices"),
   ]);
 
   const pages = mergeCounts(pageviews, "path").slice(0, 25);
