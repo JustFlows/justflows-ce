@@ -16,7 +16,7 @@ import { securityHeaders } from "./middleware/security-headers.js";
 import { cacheTraceMiddleware } from "./middleware/cache-trace.js";
 import { createGzipMiddleware } from "./middleware/gzip.js";
 import { browserCacheMiddleware, staticMaxAgeMs } from "./middleware/browser-cache.js";
-import { clientIp, consumeRateLimit } from "./lib/rate-limit.js";
+import { rateLimit } from "express-rate-limit";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -146,14 +146,15 @@ export function createApp(): express.Application {
   // Login is no longer exempt from CSRF, so the page that submits it needs a
   // token before a session exists. Issuing it with the HTML means the attacker
   // has to be able to write a cookie on this domain, not merely post a form.
-  const authPageRateLimit = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (!consumeRateLimit(`auth-page:${clientIp(req)}`, 120, 60_000)) {
-      res.setHeader("Retry-After", "60");
-      res.status(429).type("text/plain").send("Too many requests");
-      return;
-    }
-    next();
-  };
+  // CodeQL js/missing-rate-limiting only models express-rate-limit (not a
+  // custom consumeRateLimit helper) as middleware that guards sendFile.
+  const authPageRateLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 120,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: "Too many requests",
+  });
 
   const withCsrfCookie = (req: express.Request, res: express.Response) => {
     if (!req.cookies?.jf_csrf) setCsrfCookie(res);

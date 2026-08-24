@@ -3,7 +3,7 @@ import { logSafe } from "../log-safe.js";
 
 describe("logSafe", () => {
   it("strips CR/LF/TAB and percent so values cannot inject logs or format strings", () => {
-    expect(logSafe("GET\r\nSet-Cookie: x\t%ssneaky")).toBe("GET__Set-Cookie: x__ssneaky");
+    expect(logSafe("GET\r\nSet-Cookie: x\t%ssneaky")).toBe("GETSet-Cookie: x__ssneaky");
   });
 
   it("truncates long values", () => {

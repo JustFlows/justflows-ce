@@ -12,8 +12,8 @@ Read `AGENTS.md`, `apps/server/src/server.ts`, `apps/server/src/register-routes.
 - Require authentication and the narrowest capability for administrative mutations. Preserve public API access controls and safe cache behavior.
 - Never return secrets, internal paths, stack traces, password hashes, or raw database errors.
 - For filesystem or archive operations, reject traversal, symlink escapes, unsafe extensions, and oversized input. Resolve user- or database-supplied segments with `resolvePathUnderBase` before `readFile`/`sendFile`.
-- Public routes that read files (`sendFile`, `existsSync`, static SPA HTML) need `consumeRateLimit` on the same handler chain (CodeQL `js/missing-rate-limiting`).
-- Do not interpolate `req.method`, `req.path`, or other request data into the first argument of `console.error`. Use `logSafe()` so `%` cannot become a format string and CR/LF cannot inject log lines.
+- Public routes that `sendFile` need `express-rate-limit` on the same `app.get` chain. CodeQL `js/missing-rate-limiting` only models that package (not a custom `consumeRateLimit` helper).
+- Do not interpolate `req.method`, `req.path`, or other request data into the first argument of `console.error`. Strip newlines with `.replace(/\n/g, "").replace(/\r/g, "")` (empty replacement) and pass the result through `JSON.stringify` — CodeQL `js/log-injection` does not treat a custom wrapper or a `_` substitution as a sanitizer.
 - Register new routes deliberately; check ordering against public-site fallbacks and middleware.
 
 Test successful requests plus validation, authorization, missing-resource, and failure paths. Consider cache invalidation, compression, localization, install state, and plugin hooks. Run `pnpm --filter @justflows/server typecheck` and relevant tests/build.
