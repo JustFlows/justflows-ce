@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { BlockCatalogEntry, BlockNode } from "./types";
 import { CATEGORY_LABELS, CATEGORY_ORDER } from "./block-defaults";
 import { useBuilderDrag } from "./DragContext";
@@ -9,7 +10,18 @@ interface ThemePatternMeta {
   title: string;
   description?: string;
   category?: string;
+  /** Block types this pattern uses that come from a plugin rather than core. */
+  requiresBlockTypes?: string[];
 }
+
+/** Plugin id to link to under Extensions for a given block type prefix, e.g. "justflows.forms.form" -> "justflows.forms". */
+function pluginIdForBlockType(blockType: string): string {
+  return blockType.split(".").slice(0, 2).join(".");
+}
+
+const PLUGIN_NAMES: Record<string, string> = {
+  "justflows.forms": "Forms",
+};
 
 interface BlockLibraryProps {
   catalog: BlockCatalogEntry[];
@@ -25,6 +37,7 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
   const [patterns, setPatterns] = useState<ThemePatternMeta[]>([]);
   const [importing, setImporting] = useState<string | null>(null);
   const { onDragStartType, onDragEnd } = useBuilderDrag();
+  const catalogTypes = useMemo(() => new Set(catalog.map((b) => b.type)), [catalog]);
 
   useEffect(() => {
     fetch("/api/themes/patterns")
@@ -129,27 +142,69 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
               <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
                 {patterns
                   .filter((p) => !query.trim() || p.title.toLowerCase().includes(query.toLowerCase()))
-                  .map((pattern) => (
-                    <button
-                      key={pattern.id}
-                      type="button"
-                      disabled={importing === pattern.id}
-                      onClick={() => handleImportPattern(pattern.id)}
-                      style={{
-                        padding: "0.55rem 0.65rem",
-                        border: "1px solid var(--jf-border)",
-                        borderRadius: 6,
-                        background: "#fff",
-                        cursor: importing === pattern.id ? "wait" : "pointer",
-                        textAlign: "left",
-                      }}
-                    >
-                      <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#334155" }}>{pattern.title}</div>
-                      {pattern.description && (
-                        <div style={{ fontSize: "0.65rem", color: "var(--jf-text-3)", marginTop: 2, lineHeight: 1.35 }}>{pattern.description}</div>
-                      )}
-                    </button>
-                  ))}
+                  .map((pattern) => {
+                    const missingTypes = (pattern.requiresBlockTypes ?? []).filter((t) => !catalogTypes.has(t));
+                    return (
+                      <div
+                        key={pattern.id}
+                        style={{
+                          border: "1px solid var(--jf-border)",
+                          borderRadius: 6,
+                          background: "#fff",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          disabled={importing === pattern.id || missingTypes.length > 0}
+                          onClick={() => {
+                            if (missingTypes.length > 0) return;
+                            handleImportPattern(pattern.id);
+                          }}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            padding: "0.55rem 0.65rem",
+                            border: "none",
+                            background: "none",
+                            cursor: missingTypes.length > 0 ? "not-allowed" : importing === pattern.id ? "wait" : "pointer",
+                            textAlign: "left",
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#334155" }}>{pattern.title}</div>
+                          {pattern.description && (
+                            <div style={{ fontSize: "0.65rem", color: "var(--jf-text-3)", marginTop: 2, lineHeight: 1.35 }}>{pattern.description}</div>
+                          )}
+                        </button>
+                        {missingTypes.length > 0 && (
+                          <div
+                            style={{
+                              padding: "0.4rem 0.65rem",
+                              borderTop: "1px solid var(--jf-border)",
+                              background: "var(--jf-warning-bg, #fffbeb)",
+                              fontSize: "0.65rem",
+                              color: "var(--jf-warning-text, #92400e)",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {missingTypes.map((type) => {
+                              const pluginId = pluginIdForBlockType(type);
+                              const pluginName = PLUGIN_NAMES[pluginId] ?? pluginId;
+                              return (
+                                <div key={type}>
+                                  ⓘ Uses the {pluginName} extension, which isn't installed yet.{" "}
+                                  <Link to="/admin/plugins" style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>
+                                    Install it
+                                  </Link>{" "}
+                                  to make this block work.
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>

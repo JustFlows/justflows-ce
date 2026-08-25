@@ -298,6 +298,7 @@ router.post("/", async (req, res) => {
       dbName: db.database,
       dbUser: db.username,
       dbPassword: db.password,
+      databaseUrl: dbUrl,
       appUrl: site.url,
       appSecret: randomBytes(48).toString("hex"),
       version: getJustflowsVersion(),

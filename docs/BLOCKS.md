@@ -33,7 +33,7 @@ blocks; public HTML is produced on the server, not in the admin SPA.
 
 ## Props every block carries
 
-Three props are handled by the platform, not by the block's own `render`, so a
+Five props are handled by the platform, not by the block's own `render`, so a
 plugin block gets them for free and must not define them itself:
 
 | Prop | Type | Effect |
@@ -41,10 +41,18 @@ plugin block gets them for free and must not define them itself:
 | `animation` | object | Entrance, hover, and press effects |
 | `className` | string | Extra classes on the block's root element |
 | `css` | string | CSS confined to this block instance |
-| `layout` | object | Where the block sits when its parent is a grid |
+| `gridPlacement` | object | Where the block sits when its parent is a grid |
 | `style` | object | Spacing, size, alignment, corners and shadow |
 
-`withBlockChrome` in `@justflows/blocks` applies all three to the HTML a block
+`layout` looks like a natural name for a block's own schema (a gallery's
+grid/masonry choice, say) — resist it. It used to be the key for the row
+above, and the bundled Gallery block picked it independently; the two
+collided, and the sanitizer silently deleted the gallery's own value on every
+save because it didn't look like a grid placement object. Renaming the
+platform's key to `gridPlacement` fixed that specific collision, but `layout`
+is still a name worth avoiding for a block's own props.
+
+`withBlockChrome` in `@justflows/blocks` applies all five to the HTML a block
 returns, on every render path. A block whose `render` emits a single root
 element gets them on that element; a fragment is wrapped in a `<div>`.
 
@@ -132,7 +140,7 @@ the grid, because a grid item is positioned by its own `grid-column` and
 to insert, and a plugin block gets it for free.
 
 ```json
-{ "type": "core.heading", "props": { "text": "Hi", "layout": { "col": 1, "span": 8, "row": 1 } } }
+{ "type": "core.heading", "props": { "text": "Hi", "gridPlacement": { "col": 1, "span": 8, "row": 1 } } }
 ```
 
 | Key | Meaning | Range |

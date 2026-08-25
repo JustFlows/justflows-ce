@@ -156,6 +156,8 @@ export interface ThemePatternMeta {
   title: string;
   description?: string;
   category?: string;
+  /** Block types this pattern uses that come from a plugin rather than core. */
+  requiresBlockTypes?: string[];
 }
 
 export interface ThemePattern extends ThemePatternMeta {
@@ -188,6 +190,7 @@ export function listThemePatterns(themeId: string, installedPath?: string | null
       title: data.title ?? data.id,
       description: data.description,
       category: data.category ?? "pages",
+      requiresBlockTypes: Array.isArray(data.requiresBlockTypes) ? data.requiresBlockTypes : undefined,
     });
   }
   return results;

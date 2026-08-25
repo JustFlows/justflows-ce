@@ -1,4 +1,4 @@
-import { GRID_MAX_COLUMNS, parseBlockPlacement, type BlockPlacement } from "@justflows/blocks";
+import { GRID_MAX_COLUMNS, isPlacementShaped, parseBlockPlacement, type BlockPlacement } from "@justflows/blocks";
 import type { BlockNode } from "./types";
 
 export const GRID_BLOCK_TYPE = "core.grid";
@@ -15,7 +15,9 @@ export function gridColumns(block: BlockNode): number {
 }
 
 export function placementOf(block: BlockNode, columns: number): BlockPlacement {
-  return parseBlockPlacement(block.props?.layout, columns);
+  const props = block.props ?? {};
+  const source = props.gridPlacement ?? (isPlacementShaped(props.layout) ? props.layout : undefined);
+  return parseBlockPlacement(source, columns);
 }
 
 function clamp(value: number, min: number, max: number): number {

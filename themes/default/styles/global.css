@@ -699,6 +699,101 @@ hr {
 .jf-lightbox__prev { left: 0.75rem; top: 50%; transform: translateY(-50%); }
 .jf-lightbox__next { right: 0.75rem; top: 50%; transform: translateY(-50%); }
 
+.jf-gallery__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-border, #cbd5e1);
+}
+
+/* Carousel: a scroll-snap track. Dragging or a two-finger swipe moves it, and
+   each dot is a plain fragment link to a slide's own id — the browser scrolls
+   it into view natively, no script required. */
+.jf-gallery--carousel { margin: 1rem 0; }
+.jf-carousel__track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  gap: 0.75rem;
+  border-radius: var(--radius-sm);
+  -webkit-overflow-scrolling: touch;
+}
+.jf-carousel__track .jf-gallery__item {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  margin: 0;
+}
+.jf-carousel__track .jf-gallery__item img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.jf-carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+/* Slideshow: every slide is stacked in the same box; only one is opaque at a
+   time. The first slide is opaque by default, and a dot link makes its slide
+   the CSS `:target`, which — placed after the default rule — wins the fade. */
+.jf-gallery--slideshow { margin: 1rem 0; }
+.jf-slideshow__stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+.jf-slideshow__stage .jf-gallery__item {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  z-index: 0;
+  transition: opacity 0.5s ease;
+}
+.jf-slideshow__stage .jf-gallery__item:first-of-type { opacity: 1; z-index: 1; }
+.jf-slideshow__stage .jf-gallery__item:target { opacity: 1; z-index: 2; }
+.jf-slideshow__stage .jf-gallery__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.jf-slideshow__stage .jf-gallery__caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  background: linear-gradient(0deg, rgba(15, 23, 42, 0.65), transparent);
+  color: #fff;
+}
+.jf-slideshow__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+/* List: full-width stacked rows — a single large image per item, caption
+   underneath. */
+.jf-gallery--list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.jf-gallery--list .jf-gallery__item { margin: 0; }
+.jf-gallery--list .jf-gallery__item img {
+  width: 100%;
+  max-height: 32rem;
+  object-fit: cover;
+}
+
 /* ── CTA ── */
 .jf-cta { padding: clamp(3rem, 6vw, 4.5rem) 1.5rem; text-align: center; }
 .jf-cta--primary { background: #eff6ff; }

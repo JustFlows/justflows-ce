@@ -25,6 +25,11 @@ A directory is a theme if it contains `justflows-theme.json` or
 | `patterns/*.json` | Page-builder patterns |
 | `demo/home.json` | Default home blocks when no home page is selected |
 
+A pattern is `{ id, title, description?, category?, requiresBlockTypes?, blocks }`.
+Set `requiresBlockTypes` to the plugin block types a pattern uses (e.g.
+`["justflows.forms.form"]`); the Patterns panel shows an install notice
+instead of importing silently when one isn't in the active block catalog.
+
 Platform block-animation CSS is appended to `/theme.css`, so every theme gets
 entrance, hover, and press effects from the page builder. Public pages also load
 `/js/block-animations.js` for scroll-into-view playback and `/js/site-chrome.js`

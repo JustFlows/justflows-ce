@@ -10,8 +10,8 @@ const GRID_TOP = 50;
 
 const grid: BlockNode = { id: "grid", type: "core.grid", version: 1, props: { columns: 12, gap: "none" } };
 
-function child(id: string, layout?: Record<string, number>): BlockNode {
-  return { id, type: "core.paragraph", version: 1, props: layout ? { layout } : {} };
+function child(id: string, gridPlacement?: Record<string, number>): BlockNode {
+  return { id, type: "core.paragraph", version: 1, props: gridPlacement ? { gridPlacement } : {} };
 }
 
 // Captured once: re-reading it inside the stub would pick up the previous
@@ -63,7 +63,7 @@ function drag(handle: Element, toColumn: number, toY = GRID_TOP + 50) {
 
 function lastLayout(fn: ReturnType<typeof vi.fn>, id: string): unknown {
   const children = fn.mock.calls.at(-1)?.[0] as BlockNode[];
-  return children.find((c) => c.id === id)?.props.layout;
+  return children.find((c) => c.id === id)?.props.gridPlacement;
 }
 
 describe("GridEditor", () => {
@@ -109,7 +109,7 @@ describe("GridEditor", () => {
     const onChange = mount([child("a", { col: 3, span: 12 })]);
     drag(screen.getByTitle("Drag to change the start column"), 1);
     const children = onChange.mock.calls.at(-1)?.[0] as BlockNode[];
-    expect(children[0]?.props).not.toHaveProperty("layout");
+    expect(children[0]?.props).not.toHaveProperty("gridPlacement");
   });
 
   it("keeps a block inside the grid however far it is dragged", () => {

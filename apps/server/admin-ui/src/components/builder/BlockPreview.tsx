@@ -210,17 +210,24 @@ export function BlockPreview({ block, depth = 0, onSelect, selectedId, renderChi
 
     case "justflows.gallery.grid": {
       const items = (Array.isArray(p.items) ? p.items : []) as Array<{ src?: string; alt?: string }>;
-      const cols = Math.min(6, Math.max(2, Number(p.columns) || 3));
+      const layout = (p.layout as string) || "grid";
+      const cols = layout === "carousel" || layout === "slideshow" || layout === "list" ? 1 : Math.min(6, Math.max(2, Number(p.columns) || 3));
       if (items.length === 0) {
         return wrap(<div style={{ background: "var(--jf-surface-3)", padding: "1.5rem", borderRadius: 6, textAlign: "center", color: "var(--jf-text-3)" }}>Empty gallery</div>);
       }
+      const shown = layout === "carousel" || layout === "slideshow" ? items.slice(0, 1) : items.slice(0, 12);
       return wrap(
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: "0.5rem" }}>
-          {items.slice(0, 12).map((item, i) => (
-            item.src
-              ? <img key={i} src={item.src} alt={item.alt ?? ""} style={{ width: "100%", height: 72, objectFit: "cover", borderRadius: 4 }} />
-              : <div key={i} style={{ height: 72, background: "var(--jf-border)", borderRadius: 4 }} />
-          ))}
+        <div>
+          {layout !== "grid" && (
+            <div style={{ fontSize: "0.7rem", color: "var(--jf-text-3)", marginBottom: "0.35rem", textTransform: "capitalize" }}>{layout}</div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: "0.5rem" }}>
+            {shown.map((item, i) => (
+              item.src
+                ? <img key={i} src={item.src} alt={item.alt ?? ""} style={{ width: "100%", height: layout === "list" ? 140 : 72, objectFit: "cover", borderRadius: 4 }} />
+                : <div key={i} style={{ height: 72, background: "var(--jf-border)", borderRadius: 4 }} />
+            ))}
+          </div>
         </div>,
       );
     }

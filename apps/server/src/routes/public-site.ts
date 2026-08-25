@@ -59,7 +59,7 @@ import { getRuntimeBlockRegistry } from "../lib/runtime-blocks.js";
 import type { BlockNode } from "../lib/types.js";
 import { withBlockChrome } from "@justflows/blocks";
 import { FORMS_BLOCK_TYPE, renderFormBlockHtml } from "../lib/forms-public.js";
-import { isGalleryPluginEnabled, registerGalleryBlock } from "../lib/gallery-public.js";
+import { isGalleryPluginEnabled, registerGalleryBlock, unregisterGalleryBlock } from "../lib/gallery-public.js";
 import { buildFaviconHeadHtml } from "../lib/favicon.js";
 
 const templateDir = viewsDir();
@@ -212,6 +212,7 @@ function containsReusable(blocks: BlockNode[]): boolean {
 
 async function renderBlocksHtml(blocks: BlockNode[], submittedFormId?: string): Promise<string> {
   if (await isGalleryPluginEnabled()) registerGalleryBlock();
+  else unregisterGalleryBlock();
   const resolved = await withReusables(blocks);
   try {
     return await renderBlockTree(resolved, submittedFormId);

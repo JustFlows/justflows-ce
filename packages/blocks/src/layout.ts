@@ -76,6 +76,20 @@ export function sanitizePlacementProp(raw: unknown): Record<string, unknown> | u
 }
 
 /**
+ * Placement used to live under the generic `layout` prop key — the same key
+ * a block's own schema might use for something else entirely (the gallery
+ * block's grid/masonry/carousel choice, for instance). Placement is always a
+ * plain object; nothing else ever stored under `layout` is, so that shape is
+ * what tells real legacy placement data apart from a block's own value. New
+ * placement data is written under `gridPlacement` instead so the two can
+ * never collide again; this only matters for reading data saved before that
+ * split, or blocks that still write the old key.
+ */
+export function isPlacementShaped(raw: unknown): raw is Record<string, unknown> {
+  return !!raw && typeof raw === "object" && !Array.isArray(raw);
+}
+
+/**
  * The custom properties the grid CSS reads.
  *
  * Rather than one value per breakpoint, narrow blocks are widened for tablet by

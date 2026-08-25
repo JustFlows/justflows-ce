@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BlockNode, BlockCatalogEntry } from "./types";
 import { syncColumnCount } from "./block-defaults";
 import AnimationPanel from "./AnimationPanel";
@@ -8,6 +8,9 @@ import GridPlacementPanel from "./GridPlacementPanel";
 import BlockLayoutPanel from "./BlockLayoutPanel";
 import ReusablePanel, { type ReusableItem } from "./ReusablePanel";
 import { GRID_BLOCK_TYPE } from "./grid";
+
+const GALLERY_LAYOUTS = ["grid", "masonry", "carousel", "slideshow", "list"] as const;
+type GalleryLayoutValue = (typeof GALLERY_LAYOUTS)[number];
 
 const fieldLabel: React.CSSProperties = {
   display: "flex",
@@ -282,7 +285,7 @@ export default function BlockInspector({
       fields = (
         <GalleryEditor
           items={(Array.isArray(p.items) ? p.items : []) as GalleryItem[]}
-          layout={(p.layout as string) === "masonry" ? "masonry" : "grid"}
+          layout={GALLERY_LAYOUTS.includes(p.layout as GalleryLayoutValue) ? (p.layout as GalleryLayoutValue) : "grid"}
           columns={Number(p.columns) || 3}
           lightbox={p.lightbox !== false}
           onChange={onChange}
@@ -444,7 +447,7 @@ function GalleryEditor({
   p,
 }: {
   items: GalleryItem[];
-  layout: "grid" | "masonry";
+  layout: GalleryLayoutValue;
   columns: number;
   lightbox: boolean;
   onChange: (props: Record<string, unknown>) => void;
@@ -452,6 +455,9 @@ function GalleryEditor({
 }) {
   const [library, setLibrary] = useState<Array<{ url: string; filename: string }>>([]);
   const [showLibrary, setShowLibrary] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   function emit(patch: Record<string, unknown>) {
     onChange({ ...p, items, layout, columns, lightbox, ...patch });
@@ -476,6 +482,29 @@ function GalleryEditor({
     emit({ items: [...items, { src: url, alt: "", caption: "" }] });
   }
 
+  async function uploadFiles(files: FileList) {
+    setUploading(true);
+    setUploadError("");
+    const uploaded: GalleryItem[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/media", { method: "POST", body: form });
+        const data = (await res.json()) as { url?: string; error?: string };
+        if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed");
+        uploaded.push({ src: data.url, alt: "", caption: "" });
+        setLibrary((prev) => [{ url: data.url as string, filename: file.name }, ...prev]);
+      }
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (uploaded.length) emit({ items: [...items, ...uploaded] });
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
   return (
     <>
       <label style={fieldLabel}>
@@ -483,12 +512,22 @@ function GalleryEditor({
         <select style={fieldInput} value={layout} onChange={(e) => emit({ layout: e.target.value })}>
           <option value="grid">Grid</option>
           <option value="masonry">Masonry</option>
+          <option value="carousel">Carousel</option>
+          <option value="slideshow">Slideshow (fade)</option>
+          <option value="list">List</option>
         </select>
       </label>
-      <label style={fieldLabel}>
-        Columns
-        <input type="number" min={2} max={6} style={fieldInput} value={columns} onChange={(e) => emit({ columns: Number(e.target.value) })} />
-      </label>
+      {(layout === "grid" || layout === "masonry") && (
+        <label style={fieldLabel}>
+          Columns
+          <input type="number" min={2} max={6} style={fieldInput} value={columns} onChange={(e) => emit({ columns: Number(e.target.value) })} />
+        </label>
+      )}
+      {(layout === "carousel" || layout === "slideshow") && (
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0 0 0.75rem" }}>
+          One image shown at a time, with dots to jump between them. Reorder images below to change the order.
+        </p>
+      )}
       <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
         <input type="checkbox" checked={lightbox} onChange={(e) => emit({ lightbox: e.target.checked })} />
         Lightbox
@@ -523,6 +562,25 @@ function GalleryEditor({
         </div>
       ))}
 
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: uploading ? "default" : "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}
+      >
+        {uploading ? "Uploading…" : "⇧ Upload from device"}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml"
+        multiple
+        hidden
+        onChange={(e) => { if (e.target.files?.length) void uploadFiles(e.target.files); }}
+      />
+      {uploadError ? (
+        <p style={{ color: "var(--jf-danger)", fontSize: "0.75rem", margin: "0 0 0.4rem" }}>{uploadError}</p>
+      ) : null}
       <button type="button" onClick={() => addUrl("")} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}>
         + Add image URL
       </button>

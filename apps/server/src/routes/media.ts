@@ -58,7 +58,22 @@ router.get("/", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
       "SELECT id, filename, mime_type, size_bytes, url, alt_text, caption, width, height, uploaded_at FROM media WHERE site_id = ? ORDER BY uploaded_at DESC LIMIT ?",
       [session.siteId, limit],
     );
-    res.json({ items: rows });
+    // The admin UI (and this route's own POST response) use camelCase — map
+    // the raw SQL columns rather than aliasing them in the query, since an
+    // unquoted "AS mimeType" gets folded to "mimetype" on postgres.
+    const items = rows.map((r) => ({
+      id: r.id,
+      filename: r.filename,
+      mimeType: r.mime_type,
+      sizeBytes: r.size_bytes,
+      url: r.url,
+      altText: r.alt_text,
+      caption: r.caption,
+      width: r.width,
+      height: r.height,
+      uploadedAt: r.uploaded_at,
+    }));
+    res.json({ items });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

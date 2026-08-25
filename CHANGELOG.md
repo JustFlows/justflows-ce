@@ -5,8 +5,6 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
-
 ## [0.1.3-rc] — 2026-08-25
 
 ### Added
@@ -67,6 +65,19 @@ and this project uses [Semantic Versioning](https://semver.org/).
   the whole page — every block plus the page header — instead of an empty
   placeholder, and edits apply straight back. Block ids are preserved, so this
   edits the page in place rather than re-importing it.
+- **A Contact page pattern** in the default theme, with a hero, contact
+  details, and a form block wired to the site's default "Contact" form.
+- Theme patterns can declare `requiresBlockTypes` in their JSON so the page
+  builder's Patterns panel can tell the editor a pattern needs a plugin
+  that isn't installed. The Contact pattern uses it for `justflows.forms.form`:
+  if the Forms extension isn't active, its pattern card shows an inline
+  notice with a link to Extensions instead of silently importing a block
+  that won't render anything on the public site.
+- **Three new Gallery layouts**: Carousel (a swipeable, scroll-snap slider),
+  Slideshow (one image at a time, cross-fading), and List (full-width
+  stacked rows). Grid and Masonry are unchanged. All three, like the
+  existing layouts, are pure CSS on the public site — no client-side script.
+  The inspector now hides the Columns field for layouts it doesn't apply to.
 
 ### Fixed
 
@@ -90,6 +101,41 @@ and this project uses [Semantic Versioning](https://semver.org/).
   or stacked as a single column.
 - Unchecking “Show site title” now hides the title on the public site. The header
   previously forced the title back on whenever the logo was also hidden.
+- **Gallery's Masonry layout reverted to Grid on every save.** The gallery
+  block stored its grid/masonry/etc. choice under `props.layout`, the same
+  key the page builder already used — on any block, not just the gallery —
+  for unrelated grid-placement data (`{ col, span, row, rowSpan }`, set by
+  dragging a block around inside a `core.grid`). The document sanitizer that
+  runs on every save treated any `layout` value as placement data; a string
+  like `"masonry"` doesn't look like a placement object, so it silently fell
+  back to the default and got dropped. "Grid" looked unaffected only because
+  grid is also the fallback when nothing is stored. Grid placement now lives
+  under its own `gridPlacement` prop, so the two can no longer collide;
+  existing pages that already used grid placement are migrated on next save.
+- **Inactive plugins were still live.** A plugin that was merely uploaded
+  (status "installed", never activated) was treated as fully active: its
+  admin menu entries showed up, its blocks worked in the page builder, and
+  Analytics/Forms/Gallery served their public behavior. Only Forms, Gallery,
+  and Analytics could reach the "installed" state without ever activating
+  (custom plugin modules always started active), so this affected only the
+  bundled extensions, but on any site that had them staged and not yet
+  turned on. Every enabled-check now requires status `active`.
+- **Deactivating or deleting a plugin didn't bust the page cache.** Activating
+  a plugin invalidated cached pages so it would show up immediately;
+  deactivating and deleting didn't, so a page cached while the plugin was
+  active kept serving the old HTML — a deleted Forms plugin's form, for
+  example, stayed live on cached pages until the cache separately expired.
+  Both actions now revalidate the same way activation does.
+- **A deactivated plugin's block type never left the page builder's catalog
+  or the public renderer.** The block registry only ever gained entries; a
+  block registered while Forms or Gallery was active stayed registered (and,
+  for Gallery, kept rendering on the public site) after deactivation, because
+  nothing ever unregistered it. Deactivating now removes the block type from
+  both the picker and the render path immediately.
+- The Contact pattern's inline "extension isn't active" notice no longer lets
+  you import the pattern anyway — the import action is disabled while any
+  block type it needs isn't in the active catalog, instead of just warning
+  next to a working button.
 
 ### Changed
 

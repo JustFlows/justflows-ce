@@ -2,7 +2,7 @@
 
 import { injectRootAttrs, withBlockAnimation } from "./animation.js";
 import { blockScopeClass, sanitizeBlockClassName, scopeBlockCss } from "./safe-css.js";
-import { isDefaultPlacement, parseBlockPlacement, placementStyleVars } from "./layout.js";
+import { isDefaultPlacement, isPlacementShaped, parseBlockPlacement, placementStyleVars } from "./layout.js";
 import { blockStyleDeclarations, parseBlockStyle } from "./block-style.js";
 
 /** The parts of a stored block that presentation reads. */
@@ -46,8 +46,9 @@ export function withBlockChrome(html: string, node: BlockChromeNode): string {
   // are emitted only when set, so an untouched block carries no attributes at
   // all. Placement first: it is what a media query later overrides.
   const declarations: string[] = [];
-  if (props["layout"]) {
-    const placement = parseBlockPlacement(props["layout"]);
+  const placementSource = props["gridPlacement"] ?? (isPlacementShaped(props["layout"]) ? props["layout"] : undefined);
+  if (placementSource) {
+    const placement = parseBlockPlacement(placementSource);
     if (!isDefaultPlacement(placement)) declarations.push(placementStyleVars(placement));
   }
   if (props["style"]) {

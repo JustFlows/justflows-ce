@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type ReactNode } from "react";
-import { compactBlockPlacement, type BlockPlacement } from "@justflows/blocks";
+import { compactBlockPlacement, isPlacementShaped, type BlockPlacement } from "@justflows/blocks";
 import { createBlock } from "./block-defaults";
 import { DND_BLOCK_TYPE } from "./dnd";
 import { useBuilderDrag } from "./DragContext";
@@ -24,8 +24,10 @@ const ROW_MIN_PX: Record<string, number> = { auto: 0, sm: 64, md: 128, lg: 224 }
 function withPlacement(child: BlockNode, placement: BlockPlacement, columns: number): BlockNode {
   const props = { ...child.props };
   const compact = compactBlockPlacement(placement, columns);
-  if (compact) props.layout = compact;
-  else delete props.layout;
+  if (compact) props.gridPlacement = compact;
+  else delete props.gridPlacement;
+  // Clean up legacy placement data stored under the old shared "layout" key.
+  if (isPlacementShaped(props.layout)) delete props.layout;
   return { ...child, props };
 }
 

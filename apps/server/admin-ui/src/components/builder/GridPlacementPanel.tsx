@@ -1,4 +1,4 @@
-import { compactBlockPlacement, parseBlockPlacement } from "@justflows/blocks";
+import { compactBlockPlacement, isPlacementShaped, parseBlockPlacement } from "@justflows/blocks";
 import { useT } from "../../i18n/I18nProvider";
 import type { BlockNode } from "./types";
 
@@ -18,14 +18,18 @@ export default function GridPlacementPanel({
   onChange: (props: Record<string, unknown>) => void;
 }) {
   const { t } = useT();
-  const placement = parseBlockPlacement(block.props.layout, columns);
+  const placementSource = block.props.gridPlacement ?? (isPlacementShaped(block.props.layout) ? block.props.layout : undefined);
+  const placement = parseBlockPlacement(placementSource, columns);
 
   function set(patch: Partial<typeof placement>) {
     const next = parseBlockPlacement({ ...placement, ...patch }, columns);
     const props = { ...block.props };
-    const layout = compactBlockPlacement(next, columns);
-    if (layout) props.layout = layout;
-    else delete props.layout;
+    const compacted = compactBlockPlacement(next, columns);
+    if (compacted) props.gridPlacement = compacted;
+    else delete props.gridPlacement;
+    // Clean up legacy placement data stored under the old shared key so it
+    // doesn't linger duplicated once this block has been re-placed.
+    if (isPlacementShaped(props.layout)) delete props.layout;
     onChange(props);
   }
 
