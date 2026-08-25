@@ -147,4 +147,11 @@ describe("site-chrome color scheme", () => {
     load();
     expect(document.documentElement.getAttribute("data-theme-preference")).toBe("system");
   });
+
+  it("rejects external language destinations", () => {
+    load('<select data-jf-language-select><option value="https://evil.example/" selected>Evil</option></select>');
+    const before = window.location.href;
+    document.querySelector("select")?.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(window.location.href).toBe(before);
+  });
 });

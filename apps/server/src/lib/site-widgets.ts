@@ -20,8 +20,46 @@ export interface SiteWidgetContext {
 }
 
 function attr(html: string, name: string): string {
-  const match = new RegExp(`\\b${name}="([^"]*)"`).exec(html);
-  return match?.[1] ?? "";
+  for (const quote of ['"', "'"]) {
+    const needle = `${name}=${quote}`;
+    const start = html.indexOf(needle);
+    if (start < 0) continue;
+    const valueStart = start + needle.length;
+    const end = html.indexOf(quote, valueStart);
+    if (end >= 0) return html.slice(valueStart, end);
+  }
+  return "";
+}
+
+function replaceWidget(
+  html: string,
+  type: string,
+  marker: string,
+  render: (attrs: string) => string,
+): string {
+  let out = "";
+  let cursor = 0;
+  while (cursor < html.length) {
+    const markerAt = html.indexOf(marker, cursor);
+    if (markerAt < 0) return out + html.slice(cursor);
+    const navStart = html.lastIndexOf("<nav", markerAt);
+    const openEnd = navStart >= cursor ? html.indexOf(">", navStart + 4) : -1;
+    const closeEnd = markerAt + marker.length;
+    if (navStart < cursor || openEnd + 1 !== markerAt || html.slice(closeEnd, closeEnd + 6) !== "</nav>") {
+      out += html.slice(cursor, closeEnd);
+      cursor = closeEnd;
+      continue;
+    }
+    const attrs = html.slice(navStart + 4, openEnd);
+    if (attr(attrs, "data-jf-widget") !== type) {
+      out += html.slice(cursor, closeEnd);
+      cursor = closeEnd;
+      continue;
+    }
+    out += html.slice(cursor, navStart) + render(attrs);
+    cursor = closeEnd + 6;
+  }
+  return out;
 }
 
 function languageInner(links: SiteLanguageLink[], style: string): string {
@@ -62,22 +100,26 @@ function authInner(
 export function hydrateSiteWidgets(html: string, ctx: SiteWidgetContext): string {
   if (!html.includes("data-jf-widget=")) return html;
 
-  let out = html.replace(
-    /<nav([^>]*\bdata-jf-widget="language-switcher"[^>]*)><!--jf:language-switcher--><\/nav>/g,
-    (_all, attrs: string) => {
+  let out = replaceWidget(
+    html,
+    "language-switcher",
+    "<!--jf:language-switcher-->",
+    (attrs) => {
       const style = attr(attrs, "data-jf-style") || "codes";
       const inner = languageInner(ctx.languageLinks, style);
       if (!inner) return "";
-      const labelled = /\baria-label=/.test(attrs)
+      const labelled = attr(attrs, "aria-label")
         ? attrs
         : `${attrs} aria-label="${esc(ctx.labels.language)}"`;
       return `<nav${labelled}>${inner}</nav>`;
     },
   );
 
-  out = out.replace(
-    /<nav([^>]*\bdata-jf-widget="auth-links"[^>]*)><!--jf:auth-links--><\/nav>/g,
-    (_all, attrs: string) => {
+  out = replaceWidget(
+    out,
+    "auth-links",
+    "<!--jf:auth-links-->",
+    (attrs) => {
       const style = attr(attrs, "data-jf-style") || "buttons";
       const showLogin = attr(attrs, "data-jf-show-login") !== "0";
       const showRegister = attr(attrs, "data-jf-show-register") !== "0";

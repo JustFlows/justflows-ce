@@ -44,4 +44,11 @@ describe("hydrateSiteWidgets", () => {
     const on = hydrateSiteWidgets(html, ctx);
     expect(on).toContain("/register");
   });
+
+  it("leaves malformed and lookalike placeholders untouched", () => {
+    const malformed = '<nav data-jf-widget="language-switcher"' + "=".repeat(20_000) + "<!--jf:language-switcher--></nav>";
+    expect(hydrateSiteWidgets(malformed, ctx)).toBe(malformed);
+    const lookalike = '<nav data-jf-widget="other"><!--jf:language-switcher--></nav>';
+    expect(hydrateSiteWidgets(lookalike, ctx)).toBe(lookalike);
+  });
 });
