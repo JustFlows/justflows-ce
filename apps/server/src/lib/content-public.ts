@@ -87,3 +87,36 @@ export async function listPublishedContent(siteId: string): Promise<ContentRespo
     return rows.map((row) => serializeContentRow(row));
   });
 }
+
+export interface PublishedPostsPage {
+  items: ContentResponse[];
+  total: number;
+}
+
+/** Paginated, published `post` content for a blog listing block, newest first. */
+export async function listPublishedPostsPage(
+  siteId: string,
+  locale: string,
+  { limit, offset }: { limit: number; offset: number },
+): Promise<PublishedPostsPage> {
+  const cacheKey = `${CONTENT_CACHE_PREFIX}published-posts:${siteId}:${locale}:${limit}:${offset}`;
+
+  return getJfCache().remember(cacheKey, await contentCacheTtl(), async () => {
+    const db = await getDb();
+    const [rows, countRows] = await Promise.all([
+      db.query<Record<string, unknown>>(
+        `SELECT * FROM content WHERE site_id = ? AND type = 'post' AND locale = ? AND status = 'published'
+         ORDER BY published_at DESC, created_at DESC LIMIT ? OFFSET ?`,
+        [siteId, locale, limit, offset],
+      ),
+      db.query<{ total: number }>(
+        "SELECT COUNT(*) AS total FROM content WHERE site_id = ? AND type = 'post' AND locale = ? AND status = 'published'",
+        [siteId, locale],
+      ),
+    ]);
+    return {
+      items: rows.map((row) => serializeContentRow(row)),
+      total: Number(countRows[0]?.total ?? 0),
+    };
+  });
+}

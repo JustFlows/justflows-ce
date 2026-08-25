@@ -29,9 +29,11 @@ interface BlockLibraryProps {
   onImportPattern?: (blocks: BlockNode[]) => void;
   parentType?: string | null;
   allowedChildTypes?: string[];
+  /** Full standalone page vs. a post/article body. Hides whole-page patterns and site-chrome widgets that don't apply to a post. */
+  isPage?: boolean;
 }
 
-export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentType, allowedChildTypes }: BlockLibraryProps) {
+export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentType, allowedChildTypes, isPage = false }: BlockLibraryProps) {
   const [query, setQuery] = useState("");
   const [openCat, setOpenCat] = useState<string>("patterns");
   const [patterns, setPatterns] = useState<ThemePatternMeta[]>([]);
@@ -40,11 +42,16 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
   const catalogTypes = useMemo(() => new Set(catalog.map((b) => b.type)), [catalog]);
 
   useEffect(() => {
+    // Patterns are whole-page compositions (hero + sections) — only relevant when building a full page.
+    if (!isPage) {
+      setPatterns([]);
+      return;
+    }
     fetch("/api/themes/patterns")
       .then((r) => r.json())
       .then((data: { patterns?: ThemePatternMeta[] }) => setPatterns(data.patterns ?? []))
       .catch(() => setPatterns([]));
-  }, []);
+  }, [isPage]);
 
   async function handleImportPattern(patternId: string) {
     if (!onImportPattern) return;
@@ -73,12 +80,16 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
       list = list.filter((b) => b.type !== "core.column");
     }
 
+    // Site-chrome widgets (theme toggle, language switcher, login/register links) belong in a
+    // page's header/footer, not inside a post body.
+    if (!isPage) list = list.filter((b) => b.category !== "site");
+
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter((b) => b.title.toLowerCase().includes(q) || b.type.includes(q));
     }
     return list;
-  }, [catalog, parentType, allowedChildTypes, query]);
+  }, [catalog, parentType, allowedChildTypes, query, isPage]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, BlockCatalogEntry[]>();
@@ -114,7 +125,7 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: "0.5rem" }}>
-        {patterns.length > 0 && onImportPattern && (
+        {isPage && patterns.length > 0 && onImportPattern && (
           <div style={{ marginBottom: "0.5rem" }}>
             <button
               type="button"

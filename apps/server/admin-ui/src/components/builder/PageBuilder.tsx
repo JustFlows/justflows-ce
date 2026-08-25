@@ -27,6 +27,8 @@ interface PageBuilderProps {
   enableHeader?: boolean;
   header?: PageHeaderConfig;
   onHeaderChange?: (header: PageHeaderConfig) => void;
+  /** Full standalone page vs. a post/article body. Hides page-only library items (whole-page patterns, site chrome widgets). */
+  isPage?: boolean;
 }
 
 export default function PageBuilder({
@@ -36,6 +38,7 @@ export default function PageBuilder({
   enableHeader = false,
   header,
   onHeaderChange,
+  isPage = false,
 }: PageBuilderProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<BlockCatalogEntry[]>([]);
@@ -288,7 +291,7 @@ export default function PageBuilder({
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 280px", height: "100%", minHeight: 0, background: "var(--jf-surface-3)" }}>
           <aside style={{ background: "#fff", borderRight: "1px solid var(--jf-border)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            <BlockLibrary catalog={catalog} onAdd={addFromLibrary} onImportPattern={importPattern} parentType={libraryParentType} />
+            <BlockLibrary catalog={catalog} onAdd={addFromLibrary} onImportPattern={importPattern} parentType={libraryParentType} isPage={isPage} />
           </aside>
           <main style={{ overflow: "auto", padding: "1.25rem" }} onClick={() => setSelectedId(null)}>
             <div style={{ maxWidth: 900, margin: "0 auto" }} onClick={(e) => e.stopPropagation()}>

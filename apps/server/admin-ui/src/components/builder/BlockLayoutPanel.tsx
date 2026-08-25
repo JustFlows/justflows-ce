@@ -77,7 +77,7 @@ export default function BlockLayoutPanel({
       </div>
 
       <div className="jf-block-panel__grid2">
-        {choiceField(t("builder.layout.width"), "width", WIDTH_PRESETS)}
+        {choiceField(t("builder.layout.widthPreset"), "width", WIDTH_PRESETS)}
         {choiceField(t("builder.layout.alignSelf"), "alignSelf", ALIGN_SELF)}
         {choiceField(t("builder.layout.textAlign"), "textAlign", TEXT_ALIGN)}
         {choiceField(t("builder.layout.radius"), "radius", RADIUS_PRESETS)}
@@ -90,6 +90,28 @@ export default function BlockLayoutPanel({
             max={100}
             value={style.minHeight}
             onChange={(e) => set({ minHeight: Number(e.target.value) || 0 })}
+          />
+        </label>
+        <label className="jf-block-panel__field jf-block-panel__field--inline">
+          {t("builder.layout.maxWidth")}
+          <input
+            type="number"
+            min={0}
+            max={10000}
+            placeholder={t("builder.layout.auto")}
+            value={style.maxWidth || ""}
+            onChange={(e) => set({ maxWidth: Number(e.target.value) || 0 })}
+          />
+        </label>
+        <label className="jf-block-panel__field jf-block-panel__field--inline">
+          {t("builder.layout.maxHeight")}
+          <input
+            type="number"
+            min={0}
+            max={10000}
+            placeholder={t("builder.layout.auto")}
+            value={style.maxHeight || ""}
+            onChange={(e) => set({ maxHeight: Number(e.target.value) || 0 })}
           />
         </label>
       </div>

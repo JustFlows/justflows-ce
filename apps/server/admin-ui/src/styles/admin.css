@@ -1946,7 +1946,8 @@ input[type="range"] { width: 100%; accent-color: var(--jf-accent); }
   margin-bottom: 0.75rem;
 }
 .jf-block-panel__field input,
-.jf-block-panel__field textarea {
+.jf-block-panel__field textarea,
+.jf-block-panel__field select {
   padding: 0.4rem 0.6rem;
   border: 1px solid #cbd5e1;
   border-radius: 5px;
@@ -1956,6 +1957,22 @@ input[type="range"] { width: 100%; accent-color: var(--jf-accent); }
   width: 100%;
   box-sizing: border-box;
   background: #fff;
+  color: var(--jf-text);
+}
+.jf-block-panel__field select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--jf-text-3) 50%), linear-gradient(135deg, var(--jf-text-3) 50%, transparent 50%);
+  background-position: calc(100% - 13px) calc(50% - 2px), calc(100% - 9px) calc(50% - 2px);
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  padding-right: 1.75rem;
+}
+.jf-block-panel__field input:focus-visible,
+.jf-block-panel__field textarea:focus-visible,
+.jf-block-panel__field select:focus-visible {
+  border-color: var(--jf-accent);
+  outline: 2px solid var(--jf-accent-soft);
+  outline-offset: 1px;
 }
 .jf-block-panel__code,
 .jf-block-panel textarea.jf-block-panel__code {

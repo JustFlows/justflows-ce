@@ -108,6 +108,7 @@ export default function PageBuilderPage() {
         <PageBuilder
           value={item.blocks ?? { version: 1, blocks: [] }}
           onChange={(blocks) => setItem((prev) => (prev ? { ...prev, blocks } : prev))}
+          isPage={isPage}
           enableHeader={isPage}
           header={isPage ? headerFromFields(item.fields) : undefined}
           onHeaderChange={isPage ? (header) => setItem((prev) => (prev ? {

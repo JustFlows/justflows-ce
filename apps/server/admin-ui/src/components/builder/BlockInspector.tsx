@@ -8,6 +8,7 @@ import GridPlacementPanel from "./GridPlacementPanel";
 import BlockLayoutPanel from "./BlockLayoutPanel";
 import ReusablePanel, { type ReusableItem } from "./ReusablePanel";
 import { GRID_BLOCK_TYPE } from "./grid";
+import MediaImageField from "../MediaImageField";
 
 const GALLERY_LAYOUTS = ["grid", "masonry", "carousel", "slideshow", "list"] as const;
 type GalleryLayoutValue = (typeof GALLERY_LAYOUTS)[number];
@@ -141,7 +142,7 @@ export default function BlockInspector({
         {textInput("heading", "Heading")}
         {textArea("subheading", "Subheading", 2)}
         {textInput("buttonLabel", "Button label")}
-        {textInput("buttonUrl", "Button URL", "https://")}
+        <InternalLinkField value={(p.buttonUrl as string) ?? ""} onChange={(url) => set("buttonUrl", url)} label="Button URL" placeholder="/about or https://…" />
         {textInput("backgroundImage", "Background image URL")}
         {select("align", "Alignment", [
           { value: "left", label: "Left" },
@@ -159,7 +160,7 @@ export default function BlockInspector({
         {textInput("heading", "Heading")}
         {textArea("text", "Text", 2)}
         {textInput("buttonLabel", "Button label")}
-        {textInput("buttonUrl", "Button URL")}
+        <InternalLinkField value={(p.buttonUrl as string) ?? ""} onChange={(url) => set("buttonUrl", url)} label="Button URL" />
         {select("variant", "Style", [
           { value: "primary", label: "Primary" },
           { value: "dark", label: "Dark" },
@@ -180,9 +181,27 @@ export default function BlockInspector({
       break;
     case "core.image":
       fields = <>
-        {textInput("src", "Image URL")}
+        <MediaImageField
+          id={`block-${block.id}-image`}
+          label="Image"
+          value={(p.src as string) ?? ""}
+          onChange={(url) => set("src", url)}
+        />
         {textInput("alt", "Alt text")}
         {textInput("caption", "Caption")}
+        <div className="jf-block-panel__grid2">
+          <label className="jf-block-panel__field jf-block-panel__field--inline">Width (px)
+            <input type="number" min={0} max={10000} placeholder="Auto" value={(p.width as number) || ""} onChange={(e) => set("width", Number(e.target.value) || 0)} />
+          </label>
+          <label className="jf-block-panel__field jf-block-panel__field--inline">Height (px)
+            <input type="number" min={0} max={10000} placeholder="Auto" value={(p.height as number) || ""} onChange={(e) => set("height", Number(e.target.value) || 0)} />
+          </label>
+        </div>
+        {select("objectFit", "Image fit", [
+          { value: "contain", label: "Contain" },
+          { value: "cover", label: "Cover" },
+          { value: "fill", label: "Stretch" },
+        ])}
       </>;
       break;
     case "core.quote":
@@ -191,13 +210,16 @@ export default function BlockInspector({
     case "core.button":
       fields = <>
         {textInput("label", "Label")}
-        {textInput("url", "URL")}
+        <InternalLinkField value={(p.url as string) ?? ""} onChange={(url) => set("url", url)} label="URL" />
         {select("variant", "Variant", [
           { value: "primary", label: "Primary" },
           { value: "secondary", label: "Secondary" },
           { value: "outline", label: "Outline" },
         ])}
       </>;
+      break;
+    case "core.link-list":
+      fields = <LinkListEditor items={(p.items as LinkItem[]) ?? []} heading={(p.heading as string) ?? ""} onChange={onChange} p={p} />;
       break;
     case "core.spacer":
       fields = (
@@ -292,6 +314,43 @@ export default function BlockInspector({
           p={p}
         />
       );
+      break;
+    case "justflows.blog.postList":
+      fields = <>
+        {select("layout", "Layout", [
+          { value: "grid", label: "Grid" },
+          { value: "list", label: "List" },
+        ])}
+        <label style={fieldLabel}>Columns (grid layout)
+          <input type="number" style={fieldInput} min={1} max={4} value={(p.columns as number) ?? 3} onChange={(e) => set("columns", Number(e.target.value))} />
+        </label>
+        <label style={fieldLabel}>Posts per page
+          <input
+            type="number"
+            style={fieldInput}
+            min={0}
+            max={100}
+            placeholder="Use site default"
+            value={(p.postsPerPage as number) || ""}
+            onChange={(e) => set("postsPerPage", e.target.value === "" ? 0 : Number(e.target.value))}
+          />
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showFeaturedImage !== false} onChange={(e) => set("showFeaturedImage", e.target.checked)} />
+          Show featured image
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showDate !== false} onChange={(e) => set("showDate", e.target.checked)} />
+          Show date
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showExcerpt !== false} onChange={(e) => set("showExcerpt", e.target.checked)} />
+          Show excerpt
+        </label>
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
+          Lists published posts, newest first. Pagination uses /page/2, /page/3, etc. under this page's URL.
+        </p>
+      </>;
       break;
     default:
       fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>No settings for this block.</p>;
@@ -395,6 +454,151 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
         ))}
         <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
           + Add feature
+        </button>
+      </div>
+    </>
+  );
+}
+
+interface InternalLinkOption { id: string; type: string; title: string; slug: string }
+
+let internalLinkCache: InternalLinkOption[] | null = null;
+
+/**
+ * Free-text URL input with a picker for the site's own published pages/posts,
+ * so an internal link can be chosen by title instead of hand-typed and mistyped.
+ * Stores a plain root-relative path (e.g. "/about"), same as a typed one.
+ */
+function InternalLinkField({ value, onChange, label = "URL", placeholder = "/about or https://…" }: {
+  value: string;
+  onChange: (value: string) => void;
+  label?: string;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [options, setOptions] = useState<InternalLinkOption[]>(internalLinkCache ?? []);
+
+  async function togglePicker() {
+    if (open) { setOpen(false); return; }
+    if (internalLinkCache) { setOptions(internalLinkCache); setOpen(true); return; }
+    setLoading(true);
+    try {
+      const [pagesRes, postsRes] = await Promise.all([
+        fetch("/api/content?type=page&status=published&limit=100"),
+        fetch("/api/content?type=post&status=published&limit=100"),
+      ]);
+      const [pagesBody, postsBody] = await Promise.all([
+        pagesRes.json() as Promise<{ items?: InternalLinkOption[] }>,
+        postsRes.json() as Promise<{ items?: InternalLinkOption[] }>,
+      ]);
+      const found = [...(pagesBody.items ?? []), ...(postsBody.items ?? [])];
+      internalLinkCache = found;
+      setOptions(found);
+      setOpen(true);
+    } catch {
+      setOptions([]);
+      setOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <label style={fieldLabel}>
+      {label}
+      <div style={{ display: "flex", gap: "0.35rem" }}>
+        <input
+          type="text"
+          style={{ ...fieldInput, flex: 1 }}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={togglePicker}
+          title="Pick a page or post on this site"
+          aria-label="Pick a page or post on this site"
+          style={{ padding: "0 0.6rem", border: "1px solid var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.9rem" }}
+        >
+          {loading ? "…" : "📄"}
+        </button>
+      </div>
+      {open && (
+        <div style={{ border: "1px solid var(--jf-border)", borderRadius: 6, maxHeight: 220, overflow: "auto", background: "#fff" }}>
+          {options.length === 0 ? (
+            <div style={{ padding: "0.5rem 0.6rem", fontSize: "0.75rem", color: "var(--jf-text-3)" }}>No published pages or posts yet.</div>
+          ) : (
+            options.map((item) => (
+              <button
+                key={`${item.type}-${item.id}`}
+                type="button"
+                onClick={() => { onChange(`/${item.slug}`); setOpen(false); }}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "0.4rem 0.6rem", border: "none", borderBottom: "1px solid var(--jf-border)", background: "none", cursor: "pointer", fontSize: "0.8rem" }}
+              >
+                <span style={{ color: "var(--jf-text-3)", marginRight: "0.35rem" }}>{item.type === "page" ? "📄" : "📝"}</span>
+                {item.title || `(untitled ${item.type})`}
+                <span style={{ color: "var(--jf-text-3)" }}> — /{item.slug}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </label>
+  );
+}
+
+interface LinkItem { label: string; url: string }
+
+function LinkListEditor({ items, heading, onChange, p }: {
+  items: LinkItem[];
+  heading: string;
+  onChange: (props: Record<string, unknown>) => void;
+  p: Record<string, unknown>;
+}) {
+  function updateItem(i: number, patch: Partial<LinkItem>) {
+    const next = items.map((item, idx) => (idx === i ? { ...item, ...patch } : item));
+    onChange({ ...p, items: next });
+  }
+
+  function addItem() {
+    onChange({ ...p, items: [...items, { label: "New link", url: "/" }] });
+  }
+
+  function removeItem(i: number) {
+    onChange({ ...p, items: items.filter((_, idx) => idx !== i) });
+  }
+
+  function moveItem(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[i], next[j]] = [next[j]!, next[i]!];
+    onChange({ ...p, items: next });
+  }
+
+  return (
+    <>
+      <label style={fieldLabel}>Heading (optional)
+        <input type="text" style={fieldInput} placeholder="e.g. Product" value={heading} onChange={(e) => onChange({ ...p, heading: e.target.value })} />
+      </label>
+      <div style={{ marginTop: "0.5rem" }}>
+        {items.map((item, i) => (
+          <div key={i} style={{ border: "1px solid var(--jf-border)", borderRadius: 6, marginBottom: "0.5rem", padding: "0.6rem" }}>
+            <label style={fieldLabel}>Label
+              <input type="text" style={fieldInput} value={item.label} onChange={(e) => updateItem(i, { label: e.target.value })} />
+            </label>
+            <InternalLinkField value={item.url} onChange={(url) => updateItem(i, { url })} />
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button type="button" onClick={() => moveItem(i, -1)} disabled={i === 0} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-text-2)" }}>↑ Move up</button>
+              <button type="button" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-text-2)" }}>↓ Move down</button>
+              <button type="button" onClick={() => removeItem(i)} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-danger)", marginLeft: "auto" }}>Remove</button>
+            </div>
+          </div>
+        ))}
+        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
+          + Add link
         </button>
       </div>
     </>

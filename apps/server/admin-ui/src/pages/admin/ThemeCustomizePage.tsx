@@ -48,7 +48,13 @@ const SECTION_ORDER = [
   "identity", "colors", "colorsDark", "typography", "headings",
   "spacing", "radius", "shadow", "layout", "navigation", "advanced",
 ] as const;
-type EditorTab = "homepage" | "styles" | "footer";
+type EditorTab = "homepage" | "blog" | "styles" | "footer";
+
+function localePath(locale: string, slug: string, defaultLocale: string): string {
+  const path = `/${slug}`;
+  if (locale === defaultLocale) return path;
+  return `/${locale}${path}`;
+}
 
 export default function CustomizeThemePage() {
   const navigate = useNavigate();
@@ -67,6 +73,9 @@ export default function CustomizeThemePage() {
   const [pages, setPages] = useState<ThemePageOption[]>([]);
   const [homePageId, setHomePageId] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
+  const [blogPageId, setBlogPageId] = useState<string | null>(null);
+  const [convertingBlog, setConvertingBlog] = useState(false);
+  const [defaultLocale, setDefaultLocale] = useState("en");
   const [openSection, setOpenSection] = useState<string>("identity");
   const [footer, setFooter] = useState<BlockDocument>({ version: 1, blocks: [] });
   const [footerSaving, setFooterSaving] = useState(false);
@@ -89,6 +98,16 @@ export default function CustomizeThemePage() {
   }, []);
 
   useEffect(() => {
+    fetch("/api/languages/active")
+      .then((r) => r.json())
+      .then((data: { languages?: { code: string; isDefault?: boolean }[] }) => {
+        const langs = data.languages ?? [];
+        setDefaultLocale(langs.find((l) => l.isDefault)?.code ?? langs[0]?.code ?? "en");
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     fetch("/api/themes/customize")
       .then(async (r) => {
         const data = await r.json() as {
@@ -97,6 +116,7 @@ export default function CustomizeThemePage() {
           schema?: Record<string, Section>;
           mods?: ThemeMods;
           homePageId?: string | null;
+          blogPageId?: string | null;
           pages?: ThemePageOption[];
         };
         if (!r.ok) throw new Error(data.error ?? "Failed to load customizer");
@@ -104,6 +124,7 @@ export default function CustomizeThemePage() {
         setSchema(data.schema ?? {});
         setMods(data.mods ?? {});
         setHomePageId(data.homePageId ?? null);
+        setBlogPageId(data.blogPageId ?? null);
         setPages(data.pages ?? []);
       })
       .catch((e: Error) => setError(e.message))
@@ -199,6 +220,46 @@ export default function CustomizeThemePage() {
     }
   }
 
+  async function selectBlogPage(contentId: string | null) {
+    setError("");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings/blog-page", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentId }),
+      });
+      const data = await res.json() as { error?: string; blogPageId?: string | null };
+      if (!res.ok) throw new Error(data.error ?? "Could not set the blog page");
+      setBlogPageId(data.blogPageId ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function convertThemeBlog() {
+    if (!window.confirm("Create a page from the default blog layout and use it as the blog page?")) return;
+    setConvertingBlog(true);
+    setError("");
+    try {
+      const res = await fetch("/api/themes/customize/promote-blog", { method: "POST" });
+      const data = await res.json() as {
+        error?: string;
+        blogPageId?: string;
+        page?: ThemePageOption;
+      };
+      if (!res.ok) throw new Error(data.error ?? "Could not create a blog page");
+      if (data.page) setPages((prev) => [data.page!, ...prev.filter((p) => p.id !== data.page!.id)]);
+      setBlogPageId(data.blogPageId ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setConvertingBlog(false);
+    }
+  }
+
   function updateMod(section: keyof ThemeMods, key: string, value: string | number) {
     setMods((prev) => {
       const next = {
@@ -253,6 +314,10 @@ export default function CustomizeThemePage() {
   }
 
   const selectedHome = pages.find((page) => page.id === homePageId) ?? null;
+  const selectedBlog = pages.find((page) => page.id === blogPageId) ?? null;
+  const blogPreviewSrc = selectedBlog
+    ? `${localePath(selectedBlog.locale, selectedBlog.slug, defaultLocale)}?preview=1`
+    : null;
 
   return (
     <div className="jf-editor">
@@ -266,9 +331,11 @@ export default function CustomizeThemePage() {
           <div className="jf-editor__sub">
             {tab === "homepage"
               ? "Choose which page is the site home"
-              : tab === "footer"
-                ? "Blocks shown at the bottom of every page"
-                : "Colors, fonts, spacing, headings & layout"}
+              : tab === "blog"
+                ? "Choose which page lists your blog posts"
+                : tab === "footer"
+                  ? "Blocks shown at the bottom of every page"
+                  : "Colors, fonts, spacing, headings & layout"}
             {dirty ? " · unsaved changes" : ""}
           </div>
         </div>
@@ -330,6 +397,13 @@ export default function CustomizeThemePage() {
           onClick={() => setTab("homepage")}
         >
           Home page
+        </button>
+        <button
+          type="button"
+          className={`jf-theme-builder__tab${tab === "blog" ? " jf-theme-builder__tab--active" : ""}`}
+          onClick={() => setTab("blog")}
+        >
+          Blog
         </button>
         <button
           type="button"
@@ -404,6 +478,72 @@ export default function CustomizeThemePage() {
           <div className="jf-customizer__preview">
             <div className="jf-card__title">Live preview</div>
             <iframe ref={iframeRef} src="/?preview=1" title="Home page preview" />
+          </div>
+        </div>
+      ) : tab === "blog" ? (
+        <div className="jf-customizer">
+          <aside className="jf-customizer__controls" style={{ padding: "1rem" }}>
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-blog-page">Blog page</label>
+              <select
+                id="jf-blog-page"
+                className="jf-input"
+                value={blogPageId ?? ""}
+                disabled={saving || convertingBlog}
+                onChange={(e) => selectBlogPage(e.target.value || null)}
+              >
+                <option value="">No blog page yet</option>
+                {pages.map((page) => (
+                  <option key={page.id} value={page.id}>
+                    {page.title || page.slug} {page.status !== "published" ? `(${page.status})` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="jf-field__hint">
+                Any page can be the blog page — drop a "Post List" block on it in the page builder to
+                list posts, or use the default layout below as a starting point.
+              </p>
+            </div>
+            {selectedBlog ? (
+              <div className="jf-stack" style={{ gap: "0.6rem" }}>
+                <Link className="jf-btn jf-btn--primary jf-btn--block" to={`/admin/content/${selectedBlog.id}/builder`}>
+                  Edit this page
+                </Link>
+                <Link className="jf-btn jf-btn--ghost jf-btn--block" to={`/admin/content/${selectedBlog.id}`}>
+                  Page settings
+                </Link>
+                <p className="jf-field__hint" style={{ margin: 0 }}>
+                  Live at /{selectedBlog.slug}
+                </p>
+              </div>
+            ) : (
+              <div className="jf-stack" style={{ gap: "0.6rem" }}>
+                <button
+                  type="button"
+                  className="jf-btn jf-btn--primary jf-btn--block"
+                  disabled={convertingBlog}
+                  onClick={() => void convertThemeBlog()}
+                >
+                  {convertingBlog ? "Creating…" : "Turn default blog layout into a page"}
+                </button>
+                <Link className="jf-btn jf-btn--ghost jf-btn--block" to="/admin/content/new?type=page">
+                  Create a new page
+                </Link>
+                <p className="jf-field__hint" style={{ margin: 0 }}>
+                  Until you pick a page, the site has no blog index.
+                </p>
+              </div>
+            )}
+          </aside>
+          <div className="jf-customizer__preview">
+            <div className="jf-card__title">Live preview</div>
+            {blogPreviewSrc ? (
+              <iframe src={blogPreviewSrc} title="Blog page preview" />
+            ) : (
+              <p className="jf-field__hint" style={{ padding: "1rem" }}>
+                Pick or create a blog page to preview it here.
+              </p>
+            )}
           </div>
         </div>
       ) : tab === "footer" ? (

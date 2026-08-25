@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { sanitizeBlockDocument } from "@justflows/blocks";
-import { getSiteSetting, setSiteSetting } from "./site-settings.js";
+import { deleteSiteSetting, getSiteSetting, setSiteSetting } from "./site-settings.js";
 import type { BlockNode } from "./types.js";
 
 /**
@@ -42,6 +42,26 @@ export async function saveTemplatePart(
   const sanitized = sanitizeBlockDocument({ version: 1, blocks });
   await setSiteSetting(siteId, key(part, draft), { version: 1, blocks: sanitized.blocks });
   return sanitized.blocks as BlockNode[];
+}
+
+export async function clearTemplatePartDraft(siteId: string, part: TemplatePart): Promise<void> {
+  await deleteSiteSetting(siteId, key(part, true));
+}
+
+/**
+ * Publish a template part: write the published copy and drop the leftover
+ * draft. Without clearing it, a stale draft — even an older one from a
+ * previous session — keeps outranking the freshly published version in
+ * preview (see getEffectiveTemplatePart), making Publish look like a no-op.
+ */
+export async function publishTemplatePart(
+  siteId: string,
+  part: TemplatePart,
+  blocks: unknown,
+): Promise<BlockNode[]> {
+  const saved = await saveTemplatePart(siteId, part, blocks, false);
+  await clearTemplatePartDraft(siteId, part);
+  return saved;
 }
 
 /**

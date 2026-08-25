@@ -60,11 +60,19 @@ import type { BlockNode } from "../lib/types.js";
 import { withBlockChrome } from "@justflows/blocks";
 import { FORMS_BLOCK_TYPE, renderFormBlockHtml } from "../lib/forms-public.js";
 import { isGalleryPluginEnabled, registerGalleryBlock, unregisterGalleryBlock } from "../lib/gallery-public.js";
+import {
+  BLOG_POST_LIST_BLOCK_TYPE,
+  registerBlogPostListBlock,
+  renderBlogPostListBlockHtml,
+  type BlogPostListRenderContext,
+} from "../lib/blog-public.js";
+import { getSiteSetting } from "../lib/site-settings.js";
 import { buildFaviconHeadHtml } from "../lib/favicon.js";
 
 const templateDir = viewsDir();
 const router = Router();
 const blockRegistry = getRuntimeBlockRegistry();
+registerBlogPostListBlock();
 
 const RESERVED = new Set([
   "admin",
@@ -161,18 +169,30 @@ function isFormConfirmation(req: Request): boolean {
   }
 }
 
-async function renderBlockTree(blocks: BlockNode[], submittedFormId?: string): Promise<string> {
+async function renderBlockTree(
+  blocks: BlockNode[],
+  submittedFormId?: string,
+  blogCtx?: BlogPostListRenderContext,
+): Promise<string> {
   const parts: string[] = [];
   for (const block of blocks) {
     if (block.type === FORMS_BLOCK_TYPE) {
       parts.push(withBlockChrome(await renderFormBlockHtml(block.props ?? {}, submittedFormId), block));
       continue;
     }
+    if (block.type === BLOG_POST_LIST_BLOCK_TYPE && blogCtx) {
+      try {
+        parts.push(withBlockChrome(await renderBlogPostListBlockHtml(block.props ?? {}, blogCtx), block));
+      } catch {
+        parts.push("");
+      }
+      continue;
+    }
     const def = blockRegistry.get(block.type);
     const children = Array.isArray(block.children) ? block.children : [];
     if (def?.supportsChildren && children.length > 0) {
       try {
-        const childHtml = await renderBlockTree(children, submittedFormId);
+        const childHtml = await renderBlockTree(children, submittedFormId, blogCtx);
         parts.push(withBlockChrome(def.render(def.validateProps(block.props), childHtml), block));
       } catch {
         parts.push("");
@@ -210,15 +230,48 @@ function containsReusable(blocks: BlockNode[]): boolean {
   );
 }
 
-async function renderBlocksHtml(blocks: BlockNode[], submittedFormId?: string): Promise<string> {
+async function renderBlocksHtml(
+  blocks: BlockNode[],
+  submittedFormId?: string,
+  blogCtx?: BlogPostListRenderContext,
+): Promise<string> {
   if (await isGalleryPluginEnabled()) registerGalleryBlock();
   else unregisterGalleryBlock();
   const resolved = await withReusables(blocks);
   try {
-    return await renderBlockTree(resolved, submittedFormId);
+    return await renderBlockTree(resolved, submittedFormId, blogCtx);
   } catch {
-    return renderBlockTree(resolved, submittedFormId);
+    return renderBlockTree(resolved, submittedFormId, blogCtx);
   }
+}
+
+/** Posts-per-page fallback for `justflows.blog.postList` blocks that don't override it. */
+async function defaultPostsPerPage(): Promise<number> {
+  const siteId = await getSiteId();
+  if (!siteId) return 10;
+  const stored = await getSiteSetting<number>(siteId, "posts_per_page");
+  const n = Number(stored);
+  return Number.isFinite(n) && n > 0 ? n : 10;
+}
+
+async function buildBlogRenderContext(
+  locale: string,
+  page: number,
+  basePath: string,
+): Promise<BlogPostListRenderContext> {
+  const [siteId, defaultLocale, postsPerPageDefault] = await Promise.all([
+    getSiteId(),
+    getDefaultLocale(),
+    defaultPostsPerPage(),
+  ]);
+  return {
+    siteId: siteId ?? "",
+    locale,
+    defaultLocale,
+    page,
+    basePath,
+    postsPerPageDefault,
+  };
 }
 
 function withSiteWidgets(
@@ -493,9 +546,10 @@ async function renderHomeHtml(req: Request, reqPath: string, preview: boolean): 
   const siteId = await getSiteId();
   const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
   const withHeader = await applyPageHeader(ctx, home?.fields, preview, submittedFormIdFrom(req));
+  const blogCtx = await buildBlogRenderContext(ctx.locale, 1, reqPath);
   if (home) {
     const bodyHtml = withSiteWidgets(
-      await renderBlocksHtml(home.blocks.blocks, submittedFormIdFrom(req)),
+      await renderBlocksHtml(home.blocks.blocks, submittedFormIdFrom(req), blogCtx),
       withHeader,
     );
     return renderPage("home", {
@@ -508,7 +562,7 @@ async function renderHomeHtml(req: Request, reqPath: string, preview: boolean): 
   }
   const demoBlocks = await loadHomeDemoBlocks(preview);
   const bodyHtml = demoBlocks?.length
-    ? withSiteWidgets(await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req)), withHeader)
+    ? withSiteWidgets(await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req), blogCtx), withHeader)
     : undefined;
   return renderPage("home", {
     ...withHeader,
@@ -585,6 +639,50 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+/**
+ * Render a resolved page's own body — shared by the plain single-page routes
+ * and the `/page/:num` pagination routes so a `justflows.blog.postList`
+ * block embedded in the page's own blocks (not just a theme-provided "blog
+ * page") can page through posts no matter which page it lives on.
+ */
+async function renderSinglePageHtml(
+  req: Request,
+  reqPath: string,
+  slug: string,
+  locale: string,
+  preview: boolean,
+  alternates: Array<{ locale: string; slug: string; href: string }>,
+  pageNumber: number,
+  basePath: string,
+): Promise<string> {
+  const pageCtx = await buildPageContext(reqPath, preview);
+  const pageContent = await getPublishedContentBySlug(slug, locale);
+  if (!pageContent) {
+    return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
+  }
+  const withHeader = await applyPageHeader(pageCtx, pageContent.fields, preview, submittedFormIdFrom(req));
+  const blogCtx = await buildBlogRenderContext(pageCtx.locale, pageNumber, basePath);
+  const bodyHtml = withSiteWidgets(
+    await renderBlocksHtml(pageContent.blocks.blocks, submittedFormIdFrom(req), blogCtx),
+    withHeader,
+  );
+  return renderPage("single", {
+    ...withHeader,
+    content: pageContent,
+    bodyHtml,
+    alternates,
+    formattedDate: pageContent.publishedAt ? await formatContentDate(pageContent.publishedAt) : null,
+    title: pageContent.title,
+  });
+}
+
+/** Parses a `/page/:num` segment, rejecting anything but a plain positive integer. */
+function parsePageNumber(raw: string): number | null {
+  if (!/^[1-9]\d*$/.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
 router.get("/:segment", async (req, res, next) => {
   const segment = req.params.segment!;
   if (RESERVED.has(segment)) {
@@ -635,30 +733,63 @@ router.get("/:segment", async (req, res, next) => {
       }));
     }
 
-    await sendPublicHtml(req, res, req.path, preview, async () => {
-      const pageCtx = await buildPageContext(req.path, preview);
-      const pageContent = await getPublishedContentBySlug(slug, pageCtx.locale);
-      if (!pageContent) {
-        return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
-      }
-      const withHeader = await applyPageHeader(pageCtx, pageContent.fields, preview, submittedFormIdFrom(req));
-      const bodyHtml = withSiteWidgets(
-        await renderBlocksHtml(pageContent.blocks.blocks, submittedFormIdFrom(req)),
-        withHeader,
-      );
-      return renderPage("single", {
-        ...withHeader,
-        content: pageContent,
-        bodyHtml,
-        alternates,
-        formattedDate: pageContent.publishedAt
-          ? await formatContentDate(pageContent.publishedAt)
-          : null,
-        title: pageContent.title,
-      });
-    });
+    await sendPublicHtml(req, res, req.path, preview, () =>
+      renderSinglePageHtml(req, req.path, slug, ctx.locale, preview, alternates, 1, req.path),
+    );
   } catch (err) {
     console.error("[justflows] page render failed:", err);
+    res.status(500).type("text/plain").send("Internal server error");
+  }
+});
+
+router.get("/:segment/page/:num", async (req, res, next) => {
+  const segment = req.params.segment!;
+  const num = parsePageNumber(req.params.num!);
+  if (RESERVED.has(segment) || num === null) {
+    next();
+    return;
+  }
+
+  try {
+    if (!(await ensureSiteIsPublic(req, res))) return;
+    const activeLocales = await getActiveLocaleCodes();
+    if (activeLocales.includes(segment)) {
+      next();
+      return;
+    }
+    const preview = await isPreviewAllowed(req, res);
+    const ctx = await buildPageContext(req.path, preview);
+    const basePath = `/${segment}`;
+
+    const content = await getPublishedContentBySlug(segment, ctx.locale);
+    if (!content) {
+      await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
+        const ctx404 = await buildPageContext(req.path, preview);
+        return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+      }, 404);
+      return;
+    }
+
+    if (num === 1) {
+      res.redirect(302, basePath + previewQuery(req));
+      return;
+    }
+
+    let alternates: Array<{ locale: string; slug: string; href: string }> = [];
+    if (content.translationGroupId) {
+      const defaultLocale = await getDefaultLocale();
+      const translations = await getTranslationAlternates(content.translationGroupId);
+      alternates = translations.map((tr) => ({
+        ...tr,
+        href: localePath(tr.locale, `/${tr.slug}`, defaultLocale),
+      }));
+    }
+
+    await sendPublicHtml(req, res, req.path, preview, () =>
+      renderSinglePageHtml(req, req.path, segment, ctx.locale, preview, alternates, num, basePath),
+    );
+  } catch (err) {
+    console.error("[justflows] paginated page render failed:", err);
     res.status(500).type("text/plain").send("Internal server error");
   }
 });
@@ -708,30 +839,65 @@ router.get("/:locale/:slug", async (req, res, next) => {
       }));
     }
 
-    await sendPublicHtml(req, res, req.path, preview, async () => {
-      const pageCtx = await buildPageContext(req.path, preview);
-      const pageContent = await getPublishedContentBySlug(slug, localeSeg);
-      if (!pageContent) {
-        return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
-      }
-      const withHeader = await applyPageHeader(pageCtx, pageContent.fields, preview, submittedFormIdFrom(req));
-      const bodyHtml = withSiteWidgets(
-        await renderBlocksHtml(pageContent.blocks.blocks, submittedFormIdFrom(req)),
-        withHeader,
-      );
-      return renderPage("single", {
-        ...withHeader,
-        content: pageContent,
-        bodyHtml,
-        alternates,
-        formattedDate: pageContent.publishedAt
-          ? await formatContentDate(pageContent.publishedAt)
-          : null,
-        title: pageContent.title,
-      });
-    });
+    await sendPublicHtml(req, res, req.path, preview, () =>
+      renderSinglePageHtml(req, req.path, slug, localeSeg, preview, alternates, 1, req.path),
+    );
   } catch (err) {
     console.error("[justflows] localised page render failed:", err);
+    res.status(500).type("text/plain").send("Internal server error");
+  }
+});
+
+router.get("/:locale/:slug/page/:num", async (req, res, next) => {
+  const localeSeg = req.params.locale!;
+  const slug = req.params.slug!;
+  const num = parsePageNumber(req.params.num!);
+
+  if (RESERVED.has(localeSeg) || RESERVED.has(slug) || num === null) {
+    next();
+    return;
+  }
+
+  const activeLocales = await getActiveLocaleCodes();
+  if (!activeLocales.includes(localeSeg)) {
+    next();
+    return;
+  }
+
+  try {
+    if (!(await ensureSiteIsPublic(req, res))) return;
+    const preview = await isPreviewAllowed(req, res);
+    const basePath = `/${localeSeg}/${slug}`;
+    const content = await getPublishedContentBySlug(slug, localeSeg);
+
+    if (!content) {
+      await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
+        const ctx404 = await buildPageContext(req.path, preview);
+        return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+      }, 404);
+      return;
+    }
+
+    if (num === 1) {
+      res.redirect(302, basePath + previewQuery(req));
+      return;
+    }
+
+    let alternates: Array<{ locale: string; slug: string; href: string }> = [];
+    if (content.translationGroupId) {
+      const defaultLocale = await getDefaultLocale();
+      const translations = await getTranslationAlternates(content.translationGroupId);
+      alternates = translations.map((tr) => ({
+        ...tr,
+        href: localePath(tr.locale, `/${tr.slug}`, defaultLocale),
+      }));
+    }
+
+    await sendPublicHtml(req, res, req.path, preview, () =>
+      renderSinglePageHtml(req, req.path, slug, localeSeg, preview, alternates, num, basePath),
+    );
+  } catch (err) {
+    console.error("[justflows] localised paginated page render failed:", err);
     res.status(500).type("text/plain").send("Internal server error");
   }
 });

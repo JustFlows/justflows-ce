@@ -78,6 +78,23 @@ and this project uses [Semantic Versioning](https://semver.org/).
   stacked rows). Grid and Masonry are unchanged. All three, like the
   existing layouts, are pure CSS on the public site — no client-side script.
   The inspector now hides the Columns field for layouts it doesn't apply to.
+- **A first-class blog page.** Theme builder → Blog can select any page as the
+  site's blog index or turn the active theme's default blog layout into a new
+  published page. Content lists and page settings identify the selected page,
+  and deleting it clears the setting automatically.
+- **A Post List block** for building blog indexes on any page. It lists published
+  posts newest first in a grid or list, can show featured images, dates, and
+  excerpts, and supports either a per-block page size or the site's default.
+  Numbered pagination lives below the page at `/page/2`, `/page/3`, and so on,
+  including localized page URLs.
+- Posts and other non-page content can now use the visual block builder. The
+  library hides whole-page patterns and site-chrome widgets when editing a post,
+  while pages retain the complete library and per-page header controls.
+- **A Link List block** for footer columns, sitemaps, and resource lists, with an
+  optional heading and reorderable links.
+- Button, hero, call-to-action, and Link List URL controls can pick a published
+  page or post by title while still accepting a typed internal or external URL.
+  Image blocks now use the Media Library picker instead of requiring a URL.
 
 ### Fixed
 
@@ -93,7 +110,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
   `padding: 2rem; & h2 { … }` — the shape the panel's own placeholder teaches —
   silently lost the padding.
 - Customizer colours and Additional CSS now override the active theme. `/theme.css`
-  emitted them *before* the theme's own stylesheet, so at equal specificity the
+  emitted them _before_ the theme's own stylesheet, so at equal specificity the
   theme silently won. Theme styles come first now, then site tokens, then
   Additional CSS last.
 - Empty page-builder columns accept dropped blocks. Each column is its own grid
@@ -136,6 +153,9 @@ and this project uses [Semantic Versioning](https://semver.org/).
   you import the pattern anyway — the import action is disabled while any
   block type it needs isn't in the active catalog, instead of just warning
   next to a working button.
+- Publishing the footer now clears its old draft. A stale draft previously kept
+  outranking the newly published footer in preview, making Publish appear to do
+  nothing until the draft was discarded separately.
 
 ### Changed
 

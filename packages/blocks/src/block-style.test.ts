@@ -33,6 +33,12 @@ describe("parseBlockStyle", () => {
     expect(parseBlockStyle({ minHeight: -20 }).minHeight).toBe(0);
     expect(parseBlockStyle({ minHeight: "60" }).minHeight).toBe(60);
   });
+
+  it("keeps safe pixel maximums and clamps extreme values", () => {
+    expect(parseBlockStyle({ maxWidth: "640", maxHeight: 12000 })).toMatchObject({
+      maxWidth: 640, maxHeight: 10000,
+    });
+  });
 });
 
 describe("blockStyleDeclarations", () => {
@@ -59,6 +65,12 @@ describe("blockStyleDeclarations", () => {
   it("maps corners and shadows onto theme tokens", () => {
     expect(blockStyleDeclarations(parseBlockStyle({ radius: "lg", shadow: "md" }))).toBe(
       "border-radius:var(--radius-lg);box-shadow:var(--shadow-md)",
+    );
+  });
+
+  it("emits responsive maximum dimensions", () => {
+    expect(blockStyleDeclarations(parseBlockStyle({ maxWidth: 640, maxHeight: 480 }))).toBe(
+      "max-width:min(100%,640px);margin-left:auto;margin-right:auto;max-height:480px;overflow:auto",
     );
   });
 

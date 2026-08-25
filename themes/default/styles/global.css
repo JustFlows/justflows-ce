@@ -348,6 +348,30 @@ hr {
 
 .post-list-item:last-child { border-bottom: none; }
 
+.post-thumb { display: block; margin-bottom: 0.75rem; }
+.post-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+/* Grid layout for the "Post List" block — a card per post instead of the
+   classic bordered-row list, with a smaller title so it fits a column. */
+.post-list--grid {
+  display: grid;
+  gap: 1.5rem;
+}
+.post-list--grid.post-list--cols-1 { grid-template-columns: 1fr; }
+.post-list--grid.post-list--cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.post-list--grid.post-list--cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.post-list--grid.post-list--cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.post-list--grid .post-list-item { padding: 0; border-bottom: none; }
+.post-list--grid .post-title { font-size: 1.15rem; font-weight: 800; }
+.post-list--grid .post-excerpt { font-size: 0.95rem; margin-bottom: 0; }
+
 .post-title {
   font-size: clamp(1.75rem, 4vw, 2.5rem);
   font-weight: 900;
@@ -526,6 +550,31 @@ hr {
 .jf-hero[style*="background-image"] .jf-hero__sub { color: rgba(255, 255, 255, 0.88); }
 
 .jf-hero__btn { margin-top: 0.25rem; }
+
+/* ── Link list ── */
+.jf-link-list__heading {
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.jf-link-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.jf-link-list__link {
+  color: var(--color-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.jf-link-list__link:hover { color: var(--color-text); text-decoration: underline; }
 
 /* ── Features ── */
 .jf-features { padding: clamp(3rem, 6vw, 4.5rem) 0; }

@@ -1,5 +1,5 @@
 import type { BlockNode } from "./types";
-import { sanitizeRichText } from "@justflows/blocks";
+import { parseBlockStyle, sanitizeRichText } from "@justflows/blocks";
 import MotionPreview from "./MotionPreview";
 
 interface BlockPreviewProps {
@@ -13,6 +13,7 @@ interface BlockPreviewProps {
 export function BlockPreview({ block, depth = 0, onSelect, selectedId, renderChildren }: BlockPreviewProps) {
   const p = block.props;
   const isSelected = selectedId === block.id;
+  const blockStyle = parseBlockStyle(p.style);
   const wrap = (content: React.ReactNode, label?: string) => (
     <div
       onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(block.id); } : undefined}
@@ -21,6 +22,11 @@ export function BlockPreview({ block, depth = 0, onSelect, selectedId, renderChi
         outlineOffset: 2,
         borderRadius: 4,
         cursor: onSelect ? "pointer" : undefined,
+        maxWidth: blockStyle.maxWidth > 0 ? `min(100%, ${blockStyle.maxWidth}px)` : undefined,
+        maxHeight: blockStyle.maxHeight > 0 ? blockStyle.maxHeight : undefined,
+        overflow: blockStyle.maxHeight > 0 ? "auto" : undefined,
+        marginLeft: blockStyle.maxWidth > 0 ? "auto" : undefined,
+        marginRight: blockStyle.maxWidth > 0 ? "auto" : undefined,
       }}
     >
       {label && depth === 0 ? null : null}
@@ -158,7 +164,14 @@ export function BlockPreview({ block, depth = 0, onSelect, selectedId, renderChi
       return wrap(
         (p.src as string) ? (
           <figure style={{ margin: 0 }}>
-            <img src={p.src as string} alt={(p.alt as string) ?? ""} style={{ maxWidth: "100%", borderRadius: 6 }} />
+            <img src={p.src as string} alt={(p.alt as string) ?? ""} style={{
+              display: "block",
+              width: Number(p.width) > 0 ? Number(p.width) : undefined,
+              height: Number(p.height) > 0 ? Number(p.height) : undefined,
+              maxWidth: "100%",
+              objectFit: Number(p.height) > 0 ? ((p.objectFit as "contain" | "cover" | "fill") || "contain") : undefined,
+              borderRadius: 6,
+            }} />
             {(p.caption as string) ? <figcaption style={{ fontSize: "0.8rem", color: "var(--jf-text-3)", marginTop: "0.25rem" }}>{p.caption as string}</figcaption> : null}
           </figure>
         ) : <div style={{ background: "var(--jf-surface-3)", padding: "1.5rem", borderRadius: 6, textAlign: "center", color: "var(--jf-text-3)" }}>No image</div>,
@@ -178,6 +191,24 @@ export function BlockPreview({ block, depth = 0, onSelect, selectedId, renderChi
           {(p.label as string) || "Button"}
         </span>,
       );
+
+    case "core.link-list": {
+      const items = (p.items as Array<{ label: string; url: string }>) ?? [];
+      return wrap(
+        <div>
+          {(p.heading as string) && <h3 style={{ margin: "0 0 0.6rem", fontSize: "0.95rem" }}>{p.heading as string}</h3>}
+          {items.length === 0 ? (
+            <div style={{ color: "var(--jf-text-3)", fontSize: "0.8rem" }}>No links yet</div>
+          ) : (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              {items.map((item, i) => (
+                <li key={i} style={{ fontSize: "0.85rem", color: "var(--jf-text-3)" }}>{item.label || item.url || "Link"}</li>
+              ))}
+            </ul>
+          )}
+        </div>,
+      );
+    }
 
     case "core.divider":
       return wrap(<hr style={{ border: "none", borderTop: "2px solid var(--jf-border)", margin: "0.5rem 0" }} />);
@@ -267,6 +298,28 @@ export function BlockPreview({ block, depth = 0, onSelect, selectedId, renderChi
           ) : null}
         </div>,
       );
+
+    case "justflows.blog.postList": {
+      const layout = (p.layout as string) === "list" ? "list" : "grid";
+      const cols = layout === "grid" ? Math.min(4, Math.max(1, Number(p.columns) || 3)) : 1;
+      return wrap(
+        <div>
+          <div style={{ fontSize: "0.7rem", color: "var(--jf-text-3)", marginBottom: "0.5rem" }}>
+            📰 Blog posts — newest {(Number(p.postsPerPage) || undefined) ?? "N"} shown, paginated
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: "0.75rem" }}>
+            {Array.from({ length: layout === "grid" ? cols * 2 : 3 }).map((_, i) => (
+              <div key={i} style={{ border: "1px solid var(--jf-border)", borderRadius: 6, padding: "0.6rem", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                {p.showFeaturedImage !== false && <div style={{ height: 60, background: "var(--jf-border)", borderRadius: 4 }} />}
+                <div style={{ height: 10, width: "70%", background: "var(--jf-text-3)", opacity: 0.5, borderRadius: 2 }} />
+                {p.showDate !== false && <div style={{ height: 8, width: "40%", background: "var(--jf-border)", borderRadius: 2 }} />}
+                {p.showExcerpt !== false && <div style={{ height: 8, width: "90%", background: "var(--jf-border)", borderRadius: 2 }} />}
+              </div>
+            ))}
+          </div>
+        </div>,
+      );
+    }
 
     default:
       return wrap(<div style={{ color: "var(--jf-text-3)", fontSize: "0.8rem" }}>{block.type}</div>);

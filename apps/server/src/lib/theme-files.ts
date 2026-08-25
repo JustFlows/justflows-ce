@@ -226,3 +226,12 @@ export function loadThemeDemoHome(themeId: string, installedPath?: string | null
   if (!data?.blocks || !Array.isArray(data.blocks)) return null;
   return data.blocks;
 }
+
+export function loadThemeDemoBlog(themeId: string, installedPath?: string | null): BlockNode[] | null {
+  const dir = resolveThemeDir(themeId, installedPath);
+  if (!dir) return null;
+
+  const data = readJsonFile<{ blocks?: BlockNode[] }>(dir, "demo", "blog.json");
+  if (!data?.blocks || !Array.isArray(data.blocks)) return null;
+  return data.blocks;
+}

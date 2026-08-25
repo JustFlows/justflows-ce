@@ -41,6 +41,13 @@ function sanitizeProps(type: string, props: Record<string, unknown>): Record<str
   if (type === "core.image" && typeof next["src"] === "string") {
     next["src"] = sanitizeMediaSrc(next["src"]);
   }
+  if (type === "core.link-list" && Array.isArray(next["items"])) {
+    next["items"] = next["items"].map((item) =>
+      item && typeof item === "object" && "url" in item && typeof (item as { url: unknown }).url === "string"
+        ? { ...item, url: sanitizeHref((item as { url: string }).url) }
+        : item,
+    );
+  }
 
   if ("animation" in next) {
     const animation = sanitizeAnimationProp(next["animation"]);
