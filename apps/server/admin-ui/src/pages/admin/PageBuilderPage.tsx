@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PageBuilder, { type BlockDocument } from "@components/builder/PageBuilder";
+import { fieldsWithHeader, headerFromFields } from "../../lib/page-header";
 
 interface ContentItem {
   id: string;
@@ -9,6 +10,7 @@ interface ContentItem {
   slug: string;
   status: string;
   blocks?: BlockDocument;
+  fields?: Record<string, unknown>;
 }
 
 export default function PageBuilderPage() {
@@ -64,6 +66,7 @@ export default function PageBuilderPage() {
     );
   }
 
+  const isPage = item.type === "page";
   const previewUrl = item.status === "published" && item.slug ? `/${item.slug}` : null;
 
   return (
@@ -104,7 +107,13 @@ export default function PageBuilderPage() {
       <div className="jf-editor__body">
         <PageBuilder
           value={item.blocks ?? { version: 1, blocks: [] }}
-          onChange={(blocks) => setItem({ ...item, blocks })}
+          onChange={(blocks) => setItem((prev) => (prev ? { ...prev, blocks } : prev))}
+          enableHeader={isPage}
+          header={isPage ? headerFromFields(item.fields) : undefined}
+          onHeaderChange={isPage ? (header) => setItem((prev) => (prev ? {
+            ...prev,
+            fields: fieldsWithHeader(prev.fields, header),
+          } : prev)) : undefined}
         />
       </div>
     </div>

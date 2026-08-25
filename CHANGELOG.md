@@ -7,6 +7,107 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.3-rc] — 2026-08-25
+
+### Added
+
+- Any page can be the site home page. Theme customize now picks which page renders
+  at `/` (or turns the current theme layout into a page). Until a page is chosen,
+  the previous theme homepage layout still serves `/`.
+- Every page can customize its header and navigation in the page builder: show or
+  hide the header, choose a menu (or none), logo and title, layout, and stickiness.
+  The theme Styles tab still sets the site-wide default header menu.
+- **Saved headers.** Once a page's header is built the way you want, save it by
+  name and apply it to any other page in one click — layout, widgets, and
+  blocks included. Applying copies the configuration rather than linking it
+  live, so the two pages stay independent afterward.
+- Page-builder blocks can use entrance, hover, and press animations. The inspector
+  exposes the full preset list; the canvas previews them with Motion. The public
+  site plays the same effects with CSS and a small in-view script.
+- Site chrome blocks in the page builder: light/dark toggle, language switcher,
+  and login/register. Register only renders on the public site when Settings →
+  Anyone can register is on. The same widgets can be enabled on a page header.
+  Any block can also be dragged into the header itself.
+- A **Colors (dark mode)** palette in the theme customizer. Dark mode is no longer
+  whatever the theme hardcoded — every colour is editable from the admin and is
+  applied both to an explicit choice and to visitors whose device asks for dark.
+- An **Auto** option on the light/dark toggle, on the `core.color-scheme` block and
+  on the page header. It clears the visitor's stored choice and follows the device.
+- **Custom CSS per block** in the page builder, plus a CSS class field. `&` stands
+  for the block; a selector without it is scoped as a descendant, so a block's CSS
+  can never reach the rest of the page. Media queries and keyframes are supported;
+  `@import` and `url(javascript:…)` are rejected on save and again on render.
+- **Block JSON** editing in the inspector. Any block can be edited directly as
+  JSON — type, version, props, and children — which is the only way to change a
+  block's type in place or set a prop no inspector field exposes.
+- **Spacing, size and alignment on every block.** Padding, margin, max width,
+  min height, self-alignment, text alignment, corners and shadow, on any block
+  type including a plugin's. Values are steps on the theme's spacing scale rather
+  than raw lengths, so a page keeps its rhythm and the whole site tightens up on
+  a phone when the scale does.
+- **A real design-token system.** The Customizer gains Headings (font, weight,
+  line height, letter spacing, H1–H3 sizes), Spacing (one number drives the whole
+  scale), Corners, Shadows, and a wide-width control. It is now schema-driven:
+  adding a control adds a token, with validation derived from the control's own
+  type and bounds.
+- **Reusable blocks.** Save any block to the library and link to it; editing the
+  saved copy updates every page that uses it. Resolved on the server at render.
+- **An editable site footer.** Theme builder → Footer edits the footer as blocks,
+  with its own draft and publish. A site that never customises one keeps the
+  built-in footer.
+- **Undo and redo in the page builder**, with ⌘Z / ⇧⌘Z. Edits made in quick
+  succession collapse into one step, and a text field keeps its own undo stack.
+- **A grid layout block.** `core.grid` places blocks on a column grid instead of
+  stacking them: drag a block to move it, drag either edge to resize, or type
+  exact column/row numbers in the inspector. Placement lives on the child, so any
+  block — including a plugin's — can be placed without a wrapper. Layouts stay
+  responsive: nothing drops below half width on tablets, and everything goes full
+  width on phones, in source order.
+- **Page JSON** in the page builder. With no block selected the inspector shows
+  the whole page — every block plus the page header — instead of an empty
+  placeholder, and edits apply straight back. Block ids are preserved, so this
+  edits the page in place rather than re-importing it.
+
+### Fixed
+
+- Visitors whose device asks for dark mode now get it. The public site defaulted
+  to light and ignored `prefers-color-scheme` until the visitor clicked, and it
+  now follows the device — live — until they choose for themselves.
+- The Customizer's heading sizes now actually apply. A later rule in the default
+  theme's typography block overrode them at equal specificity; that block is now
+  the token-driven one, with the chosen size as the ceiling of a fluid `clamp()`.
+- The page builder's own chrome uses the admin design tokens instead of 113
+  hardcoded hex values, so it follows the admin theme like the rest of the UI.
+- Per-block CSS no longer drops declarations written alongside rules.
+  `padding: 2rem; & h2 { … }` — the shape the panel's own placeholder teaches —
+  silently lost the padding.
+- Customizer colours and Additional CSS now override the active theme. `/theme.css`
+  emitted them *before* the theme's own stylesheet, so at equal specificity the
+  theme silently won. Theme styles come first now, then site tokens, then
+  Additional CSS last.
+- Empty page-builder columns accept dropped blocks. Each column is its own grid
+  cell with a drop target that stays visible, so content is no longer rejected
+  or stacked as a single column.
+- Unchecking “Show site title” now hides the title on the public site. The header
+  previously forced the title back on whenever the logo was also hidden.
+
+### Changed
+
+- Documented file/folder naming conventions in a new `docs/CONVENTIONS.md`,
+  linked from `docs/README.md` and `CONTRIBUTING.md`, covering `packages/*`,
+  `apps/server`, the admin UI, plugins, themes, docs, licenses, migrations,
+  and scripts.
+- `public/js/*.js` (referenced by the site layout) is now tracked in version
+  control instead of sitting untracked and un-gitignored.
+- `packages/auth/src` no longer wraps single-file concerns in their own
+  subdirectories: `password/hash.ts` → `password.ts`,
+  `capabilities/index.ts` → `capabilities.ts`, `session/types.ts` →
+  `session.ts`.
+- `apps/server/src/lib/i18n/admin/` and `.../catalogs/` are renamed to
+  `admin-catalogs/` and `site-catalogs/` so the admin-SPA and public-site
+  translation catalogs are named symmetrically instead of one looking like
+  the unqualified default.
+
 ## [0.1.2] — 2026-08-24
 
 ### Added

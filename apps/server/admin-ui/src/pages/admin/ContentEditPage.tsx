@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import BlockEditor, { type BlockDocument } from "@components/BlockEditor";
 import MediaImageField from "@components/MediaImageField";
 import { useT } from "../../i18n/I18nProvider";
+import { fieldsWithHeader, headerFromFields } from "../../lib/page-header";
 
 interface ContentItem {
   id: string;
@@ -61,6 +62,8 @@ export default function EditContentPage() {
   const [defaultLocale, setDefaultLocale] = useState("en");
   const [typeFields, setTypeFields] = useState<ContentTypeField[]>([]);
   const [typeLabel, setTypeLabel] = useState("");
+  const [homePageId, setHomePageId] = useState<string | null>(null);
+  const [homeSaving, setHomeSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/languages/active")
@@ -69,6 +72,15 @@ export default function EditContentPage() {
         const langs = data.languages ?? [];
         setLanguages(langs);
         setDefaultLocale(langs.find((l) => l.isDefault)?.code ?? langs[0]?.code ?? "en");
+      })
+      .catch(() => null);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data: { home_page_id?: string | null }) => {
+        setHomePageId(typeof data.home_page_id === "string" ? data.home_page_id : null);
       })
       .catch(() => null);
   }, []);
@@ -202,6 +214,26 @@ export default function EditContentPage() {
     patch({ fields: { ...(item?.fields ?? {}), [key]: value } });
   }
 
+  async function setAsHomePage(enabled: boolean) {
+    if (!item) return;
+    setHomeSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/settings/home-page", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentId: enabled ? item.id : null }),
+      });
+      const data = await res.json() as { error?: string; homePageId?: string | null };
+      if (!res.ok) throw new Error(data.error ?? "Could not update the home page");
+      setHomePageId(data.homePageId ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setHomeSaving(false);
+    }
+  }
+
   if (loading) return <EditorSkeleton loadingLabel={t("common.loading")} />;
 
   if (!item) {
@@ -216,6 +248,7 @@ export default function EditContentPage() {
   }
 
   const isPage = item.type === "page";
+  const isHomePage = homePageId === item.id;
   const label = typeLabel || (isPage ? t("content.editPage") : t("content.editPost"));
   const itemLocale = item.locale ?? defaultLocale;
   const publicHref = localePath(itemLocale, item.slug ?? "", defaultLocale);
@@ -375,6 +408,12 @@ export default function EditContentPage() {
                   value={item.blocks ?? { version: 1, blocks: [] }}
                   onChange={(blocks) => patch({ blocks })}
                   compact
+                  enableHeader={isPage}
+                  header={isPage ? headerFromFields(item.fields) : undefined}
+                  onHeaderChange={isPage ? (header) => setItem((prev) => (prev ? {
+                    ...prev,
+                    fields: fieldsWithHeader(prev.fields, header),
+                  } : prev)) : undefined}
                 />
               </div>
             </div>
@@ -408,12 +447,41 @@ export default function EditContentPage() {
                 {item.status === "published" && (
                   <a
                     className="jf-btn jf-btn--ghost jf-btn--block"
-                    href={publicHref}
+                    href={isHomePage ? "/" : publicHref}
                     target="_blank"
                     rel="noreferrer"
                   >
                     {t("content.viewLive")} ↗
                   </a>
+                )}
+
+                {isPage && (
+                  <div className="jf-field">
+                    {isHomePage ? (
+                      <>
+                        <p className="jf-field__hint" style={{ margin: 0 }}>
+                          This page is the site home page (/).
+                        </p>
+                        <button
+                          type="button"
+                          className="jf-btn jf-btn--ghost jf-btn--block"
+                          disabled={homeSaving}
+                          onClick={() => setAsHomePage(false)}
+                        >
+                          {homeSaving ? "Updating…" : "Stop using as home page"}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="jf-btn jf-btn--ghost jf-btn--block"
+                        disabled={homeSaving}
+                        onClick={() => setAsHomePage(true)}
+                      >
+                        {homeSaving ? "Updating…" : "Set as home page"}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

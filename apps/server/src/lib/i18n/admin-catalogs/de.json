@@ -1,0 +1,233 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "domains": {
+      "content": "Inhalte",
+      "appearance": "Erscheinungsbild",
+      "extensions": "Erweiterungen",
+      "security": "Sicherheit",
+      "system": "System"
+    },
+    "content": "Inhalte",
+    "contentTypes": "Inhaltstypen",
+    "media": "Medien",
+    "plugins": "Plugins",
+    "analytics": "Analytics",
+    "forms": "Formulare",
+    "themes": "Themes",
+    "design": "Design",
+    "menus": "Menüs",
+    "users": "Benutzer",
+    "settings": "Einstellungen",
+    "comments": "Kommentare",
+    "marketplace": "Marktplatz",
+    "tools": "Tools",
+    "health": "Status",
+    "updates": "Updates",
+    "securityOverview": "Übersicht",
+    "securityHeaders": "Header",
+    "securityAdvanced": "Erweitert",
+    "languages": "Sprachen"
+  },
+  "common": {
+    "back": "Zurück",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "loading": "Laden…",
+    "saving": "Speichern…",
+    "saved": "Gespeichert",
+    "signOut": "Abmelden",
+    "add": "Hinzufügen",
+    "default": "Standard",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "actions": "Aktionen"
+  },
+  "content": {
+    "newPost": "Neuer Beitrag",
+    "newPage": "Neue Seite",
+    "editPost": "Beitrag bearbeiten",
+    "editPage": "Seite bearbeiten",
+    "title": "Titel",
+    "slug": "Slug",
+    "excerpt": "Auszug",
+    "locale": "Sprache",
+    "saveDraft": "Entwurf speichern",
+    "publish": "Veröffentlichen",
+    "titleRequired": "Titel ist erforderlich"
+  },
+  "languages": {
+    "title": "Sprachen",
+    "subtitle": "Site-Sprachen und Übersetzungen verwalten",
+    "addLanguage": "Sprache hinzufügen",
+    "code": "Code",
+    "name": "Name",
+    "nativeName": "Eigenname",
+    "setDefault": "Als Standard setzen",
+    "uiLanguage": "Admin-Sprache",
+    "noLanguages": "Noch keine Sprachen konfiguriert."
+  },
+  "design": {
+    "title": "Design",
+    "subtitle": "CSS-Framework für die öffentliche Site wählen",
+    "uploadTitle": "CSS-Provider installieren",
+    "dropzoneTitle": ".jfpkg-Datei hier ablegen",
+    "dropzoneHint": "oder klicken zum Durchsuchen",
+    "uploading": "Installiere…",
+    "uploadInvalid": "Bitte eine .jfpkg-Datei hochladen",
+    "uploadFailed": "Upload fehlgeschlagen",
+    "uploadSuccess": "\"{name}\" erfolgreich installiert",
+    "activeProvider": "Aktiver CSS-Provider: {name}",
+    "activate": "Diesen Provider verwenden",
+    "deleteConfirm": "Diesen CSS-Provider löschen? Dies kann nicht rückgängig gemacht werden.",
+    "deleteFailed": "Provider konnte nicht gelöscht werden",
+    "emptyTitle": "Keine CSS-Provider installiert",
+    "emptyHint": "Laden Sie ein .jfpkg-Paket hoch oder wählen Sie einen mitgelieferten Provider."
+  },
+  "builder": {
+    "animation": {
+      "title": "Animation",
+      "hint": "Bewegungseffekte für diesen Block. Besuchende mit reduzierter Bewegung sehen sofort den Endzustand.",
+      "replay": "Abspielen",
+      "entrance": "Eingang",
+      "trigger": "Abspielen wenn",
+      "duration": "Dauer",
+      "delay": "Verzögerung",
+      "easing": "Easing",
+      "once": "Nur einmal",
+      "hover": "Hover",
+      "tap": "Drücken",
+      "groups": {
+        "fade": "Fade",
+        "slide": "Schieben",
+        "scale": "Skalieren",
+        "extra": "Extra"
+      },
+      "effects": {
+        "none": "Keine",
+        "fade": "Fade",
+        "fade-up": "Fade nach oben",
+        "fade-down": "Fade nach unten",
+        "fade-left": "Fade nach links",
+        "fade-right": "Fade nach rechts",
+        "slide-up": "Nach oben schieben",
+        "slide-down": "Nach unten schieben",
+        "slide-left": "Nach links schieben",
+        "slide-right": "Nach rechts schieben",
+        "zoom-in": "Hineinzoomen",
+        "zoom-out": "Herauszoomen",
+        "bounce": "Federn",
+        "flip-x": "Horizontal drehen",
+        "flip-y": "Vertikal drehen",
+        "rotate": "Drehen",
+        "blur": "Unschärfe"
+      },
+      "triggers": {
+        "load": "Beim Laden",
+        "in-view": "Beim Scrollen in den Blick"
+      },
+      "easings": {
+        "ease-out": "Ease out",
+        "ease-in": "Ease in",
+        "ease-in-out": "Ease in-out",
+        "linear": "Linear",
+        "spring": "Feder"
+      },
+      "hoverEffects": {
+        "none": "Keine",
+        "grow": "Wachsen",
+        "shrink": "Schrumpfen",
+        "lift": "Anheben",
+        "glow": "Leuchten",
+        "tilt": "Neigen",
+        "brighten": "Aufhellen"
+      },
+      "tapEffects": {
+        "none": "Keine",
+        "press": "Eindrücken",
+        "pulse": "Puls"
+      }
+    },
+    "style": {
+      "title": "Eigenes CSS",
+      "hint": "Gilt nur für diesen Block. & steht für den Block selbst; ein Selektor ohne & greift innerhalb des Blocks.",
+      "className": "CSS-Klassen",
+      "classNameInvalid": "Klassennamen dürfen nur Buchstaben, Ziffern, Bindestriche und Unterstriche enthalten.",
+      "css": "CSS",
+      "cssRejected": "Dieses CSS wurde abgelehnt. @import, url(javascript:…) und ähnliche Konstrukte sind nicht erlaubt.",
+      "compiled": "Was veröffentlicht wird"
+    },
+    "json": {
+      "title": "Block-JSON",
+      "hint": "Diesen Block direkt bearbeiten. Die id bleibt erhalten, alles andere wird ersetzt.",
+      "edit": "JSON bearbeiten",
+      "hide": "Schließen",
+      "apply": "Übernehmen",
+      "reload": "Neu laden",
+      "applied": "Übernommen"
+    },
+    "pageJson": {
+      "title": "Seiten-JSON",
+      "hint": "Nichts ausgewählt — das ist die ganze Seite. Wähle einen Block auf der Arbeitsfläche, um ihn einzeln zu bearbeiten.",
+      "count": "{count} Blöcke",
+      "apply": "Übernehmen",
+      "reload": "Verwerfen",
+      "applied": "Übernommen",
+      "stale": "Die Seite hat sich auf der Arbeitsfläche geändert. Verwerfen lädt sie, Übernehmen überschreibt sie."
+    },
+    "placement": {
+      "title": "Position im Raster",
+      "hint": "Dieser Block liegt in einem Raster mit {columns} Spalten. Auf der Arbeitsfläche ziehen oder hier exakte Werte eintragen.",
+      "col": "Startspalte",
+      "span": "Breite",
+      "row": "Zeile",
+      "rowSpan": "Zeilenhöhe",
+      "fullWidth": "Volle Breite",
+      "autoRow": "Automatisch"
+    },
+    "layout": {
+      "title": "Abstand & Größe",
+      "hint": "Stufen der Abstandsskala des Themes, damit die Seite ihren Rhythmus behält und auf kleinen Bildschirmen enger wird.",
+      "padTop": "Innenabstand oben",
+      "padBottom": "Innenabstand unten",
+      "padX": "Innenabstand seitlich",
+      "marginTop": "Außenabstand oben",
+      "marginBottom": "Außenabstand unten",
+      "width": "Max. Breite",
+      "alignSelf": "Ausrichtung",
+      "textAlign": "Text",
+      "radius": "Ecken",
+      "shadow": "Schatten",
+      "minHeight": "Min. Höhe (vh)",
+      "value": {
+        "start": "Anfang",
+        "center": "Mitte",
+        "end": "Ende",
+        "stretch": "Dehnen",
+        "left": "Links",
+        "right": "Rechts",
+        "narrow": "Schmal",
+        "content": "Inhalt",
+        "wide": "Breit",
+        "full": "Voll",
+        "none": "Keiner",
+        "sm": "Klein",
+        "md": "Mittel",
+        "lg": "Groß",
+        "pill": "Pille"
+      }
+    },
+    "reusable": {
+      "title": "Wiederverwendbarer Block",
+      "hint": "Diesen Block speichern, um ihn auf anderen Seiten zu verwenden. Verknüpfen hält sie synchron — die gespeicherte Kopie bearbeiten, alle Seiten folgen.",
+      "name": "Name",
+      "namePlaceholder": "Preistabelle",
+      "saveAndLink": "Speichern & verknüpfen",
+      "saveCopy": "Kopie speichern",
+      "showing": "Zeigt",
+      "referenceHint": "Das ist eine Verknüpfung. Änderungen am gespeicherten Block erscheinen auf jeder Seite, die ihn nutzt.",
+      "missing": "Diesen gespeicherten Block gibt es nicht mehr."
+    }
+  }
+}

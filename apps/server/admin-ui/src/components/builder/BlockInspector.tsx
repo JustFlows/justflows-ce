@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import type { BlockNode, BlockCatalogEntry } from "./types";
 import { syncColumnCount } from "./block-defaults";
+import AnimationPanel from "./AnimationPanel";
+import BlockStylePanel from "./BlockStylePanel";
+import BlockJsonPanel from "./BlockJsonPanel";
+import GridPlacementPanel from "./GridPlacementPanel";
+import BlockLayoutPanel from "./BlockLayoutPanel";
+import ReusablePanel, { type ReusableItem } from "./ReusablePanel";
+import { GRID_BLOCK_TYPE } from "./grid";
 
 const fieldLabel: React.CSSProperties = {
   display: "flex",
@@ -8,13 +15,13 @@ const fieldLabel: React.CSSProperties = {
   gap: "0.25rem",
   fontSize: "0.8rem",
   fontWeight: 600,
-  color: "#374151",
+  color: "var(--jf-text-2)",
   marginBottom: "0.75rem",
 };
 
 const fieldInput: React.CSSProperties = {
   padding: "0.4rem 0.6rem",
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--jf-border-strong)",
   borderRadius: 5,
   fontSize: "0.875rem",
   fontFamily: "inherit",
@@ -27,9 +34,26 @@ interface BlockInspectorProps {
   catalogEntry?: BlockCatalogEntry;
   onChange: (props: Record<string, unknown>) => void;
   onSyncBlock?: (block: BlockNode) => void;
+  /** Type of the block this one sits in, so grid children can be placed. */
+  parentType?: string | null;
+  /** Column count of the grid parent, when there is one. */
+  parentColumns?: number;
+  reusable?: ReusableItem[];
+  onReloadReusable?: () => void;
+  onConvertToReusable?: (ref: string) => void;
 }
 
-export default function BlockInspector({ block, catalogEntry, onChange, onSyncBlock }: BlockInspectorProps) {
+export default function BlockInspector({
+  block,
+  catalogEntry,
+  onChange,
+  onSyncBlock,
+  parentType = null,
+  parentColumns = 12,
+  reusable = [],
+  onReloadReusable,
+  onConvertToReusable,
+}: BlockInspectorProps) {
   const p = block.props;
   const set = (key: string, val: unknown) => {
     const next = { ...p, [key]: val };
@@ -185,11 +209,71 @@ export default function BlockInspector({ block, catalogEntry, onChange, onSyncBl
     case "core.embed": fields = textInput("url", "URL"); break;
     case "core.html": fields = textArea("html", "HTML", 6); break;
     case "core.divider":
-      fields = <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>No settings.</p>;
+      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>No settings.</p>;
+      break;
+    case "core.color-scheme":
+      fields = <>
+        {select("style", "Style", [
+          { value: "buttons", label: "Buttons" },
+          { value: "icons", label: "Icons" },
+        ])}
+        {select("align", "Alignment", [
+          { value: "left", label: "Left" },
+          { value: "center", label: "Center" },
+          { value: "right", label: "Right" },
+        ])}
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showSystem === true} onChange={(e) => set("showSystem", e.target.checked)} />
+          Show an “Auto” option
+        </label>
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
+          Visitors who have not chosen already follow their device setting. Auto lets them go back to it.
+        </p>
+      </>;
+      break;
+    case "core.language-switcher":
+      fields = <>
+        {select("style", "Style", [
+          { value: "codes", label: "Language codes" },
+          { value: "names", label: "Language names" },
+        ])}
+        {select("align", "Alignment", [
+          { value: "left", label: "Left" },
+          { value: "center", label: "Center" },
+          { value: "right", label: "Right" },
+        ])}
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>Shown when the site has more than one active language.</p>
+      </>;
+      break;
+    case "core.auth-links":
+      fields = <>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showLogin !== false} onChange={(e) => set("showLogin", e.target.checked)} />
+          Show login
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showRegister !== false} onChange={(e) => set("showRegister", e.target.checked)} />
+          Show register
+        </label>
+        {textInput("loginLabel", "Login label")}
+        {textInput("registerLabel", "Register label")}
+        {select("style", "Style", [
+          { value: "buttons", label: "Buttons" },
+          { value: "links", label: "Links" },
+        ])}
+        {select("align", "Alignment", [
+          { value: "left", label: "Left" },
+          { value: "center", label: "Center" },
+          { value: "right", label: "Right" },
+        ])}
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
+          Register is shown on the public site only when Settings → Anyone can register is on.
+        </p>
+      </>;
       break;
     case "core.group":
     case "core.column":
-      fields = <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>Add content blocks inside this container.</p>;
+      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>Add content blocks inside this container.</p>;
       break;
     case "justflows.forms.form":
       fields = <FormBlockPicker formId={String(p.formId ?? "contact")} onChange={(formId) => set("formId", formId)} />;
@@ -207,15 +291,42 @@ export default function BlockInspector({ block, catalogEntry, onChange, onSyncBl
       );
       break;
     default:
-      fields = <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>No settings for this block.</p>;
+      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>No settings for this block.</p>;
   }
 
   return (
     <div>
-      <div style={{ fontWeight: 700, fontSize: "0.75rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
+      <div style={{ fontWeight: 700, fontSize: "0.75rem", color: "var(--jf-text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
         {catalogEntry?.icon} {catalogEntry?.title ?? block.type}
       </div>
       {fields}
+      <AnimationPanel
+        blockId={block.id}
+        value={p.animation}
+        onChange={(animation) => {
+          if (!animation) {
+            const next = { ...p };
+            delete next.animation;
+            onChange(next);
+            return;
+          }
+          onChange({ ...p, animation });
+        }}
+      />
+      {parentType === GRID_BLOCK_TYPE && (
+        <GridPlacementPanel block={block} columns={parentColumns} onChange={onChange} />
+      )}
+      {onConvertToReusable && onReloadReusable && (
+        <ReusablePanel
+          block={block}
+          items={reusable}
+          onReload={onReloadReusable}
+          onConvert={onConvertToReusable}
+        />
+      )}
+      <BlockLayoutPanel block={block} onChange={onChange} />
+      <BlockStylePanel block={block} onChange={onChange} />
+      {onSyncBlock && <BlockJsonPanel key={block.id} block={block} onApply={onSyncBlock} />}
     </div>
   );
 }
@@ -255,11 +366,11 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
       </label>
       <div style={{ marginTop: "0.5rem" }}>
         {items.map((item, i) => (
-          <div key={i} style={{ border: "1px solid #e2e8f0", borderRadius: 6, marginBottom: "0.5rem", overflow: "hidden" }}>
+          <div key={i} style={{ border: "1px solid var(--jf-border)", borderRadius: 6, marginBottom: "0.5rem", overflow: "hidden" }}>
             <button
               type="button"
               onClick={() => setOpen(open === i ? null : i)}
-              style={{ width: "100%", padding: "0.5rem 0.75rem", background: "#f8fafc", border: "none", textAlign: "left", fontWeight: 600, fontSize: "0.8rem", cursor: "pointer" }}
+              style={{ width: "100%", padding: "0.5rem 0.75rem", background: "var(--jf-surface-2)", border: "none", textAlign: "left", fontWeight: 600, fontSize: "0.8rem", cursor: "pointer" }}
             >
               {item.icon} {item.title || `Feature ${i + 1}`}
             </button>
@@ -274,12 +385,12 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
                 <label style={fieldLabel}>Description
                   <textarea rows={2} style={fieldInput} value={item.description} onChange={(e) => updateItem(i, { description: e.target.value })} />
                 </label>
-                <button type="button" onClick={() => removeItem(i)} style={{ color: "#dc2626", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>Remove</button>
+                <button type="button" onClick={() => removeItem(i)} style={{ color: "var(--jf-danger)", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>Remove</button>
               </div>
             )}
           </div>
         ))}
-        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed #cbd5e1", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
+        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
           + Add feature
         </button>
       </div>
@@ -302,7 +413,7 @@ function FormBlockPicker({ formId, onChange }: { formId: string; onChange: (form
   }, []);
 
   if (!enabled) {
-    return <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>Install and keep the Forms plugin available to use this block.</p>;
+    return <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>Install and keep the Forms plugin available to use this block.</p>;
   }
 
   return (
@@ -315,7 +426,7 @@ function FormBlockPicker({ formId, onChange }: { formId: string; onChange: (form
           ))}
         </select>
       </label>
-      <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>
+      <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
         Edit fields under Extensions → Forms.
       </p>
     </>
@@ -384,7 +495,7 @@ function GalleryEditor({
       </label>
 
       {items.map((item, index) => (
-        <div key={`${item.src}-${index}`} style={{ border: "1px solid #e2e8f0", borderRadius: 6, padding: "0.6rem", marginBottom: "0.5rem" }}>
+        <div key={`${item.src}-${index}`} style={{ border: "1px solid var(--jf-border)", borderRadius: 6, padding: "0.6rem", marginBottom: "0.5rem" }}>
           {item.src ? (
             <img src={item.src} alt="" style={{ width: "100%", height: 72, objectFit: "cover", borderRadius: 4, marginBottom: "0.4rem" }} />
           ) : null}
@@ -406,28 +517,28 @@ function GalleryEditor({
             value={item.caption}
             onChange={(e) => emit({ items: items.map((row, i) => (i === index ? { ...row, caption: e.target.value } : row)) })}
           />
-          <button type="button" onClick={() => emit({ items: items.filter((_, i) => i !== index) })} style={{ color: "#dc2626", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>
+          <button type="button" onClick={() => emit({ items: items.filter((_, i) => i !== index) })} style={{ color: "var(--jf-danger)", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>
             Remove
           </button>
         </div>
       ))}
 
-      <button type="button" onClick={() => addUrl("")} style={{ width: "100%", padding: "0.4rem", border: "1px dashed #cbd5e1", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}>
+      <button type="button" onClick={() => addUrl("")} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}>
         + Add image URL
       </button>
-      <button type="button" onClick={loadLibrary} style={{ width: "100%", padding: "0.4rem", border: "1px dashed #cbd5e1", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
+      <button type="button" onClick={loadLibrary} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
         Add from media library
       </button>
       {showLibrary && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem", marginTop: "0.5rem", maxHeight: 180, overflow: "auto" }}>
           {library.length === 0 ? (
-            <p style={{ color: "#94a3b8", fontSize: "0.75rem", gridColumn: "1 / -1" }}>No images in the media library yet.</p>
+            <p style={{ color: "var(--jf-text-3)", fontSize: "0.75rem", gridColumn: "1 / -1" }}>No images in the media library yet.</p>
           ) : library.map((file) => (
             <button
               key={file.url}
               type="button"
               onClick={() => addUrl(file.url)}
-              style={{ padding: 0, border: "1px solid #e2e8f0", borderRadius: 4, overflow: "hidden", cursor: "pointer", background: "#fff" }}
+              style={{ padding: 0, border: "1px solid var(--jf-border)", borderRadius: 4, overflow: "hidden", cursor: "pointer", background: "#fff" }}
               title={file.filename}
             >
               <img src={file.url} alt="" style={{ display: "block", width: "100%", height: 56, objectFit: "cover" }} />

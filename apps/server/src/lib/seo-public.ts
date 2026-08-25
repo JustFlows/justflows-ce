@@ -2,6 +2,7 @@
 
 import { getPlugin } from "./plugins-db.js";
 import { getSiteSetting } from "./site-settings.js";
+import { getHomeContent } from "./home-page.js";
 import { listPublishedContent } from "./content-public.js";
 import { getDefaultLocale } from "./i18n/languages-db.js";
 import { localePath } from "./i18n/locales.js";
@@ -182,10 +183,15 @@ export async function buildSitemapXml(siteId: string): Promise<string> {
   const origin = siteOrigin();
   const defaultLocale = await getDefaultLocale();
   const published = await listPublishedContent(siteId);
+  const home = await getHomeContent(siteId, defaultLocale, false);
   const paths = new Set<string>(["/", ...settings.extraSitemapPaths]);
 
   for (const item of published) {
-    const pagePath = item.slug === "home" || item.slug === "" ? "/" : `/${item.slug}`;
+    const isHome =
+      home &&
+      (item.id === home.id ||
+        (item.translationGroupId && item.translationGroupId === home.translationGroupId));
+    const pagePath = isHome || item.slug === "home" || item.slug === "" ? "/" : `/${item.slug}`;
     paths.add(localePath(item.locale, pagePath, defaultLocale));
   }
 

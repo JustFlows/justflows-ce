@@ -46,6 +46,17 @@ export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
   "core.html": { html: "" },
   "justflows.forms.form": { formId: "contact" },
   "justflows.gallery.grid": { items: [], layout: "grid", columns: 3, lightbox: true },
+  "core.grid": { columns: 12, gap: "md", rowHeight: "auto" },
+  "core.color-scheme": { style: "buttons", align: "right", showSystem: false },
+  "core.language-switcher": { style: "codes", align: "right" },
+  "core.auth-links": {
+    showLogin: true,
+    showRegister: true,
+    loginLabel: "Log in",
+    registerLabel: "Register",
+    style: "buttons",
+    align: "right",
+  },
 };
 
 function makeColumn(): BlockNode {
@@ -88,6 +99,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   layout: "Layout",
   content: "Content",
   media: "Media",
+  site: "Site",
 };
 
-export const CATEGORY_ORDER = ["sections", "layout", "content", "media"];
+export const CATEGORY_ORDER = ["sections", "layout", "content", "media", "site"];

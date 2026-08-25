@@ -14,8 +14,10 @@ pnpm --filter @justflows/blocks build
 pnpm --filter @justflows/core build
 pnpm --filter @justflows/cache build
 pnpm --filter @justflows/sdk build
-pnpm --filter @justflows/plugin-api build
+pnpm --filter @justflows/database build
+pnpm --filter @justflows/auth build
 pnpm --filter @justflows/installer build
+pnpm --filter @justflows/plugin-api build
 pnpm --filter @justflows/content build
 pnpm --filter @justflows/server build
 node "$ROOT/scripts/bundle-server.js"

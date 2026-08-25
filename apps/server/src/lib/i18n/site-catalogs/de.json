@@ -7,5 +7,11 @@
   "home.cta": "Zum Admin →",
   "404.title": "Seite nicht gefunden",
   "404.back": "Zur Startseite",
-  "footer.powered_by": "Powered by"
+  "footer.powered_by": "Powered by",
+  "auth.login": "Anmelden",
+  "auth.register": "Registrieren",
+  "color_scheme.light": "Hell",
+  "color_scheme.dark": "Dunkel",
+  "color_scheme.system": "Automatisch",
+  "language.label": "Sprache"
 }

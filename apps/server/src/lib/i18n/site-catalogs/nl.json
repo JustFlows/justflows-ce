@@ -7,5 +7,11 @@
   "home.cta": "Naar beheer →",
   "404.title": "Pagina niet gevonden",
   "404.back": "Terug naar home",
-  "footer.powered_by": "Mogelijk gemaakt door"
+  "footer.powered_by": "Mogelijk gemaakt door",
+  "auth.login": "Inloggen",
+  "auth.register": "Registreren",
+  "color_scheme.light": "Licht",
+  "color_scheme.dark": "Donker",
+  "color_scheme.system": "Automatisch",
+  "language.label": "Taal"
 }

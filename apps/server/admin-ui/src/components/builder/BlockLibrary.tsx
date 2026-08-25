@@ -87,16 +87,16 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: "0.75rem", borderBottom: "1px solid #e2e8f0" }}>
-        <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#374151", marginBottom: "0.25rem" }}>Blocks</div>
-        <p style={{ margin: "0 0 0.5rem", fontSize: "0.65rem", color: "#94a3b8" }}>Drag into a section or click to add</p>
+      <div style={{ padding: "0.75rem", borderBottom: "1px solid var(--jf-border)" }}>
+        <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--jf-text-2)", marginBottom: "0.25rem" }}>Blocks</div>
+        <p style={{ margin: "0 0 0.5rem", fontSize: "0.65rem", color: "var(--jf-text-3)" }}>Drag into a section or click to add</p>
         <input
           type="search"
           placeholder="Search blocks…"
           aria-label="Search blocks"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          style={{ width: "100%", boxSizing: "border-box", padding: "0.45rem 0.6rem", border: "1px solid #cbd5e1", borderRadius: 6, fontSize: "0.8rem" }}
+          style={{ width: "100%", boxSizing: "border-box", padding: "0.45rem 0.6rem", border: "1px solid var(--jf-border-strong)", borderRadius: 6, fontSize: "0.8rem" }}
         />
       </div>
 
@@ -116,7 +116,7 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
                 border: "none",
                 fontWeight: 700,
                 fontSize: "0.7rem",
-                color: "#64748b",
+                color: "var(--jf-text-3)",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
                 cursor: "pointer",
@@ -137,7 +137,7 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
                       onClick={() => handleImportPattern(pattern.id)}
                       style={{
                         padding: "0.55rem 0.65rem",
-                        border: "1px solid #e2e8f0",
+                        border: "1px solid var(--jf-border)",
                         borderRadius: 6,
                         background: "#fff",
                         cursor: importing === pattern.id ? "wait" : "pointer",
@@ -146,7 +146,7 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
                     >
                       <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#334155" }}>{pattern.title}</div>
                       {pattern.description && (
-                        <div style={{ fontSize: "0.65rem", color: "#94a3b8", marginTop: 2, lineHeight: 1.35 }}>{pattern.description}</div>
+                        <div style={{ fontSize: "0.65rem", color: "var(--jf-text-3)", marginTop: 2, lineHeight: 1.35 }}>{pattern.description}</div>
                       )}
                     </button>
                   ))}
@@ -174,7 +174,7 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
                   border: "none",
                   fontWeight: 700,
                   fontSize: "0.7rem",
-                  color: "#64748b",
+                  color: "var(--jf-text-3)",
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
                   cursor: "pointer",
@@ -207,7 +207,7 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
                         color: "#334155",
                         userSelect: "none",
                       }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.borderColor = "#e2e8f0"; }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--jf-surface-3)"; e.currentTarget.style.borderColor = "var(--jf-border)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "transparent"; }}
                     >
                       <span style={{ width: 22, textAlign: "center", opacity: 0.85 }}>{block.icon}</span>

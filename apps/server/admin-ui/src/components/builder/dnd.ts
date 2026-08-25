@@ -3,6 +3,9 @@ import type { BlockCatalogEntry, BlockNode } from "./types";
 export const DND_BLOCK_TYPE = "application/x-justflows-block-type";
 export const DND_BLOCK_ID = "application/x-justflows-block-id";
 
+/** Virtual parent for blocks dropped into page header chrome. */
+export const HEADER_SLOT_PARENT_TYPE = "core.header";
+
 export function canDropBlockType(
   parentType: string | null,
   childType: string,
@@ -10,7 +13,9 @@ export function canDropBlockType(
 ): boolean {
   if (childType === "core.column") return parentType === "core.columns";
 
-  if (!parentType) return childType !== "core.column";
+  if (!parentType || parentType === HEADER_SLOT_PARENT_TYPE) {
+    return childType !== "core.column";
+  }
 
   const parent = catalog.get(parentType);
   if (!parent?.supportsChildren) return false;
@@ -20,6 +25,7 @@ export function canDropBlockType(
   }
 
   if (parentType === "core.columns") return false;
+  if (parentType === "core.grid") return childType !== "core.column";
   if (parentType === "core.column") {
     return childType !== "core.column" && childType !== "core.columns";
   }
@@ -48,8 +54,12 @@ export function libraryTargetParent(
   const selected = find(blocks);
   if (!selected) return null;
 
+  if (selected.type === "core.columns") {
+    return selected.children?.[0]?.id ?? null;
+  }
+
   const meta = catalog.get(selected.type);
-  if (meta?.supportsChildren && selected.type !== "core.columns") {
+  if (meta?.supportsChildren) {
     return selected.id;
   }
 

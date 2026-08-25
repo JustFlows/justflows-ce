@@ -1,6 +1,8 @@
 import type { BlockDefinition } from "../registry/block-registry.js";
 import { sanitizeHtmlBlock, sanitizeRichText } from "../sanitize.js";
 import { esc, safeHref, safeMediaSrc } from "../safe-url.js";
+import { siteWidgetBlocks } from "./site-widgets.js";
+import { GRID_DEFAULT_COLUMNS, GRID_MAX_COLUMNS, GRID_MIN_COLUMNS } from "../layout.js";
 
 function str(raw: unknown, fallback = ""): string {
   return typeof raw === "string" ? raw : fallback;
@@ -261,6 +263,49 @@ export const coreBlocks: BlockDefinition[] = [
     render: (_props, children = "") => `<div class="jf-column">${children}</div>`,
   },
   {
+    type: "core.grid",
+    version: 1,
+    title: "Grid",
+    description: "Place blocks anywhere on a column grid. Drag to move, drag an edge to resize.",
+    icon: "▦",
+    category: "layout",
+    schema: {
+      columns: { type: "number", default: GRID_DEFAULT_COLUMNS },
+      gap: { type: "select", options: ["none", "sm", "md", "lg"], default: "md" },
+      rowHeight: { type: "select", options: ["auto", "sm", "md", "lg"], default: "auto" },
+    },
+    supportsChildren: true,
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      const gap = ["none", "sm", "md", "lg"].includes(str(r["gap"])) ? str(r["gap"]) : "md";
+      const rowHeight = ["auto", "sm", "md", "lg"].includes(str(r["rowHeight"])) ? str(r["rowHeight"]) : "auto";
+      return {
+        columns: Math.min(GRID_MAX_COLUMNS, Math.max(GRID_MIN_COLUMNS, num(r["columns"], GRID_DEFAULT_COLUMNS))),
+        gap,
+        rowHeight,
+      };
+    },
+    render: (props, children = "") => {
+      const { columns, gap, rowHeight } = props as { columns: number; gap: string; rowHeight: string };
+      // Children position themselves; the container only declares the tracks.
+      return `<div class="jf-grid jf-grid--gap-${gap} jf-grid--rows-${rowHeight}" style="--jf-grid-cols:${columns}">${children}</div>`;
+    },
+  },
+  {
+    type: "core.reusable",
+    version: 1,
+    title: "Reusable block",
+    description: "Shows a saved block. Editing the saved copy updates every page using it.",
+    icon: "♻",
+    category: "layout",
+    schema: {
+      ref: { type: "text", required: true },
+    },
+    validateProps: (raw) => ({ ref: str((raw as Record<string, unknown>)["ref"]) }),
+    // Reached only when the reference is missing or the resolver did not run.
+    render: () => `<!-- reusable block not found -->`,
+  },
+  {
     type: "core.hero",
     version: 1,
     title: "Hero",
@@ -383,4 +428,5 @@ export const coreBlocks: BlockDefinition[] = [
       return `<section class="jf-cta jf-cta--${variant}"><div class="jf-container jf-container--default"><h2 class="jf-cta__heading">${esc(heading)}</h2>${text ? `<p class="jf-cta__text">${esc(text)}</p>` : ""}${btn}</div></section>`;
     },
   },
+  ...siteWidgetBlocks,
 ];

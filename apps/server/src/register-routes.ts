@@ -56,6 +56,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: analyticsRoutes },
     { default: formsRoutes },
     { default: contentTypesRoutes },
+    { default: reusableBlocksRoutes, templatePartsRouter },
+    { default: headerPresetsRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -80,6 +82,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/analytics.js"),
     import("./routes/forms.js"),
     import("./routes/content-types.js"),
+    import("./routes/reusable-blocks.js"),
+    import("./routes/header-presets.js"),
   ]);
 
   app.use(blockIfInstalled);
@@ -103,6 +107,9 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/import", requireInstalled, importRoutes);
   app.use("/api/languages", requireInstalled, languagesRoutes);
   app.use("/api/menus", requireInstalled, menusRoutes);
+  app.use("/api/reusable-blocks", requireInstalled, reusableBlocksRoutes);
+  app.use("/api/template-parts", requireInstalled, templatePartsRouter);
+  app.use("/api/header-presets", requireInstalled, headerPresetsRoutes);
   app.use("/api/blocks", requireInstalled, blocksRoutes);
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/forms", requireInstalled, formsRoutes);

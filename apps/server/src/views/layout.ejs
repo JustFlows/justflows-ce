@@ -21,19 +21,25 @@
       <link rel="stylesheet" href="<%= sheet.href %>">
     <% }); %>
   <% } %>
+  <script src="/js/site-chrome.js"></script>
 </head>
 <body>
   <%- typeof analyticsBody !== 'undefined' ? analyticsBody : '' %>
   <%- body %>
   <footer class="site-footer">
-    <% if (typeof footerNavItems !== 'undefined' && footerNavItems.length > 0) { %>
-      <nav class="site-footer-nav" aria-label="Footer">
-        <% footerNavItems.forEach(function(item) { %>
-          <a href="<%= item.url %>"<% if (item.target) { %> target="<%= item.target %>" rel="noopener noreferrer"<% } %>><%= item.label %></a>
-        <% }); %>
-      </nav>
+    <% if (typeof footerBlocksHtml !== 'undefined' && footerBlocksHtml) { %>
+      <div class="site-footer-blocks"><%- footerBlocksHtml %></div>
+    <% } else { %>
+      <% if (typeof footerNavItems !== 'undefined' && footerNavItems.length > 0) { %>
+        <nav class="site-footer-nav" aria-label="Footer">
+          <% footerNavItems.forEach(function(item) { %>
+            <a href="<%= item.url %>"<% if (item.target) { %> target="<%= item.target %>" rel="noopener noreferrer"<% } %>><%= item.label %></a>
+          <% }); %>
+        </nav>
+      <% } %>
+      <p><%= t('footer.powered_by') %> <a href="https://github.com/justflows/justflows" style="color: var(--color-muted); text-decoration: none; font-weight: 600;">Justflows</a></p>
     <% } %>
-    <p><%= t('footer.powered_by') %> <a href="https://github.com/justflows/justflows" style="color: var(--color-muted); text-decoration: none; font-weight: 600;">Justflows</a></p>
   </footer>
+  <script src="/js/block-animations.js" defer></script>
 </body>
 </html>

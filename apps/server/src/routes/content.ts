@@ -15,6 +15,7 @@ import {
   CONTENT_READ_ROLES,
   CONTENT_WRITE_ROLES,
 } from "../lib/rbac.js";
+import { clearHomePageIfMatches } from "../lib/home-page.js";
 import { param } from "../lib/params.js";
 import { ContentTypeSlugSchema } from "@justflows/content";
 import { getContentTypeBySlug } from "../lib/content-types-db.js";
@@ -504,6 +505,7 @@ router.delete("/:id", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
   }
 
   await db.run("DELETE FROM content WHERE id = ? AND site_id = ?", [id, session.siteId]);
+  await clearHomePageIfMatches(session.siteId, id);
   await invalidateContentCache();
   await hooks.dispatchAction("content.deleted", contentRef, hookCtx);
   res.json({ ok: true });
