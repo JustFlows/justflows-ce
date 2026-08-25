@@ -1,4 +1,4 @@
-import en from "../../../src/lib/i18n/admin/en.json";
+import en from "../../../src/lib/i18n/admin-catalogs/en.json";
 
 type Messages = Record<string, string>;
 

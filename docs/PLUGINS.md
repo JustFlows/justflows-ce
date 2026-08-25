@@ -50,7 +50,8 @@ plugin-scoped data, and `blocks.register`. See [HOOKS.md](HOOKS.md) and
 ## Admin pages
 
 Declare `adminMenu` and request `admin:extend`. The sidebar reads
-`GET /api/plugins/admin-menu` while the plugin is installed.
+`GET /api/plugins/admin-menu` while the plugin is active — an installed-but-not-
+yet-activated plugin (or a deactivated one) contributes nothing to the menu.
 
 ```json
 {

@@ -1,6 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BlockNode, BlockCatalogEntry } from "./types";
 import { syncColumnCount } from "./block-defaults";
+import AnimationPanel from "./AnimationPanel";
+import BlockStylePanel from "./BlockStylePanel";
+import BlockJsonPanel from "./BlockJsonPanel";
+import GridPlacementPanel from "./GridPlacementPanel";
+import BlockLayoutPanel from "./BlockLayoutPanel";
+import ReusablePanel, { type ReusableItem } from "./ReusablePanel";
+import { GRID_BLOCK_TYPE } from "./grid";
+import MediaImageField from "../MediaImageField";
+
+const GALLERY_LAYOUTS = ["grid", "masonry", "carousel", "slideshow", "list"] as const;
+type GalleryLayoutValue = (typeof GALLERY_LAYOUTS)[number];
 
 const fieldLabel: React.CSSProperties = {
   display: "flex",
@@ -8,13 +19,13 @@ const fieldLabel: React.CSSProperties = {
   gap: "0.25rem",
   fontSize: "0.8rem",
   fontWeight: 600,
-  color: "#374151",
+  color: "var(--jf-text-2)",
   marginBottom: "0.75rem",
 };
 
 const fieldInput: React.CSSProperties = {
   padding: "0.4rem 0.6rem",
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--jf-border-strong)",
   borderRadius: 5,
   fontSize: "0.875rem",
   fontFamily: "inherit",
@@ -27,9 +38,26 @@ interface BlockInspectorProps {
   catalogEntry?: BlockCatalogEntry;
   onChange: (props: Record<string, unknown>) => void;
   onSyncBlock?: (block: BlockNode) => void;
+  /** Type of the block this one sits in, so grid children can be placed. */
+  parentType?: string | null;
+  /** Column count of the grid parent, when there is one. */
+  parentColumns?: number;
+  reusable?: ReusableItem[];
+  onReloadReusable?: () => void;
+  onConvertToReusable?: (ref: string) => void;
 }
 
-export default function BlockInspector({ block, catalogEntry, onChange, onSyncBlock }: BlockInspectorProps) {
+export default function BlockInspector({
+  block,
+  catalogEntry,
+  onChange,
+  onSyncBlock,
+  parentType = null,
+  parentColumns = 12,
+  reusable = [],
+  onReloadReusable,
+  onConvertToReusable,
+}: BlockInspectorProps) {
   const p = block.props;
   const set = (key: string, val: unknown) => {
     const next = { ...p, [key]: val };
@@ -114,7 +142,7 @@ export default function BlockInspector({ block, catalogEntry, onChange, onSyncBl
         {textInput("heading", "Heading")}
         {textArea("subheading", "Subheading", 2)}
         {textInput("buttonLabel", "Button label")}
-        {textInput("buttonUrl", "Button URL", "https://")}
+        <InternalLinkField value={(p.buttonUrl as string) ?? ""} onChange={(url) => set("buttonUrl", url)} label="Button URL" placeholder="/about or https://…" />
         {textInput("backgroundImage", "Background image URL")}
         {select("align", "Alignment", [
           { value: "left", label: "Left" },
@@ -132,7 +160,7 @@ export default function BlockInspector({ block, catalogEntry, onChange, onSyncBl
         {textInput("heading", "Heading")}
         {textArea("text", "Text", 2)}
         {textInput("buttonLabel", "Button label")}
-        {textInput("buttonUrl", "Button URL")}
+        <InternalLinkField value={(p.buttonUrl as string) ?? ""} onChange={(url) => set("buttonUrl", url)} label="Button URL" />
         {select("variant", "Style", [
           { value: "primary", label: "Primary" },
           { value: "dark", label: "Dark" },
@@ -153,9 +181,27 @@ export default function BlockInspector({ block, catalogEntry, onChange, onSyncBl
       break;
     case "core.image":
       fields = <>
-        {textInput("src", "Image URL")}
+        <MediaImageField
+          id={`block-${block.id}-image`}
+          label="Image"
+          value={(p.src as string) ?? ""}
+          onChange={(url) => set("src", url)}
+        />
         {textInput("alt", "Alt text")}
         {textInput("caption", "Caption")}
+        <div className="jf-block-panel__grid2">
+          <label className="jf-block-panel__field jf-block-panel__field--inline">Width (px)
+            <input type="number" min={0} max={10000} placeholder="Auto" value={(p.width as number) || ""} onChange={(e) => set("width", Number(e.target.value) || 0)} />
+          </label>
+          <label className="jf-block-panel__field jf-block-panel__field--inline">Height (px)
+            <input type="number" min={0} max={10000} placeholder="Auto" value={(p.height as number) || ""} onChange={(e) => set("height", Number(e.target.value) || 0)} />
+          </label>
+        </div>
+        {select("objectFit", "Image fit", [
+          { value: "contain", label: "Contain" },
+          { value: "cover", label: "Cover" },
+          { value: "fill", label: "Stretch" },
+        ])}
       </>;
       break;
     case "core.quote":
@@ -164,13 +210,16 @@ export default function BlockInspector({ block, catalogEntry, onChange, onSyncBl
     case "core.button":
       fields = <>
         {textInput("label", "Label")}
-        {textInput("url", "URL")}
+        <InternalLinkField value={(p.url as string) ?? ""} onChange={(url) => set("url", url)} label="URL" />
         {select("variant", "Variant", [
           { value: "primary", label: "Primary" },
           { value: "secondary", label: "Secondary" },
           { value: "outline", label: "Outline" },
         ])}
       </>;
+      break;
+    case "core.link-list":
+      fields = <LinkListEditor items={(p.items as LinkItem[]) ?? []} heading={(p.heading as string) ?? ""} onChange={onChange} p={p} />;
       break;
     case "core.spacer":
       fields = (
@@ -185,11 +234,71 @@ export default function BlockInspector({ block, catalogEntry, onChange, onSyncBl
     case "core.embed": fields = textInput("url", "URL"); break;
     case "core.html": fields = textArea("html", "HTML", 6); break;
     case "core.divider":
-      fields = <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>No settings.</p>;
+      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>No settings.</p>;
+      break;
+    case "core.color-scheme":
+      fields = <>
+        {select("style", "Style", [
+          { value: "buttons", label: "Buttons" },
+          { value: "icons", label: "Icons" },
+        ])}
+        {select("align", "Alignment", [
+          { value: "left", label: "Left" },
+          { value: "center", label: "Center" },
+          { value: "right", label: "Right" },
+        ])}
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showSystem === true} onChange={(e) => set("showSystem", e.target.checked)} />
+          Show an “Auto” option
+        </label>
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
+          Visitors who have not chosen already follow their device setting. Auto lets them go back to it.
+        </p>
+      </>;
+      break;
+    case "core.language-switcher":
+      fields = <>
+        {select("style", "Style", [
+          { value: "codes", label: "Language codes" },
+          { value: "names", label: "Language names" },
+        ])}
+        {select("align", "Alignment", [
+          { value: "left", label: "Left" },
+          { value: "center", label: "Center" },
+          { value: "right", label: "Right" },
+        ])}
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>Shown when the site has more than one active language.</p>
+      </>;
+      break;
+    case "core.auth-links":
+      fields = <>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showLogin !== false} onChange={(e) => set("showLogin", e.target.checked)} />
+          Show login
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showRegister !== false} onChange={(e) => set("showRegister", e.target.checked)} />
+          Show register
+        </label>
+        {textInput("loginLabel", "Login label")}
+        {textInput("registerLabel", "Register label")}
+        {select("style", "Style", [
+          { value: "buttons", label: "Buttons" },
+          { value: "links", label: "Links" },
+        ])}
+        {select("align", "Alignment", [
+          { value: "left", label: "Left" },
+          { value: "center", label: "Center" },
+          { value: "right", label: "Right" },
+        ])}
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
+          Register is shown on the public site only when Settings → Anyone can register is on.
+        </p>
+      </>;
       break;
     case "core.group":
     case "core.column":
-      fields = <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>Add content blocks inside this container.</p>;
+      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>Add content blocks inside this container.</p>;
       break;
     case "justflows.forms.form":
       fields = <FormBlockPicker formId={String(p.formId ?? "contact")} onChange={(formId) => set("formId", formId)} />;
@@ -198,7 +307,7 @@ export default function BlockInspector({ block, catalogEntry, onChange, onSyncBl
       fields = (
         <GalleryEditor
           items={(Array.isArray(p.items) ? p.items : []) as GalleryItem[]}
-          layout={(p.layout as string) === "masonry" ? "masonry" : "grid"}
+          layout={GALLERY_LAYOUTS.includes(p.layout as GalleryLayoutValue) ? (p.layout as GalleryLayoutValue) : "grid"}
           columns={Number(p.columns) || 3}
           lightbox={p.lightbox !== false}
           onChange={onChange}
@@ -206,16 +315,80 @@ export default function BlockInspector({ block, catalogEntry, onChange, onSyncBl
         />
       );
       break;
+    case "justflows.blog.postList":
+      fields = <>
+        {select("layout", "Layout", [
+          { value: "grid", label: "Grid" },
+          { value: "list", label: "List" },
+        ])}
+        <label style={fieldLabel}>Columns (grid layout)
+          <input type="number" style={fieldInput} min={1} max={4} value={(p.columns as number) ?? 3} onChange={(e) => set("columns", Number(e.target.value))} />
+        </label>
+        <label style={fieldLabel}>Posts per page
+          <input
+            type="number"
+            style={fieldInput}
+            min={0}
+            max={100}
+            placeholder="Use site default"
+            value={(p.postsPerPage as number) || ""}
+            onChange={(e) => set("postsPerPage", e.target.value === "" ? 0 : Number(e.target.value))}
+          />
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showFeaturedImage !== false} onChange={(e) => set("showFeaturedImage", e.target.checked)} />
+          Show featured image
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showDate !== false} onChange={(e) => set("showDate", e.target.checked)} />
+          Show date
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showExcerpt !== false} onChange={(e) => set("showExcerpt", e.target.checked)} />
+          Show excerpt
+        </label>
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
+          Lists published posts, newest first. Pagination uses /page/2, /page/3, etc. under this page's URL.
+        </p>
+      </>;
+      break;
     default:
-      fields = <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>No settings for this block.</p>;
+      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>No settings for this block.</p>;
   }
 
   return (
     <div>
-      <div style={{ fontWeight: 700, fontSize: "0.75rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
+      <div style={{ fontWeight: 700, fontSize: "0.75rem", color: "var(--jf-text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
         {catalogEntry?.icon} {catalogEntry?.title ?? block.type}
       </div>
       {fields}
+      <AnimationPanel
+        blockId={block.id}
+        value={p.animation}
+        onChange={(animation) => {
+          if (!animation) {
+            const next = { ...p };
+            delete next.animation;
+            onChange(next);
+            return;
+          }
+          onChange({ ...p, animation });
+        }}
+      />
+      {parentType === GRID_BLOCK_TYPE && (
+        <GridPlacementPanel block={block} columns={parentColumns} onChange={onChange} />
+      )}
+      {onConvertToReusable && onReloadReusable && (
+        <ReusablePanel
+          block={block}
+          items={reusable}
+          onReload={onReloadReusable}
+          onConvert={onConvertToReusable}
+        />
+      )}
+      <BlockLayoutPanel block={block} onChange={onChange} />
+      <BlockStylePanel block={block} onChange={onChange} />
+      {onSyncBlock && <BlockJsonPanel key={block.id} block={block} onApply={onSyncBlock} />}
     </div>
   );
 }
@@ -255,11 +428,11 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
       </label>
       <div style={{ marginTop: "0.5rem" }}>
         {items.map((item, i) => (
-          <div key={i} style={{ border: "1px solid #e2e8f0", borderRadius: 6, marginBottom: "0.5rem", overflow: "hidden" }}>
+          <div key={i} style={{ border: "1px solid var(--jf-border)", borderRadius: 6, marginBottom: "0.5rem", overflow: "hidden" }}>
             <button
               type="button"
               onClick={() => setOpen(open === i ? null : i)}
-              style={{ width: "100%", padding: "0.5rem 0.75rem", background: "#f8fafc", border: "none", textAlign: "left", fontWeight: 600, fontSize: "0.8rem", cursor: "pointer" }}
+              style={{ width: "100%", padding: "0.5rem 0.75rem", background: "var(--jf-surface-2)", border: "none", textAlign: "left", fontWeight: 600, fontSize: "0.8rem", cursor: "pointer" }}
             >
               {item.icon} {item.title || `Feature ${i + 1}`}
             </button>
@@ -274,13 +447,158 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
                 <label style={fieldLabel}>Description
                   <textarea rows={2} style={fieldInput} value={item.description} onChange={(e) => updateItem(i, { description: e.target.value })} />
                 </label>
-                <button type="button" onClick={() => removeItem(i)} style={{ color: "#dc2626", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>Remove</button>
+                <button type="button" onClick={() => removeItem(i)} style={{ color: "var(--jf-danger)", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>Remove</button>
               </div>
             )}
           </div>
         ))}
-        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed #cbd5e1", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
+        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
           + Add feature
+        </button>
+      </div>
+    </>
+  );
+}
+
+interface InternalLinkOption { id: string; type: string; title: string; slug: string }
+
+let internalLinkCache: InternalLinkOption[] | null = null;
+
+/**
+ * Free-text URL input with a picker for the site's own published pages/posts,
+ * so an internal link can be chosen by title instead of hand-typed and mistyped.
+ * Stores a plain root-relative path (e.g. "/about"), same as a typed one.
+ */
+function InternalLinkField({ value, onChange, label = "URL", placeholder = "/about or https://…" }: {
+  value: string;
+  onChange: (value: string) => void;
+  label?: string;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [options, setOptions] = useState<InternalLinkOption[]>(internalLinkCache ?? []);
+
+  async function togglePicker() {
+    if (open) { setOpen(false); return; }
+    if (internalLinkCache) { setOptions(internalLinkCache); setOpen(true); return; }
+    setLoading(true);
+    try {
+      const [pagesRes, postsRes] = await Promise.all([
+        fetch("/api/content?type=page&status=published&limit=100"),
+        fetch("/api/content?type=post&status=published&limit=100"),
+      ]);
+      const [pagesBody, postsBody] = await Promise.all([
+        pagesRes.json() as Promise<{ items?: InternalLinkOption[] }>,
+        postsRes.json() as Promise<{ items?: InternalLinkOption[] }>,
+      ]);
+      const found = [...(pagesBody.items ?? []), ...(postsBody.items ?? [])];
+      internalLinkCache = found;
+      setOptions(found);
+      setOpen(true);
+    } catch {
+      setOptions([]);
+      setOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <label style={fieldLabel}>
+      {label}
+      <div style={{ display: "flex", gap: "0.35rem" }}>
+        <input
+          type="text"
+          style={{ ...fieldInput, flex: 1 }}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={togglePicker}
+          title="Pick a page or post on this site"
+          aria-label="Pick a page or post on this site"
+          style={{ padding: "0 0.6rem", border: "1px solid var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.9rem" }}
+        >
+          {loading ? "…" : "📄"}
+        </button>
+      </div>
+      {open && (
+        <div style={{ border: "1px solid var(--jf-border)", borderRadius: 6, maxHeight: 220, overflow: "auto", background: "#fff" }}>
+          {options.length === 0 ? (
+            <div style={{ padding: "0.5rem 0.6rem", fontSize: "0.75rem", color: "var(--jf-text-3)" }}>No published pages or posts yet.</div>
+          ) : (
+            options.map((item) => (
+              <button
+                key={`${item.type}-${item.id}`}
+                type="button"
+                onClick={() => { onChange(`/${item.slug}`); setOpen(false); }}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "0.4rem 0.6rem", border: "none", borderBottom: "1px solid var(--jf-border)", background: "none", cursor: "pointer", fontSize: "0.8rem" }}
+              >
+                <span style={{ color: "var(--jf-text-3)", marginRight: "0.35rem" }}>{item.type === "page" ? "📄" : "📝"}</span>
+                {item.title || `(untitled ${item.type})`}
+                <span style={{ color: "var(--jf-text-3)" }}> — /{item.slug}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </label>
+  );
+}
+
+interface LinkItem { label: string; url: string }
+
+function LinkListEditor({ items, heading, onChange, p }: {
+  items: LinkItem[];
+  heading: string;
+  onChange: (props: Record<string, unknown>) => void;
+  p: Record<string, unknown>;
+}) {
+  function updateItem(i: number, patch: Partial<LinkItem>) {
+    const next = items.map((item, idx) => (idx === i ? { ...item, ...patch } : item));
+    onChange({ ...p, items: next });
+  }
+
+  function addItem() {
+    onChange({ ...p, items: [...items, { label: "New link", url: "/" }] });
+  }
+
+  function removeItem(i: number) {
+    onChange({ ...p, items: items.filter((_, idx) => idx !== i) });
+  }
+
+  function moveItem(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[i], next[j]] = [next[j]!, next[i]!];
+    onChange({ ...p, items: next });
+  }
+
+  return (
+    <>
+      <label style={fieldLabel}>Heading (optional)
+        <input type="text" style={fieldInput} placeholder="e.g. Product" value={heading} onChange={(e) => onChange({ ...p, heading: e.target.value })} />
+      </label>
+      <div style={{ marginTop: "0.5rem" }}>
+        {items.map((item, i) => (
+          <div key={i} style={{ border: "1px solid var(--jf-border)", borderRadius: 6, marginBottom: "0.5rem", padding: "0.6rem" }}>
+            <label style={fieldLabel}>Label
+              <input type="text" style={fieldInput} value={item.label} onChange={(e) => updateItem(i, { label: e.target.value })} />
+            </label>
+            <InternalLinkField value={item.url} onChange={(url) => updateItem(i, { url })} />
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button type="button" onClick={() => moveItem(i, -1)} disabled={i === 0} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-text-2)" }}>↑ Move up</button>
+              <button type="button" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-text-2)" }}>↓ Move down</button>
+              <button type="button" onClick={() => removeItem(i)} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-danger)", marginLeft: "auto" }}>Remove</button>
+            </div>
+          </div>
+        ))}
+        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
+          + Add link
         </button>
       </div>
     </>
@@ -302,7 +620,7 @@ function FormBlockPicker({ formId, onChange }: { formId: string; onChange: (form
   }, []);
 
   if (!enabled) {
-    return <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>Install and keep the Forms plugin available to use this block.</p>;
+    return <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>Install and keep the Forms plugin available to use this block.</p>;
   }
 
   return (
@@ -315,7 +633,7 @@ function FormBlockPicker({ formId, onChange }: { formId: string; onChange: (form
           ))}
         </select>
       </label>
-      <p style={{ color: "#94a3b8", fontSize: "0.8rem", margin: 0 }}>
+      <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
         Edit fields under Extensions → Forms.
       </p>
     </>
@@ -333,7 +651,7 @@ function GalleryEditor({
   p,
 }: {
   items: GalleryItem[];
-  layout: "grid" | "masonry";
+  layout: GalleryLayoutValue;
   columns: number;
   lightbox: boolean;
   onChange: (props: Record<string, unknown>) => void;
@@ -341,6 +659,9 @@ function GalleryEditor({
 }) {
   const [library, setLibrary] = useState<Array<{ url: string; filename: string }>>([]);
   const [showLibrary, setShowLibrary] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   function emit(patch: Record<string, unknown>) {
     onChange({ ...p, items, layout, columns, lightbox, ...patch });
@@ -365,6 +686,29 @@ function GalleryEditor({
     emit({ items: [...items, { src: url, alt: "", caption: "" }] });
   }
 
+  async function uploadFiles(files: FileList) {
+    setUploading(true);
+    setUploadError("");
+    const uploaded: GalleryItem[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/media", { method: "POST", body: form });
+        const data = (await res.json()) as { url?: string; error?: string };
+        if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed");
+        uploaded.push({ src: data.url, alt: "", caption: "" });
+        setLibrary((prev) => [{ url: data.url as string, filename: file.name }, ...prev]);
+      }
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (uploaded.length) emit({ items: [...items, ...uploaded] });
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
   return (
     <>
       <label style={fieldLabel}>
@@ -372,19 +716,29 @@ function GalleryEditor({
         <select style={fieldInput} value={layout} onChange={(e) => emit({ layout: e.target.value })}>
           <option value="grid">Grid</option>
           <option value="masonry">Masonry</option>
+          <option value="carousel">Carousel</option>
+          <option value="slideshow">Slideshow (fade)</option>
+          <option value="list">List</option>
         </select>
       </label>
-      <label style={fieldLabel}>
-        Columns
-        <input type="number" min={2} max={6} style={fieldInput} value={columns} onChange={(e) => emit({ columns: Number(e.target.value) })} />
-      </label>
+      {(layout === "grid" || layout === "masonry") && (
+        <label style={fieldLabel}>
+          Columns
+          <input type="number" min={2} max={6} style={fieldInput} value={columns} onChange={(e) => emit({ columns: Number(e.target.value) })} />
+        </label>
+      )}
+      {(layout === "carousel" || layout === "slideshow") && (
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0 0 0.75rem" }}>
+          One image shown at a time, with dots to jump between them. Reorder images below to change the order.
+        </p>
+      )}
       <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
         <input type="checkbox" checked={lightbox} onChange={(e) => emit({ lightbox: e.target.checked })} />
         Lightbox
       </label>
 
       {items.map((item, index) => (
-        <div key={`${item.src}-${index}`} style={{ border: "1px solid #e2e8f0", borderRadius: 6, padding: "0.6rem", marginBottom: "0.5rem" }}>
+        <div key={`${item.src}-${index}`} style={{ border: "1px solid var(--jf-border)", borderRadius: 6, padding: "0.6rem", marginBottom: "0.5rem" }}>
           {item.src ? (
             <img src={item.src} alt="" style={{ width: "100%", height: 72, objectFit: "cover", borderRadius: 4, marginBottom: "0.4rem" }} />
           ) : null}
@@ -406,28 +760,47 @@ function GalleryEditor({
             value={item.caption}
             onChange={(e) => emit({ items: items.map((row, i) => (i === index ? { ...row, caption: e.target.value } : row)) })}
           />
-          <button type="button" onClick={() => emit({ items: items.filter((_, i) => i !== index) })} style={{ color: "#dc2626", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>
+          <button type="button" onClick={() => emit({ items: items.filter((_, i) => i !== index) })} style={{ color: "var(--jf-danger)", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>
             Remove
           </button>
         </div>
       ))}
 
-      <button type="button" onClick={() => addUrl("")} style={{ width: "100%", padding: "0.4rem", border: "1px dashed #cbd5e1", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}>
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: uploading ? "default" : "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}
+      >
+        {uploading ? "Uploading…" : "⇧ Upload from device"}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml"
+        multiple
+        hidden
+        onChange={(e) => { if (e.target.files?.length) void uploadFiles(e.target.files); }}
+      />
+      {uploadError ? (
+        <p style={{ color: "var(--jf-danger)", fontSize: "0.75rem", margin: "0 0 0.4rem" }}>{uploadError}</p>
+      ) : null}
+      <button type="button" onClick={() => addUrl("")} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}>
         + Add image URL
       </button>
-      <button type="button" onClick={loadLibrary} style={{ width: "100%", padding: "0.4rem", border: "1px dashed #cbd5e1", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
+      <button type="button" onClick={loadLibrary} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
         Add from media library
       </button>
       {showLibrary && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem", marginTop: "0.5rem", maxHeight: 180, overflow: "auto" }}>
           {library.length === 0 ? (
-            <p style={{ color: "#94a3b8", fontSize: "0.75rem", gridColumn: "1 / -1" }}>No images in the media library yet.</p>
+            <p style={{ color: "var(--jf-text-3)", fontSize: "0.75rem", gridColumn: "1 / -1" }}>No images in the media library yet.</p>
           ) : library.map((file) => (
             <button
               key={file.url}
               type="button"
               onClick={() => addUrl(file.url)}
-              style={{ padding: 0, border: "1px solid #e2e8f0", borderRadius: 4, overflow: "hidden", cursor: "pointer", background: "#fff" }}
+              style={{ padding: 0, border: "1px solid var(--jf-border)", borderRadius: 4, overflow: "hidden", cursor: "pointer", background: "#fff" }}
               title={file.filename}
             >
               <img src={file.url} alt="" style={{ display: "block", width: "100%", height: 56, objectFit: "cover" }} />

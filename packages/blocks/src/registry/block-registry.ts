@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { withBlockChrome } from "../block-chrome.js";
 
 export type FieldType =
   | "text"
@@ -42,6 +43,8 @@ export interface BlockRenderNode {
   type: string;
   props: Record<string, unknown>;
   children?: BlockRenderNode[];
+  /** Stored block id. Scopes the block's own CSS; absent for ad-hoc renders. */
+  id?: string;
 }
 
 export class BlockRegistry {
@@ -80,7 +83,7 @@ export class BlockRegistry {
       node.children?.length && def.supportsChildren
         ? node.children.map((child) => this.renderNode(child)).join("\n")
         : "";
-    return def.render(props, childrenHtml);
+    return withBlockChrome(def.render(props, childrenHtml), node);
   }
 
   /** Render a full block document to HTML. */

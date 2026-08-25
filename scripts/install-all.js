@@ -106,7 +106,7 @@ function buildServer() {
   const distI18n = path.join(ROOT, "apps/server/dist/lib/i18n");
   fs.mkdirSync(distI18n, { recursive: true });
 
-  for (const name of ["catalogs", "admin"]) {
+  for (const name of ["site-catalogs", "admin-catalogs"]) {
     const src = path.join(ROOT, "apps/server/src/lib/i18n", name);
     const dest = path.join(distI18n, name);
     if (fs.existsSync(src)) {

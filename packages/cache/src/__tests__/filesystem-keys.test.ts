@@ -58,5 +58,16 @@ describe("FilesystemCache key isolation", () => {
     }
     // Nothing escaped the cache directory.
     expect(fs.readdirSync(dir).every((n) => n.endsWith(".json"))).toBe(true);
+    expect(fs.readdirSync(dir).every((n) => /^[a-f0-9]{64}\.json$/.test(n))).toBe(true);
+  });
+
+  it("ignores directory entries that are not contained cache files", async () => {
+    fs.writeFileSync(path.join(dir, "broken.json"), "not json");
+    fs.mkdirSync(path.join(dir, "nested"));
+    await cache.set("page:html:/safe", "SAFE");
+    await cache.invalidate("page:html:");
+    expect(await cache.get("page:html:/safe")).toBeUndefined();
+    expect(fs.existsSync(path.join(dir, "broken.json"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, "nested"))).toBe(true);
   });
 });

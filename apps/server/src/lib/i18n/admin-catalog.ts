@@ -10,8 +10,8 @@ import { flattenCatalog, type MessageCatalog } from "./translate.js";
 /** Resolve admin UI JSON catalogs (works with bundle + unbundled dist). */
 export function adminCatalogDir(): string {
   const candidates = [
-    path.join(getJfRoot(), "apps/server/dist/lib/i18n/admin"),
-    path.join(getJfRoot(), "apps/server/src/lib/i18n/admin"),
+    path.join(getJfRoot(), "apps/server/dist/lib/i18n/admin-catalogs"),
+    path.join(getJfRoot(), "apps/server/src/lib/i18n/admin-catalogs"),
   ];
   for (const dir of candidates) {
     if (fs.existsSync(path.join(dir, "en.json"))) return dir;

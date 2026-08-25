@@ -1,15 +1,38 @@
-<header class="site-header">
+<%
+  const hdr = typeof header === 'undefined' || !header
+    ? { visible: true, showLogo: true, showTitle: true, layout: 'logo-left', sticky: true, background: '' }
+    : header;
+  const brand = typeof headerBrand !== 'undefined' && headerBrand
+    ? headerBrand
+    : { showLogo: hdr.showLogo !== false && identity.logoUrl, showTitle: hdr.showTitle !== false };
+%>
+<% if (hdr.visible !== false) { %>
+<%
+  const layoutClass = hdr.layout === 'logo-center' ? ' site-header--center' : hdr.layout === 'split' ? ' site-header--split' : '';
+  const stickyClass = hdr.sticky === false ? ' site-header--static' : '';
+  const headerStyle = hdr.background ? `background: ${hdr.background};` : '';
+  const showLogo = brand.showLogo;
+  const showTitle = brand.showTitle;
+%>
+<header class="site-header<%= layoutClass %><%= stickyClass %>"<% if (headerStyle) { %> style="<%= headerStyle %>"<% } %>>
   <div class="site-header-inner">
-    <a href="<%= typeof localePath === 'function' ? localePath(locale, '/', defaultLocale) : '/' %>" class="site-brand"><%= identity.siteTitle %></a>
-    <nav class="site-nav" style="display: flex; align-items: center; gap: 0.5rem;">
+    <a href="<%= typeof localePath === 'function' ? localePath(locale, '/', defaultLocale) : '/' %>" class="site-brand"<% if (!showTitle) { %> aria-label="<%= identity.siteTitle %>"<% } %>>
+      <% if (showLogo) { %>
+        <img class="site-logo" src="<%= identity.logoUrl %>" alt="<%= showTitle ? '' : identity.siteTitle %>">
+      <% } %>
+      <% if (showTitle) { %>
+        <span class="site-brand-text"><%= identity.siteTitle %></span>
+      <% } %>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
       <% if (typeof navItems !== 'undefined' && navItems.length > 0) { %>
         <% navItems.forEach(function(item) { %>
           <% if (item.children && item.children.length) { %>
-            <span class="nav-item nav-item--has-children" style="position: relative; display: inline-block;">
+            <span class="nav-item nav-item--has-children">
               <a href="<%= item.url %>"<% if (item.target) { %> target="<%= item.target %>" rel="noopener noreferrer"<% } %>><%= item.label %></a>
-              <span class="nav-submenu" style="display: none; position: absolute; top: 100%; left: 0; min-width: 160px; background: var(--color-surface, #fff); border: 1px solid var(--color-border, #e2e8f0); border-radius: 6px; padding: 0.35rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 20;">
+              <span class="nav-submenu">
                 <% item.children.forEach(function(child) { %>
-                  <a href="<%= child.url %>"<% if (child.target) { %> target="<%= child.target %>" rel="noopener noreferrer"<% } %> style="display: block; padding: 0.4rem 0.75rem; white-space: nowrap;"><%= child.label %></a>
+                  <a href="<%= child.url %>"<% if (child.target) { %> target="<%= child.target %>" rel="noopener noreferrer"<% } %>><%= child.label %></a>
                 <% }); %>
               </span>
             </span>
@@ -18,19 +41,40 @@
           <% } %>
         <% }); %>
       <% } %>
-      <% if (typeof languageLinks !== 'undefined' && languageLinks.length > 1) { %>
-        <span style="margin-left: 1rem; display: inline-flex; gap: 0.35rem; align-items: center;">
+      <% if (hdr.showLanguageSwitcher !== false && typeof languageLinks !== 'undefined' && languageLinks.length > 1) { %>
+        <span class="site-lang jf-language-switcher jf-language-switcher--codes" data-jf-widget="language-switcher">
           <% languageLinks.forEach(function(lang) { %>
-            <a href="<%= lang.href %>" style="font-size: 0.75rem; padding: 0.2rem 0.45rem; border-radius: 4px; <%= lang.current ? 'background: var(--color-surface, #f1f5f9); font-weight: 700;' : '' %>"><%= lang.code.toUpperCase() %></a>
+            <a href="<%= lang.href %>" class="site-lang__link jf-language-switcher__link<%= lang.current ? ' is-current' : '' %>"<% if (lang.current) { %> aria-current="page"<% } %>><%= lang.code.toUpperCase() %></a>
           <% }); %>
         </span>
+      <% } %>
+      <% if (hdr.showColorScheme) { %>
+        <%
+          const schemeLabel = (key, fallback) => typeof t === 'function' ? t('color_scheme.' + key) : fallback;
+          const schemeModes = [['light', '☀', schemeLabel('light', 'Light')], ['dark', '☾', schemeLabel('dark', 'Dark')]];
+          if (hdr.showColorSchemeSystem) schemeModes.push(['system', '◐', schemeLabel('system', 'Auto')]);
+        %>
+        <div class="jf-color-scheme jf-color-scheme--icons" data-jf-widget="color-scheme" data-jf-style="icons">
+          <% schemeModes.forEach(function(mode) { %>
+            <button type="button" class="jf-color-scheme__btn" data-jf-theme="<%= mode[0] %>" aria-pressed="false" aria-label="<%= mode[2] %>">
+              <span class="jf-color-scheme__icon" aria-hidden="true"><%= mode[1] %></span>
+              <span class="jf-color-scheme__label"><%= mode[2] %></span>
+            </button>
+          <% }); %>
+        </div>
+      <% } %>
+      <% if (hdr.showAuthLinks) { %>
+        <nav class="jf-auth-links jf-auth-links--buttons" aria-label="Account">
+          <a href="/login" class="btn btn--outline"><%= typeof t === 'function' ? t('auth.login') : 'Log in' %></a>
+          <% if (typeof usersCanRegister !== 'undefined' && usersCanRegister) { %>
+            <a href="/register" class="btn btn--primary"><%= typeof t === 'function' ? t('auth.register') : 'Register' %></a>
+          <% } %>
+        </nav>
+      <% } %>
+      <% if (typeof headerBlocksHtml !== 'undefined' && headerBlocksHtml) { %>
+        <div class="site-header-blocks"><%- headerBlocksHtml %></div>
       <% } %>
     </nav>
   </div>
 </header>
-<style>
-  .nav-item--has-children:hover .nav-submenu,
-  .nav-item--has-children:focus-within .nav-submenu {
-    display: block !important;
-  }
-</style>
+<% } %>

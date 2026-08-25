@@ -92,6 +92,17 @@ export function removeBlock(blocks: BlockNode[], id: string): BlockNode[] {
   }));
 }
 
+export function extractBlock(
+  blocks: BlockNode[],
+  id: string,
+): { blocks: BlockNode[]; node: BlockNode } | null {
+  const path = findBlockPath(blocks, id);
+  if (!path) return null;
+  const node = getBlockAtPath(blocks, path);
+  if (!node) return null;
+  return { blocks: removeBlock(blocks, id), node };
+}
+
 export function insertBlock(
   blocks: BlockNode[],
   parentId: string | null,

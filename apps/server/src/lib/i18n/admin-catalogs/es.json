@@ -1,0 +1,233 @@
+{
+  "nav": {
+    "dashboard": "Panel",
+    "domains": {
+      "content": "Contenido",
+      "appearance": "Apariencia",
+      "extensions": "Extensiones",
+      "security": "Seguridad",
+      "system": "Sistema"
+    },
+    "content": "Contenido",
+    "contentTypes": "Tipos de contenido",
+    "media": "Medios",
+    "plugins": "Plugins",
+    "analytics": "Analítica",
+    "forms": "Formularios",
+    "themes": "Temas",
+    "design": "Diseño",
+    "menus": "Menús",
+    "users": "Usuarios",
+    "settings": "Ajustes",
+    "comments": "Comentarios",
+    "marketplace": "Marketplace",
+    "tools": "Herramientas",
+    "health": "Estado",
+    "updates": "Actualizaciones",
+    "securityOverview": "Resumen",
+    "securityHeaders": "Cabeceras",
+    "securityAdvanced": "Avanzado",
+    "languages": "Idiomas"
+  },
+  "common": {
+    "back": "Volver",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "loading": "Cargando…",
+    "saving": "Guardando…",
+    "saved": "Guardado",
+    "signOut": "Cerrar sesión",
+    "add": "Añadir",
+    "default": "Predeterminado",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "actions": "Acciones"
+  },
+  "content": {
+    "newPost": "Nueva entrada",
+    "newPage": "Nueva página",
+    "editPost": "Editar entrada",
+    "editPage": "Editar página",
+    "title": "Título",
+    "slug": "Slug",
+    "excerpt": "Extracto",
+    "locale": "Idioma",
+    "saveDraft": "Guardar borrador",
+    "publish": "Publicar",
+    "titleRequired": "El título es obligatorio"
+  },
+  "languages": {
+    "title": "Idiomas",
+    "subtitle": "Gestionar idiomas del sitio y traducciones",
+    "addLanguage": "Añadir idioma",
+    "code": "Código",
+    "name": "Nombre",
+    "nativeName": "Nombre nativo",
+    "setDefault": "Establecer como predeterminado",
+    "uiLanguage": "Idioma del admin",
+    "noLanguages": "Aún no hay idiomas configurados."
+  },
+  "design": {
+    "title": "Diseño",
+    "subtitle": "Elige un framework CSS para el sitio público",
+    "uploadTitle": "Instalar proveedor CSS",
+    "dropzoneTitle": "Suelta un archivo .jfpkg aquí",
+    "dropzoneHint": "o haz clic para explorar",
+    "uploading": "Instalando…",
+    "uploadInvalid": "Sube un archivo .jfpkg",
+    "uploadFailed": "Error al subir",
+    "uploadSuccess": "\"{name}\" instalado correctamente",
+    "activeProvider": "Proveedor CSS activo: {name}",
+    "activate": "Usar este proveedor",
+    "deleteConfirm": "¿Eliminar este proveedor CSS? Esta acción no se puede deshacer.",
+    "deleteFailed": "No se pudo eliminar el proveedor",
+    "emptyTitle": "No hay proveedores CSS instalados",
+    "emptyHint": "Sube un paquete .jfpkg o elige un proveedor incluido."
+  },
+  "builder": {
+    "animation": {
+      "title": "Animación",
+      "hint": "Efectos de movimiento para este bloque. Quien prefiera menos movimiento ve el estado final de inmediato.",
+      "replay": "Reproducir",
+      "entrance": "Entrada",
+      "trigger": "Reproducir cuando",
+      "duration": "Duración",
+      "delay": "Retraso",
+      "easing": "Suavizado",
+      "once": "Solo una vez",
+      "hover": "Hover",
+      "tap": "Pulsar",
+      "groups": {
+        "fade": "Fundido",
+        "slide": "Deslizar",
+        "scale": "Escala",
+        "extra": "Extra"
+      },
+      "effects": {
+        "none": "Ninguno",
+        "fade": "Fundido",
+        "fade-up": "Fundido hacia arriba",
+        "fade-down": "Fundido hacia abajo",
+        "fade-left": "Fundido a la izquierda",
+        "fade-right": "Fundido a la derecha",
+        "slide-up": "Deslizar hacia arriba",
+        "slide-down": "Deslizar hacia abajo",
+        "slide-left": "Deslizar a la izquierda",
+        "slide-right": "Deslizar a la derecha",
+        "zoom-in": "Acercar",
+        "zoom-out": "Alejar",
+        "bounce": "Rebote",
+        "flip-x": "Voltear horizontal",
+        "flip-y": "Voltear vertical",
+        "rotate": "Rotar",
+        "blur": "Desenfocar"
+      },
+      "triggers": {
+        "load": "Al cargar",
+        "in-view": "Al entrar en vista"
+      },
+      "easings": {
+        "ease-out": "Ease out",
+        "ease-in": "Ease in",
+        "ease-in-out": "Ease in-out",
+        "linear": "Lineal",
+        "spring": "Muelle"
+      },
+      "hoverEffects": {
+        "none": "Ninguno",
+        "grow": "Crecer",
+        "shrink": "Encoger",
+        "lift": "Levantar",
+        "glow": "Brillo",
+        "tilt": "Inclinar",
+        "brighten": "Aclarar"
+      },
+      "tapEffects": {
+        "none": "Ninguno",
+        "press": "Presionar",
+        "pulse": "Pulso"
+      }
+    },
+    "style": {
+      "title": "CSS propio",
+      "hint": "Se aplica solo a este bloque. Usa & para el bloque en sí; un selector sin & actúa dentro del bloque.",
+      "className": "Clases CSS",
+      "classNameInvalid": "Los nombres de clase solo admiten letras, números, guiones y guiones bajos.",
+      "css": "CSS",
+      "cssRejected": "CSS rechazado. @import, url(javascript:…) y construcciones similares no están permitidas.",
+      "compiled": "Lo que se publica"
+    },
+    "json": {
+      "title": "JSON del bloque",
+      "hint": "Edita este bloque directamente. El bloque conserva su id; el resto se reemplaza.",
+      "edit": "Editar JSON",
+      "hide": "Cerrar",
+      "apply": "Aplicar",
+      "reload": "Recargar",
+      "applied": "Aplicado"
+    },
+    "pageJson": {
+      "title": "JSON de la página",
+      "hint": "No hay nada seleccionado, así que esta es la página completa. Selecciona un bloque en el lienzo para editarlo por separado.",
+      "count": "{count} bloques",
+      "apply": "Aplicar",
+      "reload": "Descartar",
+      "applied": "Aplicado",
+      "stale": "La página cambió en el lienzo. Descarta para cargarla, o aplica para sobrescribirla."
+    },
+    "placement": {
+      "title": "Posición en la cuadrícula",
+      "hint": "Este bloque está en una cuadrícula de {columns} columnas. Arrástralo en el lienzo o escribe valores exactos aquí.",
+      "col": "Columna inicial",
+      "span": "Ancho",
+      "row": "Fila",
+      "rowSpan": "Alto de fila",
+      "fullWidth": "Ancho completo",
+      "autoRow": "Automático"
+    },
+    "layout": {
+      "title": "Espaciado y tamaño",
+      "hint": "Pasos de la escala de espaciado del tema, para mantener el ritmo y ajustarse en pantallas pequeñas.",
+      "padTop": "Relleno arriba",
+      "padBottom": "Relleno abajo",
+      "padX": "Relleno lados",
+      "marginTop": "Margen arriba",
+      "marginBottom": "Margen abajo",
+      "width": "Ancho máx.",
+      "alignSelf": "Alineación",
+      "textAlign": "Texto",
+      "radius": "Esquinas",
+      "shadow": "Sombra",
+      "minHeight": "Alto mín. (vh)",
+      "value": {
+        "start": "Inicio",
+        "center": "Centro",
+        "end": "Fin",
+        "stretch": "Estirar",
+        "left": "Izquierda",
+        "right": "Derecha",
+        "narrow": "Estrecho",
+        "content": "Contenido",
+        "wide": "Ancho",
+        "full": "Completo",
+        "none": "Ninguna",
+        "sm": "Pequeña",
+        "md": "Media",
+        "lg": "Grande",
+        "pill": "Píldora"
+      }
+    },
+    "reusable": {
+      "title": "Bloque reutilizable",
+      "hint": "Guarda este bloque para usarlo en otras páginas. Enlazarlo los mantiene sincronizados — edita la copia guardada y todas las páginas la siguen.",
+      "name": "Nombre",
+      "namePlaceholder": "Tabla de precios",
+      "saveAndLink": "Guardar y enlazar",
+      "saveCopy": "Guardar una copia",
+      "showing": "Muestra",
+      "referenceHint": "Esto es una referencia. Los cambios en el bloque guardado aparecen en cada página que lo usa.",
+      "missing": "Ese bloque guardado ya no existe."
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface MediaItem {
   id: string;
@@ -26,10 +26,26 @@ function iconFor(mimeType: string) {
 
 export default function MediaPage() {
   const [items, setItems] = useState<MediaItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/media");
+        const data = await res.json() as { items?: MediaItem[]; error?: string };
+        if (!res.ok) throw new Error(data.error ?? "Failed to load media");
+        setItems(data.items ?? []);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   async function uploadFile(file: File) {
     setUploading(true);
@@ -57,7 +73,7 @@ export default function MediaPage() {
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
           <h1>Media Library</h1>
-          <p>{items.length} {items.length === 1 ? "file" : "files"}</p>
+          <p>{loading ? "…" : `${items.length} ${items.length === 1 ? "file" : "files"}`}</p>
         </div>
         <div className="jf-pagehead__actions">
           <button className="jf-btn jf-btn--primary" onClick={() => inputRef.current?.click()}>
@@ -101,7 +117,7 @@ export default function MediaPage() {
 
       {error && <div className="jf-alert jf-alert--error" role="alert">{error}</div>}
 
-      {items.length === 0 ? (
+      {loading ? null : items.length === 0 ? (
         <div className="jf-card">
           <div className="jf-empty">
             <span className="jf-empty__icon" aria-hidden="true">🖼</span>

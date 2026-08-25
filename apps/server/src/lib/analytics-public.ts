@@ -53,7 +53,7 @@ export interface AnalyticsSummary {
 
 export async function isAnalyticsPluginEnabled(siteId: string): Promise<boolean> {
   const plugin = await getPlugin(siteId, ANALYTICS_PLUGIN_ID);
-  if (!plugin || plugin.status === "inactive" || plugin.status === "error") return false;
+  if (plugin?.status !== "active") return false;
   const enabled = await getSiteSetting<boolean>(siteId, `plugin.${ANALYTICS_PLUGIN_ID}:enabled`);
   return enabled !== false;
 }
@@ -167,7 +167,7 @@ function mergeCounts<K extends string>(
 
 export async function getAnalyticsSummary(siteId: string): Promise<AnalyticsSummary> {
   const plugin = await getPlugin(siteId, ANALYTICS_PLUGIN_ID);
-  const collecting = Boolean(plugin && plugin.status !== "inactive" && plugin.status !== "error");
+  const collecting = plugin?.status === "active";
   const enabled = collecting && (await getSiteSetting<boolean>(siteId, `plugin.${ANALYTICS_PLUGIN_ID}:enabled`)) !== false;
   const empty: AnalyticsSummary = {
     collecting,
@@ -230,7 +230,7 @@ async function loadConfiguredGoogleTagId(): Promise<string | null> {
   const siteId = await getSiteId();
   if (!siteId) return null;
   const plugin = await getPlugin(siteId, ANALYTICS_PLUGIN_ID);
-  if (!plugin || plugin.status === "inactive" || plugin.status === "error") return null;
+  if (plugin?.status !== "active") return null;
   const raw = await getSiteSetting<string>(siteId, `plugin.${ANALYTICS_PLUGIN_ID}:googleTagId`);
   return parseGoogleTagId(String(raw ?? ""));
 }

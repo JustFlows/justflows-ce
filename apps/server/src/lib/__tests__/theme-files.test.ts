@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadThemeDemoHome, resolveThemeDir } from "../theme-files.js";
+import { listThemePatterns, loadThemeDemoHome, resolveThemeDir } from "../theme-files.js";
 
 let root: string;
 let previousRoot: string | undefined;
@@ -72,5 +72,31 @@ describe("loadThemeDemoHome", () => {
 
   it("does not read files for a traversing theme id", () => {
     expect(loadThemeDemoHome("../../.env")).toBeNull();
+  });
+});
+
+describe("listThemePatterns", () => {
+  it("passes through requiresBlockTypes for patterns that depend on a plugin block", () => {
+    const patternsDir = path.join(root, "themes", "default", "patterns");
+    fs.mkdirSync(patternsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(patternsDir, "contact.json"),
+      JSON.stringify({
+        id: "contact",
+        title: "Contact page",
+        requiresBlockTypes: ["justflows.forms.form"],
+        blocks: [],
+      }),
+    );
+    fs.writeFileSync(
+      path.join(patternsDir, "about.json"),
+      JSON.stringify({ id: "about", title: "About page", blocks: [] }),
+    );
+
+    const patterns = listThemePatterns("justflows.default");
+    expect(patterns.find((p) => p.id === "contact")?.requiresBlockTypes).toEqual([
+      "justflows.forms.form",
+    ]);
+    expect(patterns.find((p) => p.id === "about")?.requiresBlockTypes).toBeUndefined();
   });
 });

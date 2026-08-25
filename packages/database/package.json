@@ -1,6 +1,6 @@
 {
   "name": "@justflows/database",
-  "version": "0.1.2",
+  "version": "0.1.3-rc",
   "private": true,
   "description": "Justflows database — SQL adapters, schema, migrations, query helpers",
   "type": "module",

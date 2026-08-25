@@ -1,0 +1,233 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "domains": {
+      "content": "Contenu",
+      "appearance": "Apparence",
+      "extensions": "Extensions",
+      "security": "Sécurité",
+      "system": "Système"
+    },
+    "content": "Contenu",
+    "contentTypes": "Types de contenu",
+    "media": "Médias",
+    "plugins": "Extensions",
+    "analytics": "Analytique",
+    "forms": "Formulaires",
+    "themes": "Thèmes",
+    "design": "Design",
+    "menus": "Menus",
+    "users": "Utilisateurs",
+    "settings": "Paramètres",
+    "comments": "Commentaires",
+    "marketplace": "Marketplace",
+    "tools": "Outils",
+    "health": "État",
+    "updates": "Mises à jour",
+    "securityOverview": "Aperçu",
+    "securityHeaders": "En-têtes",
+    "securityAdvanced": "Avancé",
+    "languages": "Langues"
+  },
+  "common": {
+    "back": "Retour",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "loading": "Chargement…",
+    "saving": "Enregistrement…",
+    "saved": "Enregistré",
+    "signOut": "Déconnexion",
+    "add": "Ajouter",
+    "default": "Par défaut",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "actions": "Actions"
+  },
+  "content": {
+    "newPost": "Nouvel article",
+    "newPage": "Nouvelle page",
+    "editPost": "Modifier l'article",
+    "editPage": "Modifier la page",
+    "title": "Titre",
+    "slug": "Slug",
+    "excerpt": "Extrait",
+    "locale": "Langue",
+    "saveDraft": "Enregistrer le brouillon",
+    "publish": "Publier",
+    "titleRequired": "Le titre est requis"
+  },
+  "languages": {
+    "title": "Langues",
+    "subtitle": "Gérer les langues du site et les traductions",
+    "addLanguage": "Ajouter une langue",
+    "code": "Code",
+    "name": "Nom",
+    "nativeName": "Nom natif",
+    "setDefault": "Définir par défaut",
+    "uiLanguage": "Langue de l'admin",
+    "noLanguages": "Aucune langue configurée."
+  },
+  "design": {
+    "title": "Design",
+    "subtitle": "Choisir un framework CSS pour le site public",
+    "uploadTitle": "Installer un fournisseur CSS",
+    "dropzoneTitle": "Déposez un fichier .jfpkg ici",
+    "dropzoneHint": "ou cliquez pour parcourir",
+    "uploading": "Installation…",
+    "uploadInvalid": "Veuillez téléverser un fichier .jfpkg",
+    "uploadFailed": "Échec du téléversement",
+    "uploadSuccess": "\"{name}\" installé avec succès",
+    "activeProvider": "Fournisseur CSS actif : {name}",
+    "activate": "Utiliser ce fournisseur",
+    "deleteConfirm": "Supprimer ce fournisseur CSS ? Cette action est irréversible.",
+    "deleteFailed": "Impossible de supprimer le fournisseur",
+    "emptyTitle": "Aucun fournisseur CSS installé",
+    "emptyHint": "Téléversez un paquet .jfpkg ou choisissez un fournisseur intégré."
+  },
+  "builder": {
+    "animation": {
+      "title": "Animation",
+      "hint": "Effets de mouvement pour ce bloc. Les visiteurs qui préfèrent moins de mouvement voient l'état final tout de suite.",
+      "replay": "Lire",
+      "entrance": "Entrée",
+      "trigger": "Lire quand",
+      "duration": "Durée",
+      "delay": "Délai",
+      "easing": "Amorti",
+      "once": "Une seule fois",
+      "hover": "Survol",
+      "tap": "Pression",
+      "groups": {
+        "fade": "Fondu",
+        "slide": "Glissement",
+        "scale": "Échelle",
+        "extra": "Extra"
+      },
+      "effects": {
+        "none": "Aucun",
+        "fade": "Fondu",
+        "fade-up": "Fondu vers le haut",
+        "fade-down": "Fondu vers le bas",
+        "fade-left": "Fondu vers la gauche",
+        "fade-right": "Fondu vers la droite",
+        "slide-up": "Glisser vers le haut",
+        "slide-down": "Glisser vers le bas",
+        "slide-left": "Glisser vers la gauche",
+        "slide-right": "Glisser vers la droite",
+        "zoom-in": "Zoom avant",
+        "zoom-out": "Zoom arrière",
+        "bounce": "Rebond",
+        "flip-x": "Retourner horizontalement",
+        "flip-y": "Retourner verticalement",
+        "rotate": "Rotation",
+        "blur": "Flou"
+      },
+      "triggers": {
+        "load": "Au chargement",
+        "in-view": "Au défilement dans la vue"
+      },
+      "easings": {
+        "ease-out": "Ease out",
+        "ease-in": "Ease in",
+        "ease-in-out": "Ease in-out",
+        "linear": "Linéaire",
+        "spring": "Ressort"
+      },
+      "hoverEffects": {
+        "none": "Aucun",
+        "grow": "Agrandir",
+        "shrink": "Réduire",
+        "lift": "Soulever",
+        "glow": "Lueur",
+        "tilt": "Incliner",
+        "brighten": "Éclaircir"
+      },
+      "tapEffects": {
+        "none": "Aucun",
+        "press": "Enfoncer",
+        "pulse": "Pulsation"
+      }
+    },
+    "style": {
+      "title": "CSS personnalisé",
+      "hint": "S'applique à ce bloc uniquement. & désigne le bloc lui-même ; un sélecteur sans & cible l'intérieur du bloc.",
+      "className": "Classes CSS",
+      "classNameInvalid": "Les noms de classe n'acceptent que lettres, chiffres, tirets et traits de soulignement.",
+      "css": "CSS",
+      "cssRejected": "CSS refusé. @import, url(javascript:…) et constructions similaires ne sont pas autorisés.",
+      "compiled": "Ce qui sera publié"
+    },
+    "json": {
+      "title": "JSON du bloc",
+      "hint": "Modifier ce bloc directement. Le bloc conserve son id ; le reste est remplacé.",
+      "edit": "Modifier le JSON",
+      "hide": "Fermer",
+      "apply": "Appliquer",
+      "reload": "Recharger",
+      "applied": "Appliqué"
+    },
+    "pageJson": {
+      "title": "JSON de la page",
+      "hint": "Rien n'est sélectionné : voici la page entière. Sélectionnez un bloc sur le canevas pour le modifier seul.",
+      "count": "{count} blocs",
+      "apply": "Appliquer",
+      "reload": "Abandonner",
+      "applied": "Appliqué",
+      "stale": "La page a changé sur le canevas. Abandonnez pour la charger, ou appliquez pour l'écraser."
+    },
+    "placement": {
+      "title": "Position sur la grille",
+      "hint": "Ce bloc est dans une grille de {columns} colonnes. Déplacez-le sur le canevas ou saisissez des valeurs exactes ici.",
+      "col": "Colonne de début",
+      "span": "Largeur",
+      "row": "Ligne",
+      "rowSpan": "Hauteur de ligne",
+      "fullWidth": "Pleine largeur",
+      "autoRow": "Automatique"
+    },
+    "layout": {
+      "title": "Espacement & taille",
+      "hint": "Des pas sur l'échelle d'espacement du thème, pour garder le rythme et resserrer sur petit écran.",
+      "padTop": "Marge int. haut",
+      "padBottom": "Marge int. bas",
+      "padX": "Marge int. côtés",
+      "marginTop": "Marge haut",
+      "marginBottom": "Marge bas",
+      "width": "Largeur max",
+      "alignSelf": "Alignement",
+      "textAlign": "Texte",
+      "radius": "Coins",
+      "shadow": "Ombre",
+      "minHeight": "Hauteur min (vh)",
+      "value": {
+        "start": "Début",
+        "center": "Centre",
+        "end": "Fin",
+        "stretch": "Étirer",
+        "left": "Gauche",
+        "right": "Droite",
+        "narrow": "Étroit",
+        "content": "Contenu",
+        "wide": "Large",
+        "full": "Pleine",
+        "none": "Aucune",
+        "sm": "Petite",
+        "md": "Moyenne",
+        "lg": "Grande",
+        "pill": "Pilule"
+      }
+    },
+    "reusable": {
+      "title": "Bloc réutilisable",
+      "hint": "Enregistrez ce bloc pour le réutiliser ailleurs. Le lier les garde synchronisés — modifiez la copie enregistrée et toutes les pages suivent.",
+      "name": "Nom",
+      "namePlaceholder": "Tableau de prix",
+      "saveAndLink": "Enregistrer & lier",
+      "saveCopy": "Enregistrer une copie",
+      "showing": "Affiche",
+      "referenceHint": "Ceci est une référence. Les modifications du bloc enregistré apparaissent sur chaque page qui l'utilise.",
+      "missing": "Ce bloc enregistré n'existe plus."
+    }
+  }
+}
