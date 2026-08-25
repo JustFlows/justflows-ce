@@ -1,6 +1,6 @@
 {
   "name": "@justflows/plugin-api",
-  "version": "0.1.3-rc",
+  "version": "0.1.3",
   "private": true,
   "description": "Justflows plugin runtime — loader, lifecycle, manifest parsing",
   "type": "module",

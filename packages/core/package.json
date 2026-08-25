@@ -1,6 +1,6 @@
 {
   "name": "@justflows/core",
-  "version": "0.1.3-rc",
+  "version": "0.1.3",
   "private": true,
   "description": "Justflows core — application lifecycle, hooks, config, logging, health",
   "type": "module",
