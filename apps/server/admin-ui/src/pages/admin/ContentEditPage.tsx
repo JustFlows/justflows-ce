@@ -64,6 +64,8 @@ export default function EditContentPage() {
   const [typeLabel, setTypeLabel] = useState("");
   const [homePageId, setHomePageId] = useState<string | null>(null);
   const [homeSaving, setHomeSaving] = useState(false);
+  const [blogPageId, setBlogPageId] = useState<string | null>(null);
+  const [blogSaving, setBlogSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/languages/active")
@@ -79,8 +81,9 @@ export default function EditContentPage() {
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
-      .then((data: { home_page_id?: string | null }) => {
+      .then((data: { home_page_id?: string | null; blog_page_id?: string | null }) => {
         setHomePageId(typeof data.home_page_id === "string" ? data.home_page_id : null);
+        setBlogPageId(typeof data.blog_page_id === "string" ? data.blog_page_id : null);
       })
       .catch(() => null);
   }, []);
@@ -234,6 +237,26 @@ export default function EditContentPage() {
     }
   }
 
+  async function setAsBlogPage(enabled: boolean) {
+    if (!item) return;
+    setBlogSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/settings/blog-page", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentId: enabled ? item.id : null }),
+      });
+      const data = await res.json() as { error?: string; blogPageId?: string | null };
+      if (!res.ok) throw new Error(data.error ?? "Could not update the blog page");
+      setBlogPageId(data.blogPageId ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBlogSaving(false);
+    }
+  }
+
   if (loading) return <EditorSkeleton loadingLabel={t("common.loading")} />;
 
   if (!item) {
@@ -249,6 +272,7 @@ export default function EditContentPage() {
 
   const isPage = item.type === "page";
   const isHomePage = homePageId === item.id;
+  const isBlogPage = blogPageId === item.id;
   const label = typeLabel || (isPage ? t("content.editPage") : t("content.editPost"));
   const itemLocale = item.locale ?? defaultLocale;
   const publicHref = localePath(itemLocale, item.slug ?? "", defaultLocale);
@@ -393,21 +417,20 @@ export default function EditContentPage() {
             <div className="jf-card">
               <div className="jf-card__head">
                 <h2 className="jf-card__title">Content</h2>
-                {isPage && (
-                  <button
-                    type="button"
-                    className="jf-btn jf-btn--ghost"
-                    onClick={() => navigate(`/admin/content/${id}/builder`)}
-                  >
-                    Open page builder
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="jf-btn jf-btn--ghost"
+                  onClick={() => navigate(`/admin/content/${id}/builder`)}
+                >
+                  Open page builder
+                </button>
               </div>
               <div className="jf-card__body">
                 <BlockEditor
                   value={item.blocks ?? { version: 1, blocks: [] }}
                   onChange={(blocks) => patch({ blocks })}
                   compact
+                  isPage={isPage}
                   enableHeader={isPage}
                   header={isPage ? headerFromFields(item.fields) : undefined}
                   onHeaderChange={isPage ? (header) => setItem((prev) => (prev ? {
@@ -479,6 +502,35 @@ export default function EditContentPage() {
                         onClick={() => setAsHomePage(true)}
                       >
                         {homeSaving ? "Updating…" : "Set as home page"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {isPage && (
+                  <div className="jf-field">
+                    {isBlogPage ? (
+                      <>
+                        <p className="jf-field__hint" style={{ margin: 0 }}>
+                          This page is the site blog page.
+                        </p>
+                        <button
+                          type="button"
+                          className="jf-btn jf-btn--ghost jf-btn--block"
+                          disabled={blogSaving}
+                          onClick={() => setAsBlogPage(false)}
+                        >
+                          {blogSaving ? "Updating…" : "Stop using as blog page"}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="jf-btn jf-btn--ghost jf-btn--block"
+                        disabled={blogSaving}
+                        onClick={() => setAsBlogPage(true)}
+                      >
+                        {blogSaving ? "Updating…" : "Set as blog page"}
                       </button>
                     )}
                   </div>

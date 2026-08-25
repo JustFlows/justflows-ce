@@ -32,11 +32,11 @@ loaded at runtime.
 
 Minimum files:
 
-| File | Purpose |
-| --- | --- |
+| File             | Purpose                                                 |
+| ---------------- | ------------------------------------------------------- |
 | `justflows.json` | Manifest (`id`, `version`, `license`, `type: "plugin"`) |
-| `package.json` | Workspace package; depend on `@justflows/sdk` |
-| `src/index.ts` | `activate` / `deactivate` and the plugin module |
+| `package.json`   | Workspace package; depend on `@justflows/sdk`           |
+| `src/index.ts`   | `activate` / `deactivate` and the plugin module         |
 
 Do not put your plugin under `packages/`. That tree is platform code.
 
@@ -61,18 +61,19 @@ under `adminMenu` and add the `admin:extend` permission:
 }
 ```
 
-| Field | Notes |
-| --- | --- |
-| `id` | Lowercase kebab-case, unique within the plugin |
-| `label` | Shown when `labelKey` has no catalog entry |
-| `labelKey` | Optional admin i18n key, e.g. `nav.analytics` |
-| `path` | Must be an `/admin/…` route |
-| `icon` | Single emoji; defaults to 🔌 |
-| `domain` | `content`, `appearance`, `extensions` (default), `security`, or `system` |
+| Field      | Notes                                                                    |
+| ---------- | ------------------------------------------------------------------------ |
+| `id`       | Lowercase kebab-case, unique within the plugin                           |
+| `label`    | Shown when `labelKey` has no catalog entry                               |
+| `labelKey` | Optional admin i18n key, e.g. `nav.analytics`                            |
+| `path`     | Must be an `/admin/…` route                                              |
+| `icon`     | Single emoji; defaults to 🔌                                             |
+| `domain`   | `content`, `appearance`, `extensions` (default), `security`, or `system` |
 
-The entry appears in the sidebar as soon as the plugin is installed and
-disappears when it is deactivated or deleted — the admin reads the live list
-from `GET /api/plugins/admin-menu`. Only register a `path` the admin SPA
+The entry appears in the sidebar while the plugin is active and disappears when
+it is deactivated or deleted — the admin reads the live list from
+`GET /api/plugins/admin-menu`. Merely uploading or installing a plugin does not
+activate its menu. Only register a `path` the admin SPA
 actually serves; an unrouted path renders a dead link.
 
 ## Install on a site without this checkout

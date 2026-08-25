@@ -21,11 +21,11 @@ const ADMIN_MENU_DOMAIN_SET = new Set([
 ]);
 
 /**
- * A plugin owns its admin pages: they appear once it is installed and are gone
- * the moment it is deleted. Deactivating hides them too — an inactive plugin
- * serves nothing behind the page.
+ * A plugin owns its admin pages, but only while active: an installed-but-never-
+ * activated plugin, a deactivated one, or one in error state serves nothing
+ * behind the page.
  */
-const MENU_VISIBLE_STATUSES = new Set<PluginRow["status"]>(["installed", "active"]);
+const MENU_VISIBLE_STATUSES = new Set<PluginRow["status"]>(["active"]);
 
 const MENU_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MENU_PATH_RE = /^\/admin\/[a-z0-9][a-z0-9\-/]*$/;

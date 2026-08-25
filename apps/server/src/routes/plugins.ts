@@ -100,13 +100,19 @@ router.post("/:id/deactivate", requireRole("administrator"), async (req, res) =>
   const { runtimeDeactivatePlugin } = await import("../lib/plugin-runtime.js");
   await deactivatePlugin(session.siteId, pluginId);
   await runtimeDeactivatePlugin(session.siteId, pluginId).catch(() => null);
+  const { revalidateOnUpdate } = await import("../lib/cache-revalidate.js");
+  await revalidateOnUpdate("plugin");
   res.json({ ok: true });
 });
 
 router.delete("/:id", requireRole("administrator"), async (req, res) => {
   const session = req.session!;
   const pluginId = param(req.params.id);
+  const { runtimeDeactivatePlugin } = await import("../lib/plugin-runtime.js");
   await deletePlugin(session.siteId, pluginId);
+  await runtimeDeactivatePlugin(session.siteId, pluginId).catch(() => null);
+  const { revalidateOnUpdate } = await import("../lib/cache-revalidate.js");
+  await revalidateOnUpdate("plugin");
   res.json({ ok: true });
 });
 

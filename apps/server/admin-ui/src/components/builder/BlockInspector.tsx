@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BlockNode, BlockCatalogEntry } from "./types";
 import { syncColumnCount } from "./block-defaults";
 import AnimationPanel from "./AnimationPanel";
@@ -8,6 +8,10 @@ import GridPlacementPanel from "./GridPlacementPanel";
 import BlockLayoutPanel from "./BlockLayoutPanel";
 import ReusablePanel, { type ReusableItem } from "./ReusablePanel";
 import { GRID_BLOCK_TYPE } from "./grid";
+import MediaImageField from "../MediaImageField";
+
+const GALLERY_LAYOUTS = ["grid", "masonry", "carousel", "slideshow", "list"] as const;
+type GalleryLayoutValue = (typeof GALLERY_LAYOUTS)[number];
 
 const fieldLabel: React.CSSProperties = {
   display: "flex",
@@ -138,7 +142,7 @@ export default function BlockInspector({
         {textInput("heading", "Heading")}
         {textArea("subheading", "Subheading", 2)}
         {textInput("buttonLabel", "Button label")}
-        {textInput("buttonUrl", "Button URL", "https://")}
+        <InternalLinkField value={(p.buttonUrl as string) ?? ""} onChange={(url) => set("buttonUrl", url)} label="Button URL" placeholder="/about or https://…" />
         {textInput("backgroundImage", "Background image URL")}
         {select("align", "Alignment", [
           { value: "left", label: "Left" },
@@ -156,7 +160,7 @@ export default function BlockInspector({
         {textInput("heading", "Heading")}
         {textArea("text", "Text", 2)}
         {textInput("buttonLabel", "Button label")}
-        {textInput("buttonUrl", "Button URL")}
+        <InternalLinkField value={(p.buttonUrl as string) ?? ""} onChange={(url) => set("buttonUrl", url)} label="Button URL" />
         {select("variant", "Style", [
           { value: "primary", label: "Primary" },
           { value: "dark", label: "Dark" },
@@ -177,9 +181,27 @@ export default function BlockInspector({
       break;
     case "core.image":
       fields = <>
-        {textInput("src", "Image URL")}
+        <MediaImageField
+          id={`block-${block.id}-image`}
+          label="Image"
+          value={(p.src as string) ?? ""}
+          onChange={(url) => set("src", url)}
+        />
         {textInput("alt", "Alt text")}
         {textInput("caption", "Caption")}
+        <div className="jf-block-panel__grid2">
+          <label className="jf-block-panel__field jf-block-panel__field--inline">Width (px)
+            <input type="number" min={0} max={10000} placeholder="Auto" value={(p.width as number) || ""} onChange={(e) => set("width", Number(e.target.value) || 0)} />
+          </label>
+          <label className="jf-block-panel__field jf-block-panel__field--inline">Height (px)
+            <input type="number" min={0} max={10000} placeholder="Auto" value={(p.height as number) || ""} onChange={(e) => set("height", Number(e.target.value) || 0)} />
+          </label>
+        </div>
+        {select("objectFit", "Image fit", [
+          { value: "contain", label: "Contain" },
+          { value: "cover", label: "Cover" },
+          { value: "fill", label: "Stretch" },
+        ])}
       </>;
       break;
     case "core.quote":
@@ -188,13 +210,16 @@ export default function BlockInspector({
     case "core.button":
       fields = <>
         {textInput("label", "Label")}
-        {textInput("url", "URL")}
+        <InternalLinkField value={(p.url as string) ?? ""} onChange={(url) => set("url", url)} label="URL" />
         {select("variant", "Variant", [
           { value: "primary", label: "Primary" },
           { value: "secondary", label: "Secondary" },
           { value: "outline", label: "Outline" },
         ])}
       </>;
+      break;
+    case "core.link-list":
+      fields = <LinkListEditor items={(p.items as LinkItem[]) ?? []} heading={(p.heading as string) ?? ""} onChange={onChange} p={p} />;
       break;
     case "core.spacer":
       fields = (
@@ -282,13 +307,50 @@ export default function BlockInspector({
       fields = (
         <GalleryEditor
           items={(Array.isArray(p.items) ? p.items : []) as GalleryItem[]}
-          layout={(p.layout as string) === "masonry" ? "masonry" : "grid"}
+          layout={GALLERY_LAYOUTS.includes(p.layout as GalleryLayoutValue) ? (p.layout as GalleryLayoutValue) : "grid"}
           columns={Number(p.columns) || 3}
           lightbox={p.lightbox !== false}
           onChange={onChange}
           p={p}
         />
       );
+      break;
+    case "justflows.blog.postList":
+      fields = <>
+        {select("layout", "Layout", [
+          { value: "grid", label: "Grid" },
+          { value: "list", label: "List" },
+        ])}
+        <label style={fieldLabel}>Columns (grid layout)
+          <input type="number" style={fieldInput} min={1} max={4} value={(p.columns as number) ?? 3} onChange={(e) => set("columns", Number(e.target.value))} />
+        </label>
+        <label style={fieldLabel}>Posts per page
+          <input
+            type="number"
+            style={fieldInput}
+            min={0}
+            max={100}
+            placeholder="Use site default"
+            value={(p.postsPerPage as number) || ""}
+            onChange={(e) => set("postsPerPage", e.target.value === "" ? 0 : Number(e.target.value))}
+          />
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showFeaturedImage !== false} onChange={(e) => set("showFeaturedImage", e.target.checked)} />
+          Show featured image
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showDate !== false} onChange={(e) => set("showDate", e.target.checked)} />
+          Show date
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.showExcerpt !== false} onChange={(e) => set("showExcerpt", e.target.checked)} />
+          Show excerpt
+        </label>
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
+          Lists published posts, newest first. Pagination uses /page/2, /page/3, etc. under this page's URL.
+        </p>
+      </>;
       break;
     default:
       fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>No settings for this block.</p>;
@@ -398,6 +460,151 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
   );
 }
 
+interface InternalLinkOption { id: string; type: string; title: string; slug: string }
+
+let internalLinkCache: InternalLinkOption[] | null = null;
+
+/**
+ * Free-text URL input with a picker for the site's own published pages/posts,
+ * so an internal link can be chosen by title instead of hand-typed and mistyped.
+ * Stores a plain root-relative path (e.g. "/about"), same as a typed one.
+ */
+function InternalLinkField({ value, onChange, label = "URL", placeholder = "/about or https://…" }: {
+  value: string;
+  onChange: (value: string) => void;
+  label?: string;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [options, setOptions] = useState<InternalLinkOption[]>(internalLinkCache ?? []);
+
+  async function togglePicker() {
+    if (open) { setOpen(false); return; }
+    if (internalLinkCache) { setOptions(internalLinkCache); setOpen(true); return; }
+    setLoading(true);
+    try {
+      const [pagesRes, postsRes] = await Promise.all([
+        fetch("/api/content?type=page&status=published&limit=100"),
+        fetch("/api/content?type=post&status=published&limit=100"),
+      ]);
+      const [pagesBody, postsBody] = await Promise.all([
+        pagesRes.json() as Promise<{ items?: InternalLinkOption[] }>,
+        postsRes.json() as Promise<{ items?: InternalLinkOption[] }>,
+      ]);
+      const found = [...(pagesBody.items ?? []), ...(postsBody.items ?? [])];
+      internalLinkCache = found;
+      setOptions(found);
+      setOpen(true);
+    } catch {
+      setOptions([]);
+      setOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <label style={fieldLabel}>
+      {label}
+      <div style={{ display: "flex", gap: "0.35rem" }}>
+        <input
+          type="text"
+          style={{ ...fieldInput, flex: 1 }}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={togglePicker}
+          title="Pick a page or post on this site"
+          aria-label="Pick a page or post on this site"
+          style={{ padding: "0 0.6rem", border: "1px solid var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.9rem" }}
+        >
+          {loading ? "…" : "📄"}
+        </button>
+      </div>
+      {open && (
+        <div style={{ border: "1px solid var(--jf-border)", borderRadius: 6, maxHeight: 220, overflow: "auto", background: "#fff" }}>
+          {options.length === 0 ? (
+            <div style={{ padding: "0.5rem 0.6rem", fontSize: "0.75rem", color: "var(--jf-text-3)" }}>No published pages or posts yet.</div>
+          ) : (
+            options.map((item) => (
+              <button
+                key={`${item.type}-${item.id}`}
+                type="button"
+                onClick={() => { onChange(`/${item.slug}`); setOpen(false); }}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "0.4rem 0.6rem", border: "none", borderBottom: "1px solid var(--jf-border)", background: "none", cursor: "pointer", fontSize: "0.8rem" }}
+              >
+                <span style={{ color: "var(--jf-text-3)", marginRight: "0.35rem" }}>{item.type === "page" ? "📄" : "📝"}</span>
+                {item.title || `(untitled ${item.type})`}
+                <span style={{ color: "var(--jf-text-3)" }}> — /{item.slug}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </label>
+  );
+}
+
+interface LinkItem { label: string; url: string }
+
+function LinkListEditor({ items, heading, onChange, p }: {
+  items: LinkItem[];
+  heading: string;
+  onChange: (props: Record<string, unknown>) => void;
+  p: Record<string, unknown>;
+}) {
+  function updateItem(i: number, patch: Partial<LinkItem>) {
+    const next = items.map((item, idx) => (idx === i ? { ...item, ...patch } : item));
+    onChange({ ...p, items: next });
+  }
+
+  function addItem() {
+    onChange({ ...p, items: [...items, { label: "New link", url: "/" }] });
+  }
+
+  function removeItem(i: number) {
+    onChange({ ...p, items: items.filter((_, idx) => idx !== i) });
+  }
+
+  function moveItem(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[i], next[j]] = [next[j]!, next[i]!];
+    onChange({ ...p, items: next });
+  }
+
+  return (
+    <>
+      <label style={fieldLabel}>Heading (optional)
+        <input type="text" style={fieldInput} placeholder="e.g. Product" value={heading} onChange={(e) => onChange({ ...p, heading: e.target.value })} />
+      </label>
+      <div style={{ marginTop: "0.5rem" }}>
+        {items.map((item, i) => (
+          <div key={i} style={{ border: "1px solid var(--jf-border)", borderRadius: 6, marginBottom: "0.5rem", padding: "0.6rem" }}>
+            <label style={fieldLabel}>Label
+              <input type="text" style={fieldInput} value={item.label} onChange={(e) => updateItem(i, { label: e.target.value })} />
+            </label>
+            <InternalLinkField value={item.url} onChange={(url) => updateItem(i, { url })} />
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button type="button" onClick={() => moveItem(i, -1)} disabled={i === 0} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-text-2)" }}>↑ Move up</button>
+              <button type="button" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-text-2)" }}>↓ Move down</button>
+              <button type="button" onClick={() => removeItem(i)} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-danger)", marginLeft: "auto" }}>Remove</button>
+            </div>
+          </div>
+        ))}
+        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
+          + Add link
+        </button>
+      </div>
+    </>
+  );
+}
+
 function FormBlockPicker({ formId, onChange }: { formId: string; onChange: (formId: string) => void }) {
   const [forms, setForms] = useState<Array<{ id: string; name: string }>>([]);
   const [enabled, setEnabled] = useState(true);
@@ -444,7 +651,7 @@ function GalleryEditor({
   p,
 }: {
   items: GalleryItem[];
-  layout: "grid" | "masonry";
+  layout: GalleryLayoutValue;
   columns: number;
   lightbox: boolean;
   onChange: (props: Record<string, unknown>) => void;
@@ -452,6 +659,9 @@ function GalleryEditor({
 }) {
   const [library, setLibrary] = useState<Array<{ url: string; filename: string }>>([]);
   const [showLibrary, setShowLibrary] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   function emit(patch: Record<string, unknown>) {
     onChange({ ...p, items, layout, columns, lightbox, ...patch });
@@ -476,6 +686,29 @@ function GalleryEditor({
     emit({ items: [...items, { src: url, alt: "", caption: "" }] });
   }
 
+  async function uploadFiles(files: FileList) {
+    setUploading(true);
+    setUploadError("");
+    const uploaded: GalleryItem[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/media", { method: "POST", body: form });
+        const data = (await res.json()) as { url?: string; error?: string };
+        if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed");
+        uploaded.push({ src: data.url, alt: "", caption: "" });
+        setLibrary((prev) => [{ url: data.url as string, filename: file.name }, ...prev]);
+      }
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (uploaded.length) emit({ items: [...items, ...uploaded] });
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
   return (
     <>
       <label style={fieldLabel}>
@@ -483,12 +716,22 @@ function GalleryEditor({
         <select style={fieldInput} value={layout} onChange={(e) => emit({ layout: e.target.value })}>
           <option value="grid">Grid</option>
           <option value="masonry">Masonry</option>
+          <option value="carousel">Carousel</option>
+          <option value="slideshow">Slideshow (fade)</option>
+          <option value="list">List</option>
         </select>
       </label>
-      <label style={fieldLabel}>
-        Columns
-        <input type="number" min={2} max={6} style={fieldInput} value={columns} onChange={(e) => emit({ columns: Number(e.target.value) })} />
-      </label>
+      {(layout === "grid" || layout === "masonry") && (
+        <label style={fieldLabel}>
+          Columns
+          <input type="number" min={2} max={6} style={fieldInput} value={columns} onChange={(e) => emit({ columns: Number(e.target.value) })} />
+        </label>
+      )}
+      {(layout === "carousel" || layout === "slideshow") && (
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0 0 0.75rem" }}>
+          One image shown at a time, with dots to jump between them. Reorder images below to change the order.
+        </p>
+      )}
       <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
         <input type="checkbox" checked={lightbox} onChange={(e) => emit({ lightbox: e.target.checked })} />
         Lightbox
@@ -523,6 +766,25 @@ function GalleryEditor({
         </div>
       ))}
 
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: uploading ? "default" : "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}
+      >
+        {uploading ? "Uploading…" : "⇧ Upload from device"}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml"
+        multiple
+        hidden
+        onChange={(e) => { if (e.target.files?.length) void uploadFiles(e.target.files); }}
+      />
+      {uploadError ? (
+        <p style={{ color: "var(--jf-danger)", fontSize: "0.75rem", margin: "0 0 0.4rem" }}>{uploadError}</p>
+      ) : null}
       <button type="button" onClick={() => addUrl("")} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}>
         + Add image URL
       </button>

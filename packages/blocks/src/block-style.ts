@@ -49,6 +49,8 @@ export interface BlockStyle {
   marginBottom: SpaceStep;
   width: string;
   minHeight: number;
+  maxWidth: number;
+  maxHeight: number;
   alignSelf: string;
   textAlign: string;
   radius: string;
@@ -58,7 +60,8 @@ export interface BlockStyle {
 export const DEFAULT_BLOCK_STYLE: BlockStyle = {
   padTop: "", padBottom: "", padX: "",
   marginTop: "", marginBottom: "",
-  width: "", minHeight: 0, alignSelf: "", textAlign: "", radius: "", shadow: "",
+  width: "", minHeight: 0, maxWidth: 0, maxHeight: 0,
+  alignSelf: "", textAlign: "", radius: "", shadow: "",
 };
 
 function pick<T extends string>(raw: unknown, allowed: readonly T[]): T {
@@ -83,6 +86,8 @@ export function parseBlockStyle(raw: unknown): BlockStyle {
     marginBottom: pick(input["marginBottom"], SPACE_STEPS),
     width: pick(input["width"], WIDTH_PRESETS),
     minHeight: clampInt(input["minHeight"], 0, 100),
+    maxWidth: clampInt(input["maxWidth"], 0, 10000),
+    maxHeight: clampInt(input["maxHeight"], 0, 10000),
     alignSelf: pick(input["alignSelf"], ALIGN_SELF),
     textAlign: pick(input["textAlign"], TEXT_ALIGN),
     radius: pick(input["radius"], RADIUS_PRESETS),
@@ -94,7 +99,7 @@ export function isDefaultBlockStyle(style: BlockStyle): boolean {
   return (
     !style.padTop && !style.padBottom && !style.padX &&
     !style.marginTop && !style.marginBottom &&
-    !style.width && style.minHeight === 0 &&
+    !style.width && style.minHeight === 0 && style.maxWidth === 0 && style.maxHeight === 0 &&
     !style.alignSelf && !style.textAlign && !style.radius && !style.shadow
   );
 }
@@ -132,6 +137,12 @@ export function blockStyleDeclarations(style: BlockStyle): string {
     // A width means nothing without saying where the slack goes.
     if (style.width !== "full") out.push("margin-left:auto", "margin-right:auto");
   }
+  // Exact limits override the optional theme preset while remaining responsive.
+  if (style.maxWidth > 0) {
+    out.push(`max-width:min(100%,${style.maxWidth}px)`);
+    if (!style.width) out.push("margin-left:auto", "margin-right:auto");
+  }
+  if (style.maxHeight > 0) out.push(`max-height:${style.maxHeight}px`, "overflow:auto");
   if (style.minHeight > 0) out.push(`min-height:${style.minHeight}vh`);
   if (style.alignSelf) out.push(`justify-self:${style.alignSelf}`, `align-self:${style.alignSelf}`);
   if (style.textAlign) out.push(`text-align:${style.textAlign}`);

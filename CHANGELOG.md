@@ -5,8 +5,6 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
-
 ## [0.1.3-rc] — 2026-08-25
 
 ### Added
@@ -67,6 +65,36 @@ and this project uses [Semantic Versioning](https://semver.org/).
   the whole page — every block plus the page header — instead of an empty
   placeholder, and edits apply straight back. Block ids are preserved, so this
   edits the page in place rather than re-importing it.
+- **A Contact page pattern** in the default theme, with a hero, contact
+  details, and a form block wired to the site's default "Contact" form.
+- Theme patterns can declare `requiresBlockTypes` in their JSON so the page
+  builder's Patterns panel can tell the editor a pattern needs a plugin
+  that isn't installed. The Contact pattern uses it for `justflows.forms.form`:
+  if the Forms extension isn't active, its pattern card shows an inline
+  notice with a link to Extensions instead of silently importing a block
+  that won't render anything on the public site.
+- **Three new Gallery layouts**: Carousel (a swipeable, scroll-snap slider),
+  Slideshow (one image at a time, cross-fading), and List (full-width
+  stacked rows). Grid and Masonry are unchanged. All three, like the
+  existing layouts, are pure CSS on the public site — no client-side script.
+  The inspector now hides the Columns field for layouts it doesn't apply to.
+- **A first-class blog page.** Theme builder → Blog can select any page as the
+  site's blog index or turn the active theme's default blog layout into a new
+  published page. Content lists and page settings identify the selected page,
+  and deleting it clears the setting automatically.
+- **A Post List block** for building blog indexes on any page. It lists published
+  posts newest first in a grid or list, can show featured images, dates, and
+  excerpts, and supports either a per-block page size or the site's default.
+  Numbered pagination lives below the page at `/page/2`, `/page/3`, and so on,
+  including localized page URLs.
+- Posts and other non-page content can now use the visual block builder. The
+  library hides whole-page patterns and site-chrome widgets when editing a post,
+  while pages retain the complete library and per-page header controls.
+- **A Link List block** for footer columns, sitemaps, and resource lists, with an
+  optional heading and reorderable links.
+- Button, hero, call-to-action, and Link List URL controls can pick a published
+  page or post by title while still accepting a typed internal or external URL.
+  Image blocks now use the Media Library picker instead of requiring a URL.
 
 ### Fixed
 
@@ -82,7 +110,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
   `padding: 2rem; & h2 { … }` — the shape the panel's own placeholder teaches —
   silently lost the padding.
 - Customizer colours and Additional CSS now override the active theme. `/theme.css`
-  emitted them *before* the theme's own stylesheet, so at equal specificity the
+  emitted them _before_ the theme's own stylesheet, so at equal specificity the
   theme silently won. Theme styles come first now, then site tokens, then
   Additional CSS last.
 - Empty page-builder columns accept dropped blocks. Each column is its own grid
@@ -90,6 +118,44 @@ and this project uses [Semantic Versioning](https://semver.org/).
   or stacked as a single column.
 - Unchecking “Show site title” now hides the title on the public site. The header
   previously forced the title back on whenever the logo was also hidden.
+- **Gallery's Masonry layout reverted to Grid on every save.** The gallery
+  block stored its grid/masonry/etc. choice under `props.layout`, the same
+  key the page builder already used — on any block, not just the gallery —
+  for unrelated grid-placement data (`{ col, span, row, rowSpan }`, set by
+  dragging a block around inside a `core.grid`). The document sanitizer that
+  runs on every save treated any `layout` value as placement data; a string
+  like `"masonry"` doesn't look like a placement object, so it silently fell
+  back to the default and got dropped. "Grid" looked unaffected only because
+  grid is also the fallback when nothing is stored. Grid placement now lives
+  under its own `gridPlacement` prop, so the two can no longer collide;
+  existing pages that already used grid placement are migrated on next save.
+- **Inactive plugins were still live.** A plugin that was merely uploaded
+  (status "installed", never activated) was treated as fully active: its
+  admin menu entries showed up, its blocks worked in the page builder, and
+  Analytics/Forms/Gallery served their public behavior. Only Forms, Gallery,
+  and Analytics could reach the "installed" state without ever activating
+  (custom plugin modules always started active), so this affected only the
+  bundled extensions, but on any site that had them staged and not yet
+  turned on. Every enabled-check now requires status `active`.
+- **Deactivating or deleting a plugin didn't bust the page cache.** Activating
+  a plugin invalidated cached pages so it would show up immediately;
+  deactivating and deleting didn't, so a page cached while the plugin was
+  active kept serving the old HTML — a deleted Forms plugin's form, for
+  example, stayed live on cached pages until the cache separately expired.
+  Both actions now revalidate the same way activation does.
+- **A deactivated plugin's block type never left the page builder's catalog
+  or the public renderer.** The block registry only ever gained entries; a
+  block registered while Forms or Gallery was active stayed registered (and,
+  for Gallery, kept rendering on the public site) after deactivation, because
+  nothing ever unregistered it. Deactivating now removes the block type from
+  both the picker and the render path immediately.
+- The Contact pattern's inline "extension isn't active" notice no longer lets
+  you import the pattern anyway — the import action is disabled while any
+  block type it needs isn't in the active catalog, instead of just warning
+  next to a working button.
+- Publishing the footer now clears its old draft. A stale draft previously kept
+  outranking the newly published footer in preview, making Publish appear to do
+  nothing until the draft was discarded separately.
 
 ### Changed
 

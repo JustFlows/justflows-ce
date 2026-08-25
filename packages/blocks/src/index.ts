@@ -40,6 +40,7 @@ export {
   GRID_MIN_COLUMNS,
   compactBlockPlacement,
   isDefaultPlacement,
+  isPlacementShaped,
   parseBlockPlacement,
   placementStyleVars,
   sanitizePlacementProp,

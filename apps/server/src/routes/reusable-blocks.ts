@@ -15,6 +15,7 @@ import { param } from "../lib/params.js";
 import {
   getTemplatePart,
   isTemplatePart,
+  publishTemplatePart,
   saveTemplatePart,
 } from "../lib/template-parts.js";
 
@@ -107,7 +108,9 @@ templatePartsRouter.put("/:part", requireRole(...THEME_CUSTOMIZE_ROLES), async (
       res.status(503).json({ error: "No site found" });
       return;
     }
-    const blocks = await saveTemplatePart(siteId, part, body.blocks, body.draft);
+    const blocks = body.draft
+      ? await saveTemplatePart(siteId, part, body.blocks, true)
+      : await publishTemplatePart(siteId, part, body.blocks);
     if (!body.draft) await revalidateOnUpdate("theme");
     res.json({ blocks });
   } catch (err) {

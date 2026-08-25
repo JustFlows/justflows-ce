@@ -8,7 +8,9 @@ import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
 export const GALLERY_PLUGIN_ID = "justflows.gallery";
 export const GALLERY_BLOCK_TYPE = "justflows.gallery.grid";
 
-export type GalleryLayout = "grid" | "masonry";
+export type GalleryLayout = "grid" | "masonry" | "carousel" | "slideshow" | "list";
+
+const GALLERY_LAYOUTS: GalleryLayout[] = ["grid", "masonry", "carousel", "slideshow", "list"];
 
 export interface GalleryItem {
   src: string;
@@ -27,7 +29,7 @@ export async function isGalleryPluginEnabled(siteId?: string): Promise<boolean> 
   const id = siteId ?? (await getSiteId());
   if (!id) return false;
   const plugin = await getPlugin(id, GALLERY_PLUGIN_ID);
-  return Boolean(plugin && plugin.status !== "inactive" && plugin.status !== "error");
+  return plugin?.status === "active";
 }
 
 function parseItems(raw: unknown): GalleryItem[] {
@@ -59,7 +61,9 @@ function parseItems(raw: unknown): GalleryItem[] {
 export function parseGalleryProps(raw: unknown): GalleryProps {
   const row = (raw ?? {}) as Record<string, unknown>;
   const items = parseItems(row.items ?? row.urls);
-  const layout: GalleryLayout = row.layout === "masonry" ? "masonry" : "grid";
+  const layout: GalleryLayout = GALLERY_LAYOUTS.includes(row.layout as GalleryLayout)
+    ? (row.layout as GalleryLayout)
+    : "grid";
   const columns = Math.min(6, Math.max(2, Number(row.columns) || 3));
   return {
     items,
@@ -83,17 +87,55 @@ export function renderGalleryHtml(rawProps: unknown): string {
   }
   const stamp = itemId(`${props.layout}:${props.items.map((item) => item.src).join("|")}`, props.columns);
   const galleryId = `jf-gal-${stamp}`;
-  const layoutClass = props.layout === "masonry" ? "jf-gallery--masonry" : "jf-gallery--grid";
-  const thumbs = props.items
-    .map((item, index) => {
-      const img = `<img src="${item.src}" alt="${esc(item.alt)}" loading="lazy">`;
-      const caption = item.caption ? `<span class="jf-gallery__caption">${esc(item.caption)}</span>` : "";
-      if (!props.lightbox) {
-        return `<figure class="jf-gallery__item">${img}${caption}</figure>`;
-      }
-      return `<a class="jf-gallery__item" href="#${stamp}-${index}">${img}${caption}</a>`;
-    })
-    .join("");
+  const multiple = props.items.length > 1;
+
+  // Each item carries its own id (distinct from the lightbox popup ids below)
+  // so carousel/slideshow dots can jump straight to it — scroll-into-view or
+  // a CSS `:target` reveal, entirely without client-side script.
+  const slides = props.items.map((item, index) => {
+    const slideId = `${stamp}-s${index}`;
+    const img = `<img src="${item.src}" alt="${esc(item.alt)}" loading="lazy">`;
+    const caption = item.caption ? `<span class="jf-gallery__caption">${esc(item.caption)}</span>` : "";
+    const inner = `${img}${caption}`;
+    const html = props.lightbox
+      ? `<a class="jf-gallery__item" id="${slideId}" href="#${stamp}-${index}">${inner}</a>`
+      : `<figure class="jf-gallery__item" id="${slideId}">${inner}</figure>`;
+    return { slideId, html };
+  });
+  const allSlides = slides.map((s) => s.html).join("");
+
+  const dots = (className: string) =>
+    multiple
+      ? `<div class="${className}">${slides
+          .map((s, i) => `<a class="jf-gallery__dot" href="#${s.slideId}" aria-label="Go to slide ${i + 1}"></a>`)
+          .join("")}</div>`
+      : "";
+
+  let body: string;
+  switch (props.layout) {
+    case "carousel":
+      body =
+        `<div class="jf-gallery jf-gallery--carousel" id="${galleryId}">` +
+        `<div class="jf-carousel__track">${allSlides}</div>` +
+        dots("jf-carousel__dots") +
+        `</div>`;
+      break;
+    case "slideshow":
+      body =
+        `<div class="jf-gallery jf-gallery--slideshow" id="${galleryId}">` +
+        `<div class="jf-slideshow__stage">${allSlides}</div>` +
+        dots("jf-slideshow__dots") +
+        `</div>`;
+      break;
+    case "list":
+      body = `<div class="jf-gallery jf-gallery--list" id="${galleryId}">${allSlides}</div>`;
+      break;
+    case "masonry":
+      body = `<div class="jf-gallery jf-gallery--masonry jf-gallery--cols-${props.columns}" id="${galleryId}">${allSlides}</div>`;
+      break;
+    default:
+      body = `<div class="jf-gallery jf-gallery--grid jf-gallery--cols-${props.columns}" id="${galleryId}">${allSlides}</div>`;
+  }
 
   const lightboxes = props.lightbox
     ? props.items
@@ -108,13 +150,22 @@ export function renderGalleryHtml(rawProps: unknown): string {
               ${item.caption ? `<figcaption>${esc(item.caption)}</figcaption>` : ""}
             </figure>
             <a class="jf-lightbox__close" href="#${galleryId}" aria-label="Close">×</a>
-            ${props.items.length > 1 ? `<a class="jf-lightbox__prev" href="#${stamp}-${prevIndex}" aria-label="Previous">‹</a><a class="jf-lightbox__next" href="#${stamp}-${nextIndex}" aria-label="Next">›</a>` : ""}
+            ${multiple ? `<a class="jf-lightbox__prev" href="#${stamp}-${prevIndex}" aria-label="Previous">‹</a><a class="jf-lightbox__next" href="#${stamp}-${nextIndex}" aria-label="Next">›</a>` : ""}
           </div>`;
         })
         .join("")
     : "";
 
-  return `<div class="jf-gallery ${layoutClass} jf-gallery--cols-${props.columns}" id="${galleryId}">${thumbs}</div>${lightboxes}`;
+  return `${body}${lightboxes}`;
+}
+
+/**
+ * The block registry is a process-wide singleton, so a type registered while
+ * the plugin was active would otherwise outlive deactivation — still listed in
+ * the builder's catalog and still renderable via the generic block path.
+ */
+export function unregisterGalleryBlock(): void {
+  getRuntimeBlockRegistry().unregister(GALLERY_BLOCK_TYPE);
 }
 
 export function registerGalleryBlock(): void {
@@ -124,13 +175,13 @@ export function registerGalleryBlock(): void {
     type: GALLERY_BLOCK_TYPE,
     version: 1,
     title: "Gallery",
-    description: "Responsive image gallery with grid or masonry layout and lightbox.",
+    description: "Responsive image gallery — grid, masonry, carousel, slideshow, or list — with lightbox.",
     icon: "🖼",
     category: "media",
     schema: {
       urls: { type: "textarea" },
       columns: { type: "number", default: 3 },
-      layout: { type: "select", options: ["grid", "masonry"], default: "grid" },
+      layout: { type: "select", options: [...GALLERY_LAYOUTS], default: "grid" },
     },
     validateProps: (raw) => parseGalleryProps(raw) as unknown as Record<string, unknown>,
     render: (props) => renderGalleryHtml(props),

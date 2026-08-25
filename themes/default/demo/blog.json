@@ -1,0 +1,47 @@
+{
+  "title": "Demo blog page",
+  "blocks": [
+    {
+      "id": "blog-intro",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "default", "padding": "lg", "align": "center" },
+      "children": [
+        {
+          "id": "blog-intro-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "blog-intro-heading",
+              "type": "core.heading",
+              "version": 1,
+              "props": { "text": "Blog", "level": 1 },
+              "children": []
+            },
+            {
+              "id": "blog-intro-text",
+              "type": "core.paragraph",
+              "version": 1,
+              "props": { "text": "Latest posts and updates." },
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "blog-post-list",
+      "type": "justflows.blog.postList",
+      "version": 1,
+      "props": {
+        "layout": "grid",
+        "columns": 3,
+        "showExcerpt": true,
+        "showDate": true,
+        "showFeaturedImage": true
+      }
+    }
+  ]
+}

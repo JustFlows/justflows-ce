@@ -59,7 +59,7 @@ export async function isFormsPluginEnabled(siteId?: string): Promise<boolean> {
   const id = siteId ?? (await getSiteId());
   if (!id) return false;
   const plugin = await getPlugin(id, FORMS_PLUGIN_ID);
-  return Boolean(plugin && plugin.status !== "inactive" && plugin.status !== "error");
+  return plugin?.status === "active";
 }
 
 function store(siteId: string) {
@@ -158,6 +158,15 @@ export async function listSubmissions(siteId: string, formId?: string): Promise<
 
 export async function deleteSubmission(siteId: string, id: string): Promise<void> {
   await store(siteId).delete("submissions", id);
+}
+
+/**
+ * The block registry is a process-wide singleton, so a type registered while
+ * the plugin was active would otherwise outlive deactivation — still listed in
+ * the builder's catalog and still renderable via the generic block path.
+ */
+export function unregisterFormsBlock(): void {
+  getRuntimeBlockRegistry().unregister(FORMS_BLOCK_TYPE);
 }
 
 export function registerFormsBlock(): void {

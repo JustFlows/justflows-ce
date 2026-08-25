@@ -22,6 +22,7 @@ export default function ContentPage() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [types, setTypes] = useState<ContentTypeSummary[]>([]);
   const [homePageId, setHomePageId] = useState<string | null>(null);
+  const [blogPageId, setBlogPageId] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("all");
 
@@ -32,8 +33,9 @@ export default function ContentPage() {
       .catch(() => {});
     fetch("/api/settings")
       .then((r) => r.json())
-      .then((data: { home_page_id?: string | null }) => {
+      .then((data: { home_page_id?: string | null; blog_page_id?: string | null }) => {
         setHomePageId(typeof data.home_page_id === "string" ? data.home_page_id : null);
+        setBlogPageId(typeof data.blog_page_id === "string" ? data.blog_page_id : null);
       })
       .catch(() => {});
     fetch("/api/content-types")
@@ -132,6 +134,9 @@ export default function ContentPage() {
                       <Link to={`/admin/content/${item.id}`}>{item.title}</Link>
                       {homePageId === item.id ? (
                         <span className="jf-badge jf-badge--published" style={{ marginInlineStart: "0.5rem" }}>Home</span>
+                      ) : null}
+                      {blogPageId === item.id ? (
+                        <span className="jf-badge jf-badge--published" style={{ marginInlineStart: "0.5rem" }}>Blog</span>
                       ) : null}
                     </td>
                     <td>{typeLabel(item.type)}</td>

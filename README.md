@@ -133,11 +133,11 @@ log) as soon as Node starts. The wizard asks for it on the admin-account step.
 
 Justflows works with any of these — you do not need to know SQL:
 
-| Database | When to use it |
-|---|---|
-| **PostgreSQL** *(default)* | Best choice for new installs. Included automatically in Docker. |
-| **MySQL 8+** | Use this if your host already provides MySQL |
-| **MariaDB 10.6+** | Use this if your host already provides MariaDB |
+| Database                   | When to use it                                                  |
+| -------------------------- | --------------------------------------------------------------- |
+| **PostgreSQL** _(default)_ | Best choice for new installs. Included automatically in Docker. |
+| **MySQL 8+**               | Use this if your host already provides MySQL                    |
+| **MariaDB 10.6+**          | Use this if your host already provides MariaDB                  |
 
 When using Docker you do not need to install or configure a database yourself —
 it is set up automatically.
@@ -172,15 +172,18 @@ old behaviour. Do not set that on a public host.
 
 ## What you can do
 
-| Feature | Where |
-|---|---|
-| Write posts and pages | Admin → Content |
-| Upload images and files | Admin → Media |
-| Install plugins | Admin → Plugins → Upload .jfpkg |
-| Change your theme | Admin → Themes → Upload .jfpkg → Activate |
-| Manage users | Admin → Users |
-| Update everything | Admin → Updates |
-| Change site settings | Admin → Settings |
+| Feature                                                  | Where                                     |
+| -------------------------------------------------------- | ----------------------------------------- |
+| Write posts and pages                                    | Admin → Content                           |
+| Build pages and post bodies with blocks                  | Admin → Content → Open page builder       |
+| Choose or create a paginated blog index                  | Admin → Theme builder → Blog              |
+| Upload images and files                                  | Admin → Media                             |
+| Install plugins                                          | Admin → Plugins → Upload .jfpkg           |
+| Change your theme                                        | Admin → Themes → Upload .jfpkg → Activate |
+| Customize the home page, blog, footer, and design tokens | Admin → Theme builder                     |
+| Manage users                                             | Admin → Users                             |
+| Update everything                                        | Admin → Updates                           |
+| Change site settings                                     | Admin → Settings                          |
 
 ---
 
