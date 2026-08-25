@@ -12,6 +12,7 @@
   --color-primary-hover: #1d4ed8;
   --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Fira Code", "Cascadia Code", Consolas, monospace;
+  --font-heading: var(--font-sans);
   --max-width: 720px;
   --max-width-wide: 1140px;
   --radius-sm: 6px;
@@ -19,9 +20,41 @@
   --radius-lg: 16px;
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
   --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+
+  /* One number drives the whole spacing scale, so raising it makes the site
+     airier everywhere instead of in the one place someone remembered. */
+  --space-unit-base: 8px;
+  --space-unit: var(--space-unit-base);
+  --space-0: 0;
+  --space-1: calc(var(--space-unit) * 0.5);
+  --space-2: var(--space-unit);
+  --space-3: calc(var(--space-unit) * 1.5);
+  --space-4: calc(var(--space-unit) * 2.5);
+  --space-5: calc(var(--space-unit) * 4);
+  --space-6: calc(var(--space-unit) * 6);
+  --space-7: calc(var(--space-unit) * 9);
+  --space-8: calc(var(--space-unit) * 13);
+
+  --block-gap: 1.5rem;
+  --heading-weight: 700;
+  --heading-line: 1.15;
+  --heading-tracking: -0.02em;
+  --h1-size: 2.6rem;
+  --h2-size: 2rem;
+  --h3-size: 1.45rem;
 }
 
-html { font-size: var(--base-font-size, 16px); scroll-behavior: smooth; }
+
+html { font-size: var(--base-font-size, 16px); scroll-behavior: smooth; color-scheme: light; }
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-border: #334155;
+  --color-text: #f8fafc;
+  --color-muted: #94a3b8;
+}
 
 body {
   margin: 0;
@@ -35,22 +68,51 @@ body {
 /* ── Site chrome ── */
 .site-header {
   border-bottom: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
   z-index: 50;
 }
 
+.site-header--static {
+  position: relative;
+}
+
 .site-header-inner {
   max-width: var(--max-width-wide);
   margin: 0 auto;
   padding: 0 1.5rem;
-  height: 64px;
+  min-height: 64px;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.site-header-blocks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+}
+
+.site-header-blocks > * {
+  max-width: 100%;
+}
+
+.site-header--center .site-header-inner {
+  flex-direction: column;
+  justify-content: center;
+  height: auto;
+  min-height: 64px;
+  padding: 0.75rem 1.5rem;
+}
+
+.site-header--split .site-header-inner {
+  justify-content: space-between;
 }
 
 .site-brand {
@@ -59,6 +121,15 @@ body {
   color: var(--color-text);
   text-decoration: none;
   letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.site-logo {
+  height: 32px;
+  width: auto;
+  display: block;
 }
 
 .site-nav {
@@ -77,6 +148,54 @@ body {
 }
 
 .site-nav a:hover { color: var(--color-primary); }
+
+.nav-item--has-children {
+  position: relative;
+  display: inline-block;
+}
+
+.nav-submenu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 160px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 6px;
+  padding: 0.35rem 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  z-index: 20;
+}
+
+.nav-submenu a {
+  display: block;
+  padding: 0.4rem 0.75rem;
+  white-space: nowrap;
+}
+
+.nav-item--has-children:hover .nav-submenu,
+.nav-item--has-children:focus-within .nav-submenu {
+  display: block;
+}
+
+.site-lang {
+  margin-left: 1rem;
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.site-lang__link {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+}
+
+.site-lang__link.is-current {
+  background: var(--color-surface, #f1f5f9);
+  font-weight: 700;
+}
 
 .site-main {
   max-width: var(--max-width);
@@ -120,17 +239,21 @@ body {
   display: block !important;
 }
 
-/* ── Typography ── */
+/* ── Typography ──
+   Sizes stay fluid, with the customizer's value as the ceiling rather than a
+   fixed size: a heading picked on a desktop still scales down on the way to
+   the mobile override below. */
 h1, h2, h3, h4, h5, h6 {
-  line-height: 1.2;
-  font-weight: 800;
+  font-family: var(--font-heading, var(--font-sans));
+  font-weight: var(--heading-weight, 800);
+  line-height: var(--heading-line, 1.2);
+  letter-spacing: var(--heading-tracking, -0.02em);
   margin: 1.75rem 0 0.75rem;
-  letter-spacing: -0.02em;
 }
 
-h1 { font-size: clamp(2rem, 5vw, 2.75rem); }
-h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
-h3 { font-size: 1.25rem; }
+h1 { font-size: clamp(1.9rem, 5vw, var(--h1-size, 2.75rem)); }
+h2 { font-size: clamp(1.4rem, 3vw, var(--h2-size, 2rem)); }
+h3 { font-size: var(--h3-size, 1.25rem); }
 
 p { margin: 0 0 1.15rem; }
 
@@ -224,6 +347,30 @@ hr {
 }
 
 .post-list-item:last-child { border-bottom: none; }
+
+.post-thumb { display: block; margin-bottom: 0.75rem; }
+.post-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+/* Grid layout for the "Post List" block — a card per post instead of the
+   classic bordered-row list, with a smaller title so it fits a column. */
+.post-list--grid {
+  display: grid;
+  gap: 1.5rem;
+}
+.post-list--grid.post-list--cols-1 { grid-template-columns: 1fr; }
+.post-list--grid.post-list--cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.post-list--grid.post-list--cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.post-list--grid.post-list--cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.post-list--grid .post-list-item { padding: 0; border-bottom: none; }
+.post-list--grid .post-title { font-size: 1.15rem; font-weight: 800; }
+.post-list--grid .post-excerpt { font-size: 0.95rem; margin-bottom: 0; }
 
 .post-title {
   font-size: clamp(1.75rem, 4vw, 2.5rem);
@@ -320,6 +467,38 @@ hr {
 .jf-column { min-width: 0; }
 .jf-column > * + * { margin-top: 1rem; }
 
+/* ── Grid ──
+   Children carry their own placement as custom properties, so any block type
+   can sit in a grid without a wrapper. A child that sets none falls back to
+   full width, which is what a stacked layout already looks like. */
+.jf-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--jf-grid-cols, 12), minmax(0, 1fr));
+  width: 100%;
+}
+.jf-grid > * {
+  min-width: 0;
+  grid-column: var(--jf-col, auto) / span var(--jf-span, 12);
+  grid-row: var(--jf-row, auto) / span var(--jf-row-span, 1);
+}
+.jf-grid--gap-none { gap: 0; }
+.jf-grid--gap-sm { gap: 0.75rem; }
+.jf-grid--gap-md { gap: 1.5rem; }
+.jf-grid--gap-lg { gap: 2.5rem; }
+.jf-grid--rows-sm { grid-auto-rows: minmax(4rem, auto); }
+.jf-grid--rows-md { grid-auto-rows: minmax(8rem, auto); }
+.jf-grid--rows-lg { grid-auto-rows: minmax(14rem, auto); }
+
+@media (max-width: 900px) {
+  /* Explicit columns stop being useful before the layout gets narrow enough to
+     stack. Nothing goes below half width, and rows flow rather than being
+     pinned to a track that no longer matches the new spans. */
+  .jf-grid > * {
+    grid-column: auto / span var(--jf-span-t, 12);
+    grid-row: auto;
+  }
+}
+
 /* ── Hero ── */
 .jf-hero {
   padding: clamp(4rem, 10vw, 6.5rem) 1.5rem;
@@ -371,6 +550,31 @@ hr {
 .jf-hero[style*="background-image"] .jf-hero__sub { color: rgba(255, 255, 255, 0.88); }
 
 .jf-hero__btn { margin-top: 0.25rem; }
+
+/* ── Link list ── */
+.jf-link-list__heading {
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.jf-link-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.jf-link-list__link {
+  color: var(--color-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.jf-link-list__link:hover { color: var(--color-text); text-decoration: underline; }
 
 /* ── Features ── */
 .jf-features { padding: clamp(3rem, 6vw, 4.5rem) 0; }
@@ -543,6 +747,101 @@ hr {
 .jf-lightbox__close { top: 1rem; right: 1rem; }
 .jf-lightbox__prev { left: 0.75rem; top: 50%; transform: translateY(-50%); }
 .jf-lightbox__next { right: 0.75rem; top: 50%; transform: translateY(-50%); }
+
+.jf-gallery__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-border, #cbd5e1);
+}
+
+/* Carousel: a scroll-snap track. Dragging or a two-finger swipe moves it, and
+   each dot is a plain fragment link to a slide's own id — the browser scrolls
+   it into view natively, no script required. */
+.jf-gallery--carousel { margin: 1rem 0; }
+.jf-carousel__track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  gap: 0.75rem;
+  border-radius: var(--radius-sm);
+  -webkit-overflow-scrolling: touch;
+}
+.jf-carousel__track .jf-gallery__item {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  margin: 0;
+}
+.jf-carousel__track .jf-gallery__item img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.jf-carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+/* Slideshow: every slide is stacked in the same box; only one is opaque at a
+   time. The first slide is opaque by default, and a dot link makes its slide
+   the CSS `:target`, which — placed after the default rule — wins the fade. */
+.jf-gallery--slideshow { margin: 1rem 0; }
+.jf-slideshow__stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+.jf-slideshow__stage .jf-gallery__item {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  z-index: 0;
+  transition: opacity 0.5s ease;
+}
+.jf-slideshow__stage .jf-gallery__item:first-of-type { opacity: 1; z-index: 1; }
+.jf-slideshow__stage .jf-gallery__item:target { opacity: 1; z-index: 2; }
+.jf-slideshow__stage .jf-gallery__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.jf-slideshow__stage .jf-gallery__caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  background: linear-gradient(0deg, rgba(15, 23, 42, 0.65), transparent);
+  color: #fff;
+}
+.jf-slideshow__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+/* List: full-width stacked rows — a single large image per item, caption
+   underneath. */
+.jf-gallery--list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.jf-gallery--list .jf-gallery__item { margin: 0; }
+.jf-gallery--list .jf-gallery__item img {
+  width: 100%;
+  max-height: 32rem;
+  object-fit: cover;
+}
 
 /* ── CTA ── */
 .jf-cta { padding: clamp(3rem, 6vw, 4.5rem) 1.5rem; text-align: center; }
@@ -830,8 +1129,13 @@ hr {
 }
 
 @media (max-width: 640px) {
+  /* Per-block spacing is written in scale steps, so lowering the unit pulls
+     every one of them in at once instead of needing a mobile value each. */
+  :root { --space-unit: calc(var(--space-unit-base, 8px) * 0.7); }
   .site-header-inner { height: auto; min-height: 64px; padding: 0.75rem 1rem; flex-wrap: wrap; }
   .jf-columns--2, .jf-columns--3, .jf-columns--4 { grid-template-columns: 1fr; }
+  .jf-grid > * { grid-column: 1 / -1; grid-row: auto; }
+  .jf-grid--rows-sm, .jf-grid--rows-md, .jf-grid--rows-lg { grid-auto-rows: auto; }
   .jf-features__grid--2, .jf-features__grid--3, .jf-features__grid--4 { grid-template-columns: 1fr; }
   .jf-stats { grid-template-columns: 1fr 1fr; }
   h1 { font-size: 1.75rem; }
@@ -843,4 +1147,92 @@ hr {
   .jf-gallery--masonry.jf-gallery--cols-4,
   .jf-gallery--masonry.jf-gallery--cols-5,
   .jf-gallery--masonry.jf-gallery--cols-6 { column-count: 2; }
+}
+
+/* ── Site widgets ── */
+.jf-site-widget {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.jf-site-widget--left { justify-content: flex-start; }
+.jf-site-widget--center { justify-content: center; }
+.jf-site-widget--right { justify-content: flex-end; }
+
+.jf-color-scheme {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.jf-color-scheme__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jf-color-scheme__btn:hover,
+.jf-color-scheme__btn:focus-visible {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.jf-color-scheme__btn[aria-pressed="true"] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.jf-color-scheme--icons .jf-color-scheme__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.jf-language-switcher,
+.jf-auth-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.jf-language-switcher__link,
+.jf-auth-links--links a {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--color-muted);
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+}
+
+.jf-language-switcher__link:hover,
+.jf-auth-links--links a:hover {
+  color: var(--color-primary);
+}
+
+.jf-language-switcher__link.is-current {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.site-header .jf-color-scheme,
+.site-header .jf-auth-links,
+.site-header .jf-language-switcher {
+  margin-left: 0.5rem;
 }

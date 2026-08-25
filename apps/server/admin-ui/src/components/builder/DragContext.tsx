@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from "react";
 import type { BlockCatalogEntry, BlockNode } from "./types";
 import { createBlock } from "./block-defaults";
-import { insertBlock, moveBlockTo } from "./block-tree";
+import { extractBlock, findBlockPath, insertBlock, moveBlockTo } from "./block-tree";
 import { canDropBlockType, DND_BLOCK_TYPE } from "./dnd";
+import { HEADER_SELECTED_ID } from "../../lib/page-header";
 
 export interface DragPayload {
   type: string | null;
@@ -37,13 +38,23 @@ export function useBuilderDrag() {
 
 interface BuilderDragProviderProps {
   blocks: BlockNode[];
+  headerBlocks?: BlockNode[];
   catalog: Map<string, BlockCatalogEntry>;
   onChange: (blocks: BlockNode[]) => void;
+  onHeaderBlocksChange?: (blocks: BlockNode[]) => void;
   onSelect: (id: string | null) => void;
   children: ReactNode;
 }
 
-export function BuilderDragProvider({ blocks, catalog, onChange, onSelect, children }: BuilderDragProviderProps) {
+export function BuilderDragProvider({
+  blocks,
+  headerBlocks = [],
+  catalog,
+  onChange,
+  onHeaderBlocksChange,
+  onSelect,
+  children,
+}: BuilderDragProviderProps) {
   const payloadRef = useRef<DragPayload>({ type: null, blockId: null });
   const dropTargetRef = useRef<DropTarget | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -85,25 +96,57 @@ export function BuilderDragProvider({ blocks, catalog, onChange, onSelect, child
     setActiveDropTarget(target);
   }, []);
 
+  const isHeaderTarget = useCallback(
+    (parentId: string | null) => {
+      if (parentId === HEADER_SELECTED_ID) return true;
+      return Boolean(parentId && findBlockPath(headerBlocks, parentId));
+    },
+    [headerBlocks],
+  );
+
+  const destParentId = (parentId: string | null) =>
+    parentId === HEADER_SELECTED_ID ? null : parentId;
+
   const commitPointerMove = useCallback(() => {
     const payload = payloadRef.current;
     const target = dropTargetRef.current;
 
     if (payload.blockId && target) {
-      const node = findBlock(blocks, payload.blockId);
+      const fromHeader = Boolean(findBlockPath(headerBlocks, payload.blockId));
+      const node = fromHeader
+        ? findBlock(headerBlocks, payload.blockId)
+        : findBlock(blocks, payload.blockId);
+      const toHeader = isHeaderTarget(target.parentId);
       if (
         node &&
         canDropBlockType(target.parentType, node.type, catalog) &&
         payload.blockId !== target.parentId &&
-        !(target.parentId && isDescendant(node, target.parentId))
+        !(target.parentId && target.parentId !== HEADER_SELECTED_ID && isDescendant(node, target.parentId))
       ) {
-        onChange(moveBlockTo(blocks, payload.blockId, target.parentId, target.index));
+        const destParent = destParentId(target.parentId);
+        if (fromHeader && toHeader && onHeaderBlocksChange) {
+          onHeaderBlocksChange(moveBlockTo(headerBlocks, payload.blockId, destParent, target.index));
+        } else if (!fromHeader && !toHeader) {
+          onChange(moveBlockTo(blocks, payload.blockId, destParent, target.index));
+        } else if (fromHeader && !toHeader && onHeaderBlocksChange) {
+          const extracted = extractBlock(headerBlocks, payload.blockId);
+          if (extracted) {
+            onHeaderBlocksChange(extracted.blocks);
+            onChange(insertBlock(blocks, destParent, target.index, extracted.node));
+          }
+        } else if (!fromHeader && toHeader && onHeaderBlocksChange) {
+          const extracted = extractBlock(blocks, payload.blockId);
+          if (extracted) {
+            onChange(extracted.blocks);
+            onHeaderBlocksChange(insertBlock(headerBlocks, destParent, target.index, extracted.node));
+          }
+        }
         onSelect(payload.blockId);
       }
     }
 
     reset();
-  }, [blocks, catalog, onChange, onSelect, reset]);
+  }, [blocks, headerBlocks, catalog, isHeaderTarget, onChange, onHeaderBlocksChange, onSelect, reset]);
 
   const handleLibraryDrop = useCallback(
     (parentId: string | null, parentType: string | null, index: number, e: React.DragEvent): boolean => {
@@ -115,12 +158,17 @@ export function BuilderDragProvider({ blocks, catalog, onChange, onSelect, child
       if (!canDropBlockType(parentType, type, catalog)) return false;
 
       const block = createBlock(type);
-      onChange(insertBlock(blocks, parentId, index, block));
+      if (isHeaderTarget(parentId)) {
+        if (!onHeaderBlocksChange) return false;
+        onHeaderBlocksChange(insertBlock(headerBlocks, destParentId(parentId), index, block));
+      } else {
+        onChange(insertBlock(blocks, parentId, index, block));
+      }
       onSelect(block.id);
       reset();
       return true;
     },
-    [blocks, catalog, onChange, onSelect, reset],
+    [blocks, headerBlocks, catalog, isHeaderTarget, onChange, onHeaderBlocksChange, onSelect, reset],
   );
 
   return (

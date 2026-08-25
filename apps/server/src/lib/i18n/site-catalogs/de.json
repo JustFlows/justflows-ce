@@ -1,0 +1,17 @@
+{
+  "nav.home": "Startseite",
+  "nav.admin": "Admin",
+  "home.tagline_fallback": "Ihre Website läuft mit Justflows.",
+  "home.welcome": "Willkommen bei",
+  "home.description": "Gehen Sie zum Admin-Dashboard, um Ihren ersten Beitrag zu schreiben, Ihr Theme anzupassen und Ihre Website zu gestalten.",
+  "home.cta": "Zum Admin →",
+  "404.title": "Seite nicht gefunden",
+  "404.back": "Zur Startseite",
+  "footer.powered_by": "Powered by",
+  "auth.login": "Anmelden",
+  "auth.register": "Registrieren",
+  "color_scheme.light": "Hell",
+  "color_scheme.dark": "Dunkel",
+  "color_scheme.system": "Automatisch",
+  "language.label": "Sprache"
+}

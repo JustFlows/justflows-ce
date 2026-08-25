@@ -1365,6 +1365,95 @@ select.jf-input {
   color: var(--jf-text-2);
 }
 
+.jf-header-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--jf-border-strong, #cbd5e1);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+  box-sizing: border-box;
+}
+
+.jf-header-chrome:hover,
+.jf-header-chrome.is-selected {
+  border-style: solid;
+  border-color: var(--jf-primary, #3b82f6);
+}
+
+.jf-header-chrome.is-selected {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--jf-primary, #3b82f6) 20%, transparent);
+}
+
+.jf-header-chrome--center {
+  flex-direction: column;
+  text-align: center;
+}
+
+.jf-header-chrome--hidden {
+  justify-content: center;
+  color: var(--jf-text-2);
+  background: #f8fafc;
+}
+
+.jf-header-chrome__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+}
+
+.jf-header-chrome__logo {
+  height: 28px;
+  width: auto;
+}
+
+.jf-header-chrome__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  color: var(--jf-text-2);
+  font-size: 0.85rem;
+}
+
+.jf-header-chrome__empty {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.jf-header-chrome__widget {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.jf-header-chrome__blocks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.35rem;
+  flex: 1 1 8rem;
+  min-width: 8rem;
+  cursor: default;
+}
+
+.jf-header-chrome__blocks .jf-header-chrome {
+  margin: 0;
+}
+
 /* ---------------------------------------------------------- customizer --- */
 
 .jf-theme-builder__tabs {
@@ -1707,4 +1796,326 @@ input[type="range"] { width: 100%; accent-color: var(--jf-accent); }
   font-size: 0.75rem;
   line-height: 1.5;
   color: var(--jf-text-3);
+}
+
+.jf-anim-panel {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--jf-border);
+}
+.jf-anim-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.jf-anim-panel h3 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--jf-text-2);
+}
+.jf-anim-panel__hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--jf-text-3);
+  font-weight: 400;
+}
+.jf-anim-panel__replay {
+  border: 1px solid var(--jf-border-strong);
+  background: var(--jf-surface);
+  color: var(--jf-text);
+  border-radius: 5px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.jf-anim-panel__replay:hover {
+  background: var(--jf-surface-2);
+}
+.jf-anim-panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.75rem;
+}
+.jf-anim-panel__field select,
+.jf-anim-panel__field input[type="range"] {
+  font-weight: 500;
+}
+.jf-anim-panel__field select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+}
+.jf-anim-panel__range {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.jf-anim-panel__range input {
+  flex: 1;
+}
+.jf-anim-panel__range span {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--jf-text-2);
+  min-width: 3.2rem;
+}
+.jf-builder-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+.jf-builder-toolbar__btn {
+  border: 1px solid var(--jf-border-strong);
+  background: var(--jf-surface);
+  color: var(--jf-text);
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.jf-builder-toolbar__btn:hover:not([disabled]) {
+  background: var(--jf-surface-2);
+}
+.jf-builder-toolbar__btn[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+.jf-builder-toolbar__count {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--jf-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Block inspector panels: custom CSS and JSON ── */
+.jf-block-panel {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--jf-border);
+}
+.jf-block-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.jf-block-panel h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--jf-text-2);
+}
+.jf-block-panel__head h3 {
+  margin-bottom: 0;
+}
+.jf-block-panel__hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--jf-text-3);
+  font-weight: 400;
+}
+.jf-block-panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.75rem;
+}
+.jf-block-panel__field input,
+.jf-block-panel__field textarea,
+.jf-block-panel__field select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  color: var(--jf-text);
+}
+.jf-block-panel__field select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--jf-text-3) 50%), linear-gradient(135deg, var(--jf-text-3) 50%, transparent 50%);
+  background-position: calc(100% - 13px) calc(50% - 2px), calc(100% - 9px) calc(50% - 2px);
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  padding-right: 1.75rem;
+}
+.jf-block-panel__field input:focus-visible,
+.jf-block-panel__field textarea:focus-visible,
+.jf-block-panel__field select:focus-visible {
+  border-color: var(--jf-accent);
+  outline: 2px solid var(--jf-accent-soft);
+  outline-offset: 1px;
+}
+.jf-block-panel__code,
+.jf-block-panel textarea.jf-block-panel__code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  tab-size: 2;
+  /* The inspector column is ~280px. Wrapping keeps every line readable there;
+     hiding half of each line behind a horizontal scrollbar does not. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  resize: vertical;
+}
+.jf-block-panel > .jf-block-panel__code {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+}
+.jf-block-panel__error {
+  margin: -0.4rem 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #b91c1c;
+}
+.jf-block-panel__compiled {
+  margin: -0.4rem 0 0.5rem;
+  font-size: 0.75rem;
+  color: var(--jf-text-3);
+}
+.jf-block-panel__compiled summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.jf-block-panel__compiled pre {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.6rem;
+  background: var(--jf-surface-2);
+  border-radius: 5px;
+  overflow-x: auto;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--jf-text-2);
+}
+.jf-block-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.jf-block-panel__toggle {
+  border: 1px solid var(--jf-border-strong);
+  background: var(--jf-surface);
+  color: var(--jf-text);
+  border-radius: 5px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.jf-block-panel__toggle:hover {
+  background: var(--jf-surface-2);
+}
+.jf-block-panel__apply {
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 5px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.jf-block-panel__apply:hover {
+  background: #1d4ed8;
+}
+.jf-block-panel__ok {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #15803d;
+}
+
+/* Nothing selected: the panel is the inspector, not a footnote under one. */
+.jf-block-panel--page {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.jf-block-panel--page .jf-block-panel__code {
+  flex: 1;
+  min-height: 12rem;
+}
+.jf-block-panel__grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 0.6rem;
+}
+.jf-block-panel__field--inline {
+  margin-bottom: 0.6rem;
+}
+.jf-block-panel__field--inline input {
+  font-variant-numeric: tabular-nums;
+}
+
+.jf-block-panel__count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--jf-text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.jf-block-panel__warn {
+  margin: -0.4rem 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #b45309;
+}
+.jf-block-panel__apply[disabled],
+.jf-block-panel__toggle[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+.jf-block-panel__apply[disabled]:hover {
+  background: #2563eb;
+}
+.jf-block-panel__toggle[disabled]:hover {
+  background: var(--jf-surface);
+}
+
+.jf-anim-panel__check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.75rem;
 }

@@ -1,0 +1,90 @@
+{
+  "id": "contact",
+  "title": "Contact page",
+  "description": "Hero, contact details, and a message form. The form needs the Forms extension installed.",
+  "category": "pages",
+  "requiresBlockTypes": ["justflows.forms.form"],
+  "blocks": [
+    {
+      "id": "contact-hero",
+      "type": "core.hero",
+      "version": 1,
+      "props": {
+        "heading": "Get in touch",
+        "subheading": "Questions, feedback, or just want to say hello? Send us a message and we'll get back to you.",
+        "buttonLabel": "",
+        "buttonUrl": "",
+        "backgroundImage": "",
+        "align": "left"
+      }
+    },
+    {
+      "id": "contact-main",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "default", "padding": "lg", "align": "left" },
+      "children": [
+        {
+          "id": "contact-main-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "contact-cols",
+              "type": "core.columns",
+              "version": 1,
+              "props": { "columns": 2, "gap": "lg" },
+              "children": [
+                {
+                  "id": "contact-col-info",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "contact-h1",
+                      "type": "core.heading",
+                      "version": 1,
+                      "props": { "text": "Contact details", "level": 2 }
+                    },
+                    {
+                      "id": "contact-p1",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": {
+                        "text": "Reach us directly, or use the form and we'll reply by email — usually within a business day."
+                      }
+                    },
+                    {
+                      "id": "contact-info-html",
+                      "type": "core.html",
+                      "version": 1,
+                      "props": {
+                        "html": "<ul class=\"jf-contact-details\"><li>📧 <a href=\"mailto:hello@example.com\">hello@example.com</a></li><li>📞 <a href=\"tel:+10000000000\">+1 (000) 000-0000</a></li><li>📍 123 Example Street, Your City</li></ul>"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "contact-col-form",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "contact-form",
+                      "type": "justflows.forms.form",
+                      "version": 1,
+                      "props": { "formId": "contact" }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

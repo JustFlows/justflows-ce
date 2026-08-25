@@ -6,15 +6,18 @@ import { insertBlock, moveBlock, removeBlock } from "./block-tree";
 import DropZone from "./DropZone";
 import { useBuilderDrag } from "./DragContext";
 import { useBlockMoveHandle } from "./useBlockMoveHandle";
+import GridEditor from "./GridEditor";
+import { GRID_BLOCK_TYPE, gridColumns, nextRow } from "./grid";
+import { compactBlockPlacement, parseBlockPlacement } from "@justflows/blocks";
 
 const iconBtn: React.CSSProperties = {
-  background: "#f1f5f9",
+  background: "var(--jf-surface-3)",
   border: "none",
   borderRadius: 4,
   padding: "0.15rem 0.4rem",
   cursor: "pointer",
   fontSize: "0.75rem",
-  color: "#64748b",
+  color: "var(--jf-text-3)",
 };
 
 interface PageCanvasProps {
@@ -23,28 +26,58 @@ interface PageCanvasProps {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onChange: (blocks: BlockNode[]) => void;
+  rootParentId?: string | null;
+  rootParentType?: string | null;
+  compact?: boolean;
+  showEmptyState?: boolean;
+  showAddSlot?: boolean;
+  addLabel?: string;
+  emptyLabel?: string;
 }
 
-export function PageCanvas({ blocks, catalog, selectedId, onSelect, onChange }: PageCanvasProps) {
+export function PageCanvas({
+  blocks,
+  catalog,
+  selectedId,
+  onSelect,
+  onChange,
+  rootParentId = null,
+  rootParentType = null,
+  compact = false,
+  showEmptyState = true,
+  showAddSlot = true,
+  addLabel,
+  emptyLabel,
+}: PageCanvasProps) {
   const { dragging } = useBuilderDrag();
+  const inline = compact;
 
   return (
-    <div style={{ minHeight: blocks.length === 0 ? 320 : undefined }}>
-        {blocks.length === 0 && !dragging && (
-          <div style={{ padding: "3rem 2rem", textAlign: "center", border: "2px dashed #cbd5e1", borderRadius: 10, color: "#94a3b8", marginBottom: "0.75rem" }}>
+    <div style={{ minHeight: !compact && blocks.length === 0 ? 320 : undefined, width: compact ? "100%" : undefined }}>
+        {blocks.length === 0 && showEmptyState && !dragging && (
+          <div style={{ padding: "3rem 2rem", textAlign: "center", border: "2px dashed var(--jf-border-strong)", borderRadius: 10, color: "var(--jf-text-3)", marginBottom: "0.75rem" }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem", opacity: 0.5 }}>▭</div>
             <p style={{ margin: 0, fontSize: "0.9rem" }}>Drag a section or hero here</p>
             <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem" }}>Or pick from the library on the left</p>
           </div>
         )}
 
-        {blocks.length === 0 && dragging && (
-          <DropZone parentId={null} parentType={null} index={0} catalog={catalog} label="Drop section here" />
+        {blocks.length === 0 && (dragging || compact) && (
+          <DropZone
+            parentId={rootParentId}
+            parentType={rootParentType}
+            index={0}
+            catalog={catalog}
+            label={emptyLabel ?? "Drop section here"}
+            alwaysShow={compact}
+            compact={compact}
+            inline={inline}
+          />
         )}
 
         {blocks.map((block, i) => (
           <div key={block.id}>
-            <DropZone parentId={null} parentType={null} index={i} catalog={catalog} compact />
+            <DropZone parentId={rootParentId} parentType={rootParentType} index={i} catalog={catalog} compact inline={inline} />
             <BlockRow
               block={block}
               blocks={blocks}
@@ -60,19 +93,21 @@ export function PageCanvas({ blocks, catalog, selectedId, onSelect, onChange }: 
         ))}
 
         {blocks.length > 0 && (
-          <DropZone parentId={null} parentType={null} index={blocks.length} catalog={catalog} compact label="Drop at end" />
+          <DropZone parentId={rootParentId} parentType={rootParentType} index={blocks.length} catalog={catalog} compact inline={inline} label="Drop at end" />
         )}
 
-        <AddBlockSlot
-          label="+ Add section"
-          onPick={(type) => {
-            const block = createBlock(type);
-            onChange([...blocks, block]);
-            onSelect(block.id);
-          }}
-          catalog={catalog}
-          parentType={null}
-        />
+        {showAddSlot && (
+          <AddBlockSlot
+            label={addLabel ?? "+ Add section"}
+            onPick={(type) => {
+              const block = createBlock(type);
+              onChange([...blocks, block]);
+              onSelect(block.id);
+            }}
+            catalog={catalog}
+            parentType={rootParentType}
+          />
+        )}
     </div>
   );
 }
@@ -135,9 +170,9 @@ function BlockRow({
     <div
       style={{
         marginBottom: depth === 0 ? "0.75rem" : "0.4rem",
-        border: `2px solid ${isSelected ? "#3b82f6" : "transparent"}`,
+        border: `2px solid ${isSelected ? "var(--jf-accent)" : "transparent"}`,
         borderRadius: depth === 0 ? 10 : 6,
-        background: isSelected ? "#f8fbff" : "transparent",
+        background: isSelected ? "var(--jf-accent-soft)" : "transparent",
         opacity: isBeingMoved ? 0.45 : 1,
         transition: "border-color .12s, opacity .12s",
       }}
@@ -159,17 +194,17 @@ function BlockRow({
         <span
           title="Drag to move"
           aria-hidden="true"
-          style={{ color: "#94a3b8", fontSize: "0.85rem", padding: "0 0.15rem", userSelect: "none", flexShrink: 0 }}
+          style={{ color: "var(--jf-text-3)", fontSize: "0.85rem", padding: "0 0.15rem", userSelect: "none", flexShrink: 0 }}
         >
           ⠿
         </span>
-        <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--jf-text-3)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
           {meta?.icon} {meta?.title ?? block.type}
         </span>
         <div style={{ marginLeft: "auto", display: "flex", gap: "0.2rem" }} onClick={(e) => e.stopPropagation()}>
           <button type="button" aria-label="Move block up" onClick={() => move(-1)} disabled={index === 0} style={iconBtn}>↑</button>
           <button type="button" aria-label="Move block down" onClick={() => move(1)} disabled={index === total - 1} style={iconBtn}>↓</button>
-          <button type="button" aria-label="Remove block" onClick={remove} style={{ ...iconBtn, color: "#dc2626" }}>✕</button>
+          <button type="button" aria-label="Remove block" onClick={remove} style={{ ...iconBtn, color: "var(--jf-danger)" }}>✕</button>
         </div>
       </div>
 
@@ -181,50 +216,98 @@ function BlockRow({
           onSelect={onSelect}
           renderChildren={
             hasChildren
-              ? (_childList, childDepth) => (
-                  <div style={{ minHeight: children.length === 0 ? 56 : undefined }}>
-                    {children.length === 0 && (
-                      <DropZone
-                        parentId={block.id}
-                        parentType={block.type}
-                        index={0}
-                        catalog={catalog}
-                        label="Drop blocks here"
-                      />
-                    )}
-                      {children.map((child, ci) => (
-                        <div key={child.id}>
-                          <DropZone parentId={block.id} parentType={block.type} index={ci} catalog={catalog} compact />
-                          <BlockRow
-                            block={child}
-                            blocks={blocks}
-                            catalog={catalog}
-                            selectedId={selectedId}
-                            onSelect={onSelect}
-                            onRootChange={onRootChange}
-                            index={ci}
-                            total={children.length}
-                            depth={childDepth}
-                            parentBlocks={children}
-                            onParentChange={updateChildren}
-                            parentType={block.type}
-                          />
-                        </div>
-                      ))}
+              ? (_childList, childDepth) => {
+                  const isColumns = block.type === "core.columns";
+                  const isGrid = block.type === GRID_BLOCK_TYPE;
+
+                  const childRow = (child: BlockNode, ci: number) => (
+                    <BlockRow
+                      block={child}
+                      blocks={blocks}
+                      catalog={catalog}
+                      selectedId={selectedId}
+                      onSelect={onSelect}
+                      onRootChange={onRootChange}
+                      index={ci}
+                      total={children.length}
+                      depth={childDepth}
+                      parentBlocks={children}
+                      onParentChange={updateChildren}
+                      parentType={block.type}
+                    />
+                  );
+
+                  if (isGrid) {
+                    const columns = gridColumns(block);
+                    return (
+                      <div>
+                        <GridEditor
+                          block={block}
+                          children={children}
+                          onChildrenChange={updateChildren}
+                          onSelect={onSelect}
+                          selectedId={selectedId}
+                          renderChild={childRow}
+                        />
+                        <AddBlockSlot
+                          label="+ Add block"
+                          onPick={(type) => {
+                            const created = createBlock(type);
+                            const placement = parseBlockPlacement(
+                              { col: 1, span: columns, row: nextRow(children, columns) },
+                              columns,
+                            );
+                            const layout = compactBlockPlacement(placement, columns);
+                            updateChildren([
+                              ...children,
+                              layout ? { ...created, props: { ...created.props, layout } } : created,
+                            ]);
+                            onSelect(created.id);
+                          }}
+                          catalog={catalog}
+                          parentType={block.type}
+                        />
+                      </div>
+                    );
+                  }
+
+                  const items = children.map((child, ci) => (
+                    <div key={child.id} style={isColumns ? { minWidth: 0 } : undefined}>
+                      {!isColumns && (
+                        <DropZone parentId={block.id} parentType={block.type} index={ci} catalog={catalog} compact />
+                      )}
+                      {childRow(child, ci)}
+                    </div>
+                  ));
+
+                  if (isColumns) return <>{items}</>;
+
+                  return (
+                    <div style={{ minHeight: children.length === 0 ? 56 : undefined }}>
+                      {children.length === 0 && (
+                        <DropZone
+                          parentId={block.id}
+                          parentType={block.type}
+                          index={0}
+                          catalog={catalog}
+                          label="Drop content here"
+                          alwaysShow
+                        />
+                      )}
+                      {items}
                       {children.length > 0 && (
                         <DropZone parentId={block.id} parentType={block.type} index={children.length} catalog={catalog} compact />
                       )}
-                      {block.type !== "core.columns" && (
-                        <AddBlockSlot
-                          label="+ Add block"
-                          onPick={(type) => onRootChange(insertBlock(blocks, block.id, children.length, createBlock(type)))}
-                          catalog={catalog}
-                          parentType={block.type}
-                          allowedChildTypes={meta?.allowedChildTypes}
-                        />
-                      )}
+                      <AddBlockSlot
+                        label="+ Add block"
+                        onPick={(type) => onRootChange(insertBlock(blocks, block.id, children.length, createBlock(type)))}
+                        catalog={catalog}
+                        parentType={block.type}
+                        allowedChildTypes={meta?.allowedChildTypes}
+                      />
                     </div>
-                )
+                  );
+                }
               : undefined
           }
         />
@@ -268,10 +351,10 @@ function AddBlockSlot({
         style={{
           width: "100%",
           padding: "0.45rem",
-          border: "1px dashed #cbd5e1",
+          border: "1px dashed var(--jf-border-strong)",
           borderRadius: 6,
-          background: "#fafbfc",
-          color: "#64748b",
+          background: "var(--jf-surface-2)",
+          color: "var(--jf-text-3)",
           fontSize: "0.75rem",
           fontWeight: 600,
           cursor: "pointer",
@@ -287,7 +370,7 @@ function AddBlockSlot({
           right: 0,
           zIndex: 40,
           background: "#fff",
-          border: "1px solid #e2e8f0",
+          border: "1px solid var(--jf-border)",
           borderRadius: 8,
           boxShadow: "0 8px 24px rgba(0,0,0,.1)",
           padding: "0.4rem",

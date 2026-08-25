@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   defaultModsFromSchema,
   getEffectiveThemeCss,
+  getNavigationMenuSlugs,
   getSiteIdentity,
   getThemeMods,
   mergeMods,
@@ -32,8 +33,10 @@ router.get("/identity", async (req, res) => {
 
     const identity = await getSiteIdentity(mods, { preview });
     const general = await getGeneralSettings(siteId);
+    const nav = getNavigationMenuSlugs(mods);
     res.json({
       ...identity,
+      headerMenu: nav.header ?? "primary",
       timezone: general.timezone,
       dateFormat: general.dateFormat,
       timeFormat: general.timeFormat,

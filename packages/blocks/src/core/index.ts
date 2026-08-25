@@ -1,6 +1,8 @@
 import type { BlockDefinition } from "../registry/block-registry.js";
 import { sanitizeHtmlBlock, sanitizeRichText } from "../sanitize.js";
 import { esc, safeHref, safeMediaSrc } from "../safe-url.js";
+import { siteWidgetBlocks } from "./site-widgets.js";
+import { GRID_DEFAULT_COLUMNS, GRID_MAX_COLUMNS, GRID_MIN_COLUMNS } from "../layout.js";
 
 function str(raw: unknown, fallback = ""): string {
   return typeof raw === "string" ? raw : fallback;
@@ -9,6 +11,10 @@ function str(raw: unknown, fallback = ""): string {
 function num(raw: unknown, fallback: number): number {
   const n = Number(raw);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function dimension(raw: unknown): number {
+  return Math.min(10000, Math.max(0, Math.round(num(raw, 0))));
 }
 
 export const coreBlocks: BlockDefinition[] = [
@@ -51,14 +57,29 @@ export const coreBlocks: BlockDefinition[] = [
       src: { type: "media", required: true },
       alt: { type: "text" },
       caption: { type: "text" },
+      width: { type: "number" },
+      height: { type: "number" },
+      objectFit: { type: "select", options: ["contain", "cover", "fill"] },
     },
     validateProps: (raw) => {
       const r = raw as Record<string, unknown>;
-      return { src: str(r["src"]), alt: str(r["alt"]), caption: str(r["caption"]) };
+      const objectFit = ["contain", "cover", "fill"].includes(str(r["objectFit"])) ? str(r["objectFit"]) : "contain";
+      return {
+        src: str(r["src"]), alt: str(r["alt"]), caption: str(r["caption"]),
+        width: dimension(r["width"]), height: dimension(r["height"]), objectFit,
+      };
     },
     render: (props) => {
-      const { src, alt, caption } = props as { src: string; alt: string; caption: string };
-      const img = `<img src="${safeMediaSrc(src)}" alt="${esc(alt)}" loading="lazy">`;
+      const { src, alt, caption, width, height, objectFit } = props as {
+        src: string; alt: string; caption: string; width: number; height: number; objectFit: string;
+      };
+      const imageStyle = [
+        "display:block", "max-width:100%",
+        width > 0 ? `width:${width}px` : "",
+        height > 0 ? `height:${height}px` : "",
+        height > 0 ? `object-fit:${objectFit}` : "",
+      ].filter(Boolean).join(";");
+      const img = `<img src="${safeMediaSrc(src)}" alt="${esc(alt)}" loading="lazy" style="${imageStyle}">`;
       return caption ? `<figure>${img}<figcaption>${esc(caption)}</figcaption></figure>` : img;
     },
   },
@@ -104,6 +125,35 @@ export const coreBlocks: BlockDefinition[] = [
     render: (props) => {
       const { label, url, variant } = props as { label: string; url: string; variant: string };
       return `<a href="${safeHref(url)}" class="btn btn--${variant}">${esc(label)}</a>`;
+    },
+  },
+  {
+    type: "core.link-list",
+    version: 1,
+    title: "Link list",
+    icon: "🔗",
+    category: "content",
+    description: "A heading with a stack of plain-text links — footer columns, sitemaps, resource lists.",
+    schema: {
+      heading: { type: "text" },
+    },
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      const items = Array.isArray(r["items"]) ? r["items"] : [];
+      return {
+        heading: str(r["heading"]),
+        items: items
+          .filter((i): i is Record<string, unknown> => i !== null && typeof i === "object")
+          .map((i) => ({ label: str(i["label"]), url: str(i["url"]) }))
+          .filter((i) => i.label || i.url),
+      };
+    },
+    render: (props) => {
+      const { heading, items } = props as { heading: string; items: Array<{ label: string; url: string }> };
+      const links = items
+        .map((item) => `<li><a href="${safeHref(item.url)}" class="jf-link-list__link">${esc(item.label)}</a></li>`)
+        .join("");
+      return `<div class="jf-link-list">${heading ? `<h3 class="jf-link-list__heading">${esc(heading)}</h3>` : ""}<ul class="jf-link-list__items">${links}</ul></div>`;
     },
   },
   {
@@ -261,6 +311,49 @@ export const coreBlocks: BlockDefinition[] = [
     render: (_props, children = "") => `<div class="jf-column">${children}</div>`,
   },
   {
+    type: "core.grid",
+    version: 1,
+    title: "Grid",
+    description: "Place blocks anywhere on a column grid. Drag to move, drag an edge to resize.",
+    icon: "▦",
+    category: "layout",
+    schema: {
+      columns: { type: "number", default: GRID_DEFAULT_COLUMNS },
+      gap: { type: "select", options: ["none", "sm", "md", "lg"], default: "md" },
+      rowHeight: { type: "select", options: ["auto", "sm", "md", "lg"], default: "auto" },
+    },
+    supportsChildren: true,
+    validateProps: (raw) => {
+      const r = raw as Record<string, unknown>;
+      const gap = ["none", "sm", "md", "lg"].includes(str(r["gap"])) ? str(r["gap"]) : "md";
+      const rowHeight = ["auto", "sm", "md", "lg"].includes(str(r["rowHeight"])) ? str(r["rowHeight"]) : "auto";
+      return {
+        columns: Math.min(GRID_MAX_COLUMNS, Math.max(GRID_MIN_COLUMNS, num(r["columns"], GRID_DEFAULT_COLUMNS))),
+        gap,
+        rowHeight,
+      };
+    },
+    render: (props, children = "") => {
+      const { columns, gap, rowHeight } = props as { columns: number; gap: string; rowHeight: string };
+      // Children position themselves; the container only declares the tracks.
+      return `<div class="jf-grid jf-grid--gap-${gap} jf-grid--rows-${rowHeight}" style="--jf-grid-cols:${columns}">${children}</div>`;
+    },
+  },
+  {
+    type: "core.reusable",
+    version: 1,
+    title: "Reusable block",
+    description: "Shows a saved block. Editing the saved copy updates every page using it.",
+    icon: "♻",
+    category: "layout",
+    schema: {
+      ref: { type: "text", required: true },
+    },
+    validateProps: (raw) => ({ ref: str((raw as Record<string, unknown>)["ref"]) }),
+    // Reached only when the reference is missing or the resolver did not run.
+    render: () => `<!-- reusable block not found -->`,
+  },
+  {
     type: "core.hero",
     version: 1,
     title: "Hero",
@@ -383,4 +476,5 @@ export const coreBlocks: BlockDefinition[] = [
       return `<section class="jf-cta jf-cta--${variant}"><div class="jf-container jf-container--default"><h2 class="jf-cta__heading">${esc(heading)}</h2>${text ? `<p class="jf-cta__text">${esc(text)}</p>` : ""}${btn}</div></section>`;
     },
   },
+  ...siteWidgetBlocks,
 ];

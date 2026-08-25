@@ -156,6 +156,8 @@ export interface ThemePatternMeta {
   title: string;
   description?: string;
   category?: string;
+  /** Block types this pattern uses that come from a plugin rather than core. */
+  requiresBlockTypes?: string[];
 }
 
 export interface ThemePattern extends ThemePatternMeta {
@@ -188,6 +190,7 @@ export function listThemePatterns(themeId: string, installedPath?: string | null
       title: data.title ?? data.id,
       description: data.description,
       category: data.category ?? "pages",
+      requiresBlockTypes: Array.isArray(data.requiresBlockTypes) ? data.requiresBlockTypes : undefined,
     });
   }
   return results;
@@ -220,6 +223,15 @@ export function loadThemeDemoHome(themeId: string, installedPath?: string | null
   if (!dir) return null;
 
   const data = readJsonFile<{ blocks?: BlockNode[] }>(dir, "demo", "home.json");
+  if (!data?.blocks || !Array.isArray(data.blocks)) return null;
+  return data.blocks;
+}
+
+export function loadThemeDemoBlog(themeId: string, installedPath?: string | null): BlockNode[] | null {
+  const dir = resolveThemeDir(themeId, installedPath);
+  if (!dir) return null;
+
+  const data = readJsonFile<{ blocks?: BlockNode[] }>(dir, "demo", "blog.json");
   if (!data?.blocks || !Array.isArray(data.blocks)) return null;
   return data.blocks;
 }

@@ -3,6 +3,7 @@ import { loadThemeStyles } from "./theme-files.js";
 import { getActiveTheme, themeInstalledPath } from "./themes-db.js";
 import { sanitizeCustomCss } from "./safe-css.js";
 import { sanitizeFaviconUrl } from "./favicon.js";
+import { blockAnimationCss } from "@justflows/blocks";
 
 export type CustomizeControlType = "color" | "font" | "text" | "image" | "range" | "code" | "select";
 
@@ -12,6 +13,7 @@ export interface CustomizeControl {
   default: string | number;
   min?: number;
   max?: number;
+  step?: number;
   unit?: string;
   options?: { label: string; value: string }[];
   description?: string;
@@ -21,6 +23,21 @@ export interface CustomizeSection {
   label: string;
   controls: Record<string, CustomizeControl>;
 }
+
+export const SHADOW_PRESETS = [
+  { label: "None", value: "none" },
+  { label: "Soft", value: "0 1px 2px rgba(15,23,42,0.06)" },
+  { label: "Medium", value: "0 8px 24px rgba(15,23,42,0.08)" },
+  { label: "Strong", value: "0 18px 40px rgba(15,23,42,0.16)" },
+] as const;
+
+export const WEIGHT_PRESETS = [
+  { label: "Regular", value: "400" },
+  { label: "Medium", value: "500" },
+  { label: "Semibold", value: "600" },
+  { label: "Bold", value: "700" },
+  { label: "Extrabold", value: "800" },
+] as const;
 
 export const FONT_PRESETS = [
   { label: "System UI", value: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" },
@@ -52,6 +69,18 @@ export const THEME_CUSTOMIZE_SCHEMA: Record<string, CustomizeSection> = {
       "--color-border": { label: "Border", type: "color", default: "#e2e8f0" },
     },
   },
+  colorsDark: {
+    label: "Colors (dark mode)",
+    controls: {
+      "--color-primary": { label: "Primary", type: "color", default: "#60a5fa" },
+      "--color-primary-hover": { label: "Primary hover", type: "color", default: "#3b82f6" },
+      "--color-bg": { label: "Background", type: "color", default: "#0f172a" },
+      "--color-surface": { label: "Surface", type: "color", default: "#1e293b" },
+      "--color-text": { label: "Text", type: "color", default: "#f8fafc" },
+      "--color-muted": { label: "Muted text", type: "color", default: "#94a3b8" },
+      "--color-border": { label: "Border", type: "color", default: "#334155" },
+    },
+  },
   typography: {
     label: "Typography",
     controls: {
@@ -70,10 +99,58 @@ export const THEME_CUSTOMIZE_SCHEMA: Record<string, CustomizeSection> = {
       baseFontSize: { label: "Base font size", type: "range", default: 16, min: 14, max: 20, unit: "px" },
     },
   },
+  headings: {
+    label: "Headings",
+    controls: {
+      "--font-heading": {
+        label: "Heading font",
+        type: "font",
+        default: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        options: FONT_PRESETS,
+      },
+      "--heading-weight": { label: "Weight", type: "select", default: "700", options: [...WEIGHT_PRESETS] },
+      "--heading-line": { label: "Line height", type: "range", default: 1.15, min: 0.9, max: 1.8, step: 0.05, unit: "" },
+      "--heading-tracking": { label: "Letter spacing", type: "range", default: -0.02, min: -0.06, max: 0.1, step: 0.01, unit: "em" },
+      "--h1-size": { label: "H1 size", type: "range", default: 2.6, min: 1.4, max: 5, step: 0.1, unit: "rem" },
+      "--h2-size": { label: "H2 size", type: "range", default: 2, min: 1.2, max: 4, step: 0.1, unit: "rem" },
+      "--h3-size": { label: "H3 size", type: "range", default: 1.45, min: 1, max: 3, step: 0.05, unit: "rem" },
+    },
+  },
+  spacing: {
+    label: "Spacing",
+    controls: {
+      "--space-unit-base": {
+        label: "Spacing scale",
+        type: "range",
+        default: 8,
+        min: 4,
+        max: 14,
+        unit: "px",
+        description: "Every spacing step is a multiple of this. Raise it for an airier site.",
+      },
+      "--block-gap": { label: "Gap between blocks", type: "range", default: 1.5, min: 0, max: 5, step: 0.25, unit: "rem" },
+    },
+  },
+  radius: {
+    label: "Corners",
+    controls: {
+      "--radius-sm": { label: "Small", type: "range", default: 6, min: 0, max: 24, unit: "px" },
+      "--radius-md": { label: "Medium", type: "range", default: 10, min: 0, max: 32, unit: "px" },
+      "--radius-lg": { label: "Large", type: "range", default: 16, min: 0, max: 48, unit: "px" },
+    },
+  },
+  shadow: {
+    label: "Shadows",
+    controls: {
+      "--shadow-sm": { label: "Small", type: "select", default: "0 1px 2px rgba(15,23,42,0.06)", options: [...SHADOW_PRESETS] },
+      "--shadow-md": { label: "Medium", type: "select", default: "0 8px 24px rgba(15,23,42,0.08)", options: [...SHADOW_PRESETS] },
+    },
+  },
   layout: {
     label: "Layout",
     controls: {
       contentWidth: { label: "Content width", type: "range", default: 720, min: 560, max: 1200, unit: "px" },
+      "--max-width-wide": { label: "Wide width", type: "range", default: 1100, min: 800, max: 1600, unit: "px" },
     },
   },
   navigation: {
@@ -104,7 +181,12 @@ export const THEME_CUSTOMIZE_SCHEMA: Record<string, CustomizeSection> = {
 export interface ThemeMods {
   identity?: Record<string, string>;
   colors?: Record<string, string>;
+  colorsDark?: Record<string, string>;
   typography?: Record<string, string | number>;
+  headings?: Record<string, string | number>;
+  spacing?: Record<string, string | number>;
+  radius?: Record<string, string | number>;
+  shadow?: Record<string, string>;
   layout?: Record<string, string | number>;
   navigation?: Record<string, string>;
   advanced?: Record<string, string>;
@@ -122,6 +204,34 @@ export const DEFAULT_THEME_CSS_VARS: Record<string, string> = {
   "--font-mono": 'ui-monospace, "Cascadia Code", Consolas, monospace',
   "--max-width": "720px",
   "--max-width-wide": "1100px",
+  "--font-heading": "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+  "--heading-weight": "700",
+  "--heading-line": "1.15",
+  "--heading-tracking": "-0.02em",
+  "--h1-size": "2.6rem",
+  "--h2-size": "2rem",
+  "--h3-size": "1.45rem",
+  "--space-unit-base": "8px",
+  "--block-gap": "1.5rem",
+  "--radius-sm": "6px",
+  "--radius-md": "10px",
+  "--radius-lg": "16px",
+  "--shadow-sm": "0 1px 2px rgba(15,23,42,0.06)",
+  "--shadow-md": "0 8px 24px rgba(15,23,42,0.08)",
+};
+
+/**
+ * Tokens re-declared for dark mode. Only colours: sizes, fonts and widths are
+ * scheme-independent and stay inherited from `:root`.
+ */
+export const DEFAULT_THEME_DARK_CSS_VARS: Record<string, string> = {
+  "--color-primary": "#60a5fa",
+  "--color-primary-hover": "#3b82f6",
+  "--color-bg": "#0f172a",
+  "--color-surface": "#1e293b",
+  "--color-text": "#f8fafc",
+  "--color-muted": "#94a3b8",
+  "--color-border": "#334155",
 };
 
 function modsKey(themeId: string, draft = false): string {
@@ -207,7 +317,12 @@ export function mergeMods(base: ThemeMods, patch: ThemeMods): ThemeMods {
   const merged: ThemeMods = {
     identity: { ...base.identity, ...patch.identity },
     colors: { ...base.colors, ...patch.colors },
+    colorsDark: { ...base.colorsDark, ...patch.colorsDark },
     typography: { ...base.typography, ...patch.typography },
+    headings: { ...base.headings, ...patch.headings },
+    spacing: { ...base.spacing, ...patch.spacing },
+    radius: { ...base.radius, ...patch.radius },
+    shadow: { ...base.shadow, ...patch.shadow },
     layout: { ...base.layout, ...patch.layout },
     navigation: { ...base.navigation, ...patch.navigation },
     advanced: { ...base.advanced, ...patch.advanced },
@@ -221,26 +336,64 @@ export function mergeMods(base: ThemeMods, patch: ThemeMods): ThemeMods {
 }
 
 /** Convert user mods into CSS custom properties for :root. */
+/** Sections whose values are not `:root` tokens, or are emitted elsewhere. */
+const NON_TOKEN_SECTIONS = new Set(["identity", "colorsDark", "navigation", "advanced"]);
+
+/**
+ * Validate one control's value for use as a CSS custom property.
+ *
+ * Both the name and the value reach theme.css verbatim, so both are checked
+ * against what the control claims to be. A rejected entry falls back to the
+ * default rather than failing the request: one bad value should not take the
+ * whole stylesheet down. Returning `null` means "keep the default".
+ */
+function tokenValue(control: CustomizeControl, raw: unknown): string | null {
+  switch (control.type) {
+    case "color":
+      return typeof raw === "string" && isSafeCssColor(raw) ? raw.trim() : null;
+    case "font":
+      return typeof raw === "string" && isSafeCssFontStack(raw) ? raw.trim() : null;
+    case "range": {
+      if (raw == null || raw === "") return null;
+      const n = clampNumber(raw, Number(control.default ?? 0), control.min ?? -1e6, control.max ?? 1e6);
+      // Trim float noise from a step of 0.05 so the stylesheet stays readable.
+      return `${Math.round(n * 1000) / 1000}${control.unit ?? ""}`;
+    }
+    case "select": {
+      // An allowlist, so a preset such as a box-shadow can carry commas and
+      // parentheses that no general value grammar would safely admit.
+      if (typeof raw !== "string") return null;
+      const allowed = control.options?.some((option) => option.value === raw);
+      return allowed && !CSS_VALUE_FORBIDDEN.test(raw) ? raw : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * Convert user mods into CSS custom properties for `:root`.
+ *
+ * Driven by the schema rather than by a list of special cases, so a control
+ * added above becomes a token without touching this function.
+ */
 export function modsToCssVariables(
   themeVars: Record<string, string>,
   mods: ThemeMods,
 ): Record<string, string> {
   const vars = { ...DEFAULT_THEME_CSS_VARS, ...themeVars };
 
-  // Both the name and the value reach theme.css verbatim, so both are checked.
-  // A rejected entry falls back to the default rather than failing the request:
-  // a bad colour should not take the whole stylesheet down.
-  for (const [key, value] of Object.entries(mods.colors ?? {})) {
-    if (typeof value !== "string" || !value) continue;
-    if (!isSafeCssVariableName(key) || !isSafeCssColor(value)) continue;
-    vars[key] = value.trim();
-  }
-  for (const [key, value] of Object.entries(mods.typography ?? {})) {
-    if (typeof value !== "string" || !value) continue;
-    if (!isSafeCssVariableName(key) || !isSafeCssFontStack(value)) continue;
-    vars[key] = value.trim();
+  for (const [sectionKey, section] of Object.entries(THEME_CUSTOMIZE_SCHEMA)) {
+    if (NON_TOKEN_SECTIONS.has(sectionKey)) continue;
+    const values = (mods[sectionKey as keyof ThemeMods] ?? {}) as Record<string, unknown>;
+    for (const [controlKey, control] of Object.entries(section.controls)) {
+      if (!isSafeCssVariableName(controlKey)) continue;
+      const value = tokenValue(control, values[controlKey]);
+      if (value !== null) vars[controlKey] = value;
+    }
   }
 
+  // Two controls predate the token naming and are still stored under plain keys.
   const fontSize = THEME_CUSTOMIZE_SCHEMA.typography?.controls.baseFontSize;
   const width = THEME_CUSTOMIZE_SCHEMA.layout?.controls.contentWidth;
   if (mods.typography?.baseFontSize != null) {
@@ -263,21 +416,59 @@ export function modsToCssVariables(
   return vars;
 }
 
+/**
+ * Convert dark-mode mods into the custom properties re-declared under
+ * `prefers-color-scheme: dark` and `html[data-theme="dark"]`.
+ *
+ * Same validation as the light palette — both the name and the value reach
+ * theme.css verbatim, and a rejected entry falls back to the default rather
+ * than failing the request.
+ */
+export function modsToDarkCssVariables(
+  themeVars: Record<string, string>,
+  mods: ThemeMods,
+): Record<string, string> {
+  const vars = { ...DEFAULT_THEME_DARK_CSS_VARS, ...themeVars };
+
+  for (const [key, value] of Object.entries(mods.colorsDark ?? {})) {
+    if (typeof value !== "string" || !value) continue;
+    if (!isSafeCssVariableName(key) || !isSafeCssColor(value)) continue;
+    vars[key] = value.trim();
+  }
+
+  return vars;
+}
+
+/**
+ * Last gate before the stylesheet. modsToCssVariables already validates editor
+ * input; this also covers css_variables supplied by a theme package, which is
+ * looser on purpose (themes legitimately set shadows, gradients and spacing)
+ * but still may not close the declaration or open a new rule.
+ */
+function declarationBlock(vars: Record<string, string>, indent = "  "): string {
+  return Object.entries(vars)
+    .filter(([k, v]) => isSafeCssVariableName(k) && typeof v === "string" && !CSS_VALUE_FORBIDDEN.test(v))
+    .map(([k, v]) => `${indent}${k}: ${v.trim()};`)
+    .join("\n");
+}
+
 export function buildThemeStylesheet(
   vars: Record<string, string>,
   additionalCss = "",
+  darkVars?: Record<string, string>,
 ): string {
-  // Last gate before the stylesheet. modsToCssVariables already validates
-  // editor input; this also covers css_variables supplied by a theme package,
-  // which is looser on purpose (themes legitimately set shadows, gradients and
-  // spacing) but still may not close the declaration or open a new rule.
-  const declarations = Object.entries(vars)
-    .filter(([k, v]) => isSafeCssVariableName(k) && typeof v === "string" && !CSS_VALUE_FORBIDDEN.test(v))
-    .map(([k, v]) => `  ${k}: ${v.trim()};`)
-    .join("\n");
-
   const baseSize = vars["--base-font-size"] ?? "16px";
-  let css = `:root {\n${declarations}\n}\n\nhtml { font-size: ${baseSize}; }\n`;
+  let css = `:root {\n${declarationBlock(vars)}\n}\n\nhtml { font-size: ${baseSize}; }\n`;
+
+  if (darkVars && Object.keys(darkVars).length > 0) {
+    // Emitted twice on purpose. site-chrome.js stamps data-theme once it has
+    // read the stored preference, but a visitor without JavaScript never gets
+    // that attribute — the media query is what serves them the dark palette.
+    // The two selectors are mutually exclusive, so neither can shadow the
+    // other, and both outrank the `:root` block above on specificity.
+    css += `\n@media (prefers-color-scheme: dark) {\n  html:not([data-theme]) {\n    color-scheme: dark;\n${declarationBlock(darkVars, "    ")}\n  }\n}\n`;
+    css += `\nhtml[data-theme="dark"] {\n  color-scheme: dark;\n${declarationBlock(darkVars)}\n}\n`;
+  }
 
   if (additionalCss.trim()) {
     css += `\n/* Custom CSS */\n${additionalCss.trim()}\n`;
@@ -337,9 +528,11 @@ export async function getEffectiveThemeCss(preview = false): Promise<string> {
   const installedPath = themeInstalledPath(theme);
 
   if (!siteId) {
-    const base = buildThemeStylesheet(DEFAULT_THEME_CSS_VARS);
-    const themeStyles = loadThemeStyles(themeId, installedPath);
-    return themeStyles ? `${base}\n\n/* Theme styles */\n${themeStyles}` : base;
+    return assembleThemeCss(
+      loadThemeStyles(themeId, installedPath),
+      buildThemeStylesheet(DEFAULT_THEME_CSS_VARS, "", DEFAULT_THEME_DARK_CSS_VARS),
+      "",
+    );
   }
 
   const themeVars = theme?.css_variables ?? {};
@@ -350,11 +543,33 @@ export async function getEffectiveThemeCss(preview = false): Promise<string> {
 
   const mods = mergeMods(mergeMods(defaults, published), draft);
   const vars = modsToCssVariables(themeVars, mods);
+  const darkVars = modsToDarkCssVariables({}, mods);
   const additionalCss = sanitizeCustomCss(mods.advanced?.additionalCss ?? "");
 
-  const base = buildThemeStylesheet(vars, additionalCss);
-  const themeStyles = loadThemeStyles(themeId, installedPath);
-  return themeStyles ? `${base}\n\n/* Theme styles */\n${themeStyles}` : base;
+  return assembleThemeCss(
+    loadThemeStyles(themeId, installedPath),
+    buildThemeStylesheet(vars, "", darkVars),
+    additionalCss,
+  );
+}
+
+/**
+ * Order is the contract: everything here is one stylesheet, so a later rule
+ * beats an earlier one of equal specificity.
+ *
+ * 1. Theme styles — the design the theme author shipped.
+ * 2. Site tokens — Customizer colours must override the theme's own `:root`.
+ * 3. Block animations — platform defaults layered over the theme.
+ * 4. Additional CSS — the editor typed it last, so it wins last.
+ */
+export function assembleThemeCss(themeStyles: string, tokens: string, additionalCss: string): string {
+  const parts = [
+    themeStyles ? `/* Theme styles */\n${themeStyles}` : "",
+    tokens,
+    `/* Block animations */\n${blockAnimationCss()}`,
+    additionalCss.trim() ? `/* Custom CSS */\n${additionalCss.trim()}` : "",
+  ];
+  return `${parts.filter(Boolean).join("\n\n")}\n`;
 }
 
 export async function getSiteIdentity(

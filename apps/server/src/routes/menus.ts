@@ -10,7 +10,7 @@ import {
   type MenuItem,
 } from "../lib/menus-db.js";
 import { requireRole } from "../middleware/auth.js";
-import { MENU_WRITE_ROLES } from "../lib/rbac.js";
+import { CONTENT_READ_ROLES, MENU_WRITE_ROLES } from "../lib/rbac.js";
 import { param } from "../lib/params.js";
 import { assertAllowedNavUrl } from "../lib/nav-url.js";
 import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
@@ -52,7 +52,7 @@ function validateMenuItems(items: MenuItem[]): void {
   }
 }
 
-router.get("/", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
+router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     const menus = await listMenus(siteId);
@@ -62,7 +62,7 @@ router.get("/", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
   }
 });
 
-router.get("/:slug", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
+router.get("/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     const menu = await getMenuBySlug(siteId, param(req.params.slug));

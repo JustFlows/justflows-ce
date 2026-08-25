@@ -24,7 +24,7 @@ async function loadCatalog(locale: string): Promise<MessageCatalog> {
   const base = locale.split("-")[0] ?? locale;
   for (const code of [locale, base, "en"]) {
     try {
-      return (await import(`../lib/i18n/catalogs/${code}.json`, { with: { type: "json" } }))
+      return (await import(`../lib/i18n/site-catalogs/${code}.json`, { with: { type: "json" } }))
         .default as MessageCatalog;
     } catch {
       // try next

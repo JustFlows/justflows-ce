@@ -3,12 +3,18 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { CacheAdapter } from "./adapter.js";
 
-/** Readable, filesystem-safe stem for a key. Lossy by design — the hash disambiguates. */
-function filePrefix(key: string): string {
-  return key.replace(/[^a-z0-9_-]/gi, "_").slice(0, 120);
+function cacheFileName(key: string): string {
+  return `${createHash("sha256").update(key).digest("hex")}.json`;
+}
+
+function resolvePathUnderBase(base: string, name: string): string | null {
+  const resolvedBase = path.resolve(base);
+  const resolved = path.resolve(resolvedBase, name);
+  return path.dirname(resolved) === resolvedBase ? resolved : null;
 }
 
 interface Entry<T> {
+  key: string;
   value: T;
   expiresAt: number | null;
 }
@@ -20,17 +26,14 @@ export class FilesystemCache implements CacheAdapter {
   ) {}
 
   /**
-   * Filenames are `<readable-prefix>-<hash>.json`.
-   *
-   * The prefix keeps `invalidate()` able to match by namespace and keeps the
-   * directory browsable. The hash is what makes the name unique: the previous
-   * scheme replaced every character outside [a-z0-9_-] with "_" and truncated at
-   * 200, so "/foo-bar", "/foo.bar", and "/foo/bar" all wrote to the same file —
-   * and whichever page rendered first was served for all of them until the TTL
-   * expired.
+   * Filenames contain only a SHA-256 digest. The original key is stored inside
+   * the entry for namespace invalidation, so uncontrolled keys never become a
+   * filesystem path component.
    */
   private filePath(key: string): string {
-    return path.join(this.dir, `${filePrefix(key)}-${createHash("sha256").update(key).digest("hex").slice(0, 32)}.json`);
+    const resolved = resolvePathUnderBase(this.dir, cacheFileName(key));
+    if (!resolved) throw new Error("Invalid cache path");
+    return resolved;
   }
 
   async get<T = unknown>(key: string): Promise<T | undefined> {
@@ -51,6 +54,7 @@ export class FilesystemCache implements CacheAdapter {
     await fs.mkdir(this.dir, { recursive: true });
     const ttl = ttlSeconds ?? this.defaultTtlSeconds;
     const entry: Entry<T> = {
+      key,
       value,
       expiresAt: ttl > 0 ? Date.now() + ttl * 1000 : null,
     };
@@ -64,11 +68,18 @@ export class FilesystemCache implements CacheAdapter {
   async invalidate(prefix: string): Promise<void> {
     try {
       const entries = await fs.readdir(this.dir);
-      const safe = filePrefix(prefix);
       for (const name of entries) {
-        if (name.startsWith(safe)) {
-          await fs.unlink(path.join(this.dir, name)).catch(() => null);
+        const file = resolvePathUnderBase(this.dir, name);
+        if (!file || !name.endsWith(".json")) continue;
+        const raw = await fs.readFile(file, "utf-8").catch(() => "");
+        if (!raw) continue;
+        let entry: Partial<Entry<unknown>>;
+        try {
+          entry = JSON.parse(raw) as Partial<Entry<unknown>>;
+        } catch {
+          continue;
         }
+        if (typeof entry.key === "string" && entry.key.startsWith(prefix)) await fs.unlink(file).catch(() => null);
       }
     } catch {
       // dir doesn't exist
@@ -80,7 +91,8 @@ export class FilesystemCache implements CacheAdapter {
       const entries = await fs.readdir(this.dir);
       for (const name of entries) {
         if (name.endsWith(".json")) {
-          await fs.unlink(path.join(this.dir, name)).catch(() => null);
+          const file = resolvePathUnderBase(this.dir, name);
+          if (file) await fs.unlink(file).catch(() => null);
         }
       }
     } catch {

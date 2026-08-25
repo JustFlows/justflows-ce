@@ -11,7 +11,9 @@ import {
 } from "../lib/datetime-format.js";
 import { getGeneralSettings } from "../lib/general-settings.js";
 import { getDefaultLocale, listLanguages, setDefaultLanguageByCode } from "../lib/i18n/languages-db.js";
-import { USER_ROLE_VALUES } from "../lib/rbac.js";
+import { THEME_CUSTOMIZE_ROLES, USER_ROLE_VALUES } from "../lib/rbac.js";
+import { getHomePageId, setHomePageId } from "../lib/home-page.js";
+import { getBlogPageId, setBlogPageId } from "../lib/blog-page.js";
 import {
   getMailConfig,
   saveMailConfig,
@@ -72,6 +74,8 @@ const SESSION_READABLE_KEYS = new Set([
   "time_format",
   "start_of_week",
   "favicon_url",
+  "home_page_id",
+  "blog_page_id",
 ]);
 
 router.get("/", requireSession, async (req, res) => {
@@ -99,6 +103,7 @@ router.get("/", requireSession, async (req, res) => {
     const mail = toPublicMailSettings(await getMailConfig());
     const languages = await listLanguages();
     const siteLanguage = await getDefaultLocale();
+    const siteId = await getSiteId();
     const now = new Date();
     const timezone = general.timezone;
 
@@ -138,6 +143,8 @@ router.get("/", requireSession, async (req, res) => {
       smtp_user: mail.smtpUser,
       smtp_pass_set: mail.smtpPassSet,
       favicon_url: await resolveFaviconUrl(),
+      home_page_id: siteId ? await getHomePageId(siteId) : null,
+      blog_page_id: siteId ? await getBlogPageId(siteId) : null,
     };
 
     if (isAdmin) {
@@ -251,6 +258,56 @@ router.post("/", requireRole("administrator"), async (req, res) => {
       return;
     }
     res.status(500).json({ error: String(e) });
+  }
+});
+
+const HomePageSchema = z.object({
+  contentId: z.string().uuid().nullable(),
+});
+
+router.put("/home-page", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) {
+      res.status(503).json({ error: "No site found" });
+      return;
+    }
+    const body = HomePageSchema.parse(req.body);
+    const homePageId = await setHomePageId(siteId, body.contentId);
+    res.json({ ok: true, homePageId });
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      res.status(400).json({ error: e.issues[0]?.message ?? "Invalid home page" });
+      return;
+    }
+    const message = e instanceof Error ? e.message : String(e);
+    const status = message === "Page not found" || message === "Home must be a page" ? 400 : 500;
+    res.status(status).json({ error: message });
+  }
+});
+
+const BlogPageSchema = z.object({
+  contentId: z.string().uuid().nullable(),
+});
+
+router.put("/blog-page", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) {
+      res.status(503).json({ error: "No site found" });
+      return;
+    }
+    const body = BlogPageSchema.parse(req.body);
+    const blogPageId = await setBlogPageId(siteId, body.contentId);
+    res.json({ ok: true, blogPageId });
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      res.status(400).json({ error: e.issues[0]?.message ?? "Invalid blog page" });
+      return;
+    }
+    const message = e instanceof Error ? e.message : String(e);
+    const status = message === "Page not found" || message === "Blog page must be a page" ? 400 : 500;
+    res.status(status).json({ error: message });
   }
 });
 

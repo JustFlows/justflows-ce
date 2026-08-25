@@ -93,6 +93,7 @@ Use `feature/` for new work, `fix/` for bug fixes, and `hotfix/` only for produc
 - Keep CMS core packages free of Express/React/EJS imports (see architecture docs)
 - Add `// SPDX-License-Identifier: MIT` to new core source files
 - Run tests and typecheck before opening a PR
+- Name and place new files and folders per [docs/CONVENTIONS.md](docs/CONVENTIONS.md); update it in the same PR if you introduce a pattern it doesn't cover
 
 ## Local verification
 

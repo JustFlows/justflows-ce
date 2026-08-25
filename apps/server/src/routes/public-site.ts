@@ -12,7 +12,8 @@ import {
   resolveContentLocale,
 } from "../lib/i18n/languages-db.js";
 import { localePath } from "../lib/i18n/locales.js";
-import { formatContentDate } from "../lib/general-settings.js";
+import { formatContentDate, getGeneralSettings } from "../lib/general-settings.js";
+import { hydrateSiteWidgets } from "../lib/site-widgets.js";
 import { createTranslator, type MessageCatalog } from "../lib/i18n/translate.js";
 import {
   defaultModsFromSchema,
@@ -23,6 +24,8 @@ import {
 } from "../lib/theme-customize.js";
 import { getNavItemsForMenuSlug } from "../lib/menus-db.js";
 import { getEffectiveHomeBlocks } from "../lib/theme-home-blocks.js";
+import { getHomeContent, isHomeContentSlug } from "../lib/home-page.js";
+import { headerBrandFlags, headerFromContentFields, resolveHeaderMenuSlug, type PageHeaderConfig } from "../lib/page-header.js";
 import { ensureCssProvidersTable, getActiveCssProvider } from "../lib/css-providers-db.js";
 import { resolveProviderAssets } from "../lib/css-providers-files.js";
 import { ensureThemesTable, getActiveTheme, getSiteId } from "../lib/themes-db.js";
@@ -54,13 +57,22 @@ import {
 import { getJfCache } from "../lib/jf-cache.js";
 import { getRuntimeBlockRegistry } from "../lib/runtime-blocks.js";
 import type { BlockNode } from "../lib/types.js";
+import { withBlockChrome } from "@justflows/blocks";
 import { FORMS_BLOCK_TYPE, renderFormBlockHtml } from "../lib/forms-public.js";
-import { isGalleryPluginEnabled, registerGalleryBlock } from "../lib/gallery-public.js";
+import { isGalleryPluginEnabled, registerGalleryBlock, unregisterGalleryBlock } from "../lib/gallery-public.js";
+import {
+  BLOG_POST_LIST_BLOCK_TYPE,
+  registerBlogPostListBlock,
+  renderBlogPostListBlockHtml,
+  type BlogPostListRenderContext,
+} from "../lib/blog-public.js";
+import { getSiteSetting } from "../lib/site-settings.js";
 import { buildFaviconHeadHtml } from "../lib/favicon.js";
 
 const templateDir = viewsDir();
 const router = Router();
 const blockRegistry = getRuntimeBlockRegistry();
+registerBlogPostListBlock();
 
 const RESERVED = new Set([
   "admin",
@@ -78,7 +90,7 @@ async function loadCatalog(locale: string): Promise<MessageCatalog> {
   const base = locale.split("-")[0] ?? locale;
   for (const code of [locale, base, "en"]) {
     try {
-      return (await import(`../lib/i18n/catalogs/${code}.json`, { with: { type: "json" } }))
+      return (await import(`../lib/i18n/site-catalogs/${code}.json`, { with: { type: "json" } }))
         .default as MessageCatalog;
     } catch {
       // try next
@@ -157,19 +169,31 @@ function isFormConfirmation(req: Request): boolean {
   }
 }
 
-async function renderBlockTree(blocks: BlockNode[], submittedFormId?: string): Promise<string> {
+async function renderBlockTree(
+  blocks: BlockNode[],
+  submittedFormId?: string,
+  blogCtx?: BlogPostListRenderContext,
+): Promise<string> {
   const parts: string[] = [];
   for (const block of blocks) {
     if (block.type === FORMS_BLOCK_TYPE) {
-      parts.push(await renderFormBlockHtml(block.props ?? {}, submittedFormId));
+      parts.push(withBlockChrome(await renderFormBlockHtml(block.props ?? {}, submittedFormId), block));
+      continue;
+    }
+    if (block.type === BLOG_POST_LIST_BLOCK_TYPE && blogCtx) {
+      try {
+        parts.push(withBlockChrome(await renderBlogPostListBlockHtml(block.props ?? {}, blogCtx), block));
+      } catch {
+        parts.push("");
+      }
       continue;
     }
     const def = blockRegistry.get(block.type);
     const children = Array.isArray(block.children) ? block.children : [];
     if (def?.supportsChildren && children.length > 0) {
       try {
-        const childHtml = await renderBlockTree(children, submittedFormId);
-        parts.push(def.render(def.validateProps(block.props), childHtml));
+        const childHtml = await renderBlockTree(children, submittedFormId, blogCtx);
+        parts.push(withBlockChrome(def.render(def.validateProps(block.props), childHtml), block));
       } catch {
         parts.push("");
       }
@@ -184,13 +208,85 @@ async function renderBlockTree(blocks: BlockNode[], submittedFormId?: string): P
   return parts.join("\n");
 }
 
-async function renderBlocksHtml(blocks: BlockNode[], submittedFormId?: string): Promise<string> {
+/**
+ * Swap reusable references for their content before anything is rendered.
+ *
+ * Done here rather than at insert time so editing a saved block updates every
+ * page that uses it, which is the only reason to have them.
+ */
+async function withReusables(blocks: BlockNode[]): Promise<BlockNode[]> {
+  if (!containsReusable(blocks)) return blocks;
+  const siteId = await getSiteId();
+  if (!siteId) return blocks;
+  const { listReusableBlocks, resolveReusableBlocks } = await import("../lib/reusable-blocks.js");
+  // Cached as an array: a Map does not survive a serializing cache backend.
+  const saved = await rememberPublic("reusable-blocks", () => listReusableBlocks(siteId), false);
+  return resolveReusableBlocks(blocks, new Map(saved.map((item) => [item.id, item])));
+}
+
+function containsReusable(blocks: BlockNode[]): boolean {
+  return blocks.some(
+    (block) => block.type === "core.reusable" || (block.children?.length ? containsReusable(block.children) : false),
+  );
+}
+
+async function renderBlocksHtml(
+  blocks: BlockNode[],
+  submittedFormId?: string,
+  blogCtx?: BlogPostListRenderContext,
+): Promise<string> {
   if (await isGalleryPluginEnabled()) registerGalleryBlock();
+  else unregisterGalleryBlock();
+  const resolved = await withReusables(blocks);
   try {
-    return await renderBlockTree(blocks, submittedFormId);
+    return await renderBlockTree(resolved, submittedFormId, blogCtx);
   } catch {
-    return renderBlockTree(blocks, submittedFormId);
+    return renderBlockTree(resolved, submittedFormId, blogCtx);
   }
+}
+
+/** Posts-per-page fallback for `justflows.blog.postList` blocks that don't override it. */
+async function defaultPostsPerPage(): Promise<number> {
+  const siteId = await getSiteId();
+  if (!siteId) return 10;
+  const stored = await getSiteSetting<number>(siteId, "posts_per_page");
+  const n = Number(stored);
+  return Number.isFinite(n) && n > 0 ? n : 10;
+}
+
+async function buildBlogRenderContext(
+  locale: string,
+  page: number,
+  basePath: string,
+): Promise<BlogPostListRenderContext> {
+  const [siteId, defaultLocale, postsPerPageDefault] = await Promise.all([
+    getSiteId(),
+    getDefaultLocale(),
+    defaultPostsPerPage(),
+  ]);
+  return {
+    siteId: siteId ?? "",
+    locale,
+    defaultLocale,
+    page,
+    basePath,
+    postsPerPageDefault,
+  };
+}
+
+function withSiteWidgets(
+  html: string,
+  ctx: { languageLinks: Array<{ code: string; name: string; href: string; current: boolean }>; usersCanRegister: boolean; t: (key: string) => string },
+): string {
+  return hydrateSiteWidgets(html, {
+    languageLinks: ctx.languageLinks,
+    usersCanRegister: ctx.usersCanRegister,
+    labels: {
+      login: ctx.t("auth.login"),
+      register: ctx.t("auth.register"),
+      language: ctx.t("language.label"),
+    },
+  });
 }
 
 async function renderUnderConstruction(): Promise<string> {
@@ -363,6 +459,34 @@ async function buildPageContext(reqPath: string, preview = false) {
   }));
 
   const publicPath = localePath(locale, restPath, defaultLocale);
+  const header = headerFromContentFields(undefined);
+  const general = await getGeneralSettings();
+
+  // Site-wide chrome edited as blocks. Empty means the site never customised
+  // one, so the layout keeps its built-in footer rather than rendering nothing.
+  const siteId = await getSiteId();
+  const footerBlocks = siteId
+    ? await rememberPublic(
+        `template-part:footer:${preview ? "preview" : "live"}`,
+        async () => {
+          const { getEffectiveTemplatePart } = await import("../lib/template-parts.js");
+          return getEffectiveTemplatePart(siteId, "footer", preview);
+        },
+        preview,
+      )
+    : [];
+  const footerBlocksHtml = footerBlocks.length > 0
+    ? withSiteWidgets(await renderBlocksHtml(footerBlocks), {
+        languageLinks: languages.map((lang) => ({
+          code: lang.code,
+          name: lang.nativeName,
+          href: localePath(lang.code, restPath, defaultLocale),
+          current: lang.code === locale,
+        })),
+        usersCanRegister: general.usersCanRegister,
+        t,
+      })
+    : "";
 
   return {
     locale,
@@ -375,6 +499,7 @@ async function buildPageContext(reqPath: string, preview = false) {
     identity,
     navItems,
     footerNavItems,
+    footerBlocksHtml,
     headerMenuSlug,
     footerMenuSlug,
     t,
@@ -382,7 +507,68 @@ async function buildPageContext(reqPath: string, preview = false) {
     preview,
     discourageSearchEngines,
     cssProviderStylesheets: cssProviderAssets.stylesheets,
+    header,
+    headerBrand: headerBrandFlags(header, identity.logoUrl),
+    usersCanRegister: general.usersCanRegister,
   };
+}
+
+async function applyPageHeader<T extends Awaited<ReturnType<typeof buildPageContext>>>(
+  ctx: T,
+  fields: Record<string, unknown> | undefined,
+  preview: boolean,
+  submittedFormId?: string,
+): Promise<T & { header: PageHeaderConfig; headerBlocksHtml: string }> {
+  const header = headerFromContentFields(fields);
+  const menuSlug = resolveHeaderMenuSlug(header, ctx.headerMenuSlug);
+  const navItems = menuSlug
+    ? await loadNavItems(menuSlug, ctx.locale, ctx.defaultLocale, preview)
+    : [];
+  const withHeader = {
+    ...ctx,
+    header,
+    headerBrand: headerBrandFlags(header, ctx.identity.logoUrl),
+    navItems,
+    headerMenuSlug: menuSlug,
+  };
+  const headerBlocksHtml = header.blocks.length
+    ? withSiteWidgets(await renderBlocksHtml(header.blocks, submittedFormId), withHeader)
+    : "";
+  return { ...withHeader, headerBlocksHtml };
+}
+
+function previewQuery(req: Request): string {
+  return req.query.preview === "1" ? "?preview=1" : "";
+}
+
+async function renderHomeHtml(req: Request, reqPath: string, preview: boolean): Promise<string> {
+  const ctx = await buildPageContext(reqPath, preview);
+  const siteId = await getSiteId();
+  const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
+  const withHeader = await applyPageHeader(ctx, home?.fields, preview, submittedFormIdFrom(req));
+  const blogCtx = await buildBlogRenderContext(ctx.locale, 1, reqPath);
+  if (home) {
+    const bodyHtml = withSiteWidgets(
+      await renderBlocksHtml(home.blocks.blocks, submittedFormIdFrom(req), blogCtx),
+      withHeader,
+    );
+    return renderPage("home", {
+      ...withHeader,
+      content: home,
+      bodyHtml,
+      seoDescription: ctx.identity.tagline,
+      title: home.title,
+    });
+  }
+  const demoBlocks = await loadHomeDemoBlocks(preview);
+  const bodyHtml = demoBlocks?.length
+    ? withSiteWidgets(await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req), blogCtx), withHeader)
+    : undefined;
+  return renderPage("home", {
+    ...withHeader,
+    bodyHtml,
+    seoDescription: ctx.identity.tagline,
+  });
 }
 
 async function loadHomeDemoBlocks(preview = false): Promise<BlockNode[] | null> {
@@ -446,21 +632,56 @@ router.get("/", async (req, res, next) => {
   try {
     if (!(await ensureSiteIsPublic(req, res))) return;
     const preview = await isPreviewAllowed(req, res);
-    await sendPublicHtml(req, res, req.path || "/", preview, async () => {
-      const ctx = await buildPageContext("/", preview);
-      const demoBlocks = await loadHomeDemoBlocks(preview);
-      const bodyHtml = demoBlocks?.length ? await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req)) : undefined;
-      return renderPage("home", {
-        ...ctx,
-        bodyHtml,
-        seoDescription: ctx.identity.tagline,
-      });
-    });
+    await sendPublicHtml(req, res, req.path || "/", preview, () => renderHomeHtml(req, "/", preview));
   } catch (err) {
     console.error("[justflows] home render failed:", err);
     res.status(500).type("text/plain").send("Internal server error");
   }
 });
+
+/**
+ * Render a resolved page's own body — shared by the plain single-page routes
+ * and the `/page/:num` pagination routes so a `justflows.blog.postList`
+ * block embedded in the page's own blocks (not just a theme-provided "blog
+ * page") can page through posts no matter which page it lives on.
+ */
+async function renderSinglePageHtml(
+  req: Request,
+  reqPath: string,
+  slug: string,
+  locale: string,
+  preview: boolean,
+  alternates: Array<{ locale: string; slug: string; href: string }>,
+  pageNumber: number,
+  basePath: string,
+): Promise<string> {
+  const pageCtx = await buildPageContext(reqPath, preview);
+  const pageContent = await getPublishedContentBySlug(slug, locale);
+  if (!pageContent) {
+    return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
+  }
+  const withHeader = await applyPageHeader(pageCtx, pageContent.fields, preview, submittedFormIdFrom(req));
+  const blogCtx = await buildBlogRenderContext(pageCtx.locale, pageNumber, basePath);
+  const bodyHtml = withSiteWidgets(
+    await renderBlocksHtml(pageContent.blocks.blocks, submittedFormIdFrom(req), blogCtx),
+    withHeader,
+  );
+  return renderPage("single", {
+    ...withHeader,
+    content: pageContent,
+    bodyHtml,
+    alternates,
+    formattedDate: pageContent.publishedAt ? await formatContentDate(pageContent.publishedAt) : null,
+    title: pageContent.title,
+  });
+}
+
+/** Parses a `/page/:num` segment, rejecting anything but a plain positive integer. */
+function parsePageNumber(raw: string): number | null {
+  if (!/^[1-9]\d*$/.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) ? n : null;
+}
 
 router.get("/:segment", async (req, res, next) => {
   const segment = req.params.segment!;
@@ -477,16 +698,7 @@ router.get("/:segment", async (req, res, next) => {
     const ctx = await buildPageContext(req.path, preview);
 
     if (activeLocales.includes(segment) && req.path === `/${segment}`) {
-      await sendPublicHtml(req, res, req.path, preview, async () => {
-        const ctx = await buildPageContext(req.path, preview);
-        const demoBlocks = await loadHomeDemoBlocks(preview);
-        const bodyHtml = demoBlocks?.length ? await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req)) : undefined;
-        return renderPage("home", {
-          ...ctx,
-          bodyHtml,
-          seoDescription: ctx.identity.tagline,
-        });
-      });
+      await sendPublicHtml(req, res, req.path, preview, () => renderHomeHtml(req, req.path, preview));
       return;
     }
 
@@ -505,6 +717,13 @@ router.get("/:segment", async (req, res, next) => {
       return;
     }
 
+    const siteId = await getSiteId();
+    const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
+    if (home && isHomeContentSlug(content, home) && !preview) {
+      res.redirect(302, localePath(ctx.locale, "/", defaultLocale) + previewQuery(req));
+      return;
+    }
+
     let alternates: Array<{ locale: string; slug: string; href: string }> = [];
     if (content.translationGroupId) {
       const translations = await getTranslationAlternates(content.translationGroupId);
@@ -514,26 +733,64 @@ router.get("/:segment", async (req, res, next) => {
       }));
     }
 
-    await sendPublicHtml(req, res, req.path, preview, async () => {
-      const pageCtx = await buildPageContext(req.path, preview);
-      const pageContent = await getPublishedContentBySlug(slug, pageCtx.locale);
-      if (!pageContent) {
-        return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
-      }
-      const bodyHtml = await renderBlocksHtml(pageContent.blocks.blocks, submittedFormIdFrom(req));
-      return renderPage("single", {
-        ...pageCtx,
-        content: pageContent,
-        bodyHtml,
-        alternates,
-        formattedDate: pageContent.publishedAt
-          ? await formatContentDate(pageContent.publishedAt)
-          : null,
-        title: pageContent.title,
-      });
-    });
+    await sendPublicHtml(req, res, req.path, preview, () =>
+      renderSinglePageHtml(req, req.path, slug, ctx.locale, preview, alternates, 1, req.path),
+    );
   } catch (err) {
     console.error("[justflows] page render failed:", err);
+    res.status(500).type("text/plain").send("Internal server error");
+  }
+});
+
+router.get("/:segment/page/:num", async (req, res, next) => {
+  const segment = req.params.segment!;
+  const num = parsePageNumber(req.params.num!);
+  if (RESERVED.has(segment) || num === null) {
+    next();
+    return;
+  }
+
+  try {
+    if (!(await ensureSiteIsPublic(req, res))) return;
+    const activeLocales = await getActiveLocaleCodes();
+    if (activeLocales.includes(segment)) {
+      next();
+      return;
+    }
+    const preview = await isPreviewAllowed(req, res);
+    const ctx = await buildPageContext(req.path, preview);
+    const basePath = `/${segment}`;
+
+    const content = await getPublishedContentBySlug(segment, ctx.locale);
+    if (!content) {
+      await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
+        const ctx404 = await buildPageContext(req.path, preview);
+        return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+      }, 404);
+      return;
+    }
+
+    if (num === 1) {
+      const canonicalPath = localePath(content.locale, `/${content.slug}`, ctx.defaultLocale);
+      res.redirect(302, canonicalPath + previewQuery(req));
+      return;
+    }
+
+    let alternates: Array<{ locale: string; slug: string; href: string }> = [];
+    if (content.translationGroupId) {
+      const defaultLocale = await getDefaultLocale();
+      const translations = await getTranslationAlternates(content.translationGroupId);
+      alternates = translations.map((tr) => ({
+        ...tr,
+        href: localePath(tr.locale, `/${tr.slug}`, defaultLocale),
+      }));
+    }
+
+    await sendPublicHtml(req, res, req.path, preview, () =>
+      renderSinglePageHtml(req, req.path, segment, ctx.locale, preview, alternates, num, basePath),
+    );
+  } catch (err) {
+    console.error("[justflows] paginated page render failed:", err);
     res.status(500).type("text/plain").send("Internal server error");
   }
 });
@@ -567,6 +824,13 @@ router.get("/:locale/:slug", async (req, res, next) => {
       return;
     }
 
+    const siteId = await getSiteId();
+    const home = siteId ? await getHomeContent(siteId, localeSeg, preview) : null;
+    if (home && isHomeContentSlug(content, home) && !preview) {
+      res.redirect(302, localePath(localeSeg, "/", defaultLocale) + previewQuery(req));
+      return;
+    }
+
     let alternates: Array<{ locale: string; slug: string; href: string }> = [];
     if (content.translationGroupId) {
       const translations = await getTranslationAlternates(content.translationGroupId);
@@ -576,26 +840,66 @@ router.get("/:locale/:slug", async (req, res, next) => {
       }));
     }
 
-    await sendPublicHtml(req, res, req.path, preview, async () => {
-      const pageCtx = await buildPageContext(req.path, preview);
-      const pageContent = await getPublishedContentBySlug(slug, localeSeg);
-      if (!pageContent) {
-        return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
-      }
-      const bodyHtml = await renderBlocksHtml(pageContent.blocks.blocks, submittedFormIdFrom(req));
-      return renderPage("single", {
-        ...pageCtx,
-        content: pageContent,
-        bodyHtml,
-        alternates,
-        formattedDate: pageContent.publishedAt
-          ? await formatContentDate(pageContent.publishedAt)
-          : null,
-        title: pageContent.title,
-      });
-    });
+    await sendPublicHtml(req, res, req.path, preview, () =>
+      renderSinglePageHtml(req, req.path, slug, localeSeg, preview, alternates, 1, req.path),
+    );
   } catch (err) {
     console.error("[justflows] localised page render failed:", err);
+    res.status(500).type("text/plain").send("Internal server error");
+  }
+});
+
+router.get("/:locale/:slug/page/:num", async (req, res, next) => {
+  const localeSeg = req.params.locale!;
+  const slug = req.params.slug!;
+  const num = parsePageNumber(req.params.num!);
+
+  if (RESERVED.has(localeSeg) || RESERVED.has(slug) || num === null) {
+    next();
+    return;
+  }
+
+  const activeLocales = await getActiveLocaleCodes();
+  if (!activeLocales.includes(localeSeg)) {
+    next();
+    return;
+  }
+
+  try {
+    if (!(await ensureSiteIsPublic(req, res))) return;
+    const preview = await isPreviewAllowed(req, res);
+    const basePath = `/${localeSeg}/${slug}`;
+    const content = await getPublishedContentBySlug(slug, localeSeg);
+
+    if (!content) {
+      await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
+        const ctx404 = await buildPageContext(req.path, preview);
+        return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+      }, 404);
+      return;
+    }
+
+    if (num === 1) {
+      const canonicalPath = localePath(content.locale, `/${content.slug}`, await getDefaultLocale());
+      res.redirect(302, canonicalPath + previewQuery(req));
+      return;
+    }
+
+    let alternates: Array<{ locale: string; slug: string; href: string }> = [];
+    if (content.translationGroupId) {
+      const defaultLocale = await getDefaultLocale();
+      const translations = await getTranslationAlternates(content.translationGroupId);
+      alternates = translations.map((tr) => ({
+        ...tr,
+        href: localePath(tr.locale, `/${tr.slug}`, defaultLocale),
+      }));
+    }
+
+    await sendPublicHtml(req, res, req.path, preview, () =>
+      renderSinglePageHtml(req, req.path, slug, localeSeg, preview, alternates, num, basePath),
+    );
+  } catch (err) {
+    console.error("[justflows] localised paginated page render failed:", err);
     res.status(500).type("text/plain").send("Internal server error");
   }
 });

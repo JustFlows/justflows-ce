@@ -2,6 +2,11 @@
 
 import { sanitizeHtmlBlock, sanitizeRichText } from "./sanitize.js";
 import { sanitizeHref, sanitizeMediaSrc } from "./safe-url.js";
+import { sanitizeAnimationProp } from "./animation.js";
+import { sanitizeBlockClassName, sanitizeBlockCss } from "./safe-css.js";
+import { isPlacementShaped, sanitizePlacementProp } from "./layout.js";
+import { sanitizeBlockStyleProp } from "./block-style.js";
+
 
 interface BlockLike {
   type?: unknown;
@@ -35,6 +40,57 @@ function sanitizeProps(type: string, props: Record<string, unknown>): Record<str
   }
   if (type === "core.image" && typeof next["src"] === "string") {
     next["src"] = sanitizeMediaSrc(next["src"]);
+  }
+  if (type === "core.link-list" && Array.isArray(next["items"])) {
+    next["items"] = next["items"].map((item) =>
+      item && typeof item === "object" && "url" in item && typeof (item as { url: unknown }).url === "string"
+        ? { ...item, url: sanitizeHref((item as { url: string }).url) }
+        : item,
+    );
+  }
+
+  if ("animation" in next) {
+    const animation = sanitizeAnimationProp(next["animation"]);
+    if (animation) next["animation"] = animation;
+    else delete next["animation"];
+  }
+
+  // Presentation an editor attached to this block, on every type including
+  // plugin blocks. Cleared here so nothing unusable is ever stored; the render
+  // path re-checks rather than trusting what it reads back.
+  if ("className" in next) {
+    const className = sanitizeBlockClassName(next["className"]);
+    if (className) next["className"] = className;
+    else delete next["className"];
+  }
+  if ("css" in next) {
+    const css = sanitizeBlockCss(next["css"]);
+    if (css) next["css"] = css;
+    else delete next["css"];
+  }
+  // Grid placement (col/span/row/rowSpan) lives under its own `gridPlacement`
+  // key rather than the generic `layout` key, because `layout` is also where
+  // block schemas put their own unrelated settings — the gallery block's
+  // grid/masonry/carousel choice, for one. That used to share this key, so
+  // saving a gallery block ran its "masonry" string through the placement
+  // sanitizer, which didn't recognize the shape and silently deleted it.
+  if ("gridPlacement" in next) {
+    const placement = sanitizePlacementProp(next["gridPlacement"]);
+    if (placement) next["gridPlacement"] = placement;
+    else delete next["gridPlacement"];
+  }
+  // Migrate placement data saved under the old shared key. It is always a
+  // plain object, so this can't mistake a block's own `layout` value (e.g. a
+  // string) for placement data and destroy it.
+  if (isPlacementShaped(next["layout"])) {
+    const migrated = sanitizePlacementProp(next["layout"]);
+    delete next["layout"];
+    if (migrated && !("gridPlacement" in next)) next["gridPlacement"] = migrated;
+  }
+  if ("style" in next) {
+    const style = sanitizeBlockStyleProp(next["style"]);
+    if (style) next["style"] = style;
+    else delete next["style"];
   }
 
   return next;
