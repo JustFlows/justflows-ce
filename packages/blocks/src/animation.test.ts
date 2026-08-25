@@ -76,6 +76,13 @@ describe("withBlockAnimation", () => {
     expect(out).toContain('data-jf-anim="load"');
     expect(out).not.toContain("data-jf-anim-once");
   });
+
+  it("handles long malformed root markup without backtracking", () => {
+    const html = `<A${"-".repeat(20_000)}`;
+    const out = withBlockAnimation(html, { animation: { entrance: "fade" } });
+    expect(out).toContain("<div>");
+    expect(out).toContain(html);
+  });
 });
 
 describe("blockAnimationCss", () => {

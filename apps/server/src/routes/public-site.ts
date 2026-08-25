@@ -771,7 +771,8 @@ router.get("/:segment/page/:num", async (req, res, next) => {
     }
 
     if (num === 1) {
-      res.redirect(302, basePath + previewQuery(req));
+      const canonicalPath = localePath(content.locale, `/${content.slug}`, ctx.defaultLocale);
+      res.redirect(302, canonicalPath + previewQuery(req));
       return;
     }
 
@@ -879,7 +880,8 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
     }
 
     if (num === 1) {
-      res.redirect(302, basePath + previewQuery(req));
+      const canonicalPath = localePath(content.locale, `/${content.slug}`, await getDefaultLocale());
+      res.redirect(302, canonicalPath + previewQuery(req));
       return;
     }
 

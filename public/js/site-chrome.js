@@ -89,8 +89,11 @@
     document.addEventListener("change", function (event) {
       var select = event.target;
       if (!select || select.getAttribute("data-jf-language-select") == null) return;
-      var href = select.value;
-      if (href) window.location.href = href;
+      var option = select.options && select.options[select.selectedIndex];
+      var href = option && option.getAttribute("value");
+      if (!href || href.charAt(0) !== "/" || href.slice(0, 2) === "//") return;
+      var targetUrl = new URL(href, window.location.origin);
+      if (targetUrl.origin === window.location.origin) window.location.assign(targetUrl.href);
     });
 
     applyPreference(storedPreference());

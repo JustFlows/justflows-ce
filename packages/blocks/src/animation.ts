@@ -142,20 +142,40 @@ export function sanitizeAnimationProp(raw: unknown): Record<string, unknown> | u
 }
 
 function replaceAttr(attrs: string, name: string, merge: (current: string) => string): string {
-  const pattern = new RegExp(`\\s${name}\\s*=\\s*("[^"]*"|'[^']*')`);
-  const match = attrs.match(pattern);
-  if (!match) return `${attrs} ${name}="${merge("")}"`;
-  const quoted = match[1] ?? `""`;
-  const current = quoted.slice(1, -1);
-  return attrs.replace(pattern, ` ${name}="${merge(current)}"`);
+  const needle = ` ${name}=`;
+  const start = attrs.indexOf(needle);
+  if (start < 0) return `${attrs} ${name}="${merge("")}"`;
+  const quoteAt = start + needle.length;
+  const quote = attrs[quoteAt];
+  if (quote !== '"' && quote !== "'") return `${attrs} ${name}="${merge("")}"`;
+  const end = attrs.indexOf(quote, quoteAt + 1);
+  if (end < 0) return `${attrs} ${name}="${merge("")}"`;
+  const current = attrs.slice(quoteAt + 1, end);
+  return attrs.slice(0, start) + ` ${name}="${merge(current)}"` + attrs.slice(end + 1);
+}
+
+function collapseSpaces(value: string): string {
+  let out = "";
+  let pendingSpace = false;
+  for (const char of value.trim()) {
+    if (char === " " || char === "\t" || char === "\n" || char === "\r") {
+      pendingSpace = out.length > 0;
+    } else {
+      if (pendingSpace) out += " ";
+      out += char;
+      pendingSpace = false;
+    }
+  }
+  return out;
 }
 
 export function injectRootAttrs(html: string, className: string, styleVars: string, dataAttrs: string): string {
   if (!className && !styleVars && !dataAttrs) return html;
-  const leading = html.match(/^\s*/)?.[0] ?? "";
+  let leadingLength = 0;
+  while (leadingLength < html.length && " \t\n\r".includes(html[leadingLength]!)) leadingLength++;
+  const leading = html.slice(0, leadingLength);
   const rest = html.slice(leading.length);
-  const open = rest.match(/^<([a-zA-Z][a-zA-Z0-9:-]*)([^>]*)?>([\s\S]*)$/);
-  if (!open) {
+  if (rest[0] !== "<" || !rest[1] || !/[a-zA-Z]/.test(rest[1])) {
     const wrapper = [
       className ? ` class="${className}"` : "",
       styleVars ? ` style="${styleVars}"` : "",
@@ -163,18 +183,24 @@ export function injectRootAttrs(html: string, className: string, styleVars: stri
     ].join("");
     return `${leading}<div${wrapper}>${html.trim()}</div>`;
   }
-  const tag = open[1]!;
-  let attrs = open[2] ?? "";
-  const after = open[3] ?? "";
-  const selfClosing = /\s*\/\s*$/.test(attrs);
-  if (selfClosing) attrs = attrs.replace(/\s*\/\s*$/, "");
+  let tagEnd = 2;
+  while (tagEnd < rest.length && /[a-zA-Z0-9:-]/.test(rest[tagEnd]!)) tagEnd++;
+  const openEnd = rest.indexOf(">", tagEnd);
+  if (openEnd < 0) return `${leading}<div>${html.trim()}</div>`;
+  const tag = rest.slice(1, tagEnd);
+  let attrs = rest.slice(tagEnd, openEnd);
+  const after = rest.slice(openEnd + 1);
+  const trimmedAttrs = attrs.trimEnd();
+  const selfClosing = trimmedAttrs.endsWith("/");
+  if (selfClosing) attrs = trimmedAttrs.slice(0, -1);
 
   if (className) {
-    attrs = replaceAttr(attrs, "class", (current) => [current, className].filter(Boolean).join(" ").replace(/\s+/g, " ").trim());
+    attrs = replaceAttr(attrs, "class", (current) => collapseSpaces([current, className].filter(Boolean).join(" ")));
   }
   if (styleVars) {
     attrs = replaceAttr(attrs, "style", (current) => {
-      const base = current.trim().replace(/;?$/, "");
+      const trimmed = current.trim();
+      const base = trimmed.endsWith(";") ? trimmed.slice(0, -1) : trimmed;
       return base ? `${base};${styleVars}` : styleVars;
     });
   }
