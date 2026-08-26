@@ -62,7 +62,7 @@ describe("install token file", () => {
   });
 
   it("prefers an operator-supplied token and writes no file", () => {
-    process.env.JUSTFLOWS_INSTALL_TOKEN = "provisioned-by-automation";
+    process.env.JUSTFLOWS_INSTALL_TOKEN = "provisioned-by-automation"; // scan-secrets:allow
     expect(installToken(root)).toBe("provisioned-by-automation");
     expect(installTokenFileExists(root)).toBe(false);
   });

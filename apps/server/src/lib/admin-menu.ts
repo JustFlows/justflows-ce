@@ -5,7 +5,7 @@ import { getDb } from "./db.js";
 import type { PluginRow } from "./plugins-db.js";
 
 /**
- * An admin nav entry as the SPA consumes it: the owning plugin travels with the
+ * An admin nav entry as the SSR/hydrated admin consumes it: the owning plugin travels with the
  * item so the UI can attribute (and the host can de-duplicate) a page.
  */
 export interface AdminMenuEntry extends PluginAdminMenuItem {
@@ -87,8 +87,9 @@ function sanitizeItem(raw: unknown, pluginId: string): AdminMenuEntry | null {
     labelKey: asString(item.labelKey)?.slice(0, 120),
     path,
     icon: icon && icon.length <= 8 ? icon : "🔌",
-    domain: (domain && ADMIN_MENU_DOMAIN_SET.has(domain) ? domain : "extensions") as
-      PluginAdminMenuItem["domain"],
+    domain: (domain && ADMIN_MENU_DOMAIN_SET.has(domain)
+      ? domain
+      : "extensions") as PluginAdminMenuItem["domain"],
     end: item.end === true ? true : undefined,
   };
 }
@@ -129,18 +130,19 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
       manifest =
         typeof row.manifest === "string"
           ? (JSON.parse(row.manifest) as Record<string, unknown>)
-          : row.manifest ?? {};
+          : (row.manifest ?? {});
     } catch {
       manifest = {};
     }
 
     // A manifest that mentions adminMenu speaks for itself, even to say "none".
     // Only a manifest predating the field falls back to what the host knows.
-    const items = "adminMenu" in manifest
-      ? manifestMenu(manifest, row.plugin_id)
-      : (FIRST_PARTY_ADMIN_MENU[row.plugin_id] ?? [])
-          .map((entry) => sanitizeItem(entry, row.plugin_id))
-          .filter((entry): entry is AdminMenuEntry => entry !== null);
+    const items =
+      "adminMenu" in manifest
+        ? manifestMenu(manifest, row.plugin_id)
+        : (FIRST_PARTY_ADMIN_MENU[row.plugin_id] ?? [])
+            .map((entry) => sanitizeItem(entry, row.plugin_id))
+            .filter((entry): entry is AdminMenuEntry => entry !== null);
 
     for (const item of items) {
       if (seenPaths.has(item.path)) continue;

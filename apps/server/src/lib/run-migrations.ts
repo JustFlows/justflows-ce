@@ -9,6 +9,9 @@ export const MIGRATION_ORDER = [
   "0004_plugin_data",
   "0005_content_types",
   "0006_session_revocation",
+  "0007_totp",
+  "0008_audit_log",
+  "0009_audit_log_compat",
 ] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";

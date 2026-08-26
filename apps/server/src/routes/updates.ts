@@ -4,7 +4,9 @@ import { runAllMigrations } from "../lib/run-migrations.js";
 import { getDb } from "../lib/db.js";
 import { getJustflowsVersion } from "../lib/version.js";
 import { requireRole } from "../middleware/auth.js";
+import { auditFromRequest } from "../lib/audit-log.js";
 import multer from "multer";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
@@ -25,6 +27,12 @@ router.post("/upload", requireRole("administrator"), upload.single("file"), asyn
     return;
   }
 
+  // Replacing the core is the most consequential thing an administrator can
+  // do, and it left no trace at all.
+  auditFromRequest(req, "core.updated", {
+    target: file.originalname,
+    detail: `${Math.round(file.size / 1024 / 1024)}MB`,
+  });
   const result = await applyCoreUpdate(file.buffer, file.originalname, {
     signature:
       typeof req.body?.signature === "string"
@@ -44,7 +52,7 @@ dbRouter.post("/migrate", requireRole("administrator"), async (_req, res) => {
     await runAllMigrations(db, driver);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "updates", err);
   }
 });
 

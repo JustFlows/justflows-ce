@@ -2,7 +2,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { PackageManifestSchema, type PackageManifest } from "./package-manifest.js";
-import { ARCHIVE_LIMITS, ArchiveSafetyError, computeDigest, verifyDigest } from "./archive-safety.js";
+import {
+  ARCHIVE_LIMITS,
+  ArchiveSafetyError,
+  computeDigest,
+  PackageRejectedError,
+  resolveWithinDir,
+  verifyDigest,
+} from "./archive-safety.js";
 import { extractJfpkg } from "./extract-jfpkg.js";
 
 export type InstallSource = "upload" | "marketplace" | "local-link";
@@ -17,6 +24,19 @@ export interface InstallOptions {
   skipVerification?: boolean;
   /** Skip extension license validation (local development only) */
   skipLicenseCheck?: boolean;
+  /**
+   * Trust check, run while the package is still in staging.
+   *
+   * Callers used to verify the manifest after installFromBuffer() returned, by
+   * which point the package had already been renamed into its final installed
+   * location — so a package Justflows had just refused stayed on disk, and
+   * nothing removed it. Throwing from here happens before the rename, and the
+   * catch below deletes the staging directory on the way out.
+   *
+   * Also the right place for the manifest.type check: a caller expecting a
+   * theme should not have a plugin installed for it before it can object.
+   */
+  verify?: (manifest: PackageManifest, digest: string) => void | Promise<void>;
 }
 
 export interface InstallResult {
@@ -72,7 +92,29 @@ export class PackageInstaller {
       }
 
       const manifest = parsed.data;
-      const finalDir = path.join(options.packagesDir, `${manifest.type}s`, manifest.id, manifest.version);
+
+      // Before the rename, while the package is still confined to staging and
+      // the catch below can still remove it. Wrapped so the caller can tell its
+      // own refusal (a 400 the operator can act on) from an internal failure.
+      if (options.verify) {
+        try {
+          await options.verify(manifest, digest);
+        } catch (err) {
+          throw new PackageRejectedError(
+            err instanceof Error ? err.message : String(err),
+            err,
+          );
+        }
+      }
+
+      // Manifest fields, so untrusted: resolveWithinDir confines the result to
+      // packagesDir before anything destructive runs against it below.
+      const finalDir = resolveWithinDir(
+        options.packagesDir,
+        `${manifest.type}s`,
+        manifest.id,
+        manifest.version,
+      );
       await fs.mkdir(path.dirname(finalDir), { recursive: true });
       await fs.rm(finalDir, { recursive: true, force: true });
       await fs.rename(stagingDir, finalDir);

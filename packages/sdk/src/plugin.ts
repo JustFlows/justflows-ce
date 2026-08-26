@@ -64,17 +64,13 @@ export type AdminMenuDomain = (typeof ADMIN_MENU_DOMAINS)[number];
  */
 export const AdminMenuItemSchema = z.object({
   /** Unique within the plugin — used as the nav key and for de-duplication. */
-  id: z
-    .string()
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Menu id must be lowercase kebab-case"),
+  id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Menu id must be lowercase kebab-case"),
   /** English label, shown when `labelKey` is absent or untranslated. */
   label: z.string().min(1).max(60),
   /** Optional admin i18n catalog key, e.g. "nav.analytics". */
   labelKey: z.string().max(120).optional(),
-  /** Admin SPA path. Must live under /admin/ — the host serves nothing else. */
-  path: z
-    .string()
-    .regex(/^\/admin\/[a-z0-9][a-z0-9\-/]*$/, "Menu path must be an /admin/… route"),
+  /** Admin application path. Must live under /admin/ — the host serves nothing else. */
+  path: z.string().regex(/^\/admin\/[a-z0-9][a-z0-9\-/]*$/, "Menu path must be an /admin/… route"),
   icon: z.string().min(1).max(8).default("🔌"),
   domain: z.enum(ADMIN_MENU_DOMAINS).default("extensions"),
   /** Match the path exactly instead of as a prefix. */
@@ -87,15 +83,27 @@ export const PluginManifestSchema = z
   .object({
     id: z
       .string()
-      .regex(/^[a-z0-9]+(?:\.[a-z0-9-]+)+$/, "Plugin ID must be dot-separated namespaced, e.g. acme.my-plugin"),
+      .regex(
+        /^[a-z0-9]+(?:\.[a-z0-9-]+)+$/,
+        "Plugin ID must be dot-separated namespaced, e.g. acme.my-plugin",
+      ),
     name: z.string().min(1).max(100),
-    version: z.string().regex(/^\d+\.\d+\.\d+/, "Must be semver"),
+    // Anchored at both ends: `.regex()` runs RegExp.test(), which honours only
+    // the `^`, so a pattern stopping at the patch number leaves everything after
+    // it unconstrained. Nothing joins this value into a path today — the
+    // matching field on PackageManifestSchema did, which is how that became a
+    // traversal — so keep the two schemas agreeing on what a version is.
+    version: z
+      .string()
+      .max(64)
+      .regex(
+        /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/,
+        "Must be semver, e.g. 1.2.3 or 1.2.3-rc.1",
+      ),
     description: z.string().max(500).optional(),
     author: z.string().optional(),
     homepage: z.url().optional(),
-    license: z
-      .string()
-      .min(1, "Plugin license is required and must be GPL-compatible"),
+    license: z.string().min(1, "Plugin license is required and must be GPL-compatible"),
     minJustflowsVersion: z.string().optional(),
     maxJustflowsVersion: z.string().optional(),
     permissions: z.array(PluginPermissionSchema).default([]),
@@ -162,12 +170,33 @@ export interface PluginCacheApi {
   invalidate(prefix?: string): Promise<void>;
 }
 
+/** The signed-in user behind a plugin request, when there is one. */
+export interface PluginHttpSession {
+  userId: string;
+  siteId: string;
+  role: string;
+  email: string;
+}
+
 export interface PluginHttpRequest {
   method: "GET" | "POST";
   path: string;
   query: Record<string, string>;
   body: unknown;
+  /**
+   * Request headers, with `cookie` and `authorization` removed — a plugin route
+   * has no reason to read the session cookie, and handing it over made every
+   * installed plugin a credential holder. Use `session` for identity.
+   */
   headers: Record<string, string>;
+  /**
+   * The caller's session, or null when anonymous.
+   *
+   * Plugin routes are public unless the handler checks this. There was no way to
+   * check at all before, so every plugin endpoint was unauthenticated by
+   * construction, whatever its author intended.
+   */
+  session: PluginHttpSession | null;
 }
 
 export interface PluginHttpResponse {

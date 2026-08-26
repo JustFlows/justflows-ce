@@ -81,6 +81,8 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.securityOverview", to: "/admin/security", icon: "🛡", end: true },
       { key: "nav.securityHeaders", to: "/admin/security/headers", icon: "📑" },
       { key: "nav.securityAdvanced", to: "/admin/security/advanced", icon: "🧩" },
+      { key: "nav.securityAccount", to: "/admin/security/account", icon: "🔑" },
+      { key: "nav.securityAudit", to: "/admin/security/audit", icon: "📜" },
     ],
   },
   {

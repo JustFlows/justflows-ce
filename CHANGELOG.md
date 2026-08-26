@@ -5,174 +5,170 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.1.3] — 2026-08-25
+## [0.1.4] — 2026-08-26
+
+### Added — server-side rendering
+
+- The authenticated Vite/React admin now renders every route on the Express
+  server and hydrates in the browser. Shared shell data and each route's initial
+  reads are embedded as escaped, request-scoped state, eliminating duplicate
+  startup Fetch/XHR requests while preserving API calls for later interactions.
+- Production builds now emit separate `admin-ui/dist/client` and
+  `admin-ui/dist/server` artifacts. Docker images, shared-hosting ZIPs,
+  first-run readiness checks, and core updates require and ship both, so site
+  owners never need to run a frontend build.
+- Admin documents and pre-session pages explicitly send
+  `X-Robots-Tag: noindex, nofollow, noarchive`. The public website remains independently
+  server-rendered with its existing SEO metadata, canonical URLs, language
+  alternates, sitemap, robots policy, and structured data.
+
+Findings from a full source audit. Nothing here changes content, themes or the
+public site; all of it is authentication, packaging and transport.
+
+### Fixed — critical
+
+- **Package installer path traversal.** `version` in a `.jfpkg` manifest was
+  validated by a regex anchored only at the start, so `1.0.0/../../..` passed and
+  the install path escaped `packages-installed` — into an `fs.rm()` and an
+  `fs.rename()`. Reachable from plugin, theme, CSS-provider and marketplace
+  installs, and it ran _before_ the signature check, so a package Justflows
+  correctly refused could still overwrite files. The pattern is now anchored at
+  both ends and the destination is confined independently of it.
+
+### Fixed — high
+
+- Package verification runs while the package is still staged, so a refused
+  upload no longer stays on disk in its final install location.
+- `POST /api/bootstrap` required no authentication: its origin check passed any
+  request without an `Origin` header, so plain `curl` could spawn the installer.
+  It now takes the setup key, with loopback exempt, and is rate limited.
+- `GET /api/bootstrap/status` served up to 64 KB of the npm install log to
+  anonymous callers and never checked install state. It now returns only the
+  installed flag once set up, and releases the log only to a caller holding the
+  setup key. The log is deleted when the install completes.
+- Pages served by root `server.js` — `/login`, `/install`, `/`, `/assets/*` —
+  carried no security headers at all, because they never reach Express. Under
+  Passenger that was every pre-sign-in page, and the login form was framable.
+- Content-Security-Policy applied only to the public site. The admin, whose
+  session can install extensions and replace the core, ran with no policy. It
+  now has its own strict, enforcing policy, graded by the Security screen.
 
 ### Added
 
-- Any page can be the site home page. Theme customize now picks which page renders
-  at `/` (or turns the current theme layout into a page). Until a page is chosen,
-  the previous theme homepage layout still serves `/`.
-- Every page can customize its header and navigation in the page builder: show or
-  hide the header, choose a menu (or none), logo and title, layout, and stickiness.
-  The theme Styles tab still sets the site-wide default header menu.
-- **Saved headers.** Once a page's header is built the way you want, save it by
-  name and apply it to any other page in one click — layout, widgets, and
-  blocks included. Applying copies the configuration rather than linking it
-  live, so the two pages stay independent afterward.
-- Page-builder blocks can use entrance, hover, and press animations. The inspector
-  exposes the full preset list; the canvas previews them with Motion. The public
-  site plays the same effects with CSS and a small in-view script.
-- Site chrome blocks in the page builder: light/dark toggle, language switcher,
-  and login/register. Register only renders on the public site when Settings →
-  Anyone can register is on. The same widgets can be enabled on a page header.
-  Any block can also be dragged into the header itself.
-- A **Colors (dark mode)** palette in the theme customizer. Dark mode is no longer
-  whatever the theme hardcoded — every colour is editable from the admin and is
-  applied both to an explicit choice and to visitors whose device asks for dark.
-- An **Auto** option on the light/dark toggle, on the `core.color-scheme` block and
-  on the page header. It clears the visitor's stored choice and follows the device.
-- **Custom CSS per block** in the page builder, plus a CSS class field. `&` stands
-  for the block; a selector without it is scoped as a descendant, so a block's CSS
-  can never reach the rest of the page. Media queries and keyframes are supported;
-  `@import` and `url(javascript:…)` are rejected on save and again on render.
-- **Block JSON** editing in the inspector. Any block can be edited directly as
-  JSON — type, version, props, and children — which is the only way to change a
-  block's type in place or set a prop no inspector field exposes.
-- **Spacing, size and alignment on every block.** Padding, margin, max width,
-  min height, self-alignment, text alignment, corners and shadow, on any block
-  type including a plugin's. Values are steps on the theme's spacing scale rather
-  than raw lengths, so a page keeps its rhythm and the whole site tightens up on
-  a phone when the scale does.
-- **A real design-token system.** The Customizer gains Headings (font, weight,
-  line height, letter spacing, H1–H3 sizes), Spacing (one number drives the whole
-  scale), Corners, Shadows, and a wide-width control. It is now schema-driven:
-  adding a control adds a token, with validation derived from the control's own
-  type and bounds.
-- **Reusable blocks.** Save any block to the library and link to it; editing the
-  saved copy updates every page that uses it. Resolved on the server at render.
-- **An editable site footer.** Theme builder → Footer edits the footer as blocks,
-  with its own draft and publish. A site that never customises one keeps the
-  built-in footer.
-- **Undo and redo in the page builder**, with ⌘Z / ⇧⌘Z. Edits made in quick
-  succession collapse into one step, and a text field keeps its own undo stack.
-- **A grid layout block.** `core.grid` places blocks on a column grid instead of
-  stacking them: drag a block to move it, drag either edge to resize, or type
-  exact column/row numbers in the inspector. Placement lives on the child, so any
-  block — including a plugin's — can be placed without a wrapper. Layouts stay
-  responsive: nothing drops below half width on tablets, and everything goes full
-  width on phones, in source order.
-- **Page JSON** in the page builder. With no block selected the inspector shows
-  the whole page — every block plus the page header — instead of an empty
-  placeholder, and edits apply straight back. Block ids are preserved, so this
-  edits the page in place rather than re-importing it.
-- **A Contact page pattern** in the default theme, with a hero, contact
-  details, and a form block wired to the site's default "Contact" form.
-- Theme patterns can declare `requiresBlockTypes` in their JSON so the page
-  builder's Patterns panel can tell the editor a pattern needs a plugin
-  that isn't installed. The Contact pattern uses it for `justflows.forms.form`:
-  if the Forms extension isn't active, its pattern card shows an inline
-  notice with a link to Extensions instead of silently importing a block
-  that won't render anything on the public site.
-- **Three new Gallery layouts**: Carousel (a swipeable, scroll-snap slider),
-  Slideshow (one image at a time, cross-fading), and List (full-width
-  stacked rows). Grid and Masonry are unchanged. All three, like the
-  existing layouts, are pure CSS on the public site — no client-side script.
-  The inspector now hides the Columns field for layouts it doesn't apply to.
-- **A first-class blog page.** Theme builder → Blog can select any page as the
-  site's blog index or turn the active theme's default blog layout into a new
-  published page. Content lists and page settings identify the selected page,
-  and deleting it clears the setting automatically.
-- **A Post List block** for building blog indexes on any page. It lists published
-  posts newest first in a grid or list, can show featured images, dates, and
-  excerpts, and supports either a per-block page size or the site's default.
-  Numbered pagination lives below the page at `/page/2`, `/page/3`, and so on,
-  including localized page URLs.
-- Posts and other non-page content can now use the visual block builder. The
-  library hides whole-page patterns and site-chrome widgets when editing a post,
-  while pages retain the complete library and per-page header controls.
-- **A Link List block** for footer columns, sitemaps, and resource lists, with an
-  optional heading and reorderable links.
-- Button, hero, call-to-action, and Link List URL controls can pick a published
-  page or post by title while still accepting a typed internal or external URL.
-  Image blocks now use the Media Library picker instead of requiring a URL.
+- Password change (Admin → Security → Your account) and administrator-initiated
+  password reset. Neither existed; a compromised credential could not be rotated
+  from inside the product. Both revoke every existing session.
+- Two-factor authentication (TOTP, RFC 6238) with single-use recovery codes.
+  Secrets and codes are encrypted at rest.
 
-### Fixed
+### Added — compliance and supply chain
 
-- Visitors whose device asks for dark mode now get it. The public site defaulted
-  to light and ignored `prefers-color-scheme` until the visitor clicked, and it
-  now follows the device — live — until they choose for themselves.
-- The Customizer's heading sizes now actually apply. A later rule in the default
-  theme's typography block overrode them at equal specificity; that block is now
-  the token-driven one, with the chosen size as the ceiling of a fluid `clamp()`.
-- The page builder's own chrome uses the admin design tokens instead of 113
-  hardcoded hex values, so it follows the admin theme like the rest of the UI.
-- Per-block CSS no longer drops declarations written alongside rules.
-  `padding: 2rem; & h2 { … }` — the shape the panel's own placeholder teaches —
-  silently lost the padding.
-- Customizer colours and Additional CSS now override the active theme. `/theme.css`
-  emitted them _before_ the theme's own stylesheet, so at equal specificity the
-  theme silently won. Theme styles come first now, then site tokens, then
-  Additional CSS last.
-- Empty page-builder columns accept dropped blocks. Each column is its own grid
-  cell with a drop target that stays visible, so content is no longer rejected
-  or stacked as a single column.
-- Unchecking “Show site title” now hides the title on the public site. The header
-  previously forced the title back on whenever the logo was also hidden.
-- **Gallery's Masonry layout reverted to Grid on every save.** The gallery
-  block stored its grid/masonry/etc. choice under `props.layout`, the same
-  key the page builder already used — on any block, not just the gallery —
-  for unrelated grid-placement data (`{ col, span, row, rowSpan }`, set by
-  dragging a block around inside a `core.grid`). The document sanitizer that
-  runs on every save treated any `layout` value as placement data; a string
-  like `"masonry"` doesn't look like a placement object, so it silently fell
-  back to the default and got dropped. "Grid" looked unaffected only because
-  grid is also the fallback when nothing is stored. Grid placement now lives
-  under its own `gridPlacement` prop, so the two can no longer collide;
-  existing pages that already used grid placement are migrated on next save.
-- **Inactive plugins were still live.** A plugin that was merely uploaded
-  (status "installed", never activated) was treated as fully active: its
-  admin menu entries showed up, its blocks worked in the page builder, and
-  Analytics/Forms/Gallery served their public behavior. Only Forms, Gallery,
-  and Analytics could reach the "installed" state without ever activating
-  (custom plugin modules always started active), so this affected only the
-  bundled extensions, but on any site that had them staged and not yet
-  turned on. Every enabled-check now requires status `active`.
-- **Deactivating or deleting a plugin didn't bust the page cache.** Activating
-  a plugin invalidated cached pages so it would show up immediately;
-  deactivating and deleting didn't, so a page cached while the plugin was
-  active kept serving the old HTML — a deleted Forms plugin's form, for
-  example, stayed live on cached pages until the cache separately expired.
-  Both actions now revalidate the same way activation does.
-- **A deactivated plugin's block type never left the page builder's catalog
-  or the public renderer.** The block registry only ever gained entries; a
-  block registered while Forms or Gallery was active stayed registered (and,
-  for Gallery, kept rendering on the public site) after deactivation, because
-  nothing ever unregistered it. Deactivating now removes the block type from
-  both the picker and the render path immediately.
-- The Contact pattern's inline "extension isn't active" notice no longer lets
-  you import the pattern anyway — the import action is disabled while any
-  block type it needs isn't in the active catalog, instead of just warning
-  next to a working button.
-- Publishing the footer now clears its old draft. A stale draft previously kept
-  outranking the newly published footer in preview, making Publish appear to do
-  nothing until the draft was discarded separately.
+- **Administrative audit log.** New `audit_log` table (migration 0008) and an
+  Admin → Security → Audit log screen. Records sign-ins and failed sign-ins,
+  password changes and resets, 2FA enrolment, account creation, role changes and
+  deletions, plugin/theme/CSS-provider installs and activations, core updates,
+  security-header changes, and public-API toggles. Nothing recorded any of this
+  before, so a compromise could not be reconstructed. Writes never throw into
+  the action they describe. Retention defaults to 365 days
+  (`JF_AUDIT_RETENTION_DAYS`), because the log holds IP addresses.
+- **Subject access and erasure.** `GET /api/users/:id/personal-data` returns
+  everything held about an account; `POST /api/users/:id/erase` anonymises
+  comments, deletes that person's form submissions, and strips address and user
+  agent from their audit entries. Content is reassigned, not deleted — erasure
+  is a right over personal data, not over a site's articles. Form-submission
+  retention is available via `JF_SUBMISSION_RETENTION_DAYS`, off by default.
+- **SBOM and checksums.** Each release now ships a CycloneDX 1.5 SBOM (inside
+  the archive and beside it) and a `.sha256` file. A zip uploaded by FTP was
+  previously the one artefact nobody could verify — which sat oddly next to the
+  strict signature checking applied to plugins.
+- **Secret scanning in CI.** `scripts/scan-secrets.mjs`, Node builtins only.
 
-### Changed
+### Fixed — compliance and supply chain
 
-- Documented file/folder naming conventions in a new `docs/CONVENTIONS.md`,
-  linked from `docs/README.md` and `CONTRIBUTING.md`, covering `packages/*`,
-  `apps/server`, the admin UI, plugins, themes, docs, licenses, migrations,
-  and scripts.
-- `public/js/*.js` (referenced by the site layout) is now tracked in version
-  control instead of sitting untracked and un-gitignored.
-- `packages/auth/src` no longer wraps single-file concerns in their own
-  subdirectories: `password/hash.ts` → `password.ts`,
-  `capabilities/index.ts` → `capabilities.ts`, `session/types.ts` →
-  `session.ts`.
-- `apps/server/src/lib/i18n/admin/` and `.../catalogs/` are renamed to
-  `admin-catalogs/` and `site-catalogs/` so the admin-SPA and public-site
-  translation catalogs are named symmetrically instead of one looking like
-  the unqualified default.
+- `security.txt` was not valid under RFC 9116: the REQUIRED `Expires` field was
+  absent, `Canonical` was a bare path where a URI is required, and `Policy`
+  named a different repository. Now built per request so `Expires` cannot go
+  stale on a long-lived process.
+- GitHub Actions were pinned to mutable tags; they are now commit SHAs with the
+  release recorded in a trailing comment. Added a repository-wide least-
+  privilege `permissions` block, and one per job.
+- The container build ran `corepack prepare pnpm@latest`, overriding the pinned
+  `packageManager` — so the image used whatever pnpm shipped that day rather
+  than the version the lockfile was written by. The base image is now pinned by
+  digest, and there is a `HEALTHCHECK`.
+- Compose files gained `no-new-privileges`, `cap_drop: ALL`, a memory limit and
+  a healthcheck. `read_only` is deliberately not set, and says why: the install
+  wizard writes `.env` into the application root and extension installs write
+  beside it, so a read-only root filesystem would break setup.
+- The release zip excluded `.env.*`, which took `.env.example` and
+  `.env.production.example` with it — while README and SECURITY.md both told
+  readers to consult them. The exclusions are now explicit.
+- Node version drift: `engines`, `.node-version` and Docker all said 22 while CI
+  tested on 26. CI now uses 22, matching the floor the project claims and the
+  runtime it ships.
+
+### Fixed — medium
+
+- CSRF tokens are bound to the session revocation counter, so they rotate on
+  sign-out and password change instead of being fixed for the life of the site.
+  A related bug is fixed: when the CSRF cookie was missing but a session was
+  present, the re-issued cookie was random and could never validate.
+- Plugin HTTP routes are CSRF-checked, no longer receive the `Cookie` header,
+  cannot overwrite security or CORS response headers, and now receive the
+  caller's session so a handler can authorise.
+- The reference `nginx.conf` no longer drops the `Content-Disposition` the app
+  attaches to PDF uploads, repeats security headers inside every `location`
+  (nginx does not inherit them), marks them `always` so they survive error
+  responses, and sends `X-XSS-Protection: 0` to match the app.
+- Route handlers no longer serialise exceptions into responses; the four
+  unauthenticated install-wizard messages are opaque and the detail is logged.
+- Marketplace requests have timeouts, and downloads are size-capped while
+  streaming rather than after buffering.
+- CSS-provider npm dependencies must name a published version or range — URLs,
+  git references and local paths were accepted and then executed.
+- The site URL is validated identically by the install wizard and by settings.
+- Minimum password length is 12 everywhere; `POST /api/users` allowed 8.
+
+### Fixed — low
+
+- Admin → Users no longer renders a hard-coded account list or leaves **Send
+  invite** disconnected. It now loads the site's users from the database and
+  provides an administrator-only invitation endpoint that creates the account,
+  assigns the selected role, generates temporary credentials, sends them by
+  email, and reports mail-delivery failures without hiding a successful insert.
+- `GET /api/blocks` needed no session. It enumerates every registered block type
+  including plugin-contributed ones — a precise inventory of installed
+  extensions — and ran two database queries per call.
+- Sign-in was not scoped to a site, so with more than one site row the account
+  chosen depended on database row order.
+- `safePath()` in root `server.js` compared with `startsWith(base)` and no
+  separator, which also accepts a sibling directory sharing the prefix. It now
+  matches the containment check the rest of the codebase uses, and resolves
+  symlinks.
+- The settings read was unscoped and capped at 100 rows with no `ORDER BY`, so a
+  site with enough plugin settings could silently lose `active_theme` from the
+  result and fall back to the default theme.
+- CSRF rejections were emitted before the security-header middleware ran, so
+  those 403s went out bare. Headers are now registered first.
+- Uploads had a 100 MB per-file cap and no total, so any author could fill the
+  volume. Both are now limits (`JF_MAX_UPLOAD_MB`, `JF_MAX_LIBRARY_MB`), and an
+  oversized file answers 413 instead of 500.
+- Rate limiting had a flat window, which lets an attacker run at exactly the
+  limit indefinitely. Exhausting a window now lengthens the next one, up to 8x,
+  and throttled responses carry `Retry-After`.
+
+### Fixed — PostgreSQL compatibility
+
+Found while scoping the settings query; all three would have thrown on postgres.
+
+- Settings reads hardcoded MySQL backtick quoting for the reserved `key`
+  column, which is a syntax error in PostgreSQL. Quoting is now driver-aware.
+- `UPDATE sites … ORDER BY created_at LIMIT 1` is a MySQL extension; the row is
+  now addressed by id.
+- The settings-write fallback used `UUID()`, `NOW()` and `ON DUPLICATE KEY`.
+  It was unreachable in practice and has been removed in favour of the existing
+  driver-aware helper.
+
 
 ## [0.1.2] — 2026-08-24
 

@@ -120,7 +120,8 @@ function HeaderCard({
   const showRaw = raw || !structured;
 
   const wireName =
-    def.id === "content_security_policy" && entry.mode === "report-only"
+    (def.id === "content_security_policy" || def.id === "content_security_policy_admin") &&
+    entry.mode === "report-only"
       ? "Content-Security-Policy-Report-Only"
       : def.header;
 

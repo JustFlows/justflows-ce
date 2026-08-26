@@ -73,7 +73,7 @@ under `adminMenu` and add the `admin:extend` permission:
 The entry appears in the sidebar while the plugin is active and disappears when
 it is deactivated or deleted — the admin reads the live list from
 `GET /api/plugins/admin-menu`. Merely uploading or installing a plugin does not
-activate its menu. Only register a `path` the admin SPA
+activate its menu. Only register a `path` the admin application
 actually serves; an unrouted path renders a dead link.
 
 ## Install on a site without this checkout

@@ -1,8 +1,40 @@
 // SPDX-License-Identifier: MIT
 
+import { createRequire } from "node:module";
+import path from "node:path";
 import { z } from "zod";
 import { getSiteId, getSiteSetting, setSiteSetting } from "./site-settings.js";
 import { getJfCache } from "./jf-cache.js";
+import { getJfRoot } from "./jf-root.js";
+
+/**
+ * The admin policy is defined in scripts/security-headers.cjs, because root
+ * server.js has to emit it too — it answers /login and /assets/* before Express
+ * exists — and a CSP that differs between those two paths is worse than no CSP
+ * at all. Resolved once at module load; this file is on the hot path.
+ */
+const ADMIN_CSP: string = (() => {
+  try {
+    const file = path.join(getJfRoot(), "scripts", "security-headers.cjs");
+    return (createRequire(file)(file) as { ADMIN_CSP: string }).ADMIN_CSP;
+  } catch {
+    // Bundled builds may not ship scripts/. Keep a policy rather than none.
+    return [
+      "default-src 'self'",
+      "base-uri 'none'",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "manifest-src 'self'",
+      "worker-src 'self' blob:",
+    ].join("; ");
+  }
+})();
 
 /** Site setting key holding the whole security-header configuration. */
 export const SECURITY_HEADERS_SETTING_KEY = "security_headers";
@@ -10,8 +42,8 @@ export const SECURITY_HEADERS_SETTING_KEY = "security_headers";
 /**
  * Where a header is emitted.
  *  - `all`    every response
- *  - `public` the public site only (never the admin SPA or the API)
- *  - `admin`  the admin SPA, its assets and the API only
+ *  - `public` the public site only (never the admin application or the API)
+ *  - `admin`  the admin SSR/client application, its assets and the API only
  *
  * Splitting the scope matters for policies such as CSP: a policy that is right
  * for a themed public page usually breaks the React admin, and vice versa.
@@ -25,6 +57,7 @@ export const SECURITY_HEADER_IDS = [
   "referrer_policy",
   "x_content_type_options",
   "content_security_policy",
+  "content_security_policy_admin",
   "permissions_policy",
   "cross_origin_embedder_policy",
   "cross_origin_opener_policy",
@@ -86,6 +119,18 @@ export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
     docs: "https://developer.mozilla.org/docs/Web/HTTP/Headers/Content-Security-Policy",
   },
   {
+    id: "content_security_policy_admin",
+    header: "Content-Security-Policy",
+    title: "Content Security Policy (admin)",
+    description:
+      "The policy applied to the admin area, its assets and the API. The admin holds a session that can install extensions and update the core, so a script injected there is worth far more to an attacker than one on a public page. Kept separate because a policy tuned for a themed public site is usually wrong for the React admin, and vice versa.",
+    editor: "csp",
+    defaultValue: ADMIN_CSP,
+    defaultScope: "admin",
+    recommended: true,
+    docs: "https://developer.mozilla.org/docs/Web/HTTP/Headers/Content-Security-Policy",
+  },
+  {
     id: "strict_transport_security",
     header: "Strict-Transport-Security",
     title: "HTTP Strict Transport Security",
@@ -105,8 +150,17 @@ export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
       "Stops other sites from putting your pages in a frame, which is what clickjacking attacks rely on. The modern equivalent is the CSP frame-ancestors directive.",
     editor: "choice",
     options: [
-      { value: "SAMEORIGIN", label: "SAMEORIGIN", hint: "Only your own site may frame these pages.", recommended: true },
-      { value: "DENY", label: "DENY", hint: "No site at all may frame these pages, not even your own." },
+      {
+        value: "SAMEORIGIN",
+        label: "SAMEORIGIN",
+        hint: "Only your own site may frame these pages.",
+        recommended: true,
+      },
+      {
+        value: "DENY",
+        label: "DENY",
+        hint: "No site at all may frame these pages, not even your own.",
+      },
     ],
     defaultValue: "SAMEORIGIN",
     defaultScope: "all",
@@ -121,7 +175,12 @@ export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
       "Stops the browser guessing a file's type from its content. Without it an uploaded image can sometimes be coaxed into running as a script.",
     editor: "choice",
     options: [
-      { value: "nosniff", label: "nosniff", hint: "Always trust the declared Content-Type.", recommended: true },
+      {
+        value: "nosniff",
+        label: "nosniff",
+        hint: "Always trust the declared Content-Type.",
+        recommended: true,
+      },
     ],
     defaultValue: "nosniff",
     defaultScope: "all",
@@ -136,7 +195,11 @@ export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
       "Decides how much of the current URL is passed along when a visitor follows a link off your site.",
     editor: "choice",
     options: [
-      { value: "no-referrer", label: "no-referrer", hint: "Never send a referrer. Most private, breaks some analytics." },
+      {
+        value: "no-referrer",
+        label: "no-referrer",
+        hint: "Never send a referrer. Most private, breaks some analytics.",
+      },
       {
         value: "strict-origin-when-cross-origin",
         label: "strict-origin-when-cross-origin",
@@ -144,11 +207,27 @@ export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
         recommended: true,
       },
       { value: "same-origin", label: "same-origin", hint: "Referrer only within your own site." },
-      { value: "strict-origin", label: "strict-origin", hint: "Only the origin, and never over an insecure downgrade." },
+      {
+        value: "strict-origin",
+        label: "strict-origin",
+        hint: "Only the origin, and never over an insecure downgrade.",
+      },
       { value: "origin", label: "origin", hint: "Only the origin, including on downgrades." },
-      { value: "origin-when-cross-origin", label: "origin-when-cross-origin", hint: "Full URL internally, origin externally." },
-      { value: "no-referrer-when-downgrade", label: "no-referrer-when-downgrade", hint: "The old browser default." },
-      { value: "unsafe-url", label: "unsafe-url", hint: "Always send the full URL. Leaks paths and query strings." },
+      {
+        value: "origin-when-cross-origin",
+        label: "origin-when-cross-origin",
+        hint: "Full URL internally, origin externally.",
+      },
+      {
+        value: "no-referrer-when-downgrade",
+        label: "no-referrer-when-downgrade",
+        hint: "The old browser default.",
+      },
+      {
+        value: "unsafe-url",
+        label: "unsafe-url",
+        hint: "Always send the full URL. Leaks paths and query strings.",
+      },
     ],
     defaultValue: "strict-origin-when-cross-origin",
     defaultScope: "all",
@@ -228,14 +307,22 @@ export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
       "Lets you say who is allowed to load your pages and files at all, which blunts side-channel attacks that read cross-origin responses.",
     editor: "choice",
     options: [
-      { value: "same-origin", label: "same-origin", hint: "Only your own origin may load these resources." },
+      {
+        value: "same-origin",
+        label: "same-origin",
+        hint: "Only your own origin may load these resources.",
+      },
       {
         value: "same-site",
         label: "same-site",
         hint: "Your site and its subdomains may load these resources.",
         recommended: true,
       },
-      { value: "cross-origin", label: "cross-origin", hint: "Anyone may load them. Use for a public CDN or embeddable assets." },
+      {
+        value: "cross-origin",
+        label: "cross-origin",
+        hint: "Anyone may load them. Use for a public CDN or embeddable assets.",
+      },
     ],
     defaultValue: "same-site",
     defaultScope: "all",
@@ -250,9 +337,22 @@ export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
       "Tells Adobe clients (and a few crawlers) whether a crossdomain.xml file on your host should be honoured.",
     editor: "choice",
     options: [
-      { value: "none", label: "none", hint: "No cross-domain policy file is allowed.", recommended: true },
-      { value: "master-only", label: "master-only", hint: "Only the policy file at the site root counts." },
-      { value: "by-content-type", label: "by-content-type", hint: "Only policy files served as text/x-cross-domain-policy." },
+      {
+        value: "none",
+        label: "none",
+        hint: "No cross-domain policy file is allowed.",
+        recommended: true,
+      },
+      {
+        value: "master-only",
+        label: "master-only",
+        hint: "Only the policy file at the site root counts.",
+      },
+      {
+        value: "by-content-type",
+        label: "by-content-type",
+        hint: "Only policy files served as text/x-cross-domain-policy.",
+      },
       { value: "all", label: "all", hint: "Any policy file counts. Not recommended." },
     ],
     defaultValue: "none",
@@ -300,8 +400,17 @@ export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
       "Controls the XSS filter in long-obsolete browsers. The filter itself introduced vulnerabilities, so the modern advice is to send 0 or nothing at all and rely on CSP.",
     editor: "choice",
     options: [
-      { value: "0", label: "0", hint: "Disable the legacy filter. This is the current recommendation.", recommended: true },
-      { value: "1; mode=block", label: "1; mode=block", hint: "Block the page on a suspected reflection. Deprecated." },
+      {
+        value: "0",
+        label: "0",
+        hint: "Disable the legacy filter. This is the current recommendation.",
+        recommended: true,
+      },
+      {
+        value: "1; mode=block",
+        label: "1; mode=block",
+        hint: "Block the page on a suspected reflection. Deprecated.",
+      },
       { value: "1", label: "1", hint: "Sanitise the page. Deprecated and unsafe." },
     ],
     defaultValue: "0",
@@ -312,6 +421,11 @@ export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
 ];
 
 const DEFS_BY_ID = new Map(SECURITY_HEADER_DEFS.map((d) => [d.id, d]));
+
+/** Both CSP entries share the report-only mode and the report-only header name. */
+export function isCspId(id: SecurityHeaderId): boolean {
+  return id === "content_security_policy" || id === "content_security_policy_admin";
+}
 
 export function getHeaderDef(id: SecurityHeaderId): SecurityHeaderDef {
   const def = DEFS_BY_ID.get(id);
@@ -483,6 +597,10 @@ export function defaultConfig(): SecurityHeadersConfig {
     // clear it in Admin → Security, or set JF_SECURITY_HEADERS_DISABLED=1 to
     // fall back to the shipped defaults without database access.
     "content_security_policy",
+    // The admin is the surface where an injected script becomes extension
+    // install and core update — i.e. shell access. It shipped with no policy at
+    // all because the only CSP entry was scoped "public".
+    "content_security_policy_admin",
   ]);
 
   for (const def of SECURITY_HEADER_DEFS) {
@@ -491,7 +609,7 @@ export function defaultConfig(): SecurityHeadersConfig {
       scope: def.defaultScope,
       value: def.defaultValue,
     };
-    if (def.id === "content_security_policy") entry.mode = "enforce";
+    if (isCspId(def.id)) entry.mode = "enforce";
     if (def.id === "strict_transport_security") entry.onlyWhenSecure = true;
     headers[def.id] = entry;
   }
@@ -511,6 +629,7 @@ export function recommendedConfig(): SecurityHeadersConfig {
   // CSP now ships enabled and enforcing (see defaultConfig), so the recommended
   // configuration must not quietly downgrade it to report-only.
   cfg.headers.content_security_policy.mode = "enforce";
+  cfg.headers.content_security_policy_admin.mode = "enforce";
   return cfg;
 }
 
@@ -540,7 +659,7 @@ export function normalizeConfig(raw: unknown): SecurityHeadersConfig {
         : fallback.scope,
       value: typeof stored.value === "string" ? stored.value : fallback.value,
     };
-    if (def.id === "content_security_policy") {
+    if (isCspId(def.id)) {
       entry.mode = stored.mode === "report-only" ? "report-only" : "enforce";
     }
     if (def.id === "strict_transport_security") {
@@ -551,7 +670,10 @@ export function normalizeConfig(raw: unknown): SecurityHeadersConfig {
 
   const custom = Array.isArray(input.custom)
     ? input.custom
-        .filter((h): h is CustomHeader => !!h && typeof h.name === "string" && typeof h.value === "string")
+        .filter(
+          (h): h is CustomHeader =>
+            !!h && typeof h.name === "string" && typeof h.value === "string",
+        )
         .map((h) => ({
           name: h.name,
           value: h.value,
@@ -598,7 +720,7 @@ export function resolveHeaders(
     if (def.id === "strict_transport_security" && entry.onlyWhenSecure && !ctx.secure) continue;
 
     const name =
-      def.id === "content_security_policy" && entry.mode === "report-only"
+      isCspId(def.id) && entry.mode === "report-only"
         ? "Content-Security-Policy-Report-Only"
         : def.header;
 
@@ -653,10 +775,8 @@ export async function getSecurityHeadersConfig(): Promise<SecurityHeadersConfig>
     );
   } catch {
     try {
-      return await cache.remember(
-        SECURITY_HEADERS_CACHE_KEY,
-        CACHE_TTL_ERROR_SECONDS,
-        async () => defaultConfig(),
+      return await cache.remember(SECURITY_HEADERS_CACHE_KEY, CACHE_TTL_ERROR_SECONDS, async () =>
+        defaultConfig(),
       );
     } catch {
       return defaultConfig();

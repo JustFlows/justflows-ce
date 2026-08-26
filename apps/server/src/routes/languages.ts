@@ -12,6 +12,7 @@ import {
 import { requireRole, requireSession } from "../middleware/auth.js";
 import { setLocaleCookie, LOCALE_COOKIE } from "../middleware/locale.js";
 import { param } from "../lib/params.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
@@ -24,7 +25,7 @@ router.get("/", requireSession, async (_req, res) => {
     const languages = await listLanguages();
     res.json({ languages });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "languages", err);
   }
 });
 
@@ -33,7 +34,7 @@ router.get("/active", requireSession, async (_req, res) => {
     const languages = await listLanguages(undefined, true);
     res.json({ languages });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "languages", err);
   }
 });
 

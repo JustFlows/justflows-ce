@@ -6,6 +6,7 @@ import {
   formatPhpDate,
 } from "@lib/datetime-format";
 import MediaImageField from "@components/MediaImageField";
+import { initialJson } from "../../ssr-data";
 
 const ROLE_OPTIONS = ["subscriber", "contributor", "author", "editor", "administrator"] as const;
 const ROLE_LABELS: Record<(typeof ROLE_OPTIONS)[number], string> = {
@@ -78,6 +79,43 @@ const EMPTY: GeneralState = {
   faviconUrl: "",
 };
 
+type SettingsPayload = Record<string, unknown> & {
+  languages?: LanguageOption[];
+  timezones?: string[];
+  date_format?: string;
+  time_format?: string;
+};
+
+function generalFromPayload(data: SettingsPayload): GeneralState {
+  return {
+    name: typeof data.site_name === "string" ? data.site_name : "My Site",
+    description: typeof data.site_description === "string" ? data.site_description : "",
+    url: typeof data.site_url === "string" ? data.site_url : "",
+    adminEmail: typeof data.admin_email === "string" ? data.admin_email : "",
+    usersCanRegister: data.users_can_register === true,
+    defaultRole: typeof data.default_role === "string" ? data.default_role : "subscriber",
+    siteLanguage: typeof data.site_language === "string" ? data.site_language : "en",
+    timezone: typeof data.timezone === "string" ? data.timezone : "UTC",
+    dateFormat: data.date_format ?? "F j, Y",
+    timeFormat: data.time_format ?? "g:i a",
+    startOfWeek: Number(data.start_of_week ?? 1),
+    postsPerPage: String(data.posts_per_page ?? 10),
+    sitePublic: data.site_public === true,
+    publicApiEnabled: data.public_api_enabled === true,
+    discourageSearchEngines: data.discourage_search_engines === true,
+    mailTransport: data.mail_transport === "smtp" ? "smtp" : "sendmail",
+    mailFromName: typeof data.mail_from_name === "string" ? data.mail_from_name : "",
+    smtpHost: typeof data.smtp_host === "string" ? data.smtp_host : "localhost",
+    smtpPort: String(data.smtp_port ?? 25),
+    smtpSecure:
+      data.smtp_secure === "starttls" || data.smtp_secure === "ssl" ? data.smtp_secure : "none",
+    smtpUser: typeof data.smtp_user === "string" ? data.smtp_user : "",
+    smtpPass: "",
+    smtpPassSet: data.smtp_pass_set === true,
+    faviconUrl: typeof data.favicon_url === "string" ? data.favicon_url : "",
+  };
+}
+
 function groupTimezones(zones: string[]): Array<{ region: string; zones: string[] }> {
   const groups = new Map<string, string[]>();
   for (const zone of zones) {
@@ -90,15 +128,27 @@ function groupTimezones(zones: string[]): Array<{ region: string; zones: string[
 }
 
 export default function SettingsPage() {
-  const [general, setGeneral] = useState<GeneralState>(EMPTY);
-  const [languages, setLanguages] = useState<LanguageOption[]>([]);
-  const [timezones, setTimezones] = useState<string[]>(["UTC"]);
+  const prefetched = initialJson<SettingsPayload>("/api/settings");
+  const initialGeneral = prefetched ? generalFromPayload(prefetched) : EMPTY;
+  const [general, setGeneral] = useState<GeneralState>(initialGeneral);
+  const [languages, setLanguages] = useState<LanguageOption[]>(prefetched?.languages ?? []);
+  const [timezones, setTimezones] = useState<string[]>(
+    prefetched?.timezones?.length ? prefetched.timezones : ["UTC"],
+  );
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [customDate, setCustomDate] = useState(false);
-  const [customTime, setCustomTime] = useState(false);
+  const [loading, setLoading] = useState(!prefetched);
+  const [customDate, setCustomDate] = useState(
+    prefetched
+      ? !(DATE_FORMAT_PRESETS as readonly string[]).includes(initialGeneral.dateFormat)
+      : false,
+  );
+  const [customTime, setCustomTime] = useState(
+    prefetched
+      ? !(TIME_FORMAT_PRESETS as readonly string[]).includes(initialGeneral.timeFormat)
+      : false,
+  );
   const [testingMail, setTestingMail] = useState(false);
   const [mailTest, setMailTest] = useState<string | null>(null);
 
@@ -109,37 +159,14 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
-      .then((data) => {
+      .then((data: SettingsPayload) => {
         const dateFormat = data.date_format ?? "F j, Y";
         const timeFormat = data.time_format ?? "g:i a";
-        setGeneral({
-          name: data.site_name ?? "My Site",
-          description: data.site_description ?? "",
-          url: data.site_url ?? "",
-          adminEmail: data.admin_email ?? "",
-          usersCanRegister: data.users_can_register === true,
-          defaultRole: data.default_role ?? "subscriber",
-          siteLanguage: data.site_language ?? "en",
-          timezone: data.timezone ?? "UTC",
-          dateFormat,
-          timeFormat,
-          startOfWeek: Number(data.start_of_week ?? 1),
-          postsPerPage: String(data.posts_per_page ?? 10),
-          sitePublic: data.site_public === true,
-          publicApiEnabled: data.public_api_enabled === true,
-          discourageSearchEngines: data.discourage_search_engines === true,
-          mailTransport: data.mail_transport === "smtp" ? "smtp" : "sendmail",
-          mailFromName: data.mail_from_name ?? "",
-          smtpHost: data.smtp_host ?? "localhost",
-          smtpPort: String(data.smtp_port ?? 25),
-          smtpSecure: data.smtp_secure === "starttls" || data.smtp_secure === "ssl" ? data.smtp_secure : "none",
-          smtpUser: data.smtp_user ?? "",
-          smtpPass: "",
-          smtpPassSet: data.smtp_pass_set === true,
-          faviconUrl: data.favicon_url ?? "",
-        });
+        setGeneral(generalFromPayload(data));
         setLanguages(data.languages ?? []);
-        setTimezones(Array.isArray(data.timezones) && data.timezones.length > 0 ? data.timezones : ["UTC"]);
+        setTimezones(
+          Array.isArray(data.timezones) && data.timezones.length > 0 ? data.timezones : ["UTC"],
+        );
         setCustomDate(!(DATE_FORMAT_PRESETS as readonly string[]).includes(dateFormat));
         setCustomTime(!(TIME_FORMAT_PRESETS as readonly string[]).includes(timeFormat));
       })
@@ -205,7 +232,7 @@ export default function SettingsPage() {
     setTestingMail(true);
     try {
       const res = await fetch("/api/settings/test-mail", { method: "POST" });
-      const data = await res.json() as { error?: string };
+      const data = (await res.json()) as { error?: string };
       if (!res.ok) {
         setMailTest(data.error ?? "Could not send test email");
         return;
@@ -228,8 +255,10 @@ export default function SettingsPage() {
   }
 
   const timezoneGroups = groupTimezones(timezones);
-  const dateIsCustom = customDate || !(DATE_FORMAT_PRESETS as readonly string[]).includes(general.dateFormat);
-  const timeIsCustom = customTime || !(TIME_FORMAT_PRESETS as readonly string[]).includes(general.timeFormat);
+  const dateIsCustom =
+    customDate || !(DATE_FORMAT_PRESETS as readonly string[]).includes(general.dateFormat);
+  const timeIsCustom =
+    customTime || !(TIME_FORMAT_PRESETS as readonly string[]).includes(general.timeFormat);
 
   return (
     <div className="jf-page">
@@ -243,7 +272,9 @@ export default function SettingsPage() {
       <Section title="Site identity">
         <div className="jf-grid jf-grid--2">
           <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-site-name">Site Title</label>
+            <label className="jf-field__label" htmlFor="jf-site-name">
+              Site Title
+            </label>
             <input
               id="jf-site-name"
               className="jf-input"
@@ -252,7 +283,9 @@ export default function SettingsPage() {
             />
           </div>
           <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-site-url">Site Address (URL)</label>
+            <label className="jf-field__label" htmlFor="jf-site-url">
+              Site Address (URL)
+            </label>
             <input
               id="jf-site-url"
               className="jf-input"
@@ -260,11 +293,15 @@ export default function SettingsPage() {
               placeholder="https://example.com"
               onChange={(e) => patch({ url: e.target.value })}
             />
-            <p className="jf-field__hint">The address people type in their browser to reach this site.</p>
+            <p className="jf-field__hint">
+              The address people type in their browser to reach this site.
+            </p>
           </div>
         </div>
         <div className="jf-field">
-          <label className="jf-field__label" htmlFor="jf-tagline">Tagline</label>
+          <label className="jf-field__label" htmlFor="jf-tagline">
+            Tagline
+          </label>
           <input
             id="jf-tagline"
             className="jf-input"
@@ -286,7 +323,9 @@ export default function SettingsPage() {
 
       <Section title="Administration">
         <div className="jf-field">
-          <label className="jf-field__label" htmlFor="jf-admin-email">Administration Email Address</label>
+          <label className="jf-field__label" htmlFor="jf-admin-email">
+            Administration Email Address
+          </label>
           <input
             id="jf-admin-email"
             className="jf-input"
@@ -297,32 +336,39 @@ export default function SettingsPage() {
             onChange={(e) => patch({ adminEmail: e.target.value })}
           />
           <p className="jf-field__hint">
-            Used for site administration notifications such as comment moderation, new user registrations,
-            and system alerts. This is not the email address you log in with.
+            Used for site administration notifications such as comment moderation, new user
+            registrations, and system alerts. This is not the email address you log in with.
           </p>
         </div>
       </Section>
 
       <Section title="Outgoing mail">
         <p className="jf-field__hint" style={{ marginTop: 0 }}>
-          Sends through the server itself — the same idea as PHPMailer. Sendmail uses the host&apos;s local mailer.
-          Switch to SMTP if this machine needs authenticated submission (Plesk mailbox, localhost:587, and so on).
+          Sends through the server itself — the same idea as PHPMailer. Sendmail uses the
+          host&apos;s local mailer. Switch to SMTP if this machine needs authenticated submission
+          (Plesk mailbox, localhost:587, and so on).
         </p>
         <div className="jf-grid jf-grid--2">
           <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-mail-transport">Mailer</label>
+            <label className="jf-field__label" htmlFor="jf-mail-transport">
+              Mailer
+            </label>
             <select
               id="jf-mail-transport"
               className="jf-input"
               value={general.mailTransport}
-              onChange={(e) => patch({ mailTransport: e.target.value === "smtp" ? "smtp" : "sendmail" })}
+              onChange={(e) =>
+                patch({ mailTransport: e.target.value === "smtp" ? "smtp" : "sendmail" })
+              }
             >
               <option value="sendmail">Sendmail (local)</option>
               <option value="smtp">SMTP</option>
             </select>
           </div>
           <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-mail-from-name">From name</label>
+            <label className="jf-field__label" htmlFor="jf-mail-from-name">
+              From name
+            </label>
             <input
               id="jf-mail-from-name"
               className="jf-input"
@@ -330,14 +376,18 @@ export default function SettingsPage() {
               placeholder={general.name || "Site name"}
               onChange={(e) => patch({ mailFromName: e.target.value })}
             />
-            <p className="jf-field__hint">Leave blank to use the site title. From address is the administration email.</p>
+            <p className="jf-field__hint">
+              Leave blank to use the site title. From address is the administration email.
+            </p>
           </div>
         </div>
         {general.mailTransport === "smtp" && (
           <>
             <div className="jf-grid jf-grid--2">
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-smtp-host">SMTP host</label>
+                <label className="jf-field__label" htmlFor="jf-smtp-host">
+                  SMTP host
+                </label>
                 <input
                   id="jf-smtp-host"
                   className="jf-input"
@@ -347,7 +397,9 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-smtp-port">Port</label>
+                <label className="jf-field__label" htmlFor="jf-smtp-port">
+                  Port
+                </label>
                 <input
                   id="jf-smtp-port"
                   className="jf-input"
@@ -361,7 +413,9 @@ export default function SettingsPage() {
             </div>
             <div className="jf-grid jf-grid--2">
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-smtp-secure">Encryption</label>
+                <label className="jf-field__label" htmlFor="jf-smtp-secure">
+                  Encryption
+                </label>
                 <select
                   id="jf-smtp-secure"
                   className="jf-input"
@@ -377,7 +431,9 @@ export default function SettingsPage() {
                 </select>
               </div>
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-smtp-user">Username</label>
+                <label className="jf-field__label" htmlFor="jf-smtp-user">
+                  Username
+                </label>
                 <input
                   id="jf-smtp-user"
                   className="jf-input"
@@ -388,7 +444,9 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="jf-field" style={{ maxWidth: 320 }}>
-              <label className="jf-field__label" htmlFor="jf-smtp-pass">Password</label>
+              <label className="jf-field__label" htmlFor="jf-smtp-pass">
+                Password
+              </label>
               <input
                 id="jf-smtp-pass"
                 className="jf-input"
@@ -407,7 +465,10 @@ export default function SettingsPage() {
           </button>
           {mailTest && <span className="jf-field__hint">{mailTest}</span>}
         </div>
-        <p className="jf-field__hint">Save mail settings before sending a test. The message goes to the administration email address.</p>
+        <p className="jf-field__hint">
+          Save mail settings before sending a test. The message goes to the administration email
+          address.
+        </p>
       </Section>
 
       <Section title="Membership">
@@ -420,10 +481,13 @@ export default function SettingsPage() {
           <span>Anyone can register</span>
         </label>
         <p className="jf-field__hint">
-          When checked, visitors can create an account at <code>/register</code>. New accounts receive the default role below.
+          When checked, visitors can create an account at <code>/register</code>. New accounts
+          receive the default role below.
         </p>
         <div className="jf-field" style={{ maxWidth: 280 }}>
-          <label className="jf-field__label" htmlFor="jf-default-role">New User Default Role</label>
+          <label className="jf-field__label" htmlFor="jf-default-role">
+            New User Default Role
+          </label>
           <select
             id="jf-default-role"
             className="jf-input"
@@ -431,7 +495,9 @@ export default function SettingsPage() {
             onChange={(e) => patch({ defaultRole: e.target.value })}
           >
             {ROLE_OPTIONS.map((role) => (
-              <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+              <option key={role} value={role}>
+                {ROLE_LABELS[role]}
+              </option>
             ))}
           </select>
         </div>
@@ -439,14 +505,27 @@ export default function SettingsPage() {
 
       <Section title="Language">
         <div className="jf-field" style={{ maxWidth: 320 }}>
-          <label className="jf-field__label" htmlFor="jf-site-language">Site Language</label>
+          <label className="jf-field__label" htmlFor="jf-site-language">
+            Site Language
+          </label>
           <select
             id="jf-site-language"
             className="jf-input"
             value={general.siteLanguage}
             onChange={(e) => patch({ siteLanguage: e.target.value })}
           >
-            {(languages.length > 0 ? languages : [{ code: "en", name: "English", nativeName: "English", isDefault: true, isActive: true }]).map((lang) => (
+            {(languages.length > 0
+              ? languages
+              : [
+                  {
+                    code: "en",
+                    name: "English",
+                    nativeName: "English",
+                    isDefault: true,
+                    isActive: true,
+                  },
+                ]
+            ).map((lang) => (
               <option key={lang.code} value={lang.code}>
                 {lang.nativeName} ({lang.code})
               </option>
@@ -461,7 +540,9 @@ export default function SettingsPage() {
 
       <Section title="Timezone">
         <div className="jf-field" style={{ maxWidth: 420 }}>
-          <label className="jf-field__label" htmlFor="jf-tz">Timezone</label>
+          <label className="jf-field__label" htmlFor="jf-tz">
+            Timezone
+          </label>
           <select
             id="jf-tz"
             className="jf-input"
@@ -471,13 +552,16 @@ export default function SettingsPage() {
             {timezoneGroups.map((group) => (
               <optgroup key={group.region} label={group.region}>
                 {group.zones.map((tz) => (
-                  <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+                  <option key={tz} value={tz}>
+                    {tz.replace(/_/g, " ")}
+                  </option>
                 ))}
               </optgroup>
             ))}
           </select>
           <p className="jf-field__hint">
-            Universal time is <strong>{utcTime}</strong>. Local time is <strong>{localTime}</strong>.
+            Universal time is <strong>{utcTime}</strong>. Local time is <strong>{localTime}</strong>
+            .
           </p>
         </div>
       </Section>
@@ -508,7 +592,9 @@ export default function SettingsPage() {
           }}
         />
         <div className="jf-field" style={{ maxWidth: 240 }}>
-          <label className="jf-field__label" htmlFor="jf-week-start">Week Starts On</label>
+          <label className="jf-field__label" htmlFor="jf-week-start">
+            Week Starts On
+          </label>
           <select
             id="jf-week-start"
             className="jf-input"
@@ -516,7 +602,9 @@ export default function SettingsPage() {
             onChange={(e) => patch({ startOfWeek: Number(e.target.value) })}
           >
             {WEEKDAYS.map((day) => (
-              <option key={day.value} value={day.value}>{day.label}</option>
+              <option key={day.value} value={day.value}>
+                {day.label}
+              </option>
             ))}
           </select>
         </div>
@@ -532,7 +620,8 @@ export default function SettingsPage() {
           <span>Site is live</span>
         </label>
         <p className="jf-field__hint">
-          When unchecked, visitors see an under-construction page. Administrators and editors can still browse the site while logged in.
+          When unchecked, visitors see an under-construction page. Administrators and editors can
+          still browse the site while logged in.
         </p>
       </Section>
 
@@ -546,10 +635,11 @@ export default function SettingsPage() {
           <span>Expose the public API</span>
         </label>
         <p className="jf-field__hint">
-          When unchecked, every public-facing endpoint (<code>/api/v1/*</code>, <code>/api/site/*</code>)
-          answers <code>404</code> for visitors — headless clients and integrations lose access.
-          The admin API and everything the system uses internally keep working, and administrators
-          and editors can still call the public endpoints while logged in.
+          When unchecked, every public-facing endpoint (<code>/api/v1/*</code>,{" "}
+          <code>/api/site/*</code>) answers <code>404</code> for visitors — headless clients and
+          integrations lose access. The admin API and everything the system uses internally keep
+          working, and administrators and editors can still call the public endpoints while logged
+          in.
         </p>
       </Section>
 
@@ -563,13 +653,16 @@ export default function SettingsPage() {
           <span>Discourage search engines from indexing this site</span>
         </label>
         <p className="jf-field__hint">
-          Adds a <code>noindex</code> meta tag and blocks crawlers via <code>robots.txt</code>. Independent of the live setting.
+          Adds a <code>noindex</code> meta tag and blocks crawlers via <code>robots.txt</code>.
+          Independent of the live setting.
         </p>
       </Section>
 
       <Section title="Reading">
         <div className="jf-field" style={{ maxWidth: 200 }}>
-          <label className="jf-field__label" htmlFor="jf-ppp">Blog pages show at most</label>
+          <label className="jf-field__label" htmlFor="jf-ppp">
+            Blog pages show at most
+          </label>
           <input
             id="jf-ppp"
             className="jf-input"
@@ -627,12 +720,7 @@ function FormatPicker({
         </label>
       ))}
       <label className="jf-checkrow">
-        <input
-          type="radio"
-          name={name}
-          checked={custom}
-          onChange={() => onSelect(value, true)}
-        />
+        <input type="radio" name={name} checked={custom} onChange={() => onSelect(value, true)} />
         <span>Custom:</span>
         <input
           className="jf-input"

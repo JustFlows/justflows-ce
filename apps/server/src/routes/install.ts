@@ -14,6 +14,7 @@ import {
   tokenMatches,
 } from "../lib/install-token.js";
 import { getJustflowsVersion } from "../lib/version.js";
+import { SiteUrlSchema } from "../lib/site-url.js";
 
 const router = Router();
 
@@ -31,18 +32,7 @@ const Schema = z.object({
   site: z.object({
     name: z.string().min(1),
     description: z.string().optional(),
-    url: z
-      .string()
-      .min(1)
-      .max(2048)
-      .refine((value) => {
-        try {
-          const parsed = new URL(value);
-          return parsed.protocol === "http:" || parsed.protocol === "https:";
-        } catch {
-          return false;
-        }
-      }, "Site URL must be a full http:// or https:// address"),
+    url: SiteUrlSchema,
   }),
   account: z.object({
     email: z.string().email(),
@@ -205,7 +195,11 @@ router.post("/", async (req, res) => {
     try {
       await runAllMigrations(sql, db.driver);
     } catch (e) {
-      emit("error", `Migration failed: ${String(e)}`);
+      // Same reasoning as the connection failure above: this caller is
+      // unauthenticated, and a driver error names the schema, the column and
+      // sometimes the host. The detail goes to the log.
+      console.error("[justflows] install: migrations failed:", e);
+      emit("error", "Could not create the database tables. Check that the database user may create tables, then try again.");
       res.end();
       return;
     }
@@ -219,7 +213,8 @@ router.post("/", async (req, res) => {
         [siteId, site.name, site.url, site.description ?? null, true, now(), now(), now()],
       );
     } catch (e) {
-      emit("error", `Could not create site record: ${String(e)}`);
+      console.error("[justflows] install: site row failed:", e);
+      emit("error", "Could not create the site record. Check the server log for details.");
       res.end();
       return;
     }
@@ -244,7 +239,8 @@ router.post("/", async (req, res) => {
         ],
       );
     } catch (e) {
-      emit("error", `Could not create admin account: ${String(e)}`);
+      console.error("[justflows] install: admin account failed:", e);
+      emit("error", "Could not create the administrator account. Check the server log for details.");
       res.end();
       return;
     }
@@ -282,7 +278,8 @@ router.post("/", async (req, res) => {
         [langId, siteId, "en", "English", "English", isDefault, isDefault, 0, now(), now()],
       );
     } catch (e) {
-      emit("error", `Could not seed default language: ${String(e)}`);
+      console.error("[justflows] install: language seed failed:", e);
+      emit("error", "Could not set up the default language. Check the server log for details.");
       res.end();
       return;
     }
@@ -308,7 +305,8 @@ router.post("/", async (req, res) => {
     await sql.close();
     emit("done", "Justflows installed successfully");
   } catch (err) {
-    emit("error", `Unexpected error: ${String(err)}`);
+    console.error("[justflows] install failed:", err);
+    emit("error", "Installation failed. Check the server log for details.");
   } finally {
     res.end();
   }

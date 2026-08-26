@@ -61,12 +61,42 @@ Also:
   spoofable.
 - Leave `DB_SSL` alone unless you have a reason: database TLS is on by default
   for any non-localhost `DB_HOST`.
-- Complete the install wizard using the setup key from `install-token/TOKEN.txt`
-  (also printed to the server log). Open it with the same FTP client or File
-  Manager you used to upload Justflows. The folder ships an Apache deny rule and
-  Node never serves it, but if your host puts the application root behind a web
-  server you do not control, confirm the folder is not reachable over HTTP. It is
-  deleted automatically once setup completes. Do not set
-  `JUSTFLOWS_SKIP_INSTALL_TOKEN=1` on a reachable host.
+- Complete first-run setup using the setup key from `install-token/TOKEN.txt`
+  (also printed to the server log). Both points where an anonymous visitor could
+  otherwise act ask for it: the browser first-run page, before it downloads
+  dependencies and builds, and the install wizard's admin-account step. Requests
+  from localhost are exempt from both. Open the file with the same FTP client or
+  File Manager you used to upload Justflows. The folder ships an Apache deny rule
+  and Node never serves it, but if your host puts the application root behind a
+  web server you do not control, confirm the folder is not reachable over HTTP.
+  It is deleted automatically once setup completes, along with the build log. Do
+  not set `JUSTFLOWS_SKIP_INSTALL_TOKEN=1` on a reachable host.
+- Turn on two-factor authentication (Admin → Security → Your account). Given the
+  trust boundary above, an administrator password is a server credential; TOTP
+  is the cheapest thing standing between a reused password and shell access.
+  Recovery codes are shown once at enrolment — store them somewhere reachable
+  without the phone.
+- Review Admin → Security → Audit log after any incident, and set
+  `JF_AUDIT_RETENTION_DAYS` to match your retention policy. It records sign-ins,
+  privilege changes, and everything that installs or replaces code.
 - Limit the administrator role to people you trust with the server.
 - Leave the public REST API off unless you need it (Admin → Settings).
+
+## Data protection
+
+Justflows stores personal data in four places: user accounts, comment authors,
+form submissions, and the audit log's IP addresses.
+
+- **Subject access (GDPR Art. 15)** — `GET /api/users/:id/personal-data`
+  returns everything held about one account as JSON. Generated on request; no
+  copy is written to disk.
+- **Erasure (GDPR Art. 17)** — `POST /api/users/:id/erase` anonymises comments,
+  deletes that person's form submissions, and strips the address and user agent
+  from their audit entries. Content is reassigned rather than deleted: erasure
+  is a right over personal data, not a right to remove a site's articles.
+- **Retention** — `JF_AUDIT_RETENTION_DAYS` (default 365) bounds the audit log.
+  `JF_SUBMISSION_RETENTION_DAYS` bounds form submissions and is off by default,
+  because a retention period is the operator's decision to make.
+
+Justflows does not decide whether a request must be honoured, or what a lawful
+retention period is. It provides the mechanism; the operator is the controller.

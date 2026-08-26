@@ -12,7 +12,10 @@ import {
 } from "../lib/plugins-db.js";
 import multer from "multer";
 import { assertPackageIsTrusted } from "../lib/package-trust.js";
+import { sendPackageInstallError } from "../lib/package-install-error.js";
 import { packagesInstalledDir } from "../lib/packages-dir.js";
+import { auditFromRequest } from "../lib/audit-log.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -25,7 +28,7 @@ router.get("/", requireRole("administrator", "editor"), async (req, res) => {
     const plugins = await listPlugins(session.siteId);
     res.json({ plugins });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "plugins", err);
   }
 });
 
@@ -49,17 +52,19 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
     const installer = new PackageInstaller();
     const packagesDir = packagesInstalledDir();
 
+    // Both checks run inside the installer, while the package is still staged.
+    // Run after the install they left a refused package sitting in its final
+    // location with nothing to clean it up.
     const result = await installer.installFromBuffer(file.buffer, {
       packagesDir,
       source: "upload",
+      verify: (manifest, digest) => {
+        if (manifest.type !== "plugin") {
+          throw new Error("Uploaded package is not a plugin (manifest.type must be 'plugin')");
+        }
+        assertPackageIsTrusted(manifest as unknown as Record<string, unknown>, digest);
+      },
     });
-
-    if (result.manifest.type !== "plugin") {
-      res.status(400).json({ error: "Uploaded package is not a plugin (manifest.type must be 'plugin')" });
-      return;
-    }
-
-    assertPackageIsTrusted(result.manifest as unknown as Record<string, unknown>, result.digest);
 
     const siteId = req.session?.siteId;
     if (!siteId) {
@@ -77,9 +82,13 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
       status: "installed",
     });
 
+    auditFromRequest(req, "plugin.installed", {
+      target: result.manifest.id,
+      detail: `version=${result.manifest.version} digest=${result.digest.slice(0, 16)}`,
+    });
     res.json({ plugin });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendPackageInstallError(res, err);
   }
 });
 
@@ -89,6 +98,7 @@ router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   const { runtimeActivatePlugin } = await import("../lib/plugin-runtime.js");
   await activatePlugin(session.siteId, pluginId);
   await runtimeActivatePlugin(session.siteId, pluginId).catch(() => null);
+  auditFromRequest(req, "plugin.activated", { target: pluginId });
   const { revalidateOnUpdate } = await import("../lib/cache-revalidate.js");
   await revalidateOnUpdate("plugin");
   res.json({ ok: true });
@@ -100,6 +110,7 @@ router.post("/:id/deactivate", requireRole("administrator"), async (req, res) =>
   const { runtimeDeactivatePlugin } = await import("../lib/plugin-runtime.js");
   await deactivatePlugin(session.siteId, pluginId);
   await runtimeDeactivatePlugin(session.siteId, pluginId).catch(() => null);
+  auditFromRequest(req, "plugin.deactivated", { target: pluginId });
   const { revalidateOnUpdate } = await import("../lib/cache-revalidate.js");
   await revalidateOnUpdate("plugin");
   res.json({ ok: true });
@@ -111,6 +122,7 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
   const { runtimeDeactivatePlugin } = await import("../lib/plugin-runtime.js");
   await deletePlugin(session.siteId, pluginId);
   await runtimeDeactivatePlugin(session.siteId, pluginId).catch(() => null);
+  auditFromRequest(req, "plugin.deleted", { target: pluginId });
   const { revalidateOnUpdate } = await import("../lib/cache-revalidate.js");
   await revalidateOnUpdate("plugin");
   res.json({ ok: true });
@@ -122,7 +134,7 @@ router.get("/admin-menu", requireSession, async (req, res) => {
     const { listPluginAdminMenu } = await import("../lib/admin-menu.js");
     res.json({ items: await listPluginAdminMenu(req.session!.siteId) });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "plugins", err);
   }
 });
 

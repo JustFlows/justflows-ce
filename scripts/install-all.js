@@ -59,7 +59,8 @@ function needsBuild() {
   return (
     process.argv.includes("--rebuild") ||
     !exists("apps/server/dist/server.js") ||
-    !exists("apps/server/admin-ui/dist/index.html")
+    !exists("apps/server/admin-ui/dist/client/index.html") ||
+    !exists("apps/server/admin-ui/dist/server/entry-server.js")
   );
 }
 
