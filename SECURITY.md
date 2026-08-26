@@ -3,8 +3,8 @@
 ## Supported versions
 
 | Version | Supported |
-| --- | --- |
-| 0.1.x | Yes |
+| ------- | --------- |
+| 0.1.x   | Yes       |
 
 ## Reporting a vulnerability
 
@@ -69,8 +69,7 @@ Also:
   File Manager you used to upload Justflows. The folder ships an Apache deny rule
   and Node never serves it, but if your host puts the application root behind a
   web server you do not control, confirm the folder is not reachable over HTTP.
-  It is deleted automatically once setup completes, along with the build log. Do
-  not set `JUSTFLOWS_SKIP_INSTALL_TOKEN=1` on a reachable host.
+  It is deleted automatically once setup completes, along with the build log.
 - Turn on two-factor authentication (Admin → Security → Your account). Given the
   trust boundary above, an administrator password is a server credential; TOTP
   is the cheapest thing standing between a reused password and shell access.

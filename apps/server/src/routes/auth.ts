@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getDb } from "../lib/db.js";
@@ -14,6 +15,26 @@ import { PasswordSchema } from "../lib/password-policy.js";
 import { revokeUserSessions } from "../lib/auth-session.js";
 
 const router = Router();
+const loginRequestLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  // The route's credential-aware limiter below is deliberately stricter. This
+  // middleware is the coarse per-IP ceiling that CodeQL can verify exists.
+  limit: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+function accountSecurityRateLimit() {
+  return rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+}
+const passwordRequestLimit = accountSecurityRateLimit();
+const totpSetupRequestLimit = accountSecurityRateLimit();
+const totpEnableRequestLimit = accountSecurityRateLimit();
+const totpDisableRequestLimit = accountSecurityRateLimit();
 
 router.get("/csrf", (req, res) => {
   if (!req.cookies?.jf_csrf) {
@@ -33,8 +54,7 @@ const LoginSchema = z.object({
   totp: z.string().max(64).optional(),
 });
 
-
-router.post("/login", async (req, res) => {
+router.post("/login", loginRequestLimit, async (req, res) => {
   const ip = clientIp(req);
   if (!consumeRateLimit(`login:ip:${ip}`, 20, 15 * 60 * 1000)) {
     // The window grows with each exhausted one, so the caller cannot work it
@@ -203,13 +223,23 @@ router.post("/logout", async (req, res) => {
 
 const RegisterSchema = z.object({
   email: z.string().email(),
-  username: z.string().min(2).max(60).regex(/^[a-zA-Z0-9._-]+$/, "Username may only contain letters, numbers, dots, underscores and hyphens"),
+  username: z
+    .string()
+    .min(2)
+    .max(60)
+    .regex(
+      /^[a-zA-Z0-9._-]+$/,
+      "Username may only contain letters, numbers, dots, underscores and hyphens",
+    ),
   password: PasswordSchema,
   displayName: z.string().min(1).max(255).optional(),
 });
 
 function now(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  return new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "");
 }
 
 router.get("/registration", async (_req, res) => {
@@ -285,7 +315,11 @@ router.post("/register", async (req, res) => {
 
     try {
       const { getRuntimeHooks } = await import("../lib/plugin-runtime.js");
-      await getRuntimeHooks().dispatchAction("user.created", { userId: id }, { siteId, source: "http" });
+      await getRuntimeHooks().dispatchAction(
+        "user.created",
+        { userId: id },
+        { siteId, source: "http" },
+      );
     } catch {
       // hooks are optional during early boot
     }
@@ -335,7 +369,7 @@ const ChangePasswordSchema = z.object({
  * and neither did an administrator; with a stateless 14-day token, an attacker
  * who captured a password held the account until someone edited the database.
  */
-router.post("/password", requireSession, async (req, res) => {
+router.post("/password", passwordRequestLimit, requireSession, async (req, res) => {
   const session = req.session!;
 
   // Guessing the current password is a credential test like any other.
@@ -369,12 +403,10 @@ router.post("/password", requireSession, async (req, res) => {
       return;
     }
 
-    await db.run("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ? AND site_id = ?", [
-      await hashPassword(newPassword),
-      now(),
-      session.userId,
-      session.siteId,
-    ]);
+    await db.run(
+      "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+      [await hashPassword(newPassword), now(), session.userId, session.siteId],
+    );
 
     // Ends every other session, which is the point: a password change is what
     // someone does after a compromise. Re-issue this caller's cookie at the new
@@ -442,7 +474,7 @@ router.get("/2fa", requireSession, async (req, res) => {
   }
 });
 
-router.post("/2fa/setup", requireSession, async (req, res) => {
+router.post("/2fa/setup", totpSetupRequestLimit, requireSession, async (req, res) => {
   const session = req.session!;
   try {
     const { getTotpState, startTotpEnrolment } = await import("../lib/totp-db.js");
@@ -474,7 +506,7 @@ router.post("/2fa/setup", requireSession, async (req, res) => {
 
 const EnableTotpSchema = z.object({ code: z.string().min(1).max(16) });
 
-router.post("/2fa/enable", requireSession, async (req, res) => {
+router.post("/2fa/enable", totpEnableRequestLimit, requireSession, async (req, res) => {
   const session = req.session!;
   if (!consumeRateLimit(`2fa:enable:${session.userId}`, 10, 15 * 60 * 1000)) {
     res.status(429).json({ error: "Too many attempts. Try again later." });
@@ -501,7 +533,9 @@ router.post("/2fa/enable", requireSession, async (req, res) => {
 
     const { verifyTotp, generateRecoveryCodes } = await import("../lib/totp.js");
     if (!verifyTotp(state.secret, body.data.code)) {
-      res.status(400).json({ error: "That code is not valid. Check your device's clock and try again." });
+      res
+        .status(400)
+        .json({ error: "That code is not valid. Check your device's clock and try again." });
       return;
     }
 
@@ -540,7 +574,7 @@ const DisableTotpSchema = z.object({
  * otherwise a borrowed session is enough to remove the factor that a borrowed
  * session was supposed to stop.
  */
-router.post("/2fa/disable", requireSession, async (req, res) => {
+router.post("/2fa/disable", totpDisableRequestLimit, requireSession, async (req, res) => {
   const session = req.session!;
   if (!consumeRateLimit(`2fa:disable:${session.userId}`, 10, 15 * 60 * 1000)) {
     res.status(429).json({ error: "Too many attempts. Try again later." });

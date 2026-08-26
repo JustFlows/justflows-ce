@@ -1,5 +1,4 @@
 import express from "express";
-import cookieParser from "cookie-parser";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -125,7 +124,11 @@ async function post(path: string, body: unknown, jar: Jar) {
   const csrf = jar.get("jf_csrf");
   if (csrf) headers["x-csrf-token"] = decodeURIComponent(csrf);
 
-  const res = await fetch(`${base}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
+  const res = await fetch(`${base}${path}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
   jar.absorb(res);
   return { status: res.status, body: (await res.json().catch(() => ({}))) as Record<string, any> };
 }
@@ -141,7 +144,19 @@ async function get(path: string, jar: Jar) {
 
 beforeAll(async () => {
   const app = express();
-  app.use(cookieParser());
+  app.use((req, _res, next) => {
+    req.cookies = Object.fromEntries(
+      (req.headers.cookie ?? "")
+        .split(";")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => {
+          const separator = part.indexOf("=");
+          return [part.slice(0, separator), decodeURIComponent(part.slice(separator + 1))];
+        }),
+    );
+    next();
+  });
   app.use(express.json());
   app.use("/api", csrfProtection);
   app.use("/api/auth", authRoutes);
@@ -172,7 +187,11 @@ beforeEach(async () => {
 /** Sign in far enough to hold a session cookie. */
 async function signIn(jar: Jar, extra: Record<string, unknown> = {}) {
   await get("/api/auth/csrf", jar);
-  return post("/api/auth/login", { email: user.email, password: "correct-horse-battery", ...extra }, jar);
+  return post(
+    "/api/auth/login",
+    { email: user.email, password: "correct-horse-battery", ...extra },
+    jar,
+  );
 }
 
 describe("sign-in without a second factor", () => {
@@ -354,7 +373,11 @@ describe("secrets at rest", () => {
     await signIn(jar);
     const setup = await post("/api/auth/2fa/setup", {}, jar);
     const counter = Math.floor(Date.now() / 1000 / 30);
-    const enabled = await post("/api/auth/2fa/enable", { code: totpCode(setup.body.secret, counter) }, jar);
+    const enabled = await post(
+      "/api/auth/2fa/enable",
+      { code: totpCode(setup.body.secret, counter) },
+      jar,
+    );
 
     expect(user.totp_recovery_codes).toMatch(/^enc:v1:/);
     expect(user.totp_recovery_codes).not.toContain(enabled.body.recoveryCodes[0]);
@@ -402,8 +425,13 @@ describe("password change", () => {
     const fresh = new Jar();
     await get("/api/auth/csrf", fresh);
     expect(
-      (await post("/api/auth/login", { email: user.email, password: "a-brand-new-passphrase" }, fresh))
-        .status,
+      (
+        await post(
+          "/api/auth/login",
+          { email: user.email, password: "a-brand-new-passphrase" },
+          fresh,
+        )
+      ).status,
     ).toBe(200);
   });
 });

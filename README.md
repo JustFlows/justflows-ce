@@ -134,7 +134,6 @@ Requests from localhost skip both, so `pnpm dev` needs no key.
 - The folder includes an Apache deny rule; Node never serves it
 - Confirm your host does not publish that folder over HTTP
 - It is deleted automatically when setup finishes
-- Do not set `JUSTFLOWS_SKIP_INSTALL_TOKEN=1` on a reachable host
 
 ---
 

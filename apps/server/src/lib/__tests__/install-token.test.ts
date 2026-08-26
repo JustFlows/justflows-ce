@@ -101,10 +101,10 @@ describe("isLoopbackAddress", () => {
 });
 
 describe("installTokenRequired", () => {
-  it("is on unless explicitly switched off", () => {
+  it("cannot be disabled for remote first-run requests", () => {
     expect(installTokenRequired()).toBe(true);
     process.env.JUSTFLOWS_SKIP_INSTALL_TOKEN = "1";
-    expect(installTokenRequired()).toBe(false);
+    expect(installTokenRequired()).toBe(true);
   });
 });
 

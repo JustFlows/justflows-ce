@@ -78,7 +78,6 @@ function clientIp(req) {
  * exactly the window before the site has an administrator.
  */
 function bootstrapAuthorised(req, body) {
-  if (!installToken.installTokenRequired()) return true;
   if (installToken.isLoopbackAddress(clientIp(req))) return true;
   return installToken.tokenMatches(installToken.tokenFromRequest(req, body), root);
 }
@@ -335,8 +334,7 @@ const server = http.createServer((req, res) => {
       sendJson(res, 200, { installed: true });
       return;
     }
-    const tokenRequired =
-      installToken.installTokenRequired() && !installToken.isLoopbackAddress(clientIp(req));
+    const tokenRequired = !installToken.isLoopbackAddress(clientIp(req));
     // The log is the npm transcript: absolute paths, the full dependency tree,
     // and any build error. Released only to a caller who has proved control of
     // the files, which by this point in the flow the setup page has.
