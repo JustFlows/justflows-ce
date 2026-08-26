@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { initialJson } from "../../ssr-data";
 
 interface FieldDef {
   key: string;
@@ -16,14 +17,24 @@ interface ContentType {
   fields: FieldDef[];
 }
 
-const FIELD_TYPES = ["text", "textarea", "richtext", "number", "boolean", "media", "date", "select"] as const;
+const FIELD_TYPES = [
+  "text",
+  "textarea",
+  "richtext",
+  "number",
+  "boolean",
+  "media",
+  "date",
+  "select",
+] as const;
 
 function emptyField(): FieldDef {
   return { key: `field_${Date.now()}`, label: "New field", type: "text", required: false };
 }
 
 export default function ContentTypesPage() {
-  const [types, setTypes] = useState<ContentType[]>([]);
+  const prefetched = initialJson<{ types?: ContentType[] }>("/api/content-types");
+  const [types, setTypes] = useState<ContentType[]>(prefetched?.types ?? []);
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [newType, setNewType] = useState<{ slug: string; label: string; description: string }>({
@@ -31,7 +42,7 @@ export default function ContentTypesPage() {
     label: "",
     description: "",
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!prefetched);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,11 +110,18 @@ export default function ContentTypesPage() {
 
   async function removeType(type: ContentType) {
     if (type.builtin) return;
-    if (!confirm(`Delete content type “${type.label}”? Existing entries of this type must be removed first.`)) return;
+    if (
+      !confirm(
+        `Delete content type “${type.label}”? Existing entries of this type must be removed first.`,
+      )
+    )
+      return;
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/content-types/${encodeURIComponent(type.slug)}`, { method: "DELETE" });
+      const res = await fetch(`/api/content-types/${encodeURIComponent(type.slug)}`, {
+        method: "DELETE",
+      });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Failed to delete");
       setTypes((prev) => prev.filter((t) => t.slug !== type.slug));
@@ -131,11 +149,17 @@ export default function ContentTypesPage() {
           <p>Define custom content types and their fields. Posts and pages stay built-in.</p>
         </div>
         <div className="jf-pagehead__actions">
-          <button className="jf-btn jf-btn--primary" onClick={() => setCreating(true)}>+ New type</button>
+          <button className="jf-btn jf-btn--primary" onClick={() => setCreating(true)}>
+            + New type
+          </button>
         </div>
       </header>
 
-      {error && <div className="jf-alert jf-alert--error" role="alert">{error}</div>}
+      {error && (
+        <div className="jf-alert jf-alert--error" role="alert">
+          {error}
+        </div>
+      )}
 
       {creating && (
         <div className="jf-card jf-card--active">
@@ -145,18 +169,27 @@ export default function ContentTypesPage() {
           <div className="jf-card__body jf-stack">
             <div className="jf-grid jf-grid--2">
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-ct-slug">Slug</label>
+                <label className="jf-field__label" htmlFor="jf-ct-slug">
+                  Slug
+                </label>
                 <input
                   id="jf-ct-slug"
                   className="jf-input"
                   placeholder="product"
                   value={newType.slug}
-                  onChange={(e) => setNewType({ ...newType, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") })}
+                  onChange={(e) =>
+                    setNewType({
+                      ...newType,
+                      slug: e.target.value.toLowerCase().replace(/\s+/g, "-"),
+                    })
+                  }
                 />
                 <span className="jf-field__hint">Lowercase, used in URLs and the API.</span>
               </div>
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-ct-label">Label</label>
+                <label className="jf-field__label" htmlFor="jf-ct-label">
+                  Label
+                </label>
                 <input
                   id="jf-ct-label"
                   className="jf-input"
@@ -168,7 +201,9 @@ export default function ContentTypesPage() {
               </div>
             </div>
             <div className="jf-field">
-              <label className="jf-field__label" htmlFor="jf-ct-desc">Description</label>
+              <label className="jf-field__label" htmlFor="jf-ct-desc">
+                Description
+              </label>
               <input
                 id="jf-ct-desc"
                 className="jf-input"
@@ -178,8 +213,16 @@ export default function ContentTypesPage() {
               />
             </div>
             <div className="jf-row">
-              <button className="jf-btn jf-btn--primary" disabled={saving} onClick={() => void saveNew()}>Save</button>
-              <button className="jf-btn jf-btn--ghost" onClick={() => setCreating(false)}>Cancel</button>
+              <button
+                className="jf-btn jf-btn--primary"
+                disabled={saving}
+                onClick={() => void saveNew()}
+              >
+                Save
+              </button>
+              <button className="jf-btn jf-btn--ghost" onClick={() => setCreating(false)}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -226,48 +269,70 @@ export default function ContentTypesPage() {
                     <div
                       key={`${type.slug}-${i}`}
                       className="jf-grid"
-                      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr)) auto", alignItems: "center" }}
+                      style={{
+                        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr)) auto",
+                        alignItems: "center",
+                      }}
                     >
                       <input
                         className="jf-input"
                         aria-label="Field key"
                         placeholder="key"
                         value={field.key}
-                        onChange={(e) => updateLocal(type.slug, {
-                          ...type,
-                          fields: type.fields.map((f, j) => (j === i ? { ...f, key: e.target.value } : f)),
-                        })}
+                        onChange={(e) =>
+                          updateLocal(type.slug, {
+                            ...type,
+                            fields: type.fields.map((f, j) =>
+                              j === i ? { ...f, key: e.target.value } : f,
+                            ),
+                          })
+                        }
                       />
                       <input
                         className="jf-input"
                         aria-label="Field label"
                         placeholder="Label"
                         value={field.label}
-                        onChange={(e) => updateLocal(type.slug, {
-                          ...type,
-                          fields: type.fields.map((f, j) => (j === i ? { ...f, label: e.target.value } : f)),
-                        })}
+                        onChange={(e) =>
+                          updateLocal(type.slug, {
+                            ...type,
+                            fields: type.fields.map((f, j) =>
+                              j === i ? { ...f, label: e.target.value } : f,
+                            ),
+                          })
+                        }
                       />
                       <select
                         className="jf-input"
                         aria-label="Field type"
                         value={field.type}
-                        onChange={(e) => updateLocal(type.slug, {
-                          ...type,
-                          fields: type.fields.map((f, j) =>
-                            (j === i ? { ...f, type: e.target.value as FieldDef["type"] } : f)),
-                        })}
+                        onChange={(e) =>
+                          updateLocal(type.slug, {
+                            ...type,
+                            fields: type.fields.map((f, j) =>
+                              j === i ? { ...f, type: e.target.value as FieldDef["type"] } : f,
+                            ),
+                          })
+                        }
                       >
-                        {FIELD_TYPES.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
+                        {FIELD_TYPES.map((ft) => (
+                          <option key={ft} value={ft}>
+                            {ft}
+                          </option>
+                        ))}
                       </select>
                       <label className="jf-row" style={{ gap: "0.35rem" }}>
                         <input
                           type="checkbox"
                           checked={field.required}
-                          onChange={(e) => updateLocal(type.slug, {
-                            ...type,
-                            fields: type.fields.map((f, j) => (j === i ? { ...f, required: e.target.checked } : f)),
-                          })}
+                          onChange={(e) =>
+                            updateLocal(type.slug, {
+                              ...type,
+                              fields: type.fields.map((f, j) =>
+                                j === i ? { ...f, required: e.target.checked } : f,
+                              ),
+                            })
+                          }
                         />
                         Required
                       </label>
@@ -277,19 +342,33 @@ export default function ContentTypesPage() {
                           aria-label="Select options"
                           placeholder="small, medium, large"
                           value={(field.options ?? []).join(", ")}
-                          onChange={(e) => updateLocal(type.slug, {
-                            ...type,
-                            fields: type.fields.map((f, j) =>
-                              (j === i
-                                ? { ...f, options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) }
-                                : f)),
-                          })}
+                          onChange={(e) =>
+                            updateLocal(type.slug, {
+                              ...type,
+                              fields: type.fields.map((f, j) =>
+                                j === i
+                                  ? {
+                                      ...f,
+                                      options: e.target.value
+                                        .split(",")
+                                        .map((s) => s.trim())
+                                        .filter(Boolean),
+                                    }
+                                  : f,
+                              ),
+                            })
+                          }
                         />
                       )}
                       <button
                         className="jf-btn jf-btn--danger"
                         aria-label={`Remove field ${field.label}`}
-                        onClick={() => updateLocal(type.slug, { ...type, fields: type.fields.filter((_, j) => j !== i) })}
+                        onClick={() =>
+                          updateLocal(type.slug, {
+                            ...type,
+                            fields: type.fields.filter((_, j) => j !== i),
+                          })
+                        }
                       >
                         ✕
                       </button>
@@ -299,11 +378,17 @@ export default function ContentTypesPage() {
                   <div className="jf-row">
                     <button
                       className="jf-btn jf-btn--ghost"
-                      onClick={() => updateLocal(type.slug, { ...type, fields: [...type.fields, emptyField()] })}
+                      onClick={() =>
+                        updateLocal(type.slug, { ...type, fields: [...type.fields, emptyField()] })
+                      }
                     >
                       + Add field
                     </button>
-                    <button className="jf-btn jf-btn--primary" disabled={saving} onClick={() => void persist(type)}>
+                    <button
+                      className="jf-btn jf-btn--primary"
+                      disabled={saving}
+                      onClick={() => void persist(type)}
+                    >
                       {saving ? "Saving…" : "Save fields"}
                     </button>
                   </div>

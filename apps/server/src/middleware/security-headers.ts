@@ -56,7 +56,11 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
           const hashes = googleTagInlineHashes(googleTagId);
           for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
             const current = res.getHeader(name);
-            const value = Array.isArray(current) ? current.join("; ") : typeof current === "string" ? current : "";
+            const value = Array.isArray(current)
+              ? current.join("; ")
+              : typeof current === "string"
+                ? current
+                : "";
             if (value) res.setHeader(name, withGoogleTagCsp(value, hashes));
           }
         }
@@ -75,6 +79,9 @@ function apply(
   config: Parameters<typeof resolveHeaders>[0],
   ctx: Parameters<typeof resolveHeaders>[1],
 ): void {
+  if (ctx.area === "admin") {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
+  }
   for (const { name, value } of resolveHeaders(config, ctx)) {
     res.setHeader(name, value);
   }

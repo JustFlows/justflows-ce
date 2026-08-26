@@ -137,4 +137,11 @@ export async function markInstalled(config: InstallConfig): Promise<void> {
   // the site owner has no reason to revisit.
   const { clearInstallToken } = await import("./install-token.js");
   clearInstallToken(getJfRoot());
+
+  // Same reasoning for the bootstrap transcript: it records absolute paths and
+  // the whole dependency tree, and it outlived the install by months because
+  // nothing ever removed it.
+  for (const name of ["bootstrap.log", "bootstrap-status.json"]) {
+    await fs.rm(path.join(getJfRoot(), "tmp", name), { force: true }).catch(() => undefined);
+  }
 }

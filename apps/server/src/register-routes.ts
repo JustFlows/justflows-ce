@@ -1,16 +1,11 @@
 import type express from "express";
-import path from "node:path";
-import fs from "node:fs";
-import { fileURLToPath } from "node:url";
-import { getJfRoot } from "./lib/jf-root.js";
 import { isInstalled, requireInstalled, blockIfInstalled } from "./middleware/install-guard.js";
 import { publicApiGuard } from "./middleware/public-api.js";
 import { publicApiCors } from "./middleware/public-api-cors.js";
 import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
 import { logSafe } from "./lib/log-safe.js";
 import { getSession } from "./lib/session.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { renderAdminPage } from "./lib/admin-ssr.js";
 
 /** Register heavy routes (dynamic import — keeps Passenger startup fast). */
 export async function registerDeferredRoutes(app: express.Application): Promise<void> {
@@ -58,6 +53,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: contentTypesRoutes },
     { default: reusableBlocksRoutes, templatePartsRouter },
     { default: headerPresetsRoutes },
+    { default: auditRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -84,6 +80,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/content-types.js"),
     import("./routes/reusable-blocks.js"),
     import("./routes/header-presets.js"),
+    import("./routes/audit.js"),
   ]);
 
   app.use(blockIfInstalled);
@@ -114,6 +111,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/forms", requireInstalled, formsRoutes);
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
+  app.use("/api/audit", requireInstalled, auditRoutes);
   // Everything below is public-facing: one switch (Settings → Public API) takes
   // the whole surface offline. Mounted on the prefix so future public routes
   // inherit the guard automatically.
@@ -134,10 +132,16 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
         clientIp: clientIp(req),
       });
       if (result.location) {
-        res.status(result.status === 303 ? 303 : result.status).location(result.location).end();
+        res
+          .status(result.status === 303 ? 303 : result.status)
+          .location(result.location)
+          .end();
         return;
       }
-      res.status(result.status).type("text/plain").send(result.error ?? "Unable to submit");
+      res
+        .status(result.status)
+        .type("text/plain")
+        .send(result.error ?? "Unable to submit");
     } catch (err) {
       console.error("[justflows] form submission failed:", err);
       res.status(500).type("text/plain").send("Internal server error");
@@ -145,17 +149,11 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   });
 
   // RFC 9116. Served from both the well-known location and the legacy root path.
-  const securityTxt = [
-    "Contact: mailto:security@justflows.com",
-    "Preferred-Languages: en",
-    "Canonical: /.well-known/security.txt",
-    "Policy: https://github.com/JustFlows/justflows-ce/blob/main/SECURITY.md",
-    "",
-  ].join("\n");
-
+  const { buildSecurityTxt, securityTxtOrigin } = await import("./lib/security-txt.js");
   for (const route of ["/.well-known/security.txt", "/security.txt"]) {
     app.get(route, (_req, res) => {
-      res.type("text/plain").send(securityTxt);
+      // Built per request so Expires cannot go stale on a long-lived process.
+      res.type("text/plain").send(buildSecurityTxt(securityTxtOrigin()));
     });
   }
 
@@ -175,19 +173,6 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     }
   });
 
-  const adminDist = path.join(getJfRoot(), "apps/server/admin-ui/dist");
-  const adminDistAlt = path.join(__dirname, "../admin-ui/dist");
-  const adminStatic = fs.existsSync(adminDist) ? adminDist : adminDistAlt;
-
-  const sendAdminSpa = (_req: express.Request, res: express.Response) => {
-    const indexPath = path.join(adminStatic, "index.html");
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      res.status(503).send("Admin UI not built.");
-    }
-  };
-
   app.use("/admin", requireInstalled, (req, res, next) => {
     if (req.path.match(/\.\w+$/)) {
       next();
@@ -205,7 +190,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       next();
       return;
     }
-    sendAdminSpa(req, res);
+    void renderAdminPage(req, res);
   });
 
   app.use(requireInstalled, (await import("./lib/plugin-http.js")).dispatchPluginHttp);
@@ -214,17 +199,19 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // Backstop. Express's default handler prints the stack into the response body
   // in development, and any handler that throws without its own catch would
   // otherwise leak internals to an anonymous caller.
-  app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error(
-      "[justflows] unhandled error",
-      JSON.stringify({ method: logSafe(req.method), path: logSafe(req.path) }),
-      err,
-    );
-    if (res.headersSent) return;
-    if (req.path.startsWith("/api/")) {
-      res.status(500).json({ error: "Internal server error" });
-      return;
-    }
-    res.status(500).type("text/plain").send("Internal server error");
-  });
+  app.use(
+    (err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      console.error(
+        "[justflows] unhandled error",
+        JSON.stringify({ method: logSafe(req.method), path: logSafe(req.path) }),
+        err,
+      );
+      if (res.headersSent) return;
+      if (req.path.startsWith("/api/")) {
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
+      res.status(500).type("text/plain").send("Internal server error");
+    },
+  );
 }

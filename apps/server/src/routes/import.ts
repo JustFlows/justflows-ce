@@ -4,6 +4,7 @@ import { requireRole } from "../middleware/auth.js";
 import { getDb } from "../lib/db.js";
 import multer from "multer";
 import { sanitizeHtmlBlock } from "@justflows/blocks";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -140,7 +141,7 @@ router.post("/wordpress", requireRole("administrator"), upload.single("file"), a
 
     res.json({ ok: true, ...result });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "import", err);
   }
 });
 

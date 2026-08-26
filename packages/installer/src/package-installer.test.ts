@@ -4,6 +4,7 @@ import path from "node:path";
 import * as tar from "tar";
 import { describe, expect, it } from "vitest";
 import { PackageInstaller } from "./package-installer.js";
+import { PackageRejectedError } from "./archive-safety.js";
 
 describe("PackageInstaller", () => {
   it("extracts justflows.json from a gzipped tar buffer", async () => {
@@ -39,5 +40,127 @@ describe("PackageInstaller", () => {
     await expect(fs.readFile(path.join(result.installedPath, "justflows.json"), "utf8")).resolves.toContain(
       "test.plugin",
     );
+  });
+});
+
+/** Build a .jfpkg whose manifest declares the given version. */
+async function packageWithVersion(dir: string, version: string, tag: string): Promise<Buffer> {
+  const src = path.join(dir, "src");
+  await fs.mkdir(src, { recursive: true });
+  await fs.writeFile(
+    path.join(src, "justflows.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      type: "plugin",
+      id: "acme.probe",
+      name: "Test",
+      version,
+      publisher: "Test",
+      license: "GPL-2.0-or-later",
+    }),
+  );
+  await fs.writeFile(path.join(src, "payload.js"), "// payload\n");
+  const archive = path.join(dir, `pkg-${tag}.jfpkg`);
+  await tar.c({ gzip: true, file: archive, cwd: src }, ["justflows.json", "payload.js"]);
+  return fs.readFile(archive);
+}
+
+describe("PackageInstaller path containment", () => {
+  it("cannot delete or write outside packagesDir", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-escape-"));
+    const packagesDir = path.join(root, "packages-installed");
+    const victim = path.join(root, "victim");
+    await fs.mkdir(victim, { recursive: true });
+    await fs.writeFile(path.join(victim, "server.js"), "ORIGINAL SERVER CODE");
+
+    // packages-installed/plugins/acme.evil/<version> is four levels below the
+    // temp root, so four "../" steps land on <root>/victim — outside packagesDir.
+    const buf = await packageWithVersion(root, "1.0.0/../../../../victim", "traversal");
+
+    await expect(
+      new PackageInstaller().installFromBuffer(buf, { packagesDir }),
+    ).rejects.toThrow();
+
+    // The victim directory and its contents must be untouched.
+    await expect(fs.readFile(path.join(victim, "server.js"), "utf8")).resolves.toBe(
+      "ORIGINAL SERVER CODE",
+    );
+    await expect(fs.readdir(victim)).resolves.toEqual(["server.js"]);
+
+    // And no staging leftovers.
+    const staging = path.join(packagesDir, ".staging");
+    const left = await fs.readdir(staging).catch(() => []);
+    expect(left).toEqual([]);
+  });
+
+  it("still installs a legitimate prerelease version", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-prerelease-"));
+    const packagesDir = path.join(root, "packages-installed");
+    const buf = await packageWithVersion(root, "0.1.3-rc", "prerelease");
+
+    const result = await new PackageInstaller().installFromBuffer(buf, { packagesDir });
+
+    expect(result.installedPath).toBe(
+      path.join(packagesDir, "plugins", "acme.probe", "0.1.3-rc"),
+    );
+    await expect(
+      fs.readFile(path.join(result.installedPath, "justflows.json"), "utf8"),
+    ).resolves.toContain("acme.probe");
+  });
+});
+
+describe("PackageInstaller verify hook", () => {
+  it("leaves nothing on disk when the trust check refuses the package", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-refused-"));
+    const packagesDir = path.join(root, "packages-installed");
+    const buf = await packageWithVersion(root, "1.0.0", "refused");
+
+    await expect(
+      new PackageInstaller().installFromBuffer(buf, {
+        packagesDir,
+        verify: () => {
+          throw new Error("This package could not be verified.");
+        },
+      }),
+    ).rejects.toThrow(PackageRejectedError);
+
+    // The final install location must never have been created...
+    await expect(
+      fs.stat(path.join(packagesDir, "plugins", "acme.probe", "1.0.0")),
+    ).rejects.toThrow();
+    // ...and staging must be empty rather than holding the refused files.
+    const staged = await fs.readdir(path.join(packagesDir, ".staging")).catch(() => []);
+    expect(staged).toEqual([]);
+  });
+
+  it("surfaces the refusal message so the route can pass it on", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-msg-"));
+    const buf = await packageWithVersion(root, "1.0.0", "msg");
+
+    await expect(
+      new PackageInstaller().installFromBuffer(buf, {
+        packagesDir: path.join(root, "packages-installed"),
+        verify: () => {
+          throw new Error("manifest.type must be 'theme'");
+        },
+      }),
+    ).rejects.toThrow("manifest.type must be 'theme'");
+  });
+
+  it("installs normally when the trust check passes", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-ok-"));
+    const packagesDir = path.join(root, "packages-installed");
+    const buf = await packageWithVersion(root, "1.0.0", "ok");
+    const seen: string[] = [];
+
+    const result = await new PackageInstaller().installFromBuffer(buf, {
+      packagesDir,
+      verify: (manifest, digest) => {
+        seen.push(manifest.id, digest.slice(0, 8));
+      },
+    });
+
+    expect(seen[0]).toBe("acme.probe");
+    expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "acme.probe", "1.0.0"));
   });
 });

@@ -20,6 +20,7 @@ import { clearBlogPageIfMatches } from "../lib/blog-page.js";
 import { param } from "../lib/params.js";
 import { ContentTypeSlugSchema } from "@justflows/content";
 import { getContentTypeBySlug } from "../lib/content-types-db.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
@@ -116,7 +117,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
       total: items.length,
     });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "content", err);
   }
 });
 
@@ -200,7 +201,7 @@ router.post("/", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
     );
     res.status(201).json(serializeContentRow(rows[0]!));
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "content", err);
   }
 });
 
@@ -323,7 +324,7 @@ router.post("/:id/translate", requireRole(...CONTENT_WRITE_ROLES), async (req, r
     );
     res.status(201).json(serializeContentRow(created[0]!));
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "content", err);
   }
 });
 
@@ -462,7 +463,7 @@ router.patch("/:id", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
 
     res.json(rows[0] ? serializeContentRow(rows[0]) : { error: "Not found" });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "content", err);
   }
 });
 

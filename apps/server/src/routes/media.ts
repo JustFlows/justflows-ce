@@ -7,10 +7,29 @@ import { uploadsDir } from "../lib/jf-root.js";
 import { requireRole } from "../middleware/auth.js";
 import { MEDIA_WRITE_ROLES } from "../lib/rbac.js";
 import { contentMatchesMimeType } from "../lib/file-type.js";
-import multer from "multer";
+import { checkLibraryQuota, formatMb, maxUploadBytes } from "../lib/media-quota.js";
+import multer, { MulterError } from "multer";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: maxUploadBytes() } });
+
+/**
+ * multer rejects an oversized file by throwing, which the global handler turns
+ * into a flat 500 — so the one thing the uploader needs to know (the file is
+ * too big, and by how much) was the one thing they were not told.
+ */
+function uploadSingle(field: string) {
+  return (req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) => {
+    upload.single(field)(req, res, (err: unknown) => {
+      if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
+        res.status(413).json({ error: `File is too large (limit ${formatMb(maxUploadBytes())}).` });
+        return;
+      }
+      next(err);
+    });
+  };
+}
 
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
@@ -75,11 +94,11 @@ router.get("/", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
     }));
     res.json({ items });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "media", err);
   }
 });
 
-router.post("/", requireRole(...MEDIA_WRITE_ROLES), upload.single("file"), async (req, res) => {
+router.post("/", requireRole(...MEDIA_WRITE_ROLES), uploadSingle("file"), async (req, res) => {
   const session = req.session!;
   const file = req.file;
 
@@ -104,6 +123,18 @@ router.post("/", requireRole(...MEDIA_WRITE_ROLES), upload.single("file"), async
   if (!contentMatchesMimeType(file.buffer, file.mimetype)) {
     res.status(415).json({
       error: `File contents do not match the declared type (${file.mimetype})`,
+    });
+    return;
+  }
+
+  // Checked after the type checks, so a rejected file type does not report a
+  // quota figure to someone probing the library's size.
+  const quota = await checkLibraryQuota(session.siteId, file.size);
+  if (!quota.ok) {
+    res.status(413).json({
+      error:
+        `The media library is full (${formatMb(quota.usedBytes)} of ${formatMb(quota.limitBytes)} used). ` +
+        "Delete something, or raise JF_MAX_LIBRARY_MB.",
     });
     return;
   }
@@ -145,7 +176,7 @@ router.post("/", requireRole(...MEDIA_WRITE_ROLES), upload.single("file"), async
       uploadedAt: now(),
     });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "media", err);
   }
 });
 

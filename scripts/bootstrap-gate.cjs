@@ -35,14 +35,21 @@ function bootstrapSpawnAllowed(root, env = process.env) {
 function depsReady(root) {
   const express = path.join(root, "node_modules", "express");
   const core = path.join(root, "node_modules", "@justflows", "core");
-  const admin = path.join(root, "apps/server/admin-ui/dist/index.html");
+  const admin = path.join(root, "apps/server/admin-ui/dist/client/index.html");
+  const adminSsr = path.join(root, "apps/server/admin-ui/dist/server/entry-server.js");
   const bundle = path.join(root, "apps/server/dist/server.bundle.mjs");
   const plain = path.join(root, "apps/server/dist/server.js");
   const hasServer = fs.existsSync(bundle) || fs.existsSync(plain);
   // The production bundle inlines @justflows/*; unbundled dist still needs the
   // workspace package on disk.
   const hasWorkspace = fs.existsSync(core) || fs.existsSync(bundle);
-  return fs.existsSync(express) && fs.existsSync(admin) && hasServer && hasWorkspace;
+  return (
+    fs.existsSync(express) &&
+    fs.existsSync(admin) &&
+    fs.existsSync(adminSsr) &&
+    hasServer &&
+    hasWorkspace
+  );
 }
 
 function statusFile(root) {

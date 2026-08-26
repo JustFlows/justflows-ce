@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { initialJson } from "../ssr-data";
 
 interface SiteIdentity {
   siteTitle: string;
@@ -8,14 +9,16 @@ interface SiteIdentity {
 }
 
 export function useSiteIdentity(): SiteIdentity {
+  const prefetched = initialJson<Partial<SiteIdentity>>("/api/site/identity");
   const [identity, setIdentity] = useState<SiteIdentity>({
-    siteTitle: "My Site",
-    tagline: "",
-    logoUrl: "",
-    faviconUrl: "",
+    siteTitle: prefetched?.siteTitle ?? "My Site",
+    tagline: prefetched?.tagline ?? "",
+    logoUrl: prefetched?.logoUrl ?? "",
+    faviconUrl: prefetched?.faviconUrl ?? "",
   });
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const preview = new URLSearchParams(window.location.search).get("preview") === "1";
     const url = preview ? "/api/site/identity?preview=1" : "/api/site/identity";
     fetch(url)
@@ -34,17 +37,26 @@ export function useSiteIdentity(): SiteIdentity {
   return identity;
 }
 
-export function SiteBrand({
-  identity,
-  href = "/",
-}: {
-  identity: SiteIdentity;
-  href?: string;
-}) {
+export function SiteBrand({ identity, href = "/" }: { identity: SiteIdentity; href?: string }) {
   return (
-    <a href={href} style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontWeight: 800, fontSize: "1.2rem", color: "var(--color-text, #0f172a)", textDecoration: "none" }}>
+    <a
+      href={href}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.6rem",
+        fontWeight: 800,
+        fontSize: "1.2rem",
+        color: "var(--color-text, #0f172a)",
+        textDecoration: "none",
+      }}
+    >
       {identity.logoUrl ? (
-        <img src={identity.logoUrl} alt={identity.siteTitle} style={{ height: 32, width: "auto" }} />
+        <img
+          src={identity.logoUrl}
+          alt={identity.siteTitle}
+          style={{ height: 32, width: "auto" }}
+        />
       ) : null}
       {identity.siteTitle}
     </a>
@@ -56,6 +68,7 @@ export function SiteFavicon() {
   const identity = useSiteIdentity();
 
   useEffect(() => {
+    if (typeof document === "undefined") return;
     const url = identity.faviconUrl.trim();
     if (!url) return;
 

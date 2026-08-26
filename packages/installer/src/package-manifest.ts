@@ -22,7 +22,20 @@ export const PackageManifestSchema = z
       .string()
       .regex(/^[a-z0-9]+(?:\.[a-z0-9-]+)+$/, "ID must be dot-namespaced e.g. acme.my-plugin"),
     name: z.string().min(1).max(100),
-    version: z.string().regex(/^\d+\.\d+\.\d+/),
+    /**
+     * Anchored at both ends. `.regex()` runs RegExp.test(), which only honours
+     * the `^`, so a pattern ending at the patch number accepted anything after
+     * it — including "1.0.0/../../.." — and the installer joins this value into
+     * the destination path. Optional prerelease and build metadata are kept so
+     * versions such as "0.1.3-rc" still validate.
+     */
+    version: z
+      .string()
+      .max(64)
+      .regex(
+        /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/,
+        "Version must be a semantic version, e.g. 1.2.3 or 1.2.3-rc.1",
+      ),
     publisher: z.string().min(1),
     description: z.string().max(500).optional(),
     license: z

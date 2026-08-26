@@ -24,8 +24,43 @@ describe("shipped security header defaults", () => {
     expect(header(headers, "Content-Security-Policy-Report-Only")).toBeUndefined();
   });
 
-  it("leaves the React admin alone, since its scope is public-only", () => {
-    expect(header(resolveHeaders(defaultConfig(), adminCtx), "Content-Security-Policy")).toBeUndefined();
+  // Was: "leaves the React admin alone, since its scope is public-only". That
+  // left the one surface whose session can install extensions and replace the
+  // core running with no policy at all.
+  it("sends a strict enforcing CSP on the admin out of the box", () => {
+    const headers = resolveHeaders(defaultConfig(), adminCtx);
+    const csp = header(headers, "Content-Security-Policy");
+    expect(csp).toBeDefined();
+    expect(csp).toContain("script-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("base-uri 'none'");
+    // Stricter than the public policy: no inline script, no wildcard host.
+    expect(csp).not.toContain("'unsafe-inline'; script-src");
+    expect(csp).not.toContain("'unsafe-eval'");
+    expect(header(headers, "Content-Security-Policy-Report-Only")).toBeUndefined();
+  });
+
+  it("keeps the public and admin policies independent", () => {
+    const cfg = defaultConfig();
+    cfg.headers.content_security_policy.enabled = false;
+    // Turning the public policy off must not disarm the admin.
+    expect(header(resolveHeaders(cfg, publicCtx), "Content-Security-Policy")).toBeUndefined();
+    expect(header(resolveHeaders(cfg, adminCtx), "Content-Security-Policy")).toBeDefined();
+  });
+
+  it("matches the policy root server.js emits before Express exists", async () => {
+    const { createRequire } = await import("node:module");
+    const { getJfRoot } = await import("../jf-root.js");
+    const path = await import("node:path");
+    const file = path.join(getJfRoot(), "scripts", "security-headers.cjs");
+    const cjs = createRequire(file)(file) as { ADMIN_CSP: string };
+    // /login and /assets/* are served by server.js under Passenger and by
+    // Express otherwise. Two different policies on the same bundle would be
+    // worse than one.
+    expect(header(resolveHeaders(defaultConfig(), adminCtx), "Content-Security-Policy")).toBe(
+      cjs.ADMIN_CSP,
+    );
   });
 
   it("still sends the headers that were already on by default", () => {

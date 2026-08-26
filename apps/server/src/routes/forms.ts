@@ -10,6 +10,7 @@ import {
   listSubmissions,
   saveForm,
 } from "../lib/forms-public.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.get("/", requireRole("administrator", "editor"), async (req, res) => {
     const forms = enabled ? await listForms(siteId) : [];
     res.json({ enabled, forms });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "forms", err);
   }
 });
 
@@ -39,7 +40,7 @@ router.get("/:id/submissions", requireRole("administrator", "editor"), async (re
     }
     res.json({ form, submissions: await listSubmissions(siteId, formId) });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "forms", err);
   }
 });
 
@@ -55,7 +56,7 @@ router.put("/:id", requireRole("administrator"), async (req, res) => {
     await revalidateOnUpdate("plugin");
     res.json({ form });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "forms", err);
   }
 });
 
@@ -72,7 +73,7 @@ router.post("/", requireRole("administrator"), async (req, res) => {
     await revalidateOnUpdate("plugin");
     res.json({ form });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "forms", err);
   }
 });
 
@@ -81,7 +82,7 @@ router.delete("/:id/submissions/:submissionId", requireRole("administrator"), as
     await deleteSubmission(req.session!.siteId, param(req.params.submissionId));
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "forms", err);
   }
 });
 
@@ -92,7 +93,7 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
     await revalidateOnUpdate("plugin");
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "forms", err);
   }
 });
 

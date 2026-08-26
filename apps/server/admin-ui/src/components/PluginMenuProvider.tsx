@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { buildNavDomains, type NavDomain, type PluginMenuItem } from "../config/admin-nav";
+import { initialJson } from "../ssr-data";
 
 interface PluginMenuValue {
   /** Admin pages owned by the plugins currently installed. */
@@ -34,8 +35,10 @@ function isMenuItem(raw: unknown): raw is PluginMenuItem {
 }
 
 export function PluginMenuProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<PluginMenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initial = initialJson<{ items?: unknown }>("/api/plugins/admin-menu")?.items;
+  const initialItems = Array.isArray(initial) ? initial.filter(isMenuItem) : [];
+  const [items, setItems] = useState<PluginMenuItem[]>(initialItems);
+  const [loading, setLoading] = useState(!Array.isArray(initial));
 
   const refresh = useCallback(async () => {
     try {

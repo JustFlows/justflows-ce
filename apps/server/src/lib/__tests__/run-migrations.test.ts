@@ -11,6 +11,10 @@ describe("MIGRATION_ORDER", () => {
   it("includes persisted content types", () => {
     expect(MIGRATION_ORDER).toContain("0005_content_types");
   });
+
+  it("repairs audit tables created by the initial schema", () => {
+    expect(MIGRATION_ORDER.at(-1)).toBe("0009_audit_log_compat");
+  });
 });
 
 describe("isIgnorableMigrationError", () => {

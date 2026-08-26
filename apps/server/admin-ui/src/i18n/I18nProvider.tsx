@@ -1,5 +1,14 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { EMBEDDED_EN } from "./embedded-en";
+import { getAdminSsrPayload, initialJson } from "../ssr-data";
 
 export const ADMIN_UI_LOCALES = ["en", "nl", "de", "fr", "es"] as const;
 export type AdminUiLocale = (typeof ADMIN_UI_LOCALES)[number];
@@ -27,11 +36,15 @@ function interpolate(msg: string, vars?: Record<string, string | number>): strin
 }
 
 function detectInitialLocale(): AdminUiLocale {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const ssrLocale = getAdminSsrPayload()?.locale;
+  if (ssrLocale && (ADMIN_UI_LOCALES as readonly string[]).includes(ssrLocale)) {
+    return ssrLocale as AdminUiLocale;
+  }
+  const stored = typeof localStorage === "undefined" ? null : localStorage.getItem(STORAGE_KEY);
   if (stored && (ADMIN_UI_LOCALES as readonly string[]).includes(stored)) {
     return stored as AdminUiLocale;
   }
-  const browser = navigator.language.split("-")[0];
+  const browser = typeof navigator === "undefined" ? "en" : navigator.language.split("-")[0];
   if ((ADMIN_UI_LOCALES as readonly string[]).includes(browser)) {
     return browser as AdminUiLocale;
   }
@@ -50,14 +63,19 @@ async function fetchCatalog(locale: string): Promise<Messages> {
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<AdminUiLocale>(detectInitialLocale);
-  const [messages, setMessages] = useState<Messages>({});
-  const [fallback, setFallback] = useState<Messages>(EMBEDDED_EN);
-  const [loading, setLoading] = useState(true);
+  const initialLocale = detectInitialLocale();
+  const initialPrimary = initialJson<{ messages?: Messages }>(
+    `/api/i18n/${initialLocale}`,
+  )?.messages;
+  const initialFallback = initialJson<{ messages?: Messages }>("/api/i18n/en")?.messages;
+  const [locale, setLocaleState] = useState<AdminUiLocale>(initialLocale);
+  const [messages, setMessages] = useState<Messages>(initialPrimary ?? {});
+  const [fallback, setFallback] = useState<Messages>(initialFallback ?? EMBEDDED_EN);
+  const [loading, setLoading] = useState(!initialPrimary);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    if (!initialJson(`/api/i18n/${locale}`)) setLoading(true);
 
     Promise.all([
       fetchCatalog(locale),
@@ -95,10 +113,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     [messages, fallback],
   );
 
-  const value = useMemo(
-    () => ({ locale, setLocale, t, loading }),
-    [locale, setLocale, t, loading],
-  );
+  const value = useMemo(() => ({ locale, setLocale, t, loading }), [locale, setLocale, t, loading]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

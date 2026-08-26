@@ -48,6 +48,13 @@ if ! npm install --omit=dev --ignore-scripts --package-lock-only; then
 fi
 restore_pnpm_node_modules
 
+echo "==> Generating SBOM…"
+if [ -f "$ROOT/package-lock.json" ]; then
+  node "$ROOT/scripts/generate-sbom.mjs" "$ROOT/sbom.cdx.json"
+else
+  echo "    (skipping — no package-lock.json)"
+fi
+
 echo "==> Creating $OUT …"
 echo "    (includes LICENSE, LICENSING.md, licenses/GPL-2.0.txt)"
 rm -f "$OUT"
@@ -76,8 +83,8 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/*.zip" \
     -x "$NAME/uploads/*" \
     -x "$NAME/.env" \
-    -x "$NAME/.env.*" \
     -x "$NAME/.env.local" \
+    -x "$NAME/.env.production" \
     -x "$NAME/.hosting-backup/*" \
     -x "$NAME/.agents/*" \
     -x "$NAME/.github/*" \
@@ -113,8 +120,8 @@ else
     -x "*.zip" \
     -x "uploads/*" \
     -x ".env" \
-    -x ".env.*" \
     -x ".env.local" \
+    -x ".env.production" \
     -x ".hosting-backup/*" \
     -x ".agents/*" \
     -x ".github/*" \
@@ -136,9 +143,30 @@ fi
 echo "==> Restoring dev package manifests…"
 node "$ROOT/scripts/restore-hosting.js" 2>/dev/null || true
 
+echo "==> Writing checksums…"
+OUT_DIR="$(cd "$(dirname "$OUT")" && pwd)"
+OUT_NAME="$(basename "$OUT")"
+(
+  cd "$OUT_DIR"
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$OUT_NAME" > "$OUT_NAME.sha256"
+  else
+    sha256sum "$OUT_NAME" > "$OUT_NAME.sha256"
+  fi
+)
+# The SBOM is inside the zip; publish it beside the release too, so an operator
+# can answer "does this contain the package in today's advisory?" without
+# downloading and unpacking the archive first.
+if [ -f "$ROOT/sbom.cdx.json" ]; then
+  cp "$ROOT/sbom.cdx.json" "$OUT_DIR/$OUT_NAME.sbom.cdx.json"
+  rm -f "$ROOT/sbom.cdx.json"
+fi
+
 SIZE=$(du -h "$OUT" | cut -f1)
 echo ""
 echo "✓ $OUT ($SIZE)"
+echo "  $(cat "$OUT_DIR/$OUT_NAME.sha256")"
+echo "  SBOM: $OUT_NAME.sbom.cdx.json"
 echo ""
 echo "On server (Plesk / cPanel):"
 echo "  1. Extract zip into application root"

@@ -34,6 +34,10 @@ function run(opts: {
       result.body = body;
       return this;
     },
+    // csrfProtection re-issues a drifted cookie on the way to answering 403.
+    cookie() {
+      return this;
+    },
   } as unknown as Response;
 
   csrfProtection(req, res, (() => {
@@ -137,5 +141,138 @@ describe("csrfProtection exemptions", () => {
 
   it("no longer exempts login", () => {
     expect(run({ path: "/auth/login" }).passed).toBe(false);
+  });
+});
+
+describe("CSRF token rotation", () => {
+  const userId = "11111111-1111-4111-8111-111111111111";
+  const siteId = "22222222-2222-4222-8222-222222222222";
+
+  const sessionAt = (tv: number) =>
+    createSessionToken({ userId, siteId, role: "administrator", email: "a@example.com", tv });
+
+  it("derives a different token for each revocation counter", () => {
+    const versions = [0, 1, 2, 3].map((tv) => csrfTokenFor(userId, tv));
+    expect(new Set(versions).size).toBe(4);
+  });
+
+  // The counter is bumped on sign-out, on "sign out everywhere", and on a
+  // password change. Keyed on the user id alone the token never changed for the
+  // life of the installation, so a value that leaked once stayed valid forever.
+  it("rejects a token minted before sessions were revoked", () => {
+    const stale = csrfTokenFor(userId, 0);
+    const result = run({
+      cookies: { jf_session: sessionAt(1), jf_csrf: stale },
+      header: stale,
+    });
+    expect(result.passed).toBe(false);
+    expect(result.status).toBe(403);
+  });
+
+  it("accepts the token for the current counter", () => {
+    const current = csrfTokenFor(userId, 1);
+    expect(
+      run({ cookies: { jf_session: sessionAt(1), jf_csrf: current }, header: current }).passed,
+    ).toBe(true);
+  });
+
+  it("treats a token carrying no counter as version zero", () => {
+    const token = csrfTokenFor(userId, 0);
+    expect(
+      run({ cookies: { jf_session: sessionAt(0), jf_csrf: token }, header: token }).passed,
+    ).toBe(true);
+  });
+
+  it("still refuses a planted cookie when a session is present", () => {
+    // The whole point of deriving rather than double-submitting: an attacker who
+    // can write a cookie on this domain still cannot compute the token.
+    const planted = generateCsrfToken();
+    expect(
+      run({ cookies: { jf_session: sessionAt(0), jf_csrf: planted }, header: planted }).passed,
+    ).toBe(false);
+  });
+});
+
+describe("a drifted CSRF cookie repairs itself", () => {
+  const userId = "11111111-1111-4111-8111-111111111111";
+  const siteId = "22222222-2222-4222-8222-222222222222";
+
+  /** Capture the cookies a handler sets, so we can see the repair happen. */
+  function runCapturing(opts: { cookies: Record<string, string>; header?: string }) {
+    const setCookies: Record<string, string> = {};
+    const req = {
+      method: "POST",
+      path: "/auth/password",
+      cookies: opts.cookies,
+      headers: opts.header === undefined ? {} : { "x-csrf-token": opts.header },
+    } as unknown as Request;
+    let status: number | null = null;
+    const res = {
+      status(code: number) {
+        status = code;
+        return this;
+      },
+      json() {
+        return this;
+      },
+      cookie(name: string, value: string) {
+        setCookies[name] = value;
+        return this;
+      },
+    } as unknown as Response;
+
+    let passed = false;
+    csrfProtection(req, res, (() => {
+      passed = true;
+    }) as NextFunction);
+    return { status, passed, setCookies };
+  }
+
+  const sessionAt = (tv: number) =>
+    createSessionToken({ userId, siteId, role: "administrator", email: "a@example.com", tv });
+
+  // The wedge: the derived token rotates with the revocation counter, but the
+  // re-issue only fired when the cookie was absent. A cookie that was present
+  // and stale was therefore never corrected — every write answered 403 for
+  // good, with no way back short of clearing cookies by hand.
+  it("re-issues the correct cookie when the stored one is stale", () => {
+    const stale = csrfTokenFor(userId, 0);
+    const result = runCapturing({
+      cookies: { jf_session: sessionAt(3), jf_csrf: stale },
+      header: stale,
+    });
+
+    // This request still fails — a token that no longer matches is not honoured.
+    expect(result.passed).toBe(false);
+    expect(result.status).toBe(403);
+    // But the cookie is put back in step, so the retry succeeds.
+    expect(result.setCookies.jf_csrf).toBe(csrfTokenFor(userId, 3));
+  });
+
+  it("re-issues when the header is missing entirely", () => {
+    const result = runCapturing({ cookies: { jf_session: sessionAt(2) } });
+    expect(result.status).toBe(403);
+    expect(result.setCookies.jf_csrf).toBe(csrfTokenFor(userId, 2));
+  });
+
+  it("does not hand out a token to an anonymous caller", () => {
+    const result = runCapturing({ cookies: {} });
+    expect(result.status).toBe(403);
+    expect(result.setCookies.jf_csrf).toBeUndefined();
+  });
+
+  it("the repaired cookie is accepted on the next attempt", () => {
+    const stale = csrfTokenFor(userId, 0);
+    const first = runCapturing({
+      cookies: { jf_session: sessionAt(3), jf_csrf: stale },
+      header: stale,
+    });
+    const repaired = first.setCookies.jf_csrf!;
+
+    const second = runCapturing({
+      cookies: { jf_session: sessionAt(3), jf_csrf: repaired },
+      header: repaired,
+    });
+    expect(second.passed).toBe(true);
   });
 });

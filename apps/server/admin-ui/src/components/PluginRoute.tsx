@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { usePluginMenu } from "./PluginMenuProvider";
 
 /**
- * Guards an admin page owned by a plugin. The route stays in the SPA bundle,
+ * Guards an admin page owned by a plugin. The route stays in the admin bundle,
  * but it is only reachable while the plugin that registered it is installed —
  * deleting the plugin sends a direct URL back to the Plugins page.
  */

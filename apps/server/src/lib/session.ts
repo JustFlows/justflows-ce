@@ -86,7 +86,8 @@ export function getSession(req: Request): SessionPayload | null {
 
 export function setSessionCookie(res: Response, payload: Omit<SessionPayload, "iat">): void {
   const token = createSessionToken(payload);
-  const secure = process.env.NODE_ENV === "production" || (process.env.APP_URL ?? "").startsWith("https://");
+  const secure =
+    process.env.NODE_ENV === "production" || (process.env.APP_URL ?? "").startsWith("https://");
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -94,7 +95,7 @@ export function setSessionCookie(res: Response, payload: Omit<SessionPayload, "i
     maxAge: TTL_SECONDS * 1000,
     secure,
   });
-  setCsrfCookie(res, payload.userId);
+  setCsrfCookie(res, payload.userId, Number(payload.tv ?? 0));
 }
 
 /**
@@ -103,14 +104,23 @@ export function setSessionCookie(res: Response, payload: Omit<SessionPayload, "i
  * this domain, so anyone able to set one — via a subdomain they control, or a
  * cookie-injection bug — could forge both halves. Deriving it from APP_SECRET
  * and the user id means a token is only valid for the session it belongs to.
+ *
+ * The revocation counter is part of the input, so the token rotates whenever
+ * sessions are revoked — a sign-out, a password change, "sign out everywhere".
+ * Keyed on the user id alone it never changed for the life of the installation,
+ * and it lives in a cookie the page can read, so a value that leaked once stayed
+ * valid forever.
  */
-export function csrfTokenFor(userId: string): string {
-  return createHmac("sha256", secret()).update(`csrf:${userId}`).digest("base64url");
+export function csrfTokenFor(userId: string, tokenVersion = 0): string {
+  return createHmac("sha256", secret())
+    .update(`csrf:${userId}:${tokenVersion}`)
+    .digest("base64url");
 }
 
-export function setCsrfCookie(res: Response, userId?: string): void {
-  const secure = process.env.NODE_ENV === "production" || (process.env.APP_URL ?? "").startsWith("https://");
-  res.cookie(CSRF_COOKIE, userId ? csrfTokenFor(userId) : generateCsrfToken(), {
+export function setCsrfCookie(res: Response, userId?: string, tokenVersion = 0): void {
+  const secure =
+    process.env.NODE_ENV === "production" || (process.env.APP_URL ?? "").startsWith("https://");
+  res.cookie(CSRF_COOKIE, userId ? csrfTokenFor(userId, tokenVersion) : generateCsrfToken(), {
     httpOnly: false,
     sameSite: "lax",
     path: "/",
@@ -119,10 +129,30 @@ export function setCsrfCookie(res: Response, userId?: string): void {
   });
 }
 
+/**
+ * Put the CSRF cookie in step with the session, replacing a stale value.
+ *
+ * The token is derived from the revocation counter, so it changes whenever
+ * sessions are revoked. Call sites used to re-issue only when the cookie was
+ * *missing*, which was safe while the derivation was constant — a wrong-but-
+ * present value could not happen. Once the token rotates it can, and a drifted
+ * cookie wedges the account: every write answers 403 and nothing repairs it,
+ * because the cookie is present so the missing-cookie branch never fires.
+ */
+export function syncCsrfCookie(
+  req: { cookies?: Record<string, unknown> },
+  res: Response,
+  session: { userId: string; tv?: number },
+): void {
+  const expected = csrfTokenFor(session.userId, Number(session.tv ?? 0));
+  if (req.cookies?.[CSRF_COOKIE] === expected) return;
+  setCsrfCookie(res, session.userId, Number(session.tv ?? 0));
+}
+
 export function clearSessionCookie(res: Response): void {
   res.clearCookie(COOKIE_NAME, { httpOnly: true, path: "/" });
   // Sign-out is a client-side navigate to /login, not a full GET /login, so
-  // the SPA would otherwise POST login with no jf_csrf cookie and fail CSRF.
+  // the hydrated admin would otherwise POST login with no jf_csrf cookie and fail CSRF.
   setCsrfCookie(res);
 }
 

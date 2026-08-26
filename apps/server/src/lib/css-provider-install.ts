@@ -10,15 +10,46 @@ export function cssProvidersInstallDir(): string {
   return path.isAbsolute(rel) ? rel : path.join(getJfRoot(), rel);
 }
 
+/** npm package name, scoped or plain. */
+const NPM_NAME_RE = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
+
+/**
+ * Registry versions and ranges only — digits, dots, and the range operators.
+ *
+ * npm specifiers are not limited to versions: `https://evil.example/x.tgz`, a
+ * git URL, and `file:../../` are all valid and were all accepted straight from
+ * the manifest. `--ignore-scripts` does not help, because runPostInstall then
+ * executes node_modules/.bin/tailwindcss out of whatever that resolved to.
+ */
+const NPM_RANGE_RE = /^[\d\sxX*.^~><=|\-+A-Za-z]{1,64}$/;
+const NPM_RANGE_FORBIDDEN = /[:/\\]/;
+
+export function isSafeNpmName(name: string): boolean {
+  return name.length <= 214 && NPM_NAME_RE.test(name);
+}
+
+export function isSafeNpmRange(range: string): boolean {
+  return !NPM_RANGE_FORBIDDEN.test(range) && NPM_RANGE_RE.test(range);
+}
+
 export function getProviderNpmDependencies(manifest: Record<string, unknown>): Record<string, string> {
   const raw = manifest.dependencies ?? manifest.npmDependencies;
   if (!raw || typeof raw !== "object") return {};
 
   const result: Record<string, string> = {};
   for (const [name, version] of Object.entries(raw as Record<string, unknown>)) {
-    if (typeof version === "string" && version.trim()) {
-      result[name] = version.trim();
+    if (typeof version !== "string" || !version.trim()) continue;
+    const range = version.trim();
+    if (!isSafeNpmName(name)) {
+      throw new Error(`CSS provider dependency name is not a valid npm package: "${name}"`);
     }
+    if (!isSafeNpmRange(range)) {
+      throw new Error(
+        `CSS provider dependency "${name}" must name a published version or range, ` +
+          `not a URL, git reference or local path (got "${range}")`,
+      );
+    }
+    result[name] = range;
   }
   return result;
 }
@@ -152,7 +183,21 @@ export async function swapCssProviderPackages(manifest: Record<string, unknown> 
 
   if (Object.keys(deps).length === 0) return;
 
-  runCommand("npm", ["install", "--omit=dev", "--ignore-scripts"], installDir, "CSS provider npm install");
+  runCommand(
+    "npm",
+    [
+      "install",
+      "--omit=dev",
+      // Does not sandbox the install: runPostInstall executes a binary out of
+      // the tree this produces. It only stops a package's own lifecycle scripts
+      // from running before we get there.
+      "--ignore-scripts",
+      "--registry",
+      process.env.NPM_REGISTRY || "https://registry.npmjs.org/",
+    ],
+    installDir,
+    "CSS provider npm install",
+  );
 
   if (manifest) {
     await runPostInstall(manifest, installDir);

@@ -4,6 +4,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
 import { auditConfig } from "../lib/security-audit.js";
+import { auditFromRequest } from "../lib/audit-log.js";
 import {
   SECURITY_HEADER_DEFS,
   defaultConfig,
@@ -15,6 +16,7 @@ import {
   SecurityHeadersConfigSchema,
   type SecurityHeadersConfig,
 } from "../lib/security-headers.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
@@ -53,7 +55,7 @@ router.get("/headers", adminOnly, async (_req, res) => {
       killSwitch: process.env.JF_SECURITY_HEADERS_DISABLED === "1",
     });
   } catch (e) {
-    res.status(500).json({ error: String(e) });
+    sendServerError(res, "security", e);
   }
 });
 
@@ -61,6 +63,12 @@ router.put("/headers", adminOnly, async (req, res) => {
   try {
     const config = SecurityHeadersConfigSchema.parse(req.body);
     await saveSecurityHeadersConfig(config);
+    // Weakening the header policy is a way to make a later attack work; the
+    // change needs to be attributable.
+    auditFromRequest(req, "security.headers_changed", {
+      target: "security_headers",
+      detail: "reset to defaults",
+    });
     res.json({
       ok: true,
       config,
@@ -73,14 +81,20 @@ router.put("/headers", adminOnly, async (req, res) => {
       res.status(400).json({ error: message });
       return;
     }
-    res.status(500).json({ error: String(e) });
+    sendServerError(res, "security", e);
   }
 });
 
-router.post("/headers/reset", adminOnly, async (_req, res) => {
+router.post("/headers/reset", adminOnly, async (req, res) => {
   try {
     const config = defaultConfig();
     await saveSecurityHeadersConfig(config);
+    // Weakening the header policy is a way to make a later attack work; the
+    // change needs to be attributable.
+    auditFromRequest(req, "security.headers_changed", {
+      target: "security_headers",
+      detail: "reset to defaults",
+    });
     res.json({
       ok: true,
       config,
@@ -88,7 +102,7 @@ router.post("/headers/reset", adminOnly, async (_req, res) => {
       effective: effectiveHeaders(config),
     });
   } catch (e) {
-    res.status(500).json({ error: String(e) });
+    sendServerError(res, "security", e);
   }
 });
 
@@ -102,7 +116,7 @@ router.post("/audit", adminOnly, (req, res) => {
     const config = normalizeConfig(req.body?.config);
     res.json({ audit: auditConfig(config), effective: effectiveHeaders(config) });
   } catch (e) {
-    res.status(500).json({ error: String(e) });
+    sendServerError(res, "security", e);
   }
 });
 

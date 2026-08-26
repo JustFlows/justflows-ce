@@ -54,7 +54,10 @@ import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../lib/rbac.js";
 import { param } from "../lib/params.js";
 import multer from "multer";
 import { assertPackageIsTrusted } from "../lib/package-trust.js";
+import { sendPackageInstallError } from "../lib/package-install-error.js";
 import { packagesInstalledDir } from "../lib/packages-dir.js";
+import { auditFromRequest } from "../lib/audit-log.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -79,7 +82,7 @@ router.get("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
     const themes = await listThemes(siteId);
     res.json({ themes });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "themes", err);
   }
 });
 
@@ -99,17 +102,18 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
     const installer = new PackageInstaller();
     const packagesDir = packagesInstalledDir();
 
+    // Verified inside the installer, while the package is still staged — see
+    // the note on InstallOptions.verify.
     const result = await installer.installFromBuffer(file.buffer, {
       packagesDir,
       source: "upload",
+      verify: (manifest, digest) => {
+        if (manifest.type !== "theme") {
+          throw new Error("Uploaded package is not a theme (manifest.type must be 'theme')");
+        }
+        assertPackageIsTrusted(manifest as unknown as Record<string, unknown>, digest);
+      },
     });
-
-    if (result.manifest.type !== "theme") {
-      res.status(400).json({ error: "Uploaded package is not a theme (manifest.type must be 'theme')" });
-      return;
-    }
-
-    assertPackageIsTrusted(result.manifest as unknown as Record<string, unknown>, result.digest);
 
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -133,9 +137,13 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
     };
 
     await insertTheme(siteId, theme);
+    auditFromRequest(req, "theme.installed", {
+      target: result.manifest.id,
+      detail: `version=${result.manifest.version} digest=${result.digest.slice(0, 16)}`,
+    });
     res.json({ theme: { ...theme, status: "installed", active: false } });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendPackageInstallError(res, err);
   }
 });
 
@@ -147,7 +155,7 @@ router.get("/patterns", requireRole(...CONTENT_READ_ROLES), async (_req, res) =>
     const themeId = theme?.theme_id ?? "justflows.default";
     res.json({ patterns: listThemePatterns(themeId, themeInstalledPath(theme)) });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "themes", err);
   }
 });
 
@@ -164,7 +172,7 @@ router.get("/patterns/:slug", requireRole(...CONTENT_READ_ROLES), async (req, re
     }
     res.json({ pattern });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "themes", err);
   }
 });
 
@@ -177,6 +185,7 @@ router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
     }
     const themeId = param(req.params.id);
     await activateTheme(siteId, themeId);
+    auditFromRequest(req, "theme.activated", { target: themeId, siteId });
     await revalidateOnUpdate("theme", { siteId });
     try {
       const { getDb } = await import("../lib/db.js");
@@ -196,7 +205,7 @@ router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
     }
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "themes", err);
   }
 });
 
@@ -303,7 +312,7 @@ router.get("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res
       })),
     });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "themes", err);
   }
 });
 
@@ -510,7 +519,7 @@ router.delete("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, 
     await clearThemeBlogDraft(theme.theme_id);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "themes", err);
   }
 });
 

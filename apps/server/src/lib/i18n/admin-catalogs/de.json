@@ -27,6 +27,8 @@
     "securityOverview": "Übersicht",
     "securityHeaders": "Header",
     "securityAdvanced": "Erweitert",
+    "securityAccount": "Dein Konto",
+    "securityAudit": "Audit-Protokoll",
     "languages": "Sprachen"
   },
   "common": {

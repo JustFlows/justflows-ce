@@ -45,14 +45,13 @@ function runCommand(
   return { ok: result.status === 0, output };
 }
 
-
 async function walkFiles(dir: string, base = dir): Promise<string[]> {
   const entries = await fsp.readdir(dir, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...await walkFiles(full, base));
+      files.push(...(await walkFiles(full, base)));
     } else {
       files.push(path.relative(base, full));
     }
@@ -114,7 +113,9 @@ function findExtractedRoot(extractDir: string): string {
   throw new Error("Invalid Justflows zip — expected server.js at archive root");
 }
 
-function validateUpdatePackage(sourceRoot: string): { ok: true; version: string } | { ok: false; detail: string } {
+function validateUpdatePackage(
+  sourceRoot: string,
+): { ok: true; version: string } | { ok: false; detail: string } {
   const serverJs = path.join(sourceRoot, "server.js");
   const pkgPath = path.join(sourceRoot, "package.json");
 
@@ -126,7 +127,10 @@ function validateUpdatePackage(sourceRoot: string): { ok: true; version: string 
   }
 
   try {
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as { name?: string; version?: string };
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
+      name?: string;
+      version?: string;
+    };
     if (pkg.name && pkg.name !== "justflows") {
       return { ok: false, detail: `Invalid update package — unexpected name "${pkg.name}"` };
     }
@@ -138,7 +142,9 @@ function validateUpdatePackage(sourceRoot: string): { ok: true; version: string 
 
 function readVersion(root: string): string {
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf-8")) as { version?: string };
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf-8")) as {
+      version?: string;
+    };
     return pkg.version ?? "unknown";
   } catch {
     return "unknown";
@@ -206,7 +212,14 @@ export async function applyCoreUpdate(
         ok: false,
         detail: "Update digest does not match JUSTFLOWS_UPDATE_DIGEST",
       });
-      return { ok: false, steps, currentVersion, newVersion: currentVersion, restartRequired: false, restarting: false };
+      return {
+        ok: false,
+        steps,
+        currentVersion,
+        newVersion: currentVersion,
+        restartRequired: false,
+        restarting: false,
+      };
     }
 
     verifyUpdateArchiveSignature(uploadBuffer, options?.signature);
@@ -221,7 +234,14 @@ export async function applyCoreUpdate(
     const validated = validateUpdatePackage(sourceRoot);
     if (!validated.ok) {
       steps.push({ step: "validate", ok: false, detail: validated.detail });
-      return { ok: false, steps, currentVersion, newVersion: currentVersion, restartRequired: false, restarting: false };
+      return {
+        ok: false,
+        steps,
+        currentVersion,
+        newVersion: currentVersion,
+        restartRequired: false,
+        restarting: false,
+      };
     }
     const newVersion = validated.version;
     steps.push({ step: "validate", ok: true, detail: `Package verified (v${newVersion})` });
@@ -251,12 +271,20 @@ export async function applyCoreUpdate(
         : npmInstall.output.slice(-500) || "npm install failed",
     });
     if (!npmInstall.ok) {
-      return { ok: false, steps, currentVersion, newVersion, restartRequired: false, restarting: false };
+      return {
+        ok: false,
+        steps,
+        currentVersion,
+        newVersion,
+        restartRequired: false,
+        restarting: false,
+      };
     }
 
     const hasBuiltServer =
       fs.existsSync(path.join(root, "apps/server/dist/server.js")) &&
-      fs.existsSync(path.join(root, "apps/server/admin-ui/dist/index.html"));
+      fs.existsSync(path.join(root, "apps/server/admin-ui/dist/client/index.html")) &&
+      fs.existsSync(path.join(root, "apps/server/admin-ui/dist/server/entry-server.js"));
 
     if (hasBuiltServer) {
       steps.push({
@@ -269,12 +297,17 @@ export async function applyCoreUpdate(
       steps.push({
         step: "build",
         ok: build.ok,
-        detail: build.ok
-          ? "Server rebuilt"
-          : build.output.slice(-500) || "build:server failed",
+        detail: build.ok ? "Server rebuilt" : build.output.slice(-500) || "build:server failed",
       });
       if (!build.ok) {
-        return { ok: false, steps, currentVersion, newVersion, restartRequired: false, restarting: false };
+        return {
+          ok: false,
+          steps,
+          currentVersion,
+          newVersion,
+          restartRequired: false,
+          restarting: false,
+        };
       }
     }
 
@@ -284,7 +317,7 @@ export async function applyCoreUpdate(
       ok: restart.ok,
       detail: restart.ok
         ? "Site will reload on the next request"
-        : restart.error ?? "Could not trigger restart",
+        : (restart.error ?? "Could not trigger restart"),
     });
 
     const ok = migrate.ok && restart.ok;

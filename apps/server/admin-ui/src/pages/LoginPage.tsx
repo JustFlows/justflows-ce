@@ -10,6 +10,10 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [canRegister, setCanRegister] = useState(false);
+  // Set once the server says this account has a second factor. The password
+  // fields stay filled so the code can be added without retyping them.
+  const [totpRequired, setTotpRequired] = useState(false);
+  const [totp, setTotp] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/registration")
@@ -28,12 +32,13 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(totpRequired ? { email, password, totp } : { email, password }),
       });
 
-      const data = await res.json() as { error?: string };
+      const data = await res.json() as { error?: string; totpRequired?: boolean };
 
       if (!res.ok) {
+        if (data.totpRequired) setTotpRequired(true);
         setError(data.error ?? "Login failed");
         return;
       }
@@ -71,6 +76,26 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
+
+          {totpRequired ? (
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-totp">Authentication code</label>
+              <input
+                id="jf-totp"
+                className="jf-input"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                placeholder="123456"
+                value={totp}
+                required
+                onChange={(e) => setTotp(e.target.value)}
+              />
+              <small className="jf-field__hint">
+                From your authenticator app, or one of your recovery codes.
+              </small>
+            </div>
+          ) : null}
 
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-password">Password</label>

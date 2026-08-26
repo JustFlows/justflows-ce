@@ -3,7 +3,6 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 
 import { uploadsDir, getJfRoot, viewsDir } from "./lib/jf-root.js";
@@ -17,8 +16,7 @@ import { cacheTraceMiddleware } from "./middleware/cache-trace.js";
 import { createGzipMiddleware } from "./middleware/gzip.js";
 import { browserCacheMiddleware, staticMaxAgeMs } from "./middleware/browser-cache.js";
 import { rateLimit } from "express-rate-limit";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { adminClientDir, adminClientIndex } from "./lib/admin-ssr.js";
 
 let corePromise: Promise<void> | null = null;
 let deferredLoaded = false;
@@ -95,11 +93,12 @@ export function createApp(): express.Application {
   app.use(createGzipMiddleware());
   app.use(cacheTraceMiddleware);
   app.use(browserCacheMiddleware);
-  app.use("/api", csrfProtection);
-
-  // Configurable per site from Admin → Security. Registered before anything
-  // that can send a response so every route inherits the policy.
+  // Registered before anything that can send a response so every route
+  // inherits the policy — csrfProtection included, since it answers 403 itself
+  // and those responses used to go out bare.
   app.use(securityHeaders);
+
+  app.use("/api", csrfProtection);
 
   const staticMaxAge = staticMaxAgeMs();
   app.use(
@@ -127,18 +126,15 @@ export function createApp(): express.Application {
 
   app.get("/api/i18n/:locale", serveAdminI18n);
 
-  const adminDist = path.join(getJfRoot(), "apps/server/admin-ui/dist");
-  const adminDistAlt = path.join(__dirname, "../admin-ui/dist");
-  const adminStatic = fs.existsSync(adminDist) ? adminDist : adminDistAlt;
-
   const sendAdminSpa = (_req: express.Request, res: express.Response) => {
-    const indexPath = path.join(adminStatic, "index.html");
+    const indexPath = adminClientIndex();
     res.sendFile(indexPath, (err) => {
       if (!err || res.headersSent) return;
       res.status(503).send("Admin UI not built.");
     });
   };
 
+  const adminStatic = adminClientDir();
   if (fs.existsSync(adminStatic)) {
     app.use("/assets", express.static(path.join(adminStatic, "assets")));
   }
@@ -181,11 +177,15 @@ export function createApp(): express.Application {
       }
       Promise.all([ensureCoreRoutes(app), loadDeferredRoutes(app)])
         .then(() => {
-          (app as unknown as { handle: (req: express.Request, res: express.Response, next: express.NextFunction) => void }).handle(
-            req,
-            res,
-            next,
-          );
+          (
+            app as unknown as {
+              handle: (
+                req: express.Request,
+                res: express.Response,
+                next: express.NextFunction,
+              ) => void;
+            }
+          ).handle(req, res, next);
         })
         .catch(next);
     });

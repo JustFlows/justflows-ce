@@ -1,4 +1,3 @@
-version: "3.9"
 
 # ── Justflows — one-command install with PostgreSQL ──────────────────────────
 #
@@ -13,6 +12,8 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_DB: justflows
       POSTGRES_USER: justflows
@@ -46,8 +47,36 @@ services:
       STORAGE_DRIVER: local
       STORAGE_LOCAL_PATH: /app/uploads
       LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Runtime confinement. The image already runs as a non-root user; these
+    # stop that user from regaining privilege, and bound what one runaway
+    # request can consume on a box that is usually also serving the database.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # `read_only: true` is deliberately not set. The install wizard writes .env
+    # into the application root, and plugin, theme and CSS-provider installs
+    # write to packages-installed/ and css-providers-installed/ there too — so a
+    # read-only root filesystem breaks setup and every extension install. Making
+    # it work means relocating that state onto volumes first; until then the
+    # flag would be a setting that looks like hardening and is actually an
+    # outage.
+    tmpfs:
+      - /tmp
     volumes:
       - uploads:/app/uploads
+      - jf_cache:/app/.cache
+      - jf_tmp:/app/tmp
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,3 +84,5 @@ services:
 volumes:
   postgres_data:
   uploads:
+  jf_cache:
+  jf_tmp:

@@ -18,6 +18,7 @@ import {
 import { requireRole } from "../middleware/auth.js";
 import { CONTENT_READ_ROLES } from "../lib/rbac.js";
 import { param } from "../lib/params.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
@@ -39,7 +40,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
     const types = await listContentTypes();
     res.json({ types });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "content-types", err);
   }
 });
 
@@ -52,7 +53,7 @@ router.get("/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
     }
     res.json({ type });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "content-types", err);
   }
 });
 

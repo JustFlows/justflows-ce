@@ -27,6 +27,8 @@
     "securityOverview": "Resumen",
     "securityHeaders": "Cabeceras",
     "securityAdvanced": "Avanzado",
+    "securityAccount": "Tu cuenta",
+    "securityAudit": "Registro de auditoría",
     "languages": "Idiomas"
   },
   "common": {

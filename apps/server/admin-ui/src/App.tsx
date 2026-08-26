@@ -29,6 +29,8 @@ import LanguagesPage from "./pages/admin/LanguagesPage";
 import SecurityOverviewPage from "./pages/admin/security/SecurityOverviewPage";
 import SecurityHeadersPage from "./pages/admin/security/SecurityHeadersPage";
 import SecurityAdvancedPage from "./pages/admin/security/SecurityAdvancedPage";
+import AccountSecurityPage from "./pages/admin/security/AccountSecurityPage";
+import AuditLogPage from "./pages/admin/security/AuditLogPage";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { PluginMenuProvider } from "@components/PluginMenuProvider";
 import PluginRoute from "@components/PluginRoute";
@@ -74,6 +76,8 @@ export default function App() {
         <Route path="security" element={<SecurityOverviewPage />} />
         <Route path="security/headers" element={<SecurityHeadersPage />} />
         <Route path="security/advanced" element={<SecurityAdvancedPage />} />
+        <Route path="security/account" element={<AccountSecurityPage />} />
+        <Route path="security/audit" element={<AuditLogPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>

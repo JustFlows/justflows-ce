@@ -65,6 +65,7 @@ export type {
   PluginCacheApi,
   PluginHttpApi,
   PluginHttpRequest,
+  PluginHttpSession,
   PluginHttpResponse,
   PluginHttpHandler,
   PluginDataApi,
