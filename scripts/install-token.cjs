@@ -29,8 +29,8 @@ const HTACCESS = `# Justflows install token — never serve this over HTTP.
 
 let cached = null;
 
-function installTokenRequired(env = process.env) {
-  return env.JUSTFLOWS_SKIP_INSTALL_TOKEN !== "1";
+function installTokenRequired() {
+  return true;
 }
 
 function installTokenDir(root) {

@@ -34,7 +34,11 @@ export function isReservedPluginResponseHeader(name: string): boolean {
   return RESERVED_RESPONSE_HEADERS.has(lower) || isProtectedHeaderName(lower);
 }
 
-export async function dispatchPluginHttp(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function dispatchPluginHttp(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const { ensurePluginRuntime, getPluginLoader } = await import("./plugin-runtime.js");
   await ensurePluginRuntime();
   const loader = getPluginLoader();
@@ -122,7 +126,8 @@ export async function dispatchPluginHttp(req: Request, res: Response, next: Next
     }
     res.end();
   } catch (err) {
-    console.error(`[justflows] plugin route "${match.pluginId}${req.path}" failed:`, err);
+    const routeLabel = `${match.pluginId}${req.path}`.replace(/\r/g, "").replace(/\n/g, "");
+    console.error("[justflows] plugin route failed: %s", JSON.stringify(routeLabel), err);
     if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
   }
 }

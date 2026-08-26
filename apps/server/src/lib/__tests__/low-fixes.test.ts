@@ -1,5 +1,4 @@
 import express from "express";
-import cookieParser from "cookie-parser";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -29,7 +28,19 @@ let base: string;
 
 beforeAll(async () => {
   const app = express();
-  app.use(cookieParser());
+  app.use((req, _res, next) => {
+    req.cookies = Object.fromEntries(
+      (req.headers.cookie ?? "")
+        .split(";")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => {
+          const separator = part.indexOf("=");
+          return [part.slice(0, separator), decodeURIComponent(part.slice(separator + 1))];
+        }),
+    );
+    next();
+  });
   app.use(express.json());
   // Same order as createApp(): headers first, so even a 403 from the CSRF
   // middleware carries them.

@@ -38,7 +38,10 @@ const RULES = [
   { name: "OpenAI key", re: /\bsk-[A-Za-z0-9]{20,}T3BlbkFJ[A-Za-z0-9]{20,}\b/ },
   { name: "Anthropic key", re: /\bsk-ant-[A-Za-z0-9_-]{20,}\b/ },
   { name: "npm token", re: /\bnpm_[A-Za-z0-9]{36}\b/ },
-  { name: "JSON Web Token", re: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/ },
+  {
+    name: "JSON Web Token",
+    re: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/,
+  },
   { name: "private key block", re: /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----/ },
   {
     name: "populated secret assignment",
@@ -64,7 +67,11 @@ const SKIP_PATHS = [
 const ALLOW_MARKER = "scan-secrets:allow";
 
 function trackedFiles() {
-  const out = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf-8", maxBuffer: 32 * 1024 * 1024 });
+  const out = execFileSync("git", ["ls-files"], {
+    cwd: ROOT,
+    encoding: "utf-8",
+    maxBuffer: 32 * 1024 * 1024,
+  });
   return out.split("\n").filter(Boolean);
 }
 
@@ -86,9 +93,9 @@ function main() {
     const full = path.join(ROOT, rel);
     let text;
     try {
-      const stat = fs.statSync(full);
-      if (!stat.isFile() || stat.size > 2 * 1024 * 1024) continue;
-      text = fs.readFileSync(full, "utf-8");
+      const content = fs.readFileSync(full);
+      if (content.length > 2 * 1024 * 1024) continue;
+      text = content.toString("utf-8");
     } catch {
       continue;
     }
