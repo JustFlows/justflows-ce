@@ -42,13 +42,13 @@ To list in the Marketplace you must:
 
 Justflows reviews every listing **before publication** and may re-review updates.
 
-| Review area | Examples |
-|---|---|
-| **Permissions** | Requested permissions match functionality |
-| **Code safety** | No eval injection, no credential harvesting, no obfuscated malware |
-| **Dependencies** | Known-vulnerable dependencies flagged or rejected |
-| **Data handling** | Privacy policy if collecting personal data |
-| **Quality** | Basic functionality works as described |
+| Review area       | Examples                                                           |
+| ----------------- | ------------------------------------------------------------------ |
+| **Permissions**   | Requested permissions match functionality                          |
+| **Code safety**   | No eval injection, no credential harvesting, no obfuscated malware |
+| **Dependencies**  | Known-vulnerable dependencies flagged or rejected                  |
+| **Data handling** | Privacy policy if collecting personal data                         |
+| **Quality**       | Basic functionality works as described                             |
 
 Justflows may **approve**, **request changes**, or **reject** listings.
 Decisions are at Justflows' reasonable discretion.
@@ -73,12 +73,12 @@ You must not:
 Justflows **core is MIT**. Plugins and themes keep **their own license**.
 All official Marketplace listings must still use a **GPL-compatible license**.
 
-| Listing type | Requirement |
-|---|---|
-| **GPL-2.0-or-later** | Common for extensions — include SPDX identifier and source |
-| **GPL-3.0-or-later** | Allowed |
-| **MIT / other GPL-compatible** | Allowed |
-| **Proprietary / closed source** | **Not allowed** |
+| Listing type                    | Requirement                                                |
+| ------------------------------- | ---------------------------------------------------------- |
+| **GPL-2.0-or-later**            | Common for extensions — include SPDX identifier and source |
+| **GPL-3.0-or-later**            | Allowed                                                    |
+| **MIT / other GPL-compatible**  | Allowed                                                    |
+| **Proprietary / closed source** | **Not allowed**                                            |
 
 ### Paid listings (allowed)
 
@@ -104,8 +104,7 @@ If you charge for your plugin or theme in the Marketplace:
 
 ### Revenue share
 
-Justflows retains a platform fee on Marketplace sales (percentage defined in
-publisher dashboard; default placeholder: **15%** — set your actual rate before launch).
+Justflows retains a **5% platform fee** on Marketplace sales.
 
 ### Payouts
 
@@ -158,11 +157,11 @@ Delisting does not automatically remove sideloaded copies on user sites.
 
 ## 10. Support obligations
 
-| Responsibility | Owner |
-|---|---|
-| Extension support | Publisher |
-| Marketplace platform | Justflows |
-| Core platform | Justflows (official builds only) |
+| Responsibility       | Owner                            |
+| -------------------- | -------------------------------- |
+| Extension support    | Publisher                        |
+| Marketplace platform | Justflows                        |
+| Core platform        | Justflows (official builds only) |
 
 Publishers of paid listings should provide a support contact and reasonable response expectations.
 
@@ -178,8 +177,6 @@ See: [08-trademark-support-warranty.md](./08-trademark-support-warranty.md)
 ---
 
 ## 12. Indemnification
-
-*(Template — review with lawyer.)*
 
 You agree to indemnify Justflows against claims arising from your listing,
 including intellectual property infringement and harm caused by your extension,
@@ -199,8 +196,6 @@ distribution after notice constitutes acceptance, or you may withdraw listings.
 - Marketplace submissions: `marketplace@justflows.com`
 - Security reports: `security@justflows.com`
 - Legal: `legal@justflows.com`
-
-*(Replace with real addresses.)*
 
 ---
 
