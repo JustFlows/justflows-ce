@@ -1,0 +1,4 @@
+interface:
+  display_name: "Justflows Themes & Blocks"
+  short_description: "Build compatible themes and block rendering"
+  default_prompt: "Use /justflows-themes-blocks to implement this Justflows task."
