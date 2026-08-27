@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "../db.js";
 import { getSiteId } from "../site-settings.js";
-import { metaForCode, normalizeLocale, type LanguageMeta } from "./locales.js";
+import { DEFAULT_CONTENT_LOCALE, metaForCode, matchActiveLocale, normalizeLocale, type LanguageMeta } from "./locales.js";
 
 export interface LanguageRow {
   id: string;
@@ -57,7 +57,7 @@ export async function ensureDefaultLanguages(siteId?: string): Promise<void> {
   );
   if (existing[0]) return;
 
-  const en = metaForCode("en");
+  const en = metaForCode(DEFAULT_CONTENT_LOCALE);
   await db.run(
     `INSERT INTO languages (id, site_id, code, name, native_name, is_default, is_active, sort_order, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, 1, 1, 0, ?, ?)`,
@@ -87,7 +87,7 @@ export async function listLanguages(siteId?: string, activeOnly = false): Promis
 export async function getDefaultLocale(siteId?: string): Promise<string> {
   const langs = await listLanguages(siteId, true);
   const def = langs.find((l) => l.isDefault);
-  return def?.code ?? langs[0]?.code ?? "en";
+  return def?.code ?? langs[0]?.code ?? DEFAULT_CONTENT_LOCALE;
 }
 
 export async function getActiveLocaleCodes(siteId?: string): Promise<string[]> {
@@ -198,13 +198,5 @@ export async function resolveContentLocale(
   siteId?: string,
 ): Promise<string> {
   const active = await getActiveLocaleCodes(siteId);
-  const normalized = normalizeLocale(requested ?? undefined);
-  if (normalized && active.includes(normalized)) return normalized;
-
-  const baseMatch = normalized
-    ? active.find((c) => c.split("-")[0] === normalized.split("-")[0])
-    : undefined;
-  if (baseMatch) return baseMatch;
-
-  return await getDefaultLocale(siteId);
+  return matchActiveLocale(requested, active) ?? (await getDefaultLocale(siteId));
 }

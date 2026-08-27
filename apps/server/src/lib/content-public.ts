@@ -1,6 +1,7 @@
 import { getDb } from "./db.js";
 import { serializeContentRow, type ContentResponse } from "./content-api.js";
-import { resolveContentLocale } from "./i18n/languages-db.js";
+import { overlayWorkingOnRow } from "./content-revisions.js";
+import { getDefaultLocale, resolveContentLocale } from "./i18n/languages-db.js";
 import { getJfCache } from "./jf-cache.js";
 
 const CONTENT_CACHE_PREFIX = "content:";
@@ -25,9 +26,52 @@ export async function invalidateContentCache(): Promise<void> {
   await revalidateOnUpdate("content");
 }
 
+async function loadPublishedRow(
+  siteId: string,
+  slug: string,
+  locale: string,
+  preview: boolean,
+): Promise<Record<string, unknown> | null> {
+  const db = await getDb();
+  const statusClause = preview
+    ? "AND status IN ('published', 'draft')"
+    : "AND status = 'published'";
+  const rows = await db.query<Record<string, unknown>>(
+    `SELECT * FROM content WHERE site_id = ? AND slug = ? AND locale = ? ${statusClause} LIMIT 1`,
+    [siteId, slug, locale],
+  );
+  return rows[0] ?? null;
+}
+
+async function loadPublishedTranslation(
+  siteId: string,
+  translationGroupId: string,
+  locale: string,
+  preview: boolean,
+): Promise<Record<string, unknown> | null> {
+  const db = await getDb();
+  const statusClause = preview
+    ? "AND status IN ('published', 'draft')"
+    : "AND status = 'published'";
+  const rows = await db.query<Record<string, unknown>>(
+    `SELECT * FROM content WHERE site_id = ? AND translation_group_id = ? AND locale = ? ${statusClause} LIMIT 1`,
+    [siteId, translationGroupId, locale],
+  );
+  return rows[0] ?? null;
+}
+
+async function serializePublished(
+  row: Record<string, unknown>,
+  preview: boolean,
+): Promise<ContentResponse> {
+  const overlaid = preview ? await overlayWorkingOnRow(row, true) : row;
+  return serializeContentRow(overlaid);
+}
+
 async function fetchPublishedContentBySlug(
   slug: string,
   requestedLocale?: string,
+  preview = false,
 ): Promise<ContentResponse | null> {
   const db = await getDb();
   const sites = await db.query<{ id: string }>("SELECT id FROM sites LIMIT 1");
@@ -35,23 +79,38 @@ async function fetchPublishedContentBySlug(
   if (!siteId) return null;
 
   const locale = await resolveContentLocale(requestedLocale, siteId);
+  const exact = await loadPublishedRow(siteId, slug, locale, preview);
+  if (exact) return serializePublished(exact, preview);
 
-  const rows = await db.query<Record<string, unknown>>(
-    "SELECT * FROM content WHERE site_id = ? AND slug = ? AND locale = ? AND status = 'published' LIMIT 1",
-    [siteId, slug, locale],
-  );
+  const defaultLocale = await getDefaultLocale(siteId);
+  if (defaultLocale === locale) return null;
 
-  return rows[0] ? serializeContentRow(rows[0]) : null;
+  const fallback = await loadPublishedRow(siteId, slug, defaultLocale, preview);
+  if (!fallback) return null;
+
+  const groupId =
+    fallback.translation_group_id == null ? null : String(fallback.translation_group_id);
+  if (groupId) {
+    const translated = await loadPublishedTranslation(siteId, groupId, locale, preview);
+    if (translated) return serializePublished(translated, preview);
+  }
+
+  return serializePublished(fallback, preview);
 }
 
 export async function getPublishedContentBySlug(
   slug: string,
   requestedLocale?: string,
+  preview = false,
 ): Promise<ContentResponse | null> {
+  if (preview) {
+    return fetchPublishedContentBySlug(slug, requestedLocale, true);
+  }
+
   const cacheKey = `${CONTENT_CACHE_PREFIX}published:${slug}:${requestedLocale ?? ""}`;
 
   return getJfCache().remember(cacheKey, await contentCacheTtl(), () =>
-    fetchPublishedContentBySlug(slug, requestedLocale),
+    fetchPublishedContentBySlug(slug, requestedLocale, false),
   );
 }
 

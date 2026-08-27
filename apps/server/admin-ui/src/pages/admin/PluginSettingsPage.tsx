@@ -34,7 +34,7 @@ export default function PluginSettingsPage() {
   const [schema, setSchema] = useState<Record<string, SettingField>>({});
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [languages, setLanguages] = useState<SiteLanguage[]>([]);
-  const [locale, setLocale] = useState("en");
+  const [locale, setLocale] = useState("en-US");
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -54,7 +54,7 @@ export default function PluginSettingsPage() {
         setSchema(data.schema ?? {});
         setValues(data.values ?? {});
         setLanguages(langs);
-        setLocale(langs.find((lang) => lang.isDefault)?.code ?? langs[0]?.code ?? "en");
+        setLocale(langs.find((lang) => lang.isDefault)?.code ?? langs[0]?.code ?? "en-US");
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));

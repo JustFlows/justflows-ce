@@ -6,6 +6,7 @@ import { getDb } from "../lib/db.js";
 import { getJfCache } from "../lib/jf-cache.js";
 import { inspectCacheStorage } from "../lib/public-cache.js";
 import { serializeContentRow } from "../lib/content-api.js";
+import { overlayWorkingOnRow } from "../lib/content-revisions.js";
 import { resolveContentLocale, getDefaultLocale } from "../lib/i18n/languages-db.js";
 import { listContentTypes } from "../lib/content-types-db.js";
 import { PUBLIC_API_OPENAPI } from "../lib/openapi-v1.js";
@@ -41,8 +42,10 @@ async function allowPreview(req: Request, res: Response): Promise<boolean> {
 async function serializePublicContent(
   row: Record<string, unknown>,
   siteId: string,
+  preview = false,
 ): Promise<ReturnType<typeof serializeContentRow>> {
-  const payload = serializeContentRow(row);
+  const overlaid = preview ? await overlayWorkingOnRow(row, true) : row;
+  const payload = serializeContentRow(overlaid);
   const hooks = getRuntimeHooks();
   if (!hooks.has("content.output")) return payload;
   return hooks.applyFilter("content.output", payload, { siteId });
@@ -208,7 +211,7 @@ router.get("/content", async (req, res) => {
     const items = hasMore ? rows.slice(0, limit) : rows;
 
     res.json({
-      items: await Promise.all(items.map((row) => serializePublicContent(row, siteId))),
+      items: await Promise.all(items.map((row) => serializePublicContent(row, siteId, preview))),
       nextCursor: hasMore ? items[items.length - 1]?.id : null,
       total: items.length,
       locale,
@@ -241,7 +244,7 @@ router.get("/content/:slug", async (req, res) => {
       return;
     }
 
-    res.json(await serializePublicContent(rows[0], siteId));
+    res.json(await serializePublicContent(rows[0], siteId, preview));
   } catch (err) {
     sendServerError(res, "public-api", err);
   }

@@ -22,6 +22,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     } catch (err) {
       console.error("[justflows] Pending migrations failed:", err);
     }
+    const { startRevisionJobs } = await import("./lib/revision-jobs.js");
+    startRevisionJobs();
   }
 
   const { ensurePluginRuntime } = await import("./lib/plugin-runtime.js");

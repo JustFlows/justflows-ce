@@ -84,7 +84,7 @@ function parseObjectList(raw: string | undefined): CacheObjectSelection {
 
 export function getRevalidateSettings(): RevalidateSettings {
   return {
-    enabled: parseEnvBool(process.env.CACHE_REVALIDATE_ENABLED, true),
+    enabled: parseEnvBool(process.env.CACHE_REVALIDATE_ENABLED, false),
     objects: parseObjectList(process.env.CACHE_REVALIDATE_OBJECTS),
   };
 }

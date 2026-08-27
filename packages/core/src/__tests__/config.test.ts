@@ -18,7 +18,7 @@ describe("loadConfig", () => {
     expect(config.database.url).toBe("postgres://user:pass@localhost:5432/justflows");
     expect(config.storage.driver).toBe("local");
     expect(config.cache.driver).toBe("filesystem");
-    expect(config.cache.enabled).toBe(true);
+    expect(config.cache.enabled).toBe(false);
   });
 
   it("disables cache when CACHE_ENABLED=0", () => {
@@ -45,6 +45,15 @@ describe("loadConfig", () => {
     });
     expect(config.database.driver).toBe("mysql");
     expect(config.database.url).toBe("mysql://user:pass@localhost:3306/justflows");
+  });
+
+  it("accepts DB_DRIVER when DATABASE_DRIVER is unset", () => {
+    const config = loadConfig({
+      ...base,
+      DB_DRIVER: "mariadb",
+      DATABASE_URL: "mariadb://user:pass@localhost:3306/justflows",
+    });
+    expect(config.database.driver).toBe("mariadb");
   });
 
   it("throws on missing required fields", () => {

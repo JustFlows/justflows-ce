@@ -5,9 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.1.5] — Unreleased
+## [0.1.5-rc-dev] — Unreleased
 
 ### Added
+
+- The install wizard lets you choose the default public-site language (installed
+  as the default language) and optionally emails the full site details and
+  admin credentials to the address you enter.
+
+- Working revisions for every content type: saving a published item writes a
+  draft without changing the live snapshot; visitors keep seeing the published
+  version until an explicit publish copies the working revision across
+  atomically. The editor lists the last five published versions and can restore
+  one as a draft. Preview, compare, discard, and list status
+  (“Published — draft changes”) follow that model.
+  ([#65](https://github.com/JustFlows/justflows-ce/issues/65))
 
 - Admin → Users: dedicated Edit User page (`/admin/users/:id`) — update
   display name and role, reset the account's password, and remove the user,
@@ -17,8 +29,61 @@ and this project uses [Semantic Versioning](https://semver.org/).
   identity backing the page above and the role-aware admin UI below.
   ([#56](https://github.com/JustFlows/justflows-ce/issues/56))
 
+### Changed
+
+- A fresh install starts with object cache, cache revalidation, browser cache,
+  and GZIP off, the site unpublished (`site_public` false), and search engines
+  discouraged from indexing. Disabling object cache deletes every file in
+  `.cache`.
+
+- Site languages are any BCP 47 tag the site enables (`nl-NL`, `en-US`,
+  `zh-Hant-TW`). The seeded default is `en-US`. Public URLs use the stored
+  tag as-is. There is no built-in language list and no rewriting of `nl`
+  to `nl-NL`. Existing `en` language and content rows are remapped to
+  `en-US` on update. Admin → Languages accepts a free-form code; names
+  come from the runtime.
+  ([#78](https://github.com/JustFlows/justflows-ce/issues/78))
+
 ### Fixed
 
+- Fresh install on MySQL/MariaDB dropped the default site settings (`key` is
+  reserved), so Admin showed the site as live and search engines as allowed.
+  Those rows now persist, so a new site stays unpublished with indexing
+  discouraged.
+
+- Fresh installs wrote `CACHE_ENABLED=0` but the running process kept serving
+  page-cache hits: the cache singleton was created on the first request before
+  `.env` existed (default on) and was never rebuilt. It now follows the env
+  flag immediately, deletes leftover `.cache` files whenever cache is off, and
+  public pages send `X-Jf-Page-Cache: BYPASS` when cache is off.
+
+- Public navigation keeps the selected language: menu links no longer drop
+  back to the default locale, and a missing translation page falls back to
+  the default-language content instead of a 404.
+  ([#78](https://github.com/JustFlows/justflows-ce/issues/78))
+- Admin → Languages had no Remove control even though
+  `DELETE /api/languages/:id` already existed. Non-default languages can
+  now be deleted; the default language still cannot.
+  ([#78](https://github.com/JustFlows/justflows-ce/issues/78))
+- Admin → Menus listed every translation of a page or post when adding
+  items, so Home appeared twice. The picker now shows only the default
+  language; public menus still follow the visitor locale.
+  ([#78](https://github.com/JustFlows/justflows-ce/issues/78))
+- Admin → Content listed every translation as its own row. The list now
+  shows only the default language; translations stay on the item editor.
+  ([#78](https://github.com/JustFlows/justflows-ce/issues/78))
+- Saving, autosaving, publishing, or discarding a draft no longer deletes the
+  only revision row. Each distinct snapshot is kept as history (last 5) so
+  authors can restore it. ([#65](https://github.com/JustFlows/justflows-ce/issues/65))
+- Revision rows were never stored on MariaDB: `source` is a reserved word, so
+  INSERTs into `revisions` failed, and draft saves plus the first publish never
+  wrote a restore point. Those writes now quote the column and record up to
+  five historical versions. ([#65](https://github.com/JustFlows/justflows-ce/issues/65))
+- Core zip updates on MySQL/MariaDB no longer fail migration `0010` with
+  errno 121 (`Can't create table … revisions`) when adding working-revision
+  columns. The dialect files stay additive (no new foreign key or stored
+  generated unique slots on a table that already has InnoDB constraints).
+  ([#65](https://github.com/JustFlows/justflows-ce/issues/65))
 - Admin → Users **Remove** was a dead button — its `onClick` was missing. It
   now calls `DELETE` with a confirm prompt and removes the row on success.
   ([#56](https://github.com/JustFlows/justflows-ce/issues/56))

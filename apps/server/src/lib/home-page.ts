@@ -2,6 +2,7 @@
 
 import { getDb } from "./db.js";
 import { serializeContentRow, type ContentResponse } from "./content-api.js";
+import { overlayWorkingOnRow } from "./content-revisions.js";
 import { deleteSiteSetting, getSiteSetting, setSiteSetting } from "./site-settings.js";
 import { revalidateOnUpdate } from "./cache-revalidate.js";
 
@@ -95,14 +96,21 @@ export async function getHomeContent(
       `SELECT * FROM content WHERE site_id = ? AND translation_group_id = ? AND locale = ? AND ${statusClause} LIMIT 1`,
       [siteId, groupId, locale],
     );
-    if (localized[0]) return serializeContentRow(localized[0]);
+    if (localized[0]) {
+      const overlaid = preview ? await overlayWorkingOnRow(localized[0], true) : localized[0];
+      return serializeContentRow(overlaid);
+    }
   }
 
   if (String(row.locale ?? "") === locale && isUsable(row, preview)) {
-    return serializeContentRow(row);
+    const overlaid = preview ? await overlayWorkingOnRow(row, true) : row;
+    return serializeContentRow(overlaid);
   }
 
-  if (isUsable(row, preview)) return serializeContentRow(row);
+  if (isUsable(row, preview)) {
+    const overlaid = preview ? await overlayWorkingOnRow(row, true) : row;
+    return serializeContentRow(overlaid);
+  }
   return null;
 }
 

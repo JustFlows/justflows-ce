@@ -7,6 +7,7 @@ export interface SiteLanguageLink {
   name: string;
   href: string;
   current: boolean;
+  displayCode?: string;
 }
 
 export interface SiteWidgetContext {
@@ -66,7 +67,7 @@ function languageInner(links: SiteLanguageLink[], style: string): string {
   if (links.length < 2) return "";
   return links
     .map((lang) => {
-      const label = style === "names" ? lang.name || lang.code : lang.code.toUpperCase();
+      const label = style === "names" ? lang.name || lang.code : lang.displayCode || lang.code.toUpperCase();
       const current = lang.current ? " is-current" : "";
       const aria = lang.current ? ` aria-current="page"` : "";
       return `<a href="${esc(lang.href)}" class="jf-language-switcher__link${current}"${aria}>${esc(label)}</a>`;

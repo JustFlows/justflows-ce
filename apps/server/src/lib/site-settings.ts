@@ -13,8 +13,12 @@ function now(): string {
  * the driver for its INSERT; the reads did not, and hardcoded the MySQL form —
  * so every settings lookup was malformed SQL on PostgreSQL.
  */
+export function settingsKeyColumnFor(driver: string | undefined): string {
+  return driver === "postgres" ? "key" : "`key`";
+}
+
 export function settingsKeyColumn(): string {
-  return process.env.DB_DRIVER === "postgres" ? "key" : "`key`";
+  return settingsKeyColumnFor(process.env.DB_DRIVER);
 }
 
 export async function getSiteId(): Promise<string | null> {

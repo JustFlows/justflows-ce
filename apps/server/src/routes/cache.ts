@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getJfCache } from "../lib/jf-cache.js";
+import { getJfCache, wipeCacheStorage } from "../lib/jf-cache.js";
 import {
   CacheSettingsBodySchema,
   readCacheSettings,
@@ -42,6 +42,7 @@ router.get("/settings", requireRole("administrator"), async (_req, res) => {
 router.get("/stats", requireRole("administrator"), async (_req, res) => {
   try {
     const cache = getJfCache();
+    if (!cache.enabled) await wipeCacheStorage();
     const settings = await readCacheSettings();
     const perf = getPerformanceConfig();
     const storage = await inspectCacheStorage();
@@ -104,6 +105,7 @@ router.post("/settings", requireRole("administrator"), async (req, res) => {
 router.post("/clear", requireRole("administrator"), async (_req, res) => {
   const cache = getJfCache();
   await cache.clear();
+  await wipeCacheStorage();
   res.json({
     ok: true,
     enabled: cache.enabled,
