@@ -5,9 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.1.5] — Unreleased
+## [0.1.5-rc-dev] — Unreleased
 
 ### Added
+
+- Working revisions for every content type: saving a published item writes a
+  draft without changing the live snapshot; visitors keep seeing the published
+  version until an explicit publish copies the working revision across
+  atomically. Preview, compare, discard, restore, and list status
+  (“Published — draft changes”) follow that model.
+  ([#65](https://github.com/JustFlows/justflows-ce/issues/65))
 
 - Admin → Users: dedicated Edit User page (`/admin/users/:id`) — update
   display name and role, reset the account's password, and remove the user,
