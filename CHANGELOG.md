@@ -206,7 +206,6 @@ Found while scoping the settings query; all three would have thrown on postgres.
   It was unreachable in practice and has been removed in favour of the existing
   driver-aware helper.
 
-
 ## [0.1.3] — 2026-08-25
 
 ### Added
