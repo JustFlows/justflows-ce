@@ -2,12 +2,14 @@
 
 ## Scope
 
-These instructions apply to the entire repository. Load the focused skill in `.agents/skills/` that matches the work before making changes. Use `justflows-platform` first for cross-cutting or architectural work.
+These instructions apply to the entire repository. Load the focused skill in `.agents/skills/` that matches the work before making changes. Use `justflows-platform` first for cross-cutting or architectural work. Load `justflows-changelog` whenever the change belongs on `CHANGELOG.md` or implements a Public Roadmap item.
 
 This is the public development repository (`justflows-ce-development`). Open
 PRs into `develop` from `feature/`, `bug/`, `patch/`, or the other allowed
 prefixes. Do not push to `main` or `develop`. CI runs only on PRs into
 `develop`. Publish snapshots go to `justflows-ce` only when Dirk asks.
+
+User-visible work must cite the matching [Public Roadmap](https://github.com/orgs/JustFlows/projects/35) issue in `CHANGELOG.md` (see `.agents/skills/justflows-changelog/SKILL.md`). Close that `justflows-ce` issue only after the line has shipped on public `justflows-ce`, not when the feature PR merges here.
 
 ## Repository invariants
 
