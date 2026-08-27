@@ -92,7 +92,7 @@ git push -u origin HEAD
 
 Open a pull request **into `develop`**. Tests, the dependency audit, and CodeQL run on that PR only — not on feature-branch pushes and not on PRs into `main`.
 
-After the work lands on `develop`, maintainers open a pull request from `develop` **into `main`** for the release. That PR does not re-run the test suite.
+After the work lands on `develop`, maintainers open a pull request from `develop` **into `main`** for the release. That PR does not re-run the test suite. Merging into `main` runs `.github/workflows/sync-to-justflows-ce.yml`, which opens (or updates) a publish PR on `justflows-ce`. Only that Action and org owners can open PRs there.
 
 ## Code guidelines
 
