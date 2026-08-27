@@ -21,6 +21,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Open publish PR on justflows-ce
         env:
@@ -31,6 +32,8 @@ jobs:
             echo "::error::Missing repo secret JUSTFLOWS_CE_SYNC_TOKEN. Add a fine-grained PAT from an org owner with Contents (read/write) and Pull requests (read/write) on JustFlows/justflows-ce."
             exit 1
           fi
+
+          git config --local --unset-all http.https://github.com/.extraheader || true
 
           SHA=$(git rev-parse --short HEAD)
           FULL=$(git rev-parse HEAD)
