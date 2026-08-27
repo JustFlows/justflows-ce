@@ -15,7 +15,7 @@ const config: InstallConfig = {
   appSecret: "a".repeat(48),
   siteId: "site-1",
   installedAt: "2026-08-27T00:00:00.000Z",
-  version: "0.1.5-rc-dev",
+  version: "0.1.5",
 };
 
 describe("installedEnvContents", () => {
