@@ -27,6 +27,8 @@
     "securityOverview": "Aperçu",
     "securityHeaders": "En-têtes",
     "securityAdvanced": "Avancé",
+    "securityAccount": "Votre compte",
+    "securityAudit": "Journal d'audit",
     "languages": "Langues"
   },
   "common": {

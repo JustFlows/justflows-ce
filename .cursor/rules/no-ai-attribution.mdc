@@ -1,0 +1,12 @@
+---
+description: Never attribute git commits or GitHub contributors to Cursor or any AI agent
+alwaysApply: true
+---
+
+# No AI git attribution
+
+Never add Cursor, an agent, or any AI tool as a git author, co-author, or contributor.
+
+- Forbidden: `Co-authored-by: Cursor`, `cursoragent@cursor.com`, and AI credits in AUTHORS, CONTRIBUTING, or release notes.
+- After every `git commit`, run `git log -1 --format='%B'`. If a wrapper injected a Cursor trailer, rewrite with `git commit-tree` (not `git commit --amend`).
+- Commits belong to Dirk / NOOBBase only.

@@ -11,7 +11,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { randomBytes } = require("node:crypto");
+const { randomBytes, timingSafeEqual } = require("node:crypto");
 
 const TOKEN_DIR = "install-token";
 const TOKEN_FILE = "TOKEN.txt";
@@ -29,8 +29,8 @@ const HTACCESS = `# Justflows install token — never serve this over HTTP.
 
 let cached = null;
 
-function installTokenRequired(env = process.env) {
-  return env.JUSTFLOWS_SKIP_INSTALL_TOKEN !== "1";
+function installTokenRequired() {
+  return true;
 }
 
 function installTokenDir(root) {
@@ -114,6 +114,36 @@ function resetInstallTokenCache() {
   cached = null;
 }
 
+/**
+ * Loopback callers are exempt from the token, exactly as in POST /api/install:
+ * reaching the port from the machine itself already implies local access.
+ *
+ * Lives here rather than only in the TypeScript wrapper because root server.js
+ * handles /api/bootstrap before Express exists, and the two gates must agree on
+ * what counts as local.
+ */
+function isLoopbackAddress(ip) {
+  if (!ip) return false;
+  const addr = String(ip).replace(/^::ffff:/, "");
+  return addr === "127.0.0.1" || addr === "::1" || addr.startsWith("127.");
+}
+
+/** Constant-time comparison against the active token. */
+function tokenMatches(supplied, root) {
+  if (typeof supplied !== "string" || !supplied) return false;
+  const expected = Buffer.from(ensureInstallToken(root));
+  const given = Buffer.from(supplied);
+  return expected.length === given.length && timingSafeEqual(expected, given);
+}
+
+/** Read the token from the header the wizard sends, or a JSON body field. */
+function tokenFromRequest(req, body) {
+  const header = req.headers?.["x-justflows-install-token"];
+  if (typeof header === "string" && header.trim()) return header.trim();
+  if (body && typeof body.token === "string" && body.token.trim()) return body.token.trim();
+  return "";
+}
+
 module.exports = {
   TOKEN_DIR,
   TOKEN_FILE,
@@ -124,4 +154,7 @@ module.exports = {
   ensureInstallToken,
   clearInstallToken,
   resetInstallTokenCache,
+  isLoopbackAddress,
+  tokenMatches,
+  tokenFromRequest,
 };

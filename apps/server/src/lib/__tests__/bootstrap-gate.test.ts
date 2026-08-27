@@ -92,9 +92,17 @@ describe("bootstrap gate", () => {
   it("treats a present server bundle as satisfying workspace packages", () => {
     const root = tempRoot();
     fs.mkdirSync(path.join(root, "node_modules", "express"), { recursive: true });
-    fs.mkdirSync(path.join(root, "apps/server/admin-ui/dist"), { recursive: true });
+    fs.mkdirSync(path.join(root, "apps/server/admin-ui/dist/client"), { recursive: true });
+    fs.mkdirSync(path.join(root, "apps/server/admin-ui/dist/server"), { recursive: true });
     fs.mkdirSync(path.join(root, "apps/server/dist"), { recursive: true });
-    fs.writeFileSync(path.join(root, "apps/server/admin-ui/dist/index.html"), "<html></html>\n");
+    fs.writeFileSync(
+      path.join(root, "apps/server/admin-ui/dist/client/index.html"),
+      "<html></html>\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "apps/server/admin-ui/dist/server/entry-server.js"),
+      "export function render() {}\n",
+    );
     fs.writeFileSync(path.join(root, "apps/server/dist/server.bundle.mjs"), "export {}\n");
     expect(gate.depsReady(root)).toBe(true);
   });

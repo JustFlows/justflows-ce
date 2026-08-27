@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { initialJson } from "../../ssr-data";
 
 interface ContentItem {
   id: string;
@@ -19,17 +20,29 @@ interface ContentTypeSummary {
 const STATUS_FILTERS = ["all", "draft", "published"] as const;
 
 export default function ContentPage() {
-  const [items, setItems] = useState<ContentItem[]>([]);
-  const [types, setTypes] = useState<ContentTypeSummary[]>([]);
-  const [homePageId, setHomePageId] = useState<string | null>(null);
-  const [blogPageId, setBlogPageId] = useState<string | null>(null);
+  const prefetchedContent = initialJson<{ items?: ContentItem[] }>("/api/content");
+  const prefetchedTypes = initialJson<{ types?: ContentTypeSummary[] }>("/api/content-types");
+  const prefetchedSettings = initialJson<{
+    home_page_id?: string | null;
+    blog_page_id?: string | null;
+  }>("/api/settings");
+  const [items, setItems] = useState<ContentItem[]>(prefetchedContent?.items ?? []);
+  const [types, setTypes] = useState<ContentTypeSummary[]>(prefetchedTypes?.types ?? []);
+  const [homePageId, setHomePageId] = useState<string | null>(
+    prefetchedSettings?.home_page_id ?? null,
+  );
+  const [blogPageId, setBlogPageId] = useState<string | null>(
+    prefetchedSettings?.blog_page_id ?? null,
+  );
   const [filter, setFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("all");
 
   useEffect(() => {
     fetch("/api/content")
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data.items)) setItems(data.items); })
+      .then((data) => {
+        if (Array.isArray(data.items)) setItems(data.items);
+      })
       .catch(() => {});
     fetch("/api/settings")
       .then((r) => r.json())
@@ -46,9 +59,10 @@ export default function ContentPage() {
       .catch(() => {});
   }, []);
 
-  const filtered = items.filter((i) =>
-    (filter === "all" || i.type === filter) &&
-    (statusFilter === "all" || i.status === statusFilter)
+  const filtered = items.filter(
+    (i) =>
+      (filter === "all" || i.type === filter) &&
+      (statusFilter === "all" || i.status === statusFilter),
   );
 
   const typeLabel = (slug: string) => types.find((t) => t.slug === slug)?.label ?? slug;
@@ -62,13 +76,22 @@ export default function ContentPage() {
           <p>Posts, pages and custom content types</p>
         </div>
         <div className="jf-pagehead__actions">
-          {types.filter((t) => t.slug !== (primaryType?.slug ?? "post")).map((type) => (
-            <Link key={type.slug} to={`/admin/content/new?type=${encodeURIComponent(type.slug)}`} className="jf-btn jf-btn--ghost">
-              + New {type.label.toLowerCase()}
-            </Link>
-          ))}
+          {types
+            .filter((t) => t.slug !== (primaryType?.slug ?? "post"))
+            .map((type) => (
+              <Link
+                key={type.slug}
+                to={`/admin/content/new?type=${encodeURIComponent(type.slug)}`}
+                className="jf-btn jf-btn--ghost"
+              >
+                + New {type.label.toLowerCase()}
+              </Link>
+            ))}
           {primaryType && (
-            <Link to={`/admin/content/new?type=${encodeURIComponent(primaryType.slug)}`} className="jf-btn jf-btn--primary">
+            <Link
+              to={`/admin/content/new?type=${encodeURIComponent(primaryType.slug)}`}
+              className="jf-btn jf-btn--primary"
+            >
               + New {primaryType.label.toLowerCase()}
             </Link>
           )}
@@ -105,7 +128,9 @@ export default function ContentPage() {
       <div className="jf-card">
         {filtered.length === 0 ? (
           <div className="jf-empty">
-            <span className="jf-empty__icon" aria-hidden="true">📝</span>
+            <span className="jf-empty__icon" aria-hidden="true">
+              📝
+            </span>
             <span className="jf-empty__title">Nothing here yet</span>
             <p>
               {items.length === 0
@@ -124,7 +149,9 @@ export default function ContentPage() {
                   <th>Status</th>
                   <th>Slug</th>
                   <th>Updated</th>
-                  <th><span className="jf-sr-only">Actions</span></th>
+                  <th>
+                    <span className="jf-sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -133,19 +160,35 @@ export default function ContentPage() {
                     <td className="jf-td--strong">
                       <Link to={`/admin/content/${item.id}`}>{item.title}</Link>
                       {homePageId === item.id ? (
-                        <span className="jf-badge jf-badge--published" style={{ marginInlineStart: "0.5rem" }}>Home</span>
+                        <span
+                          className="jf-badge jf-badge--published"
+                          style={{ marginInlineStart: "0.5rem" }}
+                        >
+                          Home
+                        </span>
                       ) : null}
                       {blogPageId === item.id ? (
-                        <span className="jf-badge jf-badge--published" style={{ marginInlineStart: "0.5rem" }}>Blog</span>
+                        <span
+                          className="jf-badge jf-badge--published"
+                          style={{ marginInlineStart: "0.5rem" }}
+                        >
+                          Blog
+                        </span>
                       ) : null}
                     </td>
                     <td>{typeLabel(item.type)}</td>
                     <td className="jf-td--mono">{item.locale ?? "—"}</td>
-                    <td><StatusBadge status={item.status} /></td>
+                    <td>
+                      <StatusBadge status={item.status} />
+                    </td>
                     <td className="jf-td--mono">/{item.slug}</td>
-                    <td className="jf-td--muted">{new Date(item.updatedAt).toLocaleDateString()}</td>
+                    <td className="jf-td--muted">
+                      {new Date(item.updatedAt).toLocaleDateString()}
+                    </td>
                     <td className="jf-td--actions">
-                      <Link to={`/admin/content/${item.id}`} className="jf-btn jf-btn--quiet">Edit</Link>
+                      <Link to={`/admin/content/${item.id}`} className="jf-btn jf-btn--quiet">
+                        Edit
+                      </Link>
                     </td>
                   </tr>
                 ))}

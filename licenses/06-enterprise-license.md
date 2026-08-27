@@ -1,4 +1,4 @@
-# 06 — Enterprise Software License (Template)
+# 06 — Enterprise Software License
 
 **Applies to:** Optional Justflows Enterprise Edition features and proprietary service modules not included in Community Edition.
 
@@ -13,7 +13,7 @@
 - Enterprise Edition is separate proprietary software under paid commercial terms.
 - Enterprise modules must not be bundled into or required by the MIT core distribution.
 
-This document is a policy template. Executed customer contracts control.
+Executed customer contracts control.
 
 ---
 

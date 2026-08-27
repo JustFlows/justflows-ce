@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { initialJson } from "../../ssr-data";
 
 interface UpdateStep {
   step: string;
@@ -24,8 +25,15 @@ function logVariant(line: string): string {
 }
 
 export default function UpdatesPage() {
-  const [currentVersion, setCurrentVersion] = useState("…");
-  const [updates, setUpdates] = useState<UpdateItem[]>([]);
+  const prefetched = initialJson<{
+    currentVersion?: string;
+    version?: string;
+    updates?: UpdateItem[];
+  }>("/api/updates");
+  const [currentVersion, setCurrentVersion] = useState(
+    prefetched?.currentVersion ?? prefetched?.version ?? "…",
+  );
+  const [updates, setUpdates] = useState<UpdateItem[]>(prefetched?.updates ?? []);
   const [checking, setChecking] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [restarting, setRestarting] = useState(false);
@@ -51,10 +59,14 @@ export default function UpdatesPage() {
     setLog([]);
     try {
       const res = await fetch("/api/updates");
-      const data = await res.json() as { updates: UpdateItem[]; currentVersion?: string };
+      const data = (await res.json()) as { updates: UpdateItem[]; currentVersion?: string };
       setUpdates(data.updates ?? []);
       if (data.currentVersion) setCurrentVersion(data.currentVersion);
-      addLog(data.updates?.length ? `Found ${data.updates.length} update(s)` : "Everything is up to date");
+      addLog(
+        data.updates?.length
+          ? `Found ${data.updates.length} update(s)`
+          : "Everything is up to date",
+      );
     } finally {
       setChecking(false);
     }
@@ -103,7 +115,7 @@ export default function UpdatesPage() {
       addLog("This may take several minutes (extract → npm install → build)…");
 
       const res = await fetch("/api/updates/upload", { method: "POST", body: form });
-      const data = await res.json() as {
+      const data = (await res.json()) as {
         ok?: boolean;
         error?: string;
         steps?: UpdateStep[];
@@ -146,10 +158,16 @@ export default function UpdatesPage() {
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
           <h1>Updates</h1>
-          <p>Current version: <strong>v{currentVersion}</strong></p>
+          <p>
+            Current version: <strong>v{currentVersion}</strong>
+          </p>
         </div>
         <div className="jf-pagehead__actions">
-          <button className="jf-btn jf-btn--ghost" onClick={checkForUpdates} disabled={checking || busy}>
+          <button
+            className="jf-btn jf-btn--ghost"
+            onClick={checkForUpdates}
+            disabled={checking || busy}
+          >
             {checking ? "Checking…" : "Check for updates"}
           </button>
         </div>
@@ -171,7 +189,10 @@ export default function UpdatesPage() {
             type="file"
             accept=".zip"
             style={{ display: "none" }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadZip(f); }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) uploadZip(f);
+            }}
           />
 
           <div className="jf-row">
@@ -180,7 +201,11 @@ export default function UpdatesPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={busy}
             >
-              {uploading ? "Updating… (please wait)" : restarting ? "Restarting…" : "Choose justflows.zip…"}
+              {uploading
+                ? "Updating… (please wait)"
+                : restarting
+                  ? "Restarting…"
+                  : "Choose justflows.zip…"}
             </button>
             {busy && (
               <span className="jf-meta">
@@ -193,7 +218,9 @@ export default function UpdatesPage() {
 
           {restartFailed && (
             <div className="jf-banner jf-banner--warn">
-              <span className="jf-banner__icon" aria-hidden="true">⚠️</span>
+              <span className="jf-banner__icon" aria-hidden="true">
+                ⚠️
+              </span>
               <div>
                 <div className="jf-banner__title">Manual restart needed</div>
                 <div className="jf-banner__sub">
@@ -208,7 +235,9 @@ export default function UpdatesPage() {
       {updates.length === 0 ? (
         <div className="jf-card">
           <div className="jf-empty">
-            <span className="jf-empty__icon" aria-hidden="true">⬆</span>
+            <span className="jf-empty__icon" aria-hidden="true">
+              ⬆
+            </span>
             <span className="jf-empty__title">No remote updates available</span>
             <p>Use the upload above to install a new justflows.zip manually.</p>
           </div>
@@ -236,7 +265,9 @@ export default function UpdatesPage() {
         <div className="jf-log">
           <p className="jf-log__label">Update log</p>
           {log.map((line, i) => (
-            <p key={i} className={`jf-log__line${logVariant(line)}`}>{line}</p>
+            <p key={i} className={`jf-log__line${logVariant(line)}`}>
+              {line}
+            </p>
           ))}
         </div>
       )}

@@ -8,18 +8,18 @@ document doesn't cover, extend it in the same PR.
 
 ## Top-level layout
 
-| Path | Contents | Naming |
-| --- | --- | --- |
-| `apps/server` | Express app, EJS views, and the admin SPA | see below |
-| `packages/<name>` | Framework-neutral domain packages | lower-kebab package name, scoped `@justflows/<name>` |
-| `plugins/<name>` | Example and developer plugin workspaces | lower-kebab, matches the plugin id's last segment |
-| `themes/<name>` | Presentation themes | lower-kebab |
-| `css-providers/<name>` | CSS framework integrations | lower-kebab, one word where possible (`open-props` is the accepted multi-word exception) |
-| `docs/*.md` | Author/extension guides | `UPPERCASE.md`, except `README.md` |
-| `licenses/*.md` | Licensing policy documents | `NN-slug.md`, zero-padded two-digit prefix in reading order |
-| `migrations/*.sql` | Database migrations | `NNNN_description[.dialect].sql`, see [Migrations](#migrations) |
-| `docker`, `scripts` | Distribution and release tooling | lower-kebab |
-| `.agents/skills/<skill>` | Agent skill guides | `justflows-<area>`, one `SKILL.md` per folder |
+| Path                     | Contents                                       | Naming                                                                                   |
+| ------------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `apps/server`            | Express app, EJS views, and the Vite SSR admin | see below                                                                                |
+| `packages/<name>`        | Framework-neutral domain packages              | lower-kebab package name, scoped `@justflows/<name>`                                     |
+| `plugins/<name>`         | Example and developer plugin workspaces        | lower-kebab, matches the plugin id's last segment                                        |
+| `themes/<name>`          | Presentation themes                            | lower-kebab                                                                              |
+| `css-providers/<name>`   | CSS framework integrations                     | lower-kebab, one word where possible (`open-props` is the accepted multi-word exception) |
+| `docs/*.md`              | Author/extension guides                        | `UPPERCASE.md`, except `README.md`                                                       |
+| `licenses/*.md`          | Licensing policy documents                     | `NN-slug.md`, zero-padded two-digit prefix in reading order                              |
+| `migrations/*.sql`       | Database migrations                            | `NNNN_description[.dialect].sql`, see [Migrations](#migrations)                          |
+| `docker`, `scripts`      | Distribution and release tooling               | lower-kebab                                                                              |
+| `.agents/skills/<skill>` | Agent skill guides                             | `justflows-<area>`, one `SKILL.md` per folder                                            |
 
 `apps/` is plural because it is the workspace category for deployable
 applications, not a count; it currently holds one app (`apps/server`) and may
@@ -78,7 +78,14 @@ singular when there's only one entry.
   not a collision — the package file is framework-neutral logic and the
   `apps/server` file is the Express-side singleton/wiring around it.
 
-## `apps/server/admin-ui/src` (admin SPA)
+## `apps/server/admin-ui/src` (SSR admin application)
+
+- `entry-server.tsx` is the Node render entry; `entry-client.tsx` is the browser
+  hydration entry. Shared components must render without browser globals.
+- `ssr-data.ts` is the typed boundary for request-scoped initial data. Never put
+  secrets or data outside the current session's capabilities in this payload.
+- Vite writes browser assets to `dist/client` and the Node renderer to
+  `dist/server`; distribution paths must include both.
 
 - `pages/<Name>Page.tsx`: one top-level React page per admin screen, PascalCase,
   suffixed `Page`. Group route-scoped page families in a subfolder named for
@@ -153,7 +160,7 @@ to match the rules above:
   build artifact).
 - `apps/server/src/lib/i18n/admin/` and `.../catalogs/` are renamed to
   `admin-catalogs/` and `site-catalogs/` — they hold different catalogs (the
-  admin SPA's nested translation bundle vs. the public site's flat one), and
+  admin application's nested translation bundle vs. the public site's flat one), and
   the parallel `-catalogs` suffix makes that distinction explicit instead of
   one directory looking like the unqualified default.
 - `packages/auth/src` no longer wraps single-file concerns in their own

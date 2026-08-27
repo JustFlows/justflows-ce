@@ -68,14 +68,14 @@ yet-activated plugin (or a deactivated one) contributes nothing to the menu.
 }
 ```
 
-Only register a path the admin SPA actually serves. Unrouted paths become dead
+Only register a path the admin application actually serves. Unrouted paths become dead
 links.
 
 ## Two install paths
 
-| Audience | How |
-| --- | --- |
-| You, in this checkout | Folder under `plugins/`, build `dist/`, activate in Admin |
-| Site owners | A `.jfpkg` dropped on Admin → Plugins — see [PACKAGING.md](PACKAGING.md) |
+| Audience              | How                                                                      |
+| --------------------- | ------------------------------------------------------------------------ |
+| You, in this checkout | Folder under `plugins/`, build `dist/`, activate in Admin                |
+| Site owners           | A `.jfpkg` dropped on Admin → Plugins — see [PACKAGING.md](PACKAGING.md) |
 
 Marketplace listings must use a GPL-compatible license. See `LICENSING.md`.

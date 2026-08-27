@@ -27,6 +27,8 @@
     "securityOverview": "Overzicht",
     "securityHeaders": "Headers",
     "securityAdvanced": "Geavanceerd",
+    "securityAccount": "Je account",
+    "securityAudit": "Auditlogboek",
     "languages": "Talen"
   },
   "common": {

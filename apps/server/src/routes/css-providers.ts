@@ -13,8 +13,11 @@ import {
 import { resolveAssetFilePath } from "../lib/css-providers-files.js";
 import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
 import { assertPackageIsTrusted } from "../lib/package-trust.js";
+import { sendPackageInstallError } from "../lib/package-install-error.js";
 import { packagesInstalledDir } from "../lib/packages-dir.js";
+import { auditFromRequest } from "../lib/audit-log.js";
 import multer from "multer";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -32,7 +35,7 @@ router.get("/", requireSession, async (req, res) => {
     const providers = await listCssProviders(session.siteId);
     res.json({ providers });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "css-providers", err);
   }
 });
 
@@ -52,24 +55,25 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
     const installer = new PackageInstaller();
     const packagesDir = packagesInstalledDir();
 
+    // Every check runs inside the installer, while the package is still staged
+    // — see the note on InstallOptions.verify. The scripts rule belongs here
+    // too: a provider declaring scripts was rejected only after its files had
+    // been written into the directory the public asset route reads from.
     const result = await installer.installFromBuffer(file.buffer, {
       packagesDir,
       source: "upload",
+      verify: (manifest, digest) => {
+        if (manifest.type !== "css-provider") {
+          throw new Error(
+            "Uploaded package is not a CSS provider (manifest.type must be 'css-provider')",
+          );
+        }
+        if (Array.isArray(manifest.scripts) && manifest.scripts.length > 0) {
+          throw new Error("CSS provider packages may not declare scripts");
+        }
+        assertPackageIsTrusted(manifest as unknown as Record<string, unknown>, digest);
+      },
     });
-
-    if (result.manifest.type !== "css-provider") {
-      res.status(400).json({
-        error: "Uploaded package is not a CSS provider (manifest.type must be 'css-provider')",
-      });
-      return;
-    }
-
-    if (Array.isArray(result.manifest.scripts) && result.manifest.scripts.length > 0) {
-      res.status(400).json({ error: "CSS provider packages may not declare scripts" });
-      return;
-    }
-
-    assertPackageIsTrusted(result.manifest as unknown as Record<string, unknown>, result.digest);
 
     const siteId = await getCssProvidersSiteId();
     if (!siteId) {
@@ -90,9 +94,13 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
       status: "installed",
     });
 
+    auditFromRequest(req, "css_provider.installed", {
+      target: result.manifest.id,
+      detail: `version=${result.manifest.version}`,
+    });
     res.json({ provider });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendPackageInstallError(res, err);
   }
 });
 
@@ -102,10 +110,11 @@ router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
 
   try {
     await activateCssProvider(session.siteId, providerId);
+    auditFromRequest(req, "css_provider.activated", { target: providerId });
     await revalidateOnUpdate("cssProviders");
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "css-providers", err);
   }
 });
 

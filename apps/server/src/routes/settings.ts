@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { getDb } from "../lib/db.js";
-import { getSiteId, setSiteSetting } from "../lib/site-settings.js";
+import { getSiteId, setSiteSetting, settingsKeyColumn } from "../lib/site-settings.js";
 import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
 import { requireRole, requireSession } from "../middleware/auth.js";
 import {
@@ -21,14 +21,17 @@ import {
   toPublicMailSettings,
 } from "../lib/mail.js";
 import { sanitizeFaviconUrl } from "../lib/favicon.js";
+import { SiteUrlSchema } from "../lib/site-url.js";
+import { auditFromRequest } from "../lib/audit-log.js";
 import { resolveFaviconUrl } from "../lib/theme-customize.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
 const Schema = z.object({
   site_name: z.string().min(1).optional(),
   site_description: z.string().optional(),
-  site_url: z.string().optional(),
+  site_url: SiteUrlSchema.optional(),
   posts_per_page: z.coerce.number().int().min(1).max(100).optional(),
   timezone: z.string().refine((tz) => isValidTimeZone(tz), "Invalid timezone").optional(),
   site_public: z.boolean().optional(),
@@ -82,14 +85,30 @@ router.get("/", requireSession, async (req, res) => {
   const isAdmin = req.session?.role === "administrator";
   try {
     const db = await getDb();
-    const siteRows = await db.query<{ name: string; url: string; description: string | null }>(
-      "SELECT name, url, description FROM sites LIMIT 1",
-    );
+    const settingsSiteId = await getSiteId();
+    const siteRows = settingsSiteId
+      ? await db.query<{ name: string; url: string; description: string | null }>(
+          "SELECT name, url, description FROM sites WHERE id = ? LIMIT 1",
+          [settingsSiteId],
+        )
+      : await db.query<{ name: string; url: string; description: string | null }>(
+          "SELECT name, url, description FROM sites LIMIT 1",
+        );
     const site = siteRows[0] ?? { name: "", url: "", description: "" };
 
-    const settingRows = await db.query<{ k: string; value: string }>(
-      "SELECT `key` AS k, value FROM site_settings LIMIT 100",
-    );
+    // Scoped, and no longer capped. The old LIMIT 100 had no ORDER BY either,
+    // so once plugin settings pushed the table past a hundred rows the database
+    // could drop `active_theme` from the result and the site would quietly fall
+    // back to the default theme. Only the handful of keys read below are
+    // returned to the caller, so the row count is not the thing to bound here.
+    const settingRows = settingsSiteId
+      ? await db.query<{ k: string; value: string }>(
+          `SELECT ${settingsKeyColumn()} AS k, value FROM site_settings WHERE site_id = ?`,
+          [settingsSiteId],
+        )
+      : await db.query<{ k: string; value: string }>(
+          `SELECT ${settingsKeyColumn()} AS k, value FROM site_settings`,
+        );
     const extras: Record<string, unknown> = {};
     for (const row of settingRows) {
       try {
@@ -156,7 +175,7 @@ router.get("/", requireSession, async (req, res) => {
       Object.fromEntries(Object.entries(payload).filter(([key]) => SESSION_READABLE_KEYS.has(key))),
     );
   } catch (e) {
-    res.status(500).json({ error: String(e) });
+    sendServerError(res, "settings", e);
   }
 });
 
@@ -182,11 +201,19 @@ router.post("/", requireRole("administrator"), async (req, res) => {
       process.env.APP_URL = body.site_url;
     }
 
-    if (siteUpdates.length > 0) {
-      await db.run(`UPDATE sites SET ${siteUpdates.join(", ")} ORDER BY created_at LIMIT 1`, siteParams);
-    }
-
     const siteId = await getSiteId();
+
+    if (siteUpdates.length > 0) {
+      if (!siteId) {
+        res.status(503).json({ error: "No site found — complete install first" });
+        return;
+      }
+      // Addressed by id. `UPDATE ... ORDER BY ... LIMIT` is a MySQL extension
+      // and a syntax error on PostgreSQL, so this statement could never have
+      // run on a postgres install.
+      siteParams.push(siteId);
+      await db.run(`UPDATE sites SET ${siteUpdates.join(", ")} WHERE id = ?`, siteParams);
+    }
     const settingsToUpdate: [string, unknown][] = [];
     if (body.posts_per_page !== undefined) settingsToUpdate.push(["posts_per_page", body.posts_per_page]);
     if (body.timezone !== undefined) settingsToUpdate.push(["timezone", body.timezone]);
@@ -220,15 +247,31 @@ router.post("/", requireRole("administrator"), async (req, res) => {
     };
     const mailTouched = Object.keys(mailPatch).length > 0;
 
+    // setSiteSetting already branches on the driver. The old else-branch here
+    // was raw MySQL — UUID(), NOW() and ON DUPLICATE KEY — and would have
+    // thrown on PostgreSQL for a site that has no id, which is a state this
+    // handler now rejects outright above.
+    if (!siteId && settingsToUpdate.length > 0) {
+      res.status(503).json({ error: "No site found — complete install first" });
+      return;
+    }
     for (const [key, value] of settingsToUpdate) {
-      if (siteId) {
-        await setSiteSetting(siteId, key, value);
-      } else {
-        await db.run(
-          "INSERT INTO site_settings (id, site_id, `key`, value, updated_at) VALUES (UUID(), (SELECT id FROM sites ORDER BY created_at LIMIT 1), ?, ?, NOW()) ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()",
-          [key, JSON.stringify(value)],
-        );
-      }
+      await setSiteSetting(siteId!, key, value);
+    }
+
+    // Keys, never values: a settings write can carry an SMTP password.
+    const changedKeys = settingsToUpdate.map(([k]) => k);
+    if (changedKeys.length > 0 || siteUpdates.length > 0) {
+      auditFromRequest(req, "settings.changed", {
+        detail: [...changedKeys, ...(siteUpdates.length ? ["site"] : [])].join(", "),
+      });
+    }
+    // Called out separately because it moves the whole public API surface
+    // between reachable and 404.
+    if (body.public_api_enabled !== undefined) {
+      auditFromRequest(req, "public_api.toggled", {
+        detail: body.public_api_enabled ? "enabled" : "disabled",
+      });
     }
 
     if (mailTouched && siteId) {
@@ -257,7 +300,7 @@ router.post("/", requireRole("administrator"), async (req, res) => {
       res.status(400).json({ error: e.issues[0]?.message ?? "Invalid settings" });
       return;
     }
-    res.status(500).json({ error: String(e) });
+    sendServerError(res, "settings", e);
   }
 });
 
@@ -320,7 +363,7 @@ router.post("/test-mail", requireRole("administrator"), async (_req, res) => {
     }
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: String(e) });
+    sendServerError(res, "settings", e);
   }
 });
 

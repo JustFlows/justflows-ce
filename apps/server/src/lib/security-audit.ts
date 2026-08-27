@@ -64,6 +64,54 @@ export function auditConfig(config: SecurityHeadersConfig): SecurityAudit {
     findings.push({ penalty: 0, ...f });
 
   // ─── Content Security Policy ───────────────────────────────────────────────
+  // Graded separately from the public policy. The admin holds a session that
+  // can install extensions and replace the core, so an unprotected admin is the
+  // more expensive of the two — and it is the one that shipped without a policy,
+  // because the only CSP entry was scoped "public".
+  if (!on("content_security_policy_admin")) {
+    add({
+      id: "cspAdmin.missing",
+      level: "critical",
+      headerId: "content_security_policy_admin",
+      title: "No Content Security Policy on the admin",
+      detail:
+        "A script injected into the admin runs with your session, which can install an extension or upload a core update — that is server access, not just a defaced page. Turn the admin policy on.",
+      penalty: 30,
+    });
+  } else if (config.headers.content_security_policy_admin.mode === "report-only") {
+    add({
+      id: "cspAdmin.reportOnly",
+      level: "warning",
+      headerId: "content_security_policy_admin",
+      title: "Admin Content Security Policy is report-only",
+      detail:
+        "Violations in the admin are reported but nothing is blocked. Switch the mode to Enforce once the reports are quiet.",
+      penalty: 12,
+    });
+  } else {
+    const adminDirectives = parseCspDirectives(config.headers.content_security_policy_admin.value);
+    const adminScript = adminDirectives.get("script-src") ?? adminDirectives.get("default-src") ?? [];
+    if (adminScript.includes("'unsafe-inline'") || adminScript.includes("*")) {
+      add({
+        id: "cspAdmin.weakScript",
+        level: "warning",
+        headerId: "content_security_policy_admin",
+        title: "Admin policy allows inline or wildcard scripts",
+        detail:
+          "The admin is a build you control, so it needs neither. Removing them is what makes the policy worth having on this surface.",
+        penalty: 8,
+      });
+    } else {
+      add({
+        id: "cspAdmin.enforced",
+        level: "pass",
+        headerId: "content_security_policy_admin",
+        title: "Admin Content Security Policy is enforced",
+        detail: "Scripts outside the policy are blocked in the admin area and the API.",
+      });
+    }
+  }
+
   const csp = config.headers.content_security_policy;
   if (!on("content_security_policy")) {
     add({

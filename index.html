@@ -67,6 +67,29 @@
       }
       button:hover { background: var(--accent-hover); }
       button:disabled { opacity: 0.55; cursor: not-allowed; }
+      #tokenRow { margin: 0 0 1rem; }
+      #tokenRow label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+      }
+      #tokenRow p { margin-bottom: 0.6rem; font-size: 0.9rem; }
+      #token {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.7rem 0.8rem;
+        font: inherit;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        background: var(--card, #fff);
+        color: inherit;
+      }
+      #token:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+        border-color: var(--accent);
+      }
       pre {
         max-height: 16rem;
         overflow: auto;
@@ -100,6 +123,11 @@
           <li>Refresh this page</li>
         </ol>
       </div>
+      <div id="tokenRow" hidden>
+        <label for="token">Setup key</label>
+        <p class="hint">Open <strong>install-token/TOKEN.txt</strong> in your site's folder — over FTP, or your host's File Manager — and paste the key below. It proves the setup is being run by whoever controls the files.</p>
+        <input id="token" type="text" autocomplete="off" spellcheck="false" placeholder="Paste the key from TOKEN.txt">
+      </div>
       <button id="start" type="button" hidden>Install Justflows</button>
       <pre id="log" hidden></pre>
     </main>
@@ -108,6 +136,8 @@
       const leadEl = document.getElementById("lead");
       const startBtn = document.getElementById("start");
       const logEl = document.getElementById("log");
+      const tokenRow = document.getElementById("tokenRow");
+      const tokenEl = document.getElementById("token");
       const offlineEl = document.getElementById("offline");
       let pollTimer = 0;
 
@@ -148,7 +178,11 @@
         }
         offlineEl.hidden = true;
 
-        const { ok, body } = await getJson("/api/bootstrap/status");
+        const key = tokenEl.value.trim();
+        const { ok, body } = await getJson(
+          "/api/bootstrap/status",
+          key ? { headers: { "x-justflows-install-token": key } } : undefined,
+        );
         if (!ok) {
           setStatus(body.error || "Could not read setup status.", "err");
           return;
@@ -162,6 +196,7 @@
           window.location.replace("/install");
           return;
         }
+        tokenRow.hidden = !body.tokenRequired;
         showLog(body.log);
         if (body.job && body.job.status === "running") {
           startBtn.hidden = true;
@@ -183,7 +218,12 @@
       startBtn.addEventListener("click", async () => {
         startBtn.disabled = true;
         setStatus("Starting installation…");
-        const { ok, body } = await getJson("/api/bootstrap", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const key = tokenEl.value.trim();
+        const { ok, body } = await getJson("/api/bootstrap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(key ? { token: key } : {}),
+        });
         startBtn.disabled = false;
         if (!ok) {
           setStatus(body.error || "Could not start setup.", "err");

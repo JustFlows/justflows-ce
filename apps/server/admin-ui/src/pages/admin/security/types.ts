@@ -6,6 +6,7 @@ export type SecurityHeaderId =
   | "referrer_policy"
   | "x_content_type_options"
   | "content_security_policy"
+  | "content_security_policy_admin"
   | "permissions_policy"
   | "cross_origin_embedder_policy"
   | "cross_origin_opener_policy"

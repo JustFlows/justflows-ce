@@ -55,7 +55,7 @@ warranty to the extent permitted by applicable law.
 
 ## 4. Security disclosures
 
-Report to: **security@justflows.com** *(replace)*
+Report to: **security@justflows.com**
 
 Advisories published for official releases. Fork maintainers responsible for merging patches.
 

@@ -81,6 +81,8 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.securityOverview", to: "/admin/security", icon: "🛡", end: true },
       { key: "nav.securityHeaders", to: "/admin/security/headers", icon: "📑" },
       { key: "nav.securityAdvanced", to: "/admin/security/advanced", icon: "🧩" },
+      { key: "nav.securityAccount", to: "/admin/security/account", icon: "🔑" },
+      { key: "nav.securityAudit", to: "/admin/security/audit", icon: "📜" },
     ],
   },
   {
@@ -155,4 +157,67 @@ export function navLabel(t: (key: string) => string, item: NavItem): string {
   const translated = t(item.key);
   if (translated !== item.key) return translated;
   return item.label ?? item.key;
+}
+
+const ALL_ADMIN_ROLES = ["administrator", "editor", "author", "contributor"];
+
+/**
+ * Which roles can open each admin page without hitting a 403 on its very
+ * first request — mirrors the `requireRole` on that page's primary GET route
+ * (see the matching route file for the source of truth). Missing here means
+ * "no core rule" — the item stays visible; that's true for pages the server
+ * only gates behind `requireSession` (Settings, Languages, Design, Menus),
+ * and for plugin pages, which police themselves.
+ *
+ * This is a UX convenience only. Every path here is still enforced
+ * server-side regardless of what the client shows or hides.
+ */
+const NAV_ACCESS: Record<string, string[]> = {
+  "/admin/media": ["administrator", "editor", "author"],
+  "/admin/comments": ["administrator", "editor"],
+  "/admin/themes": ["administrator", "editor"],
+  "/admin/plugins": ["administrator", "editor"],
+  "/admin/marketplace": ["administrator"],
+  "/admin/security": ["administrator"],
+  "/admin/security/headers": ["administrator"],
+  "/admin/security/advanced": ["administrator"],
+  // Everyone's own 2FA — unlike the rest of Security, this is requireSession
+  // only server-side, not admin-only. Listed explicitly so it doesn't inherit
+  // /admin/security's rule by prefix.
+  "/admin/security/account": ALL_ADMIN_ROLES,
+  "/admin/security/audit": ["administrator"],
+  "/admin/users": ["administrator", "editor"],
+  "/admin/tools": ["administrator"],
+  "/admin/health": ["administrator"],
+  "/admin/updates": ["administrator"],
+  "/admin/analytics": ["administrator", "editor"],
+  "/admin/forms": ["administrator", "editor"],
+};
+
+/** Every rule path, longest first, so a nested route matches its owning page. */
+const NAV_ACCESS_PATHS = Object.keys(NAV_ACCESS).sort((a, b) => b.length - a.length);
+
+/** The nav rule that governs a URL — a builder page under /admin/content/:id
+ *  is governed by the /admin/content rule, for instance. Null when no rule
+ *  applies (nothing to hide, nothing to guard). */
+export function navRuleFor(pathname: string): string | null {
+  for (const path of NAV_ACCESS_PATHS) {
+    if (pathname === path || pathname.startsWith(`${path}/`)) return path;
+  }
+  return null;
+}
+
+/** Can this role open the page a URL belongs to, per the table above? */
+export function canAccessPath(role: string | null | undefined, pathname: string): boolean {
+  if (!role) return false;
+  const rule = navRuleFor(pathname);
+  if (!rule) return true;
+  return (NAV_ACCESS[rule] ?? ALL_ADMIN_ROLES).includes(role);
+}
+
+/** Drop nav items — and domains left with none — the role can't open. */
+export function filterDomainsByRole(domains: NavDomain[], role: string | null | undefined): NavDomain[] {
+  return domains
+    .map((domain) => ({ ...domain, items: domain.items.filter((item) => canAccessPath(role, item.to)) }))
+    .filter((domain) => domain.items.length > 0);
 }

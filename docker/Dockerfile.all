@@ -2,10 +2,17 @@
 # One Node process on port 3000 — API + admin + public site.
 # ─────────────────────────────────────────────────────────────────────────────
 
-FROM node:22-alpine AS builder
+# Pinned by digest, not by tag. `node:22-alpine` is republished continuously,
+# so two builds of the same commit could otherwise produce different images —
+# which defeats the point of shipping a lockfile. Resolved 2026-07-29; refresh
+# it deliberately, the way a dependency bump is deliberate.
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS builder
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# corepack reads the pinned `packageManager` field from package.json. The old
+# `prepare pnpm@latest --activate` overrode it, so the image built with whatever
+# pnpm shipped that day rather than the version the lockfile was written by.
+RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY packages/core/package.json        ./packages/core/
@@ -36,7 +43,7 @@ RUN pnpm --filter @justflows/blocks build && \
     pnpm --filter @justflows/server build
 
 # ── Production image ──────────────────────────────────────────────────────────
-FROM node:22-alpine AS runner
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -63,6 +70,12 @@ RUN mkdir -p /app/uploads && chown justflows:justflows /app/uploads
 USER justflows
 
 EXPOSE 3000
+
+# /api/healthz is answered by the raw server.js layer, so it responds while the
+# Express app is still booting — which is what makes it usable as a liveness
+# probe rather than only a readiness one.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["./start.sh"]

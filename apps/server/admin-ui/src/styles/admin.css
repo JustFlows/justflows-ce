@@ -1171,6 +1171,33 @@ select.jf-input {
   color: var(--jf-text-2);
 }
 
+
+/* A secret shown to be read and copied: an enrolment key, a set of recovery
+   codes. Deliberately not .jf-log — that is a dark console panel whose text
+   colour comes from its .jf-log__line children, so bare content inside it
+   renders dark-on-dark. */
+.jf-secret {
+  margin: 0;
+  font-family: var(--jf-font-mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  color: var(--jf-text);
+  background: var(--jf-surface-3);
+  border: 1px solid var(--jf-border);
+  border-radius: var(--jf-radius);
+  padding: 0.75rem 0.9rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.jf-secret--list {
+  letter-spacing: 0.1em;
+  line-height: 1.9;
+}
+
 /* --------------------------------------------------------- auth pages --- */
 
 .jf-auth {

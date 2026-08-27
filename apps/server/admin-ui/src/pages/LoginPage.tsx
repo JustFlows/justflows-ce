@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import { ensureCsrfCookie } from "../lib/csrf";
 
 export default function LoginPage() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [canRegister, setCanRegister] = useState(false);
+  // Set once the server says this account has a second factor. The password
+  // fields stay filled so the code can be added without retyping them.
+  const [totpRequired, setTotpRequired] = useState(false);
+  const [totp, setTotp] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/registration")
@@ -28,17 +31,22 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(totpRequired ? { email, password, totp } : { email, password }),
       });
 
-      const data = await res.json() as { error?: string };
+      const data = await res.json() as { error?: string; totpRequired?: boolean; role?: string };
 
       if (!res.ok) {
+        if (data.totpRequired) setTotpRequired(true);
         setError(data.error ?? "Login failed");
         return;
       }
 
-      navigate("/admin");
+      // A subscriber has no admin capability — send them to the site instead
+      // of an admin app that would have nothing for them to do. A full
+      // navigation (not client-side routing) so the server's own /admin gate
+      // is the one source of truth for this, not a copy of it here.
+      window.location.href = data.role === "subscriber" ? "/" : "/admin";
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -71,6 +79,26 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
+
+          {totpRequired ? (
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-totp">Authentication code</label>
+              <input
+                id="jf-totp"
+                className="jf-input"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                placeholder="123456"
+                value={totp}
+                required
+                onChange={(e) => setTotp(e.target.value)}
+              />
+              <small className="jf-field__hint">
+                From your authenticator app, or one of your recovery codes.
+              </small>
+            </div>
+          ) : null}
 
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-password">Password</label>

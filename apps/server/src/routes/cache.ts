@@ -11,6 +11,7 @@ import {
 } from "../lib/performance-settings.js";
 import { inspectCacheStorage } from "../lib/public-cache.js";
 import { requireRole } from "../middleware/auth.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.get("/settings", requireRole("administrator"), async (_req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "cache", err);
   }
 });
 
@@ -59,7 +60,7 @@ router.get("/stats", requireRole("administrator"), async (_req, res) => {
       storage,
     });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "cache", err);
   }
 });
 
@@ -70,7 +71,7 @@ router.post("/settings", requireRole("administrator"), async (req, res) => {
       const result = await applyPerformanceSettings(perfBody.data);
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      sendServerError(res, "cache", err);
     }
     return;
   }
@@ -96,7 +97,7 @@ router.post("/settings", requireRole("administrator"), async (req, res) => {
       settings: result.settings.cache,
     });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "cache", err);
   }
 });
 

@@ -14,6 +14,7 @@ import { CONTENT_READ_ROLES, MENU_WRITE_ROLES } from "../lib/rbac.js";
 import { param } from "../lib/params.js";
 import { assertAllowedNavUrl } from "../lib/nav-url.js";
 import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
@@ -58,7 +59,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
     const menus = await listMenus(siteId);
     res.json({ menus });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "menus", err);
   }
 });
 
@@ -72,7 +73,7 @@ router.get("/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
     }
     res.json({ menu });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "menus", err);
   }
 });
 
@@ -127,7 +128,7 @@ router.delete("/:slug", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
     await revalidateOnUpdate("menus");
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "menus", err);
   }
 });
 

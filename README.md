@@ -1,5 +1,8 @@
 # Justflows
 
+> **This repository is for development.** Open pull requests into `develop`.
+> Releases are published to [`JustFlows/justflows-ce`](https://github.com/JustFlows/justflows-ce).
+
 **The open-source platform for building the web.**
 
 Justflows is a self-hostable website and content platform. A non-technical user
@@ -65,8 +68,10 @@ and similar):
 5. Open **your domain** in a browser — not `/install` yet
 
 The first page (`index.html`) installs Justflows in the browser. Click
-**Install Justflows** and keep the tab open. That downloads production
-dependencies (a few minutes). When it finishes, the **site wizard** opens.
+**Install Justflows** and keep the tab open. That installs production runtime
+dependencies (a few minutes); official release archives already contain the
+compiled server, public views, admin client, and admin SSR bundle. When it
+finishes, the **site wizard** opens.
 
 In the wizard you enter:
 
@@ -82,7 +87,7 @@ Do not skip this on a public host.
 The database is written only when you click **Install Justflows** on that last
 step. After the site is installed, `index.html` is removed automatically.
 
-You do not need a terminal, npm, or a command line.
+You do not need a terminal, npm, a command line, or a frontend build step.
 
 **If the first page says Node.js is not running:** set the startup file to
 `server.js`, click Restart App, and refresh.
@@ -119,13 +124,19 @@ Localhost is exempt from the setup key. On a remote URL, copy
 
 Until setup completes, whoever reaches the site first could claim it. Justflows
 writes a one-time key to `install-token/TOKEN.txt` (and prints it in the server
-log) as soon as Node starts. The wizard asks for it on the admin-account step.
+log) as soon as Node starts. You are asked for it twice, at each point where an
+anonymous visitor could otherwise act:
+
+- On the browser first-run page, before it installs runtime dependencies and
+  prepares the prebuilt application
+- In the wizard, on the admin-account step
+
+Requests from localhost skip both, so `pnpm dev` needs no key.
 
 - Open it with the same File Manager or FTP app you used to upload Justflows
 - The folder includes an Apache deny rule; Node never serves it
 - Confirm your host does not publish that folder over HTTP
 - It is deleted automatically when setup finishes
-- Do not set `JUSTFLOWS_SKIP_INSTALL_TOKEN=1` on a reachable host
 
 ---
 
@@ -194,9 +205,9 @@ justflows/
 ├── index.html          First-run page on unzipped releases (removed after install)
 ├── server.js           Plesk / cPanel / production entry
 ├── apps/
-│   └── server/         Unified Express app (API + admin SPA + public site)
+│   └── server/         Unified Express app (API + SSR admin + public site)
 │       ├── src/        Express server, routes, lib, EJS views
-│       └── admin-ui/   Vite + React admin dashboard
+│       └── admin-ui/   Vite + React SSR admin dashboard and hydration client
 ├── packages/
 │   ├── core/           App lifecycle, hooks, config, logging, health
 │   ├── database/       SQL schema + PostgreSQL/MySQL/MariaDB client
@@ -219,6 +230,13 @@ justflows/
 ├── scripts/            Hosting install, zip, and bootstrap
 └── docker/             Docker Compose variants (Postgres, MySQL, MariaDB)
 ```
+
+The public website is rendered by Express before it is sent to visitors and
+crawlers. Page content, titles, descriptions, canonical URLs, language
+alternates, Open Graph metadata, and structured data therefore do not depend on
+JavaScript. The authenticated admin uses Vite SSR for its first response and
+then hydrates into an interactive React application. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
@@ -272,9 +290,9 @@ MIT
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Work happens on `feature/*` branches.
-Open pull requests into `developers`. `main` is protected and only updated from
-`developers`.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Work happens on `feature/*`, `bug/*`,
+and `patch/*` branches. Open pull requests into `develop`. `main` is protected
+and only updated from `develop`.
 
 ## Security note
 

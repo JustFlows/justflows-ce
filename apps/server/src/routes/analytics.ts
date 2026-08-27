@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireRole } from "../middleware/auth.js";
 import { getAnalyticsSummary } from "../lib/analytics-public.js";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
@@ -9,7 +10,7 @@ router.get("/", requireRole("administrator", "editor"), async (req, res) => {
     const summary = await getAnalyticsSummary(req.session!.siteId);
     res.json(summary);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "analytics", err);
   }
 });
 

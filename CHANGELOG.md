@@ -5,7 +5,172 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.1.3-rc] — 2026-08-25
+## [0.1.4] — 2026-08-26
+
+### Added — server-side rendering
+
+- The authenticated Vite/React admin now renders every route on the Express
+  server and hydrates in the browser. Shared shell data and each route's initial
+  reads are embedded as escaped, request-scoped state, eliminating duplicate
+  startup Fetch/XHR requests while preserving API calls for later interactions.
+- Production builds now emit separate `admin-ui/dist/client` and
+  `admin-ui/dist/server` artifacts. Docker images, shared-hosting ZIPs,
+  first-run readiness checks, and core updates require and ship both, so site
+  owners never need to run a frontend build.
+- Admin documents and pre-session pages explicitly send
+  `X-Robots-Tag: noindex, nofollow, noarchive`. The public website remains independently
+  server-rendered with its existing SEO metadata, canonical URLs, language
+  alternates, sitemap, robots policy, and structured data.
+
+Findings from a full source audit. Nothing here changes content, themes or the
+public site; all of it is authentication, packaging and transport.
+
+### Fixed — critical
+
+- **Package installer path traversal.** `version` in a `.jfpkg` manifest was
+  validated by a regex anchored only at the start, so `1.0.0/../../..` passed and
+  the install path escaped `packages-installed` — into an `fs.rm()` and an
+  `fs.rename()`. Reachable from plugin, theme, CSS-provider and marketplace
+  installs, and it ran _before_ the signature check, so a package Justflows
+  correctly refused could still overwrite files. The pattern is now anchored at
+  both ends and the destination is confined independently of it.
+
+### Fixed — high
+
+- Package verification runs while the package is still staged, so a refused
+  upload no longer stays on disk in its final install location.
+- `POST /api/bootstrap` required no authentication: its origin check passed any
+  request without an `Origin` header, so plain `curl` could spawn the installer.
+  It now takes the setup key, with loopback exempt, and is rate limited.
+- `GET /api/bootstrap/status` served up to 64 KB of the npm install log to
+  anonymous callers and never checked install state. It now returns only the
+  installed flag once set up, and releases the log only to a caller holding the
+  setup key. The log is deleted when the install completes.
+- Pages served by root `server.js` — `/login`, `/install`, `/`, `/assets/*` —
+  carried no security headers at all, because they never reach Express. Under
+  Passenger that was every pre-sign-in page, and the login form was framable.
+- Content-Security-Policy applied only to the public site. The admin, whose
+  session can install extensions and replace the core, ran with no policy. It
+  now has its own strict, enforcing policy, graded by the Security screen.
+
+### Added
+
+- Password change (Admin → Security → Your account) and administrator-initiated
+  password reset. Neither existed; a compromised credential could not be rotated
+  from inside the product. Both revoke every existing session.
+- Two-factor authentication (TOTP, RFC 6238) with single-use recovery codes.
+  Secrets and codes are encrypted at rest.
+
+### Added — compliance and supply chain
+
+- **Administrative audit log.** New `audit_log` table (migration 0008) and an
+  Admin → Security → Audit log screen. Records sign-ins and failed sign-ins,
+  password changes and resets, 2FA enrolment, account creation, role changes and
+  deletions, plugin/theme/CSS-provider installs and activations, core updates,
+  security-header changes, and public-API toggles. Nothing recorded any of this
+  before, so a compromise could not be reconstructed. Writes never throw into
+  the action they describe. Retention defaults to 365 days
+  (`JF_AUDIT_RETENTION_DAYS`), because the log holds IP addresses.
+- **Subject access and erasure.** `GET /api/users/:id/personal-data` returns
+  everything held about an account; `POST /api/users/:id/erase` anonymises
+  comments, deletes that person's form submissions, and strips address and user
+  agent from their audit entries. Content is reassigned, not deleted — erasure
+  is a right over personal data, not over a site's articles. Form-submission
+  retention is available via `JF_SUBMISSION_RETENTION_DAYS`, off by default.
+- **SBOM and checksums.** Each release now ships a CycloneDX 1.5 SBOM (inside
+  the archive and beside it) and a `.sha256` file. A zip uploaded by FTP was
+  previously the one artefact nobody could verify — which sat oddly next to the
+  strict signature checking applied to plugins.
+- **Secret scanning in CI.** `scripts/scan-secrets.mjs`, Node builtins only.
+
+### Fixed — compliance and supply chain
+
+- `security.txt` was not valid under RFC 9116: the REQUIRED `Expires` field was
+  absent, `Canonical` was a bare path where a URI is required, and `Policy`
+  named a different repository. Now built per request so `Expires` cannot go
+  stale on a long-lived process.
+- GitHub Actions were pinned to mutable tags; they are now commit SHAs with the
+  release recorded in a trailing comment. Added a repository-wide least-
+  privilege `permissions` block, and one per job.
+- The container build ran `corepack prepare pnpm@latest`, overriding the pinned
+  `packageManager` — so the image used whatever pnpm shipped that day rather
+  than the version the lockfile was written by. The base image is now pinned by
+  digest, and there is a `HEALTHCHECK`.
+- Compose files gained `no-new-privileges`, `cap_drop: ALL`, a memory limit and
+  a healthcheck. `read_only` is deliberately not set, and says why: the install
+  wizard writes `.env` into the application root and extension installs write
+  beside it, so a read-only root filesystem would break setup.
+- The release zip excluded `.env.*`, which took `.env.example` and
+  `.env.production.example` with it — while README and SECURITY.md both told
+  readers to consult them. The exclusions are now explicit.
+- Node version drift: `engines`, `.node-version` and Docker all said 22 while CI
+  tested on 26. CI now uses 22, matching the floor the project claims and the
+  runtime it ships.
+
+### Fixed — medium
+
+- CSRF tokens are bound to the session revocation counter, so they rotate on
+  sign-out and password change instead of being fixed for the life of the site.
+  A related bug is fixed: when the CSRF cookie was missing but a session was
+  present, the re-issued cookie was random and could never validate.
+- Plugin HTTP routes are CSRF-checked, no longer receive the `Cookie` header,
+  cannot overwrite security or CORS response headers, and now receive the
+  caller's session so a handler can authorise.
+- The reference `nginx.conf` no longer drops the `Content-Disposition` the app
+  attaches to PDF uploads, repeats security headers inside every `location`
+  (nginx does not inherit them), marks them `always` so they survive error
+  responses, and sends `X-XSS-Protection: 0` to match the app.
+- Route handlers no longer serialise exceptions into responses; the four
+  unauthenticated install-wizard messages are opaque and the detail is logged.
+- Marketplace requests have timeouts, and downloads are size-capped while
+  streaming rather than after buffering.
+- CSS-provider npm dependencies must name a published version or range — URLs,
+  git references and local paths were accepted and then executed.
+- The site URL is validated identically by the install wizard and by settings.
+- Minimum password length is 12 everywhere; `POST /api/users` allowed 8.
+
+### Fixed — low
+
+- Admin → Users no longer renders a hard-coded account list or leaves **Send
+  invite** disconnected. It now loads the site's users from the database and
+  provides an administrator-only invitation endpoint that creates the account,
+  assigns the selected role, generates temporary credentials, sends them by
+  email, and reports mail-delivery failures without hiding a successful insert.
+- `GET /api/blocks` needed no session. It enumerates every registered block type
+  including plugin-contributed ones — a precise inventory of installed
+  extensions — and ran two database queries per call.
+- Sign-in was not scoped to a site, so with more than one site row the account
+  chosen depended on database row order.
+- `safePath()` in root `server.js` compared with `startsWith(base)` and no
+  separator, which also accepts a sibling directory sharing the prefix. It now
+  matches the containment check the rest of the codebase uses, and resolves
+  symlinks.
+- The settings read was unscoped and capped at 100 rows with no `ORDER BY`, so a
+  site with enough plugin settings could silently lose `active_theme` from the
+  result and fall back to the default theme.
+- CSRF rejections were emitted before the security-header middleware ran, so
+  those 403s went out bare. Headers are now registered first.
+- Uploads had a 100 MB per-file cap and no total, so any author could fill the
+  volume. Both are now limits (`JF_MAX_UPLOAD_MB`, `JF_MAX_LIBRARY_MB`), and an
+  oversized file answers 413 instead of 500.
+- Rate limiting had a flat window, which lets an attacker run at exactly the
+  limit indefinitely. Exhausting a window now lengthens the next one, up to 8x,
+  and throttled responses carry `Retry-After`.
+
+### Fixed — PostgreSQL compatibility
+
+Found while scoping the settings query; all three would have thrown on postgres.
+
+- Settings reads hardcoded MySQL backtick quoting for the reserved `key`
+  column, which is a syntax error in PostgreSQL. Quoting is now driver-aware.
+- `UPDATE sites … ORDER BY created_at LIMIT 1` is a MySQL extension; the row is
+  now addressed by id.
+- The settings-write fallback used `UUID()`, `NOW()` and `ON DUPLICATE KEY`.
+  It was unreachable in practice and has been removed in favour of the existing
+  driver-aware helper.
+
+
+## [0.1.3] — 2026-08-25
 
 ### Added
 

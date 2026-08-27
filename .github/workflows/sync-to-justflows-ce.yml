@@ -1,0 +1,74 @@
+name: Sync to justflows-ce
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: sync-to-justflows-ce
+  cancel-in-progress: false
+
+jobs:
+  open-publish-pr:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Open publish PR on justflows-ce
+        env:
+          GH_TOKEN: ${{ secrets.JUSTFLOWS_CE_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::Missing repo secret JUSTFLOWS_CE_SYNC_TOKEN. Add a fine-grained PAT from an org owner with Contents (read/write) and Pull requests (read/write) on JustFlows/justflows-ce."
+            exit 1
+          fi
+
+          git config --local --unset-all http.https://github.com/.extraheader || true
+
+          SHA=$(git rev-parse --short HEAD)
+          FULL=$(git rev-parse HEAD)
+          BRANCH="sync/from-development"
+          BASE="developers"
+          CE_BASE=$(gh api "repos/JustFlows/justflows-ce/git/ref/heads/${BASE}" --jq .object.sha)
+          if [ "$FULL" = "$CE_BASE" ]; then
+            echo "justflows-ce ${BASE} already matches ${SHA}. Nothing to publish."
+            exit 0
+          fi
+
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/JustFlows/justflows-ce.git" "HEAD:refs/heads/${BRANCH}"
+
+          BODY=$(cat <<EOF
+          Automated publish PR from [justflows-ce-development](https://github.com/JustFlows/justflows-ce-development) into \`developers\`. Cut the public version from \`developers\` to \`main\` on justflows-ce.
+
+          Source commit: ${{ github.server_url }}/${{ github.repository }}/commit/${FULL}
+          EOF
+          )
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BODY="${BODY}
+
+          Merged development PR: ${{ github.event.pull_request.html_url }}"
+          fi
+
+          EXISTING=$(gh pr list --repo JustFlows/justflows-ce --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh pr edit "$EXISTING" --repo JustFlows/justflows-ce --base "$BASE" --title "Publish from justflows-ce-development (${SHA})" --body "$BODY"
+            echo "Updated existing PR #${EXISTING}"
+            exit 0
+          fi
+
+          gh pr create \
+            --repo JustFlows/justflows-ce \
+            --base "$BASE" \
+            --head "$BRANCH" \
+            --title "Publish from justflows-ce-development (${SHA})" \
+            --body "$BODY"

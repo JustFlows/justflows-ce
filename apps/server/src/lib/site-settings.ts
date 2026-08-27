@@ -5,6 +5,18 @@ function now(): string {
   return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
 }
 
+/**
+ * The `key` column, quoted for the active driver.
+ *
+ * `key` is a reserved word in MySQL and MariaDB but not in PostgreSQL, where a
+ * backtick is a syntax error rather than a quote. setSiteSetting branched on
+ * the driver for its INSERT; the reads did not, and hardcoded the MySQL form —
+ * so every settings lookup was malformed SQL on PostgreSQL.
+ */
+export function settingsKeyColumn(): string {
+  return process.env.DB_DRIVER === "postgres" ? "key" : "`key`";
+}
+
 export async function getSiteId(): Promise<string | null> {
   const db = await getDb();
   const rows = await db.query<{ id: string }>("SELECT id FROM sites LIMIT 1");
@@ -14,7 +26,7 @@ export async function getSiteId(): Promise<string | null> {
 export async function getSiteSetting<T>(siteId: string, key: string): Promise<T | null> {
   const db = await getDb();
   const rows = await db.query<{ value: string }>(
-    "SELECT value FROM site_settings WHERE site_id = ? AND `key` = ? LIMIT 1",
+    `SELECT value FROM site_settings WHERE site_id = ? AND ${settingsKeyColumn()} = ? LIMIT 1`,
     [siteId, key],
   );
   if (!rows[0]?.value) return null;
@@ -50,5 +62,8 @@ export async function setSiteSetting(siteId: string, key: string, value: unknown
 
 export async function deleteSiteSetting(siteId: string, key: string): Promise<void> {
   const db = await getDb();
-  await db.run("DELETE FROM site_settings WHERE site_id = ? AND `key` = ?", [siteId, key]);
+  await db.run(`DELETE FROM site_settings WHERE site_id = ? AND ${settingsKeyColumn()} = ?`, [
+    siteId,
+    key,
+  ]);
 }

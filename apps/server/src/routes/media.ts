@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -7,10 +8,39 @@ import { uploadsDir } from "../lib/jf-root.js";
 import { requireRole } from "../middleware/auth.js";
 import { MEDIA_WRITE_ROLES } from "../lib/rbac.js";
 import { contentMatchesMimeType } from "../lib/file-type.js";
-import multer from "multer";
+import { checkLibraryQuota, formatMb, maxUploadBytes } from "../lib/media-quota.js";
+import multer, { MulterError } from "multer";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+const mediaUploadRequestLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: maxUploadBytes() } });
+
+/**
+ * multer rejects an oversized file by throwing, which the global handler turns
+ * into a flat 500 — so the one thing the uploader needs to know (the file is
+ * too big, and by how much) was the one thing they were not told.
+ */
+function uploadSingle(field: string) {
+  return (
+    req: import("express").Request,
+    res: import("express").Response,
+    next: import("express").NextFunction,
+  ) => {
+    upload.single(field)(req, res, (err: unknown) => {
+      if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
+        res.status(413).json({ error: `File is too large (limit ${formatMb(maxUploadBytes())}).` });
+        return;
+      }
+      next(err);
+    });
+  };
+}
 
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
@@ -45,7 +75,10 @@ const MIME_TO_EXT: Record<string, string> = {
 };
 
 function now(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  return new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "");
 }
 
 router.get("/", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
@@ -75,78 +108,96 @@ router.get("/", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
     }));
     res.json({ items });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "media", err);
   }
 });
 
-router.post("/", requireRole(...MEDIA_WRITE_ROLES), upload.single("file"), async (req, res) => {
-  const session = req.session!;
-  const file = req.file;
+router.post(
+  "/",
+  mediaUploadRequestLimit,
+  requireRole(...MEDIA_WRITE_ROLES),
+  uploadSingle("file"),
+  async (req, res) => {
+    const session = req.session!;
+    const file = req.file;
 
-  if (!file) {
-    res.status(400).json({ error: "No file provided" });
-    return;
-  }
+    if (!file) {
+      res.status(400).json({ error: "No file provided" });
+      return;
+    }
 
-  if (!ALLOWED_TYPES.has(file.mimetype)) {
-    res.status(415).json({ error: `File type not allowed: ${file.mimetype}` });
-    return;
-  }
+    if (!ALLOWED_TYPES.has(file.mimetype)) {
+      res.status(415).json({ error: `File type not allowed: ${file.mimetype}` });
+      return;
+    }
 
-  const ext = MIME_TO_EXT[file.mimetype];
-  if (!ext) {
-    res.status(415).json({ error: `File type not allowed: ${file.mimetype}` });
-    return;
-  }
+    const ext = MIME_TO_EXT[file.mimetype];
+    if (!ext) {
+      res.status(415).json({ error: `File type not allowed: ${file.mimetype}` });
+      return;
+    }
 
-  // file.mimetype is the client's own claim. Confirm the bytes agree, so the
-  // library cannot be used to store arbitrary content under an image extension.
-  if (!contentMatchesMimeType(file.buffer, file.mimetype)) {
-    res.status(415).json({
-      error: `File contents do not match the declared type (${file.mimetype})`,
-    });
-    return;
-  }
+    // file.mimetype is the client's own claim. Confirm the bytes agree, so the
+    // library cannot be used to store arbitrary content under an image extension.
+    if (!contentMatchesMimeType(file.buffer, file.mimetype)) {
+      res.status(415).json({
+        error: `File contents do not match the declared type (${file.mimetype})`,
+      });
+      return;
+    }
 
-  try {
-    const baseDir = uploadsDir();
-    const storageKey = `${session.siteId}/${randomUUID()}${ext}`;
-    const filePath = path.join(baseDir, storageKey);
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, file.buffer);
+    // Checked after the type checks, so a rejected file type does not report a
+    // quota figure to someone probing the library's size.
+    const quota = await checkLibraryQuota(session.siteId, file.size);
+    if (!quota.ok) {
+      res.status(413).json({
+        error:
+          `The media library is full (${formatMb(quota.usedBytes)} of ${formatMb(quota.limitBytes)} used). ` +
+          "Delete something, or raise JF_MAX_LIBRARY_MB.",
+      });
+      return;
+    }
 
-    const url = `/uploads/${storageKey}`;
-    const id = randomUUID();
-    const db = await getDb();
+    try {
+      const baseDir = uploadsDir();
+      const storageKey = `${session.siteId}/${randomUUID()}${ext}`;
+      const filePath = path.join(baseDir, storageKey);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, file.buffer);
 
-    await db.run(
-      `INSERT INTO media (id, site_id, filename, mime_type, size_bytes, storage_key, url, uploaded_by, uploaded_at, updated_at)
+      const url = `/uploads/${storageKey}`;
+      const id = randomUUID();
+      const db = await getDb();
+
+      await db.run(
+        `INSERT INTO media (id, site_id, filename, mime_type, size_bytes, storage_key, url, uploaded_by, uploaded_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        session.siteId,
-        file.originalname,
-        file.mimetype,
-        file.size,
-        storageKey,
-        url,
-        session.userId,
-        now(),
-        now(),
-      ],
-    );
+        [
+          id,
+          session.siteId,
+          file.originalname,
+          file.mimetype,
+          file.size,
+          storageKey,
+          url,
+          session.userId,
+          now(),
+          now(),
+        ],
+      );
 
-    res.status(201).json({
-      id,
-      filename: file.originalname,
-      mimeType: file.mimetype,
-      sizeBytes: file.size,
-      url,
-      uploadedAt: now(),
-    });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
+      res.status(201).json({
+        id,
+        filename: file.originalname,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        url,
+        uploadedAt: now(),
+      });
+    } catch (err) {
+      sendServerError(res, "media", err);
+    }
+  },
+);
 
 export default router;

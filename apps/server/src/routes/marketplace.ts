@@ -4,11 +4,45 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../middleware/auth.js";
 import { assertPackageIsTrusted } from "../lib/package-trust.js";
+import { sendPackageInstallError } from "../lib/package-install-error.js";
 import { packagesInstalledDir } from "../lib/packages-dir.js";
+import { ARCHIVE_LIMITS } from "@justflows/installer";
 
 const router = Router();
 
 const JUSTFLOWS_API_BASE = "https://api.justflows.com";
+
+/**
+ * A registry that hangs or answers forever is still a dependency failure.
+ * Without a deadline the request thread stalled indefinitely, and
+ * `await download.arrayBuffer()` buffered the whole body before the installer's
+ * 50 MB limit could apply — so the ceiling only ever ran after the memory had
+ * already been spent.
+ */
+const FETCH_TIMEOUT_MS = 30_000;
+const DOWNLOAD_TIMEOUT_MS = 120_000;
+
+/** Read a response body, aborting once it exceeds `maxBytes`. */
+async function readBounded(response: Response, maxBytes: number): Promise<Buffer> {
+  const declared = Number(response.headers.get("content-length") ?? "");
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw new Error(`Package exceeds ${Math.floor(maxBytes / 1024 / 1024)} MB limit`);
+  }
+  if (!response.body) return Buffer.alloc(0);
+
+  const chunks: Buffer[] = [];
+  let total = 0;
+  // Streamed rather than trusting Content-Length, which a hostile or broken
+  // registry can understate or omit entirely.
+  for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+    total += chunk.byteLength;
+    if (total > maxBytes) {
+      throw new Error(`Package exceeds ${Math.floor(maxBytes / 1024 / 1024)} MB limit`);
+    }
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
 
 router.get("/", requireRole("administrator"), async (req, res) => {
   try {
@@ -19,7 +53,7 @@ router.get("/", requireRole("administrator"), async (req, res) => {
     }
     const qs = params.toString();
     const url = `${JUSTFLOWS_API_BASE}/v1/marketplace${qs ? `?${qs}` : ""}`;
-    const upstream = await fetch(url);
+    const upstream = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     const body = await upstream.text();
     // Always JSON. Echoing the upstream Content-Type would let a compromised or
     // misconfigured registry serve text/html from this site's origin.
@@ -41,7 +75,7 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
     const versionSegment = version ? `/versions/${encodeURIComponent(version)}` : "/versions/latest";
     const kind = type === "plugin" ? "plugins" : "themes";
     const metaUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kind}/${encodeURIComponent(id)}${versionSegment}`;
-    const metaRes = await fetch(metaUrl);
+    const metaRes = await fetch(metaUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!metaRes.ok) {
       res.status(metaRes.status).json({ error: `Listing not found (${id})` });
       return;
@@ -69,35 +103,36 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
     // Always download via the public API. Registry downloadUrl is an internal
     // path (e.g. /v1/plugins/...) which Node fetch cannot resolve.
     const downloadUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kind}/${encodeURIComponent(id)}/versions/${encodeURIComponent(resolvedVersion)}/download`;
-    const download = await fetch(downloadUrl);
+    const download = await fetch(downloadUrl, {
+      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+    });
     if (!download.ok) {
       res.status(download.status).json({ error: "Download failed" });
       return;
     }
 
-    const buffer = Buffer.from(await download.arrayBuffer());
+    const buffer = await readBounded(download, ARCHIVE_LIMITS.maxCompressedBytes);
     const digest = download.headers.get("x-justflows-digest") ?? "";
     const signature = download.headers.get("x-justflows-signature") ?? "";
 
     const { PackageInstaller } = await import("@justflows/installer");
     const installer = new PackageInstaller();
     const packagesDir = packagesInstalledDir();
+    // Verified inside the installer, while the package is still staged — see
+    // the note on InstallOptions.verify.
     const result = await installer.installFromBuffer(buffer, {
       packagesDir,
       source: "marketplace",
       expectedDigest: digest || undefined,
+      verify: (manifest, resultDigest) => {
+        if (manifest.type !== type) {
+          throw new Error(`Package type mismatch (expected ${type})`);
+        }
+        assertPackageIsTrusted(manifest as unknown as Record<string, unknown>, resultDigest, {
+          marketplaceSignature: signature || undefined,
+        });
+      },
     });
-
-    if (result.manifest.type !== type) {
-      res.status(400).json({ error: `Package type mismatch (expected ${type})` });
-      return;
-    }
-
-    assertPackageIsTrusted(
-      result.manifest as unknown as Record<string, unknown>,
-      result.digest,
-      { marketplaceSignature: signature || undefined },
-    );
 
     if (type === "plugin") {
       const { insertPlugin } = await import("../lib/plugins-db.js");
@@ -142,7 +177,7 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
     await insertTheme(siteId, theme);
     res.json({ theme: { ...theme, status: "installed", active: false } });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendPackageInstallError(res, err);
   }
 });
 

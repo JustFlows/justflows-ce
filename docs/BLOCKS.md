@@ -29,7 +29,7 @@ ctx.blocks.register({
 
 `type` should be namespaced (`acme.cta`). Output goes through the platform
 sanitizer — do not emit raw script tags. The editor catalog lists registered
-blocks; public HTML is produced on the server, not in the admin SPA.
+blocks; public HTML is produced by the public renderer, not by the admin application.
 
 ## Props every block carries
 

@@ -18,6 +18,7 @@ import {
   isSitePublic,
 } from "../lib/site-visibility.js";
 import type { Request, Response } from "express";
+import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
@@ -81,7 +82,7 @@ router.get("/content-types", async (req, res) => {
       })),
     });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "public-api", err);
   }
 });
 
@@ -102,7 +103,7 @@ router.get("/media", async (req, res) => {
     );
     res.json({ items: rows.map(serializeMediaRow) });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "public-api", err);
   }
 });
 
@@ -127,7 +128,7 @@ router.get("/menus", async (req, res) => {
     );
     res.json({ menus: items, locale });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "public-api", err);
   }
 });
 
@@ -156,7 +157,7 @@ router.get("/menus/:slug", async (req, res) => {
       locale,
     });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "public-api", err);
   }
 });
 
@@ -213,7 +214,7 @@ router.get("/content", async (req, res) => {
       locale,
     });
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "public-api", err);
   }
 });
 
@@ -242,7 +243,7 @@ router.get("/content/:slug", async (req, res) => {
 
     res.json(await serializePublicContent(rows[0], siteId));
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    sendServerError(res, "public-api", err);
   }
 });
 
