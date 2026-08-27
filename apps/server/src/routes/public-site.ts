@@ -656,7 +656,7 @@ async function renderSinglePageHtml(
   basePath: string,
 ): Promise<string> {
   const pageCtx = await buildPageContext(reqPath, preview);
-  const pageContent = await getPublishedContentBySlug(slug, locale);
+  const pageContent = await getPublishedContentBySlug(slug, locale, preview);
   if (!pageContent) {
     return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
   }
@@ -708,7 +708,7 @@ router.get("/:segment", async (req, res, next) => {
       return;
     }
 
-    const content = await getPublishedContentBySlug(slug, ctx.locale);
+    const content = await getPublishedContentBySlug(slug, ctx.locale, preview);
     if (!content) {
       await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
         const ctx404 = await buildPageContext(req.path, preview);
@@ -761,7 +761,7 @@ router.get("/:segment/page/:num", async (req, res, next) => {
     const ctx = await buildPageContext(req.path, preview);
     const basePath = `/${segment}`;
 
-    const content = await getPublishedContentBySlug(segment, ctx.locale);
+    const content = await getPublishedContentBySlug(segment, ctx.locale, preview);
     if (!content) {
       await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
         const ctx404 = await buildPageContext(req.path, preview);
@@ -814,7 +814,7 @@ router.get("/:locale/:slug", async (req, res, next) => {
     if (!(await ensureSiteIsPublic(req, res))) return;
     const defaultLocale = await getDefaultLocale();
     const preview = await isPreviewAllowed(req, res);
-    const content = await getPublishedContentBySlug(slug, localeSeg);
+    const content = await getPublishedContentBySlug(slug, localeSeg, preview);
 
     if (!content) {
       await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
@@ -869,7 +869,7 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
     if (!(await ensureSiteIsPublic(req, res))) return;
     const preview = await isPreviewAllowed(req, res);
     const basePath = `/${localeSeg}/${slug}`;
-    const content = await getPublishedContentBySlug(slug, localeSeg);
+    const content = await getPublishedContentBySlug(slug, localeSeg, preview);
 
     if (!content) {
       await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {

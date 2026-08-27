@@ -57,6 +57,18 @@
     "locale": "Taal",
     "saveDraft": "Concept opslaan",
     "publish": "Publiceren",
+    "publishDraft": "Concept publiceren",
+    "previewDraft": "Concept bekijken",
+    "discardDraft": "Concept verwerpen",
+    "discardDraftConfirm": "Ongepubliceerde wijzigingen verwerpen en de live versie terugzetten in de editor?",
+    "compareDraft": "Vergelijken met live",
+    "draftChanges": "Conceptwijzigingen",
+    "publishedWithDraft": "Gepubliceerd — conceptwijzigingen",
+    "autosaving": "Automatisch opslaan…",
+    "draftSaved": "Concept opgeslagen",
+    "live": "Live",
+    "lastDraftBy": "Concept laatst gewijzigd door {name}",
+    "liveChanged": "De live versie is gewijzigd sinds dit concept is gestart. Vergelijk vóór publiceren.",
     "titleRequired": "Titel is verplicht"
   },
   "languages": {

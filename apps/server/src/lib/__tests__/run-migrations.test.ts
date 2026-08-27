@@ -13,7 +13,11 @@ describe("MIGRATION_ORDER", () => {
   });
 
   it("repairs audit tables created by the initial schema", () => {
-    expect(MIGRATION_ORDER.at(-1)).toBe("0009_audit_log_compat");
+    expect(MIGRATION_ORDER).toContain("0009_audit_log_compat");
+  });
+
+  it("includes working content revisions", () => {
+    expect(MIGRATION_ORDER.at(-1)).toBe("0010_content_revisions");
   });
 });
 

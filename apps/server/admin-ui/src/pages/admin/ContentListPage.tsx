@@ -10,6 +10,7 @@ interface ContentItem {
   locale: string;
   status: string;
   updatedAt: string;
+  hasWorkingRevision?: boolean;
 }
 
 interface ContentTypeSummary {
@@ -179,7 +180,7 @@ export default function ContentPage() {
                     <td>{typeLabel(item.type)}</td>
                     <td className="jf-td--mono">{item.locale ?? "—"}</td>
                     <td>
-                      <StatusBadge status={item.status} />
+                      <StatusBadge status={item.status} hasWorkingRevision={item.hasWorkingRevision} />
                     </td>
                     <td className="jf-td--mono">/{item.slug}</td>
                     <td className="jf-td--muted">
@@ -201,7 +202,10 @@ export default function ContentPage() {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, hasWorkingRevision }: { status: string; hasWorkingRevision?: boolean }) {
+  if (status === "published" && hasWorkingRevision) {
+    return <span className="jf-badge jf-badge--info">Published — draft changes</span>;
+  }
   const variant: Record<string, string> = {
     published: " jf-badge--published",
     archived: " jf-badge--archived",

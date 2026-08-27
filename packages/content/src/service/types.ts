@@ -1,4 +1,18 @@
+// SPDX-License-Identifier: MIT
+
+import type { RevisionKind, RevisionSource } from "./revisions.js";
+
 export type ContentStatus = "draft" | "scheduled" | "published" | "private" | "archived";
+
+export interface ContentLiveSnapshot {
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  blocks: BlockDocument;
+  fields: Record<string, unknown>;
+  version: number;
+  updatedAt: string;
+}
 
 export interface ContentItem {
   id: string;
@@ -15,6 +29,15 @@ export interface ContentItem {
   createdAt: string;
   updatedAt: string;
   version: number;
+  locale?: string;
+  translationGroupId?: string | null;
+  hasWorkingRevision?: boolean;
+  workingRevisionId?: string | null;
+  workingSource?: RevisionSource | null;
+  workingUpdatedAt?: string | null;
+  workingUpdatedBy?: string | null;
+  liveChangedSinceWorking?: boolean;
+  live?: ContentLiveSnapshot | null;
 }
 
 export interface BlockDocument {
@@ -39,16 +62,20 @@ export interface CreateContentInput {
   blocks?: BlockDocument;
   fields?: Record<string, unknown>;
   authorId?: string;
+  locale?: string;
+  translationGroupId?: string;
 }
 
 export interface UpdateContentInput {
   title?: string;
   slug?: string;
-  excerpt?: string;
+  excerpt?: string | null;
   blocks?: BlockDocument;
   fields?: Record<string, unknown>;
   status?: ContentStatus;
   expectedVersion?: number;
+  source?: RevisionSource;
+  actorId?: string;
 }
 
 export interface ContentQuery {
@@ -72,9 +99,23 @@ export interface ContentRevision {
   contentId: string;
   siteId: string;
   title: string;
+  slug: string;
+  excerpt: string | null;
+  locale: string | null;
+  translationGroupId: string | null;
   blocks: BlockDocument;
   fields: Record<string, unknown>;
   version: number;
+  baseVersion: number;
+  kind: RevisionKind;
+  source: RevisionSource;
   createdAt: string;
-  createdBy?: string;
+  createdBy?: string | null;
+  updatedAt: string;
+  updatedBy?: string | null;
+}
+
+export interface PublishContentInput {
+  expectedVersion?: number;
+  actorId?: string;
 }

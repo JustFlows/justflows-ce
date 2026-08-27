@@ -57,6 +57,18 @@
     "locale": "Idioma",
     "saveDraft": "Guardar borrador",
     "publish": "Publicar",
+    "publishDraft": "Publicar borrador",
+    "previewDraft": "Vista previa del borrador",
+    "discardDraft": "Descartar borrador",
+    "discardDraftConfirm": "¿Descartar los cambios no publicados y restaurar la versión en vivo en el editor?",
+    "compareDraft": "Comparar con la versión en vivo",
+    "draftChanges": "Cambios del borrador",
+    "publishedWithDraft": "Publicado — cambios en borrador",
+    "autosaving": "Autoguardando…",
+    "draftSaved": "Borrador guardado",
+    "live": "En vivo",
+    "lastDraftBy": "Borrador modificado por última vez por {name}",
+    "liveChanged": "La versión en vivo cambió desde que se inició este borrador. Compara antes de publicar.",
     "titleRequired": "El título es obligatorio"
   },
   "languages": {

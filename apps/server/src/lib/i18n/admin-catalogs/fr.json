@@ -57,6 +57,18 @@
     "locale": "Langue",
     "saveDraft": "Enregistrer le brouillon",
     "publish": "Publier",
+    "publishDraft": "Publier le brouillon",
+    "previewDraft": "Prévisualiser le brouillon",
+    "discardDraft": "Abandonner le brouillon",
+    "discardDraftConfirm": "Abandonner les modifications non publiées et restaurer la version en ligne dans l’éditeur ?",
+    "compareDraft": "Comparer avec la version en ligne",
+    "draftChanges": "Modifications du brouillon",
+    "publishedWithDraft": "Publié — modifications du brouillon",
+    "autosaving": "Enregistrement automatique…",
+    "draftSaved": "Brouillon enregistré",
+    "live": "En ligne",
+    "lastDraftBy": "Brouillon modifié en dernier par {name}",
+    "liveChanged": "La version en ligne a changé depuis le début de ce brouillon. Comparez avant de publier.",
     "titleRequired": "Le titre est requis"
   },
   "languages": {

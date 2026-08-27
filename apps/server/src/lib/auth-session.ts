@@ -78,7 +78,7 @@ export async function resolveSession(req: Request, res: Response): Promise<Sessi
   }
 }
 
-const PREVIEW_ROLES = new Set(["administrator", "editor"]);
+const PREVIEW_ROLES = new Set(["administrator", "editor", "author"]);
 
 /** Whether ?preview=1 is allowed for the current request (authenticated editor+). */
 export async function isPreviewAllowed(req: Request, res: Response): Promise<boolean> {

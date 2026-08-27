@@ -57,6 +57,18 @@
     "locale": "Sprache",
     "saveDraft": "Entwurf speichern",
     "publish": "Veröffentlichen",
+    "publishDraft": "Entwurf veröffentlichen",
+    "previewDraft": "Entwurf ansehen",
+    "discardDraft": "Entwurf verwerfen",
+    "discardDraftConfirm": "Unveröffentlichte Änderungen verwerfen und die Live-Version im Editor wiederherstellen?",
+    "compareDraft": "Mit Live vergleichen",
+    "draftChanges": "Entwurfsänderungen",
+    "publishedWithDraft": "Veröffentlicht — Entwurfsänderungen",
+    "autosaving": "Autospeichern…",
+    "draftSaved": "Entwurf gespeichert",
+    "live": "Live",
+    "lastDraftBy": "Entwurf zuletzt geändert von {name}",
+    "liveChanged": "Die Live-Version hat sich seit Beginn dieses Entwurfs geändert. Vor dem Veröffentlichen vergleichen.",
     "titleRequired": "Titel ist erforderlich"
   },
   "languages": {
