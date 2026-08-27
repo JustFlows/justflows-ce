@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import { ensureCsrfCookie } from "../lib/csrf";
 
 export default function LoginPage() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -35,7 +34,7 @@ export default function LoginPage() {
         body: JSON.stringify(totpRequired ? { email, password, totp } : { email, password }),
       });
 
-      const data = await res.json() as { error?: string; totpRequired?: boolean };
+      const data = await res.json() as { error?: string; totpRequired?: boolean; role?: string };
 
       if (!res.ok) {
         if (data.totpRequired) setTotpRequired(true);
@@ -43,7 +42,11 @@ export default function LoginPage() {
         return;
       }
 
-      navigate("/admin");
+      // A subscriber has no admin capability — send them to the site instead
+      // of an admin app that would have nothing for them to do. A full
+      // navigation (not client-side routing) so the server's own /admin gate
+      // is the one source of truth for this, not a copy of it here.
+      window.location.href = data.role === "subscriber" ? "/" : "/admin";
     } catch {
       setError("An unexpected error occurred");
     } finally {
