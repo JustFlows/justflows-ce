@@ -38,16 +38,17 @@ jobs:
           SHA=$(git rev-parse --short HEAD)
           FULL=$(git rev-parse HEAD)
           BRANCH="sync/from-development"
-          CE_MAIN=$(gh api repos/JustFlows/justflows-ce/git/ref/heads/main --jq .object.sha)
-          if [ "$FULL" = "$CE_MAIN" ]; then
-            echo "justflows-ce main already matches ${SHA}. Nothing to publish."
+          BASE="developers"
+          CE_BASE=$(gh api "repos/JustFlows/justflows-ce/git/ref/heads/${BASE}" --jq .object.sha)
+          if [ "$FULL" = "$CE_BASE" ]; then
+            echo "justflows-ce ${BASE} already matches ${SHA}. Nothing to publish."
             exit 0
           fi
 
           git push --force "https://x-access-token:${GH_TOKEN}@github.com/JustFlows/justflows-ce.git" "HEAD:refs/heads/${BRANCH}"
 
           BODY=$(cat <<EOF
-          Automated publish PR from [justflows-ce-development](https://github.com/JustFlows/justflows-ce-development).
+          Automated publish PR from [justflows-ce-development](https://github.com/JustFlows/justflows-ce-development) into \`developers\`. Cut the public version from \`developers\` to \`main\` on justflows-ce.
 
           Source commit: ${{ github.server_url }}/${{ github.repository }}/commit/${FULL}
           EOF
@@ -58,16 +59,16 @@ jobs:
           Merged development PR: ${{ github.event.pull_request.html_url }}"
           fi
 
-          EXISTING=$(gh pr list --repo JustFlows/justflows-ce --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          EXISTING=$(gh pr list --repo JustFlows/justflows-ce --head "$BRANCH" --base "$BASE" --state open --json number --jq '.[0].number // empty')
           if [ -n "$EXISTING" ]; then
-            gh pr edit "$EXISTING" --repo JustFlows/justflows-ce --title "Publish from justflows-ce-development (${SHA})" --body "$BODY"
+            gh pr edit "$EXISTING" --repo JustFlows/justflows-ce --base "$BASE" --title "Publish from justflows-ce-development (${SHA})" --body "$BODY"
             echo "Updated existing PR #${EXISTING}"
             exit 0
           fi
 
           gh pr create \
             --repo JustFlows/justflows-ce \
-            --base main \
+            --base "$BASE" \
             --head "$BRANCH" \
             --title "Publish from justflows-ce-development (${SHA})" \
             --body "$BODY"
