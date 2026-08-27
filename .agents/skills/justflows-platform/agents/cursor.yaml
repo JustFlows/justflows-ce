@@ -1,0 +1,4 @@
+interface:
+  display_name: "Justflows Platform"
+  short_description: "Plan cross-cutting Justflows platform work"
+  default_prompt: "Use /justflows-platform to implement this Justflows task."

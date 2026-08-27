@@ -19,7 +19,7 @@ document doesn't cover, extend it in the same PR.
 | `licenses/*.md`          | Licensing policy documents                     | `NN-slug.md`, zero-padded two-digit prefix in reading order                              |
 | `migrations/*.sql`       | Database migrations                            | `NNNN_description[.dialect].sql`, see [Migrations](#migrations)                          |
 | `docker`, `scripts`      | Distribution and release tooling               | lower-kebab                                                                              |
-| `.agents/skills/<skill>` | Agent skill guides                             | `justflows-<area>`, one `SKILL.md` per folder                                            |
+| `.agents/skills/<skill>` | Agent skill guides                             | `justflows-<area>`, one `SKILL.md` per folder, plus `agents/{claude,cursor,openai}.yaml` |
 
 `apps/` is plural because it is the workspace category for deployable
 applications, not a count; it currently holds one app (`apps/server`) and may
