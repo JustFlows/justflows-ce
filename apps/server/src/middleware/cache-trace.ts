@@ -17,8 +17,10 @@ export function cacheTraceMiddleware(req: CacheTraceRequest, res: Response, next
     const originalEnd = res.end.bind(res);
     res.end = function (...args: Parameters<Response["end"]>) {
       const events = getRequestCacheEvents(req);
-      if (events.length > 0 && !res.headersSent) {
-        res.setHeader("X-Jf-Cache", formatCacheSummary(events));
+      if (!res.headersSent) {
+        if (events.length > 0) {
+          res.setHeader("X-Jf-Cache", formatCacheSummary(events));
+        }
         const page = (res.locals.jfPageCache as string | undefined) ?? pageCacheStatus(events);
         if (page) res.setHeader("X-Jf-Page-Cache", page);
       }

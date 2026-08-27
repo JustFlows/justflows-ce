@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { serializeContentRow } from "../content-api.js";
-import { parseRevisionRow, serializeEditorContent } from "../content-revisions.js";
+import { parseRevisionRow, revisionColumn, serializeEditorContent, serializeRevision } from "../content-revisions.js";
 
 const liveRow: Record<string, unknown> = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -92,5 +92,46 @@ describe("serializeContentRow", () => {
     const item = serializeContentRow({ ...liveRow, working_revision_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc" });
     expect(item.hasWorkingRevision).toBe(true);
     expect(item.version).toBe(3);
+  });
+});
+
+describe("revisionColumn", () => {
+  const original = process.env.DB_DRIVER;
+  afterEach(() => {
+    if (original === undefined) delete process.env.DB_DRIVER;
+    else process.env.DB_DRIVER = original;
+  });
+
+  it("quotes reserved identifiers on MySQL and MariaDB", () => {
+    for (const driver of ["mysql", "mariadb"]) {
+      process.env.DB_DRIVER = driver;
+      expect(revisionColumn("source")).toBe("`source`");
+      expect(revisionColumn("kind")).toBe("`kind`");
+    }
+  });
+
+  it("leaves identifiers bare on PostgreSQL", () => {
+    process.env.DB_DRIVER = "postgres";
+    expect(revisionColumn("source")).toBe("source");
+  });
+});
+describe("serializeRevision", () => {
+  it("omits blocks from the list payload and includes them when requested", () => {
+    const rev = parseRevisionRow({
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      content_id: liveRow.id,
+      site_id: liveRow.site_id,
+      title: "V1",
+      slug: "v1",
+      excerpt: "old",
+      blocks: { version: 1, blocks: [{ id: "b1", type: "core.paragraph", version: 1, props: { text: "Hi" } }] },
+      fields: { seoTitle: "V1" },
+      version: 1,
+      kind: "historical",
+      created_at: "2026-01-01 00:00:00",
+      updated_at: "2026-01-01 00:00:00",
+    });
+    expect(serializeRevision(rev)).not.toHaveProperty("blocks");
+    expect(serializeRevision(rev, { includeBody: true }).blocks).toEqual(rev.blocks);
   });
 });

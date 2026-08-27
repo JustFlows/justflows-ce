@@ -58,6 +58,19 @@ interface ContentTypeField {
   options?: string[];
 }
 
+interface RevisionSummary {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  version: number;
+  kind: string;
+  createdAt: string;
+  authorName: string | null;
+}
+
+const VISIBLE_REVISION_HISTORY = 5;
+
 function localePath(locale: string, slug: string, defaultLocale: string): string {
   const path = `/${slug}`;
   if (locale === defaultLocale) return path;
@@ -67,7 +80,7 @@ function localePath(locale: string, slug: string, defaultLocale: string): string
 export default function EditContentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useT();
+  const { t, locale } = useT();
   // Setting the home/blog page is administrator/editor-only on the server;
   // an author or contributor can still edit and publish this content.
   const role = useSessionRole();
@@ -82,7 +95,7 @@ export default function EditContentPage() {
   const [error, setError] = useState<string | null>(null);
   const [languages, setLanguages] = useState<SiteLanguage[]>([]);
   const [translations, setTranslations] = useState<TranslationSummary[]>([]);
-  const [defaultLocale, setDefaultLocale] = useState("en");
+  const [defaultLocale, setDefaultLocale] = useState("en-US");
   const [typeFields, setTypeFields] = useState<ContentTypeField[]>([]);
   const [typeLabel, setTypeLabel] = useState("");
   const [homePageId, setHomePageId] = useState<string | null>(null);
@@ -91,6 +104,9 @@ export default function EditContentPage() {
   const [blogSaving, setBlogSaving] = useState(false);
   const [compare, setCompare] = useState<Array<{ field: string; live: unknown; working: unknown }> | null>(null);
   const [autosaving, setAutosaving] = useState(false);
+  const [revisions, setRevisions] = useState<RevisionSummary[]>([]);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [expandedRevisionId, setExpandedRevisionId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/languages/active")
@@ -98,7 +114,7 @@ export default function EditContentPage() {
       .then((data: { languages: SiteLanguage[] }) => {
         const langs = data.languages ?? [];
         setLanguages(langs);
-        setDefaultLocale(langs.find((l) => l.isDefault)?.code ?? langs[0]?.code ?? "en");
+        setDefaultLocale(langs.find((l) => l.isDefault)?.code ?? langs[0]?.code ?? "en-US");
       })
       .catch(() => null);
   }, []);
@@ -118,6 +134,14 @@ export default function EditContentPage() {
     const data = await res.json() as { items?: TranslationSummary[] };
     if (Array.isArray(data.items)) setTranslations(data.items);
   }, []);
+
+  const loadRevisions = useCallback(async () => {
+    if (!id) return;
+    const res = await fetch(`/api/content/${id}/revisions`);
+    if (!res.ok) return;
+    const data = await res.json() as { items?: RevisionSummary[] };
+    setRevisions((data.items ?? []).slice(0, VISIBLE_REVISION_HISTORY + 1));
+  }, [id]);
 
   useEffect(() => {
     setLoading(true);
@@ -139,11 +163,11 @@ export default function EditContentPage() {
             setTypeLabel(data.type);
             setTypeFields([]);
           });
-        return loadTranslations(groupId);
+        return Promise.all([loadTranslations(groupId), loadRevisions()]);
       })
       .catch((err: Error) => setError(err.message ?? "Failed to load content"))
       .finally(() => setLoading(false));
-  }, [id, loadTranslations]);
+  }, [id, loadTranslations, loadRevisions]);
 
   const dirty = useMemo(
     () => Boolean(item) && JSON.stringify(item) !== baseline,
@@ -240,6 +264,7 @@ export default function EditContentPage() {
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
       }
+      await loadRevisions();
     } catch (e) {
       setError(String(e));
     } finally {
@@ -289,6 +314,7 @@ export default function EditContentPage() {
       setBaseline(JSON.stringify(data));
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+      await loadRevisions();
     } catch (e) {
       setError(String(e));
     } finally {
@@ -308,6 +334,7 @@ export default function EditContentPage() {
       setItem(data);
       setBaseline(JSON.stringify(data));
       setCompare(null);
+      await loadRevisions();
     } catch (e) {
       setError(String(e));
     } finally {
@@ -319,6 +346,28 @@ export default function EditContentPage() {
     const res = await fetch(`/api/content/${id}/revisions/compare`);
     const data = await res.json() as { entries?: Array<{ field: string; live: unknown; working: unknown }> };
     setCompare(data.entries ?? []);
+  }
+
+  async function restoreRevision(rev: RevisionSummary) {
+    if (!id) return;
+    if (dirty && !confirm(t("content.unsavedLeave"))) return;
+    const label = rev.title || t("content.revisionVersion", { version: rev.version });
+    if (!confirm(t("content.restoreRevisionConfirm", { title: label }))) return;
+    setRestoringId(rev.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/content/${id}/revisions/${rev.id}/restore`, { method: "POST" });
+      const data = await res.json() as ContentItem & { error?: string };
+      if (!res.ok) { setError(data.error ?? "Failed to restore"); return; }
+      setItem(data);
+      setBaseline(JSON.stringify(data));
+      setCompare(null);
+      await loadRevisions();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setRestoringId(null);
+    }
   }
 
   async function createTranslation(locale: string) {
@@ -777,6 +826,65 @@ export default function EditContentPage() {
 
             <div className="jf-card">
               <div className="jf-card__head">
+                <h2 className="jf-card__title">{t("content.revisions")}</h2>
+              </div>
+              <div className="jf-card__body" style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                <p className="jf-field__hint" style={{ margin: 0 }}>{t("content.revisionsHint")}</p>
+                {revisions.length === 0 ? (
+                  <p className="jf-field__hint" style={{ margin: 0 }}>{t("content.revisionsEmpty")}</p>
+                ) : (
+                  <ul className="jf-revision-list">
+                    {revisions.map((rev) => {
+                      const open = expandedRevisionId === rev.id;
+                      const busy = restoringId === rev.id || saving;
+                      const current = rev.kind === "working" || rev.kind === "autosave";
+                      return (
+                        <li key={rev.id} className="jf-revision-list__item">
+                          <div className="jf-revision-list__main">
+                            <button
+                              type="button"
+                              className="jf-revision-list__title"
+                              aria-expanded={open}
+                              onClick={() => setExpandedRevisionId(open ? null : rev.id)}
+                            >
+                              {current
+                                ? t("content.revisionCurrentDraft")
+                                : (rev.title || t("content.revisionVersion", { version: rev.version }))}
+                            </button>
+                            <p className="jf-revision-list__meta">
+                              {formatRevisionTime(rev.createdAt, locale)}
+                              {rev.authorName ? ` · ${rev.authorName}` : ""}
+                              {` · ${t("content.revisionVersion", { version: rev.version })}`}
+                            </p>
+                            {open && (
+                              <p className="jf-revision-list__detail">
+                                /{rev.slug}
+                                {rev.excerpt ? ` — ${rev.excerpt}` : ""}
+                              </p>
+                            )}
+                          </div>
+                          {current ? (
+                            <span className="jf-badge">{t("content.draftChanges")}</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="jf-btn jf-btn--ghost"
+                              disabled={busy}
+                              onClick={() => void restoreRevision(rev)}
+                            >
+                              {busy && restoringId === rev.id ? t("common.saving") : t("content.restoreRevision")}
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="jf-card">
+              <div className="jf-card__head">
                 <h2 className="jf-card__title">SEO</h2>
               </div>
               <div className="jf-card__body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -880,6 +988,12 @@ function Topbar({
       {children}
     </header>
   );
+}
+
+function formatRevisionTime(iso: string, locale: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
 }
 
 function SaveState({

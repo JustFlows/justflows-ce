@@ -5,20 +5,21 @@ import { getDb } from "../lib/db.js";
 import { serializeContentRow } from "../lib/content-api.js";
 import {
   applySnapshotToContent,
+  archiveThenDeleteWorking,
   deleteRevisionById,
-  deleteWorkingRevision,
   getRevisionById,
   getWorkingRevision,
-  insertHistoricalSnapshot,
+  insertHistoricalIfChanged,
   listRevisions,
   pruneHistoricalForContent,
+  revisionColumn,
   revisionToSnapshot,
   rowToSnapshot,
   serializeEditorContent,
   serializeRevision,
   upsertWorkingRevision,
 } from "../lib/content-revisions.js";
-import { diffSnapshots, type ContentSnapshot } from "@justflows/content";
+import { diffSnapshots, snapshotsEqual, DEFAULT_REVISION_MAX_HISTORY, type ContentSnapshot } from "@justflows/content";
 import { resolveContentLocale } from "../lib/i18n/languages-db.js";
 import { invalidateContentCache } from "../lib/content-public.js";
 import { getRuntimeHooks } from "../lib/plugin-runtime.js";
@@ -129,7 +130,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
               c.author_id, c.published_at, c.created_at, c.updated_at, c.version,
               w.id AS working_revision_id
        FROM content c
-       LEFT JOIN revisions w ON w.content_id = c.id AND w.site_id = c.site_id AND w.kind = 'working'
+       LEFT JOIN revisions w ON w.content_id = c.id AND w.site_id = c.site_id AND w.${revisionColumn("kind")} = 'working'
        WHERE c.site_id = ?`;
     const params: (string | number | boolean | null)[] = [session.siteId];
 
@@ -473,6 +474,10 @@ router.patch("/:id", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
       throw err;
     }
 
+    if (!snapshotsEqual(rowToSnapshot(row), proposed)) {
+      await insertHistoricalIfChanged(row, session.userId);
+    }
+
     const fields: string[] = [];
     const values: (string | number | boolean | null)[] = [];
     if (body.data.title !== undefined) {
@@ -536,7 +541,10 @@ router.get("/:id/revisions", requireRole(...CONTENT_READ_ROLES), async (req, res
       return;
     }
     const revisions = await listRevisions(id, session.siteId);
-    res.json({ items: revisions.map(serializeRevision) });
+    res.json({
+      items: revisions.map((rev) => serializeRevision(rev)),
+      maxHistory: DEFAULT_REVISION_MAX_HISTORY,
+    });
   } catch (err) {
     sendServerError(res, "content", err);
   }
@@ -561,6 +569,26 @@ router.get("/:id/revisions/compare", requireRole(...CONTENT_READ_ROLES), async (
       return;
     }
     res.json(diffSnapshots(rowToSnapshot(rows[0]), revisionToSnapshot(working)));
+  } catch (err) {
+    sendServerError(res, "content", err);
+  }
+});
+
+router.get("/:id/revisions/:revisionId", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+  const session = req.session!;
+  if (!canViewRevisions(session.role)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const id = param(req.params.id);
+  const revisionId = param(req.params.revisionId);
+  try {
+    const revision = await getRevisionById(id, session.siteId, revisionId);
+    if (!revision) {
+      res.status(404).json({ error: "Revision not found" });
+      return;
+    }
+    res.json(serializeRevision(revision, { includeBody: true }));
   } catch (err) {
     sendServerError(res, "content", err);
   }
@@ -686,7 +714,7 @@ router.post("/:id/discard-draft", requireRole(...CONTENT_WRITE_ROLES), async (re
     }
     const working = await getWorkingRevision(id, session.siteId);
     if (working) {
-      await deleteWorkingRevision(id, session.siteId);
+      await archiveThenDeleteWorking(row, session.userId);
       await getRuntimeHooks().dispatchAction(
         "content.revisionDiscarded",
         { contentId: id, siteId: session.siteId, revisionId: working.id, actorId: session.userId },
@@ -868,9 +896,7 @@ async function publishRow(
   }
 
   let historicalId: string | null = null;
-  if (String(row.status) === "published") {
-    historicalId = await insertHistoricalSnapshot(row, session.userId);
-  }
+  historicalId = await insertHistoricalIfChanged(row, session.userId);
 
   try {
     const applied = await applySnapshotToContent(id, siteId, proposed, {
@@ -886,7 +912,7 @@ async function publishRow(
       });
       return;
     }
-    await deleteWorkingRevision(id, siteId);
+    await archiveThenDeleteWorking(row, session.userId);
   } catch (err) {
     if (historicalId) await deleteRevisionById(historicalId, siteId).catch(() => undefined);
     throw err;
@@ -936,7 +962,7 @@ async function unpublishRow(
     res.status(409).json({ error: "Version conflict while unpublishing" });
     return;
   }
-  await deleteWorkingRevision(id, session.siteId);
+  await archiveThenDeleteWorking(row, session.userId);
   await invalidateContentCache();
   await getRuntimeHooks().dispatchAction(
     "content.unpublished",

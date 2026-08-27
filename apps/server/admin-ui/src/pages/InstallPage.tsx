@@ -4,6 +4,12 @@
 import { cloneElement, isValidElement, useEffect, useState, type ReactElement } from "react";
 import { useNavigate } from "react-router-dom";
 import { JustflowsLogo } from "@components/JustflowsLogo";
+import {
+  DEFAULT_CONTENT_LOCALE,
+  INSTALL_LOCALE_CODES,
+  metaForCode,
+  normalizeLocale,
+} from "@lib/i18n/locales";
 
 type Step = "preparing" | "welcome" | "database" | "site" | "account" | "installing" | "done";
 
@@ -27,11 +33,20 @@ interface AccountForm {
   displayName: string;
   password: string;
   confirmPassword: string;
+  emailDetails: boolean;
 }
 
 interface InstallLog {
   message: string;
   status: "running" | "ok" | "error";
+}
+
+const OTHER_LOCALE = "__other__";
+
+function localeOptionLabel(code: string): string {
+  const meta = metaForCode(code);
+  if (meta.name === meta.nativeName) return `${meta.name} — ${code}`;
+  return `${meta.name} (${meta.nativeName}) — ${code}`;
 }
 
 const DEFAULT_PORTS: Record<DbForm["driver"], string> = {
@@ -57,6 +72,8 @@ export default function InstallPage() {
   });
 
   const [site, setSite] = useState<SiteForm>({ name: "", description: "" });
+  const [localeChoice, setLocaleChoice] = useState<string>(DEFAULT_CONTENT_LOCALE);
+  const [customLocale, setCustomLocale] = useState("");
   const [installTokenValue, setInstallTokenValue] = useState("");
   const [tokenRequired, setTokenRequired] = useState(false);
   const [tokenFile, setTokenFile] = useState<string | null>(null);
@@ -121,6 +138,7 @@ export default function InstallPage() {
     displayName: "",
     password: "",
     confirmPassword: "",
+    emailDetails: true,
   });
 
   // ── derived ──────────────────────────────────────────────────────────────
@@ -128,6 +146,13 @@ export default function InstallPage() {
     typeof window !== "undefined"
       ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ""}`
       : "";
+
+  const resolvedLocale =
+    localeChoice === OTHER_LOCALE
+      ? normalizeLocale(customLocale)
+      : localeChoice;
+  const customLocalePreview = localeChoice === OTHER_LOCALE ? metaForCode(customLocale.trim()) : null;
+  const canContinueSite = Boolean(site.name) && Boolean(resolvedLocale);
 
   const passwordsMatch =
     account.password.length === 0 ||
@@ -196,12 +221,14 @@ export default function InstallPage() {
             name: site.name,
             description: site.description,
             url: siteUrl,
+            locale: resolvedLocale ?? DEFAULT_CONTENT_LOCALE,
           },
           account: {
             email: account.email,
             username: account.username,
             displayName: account.displayName,
             password: account.password,
+            emailDetails: account.emailDetails,
           },
         }),
       });
@@ -328,6 +355,7 @@ export default function InstallPage() {
               <ul className="jf-prose" style={{ paddingInlineStart: "1.25rem", lineHeight: 2 }}>
                 <li>A database (PostgreSQL, MySQL, or MariaDB)</li>
                 <li>The database hostname, name, username and password</li>
+                <li>The default language for the public site</li>
                 <li>An email address for your admin account</li>
               </ul>
               <p className="jf-prose">Everything else is handled automatically.</p>
@@ -446,6 +474,50 @@ export default function InstallPage() {
                   onChange={(e) => setSite((s) => ({ ...s, description: e.target.value }))}
                 />
               </Field>
+              <Field label="Default site language">
+                <select
+                  className="jf-input"
+                  value={localeChoice}
+                  onChange={(e) => setLocaleChoice(e.target.value)}
+                >
+                  {INSTALL_LOCALE_CODES.map((code) => (
+                    <option key={code} value={code}>
+                      {localeOptionLabel(code)}
+                    </option>
+                  ))}
+                  <option value={OTHER_LOCALE}>Other…</option>
+                </select>
+              </Field>
+              {localeChoice === OTHER_LOCALE && (
+                <Field
+                  label="Language code"
+                  error={
+                    customLocale.trim().length > 0 && !normalizeLocale(customLocale)
+                      ? "Use a valid code such as en-US or nl-NL"
+                      : undefined
+                  }
+                >
+                  <input
+                    className="jf-input"
+                    value={customLocale}
+                    placeholder="en-US"
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={20}
+                    onChange={(e) => setCustomLocale(e.target.value)}
+                  />
+                </Field>
+              )}
+              <p className="jf-field__hint">
+                This is installed as the site&rsquo;s default language. You can add more later in
+                Admin → Languages.
+                {customLocalePreview && normalizeLocale(customLocale) ? (
+                  <>
+                    {" "}
+                    Preview: {customLocalePreview.name} · {customLocalePreview.nativeName}
+                  </>
+                ) : null}
+              </p>
               <p className="jf-field__hint">
                 Your site URL is detected automatically: <strong>{siteUrl || "…"}</strong>
               </p>
@@ -453,7 +525,7 @@ export default function InstallPage() {
                 <button className="jf-btn jf-btn--ghost" onClick={() => setStep("database")}>← Back</button>
                 <button
                   className="jf-btn jf-btn--primary"
-                  disabled={!site.name}
+                  disabled={!canContinueSite}
                   onClick={() => setStep("account")}
                 >
                   Next →
@@ -557,6 +629,23 @@ export default function InstallPage() {
                   />
                 </Field>
               </div>
+
+              <label className="jf-checkrow jf-checkrow--stacked" htmlFor="jf-install-email-details">
+                <input
+                  id="jf-install-email-details"
+                  type="checkbox"
+                  checked={account.emailDetails}
+                  onChange={(e) => setAccount((a) => ({ ...a, emailDetails: e.target.checked }))}
+                />
+                <span>
+                  Email the full site details and admin credentials to this address
+                  <span className="jf-checkrow__meta">
+                    Includes your password, site URL, and database connection details (not the
+                    database password). Uses this host&rsquo;s mailer. Installation still finishes
+                    if the email cannot be sent.
+                  </span>
+                </span>
+              </label>
 
               <Row>
                 <button className="jf-btn jf-btn--ghost" onClick={() => setStep("site")}>← Back</button>

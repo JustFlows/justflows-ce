@@ -3,7 +3,12 @@
 import { describe, expect, it } from "vitest";
 import { HooksRegistry } from "@justflows/core";
 import { ContentService, ConflictError } from "../service/content-service.js";
-import { diffSnapshots, selectHistoricalIdsToPrune } from "../service/revisions.js";
+import {
+  DEFAULT_REVISION_MAX_HISTORY,
+  diffSnapshots,
+  selectHistoricalIdsToPrune,
+  visibleHistoricalRevisions,
+} from "../service/revisions.js";
 
 function setup() {
   const hooks = new HooksRegistry({ failureThreshold: 0 });
@@ -22,6 +27,27 @@ describe("working revisions", () => {
     expect(saved.hasWorkingRevision).toBeFalsy();
     expect(await content.getWorkingRevision(item.id)).toBeUndefined();
     expect((await content.get(item.id))?.title).toBe("Hello again");
+    const history = (await content.getRevisions(item.id)).filter((r) => r.kind === "historical");
+    expect(history).toHaveLength(1);
+    expect(history[0]!.title).toBe("Hello");
+  });
+
+  it("archives unpublished autosaves as historical restore points", async () => {
+    const { content } = setup();
+    const item = await content.create({ siteId: "site-1", title: "Hello" });
+    await content.update(item.id, { title: "Hello again", source: "autosave" });
+    const history = (await content.getRevisions(item.id)).filter((r) => r.kind === "historical");
+    expect(history).toHaveLength(1);
+    expect(history[0]!.title).toBe("Hello");
+  });
+
+  it("stores a historical revision on first publish", async () => {
+    const { content } = setup();
+    const item = await content.create({ siteId: "site-1", title: "Hello" });
+    await content.publish(item.id);
+    const history = (await content.getRevisions(item.id)).filter((r) => r.kind === "historical");
+    expect(history).toHaveLength(1);
+    expect(history[0]!.title).toBe("Hello");
   });
 
   it("does not change the live snapshot when saving a published item", async () => {
@@ -66,7 +92,7 @@ describe("working revisions", () => {
     expect(liveAgain.hasWorkingRevision).toBeFalsy();
     expect(await content.getWorkingRevision(item.id)).toBeUndefined();
     const history = (await content.getRevisions(item.id)).filter((r) => r.kind === "historical");
-    expect(history[0]?.title).toBe("Live");
+    expect(history.some((r) => r.title === "Live")).toBe(true);
   });
 
   it("keeps the working revision when beforePublish cancels", async () => {
@@ -107,6 +133,9 @@ describe("working revisions", () => {
     const discarded = await content.discardWorking(item.id);
     expect(discarded.title).toBe("Live");
     expect(discarded.hasWorkingRevision).toBeFalsy();
+    const history = (await content.getRevisions(item.id)).filter((r) => r.kind === "historical");
+    expect(history.length).toBeGreaterThanOrEqual(1);
+    expect(history.some((r) => r.title === "Live" || r.title === "Draft")).toBe(true);
   });
 
   it("restores a historical snapshot into a working draft without changing live", async () => {
@@ -116,13 +145,13 @@ describe("working revisions", () => {
     await content.update(item.id, { title: "V2" });
     await content.publish(item.id);
     const history = (await content.getRevisions(item.id)).filter((r) => r.kind === "historical");
-    const restored = await content.restoreRevision(item.id, history[0]!.id);
+    const previousLive = history.find((r) => r.title === "V1");
+    const restored = await content.restoreRevision(item.id, previousLive!.id);
     expect(restored.title).toBe("V1");
     expect(restored.hasWorkingRevision).toBe(true);
     const listed = (await content.find({ siteId: "site-1" })).items[0];
     expect(listed?.title).toBe("V2");
   });
-
   it("compares working revision fields against the live snapshot", async () => {
     const { content } = setup();
     const item = await content.create({
@@ -163,6 +192,24 @@ describe("working revisions", () => {
     expect(revs.filter((r) => r.kind === "working")).toHaveLength(1);
     expect(revs.filter((r) => r.kind === "historical").length).toBeLessThanOrEqual(2);
   });
+
+  it("keeps five historical revisions by default and restores one without changing live", async () => {
+    const { content } = setup();
+    const item = await content.create({ siteId: "site-1", title: "V1" });
+    await content.publish(item.id);
+    for (let n = 2; n <= 8; n++) {
+      await content.update(item.id, { title: `V${n}` });
+      await content.publish(item.id);
+    }
+    const historical = (await content.getRevisions(item.id)).filter((r) => r.kind === "historical");
+    expect(historical).toHaveLength(DEFAULT_REVISION_MAX_HISTORY);
+    const oldestKept = historical[historical.length - 1]!;
+    const restored = await content.restoreRevision(item.id, oldestKept.id);
+    expect(restored.hasWorkingRevision).toBe(true);
+    expect(restored.title).toBe(oldestKept.title);
+    const listed = (await content.find({ siteId: "site-1" })).items[0];
+    expect(listed?.title).toBe("V8");
+  });
 });
 
 describe("revision helpers", () => {
@@ -184,5 +231,21 @@ describe("revision helpers", () => {
       2,
     );
     expect(ids).toEqual(["old"]);
+  });
+
+  it("surfaces at most five historical revisions for restore", () => {
+    expect(DEFAULT_REVISION_MAX_HISTORY).toBe(5);
+    const rows = Array.from({ length: 8 }, (_, i) => ({
+      id: `r${i}`,
+      kind: i === 0 ? "working" : "historical",
+      createdAt: `2026-01-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`,
+    }));
+    expect(visibleHistoricalRevisions(rows).map((row) => row.id)).toEqual([
+      "r7",
+      "r6",
+      "r5",
+      "r4",
+      "r3",
+    ]);
   });
 });

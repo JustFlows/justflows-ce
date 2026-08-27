@@ -2,7 +2,7 @@
 
 import type { BlockDocument } from "./types.js";
 
-export const DEFAULT_REVISION_MAX_HISTORY = 50;
+export const DEFAULT_REVISION_MAX_HISTORY = 5;
 export const DEFAULT_AUTOSAVE_RETENTION_DAYS = 7;
 export const REVISION_PRUNE_BATCH = 100;
 
@@ -69,6 +69,18 @@ export function selectHistoricalIdsToPrune(
   if (maxHistory < 0) return [];
   const ordered = [...historical].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return ordered.slice(maxHistory).map((row) => row.id);
+}
+
+/** Newest historical revisions an editor can list and restore. */
+export function visibleHistoricalRevisions<T extends { kind?: string; createdAt: string }>(
+  revisions: T[],
+  maxHistory = DEFAULT_REVISION_MAX_HISTORY,
+): T[] {
+  if (maxHistory <= 0) return [];
+  return [...revisions]
+    .filter((row) => (row.kind ?? "historical") === "historical")
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, maxHistory);
 }
 
 export function selectAutosaveIdsToPrune(

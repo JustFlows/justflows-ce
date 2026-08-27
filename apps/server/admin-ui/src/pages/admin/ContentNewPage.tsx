@@ -27,7 +27,7 @@ function NewContentForm() {
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
   const [excerpt, setExcerpt] = useState("");
-  const [locale, setLocale] = useState("en");
+  const [locale, setLocale] = useState("en-US");
   const [languages, setLanguages] = useState<SiteLanguage[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

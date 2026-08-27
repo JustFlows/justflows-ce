@@ -69,7 +69,14 @@
     "live": "En vivo",
     "lastDraftBy": "Borrador modificado por última vez por {name}",
     "liveChanged": "La versión en vivo cambió desde que se inició este borrador. Compara antes de publicar.",
-    "titleRequired": "El título es obligatorio"
+    "titleRequired": "El título es obligatorio",
+    "revisions": "Revisiones",
+    "revisionsHint": "Las últimas 5 versiones se pueden restaurar como borrador. La página en vivo no cambia hasta que publiques.",
+    "revisionsEmpty": "Aún no hay versiones anteriores. Guarda o publica para conservar un punto de restauración.",
+    "restoreRevision": "Restaurar",
+    "restoreRevisionConfirm": "¿Restaurar «{title}» como borrador? La página publicada no cambia hasta que publiques.",
+    "revisionVersion": "Versión {version}",
+    "revisionCurrentDraft": "Borrador actual"
   },
   "languages": {
     "title": "Idiomas",
@@ -80,7 +87,10 @@
     "nativeName": "Nombre nativo",
     "setDefault": "Establecer como predeterminado",
     "uiLanguage": "Idioma del admin",
-    "noLanguages": "Aún no hay idiomas configurados."
+    "noLanguages": "Aún no hay idiomas configurados.",
+    "codePlaceholder": "nl-NL",
+    "codeHint": "Cualquier etiqueta BCP 47, por ejemplo nl-NL o en-US. Las URL públicas usan este código como prefijo de ruta.",
+    "deleteConfirm": "¿Quitar {code}? Las páginas y entradas en este idioma se conservan, pero ya no aparecerá en el selector de idioma."
   },
   "design": {
     "title": "Diseño",

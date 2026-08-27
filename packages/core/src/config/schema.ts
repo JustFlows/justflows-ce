@@ -31,7 +31,7 @@ export const StorageConfigSchema = z.object({
 });
 
 export const CacheConfigSchema = z.object({
-  enabled: z.boolean().default(true),
+  enabled: z.boolean().default(false),
   driver: z.enum(["memory", "filesystem", "redis"]).default("filesystem"),
   dir: z.string().optional(),
   redisUrl: z.string().optional(),
@@ -53,7 +53,7 @@ export const AppConfigSchema = z.object({
   secret: z.string().min(32),
   database: DatabaseConfigSchema,
   storage: StorageConfigSchema.default({ driver: "local", localPath: "./uploads" }),
-  cache: CacheConfigSchema.default({ enabled: true, driver: "filesystem", ttlSeconds: 300 }),
+  cache: CacheConfigSchema.default({ enabled: false, driver: "filesystem", ttlSeconds: 300 }),
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
 }).superRefine((value, ctx) => {
   if (value.env === "production" && EXAMPLE_SECRETS.has(value.secret)) {

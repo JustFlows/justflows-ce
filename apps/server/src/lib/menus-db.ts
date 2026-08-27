@@ -4,7 +4,8 @@
 
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
-import { localePath } from "./i18n/locales.js";
+import { localizePublicPath, localePath } from "./i18n/locales.js";
+import { getActiveLocaleCodes } from "./i18n/languages-db.js";
 import { getSiteId } from "./themes-db.js";
 import { sanitizeNavUrl } from "./nav-url.js";
 
@@ -147,26 +148,77 @@ export async function deleteMenu(siteId: string, slug: string): Promise<boolean>
   return true;
 }
 
-async function loadContentByIds(
-  ids: string[],
-  preview = false,
-): Promise<Map<string, { slug: string; locale: string; title: string }>> {
-  const map = new Map<string, { slug: string; locale: string; title: string }>();
+interface MenuContentRef {
+  id: string;
+  slug: string;
+  locale: string;
+  title: string;
+  translationGroupId: string | null;
+}
+
+async function loadContentByIds(ids: string[], preview = false): Promise<Map<string, MenuContentRef>> {
+  const map = new Map<string, MenuContentRef>();
   if (ids.length === 0) return map;
 
   const db = await getDb();
   const placeholders = ids.map(() => "?").join(", ");
   const statusClause = preview ? "status IN ('published', 'draft')" : "status = 'published'";
-  const rows = await db.query<{ id: string; slug: string; locale: string; title: string }>(
-    `SELECT id, slug, locale, title FROM content WHERE id IN (${placeholders}) AND ${statusClause}`,
+  const rows = await db.query<{
+    id: string;
+    slug: string;
+    locale: string;
+    title: string;
+    translation_group_id: string | null;
+  }>(
+    `SELECT id, slug, locale, title, translation_group_id FROM content WHERE id IN (${placeholders}) AND ${statusClause}`,
     ids,
   );
 
   for (const row of rows) {
     map.set(String(row.id), {
+      id: String(row.id),
       slug: String(row.slug),
       locale: String(row.locale),
       title: String(row.title),
+      translationGroupId: row.translation_group_id == null ? null : String(row.translation_group_id),
+    });
+  }
+  return map;
+}
+
+async function loadTranslationsByGroup(
+  groupIds: string[],
+  locale: string,
+  preview = false,
+): Promise<Map<string, MenuContentRef>> {
+  const map = new Map<string, MenuContentRef>();
+  const ids = [...new Set(groupIds.filter(Boolean))];
+  if (ids.length === 0) return map;
+
+  const db = await getDb();
+  const placeholders = ids.map(() => "?").join(", ");
+  const statusClause = preview ? "status IN ('published', 'draft')" : "status = 'published'";
+  const rows = await db.query<{
+    id: string;
+    slug: string;
+    locale: string;
+    title: string;
+    translation_group_id: string | null;
+  }>(
+    `SELECT id, slug, locale, title, translation_group_id FROM content
+     WHERE translation_group_id IN (${placeholders}) AND locale = ? AND ${statusClause}`,
+    [...ids, locale],
+  );
+
+  for (const row of rows) {
+    const groupId = row.translation_group_id == null ? null : String(row.translation_group_id);
+    if (!groupId) continue;
+    map.set(groupId, {
+      id: String(row.id),
+      slug: String(row.slug),
+      locale: String(row.locale),
+      title: String(row.title),
+      translationGroupId: groupId,
     });
   }
   return map;
@@ -194,6 +246,23 @@ export async function resolveMenuItems(
 ): Promise<ResolvedNavItem[]> {
   const contentIds = collectContentIds(items);
   const contentMap = await loadContentByIds(contentIds, preview);
+  const translationMap = await loadTranslationsByGroup(
+    [...contentMap.values()].map((item) => item.translationGroupId ?? ""),
+    locale,
+    preview,
+  );
+  const activeLocales = await getActiveLocaleCodes();
+
+  function resolveContentUrl(content: MenuContentRef): string {
+    const translated =
+      content.locale === locale
+        ? content
+        : content.translationGroupId
+          ? translationMap.get(content.translationGroupId)
+          : undefined;
+    const slug = translated?.slug ?? content.slug;
+    return localePath(locale, `/${slug}`, defaultLocale);
+  }
 
   function resolveList(list: MenuItem[]): ResolvedNavItem[] {
     const resolved: ResolvedNavItem[] = [];
@@ -205,17 +274,20 @@ export async function resolveMenuItems(
       if (item.contentId && (type === "page" || type === "post")) {
         const content = contentMap.get(item.contentId);
         if (content) {
-          url = localePath(content.locale || locale, `/${content.slug}`, defaultLocale);
-          if (!label) label = content.title;
+          url = resolveContentUrl(content);
+          if (!label) {
+            const translated = content.translationGroupId
+              ? translationMap.get(content.translationGroupId)
+              : undefined;
+            label = translated?.title ?? content.title;
+          }
         } else if (item.url) {
-          url = item.url.startsWith("/")
-            ? localePath(locale, item.url, defaultLocale)
-            : item.url;
+          url = localizePublicPath(item.url, locale, defaultLocale, activeLocales);
         } else {
           url = "#";
         }
       } else if (type === "custom") {
-        url = sanitizeNavUrl(item.url);
+        url = localizePublicPath(sanitizeNavUrl(item.url), locale, defaultLocale, activeLocales);
       }
 
       url = sanitizeNavUrl(url);

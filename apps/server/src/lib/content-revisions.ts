@@ -6,6 +6,7 @@ import {
   REVISION_PRUNE_BATCH,
   snapshotsEqual,
   selectHistoricalIdsToPrune,
+  visibleHistoricalRevisions,
   type ContentSnapshot,
   type RevisionKind,
   type RevisionSource,
@@ -23,6 +24,19 @@ import {
 import { getSiteSetting } from "./site-settings.js";
 
 export const REVISION_MAX_HISTORY_SETTING = "revisions.max_history";
+
+/** Quote identifiers that are reserved on MySQL/MariaDB (`source`, `kind`). */
+export function revisionColumn(name: string): string {
+  return process.env.DB_DRIVER === "postgres" ? name : `\`${name}\``;
+}
+
+function kindCol(): string {
+  return revisionColumn("kind");
+}
+
+function sourceCol(): string {
+  return revisionColumn("source");
+}
 
 function nowSql(): string {
   return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
@@ -177,7 +191,7 @@ export async function getWorkingRevision(
     `SELECT r.*, u.display_name AS author_name
      FROM revisions r
      LEFT JOIN users u ON u.id = COALESCE(r.updated_by, r.created_by)
-     WHERE r.content_id = ? AND r.site_id = ? AND r.kind = 'working'
+     WHERE r.content_id = ? AND r.site_id = ? AND r.${kindCol()} = 'working'
      LIMIT 1`,
     [contentId, siteId],
   );
@@ -207,7 +221,9 @@ export async function listRevisions(
      ORDER BY r.created_at DESC`,
     [contentId, siteId],
   );
-  return rows.map(parseRevisionRow);
+  const parsed = rows.map(parseRevisionRow);
+  const pending = parsed.filter((row) => row.kind !== "historical");
+  return [...pending, ...visibleHistoricalRevisions(parsed)];
 }
 
 export async function getRevisionById(
@@ -244,10 +260,16 @@ export async function upsertWorkingRevision(
   const db = await getDb();
   const existing = await getWorkingRevision(contentId, siteId, db);
 
+  if (existing) {
+    await insertHistoricalIfChanged(liveRow, input.actorId, revisionToSnapshot(existing));
+  } else {
+    await insertHistoricalIfChanged(liveRow, input.actorId, live);
+  }
+
   if (snapshotsEqual(live, input.snapshot)) {
     if (existing) {
       await db.run(
-        "DELETE FROM revisions WHERE id = ? AND content_id = ? AND site_id = ? AND kind = 'working'",
+        `DELETE FROM revisions WHERE id = ? AND content_id = ? AND site_id = ? AND ${kindCol()} = 'working'`,
         [existing.id, contentId, siteId],
       );
     }
@@ -259,13 +281,13 @@ export async function upsertWorkingRevision(
     await db.run(
       `UPDATE revisions
        SET title = ?, slug = ?, excerpt = ?, locale = ?, translation_group_id = ?,
-           blocks = ?, fields = ?, version = ?, base_version = ?, source = ?,
+           blocks = ?, fields = ?, version = ?, base_version = ?, ${sourceCol()} = ?,
            updated_at = ?, updated_by = ?
-       WHERE id = ? AND content_id = ? AND site_id = ? AND kind = 'working'`,
+       WHERE id = ? AND content_id = ? AND site_id = ? AND ${kindCol()} = 'working'`,
       [
         input.snapshot.title,
         input.snapshot.slug,
-        input.snapshot.excerpt,
+        input.snapshot.excerpt ?? null,
         liveRow.locale == null ? null : String(liveRow.locale),
         liveRow.translation_group_id == null ? null : String(liveRow.translation_group_id),
         JSON.stringify(input.snapshot.blocks),
@@ -287,7 +309,7 @@ export async function upsertWorkingRevision(
   await db.run(
     `INSERT INTO revisions (
        id, content_id, site_id, title, slug, excerpt, locale, translation_group_id,
-       blocks, fields, version, base_version, kind, source, created_by, created_at,
+       blocks, fields, version, base_version, ${kindCol()}, ${sourceCol()}, created_by, created_at,
        updated_by, updated_at
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'working', ?, ?, ?, ?, ?)`,
     [
@@ -296,7 +318,7 @@ export async function upsertWorkingRevision(
       siteId,
       input.snapshot.title,
       input.snapshot.slug,
-      input.snapshot.excerpt,
+      input.snapshot.excerpt ?? null,
       liveRow.locale == null ? null : String(liveRow.locale),
       liveRow.translation_group_id == null ? null : String(liveRow.translation_group_id),
       JSON.stringify(input.snapshot.blocks),
@@ -315,28 +337,28 @@ export async function upsertWorkingRevision(
 export async function insertHistoricalSnapshot(
   liveRow: Record<string, unknown>,
   actorId: string | null,
+  snapshot: ContentSnapshot = rowToSnapshot(liveRow),
 ): Promise<string> {
   const db = await getDb();
   const id = randomUUID();
   const stamp = nowSql();
-  const snap = rowToSnapshot(liveRow);
   await db.run(
     `INSERT INTO revisions (
        id, content_id, site_id, title, slug, excerpt, locale, translation_group_id,
-       blocks, fields, version, base_version, kind, source, created_by, created_at,
+       blocks, fields, version, base_version, ${kindCol()}, ${sourceCol()}, created_by, created_at,
        updated_by, updated_at
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'historical', 'manual', ?, ?, ?, ?)`,
     [
       id,
       String(liveRow.id),
       String(liveRow.site_id),
-      snap.title,
-      snap.slug,
-      snap.excerpt,
+      snapshot.title,
+      snapshot.slug,
+      snapshot.excerpt ?? null,
       liveRow.locale == null ? null : String(liveRow.locale),
       liveRow.translation_group_id == null ? null : String(liveRow.translation_group_id),
-      JSON.stringify(snap.blocks),
-      JSON.stringify(snap.fields),
+      JSON.stringify(snapshot.blocks),
+      JSON.stringify(snapshot.fields),
       Number(liveRow.version ?? 1) || 1,
       Number(liveRow.version ?? 1) || 1,
       actorId,
@@ -348,10 +370,55 @@ export async function insertHistoricalSnapshot(
   return id;
 }
 
+async function latestHistorical(
+  contentId: string,
+  siteId: string,
+): Promise<StoredRevision | null> {
+  const db = await getDb();
+  const rows = await db.query<Record<string, unknown>>(
+    `SELECT r.*, u.display_name AS author_name
+     FROM revisions r
+     LEFT JOIN users u ON u.id = COALESCE(r.updated_by, r.created_by)
+     WHERE r.content_id = ? AND r.site_id = ? AND r.${kindCol()} = 'historical'
+     ORDER BY r.created_at DESC
+     LIMIT 1`,
+    [contentId, siteId],
+  );
+  return rows[0] ? parseRevisionRow(rows[0]) : null;
+}
+
+/** Store a restore point unless it matches the newest historical row. */
+export async function insertHistoricalIfChanged(
+  liveRow: Record<string, unknown>,
+  actorId: string | null,
+  snapshot: ContentSnapshot = rowToSnapshot(liveRow),
+): Promise<string | null> {
+  const contentId = String(liveRow.id);
+  const siteId = String(liveRow.site_id);
+  const latest = await latestHistorical(contentId, siteId);
+  if (latest && snapshotsEqual(revisionToSnapshot(latest), snapshot)) return null;
+  const id = await insertHistoricalSnapshot(liveRow, actorId, snapshot);
+  await pruneHistoricalForContent(contentId, siteId);
+  return id;
+}
+
+export async function archiveThenDeleteWorking(
+  liveRow: Record<string, unknown>,
+  actorId: string | null,
+): Promise<void> {
+  const contentId = String(liveRow.id);
+  const siteId = String(liveRow.site_id);
+  const working = await getWorkingRevision(contentId, siteId);
+  if (working) {
+    await insertHistoricalIfChanged(liveRow, actorId, revisionToSnapshot(working));
+  }
+  await deleteWorkingRevision(contentId, siteId);
+}
+
 export async function deleteWorkingRevision(contentId: string, siteId: string): Promise<void> {
   const db = await getDb();
   await db.run(
-    "DELETE FROM revisions WHERE content_id = ? AND site_id = ? AND kind = 'working'",
+    `DELETE FROM revisions WHERE content_id = ? AND site_id = ? AND ${kindCol()} = 'working'`,
     [contentId, siteId],
   );
 }
@@ -408,8 +475,8 @@ export async function applySnapshotToContent(
 export async function maxHistoryForSite(siteId: string): Promise<number> {
   const stored = await getSiteSetting<unknown>(siteId, REVISION_MAX_HISTORY_SETTING);
   const n = typeof stored === "number" ? stored : Number(stored);
-  if (Number.isFinite(n) && n >= 0) return Math.floor(n);
-  return DEFAULT_REVISION_MAX_HISTORY;
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_REVISION_MAX_HISTORY;
+  return Math.floor(n);
 }
 
 export async function pruneHistoricalForContent(
@@ -418,10 +485,11 @@ export async function pruneHistoricalForContent(
   maxHistory?: number,
 ): Promise<number> {
   const db = await getDb();
-  const limit = maxHistory ?? (await maxHistoryForSite(siteId));
+  const raw = maxHistory ?? (await maxHistoryForSite(siteId));
+  const limit = raw < 1 ? DEFAULT_REVISION_MAX_HISTORY : raw;
   const rows = await db.query<{ id: string; created_at: string }>(
     `SELECT id, created_at FROM revisions
-     WHERE content_id = ? AND site_id = ? AND kind = 'historical'
+     WHERE content_id = ? AND site_id = ? AND ${kindCol()} = 'historical'
      ORDER BY created_at DESC`,
     [contentId, siteId],
   );
@@ -432,7 +500,7 @@ export async function pruneHistoricalForContent(
   if (drop.length === 0) return 0;
   for (const id of drop.slice(0, REVISION_PRUNE_BATCH)) {
     await db.run(
-      "DELETE FROM revisions WHERE id = ? AND site_id = ? AND kind = 'historical'",
+      `DELETE FROM revisions WHERE id = ? AND site_id = ? AND ${kindCol()} = 'historical'`,
       [id, siteId],
     );
   }
@@ -442,7 +510,7 @@ export async function pruneHistoricalForContent(
 export async function pruneHistoricalBatch(): Promise<number> {
   const db = await getDb();
   const contents = await db.query<{ id: string; site_id: string }>(
-    `SELECT DISTINCT content_id AS id, site_id FROM revisions WHERE kind = 'historical' LIMIT ?`,
+    `SELECT DISTINCT content_id AS id, site_id FROM revisions WHERE ${kindCol()} = 'historical' LIMIT ?`,
     [REVISION_PRUNE_BATCH],
   );
   let removed = 0;
@@ -452,8 +520,8 @@ export async function pruneHistoricalBatch(): Promise<number> {
   return removed;
 }
 
-export function serializeRevision(rev: StoredRevision) {
-  return {
+export function serializeRevision(rev: StoredRevision, opts: { includeBody?: boolean } = {}) {
+  const summary = {
     id: rev.id,
     contentId: rev.contentId,
     siteId: rev.siteId,
@@ -462,8 +530,6 @@ export function serializeRevision(rev: StoredRevision) {
     excerpt: rev.excerpt,
     locale: rev.locale,
     translationGroupId: rev.translationGroupId,
-    blocks: rev.blocks,
-    fields: rev.fields,
     version: rev.version,
     baseVersion: rev.baseVersion,
     kind: rev.kind,
@@ -474,4 +540,6 @@ export function serializeRevision(rev: StoredRevision) {
     updatedBy: rev.updatedBy,
     authorName: rev.authorName,
   };
+  if (!opts.includeBody) return summary;
+  return { ...summary, blocks: rev.blocks, fields: rev.fields };
 }

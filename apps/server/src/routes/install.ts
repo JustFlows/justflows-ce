@@ -15,6 +15,8 @@ import {
 } from "../lib/install-token.js";
 import { getJustflowsVersion } from "../lib/version.js";
 import { SiteUrlSchema } from "../lib/site-url.js";
+import { freshInstallSiteSettings, parseInstallLocale, siteSettingsInsertSql } from "../lib/install-defaults.js";
+import { sendInstallDetailsMail } from "../lib/install-mail.js";
 
 const router = Router();
 
@@ -33,12 +35,14 @@ const Schema = z.object({
     name: z.string().min(1),
     description: z.string().optional(),
     url: SiteUrlSchema,
+    locale: z.string().min(2).max(20).optional(),
   }),
   account: z.object({
     email: z.string().email(),
     username: z.string().min(2).max(60),
     displayName: z.string().min(1),
     password: z.string().min(12, "Password must be at least 12 characters").max(1024),
+    emailDetails: z.boolean().optional(),
   }),
 });
 
@@ -153,6 +157,12 @@ router.post("/", async (req, res) => {
   }
 
   const { db, site, account } = body.data;
+  const localeParsed = parseInstallLocale(site.locale);
+  if (!localeParsed.ok) {
+    emit0(res, localeParsed.error);
+    return;
+  }
+  const installLocale = localeParsed.meta;
   const encodedUser = encodeURIComponent(db.username);
   const encodedPass = encodeURIComponent(db.password);
   // Host and database name were interpolated raw, unlike the credentials, so a
@@ -246,26 +256,17 @@ router.post("/", async (req, res) => {
     }
 
     emit("step", "Saving site settings…");
-    const defaultSettings: [string, unknown][] = [
-      ["active_theme", "justflows.default"],
-      ["posts_per_page", 10],
-      ["timezone", "UTC"],
-      ["site_public", false],
-      ["discourage_search_engines", false],
-      ["admin_email", account.email],
-      ["users_can_register", false],
-      ["default_role", "subscriber"],
-      ["date_format", "F j, Y"],
-      ["time_format", "g:i a"],
-      ["start_of_week", 1],
-    ];
-    for (const [key, value] of defaultSettings) {
-      await sql
-        .run(
-          `INSERT INTO site_settings (id, site_id, key, value, updated_at) VALUES (?, ?, ?, ?, ?)`,
-          [randomUUID(), siteId, key, JSON.stringify(value), now()],
-        )
-        .catch(() => null);
+    const defaultSettings = freshInstallSiteSettings(account.email);
+    const settingsSql = siteSettingsInsertSql(db.driver);
+    try {
+      for (const [key, value] of defaultSettings) {
+        await sql.run(settingsSql, [randomUUID(), siteId, key, JSON.stringify(value), now()]);
+      }
+    } catch (e) {
+      console.error("[justflows] install: site settings failed:", e);
+      emit("error", "Could not save the default site settings. Check the server log for details.");
+      res.end();
+      return;
     }
 
     emit("step", "Setting up languages…");
@@ -275,7 +276,18 @@ router.post("/", async (req, res) => {
       await sql.run(
         `INSERT INTO languages (id, site_id, code, name, native_name, is_default, is_active, sort_order, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [langId, siteId, "en", "English", "English", isDefault, isDefault, 0, now(), now()],
+        [
+          langId,
+          siteId,
+          installLocale.code,
+          installLocale.name,
+          installLocale.nativeName,
+          isDefault,
+          isDefault,
+          0,
+          now(),
+          now(),
+        ],
       );
     } catch (e) {
       console.error("[justflows] install: language seed failed:", e);
@@ -303,6 +315,31 @@ router.post("/", async (req, res) => {
 
     resetDb();
     await sql.close();
+
+    if (account.emailDetails) {
+      const mailed = await sendInstallDetailsMail({
+        to: account.email,
+        siteName: site.name,
+        siteUrl: site.url,
+        locale: installLocale.code,
+        localeName: installLocale.name,
+        username: account.username,
+        email: account.email,
+        password: account.password,
+        dbDriver: db.driver,
+        dbHost: db.host,
+        dbPort: db.port,
+        dbName: db.database,
+        dbUser: db.username,
+      });
+      emit(
+        "step",
+        mailed.ok
+          ? `Sent site details to ${account.email}`
+          : "Could not email site details. The site is still installed — sign in with the account you just created.",
+      );
+    }
+
     emit("done", "Justflows installed successfully");
   } catch (err) {
     console.error("[justflows] install failed:", err);

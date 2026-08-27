@@ -13,6 +13,7 @@ export const MIGRATION_ORDER = [
   "0008_audit_log",
   "0009_audit_log_compat",
   "0010_content_revisions",
+  "0011_default_locale_en_us",
 ] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";

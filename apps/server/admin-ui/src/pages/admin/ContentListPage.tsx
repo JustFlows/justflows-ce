@@ -20,8 +20,23 @@ interface ContentTypeSummary {
 
 const STATUS_FILTERS = ["all", "draft", "published"] as const;
 
+function defaultLocaleCode(
+  languages?: Array<{ code: string; isDefault?: boolean }>,
+): string | null {
+  if (!languages?.length) return null;
+  return languages.find((lang) => lang.isDefault)?.code ?? languages[0]?.code ?? null;
+}
+
+function contentListPath(locale: string | null): string {
+  return locale ? `/api/content?locale=${encodeURIComponent(locale)}` : "/api/content";
+}
+
 export default function ContentPage() {
-  const prefetchedContent = initialJson<{ items?: ContentItem[] }>("/api/content");
+  const prefetchedLanguages = initialJson<{ languages?: Array<{ code: string; isDefault?: boolean }> }>(
+    "/api/languages",
+  );
+  const defaultLocale = defaultLocaleCode(prefetchedLanguages?.languages);
+  const prefetchedContent = initialJson<{ items?: ContentItem[] }>(contentListPath(defaultLocale));
   const prefetchedTypes = initialJson<{ types?: ContentTypeSummary[] }>("/api/content-types");
   const prefetchedSettings = initialJson<{
     home_page_id?: string | null;
@@ -39,12 +54,21 @@ export default function ContentPage() {
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("all");
 
   useEffect(() => {
-    fetch("/api/content")
-      .then((r) => r.json())
-      .then((data) => {
+    async function loadContent() {
+      try {
+        let locale = defaultLocale;
+        if (!locale) {
+          const langRes = await fetch("/api/languages");
+          const langData = await langRes.json();
+          locale = defaultLocaleCode(langData.languages);
+        }
+        const data = await fetch(contentListPath(locale)).then((r) => r.json());
         if (Array.isArray(data.items)) setItems(data.items);
-      })
-      .catch(() => {});
+      } catch {
+        /* keep prefetched or empty */
+      }
+    }
+    void loadContent();
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data: { home_page_id?: string | null; blog_page_id?: string | null }) => {
@@ -58,7 +82,7 @@ export default function ContentPage() {
         if (Array.isArray(data.types)) setTypes(data.types);
       })
       .catch(() => {});
-  }, []);
+  }, [defaultLocale]);
 
   const filtered = items.filter(
     (i) =>

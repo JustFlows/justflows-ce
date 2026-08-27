@@ -4,7 +4,7 @@ import {
   getDefaultLocale,
   resolveContentLocale,
 } from "../lib/i18n/languages-db.js";
-import { normalizeLocale, pickLocaleFromHeader } from "../lib/i18n/locales.js";
+import { matchActiveLocale, parseLocalePrefix, pickLocaleFromHeader } from "../lib/i18n/locales.js";
 import { createTranslator, type MessageCatalog } from "../lib/i18n/translate.js";
 
 const LOCALE_COOKIE = "jf_locale";
@@ -38,10 +38,10 @@ export async function localeMiddleware(req: Request, res: Response, next: NextFu
     const active = await getActiveLocaleCodes();
     const defaultLocale = await getDefaultLocale();
 
-    let locale = normalizeLocale(req.query.lang as string | undefined);
-    if (!locale) locale = normalizeLocale(req.cookies?.[LOCALE_COOKIE]);
+    let locale = matchActiveLocale(req.query.lang as string | undefined, active);
+    if (!locale) locale = matchActiveLocale(req.cookies?.[LOCALE_COOKIE], active);
     if (!locale) locale = pickLocaleFromHeader(req.headers["accept-language"], active);
-    if (!locale || !active.includes(locale)) {
+    if (!locale) {
       locale = await resolveContentLocale(defaultLocale);
     }
 
@@ -60,23 +60,6 @@ export async function localeMiddleware(req: Request, res: Response, next: NextFu
   }
 }
 
-/** Parse optional locale prefix from URL path (e.g. /nl/about → locale=nl, path=/about). */
-export function parseLocalePrefix(path: string, activeLocales: string[]): {
-  locale: string | null;
-  restPath: string;
-} {
-  const segments = path.split("/").filter(Boolean);
-  if (segments.length === 0) return { locale: null, restPath: "/" };
-
-  const first = normalizeLocale(segments[0]);
-  if (first && activeLocales.includes(first)) {
-    const rest = segments.slice(1).join("/");
-    return { locale: first, restPath: rest ? `/${rest}` : "/" };
-  }
-
-  return { locale: null, restPath: path.startsWith("/") ? path : `/${path}` };
-}
-
 export function setLocaleCookie(res: Response, locale: string): void {
   res.cookie(LOCALE_COOKIE, locale, {
     httpOnly: false,
@@ -86,4 +69,4 @@ export function setLocaleCookie(res: Response, locale: string): void {
   });
 }
 
-export { LOCALE_COOKIE };
+export { LOCALE_COOKIE, parseLocalePrefix };

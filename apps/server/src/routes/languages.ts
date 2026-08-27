@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { z } from "zod";
-import { BUILTIN_LANGUAGES } from "../lib/i18n/locales.js";
 import {
   addLanguage,
   deleteLanguage,
@@ -15,10 +14,6 @@ import { param } from "../lib/params.js";
 import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
-
-router.get("/builtin", requireSession, (_req, res) => {
-  res.json({ languages: BUILTIN_LANGUAGES });
-});
 
 router.get("/", requireSession, async (_req, res) => {
   try {
@@ -96,7 +91,7 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
     await deleteLanguage(session.siteId, param(req.params.id));
     res.json({ ok: true });
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 

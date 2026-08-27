@@ -11,7 +11,7 @@ import {
   listLanguages,
   resolveContentLocale,
 } from "../lib/i18n/languages-db.js";
-import { localePath } from "../lib/i18n/locales.js";
+import { localePath, matchActiveLocale, displayLocaleCode } from "../lib/i18n/locales.js";
 import { formatContentDate, getGeneralSettings } from "../lib/general-settings.js";
 import { hydrateSiteWidgets } from "../lib/site-widgets.js";
 import { createTranslator, type MessageCatalog } from "../lib/i18n/translate.js";
@@ -276,7 +276,7 @@ async function buildBlogRenderContext(
 
 function withSiteWidgets(
   html: string,
-  ctx: { languageLinks: Array<{ code: string; name: string; href: string; current: boolean }>; usersCanRegister: boolean; t: (key: string) => string },
+  ctx: { languageLinks: Array<{ code: string; name: string; href: string; current: boolean; displayCode?: string }>; usersCanRegister: boolean; t: (key: string) => string },
 ): string {
   return hydrateSiteWidgets(html, {
     languageLinks: ctx.languageLinks,
@@ -432,6 +432,27 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   });
 }
 
+function languageLinksFor(
+  languages: Array<{ code: string; nativeName: string }>,
+  currentLocale: string,
+  restPath: string,
+  defaultLocale: string,
+  translations: Array<{ locale: string; slug: string }> = [],
+): Array<{ code: string; name: string; href: string; current: boolean; displayCode: string }> {
+  const slugByLocale = new Map(translations.map((tr) => [tr.locale, tr.slug]));
+  return languages.map((lang) => {
+    const translatedSlug = slugByLocale.get(lang.code);
+    const path = translatedSlug ? `/${translatedSlug}` : restPath;
+    return {
+      code: lang.code,
+      name: lang.nativeName,
+      href: localePath(lang.code, path, defaultLocale),
+      current: lang.code === currentLocale,
+      displayCode: displayLocaleCode(lang.code),
+    };
+  });
+}
+
 async function buildPageContext(reqPath: string, preview = false) {
   const activeLocales = await getActiveLocaleCodes();
   const defaultLocale = await getDefaultLocale();
@@ -451,13 +472,7 @@ async function buildPageContext(reqPath: string, preview = false) {
   const navItems = await loadNavItems(headerMenuSlug ?? "primary", locale, defaultLocale, preview);
   const footerNavItems = await loadNavItems(footerMenuSlug ?? "footer", locale, defaultLocale, preview);
 
-  const languageLinks = languages.map((lang) => ({
-    code: lang.code,
-    name: lang.nativeName,
-    href: localePath(lang.code, restPath, defaultLocale),
-    current: lang.code === locale,
-  }));
-
+  const languageLinks = languageLinksFor(languages, locale, restPath, defaultLocale);
   const publicPath = localePath(locale, restPath, defaultLocale);
   const header = headerFromContentFields(undefined);
   const general = await getGeneralSettings();
@@ -477,12 +492,7 @@ async function buildPageContext(reqPath: string, preview = false) {
     : [];
   const footerBlocksHtml = footerBlocks.length > 0
     ? withSiteWidgets(await renderBlocksHtml(footerBlocks), {
-        languageLinks: languages.map((lang) => ({
-          code: lang.code,
-          name: lang.nativeName,
-          href: localePath(lang.code, restPath, defaultLocale),
-          current: lang.code === locale,
-        })),
+        languageLinks: languageLinksFor(languages, locale, restPath, defaultLocale),
         usersCanRegister: general.usersCanRegister,
         t,
       })
@@ -539,6 +549,31 @@ async function applyPageHeader<T extends Awaited<ReturnType<typeof buildPageCont
 
 function previewQuery(req: Request): string {
   return req.query.preview === "1" ? "?preview=1" : "";
+}
+
+/** Send /nl-nl/about-us to /nl-NL/about-us when casing differs from the stored tag. */
+function canonicalLocaleRedirect(
+  reqPath: string,
+  activeLocales: string[],
+  defaultLocale: string,
+): string | null {
+  const { locale, restPath } = parseLocalePrefix(reqPath, activeLocales);
+  if (!locale) return null;
+  const canonical = localePath(locale, restPath, defaultLocale);
+  const current = reqPath.replace(/\/+$/, "") || "/";
+  const target = canonical.replace(/\/+$/, "") || "/";
+  return current !== target ? canonical : null;
+}
+
+/** If this URL used another locale's slug, send the visitor to the translation's own slug. */
+function translatedSlugPath(
+  content: { locale: string; slug: string },
+  requestedSlug: string,
+  requestedLocale: string,
+  defaultLocale: string,
+): string | null {
+  if (content.locale !== requestedLocale || content.slug === requestedSlug) return null;
+  return localePath(content.locale, `/${content.slug}`, defaultLocale);
 }
 
 async function renderHomeHtml(req: Request, reqPath: string, preview: boolean): Promise<string> {
@@ -660,7 +695,17 @@ async function renderSinglePageHtml(
   if (!pageContent) {
     return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
   }
-  const withHeader = await applyPageHeader(pageCtx, pageContent.fields, preview, submittedFormIdFrom(req));
+  const withTranslations = {
+    ...pageCtx,
+    languageLinks: languageLinksFor(
+      pageCtx.languages,
+      pageCtx.locale,
+      pageCtx.restPath,
+      pageCtx.defaultLocale,
+      alternates,
+    ),
+  };
+  const withHeader = await applyPageHeader(withTranslations, pageContent.fields, preview, submittedFormIdFrom(req));
   const blogCtx = await buildBlogRenderContext(pageCtx.locale, pageNumber, basePath);
   const bodyHtml = withSiteWidgets(
     await renderBlocksHtml(pageContent.blocks.blocks, submittedFormIdFrom(req), blogCtx),
@@ -695,14 +740,19 @@ router.get("/:segment", async (req, res, next) => {
     const activeLocales = await getActiveLocaleCodes();
     const defaultLocale = await getDefaultLocale();
     const preview = await isPreviewAllowed(req, res);
+    const canonical = canonicalLocaleRedirect(req.path, activeLocales, defaultLocale);
+    if (canonical) {
+      res.redirect(302, canonical + previewQuery(req));
+      return;
+    }
     const ctx = await buildPageContext(req.path, preview);
 
-    if (activeLocales.includes(segment) && req.path === `/${segment}`) {
+    if (matchActiveLocale(segment, activeLocales) && req.path === `/${segment}`) {
       await sendPublicHtml(req, res, req.path, preview, () => renderHomeHtml(req, req.path, preview));
       return;
     }
 
-    const slug = activeLocales.includes(segment) ? "" : segment;
+    const slug = matchActiveLocale(segment, activeLocales) ? "" : segment;
     if (!slug) {
       next();
       return;
@@ -714,6 +764,12 @@ router.get("/:segment", async (req, res, next) => {
         const ctx404 = await buildPageContext(req.path, preview);
         return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
       }, 404);
+      return;
+    }
+
+    const translatedPath = translatedSlugPath(content, slug, ctx.locale, defaultLocale);
+    if (translatedPath) {
+      res.redirect(302, translatedPath + previewQuery(req));
       return;
     }
 
@@ -753,7 +809,7 @@ router.get("/:segment/page/:num", async (req, res, next) => {
   try {
     if (!(await ensureSiteIsPublic(req, res))) return;
     const activeLocales = await getActiveLocaleCodes();
-    if (activeLocales.includes(segment)) {
+    if (matchActiveLocale(segment, activeLocales)) {
       next();
       return;
     }
@@ -767,6 +823,12 @@ router.get("/:segment/page/:num", async (req, res, next) => {
         const ctx404 = await buildPageContext(req.path, preview);
         return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
       }, 404);
+      return;
+    }
+
+    const translatedPath = translatedSlugPath(content, segment, ctx.locale, ctx.defaultLocale);
+    if (translatedPath) {
+      res.redirect(302, translatedPath + previewQuery(req));
       return;
     }
 
@@ -805,7 +867,8 @@ router.get("/:locale/:slug", async (req, res, next) => {
   }
 
   const activeLocales = await getActiveLocaleCodes();
-  if (!activeLocales.includes(localeSeg)) {
+  const locale = matchActiveLocale(localeSeg, activeLocales);
+  if (!locale) {
     next();
     return;
   }
@@ -814,7 +877,12 @@ router.get("/:locale/:slug", async (req, res, next) => {
     if (!(await ensureSiteIsPublic(req, res))) return;
     const defaultLocale = await getDefaultLocale();
     const preview = await isPreviewAllowed(req, res);
-    const content = await getPublishedContentBySlug(slug, localeSeg, preview);
+    const canonical = canonicalLocaleRedirect(req.path, activeLocales, defaultLocale);
+    if (canonical) {
+      res.redirect(302, canonical + previewQuery(req));
+      return;
+    }
+    const content = await getPublishedContentBySlug(slug, locale, preview);
 
     if (!content) {
       await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
@@ -824,10 +892,16 @@ router.get("/:locale/:slug", async (req, res, next) => {
       return;
     }
 
+    const translatedPath = translatedSlugPath(content, slug, locale, defaultLocale);
+    if (translatedPath) {
+      res.redirect(302, translatedPath + previewQuery(req));
+      return;
+    }
+
     const siteId = await getSiteId();
-    const home = siteId ? await getHomeContent(siteId, localeSeg, preview) : null;
+    const home = siteId ? await getHomeContent(siteId, locale, preview) : null;
     if (home && isHomeContentSlug(content, home) && !preview) {
-      res.redirect(302, localePath(localeSeg, "/", defaultLocale) + previewQuery(req));
+      res.redirect(302, localePath(locale, "/", defaultLocale) + previewQuery(req));
       return;
     }
 
@@ -841,7 +915,7 @@ router.get("/:locale/:slug", async (req, res, next) => {
     }
 
     await sendPublicHtml(req, res, req.path, preview, () =>
-      renderSinglePageHtml(req, req.path, slug, localeSeg, preview, alternates, 1, req.path),
+      renderSinglePageHtml(req, req.path, slug, locale, preview, alternates, 1, req.path),
     );
   } catch (err) {
     console.error("[justflows] localised page render failed:", err);
@@ -860,7 +934,8 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
   }
 
   const activeLocales = await getActiveLocaleCodes();
-  if (!activeLocales.includes(localeSeg)) {
+  const locale = matchActiveLocale(localeSeg, activeLocales);
+  if (!locale) {
     next();
     return;
   }
@@ -868,8 +943,14 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
   try {
     if (!(await ensureSiteIsPublic(req, res))) return;
     const preview = await isPreviewAllowed(req, res);
-    const basePath = `/${localeSeg}/${slug}`;
-    const content = await getPublishedContentBySlug(slug, localeSeg, preview);
+    const defaultLocale = await getDefaultLocale();
+    const canonical = canonicalLocaleRedirect(req.path, activeLocales, defaultLocale);
+    if (canonical) {
+      res.redirect(302, canonical + previewQuery(req));
+      return;
+    }
+    const basePath = localePath(locale, `/${slug}`, defaultLocale);
+    const content = await getPublishedContentBySlug(slug, locale, preview);
 
     if (!content) {
       await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
@@ -879,15 +960,20 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
       return;
     }
 
+    const translatedPath = translatedSlugPath(content, slug, locale, defaultLocale);
+    if (translatedPath) {
+      res.redirect(302, translatedPath + previewQuery(req));
+      return;
+    }
+
     if (num === 1) {
-      const canonicalPath = localePath(content.locale, `/${content.slug}`, await getDefaultLocale());
+      const canonicalPath = localePath(locale, `/${content.slug}`, defaultLocale);
       res.redirect(302, canonicalPath + previewQuery(req));
       return;
     }
 
     let alternates: Array<{ locale: string; slug: string; href: string }> = [];
     if (content.translationGroupId) {
-      const defaultLocale = await getDefaultLocale();
       const translations = await getTranslationAlternates(content.translationGroupId);
       alternates = translations.map((tr) => ({
         ...tr,
@@ -896,7 +982,7 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
     }
 
     await sendPublicHtml(req, res, req.path, preview, () =>
-      renderSinglePageHtml(req, req.path, slug, localeSeg, preview, alternates, num, basePath),
+      renderSinglePageHtml(req, req.path, slug, locale, preview, alternates, num, basePath),
     );
   } catch (err) {
     console.error("[justflows] localised paginated page render failed:", err);

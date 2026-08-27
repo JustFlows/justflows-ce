@@ -98,7 +98,7 @@ export function serializeContentRow(row: Record<string, unknown>): ContentRespon
     type: String(row.type),
     title: String(row.title),
     slug: String(row.slug),
-    locale: String(row.locale ?? "en"),
+    locale: String(row.locale ?? "en-US"),
     translationGroupId:
       row.translation_group_id == null ? null : String(row.translation_group_id),
     excerpt: row.excerpt == null ? null : String(row.excerpt),

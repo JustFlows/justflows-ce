@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { migrationsDir } from "../jf-root.js";
 import {
   MIGRATION_ORDER,
   isIgnorableMigrationError,
   runMigrationStatements,
+  splitSqlStatements,
 } from "../run-migrations.js";
 
 describe("MIGRATION_ORDER", () => {
@@ -17,7 +21,20 @@ describe("MIGRATION_ORDER", () => {
   });
 
   it("includes working content revisions", () => {
-    expect(MIGRATION_ORDER.at(-1)).toBe("0010_content_revisions");
+    expect(MIGRATION_ORDER.at(-1)).toBe("0011_default_locale_en_us");
+  });
+
+  it("does not rebuild MySQL/MariaDB revisions with a new foreign key or generated unique slot", () => {
+    for (const dialect of ["mysql", "mariadb"] as const) {
+      const ddl = fs.readFileSync(
+        path.join(migrationsDir(), `0010_content_revisions.${dialect}.sql`),
+        "utf8",
+      );
+      const statements = splitSqlStatements(ddl, dialect);
+      expect(statements.join("\n")).not.toMatch(/FOREIGN KEY/i);
+      expect(statements.join("\n")).not.toMatch(/GENERATED ALWAYS/i);
+      expect(statements.join("\n")).not.toMatch(/CREATE UNIQUE INDEX/i);
+    }
   });
 });
 

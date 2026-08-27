@@ -11,6 +11,7 @@ export {
   snapshotsEqual,
   selectHistoricalIdsToPrune,
   selectAutosaveIdsToPrune,
+  visibleHistoricalRevisions,
 } from "./service/revisions.js";
 export type {
   RevisionKind,

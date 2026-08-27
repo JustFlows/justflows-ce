@@ -69,7 +69,14 @@
     "live": "Live",
     "lastDraftBy": "Concept laatst gewijzigd door {name}",
     "liveChanged": "De live versie is gewijzigd sinds dit concept is gestart. Vergelijk vóór publiceren.",
-    "titleRequired": "Titel is verplicht"
+    "titleRequired": "Titel is verplicht",
+    "revisions": "Revisies",
+    "revisionsHint": "De laatste 5 versies kun je als concept terugzetten. De live pagina verandert pas als je publiceert.",
+    "revisionsEmpty": "Nog geen eerdere versies. Opslaan of publiceren bewaart een herstelpunt.",
+    "restoreRevision": "Terugzetten",
+    "restoreRevisionConfirm": "“{title}” terugzetten als concept? De gepubliceerde pagina blijft ongewijzigd tot je publiceert.",
+    "revisionVersion": "Versie {version}",
+    "revisionCurrentDraft": "Huidig concept"
   },
   "languages": {
     "title": "Talen",
@@ -80,7 +87,10 @@
     "nativeName": "Eigen naam",
     "setDefault": "Als standaard instellen",
     "uiLanguage": "Beheertaal",
-    "noLanguages": "Nog geen talen geconfigureerd."
+    "noLanguages": "Nog geen talen geconfigureerd.",
+    "codePlaceholder": "nl-NL",
+    "codeHint": "Elke BCP 47-tag, bijvoorbeeld nl-NL of en-US. Openbare URL's gebruiken deze code als padprefix.",
+    "deleteConfirm": "{code} verwijderen? Pagina's en berichten in deze taal blijven bestaan, maar bezoekers zien hem niet meer in de taalschakelaar."
   },
   "menus": {
     "title": "Menu's",

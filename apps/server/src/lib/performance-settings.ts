@@ -3,7 +3,7 @@ import { z } from "zod";
 import { parseEnvBool } from "@justflows/core";
 import { getJfRoot } from "./jf-root.js";
 import { applyEnvToProcess, readEnvMap, updateEnvKeys } from "./env-file.js";
-import { resetJfCache } from "./jf-cache.js";
+import { resetJfCache, wipeCacheStorage } from "./jf-cache.js";
 import { requestPassengerRestart } from "./app-restart.js";
 import {
   CacheSettingsBodySchema,
@@ -75,7 +75,7 @@ function intEnv(value: string | undefined, fallback: number): number {
 export function getPerformanceConfig(): PerformanceRuntimeConfig {
   return {
     cache: {
-      enabled: parseEnvBool(process.env.CACHE_ENABLED, true),
+      enabled: parseEnvBool(process.env.CACHE_ENABLED, false),
       driver: process.env.CACHE_DRIVER === "memory" ? "memory" : "filesystem",
       ttlSeconds: intEnv(process.env.CACHE_TTL_SECONDS, 300),
       dir: process.env.CACHE_DIR ?? path.join(getJfRoot(), ".cache"),
@@ -83,12 +83,12 @@ export function getPerformanceConfig(): PerformanceRuntimeConfig {
       defaultDir: path.join(getJfRoot(), ".cache"),
     },
     gzip: {
-      enabled: parseEnvBool(process.env.JF_GZIP_ENABLED, true),
+      enabled: parseEnvBool(process.env.JF_GZIP_ENABLED, false),
       level: intEnv(process.env.JF_GZIP_LEVEL, 6),
       minBytes: intEnv(process.env.JF_GZIP_MIN_BYTES, 1024),
     },
     browserCache: {
-      enabled: parseEnvBool(process.env.JF_BROWSER_CACHE_ENABLED, true),
+      enabled: parseEnvBool(process.env.JF_BROWSER_CACHE_ENABLED, false),
       htmlMaxAge: intEnv(process.env.JF_BROWSER_CACHE_HTML_MAX_AGE, 60),
       staticMaxAge: intEnv(process.env.JF_BROWSER_CACHE_STATIC_MAX_AGE, 86400),
       staleWhileRevalidate: intEnv(process.env.JF_BROWSER_CACHE_SWR, 300),
@@ -121,18 +121,18 @@ export async function readPerformanceSettings(): Promise<{
   const settings: PerformanceRuntimeConfig = {
     cache: cacheSnapshot.settings,
     gzip: {
-      enabled: parseEnvBool(envGet(map, "JF_GZIP_ENABLED"), true),
+      enabled: parseEnvBool(envGet(map, "JF_GZIP_ENABLED"), false),
       level: intEnv(envGet(map, "JF_GZIP_LEVEL"), 6),
       minBytes: intEnv(envGet(map, "JF_GZIP_MIN_BYTES"), 1024),
     },
     browserCache: {
-      enabled: parseEnvBool(envGet(map, "JF_BROWSER_CACHE_ENABLED"), true),
+      enabled: parseEnvBool(envGet(map, "JF_BROWSER_CACHE_ENABLED"), false),
       htmlMaxAge: intEnv(envGet(map, "JF_BROWSER_CACHE_HTML_MAX_AGE"), 60),
       staticMaxAge: intEnv(envGet(map, "JF_BROWSER_CACHE_STATIC_MAX_AGE"), 86400),
       staleWhileRevalidate: intEnv(envGet(map, "JF_BROWSER_CACHE_SWR"), 300),
     },
     revalidate: {
-      enabled: parseEnvBool(envGet(map, "CACHE_REVALIDATE_ENABLED"), true),
+      enabled: parseEnvBool(envGet(map, "CACHE_REVALIDATE_ENABLED"), false),
       objects: (() => {
         const raw = envGet(map, "CACHE_REVALIDATE_OBJECTS");
         if (!raw) return defaultRevalidateObjects();
@@ -196,9 +196,12 @@ export async function applyPerformanceSettings(body: PerformanceSettings): Promi
   await updateEnvKeys(updates);
   applyEnvToProcess(updates);
 
-  if (parsed.cache.driver === "filesystem") {
-    const dir = parsed.cache.dir?.trim() || path.join(getJfRoot(), ".cache");
-    await fs.mkdir(dir, { recursive: true });
+  const cacheDir = parsed.cache.dir?.trim() || path.join(getJfRoot(), ".cache");
+  if (parsed.cache.enabled && parsed.cache.driver === "filesystem") {
+    await fs.mkdir(cacheDir, { recursive: true });
+  }
+  if (!parsed.cache.enabled) {
+    await wipeCacheStorage();
   }
 
   resetJfCache();

@@ -91,7 +91,7 @@ export class ContentService {
       createdAt: now,
       updatedAt: now,
       version: 1,
-      locale: input.locale ?? "en",
+      locale: input.locale ?? "en-US",
       translationGroupId: input.translationGroupId ?? null,
       hasWorkingRevision: false,
       live: null,
@@ -207,11 +207,8 @@ export class ContentService {
     await this.hooks.dispatchGate("content.beforePublish", contentRef, hookCtx);
 
     const now = stamp();
-    const wasPublished = item.status === "published";
-
-    if (wasPublished) {
-      this.snapshotHistorical(item, input.actorId);
-    }
+    this.snapshotHistorical(item, input.actorId);
+    if (working) this.pushHistoricalIfChanged(item, snapshotOf(working), input.actorId);
 
     const nextSlug = this.takeSlug(item, proposed.slug);
     const updated: ContentItem = {
@@ -277,6 +274,7 @@ export class ContentService {
     const working = this.workingOf(id);
     if (!working) return this.withWorkingOverlay(item);
 
+    this.pushHistoricalIfChanged(item, snapshotOf(working), actorId);
     this.removeKind(id, "working");
     await this.hooks.dispatchAction(
       "content.revisionDiscarded",
@@ -385,7 +383,7 @@ export class ContentService {
       title: proposed.title,
       slug: proposed.slug,
       excerpt: proposed.excerpt,
-      locale: item.locale ?? "en",
+      locale: item.locale ?? "en-US",
       translationGroupId: item.translationGroupId ?? null,
       blocks: proposed.blocks,
       fields: proposed.fields,
@@ -399,11 +397,17 @@ export class ContentService {
       updatedBy: patch.actorId ?? existing?.updatedBy ?? null,
     };
 
-    const list = (this.revisions.get(item.id) ?? []).filter((r) => r.kind !== "working");
-    if (!snapshotsEqual(snapshotOf(item), proposed)) {
-      list.unshift(revision);
+    if (existing) {
+      this.pushHistoricalIfChanged(item, snapshotOf(existing), patch.actorId);
+    } else {
+      this.pushHistoricalIfChanged(item, snapshotOf(item), patch.actorId);
     }
-    this.revisions.set(item.id, list);
+
+    const withoutWorking = (this.revisions.get(item.id) ?? []).filter((r) => r.kind !== "working");
+    if (!snapshotsEqual(snapshotOf(item), proposed)) {
+      withoutWorking.unshift(revision);
+    }
+    this.revisions.set(item.id, withoutWorking);
 
     await this.hooks.dispatchAction(
       "content.revisionSaved",
@@ -439,6 +443,10 @@ export class ContentService {
 
     if (patch.slug && patch.slug !== item.slug) {
       updated.slug = this.takeSlug(item, patch.slug);
+    }
+
+    if (!snapshotsEqual(snapshotOf(item), snapshotOf(updated))) {
+      this.pushHistoricalIfChanged(item, snapshotOf(item), patch.actorId);
     }
 
     this.items.set(item.id, updated);
@@ -487,19 +495,28 @@ export class ContentService {
     return (this.revisions.get(contentId) ?? []).find((r) => r.kind === "working");
   }
 
-  private snapshotHistorical(item: ContentItem, actorId?: string): void {
+  private pushHistoricalIfChanged(
+    item: ContentItem,
+    snap: ContentSnapshot,
+    actorId?: string,
+  ): void {
+    const newest = (this.revisions.get(item.id) ?? [])
+      .filter((r) => r.kind === "historical")
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    if (newest && snapshotsEqual(snapshotOf(newest), snap)) return;
+
     const now = stamp();
     const rev: ContentRevision = {
       id: randomUUID(),
       contentId: item.id,
       siteId: item.siteId,
-      title: item.title,
-      slug: item.slug,
-      excerpt: item.excerpt ?? null,
-      locale: item.locale ?? "en",
+      title: snap.title,
+      slug: snap.slug,
+      excerpt: snap.excerpt ?? null,
+      locale: item.locale ?? "en-US",
       translationGroupId: item.translationGroupId ?? null,
-      blocks: item.blocks,
-      fields: item.fields,
+      blocks: snap.blocks,
+      fields: snap.fields,
       version: item.version,
       baseVersion: item.version,
       kind: "historical",
@@ -512,6 +529,11 @@ export class ContentService {
     const list = this.revisions.get(item.id) ?? [];
     list.unshift(rev);
     this.revisions.set(item.id, list);
+    this.pruneHistorical(item.id);
+  }
+
+  private snapshotHistorical(item: ContentItem, actorId?: string): void {
+    this.pushHistoricalIfChanged(item, snapshotOf(item), actorId);
   }
 
   private removeKind(contentId: string, kind: ContentRevision["kind"]): void {
