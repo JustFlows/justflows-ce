@@ -5,6 +5,40 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Admin → Users: dedicated Edit User page (`/admin/users/:id`) — update
+  display name and role, reset the account's password, and remove the user,
+  giving an administrator full CRUD over accounts from one screen.
+- `GET /api/users/:id` and `GET /api/auth/me` (whoami). The latter is
+  session-scoped identity only (id, email, role); it feeds the admin UI's new
+  role-aware rendering below and is not itself an authorization boundary.
+
+### Fixed
+
+- Admin → Users **Remove** was a dead button — its `onClick` was missing. It
+  now calls `DELETE` with a confirm prompt and removes the row on success.
+- `PATCH /api/users/:id` and `DELETE /api/users/:id` guarded against deleting
+  yourself but not against demoting or deleting the last remaining
+  administrator. Both now refuse when the change would leave the site with
+  zero administrators.
+- A subscriber — a role with no admin capability at all — could still sign
+  into `/admin` and land on a dashboard with nothing it could actually do.
+  Login and the server's own `/admin` gate now send a subscriber to the site
+  instead of the admin app.
+- An editor, author, or contributor could open admin pages and click controls
+  whose backing API call was more restricted than the page itself — Content
+  Types, Plugins (and plugin settings), Themes, Design, Menus, Settings,
+  Languages, Forms, the content editor's set-as-home/blog-page toggle, and
+  the page builder's reusable-block and header-preset library — surfacing a
+  raw "no access" error instead of the control simply not being there. Each
+  is now hidden (or, for Settings, the whole form is read-only) for a role
+  that cannot use it, matching its actual `requireRole` on the server. This
+  is a UX fix, not a security one: every route involved was already
+  independently enforced server-side.
+
 ## [0.1.4] — 2026-08-26
 
 ### Added — server-side rendering
@@ -168,7 +202,6 @@ Found while scoping the settings query; all three would have thrown on postgres.
 - The settings-write fallback used `UUID()`, `NOW()` and `ON DUPLICATE KEY`.
   It was unreachable in practice and has been removed in favour of the existing
   driver-aware helper.
-
 
 ## [0.1.3] — 2026-08-25
 
