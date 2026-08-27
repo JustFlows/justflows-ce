@@ -12,22 +12,24 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - Admin → Users: dedicated Edit User page (`/admin/users/:id`) — update
   display name and role, reset the account's password, and remove the user,
   giving an administrator full CRUD over accounts from one screen.
-- `GET /api/users/:id` and `GET /api/auth/me` (whoami). The latter is
-  session-scoped identity only (id, email, role); it feeds the admin UI's new
-  role-aware rendering below and is not itself an authorization boundary.
+  ([#56](https://github.com/JustFlows/justflows-ce/issues/56))
+- `GET /api/users/:id` and `GET /api/auth/me` (whoami) — session-scoped
+  identity backing the page above and the role-aware admin UI below.
+  ([#56](https://github.com/JustFlows/justflows-ce/issues/56))
 
 ### Fixed
 
 - Admin → Users **Remove** was a dead button — its `onClick` was missing. It
   now calls `DELETE` with a confirm prompt and removes the row on success.
+  ([#56](https://github.com/JustFlows/justflows-ce/issues/56))
 - `PATCH /api/users/:id` and `DELETE /api/users/:id` guarded against deleting
   yourself but not against demoting or deleting the last remaining
   administrator. Both now refuse when the change would leave the site with
-  zero administrators.
+  zero administrators. ([#56](https://github.com/JustFlows/justflows-ce/issues/56))
 - A subscriber — a role with no admin capability at all — could still sign
   into `/admin` and land on a dashboard with nothing it could actually do.
   Login and the server's own `/admin` gate now send a subscriber to the site
-  instead of the admin app.
+  instead of the admin app. ([#56](https://github.com/JustFlows/justflows-ce/issues/56))
 - An editor, author, or contributor could open admin pages and click controls
   whose backing API call was more restricted than the page itself — Content
   Types, Plugins (and plugin settings), Themes, Design, Menus, Settings,
@@ -38,6 +40,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
   that cannot use it, matching its actual `requireRole` on the server. This
   is a UX fix, not a security one: every route involved was already
   independently enforced server-side.
+  ([#56](https://github.com/JustFlows/justflows-ce/issues/56))
 
 ## [0.1.4] — 2026-08-26
 
