@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSessionRole } from "@components/SessionProvider";
 
 type FieldType = "text" | "email" | "textarea" | "tel" | "select" | "checkbox";
 
@@ -63,6 +64,9 @@ function blankForm(): FormDefinition {
 }
 
 export default function FormsPage() {
+  // Reading forms and submissions is administrator/editor; creating, saving,
+  // and deleting either are administrator-only.
+  const canManage = useSessionRole() === "administrator";
   const [enabled, setEnabled] = useState(true);
   const [forms, setForms] = useState<FormRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -182,9 +186,11 @@ export default function FormsPage() {
           <h1>Forms</h1>
           <p>Build a form, drop it on a page with the Form block, then read submissions here.</p>
         </div>
-        <button className="jf-btn jf-btn--primary" type="button" onClick={() => void createForm()}>
-          New form
-        </button>
+        {canManage && (
+          <button className="jf-btn jf-btn--primary" type="button" onClick={() => void createForm()}>
+            New form
+          </button>
+        )}
       </header>
 
       {error && <div className="jf-alert jf-alert--error" role="alert">{error}</div>}
@@ -294,12 +300,14 @@ export default function FormsPage() {
                         </button>
                       </div>
 
-                      <div className="jf-row">
-                        <button className="jf-btn jf-btn--primary" type="button" disabled={saving} onClick={() => void save()}>
-                          {saving ? "Saving…" : "Save form"}
-                        </button>
-                        <button className="jf-btn jf-btn--danger" type="button" onClick={() => void removeForm()}>Delete</button>
-                      </div>
+                      {canManage && (
+                        <div className="jf-row">
+                          <button className="jf-btn jf-btn--primary" type="button" disabled={saving} onClick={() => void save()}>
+                            {saving ? "Saving…" : "Save form"}
+                          </button>
+                          <button className="jf-btn jf-btn--danger" type="button" onClick={() => void removeForm()}>Delete</button>
+                        </div>
+                      )}
                     </>
                   ) : submissions.length === 0 ? (
                     <p className="jf-meta">No submissions yet. Publish a page with this form, then send a test message.</p>
@@ -317,7 +325,9 @@ export default function FormsPage() {
                                 </div>
                               ))}
                             </dl>
-                            <button type="button" className="jf-btn jf-btn--ghost" onClick={() => void removeSubmission(row.id)}>Delete</button>
+                            {canManage && (
+                              <button type="button" className="jf-btn jf-btn--ghost" onClick={() => void removeSubmission(row.id)}>Delete</button>
+                            )}
                           </div>
                         </div>
                       ))}

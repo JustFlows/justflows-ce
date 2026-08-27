@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../../i18n/I18nProvider";
+import { useSessionRole } from "@components/SessionProvider";
 
 interface CssProvider {
   id: string;
@@ -14,6 +15,9 @@ interface CssProvider {
 
 export default function DesignPage() {
   const { t } = useT();
+  // Everyone who can reach Design can see what's installed; uploading,
+  // activating, and deleting a provider are all administrator-only.
+  const canManage = useSessionRole() === "administrator";
   const [providers, setProviders] = useState<CssProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -118,6 +122,7 @@ export default function DesignPage() {
 
       {activateError && <div className="jf-alert jf-alert--error" role="alert">{activateError}</div>}
 
+      {canManage && (
       <div className="jf-card">
         <div className="jf-card__head">
           <h2 className="jf-card__title">{t("design.uploadTitle")}</h2>
@@ -157,6 +162,7 @@ export default function DesignPage() {
           {uploadSuccess && <div className="jf-alert jf-alert--success">{uploadSuccess}</div>}
         </div>
       </div>
+      )}
 
       {loading ? (
         <div className="jf-cardgrid">
@@ -198,27 +204,29 @@ export default function DesignPage() {
                   <p className="jf-meta">
                     <code className="jf-code">{providerId}</code>
                   </p>
-                  <div className="jf-row" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
-                    {!isActive && (
-                      <button
-                        type="button"
-                        className="jf-btn jf-btn--primary"
-                        onClick={() => activateProvider(providerId)}
-                        disabled={activatingId !== null}
-                      >
-                        {activatingId === providerId ? t("design.installing") : t("design.activate")}
-                      </button>
-                    )}
-                    {!isDefault && (
-                      <button
-                        type="button"
-                        className="jf-btn jf-btn--danger"
-                        onClick={() => deleteProvider(providerId)}
-                      >
-                        {t("common.delete")}
-                      </button>
-                    )}
-                  </div>
+                  {canManage && (
+                    <div className="jf-row" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
+                      {!isActive && (
+                        <button
+                          type="button"
+                          className="jf-btn jf-btn--primary"
+                          onClick={() => activateProvider(providerId)}
+                          disabled={activatingId !== null}
+                        >
+                          {activatingId === providerId ? t("design.installing") : t("design.activate")}
+                        </button>
+                      )}
+                      {!isDefault && (
+                        <button
+                          type="button"
+                          className="jf-btn jf-btn--danger"
+                          onClick={() => deleteProvider(providerId)}
+                        >
+                          {t("common.delete")}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );

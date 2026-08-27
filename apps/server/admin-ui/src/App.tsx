@@ -19,6 +19,7 @@ import ThemeCustomizePage from "./pages/admin/ThemeCustomizePage";
 import PageBuilderPage from "./pages/admin/PageBuilderPage";
 import MenusPage from "./pages/admin/MenusPage";
 import UsersPage from "./pages/admin/UsersPage";
+import EditUserPage from "./pages/admin/EditUserPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import CommentsPage from "./pages/admin/CommentsPage";
 import MarketplacePage from "./pages/admin/MarketplacePage";
@@ -33,19 +34,35 @@ import AccountSecurityPage from "./pages/admin/security/AccountSecurityPage";
 import AuditLogPage from "./pages/admin/security/AuditLogPage";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { PluginMenuProvider } from "@components/PluginMenuProvider";
+import { SessionProvider, useSessionRole } from "@components/SessionProvider";
 import PluginRoute from "@components/PluginRoute";
 import { SiteFavicon } from "@components/SiteIdentity";
+import { canAccessPath } from "./config/admin-nav";
+
+/**
+ * Guards the couple of full-bleed editors that render outside AdminShell (and
+ * so miss its own role gate). Same rule table, same "bounce, don't 403".
+ */
+function RequireNavAccess({ path, children }: { path: string; children: React.ReactNode }) {
+  const role = useSessionRole();
+  if (role !== null && !canAccessPath(role, path)) return <Navigate to="/admin" replace />;
+  return <>{children}</>;
+}
 
 export default function App() {
   return (
     <I18nProvider>
+    <SessionProvider>
     <PluginMenuProvider>
     <SiteFavicon />
     <Routes>
       <Route path="/install" element={<InstallPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/admin/themes/customize" element={<ThemeCustomizePage />} />
+      <Route
+        path="/admin/themes/customize"
+        element={<RequireNavAccess path="/admin/themes"><ThemeCustomizePage /></RequireNavAccess>}
+      />
       <Route path="/admin/content/:id/builder" element={<PageBuilderPage />} />
       <Route path="/admin" element={<AdminShell />}>
         <Route index element={<DashboardPage />} />
@@ -66,6 +83,7 @@ export default function App() {
         <Route path="design" element={<DesignPage />} />
         <Route path="menus" element={<MenusPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="users/:id" element={<EditUserPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="comments" element={<CommentsPage />} />
         <Route path="marketplace" element={<MarketplacePage />} />
@@ -82,6 +100,7 @@ export default function App() {
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
     </PluginMenuProvider>
+    </SessionProvider>
     </I18nProvider>
   );
 }

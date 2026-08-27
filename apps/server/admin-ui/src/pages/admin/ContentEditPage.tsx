@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import BlockEditor, { type BlockDocument } from "@components/BlockEditor";
 import MediaImageField from "@components/MediaImageField";
+import { useSessionRole } from "@components/SessionProvider";
 import { useT } from "../../i18n/I18nProvider";
 import { fieldsWithHeader, headerFromFields } from "../../lib/page-header";
 
@@ -49,6 +50,10 @@ export default function EditContentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useT();
+  // Setting the home/blog page is administrator/editor-only on the server;
+  // an author or contributor can still edit and publish this content.
+  const role = useSessionRole();
+  const canSetSitePages = role === "administrator" || role === "editor";
 
   const [item, setItem] = useState<ContentItem | null>(null);
   const [baseline, setBaseline] = useState<string>("");
@@ -478,7 +483,7 @@ export default function EditContentPage() {
                   </a>
                 )}
 
-                {isPage && (
+                {isPage && canSetSitePages && (
                   <div className="jf-field">
                     {isHomePage ? (
                       <>
@@ -507,7 +512,7 @@ export default function EditContentPage() {
                   </div>
                 )}
 
-                {isPage && (
+                {isPage && canSetSitePages && (
                   <div className="jf-field">
                     {isBlogPage ? (
                       <>

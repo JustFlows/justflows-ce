@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { usePluginMenu } from "@components/PluginMenuProvider";
+import { useSessionRole } from "@components/SessionProvider";
 
 interface Plugin {
   id: string;
@@ -20,6 +21,9 @@ const STATUS_VARIANT: Record<Plugin["status"], string> = {
 };
 
 export default function PluginsPage() {
+  // Upload, activate/deactivate, delete, and per-plugin settings are all
+  // administrator-only on the server; an editor can only read this list.
+  const canManage = useSessionRole() === "administrator";
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -111,6 +115,7 @@ export default function PluginsPage() {
         </div>
       </header>
 
+      {canManage && (
       <div className="jf-card">
         <div className="jf-card__head">
           <h2 className="jf-card__title">Upload plugin</h2>
@@ -152,6 +157,7 @@ export default function PluginsPage() {
           {uploadSuccess && <div className="jf-alert jf-alert--success" role="status">{uploadSuccess}</div>}
         </div>
       </div>
+      )}
 
       <div className="jf-card">
         <div className="jf-card__head">
@@ -182,19 +188,21 @@ export default function PluginsPage() {
                   {p.description && <p className="jf-list__desc">{p.description}</p>}
                   <p className="jf-meta">by {p.publisher} · <code className="jf-code">{p.id}</code></p>
                 </div>
-                <div className="jf-row" style={{ flexWrap: "nowrap" }}>
-                  {p.settingsSchema && Object.keys(p.settingsSchema).length > 0 && (
-                    <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${p.id}/settings`}>
-                      Settings
-                    </Link>
-                  )}
-                  <button className="jf-btn jf-btn--ghost" onClick={() => togglePlugin(p.id, p.status)}>
-                    {p.status === "active" ? "Deactivate" : "Activate"}
-                  </button>
-                  <button className="jf-btn jf-btn--danger" onClick={() => deletePlugin(p.id)}>
-                    Delete
-                  </button>
-                </div>
+                {canManage && (
+                  <div className="jf-row" style={{ flexWrap: "nowrap" }}>
+                    {p.settingsSchema && Object.keys(p.settingsSchema).length > 0 && (
+                      <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${p.id}/settings`}>
+                        Settings
+                      </Link>
+                    )}
+                    <button className="jf-btn jf-btn--ghost" onClick={() => togglePlugin(p.id, p.status)}>
+                      {p.status === "active" ? "Deactivate" : "Activate"}
+                    </button>
+                    <button className="jf-btn jf-btn--danger" onClick={() => deletePlugin(p.id)}>
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

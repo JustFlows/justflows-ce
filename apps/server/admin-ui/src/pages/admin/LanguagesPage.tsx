@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useT } from "../../i18n/I18nProvider";
+import { useSessionRole } from "@components/SessionProvider";
 
 interface Language {
   id: string;
@@ -19,6 +20,9 @@ interface BuiltinLanguage {
 
 export default function LanguagesPage() {
   const { t } = useT();
+  // Reading the language list is open to every admin-eligible role; adding,
+  // activating, and setting a default are all administrator-only.
+  const canManage = useSessionRole() === "administrator";
   const [languages, setLanguages] = useState<Language[]>([]);
   const [builtin, setBuiltin] = useState<BuiltinLanguage[]>([]);
   const [selectedCode, setSelectedCode] = useState("");
@@ -114,7 +118,7 @@ export default function LanguagesPage() {
                   <th>{t("languages.code")}</th>
                   <th>{t("languages.name")}</th>
                   <th>{t("languages.nativeName")}</th>
-                  <th style={{ textAlign: "end" }}>{t("common.actions")}</th>
+                  {canManage && <th style={{ textAlign: "end" }}>{t("common.actions")}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -130,18 +134,20 @@ export default function LanguagesPage() {
                       )}
                     </td>
                     <td>{lang.nativeName}</td>
-                    <td className="jf-td--actions">
-                      {!lang.isDefault && (
-                        <span className="jf-row" style={{ justifyContent: "flex-end" }}>
-                          <button className="jf-btn jf-btn--ghost" onClick={() => setDefault(lang.id)}>
-                            {t("languages.setDefault")}
-                          </button>
-                          <button className="jf-btn jf-btn--ghost" onClick={() => toggleActive(lang)}>
-                            {lang.isActive ? t("common.active") : t("common.inactive")}
-                          </button>
-                        </span>
-                      )}
-                    </td>
+                    {canManage && (
+                      <td className="jf-td--actions">
+                        {!lang.isDefault && (
+                          <span className="jf-row" style={{ justifyContent: "flex-end" }}>
+                            <button className="jf-btn jf-btn--ghost" onClick={() => setDefault(lang.id)}>
+                              {t("languages.setDefault")}
+                            </button>
+                            <button className="jf-btn jf-btn--ghost" onClick={() => toggleActive(lang)}>
+                              {lang.isActive ? t("common.active") : t("common.inactive")}
+                            </button>
+                          </span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -150,30 +156,32 @@ export default function LanguagesPage() {
         )}
       </div>
 
-      <div className="jf-card">
-        <div className="jf-card__head">
-          <h2 className="jf-card__title">{t("languages.addLanguage")}</h2>
-        </div>
-        <div className="jf-card__body">
-          <div className="jf-row">
-            <select
-              className="jf-input"
-              style={{ maxWidth: 280 }}
-              value={selectedCode}
-              onChange={(e) => setSelectedCode(e.target.value)}
-              aria-label={t("languages.addLanguage")}
-            >
-              <option value="">—</option>
-              {available.map((b) => (
-                <option key={b.code} value={b.code}>{b.nativeName} ({b.code})</option>
-              ))}
-            </select>
-            <button className="jf-btn jf-btn--primary" onClick={addLanguage} disabled={!selectedCode}>
-              {t("common.add")}
-            </button>
+      {canManage && (
+        <div className="jf-card">
+          <div className="jf-card__head">
+            <h2 className="jf-card__title">{t("languages.addLanguage")}</h2>
+          </div>
+          <div className="jf-card__body">
+            <div className="jf-row">
+              <select
+                className="jf-input"
+                style={{ maxWidth: 280 }}
+                value={selectedCode}
+                onChange={(e) => setSelectedCode(e.target.value)}
+                aria-label={t("languages.addLanguage")}
+              >
+                <option value="">—</option>
+                {available.map((b) => (
+                  <option key={b.code} value={b.code}>{b.nativeName} ({b.code})</option>
+                ))}
+              </select>
+              <button className="jf-btn jf-btn--primary" onClick={addLanguage} disabled={!selectedCode}>
+                {t("common.add")}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
