@@ -43,6 +43,38 @@ router.get("/", requireRole("administrator", "editor"), async (req, res) => {
   }
 });
 
+/** Number of administrators left on the site — the floor CRUD guards check against. */
+async function countAdministrators(
+  db: Awaited<ReturnType<typeof getDb>>,
+  siteId: string,
+): Promise<number> {
+  const rows = await db.query<{ count: number | string }>(
+    "SELECT COUNT(*) as count FROM users WHERE site_id = ? AND role = 'administrator'",
+    [siteId],
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+router.get("/:id", requireRole("administrator", "editor"), async (req, res) => {
+  const session = req.session!;
+  const userId = param(req.params.id);
+
+  try {
+    const db = await getDb();
+    const rows = await db.query<Record<string, unknown>>(
+      "SELECT id, email, username, display_name, role, created_at FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+      [userId, session.siteId],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    res.json({ user: rows[0] });
+  } catch (err) {
+    sendServerError(res, "users", err);
+  }
+});
+
 router.post("/", requireRole("administrator"), async (req, res) => {
   const session = req.session!;
 
@@ -147,6 +179,24 @@ router.patch("/:id", requireRole("administrator"), async (req, res) => {
 
   try {
     const db = await getDb();
+
+    if (role) {
+      const target = (
+        await db.query<{ role: string }>(
+          "SELECT role FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+          [userId, session.siteId],
+        )
+      )[0];
+      if (!target) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      if (target.role === "administrator" && role !== "administrator" && (await countAdministrators(db, session.siteId)) <= 1) {
+        res.status(400).json({ error: "Cannot demote the last administrator" });
+        return;
+      }
+    }
+
     const fields: string[] = [];
     const values: (string | number | boolean | null)[] = [];
 
@@ -300,10 +350,29 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
     return;
   }
 
-  const db = await getDb();
-  await db.run("DELETE FROM users WHERE id = ? AND site_id = ?", [userId, session.siteId]);
-  auditFromRequest(req, "user.deleted", { target: userId });
-  res.json({ ok: true });
+  try {
+    const db = await getDb();
+    const target = (
+      await db.query<{ role: string }>(
+        "SELECT role FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+        [userId, session.siteId],
+      )
+    )[0];
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (target.role === "administrator" && (await countAdministrators(db, session.siteId)) <= 1) {
+      res.status(400).json({ error: "Cannot delete the last administrator" });
+      return;
+    }
+
+    await db.run("DELETE FROM users WHERE id = ? AND site_id = ?", [userId, session.siteId]);
+    auditFromRequest(req, "user.deleted", { target: userId });
+    res.json({ ok: true });
+  } catch (err) {
+    sendServerError(res, "users", err);
+  }
 });
 
 export default router;

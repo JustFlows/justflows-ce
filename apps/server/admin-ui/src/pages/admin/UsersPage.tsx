@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 interface User {
   id: string;
@@ -19,6 +20,7 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/users")
@@ -59,6 +61,24 @@ export default function UsersPage() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function removeUser(user: User) {
+    if (!window.confirm(`Remove ${user.displayName || user.email}? This cannot be undone.`)) return;
+    setRemovingId(user.id);
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch(`/api/users/${encodeURIComponent(user.id)}`, { method: "DELETE" });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to remove user");
+      setUsers((current) => current.filter((u) => u.id !== user.id));
+      setNotice("User removed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRemovingId(null);
     }
   }
 
@@ -148,8 +168,15 @@ export default function UsersPage() {
                   </td>
                   <td className="jf-td--muted">{u.createdAt.slice(0, 10)}</td>
                   <td className="jf-td--actions">
+                    <Link className="jf-btn jf-btn--quiet" to={`/admin/users/${u.id}`}>Edit</Link>
                     {u.role !== "administrator" && (
-                      <button className="jf-btn jf-btn--ghost">Remove</button>
+                      <button
+                        className="jf-btn jf-btn--ghost"
+                        disabled={removingId === u.id}
+                        onClick={() => removeUser(u)}
+                      >
+                        {removingId === u.id ? "Removing…" : "Remove"}
+                      </button>
                     )}
                   </td>
                 </tr>

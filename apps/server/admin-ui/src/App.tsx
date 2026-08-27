@@ -19,6 +19,7 @@ import ThemeCustomizePage from "./pages/admin/ThemeCustomizePage";
 import PageBuilderPage from "./pages/admin/PageBuilderPage";
 import MenusPage from "./pages/admin/MenusPage";
 import UsersPage from "./pages/admin/UsersPage";
+import EditUserPage from "./pages/admin/EditUserPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import CommentsPage from "./pages/admin/CommentsPage";
 import MarketplacePage from "./pages/admin/MarketplacePage";
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="design" element={<DesignPage />} />
         <Route path="menus" element={<MenusPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="users/:id" element={<EditUserPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="comments" element={<CommentsPage />} />
         <Route path="marketplace" element={<MarketplacePage />} />
