@@ -142,9 +142,15 @@ export default function MenusPage() {
   }
 
   async function loadContentOptions() {
+    const langRes = await fetch("/api/languages");
+    const langData = await langRes.json();
+    const languages: Array<{ code: string; isDefault?: boolean }> = langData.languages ?? [];
+    const defaultLocale =
+      languages.find((lang) => lang.isDefault)?.code ?? languages[0]?.code;
+    const localeQuery = defaultLocale ? `&locale=${encodeURIComponent(defaultLocale)}` : "";
     const [pagesRes, postsRes] = await Promise.all([
-      fetch("/api/content?type=page&status=published&limit=100"),
-      fetch("/api/content?type=post&status=published&limit=100"),
+      fetch(`/api/content?type=page&status=published&limit=100${localeQuery}`),
+      fetch(`/api/content?type=post&status=published&limit=100${localeQuery}`),
     ]);
     const pagesData = await pagesRes.json();
     const postsData = await postsRes.json();

@@ -57,7 +57,26 @@
     "locale": "Langue",
     "saveDraft": "Enregistrer le brouillon",
     "publish": "Publier",
-    "titleRequired": "Le titre est requis"
+    "publishDraft": "Publier le brouillon",
+    "previewDraft": "Prévisualiser le brouillon",
+    "discardDraft": "Abandonner le brouillon",
+    "discardDraftConfirm": "Abandonner les modifications non publiées et restaurer la version en ligne dans l’éditeur ?",
+    "compareDraft": "Comparer avec la version en ligne",
+    "draftChanges": "Modifications du brouillon",
+    "publishedWithDraft": "Publié — modifications du brouillon",
+    "autosaving": "Enregistrement automatique…",
+    "draftSaved": "Brouillon enregistré",
+    "live": "En ligne",
+    "lastDraftBy": "Brouillon modifié en dernier par {name}",
+    "liveChanged": "La version en ligne a changé depuis le début de ce brouillon. Comparez avant de publier.",
+    "titleRequired": "Le titre est requis",
+    "revisions": "Révisions",
+    "revisionsHint": "Les 5 dernières versions peuvent être restaurées en brouillon. La page en ligne ne change qu’à la publication.",
+    "revisionsEmpty": "Pas encore de versions précédentes. Enregistrez ou publiez pour conserver un point de restauration.",
+    "restoreRevision": "Restaurer",
+    "restoreRevisionConfirm": "Restaurer « {title} » en brouillon ? La page publiée reste inchangée jusqu’à la publication.",
+    "revisionVersion": "Version {version}",
+    "revisionCurrentDraft": "Brouillon actuel"
   },
   "languages": {
     "title": "Langues",
@@ -68,7 +87,10 @@
     "nativeName": "Nom natif",
     "setDefault": "Définir par défaut",
     "uiLanguage": "Langue de l'admin",
-    "noLanguages": "Aucune langue configurée."
+    "noLanguages": "Aucune langue configurée.",
+    "codePlaceholder": "nl-NL",
+    "codeHint": "N'importe quelle balise BCP 47, par exemple nl-NL ou en-US. Les URL publiques l'utilisent comme préfixe de chemin.",
+    "deleteConfirm": "Supprimer {code} ? Les pages et articles dans cette langue sont conservés, mais les visiteurs ne la verront plus dans le sélecteur."
   },
   "design": {
     "title": "Design",

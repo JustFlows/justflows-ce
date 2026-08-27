@@ -8,7 +8,6 @@ export async function isSitePublic(): Promise<boolean> {
   const siteId = await getSiteId();
   if (!siteId) return false;
   const value = await getSiteSetting<boolean>(siteId, "site_public");
-  if (value === null || value === undefined) return true;
   return value === true;
 }
 
@@ -16,6 +15,7 @@ export async function shouldDiscourageSearchEngines(): Promise<boolean> {
   const siteId = await getSiteId();
   if (!siteId) return true;
   const value = await getSiteSetting<boolean>(siteId, "discourage_search_engines");
+  if (value === null || value === undefined) return true;
   return value === true;
 }
 

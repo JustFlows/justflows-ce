@@ -1,0 +1,4 @@
+interface:
+  display_name: "Justflows Changelog"
+  short_description: "Attach Project 35 roadmap issues to CHANGELOG.md"
+  default_prompt: "Use /justflows-changelog to attach the roadmap ticket to CHANGELOG.md."

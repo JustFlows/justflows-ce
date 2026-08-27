@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { getJfCache } from "./jf-cache.js";
-import { getJfRoot } from "./jf-root.js";
+import { getJfCache, cacheStorageDir } from "./jf-cache.js";
 
 export const PAGE_CACHE_PREFIX = "page:html:";
 export const SITE_CTX_PREFIX = "site:ctx:";
@@ -46,8 +45,9 @@ export async function rememberPublic<T>(
   fn: () => Promise<T>,
   preview = false,
 ): Promise<T> {
-  if (preview) return fn();
-  return getJfCache().remember(key, await publicCacheTtl(), fn);
+  const cache = getJfCache();
+  if (preview || !cache.enabled) return fn();
+  return cache.remember(key, await publicCacheTtl(), fn);
 }
 
 /** Wipe all public-site cache layers (content, pages, layout data). */
@@ -61,8 +61,7 @@ export async function inspectCacheStorage(): Promise<{
   totalBytes: number;
   sampleKeys: string[];
 }> {
-  const cacheDir =
-    process.env.CACHE_DIR ?? path.join(getJfRoot(), ".cache");
+  const cacheDir = cacheStorageDir();
 
   try {
     const entries = await fs.readdir(cacheDir);

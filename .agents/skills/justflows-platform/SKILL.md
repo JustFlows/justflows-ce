@@ -7,6 +7,8 @@ description: Plan and implement cross-cutting Justflows platform changes spannin
 
 Never add Cursor or any AI as a git co-author or contributor. After a commit, verify `git log -1 --format='%B'` has no `Co-authored-by: Cursor` trailer.
 
+User-visible product changes must add a `CHANGELOG.md` bullet that links the matching [Public Roadmap](https://github.com/orgs/JustFlows/projects/35) `justflows-ce` issue. Follow `.agents/skills/justflows-changelog/SKILL.md`. Do not close that issue until it has shipped on public `justflows-ce`.
+
 Start by reading `AGENTS.md`, the affected package manifests, and existing implementation paths. Trace a feature from its stable domain contract through runtime integration and user-facing surfaces before choosing edit locations.
 
 ## Place responsibilities

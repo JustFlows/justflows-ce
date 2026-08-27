@@ -6,8 +6,8 @@ const registry = createBlockRegistrySync();
 
 const ctx = {
   languageLinks: [
-    { code: "en", name: "English", href: "/about", current: true },
-    { code: "nl", name: "Nederlands", href: "/nl/about", current: false },
+    { code: "en-US", name: "English", href: "/about", current: true, displayCode: "EN-US" },
+    { code: "nl-NL", name: "Nederlands", href: "/nl-NL/about", current: false, displayCode: "NL-NL" },
   ],
   usersCanRegister: true,
   labels: { login: "Log in", register: "Register", language: "Language" },
@@ -17,7 +17,7 @@ describe("hydrateSiteWidgets", () => {
   it("fills language links from the active locale list", () => {
     const html = registry.renderNode({ type: "core.language-switcher", props: { style: "names" } });
     const out = hydrateSiteWidgets(html, ctx);
-    expect(out).toContain("/nl/about");
+    expect(out).toContain("/nl-NL/about");
     expect(out).toContain("Nederlands");
     expect(out).toContain('aria-current="page"');
     expect(out).not.toContain("<!--jf:language-switcher-->");
@@ -27,7 +27,7 @@ describe("hydrateSiteWidgets", () => {
     const html = registry.renderNode({ type: "core.language-switcher", props: {} });
     const out = hydrateSiteWidgets(html, {
       ...ctx,
-      languageLinks: [{ code: "en", name: "English", href: "/", current: true }],
+      languageLinks: [{ code: "en-US", name: "English", href: "/", current: true, displayCode: "EN-US" }],
     });
     expect(out).toBe("");
   });

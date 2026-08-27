@@ -14,7 +14,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     secret: env["APP_SECRET"],
     logLevel: env["LOG_LEVEL"],
     database: {
-      driver: env["DATABASE_DRIVER"],
+      driver: env["DATABASE_DRIVER"] || env["DB_DRIVER"],
       url: env["DATABASE_URL"],
       poolMin: env["DATABASE_POOL_MIN"],
       poolMax: env["DATABASE_POOL_MAX"],
@@ -28,7 +28,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       s3Endpoint: env["STORAGE_S3_ENDPOINT"],
     },
     cache: {
-      enabled: parseEnvBool(env["CACHE_ENABLED"], true),
+      enabled: parseEnvBool(env["CACHE_ENABLED"], false),
       driver: env["CACHE_DRIVER"],
       dir: env["CACHE_DIR"],
       redisUrl: env["CACHE_REDIS_URL"],
