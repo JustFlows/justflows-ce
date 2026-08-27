@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
+import { useSessionRole } from "@components/SessionProvider";
 
 interface SettingField {
   type: "string" | "number" | "boolean" | "text";
@@ -26,16 +27,20 @@ function localeValue(value: unknown, locale: string): string {
 
 export default function PluginSettingsPage() {
   const { id } = useParams<{ id: string }>();
+  // Reading and saving plugin settings are both administrator-only on the
+  // server, unlike the plugin list itself (administrator + editor).
+  const role = useSessionRole();
+  const canManage = role === "administrator";
   const [schema, setSchema] = useState<Record<string, SettingField>>({});
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [languages, setLanguages] = useState<SiteLanguage[]>([]);
-  const [locale, setLocale] = useState("en");
+  const [locale, setLocale] = useState("en-US");
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !canManage) return;
     fetch(`/api/plugins/${id}/settings`)
       .then((r) => r.json())
       .then((data: {
@@ -49,11 +54,11 @@ export default function PluginSettingsPage() {
         setSchema(data.schema ?? {});
         setValues(data.values ?? {});
         setLanguages(langs);
-        setLocale(langs.find((lang) => lang.isDefault)?.code ?? langs[0]?.code ?? "en");
+        setLocale(langs.find((lang) => lang.isDefault)?.code ?? langs[0]?.code ?? "en-US");
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, canManage]);
 
   const localizedEntries = useMemo(
     () => Object.entries(schema).filter(([, field]) => field.localized),
@@ -143,6 +148,13 @@ export default function PluginSettingsPage() {
         )}
       </label>
     );
+  }
+
+  // Reachable by a direct URL even though the plugin list no longer links
+  // here for a non-administrator — bounce rather than render a form that
+  // would just fail its fetch.
+  if (role !== null && !canManage) {
+    return <Navigate to="/admin/plugins" replace />;
   }
 
   return (

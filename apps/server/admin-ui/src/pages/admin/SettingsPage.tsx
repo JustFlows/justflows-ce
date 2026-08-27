@@ -6,6 +6,7 @@ import {
   formatPhpDate,
 } from "@lib/datetime-format";
 import MediaImageField from "@components/MediaImageField";
+import { useSessionRole } from "@components/SessionProvider";
 import { initialJson } from "../../ssr-data";
 
 const ROLE_OPTIONS = ["subscriber", "contributor", "author", "editor", "administrator"] as const;
@@ -59,15 +60,15 @@ const EMPTY: GeneralState = {
   adminEmail: "",
   usersCanRegister: false,
   defaultRole: "subscriber",
-  siteLanguage: "en",
+  siteLanguage: "en-US",
   timezone: "UTC",
   dateFormat: "F j, Y",
   timeFormat: "g:i a",
   startOfWeek: 1,
   postsPerPage: "10",
   sitePublic: false,
-  publicApiEnabled: true,
-  discourageSearchEngines: false,
+  publicApiEnabled: false,
+  discourageSearchEngines: true,
   mailTransport: "sendmail",
   mailFromName: "",
   smtpHost: "localhost",
@@ -94,7 +95,7 @@ function generalFromPayload(data: SettingsPayload): GeneralState {
     adminEmail: typeof data.admin_email === "string" ? data.admin_email : "",
     usersCanRegister: data.users_can_register === true,
     defaultRole: typeof data.default_role === "string" ? data.default_role : "subscriber",
-    siteLanguage: typeof data.site_language === "string" ? data.site_language : "en",
+    siteLanguage: typeof data.site_language === "string" ? data.site_language : "en-US",
     timezone: typeof data.timezone === "string" ? data.timezone : "UTC",
     dateFormat: data.date_format ?? "F j, Y",
     timeFormat: data.time_format ?? "g:i a",
@@ -128,6 +129,9 @@ function groupTimezones(zones: string[]): Array<{ region: string; zones: string[
 }
 
 export default function SettingsPage() {
+  // Reading settings is open to every admin-eligible role; saving them (and
+  // sending a test email) is administrator-only.
+  const canManage = useSessionRole() === "administrator";
   const prefetched = initialJson<SettingsPayload>("/api/settings");
   const initialGeneral = prefetched ? generalFromPayload(prefetched) : EMPTY;
   const [general, setGeneral] = useState<GeneralState>(initialGeneral);
@@ -269,6 +273,10 @@ export default function SettingsPage() {
         </div>
       </header>
 
+      {/* Native fieldset disabling covers every input/select/textarea/button
+          below in one shot — cheaper and less error-prone than gating each
+          of the dozens of controls in this form individually. */}
+      <fieldset disabled={!canManage} style={{ border: 0, margin: 0, padding: 0 }}>
       <Section title="Site identity">
         <div className="jf-grid jf-grid--2">
           <div className="jf-field">
@@ -518,7 +526,7 @@ export default function SettingsPage() {
               ? languages
               : [
                   {
-                    code: "en",
+                    code: "en-US",
                     name: "English",
                     nativeName: "English",
                     isDefault: true,
@@ -675,14 +683,17 @@ export default function SettingsPage() {
           <p className="jf-field__hint">posts</p>
         </div>
       </Section>
+      </fieldset>
 
-      <div className="jf-row">
-        <button className="jf-btn jf-btn--primary" onClick={save} disabled={saving}>
-          {saving ? "Saving…" : "Save Changes"}
-        </button>
-        {saved && <span className="jf-status jf-status--saved">✓ Settings saved</span>}
-        {error && <span className="jf-status jf-status--error">{error}</span>}
-      </div>
+      {canManage && (
+        <div className="jf-row">
+          <button className="jf-btn jf-btn--primary" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+          {saved && <span className="jf-status jf-status--saved">✓ Settings saved</span>}
+          {error && <span className="jf-status jf-status--error">{error}</span>}
+        </div>
+      )}
     </div>
   );
 }

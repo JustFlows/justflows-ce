@@ -75,7 +75,7 @@ export default function CustomizeThemePage() {
   const [converting, setConverting] = useState(false);
   const [blogPageId, setBlogPageId] = useState<string | null>(null);
   const [convertingBlog, setConvertingBlog] = useState(false);
-  const [defaultLocale, setDefaultLocale] = useState("en");
+  const [defaultLocale, setDefaultLocale] = useState("en-US");
   const [openSection, setOpenSection] = useState<string>("identity");
   const [footer, setFooter] = useState<BlockDocument>({ version: 1, blocks: [] });
   const [footerSaving, setFooterSaving] = useState(false);
@@ -102,7 +102,7 @@ export default function CustomizeThemePage() {
       .then((r) => r.json())
       .then((data: { languages?: { code: string; isDefault?: boolean }[] }) => {
         const langs = data.languages ?? [];
-        setDefaultLocale(langs.find((l) => l.isDefault)?.code ?? langs[0]?.code ?? "en");
+        setDefaultLocale(langs.find((l) => l.isDefault)?.code ?? langs[0]?.code ?? "en-US");
       })
       .catch(() => {});
   }, []);

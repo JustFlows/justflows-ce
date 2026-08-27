@@ -11,15 +11,23 @@ describe("admin SSR", () => {
     expect(paths).toContain("/api/plugins/admin-menu");
     expect(paths).toContain("/api/i18n/en");
     expect(paths).toContain("/api/i18n/nl");
-    expect(paths).toContain("/api/content");
+    expect(paths).toContain("/api/languages");
     expect(paths).toContain("/api/settings");
     expect(paths).toContain("/api/content-types");
+    expect(paths).not.toContain("/api/content");
   });
 
   it("prefetches dynamic editor and plugin settings paths", () => {
     expect(adminPrefetchPaths("/admin/content/abc")).toContain("/api/content/abc");
     expect(adminPrefetchPaths("/admin/plugins/demo/settings")).toContain("/api/plugins/demo/settings");
     expect(adminPrefetchPaths("/admin/themes/customize?preview=1")).toContain("/api/site/identity?preview=1");
+  });
+
+  it("prefetches languages for the menus screen so content can be scoped later", () => {
+    const paths = adminPrefetchPaths("/admin/menus");
+    expect(paths).toContain("/api/menus");
+    expect(paths).toContain("/api/languages");
+    expect(paths).not.toContain("/api/content?type=page&status=published&limit=100");
   });
 
   it("cannot break out of the embedded JSON script", () => {

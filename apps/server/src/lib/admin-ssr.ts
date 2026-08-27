@@ -69,13 +69,14 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     "/api/site/identity",
     "/api/updates",
     "/api/plugins/admin-menu",
+    "/api/auth/me",
     ...ADMIN_LOCALES.map((locale) => `/api/i18n/${locale}`),
   ]);
   if (url.searchParams.get("preview") === "1") paths.add("/api/site/identity?preview=1");
 
   if (pathname === "/admin") return [...paths];
   if (pathname === "/admin/content") {
-    paths.add("/api/content");
+    paths.add("/api/languages");
     paths.add("/api/settings");
     paths.add("/api/content-types");
   } else if (pathname === "/admin/content/new") {
@@ -118,8 +119,7 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add("/api/css-providers");
   } else if (pathname === "/admin/menus") {
     paths.add("/api/menus");
-    paths.add("/api/content?type=page&status=published&limit=100");
-    paths.add("/api/content?type=post&status=published&limit=100");
+    paths.add("/api/languages");
   } else if (pathname === "/admin/users") {
     paths.add("/api/users");
   } else if (pathname === "/admin/settings") {
@@ -139,7 +139,6 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add("/api/health");
   } else if (pathname === "/admin/languages") {
     paths.add("/api/languages");
-    paths.add("/api/languages/builtin");
   } else if (
     pathname === "/admin/security" ||
     pathname === "/admin/security/headers" ||
@@ -190,6 +189,14 @@ async function addDerivedResponses(
     }
   };
 
+  if (pathname === "/admin/content") {
+    const langs = read<{ languages?: Array<{ code?: string; isDefault?: boolean }> }>("/api/languages");
+    const defaultLocale =
+      langs?.languages?.find((lang) => lang.isDefault)?.code ?? langs?.languages?.[0]?.code;
+    derived.add(
+      defaultLocale ? `/api/content?locale=${encodeURIComponent(defaultLocale)}` : "/api/content",
+    );
+  }
   if (/^\/admin\/content\/[^/]+$/.test(pathname)) {
     const id = pathname.split("/")[3]!;
     const content = read<{ type?: string; translationGroupId?: string }>(
@@ -206,6 +213,14 @@ async function addDerivedResponses(
     const menus = read<{ menus?: Array<{ slug?: string }> }>("/api/menus");
     const slug = menus?.menus?.[0]?.slug;
     if (slug) derived.add(`/api/menus/${encodeURIComponent(slug)}`);
+    const langs = read<{ languages?: Array<{ code?: string; isDefault?: boolean }> }>("/api/languages");
+    const defaultLocale =
+      langs?.languages?.find((lang) => lang.isDefault)?.code ?? langs?.languages?.[0]?.code;
+    if (defaultLocale) {
+      const localeQuery = `&locale=${encodeURIComponent(defaultLocale)}`;
+      derived.add(`/api/content?type=page&status=published&limit=100${localeQuery}`);
+      derived.add(`/api/content?type=post&status=published&limit=100${localeQuery}`);
+    }
   }
   if (pathname === "/admin/forms") {
     const forms = read<{ forms?: Array<{ id?: string }> }>("/api/forms");

@@ -425,8 +425,10 @@ makes both correctness and performance attributable to a specific extension.
 | ---- | ------- |
 | `app.starting` / `app.started` | `{ version }` |
 | `app.stopping` | `{}` |
-| `content.created` / `updated` / `deleted` | `{ contentId, siteId }` |
-| `content.published` / `unpublished` | `{ contentId, siteId }` |
+| `content.created` / `deleted` | `{ contentId, siteId }` |
+| `content.updated` | `{ contentId, siteId }` — fires when the **canonical live row** changes (first publish, republish of a working revision, or an unpublished draft save). Saving a working revision of published content does **not** fire `content.updated`. |
+| `content.published` / `unpublished` | `{ contentId, siteId }` — `content.published` runs after the live snapshot is committed |
+| `content.revisionSaved` / `revisionDiscarded` / `revisionRestored` | `{ contentId, siteId, revisionId }` |
 | `media.uploaded` | `{ siteId, mediaId, url }` |
 | `media.deleted` | `{ siteId, mediaId }` |
 | `user.created` / `updated` / `deleted` | `{ userId }` |
@@ -442,7 +444,8 @@ makes both correctness and performance attributable to a specific extension.
 | Hook | Payload |
 | ---- | ------- |
 | `content.beforeCreate` | `{ input: ContentDraft }` |
-| `content.beforeUpdate` / `beforeDelete` / `beforePublish` | `{ contentId, siteId }` |
+| `content.beforeUpdate` / `beforePublish` | `{ contentId, siteId, revision?, revisionId? }` — `revision` is the proposed snapshot. Gates run before the live row is committed. If a publish fails after a working revision was saved, that pending revision is kept. |
+| `content.beforeDelete` | `{ contentId, siteId }` |
 | `media.beforeUpload` | `{ siteId, filename, mimeType, sizeBytes }` |
 | `media.beforeDelete` | `{ siteId, mediaId }` |
 
@@ -453,6 +456,7 @@ makes both correctness and performance attributable to a specific extension.
 | `content.input` | `Record<string, unknown>` | `{ siteId }` |
 | `content.output` | `Record<string, unknown>` | `{ siteId }` |
 | `content.render` | `string` (HTML) | `{ siteId, contentId }` |
+| `content.revision` | proposed snapshot | `{ siteId, contentId }` — filters the working revision before it is stored. Committed history is immutable. |
 | `media.metadata` | `Record<string, unknown>` | `{ siteId, mediaId }` |
 | `navigation.items` | `NavigationItem[]` | `{ siteId, location }` |
 | `http.responseHeaders` | `Record<string, string>` | `{ method, path }` |

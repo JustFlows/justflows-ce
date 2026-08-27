@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { initialJson } from "../../ssr-data";
+import { useSessionRole } from "@components/SessionProvider";
 
 interface FieldDef {
   key: string;
@@ -33,6 +34,9 @@ function emptyField(): FieldDef {
 }
 
 export default function ContentTypesPage() {
+  // Everyone who can reach this page can read types; creating, editing
+  // fields, and deleting are all administrator-only on the server.
+  const canManage = useSessionRole() === "administrator";
   const prefetched = initialJson<{ types?: ContentType[] }>("/api/content-types");
   const [types, setTypes] = useState<ContentType[]>(prefetched?.types ?? []);
   const [editing, setEditing] = useState<string | null>(null);
@@ -148,11 +152,13 @@ export default function ContentTypesPage() {
           <h1>Content Types</h1>
           <p>Define custom content types and their fields. Posts and pages stay built-in.</p>
         </div>
-        <div className="jf-pagehead__actions">
-          <button className="jf-btn jf-btn--primary" onClick={() => setCreating(true)}>
-            + New type
-          </button>
-        </div>
+        {canManage && (
+          <div className="jf-pagehead__actions">
+            <button className="jf-btn jf-btn--primary" onClick={() => setCreating(true)}>
+              + New type
+            </button>
+          </div>
+        )}
       </header>
 
       {error && (
@@ -161,7 +167,7 @@ export default function ContentTypesPage() {
         </div>
       )}
 
-      {creating && (
+      {canManage && creating && (
         <div className="jf-card jf-card--active">
           <div className="jf-card__head">
             <h2 className="jf-card__title">New content type</h2>
@@ -249,7 +255,7 @@ export default function ContentTypesPage() {
                   >
                     {isEditing ? "Close" : "Edit fields"}
                   </button>
-                  {!type.builtin && (
+                  {canManage && !type.builtin && (
                     <button className="jf-btn jf-btn--danger" onClick={() => void removeType(type)}>
                       Delete
                     </button>
@@ -279,6 +285,7 @@ export default function ContentTypesPage() {
                         aria-label="Field key"
                         placeholder="key"
                         value={field.key}
+                        disabled={!canManage}
                         onChange={(e) =>
                           updateLocal(type.slug, {
                             ...type,
@@ -293,6 +300,7 @@ export default function ContentTypesPage() {
                         aria-label="Field label"
                         placeholder="Label"
                         value={field.label}
+                        disabled={!canManage}
                         onChange={(e) =>
                           updateLocal(type.slug, {
                             ...type,
@@ -306,6 +314,7 @@ export default function ContentTypesPage() {
                         className="jf-input"
                         aria-label="Field type"
                         value={field.type}
+                        disabled={!canManage}
                         onChange={(e) =>
                           updateLocal(type.slug, {
                             ...type,
@@ -325,6 +334,7 @@ export default function ContentTypesPage() {
                         <input
                           type="checkbox"
                           checked={field.required}
+                          disabled={!canManage}
                           onChange={(e) =>
                             updateLocal(type.slug, {
                               ...type,
@@ -342,6 +352,7 @@ export default function ContentTypesPage() {
                           aria-label="Select options"
                           placeholder="small, medium, large"
                           value={(field.options ?? []).join(", ")}
+                          disabled={!canManage}
                           onChange={(e) =>
                             updateLocal(type.slug, {
                               ...type,
@@ -360,38 +371,42 @@ export default function ContentTypesPage() {
                           }
                         />
                       )}
-                      <button
-                        className="jf-btn jf-btn--danger"
-                        aria-label={`Remove field ${field.label}`}
-                        onClick={() =>
-                          updateLocal(type.slug, {
-                            ...type,
-                            fields: type.fields.filter((_, j) => j !== i),
-                          })
-                        }
-                      >
-                        ✕
-                      </button>
+                      {canManage && (
+                        <button
+                          className="jf-btn jf-btn--danger"
+                          aria-label={`Remove field ${field.label}`}
+                          onClick={() =>
+                            updateLocal(type.slug, {
+                              ...type,
+                              fields: type.fields.filter((_, j) => j !== i),
+                            })
+                          }
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   ))}
 
-                  <div className="jf-row">
-                    <button
-                      className="jf-btn jf-btn--ghost"
-                      onClick={() =>
-                        updateLocal(type.slug, { ...type, fields: [...type.fields, emptyField()] })
-                      }
-                    >
-                      + Add field
-                    </button>
-                    <button
-                      className="jf-btn jf-btn--primary"
-                      disabled={saving}
-                      onClick={() => void persist(type)}
-                    >
-                      {saving ? "Saving…" : "Save fields"}
-                    </button>
-                  </div>
+                  {canManage && (
+                    <div className="jf-row">
+                      <button
+                        className="jf-btn jf-btn--ghost"
+                        onClick={() =>
+                          updateLocal(type.slug, { ...type, fields: [...type.fields, emptyField()] })
+                        }
+                      >
+                        + Add field
+                      </button>
+                      <button
+                        className="jf-btn jf-btn--primary"
+                        disabled={saving}
+                        onClick={() => void persist(type)}
+                      >
+                        {saving ? "Saving…" : "Save fields"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

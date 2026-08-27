@@ -5,6 +5,10 @@ description: Test, review, debug, and verify Justflows changes across the monore
 
 # Justflows Quality
 
+Never add Cursor or any AI as a git co-author or contributor. After a commit, verify `git log -1 --format='%B'` has no `Co-authored-by: Cursor` trailer.
+
+Release notes and `CHANGELOG.md` must keep the [Public Roadmap](https://github.com/orgs/JustFlows/projects/35) issue link on each shipped bullet. Close those `justflows-ce` issues when the version lands on public `justflows-ce` `main`, not when work merges to `develop` here. See `.agents/skills/justflows-changelog/SKILL.md`.
+
 Start from observed behavior or the changed diff. Do not erase or reformat unrelated working-tree changes. Reproduce failures with the narrowest deterministic command before changing code.
 
 - Put unit tests in the owning package's existing test structure.

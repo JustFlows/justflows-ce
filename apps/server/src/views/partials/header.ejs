@@ -44,7 +44,7 @@
       <% if (hdr.showLanguageSwitcher !== false && typeof languageLinks !== 'undefined' && languageLinks.length > 1) { %>
         <span class="site-lang jf-language-switcher jf-language-switcher--codes" data-jf-widget="language-switcher">
           <% languageLinks.forEach(function(lang) { %>
-            <a href="<%= lang.href %>" class="site-lang__link jf-language-switcher__link<%= lang.current ? ' is-current' : '' %>"<% if (lang.current) { %> aria-current="page"<% } %>><%= lang.code.toUpperCase() %></a>
+            <a href="<%= lang.href %>" class="site-lang__link jf-language-switcher__link<%= lang.current ? ' is-current' : '' %>"<% if (lang.current) { %> aria-current="page"<% } %>><%= lang.displayCode || lang.code.toUpperCase() %></a>
           <% }); %>
         </span>
       <% } %>

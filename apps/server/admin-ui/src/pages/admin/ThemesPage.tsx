@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSessionRole } from "@components/SessionProvider";
 
 interface Theme {
   id: string;
@@ -13,6 +14,9 @@ interface Theme {
 }
 
 export default function ThemesPage() {
+  // Uploading and activating a theme are administrator-only on the server;
+  // an editor (who can also reach this page) can only view and customize.
+  const canManage = useSessionRole() === "administrator";
   const [themes, setThemes] = useState<Theme[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -83,6 +87,7 @@ export default function ThemesPage() {
         </div>
       </header>
 
+      {canManage && (
       <div className="jf-card">
         <div className="jf-card__head">
           <h2 className="jf-card__title">Upload theme</h2>
@@ -109,6 +114,7 @@ export default function ThemesPage() {
           {uploadSuccess && <div className="jf-alert jf-alert--success">{uploadSuccess}</div>}
         </div>
       </div>
+      )}
 
       {loading ? (
         <div className="jf-cardgrid">
@@ -147,14 +153,14 @@ export default function ThemesPage() {
                     <Link to="/admin/themes/customize" className="jf-btn jf-btn--primary jf-btn--block">
                       Customize
                     </Link>
-                  ) : (
+                  ) : canManage ? (
                     <button
                       className="jf-btn jf-btn--ghost jf-btn--block"
                       onClick={() => activateTheme(themeId)}
                     >
                       Activate
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );

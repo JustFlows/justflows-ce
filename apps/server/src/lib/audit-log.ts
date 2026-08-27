@@ -46,6 +46,10 @@ export const AUDIT_ACTIONS = [
   "security.headers_changed",
   "settings.changed",
   "public_api.toggled",
+  "content.published",
+  "content.revision_restored",
+  "content.revision_discarded",
+  "content.revision_pruned",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

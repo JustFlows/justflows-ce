@@ -56,3 +56,15 @@ export function canPublish(role: string): boolean {
 export function canDeleteAnyContent(role: string): boolean {
   return (CONTENT_DELETE_ANY_ROLES as readonly string[]).includes(role);
 }
+
+export function canViewRevisions(role: string): boolean {
+  return (CONTENT_READ_ROLES as readonly string[]).includes(role);
+}
+
+export function canRestoreRevisions(role: string): boolean {
+  return (CONTENT_WRITE_ROLES as readonly string[]).includes(role);
+}
+
+export function canDiscardDraft(role: string): boolean {
+  return (CONTENT_WRITE_ROLES as readonly string[]).includes(role);
+}

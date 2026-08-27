@@ -17,4 +17,5 @@ Read affected paths in `docker/`, `scripts/`, `server.js`, `.env.production.exam
 
 Verify the relevant artifact or container path when possible, not only compilation. Report production paths that could not be exercised.
 
+- When a public version is cut on `justflows-ce`, close each [Public Roadmap](https://github.com/orgs/JustFlows/projects/35) issue linked from that version's `CHANGELOG.md` section (see `.agents/skills/justflows-changelog/SKILL.md`).
 - When syncing private → public, keep `.github/workflows/ci.yml` free of `actions/dependency-review-action`. That action requires GitHub Dependency graph, which `justflows-ce` does not have, and has failed public PRs more than once. Leave advisory gating on `pnpm audit --audit-level high`.

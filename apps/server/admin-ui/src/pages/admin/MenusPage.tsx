@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useT } from "../../i18n/I18nProvider";
+import { useSessionRole } from "@components/SessionProvider";
 
 type MenuItemType = "custom" | "page" | "post";
 
@@ -109,6 +110,11 @@ function flattenItems(items: MenuItem[], depth = 0): Array<{ item: MenuItem; dep
 
 export default function MenusPage() {
   const { t } = useT();
+  // Saving a menu (and creating one) is administrator/editor-only on the
+  // server; an author or contributor (who can also reach this page) can
+  // still look at a menu's structure, just not persist changes to it.
+  const role = useSessionRole();
+  const canManage = role === "administrator" || role === "editor";
   const [menus, setMenus] = useState<Menu[]>([]);
   const [selectedSlug, setSelectedSlug] = useState("primary");
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -136,9 +142,15 @@ export default function MenusPage() {
   }
 
   async function loadContentOptions() {
+    const langRes = await fetch("/api/languages");
+    const langData = await langRes.json();
+    const languages: Array<{ code: string; isDefault?: boolean }> = langData.languages ?? [];
+    const defaultLocale =
+      languages.find((lang) => lang.isDefault)?.code ?? languages[0]?.code;
+    const localeQuery = defaultLocale ? `&locale=${encodeURIComponent(defaultLocale)}` : "";
     const [pagesRes, postsRes] = await Promise.all([
-      fetch("/api/content?type=page&status=published&limit=100"),
-      fetch("/api/content?type=post&status=published&limit=100"),
+      fetch(`/api/content?type=page&status=published&limit=100${localeQuery}`),
+      fetch(`/api/content?type=post&status=published&limit=100${localeQuery}`),
     ]);
     const pagesData = await pagesRes.json();
     const postsData = await postsRes.json();
@@ -307,9 +319,11 @@ export default function MenusPage() {
         </div>
         <div className="jf-pagehead__actions">
           <Link to="/admin/themes" className="jf-btn jf-btn--ghost">{t("menus.backToThemes")}</Link>
-          <button className="jf-btn jf-btn--primary" onClick={saveMenu} disabled={saving}>
-            {saving ? t("common.saving") : t("common.save")}
-          </button>
+          {canManage && (
+            <button className="jf-btn jf-btn--primary" onClick={saveMenu} disabled={saving}>
+              {saving ? t("common.saving") : t("common.save")}
+            </button>
+          )}
         </div>
       </header>
 
@@ -341,6 +355,7 @@ export default function MenusPage() {
             </div>
           </div>
 
+          {canManage && (
           <div className="jf-card">
             <div className="jf-card__head">
               <h2 className="jf-card__title">{t("menus.addItems")}</h2>
@@ -450,7 +465,9 @@ export default function MenusPage() {
               )}
             </div>
           </div>
+          )}
 
+          {canManage && (
           <div className="jf-card">
             <div className="jf-card__head">
               <h2 className="jf-card__title">{t("menus.createMenu")}</h2>
@@ -473,6 +490,7 @@ export default function MenusPage() {
               </button>
             </div>
           </div>
+          )}
         </div>
 
         <div className="jf-card">

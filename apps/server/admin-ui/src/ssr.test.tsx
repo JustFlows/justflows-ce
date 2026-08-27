@@ -27,11 +27,19 @@ describe("admin SSR routes", () => {
       url: "/admin/content",
       locale: "en",
       responses: {
-        "/api/content": {
+        "/api/languages": {
           status: 200,
           statusText: "OK",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ items: [{ id: "1", type: "post", title: "SSR post", slug: "ssr", locale: "en", status: "published", updatedAt: "2026-08-26" }] }),
+          body: JSON.stringify({
+            languages: [{ code: "en-US", isDefault: true }],
+          }),
+        },
+        "/api/content?locale=en-US": {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ items: [{ id: "1", type: "post", title: "SSR post", slug: "ssr", locale: "en-US", status: "published", updatedAt: "2026-08-26" }] }),
         },
       },
     });

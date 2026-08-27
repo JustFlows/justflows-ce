@@ -4,8 +4,8 @@ import { publicApiGuard } from "./middleware/public-api.js";
 import { publicApiCors } from "./middleware/public-api-cors.js";
 import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
 import { logSafe } from "./lib/log-safe.js";
-import { getSession } from "./lib/session.js";
 import { renderAdminPage } from "./lib/admin-ssr.js";
+import { adminAccessGate } from "./middleware/admin-access.js";
 
 /** Register heavy routes (dynamic import — keeps Passenger startup fast). */
 export async function registerDeferredRoutes(app: express.Application): Promise<void> {
@@ -22,6 +22,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     } catch (err) {
       console.error("[justflows] Pending migrations failed:", err);
     }
+    const { startRevisionJobs } = await import("./lib/revision-jobs.js");
+    startRevisionJobs();
   }
 
   const { ensurePluginRuntime } = await import("./lib/plugin-runtime.js");
@@ -173,17 +175,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     }
   });
 
-  app.use("/admin", requireInstalled, (req, res, next) => {
-    if (req.path.match(/\.\w+$/)) {
-      next();
-      return;
-    }
-    if (!getSession(req)) {
-      res.redirect("/login");
-      return;
-    }
-    next();
-  });
+  app.use("/admin", requireInstalled, adminAccessGate);
 
   app.get(/^\/admin(\/.+)?$/, requireInstalled, (req, res, next) => {
     if (req.path.match(/\.\w+$/)) {

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PluginMenuProvider } from "@components/PluginMenuProvider";
+import { SessionProvider } from "@components/SessionProvider";
 import { expectNoCriticalAxe } from "../../test/a11y";
 import LoginPage from "../LoginPage";
 import InstallPage from "../InstallPage";
@@ -27,6 +28,7 @@ function mockFetch(): void {
       if (path.includes("/api/install/status")) return jsonResponse({ tokenRequired: false, tokenFile: null });
       if (path.includes("/api/auth/registration")) return jsonResponse({ enabled: false });
       if (path.includes("/api/auth/csrf")) return jsonResponse({ ok: true });
+      if (path.includes("/api/auth/me")) return jsonResponse({ id: "u1", email: "admin@example.com", role: "administrator" });
       if (path.includes("/api/content-types")) {
         return jsonResponse({
           types: [
@@ -170,9 +172,11 @@ describe("admin accessibility", () => {
   it("has no critical axe findings on plugins", async () => {
     const { container } = render(
       <MemoryRouter>
+        <SessionProvider>
         <PluginMenuProvider>
           <PluginsPage />
         </PluginMenuProvider>
+        </SessionProvider>
       </MemoryRouter>,
     );
     await waitFor(() => {
@@ -185,9 +189,11 @@ describe("admin accessibility", () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
+        <SessionProvider>
         <PluginMenuProvider>
           <PluginsPage />
         </PluginMenuProvider>
+        </SessionProvider>
       </MemoryRouter>,
     );
 

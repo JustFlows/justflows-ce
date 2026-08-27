@@ -2,7 +2,14 @@
 
 ## Scope
 
-These instructions apply to the entire repository. Load the focused skill in `.agents/skills/` that matches the work before making changes. Use `justflows-platform` first for cross-cutting or architectural work.
+These instructions apply to the entire repository. Load the focused skill in `.agents/skills/` that matches the work before making changes. Use `justflows-platform` first for cross-cutting or architectural work. Load `justflows-changelog` whenever the change belongs on `CHANGELOG.md` or implements a Public Roadmap item.
+
+This is the public development repository (`justflows-ce-development`). Open
+PRs into `develop` from `feature/`, `bug/`, `patch/`, or the other allowed
+prefixes. Do not push to `main` or `develop`. CI runs only on PRs into
+`develop`. Publish snapshots go to `justflows-ce` only when Dirk asks.
+
+User-visible work must cite the matching [Public Roadmap](https://github.com/orgs/JustFlows/projects/35) issue in `CHANGELOG.md` (see `.agents/skills/justflows-changelog/SKILL.md`). Close that `justflows-ce` issue only after the line has shipped on public `justflows-ce`, not when the feature PR merges here.
 
 ## Repository invariants
 
@@ -16,6 +23,7 @@ These instructions apply to the entire repository. Load the focused skill in `.a
 - Do not commit credentials, real `.env` files, generated builds, uploads, caches, or dependency directories.
 - Preserve unrelated working-tree changes. Make the smallest coherent change and verify it at the narrowest useful scope.
 - Public production releases must use stable SemVer only. Never commit an `-rc`, `-alpha`, `-beta`, or other prerelease version to public `main`, stable release branches, stable tags, release assets, package manifests, lockfiles, or released changelog headings. Prerelease identifiers belong only in private development or an explicitly requested public prerelease workflow.
+- Never add an AI agent as a contributor, author, co-author, or credits entry in commits, changelogs, contributor files, package metadata, or release notes. After every commit, check `git log -1 --format='%B'` and strip `Co-authored-by: Cursor` with `git commit-tree` if a wrapper injected it.
 - Do not add `actions/dependency-review-action` as a required CI job. It needs GitHub Dependency graph, which public `justflows-ce` does not have, and fails with "Dependency review is not supported on this repository." Advisory gating is `pnpm audit --audit-level high` in the `security` job. Do not reintroduce that action when syncing to the public repo.
 - Treat CodeQL findings as real defects: constrain filesystem paths with `resolvePathUnderBase`, rate-limit public `sendFile` handlers with `express-rate-limit`, never interpolate request data into a `console.*` format string (use `.replace(/\n/g, "")` and `JSON.stringify`), and avoid exists-then-open races. Do not disable CodeQL to make a public PR green.
 

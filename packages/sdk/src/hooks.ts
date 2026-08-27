@@ -59,6 +59,32 @@ export interface ContentRef {
   readonly siteId: string;
 }
 
+/** Canonical live-or-working fields a revision gate/filter may inspect. */
+export interface ContentRevisionSnapshot {
+  readonly title: string;
+  readonly slug: string;
+  readonly excerpt: string | null;
+  readonly blocks: unknown;
+  readonly fields: Record<string, unknown>;
+}
+
+export interface ContentRevisionRef extends ContentRef {
+  readonly revisionId: string;
+  readonly source?: "manual" | "autosave" | "import" | "api";
+  readonly actorId?: string;
+}
+
+export interface ContentUpdateGateEvent extends ContentRef {
+  readonly revision?: ContentRevisionSnapshot;
+  readonly revisionId?: string;
+}
+
+export interface ContentConflict {
+  readonly contentId: string;
+  readonly expectedVersion: number;
+  readonly actualVersion: number;
+}
+
 export interface ContentDraft {
   readonly siteId: string;
   readonly type?: string;
@@ -190,6 +216,9 @@ export interface ActionEventMap {
   "content.deleted": ContentRef;
   "content.published": ContentRef;
   "content.unpublished": ContentRef;
+  "content.revisionSaved": ContentRevisionRef;
+  "content.revisionDiscarded": ContentRevisionRef;
+  "content.revisionRestored": ContentRevisionRef;
 
   "media.uploaded": MediaUploadedEvent;
   "media.deleted": MediaRef;
@@ -226,9 +255,9 @@ export interface ActionEventMap {
  */
 export interface GateEventMap {
   "content.beforeCreate": ContentCreateGateEvent;
-  "content.beforeUpdate": ContentRef;
+  "content.beforeUpdate": ContentUpdateGateEvent;
   "content.beforeDelete": ContentRef;
-  "content.beforePublish": ContentRef;
+  "content.beforePublish": ContentUpdateGateEvent;
 
   "media.beforeUpload": MediaUploadGateEvent;
   "media.beforeDelete": MediaRef;
@@ -244,6 +273,7 @@ export interface FilterValueMap {
   "content.input": [Record<string, unknown>, { siteId: string }];
   "content.output": [Record<string, unknown>, { siteId: string }];
   "content.render": [string, { siteId: string; contentId: string }];
+  "content.revision": [ContentRevisionSnapshot, { siteId: string; contentId: string }];
   "media.metadata": [Record<string, unknown>, MediaRef];
   "navigation.items": [NavigationItem[], { siteId: string; location: string }];
   "http.responseHeaders": [Record<string, string>, { method: string; path: string }];
