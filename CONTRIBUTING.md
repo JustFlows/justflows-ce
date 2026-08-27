@@ -66,26 +66,33 @@ git commit -s -m "fix(auth): validate session expiry"
 
 ## Branch model
 
-Do not push to `main`. Production releases are tagged from `main` after a pull request.
+This is the public development repository. Do not push to `main` or `develop`.
+Releases are published from `main` to [`JustFlows/justflows-ce`](https://github.com/JustFlows/justflows-ce).
 
 | Branch | Purpose |
 | --- | --- |
-| `main` | Production. Protected. Update only by PR from `developers`. |
-| `developers` | Integration. Protected. Update only by PR from a feature branch. |
-| `feature/<name>` | Your work. Branch this off `developers`. |
+| `main` | Stable snapshot. Protected. Update only by PR from `develop`. |
+| `develop` | Integration. Protected. Update only by PR from a prefixed branch. |
+| `feature/<name>` | New work. Branch this off `develop`. |
+| `bug/<name>` or `fix/<name>` | Bug fixes. |
+| `patch/<name>` | Patches. |
+| `hotfix/<name>` | Production emergencies, branched from `main`. |
+| `chore/`, `docs/`, `refactor/`, `test/` | Also allowed. |
+
+Branch names outside those prefixes are rejected.
 
 ```bash
 git fetch origin
-git checkout developers
-git pull origin developers
+git checkout develop
+git pull origin develop
 git checkout -b feature/short-description
 # make changes, commit with -s
 git push -u origin HEAD
 ```
 
-Open a pull request **into `developers`**. After that lands, open a pull request from `developers` **into `main`** for the release.
+Open a pull request **into `develop`**. Tests, the dependency audit, and CodeQL run on that PR only — not on feature-branch pushes and not on PRs into `main`.
 
-Use `feature/` for new work, `fix/` for bug fixes, and `hotfix/` only for production emergencies branched from `main`.
+After the work lands on `develop`, maintainers open a pull request from `develop` **into `main`** for the release. That PR does not re-run the test suite.
 
 ## Code guidelines
 
@@ -109,7 +116,7 @@ pnpm --filter @justflows/server test
 
 `pnpm test` runs every workspace package that declares a `test` script (Turbo). Installer tests cover the `.jfpkg` manifest contract used by the plugin/theme installer. Server tests cover SEO helpers, the public OpenAPI document, and axe checks on login, install, content, media, and plugin admin routes.
 
-Pull requests into `developers` and `main` run the same core package tests, installer contract tests, and typechecks in GitHub Actions (`.github/workflows/ci.yml`). A green PR means those packages built and tested on CI, not only on a laptop.
+Pull requests into `develop` run the core package tests, installer contract tests, typechecks, dependency audit, and CodeQL in GitHub Actions (`.github/workflows/ci.yml`). A green PR means those packages built and tested on CI, not only on a laptop.
 
 ## Plugin and theme contributions
 

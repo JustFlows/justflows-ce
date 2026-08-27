@@ -5,6 +5,8 @@ description: Plan and implement cross-cutting Justflows platform changes spannin
 
 # Justflows Platform
 
+Never add Cursor or any AI as a git co-author or contributor. After a commit, verify `git log -1 --format='%B'` has no `Co-authored-by: Cursor` trailer.
+
 Start by reading `AGENTS.md`, the affected package manifests, and existing implementation paths. Trace a feature from its stable domain contract through runtime integration and user-facing surfaces before choosing edit locations.
 
 ## Place responsibilities

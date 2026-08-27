@@ -4,7 +4,8 @@
 
 ## Target
 
-Default PR target is **`developers`**, not `main`.
+Default PR target is **`develop`**, not `main`.
+Use a `feature/`, `bug/`, `patch/`, `fix/`, `hotfix/`, `chore/`, `docs/`, `refactor/`, or `test/` branch.
 
 ## Test plan
 

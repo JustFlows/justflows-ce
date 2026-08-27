@@ -1,5 +1,8 @@
 # Justflows
 
+> **This repository is for development.** Open pull requests into `develop`.
+> Releases are published to [`JustFlows/justflows-ce`](https://github.com/JustFlows/justflows-ce).
+
 **The open-source platform for building the web.**
 
 Justflows is a self-hostable website and content platform. A non-technical user
@@ -287,9 +290,9 @@ MIT
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Work happens on `feature/*` branches.
-Open pull requests into `developers`. `main` is protected and only updated from
-`developers`.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Work happens on `feature/*`, `bug/*`,
+and `patch/*` branches. Open pull requests into `develop`. `main` is protected
+and only updated from `develop`.
 
 ## Security note
 
