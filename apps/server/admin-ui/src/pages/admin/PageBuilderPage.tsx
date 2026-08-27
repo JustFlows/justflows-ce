@@ -9,6 +9,8 @@ interface ContentItem {
   title: string;
   slug: string;
   status: string;
+  version?: number;
+  hasWorkingRevision?: boolean;
   blocks?: BlockDocument;
   fields?: Record<string, unknown>;
 }
@@ -42,11 +44,28 @@ export default function PageBuilderPage() {
       const res = await fetch(`/api/content/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...item, ...(publish ? { status: "published" } : {}) }),
+        body: JSON.stringify({
+          title: item.title,
+          slug: item.slug,
+          blocks: item.blocks,
+          fields: item.fields,
+          expectedVersion: item.version,
+          source: "manual",
+        }),
       });
       const data = await res.json() as ContentItem & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Save failed");
       setItem(data);
+      if (publish) {
+        const published = await fetch(`/api/content/${id}/publish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expectedVersion: data.version }),
+        });
+        const body = await published.json() as ContentItem & { error?: string };
+        if (!published.ok) throw new Error(body.error ?? "Publish failed");
+        setItem(body);
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
@@ -67,7 +86,7 @@ export default function PageBuilderPage() {
   }
 
   const isPage = item.type === "page";
-  const previewUrl = item.status === "published" && item.slug ? `/${item.slug}` : null;
+  const previewUrl = item.slug ? `${item.slug.startsWith("/") ? item.slug : `/${item.slug}`}?preview=1` : null;
 
   return (
     <div className="jf-editor">
@@ -82,7 +101,9 @@ export default function PageBuilderPage() {
 
         <div className="jf-editor__title">
           <div className="jf-editor__name">{item.title || "Untitled page"}</div>
-          <div className="jf-editor__sub">Page builder · {item.status}</div>
+          <div className="jf-editor__sub">
+            Page builder · {item.status}{item.hasWorkingRevision ? " — draft changes" : ""}
+          </div>
         </div>
 
         <div className="jf-editor__actions">
@@ -96,11 +117,11 @@ export default function PageBuilderPage() {
           <button type="button" className="jf-btn jf-btn--onbar" disabled={saving} onClick={() => save(false)}>
             {saving ? "Saving…" : "Save"}
           </button>
-          {item.status !== "published" && (
+          {item.status !== "published" || item.hasWorkingRevision ? (
             <button type="button" className="jf-btn jf-btn--primary" disabled={saving} onClick={() => save(true)}>
               Publish
             </button>
-          )}
+          ) : null}
         </div>
       </header>
 

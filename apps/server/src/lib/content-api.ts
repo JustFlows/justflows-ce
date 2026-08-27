@@ -1,5 +1,24 @@
 import type { BlockDocument } from "./types.js";
 
+export interface ContentLiveSnapshotResponse {
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  blocks: BlockDocument;
+  fields: Record<string, unknown>;
+  version: number;
+  updatedAt: string;
+}
+
+export interface ContentWorkingMeta {
+  id: string;
+  source: string;
+  baseVersion: number;
+  updatedAt: string;
+  updatedBy: string | null;
+  updatedByName: string | null;
+}
+
 export interface ContentResponse {
   id: string;
   siteId: string;
@@ -16,6 +35,11 @@ export interface ContentResponse {
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  version: number;
+  hasWorkingRevision: boolean;
+  workingRevision: ContentWorkingMeta | null;
+  liveChangedSinceWorking: boolean;
+  live: ContentLiveSnapshotResponse | null;
 }
 
 function parseJson(value: unknown): unknown {
@@ -46,14 +70,14 @@ export function normalizeBlocks(value: unknown): BlockDocument {
   return { version: 1, blocks: [] };
 }
 
-function normalizeFields(value: unknown): Record<string, unknown> {
+export function normalizeFields(value: unknown): Record<string, unknown> {
   const parsed = parseJson(value);
   return parsed && typeof parsed === "object" && !Array.isArray(parsed)
     ? (parsed as Record<string, unknown>)
     : {};
 }
 
-function toIsoTimestamp(value: unknown): string | null {
+export function toIsoTimestamp(value: unknown): string | null {
   if (value == null || value === "") return null;
   if (value instanceof Date) return value.toISOString();
 
@@ -74,7 +98,7 @@ export function serializeContentRow(row: Record<string, unknown>): ContentRespon
     type: String(row.type),
     title: String(row.title),
     slug: String(row.slug),
-    locale: String(row.locale ?? "en"),
+    locale: String(row.locale ?? "en-US"),
     translationGroupId:
       row.translation_group_id == null ? null : String(row.translation_group_id),
     excerpt: row.excerpt == null ? null : String(row.excerpt),
@@ -85,5 +109,10 @@ export function serializeContentRow(row: Record<string, unknown>): ContentRespon
     publishedAt: toIsoTimestamp(row.published_at),
     createdAt: toIsoTimestamp(row.created_at) ?? "",
     updatedAt: toIsoTimestamp(row.updated_at) ?? "",
+    version: Number(row.version ?? 1) || 1,
+    hasWorkingRevision: Boolean(row.has_working_revision ?? row.working_revision_id),
+    workingRevision: null,
+    liveChangedSinceWorking: false,
+    live: null,
   };
 }

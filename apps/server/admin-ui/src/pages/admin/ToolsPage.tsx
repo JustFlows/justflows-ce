@@ -98,7 +98,7 @@ export default function ToolsPage() {
 
   const [perfLoading, setPerfLoading] = useState(true);
   const [cache, setCache] = useState<CacheSettings>({
-    enabled: true,
+    enabled: false,
     driver: "filesystem",
     ttlSeconds: 300,
     dir: "",
@@ -106,18 +106,18 @@ export default function ToolsPage() {
     defaultDir: "./.cache",
   });
   const [gzip, setGzip] = useState<GzipSettings>({
-    enabled: true,
+    enabled: false,
     level: 6,
     minBytes: 1024,
   });
   const [browserCache, setBrowserCache] = useState<BrowserCacheSettings>({
-    enabled: true,
+    enabled: false,
     htmlMaxAge: 60,
     staticMaxAge: 86400,
     staleWhileRevalidate: 300,
   });
   const [revalidate, setRevalidate] = useState<RevalidateSettings>({
-    enabled: true,
+    enabled: false,
     objects: {
       pages: true,
       content: true,

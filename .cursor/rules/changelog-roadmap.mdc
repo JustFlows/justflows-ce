@@ -1,0 +1,10 @@
+---
+description: Attach Project 35 roadmap issues to CHANGELOG.md; close only after public justflows-ce ship
+alwaysApply: true
+---
+
+# Roadmap tickets in the changelog
+
+User-visible work in this repo must add a `CHANGELOG.md` bullet that links the matching issue on the [Justflows CE Public Roadmap](https://github.com/orgs/JustFlows/projects/35) (`JustFlows/justflows-ce` issues). Follow `.agents/skills/justflows-changelog/SKILL.md`.
+
+Do not close that issue when a feature PR merges to `develop` here. Close it when the changelog line has shipped on public `justflows-ce`.

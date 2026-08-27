@@ -1,6 +1,6 @@
 {
   "name": "@justflows/blocks",
-  "version": "0.1.4",
+  "version": "0.1.5-rc-dev",
   "private": true,
   "type": "module",
   "exports": {

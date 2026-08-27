@@ -4,7 +4,7 @@ import { z } from "zod";
 import { parseEnvBool } from "@justflows/core";
 import { getJfRoot } from "./jf-root.js";
 import { applyEnvToProcess, readEnvMap, updateEnvKeys } from "./env-file.js";
-import { resetJfCache } from "./jf-cache.js";
+import { resetJfCache, wipeCacheStorage } from "./jf-cache.js";
 import { requestPassengerRestart } from "./app-restart.js";
 
 export const CacheSettingsBodySchema = z.object({
@@ -46,7 +46,7 @@ export async function readCacheSettings(): Promise<CacheSettingsResponse> {
   const redisUrl = envGet(map, "CACHE_REDIS_URL") ?? "";
 
   const settings: CacheSettingsResponse["settings"] = {
-    enabled: parseEnvBool(envGet(map, "CACHE_ENABLED"), true),
+    enabled: parseEnvBool(envGet(map, "CACHE_ENABLED"), false),
     driver,
     ttlSeconds,
     dir,
@@ -102,9 +102,12 @@ export async function applyCacheSettings(body: CacheSettings): Promise<{
   await updateEnvKeys(updates);
   applyEnvToProcess(updates);
 
-  if (parsed.driver === "filesystem") {
-    const dir = parsed.dir?.trim() || defaultCacheDir();
+  const dir = parsed.dir?.trim() || defaultCacheDir();
+  if (parsed.enabled && parsed.driver === "filesystem") {
     await fs.mkdir(dir, { recursive: true });
+  }
+  if (!parsed.enabled) {
+    await wipeCacheStorage();
   }
 
   resetJfCache();

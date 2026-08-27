@@ -307,7 +307,7 @@ router.get("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res
         id: String(row.id),
         title: String(row.title),
         slug: String(row.slug),
-        locale: String(row.locale ?? "en"),
+        locale: String(row.locale ?? "en-US"),
         status: String(row.status),
       })),
     });

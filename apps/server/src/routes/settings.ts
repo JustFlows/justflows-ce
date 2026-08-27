@@ -136,10 +136,11 @@ router.get("/", requireSession, async (req, res) => {
       utc_time: formatPhpDate(now, "Y-m-d H:i:s", { timeZone: "UTC" }),
       local_time: formatPhpDate(now, "Y-m-d H:i:s", { timeZone: timezone }),
       active_theme: extras["active_theme"] ?? "justflows.default",
-      site_public: "site_public" in extras ? extras["site_public"] === true : true,
+      site_public: extras["site_public"] === true,
       public_api_enabled:
         "public_api_enabled" in extras ? extras["public_api_enabled"] === true : false,
-      discourage_search_engines: extras["discourage_search_engines"] === true,
+      discourage_search_engines:
+        "discourage_search_engines" in extras ? extras["discourage_search_engines"] === true : true,
       admin_email: general.adminEmail,
       users_can_register: general.usersCanRegister,
       default_role: general.defaultRole,

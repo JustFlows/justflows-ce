@@ -60,10 +60,29 @@
     "translationExists": "Translation already exists for this language",
     "translationCreated": "Translation created as draft",
     "viewLive": "View live",
+    "previewDraft": "Preview draft",
     "unsavedLeave": "You have unsaved changes. Leave without saving?",
     "saveDraft": "Save draft",
     "publish": "Publish",
-    "titleRequired": "Title is required"
+    "publishDraft": "Publish draft",
+    "discardDraft": "Discard draft",
+    "discardDraftConfirm": "Discard unpublished changes and restore the live version in the editor?",
+    "compareDraft": "Compare with live",
+    "draftChanges": "Draft changes",
+    "publishedWithDraft": "Published — draft changes",
+    "autosaving": "Autosaving…",
+    "draftSaved": "Draft saved",
+    "live": "Live",
+    "lastDraftBy": "Draft last changed by {name}",
+    "liveChanged": "The live version changed since this draft was started. Compare before publishing.",
+    "titleRequired": "Title is required",
+    "revisions": "Revisions",
+    "revisionsHint": "The last 5 versions can be restored as a draft. The live page does not change until you publish.",
+    "revisionsEmpty": "No previous versions yet. Save or publish to keep a restore point.",
+    "restoreRevision": "Restore",
+    "restoreRevisionConfirm": "Restore “{title}” as a draft? The published page stays as it is until you publish.",
+    "revisionVersion": "Version {version}",
+    "revisionCurrentDraft": "Current draft"
   },
   "languages": {
     "title": "Languages",
@@ -74,7 +93,10 @@
     "nativeName": "Native name",
     "setDefault": "Set as default",
     "uiLanguage": "Admin language",
-    "noLanguages": "No languages configured yet."
+    "noLanguages": "No languages configured yet.",
+    "codePlaceholder": "nl-NL",
+    "codeHint": "Any BCP 47 tag, for example nl-NL or en-US. Public URLs use this code as the path prefix.",
+    "deleteConfirm": "Remove {code}? Pages and posts in this language are kept, but visitors will no longer see it in the language switcher."
   },
   "menus": {
     "title": "Menus",

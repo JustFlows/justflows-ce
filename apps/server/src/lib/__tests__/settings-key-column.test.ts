@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { settingsKeyColumn } from "../site-settings.js";
+import { settingsKeyColumn, settingsKeyColumnFor } from "../site-settings.js";
 
 const original = process.env.DB_DRIVER;
 afterEach(() => {
@@ -15,6 +15,7 @@ describe("settingsKeyColumn", () => {
     for (const driver of ["mysql", "mariadb"]) {
       process.env.DB_DRIVER = driver;
       expect(settingsKeyColumn()).toBe("`key`");
+      expect(settingsKeyColumnFor(driver)).toBe("`key`");
     }
   });
 

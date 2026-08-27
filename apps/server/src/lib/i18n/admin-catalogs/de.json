@@ -57,7 +57,26 @@
     "locale": "Sprache",
     "saveDraft": "Entwurf speichern",
     "publish": "Veröffentlichen",
-    "titleRequired": "Titel ist erforderlich"
+    "publishDraft": "Entwurf veröffentlichen",
+    "previewDraft": "Entwurf ansehen",
+    "discardDraft": "Entwurf verwerfen",
+    "discardDraftConfirm": "Unveröffentlichte Änderungen verwerfen und die Live-Version im Editor wiederherstellen?",
+    "compareDraft": "Mit Live vergleichen",
+    "draftChanges": "Entwurfsänderungen",
+    "publishedWithDraft": "Veröffentlicht — Entwurfsänderungen",
+    "autosaving": "Autospeichern…",
+    "draftSaved": "Entwurf gespeichert",
+    "live": "Live",
+    "lastDraftBy": "Entwurf zuletzt geändert von {name}",
+    "liveChanged": "Die Live-Version hat sich seit Beginn dieses Entwurfs geändert. Vor dem Veröffentlichen vergleichen.",
+    "titleRequired": "Titel ist erforderlich",
+    "revisions": "Revisionen",
+    "revisionsHint": "Die letzten 5 Versionen können als Entwurf wiederhergestellt werden. Die Live-Seite ändert sich erst beim Veröffentlichen.",
+    "revisionsEmpty": "Noch keine früheren Versionen. Speichern oder Veröffentlichen legt einen Wiederherstellungspunkt an.",
+    "restoreRevision": "Wiederherstellen",
+    "restoreRevisionConfirm": "„{title}“ als Entwurf wiederherstellen? Die veröffentlichte Seite bleibt unverändert, bis Sie veröffentlichen.",
+    "revisionVersion": "Version {version}",
+    "revisionCurrentDraft": "Aktueller Entwurf"
   },
   "languages": {
     "title": "Sprachen",
@@ -68,7 +87,10 @@
     "nativeName": "Eigenname",
     "setDefault": "Als Standard setzen",
     "uiLanguage": "Admin-Sprache",
-    "noLanguages": "Noch keine Sprachen konfiguriert."
+    "noLanguages": "Noch keine Sprachen konfiguriert.",
+    "codePlaceholder": "nl-NL",
+    "codeHint": "Beliebiges BCP-47-Tag, z. B. nl-NL oder en-US. Öffentliche URLs verwenden diesen Code als Pfadpräfix.",
+    "deleteConfirm": "{code} entfernen? Seiten und Beiträge in dieser Sprache bleiben erhalten, erscheinen aber nicht mehr im Sprachumschalter."
   },
   "design": {
     "title": "Design",
