@@ -202,6 +202,34 @@ async function signIn(email: string, jar: Jar) {
   return post("/api/auth/login", { email, password: PASSWORD }, jar);
 }
 
+describe("GET /api/auth/me", () => {
+  it("reports the signed-in account's id, email and role", async () => {
+    const jar = new Jar();
+    await signIn(admin1.email, jar);
+
+    const res = await get("/api/auth/me", jar);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: admin1.id, email: admin1.email, role: "administrator" });
+  });
+
+  it("401s without a session", async () => {
+    const res = await get("/api/auth/me", new Jar());
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("POST /api/auth/login", () => {
+  it("returns the account's role, so the client knows where to send the browser", async () => {
+    const member = await makeUser({ id: "member-1", email: "member@example.com", role: "subscriber" });
+    users.push(member);
+    const jar = new Jar();
+
+    const res = await signIn(member.email, jar);
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe("subscriber");
+  });
+});
+
 describe("authorization", () => {
   it("blocks a non-admin from updating a user", async () => {
     const editor = await makeUser({ id: "editor-1", email: "editor@example.com", role: "editor" });

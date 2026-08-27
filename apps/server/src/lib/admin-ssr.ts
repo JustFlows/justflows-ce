@@ -69,6 +69,7 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     "/api/site/identity",
     "/api/updates",
     "/api/plugins/admin-menu",
+    "/api/auth/me",
     ...ADMIN_LOCALES.map((locale) => `/api/i18n/${locale}`),
   ]);
   if (url.searchParams.get("preview") === "1") paths.add("/api/site/identity?preview=1");

@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ADMIN_UI_LOCALES, useT, type AdminUiLocale } from "../i18n/I18nProvider";
-import { ADMIN_DASHBOARD, findDomainForPath, isDomainActive } from "../config/admin-nav";
+import { ADMIN_DASHBOARD, canAccessPath, filterDomainsByRole, findDomainForPath, isDomainActive } from "../config/admin-nav";
 import DomainSubnav from "./DomainSubnav";
 import { usePluginMenu } from "./PluginMenuProvider";
+import { useSessionRole } from "./SessionProvider";
 import { JustflowsLogo } from "./JustflowsLogo";
 import { initialJson } from "../ssr-data";
 
@@ -15,9 +16,16 @@ export default function AdminShell() {
   const [version, setVersion] = useState(
     () => initialJson<{ version?: string }>("/api/updates")?.version ?? "",
   );
-  // Domains carry the pages of whichever plugins are installed right now.
-  const { domains } = usePluginMenu();
+  const role = useSessionRole();
+  // Domains carry the pages of whichever plugins are installed right now, cut
+  // down to the ones this role won't hit a 403 opening.
+  const { domains: allDomains } = usePluginMenu();
+  const domains = useMemo(() => filterDomainsByRole(allDomains, role), [allDomains, role]);
   const activeDomain = findDomainForPath(pathname, domains);
+  // A role's own capabilities can only be known once /api/auth/me resolves —
+  // usually already true from SSR. Never bounce on that first, unresolved
+  // render; only once we actually know the role lacks access.
+  const canOpenCurrentPage = role === null || canAccessPath(role, pathname);
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => setNavOpen(false), [pathname]);
@@ -43,6 +51,14 @@ export default function AdminShell() {
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     navigate("/login");
+  }
+
+  // Reached by a direct URL, a bookmark, or a link this role's own nav no
+  // longer shows — bounce to the dashboard rather than mount a page that
+  // would just fail its first fetch. Server-side authorization is what
+  // actually protects the data either way.
+  if (!canOpenCurrentPage) {
+    return <Navigate to="/admin" replace />;
   }
 
   return (

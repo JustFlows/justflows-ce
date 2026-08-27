@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { canAccessPath } from "../../config/admin-nav";
+import { useSessionRole } from "@components/SessionProvider";
 
 const tiles = [
   { label: "Content", href: "/admin/content", icon: "📝", description: "Manage posts and pages" },
@@ -10,6 +12,9 @@ const tiles = [
 ];
 
 export default function AdminDashboard() {
+  const role = useSessionRole();
+  const visibleTiles = tiles.filter((tile) => role === null || canAccessPath(role, tile.href));
+
   return (
     <div className="jf-page">
       <header className="jf-pagehead">
@@ -24,7 +29,7 @@ export default function AdminDashboard() {
       </header>
 
       <div className="jf-tiles">
-        {tiles.map((item) => (
+        {visibleTiles.map((item) => (
           <Link key={item.href} to={item.href} className="jf-tile">
             <span className="jf-tile__icon" aria-hidden="true">{item.icon}</span>
             <div className="jf-tile__label">{item.label}</div>

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSessionRole } from "@components/SessionProvider";
 
 interface User {
   id: string;
@@ -13,6 +14,10 @@ interface User {
 const ROLES = ["administrator", "editor", "author", "contributor", "subscriber"];
 
 export default function UsersPage() {
+  // Inviting, editing and removing are all administrator-only on the server;
+  // an editor can only read this list, so those controls simply aren't here
+  // for them rather than failing when clicked.
+  const canManage = useSessionRole() === "administrator";
   const [users, setUsers] = useState<User[]>([]);
   const [showInvite, setShowInvite] = useState(false);
   const [invite, setInvite] = useState({ email: "", role: "subscriber" });
@@ -89,14 +94,16 @@ export default function UsersPage() {
           <h1>Users</h1>
           <p>Manage who has access to your site</p>
         </div>
-        <div className="jf-pagehead__actions">
-          <button className="jf-btn jf-btn--primary" onClick={() => setShowInvite(true)}>
-            + Invite user
-          </button>
-        </div>
+        {canManage && (
+          <div className="jf-pagehead__actions">
+            <button className="jf-btn jf-btn--primary" onClick={() => setShowInvite(true)}>
+              + Invite user
+            </button>
+          </div>
+        )}
       </header>
 
-      {showInvite && (
+      {canManage && showInvite && (
         <form className="jf-card" onSubmit={sendInvite}>
           <div className="jf-card__head">
             <h2 className="jf-card__title">Invite a user</h2>
@@ -150,12 +157,12 @@ export default function UsersPage() {
                 <th>Username</th>
                 <th>Role</th>
                 <th>Joined</th>
-                <th><span className="jf-sr-only">Actions</span></th>
+                {canManage && <th><span className="jf-sr-only">Actions</span></th>}
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={6}>Loading users…</td></tr>}
-              {!loading && users.length === 0 && <tr><td colSpan={6}>No users found.</td></tr>}
+              {loading && <tr><td colSpan={canManage ? 6 : 5}>Loading users…</td></tr>}
+              {!loading && users.length === 0 && <tr><td colSpan={canManage ? 6 : 5}>No users found.</td></tr>}
               {users.map((u) => (
                 <tr key={u.id}>
                   <td className="jf-td--strong">{u.displayName}</td>
@@ -167,18 +174,20 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td className="jf-td--muted">{u.createdAt.slice(0, 10)}</td>
-                  <td className="jf-td--actions">
-                    <Link className="jf-btn jf-btn--quiet" to={`/admin/users/${u.id}`}>Edit</Link>
-                    {u.role !== "administrator" && (
-                      <button
-                        className="jf-btn jf-btn--ghost"
-                        disabled={removingId === u.id}
-                        onClick={() => removeUser(u)}
-                      >
-                        {removingId === u.id ? "Removing…" : "Remove"}
-                      </button>
-                    )}
-                  </td>
+                  {canManage && (
+                    <td className="jf-td--actions">
+                      <Link className="jf-btn jf-btn--quiet" to={`/admin/users/${u.id}`}>Edit</Link>
+                      {u.role !== "administrator" && (
+                        <button
+                          className="jf-btn jf-btn--ghost"
+                          disabled={removingId === u.id}
+                          onClick={() => removeUser(u)}
+                        >
+                          {removingId === u.id ? "Removing…" : "Remove"}
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

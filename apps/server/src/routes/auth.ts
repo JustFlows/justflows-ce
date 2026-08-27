@@ -47,6 +47,19 @@ router.get("/csrf", (req, res) => {
   res.json({ ok: true });
 });
 
+/**
+ * Who the current session belongs to, and their live role.
+ *
+ * The admin UI uses this to decide what to render — which nav items, which
+ * page controls — for a role that authenticated but was not granted the
+ * capability. It is a UX convenience, not a security boundary: every route it
+ * informs is still enforced independently by `requireRole` on the server.
+ */
+router.get("/me", requireSession, (req, res) => {
+  const session = req.session!;
+  res.json({ id: session.userId, email: session.email, role: session.role });
+});
+
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -195,7 +208,9 @@ router.post("/login", loginRequestLimit, async (req, res) => {
       actorRole: user.role,
       ...auditContext(req),
     });
-    res.json({ ok: true });
+    // The client needs this to decide where to send the browser next — only
+    // certain roles get the admin app; a subscriber belongs on the site itself.
+    res.json({ ok: true, role: user.role });
   } catch (err) {
     console.error("Login error", err);
     res.status(500).json({ error: "Server error" });

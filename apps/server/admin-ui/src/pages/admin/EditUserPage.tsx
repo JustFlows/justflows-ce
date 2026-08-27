@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSessionRole } from "@components/SessionProvider";
 
 interface User {
   id: string;
@@ -26,6 +27,10 @@ function fromApi(user: Record<string, string>): User {
 export default function EditUserPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  // Updating, resetting a password and removing are all administrator-only on
+  // the server; an editor can reach this page (they can read the list) but
+  // gets a read-only profile rather than controls that would 403.
+  const canManage = useSessionRole() === "administrator";
 
   const [user, setUser] = useState<User | null>(null);
   const [displayName, setDisplayName] = useState("");
@@ -149,11 +154,13 @@ export default function EditUserPage() {
           <span className="jf-topbar__eyebrow">Edit user</span>
           <h1>{user.displayName || user.email}</h1>
         </div>
-        <div className="jf-topbar__actions">
-          <button className="jf-btn jf-btn--primary" form="jf-edit-user-form" type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save changes"}
-          </button>
-        </div>
+        {canManage && (
+          <div className="jf-topbar__actions">
+            <button className="jf-btn jf-btn--primary" form="jf-edit-user-form" type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="jf-page">
@@ -182,6 +189,7 @@ export default function EditUserPage() {
                   id="jf-edit-displayname"
                   className="jf-input"
                   required
+                  disabled={!canManage}
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                 />
@@ -192,6 +200,7 @@ export default function EditUserPage() {
                   id="jf-edit-role"
                   className="jf-input"
                   value={role}
+                  disabled={!canManage}
                   onChange={(e) => setRole(e.target.value)}
                 >
                   {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -202,6 +211,7 @@ export default function EditUserPage() {
           </div>
         </form>
 
+        {canManage && (
         <div className="jf-card">
           <div className="jf-card__head">
             <h2 className="jf-card__title">Password</h2>
@@ -246,7 +256,9 @@ export default function EditUserPage() {
             )}
           </div>
         </div>
+        )}
 
+        {canManage && (
         <div className="jf-card">
           <div className="jf-card__head">
             <h2 className="jf-card__title">Danger zone</h2>
@@ -260,6 +272,7 @@ export default function EditUserPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </>
   );
