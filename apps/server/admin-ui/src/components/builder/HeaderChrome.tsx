@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useSessionRole } from "@components/SessionProvider";
 import type { PageHeaderConfig } from "../../lib/page-header";
 import type { BlockCatalogEntry, BlockNode } from "./types";
 import { HEADER_SELECTED_ID } from "../../lib/page-header";
@@ -64,6 +65,11 @@ function HeaderPresetPanel({
   header: PageHeaderConfig;
   onChange: (header: PageHeaderConfig) => void;
 }) {
+  // Saving and deleting a saved header are administrator/editor-only on the
+  // server; applying one to the current page is just a local copy, open to
+  // any content-write role.
+  const role = useSessionRole();
+  const canManagePresets = role === "administrator" || role === "editor";
   const [items, setItems] = useState<HeaderPresetItem[]>([]);
   const [selected, setSelected] = useState("");
   const [name, setName] = useState("");
@@ -152,7 +158,7 @@ function HeaderPresetPanel({
           <button type="button" style={smallButton} disabled={!selected} onClick={apply}>
             Apply
           </button>
-          {selected && (
+          {selected && canManagePresets && (
             <button type="button" style={smallButton} title="Delete saved header" onClick={() => void remove(selected)}>
               ×
             </button>
@@ -163,18 +169,20 @@ function HeaderPresetPanel({
           No saved headers yet — build one below, then save it to reuse on other pages.
         </p>
       )}
-      <div style={{ display: "flex", gap: "0.4rem" }}>
-        <input
-          style={{ ...fieldInput, flex: 1 }}
-          type="text"
-          placeholder="Name this header…"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <button type="button" style={smallButton} disabled={busy} onClick={() => void save()}>
-          Save as new
-        </button>
-      </div>
+      {canManagePresets && (
+        <div style={{ display: "flex", gap: "0.4rem" }}>
+          <input
+            style={{ ...fieldInput, flex: 1 }}
+            type="text"
+            placeholder="Name this header…"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <button type="button" style={smallButton} disabled={busy} onClick={() => void save()}>
+            Save as new
+          </button>
+        </div>
+      )}
       {error && <p style={{ fontSize: "0.75rem", color: "var(--jf-danger)", margin: "0.4rem 0 0" }}>{error}</p>}
       <p style={{ fontSize: "0.7rem", color: "var(--jf-text-3)", margin: "0.4rem 0 0" }}>
         Applying copies the layout, widgets, and blocks onto this page — later edits stay independent.

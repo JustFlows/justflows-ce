@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "../../i18n/I18nProvider";
+import { useSessionRole } from "@components/SessionProvider";
 import type { BlockNode } from "./types";
 
 export interface ReusableItem {
@@ -41,6 +42,11 @@ export default function ReusablePanel({
   items: ReusableItem[];
 }) {
   const { t } = useT();
+  // Saving to the reusable-block library is administrator/editor-only on the
+  // server; switching a reference between already-saved blocks (below) isn't
+  // a write to that library, so it stays open to any content-write role.
+  const role = useSessionRole();
+  const canSaveReusable = role === "administrator" || role === "editor";
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -90,6 +96,8 @@ export default function ReusablePanel({
       </section>
     );
   }
+
+  if (!canSaveReusable) return null;
 
   return (
     <section className="jf-block-panel" aria-labelledby={`jf-reuse-${block.id}`}>
