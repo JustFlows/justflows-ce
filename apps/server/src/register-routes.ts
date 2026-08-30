@@ -164,6 +164,58 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     }
   });
 
+  app.post("/justflows-comments/submit", requireInstalled, async (req, res) => {
+    try {
+      const { acceptCommentSubmission } = await import("./lib/comments-public.js");
+      const { clientIp } = await import("./lib/rate-limit.js");
+      const { getSession } = await import("./lib/session.js");
+      const session = getSession(req);
+      const result = await acceptCommentSubmission({
+        body: (req.body ?? {}) as Record<string, unknown>,
+        host: req.get("host") ?? undefined,
+        origin: req.get("origin") ?? undefined,
+        referer: req.get("referer") ?? undefined,
+        clientIp: clientIp(req),
+        session: session
+          ? { userId: session.userId, siteId: session.siteId, email: session.email }
+          : null,
+      });
+      if (result.location) {
+        res.status(303).location(result.location).end();
+        return;
+      }
+      res
+        .status(result.status)
+        .type("text/plain")
+        .send(result.error ?? "Unable to submit");
+    } catch (err) {
+      console.error("[justflows] comment submission failed:", err);
+      res.status(500).type("text/plain").send("Internal server error");
+    }
+  });
+
+  app.get("/justflows-comments/unsubscribe", requireInstalled, async (req, res) => {
+    try {
+      const { clearCommentNotify } = await import("./lib/comments-public.js");
+      const token = typeof req.query.token === "string" ? req.query.token : "";
+      const ok = await clearCommentNotify(token);
+      res
+        .status(ok ? 200 : 400)
+        .type("text/html")
+        .send(
+          `<!doctype html><meta charset="utf-8"><title>Comment notifications</title>` +
+            `<div style="font:16px/1.5 system-ui;max-width:32rem;margin:4rem auto;padding:0 1rem">` +
+            (ok
+              ? `<h1>Unsubscribed</h1><p>You will no longer receive email about replies to that comment.</p>`
+              : `<h1>Link not recognised</h1><p>This unsubscribe link is invalid or has already been used.</p>`) +
+            `</div>`,
+        );
+    } catch (err) {
+      console.error("[justflows] comment unsubscribe failed:", err);
+      res.status(500).type("text/plain").send("Internal server error");
+    }
+  });
+
   // RFC 9116. Served from both the well-known location and the legacy root path.
   const { buildSecurityTxt, securityTxtOrigin } = await import("./lib/security-txt.js");
   for (const route of ["/.well-known/security.txt", "/security.txt"]) {
