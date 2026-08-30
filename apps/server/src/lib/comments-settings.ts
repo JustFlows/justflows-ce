@@ -122,20 +122,24 @@ export function readCommentsOverride(fields: unknown): CommentsOverride {
 }
 
 export interface CommentsState {
-  /** Render the comments section at all. */
+  /**
+   * Render the comments section at all. True whenever the block is placed — the
+   * author put it there deliberately — so the reader always sees the thread and
+   * a clear "comments are closed" notice rather than nothing.
+   */
   visible: boolean;
   /** Show the submission form (existing thread may still render when false). */
   accepting: boolean;
 }
 
 /**
- * Resolve whether a given post shows comments and still takes new ones.
+ * Resolve whether a placed Comments block still takes new submissions.
  *
- * Precedence: a per-content `closed` override wins over everything; a `closed`
- * override on a site that never enabled comments hides the section entirely. An
- * `open` override turns the section on even when the site switch is off.
- * Otherwise the site switch decides visibility, and `closeAfterDays` (measured
- * from `publishedAt`) decides whether the form is still shown.
+ * The section is always visible where the block is placed. Whether the form
+ * shows: a per-content `closed` override always closes it; a per-content `open`
+ * override always opens it (even past `closeAfterDays`); otherwise the site
+ * switch decides, and `closeAfterDays` (measured from `publishedAt`) closes it
+ * once the post is old enough.
  */
 export function commentsStateFor(
   content: { fields?: unknown; publishedAt?: Date | string | null },
@@ -143,14 +147,11 @@ export function commentsStateFor(
   now: Date = new Date(),
 ): CommentsState {
   const override = readCommentsOverride(content.fields);
-  const siteOpen = settings.enabled || override === "open";
-  if (!siteOpen) return { visible: false, accepting: false };
   if (override === "closed") return { visible: true, accepting: false };
-  // An explicit per-post "open" keeps the form up regardless of age.
   if (override === "open") return { visible: true, accepting: true };
 
-  let accepting = true;
-  if (settings.closeAfterDays > 0 && content.publishedAt) {
+  let accepting = settings.enabled;
+  if (accepting && settings.closeAfterDays > 0 && content.publishedAt) {
     const published = new Date(content.publishedAt).getTime();
     if (Number.isFinite(published)) {
       const ageDays = (now.getTime() - published) / 86_400_000;

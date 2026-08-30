@@ -46,14 +46,14 @@ describe("readCommentsOverride", () => {
 });
 
 describe("commentsStateFor", () => {
-  it("hides the section when the site switch is off and no override opens it", () => {
+  it("keeps a placed block visible but closes the form when the site switch is off", () => {
     expect(commentsStateFor({ fields: {} }, DEFAULT_COMMENT_SETTINGS)).toEqual({
-      visible: false,
+      visible: true,
       accepting: false,
     });
   });
 
-  it("an 'open' override turns comments on even with the site switch off", () => {
+  it("an 'open' override opens the form even with the site switch off", () => {
     expect(commentsStateFor({ fields: { comments: "open" } }, DEFAULT_COMMENT_SETTINGS)).toEqual({
       visible: true,
       accepting: true,
@@ -67,10 +67,10 @@ describe("commentsStateFor", () => {
     });
   });
 
-  it("a 'closed' override on a disabled site hides the section entirely", () => {
-    expect(commentsStateFor({ fields: { comments: "closed" } }, DEFAULT_COMMENT_SETTINGS)).toEqual({
-      visible: false,
-      accepting: false,
+  it("opens the form once the site switch is on", () => {
+    expect(commentsStateFor({ fields: {} }, enabled)).toEqual({
+      visible: true,
+      accepting: true,
     });
   });
 

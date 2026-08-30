@@ -346,14 +346,23 @@ export async function renderCommentsBlockHtml(
   // when the parent is on an earlier page. The per-content row count is what an
   // editor moderates, so the ceiling is generous rather than tight.
   const MAX_ROWS = 2000;
-  const rows = await db.query<CommentRow>(
-    `SELECT id, parent_id, author_name, author_url, body, created_at, edited_at
-       FROM comments
-      WHERE site_id = ? AND content_id = ? AND status = 'approved'
-      ORDER BY created_at ASC
-      LIMIT ?`,
-    [ctx.siteId, ctx.content.id, MAX_ROWS],
-  );
+  let rows: CommentRow[] = [];
+  try {
+    rows = await db.query<CommentRow>(
+      `SELECT id, parent_id, author_name, author_url, body, created_at, edited_at
+         FROM comments
+        WHERE site_id = ? AND content_id = ? AND status = 'approved'
+        ORDER BY created_at ASC
+        LIMIT ?`,
+      [ctx.siteId, ctx.content.id, MAX_ROWS],
+    );
+  } catch (err) {
+    // A schema mismatch (migration 0013 not applied yet) or a transient DB
+    // error must not make the whole discussion section disappear — still show
+    // the heading and form.
+    console.error("[justflows] loading approved comments failed:", err);
+    rows = [];
+  }
 
   let roots = buildThread(rows);
   if (props.order === "newest") roots = [...roots].reverse();

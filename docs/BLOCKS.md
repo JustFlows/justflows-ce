@@ -198,10 +198,12 @@ present.
 | `title` | Heading above the thread (default `Comments`)     |
 | `order` | `oldest` (default) or `newest` for top-level sort |
 
-Whether the block shows and still accepts new comments is resolved from
-**Settings → Discussion** (site switch, hold-for-moderation, `closeAfterDays`,
-CAPTCHA provider, length and depth limits) and the post's own **Discussion**
-control (`inherit` / `open` / `closed`, stored in `content.fields.comments`).
+Where the block is placed the thread is always shown. Whether the submission
+form is open is resolved from **Settings → Discussion** (site switch,
+hold-for-moderation, `closeAfterDays`, CAPTCHA provider, length and depth
+limits) and the post's own **Discussion** control (`inherit` / `open` /
+`closed`, stored in `content.fields.comments`); with the site switch off a
+placed block shows the existing thread and a "comments are closed" notice.
 Submissions post to `POST /justflows-comments/submit` (same-origin checked, IP
 rate limited, honeypot plus optional Turnstile/hCaptcha); replies pass
 `?reply=<id>`; extra pages use `?comment-page=N`. Approved comments never expose

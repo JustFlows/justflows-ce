@@ -218,11 +218,14 @@ describe("renderCommentsBlockHtml", () => {
     expect(html).toContain('id="jf-comment-form"');
   });
 
-  it("hides the section entirely when comments are disabled", async () => {
+  it("shows a closed notice instead of the form when comments are disabled", async () => {
     settings.enabled = false;
+    routeQuery();
     const html = await renderCommentsBlockHtml({}, ctx);
     settings.enabled = true;
-    expect(html).toBe("");
+    expect(html).toContain("jf-comments");
+    expect(html).not.toContain('id="jf-comment-form"');
+    expect(html).toContain("comments.closed");
   });
 });
 

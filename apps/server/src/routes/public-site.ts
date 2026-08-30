@@ -216,7 +216,8 @@ async function renderBlockTree(
     if (block.type === COMMENTS_BLOCK_TYPE && commentCtx) {
       try {
         parts.push(withBlockChrome(await renderCommentsBlockHtml(block.props ?? {}, commentCtx), block));
-      } catch {
+      } catch (err) {
+        console.error("[justflows] comments block render failed:", err);
         parts.push("");
       }
       continue;
