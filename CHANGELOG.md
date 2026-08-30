@@ -36,6 +36,24 @@ and this project uses [Semantic Versioning](https://semver.org/).
   responsive public output.
   ([#59](https://github.com/JustFlows/justflows-ce/issues/59))
 
+- Public comments, end to end: a `Comments` block (drop it on a post) renders
+  the approved, threaded discussion and an accessible submission form.
+  Visitors submit at `POST /justflows-comments/submit` — same-origin checked,
+  IP rate limited, honeypot and optional Cloudflare Turnstile / hCaptcha
+  guarded, bodies reduced to a small safe formatting whitelist. New comments
+  hold for moderation by default and the admin is emailed; commenters can opt
+  into reply notifications and unsubscribe in one click
+  (`/justflows-comments/unsubscribe`). Approved comments render without ever
+  exposing commenter email addresses or IPs.
+  ([#50](https://github.com/JustFlows/justflows-ce/issues/50))
+
+- Settings → Discussion controls the site comment policy (on/off, hold for
+  moderation, moderator email, author links, auto-close after N days, page
+  size, length and reply-depth limits, CAPTCHA provider and keys); a per-post
+  Discussion control overrides it either way. Admin → Comments gains
+  pagination, inline reply and edit, and permanent delete from the trash.
+  ([#50](https://github.com/JustFlows/justflows-ce/issues/50))
+
 ### Changed
 
 - Database migrations `0001` through `0012` are consolidated into one

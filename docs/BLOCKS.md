@@ -186,6 +186,28 @@ page. Theme authors can provide a ready-made index in `demo/blog.json`; see
 is optional and `items` is an ordered array of `{ label, url }`. URLs are
 sanitized on save like other link-bearing core blocks.
 
+## Comments
+
+`justflows.comments.thread` is a platform block that renders a post's approved,
+threaded comments and an accessible submission form. Drop it on a post (or a
+page) where discussion should appear — nothing renders unless the block is
+present.
+
+| Prop    | Values / effect                                   |
+| ------- | ------------------------------------------------- |
+| `title` | Heading above the thread (default `Comments`)     |
+| `order` | `oldest` (default) or `newest` for top-level sort |
+
+Whether the block shows and still accepts new comments is resolved from
+**Settings → Discussion** (site switch, hold-for-moderation, `closeAfterDays`,
+CAPTCHA provider, length and depth limits) and the post's own **Discussion**
+control (`inherit` / `open` / `closed`, stored in `content.fields.comments`).
+Submissions post to `POST /justflows-comments/submit` (same-origin checked, IP
+rate limited, honeypot plus optional Turnstile/hCaptcha); replies pass
+`?reply=<id>`; extra pages use `?comment-page=N`. Approved comments never expose
+the commenter's email address or IP. Moderators work the queue in
+**Admin → Comments**.
+
 ## The grid
 
 `core.grid` is a CSS Grid container. Placement lives on the **children**, not on
