@@ -3,8 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getDb } from "../lib/db.js";
 import { requireRole } from "../middleware/auth.js";
-import { sanitizeRichText, esc } from "@justflows/blocks";
-import { notifyOnApproval } from "../lib/comments-public.js";
+import { commentPlainText, notifyOnApproval, sanitizeCommentBody } from "../lib/comments-public.js";
 import { param } from "../lib/params.js";
 
 const router = Router();
@@ -100,13 +99,8 @@ router.patch("/:id", requireRole("administrator", "editor"), async (req, res) =>
   const sets: string[] = ["updated_at = ?"];
   const params: (string | number | null)[] = [now()];
   if (parsed.data.body !== undefined) {
-    const clean = sanitizeRichText(
-      parsed.data.body
-        .split(/\n{2,}/)
-        .map((para) => `<p>${esc(para).replace(/\n/g, "<br>")}</p>`)
-        .join(""),
-    );
-    if (!clean.replace(/<[^>]*>/g, "").trim()) {
+    const clean = sanitizeCommentBody(parsed.data.body);
+    if (!commentPlainText(clean)) {
       res.status(400).json({ error: "Comment body is empty" });
       return;
     }
@@ -151,13 +145,8 @@ router.post("/:id/reply", requireRole("administrator", "editor"), async (req, re
   );
   const u = userRows[0];
   const authorName = (u?.display_name || u?.username || "Moderator").slice(0, 120);
-  const clean = sanitizeRichText(
-    parsed.data.body
-      .split(/\n{2,}/)
-      .map((para) => `<p>${esc(para).replace(/\n/g, "<br>")}</p>`)
-      .join(""),
-  );
-  if (!clean.replace(/<[^>]*>/g, "").trim()) {
+  const clean = sanitizeCommentBody(parsed.data.body);
+  if (!commentPlainText(clean)) {
     res.status(400).json({ error: "Reply is empty" });
     return;
   }

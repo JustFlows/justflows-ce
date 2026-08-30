@@ -402,6 +402,25 @@ export async function renderCommentsBlockHtml(
 
 const EMAIL_RE = /^[^\s@<>,;:"'\\()[\]]{1,64}@[a-z0-9.-]{1,255}\.[a-z]{2,}$/i;
 
+/**
+ * Turn a submitted comment into safe stored HTML: blank lines become
+ * paragraphs, single newlines become <br>, then sanitizeRichText keeps only a
+ * small formatting whitelist (bold, italic, links, lists, quote, code) and
+ * discards everything else — scripts and their contents included.
+ */
+export function sanitizeCommentBody(raw: string): string {
+  const html = raw
+    .split(/\n{2,}/)
+    .map((para) => `<p>${para.replace(/\n/g, "<br>")}</p>`)
+    .join("");
+  return sanitizeRichText(html);
+}
+
+/** Visible text of a stored comment body, for length checks and email digests. */
+export function commentPlainText(html: string): string {
+  return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+}
+
 function headerText(value: string, max = 160): string {
   return value.replace(/[\r\n\0]/g, " ").trim().slice(0, max);
 }
@@ -565,14 +584,8 @@ export async function acceptCommentSubmission(
   const rawBody = String(b.body ?? "").trim();
   if (rawBody.length < 2) return { status: 400, error: "Comment is empty" };
   if (rawBody.length > settings.maxLength) return { status: 400, error: "Comment is too long" };
-  // Deny-all-but-basic-formatting. Newlines become paragraphs first so a plain
-  // typed comment keeps its line breaks.
-  const withParagraphs = rawBody
-    .split(/\n{2,}/)
-    .map((para) => `<p>${esc(para).replace(/\n/g, "<br>")}</p>`)
-    .join("");
-  const cleanBody = sanitizeRichText(withParagraphs);
-  if (!cleanBody.replace(/<[^>]*>/g, "").trim()) {
+  const cleanBody = sanitizeCommentBody(rawBody);
+  if (!commentPlainText(cleanBody)) {
     return { status: 400, error: "Comment is empty" };
   }
 
