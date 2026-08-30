@@ -400,6 +400,8 @@ router.put("/comments", requireRole("administrator"), async (req, res) => {
     const saved = await saveCommentSettings(siteId, patch);
     auditFromRequest(req, "settings.changed", { detail: "comments" });
     await revalidateOnUpdate("settings");
+    const { invalidatePublicPages } = await import("../lib/public-cache.js");
+    await invalidatePublicPages();
     res.json(toPublicCommentSettings(saved));
   } catch (e) {
     if (e instanceof z.ZodError) {

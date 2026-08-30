@@ -632,8 +632,8 @@ export async function acceptCommentSubmission(
   }
   if (status === "approved") {
     // A visible new comment invalidates the cached post page for everyone else.
-    void import("./cache-revalidate.js")
-      .then(({ revalidateOnUpdate }) => revalidateOnUpdate("content", { siteId }))
+    void import("./public-cache.js")
+      .then(({ invalidatePublicPages }) => invalidatePublicPages())
       .catch(() => undefined);
     if (parentId) void notifyParentAuthor(siteId, parentId, id).catch(() => undefined);
   }

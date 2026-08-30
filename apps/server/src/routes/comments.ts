@@ -5,11 +5,11 @@ import { getDb } from "../lib/db.js";
 import { requireRole } from "../middleware/auth.js";
 import { commentPlainText, notifyOnApproval, sanitizeCommentBody } from "../lib/comments-public.js";
 import { param } from "../lib/params.js";
-import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
+import { invalidatePublicPages } from "../lib/public-cache.js";
 
-/** Public post pages cache their rendered comment thread; bust it on any change. */
-async function bustCommentCache(siteId: string): Promise<void> {
-  await revalidateOnUpdate("content", { siteId }).catch(() => undefined);
+/** Post pages cache their rendered comment thread; drop it on any change. */
+async function bustCommentCache(_siteId: string): Promise<void> {
+  await invalidatePublicPages();
 }
 
 const router = Router();
