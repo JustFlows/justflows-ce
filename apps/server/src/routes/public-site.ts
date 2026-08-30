@@ -328,7 +328,14 @@ function sameOriginReferer(req: Request): boolean {
  */
 async function buildCommentContext(
   req: Request,
-  content: { id: string; type: string; publishedAt: Date | string | null; fields: unknown },
+  content: {
+    id: string;
+    type: string;
+    slug?: string;
+    publishedAt: Date | string | null;
+    fields: unknown;
+    translationGroupId?: string | null;
+  },
   pageCtx: { locale: string; t: (key: string) => string },
   basePath: string,
 ): Promise<CommentsRenderContext> {
@@ -869,8 +876,10 @@ async function renderSinglePageHtml(
     {
       id: String(pageContent.id),
       type: String(pageContent.type),
+      slug: String(pageContent.slug ?? slug),
       publishedAt: pageContent.publishedAt ?? null,
       fields: pageContent.fields,
+      translationGroupId: pageContent.translationGroupId,
     },
     pageCtx,
     reqPath,

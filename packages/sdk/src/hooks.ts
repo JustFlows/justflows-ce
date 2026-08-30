@@ -108,6 +108,53 @@ export interface ContentRenderContext {
   readonly translationGroupId?: string;
 }
 
+/** One approved comment in the public thread, passed to `comments.render`. */
+export interface PublicComment {
+  readonly id: string;
+  readonly parentId: string | null;
+  readonly authorName: string;
+  readonly authorUrl: string | null;
+  /** Sanitised HTML — a small safe formatting subset. */
+  readonly bodyHtml: string;
+  /** ISO 8601. */
+  readonly createdAt: string;
+  readonly editedAt: string | null;
+  /** 0 for a top-level comment. */
+  readonly depth: number;
+  readonly replies: PublicComment[];
+}
+
+/**
+ * Context for `comments.render` — the rendered `justflows.comments.thread`
+ * block, plus the threaded data behind it so a handler can rebuild the markup
+ * from scratch.
+ */
+export interface CommentsBlockRenderContext {
+  readonly siteId: string;
+  readonly contentId: string;
+  readonly contentType: string;
+  readonly slug: string | null;
+  readonly locale: string;
+  /** Permalink of the page the block sits on (for reply / pagination links). */
+  readonly basePath: string;
+  /** Block props set in the page builder. */
+  readonly props: { readonly title: string; readonly order: "oldest" | "newest" };
+  /** Whether the section renders at all, and whether it still takes new comments. */
+  readonly visible: boolean;
+  readonly accepting: boolean;
+  /** Threaded approved comments for the current page. */
+  readonly comments: PublicComment[];
+  /** Total approved comments across every page. */
+  readonly total: number;
+  readonly page: number;
+  readonly totalPages: number;
+  /** Set only on the render right after a submission redirect. */
+  readonly banner: "posted" | "pending" | "error" | "captcha" | null;
+  /** The signed-in commenter, if any. */
+  readonly currentUser: { readonly name: string; readonly email: string } | null;
+  readonly captchaProvider: "none" | "turnstile" | "hcaptcha";
+}
+
 export interface ContentDraft {
   readonly siteId: string;
   readonly type?: string;
@@ -392,6 +439,14 @@ export interface FilterValueMap {
   /** Stored blocks before HTML render. Shop fills `{{price}}` tags here. */
   "content.blocks": [unknown, ContentRenderContext];
   "content.render": [string, ContentRenderContext];
+  /**
+   * The rendered public comments block (`justflows.comments.thread`). The value
+   * is the default HTML; return replacement HTML for full markup control, or
+   * the value unchanged to keep the default. The context carries the threaded
+   * comment data so a handler can render from scratch. Handlers may be async.
+   * Deactivating the plugin restores the default markup.
+   */
+  "comments.render": [string, CommentsBlockRenderContext];
   "content.revision": [ContentRevisionSnapshot, { siteId: string; contentId: string }];
   "media.metadata": [Record<string, unknown>, MediaRef];
   "navigation.items": [NavigationItem[], { siteId: string; location: string }];

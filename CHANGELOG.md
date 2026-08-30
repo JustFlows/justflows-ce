@@ -54,6 +54,15 @@ and this project uses [Semantic Versioning](https://semver.org/).
   pagination, inline reply and edit, and permanent delete from the trash.
   ([#50](https://github.com/JustFlows/justflows-ce/issues/50))
 
+- New `comments.render` filter hook: a plugin receives the rendered
+  `justflows.comments.thread` markup plus the threaded `PublicComment[]` and
+  form/policy state (`CommentsBlockRenderContext`) and can restyle or fully
+  replace the HTML. The submission endpoint, `comments` table, and moderation
+  API are unchanged. New SDK types `CommentsBlockRenderContext` and
+  `PublicComment`. Comment timestamps are also normalised across database
+  drivers before rendering (Postgres returns `Date`, MySQL a string).
+  ([#50](https://github.com/JustFlows/justflows-ce/issues/50))
+
 ### Changed
 
 - Database migrations `0001` through `0012` are consolidated into one

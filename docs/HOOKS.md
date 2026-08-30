@@ -564,6 +564,7 @@ makes both correctness and performance attributable to a specific extension.
 | `content.output` | `Record<string, unknown>` | `{ siteId }` |
 | `content.blocks` | block tree | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on stored blocks before HTML render. Handlers may be async (Shop fills `{{price}}` tags here so heading text is replaced before `esc()`). |
 | `content.render` | `string` (HTML) | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on public body HTML after blocks render. Handlers may be async (Shop uses this to fill `{{price}}` and other product tags). |
+| `comments.render` | `string` (HTML) | `CommentsBlockRenderContext` — the rendered `justflows.comments.thread` block. Return replacement HTML for full markup control (the context carries the threaded `PublicComment[]`, counts, form/policy state, `basePath`, `locale`, `currentUser`, `captchaProvider`), or the value unchanged to keep the default. Handlers may be async. Deactivating the plugin restores the default markup. The submission endpoint (`POST /justflows-comments/submit`), `comments` table, and moderation API are unchanged — only the rendering is yours. |
 | `content.revision` | proposed snapshot | `{ siteId, contentId }` — filters the working revision before it is stored. Committed history is immutable. |
 | `media.metadata` | `Record<string, unknown>` | `{ siteId, mediaId }` |
 | `navigation.items` | `NavigationItem[]` | `{ siteId, location }` |

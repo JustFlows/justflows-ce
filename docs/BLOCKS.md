@@ -210,6 +210,15 @@ rate limited, honeypot plus optional Turnstile/hCaptcha); replies pass
 the commenter's email address or IP. Moderators work the queue in
 **Admin → Comments**.
 
+**Restyling** — the markup uses stable BEM-ish classes (`.jf-comments`,
+`.jf-comments__form`, `.jf-comment`, `.jf-comment__meta`, `.jf-comment__text`,
+`.jf-comments__list--replies`, …) built on the theme's design tokens, so the
+Customizer palette and any theme stylesheet (or the `theme.css` plugin filter)
+restyle it. **Replacing the markup** — the `comments.render` filter
+([HOOKS.md](HOOKS.md#filters)) hands a plugin the rendered HTML plus the
+threaded `PublicComment[]` and form/policy state; return your own HTML for full
+control. The submission endpoint, table, and moderation API stay the same.
+
 ## The grid
 
 `core.grid` is a CSS Grid container. Placement lives on the **children**, not on

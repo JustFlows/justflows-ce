@@ -2,8 +2,10 @@
 
 import { randomUUID } from "node:crypto";
 import { esc, sanitizeRichText } from "@justflows/blocks";
+import type { CommentsBlockRenderContext, PublicComment } from "@justflows/sdk";
 import { getDb } from "./db.js";
 import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
+import { ensurePluginRuntime, getRuntimeHooks } from "./plugin-runtime.js";
 import { consumeRateLimit } from "./rate-limit.js";
 import { getGeneralSettings } from "./general-settings.js";
 import {
@@ -127,8 +129,11 @@ export interface CommentsRenderContext {
   content: {
     id: string;
     type: string;
+    slug?: string;
     publishedAt: Date | string | null;
     fields: unknown;
+    /** So a comment left on one translation shows on every translation. */
+    translationGroupId?: string | null;
   };
   currentUser?: { id: string; name: string; email: string } | null;
   /** Banner to show above the form after a redirect back from a submission. */
@@ -157,6 +162,38 @@ interface ThreadNode extends CommentRow {
   children: ThreadNode[];
 }
 
+/**
+ * Every `content` row id that counts as "this post": the resolved row, its
+ * translations (shared translation_group_id), and any other row with the same
+ * type + slug. The last clause matters because the row the visitor's page
+ * resolves to at read time is not always the exact row the submission form was
+ * rendered against (locale fallback, a duplicate `en`/`en-US` row, preview vs
+ * published) — matching the whole slug keeps an approved comment visible
+ * regardless of which of those rows it was attached to.
+ */
+async function resolveContentGroupIds(
+  db: Awaited<ReturnType<typeof getDb>>,
+  siteId: string,
+  content: CommentsRenderContext["content"],
+): Promise<string[]> {
+  const groupId = content.translationGroupId ?? "";
+  const slug = content.slug ?? "";
+  try {
+    const rows = await db.query<{ id: string }>(
+      `SELECT id FROM content
+        WHERE site_id = ?
+          AND ( id = ?
+                OR (? <> '' AND translation_group_id = ?)
+                OR (? <> '' AND type = ? AND slug = ?) )`,
+      [siteId, content.id, groupId, groupId, slug, content.type, slug],
+    );
+    const ids = rows.map((r) => String(r.id));
+    return ids.length ? [...new Set([content.id, ...ids])] : [content.id];
+  } catch {
+    return [content.id];
+  }
+}
+
 function buildThread(rows: CommentRow[]): ThreadNode[] {
   const byId = new Map<string, ThreadNode>();
   for (const row of rows) byId.set(row.id, { ...row, children: [] });
@@ -169,15 +206,22 @@ function buildThread(rows: CommentRow[]): ThreadNode[] {
   return roots;
 }
 
-function formatWhen(value: string): string {
-  const d = new Date(value);
+/** Postgres returns TIMESTAMPTZ as a Date, MySQL/MariaDB as a string; normalise. */
+function toIsoString(value: unknown): string {
+  if (value == null) return "";
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? "" : value.toISOString();
+  return String(value);
+}
+
+function formatWhen(value: unknown): string {
+  const d = new Date(toIsoString(value));
   if (Number.isNaN(d.getTime())) return "";
   return d.toISOString().slice(0, 10);
 }
 
-function authorLink(name: string, url: string | null, allowUrls: boolean): string {
-  const safeName = esc(name);
-  if (!allowUrls || !url) return safeName;
+function authorLink(name: unknown, url: unknown, allowUrls: boolean): string {
+  const safeName = esc(String(name ?? ""));
+  if (!allowUrls || !url || typeof url !== "string") return safeName;
   let href = "";
   try {
     const parsed = new URL(url);
@@ -202,6 +246,7 @@ function renderNode(
         .map((child) => renderNode(child, ctx, settings, accepting, Math.min(depth + 1, settings.threadMaxDepth)))
         .join("")}</ol>`
     : "";
+  const createdAt = toIsoString(node.created_at);
   const when = formatWhen(node.created_at);
   const edited = node.edited_at ? ` <span class="jf-comment__edited">(${esc(ctx.t("comments.edited"))})</span>` : "";
   const replyLink = accepting
@@ -213,9 +258,9 @@ function renderNode(
     <article class="jf-comment__body">
       <header class="jf-comment__meta">
         <span class="jf-comment__author">${authorLink(node.author_name, node.author_url, settings.allowUrls)}</span>
-        ${when ? `<time datetime="${esc(node.created_at)}">${esc(when)}</time>` : ""}${edited}${replyLink}
+        ${when ? `<time datetime="${esc(createdAt)}">${esc(when)}</time>` : ""}${edited}${replyLink}
       </header>
-      <div class="jf-comment__text">${node.body}</div>
+      <div class="jf-comment__text">${String(node.body ?? "")}</div>
     </article>
     ${childrenHtml}
   </li>`;
@@ -329,6 +374,27 @@ export async function renderCommentsBlockHtml(
   rawProps: unknown,
   ctx: CommentsRenderContext,
 ): Promise<string> {
+  try {
+    return await renderCommentsBlockHtmlInner(rawProps, ctx);
+  } catch (err) {
+    // A placed Comments block must never render as literally nothing — that is
+    // impossible for an author to debug. Log it, leave a one-line HTML comment
+    // for View-source diagnosis, and still render a valid (empty) section.
+    console.error("[justflows] comments block render failed:", err);
+    const t = ctx.t ?? ((k: string) => k);
+    const reason = (err instanceof Error ? err.message : String(err)).slice(0, 200).replace(/--+/g, "-");
+    return `<section class="jf-comments" id="jf-comments">
+      <!-- jf-comments render error: ${reason} -->
+      <h2 class="jf-comments__heading">${esc(String(t("comments.heading") ?? "Comments"))}</h2>
+      <p class="jf-comments__empty">${esc(String(t("comments.empty") ?? ""))}</p>
+    </section>`;
+  }
+}
+
+async function renderCommentsBlockHtmlInner(
+  rawProps: unknown,
+  ctx: CommentsRenderContext,
+): Promise<string> {
   const props = parseCommentsBlockProps(rawProps);
   const settings = await getCommentSettings(ctx.siteId);
   const state = commentsStateFor(
@@ -348,13 +414,18 @@ export async function renderCommentsBlockHtml(
   const MAX_ROWS = 2000;
   let rows: CommentRow[] = [];
   try {
+    // A post that is translated is several `content` rows sharing a
+    // translation_group_id; a comment can be attached to any of them
+    // (whichever locale the visitor submitted from), so match the whole group.
+    const contentIds = await resolveContentGroupIds(db, ctx.siteId, ctx.content);
+    const placeholders = contentIds.map(() => "?").join(", ");
     rows = await db.query<CommentRow>(
       `SELECT id, parent_id, author_name, author_url, body, created_at, edited_at
          FROM comments
-        WHERE site_id = ? AND content_id = ? AND status = 'approved'
+        WHERE site_id = ? AND status = 'approved' AND content_id IN (${placeholders})
         ORDER BY created_at ASC
         LIMIT ?`,
-      [ctx.siteId, ctx.content.id, MAX_ROWS],
+      [ctx.siteId, ...contentIds, MAX_ROWS],
     );
   } catch (err) {
     // A schema mismatch (migration 0013 not applied yet) or a transient DB
@@ -398,13 +469,74 @@ export async function renderCommentsBlockHtml(
     ? formHtml(ctx, settings)
     : `<p class="jf-comments__closed">${esc(ctx.t("comments.closed"))}</p>`;
 
-  return `<section class="jf-comments" id="jf-comments">
+  const html = `<section class="jf-comments" id="jf-comments">
     ${heading}
     ${bannerHtml(ctx)}
     ${listHtml}
     ${pager}
     ${form}
   </section>`;
+
+  // Let a plugin restyle or fully replace the markup (see the `comments.render`
+  // filter). The threaded data is handed along so a handler can render its own.
+  return applyCommentsRenderFilter(html, {
+    siteId: ctx.siteId,
+    contentId: ctx.content.id,
+    contentType: ctx.content.type,
+    slug: ctx.content.slug ?? null,
+    locale: ctx.locale,
+    basePath: ctx.basePath,
+    props: { title: props.title, order: props.order },
+    visible: state.visible,
+    accepting: state.accepting,
+    comments: pageRoots.map((node) => toPublicComment(node, 0)),
+    total: rows.length,
+    page: clampedPage,
+    totalPages,
+    banner: ctx.banner ?? null,
+    currentUser: ctx.currentUser
+      ? { name: ctx.currentUser.name, email: ctx.currentUser.email }
+      : null,
+    captchaProvider: settings.captchaProvider,
+  });
+}
+
+function toPublicComment(node: ThreadNode, depth: number): PublicComment {
+  return {
+    id: String(node.id),
+    parentId: node.parent_id ? String(node.parent_id) : null,
+    authorName: String(node.author_name ?? ""),
+    authorUrl: typeof node.author_url === "string" ? node.author_url : null,
+    bodyHtml: String(node.body ?? ""),
+    createdAt: toIsoString(node.created_at),
+    editedAt: node.edited_at ? toIsoString(node.edited_at) : null,
+    depth,
+    replies: node.children.map((child) => toPublicComment(child, depth + 1)),
+  };
+}
+
+/**
+ * Run the rendered block through the `comments.render` filter. Cheap when no
+ * plugin listens; a throwing or non-string handler is ignored so the default
+ * markup always survives.
+ */
+async function applyCommentsRenderFilter(
+  html: string,
+  context: CommentsBlockRenderContext,
+): Promise<string> {
+  try {
+    await ensurePluginRuntime();
+    const hooks = getRuntimeHooks();
+    if (!hooks.has("comments.render")) return html;
+    const out = await hooks.applyFilter("comments.render", html, context, {
+      siteId: context.siteId,
+      source: "http" as const,
+    });
+    return typeof out === "string" ? out : html;
+  } catch (err) {
+    console.error("[justflows] comments.render filter failed:", err);
+    return html;
+  }
 }
 
 // ─── Submission ─────────────────────────────────────────────────────────────

@@ -31,6 +31,8 @@ export type {
   ContentRef,
   ContentDeletedRef,
   ContentRenderContext,
+  PublicComment,
+  CommentsBlockRenderContext,
   ContentDraft,
   ContentCreateGateEvent,
   ContentRevisionSnapshot,

@@ -33,6 +33,15 @@ vi.mock("../general-settings.js", () => ({
 const sendMail = vi.fn().mockResolvedValue({ ok: true });
 vi.mock("../mail.js", () => ({ sendMail }));
 
+const hooks = {
+  has: vi.fn(() => false),
+  applyFilter: vi.fn(async (_hook: string, value: unknown) => value),
+};
+vi.mock("../plugin-runtime.js", () => ({
+  ensurePluginRuntime: async () => {},
+  getRuntimeHooks: () => hooks,
+}));
+
 import { acceptCommentSubmission, renderCommentsBlockHtml, clearCommentNotify } from "../comments-public.js";
 import { resetRateLimits } from "../rate-limit.js";
 
@@ -54,7 +63,9 @@ function routeQuery(overrides: Record<string, unknown[]> = {}) {
     if (/FROM comments WHERE id = \? AND site_id = \? LIMIT 1/i.test(sql) && /SELECT parent_id/i.test(sql))
       return overrides.depth ?? [{ parent_id: null }];
     if (/FROM users WHERE id/i.test(sql)) return overrides.user ?? [];
-    if (/FROM comments\s+WHERE site_id = \? AND content_id = \? AND status = 'approved'/i.test(sql))
+    if (/FROM content\s+WHERE site_id = \?[\s\S]*translation_group_id/i.test(sql))
+      return overrides.group ?? [];
+    if (/FROM comments\s+WHERE site_id = \? AND status = 'approved' AND content_id IN/i.test(sql))
       return overrides.approved ?? [];
     if (/unsubscribe_token = \? LIMIT 1/i.test(sql)) return overrides.unsub ?? [{ id: "c1" }];
     return [];
@@ -72,6 +83,8 @@ beforeEach(() => {
   query.mockReset();
   run.mockReset();
   sendMail.mockClear();
+  hooks.has.mockReset().mockReturnValue(false);
+  hooks.applyFilter.mockReset().mockImplementation(async (_hook: string, value: unknown) => value);
   resetRateLimits();
   Object.assign(settings, {
     enabled: true,
@@ -218,6 +231,26 @@ describe("renderCommentsBlockHtml", () => {
     expect(html).toContain('id="jf-comment-form"');
   });
 
+  it("renders an approved comment whose created_at is a Date (postgres driver)", async () => {
+    routeQuery({
+      approved: [
+        {
+          id: "c-2",
+          parent_id: null,
+          author_name: "Bob",
+          author_url: null,
+          body: "<p>a real comment</p>",
+          created_at: new Date("2026-02-02T10:00:00Z"),
+          edited_at: null,
+        },
+      ],
+    });
+    const html = await renderCommentsBlockHtml({}, ctx);
+    expect(html).not.toContain("jf-comments render error");
+    expect(html).toContain("a real comment");
+    expect(html).toContain('datetime="2026-02-02T10:00:00.000Z"');
+  });
+
   it("shows a closed notice instead of the form when comments are disabled", async () => {
     settings.enabled = false;
     routeQuery();
@@ -226,6 +259,39 @@ describe("renderCommentsBlockHtml", () => {
     expect(html).toContain("jf-comments");
     expect(html).not.toContain('id="jf-comment-form"');
     expect(html).toContain("comments.closed");
+  });
+
+  it("lets a comments.render filter replace the markup and hands it the thread data", async () => {
+    routeQuery({
+      approved: [
+        {
+          id: "c-9",
+          parent_id: null,
+          author_name: "Cid",
+          author_url: null,
+          body: "<p>hi</p>",
+          created_at: new Date("2026-03-03T00:00:00Z"),
+          edited_at: null,
+        },
+      ],
+    });
+    hooks.has.mockReturnValue(true);
+    hooks.applyFilter.mockImplementation(async (_hook: string, _html: string, context: any) => {
+      expect(context.contentId).toBe(PUBLISHED_POST.id);
+      expect(context.comments[0]).toMatchObject({ authorName: "Cid", depth: 0 });
+      expect(context.comments[0].createdAt).toBe("2026-03-03T00:00:00.000Z");
+      return `<div class="custom-comments">${context.comments.length} comment(s)</div>`;
+    });
+    const html = await renderCommentsBlockHtml({}, ctx);
+    expect(html).toBe('<div class="custom-comments">1 comment(s)</div>');
+  });
+
+  it("keeps the default markup when the filter throws or returns a non-string", async () => {
+    hooks.has.mockReturnValue(true);
+    hooks.applyFilter.mockRejectedValue(new Error("boom"));
+    const html = await renderCommentsBlockHtml({}, ctx);
+    expect(html).toContain('<section class="jf-comments"');
+    expect(html).toContain('id="jf-comment-form"');
   });
 });
 
