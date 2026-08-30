@@ -11,7 +11,7 @@ import {
   listLanguages,
   resolveContentLocale,
 } from "../lib/i18n/languages-db.js";
-import { localePath, matchActiveLocale, displayLocaleCode } from "../lib/i18n/locales.js";
+import { localePath, matchActiveLocale, displayLocaleCode, localePresentation } from "../lib/i18n/locales.js";
 import { formatContentDate, getGeneralSettings } from "../lib/general-settings.js";
 import { hydrateSiteWidgets } from "../lib/site-widgets.js";
 import { applyContentBlocks, applyContentRender } from "../lib/content-render.js";
@@ -26,7 +26,19 @@ import {
 import { getNavItemsForMenuSlug } from "../lib/menus-db.js";
 import { getEffectiveHomeBlocks } from "../lib/theme-home-blocks.js";
 import { getHomeContent, isHomeContentSlug } from "../lib/home-page.js";
-import { headerBrandFlags, headerFromContentFields, resolveHeaderMenuSlug, type PageHeaderConfig } from "../lib/page-header.js";
+import {
+  headerBrandFlags,
+  headerRefFromContentFields,
+  resolveHeaderMenuSlug,
+  SITE_DEFAULT_HEADER_REF,
+  type PageHeaderConfig,
+} from "../lib/page-header.js";
+import {
+  emptyLibrary,
+  getEffectiveSiteHeaderLibrary,
+  type SiteHeaderLibrary,
+} from "../lib/site-header.js";
+import { resolveHeaderConfig } from "../lib/header-resolve.js";
 import { ensureCssProvidersTable, getActiveCssProvider } from "../lib/css-providers-db.js";
 import { resolveProviderAssets } from "../lib/css-providers-files.js";
 import { ensureThemesTable, getActiveTheme, getSiteId } from "../lib/themes-db.js";
@@ -53,6 +65,7 @@ import {
   getCachedPageHtml,
   MENUS_PREFIX,
   rememberPublic,
+  SITE_CTX_PREFIX,
   THEME_MODS_PREFIX,
 } from "../lib/public-cache.js";
 import { getJfCache } from "../lib/jf-cache.js";
@@ -439,7 +452,7 @@ function languageLinksFor(
   restPath: string,
   defaultLocale: string,
   translations: Array<{ locale: string; slug: string }> = [],
-): Array<{ code: string; name: string; href: string; current: boolean; displayCode: string }> {
+): Array<{ code: string; name: string; href: string; current: boolean; displayCode: string; shortCode: string; flag: string; countryName: string }> {
   const slugByLocale = new Map(translations.map((tr) => [tr.locale, tr.slug]));
   return languages.map((lang) => {
     const translatedSlug = slugByLocale.get(lang.code);
@@ -450,6 +463,7 @@ function languageLinksFor(
       href: localePath(lang.code, path, defaultLocale),
       current: lang.code === currentLocale,
       displayCode: displayLocaleCode(lang.code),
+      ...localePresentation(lang.code),
     };
   });
 }
@@ -475,12 +489,36 @@ async function buildPageContext(reqPath: string, preview = false) {
 
   const languageLinks = languageLinksFor(languages, locale, restPath, defaultLocale);
   const publicPath = localePath(locale, restPath, defaultLocale);
-  const header = headerFromContentFields(undefined);
   const general = await getGeneralSettings();
 
   // Site-wide chrome edited as blocks. Empty means the site never customised
   // one, so the layout keeps its built-in footer rather than rendering nothing.
   const siteId = await getSiteId();
+
+  // The site header library. A page without its own ref renders the library
+  // default; pages resolve their chosen entry in applyPageHeader below.
+  const headerLib: SiteHeaderLibrary = siteId
+    ? await rememberPublic(
+        `${SITE_CTX_PREFIX}header:lib:${preview ? "preview" : "live"}`,
+        () => getEffectiveSiteHeaderLibrary(siteId, preview),
+        preview,
+      )
+    : emptyLibrary();
+  const header = await resolveHeaderConfig({
+    siteId: siteId ?? "",
+    library: headerLib,
+    ref: SITE_DEFAULT_HEADER_REF,
+    locale,
+    defaultLocale,
+  });
+  const headerBlocksHtml = header.blocks.length
+    ? withSiteWidgets(await renderBlocksHtml(header.blocks), {
+        languageLinks,
+        usersCanRegister: general.usersCanRegister,
+        t,
+      })
+    : "";
+
   const footerBlocks = siteId
     ? await rememberPublic(
         `template-part:footer:${preview ? "preview" : "live"}`,
@@ -520,6 +558,9 @@ async function buildPageContext(reqPath: string, preview = false) {
     cssProviderStylesheets: cssProviderAssets.stylesheets,
     header,
     headerBrand: headerBrandFlags(header, identity.logoUrl),
+    headerBlocksHtml,
+    headerLib,
+    siteId: siteId ?? "",
     usersCanRegister: general.usersCanRegister,
   };
 }
@@ -529,8 +570,16 @@ async function applyPageHeader<T extends Awaited<ReturnType<typeof buildPageCont
   fields: Record<string, unknown> | undefined,
   preview: boolean,
   submittedFormId?: string,
+  content?: { id?: string; type?: string },
 ): Promise<T & { header: PageHeaderConfig; headerBlocksHtml: string }> {
-  const header = headerFromContentFields(fields);
+  const header = await resolveHeaderConfig({
+    siteId: ctx.siteId,
+    library: ctx.headerLib,
+    ref: headerRefFromContentFields(fields),
+    locale: ctx.locale,
+    defaultLocale: ctx.defaultLocale,
+    content,
+  });
   const menuSlug = resolveHeaderMenuSlug(header, ctx.headerMenuSlug);
   const navItems = menuSlug
     ? await loadNavItems(menuSlug, ctx.locale, ctx.defaultLocale, preview)
@@ -581,7 +630,10 @@ async function renderHomeHtml(req: Request, reqPath: string, preview: boolean): 
   const ctx = await buildPageContext(reqPath, preview);
   const siteId = await getSiteId();
   const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
-  const withHeader = await applyPageHeader(ctx, home?.fields, preview, submittedFormIdFrom(req));
+  const withHeader = await applyPageHeader(ctx, home?.fields, preview, submittedFormIdFrom(req), {
+    id: home ? String(home.id) : undefined,
+    type: home ? String(home.type) : undefined,
+  });
   const blogCtx = await buildBlogRenderContext(ctx.locale, 1, reqPath);
   if (home) {
     const bodyHtml = withSiteWidgets(
@@ -713,7 +765,13 @@ async function renderSinglePageHtml(
       alternates,
     ),
   };
-  const withHeader = await applyPageHeader(withTranslations, pageContent.fields, preview, submittedFormIdFrom(req));
+  const withHeader = await applyPageHeader(
+    withTranslations,
+    pageContent.fields,
+    preview,
+    submittedFormIdFrom(req),
+    { id: String(pageContent.id), type: String(pageContent.type) },
+  );
   const blogCtx = await buildBlogRenderContext(pageCtx.locale, pageNumber, basePath);
   const bodyHtml = withSiteWidgets(
     await applyContentRender(

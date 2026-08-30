@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
-import { useSessionRole } from "@components/SessionProvider";
+import type { CSSProperties } from "react";
 import type { PageHeaderConfig } from "../../lib/page-header";
 import type { BlockCatalogEntry, BlockNode } from "./types";
 import { HEADER_SELECTED_ID } from "../../lib/page-header";
 import { HEADER_SLOT_PARENT_TYPE } from "./dnd";
 import { PageCanvas } from "./BlockCanvas";
-import { cloneBlocks, reassignBlockIds } from "./block-tree";
 
 export interface HeaderMenuItem {
   id: string;
@@ -46,161 +44,19 @@ export function previewNavLabels(
   return menu ? labelsFromItems(menu.items) : [];
 }
 
-export interface HeaderPresetItem {
-  id: string;
-  name: string;
-  updatedAt: string;
-  header: PageHeaderConfig;
-}
-
-/**
- * Pick a header already built elsewhere, or save this page's header so
- * another page can start from it. Applying copies the config — later edits
- * on either page stay independent, same as pasting a pattern.
- */
-function HeaderPresetPanel({
-  header,
-  onChange,
-}: {
-  header: PageHeaderConfig;
-  onChange: (header: PageHeaderConfig) => void;
-}) {
-  // Saving and deleting a saved header are administrator/editor-only on the
-  // server; applying one to the current page is just a local copy, open to
-  // any content-write role.
-  const role = useSessionRole();
-  const canManagePresets = role === "administrator" || role === "editor";
-  const [items, setItems] = useState<HeaderPresetItem[]>([]);
-  const [selected, setSelected] = useState("");
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  const reload = useCallback(() => {
-    fetch("/api/header-presets")
-      .then((r) => r.json())
-      .then((body: { items?: HeaderPresetItem[] }) => setItems(body.items ?? []))
-      .catch(() => setItems([]));
-  }, []);
-
-  useEffect(reload, [reload]);
-
-  function apply() {
-    const preset = items.find((item) => item.id === selected);
-    if (!preset) return;
-    onChange({
-      ...preset.header,
-      blocks: reassignBlockIds(cloneBlocks(preset.header.blocks)),
-    });
-  }
-
-  async function save() {
-    setBusy(true);
-    setError("");
-    try {
-      const res = await fetch("/api/header-presets", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() || undefined, header }),
-      });
-      const body = (await res.json()) as { error?: string; item?: HeaderPresetItem };
-      if (!res.ok || !body.item) throw new Error(body.error ?? "Could not save");
-      setName("");
-      reload();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function remove(id: string) {
-    if (!window.confirm("Delete this saved header? Pages already using it keep their own copy.")) return;
-    await fetch(`/api/header-presets/${id}`, { method: "DELETE" });
-    if (selected === id) setSelected("");
-    reload();
-  }
-
-  const fieldInput: CSSProperties = {
-    padding: "0.4rem 0.6rem",
-    border: "1px solid var(--jf-border-strong)",
-    borderRadius: 5,
-    fontSize: "0.875rem",
-    fontFamily: "inherit",
-    width: "100%",
-    boxSizing: "border-box",
-  };
-  const smallButton: CSSProperties = { padding: "0.4rem 0.7rem", fontSize: "0.8rem", whiteSpace: "nowrap" };
-
-  return (
-    <div
-      style={{
-        marginBottom: "0.9rem",
-        padding: "0.75rem",
-        border: "1px solid var(--jf-border)",
-        borderRadius: 6,
-        background: "var(--jf-surface-2)",
-      }}
-    >
-      <p style={{ fontSize: "0.75rem", color: "var(--jf-text-3)", margin: "0 0 0.5rem", fontWeight: 700 }}>
-        Saved headers
-      </p>
-      {items.length > 0 ? (
-        <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.6rem" }}>
-          <select style={{ ...fieldInput, flex: 1 }} value={selected} onChange={(e) => setSelected(e.target.value)}>
-            <option value="">Apply a saved header…</option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-          <button type="button" style={smallButton} disabled={!selected} onClick={apply}>
-            Apply
-          </button>
-          {selected && canManagePresets && (
-            <button type="button" style={smallButton} title="Delete saved header" onClick={() => void remove(selected)}>
-              ×
-            </button>
-          )}
-        </div>
-      ) : (
-        <p style={{ fontSize: "0.75rem", color: "var(--jf-text-3)", margin: "0 0 0.6rem" }}>
-          No saved headers yet — build one below, then save it to reuse on other pages.
-        </p>
-      )}
-      {canManagePresets && (
-        <div style={{ display: "flex", gap: "0.4rem" }}>
-          <input
-            style={{ ...fieldInput, flex: 1 }}
-            type="text"
-            placeholder="Name this header…"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <button type="button" style={smallButton} disabled={busy} onClick={() => void save()}>
-            Save as new
-          </button>
-        </div>
-      )}
-      {error && <p style={{ fontSize: "0.75rem", color: "var(--jf-danger)", margin: "0.4rem 0 0" }}>{error}</p>}
-      <p style={{ fontSize: "0.7rem", color: "var(--jf-text-3)", margin: "0.4rem 0 0" }}>
-        Applying copies the layout, widgets, and blocks onto this page — later edits stay independent.
-      </p>
-    </div>
-  );
-}
-
 export function HeaderInspector({
   header,
   menus,
   siteDefaultSlug,
   onChange,
+  libraryMode = false,
 }: {
   header: PageHeaderConfig;
   menus: HeaderMenu[];
   siteDefaultSlug: string;
   onChange: (header: PageHeaderConfig) => void;
+  /** Editing a library header in the theme customizer — there is no "this page". */
+  libraryMode?: boolean;
 }) {
   const set = (patch: Partial<PageHeaderConfig>) => onChange({ ...header, ...patch });
   const fieldLabel: CSSProperties = {
@@ -225,16 +81,17 @@ export function HeaderInspector({
   return (
     <div>
       <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem" }}>Header &amp; navigation</h3>
-      <HeaderPresetPanel header={header} onChange={onChange} />
-      <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
-        <input
-          type="checkbox"
-          checked={header.visible}
-          onChange={(e) => set({ visible: e.target.checked })}
-        />
-        Show header on this page
-      </label>
-      {header.visible && (
+      {!libraryMode && (
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input
+            type="checkbox"
+            checked={header.visible}
+            onChange={(e) => set({ visible: e.target.checked })}
+          />
+          Show header on this page
+        </label>
+      )}
+      {(libraryMode || header.visible) && (
         <>
           <label style={fieldLabel}>
             Navigation menu
@@ -326,6 +183,22 @@ export function HeaderInspector({
             />
             Language switcher
           </label>
+          {header.showLanguageSwitcher && (
+            <label style={{ ...fieldLabel, paddingLeft: "1.5rem" }}>
+              Language selector style
+              <select
+                style={fieldInput}
+                value={header.languageSwitcherStyle}
+                onChange={(e) => set({ languageSwitcherStyle: e.target.value as PageHeaderConfig["languageSwitcherStyle"] })}
+              >
+                <option value="locale-full">Locale (nl-NL)</option>
+                <option value="locale-short">Short locale (nl)</option>
+                <option value="flags">Flags</option>
+                <option value="flag-locale">Flag and locale</option>
+                <option value="flag-country">Flag and country name</option>
+              </select>
+            </label>
+          )}
           <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
             <input
               type="checkbox"
@@ -434,7 +307,15 @@ export default function HeaderChrome({
         ) : (
           <span className="jf-header-chrome__empty">No menu items — click to choose a menu</span>
         )}
-        {header.showLanguageSwitcher ? <span className="jf-header-chrome__widget">EN</span> : null}
+        {header.showLanguageSwitcher ? (
+          <span className="jf-header-chrome__widget">
+            {header.languageSwitcherStyle === "locale-full" ? "en-US"
+              : header.languageSwitcherStyle === "flags" ? "🇺🇸"
+                : header.languageSwitcherStyle === "flag-locale" ? "🇺🇸 en"
+                  : header.languageSwitcherStyle === "flag-country" ? "🇺🇸 United States"
+                    : "en"} ⌄
+          </span>
+        ) : null}
         {header.showColorScheme ? <span className="jf-header-chrome__widget">◐</span> : null}
         {header.showAuthLinks ? <span className="jf-header-chrome__widget">Log in</span> : null}
         <div

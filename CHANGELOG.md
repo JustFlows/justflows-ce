@@ -5,6 +5,57 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.7-dev] [UNRELEASED]
+
+### Added
+
+- Header builder in the theme customizer (Theme builder → Header): a library of
+  named headers, one marked the site default and shown on every page. Each page
+  picks its header from a dropdown in the page builder — the site default, a
+  named header, or _None_ — instead of editing header chrome inline; the choice
+  persists immediately via `PUT /api/content/:id/header-ref`, independent of the
+  page's Save. Every header carries a base config plus sparse per-language
+  overrides (exact locale merged over the base). Draft/publish mirrors the
+  footer.
+
+- New `template_parts` table (migration `0012`) — site-wide chrome documents
+  (header library, footer blocks) are design artifacts and now have their own
+  table instead of JSON rows in `site_settings`. A one-time boot backfill moves
+  existing `template_part.*` / `template_part_draft.*` settings across.
+
+- Plugin/theme header designs via hooks: `header.templates` (contribute named
+  headers that appear in the per-page picker, `build()`-rendered at request
+  time), `header.resolve` (own a page's header per request), `header.config`
+  (adjust the resolved header before render). New SDK types `HeaderConfig`,
+  `HeaderTemplate`, `HeaderBuildContext`, `HeaderResolveContext`. See
+  `docs/HOOKS.md`.
+
+- Built-in header and language-switcher blocks now offer full locale, short
+  locale, flags, flag and locale, or flag and country-name styles. Each style
+  uses an accessible dropdown; builder previews match the mobile-first,
+  responsive public output.
+  ([#59](https://github.com/JustFlows/justflows-ce/issues/59))
+
+### Changed
+
+- Database migrations `0001` through `0012` are consolidated into one
+  `0012_baseline` file per supported dialect, reducing the shipped migration
+  footprint from 36 files to 3. Fresh installs and existing sites run the same
+  ordered schema changes, completed baselines are recorded in `_migrations`,
+  and subsequent schema changes continue at migration `0013`.
+
+- The page builder no longer renders always-on header chrome; each page instead
+  references a header from the new library. Existing per-page headers
+  (`fields.jfHeader`) are converted to library entries once, on first boot, and
+  the page is pointed at the matching entry. Posts and error pages now render
+  the site-default header rather than a hardcoded default.
+
+### Removed
+
+- "Saved headers" (`/api/header-presets`) — replaced by the header library
+  (`/api/headers`). Old `header_presets` settings rows are left in place but
+  unused.
+
 ## [0.1.6]
 
 ### Added

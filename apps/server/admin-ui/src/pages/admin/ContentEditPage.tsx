@@ -4,7 +4,8 @@ import BlockEditor, { type BlockDocument } from "@components/BlockEditor";
 import MediaImageField from "@components/MediaImageField";
 import { useSessionRole } from "@components/SessionProvider";
 import { useT } from "../../i18n/I18nProvider";
-import { fieldsWithHeader, headerFromFields } from "../../lib/page-header";
+import HeaderRefField from "@components/builder/HeaderRefField";
+import { fieldsWithHeaderRef, headerRefFromFields } from "../../lib/page-header";
 import ProductCatalogFields from "./ProductCatalogFields";
 import { fetchProductPattern, isEmptyBlockDocument, shouldSeedProductLayout, usesPageBuilderChrome } from "../../lib/content-layout";
 import { catalogPreviewTags } from "../../lib/product-tags";
@@ -676,6 +677,21 @@ export default function EditContentPage() {
               </div>
             )}
 
+            {isPage && (
+              <div className="jf-card">
+                <div className="jf-card__head">
+                  <h2 className="jf-card__title">Header</h2>
+                </div>
+                <div className="jf-card__body">
+                  <HeaderRefField
+                    contentId={item.id}
+                    value={headerRefFromFields(item.fields)}
+                    onChange={(ref) => patch({ fields: fieldsWithHeaderRef(item.fields, ref) })}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="jf-card">
               <div className="jf-card__head">
                 <h2 className="jf-card__title">Content</h2>
@@ -693,14 +709,8 @@ export default function EditContentPage() {
                   onChange={(blocks) => patch({ blocks })}
                   compact
                   isPage={isPage}
-                  enableHeader={isPage}
                   mergeTags={mergeTags}
                   enableProductTags={item.type === "product"}
-                  header={isPage ? headerFromFields(item.fields) : undefined}
-                  onHeaderChange={isPage ? (header) => setItem((prev) => (prev ? {
-                    ...prev,
-                    fields: fieldsWithHeader(prev.fields, header),
-                  } : prev)) : undefined}
                 />
               </div>
             </div>

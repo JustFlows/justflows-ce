@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
 import { getJfRoot } from "./jf-root.js";
-import { readMigrationDdl, runMigrationStatements } from "./run-migrations.js";
+import { runAllMigrations } from "./run-migrations.js";
 import { getSiteId } from "./themes-db.js";
 
 export interface PluginRow {
@@ -46,9 +46,7 @@ export function pluginsDir(): string {
 export async function ensurePluginsTable(): Promise<void> {
   const db = await getDb();
   const driver = process.env.DB_DRIVER as "postgres" | "mysql" | "mariadb";
-  const ddl = await readMigrationDdl("0001_initial", driver);
-  if (!ddl) return;
-  await runMigrationStatements(db, ddl, driver);
+  await runAllMigrations(db, driver);
 }
 
 function now(): string {

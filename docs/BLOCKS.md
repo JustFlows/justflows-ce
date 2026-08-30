@@ -149,7 +149,9 @@ array of blocks is accepted as well as a full document.
 ## Page and post builders
 
 The visual builder edits both pages and post-like content. A page gets the full
-library, including theme patterns, site-chrome widgets, and its per-page header.
+library, including theme patterns and site-chrome widgets; it picks its header
+from the site header library (built under Theme builder → Header) via a dropdown
+rather than editing header chrome inline.
 Shop `product` and `shop` entries use the same page library so merchants can
 import the Product detail pattern. A post gets the same block canvas and inspector
 but omits those page-level tools, so its document stays focused on the article body.

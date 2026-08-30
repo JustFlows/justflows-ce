@@ -122,7 +122,10 @@ function sanitizeProps(type: string, props: Record<string, unknown>): Record<str
     delete next["layout"];
     if (migrated && !("gridPlacement" in next)) next["gridPlacement"] = migrated;
   }
-  if ("style" in next) {
+  // `style` is also a schema-owned select value on several blocks (for
+  // example language switcher "flags" and color scheme "icons"). Only an
+  // object-shaped value is the shared advanced block-style payload.
+  if (next["style"] && typeof next["style"] === "object" && !Array.isArray(next["style"])) {
     const style = sanitizeBlockStyleProp(next["style"]);
     if (style) next["style"] = style;
     else delete next["style"];

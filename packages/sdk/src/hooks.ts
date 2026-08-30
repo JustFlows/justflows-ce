@@ -214,6 +214,71 @@ export interface NavigationItem {
   children?: NavigationItem[];
 }
 
+// ─── Header designs ────────────────────────────────────────────────────────
+
+/**
+ * The header configuration a page renders. Mirrors the host's internal
+ * `PageHeaderConfig`; the host re-validates and sanitises every field it
+ * receives back from a filter (blocks are capped, `background` must be a safe
+ * CSS colour, enums are clamped).
+ */
+export interface HeaderConfig {
+  visible: boolean;
+  menuMode: "inherit" | "menu" | "none";
+  menuSlug: string;
+  showLogo: boolean;
+  showTitle: boolean;
+  layout: "logo-left" | "logo-center" | "split";
+  sticky: boolean;
+  background: string;
+  showLanguageSwitcher: boolean;
+  languageSwitcherStyle:
+    | "locale-full"
+    | "locale-short"
+    | "flags"
+    | "flag-locale"
+    | "flag-country";
+  showColorScheme: boolean;
+  showColorSchemeSystem: boolean;
+  showAuthLinks: boolean;
+  /** Free blocks rendered into the header, same schema as page-body blocks. */
+  blocks: unknown[];
+}
+
+export interface HeaderBuildContext {
+  readonly siteId: string;
+  readonly locale: string;
+  readonly defaultLocale: string;
+}
+
+/**
+ * A header design a plugin or theme contributes through the `header.templates`
+ * filter. It appears in the per-page header dropdown and the customizer's
+ * "start from" list. Selecting it stores the ref `"<pluginId>:<slug>"` on the
+ * page; the host calls `build()` at render time (cached per ref + locale), so
+ * it may read plugin data and vary by locale.
+ */
+export interface HeaderTemplate {
+  /** `"<pluginId>:<slug>"` — must sit under the contributing plugin's namespace. */
+  readonly id: string;
+  readonly name: string;
+  /** Plugin or theme id that contributed it. */
+  readonly source?: string;
+  readonly description?: string;
+  build(ctx: HeaderBuildContext): HeaderConfig | Promise<HeaderConfig>;
+}
+
+export interface HeaderResolveContext {
+  readonly siteId: string;
+  readonly locale: string;
+  readonly defaultLocale: string;
+  /** The stored ref: `"__default__"` | `"__none__"` | `"<lib-uuid>"` | `"<pluginId>:<slug>"`. */
+  readonly ref: string;
+  /** Present when a content page is rendering; absent for 404 / fallback chrome. */
+  readonly contentId?: string;
+  readonly contentType?: string;
+}
+
 /**
  * One admin sidebar entry a plugin contributes through the `admin.menu` filter
  * (and/or `adminMenu` in its manifest). The host re-validates every field.
@@ -330,6 +395,26 @@ export interface FilterValueMap {
   "content.revision": [ContentRevisionSnapshot, { siteId: string; contentId: string }];
   "media.metadata": [Record<string, unknown>, MediaRef];
   "navigation.items": [NavigationItem[], { siteId: string; location: string }];
+  /**
+   * Header designs a site owner can pick beyond their own library. Seeded with
+   * `[]`; each handler appends its templates. Metadata only — `build()` runs
+   * later, at render time.
+   */
+  "header.templates": [
+    HeaderTemplate[],
+    { siteId: string; locale: string; defaultLocale: string },
+  ];
+  /**
+   * Take over which header a page renders, before the host resolves the stored
+   * ref. Return a `HeaderConfig` to own it, or `null` to let the host resolve
+   * normally. Use for headers that must be computed per request.
+   */
+  "header.resolve": [HeaderConfig | null, HeaderResolveContext];
+  /**
+   * Adjust the resolved header just before render — inject a block, flip a
+   * widget, swap the menu. Runs for every header, whatever its source.
+   */
+  "header.config": [HeaderConfig, HeaderResolveContext];
   "admin.menu": [AdminNavItem[], { siteId: string }];
   /** Overlay plugin settings shown on Admin → Plugins → Settings. */
   "plugin.settings": [Record<string, unknown>, { pluginId: string; siteId: string }];

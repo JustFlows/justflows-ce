@@ -382,8 +382,11 @@ export default function BlockInspector({
     case "core.language-switcher":
       fields = <>
         {select("style", "Style", [
-          { value: "codes", label: "Language codes" },
-          { value: "names", label: "Language names" },
+          { value: "locale-full", label: "Locale (nl-NL)" },
+          { value: "locale-short", label: "Short locale (nl)" },
+          { value: "flags", label: "Flags" },
+          { value: "flag-locale", label: "Flag and locale" },
+          { value: "flag-country", label: "Flag and country name" },
         ])}
         {select("align", "Alignment", [
           { value: "left", label: "Left" },

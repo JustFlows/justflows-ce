@@ -16,7 +16,7 @@ User-visible work must cite the matching [Public Roadmap](https://github.com/org
 - This is a pnpm/Turborepo TypeScript monorepo. Use pnpm and workspace filters; do not introduce a second package-management path.
 - Keep `packages/core` independent of Express, React, and EJS. Framework integration belongs in `apps/server`.
 - Treat `packages/sdk` as a stable public contract. Coordinate compatible changes through the SDK, plugin runtime, example extension, and tests.
-- Support PostgreSQL, MySQL, and MariaDB wherever persistence changes. Never edit an applied migration; add the next numbered migration for every dialect.
+- Support PostgreSQL, MySQL, and MariaDB wherever persistence changes. Treat the shipped `0012_baseline` and every later applied migration as immutable; add the next numbered migration for every dialect (`0013` is next after the baseline) and register it in `MIGRATION_ORDER`.
 - Preserve browser-first installation and administration. Production users must not need a source checkout or build toolchain.
 - Never weaken authentication, capability checks, path validation, archive validation, HTML sanitization, upload limits, or secret handling.
 - New core source files start with `// SPDX-License-Identifier: MIT`. Extension manifests declare their own license; Marketplace listings use a GPL-compatible license.
@@ -38,7 +38,7 @@ User-visible work must cite the matching [Public Roadmap](https://github.com/org
 - `packages/{auth,content,blocks,media,installer,updater,cache,jobs}`: domain packages.
 - `plugins/`: developer workspace for plugins. Create `plugins/<name>/` and start there. `plugins/hello-world` is the example to copy.
 - `themes/default` and `css-providers`: presentation integrations.
-- `migrations`: shipped SQL migrations for all database dialects.
+- `migrations`: the consolidated schema baseline and later tracked SQL migrations for all database dialects.
 - `docker`, `scripts`, and `server.js`: distribution, hosting, startup, and releases.
 
 ## Verification
