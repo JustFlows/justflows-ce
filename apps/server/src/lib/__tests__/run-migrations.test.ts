@@ -13,8 +13,20 @@ import {
 } from "../run-migrations.js";
 
 describe("MIGRATION_ORDER", () => {
-  it("uses the consolidated schema through migration 0012", () => {
-    expect(MIGRATION_ORDER).toEqual(["0012_baseline"]);
+  it("uses the consolidated schema through migration 0012, then tracked migrations", () => {
+    expect(MIGRATION_ORDER).toEqual(["0012_baseline", "0013_public_comments"]);
+  });
+
+  it("ships 0013_public_comments for every database dialect", () => {
+    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
+      const ddl = fs.readFileSync(
+        path.join(migrationsDir(), `0013_public_comments${suffix}`),
+        "utf8",
+      );
+      const statements = splitSqlStatements(ddl, suffix === ".sql" ? "postgres" : "mysql");
+      expect(statements.some((s) => /ALTER TABLE comments ADD COLUMN.*notify/i.test(s))).toBe(true);
+      expect(statements.some((s) => /CREATE INDEX .*idx_comments_thread/i.test(s))).toBe(true);
+    }
   });
 
   it("does not rebuild MySQL/MariaDB revisions with a new foreign key or generated unique slot", () => {
