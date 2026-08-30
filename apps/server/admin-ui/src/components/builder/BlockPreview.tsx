@@ -282,10 +282,22 @@ export function BlockPreview({ block, depth = 0, onSelect, selectedId, renderChi
       );
 
     case "core.language-switcher":
+      const languageStyle = (p.style as string) || "locale-short";
+      const previewLanguages = [
+        { full: "en-US", short: "en", flag: "🇺🇸", country: "United States" },
+        { full: "nl-NL", short: "nl", flag: "🇳🇱", country: "Netherlands" },
+      ];
       return wrap(
-        <div style={{ display: "inline-flex", gap: 6, ...widgetAlign(p.align as string) }}>
-          <span style={{ ...widgetChip, fontWeight: 700 }}>EN</span>
-          <span style={widgetChip}>NL</span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxWidth: "100%", ...widgetAlign(p.align as string) }}>
+          {previewLanguages.slice(0, 1).map((language, index) => {
+            const label = languageStyle === "locale-full" ? language.full
+              : languageStyle === "flags" ? language.flag
+                : languageStyle === "flag-locale" ? `${language.flag} ${language.short}`
+                  : languageStyle === "flag-country" ? `${language.flag} ${language.country}`
+                    : languageStyle === "names" ? (index === 0 ? "English" : "Nederlands")
+                      : language.short;
+            return <span key={language.full} style={{ ...widgetChip, fontWeight: index === 0 ? 700 : 600 }}>{label} ⌄</span>;
+          })}
         </div>,
       );
 

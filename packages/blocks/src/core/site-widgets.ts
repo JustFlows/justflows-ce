@@ -18,6 +18,16 @@ function pick(raw: unknown, allowed: string[], fallback: string): string {
 }
 
 const ALIGN = ["left", "center", "right"] as const;
+const LANGUAGE_SWITCHER_STYLES = [
+  "locale-full",
+  "locale-short",
+  "flags",
+  "flag-locale",
+  "flag-country",
+  // Kept for blocks saved before the expanded selector styles.
+  "codes",
+  "names",
+] as const;
 
 function alignClass(align: string): string {
   return ` jf-site-widget jf-site-widget--${align}`;
@@ -68,13 +78,13 @@ ${buttons.join("\n")}
     icon: "文",
     category: "site",
     schema: {
-      style: { type: "select", options: ["codes", "names"], default: "codes" },
+      style: { type: "select", options: [...LANGUAGE_SWITCHER_STYLES], default: "locale-short" },
       align: { type: "select", options: [...ALIGN], default: "right" },
     },
     validateProps: (raw) => {
       const r = raw as Record<string, unknown>;
       return {
-        style: pick(r["style"], ["codes", "names"], "codes"),
+        style: pick(r["style"], [...LANGUAGE_SWITCHER_STYLES], "locale-short"),
         align: pick(r["align"], [...ALIGN], "right"),
       };
     },

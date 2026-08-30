@@ -42,10 +42,29 @@
         <% }); %>
       <% } %>
       <% if (hdr.showLanguageSwitcher !== false && typeof languageLinks !== 'undefined' && languageLinks.length > 1) { %>
-        <span class="site-lang jf-language-switcher jf-language-switcher--codes" data-jf-widget="language-switcher">
-          <% languageLinks.forEach(function(lang) { %>
-            <a href="<%= lang.href %>" class="site-lang__link jf-language-switcher__link<%= lang.current ? ' is-current' : '' %>"<% if (lang.current) { %> aria-current="page"<% } %>><%= lang.displayCode || lang.code.toUpperCase() %></a>
-          <% }); %>
+        <span class="site-lang jf-language-switcher jf-language-switcher--<%= hdr.languageSwitcherStyle || 'locale-short' %>" data-jf-widget="language-switcher" data-jf-style="<%= hdr.languageSwitcherStyle || 'locale-short' %>">
+          <%
+            const langStyle = hdr.languageSwitcherStyle || 'locale-short';
+            const currentLanguage = languageLinks.find(function(lang) { return lang.current; }) || languageLinks[0];
+            const languageLabel = function(lang) {
+              const langLabel = langStyle === 'locale-full' ? lang.code
+                : langStyle === 'flags' ? lang.flag
+                  : langStyle === 'flag-locale' ? lang.flag + ' ' + lang.shortCode
+                    : langStyle === 'flag-country' ? lang.flag + ' ' + lang.countryName
+                      : lang.shortCode;
+              return langLabel;
+            };
+          %>
+          <details class="jf-language-switcher__dropdown">
+            <summary class="jf-language-switcher__trigger"<% if (langStyle === 'flags') { %> aria-label="<%= currentLanguage.name || currentLanguage.code %>"<% } %>>
+              <span><%= languageLabel(currentLanguage) %></span><span class="jf-language-switcher__chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <span class="jf-language-switcher__menu">
+              <% languageLinks.forEach(function(lang) { %>
+                <a href="<%= lang.href %>" class="site-lang__link jf-language-switcher__link<%= lang.current ? ' is-current' : '' %>" hreflang="<%= lang.code %>" lang="<%= lang.code %>"<% if (langStyle === 'flags') { %> aria-label="<%= lang.name || lang.code %>"<% } %><% if (lang.current) { %> aria-current="page"<% } %>><%= languageLabel(lang) %></a>
+              <% }); %>
+            </span>
+          </details>
         </span>
       <% } %>
       <% if (hdr.showColorScheme) { %>

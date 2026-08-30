@@ -4,7 +4,7 @@
  */
 
 import { getDb } from "./db.js";
-import { readMigrationDdl, runMigrationStatements } from "./run-migrations.js";
+import { runAllMigrations } from "./run-migrations.js";
 import { DEFAULT_THEME_CSS_VARS } from "./theme-customize.js";
 import { randomUUID } from "node:crypto";
 
@@ -28,9 +28,7 @@ export interface ThemeRow {
 export async function ensureThemesTable(): Promise<void> {
   const db = await getDb();
   const driver = process.env.DB_DRIVER as "postgres" | "mysql" | "mariadb";
-  const ddl = await readMigrationDdl("0001_initial", driver);
-  if (!ddl) return;
-  await runMigrationStatements(db, ddl, driver);
+  await runAllMigrations(db, driver);
 }
 
 export async function getSiteId(): Promise<string | null> {

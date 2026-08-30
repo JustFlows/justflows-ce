@@ -226,7 +226,7 @@ justflows/
 │   └── hello-world/    Example — copy this folder to start
 ├── themes/default      Bundled theme
 ├── css-providers/      CSS provider integrations
-├── migrations/         SQL for PostgreSQL, MySQL, and MariaDB
+├── migrations/         Tracked SQL baselines/migrations for PostgreSQL, MySQL, and MariaDB
 ├── scripts/            Hosting install, zip, and bootstrap
 └── docker/             Docker Compose variants (Postgres, MySQL, MariaDB)
 ```

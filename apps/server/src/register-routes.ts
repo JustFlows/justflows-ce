@@ -26,6 +26,18 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startRevisionJobs();
     const { startCoreAutoUpdateJob } = await import("./lib/core-auto-update.js");
     startCoreAutoUpdateJob();
+    try {
+      const { getSiteId } = await import("./lib/site-settings.js");
+      const siteId = await getSiteId();
+      if (siteId) {
+        const { migrateTemplatePartsFromSettings } = await import("./lib/template-parts-migrate.js");
+        await migrateTemplatePartsFromSettings(siteId);
+        const { backfillSiteHeaderLibrary } = await import("./lib/site-header-backfill.js");
+        await backfillSiteHeaderLibrary(siteId);
+      }
+    } catch (err) {
+      console.error("[justflows] template-part / header backfill failed:", err);
+    }
   }
 
   const { ensurePluginRuntime } = await import("./lib/plugin-runtime.js");
@@ -56,7 +68,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: formsRoutes },
     { default: contentTypesRoutes },
     { default: reusableBlocksRoutes, templatePartsRouter },
-    { default: headerPresetsRoutes },
+    { default: siteHeaderRoutes },
     { default: auditRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
@@ -83,7 +95,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/forms.js"),
     import("./routes/content-types.js"),
     import("./routes/reusable-blocks.js"),
-    import("./routes/header-presets.js"),
+    import("./routes/site-header.js"),
     import("./routes/audit.js"),
   ]);
 
@@ -110,7 +122,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/menus", requireInstalled, menusRoutes);
   app.use("/api/reusable-blocks", requireInstalled, reusableBlocksRoutes);
   app.use("/api/template-parts", requireInstalled, templatePartsRouter);
-  app.use("/api/header-presets", requireInstalled, headerPresetsRoutes);
+  app.use("/api/headers", requireInstalled, siteHeaderRoutes);
   app.use("/api/blocks", requireInstalled, blocksRoutes);
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/forms", requireInstalled, formsRoutes);

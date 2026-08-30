@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import type { PluginDataApi, PluginDataRecord } from "@justflows/sdk";
 import { getDb, type DbClient } from "./db.js";
-import { readMigrationDdl, runMigrationStatements } from "./run-migrations.js";
+import { runAllMigrations } from "./run-migrations.js";
 
 let ensured = false;
 
@@ -11,8 +11,7 @@ async function ensurePluginDataTable(): Promise<void> {
   if (ensured) return;
   const db = await getDb();
   const driver = process.env.DB_DRIVER as "postgres" | "mysql" | "mariadb";
-  const ddl = await readMigrationDdl("0004_plugin_data", driver);
-  if (ddl) await runMigrationStatements(db, ddl, driver);
+  await runAllMigrations(db, driver);
   ensured = true;
 }
 

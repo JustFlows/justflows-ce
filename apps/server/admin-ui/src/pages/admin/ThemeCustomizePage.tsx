@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import MediaImageField from "@components/MediaImageField";
 import PageBuilder, { type BlockDocument } from "@components/builder/PageBuilder";
+import HeaderLibraryEditor from "./HeaderLibraryEditor";
 
 type ControlType = "color" | "font" | "text" | "image" | "range" | "code" | "select";
 
@@ -48,7 +49,7 @@ const SECTION_ORDER = [
   "identity", "colors", "colorsDark", "typography", "headings",
   "spacing", "radius", "shadow", "layout", "navigation", "advanced",
 ] as const;
-type EditorTab = "homepage" | "blog" | "styles" | "footer";
+type EditorTab = "homepage" | "blog" | "styles" | "header" | "footer";
 
 function localePath(locale: string, slug: string, defaultLocale: string): string {
   const path = `/${slug}`;
@@ -333,9 +334,11 @@ export default function CustomizeThemePage() {
               ? "Choose which page is the site home"
               : tab === "blog"
                 ? "Choose which page lists your blog posts"
-                : tab === "footer"
-                  ? "Blocks shown at the bottom of every page"
-                  : "Colors, fonts, spacing, headings & layout"}
+                : tab === "header"
+                  ? "Named headers, one shown on every page — with per-language overrides"
+                  : tab === "footer"
+                    ? "Blocks shown at the bottom of every page"
+                    : "Colors, fonts, spacing, headings & layout"}
             {dirty ? " · unsaved changes" : ""}
           </div>
         </div>
@@ -411,6 +414,13 @@ export default function CustomizeThemePage() {
           onClick={() => setTab("styles")}
         >
           Styles
+        </button>
+        <button
+          type="button"
+          className={`jf-theme-builder__tab${tab === "header" ? " jf-theme-builder__tab--active" : ""}`}
+          onClick={() => setTab("header")}
+        >
+          Header
         </button>
         <button
           type="button"
@@ -550,6 +560,10 @@ export default function CustomizeThemePage() {
         <div className="jf-editor__body">
           <PageBuilder value={footer} onChange={setFooter} />
         </div>
+      ) : tab === "header" ? (
+        <div className="jf-editor__body">
+          <HeaderLibraryEditor />
+        </div>
       ) : (
         <div className="jf-customizer">
           <aside className="jf-customizer__controls">
@@ -577,7 +591,7 @@ export default function CustomizeThemePage() {
                       )}
                       {sectionKey === "navigation" && (
                         <p className="jf-field__hint">
-                          Assign the default header and footer menus. Each page can override the header in the page builder.{" "}
+                          Assign the default header and footer menus. Build the headers themselves on the Header tab; each page picks one from a dropdown.{" "}
                           <a href="/admin/menus" target="_blank" rel="noopener noreferrer">Edit menus →</a>
                         </p>
                       )}

@@ -141,12 +141,36 @@ a fixed size, so a heading chosen on a desktop still scales down.
 
 ## Template parts
 
-`footer` is a block document stored per site (`template_part.footer`), edited
-under Theme builder → Footer, and rendered into the layout. An empty part is not
-an empty footer — it means the site never customised one, so the built-in menu
-and credit line stay. Publishing writes the published copy and clears the draft,
-so preview immediately reflects what was published. The page header remains
-per-page in the page builder.
+Site-wide chrome edited as a document lives in the **`template_parts`** table —
+one row per site per part, with a published `doc` and an optional `draft_doc`.
+It is a design artifact, not a preference, so it has its own table rather than a
+`site_settings` row. `template-parts-db.ts` is the storage layer; a one-time
+boot backfill moves any pre-existing `site_settings` rows (`template_part.*`,
+`template_part_draft.*`) into the table.
+
+`footer` is a plain block document (`template-parts.ts`), edited under Theme
+builder → Footer and rendered into the layout. An empty part is not an empty
+footer — it means the site never customised one, so the built-in menu and credit
+line stay. Publishing writes the published copy and clears the draft, so preview
+immediately reflects what was published.
+
+The `header` part is a **library** of named headers (`site-header.ts`), edited
+under Theme builder → Header. One entry is the site default, rendered on every
+page that has not chosen otherwise. Each page picks its header from a dropdown in
+the page builder — the site default, a named entry, or _None_ — stored as
+`fields.jfHeaderRef` (an unset ref follows the site default) and persisted
+immediately via `PUT /api/content/:id/header-ref`, independent of the page's
+Save. Each entry carries a base `PageHeaderConfig` plus sparse per-locale
+overrides: a locale key present in `overrides` is merged over the base for that
+locale only; everything else inherits. Draft/publish works exactly like the
+footer. Older per-page headers (`fields.jfHeader`) are converted into library
+entries once, on first boot.
+
+Plugins and themes contribute their own header designs in code through the
+`header.templates` hook — they appear in the same page dropdown (grouped *From
+plugins*) and are `build()`-rendered at request time. `header.resolve` lets a
+plugin own a page's header per request; `header.config` lets one adjust the
+resolved header before render. See [HOOKS.md](HOOKS.md#contributing-a-header-design).
 
 Presentation defaults (site title, tagline, colors) live in Customizer mods.
 Behavior belongs in plugins via hooks.

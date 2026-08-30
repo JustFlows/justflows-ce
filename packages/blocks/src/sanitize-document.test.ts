@@ -159,6 +159,10 @@ describe("sanitizeBlockDocument block styling", () => {
   it("drops the keys entirely when nothing survives", () => {
     expect(props({ className: "\"\"", css: "   " })).toEqual({});
   });
+
+  it("preserves a block schema's string style selection", () => {
+    expect(props({ style: "flags" })).toEqual({ style: "flags" });
+  });
 });
 
 describe("sanitizeBlockDocument grid placement vs. a block's own `layout` prop", () => {
