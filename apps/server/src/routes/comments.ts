@@ -5,6 +5,12 @@ import { getDb } from "../lib/db.js";
 import { requireRole } from "../middleware/auth.js";
 import { commentPlainText, notifyOnApproval, sanitizeCommentBody } from "../lib/comments-public.js";
 import { param } from "../lib/params.js";
+import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
+
+/** Public post pages cache their rendered comment thread; bust it on any change. */
+async function bustCommentCache(siteId: string): Promise<void> {
+  await revalidateOnUpdate("content", { siteId }).catch(() => undefined);
+}
 
 const router = Router();
 
@@ -79,6 +85,7 @@ router.patch("/", requireRole("administrator", "editor"), async (req, res) => {
   if (newStatus === "approved") {
     void notifyOnApproval(session.siteId, body.data.ids).catch(() => undefined);
   }
+  await bustCommentCache(session.siteId);
 
   res.json({ ok: true, updated: body.data.ids.length });
 });
@@ -117,6 +124,7 @@ router.patch("/:id", requireRole("administrator", "editor"), async (req, res) =>
   if (parsed.data.status === "approved") {
     void notifyOnApproval(session.siteId, [param(req.params.id)]).catch(() => undefined);
   }
+  await bustCommentCache(session.siteId);
   res.json({ ok: true });
 });
 
@@ -159,6 +167,7 @@ router.post("/:id/reply", requireRole("administrator", "editor"), async (req, re
     [id, session.siteId, parent.content_id, parent.id, authorName, u?.email ?? null, clean, session.userId, false, ts, ts],
   );
   void notifyOnApproval(session.siteId, [id]).catch(() => undefined);
+  await bustCommentCache(session.siteId);
   res.json({ ok: true, id });
 });
 
@@ -181,6 +190,7 @@ router.delete("/", requireRole("administrator"), async (req, res) => {
     ]);
     deleted++;
   }
+  await bustCommentCache(session.siteId);
   res.json({ ok: true, deleted });
 });
 

@@ -621,8 +621,12 @@ export async function acceptCommentSubmission(
   if (status === "pending" && settings.notifyModerator) {
     void notifyModerator(siteId, authorName, cleanBody).catch(() => undefined);
   }
-  if (status === "approved" && parentId) {
-    void notifyParentAuthor(siteId, parentId, id).catch(() => undefined);
+  if (status === "approved") {
+    // A visible new comment invalidates the cached post page for everyone else.
+    void import("./cache-revalidate.js")
+      .then(({ revalidateOnUpdate }) => revalidateOnUpdate("content", { siteId }))
+      .catch(() => undefined);
+    if (parentId) void notifyParentAuthor(siteId, parentId, id).catch(() => undefined);
   }
 
   return {
