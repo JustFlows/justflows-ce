@@ -1488,3 +1488,185 @@ hr {
 .site-header .jf-language-switcher {
   margin-left: 0.5rem;
 }
+
+/* ── Comments ──────────────────────────────────────────────────────────────── */
+
+.jf-comments {
+  max-width: var(--max-width);
+  margin: var(--space-6) auto 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.jf-comments__heading {
+  font-size: 1.25rem;
+  margin: 0 0 var(--space-4);
+}
+
+.jf-comments__count {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+.jf-comments__banner {
+  margin: 0 0 var(--space-4);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.jf-comments__banner--error {
+  border-color: var(--color-primary);
+}
+
+.jf-comments__list {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+}
+
+.jf-comments__list--replies {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--color-border);
+}
+
+.jf-comment {
+  margin: 0 0 var(--space-4);
+}
+
+.jf-comment__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.875rem;
+  color: var(--color-muted);
+  margin-bottom: 0.25rem;
+}
+
+.jf-comment__author {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.jf-comment__author a {
+  color: inherit;
+}
+
+.jf-comment__edited {
+  font-style: italic;
+}
+
+.jf-comment__reply-link {
+  color: var(--color-primary);
+}
+
+.jf-comment__text {
+  line-height: 1.6;
+}
+
+.jf-comment__text > :first-child {
+  margin-top: 0;
+}
+
+.jf-comment__text > :last-child {
+  margin-bottom: 0;
+}
+
+.jf-comments__empty,
+.jf-comments__closed {
+  color: var(--color-muted);
+}
+
+.jf-comments__pager {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0 0 var(--space-4);
+}
+
+.jf-comments__form {
+  position: relative;
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.jf-comments__form-title {
+  font-size: 1.05rem;
+  margin: 0 0 var(--space-3);
+}
+
+.jf-comments__replying {
+  font-size: 0.875rem;
+  color: var(--color-muted);
+  margin: 0 0 var(--space-3);
+}
+
+.jf-comments__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0 0 var(--space-3);
+}
+
+.jf-comments__field label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.jf-comments__field--check {
+  flex-direction: row;
+  align-items: center;
+}
+
+.jf-comments__field input,
+.jf-comments__field textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.jf-comments__field input:focus-visible,
+.jf-comments__field textarea:focus-visible,
+.jf-comments__submit:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.jf-comments__hint {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.jf-comments__hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.jf-comments__submit {
+  padding: 0.6rem 1.2rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jf-comments__submit:hover {
+  background: var(--color-primary-hover);
+}

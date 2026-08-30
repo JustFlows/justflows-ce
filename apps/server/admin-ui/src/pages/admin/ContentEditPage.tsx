@@ -1005,6 +1005,36 @@ export default function EditContentPage() {
 
             <div className="jf-card">
               <div className="jf-card__head">
+                <h2 className="jf-card__title">Discussion</h2>
+              </div>
+              <div className="jf-card__body">
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-comments-mode">Comments</label>
+                  <select
+                    id="jf-comments-mode"
+                    className="jf-input"
+                    value={
+                      item.fields?.comments === "open" || item.fields?.comments === "closed"
+                        ? item.fields.comments
+                        : "inherit"
+                    }
+                    onChange={(e) =>
+                      patchField("comments", e.target.value === "inherit" ? undefined : e.target.value)
+                    }
+                  >
+                    <option value="inherit">Use site default</option>
+                    <option value="open">Open — always accept comments</option>
+                    <option value="closed">Closed — hide the form</option>
+                  </select>
+                  <span className="jf-field__hint">
+                    Comments show only where a Comments block is placed in the content.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="jf-card">
+              <div className="jf-card__head">
                 <h2 className="jf-card__title">Details</h2>
               </div>
               <div className="jf-card__body">

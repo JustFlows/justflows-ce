@@ -64,6 +64,22 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
             if (value) res.setHeader(name, withGoogleTagCsp(value, hashes));
           }
         }
+
+        const { getCaptchaProviderForCsp, withCaptchaCsp } = await import(
+          "../lib/comments-captcha-csp.js"
+        );
+        const captchaProvider = await getCaptchaProviderForCsp();
+        if (captchaProvider !== "none") {
+          for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
+            const current = res.getHeader(name);
+            const value = Array.isArray(current)
+              ? current.join("; ")
+              : typeof current === "string"
+                ? current
+                : "";
+            if (value) res.setHeader(name, withCaptchaCsp(value, captchaProvider));
+          }
+        }
       }
     })
     .catch(() => {
