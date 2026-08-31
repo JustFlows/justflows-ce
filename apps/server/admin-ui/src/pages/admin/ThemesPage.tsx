@@ -12,6 +12,7 @@ interface Theme {
   publisher: string;
   status: string;
   active?: boolean;
+  manifest?: { installedPath?: string };
 }
 
 interface RegistryTheme {
@@ -43,6 +44,7 @@ export default function ThemesPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -140,6 +142,21 @@ export default function ThemesPage() {
     }
   }
 
+  async function removeTheme(theme: Theme) {
+    const themeId = theme.theme_id ?? theme.themeId ?? theme.id;
+    if (!confirm(`Delete "${theme.name}"? You can install it again from the marketplace.`)) return;
+    setDeleteError("");
+    const res = await fetch(`/api/themes/${encodeURIComponent(themeId)}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({})) as { error?: string };
+    if (!res.ok) {
+      setDeleteError(data.error ?? "Theme could not be deleted");
+      return;
+    }
+    setThemes((current) => current.filter(
+      (installed) => (installed.theme_id ?? installed.themeId ?? installed.id) !== themeId,
+    ));
+  }
+
   const activeTheme = themes.find((t) => t.active || t.status === "active");
 
   return (
@@ -188,6 +205,8 @@ export default function ThemesPage() {
       </div>
       )}
 
+      {deleteError && <div className="jf-alert jf-alert--error" role="alert">{deleteError}</div>}
+
       {loading ? (
         <div className="jf-cardgrid">
           <div className="jf-skeleton" style={{ height: 300 }} />
@@ -226,12 +245,22 @@ export default function ThemesPage() {
                       Customize
                     </Link>
                   ) : canManage ? (
-                    <button
-                      className="jf-btn jf-btn--ghost jf-btn--block"
-                      onClick={() => activateTheme(themeId)}
-                    >
-                      Activate
-                    </button>
+                    <div className="jf-stack jf-stack--sm">
+                      <button
+                        className="jf-btn jf-btn--ghost jf-btn--block"
+                        onClick={() => activateTheme(themeId)}
+                      >
+                        Activate
+                      </button>
+                      {themeId !== "justflows.default" && (
+                        <button
+                          className="jf-btn jf-btn--danger jf-btn--block"
+                          onClick={() => void removeTheme(theme)}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   ) : null}
                 </div>
               </div>

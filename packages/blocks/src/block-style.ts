@@ -55,17 +55,100 @@ export interface BlockStyle {
   textAlign: string;
   radius: string;
   shadow: string;
+  /** Per-instance colours. Empty = inherit from the theme. `transparent` / `none` clear it. */
+  background: string;
+  textColor: string;
+  accent: string;
+  /** Block opacity as a percent string "0"–"100"; empty = not set (fully opaque). */
+  opacity: string;
+  /**
+   * Per-instance overrides of theme CSS custom properties, e.g.
+   * `{ "--brand-gradient": "linear-gradient(…)" }`. Set by the block
+   * inspector's theme controls; written onto the block's root element so a
+   * `var(--brand-gradient)` in the theme resolves to the block's value.
+   */
+  vars: Record<string, string>;
 }
 
 export const DEFAULT_BLOCK_STYLE: BlockStyle = {
-  padTop: "", padBottom: "", padX: "",
-  marginTop: "", marginBottom: "",
-  width: "", minHeight: 0, maxWidth: 0, maxHeight: 0,
-  alignSelf: "", textAlign: "", radius: "", shadow: "",
+  padTop: "",
+  padBottom: "",
+  padX: "",
+  marginTop: "",
+  marginBottom: "",
+  width: "",
+  minHeight: 0,
+  maxWidth: 0,
+  maxHeight: 0,
+  alignSelf: "",
+  textAlign: "",
+  radius: "",
+  shadow: "",
+  background: "",
+  textColor: "",
+  accent: "",
+  opacity: "",
+  vars: {},
 };
 
+/** A `--custom-property` name. */
+const CUSTOM_PROP = /^--[a-zA-Z][\w-]{0,60}$/;
+
+/**
+ * A value we are willing to write after `--prop:` in a `style` attribute: a
+ * gradient, an `animation` shorthand, a colour, a length. Deliberately narrow —
+ * no `;{}<>@`, no comments, no `url(` — so a value cannot close the declaration
+ * or open a new rule.
+ */
+const SAFE_VAR_VALUE = /^[a-zA-Z0-9#%.,()/\s+-]{1,300}$/;
+
+export function safeStyleVarValue(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const value = raw.trim();
+  if (!value) return "";
+  if (/[;{}<>@\\]|\/\*|\*\/|url\s*\(/i.test(value)) return "";
+  return SAFE_VAR_VALUE.test(value) ? value : "";
+}
+
+/** A 0–100 integer percent as a string, or "" when unset/invalid. */
+function parseOpacityPct(raw: unknown): string {
+  if (raw === "" || raw == null) return "";
+  const n = typeof raw === "number" ? raw : Number(String(raw).trim());
+  if (!Number.isFinite(n)) return "";
+  return String(Math.min(100, Math.max(0, Math.round(n))));
+}
+
+function parseStyleVars(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!CUSTOM_PROP.test(key)) continue;
+    const safe = safeStyleVarValue(value);
+    if (safe) out[key] = safe;
+  }
+  return out;
+}
+
+/**
+ * A CSS colour we are willing to write into a `style` attribute: hex, a bounded
+ * colour function, or a bare keyword. Mirrors the server's `isSafeCssColor`;
+ * kept local so `@justflows/blocks` has no server dependency.
+ */
+const SAFE_COLOR =
+  /^(#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla|oklch|oklab|lab|lch|color)\([0-9a-zA-Z.,%/\s+-]{1,80}\)|[a-zA-Z]{3,24})$/;
+
+export function safeBlockColor(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const value = raw.trim();
+  if (!value || value.length > 100) return "";
+  if (/[;{}<>@\\]|\/\*|\*\//.test(value)) return "";
+  return SAFE_COLOR.test(value) ? value : "";
+}
+
 function pick<T extends string>(raw: unknown, allowed: readonly T[]): T {
-  return typeof raw === "string" && (allowed as readonly string[]).includes(raw) ? (raw as T) : ("" as T);
+  return typeof raw === "string" && (allowed as readonly string[]).includes(raw)
+    ? (raw as T)
+    : ("" as T);
 }
 
 function clampInt(raw: unknown, min: number, max: number): number {
@@ -92,15 +175,34 @@ export function parseBlockStyle(raw: unknown): BlockStyle {
     textAlign: pick(input["textAlign"], TEXT_ALIGN),
     radius: pick(input["radius"], RADIUS_PRESETS),
     shadow: pick(input["shadow"], SHADOW_PRESETS),
+    background: safeBlockColor(input["background"]),
+    textColor: safeBlockColor(input["textColor"]),
+    accent: safeBlockColor(input["accent"]),
+    opacity: parseOpacityPct(input["opacity"]),
+    vars: parseStyleVars(input["vars"]),
   };
 }
 
 export function isDefaultBlockStyle(style: BlockStyle): boolean {
   return (
-    !style.padTop && !style.padBottom && !style.padX &&
-    !style.marginTop && !style.marginBottom &&
-    !style.width && style.minHeight === 0 && style.maxWidth === 0 && style.maxHeight === 0 &&
-    !style.alignSelf && !style.textAlign && !style.radius && !style.shadow
+    !style.padTop &&
+    !style.padBottom &&
+    !style.padX &&
+    !style.marginTop &&
+    !style.marginBottom &&
+    !style.width &&
+    style.minHeight === 0 &&
+    style.maxWidth === 0 &&
+    style.maxHeight === 0 &&
+    !style.alignSelf &&
+    !style.textAlign &&
+    !style.radius &&
+    !style.shadow &&
+    !style.background &&
+    !style.textColor &&
+    !style.accent &&
+    !style.opacity &&
+    Object.keys(style.vars).length === 0
   );
 }
 
@@ -110,6 +212,7 @@ export function compactBlockStyle(style: BlockStyle): Record<string, unknown> | 
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(style)) {
     if (value === "" || value === 0) continue;
+    if (key === "vars" && Object.keys(value as object).length === 0) continue;
     out[key] = value;
   }
   return Object.keys(out).length > 0 ? out : undefined;
@@ -129,7 +232,8 @@ export function blockStyleDeclarations(style: BlockStyle): string {
   const out: string[] = [];
   if (style.padTop) out.push(`padding-top:${space(style.padTop)}`);
   if (style.padBottom) out.push(`padding-bottom:${space(style.padBottom)}`);
-  if (style.padX) out.push(`padding-left:${space(style.padX)}`, `padding-right:${space(style.padX)}`);
+  if (style.padX)
+    out.push(`padding-left:${space(style.padX)}`, `padding-right:${space(style.padX)}`);
   if (style.marginTop) out.push(`margin-top:${space(style.marginTop)}`);
   if (style.marginBottom) out.push(`margin-bottom:${space(style.marginBottom)}`);
   if (style.width) {
@@ -148,5 +252,15 @@ export function blockStyleDeclarations(style: BlockStyle): string {
   if (style.textAlign) out.push(`text-align:${style.textAlign}`);
   if (style.radius) out.push(`border-radius:${RADIUS_VALUES[style.radius] ?? "0"}`);
   if (style.shadow) out.push(`box-shadow:${SHADOW_VALUES[style.shadow] ?? "none"}`);
+  // Colours: the direct property covers the common case (a section/hero box),
+  // and the custom property lets a theme opt a specific element in
+  // (`var(--jf-block-accent, …)`) without the editor writing CSS.
+  if (style.background)
+    out.push(`background:${style.background}`, `--jf-block-bg:${style.background}`);
+  if (style.textColor) out.push(`color:${style.textColor}`, `--jf-block-text:${style.textColor}`);
+  if (style.accent) out.push(`--jf-block-accent:${style.accent}`, `accent-color:${style.accent}`);
+  if (style.opacity) out.push(`opacity:${Number(style.opacity) / 100}`);
+  // Theme-token overrides set from the inspector's theme controls.
+  for (const [key, value] of Object.entries(style.vars)) out.push(`${key}:${value}`);
   return out.join(";");
 }

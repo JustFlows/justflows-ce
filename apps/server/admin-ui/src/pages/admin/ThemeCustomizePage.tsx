@@ -35,6 +35,8 @@ interface ThemeMods {
   layout?: Record<string, string | number>;
   navigation?: Record<string, string>;
   advanced?: Record<string, string>;
+  /** Extra sections a theme contributes through its manifest `customize` block. */
+  [section: string]: Record<string, string | number> | undefined;
 }
 
 interface ThemePageOption {
@@ -46,8 +48,17 @@ interface ThemePageOption {
 }
 
 const SECTION_ORDER = [
-  "identity", "colors", "colorsDark", "typography", "headings",
-  "spacing", "radius", "shadow", "layout", "navigation", "advanced",
+  "identity",
+  "colors",
+  "colorsDark",
+  "typography",
+  "headings",
+  "spacing",
+  "radius",
+  "shadow",
+  "layout",
+  "navigation",
+  "advanced",
 ] as const;
 type EditorTab = "homepage" | "blog" | "styles" | "header" | "footer";
 
@@ -111,7 +122,7 @@ export default function CustomizeThemePage() {
   useEffect(() => {
     fetch("/api/themes/customize")
       .then(async (r) => {
-        const data = await r.json() as {
+        const data = (await r.json()) as {
           error?: string;
           theme?: { name: string };
           schema?: Record<string, Section>;
@@ -132,52 +143,58 @@ export default function CustomizeThemePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const persist = useCallback(async (publish = false) => {
-    setSaving(!publish);
-    setPublishing(publish);
-    setError("");
-    try {
-      const res = await fetch("/api/themes/customize", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mods, draft: !publish, publish }),
-      });
-      const data = await res.json() as { error?: string; mods?: ThemeMods };
-      if (!res.ok) throw new Error(data.error ?? "Failed to save");
-      if (data.mods) setMods(data.mods);
-      setDirty(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-      reloadPreview();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setSaving(false);
-      setPublishing(false);
-    }
-  }, [mods, reloadPreview]);
-
-  const queueStylesSave = useCallback((nextMods: ThemeMods) => {
-    if (stylesSaveTimer.current) clearTimeout(stylesSaveTimer.current);
-    stylesSaveTimer.current = setTimeout(async () => {
-      setSaving(true);
+  const persist = useCallback(
+    async (publish = false) => {
+      setSaving(!publish);
+      setPublishing(publish);
       setError("");
       try {
         const res = await fetch("/api/themes/customize", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mods: nextMods, draft: true, publish: false }),
+          body: JSON.stringify({ mods, draft: !publish, publish }),
         });
-        const data = await res.json() as { error?: string };
-        if (!res.ok) throw new Error(data.error ?? "Failed to save draft");
+        const data = (await res.json()) as { error?: string; mods?: ThemeMods };
+        if (!res.ok) throw new Error(data.error ?? "Failed to save");
+        if (data.mods) setMods(data.mods);
+        setDirty(false);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
         reloadPreview();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
         setSaving(false);
+        setPublishing(false);
       }
-    }, 400);
-  }, [reloadPreview]);
+    },
+    [mods, reloadPreview],
+  );
+
+  const queueStylesSave = useCallback(
+    (nextMods: ThemeMods) => {
+      if (stylesSaveTimer.current) clearTimeout(stylesSaveTimer.current);
+      stylesSaveTimer.current = setTimeout(async () => {
+        setSaving(true);
+        setError("");
+        try {
+          const res = await fetch("/api/themes/customize", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mods: nextMods, draft: true, publish: false }),
+          });
+          const data = (await res.json()) as { error?: string };
+          if (!res.ok) throw new Error(data.error ?? "Failed to save draft");
+          reloadPreview();
+        } catch (e) {
+          setError(e instanceof Error ? e.message : String(e));
+        } finally {
+          setSaving(false);
+        }
+      }, 400);
+    },
+    [reloadPreview],
+  );
 
   async function selectHomePage(contentId: string | null) {
     setError("");
@@ -188,7 +205,7 @@ export default function CustomizeThemePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contentId }),
       });
-      const data = await res.json() as { error?: string; homePageId?: string | null };
+      const data = (await res.json()) as { error?: string; homePageId?: string | null };
       if (!res.ok) throw new Error(data.error ?? "Could not set the home page");
       setHomePageId(data.homePageId ?? null);
       reloadPreview();
@@ -200,18 +217,22 @@ export default function CustomizeThemePage() {
   }
 
   async function convertThemeHome() {
-    if (!window.confirm("Create a page from the current homepage layout and use it as the home page?")) return;
+    if (
+      !window.confirm("Create a page from the current homepage layout and use it as the home page?")
+    )
+      return;
     setConverting(true);
     setError("");
     try {
       const res = await fetch("/api/themes/customize/promote-home", { method: "POST" });
-      const data = await res.json() as {
+      const data = (await res.json()) as {
         error?: string;
         homePageId?: string;
         page?: ThemePageOption;
       };
       if (!res.ok) throw new Error(data.error ?? "Could not create a home page");
-      if (data.page) setPages((prev) => [data.page!, ...prev.filter((p) => p.id !== data.page!.id)]);
+      if (data.page)
+        setPages((prev) => [data.page!, ...prev.filter((p) => p.id !== data.page!.id)]);
       setHomePageId(data.homePageId ?? null);
       reloadPreview();
     } catch (e) {
@@ -230,7 +251,7 @@ export default function CustomizeThemePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contentId }),
       });
-      const data = await res.json() as { error?: string; blogPageId?: string | null };
+      const data = (await res.json()) as { error?: string; blogPageId?: string | null };
       if (!res.ok) throw new Error(data.error ?? "Could not set the blog page");
       setBlogPageId(data.blogPageId ?? null);
     } catch (e) {
@@ -241,18 +262,20 @@ export default function CustomizeThemePage() {
   }
 
   async function convertThemeBlog() {
-    if (!window.confirm("Create a page from the default blog layout and use it as the blog page?")) return;
+    if (!window.confirm("Create a page from the default blog layout and use it as the blog page?"))
+      return;
     setConvertingBlog(true);
     setError("");
     try {
       const res = await fetch("/api/themes/customize/promote-blog", { method: "POST" });
-      const data = await res.json() as {
+      const data = (await res.json()) as {
         error?: string;
         blogPageId?: string;
         page?: ThemePageOption;
       };
       if (!res.ok) throw new Error(data.error ?? "Could not create a blog page");
-      if (data.page) setPages((prev) => [data.page!, ...prev.filter((p) => p.id !== data.page!.id)]);
+      if (data.page)
+        setPages((prev) => [data.page!, ...prev.filter((p) => p.id !== data.page!.id)]);
       setBlogPageId(data.blogPageId ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -261,7 +284,7 @@ export default function CustomizeThemePage() {
     }
   }
 
-  function updateMod(section: keyof ThemeMods, key: string, value: string | number) {
+  function updateMod(section: string, key: string, value: string | number) {
     setMods((prev) => {
       const next = {
         ...prev,
@@ -281,7 +304,7 @@ export default function CustomizeThemePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blocks: footer.blocks, draft: !publish }),
       });
-      const data = await res.json() as { error?: string };
+      const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Could not save the footer");
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -435,7 +458,9 @@ export default function CustomizeThemePage() {
         <div className="jf-customizer">
           <aside className="jf-customizer__controls" style={{ padding: "1rem" }}>
             <div className="jf-field">
-              <label className="jf-field__label" htmlFor="jf-home-page">Home page</label>
+              <label className="jf-field__label" htmlFor="jf-home-page">
+                Home page
+              </label>
               <select
                 id="jf-home-page"
                 className="jf-input"
@@ -446,20 +471,28 @@ export default function CustomizeThemePage() {
                 <option value="">Theme layout (not a page yet)</option>
                 {pages.map((page) => (
                   <option key={page.id} value={page.id}>
-                    {page.title || page.slug} {page.status !== "published" ? `(${page.status})` : ""}
+                    {page.title || page.slug}{" "}
+                    {page.status !== "published" ? `(${page.status})` : ""}
                   </option>
                 ))}
               </select>
               <p className="jf-field__hint">
-                Any page can be the home page. Edit its header, menu, and blocks in the page builder.
+                Any page can be the home page. Edit its header, menu, and blocks in the page
+                builder.
               </p>
             </div>
             {selectedHome ? (
               <div className="jf-stack" style={{ gap: "0.6rem" }}>
-                <Link className="jf-btn jf-btn--primary jf-btn--block" to={`/admin/content/${selectedHome.id}/builder`}>
+                <Link
+                  className="jf-btn jf-btn--primary jf-btn--block"
+                  to={`/admin/content/${selectedHome.id}/builder`}
+                >
                   Edit this page
                 </Link>
-                <Link className="jf-btn jf-btn--ghost jf-btn--block" to={`/admin/content/${selectedHome.id}`}>
+                <Link
+                  className="jf-btn jf-btn--ghost jf-btn--block"
+                  to={`/admin/content/${selectedHome.id}`}
+                >
                   Page settings
                 </Link>
                 <p className="jf-field__hint" style={{ margin: 0 }}>
@@ -476,7 +509,10 @@ export default function CustomizeThemePage() {
                 >
                   {converting ? "Creating…" : "Turn current layout into a page"}
                 </button>
-                <Link className="jf-btn jf-btn--ghost jf-btn--block" to="/admin/content/new?type=page">
+                <Link
+                  className="jf-btn jf-btn--ghost jf-btn--block"
+                  to="/admin/content/new?type=page"
+                >
                   Create a new page
                 </Link>
                 <p className="jf-field__hint" style={{ margin: 0 }}>
@@ -494,7 +530,9 @@ export default function CustomizeThemePage() {
         <div className="jf-customizer">
           <aside className="jf-customizer__controls" style={{ padding: "1rem" }}>
             <div className="jf-field">
-              <label className="jf-field__label" htmlFor="jf-blog-page">Blog page</label>
+              <label className="jf-field__label" htmlFor="jf-blog-page">
+                Blog page
+              </label>
               <select
                 id="jf-blog-page"
                 className="jf-input"
@@ -505,21 +543,28 @@ export default function CustomizeThemePage() {
                 <option value="">No blog page yet</option>
                 {pages.map((page) => (
                   <option key={page.id} value={page.id}>
-                    {page.title || page.slug} {page.status !== "published" ? `(${page.status})` : ""}
+                    {page.title || page.slug}{" "}
+                    {page.status !== "published" ? `(${page.status})` : ""}
                   </option>
                 ))}
               </select>
               <p className="jf-field__hint">
-                Any page can be the blog page — drop a "Post List" block on it in the page builder to
-                list posts, or use the default layout below as a starting point.
+                Any page can be the blog page — drop a "Post List" block on it in the page builder
+                to list posts, or use the default layout below as a starting point.
               </p>
             </div>
             {selectedBlog ? (
               <div className="jf-stack" style={{ gap: "0.6rem" }}>
-                <Link className="jf-btn jf-btn--primary jf-btn--block" to={`/admin/content/${selectedBlog.id}/builder`}>
+                <Link
+                  className="jf-btn jf-btn--primary jf-btn--block"
+                  to={`/admin/content/${selectedBlog.id}/builder`}
+                >
                   Edit this page
                 </Link>
-                <Link className="jf-btn jf-btn--ghost jf-btn--block" to={`/admin/content/${selectedBlog.id}`}>
+                <Link
+                  className="jf-btn jf-btn--ghost jf-btn--block"
+                  to={`/admin/content/${selectedBlog.id}`}
+                >
                   Page settings
                 </Link>
                 <p className="jf-field__hint" style={{ margin: 0 }}>
@@ -536,7 +581,10 @@ export default function CustomizeThemePage() {
                 >
                   {convertingBlog ? "Creating…" : "Turn default blog layout into a page"}
                 </button>
-                <Link className="jf-btn jf-btn--ghost jf-btn--block" to="/admin/content/new?type=page">
+                <Link
+                  className="jf-btn jf-btn--ghost jf-btn--block"
+                  to="/admin/content/new?type=page"
+                >
                   Create a new page
                 </Link>
                 <p className="jf-field__hint" style={{ margin: 0 }}>
@@ -567,7 +615,14 @@ export default function CustomizeThemePage() {
       ) : (
         <div className="jf-customizer">
           <aside className="jf-customizer__controls">
-            {SECTION_ORDER.filter((key) => schema[key]).map((sectionKey) => {
+            {[
+              ...SECTION_ORDER.filter((key) => schema[key]),
+              // Sections a theme package added via its manifest `customize`
+              // block — rendered after the built-ins, in manifest order.
+              ...Object.keys(schema).filter(
+                (key) => !SECTION_ORDER.includes(key as (typeof SECTION_ORDER)[number]),
+              ),
+            ].map((sectionKey) => {
               const section = schema[sectionKey]!;
               const isOpen = openSection === sectionKey;
               return (
@@ -577,7 +632,9 @@ export default function CustomizeThemePage() {
                     aria-expanded={isOpen}
                     onClick={() => setOpenSection(isOpen ? "" : sectionKey)}
                   >
-                    <span className="jf-accordion__caret" aria-hidden="true">▸</span>
+                    <span className="jf-accordion__caret" aria-hidden="true">
+                      ▸
+                    </span>
                     {section.label}
                   </button>
                   {isOpen && (
@@ -591,8 +648,11 @@ export default function CustomizeThemePage() {
                       )}
                       {sectionKey === "navigation" && (
                         <p className="jf-field__hint">
-                          Assign the default header and footer menus. Build the headers themselves on the Header tab; each page picks one from a dropdown.{" "}
-                          <a href="/admin/menus" target="_blank" rel="noopener noreferrer">Edit menus →</a>
+                          Assign the default header and footer menus. Build the headers themselves
+                          on the Header tab; each page picks one from a dropdown.{" "}
+                          <a href="/admin/menus" target="_blank" rel="noopener noreferrer">
+                            Edit menus →
+                          </a>
                         </p>
                       )}
                       {Object.entries(section.controls).map(([key, control]) => (
@@ -601,8 +661,8 @@ export default function CustomizeThemePage() {
                           controlKey={key}
                           sectionKey={sectionKey}
                           control={control}
-                          value={(mods[sectionKey as keyof ThemeMods] as Record<string, string | number> | undefined)?.[key] ?? control.default}
-                          onChange={(v) => updateMod(sectionKey as keyof ThemeMods, key, v)}
+                          value={mods[sectionKey]?.[key] ?? control.default}
+                          onChange={(v) => updateMod(sectionKey, key, v)}
                         />
                       ))}
                     </div>
@@ -640,7 +700,9 @@ function ControlField({
   if (control.type === "color") {
     return (
       <div className="jf-field">
-        <label className="jf-field__label" htmlFor={id}>{control.label}</label>
+        <label className="jf-field__label" htmlFor={id}>
+          {control.label}
+        </label>
         <div className="jf-row" style={{ flexWrap: "nowrap" }}>
           <input
             id={id}
@@ -664,10 +726,19 @@ function ControlField({
   if ((control.type === "font" || control.type === "select") && control.options) {
     return (
       <div className="jf-field">
-        <label className="jf-field__label" htmlFor={id}>{control.label}</label>
-        <select id={id} className="jf-input" value={String(value)} onChange={(e) => onChange(e.target.value)}>
+        <label className="jf-field__label" htmlFor={id}>
+          {control.label}
+        </label>
+        <select
+          id={id}
+          className="jf-input"
+          value={String(value)}
+          onChange={(e) => onChange(e.target.value)}
+        >
           {control.options.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
           ))}
         </select>
       </div>
@@ -678,7 +749,8 @@ function ControlField({
     return (
       <div className="jf-field">
         <label className="jf-field__label" htmlFor={id}>
-          {control.label}: {value}{control.unit ?? ""}
+          {control.label}: {value}
+          {control.unit ?? ""}
         </label>
         <input
           id={id}
@@ -696,7 +768,9 @@ function ControlField({
   if (control.type === "code") {
     return (
       <div className="jf-field">
-        <label className="jf-field__label" htmlFor={id}>{control.label}</label>
+        <label className="jf-field__label" htmlFor={id}>
+          {control.label}
+        </label>
         <textarea
           id={id}
           className="jf-input jf-input--mono"
@@ -723,7 +797,9 @@ function ControlField({
 
   return (
     <div className="jf-field">
-      <label className="jf-field__label" htmlFor={id}>{control.label}</label>
+      <label className="jf-field__label" htmlFor={id}>
+        {control.label}
+      </label>
       {control.description ? <p className="jf-field__hint">{control.description}</p> : null}
       <input
         id={id}

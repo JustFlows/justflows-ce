@@ -290,7 +290,9 @@
       "classNameInvalid": "Los nombres de clase solo admiten letras, números, guiones y guiones bajos.",
       "css": "CSS",
       "cssRejected": "CSS rechazado. @import, url(javascript:…) y construcciones similares no están permitidas.",
-      "compiled": "Lo que se publica"
+      "compiled": "Lo que se publica",
+      "tokens": "Variables del tema",
+      "tokensHint": "Haz clic en una variable para añadirla como & { … } en el cuadro de arriba y edita el valor."
     },
     "json": {
       "title": "JSON del bloque",
@@ -350,7 +352,13 @@
         "md": "Media",
         "lg": "Grande",
         "pill": "Píldora"
-      }
+      },
+      "background": "Fondo",
+      "textColor": "Color de texto",
+      "accent": "Acento",
+      "opacity": "Opacidad",
+      "transparent": "Ninguno",
+      "transparentHint": "Sin fondo — totalmente transparente"
     },
     "reusable": {
       "title": "Bloque reutilizable",
@@ -362,6 +370,12 @@
       "showing": "Muestra",
       "referenceHint": "Esto es una referencia. Los cambios en el bloque guardado aparecen en cada página que lo usa.",
       "missing": "Ese bloque guardado ya no existe."
+    },
+    "themeControls": {
+      "title": "Estilo del tema",
+      "hint": "La interpretación de este bloque del estilo del tema — anula el ajuste global del sitio.",
+      "inherit": "Predeterminado del tema",
+      "all": "Todas las variables del tema"
     }
   }
 }

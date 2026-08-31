@@ -22,6 +22,15 @@ vi.mock("../header-templates.js", () => ({
   },
 }));
 
+let themeHeader: Record<string, unknown> | null = null;
+vi.mock("../themes-db.js", () => ({
+  getActiveTheme: async () => ({ theme_id: "justflows.sample", manifest: {} }),
+  themeInstalledPath: () => null,
+}));
+vi.mock("../theme-files.js", () => ({
+  loadThemeDemoHeader: () => themeHeader,
+}));
+
 const { resolveHeaderConfig } = await import("../header-resolve.js");
 const { DEFAULT_PAGE_HEADER } = await import("../page-header.js");
 const BASE = { ...DEFAULT_PAGE_HEADER, blocks: [] as unknown[] };
@@ -43,6 +52,7 @@ beforeEach(() => {
   handlers.clear();
   templateConfig = null;
   buildCalls.length = 0;
+  themeHeader = null;
 });
 
 describe("resolveHeaderConfig precedence", () => {
@@ -82,7 +92,31 @@ describe("resolveHeaderConfig precedence", () => {
   it("3. library entry by ref, and __none__ hides the header", async () => {
     const library = libWith([entry("lib-1", { layout: "split" }), entry("lib-2")], "lib-2");
     expect((await resolveHeaderConfig({ ...common, library, ref: "lib-1" })).layout).toBe("split");
-    expect((await resolveHeaderConfig({ ...common, library, ref: "__none__" })).visible).toBe(false);
+    expect((await resolveHeaderConfig({ ...common, library, ref: "__none__" })).visible).toBe(
+      false,
+    );
+  });
+
+  it("3b. no library default -> the active theme's demo/header.json, merged and sanitised", async () => {
+    themeHeader = { layout: "split", showColorScheme: true, background: "url(evil)" };
+    const cfg = await resolveHeaderConfig({
+      ...common,
+      library: libWith([], null),
+      ref: "__default__",
+    });
+    expect(cfg.layout).toBe("split");
+    expect(cfg.showColorScheme).toBe(true);
+    expect(cfg.background).toBe(""); // unsafe value dropped by parsePageHeader
+  });
+
+  it("3c. no library default and no theme header -> built-in DEFAULT_PAGE_HEADER", async () => {
+    themeHeader = null;
+    const cfg = await resolveHeaderConfig({
+      ...common,
+      library: libWith([], null),
+      ref: "__default__",
+    });
+    expect(cfg).toEqual({ ...DEFAULT_PAGE_HEADER, blocks: [] });
   });
 
   it("4. header.config adjusts whatever was resolved", async () => {

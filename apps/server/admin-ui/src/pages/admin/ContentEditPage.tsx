@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import BlockEditor, { type BlockDocument } from "@components/BlockEditor";
+import { type BlockDocument } from "@components/BlockEditor";
 import MediaImageField from "@components/MediaImageField";
 import { useSessionRole } from "@components/SessionProvider";
 import { useT } from "../../i18n/I18nProvider";
 import HeaderRefField from "@components/builder/HeaderRefField";
 import { fieldsWithHeaderRef, headerRefFromFields } from "../../lib/page-header";
 import ProductCatalogFields from "./ProductCatalogFields";
-import { fetchProductPattern, isEmptyBlockDocument, shouldSeedProductLayout, usesPageBuilderChrome } from "../../lib/content-layout";
+import {
+  fetchProductPattern,
+  isEmptyBlockDocument,
+  shouldSeedProductLayout,
+  usesPageBuilderChrome,
+} from "../../lib/content-layout";
 import { catalogPreviewTags } from "../../lib/product-tags";
 
 interface ContentItem {
@@ -75,6 +80,8 @@ interface RevisionSummary {
 
 const VISIBLE_REVISION_HISTORY = 5;
 
+type EditSection = "content" | "seo" | "discussion" | "revisions" | "advanced";
+
 function localePath(locale: string, slug: string, defaultLocale: string): string {
   const path = `/${slug}`;
   if (locale === defaultLocale) return path;
@@ -106,11 +113,16 @@ export default function EditContentPage() {
   const [homeSaving, setHomeSaving] = useState(false);
   const [blogPageId, setBlogPageId] = useState<string | null>(null);
   const [blogSaving, setBlogSaving] = useState(false);
-  const [compare, setCompare] = useState<Array<{ field: string; live: unknown; working: unknown }> | null>(null);
+  const [compare, setCompare] = useState<Array<{
+    field: string;
+    live: unknown;
+    working: unknown;
+  }> | null>(null);
   const [autosaving, setAutosaving] = useState(false);
   const [revisions, setRevisions] = useState<RevisionSummary[]>([]);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [expandedRevisionId, setExpandedRevisionId] = useState<string | null>(null);
+  const [section, setSection] = useState<EditSection>("content");
   const [catalogDirty, setCatalogDirty] = useState(false);
   const [catalogDraft, setCatalogDraft] = useState<Parameters<typeof catalogPreviewTags>[0]>(null);
   const catalogSaveRef = useRef<(() => Promise<boolean>) | null>(null);
@@ -138,8 +150,10 @@ export default function EditContentPage() {
   }, []);
 
   const loadTranslations = useCallback(async (groupId: string) => {
-    const res = await fetch(`/api/content?translationGroupId=${encodeURIComponent(groupId)}&limit=20`);
-    const data = await res.json() as { items?: TranslationSummary[] };
+    const res = await fetch(
+      `/api/content?translationGroupId=${encodeURIComponent(groupId)}&limit=20`,
+    );
+    const data = (await res.json()) as { items?: TranslationSummary[] };
     if (Array.isArray(data.items)) setTranslations(data.items);
   }, []);
 
@@ -147,7 +161,7 @@ export default function EditContentPage() {
     if (!id) return;
     const res = await fetch(`/api/content/${id}/revisions`);
     if (!res.ok) return;
-    const data = await res.json() as { items?: RevisionSummary[] };
+    const data = (await res.json()) as { items?: RevisionSummary[] };
     setRevisions((data.items ?? []).slice(0, VISIBLE_REVISION_HISTORY + 1));
   }, [id]);
 
@@ -155,7 +169,7 @@ export default function EditContentPage() {
     setLoading(true);
     fetch(`/api/content/${id}`)
       .then(async (r) => {
-        const data = await r.json() as ContentItem & { error?: string };
+        const data = (await r.json()) as ContentItem & { error?: string };
         if (!r.ok) throw new Error(data.error ?? "Failed to load content");
         if (!data.id) throw new Error("Content not found");
         setItem(data);
@@ -163,7 +177,9 @@ export default function EditContentPage() {
         if (shouldSeedProductLayout(data) && isEmptyBlockDocument(data.blocks)) {
           const pattern = await fetchProductPattern();
           if (pattern) {
-            setItem((prev) => (prev ? { ...prev, blocks: pattern as ContentItem["blocks"] } : prev));
+            setItem((prev) =>
+              prev ? { ...prev, blocks: pattern as ContentItem["blocks"] } : prev,
+            );
           }
         }
         const groupId = data.translationGroupId ?? data.id;
@@ -210,7 +226,10 @@ export default function EditContentPage() {
 
   useEffect(() => {
     if (!dirty) return;
-    const onLeave = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    const onLeave = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
     window.addEventListener("beforeunload", onLeave);
     return () => window.removeEventListener("beforeunload", onLeave);
   }, [dirty]);
@@ -231,7 +250,10 @@ export default function EditContentPage() {
           body: JSON.stringify({ status: "draft", expectedVersion: item.version }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? "Failed to unpublish"); return; }
+        if (!res.ok) {
+          setError(data.error ?? "Failed to unpublish");
+          return;
+        }
         setItem(data);
         setBaseline(JSON.stringify(data));
         setSaved(true);
@@ -292,7 +314,10 @@ export default function EditContentPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to save"); return; }
+      if (!res.ok) {
+        setError(data.error ?? "Failed to save");
+        return;
+      }
       setItem(data);
       setBaseline(JSON.stringify(data));
       const catalogOk = await saveCatalogData();
@@ -334,8 +359,11 @@ export default function EditContentPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, source: "manual", expectedVersion: item.version }),
         });
-        const savedItem = await saveRes.json() as ContentItem & { error?: string };
-        if (!saveRes.ok) { setError(savedItem.error ?? "Failed to save"); return; }
+        const savedItem = (await saveRes.json()) as ContentItem & { error?: string };
+        if (!saveRes.ok) {
+          setError(savedItem.error ?? "Failed to save");
+          return;
+        }
         setItem(savedItem);
         setBaseline(JSON.stringify(savedItem));
         versionToPublish = savedItem.version;
@@ -348,7 +376,10 @@ export default function EditContentPage() {
         body: JSON.stringify({ expectedVersion: versionToPublish }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to publish"); return; }
+      if (!res.ok) {
+        setError(data.error ?? "Failed to publish");
+        return;
+      }
       setItem(data);
       setBaseline(JSON.stringify(data));
       setSaved(true);
@@ -369,7 +400,10 @@ export default function EditContentPage() {
     try {
       const res = await fetch(`/api/content/${id}/discard-draft`, { method: "POST" });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to discard"); return; }
+      if (!res.ok) {
+        setError(data.error ?? "Failed to discard");
+        return;
+      }
       setItem(data);
       setBaseline(JSON.stringify(data));
       setCompare(null);
@@ -383,7 +417,9 @@ export default function EditContentPage() {
 
   async function loadCompare() {
     const res = await fetch(`/api/content/${id}/revisions/compare`);
-    const data = await res.json() as { entries?: Array<{ field: string; live: unknown; working: unknown }> };
+    const data = (await res.json()) as {
+      entries?: Array<{ field: string; live: unknown; working: unknown }>;
+    };
     setCompare(data.entries ?? []);
   }
 
@@ -396,8 +432,11 @@ export default function EditContentPage() {
     setError(null);
     try {
       const res = await fetch(`/api/content/${id}/revisions/${rev.id}/restore`, { method: "POST" });
-      const data = await res.json() as ContentItem & { error?: string };
-      if (!res.ok) { setError(data.error ?? "Failed to restore"); return; }
+      const data = (await res.json()) as ContentItem & { error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Failed to restore");
+        return;
+      }
       setItem(data);
       setBaseline(JSON.stringify(data));
       setCompare(null);
@@ -421,7 +460,7 @@ export default function EditContentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ locale }),
       });
-      const data = await res.json() as ContentItem & { error?: string; contentId?: string };
+      const data = (await res.json()) as ContentItem & { error?: string; contentId?: string };
       if (res.status === 409 && data.contentId) {
         navigate(`/admin/content/${data.contentId}`);
         return;
@@ -475,7 +514,7 @@ export default function EditContentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contentId: enabled ? item.id : null }),
       });
-      const data = await res.json() as { error?: string; homePageId?: string | null };
+      const data = (await res.json()) as { error?: string; homePageId?: string | null };
       if (!res.ok) throw new Error(data.error ?? "Could not update the home page");
       setHomePageId(data.homePageId ?? null);
     } catch (e) {
@@ -495,7 +534,7 @@ export default function EditContentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contentId: enabled ? item.id : null }),
       });
-      const data = await res.json() as { error?: string; blogPageId?: string | null };
+      const data = (await res.json()) as { error?: string; blogPageId?: string | null };
       if (!res.ok) throw new Error(data.error ?? "Could not update the blog page");
       setBlogPageId(data.blogPageId ?? null);
     } catch (e) {
@@ -519,7 +558,6 @@ export default function EditContentPage() {
   }
 
   const isPage = usesPageBuilderChrome(item.type);
-  const mergeTags = item.type === "product" ? catalogPreviewTags(catalogDraft, item) : undefined;
   const isCmsPage = item.type === "page";
   const isHomePage = homePageId === item.id;
   const isBlogPage = blogPageId === item.id;
@@ -537,8 +575,19 @@ export default function EditContentPage() {
         </div>
 
         <div className="jf-topbar__actions">
-          <SaveState saving={saving} saved={saved} dirty={dirty} error={error} autosaving={autosaving} t={t} />
-          <button className="jf-btn jf-btn--ghost" disabled={saving || !dirty} onClick={() => save()}>
+          <SaveState
+            saving={saving}
+            saved={saved}
+            dirty={dirty}
+            error={error}
+            autosaving={autosaving}
+            t={t}
+          />
+          <button
+            className="jf-btn jf-btn--ghost"
+            disabled={saving || !dirty}
+            onClick={() => save()}
+          >
             {saving ? t("common.saving") : t("content.saveDraft")}
           </button>
           {item.status === "published" ? (
@@ -554,9 +603,15 @@ export default function EditContentPage() {
       </Topbar>
 
       <div className="jf-page">
-        {error && <div className="jf-alert jf-alert--error" role="alert">{error}</div>}
+        {error && (
+          <div className="jf-alert jf-alert--error" role="alert">
+            {error}
+          </div>
+        )}
         {item.liveChangedSinceWorking && (
-          <div className="jf-alert" role="status">{t("content.liveChanged")}</div>
+          <div className="jf-alert" role="status">
+            {t("content.liveChanged")}
+          </div>
         )}
 
         {languages.length > 1 && (
@@ -606,11 +661,13 @@ export default function EditContentPage() {
         )}
 
         <div className="jf-split">
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          <div className="jf-editmain">
             <div className="jf-card">
-              <div className="jf-card__body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div className="jf-card__body">
                 <div className="jf-field">
-                  <label className="jf-sr-only" htmlFor="jf-title">{t("content.title")}</label>
+                  <label className="jf-sr-only" htmlFor="jf-title">
+                    {t("content.title")}
+                  </label>
                   <input
                     id="jf-title"
                     className="jf-input jf-input--title"
@@ -619,99 +676,371 @@ export default function EditContentPage() {
                     onChange={(e) => patch({ title: e.target.value })}
                   />
                 </div>
-
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-slug">{t("content.slug")}</label>
-                  <div className="jf-inputgroup">
-                    <span className="jf-inputgroup__prefix">/</span>
-                    <input
-                      id="jf-slug"
-                      className="jf-input"
-                      value={item.slug ?? ""}
-                      onChange={(e) => patch({ slug: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-excerpt">{t("content.excerpt")}</label>
-                  <textarea
-                    id="jf-excerpt"
-                    className="jf-input"
-                    value={item.excerpt ?? ""}
-                    onChange={(e) => patch({ excerpt: e.target.value })}
-                    rows={3}
-                  />
-                  <span className="jf-field__hint">
-                    Shown in listings. Used as the meta description if SEO description is empty.
-                  </span>
-                </div>
               </div>
             </div>
 
-            {item.type === "product" && (
-              <ProductCatalogFields
-                contentId={item.id}
-                translationGroupId={item.translationGroupId ?? item.id}
-                saveRef={catalogSaveRef}
-                onDirtyChange={onCatalogDirty}
-                onDraftChange={setCatalogDraft}
-              />
-            )}
+            <div className="jf-editpane">
+              <nav className="jf-editnav" aria-label="Settings sections">
+                {(
+                  [
+                    ["content", "Content"],
+                    ["seo", "SEO"],
+                    ["discussion", "Discussion"],
+                    ["revisions", t("content.revisions")],
+                    ["advanced", "Advanced"],
+                  ] as [EditSection, string][]
+                ).map(([id, navLabel]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`jf-editnav__item${section === id ? " is-active" : ""}`}
+                    onClick={() => setSection(id)}
+                  >
+                    {navLabel}
+                  </button>
+                ))}
+              </nav>
 
-            {typeFields.length > 0 && (
-              <div className="jf-card">
-                <div className="jf-card__head">
-                  <h2 className="jf-card__title">Fields</h2>
-                </div>
-                <div className="jf-card__body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  {typeFields.map((field) => (
-                    <TypeFieldInput
-                      key={field.key}
-                      field={field}
-                      value={item.fields?.[field.key]}
-                      onChange={(value) => patchField(field.key, value)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+              <div className="jf-editsection">
+                {section === "content" && (
+                  <>
+                    <div className="jf-card">
+                      <div
+                        className="jf-card__body"
+                        style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+                      >
+                        <div className="jf-field">
+                          <label className="jf-field__label" htmlFor="jf-slug">
+                            {t("content.slug")}
+                          </label>
+                          <div className="jf-inputgroup">
+                            <span className="jf-inputgroup__prefix">/</span>
+                            <input
+                              id="jf-slug"
+                              className="jf-input"
+                              value={item.slug ?? ""}
+                              onChange={(e) => patch({ slug: e.target.value })}
+                            />
+                          </div>
+                        </div>
 
-            {isPage && (
-              <div className="jf-card">
-                <div className="jf-card__head">
-                  <h2 className="jf-card__title">Header</h2>
-                </div>
-                <div className="jf-card__body">
-                  <HeaderRefField
-                    contentId={item.id}
-                    value={headerRefFromFields(item.fields)}
-                    onChange={(ref) => patch({ fields: fieldsWithHeaderRef(item.fields, ref) })}
-                  />
-                </div>
-              </div>
-            )}
+                        <div className="jf-field">
+                          <label className="jf-field__label" htmlFor="jf-excerpt">
+                            {t("content.excerpt")}
+                          </label>
+                          <textarea
+                            id="jf-excerpt"
+                            className="jf-input"
+                            value={item.excerpt ?? ""}
+                            onChange={(e) => patch({ excerpt: e.target.value })}
+                            rows={3}
+                          />
+                          <span className="jf-field__hint">
+                            Shown in listings. Used as the meta description if SEO description is
+                            empty.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-            <div className="jf-card">
-              <div className="jf-card__head">
-                <h2 className="jf-card__title">Content</h2>
-                <button
-                  type="button"
-                  className="jf-btn jf-btn--ghost"
-                  onClick={() => navigate(`/admin/content/${id}/builder`)}
-                >
-                  Open page builder
-                </button>
-              </div>
-              <div className="jf-card__body">
-                <BlockEditor
-                  value={item.blocks ?? { version: 1, blocks: [] }}
-                  onChange={(blocks) => patch({ blocks })}
-                  compact
-                  isPage={isPage}
-                  mergeTags={mergeTags}
-                  enableProductTags={item.type === "product"}
-                />
+                    {item.type === "product" && (
+                      <ProductCatalogFields
+                        contentId={item.id}
+                        translationGroupId={item.translationGroupId ?? item.id}
+                        saveRef={catalogSaveRef}
+                        onDirtyChange={onCatalogDirty}
+                        onDraftChange={setCatalogDraft}
+                      />
+                    )}
+
+                    {typeFields.length > 0 && (
+                      <div className="jf-card">
+                        <div className="jf-card__head">
+                          <h2 className="jf-card__title">Fields</h2>
+                        </div>
+                        <div
+                          className="jf-card__body"
+                          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+                        >
+                          {typeFields.map((field) => (
+                            <TypeFieldInput
+                              key={field.key}
+                              field={field}
+                              value={item.fields?.[field.key]}
+                              onChange={(value) => patchField(field.key, value)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {isPage && (
+                      <div className="jf-card">
+                        <div className="jf-card__head">
+                          <h2 className="jf-card__title">Header</h2>
+                        </div>
+                        <div className="jf-card__body">
+                          <HeaderRefField
+                            contentId={item.id}
+                            value={headerRefFromFields(item.fields)}
+                            onChange={(ref) =>
+                              patch({ fields: fieldsWithHeaderRef(item.fields, ref) })
+                            }
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="jf-card">
+                      <div className="jf-card__head">
+                        <h2 className="jf-card__title">Content</h2>
+                        <button
+                          type="button"
+                          className="jf-btn jf-btn--primary"
+                          onClick={() => navigate(`/admin/content/${id}/builder`)}
+                        >
+                          Open page builder
+                        </button>
+                      </div>
+                      <div className="jf-card__body">
+                        <p className="jf-field__hint" style={{ margin: 0 }}>
+                          This content's layout and blocks are edited in the page builder. This
+                          screen is for settings — title, slug, publishing, SEO.
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {section === "seo" && (
+                  <div className="jf-card">
+                    <div className="jf-card__head">
+                      <h2 className="jf-card__title">SEO</h2>
+                    </div>
+                    <div
+                      className="jf-card__body"
+                      style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+                    >
+                      <div className="jf-field">
+                        <label className="jf-field__label" htmlFor="jf-seo-title">
+                          SEO title
+                        </label>
+                        <input
+                          id="jf-seo-title"
+                          className="jf-input"
+                          value={
+                            typeof item.fields?.seoTitle === "string" ? item.fields.seoTitle : ""
+                          }
+                          onChange={(e) => patchField("seoTitle", e.target.value)}
+                          placeholder={item.title}
+                        />
+                        <span className="jf-field__hint">
+                          Overrides the page title in search results and social shares.
+                        </span>
+                      </div>
+                      <div className="jf-field">
+                        <label className="jf-field__label" htmlFor="jf-seo-description">
+                          Meta description
+                        </label>
+                        <textarea
+                          id="jf-seo-description"
+                          className="jf-input"
+                          rows={4}
+                          value={
+                            typeof item.fields?.seoDescription === "string"
+                              ? item.fields.seoDescription
+                              : ""
+                          }
+                          onChange={(e) => patchField("seoDescription", e.target.value)}
+                          placeholder={item.excerpt || "A short summary for search engines"}
+                        />
+                        <span className="jf-field__hint">
+                          If empty, the excerpt or title is used. Shown in Google and Open Graph
+                          previews.
+                        </span>
+                      </div>
+                      <div className="jf-field">
+                        <label className="jf-field__label" htmlFor="jf-seo-canonical">
+                          Canonical URL
+                        </label>
+                        <input
+                          id="jf-seo-canonical"
+                          className="jf-input"
+                          value={
+                            typeof item.fields?.seoCanonical === "string"
+                              ? item.fields.seoCanonical
+                              : ""
+                          }
+                          onChange={(e) => patchField("seoCanonical", e.target.value)}
+                          placeholder={publicHref}
+                        />
+                        <span className="jf-field__hint">
+                          Leave empty to use this page’s permalink.
+                        </span>
+                      </div>
+                      <MediaImageField
+                        id="jf-seo-image"
+                        label="Social image"
+                        description="Used for Open Graph and Twitter cards. Falls back to no image if empty."
+                        value={
+                          typeof item.fields?.seoImage === "string" ? item.fields.seoImage : ""
+                        }
+                        onChange={(url) => patchField("seoImage", url)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {section === "discussion" && (
+                  <div className="jf-card">
+                    <div className="jf-card__head">
+                      <h2 className="jf-card__title">Discussion</h2>
+                    </div>
+                    <div className="jf-card__body">
+                      <div className="jf-field">
+                        <label className="jf-field__label" htmlFor="jf-comments-mode">
+                          Comments
+                        </label>
+                        <select
+                          id="jf-comments-mode"
+                          className="jf-input"
+                          value={
+                            item.fields?.comments === "open" || item.fields?.comments === "closed"
+                              ? item.fields.comments
+                              : "inherit"
+                          }
+                          onChange={(e) =>
+                            patchField(
+                              "comments",
+                              e.target.value === "inherit" ? undefined : e.target.value,
+                            )
+                          }
+                        >
+                          <option value="inherit">Use site default</option>
+                          <option value="open">Open — always accept comments</option>
+                          <option value="closed">Closed — hide the form</option>
+                        </select>
+                        <span className="jf-field__hint">
+                          Comments show only where a Comments block is placed in the content.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {section === "revisions" && (
+                  <div className="jf-card">
+                    <div className="jf-card__head">
+                      <h2 className="jf-card__title">{t("content.revisions")}</h2>
+                    </div>
+                    <div
+                      className="jf-card__body"
+                      style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}
+                    >
+                      <p className="jf-field__hint" style={{ margin: 0 }}>
+                        {t("content.revisionsHint")}
+                      </p>
+                      {revisions.length === 0 ? (
+                        <p className="jf-field__hint" style={{ margin: 0 }}>
+                          {t("content.revisionsEmpty")}
+                        </p>
+                      ) : (
+                        <ul className="jf-revision-list">
+                          {revisions.map((rev) => {
+                            const open = expandedRevisionId === rev.id;
+                            const busy = restoringId === rev.id || saving;
+                            const current = rev.kind === "working" || rev.kind === "autosave";
+                            return (
+                              <li key={rev.id} className="jf-revision-list__item">
+                                <div className="jf-revision-list__main">
+                                  <button
+                                    type="button"
+                                    className="jf-revision-list__title"
+                                    aria-expanded={open}
+                                    onClick={() => setExpandedRevisionId(open ? null : rev.id)}
+                                  >
+                                    {current
+                                      ? t("content.revisionCurrentDraft")
+                                      : rev.title ||
+                                        t("content.revisionVersion", { version: rev.version })}
+                                  </button>
+                                  <p className="jf-revision-list__meta">
+                                    {formatRevisionTime(rev.createdAt, locale)}
+                                    {rev.authorName ? ` · ${rev.authorName}` : ""}
+                                    {` · ${t("content.revisionVersion", { version: rev.version })}`}
+                                  </p>
+                                  {open && (
+                                    <p className="jf-revision-list__detail">
+                                      /{rev.slug}
+                                      {rev.excerpt ? ` — ${rev.excerpt}` : ""}
+                                    </p>
+                                  )}
+                                </div>
+                                {current ? (
+                                  <span className="jf-badge">{t("content.draftChanges")}</span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="jf-btn jf-btn--ghost"
+                                    disabled={busy}
+                                    onClick={() => void restoreRevision(rev)}
+                                  >
+                                    {busy && restoringId === rev.id
+                                      ? t("common.saving")
+                                      : t("content.restoreRevision")}
+                                  </button>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {section === "advanced" && (
+                  <>
+                    <div className="jf-card">
+                      <div className="jf-card__head">
+                        <h2 className="jf-card__title">Details</h2>
+                      </div>
+                      <div className="jf-card__body">
+                        <dl style={{ margin: 0 }}>
+                          <div className="jf-meta__row">
+                            <dt>Type</dt>
+                            <dd>{item.type}</dd>
+                          </div>
+                          <div className="jf-meta__row">
+                            <dt>Permalink</dt>
+                            <dd>{publicHref}</dd>
+                          </div>
+                          <div className="jf-meta__row">
+                            <dt>ID</dt>
+                            <dd>{item.id}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </div>
+
+                    <div className="jf-card">
+                      <div className="jf-card__body">
+                        <button
+                          className="jf-btn jf-btn--danger jf-btn--block"
+                          onClick={deleteItem}
+                        >
+                          {t("common.delete")}
+                        </button>
+                        <p
+                          className="jf-field__hint"
+                          style={{ margin: "0.6rem 0 0", textAlign: "center" }}
+                        >
+                          This cannot be undone.
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -722,14 +1051,18 @@ export default function EditContentPage() {
                 <h2 className="jf-card__title">Publish</h2>
                 <StatusBadge status={item.status} hasWorkingRevision={item.hasWorkingRevision} />
               </div>
-              <div className="jf-card__body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div
+                className="jf-card__body"
+                style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+              >
                 <div className="jf-field">
                   <span className="jf-field__label">{t("content.locale")}</span>
                   <p className="jf-field__value" style={{ margin: 0 }}>
                     {currentLang ? `${currentLang.nativeName} (${currentLang.code})` : itemLocale}
                   </p>
                   <span className="jf-field__hint">
-                    Language is set when content is created. Use the translation tabs above to add other languages.
+                    Language is set when content is created. Use the translation tabs above to add
+                    other languages.
                   </span>
                 </div>
 
@@ -803,7 +1136,9 @@ export default function EditContentPage() {
                   <div className="jf-field">
                     <span className="jf-field__label">{t("content.compareDraft")}</span>
                     {compare.length === 0 ? (
-                      <p className="jf-field__hint" style={{ margin: 0 }}>No differences.</p>
+                      <p className="jf-field__hint" style={{ margin: 0 }}>
+                        No differences.
+                      </p>
                     ) : (
                       <ul style={{ margin: 0, paddingInlineStart: "1.1rem" }}>
                         {compare.map((entry) => (
@@ -892,179 +1227,6 @@ export default function EditContentPage() {
                 )}
               </div>
             </div>
-
-            <div className="jf-card">
-              <div className="jf-card__head">
-                <h2 className="jf-card__title">{t("content.revisions")}</h2>
-              </div>
-              <div className="jf-card__body" style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-                <p className="jf-field__hint" style={{ margin: 0 }}>{t("content.revisionsHint")}</p>
-                {revisions.length === 0 ? (
-                  <p className="jf-field__hint" style={{ margin: 0 }}>{t("content.revisionsEmpty")}</p>
-                ) : (
-                  <ul className="jf-revision-list">
-                    {revisions.map((rev) => {
-                      const open = expandedRevisionId === rev.id;
-                      const busy = restoringId === rev.id || saving;
-                      const current = rev.kind === "working" || rev.kind === "autosave";
-                      return (
-                        <li key={rev.id} className="jf-revision-list__item">
-                          <div className="jf-revision-list__main">
-                            <button
-                              type="button"
-                              className="jf-revision-list__title"
-                              aria-expanded={open}
-                              onClick={() => setExpandedRevisionId(open ? null : rev.id)}
-                            >
-                              {current
-                                ? t("content.revisionCurrentDraft")
-                                : (rev.title || t("content.revisionVersion", { version: rev.version }))}
-                            </button>
-                            <p className="jf-revision-list__meta">
-                              {formatRevisionTime(rev.createdAt, locale)}
-                              {rev.authorName ? ` · ${rev.authorName}` : ""}
-                              {` · ${t("content.revisionVersion", { version: rev.version })}`}
-                            </p>
-                            {open && (
-                              <p className="jf-revision-list__detail">
-                                /{rev.slug}
-                                {rev.excerpt ? ` — ${rev.excerpt}` : ""}
-                              </p>
-                            )}
-                          </div>
-                          {current ? (
-                            <span className="jf-badge">{t("content.draftChanges")}</span>
-                          ) : (
-                            <button
-                              type="button"
-                              className="jf-btn jf-btn--ghost"
-                              disabled={busy}
-                              onClick={() => void restoreRevision(rev)}
-                            >
-                              {busy && restoringId === rev.id ? t("common.saving") : t("content.restoreRevision")}
-                            </button>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            </div>
-
-            <div className="jf-card">
-              <div className="jf-card__head">
-                <h2 className="jf-card__title">SEO</h2>
-              </div>
-              <div className="jf-card__body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-seo-title">SEO title</label>
-                  <input
-                    id="jf-seo-title"
-                    className="jf-input"
-                    value={typeof item.fields?.seoTitle === "string" ? item.fields.seoTitle : ""}
-                    onChange={(e) => patchField("seoTitle", e.target.value)}
-                    placeholder={item.title}
-                  />
-                  <span className="jf-field__hint">Overrides the page title in search results and social shares.</span>
-                </div>
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-seo-description">Meta description</label>
-                  <textarea
-                    id="jf-seo-description"
-                    className="jf-input"
-                    rows={4}
-                    value={typeof item.fields?.seoDescription === "string" ? item.fields.seoDescription : ""}
-                    onChange={(e) => patchField("seoDescription", e.target.value)}
-                    placeholder={item.excerpt || "A short summary for search engines"}
-                  />
-                  <span className="jf-field__hint">
-                    If empty, the excerpt or title is used. Shown in Google and Open Graph previews.
-                  </span>
-                </div>
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-seo-canonical">Canonical URL</label>
-                  <input
-                    id="jf-seo-canonical"
-                    className="jf-input"
-                    value={typeof item.fields?.seoCanonical === "string" ? item.fields.seoCanonical : ""}
-                    onChange={(e) => patchField("seoCanonical", e.target.value)}
-                    placeholder={publicHref}
-                  />
-                  <span className="jf-field__hint">Leave empty to use this page’s permalink.</span>
-                </div>
-                <MediaImageField
-                  id="jf-seo-image"
-                  label="Social image"
-                  description="Used for Open Graph and Twitter cards. Falls back to no image if empty."
-                  value={typeof item.fields?.seoImage === "string" ? item.fields.seoImage : ""}
-                  onChange={(url) => patchField("seoImage", url)}
-                />
-              </div>
-            </div>
-
-            <div className="jf-card">
-              <div className="jf-card__head">
-                <h2 className="jf-card__title">Discussion</h2>
-              </div>
-              <div className="jf-card__body">
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-comments-mode">Comments</label>
-                  <select
-                    id="jf-comments-mode"
-                    className="jf-input"
-                    value={
-                      item.fields?.comments === "open" || item.fields?.comments === "closed"
-                        ? item.fields.comments
-                        : "inherit"
-                    }
-                    onChange={(e) =>
-                      patchField("comments", e.target.value === "inherit" ? undefined : e.target.value)
-                    }
-                  >
-                    <option value="inherit">Use site default</option>
-                    <option value="open">Open — always accept comments</option>
-                    <option value="closed">Closed — hide the form</option>
-                  </select>
-                  <span className="jf-field__hint">
-                    Comments show only where a Comments block is placed in the content.
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="jf-card">
-              <div className="jf-card__head">
-                <h2 className="jf-card__title">Details</h2>
-              </div>
-              <div className="jf-card__body">
-                <dl style={{ margin: 0 }}>
-                  <div className="jf-meta__row">
-                    <dt>Type</dt>
-                    <dd>{item.type}</dd>
-                  </div>
-                  <div className="jf-meta__row">
-                    <dt>Permalink</dt>
-                    <dd>{publicHref}</dd>
-                  </div>
-                  <div className="jf-meta__row">
-                    <dt>ID</dt>
-                    <dd>{item.id}</dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-
-            <div className="jf-card">
-              <div className="jf-card__body">
-                <button className="jf-btn jf-btn--danger jf-btn--block" onClick={deleteItem}>
-                  {t("common.delete")}
-                </button>
-                <p className="jf-field__hint" style={{ margin: "0.6rem 0 0", textAlign: "center" }}>
-                  This cannot be undone.
-                </p>
-              </div>
-            </div>
           </aside>
         </div>
       </div>
@@ -1075,7 +1237,9 @@ export default function EditContentPage() {
 /* ------------------------------------------------------------- pieces --- */
 
 function Topbar({
-  onBack, backLabel, children,
+  onBack,
+  backLabel,
+  children,
 }: {
   onBack: () => void;
   backLabel: string;
@@ -1083,7 +1247,9 @@ function Topbar({
 }) {
   return (
     <header className="jf-topbar">
-      <button className="jf-btn jf-btn--quiet" onClick={onBack}>← {backLabel}</button>
+      <button className="jf-btn jf-btn--quiet" onClick={onBack}>
+        ← {backLabel}
+      </button>
       {children}
     </header>
   );
@@ -1096,7 +1262,12 @@ function formatRevisionTime(iso: string, locale: string): string {
 }
 
 function SaveState({
-  saving, saved, dirty, error, autosaving, t,
+  saving,
+  saved,
+  dirty,
+  error,
+  autosaving,
+  t,
 }: {
   saving: boolean;
   saved: boolean;
@@ -1106,14 +1277,21 @@ function SaveState({
   t: (key: string) => string;
 }) {
   if (saving) return <span className="jf-status jf-status--dirty">{t("common.saving")}…</span>;
-  if (autosaving) return <span className="jf-status jf-status--dirty">{t("content.autosaving")}</span>;
+  if (autosaving)
+    return <span className="jf-status jf-status--dirty">{t("content.autosaving")}</span>;
   if (error) return <span className="jf-status jf-status--error">Save failed</span>;
   if (saved) return <span className="jf-status jf-status--saved">✓ {t("content.draftSaved")}</span>;
   if (dirty) return <span className="jf-status jf-status--dirty">Unsaved changes</span>;
   return null;
 }
 
-function StatusBadge({ status, hasWorkingRevision }: { status: string; hasWorkingRevision?: boolean }) {
+function StatusBadge({
+  status,
+  hasWorkingRevision,
+}: {
+  status: string;
+  hasWorkingRevision?: boolean;
+}) {
   if (status === "published" && hasWorkingRevision) {
     return <span className="jf-badge jf-badge--info">Published — draft</span>;
   }
@@ -1168,11 +1346,21 @@ function TypeFieldInput({
   if (field.type === "select") {
     return (
       <div className="jf-field">
-        <label className="jf-field__label" htmlFor={id}>{field.label}{field.required ? " *" : ""}</label>
-        <select id={id} className="jf-input" value={current} onChange={(e) => onChange(e.target.value)}>
+        <label className="jf-field__label" htmlFor={id}>
+          {field.label}
+          {field.required ? " *" : ""}
+        </label>
+        <select
+          id={id}
+          className="jf-input"
+          value={current}
+          onChange={(e) => onChange(e.target.value)}
+        >
           <option value="">Select…</option>
           {(field.options ?? []).map((option) => (
-            <option key={option} value={option}>{option}</option>
+            <option key={option} value={option}>
+              {option}
+            </option>
           ))}
         </select>
       </div>
@@ -1182,7 +1370,10 @@ function TypeFieldInput({
   if (field.type === "textarea" || field.type === "richtext") {
     return (
       <div className="jf-field">
-        <label className="jf-field__label" htmlFor={id}>{field.label}{field.required ? " *" : ""}</label>
+        <label className="jf-field__label" htmlFor={id}>
+          {field.label}
+          {field.required ? " *" : ""}
+        </label>
         <textarea
           id={id}
           className="jf-input"
@@ -1196,13 +1387,18 @@ function TypeFieldInput({
 
   return (
     <div className="jf-field">
-      <label className="jf-field__label" htmlFor={id}>{field.label}{field.required ? " *" : ""}</label>
+      <label className="jf-field__label" htmlFor={id}>
+        {field.label}
+        {field.required ? " *" : ""}
+      </label>
       <input
         id={id}
         className="jf-input"
         type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
         value={current}
-        onChange={(e) => onChange(field.type === "number" ? Number(e.target.value) : e.target.value)}
+        onChange={(e) =>
+          onChange(field.type === "number" ? Number(e.target.value) : e.target.value)
+        }
       />
     </div>
   );

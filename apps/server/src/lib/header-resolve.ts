@@ -1,16 +1,30 @@
 // SPDX-License-Identifier: MIT
 
-import {
-  DEFAULT_PAGE_HEADER,
-  parsePageHeader,
-  type PageHeaderConfig,
-} from "./page-header.js";
+import { DEFAULT_PAGE_HEADER, parsePageHeader, type PageHeaderConfig } from "./page-header.js";
 import {
   headerConfigForLocale,
   resolveHeaderEntry,
   type SiteHeaderLibrary,
 } from "./site-header.js";
 import { buildHeaderTemplate } from "./header-templates.js";
+import { loadThemeDemoHeader } from "./theme-files.js";
+import { getActiveTheme, themeInstalledPath } from "./themes-db.js";
+
+/**
+ * The header a page falls back to when the site header library has no default
+ * entry: the active theme's `demo/header.json` merged over `DEFAULT_PAGE_HEADER`,
+ * or plain `DEFAULT_PAGE_HEADER` when the theme ships none.
+ */
+async function themeDefaultHeaderConfig(siteId: string): Promise<PageHeaderConfig> {
+  try {
+    const theme = siteId ? await getActiveTheme(siteId) : null;
+    const raw = theme ? loadThemeDemoHeader(theme.theme_id, themeInstalledPath(theme)) : null;
+    if (raw) return parsePageHeader(raw);
+  } catch {
+    // fall through to the built-in default
+  }
+  return { ...DEFAULT_PAGE_HEADER, blocks: [] };
+}
 
 export interface HeaderResolveInput {
   siteId: string;
@@ -51,12 +65,10 @@ export async function resolveHeaderConfig(input: HeaderResolveInput): Promise<Pa
   let header: PageHeaderConfig | null = null;
 
   if (hooks.has("header.resolve")) {
-    const taken = await hooks.applyFilter(
-      "header.resolve",
-      null,
-      filterCtx,
-      { siteId, source: "http" },
-    );
+    const taken = await hooks.applyFilter("header.resolve", null, filterCtx, {
+      siteId,
+      source: "http",
+    });
     if (taken) header = parsePageHeader(taken);
   }
 
@@ -66,9 +78,14 @@ export async function resolveHeaderConfig(input: HeaderResolveInput): Promise<Pa
 
   if (!header) {
     const { entry, hidden } = resolveHeaderEntry(library, ref);
-    header = hidden
-      ? { ...DEFAULT_PAGE_HEADER, blocks: [], visible: false }
-      : headerConfigForLocale(entry, locale);
+    if (hidden) {
+      header = { ...DEFAULT_PAGE_HEADER, blocks: [], visible: false };
+    } else if (entry) {
+      header = headerConfigForLocale(entry, locale);
+    } else {
+      // No library default — let the active theme supply the site header.
+      header = await themeDefaultHeaderConfig(siteId);
+    }
   }
 
   if (hooks.has("header.config")) {

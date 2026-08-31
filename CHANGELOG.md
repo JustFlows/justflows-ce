@@ -10,8 +10,9 @@ and this project uses [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Admin → Themes now loads every published theme from the hosted marketplace,
-  shows installed, paid, and coming-soon states, and installs community themes
-  through the existing signed package flow. ([#13](https://github.com/JustFlows/justflows-ce/issues/13))
+  shows installed, paid, and coming-soon states, installs community themes
+  through the existing signed package flow, and can delete inactive installed
+  themes while protecting the active and bundled themes. ([#13](https://github.com/JustFlows/justflows-ce/issues/13))
 
 - Google reCAPTCHA v2 and v3 are now available alongside Cloudflare Turnstile
   and hCaptcha under Settings → Discussion. Public comment forms load the
@@ -75,6 +76,48 @@ and this project uses [Semantic Versioning](https://semver.org/).
   drivers before rendering (Postgres returns `Date`, MySQL a string).
   ([#50](https://github.com/JustFlows/justflows-ce/issues/50))
 
+- Every theme folder under `themes/` is registered in the `themes` table
+  automatically on the admin themes/customizer load (previously only
+  `justflows.default` was seeded), so a bundled or dropped-in theme is
+  selectable without a `.jfpkg` upload. `syncBundledThemes` also refreshes an
+  existing row's `name` / `version` / `manifest` from the folder while leaving
+  its `status`, `activated_at`, and `css_variables` as the admin left them.
+
+- Themes can ship default site chrome resolved live at render, the same way
+  `demo/home.json` works: `demo/footer.json` (block document — Theme builder →
+  Footer seeds its canvas from it, `GET /api/template-parts/footer` returns
+  `fromThemeDefault`) and `demo/header.json` (sparse `PageHeaderConfig` merged
+  over `DEFAULT_PAGE_HEADER`, used when the header library has no default entry).
+  Nothing is written to the database on activation; an admin edit always wins.
+
+- `patterns/product.json` and `patterns/post.json` double as the starting canvas
+  for a new `product` / `post` content row whose editor opens empty
+  (`defaultBlocksForContentType`), matched by an explicit type allowlist.
+
+- Theme-contributed Customizer controls: a `customize` block in
+  `justflows-theme.json` adds sections/controls (`color` / `range` / `select` /
+  `font`, keyed by `--custom-property`) that flow to `:root` through the
+  existing schema-driven mods pipeline — `schemaWithThemeControls` merges them
+  onto `THEME_CUSTOMIZE_SCHEMA`, and `mergeMods` / `defaultModsFromSchema` /
+  `modsToCssVariables` are now generic over section keys.
+
+- Per-block styling without CSS. `style` (the Layout panel) gains `background`,
+  `textColor`, `accent` (validated colours; `transparent` / `none` clear a
+  background), `opacity` (0–100%), and `vars` — per-instance overrides of theme
+  CSS custom properties written onto the block's own root element. A
+  `blockControls` map in the theme manifest promotes chosen theme variables to
+  first-class inspector fields per block type (dropdown / slider / colour), with
+  an "All theme variables" section covering the rest. `GET
+/api/themes/style-tokens` serves the list (name, current value, range bounds,
+  select presets) and drives the per-block **Custom CSS** panel's variable
+  reference.
+
+- The page builder links the active theme's stylesheet into the canvas
+  (`GET /theme.css?scope=<selector>` → `scopeThemeCss` confines every selector
+  to one wrapper class, `:root` / `html` / `body` become the wrapper,
+  `@keyframes` stay global), and block previews emit the real `jf-*` markup, so
+  the canvas renders with actual theme styling.
+
 ### Changed
 
 - Admin update discovery now follows full Semantic Versioning precedence,
@@ -92,6 +135,18 @@ and this project uses [Semantic Versioning](https://semver.org/).
   (`fields.jfHeader`) are converted to library entries once, on first boot, and
   the page is pointed at the matching entry. Posts and error pages now render
   the site-default header rather than a hardcoded default.
+
+- The content edit screen (`/admin/content/:id`) is settings-only for every
+  content type — the inline page-builder canvas is gone, replaced by an **Open
+  page builder** button. Its panels (SEO, Discussion, Revisions, Advanced) moved
+  from one long right-rail scroll into a left sub-nav, leaving only Publish in
+  the rail.
+
+### Fixed
+
+- `core.html` blocks now wrap their content in a single `<div class="jf-html">`.
+  Custom HTML with several top-level nodes previously had its block class,
+  scoped CSS, and style overrides applied only to the first element.
 
 ### Removed
 
