@@ -3,7 +3,7 @@
 import { decryptSecret, encryptSecret } from "./secret-box.js";
 import { getSiteId, getSiteSetting, setSiteSetting } from "./site-settings.js";
 
-export type CaptchaProvider = "none" | "turnstile" | "hcaptcha";
+export type CaptchaProvider = "none" | "turnstile" | "hcaptcha" | "recaptcha";
 
 export interface CommentSettings {
   /** Site-wide master switch. The feature is opt-in. */
@@ -44,7 +44,12 @@ export const DEFAULT_COMMENT_SETTINGS: CommentSettings = {
   captchaSecretKey: "",
 };
 
-const CAPTCHA_PROVIDERS = new Set<CaptchaProvider>(["none", "turnstile", "hcaptcha"]);
+const CAPTCHA_PROVIDERS = new Set<CaptchaProvider>([
+  "none",
+  "turnstile",
+  "hcaptcha",
+  "recaptcha",
+]);
 
 function asBool(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;

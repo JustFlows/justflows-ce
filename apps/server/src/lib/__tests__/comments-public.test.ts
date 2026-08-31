@@ -184,6 +184,26 @@ describe("acceptCommentSubmission", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("verifies Google reCAPTCHA v2 with its response field", async () => {
+    settings.captchaProvider = "recaptcha";
+    settings.captchaSiteKey = "site";
+    settings.captchaSecretKey = "secret";
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await acceptCommentSubmission(form({ "g-recaptcha-response": "solved" }));
+
+    expect(res.status).toBe(303);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://www.google.com/recaptcha/api/siteverify",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const request = fetchMock.mock.calls[0]?.[1] as { body: URLSearchParams };
+    expect(request.body.get("secret")).toBe("secret");
+    expect(request.body.get("response")).toBe("solved");
+    expect(request.body.get("remoteip")).toBe("203.0.113.9");
+  });
+
   it("refuses when comments are closed for the post", async () => {
     routeQuery({ content: [{ ...PUBLISHED_POST, fields: { comments: "closed" } }] });
     const res = await acceptCommentSubmission(form());
@@ -259,6 +279,17 @@ describe("renderCommentsBlockHtml", () => {
     expect(html).toContain("jf-comments");
     expect(html).not.toContain('id="jf-comment-form"');
     expect(html).toContain("comments.closed");
+  });
+
+  it("renders the configured Google reCAPTCHA v2 checkbox", async () => {
+    settings.captchaProvider = "recaptcha";
+    settings.captchaSiteKey = "public-site-key";
+
+    const html = await renderCommentsBlockHtml({}, ctx);
+
+    expect(html).toContain('class="g-recaptcha jf-comments__captcha"');
+    expect(html).toContain('data-sitekey="public-site-key"');
+    expect(html).toContain('src="https://www.google.com/recaptcha/api.js"');
   });
 
   it("lets a comments.render filter replace the markup and hands it the thread data", async () => {

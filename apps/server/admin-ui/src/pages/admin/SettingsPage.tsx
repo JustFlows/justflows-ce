@@ -709,7 +709,7 @@ type CommentSettingsState = {
   maxLength: number;
   threadMaxDepth: number;
   pageSize: number;
-  captchaProvider: "none" | "turnstile" | "hcaptcha";
+  captchaProvider: "none" | "turnstile" | "hcaptcha" | "recaptcha";
   captchaSiteKey: string;
   captchaSecretKeySet: boolean;
 };
@@ -903,6 +903,7 @@ function DiscussionSettings() {
             <option value="none">None (honeypot + rate limit only)</option>
             <option value="turnstile">Cloudflare Turnstile</option>
             <option value="hcaptcha">hCaptcha</option>
+            <option value="recaptcha">Google reCAPTCHA v2</option>
           </select>
         </div>
         {state.captchaProvider !== "none" && (

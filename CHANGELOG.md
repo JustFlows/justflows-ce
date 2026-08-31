@@ -9,6 +9,11 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Google reCAPTCHA v2 is now available alongside Cloudflare Turnstile and
+  hCaptcha under Settings → Discussion. Public comment forms load the selected
+  checkbox widget and verify its single-use response server-side before accepting
+  a submission. ([#49](https://github.com/JustFlows/justflows-ce/issues/49))
+
 - Header builder in the theme customizer (Theme builder → Header): a library of
   named headers, one marked the site default and shown on every page. Each page
   picks its header from a dropdown in the page builder — the site default, a
@@ -39,7 +44,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - Public comments, end to end: a `Comments` block (drop it on a post) renders
   the approved, threaded discussion and an accessible submission form.
   Visitors submit at `POST /justflows-comments/submit` — same-origin checked,
-  IP rate limited, honeypot and optional Cloudflare Turnstile / hCaptcha
+  IP rate limited, honeypot and optional Cloudflare Turnstile / hCaptcha /
+  Google reCAPTCHA v2
   guarded, bodies reduced to a small safe formatting whitelist. New comments
   hold for moderation by default and the admin is emailed; commenters can opt
   into reply notifications and unsubscribe in one click
