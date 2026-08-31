@@ -1,4 +1,5 @@
 # Blocks
+
 Plugins register blocks on `activate`:
 
 ```ts
@@ -35,13 +36,13 @@ blocks; public HTML is produced by the public renderer, not by the admin applica
 Five props are handled by the platform, not by the block's own `render`, so a
 plugin block gets them for free and must not define them itself:
 
-| Prop            | Type   | Effect                                         |
-| --------------- | ------ | ---------------------------------------------- |
-| `animation`     | object | Entrance, hover, and press effects             |
-| `className`     | string | Extra classes on the block's root element      |
-| `css`           | string | CSS confined to this block instance            |
-| `gridPlacement` | object | Where the block sits when its parent is a grid |
-| `style`         | object | Spacing, size, alignment, corners and shadow   |
+| Prop            | Type   | Effect                                                                                                                                              |
+| --------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `animation`     | object | Entrance, hover, and press effects                                                                                                                  |
+| `className`     | string | Extra classes on the block's root element                                                                                                           |
+| `css`           | string | CSS confined to this block instance                                                                                                                 |
+| `gridPlacement` | object | Where the block sits when its parent is a grid                                                                                                      |
+| `style`         | object | Spacing, size, alignment, corners, shadow, per-instance colours / opacity, and theme-variable overrides — see [Spacing and size](#spacing-and-size) |
 
 `layout` is available for a block's own schema (the bundled Gallery and Post
 List blocks both use it). Grid positioning used that name in an early build,
@@ -51,7 +52,9 @@ drop it on save. Platform positioning now lives exclusively in
 
 `withBlockChrome` in `@justflows/blocks` applies all five to the HTML a block
 returns, on every render path. A block whose `render` emits a single root
-element gets them on that element; a fragment is wrapped in a `<div>`.
+element gets them on that element; a fragment is wrapped in a `<div>`. `core.html`
+wraps its content in a `<div class="jf-html">` for this reason — custom HTML with
+several top-level nodes would otherwise only style the first.
 
 ## Per-block CSS
 
@@ -304,23 +307,36 @@ while dragging or while the grid is selected.
 
 ## Spacing and size
 
-`style` gives every block the same spacing controls, on any block type:
+`style` gives every block the same presentation controls, on any block type:
 
-| Key                             | Values                                           |
-| ------------------------------- | ------------------------------------------------ |
-| `padTop` / `padBottom` / `padX` | `"0"`–`"8"`, a step on the theme's spacing scale |
-| `marginTop` / `marginBottom`    | the same steps                                   |
-| `width`                         | `narrow`, `content`, `wide`, `full`              |
-| `minHeight`                     | 0–100, in `vh`                                   |
-| `alignSelf`                     | `start`, `center`, `end`, `stretch`              |
-| `textAlign`                     | `left`, `center`, `right`                        |
-| `radius`                        | `none`, `sm`, `md`, `lg`, `pill`                 |
-| `shadow`                        | `none`, `sm`, `md`                               |
+| Key                                   | Values                                                            |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| `padTop` / `padBottom` / `padX`       | `"0"`–`"8"`, a step on the theme's spacing scale                  |
+| `marginTop` / `marginBottom`          | the same steps                                                    |
+| `width`                               | `narrow`, `content`, `wide`, `full`                               |
+| `minHeight`                           | 0–100, in `vh`                                                    |
+| `maxWidth` / `maxHeight`              | 0–10000, in `px` (0 = unset)                                      |
+| `alignSelf`                           | `start`, `center`, `end`, `stretch`                               |
+| `textAlign`                           | `left`, `center`, `right`                                         |
+| `radius`                              | `none`, `sm`, `md`, `lg`, `pill`                                  |
+| `shadow`                              | `none`, `sm`, `md`                                                |
+| `background` / `textColor` / `accent` | a validated CSS colour; `transparent` / `none` clear a background |
+| `opacity`                             | `"0"`–`"100"` (percent string; `""` = unset)                      |
+| `vars`                                | `{ "--custom-property": "<narrowly-validated value>" }`           |
 
-Every value is an allowlisted keyword, never a raw length or colour — these land
-in a `style` attribute, so the allowlist _is_ the defence. Spacing is emitted as
-`var(--space-N)` rather than a resolved length, which is what lets the theme pull
-a whole page in at once on a phone by lowering one token.
+Every value is an allowlisted keyword, a bounded number, or a validated colour —
+never a raw length that could break out of the `style` attribute. Spacing is
+emitted as `var(--space-N)` rather than a resolved length, which is what lets the
+theme pull a whole page in at once on a phone by lowering one token.
+
+`background` / `textColor` write the direct property **and** a `--jf-block-bg` /
+`--jf-block-text` custom property onto the block's own root element (so an inline
+value beats the theme's own `.jf-hero { background: … }`); `accent` writes
+`--jf-block-accent`, which a theme opts a specific element into with
+`var(--jf-block-accent, …)`. `vars` is the general form — set from the inspector's
+**Theme styling** panel (driven by `manifest.blockControls` + `GET
+/api/themes/style-tokens`), it lets one block override any theme variable the
+theme exposes, e.g. `{ "--brand-gradient": "linear-gradient(…)" }`.
 
 A width also sets `margin-left/right: auto`, because a max-width says nothing
 about where the slack goes.

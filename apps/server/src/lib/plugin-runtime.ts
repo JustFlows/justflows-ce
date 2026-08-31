@@ -19,6 +19,7 @@ import { createPluginJobsApi, getPluginJobScheduler } from "./plugin-jobs.js";
 import { createPluginSecretsApi } from "./plugin-secrets.js";
 import { createPluginDatabasesApi } from "./plugin-databases.js";
 import { createPluginContentApi } from "./plugin-content.js";
+import { isInstalled } from "../middleware/install-guard.js";
 
 let app: App | null = null;
 let loader: PluginLoader | null = null;
@@ -195,8 +196,10 @@ export async function ensurePluginRuntime(): Promise<void> {
       return;
     }
 
-    await registerKnownPlugins();
-    await activateActivePlugins();
+    if (isInstalled()) {
+      await registerKnownPlugins();
+      await activateActivePlugins();
+    }
   })();
 
   return initPromise;

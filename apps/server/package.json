@@ -5,7 +5,7 @@
   "description": "Justflows — unified Express server (API + admin + public site)",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch --env-file=../../.env src/server.ts",
     "dev:admin": "vite --config admin-ui/vite.config.ts",
     "build": "npm run build:admin-ui && npm run build:server",
     "build:server": "tsc -p tsconfig.json && rm -rf dist/views && cp -r src/views dist/views && mkdir -p dist/lib/i18n && rm -rf dist/lib/i18n/site-catalogs dist/lib/i18n/admin-catalogs && cp -r src/lib/i18n/site-catalogs src/lib/i18n/admin-catalogs dist/lib/i18n/",

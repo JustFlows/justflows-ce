@@ -17,14 +17,17 @@ A directory is a theme if it contains `justflows-theme.json` or
 
 ## Files the host reads
 
-| Path                    | Used for                                          |
-| ----------------------- | ------------------------------------------------- |
-| `styles/global.css`     | Concatenated into `/theme.css`                    |
-| `styles/components.css` | Same                                              |
-| `styles/blocks.css`     | Same                                              |
-| `patterns/*.json`       | Page-builder patterns                             |
-| `demo/home.json`        | Default home blocks when no home page is selected |
-| `demo/blog.json`        | Default blocks used when creating a blog page     |
+| Path                    | Used for                                                 |
+| ----------------------- | -------------------------------------------------------- |
+| `styles/global.css`     | Concatenated into `/theme.css`                           |
+| `styles/components.css` | Same                                                     |
+| `styles/blocks.css`     | Same                                                     |
+| `patterns/*.json`       | Page-builder patterns                                    |
+| `patterns/<type>.json`  | Starting canvas for a new `product` / `post` content row |
+| `demo/home.json`        | Default home blocks when no home page is selected        |
+| `demo/blog.json`        | Default blocks used when creating a blog page            |
+| `demo/header.json`      | Site header chrome when no header-library default is set |
+| `demo/footer.json`      | Site footer blocks when the site never customised one    |
 
 The bundled Default theme includes a **Product detail** pattern (`patterns/product.json`)
 plus **Product mosaic**, **Product story**, **Product list**, and **Ecommerce storefront**. Creating a `product` content row
@@ -109,6 +112,34 @@ canonical index for admin badges and links, but does not reserve `/blog` or
 change routing; the page keeps its own slug. Pagination is relative to that
 slug (`/news/page/2`, including locale prefixes).
 
+## Theme header and footer
+
+`demo/header.json` and `demo/footer.json` let a theme ship default site chrome,
+resolved live at render the same way `demo/home.json` is — nothing is written to
+the database on activation, and an admin edit always wins.
+
+- **Footer** — `{ "blocks": [...] }`, same shape as `demo/blog.json`. Used only
+  when the site has no saved footer template part. Theme builder → Footer seeds
+  its canvas from this file (`GET /api/template-parts/footer` returns it with
+  `fromThemeDefault: true`); publishing there promotes it to a real part. A
+  non-empty footer replaces the built-in menu + credit line, so include your own
+  credit if you want one.
+- **Header** — a sparse `PageHeaderConfig` object (`layout`, `sticky`,
+  `showLogo`, `showTitle`, `menuMode`, `showLanguageSwitcher`,
+  `languageSwitcherStyle`, `showColorScheme`, `showColorSchemeSystem`,
+  `showAuthLinks`, …). Merged over `DEFAULT_PAGE_HEADER` and used only when the
+  header library (Theme builder → Header) has no default entry. Every value is
+  re-validated by `parsePageHeader`, so an unsafe `background` is dropped. A page
+  that picks its own header, or `__none__`, still overrides this.
+
+## New-content patterns
+
+`patterns/product.json` and `patterns/post.json` double as the starting canvas
+for a new content row of that type whose editor is opened empty (see
+`defaultBlocksForContentType`). The match is by an explicit type allowlist
+(`product`, `post`) — a custom content type named after some other pattern does
+not inherit it.
+
 ## Design tokens
 
 The Customizer is schema-driven: `modsToCssVariables` walks
@@ -139,6 +170,97 @@ spacing decision on the site tightens at once.
 Headings stay fluid: the Customizer's size is the _ceiling_ of a `clamp()`, not
 a fixed size, so a heading chosen on a desktop still scales down.
 
+## Theme-contributed controls
+
+A theme package adds its own Customizer sections through a `customize` block in
+`justflows-theme.json`. `schemaWithThemeControls` merges them onto
+`THEME_CUSTOMIZE_SCHEMA` for the active theme, and because the whole mods
+pipeline (`defaultModsFromSchema`, `mergeMods`, `modsToCssVariables`) is
+schema-driven, the values flow straight to `:root` — no emitter change.
+
+```json
+"customize": {
+  "brand": {
+    "label": "Brand",
+    "controls": {
+      "--brand-accent":  { "label": "Accent",       "type": "color",  "default": "#00b0ff" },
+      "--brand-shadow":  { "label": "Shadow offset", "type": "range",  "default": 8, "min": 0, "max": 16, "unit": "px" },
+      "--brand-border":  { "label": "Borders",       "type": "select", "default": "solid",
+        "options": [{ "label": "Solid", "value": "solid" }, { "label": "Dashed", "value": "dashed" }] }
+    }
+  }
+}
+```
+
+Rules: the section key must be a fresh camel/lower name (it may not shadow a
+built-in section); every control **key** must be a `--custom-property`; and the
+control **type** must be `color`, `range`, `select`, or `font` — the value-token
+types `modsToCssVariables` already validates. A rejected value is simply not
+emitted, so the theme's own `:root` default in `styles/global.css` stands. Write
+that stylesheet against the tokens (`var(--brand-shadow)`, …) and the sliders in
+the "Brand" panel repaint the site live.
+
+## Per-block colours
+
+`BlockStyle` (the Layout panel, stored as a block's `style` prop) carries
+`background`, `textColor`, `accent`, and `opacity` alongside spacing and sizing.
+Each colour is validated and written onto the block's own root element as both
+the direct property and a `--jf-block-*` custom property (`background` /
+`textColor` also accept `transparent` / `none` to clear a themed background). A
+theme opts a specific nested element into the override with
+`var(--jf-block-bg, …)` / `var(--jf-block-accent, …)`.
+
+## Discovering a theme's variables
+
+`GET /api/themes/style-tokens` returns every `--…` the active theme exposes —
+built-in tokens plus its own `customize` sections plus the platform
+`--jf-block-*` hooks — each with its label, current value, range bounds, and
+(for `select` controls) the list of valid preset strings. The page builder's
+per-block **Custom CSS** panel renders this list under the textarea: clicking a
+variable inserts `& { --name: value; }` so an editor never has to guess a name
+or a gradient string.
+
+## First-class per-block controls
+
+A `blockControls` map in the manifest names, per block type, the `customize`
+control keys that should appear as **proper inspector fields** on that block —
+no CSS at all:
+
+```json
+"blockControls": {
+  "core.hero": ["--brand-gradient", "--brand-shadow"],
+  "core.cta":  ["--brand-gradient"]
+}
+```
+
+The builder's **Theme styling** panel renders each as a dropdown / slider /
+colour picker (from the control's own type + options + bounds), defaulting to
+"Theme default". `blockControls` is only a _curation_ hint: the panel also has
+an **All theme variables** section listing every remaining `--…` the theme
+declares, so any block can override any theme token without CSS — no
+exceptions. A chosen value is stored in `style.vars` and written onto the
+block's root element (by `withBlockChrome` on the server, and merged onto the
+same element in the builder preview), so a `var(--brand-gradient)` in
+`styles/global.css` resolves to the block's choice — the same
+custom-property-cascade the `--jf-block-*` hooks use. `style.vars` keys must be
+`--custom-properties` and values are narrowly validated (`;{}<>@`, comments and
+`url(` are rejected) before they reach the `style` attribute.
+
+The Layout panel's **Background** / **Text colour** likewise write a real
+`background:` / `color:` onto the block's own root — an inline shorthand there
+beats the theme's `.jf-hero { background: … }`, so a hero's striped background
+(and any block's themed background) can be replaced or set to `transparent`
+from the builder.
+
+## Builder preview
+
+`/theme.css?scope=.jf-theme-surface` returns the active theme's stylesheet with
+every selector confined to one wrapper class (`:root` / `html` / `body` become
+the wrapper; `@keyframes` stay global). The page builder links it and tags each
+top-level block preview with `.jf-theme-surface`, so previews render with real
+theme styling without the sheet repainting the admin chrome. `scopeThemeCss`
+does this as a brace/string/comment-aware pass, not a regex.
+
 ## Template parts
 
 Site-wide chrome edited as a document lives in the **`template_parts`** table —
@@ -167,8 +289,8 @@ footer. Older per-page headers (`fields.jfHeader`) are converted into library
 entries once, on first boot.
 
 Plugins and themes contribute their own header designs in code through the
-`header.templates` hook — they appear in the same page dropdown (grouped *From
-plugins*) and are `build()`-rendered at request time. `header.resolve` lets a
+`header.templates` hook — they appear in the same page dropdown (grouped _From
+plugins_) and are `build()`-rendered at request time. `header.resolve` lets a
 plugin own a page's header per request; `header.config` lets one adjust the
 resolved header before render. See [HOOKS.md](HOOKS.md#contributing-a-header-design).
 

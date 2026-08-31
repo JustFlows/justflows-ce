@@ -4,6 +4,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import path from "node:path";
 import fs from "node:fs";
+import { pathToFileURL } from "node:url";
 
 import { uploadsDir, getJfRoot, viewsDir } from "./lib/jf-root.js";
 import { isInstalled } from "./middleware/install-guard.js";
@@ -236,4 +237,11 @@ export function isPassenger(): boolean {
     process.env.PASSENGER_APP_ENV_NAME ||
     process.env._PASSENGER_APP_ROOT
   );
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  startServer().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
