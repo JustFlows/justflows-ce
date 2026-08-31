@@ -462,17 +462,24 @@ export function BlockPreview({
 
     case "core.color-scheme": {
       const schemeStyle = (p.style as string) || "buttons";
+      const lightIcon = (p.lightIcon as string) || "☀";
+      const darkIcon = (p.darkIcon as string) || "☾";
       const schemeModes: Array<[string, string]> = [
-        ["☀", "Light"],
-        ["☾", "Dark"],
+        [lightIcon, (p.lightLabel as string) || "Light"],
+        [darkIcon, (p.darkLabel as string) || "Dark"],
       ];
-      if (p.showSystem === true) schemeModes.push(["◐", "Auto"]);
+      if (p.showSystem === true) schemeModes.push([(p.autoIcon as string) || "◐", (p.autoLabel as string) || "Auto"]);
       const iconOnly = schemeStyle === "icons" || schemeStyle === "tooltip-icons";
       const textOnly = schemeStyle === "labels";
+      const pillRadius = p.radius === "square" ? 0 : p.radius === "rounded" ? 8 : 999;
+      const chipSize: React.CSSProperties =
+        p.size === "sm" ? { fontSize: "0.7rem", padding: "0.2rem 0.5rem" }
+          : p.size === "lg" ? { fontSize: "0.95rem", padding: "0.45rem 0.9rem" }
+            : {};
       if (schemeStyle === "select") {
         return wrap(
           <div style={{ display: "inline-flex", ...widgetAlign(p.align as string) }}>
-            <span style={{ ...widgetChip, borderRadius: 6 }}>
+            <span style={{ ...widgetChip, ...chipSize, borderRadius: Math.min(pillRadius, 8) }}>
               {schemeModes.map(([, label]) => label).join(" / ")} ⌄
             </span>
           </div>,
@@ -481,8 +488,8 @@ export function BlockPreview({
       if (schemeStyle === "toggle" || schemeStyle === "switch") {
         return wrap(
           <div style={{ display: "inline-flex", ...widgetAlign(p.align as string) }}>
-            <span style={{ ...widgetChip, borderRadius: schemeStyle === "switch" ? 999 : 8 }}>
-              ☀ ⇄ ☾
+            <span style={{ ...widgetChip, ...chipSize, borderRadius: pillRadius }}>
+              {lightIcon} ⇄ {darkIcon}
             </span>
           </div>,
         );
@@ -500,7 +507,10 @@ export function BlockPreview({
               key={label}
               style={{
                 ...widgetChip,
-                borderRadius: schemeStyle === "segmented" ? (index === 0 ? "6px 0 0 6px" : index === schemeModes.length - 1 ? "0 6px 6px 0" : 0) : 999,
+                ...chipSize,
+                borderRadius: schemeStyle === "segmented"
+                  ? (index === 0 ? `${pillRadius}px 0 0 ${pillRadius}px` : index === schemeModes.length - 1 ? `0 ${pillRadius}px ${pillRadius}px 0` : 0)
+                  : pillRadius,
               }}
             >
               {textOnly ? label : iconOnly ? icon : `${icon} ${label}`}

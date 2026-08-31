@@ -28,6 +28,10 @@ const COLOR_SCHEME_STYLES = [
   "labels",
   "tooltip-icons",
 ] as const;
+const COLOR_SCHEME_SIZES = ["sm", "md", "lg"] as const;
+const COLOR_SCHEME_RADII = ["pill", "rounded", "square"] as const;
+const COLOR_SCHEME_ICONS = { light: "☀", dark: "☾", system: "◐" } as const;
+const COLOR_SCHEME_LABELS = { light: "Light", dark: "Dark", system: "Auto" } as const;
 const LANGUAGE_SWITCHER_STYLES = [
   "locale-full",
   "locale-short",
@@ -56,6 +60,14 @@ export const siteWidgetBlocks: BlockDefinition[] = [
       align: { type: "select", options: [...ALIGN], default: "right" },
       showSystem: { type: "boolean", default: false },
       animate: { type: "boolean", default: true },
+      size: { type: "select", options: [...COLOR_SCHEME_SIZES], default: "md" },
+      radius: { type: "select", options: [...COLOR_SCHEME_RADII], default: "pill" },
+      lightIcon: { type: "text", default: COLOR_SCHEME_ICONS.light },
+      darkIcon: { type: "text", default: COLOR_SCHEME_ICONS.dark },
+      autoIcon: { type: "text", default: COLOR_SCHEME_ICONS.system },
+      lightLabel: { type: "text", default: COLOR_SCHEME_LABELS.light },
+      darkLabel: { type: "text", default: COLOR_SCHEME_LABELS.dark },
+      autoLabel: { type: "text", default: COLOR_SCHEME_LABELS.system },
     },
     validateProps: (raw) => {
       const r = raw as Record<string, unknown>;
@@ -64,27 +76,47 @@ export const siteWidgetBlocks: BlockDefinition[] = [
         align: pick(r["align"], [...ALIGN], "right"),
         showSystem: bool(r["showSystem"], false),
         animate: bool(r["animate"], true),
+        size: pick(r["size"], [...COLOR_SCHEME_SIZES], "md"),
+        radius: pick(r["radius"], [...COLOR_SCHEME_RADII], "pill"),
+        lightIcon: str(r["lightIcon"], COLOR_SCHEME_ICONS.light) || COLOR_SCHEME_ICONS.light,
+        darkIcon: str(r["darkIcon"], COLOR_SCHEME_ICONS.dark) || COLOR_SCHEME_ICONS.dark,
+        autoIcon: str(r["autoIcon"], COLOR_SCHEME_ICONS.system) || COLOR_SCHEME_ICONS.system,
+        lightLabel: str(r["lightLabel"], COLOR_SCHEME_LABELS.light) || COLOR_SCHEME_LABELS.light,
+        darkLabel: str(r["darkLabel"], COLOR_SCHEME_LABELS.dark) || COLOR_SCHEME_LABELS.dark,
+        autoLabel: str(r["autoLabel"], COLOR_SCHEME_LABELS.system) || COLOR_SCHEME_LABELS.system,
       };
     },
     render: (props) => {
-      const { style, align, showSystem, animate } = props as {
+      const p = props as {
         style: string;
         align: string;
         showSystem: boolean;
         animate: boolean;
+        size: string;
+        radius: string;
+        lightIcon: string;
+        darkIcon: string;
+        autoIcon: string;
+        lightLabel: string;
+        darkLabel: string;
+        autoLabel: string;
       };
+      const { style, align, showSystem, animate, size, radius } = p;
       // Every variant leans on the existing preference engine in
       // /js/site-chrome.js: button variants carry data-jf-theme, the
       // single control carries data-jf-theme="toggle", and the compact
       // variant is a <select data-jf-color-scheme-select>. No variant
-      // ships its own theme-state logic.
+      // ships its own theme-state logic. Author-supplied icons and labels
+      // are escaped for both attribute and text context.
       const modes: Array<[string, string, string]> = [
-        ["light", "☀", "Light"],
-        ["dark", "☾", "Dark"],
+        ["light", esc(p.lightIcon), esc(p.lightLabel)],
+        ["dark", esc(p.darkIcon), esc(p.darkLabel)],
       ];
-      if (showSystem) modes.push(["system", "◐", "Auto"]);
+      if (showSystem) modes.push(["system", esc(p.autoIcon), esc(p.autoLabel)]);
 
-      const open = `<div class="jf-color-scheme jf-color-scheme--${esc(style)}${
+      const open = `<div class="jf-color-scheme jf-color-scheme--${esc(style)} jf-color-scheme--size-${esc(
+        size,
+      )} jf-color-scheme--radius-${esc(radius)}${
         animate ? " is-animated" : ""
       }${alignClass(align)}" data-jf-widget="color-scheme" data-jf-style="${esc(style)}">`;
       const close = `</div>`;
@@ -107,10 +139,12 @@ ${close}`;
         const isSwitch = style === "switch";
         const state = isSwitch ? ` role="switch" aria-checked="false"` : ` aria-pressed="false"`;
         return `${open}
-  <button type="button" class="jf-color-scheme__btn jf-color-scheme__toggle" data-jf-theme="toggle"${state} aria-label="Dark mode" title="Dark mode">
-    <span class="jf-color-scheme__icon jf-color-scheme__icon--sun" aria-hidden="true">☀</span>
-    <span class="jf-color-scheme__icon jf-color-scheme__icon--moon" aria-hidden="true">☾</span>
-    <span class="jf-color-scheme__label">Dark mode</span>
+  <button type="button" class="jf-color-scheme__btn jf-color-scheme__toggle" data-jf-theme="toggle"${state} aria-label="${esc(
+    p.darkLabel,
+  )}" title="${esc(p.darkLabel)}">
+    <span class="jf-color-scheme__icon jf-color-scheme__icon--sun" aria-hidden="true">${esc(p.lightIcon)}</span>
+    <span class="jf-color-scheme__icon jf-color-scheme__icon--moon" aria-hidden="true">${esc(p.darkIcon)}</span>
+    <span class="jf-color-scheme__label">${esc(p.darkLabel)}</span>
   </button>
 ${close}`;
       }

@@ -377,6 +377,16 @@ export default function BlockInspector({
           { value: "center", label: "Center" },
           { value: "right", label: "Right" },
         ])}
+        {select("size", "Size", [
+          { value: "sm", label: "Small" },
+          { value: "md", label: "Medium" },
+          { value: "lg", label: "Large" },
+        ])}
+        {select("radius", "Corners", [
+          { value: "pill", label: "Pill" },
+          { value: "rounded", label: "Rounded" },
+          { value: "square", label: "Square" },
+        ])}
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showSystem === true} onChange={(e) => set("showSystem", e.target.checked)} />
           Show an “Auto” option
@@ -387,6 +397,19 @@ export default function BlockInspector({
         </label>
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
           Visitors who have not chosen already follow their device setting. Auto lets them go back to it.
+        </p>
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0.25rem 0 0" }}>
+          Icons and labels — leave blank to keep the defaults (☀ Light, ☾ Dark, ◐ Auto).
+        </p>
+        {textInput("lightIcon", "Light icon", "☀")}
+        {textInput("lightLabel", "Light label", "Light")}
+        {textInput("darkIcon", "Dark icon", "☾")}
+        {textInput("darkLabel", "Dark label", "Dark")}
+        {p.showSystem === true ? textInput("autoIcon", "Auto icon", "◐") : null}
+        {p.showSystem === true ? textInput("autoLabel", "Auto label", "Auto") : null}
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0.25rem 0 0" }}>
+          Hover, active, and focus colours follow the theme. A theme can override them
+          through the <code>--jf-color-scheme-*</code> CSS variables.
         </p>
       </>;
       break;

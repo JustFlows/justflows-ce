@@ -22,6 +22,16 @@ and this project uses [Semantic Versioning](https://semver.org/).
   delegated listeners. Focus is now always visible on the controls.
   ([#60](https://github.com/JustFlows/justflows-ce/issues/60))
 
+- `core.color-scheme` is also customizable per block: `size` (`sm`/`md`/`lg`),
+  `radius` (`pill`/`rounded`/`square`), and overridable icons and labels
+  (`lightIcon` / `darkIcon` / `autoIcon`, `lightLabel` / `darkLabel` /
+  `autoLabel` — blank keeps the defaults, author values are HTML-escaped). The
+  default theme now styles the widget entirely through `--jf-color-scheme-*`
+  custom properties (hover/active/focus colors, background, border, radius,
+  spacing, font size) with theme-token fallbacks, so a theme or the Theme
+  Customizer can restyle it without overriding rules.
+  ([#60](https://github.com/JustFlows/justflows-ce/issues/60))
+
 ## [0.1.7]
 
 ### Added

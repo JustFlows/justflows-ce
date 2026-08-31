@@ -102,8 +102,31 @@ first paint, so the icon is correct with no flash. A compact
 The bundled toggle is `core.color-scheme` (page-builder block). Its `style` prop
 offers `buttons`, `icons`, `segmented`, `toggle`, `switch`, `select`, `labels`,
 and `tooltip-icons`; `showSystem` adds the Auto option and `animate` (default
-on, disabled under `prefers-reduced-motion`) transitions the icon. The header's
-**Light / dark toggle** switch is the other bundled entry point.
+on, disabled under `prefers-reduced-motion`) transitions the icon. `size`
+(`sm` / `md` / `lg`) and `radius` (`pill` / `rounded` / `square`) tune the
+control, and `lightIcon` / `darkIcon` / `autoIcon` plus `lightLabel` /
+`darkLabel` / `autoLabel` override the glyphs and text (blank keeps the
+defaults; author values are HTML-escaped). The header's **Light / dark toggle**
+switch is the other bundled entry point.
+
+The default theme styles every colour, radius, and spacing the widget uses
+through `--jf-color-scheme-*` custom properties with theme-token fallbacks, so a
+theme or the Theme Customizer can restyle the hover, active, and focus states
+without overriding rules:
+
+```css
+.jf-color-scheme {
+  --jf-color-scheme-active-bg: rebeccapurple;
+  --jf-color-scheme-active-fg: #fff;
+  --jf-color-scheme-hover-border: rebeccapurple;
+  --jf-color-scheme-focus: rebeccapurple;
+  --jf-color-scheme-radius: 8px;
+}
+```
+
+The `--size-*` and `--radius-*` modifier classes on the wrapper simply reassign
+the same variables; target them (or a more specific selector) if a theme needs
+to win over the author's size/radius choice.
 
 The public home URL (`/`) renders a selected **page** when one is set as the
 home page (Theme builder → Home page, or Content → Set as home page). Header
