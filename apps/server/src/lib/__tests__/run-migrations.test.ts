@@ -18,6 +18,7 @@ describe("MIGRATION_ORDER", () => {
       "0012_baseline",
       "0013_public_comments",
       "0014_content_webhooks",
+      "0015_theme_designs",
     ]);
   });
 
@@ -36,6 +37,17 @@ describe("MIGRATION_ORDER", () => {
   it("ships 0014_content_webhooks for every database dialect", () => {
     for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
       expect(fs.existsSync(path.join(migrationsDir(), `0014_content_webhooks${suffix}`))).toBe(true);
+    }
+  });
+
+  it("ships 0015_theme_designs for every database dialect", () => {
+    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
+      const ddl = fs.readFileSync(
+        path.join(migrationsDir(), `0015_theme_designs${suffix}`),
+        "utf8",
+      );
+      const statements = splitSqlStatements(ddl, suffix === ".sql" ? "postgres" : "mysql");
+      expect(statements.some((s) => /CREATE TABLE IF NOT EXISTS theme_designs/i.test(s))).toBe(true);
     }
   });
 

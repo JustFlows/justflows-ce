@@ -7,6 +7,18 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.1.8-dev.1] [UNRELEASED]
 
+### Changed
+
+- Per-theme customization documents (Customizer mods, homepage design, blog
+  design, plus their draft copies) move out of `site_settings` into a dedicated
+  `theme_designs` table — one row per (site, theme, kind) with a `doc` /
+  `draft_doc` pair, the same shape as `template_parts`. `site_settings` is for
+  site-level preferences, not theme/plugin configuration (plugins already use
+  `plugin_data`). Migration `0015_theme_designs` adds the table; a one-time
+  application backfill on boot (`theme-designs-migrate.ts`) copies the legacy
+  `theme_mods.* / theme_home.* / theme_blog.*` (and `*_draft.*`) rows over and
+  deletes them, draft-only customizations included. No API or UI change.
+
 ### Added
 
 - The `core.color-scheme` block gains design variants beyond buttons and icons:

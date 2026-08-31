@@ -35,11 +35,13 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       if (siteId) {
         const { migrateTemplatePartsFromSettings } = await import("./lib/template-parts-migrate.js");
         await migrateTemplatePartsFromSettings(siteId);
+        const { migrateThemeDesignsFromSettings } = await import("./lib/theme-designs-migrate.js");
+        await migrateThemeDesignsFromSettings(siteId);
         const { backfillSiteHeaderLibrary } = await import("./lib/site-header-backfill.js");
         await backfillSiteHeaderLibrary(siteId);
       }
     } catch (err) {
-      console.error("[justflows] template-part / header backfill failed:", err);
+      console.error("[justflows] template-part / theme-design / header backfill failed:", err);
     }
   }
 
