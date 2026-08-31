@@ -18,6 +18,16 @@ function pick(raw: unknown, allowed: string[], fallback: string): string {
 }
 
 const ALIGN = ["left", "center", "right"] as const;
+const COLOR_SCHEME_STYLES = [
+  "buttons",
+  "icons",
+  "segmented",
+  "toggle",
+  "switch",
+  "select",
+  "labels",
+  "tooltip-icons",
+] as const;
 const LANGUAGE_SWITCHER_STYLES = [
   "locale-full",
   "locale-short",
@@ -42,32 +52,80 @@ export const siteWidgetBlocks: BlockDefinition[] = [
     icon: "◐",
     category: "site",
     schema: {
-      style: { type: "select", options: ["buttons", "icons"], default: "buttons" },
+      style: { type: "select", options: [...COLOR_SCHEME_STYLES], default: "buttons" },
       align: { type: "select", options: [...ALIGN], default: "right" },
       showSystem: { type: "boolean", default: false },
+      animate: { type: "boolean", default: true },
     },
     validateProps: (raw) => {
       const r = raw as Record<string, unknown>;
       return {
-        style: pick(r["style"], ["buttons", "icons"], "buttons"),
+        style: pick(r["style"], [...COLOR_SCHEME_STYLES], "buttons"),
         align: pick(r["align"], [...ALIGN], "right"),
         showSystem: bool(r["showSystem"], false),
+        animate: bool(r["animate"], true),
       };
     },
     render: (props) => {
-      const { style, align, showSystem } = props as { style: string; align: string; showSystem: boolean };
-      // The behaviour is carried entirely by data-jf-theme, which
-      // /js/site-chrome.js picks up through a delegated listener.
-      const button = (mode: string, icon: string, label: string) =>
-        `  <button type="button" class="jf-color-scheme__btn" data-jf-theme="${mode}" aria-pressed="false" aria-label="${label}">
+      const { style, align, showSystem, animate } = props as {
+        style: string;
+        align: string;
+        showSystem: boolean;
+        animate: boolean;
+      };
+      // Every variant leans on the existing preference engine in
+      // /js/site-chrome.js: button variants carry data-jf-theme, the
+      // single control carries data-jf-theme="toggle", and the compact
+      // variant is a <select data-jf-color-scheme-select>. No variant
+      // ships its own theme-state logic.
+      const modes: Array<[string, string, string]> = [
+        ["light", "☀", "Light"],
+        ["dark", "☾", "Dark"],
+      ];
+      if (showSystem) modes.push(["system", "◐", "Auto"]);
+
+      const open = `<div class="jf-color-scheme jf-color-scheme--${esc(style)}${
+        animate ? " is-animated" : ""
+      }${alignClass(align)}" data-jf-widget="color-scheme" data-jf-style="${esc(style)}">`;
+      const close = `</div>`;
+
+      if (style === "select") {
+        const options = modes
+          .map(([mode, , label]) => `    <option value="${mode}">${label}</option>`)
+          .join("\n");
+        return `${open}
+  <select class="jf-color-scheme__select" data-jf-color-scheme-select aria-label="Appearance">
+${options}
+  </select>
+${close}`;
+      }
+
+      if (style === "toggle" || style === "switch") {
+        // One control that flips between light and dark. site-chrome.js
+        // resolves data-jf-theme="toggle" against the current theme and
+        // reflects state back as aria-pressed / aria-checked.
+        const isSwitch = style === "switch";
+        const state = isSwitch ? ` role="switch" aria-checked="false"` : ` aria-pressed="false"`;
+        return `${open}
+  <button type="button" class="jf-color-scheme__btn jf-color-scheme__toggle" data-jf-theme="toggle"${state} aria-label="Dark mode" title="Dark mode">
+    <span class="jf-color-scheme__icon jf-color-scheme__icon--sun" aria-hidden="true">☀</span>
+    <span class="jf-color-scheme__icon jf-color-scheme__icon--moon" aria-hidden="true">☾</span>
+    <span class="jf-color-scheme__label">Dark mode</span>
+  </button>
+${close}`;
+      }
+
+      const tooltip = style === "tooltip-icons";
+      const button = ([mode, icon, label]: [string, string, string]) =>
+        `  <button type="button" class="jf-color-scheme__btn" data-jf-theme="${mode}" aria-pressed="false" aria-label="${label}"${
+          tooltip ? ` title="${label}"` : ""
+        }>
     <span class="jf-color-scheme__icon" aria-hidden="true">${icon}</span>
     <span class="jf-color-scheme__label">${label}</span>
   </button>`;
-      const buttons = [button("light", "☀", "Light"), button("dark", "☾", "Dark")];
-      if (showSystem) buttons.push(button("system", "◐", "Auto"));
-      return `<div class="jf-color-scheme jf-color-scheme--${esc(style)}${alignClass(align)}" data-jf-widget="color-scheme" data-jf-style="${esc(style)}">
-${buttons.join("\n")}
-</div>`;
+      return `${open}
+${modes.map(button).join("\n")}
+${close}`;
     },
   },
   {

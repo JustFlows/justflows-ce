@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.8-dev.1] [UNRELEASED]
+
+### Added
+
+- The `core.color-scheme` block gains design variants beyond buttons and icons:
+  a two/three-button segmented control, a single sun/moon toggle, a switch
+  control, a compact dropdown, plain text labels, and icon buttons with
+  tooltips — selectable per block in the page builder with a live preview and an
+  "Animate the icon change" option that honours `prefers-reduced-motion`. Every
+  variant reuses the existing preference engine in `/js/site-chrome.js`
+  (pre-paint apply, explicit choice persisted, live OS tracking while on
+  System/Auto, CSP-safe) rather than duplicating theme-state logic. The single
+  toggle carries `data-jf-theme="toggle"` and the dropdown a
+  `data-jf-color-scheme-select` `<select>`; both are driven by the same
+  delegated listeners. Focus is now always visible on the controls.
+  ([#60](https://github.com/JustFlows/justflows-ce/issues/60))
+
 ## [0.1.7]
 
 ### Added

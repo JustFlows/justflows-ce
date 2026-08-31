@@ -365,6 +365,12 @@ export default function BlockInspector({
         {select("style", "Style", [
           { value: "buttons", label: "Buttons" },
           { value: "icons", label: "Icons" },
+          { value: "segmented", label: "Segmented control" },
+          { value: "toggle", label: "Single sun / moon toggle" },
+          { value: "switch", label: "Switch" },
+          { value: "select", label: "Compact dropdown" },
+          { value: "labels", label: "Text labels" },
+          { value: "tooltip-icons", label: "Icon buttons with tooltips" },
         ])}
         {select("align", "Alignment", [
           { value: "left", label: "Left" },
@@ -374,6 +380,10 @@ export default function BlockInspector({
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showSystem === true} onChange={(e) => set("showSystem", e.target.checked)} />
           Show an “Auto” option
+        </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.animate !== false} onChange={(e) => set("animate", e.target.checked)} />
+          Animate the icon change
         </label>
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
           Visitors who have not chosen already follow their device setting. Auto lets them go back to it.

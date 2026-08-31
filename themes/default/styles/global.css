@@ -1334,24 +1334,115 @@ hr {
   cursor: pointer;
 }
 
-.jf-color-scheme__btn:hover,
-.jf-color-scheme__btn:focus-visible {
+.jf-color-scheme__btn:hover {
   border-color: var(--color-primary);
-  outline: none;
 }
 
-.jf-color-scheme__btn[aria-pressed="true"] {
+.jf-color-scheme__btn:focus-visible,
+.jf-color-scheme__select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.jf-color-scheme__btn[aria-pressed="true"],
+.jf-color-scheme__btn[aria-checked="true"] {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: #fff;
 }
 
-.jf-color-scheme--icons .jf-color-scheme__label {
+/* Variants that show icons only. */
+.jf-color-scheme--icons .jf-color-scheme__label,
+.jf-color-scheme--tooltip-icons .jf-color-scheme__label {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* Text-only variant: drop the glyph. */
+.jf-color-scheme--labels .jf-color-scheme__icon {
+  display: none;
+}
+
+/* Segmented control: buttons share edges. */
+.jf-color-scheme--segmented {
+  gap: 0;
+}
+
+.jf-color-scheme--segmented .jf-color-scheme__btn {
+  border-radius: 0;
+  margin-left: -1px;
+}
+
+.jf-color-scheme--segmented .jf-color-scheme__btn:first-child {
+  border-radius: 999px 0 0 999px;
+  margin-left: 0;
+}
+
+.jf-color-scheme--segmented .jf-color-scheme__btn:last-child {
+  border-radius: 0 999px 999px 0;
+}
+
+/* Single toggle / switch: one control, one visible glyph. The glyph keys off
+   html[data-theme], which /js/site-chrome.js stamps before first paint, so it
+   is correct with no flash even before the widget's own state is set. */
+.jf-color-scheme__toggle {
+  position: relative;
+}
+
+.jf-color-scheme__toggle .jf-color-scheme__icon--moon {
+  display: none;
+}
+
+html[data-theme="dark"] .jf-color-scheme__toggle .jf-color-scheme__icon--sun {
+  display: none;
+}
+
+html[data-theme="dark"] .jf-color-scheme__toggle .jf-color-scheme__icon--moon {
+  display: inline;
+}
+
+.jf-color-scheme--switch .jf-color-scheme__toggle {
+  gap: 0.4rem;
+}
+
+.jf-color-scheme--switch .jf-color-scheme__toggle::after {
+  content: "";
+  width: 2rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  background: var(--color-border);
+  position: relative;
+  flex: none;
+}
+
+.jf-color-scheme--switch .jf-color-scheme__toggle[aria-checked="true"]::after {
+  background: var(--color-primary);
+}
+
+.jf-color-scheme.is-animated .jf-color-scheme__icon {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Compact dropdown. */
+.jf-color-scheme__select {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jf-color-scheme.is-animated .jf-color-scheme__icon {
+    transition: none;
+  }
 }
 
 .jf-language-switcher,

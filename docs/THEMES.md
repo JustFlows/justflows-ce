@@ -90,8 +90,20 @@ plugin can render its own markup and needs no JavaScript of its own. Clicking
 `system` control exists anywhere on the page, and the resolved theme otherwise,
 so a two-button widget still shows which way it is set.
 
-The bundled toggle is `core.color-scheme` (page-builder block, `showSystem` prop)
-or the header's **Light / dark toggle** switch.
+For a single control, use `data-jf-theme="toggle"`: each click flips to the
+opposite of the currently resolved theme, and the listener reflects state back
+as `aria-pressed` (or `aria-checked` when the element has `role="switch"`) and
+mirrors the resolved theme onto `data-jf-resolved="light" | "dark"`. The bundled
+theme swaps the toggle glyph from `html[data-theme]`, which is stamped before
+first paint, so the icon is correct with no flash. A compact
+`<select data-jf-color-scheme-select>` whose option values are `light` / `dark`
+/ `system` is driven by the same delegated `change` listener.
+
+The bundled toggle is `core.color-scheme` (page-builder block). Its `style` prop
+offers `buttons`, `icons`, `segmented`, `toggle`, `switch`, `select`, `labels`,
+and `tooltip-icons`; `showSystem` adds the Auto option and `animate` (default
+on, disabled under `prefers-reduced-motion`) transitions the icon. The header's
+**Light / dark toggle** switch is the other bundled entry point.
 
 The public home URL (`/`) renders a selected **page** when one is set as the
 home page (Theme builder → Home page, or Content → Set as home page). Header

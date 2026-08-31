@@ -460,14 +460,55 @@ export function BlockPreview({
         renderChildren ? <>{renderChildren(block.children ?? [], depth + 1)}</> : <div />,
       );
 
-    case "core.color-scheme":
+    case "core.color-scheme": {
+      const schemeStyle = (p.style as string) || "buttons";
+      const schemeModes: Array<[string, string]> = [
+        ["☀", "Light"],
+        ["☾", "Dark"],
+      ];
+      if (p.showSystem === true) schemeModes.push(["◐", "Auto"]);
+      const iconOnly = schemeStyle === "icons" || schemeStyle === "tooltip-icons";
+      const textOnly = schemeStyle === "labels";
+      if (schemeStyle === "select") {
+        return wrap(
+          <div style={{ display: "inline-flex", ...widgetAlign(p.align as string) }}>
+            <span style={{ ...widgetChip, borderRadius: 6 }}>
+              {schemeModes.map(([, label]) => label).join(" / ")} ⌄
+            </span>
+          </div>,
+        );
+      }
+      if (schemeStyle === "toggle" || schemeStyle === "switch") {
+        return wrap(
+          <div style={{ display: "inline-flex", ...widgetAlign(p.align as string) }}>
+            <span style={{ ...widgetChip, borderRadius: schemeStyle === "switch" ? 999 : 8 }}>
+              ☀ ⇄ ☾
+            </span>
+          </div>,
+        );
+      }
       return wrap(
-        <div style={{ display: "inline-flex", gap: 6, ...widgetAlign(p.align as string) }}>
-          <span style={widgetChip}>☀ Light</span>
-          <span style={widgetChip}>☾ Dark</span>
-          {p.showSystem === true ? <span style={widgetChip}>◐ Auto</span> : null}
+        <div
+          style={{
+            display: "inline-flex",
+            gap: schemeStyle === "segmented" ? 0 : 6,
+            ...widgetAlign(p.align as string),
+          }}
+        >
+          {schemeModes.map(([icon, label], index) => (
+            <span
+              key={label}
+              style={{
+                ...widgetChip,
+                borderRadius: schemeStyle === "segmented" ? (index === 0 ? "6px 0 0 6px" : index === schemeModes.length - 1 ? "0 6px 6px 0" : 0) : 999,
+              }}
+            >
+              {textOnly ? label : iconOnly ? icon : `${icon} ${label}`}
+            </span>
+          ))}
         </div>,
       );
+    }
 
     case "core.language-switcher":
       const languageStyle = (p.style as string) || "locale-short";
