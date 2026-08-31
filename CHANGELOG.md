@@ -9,18 +9,12 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Signed content webhooks for publish, unpublish, delete, and media upload,
-  with encrypted secret creation/rotation, SSRF-safe endpoint validation,
-  bounded payloads, persisted delivery history, jobs-backed exponential retry,
-  manual redelivery, an administrator UI, and the `webhook.eventTypes`
-  extension filter. ([#16](https://github.com/JustFlows/justflows-ce/issues/16))
-
-- Webhook subscriptions now cover content creation/updates, media deletion,
-  users, authentication, plugins, themes, and core updates. The admin event
-  selector is a searchable-style multi-select dropdown matching the rest of
-  the admin layout, while plugins can add namespaced events, shape outbound
-  data with `webhook.payload`, and observe responses through
-  `webhook.delivered`. ([#16](https://github.com/JustFlows/justflows-ce/issues/16))
+- Google reCAPTCHA v2 and v3 are now available alongside Cloudflare Turnstile
+  and hCaptcha under Settings → Discussion. Public comment forms load the
+  selected checkbox or score-based integration and verify its single-use
+  response server-side before accepting a submission; v3 also enforces the
+  expected action and configurable minimum score.
+  ([#49](https://github.com/JustFlows/justflows-ce/issues/49))
 
 - Header builder in the theme customizer (Theme builder → Header): a library of
   named headers, one marked the site default and shown on every page. Each page
@@ -53,7 +47,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
   the approved, threaded discussion and an accessible submission form.
   Visitors submit at `POST /justflows-comments/submit` — same-origin checked,
   IP rate limited, honeypot and optional Cloudflare Turnstile / hCaptcha /
-  Google reCAPTCHA v2
+  Google reCAPTCHA v2 / v3
   guarded, bodies reduced to a small safe formatting whitelist. New comments
   hold for moderation by default and the admin is emailed; commenters can opt
   into reply notifications and unsubscribe in one click

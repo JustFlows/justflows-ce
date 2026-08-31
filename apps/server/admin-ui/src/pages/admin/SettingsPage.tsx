@@ -709,8 +709,9 @@ type CommentSettingsState = {
   maxLength: number;
   threadMaxDepth: number;
   pageSize: number;
-  captchaProvider: "none" | "turnstile" | "hcaptcha" | "recaptcha";
+  captchaProvider: "none" | "turnstile" | "hcaptcha" | "recaptcha" | "recaptcha-v3";
   captchaSiteKey: string;
+  captchaScoreThreshold: number;
   captchaSecretKeySet: boolean;
 };
 
@@ -725,6 +726,7 @@ const DISCUSSION_DEFAULTS: CommentSettingsState = {
   pageSize: 50,
   captchaProvider: "none",
   captchaSiteKey: "",
+  captchaScoreThreshold: 0.5,
   captchaSecretKeySet: false,
 };
 
@@ -904,6 +906,7 @@ function DiscussionSettings() {
             <option value="turnstile">Cloudflare Turnstile</option>
             <option value="hcaptcha">hCaptcha</option>
             <option value="recaptcha">Google reCAPTCHA v2</option>
+            <option value="recaptcha-v3">Google reCAPTCHA v3</option>
           </select>
         </div>
         {state.captchaProvider !== "none" && (
@@ -934,6 +937,26 @@ function DiscussionSettings() {
               />
               <p className="jf-field__hint">Leave blank to keep the stored key.</p>
             </div>
+          </div>
+        )}
+        {state.captchaProvider === "recaptcha-v3" && (
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-score">
+              Minimum reCAPTCHA score
+            </label>
+            <input
+              id="jf-c-score"
+              className="jf-input"
+              type="number"
+              min={0}
+              max={1}
+              step={0.1}
+              value={state.captchaScoreThreshold}
+              onChange={(e) => patch({ captchaScoreThreshold: Number(e.target.value) })}
+            />
+            <p className="jf-field__hint">
+              0 allows more submissions; 1 is strictest. The recommended starting value is 0.5.
+            </p>
           </div>
         )}
 

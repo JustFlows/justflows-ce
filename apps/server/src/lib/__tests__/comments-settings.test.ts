@@ -19,12 +19,21 @@ describe("normalizeCommentSettings", () => {
     expect(s.pageSize).toBe(5);
     expect(s.enabled).toBe(false);
     expect(s.requireModeration).toBe(true);
+    expect(s.captchaScoreThreshold).toBe(0.5);
   });
 
   it("rejects an unknown captcha provider", () => {
     expect(normalizeCommentSettings({ captchaProvider: "unknown" }).captchaProvider).toBe("none");
     expect(normalizeCommentSettings({ captchaProvider: "turnstile" }).captchaProvider).toBe("turnstile");
     expect(normalizeCommentSettings({ captchaProvider: "recaptcha" }).captchaProvider).toBe("recaptcha");
+    expect(normalizeCommentSettings({ captchaProvider: "recaptcha-v3" }).captchaProvider).toBe("recaptcha-v3");
+  });
+
+  it("normalizes the reCAPTCHA v3 score threshold", () => {
+    expect(normalizeCommentSettings({ captchaScoreThreshold: 0.7 }).captchaScoreThreshold).toBe(0.7);
+    expect(normalizeCommentSettings({ captchaScoreThreshold: -1 }).captchaScoreThreshold).toBe(0);
+    expect(normalizeCommentSettings({ captchaScoreThreshold: 2 }).captchaScoreThreshold).toBe(1);
+    expect(normalizeCommentSettings({ captchaScoreThreshold: "bad" }).captchaScoreThreshold).toBe(0.5);
   });
 });
 

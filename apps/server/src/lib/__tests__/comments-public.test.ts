@@ -18,6 +18,7 @@ const settings = {
   pageSize: 50,
   captchaProvider: "none" as const,
   captchaSiteKey: "",
+  captchaScoreThreshold: 0.5,
   captchaSecretKey: "",
 };
 
@@ -91,6 +92,7 @@ beforeEach(() => {
     requireModeration: true,
     captchaProvider: "none",
     captchaSiteKey: "",
+    captchaScoreThreshold: 0.5,
     captchaSecretKey: "",
     closeAfterDays: 0,
   });
@@ -204,6 +206,32 @@ describe("acceptCommentSubmission", () => {
     expect(request.body.get("remoteip")).toBe("203.0.113.9");
   });
 
+  it("accepts reCAPTCHA v3 only for the expected action and minimum score", async () => {
+    settings.captchaProvider = "recaptcha-v3";
+    settings.captchaSiteKey = "site";
+    settings.captchaSecretKey = "secret";
+    settings.captchaScoreThreshold = 0.7;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, action: "wrong_action", score: 0.9 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, action: "justflows_comment_submit", score: 0.6 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, action: "justflows_comment_submit", score: 0.8 }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect((await acceptCommentSubmission(form({ "g-recaptcha-response": "wrong-action" }))).status).toBe(400);
+    expect((await acceptCommentSubmission(form({ "g-recaptcha-response": "low-score" }))).status).toBe(400);
+    expect((await acceptCommentSubmission(form({ "g-recaptcha-response": "accepted" }))).status).toBe(303);
+  });
+
   it("refuses when comments are closed for the post", async () => {
     routeQuery({ content: [{ ...PUBLISHED_POST, fields: { comments: "closed" } }] });
     const res = await acceptCommentSubmission(form());
@@ -290,6 +318,20 @@ describe("renderCommentsBlockHtml", () => {
     expect(html).toContain('class="g-recaptcha jf-comments__captcha"');
     expect(html).toContain('data-sitekey="public-site-key"');
     expect(html).toContain('src="https://www.google.com/recaptcha/api.js"');
+  });
+
+  it("renders the Google reCAPTCHA v3 token flow without a checkbox", async () => {
+    settings.captchaProvider = "recaptcha-v3";
+    settings.captchaSiteKey = "public-v3-key";
+
+    const html = await renderCommentsBlockHtml({}, ctx);
+
+    expect(html).toContain("data-jf-recaptcha-v3");
+    expect(html).toContain('data-action="justflows_comment_submit"');
+    expect(html).toContain('name="g-recaptcha-response"');
+    expect(html).toContain("https://www.google.com/recaptcha/api.js?render=public-v3-key");
+    expect(html).toContain('src="/js/recaptcha-v3.js"');
+    expect(html).not.toContain('class="g-recaptcha jf-comments__captcha"');
   });
 
   it("lets a comments.render filter replace the markup and hands it the thread data", async () => {

@@ -365,8 +365,9 @@ const CommentSettingsSchema = z.object({
   maxLength: z.coerce.number().int().min(200).max(20_000).optional(),
   threadMaxDepth: z.coerce.number().int().min(1).max(10).optional(),
   pageSize: z.coerce.number().int().min(5).max(200).optional(),
-  captchaProvider: z.enum(["none", "turnstile", "hcaptcha", "recaptcha"]).optional(),
+  captchaProvider: z.enum(["none", "turnstile", "hcaptcha", "recaptcha", "recaptcha-v3"]).optional(),
   captchaSiteKey: z.string().max(200).optional(),
+  captchaScoreThreshold: z.coerce.number().min(0).max(1).optional(),
   // Write-only. An empty string leaves the stored secret untouched.
   captchaSecretKey: z.string().max(200).optional(),
 });

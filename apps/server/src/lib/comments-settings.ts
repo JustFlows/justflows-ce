@@ -3,7 +3,12 @@
 import { decryptSecret, encryptSecret } from "./secret-box.js";
 import { getSiteId, getSiteSetting, setSiteSetting } from "./site-settings.js";
 
-export type CaptchaProvider = "none" | "turnstile" | "hcaptcha" | "recaptcha";
+export type CaptchaProvider =
+  | "none"
+  | "turnstile"
+  | "hcaptcha"
+  | "recaptcha"
+  | "recaptcha-v3";
 
 export interface CommentSettings {
   /** Site-wide master switch. The feature is opt-in. */
@@ -24,6 +29,8 @@ export interface CommentSettings {
   pageSize: number;
   captchaProvider: CaptchaProvider;
   captchaSiteKey: string;
+  /** Minimum accepted Google reCAPTCHA v3 score. */
+  captchaScoreThreshold: number;
   /** Never sent to the browser — see {@link toPublicCommentSettings}. */
   captchaSecretKey: string;
 }
@@ -41,6 +48,7 @@ export const DEFAULT_COMMENT_SETTINGS: CommentSettings = {
   pageSize: 50,
   captchaProvider: "none",
   captchaSiteKey: "",
+  captchaScoreThreshold: 0.5,
   captchaSecretKey: "",
 };
 
@@ -49,6 +57,7 @@ const CAPTCHA_PROVIDERS = new Set<CaptchaProvider>([
   "turnstile",
   "hcaptcha",
   "recaptcha",
+  "recaptcha-v3",
 ]);
 
 function asBool(value: unknown, fallback: boolean): boolean {
@@ -81,8 +90,15 @@ export function normalizeCommentSettings(raw: unknown): CommentSettings {
     pageSize: asInt(r.pageSize, DEFAULT_COMMENT_SETTINGS.pageSize, 5, 200),
     captchaProvider: provider,
     captchaSiteKey: asStr(r.captchaSiteKey, DEFAULT_COMMENT_SETTINGS.captchaSiteKey, 200),
+    captchaScoreThreshold: asScoreThreshold(r.captchaScoreThreshold),
     captchaSecretKey: asStr(r.captchaSecretKey, DEFAULT_COMMENT_SETTINGS.captchaSecretKey, 200),
   };
+}
+
+function asScoreThreshold(value: unknown): number {
+  const score = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(score)) return DEFAULT_COMMENT_SETTINGS.captchaScoreThreshold;
+  return Math.min(Math.max(score, 0), 1);
 }
 
 export async function getCommentSettings(siteId?: string | null): Promise<CommentSettings> {

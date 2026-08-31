@@ -16,6 +16,7 @@ import {
 } from "./comments-settings.js";
 
 export const COMMENTS_BLOCK_TYPE = "justflows.comments.thread";
+const RECAPTCHA_V3_ACTION = "justflows_comment_submit";
 
 // ─── CAPTCHA providers ──────────────────────────────────────────────────────
 
@@ -64,6 +65,17 @@ export const CAPTCHA_META: Record<Exclude<CaptchaProvider, "none">, CaptchaMeta>
     field: "g-recaptcha-response",
     widgetClass: "g-recaptcha",
   },
+  "recaptcha-v3": {
+    verifyUrl: "https://www.google.com/recaptcha/api/siteverify",
+    scriptSrc: "https://www.google.com/recaptcha/api.js",
+    csp: {
+      script: ["https://www.google.com/recaptcha/", "https://www.gstatic.com/recaptcha/"],
+      frame: ["https://www.google.com/recaptcha/", "https://recaptcha.google.com/recaptcha/"],
+      connect: ["https://www.google.com/recaptcha/"],
+    },
+    field: "g-recaptcha-response",
+    widgetClass: "g-recaptcha-v3",
+  },
 };
 
 async function verifyCaptcha(
@@ -71,6 +83,7 @@ async function verifyCaptcha(
   secret: string,
   token: string,
   ip: string,
+  scoreThreshold: number,
 ): Promise<boolean> {
   if (!secret || !token) return false;
   try {
@@ -83,8 +96,14 @@ async function verifyCaptcha(
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return false;
-    const data = (await res.json()) as { success?: boolean };
-    return data.success === true;
+    const data = (await res.json()) as { success?: boolean; action?: string; score?: number };
+    if (data.success !== true) return false;
+    if (provider !== "recaptcha-v3") return true;
+    return (
+      data.action === RECAPTCHA_V3_ACTION &&
+      typeof data.score === "number" &&
+      data.score >= scoreThreshold
+    );
   } catch (err) {
     console.error("[justflows] captcha verification failed:", err);
     return false;
@@ -341,13 +360,23 @@ function formHtml(ctx: CommentsRenderContext, settings: CommentSettings): string
   let captchaWidget = "";
   if (settings.captchaProvider !== "none" && settings.captchaSiteKey) {
     const meta = CAPTCHA_META[settings.captchaProvider];
-    captchaWidget = `<div class="${meta.widgetClass} jf-comments__captcha" data-sitekey="${esc(
-      settings.captchaSiteKey,
-    )}"></div>
+    if (settings.captchaProvider === "recaptcha-v3") {
+      captchaWidget = `<input type="hidden" name="${meta.field}" value="">
+    <script src="${esc(meta.scriptSrc)}?render=${encodeURIComponent(settings.captchaSiteKey)}" async defer></script>
+    <script src="/js/recaptcha-v3.js" defer></script>`;
+    } else {
+      captchaWidget = `<div class="${meta.widgetClass} jf-comments__captcha" data-sitekey="${esc(
+        settings.captchaSiteKey,
+      )}"></div>
     <script src="${esc(meta.scriptSrc)}" async defer></script>`;
+    }
   }
 
-  return `<form class="jf-comments__form" id="jf-comment-form" method="post" action="/justflows-comments/submit">
+  const captchaAttributes = settings.captchaProvider === "recaptcha-v3" && settings.captchaSiteKey
+    ? ` data-jf-recaptcha-v3 data-sitekey="${esc(settings.captchaSiteKey)}" data-action="${RECAPTCHA_V3_ACTION}"`
+    : "";
+
+  return `<form class="jf-comments__form" id="jf-comment-form" method="post" action="/justflows-comments/submit"${captchaAttributes}>
     <h3 class="jf-comments__form-title">${esc(ctx.t("comments.form_title"))}</h3>
     ${replyingTo}
     <input type="hidden" name="content_id" value="${esc(ctx.content.id)}">
@@ -677,7 +706,13 @@ export async function acceptCommentSubmission(
   if (settings.captchaProvider !== "none" && settings.captchaSiteKey) {
     const meta = CAPTCHA_META[settings.captchaProvider];
     const token = String(b[meta.field] ?? "").trim();
-    const ok = await verifyCaptcha(settings.captchaProvider, settings.captchaSecretKey, token, ip);
+    const ok = await verifyCaptcha(
+      settings.captchaProvider,
+      settings.captchaSecretKey,
+      token,
+      ip,
+      settings.captchaScoreThreshold,
+    );
     if (!ok) return { status: 400, location: returnLocation(returnTo, input.referer, "captcha") };
   }
 
