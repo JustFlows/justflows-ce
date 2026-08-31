@@ -63,6 +63,10 @@ function now(): string {
 
 interface DbClient {
   run(sql: string, params?: (string | number | boolean | null)[]): Promise<void>;
+  query<T = Record<string, unknown>>(
+    sql: string,
+    params?: (string | number | boolean | null)[],
+  ): Promise<T[]>;
   close(): Promise<void>;
 }
 
@@ -76,6 +80,12 @@ async function connectDb(driver: "postgres" | "mysql" | "mariadb", url: string):
         let i = 0;
         const pgQuery = query.replace(/\?/g, () => `$${++i}`);
         await sql.unsafe(pgQuery, params as Parameters<typeof sql.unsafe>[1]);
+      },
+      query: async <T>(query: string, params: (string | number | boolean | null)[] = []) => {
+        let i = 0;
+        const pgQuery = query.replace(/\?/g, () => `$${++i}`);
+        const rows = await sql.unsafe(pgQuery, params as Parameters<typeof sql.unsafe>[1]);
+        return rows as unknown as T[];
       },
       close: () => sql.end(),
     };
@@ -95,6 +105,10 @@ async function connectDb(driver: "postgres" | "mysql" | "mariadb", url: string):
   return {
     run: async (query, params = []) => {
       await conn.execute(query, params as (string | number | boolean | null)[]);
+    },
+    query: async <T>(query: string, params: (string | number | boolean | null)[] = []) => {
+      const [rows] = await conn.execute(query, params as (string | number | boolean | null)[]);
+      return rows as T[];
     },
     close: async () => conn.end(),
   };

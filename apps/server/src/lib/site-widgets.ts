@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { esc } from "@justflows/blocks";
+import { localePresentation } from "./i18n/locales.js";
 
 export interface SiteLanguageLink {
   code: string;
@@ -65,14 +66,29 @@ function replaceWidget(
 
 function languageInner(links: SiteLanguageLink[], style: string): string {
   if (links.length < 2) return "";
-  return links
+  const labelFor = (lang: SiteLanguageLink) => {
+    const locale = localePresentation(lang.code);
+    return style === "names" ? lang.name || lang.code
+      : style === "locale-full" ? lang.code
+        : style === "flags" ? locale.flag
+          : style === "flag-locale" ? `${locale.flag} ${locale.shortCode}`
+            : style === "flag-country" ? `${locale.flag} ${locale.countryName}`
+              : style === "codes" ? lang.displayCode || lang.code.toUpperCase()
+                : locale.shortCode;
+  };
+  const currentLanguage = links.find((lang) => lang.current) ?? links[0]!;
+  const summaryLabel = labelFor(currentLanguage);
+  const summaryAccessible = style === "flags" ? ` aria-label="${esc(currentLanguage.name || currentLanguage.code)}"` : "";
+  const options = links
     .map((lang) => {
-      const label = style === "names" ? lang.name || lang.code : lang.displayCode || lang.code.toUpperCase();
+      const label = labelFor(lang);
       const current = lang.current ? " is-current" : "";
       const aria = lang.current ? ` aria-current="page"` : "";
-      return `<a href="${esc(lang.href)}" class="jf-language-switcher__link${current}"${aria}>${esc(label)}</a>`;
+      const accessible = style === "flags" ? ` aria-label="${esc(lang.name || lang.code)}"` : "";
+      return `<a href="${esc(lang.href)}" class="jf-language-switcher__link${current}" hreflang="${esc(lang.code)}" lang="${esc(lang.code)}"${accessible}${aria}>${esc(label)}</a>`;
     })
     .join("");
+  return `<details class="jf-language-switcher__dropdown"><summary class="jf-language-switcher__trigger"${summaryAccessible}><span>${esc(summaryLabel)}</span><span class="jf-language-switcher__chevron" aria-hidden="true">⌄</span></summary><span class="jf-language-switcher__menu">${options}</span></details>`;
 }
 
 function authInner(
@@ -106,7 +122,7 @@ export function hydrateSiteWidgets(html: string, ctx: SiteWidgetContext): string
     "language-switcher",
     "<!--jf:language-switcher-->",
     (attrs) => {
-      const style = attr(attrs, "data-jf-style") || "codes";
+      const style = attr(attrs, "data-jf-style") || "locale-short";
       const inner = languageInner(ctx.languageLinks, style);
       if (!inner) return "";
       const labelled = attr(attrs, "aria-label")

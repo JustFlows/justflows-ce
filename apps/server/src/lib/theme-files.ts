@@ -176,7 +176,10 @@ function patternsDir(themeId: string, installedPath?: string | null): string | n
   }
 }
 
-export function listThemePatterns(themeId: string, installedPath?: string | null): ThemePatternMeta[] {
+export function listThemePatterns(
+  themeId: string,
+  installedPath?: string | null,
+): ThemePatternMeta[] {
   const dir = patternsDir(themeId, installedPath);
   if (!dir) return [];
 
@@ -190,7 +193,9 @@ export function listThemePatterns(themeId: string, installedPath?: string | null
       title: data.title ?? data.id,
       description: data.description,
       category: data.category ?? "pages",
-      requiresBlockTypes: Array.isArray(data.requiresBlockTypes) ? data.requiresBlockTypes : undefined,
+      requiresBlockTypes: Array.isArray(data.requiresBlockTypes)
+        ? data.requiresBlockTypes
+        : undefined,
     });
   }
   return results;
@@ -218,7 +223,10 @@ export function loadThemePattern(
   };
 }
 
-export function loadThemeDemoHome(themeId: string, installedPath?: string | null): BlockNode[] | null {
+export function loadThemeDemoHome(
+  themeId: string,
+  installedPath?: string | null,
+): BlockNode[] | null {
   const dir = resolveThemeDir(themeId, installedPath);
   if (!dir) return null;
 
@@ -227,11 +235,44 @@ export function loadThemeDemoHome(themeId: string, installedPath?: string | null
   return data.blocks;
 }
 
-export function loadThemeDemoBlog(themeId: string, installedPath?: string | null): BlockNode[] | null {
+export function loadThemeDemoBlog(
+  themeId: string,
+  installedPath?: string | null,
+): BlockNode[] | null {
   const dir = resolveThemeDir(themeId, installedPath);
   if (!dir) return null;
 
   const data = readJsonFile<{ blocks?: BlockNode[] }>(dir, "demo", "blog.json");
   if (!data?.blocks || !Array.isArray(data.blocks)) return null;
   return data.blocks;
+}
+
+/** The theme's default site footer blocks (`demo/footer.json`), used when the site never customised one. */
+export function loadThemeDemoFooter(
+  themeId: string,
+  installedPath?: string | null,
+): BlockNode[] | null {
+  const dir = resolveThemeDir(themeId, installedPath);
+  if (!dir) return null;
+
+  const data = readJsonFile<{ blocks?: BlockNode[] }>(dir, "demo", "footer.json");
+  if (!data?.blocks || !Array.isArray(data.blocks)) return null;
+  return data.blocks;
+}
+
+/**
+ * The theme's default site header chrome (`demo/header.json`) — a sparse
+ * {@link PageHeaderConfig} the caller merges over `DEFAULT_PAGE_HEADER`. Used
+ * when the site header library has no default entry.
+ */
+export function loadThemeDemoHeader(
+  themeId: string,
+  installedPath?: string | null,
+): Record<string, unknown> | null {
+  const dir = resolveThemeDir(themeId, installedPath);
+  if (!dir) return null;
+
+  const data = readJsonFile<Record<string, unknown>>(dir, "demo", "header.json");
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  return data;
 }

@@ -7,7 +7,9 @@ import {
   listReusableBlocks,
   saveReusableBlock,
 } from "../lib/reusable-blocks.js";
-import { getSiteId } from "../lib/themes-db.js";
+import { getActiveTheme, getSiteId, themeInstalledPath } from "../lib/themes-db.js";
+import { loadThemeDemoFooter } from "../lib/theme-files.js";
+import { sanitizeBlockDocument } from "@justflows/blocks";
 import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
 import { requireRole } from "../middleware/auth.js";
 import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../lib/rbac.js";
@@ -89,10 +91,25 @@ templatePartsRouter.get("/:part", requireRole(...CONTENT_READ_ROLES), async (req
     res.json({ blocks: [], draft: [] });
     return;
   }
-  res.json({
-    blocks: await getTemplatePart(siteId, part, false),
-    draft: await getTemplatePart(siteId, part, true),
-  });
+  const blocks = await getTemplatePart(siteId, part, false);
+  const draft = await getTemplatePart(siteId, part, true);
+
+  // Nothing customised yet — seed the editor with the active theme's default
+  // (`demo/footer.json`), the same starting composition the public site renders.
+  // Publishing from the builder promotes it to a real template part.
+  if (part === "footer" && blocks.length === 0 && draft.length === 0) {
+    const theme = await getActiveTheme(siteId);
+    const themeFooter = theme
+      ? loadThemeDemoFooter(theme.theme_id, themeInstalledPath(theme))
+      : null;
+    if (themeFooter?.length) {
+      const seeded = sanitizeBlockDocument({ version: 1, blocks: themeFooter }).blocks;
+      res.json({ blocks: seeded, draft: [], fromThemeDefault: true });
+      return;
+    }
+  }
+
+  res.json({ blocks, draft });
 });
 
 templatePartsRouter.put("/:part", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {

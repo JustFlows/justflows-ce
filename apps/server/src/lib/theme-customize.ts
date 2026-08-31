@@ -5,7 +5,8 @@ import { sanitizeCustomCss } from "./safe-css.js";
 import { sanitizeFaviconUrl } from "./favicon.js";
 import { blockAnimationCss } from "@justflows/blocks";
 
-export type CustomizeControlType = "color" | "font" | "text" | "image" | "range" | "code" | "select";
+export type CustomizeControlType =
+  "color" | "font" | "text" | "image" | "range" | "code" | "select";
 
 export interface CustomizeControl {
   label: string;
@@ -96,7 +97,14 @@ export const THEME_CUSTOMIZE_SCHEMA: Record<string, CustomizeSection> = {
         default: 'ui-monospace, "Cascadia Code", Consolas, monospace',
         options: FONT_PRESETS,
       },
-      baseFontSize: { label: "Base font size", type: "range", default: 16, min: 14, max: 20, unit: "px" },
+      baseFontSize: {
+        label: "Base font size",
+        type: "range",
+        default: 16,
+        min: 14,
+        max: 20,
+        unit: "px",
+      },
     },
   },
   headings: {
@@ -108,12 +116,57 @@ export const THEME_CUSTOMIZE_SCHEMA: Record<string, CustomizeSection> = {
         default: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
         options: FONT_PRESETS,
       },
-      "--heading-weight": { label: "Weight", type: "select", default: "700", options: [...WEIGHT_PRESETS] },
-      "--heading-line": { label: "Line height", type: "range", default: 1.15, min: 0.9, max: 1.8, step: 0.05, unit: "" },
-      "--heading-tracking": { label: "Letter spacing", type: "range", default: -0.02, min: -0.06, max: 0.1, step: 0.01, unit: "em" },
-      "--h1-size": { label: "H1 size", type: "range", default: 2.6, min: 1.4, max: 5, step: 0.1, unit: "rem" },
-      "--h2-size": { label: "H2 size", type: "range", default: 2, min: 1.2, max: 4, step: 0.1, unit: "rem" },
-      "--h3-size": { label: "H3 size", type: "range", default: 1.45, min: 1, max: 3, step: 0.05, unit: "rem" },
+      "--heading-weight": {
+        label: "Weight",
+        type: "select",
+        default: "700",
+        options: [...WEIGHT_PRESETS],
+      },
+      "--heading-line": {
+        label: "Line height",
+        type: "range",
+        default: 1.15,
+        min: 0.9,
+        max: 1.8,
+        step: 0.05,
+        unit: "",
+      },
+      "--heading-tracking": {
+        label: "Letter spacing",
+        type: "range",
+        default: -0.02,
+        min: -0.06,
+        max: 0.1,
+        step: 0.01,
+        unit: "em",
+      },
+      "--h1-size": {
+        label: "H1 size",
+        type: "range",
+        default: 2.6,
+        min: 1.4,
+        max: 5,
+        step: 0.1,
+        unit: "rem",
+      },
+      "--h2-size": {
+        label: "H2 size",
+        type: "range",
+        default: 2,
+        min: 1.2,
+        max: 4,
+        step: 0.1,
+        unit: "rem",
+      },
+      "--h3-size": {
+        label: "H3 size",
+        type: "range",
+        default: 1.45,
+        min: 1,
+        max: 3,
+        step: 0.05,
+        unit: "rem",
+      },
     },
   },
   spacing: {
@@ -128,7 +181,15 @@ export const THEME_CUSTOMIZE_SCHEMA: Record<string, CustomizeSection> = {
         unit: "px",
         description: "Every spacing step is a multiple of this. Raise it for an airier site.",
       },
-      "--block-gap": { label: "Gap between blocks", type: "range", default: 1.5, min: 0, max: 5, step: 0.25, unit: "rem" },
+      "--block-gap": {
+        label: "Gap between blocks",
+        type: "range",
+        default: 1.5,
+        min: 0,
+        max: 5,
+        step: 0.25,
+        unit: "rem",
+      },
     },
   },
   radius: {
@@ -142,15 +203,39 @@ export const THEME_CUSTOMIZE_SCHEMA: Record<string, CustomizeSection> = {
   shadow: {
     label: "Shadows",
     controls: {
-      "--shadow-sm": { label: "Small", type: "select", default: "0 1px 2px rgba(15,23,42,0.06)", options: [...SHADOW_PRESETS] },
-      "--shadow-md": { label: "Medium", type: "select", default: "0 8px 24px rgba(15,23,42,0.08)", options: [...SHADOW_PRESETS] },
+      "--shadow-sm": {
+        label: "Small",
+        type: "select",
+        default: "0 1px 2px rgba(15,23,42,0.06)",
+        options: [...SHADOW_PRESETS],
+      },
+      "--shadow-md": {
+        label: "Medium",
+        type: "select",
+        default: "0 8px 24px rgba(15,23,42,0.08)",
+        options: [...SHADOW_PRESETS],
+      },
     },
   },
   layout: {
     label: "Layout",
     controls: {
-      contentWidth: { label: "Content width", type: "range", default: 720, min: 560, max: 1200, unit: "px" },
-      "--max-width-wide": { label: "Wide width", type: "range", default: 1100, min: 800, max: 1600, unit: "px" },
+      contentWidth: {
+        label: "Content width",
+        type: "range",
+        default: 720,
+        min: 560,
+        max: 1200,
+        unit: "px",
+      },
+      "--max-width-wide": {
+        label: "Wide width",
+        type: "range",
+        default: 1100,
+        min: 800,
+        max: 1600,
+        unit: "px",
+      },
     },
   },
   navigation: {
@@ -190,6 +275,96 @@ export interface ThemeMods {
   layout?: Record<string, string | number>;
   navigation?: Record<string, string>;
   advanced?: Record<string, string>;
+  /** Extra sections a theme package contributes via its manifest `customize` block. */
+  [section: string]: Record<string, string | number> | undefined;
+}
+
+// ─── Theme-contributed customize controls ────────────────────────────────────
+//
+// A theme package may add its own Customizer sections through a `customize`
+// block in `justflows-theme.json`. Only value-token controls are accepted
+// (color / range / select / font) and every control key must be a CSS custom
+// property — the same shape `modsToCssVariables` already knows how to emit, so a
+// theme-contributed slider or colour flows to `:root` with no emitter change.
+
+const THEME_CONTROL_TYPES = new Set<CustomizeControlType>(["color", "range", "select", "font"]);
+const THEME_SECTION_KEY = /^[a-z][a-zA-Z0-9]{0,39}$/;
+/** Section keys a theme may not add or shadow — handled specially elsewhere. */
+const BUILTIN_SECTION_KEYS = new Set(Object.keys(THEME_CUSTOMIZE_SCHEMA));
+
+function sanitizeThemeControl(raw: unknown): CustomizeControl | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const type = r.type as CustomizeControlType;
+  if (!THEME_CONTROL_TYPES.has(type)) return null;
+  const label = typeof r.label === "string" && r.label.trim() ? r.label.trim().slice(0, 80) : null;
+  if (!label) return null;
+
+  const control: CustomizeControl = {
+    label,
+    type,
+    default: typeof r.default === "number" || typeof r.default === "string" ? r.default : "",
+  };
+  if (typeof r.description === "string") control.description = r.description.slice(0, 200);
+
+  if (type === "range") {
+    control.min = Number.isFinite(r.min) ? Number(r.min) : 0;
+    control.max = Number.isFinite(r.max) ? Number(r.max) : 100;
+    control.step = Number.isFinite(r.step) ? Number(r.step) : 1;
+    control.unit = typeof r.unit === "string" ? r.unit.slice(0, 8) : "";
+    if (typeof control.default !== "number") control.default = control.min;
+  }
+  if (type === "select" || type === "font") {
+    const options = Array.isArray(r.options)
+      ? r.options
+          .map((o) => (o && typeof o === "object" ? (o as Record<string, unknown>) : null))
+          .filter((o): o is Record<string, unknown> => Boolean(o))
+          .map((o) => ({ label: String(o.label ?? o.value ?? ""), value: String(o.value ?? "") }))
+          .filter((o) => o.value !== "")
+      : [];
+    if (options.length === 0) return null;
+    control.options = options;
+    if (typeof control.default !== "string" || !options.some((o) => o.value === control.default)) {
+      control.default = options[0]!.value;
+    }
+  }
+  return control;
+}
+
+function sanitizeThemeSection(raw: unknown): CustomizeSection | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const label = typeof r.label === "string" && r.label.trim() ? r.label.trim().slice(0, 60) : null;
+  if (!label || !r.controls || typeof r.controls !== "object") return null;
+
+  const controls: Record<string, CustomizeControl> = {};
+  for (const [key, rawControl] of Object.entries(r.controls as Record<string, unknown>)) {
+    if (!isSafeCssVariableName(key)) continue; // must be a --custom-property
+    const control = sanitizeThemeControl(rawControl);
+    if (control) controls[key] = control;
+  }
+  return Object.keys(controls).length > 0 ? { label, controls } : null;
+}
+
+/**
+ * The built-in schema plus any valid sections the active theme package declares
+ * in its manifest `customize` block. Callers that turn mods into CSS or compute
+ * defaults must use this, not `THEME_CUSTOMIZE_SCHEMA`, so theme controls are
+ * honoured.
+ */
+export function schemaWithThemeControls(
+  manifest: Record<string, unknown> | null | undefined,
+): Record<string, CustomizeSection> {
+  const schema = structuredClone(THEME_CUSTOMIZE_SCHEMA);
+  const custom = manifest?.customize;
+  if (!custom || typeof custom !== "object" || Array.isArray(custom)) return schema;
+
+  for (const [sectionKey, rawSection] of Object.entries(custom as Record<string, unknown>)) {
+    if (!THEME_SECTION_KEY.test(sectionKey) || BUILTIN_SECTION_KEYS.has(sectionKey)) continue;
+    const section = sanitizeThemeSection(rawSection);
+    if (section) schema[sectionKey] = section;
+  }
+  return schema;
 }
 
 export const DEFAULT_THEME_CSS_VARS: Record<string, string> = {
@@ -302,34 +477,33 @@ function clampNumber(raw: unknown, fallback: number, min: number, max: number): 
   return Math.min(max, Math.max(min, n));
 }
 
-export function defaultModsFromSchema(): ThemeMods {
+export function defaultModsFromSchema(
+  schema: Record<string, CustomizeSection> = THEME_CUSTOMIZE_SCHEMA,
+): ThemeMods {
   const mods: ThemeMods = {};
-  for (const [sectionKey, section] of Object.entries(THEME_CUSTOMIZE_SCHEMA)) {
-    mods[sectionKey as keyof ThemeMods] = {};
+  for (const [sectionKey, section] of Object.entries(schema)) {
+    const bucket: Record<string, string | number> = {};
     for (const [controlKey, control] of Object.entries(section.controls)) {
-      (mods[sectionKey as keyof ThemeMods] as Record<string, unknown>)[controlKey] = control.default;
+      bucket[controlKey] = control.default;
     }
+    mods[sectionKey] = bucket;
   }
   return mods;
 }
 
+/**
+ * Deep-merge two mod objects section by section. Generic over section keys so a
+ * theme-contributed section merges like a built-in one.
+ */
 export function mergeMods(base: ThemeMods, patch: ThemeMods): ThemeMods {
-  const merged: ThemeMods = {
-    identity: { ...base.identity, ...patch.identity },
-    colors: { ...base.colors, ...patch.colors },
-    colorsDark: { ...base.colorsDark, ...patch.colorsDark },
-    typography: { ...base.typography, ...patch.typography },
-    headings: { ...base.headings, ...patch.headings },
-    spacing: { ...base.spacing, ...patch.spacing },
-    radius: { ...base.radius, ...patch.radius },
-    shadow: { ...base.shadow, ...patch.shadow },
-    layout: { ...base.layout, ...patch.layout },
-    navigation: { ...base.navigation, ...patch.navigation },
-    advanced: { ...base.advanced, ...patch.advanced },
-  };
+  const merged: ThemeMods = {};
+  const sections = new Set([...Object.keys(base ?? {}), ...Object.keys(patch ?? {})]);
+  for (const key of sections) {
+    merged[key] = { ...(base?.[key] ?? {}), ...(patch?.[key] ?? {}) };
+  }
 
   if (merged.advanced?.additionalCss !== undefined) {
-    merged.advanced.additionalCss = sanitizeCustomCss(merged.advanced.additionalCss);
+    merged.advanced.additionalCss = sanitizeCustomCss(String(merged.advanced.additionalCss));
   }
 
   return merged;
@@ -355,7 +529,12 @@ function tokenValue(control: CustomizeControl, raw: unknown): string | null {
       return typeof raw === "string" && isSafeCssFontStack(raw) ? raw.trim() : null;
     case "range": {
       if (raw == null || raw === "") return null;
-      const n = clampNumber(raw, Number(control.default ?? 0), control.min ?? -1e6, control.max ?? 1e6);
+      const n = clampNumber(
+        raw,
+        Number(control.default ?? 0),
+        control.min ?? -1e6,
+        control.max ?? 1e6,
+      );
       // Trim float noise from a step of 0.05 so the stylesheet stays readable.
       return `${Math.round(n * 1000) / 1000}${control.unit ?? ""}`;
     }
@@ -380,12 +559,13 @@ function tokenValue(control: CustomizeControl, raw: unknown): string | null {
 export function modsToCssVariables(
   themeVars: Record<string, string>,
   mods: ThemeMods,
+  schema: Record<string, CustomizeSection> = THEME_CUSTOMIZE_SCHEMA,
 ): Record<string, string> {
   const vars = { ...DEFAULT_THEME_CSS_VARS, ...themeVars };
 
-  for (const [sectionKey, section] of Object.entries(THEME_CUSTOMIZE_SCHEMA)) {
+  for (const [sectionKey, section] of Object.entries(schema)) {
     if (NON_TOKEN_SECTIONS.has(sectionKey)) continue;
-    const values = (mods[sectionKey as keyof ThemeMods] ?? {}) as Record<string, unknown>;
+    const values = (mods[sectionKey] ?? {}) as Record<string, unknown>;
     for (const [controlKey, control] of Object.entries(section.controls)) {
       if (!isSafeCssVariableName(controlKey)) continue;
       const value = tokenValue(control, values[controlKey]);
@@ -447,7 +627,9 @@ export function modsToDarkCssVariables(
  */
 function declarationBlock(vars: Record<string, string>, indent = "  "): string {
   return Object.entries(vars)
-    .filter(([k, v]) => isSafeCssVariableName(k) && typeof v === "string" && !CSS_VALUE_FORBIDDEN.test(v))
+    .filter(
+      ([k, v]) => isSafeCssVariableName(k) && typeof v === "string" && !CSS_VALUE_FORBIDDEN.test(v),
+    )
     .map(([k, v]) => `${indent}${k}: ${v.trim()};`)
     .join("\n");
 }
@@ -483,7 +665,11 @@ export async function getThemeMods(themeId: string, draft = false): Promise<Them
   return getSiteSetting<ThemeMods>(siteId, modsKey(themeId, draft));
 }
 
-export async function saveThemeMods(themeId: string, mods: ThemeMods, draft = false): Promise<void> {
+export async function saveThemeMods(
+  themeId: string,
+  mods: ThemeMods,
+  draft = false,
+): Promise<void> {
   const siteId = await getSiteId();
   if (!siteId) throw new Error("No site found");
   const storedIcon = await getSiteSetting<string>(siteId, "favicon_url");
@@ -536,13 +722,14 @@ export async function getEffectiveThemeCss(preview = false): Promise<string> {
   }
 
   const themeVars = theme?.css_variables ?? {};
+  const schema = schemaWithThemeControls(theme?.manifest);
 
-  const defaults = defaultModsFromSchema();
+  const defaults = defaultModsFromSchema(schema);
   const published = (await getThemeMods(themeId, false)) ?? {};
   const draft = preview ? ((await getThemeMods(themeId, true)) ?? {}) : {};
 
   const mods = mergeMods(mergeMods(defaults, published), draft);
-  const vars = modsToCssVariables(themeVars, mods);
+  const vars = modsToCssVariables(themeVars, mods, schema);
   const darkVars = modsToDarkCssVariables({}, mods);
   const additionalCss = sanitizeCustomCss(mods.advanced?.additionalCss ?? "");
   const pluginCss = await collectPluginCss(siteId, preview);
@@ -662,8 +849,11 @@ export function getNavigationMenuSlugs(mods: ThemeMods): {
 }
 
 /** Inject live menu options into the navigation section of the customize schema. */
-export async function getCustomizeSchema(siteId: string): Promise<Record<string, CustomizeSection>> {
-  const schema = structuredClone(THEME_CUSTOMIZE_SCHEMA);
+export async function getCustomizeSchema(
+  siteId: string,
+): Promise<Record<string, CustomizeSection>> {
+  const theme = await getActiveTheme(siteId);
+  const schema = schemaWithThemeControls(theme?.manifest);
   const { listMenus } = await import("./menus-db.js");
   const menus = await listMenus(siteId);
   const menuOptions = [

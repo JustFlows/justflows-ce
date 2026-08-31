@@ -25,6 +25,7 @@
     "tools": "Tools",
     "health": "Status",
     "updates": "Updates",
+    "webhooks": "Webhooks",
     "securityOverview": "Overzicht",
     "securityHeaders": "Headers",
     "securityAdvanced": "Geavanceerd",
@@ -332,7 +333,9 @@
       "classNameInvalid": "Klassenamen mogen alleen letters, cijfers, koppeltekens en underscores bevatten.",
       "css": "CSS",
       "cssRejected": "Deze CSS is geweigerd. @import, url(javascript:…) en vergelijkbare constructies zijn niet toegestaan.",
-      "compiled": "Wat er gepubliceerd wordt"
+      "compiled": "Wat er gepubliceerd wordt",
+      "tokens": "Themavariabelen",
+      "tokensHint": "Klik op een variabele om die als & { … } toe te voegen in het vak hierboven en pas de waarde aan."
     },
     "json": {
       "title": "Blok-JSON",
@@ -396,7 +399,13 @@
         "md": "Middel",
         "lg": "Groot",
         "pill": "Pil"
-      }
+      },
+      "background": "Achtergrond",
+      "textColor": "Tekstkleur",
+      "accent": "Accent",
+      "opacity": "Dekking",
+      "transparent": "Geen",
+      "transparentHint": "Geen achtergrond — volledig doorzichtig"
     },
     "reusable": {
       "title": "Herbruikbaar blok",
@@ -408,6 +417,12 @@
       "showing": "Toont",
       "referenceHint": "Dit is een verwijzing. Wijzigingen aan het bewaarde blok verschijnen op elke pagina die het gebruikt.",
       "missing": "Dat bewaarde blok bestaat niet meer."
+    },
+    "themeControls": {
+      "title": "Themavormgeving",
+      "hint": "De invulling van dit blok voor de thema-look — overschrijft de site-brede instelling.",
+      "inherit": "Themastandaard",
+      "all": "Alle themavariabelen"
     }
   }
 }

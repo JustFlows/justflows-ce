@@ -42,10 +42,10 @@ describe("site widget blocks", () => {
   it("renders language and auth placeholders for public hydration", () => {
     const language = registry.renderNode({
       type: "core.language-switcher",
-      props: { style: "names" },
+      props: { style: "flag-country" },
     });
     expect(language).toContain("<!--jf:language-switcher-->");
-    expect(language).toContain('data-jf-style="names"');
+    expect(language).toContain('data-jf-style="flag-country"');
 
     const auth = registry.renderNode({
       type: "core.auth-links",

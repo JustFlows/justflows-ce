@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listingIsPaid, listingPriceLabel } from "../admin/MarketplacePage";
+import { installedPackageIds, listingIsPaid, listingPriceLabel } from "../admin/MarketplacePage";
 
 const shop = {
   id: "justflows.shop",
@@ -15,6 +15,16 @@ const shop = {
 };
 
 describe("Marketplace listing metadata", () => {
+  it("recognises persisted themes returned with database-style IDs", () => {
+    const installed = installedPackageIds([], [
+      { theme_id: "justflows.theme.minimal" },
+      { themeId: "justflows.funky" },
+    ]);
+
+    expect(installed.has("justflows.theme.minimal")).toBe(true);
+    expect(installed.has("justflows.funky")).toBe(true);
+  });
+
   it("honours registry.free over stale legacy pricing", () => {
     const listing = { ...shop, registry: { free: true, listed: true, comingSoon: true } };
 

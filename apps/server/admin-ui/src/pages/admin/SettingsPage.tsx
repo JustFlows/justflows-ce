@@ -694,7 +694,281 @@ export default function SettingsPage() {
           {error && <span className="jf-status jf-status--error">{error}</span>}
         </div>
       )}
+
+      {canManage && <DiscussionSettings />}
     </div>
+  );
+}
+
+type CommentSettingsState = {
+  enabled: boolean;
+  requireModeration: boolean;
+  closeAfterDays: number;
+  allowUrls: boolean;
+  notifyModerator: boolean;
+  maxLength: number;
+  threadMaxDepth: number;
+  pageSize: number;
+  captchaProvider: "none" | "turnstile" | "hcaptcha" | "recaptcha" | "recaptcha-v3";
+  captchaSiteKey: string;
+  captchaScoreThreshold: number;
+  captchaSecretKeySet: boolean;
+};
+
+const DISCUSSION_DEFAULTS: CommentSettingsState = {
+  enabled: false,
+  requireModeration: true,
+  closeAfterDays: 0,
+  allowUrls: true,
+  notifyModerator: true,
+  maxLength: 5000,
+  threadMaxDepth: 6,
+  pageSize: 50,
+  captchaProvider: "none",
+  captchaSiteKey: "",
+  captchaScoreThreshold: 0.5,
+  captchaSecretKeySet: false,
+};
+
+function DiscussionSettings() {
+  const [state, setState] = useState<CommentSettingsState>(DISCUSSION_DEFAULTS);
+  const [secret, setSecret] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/settings/comments")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
+      .then((data: Partial<CommentSettingsState>) => {
+        if (!cancelled) setState({ ...DISCUSSION_DEFAULTS, ...data });
+      })
+      .catch(() => undefined)
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function patch(next: Partial<CommentSettingsState>) {
+    setState((s) => ({ ...s, ...next }));
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const payload: Record<string, unknown> = { ...state };
+      delete payload.captchaSecretKeySet;
+      if (secret) payload.captchaSecretKey = secret;
+      const res = await fetch("/api/settings/comments", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to save");
+        return;
+      }
+      setState({ ...DISCUSSION_DEFAULTS, ...data });
+      setSecret("");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      setError("Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return null;
+
+  return (
+    <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
+      <Section title="Discussion">
+        <label className="jf-checkrow">
+          <input
+            type="checkbox"
+            checked={state.enabled}
+            onChange={(e) => patch({ enabled: e.target.checked })}
+          />
+          <span>Allow comments on the site</span>
+        </label>
+        <p className="jf-field__hint">
+          Comments still only appear on a post that has a Comments block. A post's own Discussion
+          setting can override this either way.
+        </p>
+
+        <label className="jf-checkrow">
+          <input
+            type="checkbox"
+            checked={state.requireModeration}
+            onChange={(e) => patch({ requireModeration: e.target.checked })}
+          />
+          <span>Hold new comments for moderation</span>
+        </label>
+
+        <label className="jf-checkrow">
+          <input
+            type="checkbox"
+            checked={state.notifyModerator}
+            onChange={(e) => patch({ notifyModerator: e.target.checked })}
+          />
+          <span>Email the admin address when a comment needs moderation</span>
+        </label>
+
+        <label className="jf-checkrow">
+          <input
+            type="checkbox"
+            checked={state.allowUrls}
+            onChange={(e) => patch({ allowUrls: e.target.checked })}
+          />
+          <span>Show a website field and link commenter names</span>
+        </label>
+
+        <div className="jf-grid jf-grid--2">
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-close">
+              Close comments after
+            </label>
+            <input
+              id="jf-c-close"
+              className="jf-input"
+              type="number"
+              min={0}
+              max={3650}
+              value={state.closeAfterDays}
+              onChange={(e) => patch({ closeAfterDays: Number(e.target.value) })}
+            />
+            <p className="jf-field__hint">days (0 = never)</p>
+          </div>
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-page">
+              Comments per page
+            </label>
+            <input
+              id="jf-c-page"
+              className="jf-input"
+              type="number"
+              min={5}
+              max={200}
+              value={state.pageSize}
+              onChange={(e) => patch({ pageSize: Number(e.target.value) })}
+            />
+          </div>
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-max">
+              Maximum comment length
+            </label>
+            <input
+              id="jf-c-max"
+              className="jf-input"
+              type="number"
+              min={200}
+              max={20000}
+              value={state.maxLength}
+              onChange={(e) => patch({ maxLength: Number(e.target.value) })}
+            />
+            <p className="jf-field__hint">characters</p>
+          </div>
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-depth">
+              Maximum reply depth
+            </label>
+            <input
+              id="jf-c-depth"
+              className="jf-input"
+              type="number"
+              min={1}
+              max={10}
+              value={state.threadMaxDepth}
+              onChange={(e) => patch({ threadMaxDepth: Number(e.target.value) })}
+            />
+          </div>
+        </div>
+
+        <div className="jf-field">
+          <label className="jf-field__label" htmlFor="jf-c-captcha">
+            Spam protection (CAPTCHA)
+          </label>
+          <select
+            id="jf-c-captcha"
+            className="jf-input"
+            value={state.captchaProvider}
+            onChange={(e) =>
+              patch({ captchaProvider: e.target.value as CommentSettingsState["captchaProvider"] })
+            }
+          >
+            <option value="none">None (honeypot + rate limit only)</option>
+            <option value="turnstile">Cloudflare Turnstile</option>
+            <option value="hcaptcha">hCaptcha</option>
+            <option value="recaptcha">Google reCAPTCHA v2</option>
+            <option value="recaptcha-v3">Google reCAPTCHA v3</option>
+          </select>
+        </div>
+        {state.captchaProvider !== "none" && (
+          <div className="jf-grid jf-grid--2">
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-c-site">
+                Site key
+              </label>
+              <input
+                id="jf-c-site"
+                className="jf-input"
+                type="text"
+                value={state.captchaSiteKey}
+                onChange={(e) => patch({ captchaSiteKey: e.target.value })}
+              />
+            </div>
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-c-secret">
+                Secret key
+              </label>
+              <input
+                id="jf-c-secret"
+                className="jf-input"
+                type="password"
+                placeholder={state.captchaSecretKeySet ? "•••••••• (stored)" : ""}
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+              />
+              <p className="jf-field__hint">Leave blank to keep the stored key.</p>
+            </div>
+          </div>
+        )}
+        {state.captchaProvider === "recaptcha-v3" && (
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-score">
+              Minimum reCAPTCHA score
+            </label>
+            <input
+              id="jf-c-score"
+              className="jf-input"
+              type="number"
+              min={0}
+              max={1}
+              step={0.1}
+              value={state.captchaScoreThreshold}
+              onChange={(e) => patch({ captchaScoreThreshold: Number(e.target.value) })}
+            />
+            <p className="jf-field__hint">
+              0 allows more submissions; 1 is strictest. The recommended starting value is 0.5.
+            </p>
+          </div>
+        )}
+
+        <div className="jf-row" style={{ marginTop: "1rem" }}>
+          <button className="jf-btn jf-btn--primary" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save discussion settings"}
+          </button>
+          {saved && <span className="jf-status jf-status--saved">✓ Saved</span>}
+          {error && <span className="jf-status jf-status--error">{error}</span>}
+        </div>
+      </Section>
+    </fieldset>
   );
 }
 

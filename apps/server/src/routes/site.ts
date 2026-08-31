@@ -10,6 +10,7 @@ import {
 import { ensureThemesTable, getActiveTheme, getSiteId } from "../lib/themes-db.js";
 import { isPreviewAllowed } from "../lib/auth-session.js";
 import { getGeneralSettings } from "../lib/general-settings.js";
+import { isSafeScopeSelector, scopeThemeCss } from "../lib/scope-css.js";
 
 const router = Router();
 
@@ -49,12 +50,23 @@ router.get("/identity", async (req, res) => {
 
 export default router;
 
-export async function serveThemeCss(req: import("express").Request, res: import("express").Response): Promise<void> {
+export async function serveThemeCss(
+  req: import("express").Request,
+  res: import("express").Response,
+): Promise<void> {
   const preview = await isPreviewAllowed(req, res);
+  // `?scope=.jf-theme-surface` confines the whole sheet to one subtree so the
+  // page builder can link it without repainting the admin chrome.
+  const scopeParam = typeof req.query.scope === "string" ? req.query.scope : "";
+  const scope = isSafeScopeSelector(scopeParam) ? scopeParam : "";
   try {
-    const css = await getEffectiveThemeCss(preview);
+    let css = await getEffectiveThemeCss(preview);
+    if (scope) css = scopeThemeCss(css, scope);
     res.setHeader("Content-Type", "text/css; charset=utf-8");
-    res.setHeader("Cache-Control", preview ? "no-store" : "public, max-age=60, stale-while-revalidate=300");
+    res.setHeader(
+      "Cache-Control",
+      preview ? "no-store" : "public, max-age=60, stale-while-revalidate=300",
+    );
     res.send(css);
   } catch {
     res.setHeader("Content-Type", "text/css; charset=utf-8");

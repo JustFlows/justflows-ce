@@ -26,10 +26,26 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startRevisionJobs();
     const { startCoreAutoUpdateJob } = await import("./lib/core-auto-update.js");
     startCoreAutoUpdateJob();
+    try {
+      const { getSiteId } = await import("./lib/site-settings.js");
+      const siteId = await getSiteId();
+      if (siteId) {
+        const { migrateTemplatePartsFromSettings } = await import("./lib/template-parts-migrate.js");
+        await migrateTemplatePartsFromSettings(siteId);
+        const { backfillSiteHeaderLibrary } = await import("./lib/site-header-backfill.js");
+        await backfillSiteHeaderLibrary(siteId);
+      }
+    } catch (err) {
+      console.error("[justflows] template-part / header backfill failed:", err);
+    }
   }
 
   const { ensurePluginRuntime } = await import("./lib/plugin-runtime.js");
   await ensurePluginRuntime();
+  if (isInstalled()) {
+    const { startWebhookJobs } = await import("./lib/webhooks.js");
+    await startWebhookJobs();
+  }
 
   const [
     { default: contentRoutes },
@@ -56,8 +72,9 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: formsRoutes },
     { default: contentTypesRoutes },
     { default: reusableBlocksRoutes, templatePartsRouter },
-    { default: headerPresetsRoutes },
+    { default: siteHeaderRoutes },
     { default: auditRoutes },
+    { default: webhooksRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -83,8 +100,9 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/forms.js"),
     import("./routes/content-types.js"),
     import("./routes/reusable-blocks.js"),
-    import("./routes/header-presets.js"),
+    import("./routes/site-header.js"),
     import("./routes/audit.js"),
+    import("./routes/webhooks.js"),
   ]);
 
   app.use(blockIfInstalled);
@@ -110,12 +128,13 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/menus", requireInstalled, menusRoutes);
   app.use("/api/reusable-blocks", requireInstalled, reusableBlocksRoutes);
   app.use("/api/template-parts", requireInstalled, templatePartsRouter);
-  app.use("/api/header-presets", requireInstalled, headerPresetsRoutes);
+  app.use("/api/headers", requireInstalled, siteHeaderRoutes);
   app.use("/api/blocks", requireInstalled, blocksRoutes);
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/forms", requireInstalled, formsRoutes);
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
   app.use("/api/audit", requireInstalled, auditRoutes);
+  app.use("/api/webhooks", requireInstalled, webhooksRoutes);
   // Everything below is public-facing: one switch (Settings → Public API) takes
   // the whole surface offline. Mounted on the prefix so future public routes
   // inherit the guard automatically.
@@ -148,6 +167,58 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
         .send(result.error ?? "Unable to submit");
     } catch (err) {
       console.error("[justflows] form submission failed:", err);
+      res.status(500).type("text/plain").send("Internal server error");
+    }
+  });
+
+  app.post("/justflows-comments/submit", requireInstalled, async (req, res) => {
+    try {
+      const { acceptCommentSubmission } = await import("./lib/comments-public.js");
+      const { clientIp } = await import("./lib/rate-limit.js");
+      const { getSession } = await import("./lib/session.js");
+      const session = getSession(req);
+      const result = await acceptCommentSubmission({
+        body: (req.body ?? {}) as Record<string, unknown>,
+        host: req.get("host") ?? undefined,
+        origin: req.get("origin") ?? undefined,
+        referer: req.get("referer") ?? undefined,
+        clientIp: clientIp(req),
+        session: session
+          ? { userId: session.userId, siteId: session.siteId, email: session.email }
+          : null,
+      });
+      if (result.location) {
+        res.status(303).location(result.location).end();
+        return;
+      }
+      res
+        .status(result.status)
+        .type("text/plain")
+        .send(result.error ?? "Unable to submit");
+    } catch (err) {
+      console.error("[justflows] comment submission failed:", err);
+      res.status(500).type("text/plain").send("Internal server error");
+    }
+  });
+
+  app.get("/justflows-comments/unsubscribe", requireInstalled, async (req, res) => {
+    try {
+      const { clearCommentNotify } = await import("./lib/comments-public.js");
+      const token = typeof req.query.token === "string" ? req.query.token : "";
+      const ok = await clearCommentNotify(token);
+      res
+        .status(ok ? 200 : 400)
+        .type("text/html")
+        .send(
+          `<!doctype html><meta charset="utf-8"><title>Comment notifications</title>` +
+            `<div style="font:16px/1.5 system-ui;max-width:32rem;margin:4rem auto;padding:0 1rem">` +
+            (ok
+              ? `<h1>Unsubscribed</h1><p>You will no longer receive email about replies to that comment.</p>`
+              : `<h1>Link not recognised</h1><p>This unsubscribe link is invalid or has already been used.</p>`) +
+            `</div>`,
+        );
+    } catch (err) {
+      console.error("[justflows] comment unsubscribe failed:", err);
       res.status(500).type("text/plain").send("Internal server error");
     }
   });

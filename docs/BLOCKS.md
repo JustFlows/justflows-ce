@@ -1,4 +1,5 @@
 # Blocks
+
 Plugins register blocks on `activate`:
 
 ```ts
@@ -35,13 +36,13 @@ blocks; public HTML is produced by the public renderer, not by the admin applica
 Five props are handled by the platform, not by the block's own `render`, so a
 plugin block gets them for free and must not define them itself:
 
-| Prop            | Type   | Effect                                         |
-| --------------- | ------ | ---------------------------------------------- |
-| `animation`     | object | Entrance, hover, and press effects             |
-| `className`     | string | Extra classes on the block's root element      |
-| `css`           | string | CSS confined to this block instance            |
-| `gridPlacement` | object | Where the block sits when its parent is a grid |
-| `style`         | object | Spacing, size, alignment, corners and shadow   |
+| Prop            | Type   | Effect                                                                                                                                              |
+| --------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `animation`     | object | Entrance, hover, and press effects                                                                                                                  |
+| `className`     | string | Extra classes on the block's root element                                                                                                           |
+| `css`           | string | CSS confined to this block instance                                                                                                                 |
+| `gridPlacement` | object | Where the block sits when its parent is a grid                                                                                                      |
+| `style`         | object | Spacing, size, alignment, corners, shadow, per-instance colours / opacity, and theme-variable overrides — see [Spacing and size](#spacing-and-size) |
 
 `layout` is available for a block's own schema (the bundled Gallery and Post
 List blocks both use it). Grid positioning used that name in an early build,
@@ -51,7 +52,9 @@ drop it on save. Platform positioning now lives exclusively in
 
 `withBlockChrome` in `@justflows/blocks` applies all five to the HTML a block
 returns, on every render path. A block whose `render` emits a single root
-element gets them on that element; a fragment is wrapped in a `<div>`.
+element gets them on that element; a fragment is wrapped in a `<div>`. `core.html`
+wraps its content in a `<div class="jf-html">` for this reason — custom HTML with
+several top-level nodes would otherwise only style the first.
 
 ## Per-block CSS
 
@@ -149,7 +152,9 @@ array of blocks is accepted as well as a full document.
 ## Page and post builders
 
 The visual builder edits both pages and post-like content. A page gets the full
-library, including theme patterns, site-chrome widgets, and its per-page header.
+library, including theme patterns and site-chrome widgets; it picks its header
+from the site header library (built under Theme builder → Header) via a dropdown
+rather than editing header chrome inline.
 Shop `product` and `shop` entries use the same page library so merchants can
 import the Product detail pattern. A post gets the same block canvas and inspector
 but omits those page-level tools, so its document stays focused on the article body.
@@ -183,6 +188,62 @@ page. Theme authors can provide a ready-made index in `demo/blog.json`; see
 `core.link-list` is the related general-purpose navigation block. Its `heading`
 is optional and `items` is an ordered array of `{ label, url }`. URLs are
 sanitized on save like other link-bearing core blocks.
+
+## Comments
+
+`justflows.comments.thread` is a platform block that renders a post's approved,
+threaded comments and an accessible submission form. Drop it on a post (or a
+page) where discussion should appear — nothing renders unless the block is
+present.
+
+| Prop    | Values / effect                                   |
+| ------- | ------------------------------------------------- |
+| `title` | Heading above the thread (default `Comments`)     |
+| `order` | `oldest` (default) or `newest` for top-level sort |
+
+Where the block is placed the thread is always shown. Whether the submission
+form is open is resolved from **Settings → Discussion** (site switch,
+hold-for-moderation, `closeAfterDays`, CAPTCHA provider, length and depth
+limits) and the post's own **Discussion** control (`inherit` / `open` /
+`closed`, stored in `content.fields.comments`); with the site switch off a
+placed block shows the existing thread and a "comments are closed" notice.
+Submissions post to `POST /justflows-comments/submit` (same-origin checked, IP
+rate limited, honeypot plus optional Turnstile, hCaptcha, or Google reCAPTCHA
+v2/v3); replies pass
+`?reply=<id>`; extra pages use `?comment-page=N`. Approved comments never expose
+the commenter's email address or IP. Moderators work the queue in
+**Admin → Comments**.
+
+### CAPTCHA providers
+
+Choose a provider under **Settings → Discussion**, then enter the site key and
+secret key created for the site's public hostname. Justflows supports Cloudflare
+Turnstile, hCaptcha, the Google reCAPTCHA v2 checkbox, and score-based Google
+reCAPTCHA v3. The site key is placed in the public integration; the secret is
+encrypted at rest and is never returned by the settings API.
+
+For reCAPTCHA v3, choose a minimum score from `0` to `1` (default `0.5`). Higher
+values are stricter. Justflows obtains the token immediately before submission
+with the action `justflows_comment_submit`; the server requires that exact
+action and rejects scores below the configured threshold. Use separate v2 and
+v3 keys—Google key types are not interchangeable.
+
+Every token is verified with the selected provider from the server, including
+the visitor IP when available. Verification has a five-second timeout and fails
+closed: a missing token, missing secret, provider error, timeout, or rejected
+token prevents the comment from being stored. Provider-side hostname settings
+bind keys to approved domains, and the providers reject expired or reused tokens.
+Disabling CAPTCHA keeps the existing same-origin check, honeypot, and IP rate
+limit in place.
+
+**Restyling** — the markup uses stable BEM-ish classes (`.jf-comments`,
+`.jf-comments__form`, `.jf-comment`, `.jf-comment__meta`, `.jf-comment__text`,
+`.jf-comments__list--replies`, …) built on the theme's design tokens, so the
+Customizer palette and any theme stylesheet (or the `theme.css` plugin filter)
+restyle it. **Replacing the markup** — the `comments.render` filter
+([HOOKS.md](HOOKS.md#filters)) hands a plugin the rendered HTML plus the
+threaded `PublicComment[]` and form/policy state; return your own HTML for full
+control. The submission endpoint, table, and moderation API stay the same.
 
 ## The grid
 
@@ -246,23 +307,36 @@ while dragging or while the grid is selected.
 
 ## Spacing and size
 
-`style` gives every block the same spacing controls, on any block type:
+`style` gives every block the same presentation controls, on any block type:
 
-| Key                             | Values                                           |
-| ------------------------------- | ------------------------------------------------ |
-| `padTop` / `padBottom` / `padX` | `"0"`–`"8"`, a step on the theme's spacing scale |
-| `marginTop` / `marginBottom`    | the same steps                                   |
-| `width`                         | `narrow`, `content`, `wide`, `full`              |
-| `minHeight`                     | 0–100, in `vh`                                   |
-| `alignSelf`                     | `start`, `center`, `end`, `stretch`              |
-| `textAlign`                     | `left`, `center`, `right`                        |
-| `radius`                        | `none`, `sm`, `md`, `lg`, `pill`                 |
-| `shadow`                        | `none`, `sm`, `md`                               |
+| Key                                   | Values                                                            |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| `padTop` / `padBottom` / `padX`       | `"0"`–`"8"`, a step on the theme's spacing scale                  |
+| `marginTop` / `marginBottom`          | the same steps                                                    |
+| `width`                               | `narrow`, `content`, `wide`, `full`                               |
+| `minHeight`                           | 0–100, in `vh`                                                    |
+| `maxWidth` / `maxHeight`              | 0–10000, in `px` (0 = unset)                                      |
+| `alignSelf`                           | `start`, `center`, `end`, `stretch`                               |
+| `textAlign`                           | `left`, `center`, `right`                                         |
+| `radius`                              | `none`, `sm`, `md`, `lg`, `pill`                                  |
+| `shadow`                              | `none`, `sm`, `md`                                                |
+| `background` / `textColor` / `accent` | a validated CSS colour; `transparent` / `none` clear a background |
+| `opacity`                             | `"0"`–`"100"` (percent string; `""` = unset)                      |
+| `vars`                                | `{ "--custom-property": "<narrowly-validated value>" }`           |
 
-Every value is an allowlisted keyword, never a raw length or colour — these land
-in a `style` attribute, so the allowlist _is_ the defence. Spacing is emitted as
-`var(--space-N)` rather than a resolved length, which is what lets the theme pull
-a whole page in at once on a phone by lowering one token.
+Every value is an allowlisted keyword, a bounded number, or a validated colour —
+never a raw length that could break out of the `style` attribute. Spacing is
+emitted as `var(--space-N)` rather than a resolved length, which is what lets the
+theme pull a whole page in at once on a phone by lowering one token.
+
+`background` / `textColor` write the direct property **and** a `--jf-block-bg` /
+`--jf-block-text` custom property onto the block's own root element (so an inline
+value beats the theme's own `.jf-hero { background: … }`); `accent` writes
+`--jf-block-accent`, which a theme opts a specific element into with
+`var(--jf-block-accent, …)`. `vars` is the general form — set from the inspector's
+**Theme styling** panel (driven by `manifest.blockControls` + `GET
+/api/themes/style-tokens`), it lets one block override any theme variable the
+theme exposes, e.g. `{ "--brand-gradient": "linear-gradient(…)" }`.
 
 A width also sets `margin-left/right: auto`, because a max-width says nothing
 about where the slack goes.
