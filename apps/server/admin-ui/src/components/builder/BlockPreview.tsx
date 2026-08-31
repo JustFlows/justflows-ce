@@ -485,7 +485,39 @@ export function BlockPreview({
           </div>,
         );
       }
-      if (schemeStyle === "toggle" || schemeStyle === "switch") {
+      if (schemeStyle === "switch") {
+        return wrap(
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, ...widgetAlign(p.align as string) }}>
+            <span style={{ fontSize: chipSize.fontSize ?? "0.8rem", fontWeight: 600 }}>
+              {(p.darkLabel as string) || "Dark"}
+            </span>
+            <span
+              style={{
+                position: "relative",
+                display: "inline-block",
+                width: 34,
+                height: 19,
+                borderRadius: 999,
+                background: "var(--jf-surface-4, #cbd5e1)",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: 2,
+                  width: 15,
+                  height: 15,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+                }}
+              />
+            </span>
+          </div>,
+        );
+      }
+      if (schemeStyle === "toggle") {
         return wrap(
           <div style={{ display: "inline-flex", ...widgetAlign(p.align as string) }}>
             <span style={{ ...widgetChip, ...chipSize, borderRadius: pillRadius }}>

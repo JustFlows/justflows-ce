@@ -238,6 +238,43 @@ const BLOCK_LEVEL_TOKENS: StyleTokenDto[] = [
     value: "#3b82f6",
     description: "An accent a theme can opt specific elements into with var(--jf-block-accent, …).",
   },
+  // Read by the default theme's `.jf-color-scheme` rules; the builder only
+  // surfaces these on the core.color-scheme block (see ThemeBlockControls).
+  {
+    name: "--jf-color-scheme-active-bg",
+    label: "Selected background",
+    section: "Light / dark toggle",
+    type: "color",
+    value: "#2563eb",
+  },
+  {
+    name: "--jf-color-scheme-active-fg",
+    label: "Selected text",
+    section: "Light / dark toggle",
+    type: "color",
+    value: "#ffffff",
+  },
+  {
+    name: "--jf-color-scheme-hover-bg",
+    label: "Hover background",
+    section: "Light / dark toggle",
+    type: "color",
+    value: "#f8fafc",
+  },
+  {
+    name: "--jf-color-scheme-hover-fg",
+    label: "Hover text",
+    section: "Light / dark toggle",
+    type: "color",
+    value: "#0f172a",
+  },
+  {
+    name: "--jf-color-scheme-hover-border",
+    label: "Hover border",
+    section: "Light / dark toggle",
+    type: "color",
+    value: "#2563eb",
+  },
 ];
 
 router.get("/style-tokens", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {

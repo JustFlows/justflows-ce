@@ -1,4 +1,4 @@
-const BASE = process.env.ADMIN_URL ?? "http://localhost:3001";
+const BASE = process.env["ADMIN_URL"] ?? "http://localhost:3001";
 
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);

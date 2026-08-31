@@ -132,14 +132,24 @@ ${options}
 ${close}`;
       }
 
-      if (style === "toggle" || style === "switch") {
-        // One control that flips between light and dark. site-chrome.js
-        // resolves data-jf-theme="toggle" against the current theme and
-        // reflects state back as aria-pressed / aria-checked.
-        const isSwitch = style === "switch";
-        const state = isSwitch ? ` role="switch" aria-checked="false"` : ` aria-pressed="false"`;
+      // Both single-control variants flip between light and dark through
+      // data-jf-theme="toggle"; site-chrome.js resolves it against the current
+      // theme and reflects state back as aria-pressed / aria-checked.
+      if (style === "switch") {
+        // A real switch: a track with a sliding thumb, no button chrome.
         return `${open}
-  <button type="button" class="jf-color-scheme__btn jf-color-scheme__toggle" data-jf-theme="toggle"${state} aria-label="${esc(
+  <button type="button" class="jf-color-scheme__btn jf-color-scheme__switch" data-jf-theme="toggle" role="switch" aria-checked="false" aria-label="${esc(
+    p.darkLabel,
+  )}" title="${esc(p.darkLabel)}">
+    <span class="jf-color-scheme__label">${esc(p.darkLabel)}</span>
+    <span class="jf-color-scheme__track" aria-hidden="true"><span class="jf-color-scheme__thumb"></span></span>
+  </button>
+${close}`;
+      }
+
+      if (style === "toggle") {
+        return `${open}
+  <button type="button" class="jf-color-scheme__btn jf-color-scheme__toggle" data-jf-theme="toggle" aria-pressed="false" aria-label="${esc(
     p.darkLabel,
   )}" title="${esc(p.darkLabel)}">
     <span class="jf-color-scheme__icon jf-color-scheme__icon--sun" aria-hidden="true">${esc(p.lightIcon)}</span>

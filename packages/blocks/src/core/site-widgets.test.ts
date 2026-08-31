@@ -55,10 +55,14 @@ describe("site widget blocks", () => {
     expect(html).not.toContain('data-jf-theme="light"');
   });
 
-  it("gives the switch design switch semantics", () => {
+  it("gives the switch design switch semantics and a track/thumb, not glyphs", () => {
     const html = registry.renderNode({ type: "core.color-scheme", props: { style: "switch" } });
+    expect(html).toContain('data-jf-theme="toggle"');
     expect(html).toContain('role="switch"');
     expect(html).toContain('aria-checked="false"');
+    expect(html).toContain("jf-color-scheme__track");
+    expect(html).toContain("jf-color-scheme__thumb");
+    expect(html).not.toContain("jf-color-scheme__icon--sun");
   });
 
   it("renders the compact design as a labelled select", () => {

@@ -18,22 +18,6 @@
     "self-hosted",
     "open-source"
   ],
-  "workspaces": [
-    "apps/server",
-    "packages/blocks",
-    "packages/installer",
-    "packages/core",
-    "packages/auth",
-    "packages/sdk",
-    "packages/database",
-    "packages/plugin-api",
-    "packages/cache",
-    "packages/content",
-    "packages/media",
-    "packages/updater",
-    "packages/jobs",
-    "packages/cli"
-  ],
   "main": "server.js",
   "scripts": {
     "build": "turbo run build",
@@ -52,11 +36,11 @@
     "make-zip": "bash scripts/make-zip.sh"
   },
   "dependencies": {
-    "@justflows/blocks": "workspace:*",
-    "@justflows/core": "workspace:*",
-    "@justflows/installer": "workspace:*",
-    "@justflows/plugin-api": "workspace:*",
-    "@justflows/sdk": "workspace:*",
+    "@justflows/blocks": "file:./packages/blocks",
+    "@justflows/core": "file:./packages/core",
+    "@justflows/installer": "file:./packages/installer",
+    "@justflows/plugin-api": "file:./packages/plugin-api",
+    "@justflows/sdk": "file:./packages/sdk",
     "cookie-parser": "^1.4.7",
     "ejs": "^6.0.1",
     "express": "^5.2.1",
@@ -64,7 +48,11 @@
     "mysql2": "^3.24.1",
     "nodemailer": "^9.0.5",
     "postgres": "^3.4.9",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@justflows/cache": "file:./packages/cache",
+    "@justflows/content": "file:./packages/content",
+    "compression": "^1.8.1",
+    "express-rate-limit": "^8.6.2"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.67.0",

@@ -35,5 +35,14 @@
     "customColors": true,
     "customFonts": true,
     "patterns": true
+  },
+  "blockControls": {
+    "core.color-scheme": [
+      "--jf-color-scheme-active-bg",
+      "--jf-color-scheme-active-fg",
+      "--jf-color-scheme-hover-bg",
+      "--jf-color-scheme-hover-fg",
+      "--jf-color-scheme-hover-border"
+    ]
   }
 }

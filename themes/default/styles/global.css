@@ -1326,6 +1326,8 @@ hr {
   --jf-color-scheme-bg: var(--color-surface);
   --jf-color-scheme-fg: var(--color-text);
   --jf-color-scheme-border: var(--color-border);
+  --jf-color-scheme-hover-bg: var(--jf-color-scheme-bg);
+  --jf-color-scheme-hover-fg: var(--jf-color-scheme-fg);
   --jf-color-scheme-hover-border: var(--color-primary);
   --jf-color-scheme-active-bg: var(--color-primary);
   --jf-color-scheme-active-fg: #fff;
@@ -1373,6 +1375,8 @@ hr {
 }
 
 .jf-color-scheme__btn:hover {
+  background: var(--jf-color-scheme-hover-bg);
+  color: var(--jf-color-scheme-hover-fg);
   border-color: var(--jf-color-scheme-hover-border);
 }
 
@@ -1424,7 +1428,7 @@ hr {
   border-radius: 0 var(--jf-color-scheme-radius) var(--jf-color-scheme-radius) 0;
 }
 
-/* Single toggle / switch: one control, one visible glyph. The glyph keys off
+/* Single toggle: one button, one visible glyph. The glyph keys off
    html[data-theme], which /js/site-chrome.js stamps before first paint, so it
    is correct with no flash even before the widget's own state is set. */
 .jf-color-scheme__toggle {
@@ -1443,22 +1447,56 @@ html[data-theme="dark"] .jf-color-scheme__toggle .jf-color-scheme__icon--moon {
   display: inline;
 }
 
-.jf-color-scheme--switch .jf-color-scheme__toggle {
-  gap: 0.4rem;
+/* Switch: a track with a sliding thumb and no button chrome. The higher
+   specificity here also cancels the shared .jf-color-scheme__btn hover /
+   [aria-checked] fills. */
+.jf-color-scheme--switch .jf-color-scheme__switch,
+.jf-color-scheme--switch .jf-color-scheme__switch:hover,
+.jf-color-scheme--switch .jf-color-scheme__switch[aria-checked="true"] {
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  border: 0;
+  background: none;
+  color: var(--jf-color-scheme-fg);
 }
 
-.jf-color-scheme--switch .jf-color-scheme__toggle::after {
-  content: "";
-  width: 2rem;
-  height: 1.1rem;
+.jf-color-scheme__track {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 2.4rem;
+  height: 1.35rem;
   border-radius: 999px;
   background: var(--jf-color-scheme-border);
-  position: relative;
-  flex: none;
+  transition: background 0.2s ease;
 }
 
-.jf-color-scheme--switch .jf-color-scheme__toggle[aria-checked="true"]::after {
+.jf-color-scheme__thumb {
+  position: absolute;
+  top: 50%;
+  left: 0.15rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: left 0.2s ease;
+}
+
+.jf-color-scheme__switch[aria-checked="true"] .jf-color-scheme__track {
   background: var(--jf-color-scheme-active-bg);
+}
+
+.jf-color-scheme__switch[aria-checked="true"] .jf-color-scheme__thumb {
+  left: calc(100% - 1.2rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jf-color-scheme__track,
+  .jf-color-scheme__thumb {
+    transition: none;
+  }
 }
 
 .jf-color-scheme.is-animated .jf-color-scheme__icon {

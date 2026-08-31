@@ -29,7 +29,10 @@ const SINGLE_TOGGLE = `
 
 const SWITCH = `
   <div data-jf-widget="color-scheme">
-    <button class="jf-color-scheme__toggle" data-jf-theme="toggle" role="switch" aria-checked="false">Dark mode</button>
+    <button class="jf-color-scheme__switch" data-jf-theme="toggle" role="switch" aria-checked="false">
+      <span class="jf-color-scheme__label">Dark mode</span>
+      <span class="jf-color-scheme__track"><span class="jf-color-scheme__thumb"></span></span>
+    </button>
   </div>`;
 
 const SELECT = `

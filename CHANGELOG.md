@@ -50,9 +50,13 @@ and this project uses [Semantic Versioning](https://semver.org/).
   (`lightIcon` / `darkIcon` / `autoIcon`, `lightLabel` / `darkLabel` /
   `autoLabel` — blank keeps the defaults, author values are HTML-escaped). The
   default theme now styles the widget entirely through `--jf-color-scheme-*`
-  custom properties (hover/active/focus colors, background, border, radius,
+  custom properties (resting / hover / active / focus colors, border, radius,
   spacing, font size) with theme-token fallbacks, so a theme or the Theme
-  Customizer can restyle it without overriding rules.
+  Customizer can restyle it without overriding rules. `--jf-color-scheme-hover-bg`
+  / `-hover-fg` default to the resting colours (hover shows only the border
+  highlight) until set. The builder surfaces the five colour hooks in the
+  block's Theme-styling → All theme variables list, so an author can recolour
+  the selected/hover state of one instance without writing CSS.
   ([#60](https://github.com/JustFlows/justflows-ce/issues/60))
 
 ## [0.1.7]

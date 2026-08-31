@@ -116,13 +116,23 @@ without overriding rules:
 
 ```css
 .jf-color-scheme {
-  --jf-color-scheme-active-bg: rebeccapurple;
-  --jf-color-scheme-active-fg: #fff;
-  --jf-color-scheme-hover-border: rebeccapurple;
-  --jf-color-scheme-focus: rebeccapurple;
-  --jf-color-scheme-radius: 8px;
+  --jf-color-scheme-bg / -fg / -border;                /* resting */
+  --jf-color-scheme-hover-bg / -hover-fg / -hover-border;
+  --jf-color-scheme-active-bg / -active-fg / -active-border;
+  --jf-color-scheme-focus;
+  --jf-color-scheme-radius / -font-size / -gap;
+  --jf-color-scheme-padding-y / -padding-x;
 }
 ```
+
+`--jf-color-scheme-hover-bg` and `-hover-fg` default to the resting background
+and text, so hover only shows the border highlight until a theme (or the block's
+Theme-styling panel) sets a fill. The builder surfaces the five colour hooks
+(`active-bg`, `active-fg`, `hover-bg`, `hover-fg`, `hover-border`) in the
+`core.color-scheme` block's **Theme styling → All theme variables** list, where
+each writes an inline `--jf-color-scheme-*` onto the block, so an author can
+recolour one instance without writing CSS. Theme-wide, set them in the theme's
+`global.css` or Theme builder → Styles.
 
 The `--size-*` and `--radius-*` modifier classes on the wrapper simply reassign
 the same variables; target them (or a more specific selector) if a theme needs

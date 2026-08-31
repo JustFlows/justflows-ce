@@ -18,7 +18,7 @@
   "dependencies": {
     "@justflows/blocks": "file:../../packages/blocks",
     "@justflows/cache": "file:../../packages/cache",
-    "@justflows/content": "workspace:*",
+    "@justflows/content": "file:../../packages/content",
     "@justflows/core": "file:../../packages/core",
     "@justflows/installer": "file:../../packages/installer",
     "@justflows/plugin-api": "file:../../packages/plugin-api",
