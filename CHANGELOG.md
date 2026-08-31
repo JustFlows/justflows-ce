@@ -38,6 +38,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Admin update discovery now follows full Semantic Versioning precedence,
+  including prerelease-to-stable updates such as `0.1.7-dev` or `0.1.7-rc` to
+  `0.1.7`. ([#87](https://github.com/JustFlows/justflows-ce/issues/87))
+
 - Database migrations `0001` through `0012` are consolidated into one
   `0012_baseline` file per supported dialect, reducing the shipped migration
   footprint from 36 files to 3. Fresh installs and existing sites run the same
