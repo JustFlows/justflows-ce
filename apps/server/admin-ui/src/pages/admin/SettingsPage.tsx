@@ -908,6 +908,10 @@ function DiscussionSettings() {
             <option value="recaptcha">Google reCAPTCHA v2</option>
             <option value="recaptcha-v3">Google reCAPTCHA v3</option>
           </select>
+          <p className="jf-field__hint">
+            The provider and keys set here are also used by any form (Extensions →
+            Forms) that has “Require a CAPTCHA on this form” turned on.
+          </p>
         </div>
         {state.captchaProvider !== "none" && (
           <div className="jf-grid jf-grid--2">

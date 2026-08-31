@@ -21,6 +21,17 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Each form built under Extensions → Forms has its own "Require a CAPTCHA on this
+  form" switch in the builder. When on, the form reuses the provider and keys
+  already configured under Settings → Discussion (Turnstile, hCaptcha, reCAPTCHA
+  v2, or reCAPTCHA v3) — no second key to enter. The widget renders in that form,
+  `/justflows-forms/submit` verifies the token server-side (reCAPTCHA v3 checks a
+  form-specific action and the score threshold) before storing or emailing the
+  submission, and the honeypot still runs first. The provider/verify/widget code
+  is now shared between comments and forms (`apps/server/src/lib/captcha.ts`);
+  the public CSP already widens whenever a provider is selected, so it covers
+  both.
+
 - The `core.color-scheme` block gains design variants beyond buttons and icons:
   a two/three-button segmented control, a single sun/moon toggle, a switch
   control, a compact dropdown, plain text labels, and icon buttons with
