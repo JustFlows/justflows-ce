@@ -140,7 +140,7 @@ export default function WebhooksPage() {
           </button>
         </div>
       )}
-      <section className="jf-card">
+      <section className="jf-card jf-card--overflow-visible jf-webhook-form-card">
         <div className="jf-card__head">
           <h2 className="jf-card__title">{editing ? t("webhooks.edit") : t("webhooks.add")}</h2>
         </div>

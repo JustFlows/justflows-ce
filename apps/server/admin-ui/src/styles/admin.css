@@ -489,6 +489,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   overflow: hidden;
 }
 
+.jf-card--overflow-visible { overflow: visible; }
+.jf-webhook-form-card { position: relative; z-index: 2; }
+
 .jf-card__head {
   display: flex;
   align-items: center;
