@@ -434,6 +434,8 @@ export interface GateEventMap {
  * next value; returning nothing keeps the previous value and logs a warning.
  */
 export interface FilterValueMap {
+  /** Event names administrators may subscribe to. Plugins append their names. */
+  "webhook.eventTypes": [string[], Record<string, never>];
   "content.input": [Record<string, unknown>, { siteId: string }];
   "content.output": [Record<string, unknown>, { siteId: string }];
   /** Stored blocks before HTML render. Shop fills `{{price}}` tags here. */

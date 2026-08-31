@@ -42,6 +42,10 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   const { ensurePluginRuntime } = await import("./lib/plugin-runtime.js");
   await ensurePluginRuntime();
+  if (isInstalled()) {
+    const { startWebhookJobs } = await import("./lib/webhooks.js");
+    await startWebhookJobs();
+  }
 
   const [
     { default: contentRoutes },
@@ -70,6 +74,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: reusableBlocksRoutes, templatePartsRouter },
     { default: siteHeaderRoutes },
     { default: auditRoutes },
+    { default: webhooksRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -97,6 +102,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/reusable-blocks.js"),
     import("./routes/site-header.js"),
     import("./routes/audit.js"),
+    import("./routes/webhooks.js"),
   ]);
 
   app.use(blockIfInstalled);
@@ -128,6 +134,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/forms", requireInstalled, formsRoutes);
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
   app.use("/api/audit", requireInstalled, auditRoutes);
+  app.use("/api/webhooks", requireInstalled, webhooksRoutes);
   // Everything below is public-facing: one switch (Settings → Public API) takes
   // the whole surface offline. Mounted on the prefix so future public routes
   // inherit the guard automatically.

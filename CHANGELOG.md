@@ -9,6 +9,12 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Signed content webhooks for publish, unpublish, delete, and media upload,
+  with encrypted secret creation/rotation, SSRF-safe endpoint validation,
+  bounded payloads, persisted delivery history, jobs-backed exponential retry,
+  manual redelivery, an administrator UI, and the `webhook.eventTypes`
+  extension filter. ([#16](https://github.com/JustFlows/justflows-ce/issues/16))
+
 - Header builder in the theme customizer (Theme builder → Header): a library of
   named headers, one marked the site default and shown on every page. Each page
   picks its header from a dropdown in the page builder — the site default, a

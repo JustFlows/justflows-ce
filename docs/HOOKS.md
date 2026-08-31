@@ -234,6 +234,11 @@ just `unknown` — so you can hook something you have no types for.
 
 ## Publishing your own hooks
 
+For outbound HTTP delivery, use the host webhook service instead of making a
+request inside a lifecycle handler. Plugins extend `webhook.eventTypes` with a
+namespaced action and emit that action; the host signs, persists, retries, and
+logs the delivery. See [Webhooks](WEBHOOKS.md#plugin-defined-events).
+
 Your plugin can expose extension points for *other* plugins. Use `emit` for
 actions and `apply` for filters:
 
