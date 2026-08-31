@@ -10,16 +10,42 @@ export const MIGRATION_ORDER = [
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";
 
+/** Outcome of a migration run, surfaced to the admin API and the CLI. */
+export interface MigrationResult {
+  /** Migrations whose DDL ran during this call. */
+  applied: string[];
+  /** Migrations already recorded, or shipped without DDL for this dialect. */
+  skipped: string[];
+}
+
 interface SqlRunner {
   run(sql: string, params?: (string | number | boolean | null)[]): Promise<void>;
 }
 
-interface MigrationRunner extends SqlRunner {
+interface StatementRunner extends SqlRunner {
   query<T = Record<string, unknown>>(
     sql: string,
     params?: (string | number | boolean | null)[],
   ): Promise<T[]>;
 }
+
+/** A connection pinned for the duration of a migration run. */
+interface ReservedRunner extends StatementRunner {
+  release(): void;
+}
+
+interface MigrationRunner extends StatementRunner {
+  /**
+   * Optional: pin one connection so a cross-process migration lock can be held
+   * for the whole run. Callers without a pool (fresh install, tests) omit it.
+   */
+  reserve?(): Promise<ReservedRunner>;
+}
+
+// Fixed keys so every booting worker contends for the same lock.
+const PG_ADVISORY_LOCK_KEY = 941_000_055;
+const NAMED_LOCK = "justflows:migrations";
+const NAMED_LOCK_TIMEOUT_SECONDS = 60;
 
 /** Split SQL into independently executable statements. */
 export function splitSqlStatements(ddl: string, _driver: DbDriver): string[] {
@@ -107,49 +133,121 @@ export async function runMigrationStatements(
   }
 }
 
+function createMigrationsTableSql(driver: DbDriver): string {
+  return driver === "postgres"
+    ? `CREATE TABLE IF NOT EXISTS _migrations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`
+    : `CREATE TABLE IF NOT EXISTS _migrations (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`;
+}
+
+async function acquireMigrationLock(conn: ReservedRunner, driver: DbDriver): Promise<void> {
+  if (driver === "postgres") {
+    // Blocks until the other worker's run finishes; released in the finally below.
+    await conn.run("SELECT pg_advisory_lock(?)", [PG_ADVISORY_LOCK_KEY]);
+    return;
+  }
+  const rows = await conn.query<{ got: number | null }>("SELECT GET_LOCK(?, ?) AS got", [
+    NAMED_LOCK,
+    NAMED_LOCK_TIMEOUT_SECONDS,
+  ]);
+  if (!rows[0] || Number(rows[0].got) !== 1) {
+    throw new Error(
+      `Could not acquire migration lock "${NAMED_LOCK}" within ${NAMED_LOCK_TIMEOUT_SECONDS}s — another process may be stuck mid-migration`,
+    );
+  }
+}
+
+async function releaseMigrationLock(conn: ReservedRunner, driver: DbDriver): Promise<void> {
+  try {
+    if (driver === "postgres") {
+      await conn.run("SELECT pg_advisory_unlock(?)", [PG_ADVISORY_LOCK_KEY]);
+    } else {
+      await conn.run("SELECT RELEASE_LOCK(?)", [NAMED_LOCK]);
+    }
+  } catch {
+    // Best effort: the lock also clears when the session ends.
+  }
+}
+
+async function applyMigrations(
+  sql: StatementRunner,
+  driver: DbDriver,
+  names: readonly string[],
+): Promise<MigrationResult> {
+  await sql.run(createMigrationsTableSql(driver));
+
+  // Legacy databases carry a `_migrations` table with only `0001_initial`.
+  // Reading it (rather than assuming nothing is applied) is what stops
+  // PostgreSQL from re-running `0001` and aborting before later migrations.
+  const recordedRows = await sql.query<{ name: string }>("SELECT name FROM _migrations");
+  const recorded = new Set(recordedRows.map((row) => String(row.name)));
+
+  const applied: string[] = [];
+  const skipped: string[] = [];
+
+  for (const name of names) {
+    if (recorded.has(name)) {
+      skipped.push(name);
+      continue;
+    }
+    const ddl = await readMigrationDdl(name, driver);
+    if (!ddl) {
+      // Nothing shipped for this dialect — treat as satisfied so the run finishes.
+      skipped.push(name);
+      continue;
+    }
+    // The shipped DDL is deliberately idempotent (IF NOT EXISTS plus ignorable
+    // duplicate-object errors), so a failed run re-applies safely on next boot.
+    // That is the recovery path for MySQL/MariaDB, whose DDL auto-commits.
+    await runMigrationStatements(sql, ddl, driver);
+    try {
+      // Record only after every statement succeeded.
+      await sql.run("INSERT INTO _migrations (name) VALUES (?)", [name]);
+    } catch (err: unknown) {
+      // A concurrent run may have recorded the same migration first.
+      if (!isIgnorableMigrationError(err)) throw err;
+    }
+    applied.push(name);
+  }
+
+  return { applied, skipped };
+}
+
 export async function runAllMigrations(
   sql: MigrationRunner,
   driver: DbDriver,
   names: readonly string[] = MIGRATION_ORDER,
-): Promise<void> {
-  await sql.run(
-    driver === "postgres"
-      ? `CREATE TABLE IF NOT EXISTS _migrations (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL UNIQUE,
-          applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )`
-      : `CREATE TABLE IF NOT EXISTS _migrations (
-          id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-          name VARCHAR(255) NOT NULL UNIQUE,
-          applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-  );
+): Promise<MigrationResult> {
+  // Serialize concurrently booting workers so two processes never run the same
+  // DDL at once. Needs a pinned connection to hold the lock; callers without a
+  // pool (fresh install, tests) run unlocked, which is safe because they are
+  // single-connection and the only writer.
+  const reserved = typeof sql.reserve === "function" ? await sql.reserve() : null;
+  if (!reserved) {
+    return applyMigrations(sql, driver, names);
+  }
 
-  const appliedRows = await sql.query<{ name: string }>(
-    "SELECT name FROM _migrations",
-  );
-  const applied = new Set(appliedRows.map((row) => String(row.name)));
-
-  for (const name of names) {
-    if (applied.has(name)) continue;
-    const ddl = await readMigrationDdl(name, driver);
-    if (!ddl) continue;
-    await runMigrationStatements(sql, ddl, driver);
-    try {
-      await sql.run("INSERT INTO _migrations (name) VALUES (?)", [name]);
-    } catch (err: unknown) {
-      // Concurrent startup may have completed the same migration first.
-      if (!isIgnorableMigrationError(err)) throw err;
-    }
+  try {
+    await acquireMigrationLock(reserved, driver);
+    return await applyMigrations(reserved, driver, names);
+  } finally {
+    await releaseMigrationLock(reserved, driver);
+    reserved.release();
   }
 }
 
 /** Apply shipped schema updates for an already-installed site (zip/core update). */
-export async function applyPendingMigrations(): Promise<void> {
+export async function applyPendingMigrations(): Promise<MigrationResult> {
   const { getDb } = await import("./db.js");
   const db = await getDb();
   const driver = process.env.DB_DRIVER as DbDriver | undefined;
-  if (!driver) return;
-  await runAllMigrations(db, driver);
+  if (!driver) return { applied: [], skipped: [] };
+  return runAllMigrations(db, driver);
 }
