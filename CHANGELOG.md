@@ -9,6 +9,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Admin → Themes now loads every published theme from the hosted marketplace,
+  shows installed, paid, and coming-soon states, and installs community themes
+  through the existing signed package flow. ([#13](https://github.com/JustFlows/justflows-ce/issues/13))
+
 - Google reCAPTCHA v2 and v3 are now available alongside Cloudflare Turnstile
   and hCaptcha under Settings → Discussion. Public comment forms load the
   selected checkbox or score-based integration and verify its single-use

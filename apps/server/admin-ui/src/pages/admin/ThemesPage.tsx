@@ -4,7 +4,8 @@ import { useSessionRole } from "@components/SessionProvider";
 
 interface Theme {
   id: string;
-  theme_id: string;
+  theme_id?: string;
+  themeId?: string;
   name: string;
   version: string;
   description?: string | null;
@@ -13,12 +14,32 @@ interface Theme {
   active?: boolean;
 }
 
+interface RegistryTheme {
+  id: string;
+  name: string;
+  version: string;
+  description?: string;
+  publisher?: string;
+  type: "theme";
+  registry?: {
+    listed?: boolean;
+    free?: boolean;
+    comingSoon?: boolean;
+    price?: { amount?: number; currency?: string };
+  };
+  pricing?: { type?: "free" | "paid"; amount?: number; currency?: string };
+}
+
 export default function ThemesPage() {
   // Uploading and activating a theme are administrator-only on the server;
   // an editor (who can also reach this page) can only view and customize.
   const canManage = useSessionRole() === "administrator";
   const [themes, setThemes] = useState<Theme[]>([]);
+  const [availableThemes, setAvailableThemes] = useState<RegistryTheme[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogLoading, setCatalogLoading] = useState(canManage);
+  const [catalogError, setCatalogError] = useState("");
+  const [installingTheme, setInstallingTheme] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
@@ -35,6 +56,25 @@ export default function ThemesPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!canManage) return;
+    fetch("/api/marketplace?type=themes")
+      .then(async (res) => {
+        const data = await res.json() as { items?: RegistryTheme[]; error?: string };
+        if (!res.ok) throw new Error(data.error ?? "Theme catalog unavailable");
+        return data;
+      })
+      .then((data) => {
+        setAvailableThemes(
+          Array.isArray(data.items)
+            ? data.items.filter((item) => item.type === "theme" && item.registry?.listed !== false)
+            : [],
+        );
+      })
+      .catch((err: unknown) => setCatalogError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setCatalogLoading(false));
+  }, [canManage]);
 
   async function handleFile(file: File) {
     setUploading(true);
@@ -65,6 +105,38 @@ export default function ThemesPage() {
         active: t.theme_id === themeId,
         status: t.theme_id === themeId ? "active" : "inactive",
       })));
+    }
+  }
+
+  async function installTheme(theme: RegistryTheme) {
+    setInstallingTheme(theme.id);
+    setCatalogError("");
+    try {
+      const res = await fetch("/api/marketplace/install", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "theme", id: theme.id, version: theme.version }),
+      });
+      const data = await res.json() as {
+        theme?: Theme;
+        error?: string;
+        checkoutUrl?: string;
+      };
+      if (res.status === 402) {
+        window.open(data.checkoutUrl ?? "https://justflows.com/marketplace", "_blank");
+      }
+      if (!res.ok) throw new Error(data.error ?? "Theme installation failed");
+      if (data.theme) {
+        setThemes((current) => [
+          ...current.filter((installed) => (installed.theme_id ?? installed.themeId ?? installed.id) !== theme.id),
+          { ...data.theme!, theme_id: data.theme!.theme_id ?? data.theme!.themeId, status: "installed", active: false },
+        ]);
+        setUploadSuccess(`"${data.theme.name}" installed successfully`);
+      }
+    } catch (err: unknown) {
+      setCatalogError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setInstallingTheme(null);
     }
   }
 
@@ -166,6 +238,69 @@ export default function ThemesPage() {
             );
           })}
         </div>
+      )}
+
+      {canManage && (
+        <section className="jf-stack">
+          <div>
+            <h2>Available themes</h2>
+            <p className="jf-meta">Themes published in the Justflows marketplace.</p>
+          </div>
+          {catalogError && <div className="jf-alert jf-alert--error" role="alert">{catalogError}</div>}
+          {catalogLoading ? (
+            <div className="jf-cardgrid">
+              <div className="jf-skeleton" style={{ height: 260 }} />
+              <div className="jf-skeleton" style={{ height: 260 }} />
+            </div>
+          ) : availableThemes.length === 0 ? (
+            <div className="jf-card">
+              <div className="jf-empty">
+                <span className="jf-empty__icon" aria-hidden="true">🛍️</span>
+                <span className="jf-empty__title">No marketplace themes available</span>
+              </div>
+            </div>
+          ) : (
+            <div className="jf-cardgrid">
+              {availableThemes.map((theme) => {
+                const isInstalled = themes.some(
+                  (installed) => (installed.theme_id ?? installed.themeId ?? installed.id) === theme.id,
+                );
+                const isComingSoon = theme.registry?.comingSoon === true;
+                const isPaid = typeof theme.registry?.free === "boolean"
+                  ? !theme.registry.free
+                  : theme.pricing?.type === "paid";
+                return (
+                  <div key={theme.id} className="jf-card">
+                    <div className="jf-thumb" aria-hidden="true">🎨</div>
+                    <div className="jf-card__body jf-stack jf-stack--sm">
+                      <div className="jf-row">
+                        <strong>{theme.name}</strong>
+                        {isPaid && <span className="jf-badge" style={{ marginInlineStart: "auto" }}>paid</span>}
+                      </div>
+                      {theme.description && <p className="jf-list__desc">{theme.description}</p>}
+                      <p className="jf-meta">v{theme.version} by {theme.publisher ?? "Unknown publisher"}</p>
+                      <button
+                        className="jf-btn jf-btn--primary jf-btn--block"
+                        disabled={isInstalled || isComingSoon || installingTheme === theme.id}
+                        onClick={() => void installTheme(theme)}
+                      >
+                        {isInstalled
+                          ? "Installed"
+                          : isComingSoon
+                            ? "Coming soon"
+                            : installingTheme === theme.id
+                              ? "Installing…"
+                              : isPaid
+                                ? "View purchase options"
+                                : "Install"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       )}
     </div>
   );
