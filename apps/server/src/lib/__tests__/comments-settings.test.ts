@@ -22,8 +22,9 @@ describe("normalizeCommentSettings", () => {
   });
 
   it("rejects an unknown captcha provider", () => {
-    expect(normalizeCommentSettings({ captchaProvider: "recaptcha" }).captchaProvider).toBe("none");
+    expect(normalizeCommentSettings({ captchaProvider: "unknown" }).captchaProvider).toBe("none");
     expect(normalizeCommentSettings({ captchaProvider: "turnstile" }).captchaProvider).toBe("turnstile");
+    expect(normalizeCommentSettings({ captchaProvider: "recaptcha" }).captchaProvider).toBe("recaptcha");
   });
 });
 

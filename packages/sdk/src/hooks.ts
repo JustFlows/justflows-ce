@@ -152,7 +152,7 @@ export interface CommentsBlockRenderContext {
   readonly banner: "posted" | "pending" | "error" | "captcha" | null;
   /** The signed-in commenter, if any. */
   readonly currentUser: { readonly name: string; readonly email: string } | null;
-  readonly captchaProvider: "none" | "turnstile" | "hcaptcha";
+  readonly captchaProvider: "none" | "turnstile" | "hcaptcha" | "recaptcha";
 }
 
 export interface ContentDraft {

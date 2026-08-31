@@ -53,6 +53,17 @@ export const CAPTCHA_META: Record<Exclude<CaptchaProvider, "none">, CaptchaMeta>
     field: "h-captcha-response",
     widgetClass: "h-captcha",
   },
+  recaptcha: {
+    verifyUrl: "https://www.google.com/recaptcha/api/siteverify",
+    scriptSrc: "https://www.google.com/recaptcha/api.js",
+    csp: {
+      script: ["https://www.google.com/recaptcha/", "https://www.gstatic.com/recaptcha/"],
+      frame: ["https://www.google.com/recaptcha/", "https://recaptcha.google.com/recaptcha/"],
+      connect: ["https://www.google.com/recaptcha/"],
+    },
+    field: "g-recaptcha-response",
+    widgetClass: "g-recaptcha",
+  },
 };
 
 async function verifyCaptcha(

@@ -52,7 +52,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - Public comments, end to end: a `Comments` block (drop it on a post) renders
   the approved, threaded discussion and an accessible submission form.
   Visitors submit at `POST /justflows-comments/submit` — same-origin checked,
-  IP rate limited, honeypot and optional Cloudflare Turnstile / hCaptcha
+  IP rate limited, honeypot and optional Cloudflare Turnstile / hCaptcha /
+  Google reCAPTCHA v2
   guarded, bodies reduced to a small safe formatting whitelist. New comments
   hold for moderation by default and the admin is emailed; commenters can opt
   into reply notifications and unsubscribe in one click
