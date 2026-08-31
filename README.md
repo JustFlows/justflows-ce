@@ -195,6 +195,7 @@ old behaviour. Do not set that on a public host.
 | Manage users                                             | Admin → Users                             |
 | Update everything                                        | Admin → Updates                           |
 | Change site settings                                     | Admin → Settings                          |
+| Send content events to another service                   | Admin → Webhooks                          |
 
 ---
 

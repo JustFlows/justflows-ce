@@ -210,6 +210,24 @@ export interface ThemeEvent {
   readonly siteId?: string;
 }
 
+export interface CoreUpdatedEvent {
+  readonly fromVersion: string;
+  readonly toVersion: string;
+  readonly source: "upload" | "remote" | "automatic";
+}
+
+export interface WebhookDeliveryEvent {
+  readonly deliveryId: string;
+  readonly endpointId: string;
+  readonly event: string;
+  readonly data: unknown;
+  readonly attempt: number;
+  readonly status: "delivered" | "retrying" | "failed";
+  readonly responseStatus: number | null;
+  readonly responseBody: string | null;
+  readonly error: string | null;
+}
+
 export interface RequestStartEvent {
   readonly method: string;
   readonly path: string;
@@ -231,22 +249,10 @@ export interface UnderConstructionViewedEvent {
 }
 
 /** Cache layers that can be selectively revalidated. */
-export type CacheObjectType =
-  | "pages"
-  | "content"
-  | "menus"
-  | "theme"
-  | "cssProviders"
-  | "site";
+export type CacheObjectType = "pages" | "content" | "menus" | "theme" | "cssProviders" | "site";
 
 export type CacheRevalidateTrigger =
-  | "content"
-  | "menus"
-  | "theme"
-  | "settings"
-  | "cssProviders"
-  | "manual"
-  | "plugin";
+  "content" | "menus" | "theme" | "settings" | "cssProviders" | "manual" | "plugin";
 
 export interface CacheRevalidatedEvent {
   readonly trigger: CacheRevalidateTrigger;
@@ -279,12 +285,7 @@ export interface HeaderConfig {
   sticky: boolean;
   background: string;
   showLanguageSwitcher: boolean;
-  languageSwitcherStyle:
-    | "locale-full"
-    | "locale-short"
-    | "flags"
-    | "flag-locale"
-    | "flag-country";
+  languageSwitcherStyle: "locale-full" | "locale-short" | "flags" | "flag-locale" | "flag-country";
   showColorScheme: boolean;
   showColorSchemeSystem: boolean;
   showAuthLinks: boolean;
@@ -400,6 +401,9 @@ export interface ActionEventMap {
   "plugin.uninstalled": PluginEvent;
   "theme.installed": ThemeEvent;
   "theme.activated": ThemeEvent;
+  "core.updated": CoreUpdatedEvent;
+  /** Observe the bounded response or error after every outbound attempt. */
+  "webhook.delivered": WebhookDeliveryEvent;
 
   "request.before": RequestStartEvent;
   "request.after": RequestEndEvent;
@@ -434,6 +438,10 @@ export interface GateEventMap {
  * next value; returning nothing keeps the previous value and logs a warning.
  */
 export interface FilterValueMap {
+  /** Event names administrators may subscribe to. Plugins append their names. */
+  "webhook.eventTypes": [string[], Record<string, never>];
+  /** Shape JSON-safe event data before the host builds and signs its envelope. */
+  "webhook.payload": [unknown, { event: string; siteId: string }];
   "content.input": [Record<string, unknown>, { siteId: string }];
   "content.output": [Record<string, unknown>, { siteId: string }];
   /** Stored blocks before HTML render. Shop fills `{{price}}` tags here. */
@@ -455,10 +463,7 @@ export interface FilterValueMap {
    * `[]`; each handler appends its templates. Metadata only — `build()` runs
    * later, at render time.
    */
-  "header.templates": [
-    HeaderTemplate[],
-    { siteId: string; locale: string; defaultLocale: string },
-  ];
+  "header.templates": [HeaderTemplate[], { siteId: string; locale: string; defaultLocale: string }];
   /**
    * Take over which header a page renders, before the host resolves the stored
    * ref. Return a `HeaderConfig` to own it, or `null` to let the host resolve

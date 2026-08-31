@@ -25,6 +25,7 @@
     "tools": "Tools",
     "health": "Status",
     "updates": "Updates",
+    "webhooks": "Webhooks",
     "securityOverview": "Overzicht",
     "securityHeaders": "Headers",
     "securityAdvanced": "Geavanceerd",

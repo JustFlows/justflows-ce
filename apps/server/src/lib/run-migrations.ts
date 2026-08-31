@@ -5,6 +5,7 @@ import { migrationsDir } from "./jf-root.js";
 export const MIGRATION_ORDER = [
   "0012_baseline",
   "0013_public_comments",
+  "0014_content_webhooks",
 ] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";

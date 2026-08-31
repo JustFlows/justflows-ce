@@ -25,6 +25,20 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200
  */
 const SSR_DISCOVERY_BUDGET_MS = 2500;
 
+async function emitCoreUpdated(
+  result: { ok: boolean; currentVersion: string; newVersion: string },
+  source: "upload" | "remote",
+  siteId: string,
+): Promise<void> {
+  if (!result.ok) return;
+  const { getRuntimeHooks } = await import("../lib/plugin-runtime.js");
+  await getRuntimeHooks().dispatchAction(
+    "core.updated",
+    { fromVersion: result.currentVersion, toVersion: result.newVersion, source },
+    { siteId, source: "system" },
+  );
+}
+
 router.get("/", requireRole("administrator"), async (_req, res) => {
   const version = getJustflowsVersion();
   const update = await Promise.race([
@@ -99,6 +113,7 @@ router.post("/upload", requireRole("administrator"), upload.single("file"), asyn
           ? req.headers["x-justflows-update-signature"]
           : undefined,
   });
+  await emitCoreUpdated(result, "upload", req.session!.siteId);
   res.json(result);
 });
 
@@ -131,6 +146,7 @@ router.post("/remote", requireRole("administrator"), async (req, res) => {
   });
 
   const result = await applyCoreUpdateFromRelease(update);
+  await emitCoreUpdated(result, "remote", req.session!.siteId);
   res.status(result.ok ? 200 : 500).json(result);
 });
 
@@ -155,7 +171,9 @@ router.put("/settings", requireRole("administrator"), async (req, res) => {
     return;
   }
   if (enabled && isAutoUpdateKillSwitchOn()) {
-    res.status(409).json({ error: "Automatic updates are disabled by JUSTFLOWS_DISABLE_AUTO_UPDATE" });
+    res
+      .status(409)
+      .json({ error: "Automatic updates are disabled by JUSTFLOWS_DISABLE_AUTO_UPDATE" });
     return;
   }
   try {
@@ -164,7 +182,13 @@ router.put("/settings", requireRole("administrator"), async (req, res) => {
       target: "core.auto_update",
       detail: enabled ? "enabled" : "disabled",
     });
-    res.json({ autoUpdate: { enabled, available: !isAutoUpdateKillSwitchOn(), maxScope: AUTO_UPDATE_MAX_SCOPE } });
+    res.json({
+      autoUpdate: {
+        enabled,
+        available: !isAutoUpdateKillSwitchOn(),
+        maxScope: AUTO_UPDATE_MAX_SCOPE,
+      },
+    });
   } catch (err) {
     sendServerError(res, "updates", err);
   }
