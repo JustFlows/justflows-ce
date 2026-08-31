@@ -94,6 +94,8 @@ Open a pull request **into `develop`**. Tests, the dependency audit, and CodeQL 
 
 After the work lands on `develop`, maintainers open a pull request from `develop` **into `main`** for the release. That PR does not re-run the test suite. Merging into `main` runs `.github/workflows/sync-to-justflows-ce.yml`, which opens (or updates) a publish PR into `justflows-ce` **`developers`**. Only that Action and org owners can open PRs there. Cut the public version from `developers` to `main` on `justflows-ce`.
 
+The GitHub release body must copy the complete matching version section from `CHANGELOG.md`, verbatim through the next version heading. Include every category present—normally `Added`, `Changed`, `Fixed`, and `Removed`—and do not replace it with GitHub's generated notes. Verify the published body and release assets after creation.
+
 ## Code guidelines
 
 - Match existing TypeScript style and package conventions
