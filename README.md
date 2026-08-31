@@ -195,6 +195,7 @@ old behaviour. Do not set that on a public host.
 | Manage users                                             | Admin → Users                             |
 | Update everything                                        | Admin → Updates                           |
 | Change site settings                                     | Admin → Settings                          |
+| Send content events to another service                   | Admin → Webhooks                          |
 
 ---
 
@@ -226,7 +227,7 @@ justflows/
 │   └── hello-world/    Example — copy this folder to start
 ├── themes/default      Bundled theme
 ├── css-providers/      CSS provider integrations
-├── migrations/         SQL for PostgreSQL, MySQL, and MariaDB
+├── migrations/         Tracked SQL baselines/migrations for PostgreSQL, MySQL, and MariaDB
 ├── scripts/            Hosting install, zip, and bootstrap
 └── docker/             Docker Compose variants (Postgres, MySQL, MariaDB)
 ```

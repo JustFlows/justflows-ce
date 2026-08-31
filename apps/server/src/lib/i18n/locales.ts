@@ -138,6 +138,32 @@ export function displayLocaleCode(code: string): string {
   return (normalizeLocale(code) ?? code).toUpperCase();
 }
 
+export interface LocalePresentation {
+  shortCode: string;
+  flag: string;
+  countryName: string;
+}
+
+/** Labels shared by public language selectors for any valid BCP 47 tag. */
+export function localePresentation(code: string): LocalePresentation {
+  const normalized = normalizeLocale(code);
+  const shortCode = (normalized ?? code).split("-")[0]?.toLowerCase() || code;
+  if (!normalized) return { shortCode, flag: "🌐", countryName: code };
+  try {
+    const locale = new Intl.Locale(normalized);
+    const region = locale.region || locale.maximize().region;
+    const flag = region && /^[A-Z]{2}$/.test(region)
+      ? String.fromCodePoint(...[...region].map((letter) => 127397 + letter.charCodeAt(0)))
+      : "🌐";
+    const countryName = region
+      ? new Intl.DisplayNames([normalized], { type: "region" }).of(region) || region
+      : normalized;
+    return { shortCode, flag, countryName };
+  } catch {
+    return { shortCode, flag: "🌐", countryName: code };
+  }
+}
+
 /**
  * First path segments that are app routes, not public pages. Menu items and
  * language switching must not prefix these with a locale.

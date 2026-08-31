@@ -145,7 +145,7 @@ export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
   },
   "core.grid": { columns: 12, gap: "md", rowHeight: "auto" },
   "core.color-scheme": { style: "buttons", align: "right", showSystem: false },
-  "core.language-switcher": { style: "codes", align: "right" },
+  "core.language-switcher": { style: "locale-short", align: "right" },
   "core.auth-links": {
     showLogin: true,
     showRegister: true,

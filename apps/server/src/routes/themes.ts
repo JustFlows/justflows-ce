@@ -1,5 +1,8 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { z } from "zod";
 import {
   clearThemeDraft,
@@ -9,8 +12,10 @@ import {
   getSiteIdentity,
   getThemeMods,
   mergeMods,
+  modsToCssVariables,
   publishThemeMods,
   saveThemeMods,
+  schemaWithThemeControls,
   type ThemeMods,
 } from "../lib/theme-customize.js";
 import {
@@ -36,17 +41,17 @@ import { getBlogPageId, setBlogPageId } from "../lib/blog-page.js";
 import { getDb } from "../lib/db.js";
 import { getDefaultLocale } from "../lib/i18n/languages-db.js";
 import { sanitizeBlockDocument } from "@justflows/blocks";
-import {
-  listThemePatterns,
-  loadThemePattern,
-} from "../lib/theme-files.js";
+import { listThemePatterns, loadThemePattern } from "../lib/theme-files.js";
 import {
   activateTheme,
+  deleteTheme,
   ensureThemesTable,
   getActiveTheme,
+  getTheme,
   getSiteId,
   insertTheme,
   listThemes,
+  syncBundledThemes,
   themeInstalledPath,
 } from "../lib/themes-db.js";
 import { requireRole } from "../middleware/auth.js";
@@ -58,9 +63,16 @@ import { sendPackageInstallError } from "../lib/package-install-error.js";
 import { packagesInstalledDir } from "../lib/packages-dir.js";
 import { auditFromRequest } from "../lib/audit-log.js";
 import { sendServerError } from "../lib/send-error.js";
+import { resolvePathUnderBase } from "../lib/safe-path.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const themeDeleteRequestLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function extractCssVariables(manifest: Record<string, unknown>): Record<string, string> {
   const vars = (manifest.cssVariables ?? manifest.css_variables ?? {}) as Record<string, unknown>;
@@ -80,7 +92,12 @@ router.get("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
       return;
     }
     const themes = await listThemes(siteId);
-    res.json({ themes });
+    res.json({
+      themes: themes.map((theme) => ({
+        ...theme,
+        themeId: theme.theme_id,
+      })),
+    });
   } catch (err) {
     sendServerError(res, "themes", err);
   }
@@ -122,7 +139,10 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
       return;
     }
 
-    const manifest = result.manifest as Record<string, unknown>;
+    const manifest = {
+      ...(result.manifest as unknown as Record<string, unknown>),
+      installedPath: result.installedPath,
+    };
     const cssVariables = extractCssVariables(manifest);
 
     const theme = {
@@ -176,6 +196,126 @@ router.get("/patterns/:slug", requireRole(...CONTENT_READ_ROLES), async (req, re
   }
 });
 
+// Custom properties the active theme exposes for tweaking — surfaced in the
+// page builder's per-block "Custom CSS" panel so an editor can see what
+// `& { --… : … }` overrides are available instead of guessing.
+interface StyleTokenDto {
+  name: string;
+  label: string;
+  section: string;
+  description?: string;
+  type: string;
+  value: string;
+  presets?: { label: string; value: string }[];
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+}
+
+// Platform hooks any theme can honour, set per block by the Layout panel's
+// colour fields or by hand here.
+const BLOCK_LEVEL_TOKENS: StyleTokenDto[] = [
+  {
+    name: "--jf-block-bg",
+    label: "Block background",
+    section: "Per block",
+    type: "color",
+    value: "#ffffff",
+  },
+  {
+    name: "--jf-block-text",
+    label: "Block text colour",
+    section: "Per block",
+    type: "color",
+    value: "#111111",
+  },
+  {
+    name: "--jf-block-accent",
+    label: "Block accent",
+    section: "Per block",
+    type: "color",
+    value: "#3b82f6",
+    description: "An accent a theme can opt specific elements into with var(--jf-block-accent, …).",
+  },
+];
+
+router.get("/style-tokens", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+  try {
+    await ensureThemesTable();
+    const siteId = await getSiteId();
+    // The builder may be opened without visiting /admin/themes first, so make
+    // sure a bundled theme's row carries its latest manifest (customize +
+    // blockControls) before we read it.
+    if (siteId) await syncBundledThemes(siteId);
+    const theme = siteId ? await getActiveTheme(siteId) : null;
+    const themeId = theme?.theme_id ?? "justflows.default";
+    const schema = schemaWithThemeControls(theme?.manifest);
+    const published = siteId ? ((await getThemeMods(themeId, false)) ?? {}) : {};
+    const mods = mergeMods(defaultModsFromSchema(schema), published);
+    const vars = modsToCssVariables(
+      (theme?.css_variables as Record<string, string> | undefined) ?? {},
+      mods,
+      schema,
+    );
+
+    const tokens: StyleTokenDto[] = [];
+    const seen = new Set<string>();
+    for (const [sectionKey, section] of Object.entries(schema)) {
+      // `colorsDark` re-declares the same `--color-*` names for the dark
+      // palette; skip it (and the non-token sections) so each name appears once.
+      if (
+        sectionKey === "identity" ||
+        sectionKey === "advanced" ||
+        sectionKey === "navigation" ||
+        sectionKey === "colorsDark"
+      ) {
+        continue;
+      }
+      for (const [key, control] of Object.entries(section.controls)) {
+        if (!key.startsWith("--") || seen.has(key)) continue;
+        seen.add(key);
+        tokens.push({
+          name: key,
+          label: control.label,
+          section: section.label,
+          description: control.description,
+          type: control.type,
+          value: vars[key] ?? String(control.default),
+          presets: control.options?.map((o) => ({ label: o.label, value: o.value })),
+          min: control.min,
+          max: control.max,
+          step: control.step,
+          unit: control.unit,
+        });
+      }
+    }
+    tokens.push(...BLOCK_LEVEL_TOKENS.filter((tk) => !seen.has(tk.name)));
+
+    // `blockControls` maps a block type to the token names that should appear as
+    // first-class controls in that block's inspector. Keep only names we know.
+    const known = new Set(tokens.map((t) => t.name));
+    const rawBlockControls = (theme?.manifest as Record<string, unknown> | undefined)
+      ?.blockControls;
+    const blockControls: Record<string, string[]> = {};
+    if (
+      rawBlockControls &&
+      typeof rawBlockControls === "object" &&
+      !Array.isArray(rawBlockControls)
+    ) {
+      for (const [blockType, list] of Object.entries(rawBlockControls as Record<string, unknown>)) {
+        if (!/^[a-z0-9.-]{1,64}$/i.test(blockType) || !Array.isArray(list)) continue;
+        const names = list.filter((n): n is string => typeof n === "string" && known.has(n));
+        if (names.length) blockControls[blockType] = names;
+      }
+    }
+
+    res.json({ theme: theme?.name ?? "Theme", tokens, blockControls });
+  } catch (err) {
+    sendServerError(res, "themes", err);
+  }
+});
+
 router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   try {
     const siteId = await getSiteId();
@@ -209,19 +349,69 @@ router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   }
 });
 
-const ModsSchema = z.object({
-  identity: z.record(z.string(), z.string()).optional(),
-  colors: z.record(z.string(), z.string()).optional(),
-  colorsDark: z.record(z.string(), z.string()).optional(),
-  typography: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
-  headings: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
-  spacing: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
-  radius: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
-  shadow: z.record(z.string(), z.string()).optional(),
-  layout: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
-  navigation: z.record(z.string(), z.string()).optional(),
-  advanced: z.record(z.string(), z.string()).optional(),
+router.delete("/:id", requireRole("administrator"), themeDeleteRequestLimit, async (req, res) => {
+  try {
+    await ensureThemesTable();
+    const siteId = await getSiteId();
+    if (!siteId) {
+      res.status(503).json({ error: "No site found — complete install first" });
+      return;
+    }
+    const themeId = param(req.params.id);
+    const theme = await getTheme(siteId, themeId);
+    if (!theme) {
+      res.status(404).json({ error: "Theme not found" });
+      return;
+    }
+    if (theme.status === "active") {
+      res.status(409).json({ error: "Activate another theme before deleting this one." });
+      return;
+    }
+
+    const installedPath = themeInstalledPath(theme);
+    if (theme.theme_id === "justflows.default") {
+      res.status(409).json({ error: "The default bundled theme cannot be deleted." });
+      return;
+    }
+    if (installedPath) {
+      const packagesDir = packagesInstalledDir();
+      const expectedPath = resolvePathUnderBase(packagesDir, "themes", theme.theme_id, theme.version);
+      const safeInstalledPath = resolvePathUnderBase(packagesDir, path.relative(packagesDir, installedPath));
+      if (!expectedPath || safeInstalledPath !== expectedPath) {
+        res.status(400).json({ error: "Theme install path is invalid." });
+        return;
+      }
+      await fs.rm(safeInstalledPath, { recursive: true, force: true });
+    }
+    await deleteTheme(siteId, themeId);
+    auditFromRequest(req, "theme.deleted", { target: themeId, detail: `version=${theme.version}` });
+    await revalidateOnUpdate("theme");
+    res.json({ ok: true });
+  } catch (err) {
+    sendServerError(res, "themes", err);
+  }
 });
+
+// Section buckets are `{ controlKey: string | number }`. Built-in sections are
+// named for clarity; `.catchall` admits any theme-contributed section with the
+// same value shape. Every value is
+// re-validated against the schema in `modsToCssVariables` before it reaches CSS.
+const ModSection = z.record(z.string(), z.union([z.string(), z.number()])).optional();
+const ModsSchema = z
+  .object({
+    identity: ModSection,
+    colors: ModSection,
+    colorsDark: ModSection,
+    typography: ModSection,
+    headings: ModSection,
+    spacing: ModSection,
+    radius: ModSection,
+    shadow: ModSection,
+    layout: ModSection,
+    navigation: ModSection,
+    advanced: ModSection,
+  })
+  .catchall(z.record(z.string(), z.union([z.string(), z.number()])));
 
 const BlockDocumentSchema = z.object({
   version: z.literal(1).default(1),
@@ -246,6 +436,7 @@ router.get("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res
       res.status(503).json({ error: "No site found" });
       return;
     }
+    await syncBundledThemes(siteId);
 
     const theme = await getActiveTheme(siteId);
     if (!theme) {
@@ -253,7 +444,7 @@ router.get("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res
       return;
     }
 
-    const defaults = defaultModsFromSchema();
+    const defaults = defaultModsFromSchema(schemaWithThemeControls(theme.manifest));
     const published = (await getThemeMods(theme.theme_id, false)) ?? {};
     const draft = (await getThemeMods(theme.theme_id, true)) ?? {};
     const effective = mergeMods(mergeMods(defaults, published), draft);
@@ -332,7 +523,7 @@ router.patch("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, re
       return;
     }
 
-    const defaults = defaultModsFromSchema();
+    const defaults = defaultModsFromSchema(schemaWithThemeControls(theme.manifest));
     const published = (await getThemeMods(theme.theme_id, false)) ?? {};
     const base = mergeMods(defaults, published);
     const currentMods = mergeMods(base, (await getThemeMods(theme.theme_id, true)) ?? {});
@@ -341,12 +532,16 @@ router.patch("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, re
     const currentBlocks = await getEffectiveHomeBlocks(theme.theme_id, true);
     const blocks = body.blocks ? normalizeBlocks(body.blocks) : currentBlocks;
     const homePageId =
-      body.homePageId !== undefined ? await setHomePageId(siteId, body.homePageId) : await getHomePageId(siteId);
+      body.homePageId !== undefined
+        ? await setHomePageId(siteId, body.homePageId)
+        : await getHomePageId(siteId);
 
     const currentBlogBlocks = await getEffectiveBlogBlocks(theme.theme_id, true);
     const blogBlocks = body.blogBlocks ? normalizeBlocks(body.blogBlocks) : currentBlogBlocks;
     const blogPageId =
-      body.blogPageId !== undefined ? await setBlogPageId(siteId, body.blogPageId) : await getBlogPageId(siteId);
+      body.blogPageId !== undefined
+        ? await setBlogPageId(siteId, body.blogPageId)
+        : await getBlogPageId(siteId);
 
     if (body.publish) {
       await publishThemeMods(theme.theme_id, mods);
@@ -402,7 +597,10 @@ router.post("/customize/promote-home", requireRole(...THEME_CUSTOMIZE_ROLES), as
     }
 
     const id = randomUUID();
-    const now = new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+    const now = new Date()
+      .toISOString()
+      .replace("T", " ")
+      .replace(/\.\d+Z$/, "");
     await db.run(
       `INSERT INTO content (id, site_id, type, title, slug, locale, translation_group_id, excerpt, blocks, fields, status, author_id, published_at, created_at, updated_at)
        VALUES (?, ?, 'page', ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?)`,
@@ -468,7 +666,10 @@ router.post("/customize/promote-blog", requireRole(...THEME_CUSTOMIZE_ROLES), as
     }
 
     const id = randomUUID();
-    const now = new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+    const now = new Date()
+      .toISOString()
+      .replace("T", " ")
+      .replace(/\.\d+Z$/, "");
     await db.run(
       `INSERT INTO content (id, site_id, type, title, slug, locale, translation_group_id, excerpt, blocks, fields, status, author_id, published_at, created_at, updated_at)
        VALUES (?, ?, 'page', ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?)`,

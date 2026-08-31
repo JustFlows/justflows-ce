@@ -234,6 +234,11 @@ just `unknown` — so you can hook something you have no types for.
 
 ## Publishing your own hooks
 
+For outbound HTTP delivery, use the host webhook service instead of making a
+request inside a lifecycle handler. Plugins extend `webhook.eventTypes` with a
+namespaced action and emit that action; the host signs, persists, retries, and
+logs the delivery. See [Webhooks](WEBHOOKS.md#plugin-defined-events).
+
 Your plugin can expose extension points for *other* plugins. Use `emit` for
 actions and `apply` for filters:
 
@@ -411,6 +416,74 @@ for the complete author workflow.
 
 ---
 
+## Contributing a header design
+
+A plugin can add its own headers to the picker without the site owner touching
+the customizer. Register templates on `header.templates`; each `build()` runs at
+render time (cached per ref + locale) so it can read your plugin's data and vary
+by language.
+
+```ts
+import type { PluginContext, HeaderConfig } from "@justflows/sdk";
+
+const HEADER_BASE: HeaderConfig = {
+  visible: true,
+  menuMode: "menu",
+  menuSlug: "primary",
+  showLogo: true,
+  showTitle: true,
+  layout: "logo-left",
+  sticky: true,
+  background: "",
+  showLanguageSwitcher: true,
+  languageSwitcherStyle: "locale-short",
+  showColorScheme: false,
+  showColorSchemeSystem: false,
+  showAuthLinks: false,
+  blocks: [],
+};
+
+export function registerHeaders(ctx: PluginContext) {
+  ctx.hooks.filter("header.templates", (list, { locale }) => [
+    ...list,
+    {
+      id: "acme.shop:mega-menu",       // must be "<yourPluginId>:<slug>"
+      name: "Shop mega menu",
+      description: "Header driven by your catalog categories",
+      async build({ siteId }) {
+        const categories = await loadCategories(siteId);
+        return {
+          ...HEADER_BASE,
+          blocks: [buildMegaMenuBlock(categories, locale)],
+        };
+      },
+    },
+  ]);
+}
+```
+
+The site owner then picks **Shop mega menu** from the page's Header dropdown
+(under *From plugins*). Selecting it stores the ref `"acme.shop:mega-menu"` on
+the page. The host re-sanitises every `HeaderConfig` you return — blocks are
+capped at 40, `background` must be a safe CSS colour, enum fields are clamped —
+so a bad value degrades, it does not break the page. Deactivate the plugin and
+any page still on that ref falls back to the site default.
+
+Two related filters:
+
+- **`header.resolve`** — return a `HeaderConfig` (or `null` to pass) to own a
+  page's header entirely, decided per request. Use when the choice depends on
+  the visitor, the path, or live data rather than a stored selection.
+- **`header.config`** — receives the header the host resolved (from any source)
+  and returns an adjusted one. Use to inject a banner block or flip the auth
+  links on without replacing the whole design.
+
+If a site owner wants to keep and edit one of your designs, they *instantiate*
+it: the customizer copies the `build()` output into their header library as a
+normal entry, and the plugin link is dropped.
+
+---
+
 ## Performance
 
 Hooks are cheap enough that you should not think about them:
@@ -496,9 +569,13 @@ makes both correctness and performance attributable to a specific extension.
 | `content.output` | `Record<string, unknown>` | `{ siteId }` |
 | `content.blocks` | block tree | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on stored blocks before HTML render. Handlers may be async (Shop fills `{{price}}` tags here so heading text is replaced before `esc()`). |
 | `content.render` | `string` (HTML) | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on public body HTML after blocks render. Handlers may be async (Shop uses this to fill `{{price}}` and other product tags). |
+| `comments.render` | `string` (HTML) | `CommentsBlockRenderContext` — the rendered `justflows.comments.thread` block. Return replacement HTML for full markup control (the context carries the threaded `PublicComment[]`, counts, form/policy state, `basePath`, `locale`, `currentUser`, `captchaProvider`), or the value unchanged to keep the default. Handlers may be async. Deactivating the plugin restores the default markup. The submission endpoint (`POST /justflows-comments/submit`), `comments` table, and moderation API are unchanged — only the rendering is yours. |
 | `content.revision` | proposed snapshot | `{ siteId, contentId }` — filters the working revision before it is stored. Committed history is immutable. |
 | `media.metadata` | `Record<string, unknown>` | `{ siteId, mediaId }` |
 | `navigation.items` | `NavigationItem[]` | `{ siteId, location }` |
+| `header.templates` | `HeaderTemplate[]` | `{ siteId, locale, defaultLocale }` — seeded with `[]`; append header designs your plugin ships. Metadata only here; the host calls `build()` at render time (cached per ref + locale). Ids must be `"<pluginId>:<slug>"`. A page that referenced an uninstalled template falls back to the site default. |
+| `header.resolve` | `HeaderConfig \| null` | `{ siteId, locale, defaultLocale, ref, contentId?, contentType? }` — return a `HeaderConfig` to take over which header a page renders, or `null` to let the host resolve the stored ref. For headers computed per request. |
+| `header.config` | `HeaderConfig` | `{ siteId, locale, defaultLocale, ref, contentId?, contentType? }` — adjust the resolved header just before render (inject a block, flip a widget). Runs for every header whatever its source. The host re-sanitises whatever you return. |
 | `admin.menu` | `AdminNavItem[]` | `{ siteId }` — extra admin sidebar pages. Set `domain` to a known group (`content`, `commerce`, `appearance`, `extensions`, `security`, `system`); unknown values fall back to `extensions`. Set `end` on a parent path so nested pages do not keep it selected. Optional `setupPath` tells the host which URL mounts `GET /ext/{pluginId}/setup`. Optional `contentType` tells the host to list every CMS entry of that type on the page. Requires `admin:extend`. Returning an invalid item is dropped. Deactivating the plugin removes the handler. |
 | `plugin.settings` | `Record<string, unknown>` | `{ pluginId, siteId }` — overlay Admin → Plugins → Settings values. The host applies this on the plugin runtime registry. |
 | `plugin.settings.write` | `Record<string, unknown>` | `{ pluginId, siteId }` — intercept a settings save. Return only the keys that should be stored in plugin settings KV. |

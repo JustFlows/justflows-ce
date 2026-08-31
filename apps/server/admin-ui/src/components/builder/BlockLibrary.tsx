@@ -24,6 +24,22 @@ const PLUGIN_NAMES: Record<string, string> = {
   "justflows.shop": "Shop",
 };
 
+/**
+ * Blocks that make sense dropped into a site header, beyond anything in the
+ * "site" category (which is always allowed). Sections, columns/grid, and other
+ * whole-page machinery are filtered out.
+ */
+const HEADER_BLOCK_TYPES = new Set([
+  "core.paragraph",
+  "core.heading",
+  "core.button",
+  "core.link-list",
+  "core.image",
+  "core.html",
+  "core.spacer",
+  "core.divider",
+]);
+
 interface BlockLibraryProps {
   catalog: BlockCatalogEntry[];
   onAdd: (type: string) => void;
@@ -32,9 +48,11 @@ interface BlockLibraryProps {
   allowedChildTypes?: string[];
   /** Full standalone page vs. a post/article body. Hides whole-page patterns and site-chrome widgets that don't apply to a post. */
   isPage?: boolean;
+  /** Editing a site header — restrict to header-appropriate blocks, no patterns. */
+  headerOnly?: boolean;
 }
 
-export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentType, allowedChildTypes, isPage = false }: BlockLibraryProps) {
+export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentType, allowedChildTypes, isPage = false, headerOnly = false }: BlockLibraryProps) {
   const [query, setQuery] = useState("");
   const [openCat, setOpenCat] = useState<string>("patterns");
   const [patterns, setPatterns] = useState<ThemePatternMeta[]>([]);
@@ -44,7 +62,7 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
 
   useEffect(() => {
     // Patterns are whole-page compositions (hero + sections) — only relevant when building a full page.
-    if (!isPage) {
+    if (!isPage || headerOnly) {
       setPatterns([]);
       return;
     }
@@ -85,12 +103,15 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
     // page's header/footer, not inside a post body.
     if (!isPage) list = list.filter((b) => b.category !== "site");
 
+    // A site header only takes site widgets plus a handful of inline blocks.
+    if (headerOnly) list = list.filter((b) => b.category === "site" || HEADER_BLOCK_TYPES.has(b.type));
+
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter((b) => b.title.toLowerCase().includes(q) || b.type.includes(q));
     }
     return list;
-  }, [catalog, parentType, allowedChildTypes, query, isPage]);
+  }, [catalog, parentType, allowedChildTypes, query, isPage, headerOnly]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, BlockCatalogEntry[]>();

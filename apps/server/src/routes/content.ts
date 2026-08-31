@@ -2,7 +2,9 @@ import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getDb } from "../lib/db.js";
-import { serializeContentRow } from "../lib/content-api.js";
+import { normalizeFields, serializeContentRow } from "../lib/content-api.js";
+import { PAGE_HEADER_REF_FIELD, SITE_DEFAULT_HEADER_REF } from "../lib/page-header.js";
+import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
 import {
   applySnapshotToContent,
   archiveThenDeleteWorking,
@@ -550,6 +552,66 @@ router.patch("/:id", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
     );
     await hooks.dispatchAction("content.updated", contentRef, ctx);
     res.json(rows[0] ? serializeEditorContent(rows[0], null) : { error: "Not found" });
+  } catch (err) {
+    sendServerError(res, "content", err);
+  }
+});
+
+const HeaderRefSchema = z.object({ ref: z.string().max(64) });
+
+/**
+ * Which header a page renders (see PAGE_HEADER_REF_FIELD). This is page chrome
+ * config, not draftable content, so it is written straight to the live row (and
+ * any working revision) — never routed through the blocks/revision save, where a
+ * no-op snapshot diff can swallow it.
+ */
+router.put("/:id/header-ref", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
+  const session = req.session!;
+  const id = param(req.params.id);
+  const parsed = HeaderRefSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message });
+    return;
+  }
+  const raw = parsed.data.ref.trim();
+  const ref = raw === SITE_DEFAULT_HEADER_REF ? "" : raw;
+  try {
+    const db = await getDb();
+    const rows = await db.query<Record<string, unknown>>(
+      "SELECT id, fields, author_id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+      [id, session.siteId],
+    );
+    const row = rows[0];
+    if (!row) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    if (!canDeleteAnyContent(session.role) && row.author_id !== session.userId) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const withRef = (value: unknown): string => {
+      const fields = normalizeFields(value);
+      if (ref) fields[PAGE_HEADER_REF_FIELD] = ref;
+      else delete fields[PAGE_HEADER_REF_FIELD];
+      return JSON.stringify(fields);
+    };
+    await db.run("UPDATE content SET fields = ?, updated_at = ? WHERE id = ? AND site_id = ?", [
+      withRef(row.fields),
+      now(),
+      id,
+      session.siteId,
+    ]);
+    const working = await getWorkingRevision(id, session.siteId);
+    if (working) {
+      await db.run(
+        `UPDATE revisions SET fields = ? WHERE content_id = ? AND site_id = ? AND ${revisionColumn("kind")} = 'working'`,
+        [withRef(JSON.stringify(working.fields)), id, session.siteId],
+      );
+    }
+    await invalidateContentCache();
+    await revalidateOnUpdate("content");
+    res.json({ ok: true, ref: ref || SITE_DEFAULT_HEADER_REF });
   } catch (err) {
     sendServerError(res, "content", err);
   }

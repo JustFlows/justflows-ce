@@ -118,6 +118,14 @@ pnpm --filter @justflows/server test
 
 Pull requests into `develop` run the core package tests, installer contract tests, typechecks, dependency audit, and CodeQL in GitHub Actions (`.github/workflows/ci.yml`). A green PR means those packages built and tested on CI, not only on a laptop.
 
+### Security and CodeQL checklist
+
+- Never strip HTML with a regular expression or render stored HTML directly. Use the `@justflows/blocks` sanitizers (`sanitizeRichText`, `sanitizeHtmlBlock`, or `sanitizePlainText`) immediately before the relevant HTML or text sink.
+- Add `express-rate-limit` middleware to every route that performs filesystem access or another expensive operation, including authenticated install, delete, download, and `sendFile` handlers. CodeQL does not recognize the custom in-process counter as route middleware.
+- Resolve every user-influenced filesystem path with `resolvePathUnderBase`; do not rely on string replacement, prefix checks without a trailing separator, or exists-then-open checks.
+- Treat network data persisted by caches, uploads, imports, and downloaders as untrusted. Use fixed application-owned directories, derived filenames, size limits, schema/content validation, and ensure later readers never treat cached bytes as executable or trusted package content.
+- Run the PR CodeQL workflow after security-sensitive or broad changes and inspect every new branch alert. Do not disable a query or dismiss an alert unless the flow is demonstrably intentional and the security boundary is documented.
+
 ## Plugin and theme contributions
 
 Write a new plugin in `plugins/<your-plugin-name>/`. Copy `plugins/hello-world`

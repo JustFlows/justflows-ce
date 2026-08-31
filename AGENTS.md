@@ -16,7 +16,7 @@ User-visible work must cite the matching [Public Roadmap](https://github.com/org
 - This is a pnpm/Turborepo TypeScript monorepo. Use pnpm and workspace filters; do not introduce a second package-management path.
 - Keep `packages/core` independent of Express, React, and EJS. Framework integration belongs in `apps/server`.
 - Treat `packages/sdk` as a stable public contract. Coordinate compatible changes through the SDK, plugin runtime, example extension, and tests.
-- Support PostgreSQL, MySQL, and MariaDB wherever persistence changes. Never edit an applied migration; add the next numbered migration for every dialect.
+- Support PostgreSQL, MySQL, and MariaDB wherever persistence changes. Treat the shipped `0012_baseline` and every later applied migration as immutable; add the next numbered migration for every dialect (`0013` is next after the baseline) and register it in `MIGRATION_ORDER`.
 - Preserve browser-first installation and administration. Production users must not need a source checkout or build toolchain.
 - Never weaken authentication, capability checks, path validation, archive validation, HTML sanitization, upload limits, or secret handling.
 - New core source files start with `// SPDX-License-Identifier: MIT`. Extension manifests declare their own license; Marketplace listings use a GPL-compatible license.
@@ -25,7 +25,7 @@ User-visible work must cite the matching [Public Roadmap](https://github.com/org
 - Public production releases must use stable SemVer only. Never commit an `-rc`, `-alpha`, `-beta`, or other prerelease version to public `main`, stable release branches, stable tags, release assets, package manifests, lockfiles, or released changelog headings. Prerelease identifiers belong only in private development or an explicitly requested public prerelease workflow.
 - Never add an AI agent as a contributor, author, co-author, or credits entry in commits, changelogs, contributor files, package metadata, or release notes. After every commit, check `git log -1 --format='%B'` and strip `Co-authored-by: Cursor` with `git commit-tree` if a wrapper injected it.
 - Do not add `actions/dependency-review-action` as a required CI job. It needs GitHub Dependency graph, which public `justflows-ce` does not have, and fails with "Dependency review is not supported on this repository." Advisory gating is `pnpm audit --audit-level high` in the `security` job. Do not reintroduce that action when syncing to the public repo.
-- Treat CodeQL findings as real defects: constrain filesystem paths with `resolvePathUnderBase`, rate-limit public `sendFile` handlers with `express-rate-limit`, never interpolate request data into a `console.*` format string (use `.replace(/\n/g, "")` and `JSON.stringify`), and avoid exists-then-open races. Do not disable CodeQL to make a public PR green.
+- Treat CodeQL findings as real defects: constrain filesystem paths with `resolvePathUnderBase`; rate-limit every route that performs filesystem or other expensive work with `express-rate-limit`; use the `@justflows/blocks` sanitizers instead of tag-stripping regexes or raw stored HTML; never interpolate request data into a `console.*` format string (use `.replace(/\n/g, "")` and `JSON.stringify`); and avoid exists-then-open races. Review network data written by caches and uploads as untrusted persisted content. Do not disable CodeQL to make a public PR green. See the security checklist in `CONTRIBUTING.md`.
 
 ## Working map
 
@@ -38,7 +38,7 @@ User-visible work must cite the matching [Public Roadmap](https://github.com/org
 - `packages/{auth,content,blocks,media,installer,updater,cache,jobs}`: domain packages.
 - `plugins/`: developer workspace for plugins. Create `plugins/<name>/` and start there. `plugins/hello-world` is the example to copy.
 - `themes/default` and `css-providers`: presentation integrations.
-- `migrations`: shipped SQL migrations for all database dialects.
+- `migrations`: the consolidated schema baseline and later tracked SQL migrations for all database dialects.
 - `docker`, `scripts`, and `server.js`: distribution, hosting, startup, and releases.
 
 ## Verification

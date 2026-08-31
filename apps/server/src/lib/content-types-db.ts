@@ -8,7 +8,7 @@ import {
   type ContentFieldDefinition,
 } from "@justflows/content";
 import { getDb } from "./db.js";
-import { readMigrationDdl, runMigrationStatements } from "./run-migrations.js";
+import { runAllMigrations } from "./run-migrations.js";
 import { getSiteId } from "./site-settings.js";
 
 export interface ContentTypeDefinition {
@@ -84,9 +84,7 @@ export async function ensureContentTypesTable(): Promise<void> {
   const db = await getDb();
   const driver = process.env.DB_DRIVER as "postgres" | "mysql" | "mariadb" | undefined;
   if (!driver) return;
-  const ddl = await readMigrationDdl("0005_content_types", driver);
-  if (!ddl) return;
-  await runMigrationStatements(db, ddl, driver);
+  await runAllMigrations(db, driver);
 }
 
 export async function ensureBuiltinContentTypes(siteId?: string): Promise<void> {

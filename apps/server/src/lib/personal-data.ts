@@ -155,8 +155,8 @@ export async function erasePersonalData(
   if (authored.length > 0) {
     await db
       .run(
-        "UPDATE comments SET author_name = ?, author_email = ?, author_ip = NULL WHERE site_id = ? AND author_email = ?",
-        ["Deleted user", "", siteId, email],
+        "UPDATE comments SET author_name = ?, author_email = ?, author_url = NULL, ip_address = NULL, notify = ?, unsubscribe_token = NULL WHERE site_id = ? AND author_email = ?",
+        ["Deleted user", "", false, siteId, email],
       )
       .catch(() => undefined);
     result.commentsAnonymised = authored.length;

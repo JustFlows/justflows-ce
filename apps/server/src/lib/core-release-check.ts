@@ -52,16 +52,27 @@ interface ParsedVersion {
   prerelease: string[];
 }
 
-const SEMVER_RE = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
+const SEMVER_RE =
+  /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
 export function parseCoreVersion(input: string): ParsedVersion | null {
   const match = SEMVER_RE.exec(input.trim());
   if (!match) return null;
+  const prerelease = match[4] ? match[4].split(".") : [];
+  // SemVer forbids leading zeroes in numeric prerelease identifiers.
+  if (
+    prerelease.some(
+      (identifier) =>
+        /^\d+$/.test(identifier) && identifier.length > 1 && identifier.startsWith("0"),
+    )
+  ) {
+    return null;
+  }
   return {
     major: Number(match[1]),
     minor: Number(match[2]),
     patch: Number(match[3]),
-    prerelease: match[4] ? match[4].split(".") : [],
+    prerelease,
   };
 }
 
@@ -82,7 +93,10 @@ export function compareCoreVersions(a: ParsedVersion, b: ParsedVersion): number 
     if (ai === bi) continue;
     const an = /^\d+$/.test(ai);
     const bn = /^\d+$/.test(bi);
-    if (an && bn) return Number(ai) - Number(bi);
+    if (an && bn) {
+      if (ai.length !== bi.length) return ai.length - bi.length;
+      return ai < bi ? -1 : 1;
+    }
     if (an) return -1;
     if (bn) return 1;
     return ai < bi ? -1 : 1;
