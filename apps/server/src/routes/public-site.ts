@@ -42,6 +42,7 @@ import { resolveHeaderConfig } from "../lib/header-resolve.js";
 import { ensureCssProvidersTable, getActiveCssProvider } from "../lib/css-providers-db.js";
 import { resolveProviderAssets } from "../lib/css-providers-files.js";
 import { ensureThemesTable, getActiveTheme, getSiteId } from "../lib/themes-db.js";
+import { getDb } from "../lib/db.js";
 import { viewsDir } from "../lib/jf-root.js";
 import { getJustflowsVersion } from "../lib/version.js";
 import { parseLocalePrefix, setLocaleCookie, LOCALE_COOKIE } from "../middleware/locale.js";
@@ -80,6 +81,14 @@ import {
   renderBlogPostListBlockHtml,
   type BlogPostListRenderContext,
 } from "../lib/blog-public.js";
+import {
+  COMMENTS_BLOCK_TYPE,
+  registerCommentsBlock,
+  renderCommentsBlockHtml,
+  type CommentsBannerState,
+  type CommentsRenderContext,
+} from "../lib/comments-public.js";
+import { getSession } from "../lib/session.js";
 import { getSiteSetting } from "../lib/site-settings.js";
 import { buildFaviconHeadHtml } from "../lib/favicon.js";
 
@@ -87,6 +96,7 @@ const templateDir = viewsDir();
 const router = Router();
 const blockRegistry = getRuntimeBlockRegistry();
 registerBlogPostListBlock();
+registerCommentsBlock();
 
 const RESERVED = new Set([
   "admin",
@@ -187,6 +197,7 @@ async function renderBlockTree(
   blocks: BlockNode[],
   submittedFormId?: string,
   blogCtx?: BlogPostListRenderContext,
+  commentCtx?: CommentsRenderContext,
 ): Promise<string> {
   const parts: string[] = [];
   for (const block of blocks) {
@@ -202,11 +213,20 @@ async function renderBlockTree(
       }
       continue;
     }
+    if (block.type === COMMENTS_BLOCK_TYPE && commentCtx) {
+      try {
+        parts.push(withBlockChrome(await renderCommentsBlockHtml(block.props ?? {}, commentCtx), block));
+      } catch (err) {
+        console.error("[justflows] comments block render failed:", err);
+        parts.push("");
+      }
+      continue;
+    }
     const def = blockRegistry.get(block.type);
     const children = Array.isArray(block.children) ? block.children : [];
     if (def?.supportsChildren && children.length > 0) {
       try {
-        const childHtml = await renderBlockTree(children, submittedFormId, blogCtx);
+        const childHtml = await renderBlockTree(children, submittedFormId, blogCtx, commentCtx);
         parts.push(withBlockChrome(def.render(def.validateProps(block.props), childHtml), block));
       } catch {
         parts.push("");
@@ -248,14 +268,15 @@ async function renderBlocksHtml(
   blocks: BlockNode[],
   submittedFormId?: string,
   blogCtx?: BlogPostListRenderContext,
+  commentCtx?: CommentsRenderContext,
 ): Promise<string> {
   if (await isGalleryPluginEnabled()) registerGalleryBlock();
   else unregisterGalleryBlock();
   const resolved = await withReusables(blocks);
   try {
-    return await renderBlockTree(resolved, submittedFormId, blogCtx);
+    return await renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx);
   } catch {
-    return renderBlockTree(resolved, submittedFormId, blogCtx);
+    return renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx);
   }
 }
 
@@ -286,6 +307,83 @@ async function buildBlogRenderContext(
     basePath,
     postsPerPageDefault,
   };
+}
+
+const COMMENT_BANNERS = new Set<CommentsBannerState>(["posted", "pending", "error", "captcha"]);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function sameOriginReferer(req: Request): boolean {
+  const referer = req.get("referer");
+  if (!referer) return false;
+  try {
+    return new URL(referer).host === req.get("host");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Per-request context for a `justflows.comments.thread` block. Built only for
+ * single-content renders; the block itself resolves whether comments are on.
+ */
+async function buildCommentContext(
+  req: Request,
+  content: {
+    id: string;
+    type: string;
+    slug?: string;
+    publishedAt: Date | string | null;
+    fields: unknown;
+    translationGroupId?: string | null;
+  },
+  pageCtx: { locale: string; t: (key: string) => string },
+  basePath: string,
+): Promise<CommentsRenderContext> {
+  const siteId = (await getSiteId()) ?? "";
+  const session = getSession(req);
+  let currentUser: CommentsRenderContext["currentUser"] = null;
+  if (session?.userId && siteId) {
+    try {
+      const db = await getDb();
+      const rows = await db.query<{ display_name: string; username: string; email: string }>(
+        "SELECT display_name, username, email FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+        [session.userId, siteId],
+      );
+      const u = rows[0];
+      if (u) currentUser = { id: session.userId, name: u.display_name || u.username, email: u.email };
+    } catch {
+      currentUser = null;
+    }
+  }
+
+  const bannerRaw = typeof req.query.comment === "string" ? (req.query.comment as CommentsBannerState) : null;
+  const banner = bannerRaw && COMMENT_BANNERS.has(bannerRaw) && sameOriginReferer(req) ? bannerRaw : null;
+  const replyRaw = typeof req.query.reply === "string" ? req.query.reply : "";
+  const replyTo = UUID_RE.test(replyRaw) ? replyRaw : null;
+  const pageRaw = Number(req.query["comment-page"]);
+  const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.min(Math.trunc(pageRaw), 10_000) : 1;
+
+  return {
+    siteId,
+    content,
+    currentUser,
+    banner,
+    replyTo,
+    page,
+    basePath,
+    locale: pageCtx.locale,
+    t: pageCtx.t,
+  };
+}
+
+/** True when this request must skip the shared page cache for comment state. */
+function isCommentInteraction(req: Request): boolean {
+  if (getSession(req)) return true;
+  return (
+    typeof req.query.comment === "string" ||
+    typeof req.query.reply === "string" ||
+    typeof req.query["comment-page"] === "string"
+  );
 }
 
 function withSiteWidgets(
@@ -366,7 +464,7 @@ async function sendPublicHtml(
   render: () => Promise<string>,
   status = 200,
 ): Promise<void> {
-  const bypass = preview || isFormConfirmation(req);
+  const bypass = preview || isFormConfirmation(req) || isCommentInteraction(req);
   if (bypass || !getJfCache().enabled) {
     res.locals.jfPageCache = "BYPASS";
   }
@@ -773,12 +871,26 @@ async function renderSinglePageHtml(
     { id: String(pageContent.id), type: String(pageContent.type) },
   );
   const blogCtx = await buildBlogRenderContext(pageCtx.locale, pageNumber, basePath);
+  const commentCtx = await buildCommentContext(
+    req,
+    {
+      id: String(pageContent.id),
+      type: String(pageContent.type),
+      slug: String(pageContent.slug ?? slug),
+      publishedAt: pageContent.publishedAt ?? null,
+      fields: pageContent.fields,
+      translationGroupId: pageContent.translationGroupId,
+    },
+    pageCtx,
+    reqPath,
+  );
   const bodyHtml = withSiteWidgets(
     await applyContentRender(
       await renderBlocksHtml(
         await applyContentBlocks(pageContent.blocks.blocks, pageContent),
         submittedFormIdFrom(req),
         blogCtx,
+        commentCtx,
       ),
       pageContent,
     ),

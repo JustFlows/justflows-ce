@@ -25,6 +25,7 @@ import { SiteUrlSchema } from "../lib/site-url.js";
 import { auditFromRequest } from "../lib/audit-log.js";
 import { resolveFaviconUrl } from "../lib/theme-customize.js";
 import { sendServerError } from "../lib/send-error.js";
+import type { CommentSettings } from "../lib/comments-settings.js";
 
 const router = Router();
 
@@ -352,6 +353,62 @@ router.put("/blog-page", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res)
     const message = e instanceof Error ? e.message : String(e);
     const status = message === "Page not found" || message === "Blog page must be a page" ? 400 : 500;
     res.status(status).json({ error: message });
+  }
+});
+
+const CommentSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  requireModeration: z.boolean().optional(),
+  closeAfterDays: z.coerce.number().int().min(0).max(3650).optional(),
+  allowUrls: z.boolean().optional(),
+  notifyModerator: z.boolean().optional(),
+  maxLength: z.coerce.number().int().min(200).max(20_000).optional(),
+  threadMaxDepth: z.coerce.number().int().min(1).max(10).optional(),
+  pageSize: z.coerce.number().int().min(5).max(200).optional(),
+  captchaProvider: z.enum(["none", "turnstile", "hcaptcha"]).optional(),
+  captchaSiteKey: z.string().max(200).optional(),
+  // Write-only. An empty string leaves the stored secret untouched.
+  captchaSecretKey: z.string().max(200).optional(),
+});
+
+router.get("/comments", requireRole("administrator"), async (_req, res) => {
+  try {
+    const { getCommentSettings, toPublicCommentSettings } = await import("../lib/comments-settings.js");
+    const siteId = await getSiteId();
+    if (!siteId) {
+      res.status(503).json({ error: "No site found" });
+      return;
+    }
+    res.json(toPublicCommentSettings(await getCommentSettings(siteId)));
+  } catch (e) {
+    sendServerError(res, "settings", e);
+  }
+});
+
+router.put("/comments", requireRole("administrator"), async (req, res) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) {
+      res.status(503).json({ error: "No site found" });
+      return;
+    }
+    const body = CommentSettingsSchema.parse(req.body);
+    const { saveCommentSettings, toPublicCommentSettings } = await import("../lib/comments-settings.js");
+    const patch: Partial<CommentSettings> = { ...body };
+    // An omitted or blank secret means "keep the current one".
+    if (!body.captchaSecretKey) delete patch.captchaSecretKey;
+    const saved = await saveCommentSettings(siteId, patch);
+    auditFromRequest(req, "settings.changed", { detail: "comments" });
+    await revalidateOnUpdate("settings");
+    const { invalidatePublicPages } = await import("../lib/public-cache.js");
+    await invalidatePublicPages();
+    res.json(toPublicCommentSettings(saved));
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      res.status(400).json({ error: e.issues[0]?.message ?? "Invalid comment settings" });
+      return;
+    }
+    sendServerError(res, "settings", e);
   }
 });
 

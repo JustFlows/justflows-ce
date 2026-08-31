@@ -186,6 +186,39 @@ page. Theme authors can provide a ready-made index in `demo/blog.json`; see
 is optional and `items` is an ordered array of `{ label, url }`. URLs are
 sanitized on save like other link-bearing core blocks.
 
+## Comments
+
+`justflows.comments.thread` is a platform block that renders a post's approved,
+threaded comments and an accessible submission form. Drop it on a post (or a
+page) where discussion should appear — nothing renders unless the block is
+present.
+
+| Prop    | Values / effect                                   |
+| ------- | ------------------------------------------------- |
+| `title` | Heading above the thread (default `Comments`)     |
+| `order` | `oldest` (default) or `newest` for top-level sort |
+
+Where the block is placed the thread is always shown. Whether the submission
+form is open is resolved from **Settings → Discussion** (site switch,
+hold-for-moderation, `closeAfterDays`, CAPTCHA provider, length and depth
+limits) and the post's own **Discussion** control (`inherit` / `open` /
+`closed`, stored in `content.fields.comments`); with the site switch off a
+placed block shows the existing thread and a "comments are closed" notice.
+Submissions post to `POST /justflows-comments/submit` (same-origin checked, IP
+rate limited, honeypot plus optional Turnstile/hCaptcha); replies pass
+`?reply=<id>`; extra pages use `?comment-page=N`. Approved comments never expose
+the commenter's email address or IP. Moderators work the queue in
+**Admin → Comments**.
+
+**Restyling** — the markup uses stable BEM-ish classes (`.jf-comments`,
+`.jf-comments__form`, `.jf-comment`, `.jf-comment__meta`, `.jf-comment__text`,
+`.jf-comments__list--replies`, …) built on the theme's design tokens, so the
+Customizer palette and any theme stylesheet (or the `theme.css` plugin filter)
+restyle it. **Replacing the markup** — the `comments.render` filter
+([HOOKS.md](HOOKS.md#filters)) hands a plugin the rendered HTML plus the
+threaded `PublicComment[]` and form/policy state; return your own HTML for full
+control. The submission endpoint, table, and moderation API stay the same.
+
 ## The grid
 
 `core.grid` is a CSS Grid container. Placement lives on the **children**, not on
