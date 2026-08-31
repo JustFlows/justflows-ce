@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { randomUUID } from "node:crypto";
-import { esc, sanitizeRichText } from "@justflows/blocks";
+import { esc, sanitizePlainText, sanitizeRichText } from "@justflows/blocks";
 import type { CommentsBlockRenderContext, PublicComment } from "@justflows/sdk";
 import { getDb } from "./db.js";
 import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
@@ -599,7 +599,7 @@ export function sanitizeCommentBody(raw: string): string {
 
 /** Visible text of a stored comment body, for length checks and email digests. */
 export function commentPlainText(html: string): string {
-  return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+  return sanitizePlainText(html).replace(/\s+/g, " ").trim();
 }
 
 function headerText(value: string, max = 160): string {
@@ -853,7 +853,7 @@ async function notifyModerator(siteId: string, author: string, body: string): Pr
   const general = await getGeneralSettings(siteId);
   if (!general.adminEmail) return;
   const { sendMail } = await import("./mail.js");
-  const text = body.replace(/<[^>]*>/g, "").slice(0, 2000);
+  const text = commentPlainText(body).slice(0, 2000);
   const appUrl = process.env.APP_URL ?? "";
   await sendMail({
     to: general.adminEmail,
@@ -893,7 +893,7 @@ async function notifyParentAuthor(siteId: string, parentId: string, newCommentId
       : "";
 
   const { sendMail } = await import("./mail.js");
-  const text = child.body.replace(/<[^>]*>/g, "").slice(0, 1500);
+  const text = commentPlainText(child.body).slice(0, 1500);
   await sendMail({
     to: parent.author_email,
     subject: `${headerText(child.author_name, 80)} replied to your comment`,

@@ -87,6 +87,11 @@ export function sanitizeRichText(html: string): string {
   return sanitizeHtmlLib(html, RICHTEXT_OPTIONS);
 }
 
+/** Convert untrusted HTML to text without using a tag-stripping regular expression. */
+export function sanitizePlainText(html: string): string {
+  return sanitizeHtmlLib(html, { allowedTags: [], allowedAttributes: {} });
+}
+
 /** Sanitize raw HTML blocks for public rendering. */
 export function sanitizeHtmlBlock(html: string): string {
   return sanitizeHtmlLib(html, HTML_BLOCK_OPTIONS);

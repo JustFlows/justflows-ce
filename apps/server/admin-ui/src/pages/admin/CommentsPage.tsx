@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { sanitizeRichText } from "@justflows/blocks";
 
 interface Comment {
   id: string;
@@ -234,7 +235,7 @@ export default function CommentsPage() {
                     <div
                       className="jf-list__desc"
                       style={{ lineHeight: 1.6 }}
-                      dangerouslySetInnerHTML={{ __html: c.body }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeRichText(c.body) }}
                     />
                     <div className="jf-row" style={{ gap: "0.5rem", marginTop: "0.4rem" }}>
                       <button className="jf-btn jf-btn--ghost jf-btn--sm" disabled={busy} onClick={() => reply(c)}>
@@ -278,10 +279,5 @@ export default function CommentsPage() {
 }
 
 function stripTags(html: string): string {
-  return html
-    .replace(/<\/(p|div|br)>/gi, "\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return new DOMParser().parseFromString(sanitizeRichText(html), "text/html").body.textContent?.trim() ?? "";
 }

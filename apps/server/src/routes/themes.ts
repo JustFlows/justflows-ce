@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -66,6 +67,12 @@ import { resolvePathUnderBase } from "../lib/safe-path.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const themeDeleteRequestLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function extractCssVariables(manifest: Record<string, unknown>): Record<string, string> {
   const vars = (manifest.cssVariables ?? manifest.css_variables ?? {}) as Record<string, unknown>;
@@ -342,7 +349,7 @@ router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   }
 });
 
-router.delete("/:id", requireRole("administrator"), async (req, res) => {
+router.delete("/:id", requireRole("administrator"), themeDeleteRequestLimit, async (req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();

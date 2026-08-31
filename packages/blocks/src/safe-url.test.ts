@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { esc, safeHref, sanitizeHref, sanitizeMediaSrc } from "./safe-url.js";
-import { sanitizeRichText } from "./sanitize.js";
+import { sanitizePlainText, sanitizeRichText } from "./sanitize.js";
 
 describe("esc", () => {
   it("escapes every character that can end an attribute or a CSS function", () => {
@@ -77,5 +77,14 @@ describe("sanitizeRichText link handling", () => {
 
   it("still strips javascript: hrefs", () => {
     expect(sanitizeRichText('<a href="javascript:alert(1)">x</a>')).not.toContain("javascript");
+  });
+});
+
+describe("sanitizePlainText", () => {
+  it("removes nested and malformed tags without exposing script markup", () => {
+    const text = sanitizePlainText('<p>Hello</p><scr<script>ipt>alert(1)</scr</script>ipt>');
+    expect(text).not.toContain("<");
+    expect(text).not.toContain(">");
+    expect(text).toContain("Hello");
   });
 });
