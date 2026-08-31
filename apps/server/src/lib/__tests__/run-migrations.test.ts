@@ -14,7 +14,11 @@ import {
 
 describe("MIGRATION_ORDER", () => {
   it("uses the consolidated schema through migration 0012, then tracked migrations", () => {
-    expect(MIGRATION_ORDER).toEqual(["0012_baseline", "0013_public_comments"]);
+    expect(MIGRATION_ORDER).toEqual([
+      "0012_baseline",
+      "0013_public_comments",
+      "0014_content_webhooks",
+    ]);
   });
 
   it("ships 0013_public_comments for every database dialect", () => {
@@ -26,6 +30,12 @@ describe("MIGRATION_ORDER", () => {
       const statements = splitSqlStatements(ddl, suffix === ".sql" ? "postgres" : "mysql");
       expect(statements.some((s) => /ALTER TABLE comments ADD COLUMN.*notify/i.test(s))).toBe(true);
       expect(statements.some((s) => /CREATE INDEX .*idx_comments_thread/i.test(s))).toBe(true);
+    }
+  });
+
+  it("ships 0014_content_webhooks for every database dialect", () => {
+    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
+      expect(fs.existsSync(path.join(migrationsDir(), `0014_content_webhooks${suffix}`))).toBe(true);
     }
   });
 

@@ -578,6 +578,20 @@ select.jf-input {
   background-repeat: no-repeat;
 }
 
+.jf-multiselect { position: relative; }
+.jf-multiselect > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none; }
+.jf-multiselect > summary::-webkit-details-marker { display: none; }
+.jf-multiselect > summary::after { content: "⌄"; color: var(--jf-text-3); font-size: 1rem; }
+.jf-multiselect[open] > summary { border-color: var(--jf-accent); box-shadow: var(--jf-ring); }
+.jf-multiselect__menu { position: absolute; z-index: 20; inset: calc(100% + 0.35rem) 0 auto; max-height: 20rem; overflow-y: auto; padding: 0.4rem; background: var(--jf-surface); border: 1px solid var(--jf-border-strong); border-radius: var(--jf-radius-sm); box-shadow: var(--jf-shadow-lg); }
+.jf-multiselect__actions { display: flex; justify-content: flex-end; gap: 0.25rem; padding: 0.2rem 0.25rem 0.4rem; border-bottom: 1px solid var(--jf-border); }
+.jf-multiselect__option { display: flex; align-items: center; gap: 0.65rem; padding: 0.55rem 0.6rem; border-radius: var(--jf-radius-sm); color: var(--jf-text-2); font-family: var(--jf-font-mono); font-size: 0.8rem; cursor: pointer; }
+.jf-multiselect__option:hover { background: var(--jf-surface-3); color: var(--jf-text); }
+.jf-webhook-events { min-width: 0; border: 0; padding: 0; margin: 0; }
+.jf-webhook-events__selected { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.55rem; }
+.jf-chip { padding: 0.2rem 0.5rem; border: 1px solid var(--jf-border); border-radius: 999px; background: var(--jf-surface-2); color: var(--jf-text-2); font-family: var(--jf-font-mono); font-size: 0.7rem; cursor: pointer; }
+.jf-chip:hover { border-color: var(--jf-danger-border); color: var(--jf-danger); }
+
 /* Oversized title input — the primary thing on the page */
 .jf-input--title {
   font-size: 1.375rem;
