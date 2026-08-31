@@ -107,6 +107,170 @@ describe("runAllMigrations", () => {
   });
 });
 
+type FakeDbOptions = {
+  driver: "postgres" | "mysql" | "mariadb";
+  applied?: string[];
+  failOn?: string;
+};
+
+/** In-memory stand-in for DbClient covering the bits runAllMigrations touches. */
+function makeFakeDb(opts: FakeDbOptions) {
+  const applied = new Set(opts.applied ?? []);
+  const statements: string[] = [];
+  const lockEvents: string[] = [];
+  let reservedOpen = 0;
+
+  const run = async (sql: string, params: (string | number | boolean | null)[] = []) => {
+    statements.push(sql);
+    if (/pg_advisory_lock\(/.test(sql)) return void lockEvents.push("pg-acquire");
+    if (/pg_advisory_unlock\(/.test(sql)) return void lockEvents.push("pg-release");
+    if (/RELEASE_LOCK\(/.test(sql)) return void lockEvents.push("named-release");
+    if (sql.startsWith("INSERT INTO _migrations") && params.length > 0) {
+      const name = String(params[0]);
+      if (applied.has(name)) {
+        throw new Error('duplicate key value violates unique constraint "_migrations_name_key"');
+      }
+      applied.add(name);
+      return;
+    }
+    if (opts.failOn && sql.includes(opts.failOn)) {
+      throw new Error(`boom: ${opts.failOn}`);
+    }
+  };
+
+  const query = async <T>(sql: string): Promise<T[]> => {
+    statements.push(sql);
+    if (/GET_LOCK\(/.test(sql)) {
+      lockEvents.push("named-acquire");
+      return [{ got: 1 }] as T[];
+    }
+    if (/^SELECT name FROM _migrations/i.test(sql.trim())) {
+      return [...applied].map((name) => ({ name })) as T[];
+    }
+    return [] as T[];
+  };
+
+  return {
+    applied,
+    statements,
+    lockEvents,
+    get reservedOpen() {
+      return reservedOpen;
+    },
+    run,
+    query,
+    reserve: async () => {
+      reservedOpen += 1;
+      return {
+        run,
+        query,
+        release: () => {
+          reservedOpen -= 1;
+        },
+      };
+    },
+  };
+}
+
+describe("runAllMigrations bookkeeping", () => {
+  it("records every migration and reports what it applied", async () => {
+    const db = makeFakeDb({ driver: "postgres" });
+
+    const result = await runAllMigrations(db, "postgres");
+
+    expect(result.applied).toEqual([...MIGRATION_ORDER]);
+    expect(result.skipped).toEqual([]);
+    expect(db.applied).toEqual(new Set(MIGRATION_ORDER));
+  });
+
+  it("applies zero and skips everything on an unchanged restart", async () => {
+    const db = makeFakeDb({ driver: "postgres", applied: [...MIGRATION_ORDER] });
+
+    const result = await runAllMigrations(db, "postgres");
+
+    expect(result.applied).toEqual([]);
+    expect(result.skipped).toEqual([...MIGRATION_ORDER]);
+  });
+
+  it("applies only missing migrations for a legacy _migrations table holding just 0001", async () => {
+    const db = makeFakeDb({ driver: "postgres", applied: ["0001_initial"] });
+
+    const result = await runAllMigrations(db, "postgres");
+
+    expect(result.applied).toEqual([...MIGRATION_ORDER]);
+    expect(db.applied).toEqual(new Set(["0001_initial", ...MIGRATION_ORDER]));
+  });
+
+  it("cannot skip later migrations because 0001 was already recorded", async () => {
+    const db = makeFakeDb({ driver: "postgres", applied: ["0001_initial"] });
+
+    const result = await runAllMigrations(db, "postgres");
+
+    expect(result.applied).toContain("0014_content_webhooks");
+  });
+
+  it("serializes a second run behind the first by reading recorded migrations", async () => {
+    const db = makeFakeDb({ driver: "postgres" });
+
+    await runAllMigrations(db, "postgres");
+    const second = await runAllMigrations(db, "postgres");
+
+    expect(second.applied).toEqual([]);
+    expect(second.skipped).toEqual([...MIGRATION_ORDER]);
+  });
+});
+
+describe("runAllMigrations locking", () => {
+  it("takes and releases a PostgreSQL advisory lock around the run", async () => {
+    const db = makeFakeDb({ driver: "postgres" });
+
+    await runAllMigrations(db, "postgres");
+
+    expect(db.lockEvents).toEqual(["pg-acquire", "pg-release"]);
+    expect(db.reservedOpen).toBe(0);
+  });
+
+  it("takes and releases a named lock on MySQL/MariaDB", async () => {
+    const db = makeFakeDb({ driver: "mariadb" });
+
+    await runAllMigrations(db, "mariadb");
+
+    expect(db.lockEvents).toEqual(["named-acquire", "named-release"]);
+    expect(db.reservedOpen).toBe(0);
+  });
+
+  it("releases the lock and the connection even when a migration fails", async () => {
+    const db = makeFakeDb({ driver: "postgres", failOn: "webhook_deliveries" });
+
+    await expect(runAllMigrations(db, "postgres")).rejects.toThrow(/webhook_deliveries/);
+
+    expect(db.lockEvents).toEqual(["pg-acquire", "pg-release"]);
+    expect(db.reservedOpen).toBe(0);
+    expect(db.applied.has("0014_content_webhooks")).toBe(false);
+  });
+
+  it("runs unlocked when the runner cannot reserve a connection", async () => {
+    const ran: string[] = [];
+    const applied = new Set<string>();
+    const sql = {
+      async run(statement: string, params: (string | number | boolean | null)[] = []) {
+        ran.push(statement);
+        if (statement.startsWith("INSERT INTO _migrations") && params[0] !== undefined) {
+          applied.add(String(params[0]));
+        }
+      },
+      async query<T>() {
+        return [...applied].map((name) => ({ name })) as T[];
+      },
+    };
+
+    const result = await runAllMigrations(sql, "postgres", ["0013_public_comments"]);
+
+    expect(result.applied).toEqual(["0013_public_comments"]);
+    expect(ran.some((s) => /pg_advisory_lock/.test(s))).toBe(false);
+  });
+});
+
 describe("isIgnorableMigrationError", () => {
   it("ignores MySQL/MariaDB DROP INDEX when the key is already gone", () => {
     const err = Object.assign(new Error("Can't DROP INDEX `uq_content_slug`; check that it exists"), {

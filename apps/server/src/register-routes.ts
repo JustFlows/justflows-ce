@@ -20,7 +20,10 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       const { applyPendingMigrations } = await import("./lib/run-migrations.js");
       await applyPendingMigrations();
     } catch (err) {
+      // A half-migrated schema must not serve traffic. Surface the failure so the
+      // worker refuses to finish booting instead of running against stale tables.
       console.error("[justflows] Pending migrations failed:", err);
+      throw err instanceof Error ? err : new Error(String(err));
     }
     const { startRevisionJobs } = await import("./lib/revision-jobs.js");
     startRevisionJobs();
