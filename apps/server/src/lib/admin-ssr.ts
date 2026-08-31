@@ -88,13 +88,14 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add(`/api/content/${encodeURIComponent(id)}`);
     paths.add("/api/blocks");
     paths.add("/api/menus");
-    paths.add("/api/header-presets");
+    paths.add("/api/headers/options");
     paths.add("/api/reusable-blocks");
     paths.add("/api/themes/patterns");
   } else if (/^\/admin\/content\/[^/]+$/.test(pathname)) {
     const id = pathname.split("/")[3]!;
     paths.add("/api/languages/active");
     paths.add("/api/settings");
+    paths.add("/api/headers/options");
     paths.add(`/api/content/${encodeURIComponent(id)}`);
   } else if (pathname === "/admin/content-types") {
     paths.add("/api/content-types");
@@ -113,6 +114,9 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add("/api/themes");
   } else if (pathname === "/admin/themes/customize") {
     paths.add("/api/template-parts/footer");
+    paths.add("/api/headers");
+    paths.add("/api/menus");
+    paths.add("/api/site/identity");
     paths.add("/api/languages/active");
     paths.add("/api/themes/customize");
   } else if (pathname === "/admin/design") {

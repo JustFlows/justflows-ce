@@ -28,6 +28,8 @@ interface PageBuilderProps {
   enableHeader?: boolean;
   header?: PageHeaderConfig;
   onHeaderChange?: (header: PageHeaderConfig) => void;
+  /** Edit only the header chrome — no page-body canvas or JSON panel. For the theme customizer. */
+  headerOnly?: boolean;
   /** Full standalone page vs. a post/article body. Hides page-only library items (whole-page patterns, site chrome widgets). */
   isPage?: boolean;
   /** Fill `{{price}}` and other product tags from catalog + content fields. */
@@ -42,6 +44,7 @@ export default function PageBuilder({
   enableHeader = false,
   header,
   onHeaderChange,
+  headerOnly = false,
   isPage = false,
   mergeTags,
   enableProductTags = false,
@@ -221,7 +224,8 @@ export default function PageBuilder({
         ↪ Redo
       </button>
       <span className="jf-builder-toolbar__count">
-        {blocks.length} {blocks.length === 1 ? "block" : "blocks"}
+        {(headerOnly ? headerBlocks.length : blocks.length)}{" "}
+        {(headerOnly ? headerBlocks.length : blocks.length) === 1 ? "block" : "blocks"}
       </span>
     </div>
   );
@@ -242,22 +246,25 @@ export default function PageBuilder({
           onBlocksChange={emitHeaderBlocks}
         />
       )}
-      <PageCanvas
-        blocks={blocks}
-        catalog={catalogMap}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        onChange={emit}
-      />
+      {!headerOnly && (
+        <PageCanvas
+          blocks={blocks}
+          catalog={catalogMap}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onChange={emit}
+        />
+      )}
     </div>
   );
 
-  const inspector = selectedId === HEADER_SELECTED_ID && enableHeader && onHeaderChange ? (
+  const inspector = (selectedId === HEADER_SELECTED_ID || (headerOnly && !selectedBlock)) && enableHeader && onHeaderChange ? (
     <HeaderInspector
       header={pageHeader}
       menus={menus}
       siteDefaultSlug={siteDefaultSlug}
       onChange={onHeaderChange}
+      libraryMode={headerOnly}
     />
   ) : selectedBlock ? (
     <BlockInspector
@@ -299,7 +306,7 @@ export default function PageBuilder({
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 280px", height: "100%", minHeight: 0, background: "var(--jf-surface-3)" }}>
           <aside style={{ background: "#fff", borderRight: "1px solid var(--jf-border)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            <BlockLibrary catalog={catalog} onAdd={addFromLibrary} onImportPattern={importPattern} parentType={libraryParentType} isPage={isPage} />
+            <BlockLibrary catalog={catalog} onAdd={addFromLibrary} onImportPattern={importPattern} parentType={libraryParentType} isPage={isPage} headerOnly={headerOnly} />
           </aside>
           <main style={{ overflow: "auto", padding: "1.25rem" }} onClick={() => setSelectedId(null)}>
             <div style={{ maxWidth: 900, margin: "0 auto" }} onClick={(e) => e.stopPropagation()}>

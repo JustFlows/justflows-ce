@@ -26,6 +26,20 @@ export async function publicCacheTtl(): Promise<number> {
   return defaultTtlSeconds;
 }
 
+/**
+ * Drop every cached public page HTML. Unconditional — unlike
+ * revalidateOnUpdate() this is not gated by the operator's revalidation
+ * settings, so an explicit editorial change (comment moderation, a discussion
+ * setting) always takes effect on the next request.
+ */
+export async function invalidatePublicPages(): Promise<void> {
+  try {
+    await getJfCache().invalidate(PAGE_CACHE_PREFIX);
+  } catch {
+    // A cache backend hiccup must not fail the write that triggered this.
+  }
+}
+
 /** Cached full HTML page (skipped for preview / when cache disabled). */
 export async function getCachedPageHtml(
   pageKey: string,

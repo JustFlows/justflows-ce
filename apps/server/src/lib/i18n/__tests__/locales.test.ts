@@ -3,6 +3,7 @@ import {
   DEFAULT_CONTENT_LOCALE,
   INSTALL_LOCALE_CODES,
   displayLocaleCode,
+  localePresentation,
   localePath,
   localizePublicPath,
   matchActiveLocale,
@@ -60,6 +61,24 @@ describe("displayLocaleCode", () => {
     expect(displayLocaleCode("nl-NL")).toBe("NL-NL");
     expect(displayLocaleCode("en-US")).toBe("EN-US");
     expect(displayLocaleCode("en")).toBe("EN");
+  });
+});
+
+describe("localePresentation", () => {
+  it("derives responsive-selector labels from a BCP 47 locale", () => {
+    expect(localePresentation("nl-NL")).toEqual({
+      shortCode: "nl",
+      flag: "🇳🇱",
+      countryName: "Nederland",
+    });
+  });
+
+  it("falls back safely for an invalid locale", () => {
+    expect(localePresentation("not_a_locale")).toEqual({
+      shortCode: "not_a_locale",
+      flag: "🌐",
+      countryName: "not_a_locale",
+    });
   });
 });
 

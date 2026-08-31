@@ -3,17 +3,9 @@ import path from "node:path";
 import { migrationsDir } from "./jf-root.js";
 
 export const MIGRATION_ORDER = [
-  "0001_initial",
-  "0002_multilingual",
-  "0003_css_providers",
-  "0004_plugin_data",
-  "0005_content_types",
-  "0006_session_revocation",
-  "0007_totp",
-  "0008_audit_log",
-  "0009_audit_log_compat",
-  "0010_content_revisions",
-  "0011_default_locale_en_us",
+  "0012_baseline",
+  "0013_public_comments",
+  "0014_content_webhooks",
 ] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";
@@ -22,8 +14,15 @@ interface SqlRunner {
   run(sql: string, params?: (string | number | boolean | null)[]): Promise<void>;
 }
 
-/** Split SQL file into executable statements (handles comments, BEGIN/COMMIT). */
-export function splitSqlStatements(ddl: string, driver: DbDriver): string[] {
+interface MigrationRunner extends SqlRunner {
+  query<T = Record<string, unknown>>(
+    sql: string,
+    params?: (string | number | boolean | null)[],
+  ): Promise<T[]>;
+}
+
+/** Split SQL into independently executable statements. */
+export function splitSqlStatements(ddl: string, _driver: DbDriver): string[] {
   const withoutLineComments = ddl
     .split("\n")
     .filter((line) => !line.trim().startsWith("--"))
@@ -34,8 +33,11 @@ export function splitSqlStatements(ddl: string, driver: DbDriver): string[] {
     .map((s) => s.trim())
     .filter((s) => {
       if (!s) return false;
-      if (driver !== "postgres" && /^BEGIN$/i.test(s)) return false;
-      if (driver !== "postgres" && /^COMMIT$/i.test(s)) return false;
+      // sql.run may use a pool, so transaction-control statements could run on
+      // different connections. They also leave PostgreSQL transactions aborted
+      // after an idempotent duplicate-object error that the runner can ignore.
+      if (/^BEGIN$/i.test(s)) return false;
+      if (/^COMMIT$/i.test(s)) return false;
       return true;
     });
 }
@@ -50,6 +52,7 @@ export function isIgnorableMigrationError(err: unknown): boolean {
   if (msg.includes("already exists")) return true;
   if (msg.includes("duplicate column")) return true;
   if (msg.includes("duplicate key name")) return true;
+  if (msg.includes("duplicate key value")) return true;
   if (msg.includes("duplicate entry")) return true;
   if (msg.includes("check that it exists")) return true;
   if (msg.includes("can't drop index")) return true;
@@ -105,14 +108,40 @@ export async function runMigrationStatements(
 }
 
 export async function runAllMigrations(
-  sql: SqlRunner,
+  sql: MigrationRunner,
   driver: DbDriver,
   names: readonly string[] = MIGRATION_ORDER,
 ): Promise<void> {
+  await sql.run(
+    driver === "postgres"
+      ? `CREATE TABLE IF NOT EXISTS _migrations (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL UNIQUE,
+          applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )`
+      : `CREATE TABLE IF NOT EXISTS _migrations (
+          id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(255) NOT NULL UNIQUE,
+          applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  );
+
+  const appliedRows = await sql.query<{ name: string }>(
+    "SELECT name FROM _migrations",
+  );
+  const applied = new Set(appliedRows.map((row) => String(row.name)));
+
   for (const name of names) {
+    if (applied.has(name)) continue;
     const ddl = await readMigrationDdl(name, driver);
     if (!ddl) continue;
     await runMigrationStatements(sql, ddl, driver);
+    try {
+      await sql.run("INSERT INTO _migrations (name) VALUES (?)", [name]);
+    } catch (err: unknown) {
+      // Concurrent startup may have completed the same migration first.
+      if (!isIgnorableMigrationError(err)) throw err;
+    }
   }
 }
 

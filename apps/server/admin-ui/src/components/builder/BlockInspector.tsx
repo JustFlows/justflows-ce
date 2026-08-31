@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { BlockNode, BlockCatalogEntry } from "./types";
 import { syncColumnCount } from "./block-defaults";
 import AnimationPanel from "./AnimationPanel";
+import ThemeBlockControls from "./ThemeBlockControls";
 import BlockStylePanel from "./BlockStylePanel";
 import BlockJsonPanel from "./BlockJsonPanel";
 import GridPlacementPanel from "./GridPlacementPanel";
@@ -382,8 +383,11 @@ export default function BlockInspector({
     case "core.language-switcher":
       fields = <>
         {select("style", "Style", [
-          { value: "codes", label: "Language codes" },
-          { value: "names", label: "Language names" },
+          { value: "locale-full", label: "Locale (nl-NL)" },
+          { value: "locale-short", label: "Short locale (nl)" },
+          { value: "flags", label: "Flags" },
+          { value: "flag-locale", label: "Flag and locale" },
+          { value: "flag-country", label: "Flag and country name" },
         ])}
         {select("align", "Alignment", [
           { value: "left", label: "Left" },
@@ -697,6 +701,7 @@ export default function BlockInspector({
         {catalogEntry?.icon} {catalogEntry?.title ?? block.type}
       </div>
       {fields}
+      <ThemeBlockControls block={block} onChange={onChange} />
       <AnimationPanel
         blockId={block.id}
         value={p.animation}

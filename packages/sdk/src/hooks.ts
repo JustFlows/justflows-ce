@@ -108,6 +108,58 @@ export interface ContentRenderContext {
   readonly translationGroupId?: string;
 }
 
+/** One approved comment in the public thread, passed to `comments.render`. */
+export interface PublicComment {
+  readonly id: string;
+  readonly parentId: string | null;
+  readonly authorName: string;
+  readonly authorUrl: string | null;
+  /** Sanitised HTML — a small safe formatting subset. */
+  readonly bodyHtml: string;
+  /** ISO 8601. */
+  readonly createdAt: string;
+  readonly editedAt: string | null;
+  /** 0 for a top-level comment. */
+  readonly depth: number;
+  readonly replies: PublicComment[];
+}
+
+/**
+ * Context for `comments.render` — the rendered `justflows.comments.thread`
+ * block, plus the threaded data behind it so a handler can rebuild the markup
+ * from scratch.
+ */
+export interface CommentsBlockRenderContext {
+  readonly siteId: string;
+  readonly contentId: string;
+  readonly contentType: string;
+  readonly slug: string | null;
+  readonly locale: string;
+  /** Permalink of the page the block sits on (for reply / pagination links). */
+  readonly basePath: string;
+  /** Block props set in the page builder. */
+  readonly props: { readonly title: string; readonly order: "oldest" | "newest" };
+  /** Whether the section renders at all, and whether it still takes new comments. */
+  readonly visible: boolean;
+  readonly accepting: boolean;
+  /** Threaded approved comments for the current page. */
+  readonly comments: PublicComment[];
+  /** Total approved comments across every page. */
+  readonly total: number;
+  readonly page: number;
+  readonly totalPages: number;
+  /** Set only on the render right after a submission redirect. */
+  readonly banner: "posted" | "pending" | "error" | "captcha" | null;
+  /** The signed-in commenter, if any. */
+  readonly currentUser: { readonly name: string; readonly email: string } | null;
+  readonly captchaProvider:
+    | "none"
+    | "turnstile"
+    | "hcaptcha"
+    | "recaptcha"
+    | "recaptcha-v3";
+}
+
 export interface ContentDraft {
   readonly siteId: string;
   readonly type?: string;
@@ -163,6 +215,24 @@ export interface ThemeEvent {
   readonly siteId?: string;
 }
 
+export interface CoreUpdatedEvent {
+  readonly fromVersion: string;
+  readonly toVersion: string;
+  readonly source: "upload" | "remote" | "automatic";
+}
+
+export interface WebhookDeliveryEvent {
+  readonly deliveryId: string;
+  readonly endpointId: string;
+  readonly event: string;
+  readonly data: unknown;
+  readonly attempt: number;
+  readonly status: "delivered" | "retrying" | "failed";
+  readonly responseStatus: number | null;
+  readonly responseBody: string | null;
+  readonly error: string | null;
+}
+
 export interface RequestStartEvent {
   readonly method: string;
   readonly path: string;
@@ -184,22 +254,10 @@ export interface UnderConstructionViewedEvent {
 }
 
 /** Cache layers that can be selectively revalidated. */
-export type CacheObjectType =
-  | "pages"
-  | "content"
-  | "menus"
-  | "theme"
-  | "cssProviders"
-  | "site";
+export type CacheObjectType = "pages" | "content" | "menus" | "theme" | "cssProviders" | "site";
 
 export type CacheRevalidateTrigger =
-  | "content"
-  | "menus"
-  | "theme"
-  | "settings"
-  | "cssProviders"
-  | "manual"
-  | "plugin";
+  "content" | "menus" | "theme" | "settings" | "cssProviders" | "manual" | "plugin";
 
 export interface CacheRevalidatedEvent {
   readonly trigger: CacheRevalidateTrigger;
@@ -212,6 +270,66 @@ export interface NavigationItem {
   label: string;
   url: string;
   children?: NavigationItem[];
+}
+
+// ─── Header designs ────────────────────────────────────────────────────────
+
+/**
+ * The header configuration a page renders. Mirrors the host's internal
+ * `PageHeaderConfig`; the host re-validates and sanitises every field it
+ * receives back from a filter (blocks are capped, `background` must be a safe
+ * CSS colour, enums are clamped).
+ */
+export interface HeaderConfig {
+  visible: boolean;
+  menuMode: "inherit" | "menu" | "none";
+  menuSlug: string;
+  showLogo: boolean;
+  showTitle: boolean;
+  layout: "logo-left" | "logo-center" | "split";
+  sticky: boolean;
+  background: string;
+  showLanguageSwitcher: boolean;
+  languageSwitcherStyle: "locale-full" | "locale-short" | "flags" | "flag-locale" | "flag-country";
+  showColorScheme: boolean;
+  showColorSchemeSystem: boolean;
+  showAuthLinks: boolean;
+  /** Free blocks rendered into the header, same schema as page-body blocks. */
+  blocks: unknown[];
+}
+
+export interface HeaderBuildContext {
+  readonly siteId: string;
+  readonly locale: string;
+  readonly defaultLocale: string;
+}
+
+/**
+ * A header design a plugin or theme contributes through the `header.templates`
+ * filter. It appears in the per-page header dropdown and the customizer's
+ * "start from" list. Selecting it stores the ref `"<pluginId>:<slug>"` on the
+ * page; the host calls `build()` at render time (cached per ref + locale), so
+ * it may read plugin data and vary by locale.
+ */
+export interface HeaderTemplate {
+  /** `"<pluginId>:<slug>"` — must sit under the contributing plugin's namespace. */
+  readonly id: string;
+  readonly name: string;
+  /** Plugin or theme id that contributed it. */
+  readonly source?: string;
+  readonly description?: string;
+  build(ctx: HeaderBuildContext): HeaderConfig | Promise<HeaderConfig>;
+}
+
+export interface HeaderResolveContext {
+  readonly siteId: string;
+  readonly locale: string;
+  readonly defaultLocale: string;
+  /** The stored ref: `"__default__"` | `"__none__"` | `"<lib-uuid>"` | `"<pluginId>:<slug>"`. */
+  readonly ref: string;
+  /** Present when a content page is rendering; absent for 404 / fallback chrome. */
+  readonly contentId?: string;
+  readonly contentType?: string;
 }
 
 /**
@@ -288,6 +406,9 @@ export interface ActionEventMap {
   "plugin.uninstalled": PluginEvent;
   "theme.installed": ThemeEvent;
   "theme.activated": ThemeEvent;
+  "core.updated": CoreUpdatedEvent;
+  /** Observe the bounded response or error after every outbound attempt. */
+  "webhook.delivered": WebhookDeliveryEvent;
 
   "request.before": RequestStartEvent;
   "request.after": RequestEndEvent;
@@ -322,14 +443,43 @@ export interface GateEventMap {
  * next value; returning nothing keeps the previous value and logs a warning.
  */
 export interface FilterValueMap {
+  /** Event names administrators may subscribe to. Plugins append their names. */
+  "webhook.eventTypes": [string[], Record<string, never>];
+  /** Shape JSON-safe event data before the host builds and signs its envelope. */
+  "webhook.payload": [unknown, { event: string; siteId: string }];
   "content.input": [Record<string, unknown>, { siteId: string }];
   "content.output": [Record<string, unknown>, { siteId: string }];
   /** Stored blocks before HTML render. Shop fills `{{price}}` tags here. */
   "content.blocks": [unknown, ContentRenderContext];
   "content.render": [string, ContentRenderContext];
+  /**
+   * The rendered public comments block (`justflows.comments.thread`). The value
+   * is the default HTML; return replacement HTML for full markup control, or
+   * the value unchanged to keep the default. The context carries the threaded
+   * comment data so a handler can render from scratch. Handlers may be async.
+   * Deactivating the plugin restores the default markup.
+   */
+  "comments.render": [string, CommentsBlockRenderContext];
   "content.revision": [ContentRevisionSnapshot, { siteId: string; contentId: string }];
   "media.metadata": [Record<string, unknown>, MediaRef];
   "navigation.items": [NavigationItem[], { siteId: string; location: string }];
+  /**
+   * Header designs a site owner can pick beyond their own library. Seeded with
+   * `[]`; each handler appends its templates. Metadata only — `build()` runs
+   * later, at render time.
+   */
+  "header.templates": [HeaderTemplate[], { siteId: string; locale: string; defaultLocale: string }];
+  /**
+   * Take over which header a page renders, before the host resolves the stored
+   * ref. Return a `HeaderConfig` to own it, or `null` to let the host resolve
+   * normally. Use for headers that must be computed per request.
+   */
+  "header.resolve": [HeaderConfig | null, HeaderResolveContext];
+  /**
+   * Adjust the resolved header just before render — inject a block, flip a
+   * widget, swap the menu. Runs for every header, whatever its source.
+   */
+  "header.config": [HeaderConfig, HeaderResolveContext];
   "admin.menu": [AdminNavItem[], { siteId: string }];
   /** Overlay plugin settings shown on Admin → Plugins → Settings. */
   "plugin.settings": [Record<string, unknown>, { pluginId: string; siteId: string }];

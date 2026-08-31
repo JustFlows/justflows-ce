@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PageBuilder, { type BlockDocument } from "@components/builder/PageBuilder";
-import { fieldsWithHeader, headerFromFields } from "../../lib/page-header";
+import HeaderRefField from "@components/builder/HeaderRefField";
+import { fieldsWithHeaderRef, headerRefFromFields } from "../../lib/page-header";
 import { fetchProductPattern, isEmptyBlockDocument, shouldSeedProductLayout, usesPageBuilderChrome } from "../../lib/content-layout";
 import { catalogPreviewTags } from "../../lib/product-tags";
 
@@ -125,6 +126,16 @@ export default function PageBuilderPage() {
         </div>
 
         <div className="jf-editor__actions">
+          {isPage && (
+            <HeaderRefField
+              contentId={item.id}
+              value={headerRefFromFields(item.fields)}
+              onChange={(ref) =>
+                setItem((prev) => (prev ? { ...prev, fields: fieldsWithHeaderRef(prev.fields, ref) } : prev))
+              }
+              compact
+            />
+          )}
           {saved && <span className="jf-editor__status jf-editor__status--ok">✓ Saved</span>}
           {error && <span className="jf-editor__status jf-editor__status--error">{error}</span>}
           {previewUrl && (
@@ -148,14 +159,8 @@ export default function PageBuilderPage() {
           value={item.blocks ?? { version: 1, blocks: [] }}
           onChange={(blocks) => setItem((prev) => (prev ? { ...prev, blocks } : prev))}
           isPage={isPage}
-          enableHeader={isPage}
           mergeTags={item.type === "product" ? catalogPreviewTags(catalogDraft, item) : undefined}
           enableProductTags={item.type === "product"}
-          header={isPage ? headerFromFields(item.fields) : undefined}
-          onHeaderChange={isPage ? (header) => setItem((prev) => (prev ? {
-            ...prev,
-            fields: fieldsWithHeader(prev.fields, header),
-          } : prev)) : undefined}
         />
       </div>
     </div>

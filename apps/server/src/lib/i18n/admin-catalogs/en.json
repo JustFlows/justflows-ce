@@ -25,6 +25,7 @@
     "tools": "Tools",
     "health": "Health",
     "updates": "Updates",
+    "webhooks": "Webhooks",
     "securityOverview": "Overview",
     "securityHeaders": "Headers",
     "securityAdvanced": "Advanced",
@@ -45,6 +46,35 @@
     "shopRefunds": "Refunds",
     "shopEmails": "Emails",
     "shopReports": "Reports"
+  },
+  "webhooks": {
+    "title": "Webhooks",
+    "description": "Send signed content and media events to external services.",
+    "add": "Add webhook",
+    "edit": "Edit webhook",
+    "name": "Name",
+    "url": "Endpoint URL",
+    "events": "Events",
+    "chooseEvents": "Choose events…",
+    "selectedEvents": "{count} events selected",
+    "selectAll": "Select all",
+    "clear": "Clear",
+    "removeEvent": "Remove {event}",
+    "endpoints": "Endpoints",
+    "endpoint": "Endpoint",
+    "empty": "No webhook endpoints yet.",
+    "deliveries": "Delivery history",
+    "noDeliveries": "No deliveries yet.",
+    "event": "Event",
+    "status": "Status",
+    "attempts": "Attempts",
+    "result": "Result",
+    "rotate": "Rotate secret",
+    "redeliver": "Redeliver",
+    "secretOnce": "Copy this signing secret now. It will not be shown again:",
+    "copy": "Copy",
+    "rotateConfirm": "Rotate this webhook's secret? Existing signature verification will stop working.",
+    "deleteConfirm": "Delete this webhook and its delivery history?"
   },
   "common": {
     "back": "Back",
@@ -338,7 +368,9 @@
       "classNameInvalid": "Class names may only use letters, numbers, hyphens and underscores.",
       "css": "CSS",
       "cssRejected": "This CSS was rejected. @import, url(javascript:…) and similar constructs are not allowed.",
-      "compiled": "What gets published"
+      "compiled": "What gets published",
+      "tokens": "Theme variables",
+      "tokensHint": "Click a variable to add it as & { … } in the box above, then edit the value."
     },
     "json": {
       "title": "Block JSON",
@@ -386,6 +418,9 @@
       "radius": "Corners",
       "shadow": "Shadow",
       "minHeight": "Min height (vh)",
+      "background": "Background",
+      "textColor": "Text colour",
+      "accent": "Accent",
       "value": {
         "start": "Start",
         "center": "Center",
@@ -402,7 +437,10 @@
         "md": "Medium",
         "lg": "Large",
         "pill": "Pill"
-      }
+      },
+      "opacity": "Opacity",
+      "transparent": "None",
+      "transparentHint": "No background — fully see-through"
     },
     "reusable": {
       "title": "Reusable block",
@@ -414,6 +452,12 @@
       "showing": "Showing",
       "referenceHint": "This is a reference. Edits to the saved block appear on every page using it.",
       "missing": "That saved block no longer exists."
+    },
+    "themeControls": {
+      "title": "Theme styling",
+      "hint": "This block's take on the theme's look — overrides the site-wide setting.",
+      "inherit": "Theme default",
+      "all": "All theme variables"
     }
   }
 }
