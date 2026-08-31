@@ -205,10 +205,27 @@ limits) and the post's own **Discussion** control (`inherit` / `open` /
 `closed`, stored in `content.fields.comments`); with the site switch off a
 placed block shows the existing thread and a "comments are closed" notice.
 Submissions post to `POST /justflows-comments/submit` (same-origin checked, IP
-rate limited, honeypot plus optional Turnstile/hCaptcha); replies pass
+rate limited, honeypot plus optional Turnstile, hCaptcha, or Google reCAPTCHA
+v2); replies pass
 `?reply=<id>`; extra pages use `?comment-page=N`. Approved comments never expose
 the commenter's email address or IP. Moderators work the queue in
 **Admin → Comments**.
+
+### CAPTCHA providers
+
+Choose a provider under **Settings → Discussion**, then enter the site key and
+secret key created for the site's public hostname. Justflows supports Cloudflare
+Turnstile, hCaptcha, and the Google reCAPTCHA v2 checkbox. The site key is placed
+in the public widget; the secret is encrypted at rest and is never returned by
+the settings API.
+
+Every token is verified with the selected provider from the server, including
+the visitor IP when available. Verification has a five-second timeout and fails
+closed: a missing token, missing secret, provider error, timeout, or rejected
+token prevents the comment from being stored. Provider-side hostname settings
+bind keys to approved domains, and the providers reject expired or reused tokens.
+Disabling CAPTCHA keeps the existing same-origin check, honeypot, and IP rate
+limit in place.
 
 **Restyling** — the markup uses stable BEM-ish classes (`.jf-comments`,
 `.jf-comments__form`, `.jf-comment`, `.jf-comment__meta`, `.jf-comment__text`,
