@@ -24,7 +24,9 @@ let app: App | null = null;
 let loader: PluginLoader | null = null;
 let initPromise: Promise<void> | null = null;
 
-async function resolvePluginModule(manifest: Record<string, unknown>): Promise<PluginModule | null> {
+async function resolvePluginModule(
+  manifest: Record<string, unknown>,
+): Promise<PluginModule | null> {
   const bundledPath = typeof manifest.bundledPath === "string" ? manifest.bundledPath : null;
   const installedPath = typeof manifest.installedPath === "string" ? manifest.installedPath : null;
   const basePath = installedPath ?? bundledPath;
@@ -34,14 +36,12 @@ async function resolvePluginModule(manifest: Record<string, unknown>): Promise<P
     typeof manifest.entrypoints === "object" &&
     manifest.entrypoints &&
     typeof (manifest.entrypoints as Record<string, unknown>).server === "string"
-      ? (manifest.entrypoints as Record<string, unknown>).server as string
+      ? ((manifest.entrypoints as Record<string, unknown>).server as string)
       : null;
 
-  const relativeCandidates = [
-    serverEntry,
-    "dist/index.js",
-    "index.js",
-  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+  const relativeCandidates = [serverEntry, "dist/index.js", "index.js"].filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
 
   for (const relative of relativeCandidates) {
     const entry = resolvePathUnderBase(basePath, relative);
@@ -85,7 +85,7 @@ async function registerKnownPlugins(): Promise<void> {
     if (loader.getPlugin(row.plugin_id)) continue;
 
     const manifest =
-      typeof row.manifest === "string" ? JSON.parse(row.manifest) : row.manifest ?? {};
+      typeof row.manifest === "string" ? JSON.parse(row.manifest) : (row.manifest ?? {});
     const pluginModule = await resolvePluginModule(manifest);
     if (!pluginModule) continue;
 
@@ -165,7 +165,11 @@ export async function ensurePluginRuntime(): Promise<void> {
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),
         blockRegistry: pluginBlockAdapter(),
         settingsAdapter: {
-          get: async <T = unknown>(siteId: string, pluginId: string, key: string): Promise<T | undefined> => {
+          get: async <T = unknown>(
+            siteId: string,
+            pluginId: string,
+            key: string,
+          ): Promise<T | undefined> => {
             const { getPluginSetting } = await import("./plugin-kv.js");
             return getPluginSetting<T>(pluginId, siteId, key);
           },
@@ -211,7 +215,7 @@ async function ensureRegistered(siteId: string, pluginId: string): Promise<void>
   const manifest =
     rows[0]?.manifest && typeof rows[0].manifest === "string"
       ? JSON.parse(rows[0].manifest)
-      : rows[0]?.manifest ?? {};
+      : (rows[0]?.manifest ?? {});
   const pluginModule = await resolvePluginModule(manifest);
   if (!pluginModule) throw new Error(`Plugin module for "${pluginId}" could not be loaded`);
   loader.register(pluginModule);
@@ -233,6 +237,8 @@ export async function runtimeActivatePlugin(siteId: string, pluginId: string): P
       JSON.parse(JSON.stringify(loaded.manifest)) as Record<string, unknown>,
     );
   }
+  const { refreshWebhookEventHooks } = await import("./webhooks.js");
+  await refreshWebhookEventHooks();
 }
 
 export async function runtimeDeactivatePlugin(siteId: string, pluginId: string): Promise<void> {

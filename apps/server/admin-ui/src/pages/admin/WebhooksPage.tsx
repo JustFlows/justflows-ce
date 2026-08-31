@@ -115,11 +115,13 @@ export default function WebhooksPage() {
 
   if (loading) return <p>{t("common.loading")}</p>;
   return (
-    <div className="jf-grid">
-      <div>
-        <h1>{t("webhooks.title")}</h1>
-        <p className="jf-field__hint">{t("webhooks.description")}</p>
-      </div>
+    <div className="jf-page">
+      <header className="jf-pagehead">
+        <div className="jf-pagehead__text">
+          <h1>{t("webhooks.title")}</h1>
+          <p>{t("webhooks.description")}</p>
+        </div>
+      </header>
       {error && (
         <div className="jf-alert jf-alert--error" role="alert">
           {error}
@@ -166,20 +168,60 @@ export default function WebhooksPage() {
               />
             </label>
           </div>
-          <fieldset className="jf-field">
+          <fieldset className="jf-field jf-webhook-events">
             <legend className="jf-field__label">{t("webhooks.events")}</legend>
-            <div className="jf-grid jf-grid--2">
-              {eventTypes.map((item) => (
-                <label key={item}>
-                  <input
-                    type="checkbox"
-                    checked={form.events.includes(item)}
-                    onChange={() => toggleEvent(item)}
-                  />{" "}
-                  {item}
-                </label>
-              ))}
-            </div>
+            <details className="jf-multiselect">
+              <summary className="jf-input" aria-label={t("webhooks.events")}>
+                <span>
+                  {form.events.length === 0
+                    ? t("webhooks.chooseEvents")
+                    : t("webhooks.selectedEvents", { count: form.events.length })}
+                </span>
+              </summary>
+              <div className="jf-multiselect__menu" role="group" aria-label={t("webhooks.events")}>
+                <div className="jf-multiselect__actions">
+                  <button
+                    type="button"
+                    className="jf-btn jf-btn--quiet jf-btn--sm"
+                    onClick={() => setForm({ ...form, events: eventTypes })}
+                  >
+                    {t("webhooks.selectAll")}
+                  </button>
+                  <button
+                    type="button"
+                    className="jf-btn jf-btn--quiet jf-btn--sm"
+                    onClick={() => setForm({ ...form, events: [] })}
+                  >
+                    {t("webhooks.clear")}
+                  </button>
+                </div>
+                {eventTypes.map((item) => (
+                  <label className="jf-multiselect__option" key={item}>
+                    <input
+                      type="checkbox"
+                      checked={form.events.includes(item)}
+                      onChange={() => toggleEvent(item)}
+                    />
+                    <span>{item}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+            {form.events.length > 0 && (
+              <div className="jf-webhook-events__selected">
+                {form.events.map((item) => (
+                  <button
+                    type="button"
+                    className="jf-chip"
+                    key={item}
+                    onClick={() => toggleEvent(item)}
+                    title={t("webhooks.removeEvent", { event: item })}
+                  >
+                    {item} ×
+                  </button>
+                ))}
+              </div>
+            )}
           </fieldset>
           {editing && (
             <label>

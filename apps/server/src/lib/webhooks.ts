@@ -8,15 +8,31 @@ import { decryptSecret, encryptSecret } from "./secret-box.js";
 import { validateWebhookUrl } from "./webhook-url.js";
 
 export const CORE_WEBHOOK_EVENTS = [
+  "content.created",
+  "content.updated",
   "content.published",
   "content.unpublished",
   "content.deleted",
   "media.uploaded",
+  "media.deleted",
+  "user.created",
+  "user.updated",
+  "user.deleted",
+  "auth.login",
+  "auth.logout",
+  "plugin.installed",
+  "plugin.activated",
+  "plugin.deactivated",
+  "plugin.uninstalled",
+  "theme.installed",
+  "theme.activated",
+  "core.updated",
 ] as const;
 export const MAX_WEBHOOK_PAYLOAD_BYTES = 256 * 1024;
 const MAX_ATTEMPTS = 5;
 const scheduler = new JobScheduler(console);
 let started = false;
+const registeredEvents = new Set<string>();
 
 export type WebhookEndpoint = {
   id: string;
@@ -199,7 +215,19 @@ export async function enqueueWebhookEvent(
       ? String((data as { siteId: unknown }).siteId)
       : "");
   if (!siteId) return 0;
-  const envelope = { id: randomUUID(), event, createdAt: new Date().toISOString(), data };
+  const { getRuntimeHooks } = await import("./plugin-runtime.js");
+  const filteredData = await getRuntimeHooks().applyFilter(
+    "webhook.payload",
+    data,
+    { event, siteId },
+    context,
+  );
+  const envelope = {
+    id: randomUUID(),
+    event,
+    createdAt: new Date().toISOString(),
+    data: filteredData,
+  };
   const payload = JSON.stringify(envelope);
   if (Buffer.byteLength(payload) > MAX_WEBHOOK_PAYLOAD_BYTES)
     throw new Error("Webhook payload exceeds 256 KiB");
@@ -231,7 +259,7 @@ export async function processDueWebhookDeliveries(): Promise<number> {
   const db = await getDb();
   const now = new Date().toISOString();
   const rows = await db.query<Record<string, unknown>>(
-    "SELECT d.id, d.endpoint_id, d.payload, d.attempt_count, e.url, e.secret_ciphertext FROM webhook_deliveries d JOIN webhook_endpoints e ON e.id = d.endpoint_id WHERE d.status = 'pending' AND d.next_attempt_at <= ? AND e.active = ? ORDER BY d.next_attempt_at ASC LIMIT 20",
+    "SELECT d.id, d.endpoint_id, d.site_id, d.payload, d.attempt_count, e.url, e.secret_ciphertext FROM webhook_deliveries d JOIN webhook_endpoints e ON e.id = d.endpoint_id WHERE d.status = 'pending' AND d.next_attempt_at <= ? AND e.active = ? ORDER BY d.next_attempt_at ASC LIMIT 20",
     [now, true],
   );
   for (const row of rows) await deliver(row);
@@ -278,6 +306,7 @@ async function deliver(row: Record<string, unknown>): Promise<void> {
       "UPDATE webhook_deliveries SET status = 'delivered', response_status = ?, response_body = ?, error = NULL, delivered_at = ?, updated_at = ? WHERE id = ?",
       [response.status, responseBody, done, done, id],
     );
+    await notifyDelivery(row, attempt, "delivered", response.status, responseBody, null);
   } catch (error) {
     const terminal = attempt >= MAX_ATTEMPTS;
     const next = new Date(Date.now() + backoff(attempt)).toISOString();
@@ -291,6 +320,50 @@ async function deliver(row: Record<string, unknown>): Promise<void> {
         id,
       ],
     );
+    await notifyDelivery(row, attempt, terminal ? "failed" : "retrying", null, null, String(error));
+  }
+}
+
+async function notifyDelivery(
+  row: Record<string, unknown>,
+  attempt: number,
+  status: "delivered" | "retrying" | "failed",
+  responseStatus: number | null,
+  responseBody: string | null,
+  error: string | null,
+): Promise<void> {
+  const parsed = JSON.parse(String(row.payload)) as { event?: string; data?: unknown };
+  const { getRuntimeHooks } = await import("./plugin-runtime.js");
+  await getRuntimeHooks().dispatchAction(
+    "webhook.delivered",
+    {
+      deliveryId: String(row.id),
+      endpointId: String(row.endpoint_id),
+      event: parsed.event ?? "unknown",
+      data: parsed.data,
+      attempt,
+      status,
+      responseStatus,
+      responseBody,
+      error,
+    },
+    { siteId: String(row.site_id), source: "job" },
+  );
+}
+
+export async function refreshWebhookEventHooks(): Promise<void> {
+  const { getRuntimeHooks } = await import("./plugin-runtime.js");
+  const hooks = getRuntimeHooks();
+  for (const event of await listWebhookEventTypes()) {
+    if (registeredEvents.has(event)) continue;
+    hooks.action(
+      event,
+      async (payload, context) => {
+        await enqueueWebhookEvent(event, payload, context);
+      },
+      { id: `core.webhook.${event}` },
+    );
+    registeredEvents.add(event);
   }
 }
 
@@ -347,14 +420,5 @@ export async function startWebhookJobs(): Promise<void> {
     },
   });
   scheduler.start();
-  const { getRuntimeHooks } = await import("./plugin-runtime.js");
-  const hooks = getRuntimeHooks();
-  for (const event of await listWebhookEventTypes())
-    hooks.action(
-      event,
-      async (payload, context) => {
-        await enqueueWebhookEvent(event, payload, context);
-      },
-      { id: `core.webhook.${event}` },
-    );
+  await refreshWebhookEventHooks();
 }

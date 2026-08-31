@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isBlockedWebhookAddress, validateWebhookUrl } from "../webhook-url.js";
 import {
+  CORE_WEBHOOK_EVENTS,
   createWebhookSecret,
   processDueWebhookDeliveries,
   signWebhookPayload,
@@ -42,6 +43,24 @@ describe("webhook endpoint safety", () => {
 });
 
 describe("webhook signatures", () => {
+  it("offers user, plugin, theme, authentication, and core-update lifecycle events", () => {
+    expect(CORE_WEBHOOK_EVENTS).toEqual(
+      expect.arrayContaining([
+        "user.created",
+        "user.updated",
+        "user.deleted",
+        "auth.login",
+        "auth.logout",
+        "plugin.installed",
+        "plugin.activated",
+        "plugin.deactivated",
+        "plugin.uninstalled",
+        "theme.installed",
+        "theme.activated",
+        "core.updated",
+      ]),
+    );
+  });
   it("creates opaque secrets and signs timestamp plus raw body", () => {
     const secret = createWebhookSecret();
     const timestamp = "1788177600";

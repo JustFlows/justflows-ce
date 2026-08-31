@@ -5,10 +5,11 @@ Administrators manage endpoints and inspect attempts at **Admin → Webhooks**.
 
 ## Events
 
-Core provides `content.published`, `content.unpublished`, `content.deleted`, and
-`media.uploaded`. Each endpoint subscribes to one or more events. Delivery is
-asynchronous: the originating publish, delete, or upload does not wait for the
-receiver.
+Core provides content create/update/publish/unpublish/delete, media
+upload/delete, user create/update/delete, login/logout, plugin
+install/activate/deactivate/uninstall, theme install/activate, and core-update
+events. Each endpoint subscribes to one or more events. Delivery is
+asynchronous: the originating action does not wait for the receiver.
 
 The JSON body is capped at 256 KiB:
 
@@ -66,3 +67,20 @@ activate(ctx) {
 
 Use a namespaced event name and JSON-serializable, non-secret data. The plugin
 runtime adds the current site ID to the hook context when emitting.
+
+Plugins can also shape data for every outbound event and observe each delivery
+attempt:
+
+```ts
+ctx.hooks.filter("webhook.payload", (data, { event }) => {
+  return event === "acme.orders.completed" ? { ...data, source: "shop" } : data;
+});
+
+ctx.hooks.action("webhook.delivered", ({ event, status, responseStatus, data }) => {
+  ctx.logger.info("Webhook result", { event, status, responseStatus, data });
+});
+```
+
+`webhook.payload` runs before the envelope is bounded and signed.
+`webhook.delivered` receives the event data and the bounded receiver response or
+error after every attempt; it never receives another endpoint's secret.

@@ -73,6 +73,15 @@ async function runAutoUpdate(): Promise<void> {
 
     const result = await applyCoreUpdateFromRelease(update);
 
+    if (siteId && result.ok) {
+      const { getRuntimeHooks } = await import("./plugin-runtime.js");
+      await getRuntimeHooks().dispatchAction(
+        "core.updated",
+        { fromVersion: result.currentVersion, toVersion: result.newVersion, source: "automatic" },
+        { siteId, source: "job" },
+      );
+    }
+
     if (siteId) {
       void auditLog({
         siteId,

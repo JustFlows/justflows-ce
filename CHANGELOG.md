@@ -15,6 +15,13 @@ and this project uses [Semantic Versioning](https://semver.org/).
   manual redelivery, an administrator UI, and the `webhook.eventTypes`
   extension filter. ([#16](https://github.com/JustFlows/justflows-ce/issues/16))
 
+- Webhook subscriptions now cover content creation/updates, media deletion,
+  users, authentication, plugins, themes, and core updates. The admin event
+  selector is a searchable-style multi-select dropdown matching the rest of
+  the admin layout, while plugins can add namespaced events, shape outbound
+  data with `webhook.payload`, and observe responses through
+  `webhook.delivered`. ([#16](https://github.com/JustFlows/justflows-ce/issues/16))
+
 - Header builder in the theme customizer (Theme builder → Header): a library of
   named headers, one marked the site default and shown on every page. Each page
   picks its header from a dropdown in the page builder — the site default, a
