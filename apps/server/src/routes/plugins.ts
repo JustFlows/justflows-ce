@@ -63,7 +63,8 @@ async function readPluginSettings(
     const titles = (merged.siteTitle ?? {}) as Record<string, string>;
     const descriptions = (merged.defaultDescription ?? {}) as Record<string, string>;
     if (site?.name && !titles[defaultLocale]) titles[defaultLocale] = site.name;
-    if (site?.description && !descriptions[defaultLocale]) descriptions[defaultLocale] = site.description;
+    if (site?.description && !descriptions[defaultLocale])
+      descriptions[defaultLocale] = site.description;
     merged.siteTitle = titles;
     merged.defaultDescription = descriptions;
   }
@@ -145,6 +146,12 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
       target: result.manifest.id,
       detail: `version=${result.manifest.version} digest=${result.digest.slice(0, 16)}`,
     });
+    const { getRuntimeHooks } = await import("../lib/plugin-runtime.js");
+    await getRuntimeHooks().dispatchAction(
+      "plugin.installed",
+      { pluginId: result.manifest.id, version: result.manifest.version, siteId },
+      { siteId, source: "http" },
+    );
     res.json({ plugin });
   } catch (err) {
     sendPackageInstallError(res, err);
@@ -182,10 +189,14 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
   const pluginId = param(req.params.id);
   const row = await getPlugin(session.siteId, pluginId);
   const version = row?.version ?? "";
-  const { runtimeDeactivatePlugin, runtimeDeletePluginData, getRuntimeHooks } = await import(
-    "../lib/plugin-runtime.js"
-  );
-  const { purgePluginStorage, purgePluginContent, shouldPurgePluginContent, shouldPurgePluginData } = await import("../lib/plugin-purge.js");
+  const { runtimeDeactivatePlugin, runtimeDeletePluginData, getRuntimeHooks } =
+    await import("../lib/plugin-runtime.js");
+  const {
+    purgePluginStorage,
+    purgePluginContent,
+    shouldPurgePluginContent,
+    shouldPurgePluginData,
+  } = await import("../lib/plugin-purge.js");
   const shouldPurge = await shouldPurgePluginData(session.siteId, pluginId);
   const shouldPurgeContent = await shouldPurgePluginContent(session.siteId, pluginId);
 
@@ -210,7 +221,9 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
   if (shouldPurge) {
     const purged = await purgePluginStorage(session.siteId, pluginId);
     if (!purged.ok) {
-      res.status(500).json({ error: purged.error ?? hookError ?? "Plugin data could not be deleted" });
+      res
+        .status(500)
+        .json({ error: purged.error ?? hookError ?? "Plugin data could not be deleted" });
       return;
     }
   }
@@ -290,7 +303,9 @@ router.put("/:id/settings", requireRole("administrator"), async (req, res) => {
         }
         const parsed = parseGoogleTagId(raw);
         if (!parsed) {
-          res.status(400).json({ error: "Enter a Google tag ID such as G-XXXXXXXX or GTM-XXXXXXX." });
+          res
+            .status(400)
+            .json({ error: "Enter a Google tag ID such as G-XXXXXXXX or GTM-XXXXXXX." });
           return;
         }
         next[key] = parsed;

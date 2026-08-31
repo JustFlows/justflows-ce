@@ -25,7 +25,19 @@ const CreateSchema = z.object({
 });
 
 function now(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  return new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "");
+}
+
+async function emitUserEvent(
+  event: "user.created" | "user.updated" | "user.deleted",
+  userId: string,
+  siteId: string,
+): Promise<void> {
+  const { getRuntimeHooks } = await import("../lib/plugin-runtime.js");
+  await getRuntimeHooks().dispatchAction(event, { userId }, { siteId, source: "http" });
 }
 
 router.get("/", requireRole("administrator", "editor"), async (req, res) => {
@@ -95,10 +107,21 @@ router.post("/", requireRole("administrator"), async (req, res) => {
     await db.run(
       `INSERT INTO users (id, site_id, email, username, display_name, password_hash, role, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, session.siteId, email.toLowerCase(), username, displayName, passwordHash, role, now(), now()],
+      [
+        id,
+        session.siteId,
+        email.toLowerCase(),
+        username,
+        displayName,
+        passwordHash,
+        role,
+        now(),
+        now(),
+      ],
     );
 
     auditFromRequest(req, "user.created", { target: id, detail: `role=${role}` });
+    await emitUserEvent("user.created", id, session.siteId);
     res.status(201).json({ id, email, username, displayName, role });
   } catch (err) {
     sendServerError(res, "users", err);
@@ -133,10 +156,21 @@ router.post("/invite", requireRole("administrator"), async (req, res) => {
     await db.run(
       `INSERT INTO users (id, site_id, email, username, display_name, password_hash, role, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, session.siteId, email, username, displayName, await hashPassword(password), role, timestamp, timestamp],
+      [
+        id,
+        session.siteId,
+        email,
+        username,
+        displayName,
+        await hashPassword(password),
+        role,
+        timestamp,
+        timestamp,
+      ],
     );
 
     auditFromRequest(req, "user.created", { target: id, detail: `role=${role}; invited=true` });
+    await emitUserEvent("user.created", id, session.siteId);
     const origin = (process.env.APP_URL ?? "").replace(/\/$/, "");
     const mail = await sendMail({
       to: email,
@@ -155,7 +189,9 @@ router.post("/invite", requireRole("administrator"), async (req, res) => {
     res.status(201).json({
       user: { id, email, username, displayName, role, createdAt: timestamp },
       mailSent: mail.ok,
-      ...(!mail.ok ? { warning: `User created, but the invitation email could not be sent: ${mail.error}` } : {}),
+      ...(!mail.ok
+        ? { warning: `User created, but the invitation email could not be sent: ${mail.error}` }
+        : {}),
     });
   } catch (err) {
     sendServerError(res, "users", err);
@@ -191,7 +227,11 @@ router.patch("/:id", requireRole("administrator"), async (req, res) => {
         res.status(404).json({ error: "User not found" });
         return;
       }
-      if (target.role === "administrator" && role !== "administrator" && (await countAdministrators(db, session.siteId)) <= 1) {
+      if (
+        target.role === "administrator" &&
+        role !== "administrator" &&
+        (await countAdministrators(db, session.siteId)) <= 1
+      ) {
         res.status(400).json({ error: "Cannot demote the last administrator" });
         return;
       }
@@ -220,7 +260,9 @@ router.patch("/:id", requireRole("administrator"), async (req, res) => {
     await db.run(`UPDATE users SET ${fields.join(", ")} WHERE id = ? AND site_id = ?`, values);
     // A role change is a privilege change, which is the single most useful
     // thing to be able to reconstruct after the fact.
-    if (role) auditFromRequest(req, "user.role_changed", { target: userId, detail: `role=${role}` });
+    if (role)
+      auditFromRequest(req, "user.role_changed", { target: userId, detail: `role=${role}` });
+    await emitUserEvent("user.updated", userId, session.siteId);
     res.json({ ok: true });
   } catch (err) {
     sendServerError(res, "users", err);
@@ -258,14 +300,13 @@ router.post("/:id/password", requireRole("administrator"), async (req, res) => {
       return;
     }
 
-    await db.run("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ? AND site_id = ?", [
-      await hashPassword(body.data.newPassword),
-      now(),
-      userId,
-      session.siteId,
-    ]);
+    await db.run(
+      "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+      [await hashPassword(body.data.newPassword), now(), userId, session.siteId],
+    );
     await revokeUserSessions(userId, session.siteId);
     auditFromRequest(req, "auth.password_reset", { target: userId });
+    await emitUserEvent("user.updated", userId, session.siteId);
 
     void import("../lib/mail.js")
       .then((mail) =>
@@ -302,7 +343,10 @@ router.get("/:id/personal-data", requireRole("administrator"), async (req, res) 
       res.status(404).json({ error: "User not found" });
       return;
     }
-    res.setHeader("Content-Disposition", `attachment; filename="personal-data-${param(req.params.id)}.json"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="personal-data-${param(req.params.id)}.json"`,
+    );
     res.json(data);
   } catch (err) {
     sendServerError(res, "users", err);
@@ -336,6 +380,7 @@ router.post("/:id/erase", requireRole("administrator"), async (req, res) => {
       userId,
       body.data.reassignContentTo ?? null,
     );
+    await emitUserEvent("user.updated", userId, session.siteId);
     res.json({ ok: true, ...result });
   } catch (err) {
     sendServerError(res, "users", err);
@@ -369,6 +414,7 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
 
     await db.run("DELETE FROM users WHERE id = ? AND site_id = ?", [userId, session.siteId]);
     auditFromRequest(req, "user.deleted", { target: userId });
+    await emitUserEvent("user.deleted", userId, session.siteId);
     res.json({ ok: true });
   } catch (err) {
     sendServerError(res, "users", err);

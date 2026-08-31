@@ -25,6 +25,7 @@
     "tools": "Tools",
     "health": "Status",
     "updates": "Updates",
+    "webhooks": "Webhooks",
     "securityOverview": "Übersicht",
     "securityHeaders": "Header",
     "securityAdvanced": "Erweitert",
@@ -289,7 +290,9 @@
       "classNameInvalid": "Klassennamen dürfen nur Buchstaben, Ziffern, Bindestriche und Unterstriche enthalten.",
       "css": "CSS",
       "cssRejected": "Dieses CSS wurde abgelehnt. @import, url(javascript:…) und ähnliche Konstrukte sind nicht erlaubt.",
-      "compiled": "Was veröffentlicht wird"
+      "compiled": "Was veröffentlicht wird",
+      "tokens": "Theme-Variablen",
+      "tokensHint": "Auf eine Variable klicken, um sie oben als & { … } einzufügen, dann den Wert anpassen."
     },
     "json": {
       "title": "Block-JSON",
@@ -349,7 +352,13 @@
         "md": "Mittel",
         "lg": "Groß",
         "pill": "Pille"
-      }
+      },
+      "background": "Hintergrund",
+      "textColor": "Textfarbe",
+      "accent": "Akzent",
+      "opacity": "Deckkraft",
+      "transparent": "Keine",
+      "transparentHint": "Kein Hintergrund — vollständig transparent"
     },
     "reusable": {
       "title": "Wiederverwendbarer Block",
@@ -361,6 +370,12 @@
       "showing": "Zeigt",
       "referenceHint": "Das ist eine Verknüpfung. Änderungen am gespeicherten Block erscheinen auf jeder Seite, die ihn nutzt.",
       "missing": "Diesen gespeicherten Block gibt es nicht mehr."
+    },
+    "themeControls": {
+      "title": "Theme-Styling",
+      "hint": "Die Auslegung dieses Blocks für den Theme-Look — überschreibt die seitenweite Einstellung.",
+      "inherit": "Theme-Standard",
+      "all": "Alle Theme-Variablen"
     }
   }
 }

@@ -16,7 +16,9 @@ describe("parseBlockStyle", () => {
 
   it("keeps values the controls can produce", () => {
     expect(parseBlockStyle({ padTop: "5", width: "wide", textAlign: "center" })).toMatchObject({
-      padTop: "5", width: "wide", textAlign: "center",
+      padTop: "5",
+      width: "wide",
+      textAlign: "center",
     });
   });
 
@@ -36,7 +38,8 @@ describe("parseBlockStyle", () => {
 
   it("keeps safe pixel maximums and clamps extreme values", () => {
     expect(parseBlockStyle({ maxWidth: "640", maxHeight: 12000 })).toMatchObject({
-      maxWidth: 640, maxHeight: 10000,
+      maxWidth: 640,
+      maxHeight: 10000,
     });
   });
 });
@@ -59,7 +62,9 @@ describe("blockStyleDeclarations", () => {
   });
 
   it("does not centre a full-width block", () => {
-    expect(blockStyleDeclarations(parseBlockStyle({ width: "full" }))).not.toContain("margin-left:auto");
+    expect(blockStyleDeclarations(parseBlockStyle({ width: "full" }))).not.toContain(
+      "margin-left:auto",
+    );
   });
 
   it("maps corners and shadows onto theme tokens", () => {
@@ -77,6 +82,73 @@ describe("blockStyleDeclarations", () => {
   it("emits nothing at all for an untouched block", () => {
     expect(blockStyleDeclarations(parseBlockStyle({}))).toBe("");
   });
+
+  it("clears a background with transparent / none and dims with opacity", () => {
+    expect(blockStyleDeclarations(parseBlockStyle({ background: "transparent" }))).toContain(
+      "background:transparent",
+    );
+    expect(blockStyleDeclarations(parseBlockStyle({ background: "none" }))).toContain(
+      "background:none",
+    );
+    expect(blockStyleDeclarations(parseBlockStyle({ opacity: 40 }))).toBe("opacity:0.4");
+    expect(blockStyleDeclarations(parseBlockStyle({ opacity: "0" }))).toBe("opacity:0");
+    // out of range clamps; unset / 100 emit nothing here (panel treats 100 as clear)
+    expect(blockStyleDeclarations(parseBlockStyle({ opacity: 250 }))).toBe("opacity:1");
+    expect(blockStyleDeclarations(parseBlockStyle({ opacity: "" }))).toBe("");
+    expect(blockStyleDeclarations(parseBlockStyle({ opacity: "nope" }))).toBe("");
+  });
+
+  it("writes per-instance colours as both a property and a --jf-block-* hook", () => {
+    expect(
+      blockStyleDeclarations(
+        parseBlockStyle({ background: "#ff0080", textColor: "white", accent: "rgb(0 176 255)" }),
+      ),
+    ).toBe(
+      "background:#ff0080;--jf-block-bg:#ff0080;color:white;--jf-block-text:white;--jf-block-accent:rgb(0 176 255);accent-color:rgb(0 176 255)",
+    );
+  });
+
+  it("drops a colour that could break out of the style attribute", () => {
+    const style = parseBlockStyle({
+      background: "#fff; } body { display:none }",
+      textColor: "url(//evil)",
+      accent: "expression(alert(1))",
+    });
+    expect(style.background).toBe("");
+    expect(style.textColor).toBe("");
+    expect(style.accent).toBe("");
+    expect(blockStyleDeclarations(style)).toBe("");
+  });
+
+  it("writes theme-token overrides from `vars` onto the block root", () => {
+    const style = parseBlockStyle({
+      vars: {
+        "--brand-gradient": "linear-gradient(90deg, #ff0080, #00b0ff)",
+        "--brand-anim": "none",
+        "--brand-tilt": "3deg",
+      },
+    });
+    expect(style.vars).toEqual({
+      "--brand-gradient": "linear-gradient(90deg, #ff0080, #00b0ff)",
+      "--brand-anim": "none",
+      "--brand-tilt": "3deg",
+    });
+    expect(blockStyleDeclarations(style)).toBe(
+      "--brand-gradient:linear-gradient(90deg, #ff0080, #00b0ff);--brand-anim:none;--brand-tilt:3deg",
+    );
+  });
+
+  it("rejects a var whose name or value could escape the style attribute", () => {
+    const style = parseBlockStyle({
+      vars: {
+        "--ok": "12px",
+        "not-a-prop": "red",
+        "--evil": "red; } body { display:none }",
+        "--url": "url(javascript:alert(1))",
+      },
+    });
+    expect(style.vars).toEqual({ "--ok": "12px" });
+  });
 });
 
 describe("sanitizeBlockStyleProp", () => {
@@ -89,8 +161,9 @@ describe("sanitizeBlockStyleProp", () => {
 
 describe("style on a rendered block", () => {
   it("lands on the block's own root element", () => {
-    expect(withBlockChrome("<section>Hi</section>", { id: "a", props: { style: { padTop: "5" } } }))
-      .toBe('<section style="padding-top:var(--space-5)">Hi</section>');
+    expect(
+      withBlockChrome("<section>Hi</section>", { id: "a", props: { style: { padTop: "5" } } }),
+    ).toBe('<section style="padding-top:var(--space-5)">Hi</section>');
   });
 
   it("sits alongside grid placement without either losing out", () => {
@@ -103,7 +176,22 @@ describe("style on a rendered block", () => {
   });
 
   it("leaves an untouched block untouched", () => {
-    expect(withBlockChrome("<section>Hi</section>", { id: "a", props: { style: {} } }))
-      .toBe("<section>Hi</section>");
+    expect(withBlockChrome("<section>Hi</section>", { id: "a", props: { style: {} } })).toBe(
+      "<section>Hi</section>",
+    );
+  });
+
+  it("writes theme-token overrides onto the block root for the theme to pick up", () => {
+    const out = withBlockChrome('<section class="jf-hero">Hi</section>', {
+      id: "a",
+      props: {
+        style: {
+          vars: { "--brand-gradient": "linear-gradient(90deg, red, blue)", "--brand-anim": "none" },
+        },
+      },
+    });
+    expect(out).toContain("--brand-gradient:linear-gradient(90deg, red, blue)");
+    expect(out).toContain("--brand-anim:none");
+    expect(out.startsWith('<section class="jf-hero" style="')).toBe(true);
   });
 });

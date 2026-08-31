@@ -25,6 +25,7 @@
     "tools": "Outils",
     "health": "État",
     "updates": "Mises à jour",
+    "webhooks": "Webhooks",
     "securityOverview": "Aperçu",
     "securityHeaders": "En-têtes",
     "securityAdvanced": "Avancé",
@@ -289,7 +290,9 @@
       "classNameInvalid": "Les noms de classe n'acceptent que lettres, chiffres, tirets et traits de soulignement.",
       "css": "CSS",
       "cssRejected": "CSS refusé. @import, url(javascript:…) et constructions similaires ne sont pas autorisés.",
-      "compiled": "Ce qui sera publié"
+      "compiled": "Ce qui sera publié",
+      "tokens": "Variables du thème",
+      "tokensHint": "Cliquez sur une variable pour l’ajouter en & { … } dans le champ ci-dessus, puis modifiez la valeur."
     },
     "json": {
       "title": "JSON du bloc",
@@ -349,7 +352,13 @@
         "md": "Moyenne",
         "lg": "Grande",
         "pill": "Pilule"
-      }
+      },
+      "background": "Arrière-plan",
+      "textColor": "Couleur du texte",
+      "accent": "Accent",
+      "opacity": "Opacité",
+      "transparent": "Aucun",
+      "transparentHint": "Sans arrière-plan — entièrement transparent"
     },
     "reusable": {
       "title": "Bloc réutilisable",
@@ -361,6 +370,12 @@
       "showing": "Affiche",
       "referenceHint": "Ceci est une référence. Les modifications du bloc enregistré apparaissent sur chaque page qui l'utilise.",
       "missing": "Ce bloc enregistré n'existe plus."
+    },
+    "themeControls": {
+      "title": "Style du thème",
+      "hint": "L’interprétation de ce bloc du style du thème — remplace le réglage global du site.",
+      "inherit": "Valeur du thème",
+      "all": "Toutes les variables du thème"
     }
   }
 }

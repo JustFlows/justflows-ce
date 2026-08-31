@@ -1,16 +1,23 @@
 // SPDX-License-Identifier: MIT
 
 import { sanitizeBlockDocument } from "@justflows/blocks";
-import { deleteSiteSetting, getSiteSetting, setSiteSetting } from "./site-settings.js";
+import {
+  clearTemplatePartDraftDoc,
+  getTemplatePartDoc,
+  publishTemplatePartDoc,
+  saveTemplatePartDraft,
+  saveTemplatePartPublished,
+} from "./template-parts-db.js";
 import type { BlockNode } from "./types.js";
 
 /**
  * Template parts: chrome that is the same on every page and is edited as
  * blocks rather than as a template file.
  *
- * The page header is already per-page and stays that way. The footer is site
- * wide, so it lives here — one document, rendered into the layout below the
- * page content.
+ * Stored in the dedicated `template_parts` table (see `template-parts-db.ts`),
+ * one row per site per part, with a published `doc` and an optional `draft_doc`.
+ * The header has its own richer document and lives in `site-header.ts`; the
+ * footer is a plain block document handled here.
  */
 export const TEMPLATE_PARTS = ["footer"] as const;
 export type TemplatePart = (typeof TEMPLATE_PARTS)[number];
@@ -19,8 +26,9 @@ export function isTemplatePart(value: unknown): value is TemplatePart {
   return typeof value === "string" && (TEMPLATE_PARTS as readonly string[]).includes(value);
 }
 
-function key(part: TemplatePart, draft: boolean): string {
-  return draft ? `template_part_draft.${part}` : `template_part.${part}`;
+interface FooterDoc {
+  version: 1;
+  blocks?: unknown;
 }
 
 export async function getTemplatePart(
@@ -28,7 +36,7 @@ export async function getTemplatePart(
   part: TemplatePart,
   draft = false,
 ): Promise<BlockNode[]> {
-  const stored = await getSiteSetting<{ blocks?: unknown }>(siteId, key(part, draft));
+  const stored = await getTemplatePartDoc<FooterDoc>(siteId, part, { draft });
   if (!stored) return [];
   return sanitizeBlockDocument({ version: 1, blocks: stored.blocks }).blocks as BlockNode[];
 }
@@ -40,12 +48,14 @@ export async function saveTemplatePart(
   draft = false,
 ): Promise<BlockNode[]> {
   const sanitized = sanitizeBlockDocument({ version: 1, blocks });
-  await setSiteSetting(siteId, key(part, draft), { version: 1, blocks: sanitized.blocks });
+  const doc = { version: 1 as const, blocks: sanitized.blocks };
+  if (draft) await saveTemplatePartDraft(siteId, part, doc);
+  else await saveTemplatePartPublished(siteId, part, doc);
   return sanitized.blocks as BlockNode[];
 }
 
 export async function clearTemplatePartDraft(siteId: string, part: TemplatePart): Promise<void> {
-  await deleteSiteSetting(siteId, key(part, true));
+  await clearTemplatePartDraftDoc(siteId, part);
 }
 
 /**
@@ -59,9 +69,9 @@ export async function publishTemplatePart(
   part: TemplatePart,
   blocks: unknown,
 ): Promise<BlockNode[]> {
-  const saved = await saveTemplatePart(siteId, part, blocks, false);
-  await clearTemplatePartDraft(siteId, part);
-  return saved;
+  const sanitized = sanitizeBlockDocument({ version: 1, blocks });
+  await publishTemplatePartDoc(siteId, part, { version: 1, blocks: sanitized.blocks });
+  return sanitized.blocks as BlockNode[];
 }
 
 /**

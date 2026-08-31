@@ -59,6 +59,16 @@ export function listingPriceLabel(item: MarketplaceItem): string | null {
   }
 }
 
+export function installedPackageIds(
+  plugins: { id?: string; plugin_id?: string }[],
+  themes: { themeId?: string; theme_id?: string; id?: string }[],
+): Set<string> {
+  return new Set([
+    ...plugins.map((plugin) => plugin.id ?? plugin.plugin_id),
+    ...themes.map((theme) => theme.themeId ?? theme.theme_id ?? theme.id),
+  ].filter((id): id is string => Boolean(id)));
+}
+
 const CATEGORIES = ["All", "Plugins", "Themes", "SEO", "Forms", "Analytics", "Media", "E-commerce"];
 
 export default function MarketplacePage() {
@@ -83,14 +93,12 @@ export default function MarketplacePage() {
         const market = (await marketRes.json()) as { items?: MarketplaceItem[]; error?: string };
         if (market.error) throw new Error(market.error);
         const plugins = (await pluginsRes.json()) as { plugins?: { id?: string; plugin_id?: string }[] };
-        const themes = (await themesRes.json()) as { themes?: { themeId?: string }[] };
+        const themes = (await themesRes.json()) as {
+          themes?: { themeId?: string; theme_id?: string; id?: string }[];
+        };
         if (cancelled) return;
         setItems(Array.isArray(market.items) ? market.items.filter(listingIsVisible) : []);
-        const ids = [
-          ...(plugins.plugins ?? []).map((p) => p.id ?? p.plugin_id),
-          ...(themes.themes ?? []).map((t) => t.themeId),
-        ].filter((id): id is string => Boolean(id));
-        setInstalled(new Set(ids));
+        setInstalled(installedPackageIds(plugins.plugins ?? [], themes.themes ?? []));
       } catch (err: unknown) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
       } finally {

@@ -26,7 +26,8 @@ export const coreBlocks: BlockDefinition[] = [
     category: "content",
     schema: { text: { type: "richtext", required: true } },
     validateProps: (raw) => ({ text: str((raw as Record<string, unknown>)["text"]) }),
-    render: (props) => `<div class="jf-paragraph">${sanitizeRichText((props as { text: string }).text)}</div>`,
+    render: (props) =>
+      `<div class="jf-paragraph">${sanitizeRichText((props as { text: string }).text)}</div>`,
   },
   {
     type: "core.heading",
@@ -63,22 +64,36 @@ export const coreBlocks: BlockDefinition[] = [
     },
     validateProps: (raw) => {
       const r = raw as Record<string, unknown>;
-      const objectFit = ["contain", "cover", "fill"].includes(str(r["objectFit"])) ? str(r["objectFit"]) : "contain";
+      const objectFit = ["contain", "cover", "fill"].includes(str(r["objectFit"]))
+        ? str(r["objectFit"])
+        : "contain";
       return {
-        src: str(r["src"]), alt: str(r["alt"]), caption: str(r["caption"]),
-        width: dimension(r["width"]), height: dimension(r["height"]), objectFit,
+        src: str(r["src"]),
+        alt: str(r["alt"]),
+        caption: str(r["caption"]),
+        width: dimension(r["width"]),
+        height: dimension(r["height"]),
+        objectFit,
       };
     },
     render: (props) => {
       const { src, alt, caption, width, height, objectFit } = props as {
-        src: string; alt: string; caption: string; width: number; height: number; objectFit: string;
+        src: string;
+        alt: string;
+        caption: string;
+        width: number;
+        height: number;
+        objectFit: string;
       };
       const imageStyle = [
-        "display:block", "max-width:100%",
+        "display:block",
+        "max-width:100%",
         width > 0 ? `width:${width}px` : "",
         height > 0 ? `height:${height}px` : "",
         height > 0 ? `object-fit:${objectFit}` : "",
-      ].filter(Boolean).join(";");
+      ]
+        .filter(Boolean)
+        .join(";");
       const img = `<img src="${safeMediaSrc(src)}" alt="${esc(alt)}" loading="lazy" style="${imageStyle}">`;
       return caption ? `<figure>${img}<figcaption>${esc(caption)}</figcaption></figure>` : img;
     },
@@ -133,7 +148,8 @@ export const coreBlocks: BlockDefinition[] = [
     title: "Link list",
     icon: "🔗",
     category: "content",
-    description: "A heading with a stack of plain-text links — footer columns, sitemaps, resource lists.",
+    description:
+      "A heading with a stack of plain-text links — footer columns, sitemaps, resource lists.",
     schema: {
       heading: { type: "text" },
     },
@@ -149,9 +165,15 @@ export const coreBlocks: BlockDefinition[] = [
       };
     },
     render: (props) => {
-      const { heading, items } = props as { heading: string; items: Array<{ label: string; url: string }> };
+      const { heading, items } = props as {
+        heading: string;
+        items: Array<{ label: string; url: string }>;
+      };
       const links = items
-        .map((item) => `<li><a href="${safeHref(item.url)}" class="jf-link-list__link">${esc(item.label)}</a></li>`)
+        .map(
+          (item) =>
+            `<li><a href="${safeHref(item.url)}" class="jf-link-list__link">${esc(item.label)}</a></li>`,
+        )
         .join("");
       return `<div class="jf-link-list">${heading ? `<h3 class="jf-link-list__heading">${esc(heading)}</h3>` : ""}<ul class="jf-link-list__items">${links}</ul></div>`;
     },
@@ -174,7 +196,8 @@ export const coreBlocks: BlockDefinition[] = [
     category: "layout",
     schema: { height: { type: "number", default: 40 } },
     validateProps: (raw) => ({ height: num((raw as Record<string, unknown>)["height"], 40) }),
-    render: (props) => `<div style="height:${(props as { height: number }).height}px" aria-hidden="true"></div>`,
+    render: (props) =>
+      `<div style="height:${(props as { height: number }).height}px" aria-hidden="true"></div>`,
   },
   {
     type: "core.html",
@@ -184,7 +207,11 @@ export const coreBlocks: BlockDefinition[] = [
     category: "content",
     schema: { html: { type: "textarea", required: true } },
     validateProps: (raw) => ({ html: str((raw as Record<string, unknown>)["html"]) }),
-    render: (props) => sanitizeHtmlBlock((props as { html: string }).html),
+    // Wrap in a single element so `withBlockChrome` has one root to attach the
+    // block's class / scoped CSS / style overrides to — custom HTML often has
+    // several top-level nodes, and otherwise only the first would be styled.
+    render: (props) =>
+      `<div class="jf-html">${sanitizeHtmlBlock((props as { html: string }).html)}</div>`,
   },
   {
     type: "core.code",
@@ -228,7 +255,11 @@ export const coreBlocks: BlockDefinition[] = [
     icon: "▭",
     category: "layout",
     schema: {
-      background: { type: "select", options: ["default", "muted", "primary", "dark", "gradient"], default: "default" },
+      background: {
+        type: "select",
+        options: ["default", "muted", "primary", "dark", "gradient"],
+        default: "default",
+      },
       padding: { type: "select", options: ["sm", "md", "lg", "xl"], default: "lg" },
       align: { type: "select", options: ["left", "center"], default: "left" },
     },
@@ -243,7 +274,11 @@ export const coreBlocks: BlockDefinition[] = [
       return { background: bg, padding: pad, align };
     },
     render: (props, children = "") => {
-      const { background, padding, align } = props as { background: string; padding: string; align: string };
+      const { background, padding, align } = props as {
+        background: string;
+        padding: string;
+        align: string;
+      };
       return `<section class="jf-section jf-section--bg-${background} jf-section--pad-${padding} jf-section--align-${align}"><div class="jf-section__inner">${children}</div></section>`;
     },
   },
@@ -326,15 +361,24 @@ export const coreBlocks: BlockDefinition[] = [
     validateProps: (raw) => {
       const r = raw as Record<string, unknown>;
       const gap = ["none", "sm", "md", "lg"].includes(str(r["gap"])) ? str(r["gap"]) : "md";
-      const rowHeight = ["auto", "sm", "md", "lg"].includes(str(r["rowHeight"])) ? str(r["rowHeight"]) : "auto";
+      const rowHeight = ["auto", "sm", "md", "lg"].includes(str(r["rowHeight"]))
+        ? str(r["rowHeight"])
+        : "auto";
       return {
-        columns: Math.min(GRID_MAX_COLUMNS, Math.max(GRID_MIN_COLUMNS, num(r["columns"], GRID_DEFAULT_COLUMNS))),
+        columns: Math.min(
+          GRID_MAX_COLUMNS,
+          Math.max(GRID_MIN_COLUMNS, num(r["columns"], GRID_DEFAULT_COLUMNS)),
+        ),
         gap,
         rowHeight,
       };
     },
     render: (props, children = "") => {
-      const { columns, gap, rowHeight } = props as { columns: number; gap: string; rowHeight: string };
+      const { columns, gap, rowHeight } = props as {
+        columns: number;
+        gap: string;
+        rowHeight: string;
+      };
       // Children position themselves; the container only declares the tracks.
       return `<div class="jf-grid jf-grid--gap-${gap} jf-grid--rows-${rowHeight}" style="--jf-grid-cols:${columns}">${children}</div>`;
     },

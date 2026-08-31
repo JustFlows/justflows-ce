@@ -19,8 +19,24 @@ describe("hydrateSiteWidgets", () => {
     const out = hydrateSiteWidgets(html, ctx);
     expect(out).toContain("/nl-NL/about");
     expect(out).toContain("Nederlands");
+    expect(out).toContain("<details");
+    expect(out).toContain("<summary");
     expect(out).toContain('aria-current="page"');
     expect(out).not.toContain("<!--jf:language-switcher-->");
+  });
+
+  it.each([
+    ["locale-full", "nl-NL"],
+    ["locale-short", ">nl<"],
+    ["flags", "🇳🇱"],
+    ["flag-locale", "🇳🇱 nl"],
+    ["flag-country", "🇳🇱 Nederland"],
+  ])("renders the %s language style", (style, label) => {
+    const html = registry.renderNode({ type: "core.language-switcher", props: { style } });
+    const out = hydrateSiteWidgets(html, ctx);
+    expect(out).toContain(label);
+    expect(out).toContain('hreflang="nl-NL"');
+    if (style === "flags") expect(out).toContain('aria-label="Nederlands"');
   });
 
   it("hides the language switcher when only one locale is active", () => {

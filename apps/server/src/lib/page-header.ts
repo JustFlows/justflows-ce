@@ -6,11 +6,27 @@ import type { BlockNode } from "./types.js";
 
 export const PAGE_HEADER_FIELD = "jfHeader";
 
+/**
+ * Which header from the site header library a page renders. Stored alongside
+ * {@link PAGE_HEADER_FIELD} on a content row's `fields`. An unset ref means the
+ * page follows the site default header.
+ */
+export const PAGE_HEADER_REF_FIELD = "jfHeaderRef";
+
+/** Page follows whichever library entry the site marks as its default. */
+export const SITE_DEFAULT_HEADER_REF = "__default__";
+
+/** Page renders no header at all. */
+export const NO_HEADER_REF = "__none__";
+
 export const HEADER_LAYOUTS = ["logo-left", "logo-center", "split"] as const;
 export type HeaderLayout = (typeof HEADER_LAYOUTS)[number];
 
 export const HEADER_MENU_MODES = ["inherit", "menu", "none"] as const;
 export type HeaderMenuMode = (typeof HEADER_MENU_MODES)[number];
+
+export const HEADER_LANGUAGE_SWITCHER_STYLES = ["locale-full", "locale-short", "flags", "flag-locale", "flag-country"] as const;
+export type HeaderLanguageSwitcherStyle = (typeof HEADER_LANGUAGE_SWITCHER_STYLES)[number];
 
 const MENU_SLUG = /^[a-z0-9-]{0,255}$/;
 
@@ -24,6 +40,7 @@ export interface PageHeaderConfig {
   sticky: boolean;
   background: string;
   showLanguageSwitcher: boolean;
+  languageSwitcherStyle: HeaderLanguageSwitcherStyle;
   showColorScheme: boolean;
   showColorSchemeSystem: boolean;
   showAuthLinks: boolean;
@@ -40,6 +57,7 @@ export const DEFAULT_PAGE_HEADER: PageHeaderConfig = {
   sticky: true,
   background: "",
   showLanguageSwitcher: true,
+  languageSwitcherStyle: "locale-short",
   showColorScheme: false,
   showColorSchemeSystem: false,
   showAuthLinks: false,
@@ -65,6 +83,12 @@ function asLayout(value: unknown): HeaderLayout {
     : DEFAULT_PAGE_HEADER.layout;
 }
 
+function asLanguageSwitcherStyle(value: unknown): HeaderLanguageSwitcherStyle {
+  return HEADER_LANGUAGE_SWITCHER_STYLES.includes(value as HeaderLanguageSwitcherStyle)
+    ? (value as HeaderLanguageSwitcherStyle)
+    : DEFAULT_PAGE_HEADER.languageSwitcherStyle;
+}
+
 function asMenuSlug(value: unknown): string {
   if (typeof value !== "string") return "";
   const trimmed = value.trim();
@@ -78,27 +102,64 @@ function asBackground(value: unknown): string {
   return isSafeCssColor(trimmed) ? trimmed : "";
 }
 
+/**
+ * Normalize only the header fields actually present in `raw`, each through the
+ * same validators as {@link parsePageHeader}. An absent key is left out of the
+ * result, which is what makes this usable for the sparse per-locale overrides
+ * in the site header library (missing key == "inherit from base").
+ */
+export function parsePageHeaderPatch(raw: unknown): Partial<PageHeaderConfig> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const input = raw as Record<string, unknown>;
+  const patch: Partial<PageHeaderConfig> = {};
+  if ("visible" in input) patch.visible = asBoolean(input.visible, DEFAULT_PAGE_HEADER.visible);
+  if ("menuMode" in input) patch.menuMode = asMenuMode(input.menuMode);
+  if ("menuSlug" in input) patch.menuSlug = asMenuSlug(input.menuSlug);
+  if ("showLogo" in input) patch.showLogo = asBoolean(input.showLogo, DEFAULT_PAGE_HEADER.showLogo);
+  if ("showTitle" in input) patch.showTitle = asBoolean(input.showTitle, DEFAULT_PAGE_HEADER.showTitle);
+  if ("layout" in input) patch.layout = asLayout(input.layout);
+  if ("sticky" in input) patch.sticky = asBoolean(input.sticky, DEFAULT_PAGE_HEADER.sticky);
+  if ("background" in input) patch.background = asBackground(input.background);
+  if ("showLanguageSwitcher" in input)
+    patch.showLanguageSwitcher = asBoolean(input.showLanguageSwitcher, DEFAULT_PAGE_HEADER.showLanguageSwitcher);
+  if ("languageSwitcherStyle" in input)
+    patch.languageSwitcherStyle = asLanguageSwitcherStyle(input.languageSwitcherStyle);
+  if ("showColorScheme" in input)
+    patch.showColorScheme = asBoolean(input.showColorScheme, DEFAULT_PAGE_HEADER.showColorScheme);
+  if ("showColorSchemeSystem" in input)
+    patch.showColorSchemeSystem = asBoolean(input.showColorSchemeSystem, DEFAULT_PAGE_HEADER.showColorSchemeSystem);
+  if ("showAuthLinks" in input)
+    patch.showAuthLinks = asBoolean(input.showAuthLinks, DEFAULT_PAGE_HEADER.showAuthLinks);
+  if ("blocks" in input) patch.blocks = parseHeaderBlocks(input.blocks);
+  return patch;
+}
+
+/**
+ * Overlay a sparse patch onto a full header config. Shallow — patch keys win,
+ * and `blocks`, when present, replaces the base list wholesale.
+ */
+export function mergePageHeader(
+  base: PageHeaderConfig,
+  patch: Partial<PageHeaderConfig> | undefined,
+): PageHeaderConfig {
+  const merged = { ...base, ...(patch ?? {}) };
+  return { ...merged, blocks: [...merged.blocks] };
+}
+
 /** Normalize stored or inbound header chrome for a page. */
 export function parsePageHeader(raw: unknown): PageHeaderConfig {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { ...DEFAULT_PAGE_HEADER };
-  }
-  const input = raw as Record<string, unknown>;
-  return {
-    visible: asBoolean(input.visible, DEFAULT_PAGE_HEADER.visible),
-    menuMode: asMenuMode(input.menuMode),
-    menuSlug: asMenuSlug(input.menuSlug),
-    showLogo: asBoolean(input.showLogo, DEFAULT_PAGE_HEADER.showLogo),
-    showTitle: asBoolean(input.showTitle, DEFAULT_PAGE_HEADER.showTitle),
-    layout: asLayout(input.layout),
-    sticky: asBoolean(input.sticky, DEFAULT_PAGE_HEADER.sticky),
-    background: asBackground(input.background),
-    showLanguageSwitcher: asBoolean(input.showLanguageSwitcher, DEFAULT_PAGE_HEADER.showLanguageSwitcher),
-    showColorScheme: asBoolean(input.showColorScheme, DEFAULT_PAGE_HEADER.showColorScheme),
-    showColorSchemeSystem: asBoolean(input.showColorSchemeSystem, DEFAULT_PAGE_HEADER.showColorSchemeSystem),
-    showAuthLinks: asBoolean(input.showAuthLinks, DEFAULT_PAGE_HEADER.showAuthLinks),
-    blocks: parseHeaderBlocks(input.blocks),
-  };
+  return mergePageHeader(DEFAULT_PAGE_HEADER, parsePageHeaderPatch(raw));
+}
+
+/**
+ * The header library ref stored on a page (see {@link PAGE_HEADER_REF_FIELD}),
+ * or {@link SITE_DEFAULT_HEADER_REF} when the page has never chosen one.
+ */
+export function headerRefFromContentFields(
+  fields: Record<string, unknown> | null | undefined,
+): string {
+  const raw = fields?.[PAGE_HEADER_REF_FIELD];
+  return typeof raw === "string" && raw.trim() ? raw.trim() : SITE_DEFAULT_HEADER_REF;
 }
 
 const MAX_HEADER_BLOCKS = 40;

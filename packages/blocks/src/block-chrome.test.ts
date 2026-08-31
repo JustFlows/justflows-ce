@@ -21,7 +21,10 @@ describe("withBlockChrome", () => {
   });
 
   it("keeps the style element outside the element it styles", () => {
-    const out = withBlockChrome("<section>Hi</section>", { id: "abc", props: { css: "color: red" } });
+    const out = withBlockChrome("<section>Hi</section>", {
+      id: "abc",
+      props: { css: "color: red" },
+    });
     expect(out.indexOf("<style>")).toBeLessThan(out.indexOf("<section"));
   });
 
@@ -70,6 +73,23 @@ describe("block rendering", () => {
     expect(html).toContain("jf-b-abc");
     expect(html).toContain("lead");
   });
+
+  it("wraps custom HTML in one element so chrome reaches every top-level node", () => {
+    const html = registry.renderNode({
+      id: "h1",
+      type: "core.html",
+      props: {
+        html: '<p class="label">Trusted by</p><div class="jf-logos"><span>Acme</span></div>',
+        className: "featured",
+        style: { vars: { "--brand-border": "dashed" } },
+      },
+    });
+    // one wrapper carries class + style; the inner nodes stay untouched
+    expect(html).toMatch(/^<div class="jf-html featured" style="--brand-border:dashed">/);
+    expect(html).toContain('<div class="jf-logos"><span>Acme</span></div></div>');
+    // the second top-level node did NOT swallow the chrome
+    expect(html).not.toContain('class="jf-logos featured"');
+  });
 });
 
 describe("grid placement", () => {
@@ -82,8 +102,12 @@ describe("grid placement", () => {
   });
 
   it("emits nothing for a block that is simply full width", () => {
-    expect(withBlockChrome("<section>Hi</section>", { id: "abc", props: { layout: { col: 1, span: 12 } } }))
-      .toBe("<section>Hi</section>");
+    expect(
+      withBlockChrome("<section>Hi</section>", {
+        id: "abc",
+        props: { layout: { col: 1, span: 12 } },
+      }),
+    ).toBe("<section>Hi</section>");
   });
 
   it("merges placement with a style the block already had", () => {

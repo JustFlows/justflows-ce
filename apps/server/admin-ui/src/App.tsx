@@ -32,6 +32,7 @@ import SecurityHeadersPage from "./pages/admin/security/SecurityHeadersPage";
 import SecurityAdvancedPage from "./pages/admin/security/SecurityAdvancedPage";
 import AccountSecurityPage from "./pages/admin/security/AccountSecurityPage";
 import AuditLogPage from "./pages/admin/security/AuditLogPage";
+import WebhooksPage from "./pages/admin/WebhooksPage";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { PluginMenuProvider } from "@components/PluginMenuProvider";
 import { SessionProvider, useSessionRole } from "@components/SessionProvider";
@@ -91,6 +92,7 @@ export default function App() {
         <Route path="tools" element={<ToolsPage />} />
         <Route path="health" element={<HealthPage />} />
         <Route path="updates" element={<UpdatesPage />} />
+        <Route path="webhooks" element={<WebhooksPage />} />
         <Route path="languages" element={<LanguagesPage />} />
         <Route path="security" element={<SecurityOverviewPage />} />
         <Route path="security/headers" element={<SecurityHeadersPage />} />

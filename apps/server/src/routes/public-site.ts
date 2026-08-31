@@ -1,17 +1,19 @@
 import { Router, type Request, type Response } from "express";
 import ejs from "ejs";
 import path from "node:path";
-import {
-  getPublishedContentBySlug,
-  getTranslationAlternates,
-} from "../lib/content-public.js";
+import { getPublishedContentBySlug, getTranslationAlternates } from "../lib/content-public.js";
 import {
   getActiveLocaleCodes,
   getDefaultLocale,
   listLanguages,
   resolveContentLocale,
 } from "../lib/i18n/languages-db.js";
-import { localePath, matchActiveLocale, displayLocaleCode } from "../lib/i18n/locales.js";
+import {
+  localePath,
+  matchActiveLocale,
+  displayLocaleCode,
+  localePresentation,
+} from "../lib/i18n/locales.js";
 import { formatContentDate, getGeneralSettings } from "../lib/general-settings.js";
 import { hydrateSiteWidgets } from "../lib/site-widgets.js";
 import { applyContentBlocks, applyContentRender } from "../lib/content-render.js";
@@ -26,10 +28,28 @@ import {
 import { getNavItemsForMenuSlug } from "../lib/menus-db.js";
 import { getEffectiveHomeBlocks } from "../lib/theme-home-blocks.js";
 import { getHomeContent, isHomeContentSlug } from "../lib/home-page.js";
-import { headerBrandFlags, headerFromContentFields, resolveHeaderMenuSlug, type PageHeaderConfig } from "../lib/page-header.js";
+import {
+  headerBrandFlags,
+  headerRefFromContentFields,
+  resolveHeaderMenuSlug,
+  SITE_DEFAULT_HEADER_REF,
+  type PageHeaderConfig,
+} from "../lib/page-header.js";
+import {
+  emptyLibrary,
+  getEffectiveSiteHeaderLibrary,
+  type SiteHeaderLibrary,
+} from "../lib/site-header.js";
+import { resolveHeaderConfig } from "../lib/header-resolve.js";
 import { ensureCssProvidersTable, getActiveCssProvider } from "../lib/css-providers-db.js";
 import { resolveProviderAssets } from "../lib/css-providers-files.js";
-import { ensureThemesTable, getActiveTheme, getSiteId } from "../lib/themes-db.js";
+import {
+  ensureThemesTable,
+  getActiveTheme,
+  getSiteId,
+  themeInstalledPath,
+} from "../lib/themes-db.js";
+import { getDb } from "../lib/db.js";
 import { viewsDir } from "../lib/jf-root.js";
 import { getJustflowsVersion } from "../lib/version.js";
 import { parseLocalePrefix, setLocaleCookie, LOCALE_COOKIE } from "../middleware/locale.js";
@@ -53,6 +73,7 @@ import {
   getCachedPageHtml,
   MENUS_PREFIX,
   rememberPublic,
+  SITE_CTX_PREFIX,
   THEME_MODS_PREFIX,
 } from "../lib/public-cache.js";
 import { getJfCache } from "../lib/jf-cache.js";
@@ -60,13 +81,25 @@ import { getRuntimeBlockRegistry } from "../lib/runtime-blocks.js";
 import type { BlockNode } from "../lib/types.js";
 import { withBlockChrome } from "@justflows/blocks";
 import { FORMS_BLOCK_TYPE, renderFormBlockHtml } from "../lib/forms-public.js";
-import { isGalleryPluginEnabled, registerGalleryBlock, unregisterGalleryBlock } from "../lib/gallery-public.js";
+import {
+  isGalleryPluginEnabled,
+  registerGalleryBlock,
+  unregisterGalleryBlock,
+} from "../lib/gallery-public.js";
 import {
   BLOG_POST_LIST_BLOCK_TYPE,
   registerBlogPostListBlock,
   renderBlogPostListBlockHtml,
   type BlogPostListRenderContext,
 } from "../lib/blog-public.js";
+import {
+  COMMENTS_BLOCK_TYPE,
+  registerCommentsBlock,
+  renderCommentsBlockHtml,
+  type CommentsBannerState,
+  type CommentsRenderContext,
+} from "../lib/comments-public.js";
+import { getSession } from "../lib/session.js";
 import { getSiteSetting } from "../lib/site-settings.js";
 import { buildFaviconHeadHtml } from "../lib/favicon.js";
 
@@ -74,6 +107,7 @@ const templateDir = viewsDir();
 const router = Router();
 const blockRegistry = getRuntimeBlockRegistry();
 registerBlogPostListBlock();
+registerCommentsBlock();
 
 const RESERVED = new Set([
   "admin",
@@ -101,18 +135,22 @@ async function loadCatalog(locale: string): Promise<MessageCatalog> {
 }
 
 async function loadThemeMods(preview = false): Promise<ReturnType<typeof mergeMods>> {
-  return rememberPublic(`${THEME_MODS_PREFIX}${preview ? "preview" : "live"}`, async () => {
-    await ensureThemesTable();
-    const siteId = await getSiteId();
-    if (!siteId) return defaultModsFromSchema();
+  return rememberPublic(
+    `${THEME_MODS_PREFIX}${preview ? "preview" : "live"}`,
+    async () => {
+      await ensureThemesTable();
+      const siteId = await getSiteId();
+      if (!siteId) return defaultModsFromSchema();
 
-    const theme = await getActiveTheme(siteId);
-    const themeId = theme?.theme_id ?? "justflows.default";
-    const defaults = defaultModsFromSchema();
-    const published = (await getThemeMods(themeId, false)) ?? {};
-    const draft = preview ? ((await getThemeMods(themeId, true)) ?? {}) : {};
-    return mergeMods(mergeMods(defaults, published), draft);
-  }, preview);
+      const theme = await getActiveTheme(siteId);
+      const themeId = theme?.theme_id ?? "justflows.default";
+      const defaults = defaultModsFromSchema();
+      const published = (await getThemeMods(themeId, false)) ?? {};
+      const draft = preview ? ((await getThemeMods(themeId, true)) ?? {}) : {};
+      return mergeMods(mergeMods(defaults, published), draft);
+    },
+    preview,
+  );
 }
 
 async function loadIdentity(
@@ -174,17 +212,33 @@ async function renderBlockTree(
   blocks: BlockNode[],
   submittedFormId?: string,
   blogCtx?: BlogPostListRenderContext,
+  commentCtx?: CommentsRenderContext,
 ): Promise<string> {
   const parts: string[] = [];
   for (const block of blocks) {
     if (block.type === FORMS_BLOCK_TYPE) {
-      parts.push(withBlockChrome(await renderFormBlockHtml(block.props ?? {}, submittedFormId), block));
+      parts.push(
+        withBlockChrome(await renderFormBlockHtml(block.props ?? {}, submittedFormId), block),
+      );
       continue;
     }
     if (block.type === BLOG_POST_LIST_BLOCK_TYPE && blogCtx) {
       try {
-        parts.push(withBlockChrome(await renderBlogPostListBlockHtml(block.props ?? {}, blogCtx), block));
+        parts.push(
+          withBlockChrome(await renderBlogPostListBlockHtml(block.props ?? {}, blogCtx), block),
+        );
       } catch {
+        parts.push("");
+      }
+      continue;
+    }
+    if (block.type === COMMENTS_BLOCK_TYPE && commentCtx) {
+      try {
+        parts.push(
+          withBlockChrome(await renderCommentsBlockHtml(block.props ?? {}, commentCtx), block),
+        );
+      } catch (err) {
+        console.error("[justflows] comments block render failed:", err);
         parts.push("");
       }
       continue;
@@ -193,7 +247,7 @@ async function renderBlockTree(
     const children = Array.isArray(block.children) ? block.children : [];
     if (def?.supportsChildren && children.length > 0) {
       try {
-        const childHtml = await renderBlockTree(children, submittedFormId, blogCtx);
+        const childHtml = await renderBlockTree(children, submittedFormId, blogCtx, commentCtx);
         parts.push(withBlockChrome(def.render(def.validateProps(block.props), childHtml), block));
       } catch {
         parts.push("");
@@ -227,7 +281,9 @@ async function withReusables(blocks: BlockNode[]): Promise<BlockNode[]> {
 
 function containsReusable(blocks: BlockNode[]): boolean {
   return blocks.some(
-    (block) => block.type === "core.reusable" || (block.children?.length ? containsReusable(block.children) : false),
+    (block) =>
+      block.type === "core.reusable" ||
+      (block.children?.length ? containsReusable(block.children) : false),
   );
 }
 
@@ -235,14 +291,15 @@ async function renderBlocksHtml(
   blocks: BlockNode[],
   submittedFormId?: string,
   blogCtx?: BlogPostListRenderContext,
+  commentCtx?: CommentsRenderContext,
 ): Promise<string> {
   if (await isGalleryPluginEnabled()) registerGalleryBlock();
   else unregisterGalleryBlock();
   const resolved = await withReusables(blocks);
   try {
-    return await renderBlockTree(resolved, submittedFormId, blogCtx);
+    return await renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx);
   } catch {
-    return renderBlockTree(resolved, submittedFormId, blogCtx);
+    return renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx);
   }
 }
 
@@ -275,9 +332,99 @@ async function buildBlogRenderContext(
   };
 }
 
+const COMMENT_BANNERS = new Set<CommentsBannerState>(["posted", "pending", "error", "captcha"]);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function sameOriginReferer(req: Request): boolean {
+  const referer = req.get("referer");
+  if (!referer) return false;
+  try {
+    return new URL(referer).host === req.get("host");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Per-request context for a `justflows.comments.thread` block. Built only for
+ * single-content renders; the block itself resolves whether comments are on.
+ */
+async function buildCommentContext(
+  req: Request,
+  content: {
+    id: string;
+    type: string;
+    slug?: string;
+    publishedAt: Date | string | null;
+    fields: unknown;
+    translationGroupId?: string | null;
+  },
+  pageCtx: { locale: string; t: (key: string) => string },
+  basePath: string,
+): Promise<CommentsRenderContext> {
+  const siteId = (await getSiteId()) ?? "";
+  const session = getSession(req);
+  let currentUser: CommentsRenderContext["currentUser"] = null;
+  if (session?.userId && siteId) {
+    try {
+      const db = await getDb();
+      const rows = await db.query<{ display_name: string; username: string; email: string }>(
+        "SELECT display_name, username, email FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+        [session.userId, siteId],
+      );
+      const u = rows[0];
+      if (u)
+        currentUser = { id: session.userId, name: u.display_name || u.username, email: u.email };
+    } catch {
+      currentUser = null;
+    }
+  }
+
+  const bannerRaw =
+    typeof req.query.comment === "string" ? (req.query.comment as CommentsBannerState) : null;
+  const banner =
+    bannerRaw && COMMENT_BANNERS.has(bannerRaw) && sameOriginReferer(req) ? bannerRaw : null;
+  const replyRaw = typeof req.query.reply === "string" ? req.query.reply : "";
+  const replyTo = UUID_RE.test(replyRaw) ? replyRaw : null;
+  const pageRaw = Number(req.query["comment-page"]);
+  const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.min(Math.trunc(pageRaw), 10_000) : 1;
+
+  return {
+    siteId,
+    content,
+    currentUser,
+    banner,
+    replyTo,
+    page,
+    basePath,
+    locale: pageCtx.locale,
+    t: pageCtx.t,
+  };
+}
+
+/** True when this request must skip the shared page cache for comment state. */
+function isCommentInteraction(req: Request): boolean {
+  if (getSession(req)) return true;
+  return (
+    typeof req.query.comment === "string" ||
+    typeof req.query.reply === "string" ||
+    typeof req.query["comment-page"] === "string"
+  );
+}
+
 function withSiteWidgets(
   html: string,
-  ctx: { languageLinks: Array<{ code: string; name: string; href: string; current: boolean; displayCode?: string }>; usersCanRegister: boolean; t: (key: string) => string },
+  ctx: {
+    languageLinks: Array<{
+      code: string;
+      name: string;
+      href: string;
+      current: boolean;
+      displayCode?: string;
+    }>;
+    usersCanRegister: boolean;
+    t: (key: string) => string;
+  },
 ): string {
   return hydrateSiteWidgets(html, {
     languageLinks: ctx.languageLinks,
@@ -304,12 +451,10 @@ async function renderUnderConstruction(): Promise<string> {
 
   const hooks = getRuntimeHooks();
   if (hooks.has("site.underConstruction.render")) {
-    html = hooks.applyFilterSync(
-      "site.underConstruction.render",
-      html,
-      hookContext,
-      { siteId, source: "http" },
-    );
+    html = hooks.applyFilterSync("site.underConstruction.render", html, hookContext, {
+      siteId,
+      source: "http",
+    });
   }
 
   if (siteId) {
@@ -353,7 +498,7 @@ async function sendPublicHtml(
   render: () => Promise<string>,
   status = 200,
 ): Promise<void> {
-  const bypass = preview || isFormConfirmation(req);
+  const bypass = preview || isFormConfirmation(req) || isCommentInteraction(req);
   if (bypass || !getJfCache().enabled) {
     res.locals.jfPageCache = "BYPASS";
   }
@@ -371,9 +516,10 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   const hooks = getRuntimeHooks();
   const siteId = (await getSiteId()) ?? "";
   const content = data.content as
-    | { title?: string; excerpt?: string | null; fields?: Record<string, unknown> }
-    | undefined;
-  const seoFromContent = content ? seoTextFromContent(content) : { title: "", description: "", canonical: "", image: "" };
+    { title?: string; excerpt?: string | null; fields?: Record<string, unknown> } | undefined;
+  const seoFromContent = content
+    ? seoTextFromContent(content)
+    : { title: "", description: "", canonical: "", image: "" };
   const pageTitle = seoFromContent.title || String(data.title ?? "");
   const pageDescription = seoFromContent.description || String(data.seoDescription ?? "");
   let headExtra = "";
@@ -404,9 +550,10 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
         siteId,
         path: String(data.restPath ?? "/"),
         title: pageTitle,
-        contentId: typeof data.content === "object" && data.content && "id" in (data.content as object)
-          ? String((data.content as { id?: string }).id ?? "")
-          : undefined,
+        contentId:
+          typeof data.content === "object" && data.content && "id" in (data.content as object)
+            ? String((data.content as { id?: string }).id ?? "")
+            : undefined,
       },
       { siteId, source: "http" },
     );
@@ -439,7 +586,16 @@ function languageLinksFor(
   restPath: string,
   defaultLocale: string,
   translations: Array<{ locale: string; slug: string }> = [],
-): Array<{ code: string; name: string; href: string; current: boolean; displayCode: string }> {
+): Array<{
+  code: string;
+  name: string;
+  href: string;
+  current: boolean;
+  displayCode: string;
+  shortCode: string;
+  flag: string;
+  countryName: string;
+}> {
   const slugByLocale = new Map(translations.map((tr) => [tr.locale, tr.slug]));
   return languages.map((lang) => {
     const translatedSlug = slugByLocale.get(lang.code);
@@ -450,6 +606,7 @@ function languageLinksFor(
       href: localePath(lang.code, path, defaultLocale),
       current: lang.code === currentLocale,
       displayCode: displayLocaleCode(lang.code),
+      ...localePresentation(lang.code),
     };
   });
 }
@@ -471,33 +628,71 @@ async function buildPageContext(reqPath: string, preview = false) {
   const discourageSearchEngines = await shouldDiscourageSearchEngines();
   const { header: headerMenuSlug, footer: footerMenuSlug } = getNavigationMenuSlugs(mods);
   const navItems = await loadNavItems(headerMenuSlug ?? "primary", locale, defaultLocale, preview);
-  const footerNavItems = await loadNavItems(footerMenuSlug ?? "footer", locale, defaultLocale, preview);
+  const footerNavItems = await loadNavItems(
+    footerMenuSlug ?? "footer",
+    locale,
+    defaultLocale,
+    preview,
+  );
 
   const languageLinks = languageLinksFor(languages, locale, restPath, defaultLocale);
   const publicPath = localePath(locale, restPath, defaultLocale);
-  const header = headerFromContentFields(undefined);
   const general = await getGeneralSettings();
 
   // Site-wide chrome edited as blocks. Empty means the site never customised
   // one, so the layout keeps its built-in footer rather than rendering nothing.
   const siteId = await getSiteId();
-  const footerBlocks = siteId
+
+  // The site header library. A page without its own ref renders the library
+  // default; pages resolve their chosen entry in applyPageHeader below.
+  const headerLib: SiteHeaderLibrary = siteId
     ? await rememberPublic(
-        `template-part:footer:${preview ? "preview" : "live"}`,
-        async () => {
-          const { getEffectiveTemplatePart } = await import("../lib/template-parts.js");
-          return getEffectiveTemplatePart(siteId, "footer", preview);
-        },
+        `${SITE_CTX_PREFIX}header:lib:${preview ? "preview" : "live"}`,
+        () => getEffectiveSiteHeaderLibrary(siteId, preview),
         preview,
       )
-    : [];
-  const footerBlocksHtml = footerBlocks.length > 0
-    ? withSiteWidgets(await renderBlocksHtml(footerBlocks), {
-        languageLinks: languageLinksFor(languages, locale, restPath, defaultLocale),
+    : emptyLibrary();
+  const header = await resolveHeaderConfig({
+    siteId: siteId ?? "",
+    library: headerLib,
+    ref: SITE_DEFAULT_HEADER_REF,
+    locale,
+    defaultLocale,
+  });
+  const headerBlocksHtml = header.blocks.length
+    ? withSiteWidgets(await renderBlocksHtml(header.blocks), {
+        languageLinks,
         usersCanRegister: general.usersCanRegister,
         t,
       })
     : "";
+
+  const activeTheme = siteId ? await getActiveTheme(siteId) : null;
+  const footerBlocks = siteId
+    ? await rememberPublic(
+        `template-part:footer:${activeTheme?.theme_id ?? "none"}:${preview ? "preview" : "live"}`,
+        async () => {
+          const { getEffectiveTemplatePart } = await import("../lib/template-parts.js");
+          const stored = await getEffectiveTemplatePart(siteId, "footer", preview);
+          if (stored.length > 0) return stored;
+          // Site never customised a footer — fall back to the active theme's
+          // default (`demo/footer.json`), like the homepage falls back to
+          // `demo/home.json`. Empty here means the layout keeps its built-in footer.
+          if (!activeTheme) return [];
+          const { loadThemeDemoFooter } = await import("../lib/theme-files.js");
+          return loadThemeDemoFooter(activeTheme.theme_id, themeInstalledPath(activeTheme)) ?? [];
+        },
+        preview,
+      )
+    : [];
+  const footerBlocksHtml =
+    footerBlocks.length > 0
+      ? withSiteWidgets(await renderBlocksHtml(footerBlocks), {
+          languageLinks: languageLinksFor(languages, locale, restPath, defaultLocale),
+          usersCanRegister: general.usersCanRegister,
+          t,
+        })
+      : "";
 
   return {
     locale,
@@ -520,6 +715,9 @@ async function buildPageContext(reqPath: string, preview = false) {
     cssProviderStylesheets: cssProviderAssets.stylesheets,
     header,
     headerBrand: headerBrandFlags(header, identity.logoUrl),
+    headerBlocksHtml,
+    headerLib,
+    siteId: siteId ?? "",
     usersCanRegister: general.usersCanRegister,
   };
 }
@@ -529,8 +727,16 @@ async function applyPageHeader<T extends Awaited<ReturnType<typeof buildPageCont
   fields: Record<string, unknown> | undefined,
   preview: boolean,
   submittedFormId?: string,
+  content?: { id?: string; type?: string },
 ): Promise<T & { header: PageHeaderConfig; headerBlocksHtml: string }> {
-  const header = headerFromContentFields(fields);
+  const header = await resolveHeaderConfig({
+    siteId: ctx.siteId,
+    library: ctx.headerLib,
+    ref: headerRefFromContentFields(fields),
+    locale: ctx.locale,
+    defaultLocale: ctx.defaultLocale,
+    content,
+  });
   const menuSlug = resolveHeaderMenuSlug(header, ctx.headerMenuSlug);
   const navItems = menuSlug
     ? await loadNavItems(menuSlug, ctx.locale, ctx.defaultLocale, preview)
@@ -581,7 +787,10 @@ async function renderHomeHtml(req: Request, reqPath: string, preview: boolean): 
   const ctx = await buildPageContext(reqPath, preview);
   const siteId = await getSiteId();
   const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
-  const withHeader = await applyPageHeader(ctx, home?.fields, preview, submittedFormIdFrom(req));
+  const withHeader = await applyPageHeader(ctx, home?.fields, preview, submittedFormIdFrom(req), {
+    id: home ? String(home.id) : undefined,
+    type: home ? String(home.type) : undefined,
+  });
   const blogCtx = await buildBlogRenderContext(ctx.locale, 1, reqPath);
   if (home) {
     const bodyHtml = withSiteWidgets(
@@ -605,7 +814,10 @@ async function renderHomeHtml(req: Request, reqPath: string, preview: boolean): 
   }
   const demoBlocks = await loadHomeDemoBlocks(preview);
   const bodyHtml = demoBlocks?.length
-    ? withSiteWidgets(await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req), blogCtx), withHeader)
+    ? withSiteWidgets(
+        await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req), blogCtx),
+        withHeader,
+      )
     : undefined;
   return renderPage("home", {
     ...withHeader,
@@ -675,7 +887,9 @@ router.get("/", async (req, res, next) => {
   try {
     if (!(await ensureSiteIsPublic(req, res))) return;
     const preview = await isPreviewAllowed(req, res);
-    await sendPublicHtml(req, res, req.path || "/", preview, () => renderHomeHtml(req, "/", preview));
+    await sendPublicHtml(req, res, req.path || "/", preview, () =>
+      renderHomeHtml(req, "/", preview),
+    );
   } catch (err) {
     console.error("[justflows] home render failed:", err);
     res.status(500).type("text/plain").send("Internal server error");
@@ -713,14 +927,34 @@ async function renderSinglePageHtml(
       alternates,
     ),
   };
-  const withHeader = await applyPageHeader(withTranslations, pageContent.fields, preview, submittedFormIdFrom(req));
+  const withHeader = await applyPageHeader(
+    withTranslations,
+    pageContent.fields,
+    preview,
+    submittedFormIdFrom(req),
+    { id: String(pageContent.id), type: String(pageContent.type) },
+  );
   const blogCtx = await buildBlogRenderContext(pageCtx.locale, pageNumber, basePath);
+  const commentCtx = await buildCommentContext(
+    req,
+    {
+      id: String(pageContent.id),
+      type: String(pageContent.type),
+      slug: String(pageContent.slug ?? slug),
+      publishedAt: pageContent.publishedAt ?? null,
+      fields: pageContent.fields,
+      translationGroupId: pageContent.translationGroupId,
+    },
+    pageCtx,
+    reqPath,
+  );
   const bodyHtml = withSiteWidgets(
     await applyContentRender(
       await renderBlocksHtml(
         await applyContentBlocks(pageContent.blocks.blocks, pageContent),
         submittedFormIdFrom(req),
         blogCtx,
+        commentCtx,
       ),
       pageContent,
     ),
@@ -731,7 +965,9 @@ async function renderSinglePageHtml(
     content: pageContent,
     bodyHtml,
     alternates,
-    formattedDate: pageContent.publishedAt ? await formatContentDate(pageContent.publishedAt) : null,
+    formattedDate: pageContent.publishedAt
+      ? await formatContentDate(pageContent.publishedAt)
+      : null,
     title: pageContent.title,
   });
 }
@@ -763,7 +999,9 @@ router.get("/:segment", async (req, res, next) => {
     const ctx = await buildPageContext(req.path, preview);
 
     if (matchActiveLocale(segment, activeLocales) && req.path === `/${segment}`) {
-      await sendPublicHtml(req, res, req.path, preview, () => renderHomeHtml(req, req.path, preview));
+      await sendPublicHtml(req, res, req.path, preview, () =>
+        renderHomeHtml(req, req.path, preview),
+      );
       return;
     }
 
@@ -775,10 +1013,17 @@ router.get("/:segment", async (req, res, next) => {
 
     const content = await getPublishedContentBySlug(slug, ctx.locale, preview);
     if (!content) {
-      await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
-        const ctx404 = await buildPageContext(req.path, preview);
-        return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
-      }, 404);
+      await sendPublicHtml(
+        req,
+        res,
+        `${req.path}:404`,
+        preview,
+        async () => {
+          const ctx404 = await buildPageContext(req.path, preview);
+          return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+        },
+        404,
+      );
       return;
     }
 
@@ -834,10 +1079,17 @@ router.get("/:segment/page/:num", async (req, res, next) => {
 
     const content = await getPublishedContentBySlug(segment, ctx.locale, preview);
     if (!content) {
-      await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
-        const ctx404 = await buildPageContext(req.path, preview);
-        return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
-      }, 404);
+      await sendPublicHtml(
+        req,
+        res,
+        `${req.path}:404`,
+        preview,
+        async () => {
+          const ctx404 = await buildPageContext(req.path, preview);
+          return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+        },
+        404,
+      );
       return;
     }
 
@@ -900,10 +1152,17 @@ router.get("/:locale/:slug", async (req, res, next) => {
     const content = await getPublishedContentBySlug(slug, locale, preview);
 
     if (!content) {
-      await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
-        const ctx404 = await buildPageContext(req.path, preview);
-        return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
-      }, 404);
+      await sendPublicHtml(
+        req,
+        res,
+        `${req.path}:404`,
+        preview,
+        async () => {
+          const ctx404 = await buildPageContext(req.path, preview);
+          return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+        },
+        404,
+      );
       return;
     }
 
@@ -968,10 +1227,17 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
     const content = await getPublishedContentBySlug(slug, locale, preview);
 
     if (!content) {
-      await sendPublicHtml(req, res, `${req.path}:404`, preview, async () => {
-        const ctx404 = await buildPageContext(req.path, preview);
-        return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
-      }, 404);
+      await sendPublicHtml(
+        req,
+        res,
+        `${req.path}:404`,
+        preview,
+        async () => {
+          const ctx404 = await buildPageContext(req.path, preview);
+          return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+        },
+        404,
+      );
       return;
     }
 

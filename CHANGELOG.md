@@ -5,6 +5,155 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.7]
+
+### Added
+
+- Admin → Themes now loads every published theme from the hosted marketplace,
+  shows installed, paid, and coming-soon states, installs community themes
+  through the existing signed package flow, and can delete inactive installed
+  themes while protecting the active and bundled themes. ([#13](https://github.com/JustFlows/justflows-ce/issues/13))
+
+- Google reCAPTCHA v2 and v3 are now available alongside Cloudflare Turnstile
+  and hCaptcha under Settings → Discussion. Public comment forms load the
+  selected checkbox or score-based integration and verify its single-use
+  response server-side before accepting a submission; v3 also enforces the
+  expected action and configurable minimum score.
+  ([#49](https://github.com/JustFlows/justflows-ce/issues/49))
+
+- Header builder in the theme customizer (Theme builder → Header): a library of
+  named headers, one marked the site default and shown on every page. Each page
+  picks its header from a dropdown in the page builder — the site default, a
+  named header, or _None_ — instead of editing header chrome inline; the choice
+  persists immediately via `PUT /api/content/:id/header-ref`, independent of the
+  page's Save. Every header carries a base config plus sparse per-language
+  overrides (exact locale merged over the base). Draft/publish mirrors the
+  footer.
+
+- New `template_parts` table (migration `0012`) — site-wide chrome documents
+  (header library, footer blocks) are design artifacts and now have their own
+  table instead of JSON rows in `site_settings`. A one-time boot backfill moves
+  existing `template_part.*` / `template_part_draft.*` settings across.
+
+- Plugin/theme header designs via hooks: `header.templates` (contribute named
+  headers that appear in the per-page picker, `build()`-rendered at request
+  time), `header.resolve` (own a page's header per request), `header.config`
+  (adjust the resolved header before render). New SDK types `HeaderConfig`,
+  `HeaderTemplate`, `HeaderBuildContext`, `HeaderResolveContext`. See
+  `docs/HOOKS.md`.
+
+- Built-in header and language-switcher blocks now offer full locale, short
+  locale, flags, flag and locale, or flag and country-name styles. Each style
+  uses an accessible dropdown; builder previews match the mobile-first,
+  responsive public output.
+  ([#59](https://github.com/JustFlows/justflows-ce/issues/59))
+
+- Public comments, end to end: a `Comments` block (drop it on a post) renders
+  the approved, threaded discussion and an accessible submission form.
+  Visitors submit at `POST /justflows-comments/submit` — same-origin checked,
+  IP rate limited, honeypot and optional Cloudflare Turnstile / hCaptcha /
+  Google reCAPTCHA v2 / v3
+  guarded, bodies reduced to a small safe formatting whitelist. New comments
+  hold for moderation by default and the admin is emailed; commenters can opt
+  into reply notifications and unsubscribe in one click
+  (`/justflows-comments/unsubscribe`). Approved comments render without ever
+  exposing commenter email addresses or IPs.
+  ([#50](https://github.com/JustFlows/justflows-ce/issues/50))
+
+- Settings → Discussion controls the site comment policy (on/off, hold for
+  moderation, moderator email, author links, auto-close after N days, page
+  size, length and reply-depth limits, CAPTCHA provider and keys); a per-post
+  Discussion control overrides it either way. Admin → Comments gains
+  pagination, inline reply and edit, and permanent delete from the trash.
+  ([#50](https://github.com/JustFlows/justflows-ce/issues/50))
+
+- New `comments.render` filter hook: a plugin receives the rendered
+  `justflows.comments.thread` markup plus the threaded `PublicComment[]` and
+  form/policy state (`CommentsBlockRenderContext`) and can restyle or fully
+  replace the HTML. The submission endpoint, `comments` table, and moderation
+  API are unchanged. New SDK types `CommentsBlockRenderContext` and
+  `PublicComment`. Comment timestamps are also normalised across database
+  drivers before rendering (Postgres returns `Date`, MySQL a string).
+  ([#50](https://github.com/JustFlows/justflows-ce/issues/50))
+
+- Every theme folder under `themes/` is registered in the `themes` table
+  automatically on the admin themes/customizer load (previously only
+  `justflows.default` was seeded), so a bundled or dropped-in theme is
+  selectable without a `.jfpkg` upload. `syncBundledThemes` also refreshes an
+  existing row's `name` / `version` / `manifest` from the folder while leaving
+  its `status`, `activated_at`, and `css_variables` as the admin left them.
+
+- Themes can ship default site chrome resolved live at render, the same way
+  `demo/home.json` works: `demo/footer.json` (block document — Theme builder →
+  Footer seeds its canvas from it, `GET /api/template-parts/footer` returns
+  `fromThemeDefault`) and `demo/header.json` (sparse `PageHeaderConfig` merged
+  over `DEFAULT_PAGE_HEADER`, used when the header library has no default entry).
+  Nothing is written to the database on activation; an admin edit always wins.
+
+- `patterns/product.json` and `patterns/post.json` double as the starting canvas
+  for a new `product` / `post` content row whose editor opens empty
+  (`defaultBlocksForContentType`), matched by an explicit type allowlist.
+
+- Theme-contributed Customizer controls: a `customize` block in
+  `justflows-theme.json` adds sections/controls (`color` / `range` / `select` /
+  `font`, keyed by `--custom-property`) that flow to `:root` through the
+  existing schema-driven mods pipeline — `schemaWithThemeControls` merges them
+  onto `THEME_CUSTOMIZE_SCHEMA`, and `mergeMods` / `defaultModsFromSchema` /
+  `modsToCssVariables` are now generic over section keys.
+
+- Per-block styling without CSS. `style` (the Layout panel) gains `background`,
+  `textColor`, `accent` (validated colours; `transparent` / `none` clear a
+  background), `opacity` (0–100%), and `vars` — per-instance overrides of theme
+  CSS custom properties written onto the block's own root element. A
+  `blockControls` map in the theme manifest promotes chosen theme variables to
+  first-class inspector fields per block type (dropdown / slider / colour), with
+  an "All theme variables" section covering the rest. `GET
+/api/themes/style-tokens` serves the list (name, current value, range bounds,
+  select presets) and drives the per-block **Custom CSS** panel's variable
+  reference.
+
+- The page builder links the active theme's stylesheet into the canvas
+  (`GET /theme.css?scope=<selector>` → `scopeThemeCss` confines every selector
+  to one wrapper class, `:root` / `html` / `body` become the wrapper,
+  `@keyframes` stay global), and block previews emit the real `jf-*` markup, so
+  the canvas renders with actual theme styling.
+
+### Changed
+
+- Admin update discovery now follows full Semantic Versioning precedence,
+  including prerelease-to-stable updates such as `0.1.7-dev` or `0.1.7-rc` to
+  `0.1.7`. ([#87](https://github.com/JustFlows/justflows-ce/issues/87))
+
+- Database migrations `0001` through `0012` are consolidated into one
+  `0012_baseline` file per supported dialect, reducing the shipped migration
+  footprint from 36 files to 3. Fresh installs and existing sites run the same
+  ordered schema changes, completed baselines are recorded in `_migrations`,
+  and subsequent schema changes continue at migration `0013`.
+
+- The page builder no longer renders always-on header chrome; each page instead
+  references a header from the new library. Existing per-page headers
+  (`fields.jfHeader`) are converted to library entries once, on first boot, and
+  the page is pointed at the matching entry. Posts and error pages now render
+  the site-default header rather than a hardcoded default.
+
+- The content edit screen (`/admin/content/:id`) is settings-only for every
+  content type — the inline page-builder canvas is gone, replaced by an **Open
+  page builder** button. Its panels (SEO, Discussion, Revisions, Advanced) moved
+  from one long right-rail scroll into a left sub-nav, leaving only Publish in
+  the rail.
+
+### Fixed
+
+- `core.html` blocks now wrap their content in a single `<div class="jf-html">`.
+  Custom HTML with several top-level nodes previously had its block class,
+  scoped CSS, and style overrides applied only to the first element.
+
+### Removed
+
+- "Saved headers" (`/api/header-presets`) — replaced by the header library
+  (`/api/headers`). Old `header_presets` settings rows are left in place but
+  unused.
+
 ## [0.1.6]
 
 ### Added
