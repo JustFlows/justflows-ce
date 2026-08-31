@@ -206,7 +206,7 @@ limits) and the post's own **Discussion** control (`inherit` / `open` /
 placed block shows the existing thread and a "comments are closed" notice.
 Submissions post to `POST /justflows-comments/submit` (same-origin checked, IP
 rate limited, honeypot plus optional Turnstile, hCaptcha, or Google reCAPTCHA
-v2); replies pass
+v2/v3); replies pass
 `?reply=<id>`; extra pages use `?comment-page=N`. Approved comments never expose
 the commenter's email address or IP. Moderators work the queue in
 **Admin → Comments**.
@@ -215,9 +215,15 @@ the commenter's email address or IP. Moderators work the queue in
 
 Choose a provider under **Settings → Discussion**, then enter the site key and
 secret key created for the site's public hostname. Justflows supports Cloudflare
-Turnstile, hCaptcha, and the Google reCAPTCHA v2 checkbox. The site key is placed
-in the public widget; the secret is encrypted at rest and is never returned by
-the settings API.
+Turnstile, hCaptcha, the Google reCAPTCHA v2 checkbox, and score-based Google
+reCAPTCHA v3. The site key is placed in the public integration; the secret is
+encrypted at rest and is never returned by the settings API.
+
+For reCAPTCHA v3, choose a minimum score from `0` to `1` (default `0.5`). Higher
+values are stricter. Justflows obtains the token immediately before submission
+with the action `justflows_comment_submit`; the server requires that exact
+action and rejects scores below the configured threshold. Use separate v2 and
+v3 keys—Google key types are not interchangeable.
 
 Every token is verified with the selected provider from the server, including
 the visitor IP when available. Verification has a five-second timeout and fails
