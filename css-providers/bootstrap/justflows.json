@@ -7,13 +7,10 @@
   "publisher": "Bootstrap Team",
   "description": "Popular CSS framework with components and grid system",
   "license": "MIT",
+  "engines": { "justflows": ">=0.1.8-dev.1 <0.2.0" },
   "dependencies": {
     "bootstrap": "5.3.3"
   },
-  "stylesheets": [
-    { "href": "bootstrap/dist/css/bootstrap.min.css" }
-  ],
-  "scripts": [
-    { "src": "bootstrap/dist/js/bootstrap.bundle.min.js", "defer": true }
-  ]
+  "stylesheets": [{ "href": "bootstrap/dist/css/bootstrap.min.css" }],
+  "scripts": [{ "src": "bootstrap/dist/js/bootstrap.bundle.min.js", "defer": true }]
 }

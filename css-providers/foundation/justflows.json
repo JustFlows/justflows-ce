@@ -7,13 +7,12 @@
   "publisher": "ZURB",
   "description": "Responsive front-end framework with a flexible grid and UI components",
   "license": "MIT",
+  "engines": { "justflows": ">=0.1.8-dev.1 <0.2.0" },
   "dependencies": {
     "foundation-sites": "6.8.1",
     "jquery": "3.7.1"
   },
-  "stylesheets": [
-    { "href": "foundation-sites/dist/css/foundation.min.css" }
-  ],
+  "stylesheets": [{ "href": "foundation-sites/dist/css/foundation.min.css" }],
   "scripts": [
     { "src": "jquery/dist/jquery.min.js", "defer": true },
     { "src": "foundation-sites/dist/js/foundation.min.js", "defer": true }

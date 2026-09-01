@@ -27,6 +27,7 @@ const plugin: PluginModule = {
     name: "Acme SEO",
     version: "1.0.0",
     license: "GPL-2.0-or-later",
+    engines: { justflows: ">=0.1.8 <0.2.0" },
     permissions: [],
     main: "index.js",
   },
@@ -46,6 +47,10 @@ const plugin: PluginModule = {
 
 export default plugin;
 ```
+
+The host exposes its versions as `ctx.runtime.justflows`, `ctx.runtime.sdk`, and
+`ctx.runtime.sdkApi`. See [SDK-COMPATIBILITY.md](SDK-COMPATIBILITY.md) before
+choosing a compatibility range or deprecating a public integration.
 
 `activate` receives `PluginContext`: hooks, settings (`plugin_data`, not
 `site_settings`), logger, cache, HTTP routes, plugin-scoped data, encrypted
@@ -71,16 +76,11 @@ let stylesheet: string | undefined;
 
 async function registerStyles(ctx: PluginContext): Promise<void> {
   stylesheet ??= (
-    await readFile(
-      fileURLToPath(new URL("./styles/catalog.css", import.meta.url)),
-      "utf8",
-    )
+    await readFile(fileURLToPath(new URL("./styles/catalog.css", import.meta.url)), "utf8")
   ).trim();
 
   ctx.hooks.filter("theme.css", (current) =>
-    current.includes(MARKER)
-      ? current
-      : `${current}\n${MARKER}\n${stylesheet}\n`,
+    current.includes(MARKER) ? current : `${current}\n${MARKER}\n${stylesheet}\n`,
   );
 }
 ```

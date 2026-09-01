@@ -17,14 +17,16 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@justflows/core": "file:../core",
     "@justflows/auth": "file:../auth",
+    "@justflows/core": "file:../core",
     "@justflows/sdk": "file:../sdk",
+    "semver": "^7.8.5",
     "tar": "^7.5.22",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
+    "@types/semver": "^7.8.0",
     "@types/tar": "^6.1.13",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"

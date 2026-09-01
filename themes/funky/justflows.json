@@ -7,7 +7,9 @@
   "publisher": "Justflows Team",
   "license": "GPL-2.0-or-later",
   "description": "A deliberately loud demo skin with neo-brutalist borders, hard offset shadows, tilted cards, and animated rainbow gradients.",
-  "justflows": ">=0.1.0",
+  "engines": {
+    "justflows": ">=0.1.8-dev.1 <0.2.0"
+  },
   "registry": {
     "commercialMarketplace": false,
     "listed": true,

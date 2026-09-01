@@ -118,6 +118,8 @@ singular when there's only one entry.
 ## Themes (`themes/*`)
 
 - `justflows-theme.json` (or `justflows.json`) marks a directory as a theme.
+- Theme metadata declares `engines.justflows`; a packaged theme repeats the
+  same range in its archive-root `justflows.json` install manifest.
 - `styles/`, `patterns/`, `demo/` are the recognized subfolders; see
   [THEMES.md](THEMES.md) for exactly what the host reads from each.
 

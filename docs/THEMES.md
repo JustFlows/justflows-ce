@@ -15,6 +15,27 @@ and blog layouts.
 A directory is a theme if it contains `justflows-theme.json` or
 `justflows.json`.
 
+## Compatibility manifest
+
+Themes follow the same compatibility policy as plugins and CSS providers.
+Declare the supported host range in the theme metadata:
+
+```json
+{
+  "engines": {
+    "justflows": ">=0.1.8 <0.2.0"
+  }
+}
+```
+
+For a packaged `.jfpkg`, the install contract is the archive-root
+`justflows.json` with `type: "theme"`; the installer checks its range before the
+theme leaves staging. `justflows-theme.json` is the runtime theme metadata and
+should carry the same range so a source checkout or bundled theme states its
+contract too. When both files ship, keep their ranges identical. See
+[Manifest](MANIFEST.md), [Packaging](PACKAGING.md), and
+[SDK compatibility](SDK-COMPATIBILITY.md).
+
 ## Files the host reads
 
 | Path                    | Used for                                                 |

@@ -2,6 +2,8 @@ import {
   PluginManifestSchema,
   requiredPermissionForHook,
   isOwnedHookName,
+  SDK_API_VERSION,
+  SDK_VERSION,
   type PluginManifest,
   type PluginModule,
   type PluginContext,
@@ -83,8 +85,18 @@ const NULL_SECRETS: PluginSecretsApi = {
 };
 
 const NULL_DATABASES: PluginDatabasesApi = {
-  probeShared: async () => ({ ok: false, error: "Database probe is not available", tls: false, latencyMs: 0 }),
-  probe: async () => ({ ok: false, error: "Database probe is not available", tls: false, latencyMs: 0 }),
+  probeShared: async () => ({
+    ok: false,
+    error: "Database probe is not available",
+    tls: false,
+    latencyMs: 0,
+  }),
+  probe: async () => ({
+    ok: false,
+    error: "Database probe is not available",
+    tls: false,
+    latencyMs: 0,
+  }),
   ensureSchema: async () => ({ ok: false, error: "Database schema is not available", tables: [] }),
   dropSchema: async () => ({ ok: false, error: "Database schema is not available", tables: [] }),
   upsert: async () => undefined,
@@ -117,6 +129,7 @@ export class PluginLoader {
   private readonly jobsCleanup: ((pluginId: string) => void) | undefined;
   private readonly settingsAdapter: PluginSettingsAdapter;
   private readonly blockRegistry: PluginBlockRegistry | undefined;
+  private readonly justflowsVersion: string;
   private readonly registeredBlocks = new Map<string, string[]>();
   readonly httpRouter: PluginHttpRouter;
 
@@ -133,22 +146,26 @@ export class PluginLoader {
       settingsAdapter?: PluginSettingsAdapter;
       httpRouter?: PluginHttpRouter;
       blockRegistry?: PluginBlockRegistry;
+      justflowsVersion?: string;
     },
   ) {
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
     this.dataFactory = options?.dataFactory ?? (() => NULL_DATA);
     this.jobsFactory = options?.jobsFactory ?? (() => NULL_JOBS);
     this.secretsFactory = options?.secretsFactory ?? (() => NULL_SECRETS);
-    this.databasesFactory = options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
+    this.databasesFactory =
+      options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
     this.jobsCleanup = options?.jobsCleanup;
     this.settingsAdapter = options?.settingsAdapter ?? {
       get: (siteId, pluginId, key) => this.app.settings.get(siteId, `${pluginId}:${key}`),
-      set: (siteId, pluginId, key, value) => this.app.settings.set(siteId, `${pluginId}:${key}`, value),
+      set: (siteId, pluginId, key, value) =>
+        this.app.settings.set(siteId, `${pluginId}:${key}`, value),
       delete: (siteId, pluginId, key) => this.app.settings.delete(siteId, `${pluginId}:${key}`),
     };
     this.httpRouter = options?.httpRouter ?? new PluginHttpRouter();
     this.blockRegistry = options?.blockRegistry;
+    this.justflowsVersion = options?.justflowsVersion ?? "unknown";
   }
 
   /**
@@ -223,10 +240,10 @@ export class PluginLoader {
 
     this.app.logger.info("Plugin deactivated", { pluginId });
     await this.app.hooks.dispatchAction(
-        "plugin.deactivated",
-        { pluginId, version: entry.manifest.version, siteId },
-        { siteId, source: "system" },
-      );
+      "plugin.deactivated",
+      { pluginId, version: entry.manifest.version, siteId },
+      { siteId, source: "system" },
+    );
   }
 
   /**
@@ -325,6 +342,11 @@ export class PluginLoader {
     return {
       pluginId,
       version: manifest.version,
+      runtime: {
+        justflows: this.justflowsVersion,
+        sdk: SDK_VERSION,
+        sdkApi: SDK_API_VERSION,
+      },
       permissions,
       cache,
       hooks: {

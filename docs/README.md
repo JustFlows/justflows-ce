@@ -10,6 +10,7 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Hooks](HOOKS.md)                                  | Actions, gates, and filters                                       |
 | [Webhooks](WEBHOOKS.md)                            | Signed outbound events, retries, and plugin event types           |
 | [Manifest](MANIFEST.md)                            | `justflows.json` / `justflows-theme.json` fields                  |
+| [SDK compatibility](SDK-COMPATIBILITY.md)          | Version ranges, runtime versions, deprecation, and API stability  |
 | [Permissions](PERMISSIONS.md)                      | Plugin permissions vs user capabilities                           |
 | [Packaging](PACKAGING.md)                          | Building a `.jfpkg` for Admin → Plugins                           |
 | [Themes](THEMES.md)                                | Styles, patterns, demo home/blog layouts, resolution order        |

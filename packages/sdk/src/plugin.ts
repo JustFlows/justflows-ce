@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { gplLicenseValidationMessage, isGplCompatibleLicense } from "./license.js";
 import { RegistryListingSchema } from "./registry.js";
+import { ExtensionEnginesSchema } from "./compatibility.js";
 import type {
   ActionName,
   ActionHandlerFor,
@@ -49,6 +50,16 @@ export const SENSITIVE_PERMISSIONS: PluginPermission[] = [
   "auth:hook",
 ];
 
+/** Host/runtime versions exposed to an activated extension. */
+export interface JustflowsRuntimeVersions {
+  /** Installed Justflows CE version. */
+  readonly justflows: string;
+  /** Installed `@justflows/sdk` package version. */
+  readonly sdk: string;
+  /** Major contract revision for runtime feature detection. */
+  readonly sdkApi: number;
+}
+
 // ─── Admin menu contributions ─────────────────────────────────────────────
 
 /** Sidebar groups an extension may contribute an admin page to. */
@@ -87,7 +98,10 @@ export const AdminMenuItemSchema = z.object({
    */
   contentType: z
     .string()
-    .regex(/^[a-z][a-z0-9-]{0,59}$/, "Content type slug must be lowercase letters, numbers, and hyphens")
+    .regex(
+      /^[a-z][a-z0-9-]{0,59}$/,
+      "Content type slug must be lowercase letters, numbers, and hyphens",
+    )
     .optional(),
 });
 
@@ -118,7 +132,10 @@ export const PluginManifestSchema = z
     author: z.string().optional(),
     homepage: z.url().optional(),
     license: z.string().min(1, "Plugin license is required and must be GPL-compatible"),
+    engines: ExtensionEnginesSchema.optional(),
+    /** @deprecated Use engines.justflows in new manifests. */
     minJustflowsVersion: z.string().optional(),
+    /** @deprecated Use engines.justflows in new manifests. */
     maxJustflowsVersion: z.string().optional(),
     permissions: z.array(PluginPermissionSchema).default([]),
     main: z.string().default("index.js"),
@@ -161,7 +178,10 @@ export const PluginManifestSchema = z
       .array(
         z
           .string()
-          .regex(/^[a-z][a-z0-9-]{0,59}$/, "Content type slug must be lowercase letters, numbers, and hyphens"),
+          .regex(
+            /^[a-z][a-z0-9-]{0,59}$/,
+            "Content type slug must be lowercase letters, numbers, and hyphens",
+          ),
       )
       .max(20)
       .optional(),
@@ -422,14 +442,7 @@ export interface PluginDatabaseProbeResult {
 }
 
 export type PluginColumnType =
-  | "uuid"
-  | "text"
-  | "int"
-  | "bigint"
-  | "boolean"
-  | "timestamptz"
-  | "json"
-  | "varchar";
+  "uuid" | "text" | "int" | "bigint" | "boolean" | "timestamptz" | "json" | "varchar";
 
 export interface PluginSchemaColumn {
   name: string;
@@ -517,10 +530,7 @@ export interface PluginDatabasesApi {
    * Delete matching rows in a plugin-owned table. `where` must include at
    * least one column besides the implicit site scope.
    */
-  delete(
-    table: string,
-    where: Record<string, string | number | boolean | null>,
-  ): Promise<void>;
+  delete(table: string, where: Record<string, string | number | boolean | null>): Promise<void>;
 
   /** Column names for a plugin-owned table, or `[]` when the table does not exist. */
   columns(table: string): Promise<string[]>;
@@ -541,7 +551,10 @@ export interface PluginSecretsApi {
  */
 export interface PluginContext {
   readonly pluginId: string;
+  /** Version of the activated plugin. */
   readonly version: string;
+  /** Host and SDK versions for runtime feature detection and diagnostics. */
+  readonly runtime: JustflowsRuntimeVersions;
   readonly permissions: ReadonlySet<PluginPermission>;
 
   /**

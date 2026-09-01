@@ -5,6 +5,7 @@
   "description": "A deliberately loud demo skin — neo-brutalist borders, hard offset shadows, tilted cards, and animated rainbow gradients. Great for showing the theme system off.",
   "author": "Justflows Team",
   "license": "GPL-2.0-or-later",
+  "engines": { "justflows": ">=0.1.8-dev.1 <0.2.0" },
   "cssVariables": {
     "--color-primary": "#ff0080",
     "--color-primary-hover": "#d500f9",
