@@ -59,6 +59,9 @@ export const AUDIT_ACTIONS = [
   "content.revision_restored",
   "content.revision_discarded",
   "content.revision_pruned",
+  "diagnostics.debug_enabled",
+  "diagnostics.debug_disabled",
+  "diagnostics.bundle_generated",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

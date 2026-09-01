@@ -57,6 +57,7 @@ export function installedEnvContents(config: InstallConfig): string {
     `# Ports & logging`,
     `PORT=3000`,
     `LOG_LEVEL=info`,
+    `JF_DEBUG=false`,
     ``,
     `# Cache (jf-cache) — off until the owner enables it in Admin → Tools.`,
     `CACHE_ENABLED=0`,

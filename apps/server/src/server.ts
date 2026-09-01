@@ -18,6 +18,7 @@ import { createGzipMiddleware } from "./middleware/gzip.js";
 import { browserCacheMiddleware, staticMaxAgeMs } from "./middleware/browser-cache.js";
 import { rateLimit } from "express-rate-limit";
 import { adminClientDir, adminClientIndex } from "./lib/admin-ssr.js";
+import { requestContext } from "./middleware/request-context.js";
 
 let corePromise: Promise<void> | null = null;
 let deferredLoaded = false;
@@ -64,6 +65,7 @@ export function createApp(): express.Application {
   }
 
   app.disable("x-powered-by");
+  app.use(requestContext);
   app.use((_req, res, next) => {
     res.setHeader("X-Powered-By", "Justflows");
     next();

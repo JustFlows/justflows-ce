@@ -83,6 +83,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: auditRoutes },
     { default: webhooksRoutes },
     { default: preferencesRoutes },
+    { default: diagnosticsRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -112,6 +113,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/audit.js"),
     import("./routes/webhooks.js"),
     import("./routes/preferences.js"),
+    import("./routes/diagnostics.js"),
   ]);
 
   app.use(blockIfInstalled);
@@ -145,6 +147,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/audit", requireInstalled, auditRoutes);
   app.use("/api/webhooks", requireInstalled, webhooksRoutes);
   app.use("/api/preferences", requireInstalled, preferencesRoutes);
+  app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
   // Everything below is public-facing: one switch (Settings → Public API) takes
   // the whole surface offline. Mounted on the prefix so future public routes
   // inherit the guard automatically.

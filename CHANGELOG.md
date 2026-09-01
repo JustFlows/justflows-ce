@@ -31,6 +31,13 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Admin → System → Diagnostics adds administrator-only runtime, database,
+  migration, cache, plugin and typed-hook inspection; correlation IDs on every
+  HTTP response; bounded sanitized error retention; a persistent production
+  debug-mode warning; and explicitly confirmed, size-limited support bundles
+  containing exactly the redacted information previewed in the dashboard.
+  ([#57](https://github.com/JustFlows/justflows-ce/issues/57))
+
 - **SDK:** Published compatibility and deprecation policy for plugins, themes,
   and CSS providers; their shared `engines.justflows` manifest range is enforced
   by the installer before a package leaves staging; plugins additionally receive

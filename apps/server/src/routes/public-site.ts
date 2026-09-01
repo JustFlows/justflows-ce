@@ -53,7 +53,7 @@ import { getDb } from "../lib/db.js";
 import { viewsDir } from "../lib/jf-root.js";
 import { getJustflowsVersion } from "../lib/version.js";
 import { parseLocalePrefix, setLocaleCookie, LOCALE_COOKIE } from "../middleware/locale.js";
-import { isPreviewAllowed } from "../lib/auth-session.js";
+import { isPreviewAllowed, resolveSession } from "../lib/auth-session.js";
 import {
   canViewUnpublishedSite,
   isSitePublic,
@@ -102,6 +102,9 @@ import {
 import { getSession } from "../lib/session.js";
 import { getSiteSetting } from "../lib/site-settings.js";
 import { buildFaviconHeadHtml } from "../lib/favicon.js";
+import { currentRequestTrace, debugMode, recordCompletedRequestTrace } from "../lib/diagnostics.js";
+import { formatCacheSummary, getRequestCacheEvents, pageCacheStatus } from "../lib/cache-trace.js";
+import { getAdminPathConfig, toPublicAdminPath } from "../lib/admin-path.js";
 
 const templateDir = viewsDir();
 const router = Router();
@@ -403,13 +406,17 @@ async function buildCommentContext(
 }
 
 /** True when this request must skip the shared page cache for comment state. */
-function isCommentInteraction(req: Request): boolean {
-  if (getSession(req)) return true;
-  return (
+function pageCacheBypassReason(req: Request, preview: boolean): string | null {
+  if (preview) return "preview";
+  if (isFormConfirmation(req)) return "form confirmation";
+  if (getSession(req)) return "authenticated session";
+  if (
     typeof req.query.comment === "string" ||
     typeof req.query.reply === "string" ||
     typeof req.query["comment-page"] === "string"
-  );
+  ) return "comment interaction";
+  if (!getJfCache().enabled) return "page cache disabled";
+  return null;
 }
 
 function withSiteWidgets(
@@ -498,17 +505,82 @@ async function sendPublicHtml(
   render: () => Promise<string>,
   status = 200,
 ): Promise<void> {
-  const bypass = preview || isFormConfirmation(req) || isCommentInteraction(req);
+  const hooksBefore = getRuntimeHooks().inspect();
+  const hookRunsBefore = hooksBefore.reduce((sum, hook) => sum + hook.runs, 0);
+  const hookErrorsBefore = hooksBefore.reduce((sum, hook) => sum + hook.errors, 0);
+  const bypassReason = pageCacheBypassReason(req, preview);
+  const bypass = bypassReason !== null;
   if (bypass || !getJfCache().enabled) {
     res.locals.jfPageCache = "BYPASS";
   }
-  const html = await getCachedPageHtml(pageKey, bypass, render);
+  let html = await getCachedPageHtml(pageKey, bypass, render);
+  if (debugMode().enabled) {
+    const session = await resolveSession(req, res);
+    if (session?.role === "administrator") {
+      const hookState = getRuntimeHooks().inspect();
+      const trace = currentRequestTrace();
+      const events = getRequestCacheEvents(req);
+      const siteId = await getSiteId();
+      const theme = siteId ? await getActiveTheme(siteId) : null;
+      const adminPath = (await getAdminPathConfig()).path;
+      const toolbarData = {
+        requestId: req.requestId ?? "unknown",
+        path: req.path,
+        durationMs: trace ? performance.now() - trace.startedAt : 0,
+        pageCache: String(res.locals.jfPageCache ?? pageCacheStatus(events) ?? "BYPASS"),
+        pageCacheReason: bypassReason,
+        objectCache: formatCacheSummary(events),
+        databaseQueries: trace?.databaseQueries ?? 0,
+        databaseMs: trace?.databaseMs ?? 0,
+        hookRuns: hookState.reduce((sum, hook) => sum + hook.runs, 0) - hookRunsBefore,
+        hookErrors: hookState.reduce((sum, hook) => sum + hook.errors, 0) - hookErrorsBefore,
+        theme: theme?.theme_id ?? "justflows.default",
+        template: pageKey,
+        diagnosticsUrl: `${toPublicAdminPath("/admin/health", adminPath)}?requestId=${encodeURIComponent(req.requestId ?? "")}`,
+      };
+      recordCompletedRequestTrace({
+        requestId: toolbarData.requestId,
+        timestamp: new Date().toISOString(),
+        path: toolbarData.path,
+        durationMs: toolbarData.durationMs,
+        pageCache: toolbarData.pageCache,
+        pageCacheReason: toolbarData.pageCacheReason,
+        objectCache: toolbarData.objectCache,
+        databaseQueries: toolbarData.databaseQueries,
+        databaseMs: toolbarData.databaseMs,
+        hookRuns: toolbarData.hookRuns,
+        hookErrors: toolbarData.hookErrors,
+        theme: toolbarData.theme,
+        template: toolbarData.template,
+      });
+      html = injectDebugToolbar(html, toolbarData);
+      res.setHeader("Cache-Control", "private, no-store");
+    }
+  }
   res.status(status).type("html").send(html);
   if (!preview && status < 400) {
     void import("../lib/analytics-public.js")
       .then(({ recordPublicPageview }) => recordPublicPageview(req))
       .catch(() => undefined);
   }
+}
+
+function escapeDebugText(value: unknown): string {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]!);
+}
+
+function injectDebugToolbar(html: string, data: {
+  requestId: string; path: string; durationMs: number; pageCache: string; pageCacheReason: string | null; objectCache: string;
+  databaseQueries: number; databaseMs: number; hookRuns: number; hookErrors: number;
+  theme: string; template: string; diagnosticsUrl: string;
+}): string {
+  const payload = escapeDebugText(JSON.stringify(data));
+  const toolbar = `<jf-debug-toolbar data-payload="${payload}"></jf-debug-toolbar>` +
+    `<script src="/js/debug-toolbar.js" defer></script>`;
+  const bodyEnd = html.lastIndexOf("</body>");
+  return bodyEnd === -1 ? `${html}${toolbar}` : `${html.slice(0, bodyEnd)}${toolbar}${html.slice(bodyEnd)}`;
 }
 
 /** Render the site's normal themed 404 for routes intercepted before this router. */
