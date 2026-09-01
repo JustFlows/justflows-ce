@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { envFilePath } from "./jf-root.js";
+import { recordDatabaseTiming } from "./diagnostics.js";
 
 /** Load .env from repo root (survives Plesk restarts). */
 function ensureEnvLoaded() {
@@ -52,9 +53,33 @@ export interface DbClient {
 }
 
 let _client: DbClient | null = null;
+let _instrumentedClient: DbClient | null = null;
+
+function instrumentClient(client: DbClient): DbClient {
+  if (_instrumentedClient) return _instrumentedClient;
+  const timed = <TArgs extends unknown[], TResult>(fn: (...args: TArgs) => Promise<TResult>) =>
+    async (...args: TArgs): Promise<TResult> => {
+      const started = performance.now();
+      try {
+        return await fn(...args);
+      } finally {
+        recordDatabaseTiming(performance.now() - started);
+      }
+    };
+  _instrumentedClient = {
+    ...client,
+    run: timed(client.run.bind(client)),
+    query: timed(client.query.bind(client)) as DbClient["query"],
+    execute: timed(client.execute.bind(client)),
+    transaction: timed(client.transaction.bind(client)) as DbClient["transaction"],
+    reserve: client.reserve?.bind(client),
+    close: client.close.bind(client),
+  };
+  return _instrumentedClient;
+}
 
 export async function getDb(): Promise<DbClient> {
-  if (_client) return _client;
+  if (_client) return instrumentClient(_client);
 
   ensureEnvLoaded();
 
@@ -233,10 +258,11 @@ export async function getDb(): Promise<DbClient> {
     };
   }
 
-  return _client!;
+  return instrumentClient(_client!);
 }
 
 /** Reset the cached client (call after install completes). */
 export function resetDb() {
   _client = null;
+  _instrumentedClient = null;
 }

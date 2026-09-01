@@ -2,6 +2,7 @@
 
 import type { Response } from "express";
 import { logSafe } from "./log-safe.js";
+import { recordDiagnosticError } from "./diagnostics.js";
 
 /**
  * Answer an unexpected failure without describing the machine.
@@ -16,7 +17,8 @@ import { logSafe } from "./log-safe.js";
  * read it and an anonymous caller cannot.
  */
 export function sendServerError(res: Response, context: string, err: unknown): void {
+  const diagnostic = recordDiagnosticError(context, err);
   console.error(`[justflows] ${logSafe(context)}:`, err);
   if (res.headersSent) return;
-  res.status(500).json({ error: "Internal server error" });
+  res.status(500).json({ error: "Internal server error", requestId: diagnostic.requestId });
 }

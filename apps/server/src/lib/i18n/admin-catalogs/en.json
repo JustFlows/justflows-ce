@@ -24,6 +24,7 @@
     "marketplace": "Marketplace",
     "tools": "Tools",
     "health": "Health",
+    "diagnostics": "Diagnostics",
     "updates": "Updates",
     "webhooks": "Webhooks",
     "securityOverview": "Overview",

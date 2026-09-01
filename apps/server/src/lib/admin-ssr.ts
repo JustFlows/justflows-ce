@@ -142,7 +142,7 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add("/api/performance/stats");
     paths.add("/api/cache/stats");
   } else if (pathname === "/admin/health") {
-    paths.add("/api/health");
+    paths.add("/api/diagnostics");
   } else if (pathname === "/admin/languages") {
     paths.add("/api/languages");
   } else if (
