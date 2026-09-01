@@ -50,6 +50,7 @@ export const AUDIT_ACTIONS = [
   "core.auto_update_toggled",
   // Configuration that weakens or strengthens the site
   "security.headers_changed",
+  "security.admin_path_changed",
   "settings.changed",
   "public_api.toggled",
   "content.published",
@@ -77,13 +78,18 @@ export interface AuditEntry {
 }
 
 function nowSql(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  return new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "");
 }
 
 /** Trim to the column width, and strip anything that could forge a log line. */
 function field(value: string | null | undefined, max: number): string | null {
   if (value === null || value === undefined) return null;
-  const cleaned = String(value).replace(/[\r\n\0]/g, " ").trim();
+  const cleaned = String(value)
+    .replace(/[\r\n\0]/g, " ")
+    .trim();
   return cleaned ? cleaned.slice(0, max) : null;
 }
 
@@ -122,10 +128,7 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
     // every action, so the log is a signal instead of a flood.
     if (!unavailableLogged) {
       unavailableLogged = true;
-      console.error(
-        "[justflows] audit log unavailable — has migration 0008_audit_log run?",
-        err,
-      );
+      console.error("[justflows] audit log unavailable — has migration 0008_audit_log run?", err);
     }
   }
 }

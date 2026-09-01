@@ -29,6 +29,7 @@
     "securityOverview": "Übersicht",
     "securityHeaders": "Header",
     "securityAdvanced": "Erweitert",
+    "securityAdminPath": "Admin-URL",
     "securityAccount": "Dein Konto",
     "securityAudit": "Audit-Protokoll",
     "languages": "Sprachen",
@@ -376,6 +377,39 @@
       "hint": "Die Auslegung dieses Blocks für den Theme-Look — überschreibt die seitenweite Einstellung.",
       "inherit": "Theme-Standard",
       "all": "Alle Theme-Variablen"
+    }
+  },
+  "dashboard": {
+    "welcome": {
+      "title": "Willkommen bei JustFlows",
+      "subtitle": "Ein paar Anlaufstellen für den Einstieg. Alles hier ist optional — du kannst dieses Panel minimieren oder ausblenden.",
+      "minimize": "Minimieren",
+      "expand": "Ausklappen",
+      "dismiss": "Willkommens-Panel ausblenden",
+      "restore": "Willkommens-Panel anzeigen",
+      "opensNewTab": "(wird in einem neuen Tab geöffnet)",
+      "cards": {
+        "docs": {
+          "title": "Dokumentation",
+          "desc": "Anleitungen zum Einrichten und Betreiben deiner Website."
+        },
+        "marketplace": {
+          "title": "Marktplatz",
+          "desc": "Plugins und Themes durchsuchen, um deine Website zu erweitern."
+        },
+        "updates": {
+          "title": "Updates",
+          "desc": "Nach neuen JustFlows-Versionen suchen und sie einspielen."
+        },
+        "roadmap": {
+          "title": "Roadmap",
+          "desc": "Sieh, was veröffentlicht wurde und was als Nächstes kommt."
+        },
+        "community": {
+          "title": "Community",
+          "desc": "Komm in den JustFlows-Discord, um Fragen zu stellen und Ideen zu teilen."
+        }
+      }
     }
   }
 }

@@ -40,6 +40,8 @@ import PluginRoute from "@components/PluginRoute";
 import PluginHostPage from "./pages/admin/PluginHostPage";
 import { SiteFavicon } from "@components/SiteIdentity";
 import { canAccessPath } from "./config/admin-nav";
+import AdminPathPage from "./pages/admin/security/AdminPathPage";
+import { adminBasePath, publicAdminPath } from "./admin-path";
 
 /**
  * Guards the couple of full-bleed editors that render outside AdminShell (and
@@ -52,59 +54,76 @@ function RequireNavAccess({ path, children }: { path: string; children: React.Re
 }
 
 export default function App() {
+  const admin = adminBasePath();
   return (
     <I18nProvider>
-    <SessionProvider>
-    <PluginMenuProvider>
-    <SiteFavicon />
-    <Routes>
-      <Route path="/install" element={<InstallPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route
-        path="/admin/themes/customize"
-        element={<RequireNavAccess path="/admin/themes"><ThemeCustomizePage /></RequireNavAccess>}
-      />
-      <Route path="/admin/content/:id/builder" element={<PageBuilderPage />} />
-      <Route path="/admin" element={<AdminShell />}>
-        <Route index element={<DashboardPage />} />
-        <Route path="content" element={<ContentListPage />} />
-        <Route path="content/new" element={<ContentNewPage />} />
-        <Route path="content/:id" element={<ContentEditPage />} />
-        <Route path="content-types" element={<ContentTypesPage />} />
-        <Route path="media" element={<MediaPage />} />
-        <Route path="plugins" element={<PluginsPage />} />
-        <Route path="plugins/:id/settings" element={<PluginSettingsPage />} />
-        {/* Owned by the Analytics and Forms plugins — unreachable once deleted. */}
-        <Route
-          path="analytics"
-          element={<PluginRoute><AnalyticsPage /></PluginRoute>}
-        />
-        <Route path="forms" element={<PluginRoute><FormsPage /></PluginRoute>} />
-        <Route path="themes" element={<ThemesPage />} />
-        <Route path="design" element={<DesignPage />} />
-        <Route path="menus" element={<MenusPage />} />
-        <Route path="users" element={<UsersPage />} />
-        <Route path="users/:id" element={<EditUserPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-        <Route path="comments" element={<CommentsPage />} />
-        <Route path="marketplace" element={<MarketplacePage />} />
-        <Route path="tools" element={<ToolsPage />} />
-        <Route path="health" element={<HealthPage />} />
-        <Route path="updates" element={<UpdatesPage />} />
-        <Route path="webhooks" element={<WebhooksPage />} />
-        <Route path="languages" element={<LanguagesPage />} />
-        <Route path="security" element={<SecurityOverviewPage />} />
-        <Route path="security/headers" element={<SecurityHeadersPage />} />
-        <Route path="security/advanced" element={<SecurityAdvancedPage />} />
-        <Route path="security/account" element={<AccountSecurityPage />} />
-        <Route path="security/audit" element={<AuditLogPage />} />
-        <Route path="*" element={<PluginHostPage />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/admin" replace />} />
-    </Routes>
-    </PluginMenuProvider>
-    </SessionProvider>
+      <SessionProvider>
+        <PluginMenuProvider>
+          <SiteFavicon />
+          <Routes>
+            <Route path="/install" element={<InstallPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route
+              path={`${admin}/themes/customize`}
+              element={
+                <RequireNavAccess path="/admin/themes">
+                  <ThemeCustomizePage />
+                </RequireNavAccess>
+              }
+            />
+            <Route path={`${admin}/content/:id/builder`} element={<PageBuilderPage />} />
+            <Route path={admin} element={<AdminShell />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="content" element={<ContentListPage />} />
+              <Route path="content/new" element={<ContentNewPage />} />
+              <Route path="content/:id" element={<ContentEditPage />} />
+              <Route path="content-types" element={<ContentTypesPage />} />
+              <Route path="media" element={<MediaPage />} />
+              <Route path="plugins" element={<PluginsPage />} />
+              <Route path="plugins/:id/settings" element={<PluginSettingsPage />} />
+              {/* Owned by the Analytics and Forms plugins — unreachable once deleted. */}
+              <Route
+                path="analytics"
+                element={
+                  <PluginRoute>
+                    <AnalyticsPage />
+                  </PluginRoute>
+                }
+              />
+              <Route
+                path="forms"
+                element={
+                  <PluginRoute>
+                    <FormsPage />
+                  </PluginRoute>
+                }
+              />
+              <Route path="themes" element={<ThemesPage />} />
+              <Route path="design" element={<DesignPage />} />
+              <Route path="menus" element={<MenusPage />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="users/:id" element={<EditUserPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="comments" element={<CommentsPage />} />
+              <Route path="marketplace" element={<MarketplacePage />} />
+              <Route path="tools" element={<ToolsPage />} />
+              <Route path="health" element={<HealthPage />} />
+              <Route path="updates" element={<UpdatesPage />} />
+              <Route path="webhooks" element={<WebhooksPage />} />
+              <Route path="languages" element={<LanguagesPage />} />
+              <Route path="security" element={<SecurityOverviewPage />} />
+              <Route path="security/headers" element={<SecurityHeadersPage />} />
+              <Route path="security/advanced" element={<SecurityAdvancedPage />} />
+              <Route path="security/admin-path" element={<AdminPathPage />} />
+              <Route path="security/account" element={<AccountSecurityPage />} />
+              <Route path="security/audit" element={<AuditLogPage />} />
+              <Route path="*" element={<PluginHostPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to={publicAdminPath("/admin")} replace />} />
+          </Routes>
+        </PluginMenuProvider>
+      </SessionProvider>
     </I18nProvider>
   );
 }

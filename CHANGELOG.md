@@ -21,6 +21,23 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Admin Home shows a dismissible "Welcome to JustFlows" discovery panel to
+  administrators: curated cards linking to the documentation, Marketplace and
+  roadmap on `justflows.com`, the JustFlows Discord, and the in-app Updates page.
+  The cards are static and bundled — no remote feed, no injected markup or
+  scripts, no tracking — so Admin Home renders and works identically with no
+  network. Each administrator can minimize or
+  dismiss the panel and bring it back; the choice is stored per user (new
+  `user_preferences` table, migration `0016_user_preferences`, and
+  `GET` / `PUT /api/preferences`) and mirrored to `localStorage` for an instant,
+  offline-safe first paint. ([#52](https://github.com/JustFlows/justflows-ce/issues/52))
+
+- Admin → Security → Admin URL can move the administration entry path away
+  from `/admin`, with reserved-path validation, a reachability check and
+  automatic rollback, configurable 404/redirect behavior for the old path,
+  and a `JF_ADMIN_PATH_RECOVERY` environment override for proxy/cache recovery.
+  ([#51](https://github.com/JustFlows/justflows-ce/issues/51))
+
 - Each form built under Extensions → Forms has its own "Require a CAPTCHA on this
   form" switch in the builder. When on, the form reuses the provider and keys
   already configured under Settings → Discussion (Turnstile, hCaptcha, reCAPTCHA

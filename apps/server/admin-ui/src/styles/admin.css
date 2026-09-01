@@ -1508,6 +1508,54 @@ select.jf-input {
   color: var(--jf-text-2);
 }
 
+/* ------------------------------------------------- welcome / discovery --- */
+
+.jf-welcome {
+  background: var(--jf-surface);
+  border: 1px solid var(--jf-border);
+  border-radius: var(--jf-radius);
+  box-shadow: var(--jf-shadow-sm);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.jf-welcome__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.jf-welcome__title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.jf-welcome__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  color: var(--jf-text-2);
+  max-width: 52ch;
+}
+
+.jf-welcome__actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.jf-welcome__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.jf-dashboard__restore {
+  margin-top: 1rem;
+}
+
 /* --------------------------------------------------------- card grids --- */
 
 .jf-cardgrid {

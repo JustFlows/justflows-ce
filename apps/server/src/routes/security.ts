@@ -17,11 +17,56 @@ import {
   type SecurityHeadersConfig,
 } from "../lib/security-headers.js";
 import { sendServerError } from "../lib/send-error.js";
+import { getAdminPathConfig, saveAdminPathConfig, validateAdminPath } from "../lib/admin-path.js";
 
 const router = Router();
 
 /** Security configuration is an administrator-only surface, read included. */
 const adminOnly = requireRole("administrator");
+
+router.get("/admin-path", adminOnly, async (_req, res) => {
+  try {
+    const config = await getAdminPathConfig();
+    res.json({ config, recoveryOverride: Boolean(process.env.JF_ADMIN_PATH_RECOVERY) });
+  } catch (e) {
+    sendServerError(res, "security", e);
+  }
+});
+
+router.post("/admin-path/preview", adminOnly, (req, res) => {
+  try {
+    const path = req.body?.path === "/admin" ? "/admin" : validateAdminPath(req.body?.path);
+    res.json({ ok: true, path, loginUrl: `${path}/security/admin-path` });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Invalid admin path." });
+  }
+});
+
+router.put("/admin-path", adminOnly, async (req, res) => {
+  try {
+    if (process.env.JF_ADMIN_PATH_RECOVERY) {
+      res.status(409).json({ error: "Remove JF_ADMIN_PATH_RECOVERY before saving this setting." });
+      return;
+    }
+    const previous = await getAdminPathConfig();
+    const config = await saveAdminPathConfig({
+      path: req.body?.path,
+      oldPathBehavior: req.body?.oldPathBehavior,
+    });
+    auditFromRequest(req, "security.admin_path_changed", {
+      target: "security.admin_path",
+      detail: `${previous.path} -> ${config.path}`,
+    });
+    res.json({ ok: true, config, previous });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Invalid admin path.";
+    if (/path|reserved|allowed|trailing/i.test(message)) {
+      res.status(400).json({ error: message });
+      return;
+    }
+    sendServerError(res, "security", e);
+  }
+});
 
 /** What each scope produces, so the admin can see the real headers before saving. */
 function effectiveHeaders(config: SecurityHeadersConfig) {

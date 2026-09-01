@@ -7,6 +7,7 @@ export const MIGRATION_ORDER = [
   "0013_public_comments",
   "0014_content_webhooks",
   "0015_theme_designs",
+  "0016_user_preferences",
 ] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";

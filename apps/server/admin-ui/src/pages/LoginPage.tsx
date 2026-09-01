@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import { ensureCsrfCookie } from "../lib/csrf";
+import { publicAdminPath } from "../admin-path";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -34,7 +35,7 @@ export default function LoginPage() {
         body: JSON.stringify(totpRequired ? { email, password, totp } : { email, password }),
       });
 
-      const data = await res.json() as { error?: string; totpRequired?: boolean; role?: string };
+      const data = (await res.json()) as { error?: string; totpRequired?: boolean; role?: string };
 
       if (!res.ok) {
         if (data.totpRequired) setTotpRequired(true);
@@ -46,7 +47,7 @@ export default function LoginPage() {
       // of an admin app that would have nothing for them to do. A full
       // navigation (not client-side routing) so the server's own /admin gate
       // is the one source of truth for this, not a copy of it here.
-      window.location.href = data.role === "subscriber" ? "/" : "/admin";
+      window.location.href = data.role === "subscriber" ? "/" : publicAdminPath("/admin");
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -67,7 +68,9 @@ export default function LoginPage() {
 
         <form onSubmit={submit} className="jf-auth__body">
           <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-email">Email address</label>
+            <label className="jf-field__label" htmlFor="jf-email">
+              Email address
+            </label>
             <input
               id="jf-email"
               className="jf-input"
@@ -82,7 +85,9 @@ export default function LoginPage() {
 
           {totpRequired ? (
             <div className="jf-field">
-              <label className="jf-field__label" htmlFor="jf-totp">Authentication code</label>
+              <label className="jf-field__label" htmlFor="jf-totp">
+                Authentication code
+              </label>
               <input
                 id="jf-totp"
                 className="jf-input"
@@ -101,7 +106,9 @@ export default function LoginPage() {
           ) : null}
 
           <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-password">Password</label>
+            <label className="jf-field__label" htmlFor="jf-password">
+              Password
+            </label>
             <input
               id="jf-password"
               className="jf-input"
@@ -113,7 +120,11 @@ export default function LoginPage() {
             />
           </div>
 
-          {error && <div className="jf-alert jf-alert--error" role="alert">{error}</div>}
+          {error && (
+            <div className="jf-alert jf-alert--error" role="alert">
+              {error}
+            </div>
+          )}
 
           <button className="jf-btn jf-btn--primary jf-btn--block" type="submit" disabled={loading}>
             {loading ? "Signing in…" : "Sign in →"}

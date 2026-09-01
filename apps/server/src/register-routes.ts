@@ -1,11 +1,12 @@
-import type express from "express";
+import express from "express";
 import { isInstalled, requireInstalled, blockIfInstalled } from "./middleware/install-guard.js";
 import { publicApiGuard } from "./middleware/public-api.js";
 import { publicApiCors } from "./middleware/public-api-cors.js";
 import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
 import { logSafe } from "./lib/log-safe.js";
-import { renderAdminPage } from "./lib/admin-ssr.js";
+import { adminClientDir, renderAdminPage } from "./lib/admin-ssr.js";
 import { adminAccessGate } from "./middleware/admin-access.js";
+import { getAdminPathConfig, toInternalAdminPath } from "./lib/admin-path.js";
 
 /** Register heavy routes (dynamic import — keeps Passenger startup fast). */
 export async function registerDeferredRoutes(app: express.Application): Promise<void> {
@@ -33,7 +34,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       const { getSiteId } = await import("./lib/site-settings.js");
       const siteId = await getSiteId();
       if (siteId) {
-        const { migrateTemplatePartsFromSettings } = await import("./lib/template-parts-migrate.js");
+        const { migrateTemplatePartsFromSettings } =
+          await import("./lib/template-parts-migrate.js");
         await migrateTemplatePartsFromSettings(siteId);
         const { migrateThemeDesignsFromSettings } = await import("./lib/theme-designs-migrate.js");
         await migrateThemeDesignsFromSettings(siteId);
@@ -69,7 +71,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: performanceRoutes },
     { default: importRoutes },
     { default: siteRoutes, serveThemeCss },
-    { default: publicSiteRoutes },
+    { default: publicSiteRoutes, sendPublicNotFound },
     { default: languagesRoutes },
     { default: menusRoutes },
     { default: blocksRoutes },
@@ -80,6 +82,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: siteHeaderRoutes },
     { default: auditRoutes },
     { default: webhooksRoutes },
+    { default: preferencesRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -108,6 +111,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/site-header.js"),
     import("./routes/audit.js"),
     import("./routes/webhooks.js"),
+    import("./routes/preferences.js"),
   ]);
 
   app.use(blockIfInstalled);
@@ -140,6 +144,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
   app.use("/api/audit", requireInstalled, auditRoutes);
   app.use("/api/webhooks", requireInstalled, webhooksRoutes);
+  app.use("/api/preferences", requireInstalled, preferencesRoutes);
   // Everything below is public-facing: one switch (Settings → Public API) takes
   // the whole surface offline. Mounted on the prefix so future public routes
   // inherit the guard automatically.
@@ -252,6 +257,30 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       res.status(500).type("text/plain").send("Internal server error");
     }
   });
+
+  // Map the configurable public entry path to the stable internal /admin route.
+  // APIs stay fixed so a bad proxy rule can always be rolled back safely.
+  app.use(async (req, res, next) => {
+    try {
+      const config = await getAdminPathConfig();
+      if (config.path === "/admin") return next();
+      if (req.path === "/admin" || req.path.startsWith("/admin/")) {
+        if (config.oldPathBehavior === "redirect") {
+          res.redirect(302, `${config.path}${req.path.slice("/admin".length)}`);
+        } else {
+          await sendPublicNotFound(req, res);
+        }
+        return;
+      }
+      const internal = toInternalAdminPath(req.path, config.path);
+      if (internal) req.url = `${internal}${req.url.slice(req.path.length)}`;
+      next();
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  app.use("/admin/assets", express.static(`${adminClientDir()}/assets`));
 
   app.use("/admin", requireInstalled, adminAccessGate);
 

@@ -29,6 +29,7 @@
     "securityOverview": "Overzicht",
     "securityHeaders": "Headers",
     "securityAdvanced": "Geavanceerd",
+    "securityAdminPath": "Beheer-URL",
     "securityAccount": "Je account",
     "securityAudit": "Auditlogboek",
     "languages": "Talen",
@@ -423,6 +424,39 @@
       "hint": "De invulling van dit blok voor de thema-look — overschrijft de site-brede instelling.",
       "inherit": "Themastandaard",
       "all": "Alle themavariabelen"
+    }
+  },
+  "dashboard": {
+    "welcome": {
+      "title": "Welkom bij JustFlows",
+      "subtitle": "Een paar plekken om te beginnen. Alles hier is optioneel — je kunt dit paneel minimaliseren of sluiten.",
+      "minimize": "Minimaliseren",
+      "expand": "Uitklappen",
+      "dismiss": "Welkomstpaneel sluiten",
+      "restore": "Welkomstpaneel tonen",
+      "opensNewTab": "(opent in een nieuw tabblad)",
+      "cards": {
+        "docs": {
+          "title": "Documentatie",
+          "desc": "Handleidingen om je site op te zetten en te beheren."
+        },
+        "marketplace": {
+          "title": "Marktplaats",
+          "desc": "Blader door plugins en thema's om je site uit te breiden."
+        },
+        "updates": {
+          "title": "Updates",
+          "desc": "Controleer op nieuwe JustFlows-releases en installeer ze."
+        },
+        "roadmap": {
+          "title": "Roadmap",
+          "desc": "Bekijk wat er is uitgebracht en wat er nog aankomt."
+        },
+        "community": {
+          "title": "Community",
+          "desc": "Kom naar de JustFlows-Discord om vragen te stellen en ideeën te delen."
+        }
+      }
     }
   }
 }

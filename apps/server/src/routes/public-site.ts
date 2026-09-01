@@ -511,6 +511,22 @@ async function sendPublicHtml(
   }
 }
 
+/** Render the site's normal themed 404 for routes intercepted before this router. */
+export async function sendPublicNotFound(req: Request, res: Response): Promise<void> {
+  if (!(await ensureSiteIsPublic(req, res))) return;
+  await sendPublicHtml(
+    req,
+    res,
+    `${req.path}:404`,
+    false,
+    async () => {
+      const ctx = await buildPageContext(req.path, false);
+      return renderPage("404", { ...ctx, title: ctx.t("404.title") });
+    },
+    404,
+  );
+}
+
 async function renderPage(view: string, data: Record<string, unknown>): Promise<string> {
   const pageData = { ...data, localePath, justflowsVersion: getJustflowsVersion() };
   const hooks = getRuntimeHooks();
