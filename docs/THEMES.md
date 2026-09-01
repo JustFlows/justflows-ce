@@ -90,8 +90,53 @@ plugin can render its own markup and needs no JavaScript of its own. Clicking
 `system` control exists anywhere on the page, and the resolved theme otherwise,
 so a two-button widget still shows which way it is set.
 
-The bundled toggle is `core.color-scheme` (page-builder block, `showSystem` prop)
-or the header's **Light / dark toggle** switch.
+For a single control, use `data-jf-theme="toggle"`: each click flips to the
+opposite of the currently resolved theme, and the listener reflects state back
+as `aria-pressed` (or `aria-checked` when the element has `role="switch"`) and
+mirrors the resolved theme onto `data-jf-resolved="light" | "dark"`. The bundled
+theme swaps the toggle glyph from `html[data-theme]`, which is stamped before
+first paint, so the icon is correct with no flash. A compact
+`<select data-jf-color-scheme-select>` whose option values are `light` / `dark`
+/ `system` is driven by the same delegated `change` listener.
+
+The bundled toggle is `core.color-scheme` (page-builder block). Its `style` prop
+offers `buttons`, `icons`, `segmented`, `toggle`, `switch`, `select`, `labels`,
+and `tooltip-icons`; `showSystem` adds the Auto option and `animate` (default
+on, disabled under `prefers-reduced-motion`) transitions the icon. `size`
+(`sm` / `md` / `lg`) and `radius` (`pill` / `rounded` / `square`) tune the
+control, and `lightIcon` / `darkIcon` / `autoIcon` plus `lightLabel` /
+`darkLabel` / `autoLabel` override the glyphs and text (blank keeps the
+defaults; author values are HTML-escaped). The header's **Light / dark toggle**
+switch is the other bundled entry point.
+
+The default theme styles every colour, radius, and spacing the widget uses
+through `--jf-color-scheme-*` custom properties with theme-token fallbacks, so a
+theme or the Theme Customizer can restyle the hover, active, and focus states
+without overriding rules:
+
+```css
+.jf-color-scheme {
+  --jf-color-scheme-bg / -fg / -border;                /* resting */
+  --jf-color-scheme-hover-bg / -hover-fg / -hover-border;
+  --jf-color-scheme-active-bg / -active-fg / -active-border;
+  --jf-color-scheme-focus;
+  --jf-color-scheme-radius / -font-size / -gap;
+  --jf-color-scheme-padding-y / -padding-x;
+}
+```
+
+`--jf-color-scheme-hover-bg` and `-hover-fg` default to the resting background
+and text, so hover only shows the border highlight until a theme (or the block's
+Theme-styling panel) sets a fill. The builder surfaces the five colour hooks
+(`active-bg`, `active-fg`, `hover-bg`, `hover-fg`, `hover-border`) in the
+`core.color-scheme` block's **Theme styling → All theme variables** list, where
+each writes an inline `--jf-color-scheme-*` onto the block, so an author can
+recolour one instance without writing CSS. Theme-wide, set them in the theme's
+`global.css` or Theme builder → Styles.
+
+The `--size-*` and `--radius-*` modifier classes on the wrapper simply reassign
+the same variables; target them (or a more specific selector) if a theme needs
+to win over the author's size/radius choice.
 
 The public home URL (`/`) renders a selected **page** when one is set as the
 home page (Theme builder → Home page, or Content → Set as home page). Header

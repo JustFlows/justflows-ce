@@ -18,6 +18,7 @@ interface FormDefinition {
   title: string;
   submitLabel: string;
   successMessage: string;
+  captcha: boolean;
   fields: FormField[];
 }
 
@@ -55,6 +56,7 @@ function blankForm(): FormDefinition {
     title: "",
     submitLabel: "Send",
     successMessage: "Thanks, we received your message.",
+    captcha: false,
     fields: [
       { id: crypto.randomUUID(), name: "name", label: "Name", type: "text", required: true },
       { id: crypto.randomUUID(), name: "email", label: "Email", type: "email", required: true },
@@ -262,6 +264,18 @@ export default function FormsPage() {
                       <label className="jf-stack jf-stack--sm"><span>Thanks message</span>
                         <input className="jf-input" value={draft.successMessage} onChange={(e) => setDraft({ ...draft, successMessage: e.target.value })} />
                       </label>
+
+                      <label className="jf-row" style={{ gap: "0.5rem" }}>
+                        <input
+                          type="checkbox"
+                          checked={draft.captcha}
+                          onChange={(e) => setDraft({ ...draft, captcha: e.target.checked })}
+                        />
+                        Require a CAPTCHA on this form
+                      </label>
+                      <p className="jf-meta" style={{ marginTop: "-0.25rem" }}>
+                        Uses the provider and keys set under Settings → Discussion. No effect while that is “None”.
+                      </p>
 
                       <div className="jf-stack">
                         {draft.fields.map((field, index) => (

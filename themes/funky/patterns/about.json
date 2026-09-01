@@ -1,0 +1,136 @@
+{
+  "id": "about",
+  "title": "Funky about page",
+  "description": "Company story with a loud hero, two-column story + quote, a values grid, and a CTA.",
+  "category": "pages",
+  "blocks": [
+    {
+      "id": "about-hero",
+      "type": "core.hero",
+      "version": 1,
+      "props": {
+        "heading": "We make websites, but weirder",
+        "subheading": "The Funky theme started as one over-the-top Custom CSS snippet on a comments block. Then it ate the rest of the theme. This is what happened.",
+        "buttonLabel": "",
+        "buttonUrl": "",
+        "backgroundImage": "",
+        "align": "left"
+      }
+    },
+    {
+      "id": "about-story",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "default", "padding": "lg", "align": "left" },
+      "children": [
+        {
+          "id": "about-story-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "about-story-cols",
+              "type": "core.columns",
+              "version": 1,
+              "props": { "columns": 2, "gap": "lg" },
+              "children": [
+                {
+                  "id": "about-col-1",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "about-badge",
+                      "type": "core.html",
+                      "version": 1,
+                      "props": { "html": "<span class=\"jf-badge\">Our story</span>" }
+                    },
+                    {
+                      "id": "about-h1",
+                      "type": "core.heading",
+                      "version": 1,
+                      "props": { "text": "How it got this loud", "level": 2 }
+                    },
+                    {
+                      "id": "about-p1",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": {
+                        "text": "The theme layer in Justflows is just CSS, patterns, and a few demo documents. Funky proves it: nothing here touches the core layout — every dashed border and tilted card is a stylesheet rule you can read and change."
+                      }
+                    },
+                    {
+                      "id": "about-p2",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": {
+                        "text": "Use it to show a client what's possible, to stress-test your own blocks against a busy skin, or just because grey is boring. Then swap back to Default when the fun's over."
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "about-col-2",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "about-quote",
+                      "type": "core.quote",
+                      "version": 1,
+                      "props": {
+                        "text": "A demo theme should be impossible to mistake for production. Mission accomplished.",
+                        "attribution": "The Funky theme, about itself"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "about-values",
+      "type": "core.features",
+      "version": 1,
+      "props": {
+        "heading": "What we optimise for",
+        "columns": 3,
+        "items": [
+          {
+            "icon": "🌈",
+            "title": "Contrast",
+            "description": "If two colours can clash, they will. On purpose."
+          },
+          {
+            "icon": "🧱",
+            "title": "Honesty",
+            "description": "Same blocks as Default — only the paint job changed."
+          },
+          {
+            "icon": "🔁",
+            "title": "Reversibility",
+            "description": "One click in the theme picker undoes all of it."
+          }
+        ]
+      }
+    },
+    {
+      "id": "about-cta",
+      "type": "core.cta",
+      "version": 1,
+      "props": {
+        "heading": "Seen enough?",
+        "text": "Head to the admin, open the theme picker, and pick whichever version of reality you prefer.",
+        "buttonLabel": "Open admin",
+        "buttonUrl": "/admin",
+        "variant": "primary"
+      }
+    }
+  ]
+}

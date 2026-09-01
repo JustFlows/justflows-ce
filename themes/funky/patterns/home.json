@@ -1,0 +1,201 @@
+{
+  "id": "home",
+  "title": "Funky marketing homepage",
+  "description": "Loud demo homepage: hero, logos, features, stats, split section, testimonials, and CTA — all in the Funky skin.",
+  "category": "pages",
+  "blocks": [
+    {
+      "id": "home-hero",
+      "type": "core.hero",
+      "version": 1,
+      "props": {
+        "heading": "It's a DEMO — and it's LOUD",
+        "subheading": "The Funky theme cranks the Justflows block system to eleven: bold black borders, hard offset shadows, tilted cards, and rainbow gradients that will not sit still. Swap it for Default when you mean business.",
+        "buttonLabel": "Open admin",
+        "buttonUrl": "/admin",
+        "backgroundImage": "",
+        "align": "center"
+      }
+    },
+    {
+      "id": "home-logos",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "muted", "padding": "md", "align": "center" },
+      "children": [
+        {
+          "id": "home-logos-inner",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "home-logos-html",
+              "type": "core.html",
+              "version": 1,
+              "props": {
+                "html": "<p class=\"jf-logos__label\">Skinned by teams who like it weird</p><div class=\"jf-logos\"><span>Acme</span><span>Nova</span><span>Pixel</span><span>Orbit</span><span>Lumen</span></div>"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home-features",
+      "type": "core.features",
+      "version": 1,
+      "props": {
+        "heading": "Same blocks. Way more attitude.",
+        "columns": 3,
+        "items": [
+          { "icon": "🧪", "title": "Pure demo skin", "description": "Every rule lives in one theme stylesheet — nothing here touches the core layout." },
+          { "icon": "🧱", "title": "Block builder", "description": "The exact same sections, columns, heroes, and CTAs — just wearing neon." },
+          { "icon": "🎨", "title": "Theme customizer", "description": "Repaint it from the admin; the Customizer palette overrides the theme's :root." },
+          { "icon": "🌈", "title": "Animated everything", "description": "Spinning conic gradients, sliding rainbows, wiggling buttons. On brand." },
+          { "icon": "💬", "title": "Loud comments", "description": "The comment thread ships its own deliberately over-the-top skin." },
+          { "icon": "🔁", "title": "One swap back", "description": "Pick Default in the theme picker and the whole site calms down instantly." }
+        ]
+      }
+    },
+    {
+      "id": "home-stats",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "gradient", "padding": "lg", "align": "center" },
+      "children": [
+        {
+          "id": "home-stats-inner",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "home-stats-html",
+              "type": "core.html",
+              "version": 1,
+              "props": {
+                "html": "<div class=\"jf-stats\"><div class=\"jf-stat\"><strong>7</strong><span>Colours, minimum</span></div><div class=\"jf-stat\"><strong>0</strong><span>Subtle shadows</span></div><div class=\"jf-stat\"><strong>5</strong><span>Keyframe loops</span></div><div class=\"jf-stat\"><strong>∞</strong><span>Degrees of rotation</span></div></div>"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home-split",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "default", "padding": "xl", "align": "left" },
+      "children": [
+        {
+          "id": "home-split-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "home-split-cols",
+              "type": "core.columns",
+              "version": 1,
+              "props": { "columns": 2, "gap": "lg" },
+              "children": [
+                {
+                  "id": "home-split-col-a",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "home-split-badge",
+                      "type": "core.html",
+                      "version": 1,
+                      "props": { "html": "<span class=\"jf-badge\">Page builder</span>" },
+                      "children": []
+                    },
+                    {
+                      "id": "home-split-h",
+                      "type": "core.heading",
+                      "version": 1,
+                      "props": { "text": "Design in sections, publish in seconds", "level": 2 },
+                      "children": []
+                    },
+                    {
+                      "id": "home-split-p",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": {
+                        "text": "Stack heroes, feature grids, and call-to-actions. Nest containers and columns for complex layouts — all stored as structured JSON you own. The Funky theme only changes how it looks."
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "home-split-btn",
+                      "type": "core.button",
+                      "version": 1,
+                      "props": { "label": "Try the builder", "url": "/admin", "variant": "primary" },
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "home-split-col-b",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "home-split-card",
+                      "type": "core.html",
+                      "version": 1,
+                      "props": {
+                        "html": "<div class=\"jf-preview-card\"><div class=\"jf-preview-card__bar\"><span></span><span></span><span></span></div><div class=\"jf-preview-card__body\"><div class=\"jf-preview-card__hero\"></div><div class=\"jf-preview-card__lines\"><span></span><span></span><span style=\"width:60%\"></span></div><div class=\"jf-preview-card__grid\"><span></span><span></span><span></span></div></div></div>"
+                      },
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home-testimonials",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "muted", "padding": "xl", "align": "center" },
+      "children": [
+        {
+          "id": "home-testimonials-inner",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "home-testimonials-html",
+              "type": "core.html",
+              "version": 1,
+              "props": {
+                "html": "<h2 class=\"jf-testimonials__heading\">Reviews, tilted</h2><div class=\"jf-testimonials\"><blockquote class=\"jf-testimonial\"><p>\"I asked for a demo skin. I got a rave.\"</p><footer>— Alex, indie dev</footer></blockquote><blockquote class=\"jf-testimonial\"><p>\"Great for screenshots. Switched back to Default before the client call.\"</p><footer>— Sam, agency lead</footer></blockquote><blockquote class=\"jf-testimonial\"><p>\"Proof that the theme layer really is just CSS.\"</p><footer>— Jordan, product team</footer></blockquote></div>"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home-cta",
+      "type": "core.cta",
+      "version": 1,
+      "props": {
+        "heading": "Ready to turn it down again?",
+        "text": "Open the theme picker, choose Default, and your site is back to business — same content, same blocks.",
+        "buttonLabel": "Go to admin",
+        "buttonUrl": "/admin",
+        "variant": "dark"
+      }
+    }
+  ]
+}

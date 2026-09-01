@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 
-import { CAPTCHA_META } from "./comments-public.js";
+import { CAPTCHA_META } from "./captcha.js";
 import { getCommentSettings, type CaptchaProvider } from "./comments-settings.js";
 
 // The security-headers middleware runs on every public request, so the provider
 // lookup is cached for a couple of seconds like the Google Tag id is.
+//
+// The provider is read from the `comments` settings, but it is shared: the Forms
+// plugin reuses the same provider + keys. Widening the CSP whenever a provider is
+// selected (regardless of which feature turns it on) therefore covers both.
 let providerCache: { at: number; value: Promise<CaptchaProvider> } | null = null;
 
 export async function getCaptchaProviderForCsp(): Promise<CaptchaProvider> {

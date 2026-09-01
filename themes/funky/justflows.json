@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "type": "theme",
+  "id": "justflows.funky",
+  "name": "Funky",
+  "version": "1.0.0-dev",
+  "publisher": "Justflows Team",
+  "license": "GPL-2.0-or-later",
+  "description": "A deliberately loud demo skin with neo-brutalist borders, hard offset shadows, tilted cards, and animated rainbow gradients.",
+  "justflows": ">=0.1.0",
+  "registry": {
+    "commercialMarketplace": false,
+    "listed": true,
+    "free": true,
+    "comingSoon": false,
+    "category": "Themes",
+    "tags": ["funky", "neo-brutalist", "colorful", "animated"],
+    "screenshots": []
+  }
+}

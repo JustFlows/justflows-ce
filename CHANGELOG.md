@@ -5,6 +5,60 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.8-dev.1] [UNRELEASED]
+
+### Changed
+
+- Per-theme customization documents (Customizer mods, homepage design, blog
+  design, plus their draft copies) move out of `site_settings` into a dedicated
+  `theme_designs` table — one row per (site, theme, kind) with a `doc` /
+  `draft_doc` pair, the same shape as `template_parts`. `site_settings` is for
+  site-level preferences, not theme/plugin configuration (plugins already use
+  `plugin_data`). Migration `0015_theme_designs` adds the table; a one-time
+  application backfill on boot (`theme-designs-migrate.ts`) copies the legacy
+  `theme_mods.* / theme_home.* / theme_blog.*` (and `*_draft.*`) rows over and
+  deletes them, draft-only customizations included. No API or UI change.
+
+### Added
+
+- Each form built under Extensions → Forms has its own "Require a CAPTCHA on this
+  form" switch in the builder. When on, the form reuses the provider and keys
+  already configured under Settings → Discussion (Turnstile, hCaptcha, reCAPTCHA
+  v2, or reCAPTCHA v3) — no second key to enter. The widget renders in that form,
+  `/justflows-forms/submit` verifies the token server-side (reCAPTCHA v3 checks a
+  form-specific action and the score threshold) before storing or emailing the
+  submission, and the honeypot still runs first. The provider/verify/widget code
+  is now shared between comments and forms (`apps/server/src/lib/captcha.ts`);
+  the public CSP already widens whenever a provider is selected, so it covers
+  both.
+
+- The `core.color-scheme` block gains design variants beyond buttons and icons:
+  a two/three-button segmented control, a single sun/moon toggle, a switch
+  control, a compact dropdown, plain text labels, and icon buttons with
+  tooltips — selectable per block in the page builder with a live preview and an
+  "Animate the icon change" option that honours `prefers-reduced-motion`. Every
+  variant reuses the existing preference engine in `/js/site-chrome.js`
+  (pre-paint apply, explicit choice persisted, live OS tracking while on
+  System/Auto, CSP-safe) rather than duplicating theme-state logic. The single
+  toggle carries `data-jf-theme="toggle"` and the dropdown a
+  `data-jf-color-scheme-select` `<select>`; both are driven by the same
+  delegated listeners. Focus is now always visible on the controls.
+  ([#60](https://github.com/JustFlows/justflows-ce/issues/60))
+
+- `core.color-scheme` is also customizable per block: `size` (`sm`/`md`/`lg`),
+  `radius` (`pill`/`rounded`/`square`), and overridable icons and labels
+  (`lightIcon` / `darkIcon` / `autoIcon`, `lightLabel` / `darkLabel` /
+  `autoLabel` — blank keeps the defaults, author values are HTML-escaped). The
+  default theme now styles the widget entirely through `--jf-color-scheme-*`
+  custom properties (resting / hover / active / focus colors, border, radius,
+  spacing, font size) with theme-token fallbacks, so a theme or the Theme
+  Customizer can restyle it without overriding rules. `--jf-color-scheme-hover-bg`
+  / `-hover-fg` default to the resting colours (hover shows only the border
+  highlight) until set. The builder surfaces the five colour hooks in the
+  block's Theme-styling → All theme variables list, so an author can recolour
+  the selected/hover state of one instance without writing CSS.
+  ([#60](https://github.com/JustFlows/justflows-ce/issues/60))
+
 ## [0.1.7]
 
 ### Added

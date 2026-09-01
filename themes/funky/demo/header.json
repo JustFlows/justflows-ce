@@ -1,0 +1,12 @@
+{
+  "layout": "logo-left",
+  "sticky": true,
+  "showLogo": true,
+  "showTitle": true,
+  "menuMode": "inherit",
+  "showLanguageSwitcher": true,
+  "languageSwitcherStyle": "locale-short",
+  "showColorScheme": true,
+  "showColorSchemeSystem": true,
+  "showAuthLinks": false
+}
