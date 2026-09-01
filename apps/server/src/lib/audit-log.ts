@@ -24,6 +24,8 @@ export const AUDIT_ACTIONS = [
   "auth.login",
   "auth.login_failed",
   "auth.logout",
+  "auth.session_revoked",
+  "auth.other_sessions_revoked",
   "auth.password_changed",
   "auth.password_reset",
   "auth.password_reset_requested",
@@ -33,7 +35,11 @@ export const AUDIT_ACTIONS = [
   // Accounts and privilege
   "user.created",
   "user.role_changed",
+  "user.access_changed",
   "user.deleted",
+  "access.role_created",
+  "access.role_updated",
+  "access.role_deleted",
   // Code execution surfaces
   "plugin.installed",
   "plugin.activated",

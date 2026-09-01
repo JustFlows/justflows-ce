@@ -9,6 +9,11 @@ Every package type declares the supported host range in `justflows.json` as
 package outside that range while it is still staged. See
 [SDK-COMPATIBILITY.md](SDK-COMPATIBILITY.md).
 
+Development hosts are compared by their base release when necessary. For
+example, `0.1.8-dev.1` may install a package requiring `>=0.1.8 <0.2.0`, but it
+may not install one requiring `>=0.1.9`. Published stable host and package
+versions continue to follow ordinary SemVer ordering.
+
 Minimum plugin layout after extract:
 
 ```

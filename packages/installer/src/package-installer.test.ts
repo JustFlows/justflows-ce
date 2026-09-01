@@ -115,6 +115,40 @@ describe("PackageInstaller path containment", () => {
 });
 
 describe("PackageInstaller Justflows compatibility", () => {
+  it("accepts a development host for an extension targeting the same stable release line", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-dev-host-"));
+    const buf = await packageWithVersion(
+      root,
+      "1.0.0",
+      "same-release-line",
+      { justflows: ">=0.1.8 <0.2.0" },
+    );
+
+    await expect(
+      new PackageInstaller().installFromBuffer(buf, {
+        packagesDir: path.join(root, "installed"),
+        justflowsVersion: "0.1.8-dev.1",
+      }),
+    ).resolves.toMatchObject({ manifest: { id: "acme.probe" } });
+  });
+
+  it("does not promote a development host into a newer release line", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-newer-line-"));
+    const buf = await packageWithVersion(
+      root,
+      "1.0.0",
+      "newer-release-line",
+      { justflows: ">=0.1.9 <0.2.0" },
+    );
+
+    await expect(
+      new PackageInstaller().installFromBuffer(buf, {
+        packagesDir: path.join(root, "installed"),
+        justflowsVersion: "0.1.8-dev.1",
+      }),
+    ).rejects.toThrow("requires Justflows >=0.1.9 <0.2.0");
+  });
+
   it("enforces the same compatible range for plugins, themes, and CSS providers", async () => {
     for (const type of ["plugin", "theme", "css-provider"] as const) {
       const root = await fs.mkdtemp(path.join(os.tmpdir(), `jfpkg-compatible-${type}-`));

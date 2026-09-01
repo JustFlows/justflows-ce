@@ -28,16 +28,8 @@ import { getRuntimeHooks } from "../lib/plugin-runtime.js";
 import { isHookAbortError } from "@justflows/core";
 import { sanitizeBlockDocument } from "@justflows/blocks";
 import { defaultBlocksForContentType, isEmptyBlockDocument } from "../lib/default-content-blocks.js";
-import { requireRole } from "../middleware/auth.js";
-import {
-  canDeleteAnyContent,
-  canDiscardDraft,
-  canPublish,
-  canRestoreRevisions,
-  canViewRevisions,
-  CONTENT_READ_ROLES,
-  CONTENT_WRITE_ROLES,
-} from "../lib/rbac.js";
+import { requireCapability, requireSession } from "../middleware/auth.js";
+import { userCan, getEffectiveAccess } from "../lib/access-policy.js";
 import { clearHomePageIfMatches } from "../lib/home-page.js";
 import { clearBlogPageIfMatches } from "../lib/blog-page.js";
 import { param } from "../lib/params.js";
@@ -136,7 +128,7 @@ function mergeSnapshot(
   };
 }
 
-router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/", requireSession, async (req, res) => {
   const session = req.session!;
   const type = req.query.type as string | undefined;
   const status = req.query.status as string | undefined;
@@ -148,6 +140,25 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
 
   try {
     const db = await getDb();
+    const access = await getEffectiveAccess(session.userId, session.siteId, session.role, db);
+    if (!access.capabilities.includes("content:read")) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    // A list has no single resource to check ownership against, so an
+    // ownership:"self" scope becomes a query filter instead of a blanket
+    // deny — the other scope dimensions (site is implicit; type/locale can
+    // be evaluated against the request) still reject outright, matching how
+    // a single-resource check behaves.
+    const readScope = access.policy.scopes?.["content:read"];
+    if (readScope?.contentTypes?.length && (!type || !readScope.contentTypes.includes(type))) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    if (readScope?.locales?.length && (!locale || !readScope.locales.includes(locale))) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
     let sql =
       `SELECT c.id, c.type, c.title, c.slug, c.locale, c.translation_group_id, c.excerpt, c.status,
               c.author_id, c.published_at, c.created_at, c.updated_at, c.version,
@@ -181,6 +192,10 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
       sql += " AND c.id > ?";
       params.push(cursor);
     }
+    if (readScope?.ownership === "self") {
+      sql += " AND c.author_id = ?";
+      params.push(session.userId);
+    }
 
     sql += " ORDER BY c.updated_at DESC LIMIT ?";
     params.push(limit + 1);
@@ -199,7 +214,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
   }
 });
 
-router.post("/", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
+router.post("/", requireCapability("content:create", (req) => ({ contentType: req.body?.type, locale: req.body?.locale, ownerId: req.session?.userId })), async (req, res) => {
   const session = req.session!;
 
   try {
@@ -286,7 +301,7 @@ router.post("/", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
   }
 });
 
-router.post("/:id/translate", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
+router.post("/:id/translate", requireCapability("content:create", (req) => ({ locale: req.body?.locale, ownerId: req.session?.userId })), async (req, res) => {
   const session = req.session!;
   const id = param(req.params.id);
   const body = TranslateSchema.safeParse(req.body);
@@ -417,7 +432,7 @@ router.post("/:id/translate", requireRole(...CONTENT_WRITE_ROLES), async (req, r
   }
 });
 
-router.get("/:id", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:id", requireSession, async (req, res) => {
   const session = req.session!;
   const id = param(req.params.id);
   const db = await getDb();
@@ -425,15 +440,26 @@ router.get("/:id", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
     "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
     [id, session.siteId],
   );
-  if (!rows[0]) {
+  const row = rows[0];
+  if (!row) {
     res.status(404).json({ error: "Not found" });
     return;
   }
+  if (!(await userCan(session, "content:read", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
   const working = await getWorkingRevision(id, session.siteId);
-  res.json(serializeEditorContent(rows[0], working));
+  res.json(serializeEditorContent(row, working));
 });
 
-router.patch("/:id", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
+// The middleware only authenticates here — it deliberately does not gate on
+// the capability itself. Doing so with no resource would run scopeAllows()
+// against an empty resource, and an ownership:"self" scope always fails
+// against a resource with no ownerId, 403ing scoped users before the
+// handler ever loads the row to find out whether they actually own it. The
+// real check runs below once the row (and its real ownerId) is in hand.
+router.patch("/:id", requireSession, async (req, res) => {
   const session = req.session!;
   const id = param(req.params.id);
   const body = PatchSchema.safeParse(req.body);
@@ -454,8 +480,7 @@ router.patch("/:id", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
       return;
     }
 
-    const isOwner = row.author_id === session.userId;
-    if (!canDeleteAnyContent(session.role) && !isOwner) {
+    if (!(await userCan(session, "content:update", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -470,7 +495,7 @@ router.patch("/:id", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
       return;
     }
 
-    if (body.data.status === "published" && !canPublish(session.role)) {
+    if (body.data.status === "published" && !(await userCan(session, "content:publish", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -565,7 +590,10 @@ const HeaderRefSchema = z.object({ ref: z.string().max(64) });
  * any working revision) — never routed through the blocks/revision save, where a
  * no-op snapshot diff can swallow it.
  */
-router.put("/:id/header-ref", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
+// See the comment on PATCH /:id above — the resource (and its ownerId) is
+// only known once the row is loaded, so the capability+scope check happens
+// in the handler via userCan(), not in this middleware.
+router.put("/:id/header-ref", requireSession, async (req, res) => {
   const session = req.session!;
   const id = param(req.params.id);
   const parsed = HeaderRefSchema.safeParse(req.body);
@@ -578,7 +606,7 @@ router.put("/:id/header-ref", requireRole(...CONTENT_WRITE_ROLES), async (req, r
   try {
     const db = await getDb();
     const rows = await db.query<Record<string, unknown>>(
-      "SELECT id, fields, author_id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+      "SELECT id, fields, author_id, type, locale FROM content WHERE id = ? AND site_id = ? LIMIT 1",
       [id, session.siteId],
     );
     const row = rows[0];
@@ -586,7 +614,7 @@ router.put("/:id/header-ref", requireRole(...CONTENT_WRITE_ROLES), async (req, r
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (!canDeleteAnyContent(session.role) && row.author_id !== session.userId) {
+    if (!(await userCan(session, "content:update", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -617,21 +645,22 @@ router.put("/:id/header-ref", requireRole(...CONTENT_WRITE_ROLES), async (req, r
   }
 });
 
-router.get("/:id/revisions", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:id/revisions", requireSession, async (req, res) => {
   const session = req.session!;
-  if (!canViewRevisions(session.role)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
   const id = param(req.params.id);
   try {
     const db = await getDb();
-    const existing = await db.query<{ id: string }>(
-      "SELECT id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+    const existing = await db.query<{ id: string; type: string; locale: string; author_id: string | null }>(
+      "SELECT id, type, locale, author_id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
       [id, session.siteId],
     );
-    if (!existing[0]) {
+    const row = existing[0];
+    if (!row) {
       res.status(404).json({ error: "Not found" });
+      return;
+    }
+    if (!(await userCan(session, "content:revisions:read", { contentType: row.type, locale: row.locale, ownerId: row.author_id }))) {
+      res.status(403).json({ error: "Forbidden" });
       return;
     }
     const revisions = await listRevisions(id, session.siteId);
@@ -644,7 +673,7 @@ router.get("/:id/revisions", requireRole(...CONTENT_READ_ROLES), async (req, res
   }
 });
 
-router.get("/:id/revisions/compare", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:id/revisions/compare", requireSession, async (req, res) => {
   const session = req.session!;
   const id = param(req.params.id);
   try {
@@ -653,8 +682,13 @@ router.get("/:id/revisions/compare", requireRole(...CONTENT_READ_ROLES), async (
       "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
       [id, session.siteId],
     );
-    if (!rows[0]) {
+    const row = rows[0];
+    if (!row) {
       res.status(404).json({ error: "Not found" });
+      return;
+    }
+    if (!(await userCan(session, "content:revisions:read", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
+      res.status(403).json({ error: "Forbidden" });
       return;
     }
     const working = await getWorkingRevision(id, session.siteId);
@@ -662,21 +696,31 @@ router.get("/:id/revisions/compare", requireRole(...CONTENT_READ_ROLES), async (
       res.json({ changed: false, entries: [] });
       return;
     }
-    res.json(diffSnapshots(rowToSnapshot(rows[0]), revisionToSnapshot(working)));
+    res.json(diffSnapshots(rowToSnapshot(row), revisionToSnapshot(working)));
   } catch (err) {
     sendServerError(res, "content", err);
   }
 });
 
-router.get("/:id/revisions/:revisionId", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:id/revisions/:revisionId", requireSession, async (req, res) => {
   const session = req.session!;
-  if (!canViewRevisions(session.role)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
   const id = param(req.params.id);
   const revisionId = param(req.params.revisionId);
   try {
+    const db = await getDb();
+    const existing = await db.query<{ type: string; locale: string; author_id: string | null }>(
+      "SELECT type, locale, author_id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+      [id, session.siteId],
+    );
+    const contentRow = existing[0];
+    if (!contentRow) {
+      res.status(404).json({ error: "Revision not found" });
+      return;
+    }
+    if (!(await userCan(session, "content:revisions:read", { contentType: contentRow.type, locale: contentRow.locale, ownerId: contentRow.author_id }))) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
     const revision = await getRevisionById(id, session.siteId, revisionId);
     if (!revision) {
       res.status(404).json({ error: "Revision not found" });
@@ -688,12 +732,10 @@ router.get("/:id/revisions/:revisionId", requireRole(...CONTENT_READ_ROLES), asy
   }
 });
 
-router.post("/:id/revisions/:revisionId/restore", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
+// See the comment on PATCH /:id — capability+scope is checked below via
+// userCan() once the row's real ownerId is known.
+router.post("/:id/revisions/:revisionId/restore", requireSession, async (req, res) => {
   const session = req.session!;
-  if (!canRestoreRevisions(session.role)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
   const id = param(req.params.id);
   const revisionId = param(req.params.revisionId);
   try {
@@ -707,8 +749,7 @@ router.post("/:id/revisions/:revisionId/restore", requireRole(...CONTENT_WRITE_R
       res.status(404).json({ error: "Not found" });
       return;
     }
-    const isOwner = row.author_id === session.userId;
-    if (!canDeleteAnyContent(session.role) && !isOwner) {
+    if (!(await userCan(session, "content:revisions:restore", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -753,12 +794,10 @@ router.post("/:id/revisions/:revisionId/restore", requireRole(...CONTENT_WRITE_R
   }
 });
 
-router.post("/:id/publish", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
+// See the comment on PATCH /:id — capability+scope is checked below via
+// userCan() once the row's real ownerId is known.
+router.post("/:id/publish", requireSession, async (req, res) => {
   const session = req.session!;
-  if (!canPublish(session.role)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
   const id = param(req.params.id);
   const expectedVersion =
     typeof req.body?.expectedVersion === "number" ? req.body.expectedVersion : undefined;
@@ -772,8 +811,7 @@ router.post("/:id/publish", requireRole(...CONTENT_WRITE_ROLES), async (req, res
       res.status(404).json({ error: "Not found" });
       return;
     }
-    const isOwner = rows[0].author_id === session.userId;
-    if (!canDeleteAnyContent(session.role) && !isOwner) {
+    if (!(await userCan(session, "content:publish", { contentType: String(rows[0].type), locale: String(rows[0].locale), ownerId: rows[0].author_id as string | null }))) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -783,12 +821,10 @@ router.post("/:id/publish", requireRole(...CONTENT_WRITE_ROLES), async (req, res
   }
 });
 
-router.post("/:id/discard-draft", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
+// See the comment on PATCH /:id — capability+scope is checked below via
+// userCan() once the row's real ownerId is known.
+router.post("/:id/discard-draft", requireSession, async (req, res) => {
   const session = req.session!;
-  if (!canDiscardDraft(session.role)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
   const id = param(req.params.id);
   try {
     const db = await getDb();
@@ -801,8 +837,7 @@ router.post("/:id/discard-draft", requireRole(...CONTENT_WRITE_ROLES), async (re
       res.status(404).json({ error: "Not found" });
       return;
     }
-    const isOwner = row.author_id === session.userId;
-    if (!canDeleteAnyContent(session.role) && !isOwner) {
+    if (!(await userCan(session, "content:revisions:discard", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -828,13 +863,15 @@ router.post("/:id/discard-draft", requireRole(...CONTENT_WRITE_ROLES), async (re
   }
 });
 
-router.delete("/:id", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
+// See the comment on PATCH /:id — capability+scope is checked below via
+// userCan() once the row's real ownerId is known.
+router.delete("/:id", requireSession, async (req, res) => {
   const session = req.session!;
   const id = param(req.params.id);
   const db = await getDb();
 
-  const existing = await db.query<{ author_id: string | null; type: string; translation_group_id: string | null }>(
-    "SELECT author_id, type, translation_group_id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+  const existing = await db.query<{ author_id: string | null; type: string; locale: string; translation_group_id: string | null }>(
+    "SELECT author_id, type, locale, translation_group_id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
     [id, session.siteId],
   );
   const row = existing[0];
@@ -843,8 +880,7 @@ router.delete("/:id", requireRole(...CONTENT_WRITE_ROLES), async (req, res) => {
     return;
   }
 
-  const isOwner = row.author_id === session.userId;
-  if (!canDeleteAnyContent(session.role) && !isOwner) {
+  if (!(await userCan(session, "content:delete", { contentType: row.type, locale: row.locale, ownerId: row.author_id }))) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }

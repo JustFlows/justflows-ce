@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { getDb } from "./db.js";
 import { logSafe } from "./log-safe.js";
 import { getSession, setSessionCookie, type SessionPayload } from "./session.js";
+import { isDeviceSessionActive } from "./device-sessions.js";
 
 /**
  * Invalidate every session token already issued for a user.
@@ -26,6 +27,8 @@ export async function revokeUserSessions(userId: string, siteId: string): Promis
 export async function resolveSession(req: Request, res: Response): Promise<SessionPayload | null> {
   const session = getSession(req);
   if (!session) return null;
+
+  if (session.sid && !(await isDeviceSessionActive(session.sid, session.userId, session.siteId))) return null;
 
   try {
     const db = await getDb();
@@ -63,6 +66,7 @@ export async function resolveSession(req: Request, res: Response): Promise<Sessi
 
     if (user.role !== session.role || user.email !== session.email) {
       setSessionCookie(res, {
+        sid: session.sid,
         userId: session.userId,
         siteId: session.siteId,
         role: user.role,

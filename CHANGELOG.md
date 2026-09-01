@@ -31,6 +31,32 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Admin → Users now supports site-local custom roles with a capability editor,
+  safe built-in defaults, assignment guards, audit events, SDK hooks, and
+  capability-first enforcement across the user and content APIs.
+  ([#22](https://github.com/JustFlows/justflows-ce/issues/22))
+
+- Per-user capability grants and explicit denies can be layered on a role,
+  with server-enforced content-type, locale, site, and ownership scopes plus a
+  human-readable effective-access preview. Policy changes revoke existing
+  cookies and cannot be applied to the acting administrator's own account.
+  ([#53](https://github.com/JustFlows/justflows-ce/issues/53))
+
+- Account Security lists database-backed device sessions, marks the current
+  device, revokes one session or all other sessions, and makes ordinary logout
+  end only the current device. This ships the session-control slice of the
+  larger identity roadmap; OIDC/OAuth, SAML, and administrator MFA policy still
+  remain before that roadmap item is complete.
+  ([#54](https://github.com/JustFlows/justflows-ce/issues/54))
+
+- **SDK:** access-policy contracts (`AccessPolicy`, `AccessScope`, effective
+  capability/scope helpers), access-change hooks, resolved capability and
+  scope fields on authenticated plugin HTTP sessions, and a runtime capability
+  registry (`ctx.capabilities.register()`). Commerce and other extension-owned
+  capabilities are no longer hard-coded in core; only active plugins contribute
+  their domains to the role editor and authorization policy.
+  ([#53](https://github.com/JustFlows/justflows-ce/issues/53))
+
 - First-party **Cookie Consent** plugin (`plugins/consent`): a categorized
   consent banner and preference center (necessary, preferences, analytics,
   marketing) with accept-all / reject-all parity, granular toggles, a keyboard-

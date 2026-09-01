@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useSessionRole } from "@components/SessionProvider";
+import { useCapability } from "@components/SessionProvider";
+import RolesPanel from "./RolesPanel";
 
 interface User {
   id: string;
@@ -17,7 +18,7 @@ export default function UsersPage() {
   // Inviting, editing and removing are all administrator-only on the server;
   // an editor can only read this list, so those controls simply aren't here
   // for them rather than failing when clicked.
-  const canManage = useSessionRole() === "administrator";
+  const canManage = useCapability("users:manage");
   const [users, setUsers] = useState<User[]>([]);
   const [showInvite, setShowInvite] = useState(false);
   const [invite, setInvite] = useState({ email: "", role: "subscriber" });
@@ -143,6 +144,8 @@ export default function UsersPage() {
           </div>
         </form>
       )}
+
+      {canManage && <RolesPanel />}
 
       {error && <div className="jf-alert jf-alert--error" role="alert">{error}</div>}
       {notice && <div className="jf-alert jf-alert--success" role="status">{notice}</div>}

@@ -47,6 +47,8 @@ export type {
   MediaUploadGateEvent,
   MediaUploadedEvent,
   UserEvent,
+  UserAccessChangedEvent,
+  AccessRoleEvent,
   AuthEvent,
   AuthFailureEvent,
   PluginEvent,
@@ -93,6 +95,7 @@ export type {
   PluginContext,
   PluginModule,
   PluginCacheApi,
+  PluginCapabilitiesApi,
   PluginHttpApi,
   PluginHttpMethod,
   PluginHttpRequest,
@@ -139,8 +142,24 @@ export type {
 } from "./cookies.js";
 
 // Capabilities — user capability system
-export { USER_CAPABILITIES, ROLE_CAPABILITIES, roleHasCapability } from "./capabilities.js";
-export type { UserCapability } from "./capabilities.js";
+export {
+  USER_CAPABILITIES,
+  ROLE_CAPABILITIES,
+  ACCESS_SCOPE_DOMAINS,
+  roleHasCapability,
+  effectiveCapabilities,
+  scopeAllows,
+} from "./capabilities.js";
+export type {
+  UserCapability,
+  CoreUserCapability,
+  UserCapabilityDefinition,
+  AccessScopeDomain,
+  AccessScope,
+  AccessPolicy,
+  RoleDefinition,
+  AccessResource,
+} from "./capabilities.js";
 
 // Licensing — extension license validation (Marketplace: GPL-compatible)
 export { isGplCompatibleLicense, gplLicenseValidationMessage } from "./license.js";

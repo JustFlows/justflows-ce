@@ -5,6 +5,8 @@ export interface SessionInfo {
   id: string;
   email: string;
   role: string;
+  roleId?: string;
+  capabilities?: string[];
 }
 
 interface SessionValue {
@@ -53,4 +55,12 @@ export function useSession(): SessionValue {
 /** Convenience for the common case of just needing the role. */
 export function useSessionRole(): string | null {
   return useSession().session?.role ?? null;
+}
+
+export function useCapability(capability: string): boolean {
+  const session = useSession().session;
+  if (!session) return false;
+  if (session.capabilities) return session.capabilities.includes(capability);
+  // Compatibility with cached SSR data and older hosts during rolling updates.
+  return session.role === "administrator";
 }

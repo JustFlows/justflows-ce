@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useSessionRole } from "@components/SessionProvider";
+import { useCapability } from "@components/SessionProvider";
 
 interface User {
   id: string;
@@ -9,11 +9,16 @@ interface User {
   displayName: string;
   role: string;
   createdAt: string;
+  roleId: string;
+  grants: string[];
+  denies: string[];
+  effectiveCapabilities: string[];
+  scopes: Record<string, { contentTypes?: string[]; locales?: string[]; ownership?: "any" | "self" }>;
 }
 
 const ROLES = ["administrator", "editor", "author", "contributor", "subscriber"];
 
-function fromApi(user: Record<string, string>): User {
+function fromApi(user: Record<string, any>): User {
   return {
     id: user.id,
     email: user.email,
@@ -21,6 +26,11 @@ function fromApi(user: Record<string, string>): User {
     displayName: user.display_name,
     role: user.role,
     createdAt: user.created_at,
+    roleId: user.roleId ?? user.role,
+    grants: user.accessPolicy?.grants ?? [],
+    denies: user.accessPolicy?.denies ?? [],
+    effectiveCapabilities: user.effectiveCapabilities ?? [],
+    scopes: user.accessPolicy?.scopes ?? {},
   };
 }
 
@@ -30,11 +40,18 @@ export default function EditUserPage() {
   // Updating, resetting a password and removing are all administrator-only on
   // the server; an editor can reach this page (they can read the list) but
   // gets a read-only profile rather than controls that would 403.
-  const canManage = useSessionRole() === "administrator";
+  const canManage = useCapability("users:manage");
 
   const [user, setUser] = useState<User | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState("subscriber");
+  const [roles, setRoles] = useState<Array<{ id: string; name: string; builtIn: boolean }>>([]);
+  const [capabilities, setCapabilities] = useState<string[]>([]);
+  const [grants, setGrants] = useState<string[]>([]);
+  const [denies, setDenies] = useState<string[]>([]);
+  const [contentTypes, setContentTypes] = useState("");
+  const [locales, setLocales] = useState("");
+  const [ownOnly, setOwnOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -53,11 +70,34 @@ export default function EditUserPage() {
         const loaded = fromApi(data.user);
         setUser(loaded);
         setDisplayName(loaded.displayName);
-        setRole(loaded.role);
+        setRole(loaded.roleId);
+        setGrants(loaded.grants);
+        setDenies(loaded.denies);
+        const contentScope = loaded.scopes["content:update"] ?? {};
+        setContentTypes((contentScope.contentTypes ?? []).join(", "));
+        setLocales((contentScope.locales ?? []).join(", "));
+        setOwnOnly(contentScope.ownership === "self");
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    fetch("/api/roles").then(async (res) => {
+      const data = await res.json() as { roles?: Array<{ id: string; name: string; builtIn: boolean }>; capabilities?: string[] };
+      if (res.ok) { setRoles(data.roles ?? []); setCapabilities(data.capabilities ?? []); }
+    }).catch(() => undefined);
+  }, []);
+
+  function sameMembers(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    const sortedB = [...b].sort();
+    return [...a].sort().every((value, index) => value === sortedB[index]);
+  }
+
+  function parseList(value: string): string[] {
+    return value.split(",").map((entry) => entry.trim()).filter(Boolean);
+  }
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -66,14 +106,56 @@ export default function EditUserPage() {
     setError("");
     setNotice("");
     try {
+      // Only send access-policy fields that actually changed. The server
+      // treats *any* of roleId/grants/denies/scopes being present as "the
+      // access policy changed" — sending them unconditionally on every save
+      // (even a plain display-name edit) blocks admins from editing their
+      // own profile and force-revokes every session on every save.
+      const roleChanged = role !== user.roleId;
+      const grantsChanged = !sameMembers(grants, user.grants);
+      const deniesChanged = !sameMembers(denies, user.denies);
+      const baselineScope = user.scopes["content:update"] ?? {};
+      const scopeChanged =
+        !sameMembers(parseList(contentTypes), baselineScope.contentTypes ?? []) ||
+        !sameMembers(parseList(locales), baselineScope.locales ?? []) ||
+        ownOnly !== (baselineScope.ownership === "self");
+
+      const body: Record<string, unknown> = { displayName };
+      if (roleChanged) {
+        body.role = ROLES.includes(role) ? role : undefined;
+        body.roleId = role;
+      }
+      if (grantsChanged) body.grants = grants;
+      if (deniesChanged) body.denies = denies;
+      if (scopeChanged) {
+        body.scopes = Object.fromEntries(
+          ["content:read", "content:create", "content:update", "content:delete", "content:publish"].map((capability) => [capability, {
+            contentTypes: parseList(contentTypes),
+            locales: parseList(locales),
+            ownership: ownOnly ? "self" : "any",
+          }]),
+        );
+      }
+
       const res = await fetch(`/api/users/${encodeURIComponent(user.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName, role }),
+        body: JSON.stringify(body),
       });
       const data = await res.json() as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to update user");
-      setUser((current) => (current ? { ...current, displayName, role } : current));
+      setUser((current) => (current
+        ? {
+            ...current,
+            displayName,
+            roleId: role,
+            grants,
+            denies,
+            scopes: scopeChanged
+              ? { ...current.scopes, ...(body.scopes as User["scopes"]) }
+              : current.scopes,
+          }
+        : current));
       setNotice("User updated.");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -203,13 +285,52 @@ export default function EditUserPage() {
                   disabled={!canManage}
                   onChange={(e) => setRole(e.target.value)}
                 >
-                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                  {(roles.length ? roles : ROLES.map((id) => ({ id, name: id, builtIn: true }))).map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}{r.builtIn ? " (built-in)" : ""}</option>
+                  ))}
                 </select>
               </div>
             </div>
             <span className="jf-field__hint">Joined {user.createdAt.slice(0, 10)}</span>
           </div>
         </form>
+
+        {canManage && capabilities.length > 0 && (
+          <div className="jf-card">
+            <div className="jf-card__head"><h2 className="jf-card__title">Individual access</h2></div>
+            <div className="jf-card__body jf-stack">
+              <p className="jf-field__hint">Grant or explicitly deny capabilities on top of the selected role. Denies always win.</p>
+              <div className="jf-grid jf-grid--2">
+                {capabilities.map((capability) => (
+                  <div className="jf-field" key={capability}>
+                    <span className="jf-field__label">{capability}</span>
+                    <select
+                      className="jf-input"
+                      aria-label={capability}
+                      value={denies.includes(capability) ? "deny" : grants.includes(capability) ? "grant" : "inherit"}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setGrants((current) => value === "grant" ? [...new Set([...current, capability])] : current.filter((item) => item !== capability));
+                        setDenies((current) => value === "deny" ? [...new Set([...current, capability])] : current.filter((item) => item !== capability));
+                      }}
+                    >
+                      <option value="inherit">Inherit from role</option>
+                      <option value="grant">Grant</option>
+                      <option value="deny">Deny</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <p className="jf-field__hint">Effective access preview: {user.effectiveCapabilities.length ? user.effectiveCapabilities.join(", ") : "No capabilities"}. Save to refresh the calculated preview.</p>
+              <div className="jf-grid jf-grid--2">
+                <label className="jf-field"><span className="jf-field__label">Content types</span><input className="jf-input" placeholder="post, page" value={contentTypes} onChange={(e) => setContentTypes(e.target.value)} /><span className="jf-field__hint">Comma-separated; empty allows every type.</span></label>
+                <label className="jf-field"><span className="jf-field__label">Locales</span><input className="jf-input" placeholder="nl-NL, nl-BE" value={locales} onChange={(e) => setLocales(e.target.value)} /><span className="jf-field__hint">Comma-separated; empty allows every locale.</span></label>
+              </div>
+              <label className="jf-field"><span><input type="checkbox" checked={ownOnly} onChange={(e) => setOwnOnly(e.target.checked)} /> Only content owned by this user</span></label>
+              <p className="jf-field__hint">Content scope preview: {contentTypes || "all content types"}; {locales || "all locales"}; {ownOnly ? "owned content only" : "any owner"}.</p>
+            </div>
+          </div>
+        )}
 
         {canManage && (
         <div className="jf-card">

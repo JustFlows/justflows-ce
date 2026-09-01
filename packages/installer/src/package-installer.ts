@@ -50,6 +50,18 @@ export interface InstallResult {
 }
 
 /**
+ * A development host for a release line implements that line's in-progress
+ * API. Let `0.1.8-dev.1` install extensions targeting `>=0.1.8`, while keeping
+ * normal SemVer ordering for package versions and unrelated release lines.
+ */
+function hostSatisfies(hostVersion: string, requiredRange: string): boolean {
+  if (semver.satisfies(hostVersion, requiredRange, { includePrerelease: true })) return true;
+  const parsed = semver.parse(hostVersion);
+  if (!parsed?.prerelease.length) return false;
+  return semver.satisfies(`${parsed.major}.${parsed.minor}.${parsed.patch}`, requiredRange);
+}
+
+/**
  * Install a .jfpkg archive (tar.gz) into the packages directory.
  *
  * No npm install, no postinstall scripts, no TypeScript compilation ever runs.
@@ -103,11 +115,7 @@ export class PackageInstaller {
         if (!semver.validRange(requiredJustflows)) {
           throw new PackageRejectedError(`Invalid engines.justflows range: ${requiredJustflows}`);
         }
-        if (
-          !semver.satisfies(options.justflowsVersion, requiredJustflows, {
-            includePrerelease: true,
-          })
-        ) {
+        if (!hostSatisfies(options.justflowsVersion, requiredJustflows)) {
           throw new PackageRejectedError(
             `Package requires Justflows ${requiredJustflows}; this host is ${options.justflowsVersion}`,
           );
