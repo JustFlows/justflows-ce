@@ -16,7 +16,7 @@ User-visible work must cite the matching [Public Roadmap](https://github.com/org
 - This is a pnpm/Turborepo TypeScript monorepo. Use pnpm and workspace filters; do not introduce a second package-management path.
 - Keep `packages/core` independent of Express, React, and EJS. Framework integration belongs in `apps/server`.
 - Treat `packages/sdk` as a stable public contract. Coordinate compatible changes through the SDK, plugin runtime, example extension, and tests.
-- Support PostgreSQL, MySQL, and MariaDB wherever persistence changes. Treat the shipped `0012_baseline` and every later applied migration as immutable; add the next numbered migration for every dialect (`0013` is next after the baseline) and register it in `MIGRATION_ORDER`.
+- Support PostgreSQL, MySQL, and MariaDB wherever persistence changes. Treat the shipped `0012_baseline` and every later applied migration as immutable; add the next numbered migration (`0018` is next) and register it in `MIGRATION_ORDER`. Ship `NNNN_name.sql` (PostgreSQL) and `NNNN_name.mysql.sql`; MariaDB reuses the MySQL file automatically (`migrationFileCandidates` in `run-migrations.ts`) — only add `NNNN_name.mariadb.sql` when the DDL genuinely has to differ.
 - Preserve browser-first installation and administration. Production users must not need a source checkout or build toolchain.
 - Never weaken authentication, capability checks, path validation, archive validation, HTML sanitization, upload limits, or secret handling.
 - New core source files start with `// SPDX-License-Identifier: MIT`. Extension manifests declare their own license; Marketplace listings use a GPL-compatible license.

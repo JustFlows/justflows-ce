@@ -161,6 +161,18 @@ export function createApp(): express.Application {
   app.get("/install", authPageRateLimit, withCsrfCookie);
   app.get("/login", authPageRateLimit, withCsrfCookie);
   app.get("/register", authPageRateLimit, withCsrfCookie);
+  app.get("/forgot-password", authPageRateLimit, withCsrfCookie);
+  // The reset link carries a token in the query string. Keep it out of any
+  // Referer header the page would otherwise send when it loads a subresource or
+  // the user clicks away; the page itself also strips it from the URL on load.
+  app.get(
+    "/reset-password",
+    authPageRateLimit,
+    (req: express.Request, res: express.Response) => {
+      res.setHeader("Referrer-Policy", "no-referrer");
+      withCsrfCookie(req, res);
+    },
+  );
 
   app.get("/", (req, res, next) => {
     if (isInstalled()) {

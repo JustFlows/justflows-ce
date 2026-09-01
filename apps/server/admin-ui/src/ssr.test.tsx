@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { render } from "./entry-server";
 
 const ROUTES = [
-  "/install", "/login", "/register", "/admin", "/admin/content",
+  "/install", "/login", "/register", "/forgot-password", "/reset-password",
+  "/admin", "/admin/content",
   "/admin/content/new", "/admin/content/example", "/admin/content/example/builder",
   "/admin/content-types", "/admin/media", "/admin/plugins", "/admin/plugins/demo/settings",
   "/admin/analytics", "/admin/forms", "/admin/themes", "/admin/themes/customize",
