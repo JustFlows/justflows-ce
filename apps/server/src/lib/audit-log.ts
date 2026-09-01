@@ -26,6 +26,8 @@ export const AUDIT_ACTIONS = [
   "auth.logout",
   "auth.password_changed",
   "auth.password_reset",
+  "auth.password_reset_requested",
+  "auth.password_reset_failed",
   "auth.2fa_enabled",
   "auth.2fa_disabled",
   // Accounts and privilege

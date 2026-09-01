@@ -13,6 +13,13 @@ import { auditContext, auditFromRequest, auditLog } from "../lib/audit-log.js";
 import { requireSession } from "../middleware/auth.js";
 import { PasswordSchema } from "../lib/password-policy.js";
 import { revokeUserSessions } from "../lib/auth-session.js";
+import { getAdminPathConfig } from "../lib/admin-path.js";
+import {
+  completePasswordReset,
+  processForgotPassword,
+  resolveResetToken,
+} from "../lib/password-reset.js";
+import { clearUserResets, hashResetToken } from "../lib/password-reset-db.js";
 
 const router = Router();
 const loginRequestLimit = rateLimit({
@@ -32,6 +39,8 @@ function accountSecurityRateLimit() {
   });
 }
 const passwordRequestLimit = accountSecurityRateLimit();
+const passwordForgotRequestLimit = accountSecurityRateLimit();
+const passwordResetRequestLimit = accountSecurityRateLimit();
 const totpSetupRequestLimit = accountSecurityRateLimit();
 const totpEnableRequestLimit = accountSecurityRateLimit();
 const totpDisableRequestLimit = accountSecurityRateLimit();
@@ -59,6 +68,20 @@ router.get("/me", requireSession, (req, res) => {
   const session = req.session!;
   res.json({ id: session.userId, email: session.email, role: session.role });
 });
+
+/**
+ * Where the browser should go once authenticated.
+ *
+ * A subscriber has nothing in the admin app and belongs on the site itself.
+ * Everyone else lands on the admin app — at whatever path the administrator
+ * moved it to (issue #51). The pre-session `/login` and `/register` pages have
+ * no way to know that path on their own, and it should not be handed to anyone
+ * who has not signed in, so it is resolved here and returned in the response.
+ */
+async function postAuthRedirect(role: string): Promise<string> {
+  if (role === "subscriber") return "/";
+  return (await getAdminPathConfig()).path;
+}
 
 const LoginSchema = z.object({
   email: z.string().email(),
@@ -210,7 +233,9 @@ router.post("/login", loginRequestLimit, async (req, res) => {
     });
     // The client needs this to decide where to send the browser next — only
     // certain roles get the admin app; a subscriber belongs on the site itself.
-    res.json({ ok: true, role: user.role });
+    // `redirectTo` carries the configured admin path so the client does not have
+    // to guess it from a page that was served before the session existed.
+    res.json({ ok: true, role: user.role, redirectTo: await postAuthRedirect(user.role) });
   } catch (err) {
     console.error("Login error", err);
     res.status(500).json({ error: "Server error" });
@@ -364,7 +389,11 @@ router.post("/register", async (req, res) => {
       })
       .catch((err) => console.error("Registration mail failed:", err));
 
-    res.status(201).json({ ok: true, role: general.defaultRole });
+    res.status(201).json({
+      ok: true,
+      role: general.defaultRole,
+      redirectTo: await postAuthRedirect(general.defaultRole),
+    });
   } catch (err) {
     console.error("Register error", err);
     res.status(500).json({ error: "Server error" });
@@ -427,6 +456,9 @@ router.post("/password", passwordRequestLimit, requireSession, async (req, res) 
     // someone does after a compromise. Re-issue this caller's cookie at the new
     // counter so the tab they are sitting in keeps working.
     await revokeUserSessions(session.userId, session.siteId);
+    // A pending "forgot password" link must not outlive the password it would
+    // have changed.
+    await clearUserResets(session.userId, session.siteId);
     const bumped = await db
       .query<{ token_version: number | null }>(
         "SELECT token_version FROM users WHERE id = ? AND site_id = ? LIMIT 1",
@@ -460,6 +492,152 @@ router.post("/password", passwordRequestLimit, requireSession, async (req, res) 
     res.json({ ok: true });
   } catch (err) {
     console.error("Password change error", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ── Self-service password recovery (#93) ─────────────────────────────────────
+
+/**
+ * Whether the login and registration screens should offer a "Forgot password?"
+ * entry point. Mirrors GET /registration: a single boolean, nothing an
+ * unauthenticated caller could not infer by trying the form anyway.
+ */
+router.get("/password/forgot", async (_req, res) => {
+  if (!isInstalled()) {
+    res.json({ enabled: false });
+    return;
+  }
+  try {
+    const general = await getGeneralSettings();
+    res.json({ enabled: general.passwordResetEnabled });
+  } catch {
+    res.json({ enabled: false });
+  }
+});
+
+const ForgotPasswordSchema = z.object({ email: z.string().email() });
+
+/**
+ * Ask for a reset link.
+ *
+ * The response is identical whether or not the address is known, whether or not
+ * self-service reset is enabled for it, and whether or not the mail was sent —
+ * so it cannot be used to enumerate accounts. The work is handed off and not
+ * awaited, which keeps the response time flat across all of those cases. Only a
+ * rate-limit rejection looks different, and that is keyed on the submitted
+ * address regardless of whether it exists.
+ */
+router.post("/password/forgot", passwordForgotRequestLimit, async (req, res) => {
+  const ip = clientIp(req);
+  const sameAnswer = () => res.json({ ok: true });
+
+  if (!consumeRateLimit(`pwreset:forgot:ip:${ip}`, 5, 15 * 60 * 1000)) {
+    res.setHeader("Retry-After", String(rateLimitRetryAfter(`pwreset:forgot:ip:${ip}`)));
+    res.status(429).json({ error: "Too many requests. Try again later." });
+    return;
+  }
+
+  const body = ForgotPasswordSchema.safeParse(req.body);
+  if (!body.success) {
+    // A malformed address cannot belong to anyone, so this leaks nothing.
+    res.status(400).json({ error: "Enter a valid email address" });
+    return;
+  }
+
+  const email = body.data.email.toLowerCase().trim();
+  if (!consumeRateLimit(`pwreset:forgot:email:${email}`, 3, 15 * 60 * 1000)) {
+    res.setHeader("Retry-After", String(rateLimitRetryAfter(`pwreset:forgot:email:${email}`)));
+    res.status(429).json({ error: "Too many requests. Try again later." });
+    return;
+  }
+
+  void processForgotPassword(email, {
+    ip,
+    userAgent: (req.get("user-agent") ?? "").slice(0, 255) || null,
+  }).catch((err) => console.error("Forgot-password dispatch failed:", err));
+
+  sameAnswer();
+});
+
+const VerifyResetSchema = z.object({ token: z.string().min(16).max(512) });
+
+/**
+ * Whether a reset token is still good, for the reset page to show the form or an
+ * "expired link" message. The token is a high-entropy secret the caller already
+ * holds, so answering does not disclose anything they do not have.
+ */
+router.post("/password/reset/verify", passwordResetRequestLimit, async (req, res) => {
+  const ip = clientIp(req);
+  if (!consumeRateLimit(`pwreset:verify:ip:${ip}`, 30, 15 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many requests. Try again later." });
+    return;
+  }
+  const body = VerifyResetSchema.safeParse(req.body);
+  if (!body.success) {
+    res.json({ valid: false });
+    return;
+  }
+  try {
+    const reset = await resolveResetToken(body.data.token);
+    res.json({ valid: reset !== null });
+  } catch (err) {
+    console.error("Reset verify error", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+const ResetPasswordSchema = z.object({
+  token: z.string().min(16).max(512),
+  newPassword: PasswordSchema,
+});
+
+/**
+ * Redeem a reset link.
+ *
+ * Rate limited per IP and per token. A valid token sets the new password,
+ * revokes every session for the account, and invalidates the token and its
+ * siblings — but never signs the caller in, so TOTP, lockout and the rest still
+ * apply when they next sign in.
+ */
+router.post("/password/reset", passwordResetRequestLimit, async (req, res) => {
+  const ip = clientIp(req);
+  if (!consumeRateLimit(`pwreset:reset:ip:${ip}`, 10, 15 * 60 * 1000)) {
+    res.setHeader("Retry-After", String(rateLimitRetryAfter(`pwreset:reset:ip:${ip}`)));
+    res.status(429).json({ error: "Too many attempts. Try again later." });
+    return;
+  }
+
+  const body = ResetPasswordSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid request" });
+    return;
+  }
+
+  const tokenKey = hashResetToken(body.data.token).slice(0, 32);
+  if (!consumeRateLimit(`pwreset:reset:token:${tokenKey}`, 5, 15 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many attempts. Try again later." });
+    return;
+  }
+
+  try {
+    const reset = await resolveResetToken(body.data.token);
+    if (!reset) {
+      await new Promise((r) => setTimeout(r, 200 + Math.random() * 150));
+      res
+        .status(400)
+        .json({ error: "This reset link is invalid or has expired. Request a new one." });
+      return;
+    }
+
+    await completePasswordReset(reset, body.data.newPassword, {
+      ip,
+      userAgent: (req.get("user-agent") ?? "").slice(0, 255) || null,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Password reset error", err);
     res.status(500).json({ error: "Server error" });
   }
 });

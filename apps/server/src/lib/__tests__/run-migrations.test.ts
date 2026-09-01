@@ -7,6 +7,8 @@ import { migrationsDir } from "../jf-root.js";
 import {
   MIGRATION_ORDER,
   isIgnorableMigrationError,
+  migrationFileCandidates,
+  readMigrationDdl,
   runAllMigrations,
   runMigrationStatements,
   splitSqlStatements,
@@ -20,50 +22,44 @@ describe("MIGRATION_ORDER", () => {
       "0014_content_webhooks",
       "0015_theme_designs",
       "0016_user_preferences",
+      "0017_password_resets",
     ]);
   });
 
-  it("ships 0013_public_comments for every database dialect", () => {
-    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
-      const ddl = fs.readFileSync(
-        path.join(migrationsDir(), `0013_public_comments${suffix}`),
-        "utf8",
-      );
-      const statements = splitSqlStatements(ddl, suffix === ".sql" ? "postgres" : "mysql");
-      expect(statements.some((s) => /ALTER TABLE comments ADD COLUMN.*notify/i.test(s))).toBe(true);
-      expect(statements.some((s) => /CREATE INDEX .*idx_comments_thread/i.test(s))).toBe(true);
-    }
-  });
+  // Each tracked migration after the baseline ships two files: the bare
+  // `.sql` for PostgreSQL and `.mysql.sql` shared by MySQL and MariaDB. A
+  // dialect-specific `.mariadb.sql` is only added if the DDL must diverge — it
+  // never has — so its absence is asserted, not tolerated.
+  const TRACKED: { name: string; marker: RegExp }[] = [
+    { name: "0013_public_comments", marker: /ALTER TABLE comments ADD COLUMN.*notify/i },
+    { name: "0014_content_webhooks", marker: /CREATE TABLE IF NOT EXISTS webhook_endpoints/i },
+    { name: "0015_theme_designs", marker: /CREATE TABLE IF NOT EXISTS theme_designs/i },
+    { name: "0016_user_preferences", marker: /CREATE TABLE IF NOT EXISTS user_preferences/i },
+    { name: "0017_password_resets", marker: /CREATE TABLE IF NOT EXISTS password_resets/i },
+  ];
 
-  it("ships 0014_content_webhooks for every database dialect", () => {
-    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
-      expect(fs.existsSync(path.join(migrationsDir(), `0014_content_webhooks${suffix}`))).toBe(true);
-    }
-  });
+  for (const { name, marker } of TRACKED) {
+    it(`ships ${name} as postgres + shared mysql, no standalone .mariadb.sql`, () => {
+      expect(fs.existsSync(path.join(migrationsDir(), `${name}.mariadb.sql`))).toBe(false);
+      for (const suffix of [".sql", ".mysql.sql"]) {
+        const ddl = fs.readFileSync(path.join(migrationsDir(), `${name}${suffix}`), "utf8");
+        const statements = splitSqlStatements(ddl, suffix === ".sql" ? "postgres" : "mysql");
+        expect(statements.some((s) => marker.test(s))).toBe(true);
+      }
+    });
 
-  it("ships 0015_theme_designs for every database dialect", () => {
-    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
-      const ddl = fs.readFileSync(
-        path.join(migrationsDir(), `0015_theme_designs${suffix}`),
-        "utf8",
-      );
-      const statements = splitSqlStatements(ddl, suffix === ".sql" ? "postgres" : "mysql");
-      expect(statements.some((s) => /CREATE TABLE IF NOT EXISTS theme_designs/i.test(s))).toBe(true);
-    }
-  });
-
-  it("ships 0016_user_preferences for every database dialect", () => {
-    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
-      const ddl = fs.readFileSync(
-        path.join(migrationsDir(), `0016_user_preferences${suffix}`),
-        "utf8",
-      );
-      const statements = splitSqlStatements(ddl, suffix === ".sql" ? "postgres" : "mysql");
-      expect(
-        statements.some((s) => /CREATE TABLE IF NOT EXISTS user_preferences/i.test(s)),
-      ).toBe(true);
-    }
-  });
+    it(`resolves ${name} for MariaDB to identical DDL (backwards compatible)`, async () => {
+      expect(migrationFileCandidates(name, "mariadb")).toEqual([
+        `${name}.mariadb.sql`,
+        `${name}.mysql.sql`,
+        `${name}.sql`,
+      ]);
+      const mysqlDdl = await readMigrationDdl(name, "mysql");
+      const mariadbDdl = await readMigrationDdl(name, "mariadb");
+      expect(mariadbDdl).toBe(mysqlDdl);
+      expect(marker.test(mariadbDdl ?? "")).toBe(true);
+    });
+  }
 
   it("does not rebuild MySQL/MariaDB revisions with a new foreign key or generated unique slot", () => {
     for (const dialect of ["mysql", "mariadb"] as const) {

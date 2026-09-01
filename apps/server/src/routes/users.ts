@@ -9,6 +9,7 @@ import { getGeneralSettings } from "../lib/general-settings.js";
 import { USER_ROLE_VALUES } from "../lib/rbac.js";
 import { PasswordSchema } from "../lib/password-policy.js";
 import { revokeUserSessions } from "../lib/auth-session.js";
+import { clearUserResets } from "../lib/password-reset-db.js";
 import { auditFromRequest } from "../lib/audit-log.js";
 import { erasePersonalData, exportPersonalData } from "../lib/personal-data.js";
 import { sendServerError } from "../lib/send-error.js";
@@ -305,6 +306,7 @@ router.post("/:id/password", requireRole("administrator"), async (req, res) => {
       [await hashPassword(body.data.newPassword), now(), userId, session.siteId],
     );
     await revokeUserSessions(userId, session.siteId);
+    await clearUserResets(userId, session.siteId);
     auditFromRequest(req, "auth.password_reset", { target: userId });
     await emitUserEvent("user.updated", userId, session.siteId);
 

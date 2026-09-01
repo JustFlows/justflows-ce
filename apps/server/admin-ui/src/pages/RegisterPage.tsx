@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [closed, setClosed] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [canReset, setCanReset] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/registration")
@@ -19,6 +20,10 @@ export default function RegisterPage() {
       .then((data: { enabled?: boolean }) => setClosed(data.enabled !== true))
       .catch(() => setClosed(true))
       .finally(() => setChecking(false));
+    fetch("/api/auth/password/forgot")
+      .then((r) => r.json())
+      .then((data: { enabled?: boolean }) => setCanReset(data.enabled === true))
+      .catch(() => {});
   }, []);
 
   async function submit(e: React.FormEvent) {
@@ -38,18 +43,18 @@ export default function RegisterPage() {
         }),
       });
 
-      const data = (await res.json()) as { error?: string; role?: string };
+      const data = (await res.json()) as { error?: string; role?: string; redirectTo?: string };
 
       if (!res.ok) {
         setError(data.error ?? "Registration failed");
         return;
       }
 
-      if (data.role === "subscriber") {
-        window.location.href = "/";
-        return;
-      }
-      window.location.href = publicAdminPath("/admin");
+      // The server returns where to land — the site for a subscriber, the admin
+      // app (at its configured path) for anyone else. `publicAdminPath` stays as
+      // a fall-back for an older server without `redirectTo`.
+      window.location.href =
+        data.redirectTo ?? (data.role === "subscriber" ? "/" : publicAdminPath("/admin"));
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -158,6 +163,12 @@ export default function RegisterPage() {
             </button>
             <p className="jf-auth__footer">
               Already have an account? <Link to="/login">Sign in</Link>
+              {canReset && (
+                <>
+                  {" · "}
+                  <Link to="/forgot-password">Forgot your password?</Link>
+                </>
+              )}
             </p>
           </form>
         )}

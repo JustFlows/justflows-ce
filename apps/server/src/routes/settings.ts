@@ -41,6 +41,9 @@ const Schema = z.object({
   admin_email: z.string().email().optional(),
   users_can_register: z.boolean().optional(),
   default_role: z.enum(USER_ROLE_VALUES).optional(),
+  password_reset_enabled: z.boolean().optional(),
+  // Empty array = every role may self-serve (the default).
+  password_reset_roles: z.array(z.enum(USER_ROLE_VALUES)).max(USER_ROLE_VALUES.length).optional(),
   site_language: z.string().min(2).max(20).optional(),
   date_format: z.string().min(1).max(50).optional(),
   time_format: z.string().min(1).max(50).optional(),
@@ -145,6 +148,8 @@ router.get("/", requireSession, async (req, res) => {
       admin_email: general.adminEmail,
       users_can_register: general.usersCanRegister,
       default_role: general.defaultRole,
+      password_reset_enabled: general.passwordResetEnabled,
+      password_reset_roles: general.passwordResetRoles,
       site_language: siteLanguage,
       languages: languages.map((l) => ({
         code: l.code,
@@ -231,6 +236,17 @@ router.post("/", requireRole("administrator"), async (req, res) => {
       settingsToUpdate.push(["users_can_register", body.users_can_register]);
     }
     if (body.default_role !== undefined) settingsToUpdate.push(["default_role", body.default_role]);
+    if (body.password_reset_enabled !== undefined) {
+      settingsToUpdate.push(["password_reset_enabled", body.password_reset_enabled]);
+    }
+    if (body.password_reset_roles !== undefined) {
+      // Store the distinct set; "all roles" collapses to an empty list.
+      const roles = [...new Set(body.password_reset_roles)];
+      settingsToUpdate.push([
+        "password_reset_roles",
+        roles.length === USER_ROLE_VALUES.length ? [] : roles,
+      ]);
+    }
     if (body.date_format !== undefined) settingsToUpdate.push(["date_format", body.date_format]);
     if (body.time_format !== undefined) settingsToUpdate.push(["time_format", body.time_format]);
     if (body.start_of_week !== undefined) settingsToUpdate.push(["start_of_week", body.start_of_week]);

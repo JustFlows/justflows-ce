@@ -135,17 +135,20 @@ singular when there's only one entry.
 
 ## Migrations
 
-- `NNNN_description.sql` for Postgres (the default dialect, no suffix),
-  `NNNN_description.mysql.sql` and `NNNN_description.mariadb.sql` for the
-  other two. Every migration or consolidated baseline ships all three variants.
+- `NNNN_description.sql` for Postgres (the default dialect, no suffix) and
+  `NNNN_description.mysql.sql` for MySQL. MariaDB reuses the MySQL file: the
+  runner tries `.mariadb.sql`, then `.mysql.sql`, then the bare `.sql`
+  (`migrationFileCandidates` in `run-migrations.ts`). Only add a separate
+  `NNNN_description.mariadb.sql` when the DDL must actually differ between the
+  two — it has not so far, and `0013`–`0016` no longer carry one. Only the
+  consolidated `0012_baseline` still ships all three files.
 - Zero-pad the number to four digits. Use `snake_case` for the description.
 - `0012_baseline` contains the ordered schema history from `0001` through
   `0012`. It is used for both fresh installations and upgrades from older
   releases, then recorded once in the existing `_migrations` table.
 - Never edit the shipped `0012_baseline` or a later applied migration (see
-  `AGENTS.md`). Add the next number for every dialect, even if only one
-  dialect's schema actually changes. The next migration after the baseline is
-  `0013_description[.dialect].sql`.
+  `AGENTS.md`). Add the next number, even if only one dialect's schema
+  actually changes. The next migration is `0018_description[.mysql].sql`.
 - Add each new migration name to `MIGRATION_ORDER` in
   `apps/server/src/lib/run-migrations.ts`. The runner skips names already
   recorded in `_migrations`.

@@ -23,6 +23,7 @@ Commands:
   theme list              List installed themes
   theme activate <id>     Activate a theme
   user create             Create a new user interactively
+  user reset-password     Reset a password from the server host (offline fallback)
   db migrate              Run pending database migrations
   cache clear             Clear the application cache
   health                  Run site health checks

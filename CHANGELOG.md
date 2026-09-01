@@ -9,6 +9,16 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Database migrations no longer ship a separate `.mariadb.sql` file. The runner
+  resolves MariaDB to `NNNN_name.mariadb.sql`, then the MySQL file, then the bare
+  `.sql` (`migrationFileCandidates` in `run-migrations.ts`) — the DDL for the two
+  has been byte-for-byte identical in every tracked migration. The redundant
+  `0013`–`0016` `.mariadb.sql` files are removed (MariaDB now reads the identical
+  `.mysql.sql`); `0012_baseline` keeps its three-file set. Existing installs are
+  unaffected: those migrations are already recorded in `_migrations` and never
+  re-read, and a fresh MariaDB install applies the same statements as before. A
+  future migration adds a MariaDB-specific file only if the DDL must diverge.
+
 - Per-theme customization documents (Customizer mods, homepage design, blog
   design, plus their draft copies) move out of `site_settings` into a dedicated
   `theme_designs` table — one row per (site, theme, kind) with a `doc` /
@@ -20,6 +30,24 @@ and this project uses [Semantic Versioning](https://semver.org/).
   deletes them, draft-only customizations included. No API or UI change.
 
 ### Added
+
+- Self-service password reset. A "Forgot password?" link on the sign-in and
+  registration screens emails a single-use, time-limited link
+  (`JF_PASSWORD_RESET_TTL_MINUTES`, default 60) that lets an administrator or a
+  user set a new password without shell access or a database edit. Tokens are
+  stored only as SHA-256 hashes, bound to one account, and invalidated on use,
+  on any password change, and on expiry; the request response is identical
+  whether or not the address exists, and both the request and the redemption are
+  rate limited per address and per IP. A completed reset revokes every session
+  but establishes none, so a second factor (`#54`) still applies at the next
+  sign-in. Administrators can disable the flow or restrict it to chosen roles
+  under Admin → Settings, and every request, completion and failure is written
+  to the audit log. When outgoing mail is not configured, the
+  `justflows user reset-password --email you@example.com` CLI command is the
+  documented fallback; with `NODE_ENV=development` the reset link is also printed
+  to the server console. New `password_resets` table (migration
+  `0017_password_resets`).
+  ([#93](https://github.com/JustFlows/justflows-ce/issues/93))
 
 - Admin Home shows a dismissible "Welcome to JustFlows" discovery panel to
   administrators: curated cards linking to the documentation, Marketplace and
@@ -36,6 +64,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
   from `/admin`, with reserved-path validation, a reachability check and
   automatic rollback, configurable 404/redirect behavior for the old path,
   and a `JF_ADMIN_PATH_RECOVERY` environment override for proxy/cache recovery.
+  Sign-in and registration now follow the configured path: `POST /api/auth/login`
+  and `/register` return a `redirectTo`, so the pre-session `/login` page no
+  longer sends an authenticated non-subscriber to a stale `/admin` (which, with
+  the default "not found" behavior for the old path, was a 404).
   ([#51](https://github.com/JustFlows/justflows-ce/issues/51))
 
 - Each form built under Extensions → Forms has its own "Require a CAPTCHA on this

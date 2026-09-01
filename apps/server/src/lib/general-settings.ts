@@ -7,13 +7,21 @@ import {
   formatPhpDate,
   isValidTimeZone,
 } from "./datetime-format.js";
-import { isUserRole, type UserRole } from "./rbac.js";
+import { isUserRole, USER_ROLE_VALUES, type UserRole } from "./rbac.js";
 import { getSiteId, getSiteSetting } from "./site-settings.js";
 
 export interface GeneralSettings {
   adminEmail: string;
   usersCanRegister: boolean;
   defaultRole: UserRole;
+  /** Whether the emailed self-service "forgot password" flow is offered. */
+  passwordResetEnabled: boolean;
+  /**
+   * Roles the self-service reset is limited to. Empty means every role — the
+   * default. A non-empty list restricts it (an administrator wanting staff to
+   * recover by email while subscribers cannot, or the reverse).
+   */
+  passwordResetRoles: UserRole[];
   timezone: string;
   dateFormat: string;
   timeFormat: string;
@@ -57,6 +65,8 @@ export async function getGeneralSettings(siteId?: string | null): Promise<Genera
       adminEmail: "",
       usersCanRegister: false,
       defaultRole: "subscriber",
+      passwordResetEnabled: true,
+      passwordResetRoles: [],
       timezone: DEFAULT_TIMEZONE,
       dateFormat: DEFAULT_DATE_FORMAT,
       timeFormat: DEFAULT_TIME_FORMAT,
@@ -68,6 +78,8 @@ export async function getGeneralSettings(siteId?: string | null): Promise<Genera
     storedEmail,
     usersCanRegister,
     defaultRoleRaw,
+    passwordResetEnabledRaw,
+    passwordResetRolesRaw,
     timezoneRaw,
     dateFormat,
     timeFormat,
@@ -76,6 +88,8 @@ export async function getGeneralSettings(siteId?: string | null): Promise<Genera
     getSiteSetting<string>(id, "admin_email"),
     getSiteSetting<boolean>(id, "users_can_register"),
     getSiteSetting<string>(id, "default_role"),
+    getSiteSetting<boolean>(id, "password_reset_enabled"),
+    getSiteSetting<string[]>(id, "password_reset_roles"),
     getSiteSetting<string>(id, "timezone"),
     getSiteSetting<string>(id, "date_format"),
     getSiteSetting<string>(id, "time_format"),
@@ -85,11 +99,17 @@ export async function getGeneralSettings(siteId?: string | null): Promise<Genera
   const timezone = asString(timezoneRaw, DEFAULT_TIMEZONE);
   const defaultRole = asString(defaultRoleRaw, "subscriber");
   const startOfWeek = asInt(startOfWeekRaw, DEFAULT_START_OF_WEEK);
+  const passwordResetRoles = Array.isArray(passwordResetRolesRaw)
+    ? passwordResetRolesRaw.filter((r): r is UserRole => isUserRole(String(r)))
+    : [];
 
   return {
     adminEmail: asString(storedEmail, "") || (await fallbackAdminEmail()),
     usersCanRegister: asBool(usersCanRegister, false),
     defaultRole: isUserRole(defaultRole) ? defaultRole : "subscriber",
+    // Absent setting means "on": recovery is a safety net you have to opt out of.
+    passwordResetEnabled: asBool(passwordResetEnabledRaw, true),
+    passwordResetRoles: passwordResetRoles.length === USER_ROLE_VALUES.length ? [] : passwordResetRoles,
     timezone: isValidTimeZone(timezone) ? timezone : DEFAULT_TIMEZONE,
     dateFormat: asString(dateFormat, DEFAULT_DATE_FORMAT),
     timeFormat: asString(timeFormat, DEFAULT_TIME_FORMAT),
