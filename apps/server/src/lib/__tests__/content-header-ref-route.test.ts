@@ -30,6 +30,9 @@ const fakeDb = {
 
 vi.mock("../db.js", () => ({ getDb: async () => fakeDb, resetDb: () => {} }));
 vi.mock("../../middleware/auth.js", () => ({
+  requireCapability:
+    () =>
+    (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
   requireRole:
     (...roles: string[]) =>
     (_req: express.Request, res: express.Response, next: express.NextFunction) => {

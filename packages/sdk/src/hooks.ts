@@ -193,6 +193,14 @@ export interface UserEvent {
   readonly userId: string;
 }
 
+export interface UserAccessChangedEvent extends UserEvent {
+  readonly roleId: string;
+}
+
+export interface AccessRoleEvent {
+  readonly roleId: string;
+}
+
 export interface AuthEvent {
   readonly userId: string;
   readonly email: string;
@@ -394,6 +402,10 @@ export interface ActionEventMap {
   "user.created": UserEvent;
   "user.updated": UserEvent;
   "user.deleted": UserEvent;
+  "user.accessChanged": UserAccessChangedEvent;
+  "access.roleCreated": AccessRoleEvent;
+  "access.roleUpdated": AccessRoleEvent;
+  "access.roleDeleted": AccessRoleEvent;
   "auth.login": AuthEvent;
   "auth.logout": AuthEvent;
   "auth.loginFailed": AuthFailureEvent;

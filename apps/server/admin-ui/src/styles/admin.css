@@ -657,6 +657,38 @@ textarea {
   padding: 0;
 }
 
+/* -------------------------------------------------------------- roles --- */
+.jf-roles .jf-card__head { align-items: center; }
+.jf-roles__subtitle { margin: 0.2rem 0 0; color: var(--jf-text-3); font-size: 0.8rem; }
+.jf-roles__alert { margin: 1rem 1.25rem 0; }
+.jf-roles__state { margin: 0; padding: 1.25rem; color: var(--jf-text-3); }
+.jf-roles__list { display: grid; }
+.jf-roles__item { display: grid; grid-template-columns: minmax(15rem, 0.8fr) minmax(15rem, 1fr) auto; align-items: center; gap: 1rem; min-height: 4rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--jf-border); }
+.jf-roles__item:last-child { border-bottom: 0; }
+.jf-roles__item:hover { background: var(--jf-surface-2); }
+.jf-roles__identity { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.jf-roles__identity strong { color: var(--jf-text); }
+.jf-roles__count { color: var(--jf-text-3); font-size: 0.78rem; white-space: nowrap; }
+.jf-roles__item > p { margin: 0; color: var(--jf-text-3); font-size: 0.8rem; }
+.jf-roles__actions { display: flex; justify-content: flex-end; gap: 0.25rem; }
+.jf-roles__delete { color: var(--jf-danger); }
+.jf-roles__editor { padding: 1.25rem; border-top: 1px solid var(--jf-border); background: var(--jf-surface-2); }
+.jf-roles__editor-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+.jf-roles__editor-head h3 { margin: 0; font-size: 1rem; }
+.jf-roles__editor-head p { margin: 0.2rem 0 0; color: var(--jf-text-3); font-size: 0.8rem; }
+.jf-roles__capabilities { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+.jf-roles__group { min-width: 0; margin: 0; padding: 0.75rem; border: 1px solid var(--jf-border); border-radius: calc(var(--jf-radius) * 0.7); background: var(--jf-surface); }
+.jf-roles__group legend { padding: 0 0.25rem; color: var(--jf-text-2); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.jf-roles__group label { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0; color: var(--jf-text-2); font-size: 0.8rem; }
+.jf-roles__editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+.jf-roles__editor-actions > span { margin-inline-end: auto; color: var(--jf-text-3); font-size: 0.78rem; }
+@media (max-width: 760px) {
+  .jf-roles__item { grid-template-columns: 1fr auto; gap: 0.35rem 0.75rem; }
+  .jf-roles__item > p { grid-column: 1 / -1; }
+  .jf-roles__actions { grid-column: 2; grid-row: 1; }
+  .jf-roles__count { display: none; }
+}
+
 /* ------------------------------------------------------------- forms --- */
 
 .jf-field {

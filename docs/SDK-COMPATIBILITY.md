@@ -30,6 +30,12 @@ package out of staging. An incompatible package is not installed. The legacy
 top-level `justflows` field remains readable for existing packages, but new and
 updated packages must use `engines.justflows`.
 
+A development host prerelease is treated as implementing its base release for
+this host-compatibility check: `0.1.8-dev.1` satisfies a package range beginning
+at `0.1.8`, while it does not satisfy one beginning at `0.1.9`. This exception
+applies only to the running host compatibility check; extension versions and
+stable releases retain standard SemVer precedence.
+
 The same `ExtensionEngines` type and `ExtensionEnginesSchema` exported by
 `@justflows/sdk` describe this field for every extension type.
 
@@ -38,6 +44,16 @@ Plugins additionally receive executable runtime context and can inspect
 `ctx.runtime.sdkApi`. Authors can also import `SDK_VERSION` and
 `SDK_API_VERSION` from `@justflows/sdk`. `ctx.version` continues to mean the
 plugin's own version.
+
+Authenticated plugin HTTP requests expose additive `session.capabilities` and
+`session.scopes` fields. They describe the user's effective access after custom
+role, grants, denies, and resource constraints. Existing role names remain
+supported, but new authorization code should use these capability contracts.
+
+Plugins register their own user-facing capabilities through
+`ctx.capabilities.register()`. Registrations live only while the plugin is
+active and are the source for role-editor choices and effective policy
+validation; this keeps core domain-agnostic.
 
 ## Deprecation cycle
 

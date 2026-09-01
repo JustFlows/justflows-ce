@@ -545,6 +545,8 @@ makes both correctness and performance attributable to a specific extension.
 | `media.uploaded` | `{ siteId, mediaId, url }` |
 | `media.deleted` | `{ siteId, mediaId }` |
 | `user.created` / `updated` / `deleted` | `{ userId }` |
+| `user.accessChanged` | `{ userId, roleId }` — after a role, grant, deny, or scope change |
+| `access.roleCreated` / `roleUpdated` / `roleDeleted` | `{ roleId }` |
 | `auth.login` / `auth.logout` | `{ userId, email }` |
 | `auth.loginFailed` | `{ email, reason }` |
 | `plugin.installed` / `activated` / `deactivated` / `deleteData` / `uninstalled` | `{ pluginId, version, siteId? }` — `plugin.deleteData` runs after that plugin's `deleteData()` hook |

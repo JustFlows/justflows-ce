@@ -229,6 +229,8 @@ UI visibility is never the authorization boundary.
 
 Add narrow user capabilities such as:
 
+- The Shop plugin registers these user capabilities at activation; none belong
+  to the core capability catalog:
 - `shop:settings`
 - `products:read`, `products:create`, `products:update`, `products:delete`, and
   `products:publish`

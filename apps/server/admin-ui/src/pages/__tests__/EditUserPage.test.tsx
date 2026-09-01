@@ -79,11 +79,39 @@ describe("EditUserPage as an administrator", () => {
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => expect(calls).toHaveLength(1));
+    // grants/denies/scopes are omitted here: only the role actually changed,
+    // and sending unchanged access fields would force a full access-policy
+    // rewrite (and session revocation) on every save — see the regression
+    // this guards against in EditUserPage.tsx.
     expect(calls[0]).toEqual({
       path: "/api/users/member-1",
-      body: { displayName: "New Name", role: "editor" },
+      body: { displayName: "New Name", role: "editor", roleId: "editor" },
     });
     expect(await screen.findByText("User updated.")).toBeInTheDocument();
+  });
+
+  it("sends only displayName when nothing else changed", async () => {
+    const calls: Array<{ path: string; body?: unknown }> = [];
+    mockFetch("administrator", (input, init) => {
+      if (init?.method === "PATCH") {
+        calls.push({ path: String(input), body: init.body ? JSON.parse(String(init.body)) : undefined });
+        return jsonResponse({ ok: true });
+      }
+      return undefined;
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByDisplayValue("Member One");
+    await user.clear(screen.getByLabelText("Display name"));
+    await user.type(screen.getByLabelText("Display name"), "New Name");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual({
+      path: "/api/users/member-1",
+      body: { displayName: "New Name" },
+    });
   });
 
   it("removes the user and navigates back to the list once confirmed", async () => {

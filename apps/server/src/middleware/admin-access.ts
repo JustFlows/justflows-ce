@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { getSession } from "../lib/session.js";
-import { ROLES } from "../lib/rbac.js";
+import { getEffectiveAccess } from "../lib/access-policy.js";
 
 /**
  * Gate for the /admin surface: a session is required, and a subscriber — who
@@ -21,13 +21,12 @@ export function adminAccessGate(req: Request, res: Response, next: NextFunction)
   }
 
   const session = getSession(req);
-  if (!session) {
-    res.redirect("/login");
-    return;
-  }
-  if (session.role === ROLES.SUBSCRIBER) {
-    res.redirect("/");
-    return;
-  }
-  next();
+  if (!session) { res.redirect("/login"); return; }
+  if (session.role !== "subscriber") { next(); return; }
+  getEffectiveAccess(session.userId, session.siteId, session.role)
+    .then((access) => {
+      if (access.capabilities.some((capability) => capability !== "content:read")) next();
+      else res.redirect("/");
+    })
+    .catch(() => res.redirect("/"));
 }

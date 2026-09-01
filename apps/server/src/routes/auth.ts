@@ -13,7 +13,9 @@ import { auditContext, auditFromRequest, auditLog } from "../lib/audit-log.js";
 import { requireSession } from "../middleware/auth.js";
 import { PasswordSchema } from "../lib/password-policy.js";
 import { revokeUserSessions } from "../lib/auth-session.js";
+import { createDeviceSession, listDeviceSessions, revokeDeviceSession, revokeOtherDeviceSessions } from "../lib/device-sessions.js";
 import { getAdminPathConfig } from "../lib/admin-path.js";
+import { param } from "../lib/params.js";
 import {
   completePasswordReset,
   processForgotPassword,
@@ -64,9 +66,11 @@ router.get("/csrf", (req, res) => {
  * capability. It is a UX convenience, not a security boundary: every route it
  * informs is still enforced independently by `requireRole` on the server.
  */
-router.get("/me", requireSession, (req, res) => {
+router.get("/me", requireSession, async (req, res) => {
   const session = req.session!;
-  res.json({ id: session.userId, email: session.email, role: session.role });
+  const { getEffectiveAccess } = await import("../lib/access-policy.js");
+  const access = await getEffectiveAccess(session.userId, session.siteId, session.role);
+  res.json({ id: session.userId, email: session.email, role: session.role, roleId: access.roleId, capabilities: access.capabilities });
 });
 
 /**
@@ -78,8 +82,12 @@ router.get("/me", requireSession, (req, res) => {
  * no way to know that path on their own, and it should not be handed to anyone
  * who has not signed in, so it is resolved here and returned in the response.
  */
-async function postAuthRedirect(role: string): Promise<string> {
-  if (role === "subscriber") return "/";
+async function postAuthRedirect(role: string, userId?: string, siteId?: string): Promise<string> {
+  if (role === "subscriber" && userId && siteId) {
+    const { getEffectiveAccess } = await import("../lib/access-policy.js");
+    const access = await getEffectiveAccess(userId, siteId, role);
+    if (!access.capabilities.some((capability) => capability !== "content:read")) return "/";
+  } else if (role === "subscriber") return "/";
   return (await getAdminPathConfig()).path;
 }
 
@@ -216,7 +224,14 @@ router.post("/login", loginRequestLimit, async (req, res) => {
       }
     }
 
+    const sid = await createDeviceSession({
+      userId: user.id,
+      siteId: user.site_id,
+      userAgent: req.get("user-agent"),
+      ip: clientIp(req),
+    });
     setSessionCookie(res, {
+      sid,
       userId: user.id,
       siteId: user.site_id,
       role: user.role,
@@ -235,7 +250,7 @@ router.post("/login", loginRequestLimit, async (req, res) => {
     // certain roles get the admin app; a subscriber belongs on the site itself.
     // `redirectTo` carries the configured admin path so the client does not have
     // to guess it from a page that was served before the session existed.
-    res.json({ ok: true, role: user.role, redirectTo: await postAuthRedirect(user.role) });
+    res.json({ ok: true, role: user.role, redirectTo: await postAuthRedirect(user.role, user.id, user.site_id) });
   } catch (err) {
     console.error("Login error", err);
     res.status(500).json({ error: "Server error" });
@@ -243,11 +258,12 @@ router.post("/login", loginRequestLimit, async (req, res) => {
 });
 
 router.post("/logout", async (req, res) => {
-  // Clearing the cookie alone left a captured token valid for its full 14-day
-  // life. Bumping the counter ends every session this user has.
+  // Revoke this device only. Account-wide revocation remains available after
+  // password changes and through the explicit sessions control.
   const session = getSession(req);
   if (session) {
-    await revokeUserSessions(session.userId, session.siteId);
+    if (session.sid) await revokeDeviceSession(session.sid, session.userId, session.siteId);
+    else await revokeUserSessions(session.userId, session.siteId);
     void auditLog({
       siteId: session.siteId,
       action: "auth.logout",
@@ -364,7 +380,14 @@ router.post("/register", async (req, res) => {
       // hooks are optional during early boot
     }
 
+    const sid = await createDeviceSession({
+      userId: id,
+      siteId,
+      userAgent: req.get("user-agent"),
+      ip: clientIp(req),
+    });
     setSessionCookie(res, {
+      sid,
       userId: id,
       siteId,
       role: general.defaultRole,
@@ -392,7 +415,7 @@ router.post("/register", async (req, res) => {
     res.status(201).json({
       ok: true,
       role: general.defaultRole,
-      redirectTo: await postAuthRedirect(general.defaultRole),
+      redirectTo: await postAuthRedirect(general.defaultRole, id, siteId),
     });
   } catch (err) {
     console.error("Register error", err);
@@ -467,6 +490,7 @@ router.post("/password", passwordRequestLimit, requireSession, async (req, res) 
       .catch(() => []);
 
     setSessionCookie(res, {
+      sid: session.sid,
       userId: session.userId,
       siteId: session.siteId,
       role: session.role,
@@ -827,6 +851,37 @@ router.post("/2fa/disable", totpDisableRequestLimit, requireSession, async (req,
     console.error("2FA disable error", err);
     res.status(500).json({ error: "Server error" });
   }
+});
+
+router.get("/sessions", requireSession, async (req, res) => {
+  const session = req.session!;
+  try {
+    res.json({ sessions: await listDeviceSessions(session.userId, session.siteId, session.sid) });
+  } catch (err) {
+    console.error("Session list error", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/sessions/:id", requireSession, async (req, res) => {
+  const session = req.session!;
+  const id = param(req.params.id);
+  if (id === session.sid) {
+    res.status(400).json({ error: "Use sign out to end the current session" });
+    return;
+  }
+  const revoked = await revokeDeviceSession(id, session.userId, session.siteId);
+  if (!revoked) { res.status(404).json({ error: "Session not found" }); return; }
+  auditFromRequest(req, "auth.session_revoked", { target: id });
+  res.json({ ok: true });
+});
+
+router.post("/sessions/revoke-others", requireSession, async (req, res) => {
+  const session = req.session!;
+  if (!session.sid) { res.status(409).json({ error: "Sign in again to manage device sessions" }); return; }
+  const revoked = await revokeOtherDeviceSessions(session.sid, session.userId, session.siteId);
+  auditFromRequest(req, "auth.other_sessions_revoked", { detail: `count=${revoked}` });
+  res.json({ ok: true, revoked });
 });
 
 export default router;

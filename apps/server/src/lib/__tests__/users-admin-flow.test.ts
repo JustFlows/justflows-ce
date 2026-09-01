@@ -209,7 +209,7 @@ describe("GET /api/auth/me", () => {
 
     const res = await get("/api/auth/me", jar);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ id: admin1.id, email: admin1.email, role: "administrator" });
+    expect(res.body).toMatchObject({ id: admin1.id, email: admin1.email, role: "administrator" });
   });
 
   it("401s without a session", async () => {

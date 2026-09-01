@@ -3,6 +3,7 @@ import { gplLicenseValidationMessage, isGplCompatibleLicense } from "./license.j
 import { RegistryListingSchema } from "./registry.js";
 import { ExtensionEnginesSchema } from "./compatibility.js";
 import type { PluginCookiesApi } from "./cookies.js";
+import type { AccessPolicy, UserCapability, UserCapabilityDefinition } from "./capabilities.js";
 import type {
   ActionName,
   ActionHandlerFor,
@@ -245,12 +246,21 @@ export interface PluginCacheApi {
   invalidate(prefix?: string): Promise<void>;
 }
 
+export interface PluginCapabilitiesApi {
+  /** Register a user capability for as long as this plugin is active. */
+  register(definition: UserCapabilityDefinition): void;
+}
+
 /** The signed-in user behind a plugin request, when there is one. */
 export interface PluginHttpSession {
   userId: string;
   siteId: string;
   role: string;
   email: string;
+  /** Effective grants after role, per-user additions, and explicit denies. */
+  capabilities: readonly UserCapability[];
+  /** Resource constraints the host enforces for scoped operations. */
+  scopes: AccessPolicy["scopes"];
 }
 
 export type PluginHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -557,6 +567,7 @@ export interface PluginContext {
   /** Host and SDK versions for runtime feature detection and diagnostics. */
   readonly runtime: JustflowsRuntimeVersions;
   readonly permissions: ReadonlySet<PluginPermission>;
+  readonly capabilities: PluginCapabilitiesApi;
 
   /**
    * Shared jf-cache, scoped to this plugin. Always available; when caching is

@@ -23,6 +23,8 @@ describe("MIGRATION_ORDER", () => {
       "0015_theme_designs",
       "0016_user_preferences",
       "0017_password_resets",
+      "0018_access_control",
+      "0019_device_sessions",
     ]);
   });
 
@@ -36,6 +38,8 @@ describe("MIGRATION_ORDER", () => {
     { name: "0015_theme_designs", marker: /CREATE TABLE IF NOT EXISTS theme_designs/i },
     { name: "0016_user_preferences", marker: /CREATE TABLE IF NOT EXISTS user_preferences/i },
     { name: "0017_password_resets", marker: /CREATE TABLE IF NOT EXISTS password_resets/i },
+    { name: "0018_access_control", marker: /CREATE TABLE IF NOT EXISTS access_roles/i },
+    { name: "0019_device_sessions", marker: /CREATE TABLE IF NOT EXISTS user_sessions/i },
   ];
 
   for (const { name, marker } of TRACKED) {

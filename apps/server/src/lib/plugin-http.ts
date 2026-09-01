@@ -95,6 +95,11 @@ export async function dispatchPluginHttp(
     }
 
     const session = await resolveSession(req, res).catch(() => null);
+    const access = session
+      ? await import("./access-policy.js").then(({ getEffectiveAccess }) =>
+          getEffectiveAccess(session.userId, session.siteId, session.role),
+        )
+      : null;
 
     const result = await match.handler({
       method,
@@ -109,6 +114,8 @@ export async function dispatchPluginHttp(
             siteId: session.siteId,
             role: session.role,
             email: session.email,
+            capabilities: access?.capabilities ?? [],
+            scopes: access?.policy.scopes ?? {},
           }
         : null,
     });

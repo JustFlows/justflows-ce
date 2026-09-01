@@ -24,6 +24,7 @@ import {
 import type { App } from "@justflows/core";
 import { PluginHttpRouter } from "./http-router.js";
 import { PluginCookieRegistry } from "./cookie-registry.js";
+import { PluginCapabilityRegistry } from "./capability-registry.js";
 
 export interface LoadedPlugin {
   manifest: PluginManifest;
@@ -139,6 +140,7 @@ export class PluginLoader {
   private readonly cookieOverrides: (siteId: string) => Promise<Record<string, CookieCategory>>;
   readonly httpRouter: PluginHttpRouter;
   readonly cookieRegistry: PluginCookieRegistry;
+  readonly capabilityRegistry: PluginCapabilityRegistry;
 
   constructor(
     private readonly app: App,
@@ -162,6 +164,7 @@ export class PluginLoader {
       /** Operator category overrides, keyed by cookie name, per site. */
       cookieOverrides?: (siteId: string) => Promise<Record<string, CookieCategory>>;
       cookieRegistry?: PluginCookieRegistry;
+      capabilityRegistry?: PluginCapabilityRegistry;
     },
   ) {
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
@@ -180,6 +183,7 @@ export class PluginLoader {
     };
     this.httpRouter = options?.httpRouter ?? new PluginHttpRouter();
     this.cookieRegistry = options?.cookieRegistry ?? new PluginCookieRegistry();
+    this.capabilityRegistry = options?.capabilityRegistry ?? new PluginCapabilityRegistry();
     const coreCookies = options?.coreCookies ?? [];
     this.coreCookiesFn =
       typeof coreCookies === "function" ? async () => coreCookies() : async () => coreCookies;
@@ -307,6 +311,7 @@ export class PluginLoader {
     this.app.hooks.removePlugin(pluginId);
     this.httpRouter.removePlugin(pluginId);
     this.cookieRegistry.removePlugin(pluginId);
+    this.capabilityRegistry.removePlugin(pluginId);
     this.jobsCleanup?.(pluginId);
     const types = this.registeredBlocks.get(pluginId) ?? [];
     for (const type of types) this.blockRegistry?.unregister(type);
@@ -369,6 +374,9 @@ export class PluginLoader {
         sdkApi: SDK_API_VERSION,
       },
       permissions,
+      capabilities: {
+        register: (definition) => this.capabilityRegistry.register(pluginId, definition),
+      },
       cache,
       hooks: {
         action: (hook, handler, options) => register("action", hook, handler, options),

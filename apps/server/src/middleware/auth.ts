@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import { resolveSession } from "../lib/auth-session.js";
 import { syncCsrfCookie, type SessionPayload } from "../lib/session.js";
+import { userCan } from "../lib/access-policy.js";
+import type { AccessResource, UserCapability } from "@justflows/sdk";
 
 declare global {
   namespace Express {
@@ -35,6 +37,30 @@ export function requireRole(...roles: string[]) {
           return;
         }
         if (!roles.includes(session.role)) {
+          res.status(403).json({ error: "Forbidden" });
+          return;
+        }
+        syncCsrfCookie(req, res, session);
+        req.session = session;
+        next();
+      })
+      .catch(next);
+  };
+}
+
+/** Capability-first authorization for new and migrated routes. */
+export function requireCapability(
+  capability: UserCapability,
+  resource?: (req: Request) => AccessResource,
+) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    resolveSession(req, res)
+      .then(async (session) => {
+        if (!session) {
+          res.status(401).json({ error: "Unauthorized" });
+          return;
+        }
+        if (!(await userCan(session, capability, resource?.(req) ?? {}))) {
           res.status(403).json({ error: "Forbidden" });
           return;
         }
