@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "type": "plugin",
+  "id": "justflows.consent",
+  "name": "Cookie Consent",
+  "version": "1.0.0",
+  "publisher": "Justflows",
+  "license": "GPL-2.0-or-later",
+  "engines": {
+    "justflows": ">=0.1.8-dev.1 <0.2.0"
+  },
+  "description": "First-party cookie consent banner, preference center, and script/embed gating. No third-party dependency; all logic and storage are first-party.",
+  "registry": {
+    "commercialMarketplace": false,
+    "listed": true,
+    "free": true,
+    "comingSoon": false
+  },
+  "permissions": ["admin:extend"],
+  "adminMenu": [
+    {
+      "id": "consent",
+      "label": "Cookie Consent",
+      "labelKey": "nav.consent",
+      "path": "/admin/consent",
+      "icon": "🍪",
+      "domain": "extensions"
+    }
+  ],
+  "settingsSchema": {
+    "deleteDataOnUninstall": {
+      "type": "boolean",
+      "label": "Delete consent records when this plugin is removed",
+      "description": "When on, Admin → Plugins → Delete also erases every stored consent record.",
+      "default": false
+    }
+  }
+}

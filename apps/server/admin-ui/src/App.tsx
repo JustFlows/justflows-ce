@@ -15,6 +15,7 @@ import PluginsPage from "./pages/admin/PluginsPage";
 import PluginSettingsPage from "./pages/admin/PluginSettingsPage";
 import AnalyticsPage from "./pages/admin/AnalyticsPage";
 import FormsPage from "./pages/admin/FormsPage";
+import ConsentPage from "./pages/admin/ConsentPage";
 import ThemesPage from "./pages/admin/ThemesPage";
 import DesignPage from "./pages/admin/DesignPage";
 import ThemeCustomizePage from "./pages/admin/ThemeCustomizePage";
@@ -100,6 +101,14 @@ export default function App() {
                 element={
                   <PluginRoute>
                     <FormsPage />
+                  </PluginRoute>
+                }
+              />
+              <Route
+                path="consent"
+                element={
+                  <PluginRoute>
+                    <ConsentPage />
                   </PluginRoute>
                 }
               />

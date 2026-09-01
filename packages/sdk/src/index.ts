@@ -124,6 +124,20 @@ export type {
   JustflowsRuntimeVersions,
 } from "./plugin.js";
 
+// Cookies — the site cookie registry every extension declares into
+export {
+  COOKIE_CATEGORIES,
+  CookieDeclarationSchema,
+  resolveCookies,
+  cookieNameMatches,
+} from "./cookies.js";
+export type {
+  CookieCategory,
+  CookieDeclaration,
+  ResolvedCookie,
+  PluginCookiesApi,
+} from "./cookies.js";
+
 // Capabilities — user capability system
 export { USER_CAPABILITIES, ROLE_CAPABILITIES, roleHasCapability } from "./capabilities.js";
 export type { UserCapability } from "./capabilities.js";

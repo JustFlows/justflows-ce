@@ -1,0 +1,32 @@
+{
+  "name": "justflows.consent",
+  "version": "1.0.0",
+  "private": true,
+  "license": "GPL-2.0-or-later",
+  "description": "The official Justflows cookie-consent and script-gating plugin",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/build-styles.mjs && node scripts/build-client.mjs",
+    "build:styles": "node scripts/build-styles.mjs",
+    "build:client": "node scripts/build-client.mjs",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@justflows/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "esbuild": "0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}

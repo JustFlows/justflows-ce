@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { usePluginMenu } from "./PluginMenuProvider";
+import { internalAdminPath, publicAdminPath } from "../admin-path";
 
 /**
  * Guards an admin page owned by a plugin. The route stays in the admin bundle,
@@ -19,10 +20,13 @@ export default function PluginRoute({ children }: { children: ReactNode }) {
     );
   }
 
+  // The live pathname carries the configured admin URL (e.g. /control/analytics);
+  // plugin menu items always store the canonical /admin/… path.
+  const internal = internalAdminPath(pathname);
   const owned = items.some(
-    (item) => pathname === item.path || pathname.startsWith(`${item.path}/`),
+    (item) => internal === item.path || internal.startsWith(`${item.path}/`),
   );
-  if (!owned) return <Navigate to="/admin/plugins" replace />;
+  if (!owned) return <Navigate to={publicAdminPath("/admin/plugins")} replace />;
 
   return <>{children}</>;
 }

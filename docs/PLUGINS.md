@@ -2,6 +2,9 @@
 
 Start from [`plugins/hello-world`](../plugins/hello-world). That folder is the
 supported example: copy it, change the id, and build.
+[`plugins/consent`](../plugins/consent) is a fuller first-party example — a
+stylesheet, sync and async filters, HTTP routes, a bundled browser runtime, an
+admin page, and `plugin_data` records with `deleteData` cleanup.
 
 ```bash
 cp -R plugins/hello-world plugins/acme-seo
@@ -55,8 +58,34 @@ choosing a compatibility range or deprecating a public integration.
 `activate` receives `PluginContext`: hooks, settings (`plugin_data`, not
 `site_settings`), logger, cache, HTTP routes, plugin-scoped data, encrypted
 `secrets`, short-lived `databases` probes, table `upsert`/`findOne`,
-`content.ensureType` / `content.ensurePage` / `content.deleteType`, and `blocks.register`. See
+`content.ensureType` / `content.ensurePage` / `content.deleteType`,
+`blocks.register`, and `cookies.declare` / `cookies.list`. See
 [HOOKS.md](HOOKS.md) and [PERMISSIONS.md](PERMISSIONS.md).
+
+## Declare the cookies you set
+
+Any plugin that writes a cookie that is **not strictly necessary** must declare
+it so the site's consent banner can disclose it and expire it when its category
+is withdrawn:
+
+```ts
+activate(ctx) {
+  ctx.cookies.declare({
+    name: "_ga_*",                 // exact name, or a prefix ending in "*"
+    category: "analytics",         // necessary | preferences | analytics | marketing
+    purpose: "Google Analytics session state",
+    provider: "Google",
+    duration: "13 months",
+  });
+}
+```
+
+Declarations are removed automatically on deactivate. `ctx.cookies.list()`
+returns the whole site registry — the host's own cookies plus every active
+plugin's — with the operator's category overrides applied
+(`Admin → Extensions → Cookie Consent → Cookie declarations`, backed by
+`GET`/`PUT /api/cookies`). Before setting a non-essential cookie from your own
+client code, check `window.justflowsConsent?.allowed("<name>")`.
 
 ## Ship your own stylesheet
 

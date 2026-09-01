@@ -1,0 +1,298 @@
+/* justflows.consent — banner, preference center, and gated-embed placeholder.
+
+   Colours and radii resolve from CSS variables the runtime sets from the
+   Design panel; when "Use theme colours" is on those vars are absent and the
+   value falls back to the active theme's tokens, then to a hard default. */
+
+.jf-consent,
+.jf-consent * {
+  box-sizing: border-box;
+}
+
+.jf-consent {
+  position: fixed;
+  z-index: 2147483000;
+  display: flex;
+  pointer-events: none;
+  --jfc-bg-c: var(--jfc-bg, var(--color-surface, #fff));
+  --jfc-text-c: var(--jfc-text, var(--color-text, #1a1a1a));
+  --jfc-accent-c: var(--jfc-accent, var(--color-primary, #2563eb));
+  --jfc-accent-text-c: var(--jfc-accent-text, var(--color-on-primary, var(--color-bg, #fff)));
+  --jfc-border-c: var(--jfc-border, var(--color-border, rgba(0, 0, 0, 0.12)));
+  --jfc-panel-r: var(--jfc-panel-radius, var(--radius-lg, 0.75rem));
+  --jfc-btn-r: var(--jfc-btn-radius, var(--radius-md, 0.5rem));
+}
+
+.jf-consent[hidden] {
+  display: none;
+}
+
+.jf-consent__panel {
+  pointer-events: auto;
+  padding: var(--space-lg, 1.5rem);
+  background: var(--jfc-bg-c);
+  color: var(--jfc-text-c);
+  border: 1px solid var(--jfc-border-c);
+  border-radius: var(--jfc-panel-r);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+/* ── Layout: bar ─────────────────────────────────────────────────────────── */
+.jf-consent[data-layout="bar"] {
+  inset-inline: 0;
+  justify-content: center;
+}
+.jf-consent[data-layout="bar"] .jf-consent__panel {
+  width: 100%;
+  max-width: none;
+  border-inline: 0;
+  border-radius: 0;
+}
+.jf-consent[data-layout="bar"][data-position="top"] {
+  inset-block: 0 auto;
+}
+.jf-consent[data-layout="bar"][data-position="top"] .jf-consent__panel {
+  border-block-start: 0;
+}
+.jf-consent[data-layout="bar"][data-position="bottom"] {
+  inset-block: auto 0;
+}
+.jf-consent[data-layout="bar"][data-position="bottom"] .jf-consent__panel {
+  border-block-end: 0;
+}
+
+/* ── Layout: box ─────────────────────────────────────────────────────────── */
+.jf-consent[data-layout="box"] {
+  inset: 0;
+  padding: var(--space-md, 1rem);
+}
+.jf-consent[data-layout="box"] .jf-consent__panel {
+  width: min(var(--jfc-width, 460px), 100%);
+  height: fit-content;
+}
+.jf-consent[data-layout="box"][data-position="top"] {
+  align-items: flex-start;
+  justify-content: center;
+}
+.jf-consent[data-layout="box"][data-position="bottom"] {
+  align-items: flex-end;
+  justify-content: center;
+}
+.jf-consent[data-layout="box"][data-position="top-left"] {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.jf-consent[data-layout="box"][data-position="top-right"] {
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+.jf-consent[data-layout="box"][data-position="bottom-left"] {
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+.jf-consent[data-layout="box"][data-position="bottom-right"] {
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+/* ── Layout: modal ──────────────────────────────────────────────────────── */
+.jf-consent[data-layout="modal"] {
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md, 1rem);
+}
+.jf-consent[data-layout="modal"] .jf-consent__panel {
+  width: min(var(--jfc-width, 520px), 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.jf-consent__title {
+  margin: 0 0 var(--space-xs, 0.35rem);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.jf-consent__body {
+  margin: 0 0 var(--space-md, 1rem);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.jf-consent__body a {
+  color: var(--jfc-accent-c);
+}
+
+.jf-consent__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm, 0.5rem);
+}
+
+.jf-consent__btn {
+  flex: 1 1 auto;
+  min-height: 2.75rem;
+  padding: 0.55rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  border-radius: var(--jfc-btn-r);
+  border: 1px solid var(--jfc-accent-c);
+  cursor: pointer;
+}
+
+/* Accept and Reject carry equal visual weight (reject-all parity). */
+.jf-consent__btn--primary,
+.jf-consent__btn--secondary {
+  background: var(--jfc-accent-c);
+  color: var(--jfc-accent-text-c);
+}
+
+.jf-consent__btn--secondary {
+  background: transparent;
+  color: var(--jfc-accent-c);
+}
+
+.jf-consent__btn--ghost {
+  background: transparent;
+  color: var(--jfc-text-c);
+  border-color: var(--jfc-border-c);
+}
+
+.jf-consent__categories {
+  margin: 0 0 var(--space-md, 1rem);
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: var(--space-sm, 0.5rem);
+}
+
+.jf-consent__category {
+  display: flex;
+  gap: var(--space-sm, 0.5rem);
+  align-items: flex-start;
+  padding: var(--space-sm, 0.5rem);
+  border: 1px solid var(--jfc-border-c);
+  border-radius: var(--jfc-btn-r);
+}
+
+.jf-consent__category input {
+  margin-block-start: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.jf-consent__category-text {
+  display: block;
+}
+
+.jf-consent__category-name {
+  font-weight: 600;
+}
+
+.jf-consent__category-desc {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.jf-consent__category-wrap {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.jf-consent__cookies {
+  font-size: 0.8rem;
+  padding: 0 var(--space-sm, 0.5rem) var(--space-sm, 0.5rem);
+}
+
+.jf-consent__cookies summary {
+  cursor: pointer;
+  opacity: 0.8;
+  padding: 0.15rem 0;
+}
+
+.jf-consent__cookies table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.35rem;
+}
+
+.jf-consent__cookies th,
+.jf-consent__cookies td {
+  text-align: left;
+  padding: 0.2rem 0.4rem;
+  border-bottom: 1px solid var(--jfc-border-c);
+  vertical-align: top;
+}
+
+.jf-consent__cookies th {
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.jf-consent__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482999;
+  background: var(--jfc-backdrop, rgba(0, 0, 0, 0.45));
+}
+
+.jf-consent__backdrop[hidden] {
+  display: none;
+}
+
+.jf-consent :focus-visible,
+.jf-consent-embed :focus-visible {
+  outline: 3px solid var(--jfc-accent-c, #2563eb);
+  outline-offset: 2px;
+}
+
+/* Gated off-site embed placeholder. */
+.jf-consent-embed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm, 0.5rem);
+  min-height: 12rem;
+  padding: var(--space-lg, 1.5rem);
+  text-align: center;
+  background: var(--color-surface-muted, rgba(0, 0, 0, 0.04));
+  border: 1px dashed var(--color-border, rgba(0, 0, 0, 0.25));
+  border-radius: var(--radius-md, 0.5rem);
+}
+
+.jf-consent-embed__note {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.jf-consent-embed__unlock {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border-radius: var(--radius-md, 0.5rem);
+  border: 1px solid var(--color-primary, #2563eb);
+  background: var(--color-primary, #2563eb);
+  color: var(--color-on-primary, #fff);
+}
+
+@media (max-width: 32rem) {
+  .jf-consent[data-layout="box"] .jf-consent__panel {
+    width: 100%;
+  }
+  .jf-consent__btn {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jf-consent__panel,
+  .jf-consent__backdrop {
+    animation: none !important;
+    transition: none !important;
+  }
+}
