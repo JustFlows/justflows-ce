@@ -4,6 +4,7 @@ import {
   gplLicenseValidationMessage,
   isGplCompatibleLicense,
   RegistryListingSchema,
+  ExtensionEnginesSchema,
 } from "@justflows/sdk";
 
 const CssAssetSchema = z.object({
@@ -39,11 +40,11 @@ export const PackageManifestSchema = z
       ),
     publisher: z.string().min(1),
     description: z.string().max(500).optional(),
-    license: z
-      .string()
-      .min(1, "Package license is required and must be GPL-compatible"),
+    license: z.string().min(1, "Package license is required and must be GPL-compatible"),
     homepage: z.url().optional(),
-    /** Semver range for Justflows compatibility */
+    /** Runtime compatibility contract for the host installer. */
+    engines: ExtensionEnginesSchema.optional(),
+    /** @deprecated Use engines.justflows in new manifests. */
     justflows: z.string().optional(),
     /** Plugin-only: server entrypoint path within the package */
     entrypoints: z
@@ -94,7 +95,10 @@ export const PackageManifestSchema = z
       .array(
         z
           .string()
-          .regex(/^[a-z][a-z0-9-]{0,59}$/, "Content type slug must be lowercase letters, numbers, and hyphens"),
+          .regex(
+            /^[a-z][a-z0-9-]{0,59}$/,
+            "Content type slug must be lowercase letters, numbers, and hyphens",
+          ),
       )
       .max(20)
       .optional(),

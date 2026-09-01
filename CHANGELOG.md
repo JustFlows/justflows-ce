@@ -31,6 +31,16 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **SDK:** Published compatibility and deprecation policy for plugins, themes,
+  and CSS providers; their shared `engines.justflows` manifest range is enforced
+  by the installer before a package leaves staging; plugins additionally receive
+  explicit Justflows, SDK package, and SDK API versions through `ctx.runtime`;
+  and CI snapshots the public SDK export surface so an export cannot disappear
+  without review and the required deprecation cycle. Existing top-level
+  `justflows` package ranges remain supported as a deprecated compatibility
+  alias.
+  ([#20](https://github.com/JustFlows/justflows-ce/issues/20))
+
 - Self-service password reset. A "Forgot password?" link on the sign-in and
   registration screens emails a single-use, time-limited link
   (`JF_PASSWORD_RESET_TTL_MINUTES`, default 60) that lets an administrator or a

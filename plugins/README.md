@@ -7,7 +7,7 @@ workspace includes `plugins/*`, and a source checkout of the server lists
 whatever is in this directory.
 
 Author docs: [docs/README.md](../docs/README.md) (hooks, manifest, packaging,
-themes, blocks, testing).
+themes, blocks, testing, and SDK compatibility).
 
 ```
 plugins/
@@ -19,7 +19,7 @@ plugins/
 
 1. Copy `hello-world` to a new folder, for example `plugins/acme-seo`.
 2. Set a namespaced id in `justflows.json` and `src/index.ts` (`acme.seo`, not `seo`).
-3. Declare a GPL-compatible `license` in the manifest.
+3. Declare a GPL-compatible `license` and an `engines.justflows` range in the manifest.
 4. Write code in `src/`. Import types from `@justflows/sdk` only.
 5. Build so the runtime can load JavaScript:
 

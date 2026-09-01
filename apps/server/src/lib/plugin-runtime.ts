@@ -20,6 +20,7 @@ import { createPluginSecretsApi } from "./plugin-secrets.js";
 import { createPluginDatabasesApi } from "./plugin-databases.js";
 import { createPluginContentApi } from "./plugin-content.js";
 import { isInstalled } from "../middleware/install-guard.js";
+import { getJustflowsVersion } from "./version.js";
 
 let app: App | null = null;
 let loader: PluginLoader | null = null;
@@ -156,6 +157,7 @@ export async function ensurePluginRuntime(): Promise<void> {
       const { getJfCache } = await import("./jf-cache.js");
       const { createPluginCacheApi } = await import("./plugin-cache.js");
       loader = new PluginLoader(app, {
+        justflowsVersion: getJustflowsVersion(),
         cacheFactory: (pluginId) => createPluginCacheApi(pluginId, getJfCache()),
         dataFactory: (pluginId, siteId) => createPluginDataApi(pluginId, siteId),
         jobsFactory: (pluginId) => createPluginJobsApi(pluginId),

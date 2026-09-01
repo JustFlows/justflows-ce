@@ -61,6 +61,7 @@ import multer from "multer";
 import { assertPackageIsTrusted } from "../lib/package-trust.js";
 import { sendPackageInstallError } from "../lib/package-install-error.js";
 import { packagesInstalledDir } from "../lib/packages-dir.js";
+import { getJustflowsVersion } from "../lib/version.js";
 import { auditFromRequest } from "../lib/audit-log.js";
 import { sendServerError } from "../lib/send-error.js";
 import { resolvePathUnderBase } from "../lib/safe-path.js";
@@ -123,6 +124,7 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
     // the note on InstallOptions.verify.
     const result = await installer.installFromBuffer(file.buffer, {
       packagesDir,
+      justflowsVersion: getJustflowsVersion(),
       source: "upload",
       verify: (manifest, digest) => {
         if (manifest.type !== "theme") {
@@ -412,8 +414,16 @@ router.delete("/:id", requireRole("administrator"), themeDeleteRequestLimit, asy
     }
     if (installedPath) {
       const packagesDir = packagesInstalledDir();
-      const expectedPath = resolvePathUnderBase(packagesDir, "themes", theme.theme_id, theme.version);
-      const safeInstalledPath = resolvePathUnderBase(packagesDir, path.relative(packagesDir, installedPath));
+      const expectedPath = resolvePathUnderBase(
+        packagesDir,
+        "themes",
+        theme.theme_id,
+        theme.version,
+      );
+      const safeInstalledPath = resolvePathUnderBase(
+        packagesDir,
+        path.relative(packagesDir, installedPath),
+      );
       if (!expectedPath || safeInstalledPath !== expectedPath) {
         res.status(400).json({ error: "Theme install path is invalid." });
         return;

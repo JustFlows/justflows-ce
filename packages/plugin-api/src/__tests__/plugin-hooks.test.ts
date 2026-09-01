@@ -37,6 +37,20 @@ async function activate(plugin: PluginModule): Promise<{ app: App; loader: Plugi
 }
 
 describe("plugin hook context", () => {
+  it("exposes host, SDK package, and SDK API versions without changing plugin version", async () => {
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, { justflowsVersion: "0.1.8-dev.1" });
+    let seen: PluginContext | undefined;
+    const plugin = makePlugin({}, (ctx) => {
+      seen = ctx;
+    });
+    loader.register(plugin);
+    await loader.activate(plugin.manifest.id, "site-1");
+
+    expect(seen?.version).toBe("1.0.0");
+    expect(seen?.runtime).toEqual({ justflows: "0.1.8-dev.1", sdk: "0.1.5", sdkApi: 1 });
+  });
+
   it("attributes a plugin's registrations to the plugin", async () => {
     const { app } = await activate(
       makePlugin({}, (ctx) => {
@@ -118,7 +132,9 @@ describe("plugin hook context", () => {
     const seen: unknown[] = [];
     const { app } = await activate(
       makePlugin({}, (ctx) => {
-        ctx.hooks.action("acme.test.scored", (event) => { seen.push(event); });
+        ctx.hooks.action("acme.test.scored", (event) => {
+          seen.push(event);
+        });
         void ctx.hooks.emit("acme.test.scored", { score: 42 } as never);
       }),
     );

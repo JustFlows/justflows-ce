@@ -33,7 +33,9 @@
     "install:all": "node scripts/install-all.js",
     "install:production": "node scripts/install-all.js",
     "build:server": "node scripts/install-all.js --build-only",
-    "make-zip": "bash scripts/make-zip.sh"
+    "make-zip": "bash scripts/make-zip.sh",
+    "sdk:api:check": "node scripts/check-sdk-api.mjs",
+    "sdk:api:update": "node scripts/check-sdk-api.mjs --update"
   },
   "dependencies": {
     "@justflows/blocks": "file:./packages/blocks",

@@ -1,8 +1,13 @@
 # Packaging a `.jfpkg`
 
-A `.jfpkg` is a gzipped ustar archive. The installer extracts it with Node
-builtins (no native `tar` addon) and requires `justflows.json` at the **root**
-of the archive.
+A `.jfpkg` is a gzipped ustar archive for a plugin, theme, or CSS provider. The
+installer extracts it with Node builtins (no native `tar` addon) and requires
+`justflows.json` at the **root** of the archive.
+
+Every package type declares the supported host range in `justflows.json` as
+`"engines": { "justflows": ">=0.1.8 <0.2.0" }`. The installer rejects a
+package outside that range while it is still staged. See
+[SDK-COMPATIBILITY.md](SDK-COMPATIBILITY.md).
 
 Minimum plugin layout after extract:
 

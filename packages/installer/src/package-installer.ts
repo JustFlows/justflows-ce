@@ -11,6 +11,7 @@ import {
   verifyDigest,
 } from "./archive-safety.js";
 import { extractJfpkg } from "./extract-jfpkg.js";
+import semver from "semver";
 
 export type InstallSource = "upload" | "marketplace" | "local-link";
 
@@ -24,6 +25,8 @@ export interface InstallOptions {
   skipVerification?: boolean;
   /** Skip extension license validation (local development only) */
   skipLicenseCheck?: boolean;
+  /** Running Justflows CE version used to enforce engines.justflows. */
+  justflowsVersion?: string;
   /**
    * Trust check, run while the package is still in staging.
    *
@@ -52,10 +55,7 @@ export interface InstallResult {
  * No npm install, no postinstall scripts, no TypeScript compilation ever runs.
  */
 export class PackageInstaller {
-  async installFromBuffer(
-    archiveBuffer: Buffer,
-    options: InstallOptions,
-  ): Promise<InstallResult> {
+  async installFromBuffer(archiveBuffer: Buffer, options: InstallOptions): Promise<InstallResult> {
     const source = options.source ?? "upload";
 
     if (archiveBuffer.byteLength > ARCHIVE_LIMITS.maxCompressedBytes) {
@@ -93,6 +93,27 @@ export class PackageInstaller {
 
       const manifest = parsed.data;
 
+      const requiredJustflows = manifest.engines?.justflows ?? manifest.justflows;
+      if (requiredJustflows) {
+        if (!options.justflowsVersion || !semver.valid(options.justflowsVersion)) {
+          throw new PackageRejectedError(
+            "Cannot verify package compatibility because the host version is unavailable",
+          );
+        }
+        if (!semver.validRange(requiredJustflows)) {
+          throw new PackageRejectedError(`Invalid engines.justflows range: ${requiredJustflows}`);
+        }
+        if (
+          !semver.satisfies(options.justflowsVersion, requiredJustflows, {
+            includePrerelease: true,
+          })
+        ) {
+          throw new PackageRejectedError(
+            `Package requires Justflows ${requiredJustflows}; this host is ${options.justflowsVersion}`,
+          );
+        }
+      }
+
       // Before the rename, while the package is still confined to staging and
       // the catch below can still remove it. Wrapped so the caller can tell its
       // own refusal (a 400 the operator can act on) from an internal failure.
@@ -100,10 +121,7 @@ export class PackageInstaller {
         try {
           await options.verify(manifest, digest);
         } catch (err) {
-          throw new PackageRejectedError(
-            err instanceof Error ? err.message : String(err),
-            err,
-          );
+          throw new PackageRejectedError(err instanceof Error ? err.message : String(err), err);
         }
       }
 

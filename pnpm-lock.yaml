@@ -364,6 +364,9 @@ importers:
       '@justflows/sdk':
         specifier: file:../sdk
         version: link:../sdk
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       tar:
         specifier: ^7.5.22
         version: 7.5.22
@@ -374,6 +377,9 @@ importers:
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
+      '@types/semver':
+        specifier: ^7.8.0
+        version: 7.8.0
       '@types/tar':
         specifier: ^6.1.13
         version: 6.1.13
@@ -1469,6 +1475,9 @@ packages:
 
   '@types/sanitize-html@2.16.1':
     resolution: {integrity: sha512-n9wjs8bCOTyN/ynwD8s/nTcTreIHB1vf31vhLMGqUPNHaweKC4/fAl4Dj+hUlCTKYgm4P3k83fmiFfzkZ6sgMA==}
+
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
 
   '@types/send@1.2.1':
     resolution: {integrity: sha512-arsCikDvlU99zl1g69TcAB3mzZPpxgw0UQnaHeC1Nwb015xp8bknZv5rIfri9xTOcMuaVgvabfIRA7PSZVuZIQ==}
@@ -3712,6 +3721,8 @@ snapshots:
   '@types/sanitize-html@2.16.1':
     dependencies:
       htmlparser2: 10.1.0
+
+  '@types/semver@7.8.0': {}
 
   '@types/send@1.2.1':
     dependencies:

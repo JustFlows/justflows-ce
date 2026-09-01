@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+export { SDK_VERSION, SDK_API_VERSION } from "./version.js";
+export { ExtensionEnginesSchema } from "./compatibility.js";
+export type { ExtensionEngines } from "./compatibility.js";
+
 // Hooks — typed action/gate/filter contracts
 export {
   SYNC_FILTERS,
@@ -117,18 +121,12 @@ export type {
   PluginContentField,
   PluginContentEnsureResult,
   PluginContentDeleteTypeResult,
+  JustflowsRuntimeVersions,
 } from "./plugin.js";
 
 // Capabilities — user capability system
-export {
-  USER_CAPABILITIES,
-  ROLE_CAPABILITIES,
-  roleHasCapability,
-} from "./capabilities.js";
+export { USER_CAPABILITIES, ROLE_CAPABILITIES, roleHasCapability } from "./capabilities.js";
 export type { UserCapability } from "./capabilities.js";
 
 // Licensing — extension license validation (Marketplace: GPL-compatible)
-export {
-  isGplCompatibleLicense,
-  gplLicenseValidationMessage,
-} from "./license.js";
+export { isGplCompatibleLicense, gplLicenseValidationMessage } from "./license.js";
