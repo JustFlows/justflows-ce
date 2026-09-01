@@ -49,15 +49,22 @@ async function resolvePluginModule(
     const entry = resolvePathUnderBase(basePath, relative);
     if (!entry || !fs.existsSync(entry) || !isSafePluginEntry(entry)) continue;
 
+    let mtimeMs = 0;
     try {
       const stat = fs.lstatSync(entry);
       if (stat.isSymbolicLink()) continue;
+      mtimeMs = stat.mtimeMs;
     } catch {
       continue;
     }
 
     try {
-      const mod = await import(pathToFileURL(entry).href);
+      // A reinstall to a revisioned directory already yields a fresh URL; the
+      // mtime query is the belt-and-braces path for the case where the same
+      // directory is re-extracted in place, so Node's ESM cache does not keep
+      // serving the previous build.
+      const url = `${pathToFileURL(entry).href}?v=${Math.round(mtimeMs)}`;
+      const mod = await import(url);
       return (mod.default ?? mod) as PluginModule;
     } catch (err) {
       console.error(`[plugins] failed to import ${entry}:`, err);
@@ -253,6 +260,16 @@ export async function runtimeDeactivatePlugin(siteId: string, pluginId: string):
   await ensurePluginRuntime();
   if (!loader) return;
   await loader.deactivate(pluginId, siteId);
+}
+
+/**
+ * Forget a plugin module so a subsequent activate re-imports it. Call after a
+ * (re)install or an uninstall — otherwise the loader keeps the previously
+ * imported module and the new build never runs without a process restart.
+ */
+export async function runtimeUnloadPlugin(pluginId: string): Promise<void> {
+  await ensurePluginRuntime();
+  loader?.unregister(pluginId);
 }
 
 /** Load the plugin if needed and run its `deleteData` hook. */

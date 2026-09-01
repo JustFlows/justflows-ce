@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 
 import fs from "node:fs";
+import path from "node:path";
 import {
   PLUGIN_DELETE_CONTENT_SETTING,
   PLUGIN_DELETE_DATA_SETTING,
   type PluginDatabaseDriver,
   type PluginDatabaseTarget,
 } from "@justflows/sdk";
+import { packagesInstalledDir } from "./packages-dir.js";
 import { decryptSecret, encryptSecret } from "./secret-box.js";
 import { sanitizeProbeError } from "./db-probe.js";
 import {
@@ -245,4 +247,49 @@ export async function purgePluginStorage(
     };
   }
   return { ok: true, tables: [...new Set(dropped)] };
+}
+
+/**
+ * Delete a plugin's extracted files from `packages-installed/`.
+ *
+ * Uninstall used to drop only the database row, so every file the package
+ * extracted stayed on disk and a later reinstall layered a new build over the
+ * old one. Only paths inside `packages-installed/` are touched: a bundled
+ * plugin (served from the source checkout via `bundledPath`) or anything that
+ * resolves outside that root is left untouched. Now-empty `<id>/` and
+ * `<id>/<version>/` parents are pruned on the way out.
+ */
+export function purgePluginFiles(manifest: Record<string, unknown> | undefined): {
+  ok: boolean;
+  error?: string;
+} {
+  const installedPath =
+    manifest && typeof manifest.installedPath === "string" ? manifest.installedPath : "";
+  if (!installedPath) return { ok: true };
+
+  const root = path.resolve(packagesInstalledDir());
+  const resolved = path.resolve(installedPath);
+  if (resolved === root || !resolved.startsWith(root + path.sep)) {
+    // Not under our managed root — a bundled checkout or a stray path. Leave it.
+    return { ok: true };
+  }
+
+  try {
+    fs.rmSync(resolved, { recursive: true, force: true });
+    // Prune empty `<id>/<version>` and `<id>` parents, but keep the `plugins/`
+    // (or `themes/`) collection directory itself.
+    let parent = path.dirname(resolved);
+    while (path.dirname(parent) !== root && parent.startsWith(root + path.sep)) {
+      try {
+        if (fs.readdirSync(parent).length > 0) break;
+        fs.rmdirSync(parent);
+      } catch {
+        break;
+      }
+      parent = path.dirname(parent);
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: sanitizeProbeError(err) };
+  }
 }

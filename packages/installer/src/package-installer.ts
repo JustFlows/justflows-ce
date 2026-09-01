@@ -40,6 +40,17 @@ export interface InstallOptions {
    * theme should not have a plugin installed for it before it can object.
    */
   verify?: (manifest: PackageManifest, digest: string) => void | Promise<void>;
+  /**
+   * Install into a per-build directory (`…/<id>/<version>/<digest>/`) instead of
+   * `…/<id>/<version>/`, and drop older builds of the same version afterwards.
+   *
+   * Plugins pass this so a reinstall lands on a fresh path: Node caches an ESM
+   * module tree for the life of the process, so overwriting files in place left
+   * `import()` serving the previous build until a full restart. Callers resolve
+   * the package through `InstallResult.installedPath`, which points at the
+   * build directory.
+   */
+  revisioned?: boolean;
 }
 
 export interface InstallResult {
@@ -135,15 +146,38 @@ export class PackageInstaller {
 
       // Manifest fields, so untrusted: resolveWithinDir confines the result to
       // packagesDir before anything destructive runs against it below.
-      const finalDir = resolveWithinDir(
+      const versionDir = resolveWithinDir(
         options.packagesDir,
         `${manifest.type}s`,
         manifest.id,
         manifest.version,
       );
+      const revision = digest.slice(0, 16);
+      const finalDir = options.revisioned
+        ? resolveWithinDir(
+            options.packagesDir,
+            `${manifest.type}s`,
+            manifest.id,
+            manifest.version,
+            revision,
+          )
+        : versionDir;
+
       await fs.mkdir(path.dirname(finalDir), { recursive: true });
       await fs.rm(finalDir, { recursive: true, force: true });
       await fs.rename(stagingDir, finalDir);
+
+      if (options.revisioned) {
+        // Drop every other entry under `<id>/<version>/` — older revisions and,
+        // on the first revisioned install, the package that previous versions
+        // of Justflows extracted straight into `<version>/`.
+        for (const name of await fs.readdir(versionDir).catch(() => [] as string[])) {
+          if (name === revision) continue;
+          await fs
+            .rm(path.join(versionDir, name), { recursive: true, force: true })
+            .catch(() => undefined);
+        }
+      }
 
       return { manifest, installedPath: finalDir, digest, source };
     } catch (err) {

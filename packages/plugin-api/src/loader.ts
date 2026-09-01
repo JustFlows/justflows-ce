@@ -271,6 +271,22 @@ export class PluginLoader {
   }
 
   /**
+   * Drop a plugin from the in-memory registry so the next `register()` +
+   * `activate()` imports a freshly (re)installed build. Node caches an ESM
+   * module for the life of the process, so without this a reinstall over the
+   * same id kept running the old code until a full restart. The caller is
+   * responsible for `deactivate()` first when the plugin may be active; this
+   * still force-cleans hooks, routes, cookies, capabilities, jobs, and blocks
+   * as a safety net.
+   */
+  unregister(pluginId: string): void {
+    if (!this.plugins.has(pluginId)) return;
+    this.cleanupPlugin(pluginId);
+    this.plugins.delete(pluginId);
+    this.app.logger.info("Plugin unregistered", { pluginId });
+  }
+
+  /**
    * Run the plugin's `deleteData` hook. Works while inactive. Other plugins
    * then observe `plugin.deleteData`.
    */

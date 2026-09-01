@@ -153,6 +153,9 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
       justflowsVersion: getJustflowsVersion(),
       source: "marketplace",
       expectedDigest: digest || undefined,
+      // Plugins run as code — install each build to its own directory so a
+      // reinstall is imported fresh without a process restart.
+      revisioned: type === "plugin",
       verify: (manifest, resultDigest) => {
         if (manifest.type !== type) {
           throw new Error(`Package type mismatch (expected ${type})`);
@@ -176,6 +179,10 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
         manifest: { ...result.manifest, installedPath: result.installedPath },
         status: "installed",
       });
+      // Forget any previously imported module so the next activate runs this
+      // build without a process restart.
+      const { runtimeUnloadPlugin } = await import("../lib/plugin-runtime.js");
+      await runtimeUnloadPlugin(result.manifest.id).catch(() => null);
       res.json({ plugin });
       return;
     }

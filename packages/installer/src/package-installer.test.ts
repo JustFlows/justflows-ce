@@ -249,3 +249,48 @@ describe("PackageInstaller verify hook", () => {
     expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "acme.probe", "1.0.0"));
   });
 });
+
+describe("PackageInstaller revisioned installs", () => {
+  it("installs into a per-digest directory and drops older builds of the same version", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-rev-"));
+    const packagesDir = path.join(root, "packages-installed");
+    const installer = new PackageInstaller();
+
+    const first = await packageWithVersion(root, "1.0.0", "rev-a");
+    const a = await installer.installFromBuffer(first, { packagesDir, revisioned: true });
+
+    const versionDir = path.join(packagesDir, "plugins", "acme.probe", "1.0.0");
+    expect(a.installedPath.startsWith(versionDir + path.sep)).toBe(true);
+    expect(path.basename(a.installedPath)).toHaveLength(16);
+    await expect(fs.readdir(versionDir)).resolves.toEqual([path.basename(a.installedPath)]);
+
+    // A different build (payload changes the digest) lands on a new path and
+    // the previous revision is swept.
+    await fs.writeFile(path.join(root, "src", "payload.js"), "// payload v2\n");
+    const archive2 = path.join(root, "pkg-rev-b.jfpkg");
+    await tar.c({ gzip: true, file: archive2, cwd: path.join(root, "src") }, [
+      "justflows.json",
+      "payload.js",
+    ]);
+    const b = await installer.installFromBuffer(await fs.readFile(archive2), {
+      packagesDir,
+      revisioned: true,
+    });
+
+    expect(b.installedPath).not.toBe(a.installedPath);
+    await expect(fs.readdir(versionDir)).resolves.toEqual([path.basename(b.installedPath)]);
+    await expect(fs.readFile(path.join(b.installedPath, "payload.js"), "utf8")).resolves.toContain(
+      "v2",
+    );
+  });
+
+  it("leaves the flat <version> layout untouched when not revisioned", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-flat-"));
+    const packagesDir = path.join(root, "packages-installed");
+    const buf = await packageWithVersion(root, "2.0.0", "flat");
+
+    const result = await new PackageInstaller().installFromBuffer(buf, { packagesDir });
+
+    expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "acme.probe", "2.0.0"));
+  });
+});
