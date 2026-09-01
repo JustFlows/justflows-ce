@@ -12,8 +12,14 @@ themes, blocks, testing, and SDK compatibility).
 ```
 plugins/
 ├── hello-world/     Official example — copy this
+├── consent/         First-party Cookie Consent (banner, consent API, script/embed gating)
 └── acme-seo/        Your plugin (folder name is yours)
 ```
+
+`consent/` is a fuller worked example: a `theme.css` stylesheet, sync `html.head`
+and `analytics.head` filters, an async `content.render` filter, plugin HTTP
+routes, a bundled browser runtime, an `adminMenu` page, and `plugin_data`
+records with a `deleteData` cleanup.
 
 ## Start a plugin
 

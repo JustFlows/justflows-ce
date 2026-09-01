@@ -489,6 +489,15 @@ export interface FilterValueMap {
   "http.responseHeaders": [Record<string, string>, { method: string; path: string }];
   "html.head": [string, { siteId: string; path: string; title: string; contentId?: string }];
   /**
+   * The analytics `<head>` markup the host is about to emit (the Google Tag from
+   * the first-party Analytics plugin, when one is configured). Seeded with that
+   * markup or `""`. A consent plugin rewrites it — e.g. to
+   * `type="text/plain" data-jf-consent="analytics"` — so the tag does not run
+   * until the visitor grants the analytics category. Runs on the sync render
+   * path, so handlers must be synchronous. Returning it unchanged is a no-op.
+   */
+  "analytics.head": [string, { siteId: string; path: string }];
+  /**
    * Extra CSS appended to the site stylesheet served at `/theme.css`, after the
    * theme's own styles and the Customizer tokens but before the site owner's
    * Additional CSS. The value is seeded with `""` and each handler appends its
@@ -507,6 +516,7 @@ export interface FilterValueMap {
 export const SYNC_FILTERS = [
   "http.responseHeaders",
   "html.head",
+  "analytics.head",
   "site.underConstruction.render",
 ] as const;
 

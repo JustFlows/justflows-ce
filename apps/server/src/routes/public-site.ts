@@ -658,6 +658,16 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       analyticsBody = buildGoogleTagBody(googleTagId);
     }
   }
+  if (hooks.has("analytics.head")) {
+    // A consent plugin can rewrite the analytics markup (e.g. defer it behind a
+    // consent category) before it reaches the page. Sync — this is a render path.
+    analyticsHead = hooks.applyFilterSync(
+      "analytics.head",
+      analyticsHead,
+      { siteId, path: String(data.restPath ?? "/") },
+      { siteId, source: "http" },
+    );
+  }
   return ejs.renderFile(path.join(templateDir, "layout.ejs"), {
     ...pageData,
     body,

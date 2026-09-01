@@ -167,6 +167,9 @@ export async function ensurePluginRuntime(): Promise<void> {
           createPluginDatabasesApi(pluginId, siteId, permissions),
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),
         blockRegistry: pluginBlockAdapter(),
+        coreCookies: async () => (await import("./cookie-registry.js")).getCoreCookies(),
+        cookieOverrides: async (siteId) =>
+          (await import("./cookie-registry.js")).getCookieOverrides(siteId),
         settingsAdapter: {
           get: async <T = unknown>(
             siteId: string,

@@ -26,6 +26,7 @@
     "health": "Estado",
     "updates": "Actualizaciones",
     "webhooks": "Webhooks",
+    "consent": "Consentimiento de cookies",
     "securityOverview": "Resumen",
     "securityHeaders": "Cabeceras",
     "securityAdvanced": "Avanzado",

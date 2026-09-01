@@ -31,6 +31,42 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- First-party **Cookie Consent** plugin (`plugins/consent`): a categorized
+  consent banner and preference center (necessary, preferences, analytics,
+  marketing) with accept-all / reject-all parity, granular toggles, a keyboard-
+  and screen-reader-accessible modal that respects `prefers-reduced-motion`, and
+  a re-open trigger. Every visitor-facing string is stored per site language and
+  the runtime picks the visitor's locale from `<html lang>`; translating the
+  banner does not invalidate stored consent. Admin → Extensions → Cookie Consent
+  also carries a full **design panel** — layout (bar / floating box / blocking
+  modal), placement (top, bottom, any corner), theme-inherited or explicit
+  colours (validated, applied as CSS custom properties), and panel/button radius
+  and width — with a live preview. It exposes a first-party
+  `window.justflowsConsent` API that the custom-code injector, Analytics, and
+  other plugins can query before loading anything non-essential; gates tagged
+  `<script type="text/plain" data-jf-consent="…">` snippets and off-site oEmbeds
+  behind their category with a per-embed unlock; and stores versioned consent
+  records (policy hash, timestamp, choices, locale, coarse device) that are
+  exportable as CSV and erasable per record — or turns record logging off
+  entirely so no `plugin_data` rows are written and no beacon is sent. Best-effort EU-only display uses the
+  visitor's timezone — no IP lookup, no third-party dependency, all logic and
+  storage first-party. A new synchronous `analytics.head` filter lets the plugin
+  defer the Analytics plugin's Google Tag until analytics consent is granted,
+  without blocking first paint.
+  ([#113](https://github.com/JustFlows/justflows-ce/issues/113))
+
+- **SDK:** a site cookie registry. Extensions declare every non-essential cookie
+  they set through `ctx.cookies.declare({ name, category, purpose, … })` — one
+  of `necessary` / `preferences` / `analytics` / `marketing` — and read the full
+  resolved registry (host cookies plus every active plugin's) with
+  `ctx.cookies.list()`. Operators re-classify any cookie by name in
+  Admin → Extensions → Cookie Consent, stored site-wide
+  (`GET`/`PUT /api/cookies`). The Cookie Consent plugin uses it to disclose
+  cookies per category in the preference center and to expire a category's
+  cookies the moment it is withdrawn; `window.justflowsConsent.allowed(name)`
+  resolves a single cookie against it.
+  ([#113](https://github.com/JustFlows/justflows-ce/issues/113))
+
 - Admin → System → Diagnostics adds administrator-only runtime, database,
   migration, cache, plugin and typed-hook inspection; correlation IDs on every
   HTTP response; bounded sanitized error retention; a persistent production

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { gplLicenseValidationMessage, isGplCompatibleLicense } from "./license.js";
 import { RegistryListingSchema } from "./registry.js";
 import { ExtensionEnginesSchema } from "./compatibility.js";
+import type { PluginCookiesApi } from "./cookies.js";
 import type {
   ActionName,
   ActionHandlerFor,
@@ -643,6 +644,14 @@ export interface PluginContext {
 
   /** Short-lived database probes for plugin-owned storage topology. */
   databases: PluginDatabasesApi;
+
+  /**
+   * The site cookie registry. `declare()` every non-essential cookie this plugin
+   * sets so the consent banner can disclose it and expire it on withdrawal;
+   * `list()` returns the whole registry (host + all plugins) with operator
+   * overrides applied. Declarations are removed on deactivate.
+   */
+  cookies: PluginCookiesApi;
 
   /** Register block types for the editor and public renderer. Removed on deactivate. */
   blocks: PluginBlocksApi;

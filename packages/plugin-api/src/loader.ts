@@ -4,6 +4,7 @@ import {
   isOwnedHookName,
   SDK_API_VERSION,
   SDK_VERSION,
+  resolveCookies,
   type PluginManifest,
   type PluginModule,
   type PluginContext,
@@ -17,9 +18,12 @@ import {
   type PluginContentApi,
   type HookRegisterOptions,
   type Unsubscribe,
+  type CookieCategory,
+  type CookieDeclaration,
 } from "@justflows/sdk";
 import type { App } from "@justflows/core";
 import { PluginHttpRouter } from "./http-router.js";
+import { PluginCookieRegistry } from "./cookie-registry.js";
 
 export interface LoadedPlugin {
   manifest: PluginManifest;
@@ -131,7 +135,10 @@ export class PluginLoader {
   private readonly blockRegistry: PluginBlockRegistry | undefined;
   private readonly justflowsVersion: string;
   private readonly registeredBlocks = new Map<string, string[]>();
+  private readonly coreCookiesFn: () => Promise<CookieDeclaration[]>;
+  private readonly cookieOverrides: (siteId: string) => Promise<Record<string, CookieCategory>>;
   readonly httpRouter: PluginHttpRouter;
+  readonly cookieRegistry: PluginCookieRegistry;
 
   constructor(
     private readonly app: App,
@@ -147,6 +154,14 @@ export class PluginLoader {
       httpRouter?: PluginHttpRouter;
       blockRegistry?: PluginBlockRegistry;
       justflowsVersion?: string;
+      /** Cookies the host itself sets, seeded into every `ctx.cookies.list()`.
+       * A function is re-evaluated per call (the set can depend on live config,
+       * e.g. whether a Google Tag is configured). */
+      coreCookies?:
+        CookieDeclaration[] | (() => CookieDeclaration[] | Promise<CookieDeclaration[]>);
+      /** Operator category overrides, keyed by cookie name, per site. */
+      cookieOverrides?: (siteId: string) => Promise<Record<string, CookieCategory>>;
+      cookieRegistry?: PluginCookieRegistry;
     },
   ) {
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
@@ -164,6 +179,11 @@ export class PluginLoader {
       delete: (siteId, pluginId, key) => this.app.settings.delete(siteId, `${pluginId}:${key}`),
     };
     this.httpRouter = options?.httpRouter ?? new PluginHttpRouter();
+    this.cookieRegistry = options?.cookieRegistry ?? new PluginCookieRegistry();
+    const coreCookies = options?.coreCookies ?? [];
+    this.coreCookiesFn =
+      typeof coreCookies === "function" ? async () => coreCookies() : async () => coreCookies;
+    this.cookieOverrides = options?.cookieOverrides ?? (async () => ({}));
     this.blockRegistry = options?.blockRegistry;
     this.justflowsVersion = options?.justflowsVersion ?? "unknown";
   }
@@ -286,6 +306,7 @@ export class PluginLoader {
   private cleanupPlugin(pluginId: string): void {
     this.app.hooks.removePlugin(pluginId);
     this.httpRouter.removePlugin(pluginId);
+    this.cookieRegistry.removePlugin(pluginId);
     this.jobsCleanup?.(pluginId);
     const types = this.registeredBlocks.get(pluginId) ?? [];
     for (const type of types) this.blockRegistry?.unregister(type);
@@ -383,6 +404,17 @@ export class PluginLoader {
       data,
       secrets: this.secretsFactory(pluginId, siteId),
       databases: this.databasesFactory(pluginId, siteId, permissions),
+      cookies: {
+        declare: (cookie) => this.cookieRegistry.declare(pluginId, cookie),
+        list: async () =>
+          resolveCookies(
+            [
+              ...(await this.coreCookiesFn()).map((c) => ({ ...c, declaredBy: "core" })),
+              ...this.cookieRegistry.all(),
+            ],
+            await this.cookieOverrides(siteId),
+          ),
+      },
       content: this.scopedContent(pluginId, siteId, permissions),
       blocks: {
         register: (definition) => {

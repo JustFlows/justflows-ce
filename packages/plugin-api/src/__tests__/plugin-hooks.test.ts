@@ -253,6 +253,42 @@ describe("plugin hook context", () => {
     expect(deleteType).toHaveBeenCalledWith("product");
   });
 
+  it("collects cookie declarations, applies overrides, and drops them on deactivate", async () => {
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, {
+      coreCookies: [
+        { name: "jf_session", category: "necessary", purpose: "auth", duration: "session" },
+      ],
+      cookieOverrides: async () => ({ _ga: "marketing" }),
+    });
+    let list: Awaited<ReturnType<PluginContext["cookies"]["list"]>> = [];
+    const plugin = makePlugin({}, async (ctx) => {
+      ctx.cookies.declare({ name: "_ga", category: "analytics", purpose: "Google Analytics" });
+      list = await ctx.cookies.list();
+    });
+    loader.register(plugin);
+    await loader.activate(plugin.manifest.id, "site-1");
+
+    expect(list.map((c) => c.name).sort()).toEqual(["_ga", "jf_session"]);
+    const ga = list.find((c) => c.name === "_ga")!;
+    expect(ga.declaredBy).toBe("acme.test");
+    expect(ga.effectiveCategory).toBe("marketing"); // operator override wins
+    expect(loader.cookieRegistry.all()).toHaveLength(1);
+
+    await loader.deactivate("acme.test", "site-1");
+    expect(loader.cookieRegistry.all()).toHaveLength(0);
+  });
+
+  it("rejects an invalid cookie declaration at declare time", async () => {
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app);
+    const plugin = makePlugin({}, (ctx) => {
+      ctx.cookies.declare({ name: "bad name", category: "analytics", purpose: "x" } as never);
+    });
+    loader.register(plugin);
+    await expect(loader.activate(plugin.manifest.id, "site-1")).rejects.toThrow(/invalid cookie/i);
+  });
+
   it("runs deleteData and then the plugin.deleteData action", async () => {
     const deleteData = vi.fn();
     const seen: unknown[] = [];

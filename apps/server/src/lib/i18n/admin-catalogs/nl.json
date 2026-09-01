@@ -26,6 +26,7 @@
     "health": "Status",
     "updates": "Updates",
     "webhooks": "Webhooks",
+    "consent": "Cookietoestemming",
     "securityOverview": "Overzicht",
     "securityHeaders": "Headers",
     "securityAdvanced": "Geavanceerd",

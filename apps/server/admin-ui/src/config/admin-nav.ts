@@ -118,6 +118,10 @@ function toNavItem(item: PluginMenuItem): NavItem {
   return {
     key: item.labelKey ?? `plugin.${item.pluginId}.${item.id}`,
     label: item.label,
+    // Canonical `/admin/…` (the SDK manifest schema requires it), matching the
+    // core nav items. `installAdminPathNavigation()` maps it to the configured
+    // admin URL on navigation, and the path-comparison helpers below normalise
+    // the live pathname back with `internalAdminPath()`.
     to: item.path,
     icon: item.icon,
     end: item.end,
