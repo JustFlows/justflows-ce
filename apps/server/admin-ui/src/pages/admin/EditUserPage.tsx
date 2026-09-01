@@ -84,8 +84,16 @@ export default function EditUserPage() {
 
   useEffect(() => {
     fetch("/api/roles").then(async (res) => {
-      const data = await res.json() as { roles?: Array<{ id: string; name: string; builtIn: boolean }>; capabilities?: string[] };
-      if (res.ok) { setRoles(data.roles ?? []); setCapabilities(data.capabilities ?? []); }
+      const data = await res.json() as {
+        roles?: Array<{ id: string; name: string; builtIn: boolean }>;
+        capabilities?: Array<string | { id: string }>;
+      };
+      if (res.ok) {
+        setRoles(data.roles ?? []);
+        // /api/roles returns capability *definition objects*; this view only
+        // needs the ids. RolesPanel does the same normalisation.
+        setCapabilities((data.capabilities ?? []).map((c) => (typeof c === "string" ? c : c.id)));
+      }
     }).catch(() => undefined);
   }, []);
 

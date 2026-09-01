@@ -31,6 +31,7 @@ playwright-report/
 # Runtime data and generated installations
 install-token/
 .cache/
+.updates/
 tmp/
 uploads/
 packages-installed/
