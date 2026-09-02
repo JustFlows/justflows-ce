@@ -1,0 +1,10 @@
+{
+  "title": "Default (index)",
+  "description": "Ultimate fallback template. Used when no more specific template matches.",
+  "blocks": [
+    { "id": "idx-title", "type": "core.post-title", "version": 1, "props": { "level": 1 } },
+    { "id": "idx-meta", "type": "core.post-meta", "version": 1, "props": {} },
+    { "id": "idx-excerpt", "type": "core.post-excerpt", "version": 1, "props": {} },
+    { "id": "idx-content", "type": "core.post-content", "version": 1, "props": { "wrap": "post" } }
+  ]
+}

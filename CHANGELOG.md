@@ -31,6 +31,24 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Themes gain a WordPress-style **template hierarchy**. A theme ships one JSON
+  block document per slot under `templates/` (`index`, `front-page`, `single`,
+  `single-<type>`, `page`, `page-<slug>`, `singular`, `archive`, `404`, …) and
+  shared chrome under `parts/`; the renderer resolves a request to an ordered
+  candidate list (`template-hierarchy.ts`) and uses the first that exists, so a
+  theme now owns page structure without touching the core EJS. New context
+  blocks — `core.post-title`, `core.post-content`, `core.post-meta`,
+  `core.post-excerpt`, `core.featured-image`, `core.template-part` — render the
+  current request's content inside a template. Theme builder → **Templates**
+  edits any template visually; edits are stored per-site in the new
+  `theme_templates` table (migration `0023_templates`, draft/publish/reset like
+  `template_parts`) and a per-slug override still yields to a more specific theme
+  file. The bundled Default theme ships `index` / `front-page` / `single` /
+  `page`. `demo/home.json`, `demo/blog.json`, and `demo/footer.json` stay as
+  back-compat fallbacks for the `front-page` / `home` / `footer` slots. New CLI:
+  `justflows theme templates` and `justflows theme scaffold <slug>`; new SDK
+  exports: `TEMPLATE_SLOTS`, `TemplateDocSchema`, `ThemeTemplatesManifestSchema`.
+
 - Admin → Emails adds a versioned system-email design and template editor with
   global branding, typed variables, locale variants, draft/publish workflow,
   desktop/mobile/plain-text previews, sanitized test sending, safe built-in

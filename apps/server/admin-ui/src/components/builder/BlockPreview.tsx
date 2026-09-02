@@ -468,13 +468,16 @@ export function BlockPreview({
         [lightIcon, (p.lightLabel as string) || "Light"],
         [darkIcon, (p.darkLabel as string) || "Dark"],
       ];
-      if (p.showSystem === true) schemeModes.push([(p.autoIcon as string) || "◐", (p.autoLabel as string) || "Auto"]);
+      if (p.showSystem === true)
+        schemeModes.push([(p.autoIcon as string) || "◐", (p.autoLabel as string) || "Auto"]);
       const iconOnly = schemeStyle === "icons" || schemeStyle === "tooltip-icons";
       const textOnly = schemeStyle === "labels";
       const pillRadius = p.radius === "square" ? 0 : p.radius === "rounded" ? 8 : 999;
       const chipSize: React.CSSProperties =
-        p.size === "sm" ? { fontSize: "0.7rem", padding: "0.2rem 0.5rem" }
-          : p.size === "lg" ? { fontSize: "0.95rem", padding: "0.45rem 0.9rem" }
+        p.size === "sm"
+          ? { fontSize: "0.7rem", padding: "0.2rem 0.5rem" }
+          : p.size === "lg"
+            ? { fontSize: "0.95rem", padding: "0.45rem 0.9rem" }
             : {};
       if (schemeStyle === "select") {
         return wrap(
@@ -487,7 +490,14 @@ export function BlockPreview({
       }
       if (schemeStyle === "switch") {
         return wrap(
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, ...widgetAlign(p.align as string) }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              ...widgetAlign(p.align as string),
+            }}
+          >
             <span style={{ fontSize: chipSize.fontSize ?? "0.8rem", fontWeight: 600 }}>
               {(p.darkLabel as string) || "Dark"}
             </span>
@@ -540,9 +550,14 @@ export function BlockPreview({
               style={{
                 ...widgetChip,
                 ...chipSize,
-                borderRadius: schemeStyle === "segmented"
-                  ? (index === 0 ? `${pillRadius}px 0 0 ${pillRadius}px` : index === schemeModes.length - 1 ? `0 ${pillRadius}px ${pillRadius}px 0` : 0)
-                  : pillRadius,
+                borderRadius:
+                  schemeStyle === "segmented"
+                    ? index === 0
+                      ? `${pillRadius}px 0 0 ${pillRadius}px`
+                      : index === schemeModes.length - 1
+                        ? `0 ${pillRadius}px ${pillRadius}px 0`
+                        : 0
+                    : pillRadius,
               }}
             >
               {textOnly ? label : iconOnly ? icon : `${icon} ${label}`}
@@ -1000,6 +1015,66 @@ export function BlockPreview({
         </div>,
       );
     }
+
+    case "core.post-title": {
+      const level = Math.min(6, Math.max(1, Number(p.level) || 1));
+      const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
+      return wrap(<Tag className="post-title">Post title</Tag>);
+    }
+
+    case "core.post-meta":
+      return wrap(<p className="post-meta">Published date</p>);
+
+    case "core.post-excerpt":
+      return wrap(<p className="post-excerpt">The post excerpt appears here.</p>);
+
+    case "core.featured-image":
+      return wrap(
+        <figure
+          className="post-featured-image"
+          style={{
+            aspectRatio: "16 / 9",
+            background: "var(--jf-surface-3)",
+            display: "grid",
+            placeItems: "center",
+            color: "var(--jf-text-3)",
+            fontSize: "0.8rem",
+            borderRadius: 6,
+          }}
+        >
+          Featured image
+        </figure>,
+      );
+
+    case "core.post-content":
+      return wrap(
+        <div
+          style={{
+            border: "1px dashed var(--jf-border)",
+            borderRadius: 6,
+            padding: "1.25rem",
+            color: "var(--jf-text-3)",
+            fontSize: "0.8rem",
+          }}
+        >
+          ¶ Post content — the page or post's own blocks render here
+        </div>,
+      );
+
+    case "core.template-part":
+      return wrap(
+        <div
+          style={{
+            border: "1px dashed var(--jf-border)",
+            borderRadius: 6,
+            padding: "0.75rem 1rem",
+            color: "var(--jf-text-3)",
+            fontSize: "0.8rem",
+          }}
+        >
+          ▤ Template part: {String(p.slug || "header")}
+        </div>,
+      );
 
     default:
       return wrap(

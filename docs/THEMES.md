@@ -110,12 +110,43 @@ every other type through `single` → `singular`; both end at `index`.
 
 Slugs are sanitised (`[a-z0-9-]`, lowercased) before they touch a filename.
 
+### Context blocks
+
+A template is a normal block document, but six blocks resolve the _current
+request's_ content when they render inside one (`template-blocks.ts`):
+
+| Block                 | Renders                                                                                                                                  |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `core.post-content`   | the content row's own blocks. `wrap` prop: `none` (default), `post` → `<div class="block-content">`, `page` → adds `block-content--page` |
+| `core.post-title`     | `<hN class="post-title">` — `level` prop, default 1                                                                                      |
+| `core.post-meta`      | `<p class="post-meta">` with the formatted publish date                                                                                  |
+| `core.post-excerpt`   | `<p class="post-excerpt">`                                                                                                               |
+| `core.featured-image` | `<figure class="post-featured-image">` from `fields.seoImage`                                                                            |
+| `core.template-part`  | embeds `parts/<slug>.json` — `slug` prop, `header` or `footer`                                                                           |
+
+Dropped on an ordinary page (no template context) they degrade to an HTML
+comment. They render through the `template` view, which supplies the `<main>`
+(class from the content type: `site-main` / `site-main--page`).
+
+### Editing templates (per-site overrides)
+
+Theme builder → **Templates** lists every slot the theme ships plus any the site
+has overridden. Editing one stores the block document in the `theme_templates`
+table (`GET/PUT/DELETE /api/templates/:slug`, draft + publish, `THEME_CUSTOMIZE`
+role) — the theme's file is left untouched and "Reset to theme" drops the row.
+Resolution per request (`resolveEffectiveTemplate`): for each candidate slug, a
+site override (its draft in preview) beats the theme's file; the first candidate
+with either wins — so a theme's `single-post.json` still outranks a site's
+customised `single`. `validateTemplateBlocks` flags block types no registered
+block provides (usually an uninstalled plugin) — advisory, never blocking.
+
 ### Back-compat
 
 Themes that predate `templates/` keep working: the `front-page` slot falls back
 to `demo/home.json`, `home` to `demo/blog.json`, and the `footer` part to
 `demo/footer.json`. Header chrome stays config-shaped (`demo/header.json`, see
-below), not a block part.
+below), not a block part. A theme that ships no template for a slot falls all
+the way through to the built-in `single.ejs` / `home.ejs` / `404.ejs`.
 
 ## Stylesheet order
 

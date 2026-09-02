@@ -1,8 +1,8 @@
 {
   "id": "justflows.default",
   "name": "Default",
-  "version": "2.0.0",
-  "description": "Advanced starter theme with marketing patterns, block styles, and a demo homepage.",
+  "version": "2.1.0",
+  "description": "Advanced starter theme with marketing patterns, block styles, a demo homepage, and a WordPress-style template hierarchy.",
   "author": "Justflows Team",
   "license": "GPL-2.0-or-later",
   "engines": { "justflows": ">=0.1.8-dev.1 <0.2.0" },
@@ -27,6 +27,13 @@
     "product-story": "./patterns/product-story.json",
     "product-list": "./patterns/product-list.json",
     "ecommerce-storefront": "./patterns/ecommerce-storefront.json"
+  },
+  "templates": {
+    "index": "./templates/index.json",
+    "front-page": "./templates/front-page.json",
+    "single": "./templates/single.json",
+    "page": "./templates/page.json",
+    "404": "./templates/404.json"
   },
   "demo": {
     "home": "./demo/home.json"

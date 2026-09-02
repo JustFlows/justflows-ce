@@ -22,6 +22,8 @@ Commands:
   plugin deactivate <id>  Deactivate a plugin
   theme list              List installed themes
   theme activate <id>     Activate a theme
+  theme templates         List the active theme's templates and their status
+  theme scaffold <slug>   Create a new theme skeleton under ./themes/<slug>
   user create             Create a new user interactively
   user reset-password     Reset a password from the server host (offline fallback)
   db migrate              Run pending database migrations
@@ -52,14 +54,30 @@ export async function run(args: string[]): Promise<void> {
 
   try {
     switch (command) {
-      case "status":   await statusCommand(rest); break;
-      case "plugin":   await pluginCommand(rest); break;
-      case "theme":    await themeCommand(rest); break;
-      case "user":     await userCommand(rest); break;
-      case "db":       await dbCommand(rest); break;
-      case "cache":    await cacheCommand(rest); break;
-      case "health":   await healthCommand(rest); break;
-      case "update":   await updateCommand(rest); break;
+      case "status":
+        await statusCommand(rest);
+        break;
+      case "plugin":
+        await pluginCommand(rest);
+        break;
+      case "theme":
+        await themeCommand(rest);
+        break;
+      case "user":
+        await userCommand(rest);
+        break;
+      case "db":
+        await dbCommand(rest);
+        break;
+      case "cache":
+        await cacheCommand(rest);
+        break;
+      case "health":
+        await healthCommand(rest);
+        break;
+      case "update":
+        await updateCommand(rest);
+        break;
       default:
         console.error(`Unknown command: ${command}\nRun "justflows --help" for usage.`);
         process.exitCode = 1;

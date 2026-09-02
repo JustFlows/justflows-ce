@@ -28,6 +28,7 @@ describe("MIGRATION_ORDER", () => {
       "0020_email_delivery",
       "0021_trash_retention",
       "0022_email_templates",
+      "0023_templates",
     ]);
   });
 
@@ -46,6 +47,7 @@ describe("MIGRATION_ORDER", () => {
     { name: "0020_email_delivery", marker: /CREATE TABLE IF NOT EXISTS email_deliveries/i },
     { name: "0022_email_templates", marker: /CREATE TABLE IF NOT EXISTS email_template_versions/i },
     { name: "0021_trash_retention", marker: /ALTER TABLE content ADD COLUMN.*trashed_at/i },
+    { name: "0023_templates", marker: /CREATE TABLE IF NOT EXISTS theme_templates/i },
   ];
 
   for (const { name, marker } of TRACKED) {
