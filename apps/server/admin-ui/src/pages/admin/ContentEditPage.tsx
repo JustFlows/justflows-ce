@@ -484,7 +484,8 @@ export default function EditContentPage() {
   }
 
   async function deleteItem() {
-    if (!confirm("Delete this content? This cannot be undone.")) return;
+    if (!confirm("Move this content to trash? You can restore it during the retention period."))
+      return;
     await fetch(`/api/content/${id}`, { method: "DELETE" });
     navigate(item?.type === "product" ? "/admin/shop/products" : "/admin/content");
   }

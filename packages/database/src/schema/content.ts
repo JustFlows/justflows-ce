@@ -1,4 +1,13 @@
-import { integer, jsonb, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { sites } from "./sites.js";
 import { users } from "./users.js";
 
@@ -24,6 +33,10 @@ export const content = pgTable("content", {
   publishedAt: timestamp("published_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  trashedAt: timestamp("trashed_at", { withTimezone: true }),
+  trashedBy: uuid("trashed_by").references(() => users.id, { onDelete: "set null" }),
+  originalSlug: varchar("original_slug", { length: 1024 }),
+  originalStatus: contentStatusEnum("original_status"),
   version: integer("version").notNull().default(1),
 });
 

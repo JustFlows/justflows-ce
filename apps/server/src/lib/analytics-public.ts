@@ -6,6 +6,7 @@ import { getPluginSetting } from "./plugin-kv.js";
 import { createPluginDataApi } from "./plugin-data.js";
 import { getSiteId } from "./themes-db.js";
 import { parseGoogleTagId } from "./google-tag.js";
+import { getAdminPathConfig } from "./admin-path.js";
 
 export const ANALYTICS_PLUGIN_ID = "justflows.analytics";
 
@@ -105,6 +106,8 @@ async function bump(
 }
 
 export async function recordPublicPageview(req: Request): Promise<void> {
+  const adminPath = (await getAdminPathConfig()).path;
+  if (req.path === adminPath || req.path.startsWith(`${adminPath}/`)) return;
   const siteId = await getSiteId();
   if (!siteId || !(await isAnalyticsPluginEnabled(siteId))) return;
 
@@ -168,7 +171,9 @@ function mergeCounts<K extends string>(
 export async function getAnalyticsSummary(siteId: string): Promise<AnalyticsSummary> {
   const plugin = await getPlugin(siteId, ANALYTICS_PLUGIN_ID);
   const collecting = plugin?.status === "active";
-  const enabled = collecting && (await getPluginSetting<boolean>(ANALYTICS_PLUGIN_ID, siteId, "enabled")) !== false;
+  const enabled =
+    collecting &&
+    (await getPluginSetting<boolean>(ANALYTICS_PLUGIN_ID, siteId, "enabled")) !== false;
   const empty: AnalyticsSummary = {
     collecting,
     enabled,
@@ -234,4 +239,3 @@ async function loadConfiguredGoogleTagId(): Promise<string | null> {
   const raw = await getPluginSetting<string>(ANALYTICS_PLUGIN_ID, siteId, "googleTagId");
   return parseGoogleTagId(String(raw ?? ""));
 }
-

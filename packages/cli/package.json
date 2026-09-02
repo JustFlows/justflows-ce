@@ -18,6 +18,10 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
+  "dependencies": {
+    "mysql2": "^3.24.1",
+    "postgres": "^3.4.9"
+  },
   "devDependencies": {
     "@types/node": "^26.2.0",
     "typescript": "^7.0.2"

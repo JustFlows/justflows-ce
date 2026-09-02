@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { usePluginMenu } from "@components/PluginMenuProvider";
 import { navLabel, type PluginMenuItem } from "../../config/admin-nav";
+import { internalAdminPath } from "../../admin-path";
 import { useT } from "../../i18n/I18nProvider";
 import PluginSetupWizard from "./PluginSetupWizard";
 
@@ -36,7 +37,7 @@ export default function PluginHostPage() {
   if (!item) return <Navigate to="/admin" replace />;
 
   const heading = pluginHeading(t, item);
-  const onSetupPage = Boolean(item.setupPath) && pathname === item.setupPath;
+  const onSetupPage = Boolean(item.setupPath) && internalAdminPath(pathname) === item.setupPath;
   const siblings = items.filter(
     (entry) => entry.pluginId === item.pluginId && entry.path !== item.path,
   );
@@ -98,9 +99,12 @@ export function matchPluginMenuItem(
   items: PluginMenuItem[],
   pathname: string,
 ): PluginMenuItem | undefined {
+  // Menu items store canonical `/admin/…` paths; the live pathname may carry a
+  // configured admin URL. Compare on the internal form.
+  const internal = internalAdminPath(pathname);
   let best: PluginMenuItem | undefined;
   for (const entry of items) {
-    if (pathname === entry.path || pathname.startsWith(`${entry.path}/`)) {
+    if (internal === entry.path || internal.startsWith(`${entry.path}/`)) {
       if (!best || entry.path.length > best.path.length) best = entry;
     }
   }

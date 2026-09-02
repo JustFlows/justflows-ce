@@ -8,6 +8,7 @@ export interface SerializedResponse {
 export interface AdminSsrPayload {
   url: string;
   locale: string;
+  adminBasePath: string;
   responses: Record<string, SerializedResponse>;
 }
 
@@ -60,16 +61,20 @@ export function installSsrFetchCache(payload: AdminSsrPayload | null): void {
   const expires = window.setTimeout(() => responses.clear(), 5_000);
 
   window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+    const method = (
+      init?.method ?? (input instanceof Request ? input.method : "GET")
+    ).toUpperCase();
     if (method === "GET" || method === "HEAD") {
       const key = requestKey(input);
       const cached = key ? responses.get(key) : undefined;
       if (cached) {
-        return Promise.resolve(new Response(method === "HEAD" ? null : cached.body, {
-          status: cached.status,
-          statusText: cached.statusText,
-          headers: cached.headers,
-        }));
+        return Promise.resolve(
+          new Response(method === "HEAD" ? null : cached.body, {
+            status: cached.status,
+            statusText: cached.statusText,
+            headers: cached.headers,
+          }),
+        );
       }
     } else {
       window.clearTimeout(expires);

@@ -20,15 +20,19 @@
     "menus": "Menus",
     "users": "Utilisateurs",
     "settings": "Paramètres",
+    "emails": "E-mails",
     "comments": "Commentaires",
+    "trash": "Corbeille",
     "marketplace": "Marketplace",
     "tools": "Outils",
     "health": "État",
     "updates": "Mises à jour",
     "webhooks": "Webhooks",
+    "consent": "Consentement aux cookies",
     "securityOverview": "Aperçu",
     "securityHeaders": "En-têtes",
     "securityAdvanced": "Avancé",
+    "securityAdminPath": "URL d’administration",
     "securityAccount": "Votre compte",
     "securityAudit": "Journal d'audit",
     "languages": "Langues",
@@ -376,6 +380,39 @@
       "hint": "L’interprétation de ce bloc du style du thème — remplace le réglage global du site.",
       "inherit": "Valeur du thème",
       "all": "Toutes les variables du thème"
+    }
+  },
+  "dashboard": {
+    "welcome": {
+      "title": "Bienvenue sur JustFlows",
+      "subtitle": "Quelques points de départ. Tout est optionnel ici — vous pouvez réduire ou masquer ce panneau.",
+      "minimize": "Réduire",
+      "expand": "Développer",
+      "dismiss": "Masquer le panneau de bienvenue",
+      "restore": "Afficher le panneau de bienvenue",
+      "opensNewTab": "(ouvre dans un nouvel onglet)",
+      "cards": {
+        "docs": {
+          "title": "Documentation",
+          "desc": "Guides pour configurer et gérer votre site."
+        },
+        "marketplace": {
+          "title": "Place de marché",
+          "desc": "Parcourez les extensions et thèmes pour enrichir votre site."
+        },
+        "updates": {
+          "title": "Mises à jour",
+          "desc": "Recherchez les nouvelles versions de JustFlows et installez-les."
+        },
+        "roadmap": {
+          "title": "Feuille de route",
+          "desc": "Découvrez ce qui est publié et ce qui arrive ensuite."
+        },
+        "community": {
+          "title": "Communauté",
+          "desc": "Rejoignez le Discord JustFlows pour poser des questions et partager des idées."
+        }
+      }
     }
   }
 }

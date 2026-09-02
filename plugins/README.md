@@ -7,19 +7,25 @@ workspace includes `plugins/*`, and a source checkout of the server lists
 whatever is in this directory.
 
 Author docs: [docs/README.md](../docs/README.md) (hooks, manifest, packaging,
-themes, blocks, testing).
+themes, blocks, testing, and SDK compatibility).
 
 ```
 plugins/
 ├── hello-world/     Official example — copy this
+├── consent/         First-party Cookie Consent (banner, consent API, script/embed gating)
 └── acme-seo/        Your plugin (folder name is yours)
 ```
+
+`consent/` is a fuller worked example: a `theme.css` stylesheet, sync `html.head`
+and `analytics.head` filters, an async `content.render` filter, plugin HTTP
+routes, a bundled browser runtime, an `adminMenu` page, and `plugin_data`
+records with a `deleteData` cleanup.
 
 ## Start a plugin
 
 1. Copy `hello-world` to a new folder, for example `plugins/acme-seo`.
 2. Set a namespaced id in `justflows.json` and `src/index.ts` (`acme.seo`, not `seo`).
-3. Declare a GPL-compatible `license` in the manifest.
+3. Declare a GPL-compatible `license` and an `engines.justflows` range in the manifest.
 4. Write code in `src/`. Import types from `@justflows/sdk` only.
 5. Build so the runtime can load JavaScript:
 

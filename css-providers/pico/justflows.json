@@ -7,11 +7,10 @@
   "publisher": "Pico",
   "description": "Minimal CSS framework for semantic HTML — class-light styling",
   "license": "MIT",
+  "engines": { "justflows": ">=0.1.8 <0.2.0" },
   "dependencies": {
     "@picocss/pico": "2.0.6"
   },
-  "stylesheets": [
-    { "href": "@picocss/pico/css/pico.min.css" }
-  ],
+  "stylesheets": [{ "href": "@picocss/pico/css/pico.min.css" }],
   "scripts": []
 }

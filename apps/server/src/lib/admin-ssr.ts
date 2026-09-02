@@ -18,6 +18,7 @@ interface SerializedResponse {
 interface AdminSsrPayload {
   url: string;
   locale: string;
+  adminBasePath: string;
   responses: Record<string, SerializedResponse>;
 }
 
@@ -141,7 +142,7 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add("/api/performance/stats");
     paths.add("/api/cache/stats");
   } else if (pathname === "/admin/health") {
-    paths.add("/api/health");
+    paths.add("/api/diagnostics");
   } else if (pathname === "/admin/languages") {
     paths.add("/api/languages");
   } else if (
@@ -150,6 +151,8 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     pathname === "/admin/security/advanced"
   ) {
     paths.add("/api/security/headers");
+  } else if (pathname === "/admin/security/admin-path") {
+    paths.add("/api/security/admin-path");
   } else if (pathname === "/admin/security/account") {
     paths.add("/api/auth/2fa");
   } else if (pathname === "/admin/security/audit") {
@@ -195,7 +198,9 @@ async function addDerivedResponses(
   };
 
   if (pathname === "/admin/content") {
-    const langs = read<{ languages?: Array<{ code?: string; isDefault?: boolean }> }>("/api/languages");
+    const langs = read<{ languages?: Array<{ code?: string; isDefault?: boolean }> }>(
+      "/api/languages",
+    );
     const defaultLocale =
       langs?.languages?.find((lang) => lang.isDefault)?.code ?? langs?.languages?.[0]?.code;
     derived.add(
@@ -218,16 +223,22 @@ async function addDerivedResponses(
     const menus = read<{ menus?: Array<{ slug?: string }> }>("/api/menus");
     const slug = menus?.menus?.[0]?.slug;
     if (slug) derived.add(`/api/menus/${encodeURIComponent(slug)}`);
-    const langs = read<{ languages?: Array<{ code?: string; isDefault?: boolean }> }>("/api/languages");
+    const langs = read<{ languages?: Array<{ code?: string; isDefault?: boolean }> }>(
+      "/api/languages",
+    );
     const defaultLocale =
       langs?.languages?.find((lang) => lang.isDefault)?.code ?? langs?.languages?.[0]?.code;
     if (defaultLocale) {
       const localeQuery = `&locale=${encodeURIComponent(defaultLocale)}`;
       const types = read<{ types?: Array<{ slug?: string }> }>("/api/content-types");
-      const slugs = (types?.types ?? []).map((type) => type.slug).filter((slug): slug is string => Boolean(slug));
+      const slugs = (types?.types ?? [])
+        .map((type) => type.slug)
+        .filter((slug): slug is string => Boolean(slug));
       const list = slugs.length > 0 ? slugs : ["page", "post"];
       for (const type of list) {
-        derived.add(`/api/content?type=${encodeURIComponent(type)}&status=published&limit=100${localeQuery}`);
+        derived.add(
+          `/api/content?type=${encodeURIComponent(type)}&status=published&limit=100${localeQuery}`,
+        );
       }
     }
   }
@@ -250,9 +261,13 @@ async function addDerivedResponses(
 }
 
 async function buildPayload(req: Request): Promise<AdminSsrPayload> {
+  const { getAdminPathConfig, toInternalAdminPath, toPublicAdminPath } =
+    await import("./admin-path.js");
+  const adminConfig = await getAdminPathConfig();
   const payload: AdminSsrPayload = {
-    url: req.originalUrl,
+    url: toPublicAdminPath(req.originalUrl, adminConfig.path),
     locale: preferredLocale(req),
+    adminBasePath: adminConfig.path,
     responses: {},
   };
   const configuredOrigin = (process.env.APP_URL ?? "").replace(/\/$/, "");
@@ -269,7 +284,12 @@ async function buildPayload(req: Request): Promise<AdminSsrPayload> {
   }
   const cookie = req.get("cookie") ?? "";
   await Promise.all(
-    adminPrefetchPaths(req.originalUrl).map(async (requestPath) => {
+    adminPrefetchPaths(
+      toInternalAdminPath(
+        new URL(payload.url, "http://justflows.local").pathname,
+        adminConfig.path,
+      ) ?? payload.url,
+    ).map(async (requestPath) => {
       try {
         payload.responses[requestPath] = await fetchOne(origin, requestPath, cookie);
       } catch {
@@ -295,8 +315,11 @@ export async function renderAdminPage(req: Request, res: Response): Promise<void
       loadRenderer(),
       buildPayload(req),
     ]);
-    const appHtml = render(req.originalUrl, payload);
+    const appHtml = render(payload.url, payload);
+    const adminAssetBase = `${payload.adminBasePath}/assets`;
     const html = template
+      .replaceAll('src="/assets/', `src="${adminAssetBase}/`)
+      .replaceAll('href="/assets/', `href="${adminAssetBase}/`)
       .replace("<!--ssr-outlet-->", appHtml)
       .replace(
         "<!--ssr-data-->",

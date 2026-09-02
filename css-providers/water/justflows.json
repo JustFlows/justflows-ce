@@ -7,11 +7,10 @@
   "publisher": "Kognise",
   "description": "Drop-in collection of CSS styles for clean, readable HTML — no classes needed",
   "license": "MIT",
+  "engines": { "justflows": ">=0.1.8 <0.2.0" },
   "dependencies": {
     "water.css": "2.1.1"
   },
-  "stylesheets": [
-    { "href": "water.css/out/water.min.css" }
-  ],
+  "stylesheets": [{ "href": "water.css/out/water.min.css" }],
   "scripts": []
 }

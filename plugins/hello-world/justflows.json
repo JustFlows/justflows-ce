@@ -6,6 +6,9 @@
   "version": "1.0.0",
   "publisher": "Justflows",
   "license": "GPL-2.0-or-later",
+  "engines": {
+    "justflows": ">=0.1.8 <0.2.0"
+  },
   "description": "The official Justflows hello-world plugin — demonstrates the plugin lifecycle",
   "registry": {
     "commercialMarketplace": false,

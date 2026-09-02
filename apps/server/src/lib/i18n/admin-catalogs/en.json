@@ -20,15 +20,20 @@
     "menus": "Menus",
     "users": "Users",
     "settings": "Settings",
+    "emails": "Emails",
     "comments": "Comments",
+    "trash": "Trash",
     "marketplace": "Marketplace",
     "tools": "Tools",
     "health": "Health",
+    "diagnostics": "Diagnostics",
     "updates": "Updates",
     "webhooks": "Webhooks",
+    "consent": "Cookie Consent",
     "securityOverview": "Overview",
     "securityHeaders": "Headers",
     "securityAdvanced": "Advanced",
+    "securityAdminPath": "Admin URL",
     "securityAccount": "Your account",
     "securityAudit": "Audit log",
     "languages": "Languages",
@@ -458,6 +463,39 @@
       "hint": "This block's take on the theme's look — overrides the site-wide setting.",
       "inherit": "Theme default",
       "all": "All theme variables"
+    }
+  },
+  "dashboard": {
+    "welcome": {
+      "title": "Welcome to JustFlows",
+      "subtitle": "A few places to get started. Everything here is optional — you can minimize or dismiss this panel.",
+      "minimize": "Minimize",
+      "expand": "Expand",
+      "dismiss": "Dismiss welcome panel",
+      "restore": "Show welcome panel",
+      "opensNewTab": "(opens in a new tab)",
+      "cards": {
+        "docs": {
+          "title": "Documentation",
+          "desc": "Guides for setting up and running your site."
+        },
+        "marketplace": {
+          "title": "Marketplace",
+          "desc": "Browse plugins and themes to extend your site."
+        },
+        "updates": {
+          "title": "Updates",
+          "desc": "Check for new JustFlows releases and apply them."
+        },
+        "roadmap": {
+          "title": "Roadmap",
+          "desc": "See what has shipped and what is coming next."
+        },
+        "community": {
+          "title": "Community",
+          "desc": "Join the JustFlows Discord to ask questions and share ideas."
+        }
+      }
     }
   }
 }

@@ -37,6 +37,20 @@ async function activate(plugin: PluginModule): Promise<{ app: App; loader: Plugi
 }
 
 describe("plugin hook context", () => {
+  it("exposes host, SDK package, and SDK API versions without changing plugin version", async () => {
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, { justflowsVersion: "0.1.8-dev.1" });
+    let seen: PluginContext | undefined;
+    const plugin = makePlugin({}, (ctx) => {
+      seen = ctx;
+    });
+    loader.register(plugin);
+    await loader.activate(plugin.manifest.id, "site-1");
+
+    expect(seen?.version).toBe("1.0.0");
+    expect(seen?.runtime).toEqual({ justflows: "0.1.8-dev.1", sdk: "0.1.5", sdkApi: 1 });
+  });
+
   it("attributes a plugin's registrations to the plugin", async () => {
     const { app } = await activate(
       makePlugin({}, (ctx) => {
@@ -118,7 +132,9 @@ describe("plugin hook context", () => {
     const seen: unknown[] = [];
     const { app } = await activate(
       makePlugin({}, (ctx) => {
-        ctx.hooks.action("acme.test.scored", (event) => { seen.push(event); });
+        ctx.hooks.action("acme.test.scored", (event) => {
+          seen.push(event);
+        });
         void ctx.hooks.emit("acme.test.scored", { score: 42 } as never);
       }),
     );
@@ -235,6 +251,42 @@ describe("plugin hook context", () => {
     );
     await loader.activate("acme.test", "site-1");
     expect(deleteType).toHaveBeenCalledWith("product");
+  });
+
+  it("collects cookie declarations, applies overrides, and drops them on deactivate", async () => {
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, {
+      coreCookies: [
+        { name: "jf_session", category: "necessary", purpose: "auth", duration: "session" },
+      ],
+      cookieOverrides: async () => ({ _ga: "marketing" }),
+    });
+    let list: Awaited<ReturnType<PluginContext["cookies"]["list"]>> = [];
+    const plugin = makePlugin({}, async (ctx) => {
+      ctx.cookies.declare({ name: "_ga", category: "analytics", purpose: "Google Analytics" });
+      list = await ctx.cookies.list();
+    });
+    loader.register(plugin);
+    await loader.activate(plugin.manifest.id, "site-1");
+
+    expect(list.map((c) => c.name).sort()).toEqual(["_ga", "jf_session"]);
+    const ga = list.find((c) => c.name === "_ga")!;
+    expect(ga.declaredBy).toBe("acme.test");
+    expect(ga.effectiveCategory).toBe("marketing"); // operator override wins
+    expect(loader.cookieRegistry.all()).toHaveLength(1);
+
+    await loader.deactivate("acme.test", "site-1");
+    expect(loader.cookieRegistry.all()).toHaveLength(0);
+  });
+
+  it("rejects an invalid cookie declaration at declare time", async () => {
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app);
+    const plugin = makePlugin({}, (ctx) => {
+      ctx.cookies.declare({ name: "bad name", category: "analytics", purpose: "x" } as never);
+    });
+    loader.register(plugin);
+    await expect(loader.activate(plugin.manifest.id, "site-1")).rejects.toThrow(/invalid cookie/i);
   });
 
   it("runs deleteData and then the plugin.deleteData action", async () => {

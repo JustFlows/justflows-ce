@@ -89,13 +89,13 @@ export class MediaService {
       mimeType: opts.mimeType,
       sizeBytes: opts.data.byteLength,
       url,
-      width: imageMetadata?.width,
-      height: imageMetadata?.height,
-      altText: opts.altText,
-      caption: opts.caption,
+      ...(imageMetadata?.width === undefined ? {} : { width: imageMetadata.width }),
+      ...(imageMetadata?.height === undefined ? {} : { height: imageMetadata.height }),
+      ...(opts.altText === undefined ? {} : { altText: opts.altText }),
+      ...(opts.caption === undefined ? {} : { caption: opts.caption }),
       derivatives,
       uploadedAt: new Date().toISOString(),
-      uploadedBy: opts.uploadedBy,
+      ...(opts.uploadedBy === undefined ? {} : { uploadedBy: opts.uploadedBy }),
     };
 
     this.items.set(id, item);
@@ -125,10 +125,8 @@ export class MediaService {
     }
 
     const page = all.slice(start, start + limit);
-    return {
-      items: page,
-      nextCursor: page.length === limit ? page[page.length - 1]?.id : undefined,
-    };
+    const nextCursor = page.length === limit ? page[page.length - 1]?.id : undefined;
+    return nextCursor === undefined ? { items: page } : { items: page, nextCursor };
   }
 
   async delete(id: string): Promise<void> {

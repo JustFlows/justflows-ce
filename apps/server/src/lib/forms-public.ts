@@ -8,9 +8,42 @@ import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
 import { getPluginSetting } from "./plugin-kv.js";
 import { getGeneralSettings } from "./general-settings.js";
 import { consumeRateLimit } from "./rate-limit.js";
+import { getCommentSettings, type CaptchaProvider } from "./comments-settings.js";
+import { CAPTCHA_META, renderCaptchaWidget, verifyCaptcha } from "./captcha.js";
 
 export const FORMS_PLUGIN_ID = "justflows.forms";
 export const FORMS_BLOCK_TYPE = "justflows.forms.form";
+
+/** reCAPTCHA v3 action minted for form submissions, checked server-side. */
+const RECAPTCHA_V3_ACTION = "justflows_form_submit";
+
+interface ActiveFormsCaptcha {
+  provider: Exclude<CaptchaProvider, "none">;
+  siteKey: string;
+  secretKey: string;
+  scoreThreshold: number;
+}
+
+/**
+ * CAPTCHA is enabled per form (`form.data.captcha`, set in the form builder).
+ * The provider and keys are the ones configured once under Settings → Discussion
+ * (site `comments` settings) and shared with the comments form. Returns null
+ * unless this form opts in *and* a usable provider is configured.
+ */
+async function resolveFormsCaptcha(
+  siteId: string,
+  form: FormRecord | null,
+): Promise<ActiveFormsCaptcha | null> {
+  if (!form?.data.captcha) return null;
+  const settings = await getCommentSettings(siteId);
+  if (settings.captchaProvider === "none" || !settings.captchaSiteKey) return null;
+  return {
+    provider: settings.captchaProvider,
+    siteKey: settings.captchaSiteKey,
+    secretKey: settings.captchaSecretKey,
+    scoreThreshold: settings.captchaScoreThreshold,
+  };
+}
 
 export const FORM_FIELD_TYPES = ["text", "email", "textarea", "tel", "select", "checkbox"] as const;
 export type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
@@ -29,6 +62,12 @@ export interface FormDefinition {
   title: string;
   submitLabel: string;
   successMessage: string;
+  /**
+   * Require the site's CAPTCHA challenge on this form. Opt-in per form; the
+   * provider and keys come from Settings → Discussion (site `comments`
+   * settings) and are shared with the comments form.
+   */
+  captcha: boolean;
   fields: FormField[];
 }
 
@@ -91,6 +130,7 @@ export function sanitizeForm(raw: unknown): FormDefinition {
     title: String(row.title ?? "").slice(0, 120),
     submitLabel: String(row.submitLabel ?? "Send").slice(0, 60) || "Send",
     successMessage: String(row.successMessage ?? "Thanks, we received your message.").slice(0, 300),
+    captcha: Boolean(row.captcha),
     fields,
   };
 }
@@ -101,6 +141,7 @@ function defaultContactForm(): FormDefinition {
     title: "Contact us",
     submitLabel: "Send",
     successMessage: "Thanks, we received your message.",
+    captcha: false,
     fields: [
       { id: "name", name: "name", label: "Name", type: "text", required: true },
       { id: "email", name: "email", label: "Email", type: "email", required: true },
@@ -211,7 +252,11 @@ function inputHtml(field: FormField): string {
   return `<input id="jf-form-${name}" type="${inputType}" name="${name}"${required}>`;
 }
 
-export function renderFormHtml(form: FormRecord, submitted = false): string {
+export function renderFormHtml(
+  form: FormRecord,
+  submitted = false,
+  captcha: ActiveFormsCaptcha | null = null,
+): string {
   if (submitted) {
     return `<div class="jf-form jf-form--success" role="status">${esc(form.data.successMessage)}</div>`;
   }
@@ -222,11 +267,18 @@ export function renderFormHtml(form: FormRecord, submitted = false): string {
     })
     .join("");
   const heading = form.data.title ? `<h3 class="jf-form__title">${esc(form.data.title)}</h3>` : "";
-  return `<form class="jf-form" method="post" action="/justflows-forms/submit">
+  const widget = captcha
+    ? renderCaptchaWidget(captcha.provider, captcha.siteKey, {
+        widgetClass: "jf-form__captcha",
+        recaptchaV3Action: RECAPTCHA_V3_ACTION,
+      })
+    : null;
+  return `<form class="jf-form" method="post" action="/justflows-forms/submit"${widget?.formAttributes ?? ""}>
     ${heading}
     <input type="hidden" name="formId" value="${esc(form.id)}">
     <label class="jf-form__hp" aria-hidden="true">Leave blank<input type="text" name="_gotcha" tabindex="-1" autocomplete="off"></label>
     ${fields}
+    ${widget?.widget ?? ""}
     <button type="submit">${esc(form.data.submitLabel)}</button>
   </form>`;
 }
@@ -237,7 +289,13 @@ export async function renderFormBlockHtml(props: Record<string, unknown>, submit
   if (!siteId) return "";
   const formId = String(props.formId ?? "contact");
   const form = await getForm(siteId, formId);
-  if (form) return renderFormHtml(form, submittedFormId === form.id);
+  if (form) {
+    return renderFormHtml(
+      form,
+      submittedFormId === form.id,
+      await resolveFormsCaptcha(siteId, form),
+    );
+  }
 
   const fields = String(props.fields ?? "")
     .split(",")
@@ -251,6 +309,7 @@ export async function renderFormBlockHtml(props: Record<string, unknown>, submit
       title: String(props.title ?? ""),
       submitLabel: String(props.submitLabel ?? "Send"),
       successMessage: "Thanks, we received your message.",
+      captcha: false,
       fields: fields.map((name) => ({
         id: name,
         name,
@@ -260,7 +319,7 @@ export async function renderFormBlockHtml(props: Record<string, unknown>, submit
       })),
     },
   };
-  return renderFormHtml(fallback, submittedFormId === "inline");
+  return renderFormHtml(fallback, submittedFormId === "inline", null);
 }
 
 /** Conservative address check for the Reply-To we derive from submitted data. */
@@ -303,6 +362,16 @@ export async function acceptFormSubmission(input: {
   const formId = String(input.body.formId ?? "").trim();
   const form = await getForm(siteId, formId);
   if (!form) return { status: 400, error: "Unknown form" };
+
+  const captcha = await resolveFormsCaptcha(siteId, form);
+  if (captcha) {
+    const token = String(input.body[CAPTCHA_META[captcha.provider].field] ?? "").trim();
+    const ok = await verifyCaptcha(captcha.provider, captcha.secretKey, token, ip, {
+      expectedAction: RECAPTCHA_V3_ACTION,
+      scoreThreshold: captcha.scoreThreshold,
+    });
+    if (!ok) return { status: 400, error: "CAPTCHA check failed. Please try again." };
+  }
 
   const values: Record<string, string> = {};
   for (const field of form.data.fields) {

@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { envFilePath } from "./jf-root.js";
+import { recordDatabaseTiming } from "./diagnostics.js";
 
 /** Load .env from repo root (survives Plesk restarts). */
 function ensureEnvLoaded() {
@@ -29,18 +30,56 @@ function ensureEnvLoaded() {
   }
 }
 
+/** A single connection pinned out of the pool — used to hold a session-scoped lock. */
+export interface ReservedDbClient {
+  run(sql: string, params?: (string | number | boolean | null)[]): Promise<void>;
+  query<T = Record<string, unknown>>(sql: string, params?: (string | number | boolean | null)[]): Promise<T[]>;
+  /** Return the connection to the pool. */
+  release(): void;
+}
+
 export interface DbClient {
   run(sql: string, params?: (string | number | boolean | null)[]): Promise<void>;
   query<T = Record<string, unknown>>(sql: string, params?: (string | number | boolean | null)[]): Promise<T[]>;
   execute(sql: string, params?: (string | number | boolean | null)[]): Promise<number>;
   transaction<T>(fn: (tx: Pick<DbClient, "run" | "query" | "execute">) => Promise<T>): Promise<T>;
+  /**
+   * Pin one connection so a caller can hold a session-scoped lock across
+   * statements. Only pooled clients (getDb) provide it; single-connection
+   * clients omit it and callers fall back to running unlocked.
+   */
+  reserve?(): Promise<ReservedDbClient>;
   close(): Promise<void>;
 }
 
 let _client: DbClient | null = null;
+let _instrumentedClient: DbClient | null = null;
+
+function instrumentClient(client: DbClient): DbClient {
+  if (_instrumentedClient) return _instrumentedClient;
+  const timed = <TArgs extends unknown[], TResult>(fn: (...args: TArgs) => Promise<TResult>) =>
+    async (...args: TArgs): Promise<TResult> => {
+      const started = performance.now();
+      try {
+        return await fn(...args);
+      } finally {
+        recordDatabaseTiming(performance.now() - started);
+      }
+    };
+  _instrumentedClient = {
+    ...client,
+    run: timed(client.run.bind(client)),
+    query: timed(client.query.bind(client)) as DbClient["query"],
+    execute: timed(client.execute.bind(client)),
+    transaction: timed(client.transaction.bind(client)) as DbClient["transaction"],
+    reserve: client.reserve?.bind(client),
+    close: client.close.bind(client),
+  };
+  return _instrumentedClient;
+}
 
 export async function getDb(): Promise<DbClient> {
-  if (_client) return _client;
+  if (_client) return instrumentClient(_client);
 
   ensureEnvLoaded();
 
@@ -118,6 +157,24 @@ export async function getDb(): Promise<DbClient> {
         });
         return value as Awaited<ReturnType<typeof fn>>;
       },
+      reserve: async () => {
+        const reserved = await sql.reserve();
+        const exec = (query: string, params: (string | number | boolean | null)[]) => {
+          let i = 0;
+          const pgQuery = query.replace(/\?/g, () => `$${++i}`);
+          return reserved.unsafe(pgQuery, params as Parameters<typeof reserved.unsafe>[1]);
+        };
+        return {
+          run: async (query, params = []) => {
+            await exec(query, params);
+          },
+          query: async <T>(query: string, params: (string | number | boolean | null)[] = []) => {
+            const rows = await exec(query, params);
+            return rows as unknown as T[];
+          },
+          release: () => reserved.release(),
+        };
+      },
       close: () => sql.end(),
     };
   } else {
@@ -178,14 +235,34 @@ export async function getDb(): Promise<DbClient> {
           conn.release();
         }
       },
+      reserve: async () => {
+        const conn = await pool.getConnection();
+        return {
+          run: async (query, params = []) => {
+            // DDL (DROP TABLE, SET …) cannot use prepared statements on MariaDB.
+            if (params.length === 0) {
+              await conn.query(query);
+              return;
+            }
+            await conn.execute(query, params);
+          },
+          query: async <T>(query: string, params: (string | number | boolean | null)[] = []) => {
+            const [rows] =
+              params.length === 0 ? await conn.query(query) : await conn.execute(query, params);
+            return rows as T[];
+          },
+          release: () => conn.release(),
+        };
+      },
       close: async () => pool.end(),
     };
   }
 
-  return _client!;
+  return instrumentClient(_client!);
 }
 
 /** Reset the cached client (call after install completes). */
 export function resetDb() {
   _client = null;
+  _instrumentedClient = null;
 }

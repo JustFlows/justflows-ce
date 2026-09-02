@@ -58,7 +58,13 @@ export function requireInstalled(req: Request, res: Response, next: NextFunction
     next();
     return;
   }
-  if (req.path.startsWith("/api/install") || req.path.startsWith("/api/bootstrap") || req.path.startsWith("/api/i18n") || req.path === "/install" || req.path.startsWith("/admin-ui")) {
+  if (
+    req.path.startsWith("/api/install") ||
+    req.path.startsWith("/api/bootstrap") ||
+    req.path.startsWith("/api/i18n") ||
+    req.path === "/install" ||
+    req.path.startsWith("/admin-ui")
+  ) {
     next();
     return;
   }
@@ -76,7 +82,10 @@ export function blockIfInstalled(req: Request, res: Response, next: NextFunction
     return;
   }
   if (req.path === "/install" || req.path.startsWith("/api/install")) {
-    res.redirect("/admin");
+    void import("../lib/admin-path.js")
+      .then(({ getAdminPathConfig }) => getAdminPathConfig())
+      .then((config) => res.redirect(config.path))
+      .catch(next);
     return;
   }
   next();

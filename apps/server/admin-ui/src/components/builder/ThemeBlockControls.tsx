@@ -21,7 +21,7 @@ export default function ThemeBlockControls({
   onChange: (props: Record<string, unknown>) => void;
 }) {
   const { t } = useT();
-  const { tokens, blockControls } = useThemeStyleTokens();
+  const { theme, tokens, blockControls } = useThemeStyleTokens();
   if (tokens.length === 0) return null;
 
   const style = parseBlockStyle(block.props.style);
@@ -43,18 +43,31 @@ export default function ThemeBlockControls({
   const byName = new Map(tokens.map((tk) => [tk.name, tk]));
   const curated = [...curatedNames].map((n) => byName.get(n)).filter(Boolean) as ThemeStyleToken[];
   // `--jf-block-*` is the Layout panel's Background / Text / Accent — don't
-  // duplicate it here.
+  // duplicate it here. `--jf-color-scheme-*` only makes sense on that block.
   const rest = tokens.filter(
-    (tk) => !curatedNames.has(tk.name) && !tk.name.startsWith("--jf-block-"),
+    (tk) =>
+      !curatedNames.has(tk.name) &&
+      !tk.name.startsWith("--jf-block-") &&
+      (!tk.name.startsWith("--jf-color-scheme-") || block.type === "core.color-scheme"),
   );
 
   const field = (c: ThemeStyleToken) => {
     const current = String(vars[c.name] ?? "");
     const id = `${block.id}-${c.name.replace(/[^\w-]/g, "")}`;
+    // What the active theme resolves this variable to right now. Always shown
+    // so an editor sees the live value even when this block adds no override.
+    const themeValue = c.value ?? "";
+    const presetLabel = c.presets?.find((p) => p.value === themeValue)?.label;
+    const themeHint =
+      !current && themeValue ? (
+        <span style={themeHintStyle}>
+          {inherit}: <span className="jf-input--mono">{presetLabel ?? themeValue}</span>
+        </span>
+      ) : null;
 
     if (c.presets && c.presets.length > 0) {
       return (
-        <div className="jf-field" key={c.name} style={{ marginBottom: "0.6rem" }}>
+        <div className="jf-field" key={c.name} style={fieldWrap}>
           <label className="jf-field__label" htmlFor={id}>
             {c.label}
           </label>
@@ -64,23 +77,24 @@ export default function ThemeBlockControls({
             value={current}
             onChange={(e) => setVar(c.name, e.target.value)}
           >
-            <option value="">{inherit}</option>
+            <option value="">{presetLabel ? `${inherit} (${presetLabel})` : inherit}</option>
             {c.presets.map((p) => (
               <option key={p.value} value={p.value}>
                 {p.label}
               </option>
             ))}
           </select>
+          {themeHint}
         </div>
       );
     }
 
     if (c.type === "range") {
-      const num = Number.parseFloat(current) || Number.parseFloat(c.value) || c.min || 0;
+      const num = Number.parseFloat(current) || Number.parseFloat(themeValue) || c.min || 0;
       return (
-        <div className="jf-field" key={c.name} style={{ marginBottom: "0.6rem" }}>
+        <div className="jf-field" key={c.name} style={fieldWrap}>
           <label className="jf-field__label" htmlFor={id}>
-            {c.label}: {current || `${inherit} (${c.value})`}
+            {c.label}: {current || `${inherit} (${themeValue})`}
           </label>
           <div className="jf-row" style={{ flexWrap: "nowrap" }}>
             <input
@@ -108,9 +122,10 @@ export default function ThemeBlockControls({
     }
 
     if (c.type === "color") {
-      const swatch = /^#[0-9a-fA-F]{6}$/.test(current) ? current : "#ffffff";
+      const isHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v);
+      const swatch = isHex(current) ? current : isHex(themeValue) ? themeValue : "#ffffff";
       return (
-        <div className="jf-field" key={c.name} style={{ marginBottom: "0.6rem" }}>
+        <div className="jf-field" key={c.name} style={fieldWrap}>
           <label className="jf-field__label" htmlFor={id}>
             {c.label}
           </label>
@@ -125,7 +140,7 @@ export default function ThemeBlockControls({
             <input
               type="text"
               className="jf-input jf-input--mono"
-              placeholder={inherit}
+              placeholder={themeValue || inherit}
               value={current}
               spellCheck={false}
               onChange={(e) => setVar(c.name, e.target.value)}
@@ -141,12 +156,13 @@ export default function ThemeBlockControls({
               </button>
             ) : null}
           </div>
+          {themeHint}
         </div>
       );
     }
 
     return (
-      <div className="jf-field" key={c.name} style={{ marginBottom: "0.6rem" }}>
+      <div className="jf-field" key={c.name} style={fieldWrap}>
         <label className="jf-field__label" htmlFor={id}>
           {c.label}
         </label>
@@ -154,18 +170,22 @@ export default function ThemeBlockControls({
           id={id}
           type="text"
           className="jf-input jf-input--mono"
-          placeholder={c.value}
+          placeholder={themeValue || inherit}
           value={current}
           spellCheck={false}
           onChange={(e) => setVar(c.name, e.target.value)}
         />
+        {themeHint}
       </div>
     );
   };
 
   return (
     <section className="jf-block-panel" aria-labelledby={`jf-themectl-${block.id}`}>
-      <h3 id={`jf-themectl-${block.id}`}>{t("builder.themeControls.title")}</h3>
+      <h3 id={`jf-themectl-${block.id}`}>
+        {t("builder.themeControls.title")}
+        {theme ? <span style={themeNameStyle}> · {theme}</span> : null}
+      </h3>
       <p className="jf-block-panel__hint">{t("builder.themeControls.hint")}</p>
 
       {curated.map(field)}
@@ -190,3 +210,14 @@ const clearBtn: React.CSSProperties = {
   padding: "0 0.4rem",
   height: 30,
 };
+
+const fieldWrap: React.CSSProperties = { marginBottom: "0.6rem" };
+
+const themeHintStyle: React.CSSProperties = {
+  display: "block",
+  marginTop: "0.25rem",
+  fontSize: "0.75rem",
+  color: "var(--jf-text-3)",
+};
+
+const themeNameStyle: React.CSSProperties = { fontWeight: 400, color: "var(--jf-text-3)" };

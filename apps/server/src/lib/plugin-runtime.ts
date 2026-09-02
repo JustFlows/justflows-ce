@@ -20,10 +20,20 @@ import { createPluginSecretsApi } from "./plugin-secrets.js";
 import { createPluginDatabasesApi } from "./plugin-databases.js";
 import { createPluginContentApi } from "./plugin-content.js";
 import { isInstalled } from "../middleware/install-guard.js";
+import { getJustflowsVersion } from "./version.js";
+import { registerMailTransport, unregisterMailTransports } from "./mail-transports.js";
+import { registerEmailTemplate } from "./email-templates.js";
 
 let app: App | null = null;
 let loader: PluginLoader | null = null;
 let initPromise: Promise<void> | null = null;
+const pluginEmailTemplateCleanup = new Map<string, Array<() => void>>();
+
+function unregisterPluginMail(pluginId: string): void {
+  unregisterMailTransports(pluginId);
+  for (const dispose of pluginEmailTemplateCleanup.get(pluginId) ?? []) dispose();
+  pluginEmailTemplateCleanup.delete(pluginId);
+}
 
 async function resolvePluginModule(
   manifest: Record<string, unknown>,
@@ -48,15 +58,22 @@ async function resolvePluginModule(
     const entry = resolvePathUnderBase(basePath, relative);
     if (!entry || !fs.existsSync(entry) || !isSafePluginEntry(entry)) continue;
 
+    let mtimeMs = 0;
     try {
       const stat = fs.lstatSync(entry);
       if (stat.isSymbolicLink()) continue;
+      mtimeMs = stat.mtimeMs;
     } catch {
       continue;
     }
 
     try {
-      const mod = await import(pathToFileURL(entry).href);
+      // A reinstall to a revisioned directory already yields a fresh URL; the
+      // mtime query is the belt-and-braces path for the case where the same
+      // directory is re-extracted in place, so Node's ESM cache does not keep
+      // serving the previous build.
+      const url = `${pathToFileURL(entry).href}?v=${Math.round(mtimeMs)}`;
+      const mod = await import(url);
       return (mod.default ?? mod) as PluginModule;
     } catch (err) {
       console.error(`[plugins] failed to import ${entry}:`, err);
@@ -156,15 +173,37 @@ export async function ensurePluginRuntime(): Promise<void> {
       const { getJfCache } = await import("./jf-cache.js");
       const { createPluginCacheApi } = await import("./plugin-cache.js");
       loader = new PluginLoader(app, {
+        justflowsVersion: getJustflowsVersion(),
         cacheFactory: (pluginId) => createPluginCacheApi(pluginId, getJfCache()),
         dataFactory: (pluginId, siteId) => createPluginDataApi(pluginId, siteId),
         jobsFactory: (pluginId) => createPluginJobsApi(pluginId),
+        mailFactory: (pluginId, permissions) => ({
+          register: (transport) => {
+            if (!permissions.has("mail:transport"))
+              throw new Error(`Plugin "${pluginId}" requires the mail:transport permission`);
+            registerMailTransport(pluginId, transport);
+          },
+          registerTemplate: (template) => {
+            if (!permissions.has("mail:templates"))
+              throw new Error(`Plugin "${pluginId}" requires the mail:templates permission`);
+            if (!template.key.startsWith(`${pluginId}.`))
+              throw new Error(`Plugin email template keys must start with "${pluginId}."`);
+            const dispose = registerEmailTemplate({ ...template, owner: pluginId, disableSafe: template.disableSafe ?? true });
+            const cleanup = pluginEmailTemplateCleanup.get(pluginId) ?? [];
+            cleanup.push(dispose);
+            pluginEmailTemplateCleanup.set(pluginId, cleanup);
+          },
+        }),
         jobsCleanup: (pluginId) => getPluginJobScheduler().unregisterPrefix(pluginId),
+        mailCleanup: unregisterPluginMail,
         secretsFactory: (pluginId, siteId) => createPluginSecretsApi(pluginId, siteId),
         databasesFactory: (pluginId, siteId, permissions) =>
           createPluginDatabasesApi(pluginId, siteId, permissions),
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),
         blockRegistry: pluginBlockAdapter(),
+        coreCookies: async () => (await import("./cookie-registry.js")).getCoreCookies(),
+        cookieOverrides: async (siteId) =>
+          (await import("./cookie-registry.js")).getCookieOverrides(siteId),
         settingsAdapter: {
           get: async <T = unknown>(
             siteId: string,
@@ -248,6 +287,16 @@ export async function runtimeDeactivatePlugin(siteId: string, pluginId: string):
   await ensurePluginRuntime();
   if (!loader) return;
   await loader.deactivate(pluginId, siteId);
+}
+
+/**
+ * Forget a plugin module so a subsequent activate re-imports it. Call after a
+ * (re)install or an uninstall — otherwise the loader keeps the previously
+ * imported module and the new build never runs without a process restart.
+ */
+export async function runtimeUnloadPlugin(pluginId: string): Promise<void> {
+  await ensurePluginRuntime();
+  loader?.unregister(pluginId);
 }
 
 /** Load the plugin if needed and run its `deleteData` hook. */

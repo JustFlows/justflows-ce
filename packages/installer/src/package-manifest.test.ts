@@ -86,6 +86,22 @@ describe("PackageManifestSchema version", () => {
   });
 });
 
+describe("PackageManifestSchema engines", () => {
+  it("keeps the canonical Justflows compatibility range", () => {
+    const parsed = PackageManifestSchema.parse({
+      ...base,
+      engines: { justflows: ">=0.1.8 <0.2.0" },
+    });
+    expect(parsed.engines?.justflows).toBe(">=0.1.8 <0.2.0");
+  });
+
+  it("rejects an empty Justflows compatibility range", () => {
+    expect(PackageManifestSchema.safeParse({ ...base, engines: { justflows: "" } }).success).toBe(
+      false,
+    );
+  });
+});
+
 describe("PackageManifestSchema registry", () => {
   it("defaults a free listed listing when registry is omitted", () => {
     const parsed = PackageManifestSchema.parse(base);

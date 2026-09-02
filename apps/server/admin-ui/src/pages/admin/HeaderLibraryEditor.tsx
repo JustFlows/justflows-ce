@@ -8,6 +8,7 @@ import {
   type SiteHeaderEntryDTO,
   type SiteHeaderLibraryDTO,
 } from "../../lib/page-header";
+import { uid } from "../../lib/uid";
 
 interface ActiveLanguage {
   code: string;
@@ -23,7 +24,7 @@ function emptyLib(): SiteHeaderLibraryDTO {
 
 function newEntry(name: string): SiteHeaderEntryDTO {
   return {
-    id: crypto.randomUUID(),
+    id: uid(),
     name,
     base: { ...DEFAULT_PAGE_HEADER, blocks: [] },
     overrides: {},

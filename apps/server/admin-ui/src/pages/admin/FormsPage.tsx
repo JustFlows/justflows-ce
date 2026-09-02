@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSessionRole } from "@components/SessionProvider";
+import { uid } from "../../lib/uid";
 
 type FieldType = "text" | "email" | "textarea" | "tel" | "select" | "checkbox";
 
@@ -18,6 +19,7 @@ interface FormDefinition {
   title: string;
   submitLabel: string;
   successMessage: string;
+  captcha: boolean;
   fields: FormField[];
 }
 
@@ -46,7 +48,7 @@ const FIELD_TYPES: Array<{ value: FieldType; label: string }> = [
 ];
 
 function blankField(): FormField {
-  return { id: crypto.randomUUID(), name: "field", label: "New field", type: "text", required: false };
+  return { id: uid(), name: "field", label: "New field", type: "text", required: false };
 }
 
 function blankForm(): FormDefinition {
@@ -55,10 +57,11 @@ function blankForm(): FormDefinition {
     title: "",
     submitLabel: "Send",
     successMessage: "Thanks, we received your message.",
+    captcha: false,
     fields: [
-      { id: crypto.randomUUID(), name: "name", label: "Name", type: "text", required: true },
-      { id: crypto.randomUUID(), name: "email", label: "Email", type: "email", required: true },
-      { id: crypto.randomUUID(), name: "message", label: "Message", type: "textarea", required: true },
+      { id: uid(), name: "name", label: "Name", type: "text", required: true },
+      { id: uid(), name: "email", label: "Email", type: "email", required: true },
+      { id: uid(), name: "message", label: "Message", type: "textarea", required: true },
     ],
   };
 }
@@ -262,6 +265,18 @@ export default function FormsPage() {
                       <label className="jf-stack jf-stack--sm"><span>Thanks message</span>
                         <input className="jf-input" value={draft.successMessage} onChange={(e) => setDraft({ ...draft, successMessage: e.target.value })} />
                       </label>
+
+                      <label className="jf-row" style={{ gap: "0.5rem" }}>
+                        <input
+                          type="checkbox"
+                          checked={draft.captcha}
+                          onChange={(e) => setDraft({ ...draft, captcha: e.target.checked })}
+                        />
+                        Require a CAPTCHA on this form
+                      </label>
+                      <p className="jf-meta" style={{ marginTop: "-0.25rem" }}>
+                        Uses the provider and keys set under Settings → Discussion. No effect while that is “None”.
+                      </p>
 
                       <div className="jf-stack">
                         {draft.fields.map((field, index) => (

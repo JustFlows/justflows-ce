@@ -1,4 +1,11 @@
-import { ROLE_CAPABILITIES, type UserCapability } from "@justflows/sdk";
+import {
+  ROLE_CAPABILITIES,
+  effectiveCapabilities,
+  scopeAllows,
+  type AccessPolicy,
+  type AccessResource,
+  type UserCapability,
+} from "@justflows/sdk";
 
 export interface Actor {
   userId: string;
@@ -6,6 +13,8 @@ export interface Actor {
   role: string;
   /** Extra capabilities granted individually */
   extraCapabilities?: UserCapability[];
+  roleCapabilities?: UserCapability[];
+  accessPolicy?: AccessPolicy;
 }
 
 /**
@@ -13,9 +22,22 @@ export interface Actor {
  * Always checks capabilities, never role names directly.
  */
 export function can(actor: Actor, capability: UserCapability): boolean {
-  const roleCaps = ROLE_CAPABILITIES[actor.role] ?? [];
-  if (roleCaps.includes(capability)) return true;
-  return actor.extraCapabilities?.includes(capability) ?? false;
+  const policy: AccessPolicy = {
+    ...actor.accessPolicy,
+    grants: [...(actor.accessPolicy?.grants ?? []), ...(actor.extraCapabilities ?? [])],
+  };
+  return effectiveCapabilities(
+    actor.roleCapabilities ?? ROLE_CAPABILITIES[actor.role] ?? [],
+    policy,
+  ).includes(capability);
+}
+
+export function canAccess(
+  actor: Actor,
+  capability: UserCapability,
+  resource: AccessResource = {},
+): boolean {
+  return can(actor, capability) && scopeAllows(actor.accessPolicy?.scopes?.[capability], resource, actor.userId);
 }
 
 export function requireCan(actor: Actor, capability: UserCapability): void {

@@ -5,6 +5,16 @@
   var PREFERENCES = { light: 1, dark: 1, system: 1 };
   var DARK_QUERY = "(prefers-color-scheme: dark)";
 
+  // Only the most recent run of this script owns the delegated listeners. If
+  // it is evaluated twice (a stray second <script>, a test re-boot), the older
+  // listeners fall dormant instead of both reacting to the same click — which
+  // would cancel out a non-idempotent control like the single toggle.
+  var generation = ((window.__jfSiteChromeGeneration || 0) + 1) | 0;
+  window.__jfSiteChromeGeneration = generation;
+  function current() {
+    return window.__jfSiteChromeGeneration === generation;
+  }
+
   /** The visitor's stored choice. No choice means follow the operating system. */
   function storedPreference() {
     try {
@@ -49,7 +59,24 @@
     var buttons = document.querySelectorAll("[data-jf-theme]");
     for (var i = 0; i < buttons.length; i++) {
       var btn = buttons[i];
-      btn.setAttribute("aria-pressed", btn.getAttribute("data-jf-theme") === pressed ? "true" : "false");
+      var mode = btn.getAttribute("data-jf-theme");
+      if (mode === "toggle") {
+        // A single control: "on" means the visitor is looking at dark.
+        var on = theme === "dark" ? "true" : "false";
+        if (btn.getAttribute("role") === "switch") btn.setAttribute("aria-checked", on);
+        else btn.setAttribute("aria-pressed", on);
+        btn.setAttribute("data-jf-resolved", theme);
+      } else {
+        btn.setAttribute("aria-pressed", mode === pressed ? "true" : "false");
+      }
+    }
+
+    var selects = document.querySelectorAll("[data-jf-color-scheme-select]");
+    for (var s = 0; s < selects.length; s++) {
+      var want = preference;
+      selects[s].value = want;
+      // No "system" option on this widget: fall back to the visible theme.
+      if (selects[s].value !== want) selects[s].value = theme;
     }
   }
 
@@ -60,7 +87,7 @@
     if (window.matchMedia) {
       var query = window.matchMedia(DARK_QUERY);
       var onSystemChange = function () {
-        if (storedPreference() === "system") applyPreference("system");
+        if (current() && storedPreference() === "system") applyPreference("system");
       };
       if (query.addEventListener) query.addEventListener("change", onSystemChange);
       else if (query.addListener) query.addListener(onSystemChange);
@@ -71,11 +98,16 @@
 
   function onReady() {
     document.addEventListener("click", function (event) {
+      if (!current()) return;
       var target = event.target;
       if (!target || !target.closest) return;
       var btn = target.closest("[data-jf-theme]");
       if (!btn) return;
       var preference = btn.getAttribute("data-jf-theme");
+      if (preference === "toggle") {
+        // Flip to the opposite of whatever the visitor sees right now.
+        preference = resolveTheme(storedPreference()) === "dark" ? "light" : "dark";
+      }
       if (!PREFERENCES[preference]) return;
       try {
         if (preference === "system") localStorage.removeItem(STORAGE_KEY);
@@ -87,6 +119,21 @@
     });
 
     document.addEventListener("change", function (event) {
+      if (!current()) return;
+      var picker = event.target;
+      if (picker && picker.getAttribute && picker.getAttribute("data-jf-color-scheme-select") != null) {
+        var choice = picker.value;
+        if (!PREFERENCES[choice]) return;
+        try {
+          if (choice === "system") localStorage.removeItem(STORAGE_KEY);
+          else localStorage.setItem(STORAGE_KEY, choice);
+        } catch (err) {
+          /* private mode */
+        }
+        applyPreference(choice);
+        return;
+      }
+
       var select = event.target;
       if (!select || select.getAttribute("data-jf-language-select") == null) return;
       var option = select.options && select.options[select.selectedIndex];

@@ -5,11 +5,13 @@ import App from "./App";
 import { installSsrFetchCache, readAdminSsrPayload, setAdminSsrPayload } from "./ssr-data";
 import { installCsrfFetch } from "./fetch-client";
 import "./styles/admin.css";
+import { installAdminPathNavigation } from "./admin-path";
 
 const payload = readAdminSsrPayload();
 setAdminSsrPayload(payload);
 installSsrFetchCache(payload);
 installCsrfFetch();
+installAdminPathNavigation();
 
 const tree = (
   <StrictMode>
