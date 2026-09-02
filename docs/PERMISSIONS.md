@@ -11,6 +11,7 @@ exposes. Sensitive permissions are called out in Admin:
 - `users:manage`
 - `settings:manage`
 - `mail:transport` — register an outbound email provider transport
+- `mail:read` / `mail:manage` — view delivery records or test/retry/manage outbound mail
 - `auth:hook`
 
 The full enum is `PluginPermissionSchema` in `packages/sdk/src/plugin.ts`:

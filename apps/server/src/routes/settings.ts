@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getDb } from "../lib/db.js";
 import { getSiteId, setSiteSetting, settingsKeyColumn } from "../lib/site-settings.js";
 import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
-import { requireRole, requireSession } from "../middleware/auth.js";
+import { requireCapability, requireRole, requireSession } from "../middleware/auth.js";
 import { formatPhpDate, isValidTimeZone, listTimeZones } from "../lib/datetime-format.js";
 import { getGeneralSettings } from "../lib/general-settings.js";
 import {
@@ -474,7 +474,7 @@ router.put("/comments", requireRole("administrator"), async (req, res) => {
   }
 });
 
-router.post("/test-mail", requireRole("administrator"), async (_req, res) => {
+router.post("/test-mail", requireCapability("mail:manage"), async (_req, res) => {
   try {
     const result = await sendTestMail();
     if (!result.ok) {
@@ -487,7 +487,7 @@ router.post("/test-mail", requireRole("administrator"), async (_req, res) => {
   }
 });
 
-router.get("/email/logs", requireRole("administrator"), async (req, res) => {
+router.get("/email/logs", requireCapability("mail:read"), async (req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) return void res.status(503).json({ error: "No site found" });
@@ -502,7 +502,7 @@ router.get("/email/logs", requireRole("administrator"), async (req, res) => {
   }
 });
 
-router.post("/email/logs/:id/retry", requireRole("administrator"), async (req, res) => {
+router.post("/email/logs/:id/retry", requireCapability("mail:manage"), async (req, res) => {
   try {
     const parsed = z.string().uuid().safeParse(req.params.id);
     if (!parsed.success) return void res.status(400).json({ error: "Invalid delivery id" });
@@ -520,7 +520,7 @@ const SuppressionSchema = z.object({
   messageType: z.string().min(1).max(80).default("*"),
   reason: z.string().max(500).optional(),
 });
-router.get("/email/suppressions", requireRole("administrator"), async (_req, res) => {
+router.get("/email/suppressions", requireCapability("mail:read"), async (_req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) return void res.status(503).json({ error: "No site found" });
@@ -529,7 +529,7 @@ router.get("/email/suppressions", requireRole("administrator"), async (_req, res
     sendServerError(res, "email suppressions", e);
   }
 });
-router.post("/email/suppressions", requireRole("administrator"), async (req, res) => {
+router.post("/email/suppressions", requireCapability("mail:manage"), async (req, res) => {
   try {
     const body = SuppressionSchema.parse(req.body);
     const siteId = await getSiteId();
@@ -542,7 +542,7 @@ router.post("/email/suppressions", requireRole("administrator"), async (req, res
     sendServerError(res, "email suppression", e);
   }
 });
-router.delete("/email/suppressions/:id", requireRole("administrator"), async (req, res) => {
+router.delete("/email/suppressions/:id", requireCapability("mail:manage"), async (req, res) => {
   try {
     const id = z.string().uuid().parse(req.params.id);
     const siteId = await getSiteId();

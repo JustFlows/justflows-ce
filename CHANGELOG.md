@@ -35,7 +35,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
   sender identities, provider transport registration, full test-transport
   responses, privacy-masked delivery/dead-letter logs, manual retry,
   per-type suppression, delivery limits, and SPF/DKIM/DMARC guidance. Transport
-  secrets and retry payloads remain encrypted at rest. ([#104](https://github.com/JustFlows/justflows-ce/issues/104))
+  secrets and retry payloads remain encrypted at rest; `mail:read` and
+  `mail:manage` capabilities control operational access. ([#104](https://github.com/JustFlows/justflows-ce/issues/104))
 
 - Admin → Users now supports site-local custom roles with a capability editor,
   safe built-in defaults, assignment guards, audit events, SDK hooks, and

@@ -6,7 +6,7 @@ import {
   formatPhpDate,
 } from "@lib/datetime-format";
 import MediaImageField from "@components/MediaImageField";
-import { useSessionRole } from "@components/SessionProvider";
+import { useCapability, useSessionRole } from "@components/SessionProvider";
 import { initialJson } from "../../ssr-data";
 
 const ROLE_OPTIONS = ["subscriber", "contributor", "author", "editor", "administrator"] as const;
@@ -149,6 +149,8 @@ export default function SettingsPage() {
   // Reading settings is open to every admin-eligible role; saving them (and
   // sending a test email) is administrator-only.
   const canManage = useSessionRole() === "administrator";
+  const canReadMail = useCapability("mail:read");
+  const canManageMail = useCapability("mail:manage");
   const prefetched = initialJson<SettingsPayload>("/api/settings");
   const initialGeneral = prefetched ? generalFromPayload(prefetched) : EMPTY;
   const [general, setGeneral] = useState<GeneralState>(initialGeneral);
@@ -580,8 +582,6 @@ export default function SettingsPage() {
           </p>
         </Section>
 
-        {canManage && <EmailOperations />}
-
         <Section title="Membership">
           <label className="jf-checkrow">
             <input
@@ -788,6 +788,8 @@ export default function SettingsPage() {
         </Section>
       </fieldset>
 
+      {canReadMail && <EmailOperations canRetry={canManageMail} />}
+
       {canManage && (
         <div className="jf-row">
           <button className="jf-btn jf-btn--primary" onClick={save} disabled={saving}>
@@ -816,7 +818,7 @@ type Delivery = {
   created_at: string;
 };
 
-function EmailOperations() {
+function EmailOperations({ canRetry }: { canRetry: boolean }) {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -894,7 +896,7 @@ function EmailOperations() {
                   </td>
                   <td>{row.error_detail ?? row.provider_response ?? "—"}</td>
                   <td>
-                    {row.status !== "sent" && (
+                {canRetry && row.status !== "sent" && (
                       <button type="button" className="jf-btn" onClick={() => void retry(row.id)}>
                         Retry
                       </button>
