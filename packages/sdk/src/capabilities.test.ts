@@ -7,6 +7,11 @@ describe("access policies", () => {
     expect(USER_CAPABILITIES).toContain("mail:manage");
   });
 
+  it("exposes system email template editing as its own capability pair", () => {
+    expect(USER_CAPABILITIES).toContain("email-templates:read");
+    expect(USER_CAPABILITIES).toContain("email-templates:manage");
+  });
+
   it("layers grants and lets explicit denies win", () => {
     expect(effectiveCapabilities(["content:read", "content:update"], {
       grants: ["content:publish"],

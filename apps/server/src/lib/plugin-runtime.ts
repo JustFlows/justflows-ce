@@ -22,10 +22,18 @@ import { createPluginContentApi } from "./plugin-content.js";
 import { isInstalled } from "../middleware/install-guard.js";
 import { getJustflowsVersion } from "./version.js";
 import { registerMailTransport, unregisterMailTransports } from "./mail-transports.js";
+import { registerEmailTemplate } from "./email-templates.js";
 
 let app: App | null = null;
 let loader: PluginLoader | null = null;
 let initPromise: Promise<void> | null = null;
+const pluginEmailTemplateCleanup = new Map<string, Array<() => void>>();
+
+function unregisterPluginMail(pluginId: string): void {
+  unregisterMailTransports(pluginId);
+  for (const dispose of pluginEmailTemplateCleanup.get(pluginId) ?? []) dispose();
+  pluginEmailTemplateCleanup.delete(pluginId);
+}
 
 async function resolvePluginModule(
   manifest: Record<string, unknown>,
@@ -175,9 +183,19 @@ export async function ensurePluginRuntime(): Promise<void> {
               throw new Error(`Plugin "${pluginId}" requires the mail:transport permission`);
             registerMailTransport(pluginId, transport);
           },
+          registerTemplate: (template) => {
+            if (!permissions.has("mail:templates"))
+              throw new Error(`Plugin "${pluginId}" requires the mail:templates permission`);
+            if (!template.key.startsWith(`${pluginId}.`))
+              throw new Error(`Plugin email template keys must start with "${pluginId}."`);
+            const dispose = registerEmailTemplate({ ...template, owner: pluginId, disableSafe: template.disableSafe ?? true });
+            const cleanup = pluginEmailTemplateCleanup.get(pluginId) ?? [];
+            cleanup.push(dispose);
+            pluginEmailTemplateCleanup.set(pluginId, cleanup);
+          },
         }),
         jobsCleanup: (pluginId) => getPluginJobScheduler().unregisterPrefix(pluginId),
-        mailCleanup: unregisterMailTransports,
+        mailCleanup: unregisterPluginMail,
         secretsFactory: (pluginId, siteId) => createPluginSecretsApi(pluginId, siteId),
         databasesFactory: (pluginId, siteId, permissions) =>
           createPluginDatabasesApi(pluginId, siteId, permissions),

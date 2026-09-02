@@ -87,6 +87,7 @@ vi.mock("../db.js", () => ({
 }));
 vi.mock("../mail.js", () => ({
   sendMail: async () => ({ ok: true }),
+  sendTemplateMail: async () => ({ ok: true }),
   notifyAdmin: async () => ({ ok: true }),
 }));
 vi.mock("../plugin-runtime.js", () => ({

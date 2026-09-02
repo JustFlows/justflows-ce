@@ -16,6 +16,9 @@ import {
 import { getSiteId, getSiteSetting, setSiteSetting } from "./site-settings.js";
 import { decryptSecret, encryptSecret } from "./secret-box.js";
 import { getRegisteredMailTransport, listRegisteredMailTransports } from "./mail-transports.js";
+import { sanitizeHtmlBlock, sanitizePlainText } from "@justflows/blocks";
+import { currentRequestId } from "./diagnostics.js";
+import type { EmailDeliveryContext, EmailDeliveryEvent, EmailSender } from "@justflows/sdk";
 
 let activeDeliveries = 0;
 const recentDeliveries: number[] = [];
@@ -60,6 +63,13 @@ export interface MailMessage {
   text: string;
   html?: string;
   replyTo?: string;
+  /** Template-only identity overrides, validated by the template service. */
+  fromName?: string;
+  disableReplyTo?: boolean;
+  /** Stable identity attached by sendTemplateMail; callers should not forge these fields. */
+  templateKey?: string;
+  templateVersion?: number;
+  locale?: string;
   type?: string;
   transactional?: boolean;
   /** Internal retry counter; callers should omit it. */
@@ -178,11 +188,11 @@ export async function saveMailConfig(
   });
 }
 
-async function fromHeader(config: MailConfig): Promise<string | null> {
+async function fromHeader(config: MailConfig, nameOverride?: string): Promise<string | null> {
   const general = await getGeneralSettings();
   const address = config.fromAddress.trim() || general.adminEmail;
   if (!address) return null;
-  const name = config.fromName.trim() || (await siteName());
+  const name = nameOverride?.trim() || config.fromName.trim() || (await siteName());
   return formatFromHeader(name, address);
 }
 
@@ -276,6 +286,35 @@ async function isSuppressed(siteId: string, message: MailMessage): Promise<boole
   return rows.length > 0;
 }
 
+function validateFilteredHeader(value: string | undefined, label: string, max = 500): void {
+  if (value === undefined) return;
+  if (!value.trim() || value.length > max || /[\r\n\0]/.test(value)) {
+    throw new Error(`Email ${label} filter returned an invalid value`);
+  }
+}
+
+async function mailHooks() {
+  try {
+    return (await import("./plugin-runtime.js")).getRuntimeHooks();
+  } catch {
+    return null;
+  }
+}
+
+async function dispatchMailAction(
+  hook: "email.queued" | "email.sent" | "email.failed",
+  event: EmailDeliveryEvent,
+  siteId: string,
+): Promise<void> {
+  const hooks = await mailHooks();
+  if (!hooks) return;
+  await hooks.dispatchAction(hook, event, {
+    siteId,
+    requestId: event.correlationId,
+    source: "system",
+  });
+}
+
 export async function sendMail(message: MailMessage): Promise<MailResult> {
   const to = message.to.trim();
   if (!to || !to.includes("@")) {
@@ -284,41 +323,92 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
 
   let logId: string | undefined;
   let config: MailConfig | undefined;
+  let siteId: string | null = null;
+  let deliveryContext: EmailDeliveryContext | null = null;
+  const attempt = (message.retryAttempt ?? 0) + 1;
   try {
-    const siteId = await getSiteId();
+    siteId = await getSiteId();
     if (!siteId) return { ok: false, error: "No site found" };
     if (await isSuppressed(siteId, message))
       return { ok: false, error: "Recipient is suppressed for this email type" };
     config = await getMailConfig(siteId);
-    logId = await createDeliveryLog(siteId, message, config.transport);
-    const from = await fromHeader(config);
+    const from = await fromHeader(config, message.fromName);
     if (!from) {
       const error = "Set an administration email address first";
-      await updateDeliveryLog(logId, "failed", { error });
       return { ok: false, error, logId };
     }
 
     const name = await siteName();
-    const outgoing = {
+    deliveryContext = {
+      templateKey: message.templateKey,
+      templateVersion: message.templateVersion,
+      locale: message.locale,
+      messageType: message.type ?? "transactional",
+      recipient: to,
+      transport: config.transport,
+      correlationId: currentRequestId() ?? undefined,
+    };
+    const hooks = await mailHooks();
+    if (hooks) {
+      await hooks.dispatchGate("email.beforeSend", deliveryContext, {
+        siteId,
+        requestId: deliveryContext.correlationId,
+        source: "system",
+      });
+    }
+
+    let sender: EmailSender = {
       from,
+      replyTo: message.disableReplyTo ? undefined : (message.replyTo ?? (config.replyTo || undefined)),
+      envelopeSender: config.envelopeSender || undefined,
+    };
+    let subject = message.subject;
+    let text = message.text;
+    let html = message.html ?? wrapMailHtml(message.text, `Sent by ${name}`);
+    if (hooks) {
+      sender = await hooks.applyFilter("email.sender", sender, deliveryContext, { siteId, requestId: deliveryContext.correlationId, source: "system" });
+      subject = await hooks.applyFilter("email.subject", subject, deliveryContext, { siteId, requestId: deliveryContext.correlationId, source: "system" });
+      const filteredHtml = await hooks.applyFilter("email.html", html, deliveryContext, { siteId, requestId: deliveryContext.correlationId, source: "system" });
+      const filteredText = await hooks.applyFilter("email.text", text, deliveryContext, { siteId, requestId: deliveryContext.correlationId, source: "system" });
+      if (filteredHtml !== html) html = sanitizeHtmlBlock(filteredHtml);
+      if (filteredText !== text) text = sanitizePlainText(filteredText);
+    }
+    validateFilteredHeader(sender.from, "sender", 500);
+    if (!sender.from.includes("@")) throw new Error("Email sender filter returned an invalid address");
+    validateFilteredHeader(sender.replyTo, "reply-to", 320);
+    validateFilteredHeader(sender.envelopeSender, "envelope sender", 320);
+    validateFilteredHeader(subject, "subject", 500);
+    if (html.length > 200_000 || text.length > 100_000) throw new Error("Filtered email content is too large");
+
+    const filteredMessage: MailMessage = { ...message, subject, html, text };
+    logId = await createDeliveryLog(siteId, filteredMessage, config.transport);
+    deliveryContext = { ...deliveryContext, deliveryId: logId };
+    await dispatchMailAction("email.queued", { ...deliveryContext, status: "queued", attempt }, siteId);
+
+    const outgoing = {
+      from: sender.from,
       to,
-      subject: message.subject,
-      text: message.text,
-      html: message.html ?? wrapMailHtml(message.text, `Sent by ${name}`),
-      replyTo: message.replyTo ?? (config.replyTo || undefined),
-      envelope: config.envelopeSender ? { from: config.envelopeSender, to: [to] } : undefined,
+      subject,
+      text,
+      html,
+      replyTo: sender.replyTo,
+      envelope: sender.envelopeSender ? { from: sender.envelopeSender, to: [to] } : undefined,
     };
     if (config.transport.startsWith("plugin:")) {
       const plugin = getRegisteredMailTransport(config.transport);
       if (!plugin) throw new Error(`Mail transport ${config.transport} is not available`);
-      const envelopeSender = config.envelopeSender || undefined;
+      const envelopeSender = sender.envelopeSender;
       const result = await withDeliverySlot(config, () =>
         plugin.send({ ...outgoing, envelopeSender }),
       );
       const status = result.status ?? "sent";
       await updateDeliveryLog(logId, status, { response: result.response });
       if (status === "deferred") throw new Error(result.response);
-      if (status !== "sent") return { ok: false, error: result.response, logId };
+      if (status !== "sent") {
+        await dispatchMailAction("email.failed", { ...deliveryContext, status, attempt, detail: redactMailDetail(result.response, config) }, siteId);
+        return { ok: false, error: result.response, logId };
+      }
+      await dispatchMailAction("email.sent", { ...deliveryContext, status: "sent", attempt, detail: redactMailDetail(result.response, config) }, siteId);
       return { ok: true, response: result.response, messageId: result.messageId, logId };
     }
     const transporter = nodemailer.createTransport(
@@ -327,14 +417,14 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
     const result = await withDeliverySlot(config, () => transporter.sendMail(outgoing));
     const response = String(result.response ?? result.messageId ?? "Accepted");
     await updateDeliveryLog(logId, "sent", { response });
+    await dispatchMailAction("email.sent", { ...deliveryContext, status: "sent", attempt, detail: redactMailDetail(response, config) }, siteId);
     return { ok: true, response, messageId: result.messageId, logId };
   } catch (err) {
     const detail = redactMailDetail(err instanceof Error ? err.message : String(err), config);
     console.error("Mail send failed:", detail);
-    const attempt = message.retryAttempt ?? 0;
     const transient = /timeout|temporar|rate|4\d\d|ECONN|ETIMEDOUT|EAI_AGAIN/i.test(detail);
-    if (transient && attempt < 3) {
-      const delay = [60_000, 300_000, 900_000][attempt]!;
+    if (transient && attempt <= 3) {
+      const delay = [60_000, 300_000, 900_000][attempt - 1]!;
       await updateDeliveryLog(logId, "deferred", {
         error: detail,
         nextAttemptAt: new Date(Date.now() + delay).toISOString(),
@@ -346,18 +436,59 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
         name: jobName,
         maxAttempts: 1,
         handler: async () => {
-          const result = await sendMail({ ...message, retryAttempt: attempt + 1 });
+          const result = await sendMail({ ...message, retryAttempt: attempt });
           if (!result.ok) throw new Error(result.error);
           scheduler.unregister(jobName);
           return { success: true, message: result.response };
         },
       });
       scheduler.enqueue(jobName, delay);
+      if (siteId && deliveryContext) await dispatchMailAction("email.failed", { ...deliveryContext, status: "deferred", attempt, detail }, siteId);
     } else {
       await updateDeliveryLog(logId, "failed", { error: detail });
+      if (siteId && deliveryContext) await dispatchMailAction("email.failed", { ...deliveryContext, status: "failed", attempt, detail }, siteId);
     }
     return { ok: false, error: detail, logId };
   }
+}
+
+/** Render and send a registered system template, with a built-in fallback on invalid customization. */
+export async function sendTemplateMail(input: {
+  to: string;
+  key: string;
+  values: Record<string, string>;
+  locale?: string;
+  replyTo?: string;
+}): Promise<MailResult> {
+  const siteId = await getSiteId();
+  if (!siteId) return { ok: false, error: "No site found" };
+  const general = await getGeneralSettings();
+  const { renderEmailTemplate } = await import("./email-templates.js");
+  const rendered = await renderEmailTemplate({
+    siteId,
+    key: input.key,
+    locale: input.locale,
+    values: {
+      site_name: await siteName(),
+      support_email: general.adminEmail,
+      ...input.values,
+    },
+    mode: "published",
+  });
+  if (!rendered.enabled) return { ok: false, error: "This email template is disabled" };
+  return sendMail({
+    to: input.to,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    replyTo: input.replyTo,
+    fromName: rendered.senderName || undefined,
+    disableReplyTo: rendered.replyToPolicy === "none",
+    type: `${input.key}@${rendered.version}`,
+    templateKey: input.key,
+    templateVersion: rendered.version,
+    locale: rendered.locale,
+  });
 }
 
 /** Fire-and-forget admin notification. Failures are logged, never thrown. */

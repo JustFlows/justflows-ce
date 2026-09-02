@@ -237,9 +237,14 @@ export async function startServer(): Promise<void> {
   const port = parseInt(process.env.PORT ?? "3000", 10);
   const hostname = process.env.HOSTNAME ?? "0.0.0.0";
 
+  // 0.0.0.0 / :: mean "bind every interface" — they are not usable in a browser
+  // and are not a secure context (crypto.randomUUID is undefined there), so show
+  // localhost in the URLs while still listening on the given hostname.
+  const displayHost = ["0.0.0.0", "::", ""].includes(hostname) ? "localhost" : hostname;
+
   app.listen(port, hostname, () => {
-    console.log(`> Justflows ready on http://${hostname}:${port}`);
-    console.log(`> Install: http://${hostname}:${port}/install`);
+    console.log(`> Justflows ready on http://${displayHost}:${port}`);
+    console.log(`> Install: http://${displayHost}:${port}/install`);
   });
 }
 

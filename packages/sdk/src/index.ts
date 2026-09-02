@@ -65,6 +65,10 @@ export type {
   CacheObjectType,
   CacheRevalidateTrigger,
   CacheRevalidatedEvent,
+  EmailDeliveryContext,
+  EmailBeforeSendEvent,
+  EmailDeliveryEvent,
+  EmailSender,
 } from "./hooks.js";
 
 // Plugin — manifest, permissions, context
@@ -105,6 +109,8 @@ export type {
   PluginJobsApi,
   PluginMailTransportApi,
   PluginMailTransportMessage,
+  PluginEmailVariableDefinition,
+  PluginEmailTemplateDefinition,
   PluginJobContext,
   PluginJobDefinition,
   PluginJobResult,

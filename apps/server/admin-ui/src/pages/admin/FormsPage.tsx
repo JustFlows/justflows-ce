@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSessionRole } from "@components/SessionProvider";
+import { uid } from "../../lib/uid";
 
 type FieldType = "text" | "email" | "textarea" | "tel" | "select" | "checkbox";
 
@@ -47,7 +48,7 @@ const FIELD_TYPES: Array<{ value: FieldType; label: string }> = [
 ];
 
 function blankField(): FormField {
-  return { id: crypto.randomUUID(), name: "field", label: "New field", type: "text", required: false };
+  return { id: uid(), name: "field", label: "New field", type: "text", required: false };
 }
 
 function blankForm(): FormDefinition {
@@ -58,9 +59,9 @@ function blankForm(): FormDefinition {
     successMessage: "Thanks, we received your message.",
     captcha: false,
     fields: [
-      { id: crypto.randomUUID(), name: "name", label: "Name", type: "text", required: true },
-      { id: crypto.randomUUID(), name: "email", label: "Email", type: "email", required: true },
-      { id: crypto.randomUUID(), name: "message", label: "Message", type: "textarea", required: true },
+      { id: uid(), name: "name", label: "Name", type: "text", required: true },
+      { id: uid(), name: "email", label: "Email", type: "email", required: true },
+      { id: uid(), name: "message", label: "Message", type: "textarea", required: true },
     ],
   };
 }

@@ -31,6 +31,18 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Admin → Emails adds a versioned system-email design and template editor with
+  global branding, typed variables, locale variants, draft/publish workflow,
+  desktop/mobile/plain-text previews, sanitized test sending, safe built-in
+  render fallbacks, and core account, password, two-factor, security, and
+  administrative templates. Published template/version identity follows each
+  delivery into the existing privacy-masked mail diagnostics, while security
+  templates remain mandatory. Access is gated by a dedicated
+  `email-templates:read` / `email-templates:manage` capability pair, separate
+  from `mail:read` / `mail:manage`, so administrators can grant template editing
+  per user or per custom role without exposing the mail delivery log.
+  ([#63](https://github.com/JustFlows/justflows-ce/issues/63))
+
 - Admin → Content → Trash adds recoverable, site-scoped deletion for every
   built-in and custom content type, media, comments, and menus. Restore keeps
   revisions and relationships intact and reports slug collisions explicitly;

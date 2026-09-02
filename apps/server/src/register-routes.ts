@@ -89,6 +89,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: cookiesRoutes },
     { default: rolesRoutes },
     { default: trashRoutes },
+    { default: emailsRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -122,6 +123,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/cookies.js"),
     import("./routes/roles.js"),
     import("./routes/trash.js"),
+    import("./routes/emails.js"),
   ]);
 
   app.use(blockIfInstalled);
@@ -132,6 +134,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/comments", requireInstalled, commentsRoutes);
   app.use("/api/users", requireInstalled, usersRoutes);
   app.use("/api/settings", requireInstalled, settingsRoutes);
+  app.use("/api/emails", requireInstalled, emailsRoutes);
   app.use("/api/security", requireInstalled, securityRoutes);
   app.use("/api/themes", requireInstalled, themesRoutes);
   app.use("/api/css-providers", requireInstalled, cssProvidersRoutes);

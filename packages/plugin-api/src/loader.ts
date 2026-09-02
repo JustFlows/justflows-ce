@@ -185,6 +185,9 @@ export class PluginLoader {
         register: () => {
           throw new Error("Mail transport registration is not available in this runtime");
         },
+        registerTemplate: () => {
+          throw new Error("Email template registration is not available in this runtime");
+        },
       }));
     this.secretsFactory = options?.secretsFactory ?? (() => NULL_SECRETS);
     this.databasesFactory =

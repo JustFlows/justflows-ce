@@ -11,12 +11,12 @@ exposes. Sensitive permissions are called out in Admin:
 - `users:manage`
 - `settings:manage`
 - `mail:transport` — register an outbound email provider transport
-- `mail:read` / `mail:manage` — view delivery records or test/retry/manage outbound mail
+- `mail:templates` — register namespaced system-email definitions and preview fixtures
 - `auth:hook`
 
 The full enum is `PluginPermissionSchema` in `packages/sdk/src/plugin.ts`:
 content/media/users/settings CRUD, `admin:extend`, `jobs:register`,
-`auth:hook`, `network:outbound`, `mail:transport`.
+`auth:hook`, `network:outbound`, `mail:transport`, `mail:templates`.
 
 `content:create` is required for `ctx.content.ensureType` and `ensurePage`.
 Publishing a page also requires `content:publish`. Deleting a type and its
@@ -31,6 +31,16 @@ UI gating is not a security boundary. Server routes still check the signed-in
 user.
 
 ## User capabilities (roles)
+
+`mail:read` allows inspection of privacy-masked delivery records. `mail:manage`
+allows retrying deliveries and managing suppressions. `email-templates:read`
+allows inspecting the system-email design, templates, and previews under
+**Admin → Emails**; `email-templates:manage` allows saving, publishing,
+restoring, and test-sending them. The template pair is deliberately separate
+from the delivery-log pair so an administrator can grant template editing to a
+user through **Admin → Users → Individual access** (or a custom role) without
+also exposing the mail log. These are user capabilities, not plugin manifest
+permissions.
 
 Administrators, editors, authors, and so on get capabilities from
 `packages/sdk/src/capabilities.ts`. Check capabilities in server code; do not

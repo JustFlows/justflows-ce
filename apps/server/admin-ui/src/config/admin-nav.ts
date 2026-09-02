@@ -106,6 +106,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     items: [
       { key: "nav.users", to: "/admin/users", icon: "👤" },
       { key: "nav.settings", to: "/admin/settings", icon: "⚙" },
+      { key: "nav.emails", to: "/admin/emails", icon: "✉" },
       { key: "nav.languages", to: "/admin/languages", icon: "🌐" },
       { key: "nav.webhooks", to: "/admin/webhooks", icon: "↗" },
       { key: "nav.tools", to: "/admin/tools", icon: "🔧" },

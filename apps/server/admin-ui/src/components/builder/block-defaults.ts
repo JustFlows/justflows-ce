@@ -1,7 +1,8 @@
 import type { BlockNode } from "./types";
+import { uid } from "../../lib/uid";
 
 function newId(): string {
-  return crypto.randomUUID();
+  return uid();
 }
 
 export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {

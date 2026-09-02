@@ -30,6 +30,8 @@ export const USER_CAPABILITIES = [
   "settings:manage",
   "mail:read",
   "mail:manage",
+  "email-templates:read",
+  "email-templates:manage",
   "updates:manage",
   "site:admin",
   "analytics:read",

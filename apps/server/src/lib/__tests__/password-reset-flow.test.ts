@@ -143,6 +143,14 @@ vi.mock("../mail.js", () => ({
     sentMail.push(msg);
     return { ok: true };
   },
+  sendTemplateMail: async (msg: { to: string; key: string; values: Record<string, string> }) => {
+    sentMail.push({
+      to: msg.to,
+      subject: msg.key.includes("changed") ? "Your password was changed" : "Reset your password",
+      text: Object.values(msg.values).join("\n"),
+    });
+    return { ok: true };
+  },
   notifyAdmin: async () => ({ ok: true }),
 }));
 vi.mock("../plugin-runtime.js", () => ({

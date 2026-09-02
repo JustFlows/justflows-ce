@@ -404,10 +404,10 @@ router.post("/register", async (req, res) => {
           `A new user registered:\n\nName: ${displayName}\nUsername: ${username}\nEmail: ${email}\nRole: ${general.defaultRole}`,
           email,
         );
-        await mail.sendMail({
+        await mail.sendTemplateMail({
           to: email,
-          subject: "Your account has been created",
-          text: `Hi ${displayName},\n\nYour account is ready. Sign in at ${loginUrl}\n\nUsername: ${username}`,
+          key: "core.account-created",
+          values: { display_name: displayName, action_url: loginUrl, username },
         });
       })
       .catch((err) => console.error("Registration mail failed:", err));
@@ -502,13 +502,10 @@ router.post("/password", passwordRequestLimit, requireSession, async (req, res) 
 
     void import("../lib/mail.js")
       .then((mail) =>
-        mail.sendMail({
+        mail.sendTemplateMail({
           to: session.email,
-          subject: "Your password was changed",
-          text:
-            "The password on your Justflows account was just changed.\n\n" +
-            "If this was not you, contact the site administrator immediately — " +
-            "all other sessions have been signed out.",
+          key: "core.password-changed",
+          values: { display_name: session.email },
         }),
       )
       .catch((err) => console.error("Password-change notice failed:", err));
@@ -762,12 +759,10 @@ router.post("/2fa/enable", totpEnableRequestLimit, requireSession, async (req, r
 
     void import("../lib/mail.js")
       .then((mail) =>
-        mail.sendMail({
+        mail.sendTemplateMail({
           to: session.email,
-          subject: "Two-factor authentication is on",
-          text:
-            "Two-factor authentication was turned on for your Justflows account.\n\n" +
-            "If this was not you, contact the site administrator immediately.",
+          key: "core.two-factor-enabled",
+          values: { display_name: session.email },
         }),
       )
       .catch((err) => console.error("2FA notice failed:", err));
@@ -836,12 +831,10 @@ router.post("/2fa/disable", totpDisableRequestLimit, requireSession, async (req,
 
     void import("../lib/mail.js")
       .then((mail) =>
-        mail.sendMail({
+        mail.sendTemplateMail({
           to: session.email,
-          subject: "Two-factor authentication is off",
-          text:
-            "Two-factor authentication was turned off for your Justflows account.\n\n" +
-            "If this was not you, change your password and contact the site administrator.",
+          key: "core.two-factor-disabled",
+          values: { display_name: session.email },
         }),
       )
       .catch((err) => console.error("2FA notice failed:", err));

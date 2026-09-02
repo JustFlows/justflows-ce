@@ -261,6 +261,35 @@ export interface UnderConstructionViewedEvent {
   readonly siteId: string;
 }
 
+// ─── System email lifecycle ──────────────────────────────────────────────
+
+export interface EmailDeliveryContext {
+  readonly deliveryId?: string;
+  readonly templateKey?: string;
+  readonly templateVersion?: number;
+  readonly locale?: string;
+  readonly messageType: string;
+  readonly recipient: string;
+  readonly transport: string;
+  readonly correlationId?: string;
+}
+
+export interface EmailBeforeSendEvent extends EmailDeliveryContext {}
+
+export interface EmailDeliveryEvent extends EmailDeliveryContext {
+  readonly status: "queued" | "sent" | "deferred" | "failed" | "bounced";
+  readonly attempt: number;
+  /** Bounded, sanitized provider response or failure detail. */
+  readonly detail?: string;
+}
+
+export interface EmailSender {
+  /** RFC-compatible From header produced by the host. */
+  readonly from: string;
+  readonly replyTo?: string;
+  readonly envelopeSender?: string;
+}
+
 /** Cache layers that can be selectively revalidated. */
 export type CacheObjectType = "pages" | "content" | "menus" | "theme" | "cssProviders" | "site";
 
@@ -429,6 +458,13 @@ export interface ActionEventMap {
 
   /** Fired after selective cache revalidation completes. */
   "cache.revalidated": CacheRevalidatedEvent;
+
+  /** Delivery has been accepted by the host and recorded, before transport I/O. */
+  "email.queued": EmailDeliveryEvent;
+  /** The transport accepted the message. */
+  "email.sent": EmailDeliveryEvent;
+  /** The attempt failed or was deferred. */
+  "email.failed": EmailDeliveryEvent;
 }
 
 // ─── Gate map ──────────────────────────────────────────────────────────────
@@ -446,6 +482,9 @@ export interface GateEventMap {
 
   "media.beforeUpload": MediaUploadGateEvent;
   "media.beforeDelete": MediaRef;
+
+  /** Cancel a final, rendered delivery before it is queued or sent. */
+  "email.beforeSend": EmailBeforeSendEvent;
 }
 
 // ─── Filter map ────────────────────────────────────────────────────────────
@@ -522,6 +561,14 @@ export interface FilterValueMap {
   "theme.css": [string, { siteId: string; preview: boolean }];
   "seo.sitemapPaths": [string[], { siteId: string }];
   "site.underConstruction.render": [string, UnderConstructionContext];
+  /** Adjust final sender fields. The host revalidates all header values. */
+  "email.sender": [EmailSender, EmailDeliveryContext];
+  /** Adjust the final subject. CR/LF and oversized output are rejected. */
+  "email.subject": [string, EmailDeliveryContext];
+  /** Adjust final HTML. Changed output is sanitized to the supported email subset. */
+  "email.html": [string, EmailDeliveryContext];
+  /** Adjust final plain text. Changed output is stripped to plain text. */
+  "email.text": [string, EmailDeliveryContext];
 }
 
 /** Filters applied on synchronous render paths — handlers must not be async. */
@@ -576,6 +623,7 @@ export const HOOK_PERMISSION_PREFIXES: ReadonlyArray<{
   { prefix: "auth.", permission: "auth:hook" },
   { prefix: "user.", permission: "users:read" },
   { prefix: "admin.", permission: "admin:extend" },
+  { prefix: "email.", permission: "mail:hook" },
 ];
 
 /** The permission a hook name requires, or `null` when it is unrestricted. */

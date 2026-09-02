@@ -41,6 +41,8 @@ export const PluginPermissionSchema = z.enum([
   "admin:extend",
   "jobs:register",
   "mail:transport",
+  "mail:templates",
+  "mail:hook",
   "auth:hook",
 ]);
 
@@ -52,6 +54,8 @@ export const SENSITIVE_PERMISSIONS: PluginPermission[] = [
   "settings:manage",
   "auth:hook",
   "mail:transport",
+  "mail:templates",
+  "mail:hook",
 ];
 
 /** Host/runtime versions exposed to an activated extension. */
@@ -354,6 +358,31 @@ export interface PluginMailTransportApi {
       status?: "sent" | "deferred" | "failed" | "bounced";
     }>;
   }): void;
+  /** Register a namespaced system-email type. Requires `mail:templates`. */
+  registerTemplate(template: PluginEmailTemplateDefinition): void;
+}
+
+export interface PluginEmailVariableDefinition {
+  key: string;
+  label: string;
+  description: string;
+  kind: "text" | "url";
+  example: string;
+  required?: boolean;
+}
+
+export interface PluginEmailTemplateDefinition {
+  /** Must begin with the registering plugin's manifest id followed by a dot. */
+  key: string;
+  label: string;
+  description: string;
+  purpose: "account" | "security" | "administrative";
+  recipient: "user" | "administrator";
+  disableSafe?: boolean;
+  variables: PluginEmailVariableDefinition[];
+  defaults: { subject: string; preheader: string; html: string; text: string };
+  /** Optional built-in catalogs keyed by an active Justflows locale code. */
+  localizedDefaults?: Record<string, { subject: string; preheader: string; html: string; text: string }>;
 }
 
 export interface PluginDataRecord<T = unknown> {
@@ -669,7 +698,7 @@ export interface PluginContext {
    */
   jobs: PluginJobsApi;
 
-  /** Register an API-backed outbound mail provider. Requires `mail:transport`. */
+  /** Register outbound providers and namespaced email types. */
   mail: PluginMailTransportApi;
 
   /** Plugin-scoped JSON documents. No raw SQL. */

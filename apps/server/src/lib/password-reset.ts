@@ -6,7 +6,7 @@ import { getSiteId } from "./site-settings.js";
 import { hashPassword } from "./password.js";
 import { revokeUserSessions } from "./auth-session.js";
 import { auditLog } from "./audit-log.js";
-import { sendMail } from "./mail.js";
+import { sendTemplateMail } from "./mail.js";
 import {
   clearUserResets,
   createPasswordReset,
@@ -126,21 +126,10 @@ export async function processForgotPassword(email: string, ctx: RequestContext):
       console.log(`\n[dev] password reset for ${user.email}:\n      ${link}\n`);
     }
 
-    const result = await sendMail({
+    const result = await sendTemplateMail({
       to: user.email,
-      subject: "Reset your password",
-      text: [
-        `Hi ${user.display_name || user.email},`,
-        "",
-        "Someone asked to reset the password on your account. If that was you,",
-        "open the link below to choose a new one:",
-        "",
-        link,
-        "",
-        `The link works once and expires in about ${minutes} minutes. If you did`,
-        "not ask for this, you can ignore this email — your password will not",
-        "change until the link is used.",
-      ].join("\n"),
+      key: "core.password-reset",
+      values: { display_name: user.display_name || user.email, action_url: link, expiration: `${minutes} minutes` },
     });
 
     void auditLog({
@@ -210,13 +199,10 @@ export async function completePasswordReset(
   });
 
   if (user?.email) {
-    void sendMail({
+    void sendTemplateMail({
       to: user.email,
-      subject: "Your password was changed",
-      text:
-        "The password on your account was just reset using an emailed link.\n\n" +
-        "Every session has been signed out. If this was not you, request a new " +
-        "reset immediately and contact the site administrator.",
+      key: "core.password-changed",
+      values: { display_name: user.email },
     }).catch((err) => console.error("Password-reset confirmation failed:", err));
   }
 }
