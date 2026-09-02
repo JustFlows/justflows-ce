@@ -88,7 +88,9 @@ describe("DashboardPage welcome panel", () => {
 
     // No card points at GitHub.
     for (const link of within(panel).getAllByRole("link")) {
-      expect(link.getAttribute("href")).not.toMatch(/github\.com/);
+      const href = link.getAttribute("href") ?? "";
+      const host = /^https?:\/\//.test(href) ? new URL(href).hostname.toLowerCase() : "";
+      expect(host === "github.com" || host.endsWith(".github.com")).toBe(false);
     }
 
     await expectNoCriticalAxe(container);

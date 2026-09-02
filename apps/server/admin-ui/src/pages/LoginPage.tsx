@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import { ensureCsrfCookie } from "../lib/csrf";
-import { publicAdminPath } from "../admin-path";
+import { publicAdminPath, safeRedirectPath } from "../admin-path";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -58,8 +58,10 @@ export default function LoginPage() {
       // navigation (not client-side routing) so the server's own gate is the one
       // source of truth. `publicAdminPath` is only a fall-back for an older
       // server that does not send `redirectTo`.
-      window.location.href =
-        data.redirectTo ?? (data.role === "subscriber" ? "/" : publicAdminPath("/admin"));
+      window.location.href = safeRedirectPath(
+        data.redirectTo,
+        data.role === "subscriber" ? "/" : publicAdminPath("/admin"),
+      );
     } catch {
       setError("An unexpected error occurred");
     } finally {

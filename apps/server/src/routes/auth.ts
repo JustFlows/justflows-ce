@@ -40,6 +40,7 @@ function accountSecurityRateLimit() {
     legacyHeaders: false,
   });
 }
+const registerRequestLimit = accountSecurityRateLimit();
 const passwordRequestLimit = accountSecurityRateLimit();
 const passwordForgotRequestLimit = accountSecurityRateLimit();
 const passwordResetRequestLimit = accountSecurityRateLimit();
@@ -311,7 +312,7 @@ router.get("/registration", async (_req, res) => {
   }
 });
 
-router.post("/register", async (req, res) => {
+router.post("/register", registerRequestLimit, async (req, res) => {
   if (!isInstalled()) {
     res.status(404).json({ error: "Not found" });
     return;

@@ -16,6 +16,23 @@ export function internalAdminPath(path: string): string {
   return `/admin${path.slice(base.length)}`;
 }
 
+/**
+ * Confine a server-supplied post-authentication redirect to a same-origin path.
+ * `redirectTo` comes back in an auth response body, so it is treated as
+ * untrusted: only a single leading slash is accepted. `//host` and `/\host`
+ * (the browser folds the backslash to a slash) would be protocol-relative and
+ * could send the browser off-site, and anything with a scheme — `javascript:`
+ * included — fails the leading-slash test outright. Everything else falls back
+ * to the caller-supplied in-app path.
+ */
+export function safeRedirectPath(target: unknown, fallback: string): string {
+  if (typeof target !== "string") return fallback;
+  if (!target.startsWith("/") || target.startsWith("//") || target.startsWith("/\\")) {
+    return fallback;
+  }
+  return target;
+}
+
 /** Keep existing navigation calls compatible while exposing the configured URL. */
 export function installAdminPathNavigation(): void {
   if (typeof window === "undefined" || adminBasePath() === "/admin") return;

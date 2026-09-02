@@ -75,9 +75,11 @@ function readExtensionManifest(dir: string, kind: ExtensionKind): Record<string,
     : ["justflows.json", "justflows-plugin.json", "package.json"];
   for (const name of names) {
     try {
-      const file = path.join(dir, name);
-      if (!fs.statSync(file).isFile()) continue;
-      return JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
+      // Read straight away rather than stat-then-read: a directory or missing
+      // file throws (EISDIR / ENOENT) and falls through to the next name, with
+      // no window between the check and the read.
+      const raw = fs.readFileSync(path.join(dir, name), "utf8");
+      return JSON.parse(raw) as Record<string, unknown>;
     } catch {
       // Try the next supported manifest name.
     }

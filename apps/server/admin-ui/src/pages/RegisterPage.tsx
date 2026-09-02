@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { JustflowsLogo } from "@components/JustflowsLogo";
-import { publicAdminPath } from "../admin-path";
+import { publicAdminPath, safeRedirectPath } from "../admin-path";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -53,8 +53,10 @@ export default function RegisterPage() {
       // The server returns where to land — the site for a subscriber, the admin
       // app (at its configured path) for anyone else. `publicAdminPath` stays as
       // a fall-back for an older server without `redirectTo`.
-      window.location.href =
-        data.redirectTo ?? (data.role === "subscriber" ? "/" : publicAdminPath("/admin"));
+      window.location.href = safeRedirectPath(
+        data.redirectTo,
+        data.role === "subscriber" ? "/" : publicAdminPath("/admin"),
+      );
     } catch {
       setError("An unexpected error occurred");
     } finally {

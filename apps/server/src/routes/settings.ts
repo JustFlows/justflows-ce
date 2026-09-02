@@ -26,6 +26,7 @@ import {
   removeEmailSuppression,
   type MailTransport,
 } from "../lib/mail.js";
+import { isMailTransport } from "../lib/mail-config.js";
 import { sanitizeFaviconUrl } from "../lib/favicon.js";
 import { SiteUrlSchema } from "../lib/site-url.js";
 import { auditFromRequest } from "../lib/audit-log.js";
@@ -60,13 +61,7 @@ const Schema = z.object({
   start_of_week: z.coerce.number().int().min(0).max(6).optional(),
   mail_transport: z
     .string()
-    .refine(
-      (value) =>
-        value === "sendmail" ||
-        value === "smtp" ||
-        /^plugin:[a-z0-9]+(?:[.-][a-z0-9-]+)+$/.test(value),
-      "Invalid mail transport",
-    )
+    .refine((value) => isMailTransport(value), "Invalid mail transport")
     .optional(),
   mail_from_name: z.string().max(120).optional(),
   mail_from_address: z.string().email().or(z.literal("")).optional(),

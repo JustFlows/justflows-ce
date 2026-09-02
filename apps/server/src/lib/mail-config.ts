@@ -37,7 +37,7 @@ export const DEFAULT_MAIL_CONFIG: MailConfig = {
 export function isMailTransport(value: string): value is MailTransport {
   return (
     (MAIL_TRANSPORTS as readonly string[]).includes(value) ||
-    /^plugin:[a-z0-9]+(?:[.-][a-z0-9-]+)+$/.test(value)
+    /^plugin:[a-z0-9]+(?:[.-][a-z0-9]+)+$/.test(value)
   );
 }
 

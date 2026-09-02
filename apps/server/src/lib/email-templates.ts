@@ -69,7 +69,7 @@ const CORE_TEMPLATES: EmailTemplateDefinition[] = [
 const definitions = new Map(CORE_TEMPLATES.map((item) => [item.key, item]));
 
 export function registerEmailTemplate(definition: EmailTemplateDefinition): () => void {
-  if (!/^[a-z0-9]+(?:[.-][a-z0-9-]+)+$/.test(definition.key)) throw new Error("Invalid email template key");
+  if (!/^[a-z0-9]+(?:[.-][a-z0-9]+)+$/.test(definition.key)) throw new Error("Invalid email template key");
   if (definitions.has(definition.key)) throw new Error(`Email template ${definition.key} is already registered`);
   definitions.set(definition.key, definition);
   return () => definitions.delete(definition.key);
