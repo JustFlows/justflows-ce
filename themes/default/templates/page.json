@@ -1,0 +1,7 @@
+{
+  "title": "Page",
+  "description": "A standalone page: the page's own blocks, full-bleed, with no title header.",
+  "blocks": [
+    { "id": "page-content", "type": "core.post-content", "version": 1, "props": { "wrap": "page" } }
+  ]
+}

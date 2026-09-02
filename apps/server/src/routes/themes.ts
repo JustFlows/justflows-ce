@@ -355,6 +355,45 @@ router.get("/style-tokens", requireRole(...CONTENT_READ_ROLES), async (_req, res
   }
 });
 
+const SaveAsSchema = z.object({
+  name: z.string().min(1).max(80),
+  activate: z.boolean().default(false),
+});
+
+/** Save the active theme + this site's customisations as a new named theme. */
+router.post("/save-as", requireRole("administrator"), async (req, res) => {
+  try {
+    await ensureThemesTable();
+    const siteId = await getSiteId();
+    if (!siteId) {
+      res.status(503).json({ error: "No site found" });
+      return;
+    }
+    const body = SaveAsSchema.parse(req.body);
+    const { forkActiveTheme } = await import("../lib/theme-fork.js");
+    const result = await forkActiveTheme(siteId, body.name);
+
+    auditFromRequest(req, "theme.installed", {
+      target: result.themeId,
+      detail: `saved-as from customizer`,
+    });
+
+    if (body.activate) {
+      await activateTheme(siteId, result.themeId);
+      auditFromRequest(req, "theme.activated", { target: result.themeId, siteId });
+      await revalidateOnUpdate("theme", { siteId });
+    }
+
+    res.json({ themeId: result.themeId, name: result.name, activated: body.activate });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: "A theme name is required" });
+      return;
+    }
+    sendServerError(res, "themes", err);
+  }
+});
+
 router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   try {
     const siteId = await getSiteId();

@@ -171,3 +171,19 @@ export type {
 
 // Licensing — extension license validation (Marketplace: GPL-compatible)
 export { isGplCompatibleLicense, gplLicenseValidationMessage } from "./license.js";
+
+// Templates — the theme template-hierarchy contract
+export {
+  TEMPLATE_SLOTS,
+  TEMPLATE_PART_SLOTS,
+  TEMPLATE_SLUG_RE,
+  isTemplateSlug,
+  ThemeTemplatesManifestSchema,
+  TemplateDocSchema,
+} from "./templates.js";
+export type {
+  TemplateSlot,
+  TemplatePartSlot,
+  ThemeTemplatesManifest,
+  TemplateDoc,
+} from "./templates.js";

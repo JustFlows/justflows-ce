@@ -99,6 +99,14 @@ import {
   type CommentsBannerState,
   type CommentsRenderContext,
 } from "../lib/comments-public.js";
+import {
+  registerTemplateBlocks,
+  renderTemplateBlockHtml,
+  TEMPLATE_BLOCK_TYPES,
+  type TemplateBlockContext,
+} from "../lib/template-blocks.js";
+import { resolvePublicTemplate, resolveThemePartBlocks } from "../lib/template-render.js";
+import type { TemplateQuery } from "../lib/template-hierarchy.js";
 import { getSession } from "../lib/session.js";
 import { getSiteSetting } from "../lib/site-settings.js";
 import { buildFaviconHeadHtml } from "../lib/favicon.js";
@@ -111,6 +119,7 @@ const router = Router();
 const blockRegistry = getRuntimeBlockRegistry();
 registerBlogPostListBlock();
 registerCommentsBlock();
+registerTemplateBlocks();
 
 const RESERVED = new Set([
   "admin",
@@ -216,9 +225,23 @@ async function renderBlockTree(
   submittedFormId?: string,
   blogCtx?: BlogPostListRenderContext,
   commentCtx?: CommentsRenderContext,
+  templateCtx?: TemplateBlockContext,
 ): Promise<string> {
   const parts: string[] = [];
   for (const block of blocks) {
+    if (templateCtx && TEMPLATE_BLOCK_TYPES.has(block.type)) {
+      try {
+        parts.push(
+          withBlockChrome(
+            await renderTemplateBlockHtml(block.type, block.props ?? {}, templateCtx),
+            block,
+          ),
+        );
+      } catch {
+        parts.push("");
+      }
+      continue;
+    }
     if (block.type === FORMS_BLOCK_TYPE) {
       parts.push(
         withBlockChrome(await renderFormBlockHtml(block.props ?? {}, submittedFormId), block),
@@ -250,7 +273,13 @@ async function renderBlockTree(
     const children = Array.isArray(block.children) ? block.children : [];
     if (def?.supportsChildren && children.length > 0) {
       try {
-        const childHtml = await renderBlockTree(children, submittedFormId, blogCtx, commentCtx);
+        const childHtml = await renderBlockTree(
+          children,
+          submittedFormId,
+          blogCtx,
+          commentCtx,
+          templateCtx,
+        );
         parts.push(withBlockChrome(def.render(def.validateProps(block.props), childHtml), block));
       } catch {
         parts.push("");
@@ -295,14 +324,15 @@ async function renderBlocksHtml(
   submittedFormId?: string,
   blogCtx?: BlogPostListRenderContext,
   commentCtx?: CommentsRenderContext,
+  templateCtx?: TemplateBlockContext,
 ): Promise<string> {
   if (await isGalleryPluginEnabled()) registerGalleryBlock();
   else unregisterGalleryBlock();
   const resolved = await withReusables(blocks);
   try {
-    return await renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx);
+    return await renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx, templateCtx);
   } catch {
-    return renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx);
+    return renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx, templateCtx);
   }
 }
 
@@ -414,7 +444,8 @@ function pageCacheBypassReason(req: Request, preview: boolean): string | null {
     typeof req.query.comment === "string" ||
     typeof req.query.reply === "string" ||
     typeof req.query["comment-page"] === "string"
-  ) return "comment interaction";
+  )
+    return "comment interaction";
   if (!getJfCache().enabled) return "page cache disabled";
   return null;
 }
@@ -566,21 +597,45 @@ async function sendPublicHtml(
 }
 
 function escapeDebugText(value: unknown): string {
-  return String(value).replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  })[char]!);
+  return String(value).replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char]!,
+  );
 }
 
-function injectDebugToolbar(html: string, data: {
-  requestId: string; path: string; durationMs: number; pageCache: string; pageCacheReason: string | null; objectCache: string;
-  databaseQueries: number; databaseMs: number; hookRuns: number; hookErrors: number;
-  theme: string; template: string; diagnosticsUrl: string;
-}): string {
+function injectDebugToolbar(
+  html: string,
+  data: {
+    requestId: string;
+    path: string;
+    durationMs: number;
+    pageCache: string;
+    pageCacheReason: string | null;
+    objectCache: string;
+    databaseQueries: number;
+    databaseMs: number;
+    hookRuns: number;
+    hookErrors: number;
+    theme: string;
+    template: string;
+    diagnosticsUrl: string;
+  },
+): string {
   const payload = escapeDebugText(JSON.stringify(data));
-  const toolbar = `<jf-debug-toolbar data-payload="${payload}"></jf-debug-toolbar>` +
+  const toolbar =
+    `<jf-debug-toolbar data-payload="${payload}"></jf-debug-toolbar>` +
     `<script src="/js/debug-toolbar.js" defer></script>`;
   const bodyEnd = html.lastIndexOf("</body>");
-  return bodyEnd === -1 ? `${html}${toolbar}` : `${html.slice(0, bodyEnd)}${toolbar}${html.slice(bodyEnd)}`;
+  return bodyEnd === -1
+    ? `${html}${toolbar}`
+    : `${html.slice(0, bodyEnd)}${toolbar}${html.slice(bodyEnd)}`;
 }
 
 /** Render the site's normal themed 404 for routes intercepted before this router. */
@@ -593,7 +648,7 @@ export async function sendPublicNotFound(req: Request, res: Response): Promise<v
     false,
     async () => {
       const ctx = await buildPageContext(req.path, false);
-      return renderPage("404", { ...ctx, title: ctx.t("404.title") });
+      return renderNotFoundHtml(ctx);
     },
     404,
   );
@@ -676,6 +731,85 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     analyticsBody,
     title: documentTitle,
   });
+}
+
+type SiteWidgetCtx = Parameters<typeof withSiteWidgets>[1];
+
+interface TemplateRenderOpts {
+  submittedFormId?: string;
+  blogCtx?: BlogPostListRenderContext;
+  commentCtx?: CommentsRenderContext;
+  preview?: boolean;
+}
+
+/**
+ * Build the {@link TemplateBlockContext} for a request, wiring `core.template-part`
+ * to render the active theme's `parts/<slug>.json` through the same header ctx
+ * and widgets as the rest of the page.
+ */
+function templateBlockContext(
+  base: Omit<TemplateBlockContext, "renderPart">,
+  withHeader: SiteWidgetCtx,
+  opts: TemplateRenderOpts = {},
+): TemplateBlockContext {
+  return {
+    ...base,
+    renderPart: async (slug) => {
+      const partBlocks = await resolveThemePartBlocks(slug, opts.preview ?? false);
+      if (!partBlocks?.length) return "";
+      return withSiteWidgets(
+        await renderBlocksHtml(partBlocks, opts.submittedFormId, opts.blogCtx, opts.commentCtx),
+        withHeader,
+      );
+    },
+  };
+}
+
+/**
+ * When the active theme ships a `templates/<slug>.json` for this request, render
+ * it through the block tree (context blocks resolving `templateCtx`) into the
+ * `template` view. Returns `null` when the theme has no matching template, so
+ * the caller falls back to its built-in EJS view (`single` / `home` / `404`).
+ */
+async function renderThemeTemplateHtml(
+  query: TemplateQuery,
+  withHeader: SiteWidgetCtx & Record<string, unknown>,
+  templateCtx: TemplateBlockContext,
+  viewData: Record<string, unknown>,
+  opts: TemplateRenderOpts = {},
+): Promise<string | null> {
+  const tpl = await resolvePublicTemplate(query, opts.preview ?? false);
+  if (!tpl) return null;
+  const bodyHtml = withSiteWidgets(
+    await renderBlocksHtml(
+      tpl.blocks,
+      opts.submittedFormId,
+      opts.blogCtx,
+      opts.commentCtx,
+      templateCtx,
+    ),
+    withHeader,
+  );
+  return renderPage("template", { ...withHeader, ...viewData, bodyHtml });
+}
+
+type PageCtx = Awaited<ReturnType<typeof buildPageContext>>;
+
+/** The themed 404 — a `templates/404.json` when the theme has one, else `404.ejs`. */
+async function renderNotFoundHtml(ctx: PageCtx): Promise<string> {
+  const notFoundOpts: TemplateRenderOpts = { preview: ctx.preview };
+  const templateHtml = await renderThemeTemplateHtml(
+    { kind: "notFound" },
+    ctx,
+    templateBlockContext(
+      { content: null, formattedDate: null, contentBodyHtml: "" },
+      ctx,
+      notFoundOpts,
+    ),
+    { title: ctx.t("404.title"), mainClass: "site-main" },
+    notFoundOpts,
+  );
+  return templateHtml ?? renderPage("404", { ...ctx, title: ctx.t("404.title") });
 }
 
 function languageLinksFor(
@@ -890,8 +1024,10 @@ async function renderHomeHtml(req: Request, reqPath: string, preview: boolean): 
     type: home ? String(home.type) : undefined,
   });
   const blogCtx = await buildBlogRenderContext(ctx.locale, 1, reqPath);
+
+  let bodyHtml: string | undefined;
   if (home) {
-    const bodyHtml = withSiteWidgets(
+    bodyHtml = withSiteWidgets(
       await applyContentRender(
         await renderBlocksHtml(
           await applyContentBlocks(home.blocks.blocks, home),
@@ -902,23 +1038,60 @@ async function renderHomeHtml(req: Request, reqPath: string, preview: boolean): 
       ),
       withHeader,
     );
-    return renderPage("home", {
-      ...withHeader,
-      content: home,
-      bodyHtml,
-      seoDescription: ctx.identity.tagline,
-      title: home.title,
-    });
+  } else {
+    const demoBlocks = await loadHomeDemoBlocks(preview);
+    bodyHtml = demoBlocks?.length
+      ? withSiteWidgets(
+          await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req), blogCtx),
+          withHeader,
+        )
+      : undefined;
   }
-  const demoBlocks = await loadHomeDemoBlocks(preview);
-  const bodyHtml = demoBlocks?.length
-    ? withSiteWidgets(
-        await renderBlocksHtml(demoBlocks, submittedFormIdFrom(req), blogCtx),
-        withHeader,
-      )
-    : undefined;
+
+  const templateOpts: TemplateRenderOpts = {
+    submittedFormId: submittedFormIdFrom(req),
+    blogCtx,
+    preview,
+  };
+  const templateHtml = await renderThemeTemplateHtml(
+    {
+      kind: "home",
+      frontPageKind: home ? "page" : "posts",
+      slug: home ? String(home.slug) : undefined,
+    },
+    withHeader,
+    templateBlockContext(
+      {
+        content: home
+          ? {
+              id: String(home.id),
+              type: String(home.type),
+              title: home.title,
+              slug: String(home.slug),
+              excerpt: home.excerpt ?? null,
+              fields: home.fields,
+              publishedAt: home.publishedAt ?? null,
+            }
+          : null,
+        formattedDate: null,
+        contentBodyHtml: bodyHtml ?? "",
+      },
+      withHeader,
+      templateOpts,
+    ),
+    {
+      content: home ?? undefined,
+      seoDescription: ctx.identity.tagline,
+      title: home ? home.title : String(withHeader.title ?? ""),
+      mainClass: home ? "site-main site-main--page" : "site-main",
+    },
+    templateOpts,
+  );
+  if (templateHtml) return templateHtml;
+
   return renderPage("home", {
     ...withHeader,
+    ...(home ? { content: home, title: home.title } : {}),
     bodyHtml,
     seoDescription: ctx.identity.tagline,
   });
@@ -1013,7 +1186,7 @@ async function renderSinglePageHtml(
   const pageCtx = await buildPageContext(reqPath, preview);
   const pageContent = await getPublishedContentBySlug(slug, locale, preview);
   if (!pageContent) {
-    return renderPage("404", { ...pageCtx, title: pageCtx.t("404.title") });
+    return renderNotFoundHtml(pageCtx);
   }
   const withTranslations = {
     ...pageCtx,
@@ -1058,14 +1231,57 @@ async function renderSinglePageHtml(
     ),
     withHeader,
   );
+  const formattedDate = pageContent.publishedAt
+    ? await formatContentDate(pageContent.publishedAt)
+    : null;
+
+  const templateOpts: TemplateRenderOpts = {
+    submittedFormId: submittedFormIdFrom(req),
+    blogCtx,
+    commentCtx,
+    preview,
+  };
+  const templateHtml = await renderThemeTemplateHtml(
+    {
+      kind: "singular",
+      contentType: String(pageContent.type),
+      slug: String(pageContent.slug ?? slug),
+    },
+    withHeader,
+    templateBlockContext(
+      {
+        content: {
+          id: String(pageContent.id),
+          type: String(pageContent.type),
+          title: pageContent.title,
+          slug: String(pageContent.slug ?? slug),
+          excerpt: pageContent.excerpt ?? null,
+          fields: pageContent.fields,
+          publishedAt: pageContent.publishedAt ?? null,
+        },
+        formattedDate,
+        contentBodyHtml: bodyHtml,
+      },
+      withHeader,
+      templateOpts,
+    ),
+    {
+      content: pageContent,
+      alternates,
+      formattedDate,
+      title: pageContent.title,
+      mainClass: String(pageContent.type) === "page" ? "site-main site-main--page" : "site-main",
+    },
+    templateOpts,
+  );
+  if (templateHtml) return templateHtml;
+
   return renderPage("single", {
     ...withHeader,
     content: pageContent,
     bodyHtml,
     alternates,
-    formattedDate: pageContent.publishedAt
-      ? await formatContentDate(pageContent.publishedAt)
-      : null,
+    formattedDate,
     title: pageContent.title,
   });
 }
@@ -1118,7 +1334,7 @@ router.get("/:segment", async (req, res, next) => {
         preview,
         async () => {
           const ctx404 = await buildPageContext(req.path, preview);
-          return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+          return renderNotFoundHtml(ctx404);
         },
         404,
       );
@@ -1184,7 +1400,7 @@ router.get("/:segment/page/:num", async (req, res, next) => {
         preview,
         async () => {
           const ctx404 = await buildPageContext(req.path, preview);
-          return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+          return renderNotFoundHtml(ctx404);
         },
         404,
       );
@@ -1257,7 +1473,7 @@ router.get("/:locale/:slug", async (req, res, next) => {
         preview,
         async () => {
           const ctx404 = await buildPageContext(req.path, preview);
-          return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+          return renderNotFoundHtml(ctx404);
         },
         404,
       );
@@ -1332,7 +1548,7 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
         preview,
         async () => {
           const ctx404 = await buildPageContext(req.path, preview);
-          return renderPage("404", { ...ctx404, title: ctx404.t("404.title") });
+          return renderNotFoundHtml(ctx404);
         },
         404,
       );
