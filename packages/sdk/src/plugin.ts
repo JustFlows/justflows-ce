@@ -40,6 +40,7 @@ export const PluginPermissionSchema = z.enum([
   "network:outbound",
   "admin:extend",
   "jobs:register",
+  "mail:transport",
   "auth:hook",
 ]);
 
@@ -50,6 +51,7 @@ export const SENSITIVE_PERMISSIONS: PluginPermission[] = [
   "users:manage",
   "settings:manage",
   "auth:hook",
+  "mail:transport",
 ];
 
 /** Host/runtime versions exposed to an activated extension. */
@@ -329,6 +331,29 @@ export interface PluginJobDefinition {
 export interface PluginJobsApi {
   register(def: PluginJobDefinition): void;
   enqueue(name: string, options?: { delayMs?: number; payload?: unknown }): void;
+}
+
+export interface PluginMailTransportMessage {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  replyTo?: string;
+  envelopeSender?: string;
+}
+export interface PluginMailTransportApi {
+  register(transport: {
+    id: string;
+    label: string;
+    send(
+      message: PluginMailTransportMessage,
+    ): Promise<{
+      response: string;
+      messageId?: string;
+      status?: "sent" | "deferred" | "failed" | "bounced";
+    }>;
+  }): void;
 }
 
 export interface PluginDataRecord<T = unknown> {
@@ -643,6 +668,9 @@ export interface PluginContext {
    * are removed on deactivate.
    */
   jobs: PluginJobsApi;
+
+  /** Register an API-backed outbound mail provider. Requires `mail:transport`. */
+  mail: PluginMailTransportApi;
 
   /** Plugin-scoped JSON documents. No raw SQL. */
   data: PluginDataApi;

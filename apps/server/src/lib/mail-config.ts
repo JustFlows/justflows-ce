@@ -1,5 +1,5 @@
 export const MAIL_TRANSPORTS = ["sendmail", "smtp"] as const;
-export type MailTransport = (typeof MAIL_TRANSPORTS)[number];
+export type MailTransport = (typeof MAIL_TRANSPORTS)[number] | `plugin:${string}`;
 
 export const SMTP_SECURE_MODES = ["none", "starttls", "ssl"] as const;
 export type SmtpSecure = (typeof SMTP_SECURE_MODES)[number];
@@ -7,25 +7,38 @@ export type SmtpSecure = (typeof SMTP_SECURE_MODES)[number];
 export interface MailConfig {
   transport: MailTransport;
   fromName: string;
+  fromAddress: string;
+  replyTo: string;
+  envelopeSender: string;
   smtpHost: string;
   smtpPort: number;
   smtpSecure: SmtpSecure;
   smtpUser: string;
   smtpPass: string;
+  rateLimitPerMinute: number;
+  concurrency: number;
 }
 
 export const DEFAULT_MAIL_CONFIG: MailConfig = {
   transport: "sendmail",
   fromName: "",
+  fromAddress: "",
+  replyTo: "",
+  envelopeSender: "",
   smtpHost: "localhost",
   smtpPort: 25,
   smtpSecure: "none",
   smtpUser: "",
   smtpPass: "",
+  rateLimitPerMinute: 60,
+  concurrency: 5,
 };
 
 export function isMailTransport(value: string): value is MailTransport {
-  return (MAIL_TRANSPORTS as readonly string[]).includes(value);
+  return (
+    (MAIL_TRANSPORTS as readonly string[]).includes(value) ||
+    /^plugin:[a-z0-9]+(?:[.-][a-z0-9-]+)+$/.test(value)
+  );
 }
 
 export function isSmtpSecure(value: string): value is SmtpSecure {

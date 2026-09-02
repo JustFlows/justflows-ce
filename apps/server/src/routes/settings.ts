@@ -4,13 +4,13 @@ import { getDb } from "../lib/db.js";
 import { getSiteId, setSiteSetting, settingsKeyColumn } from "../lib/site-settings.js";
 import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
 import { requireRole, requireSession } from "../middleware/auth.js";
-import {
-  formatPhpDate,
-  isValidTimeZone,
-  listTimeZones,
-} from "../lib/datetime-format.js";
+import { formatPhpDate, isValidTimeZone, listTimeZones } from "../lib/datetime-format.js";
 import { getGeneralSettings } from "../lib/general-settings.js";
-import { getDefaultLocale, listLanguages, setDefaultLanguageByCode } from "../lib/i18n/languages-db.js";
+import {
+  getDefaultLocale,
+  listLanguages,
+  setDefaultLanguageByCode,
+} from "../lib/i18n/languages-db.js";
 import { THEME_CUSTOMIZE_ROLES, USER_ROLE_VALUES } from "../lib/rbac.js";
 import { getHomePageId, setHomePageId } from "../lib/home-page.js";
 import { getBlogPageId, setBlogPageId } from "../lib/blog-page.js";
@@ -19,6 +19,12 @@ import {
   saveMailConfig,
   sendTestMail,
   toPublicMailSettings,
+  listEmailDeliveries,
+  retryEmailDelivery,
+  addEmailSuppression,
+  listEmailSuppressions,
+  removeEmailSuppression,
+  type MailTransport,
 } from "../lib/mail.js";
 import { sanitizeFaviconUrl } from "../lib/favicon.js";
 import { SiteUrlSchema } from "../lib/site-url.js";
@@ -34,7 +40,10 @@ const Schema = z.object({
   site_description: z.string().optional(),
   site_url: SiteUrlSchema.optional(),
   posts_per_page: z.coerce.number().int().min(1).max(100).optional(),
-  timezone: z.string().refine((tz) => isValidTimeZone(tz), "Invalid timezone").optional(),
+  timezone: z
+    .string()
+    .refine((tz) => isValidTimeZone(tz), "Invalid timezone")
+    .optional(),
   site_public: z.boolean().optional(),
   public_api_enabled: z.boolean().optional(),
   discourage_search_engines: z.boolean().optional(),
@@ -48,13 +57,27 @@ const Schema = z.object({
   date_format: z.string().min(1).max(50).optional(),
   time_format: z.string().min(1).max(50).optional(),
   start_of_week: z.coerce.number().int().min(0).max(6).optional(),
-  mail_transport: z.enum(["sendmail", "smtp"]).optional(),
+  mail_transport: z
+    .string()
+    .refine(
+      (value) =>
+        value === "sendmail" ||
+        value === "smtp" ||
+        /^plugin:[a-z0-9]+(?:[.-][a-z0-9-]+)+$/.test(value),
+      "Invalid mail transport",
+    )
+    .optional(),
   mail_from_name: z.string().max(120).optional(),
+  mail_from_address: z.string().email().or(z.literal("")).optional(),
+  mail_reply_to: z.string().email().or(z.literal("")).optional(),
+  mail_envelope_sender: z.string().email().or(z.literal("")).optional(),
   smtp_host: z.string().max(255).optional(),
   smtp_port: z.coerce.number().int().min(1).max(65535).optional(),
   smtp_secure: z.enum(["none", "starttls", "ssl"]).optional(),
   smtp_user: z.string().max(320).optional(),
   smtp_pass: z.string().max(500).optional(),
+  mail_rate_limit: z.coerce.number().int().min(1).max(10000).optional(),
+  mail_concurrency: z.coerce.number().int().min(1).max(100).optional(),
   favicon_url: z.string().max(2048).optional(),
 });
 
@@ -163,11 +186,17 @@ router.get("/", requireSession, async (req, res) => {
       start_of_week: general.startOfWeek,
       mail_transport: mail.transport,
       mail_from_name: mail.fromName,
+      mail_from_address: mail.fromAddress,
+      mail_reply_to: mail.replyTo,
+      mail_envelope_sender: mail.envelopeSender,
       smtp_host: mail.smtpHost,
       smtp_port: mail.smtpPort,
       smtp_secure: mail.smtpSecure,
       smtp_user: mail.smtpUser,
       smtp_pass_set: mail.smtpPassSet,
+      mail_rate_limit: mail.rateLimitPerMinute,
+      mail_concurrency: mail.concurrency,
+      mail_transports: mail.transports,
       favicon_url: await resolveFaviconUrl(),
       home_page_id: siteId ? await getHomePageId(siteId) : null,
       blog_page_id: siteId ? await getBlogPageId(siteId) : null,
@@ -222,7 +251,8 @@ router.post("/", requireRole("administrator"), async (req, res) => {
       await db.run(`UPDATE sites SET ${siteUpdates.join(", ")} WHERE id = ?`, siteParams);
     }
     const settingsToUpdate: [string, unknown][] = [];
-    if (body.posts_per_page !== undefined) settingsToUpdate.push(["posts_per_page", body.posts_per_page]);
+    if (body.posts_per_page !== undefined)
+      settingsToUpdate.push(["posts_per_page", body.posts_per_page]);
     if (body.timezone !== undefined) settingsToUpdate.push(["timezone", body.timezone]);
     if (body.site_public !== undefined) settingsToUpdate.push(["site_public", body.site_public]);
     if (body.public_api_enabled !== undefined) {
@@ -249,19 +279,29 @@ router.post("/", requireRole("administrator"), async (req, res) => {
     }
     if (body.date_format !== undefined) settingsToUpdate.push(["date_format", body.date_format]);
     if (body.time_format !== undefined) settingsToUpdate.push(["time_format", body.time_format]);
-    if (body.start_of_week !== undefined) settingsToUpdate.push(["start_of_week", body.start_of_week]);
+    if (body.start_of_week !== undefined)
+      settingsToUpdate.push(["start_of_week", body.start_of_week]);
     if (body.favicon_url !== undefined) {
       settingsToUpdate.push(["favicon_url", sanitizeFaviconUrl(body.favicon_url)]);
     }
 
     const mailPatch = {
-      ...(body.mail_transport !== undefined ? { transport: body.mail_transport } : {}),
+      ...(body.mail_transport !== undefined
+        ? { transport: body.mail_transport as MailTransport }
+        : {}),
       ...(body.mail_from_name !== undefined ? { fromName: body.mail_from_name } : {}),
+      ...(body.mail_from_address !== undefined ? { fromAddress: body.mail_from_address } : {}),
+      ...(body.mail_reply_to !== undefined ? { replyTo: body.mail_reply_to } : {}),
+      ...(body.mail_envelope_sender !== undefined
+        ? { envelopeSender: body.mail_envelope_sender }
+        : {}),
       ...(body.smtp_host !== undefined ? { smtpHost: body.smtp_host } : {}),
       ...(body.smtp_port !== undefined ? { smtpPort: body.smtp_port } : {}),
       ...(body.smtp_secure !== undefined ? { smtpSecure: body.smtp_secure } : {}),
       ...(body.smtp_user !== undefined ? { smtpUser: body.smtp_user } : {}),
       ...(body.smtp_pass !== undefined ? { smtpPass: body.smtp_pass } : {}),
+      ...(body.mail_rate_limit !== undefined ? { rateLimitPerMinute: body.mail_rate_limit } : {}),
+      ...(body.mail_concurrency !== undefined ? { concurrency: body.mail_concurrency } : {}),
     };
     const mailTouched = Object.keys(mailPatch).length > 0;
 
@@ -367,7 +407,8 @@ router.put("/blog-page", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res)
       return;
     }
     const message = e instanceof Error ? e.message : String(e);
-    const status = message === "Page not found" || message === "Blog page must be a page" ? 400 : 500;
+    const status =
+      message === "Page not found" || message === "Blog page must be a page" ? 400 : 500;
     res.status(status).json({ error: message });
   }
 });
@@ -381,7 +422,9 @@ const CommentSettingsSchema = z.object({
   maxLength: z.coerce.number().int().min(200).max(20_000).optional(),
   threadMaxDepth: z.coerce.number().int().min(1).max(10).optional(),
   pageSize: z.coerce.number().int().min(5).max(200).optional(),
-  captchaProvider: z.enum(["none", "turnstile", "hcaptcha", "recaptcha", "recaptcha-v3"]).optional(),
+  captchaProvider: z
+    .enum(["none", "turnstile", "hcaptcha", "recaptcha", "recaptcha-v3"])
+    .optional(),
   captchaSiteKey: z.string().max(200).optional(),
   captchaScoreThreshold: z.coerce.number().min(0).max(1).optional(),
   // Write-only. An empty string leaves the stored secret untouched.
@@ -390,7 +433,8 @@ const CommentSettingsSchema = z.object({
 
 router.get("/comments", requireRole("administrator"), async (_req, res) => {
   try {
-    const { getCommentSettings, toPublicCommentSettings } = await import("../lib/comments-settings.js");
+    const { getCommentSettings, toPublicCommentSettings } =
+      await import("../lib/comments-settings.js");
     const siteId = await getSiteId();
     if (!siteId) {
       res.status(503).json({ error: "No site found" });
@@ -410,7 +454,8 @@ router.put("/comments", requireRole("administrator"), async (req, res) => {
       return;
     }
     const body = CommentSettingsSchema.parse(req.body);
-    const { saveCommentSettings, toPublicCommentSettings } = await import("../lib/comments-settings.js");
+    const { saveCommentSettings, toPublicCommentSettings } =
+      await import("../lib/comments-settings.js");
     const patch: Partial<CommentSettings> = { ...body };
     // An omitted or blank secret means "keep the current one".
     if (!body.captchaSecretKey) delete patch.captchaSecretKey;
@@ -436,9 +481,78 @@ router.post("/test-mail", requireRole("administrator"), async (_req, res) => {
       res.status(400).json({ error: result.error });
       return;
     }
-    res.json({ ok: true });
+    res.json(result);
   } catch (e) {
     sendServerError(res, "settings", e);
+  }
+});
+
+router.get("/email/logs", requireRole("administrator"), async (req, res) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) return void res.status(503).json({ error: "No site found" });
+    const status = z
+      .enum(["queued", "sent", "deferred", "failed", "bounced"])
+      .optional()
+      .parse(typeof req.query.status === "string" && req.query.status ? req.query.status : undefined);
+    res.json({ deliveries: await listEmailDeliveries(siteId, status) });
+  } catch (e) {
+    if (e instanceof z.ZodError) return void res.status(400).json({ error: "Invalid email status" });
+    sendServerError(res, "email logs", e);
+  }
+});
+
+router.post("/email/logs/:id/retry", requireRole("administrator"), async (req, res) => {
+  try {
+    const parsed = z.string().uuid().safeParse(req.params.id);
+    if (!parsed.success) return void res.status(400).json({ error: "Invalid delivery id" });
+    const siteId = await getSiteId();
+    if (!siteId) return void res.status(503).json({ error: "No site found" });
+    const result = await retryEmailDelivery(siteId, parsed.data);
+    res.status(result.ok ? 200 : 400).json(result);
+  } catch (e) {
+    sendServerError(res, "email retry", e);
+  }
+});
+
+const SuppressionSchema = z.object({
+  email: z.string().email(),
+  messageType: z.string().min(1).max(80).default("*"),
+  reason: z.string().max(500).optional(),
+});
+router.get("/email/suppressions", requireRole("administrator"), async (_req, res) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) return void res.status(503).json({ error: "No site found" });
+    res.json({ suppressions: await listEmailSuppressions(siteId) });
+  } catch (e) {
+    sendServerError(res, "email suppressions", e);
+  }
+});
+router.post("/email/suppressions", requireRole("administrator"), async (req, res) => {
+  try {
+    const body = SuppressionSchema.parse(req.body);
+    const siteId = await getSiteId();
+    if (!siteId) return void res.status(503).json({ error: "No site found" });
+    await addEmailSuppression(siteId, body.email, body.messageType, body.reason);
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    if (e instanceof z.ZodError)
+      return void res.status(400).json({ error: e.issues[0]?.message ?? "Invalid suppression" });
+    sendServerError(res, "email suppression", e);
+  }
+});
+router.delete("/email/suppressions/:id", requireRole("administrator"), async (req, res) => {
+  try {
+    const id = z.string().uuid().parse(req.params.id);
+    const siteId = await getSiteId();
+    if (!siteId) return void res.status(503).json({ error: "No site found" });
+    await removeEmailSuppression(siteId, id);
+    res.json({ ok: true });
+  } catch (e) {
+    if (e instanceof z.ZodError)
+      return void res.status(400).json({ error: "Invalid suppression id" });
+    sendServerError(res, "email suppression", e);
   }
 });
 

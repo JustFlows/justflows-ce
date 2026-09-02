@@ -21,6 +21,7 @@ import { createPluginDatabasesApi } from "./plugin-databases.js";
 import { createPluginContentApi } from "./plugin-content.js";
 import { isInstalled } from "../middleware/install-guard.js";
 import { getJustflowsVersion } from "./version.js";
+import { registerMailTransport, unregisterMailTransports } from "./mail-transports.js";
 
 let app: App | null = null;
 let loader: PluginLoader | null = null;
@@ -168,7 +169,15 @@ export async function ensurePluginRuntime(): Promise<void> {
         cacheFactory: (pluginId) => createPluginCacheApi(pluginId, getJfCache()),
         dataFactory: (pluginId, siteId) => createPluginDataApi(pluginId, siteId),
         jobsFactory: (pluginId) => createPluginJobsApi(pluginId),
+        mailFactory: (pluginId, permissions) => ({
+          register: (transport) => {
+            if (!permissions.has("mail:transport"))
+              throw new Error(`Plugin "${pluginId}" requires the mail:transport permission`);
+            registerMailTransport(pluginId, transport);
+          },
+        }),
         jobsCleanup: (pluginId) => getPluginJobScheduler().unregisterPrefix(pluginId),
+        mailCleanup: unregisterMailTransports,
         secretsFactory: (pluginId, siteId) => createPluginSecretsApi(pluginId, siteId),
         databasesFactory: (pluginId, siteId, permissions) =>
           createPluginDatabasesApi(pluginId, siteId, permissions),
