@@ -19,4 +19,5 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Blocks](BLOCKS.md)                                | Plugin blocks, page/post builders, blog lists, layout and styling |
 | [Testing extensions](TESTING-EXTENSIONS.md)        | Unit tests and running against CE                                 |
 | [Cache](CACHE.md)                                  | `ctx.cache` and revalidation                                      |
+| [Trash and retention](TRASH.md)                    | Recoverable deletion, restore, purge, and media warnings          |
 | [Ecommerce roadmap](ECOMMERCE-ROADMAP.md)          | Shop architecture, complete feature scope, and delivery epics     |

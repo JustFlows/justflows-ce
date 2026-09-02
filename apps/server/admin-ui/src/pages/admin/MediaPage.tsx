@@ -36,7 +36,7 @@ export default function MediaPage() {
     (async () => {
       try {
         const res = await fetch("/api/media");
-        const data = await res.json() as { items?: MediaItem[]; error?: string };
+        const data = (await res.json()) as { items?: MediaItem[]; error?: string };
         if (!res.ok) throw new Error(data.error ?? "Failed to load media");
         setItems(data.items ?? []);
       } catch (e) {
@@ -54,7 +54,7 @@ export default function MediaPage() {
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/media", { method: "POST", body: form });
-      const data = await res.json() as MediaItem & { error?: string };
+      const data = (await res.json()) as MediaItem & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       setItems((i) => [data, ...i]);
     } catch (e) {
@@ -66,6 +66,17 @@ export default function MediaPage() {
 
   async function uploadFiles(files: FileList) {
     for (const f of Array.from(files)) await uploadFile(f);
+  }
+
+  async function trash(item: MediaItem) {
+    if (!confirm(`Move “${item.filename}” to trash?`)) return;
+    const res = await fetch(`/api/media/${item.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = (await res.json()) as { error?: string };
+      setError(data.error ?? "Could not trash media");
+      return;
+    }
+    setItems((current) => current.filter((candidate) => candidate.id !== item.id));
   }
 
   return (
@@ -87,7 +98,9 @@ export default function MediaPage() {
           accept="image/*,video/*,audio/*,application/pdf"
           aria-label="Choose files to upload"
           style={{ display: "none" }}
-          onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); }}
+          onChange={(e) => {
+            if (e.target.files) uploadFiles(e.target.files);
+          }}
         />
       </header>
 
@@ -97,7 +110,10 @@ export default function MediaPage() {
         role="button"
         tabIndex={0}
         aria-label="Upload files. Drop files here or press Enter to browse."
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => {
           e.preventDefault();
@@ -115,12 +131,18 @@ export default function MediaPage() {
         {uploading ? "Uploading…" : "Drop files here to upload"}
       </div>
 
-      {error && <div className="jf-alert jf-alert--error" role="alert">{error}</div>}
+      {error && (
+        <div className="jf-alert jf-alert--error" role="alert">
+          {error}
+        </div>
+      )}
 
       {loading ? null : items.length === 0 ? (
         <div className="jf-card">
           <div className="jf-empty">
-            <span className="jf-empty__icon" aria-hidden="true">🖼</span>
+            <span className="jf-empty__icon" aria-hidden="true">
+              🖼
+            </span>
             <span className="jf-empty__title">No files yet</span>
             <p>Upload images, video, audio or PDFs to use them across your site.</p>
           </div>
@@ -137,12 +159,22 @@ export default function MediaPage() {
                 )}
               </div>
               <div style={{ padding: "0.55rem 0.75rem" }}>
-                <p className="jf-truncate" style={{ margin: 0, fontSize: "0.78rem", fontWeight: 600 }}>
+                <p
+                  className="jf-truncate"
+                  style={{ margin: 0, fontSize: "0.78rem", fontWeight: 600 }}
+                >
                   {item.filename}
                 </p>
                 <p style={{ margin: "0.1rem 0 0", fontSize: "0.72rem", color: "var(--jf-text-3)" }}>
                   {formatBytes(item.sizeBytes)}
                 </p>
+                <button
+                  type="button"
+                  className="jf-btn jf-btn--ghost jf-btn--sm"
+                  onClick={() => void trash(item)}
+                >
+                  Trash
+                </button>
               </div>
             </div>
           ))}

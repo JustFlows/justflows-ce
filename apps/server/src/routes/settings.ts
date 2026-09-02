@@ -40,6 +40,7 @@ const Schema = z.object({
   site_description: z.string().optional(),
   site_url: SiteUrlSchema.optional(),
   posts_per_page: z.coerce.number().int().min(1).max(100).optional(),
+  trash_retention_days: z.coerce.number().int().min(1).max(3650).optional(),
   timezone: z
     .string()
     .refine((tz) => isValidTimeZone(tz), "Invalid timezone")
@@ -92,6 +93,7 @@ const SESSION_READABLE_KEYS = new Set([
   "site_description",
   "site_url",
   "posts_per_page",
+  "trash_retention_days",
   "timezone",
   "timezones",
   "utc_time",
@@ -158,6 +160,7 @@ router.get("/", requireSession, async (req, res) => {
       site_description: site.description ?? "",
       site_url: site.url,
       posts_per_page: extras["posts_per_page"] ?? 10,
+      trash_retention_days: extras["trash_retention_days"] ?? 30,
       timezone,
       timezones: listTimeZones(),
       utc_time: formatPhpDate(now, "Y-m-d H:i:s", { timeZone: "UTC" }),
@@ -253,6 +256,8 @@ router.post("/", requireRole("administrator"), async (req, res) => {
     const settingsToUpdate: [string, unknown][] = [];
     if (body.posts_per_page !== undefined)
       settingsToUpdate.push(["posts_per_page", body.posts_per_page]);
+    if (body.trash_retention_days !== undefined)
+      settingsToUpdate.push(["trash_retention_days", body.trash_retention_days]);
     if (body.timezone !== undefined) settingsToUpdate.push(["timezone", body.timezone]);
     if (body.site_public !== undefined) settingsToUpdate.push(["site_public", body.site_public]);
     if (body.public_api_enabled !== undefined) {
@@ -494,10 +499,13 @@ router.get("/email/logs", requireCapability("mail:read"), async (req, res) => {
     const status = z
       .enum(["queued", "sent", "deferred", "failed", "bounced"])
       .optional()
-      .parse(typeof req.query.status === "string" && req.query.status ? req.query.status : undefined);
+      .parse(
+        typeof req.query.status === "string" && req.query.status ? req.query.status : undefined,
+      );
     res.json({ deliveries: await listEmailDeliveries(siteId, status) });
   } catch (e) {
-    if (e instanceof z.ZodError) return void res.status(400).json({ error: "Invalid email status" });
+    if (e instanceof z.ZodError)
+      return void res.status(400).json({ error: "Invalid email status" });
     sendServerError(res, "email logs", e);
   }
 });

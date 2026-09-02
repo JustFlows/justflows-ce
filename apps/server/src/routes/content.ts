@@ -21,17 +21,23 @@ import {
   serializeRevision,
   upsertWorkingRevision,
 } from "../lib/content-revisions.js";
-import { diffSnapshots, snapshotsEqual, DEFAULT_REVISION_MAX_HISTORY, type ContentSnapshot } from "@justflows/content";
+import {
+  diffSnapshots,
+  snapshotsEqual,
+  DEFAULT_REVISION_MAX_HISTORY,
+  type ContentSnapshot,
+} from "@justflows/content";
 import { resolveContentLocale } from "../lib/i18n/languages-db.js";
 import { invalidateContentCache } from "../lib/content-public.js";
 import { getRuntimeHooks } from "../lib/plugin-runtime.js";
 import { isHookAbortError } from "@justflows/core";
 import { sanitizeBlockDocument } from "@justflows/blocks";
-import { defaultBlocksForContentType, isEmptyBlockDocument } from "../lib/default-content-blocks.js";
+import {
+  defaultBlocksForContentType,
+  isEmptyBlockDocument,
+} from "../lib/default-content-blocks.js";
 import { requireCapability, requireSession } from "../middleware/auth.js";
 import { userCan, getEffectiveAccess } from "../lib/access-policy.js";
-import { clearHomePageIfMatches } from "../lib/home-page.js";
-import { clearBlogPageIfMatches } from "../lib/blog-page.js";
 import { param } from "../lib/params.js";
 import { ContentTypeSlugSchema } from "@justflows/content";
 import { getContentTypeBySlug } from "../lib/content-types-db.js";
@@ -78,7 +84,10 @@ function slugify(s: string): string {
 }
 
 function now(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  return new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "");
 }
 
 function hookCtx(session: { siteId: string; userId: string; role: string }) {
@@ -89,7 +98,10 @@ function hookCtx(session: { siteId: string; userId: string; role: string }) {
   };
 }
 
-function translationGroupOf(row: { id?: unknown; translation_group_id?: unknown }, fallbackId: string): string {
+function translationGroupOf(
+  row: { id?: unknown; translation_group_id?: unknown },
+  fallbackId: string,
+): string {
   return row.translation_group_id ? String(row.translation_group_id) : fallbackId;
 }
 
@@ -123,7 +135,10 @@ function mergeSnapshot(
     title: patch.title ?? base.title,
     slug: patch.slug ?? base.slug,
     excerpt: patch.excerpt !== undefined ? patch.excerpt : base.excerpt,
-    blocks: patch.blocks !== undefined ? sanitizeBlockDocument(patch.blocks) as ContentSnapshot["blocks"] : base.blocks,
+    blocks:
+      patch.blocks !== undefined
+        ? (sanitizeBlockDocument(patch.blocks) as ContentSnapshot["blocks"])
+        : base.blocks,
     fields: patch.fields != null ? { ...base.fields, ...patch.fields } : base.fields,
   };
 }
@@ -159,8 +174,7 @@ router.get("/", requireSession, async (req, res) => {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
-    let sql =
-      `SELECT c.id, c.type, c.title, c.slug, c.locale, c.translation_group_id, c.excerpt, c.status,
+    let sql = `SELECT c.id, c.type, c.title, c.slug, c.locale, c.translation_group_id, c.excerpt, c.status,
               c.author_id, c.published_at, c.created_at, c.updated_at, c.version,
               w.id AS working_revision_id
        FROM content c
@@ -175,6 +189,8 @@ router.get("/", requireSession, async (req, res) => {
     if (status) {
       sql += " AND c.status = ?";
       params.push(status);
+    } else {
+      sql += " AND c.trashed_at IS NULL";
     }
     if (slug) {
       sql += " AND c.slug = ?";
@@ -214,223 +230,242 @@ router.get("/", requireSession, async (req, res) => {
   }
 });
 
-router.post("/", requireCapability("content:create", (req) => ({ contentType: req.body?.type, locale: req.body?.locale, ownerId: req.session?.userId })), async (req, res) => {
-  const session = req.session!;
+router.post(
+  "/",
+  requireCapability("content:create", (req) => ({
+    contentType: req.body?.type,
+    locale: req.body?.locale,
+    ownerId: req.session?.userId,
+  })),
+  async (req, res) => {
+    const session = req.session!;
 
-  try {
-    const body = CreateSchema.safeParse(req.body);
+    try {
+      const body = CreateSchema.safeParse(req.body);
+      if (!body.success) {
+        res.status(400).json({ error: body.error.issues[0]?.message });
+        return;
+      }
+
+      const { type, title, excerpt, blocks, fields } = body.data;
+      const registered = await getContentTypeBySlug(type, session.siteId);
+      if (!registered) {
+        res.status(400).json({ error: `Unknown content type "${type}"` });
+        return;
+      }
+      const slug = body.data.slug ? slugify(body.data.slug) : slugify(title);
+      const id = randomUUID();
+      const locale = await resolveContentLocale(body.data.locale, session.siteId);
+      const translationGroupId = body.data.translationGroupId ?? id;
+      const hooks = getRuntimeHooks();
+      const hookCtx = {
+        siteId: session.siteId,
+        source: "http" as const,
+        actor: { userId: session.userId, role: session.role },
+      };
+
+      try {
+        await hooks.dispatchGate(
+          "content.beforeCreate",
+          {
+            input: {
+              siteId: session.siteId,
+              type,
+              title,
+              slug,
+              excerpt: excerpt ?? null,
+              fields: fields ?? {},
+            },
+          },
+          hookCtx,
+        );
+      } catch (err) {
+        if (isHookAbortError(err)) {
+          res.status(403).json({ error: err.message });
+          return;
+        }
+        throw err;
+      }
+
+      const db = await getDb();
+      const blockDoc = isEmptyBlockDocument(blocks)
+        ? await defaultBlocksForContentType(type)
+        : blocks;
+
+      await db.run(
+        `INSERT INTO content (id, site_id, type, title, slug, locale, translation_group_id, excerpt, blocks, fields, status, author_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
+        [
+          id,
+          session.siteId,
+          type,
+          title,
+          slug,
+          locale,
+          translationGroupId,
+          excerpt ?? null,
+          JSON.stringify(sanitizeBlockDocument(blockDoc)),
+          JSON.stringify(fields ?? {}),
+          session.userId,
+          now(),
+          now(),
+        ],
+      );
+
+      const rows = await db.query<Record<string, unknown>>("SELECT * FROM content WHERE id = ?", [
+        id,
+      ]);
+      await hooks.dispatchAction(
+        "content.created",
+        contentHookRef(id, session.siteId, { type, translationGroupId }),
+        hookCtx,
+      );
+      res.status(201).json(serializeContentRow(rows[0]!));
+    } catch (err) {
+      sendServerError(res, "content", err);
+    }
+  },
+);
+
+router.post(
+  "/:id/translate",
+  requireCapability("content:create", (req) => ({
+    locale: req.body?.locale,
+    ownerId: req.session?.userId,
+  })),
+  async (req, res) => {
+    const session = req.session!;
+    const id = param(req.params.id);
+    const body = TranslateSchema.safeParse(req.body);
     if (!body.success) {
       res.status(400).json({ error: body.error.issues[0]?.message });
       return;
     }
 
-    const { type, title, excerpt, blocks, fields } = body.data;
-    const registered = await getContentTypeBySlug(type, session.siteId);
-    if (!registered) {
-      res.status(400).json({ error: `Unknown content type "${type}"` });
-      return;
-    }
-    const slug = body.data.slug ? slugify(body.data.slug) : slugify(title);
-    const id = randomUUID();
-    const locale = await resolveContentLocale(body.data.locale, session.siteId);
-    const translationGroupId = body.data.translationGroupId ?? id;
-    const hooks = getRuntimeHooks();
-    const hookCtx = {
-      siteId: session.siteId,
-      source: "http" as const,
-      actor: { userId: session.userId, role: session.role },
-    };
-
     try {
-      await hooks.dispatchGate(
-        "content.beforeCreate",
-        {
-          input: {
-            siteId: session.siteId,
-            type,
-            title,
-            slug,
-            excerpt: excerpt ?? null,
-            fields: fields ?? {},
-          },
-        },
-        hookCtx,
+      const db = await getDb();
+      const rows = await db.query<Record<string, unknown>>(
+        "SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
+        [id, session.siteId],
       );
-    } catch (err) {
-      if (isHookAbortError(err)) {
-        res.status(403).json({ error: err.message });
+      const source = rows[0];
+      if (!source) {
+        res.status(404).json({ error: "Not found" });
         return;
       }
-      throw err;
-    }
 
-    const db = await getDb();
-    const blockDoc = isEmptyBlockDocument(blocks)
-      ? await defaultBlocksForContentType(type)
-      : blocks;
+      const locale = await resolveContentLocale(body.data.locale, session.siteId);
+      const groupId = source.translation_group_id
+        ? String(source.translation_group_id)
+        : String(source.id);
 
-    await db.run(
-      `INSERT INTO content (id, site_id, type, title, slug, locale, translation_group_id, excerpt, blocks, fields, status, author_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
-      [
-        id,
-        session.siteId,
-        type,
-        title,
-        slug,
-        locale,
-        translationGroupId,
-        excerpt ?? null,
-        JSON.stringify(sanitizeBlockDocument(blockDoc)),
-        JSON.stringify(fields ?? {}),
-        session.userId,
-        now(),
-        now(),
-      ],
-    );
+      if (!source.translation_group_id) {
+        await db.run(
+          "UPDATE content SET translation_group_id = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+          [groupId, now(), id, session.siteId],
+        );
+      }
 
-    const rows = await db.query<Record<string, unknown>>("SELECT * FROM content WHERE id = ?", [id]);
-    await hooks.dispatchAction(
-      "content.created",
-      contentHookRef(id, session.siteId, { type, translationGroupId }),
-      hookCtx,
-    );
-    res.status(201).json(serializeContentRow(rows[0]!));
-  } catch (err) {
-    sendServerError(res, "content", err);
-  }
-});
-
-router.post("/:id/translate", requireCapability("content:create", (req) => ({ locale: req.body?.locale, ownerId: req.session?.userId })), async (req, res) => {
-  const session = req.session!;
-  const id = param(req.params.id);
-  const body = TranslateSchema.safeParse(req.body);
-  if (!body.success) {
-    res.status(400).json({ error: body.error.issues[0]?.message });
-    return;
-  }
-
-  try {
-    const db = await getDb();
-    const rows = await db.query<Record<string, unknown>>(
-      "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
-      [id, session.siteId],
-    );
-    const source = rows[0];
-    if (!source) {
-      res.status(404).json({ error: "Not found" });
-      return;
-    }
-
-    const locale = await resolveContentLocale(body.data.locale, session.siteId);
-    const groupId = source.translation_group_id ? String(source.translation_group_id) : String(source.id);
-
-    if (!source.translation_group_id) {
-      await db.run(
-        "UPDATE content SET translation_group_id = ?, updated_at = ? WHERE id = ? AND site_id = ?",
-        [groupId, now(), id, session.siteId],
+      const existing = await db.query<{ id: string }>(
+        "SELECT id FROM content WHERE site_id = ? AND translation_group_id = ? AND locale = ? LIMIT 1",
+        [session.siteId, groupId, locale],
       );
-    }
-
-    const existing = await db.query<{ id: string }>(
-      "SELECT id FROM content WHERE site_id = ? AND translation_group_id = ? AND locale = ? LIMIT 1",
-      [session.siteId, groupId, locale],
-    );
-    if (existing[0]) {
-      res.status(409).json({
-        error: "A translation for this language already exists",
-        contentId: existing[0].id,
-      });
-      return;
-    }
-
-    const newId = randomUUID();
-    const hooks = getRuntimeHooks();
-    const hookCtx = {
-      siteId: session.siteId,
-      source: "http" as const,
-      actor: { userId: session.userId, role: session.role },
-    };
-    const isProduct = String(source.type) === "product";
-    const title = isProduct ? "" : String(source.title);
-    const slug = String(source.slug);
-    const excerpt = isProduct || source.excerpt == null ? null : String(source.excerpt);
-
-    try {
-      await hooks.dispatchGate(
-        "content.beforeCreate",
-        {
-          input: {
-            siteId: session.siteId,
-            type: String(source.type),
-            title,
-            slug,
-            excerpt,
-            fields: {},
-          },
-        },
-        hookCtx,
-      );
-    } catch (err) {
-      if (isHookAbortError(err)) {
-        res.status(403).json({ error: err.message });
+      if (existing[0]) {
+        res.status(409).json({
+          error: "A translation for this language already exists",
+          contentId: existing[0].id,
+        });
         return;
       }
-      throw err;
-    }
 
-    let parsedBlocks: unknown = source.blocks;
-    if (typeof source.blocks === "string") {
+      const newId = randomUUID();
+      const hooks = getRuntimeHooks();
+      const hookCtx = {
+        siteId: session.siteId,
+        source: "http" as const,
+        actor: { userId: session.userId, role: session.role },
+      };
+      const isProduct = String(source.type) === "product";
+      const title = isProduct ? "" : String(source.title);
+      const slug = String(source.slug);
+      const excerpt = isProduct || source.excerpt == null ? null : String(source.excerpt);
+
       try {
-        parsedBlocks = JSON.parse(source.blocks);
-      } catch {
-        parsedBlocks = { version: 1, blocks: [] };
+        await hooks.dispatchGate(
+          "content.beforeCreate",
+          {
+            input: {
+              siteId: session.siteId,
+              type: String(source.type),
+              title,
+              slug,
+              excerpt,
+              fields: {},
+            },
+          },
+          hookCtx,
+        );
+      } catch (err) {
+        if (isHookAbortError(err)) {
+          res.status(403).json({ error: err.message });
+          return;
+        }
+        throw err;
       }
-    }
-    const blocksValue = JSON.stringify(sanitizeBlockDocument(parsedBlocks));
-    const fieldsValue = isProduct
-      ? JSON.stringify({})
-      : typeof source.fields === "string"
-        ? source.fields
-        : JSON.stringify(source.fields ?? {});
 
-    await db.run(
-      `INSERT INTO content (id, site_id, type, title, slug, locale, translation_group_id, excerpt, blocks, fields, status, author_id, created_at, updated_at)
+      let parsedBlocks: unknown = source.blocks;
+      if (typeof source.blocks === "string") {
+        try {
+          parsedBlocks = JSON.parse(source.blocks);
+        } catch {
+          parsedBlocks = { version: 1, blocks: [] };
+        }
+      }
+      const blocksValue = JSON.stringify(sanitizeBlockDocument(parsedBlocks));
+      const fieldsValue = isProduct
+        ? JSON.stringify({})
+        : typeof source.fields === "string"
+          ? source.fields
+          : JSON.stringify(source.fields ?? {});
+
+      await db.run(
+        `INSERT INTO content (id, site_id, type, title, slug, locale, translation_group_id, excerpt, blocks, fields, status, author_id, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
-      [
-        newId,
-        session.siteId,
-        String(source.type),
-        title,
-        slug,
-        locale,
-        groupId,
-        excerpt,
-        blocksValue,
-        fieldsValue,
-        session.userId,
-        now(),
-        now(),
-      ],
-    );
+        [
+          newId,
+          session.siteId,
+          String(source.type),
+          title,
+          slug,
+          locale,
+          groupId,
+          excerpt,
+          blocksValue,
+          fieldsValue,
+          session.userId,
+          now(),
+          now(),
+        ],
+      );
 
-    const created = await db.query<Record<string, unknown>>(
-      "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
-      [newId, session.siteId],
-    );
-    await hooks.dispatchAction(
-      "content.created",
-      contentHookRef(newId, session.siteId, {
-        type: String(source.type),
-        translationGroupId: groupId,
-      }),
-      hookCtx,
-    );
-    res.status(201).json(serializeContentRow(created[0]!));
-  } catch (err) {
-    sendServerError(res, "content", err);
-  }
-});
+      const created = await db.query<Record<string, unknown>>(
+        "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+        [newId, session.siteId],
+      );
+      await hooks.dispatchAction(
+        "content.created",
+        contentHookRef(newId, session.siteId, {
+          type: String(source.type),
+          translationGroupId: groupId,
+        }),
+        hookCtx,
+      );
+      res.status(201).json(serializeContentRow(created[0]!));
+    } catch (err) {
+      sendServerError(res, "content", err);
+    }
+  },
+);
 
 router.get("/:id", requireSession, async (req, res) => {
   const session = req.session!;
@@ -445,7 +480,13 @@ router.get("/:id", requireSession, async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  if (!(await userCan(session, "content:read", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
+  if (
+    !(await userCan(session, "content:read", {
+      contentType: String(row.type),
+      locale: String(row.locale),
+      ownerId: row.author_id as string | null,
+    }))
+  ) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -471,7 +512,7 @@ router.patch("/:id", requireSession, async (req, res) => {
   try {
     const db = await getDb();
     const existing = await db.query<Record<string, unknown>>(
-      "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+      "SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
       [id, session.siteId],
     );
     const row = existing[0];
@@ -480,7 +521,13 @@ router.patch("/:id", requireSession, async (req, res) => {
       return;
     }
 
-    if (!(await userCan(session, "content:update", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
+    if (
+      !(await userCan(session, "content:update", {
+        contentType: String(row.type),
+        locale: String(row.locale),
+        ownerId: row.author_id as string | null,
+      }))
+    ) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -495,7 +542,14 @@ router.patch("/:id", requireSession, async (req, res) => {
       return;
     }
 
-    if (body.data.status === "published" && !(await userCan(session, "content:publish", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
+    if (
+      body.data.status === "published" &&
+      !(await userCan(session, "content:publish", {
+        contentType: String(row.type),
+        locale: String(row.locale),
+        ownerId: row.author_id as string | null,
+      }))
+    ) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -504,7 +558,8 @@ router.patch("/:id", requireSession, async (req, res) => {
     const contentRef = { contentId: id, siteId: session.siteId, type: String(row.type) };
     const status = String(row.status);
     const wantsPublish = body.data.status === "published";
-    const wantsUnpublish = status === "published" && body.data.status !== undefined && body.data.status !== "published";
+    const wantsUnpublish =
+      status === "published" && body.data.status !== undefined && body.data.status !== "published";
 
     if (status === "published" && wantsUnpublish) {
       await unpublishRow(row, body.data, session, res);
@@ -614,7 +669,13 @@ router.put("/:id/header-ref", requireSession, async (req, res) => {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (!(await userCan(session, "content:update", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
+    if (
+      !(await userCan(session, "content:update", {
+        contentType: String(row.type),
+        locale: String(row.locale),
+        ownerId: row.author_id as string | null,
+      }))
+    ) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -650,16 +711,27 @@ router.get("/:id/revisions", requireSession, async (req, res) => {
   const id = param(req.params.id);
   try {
     const db = await getDb();
-    const existing = await db.query<{ id: string; type: string; locale: string; author_id: string | null }>(
-      "SELECT id, type, locale, author_id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
-      [id, session.siteId],
-    );
+    const existing = await db.query<{
+      id: string;
+      type: string;
+      locale: string;
+      author_id: string | null;
+    }>("SELECT id, type, locale, author_id FROM content WHERE id = ? AND site_id = ? LIMIT 1", [
+      id,
+      session.siteId,
+    ]);
     const row = existing[0];
     if (!row) {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (!(await userCan(session, "content:revisions:read", { contentType: row.type, locale: row.locale, ownerId: row.author_id }))) {
+    if (
+      !(await userCan(session, "content:revisions:read", {
+        contentType: row.type,
+        locale: row.locale,
+        ownerId: row.author_id,
+      }))
+    ) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -687,7 +759,13 @@ router.get("/:id/revisions/compare", requireSession, async (req, res) => {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (!(await userCan(session, "content:revisions:read", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
+    if (
+      !(await userCan(session, "content:revisions:read", {
+        contentType: String(row.type),
+        locale: String(row.locale),
+        ownerId: row.author_id as string | null,
+      }))
+    ) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -717,7 +795,13 @@ router.get("/:id/revisions/:revisionId", requireSession, async (req, res) => {
       res.status(404).json({ error: "Revision not found" });
       return;
     }
-    if (!(await userCan(session, "content:revisions:read", { contentType: contentRow.type, locale: contentRow.locale, ownerId: contentRow.author_id }))) {
+    if (
+      !(await userCan(session, "content:revisions:read", {
+        contentType: contentRow.type,
+        locale: contentRow.locale,
+        ownerId: contentRow.author_id,
+      }))
+    ) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -741,7 +825,7 @@ router.post("/:id/revisions/:revisionId/restore", requireSession, async (req, re
   try {
     const db = await getDb();
     const rows = await db.query<Record<string, unknown>>(
-      "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+      "SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
       [id, session.siteId],
     );
     const row = rows[0];
@@ -749,7 +833,13 @@ router.post("/:id/revisions/:revisionId/restore", requireSession, async (req, re
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (!(await userCan(session, "content:revisions:restore", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
+    if (
+      !(await userCan(session, "content:revisions:restore", {
+        contentType: String(row.type),
+        locale: String(row.locale),
+        ownerId: row.author_id as string | null,
+      }))
+    ) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -804,14 +894,20 @@ router.post("/:id/publish", requireSession, async (req, res) => {
   try {
     const db = await getDb();
     const rows = await db.query<Record<string, unknown>>(
-      "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+      "SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
       [id, session.siteId],
     );
     if (!rows[0]) {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (!(await userCan(session, "content:publish", { contentType: String(rows[0].type), locale: String(rows[0].locale), ownerId: rows[0].author_id as string | null }))) {
+    if (
+      !(await userCan(session, "content:publish", {
+        contentType: String(rows[0].type),
+        locale: String(rows[0].locale),
+        ownerId: rows[0].author_id as string | null,
+      }))
+    ) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -829,7 +925,7 @@ router.post("/:id/discard-draft", requireSession, async (req, res) => {
   try {
     const db = await getDb();
     const rows = await db.query<Record<string, unknown>>(
-      "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+      "SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
       [id, session.siteId],
     );
     const row = rows[0];
@@ -837,7 +933,13 @@ router.post("/:id/discard-draft", requireSession, async (req, res) => {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (!(await userCan(session, "content:revisions:discard", { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null }))) {
+    if (
+      !(await userCan(session, "content:revisions:discard", {
+        contentType: String(row.type),
+        locale: String(row.locale),
+        ownerId: row.author_id as string | null,
+      }))
+    ) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -870,8 +972,13 @@ router.delete("/:id", requireSession, async (req, res) => {
   const id = param(req.params.id);
   const db = await getDb();
 
-  const existing = await db.query<{ author_id: string | null; type: string; locale: string; translation_group_id: string | null }>(
-    "SELECT author_id, type, locale, translation_group_id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+  const existing = await db.query<{
+    author_id: string | null;
+    type: string;
+    locale: string;
+    translation_group_id: string | null;
+  }>(
+    "SELECT author_id, type, locale, translation_group_id FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
     [id, session.siteId],
   );
   const row = existing[0];
@@ -880,7 +987,13 @@ router.delete("/:id", requireSession, async (req, res) => {
     return;
   }
 
-  if (!(await userCan(session, "content:delete", { contentType: row.type, locale: row.locale, ownerId: row.author_id }))) {
+  if (
+    !(await userCan(session, "content:delete", {
+      contentType: row.type,
+      locale: row.locale,
+      ownerId: row.author_id,
+    }))
+  ) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -912,11 +1025,21 @@ router.delete("/:id", requireSession, async (req, res) => {
     throw err;
   }
 
-  await db.run("DELETE FROM content WHERE id = ? AND site_id = ?", [id, session.siteId]);
-  await clearHomePageIfMatches(session.siteId, id);
-  await clearBlogPageIfMatches(session.siteId, id);
+  const trashedSlug = `${row.type}-trash-${id}`;
+  await db.run(
+    "UPDATE content SET original_slug = slug, original_status = status, slug = ?, status = 'trashed', trashed_at = ?, trashed_by = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+    [trashedSlug, now(), session.userId, now(), id, session.siteId],
+  );
   await invalidateContentCache();
   await hooks.dispatchAction("content.deleted", contentRef, hookCtx);
+  void auditLog({
+    siteId: session.siteId,
+    action: "trash.trashed",
+    actorId: session.userId,
+    actorRole: session.role,
+    target: id,
+    detail: `type=content; contentType=${row.type}`,
+  });
   res.json({ ok: true });
 });
 
@@ -933,7 +1056,10 @@ async function saveWorkingRow(
     source?: "manual" | "autosave" | "import" | "api";
   },
   session: SessionActor,
-  res: { json: (body: unknown) => void; status: (code: number) => { json: (body: unknown) => void } },
+  res: {
+    json: (body: unknown) => void;
+    status: (code: number) => { json: (body: unknown) => void };
+  },
 ): Promise<void> {
   const id = String(row.id);
   const working = await getWorkingRevision(id, session.siteId);
@@ -988,7 +1114,10 @@ async function publishRow(
     expectedVersion?: number;
   },
   session: SessionActor,
-  res: { json: (body: unknown) => void; status: (code: number) => { json: (body: unknown) => void } },
+  res: {
+    json: (body: unknown) => void;
+    status: (code: number) => { json: (body: unknown) => void };
+  },
 ): Promise<void> {
   const id = String(row.id);
   const siteId = session.siteId;
@@ -1059,8 +1188,16 @@ async function publishRow(
 
   await pruneHistoricalForContent(id, siteId);
   await invalidateContentCache();
-  await hooks.dispatchAction("content.updated", { contentId: id, siteId, type: String(row.type) }, ctx);
-  await hooks.dispatchAction("content.published", { contentId: id, siteId, type: String(row.type) }, ctx);
+  await hooks.dispatchAction(
+    "content.updated",
+    { contentId: id, siteId, type: String(row.type) },
+    ctx,
+  );
+  await hooks.dispatchAction(
+    "content.published",
+    { contentId: id, siteId, type: String(row.type) },
+    ctx,
+  );
   void auditLog({
     siteId,
     action: "content.published",
@@ -1087,7 +1224,10 @@ async function unpublishRow(
     fields?: Record<string, unknown>;
   },
   session: SessionActor,
-  res: { json: (body: unknown) => void; status: (code: number) => { json: (body: unknown) => void } },
+  res: {
+    json: (body: unknown) => void;
+    status: (code: number) => { json: (body: unknown) => void };
+  },
 ): Promise<void> {
   const id = String(row.id);
   const working = await getWorkingRevision(id, session.siteId);

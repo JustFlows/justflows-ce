@@ -22,6 +22,11 @@ content/media/users/settings CRUD, `admin:extend`, `jobs:register`,
 Publishing a page also requires `content:publish`. Deleting a type and its
 entries (`ctx.content.deleteType`) requires `content:delete`.
 
+Core content deletion is recoverable: `content:delete` moves an entry to the
+site trash. Administrators and editors can restore trashed resources;
+administrator role checks protect permanent deletion and empty-trash actions.
+See [Trash and retention](TRASH.md).
+
 UI gating is not a security boundary. Server routes still check the signed-in
 user.
 
