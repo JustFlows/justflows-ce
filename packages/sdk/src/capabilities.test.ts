@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { effectiveCapabilities, scopeAllows } from "./capabilities.js";
+import { effectiveCapabilities, scopeAllows, USER_CAPABILITIES } from "./capabilities.js";
 
 describe("access policies", () => {
+  it("exposes mail operations as role-assignable capabilities", () => {
+    expect(USER_CAPABILITIES).toContain("mail:read");
+    expect(USER_CAPABILITIES).toContain("mail:manage");
+  });
+
   it("layers grants and lets explicit denies win", () => {
     expect(effectiveCapabilities(["content:read", "content:update"], {
       grants: ["content:publish"],

@@ -25,6 +25,7 @@ describe("MIGRATION_ORDER", () => {
       "0017_password_resets",
       "0018_access_control",
       "0019_device_sessions",
+      "0020_email_delivery",
     ]);
   });
 
@@ -40,6 +41,7 @@ describe("MIGRATION_ORDER", () => {
     { name: "0017_password_resets", marker: /CREATE TABLE IF NOT EXISTS password_resets/i },
     { name: "0018_access_control", marker: /CREATE TABLE IF NOT EXISTS access_roles/i },
     { name: "0019_device_sessions", marker: /CREATE TABLE IF NOT EXISTS user_sessions/i },
+    { name: "0020_email_delivery", marker: /CREATE TABLE IF NOT EXISTS email_deliveries/i },
   ];
 
   for (const { name, marker } of TRACKED) {
@@ -71,9 +73,10 @@ describe("MIGRATION_ORDER", () => {
         path.join(migrationsDir(), `0012_baseline.${dialect}.sql`),
         "utf8",
       );
-      const revisionDdl = ddl
-        .split("Consolidated migration: 0010_content_revisions")[1]
-        ?.split("Consolidated migration: 0011_default_locale_en_us")[0] ?? "";
+      const revisionDdl =
+        ddl
+          .split("Consolidated migration: 0010_content_revisions")[1]
+          ?.split("Consolidated migration: 0011_default_locale_en_us")[0] ?? "";
       const statements = splitSqlStatements(revisionDdl, dialect);
       expect(statements.join("\n")).not.toMatch(/FOREIGN KEY/i);
       expect(statements.join("\n")).not.toMatch(/GENERATED ALWAYS/i);
@@ -299,15 +302,20 @@ describe("runAllMigrations locking", () => {
 
 describe("isIgnorableMigrationError", () => {
   it("ignores MySQL/MariaDB DROP INDEX when the key is already gone", () => {
-    const err = Object.assign(new Error("Can't DROP INDEX `uq_content_slug`; check that it exists"), {
-      code: "ER_CANT_DROP_FIELD_OR_KEY",
-      errno: 1091,
-    });
+    const err = Object.assign(
+      new Error("Can't DROP INDEX `uq_content_slug`; check that it exists"),
+      {
+        code: "ER_CANT_DROP_FIELD_OR_KEY",
+        errno: 1091,
+      },
+    );
     expect(isIgnorableMigrationError(err)).toBe(true);
   });
 
   it("does not ignore missing-table errors", () => {
-    expect(isIgnorableMigrationError(new Error("Table 'justflows.content_types' doesn't exist"))).toBe(false);
+    expect(
+      isIgnorableMigrationError(new Error("Table 'justflows.content_types' doesn't exist")),
+    ).toBe(false);
   });
 
   it("ignores a PostgreSQL migration name that was already recorded", () => {
@@ -327,9 +335,12 @@ describe("runMigrationStatements", () => {
         async run(sql) {
           ran.push(sql);
           if (sql.includes("DROP INDEX")) {
-            throw Object.assign(new Error("Can't DROP INDEX `uq_content_slug`; check that it exists"), {
-              code: "ER_CANT_DROP_FIELD_OR_KEY",
-            });
+            throw Object.assign(
+              new Error("Can't DROP INDEX `uq_content_slug`; check that it exists"),
+              {
+                code: "ER_CANT_DROP_FIELD_OR_KEY",
+              },
+            );
           }
         },
       },

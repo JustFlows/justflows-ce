@@ -103,6 +103,8 @@ export type {
   PluginHttpResponse,
   PluginHttpHandler,
   PluginJobsApi,
+  PluginMailTransportApi,
+  PluginMailTransportMessage,
   PluginJobContext,
   PluginJobDefinition,
   PluginJobResult,

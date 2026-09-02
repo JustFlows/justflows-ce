@@ -4,12 +4,13 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 
 | Guide                                              | When to read it                                                   |
 | -------------------------------------------------- | ----------------------------------------------------------------- |
-| [Access control](ACCESS-CONTROL.md)                 | Custom roles, scoped user access, and device sessions             |
+| [Access control](ACCESS-CONTROL.md)                | Custom roles, scoped user access, and device sessions             |
 | [Architecture](ARCHITECTURE.md)                    | Public SEO rendering, admin SSR, hydration, builds, and hosting   |
 | [Naming and structure conventions](CONVENTIONS.md) | Adding a folder or file: what to name it and where it goes        |
 | [Plugin author guide](PLUGINS.md)                  | First plugin: lifecycle, context, admin pages                     |
 | [Hooks](HOOKS.md)                                  | Actions, gates, and filters                                       |
 | [Webhooks](WEBHOOKS.md)                            | Signed outbound events, retries, and plugin event types           |
+| [Email delivery](EMAIL.md)                         | Transport setup, delivery logs, suppression, and provider plugins |
 | [Manifest](MANIFEST.md)                            | `justflows.json` / `justflows-theme.json` fields                  |
 | [SDK compatibility](SDK-COMPATIBILITY.md)          | Version ranges, runtime versions, deprecation, and API stability  |
 | [Permissions](PERMISSIONS.md)                      | Plugin permissions vs user capabilities                           |

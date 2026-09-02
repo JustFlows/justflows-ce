@@ -28,6 +28,8 @@ export const USER_CAPABILITIES = [
   "themes:delete",
   "settings:read",
   "settings:manage",
+  "mail:read",
+  "mail:manage",
   "updates:manage",
   "site:admin",
   "analytics:read",

@@ -92,6 +92,8 @@
   "PluginJobDefinition",
   "PluginJobResult",
   "PluginJobsApi",
+  "PluginMailTransportApi",
+  "PluginMailTransportMessage",
   "PluginManifest",
   "PluginManifestSchema",
   "PluginModule",

@@ -12,6 +12,7 @@ import {
   type PluginCacheApi,
   type PluginDataApi,
   type PluginJobsApi,
+  type PluginMailTransportApi,
   type PluginSecretsApi,
   type PluginDatabasesApi,
   type PluginBlockDefinition,
@@ -36,6 +37,10 @@ export interface LoadedPlugin {
 export type PluginCacheFactory = (pluginId: string) => PluginCacheApi;
 export type PluginDataFactory = (pluginId: string, siteId: string) => PluginDataApi;
 export type PluginJobsFactory = (pluginId: string) => PluginJobsApi;
+export type PluginMailFactory = (
+  pluginId: string,
+  permissions: ReadonlySet<PluginPermission>,
+) => PluginMailTransportApi;
 export type PluginSecretsFactory = (pluginId: string, siteId: string) => PluginSecretsApi;
 export type PluginDatabasesFactory = (
   pluginId: string,
@@ -128,10 +133,12 @@ export class PluginLoader {
   private readonly cacheFactory: PluginCacheFactory;
   private readonly dataFactory: PluginDataFactory;
   private readonly jobsFactory: PluginJobsFactory;
+  private readonly mailFactory: PluginMailFactory;
   private readonly secretsFactory: PluginSecretsFactory;
   private readonly databasesFactory: PluginDatabasesFactory;
   private readonly contentFactory: PluginContentFactory;
   private readonly jobsCleanup: ((pluginId: string) => void) | undefined;
+  private readonly mailCleanup: ((pluginId: string) => void) | undefined;
   private readonly settingsAdapter: PluginSettingsAdapter;
   private readonly blockRegistry: PluginBlockRegistry | undefined;
   private readonly justflowsVersion: string;
@@ -148,10 +155,12 @@ export class PluginLoader {
       cacheFactory?: PluginCacheFactory;
       dataFactory?: PluginDataFactory;
       jobsFactory?: PluginJobsFactory;
+      mailFactory?: PluginMailFactory;
       secretsFactory?: PluginSecretsFactory;
       databasesFactory?: PluginDatabasesFactory;
       contentFactory?: PluginContentFactory;
       jobsCleanup?: (pluginId: string) => void;
+      mailCleanup?: (pluginId: string) => void;
       settingsAdapter?: PluginSettingsAdapter;
       httpRouter?: PluginHttpRouter;
       blockRegistry?: PluginBlockRegistry;
@@ -170,11 +179,19 @@ export class PluginLoader {
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
     this.dataFactory = options?.dataFactory ?? (() => NULL_DATA);
     this.jobsFactory = options?.jobsFactory ?? (() => NULL_JOBS);
+    this.mailFactory =
+      options?.mailFactory ??
+      (() => ({
+        register: () => {
+          throw new Error("Mail transport registration is not available in this runtime");
+        },
+      }));
     this.secretsFactory = options?.secretsFactory ?? (() => NULL_SECRETS);
     this.databasesFactory =
       options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
     this.jobsCleanup = options?.jobsCleanup;
+    this.mailCleanup = options?.mailCleanup;
     this.settingsAdapter = options?.settingsAdapter ?? {
       get: (siteId, pluginId, key) => this.app.settings.get(siteId, `${pluginId}:${key}`),
       set: (siteId, pluginId, key, value) =>
@@ -329,6 +346,7 @@ export class PluginLoader {
     this.cookieRegistry.removePlugin(pluginId);
     this.capabilityRegistry.removePlugin(pluginId);
     this.jobsCleanup?.(pluginId);
+    this.mailCleanup?.(pluginId);
     const types = this.registeredBlocks.get(pluginId) ?? [];
     for (const type of types) this.blockRegistry?.unregister(type);
     this.registeredBlocks.delete(pluginId);
@@ -425,6 +443,7 @@ export class PluginLoader {
         delete: (path, handler) => this.httpRouter.register(pluginId, "DELETE", path, handler),
       },
       jobs: this.scopedJobs(pluginId, permissions),
+      mail: this.mailFactory(pluginId, permissions),
       data,
       secrets: this.secretsFactory(pluginId, siteId),
       databases: this.databasesFactory(pluginId, siteId, permissions),

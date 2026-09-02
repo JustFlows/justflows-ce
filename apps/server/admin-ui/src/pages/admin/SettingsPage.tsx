@@ -6,7 +6,7 @@ import {
   formatPhpDate,
 } from "@lib/datetime-format";
 import MediaImageField from "@components/MediaImageField";
-import { useSessionRole } from "@components/SessionProvider";
+import { useCapability, useSessionRole } from "@components/SessionProvider";
 import { initialJson } from "../../ssr-data";
 
 const ROLE_OPTIONS = ["subscriber", "contributor", "author", "editor", "administrator"] as const;
@@ -42,14 +42,19 @@ type GeneralState = {
   sitePublic: boolean;
   publicApiEnabled: boolean;
   discourageSearchEngines: boolean;
-  mailTransport: "sendmail" | "smtp";
+  mailTransport: string;
   mailFromName: string;
+  mailFromAddress: string;
+  mailReplyTo: string;
+  mailEnvelopeSender: string;
   smtpHost: string;
   smtpPort: string;
   smtpSecure: "none" | "starttls" | "ssl";
   smtpUser: string;
   smtpPass: string;
   smtpPassSet: boolean;
+  mailRateLimit: string;
+  mailConcurrency: string;
   faviconUrl: string;
 };
 
@@ -71,12 +76,17 @@ const EMPTY: GeneralState = {
   discourageSearchEngines: true,
   mailTransport: "sendmail",
   mailFromName: "",
+  mailFromAddress: "",
+  mailReplyTo: "",
+  mailEnvelopeSender: "",
   smtpHost: "localhost",
   smtpPort: "25",
   smtpSecure: "none",
   smtpUser: "",
   smtpPass: "",
   smtpPassSet: false,
+  mailRateLimit: "60",
+  mailConcurrency: "5",
   faviconUrl: "",
 };
 
@@ -85,6 +95,7 @@ type SettingsPayload = Record<string, unknown> & {
   timezones?: string[];
   date_format?: string;
   time_format?: string;
+  mail_transports?: Array<{ id: string; label: string }>;
 };
 
 function generalFromPayload(data: SettingsPayload): GeneralState {
@@ -104,8 +115,12 @@ function generalFromPayload(data: SettingsPayload): GeneralState {
     sitePublic: data.site_public === true,
     publicApiEnabled: data.public_api_enabled === true,
     discourageSearchEngines: data.discourage_search_engines === true,
-    mailTransport: data.mail_transport === "smtp" ? "smtp" : "sendmail",
+    mailTransport: typeof data.mail_transport === "string" ? data.mail_transport : "sendmail",
     mailFromName: typeof data.mail_from_name === "string" ? data.mail_from_name : "",
+    mailFromAddress: typeof data.mail_from_address === "string" ? data.mail_from_address : "",
+    mailReplyTo: typeof data.mail_reply_to === "string" ? data.mail_reply_to : "",
+    mailEnvelopeSender:
+      typeof data.mail_envelope_sender === "string" ? data.mail_envelope_sender : "",
     smtpHost: typeof data.smtp_host === "string" ? data.smtp_host : "localhost",
     smtpPort: String(data.smtp_port ?? 25),
     smtpSecure:
@@ -113,6 +128,8 @@ function generalFromPayload(data: SettingsPayload): GeneralState {
     smtpUser: typeof data.smtp_user === "string" ? data.smtp_user : "",
     smtpPass: "",
     smtpPassSet: data.smtp_pass_set === true,
+    mailRateLimit: String(data.mail_rate_limit ?? 60),
+    mailConcurrency: String(data.mail_concurrency ?? 5),
     faviconUrl: typeof data.favicon_url === "string" ? data.favicon_url : "",
   };
 }
@@ -132,6 +149,8 @@ export default function SettingsPage() {
   // Reading settings is open to every admin-eligible role; saving them (and
   // sending a test email) is administrator-only.
   const canManage = useSessionRole() === "administrator";
+  const canReadMail = useCapability("mail:read");
+  const canManageMail = useCapability("mail:manage");
   const prefetched = initialJson<SettingsPayload>("/api/settings");
   const initialGeneral = prefetched ? generalFromPayload(prefetched) : EMPTY;
   const [general, setGeneral] = useState<GeneralState>(initialGeneral);
@@ -155,6 +174,12 @@ export default function SettingsPage() {
   );
   const [testingMail, setTestingMail] = useState(false);
   const [mailTest, setMailTest] = useState<string | null>(null);
+  const [mailTransports, setMailTransports] = useState(
+    prefetched?.mail_transports ?? [
+      { id: "sendmail", label: "Sendmail (local)" },
+      { id: "smtp", label: "SMTP" },
+    ],
+  );
 
   const now = useMemo(() => new Date(), [general.timezone, general.dateFormat, general.timeFormat]);
   const utcTime = formatPhpDate(now, "Y-m-d H:i:s", { timeZone: "UTC" });
@@ -171,6 +196,7 @@ export default function SettingsPage() {
         setTimezones(
           Array.isArray(data.timezones) && data.timezones.length > 0 ? data.timezones : ["UTC"],
         );
+        if (data.mail_transports) setMailTransports(data.mail_transports);
         setCustomDate(!(DATE_FORMAT_PRESETS as readonly string[]).includes(dateFormat));
         setCustomTime(!(TIME_FORMAT_PRESETS as readonly string[]).includes(timeFormat));
       })
@@ -207,11 +233,16 @@ export default function SettingsPage() {
           discourage_search_engines: general.discourageSearchEngines,
           mail_transport: general.mailTransport,
           mail_from_name: general.mailFromName,
+          mail_from_address: general.mailFromAddress,
+          mail_reply_to: general.mailReplyTo,
+          mail_envelope_sender: general.mailEnvelopeSender,
           smtp_host: general.smtpHost,
           smtp_port: Number(general.smtpPort),
           smtp_secure: general.smtpSecure,
           smtp_user: general.smtpUser,
           ...(general.smtpPass ? { smtp_pass: general.smtpPass } : {}),
+          mail_rate_limit: Number(general.mailRateLimit),
+          mail_concurrency: Number(general.mailConcurrency),
           favicon_url: general.faviconUrl,
         }),
       });
@@ -236,12 +267,14 @@ export default function SettingsPage() {
     setTestingMail(true);
     try {
       const res = await fetch("/api/settings/test-mail", { method: "POST" });
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as { error?: string; response?: string };
       if (!res.ok) {
         setMailTest(data.error ?? "Could not send test email");
         return;
       }
-      setMailTest(`Sent a test message to ${general.adminEmail}.`);
+      setMailTest(
+        `Sent to ${general.adminEmail}. Transport response: ${data.response ?? "Accepted"}`,
+      );
     } catch (e) {
       setMailTest(String(e));
     } finally {
@@ -277,413 +310,485 @@ export default function SettingsPage() {
           below in one shot — cheaper and less error-prone than gating each
           of the dozens of controls in this form individually. */}
       <fieldset disabled={!canManage} style={{ border: 0, margin: 0, padding: 0 }}>
-      <Section title="Site identity">
-        <div className="jf-grid jf-grid--2">
-          <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-site-name">
-              Site Title
-            </label>
-            <input
-              id="jf-site-name"
-              className="jf-input"
-              value={general.name}
-              onChange={(e) => patch({ name: e.target.value })}
-            />
-          </div>
-          <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-site-url">
-              Site Address (URL)
-            </label>
-            <input
-              id="jf-site-url"
-              className="jf-input"
-              value={general.url}
-              placeholder="https://example.com"
-              onChange={(e) => patch({ url: e.target.value })}
-            />
-            <p className="jf-field__hint">
-              The address people type in their browser to reach this site.
-            </p>
-          </div>
-        </div>
-        <div className="jf-field">
-          <label className="jf-field__label" htmlFor="jf-tagline">
-            Tagline
-          </label>
-          <input
-            id="jf-tagline"
-            className="jf-input"
-            value={general.description}
-            placeholder="Just another great website"
-            onChange={(e) => patch({ description: e.target.value })}
-          />
-          <p className="jf-field__hint">In a few words, explain what this site is about.</p>
-        </div>
-        <MediaImageField
-          id="jf-site-icon"
-          label="Site Icon"
-          description="Used as the browser and app icon. Square images work best, at least 512 × 512 pixels."
-          value={general.faviconUrl}
-          onChange={(url) => patch({ faviconUrl: url })}
-          square
-        />
-      </Section>
-
-      <Section title="Administration">
-        <div className="jf-field">
-          <label className="jf-field__label" htmlFor="jf-admin-email">
-            Administration Email Address
-          </label>
-          <input
-            id="jf-admin-email"
-            className="jf-input"
-            type="email"
-            value={general.adminEmail}
-            placeholder="admin@example.com"
-            required
-            onChange={(e) => patch({ adminEmail: e.target.value })}
-          />
-          <p className="jf-field__hint">
-            Used for site administration notifications such as comment moderation, new user
-            registrations, and system alerts. This is not the email address you log in with.
-          </p>
-        </div>
-      </Section>
-
-      <Section title="Outgoing mail">
-        <p className="jf-field__hint" style={{ marginTop: 0 }}>
-          Sends through the server itself — the same idea as PHPMailer. Sendmail uses the
-          host&apos;s local mailer. Switch to SMTP if this machine needs authenticated submission
-          (Plesk mailbox, localhost:587, and so on).
-        </p>
-        <div className="jf-grid jf-grid--2">
-          <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-mail-transport">
-              Mailer
-            </label>
-            <select
-              id="jf-mail-transport"
-              className="jf-input"
-              value={general.mailTransport}
-              onChange={(e) =>
-                patch({ mailTransport: e.target.value === "smtp" ? "smtp" : "sendmail" })
-              }
-            >
-              <option value="sendmail">Sendmail (local)</option>
-              <option value="smtp">SMTP</option>
-            </select>
-          </div>
-          <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-mail-from-name">
-              From name
-            </label>
-            <input
-              id="jf-mail-from-name"
-              className="jf-input"
-              value={general.mailFromName}
-              placeholder={general.name || "Site name"}
-              onChange={(e) => patch({ mailFromName: e.target.value })}
-            />
-            <p className="jf-field__hint">
-              Leave blank to use the site title. From address is the administration email.
-            </p>
-          </div>
-        </div>
-        {general.mailTransport === "smtp" && (
-          <>
-            <div className="jf-grid jf-grid--2">
-              <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-smtp-host">
-                  SMTP host
-                </label>
-                <input
-                  id="jf-smtp-host"
-                  className="jf-input"
-                  value={general.smtpHost}
-                  placeholder="localhost"
-                  onChange={(e) => patch({ smtpHost: e.target.value })}
-                />
-              </div>
-              <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-smtp-port">
-                  Port
-                </label>
-                <input
-                  id="jf-smtp-port"
-                  className="jf-input"
-                  type="number"
-                  min={1}
-                  max={65535}
-                  value={general.smtpPort}
-                  onChange={(e) => patch({ smtpPort: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="jf-grid jf-grid--2">
-              <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-smtp-secure">
-                  Encryption
-                </label>
-                <select
-                  id="jf-smtp-secure"
-                  className="jf-input"
-                  value={general.smtpSecure}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    patch({ smtpSecure: value === "starttls" || value === "ssl" ? value : "none" });
-                  }}
-                >
-                  <option value="none">None</option>
-                  <option value="starttls">STARTTLS</option>
-                  <option value="ssl">SSL/TLS</option>
-                </select>
-              </div>
-              <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-smtp-user">
-                  Username
-                </label>
-                <input
-                  id="jf-smtp-user"
-                  className="jf-input"
-                  value={general.smtpUser}
-                  autoComplete="off"
-                  onChange={(e) => patch({ smtpUser: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="jf-field" style={{ maxWidth: 320 }}>
-              <label className="jf-field__label" htmlFor="jf-smtp-pass">
-                Password
+        <Section title="Site identity">
+          <div className="jf-grid jf-grid--2">
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-site-name">
+                Site Title
               </label>
               <input
-                id="jf-smtp-pass"
+                id="jf-site-name"
                 className="jf-input"
-                type="password"
-                value={general.smtpPass}
-                autoComplete="new-password"
-                placeholder={general.smtpPassSet ? "Stored — leave blank to keep" : ""}
-                onChange={(e) => patch({ smtpPass: e.target.value })}
+                value={general.name}
+                onChange={(e) => patch({ name: e.target.value })}
               />
             </div>
-          </>
-        )}
-        <div className="jf-row">
-          <button type="button" className="jf-btn" onClick={testMail} disabled={testingMail}>
-            {testingMail ? "Sending…" : "Send test email"}
-          </button>
-          {mailTest && <span className="jf-field__hint">{mailTest}</span>}
-        </div>
-        <p className="jf-field__hint">
-          Save mail settings before sending a test. The message goes to the administration email
-          address.
-        </p>
-      </Section>
-
-      <Section title="Membership">
-        <label className="jf-checkrow">
-          <input
-            type="checkbox"
-            checked={general.usersCanRegister}
-            onChange={(e) => patch({ usersCanRegister: e.target.checked })}
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-site-url">
+                Site Address (URL)
+              </label>
+              <input
+                id="jf-site-url"
+                className="jf-input"
+                value={general.url}
+                placeholder="https://example.com"
+                onChange={(e) => patch({ url: e.target.value })}
+              />
+              <p className="jf-field__hint">
+                The address people type in their browser to reach this site.
+              </p>
+            </div>
+          </div>
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-tagline">
+              Tagline
+            </label>
+            <input
+              id="jf-tagline"
+              className="jf-input"
+              value={general.description}
+              placeholder="Just another great website"
+              onChange={(e) => patch({ description: e.target.value })}
+            />
+            <p className="jf-field__hint">In a few words, explain what this site is about.</p>
+          </div>
+          <MediaImageField
+            id="jf-site-icon"
+            label="Site Icon"
+            description="Used as the browser and app icon. Square images work best, at least 512 × 512 pixels."
+            value={general.faviconUrl}
+            onChange={(url) => patch({ faviconUrl: url })}
+            square
           />
-          <span>Anyone can register</span>
-        </label>
-        <p className="jf-field__hint">
-          When checked, visitors can create an account at <code>/register</code>. New accounts
-          receive the default role below.
-        </p>
-        <div className="jf-field" style={{ maxWidth: 280 }}>
-          <label className="jf-field__label" htmlFor="jf-default-role">
-            New User Default Role
-          </label>
-          <select
-            id="jf-default-role"
-            className="jf-input"
-            value={general.defaultRole}
-            onChange={(e) => patch({ defaultRole: e.target.value })}
-          >
-            {ROLE_OPTIONS.map((role) => (
-              <option key={role} value={role}>
-                {ROLE_LABELS[role]}
-              </option>
-            ))}
-          </select>
-        </div>
-      </Section>
+        </Section>
 
-      <Section title="Language">
-        <div className="jf-field" style={{ maxWidth: 320 }}>
-          <label className="jf-field__label" htmlFor="jf-site-language">
-            Site Language
-          </label>
-          <select
-            id="jf-site-language"
-            className="jf-input"
-            value={general.siteLanguage}
-            onChange={(e) => patch({ siteLanguage: e.target.value })}
-          >
-            {(languages.length > 0
-              ? languages
-              : [
-                  {
-                    code: "en-US",
-                    name: "English",
-                    nativeName: "English",
-                    isDefault: true,
-                    isActive: true,
-                  },
-                ]
-            ).map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.nativeName} ({lang.code})
-              </option>
-            ))}
-          </select>
-          <p className="jf-field__hint">
-            Default language for published content. Add more languages under{" "}
-            <a href="/admin/languages">Languages</a>.
+        <Section title="Administration">
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-admin-email">
+              Administration Email Address
+            </label>
+            <input
+              id="jf-admin-email"
+              className="jf-input"
+              type="email"
+              value={general.adminEmail}
+              placeholder="admin@example.com"
+              required
+              onChange={(e) => patch({ adminEmail: e.target.value })}
+            />
+            <p className="jf-field__hint">
+              Used for site administration notifications such as comment moderation, new user
+              registrations, and system alerts. This is not the email address you log in with.
+            </p>
+          </div>
+        </Section>
+
+        <Section title="Outgoing mail">
+          <p className="jf-field__hint" style={{ marginTop: 0 }}>
+            Sends through the server itself — the same idea as PHPMailer. Sendmail uses the
+            host&apos;s local mailer. Switch to SMTP if this machine needs authenticated submission
+            (Plesk mailbox, localhost:587, and so on).
           </p>
-        </div>
-      </Section>
-
-      <Section title="Timezone">
-        <div className="jf-field" style={{ maxWidth: 420 }}>
-          <label className="jf-field__label" htmlFor="jf-tz">
-            Timezone
-          </label>
-          <select
-            id="jf-tz"
-            className="jf-input"
-            value={general.timezone}
-            onChange={(e) => patch({ timezone: e.target.value })}
-          >
-            {timezoneGroups.map((group) => (
-              <optgroup key={group.region} label={group.region}>
-                {group.zones.map((tz) => (
-                  <option key={tz} value={tz}>
-                    {tz.replace(/_/g, " ")}
+          <div className="jf-grid jf-grid--2">
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-mail-transport">
+                Mailer
+              </label>
+              <select
+                id="jf-mail-transport"
+                className="jf-input"
+                value={general.mailTransport}
+                onChange={(e) => patch({ mailTransport: e.target.value })}
+              >
+                {mailTransports.map((transport) => (
+                  <option key={transport.id} value={transport.id}>
+                    {transport.label}
                   </option>
                 ))}
-              </optgroup>
-            ))}
-          </select>
+              </select>
+            </div>
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-mail-from-name">
+                From name
+              </label>
+              <input
+                id="jf-mail-from-name"
+                className="jf-input"
+                value={general.mailFromName}
+                placeholder={general.name || "Site name"}
+                onChange={(e) => patch({ mailFromName: e.target.value })}
+              />
+              <p className="jf-field__hint">
+                Leave blank to use the site title. From address is the administration email.
+              </p>
+            </div>
+          </div>
+          <div className="jf-grid jf-grid--2">
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-mail-from-address">
+                From address
+              </label>
+              <input
+                id="jf-mail-from-address"
+                className="jf-input"
+                type="email"
+                value={general.mailFromAddress}
+                placeholder={general.adminEmail}
+                onChange={(e) => patch({ mailFromAddress: e.target.value })}
+              />
+            </div>
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-mail-reply-to">
+                Reply-To
+              </label>
+              <input
+                id="jf-mail-reply-to"
+                className="jf-input"
+                type="email"
+                value={general.mailReplyTo}
+                onChange={(e) => patch({ mailReplyTo: e.target.value })}
+              />
+            </div>
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-mail-envelope">
+                Envelope sender
+              </label>
+              <input
+                id="jf-mail-envelope"
+                className="jf-input"
+                type="email"
+                value={general.mailEnvelopeSender}
+                onChange={(e) => patch({ mailEnvelopeSender: e.target.value })}
+              />
+            </div>
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-mail-rate">
+                Rate / concurrency
+              </label>
+              <div className="jf-row">
+                <input
+                  id="jf-mail-rate"
+                  aria-label="Messages per minute"
+                  className="jf-input"
+                  type="number"
+                  min="1"
+                  value={general.mailRateLimit}
+                  onChange={(e) => patch({ mailRateLimit: e.target.value })}
+                />
+                <input
+                  aria-label="Concurrent messages"
+                  className="jf-input"
+                  type="number"
+                  min="1"
+                  value={general.mailConcurrency}
+                  onChange={(e) => patch({ mailConcurrency: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          {general.mailTransport === "smtp" && (
+            <>
+              <div className="jf-grid jf-grid--2">
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-smtp-host">
+                    SMTP host
+                  </label>
+                  <input
+                    id="jf-smtp-host"
+                    className="jf-input"
+                    value={general.smtpHost}
+                    placeholder="localhost"
+                    onChange={(e) => patch({ smtpHost: e.target.value })}
+                  />
+                </div>
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-smtp-port">
+                    Port
+                  </label>
+                  <input
+                    id="jf-smtp-port"
+                    className="jf-input"
+                    type="number"
+                    min={1}
+                    max={65535}
+                    value={general.smtpPort}
+                    onChange={(e) => patch({ smtpPort: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="jf-grid jf-grid--2">
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-smtp-secure">
+                    Encryption
+                  </label>
+                  <select
+                    id="jf-smtp-secure"
+                    className="jf-input"
+                    value={general.smtpSecure}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      patch({
+                        smtpSecure: value === "starttls" || value === "ssl" ? value : "none",
+                      });
+                    }}
+                  >
+                    <option value="none">None</option>
+                    <option value="starttls">STARTTLS</option>
+                    <option value="ssl">SSL/TLS</option>
+                  </select>
+                </div>
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-smtp-user">
+                    Username
+                  </label>
+                  <input
+                    id="jf-smtp-user"
+                    className="jf-input"
+                    value={general.smtpUser}
+                    autoComplete="off"
+                    onChange={(e) => patch({ smtpUser: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="jf-field" style={{ maxWidth: 320 }}>
+                <label className="jf-field__label" htmlFor="jf-smtp-pass">
+                  Password
+                </label>
+                <input
+                  id="jf-smtp-pass"
+                  className="jf-input"
+                  type="password"
+                  value={general.smtpPass}
+                  autoComplete="new-password"
+                  placeholder={general.smtpPassSet ? "Stored — leave blank to keep" : ""}
+                  onChange={(e) => patch({ smtpPass: e.target.value })}
+                />
+              </div>
+            </>
+          )}
+          <div className="jf-row">
+            <button type="button" className="jf-btn" onClick={testMail} disabled={testingMail}>
+              {testingMail ? "Sending…" : "Send test email"}
+            </button>
+            {mailTest && <span className="jf-field__hint">{mailTest}</span>}
+          </div>
           <p className="jf-field__hint">
-            Universal time is <strong>{utcTime}</strong>. Local time is <strong>{localTime}</strong>
-            .
+            Save mail settings before sending a test. The message goes to the administration email
+            address.
           </p>
-        </div>
-      </Section>
+          <p className="jf-field__hint">
+            Publish SPF for your sending host, enable DKIM at the provider, and add a DMARC policy
+            for the From domain. Justflows reports these as guidance and does not alter DNS.
+          </p>
+        </Section>
 
-      <Section title="Date and time">
-        <FormatPicker
-          legend="Date Format"
-          name="date_format"
-          presets={DATE_FORMAT_PRESETS}
-          value={general.dateFormat}
-          custom={dateIsCustom}
-          preview={(fmt) => formatPhpDate(now, fmt, { timeZone: general.timezone })}
-          onSelect={(fmt, isCustom) => {
-            setCustomDate(isCustom);
-            patch({ dateFormat: fmt });
-          }}
-        />
-        <FormatPicker
-          legend="Time Format"
-          name="time_format"
-          presets={TIME_FORMAT_PRESETS}
-          value={general.timeFormat}
-          custom={timeIsCustom}
-          preview={(fmt) => formatPhpDate(now, fmt, { timeZone: general.timezone })}
-          onSelect={(fmt, isCustom) => {
-            setCustomTime(isCustom);
-            patch({ timeFormat: fmt });
-          }}
-        />
-        <div className="jf-field" style={{ maxWidth: 240 }}>
-          <label className="jf-field__label" htmlFor="jf-week-start">
-            Week Starts On
+        <Section title="Membership">
+          <label className="jf-checkrow">
+            <input
+              type="checkbox"
+              checked={general.usersCanRegister}
+              onChange={(e) => patch({ usersCanRegister: e.target.checked })}
+            />
+            <span>Anyone can register</span>
           </label>
-          <select
-            id="jf-week-start"
-            className="jf-input"
-            value={general.startOfWeek}
-            onChange={(e) => patch({ startOfWeek: Number(e.target.value) })}
-          >
-            {WEEKDAYS.map((day) => (
-              <option key={day.value} value={day.value}>
-                {day.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </Section>
+          <p className="jf-field__hint">
+            When checked, visitors can create an account at <code>/register</code>. New accounts
+            receive the default role below.
+          </p>
+          <div className="jf-field" style={{ maxWidth: 280 }}>
+            <label className="jf-field__label" htmlFor="jf-default-role">
+              New User Default Role
+            </label>
+            <select
+              id="jf-default-role"
+              className="jf-input"
+              value={general.defaultRole}
+              onChange={(e) => patch({ defaultRole: e.target.value })}
+            >
+              {ROLE_OPTIONS.map((role) => (
+                <option key={role} value={role}>
+                  {ROLE_LABELS[role]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </Section>
 
-      <Section title="Site visibility">
-        <label className="jf-checkrow">
-          <input
-            type="checkbox"
-            checked={general.sitePublic}
-            onChange={(e) => patch({ sitePublic: e.target.checked })}
+        <Section title="Language">
+          <div className="jf-field" style={{ maxWidth: 320 }}>
+            <label className="jf-field__label" htmlFor="jf-site-language">
+              Site Language
+            </label>
+            <select
+              id="jf-site-language"
+              className="jf-input"
+              value={general.siteLanguage}
+              onChange={(e) => patch({ siteLanguage: e.target.value })}
+            >
+              {(languages.length > 0
+                ? languages
+                : [
+                    {
+                      code: "en-US",
+                      name: "English",
+                      nativeName: "English",
+                      isDefault: true,
+                      isActive: true,
+                    },
+                  ]
+              ).map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.nativeName} ({lang.code})
+                </option>
+              ))}
+            </select>
+            <p className="jf-field__hint">
+              Default language for published content. Add more languages under{" "}
+              <a href="/admin/languages">Languages</a>.
+            </p>
+          </div>
+        </Section>
+
+        <Section title="Timezone">
+          <div className="jf-field" style={{ maxWidth: 420 }}>
+            <label className="jf-field__label" htmlFor="jf-tz">
+              Timezone
+            </label>
+            <select
+              id="jf-tz"
+              className="jf-input"
+              value={general.timezone}
+              onChange={(e) => patch({ timezone: e.target.value })}
+            >
+              {timezoneGroups.map((group) => (
+                <optgroup key={group.region} label={group.region}>
+                  {group.zones.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <p className="jf-field__hint">
+              Universal time is <strong>{utcTime}</strong>. Local time is{" "}
+              <strong>{localTime}</strong>.
+            </p>
+          </div>
+        </Section>
+
+        <Section title="Date and time">
+          <FormatPicker
+            legend="Date Format"
+            name="date_format"
+            presets={DATE_FORMAT_PRESETS}
+            value={general.dateFormat}
+            custom={dateIsCustom}
+            preview={(fmt) => formatPhpDate(now, fmt, { timeZone: general.timezone })}
+            onSelect={(fmt, isCustom) => {
+              setCustomDate(isCustom);
+              patch({ dateFormat: fmt });
+            }}
           />
-          <span>Site is live</span>
-        </label>
-        <p className="jf-field__hint">
-          When unchecked, visitors see an under-construction page. Administrators and editors can
-          still browse the site while logged in.
-        </p>
-      </Section>
-
-      <Section title="Public API">
-        <label className="jf-checkrow">
-          <input
-            type="checkbox"
-            checked={general.publicApiEnabled}
-            onChange={(e) => patch({ publicApiEnabled: e.target.checked })}
+          <FormatPicker
+            legend="Time Format"
+            name="time_format"
+            presets={TIME_FORMAT_PRESETS}
+            value={general.timeFormat}
+            custom={timeIsCustom}
+            preview={(fmt) => formatPhpDate(now, fmt, { timeZone: general.timezone })}
+            onSelect={(fmt, isCustom) => {
+              setCustomTime(isCustom);
+              patch({ timeFormat: fmt });
+            }}
           />
-          <span>Expose the public API</span>
-        </label>
-        <p className="jf-field__hint">
-          When unchecked, every public-facing endpoint (<code>/api/v1/*</code>,{" "}
-          <code>/api/site/*</code>) answers <code>404</code> for visitors — headless clients and
-          integrations lose access. The admin API and everything the system uses internally keep
-          working, and administrators and editors can still call the public endpoints while logged
-          in.
-        </p>
-      </Section>
+          <div className="jf-field" style={{ maxWidth: 240 }}>
+            <label className="jf-field__label" htmlFor="jf-week-start">
+              Week Starts On
+            </label>
+            <select
+              id="jf-week-start"
+              className="jf-input"
+              value={general.startOfWeek}
+              onChange={(e) => patch({ startOfWeek: Number(e.target.value) })}
+            >
+              {WEEKDAYS.map((day) => (
+                <option key={day.value} value={day.value}>
+                  {day.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </Section>
 
-      <Section title="Search engines">
-        <label className="jf-checkrow">
-          <input
-            type="checkbox"
-            checked={general.discourageSearchEngines}
-            onChange={(e) => patch({ discourageSearchEngines: e.target.checked })}
-          />
-          <span>Discourage search engines from indexing this site</span>
-        </label>
-        <p className="jf-field__hint">
-          Adds a <code>noindex</code> meta tag and blocks crawlers via <code>robots.txt</code>.
-          Independent of the live setting.
-        </p>
-      </Section>
-
-      <Section title="Reading">
-        <div className="jf-field" style={{ maxWidth: 200 }}>
-          <label className="jf-field__label" htmlFor="jf-ppp">
-            Blog pages show at most
+        <Section title="Site visibility">
+          <label className="jf-checkrow">
+            <input
+              type="checkbox"
+              checked={general.sitePublic}
+              onChange={(e) => patch({ sitePublic: e.target.checked })}
+            />
+            <span>Site is live</span>
           </label>
-          <input
-            id="jf-ppp"
-            className="jf-input"
-            type="number"
-            min={1}
-            max={100}
-            value={general.postsPerPage}
-            onChange={(e) => patch({ postsPerPage: e.target.value })}
-          />
-          <p className="jf-field__hint">posts</p>
-        </div>
-      </Section>
+          <p className="jf-field__hint">
+            When unchecked, visitors see an under-construction page. Administrators and editors can
+            still browse the site while logged in.
+          </p>
+        </Section>
+
+        <Section title="Public API">
+          <label className="jf-checkrow">
+            <input
+              type="checkbox"
+              checked={general.publicApiEnabled}
+              onChange={(e) => patch({ publicApiEnabled: e.target.checked })}
+            />
+            <span>Expose the public API</span>
+          </label>
+          <p className="jf-field__hint">
+            When unchecked, every public-facing endpoint (<code>/api/v1/*</code>,{" "}
+            <code>/api/site/*</code>) answers <code>404</code> for visitors — headless clients and
+            integrations lose access. The admin API and everything the system uses internally keep
+            working, and administrators and editors can still call the public endpoints while logged
+            in.
+          </p>
+        </Section>
+
+        <Section title="Search engines">
+          <label className="jf-checkrow">
+            <input
+              type="checkbox"
+              checked={general.discourageSearchEngines}
+              onChange={(e) => patch({ discourageSearchEngines: e.target.checked })}
+            />
+            <span>Discourage search engines from indexing this site</span>
+          </label>
+          <p className="jf-field__hint">
+            Adds a <code>noindex</code> meta tag and blocks crawlers via <code>robots.txt</code>.
+            Independent of the live setting.
+          </p>
+        </Section>
+
+        <Section title="Reading">
+          <div className="jf-field" style={{ maxWidth: 200 }}>
+            <label className="jf-field__label" htmlFor="jf-ppp">
+              Blog pages show at most
+            </label>
+            <input
+              id="jf-ppp"
+              className="jf-input"
+              type="number"
+              min={1}
+              max={100}
+              value={general.postsPerPage}
+              onChange={(e) => patch({ postsPerPage: e.target.value })}
+            />
+            <p className="jf-field__hint">posts</p>
+          </div>
+        </Section>
       </fieldset>
+
+      {canReadMail && <EmailOperations canRetry={canManageMail} />}
 
       {canManage && (
         <div className="jf-row">
@@ -697,6 +802,113 @@ export default function SettingsPage() {
 
       {canManage && <DiscussionSettings />}
     </div>
+  );
+}
+
+type Delivery = {
+  id: string;
+  message_type: string;
+  recipient_masked: string;
+  subject: string;
+  status: string;
+  transport: string;
+  attempts: number;
+  provider_response: string | null;
+  error_detail: string | null;
+  created_at: string;
+};
+
+function EmailOperations({ canRetry }: { canRetry: boolean }) {
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [filter, setFilter] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  async function load() {
+    const response = await fetch(
+      `/api/settings/email/logs${filter ? `?status=${encodeURIComponent(filter)}` : ""}`,
+    );
+    const data = (await response.json()) as { deliveries?: Delivery[]; error?: string };
+    if (!response.ok) throw new Error(data.error ?? "Could not load email log");
+    setDeliveries(data.deliveries ?? []);
+  }
+  useEffect(() => {
+    void load().catch((e) => setError(String(e)));
+  }, [filter]);
+  async function retry(id: string) {
+    const response = await fetch(`/api/settings/email/logs/${id}/retry`, { method: "POST" });
+    const data = (await response.json()) as { error?: string };
+    if (!response.ok) setError(data.error ?? "Retry failed");
+    else await load();
+  }
+  return (
+    <Section title="Email delivery log">
+      <div className="jf-row">
+        <label className="jf-field__label" htmlFor="jf-mail-status">
+          Status
+        </label>
+        <select
+          id="jf-mail-status"
+          className="jf-input"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <option value="">All</option>
+          <option value="queued">Queued</option>
+          <option value="sent">Sent</option>
+          <option value="deferred">Deferred</option>
+          <option value="failed">Failed / dead letter</option>
+        </select>
+        <button type="button" className="jf-btn" onClick={() => void load()}>
+          Refresh
+        </button>
+      </div>
+      {error && (
+        <p role="alert" className="jf-error">
+          {error}
+        </p>
+      )}
+      {deliveries.length === 0 ? (
+        <p className="jf-field__hint">No outbound email matches this status.</p>
+      ) : (
+        <div className="jf-table-wrap">
+          <table className="jf-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Type / recipient</th>
+                <th>Subject</th>
+                <th>Status</th>
+                <th>Transport response</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {deliveries.map((row) => (
+                <tr key={row.id}>
+                  <td>{new Date(row.created_at).toLocaleString()}</td>
+                  <td>
+                    {row.message_type}
+                    <br />
+                    <span className="jf-meta">{row.recipient_masked}</span>
+                  </td>
+                  <td>{row.subject}</td>
+                  <td>
+                    {row.status} ({row.attempts})
+                  </td>
+                  <td>{row.error_detail ?? row.provider_response ?? "—"}</td>
+                  <td>
+                {canRetry && row.status !== "sent" && (
+                      <button type="button" className="jf-btn" onClick={() => void retry(row.id)}>
+                        Retry
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
   );
 }
 
@@ -909,8 +1121,8 @@ function DiscussionSettings() {
             <option value="recaptcha-v3">Google reCAPTCHA v3</option>
           </select>
           <p className="jf-field__hint">
-            The provider and keys set here are also used by any form (Extensions →
-            Forms) that has “Require a CAPTCHA on this form” turned on.
+            The provider and keys set here are also used by any form (Extensions → Forms) that has
+            “Require a CAPTCHA on this form” turned on.
           </p>
         </div>
         {state.captchaProvider !== "none" && (
