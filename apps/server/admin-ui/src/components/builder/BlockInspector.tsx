@@ -365,18 +365,51 @@ export default function BlockInspector({
         {select("style", "Style", [
           { value: "buttons", label: "Buttons" },
           { value: "icons", label: "Icons" },
+          { value: "segmented", label: "Segmented control" },
+          { value: "toggle", label: "Single sun / moon toggle" },
+          { value: "switch", label: "Switch" },
+          { value: "select", label: "Compact dropdown" },
+          { value: "labels", label: "Text labels" },
+          { value: "tooltip-icons", label: "Icon buttons with tooltips" },
         ])}
         {select("align", "Alignment", [
           { value: "left", label: "Left" },
           { value: "center", label: "Center" },
           { value: "right", label: "Right" },
         ])}
+        {select("size", "Size", [
+          { value: "sm", label: "Small" },
+          { value: "md", label: "Medium" },
+          { value: "lg", label: "Large" },
+        ])}
+        {select("radius", "Corners", [
+          { value: "pill", label: "Pill" },
+          { value: "rounded", label: "Rounded" },
+          { value: "square", label: "Square" },
+        ])}
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showSystem === true} onChange={(e) => set("showSystem", e.target.checked)} />
           Show an “Auto” option
         </label>
+        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+          <input type="checkbox" checked={p.animate !== false} onChange={(e) => set("animate", e.target.checked)} />
+          Animate the icon change
+        </label>
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
           Visitors who have not chosen already follow their device setting. Auto lets them go back to it.
+        </p>
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0.25rem 0 0" }}>
+          Icons and labels — leave blank to keep the defaults (☀ Light, ☾ Dark, ◐ Auto).
+        </p>
+        {textInput("lightIcon", "Light icon", "☀")}
+        {textInput("lightLabel", "Light label", "Light")}
+        {textInput("darkIcon", "Dark icon", "☾")}
+        {textInput("darkLabel", "Dark label", "Dark")}
+        {p.showSystem === true ? textInput("autoIcon", "Auto icon", "◐") : null}
+        {p.showSystem === true ? textInput("autoLabel", "Auto label", "Auto") : null}
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0.25rem 0 0" }}>
+          Hover, active, and focus colours follow the theme. A theme can override them
+          through the <code>--jf-color-scheme-*</code> CSS variables.
         </p>
       </>;
       break;

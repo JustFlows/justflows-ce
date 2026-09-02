@@ -77,7 +77,16 @@ Also:
   without the phone.
 - Review Admin → Security → Audit log after any incident, and set
   `JF_AUDIT_RETENTION_DAYS` to match your retention policy. It records sign-ins,
-  privilege changes, and everything that installs or replaces code.
+  privilege changes, and everything that installs or replaces code — including
+  every password-reset request, completion, and failure.
+- Self-service password reset (the "Forgot password?" link) needs working
+  outgoing mail. Links are single-use, expire (`JF_PASSWORD_RESET_TTL_MINUTES`,
+  default 60), are stored only as hashes, and revoke every session on use;
+  a second factor is still required afterwards. Turn it off or limit it to
+  chosen roles under Admin → Settings. With no mail configured, recover from a
+  shell with `justflows user reset-password --email you@example.com` (run from
+  the install directory) — it reads the server's `.env` and has no network
+  surface.
 - Limit the administrator role to people you trust with the server.
 - Leave the public REST API off unless you need it (Admin → Settings).
 

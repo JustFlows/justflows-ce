@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { requireRole } from "../middleware/auth.js";
+import { requireCapability } from "../middleware/auth.js";
 import { getAnalyticsSummary } from "../lib/analytics-public.js";
 import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
-router.get("/", requireRole("administrator", "editor"), async (req, res) => {
+router.get("/", requireCapability("analytics:read"), async (req, res) => {
   try {
     const summary = await getAnalyticsSummary(req.session!.siteId);
     res.json(summary);

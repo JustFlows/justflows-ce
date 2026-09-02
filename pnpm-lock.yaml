@@ -9,20 +9,29 @@ importers:
   .:
     dependencies:
       '@justflows/blocks':
-        specifier: workspace:*
+        specifier: file:./packages/blocks
         version: link:packages/blocks
+      '@justflows/cache':
+        specifier: file:./packages/cache
+        version: link:packages/cache
+      '@justflows/content':
+        specifier: file:./packages/content
+        version: link:packages/content
       '@justflows/core':
-        specifier: workspace:*
+        specifier: file:./packages/core
         version: link:packages/core
       '@justflows/installer':
-        specifier: workspace:*
+        specifier: file:./packages/installer
         version: link:packages/installer
       '@justflows/plugin-api':
-        specifier: workspace:*
+        specifier: file:./packages/plugin-api
         version: link:packages/plugin-api
       '@justflows/sdk':
-        specifier: workspace:*
+        specifier: file:./packages/sdk
         version: link:packages/sdk
+      compression:
+        specifier: ^1.8.1
+        version: 1.8.1
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
@@ -32,6 +41,9 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1
+      express-rate-limit:
+        specifier: ^8.6.2
+        version: 8.6.2(express@5.2.1)
       multer:
         specifier: ^2.2.0
         version: 2.2.0
@@ -85,7 +97,7 @@ importers:
         specifier: file:../../packages/cache
         version: link:../../packages/cache
       '@justflows/content':
-        specifier: workspace:*
+        specifier: file:../../packages/content
         version: link:../../packages/content
       '@justflows/core':
         specifier: file:../../packages/core
@@ -135,7 +147,7 @@ importers:
         version: 7.0.1(@testing-library/dom@10.4.1)(vitest@4.1.11(@types/node@26.2.0)(jsdom@30.0.1)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12)))
       '@testing-library/react':
         specifier: ^16.3.2
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@testing-library/user-event':
         specifier: ^14.6.5
         version: 14.6.6(@testing-library/dom@10.4.1)
@@ -165,10 +177,10 @@ importers:
         version: 19.2.18
       '@types/react-dom':
         specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.18)
+        version: 19.2.5(@types/react@19.2.18)
       '@vitejs/plugin-react':
         specifier: ^6.0.5
-        version: 6.1.0(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12))
+        version: 6.1.1(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12))
       axe-core:
         specifier: ^4.13.0
         version: 4.13.0
@@ -186,7 +198,7 @@ importers:
         version: 19.2.8(react@19.2.8)
       react-router-dom:
         specifier: ^7.18.2
-        version: 7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 7.18.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       tsx:
         specifier: ^4.23.12
         version: 4.23.12
@@ -260,6 +272,13 @@ importers:
         version: 4.1.11(@types/node@26.2.0)(jsdom@30.0.1)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12))
 
   packages/cli:
+    dependencies:
+      mysql2:
+        specifier: ^3.24.1
+        version: 3.24.1(@types/node@26.2.0)
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
     devDependencies:
       '@types/node':
         specifier: ^26.2.0
@@ -271,10 +290,10 @@ importers:
   packages/content:
     dependencies:
       '@justflows/auth':
-        specifier: workspace:*
+        specifier: file:../auth
         version: link:../auth
       '@justflows/core':
-        specifier: workspace:*
+        specifier: file:../core
         version: link:../core
       zod:
         specifier: ^4.4.3
@@ -345,6 +364,9 @@ importers:
       '@justflows/sdk':
         specifier: file:../sdk
         version: link:../sdk
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       tar:
         specifier: ^7.5.22
         version: 7.5.22
@@ -355,6 +377,9 @@ importers:
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
+      '@types/semver':
+        specifier: ^7.8.0
+        version: 7.8.0
       '@types/tar':
         specifier: ^6.1.13
         version: 6.1.13
@@ -1330,8 +1355,8 @@ packages:
       vitest:
         optional: true
 
-  '@testing-library/react@16.3.2':
-    resolution: {integrity: sha512-XU5/SytQM+ykqMnAnvB2umaJNIOsLF3PVv//1Ew4CTcpz0/BRyy/af40qqrt7SjKpDdT1saBMc42CUok5gaw+g==}
+  '@testing-library/react@16.3.3':
+    resolution: {integrity: sha512-Uo193NgQbPMz6lrrhtRQQFcMC6Re/ELLFbbuVL30WDlZxlpZf9/lMHTAVxPRLw1q1iu9OJmR1c2BLiENRstdBg==}
     engines: {node: '>=18'}
     peerDependencies:
       '@testing-library/dom': ^10.0.0
@@ -1440,8 +1465,8 @@ packages:
   '@types/range-parser@1.2.7':
     resolution: {integrity: sha512-hKormJbkJqzQGhziax5PItDUTMAM9uE2XXQmM37dyd4hVM+5aVl7oVxMVUiVQn2oCQFN/LKCZdvSM0pFRqbSmQ==}
 
-  '@types/react-dom@19.2.4':
-    resolution: {integrity: sha512-Bsc+QHgp+P/F02XDzNCY9jnZNCUuLki36KT7VKrTXXLdHf+vHMNZnW1rVu5DNW/rCK+fya3DATySbLM4yhtKUw==}
+  '@types/react-dom@19.2.5':
+    resolution: {integrity: sha512-fMPwH9v7r/pp43yUd2/Mbiex5KouJwwR3dzHkhLREUC6764VyDsqxhAxv6OFEYR1RhjOyD1naqba8ECDBe7ZQg==}
     peerDependencies:
       '@types/react': ^19.2.0
 
@@ -1450,6 +1475,9 @@ packages:
 
   '@types/sanitize-html@2.16.1':
     resolution: {integrity: sha512-n9wjs8bCOTyN/ynwD8s/nTcTreIHB1vf31vhLMGqUPNHaweKC4/fAl4Dj+hUlCTKYgm4P3k83fmiFfzkZ6sgMA==}
+
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
 
   '@types/send@1.2.1':
     resolution: {integrity: sha512-arsCikDvlU99zl1g69TcAB3mzZPpxgw0UQnaHeC1Nwb015xp8bknZv5rIfri9xTOcMuaVgvabfIRA7PSZVuZIQ==}
@@ -1643,8 +1671,8 @@ packages:
     resolution: {integrity: sha512-mbCddXd+jm7hfx7w2YU64/Av4/NqqeG3GoRZgxPcgoTxYjhrcfJRw9ULch71SS4G+Q3bOXFhRvPqjguN0Hyp5w==}
     hasBin: true
 
-  '@vitejs/plugin-react@6.1.0':
-    resolution: {integrity: sha512-qd2BzUBehkov86WFhg0JkEFEYyCLG9uPCe6qWTY/kRlss9OvJrOF2UbIWT7p+8IzZHkEu0DNGHc4HSv+JdDLsw==}
+  '@vitejs/plugin-react@6.1.1':
+    resolution: {integrity: sha512-yxLaQV9gkhS8ezJqCM6+ndU7mDY6gqAg75NQ+0IjwEI8IYOmQCgkRwHKVSfWXW076DsqMo0Dk+0FK1U+M5RgFw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
       '@rolldown/plugin-babel': ^0.1.7 || ^0.2.0
@@ -2657,15 +2685,15 @@ packages:
   react-is@17.0.2:
     resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
 
-  react-router-dom@7.18.2:
-    resolution: {integrity: sha512-AIKJ/jgGlFb3EbfCXk5Gzshiwt+l3mqbCrNjmEWMMjqQxNJ3svBa6bgzFyCC2Sw3RA0VWF1kg3uQf2OFhxb8hw==}
+  react-router-dom@7.18.3:
+    resolution: {integrity: sha512-ytVbyBBM7vMfRCam25r0WMhSVSom909A8p+8m0/f1w853dz/xfFu6etAT2SEbVoSnI+ZoPRDqIsQXVT89gp7kg==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
 
-  react-router@7.18.2:
-    resolution: {integrity: sha512-aUVMjFm3GAPTTZL7oYr5E7ETiqfQCHRLH+B+5afnICvf0r7kkK4eR6SMuwbSTJw/7t+12khT/Kahij49fqOCIg==}
+  react-router@7.18.3:
+    resolution: {integrity: sha512-gyXgtdr5uACJ5b1Q4udzjVV+tb/rlHIMJKuJ0e89R4Kzgz47z/rgP0dIKxktqIEUhDHluGTPJJH/wRha7CyqsA==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       react: '>=18'
@@ -3584,7 +3612,7 @@ snapshots:
     optionalDependencies:
       vitest: 4.1.11(@types/node@26.2.0)(jsdom@30.0.1)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12))
 
-  '@testing-library/react@16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@testing-library/react@16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@babel/runtime': 7.29.7
       '@testing-library/dom': 10.4.1
@@ -3592,7 +3620,7 @@ snapshots:
       react-dom: 19.2.8(react@19.2.8)
     optionalDependencies:
       '@types/react': 19.2.18
-      '@types/react-dom': 19.2.4(@types/react@19.2.18)
+      '@types/react-dom': 19.2.5(@types/react@19.2.18)
 
   '@testing-library/user-event@14.6.6(@testing-library/dom@10.4.1)':
     dependencies:
@@ -3682,7 +3710,7 @@ snapshots:
 
   '@types/range-parser@1.2.7': {}
 
-  '@types/react-dom@19.2.4(@types/react@19.2.18)':
+  '@types/react-dom@19.2.5(@types/react@19.2.18)':
     dependencies:
       '@types/react': 19.2.18
 
@@ -3693,6 +3721,8 @@ snapshots:
   '@types/sanitize-html@2.16.1':
     dependencies:
       htmlparser2: 10.1.0
+
+  '@types/semver@7.8.0': {}
 
   '@types/send@1.2.1':
     dependencies:
@@ -3863,7 +3893,7 @@ snapshots:
     dependencies:
       '@typescript/old': typescript@6.0.3
 
-  '@vitejs/plugin-react@6.1.0(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12))':
+  '@vitejs/plugin-react@6.1.1(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12)
@@ -4820,13 +4850,13 @@ snapshots:
 
   react-is@17.0.2: {}
 
-  react-router-dom@7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  react-router-dom@7.18.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
-      react-router: 7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react-router: 7.18.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
 
-  react-router@7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  react-router@7.18.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       cookie: 1.1.1
       react: 19.2.8

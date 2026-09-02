@@ -33,25 +33,25 @@ describe("adminAccessGate", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("redirects a subscriber to the site instead of the dashboard", () => {
+  it("redirects a subscriber to the site instead of the dashboard", async () => {
     const req = fakeReq("/admin", cookieFor("subscriber"));
     const res = fakeRes();
     const next = vi.fn();
 
     adminAccessGate(req, res, next);
 
-    expect(res.redirect).toHaveBeenCalledWith("/");
+    await vi.waitFor(() => expect(res.redirect).toHaveBeenCalledWith("/"));
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("redirects a subscriber on any admin sub-page, not just the dashboard", () => {
+  it("redirects a subscriber on any admin sub-page, not just the dashboard", async () => {
     const req = fakeReq("/admin/users", cookieFor("subscriber"));
     const res = fakeRes();
     const next = vi.fn();
 
     adminAccessGate(req, res, next);
 
-    expect(res.redirect).toHaveBeenCalledWith("/");
+    await vi.waitFor(() => expect(res.redirect).toHaveBeenCalledWith("/"));
   });
 
   it.each(["administrator", "editor", "author", "contributor"])("lets a %s through", (role) => {

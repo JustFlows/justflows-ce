@@ -10,6 +10,8 @@ export type NavItem = {
   trailing?: boolean;
 };
 
+import { internalAdminPath } from "../admin-path";
+
 export type NavDomain = {
   key: string;
   /** Matches the `domain` a plugin names in its manifest. */
@@ -56,6 +58,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.contentTypes", to: "/admin/content-types", icon: "🗂" },
       { key: "nav.media", to: "/admin/media", icon: "🖼" },
       { key: "nav.comments", to: "/admin/comments", icon: "💬" },
+      { key: "nav.trash", label: "Trash", to: "/admin/trash", icon: "♻" },
     ],
   },
   {
@@ -91,6 +94,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.securityOverview", to: "/admin/security", icon: "🛡", end: true },
       { key: "nav.securityHeaders", to: "/admin/security/headers", icon: "📑" },
       { key: "nav.securityAdvanced", to: "/admin/security/advanced", icon: "🧩" },
+      { key: "nav.securityAdminPath", to: "/admin/security/admin-path", icon: "🛣" },
       { key: "nav.securityAccount", to: "/admin/security/account", icon: "🔑" },
       { key: "nav.securityAudit", to: "/admin/security/audit", icon: "📜" },
     ],
@@ -102,10 +106,11 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     items: [
       { key: "nav.users", to: "/admin/users", icon: "👤" },
       { key: "nav.settings", to: "/admin/settings", icon: "⚙" },
+      { key: "nav.emails", to: "/admin/emails", icon: "✉" },
       { key: "nav.languages", to: "/admin/languages", icon: "🌐" },
       { key: "nav.webhooks", to: "/admin/webhooks", icon: "↗" },
       { key: "nav.tools", to: "/admin/tools", icon: "🔧" },
-      { key: "nav.health", to: "/admin/health", icon: "🩺" },
+      { key: "nav.diagnostics", to: "/admin/health", icon: "🩺" },
       { key: "nav.updates", to: "/admin/updates", icon: "⬆" },
     ],
   },
@@ -115,6 +120,10 @@ function toNavItem(item: PluginMenuItem): NavItem {
   return {
     key: item.labelKey ?? `plugin.${item.pluginId}.${item.id}`,
     label: item.label,
+    // Canonical `/admin/…` (the SDK manifest schema requires it), matching the
+    // core nav items. `installAdminPathNavigation()` maps it to the configured
+    // admin URL on navigation, and the path-comparison helpers below normalise
+    // the live pathname back with `internalAdminPath()`.
     to: item.path,
     icon: item.icon,
     end: item.end,
@@ -131,8 +140,8 @@ export function buildNavDomains(pluginItems: PluginMenuItem[]): NavDomain[] {
   const slugs = new Set(ADMIN_NAV_DOMAINS.map((domain) => domain.slug));
 
   return ADMIN_NAV_DOMAINS.map((domain) => {
-    const owned = pluginItems.filter((item) =>
-      (slugs.has(item.domain) ? item.domain : "extensions") === domain.slug,
+    const owned = pluginItems.filter(
+      (item) => (slugs.has(item.domain) ? item.domain : "extensions") === domain.slug,
     );
     if (owned.length === 0) return domain;
 
@@ -151,6 +160,7 @@ export function findDomainForPath(
   pathname: string,
   domains: NavDomain[] = ADMIN_NAV_DOMAINS,
 ): NavDomain | null {
+  pathname = internalAdminPath(pathname);
   for (const domain of domains) {
     if (domain.items.some((item) => matchesNavItem(pathname, item))) {
       return domain;
@@ -160,6 +170,7 @@ export function findDomainForPath(
 }
 
 export function isDomainActive(domain: NavDomain, pathname: string): boolean {
+  pathname = internalAdminPath(pathname);
   return domain.items.some((item) => matchesNavItem(pathname, item));
 }
 
@@ -186,12 +197,14 @@ const ALL_ADMIN_ROLES = ["administrator", "editor", "author", "contributor"];
 const NAV_ACCESS: Record<string, string[]> = {
   "/admin/media": ["administrator", "editor", "author"],
   "/admin/comments": ["administrator", "editor"],
+  "/admin/trash": ["administrator", "editor"],
   "/admin/themes": ["administrator", "editor"],
   "/admin/plugins": ["administrator", "editor"],
   "/admin/marketplace": ["administrator"],
   "/admin/security": ["administrator"],
   "/admin/security/headers": ["administrator"],
   "/admin/security/advanced": ["administrator"],
+  "/admin/security/admin-path": ["administrator"],
   // Everyone's own 2FA — unlike the rest of Security, this is requireSession
   // only server-side, not admin-only. Listed explicitly so it doesn't inherit
   // /admin/security's rule by prefix.
@@ -213,6 +226,7 @@ const NAV_ACCESS_PATHS = Object.keys(NAV_ACCESS).sort((a, b) => b.length - a.len
  *  is governed by the /admin/content rule, for instance. Null when no rule
  *  applies (nothing to hide, nothing to guard). */
 export function navRuleFor(pathname: string): string | null {
+  pathname = internalAdminPath(pathname);
   for (const path of NAV_ACCESS_PATHS) {
     if (pathname === path || pathname.startsWith(`${path}/`)) return path;
   }
@@ -228,8 +242,14 @@ export function canAccessPath(role: string | null | undefined, pathname: string)
 }
 
 /** Drop nav items — and domains left with none — the role can't open. */
-export function filterDomainsByRole(domains: NavDomain[], role: string | null | undefined): NavDomain[] {
+export function filterDomainsByRole(
+  domains: NavDomain[],
+  role: string | null | undefined,
+): NavDomain[] {
   return domains
-    .map((domain) => ({ ...domain, items: domain.items.filter((item) => canAccessPath(role, item.to)) }))
+    .map((domain) => ({
+      ...domain,
+      items: domain.items.filter((item) => canAccessPath(role, item.to)),
+    }))
     .filter((domain) => domain.items.length > 0);
 }

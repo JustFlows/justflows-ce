@@ -127,6 +127,11 @@ describe("GET /api/themes/style-tokens", () => {
     // platform per-block hooks appended
     expect(byName["--jf-block-accent"].section).toBe("Per block");
 
+    // colour-scheme widget hooks appended, grouped in their own section
+    expect(byName["--jf-color-scheme-hover-bg"].section).toBe("Light / dark toggle");
+    expect(byName["--jf-color-scheme-hover-bg"].type).toBe("color");
+    expect(byName["--jf-color-scheme-active-bg"]).toBeTruthy();
+
     // blockControls: unknown token names and unknown-but-present are dropped
     expect(body.blockControls["core.hero"]).toEqual([
       "--brand-gradient",

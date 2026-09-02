@@ -1,12 +1,15 @@
 import { normalizeBlocks } from "./content-api.js";
 import { loadThemeDemoBlog } from "./theme-files.js";
-import { deleteSiteSetting, getSiteId, getSiteSetting, setSiteSetting } from "./site-settings.js";
+import { getSiteId } from "./site-settings.js";
+import {
+  clearThemeDesignDraftDoc,
+  getThemeDesignDoc,
+  publishThemeDesignDoc,
+  saveThemeDesignDraft,
+  saveThemeDesignPublished,
+} from "./theme-designs-db.js";
 import { getActiveTheme, themeInstalledPath } from "./themes-db.js";
 import type { BlockDocument } from "./types.js";
-
-function blogKey(themeId: string, draft = false): string {
-  return draft ? `theme_blog_draft.${themeId}` : `theme_blog.${themeId}`;
-}
 
 export function defaultBlogBlocksFromTheme(themeId: string, installedPath?: string | null): BlockDocument {
   const blocks = loadThemeDemoBlog(themeId, installedPath) ?? [];
@@ -16,7 +19,7 @@ export function defaultBlogBlocksFromTheme(themeId: string, installedPath?: stri
 export async function getThemeBlogBlocks(themeId: string, draft = false): Promise<BlockDocument | null> {
   const siteId = await getSiteId();
   if (!siteId) return null;
-  const stored = await getSiteSetting<BlockDocument>(siteId, blogKey(themeId, draft));
+  const stored = await getThemeDesignDoc<BlockDocument>(siteId, themeId, "blog", { draft });
   return stored ? normalizeBlocks(stored) : null;
 }
 
@@ -27,18 +30,24 @@ export async function saveThemeBlogBlocks(
 ): Promise<void> {
   const siteId = await getSiteId();
   if (!siteId) throw new Error("No site found");
-  await setSiteSetting(siteId, blogKey(themeId, draft), normalizeBlocks(doc));
+  const normalized = normalizeBlocks(doc);
+  if (draft) {
+    await saveThemeDesignDraft(siteId, themeId, "blog", normalized);
+  } else {
+    await saveThemeDesignPublished(siteId, themeId, "blog", normalized);
+  }
 }
 
 export async function clearThemeBlogDraft(themeId: string): Promise<void> {
   const siteId = await getSiteId();
   if (!siteId) return;
-  await deleteSiteSetting(siteId, blogKey(themeId, true));
+  await clearThemeDesignDraftDoc(siteId, themeId, "blog");
 }
 
 export async function publishThemeBlogBlocks(themeId: string, doc: BlockDocument): Promise<void> {
-  await saveThemeBlogBlocks(themeId, doc, false);
-  await clearThemeBlogDraft(themeId);
+  const siteId = await getSiteId();
+  if (!siteId) throw new Error("No site found");
+  await publishThemeDesignDoc(siteId, themeId, "blog", normalizeBlocks(doc));
 }
 
 /** Resolve the default blog design for the theme customizer editor/preview. */

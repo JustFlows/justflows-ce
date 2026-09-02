@@ -11,6 +11,7 @@ const helloWorld: PluginModule = {
     description: "The official example plugin that demonstrates the Justflows plugin lifecycle.",
     author: "Justflows Team",
     license: "GPL-2.0-or-later",
+    engines: { justflows: ">=0.1.8 <0.2.0" },
     permissions: [],
     main: "index.js",
     registry: {

@@ -24,14 +24,22 @@ export const AUDIT_ACTIONS = [
   "auth.login",
   "auth.login_failed",
   "auth.logout",
+  "auth.session_revoked",
+  "auth.other_sessions_revoked",
   "auth.password_changed",
   "auth.password_reset",
+  "auth.password_reset_requested",
+  "auth.password_reset_failed",
   "auth.2fa_enabled",
   "auth.2fa_disabled",
   // Accounts and privilege
   "user.created",
   "user.role_changed",
+  "user.access_changed",
   "user.deleted",
+  "access.role_created",
+  "access.role_updated",
+  "access.role_deleted",
   // Code execution surfaces
   "plugin.installed",
   "plugin.activated",
@@ -50,12 +58,27 @@ export const AUDIT_ACTIONS = [
   "core.auto_update_toggled",
   // Configuration that weakens or strengthens the site
   "security.headers_changed",
+  "security.admin_path_changed",
   "settings.changed",
+  "email.design_saved",
+  "email.design_published",
+  "email.design_restored",
+  "email.template_saved",
+  "email.template_published",
+  "email.template_restored",
+  "email.template_tested",
   "public_api.toggled",
   "content.published",
   "content.revision_restored",
   "content.revision_discarded",
   "content.revision_pruned",
+  "trash.trashed",
+  "trash.restored",
+  "trash.purged",
+  "trash.emptied",
+  "diagnostics.debug_enabled",
+  "diagnostics.debug_disabled",
+  "diagnostics.bundle_generated",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -77,13 +100,18 @@ export interface AuditEntry {
 }
 
 function nowSql(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  return new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "");
 }
 
 /** Trim to the column width, and strip anything that could forge a log line. */
 function field(value: string | null | undefined, max: number): string | null {
   if (value === null || value === undefined) return null;
-  const cleaned = String(value).replace(/[\r\n\0]/g, " ").trim();
+  const cleaned = String(value)
+    .replace(/[\r\n\0]/g, " ")
+    .trim();
   return cleaned ? cleaned.slice(0, max) : null;
 }
 
@@ -122,10 +150,7 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
     // every action, so the log is a signal instead of a flood.
     if (!unavailableLogged) {
       unavailableLogged = true;
-      console.error(
-        "[justflows] audit log unavailable — has migration 0008_audit_log run?",
-        err,
-      );
+      console.error("[justflows] audit log unavailable — has migration 0008_audit_log run?", err);
     }
   }
 }

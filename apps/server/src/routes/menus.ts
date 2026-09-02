@@ -16,6 +16,7 @@ import { param } from "../lib/params.js";
 import { assertAllowedNavUrl } from "../lib/nav-url.js";
 import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
 import { sendServerError } from "../lib/send-error.js";
+import { auditFromRequest } from "../lib/audit-log.js";
 
 const router = Router();
 
@@ -125,8 +126,9 @@ router.delete("/:slug", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
     }
 
     const siteId = req.session!.siteId;
-    await deleteMenu(siteId, slug);
+    await deleteMenu(siteId, slug, req.session!.userId);
     await revalidateOnUpdate("menus");
+    auditFromRequest(req, "trash.trashed", { target: slug, detail: "type=menu" });
     res.json({ ok: true });
   } catch (err) {
     sendServerError(res, "menus", err);

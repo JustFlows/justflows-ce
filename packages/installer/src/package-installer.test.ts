@@ -36,27 +36,36 @@ describe("PackageInstaller", () => {
     });
 
     expect(result.manifest.id).toBe("test.plugin");
-    expect(result.manifest.settingsSchema?.["defaultDescription"]?.label).toBe("Default meta description");
-    await expect(fs.readFile(path.join(result.installedPath, "justflows.json"), "utf8")).resolves.toContain(
-      "test.plugin",
+    expect(result.manifest.settingsSchema?.["defaultDescription"]?.label).toBe(
+      "Default meta description",
     );
+    await expect(
+      fs.readFile(path.join(result.installedPath, "justflows.json"), "utf8"),
+    ).resolves.toContain("test.plugin");
   });
 });
 
 /** Build a .jfpkg whose manifest declares the given version. */
-async function packageWithVersion(dir: string, version: string, tag: string): Promise<Buffer> {
+async function packageWithVersion(
+  dir: string,
+  version: string,
+  tag: string,
+  engines?: { justflows: string },
+  type: "plugin" | "theme" | "css-provider" = "plugin",
+): Promise<Buffer> {
   const src = path.join(dir, "src");
   await fs.mkdir(src, { recursive: true });
   await fs.writeFile(
     path.join(src, "justflows.json"),
     JSON.stringify({
       schemaVersion: 1,
-      type: "plugin",
-      id: "acme.probe",
+      type,
+      id: type === "plugin" ? "acme.probe" : `acme.${type}`,
       name: "Test",
       version,
       publisher: "Test",
       license: "GPL-2.0-or-later",
+      engines,
     }),
   );
   await fs.writeFile(path.join(src, "payload.js"), "// payload\n");
@@ -77,9 +86,7 @@ describe("PackageInstaller path containment", () => {
     // temp root, so four "../" steps land on <root>/victim — outside packagesDir.
     const buf = await packageWithVersion(root, "1.0.0/../../../../victim", "traversal");
 
-    await expect(
-      new PackageInstaller().installFromBuffer(buf, { packagesDir }),
-    ).rejects.toThrow();
+    await expect(new PackageInstaller().installFromBuffer(buf, { packagesDir })).rejects.toThrow();
 
     // The victim directory and its contents must be untouched.
     await expect(fs.readFile(path.join(victim, "server.js"), "utf8")).resolves.toBe(
@@ -100,12 +107,90 @@ describe("PackageInstaller path containment", () => {
 
     const result = await new PackageInstaller().installFromBuffer(buf, { packagesDir });
 
-    expect(result.installedPath).toBe(
-      path.join(packagesDir, "plugins", "acme.probe", "0.1.3-rc"),
-    );
+    expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "acme.probe", "0.1.3-rc"));
     await expect(
       fs.readFile(path.join(result.installedPath, "justflows.json"), "utf8"),
     ).resolves.toContain("acme.probe");
+  });
+});
+
+describe("PackageInstaller Justflows compatibility", () => {
+  it("accepts a development host for an extension targeting the same stable release line", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-dev-host-"));
+    const buf = await packageWithVersion(
+      root,
+      "1.0.0",
+      "same-release-line",
+      { justflows: ">=0.1.8 <0.2.0" },
+    );
+
+    await expect(
+      new PackageInstaller().installFromBuffer(buf, {
+        packagesDir: path.join(root, "installed"),
+        justflowsVersion: "0.1.8-dev.1",
+      }),
+    ).resolves.toMatchObject({ manifest: { id: "acme.probe" } });
+  });
+
+  it("does not promote a development host into a newer release line", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-newer-line-"));
+    const buf = await packageWithVersion(
+      root,
+      "1.0.0",
+      "newer-release-line",
+      { justflows: ">=0.1.9 <0.2.0" },
+    );
+
+    await expect(
+      new PackageInstaller().installFromBuffer(buf, {
+        packagesDir: path.join(root, "installed"),
+        justflowsVersion: "0.1.8-dev.1",
+      }),
+    ).rejects.toThrow("requires Justflows >=0.1.9 <0.2.0");
+  });
+
+  it("enforces the same compatible range for plugins, themes, and CSS providers", async () => {
+    for (const type of ["plugin", "theme", "css-provider"] as const) {
+      const root = await fs.mkdtemp(path.join(os.tmpdir(), `jfpkg-compatible-${type}-`));
+      const buf = await packageWithVersion(
+        root,
+        "1.0.0",
+        `compatible-${type}`,
+        { justflows: ">=0.1.8-dev.1 <0.2.0" },
+        type,
+      );
+
+      await expect(
+        new PackageInstaller().installFromBuffer(buf, {
+          packagesDir: path.join(root, "installed"),
+          justflowsVersion: "0.1.8-dev.1",
+        }),
+      ).resolves.toMatchObject({
+        manifest: { id: type === "plugin" ? "acme.probe" : `acme.${type}`, type },
+      });
+    }
+  });
+
+  it("rejects every incompatible extension type before it reaches the install directory", async () => {
+    for (const type of ["plugin", "theme", "css-provider"] as const) {
+      const root = await fs.mkdtemp(path.join(os.tmpdir(), `jfpkg-incompatible-${type}-`));
+      const packagesDir = path.join(root, "installed");
+      const buf = await packageWithVersion(
+        root,
+        "1.0.0",
+        `incompatible-${type}`,
+        { justflows: ">=2.0.0" },
+        type,
+      );
+
+      await expect(
+        new PackageInstaller().installFromBuffer(buf, {
+          packagesDir,
+          justflowsVersion: "0.1.8-dev.1",
+        }),
+      ).rejects.toThrow("requires Justflows >=2.0.0");
+      await expect(fs.readdir(path.join(packagesDir, ".staging"))).resolves.toEqual([]);
+    }
   });
 });
 
@@ -162,5 +247,50 @@ describe("PackageInstaller verify hook", () => {
 
     expect(seen[0]).toBe("acme.probe");
     expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "acme.probe", "1.0.0"));
+  });
+});
+
+describe("PackageInstaller revisioned installs", () => {
+  it("installs into a per-digest directory and drops older builds of the same version", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-rev-"));
+    const packagesDir = path.join(root, "packages-installed");
+    const installer = new PackageInstaller();
+
+    const first = await packageWithVersion(root, "1.0.0", "rev-a");
+    const a = await installer.installFromBuffer(first, { packagesDir, revisioned: true });
+
+    const versionDir = path.join(packagesDir, "plugins", "acme.probe", "1.0.0");
+    expect(a.installedPath.startsWith(versionDir + path.sep)).toBe(true);
+    expect(path.basename(a.installedPath)).toHaveLength(16);
+    await expect(fs.readdir(versionDir)).resolves.toEqual([path.basename(a.installedPath)]);
+
+    // A different build (payload changes the digest) lands on a new path and
+    // the previous revision is swept.
+    await fs.writeFile(path.join(root, "src", "payload.js"), "// payload v2\n");
+    const archive2 = path.join(root, "pkg-rev-b.jfpkg");
+    await tar.c({ gzip: true, file: archive2, cwd: path.join(root, "src") }, [
+      "justflows.json",
+      "payload.js",
+    ]);
+    const b = await installer.installFromBuffer(await fs.readFile(archive2), {
+      packagesDir,
+      revisioned: true,
+    });
+
+    expect(b.installedPath).not.toBe(a.installedPath);
+    await expect(fs.readdir(versionDir)).resolves.toEqual([path.basename(b.installedPath)]);
+    await expect(fs.readFile(path.join(b.installedPath, "payload.js"), "utf8")).resolves.toContain(
+      "v2",
+    );
+  });
+
+  it("leaves the flat <version> layout untouched when not revisioned", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-flat-"));
+    const packagesDir = path.join(root, "packages-installed");
+    const buf = await packageWithVersion(root, "2.0.0", "flat");
+
+    const result = await new PackageInstaller().installFromBuffer(buf, { packagesDir });
+
+    expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "acme.probe", "2.0.0"));
   });
 });

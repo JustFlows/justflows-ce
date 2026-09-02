@@ -2,7 +2,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { listThemePatterns, loadThemeDemoHome, resolveThemeDir } from "../theme-files.js";
+import {
+  listThemePatterns,
+  listThemeTemplateSlugs,
+  loadThemeDemoHome,
+  loadThemeTemplate,
+  loadThemeTemplatePart,
+  resolveThemeDir,
+  resolveThemeTemplate,
+} from "../theme-files.js";
+import { templateCandidates } from "../template-hierarchy.js";
 
 let root: string;
 let previousRoot: string | undefined;
@@ -65,9 +74,7 @@ describe("resolveThemeDir", () => {
 
 describe("loadThemeDemoHome", () => {
   it("loads demo blocks for a trusted theme", () => {
-    expect(loadThemeDemoHome("justflows.default")).toEqual([
-      { type: "core/paragraph", data: {} },
-    ]);
+    expect(loadThemeDemoHome("justflows.default")).toEqual([{ type: "core/paragraph", data: {} }]);
   });
 
   it("does not read files for a traversing theme id", () => {
@@ -98,5 +105,78 @@ describe("listThemePatterns", () => {
       "justflows.forms.form",
     ]);
     expect(patterns.find((p) => p.id === "about")?.requiresBlockTypes).toBeUndefined();
+  });
+});
+
+describe("template hierarchy files", () => {
+  function writeTemplate(slug: string, blocks: unknown[]): void {
+    const dir = path.join(root, "themes", "default", "templates");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, `${slug}.json`), JSON.stringify({ blocks }));
+  }
+
+  it("loads a templates/<slug>.json block document", () => {
+    writeTemplate("single", [{ type: "core.post-content", props: {} }]);
+    expect(loadThemeTemplate("justflows.default", "single")).toEqual([
+      { type: "core.post-content", props: {} },
+    ]);
+  });
+
+  it("rejects an unsafe slug without touching the filesystem", () => {
+    expect(loadThemeTemplate("justflows.default", "../../etc/passwd")).toBeNull();
+    expect(loadThemeTemplate("../../.env", "single")).toBeNull();
+  });
+
+  it("falls back to demo/home.json for the front-page slot", () => {
+    // beforeEach wrote demo/home.json; no templates/front-page.json exists.
+    expect(loadThemeTemplate("justflows.default", "front-page")).toEqual([
+      { type: "core/paragraph", data: {} },
+    ]);
+  });
+
+  it("resolveThemeTemplate walks candidates and reports the slug that matched", () => {
+    writeTemplate("single-post", [{ type: "core.heading", props: { text: "Post" } }]);
+    const candidates = templateCandidates({
+      kind: "singular",
+      contentType: "post",
+      slug: "hello-world",
+    });
+    expect(resolveThemeTemplate("justflows.default", candidates)).toEqual({
+      slug: "single-post",
+      blocks: [{ type: "core.heading", props: { text: "Post" } }],
+    });
+  });
+
+  it("resolveThemeTemplate returns null when the theme ships no matching file", () => {
+    const candidates = templateCandidates({ kind: "notFound" });
+    expect(resolveThemeTemplate("justflows.default", candidates)).toBeNull();
+  });
+
+  it("listThemeTemplateSlugs enumerates only valid template files", () => {
+    writeTemplate("single", []);
+    writeTemplate("404", []);
+    fs.writeFileSync(path.join(root, "themes", "default", "templates", "notes.txt"), "ignore me");
+    expect(listThemeTemplateSlugs("justflows.default")).toEqual(["404", "single"]);
+  });
+
+  it("loadThemeTemplatePart reads parts/<slug>.json and falls back to demo/footer.json", () => {
+    const partsDir = path.join(root, "themes", "default", "parts");
+    fs.mkdirSync(partsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(partsDir, "header.json"),
+      JSON.stringify({ blocks: [{ type: "core.html", props: { html: "<nav></nav>" } }] }),
+    );
+    expect(loadThemeTemplatePart("justflows.default", "header")).toEqual([
+      { type: "core.html", props: { html: "<nav></nav>" } },
+    ]);
+
+    const demoDir = path.join(root, "themes", "default", "demo");
+    fs.writeFileSync(
+      path.join(demoDir, "footer.json"),
+      JSON.stringify({ blocks: [{ type: "core.paragraph", props: { text: "© 2026" } }] }),
+    );
+    expect(loadThemeTemplatePart("justflows.default", "footer")).toEqual([
+      { type: "core.paragraph", props: { text: "© 2026" } },
+    ]);
   });
 });

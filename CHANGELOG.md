@@ -5,6 +5,233 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.8]
+
+### Changed
+
+- Database migrations no longer ship a separate `.mariadb.sql` file. The runner
+  resolves MariaDB to `NNNN_name.mariadb.sql`, then the MySQL file, then the bare
+  `.sql` (`migrationFileCandidates` in `run-migrations.ts`) — the DDL for the two
+  has been byte-for-byte identical in every tracked migration. The redundant
+  `0013`–`0016` `.mariadb.sql` files are removed (MariaDB now reads the identical
+  `.mysql.sql`); `0012_baseline` keeps its three-file set. Existing installs are
+  unaffected: those migrations are already recorded in `_migrations` and never
+  re-read, and a fresh MariaDB install applies the same statements as before. A
+  future migration adds a MariaDB-specific file only if the DDL must diverge.
+
+- Per-theme customization documents (Customizer mods, homepage design, blog
+  design, plus their draft copies) move out of `site_settings` into a dedicated
+  `theme_designs` table — one row per (site, theme, kind) with a `doc` /
+  `draft_doc` pair, the same shape as `template_parts`. `site_settings` is for
+  site-level preferences, not theme/plugin configuration (plugins already use
+  `plugin_data`). Migration `0015_theme_designs` adds the table; a one-time
+  application backfill on boot (`theme-designs-migrate.ts`) copies the legacy
+  `theme_mods.* / theme_home.* / theme_blog.*` (and `*_draft.*`) rows over and
+  deletes them, draft-only customizations included. No API or UI change.
+
+### Added
+
+- Themes gain a WordPress-style **template hierarchy**. A theme ships one JSON
+  block document per slot under `templates/` (`index`, `front-page`, `single`,
+  `single-<type>`, `page`, `page-<slug>`, `singular`, `archive`, `404`, …) and
+  shared chrome under `parts/`; the renderer resolves a request to an ordered
+  candidate list (`template-hierarchy.ts`) and uses the first that exists, so a
+  theme now owns page structure without touching the core EJS. New context
+  blocks — `core.post-title`, `core.post-content`, `core.post-meta`,
+  `core.post-excerpt`, `core.featured-image`, `core.template-part` — render the
+  current request's content inside a template. Theme builder → **Templates**
+  edits any template visually; edits are stored per-site in the new
+  `theme_templates` table (migration `0023_templates`, draft/publish/reset like
+  `template_parts`) and a per-slug override still yields to a more specific theme
+  file. The bundled Default theme ships `index` / `front-page` / `single` /
+  `page`. `demo/home.json`, `demo/blog.json`, and `demo/footer.json` stay as
+  back-compat fallbacks for the `front-page` / `home` / `footer` slots. New CLI:
+  `justflows theme templates` and `justflows theme scaffold <slug>`; new SDK
+  exports: `TEMPLATE_SLOTS`, `TemplateDocSchema`, `ThemeTemplatesManifestSchema`.
+
+- Admin → Emails adds a versioned system-email design and template editor with
+  global branding, typed variables, locale variants, draft/publish workflow,
+  desktop/mobile/plain-text previews, sanitized test sending, safe built-in
+  render fallbacks, and core account, password, two-factor, security, and
+  administrative templates. Published template/version identity follows each
+  delivery into the existing privacy-masked mail diagnostics, while security
+  templates remain mandatory. Access is gated by a dedicated
+  `email-templates:read` / `email-templates:manage` capability pair, separate
+  from `mail:read` / `mail:manage`, so administrators can grant template editing
+  per user or per custom role without exposing the mail delivery log.
+  ([#63](https://github.com/JustFlows/justflows-ce/issues/63))
+
+- Admin → Content → Trash adds recoverable, site-scoped deletion for every
+  built-in and custom content type, media, comments, and menus. Restore keeps
+  revisions and relationships intact and reports slug collisions explicitly;
+  configurable per-site retention drives a daily purge job, while manual purge
+  and empty-trash actions are administrator-only. Referenced media requires a
+  confirmation before permanent deletion, and trash, restore, and purge actions
+  are audited. ([#108](https://github.com/JustFlows/justflows-ce/issues/108))
+
+- Admin → Settings → Outgoing mail adds separate From, Reply-To, and envelope
+  sender identities, provider transport registration, full test-transport
+  responses, privacy-masked delivery/dead-letter logs, manual retry,
+  per-type suppression, delivery limits, and SPF/DKIM/DMARC guidance. Transport
+  secrets and retry payloads remain encrypted at rest; `mail:read` and
+  `mail:manage` capabilities control operational access. ([#104](https://github.com/JustFlows/justflows-ce/issues/104))
+
+- Admin → Users now supports site-local custom roles with a capability editor,
+  safe built-in defaults, assignment guards, audit events, SDK hooks, and
+  capability-first enforcement across the user and content APIs.
+  ([#22](https://github.com/JustFlows/justflows-ce/issues/22))
+
+- Per-user capability grants and explicit denies can be layered on a role,
+  with server-enforced content-type, locale, site, and ownership scopes plus a
+  human-readable effective-access preview. Policy changes revoke existing
+  cookies and cannot be applied to the acting administrator's own account.
+  ([#53](https://github.com/JustFlows/justflows-ce/issues/53))
+
+- Account Security lists database-backed device sessions, marks the current
+  device, revokes one session or all other sessions, and makes ordinary logout
+  end only the current device. This ships the session-control slice of the
+  larger identity roadmap; OIDC/OAuth, SAML, and administrator MFA policy still
+  remain before that roadmap item is complete.
+  ([#54](https://github.com/JustFlows/justflows-ce/issues/54))
+
+- **SDK:** access-policy contracts (`AccessPolicy`, `AccessScope`, effective
+  capability/scope helpers), access-change hooks, resolved capability and
+  scope fields on authenticated plugin HTTP sessions, and a runtime capability
+  registry (`ctx.capabilities.register()`). Commerce and other extension-owned
+  capabilities are no longer hard-coded in core; only active plugins contribute
+  their domains to the role editor and authorization policy.
+  ([#53](https://github.com/JustFlows/justflows-ce/issues/53))
+
+- First-party **Cookie Consent** plugin (`plugins/consent`): a categorized
+  consent banner and preference center (necessary, preferences, analytics,
+  marketing) with accept-all / reject-all parity, granular toggles, a keyboard-
+  and screen-reader-accessible modal that respects `prefers-reduced-motion`, and
+  a re-open trigger. Every visitor-facing string is stored per site language and
+  the runtime picks the visitor's locale from `<html lang>`; translating the
+  banner does not invalidate stored consent. Admin → Extensions → Cookie Consent
+  also carries a full **design panel** — layout (bar / floating box / blocking
+  modal), placement (top, bottom, any corner), theme-inherited or explicit
+  colours (validated, applied as CSS custom properties), and panel/button radius
+  and width — with a live preview. It exposes a first-party
+  `window.justflowsConsent` API that the custom-code injector, Analytics, and
+  other plugins can query before loading anything non-essential; gates tagged
+  `<script type="text/plain" data-jf-consent="…">` snippets and off-site oEmbeds
+  behind their category with a per-embed unlock; and stores versioned consent
+  records (policy hash, timestamp, choices, locale, coarse device) that are
+  exportable as CSV and erasable per record — or turns record logging off
+  entirely so no `plugin_data` rows are written and no beacon is sent. Best-effort EU-only display uses the
+  visitor's timezone — no IP lookup, no third-party dependency, all logic and
+  storage first-party. A new synchronous `analytics.head` filter lets the plugin
+  defer the Analytics plugin's Google Tag until analytics consent is granted,
+  without blocking first paint.
+  ([#113](https://github.com/JustFlows/justflows-ce/issues/113))
+
+- **SDK:** a site cookie registry. Extensions declare every non-essential cookie
+  they set through `ctx.cookies.declare({ name, category, purpose, … })` — one
+  of `necessary` / `preferences` / `analytics` / `marketing` — and read the full
+  resolved registry (host cookies plus every active plugin's) with
+  `ctx.cookies.list()`. Operators re-classify any cookie by name in
+  Admin → Extensions → Cookie Consent, stored site-wide
+  (`GET`/`PUT /api/cookies`). The Cookie Consent plugin uses it to disclose
+  cookies per category in the preference center and to expire a category's
+  cookies the moment it is withdrawn; `window.justflowsConsent.allowed(name)`
+  resolves a single cookie against it.
+  ([#113](https://github.com/JustFlows/justflows-ce/issues/113))
+
+- Admin → System → Diagnostics adds administrator-only runtime, database,
+  migration, cache, plugin and typed-hook inspection; correlation IDs on every
+  HTTP response; bounded sanitized error retention; a persistent production
+  debug-mode warning; and explicitly confirmed, size-limited support bundles
+  containing exactly the redacted information previewed in the dashboard.
+  ([#57](https://github.com/JustFlows/justflows-ce/issues/57))
+
+- **SDK:** Published compatibility and deprecation policy for plugins, themes,
+  and CSS providers; their shared `engines.justflows` manifest range is enforced
+  by the installer before a package leaves staging; plugins additionally receive
+  explicit Justflows, SDK package, and SDK API versions through `ctx.runtime`;
+  and CI snapshots the public SDK export surface so an export cannot disappear
+  without review and the required deprecation cycle. Existing top-level
+  `justflows` package ranges remain supported as a deprecated compatibility
+  alias.
+  ([#20](https://github.com/JustFlows/justflows-ce/issues/20))
+
+- Self-service password reset. A "Forgot password?" link on the sign-in and
+  registration screens emails a single-use, time-limited link
+  (`JF_PASSWORD_RESET_TTL_MINUTES`, default 60) that lets an administrator or a
+  user set a new password without shell access or a database edit. Tokens are
+  stored only as SHA-256 hashes, bound to one account, and invalidated on use,
+  on any password change, and on expiry; the request response is identical
+  whether or not the address exists, and both the request and the redemption are
+  rate limited per address and per IP. A completed reset revokes every session
+  but establishes none, so a second factor (`#54`) still applies at the next
+  sign-in. Administrators can disable the flow or restrict it to chosen roles
+  under Admin → Settings, and every request, completion and failure is written
+  to the audit log. When outgoing mail is not configured, the
+  `justflows user reset-password --email you@example.com` CLI command is the
+  documented fallback; with `NODE_ENV=development` the reset link is also printed
+  to the server console. New `password_resets` table (migration
+  `0017_password_resets`).
+  ([#93](https://github.com/JustFlows/justflows-ce/issues/93))
+
+- Admin Home shows a dismissible "Welcome to JustFlows" discovery panel to
+  administrators: curated cards linking to the documentation, Marketplace and
+  roadmap on `justflows.com`, the JustFlows Discord, and the in-app Updates page.
+  The cards are static and bundled — no remote feed, no injected markup or
+  scripts, no tracking — so Admin Home renders and works identically with no
+  network. Each administrator can minimize or
+  dismiss the panel and bring it back; the choice is stored per user (new
+  `user_preferences` table, migration `0016_user_preferences`, and
+  `GET` / `PUT /api/preferences`) and mirrored to `localStorage` for an instant,
+  offline-safe first paint. ([#52](https://github.com/JustFlows/justflows-ce/issues/52))
+
+- Admin → Security → Admin URL can move the administration entry path away
+  from `/admin`, with reserved-path validation, a reachability check and
+  automatic rollback, configurable 404/redirect behavior for the old path,
+  and a `JF_ADMIN_PATH_RECOVERY` environment override for proxy/cache recovery.
+  Sign-in and registration now follow the configured path: `POST /api/auth/login`
+  and `/register` return a `redirectTo`, so the pre-session `/login` page no
+  longer sends an authenticated non-subscriber to a stale `/admin` (which, with
+  the default "not found" behavior for the old path, was a 404).
+  ([#51](https://github.com/JustFlows/justflows-ce/issues/51))
+
+- Each form built under Extensions → Forms has its own "Require a CAPTCHA on this
+  form" switch in the builder. When on, the form reuses the provider and keys
+  already configured under Settings → Discussion (Turnstile, hCaptcha, reCAPTCHA
+  v2, or reCAPTCHA v3) — no second key to enter. The widget renders in that form,
+  `/justflows-forms/submit` verifies the token server-side (reCAPTCHA v3 checks a
+  form-specific action and the score threshold) before storing or emailing the
+  submission, and the honeypot still runs first. The provider/verify/widget code
+  is now shared between comments and forms (`apps/server/src/lib/captcha.ts`);
+  the public CSP already widens whenever a provider is selected, so it covers
+  both.
+
+- The `core.color-scheme` block gains design variants beyond buttons and icons:
+  a two/three-button segmented control, a single sun/moon toggle, a switch
+  control, a compact dropdown, plain text labels, and icon buttons with
+  tooltips — selectable per block in the page builder with a live preview and an
+  "Animate the icon change" option that honours `prefers-reduced-motion`. Every
+  variant reuses the existing preference engine in `/js/site-chrome.js`
+  (pre-paint apply, explicit choice persisted, live OS tracking while on
+  System/Auto, CSP-safe) rather than duplicating theme-state logic. The single
+  toggle carries `data-jf-theme="toggle"` and the dropdown a
+  `data-jf-color-scheme-select` `<select>`; both are driven by the same
+  delegated listeners. Focus is now always visible on the controls.
+  ([#60](https://github.com/JustFlows/justflows-ce/issues/60))
+
+- `core.color-scheme` is also customizable per block: `size` (`sm`/`md`/`lg`),
+  `radius` (`pill`/`rounded`/`square`), and overridable icons and labels
+  (`lightIcon` / `darkIcon` / `autoIcon`, `lightLabel` / `darkLabel` /
+  `autoLabel` — blank keeps the defaults, author values are HTML-escaped). The
+  default theme now styles the widget entirely through `--jf-color-scheme-*`
+  custom properties (resting / hover / active / focus colors, border, radius,
+  spacing, font size) with theme-token fallbacks, so a theme or the Theme
+  Customizer can restyle it without overriding rules. `--jf-color-scheme-hover-bg`
+  / `-hover-fg` default to the resting colours (hover shows only the border
+  highlight) until set. The builder surfaces the five colour hooks in the
+  block's Theme-styling → All theme variables list, so an author can recolour
+  the selected/hover state of one instance without writing CSS.
+  ([#60](https://github.com/JustFlows/justflows-ce/issues/60))
+
 ## [0.1.7]
 
 ### Added

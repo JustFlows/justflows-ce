@@ -1,3 +1,5 @@
+import { uid } from "./uid";
+
 /** @deprecated headers now live in the site header library; kept for one release. */
 export const PAGE_HEADER_FIELD = "jfHeader";
 export const HEADER_SELECTED_ID = "__header__";
@@ -101,7 +103,7 @@ function parseHeaderBlock(raw: unknown): HeaderBlockNode | null {
     ? n.children.map(parseHeaderBlock).filter((child): child is HeaderBlockNode => child !== null)
     : undefined;
   return {
-    id: typeof n.id === "string" && n.id ? n.id : crypto.randomUUID(),
+    id: typeof n.id === "string" && n.id ? n.id : uid(),
     type: n.type,
     version: typeof n.version === "number" ? n.version : 1,
     props: n.props && typeof n.props === "object" && !Array.isArray(n.props)

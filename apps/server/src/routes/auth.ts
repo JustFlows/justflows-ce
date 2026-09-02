@@ -13,6 +13,15 @@ import { auditContext, auditFromRequest, auditLog } from "../lib/audit-log.js";
 import { requireSession } from "../middleware/auth.js";
 import { PasswordSchema } from "../lib/password-policy.js";
 import { revokeUserSessions } from "../lib/auth-session.js";
+import { createDeviceSession, listDeviceSessions, revokeDeviceSession, revokeOtherDeviceSessions } from "../lib/device-sessions.js";
+import { getAdminPathConfig } from "../lib/admin-path.js";
+import { param } from "../lib/params.js";
+import {
+  completePasswordReset,
+  processForgotPassword,
+  resolveResetToken,
+} from "../lib/password-reset.js";
+import { clearUserResets, hashResetToken } from "../lib/password-reset-db.js";
 
 const router = Router();
 const loginRequestLimit = rateLimit({
@@ -31,7 +40,10 @@ function accountSecurityRateLimit() {
     legacyHeaders: false,
   });
 }
+const registerRequestLimit = accountSecurityRateLimit();
 const passwordRequestLimit = accountSecurityRateLimit();
+const passwordForgotRequestLimit = accountSecurityRateLimit();
+const passwordResetRequestLimit = accountSecurityRateLimit();
 const totpSetupRequestLimit = accountSecurityRateLimit();
 const totpEnableRequestLimit = accountSecurityRateLimit();
 const totpDisableRequestLimit = accountSecurityRateLimit();
@@ -55,10 +67,30 @@ router.get("/csrf", (req, res) => {
  * capability. It is a UX convenience, not a security boundary: every route it
  * informs is still enforced independently by `requireRole` on the server.
  */
-router.get("/me", requireSession, (req, res) => {
+router.get("/me", requireSession, async (req, res) => {
   const session = req.session!;
-  res.json({ id: session.userId, email: session.email, role: session.role });
+  const { getEffectiveAccess } = await import("../lib/access-policy.js");
+  const access = await getEffectiveAccess(session.userId, session.siteId, session.role);
+  res.json({ id: session.userId, email: session.email, role: session.role, roleId: access.roleId, capabilities: access.capabilities });
 });
+
+/**
+ * Where the browser should go once authenticated.
+ *
+ * A subscriber has nothing in the admin app and belongs on the site itself.
+ * Everyone else lands on the admin app — at whatever path the administrator
+ * moved it to (issue #51). The pre-session `/login` and `/register` pages have
+ * no way to know that path on their own, and it should not be handed to anyone
+ * who has not signed in, so it is resolved here and returned in the response.
+ */
+async function postAuthRedirect(role: string, userId?: string, siteId?: string): Promise<string> {
+  if (role === "subscriber" && userId && siteId) {
+    const { getEffectiveAccess } = await import("../lib/access-policy.js");
+    const access = await getEffectiveAccess(userId, siteId, role);
+    if (!access.capabilities.some((capability) => capability !== "content:read")) return "/";
+  } else if (role === "subscriber") return "/";
+  return (await getAdminPathConfig()).path;
+}
 
 const LoginSchema = z.object({
   email: z.string().email(),
@@ -193,7 +225,14 @@ router.post("/login", loginRequestLimit, async (req, res) => {
       }
     }
 
+    const sid = await createDeviceSession({
+      userId: user.id,
+      siteId: user.site_id,
+      userAgent: req.get("user-agent"),
+      ip: clientIp(req),
+    });
     setSessionCookie(res, {
+      sid,
       userId: user.id,
       siteId: user.site_id,
       role: user.role,
@@ -210,7 +249,9 @@ router.post("/login", loginRequestLimit, async (req, res) => {
     });
     // The client needs this to decide where to send the browser next — only
     // certain roles get the admin app; a subscriber belongs on the site itself.
-    res.json({ ok: true, role: user.role });
+    // `redirectTo` carries the configured admin path so the client does not have
+    // to guess it from a page that was served before the session existed.
+    res.json({ ok: true, role: user.role, redirectTo: await postAuthRedirect(user.role, user.id, user.site_id) });
   } catch (err) {
     console.error("Login error", err);
     res.status(500).json({ error: "Server error" });
@@ -218,11 +259,12 @@ router.post("/login", loginRequestLimit, async (req, res) => {
 });
 
 router.post("/logout", async (req, res) => {
-  // Clearing the cookie alone left a captured token valid for its full 14-day
-  // life. Bumping the counter ends every session this user has.
+  // Revoke this device only. Account-wide revocation remains available after
+  // password changes and through the explicit sessions control.
   const session = getSession(req);
   if (session) {
-    await revokeUserSessions(session.userId, session.siteId);
+    if (session.sid) await revokeDeviceSession(session.sid, session.userId, session.siteId);
+    else await revokeUserSessions(session.userId, session.siteId);
     void auditLog({
       siteId: session.siteId,
       action: "auth.logout",
@@ -270,7 +312,7 @@ router.get("/registration", async (_req, res) => {
   }
 });
 
-router.post("/register", async (req, res) => {
+router.post("/register", registerRequestLimit, async (req, res) => {
   if (!isInstalled()) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -339,7 +381,14 @@ router.post("/register", async (req, res) => {
       // hooks are optional during early boot
     }
 
+    const sid = await createDeviceSession({
+      userId: id,
+      siteId,
+      userAgent: req.get("user-agent"),
+      ip: clientIp(req),
+    });
     setSessionCookie(res, {
+      sid,
       userId: id,
       siteId,
       role: general.defaultRole,
@@ -356,15 +405,19 @@ router.post("/register", async (req, res) => {
           `A new user registered:\n\nName: ${displayName}\nUsername: ${username}\nEmail: ${email}\nRole: ${general.defaultRole}`,
           email,
         );
-        await mail.sendMail({
+        await mail.sendTemplateMail({
           to: email,
-          subject: "Your account has been created",
-          text: `Hi ${displayName},\n\nYour account is ready. Sign in at ${loginUrl}\n\nUsername: ${username}`,
+          key: "core.account-created",
+          values: { display_name: displayName, action_url: loginUrl, username },
         });
       })
       .catch((err) => console.error("Registration mail failed:", err));
 
-    res.status(201).json({ ok: true, role: general.defaultRole });
+    res.status(201).json({
+      ok: true,
+      role: general.defaultRole,
+      redirectTo: await postAuthRedirect(general.defaultRole, id, siteId),
+    });
   } catch (err) {
     console.error("Register error", err);
     res.status(500).json({ error: "Server error" });
@@ -427,6 +480,9 @@ router.post("/password", passwordRequestLimit, requireSession, async (req, res) 
     // someone does after a compromise. Re-issue this caller's cookie at the new
     // counter so the tab they are sitting in keeps working.
     await revokeUserSessions(session.userId, session.siteId);
+    // A pending "forgot password" link must not outlive the password it would
+    // have changed.
+    await clearUserResets(session.userId, session.siteId);
     const bumped = await db
       .query<{ token_version: number | null }>(
         "SELECT token_version FROM users WHERE id = ? AND site_id = ? LIMIT 1",
@@ -435,6 +491,7 @@ router.post("/password", passwordRequestLimit, requireSession, async (req, res) 
       .catch(() => []);
 
     setSessionCookie(res, {
+      sid: session.sid,
       userId: session.userId,
       siteId: session.siteId,
       role: session.role,
@@ -446,13 +503,10 @@ router.post("/password", passwordRequestLimit, requireSession, async (req, res) 
 
     void import("../lib/mail.js")
       .then((mail) =>
-        mail.sendMail({
+        mail.sendTemplateMail({
           to: session.email,
-          subject: "Your password was changed",
-          text:
-            "The password on your Justflows account was just changed.\n\n" +
-            "If this was not you, contact the site administrator immediately — " +
-            "all other sessions have been signed out.",
+          key: "core.password-changed",
+          values: { display_name: session.email },
         }),
       )
       .catch((err) => console.error("Password-change notice failed:", err));
@@ -460,6 +514,152 @@ router.post("/password", passwordRequestLimit, requireSession, async (req, res) 
     res.json({ ok: true });
   } catch (err) {
     console.error("Password change error", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ── Self-service password recovery (#93) ─────────────────────────────────────
+
+/**
+ * Whether the login and registration screens should offer a "Forgot password?"
+ * entry point. Mirrors GET /registration: a single boolean, nothing an
+ * unauthenticated caller could not infer by trying the form anyway.
+ */
+router.get("/password/forgot", async (_req, res) => {
+  if (!isInstalled()) {
+    res.json({ enabled: false });
+    return;
+  }
+  try {
+    const general = await getGeneralSettings();
+    res.json({ enabled: general.passwordResetEnabled });
+  } catch {
+    res.json({ enabled: false });
+  }
+});
+
+const ForgotPasswordSchema = z.object({ email: z.string().email() });
+
+/**
+ * Ask for a reset link.
+ *
+ * The response is identical whether or not the address is known, whether or not
+ * self-service reset is enabled for it, and whether or not the mail was sent —
+ * so it cannot be used to enumerate accounts. The work is handed off and not
+ * awaited, which keeps the response time flat across all of those cases. Only a
+ * rate-limit rejection looks different, and that is keyed on the submitted
+ * address regardless of whether it exists.
+ */
+router.post("/password/forgot", passwordForgotRequestLimit, async (req, res) => {
+  const ip = clientIp(req);
+  const sameAnswer = () => res.json({ ok: true });
+
+  if (!consumeRateLimit(`pwreset:forgot:ip:${ip}`, 5, 15 * 60 * 1000)) {
+    res.setHeader("Retry-After", String(rateLimitRetryAfter(`pwreset:forgot:ip:${ip}`)));
+    res.status(429).json({ error: "Too many requests. Try again later." });
+    return;
+  }
+
+  const body = ForgotPasswordSchema.safeParse(req.body);
+  if (!body.success) {
+    // A malformed address cannot belong to anyone, so this leaks nothing.
+    res.status(400).json({ error: "Enter a valid email address" });
+    return;
+  }
+
+  const email = body.data.email.toLowerCase().trim();
+  if (!consumeRateLimit(`pwreset:forgot:email:${email}`, 3, 15 * 60 * 1000)) {
+    res.setHeader("Retry-After", String(rateLimitRetryAfter(`pwreset:forgot:email:${email}`)));
+    res.status(429).json({ error: "Too many requests. Try again later." });
+    return;
+  }
+
+  void processForgotPassword(email, {
+    ip,
+    userAgent: (req.get("user-agent") ?? "").slice(0, 255) || null,
+  }).catch((err) => console.error("Forgot-password dispatch failed:", err));
+
+  sameAnswer();
+});
+
+const VerifyResetSchema = z.object({ token: z.string().min(16).max(512) });
+
+/**
+ * Whether a reset token is still good, for the reset page to show the form or an
+ * "expired link" message. The token is a high-entropy secret the caller already
+ * holds, so answering does not disclose anything they do not have.
+ */
+router.post("/password/reset/verify", passwordResetRequestLimit, async (req, res) => {
+  const ip = clientIp(req);
+  if (!consumeRateLimit(`pwreset:verify:ip:${ip}`, 30, 15 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many requests. Try again later." });
+    return;
+  }
+  const body = VerifyResetSchema.safeParse(req.body);
+  if (!body.success) {
+    res.json({ valid: false });
+    return;
+  }
+  try {
+    const reset = await resolveResetToken(body.data.token);
+    res.json({ valid: reset !== null });
+  } catch (err) {
+    console.error("Reset verify error", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+const ResetPasswordSchema = z.object({
+  token: z.string().min(16).max(512),
+  newPassword: PasswordSchema,
+});
+
+/**
+ * Redeem a reset link.
+ *
+ * Rate limited per IP and per token. A valid token sets the new password,
+ * revokes every session for the account, and invalidates the token and its
+ * siblings — but never signs the caller in, so TOTP, lockout and the rest still
+ * apply when they next sign in.
+ */
+router.post("/password/reset", passwordResetRequestLimit, async (req, res) => {
+  const ip = clientIp(req);
+  if (!consumeRateLimit(`pwreset:reset:ip:${ip}`, 10, 15 * 60 * 1000)) {
+    res.setHeader("Retry-After", String(rateLimitRetryAfter(`pwreset:reset:ip:${ip}`)));
+    res.status(429).json({ error: "Too many attempts. Try again later." });
+    return;
+  }
+
+  const body = ResetPasswordSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid request" });
+    return;
+  }
+
+  const tokenKey = hashResetToken(body.data.token).slice(0, 32);
+  if (!consumeRateLimit(`pwreset:reset:token:${tokenKey}`, 5, 15 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many attempts. Try again later." });
+    return;
+  }
+
+  try {
+    const reset = await resolveResetToken(body.data.token);
+    if (!reset) {
+      await new Promise((r) => setTimeout(r, 200 + Math.random() * 150));
+      res
+        .status(400)
+        .json({ error: "This reset link is invalid or has expired. Request a new one." });
+      return;
+    }
+
+    await completePasswordReset(reset, body.data.newPassword, {
+      ip,
+      userAgent: (req.get("user-agent") ?? "").slice(0, 255) || null,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Password reset error", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -560,12 +760,10 @@ router.post("/2fa/enable", totpEnableRequestLimit, requireSession, async (req, r
 
     void import("../lib/mail.js")
       .then((mail) =>
-        mail.sendMail({
+        mail.sendTemplateMail({
           to: session.email,
-          subject: "Two-factor authentication is on",
-          text:
-            "Two-factor authentication was turned on for your Justflows account.\n\n" +
-            "If this was not you, contact the site administrator immediately.",
+          key: "core.two-factor-enabled",
+          values: { display_name: session.email },
         }),
       )
       .catch((err) => console.error("2FA notice failed:", err));
@@ -634,12 +832,10 @@ router.post("/2fa/disable", totpDisableRequestLimit, requireSession, async (req,
 
     void import("../lib/mail.js")
       .then((mail) =>
-        mail.sendMail({
+        mail.sendTemplateMail({
           to: session.email,
-          subject: "Two-factor authentication is off",
-          text:
-            "Two-factor authentication was turned off for your Justflows account.\n\n" +
-            "If this was not you, change your password and contact the site administrator.",
+          key: "core.two-factor-disabled",
+          values: { display_name: session.email },
         }),
       )
       .catch((err) => console.error("2FA notice failed:", err));
@@ -649,6 +845,37 @@ router.post("/2fa/disable", totpDisableRequestLimit, requireSession, async (req,
     console.error("2FA disable error", err);
     res.status(500).json({ error: "Server error" });
   }
+});
+
+router.get("/sessions", requireSession, async (req, res) => {
+  const session = req.session!;
+  try {
+    res.json({ sessions: await listDeviceSessions(session.userId, session.siteId, session.sid) });
+  } catch (err) {
+    console.error("Session list error", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.delete("/sessions/:id", requireSession, async (req, res) => {
+  const session = req.session!;
+  const id = param(req.params.id);
+  if (id === session.sid) {
+    res.status(400).json({ error: "Use sign out to end the current session" });
+    return;
+  }
+  const revoked = await revokeDeviceSession(id, session.userId, session.siteId);
+  if (!revoked) { res.status(404).json({ error: "Session not found" }); return; }
+  auditFromRequest(req, "auth.session_revoked", { target: id });
+  res.json({ ok: true });
+});
+
+router.post("/sessions/revoke-others", requireSession, async (req, res) => {
+  const session = req.session!;
+  if (!session.sid) { res.status(409).json({ error: "Sign in again to manage device sessions" }); return; }
+  const revoked = await revokeOtherDeviceSessions(session.sid, session.userId, session.siteId);
+  auditFromRequest(req, "auth.other_sessions_revoked", { detail: `count=${revoked}` });
+  res.json({ ok: true, revoked });
 });
 
 export default router;

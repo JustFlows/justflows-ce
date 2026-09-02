@@ -56,6 +56,8 @@ export default function AccountSecurityPage() {
 
       <PasswordSection />
 
+      <SessionsSection />
+
       {loadError ? (
         <Section title="Two-factor authentication">
           <p className="jf-status jf-status--error">Could not load status: {loadError}</p>
@@ -64,6 +66,61 @@ export default function AccountSecurityPage() {
         <TwoFactorSection status={status} onChange={refresh} />
       )}
     </div>
+  );
+}
+
+type DeviceSession = {
+  id: string;
+  user_agent: string | null;
+  ip: string | null;
+  last_seen_at: string;
+  created_at: string;
+  current: boolean;
+};
+
+function SessionsSection() {
+  const [sessions, setSessions] = useState<DeviceSession[]>([]);
+  const [notice, setNotice] = useState<Notice>(null);
+  const refresh = useCallback(async () => {
+    const res = await fetch("/api/auth/sessions");
+    const data = await res.json() as { sessions?: DeviceSession[]; error?: string };
+    if (!res.ok) { setNotice({ kind: "error", text: data.error ?? "Could not load sessions." }); return; }
+    setSessions(data.sessions ?? []);
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  async function revoke(id: string) {
+    const res = await fetch(`/api/auth/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
+    const data = await res.json() as { error?: string };
+    if (!res.ok) { setNotice({ kind: "error", text: data.error ?? "Could not revoke session." }); return; }
+    setNotice({ kind: "ok", text: "Session revoked." });
+    await refresh();
+  }
+
+  async function revokeOthers() {
+    const { ok, data } = await postJson("/api/auth/sessions/revoke-others", {});
+    if (!ok) { setNotice({ kind: "error", text: data.error ?? "Could not revoke sessions." }); return; }
+    setNotice({ kind: "ok", text: `${data.revoked} other session${data.revoked === 1 ? "" : "s"} revoked.` });
+    await refresh();
+  }
+
+  return (
+    <Section title="Active sessions">
+      <p className="jf-field__hint">Devices currently signed in to your account.</p>
+      {notice ? <p className={`jf-status jf-status--${notice.kind === "ok" ? "saved" : "error"}`}>{notice.text}</p> : null}
+      <div className="jf-stack">
+        {sessions.map((session) => (
+          <div className="jf-row" key={session.id}>
+            <div style={{ flex: 1 }}>
+              <strong>{session.current ? "This device" : session.user_agent || "Unknown device"}</strong>
+              <div className="jf-field__hint">{session.ip || "Unknown IP"} · last active {new Date(session.last_seen_at).toLocaleString()}</div>
+            </div>
+            {!session.current ? <button className="jf-btn jf-btn--ghost" type="button" onClick={() => void revoke(session.id)}>Revoke</button> : null}
+          </div>
+        ))}
+        {sessions.length > 1 ? <button className="jf-btn jf-btn--ghost" type="button" onClick={() => void revokeOthers()}>Revoke all other sessions</button> : null}
+      </div>
+    </Section>
   );
 }
 

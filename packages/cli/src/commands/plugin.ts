@@ -24,7 +24,7 @@ export async function pluginCommand(args: string[]): Promise<void> {
       const buf = await fs.readFile(filePath);
       const form = new FormData();
       form.append("file", new Blob([buf]), filePath.split("/").pop());
-      const res = await fetch(`${process.env.ADMIN_URL ?? "http://localhost:3001"}/api/plugins`, { method: "POST", body: form });
+      const res = await fetch(`${process.env["ADMIN_URL"] ?? "http://localhost:3001"}/api/plugins`, { method: "POST", body: form });
       const data = await res.json() as { plugin?: Plugin; error?: string };
       if (!res.ok) { console.error(`Failed: ${data.error}`); process.exitCode = 1; return; }
       console.log(`✓ Installed: ${data.plugin?.name} v${data.plugin?.version}`);

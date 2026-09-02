@@ -7,7 +7,13 @@ import { assertPackageIsTrusted } from "../lib/package-trust.js";
 import { sendPackageInstallError } from "../lib/package-install-error.js";
 import { packagesInstalledDir } from "../lib/packages-dir.js";
 import { ARCHIVE_LIMITS } from "@justflows/installer";
-import { filterMarketplaceCatalogBody, marketplaceListingIsComingSoon, marketplaceListingIsPaid, marketplaceListingIsVisible } from "../lib/marketplace-catalog.js";
+import {
+  filterMarketplaceCatalogBody,
+  marketplaceListingIsComingSoon,
+  marketplaceListingIsPaid,
+  marketplaceListingIsVisible,
+} from "../lib/marketplace-catalog.js";
+import { getJustflowsVersion } from "../lib/version.js";
 
 const router = Router();
 
@@ -58,9 +64,10 @@ router.get("/", requireRole("administrator"), async (req, res) => {
     const body = await upstream.text();
     // Always JSON. Echoing the upstream Content-Type would let a compromised or
     // misconfigured registry serve text/html from this site's origin.
-    res.status(upstream.status).type("application/json").send(
-      upstream.ok ? filterMarketplaceCatalogBody(body) : body,
-    );
+    res
+      .status(upstream.status)
+      .type("application/json")
+      .send(upstream.ok ? filterMarketplaceCatalogBody(body) : body);
   } catch (err) {
     res.status(503).json({ error: `Marketplace API unavailable: ${String(err)}` });
   }
@@ -75,7 +82,9 @@ const InstallSchema = z.object({
 router.post("/install", requireRole("administrator"), async (req, res) => {
   try {
     const { type, id, version } = InstallSchema.parse(req.body);
-    const versionSegment = version ? `/versions/${encodeURIComponent(version)}` : "/versions/latest";
+    const versionSegment = version
+      ? `/versions/${encodeURIComponent(version)}`
+      : "/versions/latest";
     const kind = type === "plugin" ? "plugins" : "themes";
     const metaUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kind}/${encodeURIComponent(id)}${versionSegment}`;
     const metaRes = await fetch(metaUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
@@ -141,8 +150,12 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
     // the note on InstallOptions.verify.
     const result = await installer.installFromBuffer(buffer, {
       packagesDir,
+      justflowsVersion: getJustflowsVersion(),
       source: "marketplace",
       expectedDigest: digest || undefined,
+      // Plugins run as code — install each build to its own directory so a
+      // reinstall is imported fresh without a process restart.
+      revisioned: type === "plugin",
       verify: (manifest, resultDigest) => {
         if (manifest.type !== type) {
           throw new Error(`Package type mismatch (expected ${type})`);
@@ -166,6 +179,10 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
         manifest: { ...result.manifest, installedPath: result.installedPath },
         status: "installed",
       });
+      // Forget any previously imported module so the next activate runs this
+      // build without a process restart.
+      const { runtimeUnloadPlugin } = await import("../lib/plugin-runtime.js");
+      await runtimeUnloadPlugin(result.manifest.id).catch(() => null);
       res.json({ plugin });
       return;
     }

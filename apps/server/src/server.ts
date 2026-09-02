@@ -18,6 +18,7 @@ import { createGzipMiddleware } from "./middleware/gzip.js";
 import { browserCacheMiddleware, staticMaxAgeMs } from "./middleware/browser-cache.js";
 import { rateLimit } from "express-rate-limit";
 import { adminClientDir, adminClientIndex } from "./lib/admin-ssr.js";
+import { requestContext } from "./middleware/request-context.js";
 
 let corePromise: Promise<void> | null = null;
 let deferredLoaded = false;
@@ -64,6 +65,7 @@ export function createApp(): express.Application {
   }
 
   app.disable("x-powered-by");
+  app.use(requestContext);
   app.use((_req, res, next) => {
     res.setHeader("X-Powered-By", "Justflows");
     next();
@@ -161,6 +163,18 @@ export function createApp(): express.Application {
   app.get("/install", authPageRateLimit, withCsrfCookie);
   app.get("/login", authPageRateLimit, withCsrfCookie);
   app.get("/register", authPageRateLimit, withCsrfCookie);
+  app.get("/forgot-password", authPageRateLimit, withCsrfCookie);
+  // The reset link carries a token in the query string. Keep it out of any
+  // Referer header the page would otherwise send when it loads a subresource or
+  // the user clicks away; the page itself also strips it from the URL on load.
+  app.get(
+    "/reset-password",
+    authPageRateLimit,
+    (req: express.Request, res: express.Response) => {
+      res.setHeader("Referrer-Policy", "no-referrer");
+      withCsrfCookie(req, res);
+    },
+  );
 
   app.get("/", (req, res, next) => {
     if (isInstalled()) {
@@ -223,9 +237,14 @@ export async function startServer(): Promise<void> {
   const port = parseInt(process.env.PORT ?? "3000", 10);
   const hostname = process.env.HOSTNAME ?? "0.0.0.0";
 
+  // 0.0.0.0 / :: mean "bind every interface" — they are not usable in a browser
+  // and are not a secure context (crypto.randomUUID is undefined there), so show
+  // localhost in the URLs while still listening on the given hostname.
+  const displayHost = ["0.0.0.0", "::", ""].includes(hostname) ? "localhost" : hostname;
+
   app.listen(port, hostname, () => {
-    console.log(`> Justflows ready on http://${hostname}:${port}`);
-    console.log(`> Install: http://${hostname}:${port}/install`);
+    console.log(`> Justflows ready on http://${displayHost}:${port}`);
+    console.log(`> Install: http://${displayHost}:${port}/install`);
   });
 }
 

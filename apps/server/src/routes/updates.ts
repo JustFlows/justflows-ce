@@ -199,8 +199,8 @@ dbRouter.post("/migrate", requireRole("administrator"), async (_req, res) => {
   try {
     const db = await getDb();
     const driver = process.env.DB_DRIVER as "postgres" | "mysql" | "mariadb";
-    await runAllMigrations(db, driver);
-    res.json({ ok: true });
+    const result = await runAllMigrations(db, driver);
+    res.json({ ok: true, applied: result.applied.length, skipped: result.skipped.length });
   } catch (err) {
     sendServerError(res, "updates", err);
   }

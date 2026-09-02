@@ -8,6 +8,7 @@ import {
   getPlugin,
   insertPlugin,
   listPlugins,
+  markPluginError,
   pluginToDto,
   type PluginRow,
 } from "../lib/plugins-db.js";
@@ -17,6 +18,7 @@ import { sendPackageInstallError } from "../lib/package-install-error.js";
 import { packagesInstalledDir } from "../lib/packages-dir.js";
 import { auditFromRequest } from "../lib/audit-log.js";
 import { sendServerError } from "../lib/send-error.js";
+import { getJustflowsVersion } from "../lib/version.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -117,7 +119,11 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
     // location with nothing to clean it up.
     const result = await installer.installFromBuffer(file.buffer, {
       packagesDir,
+      justflowsVersion: getJustflowsVersion(),
       source: "upload",
+      // Plugins run as code — install each build to its own directory so a
+      // reinstall is imported fresh without a process restart.
+      revisioned: true,
       verify: (manifest, digest) => {
         if (manifest.type !== "plugin") {
           throw new Error("Uploaded package is not a plugin (manifest.type must be 'plugin')");
@@ -146,7 +152,10 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
       target: result.manifest.id,
       detail: `version=${result.manifest.version} digest=${result.digest.slice(0, 16)}`,
     });
-    const { getRuntimeHooks } = await import("../lib/plugin-runtime.js");
+    // Drop any previously imported module so the next activate picks up this
+    // build without a process restart.
+    const { getRuntimeHooks, runtimeUnloadPlugin } = await import("../lib/plugin-runtime.js");
+    await runtimeUnloadPlugin(result.manifest.id).catch(() => null);
     await getRuntimeHooks().dispatchAction(
       "plugin.installed",
       { pluginId: result.manifest.id, version: result.manifest.version, siteId },
@@ -162,8 +171,22 @@ router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   const session = req.session!;
   const pluginId = param(req.params.id);
   const { runtimeActivatePlugin } = await import("../lib/plugin-runtime.js");
+
+  // Run the runtime activation first and report a real failure. It used to be
+  // fire-and-forget (`.catch(() => null)`), so a plugin whose `activate()`
+  // threw was left half-registered — its `/ext/*` routes gone — while the DB
+  // said "active" and the admin page 404'd into an "Unexpected token '<'"
+  // JSON parse error.
+  try {
+    await runtimeActivatePlugin(session.siteId, pluginId);
+  } catch (err) {
+    await markPluginError(session.siteId, pluginId).catch(() => {});
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(502).json({ error: `Activation failed: ${message}` });
+    return;
+  }
+
   await activatePlugin(session.siteId, pluginId);
-  await runtimeActivatePlugin(session.siteId, pluginId).catch(() => null);
   auditFromRequest(req, "plugin.activated", { target: pluginId });
   const { revalidateOnUpdate } = await import("../lib/cache-revalidate.js");
   await revalidateOnUpdate("plugin");
@@ -189,9 +212,10 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
   const pluginId = param(req.params.id);
   const row = await getPlugin(session.siteId, pluginId);
   const version = row?.version ?? "";
-  const { runtimeDeactivatePlugin, runtimeDeletePluginData, getRuntimeHooks } =
+  const { runtimeDeactivatePlugin, runtimeDeletePluginData, runtimeUnloadPlugin, getRuntimeHooks } =
     await import("../lib/plugin-runtime.js");
   const {
+    purgePluginFiles,
     purgePluginStorage,
     purgePluginContent,
     shouldPurgePluginContent,
@@ -229,6 +253,11 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
   }
 
   await runtimeDeactivatePlugin(session.siteId, pluginId).catch(() => null);
+  // Forget the module so a later reinstall imports the new build, and delete
+  // the extracted files — uninstall used to drop only the DB row, leaving
+  // every file under packages-installed/ behind.
+  await runtimeUnloadPlugin(pluginId).catch(() => null);
+  const filesPurged = purgePluginFiles(row?.manifest);
   await deletePlugin(session.siteId, pluginId);
   auditFromRequest(req, "plugin.deleted", { target: pluginId });
   await getRuntimeHooks()
@@ -240,7 +269,12 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
     .catch(() => null);
   const { revalidateOnUpdate } = await import("../lib/cache-revalidate.js");
   await revalidateOnUpdate("plugin");
-  res.json({ ok: true });
+  res.json({
+    ok: true,
+    ...(filesPurged.ok
+      ? {}
+      : { warning: `Plugin removed, but its files could not be deleted: ${filesPurged.error}` }),
+  });
 });
 
 // Registered ahead of "/:id" so the literal path is not swallowed by the param.
