@@ -7,6 +7,7 @@ import {
   resolveHeaders,
   type RequestArea,
 } from "../lib/security-headers.js";
+import { getAdminPathConfig, toInternalAdminPath } from "../lib/admin-path.js";
 
 /**
  * Escape hatch. A policy that locks the owner out of the admin has to be
@@ -36,16 +37,13 @@ export function isSecureRequest(req: Request): boolean {
 }
 
 export function securityHeaders(req: Request, res: Response, next: NextFunction): void {
-  const ctx = { area: requestArea(req.path), secure: isSecureRequest(req) };
-
-  if (killSwitchEngaged()) {
-    apply(res, defaultConfig(), ctx);
-    next();
-    return;
-  }
-
-  getSecurityHeadersConfig()
-    .then(async (config) => {
+  Promise.all([
+    getAdminPathConfig(),
+    killSwitchEngaged() ? defaultConfig() : getSecurityHeadersConfig(),
+  ])
+    .then(async ([adminPath, config]) => {
+      const internalPath = toInternalAdminPath(req.path, adminPath.path) ?? req.path;
+      const ctx = { area: requestArea(internalPath), secure: isSecureRequest(req) };
       apply(res, config, ctx);
       if (config.removeServerHeader) res.removeHeader("Server");
       if (ctx.area === "public") {
@@ -65,9 +63,8 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
           }
         }
 
-        const { getCaptchaProviderForCsp, withCaptchaCsp } = await import(
-          "../lib/comments-captcha-csp.js"
-        );
+        const { getCaptchaProviderForCsp, withCaptchaCsp } =
+          await import("../lib/comments-captcha-csp.js");
         const captchaProvider = await getCaptchaProviderForCsp();
         if (captchaProvider !== "none") {
           for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
@@ -85,7 +82,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
     .catch(() => {
       // Never let a configuration problem cost the visitor their response —
       // but never let it strip their protection either.
-      apply(res, defaultConfig(), ctx);
+      apply(res, defaultConfig(), { area: requestArea(req.path), secure: isSecureRequest(req) });
     })
     .finally(next);
 }

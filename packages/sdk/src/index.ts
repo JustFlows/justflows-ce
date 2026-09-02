@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+export { SDK_VERSION, SDK_API_VERSION } from "./version.js";
+export { ExtensionEnginesSchema } from "./compatibility.js";
+export type { ExtensionEngines } from "./compatibility.js";
+
 // Hooks — typed action/gate/filter contracts
 export {
   SYNC_FILTERS,
@@ -43,6 +47,8 @@ export type {
   MediaUploadGateEvent,
   MediaUploadedEvent,
   UserEvent,
+  UserAccessChangedEvent,
+  AccessRoleEvent,
   AuthEvent,
   AuthFailureEvent,
   PluginEvent,
@@ -59,6 +65,10 @@ export type {
   CacheObjectType,
   CacheRevalidateTrigger,
   CacheRevalidatedEvent,
+  EmailDeliveryContext,
+  EmailBeforeSendEvent,
+  EmailDeliveryEvent,
+  EmailSender,
 } from "./hooks.js";
 
 // Plugin — manifest, permissions, context
@@ -89,6 +99,7 @@ export type {
   PluginContext,
   PluginModule,
   PluginCacheApi,
+  PluginCapabilitiesApi,
   PluginHttpApi,
   PluginHttpMethod,
   PluginHttpRequest,
@@ -96,6 +107,10 @@ export type {
   PluginHttpResponse,
   PluginHttpHandler,
   PluginJobsApi,
+  PluginMailTransportApi,
+  PluginMailTransportMessage,
+  PluginEmailVariableDefinition,
+  PluginEmailTemplateDefinition,
   PluginJobContext,
   PluginJobDefinition,
   PluginJobResult,
@@ -117,18 +132,58 @@ export type {
   PluginContentField,
   PluginContentEnsureResult,
   PluginContentDeleteTypeResult,
+  JustflowsRuntimeVersions,
 } from "./plugin.js";
+
+// Cookies — the site cookie registry every extension declares into
+export {
+  COOKIE_CATEGORIES,
+  CookieDeclarationSchema,
+  resolveCookies,
+  cookieNameMatches,
+} from "./cookies.js";
+export type {
+  CookieCategory,
+  CookieDeclaration,
+  ResolvedCookie,
+  PluginCookiesApi,
+} from "./cookies.js";
 
 // Capabilities — user capability system
 export {
   USER_CAPABILITIES,
   ROLE_CAPABILITIES,
+  ACCESS_SCOPE_DOMAINS,
   roleHasCapability,
+  effectiveCapabilities,
+  scopeAllows,
 } from "./capabilities.js";
-export type { UserCapability } from "./capabilities.js";
+export type {
+  UserCapability,
+  CoreUserCapability,
+  UserCapabilityDefinition,
+  AccessScopeDomain,
+  AccessScope,
+  AccessPolicy,
+  RoleDefinition,
+  AccessResource,
+} from "./capabilities.js";
 
 // Licensing — extension license validation (Marketplace: GPL-compatible)
+export { isGplCompatibleLicense, gplLicenseValidationMessage } from "./license.js";
+
+// Templates — the theme template-hierarchy contract
 export {
-  isGplCompatibleLicense,
-  gplLicenseValidationMessage,
-} from "./license.js";
+  TEMPLATE_SLOTS,
+  TEMPLATE_PART_SLOTS,
+  TEMPLATE_SLUG_RE,
+  isTemplateSlug,
+  ThemeTemplatesManifestSchema,
+  TemplateDocSchema,
+} from "./templates.js";
+export type {
+  TemplateSlot,
+  TemplatePartSlot,
+  ThemeTemplatesManifest,
+  TemplateDoc,
+} from "./templates.js";

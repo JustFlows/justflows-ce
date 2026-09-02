@@ -7,6 +7,8 @@ import { migrationsDir } from "../jf-root.js";
 import {
   MIGRATION_ORDER,
   isIgnorableMigrationError,
+  migrationFileCandidates,
+  readMigrationDdl,
   runAllMigrations,
   runMigrationStatements,
   splitSqlStatements,
@@ -18,26 +20,58 @@ describe("MIGRATION_ORDER", () => {
       "0012_baseline",
       "0013_public_comments",
       "0014_content_webhooks",
+      "0015_theme_designs",
+      "0016_user_preferences",
+      "0017_password_resets",
+      "0018_access_control",
+      "0019_device_sessions",
+      "0020_email_delivery",
+      "0021_trash_retention",
+      "0022_email_templates",
+      "0023_templates",
     ]);
   });
 
-  it("ships 0013_public_comments for every database dialect", () => {
-    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
-      const ddl = fs.readFileSync(
-        path.join(migrationsDir(), `0013_public_comments${suffix}`),
-        "utf8",
-      );
-      const statements = splitSqlStatements(ddl, suffix === ".sql" ? "postgres" : "mysql");
-      expect(statements.some((s) => /ALTER TABLE comments ADD COLUMN.*notify/i.test(s))).toBe(true);
-      expect(statements.some((s) => /CREATE INDEX .*idx_comments_thread/i.test(s))).toBe(true);
-    }
-  });
+  // Each tracked migration after the baseline ships two files: the bare
+  // `.sql` for PostgreSQL and `.mysql.sql` shared by MySQL and MariaDB. A
+  // dialect-specific `.mariadb.sql` is only added if the DDL must diverge — it
+  // never has — so its absence is asserted, not tolerated.
+  const TRACKED: { name: string; marker: RegExp }[] = [
+    { name: "0013_public_comments", marker: /ALTER TABLE comments ADD COLUMN.*notify/i },
+    { name: "0014_content_webhooks", marker: /CREATE TABLE IF NOT EXISTS webhook_endpoints/i },
+    { name: "0015_theme_designs", marker: /CREATE TABLE IF NOT EXISTS theme_designs/i },
+    { name: "0016_user_preferences", marker: /CREATE TABLE IF NOT EXISTS user_preferences/i },
+    { name: "0017_password_resets", marker: /CREATE TABLE IF NOT EXISTS password_resets/i },
+    { name: "0018_access_control", marker: /CREATE TABLE IF NOT EXISTS access_roles/i },
+    { name: "0019_device_sessions", marker: /CREATE TABLE IF NOT EXISTS user_sessions/i },
+    { name: "0020_email_delivery", marker: /CREATE TABLE IF NOT EXISTS email_deliveries/i },
+    { name: "0022_email_templates", marker: /CREATE TABLE IF NOT EXISTS email_template_versions/i },
+    { name: "0021_trash_retention", marker: /ALTER TABLE content ADD COLUMN.*trashed_at/i },
+    { name: "0023_templates", marker: /CREATE TABLE IF NOT EXISTS theme_templates/i },
+  ];
 
-  it("ships 0014_content_webhooks for every database dialect", () => {
-    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
-      expect(fs.existsSync(path.join(migrationsDir(), `0014_content_webhooks${suffix}`))).toBe(true);
-    }
-  });
+  for (const { name, marker } of TRACKED) {
+    it(`ships ${name} as postgres + shared mysql, no standalone .mariadb.sql`, () => {
+      expect(fs.existsSync(path.join(migrationsDir(), `${name}.mariadb.sql`))).toBe(false);
+      for (const suffix of [".sql", ".mysql.sql"]) {
+        const ddl = fs.readFileSync(path.join(migrationsDir(), `${name}${suffix}`), "utf8");
+        const statements = splitSqlStatements(ddl, suffix === ".sql" ? "postgres" : "mysql");
+        expect(statements.some((s) => marker.test(s))).toBe(true);
+      }
+    });
+
+    it(`resolves ${name} for MariaDB to identical DDL (backwards compatible)`, async () => {
+      expect(migrationFileCandidates(name, "mariadb")).toEqual([
+        `${name}.mariadb.sql`,
+        `${name}.mysql.sql`,
+        `${name}.sql`,
+      ]);
+      const mysqlDdl = await readMigrationDdl(name, "mysql");
+      const mariadbDdl = await readMigrationDdl(name, "mariadb");
+      expect(mariadbDdl).toBe(mysqlDdl);
+      expect(marker.test(mariadbDdl ?? "")).toBe(true);
+    });
+  }
 
   it("does not rebuild MySQL/MariaDB revisions with a new foreign key or generated unique slot", () => {
     for (const dialect of ["mysql", "mariadb"] as const) {
@@ -45,9 +79,10 @@ describe("MIGRATION_ORDER", () => {
         path.join(migrationsDir(), `0012_baseline.${dialect}.sql`),
         "utf8",
       );
-      const revisionDdl = ddl
-        .split("Consolidated migration: 0010_content_revisions")[1]
-        ?.split("Consolidated migration: 0011_default_locale_en_us")[0] ?? "";
+      const revisionDdl =
+        ddl
+          .split("Consolidated migration: 0010_content_revisions")[1]
+          ?.split("Consolidated migration: 0011_default_locale_en_us")[0] ?? "";
       const statements = splitSqlStatements(revisionDdl, dialect);
       expect(statements.join("\n")).not.toMatch(/FOREIGN KEY/i);
       expect(statements.join("\n")).not.toMatch(/GENERATED ALWAYS/i);
@@ -107,17 +142,186 @@ describe("runAllMigrations", () => {
   });
 });
 
+type FakeDbOptions = {
+  driver: "postgres" | "mysql" | "mariadb";
+  applied?: string[];
+  failOn?: string;
+};
+
+/** In-memory stand-in for DbClient covering the bits runAllMigrations touches. */
+function makeFakeDb(opts: FakeDbOptions) {
+  const applied = new Set(opts.applied ?? []);
+  const statements: string[] = [];
+  const lockEvents: string[] = [];
+  let reservedOpen = 0;
+
+  const run = async (sql: string, params: (string | number | boolean | null)[] = []) => {
+    statements.push(sql);
+    if (/pg_advisory_lock\(/.test(sql)) return void lockEvents.push("pg-acquire");
+    if (/pg_advisory_unlock\(/.test(sql)) return void lockEvents.push("pg-release");
+    if (/RELEASE_LOCK\(/.test(sql)) return void lockEvents.push("named-release");
+    if (sql.startsWith("INSERT INTO _migrations") && params.length > 0) {
+      const name = String(params[0]);
+      if (applied.has(name)) {
+        throw new Error('duplicate key value violates unique constraint "_migrations_name_key"');
+      }
+      applied.add(name);
+      return;
+    }
+    if (opts.failOn && sql.includes(opts.failOn)) {
+      throw new Error(`boom: ${opts.failOn}`);
+    }
+  };
+
+  const query = async <T>(sql: string): Promise<T[]> => {
+    statements.push(sql);
+    if (/GET_LOCK\(/.test(sql)) {
+      lockEvents.push("named-acquire");
+      return [{ got: 1 }] as T[];
+    }
+    if (/^SELECT name FROM _migrations/i.test(sql.trim())) {
+      return [...applied].map((name) => ({ name })) as T[];
+    }
+    return [] as T[];
+  };
+
+  return {
+    applied,
+    statements,
+    lockEvents,
+    get reservedOpen() {
+      return reservedOpen;
+    },
+    run,
+    query,
+    reserve: async () => {
+      reservedOpen += 1;
+      return {
+        run,
+        query,
+        release: () => {
+          reservedOpen -= 1;
+        },
+      };
+    },
+  };
+}
+
+describe("runAllMigrations bookkeeping", () => {
+  it("records every migration and reports what it applied", async () => {
+    const db = makeFakeDb({ driver: "postgres" });
+
+    const result = await runAllMigrations(db, "postgres");
+
+    expect(result.applied).toEqual([...MIGRATION_ORDER]);
+    expect(result.skipped).toEqual([]);
+    expect(db.applied).toEqual(new Set(MIGRATION_ORDER));
+  });
+
+  it("applies zero and skips everything on an unchanged restart", async () => {
+    const db = makeFakeDb({ driver: "postgres", applied: [...MIGRATION_ORDER] });
+
+    const result = await runAllMigrations(db, "postgres");
+
+    expect(result.applied).toEqual([]);
+    expect(result.skipped).toEqual([...MIGRATION_ORDER]);
+  });
+
+  it("applies only missing migrations for a legacy _migrations table holding just 0001", async () => {
+    const db = makeFakeDb({ driver: "postgres", applied: ["0001_initial"] });
+
+    const result = await runAllMigrations(db, "postgres");
+
+    expect(result.applied).toEqual([...MIGRATION_ORDER]);
+    expect(db.applied).toEqual(new Set(["0001_initial", ...MIGRATION_ORDER]));
+  });
+
+  it("cannot skip later migrations because 0001 was already recorded", async () => {
+    const db = makeFakeDb({ driver: "postgres", applied: ["0001_initial"] });
+
+    const result = await runAllMigrations(db, "postgres");
+
+    expect(result.applied).toContain("0014_content_webhooks");
+  });
+
+  it("serializes a second run behind the first by reading recorded migrations", async () => {
+    const db = makeFakeDb({ driver: "postgres" });
+
+    await runAllMigrations(db, "postgres");
+    const second = await runAllMigrations(db, "postgres");
+
+    expect(second.applied).toEqual([]);
+    expect(second.skipped).toEqual([...MIGRATION_ORDER]);
+  });
+});
+
+describe("runAllMigrations locking", () => {
+  it("takes and releases a PostgreSQL advisory lock around the run", async () => {
+    const db = makeFakeDb({ driver: "postgres" });
+
+    await runAllMigrations(db, "postgres");
+
+    expect(db.lockEvents).toEqual(["pg-acquire", "pg-release"]);
+    expect(db.reservedOpen).toBe(0);
+  });
+
+  it("takes and releases a named lock on MySQL/MariaDB", async () => {
+    const db = makeFakeDb({ driver: "mariadb" });
+
+    await runAllMigrations(db, "mariadb");
+
+    expect(db.lockEvents).toEqual(["named-acquire", "named-release"]);
+    expect(db.reservedOpen).toBe(0);
+  });
+
+  it("releases the lock and the connection even when a migration fails", async () => {
+    const db = makeFakeDb({ driver: "postgres", failOn: "webhook_deliveries" });
+
+    await expect(runAllMigrations(db, "postgres")).rejects.toThrow(/webhook_deliveries/);
+
+    expect(db.lockEvents).toEqual(["pg-acquire", "pg-release"]);
+    expect(db.reservedOpen).toBe(0);
+    expect(db.applied.has("0014_content_webhooks")).toBe(false);
+  });
+
+  it("runs unlocked when the runner cannot reserve a connection", async () => {
+    const ran: string[] = [];
+    const applied = new Set<string>();
+    const sql = {
+      async run(statement: string, params: (string | number | boolean | null)[] = []) {
+        ran.push(statement);
+        if (statement.startsWith("INSERT INTO _migrations") && params[0] !== undefined) {
+          applied.add(String(params[0]));
+        }
+      },
+      async query<T>() {
+        return [...applied].map((name) => ({ name })) as T[];
+      },
+    };
+
+    const result = await runAllMigrations(sql, "postgres", ["0013_public_comments"]);
+
+    expect(result.applied).toEqual(["0013_public_comments"]);
+    expect(ran.some((s) => /pg_advisory_lock/.test(s))).toBe(false);
+  });
+});
+
 describe("isIgnorableMigrationError", () => {
   it("ignores MySQL/MariaDB DROP INDEX when the key is already gone", () => {
-    const err = Object.assign(new Error("Can't DROP INDEX `uq_content_slug`; check that it exists"), {
-      code: "ER_CANT_DROP_FIELD_OR_KEY",
-      errno: 1091,
-    });
+    const err = Object.assign(
+      new Error("Can't DROP INDEX `uq_content_slug`; check that it exists"),
+      {
+        code: "ER_CANT_DROP_FIELD_OR_KEY",
+        errno: 1091,
+      },
+    );
     expect(isIgnorableMigrationError(err)).toBe(true);
   });
 
   it("does not ignore missing-table errors", () => {
-    expect(isIgnorableMigrationError(new Error("Table 'justflows.content_types' doesn't exist"))).toBe(false);
+    expect(
+      isIgnorableMigrationError(new Error("Table 'justflows.content_types' doesn't exist")),
+    ).toBe(false);
   });
 
   it("ignores a PostgreSQL migration name that was already recorded", () => {
@@ -137,9 +341,12 @@ describe("runMigrationStatements", () => {
         async run(sql) {
           ran.push(sql);
           if (sql.includes("DROP INDEX")) {
-            throw Object.assign(new Error("Can't DROP INDEX `uq_content_slug`; check that it exists"), {
-              code: "ER_CANT_DROP_FIELD_OR_KEY",
-            });
+            throw Object.assign(
+              new Error("Can't DROP INDEX `uq_content_slug`; check that it exists"),
+              {
+                code: "ER_CANT_DROP_FIELD_OR_KEY",
+              },
+            );
           }
         },
       },

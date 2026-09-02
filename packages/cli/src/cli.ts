@@ -11,6 +11,7 @@
  *   justflows theme list
  *   justflows theme activate <id>
  *   justflows user create
+ *   justflows user reset-password --email you@example.com
  *   justflows db migrate
  *   justflows cache clear
  *   justflows health

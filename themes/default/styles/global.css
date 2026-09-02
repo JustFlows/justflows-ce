@@ -1312,10 +1312,50 @@ hr {
 .jf-site-widget--center { justify-content: center; }
 .jf-site-widget--right { justify-content: flex-end; }
 
+/* Every colour, size, and radius the widget uses is a custom property with a
+   theme-token fallback, so a theme or the Theme Customizer can restyle the
+   hover / active / focus states (and spacing) by setting the variable instead
+   of overriding these rules. The --size-* / --radius-* modifier classes (set
+   by the block's size and radius props) just reassign the same variables. */
 .jf-color-scheme {
+  --jf-color-scheme-gap: 0.25rem;
+  --jf-color-scheme-font-size: 0.8rem;
+  --jf-color-scheme-padding-y: 0.3rem;
+  --jf-color-scheme-padding-x: 0.65rem;
+  --jf-color-scheme-radius: 999px;
+  --jf-color-scheme-bg: var(--color-surface);
+  --jf-color-scheme-fg: var(--color-text);
+  --jf-color-scheme-border: var(--color-border);
+  --jf-color-scheme-hover-bg: var(--jf-color-scheme-bg);
+  --jf-color-scheme-hover-fg: var(--jf-color-scheme-fg);
+  --jf-color-scheme-hover-border: var(--color-primary);
+  --jf-color-scheme-active-bg: var(--color-primary);
+  --jf-color-scheme-active-fg: #fff;
+  --jf-color-scheme-active-border: var(--color-primary);
+  --jf-color-scheme-focus: var(--color-primary);
   display: inline-flex;
-  gap: 0.25rem;
+  gap: var(--jf-color-scheme-gap);
   align-items: center;
+}
+
+.jf-color-scheme--size-sm {
+  --jf-color-scheme-font-size: 0.7rem;
+  --jf-color-scheme-padding-y: 0.2rem;
+  --jf-color-scheme-padding-x: 0.5rem;
+}
+
+.jf-color-scheme--size-lg {
+  --jf-color-scheme-font-size: 0.95rem;
+  --jf-color-scheme-padding-y: 0.45rem;
+  --jf-color-scheme-padding-x: 0.9rem;
+}
+
+.jf-color-scheme--radius-rounded {
+  --jf-color-scheme-radius: 8px;
+}
+
+.jf-color-scheme--radius-square {
+  --jf-color-scheme-radius: 0;
 }
 
 .jf-color-scheme__btn {
@@ -1323,35 +1363,162 @@ hr {
   align-items: center;
   gap: 0.35rem;
   margin: 0;
-  padding: 0.3rem 0.65rem;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-surface);
-  color: var(--color-text);
+  padding: var(--jf-color-scheme-padding-y) var(--jf-color-scheme-padding-x);
+  border: 1px solid var(--jf-color-scheme-border);
+  border-radius: var(--jf-color-scheme-radius);
+  background: var(--jf-color-scheme-bg);
+  color: var(--jf-color-scheme-fg);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--jf-color-scheme-font-size);
   font-weight: 600;
   cursor: pointer;
 }
 
-.jf-color-scheme__btn:hover,
-.jf-color-scheme__btn:focus-visible {
-  border-color: var(--color-primary);
-  outline: none;
+.jf-color-scheme__btn:hover {
+  background: var(--jf-color-scheme-hover-bg);
+  color: var(--jf-color-scheme-hover-fg);
+  border-color: var(--jf-color-scheme-hover-border);
 }
 
-.jf-color-scheme__btn[aria-pressed="true"] {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
+.jf-color-scheme__btn:focus-visible,
+.jf-color-scheme__select:focus-visible {
+  outline: 2px solid var(--jf-color-scheme-focus);
+  outline-offset: 2px;
 }
 
-.jf-color-scheme--icons .jf-color-scheme__label {
+.jf-color-scheme__btn[aria-pressed="true"],
+.jf-color-scheme__btn[aria-checked="true"] {
+  background: var(--jf-color-scheme-active-bg);
+  border-color: var(--jf-color-scheme-active-border);
+  color: var(--jf-color-scheme-active-fg);
+}
+
+/* Variants that show icons only. */
+.jf-color-scheme--icons .jf-color-scheme__label,
+.jf-color-scheme--tooltip-icons .jf-color-scheme__label {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* Text-only variant: drop the glyph. */
+.jf-color-scheme--labels .jf-color-scheme__icon {
+  display: none;
+}
+
+/* Segmented control: buttons share edges. */
+.jf-color-scheme--segmented {
+  gap: 0;
+}
+
+.jf-color-scheme--segmented .jf-color-scheme__btn {
+  border-radius: 0;
+  margin-left: -1px;
+}
+
+.jf-color-scheme--segmented .jf-color-scheme__btn:first-child {
+  border-radius: var(--jf-color-scheme-radius) 0 0 var(--jf-color-scheme-radius);
+  margin-left: 0;
+}
+
+.jf-color-scheme--segmented .jf-color-scheme__btn:last-child {
+  border-radius: 0 var(--jf-color-scheme-radius) var(--jf-color-scheme-radius) 0;
+}
+
+/* Single toggle: one button, one visible glyph. The glyph keys off
+   html[data-theme], which /js/site-chrome.js stamps before first paint, so it
+   is correct with no flash even before the widget's own state is set. */
+.jf-color-scheme__toggle {
+  position: relative;
+}
+
+.jf-color-scheme__toggle .jf-color-scheme__icon--moon {
+  display: none;
+}
+
+html[data-theme="dark"] .jf-color-scheme__toggle .jf-color-scheme__icon--sun {
+  display: none;
+}
+
+html[data-theme="dark"] .jf-color-scheme__toggle .jf-color-scheme__icon--moon {
+  display: inline;
+}
+
+/* Switch: a track with a sliding thumb and no button chrome. The higher
+   specificity here also cancels the shared .jf-color-scheme__btn hover /
+   [aria-checked] fills. */
+.jf-color-scheme--switch .jf-color-scheme__switch,
+.jf-color-scheme--switch .jf-color-scheme__switch:hover,
+.jf-color-scheme--switch .jf-color-scheme__switch[aria-checked="true"] {
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  border: 0;
+  background: none;
+  color: var(--jf-color-scheme-fg);
+}
+
+.jf-color-scheme__track {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 2.4rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: var(--jf-color-scheme-border);
+  transition: background 0.2s ease;
+}
+
+.jf-color-scheme__thumb {
+  position: absolute;
+  top: 50%;
+  left: 0.15rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: left 0.2s ease;
+}
+
+.jf-color-scheme__switch[aria-checked="true"] .jf-color-scheme__track {
+  background: var(--jf-color-scheme-active-bg);
+}
+
+.jf-color-scheme__switch[aria-checked="true"] .jf-color-scheme__thumb {
+  left: calc(100% - 1.2rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jf-color-scheme__track,
+  .jf-color-scheme__thumb {
+    transition: none;
+  }
+}
+
+.jf-color-scheme.is-animated .jf-color-scheme__icon {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Compact dropdown. */
+.jf-color-scheme__select {
+  font: inherit;
+  font-size: var(--jf-color-scheme-font-size);
+  padding: var(--jf-color-scheme-padding-y) var(--jf-color-scheme-padding-x);
+  border: 1px solid var(--jf-color-scheme-border);
+  border-radius: min(var(--jf-color-scheme-radius), 8px);
+  background: var(--jf-color-scheme-bg);
+  color: var(--jf-color-scheme-fg);
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jf-color-scheme.is-animated .jf-color-scheme__icon {
+    transition: none;
+  }
 }
 
 .jf-language-switcher,

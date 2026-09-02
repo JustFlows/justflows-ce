@@ -1,4 +1,10 @@
-import { getSiteSetting, setSiteSetting, deleteSiteSetting, getSiteId } from "./site-settings.js";
+import { getSiteSetting, setSiteSetting, getSiteId } from "./site-settings.js";
+import {
+  clearThemeDesignDraftDoc,
+  getThemeDesignDoc,
+  saveThemeDesignDraft,
+  saveThemeDesignPublished,
+} from "./theme-designs-db.js";
 import { loadThemeStyles } from "./theme-files.js";
 import { getActiveTheme, themeInstalledPath } from "./themes-db.js";
 import { sanitizeCustomCss } from "./safe-css.js";
@@ -409,10 +415,6 @@ export const DEFAULT_THEME_DARK_CSS_VARS: Record<string, string> = {
   "--color-border": "#334155",
 };
 
-function modsKey(themeId: string, draft = false): string {
-  return draft ? `theme_mods_draft.${themeId}` : `theme_mods.${themeId}`;
-}
-
 // ─── CSS value validation ────────────────────────────────────────────────────
 //
 // Everything in `colors` and `typography` is interpolated straight into
@@ -662,7 +664,7 @@ export function buildThemeStylesheet(
 export async function getThemeMods(themeId: string, draft = false): Promise<ThemeMods | null> {
   const siteId = await getSiteId();
   if (!siteId) return null;
-  return getSiteSetting<ThemeMods>(siteId, modsKey(themeId, draft));
+  return getThemeDesignDoc<ThemeMods>(siteId, themeId, "mods", { draft });
 }
 
 export async function saveThemeMods(
@@ -677,7 +679,12 @@ export async function saveThemeMods(
   if (typeof storedIcon !== "string" && fromMods) {
     await setSiteSetting(siteId, "favicon_url", fromMods);
   }
-  await setSiteSetting(siteId, modsKey(themeId, draft), stripStoredSiteIdentity(mods));
+  const doc = stripStoredSiteIdentity(mods);
+  if (draft) {
+    await saveThemeDesignDraft(siteId, themeId, "mods", doc);
+  } else {
+    await saveThemeDesignPublished(siteId, themeId, "mods", doc);
+  }
 }
 
 /** Site title, tagline, and site icon live outside theme mods. Theme mods keep the logo. */
@@ -704,7 +711,7 @@ export async function resolveFaviconUrl(mods?: ThemeMods): Promise<string> {
 export async function clearThemeDraft(themeId: string): Promise<void> {
   const siteId = await getSiteId();
   if (!siteId) return;
-  await deleteSiteSetting(siteId, modsKey(themeId, true));
+  await clearThemeDesignDraftDoc(siteId, themeId, "mods");
 }
 
 export async function getEffectiveThemeCss(preview = false): Promise<string> {

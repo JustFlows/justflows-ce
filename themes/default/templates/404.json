@@ -1,0 +1,40 @@
+{
+  "title": "Not found (404)",
+  "description": "Shown when a URL matches no page. Static text — translate the copy here for non-English sites, or delete this file to use the platform's built-in translated 404.",
+  "blocks": [
+    {
+      "id": "nf-section",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "default", "padding": "xl", "align": "center" },
+      "children": [
+        {
+          "id": "nf-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "narrow" },
+          "children": [
+            {
+              "id": "nf-code",
+              "type": "core.heading",
+              "version": 1,
+              "props": { "text": "404", "level": 1 }
+            },
+            {
+              "id": "nf-text",
+              "type": "core.paragraph",
+              "version": 1,
+              "props": { "text": "We couldn't find the page you were looking for." }
+            },
+            {
+              "id": "nf-back",
+              "type": "core.button",
+              "version": 1,
+              "props": { "label": "Back to home", "url": "/", "variant": "primary" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

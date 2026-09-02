@@ -18,6 +18,7 @@ import { packagesInstalledDir } from "../lib/packages-dir.js";
 import { auditFromRequest } from "../lib/audit-log.js";
 import multer from "multer";
 import { sendServerError } from "../lib/send-error.js";
+import { getJustflowsVersion } from "../lib/version.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -61,6 +62,7 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
     // been written into the directory the public asset route reads from.
     const result = await installer.installFromBuffer(file.buffer, {
       packagesDir,
+      justflowsVersion: getJustflowsVersion(),
       source: "upload",
       verify: (manifest, digest) => {
         if (manifest.type !== "css-provider") {

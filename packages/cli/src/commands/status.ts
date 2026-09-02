@@ -15,7 +15,7 @@ export async function statusCommand(_args: string[]): Promise<void> {
       console.log(`  ${c} ${check.name.padEnd(20)} ${check.message}`);
     }
   } catch (err) {
-    console.error(`Cannot reach admin at ${process.env.ADMIN_URL ?? "http://localhost:3001"}`);
+    console.error(`Cannot reach admin at ${process.env["ADMIN_URL"] ?? "http://localhost:3001"}`);
     console.error(String(err));
     process.exitCode = 1;
   }

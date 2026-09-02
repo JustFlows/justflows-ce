@@ -1,4 +1,5 @@
 import type { BlockNode, BlockPath } from "./types";
+import { uid } from "../../lib/uid";
 
 function cloneBlock(block: BlockNode): BlockNode {
   return {
@@ -17,7 +18,7 @@ export function reassignBlockIds(blocks: BlockNode[]): BlockNode[] {
   function walk(block: BlockNode): BlockNode {
     return {
       ...block,
-      id: crypto.randomUUID(),
+      id: uid(),
       props: { ...block.props },
       children: block.children?.map(walk),
     };

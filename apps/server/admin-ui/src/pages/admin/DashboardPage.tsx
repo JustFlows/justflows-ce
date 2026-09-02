@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { canAccessPath } from "../../config/admin-nav";
 import { useSessionRole } from "@components/SessionProvider";
+import { useT } from "../../i18n/I18nProvider";
+import DashboardWelcomePanel, { useDashboardWelcome } from "./DashboardWelcomePanel";
 
 const tiles = [
   { label: "Content", href: "/admin/content", icon: "📝", description: "Manage posts and pages" },
@@ -13,6 +15,8 @@ const tiles = [
 
 export default function AdminDashboard() {
   const role = useSessionRole();
+  const { t } = useT();
+  const welcome = useDashboardWelcome();
   const visibleTiles = tiles.filter((tile) => role === null || canAccessPath(role, tile.href));
 
   return (
@@ -28,6 +32,8 @@ export default function AdminDashboard() {
         </div>
       </header>
 
+      <DashboardWelcomePanel welcome={welcome} />
+
       <div className="jf-tiles">
         {visibleTiles.map((item) => (
           <Link key={item.href} to={item.href} className="jf-tile">
@@ -37,6 +43,18 @@ export default function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {role === "administrator" && welcome.state.dismissed && (
+        <p className="jf-dashboard__restore">
+          <button
+            type="button"
+            className="jf-btn jf-btn--ghost jf-btn--sm"
+            onClick={() => welcome.update({ dismissed: false })}
+          >
+            {t("dashboard.welcome.restore")}
+          </button>
+        </p>
+      )}
     </div>
   );
 }

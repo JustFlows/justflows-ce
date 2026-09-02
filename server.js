@@ -474,8 +474,11 @@ if (typeof PhusionPassenger !== "undefined") {
 } else if (require.main === module) {
   const port = parseInt(process.env.PORT ?? "3000", 10);
   const host = process.env.HOSTNAME ?? "0.0.0.0";
+  // 0.0.0.0 / :: mean "bind every interface"; they are not browsable and are not
+  // a secure context (crypto.randomUUID is undefined), so display localhost.
+  const displayHost = ["0.0.0.0", "::", ""].includes(host) ? "localhost" : host;
   server.listen(port, host, () => {
-    console.log(`> Justflows ready on http://${host}:${port}`);
+    console.log(`> Justflows ready on http://${displayHost}:${port}`);
     console.log(`> Open that URL in a browser to install`);
   });
 }

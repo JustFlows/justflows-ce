@@ -2,6 +2,9 @@ import {
   PluginManifestSchema,
   requiredPermissionForHook,
   isOwnedHookName,
+  SDK_API_VERSION,
+  SDK_VERSION,
+  resolveCookies,
   type PluginManifest,
   type PluginModule,
   type PluginContext,
@@ -9,15 +12,20 @@ import {
   type PluginCacheApi,
   type PluginDataApi,
   type PluginJobsApi,
+  type PluginMailTransportApi,
   type PluginSecretsApi,
   type PluginDatabasesApi,
   type PluginBlockDefinition,
   type PluginContentApi,
   type HookRegisterOptions,
   type Unsubscribe,
+  type CookieCategory,
+  type CookieDeclaration,
 } from "@justflows/sdk";
 import type { App } from "@justflows/core";
 import { PluginHttpRouter } from "./http-router.js";
+import { PluginCookieRegistry } from "./cookie-registry.js";
+import { PluginCapabilityRegistry } from "./capability-registry.js";
 
 export interface LoadedPlugin {
   manifest: PluginManifest;
@@ -29,6 +37,10 @@ export interface LoadedPlugin {
 export type PluginCacheFactory = (pluginId: string) => PluginCacheApi;
 export type PluginDataFactory = (pluginId: string, siteId: string) => PluginDataApi;
 export type PluginJobsFactory = (pluginId: string) => PluginJobsApi;
+export type PluginMailFactory = (
+  pluginId: string,
+  permissions: ReadonlySet<PluginPermission>,
+) => PluginMailTransportApi;
 export type PluginSecretsFactory = (pluginId: string, siteId: string) => PluginSecretsApi;
 export type PluginDatabasesFactory = (
   pluginId: string,
@@ -83,8 +95,18 @@ const NULL_SECRETS: PluginSecretsApi = {
 };
 
 const NULL_DATABASES: PluginDatabasesApi = {
-  probeShared: async () => ({ ok: false, error: "Database probe is not available", tls: false, latencyMs: 0 }),
-  probe: async () => ({ ok: false, error: "Database probe is not available", tls: false, latencyMs: 0 }),
+  probeShared: async () => ({
+    ok: false,
+    error: "Database probe is not available",
+    tls: false,
+    latencyMs: 0,
+  }),
+  probe: async () => ({
+    ok: false,
+    error: "Database probe is not available",
+    tls: false,
+    latencyMs: 0,
+  }),
   ensureSchema: async () => ({ ok: false, error: "Database schema is not available", tables: [] }),
   dropSchema: async () => ({ ok: false, error: "Database schema is not available", tables: [] }),
   upsert: async () => undefined,
@@ -111,14 +133,21 @@ export class PluginLoader {
   private readonly cacheFactory: PluginCacheFactory;
   private readonly dataFactory: PluginDataFactory;
   private readonly jobsFactory: PluginJobsFactory;
+  private readonly mailFactory: PluginMailFactory;
   private readonly secretsFactory: PluginSecretsFactory;
   private readonly databasesFactory: PluginDatabasesFactory;
   private readonly contentFactory: PluginContentFactory;
   private readonly jobsCleanup: ((pluginId: string) => void) | undefined;
+  private readonly mailCleanup: ((pluginId: string) => void) | undefined;
   private readonly settingsAdapter: PluginSettingsAdapter;
   private readonly blockRegistry: PluginBlockRegistry | undefined;
+  private readonly justflowsVersion: string;
   private readonly registeredBlocks = new Map<string, string[]>();
+  private readonly coreCookiesFn: () => Promise<CookieDeclaration[]>;
+  private readonly cookieOverrides: (siteId: string) => Promise<Record<string, CookieCategory>>;
   readonly httpRouter: PluginHttpRouter;
+  readonly cookieRegistry: PluginCookieRegistry;
+  readonly capabilityRegistry: PluginCapabilityRegistry;
 
   constructor(
     private readonly app: App,
@@ -126,29 +155,61 @@ export class PluginLoader {
       cacheFactory?: PluginCacheFactory;
       dataFactory?: PluginDataFactory;
       jobsFactory?: PluginJobsFactory;
+      mailFactory?: PluginMailFactory;
       secretsFactory?: PluginSecretsFactory;
       databasesFactory?: PluginDatabasesFactory;
       contentFactory?: PluginContentFactory;
       jobsCleanup?: (pluginId: string) => void;
+      mailCleanup?: (pluginId: string) => void;
       settingsAdapter?: PluginSettingsAdapter;
       httpRouter?: PluginHttpRouter;
       blockRegistry?: PluginBlockRegistry;
+      justflowsVersion?: string;
+      /** Cookies the host itself sets, seeded into every `ctx.cookies.list()`.
+       * A function is re-evaluated per call (the set can depend on live config,
+       * e.g. whether a Google Tag is configured). */
+      coreCookies?:
+        CookieDeclaration[] | (() => CookieDeclaration[] | Promise<CookieDeclaration[]>);
+      /** Operator category overrides, keyed by cookie name, per site. */
+      cookieOverrides?: (siteId: string) => Promise<Record<string, CookieCategory>>;
+      cookieRegistry?: PluginCookieRegistry;
+      capabilityRegistry?: PluginCapabilityRegistry;
     },
   ) {
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
     this.dataFactory = options?.dataFactory ?? (() => NULL_DATA);
     this.jobsFactory = options?.jobsFactory ?? (() => NULL_JOBS);
+    this.mailFactory =
+      options?.mailFactory ??
+      (() => ({
+        register: () => {
+          throw new Error("Mail transport registration is not available in this runtime");
+        },
+        registerTemplate: () => {
+          throw new Error("Email template registration is not available in this runtime");
+        },
+      }));
     this.secretsFactory = options?.secretsFactory ?? (() => NULL_SECRETS);
-    this.databasesFactory = options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
+    this.databasesFactory =
+      options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
     this.jobsCleanup = options?.jobsCleanup;
+    this.mailCleanup = options?.mailCleanup;
     this.settingsAdapter = options?.settingsAdapter ?? {
       get: (siteId, pluginId, key) => this.app.settings.get(siteId, `${pluginId}:${key}`),
-      set: (siteId, pluginId, key, value) => this.app.settings.set(siteId, `${pluginId}:${key}`, value),
+      set: (siteId, pluginId, key, value) =>
+        this.app.settings.set(siteId, `${pluginId}:${key}`, value),
       delete: (siteId, pluginId, key) => this.app.settings.delete(siteId, `${pluginId}:${key}`),
     };
     this.httpRouter = options?.httpRouter ?? new PluginHttpRouter();
+    this.cookieRegistry = options?.cookieRegistry ?? new PluginCookieRegistry();
+    this.capabilityRegistry = options?.capabilityRegistry ?? new PluginCapabilityRegistry();
+    const coreCookies = options?.coreCookies ?? [];
+    this.coreCookiesFn =
+      typeof coreCookies === "function" ? async () => coreCookies() : async () => coreCookies;
+    this.cookieOverrides = options?.cookieOverrides ?? (async () => ({}));
     this.blockRegistry = options?.blockRegistry;
+    this.justflowsVersion = options?.justflowsVersion ?? "unknown";
   }
 
   /**
@@ -223,10 +284,26 @@ export class PluginLoader {
 
     this.app.logger.info("Plugin deactivated", { pluginId });
     await this.app.hooks.dispatchAction(
-        "plugin.deactivated",
-        { pluginId, version: entry.manifest.version, siteId },
-        { siteId, source: "system" },
-      );
+      "plugin.deactivated",
+      { pluginId, version: entry.manifest.version, siteId },
+      { siteId, source: "system" },
+    );
+  }
+
+  /**
+   * Drop a plugin from the in-memory registry so the next `register()` +
+   * `activate()` imports a freshly (re)installed build. Node caches an ESM
+   * module for the life of the process, so without this a reinstall over the
+   * same id kept running the old code until a full restart. The caller is
+   * responsible for `deactivate()` first when the plugin may be active; this
+   * still force-cleans hooks, routes, cookies, capabilities, jobs, and blocks
+   * as a safety net.
+   */
+  unregister(pluginId: string): void {
+    if (!this.plugins.has(pluginId)) return;
+    this.cleanupPlugin(pluginId);
+    this.plugins.delete(pluginId);
+    this.app.logger.info("Plugin unregistered", { pluginId });
   }
 
   /**
@@ -269,7 +346,10 @@ export class PluginLoader {
   private cleanupPlugin(pluginId: string): void {
     this.app.hooks.removePlugin(pluginId);
     this.httpRouter.removePlugin(pluginId);
+    this.cookieRegistry.removePlugin(pluginId);
+    this.capabilityRegistry.removePlugin(pluginId);
     this.jobsCleanup?.(pluginId);
+    this.mailCleanup?.(pluginId);
     const types = this.registeredBlocks.get(pluginId) ?? [];
     for (const type of types) this.blockRegistry?.unregister(type);
     this.registeredBlocks.delete(pluginId);
@@ -325,7 +405,15 @@ export class PluginLoader {
     return {
       pluginId,
       version: manifest.version,
+      runtime: {
+        justflows: this.justflowsVersion,
+        sdk: SDK_VERSION,
+        sdkApi: SDK_API_VERSION,
+      },
       permissions,
+      capabilities: {
+        register: (definition) => this.capabilityRegistry.register(pluginId, definition),
+      },
       cache,
       hooks: {
         action: (hook, handler, options) => register("action", hook, handler, options),
@@ -358,9 +446,21 @@ export class PluginLoader {
         delete: (path, handler) => this.httpRouter.register(pluginId, "DELETE", path, handler),
       },
       jobs: this.scopedJobs(pluginId, permissions),
+      mail: this.mailFactory(pluginId, permissions),
       data,
       secrets: this.secretsFactory(pluginId, siteId),
       databases: this.databasesFactory(pluginId, siteId, permissions),
+      cookies: {
+        declare: (cookie) => this.cookieRegistry.declare(pluginId, cookie),
+        list: async () =>
+          resolveCookies(
+            [
+              ...(await this.coreCookiesFn()).map((c) => ({ ...c, declaredBy: "core" })),
+              ...this.cookieRegistry.all(),
+            ],
+            await this.cookieOverrides(siteId),
+          ),
+      },
       content: this.scopedContent(pluginId, siteId, permissions),
       blocks: {
         register: (definition) => {

@@ -22,6 +22,27 @@ const TOGGLE_WITH_AUTO = `
     <button data-jf-theme="system" aria-pressed="false">Auto</button>
   </div>`;
 
+const SINGLE_TOGGLE = `
+  <div data-jf-widget="color-scheme">
+    <button class="jf-color-scheme__toggle" data-jf-theme="toggle" aria-pressed="false">Dark mode</button>
+  </div>`;
+
+const SWITCH = `
+  <div data-jf-widget="color-scheme">
+    <button class="jf-color-scheme__switch" data-jf-theme="toggle" role="switch" aria-checked="false">
+      <span class="jf-color-scheme__label">Dark mode</span>
+      <span class="jf-color-scheme__track"><span class="jf-color-scheme__thumb"></span></span>
+    </button>
+  </div>`;
+
+const SELECT = `
+  <div data-jf-widget="color-scheme">
+    <select data-jf-color-scheme-select>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+    </select>
+  </div>`;
+
 let systemPrefersDark = false;
 let notifySystemChange: () => void = () => {};
 
@@ -146,6 +167,49 @@ describe("site-chrome color scheme", () => {
     storage.setItem("jf-color-scheme", "solarized");
     load();
     expect(document.documentElement.getAttribute("data-theme-preference")).toBe("system");
+  });
+
+  it("flips light and dark from a single toggle and stores the choice", () => {
+    load(SINGLE_TOGGLE);
+    click("toggle");
+    expect(storage.getItem("jf-color-scheme")).toBe("dark");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    click("toggle");
+    expect(storage.getItem("jf-color-scheme")).toBe("light");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  });
+
+  it("reflects the resolved theme on the single toggle", () => {
+    systemPrefersDark = true;
+    load(SINGLE_TOGGLE);
+    const btn = document.querySelector('[data-jf-theme="toggle"]');
+    expect(btn?.getAttribute("aria-pressed")).toBe("true");
+    expect(btn?.getAttribute("data-jf-resolved")).toBe("dark");
+  });
+
+  it("uses switch semantics for the switch design", () => {
+    load(SWITCH);
+    const sw = document.querySelector('[data-jf-theme="toggle"]');
+    expect(sw?.getAttribute("aria-checked")).toBe("false");
+    click("toggle");
+    expect(sw?.getAttribute("aria-checked")).toBe("true");
+    expect(storage.getItem("jf-color-scheme")).toBe("dark");
+  });
+
+  it("applies and stores the choice from the compact select", () => {
+    load(SELECT);
+    const select = document.querySelector<HTMLSelectElement>("[data-jf-color-scheme-select]")!;
+    select.value = "dark";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(storage.getItem("jf-color-scheme")).toBe("dark");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
+
+  it("keeps the compact select in step with the stored choice", () => {
+    storage.setItem("jf-color-scheme", "dark");
+    load(SELECT);
+    const select = document.querySelector<HTMLSelectElement>("[data-jf-color-scheme-select]")!;
+    expect(select.value).toBe("dark");
   });
 
   it("rejects external language destinations", () => {

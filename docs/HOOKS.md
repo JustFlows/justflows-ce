@@ -361,7 +361,8 @@ ctx.hooks.action("content.published", reindex, { id: "search-reindex" });
 ## Synchronous hooks
 
 Most hooks are async. A few run on render paths that cannot wait — currently
-`http.responseHeaders`, `html.head`, and `site.underConstruction.render` (see `SYNC_FILTERS` in the SDK).
+`http.responseHeaders`, `html.head`, `analytics.head`, and
+`site.underConstruction.render` (see `SYNC_FILTERS` in the SDK).
 
 **On a synchronous hook, your handler must be synchronous.** An `async` handler
 there gets skipped and logged, because there is no safe way to wait for it and
@@ -544,6 +545,8 @@ makes both correctness and performance attributable to a specific extension.
 | `media.uploaded` | `{ siteId, mediaId, url }` |
 | `media.deleted` | `{ siteId, mediaId }` |
 | `user.created` / `updated` / `deleted` | `{ userId }` |
+| `user.accessChanged` | `{ userId, roleId }` — after a role, grant, deny, or scope change |
+| `access.roleCreated` / `roleUpdated` / `roleDeleted` | `{ roleId }` |
 | `auth.login` / `auth.logout` | `{ userId, email }` |
 | `auth.loginFailed` | `{ email, reason }` |
 | `plugin.installed` / `activated` / `deactivated` / `deleteData` / `uninstalled` | `{ pluginId, version, siteId? }` — `plugin.deleteData` runs after that plugin's `deleteData()` hook |
@@ -581,6 +584,7 @@ makes both correctness and performance attributable to a specific extension.
 | `plugin.settings.write` | `Record<string, unknown>` | `{ pluginId, siteId }` — intercept a settings save. Return only the keys that should be stored in plugin settings KV. |
 | `http.responseHeaders` | `Record<string, string>` | `{ method, path }` |
 | `html.head` | `string` (extra `<head>` HTML) | `{ siteId, path, title, contentId? }` |
+| `analytics.head` | `string` (analytics `<head>` markup) | `{ siteId, path }` — the Google Tag markup the host is about to emit (or `""`). **Synchronous.** A consent plugin rewrites it — e.g. to `type="text/plain" data-jf-consent="analytics"` — so the tag does not run until the visitor grants the analytics category. Return it unchanged for a no-op. |
 | `theme.css` | `string` (CSS appended to `/theme.css`) | `{ siteId, preview }` — seeded with `""`; append your plugin's stylesheet. Lands after the theme and Customizer tokens, before the site owner's Additional CSS. Runs once per stylesheet build (cached, not per page), so handlers **may be async** — read a file and minify once, then memoise. Deactivating the plugin drops the handler and the next build omits the CSS. `preview` is true while the Customizer previews an unpublished draft. |
 | `seo.sitemapPaths` | `string[]` (URL paths) | `{ siteId }` |
 

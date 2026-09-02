@@ -61,6 +61,7 @@ import multer from "multer";
 import { assertPackageIsTrusted } from "../lib/package-trust.js";
 import { sendPackageInstallError } from "../lib/package-install-error.js";
 import { packagesInstalledDir } from "../lib/packages-dir.js";
+import { getJustflowsVersion } from "../lib/version.js";
 import { auditFromRequest } from "../lib/audit-log.js";
 import { sendServerError } from "../lib/send-error.js";
 import { resolvePathUnderBase } from "../lib/safe-path.js";
@@ -123,6 +124,7 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
     // the note on InstallOptions.verify.
     const result = await installer.installFromBuffer(file.buffer, {
       packagesDir,
+      justflowsVersion: getJustflowsVersion(),
       source: "upload",
       verify: (manifest, digest) => {
         if (manifest.type !== "theme") {
@@ -238,6 +240,43 @@ const BLOCK_LEVEL_TOKENS: StyleTokenDto[] = [
     value: "#3b82f6",
     description: "An accent a theme can opt specific elements into with var(--jf-block-accent, …).",
   },
+  // Read by the default theme's `.jf-color-scheme` rules; the builder only
+  // surfaces these on the core.color-scheme block (see ThemeBlockControls).
+  {
+    name: "--jf-color-scheme-active-bg",
+    label: "Selected background",
+    section: "Light / dark toggle",
+    type: "color",
+    value: "#2563eb",
+  },
+  {
+    name: "--jf-color-scheme-active-fg",
+    label: "Selected text",
+    section: "Light / dark toggle",
+    type: "color",
+    value: "#ffffff",
+  },
+  {
+    name: "--jf-color-scheme-hover-bg",
+    label: "Hover background",
+    section: "Light / dark toggle",
+    type: "color",
+    value: "#f8fafc",
+  },
+  {
+    name: "--jf-color-scheme-hover-fg",
+    label: "Hover text",
+    section: "Light / dark toggle",
+    type: "color",
+    value: "#0f172a",
+  },
+  {
+    name: "--jf-color-scheme-hover-border",
+    label: "Hover border",
+    section: "Light / dark toggle",
+    type: "color",
+    value: "#2563eb",
+  },
 ];
 
 router.get("/style-tokens", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
@@ -316,6 +355,45 @@ router.get("/style-tokens", requireRole(...CONTENT_READ_ROLES), async (_req, res
   }
 });
 
+const SaveAsSchema = z.object({
+  name: z.string().min(1).max(80),
+  activate: z.boolean().default(false),
+});
+
+/** Save the active theme + this site's customisations as a new named theme. */
+router.post("/save-as", requireRole("administrator"), async (req, res) => {
+  try {
+    await ensureThemesTable();
+    const siteId = await getSiteId();
+    if (!siteId) {
+      res.status(503).json({ error: "No site found" });
+      return;
+    }
+    const body = SaveAsSchema.parse(req.body);
+    const { forkActiveTheme } = await import("../lib/theme-fork.js");
+    const result = await forkActiveTheme(siteId, body.name);
+
+    auditFromRequest(req, "theme.installed", {
+      target: result.themeId,
+      detail: `saved-as from customizer`,
+    });
+
+    if (body.activate) {
+      await activateTheme(siteId, result.themeId);
+      auditFromRequest(req, "theme.activated", { target: result.themeId, siteId });
+      await revalidateOnUpdate("theme", { siteId });
+    }
+
+    res.json({ themeId: result.themeId, name: result.name, activated: body.activate });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: "A theme name is required" });
+      return;
+    }
+    sendServerError(res, "themes", err);
+  }
+});
+
 router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   try {
     const siteId = await getSiteId();
@@ -375,8 +453,16 @@ router.delete("/:id", requireRole("administrator"), themeDeleteRequestLimit, asy
     }
     if (installedPath) {
       const packagesDir = packagesInstalledDir();
-      const expectedPath = resolvePathUnderBase(packagesDir, "themes", theme.theme_id, theme.version);
-      const safeInstalledPath = resolvePathUnderBase(packagesDir, path.relative(packagesDir, installedPath));
+      const expectedPath = resolvePathUnderBase(
+        packagesDir,
+        "themes",
+        theme.theme_id,
+        theme.version,
+      );
+      const safeInstalledPath = resolvePathUnderBase(
+        packagesDir,
+        path.relative(packagesDir, installedPath),
+      );
       if (!expectedPath || safeInstalledPath !== expectedPath) {
         res.status(400).json({ error: "Theme install path is invalid." });
         return;

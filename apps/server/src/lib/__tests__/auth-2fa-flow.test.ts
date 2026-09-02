@@ -81,6 +81,7 @@ vi.mock("../db.js", () => ({
 }));
 vi.mock("../mail.js", () => ({
   sendMail: async () => ({ ok: true }),
+  sendTemplateMail: async () => ({ ok: true }),
   notifyAdmin: async () => ({ ok: true }),
 }));
 vi.mock("../plugin-runtime.js", () => ({
@@ -200,6 +201,10 @@ describe("sign-in without a second factor", () => {
     const res = await signIn(jar);
     expect(res.status).toBe(200);
     expect(jar.get("jf_session")).toBeTruthy();
+    // The client is told where to land rather than guessing from a pre-session
+    // page — the admin path here is the default, but this is what carries a
+    // moved one (issue #51).
+    expect(res.body.redirectTo).toBe("/admin");
   });
 
   it("rejects the wrong password without saying which half was wrong", async () => {

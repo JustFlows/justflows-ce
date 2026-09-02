@@ -1,7 +1,8 @@
 import type { BlockNode } from "./types";
+import { uid } from "../../lib/uid";
 
 function newId(): string {
-  return crypto.randomUUID();
+  return uid();
 }
 
 export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
@@ -144,7 +145,20 @@ export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
     ],
   },
   "core.grid": { columns: 12, gap: "md", rowHeight: "auto" },
-  "core.color-scheme": { style: "buttons", align: "right", showSystem: false },
+  "core.color-scheme": {
+    style: "buttons",
+    align: "right",
+    showSystem: false,
+    animate: true,
+    size: "md",
+    radius: "pill",
+    lightIcon: "☀",
+    darkIcon: "☾",
+    autoIcon: "◐",
+    lightLabel: "Light",
+    darkLabel: "Dark",
+    autoLabel: "Auto",
+  },
   "core.language-switcher": { style: "locale-short", align: "right" },
   "core.auth-links": {
     showLogin: true,

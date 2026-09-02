@@ -8,107 +8,13 @@ import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
 import { ensurePluginRuntime, getRuntimeHooks } from "./plugin-runtime.js";
 import { consumeRateLimit } from "./rate-limit.js";
 import { getGeneralSettings } from "./general-settings.js";
-import {
-  commentsStateFor,
-  getCommentSettings,
-  type CaptchaProvider,
-  type CommentSettings,
-} from "./comments-settings.js";
+import { commentsStateFor, getCommentSettings, type CommentSettings } from "./comments-settings.js";
+import { CAPTCHA_META, renderCaptchaWidget, verifyCaptcha } from "./captcha.js";
 
 export const COMMENTS_BLOCK_TYPE = "justflows.comments.thread";
 const RECAPTCHA_V3_ACTION = "justflows_comment_submit";
 
-// ─── CAPTCHA providers ──────────────────────────────────────────────────────
-
-interface CaptchaMeta {
-  verifyUrl: string;
-  /** Widget script the public form loads. */
-  scriptSrc: string;
-  /** Hosts to add to the public CSP when this provider is active. */
-  csp: { script: string[]; frame: string[]; connect: string[] };
-  /** Form field the provider's widget submits the solved token in. */
-  field: string;
-  widgetClass: string;
-}
-
-export const CAPTCHA_META: Record<Exclude<CaptchaProvider, "none">, CaptchaMeta> = {
-  turnstile: {
-    verifyUrl: "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-    scriptSrc: "https://challenges.cloudflare.com/turnstile/v0/api.js",
-    csp: {
-      script: ["https://challenges.cloudflare.com"],
-      frame: ["https://challenges.cloudflare.com"],
-      connect: ["https://challenges.cloudflare.com"],
-    },
-    field: "cf-turnstile-response",
-    widgetClass: "cf-turnstile",
-  },
-  hcaptcha: {
-    verifyUrl: "https://api.hcaptcha.com/siteverify",
-    scriptSrc: "https://js.hcaptcha.com/1/api.js",
-    csp: {
-      script: ["https://hcaptcha.com", "https://*.hcaptcha.com"],
-      frame: ["https://hcaptcha.com", "https://*.hcaptcha.com"],
-      connect: ["https://hcaptcha.com", "https://*.hcaptcha.com"],
-    },
-    field: "h-captcha-response",
-    widgetClass: "h-captcha",
-  },
-  recaptcha: {
-    verifyUrl: "https://www.google.com/recaptcha/api/siteverify",
-    scriptSrc: "https://www.google.com/recaptcha/api.js",
-    csp: {
-      script: ["https://www.google.com/recaptcha/", "https://www.gstatic.com/recaptcha/"],
-      frame: ["https://www.google.com/recaptcha/", "https://recaptcha.google.com/recaptcha/"],
-      connect: ["https://www.google.com/recaptcha/"],
-    },
-    field: "g-recaptcha-response",
-    widgetClass: "g-recaptcha",
-  },
-  "recaptcha-v3": {
-    verifyUrl: "https://www.google.com/recaptcha/api/siteverify",
-    scriptSrc: "https://www.google.com/recaptcha/api.js",
-    csp: {
-      script: ["https://www.google.com/recaptcha/", "https://www.gstatic.com/recaptcha/"],
-      frame: ["https://www.google.com/recaptcha/", "https://recaptcha.google.com/recaptcha/"],
-      connect: ["https://www.google.com/recaptcha/"],
-    },
-    field: "g-recaptcha-response",
-    widgetClass: "g-recaptcha-v3",
-  },
-};
-
-async function verifyCaptcha(
-  provider: Exclude<CaptchaProvider, "none">,
-  secret: string,
-  token: string,
-  ip: string,
-  scoreThreshold: number,
-): Promise<boolean> {
-  if (!secret || !token) return false;
-  try {
-    const body = new URLSearchParams({ secret, response: token });
-    if (ip && ip !== "unknown") body.set("remoteip", ip);
-    const res = await fetch(CAPTCHA_META[provider].verifyUrl, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body,
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { success?: boolean; action?: string; score?: number };
-    if (data.success !== true) return false;
-    if (provider !== "recaptcha-v3") return true;
-    return (
-      data.action === RECAPTCHA_V3_ACTION &&
-      typeof data.score === "number" &&
-      data.score >= scoreThreshold
-    );
-  } catch (err) {
-    console.error("[justflows] captcha verification failed:", err);
-    return false;
-  }
-}
+export { CAPTCHA_META };
 
 // ─── Block props ────────────────────────────────────────────────────────────
 
@@ -138,7 +44,8 @@ export function registerCommentsBlock(): void {
     type: COMMENTS_BLOCK_TYPE,
     version: 1,
     title: "Comments",
-    description: "Public comment thread and submission form. Drop it on a post to enable discussion.",
+    description:
+      "Public comment thread and submission form. Drop it on a post to enable discussion.",
     icon: "💬",
     category: "content",
     schema: {
@@ -270,15 +177,20 @@ function renderNode(
   accepting: boolean,
   depth: number,
 ): string {
-  const clampedChildren = depth + 1 >= settings.threadMaxDepth ? flatten(node.children) : node.children;
+  const clampedChildren =
+    depth + 1 >= settings.threadMaxDepth ? flatten(node.children) : node.children;
   const childrenHtml = clampedChildren.length
     ? `<ol class="jf-comments__list jf-comments__list--replies">${clampedChildren
-        .map((child) => renderNode(child, ctx, settings, accepting, Math.min(depth + 1, settings.threadMaxDepth)))
+        .map((child) =>
+          renderNode(child, ctx, settings, accepting, Math.min(depth + 1, settings.threadMaxDepth)),
+        )
         .join("")}</ol>`
     : "";
   const createdAt = toIsoString(node.created_at);
   const when = formatWhen(node.created_at);
-  const edited = node.edited_at ? ` <span class="jf-comment__edited">(${esc(ctx.t("comments.edited"))})</span>` : "";
+  const edited = node.edited_at
+    ? ` <span class="jf-comment__edited">(${esc(ctx.t("comments.edited"))})</span>`
+    : "";
   const replyLink = accepting
     ? ` · <a class="jf-comment__reply-link" href="${esc(replyUrl(ctx.basePath, node.id))}#jf-comment-form">${esc(
         ctx.t("comments.reply"),
@@ -358,23 +270,15 @@ function formHtml(ctx: CommentsRenderContext, settings: CommentSettings): string
     : "";
 
   let captchaWidget = "";
+  let captchaAttributes = "";
   if (settings.captchaProvider !== "none" && settings.captchaSiteKey) {
-    const meta = CAPTCHA_META[settings.captchaProvider];
-    if (settings.captchaProvider === "recaptcha-v3") {
-      captchaWidget = `<input type="hidden" name="${meta.field}" value="">
-    <script src="${esc(meta.scriptSrc)}?render=${encodeURIComponent(settings.captchaSiteKey)}" async defer></script>
-    <script src="/js/recaptcha-v3.js" defer></script>`;
-    } else {
-      captchaWidget = `<div class="${meta.widgetClass} jf-comments__captcha" data-sitekey="${esc(
-        settings.captchaSiteKey,
-      )}"></div>
-    <script src="${esc(meta.scriptSrc)}" async defer></script>`;
-    }
+    const rendered = renderCaptchaWidget(settings.captchaProvider, settings.captchaSiteKey, {
+      widgetClass: "jf-comments__captcha",
+      recaptchaV3Action: RECAPTCHA_V3_ACTION,
+    });
+    captchaWidget = rendered.widget;
+    captchaAttributes = rendered.formAttributes;
   }
-
-  const captchaAttributes = settings.captchaProvider === "recaptcha-v3" && settings.captchaSiteKey
-    ? ` data-jf-recaptcha-v3 data-sitekey="${esc(settings.captchaSiteKey)}" data-action="${RECAPTCHA_V3_ACTION}"`
-    : "";
 
   return `<form class="jf-comments__form" id="jf-comment-form" method="post" action="/justflows-comments/submit"${captchaAttributes}>
     <h3 class="jf-comments__form-title">${esc(ctx.t("comments.form_title"))}</h3>
@@ -422,7 +326,9 @@ export async function renderCommentsBlockHtml(
     // for View-source diagnosis, and still render a valid (empty) section.
     console.error("[justflows] comments block render failed:", err);
     const t = ctx.t ?? ((k: string) => k);
-    const reason = (err instanceof Error ? err.message : String(err)).slice(0, 200).replace(/--+/g, "-");
+    const reason = (err instanceof Error ? err.message : String(err))
+      .slice(0, 200)
+      .replace(/--+/g, "-");
     return `<section class="jf-comments" id="jf-comments">
       <!-- jf-comments render error: ${reason} -->
       <h2 class="jf-comments__heading">${esc(String(t("comments.heading") ?? "Comments"))}</h2>
@@ -603,10 +509,17 @@ export function commentPlainText(html: string): string {
 }
 
 function headerText(value: string, max = 160): string {
-  return value.replace(/[\r\n\0]/g, " ").trim().slice(0, max);
+  return value
+    .replace(/[\r\n\0]/g, " ")
+    .trim()
+    .slice(0, max);
 }
 
-function sameOrigin(host: string | undefined, origin: string | undefined, referer: string | undefined): boolean {
+function sameOrigin(
+  host: string | undefined,
+  origin: string | undefined,
+  referer: string | undefined,
+): boolean {
   if (!host) return false;
   const candidate = origin || referer;
   if (!candidate) return false;
@@ -621,7 +534,11 @@ function countLinks(html: string): number {
   return (html.match(/https?:\/\//gi) ?? []).length;
 }
 
-function returnLocation(returnTo: string | undefined, referer: string | undefined, banner: CommentsBannerState): string {
+function returnLocation(
+  returnTo: string | undefined,
+  referer: string | undefined,
+  banner: CommentsBannerState,
+): string {
   let path = "/";
   const source = returnTo || referer || "/";
   try {
@@ -706,13 +623,10 @@ export async function acceptCommentSubmission(
   if (settings.captchaProvider !== "none" && settings.captchaSiteKey) {
     const meta = CAPTCHA_META[settings.captchaProvider];
     const token = String(b[meta.field] ?? "").trim();
-    const ok = await verifyCaptcha(
-      settings.captchaProvider,
-      settings.captchaSecretKey,
-      token,
-      ip,
-      settings.captchaScoreThreshold,
-    );
+    const ok = await verifyCaptcha(settings.captchaProvider, settings.captchaSecretKey, token, ip, {
+      expectedAction: RECAPTCHA_V3_ACTION,
+      scoreThreshold: settings.captchaScoreThreshold,
+    });
     if (!ok) return { status: 400, location: returnLocation(returnTo, input.referer, "captcha") };
   }
 
@@ -720,7 +634,12 @@ export async function acceptCommentSubmission(
   let parentId: string | null = null;
   const rawParent = String(b.parent_id ?? "").trim();
   if (rawParent) {
-    const parentRows = await db.query<{ id: string; parent_id: string | null; status: string; content_id: string }>(
+    const parentRows = await db.query<{
+      id: string;
+      parent_id: string | null;
+      status: string;
+      content_id: string;
+    }>(
       "SELECT id, parent_id, status, content_id FROM comments WHERE id = ? AND site_id = ? LIMIT 1",
       [rawParent, siteId],
     );
@@ -736,8 +655,12 @@ export async function acceptCommentSubmission(
 
   // Identity: a signed-in user's name/email is authoritative; otherwise take
   // what was typed.
-  let authorName = String(b.author_name ?? "").trim().slice(0, 120);
-  let authorEmail = String(b.author_email ?? "").trim().slice(0, 320);
+  let authorName = String(b.author_name ?? "")
+    .trim()
+    .slice(0, 120);
+  let authorEmail = String(b.author_email ?? "")
+    .trim()
+    .slice(0, 320);
   let userId: string | null = null;
   if (input.session?.userId) {
     const userRows = await db.query<{ display_name: string; username: string; email: string }>(
@@ -753,15 +676,19 @@ export async function acceptCommentSubmission(
   }
 
   if (!authorName) return { status: 400, error: "Name is required" };
-  if (authorEmail && !EMAIL_RE.test(authorEmail)) return { status: 400, error: "Email looks invalid" };
+  if (authorEmail && !EMAIL_RE.test(authorEmail))
+    return { status: 400, error: "Email looks invalid" };
 
   let authorUrl = "";
   if (settings.allowUrls) {
-    const rawUrl = String(b.author_url ?? "").trim().slice(0, 500);
+    const rawUrl = String(b.author_url ?? "")
+      .trim()
+      .slice(0, 500);
     if (rawUrl) {
       try {
         const parsed = new URL(rawUrl);
-        if (parsed.protocol === "http:" || parsed.protocol === "https:") authorUrl = parsed.toString();
+        if (parsed.protocol === "http:" || parsed.protocol === "https:")
+          authorUrl = parsed.toString();
       } catch {
         authorUrl = "";
       }
@@ -776,12 +703,16 @@ export async function acceptCommentSubmission(
     return { status: 400, error: "Comment is empty" };
   }
 
-  const wantsNotify = (b.notify === "1" || b.notify === "on" || b.notify === true) && Boolean(authorEmail);
+  const wantsNotify =
+    (b.notify === "1" || b.notify === "on" || b.notify === true) && Boolean(authorEmail);
   const linky = countLinks(cleanBody) > 2;
   const status = settings.requireModeration || linky ? "pending" : "approved";
 
   const id = randomUUID();
-  const nowIso = new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  const nowIso = new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "");
   await db.run(
     `INSERT INTO comments
        (id, site_id, content_id, parent_id, author_name, author_email, author_url, body, status, user_id, ip_address, notify, unsubscribe_token, created_at, updated_at)
@@ -855,19 +786,29 @@ async function notifyModerator(siteId: string, author: string, body: string): Pr
   const { sendMail } = await import("./mail.js");
   const text = commentPlainText(body).slice(0, 2000);
   const appUrl = process.env.APP_URL ?? "";
+  const { getAdminPathConfig } = await import("./admin-path.js");
+  const adminPath = (await getAdminPathConfig()).path;
   await sendMail({
     to: general.adminEmail,
     subject: `New comment awaiting moderation from ${headerText(author, 80)}`,
     text: `A new comment is waiting in the moderation queue.\n\nFrom: ${headerText(
       author,
       80,
-    )}\n\n${text}\n\n${appUrl ? `${appUrl.replace(/\/$/, "")}/admin/comments` : "Admin → Comments"}`,
+    )}\n\n${text}\n\n${appUrl ? `${appUrl.replace(/\/$/, "")}${adminPath}/comments` : "Admin → Comments"}`,
   });
 }
 
-async function notifyParentAuthor(siteId: string, parentId: string, newCommentId: string): Promise<void> {
+async function notifyParentAuthor(
+  siteId: string,
+  parentId: string,
+  newCommentId: string,
+): Promise<void> {
   const db = await getDb();
-  const parentRows = await db.query<{ author_email: string | null; notify: unknown; unsubscribe_token: string | null }>(
+  const parentRows = await db.query<{
+    author_email: string | null;
+    notify: unknown;
+    unsubscribe_token: string | null;
+  }>(
     "SELECT author_email, notify, unsubscribe_token FROM comments WHERE id = ? AND site_id = ? LIMIT 1",
     [parentId, siteId],
   );

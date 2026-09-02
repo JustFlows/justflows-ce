@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useT } from "../../i18n/I18nProvider";
 import { useSessionRole } from "@components/SessionProvider";
+import { uid } from "../../lib/uid";
 
 type MenuItemType = string;
 
@@ -59,7 +60,7 @@ function normalizeContentTypes(types: ContentTypeOption[] | undefined): ContentT
 }
 
 function newItemId(): string {
-  return crypto.randomUUID();
+  return uid();
 }
 
 function cloneItems(items: MenuItem[]): MenuItem[] {

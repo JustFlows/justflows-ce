@@ -7,4 +7,5 @@ export default defineWorkspace([
   "packages/blocks/vitest.config.ts",
   "packages/installer/vitest.config.ts",
   "plugins/hello-world/vitest.config.ts",
+  "plugins/consent/vitest.config.ts",
 ]);

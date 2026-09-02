@@ -7,6 +7,7 @@
   "publisher": "Justflows",
   "description": "No external CSS framework — use theme styles only",
   "license": "GPL-2.0-or-later",
+  "engines": { "justflows": ">=0.1.8 <0.2.0" },
   "stylesheets": [],
   "scripts": []
 }

@@ -430,6 +430,15 @@ export async function deactivatePlugin(siteId: string, pluginId: string): Promis
   );
 }
 
+/** Mark a plugin's runtime activation as failed so the admin surface can show why. */
+export async function markPluginError(siteId: string, pluginId: string): Promise<void> {
+  const db = await getDb();
+  await db.run(
+    "UPDATE plugins SET status = 'error', updated_at = ? WHERE site_id = ? AND plugin_id = ?",
+    [now(), siteId, pluginId],
+  );
+}
+
 export async function deletePlugin(siteId: string, pluginId: string): Promise<void> {
   const db = await getDb();
   await db.run("DELETE FROM plugins WHERE site_id = ? AND plugin_id = ?", [siteId, pluginId]);

@@ -1,0 +1,15 @@
+{
+  "title": "Single post",
+  "description": "One post (or any non-page content row): title, date, excerpt, then the post's own blocks.",
+  "blocks": [
+    { "id": "single-title", "type": "core.post-title", "version": 1, "props": { "level": 1 } },
+    { "id": "single-meta", "type": "core.post-meta", "version": 1, "props": {} },
+    { "id": "single-excerpt", "type": "core.post-excerpt", "version": 1, "props": {} },
+    {
+      "id": "single-content",
+      "type": "core.post-content",
+      "version": 1,
+      "props": { "wrap": "post" }
+    }
+  ]
+}
