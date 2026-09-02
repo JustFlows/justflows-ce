@@ -3,6 +3,7 @@ import path from "node:path";
 import { getJfRoot } from "./jf-root.js";
 import { resolvePathUnderBase } from "./safe-path.js";
 import type { BlockNode } from "./types.js";
+import type { TemplatePartSlot } from "./template-hierarchy.js";
 
 const THEME_ID_RE = /^[a-z0-9][a-z0-9._-]{0,120}$/i;
 
@@ -221,6 +222,105 @@ export function loadThemePattern(
     category: data.category,
     blocks: data.blocks,
   };
+}
+
+// --- Template hierarchy (WordPress-style templates + parts) ---------------
+
+const TEMPLATE_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,80}$/;
+
+function themeSubdir(
+  themeId: string,
+  subdir: "templates" | "parts",
+  installedPath?: string | null,
+): string | null {
+  const dir = resolveThemeDir(themeId, installedPath);
+  if (!dir) return null;
+  const sub = resolvePathUnderBase(dir, subdir);
+  if (!sub) return null;
+  try {
+    return fs.statSync(sub).isDirectory() ? sub : null;
+  } catch {
+    return null;
+  }
+}
+
+function readBlockDocFile(dir: string, name: string): BlockNode[] | null {
+  const data = readJsonFile<{ blocks?: BlockNode[] }>(dir, name);
+  if (!data?.blocks || !Array.isArray(data.blocks)) return null;
+  return data.blocks;
+}
+
+/**
+ * A theme template body (`templates/<slug>.json`), or `null` when the theme
+ * ships no file for that slug. `demo/home.json` and `demo/blog.json` still
+ * answer for the `front-page` / `home` slots so v1 themes keep working while
+ * they migrate to `templates/`.
+ */
+export function loadThemeTemplate(
+  themeId: string,
+  slug: string,
+  installedPath?: string | null,
+): BlockNode[] | null {
+  if (!TEMPLATE_SLUG_RE.test(slug)) return null;
+  const dir = themeSubdir(themeId, "templates", installedPath);
+  if (dir) {
+    const blocks = readBlockDocFile(dir, `${slug}.json`);
+    if (blocks) return blocks;
+  }
+  if (slug === "front-page") return loadThemeDemoHome(themeId, installedPath);
+  if (slug === "home") return loadThemeDemoBlog(themeId, installedPath);
+  return null;
+}
+
+/** The template slugs a theme actually ships a file for (`templates/*.json`). */
+export function listThemeTemplateSlugs(themeId: string, installedPath?: string | null): string[] {
+  const dir = themeSubdir(themeId, "templates", installedPath);
+  if (!dir) return [];
+  try {
+    return fs
+      .readdirSync(dir)
+      .filter((name) => name.endsWith(".json"))
+      .map((name) => name.slice(0, -".json".length))
+      .filter((slug) => TEMPLATE_SLUG_RE.test(slug))
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Walk an ordered candidate list (from {@link templateCandidates}) and return
+ * the first template the theme provides, with the slug that matched.
+ */
+export function resolveThemeTemplate(
+  themeId: string,
+  candidates: string[],
+  installedPath?: string | null,
+): { slug: string; blocks: BlockNode[] } | null {
+  for (const slug of candidates) {
+    const blocks = loadThemeTemplate(themeId, slug, installedPath);
+    if (blocks) return { slug, blocks };
+  }
+  return null;
+}
+
+/**
+ * A theme template part (`parts/<slug>.json`), or `null`. `footer` falls back
+ * to the legacy `demo/footer.json`; `header` chrome stays config-shaped and is
+ * handled by {@link loadThemeDemoHeader}, not here.
+ */
+export function loadThemeTemplatePart(
+  themeId: string,
+  slug: TemplatePartSlot,
+  installedPath?: string | null,
+): BlockNode[] | null {
+  const dir = themeSubdir(themeId, "parts", installedPath);
+  if (dir) {
+    const blocks = readBlockDocFile(dir, `${slug}.json`);
+    if (blocks) return blocks;
+  }
+  if (slug === "footer") return loadThemeDemoFooter(themeId, installedPath);
+  return null;
 }
 
 export function loadThemeDemoHome(
