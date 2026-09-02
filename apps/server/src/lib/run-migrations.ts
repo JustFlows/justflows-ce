@@ -6,6 +6,15 @@ export const MIGRATION_ORDER = [
   "0012_baseline",
   "0013_public_comments",
   "0014_content_webhooks",
+  "0015_theme_designs",
+  "0016_user_preferences",
+  "0017_password_resets",
+  "0018_access_control",
+  "0019_device_sessions",
+  "0020_email_delivery",
+  "0021_trash_retention",
+  "0022_email_templates",
+  "0023_templates",
 ] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";
@@ -86,22 +95,32 @@ export function isIgnorableMigrationError(err: unknown): boolean {
   return false;
 }
 
+/**
+ * Candidate files for a migration, in precedence order.
+ *
+ * PostgreSQL reads the bare `${name}.sql`. MySQL reads `${name}.mysql.sql` and
+ * falls back to the bare file. MariaDB reads `${name}.mariadb.sql`, then the
+ * MySQL file, then the bare file — the DDL these two dialects need has been
+ * byte-for-byte identical in practice, so a migration only ships a separate
+ * `.mariadb.sql` on the rare occasion it genuinely diverges. This keeps three
+ * files per migration from becoming the default.
+ */
+export function migrationFileCandidates(name: string, driver: DbDriver): string[] {
+  if (driver === "postgres") return [`${name}.sql`];
+  if (driver === "mariadb") return [`${name}.mariadb.sql`, `${name}.mysql.sql`, `${name}.sql`];
+  return [`${name}.mysql.sql`, `${name}.sql`];
+}
+
 export async function readMigrationDdl(name: string, driver: DbDriver): Promise<string | null> {
   const dir = migrationsDir();
-  const driverFile =
-    driver === "postgres"
-      ? path.join(dir, `${name}.sql`)
-      : path.join(dir, `${name}.${driver}.sql`);
-
-  try {
-    return await fs.readFile(driverFile, "utf-8");
-  } catch {
+  for (const candidate of migrationFileCandidates(name, driver)) {
     try {
-      return await fs.readFile(path.join(dir, `${name}.sql`), "utf-8");
+      return await fs.readFile(path.join(dir, candidate), "utf-8");
     } catch {
-      return null;
+      // Try the next candidate.
     }
   }
+  return null;
 }
 
 function withoutIfExists(sql: string): string {

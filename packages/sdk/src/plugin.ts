@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { gplLicenseValidationMessage, isGplCompatibleLicense } from "./license.js";
 import { RegistryListingSchema } from "./registry.js";
+import { ExtensionEnginesSchema } from "./compatibility.js";
+import type { PluginCookiesApi } from "./cookies.js";
+import type { AccessPolicy, UserCapability, UserCapabilityDefinition } from "./capabilities.js";
 import type {
   ActionName,
   ActionHandlerFor,
@@ -37,6 +40,9 @@ export const PluginPermissionSchema = z.enum([
   "network:outbound",
   "admin:extend",
   "jobs:register",
+  "mail:transport",
+  "mail:templates",
+  "mail:hook",
   "auth:hook",
 ]);
 
@@ -47,7 +53,20 @@ export const SENSITIVE_PERMISSIONS: PluginPermission[] = [
   "users:manage",
   "settings:manage",
   "auth:hook",
+  "mail:transport",
+  "mail:templates",
+  "mail:hook",
 ];
+
+/** Host/runtime versions exposed to an activated extension. */
+export interface JustflowsRuntimeVersions {
+  /** Installed Justflows CE version. */
+  readonly justflows: string;
+  /** Installed `@justflows/sdk` package version. */
+  readonly sdk: string;
+  /** Major contract revision for runtime feature detection. */
+  readonly sdkApi: number;
+}
 
 // ─── Admin menu contributions ─────────────────────────────────────────────
 
@@ -87,7 +106,10 @@ export const AdminMenuItemSchema = z.object({
    */
   contentType: z
     .string()
-    .regex(/^[a-z][a-z0-9-]{0,59}$/, "Content type slug must be lowercase letters, numbers, and hyphens")
+    .regex(
+      /^[a-z][a-z0-9-]{0,59}$/,
+      "Content type slug must be lowercase letters, numbers, and hyphens",
+    )
     .optional(),
 });
 
@@ -118,7 +140,10 @@ export const PluginManifestSchema = z
     author: z.string().optional(),
     homepage: z.url().optional(),
     license: z.string().min(1, "Plugin license is required and must be GPL-compatible"),
+    engines: ExtensionEnginesSchema.optional(),
+    /** @deprecated Use engines.justflows in new manifests. */
     minJustflowsVersion: z.string().optional(),
+    /** @deprecated Use engines.justflows in new manifests. */
     maxJustflowsVersion: z.string().optional(),
     permissions: z.array(PluginPermissionSchema).default([]),
     main: z.string().default("index.js"),
@@ -161,7 +186,10 @@ export const PluginManifestSchema = z
       .array(
         z
           .string()
-          .regex(/^[a-z][a-z0-9-]{0,59}$/, "Content type slug must be lowercase letters, numbers, and hyphens"),
+          .regex(
+            /^[a-z][a-z0-9-]{0,59}$/,
+            "Content type slug must be lowercase letters, numbers, and hyphens",
+          ),
       )
       .max(20)
       .optional(),
@@ -224,12 +252,21 @@ export interface PluginCacheApi {
   invalidate(prefix?: string): Promise<void>;
 }
 
+export interface PluginCapabilitiesApi {
+  /** Register a user capability for as long as this plugin is active. */
+  register(definition: UserCapabilityDefinition): void;
+}
+
 /** The signed-in user behind a plugin request, when there is one. */
 export interface PluginHttpSession {
   userId: string;
   siteId: string;
   role: string;
   email: string;
+  /** Effective grants after role, per-user additions, and explicit denies. */
+  capabilities: readonly UserCapability[];
+  /** Resource constraints the host enforces for scoped operations. */
+  scopes: AccessPolicy["scopes"];
 }
 
 export type PluginHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -298,6 +335,54 @@ export interface PluginJobDefinition {
 export interface PluginJobsApi {
   register(def: PluginJobDefinition): void;
   enqueue(name: string, options?: { delayMs?: number; payload?: unknown }): void;
+}
+
+export interface PluginMailTransportMessage {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  replyTo?: string;
+  envelopeSender?: string;
+}
+export interface PluginMailTransportApi {
+  register(transport: {
+    id: string;
+    label: string;
+    send(
+      message: PluginMailTransportMessage,
+    ): Promise<{
+      response: string;
+      messageId?: string;
+      status?: "sent" | "deferred" | "failed" | "bounced";
+    }>;
+  }): void;
+  /** Register a namespaced system-email type. Requires `mail:templates`. */
+  registerTemplate(template: PluginEmailTemplateDefinition): void;
+}
+
+export interface PluginEmailVariableDefinition {
+  key: string;
+  label: string;
+  description: string;
+  kind: "text" | "url";
+  example: string;
+  required?: boolean;
+}
+
+export interface PluginEmailTemplateDefinition {
+  /** Must begin with the registering plugin's manifest id followed by a dot. */
+  key: string;
+  label: string;
+  description: string;
+  purpose: "account" | "security" | "administrative";
+  recipient: "user" | "administrator";
+  disableSafe?: boolean;
+  variables: PluginEmailVariableDefinition[];
+  defaults: { subject: string; preheader: string; html: string; text: string };
+  /** Optional built-in catalogs keyed by an active Justflows locale code. */
+  localizedDefaults?: Record<string, { subject: string; preheader: string; html: string; text: string }>;
 }
 
 export interface PluginDataRecord<T = unknown> {
@@ -422,14 +507,7 @@ export interface PluginDatabaseProbeResult {
 }
 
 export type PluginColumnType =
-  | "uuid"
-  | "text"
-  | "int"
-  | "bigint"
-  | "boolean"
-  | "timestamptz"
-  | "json"
-  | "varchar";
+  "uuid" | "text" | "int" | "bigint" | "boolean" | "timestamptz" | "json" | "varchar";
 
 export interface PluginSchemaColumn {
   name: string;
@@ -517,10 +595,7 @@ export interface PluginDatabasesApi {
    * Delete matching rows in a plugin-owned table. `where` must include at
    * least one column besides the implicit site scope.
    */
-  delete(
-    table: string,
-    where: Record<string, string | number | boolean | null>,
-  ): Promise<void>;
+  delete(table: string, where: Record<string, string | number | boolean | null>): Promise<void>;
 
   /** Column names for a plugin-owned table, or `[]` when the table does not exist. */
   columns(table: string): Promise<string[]>;
@@ -541,8 +616,12 @@ export interface PluginSecretsApi {
  */
 export interface PluginContext {
   readonly pluginId: string;
+  /** Version of the activated plugin. */
   readonly version: string;
+  /** Host and SDK versions for runtime feature detection and diagnostics. */
+  readonly runtime: JustflowsRuntimeVersions;
   readonly permissions: ReadonlySet<PluginPermission>;
+  readonly capabilities: PluginCapabilitiesApi;
 
   /**
    * Shared jf-cache, scoped to this plugin. Always available; when caching is
@@ -619,6 +698,9 @@ export interface PluginContext {
    */
   jobs: PluginJobsApi;
 
+  /** Register outbound providers and namespaced email types. */
+  mail: PluginMailTransportApi;
+
   /** Plugin-scoped JSON documents. No raw SQL. */
   data: PluginDataApi;
 
@@ -630,6 +712,14 @@ export interface PluginContext {
 
   /** Short-lived database probes for plugin-owned storage topology. */
   databases: PluginDatabasesApi;
+
+  /**
+   * The site cookie registry. `declare()` every non-essential cookie this plugin
+   * sets so the consent banner can disclose it and expire it on withdrawal;
+   * `list()` returns the whole registry (host + all plugins) with operator
+   * overrides applied. Declarations are removed on deactivate.
+   */
+  cookies: PluginCookiesApi;
 
   /** Register block types for the editor and public renderer. Removed on deactivate. */
   blocks: PluginBlocksApi;

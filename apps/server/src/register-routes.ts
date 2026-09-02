@@ -1,11 +1,12 @@
-import type express from "express";
+import express from "express";
 import { isInstalled, requireInstalled, blockIfInstalled } from "./middleware/install-guard.js";
 import { publicApiGuard } from "./middleware/public-api.js";
 import { publicApiCors } from "./middleware/public-api-cors.js";
 import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
 import { logSafe } from "./lib/log-safe.js";
-import { renderAdminPage } from "./lib/admin-ssr.js";
+import { adminClientDir, renderAdminPage } from "./lib/admin-ssr.js";
 import { adminAccessGate } from "./middleware/admin-access.js";
+import { getAdminPathConfig, toInternalAdminPath } from "./lib/admin-path.js";
 
 /** Register heavy routes (dynamic import — keeps Passenger startup fast). */
 export async function registerDeferredRoutes(app: express.Application): Promise<void> {
@@ -29,17 +30,22 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startRevisionJobs();
     const { startCoreAutoUpdateJob } = await import("./lib/core-auto-update.js");
     startCoreAutoUpdateJob();
+    const { startTrashPurgeJob } = await import("./lib/trash.js");
+    startTrashPurgeJob();
     try {
       const { getSiteId } = await import("./lib/site-settings.js");
       const siteId = await getSiteId();
       if (siteId) {
-        const { migrateTemplatePartsFromSettings } = await import("./lib/template-parts-migrate.js");
+        const { migrateTemplatePartsFromSettings } =
+          await import("./lib/template-parts-migrate.js");
         await migrateTemplatePartsFromSettings(siteId);
+        const { migrateThemeDesignsFromSettings } = await import("./lib/theme-designs-migrate.js");
+        await migrateThemeDesignsFromSettings(siteId);
         const { backfillSiteHeaderLibrary } = await import("./lib/site-header-backfill.js");
         await backfillSiteHeaderLibrary(siteId);
       }
     } catch (err) {
-      console.error("[justflows] template-part / header backfill failed:", err);
+      console.error("[justflows] template-part / theme-design / header backfill failed:", err);
     }
   }
 
@@ -67,7 +73,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: performanceRoutes },
     { default: importRoutes },
     { default: siteRoutes, serveThemeCss },
-    { default: publicSiteRoutes },
+    { default: publicSiteRoutes, sendPublicNotFound },
     { default: languagesRoutes },
     { default: menusRoutes },
     { default: blocksRoutes },
@@ -78,6 +84,13 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: siteHeaderRoutes },
     { default: auditRoutes },
     { default: webhooksRoutes },
+    { default: preferencesRoutes },
+    { default: diagnosticsRoutes },
+    { default: cookiesRoutes },
+    { default: rolesRoutes },
+    { default: trashRoutes },
+    { default: emailsRoutes },
+    { default: templatesRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -106,15 +119,24 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/site-header.js"),
     import("./routes/audit.js"),
     import("./routes/webhooks.js"),
+    import("./routes/preferences.js"),
+    import("./routes/diagnostics.js"),
+    import("./routes/cookies.js"),
+    import("./routes/roles.js"),
+    import("./routes/trash.js"),
+    import("./routes/emails.js"),
+    import("./routes/templates.js"),
   ]);
 
   app.use(blockIfInstalled);
 
   app.use("/api/content", requireInstalled, contentRoutes);
+  app.use("/api/trash", requireInstalled, trashRoutes);
   app.use("/api/media", requireInstalled, mediaRoutes);
   app.use("/api/comments", requireInstalled, commentsRoutes);
   app.use("/api/users", requireInstalled, usersRoutes);
   app.use("/api/settings", requireInstalled, settingsRoutes);
+  app.use("/api/emails", requireInstalled, emailsRoutes);
   app.use("/api/security", requireInstalled, securityRoutes);
   app.use("/api/themes", requireInstalled, themesRoutes);
   app.use("/api/css-providers", requireInstalled, cssProvidersRoutes);
@@ -131,6 +153,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/menus", requireInstalled, menusRoutes);
   app.use("/api/reusable-blocks", requireInstalled, reusableBlocksRoutes);
   app.use("/api/template-parts", requireInstalled, templatePartsRouter);
+  app.use("/api/templates", requireInstalled, templatesRoutes);
   app.use("/api/headers", requireInstalled, siteHeaderRoutes);
   app.use("/api/blocks", requireInstalled, blocksRoutes);
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
@@ -138,6 +161,10 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
   app.use("/api/audit", requireInstalled, auditRoutes);
   app.use("/api/webhooks", requireInstalled, webhooksRoutes);
+  app.use("/api/preferences", requireInstalled, preferencesRoutes);
+  app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
+  app.use("/api/cookies", requireInstalled, cookiesRoutes);
+  app.use("/api/roles", requireInstalled, rolesRoutes);
   // Everything below is public-facing: one switch (Settings → Public API) takes
   // the whole surface offline. Mounted on the prefix so future public routes
   // inherit the guard automatically.
@@ -251,6 +278,30 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     }
   });
 
+  // Map the configurable public entry path to the stable internal /admin route.
+  // APIs stay fixed so a bad proxy rule can always be rolled back safely.
+  app.use(async (req, res, next) => {
+    try {
+      const config = await getAdminPathConfig();
+      if (config.path === "/admin") return next();
+      if (req.path === "/admin" || req.path.startsWith("/admin/")) {
+        if (config.oldPathBehavior === "redirect") {
+          res.redirect(302, `${config.path}${req.path.slice("/admin".length)}`);
+        } else {
+          await sendPublicNotFound(req, res);
+        }
+        return;
+      }
+      const internal = toInternalAdminPath(req.path, config.path);
+      if (internal) req.url = `${internal}${req.url.slice(req.path.length)}`;
+      next();
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  app.use("/admin/assets", express.static(`${adminClientDir()}/assets`));
+
   app.use("/admin", requireInstalled, adminAccessGate);
 
   app.get(/^\/admin(\/.+)?$/, requireInstalled, (req, res, next) => {
@@ -262,6 +313,25 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   });
 
   app.use(requireInstalled, (await import("./lib/plugin-http.js")).dispatchPluginHttp);
+
+  // Anything under /api or /ext that reached here matched no route. Without this
+  // it falls through to the public-site handler and comes back as the site's
+  // HTML 404 — callers doing `res.json()` then fail with
+  // "Unexpected token '<', "<!DOCTYPE"". /ext is the plugin HTTP surface, so an
+  // unregistered route (typically a plugin that failed to activate) must read
+  // as a 404 in JSON, not a page.
+  app.use((req, res, next) => {
+    if (res.headersSent) {
+      next();
+      return;
+    }
+    if (req.path === "/api" || req.path.startsWith("/api/") || req.path.startsWith("/ext/")) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    next();
+  });
+
   app.use(requireInstalled, publicSiteRoutes);
 
   // Backstop. Express's default handler prints the stack into the response body
@@ -275,7 +345,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
         err,
       );
       if (res.headersSent) return;
-      if (req.path.startsWith("/api/")) {
+      if (req.path.startsWith("/api/") || req.path.startsWith("/ext/")) {
         res.status(500).json({ error: "Internal server error" });
         return;
       }

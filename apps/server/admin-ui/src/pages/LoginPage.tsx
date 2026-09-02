@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import { ensureCsrfCookie } from "../lib/csrf";
+import { publicAdminPath, safeRedirectPath } from "../admin-path";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [canRegister, setCanRegister] = useState(false);
+  const [canReset, setCanReset] = useState(false);
   // Set once the server says this account has a second factor. The password
   // fields stay filled so the code can be added without retyping them.
   const [totpRequired, setTotpRequired] = useState(false);
@@ -18,6 +20,10 @@ export default function LoginPage() {
     fetch("/api/auth/registration")
       .then((r) => r.json())
       .then((data: { enabled?: boolean }) => setCanRegister(data.enabled === true))
+      .catch(() => {});
+    fetch("/api/auth/password/forgot")
+      .then((r) => r.json())
+      .then((data: { enabled?: boolean }) => setCanReset(data.enabled === true))
       .catch(() => {});
   }, []);
 
@@ -34,7 +40,12 @@ export default function LoginPage() {
         body: JSON.stringify(totpRequired ? { email, password, totp } : { email, password }),
       });
 
-      const data = await res.json() as { error?: string; totpRequired?: boolean; role?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        totpRequired?: boolean;
+        role?: string;
+        redirectTo?: string;
+      };
 
       if (!res.ok) {
         if (data.totpRequired) setTotpRequired(true);
@@ -42,11 +53,15 @@ export default function LoginPage() {
         return;
       }
 
-      // A subscriber has no admin capability — send them to the site instead
-      // of an admin app that would have nothing for them to do. A full
-      // navigation (not client-side routing) so the server's own /admin gate
-      // is the one source of truth for this, not a copy of it here.
-      window.location.href = data.role === "subscriber" ? "/" : "/admin";
+      // The server says where to go: the site for a subscriber, otherwise the
+      // admin app at whatever path the administrator moved it to. A full
+      // navigation (not client-side routing) so the server's own gate is the one
+      // source of truth. `publicAdminPath` is only a fall-back for an older
+      // server that does not send `redirectTo`.
+      window.location.href = safeRedirectPath(
+        data.redirectTo,
+        data.role === "subscriber" ? "/" : publicAdminPath("/admin"),
+      );
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -67,7 +82,9 @@ export default function LoginPage() {
 
         <form onSubmit={submit} className="jf-auth__body">
           <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-email">Email address</label>
+            <label className="jf-field__label" htmlFor="jf-email">
+              Email address
+            </label>
             <input
               id="jf-email"
               className="jf-input"
@@ -82,7 +99,9 @@ export default function LoginPage() {
 
           {totpRequired ? (
             <div className="jf-field">
-              <label className="jf-field__label" htmlFor="jf-totp">Authentication code</label>
+              <label className="jf-field__label" htmlFor="jf-totp">
+                Authentication code
+              </label>
               <input
                 id="jf-totp"
                 className="jf-input"
@@ -101,7 +120,9 @@ export default function LoginPage() {
           ) : null}
 
           <div className="jf-field">
-            <label className="jf-field__label" htmlFor="jf-password">Password</label>
+            <label className="jf-field__label" htmlFor="jf-password">
+              Password
+            </label>
             <input
               id="jf-password"
               className="jf-input"
@@ -113,11 +134,20 @@ export default function LoginPage() {
             />
           </div>
 
-          {error && <div className="jf-alert jf-alert--error" role="alert">{error}</div>}
+          {error && (
+            <div className="jf-alert jf-alert--error" role="alert">
+              {error}
+            </div>
+          )}
 
           <button className="jf-btn jf-btn--primary jf-btn--block" type="submit" disabled={loading}>
             {loading ? "Signing in…" : "Sign in →"}
           </button>
+          {canReset && (
+            <p className="jf-auth__footer">
+              <Link to="/forgot-password">Forgot your password?</Link>
+            </p>
+          )}
           {canRegister && (
             <p className="jf-auth__footer">
               Don&apos;t have an account? <Link to="/register">Create one</Link>

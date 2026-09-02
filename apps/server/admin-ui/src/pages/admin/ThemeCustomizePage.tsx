@@ -60,7 +60,48 @@ const SECTION_ORDER = [
   "navigation",
   "advanced",
 ] as const;
-type EditorTab = "homepage" | "blog" | "styles" | "header" | "footer";
+type EditorTab = "homepage" | "blog" | "styles" | "header" | "footer" | "templates";
+
+interface TemplateSlot {
+  slug: string;
+  inTheme: boolean;
+  customised: boolean;
+  hasDraft: boolean;
+}
+
+/** Friendly labels for the WordPress-style template slugs. */
+const TEMPLATE_SLOT_LABELS: Record<string, { label: string; hint: string }> = {
+  "front-page": {
+    label: "Front page",
+    hint: "The site root (/) — your chosen home page or the theme's home layout",
+  },
+  home: { label: "Blog home", hint: "The list of blog posts (used at / when no home page is set)" },
+  single: { label: "Single post", hint: "One blog post, or any non-page content row" },
+  page: { label: "Page", hint: "A standalone page" },
+  singular: {
+    label: "Post or page (fallback)",
+    hint: "Shared fallback for both Single post and Page",
+  },
+  archive: { label: "Archive (list)", hint: "A list view for a content type — not routed yet" },
+  search: { label: "Search results", hint: "Not routed yet" },
+  "404": {
+    label: "Not found (404)",
+    hint: "The theme's built-in 404 is translated; a JSON one is English-only unless you translate it",
+  },
+  index: { label: "Catch-all (index)", hint: "Used only when no more specific template exists" },
+};
+
+function slotLabel(slug: string): string {
+  const known = TEMPLATE_SLOT_LABELS[slug]?.label;
+  if (known) return known;
+  // single-product, page-about, … → "Single: product", "Page: about"
+  const dash = slug.indexOf("-");
+  if (dash > 0) {
+    const base = TEMPLATE_SLOT_LABELS[slug.slice(0, dash)]?.label ?? slug.slice(0, dash);
+    return `${base}: ${slug.slice(dash + 1)}`;
+  }
+  return slug;
+}
 
 function localePath(locale: string, slug: string, defaultLocale: string): string {
   const path = `/${slug}`;
@@ -92,6 +133,46 @@ export default function CustomizeThemePage() {
   const [footer, setFooter] = useState<BlockDocument>({ version: 1, blocks: [] });
   const [footerSaving, setFooterSaving] = useState(false);
   const [tab, setTab] = useState<EditorTab>("homepage");
+
+  const [templateSlots, setTemplateSlots] = useState<TemplateSlot[]>([]);
+  const [creatableSlots, setCreatableSlots] = useState<string[]>([]);
+  const [templateSlug, setTemplateSlug] = useState<string | null>(null);
+  const [templateDoc, setTemplateDoc] = useState<BlockDocument>({ version: 1, blocks: [] });
+  const [templateFromDefault, setTemplateFromDefault] = useState(false);
+  const [templateSaving, setTemplateSaving] = useState(false);
+
+  const loadTemplateList = useCallback(async () => {
+    try {
+      const res = await fetch("/api/templates");
+      const data = (await res.json()) as { slots?: TemplateSlot[]; creatable?: string[] };
+      setTemplateSlots(data.slots ?? []);
+      setCreatableSlots(data.creatable ?? []);
+    } catch {
+      /* leave as-is */
+    }
+  }, []);
+
+  const openTemplate = useCallback(async (slug: string) => {
+    setTemplateSlug(slug);
+    setTemplateDoc({ version: 1, blocks: [] });
+    try {
+      const res = await fetch(`/api/templates/${encodeURIComponent(slug)}`);
+      const data = (await res.json()) as {
+        blocks?: unknown[];
+        draft?: unknown[];
+        fromThemeDefault?: boolean;
+      };
+      const blocks = (data.draft?.length ? data.draft : data.blocks) ?? [];
+      setTemplateDoc({ version: 1, blocks: blocks as BlockDocument["blocks"] });
+      setTemplateFromDefault(Boolean(data.fromThemeDefault));
+    } catch {
+      /* leave empty */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === "templates" && templateSlots.length === 0) void loadTemplateList();
+  }, [tab, templateSlots.length, loadTemplateList]);
 
   const reloadPreview = useCallback(() => {
     const iframe = iframeRef.current;
@@ -316,6 +397,78 @@ export default function CustomizeThemePage() {
     }
   }
 
+  async function saveTemplate(publish: boolean) {
+    if (!templateSlug) return;
+    setTemplateSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/templates/${encodeURIComponent(templateSlug)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocks: templateDoc.blocks, draft: !publish }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Could not save the template");
+      setSaved(true);
+      setTemplateFromDefault(false);
+      setTimeout(() => setSaved(false), 2000);
+      await loadTemplateList();
+      reloadPreview();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTemplateSaving(false);
+    }
+  }
+
+  async function resetTemplate() {
+    if (!templateSlug) return;
+    if (
+      !window.confirm(
+        `Reset "${templateSlug}" to the theme's own version? Your customisations for this template are removed.`,
+      )
+    )
+      return;
+    setTemplateSaving(true);
+    try {
+      await fetch(`/api/templates/${encodeURIComponent(templateSlug)}`, { method: "DELETE" });
+      const slug = templateSlug;
+      await loadTemplateList();
+      await openTemplate(slug);
+      reloadPreview();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTemplateSaving(false);
+    }
+  }
+
+  const [savingAs, setSavingAs] = useState(false);
+
+  async function saveAsTheme() {
+    const name = window.prompt(
+      "Save the current theme and all your customisations as a new theme.\nName:",
+      `${themeName} (custom)`,
+    );
+    if (name == null || !name.trim()) return;
+    setSavingAs(true);
+    setError("");
+    try {
+      const res = await fetch("/api/themes/save-as", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), activate: true }),
+      });
+      const data = (await res.json()) as { error?: string; themeId?: string };
+      if (!res.ok) throw new Error(data.error ?? "Could not save the theme");
+      navigate("/admin/themes");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingAs(false);
+    }
+  }
+
   async function exitCustomize() {
     if (dirty && !window.confirm("You have unsaved style changes. Exit anyway?")) return;
     await fetch("/api/themes/customize", { method: "DELETE" }).catch(() => {});
@@ -361,7 +514,9 @@ export default function CustomizeThemePage() {
                   ? "Named headers, one shown on every page — with per-language overrides"
                   : tab === "footer"
                     ? "Blocks shown at the bottom of every page"
-                    : "Colors, fonts, spacing, headings & layout"}
+                    : tab === "templates"
+                      ? "Page structure per content type — the WordPress-style template hierarchy"
+                      : "Colors, fonts, spacing, headings & layout"}
             {dirty ? " · unsaved changes" : ""}
           </div>
         </div>
@@ -373,6 +528,15 @@ export default function CustomizeThemePage() {
           <a className="jf-btn jf-btn--onbar" href="/?preview=1" target="_blank" rel="noreferrer">
             Preview ↗
           </a>
+          <button
+            type="button"
+            className="jf-btn jf-btn--onbar"
+            disabled={savingAs}
+            onClick={() => void saveAsTheme()}
+            title="Copy this theme plus every customisation into a new, independent theme"
+          >
+            {savingAs ? "Saving…" : "Save as new theme…"}
+          </button>
           {tab === "styles" && (
             <>
               <button
@@ -408,6 +572,36 @@ export default function CustomizeThemePage() {
                 className="jf-btn jf-btn--primary"
                 disabled={footerSaving}
                 onClick={() => void saveFooter(true)}
+              >
+                Publish
+              </button>
+            </>
+          )}
+          {tab === "templates" && templateSlug && (
+            <>
+              {templateSlots.find((s) => s.slug === templateSlug)?.customised && (
+                <button
+                  type="button"
+                  className="jf-btn jf-btn--onbar"
+                  disabled={templateSaving}
+                  onClick={() => void resetTemplate()}
+                >
+                  Reset to theme
+                </button>
+              )}
+              <button
+                type="button"
+                className="jf-btn jf-btn--onbar"
+                disabled={templateSaving}
+                onClick={() => void saveTemplate(false)}
+              >
+                {templateSaving ? "Saving…" : "Save draft"}
+              </button>
+              <button
+                type="button"
+                className="jf-btn jf-btn--primary"
+                disabled={templateSaving}
+                onClick={() => void saveTemplate(true)}
               >
                 Publish
               </button>
@@ -451,6 +645,13 @@ export default function CustomizeThemePage() {
           onClick={() => setTab("footer")}
         >
           Footer
+        </button>
+        <button
+          type="button"
+          className={`jf-theme-builder__tab${tab === "templates" ? " jf-theme-builder__tab--active" : ""}`}
+          onClick={() => setTab("templates")}
+        >
+          Templates
         </button>
       </div>
 
@@ -600,6 +801,89 @@ export default function CustomizeThemePage() {
             ) : (
               <p className="jf-field__hint" style={{ padding: "1rem" }}>
                 Pick or create a blog page to preview it here.
+              </p>
+            )}
+          </div>
+        </div>
+      ) : tab === "templates" ? (
+        <div className="jf-customizer">
+          <aside className="jf-customizer__controls" style={{ padding: "1rem" }}>
+            <div className="jf-field">
+              <label className="jf-field__label">Templates</label>
+              <p className="jf-field__hint" style={{ marginTop: 0 }}>
+                Each template decides the structure of a kind of page. Edit one and it overrides the
+                theme's version for this site; reset to go back.
+              </p>
+              <div className="jf-stack" style={{ gap: "0.35rem", marginTop: "0.5rem" }}>
+                {templateSlots.length === 0 && (
+                  <p className="jf-field__hint" style={{ margin: 0 }}>
+                    This theme ships no template files yet.
+                  </p>
+                )}
+                {templateSlots.map((slot) => (
+                  <button
+                    key={slot.slug}
+                    type="button"
+                    className={`jf-btn jf-btn--block${
+                      templateSlug === slot.slug ? " jf-btn--primary" : " jf-btn--ghost"
+                    }`}
+                    style={{ justifyContent: "space-between", display: "flex", textAlign: "left" }}
+                    title={TEMPLATE_SLOT_LABELS[slot.slug]?.hint ?? slot.slug}
+                    onClick={() => void openTemplate(slot.slug)}
+                  >
+                    <span>
+                      {slotLabel(slot.slug)}{" "}
+                      <span style={{ fontSize: "0.7rem", opacity: 0.6 }}>{slot.slug}</span>
+                    </span>
+                    <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>
+                      {slot.customised ? (slot.hasDraft ? "customised · draft" : "customised") : ""}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {creatableSlots.length > 0 && (
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-add-template">
+                  Add a template
+                </label>
+                <select
+                  id="jf-add-template"
+                  className="jf-input"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) void openTemplate(e.target.value);
+                  }}
+                >
+                  <option value="">Choose a slot…</option>
+                  {creatableSlots.map((slug) => (
+                    <option key={slug} value={slug}>
+                      {slotLabel(slug)} ({slug})
+                    </option>
+                  ))}
+                </select>
+                <p className="jf-field__hint">
+                  {TEMPLATE_SLOT_LABELS[templateSlug ?? ""]?.hint ??
+                    "Start from a blank canvas; Publish creates the override."}
+                </p>
+              </div>
+            )}
+          </aside>
+          <div className="jf-customizer__preview" style={{ padding: 0 }}>
+            {templateSlug ? (
+              <div className="jf-editor__body">
+                {templateFromDefault && (
+                  <div className="jf-alert" style={{ margin: "0.75rem", fontSize: "0.85rem" }}>
+                    Editing <strong>{templateSlug}</strong> — starting from the theme's version.
+                    Publish to save it as this site's own.
+                  </div>
+                )}
+                <PageBuilder value={templateDoc} onChange={setTemplateDoc} />
+              </div>
+            ) : (
+              <p className="jf-field__hint" style={{ padding: "1rem" }}>
+                Pick a template on the left to edit it.
               </p>
             )}
           </div>

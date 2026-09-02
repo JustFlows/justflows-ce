@@ -9,6 +9,8 @@ const COOKIE_NAME = "jf_session";
 const TTL_SECONDS = 60 * 60 * 24 * 14;
 
 export interface SessionPayload {
+  /** Database-backed device session identifier. Absent on legacy cookies. */
+  sid?: string;
   userId: string;
   siteId: string;
   role: string;

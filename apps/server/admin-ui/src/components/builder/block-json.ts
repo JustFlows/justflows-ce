@@ -1,5 +1,6 @@
 import type { BlockDocument, BlockNode } from "./types";
 import { reassignBlockIds, cloneBlocks } from "./block-tree";
+import { uid } from "../../lib/uid";
 
 export interface ThemeDesignExport {
   version: 1;
@@ -99,7 +100,7 @@ export function normalizeBlockNode(raw: unknown): BlockNode | null {
   const node = raw as Record<string, unknown>;
   if (typeof node.type !== "string" || !node.type) return null;
   return {
-    id: typeof node.id === "string" && node.id ? node.id : crypto.randomUUID(),
+    id: typeof node.id === "string" && node.id ? node.id : uid(),
     type: node.type,
     version: typeof node.version === "number" && Number.isFinite(node.version) ? node.version : 1,
     props: raw && typeof node.props === "object" && node.props && !Array.isArray(node.props)

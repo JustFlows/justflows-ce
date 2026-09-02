@@ -460,14 +460,112 @@ export function BlockPreview({
         renderChildren ? <>{renderChildren(block.children ?? [], depth + 1)}</> : <div />,
       );
 
-    case "core.color-scheme":
+    case "core.color-scheme": {
+      const schemeStyle = (p.style as string) || "buttons";
+      const lightIcon = (p.lightIcon as string) || "☀";
+      const darkIcon = (p.darkIcon as string) || "☾";
+      const schemeModes: Array<[string, string]> = [
+        [lightIcon, (p.lightLabel as string) || "Light"],
+        [darkIcon, (p.darkLabel as string) || "Dark"],
+      ];
+      if (p.showSystem === true)
+        schemeModes.push([(p.autoIcon as string) || "◐", (p.autoLabel as string) || "Auto"]);
+      const iconOnly = schemeStyle === "icons" || schemeStyle === "tooltip-icons";
+      const textOnly = schemeStyle === "labels";
+      const pillRadius = p.radius === "square" ? 0 : p.radius === "rounded" ? 8 : 999;
+      const chipSize: React.CSSProperties =
+        p.size === "sm"
+          ? { fontSize: "0.7rem", padding: "0.2rem 0.5rem" }
+          : p.size === "lg"
+            ? { fontSize: "0.95rem", padding: "0.45rem 0.9rem" }
+            : {};
+      if (schemeStyle === "select") {
+        return wrap(
+          <div style={{ display: "inline-flex", ...widgetAlign(p.align as string) }}>
+            <span style={{ ...widgetChip, ...chipSize, borderRadius: Math.min(pillRadius, 8) }}>
+              {schemeModes.map(([, label]) => label).join(" / ")} ⌄
+            </span>
+          </div>,
+        );
+      }
+      if (schemeStyle === "switch") {
+        return wrap(
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              ...widgetAlign(p.align as string),
+            }}
+          >
+            <span style={{ fontSize: chipSize.fontSize ?? "0.8rem", fontWeight: 600 }}>
+              {(p.darkLabel as string) || "Dark"}
+            </span>
+            <span
+              style={{
+                position: "relative",
+                display: "inline-block",
+                width: 34,
+                height: 19,
+                borderRadius: 999,
+                background: "var(--jf-surface-4, #cbd5e1)",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: 2,
+                  width: 15,
+                  height: 15,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+                }}
+              />
+            </span>
+          </div>,
+        );
+      }
+      if (schemeStyle === "toggle") {
+        return wrap(
+          <div style={{ display: "inline-flex", ...widgetAlign(p.align as string) }}>
+            <span style={{ ...widgetChip, ...chipSize, borderRadius: pillRadius }}>
+              {lightIcon} ⇄ {darkIcon}
+            </span>
+          </div>,
+        );
+      }
       return wrap(
-        <div style={{ display: "inline-flex", gap: 6, ...widgetAlign(p.align as string) }}>
-          <span style={widgetChip}>☀ Light</span>
-          <span style={widgetChip}>☾ Dark</span>
-          {p.showSystem === true ? <span style={widgetChip}>◐ Auto</span> : null}
+        <div
+          style={{
+            display: "inline-flex",
+            gap: schemeStyle === "segmented" ? 0 : 6,
+            ...widgetAlign(p.align as string),
+          }}
+        >
+          {schemeModes.map(([icon, label], index) => (
+            <span
+              key={label}
+              style={{
+                ...widgetChip,
+                ...chipSize,
+                borderRadius:
+                  schemeStyle === "segmented"
+                    ? index === 0
+                      ? `${pillRadius}px 0 0 ${pillRadius}px`
+                      : index === schemeModes.length - 1
+                        ? `0 ${pillRadius}px ${pillRadius}px 0`
+                        : 0
+                    : pillRadius,
+              }}
+            >
+              {textOnly ? label : iconOnly ? icon : `${icon} ${label}`}
+            </span>
+          ))}
         </div>,
       );
+    }
 
     case "core.language-switcher":
       const languageStyle = (p.style as string) || "locale-short";
@@ -917,6 +1015,66 @@ export function BlockPreview({
         </div>,
       );
     }
+
+    case "core.post-title": {
+      const level = Math.min(6, Math.max(1, Number(p.level) || 1));
+      const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
+      return wrap(<Tag className="post-title">Post title</Tag>);
+    }
+
+    case "core.post-meta":
+      return wrap(<p className="post-meta">Published date</p>);
+
+    case "core.post-excerpt":
+      return wrap(<p className="post-excerpt">The post excerpt appears here.</p>);
+
+    case "core.featured-image":
+      return wrap(
+        <figure
+          className="post-featured-image"
+          style={{
+            aspectRatio: "16 / 9",
+            background: "var(--jf-surface-3)",
+            display: "grid",
+            placeItems: "center",
+            color: "var(--jf-text-3)",
+            fontSize: "0.8rem",
+            borderRadius: 6,
+          }}
+        >
+          Featured image
+        </figure>,
+      );
+
+    case "core.post-content":
+      return wrap(
+        <div
+          style={{
+            border: "1px dashed var(--jf-border)",
+            borderRadius: 6,
+            padding: "1.25rem",
+            color: "var(--jf-text-3)",
+            fontSize: "0.8rem",
+          }}
+        >
+          ¶ Post content — the page or post's own blocks render here
+        </div>,
+      );
+
+    case "core.template-part":
+      return wrap(
+        <div
+          style={{
+            border: "1px dashed var(--jf-border)",
+            borderRadius: 6,
+            padding: "0.75rem 1rem",
+            color: "var(--jf-text-3)",
+            fontSize: "0.8rem",
+          }}
+        >
+          ▤ Template part: {String(p.slug || "header")}
+        </div>,
+      );
 
     default:
       return wrap(

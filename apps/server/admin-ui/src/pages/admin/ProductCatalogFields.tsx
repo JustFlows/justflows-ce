@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type MutableRefObject } from "react";
 import { Link } from "react-router-dom";
 import { useT } from "../../i18n/I18nProvider";
+import { uid } from "../../lib/uid";
 
 export type CatalogAttribute = {
   name: string;
@@ -87,7 +88,7 @@ function cartesian(attributes: Array<{ name: string; values: string[] }>): Recor
 
 function emptyVariation(options: Record<string, string>, draft: CatalogProduct): CatalogVariation {
   return {
-    id: crypto.randomUUID(),
+    id: uid(),
     enabled: true,
     sku: "",
     options,

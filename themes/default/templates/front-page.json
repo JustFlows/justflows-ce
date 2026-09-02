@@ -1,0 +1,12 @@
+{
+  "title": "Front page",
+  "description": "The site root (/). Renders the selected home page, or the theme's demo home, full-bleed.",
+  "blocks": [
+    {
+      "id": "front-content",
+      "type": "core.post-content",
+      "version": 1,
+      "props": { "wrap": "page" }
+    }
+  ]
+}

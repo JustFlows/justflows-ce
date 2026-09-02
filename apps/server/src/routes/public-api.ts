@@ -14,10 +14,7 @@ import { listMenus, getMenuBySlug, resolveMenuItems } from "../lib/menus-db.js";
 import { getRuntimeHooks } from "../lib/plugin-runtime.js";
 import { requireRole } from "../middleware/auth.js";
 import { getSiteId } from "../lib/site-settings.js";
-import {
-  canViewUnpublishedSite,
-  isSitePublic,
-} from "../lib/site-visibility.js";
+import { canViewUnpublishedSite, isSitePublic } from "../lib/site-visibility.js";
 import type { Request, Response } from "express";
 import { sendServerError } from "../lib/send-error.js";
 
@@ -107,7 +104,7 @@ router.get("/media", async (req, res) => {
     }
     const db = await getDb();
     const rows = await db.query<Record<string, unknown>>(
-      "SELECT id, filename, mime_type, size_bytes, url, alt_text, caption, width, height, uploaded_at FROM media WHERE site_id = ? ORDER BY uploaded_at DESC LIMIT ?",
+      "SELECT id, filename, mime_type, size_bytes, url, alt_text, caption, width, height, uploaded_at FROM media WHERE site_id = ? AND trashed_at IS NULL ORDER BY uploaded_at DESC LIMIT ?",
       [siteId, limit],
     );
     res.json({ items: rows.map(serializeMediaRow) });
@@ -190,7 +187,7 @@ router.get("/content", async (req, res) => {
     const locale = await resolveContentLocale(localeParam, siteId);
 
     let sql =
-      "SELECT id, site_id, type, title, slug, locale, excerpt, status, fields, published_at, updated_at FROM content WHERE site_id = ? AND locale = ?";
+      "SELECT id, site_id, type, title, slug, locale, excerpt, status, fields, published_at, updated_at FROM content WHERE site_id = ? AND locale = ? AND trashed_at IS NULL";
     const params: (string | number | boolean | null)[] = [siteId, locale];
 
     if (!preview) {
@@ -241,8 +238,8 @@ router.get("/content/:slug", async (req, res) => {
 
     const locale = await resolveContentLocale(req.query.locale as string | undefined, siteId);
     const sql = preview
-      ? "SELECT * FROM content WHERE site_id = ? AND slug = ? AND locale = ? LIMIT 1"
-      : "SELECT * FROM content WHERE site_id = ? AND slug = ? AND locale = ? AND status = 'published' LIMIT 1";
+      ? "SELECT * FROM content WHERE site_id = ? AND slug = ? AND locale = ? AND trashed_at IS NULL LIMIT 1"
+      : "SELECT * FROM content WHERE site_id = ? AND slug = ? AND locale = ? AND status = 'published' AND trashed_at IS NULL LIMIT 1";
 
     const rows = await db.query<Record<string, unknown>>(sql, [siteId, req.params.slug, locale]);
     if (!rows[0]) {
@@ -323,7 +320,8 @@ async function checkCache(): Promise<CheckResult> {
     const stats = cache.getStats();
     const storage = await inspectCacheStorage();
     const total = stats.hits + stats.misses;
-    const hitRate = total > 0 ? `${Math.round((stats.hits / total) * 100)}% hit rate` : "no requests yet";
+    const hitRate =
+      total > 0 ? `${Math.round((stats.hits / total) * 100)}% hit rate` : "no requests yet";
     return {
       name: "Object cache",
       status: cache.enabled ? "ok" : "warn",

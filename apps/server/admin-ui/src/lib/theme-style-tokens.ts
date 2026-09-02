@@ -16,12 +16,14 @@ export interface ThemeStyleToken {
 }
 
 export interface ThemeStyleTokenData {
+  /** Display name of the active theme, so the inspector can say what it is editing. */
+  theme: string;
   tokens: ThemeStyleToken[];
   /** block type → token names to surface as first-class inspector controls. */
   blockControls: Record<string, string[]>;
 }
 
-const EMPTY: ThemeStyleTokenData = { tokens: [], blockControls: {} };
+const EMPTY: ThemeStyleTokenData = { theme: "", tokens: [], blockControls: {} };
 
 // Fetched once per admin session; the reference list is small and rarely changes
 // while the builder is open.
@@ -32,6 +34,7 @@ function load(): Promise<ThemeStyleTokenData> {
     cache = fetch("/api/themes/style-tokens")
       .then((r) => (r.ok ? r.json() : EMPTY))
       .then((d: Partial<ThemeStyleTokenData>) => ({
+        theme: typeof d.theme === "string" ? d.theme : "",
         tokens: Array.isArray(d.tokens) ? d.tokens : [],
         blockControls:
           d.blockControls && typeof d.blockControls === "object" ? d.blockControls : {},

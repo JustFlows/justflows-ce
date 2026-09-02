@@ -657,6 +657,38 @@ textarea {
   padding: 0;
 }
 
+/* -------------------------------------------------------------- roles --- */
+.jf-roles .jf-card__head { align-items: center; }
+.jf-roles__subtitle { margin: 0.2rem 0 0; color: var(--jf-text-3); font-size: 0.8rem; }
+.jf-roles__alert { margin: 1rem 1.25rem 0; }
+.jf-roles__state { margin: 0; padding: 1.25rem; color: var(--jf-text-3); }
+.jf-roles__list { display: grid; }
+.jf-roles__item { display: grid; grid-template-columns: minmax(15rem, 0.8fr) minmax(15rem, 1fr) auto; align-items: center; gap: 1rem; min-height: 4rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--jf-border); }
+.jf-roles__item:last-child { border-bottom: 0; }
+.jf-roles__item:hover { background: var(--jf-surface-2); }
+.jf-roles__identity { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.jf-roles__identity strong { color: var(--jf-text); }
+.jf-roles__count { color: var(--jf-text-3); font-size: 0.78rem; white-space: nowrap; }
+.jf-roles__item > p { margin: 0; color: var(--jf-text-3); font-size: 0.8rem; }
+.jf-roles__actions { display: flex; justify-content: flex-end; gap: 0.25rem; }
+.jf-roles__delete { color: var(--jf-danger); }
+.jf-roles__editor { padding: 1.25rem; border-top: 1px solid var(--jf-border); background: var(--jf-surface-2); }
+.jf-roles__editor-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+.jf-roles__editor-head h3 { margin: 0; font-size: 1rem; }
+.jf-roles__editor-head p { margin: 0.2rem 0 0; color: var(--jf-text-3); font-size: 0.8rem; }
+.jf-roles__capabilities { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+.jf-roles__group { min-width: 0; margin: 0; padding: 0.75rem; border: 1px solid var(--jf-border); border-radius: calc(var(--jf-radius) * 0.7); background: var(--jf-surface); }
+.jf-roles__group legend { padding: 0 0.25rem; color: var(--jf-text-2); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.jf-roles__group label { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0; color: var(--jf-text-2); font-size: 0.8rem; }
+.jf-roles__editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+.jf-roles__editor-actions > span { margin-inline-end: auto; color: var(--jf-text-3); font-size: 0.78rem; }
+@media (max-width: 760px) {
+  .jf-roles__item { grid-template-columns: 1fr auto; gap: 0.35rem 0.75rem; }
+  .jf-roles__item > p { grid-column: 1 / -1; }
+  .jf-roles__actions { grid-column: 2; grid-row: 1; }
+  .jf-roles__count { display: none; }
+}
+
 /* ------------------------------------------------------------- forms --- */
 
 .jf-field {
@@ -686,6 +718,56 @@ textarea {
 }
 .jf-grid--3 {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.jf-diagnostics-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.jf-diagnostics-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--jf-border);
+}
+
+.jf-diagnostics-list > div:first-child { padding-top: 0; }
+.jf-diagnostics-list > div:last-child { padding-bottom: 0; border-bottom: 0; }
+.jf-diagnostics-list dt { color: var(--jf-text-2); }
+.jf-diagnostics-list dd { margin: 0; text-align: right; color: var(--jf-text); font-weight: 600; }
+
+.jf-diagnostics-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+}
+
+.jf-diagnostic-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px solid var(--jf-border);
+  border-radius: var(--jf-radius);
+  background: var(--jf-surface);
+  box-shadow: var(--jf-shadow-sm);
+}
+
+.jf-diagnostic-stat__label { color: var(--jf-text-2); font-size: 0.75rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.02em; }
+.jf-diagnostic-stat strong { color: var(--jf-text); font-size: 1.4rem; line-height: 1.2; }
+.jf-diagnostic-stat > span:not(.jf-diagnostic-stat__label, .jf-badge) { color: var(--jf-text-3); font-size: 0.75rem; }
+
+.jf-meter { height: 0.4rem; overflow: hidden; border-radius: 999px; background: var(--jf-surface-3); margin-top: 0.25rem; }
+.jf-meter > span { display: block; height: 100%; border-radius: inherit; background: var(--jf-accent); transition: width 0.2s ease; }
+.jf-table tbody tr.jf-table__row--highlight td { background: var(--jf-accent-soft); }
+
+@media (max-width: 560px) {
+  .jf-diagnostics-list > div { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
+  .jf-diagnostics-list dd { text-align: left; }
 }
 
 .jf-divider {
@@ -1506,6 +1588,54 @@ select.jf-input {
 .jf-tile__desc {
   font-size: 0.83rem;
   color: var(--jf-text-2);
+}
+
+/* ------------------------------------------------- welcome / discovery --- */
+
+.jf-welcome {
+  background: var(--jf-surface);
+  border: 1px solid var(--jf-border);
+  border-radius: var(--jf-radius);
+  box-shadow: var(--jf-shadow-sm);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.jf-welcome__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.jf-welcome__title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.jf-welcome__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  color: var(--jf-text-2);
+  max-width: 52ch;
+}
+
+.jf-welcome__actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.jf-welcome__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.jf-dashboard__restore {
+  margin-top: 1rem;
 }
 
 /* --------------------------------------------------------- card grids --- */
@@ -2918,4 +3048,350 @@ input[type="range"] {
   font-weight: 600;
   color: #374151;
   margin-bottom: 0.75rem;
+}
+
+/* ------------------------------------------------------- system emails --- */
+.jf-email-page > .jf-tabs {
+  margin-top: -0.15rem;
+}
+
+.jf-email-language {
+  min-width: 13rem;
+}
+
+.jf-email-language .jf-input {
+  min-height: 2.15rem;
+  padding-block: 0.35rem;
+}
+
+.jf-email-translation-note {
+  font-size: 0.8rem;
+}
+
+.jf-email-layout {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr) minmax(22rem, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.jf-email-design {
+  display: grid;
+  grid-template-columns: minmax(24rem, 1fr) minmax(22rem, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+/* Native colour inputs collapse to a hairline under the shared .jf-input
+   padding/appearance reset, so give them an explicit well. */
+.jf-email-design input[type="color"].jf-input {
+  height: 2.5rem;
+  padding: 0.25rem;
+  cursor: pointer;
+}
+
+.jf-email-design input[type="color"].jf-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.jf-email-design input[type="color"].jf-input::-webkit-color-swatch {
+  border: 1px solid var(--jf-border-strong);
+  border-radius: calc(var(--jf-radius-sm) - 2px);
+}
+
+.jf-email-design input[type="color"].jf-input::-moz-color-swatch {
+  border: 1px solid var(--jf-border-strong);
+  border-radius: calc(var(--jf-radius-sm) - 2px);
+}
+
+.jf-email-editor {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.jf-email-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.jf-email-list {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 8rem);
+}
+
+.jf-email-list__search {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--jf-border);
+}
+
+.jf-email-list__items {
+  max-height: calc(100vh - 14rem);
+  overflow: auto;
+}
+
+.jf-email-list__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 0;
+  border-bottom: 1px solid var(--jf-border);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.jf-email-list__item:last-child {
+  border-bottom: 0;
+}
+
+.jf-email-list__item:hover {
+  background: var(--jf-surface-2);
+}
+
+.jf-email-list__item[aria-current="true"] {
+  background: var(--jf-accent-soft);
+  box-shadow: inset 3px 0 0 var(--jf-accent);
+}
+
+.jf-email-list__identity {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.jf-email-list__identity strong {
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--jf-text);
+}
+
+.jf-email-list__identity small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--jf-text-3);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.jf-email-list__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.jf-email-list__status {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--jf-text-3);
+  white-space: nowrap;
+}
+
+.jf-email-list__status--published {
+  color: var(--jf-success);
+}
+
+.jf-email-list__status--draft {
+  color: var(--jf-warning);
+}
+
+.jf-email-list__version {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--jf-text-3);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.jf-email-code,
+.jf-email-text-preview {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.jf-email-code {
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.jf-email-actions {
+  flex-wrap: wrap;
+  padding-top: 0.25rem;
+}
+
+.jf-email-actions__spacer {
+  flex: 1;
+}
+
+.jf-email-test {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.jf-email-variables {
+  border: 1px solid var(--jf-border);
+  border-radius: var(--jf-radius);
+  background: var(--jf-surface-2);
+}
+
+.jf-email-variables summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  color: var(--jf-text-2);
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.jf-email-variables dl {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--jf-border);
+  background: var(--jf-surface);
+}
+
+.jf-email-variables dl > div {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--jf-border);
+}
+
+.jf-email-variables dl > div:last-child {
+  border-bottom: 0;
+}
+
+.jf-email-variables dt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.jf-email-variables dt .jf-code {
+  overflow-wrap: anywhere;
+}
+
+.jf-email-variables__req {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--jf-warning);
+  white-space: nowrap;
+}
+
+.jf-email-variables dd {
+  margin: 0;
+  color: var(--jf-text-2);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.jf-email-variables__example {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--jf-text-3);
+  overflow-wrap: anywhere;
+}
+
+.jf-email-preview {
+  min-width: 0;
+}
+
+.jf-email-preview__alert {
+  margin: 1rem 1rem 0;
+}
+
+.jf-email-preview__canvas {
+  padding: 1rem;
+  background:
+    linear-gradient(45deg, var(--jf-border) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--jf-border) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--jf-border) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--jf-border) 75%);
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-size: 12px 12px;
+}
+
+.jf-email-preview iframe,
+.jf-email-text-preview {
+  border-radius: calc(var(--jf-radius) * 0.75);
+  box-shadow: var(--jf-shadow-sm);
+}
+
+.jf-email-text-preview {
+  min-height: 400px;
+  margin: 0;
+  padding: 1rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: var(--jf-surface);
+  color: var(--jf-text);
+}
+
+@media (max-width: 1380px) {
+  .jf-email-layout {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+  .jf-email-layout > .jf-email-preview {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 960px) {
+  .jf-email-design {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .jf-email-language {
+    width: 100%;
+  }
+  .jf-email-layout {
+    grid-template-columns: 1fr;
+  }
+  .jf-email-list {
+    position: static;
+    max-height: none;
+  }
+  .jf-email-list__items {
+    max-height: 18rem;
+  }
+  .jf-email-layout > .jf-email-preview {
+    grid-column: auto;
+  }
+  .jf-email-test {
+    grid-template-columns: 1fr;
+  }
+  .jf-email-actions__spacer {
+    display: none;
+  }
+  .jf-email-actions > .jf-btn {
+    flex: 1;
+  }
 }

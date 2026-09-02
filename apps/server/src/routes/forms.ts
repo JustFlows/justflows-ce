@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireRole } from "../middleware/auth.js";
+import { requireCapability } from "../middleware/auth.js";
 import { param } from "../lib/params.js";
 import {
   deleteForm,
@@ -14,7 +14,7 @@ import { sendServerError } from "../lib/send-error.js";
 
 const router = Router();
 
-router.get("/", requireRole("administrator", "editor"), async (req, res) => {
+router.get("/", requireCapability("forms:read"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     const enabled = await isFormsPluginEnabled(siteId);
@@ -25,7 +25,7 @@ router.get("/", requireRole("administrator", "editor"), async (req, res) => {
   }
 });
 
-router.get("/:id/submissions", requireRole("administrator", "editor"), async (req, res) => {
+router.get("/:id/submissions", requireCapability("form-submissions:read"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     if (!(await isFormsPluginEnabled(siteId))) {
@@ -44,7 +44,7 @@ router.get("/:id/submissions", requireRole("administrator", "editor"), async (re
   }
 });
 
-router.put("/:id", requireRole("administrator"), async (req, res) => {
+router.put("/:id", requireCapability("forms:manage"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     if (!(await isFormsPluginEnabled(siteId))) {
@@ -60,7 +60,7 @@ router.put("/:id", requireRole("administrator"), async (req, res) => {
   }
 });
 
-router.post("/", requireRole("administrator"), async (req, res) => {
+router.post("/", requireCapability("forms:manage"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     if (!(await isFormsPluginEnabled(siteId))) {
@@ -77,7 +77,7 @@ router.post("/", requireRole("administrator"), async (req, res) => {
   }
 });
 
-router.delete("/:id/submissions/:submissionId", requireRole("administrator"), async (req, res) => {
+router.delete("/:id/submissions/:submissionId", requireCapability("form-submissions:delete"), async (req, res) => {
   try {
     await deleteSubmission(req.session!.siteId, param(req.params.submissionId));
     res.json({ ok: true });
@@ -86,7 +86,7 @@ router.delete("/:id/submissions/:submissionId", requireRole("administrator"), as
   }
 });
 
-router.delete("/:id", requireRole("administrator"), async (req, res) => {
+router.delete("/:id", requireCapability("forms:manage"), async (req, res) => {
   try {
     await deleteForm(req.session!.siteId, param(req.params.id));
     const { revalidateOnUpdate } = await import("../lib/cache-revalidate.js");

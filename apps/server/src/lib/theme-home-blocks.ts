@@ -1,12 +1,15 @@
 import { normalizeBlocks } from "./content-api.js";
 import { loadThemeDemoHome } from "./theme-files.js";
-import { deleteSiteSetting, getSiteId, getSiteSetting, setSiteSetting } from "./site-settings.js";
+import { getSiteId } from "./site-settings.js";
+import {
+  clearThemeDesignDraftDoc,
+  getThemeDesignDoc,
+  publishThemeDesignDoc,
+  saveThemeDesignDraft,
+  saveThemeDesignPublished,
+} from "./theme-designs-db.js";
 import { getActiveTheme, themeInstalledPath } from "./themes-db.js";
 import type { BlockDocument } from "./types.js";
-
-function homeKey(themeId: string, draft = false): string {
-  return draft ? `theme_home_draft.${themeId}` : `theme_home.${themeId}`;
-}
 
 export function defaultHomeBlocksFromTheme(themeId: string, installedPath?: string | null): BlockDocument {
   const blocks = loadThemeDemoHome(themeId, installedPath) ?? [];
@@ -16,7 +19,7 @@ export function defaultHomeBlocksFromTheme(themeId: string, installedPath?: stri
 export async function getThemeHomeBlocks(themeId: string, draft = false): Promise<BlockDocument | null> {
   const siteId = await getSiteId();
   if (!siteId) return null;
-  const stored = await getSiteSetting<BlockDocument>(siteId, homeKey(themeId, draft));
+  const stored = await getThemeDesignDoc<BlockDocument>(siteId, themeId, "home", { draft });
   return stored ? normalizeBlocks(stored) : null;
 }
 
@@ -27,18 +30,24 @@ export async function saveThemeHomeBlocks(
 ): Promise<void> {
   const siteId = await getSiteId();
   if (!siteId) throw new Error("No site found");
-  await setSiteSetting(siteId, homeKey(themeId, draft), normalizeBlocks(doc));
+  const normalized = normalizeBlocks(doc);
+  if (draft) {
+    await saveThemeDesignDraft(siteId, themeId, "home", normalized);
+  } else {
+    await saveThemeDesignPublished(siteId, themeId, "home", normalized);
+  }
 }
 
 export async function clearThemeHomeDraft(themeId: string): Promise<void> {
   const siteId = await getSiteId();
   if (!siteId) return;
-  await deleteSiteSetting(siteId, homeKey(themeId, true));
+  await clearThemeDesignDraftDoc(siteId, themeId, "home");
 }
 
 export async function publishThemeHomeBlocks(themeId: string, doc: BlockDocument): Promise<void> {
-  await saveThemeHomeBlocks(themeId, doc, false);
-  await clearThemeHomeDraft(themeId);
+  const siteId = await getSiteId();
+  if (!siteId) throw new Error("No site found");
+  await publishThemeDesignDoc(siteId, themeId, "home", normalizeBlocks(doc));
 }
 
 /** Resolve homepage blocks for the editor or public site. */

@@ -17,8 +17,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@justflows/core": "workspace:*",
-    "@justflows/auth": "workspace:*",
+    "@justflows/core": "file:../core",
+    "@justflows/auth": "file:../auth",
     "zod": "^4.4.3"
   },
   "devDependencies": {
