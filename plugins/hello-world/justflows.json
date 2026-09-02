@@ -7,7 +7,7 @@
   "publisher": "Justflows",
   "license": "GPL-2.0-or-later",
   "engines": {
-    "justflows": ">=0.1.8-dev.1 <0.2.0"
+    "justflows": ">=0.1.8 <0.2.0"
   },
   "description": "The official Justflows hello-world plugin — demonstrates the plugin lifecycle",
   "registry": {

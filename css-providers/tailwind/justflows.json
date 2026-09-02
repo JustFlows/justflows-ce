@@ -7,7 +7,7 @@
   "publisher": "Tailwind Labs",
   "description": "Utility-first CSS framework installed locally and compiled on activation",
   "license": "MIT",
-  "engines": { "justflows": ">=0.1.8-dev.1 <0.2.0" },
+  "engines": { "justflows": ">=0.1.8 <0.2.0" },
   "dependencies": {
     "tailwindcss": "3.4.17"
   },

@@ -7,7 +7,7 @@
   "publisher": "Jeremy Thomas",
   "description": "Modern CSS framework based on Flexbox — CSS only, no JavaScript",
   "license": "MIT",
-  "engines": { "justflows": ">=0.1.8-dev.1 <0.2.0" },
+  "engines": { "justflows": ">=0.1.8 <0.2.0" },
   "dependencies": {
     "bulma": "1.0.2"
   },

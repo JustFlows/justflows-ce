@@ -7,7 +7,7 @@
   "publisher": "YOOtheme",
   "description": "Lightweight modular front-end framework with components and JavaScript",
   "license": "MIT",
-  "engines": { "justflows": ">=0.1.8-dev.1 <0.2.0" },
+  "engines": { "justflows": ">=0.1.8 <0.2.0" },
   "dependencies": {
     "uikit": "3.21.13"
   },

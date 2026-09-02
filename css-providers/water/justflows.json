@@ -7,7 +7,7 @@
   "publisher": "Kognise",
   "description": "Drop-in collection of CSS styles for clean, readable HTML — no classes needed",
   "license": "MIT",
-  "engines": { "justflows": ">=0.1.8-dev.1 <0.2.0" },
+  "engines": { "justflows": ">=0.1.8 <0.2.0" },
   "dependencies": {
     "water.css": "2.1.1"
   },

@@ -5,7 +5,7 @@
   "description": "Advanced starter theme with marketing patterns, block styles, a demo homepage, and a WordPress-style template hierarchy.",
   "author": "Justflows Team",
   "license": "GPL-2.0-or-later",
-  "engines": { "justflows": ">=0.1.8-dev.1 <0.2.0" },
+  "engines": { "justflows": ">=0.1.8 <0.2.0" },
   "cssVariables": {
     "--color-primary": "#2563eb",
     "--color-primary-hover": "#1d4ed8",
