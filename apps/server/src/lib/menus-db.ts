@@ -83,17 +83,20 @@ export async function ensureDefaultMenu(siteId: string): Promise<void> {
   );
   if (existing[0]) return;
 
-  await db.run(
-    "INSERT INTO menus (id, site_id, slug, name, items) VALUES (?, ?, ?, ?, ?)",
-    [randomUUID(), siteId, PRIMARY_MENU_SLUG, "Primary Menu", "[]"],
-  );
+  await db.run("INSERT INTO menus (id, site_id, slug, name, items) VALUES (?, ?, ?, ?, ?)", [
+    randomUUID(),
+    siteId,
+    PRIMARY_MENU_SLUG,
+    "Primary Menu",
+    "[]",
+  ]);
 }
 
 export async function listMenus(siteId: string): Promise<MenuRow[]> {
   await ensureDefaultMenu(siteId);
   const db = await getDb();
   const rows = await db.query<Record<string, unknown>>(
-    "SELECT * FROM menus WHERE site_id = ? ORDER BY name ASC",
+    "SELECT * FROM menus WHERE site_id = ? AND trashed_at IS NULL ORDER BY name ASC",
     [siteId],
   );
   return rows.map(parseMenuRow);
@@ -103,7 +106,7 @@ export async function getMenuBySlug(siteId: string, slug: string): Promise<MenuR
   await ensureDefaultMenu(siteId);
   const db = await getDb();
   const rows = await db.query<Record<string, unknown>>(
-    "SELECT * FROM menus WHERE site_id = ? AND slug = ? LIMIT 1",
+    "SELECT * FROM menus WHERE site_id = ? AND slug = ? AND trashed_at IS NULL LIMIT 1",
     [siteId, slug],
   );
   return rows[0] ? parseMenuRow(rows[0]) : null;
@@ -112,10 +115,13 @@ export async function getMenuBySlug(siteId: string, slug: string): Promise<MenuR
 export async function createMenu(siteId: string, slug: string, name: string): Promise<MenuRow> {
   const db = await getDb();
   const id = randomUUID();
-  await db.run(
-    "INSERT INTO menus (id, site_id, slug, name, items) VALUES (?, ?, ?, ?, ?)",
-    [id, siteId, slug, name, "[]"],
-  );
+  await db.run("INSERT INTO menus (id, site_id, slug, name, items) VALUES (?, ?, ?, ?, ?)", [
+    id,
+    siteId,
+    slug,
+    name,
+    "[]",
+  ]);
   return { id, site_id: siteId, slug, name, items: [] };
 }
 
@@ -141,10 +147,19 @@ export async function updateMenu(
   return { ...menu, name, items };
 }
 
-export async function deleteMenu(siteId: string, slug: string): Promise<boolean> {
+export async function deleteMenu(siteId: string, slug: string, userId?: string): Promise<boolean> {
   if (slug === PRIMARY_MENU_SLUG) return false;
   const db = await getDb();
-  await db.run("DELETE FROM menus WHERE site_id = ? AND slug = ?", [siteId, slug]);
+  const rows = await db.query<{ id: string }>(
+    "SELECT id FROM menus WHERE site_id = ? AND slug = ? AND trashed_at IS NULL LIMIT 1",
+    [siteId, slug],
+  );
+  if (!rows[0]) return false;
+  const trashedSlug = `menu-trash-${rows[0].id}`;
+  await db.run(
+    "UPDATE menus SET original_slug = slug, slug = ?, trashed_at = CURRENT_TIMESTAMP, trashed_by = ? WHERE site_id = ? AND slug = ?",
+    [trashedSlug, userId ?? null, siteId, slug],
+  );
   return true;
 }
 
@@ -156,7 +171,10 @@ interface MenuContentRef {
   translationGroupId: string | null;
 }
 
-async function loadContentByIds(ids: string[], preview = false): Promise<Map<string, MenuContentRef>> {
+async function loadContentByIds(
+  ids: string[],
+  preview = false,
+): Promise<Map<string, MenuContentRef>> {
   const map = new Map<string, MenuContentRef>();
   if (ids.length === 0) return map;
 
@@ -180,7 +198,8 @@ async function loadContentByIds(ids: string[], preview = false): Promise<Map<str
       slug: String(row.slug),
       locale: String(row.locale),
       title: String(row.title),
-      translationGroupId: row.translation_group_id == null ? null : String(row.translation_group_id),
+      translationGroupId:
+        row.translation_group_id == null ? null : String(row.translation_group_id),
     });
   }
   return map;

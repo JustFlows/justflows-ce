@@ -25,6 +25,7 @@ import UsersPage from "./pages/admin/UsersPage";
 import EditUserPage from "./pages/admin/EditUserPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import CommentsPage from "./pages/admin/CommentsPage";
+import TrashPage from "./pages/admin/TrashPage";
 import MarketplacePage from "./pages/admin/MarketplacePage";
 import ToolsPage from "./pages/admin/ToolsPage";
 import HealthPage from "./pages/admin/HealthPage";
@@ -119,6 +120,7 @@ export default function App() {
               <Route path="users/:id" element={<EditUserPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="comments" element={<CommentsPage />} />
+              <Route path="trash" element={<TrashPage />} />
               <Route path="marketplace" element={<MarketplacePage />} />
               <Route path="tools" element={<ToolsPage />} />
               <Route path="health" element={<HealthPage />} />

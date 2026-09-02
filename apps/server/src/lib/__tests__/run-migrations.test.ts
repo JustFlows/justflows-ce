@@ -26,6 +26,7 @@ describe("MIGRATION_ORDER", () => {
       "0018_access_control",
       "0019_device_sessions",
       "0020_email_delivery",
+      "0021_trash_retention",
     ]);
   });
 
@@ -42,6 +43,7 @@ describe("MIGRATION_ORDER", () => {
     { name: "0018_access_control", marker: /CREATE TABLE IF NOT EXISTS access_roles/i },
     { name: "0019_device_sessions", marker: /CREATE TABLE IF NOT EXISTS user_sessions/i },
     { name: "0020_email_delivery", marker: /CREATE TABLE IF NOT EXISTS email_deliveries/i },
+    { name: "0021_trash_retention", marker: /ALTER TABLE content ADD COLUMN.*trashed_at/i },
   ];
 
   for (const { name, marker } of TRACKED) {

@@ -11,6 +11,9 @@ import { contentMatchesMimeType } from "../lib/file-type.js";
 import { checkLibraryQuota, formatMb, maxUploadBytes } from "../lib/media-quota.js";
 import multer, { MulterError } from "multer";
 import { sendServerError } from "../lib/send-error.js";
+import { param } from "../lib/params.js";
+import { auditFromRequest } from "../lib/audit-log.js";
+import { moveMediaStorage } from "../lib/trash.js";
 
 const router = Router();
 const mediaUploadRequestLimit = rateLimit({
@@ -88,7 +91,7 @@ router.get("/", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
   try {
     const db = await getDb();
     const rows = await db.query<Record<string, unknown>>(
-      "SELECT id, filename, mime_type, size_bytes, url, alt_text, caption, width, height, uploaded_at FROM media WHERE site_id = ? ORDER BY uploaded_at DESC LIMIT ?",
+      "SELECT id, filename, mime_type, size_bytes, url, alt_text, caption, width, height, uploaded_at FROM media WHERE site_id = ? AND trashed_at IS NULL ORDER BY uploaded_at DESC LIMIT ?",
       [session.siteId, limit],
     );
     // The admin UI (and this route's own POST response) use camelCase — map
@@ -199,5 +202,26 @@ router.post(
     }
   },
 );
+
+router.delete("/:id", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
+  const session = req.session!;
+  const id = param(req.params.id);
+  const db = await getDb();
+  const rows = await db.query<{ id: string; storage_key: string }>(
+    "SELECT id, storage_key FROM media WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
+    [id, session.siteId],
+  );
+  if (!rows[0]) {
+    res.status(404).json({ error: "Media not found" });
+    return;
+  }
+  await moveMediaStorage(rows[0].storage_key, true);
+  await db.run(
+    "UPDATE media SET trashed_at = ?, trashed_by = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+    [now(), session.userId, now(), id, session.siteId],
+  );
+  auditFromRequest(req, "trash.trashed", { target: id, detail: "type=media" });
+  res.json({ ok: true });
+});
 
 export default router;

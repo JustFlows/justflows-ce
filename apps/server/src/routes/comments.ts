@@ -6,6 +6,7 @@ import { requireRole } from "../middleware/auth.js";
 import { commentPlainText, notifyOnApproval, sanitizeCommentBody } from "../lib/comments-public.js";
 import { param } from "../lib/params.js";
 import { invalidatePublicPages } from "../lib/public-cache.js";
+import { auditFromRequest } from "../lib/audit-log.js";
 
 /** Post pages cache their rendered comment thread; drop it on any change. */
 async function bustCommentCache(_siteId: string): Promise<void> {
@@ -15,7 +16,10 @@ async function bustCommentCache(_siteId: string): Promise<void> {
 const router = Router();
 
 function now(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  return new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "");
 }
 
 const COMMENT_STATUSES = new Set(["pending", "approved", "spam", "trash"]);
@@ -74,12 +78,18 @@ router.patch("/", requireRole("administrator", "editor"), async (req, res) => {
   const db = await getDb();
 
   for (const id of body.data.ids) {
-    await db.run("UPDATE comments SET status = ?, updated_at = ? WHERE id = ? AND site_id = ?", [
-      newStatus,
-      now(),
-      id,
-      session.siteId,
-    ]);
+    if (newStatus === "trash") {
+      await db.run(
+        "UPDATE comments SET original_status = status, status = ?, trashed_at = ?, trashed_by = ?, updated_at = ? WHERE id = ? AND site_id = ? AND status != 'trash'",
+        [newStatus, now(), session.userId, now(), id, session.siteId],
+      );
+      auditFromRequest(req, "trash.trashed", { target: id, detail: "type=comment" });
+    } else {
+      await db.run(
+        "UPDATE comments SET status = ?, trashed_at = NULL, trashed_by = NULL, updated_at = ? WHERE id = ? AND site_id = ?",
+        [newStatus, now(), id, session.siteId],
+      );
+    }
   }
 
   if (newStatus === "approved") {
@@ -99,7 +109,9 @@ router.patch("/:id", requireRole("administrator", "editor"), async (req, res) =>
   const session = req.session!;
   const parsed = EditSchema.safeParse(req.body);
   if (!parsed.success || (parsed.data.body === undefined && parsed.data.status === undefined)) {
-    res.status(400).json({ error: parsed.success ? "Nothing to update" : parsed.error.issues[0]?.message });
+    res
+      .status(400)
+      .json({ error: parsed.success ? "Nothing to update" : parsed.error.issues[0]?.message });
     return;
   }
   const db = await getDb();
@@ -115,8 +127,13 @@ router.patch("/:id", requireRole("administrator", "editor"), async (req, res) =>
     params.push(clean, now());
   }
   if (parsed.data.status !== undefined) {
-    sets.push("status = ?");
-    params.push(parsed.data.status);
+    if (parsed.data.status === "trash") sets.push("original_status = status");
+    sets.push("status = ?", "trashed_at = ?", "trashed_by = ?");
+    params.push(
+      parsed.data.status,
+      parsed.data.status === "trash" ? now() : null,
+      parsed.data.status === "trash" ? session.userId : null,
+    );
   }
   params.push(param(req.params.id), session.siteId);
   await db.run(`UPDATE comments SET ${sets.join(", ")} WHERE id = ? AND site_id = ?`, params);
@@ -125,6 +142,11 @@ router.patch("/:id", requireRole("administrator", "editor"), async (req, res) =>
     void notifyOnApproval(session.siteId, [param(req.params.id)]).catch(() => undefined);
   }
   await bustCommentCache(session.siteId);
+  if (parsed.data.status === "trash")
+    auditFromRequest(req, "trash.trashed", {
+      target: param(req.params.id),
+      detail: "type=comment",
+    });
   res.json({ ok: true });
 });
 
@@ -164,7 +186,19 @@ router.post("/:id/reply", requireRole("administrator", "editor"), async (req, re
     `INSERT INTO comments
        (id, site_id, content_id, parent_id, author_name, author_email, body, status, user_id, notify, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?)`,
-    [id, session.siteId, parent.content_id, parent.id, authorName, u?.email ?? null, clean, session.userId, false, ts, ts],
+    [
+      id,
+      session.siteId,
+      parent.content_id,
+      parent.id,
+      authorName,
+      u?.email ?? null,
+      clean,
+      session.userId,
+      false,
+      ts,
+      ts,
+    ],
   );
   void notifyOnApproval(session.siteId, [id]).catch(() => undefined);
   await bustCommentCache(session.siteId);
@@ -188,6 +222,7 @@ router.delete("/", requireRole("administrator"), async (req, res) => {
       id,
       session.siteId,
     ]);
+    auditFromRequest(req, "trash.purged", { target: id, detail: "type=comment" });
     deleted++;
   }
   await bustCommentCache(session.siteId);

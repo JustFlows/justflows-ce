@@ -30,6 +30,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startRevisionJobs();
     const { startCoreAutoUpdateJob } = await import("./lib/core-auto-update.js");
     startCoreAutoUpdateJob();
+    const { startTrashPurgeJob } = await import("./lib/trash.js");
+    startTrashPurgeJob();
     try {
       const { getSiteId } = await import("./lib/site-settings.js");
       const siteId = await getSiteId();
@@ -86,6 +88,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: diagnosticsRoutes },
     { default: cookiesRoutes },
     { default: rolesRoutes },
+    { default: trashRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -118,11 +121,13 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/diagnostics.js"),
     import("./routes/cookies.js"),
     import("./routes/roles.js"),
+    import("./routes/trash.js"),
   ]);
 
   app.use(blockIfInstalled);
 
   app.use("/api/content", requireInstalled, contentRoutes);
+  app.use("/api/trash", requireInstalled, trashRoutes);
   app.use("/api/media", requireInstalled, mediaRoutes);
   app.use("/api/comments", requireInstalled, commentsRoutes);
   app.use("/api/users", requireInstalled, usersRoutes);

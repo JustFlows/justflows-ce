@@ -58,6 +58,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.contentTypes", to: "/admin/content-types", icon: "🗂" },
       { key: "nav.media", to: "/admin/media", icon: "🖼" },
       { key: "nav.comments", to: "/admin/comments", icon: "💬" },
+      { key: "nav.trash", label: "Trash", to: "/admin/trash", icon: "♻" },
     ],
   },
   {
@@ -195,6 +196,7 @@ const ALL_ADMIN_ROLES = ["administrator", "editor", "author", "contributor"];
 const NAV_ACCESS: Record<string, string[]> = {
   "/admin/media": ["administrator", "editor", "author"],
   "/admin/comments": ["administrator", "editor"],
+  "/admin/trash": ["administrator", "editor"],
   "/admin/themes": ["administrator", "editor"],
   "/admin/plugins": ["administrator", "editor"],
   "/admin/marketplace": ["administrator"],

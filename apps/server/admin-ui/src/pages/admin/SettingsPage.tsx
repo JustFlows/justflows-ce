@@ -39,6 +39,7 @@ type GeneralState = {
   timeFormat: string;
   startOfWeek: number;
   postsPerPage: string;
+  trashRetentionDays: string;
   sitePublic: boolean;
   publicApiEnabled: boolean;
   discourageSearchEngines: boolean;
@@ -71,6 +72,7 @@ const EMPTY: GeneralState = {
   timeFormat: "g:i a",
   startOfWeek: 1,
   postsPerPage: "10",
+  trashRetentionDays: "30",
   sitePublic: false,
   publicApiEnabled: false,
   discourageSearchEngines: true,
@@ -112,6 +114,7 @@ function generalFromPayload(data: SettingsPayload): GeneralState {
     timeFormat: data.time_format ?? "g:i a",
     startOfWeek: Number(data.start_of_week ?? 1),
     postsPerPage: String(data.posts_per_page ?? 10),
+    trashRetentionDays: String(data.trash_retention_days ?? 30),
     sitePublic: data.site_public === true,
     publicApiEnabled: data.public_api_enabled === true,
     discourageSearchEngines: data.discourage_search_engines === true,
@@ -228,6 +231,7 @@ export default function SettingsPage() {
           time_format: general.timeFormat,
           start_of_week: general.startOfWeek,
           posts_per_page: Number(general.postsPerPage),
+          trash_retention_days: Number(general.trashRetentionDays),
           site_public: general.sitePublic,
           public_api_enabled: general.publicApiEnabled,
           discourage_search_engines: general.discourageSearchEngines,
@@ -786,6 +790,24 @@ export default function SettingsPage() {
             <p className="jf-field__hint">posts</p>
           </div>
         </Section>
+
+        <Section title="Trash retention">
+          <div className="jf-field" style={{ maxWidth: 240 }}>
+            <label className="jf-field__label" htmlFor="jf-trash-retention">
+              Permanently delete trashed items after
+            </label>
+            <input
+              id="jf-trash-retention"
+              className="jf-input"
+              type="number"
+              min={1}
+              max={3650}
+              value={general.trashRetentionDays}
+              onChange={(e) => patch({ trashRetentionDays: e.target.value })}
+            />
+            <p className="jf-field__hint">days (default: 30)</p>
+          </div>
+        </Section>
       </fieldset>
 
       {canReadMail && <EmailOperations canRetry={canManageMail} />}
@@ -896,7 +918,7 @@ function EmailOperations({ canRetry }: { canRetry: boolean }) {
                   </td>
                   <td>{row.error_detail ?? row.provider_response ?? "—"}</td>
                   <td>
-                {canRetry && row.status !== "sent" && (
+                    {canRetry && row.status !== "sent" && (
                       <button type="button" className="jf-btn" onClick={() => void retry(row.id)}>
                         Retry
                       </button>

@@ -31,6 +31,14 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Admin → Content → Trash adds recoverable, site-scoped deletion for every
+  built-in and custom content type, media, comments, and menus. Restore keeps
+  revisions and relationships intact and reports slug collisions explicitly;
+  configurable per-site retention drives a daily purge job, while manual purge
+  and empty-trash actions are administrator-only. Referenced media requires a
+  confirmation before permanent deletion, and trash, restore, and purge actions
+  are audited. ([#108](https://github.com/JustFlows/justflows-ce/issues/108))
+
 - Admin → Settings → Outgoing mail adds separate From, Reply-To, and envelope
   sender identities, provider transport registration, full test-transport
   responses, privacy-masked delivery/dead-letter logs, manual retry,
