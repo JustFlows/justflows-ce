@@ -1,7 +1,16 @@
 import { getAdminSsrPayload } from "./ssr-data";
 
+// The SSR payload is JSON parsed out of a <script> element's text content, so
+// every field is treated as untrusted. The admin base path flows into link
+// hrefs, history entries and `window.location`, so it is validated here, at the
+// single point it enters the app: it must be a rooted path built only from
+// path-safe characters — no scheme (`javascript:`), no protocol-relative
+// `//host`, no HTML metacharacters. Anything else falls back to `/admin`.
+const ADMIN_BASE_PATH = /^\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/;
+
 export function adminBasePath(): string {
-  return getAdminSsrPayload()?.adminBasePath || "/admin";
+  const raw = getAdminSsrPayload()?.adminBasePath;
+  return typeof raw === "string" && ADMIN_BASE_PATH.test(raw) ? raw : "/admin";
 }
 
 export function publicAdminPath(path: string): string {
