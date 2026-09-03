@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
+import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { BlockPatternSchema, PatternSetSchema, type BlockPattern } from "@justflows/sdk";
 import { sanitizeBlockDocument } from "@justflows/blocks";
@@ -21,6 +22,36 @@ import { getPluginLoader } from "../lib/plugin-runtime.js";
 const router = Router();
 const DIRECTORY_URL = "https://api.justflows.com/v1/patterns";
 const MAX_DIRECTORY_BYTES = 2 * 1024 * 1024;
+
+// Every handler here reads theme files off disk, and some also reach the hosted
+// directory or write site settings. CodeQL's js/missing-rate-limiting only
+// models express-rate-limit, so guard the whole router and add a tighter cap on
+// the writes and the outbound directory fetch.
+const patternsLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 60,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many pattern requests" },
+});
+const patternsExpensiveLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 15,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many pattern requests" },
+});
+
+router.use(patternsLimit);
+
+/** Apply the tighter cap only when a request actually reaches the hosted directory. */
+const directoryLimit: RequestHandler = (req, res, next) => {
+  if (req.query.directory === "1" || req.params.source === "directory") {
+    patternsExpensiveLimit(req, res, next);
+    return;
+  }
+  next();
+};
 
 // Only peel off route-specific metadata here. BlockPatternSchema contains a
 // cross-field refinement, and Zod 4 deliberately throws when `.partial()` is
@@ -78,7 +109,7 @@ function localizePattern<T extends BlockPattern>(pattern: T, locale?: string): T
   return localized ? ({ ...pattern, ...localized } as T) : pattern;
 }
 
-router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/", requireRole(...CONTENT_READ_ROLES), directoryLimit, async (req, res) => {
   const locale = localeQuery(req.query.locale);
   const { siteId, theme, themeId } = await activeTheme();
   const themePatterns = listThemePatterns(themeId, themeInstalledPath(theme), locale);
@@ -116,18 +147,23 @@ router.get("/export", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) =
   res.json(await exportPatternSet(siteId));
 });
 
-router.post("/import", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
-  try {
-    const body = PatternSetSchema.parse(req.body);
-    const siteId = await getSiteId();
-    if (!siteId) return void res.status(503).json({ error: "No site found" });
-    res.json({ patterns: await importPatternSet(siteId, body) });
-  } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Invalid pattern set" });
-  }
-});
+router.post(
+  "/import",
+  requireRole(...THEME_CUSTOMIZE_ROLES),
+  patternsExpensiveLimit,
+  async (req, res) => {
+    try {
+      const body = PatternSetSchema.parse(req.body);
+      const siteId = await getSiteId();
+      if (!siteId) return void res.status(503).json({ error: "No site found" });
+      res.json({ patterns: await importPatternSet(siteId, body) });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Invalid pattern set" });
+    }
+  },
+);
 
-router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), patternsExpensiveLimit, async (req, res) => {
   try {
     const body = SaveSchema.parse(req.body);
     const siteId = await getSiteId();
@@ -138,7 +174,7 @@ router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
   }
 });
 
-router.get("/:source/:id", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:source/:id", requireRole(...CONTENT_READ_ROLES), directoryLimit, async (req, res) => {
   const source = param(req.params.source);
   const id = param(req.params.id);
   const locale = localeQuery(req.query.locale);
