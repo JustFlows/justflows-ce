@@ -16,6 +16,7 @@ exposes. Sensitive permissions are called out in Admin:
 
 The full enum is `PluginPermissionSchema` in `packages/sdk/src/plugin.ts`:
 content/media/users/settings CRUD, `admin:extend`, `jobs:register`,
+`diagnostics:publish`,
 `auth:hook`, `network:outbound`, `mail:transport`, `mail:templates`.
 
 `content:create` is required for `ctx.content.ensureType` and `ensurePage`.

@@ -79,6 +79,8 @@ export const AUDIT_ACTIONS = [
   "diagnostics.debug_enabled",
   "diagnostics.debug_disabled",
   "diagnostics.bundle_generated",
+  "diagnostics.test_run",
+  "diagnostics.job_retried",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
