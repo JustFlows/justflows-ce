@@ -78,6 +78,10 @@ pnpm --filter @justflows/server build
 ```
 
 The admin client and SSR builds deliberately use separate Vite configurations.
+The browser build is split into stable React vendor, admin-page, and visual
+builder chunks. Keep large feature families in those explicit chunk groups so
+the client does not regress to a single monolithic bundle; the SSR renderer
+remains one Node entry because it must synchronously render every admin route.
 Universal components must not read `window`, `document`, `navigator`, or
 `localStorage` during render. Browser-only work belongs in effects, event
 handlers, or the client entry. New initial GET requests must be added to the
