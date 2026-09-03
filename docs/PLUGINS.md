@@ -59,8 +59,43 @@ choosing a compatibility range or deprecating a public integration.
 `site_settings`), logger, cache, HTTP routes, plugin-scoped data, encrypted
 `secrets`, short-lived `databases` probes, table `upsert`/`findOne`,
 `content.ensureType` / `content.ensurePage` / `content.deleteType`,
-`blocks.register`, and `cookies.declare` / `cookies.list`. See
+`blocks.register`, `patterns.register`, and `cookies.declare` / `cookies.list`. See
 [HOOKS.md](HOOKS.md) and [PERMISSIONS.md](PERMISSIONS.md).
+
+## Register editor patterns
+
+Plugins can contribute complete page designs or smaller sections to the block
+editor with `ctx.patterns.register()`. Registration is synchronous, validated,
+scoped to the plugin, and automatically removed when the plugin deactivates:
+
+```ts
+ctx.patterns.register({
+  id: "feature-grid",
+  title: "Product feature grid",
+  description: "Three product benefits with an editable call to action.",
+  category: "features",
+  requiresBlockTypes: ["acme.cards.feature"],
+  blocks: [
+    {
+      id: "features",
+      type: "acme.cards.feature",
+      version: 1,
+      props: { heading: "Why customers choose us" },
+    },
+  ],
+});
+```
+
+Pattern ids are local to the plugin; the host exposes the example above as
+`acme.plugin:feature-grid`, so another plugin can safely use the same local id.
+Every non-core block used anywhere in the tree must appear in
+`requiresBlockTypes`. The shared SDK `BlockPatternSchema` validates the complete
+tree, and the server sanitizes it before preview or insertion. Use category
+`pages` only for a complete design that should replace the editor canvas after
+confirmation; every other category appends to the current page.
+
+The returned disposer removes that one registration early when needed. Plugins
+can normally ignore it because deactivation removes all their patterns.
 
 ## Declare the cookies you set
 

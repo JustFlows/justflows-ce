@@ -3,6 +3,7 @@ import { gplLicenseValidationMessage, isGplCompatibleLicense } from "./license.j
 import { RegistryListingSchema } from "./registry.js";
 import { ExtensionEnginesSchema } from "./compatibility.js";
 import type { PluginCookiesApi } from "./cookies.js";
+import type { BlockPattern } from "./patterns.js";
 import type { AccessPolicy, UserCapability, UserCapabilityDefinition } from "./capabilities.js";
 import type {
   ActionName,
@@ -351,9 +352,7 @@ export interface PluginMailTransportApi {
   register(transport: {
     id: string;
     label: string;
-    send(
-      message: PluginMailTransportMessage,
-    ): Promise<{
+    send(message: PluginMailTransportMessage): Promise<{
       response: string;
       messageId?: string;
       status?: "sent" | "deferred" | "failed" | "bounced";
@@ -383,7 +382,10 @@ export interface PluginEmailTemplateDefinition {
   variables: PluginEmailVariableDefinition[];
   defaults: { subject: string; preheader: string; html: string; text: string };
   /** Optional built-in catalogs keyed by an active Justflows locale code. */
-  localizedDefaults?: Record<string, { subject: string; preheader: string; html: string; text: string }>;
+  localizedDefaults?: Record<
+    string,
+    { subject: string; preheader: string; html: string; text: string }
+  >;
 }
 
 export interface PluginDataRecord<T = unknown> {
@@ -433,6 +435,22 @@ export interface PluginBlockDefinition {
 
 export interface PluginBlocksApi {
   register(definition: PluginBlockDefinition): void;
+}
+
+/** Pattern contribution scoped to the registering plugin. */
+export type PluginPatternDefinition = Omit<
+  BlockPattern,
+  "schemaVersion" | "version" | "category" | "requiresBlockTypes"
+> & {
+  schemaVersion?: 1;
+  version?: string;
+  category?: string;
+  requiresBlockTypes?: string[];
+};
+
+export interface PluginPatternsApi {
+  /** Register an editable pattern. Validated immediately and removed on deactivate. */
+  register(pattern: PluginPatternDefinition): Unsubscribe;
 }
 
 /** Idempotent content-type and page helpers. Require `content:create` (and `content:publish` to publish). */
@@ -610,9 +628,21 @@ export interface PluginSecretsApi {
 }
 
 export type PluginDiagnosticStatus = "ok" | "warning" | "error";
-export interface PluginDiagnosticResult { status: PluginDiagnosticStatus; summary: string; details?: Record<string, string | number | boolean | null>; }
-export interface PluginDiagnosticCheck { id: string; label: string; run(): PluginDiagnosticResult | Promise<PluginDiagnosticResult>; }
-export interface PluginDiagnosticsApi { /** Publish a sanitized, read-only health check. Requires `diagnostics:publish`. */ register(check: PluginDiagnosticCheck): Unsubscribe; }
+export interface PluginDiagnosticResult {
+  status: PluginDiagnosticStatus;
+  summary: string;
+  details?: Record<string, string | number | boolean | null>;
+}
+export interface PluginDiagnosticCheck {
+  id: string;
+  label: string;
+  run(): PluginDiagnosticResult | Promise<PluginDiagnosticResult>;
+}
+export interface PluginDiagnosticsApi {
+  /** Publish a sanitized, read-only health check. Requires `diagnostics:publish`. */ register(
+    check: PluginDiagnosticCheck,
+  ): Unsubscribe;
+}
 
 // ─── Plugin API surface ────────────────────────────────────────────────────
 
@@ -730,6 +760,9 @@ export interface PluginContext {
 
   /** Register block types for the editor and public renderer. Removed on deactivate. */
   blocks: PluginBlocksApi;
+
+  /** Register sanitized block patterns for the editor. Removed on deactivate. */
+  patterns: PluginPatternsApi;
 
   /**
    * Create content types and pages the plugin needs. Requires `content:create`.

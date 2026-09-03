@@ -8,6 +8,9 @@ import { adminClientDir, renderAdminPage } from "./lib/admin-ssr.js";
 import { adminAccessGate } from "./middleware/admin-access.js";
 import { getAdminPathConfig, toInternalAdminPath } from "./lib/admin-path.js";
 
+/** Admin SPA document routes, including the common trailing-slash root. */
+export const ADMIN_PAGE_PATH_RE = /^\/admin(?:\/.*)?$/;
+
 /** Register heavy routes (dynamic import — keeps Passenger startup fast). */
 export async function registerDeferredRoutes(app: express.Application): Promise<void> {
   // .env can be lost (an ephemeral container, a botched restore) while the
@@ -91,6 +94,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: trashRoutes },
     { default: emailsRoutes },
     { default: templatesRoutes },
+    { default: patternsRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -126,6 +130,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/trash.js"),
     import("./routes/emails.js"),
     import("./routes/templates.js"),
+    import("./routes/patterns.js"),
   ]);
 
   app.use(blockIfInstalled);
@@ -154,6 +159,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/reusable-blocks", requireInstalled, reusableBlocksRoutes);
   app.use("/api/template-parts", requireInstalled, templatePartsRouter);
   app.use("/api/templates", requireInstalled, templatesRoutes);
+  app.use("/api/patterns", requireInstalled, patternsRoutes);
   app.use("/api/headers", requireInstalled, siteHeaderRoutes);
   app.use("/api/blocks", requireInstalled, blocksRoutes);
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
@@ -304,7 +310,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   app.use("/admin", requireInstalled, adminAccessGate);
 
-  app.get(/^\/admin(\/.+)?$/, requireInstalled, (req, res, next) => {
+  app.get(ADMIN_PAGE_PATH_RE, requireInstalled, (req, res, next) => {
     if (req.path.match(/\.\w+$/)) {
       next();
       return;

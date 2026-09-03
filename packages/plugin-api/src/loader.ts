@@ -27,6 +27,7 @@ import { PluginHttpRouter } from "./http-router.js";
 import { PluginCookieRegistry } from "./cookie-registry.js";
 import { PluginCapabilityRegistry } from "./capability-registry.js";
 import { PluginDiagnosticRegistry } from "./diagnostic-registry.js";
+import { PluginPatternRegistry } from "./pattern-registry.js";
 
 export interface LoadedPlugin {
   manifest: PluginManifest;
@@ -150,6 +151,7 @@ export class PluginLoader {
   readonly cookieRegistry: PluginCookieRegistry;
   readonly capabilityRegistry: PluginCapabilityRegistry;
   readonly diagnosticRegistry: PluginDiagnosticRegistry;
+  readonly patternRegistry: PluginPatternRegistry;
 
   constructor(
     private readonly app: App,
@@ -177,6 +179,7 @@ export class PluginLoader {
       cookieRegistry?: PluginCookieRegistry;
       capabilityRegistry?: PluginCapabilityRegistry;
       diagnosticRegistry?: PluginDiagnosticRegistry;
+      patternRegistry?: PluginPatternRegistry;
     },
   ) {
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
@@ -208,6 +211,7 @@ export class PluginLoader {
     this.cookieRegistry = options?.cookieRegistry ?? new PluginCookieRegistry();
     this.capabilityRegistry = options?.capabilityRegistry ?? new PluginCapabilityRegistry();
     this.diagnosticRegistry = options?.diagnosticRegistry ?? new PluginDiagnosticRegistry();
+    this.patternRegistry = options?.patternRegistry ?? new PluginPatternRegistry();
     const coreCookies = options?.coreCookies ?? [];
     this.coreCookiesFn =
       typeof coreCookies === "function" ? async () => coreCookies() : async () => coreCookies;
@@ -353,6 +357,7 @@ export class PluginLoader {
     this.cookieRegistry.removePlugin(pluginId);
     this.capabilityRegistry.removePlugin(pluginId);
     this.diagnosticRegistry.removePlugin(pluginId);
+    this.patternRegistry.removePlugin(pluginId);
     this.jobsCleanup?.(pluginId);
     this.mailCleanup?.(pluginId);
     const types = this.registeredBlocks.get(pluginId) ?? [];
@@ -421,7 +426,10 @@ export class PluginLoader {
       },
       diagnostics: {
         register: (check) => {
-          if (!permissions.has("diagnostics:publish")) throw new Error(`Plugin "${pluginId}" cannot publish diagnostics without the "diagnostics:publish" permission`);
+          if (!permissions.has("diagnostics:publish"))
+            throw new Error(
+              `Plugin "${pluginId}" cannot publish diagnostics without the "diagnostics:publish" permission`,
+            );
           return this.diagnosticRegistry.register(pluginId, check);
         },
       },
@@ -485,6 +493,9 @@ export class PluginLoader {
           types.push(definition.type);
           this.registeredBlocks.set(pluginId, types);
         },
+      },
+      patterns: {
+        register: (pattern) => this.patternRegistry.register(pluginId, pattern),
       },
       logger,
     };

@@ -9,6 +9,14 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The page builder now has a categorized block-pattern library with theme-width
+  previews, editable insertion, six accessible token-driven section starters,
+  local and optionally synced site patterns, locale variants and RTL-aware UI,
+  validated JSON import/export, additive theme SDK registration, required-block
+  checking, `ctx.patterns.register()` contributions with automatic plugin
+  lifecycle cleanup, and a bounded, sanitized opt-in marketplace directory.
+  ([#110](https://github.com/JustFlows/justflows-ce/issues/110))
+
 - Admin → System → Diagnostics completes the developer-tooling workflow with
   plugin scheduler status and safe failed-job retries, non-destructive database,
   cache, and scheduler test actions, copyable CLI reproduction guidance, and an

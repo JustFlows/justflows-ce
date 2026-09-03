@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "id": "pricing",
+  "title": "Pricing",
+  "description": "Three editable plans with semantic headings and actions.",
+  "category": "pricing",
+  "version": "1.0.0",
+  "requiresBlockTypes": [],
+  "blocks": [
+    {
+      "id": "pricing-section",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "muted", "padding": "lg", "align": "center" },
+      "children": [
+        {
+          "id": "pricing-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "wide" },
+          "children": [
+            {
+              "id": "pricing-heading",
+              "type": "core.heading",
+              "version": 1,
+              "props": { "text": "Simple pricing", "level": 2 }
+            },
+            {
+              "id": "pricing-columns",
+              "type": "core.columns",
+              "version": 1,
+              "props": { "columns": 3, "gap": "lg" },
+              "children": [
+                {
+                  "id": "pricing-one",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "pricing-one-title",
+                      "type": "core.heading",
+                      "version": 1,
+                      "props": { "text": "Starter", "level": 3 }
+                    },
+                    {
+                      "id": "pricing-one-copy",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": { "text": "$9/month — for personal projects." }
+                    },
+                    {
+                      "id": "pricing-one-button",
+                      "type": "core.button",
+                      "version": 1,
+                      "props": {
+                        "label": "Choose Starter",
+                        "url": "/contact",
+                        "variant": "secondary"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "pricing-two",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "pricing-two-title",
+                      "type": "core.heading",
+                      "version": 1,
+                      "props": { "text": "Team", "level": 3 }
+                    },
+                    {
+                      "id": "pricing-two-copy",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": { "text": "$29/month — for growing teams." }
+                    },
+                    {
+                      "id": "pricing-two-button",
+                      "type": "core.button",
+                      "version": 1,
+                      "props": { "label": "Choose Team", "url": "/contact", "variant": "primary" }
+                    }
+                  ]
+                },
+                {
+                  "id": "pricing-three",
+                  "type": "core.column",
+                  "version": 1,
+                  "props": {},
+                  "children": [
+                    {
+                      "id": "pricing-three-title",
+                      "type": "core.heading",
+                      "version": 1,
+                      "props": { "text": "Business", "level": 3 }
+                    },
+                    {
+                      "id": "pricing-three-copy",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": { "text": "$79/month — for established organizations." }
+                    },
+                    {
+                      "id": "pricing-three-button",
+                      "type": "core.button",
+                      "version": 1,
+                      "props": {
+                        "label": "Contact sales",
+                        "url": "/contact",
+                        "variant": "secondary"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

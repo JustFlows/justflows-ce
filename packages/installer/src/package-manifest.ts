@@ -5,6 +5,7 @@ import {
   isGplCompatibleLicense,
   RegistryListingSchema,
   ExtensionEnginesSchema,
+  ThemePatternRegistrationSchema,
 } from "@justflows/sdk";
 
 const CssAssetSchema = z.object({
@@ -55,6 +56,10 @@ export const PackageManifestSchema = z
       .optional(),
     /** Theme-only: theme entrypoint */
     entrypoint: z.string().optional(),
+    /** Theme-only: registered pattern id to a safe package-relative JSON path. */
+    patterns: z
+      .record(z.string().regex(/^[a-z0-9][a-z0-9-]{0,80}$/), ThemePatternRegistrationSchema)
+      .optional(),
     /** CSS-provider-only: npm packages installed locally on activation */
     stylesheets: z.array(CssAssetSchema).default([]),
     /** CSS-provider-only: optional scripts loaded from installed packages */
@@ -123,6 +128,13 @@ export const PackageManifestSchema = z
         code: "custom",
         path: ["license"],
         message: gplLicenseValidationMessage(manifest.license),
+      });
+    }
+    if (manifest.patterns && manifest.type !== "theme") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["patterns"],
+        message: "Only themes may register patterns",
       });
     }
   });

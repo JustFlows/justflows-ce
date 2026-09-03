@@ -9,8 +9,23 @@ import {
   parseBlockStyle,
   type BlockStyle,
 } from "@justflows/blocks";
+import { useEffect, useState } from "react";
 import { useT } from "../../i18n/I18nProvider";
 import type { BlockNode } from "./types";
+import { readComputedBlockValues, type ComputedBlockValues } from "./computed-block-values";
+
+const EMPTY_COMPUTED: ComputedBlockValues = {
+  background: "",
+  textColor: "",
+  accent: "",
+  opacity: "",
+  minHeight: "",
+  maxWidth: "",
+  maxHeight: "",
+  textAlign: "",
+  radius: "",
+  shadow: "",
+};
 
 const SPACE_LABELS: Record<string, string> = {
   "": "—",
@@ -41,6 +56,29 @@ export default function BlockLayoutPanel({
 }) {
   const { t } = useT();
   const style = parseBlockStyle(block.props.style);
+  const [computed, setComputed] = useState<ComputedBlockValues>(EMPTY_COMPUTED);
+
+  useEffect(() => {
+    let cancelled = false;
+    let frame = 0;
+    let timer = 0;
+    const read = () => {
+      const element = [...document.querySelectorAll("[data-jf-block-preview]")].find(
+        (candidate) => candidate.getAttribute("data-jf-block-preview") === block.id,
+      );
+      if (element && !cancelled) setComputed(readComputedBlockValues(element));
+    };
+    frame = requestAnimationFrame(read);
+    timer = window.setTimeout(read, 250);
+    const stylesheet = document.getElementById("jf-theme-preview-css");
+    stylesheet?.addEventListener("load", read);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+      stylesheet?.removeEventListener("load", read);
+    };
+  }, [block.id, block.props]);
 
   function set(patch: Partial<BlockStyle>) {
     const props = { ...block.props };
@@ -66,7 +104,12 @@ export default function BlockLayoutPanel({
     </label>
   );
 
-  const choiceField = (label: string, key: keyof BlockStyle, options: readonly string[]) => (
+  const choiceField = (
+    label: string,
+    key: keyof BlockStyle,
+    options: readonly string[],
+    inherited = "",
+  ) => (
     <label className="jf-block-panel__field jf-block-panel__field--inline">
       {label}
       <select
@@ -75,7 +118,11 @@ export default function BlockLayoutPanel({
       >
         {options.map((value) => (
           <option key={value} value={value}>
-            {value === "" ? "—" : t(`builder.layout.value.${value}`)}
+            {value === ""
+              ? inherited
+                ? `${t("builder.layout.auto")} · ${inherited}`
+                : "—"
+              : t(`builder.layout.value.${value}`)}
           </option>
         ))}
       </select>
@@ -100,8 +147,9 @@ export default function BlockLayoutPanel({
 
   const colorField = (label: string, key: "background" | "textColor" | "accent") => {
     const current = String(style[key] ?? "");
+    const inherited = computed[key];
     const id = `${block.id}-${key}`;
-    const swatch = /^#[0-9a-fA-F]{6}$/.test(current) ? current : "#ffffff";
+    const swatch = /^#[0-9a-fA-F]{6}$/.test(current) ? current : inherited || "#ffffff";
     const isNone = current === "transparent" || current === "none";
     return (
       <div className="jf-field" style={{ marginBottom: "0.6rem" }}>
@@ -114,12 +162,15 @@ export default function BlockLayoutPanel({
             type="color"
             className="jf-swatch"
             value={swatch}
+            title={current || inherited || t("builder.layout.auto")}
             onChange={(e) => set({ [key]: e.target.value } as Partial<BlockStyle>)}
           />
           <input
             type="text"
             className="jf-input jf-input--mono"
-            placeholder={t("builder.layout.auto")}
+            placeholder={
+              inherited ? `${t("builder.layout.auto")} · ${inherited}` : t("builder.layout.auto")
+            }
             value={current}
             spellCheck={false}
             onChange={(e) => set({ [key]: e.target.value } as Partial<BlockStyle>)}
@@ -160,6 +211,7 @@ export default function BlockLayoutPanel({
     <section className="jf-block-panel" aria-labelledby={`jf-layout-${block.id}`}>
       <h3 id={`jf-layout-${block.id}`}>{t("builder.layout.title")}</h3>
       <p className="jf-block-panel__hint">{t("builder.layout.hint")}</p>
+      <p className="jf-block-panel__hint">{t("builder.layout.inheritedHint")}</p>
 
       <div className="jf-block-panel__grid2">
         {spaceField(t("builder.layout.padTop"), "padTop")}
@@ -172,16 +224,17 @@ export default function BlockLayoutPanel({
       <div className="jf-block-panel__grid2">
         {choiceField(t("builder.layout.widthPreset"), "width", WIDTH_PRESETS)}
         {choiceField(t("builder.layout.alignSelf"), "alignSelf", ALIGN_SELF)}
-        {choiceField(t("builder.layout.textAlign"), "textAlign", TEXT_ALIGN)}
-        {choiceField(t("builder.layout.radius"), "radius", RADIUS_PRESETS)}
-        {choiceField(t("builder.layout.shadow"), "shadow", SHADOW_PRESETS)}
+        {choiceField(t("builder.layout.textAlign"), "textAlign", TEXT_ALIGN, computed.textAlign)}
+        {choiceField(t("builder.layout.radius"), "radius", RADIUS_PRESETS, computed.radius)}
+        {choiceField(t("builder.layout.shadow"), "shadow", SHADOW_PRESETS, computed.shadow)}
         <label className="jf-block-panel__field jf-block-panel__field--inline">
           {t("builder.layout.minHeight")}
           <input
             type="number"
             min={0}
             max={100}
-            value={style.minHeight}
+            placeholder={computed.minHeight || t("builder.layout.auto")}
+            value={style.minHeight || ""}
             onChange={(e) => set({ minHeight: Number(e.target.value) || 0 })}
           />
         </label>
@@ -191,7 +244,7 @@ export default function BlockLayoutPanel({
             type="number"
             min={0}
             max={10000}
-            placeholder={t("builder.layout.auto")}
+            placeholder={computed.maxWidth || t("builder.layout.auto")}
             value={style.maxWidth || ""}
             onChange={(e) => set({ maxWidth: Number(e.target.value) || 0 })}
           />
@@ -202,7 +255,7 @@ export default function BlockLayoutPanel({
             type="number"
             min={0}
             max={10000}
-            placeholder={t("builder.layout.auto")}
+            placeholder={computed.maxHeight || t("builder.layout.auto")}
             value={style.maxHeight || ""}
             onChange={(e) => set({ maxHeight: Number(e.target.value) || 0 })}
           />
@@ -217,7 +270,9 @@ export default function BlockLayoutPanel({
         <div className="jf-field" style={{ marginBottom: "0.6rem" }}>
           <label className="jf-field__label" htmlFor={`${block.id}-opacity`}>
             {t("builder.layout.opacity")}:{" "}
-            {style.opacity ? `${style.opacity}%` : t("builder.layout.auto")}
+            {style.opacity
+              ? `${style.opacity}%`
+              : `${t("builder.layout.auto")}${computed.opacity ? ` · ${computed.opacity}` : ""}`}
           </label>
           <div className="jf-row" style={{ flexWrap: "nowrap" }}>
             <input

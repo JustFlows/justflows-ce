@@ -132,6 +132,8 @@ export type {
   PluginDiagnosticStatus,
   PluginBlocksApi,
   PluginBlockDefinition,
+  PluginPatternsApi,
+  PluginPatternDefinition,
   PluginContentApi,
   PluginContentField,
   PluginContentEnsureResult,
@@ -191,3 +193,21 @@ export type {
   ThemeTemplatesManifest,
   TemplateDoc,
 } from "./templates.js";
+
+// Patterns — portable, validated editor compositions
+export {
+  PATTERN_FORMAT_VERSION,
+  PATTERN_SLUG_RE,
+  BLOCK_TYPE_RE,
+  PatternBlockSchema,
+  PatternLocaleSchema,
+  BlockPatternSchema,
+  PatternSetSchema,
+  ThemePatternRegistrationSchema,
+} from "./patterns.js";
+export type {
+  PatternBlock,
+  BlockPattern,
+  PatternSet,
+  ThemePatternRegistration,
+} from "./patterns.js";
