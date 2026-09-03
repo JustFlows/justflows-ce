@@ -40,6 +40,7 @@ export const PluginPermissionSchema = z.enum([
   "network:outbound",
   "admin:extend",
   "jobs:register",
+  "diagnostics:publish",
   "mail:transport",
   "mail:templates",
   "mail:hook",
@@ -608,6 +609,11 @@ export interface PluginSecretsApi {
   delete(key: string): Promise<void>;
 }
 
+export type PluginDiagnosticStatus = "ok" | "warning" | "error";
+export interface PluginDiagnosticResult { status: PluginDiagnosticStatus; summary: string; details?: Record<string, string | number | boolean | null>; }
+export interface PluginDiagnosticCheck { id: string; label: string; run(): PluginDiagnosticResult | Promise<PluginDiagnosticResult>; }
+export interface PluginDiagnosticsApi { /** Publish a sanitized, read-only health check. Requires `diagnostics:publish`. */ register(check: PluginDiagnosticCheck): Unsubscribe; }
+
 // ─── Plugin API surface ────────────────────────────────────────────────────
 
 /**
@@ -622,6 +628,7 @@ export interface PluginContext {
   readonly runtime: JustflowsRuntimeVersions;
   readonly permissions: ReadonlySet<PluginPermission>;
   readonly capabilities: PluginCapabilitiesApi;
+  readonly diagnostics: PluginDiagnosticsApi;
 
   /**
    * Shared jf-cache, scoped to this plugin. Always available; when caching is

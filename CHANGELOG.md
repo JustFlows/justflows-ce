@@ -7,6 +7,16 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.1.9-dev.1] [UNRELEASED]
 
+### Added
+
+- Admin → System → Diagnostics completes the developer-tooling workflow with
+  plugin scheduler status and safe failed-job retries, non-destructive database,
+  cache, and scheduler test actions, copyable CLI reproduction guidance, and an
+  additive `ctx.diagnostics.register()` SDK for permission-gated, namespaced,
+  sanitized plugin health checks. This builds on the debug toolbar, request
+  traces, support bundles, and core diagnostics shipped in 0.1.8.
+  ([#57](https://github.com/JustFlows/justflows-ce/issues/57))
+
 ## [0.1.8]
 
 ### Changed

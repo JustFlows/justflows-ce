@@ -26,6 +26,7 @@ import type { App } from "@justflows/core";
 import { PluginHttpRouter } from "./http-router.js";
 import { PluginCookieRegistry } from "./cookie-registry.js";
 import { PluginCapabilityRegistry } from "./capability-registry.js";
+import { PluginDiagnosticRegistry } from "./diagnostic-registry.js";
 
 export interface LoadedPlugin {
   manifest: PluginManifest;
@@ -148,6 +149,7 @@ export class PluginLoader {
   readonly httpRouter: PluginHttpRouter;
   readonly cookieRegistry: PluginCookieRegistry;
   readonly capabilityRegistry: PluginCapabilityRegistry;
+  readonly diagnosticRegistry: PluginDiagnosticRegistry;
 
   constructor(
     private readonly app: App,
@@ -174,6 +176,7 @@ export class PluginLoader {
       cookieOverrides?: (siteId: string) => Promise<Record<string, CookieCategory>>;
       cookieRegistry?: PluginCookieRegistry;
       capabilityRegistry?: PluginCapabilityRegistry;
+      diagnosticRegistry?: PluginDiagnosticRegistry;
     },
   ) {
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
@@ -204,6 +207,7 @@ export class PluginLoader {
     this.httpRouter = options?.httpRouter ?? new PluginHttpRouter();
     this.cookieRegistry = options?.cookieRegistry ?? new PluginCookieRegistry();
     this.capabilityRegistry = options?.capabilityRegistry ?? new PluginCapabilityRegistry();
+    this.diagnosticRegistry = options?.diagnosticRegistry ?? new PluginDiagnosticRegistry();
     const coreCookies = options?.coreCookies ?? [];
     this.coreCookiesFn =
       typeof coreCookies === "function" ? async () => coreCookies() : async () => coreCookies;
@@ -348,6 +352,7 @@ export class PluginLoader {
     this.httpRouter.removePlugin(pluginId);
     this.cookieRegistry.removePlugin(pluginId);
     this.capabilityRegistry.removePlugin(pluginId);
+    this.diagnosticRegistry.removePlugin(pluginId);
     this.jobsCleanup?.(pluginId);
     this.mailCleanup?.(pluginId);
     const types = this.registeredBlocks.get(pluginId) ?? [];
@@ -413,6 +418,12 @@ export class PluginLoader {
       permissions,
       capabilities: {
         register: (definition) => this.capabilityRegistry.register(pluginId, definition),
+      },
+      diagnostics: {
+        register: (check) => {
+          if (!permissions.has("diagnostics:publish")) throw new Error(`Plugin "${pluginId}" cannot publish diagnostics without the "diagnostics:publish" permission`);
+          return this.diagnosticRegistry.register(pluginId, check);
+        },
       },
       cache,
       hooks: {
