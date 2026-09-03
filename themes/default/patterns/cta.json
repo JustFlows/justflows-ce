@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "cta",
+  "title": "Call to action",
+  "description": "A token-driven closing section with one action.",
+  "category": "calls-to-action",
+  "version": "1.0.0",
+  "requiresBlockTypes": [],
+  "blocks": [
+    {
+      "id": "pattern-cta",
+      "type": "core.cta",
+      "version": 1,
+      "props": {
+        "heading": "Ready to take the next step?",
+        "text": "Tell visitors what happens after they click.",
+        "buttonLabel": "Talk to us",
+        "buttonUrl": "/contact",
+        "variant": "primary"
+      }
+    }
+  ]
+}

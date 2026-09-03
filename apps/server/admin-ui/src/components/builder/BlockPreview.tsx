@@ -69,12 +69,18 @@ export function BlockPreview({
   const hasChrome = Object.keys(chromeStyle).length > 0;
 
   const wrap = (content: React.ReactNode, label?: string) => {
-    const inner =
-      hasChrome && isValidElement(content)
-        ? cloneElement(content as ReactElement<{ style?: React.CSSProperties }>, {
-            style: { ...(content.props.style ?? {}), ...chromeStyle },
-          })
-        : content;
+    const inner = isValidElement(content)
+      ? cloneElement(
+          content as ReactElement<{
+            style?: React.CSSProperties;
+            "data-jf-block-preview"?: string;
+          }>,
+          {
+            "data-jf-block-preview": block.id,
+            ...(hasChrome ? { style: { ...(content.props.style ?? {}), ...chromeStyle } } : {}),
+          },
+        )
+      : content;
     return (
       <div
         className={depth === 0 ? THEME_PREVIEW_SCOPE : undefined}

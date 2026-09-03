@@ -27,6 +27,28 @@ const helloWorld: PluginModule = {
 
     await registerHelloWorldStyles(ctx);
 
+    ctx.patterns.register({
+      id: "welcome-cta",
+      title: "Hello World call to action",
+      description:
+        "A plugin-contributed call to action that remains fully editable after insertion.",
+      category: "calls-to-action",
+      blocks: [
+        {
+          id: "hello-world-cta",
+          type: "core.cta",
+          version: 1,
+          props: {
+            heading: "Build your next idea with Justflows",
+            text: "This pattern was registered by the Hello World plugin.",
+            buttonLabel: "Learn more",
+            buttonUrl: "/",
+            variant: "primary",
+          },
+        },
+      ],
+    });
+
     dispose = ctx.hooks.action("content.published", async (event) => {
       ctx.logger.info("Hello World: content was published", {
         contentId: event.contentId,

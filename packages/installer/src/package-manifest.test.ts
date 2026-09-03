@@ -102,6 +102,31 @@ describe("PackageManifestSchema engines", () => {
   });
 });
 
+describe("PackageManifestSchema theme patterns", () => {
+  it("keeps safe theme pattern registrations", () => {
+    const parsed = PackageManifestSchema.parse({
+      ...base,
+      type: "theme",
+      patterns: { hero: "./patterns/hero.json" },
+    });
+    expect(parsed.patterns).toEqual({ hero: "./patterns/hero.json" });
+  });
+
+  it("rejects pattern registrations on plugins and unsafe paths", () => {
+    expect(
+      PackageManifestSchema.safeParse({ ...base, patterns: { hero: "./patterns/hero.json" } })
+        .success,
+    ).toBe(false);
+    expect(
+      PackageManifestSchema.safeParse({
+        ...base,
+        type: "theme",
+        patterns: { hero: "../hero.json" },
+      }).success,
+    ).toBe(false);
+  });
+});
+
 describe("PackageManifestSchema registry", () => {
   it("defaults a free listed listing when registry is omitted", () => {
     const parsed = PackageManifestSchema.parse(base);
