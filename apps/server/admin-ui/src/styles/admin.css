@@ -200,6 +200,21 @@ textarea {
   flex: 1;
 }
 
+/* Plugin admin app: a plugin-owned screen mounted in a same-origin iframe.
+   The plugin controls everything inside; the host gives it full width. */
+.jf-page--flush {
+  max-width: none;
+  gap: 0.75rem;
+}
+.jf-plugin-frame {
+  width: 100%;
+  min-height: 240px;
+  border: 1px solid var(--jf-border, #e2e2e6);
+  border-radius: var(--jf-radius, 8px);
+  background: var(--jf-surface, #fff);
+  display: block;
+}
+
 /* Editor split: main column + settings rail that collapses on narrow screens */
 .jf-split {
   display: grid;

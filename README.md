@@ -183,19 +183,20 @@ old behaviour. Do not set that on a public host.
 
 ## What you can do
 
-| Feature                                                  | Where                                     |
-| -------------------------------------------------------- | ----------------------------------------- |
-| Write posts and pages                                    | Admin → Content                           |
-| Build pages and post bodies with blocks                  | Admin → Content → Open page builder       |
-| Choose or create a paginated blog index                  | Admin → Theme builder → Blog              |
-| Upload images and files                                  | Admin → Media                             |
-| Install plugins                                          | Admin → Plugins → Upload .jfpkg           |
-| Change your theme                                        | Admin → Themes → Upload .jfpkg → Activate |
-| Customize the home page, blog, footer, and design tokens | Admin → Theme builder                     |
-| Manage users                                             | Admin → Users                             |
-| Update everything                                        | Admin → Updates                           |
-| Change site settings                                     | Admin → Settings                          |
-| Send content events to another service                   | Admin → Webhooks                          |
+| Feature                                                  | Where                                       |
+| -------------------------------------------------------- | ------------------------------------------- |
+| Write posts and pages                                    | Admin → Content                             |
+| Build pages and post bodies with blocks                  | Admin → Content → Open page builder         |
+| Choose or create a paginated blog index                  | Admin → Theme builder → Blog                |
+| Upload images and files                                  | Admin → Media                               |
+| Install plugins                                          | Admin → Plugins → Upload .jfpkg             |
+| Change your theme                                        | Admin → Themes → Upload .jfpkg → Activate   |
+| Customize the home page, blog, footer, and design tokens | Admin → Theme builder                       |
+| Manage users                                             | Admin → Users                               |
+| Update everything                                        | Admin → Updates                             |
+| Change site settings                                     | Admin → Settings                            |
+| Send content events to another service                   | Admin → Webhooks                            |
+| Export the public site to static files for a CDN         | Admin → System → Tools → Static site export |
 
 ---
 

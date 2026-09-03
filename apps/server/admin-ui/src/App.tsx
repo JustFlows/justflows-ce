@@ -14,7 +14,6 @@ import MediaPage from "./pages/admin/MediaPage";
 import PluginsPage from "./pages/admin/PluginsPage";
 import PluginSettingsPage from "./pages/admin/PluginSettingsPage";
 import AnalyticsPage from "./pages/admin/AnalyticsPage";
-import FormsPage from "./pages/admin/FormsPage";
 import ConsentPage from "./pages/admin/ConsentPage";
 import ThemesPage from "./pages/admin/ThemesPage";
 import DesignPage from "./pages/admin/DesignPage";
@@ -95,14 +94,6 @@ export default function App() {
                 element={
                   <PluginRoute>
                     <AnalyticsPage />
-                  </PluginRoute>
-                }
-              />
-              <Route
-                path="forms"
-                element={
-                  <PluginRoute>
-                    <FormsPage />
                   </PluginRoute>
                 }
               />

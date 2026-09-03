@@ -460,9 +460,6 @@ export default function BlockInspector({
     case "core.column":
       fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>Add content blocks inside this container.</p>;
       break;
-    case "justflows.forms.form":
-      fields = <FormBlockPicker formId={String(p.formId ?? "contact")} onChange={(formId) => set("formId", formId)} />;
-      break;
     case "justflows.gallery.grid":
       fields = (
         <GalleryEditor
@@ -974,41 +971,6 @@ function LinkListEditor({ items, heading, onChange, p }: {
           + Add link
         </button>
       </div>
-    </>
-  );
-}
-
-function FormBlockPicker({ formId, onChange }: { formId: string; onChange: (formId: string) => void }) {
-  const [forms, setForms] = useState<Array<{ id: string; name: string }>>([]);
-  const [enabled, setEnabled] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/forms")
-      .then((r) => r.json())
-      .then((body: { enabled?: boolean; forms?: Array<{ id: string; data?: { name?: string } }> }) => {
-        setEnabled(body.enabled !== false);
-        setForms((body.forms ?? []).map((form) => ({ id: form.id, name: form.data?.name ?? form.id })));
-      })
-      .catch(() => setForms([]));
-  }, []);
-
-  if (!enabled) {
-    return <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>Install and keep the Forms plugin available to use this block.</p>;
-  }
-
-  return (
-    <>
-      <label style={fieldLabel}>
-        Form
-        <select style={fieldInput} value={formId} onChange={(e) => onChange(e.target.value)}>
-          {forms.map((form) => (
-            <option key={form.id} value={form.id}>{form.name}</option>
-          ))}
-        </select>
-      </label>
-      <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
-        Edit fields under Extensions → Forms.
-      </p>
     </>
   );
 }

@@ -65,6 +65,8 @@ export type {
   CacheObjectType,
   CacheRevalidateTrigger,
   CacheRevalidatedEvent,
+  StaticExportCompletedEvent,
+  StaticExportDeployEvent,
   EmailDeliveryContext,
   EmailBeforeSendEvent,
   EmailDeliveryEvent,
@@ -74,6 +76,8 @@ export type {
 // Plugin — manifest, permissions, context
 export {
   PluginManifestSchema,
+  PluginAssetsSchema,
+  PluginAdminAppSchema,
   PluginPermissionSchema,
   SENSITIVE_PERMISSIONS,
   AdminMenuItemSchema,
@@ -94,6 +98,7 @@ export type { RegistryListing, RegistryPrice } from "./registry.js";
 export type {
   PluginManifest,
   PluginAdminMenuItem,
+  PluginAdminRoute,
   AdminMenuDomain,
   PluginPermission,
   PluginContext,
@@ -108,6 +113,8 @@ export type {
   PluginHttpHandler,
   PluginJobsApi,
   PluginMailTransportApi,
+  PluginMailMessage,
+  PluginMailResult,
   PluginMailTransportMessage,
   PluginEmailVariableDefinition,
   PluginEmailTemplateDefinition,

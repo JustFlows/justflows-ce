@@ -38,6 +38,7 @@ packages-installed/
 css-providers-installed/
 data/installed.json
 .hosting-backup/
+/static-export/
 
 # Environment files and secrets (keep redacted templates)
 .env

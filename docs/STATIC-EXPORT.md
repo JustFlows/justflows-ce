@@ -1,0 +1,384 @@
+# Static / edge export
+
+Write every published public page and its assets to a folder you can serve from
+a filesystem, object storage, or an edge CDN — no Node origin required for those
+pages. Use it for marketing sites, documentation, and campaign pages that get
+far more reads than writes.
+
+Roadmap: [`justflows-ce#24`](https://github.com/JustFlows/justflows-ce/issues/24).
+
+## What it does
+
+The exporter **crawls the site's own running server** (over loopback, or its real
+domain on a proxied host — see [Configuration](#configuration)), so the
+output is byte-for-byte what a visitor receives — the active theme, the template
+hierarchy, blocks, localized routes, the SEO `<head>`, favicon, and the
+`/theme.css` build all come out unchanged.
+
+A run produces:
+
+| Output                                                                     | Source                                                         |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `index.html`, `<slug>/index.html`                                          | every published page/post, default locale                      |
+| `<locale>/…/index.html`                                                    | each non-default active locale (from `localePath()`)           |
+| `sitemap.xml`, `robots.txt`                                                | fetched from the origin verbatim (always exported)             |
+| `favicon.ico`                                                              | the configured favicon, redirect followed (only if one is set) |
+| `404.html`                                                                 | the themed not-found page                                      |
+| `theme.css`, `/js/*`, `/uploads/*`, `/assets/*`, `/css-providers/*`, fonts | every same-origin sub-resource referenced by an exported page  |
+| redirect stubs                                                             | a `<meta refresh>` page wherever the origin answered a 3xx     |
+| `_static-export.json`                                                      | the manifest (see below)                                       |
+| `_headers`                                                                 | `X-Powered-By: Justflows` + browser-cache rules for Cloudflare Pages / Netlify |
+
+Link discovery is breadth-first from the sitemap + published entries, so menu
+targets and `/slug/page/N` pagination are picked up automatically. `STATIC_EXPORT_MAX_PAGES`
+(default 2000) caps a runaway crawl.
+
+## Running an export
+
+- **Admin → System → Tools → “Static site export”** — Run full export / Run
+  incremental, with a live log. Administrator only.
+- **`pnpm export:static`** (`node scripts/export-static.js [--incremental]
+[--base-url http://127.0.0.1:3000]`) — for CI/cron. Needs a compiled server
+  (`pnpm --filter @justflows/server build:server`) and a running site.
+- **`justflows export static [--incremental]`** — posts to the admin API
+  (`ADMIN_URL`, same auth rules as `justflows cache clear`).
+
+The admin card and the CLI go through `POST /api/static-export/run`;
+`pnpm export:static` calls `runStaticExport()` in
+`apps/server/src/lib/static-export/` directly.
+
+### Try it locally
+
+The exporter always crawls a **running** site over loopback, so start one first,
+then run the export against it.
+
+```bash
+# terminal 1 — a local site for the crawler to read (dev or prod build both work)
+pnpm --filter @justflows/server dev            # http://localhost:3000
+
+# terminal 2 — build the compiled bundle the CLI needs, then export
+pnpm --filter @justflows/server build:server   # writes apps/server/dist/**
+pnpm export:static                             # crawls :3000, writes ./static-export
+```
+
+`pnpm export:static -- --incremental` does a delta run; `-- --base-url
+http://127.0.0.1:PORT` points it at a non-default port.
+
+No CLI: `pnpm --filter @justflows/server build && pnpm --filter @justflows/server
+start`, then **Admin → System → Tools → “Static site export” → Run full export**.
+
+Preview the result the way a static host serves it — directory `index.html`,
+no Node origin:
+
+```bash
+npx serve static-export -l 5000                # http://localhost:5000
+```
+
+Outside production, any `localhost` port is CORS-allowed, so form submits and the
+analytics beacon still reach `http://localhost:3000` from the previewed pages
+(or set `STATIC_EXPORT_ORIGIN_URL` — see [Dynamic features](#dynamic-features)).
+
+## Configuration
+
+| Variable                        | Default           | Purpose                                                                                                                                                                                |
+| ------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `STATIC_EXPORT_ENABLED`         | `1`               | master switch; `0` refuses the Run actions and auto-rebuild (existing files are left on disk — see [Turning it off](#turning-it-off))                                                  |
+| `STATIC_EXPORT_DIR`             | `./static-export` | output directory (relative to the install root)                                                                                                                                        |
+| `STATIC_EXPORT_BASE_URL`        | `APP_URL`         | public origin recorded in the manifest and used to recognise same-origin links while crawling — see the SEO note below                                                                 |
+| `STATIC_EXPORT_CRAWL_URL`       | loopback / `APP_URL` | origin the crawler fetches pages from; blank reads this server directly (loopback in dev, `APP_URL` on production). Set it to your public domain when the app runs behind Passenger / Plesk, where a loopback port is unreachable |
+| `STATIC_EXPORT_ORIGIN_URL`      | _(empty)_         | origin that still serves form/comment POST; when set, `<form action>` in the output is rewritten to absolute URLs against it (see [Dynamic features](#dynamic-features))               |
+| `STATIC_EXPORT_ALLOWED_ORIGINS` | _(empty)_         | extra origins allowed to cross-origin `fetch()` the submit endpoints (CORS), comma-separated; `APP_URL` / `STATIC_EXPORT_BASE_URL` and (off production) `localhost` are always allowed |
+| `STATIC_EXPORT_MAX_PAGES`       | `2000`            | crawl ceiling                                                                                                                                                                          |
+| `STATIC_EXPORT_CONCURRENCY`     | `4`               | parallel fetches                                                                                                                                                                       |
+| `STATIC_EXPORT_AUTO`            | `0`               | rebuild after content/menu/theme/settings changes                                                                                                                                      |
+| `STATIC_EXPORT_DEBOUNCE_MS`     | `5000`            | quiet period that coalesces a burst of changes                                                                                                                                         |
+
+All of these can be edited from **Admin → System → Tools → “Static site export” →
+Configuration** — the admin writes them to `.env` and applies them in place, no
+restart (the auto-rebuild listener is re-armed on save). They can also be set
+directly in `.env`.
+
+Where the crawl fetches bytes from, in precedence order:
+
+1. an explicit `--base-url` (CLI) or request-body `baseUrl` (admin API);
+2. off production, the loopback port the admin request arrived on;
+3. `STATIC_EXPORT_CRAWL_URL`, if set;
+4. on production, `APP_URL` (then `STATIC_EXPORT_BASE_URL`);
+5. `http://127.0.0.1:$PORT`.
+
+So a plain Node deployment still crawls itself over loopback, while a proxied
+host (Passenger, Plesk — no reachable loopback port) is crawled by its real
+domain. If the resolved origin does not answer as this site, the exporter retries
+once against `APP_URL` before giving up. `STATIC_EXPORT_BASE_URL` on its own only
+affects the manifest and same-origin link detection, not the fetch origin.
+
+### Turning it off
+
+The export is an **artifact you generate**, not a running service — there is
+nothing serving it from JustFlows. "Off" means, in order of how complete you
+want it:
+
+1. **Stop auto-rebuilds** — untick _Rebuild automatically_ (or `STATIC_EXPORT_AUTO=0`).
+   Existing files stay; nothing regenerates.
+2. **Disable the feature** — untick _Static export enabled_ (or
+   `STATIC_EXPORT_ENABLED=0`). The Run actions and auto-rebuild are refused; the
+   folder is untouched.
+3. **Delete the files** — **Clear export** in the Tools card, or
+   `pnpm export:static -- --clear` (`--force` to skip the "is this really an
+   export folder?" check). This `rm -rf`s `STATIC_EXPORT_DIR`.
+4. **Stop serving it** — point your web server / CDN away from the folder. That
+   is entirely outside JustFlows.
+
+Disabling never touches the live dynamic site, which keeps serving every page as
+normal.
+
+### SEO note: `APP_URL` vs `STATIC_EXPORT_BASE_URL`
+
+Absolute URLs **inside the exported HTML/XML** — `<link rel="canonical">`,
+Open Graph `og:url`, and every `<loc>` in `sitemap.xml` — are rendered by the
+origin from **`APP_URL`**. The exporter does not rewrite them. So for a
+production export, set `APP_URL` to the public origin the files will be served
+from; then leave `STATIC_EXPORT_BASE_URL` unset (it inherits `APP_URL`).
+
+Set `STATIC_EXPORT_BASE_URL` only when it must differ from `APP_URL` (e.g. a
+staging crawl of a site whose `APP_URL` is production): it fixes the manifest
+`publicUrl` and same-origin link detection, but the emitted canonical/sitemap
+URLs still carry `APP_URL`.
+
+## Rebuild & invalidation
+
+Set `STATIC_EXPORT_AUTO=1` (needs `CACHE_REVALIDATE_ENABLED=1` — that is what
+fires the trigger). After any change the exporter waits `STATIC_EXPORT_DEBOUNCE_MS`,
+then runs an **incremental** export:
+
+| Change                                                    | What rebuilds                                                                                                                                          |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| publish / unpublish / update a page or post               | that page's routes (per the manifest `deps`), its translation siblings, every route with a dynamic list (blog/archive/home), and `sitemap.xml`         |
+| delete / unpublish so a URL now 404s                      | that page's files are **removed** and `sitemap.xml` is rewritten                                                                                       |
+| menu, theme, Customizer, CSS provider, or settings change | **every** route, plus `theme.css` and other assets                                                                                                     |
+| newly published page                                      | picked up by the incremental run that publish triggers — discovery re-reads the live sitemap and published list and seeds any path not in the manifest |
+
+A **full** export always prunes: any file under `STATIC_EXPORT_DIR` not produced
+by the run is deleted (and emptied directories are cleaned up), so a full export
+is the way to recover from a divergent tree.
+
+Manual runs and incremental auto-runs both fire the `staticExport.completed` and
+`staticExport.deploy` hooks — see below.
+
+## Deploying the output
+
+### Filesystem
+
+Point a static web server (nginx, Caddy, Apache) at `STATIC_EXPORT_DIR`. Enable
+“try `$uri/index.html`” so `/about` serves `about/index.html`.
+
+### Object storage / CDN
+
+The exporter does **not** upload anything itself — no cloud SDK is bundled. Sync
+the directory with whatever tool you already run, using the manifest for
+`Cache-Control` and CDN invalidation:
+
+```bash
+# S3 + CloudFront
+aws s3 sync ./static-export s3://my-bucket --delete
+aws cloudfront create-invalidation --distribution-id XXXX --paths '/*'
+
+# rclone (S3, GCS, R2, B2, …)
+rclone sync ./static-export remote:my-bucket --checksum
+
+# plain rsync to an edge box
+rsync -a --delete ./static-export/ deploy@edge:/var/www/site/
+```
+
+`_static-export.json` lists, per file: `path`, `file`, `bytes`, `sha256`, and a
+suggested `cacheControl`. These values follow **Tools → Performance suite →
+Browser cache**: HTML uses its page TTL and stale-while-revalidate window,
+assets use its static TTL, and disabling browser caching emits `no-store`.
+The same values are written to `_headers`, which Cloudflare Pages and Netlify
+apply automatically — along with a global `X-Powered-By: Justflows` rule so the
+exported site sends the same identifying header as the dynamic origin. Other
+hosts (nginx, S3+CloudFront, …) don't read `_headers`; add the equivalent
+`add_header` / response-headers-policy there if you want the same headers.
+Diff two manifests by `sha256` to build a precise CDN invalidation list instead
+of purging everything.
+
+### Automating the push
+
+Register a `staticExport.deploy` action in a plugin. It receives
+`{ outDir, publicUrl, manifest, summary }` after every successful run:
+
+```js
+ctx.hooks.action("staticExport.deploy", async ({ outDir }) => {
+  await runSync(outDir); // your aws/rclone/rsync call
+});
+```
+
+## Dynamic features
+
+### What already works offline
+
+The exported pages are complete server-rendered HTML plus the site's
+client-side JavaScript. **Every same-origin sub-resource a page references is
+downloaded into the export** — `/theme.css`, `/js/*`, uploads, and **plugin /
+custom-theme scripts and assets** served from their own paths
+(`/ext/<plugin>/…`, `/themes/<theme>/…`, and so on). The scanner reads
+`<script src>`, `<link rel="stylesheet|preload|icon|…">`, `<img>`/`srcset`, and
+CSS `url()` / `@import`; only the dynamic API surfaces (`/admin`, `/api`, the
+auth and submit endpoints) are skipped. A plugin that loads something the
+scanner cannot see — a dynamically-imported chunk, a Web Worker, a JSON config
+fetched at runtime — adds it through the `staticExport.assets` filter.
+
+A plugin's front-end needs **no export-specific work**: declare
+`assets: { scripts: […] }` in its manifest (see
+[PLUGINS.md](PLUGINS.md#client-side-assets)) and the host serves the files at
+`/ext/<pluginId>/…` and injects the `<script>` tag on every page — which the
+scanner then downloads like any other asset.
+
+So menus, animations, the language switcher, and block/plugin/theme client code
+all run on the static host with **no origin**. This is the same deal as a
+Next.js `output: export`: the client bundle ships; anything that needs a server
+calls it over the network (it is **not** "compiled into" the export — server
+code always needs a server, see below).
+
+### Forms submit in place
+
+The Forms plugin ships `jf-forms.js` as a package asset (`manifest.assets`), so
+it lands in the shared `/jf-plugins.<hash>.js` bundle the exporter already
+downloads. It hydrates each `justflows.forms.form` block and, instead of a
+native `<form method="post">` navigation, submits by `fetch()` and swaps the
+form for the confirmation **without leaving the page**. The plugin's endpoint
+(`/justflows-forms/submit`, one of its own `ctx.http` routes) still has to be
+reachable — via the hybrid proxy or `STATIC_EXPORT_ORIGIN_URL` below. If
+`fetch` fails it falls back to the native POST. Comment posting still does a
+native round-trip.
+
+### Pageview analytics keep counting
+
+When the first-party **Analytics plugin is active at export time**, its
+`jf-analytics.js` beacon rides the shared `/jf-plugins.<hash>.js` bundle into
+the export (via `manifest.assets`, like the Forms script). On load it POSTs
+`{ path }` to `/justflows-analytics/collect` — the same trick Plausible / GA use
+— so the counters still fill even though no server render happens (hybrid:
+same-origin; split-origin: to the origin URL, dropped into the page as
+`window.__JF_ORIGIN__`). The beacon self-suppresses on the live dynamic site
+(no `window.__JF_ORIGIN__` there), which counts server-side.
+
+### Cookie consent keeps working
+
+The **Cookie Consent plugin**'s runtime also ships in the shared bundle. The
+config island, gated snippets, and gated embeds are all baked into the HTML at
+export time, so the banner, preference center, and script/embed gating work with
+no origin at all. Its two network calls — the consent-record beacon
+(`/ext/justflows.consent/record`, a fire-and-forget image GET) and the
+cookie-disclosure fetch (`/ext/justflows.consent/cookies`) — resolve against
+`window.__JF_ORIGIN__`, so a split-origin export still reaches them. The
+disclosure route returns `cors: true`, so the host answers it with
+`Access-Control-Allow-Origin` for a vouched-for export origin (`APP_URL`,
+`STATIC_EXPORT_BASE_URL`, `STATIC_EXPORT_ALLOWED_ORIGINS`, or any `localhost`
+port off production) — otherwise the table just stays hidden.
+
+Because the banner is baked in, saving new consent settings has to re-crawl
+every page. Its admin route returns `revalidate: true`, so with auto-rebuild on
+the export regenerates on save — no manual **Run full export** needed. (This is
+the generic `PluginHttpResponse.revalidate` path; any plugin with a bespoke
+config route can use it — see [PLUGINS.md](PLUGINS.md#revalidate-after-a-config-write).)
+
+### What needs a reachable origin
+
+| Feature                                               | On a static host                                                                                                |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Preview** (`?preview=1`)                            | never crawled or exported                                                                                       |
+| **Form submission** (`justflows.forms.form`)          | in-place via `fetch()` to `/justflows-forms/submit` — needs the endpoint reachable (hybrid or origin URL)       |
+| **Comment submission** (`justflows.comments.thread`)  | native POST to `/justflows-comments/submit`; existing threads render at export time and are read-only otherwise |
+| **Pageview analytics**                                | beacon to `/justflows-analytics/collect` — needs the endpoint reachable (hybrid or origin URL)                  |
+| **Cookie consent records + disclosure**               | `/ext/justflows.consent/*` — banner/gating work offline; record log + cookie table need the endpoint reachable  |
+| **Login / register / password reset / language POST** | origin only — never route these to the static host                                                              |
+| **Search**                                            | needs the origin, or a client-side / third-party index                                                          |
+
+Two ways to make the submit endpoint reachable:
+
+**1. Hybrid (recommended).** The CDN serves the static folder, and a short list
+of paths falls through to the Node origin — same origin, so the `fetch()` needs
+no CORS and nothing is configured in the exporter. Point the location's `root`
+at the export directory and test the directory index before the literal path.
+This serves extensionless routes such as `/contact` and `/nl-NL` from
+`contact/index.html` and `nl-NL/index.html` without requiring a trailing slash.
+
+Example nginx in front of a standalone Node origin listening on port 3000:
+
+```nginx
+location / {
+  root /var/www/site/static-export;
+  try_files $uri/index.html $uri @origin;
+}
+location /justflows-forms/      { proxy_pass http://127.0.0.1:3000; }
+location /justflows-comments/   { proxy_pass http://127.0.0.1:3000; }
+location /justflows-analytics/  { proxy_pass http://127.0.0.1:3000; }
+location /ext/                  { proxy_pass http://127.0.0.1:3000; }
+location /api/                  { proxy_pass http://127.0.0.1:3000; }
+location /admin                 { proxy_pass http://127.0.0.1:3000; }
+location @origin                { proxy_pass http://127.0.0.1:3000; }
+```
+
+On Plesk with Phusion Passenger, do not proxy to port 3000: Passenger does not
+normally expose the application on that port. The following serves the export
+correctly on the example installation; replace the path with the absolute path
+shown for `STATIC_EXPORT_DIR` in **Admin → System → Tools** and replace
+`@fallback` with the Passenger target from that domain's generated nginx
+configuration:
+
+```nginx
+location / {
+  root /var/www/vhosts/noobbase.com/justflows.noobbase.com/static-export;
+  try_files $uri/index.html $uri @fallback;
+}
+```
+
+The `root` already points at `static-export`, so do not prefix the `try_files`
+arguments with `/static-export`; doing both can create an internal redirect
+cycle and an nginx 500 response. Before keeping the configuration, verify both
+a static route and dynamic routes such as the admin and `/api/healthz`. A 500 on
+the dynamic routes means `@fallback` is not that vhost's Passenger target.
+
+Cloudflare / CloudFront: add proxy / cache-bypass behaviours for
+`/justflows-forms/*`, `/justflows-comments/*`, `/justflows-analytics/*`,
+`/ext/*`, `/api/*`, `/admin*` pointing at the origin. Netlify `netlify.toml` /
+Vercel `vercel.json`: a `200`-status rewrite for the same paths.
+
+**2. Pure static + `STATIC_EXPORT_ORIGIN_URL`.** If the static host cannot proxy
+anything, set `STATIC_EXPORT_ORIGIN_URL` to a still-running Node origin (or a
+serverless function / third-party form endpoint via the `staticExport.formAction`
+filter). The exporter rewrites `action="/justflows-forms/submit"` →
+`action="<origin>/justflows-forms/submit"`, and `jf-forms.js` `fetch()`es it
+cross-origin. The origin returns JSON + CORS headers **only for allowed
+origins**: `APP_URL`, `STATIC_EXPORT_BASE_URL`, anything in
+`STATIC_EXPORT_ALLOWED_ORIGINS`, and — outside production — any `localhost` port
+(so `npx serve` works while testing). In the Tools card, **Use this site** fills
+the origin field with this install's `APP_URL`.
+
+> A same-origin hybrid setup needs no CORS and no allow-list — prefer it unless
+> the host genuinely cannot proxy.
+
+## Hooks
+
+| Hook                      | Kind              | Use                                                                                                                |
+| ------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `staticExport.routes`     | filter `string[]` | add/remove seed paths before the crawl                                                                             |
+| `staticExport.assets`     | filter `string[]` | add same-origin asset URLs the scanner cannot discover (dynamic imports, workers, runtime-fetched JSON)            |
+| `staticExport.formAction` | filter `string`   | override the `<form action>` written for a dynamic endpoint (`{ endpoint: "forms" \| "comments", defaultAction }`) |
+| `staticExport.completed`  | action            | observe a finished run (`{ ok, mode, pages, assets, bytes, pruned, errors, … }`)                                   |
+| `staticExport.deploy`     | action            | push the directory to object storage / a CDN                                                                       |
+
+## Limitations
+
+- Query-string URLs are not crawled (pagination is path-based).
+- Assets on other hosts (an external CDN) are left as-is in the markup.
+- One export runs at a time per process.
+- The crawl needs the site installed and reachable — over loopback, or at
+  `STATIC_EXPORT_CRAWL_URL` / `APP_URL` on a proxied host.
+
+## See also
+
+- [Cache](CACHE.md) — the `cache.revalidated` trigger the auto-rebuild listens on
+- [Hooks](HOOKS.md) — full hook reference
+- [Architecture](ARCHITECTURE.md) — public SEO rendering

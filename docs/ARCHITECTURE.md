@@ -17,6 +17,12 @@ The public renderer also owns localized URLs, redirects to canonical paths,
 `robots.txt`, `sitemap.xml`, theme CSS, page caching, and preview authorization.
 Do not move public content or SEO metadata into the admin React bundle.
 
+The same renderer can be **crawled to static files** for object-storage / CDN
+hosting: `apps/server/src/lib/static-export/` fetches every published route over
+loopback and writes the HTML, assets, `sitemap.xml`, `robots.txt`, and
+`theme.css` to a folder, with a manifest and optional publish-triggered
+rebuilds. See [Static / edge export](STATIC-EXPORT.md).
+
 ## Authenticated admin SSR
 
 The Vite/React admin has two entry points:
