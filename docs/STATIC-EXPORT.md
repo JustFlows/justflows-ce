@@ -297,53 +297,124 @@ config route can use it — see [PLUGINS.md](PLUGINS.md#revalidate-after-a-confi
 
 Two ways to make the submit endpoint reachable:
 
-**1. Hybrid (recommended).** The CDN serves the static folder, and a short list
-of paths falls through to the Node origin — same origin, so the `fetch()` needs
-no CORS and nothing is configured in the exporter. Point the location's `root`
-at the export directory and test the directory index before the literal path.
-This serves extensionless routes such as `/contact` and `/nl-NL` from
+**1. Hybrid (recommended).** The CDN serves the static folder, and the dynamic
+paths fall through to the Node origin — same origin, so the `fetch()` needs no
+CORS and nothing is configured in the exporter. Point the location's `root` at
+the export directory and test the directory index before the literal path. This
+serves extensionless routes such as `/contact` and `/nl-NL` from
 `contact/index.html` and `nl-NL/index.html` without requiring a trailing slash.
+
+Give **only the published site** to the static folder. A bare `location /`
+rooted at the export makes that folder the handler for the whole domain, so
+every dynamic route — `/admin`, `/api/*`, login — reaches the app only by
+falling through `try_files … @fallback`, and breaks the moment `@fallback` is
+not an exact, working origin target. Carve the dynamic surface into its own
+`location` blocks so those requests never touch the static layer. The dynamic
+prefixes are fixed and reserved by Justflows (`isCrawlablePath` in
+`crawl.ts`, `DENY_PREFIXES` in `assets.ts`) — except the admin path, which is
+configurable (see the note after the Passenger example).
 
 Example nginx in front of a standalone Node origin listening on port 3000:
 
 ```nginx
+# --- dynamic app: never served from the static export ---
+location ^~ /admin              { proxy_pass http://127.0.0.1:3000; }
+location ^~ /api/               { proxy_pass http://127.0.0.1:3000; }
+location ^~ /login              { proxy_pass http://127.0.0.1:3000; }
+location ^~ /register           { proxy_pass http://127.0.0.1:3000; }
+location ^~ /install            { proxy_pass http://127.0.0.1:3000; }
+location ^~ /forgot-password    { proxy_pass http://127.0.0.1:3000; }
+location ^~ /reset-password     { proxy_pass http://127.0.0.1:3000; }
+location ^~ /set-locale         { proxy_pass http://127.0.0.1:3000; }
+location ^~ /justflows-forms/       { proxy_pass http://127.0.0.1:3000; }
+location ^~ /justflows-comments/    { proxy_pass http://127.0.0.1:3000; }
+location ^~ /justflows-analytics/   { proxy_pass http://127.0.0.1:3000; }
+
+# plugin assets are exported, but e.g. consent record/cookies are dynamic:
+# serve the file if it exists, else hand off to the origin
+location ^~ /ext/ {
+  root /var/www/site/static-export;
+  try_files $uri @origin;
+}
+
+# --- published site: static export, origin as fallback ---
 location / {
   root /var/www/site/static-export;
   try_files $uri/index.html $uri @origin;
 }
-location /justflows-forms/      { proxy_pass http://127.0.0.1:3000; }
-location /justflows-comments/   { proxy_pass http://127.0.0.1:3000; }
-location /justflows-analytics/  { proxy_pass http://127.0.0.1:3000; }
-location /ext/                  { proxy_pass http://127.0.0.1:3000; }
-location /api/                  { proxy_pass http://127.0.0.1:3000; }
-location /admin                 { proxy_pass http://127.0.0.1:3000; }
-location @origin                { proxy_pass http://127.0.0.1:3000; }
+location @origin { proxy_pass http://127.0.0.1:3000; }
 ```
 
 On Plesk with Phusion Passenger, do not proxy to port 3000: Passenger does not
-normally expose the application on that port. The following serves the export
-correctly on the example installation; replace the path with the absolute path
-shown for `STATIC_EXPORT_DIR` in **Admin → System → Tools** and replace
-`@fallback` with the Passenger target from that domain's generated nginx
-configuration:
+normally expose the application on that port. Send the dynamic prefixes to a
+named `@fallback` location that carries this vhost's **exact** `passenger_*`
+directives (copy them from the generated config —
+`grep -rn passenger /var/www/vhosts/system/<domain>/conf/`); replace the export
+path with the absolute path shown for `STATIC_EXPORT_DIR` in
+**Admin → System → Tools**. `try_files /_pass @fallback` uses a deliberately
+missing path so the request always hands off to `@fallback`:
 
 ```nginx
+# --- dynamic app: never served from the static export ---
+location ^~ /admin              { try_files /_pass @fallback; }
+location ^~ /api/               { try_files /_pass @fallback; }
+location ^~ /login              { try_files /_pass @fallback; }
+location ^~ /register           { try_files /_pass @fallback; }
+location ^~ /install            { try_files /_pass @fallback; }
+location ^~ /forgot-password    { try_files /_pass @fallback; }
+location ^~ /reset-password     { try_files /_pass @fallback; }
+location ^~ /set-locale         { try_files /_pass @fallback; }
+location ^~ /justflows-forms/       { try_files /_pass @fallback; }
+location ^~ /justflows-comments/    { try_files /_pass @fallback; }
+location ^~ /justflows-analytics/   { try_files /_pass @fallback; }
+
+# plugin assets are exported, but consent record/cookies are dynamic:
+# serve the file if it exists, else hand off to the app
+location ^~ /ext/ {
+  root /var/www/vhosts/noobbase.com/justflows.noobbase.com/static-export;
+  try_files $uri @fallback;
+}
+
+# --- published site: static export, app as fallback ---
 location / {
   root /var/www/vhosts/noobbase.com/justflows.noobbase.com/static-export;
   try_files $uri/index.html $uri @fallback;
+}
+
+location @fallback {
+  # EXACT passenger_* lines from this vhost's generated config
+  passenger_enabled       on;
+  passenger_app_root      /var/www/vhosts/noobbase.com/justflows.noobbase.com;
+  passenger_app_type      node;
+  passenger_startup_file  server.js;
+  passenger_app_env       production;
+  passenger_base_uri      /;
 }
 ```
 
 The `root` already points at `static-export`, so do not prefix the `try_files`
 arguments with `/static-export`; doing both can create an internal redirect
-cycle and an nginx 500 response. Before keeping the configuration, verify both
-a static route and dynamic routes such as the admin and `/api/healthz`. A 500 on
-the dynamic routes means `@fallback` is not that vhost's Passenger target.
+cycle and an nginx 500 response. Before keeping the configuration, verify a
+static route (`/`, `/contact`) **and** dynamic routes — the admin and
+`/api/healthz`. A 500 on the dynamic routes means `@fallback` is not that
+vhost's Passenger target.
 
-Cloudflare / CloudFront: add proxy / cache-bypass behaviours for
-`/justflows-forms/*`, `/justflows-comments/*`, `/justflows-analytics/*`,
-`/ext/*`, `/api/*`, `/admin*` pointing at the origin. Netlify `netlify.toml` /
-Vercel `vercel.json`: a `200`-status rewrite for the same paths.
+**Renamed admin path.** The admin path is a site setting (`security.admin_path`,
+default `/admin` — [`admin-path.ts`](../apps/server/src/lib/admin-path.ts)), so
+it lives in the database, not anywhere nginx can read. If an admin renames it,
+edit the `location ^~ /admin` line to match — or drop that line entirely: an
+unknown admin slug is not a file in the export, so `location /` still falls
+through to `@fallback` and the app answers it. Pin the slug in a file you
+control with `JF_ADMIN_PATH_RECOVERY=/your-slug` in the app env if you want
+nginx and the app to agree explicitly. Every other dynamic prefix is reserved
+and never moves.
+
+Cloudflare / CloudFront: add proxy / cache-bypass behaviours for the same
+dynamic prefixes — `/admin*`, `/api/*`, `/login*`, `/register*`, `/install*`,
+`/forgot-password*`, `/reset-password*`, `/set-locale*`, `/justflows-forms/*`,
+`/justflows-comments/*`, `/justflows-analytics/*`, `/ext/*` — pointing at the
+origin. Netlify `netlify.toml` / Vercel `vercel.json`: a `200`-status rewrite
+for the same paths.
 
 **2. Pure static + `STATIC_EXPORT_ORIGIN_URL`.** If the static host cannot proxy
 anything, set `STATIC_EXPORT_ORIGIN_URL` to a still-running Node origin (or a
