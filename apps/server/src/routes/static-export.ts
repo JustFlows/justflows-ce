@@ -14,39 +14,24 @@ import {
   readStaticExportSettings,
   StaticExportSettingsSchema,
 } from "../lib/static-export/settings.js";
+import { assertExportOrigin } from "../lib/static-export/config.js";
 
 const router = Router();
 
 /**
  * The crawl origin is normally resolved from the environment; the request-body
- * override exists only for dev / a hybrid proxy. Restrict it to loopback or an
- * origin the operator has already configured, so a compromised admin session
- * cannot turn the exporter into an SSRF probe / DoS cannon against arbitrary
- * hosts.
+ * override exists only for dev / a hybrid proxy. `assertExportOrigin` restricts
+ * it to loopback or an origin the operator has already configured, so a
+ * compromised admin session cannot turn the exporter into an SSRF probe / DoS
+ * cannon against arbitrary hosts.
  */
 function isAllowedCrawlBase(raw: string): boolean {
-  let url: URL;
   try {
-    url = new URL(raw);
+    assertExportOrigin(raw);
+    return true;
   } catch {
     return false;
   }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-  const host = url.hostname.toLowerCase();
-  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return true;
-  const norm = (v: string | undefined): string =>
-    (v ?? "").trim().replace(/\/+$/, "").toLowerCase();
-  const configured = new Set(
-    [
-      process.env.APP_URL,
-      process.env.STATIC_EXPORT_BASE_URL,
-      process.env.STATIC_EXPORT_CRAWL_URL,
-      ...(process.env.STATIC_EXPORT_ALLOWED_ORIGINS ?? "").split(","),
-    ]
-      .map(norm)
-      .filter(Boolean),
-  );
-  return configured.has(`${url.protocol}//${url.host}`.toLowerCase());
 }
 
 const runLimit = rateLimit({

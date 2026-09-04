@@ -59,8 +59,19 @@ export function intFromEnv(
   return Math.min(max, Math.max(min, Math.trunc(n)));
 }
 
+/**
+ * Strip trailing "/" with a linear scan. `/\/+$/` is a polynomial-time match on
+ * a long run of slashes (CodeQL `js/polynomial-redos`), and this runs on
+ * request-body and `Origin`-header values.
+ */
+export function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47 /* "/" */) end--;
+  return value.slice(0, end);
+}
+
 function trimSlash(value: string): string {
-  return value.replace(/\/+$/, "");
+  return stripTrailingSlashes(value);
 }
 
 /**
@@ -106,6 +117,59 @@ function resolveCrawlBase(override: string | undefined, port: number): string {
     if (candidate) return trimSlash(candidate);
   }
   return `http://127.0.0.1:${port}`;
+}
+
+/** Origins the operator has explicitly declared as this site's own. */
+function configuredCrawlOrigins(): string[] {
+  return [
+    process.env.APP_URL,
+    process.env.STATIC_EXPORT_BASE_URL,
+    process.env.STATIC_EXPORT_CRAWL_URL,
+    ...(process.env.STATIC_EXPORT_ALLOWED_ORIGINS ?? "").split(","),
+  ]
+    .map((v) => v?.trim())
+    .filter((v): v is string => Boolean(v));
+}
+
+/**
+ * Resolve `raw` to an origin the exporter is allowed to fetch from, or throw.
+ *
+ * The exporter only ever crawls *this* site, so the target must be loopback
+ * (any port — dev) or exactly an origin the operator configured (`APP_URL`,
+ * `STATIC_EXPORT_BASE_URL`, `STATIC_EXPORT_CRAWL_URL`,
+ * `STATIC_EXPORT_ALLOWED_ORIGINS`). An admin "Run" request body and any env
+ * value both pass through here, so a compromised admin session or a stray env
+ * cannot turn the crawler into an SSRF probe / DoS cannon against another host.
+ * Returns a normalized `scheme://host[:port]`.
+ */
+export function assertExportOrigin(raw: string): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`crawl origin is not a valid URL: ${raw}`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`crawl origin must use http(s): ${raw}`);
+  }
+  // `URL` keeps IPv6 hosts bracketed (`[::1]`); accept both spellings.
+  const host = url.hostname.toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]") {
+    return `${url.protocol}//${url.host}`;
+  }
+  for (const entry of configuredCrawlOrigins()) {
+    let configured: URL;
+    try {
+      configured = new URL(entry);
+    } catch {
+      continue;
+    }
+    if (configured.protocol === url.protocol && configured.host === url.host) {
+      // Echo back the configured origin, never the caller-supplied string.
+      return `${configured.protocol}//${configured.host}`;
+    }
+  }
+  throw new Error(`crawl origin ${raw} is not loopback or an origin configured for this site`);
 }
 
 /**

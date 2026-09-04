@@ -4,7 +4,13 @@ import type { CacheRevalidateTrigger } from "@justflows/sdk";
 import { getRuntimeHooks } from "../plugin-runtime.js";
 import { getJustflowsVersion } from "../version.js";
 import { assetPathsFromCss, isCssPath, originHost } from "./assets.js";
-import { getStaticExportConfig, STATIC_EXPORT_HEADER, type StaticExportConfig } from "./config.js";
+import {
+  assertExportOrigin,
+  getStaticExportConfig,
+  STATIC_EXPORT_HEADER,
+  stripTrailingSlashes,
+  type StaticExportConfig,
+} from "./config.js";
 import { crawlPages, type FetchedResource } from "./crawl.js";
 import { discoverRoutes, NOT_FOUND_PROBE } from "./discover.js";
 import { computeAffected } from "./invalidate.js";
@@ -187,8 +193,31 @@ async function verifyOrigin(origin: string): Promise<OriginVerdict> {
  * Throws with a pointed message when nothing usable answers.
  */
 async function resolveCrawlOrigin(baseUrl: string, log: (line: string) => void): Promise<string> {
-  const appUrl = process.env.APP_URL?.trim().replace(/\/+$/, "");
-  const candidates = appUrl && appUrl !== baseUrl ? [baseUrl, appUrl] : [baseUrl];
+  const appUrl = stripTrailingSlashes(process.env.APP_URL?.trim() ?? "");
+  const requested = appUrl && appUrl !== baseUrl ? [baseUrl, appUrl] : [baseUrl];
+
+  // `assertExportOrigin` is the single gate every fetch below sits behind
+  // (`verifyOrigin` here, then `makeFetcher` in `runStaticExport`): it rejects
+  // anything that is not loopback or an operator-configured origin, so a
+  // tampered request body or env var cannot aim the crawler at another host.
+  const candidates: string[] = [];
+  for (const candidate of requested) {
+    try {
+      const safe = assertExportOrigin(candidate);
+      if (!candidates.includes(safe)) candidates.push(safe);
+    } catch (err) {
+      log(`⚠ ignoring crawl origin ${candidate}: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+  if (candidates.length === 0) {
+    throw new Error(
+      `No usable crawl origin for this site. Set STATIC_EXPORT_CRAWL_URL (or APP_URL) ` +
+        `to this site's own reachable origin — behind Passenger / Plesk that is your ` +
+        `public domain, not a loopback port.`,
+    );
+  }
+  const primary = candidates[0]!;
+
   const tried: string[] = [];
   for (const candidate of candidates) {
     const verdict = await verifyOrigin(candidate);
@@ -197,8 +226,8 @@ async function resolveCrawlOrigin(baseUrl: string, log: (line: string) => void):
       throw new Error(`The site at ${candidate} is not installed yet — nothing to export.`);
     }
     if (verdict.kind === "ok" || verdict.kind === "ok-soft") {
-      if (candidate !== baseUrl) {
-        log(`⚠ ${baseUrl} did not answer as this site — crawling ${candidate} instead.`);
+      if (candidate !== primary) {
+        log(`⚠ ${primary} did not answer as this site — crawling ${candidate} instead.`);
       }
       if (verdict.kind === "ok-soft") {
         log(

@@ -11,6 +11,7 @@ import {
   renderHostHeaders,
   renderHtaccess,
   renderNginxConf,
+  sanitizeManifest,
   suggestCacheControl,
   writeManagedFile,
   type StaticExportManifest,
@@ -63,6 +64,71 @@ describe("static export cache headers", () => {
         "/\n  Cache-Control: public, max-age=120\n" +
         "/assets/app.9f8e7d6c.js\n  Cache-Control: public, max-age=86400, immutable\n",
     );
+  });
+});
+
+describe("sanitizeManifest", () => {
+  const base = (): StaticExportManifest => ({
+    generatedAt: "2026-09-03T00:00:00.000Z",
+    mode: "full",
+    justflowsVersion: "0.1.5",
+    publicUrl: "https://example.com",
+    routes: [
+      {
+        path: "/about",
+        file: "about/index.html",
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        bytes: 1234,
+        sha256: "a".repeat(64),
+        deps: { content: ["c1"], translationGroups: [], locale: "nl-NL", dynamicList: false },
+        cacheControl: "public, max-age=120, stale-while-revalidate=600",
+      },
+    ],
+    assets: [
+      {
+        path: "/theme.css",
+        file: "theme.css",
+        status: 200,
+        contentType: "text/css",
+        bytes: 42,
+        sha256: "b".repeat(64),
+        cacheControl: "public, max-age=86400",
+      },
+    ],
+    config: { maxPages: 2000, concurrency: 4 },
+  });
+
+  it("is a no-op for a well-formed manifest", () => {
+    const m = base();
+    expect(sanitizeManifest(m)).toEqual(m);
+  });
+
+  it("strips control characters and clamps oversized strings", () => {
+    const m = base();
+    m.routes[0]!.path = "/a\r\nSet-Cookie: x=1";
+    m.routes[0]!.contentType = `text/html${"x".repeat(9999)}`;
+    m.publicUrl = `https://e.com/${"/".repeat(9000)}`;
+    const out = sanitizeManifest(m);
+    expect(out.routes[0]!.path).toBe("/aSet-Cookie: x=1");
+    expect(out.routes[0]!.contentType.length).toBeLessThanOrEqual(255);
+    expect(out.publicUrl.length).toBeLessThanOrEqual(2048);
+  });
+
+  it("coerces numbers, a bad sha256, an unknown mode, and a bogus locale", () => {
+    const m = base();
+    // deliberately malformed values a hostile origin could steer
+    (m.routes[0] as { status: unknown }).status = "999999";
+    (m.routes[0] as { bytes: unknown }).bytes = -5;
+    m.routes[0]!.sha256 = "not-a-hash";
+    m.routes[0]!.deps.locale = "javascript:alert(1)";
+    (m as { mode: unknown }).mode = "sideways";
+    const out = sanitizeManifest(m);
+    expect(out.routes[0]!.status).toBe(599);
+    expect(out.routes[0]!.bytes).toBe(0);
+    expect(out.routes[0]!.sha256).toBe("");
+    expect(out.routes[0]!.deps.locale).toBeUndefined();
+    expect(out.mode).toBe("full");
   });
 });
 

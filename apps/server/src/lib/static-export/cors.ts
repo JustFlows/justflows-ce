@@ -13,10 +13,10 @@
  *     production (so `npx serve`'s random port works while testing)
  */
 
-import { getStaticExportConfig, isProxiedHost } from "./config.js";
+import { getStaticExportConfig, isProxiedHost, stripTrailingSlashes } from "./config.js";
 
 function normalizeOrigin(value: string): string {
-  return value.trim().replace(/\/+$/, "").toLowerCase();
+  return stripTrailingSlashes(value.trim()).toLowerCase();
 }
 
 function allowedOrigins(): Set<string> {

@@ -363,6 +363,121 @@ export function manifestPath(outDir: string): string {
   return path.join(outDir, MANIFEST_FILE);
 }
 
+// ── Manifest sanitization ──────────────────────────────────────────────────
+// Route/asset fields are derived from crawled responses (headers, redirect
+// `Location` values). Before any of it is serialized to `_static-export.json`
+// on disk, every value is re-typed here: strings are coerced, stripped of
+// control characters, and length-clamped; numbers become finite non-negative
+// integers; constrained fields (sha256, status, locale) are pattern-checked. A
+// hostile origin therefore cannot splice newlines, control bytes, or unbounded
+// blobs into the manifest file (CodeQL js/http-to-file-access).
+
+const MAX_STR = 2048;
+const MAX_LIST = 5000;
+
+/** Coerce to a single-line string, control characters removed, length-clamped. */
+function cleanStr(value: unknown, max = MAX_STR): string {
+  // eslint-disable-next-line no-control-regex
+  return String(value ?? "")
+    .replace(/[\x00-\x1f\x7f]/g, "")
+    .slice(0, max);
+}
+
+/** Finite integer clamped to `[min, max]`; anything non-numeric becomes `min`. */
+function cleanInt(value: unknown, min: number, max: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
+  return Math.min(max, Math.max(min, Math.trunc(n)));
+}
+
+/** Array of short, control-stripped strings, capped in length. */
+function cleanStrList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, MAX_LIST).map((v) => cleanStr(v, 256));
+}
+
+function cleanDeps(value: unknown): RouteDeps {
+  const d = (value ?? {}) as Partial<RouteDeps>;
+  const out: RouteDeps = {
+    content: cleanStrList(d.content),
+    translationGroups: cleanStrList(d.translationGroups),
+    dynamicList: d.dynamicList === true,
+  };
+  if (typeof d.locale === "string" && /^[A-Za-z]{2,3}(?:-[A-Za-z]{2,4})?$/.test(d.locale)) {
+    out.locale = d.locale;
+  }
+  return out;
+}
+
+/** A 64-char hex digest, or "" when the input is not one. */
+function cleanSha256(value: unknown): string {
+  const s = String(value ?? "");
+  return /^[a-f0-9]{64}$/i.test(s) ? s.toLowerCase() : "";
+}
+
+function cleanCacheControl(value: unknown): string {
+  return String(value ?? "")
+    .replace(/[^\w,=;. -]/g, "")
+    .slice(0, 256);
+}
+
+function cleanContentType(value: unknown): string {
+  return String(value ?? "")
+    .replace(/[^\w.+/;= -]/g, "")
+    .slice(0, 255)
+    .toLowerCase();
+}
+
+/** A relative output path: no control chars or backslashes, length-clamped. */
+function cleanRelFile(value: unknown): string {
+  return cleanStr(value, 1024).replace(/\\/g, "/");
+}
+
+function sanitizeRoute(route: ManifestRoute): ManifestRoute {
+  return {
+    path: cleanStr(route.path, 1024),
+    file: cleanRelFile(route.file),
+    status: cleanInt(route.status, 0, 599),
+    contentType: cleanContentType(route.contentType),
+    bytes: cleanInt(route.bytes, 0, Number.MAX_SAFE_INTEGER),
+    sha256: cleanSha256(route.sha256),
+    deps: cleanDeps(route.deps),
+    cacheControl: cleanCacheControl(route.cacheControl),
+  };
+}
+
+function sanitizeAsset(asset: ManifestAsset): ManifestAsset {
+  return {
+    path: cleanStr(asset.path, 1024),
+    file: cleanRelFile(asset.file),
+    status: cleanInt(asset.status, 0, 599),
+    contentType: cleanContentType(asset.contentType),
+    bytes: cleanInt(asset.bytes, 0, Number.MAX_SAFE_INTEGER),
+    sha256: cleanSha256(asset.sha256),
+    cacheControl: cleanCacheControl(asset.cacheControl),
+  };
+}
+
+/**
+ * Rebuild `manifest` with every field re-typed and bounded — the barrier
+ * between crawled response data and the JSON persisted to disk. A no-op for
+ * well-formed data produced by a normal export run.
+ */
+export function sanitizeManifest(manifest: StaticExportManifest): StaticExportManifest {
+  return {
+    generatedAt: cleanStr(manifest.generatedAt, 40),
+    mode: manifest.mode === "incremental" ? "incremental" : "full",
+    justflowsVersion: cleanStr(manifest.justflowsVersion, 40),
+    publicUrl: cleanStr(manifest.publicUrl, MAX_STR),
+    routes: (manifest.routes ?? []).map(sanitizeRoute),
+    assets: (manifest.assets ?? []).map(sanitizeAsset),
+    config: {
+      maxPages: cleanInt(manifest.config?.maxPages, 1, 100_000),
+      concurrency: cleanInt(manifest.config?.concurrency, 1, 32),
+    },
+  };
+}
+
 export async function readManifest(outDir: string): Promise<StaticExportManifest | null> {
   try {
     const raw = await fs.readFile(manifestPath(outDir), "utf8");
@@ -376,7 +491,8 @@ export async function readManifest(outDir: string): Promise<StaticExportManifest
 
 export async function writeManifest(outDir: string, manifest: StaticExportManifest): Promise<void> {
   await fs.mkdir(outDir, { recursive: true });
-  await fs.writeFile(manifestPath(outDir), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  const safe = sanitizeManifest(manifest);
+  await fs.writeFile(manifestPath(outDir), `${JSON.stringify(safe, null, 2)}\n`, "utf8");
 }
 
 /** Every output file the manifest accounts for (routes + assets + the manifest itself). */

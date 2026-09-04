@@ -2,7 +2,7 @@
 
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getStaticExportConfig } from "../config.js";
+import { assertExportOrigin, getStaticExportConfig, stripTrailingSlashes } from "../config.js";
 import { getJfRoot } from "../../jf-root.js";
 
 const saved = { ...process.env };
@@ -55,6 +55,49 @@ describe("getStaticExportConfig — crawl baseUrl", () => {
     process.env.APP_URL = "https://www.example.com";
     process.env.PORT = "3000";
     expect(getStaticExportConfig().baseUrl).toBe("http://127.0.0.1:3000");
+  });
+});
+
+describe("stripTrailingSlashes", () => {
+  it("removes every trailing slash and nothing else", () => {
+    expect(stripTrailingSlashes("https://a.example.com///")).toBe("https://a.example.com");
+    expect(stripTrailingSlashes("https://a.example.com")).toBe("https://a.example.com");
+    expect(stripTrailingSlashes("")).toBe("");
+    expect(stripTrailingSlashes("/a/b/")).toBe("/a/b");
+  });
+
+  it("stays linear on a long run of slashes (no ReDoS)", () => {
+    const evil = `https://a.example.com${"/".repeat(200_000)}x`;
+    const start = performance.now();
+    expect(stripTrailingSlashes(evil)).toBe(evil); // trailing char is "x", nothing to strip
+    expect(performance.now() - start).toBeLessThan(100);
+  });
+});
+
+describe("assertExportOrigin", () => {
+  it("accepts loopback on any port", () => {
+    expect(assertExportOrigin("http://127.0.0.1:9000")).toBe("http://127.0.0.1:9000");
+    expect(assertExportOrigin("http://localhost:5173/")).toBe("http://localhost:5173");
+    expect(assertExportOrigin("http://[::1]:3000")).toBe("http://[::1]:3000");
+  });
+
+  it("accepts an origin that exactly matches a configured one, echoing the configured value", () => {
+    process.env.APP_URL = "https://WWW.example.com/";
+    expect(assertExportOrigin("https://www.example.com")).toBe("https://www.example.com");
+  });
+
+  it("accepts an entry from STATIC_EXPORT_ALLOWED_ORIGINS", () => {
+    process.env.STATIC_EXPORT_ALLOWED_ORIGINS = "https://a.example.com, https://b.example.com";
+    expect(assertExportOrigin("https://b.example.com")).toBe("https://b.example.com");
+  });
+
+  it("rejects an unconfigured host, a scheme/port mismatch, and a non-http(s) URL", () => {
+    process.env.APP_URL = "https://www.example.com";
+    expect(() => assertExportOrigin("https://evil.example.com")).toThrow();
+    expect(() => assertExportOrigin("http://www.example.com")).toThrow(); // scheme mismatch
+    expect(() => assertExportOrigin("https://www.example.com:8443")).toThrow(); // port mismatch
+    expect(() => assertExportOrigin("file:///etc/passwd")).toThrow();
+    expect(() => assertExportOrigin("not a url")).toThrow();
   });
 });
 
