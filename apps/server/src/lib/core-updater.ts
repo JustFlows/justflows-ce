@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -7,12 +7,23 @@ import { getJfRoot } from "./jf-root.js";
 import { requestPassengerRestart } from "./app-restart.js";
 import { verifyUpdateArchiveSignature } from "./package-trust.js";
 import { extractZipSafely, resolvePathUnderRoot } from "./safe-zip.js";
+import {
+  acquireLock,
+  appendUpdateLog,
+  clearLock,
+  clearUpdateJob,
+  initUpdateStatus,
+  patchUpdateStatus,
+  readUpdateStatus,
+  stagingDir as updatesStagingDir,
+  writeUpdateJob,
+  type UpdateJob,
+  type UpdatePhase,
+  type UpdateStatus,
+  type UpdateStep,
+} from "./core-update-status.js";
 
-export interface UpdateStep {
-  step: string;
-  ok: boolean;
-  detail?: string;
-}
+export type { UpdateStep } from "./core-update-status.js";
 
 const MAX_ZIP_BYTES = 200 * 1024 * 1024; // 200 MB
 
@@ -26,6 +37,15 @@ const PRESERVE_TOP_LEVEL = new Set([
   ".updates",
   "node_modules",
 ]);
+
+/** Raised when a second update is requested while one is already running. */
+export class UpdateInProgressError extends Error {
+  code = "UPDATE_IN_PROGRESS" as const;
+  constructor() {
+    super("A core update is already running");
+    this.name = "UpdateInProgressError";
+  }
+}
 
 function runCommand(
   cmd: string,
@@ -41,8 +61,39 @@ function runCommand(
     env: { ...process.env, NODE_ENV: process.env.NODE_ENV ?? "production" },
   });
 
-  const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
-  return { ok: result.status === 0, output };
+  const output = [result.stdout, result.stderr, result.error?.message]
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+  return { ok: result.status === 0 && !result.error, output };
+}
+
+/**
+ * Install dependencies with the package manager the release was built with.
+ * This repo is a pnpm workspace; running `npm install` at the root resolves the
+ * whole monorepo against `package-lock.json` and, on a memory-limited Plesk
+ * host, is a prime candidate for an OOM kill mid-update. Prefer pnpm, fall back
+ * to npm only when pnpm is genuinely not on PATH.
+ */
+function runDependencyInstall(root: string): { ok: boolean; output: string; tool: string } {
+  if (fs.existsSync(path.join(root, "pnpm-lock.yaml"))) {
+    const pnpm = runCommand(
+      "pnpm",
+      ["install", "--frozen-lockfile", "--prod=false", "--ignore-scripts"],
+      root,
+    );
+    if (pnpm.ok) return { ok: true, output: "Dependencies installed with pnpm", tool: "pnpm" };
+    if (!/ENOENT|not found|not recognized/i.test(pnpm.output)) {
+      return { ok: false, output: pnpm.output, tool: "pnpm" };
+    }
+    // pnpm not available — fall through to npm.
+  }
+  const npm = runCommand("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], root);
+  return {
+    ok: npm.ok,
+    output: npm.ok ? "Dependencies installed with npm" : npm.output,
+    tool: "npm",
+  };
 }
 
 async function walkFiles(dir: string, base = dir): Promise<string[]> {
@@ -151,110 +202,203 @@ function readVersion(root: string): string {
   }
 }
 
-export async function applyCoreUpdate(
-  uploadBuffer: Buffer,
-  filename: string,
-  options?: { signature?: string },
-): Promise<{
+async function emitCoreUpdated(
+  siteId: string | null | undefined,
+  source: string,
+  fromVersion: string,
+  toVersion: string,
+): Promise<void> {
+  if (!siteId) return;
+  try {
+    const { getRuntimeHooks } = await import("./plugin-runtime.js");
+    await getRuntimeHooks().dispatchAction(
+      "core.updated",
+      { fromVersion, toVersion, source },
+      { siteId, source: "system" },
+    );
+  } catch (err) {
+    console.error("[justflows] core.updated hook failed:", String(err).replace(/\n/g, " "));
+  }
+}
+
+interface UpdateResult {
   ok: boolean;
   steps: UpdateStep[];
   currentVersion: string;
   newVersion: string;
   restartRequired: boolean;
   restarting: boolean;
-}> {
+}
+
+const STEP_PHASE: Record<string, UpdatePhase> = {
+  upload: "verifying",
+  validate: "validating",
+  signature: "verifying",
+  extract: "extracting",
+  copy: "copying",
+  migrate: "migrating",
+  "npm install": "installing",
+  build: "building",
+  restart: "restarting",
+  complete: "done",
+};
+
+interface ApplyOptions {
+  signature?: string;
+  /** Caller already holds the update lock and initialised status (worker path). */
+  assumeLocked?: boolean;
+  /** Archive is already unpacked here — skip staging + extraction. */
+  preExtractedDir?: string;
+  siteId?: string | null;
+  source?: "upload" | "remote" | "auto";
+}
+
+/**
+ * Copy a verified core archive into place, migrate, install dependencies,
+ * (re)build if needed, and ask Passenger to restart. Every step is mirrored to
+ * `.updates/status.json` so the admin UI can follow along and recover after a
+ * page reload or a dropped connection.
+ */
+export async function applyCoreUpdate(
+  uploadBuffer: Buffer,
+  filename: string,
+  options?: ApplyOptions,
+): Promise<UpdateResult> {
   const steps: UpdateStep[] = [];
+  const log: string[] = [];
   const root = getJfRoot();
   const currentVersion = readVersion(root);
+  const source = options?.source ?? "upload";
+  const ownsLock = !options?.assumeLocked;
+
+  function record(step: UpdateStep): void {
+    steps.push(step);
+    const icon = step.ok ? "✓" : "✗";
+    log.push(`${icon} ${step.step}${step.detail ? `: ${step.detail}` : ""}`);
+    patchUpdateStatus({
+      phase: STEP_PHASE[step.step] ?? "copying",
+      steps: [...steps],
+      log: [...log],
+    });
+  }
+
+  function finish(result: UpdateResult, error?: string): UpdateResult {
+    patchUpdateStatus({
+      running: false,
+      phase: result.ok ? "done" : "failed",
+      ok: result.ok,
+      newVersion: result.newVersion,
+      restartRequired: result.restartRequired,
+      restarting: result.restarting,
+      finishedAt: Date.now(),
+      error: error ?? null,
+      steps: [...steps],
+      log: [...log],
+    });
+    return result;
+  }
+
+  const fail = (error: string): UpdateResult =>
+    finish(
+      {
+        ok: false,
+        steps,
+        currentVersion,
+        newVersion: currentVersion,
+        restartRequired: false,
+        restarting: false,
+      },
+      error,
+    );
+
+  if (ownsLock) {
+    if (!acquireLock(source)) throw new UpdateInProgressError();
+    initUpdateStatus({ source, currentVersion, targetVersion: null });
+  }
+  patchUpdateStatus({ pid: process.pid, running: true, currentVersion });
 
   if (!filename.endsWith(".zip")) {
-    return {
-      ok: false,
-      steps: [{ step: "validate", ok: false, detail: "Only .zip files are accepted" }],
-      currentVersion,
-      newVersion: currentVersion,
-      restartRequired: false,
-      restarting: false,
-    };
+    const r = fail("Only .zip files are accepted");
+    if (ownsLock) clearLock();
+    return r;
   }
-
   if (uploadBuffer.byteLength > MAX_ZIP_BYTES) {
-    return {
-      ok: false,
-      steps: [{ step: "validate", ok: false, detail: "File too large (max 200 MB)" }],
-      currentVersion,
-      newVersion: currentVersion,
-      restartRequired: false,
-      restarting: false,
-    };
+    const r = fail("File too large (max 200 MB)");
+    if (ownsLock) clearLock();
+    return r;
   }
 
-  const stagingDir = path.join(root, ".updates", "staging");
-  const extractDir = path.join(stagingDir, "extract");
-  const zipPath = path.join(stagingDir, "upload.zip");
+  const staging = updatesStagingDir();
+  const extractDir = options?.preExtractedDir ?? path.join(staging, "extract");
+  const zipPath = path.join(staging, "upload.zip");
 
   try {
-    await fsp.rm(stagingDir, { recursive: true, force: true });
-    await fsp.mkdir(stagingDir, { recursive: true });
+    if (!options?.preExtractedDir) {
+      await fsp.rm(staging, { recursive: true, force: true });
+      await fsp.mkdir(staging, { recursive: true });
+      await fsp.writeFile(zipPath, uploadBuffer);
+    }
 
-    await fsp.writeFile(zipPath, uploadBuffer);
     const digest = createHash("sha256").update(uploadBuffer).digest("hex");
-    steps.push({
+    record({
       step: "upload",
       ok: true,
-      detail: `Saved ${(uploadBuffer.byteLength / 1024 / 1024).toFixed(1)} MB (sha256: ${digest.slice(0, 12)}…)`,
+      detail: `${(uploadBuffer.byteLength / 1024 / 1024).toFixed(1)} MB (sha256: ${digest.slice(0, 12)}…)`,
     });
 
     const expectedDigest = process.env.JUSTFLOWS_UPDATE_DIGEST?.trim().toLowerCase();
     if (expectedDigest && digest !== expectedDigest) {
-      steps.push({
+      record({
         step: "validate",
         ok: false,
         detail: "Update digest does not match JUSTFLOWS_UPDATE_DIGEST",
       });
-      return {
+      return finish({
         ok: false,
         steps,
         currentVersion,
         newVersion: currentVersion,
         restartRequired: false,
         restarting: false,
-      };
+      });
     }
 
     verifyUpdateArchiveSignature(uploadBuffer, options?.signature);
     if (process.env.JUSTFLOWS_UPDATE_SIGNING_KEY) {
-      steps.push({ step: "signature", ok: true, detail: "Update signature verified" });
+      record({ step: "signature", ok: true, detail: "Update signature verified" });
     }
 
-    extractZipSafely(zipPath, extractDir);
-    steps.push({ step: "extract", ok: true, detail: "Archive extracted" });
+    if (!options?.preExtractedDir) {
+      extractZipSafely(zipPath, extractDir);
+    }
+    record({ step: "extract", ok: true, detail: "Archive extracted" });
 
     const sourceRoot = findExtractedRoot(extractDir);
     const validated = validateUpdatePackage(sourceRoot);
     if (!validated.ok) {
-      steps.push({ step: "validate", ok: false, detail: validated.detail });
-      return {
+      record({ step: "validate", ok: false, detail: validated.detail });
+      return finish({
         ok: false,
         steps,
         currentVersion,
         newVersion: currentVersion,
         restartRequired: false,
         restarting: false,
-      };
+      });
     }
     const newVersion = validated.version;
-    steps.push({ step: "validate", ok: true, detail: `Package verified (v${newVersion})` });
+    patchUpdateStatus({ targetVersion: newVersion });
+    record({ step: "validate", ok: true, detail: `Package verified (v${newVersion})` });
 
     const copied = await copyUpdateFiles(sourceRoot, root);
-    steps.push({
+    record({
       step: "copy",
       ok: true,
       detail: `Updated ${copied} files (.env and uploads preserved)`,
     });
 
     const migrate = runCopiedMigrations(root);
-    steps.push({
+    record({
       step: "migrate",
       ok: migrate.ok,
       detail: migrate.ok
@@ -262,23 +406,23 @@ export async function applyCoreUpdate(
         : migrate.output.slice(-500) || "Migration failed — will retry after restart",
     });
 
-    const npmInstall = runCommand("npm", ["install", "--ignore-scripts"], root);
-    steps.push({
+    const install = runDependencyInstall(root);
+    record({
       step: "npm install",
-      ok: npmInstall.ok,
-      detail: npmInstall.ok
-        ? "Dependencies installed"
-        : npmInstall.output.slice(-500) || "npm install failed",
+      ok: install.ok,
+      detail: install.ok
+        ? install.output
+        : install.output.slice(-500) || "Dependency install failed",
     });
-    if (!npmInstall.ok) {
-      return {
+    if (!install.ok) {
+      return finish({
         ok: false,
         steps,
         currentVersion,
         newVersion,
         restartRequired: false,
         restarting: false,
-      };
+      });
     }
 
     const hasBuiltServer =
@@ -287,32 +431,28 @@ export async function applyCoreUpdate(
       fs.existsSync(path.join(root, "apps/server/admin-ui/dist/server/entry-server.js"));
 
     if (hasBuiltServer) {
-      steps.push({
-        step: "build",
-        ok: true,
-        detail: "Using pre-built artifacts from update package",
-      });
+      record({ step: "build", ok: true, detail: "Using pre-built artifacts from update package" });
     } else {
       const build = runCommand("node", ["scripts/install-all.js", "--build-only"], root);
-      steps.push({
+      record({
         step: "build",
         ok: build.ok,
         detail: build.ok ? "Server rebuilt" : build.output.slice(-500) || "build:server failed",
       });
       if (!build.ok) {
-        return {
+        return finish({
           ok: false,
           steps,
           currentVersion,
           newVersion,
           restartRequired: false,
           restarting: false,
-        };
+        });
       }
     }
 
     const restart = await requestPassengerRestart(root);
-    steps.push({
+    record({
       step: "restart",
       ok: restart.ok,
       detail: restart.ok
@@ -321,7 +461,7 @@ export async function applyCoreUpdate(
     });
 
     const ok = migrate.ok && restart.ok;
-    steps.push({
+    record({
       step: "complete",
       ok,
       detail: ok
@@ -329,30 +469,33 @@ export async function applyCoreUpdate(
         : "Update copied; the site will finish remaining work after reload",
     });
 
-    return {
+    if (ok) await emitCoreUpdated(options?.siteId, source, currentVersion, newVersion);
+
+    return finish({
       ok,
       steps,
       currentVersion,
       newVersion,
       restartRequired: !restart.ok,
       restarting: restart.ok,
-    };
-  } catch (err) {
-    steps.push({
-      step: "error",
-      ok: false,
-      detail: err instanceof Error ? err.message : String(err),
     });
-    return {
-      ok: false,
-      steps,
-      currentVersion,
-      newVersion: currentVersion,
-      restartRequired: false,
-      restarting: false,
-    };
+  } catch (err) {
+    record({ step: "error", ok: false, detail: err instanceof Error ? err.message : String(err) });
+    return finish(
+      {
+        ok: false,
+        steps,
+        currentVersion,
+        newVersion: currentVersion,
+        restartRequired: false,
+        restarting: false,
+      },
+      err instanceof Error ? err.message : String(err),
+    );
   } finally {
-    await fsp.rm(stagingDir, { recursive: true, force: true }).catch(() => {});
+    await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
+    clearUpdateJob();
+    clearLock();
   }
 }
 
@@ -383,54 +526,247 @@ function parseSha256Sidecar(text: string): string | null {
   return match ? match[1]!.toLowerCase() : null;
 }
 
+/** Download a published release through the gateway and verify its checksum. */
+async function downloadRelease(release: {
+  availableVersion: string;
+  downloadUrl: string;
+  sha256Url: string | null;
+}): Promise<Buffer> {
+  const res = await fetch(release.downloadUrl, {
+    headers: { accept: "application/zip" },
+    signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const buffer = await readBounded(res, MAX_ZIP_BYTES);
+
+  if (release.sha256Url) {
+    const shaRes = await fetch(release.sha256Url, {
+      headers: { accept: "text/plain" },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!shaRes.ok) throw new Error(`Could not fetch checksum (${shaRes.status})`);
+    const expected = parseSha256Sidecar(await shaRes.text());
+    if (!expected) throw new Error("Release checksum file is unreadable");
+    const actual = createHash("sha256").update(buffer).digest("hex");
+    if (actual !== expected) {
+      throw new Error(
+        `Checksum mismatch — expected ${expected.slice(0, 12)}…, got ${actual.slice(0, 12)}…`,
+      );
+    }
+  }
+  return buffer;
+}
+
 /**
- * Download a published core release through the Justflows API gateway, verify it
- * against the release's `justflows.zip.sha256`, then run it through the same
- * pipeline as an operator upload. Used by the "Update" button and the
- * unattended auto-update job.
+ * Download + verify + install the latest published release, running the same
+ * pipeline as an operator upload. Used by the unattended auto-update job (the
+ * admin "Update" button goes through {@link startCoreUpdate} instead).
  */
 export async function applyCoreUpdateFromRelease(
   release: { availableVersion: string; downloadUrl: string; sha256Url: string | null },
-): Promise<Awaited<ReturnType<typeof applyCoreUpdate>>> {
+  options?: { siteId?: string | null; source?: "auto" | "remote" },
+): Promise<UpdateResult> {
   const currentVersion = readVersion(getJfRoot());
-  const fail = (detail: string): Awaited<ReturnType<typeof applyCoreUpdate>> => ({
-    ok: false,
-    steps: [{ step: "download", ok: false, detail }],
-    currentVersion,
-    newVersion: currentVersion,
-    restartRequired: false,
-    restarting: false,
-  });
-
   let buffer: Buffer;
   try {
-    const res = await fetch(release.downloadUrl, {
-      headers: { accept: "application/zip" },
-      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
-    });
-    if (!res.ok) return fail(`Download failed (${res.status})`);
-    buffer = await readBounded(res, MAX_ZIP_BYTES);
+    buffer = await downloadRelease(release);
   } catch (err) {
-    return fail(err instanceof Error ? err.message : String(err));
+    return {
+      ok: false,
+      steps: [
+        { step: "download", ok: false, detail: err instanceof Error ? err.message : String(err) },
+      ],
+      currentVersion,
+      newVersion: currentVersion,
+      restartRequired: false,
+      restarting: false,
+    };
   }
 
-  if (release.sha256Url) {
-    try {
-      const shaRes = await fetch(release.sha256Url, {
-        headers: { accept: "text/plain" },
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (!shaRes.ok) return fail(`Could not fetch checksum (${shaRes.status})`);
-      const expected = parseSha256Sidecar(await shaRes.text());
-      if (!expected) return fail("Release checksum file is unreadable");
-      const actual = createHash("sha256").update(buffer).digest("hex");
-      if (actual !== expected) {
-        return fail(`Checksum mismatch — expected ${expected.slice(0, 12)}…, got ${actual.slice(0, 12)}…`);
-      }
-    } catch (err) {
-      return fail(err instanceof Error ? err.message : String(err));
+  return applyCoreUpdate(buffer, "justflows.zip", {
+    siteId: options?.siteId ?? null,
+    source: options?.source ?? "auto",
+  });
+}
+
+// --- background job orchestration ----------------------------------------
+
+/** Location of the detached worker on disk, if this build shipped it. */
+function installedWorkerPath(root: string): string {
+  return path.join(root, "apps/server/dist/lib/core-update-worker.js");
+}
+
+/**
+ * Stage an update and hand it to a detached worker process, returning
+ * immediately. The heavy work (copy, migrate, install, build, restart) then runs
+ * outside any HTTP request; the caller and the admin UI follow it through
+ * `.updates/status.json`.
+ *
+ * Falls back to running the pipeline in the foreground only when this build does
+ * not yet ship the worker and one cannot be bootstrapped from the archive — i.e.
+ * the single transitional upgrade to a build that has this code.
+ */
+export async function startCoreUpdate(opts: {
+  source: "upload" | "remote";
+  siteId: string | null;
+  filename?: string;
+  buffer?: Buffer;
+  signature?: string;
+  release?: { availableVersion: string; downloadUrl: string; sha256Url: string | null };
+}): Promise<{ mode: "background" | "foreground"; status: UpdateStatus; result?: UpdateResult }> {
+  if (readUpdateStatus().running) throw new UpdateInProgressError();
+
+  const root = getJfRoot();
+  const currentVersion = readVersion(root);
+  const staging = updatesStagingDir();
+
+  if (opts.source === "upload") {
+    const name = opts.filename ?? "";
+    if (!name.endsWith(".zip")) throw new Error("Only .zip files are accepted");
+    if (!opts.buffer) throw new Error("No file provided");
+    if (opts.buffer.byteLength > MAX_ZIP_BYTES) throw new Error("File too large (max 200 MB)");
+  }
+  if (opts.source === "remote" && !opts.release) throw new Error("No release to install");
+
+  // Take the slot before touching any shared state so a racing request 409s
+  // instead of clobbering a run that is already in flight.
+  if (!acquireLock(opts.source)) throw new UpdateInProgressError();
+
+  try {
+    await fsp.rm(staging, { recursive: true, force: true });
+    await fsp.mkdir(staging, { recursive: true });
+
+    let zipPath: string | null = null;
+    if (opts.source === "upload" && opts.buffer) {
+      zipPath = path.join(staging, "upload.zip");
+      await fsp.writeFile(zipPath, opts.buffer);
     }
-  }
 
-  return applyCoreUpdate(buffer, "justflows.zip");
+    // Prefer the worker this build installed; otherwise try to unpack one from
+    // the archive we were just handed so even the first upgrade to a build that
+    // ships the worker still runs in the background.
+    let workerPath: string | null = fs.existsSync(installedWorkerPath(root))
+      ? installedWorkerPath(root)
+      : null;
+    let preExtractedDir: string | null = null;
+
+    if (!workerPath && zipPath) {
+      try {
+        const extractDir = path.join(staging, "extract");
+        extractZipSafely(zipPath, extractDir);
+        const srcRoot = findExtractedRoot(extractDir);
+        const shipped = path.join(srcRoot, "apps/server/dist/lib/core-update-worker.js");
+        if (fs.existsSync(shipped)) {
+          workerPath = shipped;
+          preExtractedDir = extractDir;
+        }
+      } catch {
+        /* fall back to foreground */
+      }
+    }
+
+    initUpdateStatus({
+      source: opts.source,
+      currentVersion,
+      targetVersion: opts.release?.availableVersion ?? null,
+    });
+
+    const job: UpdateJob = {
+      source: opts.source,
+      siteId: opts.siteId,
+      createdAt: Date.now(),
+      currentVersion,
+      targetVersion: opts.release?.availableVersion ?? null,
+      zipPath,
+      signature: opts.signature ?? null,
+      release: opts.release ?? null,
+      preExtractedDir,
+    };
+    writeUpdateJob(job);
+
+    if (workerPath) {
+      const child = spawn(process.execPath, [workerPath], {
+        cwd: root,
+        detached: true,
+        stdio: "ignore",
+        env: { ...process.env, NODE_ENV: process.env.NODE_ENV ?? "production", JF_ROOT: root },
+      });
+      child.unref();
+      appendUpdateLog("↻ Update started in the background — you can leave this page");
+      return { mode: "background", status: readUpdateStatus() };
+    }
+
+    appendUpdateLog(
+      "⚠ Running in compatibility mode (foreground) — the next update will run in the background",
+    );
+    // `executeUpdateJob` -> `applyCoreUpdate` releases the lock in its `finally`.
+    const result = await executeUpdateJob(job);
+    return { mode: "foreground", status: readUpdateStatus(), result };
+  } catch (err) {
+    // We never handed the job to a worker — clear the slot so the operator can
+    // retry immediately.
+    clearLock();
+    clearUpdateJob();
+    patchUpdateStatus({
+      running: false,
+      phase: "failed",
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+      finishedAt: Date.now(),
+    });
+    throw err;
+  }
+}
+
+/**
+ * Run a staged {@link UpdateJob} to completion. Shared by the detached worker
+ * and the foreground compatibility path in {@link startCoreUpdate}.
+ */
+export async function executeUpdateJob(job: UpdateJob): Promise<UpdateResult> {
+  const root = getJfRoot();
+  patchUpdateStatus({ pid: process.pid, running: true });
+
+  try {
+    let buffer: Buffer;
+    if (job.source === "remote" && job.release) {
+      patchUpdateStatus({ phase: "downloading" });
+      appendUpdateLog(`↻ Downloading Justflows v${job.release.availableVersion}…`);
+      buffer = await downloadRelease(job.release);
+      appendUpdateLog("✓ download: archive verified");
+    } else if (job.zipPath) {
+      buffer = await fsp.readFile(job.zipPath);
+    } else {
+      throw new Error("Update job has no archive");
+    }
+
+    return await applyCoreUpdate(buffer, "justflows.zip", {
+      signature: job.signature ?? undefined,
+      assumeLocked: true,
+      preExtractedDir: job.preExtractedDir ?? undefined,
+      siteId: job.siteId,
+      source: job.source,
+    });
+  } catch (err) {
+    // A throw here is before `applyCoreUpdate` (download / staged-zip read) or
+    // an unexpected fault; `applyCoreUpdate`'s own `finally` handles the rest.
+    const message = err instanceof Error ? err.message : String(err);
+    patchUpdateStatus({
+      running: false,
+      phase: "failed",
+      ok: false,
+      error: message,
+      finishedAt: Date.now(),
+    });
+    appendUpdateLog(`✗ ${message}`);
+    clearUpdateJob();
+    clearLock();
+    return {
+      ok: false,
+      steps: [{ step: "error", ok: false, detail: message }],
+      currentVersion: readVersion(root),
+      newVersion: readVersion(root),
+      restartRequired: false,
+      restarting: false,
+    };
+  }
 }

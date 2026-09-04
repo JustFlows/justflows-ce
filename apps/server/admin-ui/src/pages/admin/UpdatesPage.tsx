@@ -25,7 +25,27 @@ interface AutoUpdateInfo {
   maxScope: string;
 }
 
-interface UpdateResult {
+interface UpdateStatus {
+  running: boolean;
+  phase: string;
+  source: "upload" | "remote" | "auto" | null;
+  startedAt: number | null;
+  updatedAt: number;
+  finishedAt: number | null;
+  currentVersion: string | null;
+  targetVersion: string | null;
+  newVersion: string | null;
+  ok: boolean | null;
+  error: string | null;
+  restartRequired: boolean;
+  restarting: boolean;
+  steps: UpdateStep[];
+  log: string[];
+}
+
+interface StartResponse {
+  started?: boolean;
+  background?: boolean;
   ok?: boolean;
   error?: string;
   steps?: UpdateStep[];
@@ -33,7 +53,23 @@ interface UpdateResult {
   newVersion?: string;
   restartRequired?: boolean;
   restarting?: boolean;
+  status?: UpdateStatus;
 }
+
+const PHASE_LABEL: Record<string, string> = {
+  queued: "Queued",
+  downloading: "Downloading",
+  verifying: "Verifying",
+  extracting: "Extracting",
+  validating: "Validating",
+  copying: "Copying files",
+  migrating: "Running migrations",
+  installing: "Installing dependencies",
+  building: "Building",
+  restarting: "Restarting",
+  done: "Done",
+  failed: "Failed",
+};
 
 function logVariant(line: string): string {
   if (line.startsWith("✓")) return " jf-log__line--ok";
@@ -41,6 +77,11 @@ function logVariant(line: string): string {
   if (line.startsWith("⚠")) return " jf-log__line--warn";
   if (line.startsWith("↻")) return " jf-log__line--info";
   return "";
+}
+
+/** fetch() with a hard timeout — a wedged server must not hang the UI forever. */
+function fetchWithTimeout(input: string, init: RequestInit = {}, ms = 30_000): Promise<Response> {
+  return fetch(input, { ...init, signal: AbortSignal.timeout(ms) });
 }
 
 export default function UpdatesPage() {
@@ -62,23 +103,114 @@ export default function UpdatesPage() {
   const [uploading, setUploading] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [phase, setPhase] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [restartFailed, setRestartFailed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollFailures = useRef(0);
 
   useEffect(() => {
     fetch("/api/updates")
       .then((r) => r.json())
-      .then((data: { currentVersion?: string; updates?: UpdateItem[]; autoUpdate?: AutoUpdateInfo }) => {
-        if (data.currentVersion) setCurrentVersion(data.currentVersion);
-        if (data.updates) setUpdates(data.updates);
-        if (data.autoUpdate) setAutoUpdate(data.autoUpdate);
+      .then(
+        (data: {
+          currentVersion?: string;
+          updates?: UpdateItem[];
+          autoUpdate?: AutoUpdateInfo;
+        }) => {
+          if (data.currentVersion) setCurrentVersion(data.currentVersion);
+          if (data.updates) setUpdates(data.updates);
+          if (data.autoUpdate) setAutoUpdate(data.autoUpdate);
+        },
+      )
+      .catch(() => {});
+
+    // Re-attach to an update that is already running (e.g. after a page reload).
+    fetch("/api/updates/status", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((status: UpdateStatus) => {
+        if (status.running || status.phase === "restarting") {
+          setInstalling(true);
+          applyStatus(status);
+          startPolling();
+        }
       })
       .catch(() => {});
+
+    return () => stopPolling();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function stopPolling() {
+    if (pollTimer.current) {
+      clearTimeout(pollTimer.current);
+      pollTimer.current = null;
+    }
+  }
 
   function addLog(line: string) {
     setLog((l) => [...l, line]);
+  }
+
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /** Render a status snapshot into the log/phase UI. */
+  function applyStatus(status: UpdateStatus) {
+    setPhase(status.phase);
+    if (status.log?.length) setLog(status.log);
+    else if (status.steps?.length) {
+      setLog(
+        status.steps.map((s) => `${s.ok ? "✓" : "✗"} ${s.step}${s.detail ? `: ${s.detail}` : ""}`),
+      );
+    }
+    if (status.newVersion) setCurrentVersion(status.newVersion);
+  }
+
+  function finishRun(status: UpdateStatus) {
+    stopPolling();
+    setInstalling(false);
+    setUploading(false);
+    if (status.ok && status.restarting) {
+      void waitForSiteBack();
+    } else if (status.restartRequired) {
+      setRestartFailed(true);
+      addLog("⚠ Could not auto-restart — restart manually in Plesk → Node.js");
+    }
+  }
+
+  async function pollOnce() {
+    try {
+      const res = await fetchWithTimeout("/api/updates/status", { cache: "no-store" }, 15_000);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const status = (await res.json()) as UpdateStatus;
+      pollFailures.current = 0;
+      applyStatus(status);
+      if (!status.running && (status.phase === "done" || status.phase === "failed")) {
+        finishRun(status);
+        return;
+      }
+    } catch {
+      // The app may be mid-restart; keep polling for a while — but not forever.
+      pollFailures.current += 1;
+      if (pollFailures.current > 120) {
+        stopPolling();
+        setInstalling(false);
+        setUploading(false);
+        setRestartFailed(true);
+        addLog("⚠ Lost contact with the server — refresh this page to check the result");
+        return;
+      }
+    }
+    pollTimer.current = setTimeout(() => void pollOnce(), 2500);
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollFailures.current = 0;
+    pollTimer.current = setTimeout(() => void pollOnce(), 1500);
   }
 
   async function checkForUpdates() {
@@ -104,18 +236,15 @@ export default function UpdatesPage() {
     }
   }
 
-  function sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   async function waitForSiteBack() {
     setRestarting(true);
+    setPhase("restarting");
     addLog("↻ App is restarting — waiting for site to come back…");
     await sleep(4000);
 
-    for (let attempt = 0; attempt < 30; attempt++) {
+    for (let attempt = 0; attempt < 45; attempt++) {
       try {
-        const res = await fetch("/api/install/status", { cache: "no-store" });
+        const res = await fetchWithTimeout("/api/install/status", { cache: "no-store" }, 5000);
         if (res.ok) {
           addLog("✓ Site is back online — reloading…");
           await sleep(1500);
@@ -133,66 +262,103 @@ export default function UpdatesPage() {
     setRestarting(false);
   }
 
+  /**
+   * Kick off an update. The server either runs it in a detached worker (202 +
+   * `background: true`) — we then poll `/api/updates/status` — or, on the one
+   * transitional build that predates the worker, runs it inline and returns the
+   * full result.
+   */
   async function runUpdateFlow(request: Promise<Response>) {
     setRestarting(false);
     setRestartFailed(false);
+    setPhase("queued");
 
     try {
       const res = await request;
-      const data = (await res.json()) as UpdateResult;
+      let data: StartResponse;
+      try {
+        data = (await res.json()) as StartResponse;
+      } catch {
+        data = {};
+      }
 
+      if (res.status === 409) {
+        addLog(`⚠ ${data.error ?? "An update is already running"}`);
+        if (data.status) applyStatus(data.status);
+        startPolling();
+        return;
+      }
+
+      if (data.background) {
+        if (data.status) applyStatus(data.status);
+        addLog("↻ Update running in the background…");
+        startPolling();
+        return;
+      }
+
+      // Inline (compatibility) result.
       if (data.steps) {
         for (const step of data.steps) {
           addLog(`${step.ok ? "✓" : "✗"} ${step.step}${step.detail ? `: ${step.detail}` : ""}`);
         }
       }
-
       if (!res.ok || data.ok === false) {
         throw new Error(data.error ?? data.steps?.find((s) => !s.ok)?.detail ?? "Update failed");
       }
-
       if (data.newVersion) setCurrentVersion(data.newVersion);
-
       if (data.restarting) {
         await waitForSiteBack();
       } else if (data.restartRequired) {
         setRestartFailed(true);
         addLog("⚠ Could not auto-restart — restart manually in Plesk → Node.js");
       }
+      setInstalling(false);
+      setUploading(false);
     } catch (e) {
-      addLog(`✗ ${e instanceof Error ? e.message : String(e)}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      // A dropped connection here usually means the worker is busy or the app is
+      // restarting — fall back to polling rather than declaring failure.
+      addLog(`⚠ ${msg} — checking update status…`);
+      startPolling();
     }
   }
 
   async function uploadZip(file: File) {
     setUploading(true);
+    setInstalling(true);
     setLog([]);
     addLog(`Uploading ${file.name}…`);
-    addLog("This may take several minutes (extract → npm install → build)…");
 
     const form = new FormData();
     form.append("file", file);
-    await runUpdateFlow(fetch("/api/updates/upload", { method: "POST", body: form }));
-
-    setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    try {
+      // Long timeout: the upload body itself can be large; the pipeline no longer
+      // runs inside this request.
+      await runUpdateFlow(
+        fetchWithTimeout("/api/updates/upload", { method: "POST", body: form }, 10 * 60 * 1000),
+      );
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   async function installRemote(item: UpdateItem) {
     setInstalling(true);
     setLog([]);
-    addLog(`Downloading Justflows v${item.availableVersion}…`);
-    addLog("This may take several minutes (download → verify → extract → npm install → build)…");
+    addLog(`Starting update to Justflows v${item.availableVersion}…`);
 
     await runUpdateFlow(
-      fetch("/api/updates/remote", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ version: item.availableVersion }),
-      }),
+      fetchWithTimeout(
+        "/api/updates/remote",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ version: item.availableVersion }),
+        },
+        2 * 60 * 1000,
+      ),
     );
-
-    setInstalling(false);
   }
 
   async function toggleAutoUpdate(next: boolean) {
@@ -214,6 +380,7 @@ export default function UpdatesPage() {
   }
 
   const busy = uploading || installing || restarting;
+  const phaseLabel = phase ? (PHASE_LABEL[phase] ?? phase) : null;
 
   return (
     <div className="jf-page">
@@ -264,16 +431,18 @@ export default function UpdatesPage() {
               disabled={busy}
             >
               {uploading
-                ? "Updating… (please wait)"
+                ? "Uploading…"
                 : restarting
                   ? "Restarting…"
-                  : "Choose justflows.zip…"}
+                  : installing
+                    ? `Updating… ${phaseLabel ?? ""}`.trim()
+                    : "Choose justflows.zip…"}
             </button>
             {busy && (
               <span className="jf-meta">
-                {uploading || installing
-                  ? "Running npm install and build — do not close this page"
-                  : "Waiting for app to restart — page will reload automatically"}
+                {restarting
+                  ? "Waiting for app to restart — page will reload automatically"
+                  : "The update runs in the background — you can safely leave this page"}
               </span>
             )}
           </div>
@@ -344,7 +513,7 @@ export default function UpdatesPage() {
                     disabled={busy || checking}
                   >
                     {installing
-                      ? "Updating…"
+                      ? `Updating… ${phaseLabel ?? ""}`.trim()
                       : restarting
                         ? "Restarting…"
                         : `Update to v${item.availableVersion}`}
@@ -391,7 +560,9 @@ export default function UpdatesPage() {
 
       {log.length > 0 && (
         <div className="jf-log">
-          <p className="jf-log__label">Update log</p>
+          <p className="jf-log__label">
+            Update log{phaseLabel && installing ? ` — ${phaseLabel}` : ""}
+          </p>
           {log.map((line, i) => (
             <p key={i} className={`jf-log__line${logVariant(line)}`}>
               {line}

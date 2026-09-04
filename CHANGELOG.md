@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.0]
+
+### Fixed
+
+- Core updates (Admin → Updates, both the uploaded `justflows.zip` and the
+  remote "Update" button) no longer hang forever on _"Updating…"_. The
+  copy/migrate/`pnpm install`/build/restart pipeline used to run synchronously
+  inside the HTTP request that started it, blocking the single Passenger worker
+  for minutes — so the site served nothing (the browser's request, `/admin`,
+  everything 499'd) and, if the process was recycled or OOM-killed mid-run, the
+  admin page was left with a request that never resolved. The work now runs in a
+  detached worker process (`apps/server/dist/lib/core-update-worker.js`); the
+  request returns immediately and both the caller and the admin UI follow
+  progress through `.updates/status.json` (new `GET /api/updates/status`). A file
+  lock rejects a second concurrent update with `409`, a run whose worker has
+  died self-heals instead of wedging the UI, the admin page re-attaches to a running
+  update after a reload, and its `fetch`es carry timeouts. Dependency install
+  now uses `pnpm --frozen-lockfile` (matching the workspace) instead of
+  `npm install` at the repo root, falling back to npm only when pnpm is not on
+  `PATH`. The one transitional upgrade to this build runs the pipeline in the
+  foreground (still writing status) when the worker cannot be bootstrapped from
+  the archive.
+
 ## [0.1.9]
 
 ### Added
@@ -114,6 +137,25 @@ and this project uses [Semantic Versioning](https://semver.org/).
   ([#57](https://github.com/JustFlows/justflows-ce/issues/57))
 
 ### Fixed
+
+- Core updates (Admin → Updates, both the uploaded `justflows.zip` and the
+  remote "Update" button) no longer hang forever on _"Updating…"_. The
+  copy/migrate/`pnpm install`/build/restart pipeline used to run synchronously
+  inside the HTTP request that started it, blocking the single Passenger worker
+  for minutes — so the site served nothing (the browser's request, `/admin`,
+  everything 499'd) and, if the process was recycled or OOM-killed mid-run, the
+  admin page was left with a request that never resolved. The work now runs in a
+  detached worker process (`apps/server/dist/lib/core-update-worker.js`); the
+  request returns immediately and both the caller and the admin UI follow
+  progress through `.updates/status.json` (new `GET /api/updates/status`). A file
+  lock rejects a second concurrent update with `409`, a run whose worker has
+  died self-heals instead of wedging the UI, the admin page re-attaches to a running
+  update after a reload, and its `fetch`es carry timeouts. Dependency install
+  now uses `pnpm --frozen-lockfile` (matching the workspace) instead of
+  `npm install` at the repo root, falling back to npm only when pnpm is not on
+  `PATH`. The one transitional upgrade to this build runs the pipeline in the
+  foreground (still writing status) when the worker cannot be bootstrapped from
+  the archive.
 
 - Static export on a proxied host (Passenger, Plesk) no longer fails with
   _"The site at http://127.0.0.1:3000 is not installed yet — nothing to

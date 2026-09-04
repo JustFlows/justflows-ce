@@ -29,6 +29,10 @@ echo "==> Generating npm lockfile for shared hosting…"
 # Hide a local pnpm tree so npm 12 arborist does not walk node_modules/.pnpm
 # ("Cannot read properties of null (reading 'matches')"). On extract, hosting
 # runs `npm run install:all`, which moves a pnpm tree aside before npm install.
+#
+# --prefer-offline/--no-audit/--no-fund keep this to ~2s: without them npm 12
+# re-resolves the whole tree against the registry and runs an audit round-trip
+# on every run, which can stall for minutes. Cache misses still hit the network.
 PNPM_HIDDEN=""
 restore_pnpm_node_modules() {
   if [ -n "$PNPM_HIDDEN" ] && [ -d "$PNPM_HIDDEN" ]; then
@@ -42,7 +46,8 @@ if [ -d "$ROOT/node_modules/.pnpm" ]; then
   PNPM_HIDDEN="$ROOT/node_modules.pnpm-hidden"
   mv "$ROOT/node_modules" "$PNPM_HIDDEN"
 fi
-if ! npm install --omit=dev --ignore-scripts --package-lock-only; then
+if ! npm install --omit=dev --ignore-scripts --package-lock-only \
+  --prefer-offline --no-audit --no-fund; then
   echo "    (skipping lockfile — npm arborist failed; zip will still work)"
   rm -f "$ROOT/package-lock.json"
 fi
