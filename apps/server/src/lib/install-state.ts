@@ -153,6 +153,17 @@ export async function markInstalled(config: InstallConfig): Promise<void> {
   const { clearInstallToken } = await import("./install-token.js");
   clearInstallToken(getJfRoot());
 
+  // Site-root .htaccess — on shared hosting the vhost DocumentRoot is usually
+  // this directory, so without it Apache would serve /.env, /data/*, /apps/**
+  // as static files. Distinct from the static-export .htaccess. Sentinel-guarded,
+  // so a hand-rolled one is left alone.
+  try {
+    const { writeRootHtaccess } = await import("./root-htaccess.js");
+    await writeRootHtaccess(getJfRoot());
+  } catch {
+    // Best effort — a missing root .htaccess is not fatal to install.
+  }
+
   // Same reasoning for the bootstrap transcript: it records absolute paths and
   // the whole dependency tree, and it outlived the install by months because
   // nothing ever removed it.

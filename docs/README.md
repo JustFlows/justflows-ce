@@ -14,10 +14,12 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Manifest](MANIFEST.md)                            | `justflows.json` / `justflows-theme.json` fields                  |
 | [SDK compatibility](SDK-COMPATIBILITY.md)          | Version ranges, runtime versions, deprecation, and API stability  |
 | [Permissions](PERMISSIONS.md)                      | Plugin permissions vs user capabilities                           |
+| [Diagnostics](DIAGNOSTICS.md)                      | Debug mode, CLI checks, traces, and plugin health checks          |
 | [Packaging](PACKAGING.md)                          | Building a `.jfpkg` for Admin → Plugins                           |
 | [Themes](THEMES.md)                                | Styles, patterns, demo home/blog layouts, resolution order        |
 | [Blocks](BLOCKS.md)                                | Plugin blocks, page/post builders, blog lists, layout and styling |
 | [Testing extensions](TESTING-EXTENSIONS.md)        | Unit tests and running against CE                                 |
 | [Cache](CACHE.md)                                  | `ctx.cache` and revalidation                                      |
+| [Static / edge export](STATIC-EXPORT.md)           | Export published pages to files for object storage or a CDN       |
 | [Trash and retention](TRASH.md)                    | Recoverable deletion, restore, purge, and media warnings          |
 | [Ecommerce roadmap](ECOMMERCE-ROADMAP.md)          | Shop architecture, complete feature scope, and delivery epics     |

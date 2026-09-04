@@ -315,6 +315,10 @@ const server = http.createServer((req, res) => {
   if (pathname === "/api/healthz") {
     sendJson(res, 200, {
       ok: true,
+      // Mirror the full app's healthz (apps/server/src/server.ts) so callers get
+      // the same shape whether or not this bootstrap wrapper is in front — the
+      // static exporter reads `installed` to decide it can crawl.
+      installed: isInstalled(),
       boot: fullApp ? "ready" : bootError ? "error" : "starting",
       entry: serverEntry() ? path.basename(serverEntry()) : "missing",
     });

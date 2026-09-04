@@ -74,20 +74,58 @@ if [ "${NESTED:-0}" = "1" ]; then
     ${ZIP_EXCLUDE_NODE[@]+"${ZIP_EXCLUDE_NODE[@]}"} \
     -x "$NAME/.git/*" \
     -x "$NAME/**/.next/*" \
+    -x "$NAME/**/.nuxt/*" \
+    -x "$NAME/**/.svelte-kit/*" \
+    -x "$NAME/**/.vite/*" \
     -x "$NAME/.turbo/*" \
     -x "$NAME/**/.turbo/*" \
+    -x "$NAME/**/build/*" \
+    -x "$NAME/**/out/*" \
+    -x "$NAME/**/*.tsbuildinfo" \
     -x "$NAME/coverage/*" \
+    -x "$NAME/.nyc_output/*" \
+    -x "$NAME/test-results/*" \
+    -x "$NAME/playwright-report/*" \
     -x "$NAME/**/*.log" \
     -x "$NAME/.DS_Store" \
     -x "$NAME/**/.DS_Store" \
+    -x "$NAME/Thumbs.db" \
+    -x "$NAME/**/Thumbs.db" \
+    -x "$NAME/.idea/*" \
+    -x "$NAME/.vscode/*" \
+    -x "$NAME/**/*.swp" \
+    -x "$NAME/**/*.swo" \
     -x "$NAME/*.zip" \
     -x "$NAME/uploads/*" \
+    -x "$NAME/static-export/*" \
+    -x "$NAME/packages-installed/*" \
+    -x "$NAME/css-providers-installed/*" \
+    -x "$NAME/data/installed.json" \
+    -x "$NAME/.updates/*" \
     -x "$NAME/.env" \
-    -x "$NAME/.env.local" \
-    -x "$NAME/.env.production" \
+    -x "$NAME/.env.*" \
+    -x "$NAME/**/.env" \
+    -x "$NAME/**/.env.*" \
+    -x "$NAME/*.pem" \
+    -x "$NAME/*.key" \
+    -x "$NAME/*.crt" \
+    -x "$NAME/*.p12" \
+    -x "$NAME/*.pfx" \
+    -x "$NAME/*.db" \
+    -x "$NAME/*.db-journal" \
+    -x "$NAME/*.sqlite" \
+    -x "$NAME/*.sqlite-journal" \
+    -x "$NAME/*.sqlite3" \
+    -x "$NAME/*.sqlite3-journal" \
     -x "$NAME/.hosting-backup/*" \
     -x "$NAME/.agents/*" \
     -x "$NAME/.github/*" \
+    -x "$NAME/.vercel/*" \
+    -x "$NAME/.netlify/*" \
+    -x "$NAME/.yarn/*" \
+    -x "$NAME/.pnp" \
+    -x "$NAME/.pnp.*" \
+    -x "$NAME/.htaccess" \
     -x "$NAME/node_modules.pnpm-hidden/*" \
     -x "$NAME/.pnpm-store/*" \
     -x "$NAME/**/.pnpm-store/*" \
@@ -111,20 +149,58 @@ else
     ${ZIP_EXCLUDE_NODE[@]+"${ZIP_EXCLUDE_NODE[@]}"} \
     -x ".git/*" \
     -x "**/.next/*" \
+    -x "**/.nuxt/*" \
+    -x "**/.svelte-kit/*" \
+    -x "**/.vite/*" \
     -x ".turbo/*" \
     -x "**/.turbo/*" \
+    -x "**/build/*" \
+    -x "**/out/*" \
+    -x "**/*.tsbuildinfo" \
     -x "coverage/*" \
+    -x ".nyc_output/*" \
+    -x "test-results/*" \
+    -x "playwright-report/*" \
     -x "**/*.log" \
     -x ".DS_Store" \
     -x "**/.DS_Store" \
+    -x "Thumbs.db" \
+    -x "**/Thumbs.db" \
+    -x ".idea/*" \
+    -x ".vscode/*" \
+    -x "**/*.swp" \
+    -x "**/*.swo" \
     -x "*.zip" \
     -x "uploads/*" \
+    -x "static-export/*" \
+    -x "packages-installed/*" \
+    -x "css-providers-installed/*" \
+    -x "data/installed.json" \
+    -x ".updates/*" \
     -x ".env" \
-    -x ".env.local" \
-    -x ".env.production" \
+    -x ".env.*" \
+    -x "**/.env" \
+    -x "**/.env.*" \
+    -x "*.pem" \
+    -x "*.key" \
+    -x "*.crt" \
+    -x "*.p12" \
+    -x "*.pfx" \
+    -x "*.db" \
+    -x "*.db-journal" \
+    -x "*.sqlite" \
+    -x "*.sqlite-journal" \
+    -x "*.sqlite3" \
+    -x "*.sqlite3-journal" \
     -x ".hosting-backup/*" \
     -x ".agents/*" \
     -x ".github/*" \
+    -x ".vercel/*" \
+    -x ".netlify/*" \
+    -x ".yarn/*" \
+    -x ".pnp" \
+    -x ".pnp.*" \
+    -x ".htaccess" \
     -x "node_modules.pnpm-hidden/*" \
     -x ".pnpm-store/*" \
     -x "**/.pnpm-store/*" \
@@ -138,6 +214,17 @@ else
     -x "**/.cache/**" \
     -x "install-token/*" \
     -x "tmp/*"
+fi
+
+# The broad secret-file rules above also match the two redacted templates that
+# operators need when configuring a new install, so add those known-safe files
+# back explicitly.
+if [ "${NESTED:-0}" = "1" ]; then
+  cd "$(dirname "$ROOT")"
+  zip -q "$OUT" "$NAME/.env.example" "$NAME/.env.production.example"
+else
+  cd "$ROOT"
+  zip -q "$OUT" .env.example .env.production.example
 fi
 
 echo "==> Restoring dev package manifests…"

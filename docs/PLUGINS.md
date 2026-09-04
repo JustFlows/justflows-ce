@@ -59,8 +59,43 @@ choosing a compatibility range or deprecating a public integration.
 `site_settings`), logger, cache, HTTP routes, plugin-scoped data, encrypted
 `secrets`, short-lived `databases` probes, table `upsert`/`findOne`,
 `content.ensureType` / `content.ensurePage` / `content.deleteType`,
-`blocks.register`, and `cookies.declare` / `cookies.list`. See
+`blocks.register`, `patterns.register`, and `cookies.declare` / `cookies.list`. See
 [HOOKS.md](HOOKS.md) and [PERMISSIONS.md](PERMISSIONS.md).
+
+## Register editor patterns
+
+Plugins can contribute complete page designs or smaller sections to the block
+editor with `ctx.patterns.register()`. Registration is synchronous, validated,
+scoped to the plugin, and automatically removed when the plugin deactivates:
+
+```ts
+ctx.patterns.register({
+  id: "feature-grid",
+  title: "Product feature grid",
+  description: "Three product benefits with an editable call to action.",
+  category: "features",
+  requiresBlockTypes: ["acme.cards.feature"],
+  blocks: [
+    {
+      id: "features",
+      type: "acme.cards.feature",
+      version: 1,
+      props: { heading: "Why customers choose us" },
+    },
+  ],
+});
+```
+
+Pattern ids are local to the plugin; the host exposes the example above as
+`acme.plugin:feature-grid`, so another plugin can safely use the same local id.
+Every non-core block used anywhere in the tree must appear in
+`requiresBlockTypes`. The shared SDK `BlockPatternSchema` validates the complete
+tree, and the server sanitizes it before preview or insertion. Use category
+`pages` only for a complete design that should replace the editor canvas after
+confirmation; every other category appends to the current page.
+
+The returned disposer removes that one registration early when needed. Plugins
+can normally ignore it because deactivation removes all their patterns.
 
 ## Declare the cookies you set
 
@@ -86,6 +121,111 @@ plugin's — with the operator's category overrides applied
 (`Admin → Extensions → Cookie Consent → Cookie declarations`, backed by
 `GET`/`PUT /api/cookies`). Before setting a non-essential cookie from your own
 client code, check `window.justflowsConsent?.allowed("<name>")`.
+
+## Client-side assets
+
+For a stylesheet folded into `/theme.css`, keep using the `theme.css` filter
+(next section). For **JavaScript** — or a standalone stylesheet — that runs on
+the public site, declare an `assets` block in the manifest and drop the files in
+the package:
+
+```jsonc
+// justflows.json
+"assets": {
+  "dir": "public",              // default "public"; relative, may be "dist/public"
+  "scripts": ["widget.js"],     // relative to dir; .js / .mjs
+  "styles": ["widget.css"]      // relative to dir; .css
+}
+```
+
+On activation the host:
+
+- serves `<dir>/**` at `/ext/<pluginId>/**` (path-validated, correct
+  `Content-Type`) for direct access, and
+- **concatenates every active plugin's `scripts` / `styles` into one
+  content-hashed bundle** and adds it to **every public page** right after the
+  SEO head:
+  `<link rel="stylesheet" href="/jf-plugins.<hash>.css">` +
+  `<script src="/jf-plugins.<hash>.js" defer></script>`. One plugin script and
+  one plugin stylesheet per page, whatever the plugin count; the hash changes
+  when any plugin's files change (`Cache-Control: immutable`). Set
+  `PLUGIN_ASSETS_BUNDLE=0` to emit a `<script>` per file instead (debugging).
+
+No `ctx.http` route and no `html.head` filter. Deactivating the plugin drops
+its route and rebuilds the bundle without it. The **static-site exporter
+downloads the bundle automatically**, so a plugin's front-end works on a
+static/CDN deployment with zero extra wiring — see
+[STATIC-EXPORT.md](STATIC-EXPORT.md).
+
+Each `scripts` entry is wrapped in its own IIFE before concatenation, so a
+missing semicolon or a stray top-level `var` in one plugin can't break another;
+write them as self-contained enhancement scripts (no `import`/`export` — a file
+that needs modules must be pre-bundled).
+
+Rules: paths are relative to `dir`, must be `.js`/`.mjs`/`.css`, and must not
+contain `..`; at most 20 of each. Ship the `dir` inside your `.jfpkg`. Write
+the scripts as progressive enhancement (the page is already server-rendered) and
+load anything heavy on demand. A script that needs server data calls one of your
+own `ctx.http` routes with `fetch()` — the same "client calls an API" pattern a
+static host requires; server-side hook code (`content.published`, DB writes,
+secrets) cannot run in a page and is never bundled.
+
+Working example: `plugins/hello-world` (`public/hello-world.js` +
+`assets` in `justflows.json`).
+
+## Ship your own admin app
+
+A plugin's admin screens are **its own app**, not React pages compiled into the
+host bundle. Declare `adminApp` in the manifest, ship an HTML build in the
+package, and the host mounts it in a same-origin `<iframe>` inside the admin
+shell — the plugin owns the whole screen and its design; core carries no page,
+route, or `if (pluginId === …)` for it.
+
+```jsonc
+// justflows.json
+"permissions": ["admin:extend"],
+"adminMenu": [
+  { "id": "forms", "label": "Forms", "path": "/admin/forms", "icon": "✉", "domain": "extensions" }
+],
+"adminApp": {
+  "dir": "admin",                       // default "admin"; relative, may be "dist/admin"
+  "routes": [
+    { "path": "/admin/forms", "entry": "index.html", "title": "Forms" }
+  ]
+}
+```
+
+On activation the host:
+
+- serves `<dir>/**` at `/ext/<pluginId>/admin/**` (path-validated, correct
+  `Content-Type` for `.html/.js/.css/.json/.svg/.png/.woff2/…`). HTML is
+  `no-store` and `frame-ancestors 'self'`; other build files get a short TTL.
+  `admin/` is a **reserved sub-namespace** under `/ext/<pluginId>/` — a plugin
+  that also ships `assets` cannot serve a literal `assets/admin/…` path.
+- for every `adminMenu` item whose `path` matches an `adminApp` route, the
+  sidebar entry loads `/ext/<pluginId>/admin/<entry>` in a frame instead of the
+  generic plugin page. A route `title` overrides the menu label. A route path
+  with no matching `adminMenu` item is not reachable — declare both.
+
+**Host ⇄ frame bridge.** The two sides talk only over `postMessage` (use
+`@justflows/admin-bridge`), never a shared React runtime:
+
+| Direction | Message | Purpose |
+| --------- | ------- | ------- |
+| plugin → host | `ready` | frame mounted; host replies with `context` |
+| plugin → host | `resize { height }` | host sizes the iframe to fit |
+| plugin → host | `navigate { path }` | host routes to another `/admin/…` page (or opens an `http(s)` URL in a new tab) |
+| host → plugin | `context { locale, adminBase, routePath, theme }` | sent on `ready` and on load |
+| host → plugin | `route { routePath }` | host URL changed under the plugin's path — follow it in the frame's own router |
+
+The frame is same-origin, so the plugin reads the CSRF cookie itself and calls
+its **own** `ctx.http` routes for data — nothing is proxied through core. Server
+work (DB, secrets, `content.published`) still lives in the plugin's `activate()`
+module, exactly as for any plugin; only the screen moved into the frame.
+
+Rules: `dir` and `entry` are relative, no `..`; `entry` must be `.html`; each
+`path` must be `/admin/…`; at most 20 routes. Ship the `dir` inside your
+`.jfpkg`.
 
 ## Ship your own stylesheet
 
@@ -169,9 +309,10 @@ ctx.hooks.filter("admin.menu", (items) => [
 ]);
 ```
 
-Paths that have no dedicated admin SPA page still open: the host renders a
-generic plugin page for any `/admin/…` item on the live menu. Dedicated pages
-(Analytics, Forms) keep their own routes.
+Paths that have no dedicated admin SPA page still open: if the plugin declares
+an `adminApp` route for the path, the host frames the plugin's own screen (see
+[Ship your own admin app](#ship-your-own-admin-app)); otherwise it renders a
+generic plugin page for the `/admin/…` menu item.
 
 ```json
 {
@@ -218,6 +359,35 @@ buy box, product list, reviews, and the rest) used by the Default theme product
 patterns and the **Ecommerce storefront** homepage pattern.
 The layout is seeded only on the original locale when the
 canvas is empty.
+
+### Revalidate after a config write
+
+A plugin that persists its settings through its **own** `ctx.http` route (a
+bespoke admin screen calling `PUT /ext/<id>/config`, say) bypasses the cache
+revalidation that `PUT /api/plugins/<id>/settings` runs. If that config changes
+what public pages render — anything injected via `html.head` / `analytics.head`
+/ `content.render`, or a block's stored props — return `revalidate: true` from
+the mutating handler:
+
+```ts
+ctx.http.put(`/ext/${ctx.pluginId}/config`, async (req) => {
+  const next = await saveConfig(ctx, req.body);
+  return { status: 200, body: next, revalidate: true };
+});
+```
+
+The host then drops the page/site caches and, when static-export auto-rebuild
+is on, regenerates the export — the same effect as a core settings change.
+Ignored on `GET` and on a 4xx/5xx response. Leave it off for high-frequency
+public routes (a form submission, a beacon) — it is for operator config writes.
+
+A **public read** the runtime `fetch()`es from a statically-exported page runs
+cross-origin when the export is served from its own host. Return `cors: true`
+and the host adds `Access-Control-Allow-Origin` — but only for a vouched-for
+origin (`APP_URL`, `STATIC_EXPORT_BASE_URL`, `STATIC_EXPORT_ALLOWED_ORIGINS`, or
+`localhost` off production); plugins cannot set `Access-Control-*` themselves. A
+plain `<img>` or `navigator.sendBeacon` GET is not CORS-checked and needs
+nothing.
 
 ## First-run setup
 

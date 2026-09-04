@@ -10,7 +10,8 @@ import { z } from "zod";
 import { getDb } from "../lib/db.js";
 import { debugMode, recentDiagnosticErrors, recentRequestTraces, redactDiagnosticValue } from "../lib/diagnostics.js";
 import { getJfCache } from "../lib/jf-cache.js";
-import { getRuntimeHooks } from "../lib/plugin-runtime.js";
+import { getPluginLoader, getRuntimeHooks } from "../lib/plugin-runtime.js";
+import { getPluginJobScheduler } from "../lib/plugin-jobs.js";
 import { getJustflowsVersion } from "../lib/version.js";
 import { MIGRATION_ORDER } from "../lib/run-migrations.js";
 import { requireRole } from "../middleware/auth.js";
@@ -228,7 +229,8 @@ async function buildReport(siteId: string) {
   const memory = process.memoryUsage();
   const systemTotalBytes = os.totalmem();
   const systemFreeBytes = os.freemem();
-  const [database, extensions] = await Promise.all([databaseDiagnostics(), extensionDiagnostics(siteId)]);
+  const pluginLoader = getPluginLoader();
+  const [database, extensions, pluginChecks] = await Promise.all([databaseDiagnostics(), extensionDiagnostics(siteId), pluginLoader?.diagnosticRegistry.run() ?? Promise.resolve([])]);
   const hooks = getRuntimeHooks().inspect();
   const debug = debugMode();
   return {
@@ -265,10 +267,37 @@ async function buildReport(siteId: string) {
         disabled: hooks.filter((hook) => hook.disabled).length,
       },
     },
+    jobs: { running: getPluginJobScheduler().isRunning(), items: getPluginJobScheduler().listJobs() },
+    pluginChecks: redactDiagnosticValue(pluginChecks),
     errors: recentDiagnosticErrors(),
     traces: recentRequestTraces(),
   };
 }
+
+const TestActionSchema = z.object({ action: z.enum(["database", "cache", "jobs"]) });
+
+router.post("/test", async (req, res) => {
+  const parsed = TestActionSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Unknown diagnostics test" }); return; }
+  const started = performance.now();
+  try {
+    if (parsed.data.action === "database") await (await getDb()).query("SELECT 1");
+    else if (parsed.data.action === "cache") {
+      const cache = getJfCache();
+      const key = `diagnostics:test:${req.session!.siteId}`;
+      await cache.set(key, { ok: true }, 5); await cache.get(key); await cache.delete(key);
+    } else getPluginJobScheduler().listJobs();
+    auditFromRequest(req, "diagnostics.test_run", { detail: parsed.data.action });
+    res.json({ ok: true, action: parsed.data.action, latencyMs: Math.round((performance.now() - started) * 100) / 100 });
+  } catch (err) { sendServerError(res, `diagnostics ${parsed.data.action} test`, err); }
+});
+
+router.post("/jobs/:name/retry", (req, res) => {
+  const name = req.params.name;
+  if (!getPluginJobScheduler().retry(name)) { res.status(409).json({ error: "Only failed jobs can be retried" }); return; }
+  auditFromRequest(req, "diagnostics.job_retried", { detail: name });
+  res.json({ ok: true });
+});
 
 router.get("/", async (req, res) => {
   try {
@@ -315,7 +344,7 @@ router.get("/bundle/preview", async (req, res) => {
     res.json({
       format: "application/gzip containing diagnostics.json",
       expires: "Generated on demand; not retained on the server",
-      includes: ["runtime", "database", "cache", "development and Marketplace plugin/theme inventory", "hooks", "recent request traces", "recent sanitized errors"],
+      includes: ["runtime", "database", "cache", "development and Marketplace plugin/theme inventory", "hooks", "plugin jobs and health checks", "recent request traces", "recent sanitized errors"],
       excludes: ["environment values", "credentials", "cookies", "request bodies", "database contents", "uploads"],
       preview: report,
     });

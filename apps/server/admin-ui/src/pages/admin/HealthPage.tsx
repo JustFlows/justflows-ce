@@ -10,6 +10,8 @@ interface DiagnosticsReport {
     themes: Array<{ id: string; name: string; version: string; source: "development" | "marketplace" | "database"; status: string; registered: boolean; onDisk: boolean; permissions: string[]; path: string | null }>;
   };
   hooks: { totals: { handlers: number; runs: number; errors: number; disabled: number }; handlers: Array<{ hook: string; pluginId: string | null; priority: number; runs: number; errors: number; totalMs: number; disabled: boolean }> };
+  jobs: { running: boolean; items: Array<{ name: string; schedule?: string; attempts: number; maxAttempts: number; status: "pending" | "running" | "failed" | "done"; lastResult?: { success: boolean; message?: string } }> };
+  pluginChecks: Array<{ pluginId: string; id: string; label: string; result: { status: "ok" | "warning" | "error"; summary: string } }>;
   errors: Array<{ id: string; timestamp: string; requestId: string | null; context: string; message: string }>;
   traces: Array<{ requestId: string; timestamp: string; path: string; durationMs: number; pageCache: string; objectCache: string; databaseQueries: number; databaseMs: number; hookRuns: number; hookErrors: number; theme: string; template: string }>;
 }
@@ -29,6 +31,8 @@ export default function HealthPage() {
   const [error, setError] = useState("");
   const [bundleBusy, setBundleBusy] = useState(false);
   const [debugBusy, setDebugBusy] = useState(false);
+  const [testBusy, setTestBusy] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState("");
 
   async function load() {
     setLoading(true);
@@ -91,6 +95,23 @@ export default function HealthPage() {
     } finally {
       setDebugBusy(false);
     }
+  }
+
+  async function runTest(action: "database" | "cache" | "jobs") {
+    setTestBusy(action); setTestResult(""); setError("");
+    try {
+      const res = await fetch("/api/diagnostics/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+      const data = await res.json() as { error?: string; latencyMs?: number };
+      if (!res.ok) throw new Error(data.error ?? "Test failed");
+      setTestResult(`${action[0]!.toUpperCase()}${action.slice(1)} check passed in ${data.latencyMs ?? 0} ms.`); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setTestBusy(null); }
+  }
+
+  async function retryJob(name: string) {
+    const res = await fetch(`/api/diagnostics/jobs/${encodeURIComponent(name)}/retry`, { method: "POST" });
+    const data = await res.json() as { error?: string };
+    if (!res.ok) { setError(data.error ?? "Job retry failed"); return; }
+    await load();
   }
 
   return (
@@ -174,6 +195,26 @@ export default function HealthPage() {
               <span className="jf-field__hint">Manual configuration: <code className="jf-code">JF_DEBUG=true</code> and optional <code className="jf-code">JF_DEBUG_EXPIRES_AT</code> in <code className="jf-code">.env</code>.</span>
             </div>
           </div>
+        </section>
+
+        <section className="jf-card">
+          <div className="jf-card__head"><div><h2 className="jf-card__title">Test services</h2><p className="jf-field__hint">Run bounded checks without exposing credentials or customer data.</p></div></div>
+          <div className="jf-card__body jf-stack"><div className="jf-row">{(["database", "cache", "jobs"] as const).map((action) => <button key={action} type="button" className="jf-btn jf-btn--ghost" disabled={testBusy !== null} onClick={() => void runTest(action)}>{testBusy === action ? "Testing…" : `Test ${action}`}</button>)}</div>{testResult && <div className="jf-alert jf-alert--success" role="status">{testResult}</div>}</div>
+        </section>
+
+        <section className="jf-card">
+          <div className="jf-card__head"><div><h2 className="jf-card__title">Job scheduler</h2><p className="jf-field__hint">Plugin-owned work; payloads are never displayed.</p></div><span className={`jf-badge jf-badge--${report.jobs.running ? "ok" : "warn"}`}>{report.jobs.running ? "Running" : "Stopped"}</span></div>
+          <div className="jf-card__body jf-card__body--flush">{report.jobs.items.length === 0 ? <div className="jf-empty"><p>No plugin jobs are registered.</p></div> : <div className="jf-tablewrap"><table className="jf-table"><thead><tr><th>Job</th><th>Status</th><th>Schedule</th><th>Attempts</th><th>Last result</th><th /></tr></thead><tbody>{report.jobs.items.map((job) => <tr key={job.name}><td className="jf-td--mono">{job.name}</td><td>{job.status}</td><td>{job.schedule ?? "On demand"}</td><td>{job.attempts}/{job.maxAttempts}</td><td>{job.lastResult?.message ?? (job.lastResult?.success ? "Completed" : "—")}</td><td>{job.status === "failed" && <button type="button" className="jf-btn jf-btn--ghost" onClick={() => void retryJob(job.name)}>Retry</button>}</td></tr>)}</tbody></table></div>}</div>
+        </section>
+
+        <section className="jf-card">
+          <div className="jf-card__head"><div><h2 className="jf-card__title">Plugin health checks</h2><p className="jf-field__hint">Namespaced checks published by active plugins with diagnostics permission.</p></div><span className="jf-badge jf-badge--info">{report.pluginChecks.length} checks</span></div>
+          <div className="jf-card__body jf-card__body--flush">{report.pluginChecks.length === 0 ? <div className="jf-empty"><p>No plugin diagnostics are registered.</p></div> : <div className="jf-tablewrap"><table className="jf-table"><thead><tr><th>Plugin</th><th>Check</th><th>Status</th><th>Summary</th></tr></thead><tbody>{report.pluginChecks.map((check) => <tr key={`${check.pluginId}/${check.id}`}><td className="jf-td--mono">{check.pluginId}</td><td>{check.label}<br /><code className="jf-code">{check.id}</code></td><td>{check.result.status}</td><td>{check.result.summary}</td></tr>)}</tbody></table></div>}</div>
+        </section>
+
+        <section className="jf-card">
+          <div className="jf-card__head"><div><h2 className="jf-card__title">Reproduce from the server host</h2><p className="jf-field__hint">Copy these commands in the Justflows installation directory.</p></div></div>
+          <div className="jf-card__body"><pre className="jf-code">justflows status{"\n"}justflows health{"\n"}justflows cache clear{"\n"}justflows db migrate</pre></div>
         </section>
 
         <section className="jf-card">

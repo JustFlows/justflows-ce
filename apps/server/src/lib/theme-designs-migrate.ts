@@ -36,13 +36,13 @@ interface LegacyEntry {
 /** Discover which (kind, themeId) pairs still have legacy rows for this site. */
 async function findLegacyEntries(siteId: string): Promise<LegacyEntry[]> {
   const db = await getDb();
-  const rows = await db.query<{ key: string }>(
-    `SELECT ${settingsKeyColumn()} AS key FROM site_settings WHERE site_id = ?`,
+  const rows = await db.query<{ setting_key: string }>(
+    `SELECT ${settingsKeyColumn()} AS setting_key FROM site_settings WHERE site_id = ?`,
     [siteId],
   );
 
   const seen = new Map<string, LegacyEntry>();
-  for (const { key } of rows) {
+  for (const { setting_key: key } of rows) {
     const match = LEGACY_KEY_RE.exec(String(key));
     if (!match) continue;
     const kind = match[1] as ThemeDesignKind;

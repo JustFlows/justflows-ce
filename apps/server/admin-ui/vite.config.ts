@@ -12,6 +12,29 @@ export default defineConfig({
   build: {
     outDir: "dist/client",
     emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "react-vendor",
+              test: /node_modules[\\/](?:react|react-dom|react-router|react-router-dom)[\\/]/,
+              priority: 30,
+            },
+            {
+              name: "builder",
+              test: /admin-ui[\\/]src[\\/]components[\\/]builder[\\/]/,
+              priority: 20,
+            },
+            {
+              name: "admin-pages",
+              test: /admin-ui[\\/]src[\\/]pages[\\/]admin[\\/]/,
+              priority: 10,
+            },
+          ],
+        },
+      },
+    },
   },
   resolve: {
     alias: {
