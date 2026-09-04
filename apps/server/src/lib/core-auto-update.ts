@@ -71,16 +71,10 @@ async function runAutoUpdate(): Promise<void> {
       });
     }
 
-    const result = await applyCoreUpdateFromRelease(update);
-
-    if (siteId && result.ok) {
-      const { getRuntimeHooks } = await import("./plugin-runtime.js");
-      await getRuntimeHooks().dispatchAction(
-        "core.updated",
-        { fromVersion: result.currentVersion, toVersion: result.newVersion, source: "automatic" },
-        { siteId, source: "job" },
-      );
-    }
+    // `applyCoreUpdate` runs the pipeline synchronously here (this is already a
+    // background job, not an HTTP request) and fires the `core.updated` hook
+    // itself on success.
+    const result = await applyCoreUpdateFromRelease(update, { siteId, source: "auto" });
 
     if (siteId) {
       void auditLog({

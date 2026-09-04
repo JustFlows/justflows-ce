@@ -1,5 +1,6 @@
-import { Router } from "express";
-import { applyCoreUpdate, applyCoreUpdateFromRelease } from "../lib/core-updater.js";
+import { Router, type Response } from "express";
+import { startCoreUpdate, UpdateInProgressError } from "../lib/core-updater.js";
+import { readUpdateStatus } from "../lib/core-update-status.js";
 import { runAllMigrations } from "../lib/run-migrations.js";
 import { getDb } from "../lib/db.js";
 import { getJustflowsVersion } from "../lib/version.js";
@@ -24,20 +25,6 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200
  * warms the module cache for the next call (and for "Check for updates").
  */
 const SSR_DISCOVERY_BUDGET_MS = 2500;
-
-async function emitCoreUpdated(
-  result: { ok: boolean; currentVersion: string; newVersion: string },
-  source: "upload" | "remote",
-  siteId: string,
-): Promise<void> {
-  if (!result.ok) return;
-  const { getRuntimeHooks } = await import("../lib/plugin-runtime.js");
-  await getRuntimeHooks().dispatchAction(
-    "core.updated",
-    { fromVersion: result.currentVersion, toVersion: result.newVersion, source },
-    { siteId, source: "system" },
-  );
-}
 
 router.get("/", requireRole("administrator"), async (_req, res) => {
   const version = getJustflowsVersion();
@@ -92,6 +79,19 @@ router.post("/check", requireRole("administrator"), async (_req, res) => {
   }
 });
 
+/** Live progress of a running (or the last) core update — polled by the admin UI. */
+router.get("/status", requireRole("administrator"), (_req, res) => {
+  res.json(readUpdateStatus());
+});
+
+function handleStartError(res: Response, err: unknown): void {
+  if (err instanceof UpdateInProgressError) {
+    res.status(409).json({ error: "A core update is already running", status: readUpdateStatus() });
+    return;
+  }
+  res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+}
+
 router.post("/upload", requireRole("administrator"), upload.single("file"), async (req, res) => {
   const file = req.file;
   if (!file) {
@@ -105,21 +105,32 @@ router.post("/upload", requireRole("administrator"), upload.single("file"), asyn
     target: file.originalname,
     detail: `${Math.round(file.size / 1024 / 1024)}MB`,
   });
-  const result = await applyCoreUpdate(file.buffer, file.originalname, {
-    signature:
-      typeof req.body?.signature === "string"
-        ? req.body.signature
-        : typeof req.headers["x-justflows-update-signature"] === "string"
-          ? req.headers["x-justflows-update-signature"]
-          : undefined,
-  });
-  await emitCoreUpdated(result, "upload", req.session!.siteId);
-  res.json(result);
+
+  try {
+    const { mode, status, result } = await startCoreUpdate({
+      source: "upload",
+      siteId: req.session!.siteId,
+      filename: file.originalname,
+      buffer: file.buffer,
+      signature:
+        typeof req.body?.signature === "string"
+          ? req.body.signature
+          : typeof req.headers["x-justflows-update-signature"] === "string"
+            ? req.headers["x-justflows-update-signature"]
+            : undefined,
+    });
+    if (mode === "background") {
+      res.status(202).json({ started: true, background: true, status });
+      return;
+    }
+    res.status(result?.ok ? 200 : 500).json({ ...result, background: false, status });
+  } catch (err) {
+    handleStartError(res, err);
+  }
 });
 
 /** Download + verify + install the latest published release (the "Update" button). */
 router.post("/remote", requireRole("administrator"), async (req, res) => {
-  const version = getJustflowsVersion();
   let update: Awaited<ReturnType<typeof getAvailableCoreUpdate>>;
   try {
     update = await getAvailableCoreUpdate({ force: true });
@@ -145,9 +156,24 @@ router.post("/remote", requireRole("administrator"), async (req, res) => {
     detail: `remote ${update.currentVersion} -> ${update.availableVersion}`,
   });
 
-  const result = await applyCoreUpdateFromRelease(update);
-  await emitCoreUpdated(result, "remote", req.session!.siteId);
-  res.status(result.ok ? 200 : 500).json(result);
+  try {
+    const { mode, status, result } = await startCoreUpdate({
+      source: "remote",
+      siteId: req.session!.siteId,
+      release: {
+        availableVersion: update.availableVersion,
+        downloadUrl: update.downloadUrl,
+        sha256Url: update.sha256Url,
+      },
+    });
+    if (mode === "background") {
+      res.status(202).json({ started: true, background: true, status });
+      return;
+    }
+    res.status(result?.ok ? 200 : 500).json({ ...result, background: false, status });
+  } catch (err) {
+    handleStartError(res, err);
+  }
 });
 
 router.get("/settings", requireRole("administrator"), async (_req, res) => {
