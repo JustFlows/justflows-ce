@@ -152,11 +152,26 @@ export function assertExportOrigin(raw: string): string {
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error(`crawl origin must use http(s): ${raw}`);
   }
-  // `URL` keeps IPv6 hosts bracketed (`[::1]`); accept both spellings.
-  const host = url.hostname.toLowerCase();
-  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]") {
-    return `${url.protocol}//${url.host}`;
-  }
+
+  // Reassemble the origin from values that do NOT carry `raw` forward: a scheme
+  // literal, an allow-listed host literal, and a numerically-parsed port. What
+  // the crawler fetches is therefore fully decoupled from the caller's string
+  // (SSRF / DoS hardening).
+  const scheme = url.protocol === "https:" ? "https" : "http";
+  const portNum = Number(url.port);
+  const port = Number.isInteger(portNum) && portNum > 0 && portNum <= 65535 ? `:${portNum}` : "";
+
+  // `URL` keeps IPv6 hosts bracketed (`[::1]`); accept both spellings. Values
+  // are literals, so nothing from `raw` reaches the return.
+  const LOOPBACK: Record<string, string> = {
+    localhost: "localhost",
+    "127.0.0.1": "127.0.0.1",
+    "::1": "[::1]",
+    "[::1]": "[::1]",
+  };
+  const loopbackHost = LOOPBACK[url.hostname.toLowerCase()];
+  if (loopbackHost) return `${scheme}://${loopbackHost}${port}`;
+
   for (const entry of configuredCrawlOrigins()) {
     let configured: URL;
     try {
@@ -165,8 +180,12 @@ export function assertExportOrigin(raw: string): string {
       continue;
     }
     if (configured.protocol === url.protocol && configured.host === url.host) {
-      // Echo back the configured origin, never the caller-supplied string.
-      return `${configured.protocol}//${configured.host}`;
+      // Return the operator-configured origin, built from its own (env) parts.
+      const cScheme = configured.protocol === "https:" ? "https" : "http";
+      const cPortNum = Number(configured.port);
+      const cPort =
+        Number.isInteger(cPortNum) && cPortNum > 0 && cPortNum <= 65535 ? `:${cPortNum}` : "";
+      return `${cScheme}://${configured.hostname}${cPort}`;
     }
   }
   throw new Error(`crawl origin ${raw} is not loopback or an origin configured for this site`);

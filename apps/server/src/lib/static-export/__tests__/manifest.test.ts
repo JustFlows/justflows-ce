@@ -104,15 +104,24 @@ describe("sanitizeManifest", () => {
     expect(sanitizeManifest(m)).toEqual(m);
   });
 
-  it("strips control characters and clamps oversized strings", () => {
+  it("strips control chars / backslashes and clamps the free-form fields", () => {
     const m = base();
-    m.routes[0]!.path = "/a\r\nSet-Cookie: x=1";
+    m.routes[0]!.path = "/a\r\nSet-Cookie: x=1"; // header-splitting attempt
+    m.routes[0]!.file = "a\\b\x00c";
     m.routes[0]!.contentType = `text/html${"x".repeat(9999)}`;
+    const out = sanitizeManifest(m);
+    expect(out.routes[0]!.path).toBe("/aSet-Cookie: x=1"); // CR + LF gone, space kept
+    expect(out.routes[0]!.file).toBe("abc"); // backslash + NUL gone
+    expect(out.routes[0]!.contentType.length).toBeLessThanOrEqual(255);
+  });
+
+  it("drops a strict field that fails its whitelist for a safe constant", () => {
+    const m = base();
+    m.routes[0]!.cacheControl = "attacker\ninjected: header";
     m.publicUrl = `https://e.com/${"/".repeat(9000)}`;
     const out = sanitizeManifest(m);
-    expect(out.routes[0]!.path).toBe("/aSet-Cookie: x=1");
-    expect(out.routes[0]!.contentType.length).toBeLessThanOrEqual(255);
-    expect(out.publicUrl.length).toBeLessThanOrEqual(2048);
+    expect(out.routes[0]!.cacheControl).toBe("public, max-age=60");
+    expect(out.publicUrl).toBe("");
   });
 
   it("coerces numbers, a bad sha256, an unknown mode, and a bogus locale", () => {

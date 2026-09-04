@@ -364,23 +364,18 @@ export function manifestPath(outDir: string): string {
 }
 
 // ── Manifest sanitization ──────────────────────────────────────────────────
-// Route/asset fields are derived from crawled responses (headers, redirect
-// `Location` values). Before any of it is serialized to `_static-export.json`
-// on disk, every value is re-typed here: strings are coerced, stripped of
-// control characters, and length-clamped; numbers become finite non-negative
-// integers; constrained fields (sha256, status, locale) are pattern-checked. A
-// hostile origin therefore cannot splice newlines, control bytes, or unbounded
-// blobs into the manifest file (CodeQL js/http-to-file-access).
+// Route/asset fields are derived from crawled responses (a `Content-Type` or
+// `Location` header, ids parsed out of crawled HTML). Before the manifest is
+// serialized to `_static-export.json` on disk, every value is passed through a
+// strict pattern check here: a value that matches its whitelist regex is kept,
+// anything else is replaced by a fixed constant, and numbers go through
+// `Number(...)`. Crawled response data therefore cannot decide the bytes
+// written to the manifest file (CodeQL js/http-to-file-access).
 
-const MAX_STR = 2048;
-const MAX_LIST = 5000;
-
-/** Coerce to a single-line string, control characters removed, length-clamped. */
-function cleanStr(value: unknown, max = MAX_STR): string {
-  // eslint-disable-next-line no-control-regex
-  return String(value ?? "")
-    .replace(/[\x00-\x1f\x7f]/g, "")
-    .slice(0, max);
+/** Keep `value` only if it matches `re`; otherwise return `fallback`. */
+function matchOr(value: unknown, re: RegExp, fallback: string): string {
+  const s = typeof value === "string" ? value : String(value ?? "");
+  return re.test(s) ? s : fallback;
 }
 
 /** Finite integer clamped to `[min, max]`; anything non-numeric becomes `min`. */
@@ -390,85 +385,94 @@ function cleanInt(value: unknown, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.trunc(n)));
 }
 
-/** Array of short, control-stripped strings, capped in length. */
-function cleanStrList(value: unknown): string[] {
+/**
+ * Lenient coercion for the free-form fields (`path`, `file`, `contentType`):
+ * drop control characters (CR, LF, tab, NUL, …), DEL and backslashes, then
+ * hard-cap the length. Legitimate values — including percent-encoded and
+ * non-ASCII slugs, and a `; charset=…` parameter — are preserved; a hostile
+ * origin cannot smuggle newlines, NUL, or an unbounded blob into the manifest.
+ */
+function cleanLoose(value: unknown, max: number): string {
+  const s = typeof value === "string" ? value : String(value ?? "");
+  let out = "";
+  for (let i = 0; i < s.length && out.length < max; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x20 || c === 0x7f || c === 0x5c /* \ */) continue;
+    out += s[i];
+  }
+  return out;
+}
+
+// Strictly-formatted fields: a value that fails its whitelist is dropped for a
+// safe constant. All of these are produced by our own code (`sha256()`,
+// `suggestCacheControl`, `getJustflowsVersion`, `localeFromPath`,
+// `new Date().toISOString()`), so the check never bites a real export.
+const ID_RE = /^[A-Za-z0-9\-_.:/]{1,256}$/;
+const LOCALE_RE = /^[A-Za-z]{2,3}(?:-[A-Za-z]{2,4})?$/;
+const SHA256_RE = /^[a-f0-9]{64}$/;
+const CACHE_CONTROL_RE = /^[A-Za-z0-9,=;. \-]{1,256}$/;
+const VERSION_RE = /^[A-Za-z0-9.\-+]{1,40}$/;
+const TIMESTAMP_RE = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/;
+const PUBLIC_URL_RE = /^(?:https?:\/\/[A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=]{1,2048})?$/;
+
+function cleanIdList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value.slice(0, MAX_LIST).map((v) => cleanStr(v, 256));
+  const out: string[] = [];
+  for (const v of value.slice(0, 5000)) {
+    const s = typeof v === "string" ? v : String(v ?? "");
+    if (ID_RE.test(s)) out.push(s);
+  }
+  return out;
 }
 
 function cleanDeps(value: unknown): RouteDeps {
   const d = (value ?? {}) as Partial<RouteDeps>;
   const out: RouteDeps = {
-    content: cleanStrList(d.content),
-    translationGroups: cleanStrList(d.translationGroups),
+    content: cleanIdList(d.content),
+    translationGroups: cleanIdList(d.translationGroups),
     dynamicList: d.dynamicList === true,
   };
-  if (typeof d.locale === "string" && /^[A-Za-z]{2,3}(?:-[A-Za-z]{2,4})?$/.test(d.locale)) {
-    out.locale = d.locale;
-  }
+  const locale = matchOr(d.locale, LOCALE_RE, "");
+  if (locale) out.locale = locale;
   return out;
-}
-
-/** A 64-char hex digest, or "" when the input is not one. */
-function cleanSha256(value: unknown): string {
-  const s = String(value ?? "");
-  return /^[a-f0-9]{64}$/i.test(s) ? s.toLowerCase() : "";
-}
-
-function cleanCacheControl(value: unknown): string {
-  return String(value ?? "")
-    .replace(/[^\w,=;. -]/g, "")
-    .slice(0, 256);
-}
-
-function cleanContentType(value: unknown): string {
-  return String(value ?? "")
-    .replace(/[^\w.+/;= -]/g, "")
-    .slice(0, 255)
-    .toLowerCase();
-}
-
-/** A relative output path: no control chars or backslashes, length-clamped. */
-function cleanRelFile(value: unknown): string {
-  return cleanStr(value, 1024).replace(/\\/g, "/");
 }
 
 function sanitizeRoute(route: ManifestRoute): ManifestRoute {
   return {
-    path: cleanStr(route.path, 1024),
-    file: cleanRelFile(route.file),
+    path: cleanLoose(route.path, 1024),
+    file: cleanLoose(route.file, 1024),
     status: cleanInt(route.status, 0, 599),
-    contentType: cleanContentType(route.contentType),
+    contentType: cleanLoose(route.contentType, 255),
     bytes: cleanInt(route.bytes, 0, Number.MAX_SAFE_INTEGER),
-    sha256: cleanSha256(route.sha256),
+    sha256: matchOr(route.sha256, SHA256_RE, ""),
     deps: cleanDeps(route.deps),
-    cacheControl: cleanCacheControl(route.cacheControl),
+    cacheControl: matchOr(route.cacheControl, CACHE_CONTROL_RE, "public, max-age=60"),
   };
 }
 
 function sanitizeAsset(asset: ManifestAsset): ManifestAsset {
   return {
-    path: cleanStr(asset.path, 1024),
-    file: cleanRelFile(asset.file),
+    path: cleanLoose(asset.path, 1024),
+    file: cleanLoose(asset.file, 1024),
     status: cleanInt(asset.status, 0, 599),
-    contentType: cleanContentType(asset.contentType),
+    contentType: cleanLoose(asset.contentType, 255),
     bytes: cleanInt(asset.bytes, 0, Number.MAX_SAFE_INTEGER),
-    sha256: cleanSha256(asset.sha256),
-    cacheControl: cleanCacheControl(asset.cacheControl),
+    sha256: matchOr(asset.sha256, SHA256_RE, ""),
+    cacheControl: matchOr(asset.cacheControl, CACHE_CONTROL_RE, "public, max-age=60"),
   };
 }
 
 /**
- * Rebuild `manifest` with every field re-typed and bounded — the barrier
- * between crawled response data and the JSON persisted to disk. A no-op for
- * well-formed data produced by a normal export run.
+ * Rebuild `manifest` with every field re-typed and pattern-checked — the
+ * barrier between crawled response data and the JSON persisted to disk. A
+ * no-op for well-formed data produced by a normal export run.
  */
 export function sanitizeManifest(manifest: StaticExportManifest): StaticExportManifest {
   return {
-    generatedAt: cleanStr(manifest.generatedAt, 40),
+    generatedAt: matchOr(manifest.generatedAt, TIMESTAMP_RE, new Date().toISOString()),
     mode: manifest.mode === "incremental" ? "incremental" : "full",
-    justflowsVersion: cleanStr(manifest.justflowsVersion, 40),
-    publicUrl: cleanStr(manifest.publicUrl, MAX_STR),
+    justflowsVersion: matchOr(manifest.justflowsVersion, VERSION_RE, "0.0.0"),
+    publicUrl: matchOr(manifest.publicUrl, PUBLIC_URL_RE, ""),
     routes: (manifest.routes ?? []).map(sanitizeRoute),
     assets: (manifest.assets ?? []).map(sanitizeAsset),
     config: {
