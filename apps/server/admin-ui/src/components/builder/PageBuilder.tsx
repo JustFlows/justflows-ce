@@ -5,13 +5,22 @@ import BlockInspector from "./BlockInspector";
 import { PageCanvas } from "./BlockCanvas";
 import { BuilderDragProvider } from "./DragContext";
 import { createBlock } from "./block-defaults";
-import { findBlockPath, getBlockAtPath, insertBlock, reassignBlockIds, cloneBlocks, updateBlockProps, updateBlockTree } from "./block-tree";
+import {
+  findBlockPath,
+  getBlockAtPath,
+  insertBlock,
+  reassignBlockIds,
+  cloneBlocks,
+  updateBlockProps,
+  updateBlockTree,
+} from "./block-tree";
 import { getChildCount, getParentType, libraryTargetParent, HEADER_SLOT_PARENT_TYPE } from "./dnd";
 import HeaderChrome, { HeaderInspector, previewNavLabels, type HeaderMenu } from "./HeaderChrome";
 import PageJsonPanel from "./PageJsonPanel";
 import { GRID_BLOCK_TYPE, gridColumns } from "./grid";
 import { useBuilderHistory } from "./useBuilderHistory";
 import { useReusableBlocks } from "./ReusablePanel";
+import { mergePatternBlocks } from "./pattern-insert";
 import {
   DEFAULT_PAGE_HEADER,
   HEADER_SELECTED_ID,
@@ -91,14 +100,20 @@ export default function PageBuilder({
     useCallback((restored: BlockNode[]) => onChange({ version: 1, blocks: restored }), [onChange]),
   );
 
-  const emit = useCallback((nextBlocks: BlockNode[]) => {
-    history.record(nextBlocks);
-    onChange({ version: 1, blocks: nextBlocks });
-  }, [history, onChange]);
+  const emit = useCallback(
+    (nextBlocks: BlockNode[]) => {
+      history.record(nextBlocks);
+      onChange({ version: 1, blocks: nextBlocks });
+    },
+    [history, onChange],
+  );
 
-  const emitHeaderBlocks = useCallback((nextBlocks: BlockNode[]) => {
-    onHeaderChange?.({ ...pageHeader, blocks: nextBlocks });
-  }, [onHeaderChange, pageHeader]);
+  const emitHeaderBlocks = useCallback(
+    (nextBlocks: BlockNode[]) => {
+      onHeaderChange?.({ ...pageHeader, blocks: nextBlocks });
+    },
+    [onHeaderChange, pageHeader],
+  );
 
   const selectedInHeader = Boolean(
     selectedId && selectedId !== HEADER_SELECTED_ID && findBlockPath(headerBlocks, selectedId),
@@ -135,68 +150,111 @@ export default function PageBuilder({
     return getParentType(blocks, libraryTargetParent(blocks, selectedId, catalogMap));
   }, [blocks, headerBlocks, selectedId, selectedInHeader, catalogMap]);
 
-  const addFromLibrary = useCallback((type: string) => {
-    const inHeader = selectedId === HEADER_SELECTED_ID || selectedInHeader;
-    if (inHeader && onHeaderChange) {
-      const parentId = selectedId === HEADER_SELECTED_ID
-        ? null
-        : libraryTargetParent(headerBlocks, selectedId, catalogMap);
-      const index = getChildCount(headerBlocks, parentId);
+  const addFromLibrary = useCallback(
+    (type: string) => {
+      const inHeader = selectedId === HEADER_SELECTED_ID || selectedInHeader;
+      if (inHeader && onHeaderChange) {
+        const parentId =
+          selectedId === HEADER_SELECTED_ID
+            ? null
+            : libraryTargetParent(headerBlocks, selectedId, catalogMap);
+        const index = getChildCount(headerBlocks, parentId);
+        const block = createBlock(type);
+        emitHeaderBlocks(insertBlock(headerBlocks, parentId, index, block));
+        setSelectedId(block.id);
+        return;
+      }
+      const parentId = libraryTargetParent(blocks, selectedId, catalogMap);
+      const index = getChildCount(blocks, parentId);
       const block = createBlock(type);
-      emitHeaderBlocks(insertBlock(headerBlocks, parentId, index, block));
+      emit(insertBlock(blocks, parentId, index, block));
       setSelectedId(block.id);
-      return;
-    }
-    const parentId = libraryTargetParent(blocks, selectedId, catalogMap);
-    const index = getChildCount(blocks, parentId);
-    const block = createBlock(type);
-    emit(insertBlock(blocks, parentId, index, block));
-    setSelectedId(block.id);
-  }, [blocks, headerBlocks, selectedId, selectedInHeader, catalogMap, emit, emitHeaderBlocks, onHeaderChange]);
+    },
+    [
+      blocks,
+      headerBlocks,
+      selectedId,
+      selectedInHeader,
+      catalogMap,
+      emit,
+      emitHeaderBlocks,
+      onHeaderChange,
+    ],
+  );
 
-  const importPattern = useCallback((patternBlocks: BlockNode[]) => {
-    const fresh = reassignBlockIds(cloneBlocks(patternBlocks));
-    const replace =
-      blocks.length === 0 ||
-      window.confirm("Replace all blocks with this pattern? Cancel to append instead.");
-    emit(replace ? fresh : [...blocks, ...fresh]);
-    if (fresh[0]) setSelectedId(fresh[0].id);
-  }, [blocks, emit]);
+  const importPattern = useCallback(
+    (patternBlocks: BlockNode[], syncedRef?: string, replaceCanvas = false) => {
+      const fresh: BlockNode[] = syncedRef
+        ? [
+            {
+              id: crypto.randomUUID(),
+              type: "core.reusable",
+              version: 1,
+              props: { ref: syncedRef },
+            },
+          ]
+        : reassignBlockIds(cloneBlocks(patternBlocks));
 
-  const handlePropsChange = useCallback((props: Record<string, unknown>) => {
-    if (!selectedId) return;
-    if (selectedInHeader) {
-      emitHeaderBlocks(updateBlockProps(headerBlocks, selectedId, props));
-      return;
-    }
-    emit(updateBlockProps(blocks, selectedId, props));
-  }, [blocks, headerBlocks, selectedId, selectedInHeader, emit, emitHeaderBlocks]);
+      if (
+        replaceCanvas &&
+        blocks.length > 0 &&
+        !window.confirm("Replace the current page with this full-page pattern?")
+      ) {
+        return;
+      }
 
-  const handleSyncBlock = useCallback((block: BlockNode) => {
-    if (!selectedId) return;
-    if (selectedInHeader) {
-      emitHeaderBlocks(updateBlockTree(headerBlocks, selectedId, () => block));
-      return;
-    }
-    emit(updateBlockTree(blocks, selectedId, () => block));
-  }, [blocks, headerBlocks, selectedId, selectedInHeader, emit, emitHeaderBlocks]);
+      emit(mergePatternBlocks(blocks, fresh, replaceCanvas));
+      if (fresh[0]) setSelectedId(fresh[0].id);
+    },
+    [blocks, emit],
+  );
+
+  const handlePropsChange = useCallback(
+    (props: Record<string, unknown>) => {
+      if (!selectedId) return;
+      if (selectedInHeader) {
+        emitHeaderBlocks(updateBlockProps(headerBlocks, selectedId, props));
+        return;
+      }
+      emit(updateBlockProps(blocks, selectedId, props));
+    },
+    [blocks, headerBlocks, selectedId, selectedInHeader, emit, emitHeaderBlocks],
+  );
+
+  const handleSyncBlock = useCallback(
+    (block: BlockNode) => {
+      if (!selectedId) return;
+      if (selectedInHeader) {
+        emitHeaderBlocks(updateBlockTree(headerBlocks, selectedId, () => block));
+        return;
+      }
+      emit(updateBlockTree(blocks, selectedId, () => block));
+    },
+    [blocks, headerBlocks, selectedId, selectedInHeader, emit, emitHeaderBlocks],
+  );
 
   /** Replace the page from the JSON panel: blocks, and header chrome when edited here. */
-  const applyPageJson = useCallback((next: { blocks: BlockNode[]; header?: PageHeaderConfig }) => {
-    emit(next.blocks);
-    if (next.header && onHeaderChange) onHeaderChange(next.header);
-  }, [emit, onHeaderChange]);
+  const applyPageJson = useCallback(
+    (next: { blocks: BlockNode[]; header?: PageHeaderConfig }) => {
+      emit(next.blocks);
+      if (next.header && onHeaderChange) onHeaderChange(next.header);
+    },
+    [emit, onHeaderChange],
+  );
 
   /** Swap the selected block for a reference to the saved copy of it. */
-  const convertToReusable = useCallback((ref: string) => {
-    if (!selectedId || !ref) return;
-    handleSyncBlock({
-      id: selectedId,
-      type: "core.reusable",
-      version: 1,
-      props: { ref },
-    });
-  }, [selectedId, handleSyncBlock]);
+  const convertToReusable = useCallback(
+    (ref: string) => {
+      if (!selectedId || !ref) return;
+      handleSyncBlock({
+        id: selectedId,
+        type: "core.reusable",
+        version: 1,
+        props: { ref },
+      });
+    },
+    [selectedId, handleSyncBlock],
+  );
 
   const navLabels = useMemo(
     () => previewNavLabels(pageHeader, menus, siteDefaultSlug),
@@ -224,7 +282,7 @@ export default function PageBuilder({
         ↪ Redo
       </button>
       <span className="jf-builder-toolbar__count">
-        {(headerOnly ? headerBlocks.length : blocks.length)}{" "}
+        {headerOnly ? headerBlocks.length : blocks.length}{" "}
         {(headerOnly ? headerBlocks.length : blocks.length) === 1 ? "block" : "blocks"}
       </span>
     </div>
@@ -258,68 +316,133 @@ export default function PageBuilder({
     </div>
   );
 
-  const inspector = (selectedId === HEADER_SELECTED_ID || (headerOnly && !selectedBlock)) && enableHeader && onHeaderChange ? (
-    <HeaderInspector
-      header={pageHeader}
-      menus={menus}
-      siteDefaultSlug={siteDefaultSlug}
-      onChange={onHeaderChange}
-      libraryMode={headerOnly}
-    />
-  ) : selectedBlock ? (
-    <BlockInspector
-      block={selectedBlock}
-      catalogEntry={catalogMap.get(selectedBlock.type)}
-      onChange={handlePropsChange}
-      onSyncBlock={handleSyncBlock}
-      parentType={selectedParent?.type ?? null}
-      parentColumns={selectedParent?.type === GRID_BLOCK_TYPE ? gridColumns(selectedParent) : 12}
-      reusable={reusable}
-      onReloadReusable={reloadReusable}
-      onConvertToReusable={convertToReusable}
-      enableProductTags={enableProductTags}
-    />
-  ) : (
-    <PageJsonPanel
-      blocks={blocks}
-      {...(enableHeader && onHeaderChange ? { header: pageHeader } : {})}
-      compact={compact}
-      onApply={applyPageJson}
-    />
-  );
+  const inspector =
+    (selectedId === HEADER_SELECTED_ID || (headerOnly && !selectedBlock)) &&
+    enableHeader &&
+    onHeaderChange ? (
+      <HeaderInspector
+        header={pageHeader}
+        menus={menus}
+        siteDefaultSlug={siteDefaultSlug}
+        onChange={onHeaderChange}
+        libraryMode={headerOnly}
+      />
+    ) : selectedBlock ? (
+      <BlockInspector
+        block={selectedBlock}
+        catalogEntry={catalogMap.get(selectedBlock.type)}
+        onChange={handlePropsChange}
+        onSyncBlock={handleSyncBlock}
+        parentType={selectedParent?.type ?? null}
+        parentColumns={selectedParent?.type === GRID_BLOCK_TYPE ? gridColumns(selectedParent) : 12}
+        reusable={reusable}
+        onReloadReusable={reloadReusable}
+        onConvertToReusable={convertToReusable}
+        enableProductTags={enableProductTags}
+      />
+    ) : (
+      <PageJsonPanel
+        blocks={blocks}
+        {...(enableHeader && onHeaderChange ? { header: pageHeader } : {})}
+        compact={compact}
+        onApply={applyPageJson}
+      />
+    );
 
   return (
     <ProductTagsContext.Provider value={mergeTags}>
-    <BuilderDragProvider
-      blocks={blocks}
-      headerBlocks={headerBlocks}
-      catalog={catalogMap}
-      onChange={emit}
-      onHeaderBlocksChange={enableHeader && onHeaderChange ? emitHeaderBlocks : undefined}
-      onSelect={setSelectedId}
-    >
-      {compact ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: "1rem", minHeight: 400 }}>
-          {canvas}
-          <aside style={{ background: "var(--jf-surface-2)", border: "1px solid var(--jf-border)", borderRadius: 8, padding: "1rem" }}>{inspector}</aside>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 280px", height: "100%", minHeight: 0, background: "var(--jf-surface-3)" }}>
-          <aside style={{ background: "#fff", borderRight: "1px solid var(--jf-border)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            <BlockLibrary catalog={catalog} onAdd={addFromLibrary} onImportPattern={importPattern} parentType={libraryParentType} isPage={isPage} headerOnly={headerOnly} />
-          </aside>
-          <main style={{ overflow: "auto", padding: "1.25rem" }} onClick={() => setSelectedId(null)}>
-            <div style={{ maxWidth: 900, margin: "0 auto" }} onClick={(e) => e.stopPropagation()}>
-              {toolbar}
-            </div>
-            <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,.06)", padding: "1rem", minHeight: "100%" }}>
-              {canvas}
-            </div>
-          </main>
-          <aside style={{ background: "#fff", borderLeft: "1px solid var(--jf-border)", overflow: "auto", padding: "1rem" }}>{inspector}</aside>
-        </div>
-      )}
-    </BuilderDragProvider>
+      <BuilderDragProvider
+        blocks={blocks}
+        headerBlocks={headerBlocks}
+        catalog={catalogMap}
+        onChange={emit}
+        onHeaderBlocksChange={enableHeader && onHeaderChange ? emitHeaderBlocks : undefined}
+        onSelect={setSelectedId}
+      >
+        {compact ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 260px",
+              gap: "1rem",
+              minHeight: 400,
+            }}
+          >
+            {canvas}
+            <aside
+              style={{
+                background: "var(--jf-surface-2)",
+                border: "1px solid var(--jf-border)",
+                borderRadius: 8,
+                padding: "1rem",
+              }}
+            >
+              {inspector}
+            </aside>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "220px 1fr 280px",
+              height: "100%",
+              minHeight: 0,
+              background: "var(--jf-surface-3)",
+            }}
+          >
+            <aside
+              style={{
+                background: "#fff",
+                borderRight: "1px solid var(--jf-border)",
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <BlockLibrary
+                catalog={catalog}
+                onAdd={addFromLibrary}
+                onImportPattern={importPattern}
+                currentBlocks={selectedBlock ? [selectedBlock] : blocks}
+                parentType={libraryParentType}
+                isPage={isPage}
+                headerOnly={headerOnly}
+              />
+            </aside>
+            <main
+              style={{ overflow: "auto", padding: "1.25rem" }}
+              onClick={() => setSelectedId(null)}
+            >
+              <div style={{ maxWidth: 900, margin: "0 auto" }} onClick={(e) => e.stopPropagation()}>
+                {toolbar}
+              </div>
+              <div
+                style={{
+                  maxWidth: 900,
+                  margin: "0 auto",
+                  background: "#fff",
+                  borderRadius: 12,
+                  boxShadow: "0 1px 3px rgba(0,0,0,.06)",
+                  padding: "1rem",
+                  minHeight: "100%",
+                }}
+              >
+                {canvas}
+              </div>
+            </main>
+            <aside
+              style={{
+                background: "#fff",
+                borderLeft: "1px solid var(--jf-border)",
+                overflow: "auto",
+                padding: "1rem",
+              }}
+            >
+              {inspector}
+            </aside>
+          </div>
+        )}
+      </BuilderDragProvider>
     </ProductTagsContext.Provider>
   );
 }

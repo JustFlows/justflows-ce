@@ -8,7 +8,7 @@ const ROUTES = [
   "/admin", "/admin/content",
   "/admin/content/new", "/admin/content/example", "/admin/content/example/builder",
   "/admin/content-types", "/admin/media", "/admin/plugins", "/admin/plugins/demo/settings",
-  "/admin/analytics", "/admin/forms", "/admin/themes", "/admin/themes/customize",
+  "/admin/analytics", "/admin/themes", "/admin/themes/customize",
   "/admin/design", "/admin/menus", "/admin/users", "/admin/settings", "/admin/comments",
   "/admin/marketplace", "/admin/tools", "/admin/health", "/admin/updates", "/admin/languages",
   "/admin/security", "/admin/security/headers", "/admin/security/advanced",

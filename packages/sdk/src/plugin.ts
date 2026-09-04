@@ -3,6 +3,7 @@ import { gplLicenseValidationMessage, isGplCompatibleLicense } from "./license.j
 import { RegistryListingSchema } from "./registry.js";
 import { ExtensionEnginesSchema } from "./compatibility.js";
 import type { PluginCookiesApi } from "./cookies.js";
+import type { BlockPattern } from "./patterns.js";
 import type { AccessPolicy, UserCapability, UserCapabilityDefinition } from "./capabilities.js";
 import type {
   ActionName,
@@ -40,6 +41,8 @@ export const PluginPermissionSchema = z.enum([
   "network:outbound",
   "admin:extend",
   "jobs:register",
+  "diagnostics:publish",
+  "mail:send",
   "mail:transport",
   "mail:templates",
   "mail:hook",
@@ -53,6 +56,7 @@ export const SENSITIVE_PERMISSIONS: PluginPermission[] = [
   "users:manage",
   "settings:manage",
   "auth:hook",
+  "mail:send",
   "mail:transport",
   "mail:templates",
   "mail:hook",
@@ -114,6 +118,85 @@ export const AdminMenuItemSchema = z.object({
 });
 
 export type PluginAdminMenuItem = z.infer<typeof AdminMenuItemSchema>;
+
+/** A plugin asset path: relative, no traversal, `.js`/`.mjs`/`.css` only. */
+const PluginAssetFileSchema = z
+  .string()
+  .min(1)
+  .max(160)
+  .regex(
+    /^[a-zA-Z0-9][a-zA-Z0-9._/-]*\.(js|mjs|css)$/,
+    "Asset must be a relative .js/.mjs/.css path",
+  )
+  .refine((value) => !value.split("/").includes(".."), "Asset path must not contain '..'");
+
+/**
+ * Client-side assets a plugin ships in its package. On activation the host
+ * serves `<dir>/**` at `/ext/<pluginId>/**` and auto-enqueues `scripts` /
+ * `styles` on every public page — no `ctx.http` route or `html.head` filter.
+ * The static exporter downloads them like any other same-origin asset.
+ */
+export const PluginAssetsSchema = z.object({
+  /** Package-relative folder holding the assets. Defaults to `public`. */
+  dir: z
+    .string()
+    .max(128)
+    .regex(
+      /^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/,
+      "Assets dir must be a relative folder path (e.g. 'public' or 'dist/public')",
+    )
+    .refine((v) => !v.split("/").includes(".."), "Assets dir must not contain '..'")
+    .optional(),
+  /** `.js` / `.mjs` files (relative to `dir`) added as `<script defer>`. */
+  scripts: z.array(PluginAssetFileSchema).max(20).optional(),
+  /** `.css` files (relative to `dir`) added as `<link rel="stylesheet">`. */
+  styles: z.array(PluginAssetFileSchema).max(20).optional(),
+});
+
+/** An HTML entry file for a plugin admin screen: relative, no traversal. */
+const PluginAdminEntrySchema = z
+  .string()
+  .min(1)
+  .max(160)
+  .regex(/^[a-zA-Z0-9][a-zA-Z0-9._/-]*\.html?$/, "Admin entry must be a relative .html file path")
+  .refine((value) => !value.split("/").includes(".."), "Admin entry must not contain '..'");
+
+const PluginAdminRouteSchema = z.object({
+  /** Admin path this screen mounts at, e.g. `/admin/forms`. */
+  path: z
+    .string()
+    .max(120)
+    .regex(/^\/admin\/[a-z0-9][a-z0-9\-/]*$/, "Admin route path must look like /admin/forms")
+    .refine((value) => !value.includes(".."), "Admin route path must not contain '..'"),
+  /** HTML file (relative to `dir`) the admin frame loads for this path. */
+  entry: PluginAdminEntrySchema,
+  /** Breadcrumb / frame title; falls back to the manifest name. */
+  title: z.string().min(1).max(100).optional(),
+});
+
+export type PluginAdminRoute = z.infer<typeof PluginAdminRouteSchema>;
+
+/**
+ * A self-contained admin app the plugin ships in its own package. The host
+ * serves `<dir>/**` at `/ext/<pluginId>/admin/**` and, for each declared
+ * route, mounts the `entry` HTML in a same-origin `<iframe>` inside the admin
+ * shell — the plugin owns the whole screen and its design, talks only to its
+ * own `ctx.http` routes, and reaches the host through `@justflows/admin-bridge`
+ * (`postMessage`), never a shared React runtime. Requires `admin:extend`.
+ */
+export const PluginAdminAppSchema = z.object({
+  /** Package-relative folder holding the admin build. Defaults to `admin`. */
+  dir: z
+    .string()
+    .max(128)
+    .regex(
+      /^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/,
+      "Admin dir must be a relative folder path (e.g. 'admin' or 'dist/admin')",
+    )
+    .refine((v) => !v.split("/").includes(".."), "Admin dir must not contain '..'")
+    .optional(),
+  routes: z.array(PluginAdminRouteSchema).min(1).max(20),
+});
 
 export const PluginManifestSchema = z
   .object({
@@ -193,6 +276,21 @@ export const PluginManifestSchema = z
       )
       .max(20)
       .optional(),
+    /**
+     * Client-side assets shipped inside the plugin package. On activation the
+     * host serves `<dir>/**` at `/ext/<pluginId>/**` and auto-enqueues the
+     * `scripts` / `styles` on every public page — no `ctx.http` route or
+     * `html.head` filter needed. The static exporter downloads them like any
+     * other same-origin asset. `scripts` / `styles` are paths **relative to
+     * `dir`**; both must be `.js`/`.mjs` or `.css` and contain no `..`.
+     */
+    assets: PluginAssetsSchema.optional(),
+    /**
+     * A self-contained admin app the plugin ships and the host mounts in a
+     * same-origin `<iframe>` for each declared route (see PluginAdminAppSchema).
+     * Requires `admin:extend`.
+     */
+    adminApp: PluginAdminAppSchema.optional(),
   })
   .superRefine((manifest, ctx) => {
     if (manifest.adminMenu?.length && !manifest.permissions.includes("admin:extend")) {
@@ -200,6 +298,13 @@ export const PluginManifestSchema = z
         code: "custom",
         path: ["adminMenu"],
         message: 'Contributing admin menu items requires the "admin:extend" permission',
+      });
+    }
+    if (manifest.adminApp && !manifest.permissions.includes("admin:extend")) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["adminApp"],
+        message: 'Shipping an admin app requires the "admin:extend" permission',
       });
     }
     if (manifest.setupPath && !manifest.permissions.includes("admin:extend")) {
@@ -298,6 +403,24 @@ export interface PluginHttpResponse {
   headers?: Record<string, string>;
   body?: string | Buffer | Record<string, unknown> | unknown[];
   type?: string;
+  /**
+   * Ask the host to run site-wide cache revalidation once this response is
+   * sent. Set it on a non-GET route that changed something public pages
+   * reflect — a setting the plugin injects via `html.head`, a block's stored
+   * config — so page caches drop and, when static-export auto-rebuild is on,
+   * the export regenerates. Ignored on GET and on a 4xx/5xx status.
+   */
+  revalidate?: boolean;
+  /**
+   * Let a statically-exported page (served from a different origin) read this
+   * response cross-origin. The host adds `Access-Control-Allow-Origin` for
+   * vouched-for origins only — `APP_URL`, `STATIC_EXPORT_BASE_URL`, anything in
+   * `STATIC_EXPORT_ALLOWED_ORIGINS`, plus any `localhost` port outside
+   * production — the same allow-list the Forms and Analytics endpoints use.
+   * Set it on a public read the runtime `fetch()`es (a config or disclosure
+   * route); a plain `<img>`/beacon GET needs nothing.
+   */
+  cors?: boolean;
 }
 
 export type PluginHttpHandler = (
@@ -346,13 +469,21 @@ export interface PluginMailTransportMessage {
   replyTo?: string;
   envelopeSender?: string;
 }
+export interface PluginMailMessage {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  replyTo?: string;
+}
+export type PluginMailResult = { ok: true; messageId?: string } | { ok: false; error: string };
 export interface PluginMailTransportApi {
+  /** Send through the host's configured transport. Requires `mail:send`. */
+  send(message: PluginMailMessage): Promise<PluginMailResult>;
   register(transport: {
     id: string;
     label: string;
-    send(
-      message: PluginMailTransportMessage,
-    ): Promise<{
+    send(message: PluginMailTransportMessage): Promise<{
       response: string;
       messageId?: string;
       status?: "sent" | "deferred" | "failed" | "bounced";
@@ -382,7 +513,10 @@ export interface PluginEmailTemplateDefinition {
   variables: PluginEmailVariableDefinition[];
   defaults: { subject: string; preheader: string; html: string; text: string };
   /** Optional built-in catalogs keyed by an active Justflows locale code. */
-  localizedDefaults?: Record<string, { subject: string; preheader: string; html: string; text: string }>;
+  localizedDefaults?: Record<
+    string,
+    { subject: string; preheader: string; html: string; text: string }
+  >;
 }
 
 export interface PluginDataRecord<T = unknown> {
@@ -432,6 +566,22 @@ export interface PluginBlockDefinition {
 
 export interface PluginBlocksApi {
   register(definition: PluginBlockDefinition): void;
+}
+
+/** Pattern contribution scoped to the registering plugin. */
+export type PluginPatternDefinition = Omit<
+  BlockPattern,
+  "schemaVersion" | "version" | "category" | "requiresBlockTypes"
+> & {
+  schemaVersion?: 1;
+  version?: string;
+  category?: string;
+  requiresBlockTypes?: string[];
+};
+
+export interface PluginPatternsApi {
+  /** Register an editable pattern. Validated immediately and removed on deactivate. */
+  register(pattern: PluginPatternDefinition): Unsubscribe;
 }
 
 /** Idempotent content-type and page helpers. Require `content:create` (and `content:publish` to publish). */
@@ -608,6 +758,23 @@ export interface PluginSecretsApi {
   delete(key: string): Promise<void>;
 }
 
+export type PluginDiagnosticStatus = "ok" | "warning" | "error";
+export interface PluginDiagnosticResult {
+  status: PluginDiagnosticStatus;
+  summary: string;
+  details?: Record<string, string | number | boolean | null>;
+}
+export interface PluginDiagnosticCheck {
+  id: string;
+  label: string;
+  run(): PluginDiagnosticResult | Promise<PluginDiagnosticResult>;
+}
+export interface PluginDiagnosticsApi {
+  /** Publish a sanitized, read-only health check. Requires `diagnostics:publish`. */ register(
+    check: PluginDiagnosticCheck,
+  ): Unsubscribe;
+}
+
 // ─── Plugin API surface ────────────────────────────────────────────────────
 
 /**
@@ -622,6 +789,7 @@ export interface PluginContext {
   readonly runtime: JustflowsRuntimeVersions;
   readonly permissions: ReadonlySet<PluginPermission>;
   readonly capabilities: PluginCapabilitiesApi;
+  readonly diagnostics: PluginDiagnosticsApi;
 
   /**
    * Shared jf-cache, scoped to this plugin. Always available; when caching is
@@ -698,7 +866,7 @@ export interface PluginContext {
    */
   jobs: PluginJobsApi;
 
-  /** Register outbound providers and namespaced email types. */
+  /** Send mail or register outbound providers and namespaced email types. */
   mail: PluginMailTransportApi;
 
   /** Plugin-scoped JSON documents. No raw SQL. */
@@ -723,6 +891,9 @@ export interface PluginContext {
 
   /** Register block types for the editor and public renderer. Removed on deactivate. */
   blocks: PluginBlocksApi;
+
+  /** Register sanitized block patterns for the editor. Removed on deactivate. */
+  patterns: PluginPatternsApi;
 
   /**
    * Create content types and pages the plugin needs. Requires `content:create`.

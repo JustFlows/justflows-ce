@@ -6,12 +6,14 @@ const settings = new Map<string, unknown>();
 const rows = new Map<string, { doc: unknown; draft: unknown }>();
 const clone = (v: unknown) => (v == null ? null : JSON.parse(JSON.stringify(v)));
 const rowKey = (theme: string, kind: string) => `${theme}::${kind}`;
+let scanSql = "";
 
 vi.mock("../db.js", () => ({
   getDb: async () => ({
     async query(sql: string) {
       if (/FROM site_settings/i.test(sql)) {
-        return [...settings.keys()].map((key) => ({ key }));
+        scanSql = sql;
+        return [...settings.keys()].map((setting_key) => ({ setting_key }));
       }
       return [];
     },
@@ -46,6 +48,7 @@ const SITE = "site-1";
 beforeEach(() => {
   settings.clear();
   rows.clear();
+  scanSql = "";
 });
 
 describe("migrateThemeDesignsFromSettings", () => {
@@ -88,6 +91,13 @@ describe("migrateThemeDesignsFromSettings", () => {
     await migrateThemeDesignsFromSettings(SITE);
     expect(rows.size).toBe(0);
     expect(settings.has("favicon_url")).toBe(true);
+  });
+
+  it("uses a non-reserved result alias for MySQL and MariaDB", async () => {
+    settings.set("theme_home.justflows.default", { version: 1, blocks: [] });
+    await migrateThemeDesignsFromSettings(SITE);
+    expect(scanSql).toContain("SELECT `key` AS setting_key");
+    expect(scanSql).not.toContain(" AS key ");
   });
 
   it("does not overwrite a design already in the table, but still cleans stale settings", async () => {

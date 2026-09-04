@@ -1,6 +1,6 @@
 {
   "name": "justflows",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": false,
   "description": "The open-source platform for building the web",
   "license": "MIT",
@@ -34,6 +34,7 @@
     "install:production": "node scripts/install-all.js",
     "build:server": "node scripts/install-all.js --build-only",
     "make-zip": "bash scripts/make-zip.sh",
+    "export:static": "node scripts/export-static.js",
     "sdk:api:check": "node scripts/check-sdk-api.mjs",
     "sdk:api:update": "node scripts/check-sdk-api.mjs --update"
   },

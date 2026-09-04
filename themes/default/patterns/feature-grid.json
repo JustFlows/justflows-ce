@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "feature-grid",
+  "title": "Feature grid",
+  "description": "Three concise benefits in a responsive grid.",
+  "category": "features",
+  "version": "1.0.0",
+  "requiresBlockTypes": [],
+  "blocks": [
+    {
+      "id": "pattern-features",
+      "type": "core.features",
+      "version": 1,
+      "props": {
+        "heading": "Why people choose us",
+        "columns": 3,
+        "items": [
+          {
+            "icon": "✓",
+            "title": "Easy to use",
+            "description": "A short, specific benefit your visitors can understand."
+          },
+          {
+            "icon": "↗",
+            "title": "Built to grow",
+            "description": "Explain how this benefit helps as their needs change."
+          },
+          {
+            "icon": "●",
+            "title": "Reliable support",
+            "description": "Set a clear expectation for the help you provide."
+          }
+        ]
+      }
+    }
+  ]
+}

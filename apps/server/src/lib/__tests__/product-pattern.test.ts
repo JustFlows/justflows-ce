@@ -48,7 +48,9 @@ describe("product page pattern", () => {
       expect(storefront?.id).toBe("ecommerce-storefront");
       expect(storefront?.title).toMatch(/ecommerce storefront/i);
       expect(storefront?.blocks.length).toBeGreaterThan(3);
-      expect(listThemePatterns("justflows.default").find((p) => p.id === "ecommerce-storefront")).toEqual(
+      expect(
+        listThemePatterns("justflows.default").find((p) => p.id === "ecommerce-storefront"),
+      ).toEqual(
         expect.objectContaining({
           title: "Ecommerce storefront",
           requiresBlockTypes: ["justflows.shop.related", "justflows.shop.product-list"],
@@ -64,10 +66,27 @@ describe("product page pattern", () => {
       expect(json).toContain("home-page-03-hero-image-tile-01.jpg");
       expect(json).toContain("Our Favorites");
       expect(json).toContain("Shop by Category");
-      const sanitized = JSON.stringify(sanitizeBlockDocument({ version: 1, blocks: storefront?.blocks ?? [] }));
+      const sanitized = JSON.stringify(
+        sanitizeBlockDocument({ version: 1, blocks: storefront?.blocks ?? [] }),
+      );
       expect(sanitized).toContain("jf-storefront-tiles");
       expect(sanitized).toContain("home-page-03-hero-image-tile-01.jpg");
       expect(sanitized).toContain("home-page-03-favorite-01.jpg");
+    } finally {
+      if (previous === undefined) delete process.env.JF_ROOT;
+      else process.env.JF_ROOT = previous;
+    }
+  });
+
+  it("ships the accessible starter section set through the theme registry", () => {
+    const previous = process.env.JF_ROOT;
+    process.env.JF_ROOT = repoRoot;
+    try {
+      const ids = listThemePatterns("justflows.default").map((pattern) => pattern.id);
+      for (const id of ["hero", "feature-grid", "pricing", "testimonial", "cta", "faq"]) {
+        expect(ids).toContain(id);
+        expect(loadThemePattern("justflows.default", id)?.blocks.length).toBeGreaterThan(0);
+      }
     } finally {
       if (previous === undefined) delete process.env.JF_ROOT;
       else process.env.JF_ROOT = previous;

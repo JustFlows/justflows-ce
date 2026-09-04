@@ -65,6 +65,8 @@ export type {
   CacheObjectType,
   CacheRevalidateTrigger,
   CacheRevalidatedEvent,
+  StaticExportCompletedEvent,
+  StaticExportDeployEvent,
   EmailDeliveryContext,
   EmailBeforeSendEvent,
   EmailDeliveryEvent,
@@ -74,6 +76,8 @@ export type {
 // Plugin — manifest, permissions, context
 export {
   PluginManifestSchema,
+  PluginAssetsSchema,
+  PluginAdminAppSchema,
   PluginPermissionSchema,
   SENSITIVE_PERMISSIONS,
   AdminMenuItemSchema,
@@ -94,6 +98,7 @@ export type { RegistryListing, RegistryPrice } from "./registry.js";
 export type {
   PluginManifest,
   PluginAdminMenuItem,
+  PluginAdminRoute,
   AdminMenuDomain,
   PluginPermission,
   PluginContext,
@@ -108,6 +113,8 @@ export type {
   PluginHttpHandler,
   PluginJobsApi,
   PluginMailTransportApi,
+  PluginMailMessage,
+  PluginMailResult,
   PluginMailTransportMessage,
   PluginEmailVariableDefinition,
   PluginEmailTemplateDefinition,
@@ -126,8 +133,14 @@ export type {
   PluginSchemaApplyResult,
   PluginColumnType,
   PluginSecretsApi,
+  PluginDiagnosticsApi,
+  PluginDiagnosticCheck,
+  PluginDiagnosticResult,
+  PluginDiagnosticStatus,
   PluginBlocksApi,
   PluginBlockDefinition,
+  PluginPatternsApi,
+  PluginPatternDefinition,
   PluginContentApi,
   PluginContentField,
   PluginContentEnsureResult,
@@ -187,3 +200,21 @@ export type {
   ThemeTemplatesManifest,
   TemplateDoc,
 } from "./templates.js";
+
+// Patterns — portable, validated editor compositions
+export {
+  PATTERN_FORMAT_VERSION,
+  PATTERN_SLUG_RE,
+  BLOCK_TYPE_RE,
+  PatternBlockSchema,
+  PatternLocaleSchema,
+  BlockPatternSchema,
+  PatternSetSchema,
+  ThemePatternRegistrationSchema,
+} from "./patterns.js";
+export type {
+  PatternBlock,
+  BlockPattern,
+  PatternSet,
+  ThemePatternRegistration,
+} from "./patterns.js";
