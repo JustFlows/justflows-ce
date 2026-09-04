@@ -64,10 +64,52 @@ grid (`justflows.shop.product-list`) for shop and category pages. **Ecommerce st
 is a homepage (`patterns/ecommerce-storefront.json`) with a hero image-tile collage,
 category mosaic, story banner, favorites, and sale strip.
 
-A pattern is `{ id, title, description?, category?, requiresBlockTypes?, blocks }`.
+A pattern is a portable, versioned JSON document:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "hero",
+  "title": "Hero",
+  "category": "hero",
+  "version": "1.0.0",
+  "requiresBlockTypes": [],
+  "blocks": [
+    {
+      "id": "hero-1",
+      "type": "core.hero",
+      "version": 1,
+      "props": { "heading": "Hello", "subheading": "", "buttonLabel": "" }
+    }
+  ]
+}
+```
+
+Register each file in `justflows-theme.json` as `"hero":
+"./patterns/hero.json"`. Packaged themes are checked with the public
+`BlockPatternSchema` and `ThemePatternRegistrationSchema` exports from
+`@justflows/sdk`; unregistered, malformed, path-traversing, or mismatched-id
+files are not exposed. Older themes without a `patterns` manifest key retain
+directory discovery for compatibility.
+
 Set `requiresBlockTypes` to the plugin block types a pattern uses (e.g.
 `["justflows.forms.form"]`); the Patterns panel shows an install notice
-instead of importing silently when one isn't in the active block catalog.
+instead of importing silently when one isn't in the active block catalog. The
+schema also verifies that every non-core block used anywhere in the tree is
+declared. Optional `locales` entries can override `title`, `description`, and
+`blocks` for a BCP-47 locale; exact locale matches fall back to their base
+language and then the default content.
+
+Pattern JSON is data, never executable markup. Every source is schema-checked
+and its blocks pass through the platform block sanitizer before preview or
+insertion. The optional hosted directory is loaded only when an author asks for
+it and is size- and time-bounded.
+
+Plugins can also register runtime patterns with `ctx.patterns.register()`; see
+[Plugins](PLUGINS.md#register-editor-patterns). Plugin registrations use the
+same schema, localization, required-block checks, sanitation, categories, and
+insertion behavior as theme patterns, and disappear automatically when their
+plugin deactivates.
 
 Platform block-animation CSS is appended to `/theme.css`, so every theme gets
 entrance, hover, and press effects from the page builder. Public pages also load

@@ -1,0 +1,30 @@
+{
+  "name": "@justflows/admin-bridge",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Justflows admin bridge — the tiny postMessage client a plugin's admin app uses to talk to the admin shell",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist coverage"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  },
+  "license": "MIT"
+}

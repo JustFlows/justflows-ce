@@ -10,13 +10,15 @@ exposes. Sensitive permissions are called out in Admin:
 - `network:outbound`
 - `users:manage`
 - `settings:manage`
+- `mail:send` — send through the host-configured outbound email transport
 - `mail:transport` — register an outbound email provider transport
 - `mail:templates` — register namespaced system-email definitions and preview fixtures
 - `auth:hook`
 
 The full enum is `PluginPermissionSchema` in `packages/sdk/src/plugin.ts`:
 content/media/users/settings CRUD, `admin:extend`, `jobs:register`,
-`auth:hook`, `network:outbound`, `mail:transport`, `mail:templates`.
+`diagnostics:publish`,
+`auth:hook`, `network:outbound`, `mail:send`, `mail:transport`, `mail:templates`.
 
 `content:create` is required for `ctx.content.ensureType` and `ensurePage`.
 Publishing a page also requires `content:publish`. Deleting a type and its

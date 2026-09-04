@@ -86,3 +86,20 @@ and return provider response identifiers without secrets.
 
 SPF, DKIM, and DMARC are DNS/provider controls. Justflows surfaces guidance but
 does not enforce or alter DNS records.
+
+## Sending from plugins
+
+A plugin declaring the sensitive `mail:send` permission can send through the
+host-configured transport without access to SMTP or provider credentials:
+
+```ts
+const result = await ctx.mail.send({
+  to: "recipient@example.com",
+  subject: "New submission",
+  text: "A form was submitted.",
+  replyTo: "visitor@example.com",
+});
+```
+
+Plugin messages use the host delivery log, rate limits, retries, suppression
+checks, and email hooks. Their delivery type is namespaced to the plugin id.

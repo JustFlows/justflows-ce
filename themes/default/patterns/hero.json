@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "hero",
+  "title": "Hero",
+  "description": "A focused introduction with one clear action.",
+  "category": "hero",
+  "version": "1.0.0",
+  "requiresBlockTypes": [],
+  "blocks": [
+    {
+      "id": "pattern-hero",
+      "type": "core.hero",
+      "version": 1,
+      "props": {
+        "heading": "A clear promise for your visitors",
+        "subheading": "Explain the value in one sentence, then give people an obvious next step.",
+        "buttonLabel": "Get started",
+        "buttonUrl": "/contact",
+        "backgroundImage": "",
+        "align": "center"
+      }
+    }
+  ]
+}

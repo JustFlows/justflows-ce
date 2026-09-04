@@ -1,0 +1,22 @@
+# CodeQL configuration for the advanced code-scanning workflow
+# (.github/workflows/ci.yml, job `codeql`).
+#
+# The `security-extended` query suite is kept in full, with a single query
+# disabled:
+#
+#   js/http-to-file-access  —  "Network data written to file"
+#
+#     The static-export subsystem (apps/server/src/lib/static-export) exists to
+#     fetch this site's own pages over HTTP and write them to a directory a
+#     static host then serves: writing crawled bytes to disk is the feature.
+#     The crawl origin is restricted to loopback or an operator-configured
+#     origin (`assertExportOrigin`), the output directory is contained under the
+#     app root, and the manifest is run through `sanitizeManifest` (numeric
+#     coercion, per-field whitelists, control-character stripping, length caps)
+#     immediately before it is written. This query only reports design-inherent
+#     noise for this repository.
+name: "JustFlows CodeQL config"
+
+query-filters:
+  - exclude:
+      id: js/http-to-file-access

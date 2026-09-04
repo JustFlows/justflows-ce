@@ -115,14 +115,6 @@ const FIRST_PARTY_SETTINGS_SCHEMA: Record<string, NonNullable<PluginDto["setting
       default: true,
     },
   },
-  "justflows.forms": {
-    notifyEmail: {
-      type: "string",
-      label: "Notification email",
-      description: "Where to send new submissions. Leave blank to use the administration email address from Settings.",
-      default: "",
-    },
-  },
 };
 
 function nonemptySettingsSchema(value: unknown): PluginDto["settingsSchema"] {

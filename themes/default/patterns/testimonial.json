@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "testimonial",
+  "title": "Testimonial",
+  "description": "A prominent customer quote with attribution.",
+  "category": "testimonials",
+  "version": "1.0.0",
+  "requiresBlockTypes": [],
+  "blocks": [
+    {
+      "id": "testimonial-section",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "muted", "padding": "lg", "align": "center" },
+      "children": [
+        {
+          "id": "testimonial-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "default" },
+          "children": [
+            {
+              "id": "testimonial-quote",
+              "type": "core.quote",
+              "version": 1,
+              "props": {
+                "text": "Describe a concrete result your customer achieved and why it mattered.",
+                "attribution": "Customer name, role"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

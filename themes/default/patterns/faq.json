@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "id": "faq",
+  "title": "FAQ",
+  "description": "A semantic, editable frequently asked questions section.",
+  "category": "faq",
+  "version": "1.0.0",
+  "requiresBlockTypes": [],
+  "blocks": [
+    {
+      "id": "faq-section",
+      "type": "core.section",
+      "version": 1,
+      "props": { "background": "default", "padding": "lg", "align": "left" },
+      "children": [
+        {
+          "id": "faq-container",
+          "type": "core.container",
+          "version": 1,
+          "props": { "width": "default" },
+          "children": [
+            {
+              "id": "faq-title",
+              "type": "core.heading",
+              "version": 1,
+              "props": { "text": "Frequently asked questions", "level": 2 }
+            },
+            {
+              "id": "faq-q1",
+              "type": "core.heading",
+              "version": 1,
+              "props": { "text": "What is included?", "level": 3 }
+            },
+            {
+              "id": "faq-a1",
+              "type": "core.paragraph",
+              "version": 1,
+              "props": {
+                "text": "Give a direct answer, then link to more detail if visitors need it."
+              }
+            },
+            {
+              "id": "faq-q2",
+              "type": "core.heading",
+              "version": 1,
+              "props": { "text": "Can I change my plan later?", "level": 3 }
+            },
+            {
+              "id": "faq-a2",
+              "type": "core.paragraph",
+              "version": 1,
+              "props": {
+                "text": "Explain the process and whether changes take effect immediately."
+              }
+            },
+            {
+              "id": "faq-q3",
+              "type": "core.heading",
+              "version": 1,
+              "props": { "text": "Where can I get help?", "level": 3 }
+            },
+            {
+              "id": "faq-a3",
+              "type": "core.paragraph",
+              "version": 1,
+              "props": {
+                "text": "Tell visitors how to reach you and when they can expect a reply."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -353,6 +353,28 @@ Saved blocks live in the `reusable_blocks` site setting and are stored already
 sanitized. `PUT /api/reusable-blocks` revalidates the content cache, since every
 page using the block now renders differently.
 
+## Block patterns
+
+The builder's **Browse patterns** dialog combines the active theme's registered
+patterns with site-owned patterns and, on request, the hosted directory. A
+pattern previews at the real 900px editor width with the active theme stylesheet.
+Section patterns (hero, features, pricing, testimonial, CTA, FAQ, and site
+patterns) append to the existing canvas with fresh block ids, so adding one
+never discards the page being edited. Only patterns in the `pages` category are
+treated as complete designs; inserting one asks for confirmation before it
+replaces the canvas. A site pattern saved as **synced** inserts one
+`core.reusable` reference instead, so updating the saved pattern updates every
+inserted copy.
+
+**Save selection as pattern** captures the selected block subtree, or the full
+canvas when no block is selected. Site patterns can be
+exported as a versioned `{ "schemaVersion": 1, "patterns": [...] }` JSON set and
+imported into another site. Imports, theme files, and directory responses share
+the SDK `PatternSetSchema` / `BlockPatternSchema` validation and authoritative
+block sanitation. Locale-specific variants and the dialog's logical CSS keep
+translated and right-to-left compositions usable without executable markup or
+inline scripts.
+
 ## Product tags
 
 On Shop product pages, heading, paragraph, HTML, and Shop storefront blocks may

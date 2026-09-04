@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { usePluginMenu } from "@components/PluginMenuProvider";
 import { navLabel, type PluginMenuItem } from "../../config/admin-nav";
-import { internalAdminPath } from "../../admin-path";
+import { internalAdminPath, publicAdminPath } from "../../admin-path";
 import { useT } from "../../i18n/I18nProvider";
 import PluginSetupWizard from "./PluginSetupWizard";
 
@@ -37,6 +37,13 @@ export default function PluginHostPage() {
   if (!item) return <Navigate to="/admin" replace />;
 
   const heading = pluginHeading(t, item);
+
+  // A plugin that ships its own admin app owns the whole screen: the host
+  // frames the plugin's HTML and only relays navigation / height over
+  // postMessage. No core page, no shared React runtime.
+  if (item.adminAppUrl) {
+    return <PluginFrame key={item.path} item={item} heading={heading} />;
+  }
   const onSetupPage = Boolean(item.setupPath) && internalAdminPath(pathname) === item.setupPath;
   const siblings = items.filter(
     (entry) => entry.pluginId === item.pluginId && entry.path !== item.path,
@@ -91,6 +98,115 @@ export default function PluginHostPage() {
       ) : (
         empty
       )}
+    </div>
+  );
+}
+
+/** Message envelope the plugin admin frame and the host exchange. */
+const PLUGIN_MSG = "justflows-admin-plugin";
+const HOST_MSG = "justflows-admin-host";
+const FRAME_MIN_HEIGHT = 240;
+const FRAME_MAX_HEIGHT = 20000;
+
+/**
+ * Host shell for a plugin that ships its own admin app (`manifest.adminApp`).
+ * The plugin's HTML runs in a same-origin `<iframe>`; the two sides talk only
+ * through `postMessage` (`@justflows/admin-bridge` on the plugin side):
+ *
+ * - plugin → host: `ready`, `resize {height}`, `navigate {path}`
+ * - host → plugin: `context {locale, adminBase, routePath, theme}`,
+ *   `route {routePath}` whenever the host URL changes under the plugin's path
+ *
+ * The plugin reads the CSRF cookie itself (same origin) and calls its own
+ * `ctx.http` routes for data — nothing is proxied through core.
+ */
+function PluginFrame({ item, heading }: { item: PluginMenuItem; heading: string }) {
+  const { t, locale } = useT();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const [height, setHeight] = useState(FRAME_MIN_HEIGHT);
+  const [loaded, setLoaded] = useState(false);
+
+  const routePath = internalAdminPath(pathname);
+
+  const post = useCallback((message: Record<string, unknown>) => {
+    const win = frameRef.current?.contentWindow;
+    if (win) win.postMessage({ source: HOST_MSG, ...message }, window.location.origin);
+  }, []);
+
+  const sendContext = useCallback(() => {
+    const theme = document.documentElement.dataset.theme ?? "";
+    post({
+      type: "context",
+      context: { locale, adminBase: internalAdminPath("/admin"), routePath, theme },
+    });
+  }, [post, locale, routePath]);
+
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      if (event.source !== frameRef.current?.contentWindow) return;
+      const data = event.data as { source?: string; type?: string; [k: string]: unknown };
+      if (!data || data.source !== PLUGIN_MSG) return;
+
+      switch (data.type) {
+        case "ready":
+          sendContext();
+          break;
+        case "resize": {
+          const h = Number(data.height);
+          if (Number.isFinite(h)) {
+            setHeight(Math.min(FRAME_MAX_HEIGHT, Math.max(FRAME_MIN_HEIGHT, Math.ceil(h))));
+          }
+          break;
+        }
+        case "navigate": {
+          const to = String(data.path ?? "");
+          if (/^\/admin(\/|$)/.test(to) && !to.includes("..")) {
+            navigate(publicAdminPath(to));
+          } else if (/^https?:\/\//.test(to)) {
+            window.open(to, "_blank", "noopener");
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [navigate, sendContext]);
+
+  // Host-driven navigation under the plugin's own path subtree: tell the frame
+  // so its internal router can follow without a full reload.
+  useEffect(() => {
+    if (loaded) post({ type: "route", routePath });
+  }, [routePath, loaded, post]);
+
+  return (
+    <div className="jf-page jf-page--flush">
+      <header className="jf-pagehead">
+        <div className="jf-pagehead__text">
+          <h1>{heading}</h1>
+          <p className="jf-meta">{item.pluginId}</p>
+        </div>
+        <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${item.pluginId}/settings`}>
+          {t("pluginPage.settings")}
+        </Link>
+      </header>
+      <iframe
+        ref={frameRef}
+        src={item.adminAppUrl}
+        title={heading}
+        className="jf-plugin-frame"
+        style={{ height }}
+        onLoad={() => {
+          setLoaded(true);
+          sendContext();
+        }}
+        sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-downloads allow-modals"
+      />
     </div>
   );
 }

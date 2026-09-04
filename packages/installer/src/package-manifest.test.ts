@@ -59,6 +59,38 @@ describe("PackageManifestSchema adminMenu", () => {
   });
 });
 
+describe("PackageManifestSchema adminApp", () => {
+  it("keeps a declared admin app so it survives install", () => {
+    const parsed = PackageManifestSchema.parse({
+      ...base,
+      permissions: ["admin:extend"],
+      adminApp: { routes: [{ path: "/admin/forms", entry: "index.html", title: "Forms" }] },
+    });
+
+    expect(parsed.adminApp?.routes?.[0]?.entry).toBe("index.html");
+  });
+
+  it("rejects an admin app without the admin:extend permission", () => {
+    const result = PackageManifestSchema.safeParse({
+      ...base,
+      adminApp: { routes: [{ path: "/admin/forms", entry: "index.html" }] },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.some((issue) => issue.path[0] === "adminApp")).toBe(true);
+  });
+
+  it("rejects a non-html entry", () => {
+    const result = PackageManifestSchema.safeParse({
+      ...base,
+      permissions: ["admin:extend"],
+      adminApp: { routes: [{ path: "/admin/forms", entry: "app.js" }] },
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("PackageManifestSchema version", () => {
   it("accepts plain and prerelease semver", () => {
     for (const version of ["1.0.0", "0.1.3-rc", "1.2.3-beta.1", "10.20.30+build.5"]) {
@@ -99,6 +131,31 @@ describe("PackageManifestSchema engines", () => {
     expect(PackageManifestSchema.safeParse({ ...base, engines: { justflows: "" } }).success).toBe(
       false,
     );
+  });
+});
+
+describe("PackageManifestSchema theme patterns", () => {
+  it("keeps safe theme pattern registrations", () => {
+    const parsed = PackageManifestSchema.parse({
+      ...base,
+      type: "theme",
+      patterns: { hero: "./patterns/hero.json" },
+    });
+    expect(parsed.patterns).toEqual({ hero: "./patterns/hero.json" });
+  });
+
+  it("rejects pattern registrations on plugins and unsafe paths", () => {
+    expect(
+      PackageManifestSchema.safeParse({ ...base, patterns: { hero: "./patterns/hero.json" } })
+        .success,
+    ).toBe(false);
+    expect(
+      PackageManifestSchema.safeParse({
+        ...base,
+        type: "theme",
+        patterns: { hero: "../hero.json" },
+      }).success,
+    ).toBe(false);
   });
 });
 

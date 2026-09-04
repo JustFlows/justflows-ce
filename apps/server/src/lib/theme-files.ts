@@ -4,6 +4,12 @@ import { getJfRoot } from "./jf-root.js";
 import { resolvePathUnderBase } from "./safe-path.js";
 import type { BlockNode } from "./types.js";
 import type { TemplatePartSlot } from "./template-hierarchy.js";
+import {
+  BlockPatternSchema,
+  ThemePatternRegistrationSchema,
+  type BlockPattern,
+} from "@justflows/sdk";
+import { sanitizeBlockDocument } from "@justflows/blocks";
 
 const THEME_ID_RE = /^[a-z0-9][a-z0-9._-]{0,120}$/i;
 
@@ -159,6 +165,8 @@ export interface ThemePatternMeta {
   category?: string;
   /** Block types this pattern uses that come from a plugin rather than core. */
   requiresBlockTypes?: string[];
+  version: string;
+  source: "theme";
 }
 
 export interface ThemePattern extends ThemePatternMeta {
@@ -177,49 +185,115 @@ function patternsDir(themeId: string, installedPath?: string | null): string | n
   }
 }
 
+function patternRegistrations(dir: string): Map<string, string> | null {
+  const manifest =
+    readJsonFile<Record<string, unknown>>(dir, "justflows-theme.json") ??
+    readJsonFile<Record<string, unknown>>(dir, "justflows.json");
+  if (!manifest || !("patterns" in manifest)) return null;
+  if (
+    !manifest.patterns ||
+    typeof manifest.patterns !== "object" ||
+    Array.isArray(manifest.patterns)
+  )
+    return new Map();
+  const registrations = new Map<string, string>();
+  for (const [id, raw] of Object.entries(manifest.patterns as Record<string, unknown>)) {
+    const parsed = ThemePatternRegistrationSchema.safeParse(raw);
+    if (!parsed.success) continue;
+    registrations.set(id, typeof parsed.data === "string" ? parsed.data : parsed.data.path);
+  }
+  return registrations;
+}
+
+function localizedPattern(pattern: BlockPattern, locale?: string): BlockPattern {
+  if (!locale || !pattern.locales) return pattern;
+  const exact = pattern.locales[locale];
+  const base = pattern.locales[locale.split("-")[0] ?? ""];
+  const value = exact ?? base;
+  return value ? { ...pattern, ...value } : pattern;
+}
+
+function readPattern(dir: string, fileName: string, locale?: string): BlockPattern | null {
+  const raw = readJsonFile<Record<string, unknown>>(dir, fileName);
+  if (!raw) return null;
+  const parsed = BlockPatternSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const localized = localizedPattern(parsed.data, locale);
+  return {
+    ...localized,
+    blocks: sanitizeBlockDocument({ version: 1, blocks: localized.blocks })
+      .blocks as BlockPattern["blocks"],
+  };
+}
+
 export function listThemePatterns(
   themeId: string,
   installedPath?: string | null,
+  locale?: string,
 ): ThemePatternMeta[] {
   const dir = patternsDir(themeId, installedPath);
   if (!dir) return [];
 
   const results: ThemePatternMeta[] = [];
-  for (const name of fs.readdirSync(dir)) {
-    if (!name.endsWith(".json")) continue;
-    const data = readJsonFile<ThemePatternMeta>(dir, name);
-    if (!data?.id) continue;
+  const registrations = patternRegistrations(path.dirname(dir));
+  const files = registrations
+    ? [...registrations.entries()].map(([id, file]) => [id, path.basename(file)] as const)
+    : fs
+        .readdirSync(dir)
+        .filter((name) => name.endsWith(".json"))
+        .map((name) => [name.slice(0, -5), name] as const);
+  for (const [registeredId, name] of files) {
+    const data = readPattern(dir, name, locale);
+    if (!data || data.id !== registeredId) continue;
     results.push({
       id: data.id,
       title: data.title ?? data.id,
       description: data.description,
       category: data.category ?? "pages",
-      requiresBlockTypes: Array.isArray(data.requiresBlockTypes)
-        ? data.requiresBlockTypes
-        : undefined,
+      requiresBlockTypes:
+        Array.isArray(data.requiresBlockTypes) && data.requiresBlockTypes.length > 0
+          ? data.requiresBlockTypes
+          : undefined,
+      version: data.version,
+      source: "theme",
     });
   }
-  return results;
+  return results.sort(
+    (a, b) =>
+      (a.category ?? "sections").localeCompare(b.category ?? "sections") ||
+      a.title.localeCompare(b.title),
+  );
 }
 
 export function loadThemePattern(
   themeId: string,
   patternId: string,
   installedPath?: string | null,
+  locale?: string,
 ): ThemePattern | null {
   const dir = patternsDir(themeId, installedPath);
   if (!dir) return null;
 
   const safeId = patternId.replace(/[^a-z0-9_-]/gi, "");
   if (!safeId) return null;
-  const data = readJsonFile<ThemePattern>(dir, `${safeId}.json`);
-  if (!data?.blocks || !Array.isArray(data.blocks)) return null;
+  const registrations = patternRegistrations(path.dirname(dir));
+  const registeredPath = registrations?.get(safeId);
+  if (registrations && !registeredPath) return null;
+  const data = readPattern(
+    dir,
+    registeredPath ? path.basename(registeredPath) : `${safeId}.json`,
+    locale,
+  );
+  if (!data || data.id !== safeId) return null;
 
   return {
     id: data.id ?? safeId,
     title: data.title ?? safeId,
     description: data.description,
     category: data.category,
+    requiresBlockTypes: data.requiresBlockTypes.length > 0 ? data.requiresBlockTypes : undefined,
+    version: data.version,
+    source: "theme",
     blocks: data.blocks,
   };
 }

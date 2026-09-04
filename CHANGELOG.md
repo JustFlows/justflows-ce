@@ -5,6 +5,132 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.9]
+
+### Added
+
+- Plugin-owned admin apps. A plugin can declare `adminApp` in its manifest and
+  ship a self-contained HTML build; the host serves it at
+  `/ext/<pluginId>/admin/**` and mounts each declared route in a same-origin
+  `<iframe>` inside the admin shell (`PluginHostPage`). The two sides talk only
+  over `postMessage` via the new `@justflows/admin-bridge` package — no shared
+  React runtime, no core page, no core route. See
+  [PLUGINS.md → Ship your own admin app](docs/PLUGINS.md).
+  ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+
+### Changed
+
+- **Forms is now a fully standalone plugin.** The host no longer implements it:
+  `lib/forms-public.ts`, `routes/forms.ts` (`/api/forms`), the
+  `/justflows-forms/submit` endpoint, the `justflows.forms.form` render
+  special-case and `/js/jf-forms.js` injection in `public-site.ts`, the
+  `plugin-runtime` activation skip, the `admin-menu` / `plugins-db` fallbacks,
+  and the admin-UI `FormsPage` + `BlockInspector` picker were all removed. The
+  plugin (`plugin-registry-service/plugins/forms` v0.2.0) ships its own block,
+  submit route, admin app, and public enhancement script. The additive,
+  permission-gated `ctx.mail.send()` SDK API lets Forms send submission
+  notifications through the host-configured transport without exposing mail
+  credentials; a multi-form site loses the block's form picker until a generic
+  plugin-block inspector lands.
+  ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+
+- Static / edge export. A new exporter
+  (`apps/server/src/lib/static-export/`) crawls the site's own running server
+  over loopback and writes every published page, its assets, locale variants,
+  `sitemap.xml`, `robots.txt`, `favicon.ico`, the themed `404`, and the
+  `/theme.css` build to `STATIC_EXPORT_DIR` (default `./static-export`), plus a
+  `_static-export.json` manifest with per-file `sha256` and `Cache-Control`
+  advice, plus a Cloudflare Pages / Netlify `_headers` file derived from the
+  active Performance suite browser-cache settings. Run it from Admin → System →
+  Tools → “Static site export”, `pnpm export:static`, or
+  `justflows export static`. A master
+  `STATIC_EXPORT_ENABLED` switch, output directory, public base URL,
+  dynamic-endpoint origin, crawl limits, and auto-rebuild are editable from the
+  Tools page and written to `.env` (`STATIC_EXPORT_*`), applied without a
+  restart. **Clear export** (Tools card / `pnpm export:static -- --clear`)
+  deletes the whole output folder; disabling the feature or auto-rebuild leaves
+  files on disk. `STATIC_EXPORT_AUTO=1` re-runs a targeted incremental export (and
+  prunes removed pages) after publish, unpublish, delete, menu, theme, or
+  settings changes, debounced via the existing `cache.revalidated` action.
+  Every same-origin sub-resource a page references is downloaded — `/theme.css`,
+  `/js/*`, uploads, and plugin / custom-theme scripts and assets on their own
+  paths (`/ext/<plugin>/…`, `/themes/<theme>/…`); only `/admin`, `/api` and the
+  auth/submit endpoints are skipped. A targeted incremental run also fetches any
+  asset a rebuilt page _newly_ references (an image or gallery block added to a
+  page) even though it skips re-downloading unchanged ones — previously those
+  files 404'd on the static host until the next full export. The
+  `staticExport.assets` filter adds URLs the scanner cannot see. Plugins can now ship client-side assets first-class: a
+  `manifest.assets` block (`{ dir?, scripts?, styles? }`) makes the host serve
+  `<dir>/**` at `/ext/<id>/**` — no `ctx.http` route or `html.head` filter —
+  and **concatenate every active plugin's scripts/styles into one
+  content-hashed `/jf-plugins.<hash>.{js,css}` bundle** added to each public
+  page (`PLUGIN_ASSETS_BUNDLE=0` for one tag per file). A marketplace plugin's
+  front-end lands in the export automatically as that single bundle
+  (`plugins/hello-world` demonstrates it). Pageview analytics keep counting: the
+  Analytics plugin ships a `jf-analytics.js` beacon via `manifest.assets`, so it
+  rides the `/jf-plugins.<hash>.js` bundle into the export with no
+  analytics-specific code in the exporter. The exporter only stamps every page
+  with a generic `window.__JF_ORIGIN__` hint; the beacon acts on that stamp
+  (absent on the live server render, where views are counted server-side) and
+  POSTs to the `/justflows-analytics/collect` ingest endpoint (rate-limited,
+  CORS). The Cookie Consent runtime ships the same way, and its two calls (the
+  record beacon and the cookie-disclosure fetch) resolve against
+  `window.__JF_ORIGIN__` too, so a split-origin export still reaches them. Two
+  additive `PluginHttpResponse` fields back this: `revalidate: true` runs the
+  site-wide cache revalidation that `PUT /api/plugins/<id>/settings` does (so
+  saving Consent settings regenerates the export under auto-rebuild, not only
+  after a manual full export), and `cors: true` adds
+  `Access-Control-Allow-Origin` for a vouched-for export origin on a public read
+  the runtime fetches cross-origin (the Consent cookie-disclosure route). The
+  Forms enhancement script ships the same way. Form blocks now
+  submit in place: `jf-forms.js`
+  posts by `fetch()` and shows the confirmation without leaving the page
+  (native `<form>` POST is the no-JS / CAPTCHA fallback); `/justflows-forms/submit`
+  gained a JSON response mode and CORS for allowed origins
+  (`APP_URL` / `STATIC_EXPORT_BASE_URL` / `STATIC_EXPORT_ALLOWED_ORIGINS`, plus
+  `localhost` off production). Keep the submit endpoint reachable via a hybrid
+  proxy or `STATIC_EXPORT_ORIGIN_URL` (which also rewrites `<form action>` to an
+  absolute URL). Object-storage/CDN deployment is documented (`aws s3 sync` /
+  `rclone` / `rsync` + manifest-driven invalidation) with additive
+  `staticExport.routes` / `staticExport.assets` / `staticExport.formAction` /
+  `staticExport.completed` / `staticExport.deploy` SDK hooks. See
+  `docs/STATIC-EXPORT.md`.
+  ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+
+- The page builder now has a categorized block-pattern library with theme-width
+  previews, editable insertion, six accessible token-driven section starters,
+  local and optionally synced site patterns, locale variants and RTL-aware UI,
+  validated JSON import/export, additive theme SDK registration, required-block
+  checking, `ctx.patterns.register()` contributions with automatic plugin
+  lifecycle cleanup, and a bounded, sanitized opt-in marketplace directory.
+  ([#110](https://github.com/JustFlows/justflows-ce/issues/110))
+
+- Admin → System → Diagnostics completes the developer-tooling workflow with
+  plugin scheduler status and safe failed-job retries, non-destructive database,
+  cache, and scheduler test actions, copyable CLI reproduction guidance, and an
+  additive `ctx.diagnostics.register()` SDK for permission-gated, namespaced,
+  sanitized plugin health checks. This builds on the debug toolbar, request
+  traces, support bundles, and core diagnostics shipped in 0.1.8.
+  ([#57](https://github.com/JustFlows/justflows-ce/issues/57))
+
+### Fixed
+
+- Static export on a proxied host (Passenger, Plesk) no longer fails with
+  _"The site at http://127.0.0.1:3000 is not installed yet — nothing to
+  export."_ The crawl origin now resolves to `STATIC_EXPORT_CRAWL_URL` (new,
+  editable on the Tools page) or, on production, `APP_URL` — the site's real
+  domain — falling back to loopback only in development or when neither is set.
+  The production bootstrap wrapper (`server.js`) answered `/api/healthz` without
+  the `installed` flag the full app includes, so over the public URL the export
+  read the site as uninstalled; the wrapper now mirrors the full app's healthz
+  shape. As a belt-and-braces measure the readiness check no longer trusts a
+  bare `/api/healthz`: an unclear health result is cross-checked against `/`,
+  which only redirects to `/install` when the site genuinely is not set up, so
+  an installed site behind any intercepting layer still exports. The exporter
+  also retries once against `APP_URL`, and the failure message now names every
+  origin it tried.
+  ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+
 ## [0.1.8]
 
 ### Changed
