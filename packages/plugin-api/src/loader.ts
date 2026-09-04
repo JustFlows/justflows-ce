@@ -188,6 +188,9 @@ export class PluginLoader {
     this.mailFactory =
       options?.mailFactory ??
       (() => ({
+        send: async () => {
+          throw new Error("Mail sending is not available in this runtime");
+        },
         register: () => {
           throw new Error("Mail transport registration is not available in this runtime");
         },

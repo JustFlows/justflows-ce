@@ -20,6 +20,13 @@ const helloWorld: PluginModule = {
       free: true,
       comingSoon: false,
     },
+    // Client script shipped in the package. The host serves `public/**` at
+    // `/ext/justflows.hello-world/**` and adds `<script src=".../hello-world.js">`
+    // to every public page — no ctx.http route or html.head filter needed.
+    assets: {
+      dir: "public",
+      scripts: ["hello-world.js"],
+    },
   },
 
   async activate(ctx: PluginContext) {

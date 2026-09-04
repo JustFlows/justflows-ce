@@ -4,6 +4,7 @@ import { themeCommand } from "./commands/theme.js";
 import { userCommand } from "./commands/user.js";
 import { dbCommand } from "./commands/db.js";
 import { cacheCommand } from "./commands/cache.js";
+import { exportCommand } from "./commands/export.js";
 import { healthCommand } from "./commands/health.js";
 import { updateCommand } from "./commands/update.js";
 
@@ -28,6 +29,7 @@ Commands:
   user reset-password     Reset a password from the server host (offline fallback)
   db migrate              Run pending database migrations
   cache clear             Clear the application cache
+  export static           Write published pages + assets to STATIC_EXPORT_DIR
   health                  Run site health checks
   update                  Check for and apply updates
 
@@ -71,6 +73,9 @@ export async function run(args: string[]): Promise<void> {
         break;
       case "cache":
         await cacheCommand(rest);
+        break;
+      case "export":
+        await exportCommand(rest);
         break;
       case "health":
         await healthCommand(rest);

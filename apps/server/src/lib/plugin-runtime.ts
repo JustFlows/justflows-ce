@@ -150,7 +150,6 @@ async function activateActivePlugins(): Promise<void> {
     // Analytics is host-recorded into plugin_data. Skip the 0.9.0 module so page
     // views are not counted twice and /justflows-analytics is not a public page.
     if (row.plugin_id === "justflows.analytics") continue;
-    if (row.plugin_id === "justflows.forms") continue;
     if (row.plugin_id === "justflows.gallery") continue;
     try {
       await loader.activate(row.plugin_id, siteId);
@@ -178,6 +177,19 @@ export async function ensurePluginRuntime(): Promise<void> {
         dataFactory: (pluginId, siteId) => createPluginDataApi(pluginId, siteId),
         jobsFactory: (pluginId) => createPluginJobsApi(pluginId),
         mailFactory: (pluginId, permissions) => ({
+          send: async (message) => {
+            if (!permissions.has("mail:send"))
+              throw new Error(`Plugin "${pluginId}" requires the mail:send permission`);
+            const { sendMail } = await import("./mail.js");
+            const result = await sendMail({
+              ...message,
+              type: `plugin:${pluginId}`,
+              transactional: true,
+            });
+            return result.ok
+              ? { ok: true, ...(result.messageId ? { messageId: result.messageId } : {}) }
+              : { ok: false, error: result.error };
+          },
           register: (transport) => {
             if (!permissions.has("mail:transport"))
               throw new Error(`Plugin "${pluginId}" requires the mail:transport permission`);
@@ -188,7 +200,11 @@ export async function ensurePluginRuntime(): Promise<void> {
               throw new Error(`Plugin "${pluginId}" requires the mail:templates permission`);
             if (!template.key.startsWith(`${pluginId}.`))
               throw new Error(`Plugin email template keys must start with "${pluginId}."`);
-            const dispose = registerEmailTemplate({ ...template, owner: pluginId, disableSafe: template.disableSafe ?? true });
+            const dispose = registerEmailTemplate({
+              ...template,
+              owner: pluginId,
+              disableSafe: template.disableSafe ?? true,
+            });
             const cleanup = pluginEmailTemplateCleanup.get(pluginId) ?? [];
             cleanup.push(dispose);
             pluginEmailTemplateCleanup.set(pluginId, cleanup);
@@ -266,7 +282,6 @@ async function ensureRegistered(siteId: string, pluginId: string): Promise<void>
 export async function runtimeActivatePlugin(siteId: string, pluginId: string): Promise<void> {
   if (pluginId === "justflows.seo") return;
   if (pluginId === "justflows.analytics") return;
-  if (pluginId === "justflows.forms") return;
   if (pluginId === "justflows.gallery") return;
   await ensureRegistered(siteId, pluginId);
   if (!loader) throw new Error("Plugin runtime is unavailable");

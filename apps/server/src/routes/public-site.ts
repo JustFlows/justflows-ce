@@ -80,7 +80,6 @@ import { getJfCache } from "../lib/jf-cache.js";
 import { getRuntimeBlockRegistry } from "../lib/runtime-blocks.js";
 import type { BlockNode } from "../lib/types.js";
 import { withBlockChrome } from "@justflows/blocks";
-import { FORMS_BLOCK_TYPE, renderFormBlockHtml } from "../lib/forms-public.js";
 import {
   isGalleryPluginEnabled,
   registerGalleryBlock,
@@ -240,12 +239,6 @@ async function renderBlockTree(
       } catch {
         parts.push("");
       }
-      continue;
-    }
-    if (block.type === FORMS_BLOCK_TYPE) {
-      parts.push(
-        withBlockChrome(await renderFormBlockHtml(block.props ?? {}, submittedFormId), block),
-      );
       continue;
     }
     if (block.type === BLOG_POST_LIST_BLOCK_TYPE && blogCtx) {
@@ -685,6 +678,14 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   if (faviconHead) {
     headExtra = headExtra ? `${faviconHead}\n${headExtra}` : faviconHead;
   }
+  // Auto-enqueued client assets declared by active plugins (`manifest.assets`).
+  const { renderPluginAssetHeadHtml } = await import("../lib/plugin-assets.js");
+  const pluginAssetHead = await renderPluginAssetHeadHtml();
+  if (pluginAssetHead) {
+    headExtra = headExtra ? `${headExtra}\n${pluginAssetHead}` : pluginAssetHead;
+  }
+  // The Forms plugin ships its own enhancement script via `manifest.assets`,
+  // so it is already in `pluginAssetHead` above — nothing forms-specific here.
   if (hooks.has("html.head")) {
     headExtra = hooks.applyFilterSync(
       "html.head",

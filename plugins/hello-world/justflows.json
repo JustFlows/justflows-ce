@@ -16,5 +16,9 @@
     "free": true,
     "comingSoon": false
   },
-  "permissions": []
+  "permissions": [],
+  "assets": {
+    "dir": "public",
+    "scripts": ["hello-world.js"]
+  }
 }

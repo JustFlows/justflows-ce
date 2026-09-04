@@ -109,8 +109,6 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add(`/api/plugins/${encodeURIComponent(id)}/settings`);
   } else if (pathname === "/admin/analytics") {
     paths.add("/api/analytics");
-  } else if (pathname === "/admin/forms") {
-    paths.add("/api/forms");
   } else if (pathname === "/admin/themes") {
     paths.add("/api/themes");
   } else if (pathname === "/admin/themes/customize") {
@@ -242,12 +240,6 @@ async function addDerivedResponses(
       }
     }
   }
-  if (pathname === "/admin/forms") {
-    const forms = read<{ forms?: Array<{ id?: string }> }>("/api/forms");
-    const id = forms?.forms?.[0]?.id;
-    if (id) derived.add(`/api/forms/${encodeURIComponent(id)}/submissions`);
-  }
-
   const cookie = req.get("cookie") ?? "";
   await Promise.all(
     [...derived].map(async (requestPath) => {

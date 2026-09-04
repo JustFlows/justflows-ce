@@ -152,12 +152,7 @@ export interface CommentsBlockRenderContext {
   readonly banner: "posted" | "pending" | "error" | "captcha" | null;
   /** The signed-in commenter, if any. */
   readonly currentUser: { readonly name: string; readonly email: string } | null;
-  readonly captchaProvider:
-    | "none"
-    | "turnstile"
-    | "hcaptcha"
-    | "recaptcha"
-    | "recaptcha-v3";
+  readonly captchaProvider: "none" | "turnstile" | "hcaptcha" | "recaptcha" | "recaptcha-v3";
 }
 
 export interface ContentDraft {
@@ -300,6 +295,34 @@ export interface CacheRevalidatedEvent {
   readonly trigger: CacheRevalidateTrigger;
   readonly objects: readonly CacheObjectType[];
   readonly siteId?: string;
+}
+
+/** Summary of a completed static-site export run (`staticExport.completed`). */
+export interface StaticExportCompletedEvent {
+  readonly ok: boolean;
+  readonly mode: "full" | "incremental";
+  /** Absolute directory the files were written to. */
+  readonly outDir: string;
+  /** Public origin the pages are meant to be served from (may be ""). */
+  readonly publicUrl: string;
+  readonly pages: number;
+  readonly assets: number;
+  readonly bytes: number;
+  readonly pruned: number;
+  readonly durationMs: number;
+  readonly errors: readonly string[];
+}
+
+/**
+ * Fired after `staticExport.completed`, carrying enough context for a plugin to
+ * push the generated directory to object storage or a CDN and invalidate the
+ * changed paths. `manifest` is the parsed `_static-export.json`.
+ */
+export interface StaticExportDeployEvent {
+  readonly outDir: string;
+  readonly publicUrl: string;
+  readonly manifest: unknown;
+  readonly summary: StaticExportCompletedEvent;
 }
 
 export interface NavigationItem {
@@ -459,6 +482,11 @@ export interface ActionEventMap {
   /** Fired after selective cache revalidation completes. */
   "cache.revalidated": CacheRevalidatedEvent;
 
+  /** A static-site export run finished (manual, CLI, or auto-rebuild). */
+  "staticExport.completed": StaticExportCompletedEvent;
+  /** Deploy the generated directory to object storage / a CDN. */
+  "staticExport.deploy": StaticExportDeployEvent;
+
   /** Delivery has been accepted by the host and recorded, before transport I/O. */
   "email.queued": EmailDeliveryEvent;
   /** The transport accepted the message. */
@@ -560,6 +588,30 @@ export interface FilterValueMap {
    */
   "theme.css": [string, { siteId: string; preview: boolean }];
   "seo.sitemapPaths": [string[], { siteId: string }];
+  /**
+   * The seed URL paths the static-site exporter will crawl, before link
+   * discovery. Seeded from `sitemap.xml` plus every published entry. Add paths a
+   * plugin renders dynamically, or drop paths that must not be exported.
+   */
+  "staticExport.routes": [string[], { siteId: string }];
+  /**
+   * The `<form action>` written into exported HTML for a dynamic endpoint that a
+   * static host cannot serve. Seeded with the origin-absolute URL when
+   * `STATIC_EXPORT_ORIGIN_URL` is set, else the relative default. Return a
+   * serverless function URL, a third-party form endpoint, etc.
+   */
+  "staticExport.formAction": [
+    string,
+    { siteId: string; endpoint: "forms" | "comments"; defaultAction: string },
+  ];
+  /**
+   * Same-origin asset URLs the static-site exporter should download, seeded with
+   * everything it found by scanning `<script>`, `<link>`, `<img>`, `srcset` and
+   * CSS `url()`. Append assets a plugin or custom theme loads in a way the
+   * scanner cannot see — a dynamically-imported chunk, a Web Worker, a JSON
+   * config fetched at runtime, a font referenced only from inline JS.
+   */
+  "staticExport.assets": [string[], { siteId: string }];
   "site.underConstruction.render": [string, UnderConstructionContext];
   /** Adjust final sender fields. The host revalidates all header values. */
   "email.sender": [EmailSender, EmailDeliveryContext];

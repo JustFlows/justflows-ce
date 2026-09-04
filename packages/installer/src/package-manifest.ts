@@ -3,6 +3,8 @@ import {
   AdminMenuItemSchema,
   gplLicenseValidationMessage,
   isGplCompatibleLicense,
+  PluginAssetsSchema,
+  PluginAdminAppSchema,
   RegistryListingSchema,
   ExtensionEnginesSchema,
   ThemePatternRegistrationSchema,
@@ -107,6 +109,17 @@ export const PackageManifestSchema = z
       )
       .max(20)
       .optional(),
+    /**
+     * Plugin-only: client-side assets shipped in the package. Kept here so the
+     * declaration survives install and can be re-read from the stored manifest.
+     */
+    assets: PluginAssetsSchema.optional(),
+    /**
+     * Plugin-only: a self-contained admin app the plugin ships and the host
+     * mounts in an `<iframe>` for each declared route. Kept here so the
+     * declaration survives install and can be re-read from the stored manifest.
+     */
+    adminApp: PluginAdminAppSchema.optional(),
   })
   .superRefine((manifest, ctx) => {
     if (manifest.adminMenu?.length && !manifest.permissions.includes("admin:extend")) {
@@ -121,6 +134,13 @@ export const PackageManifestSchema = z
         code: "custom",
         path: ["setupPath"],
         message: 'Declaring setupPath requires the "admin:extend" permission',
+      });
+    }
+    if (manifest.adminApp && !manifest.permissions.includes("admin:extend")) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["adminApp"],
+        message: 'Shipping an admin app requires the "admin:extend" permission',
       });
     }
     if (!isGplCompatibleLicense(manifest.license)) {

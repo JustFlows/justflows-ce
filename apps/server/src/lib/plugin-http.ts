@@ -30,6 +30,13 @@ const RESERVED_RESPONSE_HEADERS = new Set<string>([
 /** Request headers never forwarded to plugin code. */
 const STRIPPED_REQUEST_HEADERS = new Set(["cookie", "authorization", "proxy-authorization"]);
 
+/** Public plugin mutations whose own validation/rate limits replace session-bound CSRF. */
+const PUBLIC_PLUGIN_MUTATIONS = new Set(["POST /justflows-forms/submit"]);
+
+export function requiresPluginCsrf(method: PluginHttpMethod, path: string): boolean {
+  return method !== "GET" && !PUBLIC_PLUGIN_MUTATIONS.has(`${method} ${path}`);
+}
+
 export function isReservedPluginResponseHeader(name: string): boolean {
   const lower = name.trim().toLowerCase();
   return RESERVED_RESPONSE_HEADERS.has(lower) || isProtectedHeaderName(lower);
@@ -71,7 +78,7 @@ export async function dispatchPluginHttp(
   // These routes are mounted at the application root, not under /api, so the
   // csrfProtection middleware never sees them — every plugin mutation was
   // cross-site forgeable. Checked here, on the one path that reaches them.
-  if (method !== "GET") {
+  if (requiresPluginCsrf(method, req.path)) {
     const { csrfProtection } = await import("../middleware/csrf.js");
     // Synchronous: it either calls next() or answers 403 itself, so the flag
     // is settled by the time the call returns.
@@ -120,7 +127,15 @@ export async function dispatchPluginHttp(
         : null,
     });
 
-    res.status(result.status ?? 200);
+    const status = result.status ?? 200;
+    res.status(status);
+    // A public read that a statically-exported page fetches cross-origin can opt
+    // into CORS. The allow-list (site origins + STATIC_EXPORT_ALLOWED_ORIGINS +
+    // localhost off-prod) is the host's — plugins cannot set Access-Control-* .
+    if (result.cors === true) {
+      const { applyFormCors } = await import("./static-export/cors.js");
+      applyFormCors(req.get("origin"), (name, value) => res.setHeader(name, value));
+    }
     if (result.headers) {
       for (const [key, value] of Object.entries(result.headers)) {
         if (isReservedPluginResponseHeader(key)) {
@@ -133,15 +148,28 @@ export async function dispatchPluginHttp(
       }
     }
     if (result.type) res.type(result.type);
+
     if (Buffer.isBuffer(result.body) || typeof result.body === "string") {
       res.send(result.body);
-      return;
-    }
-    if (result.body !== undefined) {
+    } else if (result.body !== undefined) {
       res.json(result.body);
-      return;
+    } else {
+      res.end();
     }
-    res.end();
+
+    // A route that mutated something public pages reflect (a setting injected
+    // via `html.head`, a block's stored config) can ask for site-wide cache
+    // revalidation — which is also what wakes the static-export auto-rebuild.
+    // Fire-and-forget after the response so it never adds request latency.
+    if (result.revalidate === true && method !== "GET" && status < 400) {
+      void import("./cache-revalidate.js")
+        .then((m) =>
+          m.revalidateOnUpdate("plugin", session?.siteId ? { siteId: session.siteId } : undefined),
+        )
+        .catch(() => {
+          // revalidation is best-effort; a failure must not surface to the plugin
+        });
+    }
   } catch (err) {
     const routeLabel = `${match.pluginId}${req.path}`.replace(/\r/g, "").replace(/\n/g, "");
     console.error("[justflows] plugin route failed: %s", JSON.stringify(routeLabel), err);
