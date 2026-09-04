@@ -1,28 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
 import type { BlockCatalogEntry, BlockNode } from "./types";
 import { CATEGORY_LABELS, CATEGORY_ORDER } from "./block-defaults";
 import { useBuilderDrag } from "./DragContext";
 import { DND_BLOCK_TYPE } from "./dnd";
-
-interface ThemePatternMeta {
-  id: string;
-  title: string;
-  description?: string;
-  category?: string;
-  /** Block types this pattern uses that come from a plugin rather than core. */
-  requiresBlockTypes?: string[];
-}
-
-/** Plugin id to link to under Extensions for a given block type prefix, e.g. "justflows.forms.form" -> "justflows.forms". */
-function pluginIdForBlockType(blockType: string): string {
-  return blockType.split(".").slice(0, 2).join(".");
-}
-
-const PLUGIN_NAMES: Record<string, string> = {
-  "justflows.forms": "Forms",
-  "justflows.shop": "Shop",
-};
+import PatternLibrary from "./PatternLibrary";
 
 /**
  * Blocks that make sense dropped into a site header, beyond anything in the
@@ -43,7 +24,8 @@ const HEADER_BLOCK_TYPES = new Set([
 interface BlockLibraryProps {
   catalog: BlockCatalogEntry[];
   onAdd: (type: string) => void;
-  onImportPattern?: (blocks: BlockNode[]) => void;
+  onImportPattern?: (blocks: BlockNode[], syncedRef?: string, replaceCanvas?: boolean) => void;
+  currentBlocks?: BlockNode[];
   parentType?: string | null;
   allowedChildTypes?: string[];
   /** Full standalone page vs. a post/article body. Hides whole-page patterns and site-chrome widgets that don't apply to a post. */
@@ -52,38 +34,19 @@ interface BlockLibraryProps {
   headerOnly?: boolean;
 }
 
-export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentType, allowedChildTypes, isPage = false, headerOnly = false }: BlockLibraryProps) {
+export default function BlockLibrary({
+  catalog,
+  onAdd,
+  onImportPattern,
+  currentBlocks = [],
+  parentType,
+  allowedChildTypes,
+  isPage = false,
+  headerOnly = false,
+}: BlockLibraryProps) {
   const [query, setQuery] = useState("");
   const [openCat, setOpenCat] = useState<string>("patterns");
-  const [patterns, setPatterns] = useState<ThemePatternMeta[]>([]);
-  const [importing, setImporting] = useState<string | null>(null);
   const { onDragStartType, onDragEnd } = useBuilderDrag();
-  const catalogTypes = useMemo(() => new Set(catalog.map((b) => b.type)), [catalog]);
-
-  useEffect(() => {
-    // Patterns are whole-page compositions (hero + sections) — only relevant when building a full page.
-    if (!isPage || headerOnly) {
-      setPatterns([]);
-      return;
-    }
-    fetch("/api/themes/patterns")
-      .then((r) => r.json())
-      .then((data: { patterns?: ThemePatternMeta[] }) => setPatterns(data.patterns ?? []))
-      .catch(() => setPatterns([]));
-  }, [isPage]);
-
-  async function handleImportPattern(patternId: string) {
-    if (!onImportPattern) return;
-    setImporting(patternId);
-    try {
-      const res = await fetch(`/api/themes/patterns/${encodeURIComponent(patternId)}`);
-      const data = await res.json() as { pattern?: { blocks?: BlockNode[] } };
-      const patternBlocks = data.pattern?.blocks;
-      if (patternBlocks?.length) onImportPattern(patternBlocks);
-    } finally {
-      setImporting(null);
-    }
-  }
 
   const filtered = useMemo(() => {
     let list = catalog;
@@ -92,7 +55,8 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
         if (b.type === "core.column" && parentType !== "core.columns") return false;
         if (allowedChildTypes?.length) return allowedChildTypes.includes(b.type);
         if (parentType === "core.columns") return b.type === "core.column";
-        if (parentType === "core.column") return b.type !== "core.column" && b.type !== "core.columns";
+        if (parentType === "core.column")
+          return b.type !== "core.column" && b.type !== "core.columns";
         return b.type !== "core.column";
       });
     } else {
@@ -104,7 +68,8 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
     if (!isPage) list = list.filter((b) => b.category !== "site");
 
     // A site header only takes site widgets plus a handful of inline blocks.
-    if (headerOnly) list = list.filter((b) => b.category === "site" || HEADER_BLOCK_TYPES.has(b.type));
+    if (headerOnly)
+      list = list.filter((b) => b.category === "site" || HEADER_BLOCK_TYPES.has(b.type));
 
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -134,112 +99,44 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ padding: "0.75rem", borderBottom: "1px solid var(--jf-border)" }}>
-        <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--jf-text-2)", marginBottom: "0.25rem" }}>Blocks</div>
-        <p style={{ margin: "0 0 0.5rem", fontSize: "0.65rem", color: "var(--jf-text-3)" }}>Drag into a section or click to add</p>
+        <div
+          style={{
+            fontWeight: 700,
+            fontSize: "0.8rem",
+            color: "var(--jf-text-2)",
+            marginBottom: "0.25rem",
+          }}
+        >
+          Blocks
+        </div>
+        <p style={{ margin: "0 0 0.5rem", fontSize: "0.65rem", color: "var(--jf-text-3)" }}>
+          Drag into a section or click to add
+        </p>
         <input
           type="search"
           placeholder="Search blocks…"
           aria-label="Search blocks"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          style={{ width: "100%", boxSizing: "border-box", padding: "0.45rem 0.6rem", border: "1px solid var(--jf-border-strong)", borderRadius: 6, fontSize: "0.8rem" }}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            padding: "0.45rem 0.6rem",
+            border: "1px solid var(--jf-border-strong)",
+            borderRadius: 6,
+            fontSize: "0.8rem",
+          }}
         />
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: "0.5rem" }}>
-        {isPage && patterns.length > 0 && onImportPattern && (
-          <div style={{ marginBottom: "0.5rem" }}>
-            <button
-              type="button"
-              onClick={() => setOpenCat(openCat === "patterns" && !query ? "" : "patterns")}
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "0.45rem 0.5rem",
-                background: "none",
-                border: "none",
-                fontWeight: 700,
-                fontSize: "0.7rem",
-                color: "var(--jf-text-3)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                cursor: "pointer",
-              }}
-            >
-              Patterns
-              <span>{openCat === "patterns" || query ? "−" : "+"}</span>
-            </button>
-            {(openCat === "patterns" || query.trim()) && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-                {patterns
-                  .filter((p) => !query.trim() || p.title.toLowerCase().includes(query.toLowerCase()))
-                  .map((pattern) => {
-                    const missingTypes = (pattern.requiresBlockTypes ?? []).filter((t) => !catalogTypes.has(t));
-                    return (
-                      <div
-                        key={pattern.id}
-                        style={{
-                          border: "1px solid var(--jf-border)",
-                          borderRadius: 6,
-                          background: "#fff",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          disabled={importing === pattern.id || missingTypes.length > 0}
-                          onClick={() => {
-                            if (missingTypes.length > 0) return;
-                            handleImportPattern(pattern.id);
-                          }}
-                          style={{
-                            display: "block",
-                            width: "100%",
-                            padding: "0.55rem 0.65rem",
-                            border: "none",
-                            background: "none",
-                            cursor: missingTypes.length > 0 ? "not-allowed" : importing === pattern.id ? "wait" : "pointer",
-                            textAlign: "left",
-                          }}
-                        >
-                          <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#334155" }}>{pattern.title}</div>
-                          {pattern.description && (
-                            <div style={{ fontSize: "0.65rem", color: "var(--jf-text-3)", marginTop: 2, lineHeight: 1.35 }}>{pattern.description}</div>
-                          )}
-                        </button>
-                        {missingTypes.length > 0 && (
-                          <div
-                            style={{
-                              padding: "0.4rem 0.65rem",
-                              borderTop: "1px solid var(--jf-border)",
-                              background: "var(--jf-warning-bg, #fffbeb)",
-                              fontSize: "0.65rem",
-                              color: "var(--jf-warning-text, #92400e)",
-                              lineHeight: 1.4,
-                            }}
-                          >
-                            {missingTypes.map((type) => {
-                              const pluginId = pluginIdForBlockType(type);
-                              const pluginName = PLUGIN_NAMES[pluginId] ?? pluginId;
-                              return (
-                                <div key={type}>
-                                  ⓘ Uses the {pluginName} extension, which isn't installed yet.{" "}
-                                  <Link to="/admin/plugins" style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>
-                                    Install it
-                                  </Link>{" "}
-                                  to make this block work.
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
+        {isPage && !headerOnly && onImportPattern && (
+          <div style={{ marginBottom: "0.75rem" }}>
+            <PatternLibrary
+              catalog={catalog}
+              currentBlocks={currentBlocks}
+              onInsert={onImportPattern}
+            />
           </div>
         )}
 
@@ -295,10 +192,18 @@ export default function BlockLibrary({ catalog, onAdd, onImportPattern, parentTy
                         color: "#334155",
                         userSelect: "none",
                       }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--jf-surface-3)"; e.currentTarget.style.borderColor = "var(--jf-border)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "transparent"; }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "var(--jf-surface-3)";
+                        e.currentTarget.style.borderColor = "var(--jf-border)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "#fff";
+                        e.currentTarget.style.borderColor = "transparent";
+                      }}
                     >
-                      <span style={{ width: 22, textAlign: "center", opacity: 0.85 }}>{block.icon}</span>
+                      <span style={{ width: 22, textAlign: "center", opacity: 0.85 }}>
+                        {block.icon}
+                      </span>
                       {block.title}
                     </div>
                   ))}

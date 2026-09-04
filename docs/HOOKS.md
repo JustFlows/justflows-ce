@@ -11,13 +11,13 @@ themselves.
 
 ## The three kinds
 
-Everything is one of three things. Pick by asking what you want to *do*.
+Everything is one of three things. Pick by asking what you want to _do_.
 
-| I want to…                                     | Use a…     | Hook names look like |
-| ---------------------------------------------- | ---------- | -------------------- |
-| React to something that already happened        | **action** | `content.published`  |
-| Stop something before it happens                | **gate**   | `content.beforeCreate` |
-| Change a value on its way through               | **filter** | `content.render`     |
+| I want to…                               | Use a…     | Hook names look like   |
+| ---------------------------------------- | ---------- | ---------------------- |
+| React to something that already happened | **action** | `content.published`    |
+| Stop something before it happens         | **gate**   | `content.beforeCreate` |
+| Change a value on its way through        | **filter** | `content.render`       |
 
 The naming tells you which is which. Past tense (`content.created`) is an
 action. A `before` prefix (`media.beforeUpload`) is a gate. Everything else is
@@ -86,7 +86,7 @@ does not work. If you want to change a value, you want a filter.
 
 ## Gates
 
-Gates run *before* an operation commits, and can stop it.
+Gates run _before_ an operation commits, and can stop it.
 
 ```ts
 ctx.hooks.gate("media.beforeUpload", (event) => {
@@ -103,7 +103,7 @@ and the caller gets a `HookAbortError` carrying your reason and your plugin ID.
 `"Files must be under 10 MB"` is right and `"ERR_SIZE_LIMIT"` is not.
 
 **Gates fail closed.** If your gate handler throws instead of cancelling, the
-operation is *also* aborted, attributed to your plugin. A validation plugin
+operation is _also_ aborted, attributed to your plugin. A validation plugin
 that crashes must never let bad data through — so a crash is treated as a
 rejection, not as permission.
 
@@ -138,11 +138,13 @@ and it is caught twice.
 On a core hook, TypeScript rejects it outright:
 
 ```ts
-ctx.hooks.filter("content.render", (html) => { html.trim(); });
+ctx.hooks.filter("content.render", (html) => {
+  html.trim();
+});
 //                                 ^ Type 'void' is not assignable to 'string | Promise<string>'
 ```
 
-On a hook that is *not* in `FilterValueMap` — your own namespaced hooks, or a
+On a hook that is _not_ in `FilterValueMap` — your own namespaced hooks, or a
 plugin written in plain JavaScript — the compiler cannot help, so the runtime
 catches it instead: returning `undefined` where the incoming value was defined
 keeps the previous value and logs a warning naming your plugin. Your filter is
@@ -156,7 +158,7 @@ Filters receive three arguments:
 ```ts
 ctx.hooks.filter("content.render", (value, filterContext, hookContext) => {
   filterContext.contentId; // what is being filtered
-  hookContext.siteId;      // who/where — see below
+  hookContext.siteId; // who/where — see below
   return value;
 });
 ```
@@ -168,9 +170,9 @@ ctx.hooks.filter("content.render", (value, filterContext, hookContext) => {
 Handlers run in ascending priority. Default is `100`. Lower runs earlier.
 
 ```ts
-ctx.hooks.filter("content.render", sanitize,  { priority: 10 });  // first
-ctx.hooks.filter("content.render", addLinks,  { priority: 100 }); // default
-ctx.hooks.filter("content.render", minify,    { priority: 900 }); // last
+ctx.hooks.filter("content.render", sanitize, { priority: 10 }); // first
+ctx.hooks.filter("content.render", addLinks, { priority: 100 }); // default
+ctx.hooks.filter("content.render", minify, { priority: 900 }); // last
 ```
 
 Handlers with equal priority run in registration order, so the result is
@@ -191,8 +193,8 @@ Every handler gets a `HookContext` as its last argument:
 
 ```ts
 interface HookContext {
-  siteId?: string;      // which site this concerns
-  requestId?: string;   // correlate with logs
+  siteId?: string; // which site this concerns
+  requestId?: string; // correlate with logs
   source?: "http" | "job" | "cli" | "system";
   actor?: { userId?: string; role?: string };
 }
@@ -222,7 +224,7 @@ runtime surprise:
 ```ts
 ctx.hooks.action("content.published", (event) => {
   event.contentId; // ✅ string
-  event.postId;    // ❌ Property 'postId' does not exist
+  event.postId; // ❌ Property 'postId' does not exist
 });
 ```
 
@@ -239,7 +241,7 @@ request inside a lifecycle handler. Plugins extend `webhook.eventTypes` with a
 namespaced action and emit that action; the host signs, persists, retries, and
 logs the delivery. See [Webhooks](WEBHOOKS.md#plugin-defined-events).
 
-Your plugin can expose extension points for *other* plugins. Use `emit` for
+Your plugin can expose extension points for _other_ plugins. Use `emit` for
 actions and `apply` for filters:
 
 ```ts
@@ -304,7 +306,7 @@ activate(ctx) {
 }
 ```
 
-If you want to remove a handler *earlier* than deactivation, every registration
+If you want to remove a handler _earlier_ than deactivation, every registration
 returns a dispose function:
 
 ```ts
@@ -332,12 +334,12 @@ For cache APIs and revalidation configuration see [CACHE.md](./CACHE.md).
 
 Justflows assumes extensions have bugs and contains the damage.
 
-| Where            | What happens                                                    |
-| ---------------- | --------------------------------------------------------------- |
-| Action throws    | Logged against your plugin, remaining handlers still run          |
-| Gate throws      | Operation is aborted and attributed to you (fails closed)         |
-| Filter throws    | Logged, last good value continues down the pipeline               |
-| Filter returns nothing | Previous value kept, warning logged                         |
+| Where                  | What happens                                              |
+| ---------------------- | --------------------------------------------------------- |
+| Action throws          | Logged against your plugin, remaining handlers still run  |
+| Gate throws            | Operation is aborted and attributed to you (fails closed) |
+| Filter throws          | Logged, last good value continues down the pipeline       |
+| Filter returns nothing | Previous value kept, warning logged                       |
 
 Three more safety nets run automatically:
 
@@ -448,7 +450,7 @@ export function registerHeaders(ctx: PluginContext) {
   ctx.hooks.filter("header.templates", (list, { locale }) => [
     ...list,
     {
-      id: "acme.shop:mega-menu",       // must be "<yourPluginId>:<slug>"
+      id: "acme.shop:mega-menu", // must be "<yourPluginId>:<slug>"
       name: "Shop mega menu",
       description: "Header driven by your catalog categories",
       async build({ siteId }) {
@@ -464,7 +466,7 @@ export function registerHeaders(ctx: PluginContext) {
 ```
 
 The site owner then picks **Shop mega menu** from the page's Header dropdown
-(under *From plugins*). Selecting it stores the ref `"acme.shop:mega-menu"` on
+(under _From plugins_). Selecting it stores the ref `"acme.shop:mega-menu"` on
 the page. The host re-sanitises every `HeaderConfig` you return — blocks are
 capped at 40, `background` must be a safe CSS colour, enum fields are clamped —
 so a bad value degrades, it does not break the page. Deactivate the plugin and
@@ -479,7 +481,7 @@ Two related filters:
   and returns an adjusted one. Use to inject a banner block or flip the auth
   links on without replacing the whole design.
 
-If a site owner wants to keep and edit one of your designs, they *instantiate*
+If a site owner wants to keep and edit one of your designs, they _instantiate_
 it: the customizer copies the `build()` output into their header library as a
 normal entry, and the plugin link is dropped.
 
@@ -489,17 +491,17 @@ normal entry, and the plugin link is dropped.
 
 Hooks are cheap enough that you should not think about them:
 
-| Operation                             | Cost      |
-| ------------------------------------- | --------- |
-| Dispatch with no handlers             | 0.011 µs  |
-| Dispatch with one sync handler        | 0.093 µs  |
-| Ten-handler synchronous filter        | 0.471 µs  |
+| Operation                      | Cost     |
+| ------------------------------ | -------- |
+| Dispatch with no handlers      | 0.011 µs |
+| Dispatch with one sync handler | 0.093 µs |
+| Ten-handler synchronous filter | 0.471 µs |
 
 A hook nobody listens to costs a map lookup. Synchronous handlers never add a
 microtask — the dispatcher only awaits when a handler actually returns a
 promise.
 
-The one thing that *is* expensive is work you do inside a handler. If building
+The one thing that _is_ expensive is work you do inside a handler. If building
 the payload for your own hook is costly, check whether anyone is listening
 first:
 
@@ -534,59 +536,65 @@ makes both correctness and performance attributable to a specific extension.
 
 ### Actions
 
-| Hook | Payload |
-| ---- | ------- |
-| `app.starting` / `app.started` | `{ version }` |
-| `app.stopping` | `{}` |
-| `content.created` / `deleted` | `{ contentId, siteId, type?, translationGroupId? }` — `content.deleted` also has `lastInTranslationGroup?` when the host knows whether other locales remain |
-| `content.updated` | `{ contentId, siteId }` — fires when the **canonical live row** changes (first publish, republish of a working revision, or an unpublished draft save). Saving a working revision of published content does **not** fire `content.updated`. |
-| `content.published` / `unpublished` | `{ contentId, siteId }` — `content.published` runs after the live snapshot is committed |
-| `content.revisionSaved` / `revisionDiscarded` / `revisionRestored` | `{ contentId, siteId, revisionId }` |
-| `media.uploaded` | `{ siteId, mediaId, url }` |
-| `media.deleted` | `{ siteId, mediaId }` |
-| `user.created` / `updated` / `deleted` | `{ userId }` |
-| `user.accessChanged` | `{ userId, roleId }` — after a role, grant, deny, or scope change |
-| `access.roleCreated` / `roleUpdated` / `roleDeleted` | `{ roleId }` |
-| `auth.login` / `auth.logout` | `{ userId, email }` |
-| `auth.loginFailed` | `{ email, reason }` |
-| `plugin.installed` / `activated` / `deactivated` / `deleteData` / `uninstalled` | `{ pluginId, version, siteId? }` — `plugin.deleteData` runs after that plugin's `deleteData()` hook |
-| `theme.installed` / `theme.activated` | `{ themeId, version, siteId? }` |
-| `request.before` | `{ method, path }` |
-| `request.after` | `{ method, path, statusCode, durationMs }` |
+| Hook                                                                            | Payload                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app.starting` / `app.started`                                                  | `{ version }`                                                                                                                                                                                                                               |
+| `app.stopping`                                                                  | `{}`                                                                                                                                                                                                                                        |
+| `content.created` / `deleted`                                                   | `{ contentId, siteId, type?, translationGroupId? }` — `content.deleted` also has `lastInTranslationGroup?` when the host knows whether other locales remain                                                                                 |
+| `content.updated`                                                               | `{ contentId, siteId }` — fires when the **canonical live row** changes (first publish, republish of a working revision, or an unpublished draft save). Saving a working revision of published content does **not** fire `content.updated`. |
+| `content.published` / `unpublished`                                             | `{ contentId, siteId }` — `content.published` runs after the live snapshot is committed                                                                                                                                                     |
+| `content.revisionSaved` / `revisionDiscarded` / `revisionRestored`              | `{ contentId, siteId, revisionId }`                                                                                                                                                                                                         |
+| `media.uploaded`                                                                | `{ siteId, mediaId, url }`                                                                                                                                                                                                                  |
+| `media.deleted`                                                                 | `{ siteId, mediaId }`                                                                                                                                                                                                                       |
+| `user.created` / `updated` / `deleted`                                          | `{ userId }`                                                                                                                                                                                                                                |
+| `user.accessChanged`                                                            | `{ userId, roleId }` — after a role, grant, deny, or scope change                                                                                                                                                                           |
+| `access.roleCreated` / `roleUpdated` / `roleDeleted`                            | `{ roleId }`                                                                                                                                                                                                                                |
+| `auth.login` / `auth.logout`                                                    | `{ userId, email }`                                                                                                                                                                                                                         |
+| `auth.loginFailed`                                                              | `{ email, reason }`                                                                                                                                                                                                                         |
+| `plugin.installed` / `activated` / `deactivated` / `deleteData` / `uninstalled` | `{ pluginId, version, siteId? }` — `plugin.deleteData` runs after that plugin's `deleteData()` hook                                                                                                                                         |
+| `theme.installed` / `theme.activated`                                           | `{ themeId, version, siteId? }`                                                                                                                                                                                                             |
+| `request.before`                                                                | `{ method, path }`                                                                                                                                                                                                                          |
+| `request.after`                                                                 | `{ method, path, statusCode, durationMs }`                                                                                                                                                                                                  |
+| `cache.revalidated`                                                             | `{ trigger, objects, siteId? }` — after selective cache revalidation                                                                                                                                                                        |
+| `staticExport.completed`                                                        | `{ ok, mode, outDir, publicUrl, pages, assets, bytes, pruned, durationMs, errors }` — a static-site export run finished (manual, CLI, or `STATIC_EXPORT_AUTO`)                                                                              |
+| `staticExport.deploy`                                                           | `{ outDir, publicUrl, manifest, summary }` — fires right after `staticExport.completed`; use it to push the generated directory to object storage / a CDN and invalidate the changed paths. See [Static export](STATIC-EXPORT.md).          |
 
 ### Gates
 
-| Hook | Payload |
-| ---- | ------- |
-| `content.beforeCreate` | `{ input: ContentDraft }` |
+| Hook                                     | Payload                                                                                                                                                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `content.beforeCreate`                   | `{ input: ContentDraft }`                                                                                                                                                                                                |
 | `content.beforeUpdate` / `beforePublish` | `{ contentId, siteId, revision?, revisionId? }` — `revision` is the proposed snapshot. Gates run before the live row is committed. If a publish fails after a working revision was saved, that pending revision is kept. |
-| `content.beforeDelete` | `{ contentId, siteId }` |
-| `media.beforeUpload` | `{ siteId, filename, mimeType, sizeBytes }` |
-| `media.beforeDelete` | `{ siteId, mediaId }` |
+| `content.beforeDelete`                   | `{ contentId, siteId }`                                                                                                                                                                                                  |
+| `media.beforeUpload`                     | `{ siteId, filename, mimeType, sizeBytes }`                                                                                                                                                                              |
+| `media.beforeDelete`                     | `{ siteId, mediaId }`                                                                                                                                                                                                    |
 
 ### Filters
 
-| Hook | Value | Context |
-| ---- | ----- | ------- |
-| `content.input` | `Record<string, unknown>` | `{ siteId }` |
-| `content.output` | `Record<string, unknown>` | `{ siteId }` |
-| `content.blocks` | block tree | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on stored blocks before HTML render. Handlers may be async (Shop fills `{{price}}` tags here so heading text is replaced before `esc()`). |
-| `content.render` | `string` (HTML) | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on public body HTML after blocks render. Handlers may be async (Shop uses this to fill `{{price}}` and other product tags). |
-| `comments.render` | `string` (HTML) | `CommentsBlockRenderContext` — the rendered `justflows.comments.thread` block. Return replacement HTML for full markup control (the context carries the threaded `PublicComment[]`, counts, form/policy state, `basePath`, `locale`, `currentUser`, `captchaProvider`), or the value unchanged to keep the default. Handlers may be async. Deactivating the plugin restores the default markup. The submission endpoint (`POST /justflows-comments/submit`), `comments` table, and moderation API are unchanged — only the rendering is yours. |
-| `content.revision` | proposed snapshot | `{ siteId, contentId }` — filters the working revision before it is stored. Committed history is immutable. |
-| `media.metadata` | `Record<string, unknown>` | `{ siteId, mediaId }` |
-| `navigation.items` | `NavigationItem[]` | `{ siteId, location }` |
-| `header.templates` | `HeaderTemplate[]` | `{ siteId, locale, defaultLocale }` — seeded with `[]`; append header designs your plugin ships. Metadata only here; the host calls `build()` at render time (cached per ref + locale). Ids must be `"<pluginId>:<slug>"`. A page that referenced an uninstalled template falls back to the site default. |
-| `header.resolve` | `HeaderConfig \| null` | `{ siteId, locale, defaultLocale, ref, contentId?, contentType? }` — return a `HeaderConfig` to take over which header a page renders, or `null` to let the host resolve the stored ref. For headers computed per request. |
-| `header.config` | `HeaderConfig` | `{ siteId, locale, defaultLocale, ref, contentId?, contentType? }` — adjust the resolved header just before render (inject a block, flip a widget). Runs for every header whatever its source. The host re-sanitises whatever you return. |
-| `admin.menu` | `AdminNavItem[]` | `{ siteId }` — extra admin sidebar pages. Set `domain` to a known group (`content`, `commerce`, `appearance`, `extensions`, `security`, `system`); unknown values fall back to `extensions`. Set `end` on a parent path so nested pages do not keep it selected. Optional `setupPath` tells the host which URL mounts `GET /ext/{pluginId}/setup`. Optional `contentType` tells the host to list every CMS entry of that type on the page. Requires `admin:extend`. Returning an invalid item is dropped. Deactivating the plugin removes the handler. |
-| `plugin.settings` | `Record<string, unknown>` | `{ pluginId, siteId }` — overlay Admin → Plugins → Settings values. The host applies this on the plugin runtime registry. |
-| `plugin.settings.write` | `Record<string, unknown>` | `{ pluginId, siteId }` — intercept a settings save. Return only the keys that should be stored in plugin settings KV. |
-| `http.responseHeaders` | `Record<string, string>` | `{ method, path }` |
-| `html.head` | `string` (extra `<head>` HTML) | `{ siteId, path, title, contentId? }` |
-| `analytics.head` | `string` (analytics `<head>` markup) | `{ siteId, path }` — the Google Tag markup the host is about to emit (or `""`). **Synchronous.** A consent plugin rewrites it — e.g. to `type="text/plain" data-jf-consent="analytics"` — so the tag does not run until the visitor grants the analytics category. Return it unchanged for a no-op. |
-| `theme.css` | `string` (CSS appended to `/theme.css`) | `{ siteId, preview }` — seeded with `""`; append your plugin's stylesheet. Lands after the theme and Customizer tokens, before the site owner's Additional CSS. Runs once per stylesheet build (cached, not per page), so handlers **may be async** — read a file and minify once, then memoise. Deactivating the plugin drops the handler and the next build omits the CSS. `preview` is true while the Customizer previews an unpublished draft. |
-| `seo.sitemapPaths` | `string[]` (URL paths) | `{ siteId }` |
+| Hook                      | Value                                   | Context                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `content.input`           | `Record<string, unknown>`               | `{ siteId }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `content.output`          | `Record<string, unknown>`               | `{ siteId }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `content.blocks`          | block tree                              | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on stored blocks before HTML render. Handlers may be async (Shop fills `{{price}}` tags here so heading text is replaced before `esc()`).                                                                                                                                                                                                                                                                                                                              |
+| `content.render`          | `string` (HTML)                         | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on public body HTML after blocks render. Handlers may be async (Shop uses this to fill `{{price}}` and other product tags).                                                                                                                                                                                                                                                                                                                                            |
+| `comments.render`         | `string` (HTML)                         | `CommentsBlockRenderContext` — the rendered `justflows.comments.thread` block. Return replacement HTML for full markup control (the context carries the threaded `PublicComment[]`, counts, form/policy state, `basePath`, `locale`, `currentUser`, `captchaProvider`), or the value unchanged to keep the default. Handlers may be async. Deactivating the plugin restores the default markup. The submission endpoint (`POST /justflows-comments/submit`), `comments` table, and moderation API are unchanged — only the rendering is yours.         |
+| `content.revision`        | proposed snapshot                       | `{ siteId, contentId }` — filters the working revision before it is stored. Committed history is immutable.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `media.metadata`          | `Record<string, unknown>`               | `{ siteId, mediaId }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `navigation.items`        | `NavigationItem[]`                      | `{ siteId, location }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `header.templates`        | `HeaderTemplate[]`                      | `{ siteId, locale, defaultLocale }` — seeded with `[]`; append header designs your plugin ships. Metadata only here; the host calls `build()` at render time (cached per ref + locale). Ids must be `"<pluginId>:<slug>"`. A page that referenced an uninstalled template falls back to the site default.                                                                                                                                                                                                                                              |
+| `header.resolve`          | `HeaderConfig \| null`                  | `{ siteId, locale, defaultLocale, ref, contentId?, contentType? }` — return a `HeaderConfig` to take over which header a page renders, or `null` to let the host resolve the stored ref. For headers computed per request.                                                                                                                                                                                                                                                                                                                             |
+| `header.config`           | `HeaderConfig`                          | `{ siteId, locale, defaultLocale, ref, contentId?, contentType? }` — adjust the resolved header just before render (inject a block, flip a widget). Runs for every header whatever its source. The host re-sanitises whatever you return.                                                                                                                                                                                                                                                                                                              |
+| `admin.menu`              | `AdminNavItem[]`                        | `{ siteId }` — extra admin sidebar pages. Set `domain` to a known group (`content`, `commerce`, `appearance`, `extensions`, `security`, `system`); unknown values fall back to `extensions`. Set `end` on a parent path so nested pages do not keep it selected. Optional `setupPath` tells the host which URL mounts `GET /ext/{pluginId}/setup`. Optional `contentType` tells the host to list every CMS entry of that type on the page. Requires `admin:extend`. Returning an invalid item is dropped. Deactivating the plugin removes the handler. |
+| `plugin.settings`         | `Record<string, unknown>`               | `{ pluginId, siteId }` — overlay Admin → Plugins → Settings values. The host applies this on the plugin runtime registry.                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `plugin.settings.write`   | `Record<string, unknown>`               | `{ pluginId, siteId }` — intercept a settings save. Return only the keys that should be stored in plugin settings KV.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `http.responseHeaders`    | `Record<string, string>`                | `{ method, path }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `html.head`               | `string` (extra `<head>` HTML)          | `{ siteId, path, title, contentId? }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `analytics.head`          | `string` (analytics `<head>` markup)    | `{ siteId, path }` — the Google Tag markup the host is about to emit (or `""`). **Synchronous.** A consent plugin rewrites it — e.g. to `type="text/plain" data-jf-consent="analytics"` — so the tag does not run until the visitor grants the analytics category. Return it unchanged for a no-op.                                                                                                                                                                                                                                                    |
+| `theme.css`               | `string` (CSS appended to `/theme.css`) | `{ siteId, preview }` — seeded with `""`; append your plugin's stylesheet. Lands after the theme and Customizer tokens, before the site owner's Additional CSS. Runs once per stylesheet build (cached, not per page), so handlers **may be async** — read a file and minify once, then memoise. Deactivating the plugin drops the handler and the next build omits the CSS. `preview` is true while the Customizer previews an unpublished draft.                                                                                                     |
+| `seo.sitemapPaths`        | `string[]` (URL paths)                  | `{ siteId }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `staticExport.routes`     | `string[]` (URL paths)                  | `{ siteId }` — the seed paths the static-site exporter crawls, before link discovery. Seeded from `sitemap.xml` plus every published entry. Add paths a plugin renders dynamically, or drop paths that must not be exported.                                                                                                                                                                                                                                                                                                                           |
+| `staticExport.assets`     | `string[]` (same-origin asset URLs)     | `{ siteId }` — seeded with every asset the exporter found by scanning `<script>` / `<link>` / `<img>` / `srcset` / CSS. Append assets a plugin or custom theme loads in a way the scanner cannot see (a dynamically-imported chunk, a Web Worker, a JSON config fetched at runtime).                                                                                                                                                                                                                                                                   |
+| `staticExport.formAction` | `string` (a `<form action>` URL)        | `{ siteId, endpoint: "forms" \| "comments", defaultAction }` — the action written into exported HTML for a dynamic endpoint a static host cannot serve. Seeded with the origin-absolute URL when `STATIC_EXPORT_ORIGIN_URL` is set, else the relative default. Return a serverless / third-party endpoint.                                                                                                                                                                                                                                             |
 
 ---
 
@@ -597,8 +605,10 @@ On your own hooks it slips through to runtime, where the previous value is kept
 and a warning is logged — nothing breaks, but your filter silently does nothing.
 
 ```ts
-ctx.hooks.filter("content.render", (html) => { html.trim(); });        // ❌
-ctx.hooks.filter("content.render", (html) => html.trim());             // ✅
+ctx.hooks.filter("content.render", (html) => {
+  html.trim();
+}); // ❌
+ctx.hooks.filter("content.render", (html) => html.trim()); // ✅
 ```
 
 **Using an action where you meant a gate.** `content.created` fires after the
@@ -648,11 +658,11 @@ Registry behaviour is configurable at construction:
 
 ```ts
 new HooksRegistry({
-  logger,                 // attributed structured logging
-  slowHandlerMs: 250,     // 0 disables per-handler timing
-  failureThreshold: 10,   // 0 disables the circuit breaker
-  maxDepth: 32,           // re-entrancy limit per hook name
-  freezeEvents: false,    // freeze action payloads (on outside production)
+  logger, // attributed structured logging
+  slowHandlerMs: 250, // 0 disables per-handler timing
+  failureThreshold: 10, // 0 disables the circuit breaker
+  maxDepth: 32, // re-entrancy limit per hook name
+  freezeEvents: false, // freeze action payloads (on outside production)
 });
 ```
 
@@ -681,11 +691,11 @@ activate(ctx) {
 
 The filter receives the rendered HTML and a context object:
 
-| Field        | Type     | Description                          |
-| ------------ | -------- | ------------------------------------ |
-| `siteId`     | `string` | Current site                         |
-| `siteTitle`  | `string` | From theme identity mods             |
-| `tagline`    | `string` | From theme identity mods             |
+| Field       | Type     | Description              |
+| ----------- | -------- | ------------------------ |
+| `siteId`    | `string` | Current site             |
+| `siteTitle` | `string` | From theme identity mods |
+| `tagline`   | `string` | From theme identity mods |
 
 Handlers must be **synchronous** — this runs on the HTTP render path. Return
 the full HTML string; you can replace the entire page if you want.

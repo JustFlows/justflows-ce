@@ -34,6 +34,12 @@ export type PluginMenuItem = {
   setupPath?: string;
   /** When set, the plugin host lists CMS entries of this type. */
   contentType?: string;
+  /**
+   * When the plugin ships its own admin app for this path, the URL the admin
+   * shell mounts in an `<iframe>` (`/ext/<pluginId>/admin/<entry>`). The plugin
+   * owns the whole screen; the host only frames it.
+   */
+  adminAppUrl?: string;
 };
 
 export const ADMIN_DASHBOARD: NavItem = {
@@ -216,7 +222,6 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/updates": ["administrator"],
   "/admin/webhooks": ["administrator"],
   "/admin/analytics": ["administrator", "editor"],
-  "/admin/forms": ["administrator", "editor"],
 };
 
 /** Every rule path, longest first, so a nested route matches its owning page. */

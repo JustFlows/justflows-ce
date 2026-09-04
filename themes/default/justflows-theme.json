@@ -21,6 +21,13 @@
   "patterns": {
     "home": "./patterns/home.json",
     "about": "./patterns/about.json",
+    "contact": "./patterns/contact.json",
+    "hero": "./patterns/hero.json",
+    "feature-grid": "./patterns/feature-grid.json",
+    "pricing": "./patterns/pricing.json",
+    "testimonial": "./patterns/testimonial.json",
+    "cta": "./patterns/cta.json",
+    "faq": "./patterns/faq.json",
     "landing": "./patterns/landing.json",
     "product": "./patterns/product.json",
     "product-mosaic": "./patterns/product-mosaic.json",

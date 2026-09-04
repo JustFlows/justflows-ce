@@ -197,6 +197,19 @@ export class JobScheduler {
     }));
   }
 
+  isRunning(): boolean {
+    return this.running;
+  }
+
+  retry(name: string): boolean {
+    const entry = this.jobs.get(name);
+    if (!entry || entry.status !== "failed") return false;
+    entry.nextRunAt = new Date();
+    entry.status = "pending";
+    entry.attempts = 0;
+    return true;
+  }
+
   private async tick(): Promise<void> {
     const now = new Date();
 

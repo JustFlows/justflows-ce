@@ -92,12 +92,16 @@ describe("listThemePatterns", () => {
         id: "contact",
         title: "Contact page",
         requiresBlockTypes: ["justflows.forms.form"],
-        blocks: [],
+        blocks: [{ id: "form", type: "justflows.forms.form", version: 1, props: {} }],
       }),
     );
     fs.writeFileSync(
       path.join(patternsDir, "about.json"),
-      JSON.stringify({ id: "about", title: "About page", blocks: [] }),
+      JSON.stringify({
+        id: "about",
+        title: "About page",
+        blocks: [{ id: "copy", type: "core.paragraph", version: 1, props: {} }],
+      }),
     );
 
     const patterns = listThemePatterns("justflows.default");

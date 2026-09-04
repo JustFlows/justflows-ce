@@ -105,33 +105,38 @@ async function bump(
   });
 }
 
-export async function recordPublicPageview(req: Request): Promise<void> {
-  const adminPath = (await getAdminPathConfig()).path;
-  if (req.path === adminPath || req.path.startsWith(`${adminPath}/`)) return;
+/**
+ * Record one pageview from explicit fields — shared by the server render path
+ * ({@link recordPublicPageview}) and the client beacon a statically-exported
+ * page fires ({@link recordBeaconPageview}), so a static deployment still
+ * counts views.
+ */
+async function recordPageview(input: {
+  path: string;
+  userAgent: string;
+  referer?: string;
+  host?: string;
+}): Promise<void> {
   const siteId = await getSiteId();
   if (!siteId || !(await isAnalyticsPluginEnabled(siteId))) return;
 
-  const path = normalizePath(req.path || "/");
-  if (shouldSkipPath(path)) return;
-
-  const ua = String(req.headers["user-agent"] ?? "");
-  if (isBot(ua)) return;
+  const adminPath = (await getAdminPathConfig()).path;
+  const path = normalizePath(input.path || "/");
+  if (path === adminPath || path.startsWith(`${adminPath}/`) || shouldSkipPath(path)) return;
+  if (isBot(input.userAgent)) return;
 
   const day = new Date().toISOString().slice(0, 10);
   const siteHost = (() => {
     try {
       return new URL(process.env.APP_URL ?? "").hostname;
     } catch {
-      return String(req.headers.host ?? "");
+      return input.host ?? "";
     }
   })();
 
   await bump(siteId, "pageviews", `${day}:${path}`, { day, path });
 
-  const referrer = referrerLabel(
-    typeof req.headers.referer === "string" ? req.headers.referer : undefined,
-    siteHost,
-  );
+  const referrer = referrerLabel(input.referer, siteHost);
   if (referrer) {
     // The hostname comes from the visitor's Referer, so the set of distinct
     // values is unbounded and attacker-chosen — one row per referrer per day
@@ -149,8 +154,30 @@ export async function recordPublicPageview(req: Request): Promise<void> {
     }
   }
 
-  const device = deviceFromUa(ua);
+  const device = deviceFromUa(input.userAgent);
   await bump(siteId, "devices", `${day}:${device}`, { day, device });
+}
+
+export async function recordPublicPageview(req: Request): Promise<void> {
+  // The static-site exporter crawls every public page over loopback; those
+  // fetches carry this header and must not inflate the pageview counters.
+  if (req.headers["x-jf-static-export"]) return;
+  await recordPageview({
+    path: req.path || "/",
+    userAgent: String(req.headers["user-agent"] ?? ""),
+    referer: typeof req.headers.referer === "string" ? req.headers.referer : undefined,
+    host: String(req.headers.host ?? ""),
+  });
+}
+
+/** Ingest a pageview from the client beacon (`POST /justflows-analytics/collect`). */
+export async function recordBeaconPageview(input: {
+  path: string;
+  userAgent: string;
+  referer?: string;
+  host?: string;
+}): Promise<void> {
+  await recordPageview(input);
 }
 
 function mergeCounts<K extends string>(

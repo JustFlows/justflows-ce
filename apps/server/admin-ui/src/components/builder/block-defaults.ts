@@ -52,7 +52,6 @@ export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
   "core.code": { code: "", language: "" },
   "core.embed": { url: "", caption: "" },
   "core.html": { html: "" },
-  "justflows.forms.form": { formId: "contact" },
   "justflows.gallery.grid": { items: [], layout: "grid", columns: 3, lightbox: true },
   "justflows.blog.postList": {
     layout: "grid",

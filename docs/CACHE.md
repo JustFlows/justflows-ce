@@ -17,13 +17,13 @@ save once and the app restarts automatically (via `tmp/restart.txt` on Plesk/Pas
 
 Or add these to `.env` manually (see also `.env.example`):
 
-| Variable            | Default                  | Purpose                                                         |
-| ------------------- | ------------------------ | --------------------------------------------------------------- |
-| `CACHE_ENABLED`     | Fresh install: `0`. Fallback if unset: off. | Global kill switch. Use `0`, `false`, or `off` to disable. |
-| `CACHE_DRIVER`      | `filesystem`             | `memory`, `filesystem`, or `redis` (redis not implemented yet). |
-| `CACHE_TTL_SECONDS` | `300`                    | Default TTL for cached entries (seconds).                       |
-| `CACHE_DIR`         | `./.cache` under JF_ROOT | Directory for the filesystem driver.                            |
-| `CACHE_REDIS_URL`   | —                        | Reserved for a future Redis driver.                             |
+| Variable            | Default                                     | Purpose                                                         |
+| ------------------- | ------------------------------------------- | --------------------------------------------------------------- |
+| `CACHE_ENABLED`     | Fresh install: `0`. Fallback if unset: off. | Global kill switch. Use `0`, `false`, or `off` to disable.      |
+| `CACHE_DRIVER`      | `filesystem`                                | `memory`, `filesystem`, or `redis` (redis not implemented yet). |
+| `CACHE_TTL_SECONDS` | `300`                                       | Default TTL for cached entries (seconds).                       |
+| `CACHE_DIR`         | `./.cache` under JF_ROOT                    | Directory for the filesystem driver.                            |
+| `CACHE_REDIS_URL`   | —                                           | Reserved for a future Redis driver.                             |
 
 When caching is **disabled**, every read goes straight to the source — same
 behaviour as a cold cache, but without storing anything. Useful while debugging
@@ -341,26 +341,30 @@ On a filter (`content.render`), read from cache — see
 Beyond object cache, Justflows can compress responses and send browser cache headers.
 Configure everything from **Admin → Tools → Performance suite**, or set these in `.env`:
 
-| Variable                          | Default | Purpose                                                       |
-| --------------------------------- | ------- | ------------------------------------------------------------- |
+| Variable                          | Default                                     | Purpose                                                       |
+| --------------------------------- | ------------------------------------------- | ------------------------------------------------------------- |
 | `JF_GZIP_ENABLED`                 | Fresh install: `0`. Fallback if unset: off. | GZIP-compress HTML, JSON, CSS, JS when the client accepts it. |
-| `JF_GZIP_LEVEL`                   | `6`     | Compression level (1 = fast, 9 = smallest).                   |
-| `JF_GZIP_MIN_BYTES`               | `1024`  | Skip compression below this response size.                    |
-| `JF_BROWSER_CACHE_ENABLED`        | Fresh install: `0`. Fallback if unset: off. | Send `Cache-Control` on public HTML and static assets. |
-| `JF_BROWSER_CACHE_HTML_MAX_AGE`   | `60`    | `max-age` for public HTML pages (seconds).                    |
-| `JF_BROWSER_CACHE_STATIC_MAX_AGE` | `86400` | `max-age` for `/uploads`, `/public`, `/assets` (seconds).     |
-| `JF_BROWSER_CACHE_SWR`            | `300`   | `stale-while-revalidate` for HTML pages.                      |
+| `JF_GZIP_LEVEL`                   | `6`                                         | Compression level (1 = fast, 9 = smallest).                   |
+| `JF_GZIP_MIN_BYTES`               | `1024`                                      | Skip compression below this response size.                    |
+| `JF_BROWSER_CACHE_ENABLED`        | Fresh install: `0`. Fallback if unset: off. | Send `Cache-Control` on public HTML and static assets.        |
+| `JF_BROWSER_CACHE_HTML_MAX_AGE`   | `60`                                        | `max-age` for public HTML pages (seconds).                    |
+| `JF_BROWSER_CACHE_STATIC_MAX_AGE` | `86400`                                     | `max-age` for `/uploads`, `/public`, `/assets` (seconds).     |
+| `JF_BROWSER_CACHE_SWR`            | `300`                                       | `stale-while-revalidate` for HTML pages.                      |
 
 ### Revalidate on update
 
-| Variable                   | Default | Purpose                                                         |
-| -------------------------- | ------- | --------------------------------------------------------------- |
+| Variable                   | Default                                     | Purpose                                                         |
+| -------------------------- | ------------------------------------------- | --------------------------------------------------------------- |
 | `CACHE_REVALIDATE_ENABLED` | Fresh install: `0`. Fallback if unset: off. | Clear selected layers when content/menus/theme/settings change. |
-| `CACHE_REVALIDATE_OBJECTS` | all     | Comma list: `pages,content,menus,theme,cssProviders,site`.      |
+| `CACHE_REVALIDATE_OBJECTS` | all                                         | Comma list: `pages,content,menus,theme,cssProviders,site`.      |
 
 When a page/post is saved, only **selected** layers that the trigger affects are cleared
 (e.g. content updates clear `content` + `pages` if both are selected). Disable to rely
 on TTL alone. Emits `cache.revalidated` for plugins.
+
+The static-site exporter's optional auto-rebuild (`STATIC_EXPORT_AUTO=1`) listens
+on this same `cache.revalidated` action, so it needs `CACHE_REVALIDATE_ENABLED=1`
+to fire. See [Static / edge export](STATIC-EXPORT.md).
 
 Admin and API routes always receive `Cache-Control: no-store`. GZIP adds
 `Content-Encoding: gzip` and `Vary: Accept-Encoding` on compressed responses.

@@ -82,6 +82,23 @@ describe("plugin hook context", () => {
     expect(app.hooks.count("content.render")).toBe(0);
   });
 
+  it("registers editable patterns and removes them on deactivation", async () => {
+    const { loader } = await activate(
+      makePlugin({}, (ctx) => {
+        ctx.patterns.register({
+          id: "hero",
+          title: "Plugin hero",
+          category: "hero",
+          blocks: [{ id: "heading", type: "core.heading", version: 1, props: { text: "Hello" } }],
+        });
+      }),
+    );
+
+    expect(loader.patternRegistry.get("acme.test:hero")?.title).toBe("Plugin hero");
+    await loader.deactivate("acme.test", "site-1");
+    expect(loader.patternRegistry.all()).toEqual([]);
+  });
+
   it("refuses a sensitive hook without the declared permission", async () => {
     await expect(
       activate(
