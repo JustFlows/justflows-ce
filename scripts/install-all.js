@@ -250,7 +250,9 @@ Test in browser:
   https://your-domain/               ← first-run page, then /install
   https://your-domain/api/healthz
 
-Clean up if present: .htaccess  .next/
+Clean up if present: .next/  — and any .htaccess you did not write (Justflows
+installs and manages its own site-root .htaccess once setup completes; a
+leftover one from another app is kept as-is and can break routing).
 `);
 }
 

@@ -39,6 +39,8 @@ css-providers-installed/
 data/installed.json
 .hosting-backup/
 /static-export/
+# Site-root .htaccess is generated on the target host at install (root-htaccess.ts)
+/.htaccess
 
 # Environment files and secrets (keep redacted templates)
 .env

@@ -15,12 +15,18 @@ import {
   suggestCacheControl,
   renderHostHeaders,
   HOST_HEADERS_FILE,
+  HTACCESS_FILE,
+  NGINX_FILE,
+  renderHtaccess,
+  renderNginxConf,
+  writeManagedFile,
   writeManifest,
   type ManifestAsset,
   type ManifestRoute,
   type RouteDeps,
   type StaticExportManifest,
 } from "./manifest.js";
+import { getAdminPathConfig } from "../admin-path.js";
 import { getPerformanceConfig } from "../performance-settings.js";
 import { normalizeUrlPath, urlPathToFile } from "./paths.js";
 import { redirectStubHtml, writeExport, type OutputFile } from "./write-fs.js";
@@ -651,6 +657,23 @@ export async function runStaticExport(
   for (const skipped of writeReport.skipped) errors.push(`unsafe output path skipped: ${skipped}`);
 
   await writeManifest(cfg.outDir, manifest);
+
+  // Web-server config beside the export, the counterpart to `_headers` for
+  // Cloudflare Pages / Netlify. Each file is regenerated only while it still
+  // carries the sentinel line, so a hand-edited one is left alone.
+  try {
+    const adminPath = (await getAdminPathConfig()).path;
+    const managed: Array<[string, string]> = [
+      [HTACCESS_FILE, renderHtaccess({ adminPath })],
+      [NGINX_FILE, renderNginxConf({ adminPath, rootDir: cfg.outDir })],
+    ];
+    for (const [name, body] of managed) {
+      const result = await writeManagedFile(cfg.outDir, name, body);
+      if (result === "kept-custom") log(`· ${name} is hand-edited — left as-is`);
+    }
+  } catch (err) {
+    log(`⚠ could not write server config: ${(err as Error).message}`);
+  }
 
   const bytes =
     manifest.routes.reduce((n, r) => n + r.bytes, 0) +

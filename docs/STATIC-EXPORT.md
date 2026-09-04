@@ -17,17 +17,18 @@ hierarchy, blocks, localized routes, the SEO `<head>`, favicon, and the
 
 A run produces:
 
-| Output                                                                     | Source                                                         |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `index.html`, `<slug>/index.html`                                          | every published page/post, default locale                      |
-| `<locale>/…/index.html`                                                    | each non-default active locale (from `localePath()`)           |
-| `sitemap.xml`, `robots.txt`                                                | fetched from the origin verbatim (always exported)             |
-| `favicon.ico`                                                              | the configured favicon, redirect followed (only if one is set) |
-| `404.html`                                                                 | the themed not-found page                                      |
-| `theme.css`, `/js/*`, `/uploads/*`, `/assets/*`, `/css-providers/*`, fonts | every same-origin sub-resource referenced by an exported page  |
-| redirect stubs                                                             | a `<meta refresh>` page wherever the origin answered a 3xx     |
-| `_static-export.json`                                                      | the manifest (see below)                                       |
-| `_headers`                                                                 | `X-Powered-By: Justflows` + browser-cache rules for Cloudflare Pages / Netlify |
+| Output                                                                     | Source                                                                                                                                     |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `index.html`, `<slug>/index.html`                                          | every published page/post, default locale                                                                                                  |
+| `<locale>/…/index.html`                                                    | each non-default active locale (from `localePath()`)                                                                                       |
+| `sitemap.xml`, `robots.txt`                                                | fetched from the origin verbatim (always exported)                                                                                         |
+| `favicon.ico`                                                              | the configured favicon, redirect followed (only if one is set)                                                                             |
+| `404.html`                                                                 | the themed not-found page                                                                                                                  |
+| `theme.css`, `/js/*`, `/uploads/*`, `/assets/*`, `/css-providers/*`, fonts | every same-origin sub-resource referenced by an exported page                                                                              |
+| redirect stubs                                                             | a `<meta refresh>` page wherever the origin answered a 3xx                                                                                 |
+| `_static-export.json`                                                      | the manifest (see below)                                                                                                                   |
+| `_headers`                                                                 | `X-Powered-By: Justflows` + browser-cache rules for Cloudflare Pages / Netlify                                                             |
+| `.htaccess`, `_nginx.conf`                                                 | ready-to-use Apache / nginx config — serving, hardening, and a commented hand-off to the app (see [Web-server config](#web-server-config)) |
 
 Link discovery is breadth-first from the sitemap + published entries, so menu
 targets and `/slug/page/N` pagination are picked up automatically. `STATIC_EXPORT_MAX_PAGES`
@@ -80,18 +81,18 @@ analytics beacon still reach `http://localhost:3000` from the previewed pages
 
 ## Configuration
 
-| Variable                        | Default           | Purpose                                                                                                                                                                                |
-| ------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `STATIC_EXPORT_ENABLED`         | `1`               | master switch; `0` refuses the Run actions and auto-rebuild (existing files are left on disk — see [Turning it off](#turning-it-off))                                                  |
-| `STATIC_EXPORT_DIR`             | `./static-export` | output directory (relative to the install root)                                                                                                                                        |
-| `STATIC_EXPORT_BASE_URL`        | `APP_URL`         | public origin recorded in the manifest and used to recognise same-origin links while crawling — see the SEO note below                                                                 |
+| Variable                        | Default              | Purpose                                                                                                                                                                                                                           |
+| ------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `STATIC_EXPORT_ENABLED`         | `1`                  | master switch; `0` refuses the Run actions and auto-rebuild (existing files are left on disk — see [Turning it off](#turning-it-off))                                                                                             |
+| `STATIC_EXPORT_DIR`             | `./static-export`    | output directory (relative to the install root)                                                                                                                                                                                   |
+| `STATIC_EXPORT_BASE_URL`        | `APP_URL`            | public origin recorded in the manifest and used to recognise same-origin links while crawling — see the SEO note below                                                                                                            |
 | `STATIC_EXPORT_CRAWL_URL`       | loopback / `APP_URL` | origin the crawler fetches pages from; blank reads this server directly (loopback in dev, `APP_URL` on production). Set it to your public domain when the app runs behind Passenger / Plesk, where a loopback port is unreachable |
-| `STATIC_EXPORT_ORIGIN_URL`      | _(empty)_         | origin that still serves form/comment POST; when set, `<form action>` in the output is rewritten to absolute URLs against it (see [Dynamic features](#dynamic-features))               |
-| `STATIC_EXPORT_ALLOWED_ORIGINS` | _(empty)_         | extra origins allowed to cross-origin `fetch()` the submit endpoints (CORS), comma-separated; `APP_URL` / `STATIC_EXPORT_BASE_URL` and (off production) `localhost` are always allowed |
-| `STATIC_EXPORT_MAX_PAGES`       | `2000`            | crawl ceiling                                                                                                                                                                          |
-| `STATIC_EXPORT_CONCURRENCY`     | `4`               | parallel fetches                                                                                                                                                                       |
-| `STATIC_EXPORT_AUTO`            | `0`               | rebuild after content/menu/theme/settings changes                                                                                                                                      |
-| `STATIC_EXPORT_DEBOUNCE_MS`     | `5000`            | quiet period that coalesces a burst of changes                                                                                                                                         |
+| `STATIC_EXPORT_ORIGIN_URL`      | _(empty)_            | origin that still serves form/comment POST; when set, `<form action>` in the output is rewritten to absolute URLs against it (see [Dynamic features](#dynamic-features))                                                          |
+| `STATIC_EXPORT_ALLOWED_ORIGINS` | _(empty)_            | extra origins allowed to cross-origin `fetch()` the submit endpoints (CORS), comma-separated; `APP_URL` / `STATIC_EXPORT_BASE_URL` and (off production) `localhost` are always allowed                                            |
+| `STATIC_EXPORT_MAX_PAGES`       | `2000`               | crawl ceiling                                                                                                                                                                                                                     |
+| `STATIC_EXPORT_CONCURRENCY`     | `4`                  | parallel fetches                                                                                                                                                                                                                  |
+| `STATIC_EXPORT_AUTO`            | `0`                  | rebuild after content/menu/theme/settings changes                                                                                                                                                                                 |
+| `STATIC_EXPORT_DEBOUNCE_MS`     | `5000`               | quiet period that coalesces a burst of changes                                                                                                                                                                                    |
 
 All of these can be edited from **Admin → System → Tools → “Static site export” →
 Configuration** — the admin writes them to `.env` and applies them in place, no
@@ -170,7 +171,55 @@ Manual runs and incremental auto-runs both fire the `staticExport.completed` and
 ### Filesystem
 
 Point a static web server (nginx, Caddy, Apache) at `STATIC_EXPORT_DIR`. Enable
-“try `$uri/index.html`” so `/about` serves `about/index.html`.
+“try `$uri/index.html`” so `/about` serves `about/index.html` — or just use the
+generated config below.
+
+### Web-server config
+
+Every export writes two managed server-config files next to the pages, the
+counterparts to `_headers` for Cloudflare Pages / Netlify (WordPress ships the
+same pair):
+
+| File          | For    | Use it                                                                     |
+| ------------- | ------ | -------------------------------------------------------------------------- |
+| `.htaccess`   | Apache | read automatically when the vhost's `AllowOverride` permits it             |
+| `_nginx.conf` | nginx  | `include /abs/path/static-export/_nginx.conf;` inside a `server { }` block |
+
+Both carry the same three things:
+
+- **Serving** — directory index, a rewrite so extensionless routes such as
+  `/contact` resolve to `contact/index.html`, and `ErrorDocument`/`error_page`
+  pointing at the themed `404.html`.
+- **Hardening** — no directory listing, dotfiles (`.git`, `.env`) and the
+  export's own metadata (`_static-export.json`, `_headers`, …) denied, no
+  script execution under `/uploads/` or anywhere else, and the security response
+  headers `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Cross-Origin-Opener-Policy`, plus `X-Powered-By: Justflows`. HSTS is present
+  but commented — uncomment it once every hostname is HTTPS.
+- **The dynamic hand-off**, left for you to wire because it is host-specific:
+  `_nginx.conf` routes the reserved prefixes (`/api`, the configured admin path,
+  `/justflows-forms`, …) to `@fallback`, which you define in the vhost —
+  `proxy_pass` to a Node process, Passenger, a unix socket, whatever this host
+  uses. `.htaccess` ships that rule commented (a module like Passenger that
+  already serves non-file requests needs no rule; a reverse proxy needs
+  `mod_proxy` and one `RewriteRule`).
+
+The first line of each file is a sentinel; while it is intact the next export
+**regenerates the file**. Change or remove that line, or delete the file, and
+the exporter leaves your version alone (the run logs `· .htaccess is
+hand-edited — left as-is`). A full-export prune keeps both files either way.
+
+They are inert on object storage / a CDN — those hosts use `_headers` (and the
+proxy/cache rules you add there) instead.
+
+> **Two different `.htaccess` files.** The one described here lives **inside
+> `STATIC_EXPORT_DIR`** and serves the exported pages. Separately, Justflows
+> writes and maintains a **site-root `.htaccess`** (at the install root, next to
+> `server.js`) on install and refreshes it on each boot — it blocks direct HTTP
+> access to the app's own files (`.env`, `data/`, `apps/`, …) for the common
+> case where the vhost `DocumentRoot` is the install directory. Same sentinel
+> rule: a hand-edited one (first line changed) is left alone. Neither file
+> configures how requests reach the Node app — that stays in the vhost.
 
 ### Object storage / CDN
 
@@ -297,12 +346,21 @@ config route can use it — see [PLUGINS.md](PLUGINS.md#revalidate-after-a-confi
 
 Two ways to make the submit endpoint reachable:
 
-**1. Hybrid (recommended).** The CDN serves the static folder, and the dynamic
-paths fall through to the Node origin — same origin, so the `fetch()` needs no
-CORS and nothing is configured in the exporter. Point the location's `root` at
-the export directory and test the directory index before the literal path. This
-serves extensionless routes such as `/contact` and `/nl-NL` from
-`contact/index.html` and `nl-NL/index.html` without requiring a trailing slash.
+**1. Hybrid (recommended).** The web server serves the static folder, and the
+dynamic paths fall through to the app — same origin, so the `fetch()` needs no
+CORS and nothing is configured in the exporter.
+
+> The generated **`.htaccess` / `_nginx.conf`** (see
+> [Web-server config](#web-server-config)) already implement everything in this
+> section — serving, the dynamic-prefix carve-out, and hardening. The examples
+> below are the same thing spelled out, for when you want to write the vhost by
+> hand or understand what the generated files do. Either way you still define
+> the app hand-off (`@fallback` / the proxy rule) yourself.
+
+Point the location's `root` at the export directory and test the directory index
+before the literal path. This serves extensionless routes such as `/contact` and
+`/nl-NL` from `contact/index.html` and `nl-NL/index.html` without requiring a
+trailing slash.
 
 Give **only the published site** to the static folder. A bare `location /`
 rooted at the export makes that folder the handler for the whole domain, so
@@ -398,6 +456,78 @@ cycle and an nginx 500 response. Before keeping the configuration, verify a
 static route (`/`, `/contact`) **and** dynamic routes — the admin and
 `/api/healthz`. A 500 on the dynamic routes means `@fallback` is not that
 vhost's Passenger target.
+
+**On Apache** the approach is identical — publish the site from the export
+directory, send the dynamic prefixes to the app — only the syntax differs:
+Apache has no `try_files`, so use `mod_rewrite` + `DirectoryIndex`.
+
+**Apache + `mod_passenger` (Plesk).** Passenger already applies "serve the static
+file if it exists, else hand to the app", so you spell out less than in nginx:
+point the document root at the export, add the extensionless-route rewrite, and
+let Passenger catch the rest.
+
+```apache
+DocumentRoot /var/www/vhosts/noobbase.com/justflows.noobbase.com/static-export
+
+PassengerEnabled      on
+PassengerAppRoot      /var/www/vhosts/noobbase.com/justflows.noobbase.com
+PassengerAppType      node
+PassengerStartupFile  server.js
+PassengerAppEnv       production
+PassengerBaseURI      /
+
+<Directory /var/www/vhosts/noobbase.com/justflows.noobbase.com/static-export>
+    Require all granted
+    AllowOverride None
+    DirectoryIndex index.html
+
+    RewriteEngine On
+    # dynamic surface: hand straight to Passenger, skip the static lookups
+    RewriteRule ^(admin|api|login|register|install|forgot-password|reset-password|set-locale|justflows-forms|justflows-comments|justflows-analytics)(/|$) - [L]
+    # extensionless published route -> its index.html when that file exists
+    RewriteCond %{DOCUMENT_ROOT}/$1/index.html -f
+    RewriteRule ^(.+?)/?$ /$1/index.html [L]
+    # anything with no matching file falls through to Passenger automatically
+</Directory>
+```
+
+`/ext/*` needs no special rule: the exported asset file is served if present,
+otherwise Passenger answers the dynamic consent route.
+
+**Apache reverse-proxying a standalone Node process.** Here you carve out the
+dynamic prefixes explicitly, same as the nginx standalone example:
+
+```apache
+DocumentRoot /var/www/site/static-export
+DirectoryIndex index.html
+ProxyPreserveHost On
+
+ProxyPass  /admin              http://127.0.0.1:3000/admin
+ProxyPass  /api/               http://127.0.0.1:3000/api/
+ProxyPass  /login              http://127.0.0.1:3000/login
+ProxyPass  /register           http://127.0.0.1:3000/register
+ProxyPass  /install            http://127.0.0.1:3000/install
+ProxyPass  /forgot-password    http://127.0.0.1:3000/forgot-password
+ProxyPass  /reset-password     http://127.0.0.1:3000/reset-password
+ProxyPass  /set-locale         http://127.0.0.1:3000/set-locale
+ProxyPass  /justflows-forms/       http://127.0.0.1:3000/justflows-forms/
+ProxyPass  /justflows-comments/    http://127.0.0.1:3000/justflows-comments/
+ProxyPass  /justflows-analytics/   http://127.0.0.1:3000/justflows-analytics/
+
+<Directory /var/www/site/static-export>
+    Require all granted
+    RewriteEngine On
+    # extensionless published route -> its index.html when that file exists
+    RewriteCond %{DOCUMENT_ROOT}/$1/index.html -f
+    RewriteRule ^(.+?)/?$ /$1/index.html [L]
+    # no matching static file (incl. dynamic /ext/* routes) -> the origin
+    RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} !-f
+    RewriteRule ^ http://127.0.0.1:3000%{REQUEST_URI} [P,L]
+</Directory>
+```
+
+Same verification as nginx: check `/` and `/contact` (static) **and** the admin
+and `/api/healthz` (dynamic).
 
 **Renamed admin path.** The admin path is a site setting (`security.admin_path`,
 default `/admin` — [`admin-path.ts`](../apps/server/src/lib/admin-path.ts)), so

@@ -51,6 +51,14 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     } catch (err) {
       console.error("[justflows] template-part / theme-design / header backfill failed:", err);
     }
+    // Refresh the site-root .htaccess so existing installs pick up hardening
+    // changes on their next boot (fresh installs get it from markInstalled()).
+    try {
+      const { writeRootHtaccess } = await import("./lib/root-htaccess.js");
+      await writeRootHtaccess();
+    } catch {
+      // Non-fatal: read-only filesystem, nginx host, or a hand-edited file.
+    }
   }
 
   const { ensurePluginRuntime } = await import("./lib/plugin-runtime.js");

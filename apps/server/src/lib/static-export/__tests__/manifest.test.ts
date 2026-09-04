@@ -1,7 +1,20 @@
 // SPDX-License-Identifier: MIT
 
-import { describe, expect, it } from "vitest";
-import { renderHostHeaders, suggestCacheControl, type StaticExportManifest } from "../manifest.js";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  HTACCESS_FILE,
+  MANAGED_SENTINEL,
+  NGINX_FILE,
+  renderHostHeaders,
+  renderHtaccess,
+  renderNginxConf,
+  suggestCacheControl,
+  writeManagedFile,
+  type StaticExportManifest,
+} from "../manifest.js";
 
 const cache = {
   enabled: true,
@@ -50,5 +63,84 @@ describe("static export cache headers", () => {
         "/\n  Cache-Control: public, max-age=120\n" +
         "/assets/app.9f8e7d6c.js\n  Cache-Control: public, max-age=86400, immutable\n",
     );
+  });
+});
+
+describe("renderHtaccess", () => {
+  it("emits the sentinel first, serving rules, and hardening", () => {
+    const out = renderHtaccess({ adminPath: "/admin" });
+    expect(out.startsWith(MANAGED_SENTINEL)).toBe(true);
+    expect(out).toContain("DirectoryIndex index.html");
+    expect(out).toContain("ErrorDocument 404 /404.html");
+    expect(out).toContain("RewriteCond %{DOCUMENT_ROOT}/$1/index.html -f");
+    expect(out).toContain('Header always set X-Content-Type-Options "nosniff"');
+    expect(out).toContain("Require all denied");
+    // dynamic hand-off ships commented out
+    expect(out).toMatch(/^\s*#\s*RewriteRule \^\(admin\|api\|/m);
+  });
+
+  it("substitutes a renamed admin path into the dynamic group", () => {
+    const out = renderHtaccess({ adminPath: "/control-room" });
+    expect(out).toContain("^(control-room|api|login|register|");
+    expect(out).not.toMatch(/\(admin\|api/);
+  });
+});
+
+describe("renderNginxConf", () => {
+  it("pins root, sets security headers, and carves out the dynamic prefixes", () => {
+    const out = renderNginxConf({ adminPath: "/admin", rootDir: "/srv/site/static-export" });
+    expect(out.startsWith(MANAGED_SENTINEL)).toBe(true);
+    expect(out).toContain('root "/srv/site/static-export";');
+    expect(out).toMatch(/add_header X-Frame-Options\s+"SAMEORIGIN" always;/);
+    expect(out).toMatch(/location \^~ \/admin\s+\{ try_files \/_pass @fallback; \}/);
+    expect(out).toMatch(/location \^~ \/api\/\s+\{ try_files \/_pass @fallback; \}/);
+    expect(out).toContain("try_files $uri/index.html $uri @fallback;");
+    // no add_header inside a location (would drop the server-scope ones)
+    expect(out).not.toMatch(/location[^\n]*\{[^}]*add_header/s);
+    // both proxy and Passenger shown for @fallback, neither assumed
+    expect(out).toContain("proxy_pass http://127.0.0.1:3000;");
+    expect(out).toContain("passenger_enabled on;");
+  });
+
+  it("uses the renamed admin path for its location block", () => {
+    const out = renderNginxConf({ adminPath: "/control-room", rootDir: "/srv/x" });
+    expect(out).toMatch(/location \^~ \/control-room\s+\{ try_files \/_pass @fallback; \}/);
+  });
+});
+
+describe("writeManagedFile", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(path.join(tmpdir(), "jf-sx-cfg-"));
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("writes when absent and reports unchanged on a re-run", async () => {
+    const body = renderHtaccess({ adminPath: "/admin" });
+    expect(await writeManagedFile(dir, HTACCESS_FILE, body)).toBe("written");
+    expect(await readFile(path.join(dir, HTACCESS_FILE), "utf8")).toBe(body);
+    expect(await writeManagedFile(dir, HTACCESS_FILE, body)).toBe("unchanged");
+  });
+
+  it("regenerates a stale managed file", async () => {
+    await writeFile(path.join(dir, NGINX_FILE), `${MANAGED_SENTINEL}\n# old\n`);
+    const body = renderNginxConf({ adminPath: "/admin", rootDir: dir });
+    expect(await writeManagedFile(dir, NGINX_FILE, body)).toBe("written");
+    expect(await readFile(path.join(dir, NGINX_FILE), "utf8")).toBe(body);
+  });
+
+  it("never clobbers a hand-edited file (sentinel removed)", async () => {
+    const custom = "# my own rules\nlocation / { return 200; }\n";
+    await writeFile(path.join(dir, NGINX_FILE), custom);
+    expect(
+      await writeManagedFile(
+        dir,
+        NGINX_FILE,
+        renderNginxConf({ adminPath: "/admin", rootDir: dir }),
+      ),
+    ).toBe("kept-custom");
+    expect(await readFile(path.join(dir, NGINX_FILE), "utf8")).toBe(custom);
   });
 });
