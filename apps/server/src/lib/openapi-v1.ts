@@ -62,7 +62,12 @@ export const PUBLIC_API_OPENAPI = {
       get: {
         summary: "List navigation menus",
         parameters: [{ name: "locale", in: "query", schema: { type: "string" } }],
-        responses: { "200": { description: "Menus with resolved item URLs" } },
+        responses: {
+          "200": {
+            description:
+              "Menus with resolved item URLs, each menu's layout/design config, and — for a mega-menu item — its regions as sanitized block JSON for the caller to render. Items gated by an auth/role/plugin visibility rule are never included: the public API always resolves as an anonymous visitor.",
+          },
+        },
       },
     },
     "/menus/{slug}": {
@@ -72,7 +77,13 @@ export const PUBLIC_API_OPENAPI = {
           { name: "slug", in: "path", required: true, schema: { type: "string" } },
           { name: "locale", in: "query", schema: { type: "string" } },
         ],
-        responses: { "200": { description: "Resolved menu" }, "404": { description: "Not found" } },
+        responses: {
+          "200": {
+            description:
+              "Resolved menu, its design config, and any mega-menu regions as sanitized block JSON. Same visibility-rule omission as GET /menus.",
+          },
+          "404": { description: "Not found" },
+        },
       },
     },
     "/openapi.json": {

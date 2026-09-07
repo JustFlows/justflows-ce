@@ -123,8 +123,10 @@ export function HeaderInspector({
             </label>
           )}
           <p style={{ fontSize: "0.75rem", color: "var(--jf-text-3)", margin: "0 0 0.9rem" }}>
-            Edit menu links in{" "}
-            <a href="/admin/menus" target="_blank" rel="noopener noreferrer">Menus</a>.
+            Edit menu links and layout in{" "}
+            <a href="/admin/themes/customize?tab=menus" target="_blank" rel="noopener noreferrer">
+              Themes → Customize → Menus
+            </a>.
           </p>
           <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
             <input
@@ -153,6 +155,22 @@ export function HeaderInspector({
               <option value="logo-center">Centered</option>
               <option value="split">Split</option>
             </select>
+          </label>
+          <label style={fieldLabel}>
+            Mobile layout
+            <select
+              style={fieldInput}
+              value={header.mobileLayout}
+              onChange={(e) => set({ mobileLayout: e.target.value as PageHeaderConfig["mobileLayout"] })}
+            >
+              <option value="logo-left">Logo left, hamburger right</option>
+              <option value="logo-center">Hamburger left, logo centered</option>
+              <option value="hamburger-logo">Hamburger left, logo beside it</option>
+              <option value="hamburger-only">Hamburger only, logo inside menu</option>
+            </select>
+            <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>
+              How the bar rearranges below the menu&rsquo;s mobile breakpoint.
+            </span>
           </label>
           <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
             <input

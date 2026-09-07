@@ -34,6 +34,16 @@ export type {
 } from "./animation.js";
 export { withBlockChrome } from "./block-chrome.js";
 export {
+  BLOCK_VISIBILITY_CSS,
+  DEVICE_BUCKETS,
+  DEVICE_MAX_MOBILE,
+  DEVICE_MAX_TABLET,
+  blockVisibilityCss,
+  deviceVisibilityAttr,
+  normalizeDeviceList,
+} from "./visibility.js";
+export type { DeviceBucket } from "./visibility.js";
+export {
   DEFAULT_BLOCK_PLACEMENT,
   GRID_DEFAULT_COLUMNS,
   GRID_MAX_COLUMNS,

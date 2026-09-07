@@ -112,4 +112,34 @@ describe("resolveMenuItems locale prefix", () => {
 
     expect(items[0]?.url).toBe("/nl/keramische-mok");
   });
+
+  it("carries a device-visibility subset onto the resolved item, but not a full/empty set", async () => {
+    const items = await resolveMenuItems(
+      [
+        { id: "1", label: "Desktop only", type: "custom", url: "/a", visibility: { devices: ["desktop"] } },
+        { id: "2", label: "Everywhere", type: "custom", url: "/b", visibility: { devices: ["desktop", "tablet", "mobile"] } },
+        { id: "3", label: "No pref", type: "custom", url: "/c" },
+      ],
+      "en",
+      "en",
+    );
+
+    expect(items[0]?.devices).toEqual(["desktop"]);
+    expect(items[1]?.devices).toBeUndefined();
+    expect(items[2]?.devices).toBeUndefined();
+  });
+
+  it("carries per-item button styling onto the resolved item, dropping an empty object", async () => {
+    const items = await resolveMenuItems(
+      [
+        { id: "1", label: "CTA", type: "custom", url: "/login", stylePreset: "button", buttonStyle: { bg: "#111827", radius: 12, fullWidth: true } },
+        { id: "2", label: "Plain", type: "custom", url: "/x", buttonStyle: {} },
+      ],
+      "en",
+      "en",
+    );
+
+    expect(items[0]?.buttonStyle).toEqual({ bg: "#111827", radius: 12, fullWidth: true });
+    expect(items[1]?.buttonStyle).toBeUndefined();
+  });
 });

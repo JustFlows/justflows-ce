@@ -139,44 +139,536 @@ body {
   gap: 0.35rem 1rem;
 }
 
-.site-nav a {
+/* ── Menu designer: .jf-nav ──
+   One markup/CSS contract for every layout (horizontal, vertical, dropdown,
+   multi-level-dropdown, mega, footer, drawer) — the layout only changes a few
+   rules below, never the tree shape rendered by nav-menu.ejs. Dropdown/mega
+   open state and the mobile transform are driven by `hidden` and
+   `aria-expanded`, toggled by /js/site-nav.js; this file never shows a panel
+   on `:hover` alone (no hover-only functionality, and it stays correct with
+   JS disabled: panels simply stay closed rather than becoming unreachable). */
+
+.jf-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.jf-nav--align-center { justify-content: center; }
+.jf-nav--align-end { justify-content: flex-end; }
+.jf-nav--align-space-between { justify-content: space-between; }
+
+.jf-nav--vertical,
+.jf-nav--drawer {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.1rem;
+}
+
+.jf-nav--footer {
+  justify-content: center;
+  gap: 0.35rem 1rem;
+}
+
+.jf-nav__toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.jf-nav__toggle:hover { background: var(--color-surface, #f1f5f9); }
+
+.jf-nav__item {
+  position: relative;
+}
+
+.jf-nav__row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.jf-nav__link,
+.jf-nav__link--disabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   color: var(--color-muted);
   text-decoration: none;
   font-size: 0.9rem;
   font-weight: 500;
   transition: color 0.15s;
+  padding: 0.3rem 0;
 }
 
-.site-nav a:hover { color: var(--color-primary); }
+.jf-nav__link:hover,
+.jf-nav__link:focus-visible { color: var(--color-primary); }
 
-.nav-item--has-children {
-  position: relative;
+.jf-nav__link--disabled { color: var(--color-muted); cursor: default; opacity: 0.85; }
+
+/* Style presets — set per item in the menu designer's "Style preset" field,
+   which renders `jf-nav__link--<name>`. `button`, `button-outline` and
+   `button-ghost` are built in; any other CSS-safe token is yours to style.
+
+   The per-item "Button style" controls ride in as `--jf-navbtn-*` custom
+   properties (with the theme colour as the fallback), so an author can recolour
+   a single button without touching CSS. `jf-nav__link--btn-sm|lg|full` come
+   from the same panel. Presets keep working in the mobile drawer / dropdown. */
+.jf-nav__link--button,
+.jf-nav__link--button-outline,
+.jf-nav__link--button-ghost {
+  padding: var(--jf-navbtn-pad, 0.42rem 0.95rem);
+  border-radius: var(--jf-navbtn-radius, var(--radius-sm, 6px));
+  font-weight: 700;
+  font-size: var(--jf-navbtn-fs, 0.82rem);
+  line-height: 1.2;
+  /* Border colour applies to *every* variant, so a solid button can carry an
+     outline too; width follows `--jf-navbtn-border-w` (default 1.5px). */
+  border: var(--jf-navbtn-border-w, 1.5px) solid var(--jf-navbtn-border, transparent);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.jf-nav__link--button {
+  background: var(--jf-navbtn-bg, var(--color-primary));
+  color: var(--jf-navbtn-fg, #fff);
+}
+.jf-nav__link--button:hover,
+.jf-nav__link--button:focus-visible {
+  background: color-mix(in srgb, var(--jf-navbtn-bg, var(--color-primary)) 86%, #000);
+  color: var(--jf-navbtn-fg, #fff);
+}
+.jf-nav__link--button-outline {
+  color: var(--jf-navbtn-fg, var(--color-primary));
+  /* Outline defaults its border to the primary colour; an explicit one wins. */
+  border-color: var(--jf-navbtn-border, var(--color-primary));
+  background: var(--jf-navbtn-bg, transparent);
+}
+.jf-nav__link--button-outline:hover,
+.jf-nav__link--button-outline:focus-visible {
+  background: var(--jf-navbtn-border, var(--color-primary));
+  color: #fff;
+}
+.jf-nav__link--button-ghost {
+  color: var(--jf-navbtn-fg, var(--color-text));
+  background: var(--jf-navbtn-bg, var(--color-surface, #f1f5f9));
+}
+.jf-nav__link--button-ghost:hover,
+.jf-nav__link--button-ghost:focus-visible {
+  background: color-mix(in srgb, var(--jf-navbtn-bg, var(--color-surface, #f1f5f9)) 84%, var(--color-text));
+  color: var(--jf-navbtn-fg, var(--color-text));
+}
+
+.jf-nav__link--btn-sm { --jf-navbtn-pad: 0.3rem 0.7rem; --jf-navbtn-fs: 0.75rem; }
+.jf-nav__link--btn-lg { --jf-navbtn-pad: 0.6rem 1.4rem; --jf-navbtn-fs: 0.95rem; }
+.jf-nav__link--btn-full { display: flex; width: 100%; justify-content: center; }
+
+/* In the stacked mobile menu a button preset reads better left-aligned with a
+   little breathing room above it, instead of stretched across the row. */
+.jf-nav--mobile.jf-nav--open .jf-nav__row:has(.jf-nav__link--button),
+.jf-nav--mobile.jf-nav--open .jf-nav__row:has(.jf-nav__link--button-outline),
+.jf-nav--mobile.jf-nav--open .jf-nav__row:has(.jf-nav__link--button-ghost) {
+  justify-content: flex-start;
+  margin-top: 0.45rem;
+}
+.jf-nav--mobile.jf-nav--open .jf-nav__row:has(.jf-nav__link--btn-full) {
+  display: block;
+}
+
+.jf-nav__icon { width: 1em; height: 1em; object-fit: contain; }
+
+.jf-nav__badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.15rem 0.35rem;
+  border-radius: 999px;
+  background: var(--color-surface, #f1f5f9);
+  color: var(--color-text);
+}
+
+.jf-nav__badge--info { background: #dbeafe; color: #1e3a8a; }
+.jf-nav__badge--success { background: #dcfce7; color: #14532d; }
+.jf-nav__badge--warning { background: #fef3c7; color: #78350f; }
+.jf-nav__badge--danger { background: #fee2e2; color: #7f1d1d; }
+
+.jf-nav__description {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.jf-nav__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.jf-nav__chevron {
   display: inline-block;
+  transition: transform 0.15s;
 }
 
-.nav-submenu {
-  display: none;
+.jf-nav__trigger[aria-expanded="true"] .jf-nav__chevron { transform: rotate(180deg); }
+
+/* Standard + multi-level dropdown panels. `translate` (its own property, not
+   `transform`) carries the author's --jf-nav-dx/dy nudge so it composes with
+   the --center transform and the JS edge-flip instead of overwriting them. The
+   viewport-relative max-width is a hard backstop: even before /js/site-nav.js
+   re-anchors an overflowing panel, it can never be wider than the screen. */
+.jf-nav__submenu {
   position: absolute;
   top: 100%;
   left: 0;
-  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-width: calc(100vw - 1.5rem);
+  margin: 0.25rem 0 0;
+  padding: 0.35rem 0;
+  list-style: none;
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  translate: var(--jf-nav-dx, 0) var(--jf-nav-dy, 0);
+  z-index: 30;
+}
+
+.jf-nav__submenu--end { left: auto; right: 0; }
+.jf-nav__submenu--center { left: 50%; transform: translateX(-50%); }
+
+/* Overflow correction, toggled by site-nav.js when a panel would leave the
+   viewport. --edge re-anchors to the trigger's right edge; --clamp is the last
+   resort — pinned to the viewport (position: fixed, JS sets `top`). */
+.jf-nav__submenu--edge { left: auto; right: 0; transform: none; }
+.jf-nav__submenu--clamp,
+.jf-nav__megapanel--clamp {
+  position: fixed;
+  left: 0.75rem;
+  right: 0.75rem;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  transform: none;
+  translate: none;
+}
+
+.jf-nav__submenu .jf-nav__item { width: 100%; }
+.jf-nav__submenu .jf-nav__row { display: flex; width: 100%; padding: 0 0.75rem; }
+.jf-nav__submenu .jf-nav__link,
+.jf-nav__submenu .jf-nav__link--disabled { flex: 1; padding: 0.45rem 0; white-space: nowrap; }
+/* Nested flyout: opens beside its parent, and must not inherit the parent's
+   inline --jf-nav-dx/dy nudge (custom properties do inherit). */
+.jf-nav__submenu .jf-nav__submenu {
+  top: 0;
+  left: 100%;
+  margin: 0 0 0 0.25rem;
+  --jf-nav-dx: 0;
+  --jf-nav-dy: 0;
+}
+
+/* Mega-menu panel: a multi-column grid of author-defined content regions. The
+   min-width is itself viewport-capped so a wide mega panel on a small screen
+   can't force horizontal scroll before the mobile stacked layout takes over. */
+.jf-nav__megapanel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: min(480px, calc(100vw - 1.5rem));
+  max-width: min(90vw, 960px);
+  margin: 0.25rem 0 0;
+  padding: 1.25rem;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+  translate: var(--jf-nav-dx, 0) var(--jf-nav-dy, 0);
+  z-index: 30;
+}
+
+.jf-nav__megapanel--end { left: auto; right: 0; }
+.jf-nav__megapanel--center { left: 50%; transform: translateX(-50%); }
+.jf-nav__megapanel--edge { left: auto; right: 0; transform: none; }
+
+/* Panel width overrides — set from the item's own "Panel width" field, shared by
+   the mega panel and the standard/multi-level dropdown (see nav-menu.ejs's
+   `_panelWidth` helper). Fit-content is the default above; this is the escape
+   from it.
+
+   Full-bleed uses `position: fixed` pinned to both viewport edges — the old
+   `left: 50%; margin-left: -50vw` trick only lands centered when the trigger
+   itself sits near the middle of the page, so a left-aligned nav pushed the
+   panel off the left edge. site-nav.js sets `top` from the trigger's measured
+   position on open, which handles any header height. A `max-width` from the
+   item's field still applies (inline style), and `margin: 0 auto` then centres
+   that narrower panel; `--jf-nav-dx`/`--jf-nav-dy` nudge from there.
+
+   Comes after the alignment variants on purpose, so it wins over --center/--end
+   when both happen to be set. */
+.jf-nav__panel--viewport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  width: auto;
+  max-width: 100vw;
+  margin: 0 auto;
+  transform: none;
+  translate: var(--jf-nav-dx, 0) var(--jf-nav-dy, 0);
+}
+
+.jf-nav__megagrid {
+  display: grid;
+  grid-template-columns: repeat(var(--jf-mega-columns, 3), 1fr);
+  gap: 1.5rem;
+}
+
+.jf-nav__megaheading {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
+}
+
+.jf-nav__item--has-children:not(.jf-nav__item--mega) > [hidden],
+.jf-nav__item--mega > [hidden] { display: none; }
+
+/* `is-current`/ancestor state — a plain, always-on affordance (never hover-only). */
+.jf-nav__item.is-current > .jf-nav__row > .jf-nav__link,
+.jf-nav__link[aria-current="page"] {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jf-nav__chevron,
+  .jf-nav__link { transition: none; }
+}
+
+/* Per-element device visibility (`data-jf-devices`) is a platform default now —
+   see @justflows/blocks `blockVisibilityCss()`, folded into /theme.css for every
+   theme — so the rules that used to live here were removed. It covers menu
+   items, header components and any block alike. */
+
+/* ── Mobile menu ──
+   EVERY rule here is gated on `.jf-nav--mobile`, which /js/site-nav.js adds to a
+   nav's <ul> only while the viewport is at/below that menu's breakpoint (and
+   removes — closing the menu — once it grows past). So a lingering
+   `.jf-nav--open` can never leak the drawer/overlay styling onto the desktop
+   menu. The scoped <style> nav-menu.ejs emits still hides the closed list +
+   shows the hamburger pre-JS, so there is no flash. */
+
+.jf-nav__toggle-icon--close { display: none; }
+.jf-nav__toggle[aria-expanded="true"] .jf-nav__toggle-icon--open { display: none; }
+.jf-nav__toggle[aria-expanded="true"] .jf-nav__toggle-icon--close { display: inline; }
+
+/* Panel head: a close (X) control, plus the brand for the header's
+   `hamburger-only` layout. The whole row shows for the overlay patterns
+   (drawer / fullscreen, where the bar's hamburger is covered) and for any
+   pattern that carries a brand; the X button itself only for overlays. */
+.jf-nav__panelhead { display: none; }
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="drawer-right"] .jf-nav__panelhead,
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="drawer-left"] .jf-nav__panelhead,
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="fullscreen"] .jf-nav__panelhead,
+.jf-nav--mobile.jf-nav--open .jf-nav__panelhead:has(.site-brand) {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0 0 0.4rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+.jf-nav__panelhead .site-brand { font-size: 1rem; }
+.jf-nav__close {
+  margin-left: auto;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="drawer-right"] .jf-nav__close,
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="drawer-left"] .jf-nav__close,
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="fullscreen"] .jf-nav__close {
+  display: inline-flex;
+}
+.jf-nav__close:hover { background: var(--color-surface, #f1f5f9); }
+
+/* Open list: a stacked column. `!important` beats the base `.jf-nav`/layout
+   `display` + `flex-direction` without an ID selector. */
+.jf-nav--mobile.jf-nav--open {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 0;
+  list-style: none;
+}
+
+/* Flatten every floating sub-panel to inline flow inside the open menu. */
+.jf-nav--mobile.jf-nav--open .jf-nav__submenu,
+.jf-nav--mobile.jf-nav--open .jf-nav__megapanel {
+  position: static;
+  inset: auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  translate: none;
+  background: transparent;
+  padding: 0 0 0 1rem;
+}
+.jf-nav--mobile.jf-nav--open .jf-nav__submenu .jf-nav__submenu { padding-left: 1rem; }
+.jf-nav--mobile.jf-nav--open .jf-nav__megagrid { display: block; }
+.jf-nav--mobile.jf-nav--open .jf-nav__megaregion { margin: 0 0 1rem; }
+.jf-nav--mobile.jf-nav--open .jf-nav__item { position: static; width: 100%; }
+.jf-nav--mobile.jf-nav--open .jf-nav__row {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
   padding: 0.35rem 0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  z-index: 20;
+}
+.jf-nav--mobile.jf-nav--open .jf-nav__link,
+.jf-nav--mobile.jf-nav--open .jf-nav__link--disabled { white-space: normal; }
+
+/* Pattern: dropdown — full-width sheet under the header bar. */
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="dropdown"] {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 55;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 0.5rem 1rem 1rem;
+  background: var(--color-surface, #fff);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.14);
 }
 
-.nav-submenu a {
-  display: block;
-  padding: 0.4rem 0.75rem;
-  white-space: nowrap;
+/* Pattern: accordion — the list expands where it sits, no overlay. */
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="accordion"] {
+  width: 100%;
+  padding: 0.25rem 0 0.5rem;
 }
 
-.nav-item--has-children:hover .nav-submenu,
-.nav-item--has-children:focus-within .nav-submenu {
-  display: block;
+/* Patterns: drawer-left / drawer-right — off-canvas sheet, portaled to <body>
+   by site-nav.js so `position: fixed` is viewport-relative. */
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="drawer-right"],
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="drawer-left"] {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  height: 100vh;
+  height: 100dvh;
+  width: min(22rem, 86vw);
+  max-height: none;
+  z-index: 60;
+  overflow-y: auto;
+  padding: 1rem 1.25rem 1.5rem;
+  background: var(--color-surface, #fff);
+}
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="drawer-right"] {
+  right: 0;
+  left: auto;
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.18);
+}
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="drawer-left"] {
+  left: 0;
+  right: auto;
+  box-shadow: 12px 0 32px rgba(0, 0, 0, 0.18);
+}
+
+/* Pattern: fullscreen — cover the viewport. */
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="fullscreen"] {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  max-height: none;
+  z-index: 60;
+  overflow-y: auto;
+  padding: 1rem 1.25rem 1.5rem;
+  background: var(--color-surface, #fff);
+}
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="fullscreen"] .jf-nav__item {
+  align-self: center;
+  width: 100%;
+  max-width: 24rem;
+}
+.jf-nav--mobile.jf-nav--open[data-jf-nav-mobile="fullscreen"] .jf-nav__link { font-size: 1.1rem; }
+
+/* Open/close motion. site-nav.js adds `.jf-nav--anim-in` one frame after the
+   panel mounts and removes it before unmount, keeping the node until the
+   transition ends. `data-jf-nav-motion` = slide | fade | none; duration comes
+   from `--jf-nav-motion-ms` (set inline per menu). */
+.jf-nav--mobile.jf-nav--open[data-jf-nav-motion="slide"],
+.jf-nav--mobile.jf-nav--open[data-jf-nav-motion="fade"] {
+  transition: transform var(--jf-nav-motion-ms, 240ms) cubic-bezier(0.4, 0, 0.2, 1),
+              opacity var(--jf-nav-motion-ms, 240ms) ease;
+  will-change: transform, opacity;
+}
+.jf-nav--mobile.jf-nav--open[data-jf-nav-motion="fade"]:not(.jf-nav--anim-in) { opacity: 0; }
+.jf-nav--mobile.jf-nav--open[data-jf-nav-motion="slide"][data-jf-nav-mobile="drawer-right"]:not(.jf-nav--anim-in) { transform: translateX(100%); }
+.jf-nav--mobile.jf-nav--open[data-jf-nav-motion="slide"][data-jf-nav-mobile="drawer-left"]:not(.jf-nav--anim-in) { transform: translateX(-100%); }
+.jf-nav--mobile.jf-nav--open[data-jf-nav-motion="slide"][data-jf-nav-mobile="fullscreen"]:not(.jf-nav--anim-in) { opacity: 0; transform: translateY(1.25rem); }
+.jf-nav--mobile.jf-nav--open[data-jf-nav-motion="slide"][data-jf-nav-mobile="dropdown"]:not(.jf-nav--anim-in) { opacity: 0; transform: translateY(-0.5rem); }
+.jf-nav--mobile.jf-nav--open[data-jf-nav-motion="slide"][data-jf-nav-mobile="accordion"]:not(.jf-nav--anim-in) { opacity: 0; }
+
+/* Dim layer behind drawer / fullscreen menus (portaled to <body>). */
+.jf-nav__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+  transition: opacity var(--jf-nav-motion-ms, 240ms) ease;
+}
+.jf-nav__backdrop:not(.jf-nav--anim-in) { opacity: 0; }
+.jf-nav__backdrop[hidden] { display: none; }
+
+/* Scroll-lock the page while an overlay menu is open (site-nav.js toggles it). */
+body.jf-nav-scroll-lock { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .jf-nav--mobile.jf-nav--open,
+  .jf-nav__backdrop { transition: none !important; }
 }
 
 .site-lang {
@@ -233,11 +725,6 @@ body {
 }
 
 .site-footer-nav a:hover { color: var(--color-text); }
-
-.nav-item--has-children:hover .nav-submenu,
-.nav-item--has-children:focus-within .nav-submenu {
-  display: block !important;
-}
 
 /* ── Typography ──
    Sizes stay fluid, with the customizer's value as the ceiling rather than a

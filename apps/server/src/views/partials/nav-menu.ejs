@@ -1,0 +1,248 @@
+<%
+  // Recursive menu-tree renderer shared by every layout (horizontal, vertical,
+  // dropdown, multi-level dropdown, mega, footer, drawer) and by both the
+  // header and footer nav slots — the layout only changes classes/attributes
+  // on the root <ul>, never the tree shape. `depth` counts from 0 (top level);
+  // depth > 0 renders a submenu <ul> owned by a disclosure <button> at the
+  // level above, following the menu-button pattern rather than an
+  // application-menu (role="menu"/"menuitem") role.
+  const _items = typeof items !== 'undefined' && items ? items : [];
+  const _depth = typeof depth !== 'undefined' ? depth : 0;
+  const _design = typeof menuDesign !== 'undefined' && menuDesign
+    ? menuDesign
+    : { layout: 'horizontal', activation: 'hover', breakpoint: 768, mobilePattern: 'accordion', alignment: 'start' };
+  const _menuId = typeof menuId !== 'undefined' ? menuId : 'nav';
+  const _currentPath = typeof currentPath !== 'undefined' ? currentPath : '';
+  // `t(key)` returns the key itself when a translation is missing (see
+  // createTranslator) — fall back to the given English string in that case.
+  const _t = function (key, fallback) {
+    if (typeof t !== 'function') return fallback || key;
+    const value = t(key);
+    return value === key ? (fallback || key) : value;
+  };
+  // `dropdown.width`: "viewport" (full-bleed, via a class — needs no fixed
+  // <li>-relative width) | a number of px | absent/"auto" (fit content, the
+  // CSS default). `maxWidth` is a plain number-of-px cap either way.
+  // `offsetX`/`offsetY` (px, may be negative) nudge the open panel from where
+  // it anchors — emitted as the `--jf-nav-dx`/`--jf-nav-dy` custom properties
+  // global.css folds into the panel's `translate`, so they compose with the
+  // alignment variants and the JS edge-flip rather than fighting them.
+  const _panelWidth = function (dropdown) {
+    const width = dropdown && dropdown.width;
+    const maxWidth = dropdown && dropdown.maxWidth;
+    const offsetX = dropdown && dropdown.offsetX;
+    const offsetY = dropdown && dropdown.offsetY;
+    const isViewport = width === 'viewport';
+    const styleParts = [];
+    if (typeof width === 'number') styleParts.push('width:' + width + 'px');
+    if (typeof maxWidth === 'number') styleParts.push('max-width:' + maxWidth + 'px');
+    if (typeof offsetX === 'number' && offsetX !== 0) styleParts.push('--jf-nav-dx:' + offsetX + 'px');
+    if (typeof offsetY === 'number' && offsetY !== 0) styleParts.push('--jf-nav-dy:' + offsetY + 'px');
+    return {
+      className: isViewport ? ' jf-nav__panel--viewport' : '',
+      style: styleParts.length ? styleParts.join(';') : '',
+    };
+  };
+  // ── Mobile collapse config (all layouts share it; only used at _depth 0). ──
+  // A CSS custom property cannot parameterize a @media condition, so the
+  // author's breakpoint (320-1400px) drives a tiny scoped stylesheet below.
+  // Everything else — how each mobile pattern (dropdown / accordion / drawer-* /
+  // fullscreen) looks when open — is static in global.css, keyed on
+  // `.jf-nav--open[data-jf-nav-mobile="…"]`; the hamburger that adds
+  // `.jf-nav--open` is only visible below the breakpoint, so it never fires on
+  // desktop. `footer`/`vertical` layouts never collapse; `drawer` is off-canvas
+  // at every width (toggle always visible, never media-gated).
+  const _bp = Math.max(320, Math.min(1400, Number(_design.breakpoint) || 768));
+  const _collapsible = ['horizontal', 'dropdown', 'multi-level-dropdown', 'mega'].indexOf(_design.layout) !== -1;
+  const _alwaysDrawer = _design.layout === 'drawer';
+  const _hasToggle = _collapsible || _alwaysDrawer;
+  const _pattern = _alwaysDrawer ? 'drawer-right' : (_design.mobilePattern || 'drawer-right');
+  const _overlay = _pattern === 'drawer-right' || _pattern === 'drawer-left' || _pattern === 'fullscreen';
+  // Open/close animation. site-nav.js reads `data-jf-nav-motion` to two-phase the
+  // transition; `--jf-nav-motion-ms` feeds the CSS `transition-duration`.
+  const _motion = ['slide', 'fade', 'none'].indexOf(_design.mobileMotion) !== -1 ? _design.mobileMotion : 'slide';
+  const _motionMs = Math.max(120, Math.min(800, Math.round(Number(_design.mobileMotionMs) || 240)));
+  // Optional brand markup rendered at the top of the open menu — the header's
+  // `hamburger-only` mobile layout passes it in.
+  const _brandHtml = typeof mobileBrandHtml !== 'undefined' && mobileBrandHtml ? mobileBrandHtml : '';
+  // Per-item device visibility → a space-separated token list for the CSS in
+  // global.css. `item.devices` is set by menus-db's resolver only when the
+  // author picked a proper subset (full/empty set means "show everywhere").
+  const _deviceTokens = function (item) {
+    const all = ['desktop', 'tablet', 'mobile'];
+    const picked = (Array.isArray(item.devices) ? item.devices : []).filter(function (d) {
+      return all.indexOf(d) !== -1;
+    });
+    if (!picked.length || picked.length === all.length) return '';
+    return picked.join(' ');
+  };
+  // Per-item button styling for a `button*` style preset. Colours are already
+  // validated as safe CSS values on write; here they only ride out as
+  // `--jf-navbtn-*` custom properties the theme's preset rules consume, plus
+  // size / full-width classes.
+  const _btnStyle = function (item) {
+    const bs = item.buttonStyle;
+    if (!bs || typeof bs !== 'object') return { style: '', className: '' };
+    const parts = [];
+    if (bs.bg) parts.push('--jf-navbtn-bg:' + bs.bg);
+    if (bs.fg) parts.push('--jf-navbtn-fg:' + bs.fg);
+    if (bs.border) parts.push('--jf-navbtn-border:' + bs.border);
+    if (typeof bs.borderWidth === 'number') parts.push('--jf-navbtn-border-w:' + bs.borderWidth + 'px');
+    if (typeof bs.radius === 'number') parts.push('--jf-navbtn-radius:' + bs.radius + 'px');
+    let className = '';
+    if (bs.size === 'sm' || bs.size === 'lg') className += ' jf-nav__link--btn-' + bs.size;
+    if (bs.fullWidth) className += ' jf-nav__link--btn-full';
+    return { style: parts.join(';'), className: className };
+  };
+%>
+<% if (_items.length > 0) { %>
+  <% if (_depth === 0) { %>
+    <% if (_hasToggle) { %>
+      <%
+        // Only the breakpoint gate needs to be per-menu (a @media condition can't
+        // read a custom property). site-nav.js adds `.jf-nav--mobile` for the
+        // open-state styling; this just handles the closed/pre-JS state.
+        const _mq = _alwaysDrawer ? '' : '@media (max-width: ' + _bp + 'px)';
+      %>
+      <style>
+        #<%= _menuId %>-toggle { display: none; }
+        <% if (_alwaysDrawer) { %>
+          #<%= _menuId %>-toggle { display: inline-flex; }
+          #<%= _menuId %>-list:not(.jf-nav--open) { display: none; }
+        <% } else { %>
+          <%= _mq %> {
+            #<%= _menuId %>-toggle { display: inline-flex; }
+            #<%= _menuId %>-list:not(.jf-nav--open) { display: none; }
+          }
+        <% } %>
+      </style>
+      <noscript>
+        <style>
+          <% if (_alwaysDrawer) { %>
+            #<%= _menuId %>-toggle { display: none; }
+            #<%= _menuId %>-list { display: flex !important; flex-direction: column; align-items: stretch; }
+          <% } else { %>
+            <%= _mq %> {
+              #<%= _menuId %>-toggle { display: none; }
+              #<%= _menuId %>-list { display: flex !important; flex-direction: column; align-items: stretch; }
+            }
+          <% } %>
+        </style>
+      </noscript>
+      <button
+        type="button"
+        id="<%= _menuId %>-toggle"
+        class="jf-nav__toggle"
+        aria-expanded="false"
+        aria-controls="<%= _menuId %>-list"
+        aria-label="<%= _t('menus.toggleMenu', 'Menu') %>"
+      ><span class="jf-nav__toggle-icon jf-nav__toggle-icon--open" aria-hidden="true">☰</span><span class="jf-nav__toggle-icon jf-nav__toggle-icon--close" aria-hidden="true">✕</span></button>
+      <% if (_overlay) { %>
+        <button type="button" id="<%= _menuId %>-backdrop" class="jf-nav__backdrop" tabindex="-1" aria-label="<%= _t('menus.closeMenu', 'Close menu') %>" hidden></button>
+      <% } %>
+    <% } %>
+  <% } %>
+  <ul
+    <% if (_depth === 0) { %>
+      id="<%= _menuId %>-list"
+      class="jf-nav jf-nav--<%= _design.layout %> jf-nav--align-<%= _design.alignment %>"
+      data-jf-nav
+      data-jf-nav-layout="<%= _design.layout %>"
+      data-jf-nav-activation="<%= _design.activation %>"
+      data-jf-nav-breakpoint="<%= _design.breakpoint %>"
+      <% if (_hasToggle) { %>
+        data-jf-nav-mobile="<%= _pattern %>"
+        data-jf-nav-motion="<%= _motion %>"
+        data-jf-nav-motion-ms="<%= _motionMs %>"
+        style="--jf-nav-motion-ms: <%= _motionMs %>ms"
+      <% } %>
+    <% } else { %>
+      <%
+        const _containerPanel = typeof containerPanel !== 'undefined' && containerPanel ? containerPanel : { className: '', style: '' };
+      %>
+      id="<%= typeof containerId !== 'undefined' ? containerId : (_menuId + '-submenu-' + _depth) %>"
+      class="jf-nav__submenu jf-nav__submenu--<%= typeof containerAlign !== 'undefined' ? containerAlign : 'start' %><%= _containerPanel.className %>"
+      <% if (_containerPanel.style) { %>style="<%= _containerPanel.style %>"<% } %>
+      hidden
+    <% } %>
+  >
+    <% if (_depth === 0 && _hasToggle) { %>
+      <li class="jf-nav__panelhead" role="presentation">
+        <% if (_brandHtml) { %><%- _brandHtml %><% } %>
+        <button type="button" class="jf-nav__close" data-jf-nav-close aria-label="<%= _t('menus.closeMenu', 'Close menu') %>">✕</button>
+      </li>
+    <% } %>
+    <% _items.forEach(function (item, idx) { %>
+      <%
+        const hasChildren = Boolean(item.children && item.children.length);
+        const isMega = _design.layout === 'mega' && _depth === 0
+          && item.megaMenu && item.megaMenu.regions && item.megaMenu.regions.length > 0;
+        const submenuId = _menuId + '-submenu-' + _depth + '-' + idx;
+        const align = (item.dropdown && item.dropdown.align) || 'start';
+        const isCurrent = Boolean(_currentPath) && item.url === _currentPath;
+        const deviceTokens = _deviceTokens(item);
+        const btn = _btnStyle(item);
+      %>
+      <li class="jf-nav__item<%= hasChildren ? ' jf-nav__item--has-children' : '' %><%= isMega ? ' jf-nav__item--mega' : '' %><%= isCurrent ? ' is-current' : '' %>"<% if (deviceTokens) { %> data-jf-devices="<%= deviceTokens %>"<% } %>>
+        <span class="jf-nav__row">
+          <% if (item.disableLink) { %>
+            <span class="jf-nav__link jf-nav__link--disabled"><%= item.label %></span>
+          <% } else { %>
+            <a
+              href="<%= item.url %>"
+              class="jf-nav__link<% if (item.stylePreset) { %> jf-nav__link--<%= item.stylePreset %><% } %><%= btn.className %>"
+              <% if (btn.style) { %>style="<%= btn.style %>"<% } %>
+              <% if (item.target) { %>target="<%= item.target %>"<% } %>
+              <% if (item.rel) { %>rel="<%= item.rel %>"<% } %>
+              <% if (item.titleAttr) { %>title="<%= item.titleAttr %>"<% } %>
+              <% if (isCurrent) { %>aria-current="page"<% } %>
+            >
+              <% if (item.icon) { %><img class="jf-nav__icon" src="<%= item.icon %>" alt="" aria-hidden="true"><% } %>
+              <span class="jf-nav__label"><%= item.label %></span>
+              <% if (item.badge) { %><span class="jf-nav__badge jf-nav__badge--<%= item.badge.tone || 'info' %>"><%= item.badge.text %></span><% } %>
+            </a>
+          <% } %>
+          <% if (hasChildren || isMega) { %>
+            <button
+              type="button"
+              class="jf-nav__trigger"
+              aria-expanded="false"
+              aria-haspopup="true"
+              aria-controls="<%= submenuId %>"
+              <% if (item.disableLink) { %>aria-label="<%= item.label %>"<% } else { %>aria-label="<%= _t('menus.toggleSubmenu', 'Toggle submenu') %>"<% } %>
+            ><span class="jf-nav__chevron" aria-hidden="true">⌄</span></button>
+          <% } %>
+        </span>
+        <% if (item.description) { %><span class="jf-nav__description"><%= item.description %></span><% } %>
+
+        <% if (isMega) { %>
+          <%
+            const _megaPanel = _panelWidth(item.dropdown);
+          %>
+          <div id="<%= submenuId %>" class="jf-nav__megapanel jf-nav__megapanel--<%= align %><%= _megaPanel.className %>" <% if (_megaPanel.style) { %>style="<%= _megaPanel.style %>"<% } %> hidden>
+            <div class="jf-nav__megagrid" style="--jf-mega-columns: <%= (item.dropdown && item.dropdown.columns) || 3 %>">
+              <% item.megaMenu.regions.forEach(function (region) { %>
+                <div class="jf-nav__megaregion" style="grid-column: span <%= region.span || 1 %>">
+                  <% if (region.heading) { %><h3 class="jf-nav__megaheading"><%= region.heading %></h3><% } %>
+                  <div class="jf-nav__megacontent"><%- region.renderedHtml %></div>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+        <% } else if (hasChildren) { %>
+          <%- include('nav-menu', {
+            items: item.children,
+            depth: _depth + 1,
+            menuDesign: _design,
+            menuId: _menuId,
+            currentPath: _currentPath,
+            t: _t,
+            containerId: submenuId,
+            containerAlign: align,
+            containerPanel: _panelWidth(item.dropdown),
+          }) %>
+        <% } %>
+      </li>
+    <% }); %>
+  </ul>
+<% } %>

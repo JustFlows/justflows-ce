@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import MediaImageField from "@components/MediaImageField";
 import PageBuilder, { type BlockDocument } from "@components/builder/PageBuilder";
 import HeaderLibraryEditor from "./HeaderLibraryEditor";
+import MenusPage from "./MenusPage";
 
 type ControlType = "color" | "font" | "text" | "image" | "range" | "code" | "select";
 
@@ -60,7 +61,12 @@ const SECTION_ORDER = [
   "navigation",
   "advanced",
 ] as const;
-type EditorTab = "homepage" | "blog" | "styles" | "header" | "footer" | "templates";
+type EditorTab = "homepage" | "blog" | "styles" | "header" | "footer" | "menus" | "templates";
+
+function isEditorTab(value: string | null): value is EditorTab {
+  return value === "homepage" || value === "blog" || value === "styles" || value === "header" ||
+    value === "footer" || value === "menus" || value === "templates";
+}
 
 interface TemplateSlot {
   slug: string;
@@ -132,7 +138,21 @@ export default function CustomizeThemePage() {
   const [openSection, setOpenSection] = useState<string>("identity");
   const [footer, setFooter] = useState<BlockDocument>({ version: 1, blocks: [] });
   const [footerSaving, setFooterSaving] = useState(false);
-  const [tab, setTab] = useState<EditorTab>("homepage");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [tab, setTabState] = useState<EditorTab>(isEditorTab(initialTab) ? initialTab : "homepage");
+  const setTab = useCallback(
+    (next: EditorTab) => {
+      setTabState(next);
+      setSearchParams((prev) => {
+        const params = new URLSearchParams(prev);
+        if (next === "homepage") params.delete("tab");
+        else params.set("tab", next);
+        return params;
+      }, { replace: true });
+    },
+    [setSearchParams],
+  );
 
   const [templateSlots, setTemplateSlots] = useState<TemplateSlot[]>([]);
   const [creatableSlots, setCreatableSlots] = useState<string[]>([]);
@@ -648,6 +668,13 @@ export default function CustomizeThemePage() {
         </button>
         <button
           type="button"
+          className={`jf-theme-builder__tab${tab === "menus" ? " jf-theme-builder__tab--active" : ""}`}
+          onClick={() => setTab("menus")}
+        >
+          Menus
+        </button>
+        <button
+          type="button"
           className={`jf-theme-builder__tab${tab === "templates" ? " jf-theme-builder__tab--active" : ""}`}
           onClick={() => setTab("templates")}
         >
@@ -896,6 +923,10 @@ export default function CustomizeThemePage() {
         <div className="jf-editor__body">
           <HeaderLibraryEditor />
         </div>
+      ) : tab === "menus" ? (
+        <div className="jf-editor__body">
+          <MenusPage embedded />
+        </div>
       ) : (
         <div className="jf-customizer">
           <aside className="jf-customizer__controls">
@@ -933,10 +964,12 @@ export default function CustomizeThemePage() {
                       {sectionKey === "navigation" && (
                         <p className="jf-field__hint">
                           Assign the default header and footer menus. Build the headers themselves
-                          on the Header tab; each page picks one from a dropdown.{" "}
-                          <a href="/admin/menus" target="_blank" rel="noopener noreferrer">
-                            Edit menus →
-                          </a>
+                          on the Header tab, and design the menus themselves — layout, dropdowns,
+                          mega menus, items — on the{" "}
+                          <button type="button" className="jf-linkbtn" onClick={() => setTab("menus")}>
+                            Menus tab
+                          </button>
+                          ; each page picks a header from a dropdown.
                         </p>
                       )}
                       {Object.entries(section.controls).map(([key, control]) => (

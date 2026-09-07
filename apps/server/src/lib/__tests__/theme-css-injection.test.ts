@@ -181,6 +181,13 @@ describe("assembleThemeCss", () => {
     expect(css).not.toContain("/* Plugin styles */");
   });
 
+  it("always folds in the device-visibility layer, after the theme so it can be overridden", () => {
+    const css = assembleThemeCss(themeStyles, tokens, additionalCss);
+    expect(css).toContain("[data-jf-devices]");
+    expect(css.indexOf(":root")).toBeLessThan(css.indexOf("/* Device visibility */"));
+    expect(css.indexOf("/* Device visibility */")).toBeLessThan(css.indexOf("/* Custom CSS */"));
+  });
+
   it("slots plugin CSS after the theme and before Additional CSS", () => {
     const pluginCss = ".jf-product-buy { color: red; }";
     const css = assembleThemeCss(themeStyles, tokens, additionalCss, pluginCss);
