@@ -10,6 +10,7 @@ export const SITE_DEFAULT_HEADER_REF = "__default__";
 export const NO_HEADER_REF = "__none__";
 
 export type HeaderLayout = "logo-left" | "logo-center" | "split";
+export type HeaderMobileLayout = "logo-left" | "logo-center" | "hamburger-logo" | "hamburger-only";
 export type HeaderMenuMode = "inherit" | "menu" | "none";
 export type HeaderLanguageSwitcherStyle = "locale-full" | "locale-short" | "flags" | "flag-locale" | "flag-country";
 
@@ -28,6 +29,7 @@ export interface PageHeaderConfig {
   showLogo: boolean;
   showTitle: boolean;
   layout: HeaderLayout;
+  mobileLayout: HeaderMobileLayout;
   sticky: boolean;
   background: string;
   showLanguageSwitcher: boolean;
@@ -45,6 +47,7 @@ export const DEFAULT_PAGE_HEADER: PageHeaderConfig = {
   showLogo: true,
   showTitle: true,
   layout: "logo-left",
+  mobileLayout: "logo-left",
   sticky: true,
   background: "",
   showLanguageSwitcher: true,
@@ -62,6 +65,7 @@ export function parsePageHeader(raw: unknown): PageHeaderConfig {
   const input = raw as Record<string, unknown>;
   const menuMode = input.menuMode;
   const layout = input.layout;
+  const mobileLayout = input.mobileLayout;
   const languageSwitcherStyle = input.languageSwitcherStyle;
   return {
     visible: input.visible !== false,
@@ -70,6 +74,10 @@ export function parsePageHeader(raw: unknown): PageHeaderConfig {
     showLogo: input.showLogo !== false,
     showTitle: input.showTitle !== false,
     layout: layout === "logo-center" || layout === "split" ? layout : "logo-left",
+    mobileLayout:
+      mobileLayout === "logo-center" || mobileLayout === "hamburger-logo" || mobileLayout === "hamburger-only"
+        ? mobileLayout
+        : "logo-left",
     sticky: input.sticky !== false,
     background: typeof input.background === "string" ? input.background : "",
     showLanguageSwitcher: input.showLanguageSwitcher !== false,
@@ -147,7 +155,7 @@ export function fieldsWithHeaderRef(
 }
 
 const HEADER_KEYS: (keyof PageHeaderConfig)[] = [
-  "visible", "menuMode", "menuSlug", "showLogo", "showTitle", "layout", "sticky",
+  "visible", "menuMode", "menuSlug", "showLogo", "showTitle", "layout", "mobileLayout", "sticky",
   "background", "showLanguageSwitcher", "languageSwitcherStyle", "showColorScheme",
   "showColorSchemeSystem", "showAuthLinks", "blocks",
 ];

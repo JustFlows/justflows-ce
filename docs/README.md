@@ -22,4 +22,3 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Cache](CACHE.md)                                  | `ctx.cache` and revalidation                                      |
 | [Static / edge export](STATIC-EXPORT.md)           | Export published pages to files for object storage or a CDN       |
 | [Trash and retention](TRASH.md)                    | Recoverable deletion, restore, purge, and media warnings          |
-| [Ecommerce roadmap](ECOMMERCE-ROADMAP.md)          | Shop architecture, complete feature scope, and delivery epics     |

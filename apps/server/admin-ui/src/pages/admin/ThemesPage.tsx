@@ -167,7 +167,7 @@ export default function ThemesPage() {
           <p>Manage the appearance of your site</p>
         </div>
         <div className="jf-pagehead__actions">
-          <Link to="/admin/menus" className="jf-btn jf-btn--ghost">Configure menus</Link>
+          <Link to="/admin/themes/customize?tab=menus" className="jf-btn jf-btn--ghost">Configure menus</Link>
           {activeTheme && (
             <Link to="/admin/themes/customize" className="jf-btn jf-btn--primary">
               Customize active theme

@@ -1,6 +1,9 @@
 {
   "nav.home": "Home",
   "nav.admin": "Admin",
+  "menus.toggleMenu": "Menu",
+  "menus.toggleSubmenu": "Toggle submenu",
+  "menus.closeMenu": "Close menu",
   "home.tagline_fallback": "Your site is live and running on Justflows.",
   "home.welcome": "Welcome to",
   "home.description": "Head to the admin dashboard to write your first post, customize your theme, and make it your own.",

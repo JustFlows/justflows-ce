@@ -5,6 +5,68 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.1.dev.1] [UNRELEASED]
+
+### Added
+
+- **Visual menu designer.** Admin → Menus is now a full designer instead of a
+  flat link list: a drag-and-drop item tree with indent/outdent and undo/redo, a
+  live `?preview=1` iframe, and one-click design presets. Each menu carries a
+  layout/design contract (`design` column, migration `0024_menu_designer`) —
+  layout (`horizontal`, `vertical`, `dropdown`, `multi-level-dropdown`, `mega`,
+  `footer`, `drawer`), hover/click activation, alignment, a per-menu mobile
+  breakpoint with a collapse pattern (`dropdown`, `accordion`, `drawer-right`,
+  `drawer-left`, `fullscreen`) and enter/exit motion, plus depth and
+  items-per-level caps. A NULL `design` renders the built-in defaults, so every
+  existing menu is unchanged. Edits autosave to a `draft_items` / `draft_design`
+  working copy that only the preview path reads; **Publish** promotes it and
+  clears the draft. New front-end: the `partials/nav-menu.ejs` renderer,
+  `/js/site-nav.js` (desktop flyouts, off-canvas mobile drawer, keyboard
+  navigation, `prefers-reduced-motion`), and the `.jf-nav` styles shipped in the
+  default theme's `global.css`.
+  ([#61](https://github.com/JustFlows/justflows-ce/issues/61))
+
+- **Per-item menu options.** Menu items gain a style preset and per-button
+  styling (background / text / border colours validated as safe CSS values,
+  radius, size, full-width), an icon or image (validated as safe asset URLs), a
+  badge, a description line, `title` text, and extra `rel` tokens (`nofollow`,
+  `sponsored`, `ugc`, `external` — `noopener noreferrer` is always added for
+  `target="_blank"`). A `mega` layout's top-level items hold multi-column
+  regions whose content is authored as blocks, sanitized on write against a
+  fixed safe-block allowlist (no `core.html` / `core.code` / `core.embed`) and
+  rendered through the same block pipeline as page content.
+  ([#61](https://github.com/JustFlows/justflows-ce/issues/61))
+
+- **Menu item visibility rules.** An item can be shown or hidden by visitor auth
+  state, role, locale, or a plugin-provided condition. The checks are enforced
+  server-side (fail-closed — an unknown or deactivated condition hides the item),
+  and a menu that uses any auth/role/condition rule bypasses the shared public
+  cache so every request resolves against the real session; the cacheability
+  test itself is cached and invalidated on every menu save, so menus without
+  rules cost nothing extra. Device targeting (`desktop` / `tablet` / `mobile`)
+  is presentation-only, applied with the shared `data-jf-devices` CSS primitive
+  now emitted into `/theme.css` for every theme.
+  ([#61](https://github.com/JustFlows/justflows-ce/issues/61))
+
+- SDK: `menu.design.presets` and `menu.visibility.evaluate` filters for plugins
+  and themes, `MenuDesignSeed` / `MenuDesignPreset` types, and the menu
+  layout / mobile-pattern / activation / alignment enums plus the mega-menu
+  safe-block allowlist exported from `@justflows/sdk` as the single source the
+  host re-exports. `navigation.items` now runs after the host resolves a menu
+  (visibility applied), so appended items sit alongside the author's. See
+  [Hooks → Contributing a menu design preset](docs/HOOKS.md#contributing-a-menu-design-preset).
+  ([#61](https://github.com/JustFlows/justflows-ce/issues/61))
+
+### Changed
+
+- Hand-authored scripts and styles under `public/` (`/js/site-nav.js`,
+  `/js/site-chrome.js`, …) are served with `Cache-Control: no-cache` instead of
+  a day-long `max-age`. They sit at stable, unversioned URLs and are not
+  content-hashed, so a long TTL pinned stale copies after an update; `no-cache`
+  still keeps the file cached and revalidates cheaply against the ETag (`304`).
+  Content-hashed admin bundles keep their long cache lifetime.
+  ([#61](https://github.com/JustFlows/justflows-ce/issues/61))
+
 ## [0.2.0]
 
 ### Fixed

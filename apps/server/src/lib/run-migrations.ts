@@ -15,6 +15,7 @@ export const MIGRATION_ORDER = [
   "0021_trash_retention",
   "0022_email_templates",
   "0023_templates",
+  "0024_menu_designer",
 ] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";

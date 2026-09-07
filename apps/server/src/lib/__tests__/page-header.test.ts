@@ -44,6 +44,7 @@ describe("parsePageHeader", () => {
       showLogo: false,
       showTitle: true,
       layout: "split",
+      mobileLayout: "logo-left",
       sticky: false,
       background: "#112233",
       showLanguageSwitcher: false,
@@ -68,6 +69,14 @@ describe("parsePageHeader", () => {
     expect(parsed.layout).toBe("logo-left");
     expect(parsed.background).toBe("");
     expect(parsed.languageSwitcherStyle).toBe("locale-short");
+  });
+
+  it("parses the mobile header layout, falling back for unknown values", () => {
+    expect(parsePageHeader({ mobileLayout: "hamburger-only" }).mobileLayout).toBe("hamburger-only");
+    expect(parsePageHeader({ mobileLayout: "logo-center" }).mobileLayout).toBe("logo-center");
+    expect(parsePageHeader({ mobileLayout: "sideways" }).mobileLayout).toBe("logo-left");
+    expect(parsePageHeader({}).mobileLayout).toBe("logo-left");
+    expect(parsePageHeaderPatch({ mobileLayout: "hamburger-logo" })).toEqual({ mobileLayout: "hamburger-logo" });
   });
 
   it("keeps dropped header blocks", () => {

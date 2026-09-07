@@ -10,7 +10,13 @@ import { overlayWorkingOnRow } from "../lib/content-revisions.js";
 import { resolveContentLocale, getDefaultLocale } from "../lib/i18n/languages-db.js";
 import { listContentTypes } from "../lib/content-types-db.js";
 import { PUBLIC_API_OPENAPI } from "../lib/openapi-v1.js";
-import { listMenus, getMenuBySlug, resolveMenuItems } from "../lib/menus-db.js";
+import {
+  getEffectiveMenuDesign,
+  getEffectiveMenuItems,
+  listMenus,
+  getMenuBySlug,
+  resolveMenuItems,
+} from "../lib/menus-db.js";
 import { getRuntimeHooks } from "../lib/plugin-runtime.js";
 import { requireRole } from "../middleware/auth.js";
 import { getSiteId } from "../lib/site-settings.js";
@@ -129,7 +135,13 @@ router.get("/menus", async (req, res) => {
       menus.map(async (menu) => ({
         slug: menu.slug,
         name: menu.name,
-        items: await resolveMenuItems(menu.items, locale, defaultLocale, preview),
+        design: getEffectiveMenuDesign(menu, preview),
+        // The public API has no visitor session of its own — every request resolves as a
+        // guest, so an item gated on auth state/role/plugin condition is never returned here.
+        items: await resolveMenuItems(getEffectiveMenuItems(menu, preview), locale, defaultLocale, preview, {
+          siteId,
+          visibility: { authState: "guest" },
+        }),
       })),
     );
     res.json({ menus: items, locale });
@@ -158,7 +170,11 @@ router.get("/menus/:slug", async (req, res) => {
       menu: {
         slug: menu.slug,
         name: menu.name,
-        items: await resolveMenuItems(menu.items, locale, defaultLocale, preview),
+        design: getEffectiveMenuDesign(menu, preview),
+        items: await resolveMenuItems(getEffectiveMenuItems(menu, preview), locale, defaultLocale, preview, {
+          siteId,
+          visibility: { authState: "guest" },
+        }),
       },
       locale,
     });
