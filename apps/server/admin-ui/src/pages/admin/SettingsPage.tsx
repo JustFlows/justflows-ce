@@ -1,3 +1,4 @@
+import { publicAdminPath } from "../../admin-path";
 import { useEffect, useMemo, useState } from "react";
 import {
   DATE_FORMAT_PRESETS,
@@ -648,7 +649,7 @@ export default function SettingsPage() {
             </select>
             <p className="jf-field__hint">
               Default language for published content. Add more languages under{" "}
-              <a href="/admin/languages">Languages</a>.
+              <a href={publicAdminPath("/admin/languages")}>Languages</a>.
             </p>
           </div>
         </Section>

@@ -84,6 +84,10 @@ singular when there's only one entry.
   hydration entry. Shared components must render without browser globals.
 - `ssr-data.ts` is the typed boundary for request-scoped initial data. Never put
   secrets or data outside the current session's capabilities in this payload.
+- Import `Link`, `NavLink`, `Navigate`, and `useNavigate` from `admin-router`
+  so rendered links and navigation use the configured admin base path. For
+  native anchors or browser navigation, resolve admin URLs with `publicAdminPath`
+  from `admin-path`; keep API and public-site URLs unchanged.
 - Vite writes browser assets to `dist/client` and the Node renderer to
   `dist/server`; distribution paths must include both.
 
@@ -150,7 +154,8 @@ singular when there's only one entry.
   releases, then recorded once in the existing `_migrations` table.
 - Never edit the shipped `0012_baseline` or a later applied migration (see
   `AGENTS.md`). Add the next number, even if only one dialect's schema
-  actually changes. The next migration is `0018_description[.mysql].sql`.
+  actually changes. Find the highest number in `migrations/` and use the next number;
+  `0025_redirect_manager` is currently the latest.
 - Add each new migration name to `MIGRATION_ORDER` in
   `apps/server/src/lib/run-migrations.ts`. The runner skips names already
   recorded in `_migrations`.

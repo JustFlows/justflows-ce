@@ -10,6 +10,12 @@ export {
   HOOK_PERMISSION_PREFIXES,
   requiredPermissionForHook,
   isOwnedHookName,
+  MENU_LAYOUTS,
+  MENU_ACTIVATIONS,
+  MENU_MOBILE_PATTERNS,
+  MENU_MOBILE_MOTIONS,
+  MENU_ALIGNMENTS,
+  MEGA_MENU_SAFE_BLOCK_KINDS,
 } from "./hooks.js";
 export type {
   HookContext,
@@ -56,6 +62,15 @@ export type {
   RequestStartEvent,
   RequestEndEvent,
   NavigationItem,
+  MenuLayout,
+  MenuActivation,
+  MenuMobilePattern,
+  MenuMobileMotion,
+  MenuAlignment,
+  MegaMenuSafeBlockKind,
+  MenuDesignSeed,
+  MenuDesignPreset,
+  MenuVisibilityEvaluateContext,
   AdminNavItem,
   HeaderConfig,
   HeaderBuildContext,
@@ -145,6 +160,8 @@ export type {
   PluginContentField,
   PluginContentEnsureResult,
   PluginContentDeleteTypeResult,
+  PluginPublishedEntry,
+  PluginListPublishedQuery,
   JustflowsRuntimeVersions,
 } from "./plugin.js";
 

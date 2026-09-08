@@ -33,6 +33,9 @@ interface PageCanvasProps {
   showAddSlot?: boolean;
   addLabel?: string;
   emptyLabel?: string;
+  /** A content fragment (mega-menu region, reusable snippet) isn't a page — its root should offer
+   * every allowed block directly, not force a Section wrapper first the way a real page's top level does. */
+  rootQuickAll?: boolean;
 }
 
 export function PageCanvas({
@@ -48,6 +51,7 @@ export function PageCanvas({
   showAddSlot = true,
   addLabel,
   emptyLabel,
+  rootQuickAll = false,
 }: PageCanvasProps) {
   const { dragging } = useBuilderDrag();
   const inline = compact;
@@ -60,7 +64,7 @@ export function PageCanvas({
         width: compact ? "100%" : undefined,
       }}
     >
-      {blocks.length === 0 && showEmptyState && !dragging && (
+      {blocks.length === 0 && showEmptyState && !dragging && !rootQuickAll && (
         <div
           style={{
             padding: "3rem 2rem",
@@ -130,7 +134,7 @@ export function PageCanvas({
 
       {showAddSlot && (
         <AddBlockSlot
-          label={addLabel ?? "+ Add section"}
+          label={addLabel ?? (rootQuickAll ? "+ Add block" : "+ Add section")}
           onPick={(type) => {
             const block = createBlock(type);
             onChange([...blocks, block]);
@@ -138,6 +142,7 @@ export function PageCanvas({
           }}
           catalog={catalog}
           parentType={rootParentType}
+          quickAll={rootQuickAll}
         />
       )}
     </div>
@@ -389,11 +394,11 @@ function BlockRow({
                       )}
                       <AddBlockSlot
                         label="+ Add block"
-                        onPick={(type) =>
-                          onRootChange(
-                            insertBlock(blocks, block.id, children.length, createBlock(type)),
-                          )
-                        }
+                        onPick={(type) => {
+                          const created = createBlock(type);
+                          onRootChange(insertBlock(blocks, block.id, children.length, created));
+                          onSelect(created.id);
+                        }}
                         catalog={catalog}
                         parentType={block.type}
                         allowedChildTypes={meta?.allowedChildTypes}
@@ -415,12 +420,17 @@ function AddBlockSlot({
   catalog,
   parentType,
   allowedChildTypes,
+  quickAll = false,
 }: {
   label: string;
   onPick: (type: string) => void;
   catalog: Map<string, BlockCatalogEntry>;
   parentType: string | null;
   allowedChildTypes?: string[];
+  /** Offer the full (filtered) list even at the canvas root, instead of only section-shaped
+   * blocks. A whole page should be built from sections; a content fragment (a mega-menu region,
+   * a reusable snippet) is not a page and should not force one on the way to a first block. */
+  quickAll?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const entries = [...catalog.values()].filter((b) => {
@@ -432,15 +442,22 @@ function AddBlockSlot({
     return b.type !== "core.column";
   });
 
-  const quick = parentType
-    ? entries.slice(0, 12)
-    : entries.filter((b) => b.category === "sections" || b.type === "core.section").slice(0, 6);
+  const quick =
+    parentType || quickAll
+      ? entries.slice(0, 12)
+      : entries.filter((b) => b.category === "sections" || b.type === "core.section").slice(0, 6);
 
   return (
     <div style={{ position: "relative", marginTop: "0.35rem" }}>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={(e) => {
+          // This slot sits inside its parent block's own clickable row (so the row can be
+          // selected by clicking its content) — without this, opening the picker also toggles
+          // the *parent* block's selection via bubbling, fighting whatever gets picked next.
+          e.stopPropagation();
+          setOpen(!open);
+        }}
         style={{
           width: "100%",
           padding: "0.45rem",
@@ -463,10 +480,11 @@ function AddBlockSlot({
             left: 0,
             right: 0,
             zIndex: 40,
-            background: "#fff",
+            background: "var(--jf-surface)",
+            color: "var(--jf-text)",
             border: "1px solid var(--jf-border)",
             borderRadius: 8,
-            boxShadow: "0 8px 24px rgba(0,0,0,.1)",
+            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.18)",
             padding: "0.4rem",
             marginBottom: "0.25rem",
             maxHeight: 280,
@@ -477,24 +495,33 @@ function AddBlockSlot({
             <button
               key={b.type}
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 onPick(b.type);
                 setOpen(false);
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--jf-surface-2)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "none";
+              }}
               style={{
                 display: "flex",
+                alignItems: "center",
                 width: "100%",
                 gap: "0.5rem",
                 padding: "0.4rem 0.5rem",
                 border: "none",
                 background: "none",
+                color: "var(--jf-text)",
                 cursor: "pointer",
                 borderRadius: 4,
                 fontSize: "0.78rem",
                 textAlign: "left",
               }}
             >
-              <span>{b.icon}</span> {b.title}
+              <span aria-hidden="true">{b.icon}</span> {b.title}
             </button>
           ))}
         </div>

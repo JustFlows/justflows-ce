@@ -32,6 +32,21 @@ describe("withBlockChrome", () => {
     expect(withBlockChrome("<p>Hi</p>", { id: "abc", props: {} })).toBe("<p>Hi</p>");
   });
 
+  it("emits data-jf-devices for a device-visibility subset, and nothing for the full set", () => {
+    expect(
+      withBlockChrome("<section>Hi</section>", { id: "abc", props: { devices: ["desktop", "tablet"] } }),
+    ).toBe('<section data-jf-devices="desktop tablet">Hi</section>');
+    expect(
+      withBlockChrome("<section>Hi</section>", {
+        id: "abc",
+        props: { devices: ["desktop", "tablet", "mobile"] },
+      }),
+    ).toBe("<section>Hi</section>");
+    expect(
+      withBlockChrome("<section>Hi</section>", { id: "abc", props: { devices: [] } }),
+    ).toBe("<section>Hi</section>");
+  });
+
   it("still applies animation", () => {
     const out = withBlockChrome("<section>Hi</section>", {
       id: "abc",
