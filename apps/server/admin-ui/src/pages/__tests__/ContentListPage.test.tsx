@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ContentListPage from "../admin/ContentListPage";
+import { setAdminSsrPayload } from "../../ssr-data";
 
 function jsonResponse(body: unknown, status = 200): Promise<Response> {
   return Promise.resolve({
@@ -72,7 +73,21 @@ function mockFetch(): ReturnType<typeof vi.fn> {
 }
 
 describe("ContentListPage", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setAdminSsrPayload(null);
+  });
+
+  it("renders content links with the configured admin URL for opening in a new tab", async () => {
+    mockFetch();
+    setAdminSsrPayload({ adminBasePath: "/admin-test", url: "/admin-test/content", locale: "en", responses: {} });
+    render(<MemoryRouter initialEntries={["/admin-test/content"]}><ContentListPage /></MemoryRouter>);
+    expect(await screen.findByRole("link", { name: "About us" })).toHaveAttribute("href", "/admin-test/content/page-about");
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/admin-test/content/page-home-en");
+    for (const link of screen.getAllByRole("link")) {
+      expect(link.getAttribute("href")).not.toMatch(/^\/admin(?:\/|\?|#|$)/);
+    }
+  });
 
   it("lists only default-language items", async () => {
     const fetchMock = mockFetch();

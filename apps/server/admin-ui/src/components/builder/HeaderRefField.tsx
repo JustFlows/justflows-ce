@@ -1,3 +1,4 @@
+import { publicAdminPath } from "../../admin-path";
 import { useEffect, useRef, useState } from "react";
 import {
   NO_HEADER_REF,
@@ -136,7 +137,7 @@ export default function HeaderRefField({
               : (
                 <>
                   Applies right away. Build headers in{" "}
-                  <a href="/admin/themes/customize" target="_blank" rel="noopener noreferrer">
+                  <a href={publicAdminPath("/admin/themes/customize")} target="_blank" rel="noopener noreferrer">
                     Theme builder → Header
                   </a>
                   .

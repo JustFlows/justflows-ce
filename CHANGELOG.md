@@ -7,7 +7,23 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.2.1-dev.1] [UNRELEASED]
 
+### Fixed
+
+- Admin links and navigation now use the configured custom admin URL, including
+  content lists, sidebar links, builder shortcuts, and plugin links opened in a
+  new tab. Rendered links preserve query strings and fragments, so copying or
+  opening a link no longer falls back to `/admin` and returns a 404.
+  ([#51](https://github.com/JustFlows/justflows-ce/issues/51))
+
 ### Added
+
+- **Redirect manager.** Administrators can create, edit and disable exact,
+  prefix and restricted-regex redirects with internal, content or validated
+  external destinations; import/export CSV; review slug/permalink URL history;
+  and turn aggregate public 404 reports into redirects. Loop checks include
+  permalink history, safe equal-status chains collapse, and mutations are
+  audited. Migration `0025_redirect_manager` supports all database dialects.
+  ([#100](https://github.com/JustFlows/justflows-ce/issues/100))
 
 - **Permalink settings.** Administrators can choose post URL presets or custom
   token structures, configure content-type and taxonomy bases, and select a

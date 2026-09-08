@@ -30,6 +30,7 @@ describe("MIGRATION_ORDER", () => {
       "0022_email_templates",
       "0023_templates",
       "0024_menu_designer",
+      "0025_redirect_manager",
     ]);
   });
 

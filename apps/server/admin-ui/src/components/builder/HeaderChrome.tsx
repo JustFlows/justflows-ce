@@ -1,3 +1,4 @@
+import { publicAdminPath } from "../../admin-path";
 import type { CSSProperties } from "react";
 import type { PageHeaderConfig } from "../../lib/page-header";
 import type { BlockCatalogEntry, BlockNode } from "./types";
@@ -124,7 +125,7 @@ export function HeaderInspector({
           )}
           <p style={{ fontSize: "0.75rem", color: "var(--jf-text-3)", margin: "0 0 0.9rem" }}>
             Edit menu links and layout in{" "}
-            <a href="/admin/themes/customize?tab=menus" target="_blank" rel="noopener noreferrer">
+            <a href={publicAdminPath("/admin/themes/customize?tab=menus")} target="_blank" rel="noopener noreferrer">
               Themes → Customize → Menus
             </a>.
           </p>

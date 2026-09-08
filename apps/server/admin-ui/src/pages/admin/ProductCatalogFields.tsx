@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type MutableRefObject } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "../../admin-router";
 import { useT } from "../../i18n/I18nProvider";
 import { uid } from "../../lib/uid";
 
