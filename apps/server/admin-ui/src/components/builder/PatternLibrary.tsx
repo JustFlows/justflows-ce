@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "../../admin-router";
 import { useT } from "../../i18n/I18nProvider";
 import type { BlockCatalogEntry, BlockNode } from "./types";
 import { BlockPreview, THEME_PREVIEW_SCOPE, useThemePreviewStylesheet } from "./BlockPreview";

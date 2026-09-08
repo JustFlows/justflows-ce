@@ -1,4 +1,5 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Outlet, Route, Routes } from "react-router-dom";
+import { Navigate } from "./admin-router";
 import AdminShell from "@components/AdminShell";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -22,6 +23,8 @@ import PageBuilderPage from "./pages/admin/PageBuilderPage";
 import MenusPage from "./pages/admin/MenusPage";
 import UsersPage from "./pages/admin/UsersPage";
 import EditUserPage from "./pages/admin/EditUserPage";
+import RedirectsPage from "./pages/admin/RedirectsPage";
+import PermalinksPage from "./pages/admin/PermalinksPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import EmailsPage from "./pages/admin/EmailsPage";
 import CommentsPage from "./pages/admin/CommentsPage";
@@ -111,6 +114,8 @@ export default function App() {
               <Route path="users" element={<UsersPage />} />
               <Route path="users/:id" element={<EditUserPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="settings/permalinks" element={<PermalinksPage />} />
+              <Route path="redirects" element={<RedirectsPage />} />
               <Route path="emails" element={<EmailsPage />} />
               <Route path="comments" element={<CommentsPage />} />
               <Route path="trash" element={<TrashPage />} />
@@ -126,6 +131,19 @@ export default function App() {
               <Route path="security/admin-path" element={<AdminPathPage />} />
               <Route path="security/account" element={<AccountSecurityPage />} />
               <Route path="security/audit" element={<AuditLogPage />} />
+              {/* The SEO Toolkit plugin's nav entry uses a dotless `/admin/seo`
+                  path — its id (`justflows.seo`) has a dot, which the manifest
+                  validator rejects in an adminMenu path. Send it to the plugin's
+                  settings screen. */}
+              <Route
+                path="seo"
+                element={
+                  <Navigate
+                    to={publicAdminPath("/admin/plugins/justflows.seo/settings")}
+                    replace
+                  />
+                }
+              />
               <Route path="*" element={<PluginHostPage />} />
             </Route>
             <Route path="*" element={<Navigate to={publicAdminPath("/admin")} replace />} />

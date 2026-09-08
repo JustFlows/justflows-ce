@@ -332,6 +332,116 @@ export interface NavigationItem {
   children?: NavigationItem[];
 }
 
+// ─── Menu designer ──────────────────────────────────────────────────────────
+
+/** Menu-level layout a menu designer instance renders as. */
+export const MENU_LAYOUTS = [
+  "horizontal",
+  "vertical",
+  "dropdown",
+  "multi-level-dropdown",
+  "mega",
+  "footer",
+  "drawer",
+] as const;
+export type MenuLayout = (typeof MENU_LAYOUTS)[number];
+
+/** How a top-level item's dropdown/mega panel is opened. */
+export const MENU_ACTIVATIONS = ["hover", "click", "both"] as const;
+export type MenuActivation = (typeof MENU_ACTIVATIONS)[number];
+
+/**
+ * How the menu presents below its breakpoint. The pre-1.0 value `"drawer"` is
+ * accepted by the host and mapped to `"drawer-right"` on read.
+ */
+export const MENU_MOBILE_PATTERNS = [
+  "dropdown",
+  "accordion",
+  "drawer-right",
+  "drawer-left",
+  "fullscreen",
+] as const;
+export type MenuMobilePattern = (typeof MENU_MOBILE_PATTERNS)[number];
+
+/** Enter/exit motion for the open mobile menu (`prefers-reduced-motion` forces `none` at render). */
+export const MENU_MOBILE_MOTIONS = ["slide", "fade", "none"] as const;
+export type MenuMobileMotion = (typeof MENU_MOBILE_MOTIONS)[number];
+
+/** Top-level alignment of the menu bar. */
+export const MENU_ALIGNMENTS = ["start", "center", "end", "space-between"] as const;
+export type MenuAlignment = (typeof MENU_ALIGNMENTS)[number];
+
+/**
+ * Fixed subset of `@justflows/blocks` core kinds a mega-menu region may
+ * contain. Deliberately excludes `core.html`/`core.code`/`core.embed` even
+ * though the host sanitizer would clean them — menu content must never carry
+ * arbitrary scripts or raw HTML, not merely sanitized versions of them.
+ */
+export const MEGA_MENU_SAFE_BLOCK_KINDS = [
+  "core.paragraph",
+  "core.heading",
+  "core.image",
+  "core.button",
+  "core.link-list",
+  "core.divider",
+  "core.spacer",
+  "core.section",
+  "core.container",
+  "core.group",
+  "core.columns",
+  "core.column",
+  "core.grid",
+  "core.reusable",
+] as const;
+export type MegaMenuSafeBlockKind = (typeof MEGA_MENU_SAFE_BLOCK_KINDS)[number];
+
+/**
+ * The layout/design fields a preset seeds onto a menu. Mirrors the host's
+ * `MenuDesign` one-for-one (minus `presetId`, which the host assigns) so a
+ * plugin-supplied preset and a hand-edited design are the same shape. The host
+ * re-parses whatever a filter returns, clamping numbers and dropping unknown
+ * enum values, so a preset can never widen what the designer itself allows.
+ */
+export interface MenuDesignSeed {
+  layout: MenuLayout;
+  activation: MenuActivation;
+  /** px; below this width the mobile pattern applies (clamped to 320–1400). */
+  breakpoint: number;
+  mobilePattern: MenuMobilePattern;
+  mobileMotion?: MenuMobileMotion;
+  /** Motion duration in ms (clamped to 120–800). */
+  mobileMotionMs?: number;
+  alignment: MenuAlignment;
+  /** Clamped to 1–4. */
+  maxDepth: number;
+  /** Clamped to 1–40. */
+  maxItemsPerLevel: number;
+}
+
+/**
+ * A built-in-style menu design a plugin or theme contributes through the
+ * `menu.design.presets` filter. It appears as a one-click starting point in
+ * the menu designer's design panel — picking it fills in the menu's layout
+ * config, it does not persist any relationship to the preset afterward.
+ */
+export interface MenuDesignPreset {
+  /** `"<pluginId>:<slug>"` — must sit under the contributing plugin's namespace. */
+  readonly id: string;
+  readonly name: string;
+  /** Plugin or theme id that contributed it. */
+  readonly source?: string;
+  readonly description?: string;
+  readonly design: MenuDesignSeed;
+}
+
+/** Who is viewing, for a `menu.visibility.evaluate` check. */
+export interface MenuVisibilityEvaluateContext {
+  readonly siteId: string;
+  readonly authState: "guest" | "authenticated";
+  readonly role?: string;
+  readonly locale: string;
+}
+
 // ─── Header designs ────────────────────────────────────────────────────────
 
 /**
@@ -543,6 +653,26 @@ export interface FilterValueMap {
   "media.metadata": [Record<string, unknown>, MediaRef];
   "navigation.items": [NavigationItem[], { siteId: string; location: string }];
   /**
+   * Menu design presets a site owner can pick beyond the built-in set, shown
+   * in the menu designer's design panel. Seeded with `[]`; each handler
+   * appends its presets.
+   */
+  "menu.design.presets": [MenuDesignPreset[], { siteId: string }];
+  /**
+   * Evaluate a plugin-provided menu-item visibility condition (an item whose
+   * `visibility.condition.id` the host does not recognize on its own). Seeded
+   * with `false` — an unrecognized or uninstalled condition hides the item
+   * (deny-by-default), never exposes it.
+   */
+  "menu.visibility.evaluate": [
+    boolean,
+    {
+      item: NavigationItem;
+      condition: { id: string; params?: Record<string, unknown> };
+      context: MenuVisibilityEvaluateContext;
+    },
+  ];
+  /**
    * Header designs a site owner can pick beyond their own library. Seeded with
    * `[]`; each handler appends its templates. Metadata only — `build()` runs
    * later, at render time.
@@ -566,7 +696,10 @@ export interface FilterValueMap {
   "plugin.settings.write": [Record<string, unknown>, { pluginId: string; siteId: string }];
   "openapi.document": [OpenApiDocument, { version: string }];
   "http.responseHeaders": [Record<string, string>, { method: string; path: string }];
-  "html.head": [string, { siteId: string; path: string; title: string; contentId?: string }];
+  "html.head": [
+    string,
+    { siteId: string; path: string; locale: string; title: string; contentId?: string },
+  ];
   /**
    * The analytics `<head>` markup the host is about to emit (the Google Tag from
    * the first-party Analytics plugin, when one is configured). Seeded with that

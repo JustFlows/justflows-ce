@@ -26,6 +26,7 @@
                       <% }); %>
                         <% } %>
                           <script src="/js/site-chrome.js"></script>
+                          <script src="/js/site-nav.js"></script>
 </head>
 
 <body>
@@ -37,10 +38,13 @@
           <% } else { %>
             <% if (typeof footerNavItems !=='undefined' && footerNavItems.length> 0) { %>
               <nav class="site-footer-nav" aria-label="Footer">
-                <% footerNavItems.forEach(function(item) { %>
-                  <a href="<%= item.url %>" <% if (item.target) { %> target="<%= item.target %>" rel="noopener
-                      noreferrer"<% } %>><%= item.label %></a>
-                  <% }); %>
+                <%- include('partials/nav-menu', {
+                  items: footerNavItems,
+                  menuDesign: typeof footerMenuDesign !== 'undefined' && footerMenuDesign ? footerMenuDesign : { layout: 'footer', activation: 'hover', breakpoint: 768, mobilePattern: 'accordion', alignment: 'start' },
+                  menuId: 'footer',
+                  currentPath: typeof publicPath !== 'undefined' ? publicPath : '',
+                  t: typeof t === 'function' ? t : undefined,
+                }) %>
               </nav>
               <% } %>
                 <p>

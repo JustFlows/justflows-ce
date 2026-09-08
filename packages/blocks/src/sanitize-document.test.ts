@@ -160,6 +160,13 @@ describe("sanitizeBlockDocument block styling", () => {
     expect(props({ className: "\"\"", css: "   " })).toEqual({});
   });
 
+  it("keeps a device-visibility subset (canonical order) and drops a full/invalid one", () => {
+    expect(props({ devices: ["mobile", "desktop"] })).toEqual({ devices: ["desktop", "mobile"] });
+    expect(props({ devices: ["desktop", "tablet", "mobile"] })).toEqual({});
+    expect(props({ devices: ["phone", 3] })).toEqual({});
+    expect(props({ devices: "mobile" })).toEqual({});
+  });
+
   it("preserves a block schema's string style selection", () => {
     expect(props({ style: "flags" })).toEqual({ style: "flags" });
   });

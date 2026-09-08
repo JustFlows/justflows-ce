@@ -4,6 +4,7 @@ import { injectRootAttrs, withBlockAnimation } from "./animation.js";
 import { blockScopeClass, sanitizeBlockClassName, scopeBlockCss } from "./safe-css.js";
 import { isDefaultPlacement, isPlacementShaped, parseBlockPlacement, placementStyleVars } from "./layout.js";
 import { blockStyleDeclarations, parseBlockStyle } from "./block-style.js";
+import { deviceVisibilityAttr } from "./visibility.js";
 
 /** The parts of a stored block that presentation reads. */
 export interface BlockChromeNode {
@@ -57,7 +58,12 @@ export function withBlockChrome(html: string, node: BlockChromeNode): string {
   }
   const styleVars = declarations.join(";");
 
-  if (classes.length > 0 || styleVars) out = injectRootAttrs(out, classes.join(" "), styleVars, "");
+  // "Show on devices" — hidden off-range by the platform CSS (blockVisibilityCss).
+  const dataAttrs = deviceVisibilityAttr(props["devices"]);
+
+  if (classes.length > 0 || styleVars || dataAttrs) {
+    out = injectRootAttrs(out, classes.join(" "), styleVars, dataAttrs);
+  }
 
   return css ? `<style>${css}</style>\n${out}` : out;
 }

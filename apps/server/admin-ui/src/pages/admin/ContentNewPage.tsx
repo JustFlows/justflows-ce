@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { useNavigate } from "../../admin-router";
 import { useT } from "../../i18n/I18nProvider";
 import ProductCatalogFields from "./ProductCatalogFields";
 
