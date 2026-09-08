@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.2.1-dev.1] [UNRELEASED]
+## [0.2.1]
 
 ### Fixed
 
@@ -103,9 +103,9 @@ and this project uses [Semantic Versioning](https://semver.org/).
   - Content editor → **SEO** tab gains an **Exclude from RSS / Atom / JSON feeds**
     checkbox for every content type (`fields.seoFeedExclude`), shown only while an
     SEO plugin that owns feeds is active.
-  Per-taxonomy feeds remain open — the `taxonomies` / `terms` tables have no
-  term-assignment UI or public archive yet.
-  ([#102](https://github.com/JustFlows/justflows-ce/issues/102))
+    Per-taxonomy feeds remain open — the `taxonomies` / `terms` tables have no
+    term-assignment UI or public archive yet.
+    ([#102](https://github.com/JustFlows/justflows-ce/issues/102))
 
 ### Changed
 
