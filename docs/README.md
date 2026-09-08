@@ -5,6 +5,7 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | Guide                                              | When to read it                                                   |
 | -------------------------------------------------- | ----------------------------------------------------------------- |
 | [Access control](ACCESS-CONTROL.md)                | Custom roles, scoped user access, and device sessions             |
+| [Redirect manager](REDIRECTS.md)                 | Redirect rules, 404 reports, URL suggestions, CSV and automation    |
 | [Permalinks](PERMALINKS.md)                       | URL structures, locale prefixes, taxonomy bases, and redirects    |
 | [Architecture](ARCHITECTURE.md)                    | Public SEO rendering, admin SSR, hydration, builds, and hosting   |
 | [Naming and structure conventions](CONVENTIONS.md) | Adding a folder or file: what to name it and where it goes        |

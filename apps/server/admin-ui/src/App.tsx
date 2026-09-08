@@ -1,4 +1,5 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Outlet, Route, Routes } from "react-router-dom";
+import { Navigate } from "./admin-router";
 import AdminShell from "@components/AdminShell";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -22,6 +23,7 @@ import PageBuilderPage from "./pages/admin/PageBuilderPage";
 import MenusPage from "./pages/admin/MenusPage";
 import UsersPage from "./pages/admin/UsersPage";
 import EditUserPage from "./pages/admin/EditUserPage";
+import RedirectsPage from "./pages/admin/RedirectsPage";
 import PermalinksPage from "./pages/admin/PermalinksPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import EmailsPage from "./pages/admin/EmailsPage";
@@ -113,6 +115,7 @@ export default function App() {
               <Route path="users/:id" element={<EditUserPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="settings/permalinks" element={<PermalinksPage />} />
+              <Route path="redirects" element={<RedirectsPage />} />
               <Route path="emails" element={<EmailsPage />} />
               <Route path="comments" element={<CommentsPage />} />
               <Route path="trash" element={<TrashPage />} />

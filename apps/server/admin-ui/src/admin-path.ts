@@ -15,7 +15,11 @@ export function adminBasePath(): string {
 
 export function publicAdminPath(path: string): string {
   const base = adminBasePath();
-  if (path !== "/admin" && !path.startsWith("/admin/")) return path;
+  if (
+    base !== "/admin" &&
+    (path === base || path.startsWith(`${base}/`) || path.startsWith(`${base}?`) || path.startsWith(`${base}#`))
+  ) return path;
+  if (!/^\/admin(?:\/|\?|#|$)/.test(path)) return path;
   return `${base}${path.slice("/admin".length)}`;
 }
 

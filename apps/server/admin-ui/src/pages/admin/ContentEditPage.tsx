@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useNavigate } from "../../admin-router";
 import { type BlockDocument } from "@components/BlockEditor";
 import MediaImageField from "@components/MediaImageField";
 import { useSessionRole } from "@components/SessionProvider";

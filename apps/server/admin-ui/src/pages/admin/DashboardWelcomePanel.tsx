@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "../../admin-router";
 import { useSessionRole } from "@components/SessionProvider";
 import { useT } from "../../i18n/I18nProvider";
 import { canAccessPath } from "../../config/admin-nav";

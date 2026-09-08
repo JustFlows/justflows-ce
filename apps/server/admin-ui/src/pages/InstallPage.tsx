@@ -2,7 +2,7 @@
  * Justflows install wizard.
  */
 import { cloneElement, isValidElement, useEffect, useState, type ReactElement } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "../admin-router";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import {
   DEFAULT_CONTENT_LOCALE,

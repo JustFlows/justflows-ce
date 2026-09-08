@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "../../admin-router";
 import { useSessionRole } from "@components/SessionProvider";
 
 interface Theme {

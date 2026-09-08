@@ -68,8 +68,10 @@ The admin screen shows a warning before saving and lists historical content
 URLs afterward. Imported WordPress URLs, already ambiguous URLs shared by
 multiple content types, handwritten links, deleted items, and URLs from before
 history was recorded cannot be mapped automatically. Review these separately.
-The permalink history is available through the settings API for a future
-Redirect manager; it is not a general-purpose manual redirect editor.
+The [Redirect manager](REDIRECTS.md) exposes permalink history as suggestions
+and adds manual rules, CSV import/export, and public 404 reporting. Enabled
+managed exact rules override matching historical redirects; disabling them
+restores automatic permalink handling.
 
 The server rejects collisions with known content URLs, archive URLs, historical
 URLs, enabled locale prefixes, and reserved platform routes, including the
