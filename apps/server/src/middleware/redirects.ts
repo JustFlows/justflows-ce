@@ -31,9 +31,39 @@ export async function managedRedirects(
       ? resolveRedirect(rules, incoming, canonicalize)
       : null;
     if (result) {
-      res.setHeader("Cache-Control", "no-store");
-      res.redirect(result.status, result.target);
-      return;
+      // Barrier for the Location header: request-derived capture groups may only
+      // land in a target's path/query, so the emitted URL must be site-relative or
+      // point at a host an operator explicitly configured on an external rule.
+      const location = result.target;
+      let allowed =
+        location.startsWith("/") && !location.startsWith("//") && !location.includes("\\");
+      if (!allowed) {
+        try {
+          const url = new URL(location);
+          const externalHosts = new Set(
+            rules.flatMap((r) => {
+              if (!r.enabled || r.targetType !== "external") return [];
+              try {
+                return [new URL(r.target).host];
+              } catch {
+                return [];
+              }
+            }),
+          );
+          allowed =
+            (url.protocol === "https:" || url.protocol === "http:") &&
+            !url.username &&
+            !url.password &&
+            externalHosts.has(url.host);
+        } catch {
+          allowed = false;
+        }
+      }
+      if (allowed) {
+        res.setHeader("Cache-Control", "no-store");
+        res.redirect(result.status, location);
+        return;
+      }
     }
     if (req.method === "GET")
       res.once("finish", () => {

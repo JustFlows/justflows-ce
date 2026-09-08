@@ -81,4 +81,20 @@ describe("public redirect middleware", () => {
       "live content",
     );
   });
+  it("emits external redirects to operator-configured hosts, including capture expansions", async () => {
+    rules = [
+      {
+        id: "ext",
+        source: "^/go/([^/]+)$",
+        target: "https://partner.example/landing/$1",
+        kind: "regex",
+        targetType: "external",
+        status: 302,
+        enabled: true,
+      },
+    ];
+    const result = await fetch(endpoint + "/go/spring-sale", { redirect: "manual" });
+    expect(result.status).toBe(302);
+    expect(result.headers.get("location")).toBe("https://partner.example/landing/spring-sale");
+  });
 });

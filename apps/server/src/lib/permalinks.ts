@@ -87,7 +87,11 @@ export type PermalinkContent = Pick<
 > & { permalinkCategory?: string };
 export function slashPath(path: string, policy: PermalinkSettings["trailingSlash"]): string {
   const [pathname, query] = path.split("?");
-  const clean = pathname!.replace(/\/+$/, "") || "/";
+  // Linear trailing-slash trim: a `/\/+$/` regex backtracks quadratically on paths
+  // built from request-derived, slash-heavy segments.
+  let end = pathname!.length;
+  while (end > 0 && pathname!.charCodeAt(end - 1) === 47) end--;
+  const clean = pathname!.slice(0, end) || "/";
   return (clean !== "/" && policy === "always" ? `${clean}/` : clean) + (query ? `?${query}` : "");
 }
 export function permalinkPath(
