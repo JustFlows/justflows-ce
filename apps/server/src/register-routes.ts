@@ -177,6 +177,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
   app.use("/api/audit", requireInstalled, auditRoutes);
+  app.use("/api/redirects", requireInstalled, (await import("./routes/redirects.js")).default);
   app.use("/api/webhooks", requireInstalled, webhooksRoutes);
   app.use("/api/preferences", requireInstalled, preferencesRoutes);
   app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
@@ -564,6 +565,12 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     next();
   });
 
+  // Managed rules override public content, but never platform or plugin routes.
+  app.use(
+    requireInstalled,
+    rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: "draft-8", legacyHeaders: false }),
+    (await import("./middleware/redirects.js")).managedRedirects,
+  );
   app.use(requireInstalled, publicSiteRoutes);
 
   // Backstop. Express's default handler prints the stack into the response body

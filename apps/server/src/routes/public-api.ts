@@ -1,3 +1,4 @@
+import { contentPermalink } from "../lib/permalinks-db.js";
 import { Router } from "express";
 import os from "node:os";
 import fs from "node:fs/promises";
@@ -10,7 +11,13 @@ import { overlayWorkingOnRow } from "../lib/content-revisions.js";
 import { resolveContentLocale, getDefaultLocale } from "../lib/i18n/languages-db.js";
 import { listContentTypes } from "../lib/content-types-db.js";
 import { PUBLIC_API_OPENAPI } from "../lib/openapi-v1.js";
-import { listMenus, getMenuBySlug, resolveMenuItems } from "../lib/menus-db.js";
+import {
+  getEffectiveMenuDesign,
+  getEffectiveMenuItems,
+  listMenus,
+  getMenuBySlug,
+  resolveMenuItems,
+} from "../lib/menus-db.js";
 import { getRuntimeHooks } from "../lib/plugin-runtime.js";
 import { requireRole } from "../middleware/auth.js";
 import { getSiteId } from "../lib/site-settings.js";
@@ -42,7 +49,8 @@ async function serializePublicContent(
   preview = false,
 ): Promise<ReturnType<typeof serializeContentRow>> {
   const overlaid = preview ? await overlayWorkingOnRow(row, true) : row;
-  const payload = serializeContentRow(overlaid);
+  const content = serializeContentRow(overlaid);
+  const payload = { ...content, links: { self: await contentPermalink(content) } };
   const hooks = getRuntimeHooks();
   if (!hooks.has("content.output")) return payload;
   return hooks.applyFilter("content.output", payload, { siteId });
@@ -129,7 +137,13 @@ router.get("/menus", async (req, res) => {
       menus.map(async (menu) => ({
         slug: menu.slug,
         name: menu.name,
-        items: await resolveMenuItems(menu.items, locale, defaultLocale, preview),
+        design: getEffectiveMenuDesign(menu, preview),
+        // The public API has no visitor session of its own — every request resolves as a
+        // guest, so an item gated on auth state/role/plugin condition is never returned here.
+        items: await resolveMenuItems(getEffectiveMenuItems(menu, preview), locale, defaultLocale, preview, {
+          siteId,
+          visibility: { authState: "guest" },
+        }),
       })),
     );
     res.json({ menus: items, locale });
@@ -158,7 +172,11 @@ router.get("/menus/:slug", async (req, res) => {
       menu: {
         slug: menu.slug,
         name: menu.name,
-        items: await resolveMenuItems(menu.items, locale, defaultLocale, preview),
+        design: getEffectiveMenuDesign(menu, preview),
+        items: await resolveMenuItems(getEffectiveMenuItems(menu, preview), locale, defaultLocale, preview, {
+          siteId,
+          visibility: { authState: "guest" },
+        }),
       },
       locale,
     });
@@ -187,7 +205,7 @@ router.get("/content", async (req, res) => {
     const locale = await resolveContentLocale(localeParam, siteId);
 
     let sql =
-      "SELECT id, site_id, type, title, slug, locale, excerpt, status, fields, published_at, updated_at FROM content WHERE site_id = ? AND locale = ? AND trashed_at IS NULL";
+      "SELECT id, site_id, type, title, slug, locale, excerpt, status, fields, author_id, created_at, published_at, updated_at FROM content WHERE site_id = ? AND locale = ? AND trashed_at IS NULL";
     const params: (string | number | boolean | null)[] = [siteId, locale];
 
     if (!preview) {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
+import { Navigate, NavLink, useNavigate } from "../admin-router";
 import { ADMIN_UI_LOCALES, useT, type AdminUiLocale } from "../i18n/I18nProvider";
 import { ADMIN_DASHBOARD, canAccessPath, filterDomainsByRole, findDomainForPath, isDomainActive } from "../config/admin-nav";
 import DomainSubnav from "./DomainSubnav";

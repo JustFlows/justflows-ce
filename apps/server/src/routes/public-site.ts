@@ -1,3 +1,6 @@
+import { esc } from "@justflows/blocks";
+import type { ContentResponse } from "../lib/content-api.js";
+import { createPermalinkRouter } from "./permalinks.js";
 import { Router, type Request, type Response } from "express";
 import ejs from "ejs";
 import path from "node:path";
@@ -25,7 +28,16 @@ import {
   getThemeMods,
   mergeMods,
 } from "../lib/theme-customize.js";
-import { getNavItemsForMenuSlug } from "../lib/menus-db.js";
+import {
+  getEffectiveMenuDesign,
+  getEffectiveMenuItems,
+  getMenuBySlug,
+  getNavItemsForMenuSlug,
+  menuHasVisibilityRules,
+  type MenuDesign,
+  type MenuVisibilityContext,
+  type ResolvedNavItem,
+} from "../lib/menus-db.js";
 import { getEffectiveHomeBlocks } from "../lib/theme-home-blocks.js";
 import { getHomeContent, isHomeContentSlug } from "../lib/home-page.js";
 import {
@@ -508,15 +520,98 @@ async function ensureSiteIsPublic(req: Request, res: Response): Promise<boolean>
   return false;
 }
 
+/** The visitor's admin-session state, for the (opt-in) role/auth menu-item visibility rules.
+ * The public site has no separate front-end membership system — "authenticated" here means
+ * "signed into the admin panel", the same signal `canViewUnpublishedSite`/`?preview=1` already use. */
+async function resolvePublicMenuVisibility(req: Request, res: Response): Promise<MenuVisibilityContext> {
+  const session = await resolveSession(req, res);
+  return session ? { authState: "authenticated", role: session.role } : { authState: "guest" };
+}
+
+/** Whether a menu's *published* items are safe to serve from the shared public cache. A menu using
+ * role/auth visibility rules is never cached — every request needs this visitor's real session — but
+ * the answer itself is cached (under the same menus prefix, invalidated by every menu save) so the
+ * common case (no visibility rules) still costs zero extra DB reads once warm. */
+async function menuIsCacheable(siteId: string, menuSlug: string): Promise<boolean> {
+  return rememberPublic(`${MENUS_PREFIX}${menuSlug}:cacheable`, async () => {
+    const menu = await getMenuBySlug(siteId, menuSlug);
+    return !menu || !menuHasVisibilityRules(getEffectiveMenuItems(menu, false));
+  });
+}
+
+/** A resolved mega-menu region, its blocks already rendered to safe HTML for the template. */
+export interface RenderableMegaRegion {
+  id: string;
+  heading?: string;
+  span?: number;
+  renderedHtml: string;
+}
+
+/** `ResolvedNavItem`, ready for `nav-menu.ejs`: mega-menu regions carry rendered HTML, not block JSON. */
+export interface RenderableNavItem extends Omit<ResolvedNavItem, "children" | "megaMenu"> {
+  megaMenu?: { regions: RenderableMegaRegion[] };
+  children?: RenderableNavItem[];
+}
+
+/** Render each mega-menu region's sanitized block tree to HTML via the same pipeline (reusable-block
+ * resolution included) page content uses, so menu content can never diverge from that safety net. */
+async function withRenderedMegaMenus(items: ResolvedNavItem[]): Promise<RenderableNavItem[]> {
+  const out: RenderableNavItem[] = [];
+  for (const item of items) {
+    const { megaMenu, children, ...rest } = item;
+    const next: RenderableNavItem = { ...rest };
+    if (megaMenu?.regions?.length) {
+      next.megaMenu = {
+        regions: await Promise.all(
+          megaMenu.regions.map(async (region) => ({
+            id: region.id,
+            heading: region.heading,
+            span: region.span,
+            renderedHtml: await renderBlocksHtml(region.blocks),
+          })),
+        ),
+      };
+    }
+    if (children?.length) {
+      next.children = await withRenderedMegaMenus(children);
+    }
+    out.push(next);
+  }
+  return out;
+}
+
 async function loadNavItems(
+  req: Request,
+  res: Response,
   menuSlug: string,
   locale: string,
   defaultLocale: string,
   preview: boolean,
-): Promise<Awaited<ReturnType<typeof getNavItemsForMenuSlug>>> {
+): Promise<RenderableNavItem[]> {
+  const siteId = await getSiteId();
+  let resolved: ResolvedNavItem[];
+  if (!preview && siteId && !(await menuIsCacheable(siteId, menuSlug))) {
+    const visibility = await resolvePublicMenuVisibility(req, res);
+    resolved = await getNavItemsForMenuSlug(menuSlug, locale, defaultLocale, preview, visibility);
+  } else {
+    resolved = await rememberPublic(
+      `${MENUS_PREFIX}${menuSlug}:${locale}:${defaultLocale}:${preview ? "preview" : "live"}`,
+      () => getNavItemsForMenuSlug(menuSlug, locale, defaultLocale, preview),
+      preview,
+    );
+  }
+  return withRenderedMegaMenus(resolved);
+}
+
+/** The menu design for the menu `loadNavItems` just resolved — a separate, tiny cached read
+ * (same prefix, same invalidation) so the common request path stays a cache-only lookup. */
+async function loadMenuDesign(siteId: string, menuSlug: string, preview: boolean): Promise<MenuDesign | null> {
   return rememberPublic(
-    `${MENUS_PREFIX}${menuSlug}:${locale}:${defaultLocale}:${preview ? "preview" : "live"}`,
-    () => getNavItemsForMenuSlug(menuSlug, locale, defaultLocale, preview),
+    `${MENUS_PREFIX}${menuSlug}:design:${preview ? "preview" : "live"}`,
+    async () => {
+      const menu = await getMenuBySlug(siteId, menuSlug);
+      return menu ? getEffectiveMenuDesign(menu, preview) : null;
+    },
     preview,
   );
 }
@@ -640,7 +735,7 @@ export async function sendPublicNotFound(req: Request, res: Response): Promise<v
     `${req.path}:404`,
     false,
     async () => {
-      const ctx = await buildPageContext(req.path, false);
+      const ctx = await buildPageContext(req, res, req.path, false);
       return renderNotFoundHtml(ctx);
     },
     404,
@@ -693,6 +788,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       {
         siteId,
         path: String(data.restPath ?? "/"),
+        locale: String(data.locale ?? ""),
         title: pageTitle,
         contentId:
           typeof data.content === "object" && data.content && "id" in (data.content as object)
@@ -818,7 +914,7 @@ function languageLinksFor(
   currentLocale: string,
   restPath: string,
   defaultLocale: string,
-  translations: Array<{ locale: string; slug: string }> = [],
+  translations: Array<{ locale: string; slug: string; href?: string }> = [],
 ): Array<{
   code: string;
   name: string;
@@ -836,7 +932,7 @@ function languageLinksFor(
     return {
       code: lang.code,
       name: lang.nativeName,
-      href: localePath(lang.code, path, defaultLocale),
+      href: translations.find((tr) => tr.locale === lang.code)?.href ?? localePath(lang.code, path, defaultLocale),
       current: lang.code === currentLocale,
       displayCode: displayLocaleCode(lang.code),
       ...localePresentation(lang.code),
@@ -844,7 +940,7 @@ function languageLinksFor(
   });
 }
 
-async function buildPageContext(reqPath: string, preview = false) {
+async function buildPageContext(req: Request, res: Response, reqPath: string, preview = false) {
   const activeLocales = await getActiveLocaleCodes();
   const defaultLocale = await getDefaultLocale();
   const languages = await listLanguages(undefined, true);
@@ -860,13 +956,15 @@ async function buildPageContext(reqPath: string, preview = false) {
   const mods = await loadThemeMods(preview);
   const discourageSearchEngines = await shouldDiscourageSearchEngines();
   const { header: headerMenuSlug, footer: footerMenuSlug } = getNavigationMenuSlugs(mods);
-  const navItems = await loadNavItems(headerMenuSlug ?? "primary", locale, defaultLocale, preview);
-  const footerNavItems = await loadNavItems(
-    footerMenuSlug ?? "footer",
-    locale,
-    defaultLocale,
-    preview,
-  );
+  const navMenuSlug = headerMenuSlug ?? "primary";
+  const navFooterMenuSlug = footerMenuSlug ?? "footer";
+  const navItems = await loadNavItems(req, res, navMenuSlug, locale, defaultLocale, preview);
+  const footerNavItems = await loadNavItems(req, res, navFooterMenuSlug, locale, defaultLocale, preview);
+  const menuDesignSiteId = await getSiteId();
+  const menuDesign = menuDesignSiteId ? await loadMenuDesign(menuDesignSiteId, navMenuSlug, preview) : null;
+  const footerMenuDesign = menuDesignSiteId
+    ? await loadMenuDesign(menuDesignSiteId, navFooterMenuSlug, preview)
+    : null;
 
   const languageLinks = languageLinksFor(languages, locale, restPath, defaultLocale);
   const publicPath = localePath(locale, restPath, defaultLocale);
@@ -937,7 +1035,9 @@ async function buildPageContext(reqPath: string, preview = false) {
     languageLinks,
     identity,
     navItems,
+    menuDesign,
     footerNavItems,
+    footerMenuDesign,
     footerBlocksHtml,
     headerMenuSlug,
     footerMenuSlug,
@@ -956,6 +1056,8 @@ async function buildPageContext(reqPath: string, preview = false) {
 }
 
 async function applyPageHeader<T extends Awaited<ReturnType<typeof buildPageContext>>>(
+  req: Request,
+  res: Response,
   ctx: T,
   fields: Record<string, unknown> | undefined,
   preview: boolean,
@@ -971,14 +1073,14 @@ async function applyPageHeader<T extends Awaited<ReturnType<typeof buildPageCont
     content,
   });
   const menuSlug = resolveHeaderMenuSlug(header, ctx.headerMenuSlug);
-  const navItems = menuSlug
-    ? await loadNavItems(menuSlug, ctx.locale, ctx.defaultLocale, preview)
-    : [];
+  const navItems = menuSlug ? await loadNavItems(req, res, menuSlug, ctx.locale, ctx.defaultLocale, preview) : [];
+  const menuDesign = menuSlug && ctx.siteId ? await loadMenuDesign(ctx.siteId, menuSlug, preview) : null;
   const withHeader = {
     ...ctx,
     header,
     headerBrand: headerBrandFlags(header, ctx.identity.logoUrl),
     navItems,
+    menuDesign,
     headerMenuSlug: menuSlug,
   };
   const headerBlocksHtml = header.blocks.length
@@ -1016,11 +1118,11 @@ function translatedSlugPath(
   return localePath(content.locale, `/${content.slug}`, defaultLocale);
 }
 
-async function renderHomeHtml(req: Request, reqPath: string, preview: boolean): Promise<string> {
-  const ctx = await buildPageContext(reqPath, preview);
+async function renderHomeHtml(req: Request, res: Response, reqPath: string, preview: boolean): Promise<string> {
+  const ctx = await buildPageContext(req, res, reqPath, preview);
   const siteId = await getSiteId();
   const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
-  const withHeader = await applyPageHeader(ctx, home?.fields, preview, submittedFormIdFrom(req), {
+  const withHeader = await applyPageHeader(req, res, ctx, home?.fields, preview, submittedFormIdFrom(req), {
     id: home ? String(home.id) : undefined,
     type: home ? String(home.type) : undefined,
   });
@@ -1150,6 +1252,23 @@ router.get("/sitemap.xml", async (_req, res, next) => {
   }
 });
 
+router.use(createPermalinkRouter({
+  canView: ensureSiteIsPublic,
+  previewAllowed: isPreviewAllowed,
+  async renderContent(req, res, { content, path, basePath, pageNumber, alternates }) {
+    const preview = await isPreviewAllowed(req, res);
+    await sendPublicHtml(req, res, path, preview, () =>
+      renderSinglePageHtml(req, res, path, content.slug, content.locale, preview, alternates, pageNumber, basePath, content));
+  },
+  async renderArchive(req, res, { path, name, items }) {
+    await sendPublicHtml(req, res, path, false, async () => {
+      const ctx = await buildPageContext(req, res, path);
+      const bodyHtml = `<h1>${esc(name)}</h1><ul>${items.map((item) => `<li><a href="${esc(item.path)}">${esc(item.title)}</a></li>`).join("")}</ul>`;
+      return renderPage("template", { ...ctx, publicPath: path, title: name, bodyHtml });
+    });
+  },
+}));
+
 router.get("/", async (req, res, next) => {
   if (req.path !== "/") {
     next();
@@ -1160,7 +1279,7 @@ router.get("/", async (req, res, next) => {
     if (!(await ensureSiteIsPublic(req, res))) return;
     const preview = await isPreviewAllowed(req, res);
     await sendPublicHtml(req, res, req.path || "/", preview, () =>
-      renderHomeHtml(req, "/", preview),
+      renderHomeHtml(req, res, "/", preview),
     );
   } catch (err) {
     console.error("[justflows] home render failed:", err);
@@ -1176,6 +1295,7 @@ router.get("/", async (req, res, next) => {
  */
 async function renderSinglePageHtml(
   req: Request,
+  res: Response,
   reqPath: string,
   slug: string,
   locale: string,
@@ -1183,9 +1303,17 @@ async function renderSinglePageHtml(
   alternates: Array<{ locale: string; slug: string; href: string }>,
   pageNumber: number,
   basePath: string,
+  resolvedContent?: ContentResponse,
 ): Promise<string> {
-  const pageCtx = await buildPageContext(reqPath, preview);
-  const pageContent = await getPublishedContentBySlug(slug, locale, preview);
+  const pageCtx = { ...await buildPageContext(req, res, reqPath, preview), publicPath: reqPath };
+  let pageContent = resolvedContent ?? await getPublishedContentBySlug(slug, locale, preview);
+  if (resolvedContent) {
+    const { getDb } = await import("../lib/db.js");
+    const { serializeContentRow } = await import("../lib/content-api.js");
+    const { overlayWorkingOnRow } = await import("../lib/content-revisions.js");
+    const rows = await (await getDb()).query<Record<string, unknown>>(`SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL AND ${preview ? "status IN ('published', 'draft')" : "status = 'published'"}`, [resolvedContent.id, resolvedContent.siteId]);
+    pageContent = rows[0] ? serializeContentRow(preview ? await overlayWorkingOnRow(rows[0], true) : rows[0]) : null;
+  }
   if (!pageContent) {
     return renderNotFoundHtml(pageCtx);
   }
@@ -1200,6 +1328,8 @@ async function renderSinglePageHtml(
     ),
   };
   const withHeader = await applyPageHeader(
+    req,
+    res,
     withTranslations,
     pageContent.fields,
     preview,
@@ -1311,11 +1441,11 @@ router.get("/:segment", async (req, res, next) => {
       res.redirect(302, canonical + previewQuery(req));
       return;
     }
-    const ctx = await buildPageContext(req.path, preview);
+    const ctx = await buildPageContext(req, res, req.path, preview);
 
     if (matchActiveLocale(segment, activeLocales) && req.path === `/${segment}`) {
       await sendPublicHtml(req, res, req.path, preview, () =>
-        renderHomeHtml(req, req.path, preview),
+        renderHomeHtml(req, res, req.path, preview),
       );
       return;
     }
@@ -1334,7 +1464,7 @@ router.get("/:segment", async (req, res, next) => {
         `${req.path}:404`,
         preview,
         async () => {
-          const ctx404 = await buildPageContext(req.path, preview);
+          const ctx404 = await buildPageContext(req, res, req.path, preview);
           return renderNotFoundHtml(ctx404);
         },
         404,
@@ -1365,7 +1495,7 @@ router.get("/:segment", async (req, res, next) => {
     }
 
     await sendPublicHtml(req, res, req.path, preview, () =>
-      renderSinglePageHtml(req, req.path, slug, ctx.locale, preview, alternates, 1, req.path),
+      renderSinglePageHtml(req, res, req.path, slug, ctx.locale, preview, alternates, 1, req.path),
     );
   } catch (err) {
     console.error("[justflows] page render failed:", err);
@@ -1389,7 +1519,7 @@ router.get("/:segment/page/:num", async (req, res, next) => {
       return;
     }
     const preview = await isPreviewAllowed(req, res);
-    const ctx = await buildPageContext(req.path, preview);
+    const ctx = await buildPageContext(req, res, req.path, preview);
     const basePath = `/${segment}`;
 
     const content = await getPublishedContentBySlug(segment, ctx.locale, preview);
@@ -1400,7 +1530,7 @@ router.get("/:segment/page/:num", async (req, res, next) => {
         `${req.path}:404`,
         preview,
         async () => {
-          const ctx404 = await buildPageContext(req.path, preview);
+          const ctx404 = await buildPageContext(req, res, req.path, preview);
           return renderNotFoundHtml(ctx404);
         },
         404,
@@ -1431,7 +1561,7 @@ router.get("/:segment/page/:num", async (req, res, next) => {
     }
 
     await sendPublicHtml(req, res, req.path, preview, () =>
-      renderSinglePageHtml(req, req.path, segment, ctx.locale, preview, alternates, num, basePath),
+      renderSinglePageHtml(req, res, req.path, segment, ctx.locale, preview, alternates, num, basePath),
     );
   } catch (err) {
     console.error("[justflows] paginated page render failed:", err);
@@ -1473,7 +1603,7 @@ router.get("/:locale/:slug", async (req, res, next) => {
         `${req.path}:404`,
         preview,
         async () => {
-          const ctx404 = await buildPageContext(req.path, preview);
+          const ctx404 = await buildPageContext(req, res, req.path, preview);
           return renderNotFoundHtml(ctx404);
         },
         404,
@@ -1504,7 +1634,7 @@ router.get("/:locale/:slug", async (req, res, next) => {
     }
 
     await sendPublicHtml(req, res, req.path, preview, () =>
-      renderSinglePageHtml(req, req.path, slug, locale, preview, alternates, 1, req.path),
+      renderSinglePageHtml(req, res, req.path, slug, locale, preview, alternates, 1, req.path),
     );
   } catch (err) {
     console.error("[justflows] localised page render failed:", err);
@@ -1548,7 +1678,7 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
         `${req.path}:404`,
         preview,
         async () => {
-          const ctx404 = await buildPageContext(req.path, preview);
+          const ctx404 = await buildPageContext(req, res, req.path, preview);
           return renderNotFoundHtml(ctx404);
         },
         404,
@@ -1578,7 +1708,7 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
     }
 
     await sendPublicHtml(req, res, req.path, preview, () =>
-      renderSinglePageHtml(req, req.path, slug, locale, preview, alternates, num, basePath),
+      renderSinglePageHtml(req, res, req.path, slug, locale, preview, alternates, num, basePath),
     );
   } catch (err) {
     console.error("[justflows] localised paginated page render failed:", err);

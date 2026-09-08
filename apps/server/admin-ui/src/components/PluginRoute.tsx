@@ -1,4 +1,5 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { Navigate } from "../admin-router";
 import type { ReactNode } from "react";
 import { usePluginMenu } from "./PluginMenuProvider";
 import { internalAdminPath, publicAdminPath } from "../admin-path";

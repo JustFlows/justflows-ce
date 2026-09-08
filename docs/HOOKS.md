@@ -487,6 +487,67 @@ normal entry, and the plugin link is dropped.
 
 ---
 
+## Contributing a menu design preset
+
+A plugin or theme can add one-click starting points to the menu designer's
+design panel — a layout + activation/breakpoint/alignment combination an author
+picks instead of configuring a menu from scratch. Unlike a header template, a
+preset is static data (no `build()`): picking it just fills in the menu's
+`design` (the `MenuDesignSeed` shape), the site owner then edits it like
+anything else. The host re-parses whatever you return — numbers are clamped and
+unknown enum values dropped — so a preset can never widen what the designer
+itself allows.
+
+```ts
+import type { PluginContext, MenuDesignPreset } from "@justflows/sdk";
+
+export function registerMenuPresets(ctx: PluginContext) {
+  ctx.hooks.filter("menu.design.presets", (list) => [
+    ...list,
+    {
+      id: "acme.shop:catalog-mega", // must be "<yourPluginId>:<slug>"
+      name: "Catalog mega menu",
+      description: "Wide activation, suited to a category-heavy nav",
+      design: {
+        layout: "mega",
+        activation: "click",
+        breakpoint: 900,
+        mobilePattern: "drawer-right", // "dropdown" | "accordion" | "drawer-right" | "drawer-left" | "fullscreen"
+        mobileMotion: "slide", // optional — "slide" | "fade" | "none"
+        mobileMotionMs: 240, // optional — clamped 120–800
+        alignment: "start",
+        maxDepth: 2,
+        maxItemsPerLevel: 12,
+      },
+    } satisfies MenuDesignPreset,
+  ]);
+}
+```
+
+A plugin-provided menu **item type** beyond the built-in set (page, post,
+custom URL, category, search, account, ...) is not a registry in this release
+— append plain link-shaped items instead through `navigation.items`
+(`{ siteId, location }`, `location` is the menu slug), which runs after the
+host's own resolution so your items sit alongside the author's.
+
+For an item-level condition your plugin alone understands (e.g. "visible to
+subscribers of tier X"), the author sets `visibility.condition.id` on the item
+in the designer and your plugin answers `menu.visibility.evaluate`:
+
+```ts
+ctx.hooks.filter("menu.visibility.evaluate", (allowed, { condition, context }) => {
+  if (condition.id !== "acme.shop:tier") return allowed; // not yours — leave it
+  return hasTier(context, condition.params?.tier);
+});
+```
+
+An unrecognized condition id — including one from a plugin that has since
+been deactivated — hides the item; the filter is seeded with `false`; return
+`allowed` unchanged for a condition id you do not own so another handler (or
+the deny-by-default) still applies to it.
+
+---
+
 ## Performance
 
 Hooks are cheap enough that you should not think about them:
@@ -580,7 +641,9 @@ makes both correctness and performance attributable to a specific extension.
 | `comments.render`         | `string` (HTML)                         | `CommentsBlockRenderContext` — the rendered `justflows.comments.thread` block. Return replacement HTML for full markup control (the context carries the threaded `PublicComment[]`, counts, form/policy state, `basePath`, `locale`, `currentUser`, `captchaProvider`), or the value unchanged to keep the default. Handlers may be async. Deactivating the plugin restores the default markup. The submission endpoint (`POST /justflows-comments/submit`), `comments` table, and moderation API are unchanged — only the rendering is yours.         |
 | `content.revision`        | proposed snapshot                       | `{ siteId, contentId }` — filters the working revision before it is stored. Committed history is immutable.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `media.metadata`          | `Record<string, unknown>`               | `{ siteId, mediaId }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `navigation.items`        | `NavigationItem[]`                      | `{ siteId, location }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `navigation.items`        | `NavigationItem[]`                      | `{ siteId, location }` — `location` is the menu slug. Runs after the host resolves a menu's own items (visibility rules already applied), so appended items render alongside the author's. See [Contributing a menu design preset](#contributing-a-menu-design-preset).                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `menu.design.presets`     | `MenuDesignPreset[]`                    | `{ siteId }` — seeded with `[]`; append one-click layout presets your plugin/theme ships (static data, no `build()`). Ids must be `"<pluginId>:<slug>"`.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `menu.visibility.evaluate` | `boolean`                              | `{ item, condition: { id, params? }, context: { siteId, authState, role?, locale } }` — seeded with `false`. Answer only when `condition.id` is yours; return the incoming value unchanged otherwise so another handler (or the deny-by-default) still applies.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `header.templates`        | `HeaderTemplate[]`                      | `{ siteId, locale, defaultLocale }` — seeded with `[]`; append header designs your plugin ships. Metadata only here; the host calls `build()` at render time (cached per ref + locale). Ids must be `"<pluginId>:<slug>"`. A page that referenced an uninstalled template falls back to the site default.                                                                                                                                                                                                                                              |
 | `header.resolve`          | `HeaderConfig \| null`                  | `{ siteId, locale, defaultLocale, ref, contentId?, contentType? }` — return a `HeaderConfig` to take over which header a page renders, or `null` to let the host resolve the stored ref. For headers computed per request.                                                                                                                                                                                                                                                                                                                             |
 | `header.config`           | `HeaderConfig`                          | `{ siteId, locale, defaultLocale, ref, contentId?, contentType? }` — adjust the resolved header just before render (inject a block, flip a widget). Runs for every header whatever its source. The host re-sanitises whatever you return.                                                                                                                                                                                                                                                                                                              |
@@ -588,7 +651,7 @@ makes both correctness and performance attributable to a specific extension.
 | `plugin.settings`         | `Record<string, unknown>`               | `{ pluginId, siteId }` — overlay Admin → Plugins → Settings values. The host applies this on the plugin runtime registry.                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `plugin.settings.write`   | `Record<string, unknown>`               | `{ pluginId, siteId }` — intercept a settings save. Return only the keys that should be stored in plugin settings KV.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `http.responseHeaders`    | `Record<string, string>`                | `{ method, path }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `html.head`               | `string` (extra `<head>` HTML)          | `{ siteId, path, title, contentId? }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `html.head`               | `string` (extra `<head>` HTML)          | `{ siteId, path, locale, title, contentId? }` — `locale` is the page's content locale (`""` outside a localized render). **Synchronous.**                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `analytics.head`          | `string` (analytics `<head>` markup)    | `{ siteId, path }` — the Google Tag markup the host is about to emit (or `""`). **Synchronous.** A consent plugin rewrites it — e.g. to `type="text/plain" data-jf-consent="analytics"` — so the tag does not run until the visitor grants the analytics category. Return it unchanged for a no-op.                                                                                                                                                                                                                                                    |
 | `theme.css`               | `string` (CSS appended to `/theme.css`) | `{ siteId, preview }` — seeded with `""`; append your plugin's stylesheet. Lands after the theme and Customizer tokens, before the site owner's Additional CSS. Runs once per stylesheet build (cached, not per page), so handlers **may be async** — read a file and minify once, then memoise. Deactivating the plugin drops the handler and the next build omits the CSS. `preview` is true while the Customizer previews an unpublished draft.                                                                                                     |
 | `seo.sitemapPaths`        | `string[]` (URL paths)                  | `{ siteId }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |

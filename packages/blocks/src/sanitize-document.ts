@@ -6,6 +6,7 @@ import { sanitizeAnimationProp } from "./animation.js";
 import { sanitizeBlockClassName, sanitizeBlockCss } from "./safe-css.js";
 import { isPlacementShaped, sanitizePlacementProp } from "./layout.js";
 import { sanitizeBlockStyleProp } from "./block-style.js";
+import { normalizeDeviceList } from "./visibility.js";
 
 
 interface BlockLike {
@@ -97,6 +98,12 @@ function sanitizeProps(type: string, props: Record<string, unknown>): Record<str
     const className = sanitizeBlockClassName(next["className"]);
     if (className) next["className"] = className;
     else delete next["className"];
+  }
+  // "Show on devices" — a proper subset of desktop/tablet/mobile, else dropped.
+  if ("devices" in next) {
+    const devices = normalizeDeviceList(next["devices"]);
+    if (devices) next["devices"] = devices;
+    else delete next["devices"];
   }
   if ("css" in next) {
     const css = sanitizeBlockCss(next["css"]);

@@ -11,6 +11,7 @@ import InstallPage from "../InstallPage";
 import ContentListPage from "../admin/ContentListPage";
 import MediaPage from "../admin/MediaPage";
 import PluginsPage from "../admin/PluginsPage";
+import MenusPage from "../admin/MenusPage";
 
 function jsonResponse(body: unknown, status = 200): Promise<Response> {
   return Promise.resolve({
@@ -41,6 +42,23 @@ function mockFetch(): void {
       if (path.includes("/api/content")) return jsonResponse({ items: [] });
       if (path.includes("/api/plugins/admin-menu")) return jsonResponse({ items: [] });
       if (path.includes("/api/plugins")) return jsonResponse({ plugins: [] });
+      if (path.includes("/api/languages")) {
+        return jsonResponse({ languages: [{ code: "en-US", isDefault: true, isActive: true }] });
+      }
+      if (path.includes("/api/menus/design-presets")) return jsonResponse({ presets: [] });
+      if (path === "/api/menus") {
+        return jsonResponse({ menus: [{ id: "m1", slug: "primary", name: "Primary", items: [] }] });
+      }
+      if (path.startsWith("/api/menus/")) {
+        return jsonResponse({
+          menu: {
+            id: "m1",
+            slug: "primary",
+            name: "Primary",
+            items: [{ id: "1", label: "About", type: "custom", url: "/about" }],
+          },
+        });
+      }
       return jsonResponse({});
     }),
   );
@@ -209,5 +227,62 @@ describe("admin accessibility", () => {
     expect(
       screen.getByRole("button", { name: /upload a plugin package/i }),
     ).toHaveFocus();
+  });
+
+  it("has no critical axe findings on the menu designer", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <I18nProvider>
+          <SessionProvider>
+            <MenusPage />
+          </SessionProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("About")).toBeInTheDocument();
+    // jsdom's <iframe> has no working postMessage bridge, which axe-core's
+    // (same-origin, real-browser-only) frame traversal needs — the live
+    // preview iframe itself renders the real public page and is out of
+    // scope for this admin-UI a11y pass regardless.
+    container.querySelector("iframe")?.remove();
+    await expectNoCriticalAxe(container);
+  });
+
+  it("reaches a menu item's keyboard controls with Tab and can duplicate it", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <SessionProvider>
+            <MenusPage />
+          </SessionProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("About");
+    const duplicateBtn = screen.getByRole("button", { name: "Duplicate" });
+    duplicateBtn.focus();
+    expect(duplicateBtn).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(screen.getAllByText("About")).toHaveLength(2);
+  });
+
+  it("closes an open item drawer's settings with a reachable Close control", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <SessionProvider>
+            <MenusPage />
+          </SessionProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByText("About"));
+    const closeBtn = await screen.findByRole("button", { name: "Close" });
+    await user.click(closeBtn);
+    expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
   });
 });

@@ -80,7 +80,9 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     items: [
       { key: "nav.themes", to: "/admin/themes", icon: "🎨" },
       { key: "nav.design", to: "/admin/design", icon: "🎛" },
-      { key: "nav.menus", to: "/admin/menus", icon: "☰" },
+      // Menus moved into Themes → Customize → Menus, alongside Header/Footer/
+      // Templates — it's a theme-builder concern, not a separate top-level
+      // page. The /admin/menus route still works for old links/bookmarks.
     ],
   },
   {
@@ -112,6 +114,8 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     items: [
       { key: "nav.users", to: "/admin/users", icon: "👤" },
       { key: "nav.settings", to: "/admin/settings", icon: "⚙" },
+      { key: "nav.redirects", to: "/admin/redirects", icon: "↪" },
+      { key: "nav.permalinks", to: "/admin/settings/permalinks", icon: "↗" },
       { key: "nav.emails", to: "/admin/emails", icon: "✉" },
       { key: "nav.languages", to: "/admin/languages", icon: "🌐" },
       { key: "nav.webhooks", to: "/admin/webhooks", icon: "↗" },
@@ -221,6 +225,8 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/health": ["administrator"],
   "/admin/updates": ["administrator"],
   "/admin/webhooks": ["administrator"],
+  "/admin/settings/permalinks": ["administrator"],
+  "/admin/redirects": ["administrator"],
   "/admin/analytics": ["administrator", "editor"],
 };
 
