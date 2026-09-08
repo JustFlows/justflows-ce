@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "../../admin-router";
 import { usePluginMenu } from "@components/PluginMenuProvider";
 import { navLabel, type PluginMenuItem } from "../../config/admin-nav";
 import { internalAdminPath, publicAdminPath } from "../../admin-path";

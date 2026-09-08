@@ -5,6 +5,118 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.1]
+
+### Fixed
+
+- Admin links and navigation now use the configured custom admin URL, including
+  content lists, sidebar links, builder shortcuts, and plugin links opened in a
+  new tab. Rendered links preserve query strings and fragments, so copying or
+  opening a link no longer falls back to `/admin` and returns a 404.
+  ([#51](https://github.com/JustFlows/justflows-ce/issues/51))
+
+### Added
+
+- **Redirect manager.** Administrators can create, edit and disable exact,
+  prefix and restricted-regex redirects with internal, content or validated
+  external destinations; import/export CSV; review slug/permalink URL history;
+  and turn aggregate public 404 reports into redirects. Loop checks include
+  permalink history, safe equal-status chains collapse, and mutations are
+  audited. Migration `0025_redirect_manager` supports all database dialects.
+  ([#100](https://github.com/JustFlows/justflows-ce/issues/100))
+
+- **Permalink settings.** Administrators can choose post URL presets or custom
+  token structures, configure content-type and taxonomy bases, and select a
+  trailing-slash policy. Known previous URLs redirect to current URLs with 301s;
+  reserved routes and URL collisions are checked before saving. Core public
+  links, canonical tags, and sitemap entries follow the active structure.
+  ([#96](https://github.com/JustFlows/justflows-ce/issues/96))
+
+- **Visual menu designer.** Admin → Menus is now a full designer instead of a
+  flat link list: a drag-and-drop item tree with indent/outdent and undo/redo, a
+  live `?preview=1` iframe, and one-click design presets. Each menu carries a
+  layout/design contract (`design` column, migration `0024_menu_designer`) —
+  layout (`horizontal`, `vertical`, `dropdown`, `multi-level-dropdown`, `mega`,
+  `footer`, `drawer`), hover/click activation, alignment, a per-menu mobile
+  breakpoint with a collapse pattern (`dropdown`, `accordion`, `drawer-right`,
+  `drawer-left`, `fullscreen`) and enter/exit motion, plus depth and
+  items-per-level caps. A NULL `design` renders the built-in defaults, so every
+  existing menu is unchanged. Edits autosave to a `draft_items` / `draft_design`
+  working copy that only the preview path reads; **Publish** promotes it and
+  clears the draft. New front-end: the `partials/nav-menu.ejs` renderer,
+  `/js/site-nav.js` (desktop flyouts, off-canvas mobile drawer, keyboard
+  navigation, `prefers-reduced-motion`), and the `.jf-nav` styles shipped in the
+  default theme's `global.css`.
+  ([#61](https://github.com/JustFlows/justflows-ce/issues/61))
+
+- **Per-item menu options.** Menu items gain a style preset and per-button
+  styling (background / text / border colours validated as safe CSS values,
+  radius, size, full-width), an icon or image (validated as safe asset URLs), a
+  badge, a description line, `title` text, and extra `rel` tokens (`nofollow`,
+  `sponsored`, `ugc`, `external` — `noopener noreferrer` is always added for
+  `target="_blank"`). A `mega` layout's top-level items hold multi-column
+  regions whose content is authored as blocks, sanitized on write against a
+  fixed safe-block allowlist (no `core.html` / `core.code` / `core.embed`) and
+  rendered through the same block pipeline as page content.
+  ([#61](https://github.com/JustFlows/justflows-ce/issues/61))
+
+- **Menu item visibility rules.** An item can be shown or hidden by visitor auth
+  state, role, locale, or a plugin-provided condition. The checks are enforced
+  server-side (fail-closed — an unknown or deactivated condition hides the item),
+  and a menu that uses any auth/role/condition rule bypasses the shared public
+  cache so every request resolves against the real session; the cacheability
+  test itself is cached and invalidated on every menu save, so menus without
+  rules cost nothing extra. Device targeting (`desktop` / `tablet` / `mobile`)
+  is presentation-only, applied with the shared `data-jf-devices` CSS primitive
+  now emitted into `/theme.css` for every theme.
+  ([#61](https://github.com/JustFlows/justflows-ce/issues/61))
+
+- SDK: `menu.design.presets` and `menu.visibility.evaluate` filters for plugins
+  and themes, `MenuDesignSeed` / `MenuDesignPreset` types, and the menu
+  layout / mobile-pattern / activation / alignment enums plus the mega-menu
+  safe-block allowlist exported from `@justflows/sdk` as the single source the
+  host re-exports. `navigation.items` now runs after the host resolves a menu
+  (visibility applied), so appended items sit alongside the author's. See
+  [Hooks → Contributing a menu design preset](docs/HOOKS.md#contributing-a-menu-design-preset).
+  ([#61](https://github.com/JustFlows/justflows-ce/issues/61))
+
+- **Platform support for syndication feeds.** The RSS 2.0 / Atom 1.0 / JSON Feed
+  1.1 feature itself ships in the first-party **SEO Toolkit** plugin
+  (`justflows.seo`, via the plugin registry); this release adds the host and SDK
+  surfaces it needs, all of them generally useful:
+  - `ctx.content.listPublished(query?)` — a plugin can read published entries
+    (by type / locale / author / date; scheduled and expired excluded), requires
+    the `content:read` permission.
+  - `ctx.i18n.defaultLocale()` / `ctx.i18n.locales()` — the site's configured
+    locales, read-only.
+  - The `html.head` filter context gains `locale` (the page's content locale),
+    so a plugin can emit locale-aware `<head>` tags.
+  - A manifest may declare `hostCooperative: true`. The runtime normally leaves
+    the first-party ids it renders itself (`justflows.seo`, …) inactive; the flag
+    means the installed module only augments (feed routes, autodiscovery) and is
+    safe to activate.
+  - `/admin/seo` redirects to `/admin/plugins/justflows.seo/settings`, so the SEO
+    Toolkit plugin can contribute a "SEO" nav entry with a dotless `adminMenu`
+    path (its id has a dot, which the manifest validator rejects in a path).
+  - The hard-coded `justflows.seo` settings schema was removed from the host — an
+    installed SEO plugin now supplies its own.
+  - Content editor → **SEO** tab gains an **Exclude from RSS / Atom / JSON feeds**
+    checkbox for every content type (`fields.seoFeedExclude`), shown only while an
+    SEO plugin that owns feeds is active.
+    Per-taxonomy feeds remain open — the `taxonomies` / `terms` tables have no
+    term-assignment UI or public archive yet.
+    ([#102](https://github.com/JustFlows/justflows-ce/issues/102))
+
+### Changed
+
+- Hand-authored scripts and styles under `public/` (`/js/site-nav.js`,
+  `/js/site-chrome.js`, …) are served with `Cache-Control: no-cache` instead of
+  a day-long `max-age`. They sit at stable, unversioned URLs and are not
+  content-hashed, so a long TTL pinned stale copies after an update; `no-cache`
+  still keeps the file cached and revalidates cheaply against the ETag (`304`).
+  Content-hashed admin bundles keep their long cache lifetime.
+  ([#61](https://github.com/JustFlows/justflows-ce/issues/61))
+
 ## [0.2.0]
 
 ### Fixed

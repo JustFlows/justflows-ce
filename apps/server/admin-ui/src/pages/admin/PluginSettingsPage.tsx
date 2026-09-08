@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { Link, Navigate } from "../../admin-router";
 import { useSessionRole } from "@components/SessionProvider";
 import { initialJson } from "../../ssr-data";
 

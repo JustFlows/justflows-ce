@@ -1,4 +1,10 @@
-import { blockScopeClass, sanitizeBlockClassName, scopeBlockCss } from "@justflows/blocks";
+import {
+  DEVICE_BUCKETS,
+  blockScopeClass,
+  normalizeDeviceList,
+  sanitizeBlockClassName,
+  scopeBlockCss,
+} from "@justflows/blocks";
 import { useT } from "../../i18n/I18nProvider";
 import { useThemeStyleTokens, type ThemeStyleToken } from "../../lib/theme-style-tokens";
 import type { BlockNode } from "./types";
@@ -30,6 +36,21 @@ export default function BlockStylePanel({
     if (value.trim()) next[key] = value;
     else delete next[key];
     onChange(next);
+  }
+
+  // "Show on devices": an empty stored value means "shown everywhere".
+  const devices = normalizeDeviceList(props.devices) ?? [];
+  const shownOn = (d: string) => devices.length === 0 || devices.includes(d as never);
+  function toggleDevice(d: string) {
+    const base = devices.length === 0 ? [...DEVICE_BUCKETS] : devices;
+    const nextList = base.includes(d as never)
+      ? base.filter((x) => x !== d)
+      : [...base, d as never];
+    const normalized = normalizeDeviceList(nextList);
+    const nextProps = { ...props };
+    if (normalized) nextProps.devices = normalized;
+    else delete nextProps.devices;
+    onChange(nextProps);
   }
 
   /** Append `& { --name: value; }` to the CSS box (or extend a trailing `& { … }`). */
@@ -71,6 +92,26 @@ export default function BlockStylePanel({
       {strippedClasses && (
         <p className="jf-block-panel__error">{t("builder.style.classNameInvalid")}</p>
       )}
+
+      <div className="jf-block-panel__field">
+        <span>{t("builder.style.devices")}</span>
+        <div className="jf-filterbar" style={{ marginTop: "0.35rem" }}>
+          {DEVICE_BUCKETS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              className="jf-chip"
+              aria-pressed={shownOn(d)}
+              onClick={() => toggleDevice(d)}
+            >
+              {t(`builder.style.device.${d}`)}
+            </button>
+          ))}
+        </div>
+        <p className="jf-block-panel__hint" style={{ marginTop: "0.3rem" }}>
+          {t("builder.style.devicesHint")}
+        </p>
+      </div>
 
       <label className="jf-block-panel__field">
         {t("builder.style.css")}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "../../admin-router";
 import { usePluginMenu } from "@components/PluginMenuProvider";
 import { useSessionRole } from "@components/SessionProvider";
 import { useT } from "../../i18n/I18nProvider";

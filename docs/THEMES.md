@@ -111,10 +111,19 @@ same schema, localization, required-block checks, sanitation, categories, and
 insertion behavior as theme patterns, and disappear automatically when their
 plugin deactivates.
 
-Platform block-animation CSS is appended to `/theme.css`, so every theme gets
-entrance, hover, and press effects from the page builder. Public pages also load
-`/js/block-animations.js` for scroll-into-view playback and `/js/site-chrome.js`
-for the light/dark and language widgets (no inline script).
+Platform block-animation CSS and the per-element device-visibility rules
+(`data-jf-devices`, used by the builder's "Show on devices" control and the menu
+designer) are appended to `/theme.css`, so every theme gets entrance / hover /
+press effects and device targeting without shipping its own. Public pages also
+load `/js/block-animations.js` for scroll-into-view playback, `/js/site-chrome.js`
+for the light/dark and language widgets, and `/js/site-nav.js` for the menu
+designer's flyouts, mobile drawer, and keyboard navigation (no inline script).
+
+The menu designer renders its `.jf-nav` markup (`partials/nav-menu.ejs`) into the
+theme's header and footer nav slots; the **theme** styles it. `themes/default`'s
+`global.css` is the reference implementation — copy its `.jf-nav*` rules into a
+custom theme, or restyle them, so every layout (`horizontal` … `drawer`) and the
+mobile collapse patterns render.
 
 ## Template hierarchy
 
@@ -198,7 +207,7 @@ specificity. `getEffectiveThemeCss` concatenates in this order:
 1. **Theme styles** — `styles/*.css` from the theme package.
 2. **Site tokens** — the Customizer palette, fonts, and sizes. These come after
    the theme so a colour picked in the admin overrides the theme's own `:root`.
-3. **Block animations** — platform defaults.
+3. **Block animations and device visibility** — platform defaults.
 4. **Additional CSS** — what the editor typed, last, so it wins.
 
 A theme should therefore treat its own `:root` as defaults, not as final values.

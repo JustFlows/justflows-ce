@@ -9,7 +9,7 @@ import { loadThemeStyles } from "./theme-files.js";
 import { getActiveTheme, themeInstalledPath } from "./themes-db.js";
 import { sanitizeCustomCss } from "./safe-css.js";
 import { sanitizeFaviconUrl } from "./favicon.js";
-import { blockAnimationCss } from "@justflows/blocks";
+import { blockAnimationCss, blockVisibilityCss } from "@justflows/blocks";
 
 export type CustomizeControlType =
   "color" | "font" | "text" | "image" | "range" | "code" | "select";
@@ -790,7 +790,8 @@ async function collectPluginCss(siteId: string, preview: boolean): Promise<strin
  *
  * 1. Theme styles — the design the theme author shipped.
  * 2. Site tokens — Customizer colours must override the theme's own `:root`.
- * 3. Block animations — platform defaults layered over the theme.
+ * 3. Block animations + device visibility — platform defaults layered over the
+ *    theme, so `data-jf-anim` / `data-jf-devices` work on any theme.
  * 4. Plugin styles — an activated plugin's stylesheet, over the theme so its
  *    components render, under Additional CSS so the site owner keeps the last word.
  * 5. Additional CSS — the editor typed it last, so it wins last.
@@ -805,6 +806,7 @@ export function assembleThemeCss(
     themeStyles ? `/* Theme styles */\n${themeStyles}` : "",
     tokens,
     `/* Block animations */\n${blockAnimationCss()}`,
+    `/* Device visibility */\n${blockVisibilityCss()}`,
     pluginCss.trim() ? `/* Plugin styles */\n${pluginCss.trim()}` : "",
     additionalCss.trim() ? `/* Custom CSS */\n${additionalCss.trim()}` : "",
   ];

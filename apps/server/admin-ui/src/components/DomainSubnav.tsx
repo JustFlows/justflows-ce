@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink } from "../admin-router";
 import { useT } from "../i18n/I18nProvider";
 import { navLabel, type NavDomain } from "../config/admin-nav";
 

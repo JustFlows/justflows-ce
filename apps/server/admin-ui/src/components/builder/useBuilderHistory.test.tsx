@@ -1,14 +1,14 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { useBuilderHistory } from "./useBuilderHistory";
+import { useBuilderHistory, type BuilderHistoryOptions } from "./useBuilderHistory";
 
 /** Drives the hook the way PageBuilder does: parent owns the value. */
-function harness(initial: string[]) {
+function harness(initial: string[], options?: BuilderHistoryOptions) {
   let value = initial;
   const apply = vi.fn((next: string[]) => {
     value = next;
   });
-  const view = renderHook(({ current }) => useBuilderHistory(current, apply), {
+  const view = renderHook(({ current }) => useBuilderHistory(current, apply, options), {
     initialProps: { current: value },
   });
   return {
@@ -109,5 +109,17 @@ describe("useBuilderHistory", () => {
     });
     expect(h.apply).toHaveBeenCalledWith(["a"]);
     input.remove();
+  });
+
+  it("ignores the keyboard entirely when enableShortcut is false — for a second instance mounted alongside another", () => {
+    const h = harness(["a"], { enableShortcut: false });
+    h.edit(["a", "b"]);
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "z", metaKey: true, bubbles: true }));
+    });
+    expect(h.apply).not.toHaveBeenCalled();
+    // undo() itself still works as a direct call (e.g. from a toolbar button).
+    act(() => h.result.current.undo());
+    expect(h.apply).toHaveBeenCalledWith(["a"]);
   });
 });

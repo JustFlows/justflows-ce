@@ -22,6 +22,16 @@ export const NO_HEADER_REF = "__none__";
 export const HEADER_LAYOUTS = ["logo-left", "logo-center", "split"] as const;
 export type HeaderLayout = (typeof HEADER_LAYOUTS)[number];
 
+/**
+ * How the header bar rearranges below the nav menu's mobile breakpoint:
+ *  - `logo-left`     — brand stays left, hamburger + controls on the right (default, current behaviour)
+ *  - `logo-center`   — hamburger pinned left, brand absolutely centred, controls right
+ *  - `hamburger-logo`— hamburger first, brand immediately beside it, controls right
+ *  - `hamburger-only`— bar shows only the hamburger (+ controls); the brand renders at the top of the open menu
+ */
+export const HEADER_MOBILE_LAYOUTS = ["logo-left", "logo-center", "hamburger-logo", "hamburger-only"] as const;
+export type HeaderMobileLayout = (typeof HEADER_MOBILE_LAYOUTS)[number];
+
 export const HEADER_MENU_MODES = ["inherit", "menu", "none"] as const;
 export type HeaderMenuMode = (typeof HEADER_MENU_MODES)[number];
 
@@ -37,6 +47,7 @@ export interface PageHeaderConfig {
   showLogo: boolean;
   showTitle: boolean;
   layout: HeaderLayout;
+  mobileLayout: HeaderMobileLayout;
   sticky: boolean;
   background: string;
   showLanguageSwitcher: boolean;
@@ -54,6 +65,7 @@ export const DEFAULT_PAGE_HEADER: PageHeaderConfig = {
   showLogo: true,
   showTitle: true,
   layout: "logo-left",
+  mobileLayout: "logo-left",
   sticky: true,
   background: "",
   showLanguageSwitcher: true,
@@ -81,6 +93,12 @@ function asLayout(value: unknown): HeaderLayout {
   return HEADER_LAYOUTS.includes(value as HeaderLayout)
     ? (value as HeaderLayout)
     : DEFAULT_PAGE_HEADER.layout;
+}
+
+function asMobileLayout(value: unknown): HeaderMobileLayout {
+  return HEADER_MOBILE_LAYOUTS.includes(value as HeaderMobileLayout)
+    ? (value as HeaderMobileLayout)
+    : DEFAULT_PAGE_HEADER.mobileLayout;
 }
 
 function asLanguageSwitcherStyle(value: unknown): HeaderLanguageSwitcherStyle {
@@ -118,6 +136,7 @@ export function parsePageHeaderPatch(raw: unknown): Partial<PageHeaderConfig> {
   if ("showLogo" in input) patch.showLogo = asBoolean(input.showLogo, DEFAULT_PAGE_HEADER.showLogo);
   if ("showTitle" in input) patch.showTitle = asBoolean(input.showTitle, DEFAULT_PAGE_HEADER.showTitle);
   if ("layout" in input) patch.layout = asLayout(input.layout);
+  if ("mobileLayout" in input) patch.mobileLayout = asMobileLayout(input.mobileLayout);
   if ("sticky" in input) patch.sticky = asBoolean(input.sticky, DEFAULT_PAGE_HEADER.sticky);
   if ("background" in input) patch.background = asBackground(input.background);
   if ("showLanguageSwitcher" in input)

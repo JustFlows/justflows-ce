@@ -22,7 +22,20 @@ export interface HistoryState<T> {
  * takes over during an undo or redo, which it marks so its own write is not
  * recorded as a new step.
  */
-export function useBuilderHistory<T>(current: T, apply: (value: T) => void): HistoryState<T> {
+export interface BuilderHistoryOptions {
+  /** Set false when more than one `useBuilderHistory` instance can be mounted at once (e.g. a
+   * mega-menu region's own builder nested inside a page that has its own history already) —
+   * every instance's ⌘Z/⌘⇧Z listener is global, so more than one active at a time means a single
+   * keypress undoes/redoes all of them. Defaults to true; `undo()`/`redo()` still work as calls. */
+  enableShortcut?: boolean;
+}
+
+export function useBuilderHistory<T>(
+  current: T,
+  apply: (value: T) => void,
+  options?: BuilderHistoryOptions,
+): HistoryState<T> {
+  const enableShortcut = options?.enableShortcut ?? true;
   const past = useRef<T[]>([]);
   const future = useRef<T[]>([]);
   const lastAt = useRef(0);
@@ -72,6 +85,7 @@ export function useBuilderHistory<T>(current: T, apply: (value: T) => void): His
   }, [apply, rerender]);
 
   useEffect(() => {
+    if (!enableShortcut) return;
     function onKey(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
       // A text field has its own undo stack and should keep it. The target is
@@ -85,7 +99,7 @@ export function useBuilderHistory<T>(current: T, apply: (value: T) => void): His
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [undo, redo]);
+  }, [undo, redo, enableShortcut]);
 
   return {
     undo,

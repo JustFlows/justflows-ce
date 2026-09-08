@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "../admin-router";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import { ensureCsrfCookie } from "../lib/csrf";
 

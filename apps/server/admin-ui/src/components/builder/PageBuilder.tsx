@@ -44,6 +44,17 @@ interface PageBuilderProps {
   /** Fill `{{price}}` and other product tags from catalog + content fields. */
   mergeTags?: Record<string, string>;
   enableProductTags?: boolean;
+  /** Restrict the block library/inserters to these types (e.g. a mega-menu region's safe subset).
+   * Omit for the full catalog. Blocks already in `value` keep rendering even if not in this list —
+   * this only narrows what can be *added*, it does not strip existing content. */
+  allowedBlockTypes?: string[];
+  /** Set false when embedding more than one `PageBuilder` at once (e.g. one per mega-menu region
+   * inside a page that already has its own undo/redo) — each instance's ⌘Z/⌘⇧Z is a global
+   * listener, so more than one live at a time means a single keypress undoes all of them. */
+  enableKeyboardShortcut?: boolean;
+  /** This value is a content fragment (a mega-menu region, a reusable snippet), not a whole page —
+   * its root offers every allowed block directly instead of requiring a Section wrapper first. */
+  flatCanvas?: boolean;
 }
 
 export default function PageBuilder({
@@ -57,9 +68,19 @@ export default function PageBuilder({
   isPage = false,
   mergeTags,
   enableProductTags = false,
+  allowedBlockTypes,
+  enableKeyboardShortcut = true,
+  flatCanvas = false,
 }: PageBuilderProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [catalog, setCatalog] = useState<BlockCatalogEntry[]>([]);
+  const [fullCatalog, setFullCatalog] = useState<BlockCatalogEntry[]>([]);
+  const catalog = useMemo(
+    () =>
+      allowedBlockTypes
+        ? fullCatalog.filter((entry) => allowedBlockTypes.includes(entry.type))
+        : fullCatalog,
+    [fullCatalog, allowedBlockTypes],
+  );
   const [menus, setMenus] = useState<HeaderMenu[]>([]);
   const [identity, setIdentity] = useState({ siteTitle: "Site title", logoUrl: "" });
   const [siteDefaultSlug, setSiteDefaultSlug] = useState("primary");
@@ -69,8 +90,8 @@ export default function PageBuilder({
   useEffect(() => {
     fetch("/api/blocks")
       .then((r) => r.json())
-      .then((data: { blocks: BlockCatalogEntry[] }) => setCatalog(data.blocks ?? []))
-      .catch(() => setCatalog([]));
+      .then((data: { blocks: BlockCatalogEntry[] }) => setFullCatalog(data.blocks ?? []))
+      .catch(() => setFullCatalog([]));
   }, []);
 
   useEffect(() => {
@@ -98,6 +119,7 @@ export default function PageBuilder({
   const history = useBuilderHistory<BlockNode[]>(
     blocks,
     useCallback((restored: BlockNode[]) => onChange({ version: 1, blocks: restored }), [onChange]),
+    { enableShortcut: enableKeyboardShortcut },
   );
 
   const emit = useCallback(
@@ -311,6 +333,8 @@ export default function PageBuilder({
           selectedId={selectedId}
           onSelect={setSelectedId}
           onChange={emit}
+          compact={compact}
+          rootQuickAll={flatCanvas}
         />
       )}
     </div>
