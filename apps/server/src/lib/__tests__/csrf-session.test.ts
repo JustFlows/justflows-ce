@@ -142,6 +142,60 @@ describe("csrfProtection exemptions", () => {
   it("no longer exempts login", () => {
     expect(run({ path: "/auth/login" }).passed).toBe(false);
   });
+
+  it("exempts a bearer-token request with no session cookie (management API)", () => {
+    const result = { passed: false, status: null as number | null };
+    const req = {
+      method: "POST",
+      path: "/manage/v1/content",
+      cookies: {},
+      headers: { authorization: "Bearer jfk_abc123" },
+    } as unknown as Request;
+    const res = {
+      status(code: number) {
+        result.status = code;
+        return this;
+      },
+      json() {
+        return this;
+      },
+      setHeader() {
+        return this;
+      },
+    } as unknown as Response;
+    csrfProtection(req, res, (() => {
+      result.passed = true;
+    }) as NextFunction);
+    expect(result.passed).toBe(true);
+    expect(result.status).toBeNull();
+  });
+
+  it("still checks a bearer request that also carries a session cookie", () => {
+    const result = { passed: false, status: null as number | null };
+    const req = {
+      method: "POST",
+      path: "/manage/v1/content",
+      cookies: { jf_session: "cookie" },
+      headers: { authorization: "Bearer jfk_abc123" },
+    } as unknown as Request;
+    const res = {
+      status(code: number) {
+        result.status = code;
+        return this;
+      },
+      json() {
+        return this;
+      },
+      setHeader() {
+        return this;
+      },
+    } as unknown as Response;
+    csrfProtection(req, res, (() => {
+      result.passed = true;
+    }) as NextFunction);
+    expect(result.passed).toBe(false);
+    expect(result.status).toBe(403);
+  });
 });
 
 describe("CSRF token rotation", () => {

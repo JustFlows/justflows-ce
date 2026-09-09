@@ -42,7 +42,6 @@ type GeneralState = {
   postsPerPage: string;
   trashRetentionDays: string;
   sitePublic: boolean;
-  publicApiEnabled: boolean;
   discourageSearchEngines: boolean;
   mailTransport: string;
   mailFromName: string;
@@ -75,7 +74,6 @@ const EMPTY: GeneralState = {
   postsPerPage: "10",
   trashRetentionDays: "30",
   sitePublic: false,
-  publicApiEnabled: false,
   discourageSearchEngines: true,
   mailTransport: "sendmail",
   mailFromName: "",
@@ -117,7 +115,6 @@ function generalFromPayload(data: SettingsPayload): GeneralState {
     postsPerPage: String(data.posts_per_page ?? 10),
     trashRetentionDays: String(data.trash_retention_days ?? 30),
     sitePublic: data.site_public === true,
-    publicApiEnabled: data.public_api_enabled === true,
     discourageSearchEngines: data.discourage_search_engines === true,
     mailTransport: typeof data.mail_transport === "string" ? data.mail_transport : "sendmail",
     mailFromName: typeof data.mail_from_name === "string" ? data.mail_from_name : "",
@@ -234,7 +231,6 @@ export default function SettingsPage() {
           posts_per_page: Number(general.postsPerPage),
           trash_retention_days: Number(general.trashRetentionDays),
           site_public: general.sitePublic,
-          public_api_enabled: general.publicApiEnabled,
           discourage_search_engines: general.discourageSearchEngines,
           mail_transport: general.mailTransport,
           mail_from_name: general.mailFromName,
@@ -738,24 +734,6 @@ export default function SettingsPage() {
           <p className="jf-field__hint">
             When unchecked, visitors see an under-construction page. Administrators and editors can
             still browse the site while logged in.
-          </p>
-        </Section>
-
-        <Section title="Public API">
-          <label className="jf-checkrow">
-            <input
-              type="checkbox"
-              checked={general.publicApiEnabled}
-              onChange={(e) => patch({ publicApiEnabled: e.target.checked })}
-            />
-            <span>Expose the public API</span>
-          </label>
-          <p className="jf-field__hint">
-            When unchecked, every public-facing endpoint (<code>/api/v1/*</code>,{" "}
-            <code>/api/site/*</code>) answers <code>404</code> for visitors — headless clients and
-            integrations lose access. The admin API and everything the system uses internally keep
-            working, and administrators and editors can still call the public endpoints while logged
-            in.
           </p>
         </Section>
 

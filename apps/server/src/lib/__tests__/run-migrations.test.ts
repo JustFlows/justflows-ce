@@ -31,6 +31,7 @@ describe("MIGRATION_ORDER", () => {
       "0023_templates",
       "0024_menu_designer",
       "0025_redirect_manager",
+      "0026_api_keys",
     ]);
   });
 
@@ -51,6 +52,7 @@ describe("MIGRATION_ORDER", () => {
     { name: "0021_trash_retention", marker: /ALTER TABLE content ADD COLUMN.*trashed_at/i },
     { name: "0023_templates", marker: /CREATE TABLE IF NOT EXISTS theme_templates/i },
     { name: "0024_menu_designer", marker: /ALTER TABLE menus ADD COLUMN.*schema_version/i },
+    { name: "0026_api_keys", marker: /CREATE TABLE IF NOT EXISTS api_keys/i },
   ];
 
   for (const { name, marker } of TRACKED) {

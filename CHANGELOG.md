@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.2-dev.1] [UNRELEASED]
+
+### Added
+
+- **Headless federated management API.** Revocable API keys (Admin → Settings →
+  API) authenticate a versioned `/api/manage/v1` surface that federates content
+  (CRUD, publish, revisions), media, comments, menus, content types, users,
+  roles, settings, languages, redirects, plugin/theme listing and activation,
+  cache and static-export triggers, and diagnostics/health behind the same
+  capability checks as the admin UI — no parallel business logic. Each key
+  carries an explicit capability set never broader than its creator's,
+  re-checked against the owner's current access on every request, plus optional
+  `AccessScope`, expiry, and allowed-IP / allowed-origin lists; the secret is
+  shown once and stored only as a hash with a visible `jfk_` prefix. A master
+  switch and per-key / global rate limits apply without a restart, wildcard CORS
+  never reaches an authenticated route, and every create / rotate / revoke and
+  auth failure is audited by key id. Admin → Settings → API is now the single
+  home for both HTTP-API switches — the public-content API toggle moves here
+  from Admin → Settings. `GET /api/manage/v1/events` publishes the event catalog with payload
+  schemas, and a key with `settings:manage` self-registers and manages its own
+  webhook endpoints. The full surface is described by a `bearerAuth` OpenAPI 3.1
+  document at `GET /api/manage/v1/openapi.json`. Migration `0026_api_keys`
+  supports all database dialects.
+  ([#135](https://github.com/JustFlows/justflows-ce/issues/135))
+
 ## [0.2.1]
 
 ### Fixed

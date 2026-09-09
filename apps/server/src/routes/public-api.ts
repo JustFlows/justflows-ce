@@ -1,11 +1,7 @@
 import { contentPermalink } from "../lib/permalinks-db.js";
 import { Router } from "express";
-import os from "node:os";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { getDb } from "../lib/db.js";
-import { getJfCache } from "../lib/jf-cache.js";
-import { inspectCacheStorage } from "../lib/public-cache.js";
+import { runHealthChecks } from "../lib/health-checks.js";
 import { serializeContentRow } from "../lib/content-api.js";
 import { overlayWorkingOnRow } from "../lib/content-revisions.js";
 import { resolveContentLocale, getDefaultLocale } from "../lib/i18n/languages-db.js";
@@ -273,106 +269,10 @@ router.get("/content/:slug", async (req, res) => {
 
 const healthRouter = Router();
 
-interface CheckResult {
-  name: string;
-  status: "ok" | "warn" | "error";
-  message: string;
-}
-
-async function checkDatabase(): Promise<CheckResult> {
-  try {
-    const db = await getDb();
-    await db.query("SELECT 1");
-    return { name: "Database", status: "ok", message: "Connected" };
-  } catch (e) {
-    return { name: "Database", status: "error", message: String(e) };
-  }
-}
-
-async function checkFilesystem(): Promise<CheckResult> {
-  try {
-    const uploadsDir = process.env.STORAGE_LOCAL_PATH ?? "./uploads";
-    await fs.mkdir(uploadsDir, { recursive: true });
-    const testFile = path.join(uploadsDir, ".healthcheck");
-    await fs.writeFile(testFile, "ok");
-    await fs.unlink(testFile);
-    return { name: "Filesystem", status: "ok", message: "Writable" };
-  } catch (e) {
-    return { name: "Filesystem", status: "error", message: String(e) };
-  }
-}
-
-function checkMemory(): CheckResult {
-  const total = os.totalmem();
-  const free = os.freemem();
-  const usedPct = Math.round(((total - free) / total) * 100);
-  return {
-    name: "Memory",
-    status: usedPct > 90 ? "warn" : "ok",
-    message: `${usedPct}% used (${Math.round(free / 1024 / 1024)} MB free of ${Math.round(total / 1024 / 1024)} MB)`,
-  };
-}
-
-function checkNodeVersion(): CheckResult {
-  const version = process.version;
-  const major = parseInt(version.slice(1), 10);
-  return {
-    name: "Node.js",
-    status: major >= 22 ? "ok" : "warn",
-    message: `${version} (requires ≥ 22)`,
-  };
-}
-
-function checkEnv(): CheckResult {
-  const missing = ["APP_SECRET", "DB_DRIVER"].filter((k) => !process.env[k]);
-  return {
-    name: "Environment",
-    status: missing.length > 0 ? "error" : "ok",
-    message: missing.length > 0 ? `Missing: ${missing.join(", ")}` : "All required vars set",
-  };
-}
-
-async function checkCache(): Promise<CheckResult> {
-  try {
-    const cache = getJfCache();
-    const stats = cache.getStats();
-    const storage = await inspectCacheStorage();
-    const total = stats.hits + stats.misses;
-    const hitRate =
-      total > 0 ? `${Math.round((stats.hits / total) * 100)}% hit rate` : "no requests yet";
-    return {
-      name: "Object cache",
-      status: cache.enabled ? "ok" : "warn",
-      message: cache.enabled
-        ? `${storage.keyCount} keys, ${hitRate} (process lifetime)`
-        : "Disabled via CACHE_ENABLED",
-    };
-  } catch (e) {
-    return { name: "Object cache", status: "error", message: String(e) };
-  }
-}
-
 // Health output carries database connection errors (which name the host and
 // driver), memory figures, and which environment variables are unset.
 healthRouter.get("/", requireRole("administrator"), async (_req, res) => {
-  const [dbCheck, fsCheck, cacheCheck] = await Promise.all([
-    checkDatabase(),
-    checkFilesystem(),
-    checkCache(),
-  ]);
-  const checks = [dbCheck, fsCheck, cacheCheck, checkMemory(), checkNodeVersion(), checkEnv()];
-  const overall = checks.some((c) => c.status === "error")
-    ? "error"
-    : checks.some((c) => c.status === "warn")
-      ? "warn"
-      : "ok";
-
-  res.json({
-    status: overall,
-    checks,
-    uptime: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString(),
-  });
+  res.json(await runHealthChecks());
 });
 
 export { healthRouter };
