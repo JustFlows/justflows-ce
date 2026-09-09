@@ -54,6 +54,7 @@ import {
   syncBundledThemes,
   themeInstalledPath,
 } from "../lib/themes-db.js";
+import { activateThemeAdmin } from "../lib/themes-admin.js";
 import { requireRole } from "../middleware/auth.js";
 import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../lib/rbac.js";
 import { param } from "../lib/params.js";
@@ -396,32 +397,13 @@ router.post("/save-as", requireRole("administrator"), async (req, res) => {
 
 router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   try {
-    const siteId = await getSiteId();
-    if (!siteId) {
-      res.status(503).json({ error: "No site found" });
-      return;
-    }
-    const themeId = param(req.params.id);
-    await activateTheme(siteId, themeId);
-    auditFromRequest(req, "theme.activated", { target: themeId, siteId });
-    await revalidateOnUpdate("theme", { siteId });
-    try {
-      const { getDb } = await import("../lib/db.js");
-      const { getRuntimeHooks } = await import("../lib/plugin-runtime.js");
-      const db = await getDb();
-      const rows = await db.query<{ version: string }>(
-        "SELECT version FROM themes WHERE site_id = ? AND theme_id = ? LIMIT 1",
-        [siteId, themeId],
-      );
-      await getRuntimeHooks().dispatchAction(
-        "theme.activated",
-        { themeId, version: rows[0]?.version ?? "0.0.0", siteId },
-        { siteId, source: "http" },
-      );
-    } catch {
-      // hooks must not block theme activation
-    }
-    res.json({ ok: true });
+    const result = await activateThemeAdmin(param(req.params.id), {
+      userId: req.session!.userId,
+      role: req.session!.role,
+      ip: req.ip ?? null,
+      userAgent: req.get("user-agent") ?? null,
+    });
+    res.status(result.status).json(result.body);
   } catch (err) {
     sendServerError(res, "themes", err);
   }

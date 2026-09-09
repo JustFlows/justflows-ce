@@ -2,16 +2,14 @@ import { Router } from "express";
 import { requireRole, requireSession } from "../middleware/auth.js";
 import { param } from "../lib/params.js";
 import {
-  activatePlugin,
-  deactivatePlugin,
   deletePlugin,
   getPlugin,
   insertPlugin,
   listPlugins,
-  markPluginError,
   pluginToDto,
   type PluginRow,
 } from "../lib/plugins-db.js";
+import { activatePluginAdmin, deactivatePluginAdmin } from "../lib/plugins-admin.js";
 import multer from "multer";
 import { assertPackageIsTrusted } from "../lib/package-trust.js";
 import { sendPackageInstallError } from "../lib/package-install-error.js";
@@ -169,42 +167,26 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
 
 router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   const session = req.session!;
-  const pluginId = param(req.params.id);
-  const { runtimeActivatePlugin } = await import("../lib/plugin-runtime.js");
-
-  // Run the runtime activation first and report a real failure. It used to be
-  // fire-and-forget (`.catch(() => null)`), so a plugin whose `activate()`
-  // threw was left half-registered — its `/ext/*` routes gone — while the DB
-  // said "active" and the admin page 404'd into an "Unexpected token '<'"
-  // JSON parse error.
-  try {
-    await runtimeActivatePlugin(session.siteId, pluginId);
-  } catch (err) {
-    await markPluginError(session.siteId, pluginId).catch(() => {});
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(502).json({ error: `Activation failed: ${message}` });
-    return;
-  }
-
-  await activatePlugin(session.siteId, pluginId);
-  auditFromRequest(req, "plugin.activated", { target: pluginId });
-  const { revalidateOnUpdate } = await import("../lib/cache-revalidate.js");
-  await revalidateOnUpdate("plugin");
-  const row = await getPlugin(session.siteId, pluginId);
-  const setupPath = row ? pluginToDto(row).setupPath : undefined;
-  res.json({ ok: true, ...(setupPath ? { setupPath } : {}) });
+  const result = await activatePluginAdmin(param(req.params.id), {
+    siteId: session.siteId,
+    userId: session.userId,
+    role: session.role,
+    ip: req.ip ?? null,
+    userAgent: req.get("user-agent") ?? null,
+  });
+  res.status(result.status).json(result.body);
 });
 
 router.post("/:id/deactivate", requireRole("administrator"), async (req, res) => {
   const session = req.session!;
-  const pluginId = param(req.params.id);
-  const { runtimeDeactivatePlugin } = await import("../lib/plugin-runtime.js");
-  await deactivatePlugin(session.siteId, pluginId);
-  await runtimeDeactivatePlugin(session.siteId, pluginId).catch(() => null);
-  auditFromRequest(req, "plugin.deactivated", { target: pluginId });
-  const { revalidateOnUpdate } = await import("../lib/cache-revalidate.js");
-  await revalidateOnUpdate("plugin");
-  res.json({ ok: true });
+  const result = await deactivatePluginAdmin(param(req.params.id), {
+    siteId: session.siteId,
+    userId: session.userId,
+    role: session.role,
+    ip: req.ip ?? null,
+    userAgent: req.get("user-agent") ?? null,
+  });
+  res.status(result.status).json(result.body);
 });
 
 router.delete("/:id", requireRole("administrator"), async (req, res) => {

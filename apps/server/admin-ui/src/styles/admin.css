@@ -1383,13 +1383,15 @@ select.jf-input {
   background: var(--jf-surface-3);
   color: var(--jf-text);
 }
-.jf-webhook-events {
+.jf-webhook-events,
+.jf-multiselect-field {
   min-width: 0;
   border: 0;
   padding: 0;
   margin: 0;
 }
-.jf-webhook-events__selected {
+.jf-webhook-events__selected,
+.jf-multiselect__selected {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
