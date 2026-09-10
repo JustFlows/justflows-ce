@@ -758,6 +758,35 @@ export async function sendPublicNotFound(req: Request, res: Response): Promise<v
   );
 }
 
+/**
+ * hreflang alternates for a public page: one entry per active locale, plus an
+ * `x-default` pointing at the default language. Every active locale is listed —
+ * even one without its own translated row — because the site still serves that
+ * locale's URL (falling back to the default language) and a page must always
+ * reference itself. When a locale has a real translation with its own slug that
+ * slug is used; otherwise the current locale-stripped path is reused under that
+ * locale's prefix. Returns `[]` for single-language sites.
+ */
+export function hreflangAlternates(opts: {
+  activeLocales: string[];
+  defaultLocale: string;
+  currentPath: string;
+  translations: Array<{ locale: string; slug: string }>;
+}): Array<{ locale: string; href: string }> {
+  const { activeLocales, defaultLocale, translations } = opts;
+  if (activeLocales.length < 2) return [];
+  const currentPath = opts.currentPath.startsWith("/") ? opts.currentPath : `/${opts.currentPath}`;
+  const slugByLocale = new Map(translations.map((t) => [t.locale, t.slug]));
+  const links = activeLocales.map((locale) => {
+    const slug = slugByLocale.get(locale);
+    const localePathname = slug ? `/${slug}` : currentPath;
+    return { locale, href: localePath(locale, localePathname, defaultLocale) };
+  });
+  const canonical = links.find((l) => l.locale === defaultLocale) ?? links[0];
+  if (canonical) links.push({ locale: "x-default", href: canonical.href });
+  return links;
+}
+
 async function renderPage(view: string, data: Record<string, unknown>): Promise<string> {
   const pageData = { ...data, localePath, justflowsVersion: getJustflowsVersion() };
   const hooks = getRuntimeHooks();
@@ -836,12 +865,30 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       { siteId, source: "http" },
     );
   }
+  const rawTranslations = Array.isArray(data.alternates)
+    ? (data.alternates as Array<{ locale?: unknown; slug?: unknown }>).flatMap((t) =>
+        t && typeof t.locale === "string"
+          ? [{ locale: t.locale, slug: typeof t.slug === "string" ? t.slug : "" }]
+          : [],
+      )
+    : [];
+  const hreflangLinks =
+    view === "404" || data.discourageSearchEngines === true || !Array.isArray(data.activeLocales)
+      ? []
+      : hreflangAlternates({
+          activeLocales: data.activeLocales as string[],
+          defaultLocale: String(data.defaultLocale ?? ""),
+          currentPath: String(data.restPath ?? "/"),
+          translations: rawTranslations,
+        });
+
   return ejs.renderFile(path.join(templateDir, "layout.ejs"), {
     ...pageData,
     body,
     headExtra,
     analyticsHead,
     analyticsBody,
+    hreflangLinks,
     title: documentTitle,
   });
 }
@@ -1157,18 +1204,6 @@ async function renderHomeHtml(
   const ctx = await buildPageContext(req, res, reqPath, preview);
   const siteId = await getSiteId();
   const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
-  // The front page is reachable at every active locale's root (`/`, `/en-US`) —
-  // the prefix only switches the UI language — so list one hreflang per active
-  // locale (plus x-default in the layout), regardless of which locales have
-  // their own translated home content.
-  const alternates: Array<{ locale: string; slug: string; href: string }> =
-    ctx.activeLocales.length > 1
-      ? ctx.activeLocales.map((code) => ({
-          locale: code,
-          slug: "",
-          href: localePath(code, "/", ctx.defaultLocale),
-        }))
-      : [];
   const withHeader = await applyPageHeader(
     req,
     res,
@@ -1239,7 +1274,6 @@ async function renderHomeHtml(
     ),
     {
       content: home ?? undefined,
-      alternates,
       seoDescription: ctx.identity.tagline,
       title: home ? home.title : String(withHeader.title ?? ""),
       mainClass: home ? "site-main site-main--page" : "site-main",
@@ -1252,7 +1286,6 @@ async function renderHomeHtml(
     ...withHeader,
     ...(home ? { content: home, title: home.title } : {}),
     bodyHtml,
-    alternates,
     seoDescription: ctx.identity.tagline,
   });
 }
