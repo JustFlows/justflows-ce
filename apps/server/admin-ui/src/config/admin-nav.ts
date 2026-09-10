@@ -99,7 +99,10 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     slug: "extensions",
     icon: "🔌",
     items: [
-      { key: "nav.plugins", to: "/admin/plugins", icon: "🔌" },
+      // `end` so the Plugins tab is active only on the list itself — every
+      // plugin page now lives under `/admin/plugins/<pluginId>` and lights up
+      // its own entry instead.
+      { key: "nav.plugins", to: "/admin/plugins", icon: "🔌", end: true },
       { key: "nav.marketplace", to: "/admin/marketplace", icon: "🛒", trailing: true },
     ],
   },
@@ -250,7 +253,12 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/settings/api": ["administrator"],
   "/admin/settings/permalinks": ["administrator"],
   "/admin/redirects": ["administrator"],
-  "/admin/analytics": ["administrator", "editor"],
+  "/admin/plugins/justflows.analytics": ["administrator", "editor"],
+  // Consent and Forms sat at their own top-level paths with no rule (visible to
+  // every admin role); keep that now that they live under /admin/plugins/ and
+  // would otherwise inherit its administrator/editor rule by prefix.
+  "/admin/plugins/justflows.consent": ALL_ADMIN_ROLES,
+  "/admin/plugins/justflows.forms": ALL_ADMIN_ROLES,
 };
 
 /** Every rule path, longest first, so a nested route matches its owning page. */

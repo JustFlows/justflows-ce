@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { PluginManifestSchema, SENSITIVE_PERMISSIONS } from "./plugin.js";
 
 const base = {
-  id: "acme.widget",
+  id: "justflows.widget",
   name: "Acme Widget",
   version: "1.0.0",
   license: "GPL-2.0-or-later",
@@ -58,24 +58,26 @@ describe("PluginManifestSchema — assets", () => {
 describe("PluginManifestSchema — adminApp", () => {
   const withPerm = { ...base, permissions: ["admin:extend"] };
 
-  it("accepts routes with a default dir and an optional title", () => {
+  it("accepts routes with a default dir and an optional title, resolving each path", () => {
     const parsed = PluginManifestSchema.parse({
       ...withPerm,
       adminApp: {
         routes: [
-          { path: "/admin/forms", entry: "index.html", title: "Forms" },
-          { path: "/admin/forms/submissions", entry: "index.html" },
+          { entry: "index.html", title: "Forms" },
+          { path: "submissions", entry: "index.html" },
         ],
       },
     });
     expect(parsed.adminApp?.dir).toBeUndefined();
     expect(parsed.adminApp?.routes).toHaveLength(2);
+    expect(parsed.adminApp?.routes[0]?.path).toBe("/admin/plugins/justflows.widget");
+    expect(parsed.adminApp?.routes[1]?.path).toBe("/admin/plugins/justflows.widget/submissions");
   });
 
   it("accepts a nested build dir", () => {
     const parsed = PluginManifestSchema.parse({
       ...withPerm,
-      adminApp: { dir: "dist/admin", routes: [{ path: "/admin/x", entry: "app/index.html" }] },
+      adminApp: { dir: "dist/admin", routes: [{ path: "board", entry: "app/index.html" }] },
     });
     expect(parsed.adminApp?.dir).toBe("dist/admin");
   });
@@ -89,23 +91,23 @@ describe("PluginManifestSchema — adminApp", () => {
     expect(result.error?.issues.some((issue) => issue.path[0] === "adminApp")).toBe(true);
   });
 
-  it("rejects a non-/admin path, a non-html entry, and traversal", () => {
+  it("rejects an absolute route path, a non-html entry, and traversal", () => {
     expect(() =>
       PluginManifestSchema.parse({
         ...withPerm,
-        adminApp: { routes: [{ path: "/wp-admin/x", entry: "index.html" }] },
+        adminApp: { routes: [{ path: "/admin/plugins/justflows.widget/x", entry: "index.html" }] },
       }),
     ).toThrow();
     expect(() =>
       PluginManifestSchema.parse({
         ...withPerm,
-        adminApp: { routes: [{ path: "/admin/x", entry: "app.js" }] },
+        adminApp: { routes: [{ path: "x", entry: "app.js" }] },
       }),
     ).toThrow();
     expect(() =>
       PluginManifestSchema.parse({
         ...withPerm,
-        adminApp: { routes: [{ path: "/admin/x", entry: "../evil.html" }] },
+        adminApp: { routes: [{ path: "x", entry: "../evil.html" }] },
       }),
     ).toThrow();
   });
@@ -116,5 +118,54 @@ describe("PluginManifestSchema — adminApp", () => {
 
   it("leaves manifests without an adminApp block untouched", () => {
     expect(PluginManifestSchema.parse(base).adminApp).toBeUndefined();
+  });
+});
+
+describe("PluginManifestSchema — plugin-relative admin paths", () => {
+  const withPerm = { ...base, permissions: ["admin:extend"] };
+
+  it("resolves relative paths against /admin/plugins/<id>", () => {
+    const parsed = PluginManifestSchema.parse({
+      ...withPerm,
+      setupPath: "",
+      adminMenu: [
+        { id: "home", label: "Widget", icon: "🧩" },
+        { id: "board", label: "Board", path: "board" },
+        { id: "nested", label: "Nested", path: "board/archive" },
+      ],
+      adminApp: { routes: [{ path: "board", entry: "index.html" }] },
+    });
+    expect(parsed.adminMenu?.map((m) => m.path)).toEqual([
+      "/admin/plugins/justflows.widget",
+      "/admin/plugins/justflows.widget/board",
+      "/admin/plugins/justflows.widget/board/archive",
+    ]);
+    expect(parsed.setupPath).toBe("/admin/plugins/justflows.widget");
+    expect(parsed.adminApp?.routes[0]?.path).toBe("/admin/plugins/justflows.widget/board");
+  });
+
+  it('keeps "no setup wizard" distinct from a root-page wizard', () => {
+    expect(PluginManifestSchema.parse(withPerm).setupPath).toBeUndefined();
+    expect(PluginManifestSchema.parse({ ...withPerm, setupPath: "" }).setupPath).toBe(
+      "/admin/plugins/justflows.widget",
+    );
+  });
+
+  it("rejects an absolute path, a leading slash, and the plugin id or a dot", () => {
+    for (const path of [
+      "/admin/plugins/justflows.widget/board",
+      "/board",
+      "justflows.widget",
+      "justflows.widget/board",
+      "board/../secret",
+    ]) {
+      expect(
+        PluginManifestSchema.safeParse({
+          ...withPerm,
+          adminMenu: [{ id: "x", label: "X", path }],
+        }).success,
+        path,
+      ).toBe(false);
+    }
   });
 });

@@ -511,7 +511,12 @@ export interface AdminNavItem {
   id: string;
   label: string;
   labelKey?: string;
-  path: string;
+  /**
+   * Relative to `/admin/plugins/<pluginId>` — `""` / omit for the namespace
+   * root, else a lowercase leaf like `"orders"`. The host prepends the
+   * namespace; an absolute path (or one repeating the id) is rejected.
+   */
+  path?: string;
   icon?: string;
   domain?: string;
   end?: boolean;

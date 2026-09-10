@@ -92,9 +92,14 @@ export default function App() {
               <Route path="media" element={<MediaPage />} />
               <Route path="plugins" element={<PluginsPage />} />
               <Route path="plugins/:id/settings" element={<PluginSettingsPage />} />
-              {/* Owned by the Analytics and Forms plugins — unreachable once deleted. */}
+              {/* Plugin-owned pages the host renders natively. They live under
+                  /admin/plugins/<pluginId> like every other plugin page, and are
+                  unreachable once the owning plugin is deleted. Plugins that ship
+                  their own admin app (Forms) or only a settings schema (SEO) need
+                  no route here — the `*` catch-all frames the former, and the
+                  `plugins/:id/settings` route above serves the latter. */}
               <Route
-                path="analytics"
+                path="plugins/justflows.analytics"
                 element={
                   <PluginRoute>
                     <AnalyticsPage />
@@ -102,7 +107,7 @@ export default function App() {
                 }
               />
               <Route
-                path="consent"
+                path="plugins/justflows.consent"
                 element={
                   <PluginRoute>
                     <ConsentPage />
@@ -133,19 +138,6 @@ export default function App() {
               <Route path="security/admin-path" element={<AdminPathPage />} />
               <Route path="security/account" element={<AccountSecurityPage />} />
               <Route path="security/audit" element={<AuditLogPage />} />
-              {/* The SEO Toolkit plugin's nav entry uses a dotless `/admin/seo`
-                  path — its id (`justflows.seo`) has a dot, which the manifest
-                  validator rejects in an adminMenu path. Send it to the plugin's
-                  settings screen. */}
-              <Route
-                path="seo"
-                element={
-                  <Navigate
-                    to={publicAdminPath("/admin/plugins/justflows.seo/settings")}
-                    replace
-                  />
-                }
-              />
               <Route path="*" element={<PluginHostPage />} />
             </Route>
             <Route path="*" element={<Navigate to={publicAdminPath("/admin")} replace />} />

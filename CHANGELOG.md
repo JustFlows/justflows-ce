@@ -152,11 +152,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
     the first-party ids it renders itself (`justflows.seo`, …) inactive; the flag
     means the installed module only augments (feed routes, autodiscovery) and is
     safe to activate.
-  - `/admin/seo` redirects to `/admin/plugins/justflows.seo/settings`, so the SEO
-    Toolkit plugin can contribute a "SEO" nav entry with a dotless `adminMenu`
-    path (its id has a dot, which the manifest validator rejects in a path).
   - The hard-coded `justflows.seo` settings schema was removed from the host — an
-    installed SEO plugin now supplies its own.
+    installed SEO plugin now supplies its own. Its "SEO" nav entry points
+    straight at `/admin/plugins/justflows.seo/settings` (see the plugin-path
+    convention under **Changed**).
   - Content editor → **SEO** tab gains an **Exclude from RSS / Atom / JSON feeds**
     checkbox for every content type (`fields.seoFeedExclude`), shown only while an
     SEO plugin that owns feeds is active.
@@ -165,6 +164,28 @@ and this project uses [Semantic Versioning](https://semver.org/).
     ([#102](https://github.com/JustFlows/justflows-ce/issues/102))
 
 ### Changed
+
+- **Plugin, theme, and css-provider ids are now `justflows.<name>` only.** The
+  manifest validator (`PLUGIN_ID_RE`, exported from `@justflows/sdk`) rejects any
+  other namespace at install — the platform is first-party-curated, and the
+  `justflows.` prefix is what the admin URL and `/ext/<id>/…` asset mount are
+  built from.
+
+- **Every plugin admin page now lives under `/admin/plugins/<pluginId>`, and a
+  manifest declares its paths _relative_ to that namespace.** `adminMenu[].path`,
+  `adminApp` route `path`, and `setupPath` are now a lowercase leaf (`"orders"`,
+  `"orders/refunds"`) or `""` / omitted for the namespace root — never a leading
+  `/`, `admin`, the plugin id, or a `.`; an absolute path is rejected at install.
+  The host composes the absolute `/admin/plugins/<id>/…` URL from `manifest.id`
+  (`resolvePluginAdminPath`, exported from `@justflows/sdk`), so a URL always says
+  whether a screen is core or plugin-owned. Host-rendered first-party pages
+  (Analytics, Cookie Consent) moved off their old top-level routes
+  (`/admin/analytics`, `/admin/consent`); the `/admin/seo` → settings redirect is
+  gone (its nav entry is `path: "settings"`); the SSR prefetch table no longer
+  carries any plugin-specific route. First-party plugins (`justflows.analytics`,
+  `justflows.consent`, `justflows.forms`, `justflows.seo`, `justflows.shop`) must
+  be repackaged and reinstalled to pick up the new manifest paths.
+  ([#102](https://github.com/JustFlows/justflows-ce/issues/102))
 
 - Hand-authored scripts and styles under `public/` (`/js/site-nav.js`,
   `/js/site-chrome.js`, …) are served with `Cache-Control: no-cache` instead of

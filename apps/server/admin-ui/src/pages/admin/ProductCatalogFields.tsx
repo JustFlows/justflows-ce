@@ -357,7 +357,7 @@ export default function ProductCatalogFields({
         {draft.setupRequired && (
           <p className="jf-field__hint" style={{ margin: 0 }}>
             {t("shop.setupRequired")}{" "}
-            <Link to="/admin/shop">{t("shop.openSetup")}</Link>
+            <Link to="/admin/plugins/justflows.shop">{t("shop.openSetup")}</Link>
           </p>
         )}
         {error && (
