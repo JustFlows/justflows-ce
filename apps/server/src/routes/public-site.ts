@@ -1157,17 +1157,18 @@ async function renderHomeHtml(
   const ctx = await buildPageContext(req, res, reqPath, preview);
   const siteId = await getSiteId();
   const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
-  // hreflang alternates for the front page: every locale's home lives at its
-  // locale root (`/`, `/nl-NL/`), not at the page slug.
-  let alternates: Array<{ locale: string; slug: string; href: string }> = [];
-  if (home?.translationGroupId) {
-    const translations = await getTranslationAlternates(home.translationGroupId);
-    alternates = translations.map((tr) => ({
-      locale: tr.locale,
-      slug: tr.slug,
-      href: localePath(tr.locale, "/", ctx.defaultLocale),
-    }));
-  }
+  // The front page is reachable at every active locale's root (`/`, `/en-US`) —
+  // the prefix only switches the UI language — so list one hreflang per active
+  // locale (plus x-default in the layout), regardless of which locales have
+  // their own translated home content.
+  const alternates: Array<{ locale: string; slug: string; href: string }> =
+    ctx.activeLocales.length > 1
+      ? ctx.activeLocales.map((code) => ({
+          locale: code,
+          slug: "",
+          href: localePath(code, "/", ctx.defaultLocale),
+        }))
+      : [];
   const withHeader = await applyPageHeader(
     req,
     res,
