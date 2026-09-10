@@ -32,6 +32,7 @@ describe("MIGRATION_ORDER", () => {
       "0024_menu_designer",
       "0025_redirect_manager",
       "0026_api_keys",
+      "0027_media_responsive",
     ]);
   });
 

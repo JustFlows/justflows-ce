@@ -27,10 +27,12 @@ function mockFetch(): void {
     vi.fn((input: RequestInfo | URL) => {
       const path = String(input);
       if (path.includes("/api/bootstrap/status")) return jsonResponse({ ready: true });
-      if (path.includes("/api/install/status")) return jsonResponse({ tokenRequired: false, tokenFile: null });
+      if (path.includes("/api/install/status"))
+        return jsonResponse({ tokenRequired: false, tokenFile: null });
       if (path.includes("/api/auth/registration")) return jsonResponse({ enabled: false });
       if (path.includes("/api/auth/csrf")) return jsonResponse({ ok: true });
-      if (path.includes("/api/auth/me")) return jsonResponse({ id: "u1", email: "admin@example.com", role: "administrator" });
+      if (path.includes("/api/auth/me"))
+        return jsonResponse({ id: "u1", email: "admin@example.com", role: "administrator" });
       if (path.includes("/api/content-types")) {
         return jsonResponse({
           types: [
@@ -79,7 +81,9 @@ describe("admin accessibility", () => {
         <LoginPage />
       </MemoryRouter>,
     );
-    expect(await screen.findByRole("heading", { name: "Sign in to your site" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to your site" }),
+    ).toBeInTheDocument();
     await expectNoCriticalAxe(container);
   });
 
@@ -147,7 +151,9 @@ describe("admin accessibility", () => {
 
     await user.tab();
     expect(screen.getByLabelText("Database type")).toHaveFocus();
-    await expectNoCriticalAxe(screen.getByRole("heading", { name: "Database" }).closest(".jf-auth") as HTMLElement);
+    await expectNoCriticalAxe(
+      screen.getByRole("heading", { name: "Database" }).closest(".jf-auth") as HTMLElement,
+    );
   });
 
   it("has no critical axe findings on the content list", async () => {
@@ -183,9 +189,9 @@ describe("admin accessibility", () => {
     await user.tab();
     expect(screen.getByRole("button", { name: "Upload files" })).toHaveFocus();
     await user.tab();
-    expect(
-      screen.getByRole("button", { name: /upload files\. drop files here/i }),
-    ).toHaveFocus();
+    expect(screen.getByRole("button", { name: /regenerate responsive images/i })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: /upload files\. drop files here/i })).toHaveFocus();
   });
 
   it("has no critical axe findings on plugins", async () => {
@@ -224,9 +230,7 @@ describe("admin accessibility", () => {
       expect(screen.getByText("No plugins installed")).toBeInTheDocument();
     });
     await user.tab();
-    expect(
-      screen.getByRole("button", { name: /upload a plugin package/i }),
-    ).toHaveFocus();
+    expect(screen.getByRole("button", { name: /upload a plugin package/i })).toHaveFocus();
   });
 
   it("has no critical axe findings on the menu designer", async () => {

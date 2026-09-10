@@ -5,10 +5,16 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { getDb } from "./db.js";
 import { uploadsDir } from "./jf-root.js";
+import { resolvePathUnderBase } from "./safe-path.js";
 import { contentMatchesMimeType } from "./file-type.js";
 import { checkLibraryQuota, formatMb } from "./media-quota.js";
 import { moveMediaStorage } from "./trash.js";
 import { auditLog } from "./audit-log.js";
+import {
+  generateAndStoreVariants,
+  moveVariantDir,
+  type MediaDerivatives,
+} from "./media-responsive.js";
 
 /**
  * Shared media-library write logic behind both `routes/media.ts` (cookie auth)
@@ -50,7 +56,10 @@ const MIME_TO_EXT: Record<string, string> = {
 };
 
 function now(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  return new Date()
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "");
 }
 
 export interface MediaActor {
@@ -71,6 +80,9 @@ export interface MediaItem {
   caption: unknown;
   width: unknown;
   height: unknown;
+  focalX?: number | null;
+  focalY?: number | null;
+  hasVariants?: boolean;
   uploadedAt: unknown;
 }
 
@@ -79,7 +91,7 @@ export async function listMediaItems(siteId: string, limit: number): Promise<Med
   const rows = await (
     await getDb()
   ).query<Record<string, unknown>>(
-    "SELECT id, filename, mime_type, size_bytes, url, alt_text, caption, width, height, uploaded_at FROM media WHERE site_id = ? AND trashed_at IS NULL ORDER BY uploaded_at DESC LIMIT ?",
+    "SELECT id, filename, mime_type, size_bytes, url, alt_text, caption, width, height, focal_x, focal_y, variants_generated_at, uploaded_at FROM media WHERE site_id = ? AND trashed_at IS NULL ORDER BY uploaded_at DESC LIMIT ?",
     [siteId, bounded],
   );
   // camelCase mapping done here rather than via `AS` — an unquoted alias folds
@@ -94,8 +106,185 @@ export async function listMediaItems(siteId: string, limit: number): Promise<Med
     caption: r.caption,
     width: r.width,
     height: r.height,
+    focalX: r.focal_x == null ? null : Number(r.focal_x),
+    focalY: r.focal_y == null ? null : Number(r.focal_y),
+    hasVariants: r.variants_generated_at != null,
     uploadedAt: r.uploaded_at,
   }));
+}
+
+function parseDerivatives(raw: unknown): MediaDerivatives | null {
+  if (!raw) return null;
+  let value: unknown = raw;
+  if (typeof raw === "string") {
+    if (raw === "" || raw === "{}") return null;
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (value && typeof value === "object" && Array.isArray((value as MediaDerivatives).variants)) {
+    return value as MediaDerivatives;
+  }
+  return null;
+}
+
+export interface MediaDetail extends MediaItem {
+  storageKey: unknown;
+  focalX: number | null;
+  focalY: number | null;
+  originalFormat: unknown;
+  derivatives: MediaDerivatives | null;
+}
+
+export async function getMediaItem(siteId: string, id: string): Promise<MediaDetail | null> {
+  const rows = await (
+    await getDb()
+  ).query<Record<string, unknown>>(
+    "SELECT id, filename, mime_type, size_bytes, storage_key, url, alt_text, caption, width, height, focal_x, focal_y, original_format, derivatives, uploaded_at FROM media WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
+    [id, siteId],
+  );
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    id: r.id,
+    filename: r.filename,
+    mimeType: r.mime_type,
+    sizeBytes: r.size_bytes,
+    url: r.url,
+    storageKey: r.storage_key,
+    altText: r.alt_text,
+    caption: r.caption,
+    width: r.width,
+    height: r.height,
+    focalX: r.focal_x == null ? null : Number(r.focal_x),
+    focalY: r.focal_y == null ? null : Number(r.focal_y),
+    originalFormat: r.original_format,
+    derivatives: parseDerivatives(r.derivatives),
+    uploadedAt: r.uploaded_at,
+  };
+}
+
+export interface MediaMetadataPatch {
+  altText?: string | null;
+  caption?: string | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+
+/**
+ * Update editable media metadata. Changing the focal point rebuilds that one
+ * item's variant set inline so the art-directed thumbnail follows the subject.
+ */
+export async function updateMediaMetadata(
+  id: string,
+  actor: MediaActor,
+  patch: MediaMetadataPatch,
+): Promise<MediaWriteResult> {
+  const current = await getMediaItem(actor.siteId, id);
+  if (!current) return { status: 404, body: { error: "Media not found" } };
+
+  const sets: string[] = [];
+  const params: (string | number | null)[] = [];
+  if (patch.altText !== undefined) {
+    sets.push("alt_text = ?");
+    params.push(patch.altText === null ? null : String(patch.altText).slice(0, 2000));
+  }
+  if (patch.caption !== undefined) {
+    sets.push("caption = ?");
+    params.push(patch.caption === null ? null : String(patch.caption).slice(0, 2000));
+  }
+
+  const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
+  const focalChanged =
+    (patch.focalX !== undefined && patch.focalX !== null) ||
+    (patch.focalY !== undefined && patch.focalY !== null);
+  let focalX = current.focalX;
+  let focalY = current.focalY;
+  if (patch.focalX !== undefined) {
+    focalX = patch.focalX === null ? null : clamp01(Number(patch.focalX));
+    sets.push("focal_x = ?");
+    params.push(focalX);
+  }
+  if (patch.focalY !== undefined) {
+    focalY = patch.focalY === null ? null : clamp01(Number(patch.focalY));
+    sets.push("focal_y = ?");
+    params.push(focalY);
+  }
+
+  if (sets.length === 0) return { status: 200, body: { ok: true, unchanged: true } };
+
+  sets.push("updated_at = ?");
+  params.push(now());
+  params.push(id, actor.siteId);
+  await (
+    await getDb()
+  ).run(`UPDATE media SET ${sets.join(", ")} WHERE id = ? AND site_id = ?`, params);
+
+  let derivatives = current.derivatives;
+  if (focalChanged && String(current.mimeType).startsWith("image/")) {
+    const originalBytes = await readOriginal(String(current.storageKey));
+    if (originalBytes) {
+      try {
+        const rebuilt = await generateAndStoreVariants({
+          siteId: actor.siteId,
+          mediaId: id,
+          filename: String(current.filename),
+          mimeType: String(current.mimeType),
+          buffer: originalBytes,
+          focal: focalX != null && focalY != null ? { x: focalX, y: focalY } : null,
+        });
+        if (rebuilt) {
+          derivatives = rebuilt;
+          await (
+            await getDb()
+          ).run(
+            "UPDATE media SET derivatives = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+            [
+              JSON.stringify(rebuilt),
+              rebuilt.base.w,
+              rebuilt.base.h,
+              rebuilt.base.format,
+              now(),
+              now(),
+              id,
+              actor.siteId,
+            ],
+          );
+        }
+      } catch (err) {
+        console.error("[justflows] focal-point variant rebuild failed:", stripNewlines(err));
+      }
+    }
+  }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      id,
+      altText: patch.altText !== undefined ? patch.altText : current.altText,
+      caption: patch.caption !== undefined ? patch.caption : current.caption,
+      focalX,
+      focalY,
+      derivatives,
+    },
+  };
+}
+
+async function readOriginal(storageKey: string): Promise<Buffer | null> {
+  const abs = resolvePathUnderBase(uploadsDir(), storageKey);
+  if (!abs) return null;
+  try {
+    return await fs.readFile(abs);
+  } catch {
+    return null;
+  }
+}
+
+function stripNewlines(value: unknown): string {
+  return (value instanceof Error ? value.message : String(value)).replace(/[\r\n]+/g, " ");
 }
 
 export interface UploadInput {
@@ -168,6 +357,41 @@ export async function storeMediaUpload(
     ],
   );
 
+  // Responsive derivatives (resized variants + WebP/AVIF) are generated inline
+  // so a page can ship a correct `srcset` on the first render. A failure here
+  // is non-fatal — the original is already stored and the Tools → Regenerate
+  // job can backfill.
+  let derivatives: MediaDerivatives | null = null;
+  try {
+    derivatives = await generateAndStoreVariants({
+      siteId: actor.siteId,
+      mediaId: id,
+      filename: file.originalname,
+      mimeType: file.mimetype,
+      buffer: file.buffer,
+      focal: null,
+    });
+    if (derivatives) {
+      await (
+        await getDb()
+      ).run(
+        "UPDATE media SET derivatives = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+        [
+          JSON.stringify(derivatives),
+          derivatives.base.w,
+          derivatives.base.h,
+          derivatives.base.format,
+          now(),
+          now(),
+          id,
+          actor.siteId,
+        ],
+      );
+    }
+  } catch (err) {
+    console.error("[justflows] media derivative generation failed:", stripNewlines(err));
+  }
+
   return {
     status: 201,
     body: {
@@ -177,6 +401,13 @@ export async function storeMediaUpload(
       sizeBytes: file.size,
       url,
       uploadedAt: now(),
+      ...(derivatives
+        ? {
+            width: derivatives.base.w,
+            height: derivatives.base.h,
+            derivatives,
+          }
+        : {}),
     },
   };
 }
@@ -189,6 +420,7 @@ export async function trashMediaItem(id: string, actor: MediaActor): Promise<Med
   );
   if (!rows[0]) return { status: 404, body: { error: "Media not found" } };
   await moveMediaStorage(rows[0].storage_key, true);
+  await moveVariantDir(actor.siteId, id, true).catch(() => undefined);
   await db.run(
     "UPDATE media SET trashed_at = ?, trashed_by = ?, updated_at = ? WHERE id = ? AND site_id = ?",
     [now(), actor.userId, now(), id, actor.siteId],

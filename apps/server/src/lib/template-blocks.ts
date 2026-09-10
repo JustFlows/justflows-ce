@@ -13,8 +13,9 @@
  * an HTML comment rather than throwing.
  */
 
-import { esc, safeMediaSrc, type BlockDefinition } from "@justflows/blocks";
+import { esc, type BlockDefinition } from "@justflows/blocks";
 import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
+import { renderMediaImage } from "./responsive-media.js";
 import type { TemplatePartSlot } from "./template-hierarchy.js";
 import { TEMPLATE_PART_SLOTS } from "./template-hierarchy.js";
 
@@ -62,9 +63,10 @@ function headingLevel(raw: unknown): number {
   return Number.isFinite(n) ? Math.min(6, Math.max(1, Math.trunc(n))) : 1;
 }
 
-function featuredImageSrc(fields: Record<string, unknown>): string {
+/** Raw stored featured-image URL; `renderMediaImage` sanitizes and resolves it. */
+function featuredImageRaw(fields: Record<string, unknown>): string {
   const raw = fields.seoImage ?? fields.featuredImage;
-  return typeof raw === "string" && raw ? safeMediaSrc(raw) : "";
+  return typeof raw === "string" ? raw : "";
 }
 
 function partSlug(raw: unknown): TemplatePartSlot | null {
@@ -106,10 +108,15 @@ export async function renderTemplateBlockHtml(
       return content?.excerpt ? `<p class="post-excerpt">${esc(content.excerpt)}</p>` : "";
 
     case FEATURED_IMAGE_BLOCK_TYPE: {
-      const src = content ? featuredImageSrc(content.fields) : "";
-      if (!src) return "";
-      const alt = esc(content?.title ?? "");
-      return `<figure class="post-featured-image"><img src="${src}" alt="${alt}" loading="lazy"></figure>`;
+      const raw = content ? featuredImageRaw(content.fields) : "";
+      if (!raw) return "";
+      const img = await renderMediaImage({
+        url: raw,
+        alt: content?.title ?? "",
+        loading: "lazy",
+        sizes: "(max-width: 1000px) 100vw, 1000px",
+      });
+      return img ? `<figure class="post-featured-image">${img}</figure>` : "";
     }
 
     case TEMPLATE_PART_BLOCK_TYPE: {

@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 
 import { contentPermalink } from "./permalinks-db.js";
-import { esc, safeMediaSrc } from "@justflows/blocks";
+import { esc, renderResponsiveImage, safeMediaSrc } from "@justflows/blocks";
 import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
 import { listPublishedPostsPage } from "./content-public.js";
 import { formatContentDate } from "./general-settings.js";
+import {
+  applyResponsiveProp,
+  loadResponsiveProps,
+  type ResponsiveProp,
+} from "./responsive-media.js";
 import type { ContentResponse } from "./content-api.js";
 
 export const BLOG_POST_LIST_BLOCK_TYPE = "justflows.blog.postList";
@@ -28,7 +33,10 @@ export function parseBlogPostListProps(raw: unknown): BlogPostListProps {
     ? (row.layout as BlogPostListLayout)
     : "grid";
   const rawColumns = Number(row.columns);
-  const columns = Math.min(4, Math.max(1, Number.isFinite(rawColumns) && rawColumns > 0 ? rawColumns : 3));
+  const columns = Math.min(
+    4,
+    Math.max(1, Number.isFinite(rawColumns) && rawColumns > 0 ? rawColumns : 3),
+  );
   // 0 (and unset/blank) mean "use the site's posts_per_page setting" — the
   // sentinel the block picker's number field and the admin inspector both use.
   const rawPostsPerPage = Number(row.postsPerPage);
@@ -58,18 +66,44 @@ export interface BlogPostListRenderContext {
   postsPerPageDefault: number;
 }
 
-function featuredImageOf(post: ContentResponse): string {
+/** The raw stored featured-image URL (matches `media.url` for responsive lookup). */
+function featuredImageRawOf(post: ContentResponse): string {
   const raw = post.fields?.seoImage;
-  return typeof raw === "string" ? safeMediaSrc(raw) : "";
+  return typeof raw === "string" ? raw : "";
 }
 
-function postListItemHtml(post: ContentResponse, props: BlogPostListProps, ctx: BlogPostListRenderContext, dateLabel: string, href: string): string {
-  const image = props.showFeaturedImage ? featuredImageOf(post) : "";
-  const media = image
-    ? `<a class="post-thumb" href="${esc(href)}" tabindex="-1" aria-hidden="true"><img src="${image}" alt="" loading="lazy"></a>`
+function featuredSizes(props: BlogPostListProps): string {
+  if (props.layout === "grid") {
+    const pct = Math.max(20, Math.round(100 / Math.max(1, props.columns)));
+    return `(max-width: 600px) 100vw, ${pct}vw`;
+  }
+  return "(max-width: 700px) 100vw, 320px";
+}
+
+function postListItemHtml(
+  post: ContentResponse,
+  props: BlogPostListProps,
+  ctx: BlogPostListRenderContext,
+  dateLabel: string,
+  href: string,
+  responsive?: Map<string, ResponsiveProp>,
+): string {
+  const rawImage = props.showFeaturedImage ? featuredImageRawOf(post) : "";
+  const image = rawImage ? safeMediaSrc(rawImage) : "";
+  const imgHtml = image
+    ? renderResponsiveImage(
+        applyResponsiveProp(
+          { src: image, alt: "", loading: "lazy", sizes: featuredSizes(props) },
+          responsive?.get(rawImage),
+        ),
+      )
+    : "";
+  const media = imgHtml
+    ? `<a class="post-thumb" href="${esc(href)}" tabindex="-1" aria-hidden="true">${imgHtml}</a>`
     : "";
   const date = props.showDate && dateLabel ? `<p class="post-meta">${esc(dateLabel)}</p>` : "";
-  const excerpt = props.showExcerpt && post.excerpt ? `<p class="post-excerpt">${esc(post.excerpt)}</p>` : "";
+  const excerpt =
+    props.showExcerpt && post.excerpt ? `<p class="post-excerpt">${esc(post.excerpt)}</p>` : "";
   return `<li class="post-list-item">
     ${media}
     <h3 class="post-title"><a href="${esc(href)}">${esc(post.title)}</a></h3>
@@ -92,7 +126,8 @@ function paginationHtml(ctx: BlogPostListRenderContext, totalPages: number): str
   const sorted = [...pageNumbers].sort((a, b) => a - b);
 
   const items: string[] = [];
-  if (current > 1) items.push(`<a href="${esc(linkFor(current - 1))}" aria-label="Previous page">«</a>`);
+  if (current > 1)
+    items.push(`<a href="${esc(linkFor(current - 1))}" aria-label="Previous page">«</a>`);
 
   let last = 0;
   for (const n of sorted) {
@@ -103,7 +138,8 @@ function paginationHtml(ctx: BlogPostListRenderContext, totalPages: number): str
     last = n;
   }
 
-  if (current < totalPages) items.push(`<a href="${esc(linkFor(current + 1))}" aria-label="Next page">»</a>`);
+  if (current < totalPages)
+    items.push(`<a href="${esc(linkFor(current + 1))}" aria-label="Next page">»</a>`);
 
   return `<nav class="pagination" aria-label="Blog pagination">${items.join("\n")}</nav>`;
 }
@@ -123,13 +159,26 @@ export async function renderBlogPostListBlockHtml(
   }
 
   const dateLabels = await Promise.all(
-    items.map((post) => (props.showDate && post.publishedAt ? formatContentDate(post.publishedAt) : Promise.resolve(""))),
+    items.map((post) =>
+      props.showDate && post.publishedAt
+        ? formatContentDate(post.publishedAt)
+        : Promise.resolve(""),
+    ),
   );
 
   const hrefs = await Promise.all(items.map(contentPermalink));
-  const rows = items.map((post, i) => postListItemHtml(post, props, ctx, dateLabels[i] ?? "", hrefs[i]!)).join("\n");
+  const responsive = props.showFeaturedImage
+    ? await loadResponsiveProps(items.map(featuredImageRawOf).filter(Boolean), ctx.siteId)
+    : undefined;
+  const rows = items
+    .map((post, i) =>
+      postListItemHtml(post, props, ctx, dateLabels[i] ?? "", hrefs[i]!, responsive),
+    )
+    .join("\n");
   const listClass =
-    props.layout === "grid" ? `post-list post-list--grid post-list--cols-${props.columns}` : "post-list";
+    props.layout === "grid"
+      ? `post-list post-list--grid post-list--cols-${props.columns}`
+      : "post-list";
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return `<ul class="${listClass}">${rows}</ul>${paginationHtml(ctx, totalPages)}`;
@@ -147,7 +196,8 @@ export function registerBlogPostListBlock(): void {
     type: BLOG_POST_LIST_BLOCK_TYPE,
     version: 1,
     title: "Post List",
-    description: "Lists published blog posts, paginated. Drop it on any page to make that page a blog index.",
+    description:
+      "Lists published blog posts, paginated. Drop it on any page to make that page a blog index.",
     icon: "📰",
     category: "content",
     schema: {

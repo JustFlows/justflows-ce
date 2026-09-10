@@ -9,6 +9,30 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Automatic responsive images and modern formats.** Raster uploads now
+  generate a configurable set of width-scaled variants plus WebP (and AVIF when
+  enabled) alongside the untouched original, inline on upload and backfillable
+  from a new **Admin → Tools → Responsive images** job with progress and
+  per-file failures. Every public surface that renders an uploaded image now
+  goes through one resolver — `core.image`, the **Gallery** block (grid,
+  masonry, carousel, slideshow, list, and lightbox), blog-post-list featured
+  thumbnails, and the Featured Image theme block — emitting `<picture>` /
+  `srcset` / `sizes` with format fallback, intrinsic `width`/`height` to prevent
+  layout shift, and `loading="lazy"` / `decoding="async"` defaults with an
+  `eager` opt-out (`fetchpriority="high"`) for above-the-fold images; the
+  exported `renderResponsiveImage` / `renderMediaImage` helpers give plugin and
+  theme blocks the same output. Each asset carries a focal point, set by
+  clicking the subject in the Media Library, that drives thumbnail crops and
+  `object-position`. Generation, a public-markup toggle
+  (`JF_IMAGE_RESPONSIVE_MARKUP` — serve originals everywhere without deleting
+  variants), AVIF, quality, widths, max dimension, EXIF/GPS stripping, thumbnail
+  size, and a keep-original filename allowlist are all configurable in the same
+  panel and written to `.env` as `JF_IMAGE_*` with no restart. SVGs are never
+  rasterised, variants live under the same `uploads/` path so CDN/S3 offload and
+  static export cover them for free, and migration `0027_media_responsive`
+  supports all database dialects. See `docs/MEDIA.md`.
+  ([#103](https://github.com/JustFlows/justflows-ce/issues/103))
+
 - **Headless federated management API.** Revocable API keys (Admin → Settings →
   API) authenticate a versioned `/api/manage/v1` surface that federates content
   (CRUD, publish, revisions), media, comments, menus, content types, users,
@@ -29,6 +53,14 @@ and this project uses [Semantic Versioning](https://semver.org/).
   document at `GET /api/manage/v1/openapi.json`. Migration `0026_api_keys`
   supports all database dialects.
   ([#135](https://github.com/JustFlows/justflows-ce/issues/135))
+
+### Fixed
+
+- Unknown multi-segment public URLs (for example `/foo/bar`) now render the
+  site's themed 404 — the theme's `templates/404.json` when it ships one,
+  otherwise the built-in Justflows 404 — instead of Express's bare
+  `Cannot GET`. Single-segment paths already did this; deep paths fell through
+  the public router.
 
 ## [0.2.1]
 
