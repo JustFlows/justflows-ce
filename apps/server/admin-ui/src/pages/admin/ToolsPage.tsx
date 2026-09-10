@@ -1300,6 +1300,396 @@ export default function ToolsPage() {
           )}
         </div>
       </div>
+
+      <ResponsiveImagesCard />
+    </div>
+  );
+}
+
+interface MediaSettings {
+  enabled: boolean;
+  responsiveMarkup: boolean;
+  avif: boolean;
+  widths: number[];
+  maxWidth: number;
+  qualityWebp: number;
+  qualityAvif: number;
+  qualityJpeg: number;
+  stripMetadata: boolean;
+  thumbnailSize: number;
+  keepOriginal: string;
+}
+
+interface RegenStatus {
+  running: boolean;
+  total: number;
+  processed: number;
+  skipped: number;
+  failed: number;
+  finishedAt: string | null;
+  currentFile: string | null;
+  errors: string[];
+}
+
+function ResponsiveImagesCard() {
+  const [settings, setSettings] = useState<MediaSettings | null>(null);
+  const [widthsText, setWidthsText] = useState("");
+  const [envPath, setEnvPath] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<RegenStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/media/settings");
+        if (res.status === 403) {
+          setError("Only administrators can change responsive-image settings.");
+          return;
+        }
+        if (!res.ok) throw new Error("Could not load responsive-image settings");
+        const data = (await res.json()) as { settings: MediaSettings; envPath: string };
+        setSettings(data.settings);
+        setWidthsText(data.settings.widths.join(", "));
+        setEnvPath(data.envPath);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    })();
+    void refreshStatus();
+    return () => {
+      if (poll.current) clearInterval(poll.current);
+    };
+  }, []);
+
+  async function refreshStatus() {
+    try {
+      const res = await fetch("/api/media/regenerate/status");
+      if (res.ok) setStatus((await res.json()) as RegenStatus);
+    } catch {
+      // non-fatal
+    }
+  }
+
+  function startPolling() {
+    if (poll.current) clearInterval(poll.current);
+    poll.current = setInterval(async () => {
+      try {
+        const res = await fetch("/api/media/regenerate/status");
+        if (!res.ok) return;
+        const data = (await res.json()) as RegenStatus;
+        setStatus(data);
+        if (!data.running) {
+          if (poll.current) clearInterval(poll.current);
+          poll.current = null;
+          setBusy(false);
+        }
+      } catch {
+        // keep polling
+      }
+    }, 1500);
+  }
+
+  async function saveSettings() {
+    if (!settings) return;
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    const widths = widthsText
+      .split(",")
+      .map((s) => Math.floor(Number(s.trim())))
+      .filter((n) => Number.isFinite(n) && n >= 16 && n <= 8192);
+    try {
+      const res = await fetch("/api/media/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...settings, widths: widths.length ? widths : settings.widths }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        settings?: MediaSettings;
+      };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Could not save settings");
+      if (data.settings) {
+        setSettings(data.settings);
+        setWidthsText(data.settings.widths.join(", "));
+      }
+      setSaved(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function regenerate() {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch("/api/media/regenerate", { method: "POST" });
+      const data = (await res.json()) as RegenStatus & { error?: string };
+      if (res.status === 403) throw new Error("Only administrators can regenerate the library");
+      if (!res.ok && res.status !== 409)
+        throw new Error(data.error ?? "Could not start regeneration");
+      setStatus(data);
+      startPolling();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  }
+
+  function upd<K extends keyof MediaSettings>(key: K, value: MediaSettings[K]) {
+    setSettings((s) => (s ? { ...s, [key]: value } : s));
+  }
+
+  return (
+    <div className="jf-card">
+      <div className="jf-card__head">
+        <h2 className="jf-card__title">Responsive images</h2>
+      </div>
+      <div className="jf-card__body jf-stack">
+        <p className="jf-prose">
+          Every uploaded photo gets resized variants plus modern formats (WebP, and AVIF when
+          enabled). Image blocks and themes emit <code className="jf-code">&lt;picture&gt;</code> /{" "}
+          <code className="jf-code">srcset</code> with intrinsic{" "}
+          <code className="jf-code">width</code>/<code className="jf-code">height</code>, lazy
+          loading, and a focal point set in the Media Library. SVGs are never rasterised. See{" "}
+          <code className="jf-code">docs/MEDIA.md</code>.
+        </p>
+
+        {error && <div className="jf-alert jf-alert--error">{error}</div>}
+
+        {settings && (
+          <>
+            <label className="jf-checkrow">
+              <input
+                type="checkbox"
+                checked={settings.enabled}
+                onChange={(e) => upd("enabled", e.target.checked)}
+                disabled={saving}
+              />
+              <span>Generate responsive variants on upload</span>
+            </label>
+
+            <label className="jf-checkrow">
+              <input
+                type="checkbox"
+                checked={settings.responsiveMarkup}
+                onChange={(e) => upd("responsiveMarkup", e.target.checked)}
+                disabled={saving}
+              />
+              <span>
+                Emit <code className="jf-code">&lt;picture&gt;</code> /{" "}
+                <code className="jf-code">srcset</code> on the public site — image blocks,
+                galleries, blog lists, and theme templates. Turn off to serve the original
+                everywhere (generated files are kept).
+              </span>
+            </label>
+
+            <label className="jf-checkrow">
+              <input
+                type="checkbox"
+                checked={settings.avif}
+                onChange={(e) => upd("avif", e.target.checked)}
+                disabled={saving || !settings.enabled}
+              />
+              <span>
+                Also generate AVIF (smaller files, noticeably slower to encode — off by default)
+              </span>
+            </label>
+
+            <label className="jf-checkrow">
+              <input
+                type="checkbox"
+                checked={settings.stripMetadata}
+                onChange={(e) => upd("stripMetadata", e.target.checked)}
+                disabled={saving || !settings.enabled}
+              />
+              <span>Strip EXIF/GPS metadata from generated variants</span>
+            </label>
+
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-img-widths">
+                Variant widths (px, comma-separated)
+              </label>
+              <input
+                id="jf-img-widths"
+                className="jf-input"
+                value={widthsText}
+                onChange={(e) => setWidthsText(e.target.value)}
+                placeholder="320, 640, 960, 1280, 1920"
+                disabled={saving || !settings.enabled}
+              />
+            </div>
+
+            <div className="jf-grid jf-grid--2">
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-img-maxw">
+                  Max width (px)
+                </label>
+                <input
+                  id="jf-img-maxw"
+                  className="jf-input"
+                  type="number"
+                  min={320}
+                  max={8192}
+                  value={settings.maxWidth}
+                  onChange={(e) => upd("maxWidth", Number(e.target.value) || 2560)}
+                  disabled={saving || !settings.enabled}
+                />
+              </div>
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-img-thumb">
+                  Thumbnail size (px, 0 = off)
+                </label>
+                <input
+                  id="jf-img-thumb"
+                  className="jf-input"
+                  type="number"
+                  min={0}
+                  max={2048}
+                  value={settings.thumbnailSize}
+                  onChange={(e) => upd("thumbnailSize", Number(e.target.value) || 0)}
+                  disabled={saving || !settings.enabled}
+                />
+              </div>
+            </div>
+
+            <div className="jf-grid jf-grid--3">
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-img-qw">
+                  WebP quality
+                </label>
+                <input
+                  id="jf-img-qw"
+                  className="jf-input"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={settings.qualityWebp}
+                  onChange={(e) => upd("qualityWebp", Number(e.target.value) || 82)}
+                  disabled={saving || !settings.enabled}
+                />
+              </div>
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-img-qa">
+                  AVIF quality
+                </label>
+                <input
+                  id="jf-img-qa"
+                  className="jf-input"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={settings.qualityAvif}
+                  onChange={(e) => upd("qualityAvif", Number(e.target.value) || 50)}
+                  disabled={saving || !settings.enabled || !settings.avif}
+                />
+              </div>
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-img-qj">
+                  JPEG quality
+                </label>
+                <input
+                  id="jf-img-qj"
+                  className="jf-input"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={settings.qualityJpeg}
+                  onChange={(e) => upd("qualityJpeg", Number(e.target.value) || 82)}
+                  disabled={saving || !settings.enabled}
+                />
+              </div>
+            </div>
+
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="jf-img-keep">
+                Keep original only (filename globs, comma-separated)
+              </label>
+              <input
+                id="jf-img-keep"
+                className="jf-input"
+                value={settings.keepOriginal}
+                onChange={(e) => upd("keepOriginal", e.target.value)}
+                placeholder="logo*, *.png"
+                disabled={saving || !settings.enabled}
+              />
+              <p className="jf-field__hint">
+                Matching uploads are stored untouched — logos, transparency edge cases, pixel art.
+              </p>
+            </div>
+
+            {envPath && (
+              <p className="jf-field__hint">
+                Saved to <code className="jf-code">{envPath}</code> as{" "}
+                <code className="jf-code">JF_IMAGE_*</code> — applied immediately, no restart.
+              </p>
+            )}
+
+            <div className="jf-row">
+              <button
+                className="jf-btn jf-btn--primary"
+                onClick={() => void saveSettings()}
+                disabled={saving}
+              >
+                {saving ? "Saving…" : "Save settings"}
+              </button>
+              {saved && !saving && <span className="jf-status jf-status--saved">✓ Saved</span>}
+            </div>
+          </>
+        )}
+
+        <hr className="jf-divider" />
+
+        <h3 className="jf-card__subtitle">Regenerate</h3>
+        <p className="jf-field__hint">
+          Rebuild every image’s variant set with the current settings — run this after changing
+          widths, formats, or quality. New uploads are processed automatically.
+        </p>
+
+        {status && (status.running || status.finishedAt) && (
+          <div
+            className={`jf-alert ${status.failed > 0 ? "jf-alert--error" : "jf-alert--success"}`}
+          >
+            {status.running ? (
+              <span>
+                Working… {status.processed + status.skipped + status.failed}/{status.total}
+                {status.currentFile ? ` — ${status.currentFile}` : ""}
+              </span>
+            ) : (
+              <span>
+                ✓ Finished: {status.processed} rebuilt, {status.skipped} skipped, {status.failed}{" "}
+                failed.
+              </span>
+            )}
+            {status.errors.length > 0 && (
+              <ul
+                style={{ margin: "0.4rem 0 0", paddingInlineStart: "1.1rem", fontSize: "0.8rem" }}
+              >
+                {status.errors.slice(0, 8).map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        <div className="jf-row">
+          <button
+            className="jf-btn jf-btn--ghost"
+            onClick={() => void regenerate()}
+            disabled={busy || settings?.enabled === false}
+          >
+            {busy ? "Regenerating…" : "Regenerate all images"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { uploadsDir } from "./jf-root.js";
 import { resolvePathUnderBase } from "./safe-path.js";
 import { getSiteSetting } from "./site-settings.js";
 import { auditLog } from "./audit-log.js";
+import { moveVariantDir, removeVariantDir } from "./media-responsive.js";
 
 export const TRASH_RETENTION_SETTING = "trash_retention_days";
 export const DEFAULT_TRASH_RETENTION_DAYS = 30;
@@ -171,6 +172,7 @@ export async function restoreTrashItem(siteId: string, type: TrashType, id: stri
     );
     if (!rows[0]) throw new Error("Trash item not found");
     await moveMediaStorage(rows[0].storage_key, false);
+    await moveVariantDir(siteId, id, false).catch(() => undefined);
     await db.run(
       `UPDATE ${table} SET trashed_at = NULL, trashed_by = NULL, updated_at = ? WHERE id = ? AND site_id = ?`,
       [nowSql(), id, siteId],
@@ -206,6 +208,7 @@ export async function purgeTrashItem(
       await fs.unlink(filePath).catch((err: NodeJS.ErrnoException) => {
         if (err.code !== "ENOENT") throw err;
       });
+    await removeVariantDir(siteId, id).catch(() => undefined);
     return;
   }
   const table = type === "content" ? "content" : type === "comment" ? "comments" : "menus";

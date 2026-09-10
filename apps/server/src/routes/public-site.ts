@@ -20,6 +20,7 @@ import {
 import { formatContentDate, getGeneralSettings } from "../lib/general-settings.js";
 import { hydrateSiteWidgets } from "../lib/site-widgets.js";
 import { applyContentBlocks, applyContentRender } from "../lib/content-render.js";
+import { withResponsiveImages } from "../lib/responsive-blocks.js";
 import { createTranslator, type MessageCatalog } from "../lib/i18n/translate.js";
 import {
   defaultModsFromSchema,
@@ -333,7 +334,7 @@ async function renderBlocksHtml(
 ): Promise<string> {
   if (await isGalleryPluginEnabled()) registerGalleryBlock();
   else unregisterGalleryBlock();
-  const resolved = await withReusables(blocks);
+  const resolved = await withResponsiveImages(await withReusables(blocks), await getSiteId());
   try {
     return await renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx, templateCtx);
   } catch {
@@ -523,7 +524,10 @@ async function ensureSiteIsPublic(req: Request, res: Response): Promise<boolean>
 /** The visitor's admin-session state, for the (opt-in) role/auth menu-item visibility rules.
  * The public site has no separate front-end membership system — "authenticated" here means
  * "signed into the admin panel", the same signal `canViewUnpublishedSite`/`?preview=1` already use. */
-async function resolvePublicMenuVisibility(req: Request, res: Response): Promise<MenuVisibilityContext> {
+async function resolvePublicMenuVisibility(
+  req: Request,
+  res: Response,
+): Promise<MenuVisibilityContext> {
   const session = await resolveSession(req, res);
   return session ? { authState: "authenticated", role: session.role } : { authState: "guest" };
 }
@@ -605,7 +609,11 @@ async function loadNavItems(
 
 /** The menu design for the menu `loadNavItems` just resolved — a separate, tiny cached read
  * (same prefix, same invalidation) so the common request path stays a cache-only lookup. */
-async function loadMenuDesign(siteId: string, menuSlug: string, preview: boolean): Promise<MenuDesign | null> {
+async function loadMenuDesign(
+  siteId: string,
+  menuSlug: string,
+  preview: boolean,
+): Promise<MenuDesign | null> {
   return rememberPublic(
     `${MENUS_PREFIX}${menuSlug}:design:${preview ? "preview" : "live"}`,
     async () => {
@@ -932,7 +940,9 @@ function languageLinksFor(
     return {
       code: lang.code,
       name: lang.nativeName,
-      href: translations.find((tr) => tr.locale === lang.code)?.href ?? localePath(lang.code, path, defaultLocale),
+      href:
+        translations.find((tr) => tr.locale === lang.code)?.href ??
+        localePath(lang.code, path, defaultLocale),
       current: lang.code === currentLocale,
       displayCode: displayLocaleCode(lang.code),
       ...localePresentation(lang.code),
@@ -959,9 +969,18 @@ async function buildPageContext(req: Request, res: Response, reqPath: string, pr
   const navMenuSlug = headerMenuSlug ?? "primary";
   const navFooterMenuSlug = footerMenuSlug ?? "footer";
   const navItems = await loadNavItems(req, res, navMenuSlug, locale, defaultLocale, preview);
-  const footerNavItems = await loadNavItems(req, res, navFooterMenuSlug, locale, defaultLocale, preview);
+  const footerNavItems = await loadNavItems(
+    req,
+    res,
+    navFooterMenuSlug,
+    locale,
+    defaultLocale,
+    preview,
+  );
   const menuDesignSiteId = await getSiteId();
-  const menuDesign = menuDesignSiteId ? await loadMenuDesign(menuDesignSiteId, navMenuSlug, preview) : null;
+  const menuDesign = menuDesignSiteId
+    ? await loadMenuDesign(menuDesignSiteId, navMenuSlug, preview)
+    : null;
   const footerMenuDesign = menuDesignSiteId
     ? await loadMenuDesign(menuDesignSiteId, navFooterMenuSlug, preview)
     : null;
@@ -1073,8 +1092,11 @@ async function applyPageHeader<T extends Awaited<ReturnType<typeof buildPageCont
     content,
   });
   const menuSlug = resolveHeaderMenuSlug(header, ctx.headerMenuSlug);
-  const navItems = menuSlug ? await loadNavItems(req, res, menuSlug, ctx.locale, ctx.defaultLocale, preview) : [];
-  const menuDesign = menuSlug && ctx.siteId ? await loadMenuDesign(ctx.siteId, menuSlug, preview) : null;
+  const navItems = menuSlug
+    ? await loadNavItems(req, res, menuSlug, ctx.locale, ctx.defaultLocale, preview)
+    : [];
+  const menuDesign =
+    menuSlug && ctx.siteId ? await loadMenuDesign(ctx.siteId, menuSlug, preview) : null;
   const withHeader = {
     ...ctx,
     header,
@@ -1118,14 +1140,27 @@ function translatedSlugPath(
   return localePath(content.locale, `/${content.slug}`, defaultLocale);
 }
 
-async function renderHomeHtml(req: Request, res: Response, reqPath: string, preview: boolean): Promise<string> {
+async function renderHomeHtml(
+  req: Request,
+  res: Response,
+  reqPath: string,
+  preview: boolean,
+): Promise<string> {
   const ctx = await buildPageContext(req, res, reqPath, preview);
   const siteId = await getSiteId();
   const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
-  const withHeader = await applyPageHeader(req, res, ctx, home?.fields, preview, submittedFormIdFrom(req), {
-    id: home ? String(home.id) : undefined,
-    type: home ? String(home.type) : undefined,
-  });
+  const withHeader = await applyPageHeader(
+    req,
+    res,
+    ctx,
+    home?.fields,
+    preview,
+    submittedFormIdFrom(req),
+    {
+      id: home ? String(home.id) : undefined,
+      type: home ? String(home.type) : undefined,
+    },
+  );
   const blogCtx = await buildBlogRenderContext(ctx.locale, 1, reqPath);
 
   let bodyHtml: string | undefined;
@@ -1252,22 +1287,36 @@ router.get("/sitemap.xml", async (_req, res, next) => {
   }
 });
 
-router.use(createPermalinkRouter({
-  canView: ensureSiteIsPublic,
-  previewAllowed: isPreviewAllowed,
-  async renderContent(req, res, { content, path, basePath, pageNumber, alternates }) {
-    const preview = await isPreviewAllowed(req, res);
-    await sendPublicHtml(req, res, path, preview, () =>
-      renderSinglePageHtml(req, res, path, content.slug, content.locale, preview, alternates, pageNumber, basePath, content));
-  },
-  async renderArchive(req, res, { path, name, items }) {
-    await sendPublicHtml(req, res, path, false, async () => {
-      const ctx = await buildPageContext(req, res, path);
-      const bodyHtml = `<h1>${esc(name)}</h1><ul>${items.map((item) => `<li><a href="${esc(item.path)}">${esc(item.title)}</a></li>`).join("")}</ul>`;
-      return renderPage("template", { ...ctx, publicPath: path, title: name, bodyHtml });
-    });
-  },
-}));
+router.use(
+  createPermalinkRouter({
+    canView: ensureSiteIsPublic,
+    previewAllowed: isPreviewAllowed,
+    async renderContent(req, res, { content, path, basePath, pageNumber, alternates }) {
+      const preview = await isPreviewAllowed(req, res);
+      await sendPublicHtml(req, res, path, preview, () =>
+        renderSinglePageHtml(
+          req,
+          res,
+          path,
+          content.slug,
+          content.locale,
+          preview,
+          alternates,
+          pageNumber,
+          basePath,
+          content,
+        ),
+      );
+    },
+    async renderArchive(req, res, { path, name, items }) {
+      await sendPublicHtml(req, res, path, false, async () => {
+        const ctx = await buildPageContext(req, res, path);
+        const bodyHtml = `<h1>${esc(name)}</h1><ul>${items.map((item) => `<li><a href="${esc(item.path)}">${esc(item.title)}</a></li>`).join("")}</ul>`;
+        return renderPage("template", { ...ctx, publicPath: path, title: name, bodyHtml });
+      });
+    },
+  }),
+);
 
 router.get("/", async (req, res, next) => {
   if (req.path !== "/") {
@@ -1305,14 +1354,21 @@ async function renderSinglePageHtml(
   basePath: string,
   resolvedContent?: ContentResponse,
 ): Promise<string> {
-  const pageCtx = { ...await buildPageContext(req, res, reqPath, preview), publicPath: reqPath };
-  let pageContent = resolvedContent ?? await getPublishedContentBySlug(slug, locale, preview);
+  const pageCtx = { ...(await buildPageContext(req, res, reqPath, preview)), publicPath: reqPath };
+  let pageContent = resolvedContent ?? (await getPublishedContentBySlug(slug, locale, preview));
   if (resolvedContent) {
     const { getDb } = await import("../lib/db.js");
     const { serializeContentRow } = await import("../lib/content-api.js");
     const { overlayWorkingOnRow } = await import("../lib/content-revisions.js");
-    const rows = await (await getDb()).query<Record<string, unknown>>(`SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL AND ${preview ? "status IN ('published', 'draft')" : "status = 'published'"}`, [resolvedContent.id, resolvedContent.siteId]);
-    pageContent = rows[0] ? serializeContentRow(preview ? await overlayWorkingOnRow(rows[0], true) : rows[0]) : null;
+    const rows = await (
+      await getDb()
+    ).query<Record<string, unknown>>(
+      `SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL AND ${preview ? "status IN ('published', 'draft')" : "status = 'published'"}`,
+      [resolvedContent.id, resolvedContent.siteId],
+    );
+    pageContent = rows[0]
+      ? serializeContentRow(preview ? await overlayWorkingOnRow(rows[0], true) : rows[0])
+      : null;
   }
   if (!pageContent) {
     return renderNotFoundHtml(pageCtx);
@@ -1561,7 +1617,17 @@ router.get("/:segment/page/:num", async (req, res, next) => {
     }
 
     await sendPublicHtml(req, res, req.path, preview, () =>
-      renderSinglePageHtml(req, res, req.path, segment, ctx.locale, preview, alternates, num, basePath),
+      renderSinglePageHtml(
+        req,
+        res,
+        req.path,
+        segment,
+        ctx.locale,
+        preview,
+        alternates,
+        num,
+        basePath,
+      ),
     );
   } catch (err) {
     console.error("[justflows] paginated page render failed:", err);
@@ -1721,6 +1787,20 @@ router.post("/set-locale", async (req, res) => {
   const resolved = await resolveContentLocale(locale);
   setLocaleCookie(res, resolved);
   res.json({ ok: true, locale: resolved });
+});
+
+// Nothing above matched. The single-segment (`/:segment`) and localised
+// (`/:locale/:slug`) handlers already answer unknown slugs with the themed 404,
+// but a multi-segment path like `/foo/bar` — or a reserved first segment that no
+// earlier route claimed — used to fall off the end of the router into Express's
+// bare `Cannot GET`. Serve the site's normal 404 instead: the theme's
+// `templates/404.json` when it ships one, otherwise the built-in JF `404` view.
+router.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    next();
+    return;
+  }
+  void sendPublicNotFound(req, res).catch(next);
 });
 
 export { LOCALE_COOKIE };

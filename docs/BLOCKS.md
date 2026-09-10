@@ -165,6 +165,18 @@ picker stores a root-relative path such as `/about`; it does not create a live
 reference to the content item. `core.image` uses the Media Library picker and
 continues to store the selected media URL in `props.src`.
 
+`core.image` also renders responsive markup. When `props.src` points at an
+uploaded file with generated derivatives, the public renderer injects a
+`responsive` prop (server-built and re-sanitised in `packages/blocks`) and the
+block emits `<picture>` with WebP/AVIF `<source>` sets, a fallback `srcset`,
+intrinsic `width`/`height`, `loading="lazy"`, and `decoding="async"`. Set
+`props.loading` to `eager` for an above-the-fold image (adds
+`fetchpriority="high"`), and `props.sizes` to a CSS `sizes` value. The focal
+point comes from the Media Library, not the block. See
+[Media and responsive images](MEDIA.md); `renderResponsiveImage` from
+`@justflows/blocks` is exported for theme and plugin blocks that build their own
+image markup.
+
 ## Blog post lists
 
 `justflows.blog.postList` is a platform block that turns any page into a blog
