@@ -1157,6 +1157,17 @@ async function renderHomeHtml(
   const ctx = await buildPageContext(req, res, reqPath, preview);
   const siteId = await getSiteId();
   const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
+  // hreflang alternates for the front page: every locale's home lives at its
+  // locale root (`/`, `/nl-NL/`), not at the page slug.
+  let alternates: Array<{ locale: string; slug: string; href: string }> = [];
+  if (home?.translationGroupId) {
+    const translations = await getTranslationAlternates(home.translationGroupId);
+    alternates = translations.map((tr) => ({
+      locale: tr.locale,
+      slug: tr.slug,
+      href: localePath(tr.locale, "/", ctx.defaultLocale),
+    }));
+  }
   const withHeader = await applyPageHeader(
     req,
     res,
@@ -1227,6 +1238,7 @@ async function renderHomeHtml(
     ),
     {
       content: home ?? undefined,
+      alternates,
       seoDescription: ctx.identity.tagline,
       title: home ? home.title : String(withHeader.title ?? ""),
       mainClass: home ? "site-main site-main--page" : "site-main",
@@ -1239,6 +1251,7 @@ async function renderHomeHtml(
     ...withHeader,
     ...(home ? { content: home, title: home.title } : {}),
     bodyHtml,
+    alternates,
     seoDescription: ctx.identity.tagline,
   });
 }
