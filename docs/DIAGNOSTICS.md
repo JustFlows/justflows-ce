@@ -12,6 +12,16 @@ sites the admin displays a persistent warning. The public debug toolbar is shown
 only to authenticated administrators; anonymous callers continue to receive
 safe errors without stack traces.
 
+## Test services
+
+The Diagnostics page can run bounded checks for **database**, **cache**,
+**jobs**, **email**, and **storage** without exposing credentials or customer
+data. The email check sends a real test message to the site's configured admin
+address using the transport configured in Settings → Email. The storage check
+writes, reads, and deletes a small probe file in the configured uploads
+directory (`STORAGE_LOCAL_PATH`, local disk by default) and never touches
+existing media.
+
 ## Reproduce from the server host
 
 ```bash
@@ -21,6 +31,7 @@ justflows cache clear
 justflows db migrate
 ```
 
+Copy these with the "Copy" button on the Diagnostics page, or the block above.
 Set `ADMIN_URL` when the admin server is not at `http://localhost:3001`. Copy the
 `X-Request-Id` response header when reporting a failing request, then use the
 request ID to locate its trace in Admin → System → Diagnostics.

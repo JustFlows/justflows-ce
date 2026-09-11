@@ -4,7 +4,7 @@ import { PackageManifestSchema } from "./package-manifest.js";
 const base = {
   schemaVersion: 1 as const,
   type: "plugin" as const,
-  id: "test.plugin",
+  id: "justflows.plugin",
   name: "Test",
   version: "1.0.0",
   publisher: "Test",
@@ -15,20 +15,21 @@ const menuItem = {
   id: "reports",
   label: "Reports",
   labelKey: "nav.reports",
-  path: "/admin/reports",
+  path: "reports",
   icon: "📊",
   domain: "extensions" as const,
 };
 
 describe("PackageManifestSchema adminMenu", () => {
-  it("keeps declared admin pages so they survive install", () => {
+  it("resolves a relative admin path against the plugin namespace on install", () => {
     const parsed = PackageManifestSchema.parse({
       ...base,
       permissions: ["admin:extend"],
-      adminMenu: [menuItem],
+      adminMenu: [menuItem, { id: "root", label: "Root" }],
     });
 
-    expect(parsed.adminMenu).toEqual([menuItem]);
+    expect(parsed.adminMenu?.[0]?.path).toBe("/admin/plugins/justflows.plugin/reports");
+    expect(parsed.adminMenu?.[1]?.path).toBe("/admin/plugins/justflows.plugin");
   });
 
   it("keeps contentType on an admin page so the host can list those CMS entries", () => {
@@ -48,11 +49,11 @@ describe("PackageManifestSchema adminMenu", () => {
     expect(result.error?.issues.some((issue) => issue.path[0] === "adminMenu")).toBe(true);
   });
 
-  it("rejects a menu path outside /admin/", () => {
+  it("rejects an absolute menu path", () => {
     const result = PackageManifestSchema.safeParse({
       ...base,
       permissions: ["admin:extend"],
-      adminMenu: [{ ...menuItem, path: "/wp-admin/reports" }],
+      adminMenu: [{ ...menuItem, path: "/admin/plugins/justflows.plugin/reports" }],
     });
 
     expect(result.success).toBe(false);
@@ -60,20 +61,21 @@ describe("PackageManifestSchema adminMenu", () => {
 });
 
 describe("PackageManifestSchema adminApp", () => {
-  it("keeps a declared admin app so it survives install", () => {
+  it("keeps a declared admin app and resolves its route path on install", () => {
     const parsed = PackageManifestSchema.parse({
       ...base,
       permissions: ["admin:extend"],
-      adminApp: { routes: [{ path: "/admin/forms", entry: "index.html", title: "Forms" }] },
+      adminApp: { routes: [{ entry: "index.html", title: "Forms" }] },
     });
 
     expect(parsed.adminApp?.routes?.[0]?.entry).toBe("index.html");
+    expect(parsed.adminApp?.routes?.[0]?.path).toBe("/admin/plugins/justflows.plugin");
   });
 
   it("rejects an admin app without the admin:extend permission", () => {
     const result = PackageManifestSchema.safeParse({
       ...base,
-      adminApp: { routes: [{ path: "/admin/forms", entry: "index.html" }] },
+      adminApp: { routes: [{ path: "submissions", entry: "index.html" }] },
     });
 
     expect(result.success).toBe(false);
@@ -84,7 +86,7 @@ describe("PackageManifestSchema adminApp", () => {
     const result = PackageManifestSchema.safeParse({
       ...base,
       permissions: ["admin:extend"],
-      adminApp: { routes: [{ path: "/admin/forms", entry: "app.js" }] },
+      adminApp: { routes: [{ path: "submissions", entry: "app.js" }] },
     });
 
     expect(result.success).toBe(false);

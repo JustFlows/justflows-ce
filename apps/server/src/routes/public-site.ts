@@ -1,3 +1,7 @@
+import { rateLimit } from "express-rate-limit";
+import { SearchQuerySchema } from "@justflows/content";
+import { searchContent } from "../lib/search-db.js";
+import { renderSearchPage } from "../lib/search-render.js";
 import { esc } from "@justflows/blocks";
 import type { ContentResponse } from "../lib/content-api.js";
 import { createPermalinkRouter } from "./permalinks.js";
@@ -20,6 +24,7 @@ import {
 import { formatContentDate, getGeneralSettings } from "../lib/general-settings.js";
 import { hydrateSiteWidgets } from "../lib/site-widgets.js";
 import { applyContentBlocks, applyContentRender } from "../lib/content-render.js";
+import { withResponsiveImages } from "../lib/responsive-blocks.js";
 import { createTranslator, type MessageCatalog } from "../lib/i18n/translate.js";
 import {
   defaultModsFromSchema,
@@ -333,7 +338,7 @@ async function renderBlocksHtml(
 ): Promise<string> {
   if (await isGalleryPluginEnabled()) registerGalleryBlock();
   else unregisterGalleryBlock();
-  const resolved = await withReusables(blocks);
+  const resolved = await withResponsiveImages(await withReusables(blocks), await getSiteId());
   try {
     return await renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx, templateCtx);
   } catch {
@@ -469,6 +474,10 @@ function withSiteWidgets(
     t: (key: string) => string;
   },
 ): string {
+  html = html.replace(/<span data-jf-search-text="([a-z]+)">[^<]*<\/span>/g, (markup, key: string) =>
+    ["type", "taxonomy", "term", "after", "before", "submit"].includes(key) ? `<span>${esc(ctx.t(`search.${key}`))}</span>` : markup);
+  const searchLocale = ctx.languageLinks.find(link => link.current)?.code;
+  if (searchLocale) html = html.replaceAll('action="/search"', `action="/${esc(searchLocale)}/search"`);
   return hydrateSiteWidgets(html, {
     languageLinks: ctx.languageLinks,
     usersCanRegister: ctx.usersCanRegister,
@@ -523,7 +532,10 @@ async function ensureSiteIsPublic(req: Request, res: Response): Promise<boolean>
 /** The visitor's admin-session state, for the (opt-in) role/auth menu-item visibility rules.
  * The public site has no separate front-end membership system — "authenticated" here means
  * "signed into the admin panel", the same signal `canViewUnpublishedSite`/`?preview=1` already use. */
-async function resolvePublicMenuVisibility(req: Request, res: Response): Promise<MenuVisibilityContext> {
+async function resolvePublicMenuVisibility(
+  req: Request,
+  res: Response,
+): Promise<MenuVisibilityContext> {
   const session = await resolveSession(req, res);
   return session ? { authState: "authenticated", role: session.role } : { authState: "guest" };
 }
@@ -605,7 +617,11 @@ async function loadNavItems(
 
 /** The menu design for the menu `loadNavItems` just resolved — a separate, tiny cached read
  * (same prefix, same invalidation) so the common request path stays a cache-only lookup. */
-async function loadMenuDesign(siteId: string, menuSlug: string, preview: boolean): Promise<MenuDesign | null> {
+async function loadMenuDesign(
+  siteId: string,
+  menuSlug: string,
+  preview: boolean,
+): Promise<MenuDesign | null> {
   return rememberPublic(
     `${MENUS_PREFIX}${menuSlug}:design:${preview ? "preview" : "live"}`,
     async () => {
@@ -742,6 +758,35 @@ export async function sendPublicNotFound(req: Request, res: Response): Promise<v
   );
 }
 
+/**
+ * hreflang alternates for a public page: one entry per active locale, plus an
+ * `x-default` pointing at the default language. Every active locale is listed —
+ * even one without its own translated row — because the site still serves that
+ * locale's URL (falling back to the default language) and a page must always
+ * reference itself. When a locale has a real translation with its own slug that
+ * slug is used; otherwise the current locale-stripped path is reused under that
+ * locale's prefix. Returns `[]` for single-language sites.
+ */
+export function hreflangAlternates(opts: {
+  activeLocales: string[];
+  defaultLocale: string;
+  currentPath: string;
+  translations: Array<{ locale: string; slug: string }>;
+}): Array<{ locale: string; href: string }> {
+  const { activeLocales, defaultLocale, translations } = opts;
+  if (activeLocales.length < 2) return [];
+  const currentPath = opts.currentPath.startsWith("/") ? opts.currentPath : `/${opts.currentPath}`;
+  const slugByLocale = new Map(translations.map((t) => [t.locale, t.slug]));
+  const links = activeLocales.map((locale) => {
+    const slug = slugByLocale.get(locale);
+    const localePathname = slug ? `/${slug}` : currentPath;
+    return { locale, href: localePath(locale, localePathname, defaultLocale) };
+  });
+  const canonical = links.find((l) => l.locale === defaultLocale) ?? links[0];
+  if (canonical) links.push({ locale: "x-default", href: canonical.href });
+  return links;
+}
+
 async function renderPage(view: string, data: Record<string, unknown>): Promise<string> {
   const pageData = { ...data, localePath, justflowsVersion: getJustflowsVersion() };
   const hooks = getRuntimeHooks();
@@ -820,12 +865,30 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       { siteId, source: "http" },
     );
   }
+  const rawTranslations = Array.isArray(data.alternates)
+    ? (data.alternates as Array<{ locale?: unknown; slug?: unknown }>).flatMap((t) =>
+        t && typeof t.locale === "string"
+          ? [{ locale: t.locale, slug: typeof t.slug === "string" ? t.slug : "" }]
+          : [],
+      )
+    : [];
+  const hreflangLinks =
+    view === "404" || data.discourageSearchEngines === true || !Array.isArray(data.activeLocales)
+      ? []
+      : hreflangAlternates({
+          activeLocales: data.activeLocales as string[],
+          defaultLocale: String(data.defaultLocale ?? ""),
+          currentPath: String(data.restPath ?? "/"),
+          translations: rawTranslations,
+        });
+
   return ejs.renderFile(path.join(templateDir, "layout.ejs"), {
     ...pageData,
     body,
     headExtra,
     analyticsHead,
     analyticsBody,
+    hreflangLinks,
     title: documentTitle,
   });
 }
@@ -932,7 +995,9 @@ function languageLinksFor(
     return {
       code: lang.code,
       name: lang.nativeName,
-      href: translations.find((tr) => tr.locale === lang.code)?.href ?? localePath(lang.code, path, defaultLocale),
+      href:
+        translations.find((tr) => tr.locale === lang.code)?.href ??
+        localePath(lang.code, path, defaultLocale),
       current: lang.code === currentLocale,
       displayCode: displayLocaleCode(lang.code),
       ...localePresentation(lang.code),
@@ -959,9 +1024,18 @@ async function buildPageContext(req: Request, res: Response, reqPath: string, pr
   const navMenuSlug = headerMenuSlug ?? "primary";
   const navFooterMenuSlug = footerMenuSlug ?? "footer";
   const navItems = await loadNavItems(req, res, navMenuSlug, locale, defaultLocale, preview);
-  const footerNavItems = await loadNavItems(req, res, navFooterMenuSlug, locale, defaultLocale, preview);
+  const footerNavItems = await loadNavItems(
+    req,
+    res,
+    navFooterMenuSlug,
+    locale,
+    defaultLocale,
+    preview,
+  );
   const menuDesignSiteId = await getSiteId();
-  const menuDesign = menuDesignSiteId ? await loadMenuDesign(menuDesignSiteId, navMenuSlug, preview) : null;
+  const menuDesign = menuDesignSiteId
+    ? await loadMenuDesign(menuDesignSiteId, navMenuSlug, preview)
+    : null;
   const footerMenuDesign = menuDesignSiteId
     ? await loadMenuDesign(menuDesignSiteId, navFooterMenuSlug, preview)
     : null;
@@ -1073,8 +1147,11 @@ async function applyPageHeader<T extends Awaited<ReturnType<typeof buildPageCont
     content,
   });
   const menuSlug = resolveHeaderMenuSlug(header, ctx.headerMenuSlug);
-  const navItems = menuSlug ? await loadNavItems(req, res, menuSlug, ctx.locale, ctx.defaultLocale, preview) : [];
-  const menuDesign = menuSlug && ctx.siteId ? await loadMenuDesign(ctx.siteId, menuSlug, preview) : null;
+  const navItems = menuSlug
+    ? await loadNavItems(req, res, menuSlug, ctx.locale, ctx.defaultLocale, preview)
+    : [];
+  const menuDesign =
+    menuSlug && ctx.siteId ? await loadMenuDesign(ctx.siteId, menuSlug, preview) : null;
   const withHeader = {
     ...ctx,
     header,
@@ -1118,14 +1195,27 @@ function translatedSlugPath(
   return localePath(content.locale, `/${content.slug}`, defaultLocale);
 }
 
-async function renderHomeHtml(req: Request, res: Response, reqPath: string, preview: boolean): Promise<string> {
+async function renderHomeHtml(
+  req: Request,
+  res: Response,
+  reqPath: string,
+  preview: boolean,
+): Promise<string> {
   const ctx = await buildPageContext(req, res, reqPath, preview);
   const siteId = await getSiteId();
   const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
-  const withHeader = await applyPageHeader(req, res, ctx, home?.fields, preview, submittedFormIdFrom(req), {
-    id: home ? String(home.id) : undefined,
-    type: home ? String(home.type) : undefined,
-  });
+  const withHeader = await applyPageHeader(
+    req,
+    res,
+    ctx,
+    home?.fields,
+    preview,
+    submittedFormIdFrom(req),
+    {
+      id: home ? String(home.id) : undefined,
+      type: home ? String(home.type) : undefined,
+    },
+  );
   const blogCtx = await buildBlogRenderContext(ctx.locale, 1, reqPath);
 
   let bodyHtml: string | undefined;
@@ -1252,22 +1342,57 @@ router.get("/sitemap.xml", async (_req, res, next) => {
   }
 });
 
-router.use(createPermalinkRouter({
-  canView: ensureSiteIsPublic,
-  previewAllowed: isPreviewAllowed,
-  async renderContent(req, res, { content, path, basePath, pageNumber, alternates }) {
-    const preview = await isPreviewAllowed(req, res);
-    await sendPublicHtml(req, res, path, preview, () =>
-      renderSinglePageHtml(req, res, path, content.slug, content.locale, preview, alternates, pageNumber, basePath, content));
-  },
-  async renderArchive(req, res, { path, name, items }) {
-    await sendPublicHtml(req, res, path, false, async () => {
-      const ctx = await buildPageContext(req, res, path);
-      const bodyHtml = `<h1>${esc(name)}</h1><ul>${items.map((item) => `<li><a href="${esc(item.path)}">${esc(item.title)}</a></li>`).join("")}</ul>`;
-      return renderPage("template", { ...ctx, publicPath: path, title: name, bodyHtml });
-    });
-  },
-}));
+router.get(["/search", "/:locale/search"], rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false }), async (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("X-Robots-Tag", "noindex, follow");
+  if (!(await ensureSiteIsPublic(req, res))) return;
+  const parsed = SearchQuerySchema.safeParse(req.query);
+  if (!parsed.success) { res.status(400).type("text/plain").send("Invalid search parameters"); return; }
+  try {
+    const ctx = await buildPageContext(req, res, req.path);
+    if (ctx.restPath !== "/search" && ctx.restPath !== "/search/") { res.status(404).type("text/plain").send("Not found"); return; }
+    const query = { ...parsed.data, locale: ctx.locale };
+    const result = await searchContent(ctx.siteId, query);
+    const bodyHtml = renderSearchPage(query, result, ctx.publicPath, ctx.t);
+    const viewData = { title: ctx.t("search.title"), discourageSearchEngines: true };
+    const themed = await renderThemeTemplateHtml({ kind: "search" }, ctx,
+      templateBlockContext({ content: null, formattedDate: null, contentBodyHtml: bodyHtml }, ctx, {}), viewData);
+    res.type("html").send(themed ?? await renderPage("template", { ...ctx, ...viewData, bodyHtml }));
+  } catch {
+    res.status(500).type("text/plain").send("Search is temporarily unavailable");
+  }
+});
+
+router.use(
+  createPermalinkRouter({
+    canView: ensureSiteIsPublic,
+    previewAllowed: isPreviewAllowed,
+    async renderContent(req, res, { content, path, basePath, pageNumber, alternates }) {
+      const preview = await isPreviewAllowed(req, res);
+      await sendPublicHtml(req, res, path, preview, () =>
+        renderSinglePageHtml(
+          req,
+          res,
+          path,
+          content.slug,
+          content.locale,
+          preview,
+          alternates,
+          pageNumber,
+          basePath,
+          content,
+        ),
+      );
+    },
+    async renderArchive(req, res, { path, name, items }) {
+      await sendPublicHtml(req, res, path, false, async () => {
+        const ctx = await buildPageContext(req, res, path);
+        const bodyHtml = `<h1>${esc(name)}</h1><ul>${items.map((item) => `<li><a href="${esc(item.path)}">${esc(item.title)}</a></li>`).join("")}</ul>`;
+        return renderPage("template", { ...ctx, publicPath: path, title: name, bodyHtml });
+      });
+    },
+  }),
+);
 
 router.get("/", async (req, res, next) => {
   if (req.path !== "/") {
@@ -1305,14 +1430,21 @@ async function renderSinglePageHtml(
   basePath: string,
   resolvedContent?: ContentResponse,
 ): Promise<string> {
-  const pageCtx = { ...await buildPageContext(req, res, reqPath, preview), publicPath: reqPath };
-  let pageContent = resolvedContent ?? await getPublishedContentBySlug(slug, locale, preview);
+  const pageCtx = { ...(await buildPageContext(req, res, reqPath, preview)), publicPath: reqPath };
+  let pageContent = resolvedContent ?? (await getPublishedContentBySlug(slug, locale, preview));
   if (resolvedContent) {
     const { getDb } = await import("../lib/db.js");
     const { serializeContentRow } = await import("../lib/content-api.js");
     const { overlayWorkingOnRow } = await import("../lib/content-revisions.js");
-    const rows = await (await getDb()).query<Record<string, unknown>>(`SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL AND ${preview ? "status IN ('published', 'draft')" : "status = 'published'"}`, [resolvedContent.id, resolvedContent.siteId]);
-    pageContent = rows[0] ? serializeContentRow(preview ? await overlayWorkingOnRow(rows[0], true) : rows[0]) : null;
+    const rows = await (
+      await getDb()
+    ).query<Record<string, unknown>>(
+      `SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL AND ${preview ? "status IN ('published', 'draft')" : "status = 'published'"}`,
+      [resolvedContent.id, resolvedContent.siteId],
+    );
+    pageContent = rows[0]
+      ? serializeContentRow(preview ? await overlayWorkingOnRow(rows[0], true) : rows[0])
+      : null;
   }
   if (!pageContent) {
     return renderNotFoundHtml(pageCtx);
@@ -1561,7 +1693,17 @@ router.get("/:segment/page/:num", async (req, res, next) => {
     }
 
     await sendPublicHtml(req, res, req.path, preview, () =>
-      renderSinglePageHtml(req, res, req.path, segment, ctx.locale, preview, alternates, num, basePath),
+      renderSinglePageHtml(
+        req,
+        res,
+        req.path,
+        segment,
+        ctx.locale,
+        preview,
+        alternates,
+        num,
+        basePath,
+      ),
     );
   } catch (err) {
     console.error("[justflows] paginated page render failed:", err);
@@ -1721,6 +1863,20 @@ router.post("/set-locale", async (req, res) => {
   const resolved = await resolveContentLocale(locale);
   setLocaleCookie(res, resolved);
   res.json({ ok: true, locale: resolved });
+});
+
+// Nothing above matched. The single-segment (`/:segment`) and localised
+// (`/:locale/:slug`) handlers already answer unknown slugs with the themed 404,
+// but a multi-segment path like `/foo/bar` — or a reserved first segment that no
+// earlier route claimed — used to fall off the end of the router into Express's
+// bare `Cannot GET`. Serve the site's normal 404 instead: the theme's
+// `templates/404.json` when it ships one, otherwise the built-in JF `404` view.
+router.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    next();
+    return;
+  }
+  void sendPublicNotFound(req, res).catch(next);
 });
 
 export { LOCALE_COOKIE };

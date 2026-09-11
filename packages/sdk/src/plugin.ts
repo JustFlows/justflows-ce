@@ -79,12 +79,69 @@ export const ADMIN_MENU_DOMAINS = [
   "content",
   "commerce",
   "appearance",
+  "users",
   "extensions",
+  "tools",
   "security",
   "system",
 ] as const;
 
 export type AdminMenuDomain = (typeof ADMIN_MENU_DOMAINS)[number];
+
+/**
+ * The admin URL namespace the host reserves for one plugin's own pages:
+ * `/admin/plugins/<pluginId>`. Every plugin admin screen lives here, so a URL
+ * always says whether it is core or plugin-owned.
+ */
+export function pluginAdminBasePath(pluginId: string): string {
+  return `/admin/plugins/${pluginId}`;
+}
+
+const SLASH = "/".charCodeAt(0);
+
+/**
+ * Strip leading and trailing `/` with plain index scans. `/^\/+|\/+$/` looks
+ * harmless but is quadratic on a long run of `/` that isn't anchored at the
+ * true end of the string (e.g. `"a" + "/".repeat(n) + "a"`): the engine
+ * retries the `\/+$` branch, and its backtrack, from every offset inside the
+ * run. `relativePath` below comes from plugin code, so treat it as
+ * untrusted input rather than relying on the regex engine to stay linear.
+ */
+function stripSlashes(input: string): string {
+  let start = 0;
+  let end = input.length;
+  while (start < end && input.charCodeAt(start) === SLASH) start++;
+  while (end > start && input.charCodeAt(end - 1) === SLASH) end--;
+  return input.slice(start, end);
+}
+
+/**
+ * Compose a plugin-relative admin path (`""`, `"orders"`, `"orders/refunds"`)
+ * into its absolute URL under the plugin's namespace. `""` / nullish is the
+ * namespace root.
+ */
+export function resolvePluginAdminPath(pluginId: string, relativePath?: string | null): string {
+  const base = pluginAdminBasePath(pluginId);
+  const rel = stripSlashes(String(relativePath ?? ""));
+  return rel ? `${base}/${rel}` : base;
+}
+
+/**
+ * A plugin-relative admin path: the empty string (the plugin's namespace root)
+ * or a lowercase `leaf` / `leaf/child` under it. It must **not** start with
+ * `/`, name `admin`, contain a `.` (so it can never be an absolute `/admin/…`
+ * route or repeat the dot-namespaced plugin id) — the host prepends
+ * `/admin/plugins/<pluginId>/`.
+ */
+export const RELATIVE_ADMIN_PATH_RE = /^(?:[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)?$/;
+
+const RelativeAdminPathSchema = z
+  .string()
+  .max(100)
+  .regex(
+    RELATIVE_ADMIN_PATH_RE,
+    'Admin path is relative to /admin/plugins/<your plugin id>: use "" for the plugin\'s root page or a lowercase leaf like "orders" or "orders/refunds" — never a leading "/", "admin", the plugin id, or a ".".',
+  );
 
 /**
  * One admin navigation entry owned by a plugin. The host renders these only
@@ -98,8 +155,13 @@ export const AdminMenuItemSchema = z.object({
   label: z.string().min(1).max(60),
   /** Optional admin i18n catalog key, e.g. "nav.analytics". */
   labelKey: z.string().max(120).optional(),
-  /** Admin application path. Must live under /admin/ — the host serves nothing else. */
-  path: z.string().regex(/^\/admin\/[a-z0-9][a-z0-9\-/]*$/, "Menu path must be an /admin/… route"),
+  /**
+   * Where this page mounts, **relative to the plugin's own namespace**
+   * `/admin/plugins/<your plugin id>`. Omit (or `""`) for the namespace root;
+   * otherwise a lowercase leaf such as `"orders"` or `"orders/refunds"`. The
+   * host prepends `/admin/plugins/<id>/` — never write that prefix or the id.
+   */
+  path: RelativeAdminPathSchema.optional(),
   icon: z.string().min(1).max(8).default("🔌"),
   domain: z.enum(ADMIN_MENU_DOMAINS).default("extensions"),
   /** Match the path exactly instead of as a prefix. */
@@ -162,12 +224,12 @@ const PluginAdminEntrySchema = z
   .refine((value) => !value.split("/").includes(".."), "Admin entry must not contain '..'");
 
 const PluginAdminRouteSchema = z.object({
-  /** Admin path this screen mounts at, e.g. `/admin/forms`. */
-  path: z
-    .string()
-    .max(120)
-    .regex(/^\/admin\/[a-z0-9][a-z0-9\-/]*$/, "Admin route path must look like /admin/forms")
-    .refine((value) => !value.includes(".."), "Admin route path must not contain '..'"),
+  /**
+   * Where this screen mounts, relative to the plugin's namespace
+   * `/admin/plugins/<your plugin id>` — `""` (omit) for the root, or a leaf
+   * like `"submissions"`. Same rules as `AdminMenuItemSchema.path`.
+   */
+  path: RelativeAdminPathSchema.optional(),
   /** HTML file (relative to `dir`) the admin frame loads for this path. */
   entry: PluginAdminEntrySchema,
   /** Breadcrumb / frame title; falls back to the manifest name. */
@@ -198,14 +260,19 @@ export const PluginAdminAppSchema = z.object({
   routes: z.array(PluginAdminRouteSchema).min(1).max(20),
 });
 
+/**
+ * Every extension id is `justflows.<name>` — first-party only (`justflows.seo`,
+ * `justflows.theme.dark`). The `justflows.` namespace is what the admin URL
+ * (`/admin/plugins/justflows.<name>`) and the asset mount
+ * (`/ext/justflows.<name>/…`) are built from.
+ */
+export const PLUGIN_ID_RE = /^justflows(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)+$/;
+
 export const PluginManifestSchema = z
   .object({
     id: z
       .string()
-      .regex(
-        /^[a-z0-9]+(?:\.[a-z0-9-]+)+$/,
-        "Plugin ID must be dot-separated namespaced, e.g. acme.my-plugin",
-      ),
+      .regex(PLUGIN_ID_RE, "Plugin ID must be justflows.<name> (lowercase, e.g. justflows.seo)"),
     name: z.string().min(1).max(100),
     // Anchored at both ends: `.regex()` runs RegExp.test(), which honours only
     // the `^`, so a pattern stopping at the patch number leaves everything after
@@ -257,13 +324,12 @@ export const PluginManifestSchema = z
      */
     adminMenu: z.array(AdminMenuItemSchema).max(20).optional(),
     /**
-     * Admin path to open after activation when the plugin still needs a
-     * first-run setup (database topology, credentials, store identity).
+     * Page to open after activation when the plugin still needs a first-run
+     * setup (database topology, credentials, store identity). Relative to the
+     * plugin's namespace like `adminMenu` paths: `""` is the namespace root.
+     * Omit entirely for "no setup wizard".
      */
-    setupPath: z
-      .string()
-      .regex(/^\/admin\/[a-z0-9][a-z0-9\-/]*$/, "Setup path must be an /admin/… route")
-      .optional(),
+    setupPath: RelativeAdminPathSchema.optional(),
     /**
      * Plugin registry / Marketplace listing. Internal commercial flag, publisher
      * visibility, coming-soon, and free vs paid price. Runtime does not use these;
@@ -337,6 +403,33 @@ export const PluginManifestSchema = z
         message: gplLicenseValidationMessage(manifest.license),
       });
     }
+  })
+  // Author-facing admin paths are relative to the plugin's namespace; the host
+  // and everything downstream work in absolute `/admin/plugins/<id>/…` URLs.
+  // Resolve them here, once, so a parsed manifest always carries the real path.
+  // Keys are only rewritten when present, so `adminMenu` / `adminApp` /
+  // `setupPath` stay optional on the inferred type.
+  .transform((manifest) => {
+    const out: typeof manifest = { ...manifest };
+    if (manifest.adminMenu) {
+      out.adminMenu = manifest.adminMenu.map((item) => ({
+        ...item,
+        path: resolvePluginAdminPath(manifest.id, item.path),
+      }));
+    }
+    if (manifest.adminApp) {
+      out.adminApp = {
+        ...manifest.adminApp,
+        routes: manifest.adminApp.routes.map((route) => ({
+          ...route,
+          path: resolvePluginAdminPath(manifest.id, route.path),
+        })),
+      };
+    }
+    if (manifest.setupPath !== undefined) {
+      out.setupPath = resolvePluginAdminPath(manifest.id, manifest.setupPath);
+    }
+    return out;
   });
 
 export type PluginManifest = z.infer<typeof PluginManifestSchema>;

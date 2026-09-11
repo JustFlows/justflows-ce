@@ -107,8 +107,6 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
   } else if (/^\/admin\/plugins\/[^/]+\/settings$/.test(pathname)) {
     const id = pathname.split("/")[3]!;
     paths.add(`/api/plugins/${encodeURIComponent(id)}/settings`);
-  } else if (pathname === "/admin/analytics") {
-    paths.add("/api/analytics");
   } else if (pathname === "/admin/themes") {
     paths.add("/api/themes");
   } else if (pathname === "/admin/themes/customize") {

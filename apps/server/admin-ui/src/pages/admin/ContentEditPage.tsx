@@ -494,7 +494,7 @@ export default function EditContentPage() {
     if (!confirm("Move this content to trash? You can restore it during the retention period."))
       return;
     await fetch(`/api/content/${id}`, { method: "DELETE" });
-    navigate(item?.type === "product" ? "/admin/shop/products" : "/admin/content");
+    navigate(item?.type === "product" ? "/admin/plugins/justflows.shop/products" : "/admin/content");
   }
 
   function patch(changes: Partial<ContentItem>) {

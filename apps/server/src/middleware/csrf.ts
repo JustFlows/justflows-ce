@@ -14,6 +14,19 @@ const CSRF_HEADER = "x-csrf-token";
  */
 const SKIP_PREFIXES = ["/auth/register", "/install"];
 
+/**
+ * A bearer-token request (the federated management API, `/api/manage/v1`)
+ * carries no ambient credential a hostile page could ride, so CSRF does not
+ * apply. A request that also presents a session cookie is a cookie request and
+ * still needs the token.
+ */
+function isBearerRequestWithoutCookie(req: Request): boolean {
+  return (
+    /^Bearer\s+/i.test((req.headers.authorization as string | undefined) ?? "") &&
+    !req.cookies?.jf_session
+  );
+}
+
 function tokensMatch(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
@@ -30,6 +43,11 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
 
   const path = req.path;
   if (SKIP_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+    next();
+    return;
+  }
+
+  if (isBearerRequestWithoutCookie(req)) {
     next();
     return;
   }

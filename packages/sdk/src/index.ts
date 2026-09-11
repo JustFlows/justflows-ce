@@ -97,6 +97,10 @@ export {
   SENSITIVE_PERMISSIONS,
   AdminMenuItemSchema,
   ADMIN_MENU_DOMAINS,
+  PLUGIN_ID_RE,
+  RELATIVE_ADMIN_PATH_RE,
+  pluginAdminBasePath,
+  resolvePluginAdminPath,
   PLUGIN_DELETE_DATA_SETTING,
   PLUGIN_DELETE_CONTENT_SETTING,
   pluginShouldDeleteData,
@@ -235,3 +239,5 @@ export type {
   PatternSet,
   ThemePatternRegistration,
 } from "./patterns.js";
+
+export type { SearchBackend, SearchDocument } from "./search.js";
