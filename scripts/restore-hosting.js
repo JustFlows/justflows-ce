@@ -22,6 +22,7 @@ const PACKAGE_DIRS = [
   "packages/database",
   "packages/plugin-api",
   "packages/content",
+  "packages/media",
 ];
 
 for (const dir of PACKAGE_DIRS) {
