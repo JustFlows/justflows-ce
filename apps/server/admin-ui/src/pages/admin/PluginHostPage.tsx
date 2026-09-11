@@ -9,17 +9,18 @@ import PluginSetupWizard from "./PluginSetupWizard";
 
 /**
  * Host shell for an admin path a plugin contributed (manifest `adminMenu` or
- * the `admin.menu` filter). Dedicated pages (Analytics, Forms) keep their own
- * routes; everything else lands here so a plugin does not need a core App.tsx
- * entry to be reachable.
+ * the `admin.menu` filter). Every plugin page lives under `/admin/plugins/{id}`.
+ * Host-rendered pages (Analytics, Cookie Consent) keep their own App.tsx routes;
+ * everything else lands here so a plugin does not need a core entry to be
+ * reachable.
  *
  * `GET /ext/{id}/setup` is only mounted on that plugin's `setupPath`, and only
  * while first-run setup is incomplete. After that the landing is the overview;
  * store and plugin options stay on `/admin/plugins/{id}/settings`. Nested menu
- * items (for example `/admin/shop/products`) never mount the wizard. When
- * several menu paths could match, the longest path wins so `/admin/shop` does
- * not steal `/admin/shop/products`. A menu item with `contentType` lists every
- * CMS entry of that type from `/api/content`.
+ * items (for example `/admin/plugins/justflows.shop/products`) never mount the
+ * wizard. When several menu paths could match, the longest path wins so
+ * `/admin/plugins/justflows.shop` does not steal `.../shop/products`. A menu
+ * item with `contentType` lists every CMS entry of that type from `/api/content`.
  */
 export default function PluginHostPage() {
   const { t } = useT();

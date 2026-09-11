@@ -3,6 +3,11 @@
 Justflows can push content and media lifecycle events to external HTTP services.
 Administrators manage endpoints and inspect attempts at **Admin → Webhooks**.
 
+An integration can also register and manage **its own** endpoint over HTTP with
+an API key (`settings:manage`), so no administrator has to wire it by hand — see
+the [Federated management API](FEDERATED-API.md) (`/api/manage/v1/webhooks` and
+the `/events` catalog).
+
 ## Events
 
 Core provides content create/update/publish/unpublish/delete, media

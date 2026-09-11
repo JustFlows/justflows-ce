@@ -1,58 +1,39 @@
-import { Router } from "express";
-import { randomUUID } from "node:crypto";
+import { Router, type Request } from "express";
 import { z } from "zod";
-import { getDb } from "../lib/db.js";
 import { requireRole } from "../middleware/auth.js";
-import { commentPlainText, notifyOnApproval, sanitizeCommentBody } from "../lib/comments-public.js";
 import { param } from "../lib/params.js";
-import { invalidatePublicPages } from "../lib/public-cache.js";
-import { auditFromRequest } from "../lib/audit-log.js";
-
-/** Post pages cache their rendered comment thread; drop it on any change. */
-async function bustCommentCache(_siteId: string): Promise<void> {
-  await invalidatePublicPages();
-}
+import {
+  editComment,
+  listComments,
+  purgeTrashedComments,
+  replyToComment,
+  setCommentStatuses,
+  type ModerationActor,
+} from "../lib/comments-moderation.js";
 
 const router = Router();
 
-function now(): string {
-  return new Date()
-    .toISOString()
-    .replace("T", " ")
-    .replace(/\.\d+Z$/, "");
+function actorOf(req: Request): ModerationActor {
+  const session = req.session!;
+  return {
+    siteId: session.siteId,
+    userId: session.userId,
+    role: session.role,
+    ip: req.ip ?? null,
+    userAgent: req.get("user-agent") ?? null,
+  };
 }
-
-const COMMENT_STATUSES = new Set(["pending", "approved", "spam", "trash"]);
 
 // Comment rows carry commenter names and email addresses. Read access matches
 // the write handlers below rather than "any signed-in user".
 router.get("/", requireRole("administrator", "editor"), async (req, res) => {
-  const session = req.session!;
-  const requested = (req.query.status as string) ?? "pending";
-  const status = COMMENT_STATUSES.has(requested) ? requested : "pending";
-  const limit = Math.min(Math.max(Number(req.query.limit ?? "30"), 1), 100);
-  const page = Math.min(Math.max(Number(req.query.page ?? "1"), 1), 100_000);
-  const offset = (page - 1) * limit;
-
-  const db = await getDb();
-  const [rows, countRows] = await Promise.all([
-    db.query<Record<string, unknown>>(
-      `SELECT c.id, c.parent_id, c.content_id, c.author_name, c.author_email, c.author_url,
-              c.body, c.status, c.created_at, c.edited_at,
-              co.title AS content_title, co.slug AS content_slug
-         FROM comments c
-         LEFT JOIN content co ON c.content_id = co.id
-        WHERE c.site_id = ? AND c.status = ?
-        ORDER BY c.created_at DESC
-        LIMIT ? OFFSET ?`,
-      [session.siteId, status, limit, offset],
-    ),
-    db.query<{ total: number }>(
-      "SELECT COUNT(*) AS total FROM comments WHERE site_id = ? AND status = ?",
-      [session.siteId, status],
-    ),
-  ]);
-  res.json({ comments: rows, total: Number(countRows[0]?.total ?? 0), page, limit });
+  res.json(
+    await listComments(req.session!.siteId, {
+      status: req.query.status as string | undefined,
+      limit: Number(req.query.limit ?? "30"),
+      page: Number(req.query.page ?? "1"),
+    }),
+  );
 });
 
 const ApproveSchema = z.object({
@@ -61,43 +42,13 @@ const ApproveSchema = z.object({
 });
 
 router.patch("/", requireRole("administrator", "editor"), async (req, res) => {
-  const session = req.session!;
   const body = ApproveSchema.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: body.error.issues[0]?.message });
     return;
   }
-
-  const statusMap = {
-    approve: "approved",
-    pending: "pending",
-    spam: "spam",
-    trash: "trash",
-  } as const;
-  const newStatus = statusMap[body.data.action];
-  const db = await getDb();
-
-  for (const id of body.data.ids) {
-    if (newStatus === "trash") {
-      await db.run(
-        "UPDATE comments SET original_status = status, status = ?, trashed_at = ?, trashed_by = ?, updated_at = ? WHERE id = ? AND site_id = ? AND status != 'trash'",
-        [newStatus, now(), session.userId, now(), id, session.siteId],
-      );
-      auditFromRequest(req, "trash.trashed", { target: id, detail: "type=comment" });
-    } else {
-      await db.run(
-        "UPDATE comments SET status = ?, trashed_at = NULL, trashed_by = NULL, updated_at = ? WHERE id = ? AND site_id = ?",
-        [newStatus, now(), id, session.siteId],
-      );
-    }
-  }
-
-  if (newStatus === "approved") {
-    void notifyOnApproval(session.siteId, body.data.ids).catch(() => undefined);
-  }
-  await bustCommentCache(session.siteId);
-
-  res.json({ ok: true, updated: body.data.ids.length });
+  const result = await setCommentStatuses(actorOf(req), body.data.ids, body.data.action);
+  res.status(result.status).json(result.body);
 });
 
 const EditSchema = z.object({
@@ -106,127 +57,38 @@ const EditSchema = z.object({
 });
 
 router.patch("/:id", requireRole("administrator", "editor"), async (req, res) => {
-  const session = req.session!;
   const parsed = EditSchema.safeParse(req.body);
-  if (!parsed.success || (parsed.data.body === undefined && parsed.data.status === undefined)) {
-    res
-      .status(400)
-      .json({ error: parsed.success ? "Nothing to update" : parsed.error.issues[0]?.message });
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message });
     return;
   }
-  const db = await getDb();
-  const sets: string[] = ["updated_at = ?"];
-  const params: (string | number | null)[] = [now()];
-  if (parsed.data.body !== undefined) {
-    const clean = sanitizeCommentBody(parsed.data.body);
-    if (!commentPlainText(clean)) {
-      res.status(400).json({ error: "Comment body is empty" });
-      return;
-    }
-    sets.push("body = ?", "edited_at = ?");
-    params.push(clean, now());
-  }
-  if (parsed.data.status !== undefined) {
-    if (parsed.data.status === "trash") sets.push("original_status = status");
-    sets.push("status = ?", "trashed_at = ?", "trashed_by = ?");
-    params.push(
-      parsed.data.status,
-      parsed.data.status === "trash" ? now() : null,
-      parsed.data.status === "trash" ? session.userId : null,
-    );
-  }
-  params.push(param(req.params.id), session.siteId);
-  await db.run(`UPDATE comments SET ${sets.join(", ")} WHERE id = ? AND site_id = ?`, params);
-
-  if (parsed.data.status === "approved") {
-    void notifyOnApproval(session.siteId, [param(req.params.id)]).catch(() => undefined);
-  }
-  await bustCommentCache(session.siteId);
-  if (parsed.data.status === "trash")
-    auditFromRequest(req, "trash.trashed", {
-      target: param(req.params.id),
-      detail: "type=comment",
-    });
-  res.json({ ok: true });
+  const result = await editComment(actorOf(req), param(req.params.id), parsed.data);
+  res.status(result.status).json(result.body);
 });
 
 const ReplySchema = z.object({ body: z.string().min(1).max(20_000) });
 
 router.post("/:id/reply", requireRole("administrator", "editor"), async (req, res) => {
-  const session = req.session!;
   const parsed = ReplySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message });
     return;
   }
-  const db = await getDb();
-  const parentRows = await db.query<{ id: string; content_id: string }>(
-    "SELECT id, content_id FROM comments WHERE id = ? AND site_id = ? LIMIT 1",
-    [param(req.params.id), session.siteId],
-  );
-  const parent = parentRows[0];
-  if (!parent) {
-    res.status(404).json({ error: "Comment not found" });
-    return;
-  }
-  const userRows = await db.query<{ display_name: string; username: string; email: string }>(
-    "SELECT display_name, username, email FROM users WHERE id = ? AND site_id = ? LIMIT 1",
-    [session.userId, session.siteId],
-  );
-  const u = userRows[0];
-  const authorName = (u?.display_name || u?.username || "Moderator").slice(0, 120);
-  const clean = sanitizeCommentBody(parsed.data.body);
-  if (!commentPlainText(clean)) {
-    res.status(400).json({ error: "Reply is empty" });
-    return;
-  }
-  const id = randomUUID();
-  const ts = now();
-  await db.run(
-    `INSERT INTO comments
-       (id, site_id, content_id, parent_id, author_name, author_email, body, status, user_id, notify, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?)`,
-    [
-      id,
-      session.siteId,
-      parent.content_id,
-      parent.id,
-      authorName,
-      u?.email ?? null,
-      clean,
-      session.userId,
-      false,
-      ts,
-      ts,
-    ],
-  );
-  void notifyOnApproval(session.siteId, [id]).catch(() => undefined);
-  await bustCommentCache(session.siteId);
-  res.json({ ok: true, id });
+  const result = await replyToComment(actorOf(req), param(req.params.id), parsed.data.body);
+  res.status(result.status).json(result.body);
 });
 
 const DeleteSchema = z.object({ ids: z.array(z.string()).min(1) });
 
 /** Hard-delete comments that are already in the trash. */
 router.delete("/", requireRole("administrator"), async (req, res) => {
-  const session = req.session!;
   const parsed = DeleteSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message });
     return;
   }
-  const db = await getDb();
-  let deleted = 0;
-  for (const id of parsed.data.ids) {
-    await db.run("DELETE FROM comments WHERE id = ? AND site_id = ? AND status = 'trash'", [
-      id,
-      session.siteId,
-    ]);
-    auditFromRequest(req, "trash.purged", { target: id, detail: "type=comment" });
-    deleted++;
-  }
-  await bustCommentCache(session.siteId);
-  res.json({ ok: true, deleted });
+  const result = await purgeTrashedComments(actorOf(req), parsed.data.ids);
+  res.status(result.status).json(result.body);
 });
 
 export default router;

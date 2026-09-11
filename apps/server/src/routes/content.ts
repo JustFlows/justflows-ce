@@ -1,4 +1,4 @@
-import { uniquePermalinkSlug, rememberContentPermalink, PermalinkConflictError } from "../lib/permalinks-db.js";
+import { uniquePermalinkSlug, PermalinkConflictError } from "../lib/permalinks-db.js";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -9,12 +9,9 @@ import { revalidateOnUpdate } from "../lib/cache-revalidate.js";
 import {
   applySnapshotToContent,
   archiveThenDeleteWorking,
-  deleteRevisionById,
   getRevisionById,
   getWorkingRevision,
-  insertHistoricalIfChanged,
   listRevisions,
-  pruneHistoricalForContent,
   revisionColumn,
   revisionToSnapshot,
   rowToSnapshot,
@@ -22,127 +19,38 @@ import {
   serializeRevision,
   upsertWorkingRevision,
 } from "../lib/content-revisions.js";
-import {
-  diffSnapshots,
-  snapshotsEqual,
-  DEFAULT_REVISION_MAX_HISTORY,
-  type ContentSnapshot,
-} from "@justflows/content";
+import { diffSnapshots, DEFAULT_REVISION_MAX_HISTORY } from "@justflows/content";
 import { resolveContentLocale } from "../lib/i18n/languages-db.js";
 import { invalidateContentCache } from "../lib/content-public.js";
 import { getRuntimeHooks } from "../lib/plugin-runtime.js";
 import { isHookAbortError } from "@justflows/core";
 import { sanitizeBlockDocument } from "@justflows/blocks";
-import {
-  defaultBlocksForContentType,
-  isEmptyBlockDocument,
-} from "../lib/default-content-blocks.js";
 import { requireCapability, requireSession } from "../middleware/auth.js";
 import { userCan, getEffectiveAccess } from "../lib/access-policy.js";
 import { param } from "../lib/params.js";
-import { ContentTypeSlugSchema } from "@justflows/content";
-import { getContentTypeBySlug } from "../lib/content-types-db.js";
 import { auditLog } from "../lib/audit-log.js";
 import { sendServerError } from "../lib/send-error.js";
+import {
+  applyDraftUpdate,
+  contentHookRef,
+  createContentEntry,
+  CreateContentSchema as CreateSchema,
+  hookCtx,
+  now,
+  PatchContentSchema as PatchSchema,
+  publishRow,
+  saveWorkingRow,
+  slugify,
+  trashContentEntry,
+  unpublishRow,
+  type ContentActor,
+} from "../lib/content-write.js";
 
 const router = Router();
-
-const CreateSchema = z.object({
-  type: ContentTypeSlugSchema.default("post"),
-  title: z.string().min(1),
-  slug: z.string().optional(),
-  excerpt: z.string().optional(),
-  locale: z.string().optional(),
-  translationGroupId: z.string().uuid().optional(),
-  blocks: z.object({ version: z.literal(1), blocks: z.array(z.unknown()) }).optional(),
-  fields: z.record(z.string(), z.unknown()).optional(),
-});
-
-const PatchSchema = z
-  .object({
-    title: z.string().optional(),
-    slug: z.string().optional(),
-    excerpt: z.string().nullable().optional(),
-    blocks: z.unknown().optional(),
-    fields: z.record(z.string(), z.unknown()).optional(),
-    status: z.enum(["draft", "published", "archived", "scheduled"]).optional(),
-    expectedVersion: z.number().int().positive().optional(),
-    source: z.enum(["manual", "autosave", "import", "api"]).optional(),
-  })
-  .passthrough();
 
 const TranslateSchema = z.object({
   locale: z.string().min(2).max(20),
 });
-
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .slice(0, 200);
-}
-
-function now(): string {
-  return new Date()
-    .toISOString()
-    .replace("T", " ")
-    .replace(/\.\d+Z$/, "");
-}
-
-function hookCtx(session: { siteId: string; userId: string; role: string }) {
-  return {
-    siteId: session.siteId,
-    source: "http" as const,
-    actor: { userId: session.userId, role: session.role },
-  };
-}
-
-function translationGroupOf(
-  row: { id?: unknown; translation_group_id?: unknown },
-  fallbackId: string,
-): string {
-  return row.translation_group_id ? String(row.translation_group_id) : fallbackId;
-}
-
-function contentHookRef(
-  contentId: string,
-  siteId: string,
-  extras: { type?: string; translationGroupId?: string; lastInTranslationGroup?: boolean } = {},
-) {
-  return {
-    contentId,
-    siteId,
-    ...(extras.type ? { type: extras.type } : {}),
-    ...(extras.translationGroupId ? { translationGroupId: extras.translationGroupId } : {}),
-    ...(extras.lastInTranslationGroup !== undefined
-      ? { lastInTranslationGroup: extras.lastInTranslationGroup }
-      : {}),
-  };
-}
-
-function mergeSnapshot(
-  base: ContentSnapshot,
-  patch: {
-    title?: string;
-    slug?: string;
-    excerpt?: string | null;
-    blocks?: unknown;
-    fields?: Record<string, unknown>;
-  },
-): ContentSnapshot {
-  return {
-    title: patch.title ?? base.title,
-    slug: patch.slug ?? base.slug,
-    excerpt: patch.excerpt !== undefined ? patch.excerpt : base.excerpt,
-    blocks:
-      patch.blocks !== undefined
-        ? (sanitizeBlockDocument(patch.blocks) as ContentSnapshot["blocks"])
-        : base.blocks,
-    fields: patch.fields != null ? { ...base.fields, ...patch.fields } : base.fields,
-  };
-}
 
 router.get("/", requireSession, async (req, res) => {
   const session = req.session!;
@@ -248,86 +156,8 @@ router.post(
         return;
       }
 
-      const { type, title, excerpt, blocks, fields } = body.data;
-      const registered = await getContentTypeBySlug(type, session.siteId);
-      if (!registered) {
-        res.status(400).json({ error: `Unknown content type "${type}"` });
-        return;
-      }
-      let slug = body.data.slug ? slugify(body.data.slug) : slugify(title);
-      const id = randomUUID();
-      const locale = await resolveContentLocale(body.data.locale, session.siteId);
-      try {
-        slug = await uniquePermalinkSlug(serializeContentRow({ id, site_id: session.siteId, type, title, slug, locale, status: "draft", created_at: now(), author_id: session.userId, fields: fields ?? {} }));
-      } catch (err) {
-        if (err instanceof PermalinkConflictError) { res.status(409).json({ error: err.message }); return; }
-        throw err;
-      }
-      const translationGroupId = body.data.translationGroupId ?? id;
-      const hooks = getRuntimeHooks();
-      const hookCtx = {
-        siteId: session.siteId,
-        source: "http" as const,
-        actor: { userId: session.userId, role: session.role },
-      };
-
-      try {
-        await hooks.dispatchGate(
-          "content.beforeCreate",
-          {
-            input: {
-              siteId: session.siteId,
-              type,
-              title,
-              slug,
-              excerpt: excerpt ?? null,
-              fields: fields ?? {},
-            },
-          },
-          hookCtx,
-        );
-      } catch (err) {
-        if (isHookAbortError(err)) {
-          res.status(403).json({ error: err.message });
-          return;
-        }
-        throw err;
-      }
-
-      const db = await getDb();
-      const blockDoc = isEmptyBlockDocument(blocks)
-        ? await defaultBlocksForContentType(type)
-        : blocks;
-
-      await db.run(
-        `INSERT INTO content (id, site_id, type, title, slug, locale, translation_group_id, excerpt, blocks, fields, status, author_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
-        [
-          id,
-          session.siteId,
-          type,
-          title,
-          slug,
-          locale,
-          translationGroupId,
-          excerpt ?? null,
-          JSON.stringify(sanitizeBlockDocument(blockDoc)),
-          JSON.stringify(fields ?? {}),
-          session.userId,
-          now(),
-          now(),
-        ],
-      );
-
-      const rows = await db.query<Record<string, unknown>>("SELECT * FROM content WHERE id = ?", [
-        id,
-      ]);
-      await hooks.dispatchAction(
-        "content.created",
-        contentHookRef(id, session.siteId, { type, translationGroupId }),
-        hookCtx,
-      );
-      res.status(201).json(serializeContentRow(rows[0]!));
+      const result = await createContentEntry(body.data, session);
+      res.status(result.status).json(result.body);
     } catch (err) {
       sendServerError(res, "content", err);
     }
@@ -569,8 +399,6 @@ router.patch("/:id", requireSession, async (req, res) => {
         throw err;
       }
     }
-    const ctx = hookCtx(session);
-    const contentRef = { contentId: id, siteId: session.siteId, type: String(row.type) };
     const status = String(row.status);
     const wantsPublish = body.data.status === "published";
     const wantsUnpublish =
@@ -591,62 +419,7 @@ router.patch("/:id", requireSession, async (req, res) => {
       return;
     }
 
-    const hooks = getRuntimeHooks();
-    const proposed = mergeSnapshot(rowToSnapshot(row), body.data);
-    try {
-      await hooks.dispatchGate("content.beforeUpdate", { ...contentRef, revision: proposed }, ctx);
-    } catch (err) {
-      if (isHookAbortError(err)) {
-        res.status(403).json({ error: err.message });
-        return;
-      }
-      throw err;
-    }
-
-    if (!snapshotsEqual(rowToSnapshot(row), proposed)) {
-      await insertHistoricalIfChanged(row, session.userId);
-    }
-
-    const fields: string[] = [];
-    const values: (string | number | boolean | null)[] = [];
-    if (body.data.title !== undefined) {
-      fields.push("title = ?");
-      values.push(body.data.title);
-    }
-    if (body.data.slug !== undefined) {
-      fields.push("slug = ?");
-      values.push(body.data.slug);
-    }
-    if (body.data.excerpt !== undefined) {
-      fields.push("excerpt = ?");
-      values.push(body.data.excerpt);
-    }
-    if (body.data.blocks !== undefined) {
-      fields.push("blocks = ?");
-      values.push(JSON.stringify(sanitizeBlockDocument(body.data.blocks)));
-    }
-    if (body.data.fields !== undefined) {
-      fields.push("fields = ?");
-      values.push(JSON.stringify(body.data.fields));
-    }
-    if (body.data.status !== undefined) {
-      fields.push("status = ?");
-      values.push(body.data.status);
-    }
-    if (fields.length === 0) {
-      res.status(400).json({ error: "No fields to update" });
-      return;
-    }
-    fields.push("updated_at = ?", "version = version + 1");
-    values.push(now(), id, session.siteId);
-    await db.run(`UPDATE content SET ${fields.join(", ")} WHERE id = ? AND site_id = ?`, values);
-
-    const rows = await db.query<Record<string, unknown>>(
-      "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
-      [id, session.siteId],
-    );
-    await hooks.dispatchAction("content.updated", contentRef, ctx);
-    res.json(rows[0] ? serializeEditorContent(rows[0], null) : { error: "Not found" });
+    await applyDraftUpdate(row, body.data, session, res);
   } catch (err) {
     sendServerError(res, "content", err);
   }
@@ -1013,272 +786,9 @@ router.delete("/:id", requireSession, async (req, res) => {
     return;
   }
 
-  const hooks = getRuntimeHooks();
-  const hookCtx = {
-    siteId: session.siteId,
-    source: "http" as const,
-    actor: { userId: session.userId, role: session.role },
-  };
-  const groupId = translationGroupOf(row, id);
-  const siblings = await db.query<{ id: string }>(
-    "SELECT id FROM content WHERE site_id = ? AND translation_group_id = ? AND id != ? LIMIT 1",
-    [session.siteId, groupId, id],
-  );
-  const contentRef = contentHookRef(id, session.siteId, {
-    type: row.type,
-    translationGroupId: groupId,
-    lastInTranslationGroup: !siblings[0],
-  });
-
-  try {
-    await hooks.dispatchGate("content.beforeDelete", contentRef, hookCtx);
-  } catch (err) {
-    if (isHookAbortError(err)) {
-      res.status(403).json({ error: err.message });
-      return;
-    }
-    throw err;
-  }
-
-  const trashedSlug = `${row.type}-trash-${id}`;
-  await db.run(
-    "UPDATE content SET original_slug = slug, original_status = status, slug = ?, status = 'trashed', trashed_at = ?, trashed_by = ?, updated_at = ? WHERE id = ? AND site_id = ?",
-    [trashedSlug, now(), session.userId, now(), id, session.siteId],
-  );
-  await invalidateContentCache();
-  await hooks.dispatchAction("content.deleted", contentRef, hookCtx);
-  void auditLog({
-    siteId: session.siteId,
-    action: "trash.trashed",
-    actorId: session.userId,
-    actorRole: session.role,
-    target: id,
-    detail: `type=content; contentType=${row.type}`,
-  });
-  res.json({ ok: true });
+  const actor: ContentActor = session;
+  const result = await trashContentEntry({ id, ...row }, actor);
+  res.status(result.status).json(result.body);
 });
-
-type SessionActor = { siteId: string; userId: string; role: string };
-
-async function saveWorkingRow(
-  row: Record<string, unknown>,
-  patch: {
-    title?: string;
-    slug?: string;
-    excerpt?: string | null;
-    blocks?: unknown;
-    fields?: Record<string, unknown>;
-    source?: "manual" | "autosave" | "import" | "api";
-  },
-  session: SessionActor,
-  res: {
-    json: (body: unknown) => void;
-    status: (code: number) => { json: (body: unknown) => void };
-  },
-): Promise<void> {
-  const id = String(row.id);
-  const working = await getWorkingRevision(id, session.siteId);
-  const base = working ? revisionToSnapshot(working) : rowToSnapshot(row);
-  let proposed = mergeSnapshot(base, patch);
-  const hooks = getRuntimeHooks();
-  const ctx = hookCtx(session);
-  proposed = await hooks.applyFilter(
-    "content.revision",
-    proposed,
-    { siteId: session.siteId, contentId: id },
-    ctx,
-  );
-  try {
-    await hooks.dispatchGate(
-      "content.beforeUpdate",
-      { contentId: id, siteId: session.siteId, revision: proposed, revisionId: working?.id },
-      ctx,
-    );
-  } catch (err) {
-    if (isHookAbortError(err)) {
-      res.status(403).json({ error: err.message });
-      return;
-    }
-    throw err;
-  }
-
-  const saved = await upsertWorkingRevision(row, {
-    snapshot: proposed,
-    source: patch.source ?? "manual",
-    actorId: session.userId,
-    baseVersion: Number(row.version ?? 1) || 1,
-  });
-  if (saved) {
-    await hooks.dispatchAction(
-      "content.revisionSaved",
-      { contentId: id, siteId: session.siteId, revisionId: saved.id, source: saved.source },
-      ctx,
-    );
-  }
-  res.json(serializeEditorContent(row, saved));
-}
-
-async function publishRow(
-  row: Record<string, unknown>,
-  patch: {
-    title?: string;
-    slug?: string;
-    excerpt?: string | null;
-    blocks?: unknown;
-    fields?: Record<string, unknown>;
-    expectedVersion?: number;
-  },
-  session: SessionActor,
-  res: {
-    json: (body: unknown) => void;
-    status: (code: number) => { json: (body: unknown) => void };
-  },
-): Promise<void> {
-  const id = String(row.id);
-  const siteId = session.siteId;
-  const liveVersion = Number(row.version ?? 1) || 1;
-  if (patch.expectedVersion != null && patch.expectedVersion !== liveVersion) {
-    res.status(409).json({
-      error: `Version conflict: expected ${patch.expectedVersion}, got ${liveVersion}`,
-      expectedVersion: patch.expectedVersion,
-      actualVersion: liveVersion,
-    });
-    return;
-  }
-
-  const working = await getWorkingRevision(id, siteId);
-  if (working && String(row.status) === "published" && working.baseVersion !== liveVersion) {
-    res.status(409).json({
-      error: `Live version changed since this draft was created (live ${liveVersion}, draft base ${working.baseVersion})`,
-      expectedVersion: working.baseVersion,
-      actualVersion: liveVersion,
-    });
-    return;
-  }
-
-  const base = working ? revisionToSnapshot(working) : rowToSnapshot(row);
-  const proposed = mergeSnapshot(base, patch);
-  const hooks = getRuntimeHooks();
-  const ctx = hookCtx(session);
-  const contentRef = {
-    contentId: id,
-    siteId,
-    revision: proposed,
-    revisionId: working?.id,
-  };
-
-  try {
-    await hooks.dispatchGate("content.beforeUpdate", contentRef, ctx);
-    await hooks.dispatchGate("content.beforePublish", contentRef, ctx);
-  } catch (err) {
-    if (isHookAbortError(err)) {
-      res.status(403).json({ error: err.message });
-      return;
-    }
-    throw err;
-  }
-
-  const publishedAt = serializeContentRow(row).publishedAt ?? new Date().toISOString();
-  const nextContent = { ...serializeContentRow(row), ...proposed, status: "published", publishedAt };
-  try {
-    proposed.slug = await uniquePermalinkSlug(nextContent);
-    nextContent.slug = proposed.slug;
-  } catch (err) {
-    if (err instanceof PermalinkConflictError) { res.status(409).json({ error: err.message }); return; }
-    throw err;
-  }
-  let historicalId: string | null = null;
-  historicalId = await insertHistoricalIfChanged(row, session.userId);
-
-  try {
-    const applied = await applySnapshotToContent(id, siteId, proposed, {
-      status: "published",
-      publishedAt,
-      expectedVersion: liveVersion,
-    });
-    if (!applied) {
-      if (historicalId) await deleteRevisionById(historicalId, siteId);
-      res.status(409).json({
-        error: "Version conflict while publishing",
-        expectedVersion: liveVersion,
-      });
-      return;
-    }
-    await archiveThenDeleteWorking(row, session.userId);
-  } catch (err) {
-    if (historicalId) await deleteRevisionById(historicalId, siteId).catch(() => undefined);
-    throw err;
-  }
-
-  await rememberContentPermalink(serializeContentRow(row), nextContent);
-  await pruneHistoricalForContent(id, siteId);
-  await invalidateContentCache();
-  await hooks.dispatchAction(
-    "content.updated",
-    { contentId: id, siteId, type: String(row.type) },
-    ctx,
-  );
-  await hooks.dispatchAction(
-    "content.published",
-    { contentId: id, siteId, type: String(row.type) },
-    ctx,
-  );
-  void auditLog({
-    siteId,
-    action: "content.published",
-    actorId: session.userId,
-    actorRole: session.role,
-    target: id,
-  });
-
-  const db = await getDb();
-  const next = await db.query<Record<string, unknown>>(
-    "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
-    [id, siteId],
-  );
-  res.json(serializeEditorContent(next[0]!, null));
-}
-
-async function unpublishRow(
-  row: Record<string, unknown>,
-  patch: {
-    title?: string;
-    slug?: string;
-    excerpt?: string | null;
-    blocks?: unknown;
-    fields?: Record<string, unknown>;
-  },
-  session: SessionActor,
-  res: {
-    json: (body: unknown) => void;
-    status: (code: number) => { json: (body: unknown) => void };
-  },
-): Promise<void> {
-  const id = String(row.id);
-  const working = await getWorkingRevision(id, session.siteId);
-  const base = working ? revisionToSnapshot(working) : rowToSnapshot(row);
-  const proposed = mergeSnapshot(base, patch);
-  const applied = await applySnapshotToContent(id, session.siteId, proposed, {
-    status: "draft",
-    expectedVersion: Number(row.version ?? 1) || 1,
-  });
-  if (!applied) {
-    res.status(409).json({ error: "Version conflict while unpublishing" });
-    return;
-  }
-  await archiveThenDeleteWorking(row, session.userId);
-  await invalidateContentCache();
-  await getRuntimeHooks().dispatchAction(
-    "content.unpublished",
-    { contentId: id, siteId: session.siteId },
-    hookCtx(session),
-  );
-  const db = await getDb();
-  const next = await db.query<Record<string, unknown>>(
-    "SELECT * FROM content WHERE id = ? AND site_id = ? LIMIT 1",
-    [id, session.siteId],
-  );
-  res.json(serializeEditorContent(next[0]!, null));
-}
 
 export default router;

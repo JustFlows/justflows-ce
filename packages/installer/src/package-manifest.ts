@@ -7,6 +7,9 @@ import {
   PluginAdminAppSchema,
   RegistryListingSchema,
   ExtensionEnginesSchema,
+  PLUGIN_ID_RE,
+  RELATIVE_ADMIN_PATH_RE,
+  resolvePluginAdminPath,
   ThemePatternRegistrationSchema,
 } from "@justflows/sdk";
 
@@ -25,7 +28,7 @@ export const PackageManifestSchema = z
     type: z.enum(["plugin", "theme", "css-provider"]),
     id: z
       .string()
-      .regex(/^[a-z0-9]+(?:\.[a-z0-9-]+)+$/, "ID must be dot-namespaced e.g. acme.my-plugin"),
+      .regex(PLUGIN_ID_RE, "ID must be justflows.<name> (lowercase, e.g. justflows.seo)"),
     name: z.string().min(1).max(100),
     /**
      * Anchored at both ends. `.regex()` runs RegExp.test(), which only honours
@@ -85,9 +88,13 @@ export const PackageManifestSchema = z
      * declaration survives install and can be re-read from the stored manifest.
      */
     adminMenu: z.array(AdminMenuItemSchema).max(20).optional(),
+    // Relative to `/admin/plugins/<id>` like `adminMenu` paths — see the SDK
+    // `RELATIVE_ADMIN_PATH_RE` doc. `""` is the namespace root; omit for "no
+    // setup wizard".
     setupPath: z
       .string()
-      .regex(/^\/admin\/[a-z0-9][a-z0-9\-/]*$/, "Setup path must be an /admin/… route")
+      .max(100)
+      .regex(RELATIVE_ADMIN_PATH_RE, "Setup path must be relative to /admin/plugins/<id>")
       .optional(),
     /**
      * Plugin registry / Marketplace listing. The publisher fills this in;
@@ -157,6 +164,31 @@ export const PackageManifestSchema = z
         message: "Only themes may register patterns",
       });
     }
+  })
+  // Resolve the plugin-relative admin paths against the manifest id so the
+  // stored manifest (and everything that reads it) carries absolute
+  // `/admin/plugins/<id>/…` URLs — matches the SDK `PluginManifestSchema`.
+  .transform((manifest) => {
+    const out: typeof manifest = { ...manifest };
+    if (manifest.adminMenu) {
+      out.adminMenu = manifest.adminMenu.map((item) => ({
+        ...item,
+        path: resolvePluginAdminPath(manifest.id, item.path),
+      }));
+    }
+    if (manifest.adminApp) {
+      out.adminApp = {
+        ...manifest.adminApp,
+        routes: manifest.adminApp.routes.map((route) => ({
+          ...route,
+          path: resolvePluginAdminPath(manifest.id, route.path),
+        })),
+      };
+    }
+    if (manifest.setupPath !== undefined) {
+      out.setupPath = resolvePluginAdminPath(manifest.id, manifest.setupPath);
+    }
+    return out;
   });
 
 export type PackageManifest = z.infer<typeof PackageManifestSchema>;

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { randomUUID } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import os from "node:os";
 import fs from "node:fs";
@@ -17,9 +18,10 @@ import { MIGRATION_ORDER } from "../lib/run-migrations.js";
 import { requireRole } from "../middleware/auth.js";
 import { sendServerError } from "../lib/send-error.js";
 import { applyEnvToProcess, updateEnvKeys } from "../lib/env-file.js";
-import { getJfRoot } from "../lib/jf-root.js";
+import { getJfRoot, uploadsDir } from "../lib/jf-root.js";
 import { packagesInstalledDir } from "../lib/packages-dir.js";
 import { auditFromRequest } from "../lib/audit-log.js";
+import { sendTestMail } from "../lib/mail.js";
 
 const router = Router();
 const diagnosticsLimit = rateLimit({
@@ -274,7 +276,7 @@ async function buildReport(siteId: string) {
   };
 }
 
-const TestActionSchema = z.object({ action: z.enum(["database", "cache", "jobs"]) });
+const TestActionSchema = z.object({ action: z.enum(["database", "cache", "jobs", "email", "storage"]) });
 
 router.post("/test", async (req, res) => {
   const parsed = TestActionSchema.safeParse(req.body);
@@ -286,6 +288,16 @@ router.post("/test", async (req, res) => {
       const cache = getJfCache();
       const key = `diagnostics:test:${req.session!.siteId}`;
       await cache.set(key, { ok: true }, 5); await cache.get(key); await cache.delete(key);
+    } else if (parsed.data.action === "email") {
+      const result = await sendTestMail();
+      if (!result.ok) throw new Error(result.error ?? "Test email failed to send");
+    } else if (parsed.data.action === "storage") {
+      const dir = uploadsDir();
+      const probePath = path.join(dir, `.diagnostics-probe-${randomUUID()}`);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(probePath, "justflows diagnostics probe");
+      fs.readFileSync(probePath);
+      fs.unlinkSync(probePath);
     } else getPluginJobScheduler().listJobs();
     auditFromRequest(req, "diagnostics.test_run", { detail: parsed.data.action });
     res.json({ ok: true, action: parsed.data.action, latencyMs: Math.round((performance.now() - started) * 100) / 100 });

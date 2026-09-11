@@ -13,11 +13,11 @@
       </title>
       <%- typeof headExtra !=='undefined' ? headExtra : '' %>
         <%- typeof analyticsHead !=='undefined' ? analyticsHead : '' %>
-          <% if (typeof alternates !=='undefined' && alternates.length) { %>
-            <% alternates.forEach(function(alt) { %>
-              <link rel="alternate" hreflang="<%= alt.locale %>" href="<%= alt.href %>">
-              <% }); %>
-                <% } %>
+          <% if (typeof hreflangLinks !== 'undefined' && hreflangLinks.length) { %>
+          <% hreflangLinks.forEach(function (alt) { %>
+          <link rel="alternate" hreflang="<%= alt.locale %>" href="<%= alt.href %>">
+          <% }); %>
+          <% } %>
                   <link rel="stylesheet"
                     href="/theme.css<%= typeof preview !== 'undefined' && preview ? '?preview=1' : '' %>">
                   <% if (typeof cssProviderStylesheets !=='undefined' && cssProviderStylesheets.length) { %>

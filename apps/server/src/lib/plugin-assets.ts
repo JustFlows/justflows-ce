@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { parseEnvBool } from "@justflows/core";
+import { PLUGIN_ID_RE } from "@justflows/sdk";
 import { getDb } from "./db.js";
 import { getSiteId } from "./themes-db.js";
 import { pluginsDir } from "./plugins-db.js";
@@ -37,7 +38,6 @@ interface PluginAssetSet {
 
 const DIR_RE = /^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/;
 const REL_FILE_RE = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*\.(js|mjs|css)$/;
-const PLUGIN_ID_RE = /^[a-z0-9]+(?:\.[a-z0-9-]+)+$/;
 
 const CONTENT_TYPES: Record<string, string> = {
   ".js": "text/javascript; charset=utf-8",
