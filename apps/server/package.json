@@ -21,7 +21,7 @@
     "@justflows/content": "file:../../packages/content",
     "@justflows/core": "file:../../packages/core",
     "@justflows/installer": "file:../../packages/installer",
-    "@justflows/media": "file:../../packages/media",
+    "@justflows/media": "workspace:*",
     "@justflows/plugin-api": "file:../../packages/plugin-api",
     "@justflows/jobs": "file:../../packages/jobs",
     "compression": "^1.8.1",
