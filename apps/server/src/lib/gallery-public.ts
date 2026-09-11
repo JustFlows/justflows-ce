@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-import { esc, safeMediaSrc } from "@justflows/blocks";
+import { esc, renderResponsiveImage, safeMediaSrc } from "@justflows/blocks";
 import { getPlugin } from "./plugins-db.js";
 import { getSiteId } from "./themes-db.js";
 import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
+import { applyResponsiveProp, type ResponsiveProp } from "./responsive-media.js";
 
 export const GALLERY_PLUGIN_ID = "justflows.gallery";
 export const GALLERY_BLOCK_TYPE = "justflows.gallery.grid";
@@ -16,6 +17,8 @@ export interface GalleryItem {
   src: string;
   alt: string;
   caption: string;
+  /** Responsive derivatives for `src`, injected by `withResponsiveImages` before render. */
+  responsive?: ResponsiveProp;
 }
 
 export interface GalleryProps {
@@ -25,6 +28,50 @@ export interface GalleryProps {
   lightbox: boolean;
 }
 
+function responsiveMapOf(raw: unknown): Record<string, ResponsiveProp> {
+  return raw && typeof raw === "object" && !Array.isArray(raw)
+    ? (raw as Record<string, ResponsiveProp>)
+    : {};
+}
+
+/**
+ * Normalize a `responsive` value into a `ResponsiveProp` or `undefined`.
+ *
+ * `renderGalleryHtml` parses its props twice (once as the block's `validateProps`,
+ * once internally), so this has to survive a round-trip: the first parse folds
+ * the injected URL→prop map into `item.responsive`, and the second parse must
+ * carry that through rather than drop it. Block props are also persisted,
+ * editable JSON, so the shape is validated here — a malformed value degrades to
+ * a plain `<img>` instead of throwing.
+ */
+function coerceResponsive(raw: unknown): ResponsiveProp | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const sources = Array.isArray(r.sources)
+    ? r.sources
+        .filter(
+          (s): s is { type: string; srcset: string } =>
+            !!s &&
+            typeof s === "object" &&
+            typeof (s as Record<string, unknown>).type === "string" &&
+            typeof (s as Record<string, unknown>).srcset === "string",
+        )
+        .map((s) => ({ type: s.type, srcset: s.srcset }))
+    : [];
+  const fallbackSrcset = typeof r.fallbackSrcset === "string" ? r.fallbackSrcset : "";
+  const src = typeof r.src === "string" ? r.src : "";
+  if (!src && sources.length === 0 && !fallbackSrcset) return undefined;
+  return {
+    src,
+    width: Number(r.width) || 0,
+    height: Number(r.height) || 0,
+    sources,
+    fallbackSrcset,
+    focalX: r.focalX == null ? null : Number(r.focalX) || null,
+    focalY: r.focalY == null ? null : Number(r.focalY) || null,
+  };
+}
+
 export async function isGalleryPluginEnabled(siteId?: string): Promise<boolean> {
   const id = siteId ?? (await getSiteId());
   if (!id) return false;
@@ -32,17 +79,20 @@ export async function isGalleryPluginEnabled(siteId?: string): Promise<boolean> 
   return plugin?.status === "active";
 }
 
-function parseItems(raw: unknown): GalleryItem[] {
+function parseItems(raw: unknown, responsive: Record<string, ResponsiveProp> = {}): GalleryItem[] {
   if (Array.isArray(raw)) {
     return raw
       .map((row) => {
         const item = (row ?? {}) as Record<string, unknown>;
-        const src = safeMediaSrc(String(item.src ?? item.url ?? ""));
+        const rawSrc = String(item.src ?? item.url ?? "");
+        const src = safeMediaSrc(rawSrc);
         if (!src) return null;
+        const prop = coerceResponsive(responsive[rawSrc] ?? item.responsive);
         return {
           src,
           alt: String(item.alt ?? "").slice(0, 200),
           caption: String(item.caption ?? "").slice(0, 300),
+          ...(prop ? { responsive: prop } : {}),
         };
       })
       .filter((item): item is GalleryItem => Boolean(item));
@@ -53,14 +103,16 @@ function parseItems(raw: unknown): GalleryItem[] {
     .filter(Boolean)
     .map((url) => {
       const src = safeMediaSrc(url);
-      return src ? { src, alt: "", caption: "" } : null;
+      if (!src) return null;
+      const prop = coerceResponsive(responsive[url]);
+      return { src, alt: "", caption: "", ...(prop ? { responsive: prop } : {}) };
     })
     .filter((item): item is GalleryItem => Boolean(item));
 }
 
 export function parseGalleryProps(raw: unknown): GalleryProps {
   const row = (raw ?? {}) as Record<string, unknown>;
-  const items = parseItems(row.items ?? row.urls);
+  const items = parseItems(row.items ?? row.urls, responsiveMapOf(row.responsive));
   const layout: GalleryLayout = GALLERY_LAYOUTS.includes(row.layout as GalleryLayout)
     ? (row.layout as GalleryLayout)
     : "grid";
@@ -80,12 +132,40 @@ function itemId(src: string, index: number): string {
   return `jf-lb-${(hash >>> 0).toString(36)}-${index}`;
 }
 
+/** A layout-aware `sizes` hint for gallery thumbnails. */
+function gallerySizes(layout: GalleryLayout, columns: number): string {
+  if (layout === "grid" || layout === "masonry") {
+    const pct = Math.max(10, Math.round(100 / Math.max(1, columns)));
+    return `(max-width: 600px) 100vw, ${pct}vw`;
+  }
+  if (layout === "list") return "(max-width: 700px) 100vw, 700px";
+  return "100vw"; // carousel / slideshow fill the frame
+}
+
+/**
+ * One gallery image. Uses responsive `<picture>` markup when derivatives were
+ * injected for `item.src`; otherwise the plain `<img>` this block has always
+ * emitted.
+ */
+function galleryImg(item: GalleryItem, sizes: string): string {
+  if (!item.responsive) {
+    return `<img src="${item.src}" alt="${esc(item.alt)}" loading="lazy">`;
+  }
+  return renderResponsiveImage(
+    applyResponsiveProp({ src: item.src, alt: item.alt, loading: "lazy", sizes }, item.responsive),
+  );
+}
+
 export function renderGalleryHtml(rawProps: unknown): string {
   const props = parseGalleryProps(rawProps);
   if (props.items.length === 0) {
     return `<div class="jf-gallery jf-gallery--empty">Add images to this gallery.</div>`;
   }
-  const stamp = itemId(`${props.layout}:${props.items.map((item) => item.src).join("|")}`, props.columns);
+  const thumbSizes = gallerySizes(props.layout, props.columns);
+  const stamp = itemId(
+    `${props.layout}:${props.items.map((item) => item.src).join("|")}`,
+    props.columns,
+  );
   const galleryId = `jf-gal-${stamp}`;
   const multiple = props.items.length > 1;
 
@@ -94,8 +174,10 @@ export function renderGalleryHtml(rawProps: unknown): string {
   // a CSS `:target` reveal, entirely without client-side script.
   const slides = props.items.map((item, index) => {
     const slideId = `${stamp}-s${index}`;
-    const img = `<img src="${item.src}" alt="${esc(item.alt)}" loading="lazy">`;
-    const caption = item.caption ? `<span class="jf-gallery__caption">${esc(item.caption)}</span>` : "";
+    const img = galleryImg(item, thumbSizes);
+    const caption = item.caption
+      ? `<span class="jf-gallery__caption">${esc(item.caption)}</span>`
+      : "";
     const inner = `${img}${caption}`;
     const html = props.lightbox
       ? `<a class="jf-gallery__item" id="${slideId}" href="#${stamp}-${index}">${inner}</a>`
@@ -107,7 +189,10 @@ export function renderGalleryHtml(rawProps: unknown): string {
   const dots = (className: string) =>
     multiple
       ? `<div class="${className}">${slides
-          .map((s, i) => `<a class="jf-gallery__dot" href="#${s.slideId}" aria-label="Go to slide ${i + 1}"></a>`)
+          .map(
+            (s, i) =>
+              `<a class="jf-gallery__dot" href="#${s.slideId}" aria-label="Go to slide ${i + 1}"></a>`,
+          )
           .join("")}</div>`
       : "";
 
@@ -146,7 +231,7 @@ export function renderGalleryHtml(rawProps: unknown): string {
           return `<div class="jf-lightbox" id="${id}">
             <a class="jf-lightbox__backdrop" href="#${galleryId}" aria-label="Close"></a>
             <figure class="jf-lightbox__frame">
-              <img src="${item.src}" alt="${esc(item.alt)}">
+              ${galleryImg(item, "100vw")}
               ${item.caption ? `<figcaption>${esc(item.caption)}</figcaption>` : ""}
             </figure>
             <a class="jf-lightbox__close" href="#${galleryId}" aria-label="Close">×</a>
@@ -175,7 +260,8 @@ export function registerGalleryBlock(): void {
     type: GALLERY_BLOCK_TYPE,
     version: 1,
     title: "Gallery",
-    description: "Responsive image gallery — grid, masonry, carousel, slideshow, or list — with lightbox.",
+    description:
+      "Responsive image gallery — grid, masonry, carousel, slideshow, or list — with lightbox.",
     icon: "🖼",
     category: "media",
     schema: {

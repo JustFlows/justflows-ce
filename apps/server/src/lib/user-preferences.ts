@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
-import { settingsKeyColumn } from "./site-settings.js";
+import { parseSettingValue, settingsKeyColumn } from "./site-settings.js";
 
 /**
  * Per-user administration preferences. Same JSON row-per-key shape as
@@ -24,16 +24,11 @@ function now(): string {
 
 export async function getUserPreference<T>(userId: string, key: string): Promise<T | null> {
   const db = await getDb();
-  const rows = await db.query<{ value: string }>(
+  const rows = await db.query<{ value: unknown }>(
     `SELECT value FROM user_preferences WHERE user_id = ? AND ${settingsKeyColumn()} = ? LIMIT 1`,
     [userId, key],
   );
-  if (!rows[0]?.value) return null;
-  try {
-    return JSON.parse(rows[0].value) as T;
-  } catch {
-    return rows[0].value as T;
-  }
+  return parseSettingValue<T>(rows.length > 0, rows[0]?.value);
 }
 
 export async function getUserPreferences(userId: string): Promise<Record<string, unknown>> {

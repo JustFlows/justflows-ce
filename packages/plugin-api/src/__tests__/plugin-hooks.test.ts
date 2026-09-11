@@ -15,7 +15,7 @@ function makePlugin(
 ): PluginModule {
   return {
     manifest: {
-      id: "acme.test",
+      id: "justflows.test",
       name: "Acme Test",
       version: "1.0.0",
       license: "GPL-2.0-or-later",
@@ -59,7 +59,7 @@ describe("plugin hook context", () => {
     );
 
     expect(app.hooks.inspect("content.published")).toEqual([
-      expect.objectContaining({ pluginId: "acme.test", handlerId: "reindex" }),
+      expect.objectContaining({ pluginId: "justflows.test", handlerId: "reindex" }),
     ]);
   });
 
@@ -74,7 +74,7 @@ describe("plugin hook context", () => {
     );
 
     expect(app.hooks.count("content.published")).toBe(1);
-    await loader.deactivate("acme.test", "site-1");
+    await loader.deactivate("justflows.test", "site-1");
 
     await app.hooks.dispatchAction("content.published", { contentId: "c1", siteId: "site-1" });
     expect(fn).not.toHaveBeenCalled();
@@ -94,9 +94,22 @@ describe("plugin hook context", () => {
       }),
     );
 
-    expect(loader.patternRegistry.get("acme.test:hero")?.title).toBe("Plugin hero");
-    await loader.deactivate("acme.test", "site-1");
+    expect(loader.patternRegistry.get("justflows.test:hero")?.title).toBe("Plugin hero");
+    await loader.deactivate("justflows.test", "site-1");
     expect(loader.patternRegistry.all()).toEqual([]);
+  });
+
+  it("requires content:read for a search backend and cleans up on deactivation", async () => {
+    await expect(activate(makePlugin({}, ctx => {
+      ctx.hooks.filter("search.backend", current => current);
+    }))).rejects.toThrow(/content:read/);
+    const engine = { id: "example", search: async () => [], upsert: async () => {}, remove: async () => {} };
+    const { app, loader } = await activate(makePlugin({ permissions: ["content:read"] }, ctx => {
+      ctx.hooks.filter("search.backend", () => engine);
+    }));
+    expect(await app.hooks.applyFilter("search.backend", null, { siteId: "site-1" })).toBe(engine);
+    await loader.deactivate("justflows.test", "site-1");
+    expect(await app.hooks.applyFilter("search.backend", null, { siteId: "site-1" })).toBeNull();
   });
 
   it("refuses a sensitive hook without the declared permission", async () => {
@@ -149,10 +162,10 @@ describe("plugin hook context", () => {
     const seen: unknown[] = [];
     const { app } = await activate(
       makePlugin({}, (ctx) => {
-        ctx.hooks.action("acme.test.scored", (event) => {
+        ctx.hooks.action("justflows.test.scored", (event) => {
           seen.push(event);
         });
-        void ctx.hooks.emit("acme.test.scored", { score: 42 } as never);
+        void ctx.hooks.emit("justflows.test.scored", { score: 42 } as never);
       }),
     );
     await app.hooks.dispatchAction("app.started", { version: "0.1.0" });
@@ -185,7 +198,7 @@ describe("plugin hook context", () => {
         mimeType: "image/png",
         sizeBytes: 99,
       }),
-    ).rejects.toMatchObject({ reason: "File too large", pluginId: "acme.test" });
+    ).rejects.toMatchObject({ reason: "File too large", pluginId: "justflows.test" });
   });
 
   it("refuses ensureType without content:create", async () => {
@@ -231,7 +244,7 @@ describe("plugin hook context", () => {
         });
       }),
     );
-    await loader.activate("acme.test", "site-1");
+    await loader.activate("justflows.test", "site-1");
     expect(ensureType).toHaveBeenCalledWith({ slug: "shop", label: "Shop" });
     expect(ensurePage).toHaveBeenCalledWith({
       type: "shop",
@@ -266,7 +279,7 @@ describe("plugin hook context", () => {
         await ctx.content.deleteType("product");
       }),
     );
-    await loader.activate("acme.test", "site-1");
+    await loader.activate("justflows.test", "site-1");
     expect(deleteType).toHaveBeenCalledWith("product");
   });
 
@@ -288,11 +301,11 @@ describe("plugin hook context", () => {
 
     expect(list.map((c) => c.name).sort()).toEqual(["_ga", "jf_session"]);
     const ga = list.find((c) => c.name === "_ga")!;
-    expect(ga.declaredBy).toBe("acme.test");
+    expect(ga.declaredBy).toBe("justflows.test");
     expect(ga.effectiveCategory).toBe("marketing"); // operator override wins
     expect(loader.cookieRegistry.all()).toHaveLength(1);
 
-    await loader.deactivate("acme.test", "site-1");
+    await loader.deactivate("justflows.test", "site-1");
     expect(loader.cookieRegistry.all()).toHaveLength(0);
   });
 
@@ -317,10 +330,10 @@ describe("plugin hook context", () => {
     app.hooks.action("plugin.deleteData", (event) => {
       seen.push(event);
     });
-    await loader.deleteData("acme.test", "site-1");
+    await loader.deleteData("justflows.test", "site-1");
     expect(deleteData).toHaveBeenCalledOnce();
     expect(seen).toEqual([
-      expect.objectContaining({ pluginId: "acme.test", version: "1.0.0", siteId: "site-1" }),
+      expect.objectContaining({ pluginId: "justflows.test", version: "1.0.0", siteId: "site-1" }),
     ]);
   });
 });

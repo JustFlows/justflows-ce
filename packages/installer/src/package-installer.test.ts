@@ -16,7 +16,7 @@ describe("PackageInstaller", () => {
       JSON.stringify({
         schemaVersion: 1,
         type: "plugin",
-        id: "test.plugin",
+        id: "justflows.plugin",
         name: "Test",
         version: "1.0.0",
         publisher: "Test",
@@ -35,13 +35,13 @@ describe("PackageInstaller", () => {
       packagesDir: path.join(dir, "installed"),
     });
 
-    expect(result.manifest.id).toBe("test.plugin");
+    expect(result.manifest.id).toBe("justflows.plugin");
     expect(result.manifest.settingsSchema?.["defaultDescription"]?.label).toBe(
       "Default meta description",
     );
     await expect(
       fs.readFile(path.join(result.installedPath, "justflows.json"), "utf8"),
-    ).resolves.toContain("test.plugin");
+    ).resolves.toContain("justflows.plugin");
   });
 });
 
@@ -60,7 +60,7 @@ async function packageWithVersion(
     JSON.stringify({
       schemaVersion: 1,
       type,
-      id: type === "plugin" ? "acme.probe" : `acme.${type}`,
+      id: type === "plugin" ? "justflows.probe" : `justflows.${type}`,
       name: "Test",
       version,
       publisher: "Test",
@@ -82,7 +82,7 @@ describe("PackageInstaller path containment", () => {
     await fs.mkdir(victim, { recursive: true });
     await fs.writeFile(path.join(victim, "server.js"), "ORIGINAL SERVER CODE");
 
-    // packages-installed/plugins/acme.evil/<version> is four levels below the
+    // packages-installed/plugins/justflows.evil/<version> is four levels below the
     // temp root, so four "../" steps land on <root>/victim — outside packagesDir.
     const buf = await packageWithVersion(root, "1.0.0/../../../../victim", "traversal");
 
@@ -107,10 +107,10 @@ describe("PackageInstaller path containment", () => {
 
     const result = await new PackageInstaller().installFromBuffer(buf, { packagesDir });
 
-    expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "acme.probe", "0.1.3-rc"));
+    expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "justflows.probe", "0.1.3-rc"));
     await expect(
       fs.readFile(path.join(result.installedPath, "justflows.json"), "utf8"),
-    ).resolves.toContain("acme.probe");
+    ).resolves.toContain("justflows.probe");
   });
 });
 
@@ -129,7 +129,7 @@ describe("PackageInstaller Justflows compatibility", () => {
         packagesDir: path.join(root, "installed"),
         justflowsVersion: "0.1.8-dev.1",
       }),
-    ).resolves.toMatchObject({ manifest: { id: "acme.probe" } });
+    ).resolves.toMatchObject({ manifest: { id: "justflows.probe" } });
   });
 
   it("does not promote a development host into a newer release line", async () => {
@@ -166,7 +166,7 @@ describe("PackageInstaller Justflows compatibility", () => {
           justflowsVersion: "0.1.8-dev.1",
         }),
       ).resolves.toMatchObject({
-        manifest: { id: type === "plugin" ? "acme.probe" : `acme.${type}`, type },
+        manifest: { id: type === "plugin" ? "justflows.probe" : `justflows.${type}`, type },
       });
     }
   });
@@ -211,7 +211,7 @@ describe("PackageInstaller verify hook", () => {
 
     // The final install location must never have been created...
     await expect(
-      fs.stat(path.join(packagesDir, "plugins", "acme.probe", "1.0.0")),
+      fs.stat(path.join(packagesDir, "plugins", "justflows.probe", "1.0.0")),
     ).rejects.toThrow();
     // ...and staging must be empty rather than holding the refused files.
     const staged = await fs.readdir(path.join(packagesDir, ".staging")).catch(() => []);
@@ -245,8 +245,8 @@ describe("PackageInstaller verify hook", () => {
       },
     });
 
-    expect(seen[0]).toBe("acme.probe");
-    expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "acme.probe", "1.0.0"));
+    expect(seen[0]).toBe("justflows.probe");
+    expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "justflows.probe", "1.0.0"));
   });
 });
 
@@ -259,7 +259,7 @@ describe("PackageInstaller revisioned installs", () => {
     const first = await packageWithVersion(root, "1.0.0", "rev-a");
     const a = await installer.installFromBuffer(first, { packagesDir, revisioned: true });
 
-    const versionDir = path.join(packagesDir, "plugins", "acme.probe", "1.0.0");
+    const versionDir = path.join(packagesDir, "plugins", "justflows.probe", "1.0.0");
     expect(a.installedPath.startsWith(versionDir + path.sep)).toBe(true);
     expect(path.basename(a.installedPath)).toHaveLength(16);
     await expect(fs.readdir(versionDir)).resolves.toEqual([path.basename(a.installedPath)]);
@@ -291,6 +291,6 @@ describe("PackageInstaller revisioned installs", () => {
 
     const result = await new PackageInstaller().installFromBuffer(buf, { packagesDir });
 
-    expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "acme.probe", "2.0.0"));
+    expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "justflows.probe", "2.0.0"));
   });
 });

@@ -1,8 +1,17 @@
+// SPDX-License-Identifier: MIT
+import { searchBlock } from "./search.js";
 import type { BlockDefinition } from "../registry/block-registry.js";
 import { sanitizeHtmlBlock, sanitizeRichText } from "../sanitize.js";
 import { esc, safeHref, safeMediaSrc } from "../safe-url.js";
 import { siteWidgetBlocks } from "./site-widgets.js";
 import { GRID_DEFAULT_COLUMNS, GRID_MAX_COLUMNS, GRID_MIN_COLUMNS } from "../layout.js";
+import {
+  renderResponsiveImage,
+  sanitizeSizes,
+  sanitizeSrcset,
+  type ResponsiveImageInput,
+  type ResponsiveSource,
+} from "../responsive-image.js";
 
 function str(raw: unknown, fallback = ""): string {
   return typeof raw === "string" ? raw : fallback;
@@ -17,7 +26,58 @@ function dimension(raw: unknown): number {
   return Math.min(10000, Math.max(0, Math.round(num(raw, 0))));
 }
 
+interface SanitizedResponsive {
+  src: string;
+  width: number;
+  height: number;
+  sources: ResponsiveSource[];
+  fallbackSrcset: string;
+  focalX: number | null;
+  focalY: number | null;
+}
+
+const IMAGE_TYPE_RE = /^image\/[a-z0-9.+-]{2,40}$/i;
+
+function focal01(raw: unknown): number | null {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(1, Math.max(0, n));
+}
+
+/** Intrinsic pixel dimension — wider ceiling than `dimension()` so very large originals keep their true ratio. */
+function intrinsic(raw: unknown): number {
+  return Math.min(30000, Math.max(0, Math.round(num(raw, 0))));
+}
+
+/** Coerce the server-injected `responsive` prop; returns null when nothing usable is present. */
+function sanitizeResponsiveProp(raw: unknown): SanitizedResponsive | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const sourcesRaw = Array.isArray(r["sources"]) ? r["sources"] : [];
+  const sources: ResponsiveSource[] = [];
+  for (const entry of sourcesRaw) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    const type = typeof e["type"] === "string" && IMAGE_TYPE_RE.test(e["type"]) ? e["type"] : "";
+    const srcset = sanitizeSrcset(e["srcset"]);
+    if (type && srcset) sources.push({ type, srcset });
+  }
+  const src = safeMediaSrc(str(r["src"]));
+  const fallbackSrcset = sanitizeSrcset(r["fallbackSrcset"]);
+  if (!src && !sources.length && !fallbackSrcset) return null;
+  return {
+    src,
+    width: intrinsic(r["width"]),
+    height: intrinsic(r["height"]),
+    sources,
+    fallbackSrcset,
+    focalX: focal01(r["focalX"]),
+    focalY: focal01(r["focalY"]),
+  };
+}
+
 export const coreBlocks: BlockDefinition[] = [
+  searchBlock,
   {
     type: "core.paragraph",
     version: 1,
@@ -61,6 +121,8 @@ export const coreBlocks: BlockDefinition[] = [
       width: { type: "number" },
       height: { type: "number" },
       objectFit: { type: "select", options: ["contain", "cover", "fill"] },
+      sizes: { type: "text" },
+      loading: { type: "select", options: ["lazy", "eager"], default: "lazy" },
     },
     validateProps: (raw) => {
       const r = raw as Record<string, unknown>;
@@ -74,27 +136,46 @@ export const coreBlocks: BlockDefinition[] = [
         width: dimension(r["width"]),
         height: dimension(r["height"]),
         objectFit,
+        sizes: sanitizeSizes(r["sizes"]),
+        loading: str(r["loading"]) === "eager" ? "eager" : "lazy",
+        // Server-injected in `apps/server/src/lib/responsive-blocks.ts` from the
+        // media library's stored derivatives; re-sanitized here because block
+        // props are persisted, editable JSON.
+        responsive: sanitizeResponsiveProp(r["responsive"]),
       };
     },
     render: (props) => {
-      const { src, alt, caption, width, height, objectFit } = props as {
+      const { src, alt, caption, width, height, objectFit, sizes, loading, responsive } = props as {
         src: string;
         alt: string;
         caption: string;
         width: number;
         height: number;
-        objectFit: string;
+        objectFit: "contain" | "cover" | "fill";
+        sizes: string;
+        loading: "lazy" | "eager";
+        responsive: SanitizedResponsive | null;
       };
-      const imageStyle = [
-        "display:block",
-        "max-width:100%",
-        width > 0 ? `width:${width}px` : "",
-        height > 0 ? `height:${height}px` : "",
-        height > 0 ? `object-fit:${objectFit}` : "",
-      ]
-        .filter(Boolean)
-        .join(";");
-      const img = `<img src="${safeMediaSrc(src)}" alt="${esc(alt)}" loading="lazy" style="${imageStyle}">`;
+
+      const input: ResponsiveImageInput = {
+        src: responsive?.src || src,
+        alt,
+        loading,
+        objectFit,
+        displayWidth: width,
+        displayHeight: height,
+      };
+      if (sizes) input.sizes = sizes;
+      if (responsive) {
+        if (responsive.width) input.width = responsive.width;
+        if (responsive.height) input.height = responsive.height;
+        if (responsive.sources.length) input.sources = responsive.sources;
+        if (responsive.fallbackSrcset) input.fallbackSrcset = responsive.fallbackSrcset;
+        if (responsive.focalX !== null) input.focalX = responsive.focalX;
+        if (responsive.focalY !== null) input.focalY = responsive.focalY;
+      }
+
+      const img = renderResponsiveImage(input);
       return caption ? `<figure>${img}<figcaption>${esc(caption)}</figcaption></figure>` : img;
     },
   },

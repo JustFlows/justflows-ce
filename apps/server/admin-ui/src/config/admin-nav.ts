@@ -86,12 +86,36 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     ],
   },
   {
+    // People-management is its own concern, not a System setting — WordPress
+    // gives it a top-level menu too. A single item, so the sidebar links
+    // straight to it and no sub-bar renders.
+    key: "nav.domains.users",
+    slug: "users",
+    icon: "👤",
+    items: [{ key: "nav.users", to: "/admin/users", icon: "👤" }],
+  },
+  {
     key: "nav.domains.extensions",
     slug: "extensions",
     icon: "🔌",
     items: [
-      { key: "nav.plugins", to: "/admin/plugins", icon: "🔌" },
+      // `end` so the Plugins tab is active only on the list itself — every
+      // plugin page now lives under `/admin/plugins/<pluginId>` and lights up
+      // its own entry instead.
+      { key: "nav.plugins", to: "/admin/plugins", icon: "🔌", end: true },
       { key: "nav.marketplace", to: "/admin/marketplace", icon: "🛒", trailing: true },
+    ],
+  },
+  {
+    // Maintenance / operations pages pulled out of System — these are things
+    // you *do* to the site, not settings you configure.
+    key: "nav.domains.tools",
+    slug: "tools",
+    icon: "🔧",
+    items: [
+      { key: "nav.tools", to: "/admin/tools", icon: "🔧" },
+      { key: "nav.diagnostics", to: "/admin/health", icon: "🩺" },
+      { key: "nav.updates", to: "/admin/updates", icon: "⬆" },
     ],
   },
   {
@@ -108,20 +132,21 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     ],
   },
   {
+    // Formerly "System" — now only the pages that are genuinely site-wide
+    // configuration. Users and Tools/Diagnostics/Updates have moved out to
+    // their own sidebar groups. Slug stays `system` so plugin pages that
+    // target `domain: "system"` keep landing here.
     key: "nav.domains.system",
     slug: "system",
     icon: "⚙",
     items: [
-      { key: "nav.users", to: "/admin/users", icon: "👤" },
       { key: "nav.settings", to: "/admin/settings", icon: "⚙" },
-      { key: "nav.redirects", to: "/admin/redirects", icon: "↪" },
       { key: "nav.permalinks", to: "/admin/settings/permalinks", icon: "↗" },
+      { key: "nav.redirects", to: "/admin/redirects", icon: "↪" },
       { key: "nav.emails", to: "/admin/emails", icon: "✉" },
       { key: "nav.languages", to: "/admin/languages", icon: "🌐" },
       { key: "nav.webhooks", to: "/admin/webhooks", icon: "↗" },
-      { key: "nav.tools", to: "/admin/tools", icon: "🔧" },
-      { key: "nav.diagnostics", to: "/admin/health", icon: "🩺" },
-      { key: "nav.updates", to: "/admin/updates", icon: "⬆" },
+      { key: "nav.apiKeys", to: "/admin/settings/api", icon: "🔑" },
     ],
   },
 ];
@@ -225,9 +250,15 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/health": ["administrator"],
   "/admin/updates": ["administrator"],
   "/admin/webhooks": ["administrator"],
+  "/admin/settings/api": ["administrator"],
   "/admin/settings/permalinks": ["administrator"],
   "/admin/redirects": ["administrator"],
-  "/admin/analytics": ["administrator", "editor"],
+  "/admin/plugins/justflows.analytics": ["administrator", "editor"],
+  // Consent and Forms sat at their own top-level paths with no rule (visible to
+  // every admin role); keep that now that they live under /admin/plugins/ and
+  // would otherwise inherit its administrator/editor rule by prefix.
+  "/admin/plugins/justflows.consent": ALL_ADMIN_ROLES,
+  "/admin/plugins/justflows.forms": ALL_ADMIN_ROLES,
 };
 
 /** Every rule path, longest first, so a nested route matches its owning page. */

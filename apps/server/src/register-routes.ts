@@ -64,6 +64,9 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   const { ensurePluginRuntime } = await import("./lib/plugin-runtime.js");
   await ensurePluginRuntime();
   if (isInstalled()) {
+    const { getSiteId: getSearchSiteId } = await import("./lib/site-settings.js");
+    const searchSiteId = await getSearchSiteId();
+    if (searchSiteId) await (await import("./lib/search-db.js")).startSearchIndex(searchSiteId);
     const { startWebhookJobs } = await import("./lib/webhooks.js");
     await startWebhookJobs();
     const { installStaticExportAutoRebuild } = await import("./lib/static-export/auto.js");
@@ -106,6 +109,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: templatesRoutes },
     { default: patternsRoutes },
     { default: staticExportRoutes },
+    { default: apiKeysRoutes },
+    { default: manageApiRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -142,10 +147,17 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/templates.js"),
     import("./routes/patterns.js"),
     import("./routes/static-export.js"),
+    import("./routes/api-keys.js"),
+    import("./routes/manage-api/index.js"),
   ]);
+
+  const { apiKeyAuth } = await import("./middleware/api-key-auth.js");
+  const { manageApiRateLimit } = await import("./middleware/manage-api-rate-limit.js");
+  const { manageApiCors, manageApiPreflight } = await import("./middleware/manage-api-cors.js");
 
   app.use(blockIfInstalled);
 
+  app.use("/api/search", requireInstalled, (await import("./routes/search.js")).default);
   app.use("/api/content", requireInstalled, contentRoutes);
   app.use("/api/trash", requireInstalled, trashRoutes);
   app.use("/api/media", requireInstalled, mediaRoutes);
@@ -183,6 +195,22 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
   app.use("/api/cookies", requireInstalled, cookiesRoutes);
   app.use("/api/roles", requireInstalled, rolesRoutes);
+
+  // Cookie-authenticated management of API keys (Admin → Settings → API).
+  app.use("/api/api-keys", requireInstalled, apiKeysRoutes);
+  // The federated management API (#135): Bearer-key auth, per-key + per-IP rate
+  // limiting, and explicit-origin CORS (never `*`). Preflight runs before auth
+  // because a browser sends no Authorization on OPTIONS.
+  app.use(
+    "/api/manage/v1",
+    requireInstalled,
+    manageApiPreflight,
+    apiKeyAuth,
+    ...manageApiRateLimit,
+    manageApiCors,
+    manageApiRoutes,
+  );
+
   // Everything below is public-facing: one switch (Settings → Public API) takes
   // the whole surface offline. Mounted on the prefix so future public routes
   // inherit the guard automatically.

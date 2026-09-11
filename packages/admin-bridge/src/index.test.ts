@@ -46,7 +46,7 @@ describe("createAdminBridge", () => {
     const early = vi.fn();
     bridge.onContext(early);
 
-    const ctx = { locale: "nl", adminBase: "/admin", routePath: "/admin/forms", theme: "dark" };
+    const ctx = { locale: "nl", adminBase: "/admin", routePath: "/admin/plugins/acme.forms", theme: "dark" };
     hostSend({ type: "context", context: ctx });
 
     expect(early).toHaveBeenCalledWith(ctx);
@@ -61,15 +61,15 @@ describe("createAdminBridge", () => {
     const bridge = createAdminBridge();
     hostSend({
       type: "context",
-      context: { locale: "en", adminBase: "/admin", routePath: "/admin/forms", theme: "" },
+      context: { locale: "en", adminBase: "/admin", routePath: "/admin/plugins/acme.forms", theme: "" },
     });
     const onRoute = vi.fn();
     bridge.onRoute(onRoute);
 
-    hostSend({ type: "route", routePath: "/admin/forms/submissions" });
+    hostSend({ type: "route", routePath: "/admin/plugins/acme.forms/submissions" });
 
-    expect(onRoute).toHaveBeenCalledWith("/admin/forms/submissions");
-    expect(bridge.context()?.routePath).toBe("/admin/forms/submissions");
+    expect(onRoute).toHaveBeenCalledWith("/admin/plugins/acme.forms/submissions");
+    expect(bridge.context()?.routePath).toBe("/admin/plugins/acme.forms/submissions");
   });
 
   it("ignores messages from the wrong origin or source", () => {
@@ -97,10 +97,10 @@ describe("createAdminBridge", () => {
 
   it("forwards navigate requests and reports height", () => {
     const bridge = createAdminBridge();
-    bridge.navigate("/admin/forms/submissions");
+    bridge.navigate("/admin/plugins/acme.forms/submissions");
     bridge.reportHeight(742);
     expect(parentPost).toHaveBeenCalledWith(
-      { source: "justflows-admin-plugin", type: "navigate", path: "/admin/forms/submissions" },
+      { source: "justflows-admin-plugin", type: "navigate", path: "/admin/plugins/acme.forms/submissions" },
       origin,
     );
     expect(parentPost).toHaveBeenCalledWith(

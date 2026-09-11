@@ -17,6 +17,10 @@ export const MIGRATION_ORDER = [
   "0023_templates",
   "0024_menu_designer",
   "0025_redirect_manager",
+  "0026_api_keys",
+  "0027_media_responsive",
+  "0028_site_search",
+  "0029_search_metrics",
 ] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";

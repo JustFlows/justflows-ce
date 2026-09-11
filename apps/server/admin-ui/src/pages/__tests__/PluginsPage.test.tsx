@@ -123,7 +123,7 @@ describe("PluginsPage as an administrator", () => {
           });
         }
         if (path === "/api/plugins/justflows.shop/activate" && method === "POST") {
-          return jsonResponse({ ok: true, setupPath: "/admin/shop" });
+          return jsonResponse({ ok: true, setupPath: "/admin/plugins/justflows.shop" });
         }
         return jsonResponse({});
       }),
@@ -136,7 +136,7 @@ describe("PluginsPage as an administrator", () => {
             <PluginMenuProvider>
               <Routes>
                 <Route path="/admin/plugins" element={<PluginsPage />} />
-                <Route path="/admin/shop" element={<div>Shop setup host</div>} />
+                <Route path="/admin/plugins/justflows.shop" element={<div>Shop setup host</div>} />
               </Routes>
             </PluginMenuProvider>
           </SessionProvider>

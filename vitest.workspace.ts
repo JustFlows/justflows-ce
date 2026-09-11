@@ -5,6 +5,7 @@ export default defineWorkspace([
   "packages/content/vitest.config.ts",
   "packages/plugin-api/vitest.config.ts",
   "packages/blocks/vitest.config.ts",
+  "packages/media/vitest.config.ts",
   "packages/installer/vitest.config.ts",
   "plugins/hello-world/vitest.config.ts",
   "plugins/consent/vitest.config.ts",
