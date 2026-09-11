@@ -9,6 +9,14 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Diagnostics: email and storage test actions.** Admin → System →
+  Diagnostics' "Test services" panel now covers **email** (sends a real test
+  message through the configured transport to the site's admin address) and
+  **storage** (a write/read/delete round trip against the configured uploads
+  directory) alongside the existing database, cache, and jobs checks. The
+  server-host reproduction commands are now copyable with one click.
+  ([#57](https://github.com/JustFlows/justflows-ce/issues/57))
+
 - **Built-in site search.** Public `/search` pages and the `core.search` block
   support locale, type, taxonomy/date filters, relevance, highlighting, and
   pagination. Admin content search uses a shared incremental database full-text

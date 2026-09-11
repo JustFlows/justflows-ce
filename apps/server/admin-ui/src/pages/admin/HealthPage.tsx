@@ -33,6 +33,19 @@ export default function HealthPage() {
   const [debugBusy, setDebugBusy] = useState(false);
   const [testBusy, setTestBusy] = useState<string | null>(null);
   const [testResult, setTestResult] = useState("");
+  const [cliCopied, setCliCopied] = useState(false);
+
+  const cliCommands = "justflows status\njustflows health\njustflows cache clear\njustflows db migrate";
+
+  async function copyCliCommands() {
+    try {
+      await navigator.clipboard.writeText(cliCommands);
+      setCliCopied(true);
+      setTimeout(() => setCliCopied(false), 2000);
+    } catch {
+      setError("Could not copy to clipboard");
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -97,7 +110,7 @@ export default function HealthPage() {
     }
   }
 
-  async function runTest(action: "database" | "cache" | "jobs") {
+  async function runTest(action: "database" | "cache" | "jobs" | "email" | "storage") {
     setTestBusy(action); setTestResult(""); setError("");
     try {
       const res = await fetch("/api/diagnostics/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
@@ -198,8 +211,8 @@ export default function HealthPage() {
         </section>
 
         <section className="jf-card">
-          <div className="jf-card__head"><div><h2 className="jf-card__title">Test services</h2><p className="jf-field__hint">Run bounded checks without exposing credentials or customer data.</p></div></div>
-          <div className="jf-card__body jf-stack"><div className="jf-row">{(["database", "cache", "jobs"] as const).map((action) => <button key={action} type="button" className="jf-btn jf-btn--ghost" disabled={testBusy !== null} onClick={() => void runTest(action)}>{testBusy === action ? "Testing…" : `Test ${action}`}</button>)}</div>{testResult && <div className="jf-alert jf-alert--success" role="status">{testResult}</div>}</div>
+          <div className="jf-card__head"><div><h2 className="jf-card__title">Test services</h2><p className="jf-field__hint">Run bounded checks without exposing credentials or customer data. Testing email sends a real message to the site's admin address.</p></div></div>
+          <div className="jf-card__body jf-stack"><div className="jf-row">{(["database", "cache", "jobs", "email", "storage"] as const).map((action) => <button key={action} type="button" className="jf-btn jf-btn--ghost" disabled={testBusy !== null} onClick={() => void runTest(action)}>{testBusy === action ? "Testing…" : `Test ${action}`}</button>)}</div>{testResult && <div className="jf-alert jf-alert--success" role="status">{testResult}</div>}</div>
         </section>
 
         <section className="jf-card">
@@ -213,8 +226,8 @@ export default function HealthPage() {
         </section>
 
         <section className="jf-card">
-          <div className="jf-card__head"><div><h2 className="jf-card__title">Reproduce from the server host</h2><p className="jf-field__hint">Copy these commands in the Justflows installation directory.</p></div></div>
-          <div className="jf-card__body"><pre className="jf-code">justflows status{"\n"}justflows health{"\n"}justflows cache clear{"\n"}justflows db migrate</pre></div>
+          <div className="jf-card__head"><div><h2 className="jf-card__title">Reproduce from the server host</h2><p className="jf-field__hint">Run these commands in the Justflows installation directory.</p></div><button type="button" className="jf-btn jf-btn--ghost" onClick={() => void copyCliCommands()}>{cliCopied ? "Copied" : "Copy"}</button></div>
+          <div className="jf-card__body"><pre className="jf-code">{cliCommands}</pre></div>
         </section>
 
         <section className="jf-card">
