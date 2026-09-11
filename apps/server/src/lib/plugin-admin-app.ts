@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 
 import fs from "node:fs";
+import {
+  PLUGIN_ID_RE,
+  pluginAdminBasePath,
+  RELATIVE_ADMIN_PATH_RE,
+  resolvePluginAdminPath,
+} from "@justflows/sdk";
 import { getDb } from "./db.js";
 import { getSiteId } from "./themes-db.js";
 import { bundledBasePathFor } from "./plugin-assets.js";
@@ -19,11 +25,27 @@ import { resolvePathUnderBase } from "./safe-path.js";
  * also ships `assets` cannot serve a literal `assets/admin/...` path.
  */
 
-const PLUGIN_ID_RE = /^[a-z0-9]+(?:\.[a-z0-9-]+)+$/;
 const DIR_RE = /^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/;
 const REL_FILE_RE = /^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,240}\.[a-zA-Z0-9]{1,8}$/;
-const ADMIN_ROUTE_RE = /^\/admin\/[a-z0-9][a-z0-9\-/]*$/;
 const ENTRY_RE = /^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,158}\.html?$/;
+
+/**
+ * Resolve an `adminApp` route path (relative `""` / `"submissions"`, or an
+ * already-absolute `/admin/plugins/<id>/…`) to the absolute URL, or null when
+ * it escapes the plugin's `/admin/plugins/<id>` namespace or contains `..`.
+ */
+function resolveRoutePath(raw: string, pluginId: string): string | null {
+  const base = pluginAdminBasePath(pluginId);
+  const value = raw.trim();
+  if (value.includes("..")) return null;
+  if (value === "") return base;
+  if (value.startsWith("/")) {
+    if (value !== base && !value.startsWith(`${base}/`)) return null;
+    const rest = value.slice(base.length).replace(/^\//, "");
+    return RELATIVE_ADMIN_PATH_RE.test(rest) ? value : null;
+  }
+  return RELATIVE_ADMIN_PATH_RE.test(value) ? resolvePluginAdminPath(pluginId, value) : null;
+}
 
 /** Extensions an admin build may serve, and their content types. */
 const CONTENT_TYPES: Record<string, string> = {
@@ -92,6 +114,7 @@ export function safeAdminRel(value: unknown): string | null {
  */
 export function parseAdminAppSpec(
   raw: unknown,
+  pluginId: string,
 ): { dir: string; routes: Array<{ path: string; entry: string; title?: string }> } | null {
   if (!raw || typeof raw !== "object") return null;
   const spec = raw as { dir?: unknown; routes?: unknown };
@@ -104,9 +127,9 @@ export function parseAdminAppSpec(
   for (const rawRoute of spec.routes.slice(0, 20)) {
     if (!rawRoute || typeof rawRoute !== "object") continue;
     const r = rawRoute as { path?: unknown; entry?: unknown; title?: unknown };
-    const path = typeof r.path === "string" ? r.path : "";
+    const path = resolveRoutePath(typeof r.path === "string" ? r.path : "", pluginId);
     const entry = typeof r.entry === "string" ? r.entry : "";
-    if (!ADMIN_ROUTE_RE.test(path) || path.includes("..") || seen.has(path)) continue;
+    if (!path || seen.has(path)) continue;
     if (!ENTRY_RE.test(entry) || entry.split("/").includes("..")) continue;
     if (!safeAdminRel(entry)) continue;
     seen.add(path);
@@ -177,7 +200,7 @@ async function loadPluginAdminSets(): Promise<PluginAdminSet[]> {
       }
     }
 
-    const spec = parseAdminAppSpec(adminApp);
+    const spec = parseAdminAppSpec(adminApp, pluginId);
     if (!spec) continue;
 
     const baseDir = resolvePathUnderBase(basePath, spec.dir);

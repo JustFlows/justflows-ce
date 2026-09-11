@@ -15,3 +15,22 @@ export {
   ALLOWED_MIME_TYPES,
   MAX_UPLOAD_BYTES,
 } from "./derivatives/image-processor.js";
+export {
+  generateResponsiveSet,
+  effectiveWidths,
+  clampFocal,
+  isRasterImageMimeType,
+  formatMimeType,
+  formatExtension,
+  DEFAULT_RESPONSIVE_CONFIG,
+  CENTER_FOCAL,
+  RASTER_IMAGE_MIME_TYPES,
+} from "./derivatives/responsive.js";
+export type {
+  OutputFormat,
+  ResponsiveImageConfig,
+  FocalPoint,
+  GeneratedVariant,
+  SourceInfo,
+  ResponsiveSet,
+} from "./derivatives/responsive.js";

@@ -5,6 +5,79 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.2]
+
+### Added
+
+- **Diagnostics: email and storage test actions.** Admin → System →
+  Diagnostics' "Test services" panel now covers **email** (sends a real test
+  message through the configured transport to the site's admin address) and
+  **storage** (a write/read/delete round trip against the configured uploads
+  directory) alongside the existing database, cache, and jobs checks. The
+  server-host reproduction commands are now copyable with one click.
+  ([#57](https://github.com/JustFlows/justflows-ce/issues/57))
+
+- **Built-in site search.** Public `/search` pages and the `core.search` block
+  support locale, type, taxonomy/date filters, relevance, highlighting, and
+  pagination. Admin content search uses a shared incremental database full-text
+  index with access scopes; Tools adds visibility settings and index rebuild.
+  The headless search API and documented plugin backend interface preserve
+  live publication checks, with rate limiting and opt-in anonymous metrics stored in the database (no console or file logging).
+  ([#101](https://github.com/JustFlows/justflows-ce/issues/101))
+
+- **Automatic responsive images and modern formats.** Raster uploads now
+  generate a configurable set of width-scaled variants plus WebP (and AVIF when
+  enabled) alongside the untouched original, inline on upload and backfillable
+  from a new **Admin → Tools → Responsive images** job with progress and
+  per-file failures. Every public surface that renders an uploaded image now
+  goes through one resolver — `core.image`, the **Gallery** block (grid,
+  masonry, carousel, slideshow, list, and lightbox), blog-post-list featured
+  thumbnails, and the Featured Image theme block — emitting `<picture>` /
+  `srcset` / `sizes` with format fallback, intrinsic `width`/`height` to prevent
+  layout shift, and `loading="lazy"` / `decoding="async"` defaults with an
+  `eager` opt-out (`fetchpriority="high"`) for above-the-fold images; the
+  exported `renderResponsiveImage` / `renderMediaImage` helpers give plugin and
+  theme blocks the same output. Each asset carries a focal point, set by
+  clicking the subject in the Media Library, that drives thumbnail crops and
+  `object-position`. Generation, a public-markup toggle
+  (`JF_IMAGE_RESPONSIVE_MARKUP` — serve originals everywhere without deleting
+  variants), AVIF, quality, widths, max dimension, EXIF/GPS stripping, thumbnail
+  size, and a keep-original filename allowlist are all configurable in the same
+  panel and written to `.env` as `JF_IMAGE_*` with no restart. SVGs are never
+  rasterised, variants live under the same `uploads/` path so CDN/S3 offload and
+  static export cover them for free, and migration `0027_media_responsive`
+  supports all database dialects. See `docs/MEDIA.md`.
+  ([#103](https://github.com/JustFlows/justflows-ce/issues/103))
+
+- **Headless federated management API.** Revocable API keys (Admin → Settings →
+  API) authenticate a versioned `/api/manage/v1` surface that federates content
+  (CRUD, publish, revisions), media, comments, menus, content types, users,
+  roles, settings, languages, redirects, plugin/theme listing and activation,
+  cache and static-export triggers, and diagnostics/health behind the same
+  capability checks as the admin UI — no parallel business logic. Each key
+  carries an explicit capability set never broader than its creator's,
+  re-checked against the owner's current access on every request, plus optional
+  `AccessScope`, expiry, and allowed-IP / allowed-origin lists; the secret is
+  shown once and stored only as a hash with a visible `jfk_` prefix. A master
+  switch and per-key / global rate limits apply without a restart, wildcard CORS
+  never reaches an authenticated route, and every create / rotate / revoke and
+  auth failure is audited by key id. Admin → Settings → API is now the single
+  home for both HTTP-API switches — the public-content API toggle moves here
+  from Admin → Settings. `GET /api/manage/v1/events` publishes the event catalog with payload
+  schemas, and a key with `settings:manage` self-registers and manages its own
+  webhook endpoints. The full surface is described by a `bearerAuth` OpenAPI 3.1
+  document at `GET /api/manage/v1/openapi.json`. Migration `0026_api_keys`
+  supports all database dialects.
+  ([#135](https://github.com/JustFlows/justflows-ce/issues/135))
+
+### Fixed
+
+- Unknown multi-segment public URLs (for example `/foo/bar`) now render the
+  site's themed 404 — the theme's `templates/404.json` when it ships one,
+  otherwise the built-in Justflows 404 — instead of Express's bare
+  `Cannot GET`. Single-segment paths already did this; deep paths fell through
+  the public router.
+
 ## [0.2.1]
 
 ### Fixed
@@ -95,11 +168,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
     the first-party ids it renders itself (`justflows.seo`, …) inactive; the flag
     means the installed module only augments (feed routes, autodiscovery) and is
     safe to activate.
-  - `/admin/seo` redirects to `/admin/plugins/justflows.seo/settings`, so the SEO
-    Toolkit plugin can contribute a "SEO" nav entry with a dotless `adminMenu`
-    path (its id has a dot, which the manifest validator rejects in a path).
   - The hard-coded `justflows.seo` settings schema was removed from the host — an
-    installed SEO plugin now supplies its own.
+    installed SEO plugin now supplies its own. Its "SEO" nav entry points
+    straight at `/admin/plugins/justflows.seo/settings` (see the plugin-path
+    convention under **Changed**).
   - Content editor → **SEO** tab gains an **Exclude from RSS / Atom / JSON feeds**
     checkbox for every content type (`fields.seoFeedExclude`), shown only while an
     SEO plugin that owns feeds is active.
@@ -108,6 +180,28 @@ and this project uses [Semantic Versioning](https://semver.org/).
     ([#102](https://github.com/JustFlows/justflows-ce/issues/102))
 
 ### Changed
+
+- **Plugin, theme, and css-provider ids are now `justflows.<name>` only.** The
+  manifest validator (`PLUGIN_ID_RE`, exported from `@justflows/sdk`) rejects any
+  other namespace at install — the platform is first-party-curated, and the
+  `justflows.` prefix is what the admin URL and `/ext/<id>/…` asset mount are
+  built from.
+
+- **Every plugin admin page now lives under `/admin/plugins/<pluginId>`, and a
+  manifest declares its paths _relative_ to that namespace.** `adminMenu[].path`,
+  `adminApp` route `path`, and `setupPath` are now a lowercase leaf (`"orders"`,
+  `"orders/refunds"`) or `""` / omitted for the namespace root — never a leading
+  `/`, `admin`, the plugin id, or a `.`; an absolute path is rejected at install.
+  The host composes the absolute `/admin/plugins/<id>/…` URL from `manifest.id`
+  (`resolvePluginAdminPath`, exported from `@justflows/sdk`), so a URL always says
+  whether a screen is core or plugin-owned. Host-rendered first-party pages
+  (Analytics, Cookie Consent) moved off their old top-level routes
+  (`/admin/analytics`, `/admin/consent`); the `/admin/seo` → settings redirect is
+  gone (its nav entry is `path: "settings"`); the SSR prefetch table no longer
+  carries any plugin-specific route. First-party plugins (`justflows.analytics`,
+  `justflows.consent`, `justflows.forms`, `justflows.seo`, `justflows.shop`) must
+  be repackaged and reinstalled to pick up the new manifest paths.
+  ([#102](https://github.com/JustFlows/justflows-ce/issues/102))
 
 - Hand-authored scripts and styles under `public/` (`/js/site-nav.js`,
   `/js/site-chrome.js`, …) are served with `Cache-Control: no-cache` instead of

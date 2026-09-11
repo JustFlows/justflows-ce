@@ -8,6 +8,7 @@ import { uploadsDir } from "./jf-root.js";
 import { resolvePathUnderBase } from "./safe-path.js";
 import { getSiteSetting } from "./site-settings.js";
 import { auditLog } from "./audit-log.js";
+import { moveVariantDir, removeVariantDir } from "./media-responsive.js";
 
 export const TRASH_RETENTION_SETTING = "trash_retention_days";
 export const DEFAULT_TRASH_RETENTION_DAYS = 30;
@@ -150,6 +151,7 @@ export async function restoreTrashItem(siteId: string, type: TrashType, id: stri
         "UPDATE content SET slug = ?, original_slug = NULL, status = COALESCE(original_status, 'draft'), original_status = NULL, trashed_at = NULL, trashed_by = NULL, updated_at = ? WHERE id = ? AND site_id = ?",
         [slug, nowSql(), id, siteId],
       );
+      await (await import("./search-db.js")).indexSearchContent(siteId, id).catch(() => console.error("[justflows] Search index update after trash operation failed"));
     } else {
       await db.run(
         "UPDATE menus SET slug = ?, original_slug = NULL, trashed_at = NULL, trashed_by = NULL WHERE id = ? AND site_id = ?",
@@ -171,6 +173,7 @@ export async function restoreTrashItem(siteId: string, type: TrashType, id: stri
     );
     if (!rows[0]) throw new Error("Trash item not found");
     await moveMediaStorage(rows[0].storage_key, false);
+    await moveVariantDir(siteId, id, false).catch(() => undefined);
     await db.run(
       `UPDATE ${table} SET trashed_at = NULL, trashed_by = NULL, updated_at = ? WHERE id = ? AND site_id = ?`,
       [nowSql(), id, siteId],
@@ -206,6 +209,7 @@ export async function purgeTrashItem(
       await fs.unlink(filePath).catch((err: NodeJS.ErrnoException) => {
         if (err.code !== "ENOENT") throw err;
       });
+    await removeVariantDir(siteId, id).catch(() => undefined);
     return;
   }
   const table = type === "content" ? "content" : type === "comment" ? "comments" : "menus";
@@ -213,6 +217,7 @@ export async function purgeTrashItem(
     id,
     siteId,
   ]);
+  if (type === "content") await (await import("./search-db.js")).indexSearchContent(siteId, id).catch(() => console.error("[justflows] Search index update after trash operation failed"));
 }
 
 export async function purgeExpiredTrash(): Promise<number> {

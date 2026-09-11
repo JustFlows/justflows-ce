@@ -89,7 +89,7 @@ describe("buildNavDomains", () => {
         pluginId: "justflows.shop",
         id: "shop",
         label: "Shop",
-        path: "/admin/shop",
+        path: "/admin/plugins/justflows.shop",
         icon: "🛍",
         domain: "commerce",
         end: true,
@@ -98,13 +98,13 @@ describe("buildNavDomains", () => {
         pluginId: "justflows.shop",
         id: "products",
         label: "Products",
-        path: "/admin/shop/products",
+        path: "/admin/plugins/justflows.shop/products",
         icon: "📦",
         domain: "commerce",
       },
     ]);
     const commerce = domains.find((d) => d.slug === "commerce");
-    expect(commerce?.items.map((item) => item.to)).toEqual(["/admin/shop", "/admin/shop/products"]);
+    expect(commerce?.items.map((item) => item.to)).toEqual(["/admin/plugins/justflows.shop", "/admin/plugins/justflows.shop/products"]);
     expect(commerce?.items[0]?.end).toBe(true);
     expect(filterDomainsByRole(domains, "administrator").map((d) => d.slug)).toContain("commerce");
   });

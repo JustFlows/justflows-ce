@@ -25,58 +25,68 @@ describe("safeAdminRel", () => {
 });
 
 describe("parseAdminAppSpec", () => {
-  it("keeps valid routes and defaults the dir to 'admin'", () => {
-    const spec = parseAdminAppSpec({
-      routes: [
-        { path: "/admin/forms", entry: "index.html", title: "Forms" },
-        { path: "/admin/forms/submissions", entry: "index.html" },
-      ],
-    });
+  it("resolves relative route paths and defaults the dir to 'admin'", () => {
+    const spec = parseAdminAppSpec(
+      {
+        routes: [
+          { entry: "index.html", title: "Forms" },
+          { path: "submissions", entry: "index.html" },
+        ],
+      },
+      "acme.forms",
+    );
     expect(spec).toEqual({
       dir: "admin",
       routes: [
-        { path: "/admin/forms", entry: "index.html", title: "Forms" },
-        { path: "/admin/forms/submissions", entry: "index.html", title: undefined },
+        { path: "/admin/plugins/acme.forms", entry: "index.html", title: "Forms" },
+        { path: "/admin/plugins/acme.forms/submissions", entry: "index.html", title: undefined },
       ],
     });
   });
 
   it("honours an explicit relative dir", () => {
     expect(
-      parseAdminAppSpec({ dir: "dist/admin", routes: [{ path: "/admin/x", entry: "x.html" }] }),
+      parseAdminAppSpec({ dir: "dist/admin", routes: [{ path: "x", entry: "x.html" }] }, "acme.forms"),
     ).toMatchObject({ dir: "dist/admin" });
   });
 
   it("drops bad routes and returns null when none survive", () => {
     expect(
-      parseAdminAppSpec({
-        routes: [
-          { path: "/etc/forms", entry: "index.html" }, // not /admin/*
-          { path: "/admin/x", entry: "../evil.html" }, // traversal
-          { path: "/admin/y", entry: "app.js" }, // not html
-        ],
-      }),
+      parseAdminAppSpec(
+        {
+          routes: [
+            { path: "/admin/plugins/other.plugin/x", entry: "index.html" }, // outside namespace
+            { path: "x", entry: "../evil.html" }, // traversal
+            { path: "y", entry: "app.js" }, // not html
+          ],
+        },
+        "acme.forms",
+      ),
     ).toBeNull();
     expect(
-      parseAdminAppSpec({ dir: "../up", routes: [{ path: "/admin/x", entry: "x.html" }] }),
+      parseAdminAppSpec({ dir: "../up", routes: [{ path: "x", entry: "x.html" }] }, "acme.forms"),
     ).toBeNull();
-    expect(parseAdminAppSpec({ routes: [] })).toBeNull();
-    expect(parseAdminAppSpec(null)).toBeNull();
+    expect(parseAdminAppSpec({ routes: [] }, "acme.forms")).toBeNull();
+    expect(parseAdminAppSpec(null, "acme.forms")).toBeNull();
   });
 
   it("dedupes repeated paths and caps at 20", () => {
-    const spec = parseAdminAppSpec({
-      routes: [
-        { path: "/admin/a", entry: "a.html" },
-        { path: "/admin/a", entry: "b.html" },
-      ],
-    });
+    const spec = parseAdminAppSpec(
+      {
+        routes: [
+          { path: "a", entry: "a.html" },
+          { path: "a", entry: "b.html" },
+        ],
+      },
+      "acme.forms",
+    );
     expect(spec?.routes).toHaveLength(1);
     expect(spec?.routes[0]?.entry).toBe("a.html");
 
-    const many = parseAdminAppSpec({
-      routes: Array.from({ length: 30 }, (_, i) => ({ path: `/admin/p${i}`, entry: "i.html" })),
-    });
+    const many = parseAdminAppSpec(
+      { routes: Array.from({ length: 30 }, (_, i) => ({ path: `p${i}`, entry: "i.html" })) },
+      "acme.forms",
+    );
     expect(many?.routes.length).toBe(20);
   });
 });
@@ -86,7 +96,7 @@ describe("stampAdminAppUrls", () => {
     pluginId: "acme.forms",
     id: "forms",
     label: "Forms",
-    path: "/admin/forms",
+    path: "/admin/plugins/acme.forms",
     icon: "✉",
     domain: "extensions",
   };
@@ -97,7 +107,7 @@ describe("stampAdminAppUrls", () => {
       [
         {
           pluginId: "acme.forms",
-          path: "/admin/forms",
+          path: "/admin/plugins/acme.forms",
           entryUrl: "/ext/acme.forms/admin/index.html",
           title: "Form builder",
         },
@@ -113,7 +123,7 @@ describe("stampAdminAppUrls", () => {
       [
         {
           pluginId: "other.plugin",
-          path: "/admin/forms",
+          path: "/admin/plugins/acme.forms",
           entryUrl: "/ext/other.plugin/admin/index.html",
         },
       ],
@@ -156,7 +166,7 @@ describe("stampAdminAppUrls", () => {
       [
         {
           pluginId: "acme.forms",
-          path: "/admin/forms",
+          path: "/admin/plugins/acme.forms",
           entryUrl: "/ext/acme.forms/admin/index.html",
         },
       ],

@@ -7,10 +7,16 @@ stylesheet, sync and async filters, HTTP routes, a bundled browser runtime, an
 admin page, and `plugin_data` records with `deleteData` cleanup.
 
 ```bash
-cp -R plugins/hello-world plugins/acme-seo
-# edit plugins/acme-seo/package.json, justflows.json, and src/index.ts
-pnpm --filter acme.seo build
+cp -R plugins/hello-world plugins/my-seo
+# edit plugins/my-seo/package.json, justflows.json, and src/index.ts
+pnpm --filter justflows.my-seo build
 ```
+
+Every plugin id is **`justflows.<name>`** (lowercase, e.g. `justflows.seo`) —
+first-party only. The `justflows.` namespace is what the admin URL
+(`/admin/plugins/justflows.<name>`) and the asset mount
+(`/ext/justflows.<name>/…`) are built from; the manifest validator rejects any
+other id at install.
 
 The loader looks for `dist/index.js` or `index.js`. TypeScript in `src/` is not
 loaded at runtime.
@@ -26,8 +32,8 @@ import type { PluginModule } from "@justflows/sdk";
 
 const plugin: PluginModule = {
   manifest: {
-    id: "acme.seo",
-    name: "Acme SEO",
+    id: "justflows.seo",
+    name: "SEO Toolkit",
     version: "1.0.0",
     license: "GPL-2.0-or-later",
     engines: { justflows: ">=0.1.8 <0.2.0" },
@@ -182,15 +188,16 @@ shell — the plugin owns the whole screen and its design; core carries no page,
 route, or `if (pluginId === …)` for it.
 
 ```jsonc
-// justflows.json
+// justflows.json — paths are relative to /admin/plugins/<your plugin id>;
+// omit `path` for that namespace root.
 "permissions": ["admin:extend"],
 "adminMenu": [
-  { "id": "forms", "label": "Forms", "path": "/admin/forms", "icon": "✉", "domain": "extensions" }
+  { "id": "forms", "label": "Forms", "icon": "✉", "domain": "extensions" }
 ],
 "adminApp": {
   "dir": "admin",                       // default "admin"; relative, may be "dist/admin"
   "routes": [
-    { "path": "/admin/forms", "entry": "index.html", "title": "Forms" }
+    { "entry": "index.html", "title": "Forms" }   // no `path` → the namespace root
   ]
 }
 ```
@@ -224,8 +231,8 @@ work (DB, secrets, `content.published`) still lives in the plugin's `activate()`
 module, exactly as for any plugin; only the screen moved into the frame.
 
 Rules: `dir` and `entry` are relative, no `..`; `entry` must be `.html`; each
-`path` must be `/admin/…`; at most 20 routes. Ship the `dir` inside your
-`.jfpkg`.
+`path` is relative to `/admin/plugins/<your plugin id>` (omit it for the root);
+at most 20 routes. Ship the `dir` inside your `.jfpkg`.
 
 ## Ship your own stylesheet
 
@@ -305,14 +312,14 @@ You can also append pages at activation time with the `admin.menu` filter
 ```ts
 ctx.hooks.filter("admin.menu", (items) => [
   ...items,
-  { pluginId: ctx.pluginId, id: "reports", label: "Reports", path: "/admin/reports" },
+  { pluginId: ctx.pluginId, id: "reports", label: "Reports", path: "reports" },
 ]);
 ```
 
 Paths that have no dedicated admin SPA page still open: if the plugin declares
 an `adminApp` route for the path, the host frames the plugin's own screen (see
 [Ship your own admin app](#ship-your-own-admin-app)); otherwise it renders a
-generic plugin page for the `/admin/…` menu item.
+generic plugin page for the menu item.
 
 ```json
 {
@@ -321,7 +328,7 @@ generic plugin page for the `/admin/…` menu item.
     {
       "id": "reports",
       "label": "Reports",
-      "path": "/admin/reports",
+      "path": "reports",
       "icon": "📊",
       "domain": "extensions"
     }
@@ -333,11 +340,16 @@ generic plugin page for the `/admin/…` menu item.
 `extensions` (default), `security`, or `system`. `commerce` stays hidden until
 a plugin contributes a page to it.
 
-The path must be under `/admin/`. If the admin SPA has no dedicated page for it,
-the host still opens a generic plugin page for that menu item. Several items in
-the same sidebar `domain` appear as the top tab bar (the same pattern Content
-uses). Set `end: true` on a parent path such as `/admin/shop` so
-`/admin/shop/products` does not keep the parent tab selected.
+**`path` is relative to your plugin's namespace `/admin/plugins/<your plugin
+id>`.** Omit it (or `""`) for the namespace root; otherwise a lowercase leaf
+like `"orders"` or `"orders/refunds"`. Never write a leading `/`, `admin`, your
+plugin id, or a `.` — the host prepends `/admin/plugins/<id>/`, and an absolute
+path is rejected at install. The id is dot-namespaced, so the resulting URL
+always says whether a screen is core or plugin-owned. If the admin SPA has no
+dedicated page for it, the host opens a generic plugin page for that menu item.
+Several items in the same sidebar `domain` appear as the top tab bar (the same
+pattern Content uses). Set `end: true` on the namespace-root item so a nested
+page such as `orders` does not keep the parent tab selected.
 
 The host loads `GET /ext/{pluginId}/setup` only on the plugin's `setupPath`.
 Other `adminMenu` paths from that plugin get a landing page, not the wizard.
@@ -392,12 +404,14 @@ nothing.
 ## First-run setup
 
 A plugin that needs configuration before it is usable (database topology,
-credentials, store identity) can declare `setupPath`:
+credentials, store identity) can declare `setupPath` — relative to the plugin
+namespace like `adminMenu` paths. `""` is the namespace root; omit `setupPath`
+entirely for "no setup wizard".
 
 ```json
 {
   "permissions": ["admin:extend"],
-  "setupPath": "/admin/shop"
+  "setupPath": ""
 }
 ```
 
