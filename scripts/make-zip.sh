@@ -124,6 +124,7 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/*.sqlite3-journal" \
     -x "$NAME/.hosting-backup/*" \
     -x "$NAME/.agents/*" \
+    -x "$NAME/.cursor/*" \
     -x "$NAME/.github/*" \
     -x "$NAME/.vercel/*" \
     -x "$NAME/.netlify/*" \
@@ -143,7 +144,21 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/**/.cache/*" \
     -x "$NAME/**/.cache/**" \
     -x "$NAME/install-token/*" \
-    -x "$NAME/tmp/*"
+    -x "$NAME/tmp/*" \
+    -x "$NAME/.node-version" \
+    -x "$NAME/.gitignore" \
+    -x "$NAME/.eslintrc.js" \
+    -x "$NAME/.prettierrc" \
+    -x "$NAME/vitest.workspace.ts" \
+    -x "$NAME/AGENTS.md" \
+    -x "$NAME/CONTRIBUTING.md" \
+    -x "$NAME/CODE_OF_CONDUCT.md" \
+    -x "$NAME/SECURITY.md" \
+    -x "$NAME/scripts/make-zip.sh" \
+    -x "$NAME/scripts/generate-sbom.mjs" \
+    -x "$NAME/scripts/check-sdk-api.mjs" \
+    -x "$NAME/scripts/scan-secrets.mjs" \
+    -x "$NAME/scripts/restore-hosting.js"
 else
   # Zip repo contents at archive root (no wrapper folder).
   cd "$ROOT"
@@ -199,6 +214,7 @@ else
     -x "*.sqlite3-journal" \
     -x ".hosting-backup/*" \
     -x ".agents/*" \
+    -x ".cursor/*" \
     -x ".github/*" \
     -x ".vercel/*" \
     -x ".netlify/*" \
@@ -218,7 +234,21 @@ else
     -x "**/.cache/*" \
     -x "**/.cache/**" \
     -x "install-token/*" \
-    -x "tmp/*"
+    -x "tmp/*" \
+    -x ".node-version" \
+    -x ".gitignore" \
+    -x ".eslintrc.js" \
+    -x ".prettierrc" \
+    -x "vitest.workspace.ts" \
+    -x "AGENTS.md" \
+    -x "CONTRIBUTING.md" \
+    -x "CODE_OF_CONDUCT.md" \
+    -x "SECURITY.md" \
+    -x "scripts/make-zip.sh" \
+    -x "scripts/generate-sbom.mjs" \
+    -x "scripts/check-sdk-api.mjs" \
+    -x "scripts/scan-secrets.mjs" \
+    -x "scripts/restore-hosting.js"
 fi
 
 # The broad secret-file rules above also match the two redacted templates that

@@ -29,6 +29,7 @@ const PACKAGE_BUILD_ORDER = [
   "packages/installer",
   "packages/plugin-api",
   "packages/content",
+  "packages/media",
 ];
 
 function log(msg) {
