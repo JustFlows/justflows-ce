@@ -21,6 +21,7 @@ const PACKAGE_DIRS = [
   "packages/database",
   "packages/plugin-api",
   "packages/content",
+  "packages/media",
 ];
 
 function findPackageJson(name) {
