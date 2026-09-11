@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from "vitest";
-import { PluginManifestSchema, SENSITIVE_PERMISSIONS } from "./plugin.js";
+import { PluginManifestSchema, resolvePluginAdminPath, SENSITIVE_PERMISSIONS } from "./plugin.js";
 
 const base = {
   id: "justflows.widget",
@@ -142,6 +142,18 @@ describe("PluginManifestSchema — plugin-relative admin paths", () => {
     ]);
     expect(parsed.setupPath).toBe("/admin/plugins/justflows.widget");
     expect(parsed.adminApp?.routes[0]?.path).toBe("/admin/plugins/justflows.widget/board");
+  });
+
+  it("trims arbitrary runs of leading/trailing slashes from a relative path", () => {
+    expect(resolvePluginAdminPath("justflows.widget", "///board///")).toBe(
+      "/admin/plugins/justflows.widget/board",
+    );
+    expect(resolvePluginAdminPath("justflows.widget", "/".repeat(500))).toBe(
+      "/admin/plugins/justflows.widget",
+    );
+    expect(resolvePluginAdminPath("justflows.widget", null)).toBe(
+      "/admin/plugins/justflows.widget",
+    );
   });
 
   it('keeps "no setup wizard" distinct from a root-page wizard', () => {

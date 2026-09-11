@@ -28,9 +28,14 @@ function deny(res: Response): void {
 }
 
 function bearerToken(req: Request): string | null {
-  const header = req.get("authorization") ?? "";
-  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
-  return match?.[1]?.trim() || null;
+  const header = (req.get("authorization") ?? "").trim();
+  // Match only the fixed "Bearer" prefix plus one whitespace char with the
+  // regex, then take the remainder with plain string ops. `\s+` next to
+  // `.+` (both of which match spaces) is ambiguous and lets an engine
+  // backtrack quadratically over long runs of whitespace.
+  const prefix = /^Bearer\s/i.exec(header);
+  if (!prefix) return null;
+  return header.slice(prefix[0].length).trim() || null;
 }
 
 function ipAllowed(record: ApiKeyRecord, ip: string): boolean {

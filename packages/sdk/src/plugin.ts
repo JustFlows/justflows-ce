@@ -97,6 +97,24 @@ export function pluginAdminBasePath(pluginId: string): string {
   return `/admin/plugins/${pluginId}`;
 }
 
+const SLASH = "/".charCodeAt(0);
+
+/**
+ * Strip leading and trailing `/` with plain index scans. `/^\/+|\/+$/` looks
+ * harmless but is quadratic on a long run of `/` that isn't anchored at the
+ * true end of the string (e.g. `"a" + "/".repeat(n) + "a"`): the engine
+ * retries the `\/+$` branch, and its backtrack, from every offset inside the
+ * run. `relativePath` below comes from plugin code, so treat it as
+ * untrusted input rather than relying on the regex engine to stay linear.
+ */
+function stripSlashes(input: string): string {
+  let start = 0;
+  let end = input.length;
+  while (start < end && input.charCodeAt(start) === SLASH) start++;
+  while (end > start && input.charCodeAt(end - 1) === SLASH) end--;
+  return input.slice(start, end);
+}
+
 /**
  * Compose a plugin-relative admin path (`""`, `"orders"`, `"orders/refunds"`)
  * into its absolute URL under the plugin's namespace. `""` / nullish is the
@@ -104,7 +122,7 @@ export function pluginAdminBasePath(pluginId: string): string {
  */
 export function resolvePluginAdminPath(pluginId: string, relativePath?: string | null): string {
   const base = pluginAdminBasePath(pluginId);
-  const rel = String(relativePath ?? "").replace(/^\/+|\/+$/g, "");
+  const rel = stripSlashes(String(relativePath ?? ""));
   return rel ? `${base}/${rel}` : base;
 }
 

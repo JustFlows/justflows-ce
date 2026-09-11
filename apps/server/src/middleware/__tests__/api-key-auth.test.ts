@@ -81,6 +81,17 @@ describe("apiKeyAuth", () => {
     expect(await res.json()).toEqual({ error: "Unauthorized" });
   });
 
+  it("tolerates extra whitespace between 'Bearer' and the token", async () => {
+    const res = await fetch(url, { headers: { authorization: "Bearer    jfk_good" } });
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects a header that is 'Bearer' followed only by whitespace", async () => {
+    const res = await fetch(url, { headers: { authorization: `Bearer ${" ".repeat(200)}` } });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Unauthorized" });
+  });
+
   it("accepts a good key and attaches a synthetic api-key session", async () => {
     const res = await fetch(url, { headers: { authorization: "Bearer jfk_good" } });
     expect(res.status).toBe(200);
