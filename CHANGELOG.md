@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.4]
+
+### Fixed
+
+- **Admin content list and menu/content pickers hid content in non-default languages.** Admin → Content, the "add items" picker in Menus, and the page picker in the menu designer all scoped their `/api/content` requests to the site's default published language, so editors couldn't find or select pages/posts written in any other language. These admin views now list content across every language; Admin → Content gained a language filter chip row (shown once the site has more than one language), and the menu content picker shows each item's locale next to its slug.
+
+- **Replying to a comment on a translated post could fail with "Cannot reply to that comment".** The public comment thread lists comments from every translation of a post — a comment left on one language shows under every locale of that post — but submitting a reply checked the parent comment's content id against only the page currently being viewed, rejecting replies to a comment that lived under a sibling translation. Reply submission now matches the parent against the whole translation group, the same grouping already used to render the thread.
+
 ## [0.2.3]
 
 ### Added

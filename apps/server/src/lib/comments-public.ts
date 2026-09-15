@@ -601,11 +601,13 @@ export async function acceptCommentSubmission(
   const contentRows = await db.query<{
     id: string;
     type: string;
+    slug: string | null;
     status: string;
     published_at: string | null;
+    translation_group_id: string | null;
     fields: unknown;
   }>(
-    "SELECT id, type, status, published_at, fields FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+    "SELECT id, type, slug, status, published_at, translation_group_id, fields FROM content WHERE id = ? AND site_id = ? LIMIT 1",
     [contentId, siteId],
   );
   const content = contentRows[0];
@@ -644,7 +646,22 @@ export async function acceptCommentSubmission(
       [rawParent, siteId],
     );
     const parent = parentRows[0];
-    if (!parent || parent.status !== "approved" || parent.content_id !== contentId) {
+    // The thread a visitor replies from lists comments across the whole
+    // translation group (see resolveContentGroupIds), so a comment they can
+    // see and click "reply" on may live under a sibling locale's content id.
+    const contentGroupIds = await resolveContentGroupIds(db, siteId, {
+      id: content.id,
+      type: content.type,
+      slug: content.slug ?? undefined,
+      translationGroupId: content.translation_group_id,
+      publishedAt: content.published_at,
+      fields,
+    });
+    if (
+      !parent ||
+      parent.status !== "approved" ||
+      !contentGroupIds.includes(parent.content_id)
+    ) {
       return { status: 400, error: "Cannot reply to that comment" };
     }
     if ((await commentDepth(db, siteId, parent.id)) + 1 >= settings.threadMaxDepth + 4) {

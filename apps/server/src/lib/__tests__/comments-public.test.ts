@@ -172,6 +172,21 @@ describe("acceptCommentSubmission", () => {
     expect(res.status).toBe(400);
   });
 
+  it("accepts a reply to a comment left on a sibling translation of the same post", async () => {
+    const parentId = "22222222-2222-2222-2222-222222222222";
+    const otherLocaleContentId = "33333333-3333-3333-3333-333333333333";
+    routeQuery({
+      parent: [
+        { id: parentId, parent_id: null, status: "approved", content_id: otherLocaleContentId },
+      ],
+      group: [{ id: PUBLISHED_POST.id }, { id: otherLocaleContentId }],
+    });
+    const res = await acceptCommentSubmission(form({ parent_id: parentId }));
+    expect(res.status).toBe(303);
+    const insert = run.mock.calls.find(([sql]) => /INSERT INTO comments/i.test(sql));
+    expect(insert).toBeTruthy();
+  });
+
   it("fails the CAPTCHA when the token does not verify", async () => {
     settings.captchaProvider = "turnstile";
     settings.captchaSiteKey = "site";
