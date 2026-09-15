@@ -264,7 +264,7 @@ export async function publishRow(
     throw err;
   }
 
-  const publishedAt = serializeContentRow(row).publishedAt ?? new Date().toISOString();
+  const publishedAt = serializeContentRow(row).publishedAt ?? now();
   const nextContent = { ...serializeContentRow(row), ...proposed, status: "published", publishedAt };
   try {
     proposed.slug = await uniquePermalinkSlug(nextContent);
