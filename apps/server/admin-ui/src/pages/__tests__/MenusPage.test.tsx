@@ -74,14 +74,14 @@ function mockFetch(): ReturnType<typeof vi.fn> {
       return jsonResponse({ menu: { id: "m1", slug: "primary", name: "Primary", items: [] } });
     }
     if (path.startsWith("/api/content?type=page")) {
-      const items = path.includes("locale=en-US") ? [ABOUT, HOME_EN] : [ABOUT, HOME_EN, HOME_NL];
-      return jsonResponse({ items });
+      // The "add items" picker spans every language (see MenusPage.tsx).
+      return jsonResponse({ items: [ABOUT, HOME_EN, HOME_NL] });
     }
     if (path.startsWith("/api/content?type=post")) {
       return jsonResponse({ items: [] });
     }
     if (path.startsWith("/api/content?type=product")) {
-      return jsonResponse({ items: path.includes("locale=en-US") ? [MUG] : [] });
+      return jsonResponse({ items: [MUG] });
     }
     if (path.startsWith("/api/content?type=shop")) {
       return jsonResponse({ items: [] });
@@ -107,18 +107,19 @@ function renderPage() {
 describe("MenusPage content picker", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("lists only default-language pages when adding menu items", async () => {
+  it("lists pages from every language when adding menu items", async () => {
     const fetchMock = mockFetch();
     renderPage();
 
     expect(await screen.findByText("About us")).toBeInTheDocument();
-    expect(screen.getAllByText("Home")).toHaveLength(1);
+    // Both the en-US and nl-NL "Home" pages are offered — the site's default
+    // published locale only governs public rendering, not this picker.
+    expect(screen.getAllByText("Home")).toHaveLength(2);
 
     const pageCalls = fetchMock.mock.calls
       .map(([input]) => String(input))
       .filter((path) => path.startsWith("/api/content?type=page"));
-    expect(pageCalls.some((path) => path.includes("locale=en-US"))).toBe(true);
-    expect(pageCalls.some((path) => !path.includes("locale="))).toBe(false);
+    expect(pageCalls.some((path) => path.includes("locale="))).toBe(false);
   });
 
   it("lists other content types such as products in the picker", async () => {
@@ -140,7 +141,6 @@ describe("MenusPage content picker", () => {
     const productCalls = fetchMock.mock.calls
       .map(([input]) => String(input))
       .filter((path) => path.startsWith("/api/content?type=product"));
-    expect(productCalls.some((path) => path.includes("locale=en-US"))).toBe(true);
-    expect(productCalls.some((path) => !path.includes("locale="))).toBe(false);
+    expect(productCalls.some((path) => path.includes("locale="))).toBe(false);
   });
 });
