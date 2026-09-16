@@ -22,6 +22,9 @@ export const MIGRATION_ORDER = [
   "0028_site_search",
   "0029_search_metrics",
   "0030_content_scheduling",
+  "0031_comment_spam",
+  "0032_comment_trash_repair",
+  "0033_spam_term_source",
 ] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";

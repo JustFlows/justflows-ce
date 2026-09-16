@@ -5,7 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.2.4]
+## [0.2.4-dev.1] [UNRELEASED]
+
+### Added
+
+- **Comment spam filtering and submission throttling.** Public comment
+  submissions now go through a local heuristic scorer (links, keywords,
+  repeated text, disposable email domains, a render-age token, and terms
+  learned from "mark as spam") that auto-approves, holds, or auto-marks spam
+  per configurable score thresholds in Settings → Discussion → Spam
+  protection. Signed-in commenters get a separate rate-limit bucket alongside
+  the existing per-IP one. Admins get author/domain/IP/phrase block and allow
+  lists (with one-click "Block email/domain/IP" actions from the moderation
+  queue), a "hold a first-time commenter" option, an "auto-approve a
+  returning commenter" option, and a configurable spam retention/purge
+  window. A new `comments.spamBackend` SDK filter lets a plugin attach an
+  external spam-scoring service (Akismet-style) without becoming a hard
+  dependency — the host always applies its own thresholds. All checks run
+  server-side; blocklist/allowlist changes are audit-logged.
+  ([#109](https://github.com/JustFlows/justflows-ce/issues/109))
 
 ### Fixed
 

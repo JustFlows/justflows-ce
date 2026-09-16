@@ -32,6 +32,7 @@
   "comments.posted_ok": "Gracias — tu comentario se ha publicado.",
   "comments.captcha_failed": "La comprobación antispam ha fallado. Inténtalo de nuevo.",
   "comments.error_generic": "No se pudo publicar tu comentario. Inténtalo de nuevo.",
+  "comments.rate_limited": "Estás comentando demasiado rápido. Espera unos minutos e inténtalo de nuevo.",
   "comments.closed": "Los comentarios están cerrados para esta entrada.",
   "search.title": "Búsqueda del sitio",
   "search.query": "Buscar contenido",

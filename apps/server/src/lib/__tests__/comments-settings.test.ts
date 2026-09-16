@@ -35,6 +35,12 @@ describe("normalizeCommentSettings", () => {
     expect(normalizeCommentSettings({ captchaScoreThreshold: 2 }).captchaScoreThreshold).toBe(1);
     expect(normalizeCommentSettings({ captchaScoreThreshold: "bad" }).captchaScoreThreshold).toBe(0.5);
   });
+
+  it("keeps a hold threshold above the reject threshold from ever exceeding it", () => {
+    const s = normalizeCommentSettings({ spamHoldThreshold: 90, spamRejectThreshold: 50 });
+    expect(s.spamRejectThreshold).toBe(50);
+    expect(s.spamHoldThreshold).toBe(50);
+  });
 });
 
 describe("toPublicCommentSettings", () => {

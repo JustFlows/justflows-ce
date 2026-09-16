@@ -36,6 +36,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startCoreAutoUpdateJob();
     const { startTrashPurgeJob } = await import("./lib/trash.js");
     startTrashPurgeJob();
+    const { startCommentSpamPurgeJob } = await import("./lib/comments-spam-purge.js");
+    startCommentSpamPurgeJob();
     try {
       const { getSiteId } = await import("./lib/site-settings.js");
       const siteId = await getSiteId();
@@ -79,6 +81,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: contentRoutes },
     { default: mediaRoutes },
     { default: commentsRoutes },
+    { default: commentRulesRoutes },
+    { default: commentSpamTermsRoutes },
     { default: usersRoutes },
     { default: settingsRoutes },
     { default: securityRoutes },
@@ -117,6 +121,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/content.js"),
     import("./routes/media.js"),
     import("./routes/comments.js"),
+    import("./routes/comment-rules.js"),
+    import("./routes/comment-spam-terms.js"),
     import("./routes/users.js"),
     import("./routes/settings.js"),
     import("./routes/security.js"),
@@ -164,6 +170,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/trash", requireInstalled, trashRoutes);
   app.use("/api/media", requireInstalled, mediaRoutes);
   app.use("/api/comments", requireInstalled, commentsRoutes);
+  app.use("/api/comment-rules", requireInstalled, commentRulesRoutes);
+  app.use("/api/comment-spam-terms", requireInstalled, commentSpamTermsRoutes);
   app.use("/api/users", requireInstalled, usersRoutes);
   app.use("/api/settings", requireInstalled, settingsRoutes);
   app.use("/api/emails", requireInstalled, emailsRoutes);
@@ -283,6 +291,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
         origin: req.get("origin") ?? undefined,
         referer: req.get("referer") ?? undefined,
         clientIp: clientIp(req),
+        userAgent: req.get("user-agent") ?? undefined,
         session: session
           ? { userId: session.userId, siteId: session.siteId, email: session.email }
           : null,

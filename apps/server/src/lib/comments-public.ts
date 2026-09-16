@@ -10,6 +10,9 @@ import { consumeRateLimit } from "./rate-limit.js";
 import { getGeneralSettings } from "./general-settings.js";
 import { commentsStateFor, getCommentSettings, type CommentSettings } from "./comments-settings.js";
 import { CAPTCHA_META, renderCaptchaWidget, verifyCaptcha } from "./captcha.js";
+import { createCommentFormToken, verifyCommentFormToken } from "./comment-form-token.js";
+import { decide } from "./comments-spam-policy.js";
+import type { FormTokenStatus } from "./comments-spam-score.js";
 
 export const COMMENTS_BLOCK_TYPE = "justflows.comments.thread";
 const RECAPTCHA_V3_ACTION = "justflows_comment_submit";
@@ -59,7 +62,7 @@ export function registerCommentsBlock(): void {
 
 // ─── Public render ──────────────────────────────────────────────────────────
 
-export type CommentsBannerState = "posted" | "pending" | "error" | "captcha";
+export type CommentsBannerState = "posted" | "pending" | "error" | "captcha" | "rate_limited";
 
 export interface CommentsRenderContext {
   siteId: string;
@@ -241,10 +244,15 @@ function bannerHtml(ctx: CommentsRenderContext): string {
         ? "comments.awaiting_moderation"
         : ctx.banner === "captcha"
           ? "comments.captcha_failed"
-          : "comments.error_generic";
+          : ctx.banner === "rate_limited"
+            ? "comments.rate_limited"
+            : "comments.error_generic";
   const tone = ctx.banner === "posted" || ctx.banner === "pending" ? "success" : "error";
   const role = tone === "success" ? "status" : "alert";
-  return `<p class="jf-comments__banner jf-comments__banner--${tone}" role="${role}">${esc(ctx.t(key))}</p>`;
+  // data-jf-toast lets the global toast script (site-toast.js, every public
+  // page) turn this into a floating, dismissible notice instead of a static
+  // block a visitor might submit the form again without ever scrolling to see.
+  return `<p class="jf-comments__banner jf-comments__banner--${tone}" role="${role}" data-jf-toast="${tone}">${esc(ctx.t(key))}</p>`;
 }
 
 function fieldRow(id: string, label: string, control: string, hint = ""): string {
@@ -257,6 +265,14 @@ function fieldRow(id: string, label: string, control: string, hint = ""): string
 
 function formHtml(ctx: CommentsRenderContext, settings: CommentSettings): string {
   const user = ctx.currentUser ?? null;
+  // A missing/short APP_SECRET must not take down the whole comments block —
+  // an absent token is already a handled case (a "missing" spam signal).
+  let formToken = "";
+  try {
+    formToken = createCommentFormToken({ contentId: ctx.content.id, siteId: ctx.siteId });
+  } catch {
+    formToken = "";
+  }
   const nameControl = user
     ? `<input id="jf-comment-name" type="text" name="author_name" value="${esc(user.name)}" readonly>`
     : `<input id="jf-comment-name" type="text" name="author_name" maxlength="120" required autocomplete="name">`;
@@ -286,6 +302,7 @@ function formHtml(ctx: CommentsRenderContext, settings: CommentSettings): string
     <input type="hidden" name="content_id" value="${esc(ctx.content.id)}">
     ${ctx.replyTo ? `<input type="hidden" name="parent_id" value="${esc(ctx.replyTo)}">` : ""}
     <input type="hidden" name="return_to" value="${esc(ctx.basePath || "/")}">
+    <input type="hidden" name="form_token" value="${esc(formToken)}">
     <div class="jf-comments__hp" aria-hidden="true">
       <label for="jf-comment-url">Leave this field empty</label>
       <input id="jf-comment-url" type="text" name="website_url" tabindex="-1" autocomplete="off">
@@ -530,10 +547,6 @@ function sameOrigin(
   }
 }
 
-function countLinks(html: string): number {
-  return (html.match(/https?:\/\//gi) ?? []).length;
-}
-
 function returnLocation(
   returnTo: string | undefined,
   referer: string | undefined,
@@ -557,6 +570,7 @@ export interface CommentSubmissionInput {
   origin?: string;
   referer?: string;
   clientIp?: string;
+  userAgent?: string;
   session?: { userId: string; siteId: string; email?: string } | null;
 }
 
@@ -570,18 +584,34 @@ export async function acceptCommentSubmission(
   input: CommentSubmissionInput,
 ): Promise<CommentSubmissionResult> {
   const ip = input.clientIp ?? "unknown";
+  const b = input.body;
+  const returnTo = typeof b.return_to === "string" ? b.return_to : undefined;
+  // A failure past this point always bounces back to the post with a banner —
+  // a bare text response at this URL is a dead end with no way back for a
+  // visitor whose browser did a full-page form submit (no JS).
+  const fail = (status: number, error: string, banner: CommentsBannerState = "error") => ({
+    status,
+    error,
+    location: returnLocation(returnTo, input.referer, banner),
+  });
+
   // Unauthenticated write. Without a ceiling a script fills the table and the
   // moderation queue; the honeypot below only stops the naive bots.
   if (!consumeRateLimit(`comment:ip:${ip}`, 5, 10 * 60 * 1000)) {
-    return { status: 429, error: "Too many comments. Please try again later." };
+    return fail(429, "Too many comments. Please try again later.", "rate_limited");
+  }
+  // A signed-in account is a stickier identity than an IP (shared NAT, VPNs,
+  // mobile carriers) — cap it separately rather than relying on the IP bucket.
+  if (
+    input.session?.userId &&
+    !consumeRateLimit(`comment:user:${input.session.userId}`, 8, 10 * 60 * 1000)
+  ) {
+    return fail(429, "Too many comments. Please try again later.", "rate_limited");
   }
 
   if (!sameOrigin(input.host, input.origin, input.referer)) {
-    return { status: 403, error: "Bad origin" };
+    return fail(403, "Bad origin");
   }
-
-  const b = input.body;
-  const returnTo = typeof b.return_to === "string" ? b.return_to : undefined;
 
   // Honeypot: a filled `website_url` is a bot. Behave like success so it learns
   // nothing, but write nothing.
@@ -592,12 +622,26 @@ export async function acceptCommentSubmission(
   const db = await getDb();
   const siteRows = await db.query<{ id: string }>("SELECT id FROM sites LIMIT 1");
   const siteId = siteRows[0]?.id;
-  if (!siteId) return { status: 404, error: "Comments are not available" };
+  if (!siteId) return fail(404, "Comments are not available");
 
   const settings = await getCommentSettings(siteId);
 
   const contentId = String(b.content_id ?? "").trim();
-  if (!contentId) return { status: 400, error: "Missing post" };
+  if (!contentId) return fail(400, "Missing post");
+
+  // A token is only proof of "this form was rendered for this post" if it's
+  // pinned to that post — otherwise one harvested token could be replayed
+  // against any content_id for as long as it stays within its max age.
+  const rawFormToken = verifyCommentFormToken(b.form_token);
+  const formToken =
+    rawFormToken && rawFormToken.siteId === siteId && rawFormToken.contentId === contentId
+      ? rawFormToken
+      : null;
+  const formTokenStatus: FormTokenStatus = !formToken
+    ? "missing"
+    : Date.now() - formToken.issuedAt < settings.minRenderAgeSeconds * 1000
+      ? "tooFast"
+      : "ok";
   const contentRows = await db.query<{
     id: string;
     type: string;
@@ -612,13 +656,13 @@ export async function acceptCommentSubmission(
   );
   const content = contentRows[0];
   if (!content || content.status !== "published") {
-    return { status: 404, error: "Post not found" };
+    return fail(404, "Post not found");
   }
 
   const fields = typeof content.fields === "string" ? safeParse(content.fields) : content.fields;
   const state = commentsStateFor({ fields, publishedAt: content.published_at }, settings);
   if (!state.visible || !state.accepting) {
-    return { status: 403, error: "Comments are closed for this post" };
+    return fail(403, "Comments are closed for this post");
   }
 
   // CAPTCHA, when configured.
@@ -662,10 +706,10 @@ export async function acceptCommentSubmission(
       parent.status !== "approved" ||
       !contentGroupIds.includes(parent.content_id)
     ) {
-      return { status: 400, error: "Cannot reply to that comment" };
+      return fail(400, "Cannot reply to that comment");
     }
     if ((await commentDepth(db, siteId, parent.id)) + 1 >= settings.threadMaxDepth + 4) {
-      return { status: 400, error: "Reply nesting is too deep" };
+      return fail(400, "Reply nesting is too deep");
     }
     parentId = parent.id;
   }
@@ -692,9 +736,8 @@ export async function acceptCommentSubmission(
     }
   }
 
-  if (!authorName) return { status: 400, error: "Name is required" };
-  if (authorEmail && !EMAIL_RE.test(authorEmail))
-    return { status: 400, error: "Email looks invalid" };
+  if (!authorName) return fail(400, "Name is required");
+  if (authorEmail && !EMAIL_RE.test(authorEmail)) return fail(400, "Email looks invalid");
 
   let authorUrl = "";
   if (settings.allowUrls) {
@@ -713,17 +756,32 @@ export async function acceptCommentSubmission(
   }
 
   const rawBody = String(b.body ?? "").trim();
-  if (rawBody.length < 2) return { status: 400, error: "Comment is empty" };
-  if (rawBody.length > settings.maxLength) return { status: 400, error: "Comment is too long" };
+  if (rawBody.length < 2) return fail(400, "Comment is empty");
+  if (rawBody.length > settings.maxLength) return fail(400, "Comment is too long");
   const cleanBody = sanitizeCommentBody(rawBody);
   if (!commentPlainText(cleanBody)) {
-    return { status: 400, error: "Comment is empty" };
+    return fail(400, "Comment is empty");
   }
 
   const wantsNotify =
     (b.notify === "1" || b.notify === "on" || b.notify === true) && Boolean(authorEmail);
-  const linky = countLinks(cleanBody) > 2;
-  const status = settings.requireModeration || linky ? "pending" : "approved";
+
+  const decision = await decide({
+    siteId,
+    contentId,
+    ip,
+    userAgent: input.userAgent ?? "",
+    authorName,
+    authorEmail,
+    authorUrl,
+    bodyHtml: cleanBody,
+    plainText: commentPlainText(cleanBody),
+    userId,
+    isAuthenticated: Boolean(userId),
+    formToken: formTokenStatus,
+    settings,
+  });
+  const status = decision.status;
 
   const id = randomUUID();
   const nowIso = new Date()
@@ -732,8 +790,8 @@ export async function acceptCommentSubmission(
     .replace(/\.\d+Z$/, "");
   await db.run(
     `INSERT INTO comments
-       (id, site_id, content_id, parent_id, author_name, author_email, author_url, body, status, user_id, ip_address, notify, unsubscribe_token, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, site_id, content_id, parent_id, author_name, author_email, author_url, body, status, user_id, ip_address, notify, unsubscribe_token, spam_score, spam_reasons, held_reason, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       siteId,
@@ -748,6 +806,9 @@ export async function acceptCommentSubmission(
       ip.slice(0, 64),
       wantsNotify,
       wantsNotify ? randomUUID().replace(/-/g, "") : null,
+      decision.score,
+      JSON.stringify(decision.reasons),
+      decision.heldReason,
       nowIso,
       nowIso,
     ],

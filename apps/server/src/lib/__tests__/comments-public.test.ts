@@ -119,9 +119,10 @@ function form(extra: Record<string, unknown> = {}) {
 }
 
 describe("acceptCommentSubmission", () => {
-  it("rejects a cross-origin submission", async () => {
+  it("rejects a cross-origin submission but still bounces back to the post with a banner", async () => {
     const res = await acceptCommentSubmission({ ...form(), origin: "https://evil.example" });
     expect(res.status).toBe(403);
+    expect(res.location).toContain("comment=error");
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -131,9 +132,11 @@ describe("acceptCommentSubmission", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it("rate limits after five submissions from one IP", async () => {
+  it("rate limits after five submissions from one IP, redirecting back with a banner instead of a bare error page", async () => {
     for (let i = 0; i < 5; i++) expect((await acceptCommentSubmission(form())).status).toBe(303);
-    expect((await acceptCommentSubmission(form())).status).toBe(429);
+    const res = await acceptCommentSubmission(form());
+    expect(res.status).toBe(429);
+    expect(res.location).toContain("comment=rate_limited");
   });
 
   it("stores a comment as pending when moderation is on", async () => {
@@ -164,12 +167,14 @@ describe("acceptCommentSubmission", () => {
   it("rejects an invalid email address", async () => {
     const res = await acceptCommentSubmission(form({ author_email: "not-an-email" }));
     expect(res.status).toBe(400);
+    expect(res.location).toContain("comment=error");
     expect(run).not.toHaveBeenCalled();
   });
 
   it("rejects a reply to an unknown parent", async () => {
     const res = await acceptCommentSubmission(form({ parent_id: "22222222-2222-2222-2222-222222222222" }));
     expect(res.status).toBe(400);
+    expect(res.location).toContain("comment=error");
   });
 
   it("accepts a reply to a comment left on a sibling translation of the same post", async () => {
@@ -251,6 +256,21 @@ describe("acceptCommentSubmission", () => {
     routeQuery({ content: [{ ...PUBLISHED_POST, fields: { comments: "closed" } }] });
     const res = await acceptCommentSubmission(form());
     expect(res.status).toBe(403);
+    expect(res.location).toContain("comment=error");
+  });
+
+  it("never leaves a visitor on a bare '/justflows-comments/submit' error page — every failure carries a location", async () => {
+    const cases = [
+      { ...form(), origin: "https://evil.example" },
+      form({ author_email: "not-an-email" }),
+      form({ parent_id: "22222222-2222-2222-2222-222222222222" }),
+      form({ body: "x" }),
+    ];
+    for (const submission of cases) {
+      const res = await acceptCommentSubmission(submission);
+      expect(res.status).not.toBe(303);
+      expect(res.location).toBeTruthy();
+    }
   });
 });
 
@@ -312,6 +332,15 @@ describe("renderCommentsBlockHtml", () => {
     expect(html).not.toContain("jf-comments render error");
     expect(html).toContain("a real comment");
     expect(html).toContain('datetime="2026-02-02T10:00:00.000Z"');
+  });
+
+  it("marks the error/rate-limit banner as a global toast, for site-toast.js to pick up", async () => {
+    const rateLimited = await renderCommentsBlockHtml({}, { ...ctx, banner: "rate_limited" });
+    expect(rateLimited).toContain('data-jf-toast="error"');
+    expect(rateLimited).toContain("comments.rate_limited");
+
+    const posted = await renderCommentsBlockHtml({}, { ...ctx, banner: "posted" });
+    expect(posted).toContain('data-jf-toast="success"');
   });
 
   it("shows a closed notice instead of the form when comments are disabled", async () => {
