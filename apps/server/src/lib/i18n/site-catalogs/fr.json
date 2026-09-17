@@ -32,6 +32,7 @@
   "comments.posted_ok": "Merci — votre commentaire a été publié.",
   "comments.captcha_failed": "La vérification anti-spam a échoué. Veuillez réessayer.",
   "comments.error_generic": "Votre commentaire n’a pas pu être publié. Veuillez réessayer.",
+  "comments.rate_limited": "Vous commentez trop rapidement. Veuillez patienter quelques minutes puis réessayer.",
   "comments.closed": "Les commentaires sont fermés pour cet article.",
   "search.title": "Recherche sur le site",
   "search.query": "Rechercher du contenu",

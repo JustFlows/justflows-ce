@@ -53,8 +53,9 @@ function mockFetch(): ReturnType<typeof vi.fn> {
       });
     }
     if (path.startsWith("/api/content?" ) || path === "/api/content") {
-      const items = path.includes("locale=en-US") ? [ABOUT, HOME_EN] : [ABOUT, HOME_EN, HOME_NL];
-      return jsonResponse({ items });
+      // The admin content list spans every language, regardless of the
+      // site's default published locale (see ContentListPage.tsx).
+      return jsonResponse({ items: [ABOUT, HOME_EN, HOME_NL] });
     }
     if (path === "/api/content-types") {
       return jsonResponse({
@@ -84,13 +85,17 @@ describe("ContentListPage", () => {
     setAdminSsrPayload({ adminBasePath: "/admin-test", url: "/admin-test/content", locale: "en", responses: {} });
     render(<MemoryRouter initialEntries={["/admin-test/content"]}><I18nProvider><ContentListPage /></I18nProvider></MemoryRouter>);
     expect(await screen.findByRole("link", { name: "About us" })).toHaveAttribute("href", "/admin-test/content/page-about");
-    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/admin-test/content/page-home-en");
+    // Both language versions of "Home" are listed (see the next test), so
+    // pick out the English one by href rather than assuming a single match.
+    const homeLinks = screen.getAllByRole("link", { name: "Home" });
+    const homeEnLink = homeLinks.find((el) => el.getAttribute("href") === "/admin-test/content/page-home-en");
+    expect(homeEnLink).toBeTruthy();
     for (const link of screen.getAllByRole("link")) {
       expect(link.getAttribute("href")).not.toMatch(/^\/admin(?:\/|\?|#|$)/);
     }
   });
 
-  it("lists only default-language items", async () => {
+  it("lists items across all languages by default", async () => {
     const fetchMock = mockFetch();
     render(
       <MemoryRouter>
@@ -99,12 +104,14 @@ describe("ContentListPage", () => {
     );
 
     expect(await screen.findByRole("link", { name: "About us" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Home" })).toHaveLength(1);
+    // Both the en-US and nl-NL "Home" pages show up — the default published
+    // locale only governs public rendering, not what admins can manage.
+    expect(screen.getAllByRole("link", { name: "Home" })).toHaveLength(2);
 
     const contentCalls = fetchMock.mock.calls
       .map(([input]) => String(input))
       .filter((path) => path === "/api/content" || path.startsWith("/api/content?"));
-    expect(contentCalls.some((path) => path.includes("locale=en-US"))).toBe(true);
-    expect(contentCalls.some((path) => path === "/api/content")).toBe(false);
+    expect(contentCalls.some((path) => path === "/api/content")).toBe(true);
+    expect(contentCalls.some((path) => path.includes("locale="))).toBe(false);
   });
 });

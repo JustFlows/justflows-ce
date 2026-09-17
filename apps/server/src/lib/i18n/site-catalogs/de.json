@@ -32,6 +32,7 @@
   "comments.posted_ok": "Danke — Ihr Kommentar wurde veröffentlicht.",
   "comments.captcha_failed": "Die Spam-Prüfung ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
   "comments.error_generic": "Ihr Kommentar konnte nicht gesendet werden. Bitte versuchen Sie es erneut.",
+  "comments.rate_limited": "Sie kommentieren zu schnell. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
   "comments.closed": "Die Kommentare für diesen Beitrag sind geschlossen.",
   "search.title": "Website-Suche",
   "search.query": "Inhalte suchen",

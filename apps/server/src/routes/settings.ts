@@ -147,6 +147,13 @@ const CommentSettingsSchema = z.object({
   captchaScoreThreshold: z.coerce.number().min(0).max(1).optional(),
   // Write-only. An empty string leaves the stored secret untouched.
   captchaSecretKey: z.string().max(200).optional(),
+  spamHoldThreshold: z.coerce.number().int().min(0).max(100).optional(),
+  spamRejectThreshold: z.coerce.number().int().min(0).max(100).optional(),
+  minRenderAgeSeconds: z.coerce.number().int().min(0).max(60).optional(),
+  linkThreshold: z.coerce.number().int().min(1).max(20).optional(),
+  firstCommentHold: z.boolean().optional(),
+  autoApprovePreviouslyApproved: z.boolean().optional(),
+  spamRetentionDays: z.coerce.number().int().min(1).max(3650).optional(),
 });
 
 router.get("/comments", requireRole("administrator"), async (_req, res) => {

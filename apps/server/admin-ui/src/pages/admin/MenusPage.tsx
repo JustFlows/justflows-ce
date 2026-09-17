@@ -74,19 +74,20 @@ export default function MenusPage({ embedded = false }: { embedded?: boolean } =
   }
 
   async function loadContentOptions() {
+    // The "add items" picker spans every language — the site's default
+    // published locale (Settings → Site Language) must not hide content
+    // here, it only governs public rendering.
     const langRes = await fetch("/api/languages");
     const langData = await langRes.json();
     const languages: Array<{ code: string; isDefault?: boolean; isActive?: boolean }> = langData.languages ?? [];
-    const defaultLocale = languages.find((lang) => lang.isDefault)?.code ?? languages[0]?.code;
     setActiveLocales(languages.filter((l) => l.isActive !== false).map((l) => l.code));
-    const localeQuery = defaultLocale ? `&locale=${encodeURIComponent(defaultLocale)}` : "";
     const typesRes = await fetch("/api/content-types");
     const typesData = await typesRes.json();
     const fetched = normalizeContentTypes(typesData.types as ContentTypeOption[] | undefined);
     const entries = await Promise.all(
       fetched.map(async (type) => {
         const res = await fetch(
-          `/api/content?type=${encodeURIComponent(type.slug)}&status=published&limit=100${localeQuery}`,
+          `/api/content?type=${encodeURIComponent(type.slug)}&status=published&limit=100`,
         );
         const data = await res.json();
         return [type.slug, (data.items ?? []) as ContentOption[]] as const;

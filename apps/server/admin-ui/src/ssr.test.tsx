@@ -37,7 +37,7 @@ describe("admin SSR routes", () => {
             languages: [{ code: "en-US", isDefault: true }],
           }),
         },
-        "/api/content?locale=en-US": {
+        "/api/content": {
           status: 200,
           statusText: "OK",
           headers: { "content-type": "application/json" },
