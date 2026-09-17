@@ -19,6 +19,8 @@ pnpm --filter @justflows/auth build
 pnpm --filter @justflows/installer build
 pnpm --filter @justflows/plugin-api build
 pnpm --filter @justflows/content build
+pnpm --filter @justflows/jobs build
+pnpm --filter @justflows/media build
 pnpm --filter @justflows/server build
 node "$ROOT/scripts/bundle-server.js"
 
