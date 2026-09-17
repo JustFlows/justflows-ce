@@ -640,6 +640,7 @@ makes both correctness and performance attributable to a specific extension.
 | `content.blocks`          | block tree                              | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on stored blocks before HTML render. Handlers may be async (Shop fills `{{price}}` tags here so heading text is replaced before `esc()`).                                                                                                                                                                                                                                                                                                                              |
 | `content.render`          | `string` (HTML)                         | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on public body HTML after blocks render. Handlers may be async (Shop uses this to fill `{{price}}` and other product tags).                                                                                                                                                                                                                                                                                                                                            |
 | `comments.render`         | `string` (HTML)                         | `CommentsBlockRenderContext` — the rendered `justflows.comments.thread` block. Return replacement HTML for full markup control (the context carries the threaded `PublicComment[]`, counts, form/policy state, `basePath`, `locale`, `currentUser`, `captchaProvider`), or the value unchanged to keep the default. Handlers may be async. Deactivating the plugin restores the default markup. The submission endpoint (`POST /justflows-comments/submit`), `comments` table, and moderation API are unchanged — only the rendering is yours.         |
+| `comments.spamBackend`    | `SpamCheckBackend \| null`              | `{ siteId }` — seeded with `null`. Return an Akismet-style backend implementing `check(input)`, or the incoming value unchanged. Requires `network:outbound`. The host always applies its own configured thresholds on top of the verdict and never requires a handler to be registered — see [Comment spam backend filter](#comment-spam-backend-filter).                                                                                                                                                                                             |
 | `content.revision`        | proposed snapshot                       | `{ siteId, contentId }` — filters the working revision before it is stored. Committed history is immutable.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `media.metadata`          | `Record<string, unknown>`               | `{ siteId, mediaId }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `navigation.items`        | `NavigationItem[]`                      | `{ siteId, location }` — `location` is the menu slug. Runs after the host resolves a menu's own items (visibility rules already applied), so appended items render alongside the author's. See [Contributing a menu design preset](#contributing-a-menu-design-preset).                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -794,6 +795,21 @@ engine implementing `search`, `upsert`, and `remove`, or preserve the existing
 value. The hook requires `content:read`, is removed on deactivation, and cannot
 override host publication/access checks. See [Search](SEARCH.md) for lifecycle,
 candidate limits, privacy, and the canonical plugin example.
+
+## Comment spam backend filter
+
+`comments.spamBackend` receives `SpamCheckBackend | null` and `{ siteId }`.
+Return an object implementing `check(input): Promise<SpamCheckResult>` — given
+the IP, user agent, author fields, body, and extracted links of a public
+comment submission — or preserve the existing value. `input` deliberately
+excludes revision history, session data, and secrets; a backend should not
+persist more of it than its own scoring needs. The hook requires
+`network:outbound`, is removed on deactivation, and never replaces the host's
+own rate limiting, honeypot, CAPTCHA, or configured score thresholds — a
+`"spam"` verdict marks the comment spam, a `"review"` verdict nudges the local
+heuristic score up, and an `"allow"` verdict is informational only. A
+throwing or slow backend is swallowed and treated as absent, so it is never a
+hard dependency for comments to keep working.
 
 ## Scheduled content transitions
 

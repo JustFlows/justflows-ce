@@ -33,6 +33,20 @@ export interface CommentSettings {
   captchaScoreThreshold: number;
   /** Never sent to the browser — see {@link toPublicCommentSettings}. */
   captchaSecretKey: string;
+  /** Heuristic score (0-100) at or above which a comment is held for moderation. */
+  spamHoldThreshold: number;
+  /** Heuristic score (0-100) at or above which a comment is auto-marked spam. */
+  spamRejectThreshold: number;
+  /** A submission faster than this after the form rendered is a spam signal. */
+  minRenderAgeSeconds: number;
+  /** More links than this in a comment body is a spam signal. */
+  linkThreshold: number;
+  /** Hold a commenter's first-ever comment on this site for moderation. */
+  firstCommentHold: boolean;
+  /** Auto-approve a commenter who already has an approved comment on this site. */
+  autoApprovePreviouslyApproved: boolean;
+  /** Days a spam-marked comment is kept before the retention purge deletes it. */
+  spamRetentionDays: number;
 }
 
 export const COMMENT_SETTINGS_KEY = "comments";
@@ -50,6 +64,13 @@ export const DEFAULT_COMMENT_SETTINGS: CommentSettings = {
   captchaSiteKey: "",
   captchaScoreThreshold: 0.5,
   captchaSecretKey: "",
+  spamHoldThreshold: 40,
+  spamRejectThreshold: 75,
+  minRenderAgeSeconds: 3,
+  linkThreshold: 2,
+  firstCommentHold: false,
+  autoApprovePreviouslyApproved: false,
+  spamRetentionDays: 30,
 };
 
 const CAPTCHA_PROVIDERS = new Set<CaptchaProvider>([
@@ -79,6 +100,18 @@ export function normalizeCommentSettings(raw: unknown): CommentSettings {
   const provider = CAPTCHA_PROVIDERS.has(r.captchaProvider as CaptchaProvider)
     ? (r.captchaProvider as CaptchaProvider)
     : DEFAULT_COMMENT_SETTINGS.captchaProvider;
+  // A hold threshold above the reject threshold would make every held comment
+  // unreachable by the "hold" bucket; keep hold <= reject always.
+  const spamRejectThreshold = asInt(
+    r.spamRejectThreshold,
+    DEFAULT_COMMENT_SETTINGS.spamRejectThreshold,
+    0,
+    100,
+  );
+  const spamHoldThreshold = Math.min(
+    asInt(r.spamHoldThreshold, DEFAULT_COMMENT_SETTINGS.spamHoldThreshold, 0, 100),
+    spamRejectThreshold,
+  );
   return {
     enabled: asBool(r.enabled, DEFAULT_COMMENT_SETTINGS.enabled),
     requireModeration: asBool(r.requireModeration, DEFAULT_COMMENT_SETTINGS.requireModeration),
@@ -92,6 +125,26 @@ export function normalizeCommentSettings(raw: unknown): CommentSettings {
     captchaSiteKey: asStr(r.captchaSiteKey, DEFAULT_COMMENT_SETTINGS.captchaSiteKey, 200),
     captchaScoreThreshold: asScoreThreshold(r.captchaScoreThreshold),
     captchaSecretKey: asStr(r.captchaSecretKey, DEFAULT_COMMENT_SETTINGS.captchaSecretKey, 200),
+    spamHoldThreshold,
+    spamRejectThreshold,
+    minRenderAgeSeconds: asInt(
+      r.minRenderAgeSeconds,
+      DEFAULT_COMMENT_SETTINGS.minRenderAgeSeconds,
+      0,
+      60,
+    ),
+    linkThreshold: asInt(r.linkThreshold, DEFAULT_COMMENT_SETTINGS.linkThreshold, 1, 20),
+    firstCommentHold: asBool(r.firstCommentHold, DEFAULT_COMMENT_SETTINGS.firstCommentHold),
+    autoApprovePreviouslyApproved: asBool(
+      r.autoApprovePreviouslyApproved,
+      DEFAULT_COMMENT_SETTINGS.autoApprovePreviouslyApproved,
+    ),
+    spamRetentionDays: asInt(
+      r.spamRetentionDays,
+      DEFAULT_COMMENT_SETTINGS.spamRetentionDays,
+      1,
+      3650,
+    ),
   };
 }
 

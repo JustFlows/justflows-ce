@@ -5,6 +5,7 @@ import { getDb } from "./db.js";
 import { commentPlainText, notifyOnApproval, sanitizeCommentBody } from "./comments-public.js";
 import { invalidatePublicPages } from "./public-cache.js";
 import { auditLog } from "./audit-log.js";
+import { trainFromMark } from "./comments-rules.js";
 
 /**
  * Shared comment-moderation logic behind both `routes/comments.ts` (cookie
@@ -69,6 +70,7 @@ export async function listComments(
     db.query<Record<string, unknown>>(
       `SELECT c.id, c.parent_id, c.content_id, c.author_name, c.author_email, c.author_url,
               c.body, c.status, c.created_at, c.edited_at,
+              c.spam_score, c.spam_reasons, c.held_reason, c.ip_address,
               co.title AS content_title, co.slug AS content_slug
          FROM comments c
          LEFT JOIN content co ON c.content_id = co.id
@@ -94,6 +96,15 @@ const STATUS_MAP = {
 
 export type ModerationAction = keyof typeof STATUS_MAP;
 
+/** Feed the "mark as spam" training loop from an observed status transition. */
+function trainFromTransition(siteId: string, id: string, oldStatus: string, newStatus: string): void {
+  if (newStatus === "spam" && oldStatus !== "spam") {
+    void trainFromMark(siteId, id, "spam").catch(() => undefined);
+  } else if (oldStatus === "spam" && newStatus === "approved") {
+    void trainFromMark(siteId, id, "unspam").catch(() => undefined);
+  }
+}
+
 export async function setCommentStatuses(
   actor: ModerationActor,
   ids: string[],
@@ -101,6 +112,14 @@ export async function setCommentStatuses(
 ): Promise<ModerationResult> {
   const newStatus = STATUS_MAP[action];
   const db = await getDb();
+  const placeholders = ids.map(() => "?").join(", ");
+  const priorRows = ids.length
+    ? await db.query<{ id: string; status: string }>(
+        `SELECT id, status FROM comments WHERE site_id = ? AND id IN (${placeholders})`,
+        [actor.siteId, ...ids],
+      )
+    : [];
+  const priorStatus = new Map(priorRows.map((row) => [row.id, row.status]));
   for (const id of ids) {
     if (newStatus === "trash") {
       await db.run(
@@ -113,6 +132,8 @@ export async function setCommentStatuses(
         "UPDATE comments SET status = ?, trashed_at = NULL, trashed_by = NULL, updated_at = ? WHERE id = ? AND site_id = ?",
         [newStatus, now(), id, actor.siteId],
       );
+      const prior = priorStatus.get(id);
+      if (prior) trainFromTransition(actor.siteId, id, prior, newStatus);
     }
   }
   if (newStatus === "approved") void notifyOnApproval(actor.siteId, ids).catch(() => undefined);
@@ -129,6 +150,14 @@ export async function editComment(
     return { status: 400, body: { error: "Nothing to update" } };
   }
   const db = await getDb();
+  let priorStatus: string | undefined;
+  if (patch.status !== undefined) {
+    const priorRows = await db.query<{ status: string }>(
+      "SELECT status FROM comments WHERE id = ? AND site_id = ? LIMIT 1",
+      [id, actor.siteId],
+    );
+    priorStatus = priorRows[0]?.status;
+  }
   const sets: string[] = ["updated_at = ?"];
   const params: (string | number | null)[] = [now()];
   if (patch.body !== undefined) {
@@ -152,6 +181,9 @@ export async function editComment(
   if (patch.status === "approved") void notifyOnApproval(actor.siteId, [id]).catch(() => undefined);
   await bustCommentCache();
   if (patch.status === "trash") auditTrash(actor, "trash.trashed", id);
+  if (patch.status !== undefined && priorStatus) {
+    trainFromTransition(actor.siteId, id, priorStatus, patch.status);
+  }
   return { status: 200, body: { ok: true } };
 }
 

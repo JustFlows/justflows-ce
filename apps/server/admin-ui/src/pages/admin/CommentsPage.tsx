@@ -14,6 +14,62 @@ interface Comment {
   content_slug?: string;
   created_at: string;
   edited_at?: string | null;
+  spam_score?: number | null;
+  spam_reasons?: string | null;
+  held_reason?: string | null;
+  ip_address?: string | null;
+}
+
+function emailDomainOf(email: string): string | null {
+  const at = email.lastIndexOf("@");
+  return at === -1 ? null : email.slice(at + 1).trim().toLowerCase() || null;
+}
+
+const HELD_REASON_LABELS: Record<string, string> = {
+  blocklist: "matched a block rule",
+  external_spam: "flagged by an external spam service",
+  score: "auto-flagged by the spam score",
+  moderation: "held because moderation is required for all comments",
+  first_time: "held as this commenter's first comment",
+};
+
+/** Turn a raw stored reason code into a moderator-readable label. */
+function describeReason(reason: string): string {
+  const [code, detail] = reason.split(/:(.*)/s);
+  switch (code) {
+    case "links":
+      return `${detail} link${detail === "1" ? "" : "s"} in the comment`;
+    case "keywords":
+      return `${detail} spam keyword${detail === "1" ? "" : "s"} matched`;
+    case "disposable_email":
+      return "disposable email domain";
+    case "repetitive":
+      return "repetitive text";
+    case "form_token_missing":
+      return "no submission-timing token (bot-like)";
+    case "form_too_fast":
+      return "submitted too quickly after the page loaded";
+    case "trained":
+      return `matches terms learned from past "mark as spam" actions: ${detail}`;
+    case "rule": {
+      const field = (detail ?? "").replace("author_", "").replace("_", " ");
+      return `matched an admin block rule (${field})`;
+    }
+    case "external":
+      return `external spam service: ${detail || "flagged"}`;
+    default:
+      return reason;
+  }
+}
+
+function parseSpamReasons(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
 }
 
 const STATUS_TABS = ["pending", "approved", "spam", "trash"] as const;
@@ -109,6 +165,20 @@ export default function CommentsPage() {
         body: JSON.stringify({ body: text }),
       });
       await load(tab, page);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function blockPattern(field: "author_email" | "author_domain" | "ip", pattern: string) {
+    if (!confirm(`Block all future comments matching this ${field.replace("author_", "")}?\n\n${pattern}`)) return;
+    setBusy(true);
+    try {
+      await fetch("/api/comment-rules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ list: "block", field, pattern }),
+      });
     } finally {
       setBusy(false);
     }
@@ -232,6 +302,27 @@ export default function CommentsPage() {
                         {c.edited_at ? " · edited" : ""}
                       </span>
                     </div>
+                    {typeof c.spam_score === "number" && c.spam_score > 0 && (
+                      <div
+                        className="jf-meta"
+                        style={{
+                          margin: "0.15rem 0 0.4rem",
+                          padding: "0.35rem 0.6rem",
+                          background: "var(--jf-surface-2, rgba(127,127,127,0.08))",
+                          borderRadius: "0.35rem",
+                        }}
+                      >
+                        <strong>Spam score {c.spam_score}/100</strong>
+                        {c.held_reason && ` — ${HELD_REASON_LABELS[c.held_reason] ?? c.held_reason}`}
+                        {parseSpamReasons(c.spam_reasons).length > 0 && (
+                          <ul style={{ margin: "0.25rem 0 0", paddingInlineStart: "1.1rem" }}>
+                            {parseSpamReasons(c.spam_reasons).map((reason, i) => (
+                              <li key={i}>{describeReason(reason)}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
                     <div
                       className="jf-list__desc"
                       style={{ lineHeight: 1.6 }}
@@ -244,6 +335,33 @@ export default function CommentsPage() {
                       <button className="jf-btn jf-btn--ghost jf-btn--sm" disabled={busy} onClick={() => editBody(c)}>
                         Edit
                       </button>
+                      {c.author_email && (
+                        <button
+                          className="jf-btn jf-btn--ghost jf-btn--sm"
+                          disabled={busy}
+                          onClick={() => blockPattern("author_email", c.author_email)}
+                        >
+                          Block email
+                        </button>
+                      )}
+                      {emailDomainOf(c.author_email ?? "") && (
+                        <button
+                          className="jf-btn jf-btn--ghost jf-btn--sm"
+                          disabled={busy}
+                          onClick={() => blockPattern("author_domain", emailDomainOf(c.author_email)!)}
+                        >
+                          Block domain
+                        </button>
+                      )}
+                      {c.ip_address && (
+                        <button
+                          className="jf-btn jf-btn--ghost jf-btn--sm"
+                          disabled={busy}
+                          onClick={() => blockPattern("ip", c.ip_address!)}
+                        >
+                          Block IP
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

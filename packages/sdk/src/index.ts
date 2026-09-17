@@ -241,3 +241,4 @@ export type {
 } from "./patterns.js";
 
 export type { SearchBackend, SearchDocument } from "./search.js";
+export type { SpamCheckBackend, SpamCheckInput, SpamCheckResult } from "./spam.js";

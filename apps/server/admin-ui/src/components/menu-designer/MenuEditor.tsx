@@ -321,7 +321,10 @@ export default function MenuEditor({
                               onChange={() => toggleContentSelection(p.id)}
                             />
                             <span className="jf-truncate">{p.title}</span>
-                            <span className="jf-checkrow__meta">/{p.slug}</span>
+                            <span className="jf-checkrow__meta">
+                              /{p.slug}
+                              {p.locale ? ` · ${p.locale}` : ""}
+                            </span>
                           </label>
                         ))
                       )}
