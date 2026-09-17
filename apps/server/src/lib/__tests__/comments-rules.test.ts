@@ -10,7 +10,18 @@ const { auditLog } = vi.hoisted(() => ({ auditLog: vi.fn() }));
 vi.mock("../audit-log.js", () => ({ auditLog }));
 
 vi.mock("../comments-public.js", () => ({
-  commentPlainText: (html: string) => html.replace(/<[^>]+>/g, "").trim(),
+  // Strip to a fixed point rather than a single pass — a single `<[^>]+>`
+  // pass leaves a remnant for malformed/nested markup (e.g. "<<script>x>"),
+  // which is exactly what CodeQL's incomplete-sanitization check flags.
+  commentPlainText: (html: string) => {
+    let text = html;
+    let previous: string;
+    do {
+      previous = text;
+      text = text.replace(/<[^>]*>/g, "");
+    } while (text !== previous);
+    return text.trim();
+  },
 }));
 
 import {
