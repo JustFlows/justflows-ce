@@ -926,6 +926,13 @@ type CommentSettingsState = {
   captchaSiteKey: string;
   captchaScoreThreshold: number;
   captchaSecretKeySet: boolean;
+  spamHoldThreshold: number;
+  spamRejectThreshold: number;
+  minRenderAgeSeconds: number;
+  linkThreshold: number;
+  firstCommentHold: boolean;
+  autoApprovePreviouslyApproved: boolean;
+  spamRetentionDays: number;
 };
 
 const DISCUSSION_DEFAULTS: CommentSettingsState = {
@@ -941,6 +948,13 @@ const DISCUSSION_DEFAULTS: CommentSettingsState = {
   captchaSiteKey: "",
   captchaScoreThreshold: 0.5,
   captchaSecretKeySet: false,
+  spamHoldThreshold: 40,
+  spamRejectThreshold: 75,
+  minRenderAgeSeconds: 3,
+  linkThreshold: 2,
+  firstCommentHold: false,
+  autoApprovePreviouslyApproved: false,
+  spamRetentionDays: 30,
 };
 
 function DiscussionSettings() {
@@ -1185,7 +1199,366 @@ function DiscussionSettings() {
           {error && <span className="jf-status jf-status--error">{error}</span>}
         </div>
       </Section>
+
+      <Section title="Spam protection">
+        <p className="jf-field__hint">
+          Every submission is rate limited and honeypot-checked regardless of the settings below.
+          These control the local heuristic score that decides whether a comment auto-approves, is
+          held for moderation, or is auto-marked spam.
+        </p>
+        <div className="jf-grid jf-grid--2">
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-hold">
+              Hold threshold
+            </label>
+            <input
+              id="jf-c-hold"
+              className="jf-input"
+              type="number"
+              min={0}
+              max={100}
+              value={state.spamHoldThreshold}
+              onChange={(e) => patch({ spamHoldThreshold: Number(e.target.value) })}
+            />
+            <p className="jf-field__hint">Score (0-100) at or above which a comment is held.</p>
+          </div>
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-reject">
+              Auto-spam threshold
+            </label>
+            <input
+              id="jf-c-reject"
+              className="jf-input"
+              type="number"
+              min={0}
+              max={100}
+              value={state.spamRejectThreshold}
+              onChange={(e) => patch({ spamRejectThreshold: Number(e.target.value) })}
+            />
+            <p className="jf-field__hint">Score at or above which a comment is auto-marked spam.</p>
+          </div>
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-render-age">
+              Minimum time to submit
+            </label>
+            <input
+              id="jf-c-render-age"
+              className="jf-input"
+              type="number"
+              min={0}
+              max={60}
+              value={state.minRenderAgeSeconds}
+              onChange={(e) => patch({ minRenderAgeSeconds: Number(e.target.value) })}
+            />
+            <p className="jf-field__hint">
+              seconds — a submission faster than this after the form loaded is a spam signal.
+            </p>
+          </div>
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-links">
+              Link threshold
+            </label>
+            <input
+              id="jf-c-links"
+              className="jf-input"
+              type="number"
+              min={1}
+              max={20}
+              value={state.linkThreshold}
+              onChange={(e) => patch({ linkThreshold: Number(e.target.value) })}
+            />
+            <p className="jf-field__hint">More links than this in a comment is a spam signal.</p>
+          </div>
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-c-retention">
+              Spam retention
+            </label>
+            <input
+              id="jf-c-retention"
+              className="jf-input"
+              type="number"
+              min={1}
+              max={3650}
+              value={state.spamRetentionDays}
+              onChange={(e) => patch({ spamRetentionDays: Number(e.target.value) })}
+            />
+            <p className="jf-field__hint">days a spam-marked comment is kept before it's purged.</p>
+          </div>
+        </div>
+
+        <label className="jf-checkrow">
+          <input
+            type="checkbox"
+            checked={state.firstCommentHold}
+            onChange={(e) => patch({ firstCommentHold: e.target.checked })}
+          />
+          <span>Hold a commenter's first-ever comment for moderation</span>
+        </label>
+
+        <label className="jf-checkrow">
+          <input
+            type="checkbox"
+            checked={state.autoApprovePreviouslyApproved}
+            onChange={(e) => patch({ autoApprovePreviouslyApproved: e.target.checked })}
+          />
+          <span>Auto-approve a commenter who already has an approved comment</span>
+        </label>
+
+        <div className="jf-row" style={{ marginTop: "1rem" }}>
+          <button className="jf-btn jf-btn--primary" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save discussion settings"}
+          </button>
+          {saved && <span className="jf-status jf-status--saved">✓ Saved</span>}
+          {error && <span className="jf-status jf-status--error">{error}</span>}
+        </div>
+      </Section>
+
+      <ModerationRulesManager />
+      <SpamTermsManager />
     </fieldset>
+  );
+}
+
+interface ModerationRule {
+  id: string;
+  list: "block" | "allow";
+  field: "author_email" | "author_domain" | "ip" | "phrase";
+  pattern: string;
+  note: string | null;
+  hitCount: number;
+}
+
+const RULE_FIELD_LABELS: Record<ModerationRule["field"], string> = {
+  author_email: "Author email",
+  author_domain: "Domain",
+  ip: "IP address",
+  phrase: "Phrase",
+};
+
+function ModerationRulesManager() {
+  const [rules, setRules] = useState<ModerationRule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [list, setList] = useState<ModerationRule["list"]>("block");
+  const [field, setField] = useState<ModerationRule["field"]>("author_domain");
+  const [pattern, setPattern] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    setLoading(true);
+    fetch("/api/comment-rules")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
+      .then((data: { rules: ModerationRule[] }) => setRules(data.rules ?? []))
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(load, []);
+
+  async function addRule() {
+    if (!pattern.trim()) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/comment-rules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ list, field, pattern: pattern.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to add rule");
+        return;
+      }
+      setPattern("");
+      load();
+    } catch {
+      setError("Failed to add rule");
+    }
+  }
+
+  async function removeRule(id: string) {
+    await fetch(`/api/comment-rules/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  return (
+    <Section title="Block & allow lists">
+      <p className="jf-field__hint">
+        An explicit rule always wins over the heuristic score. Allow rules take priority over block
+        rules when both would match.
+      </p>
+      <div className="jf-row" style={{ gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+        <select
+          className="jf-input"
+          value={list}
+          onChange={(e) => setList(e.target.value as ModerationRule["list"])}
+        >
+          <option value="block">Block</option>
+          <option value="allow">Allow</option>
+        </select>
+        <select
+          className="jf-input"
+          value={field}
+          onChange={(e) => setField(e.target.value as ModerationRule["field"])}
+        >
+          <option value="author_email">Author email</option>
+          <option value="author_domain">Domain</option>
+          <option value="ip">IP address</option>
+          <option value="phrase">Phrase</option>
+        </select>
+        <input
+          className="jf-input"
+          style={{ flex: 1, minWidth: "12rem" }}
+          placeholder="Pattern"
+          value={pattern}
+          onChange={(e) => setPattern(e.target.value)}
+        />
+        <button className="jf-btn" onClick={addRule}>
+          Add rule
+        </button>
+      </div>
+      {error && <p className="jf-status jf-status--error">{error}</p>}
+      {loading ? null : rules.length === 0 ? (
+        <p className="jf-field__hint">No rules yet.</p>
+      ) : (
+        <table className="jf-table">
+          <thead>
+            <tr>
+              <th>List</th>
+              <th>Field</th>
+              <th>Pattern</th>
+              <th>Hits</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rules.map((r) => (
+              <tr key={r.id}>
+                <td>{r.list}</td>
+                <td>{RULE_FIELD_LABELS[r.field]}</td>
+                <td>{r.pattern}</td>
+                <td>{r.hitCount}</td>
+                <td>
+                  <button className="jf-btn jf-btn--ghost jf-btn--sm" onClick={() => removeRule(r.id)}>
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Section>
+  );
+}
+
+interface SpamTerm {
+  id: string;
+  kind: "domain" | "phrase";
+  value: string;
+  weight: number;
+  hits: number;
+  source: "trained" | "manual";
+}
+
+function SpamTermsManager() {
+  const [terms, setTerms] = useState<SpamTerm[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [kind, setKind] = useState<SpamTerm["kind"]>("phrase");
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    setLoading(true);
+    fetch("/api/comment-spam-terms")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
+      .then((data: { terms: SpamTerm[] }) => setTerms(data.terms ?? []))
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(load, []);
+
+  async function addTerm() {
+    if (!value.trim()) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/comment-spam-terms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, value: value.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to add term");
+        return;
+      }
+      setValue("");
+      load();
+    } catch {
+      setError("Failed to add term");
+    }
+  }
+
+  async function removeTerm(id: string) {
+    await fetch(`/api/comment-spam-terms/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  return (
+    <Section title="Spam signal terms">
+      <p className="jf-field__hint">
+        Extra words, phrases, or domains that add to the heuristic score rather than deciding a
+        comment outright — unlike a block rule above. Marking a comment as spam also adds terms
+        here automatically ("learned"); those can be removed the same way.
+      </p>
+      <div className="jf-row" style={{ gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+        <select className="jf-input" value={kind} onChange={(e) => setKind(e.target.value as SpamTerm["kind"])}>
+          <option value="phrase">Phrase</option>
+          <option value="domain">Domain</option>
+        </select>
+        <input
+          className="jf-input"
+          style={{ flex: 1, minWidth: "12rem" }}
+          placeholder={kind === "domain" ? "spam4free.example" : "free crypto"}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        <button className="jf-btn" onClick={addTerm}>
+          Add term
+        </button>
+      </div>
+      {error && <p className="jf-status jf-status--error">{error}</p>}
+      {loading ? null : terms.length === 0 ? (
+        <p className="jf-field__hint">No terms yet.</p>
+      ) : (
+        <table className="jf-table">
+          <thead>
+            <tr>
+              <th>Kind</th>
+              <th>Value</th>
+              <th>Weight</th>
+              <th>Source</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {terms.map((t) => (
+              <tr key={t.id}>
+                <td>{t.kind}</td>
+                <td>{t.value}</td>
+                <td>{t.weight}</td>
+                <td>{t.source === "manual" ? "added by you" : "learned"}</td>
+                <td>
+                  <button className="jf-btn jf-btn--ghost jf-btn--sm" onClick={() => removeTerm(t.id)}>
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Section>
   );
 }
 

@@ -51,6 +51,13 @@ plugin's own version.
 filter are additive. Existing plugins and themes continue to use database
 search without implementing anything. See [Search](SEARCH.md).
 
+### In development — comment spam
+
+`SpamCheckBackend`, `SpamCheckInput`, `SpamCheckResult`, and the
+permission-gated `comments.spamBackend` filter are additive. Existing plugins
+and themes continue to use the host's local heuristic scoring without
+implementing anything. See [Hooks: Comment spam backend filter](HOOKS.md#comment-spam-backend-filter).
+
 ### SDK `0.1.6` — additive
 
 - `ctx.content.listPublished(query?)` returns published entries (`type`, `slug`,

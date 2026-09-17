@@ -35,6 +35,7 @@
   "comments.posted_ok": "Thanks — your comment has been posted.",
   "comments.captcha_failed": "The anti-spam check failed. Please try again.",
   "comments.error_generic": "Your comment could not be posted. Please try again.",
+  "comments.rate_limited": "You're commenting too quickly. Please wait a few minutes and try again.",
   "comments.closed": "Comments are closed for this post.",
   "search.title": "Site search",
   "search.query": "Search content",

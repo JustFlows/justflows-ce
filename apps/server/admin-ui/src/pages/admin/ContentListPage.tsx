@@ -24,30 +24,24 @@ interface ContentTypeSummary {
 
 const STATUS_FILTERS = ["all", "draft", "published", "scheduled"] as const;
 
-function defaultLocaleCode(
-  languages?: Array<{ code: string; isDefault?: boolean }>,
-): string | null {
-  if (!languages?.length) return null;
-  return languages.find((lang) => lang.isDefault)?.code ?? languages[0]?.code ?? null;
-}
-
-function contentListPath(locale: string | null): string {
-  return locale ? `/api/content?locale=${encodeURIComponent(locale)}` : "/api/content";
-}
-
 export default function ContentPage() {
   const { t } = useT();
+  // Admin content list always spans every language, regardless of the
+  // site's default published language — that setting governs public
+  // rendering, not what admins can see and manage here.
   const prefetchedLanguages = initialJson<{ languages?: Array<{ code: string; isDefault?: boolean }> }>(
     "/api/languages",
   );
-  const defaultLocale = defaultLocaleCode(prefetchedLanguages?.languages);
-  const prefetchedContent = initialJson<{ items?: ContentItem[] }>(contentListPath(defaultLocale));
+  const prefetchedContent = initialJson<{ items?: ContentItem[] }>("/api/content");
   const prefetchedTypes = initialJson<{ types?: ContentTypeSummary[] }>("/api/content-types");
   const prefetchedSettings = initialJson<{
     home_page_id?: string | null;
     blog_page_id?: string | null;
   }>("/api/settings");
   const [items, setItems] = useState<ContentItem[]>(prefetchedContent?.items ?? []);
+  const [languages, setLanguages] = useState<Array<{ code: string; isDefault?: boolean }>>(
+    prefetchedLanguages?.languages ?? [],
+  );
   const [types, setTypes] = useState<ContentTypeSummary[]>(prefetchedTypes?.types ?? []);
   const [homePageId, setHomePageId] = useState<string | null>(
     prefetchedSettings?.home_page_id ?? null,
@@ -57,24 +51,24 @@ export default function ContentPage() {
   );
   const [agenda, setAgenda] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [localeFilter, setLocaleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("all");
 
   useEffect(() => {
-    async function loadContent() {
-      try {
-        let locale = defaultLocale;
-        if (!locale) {
-          const langRes = await fetch("/api/languages");
-          const langData = await langRes.json();
-          locale = defaultLocaleCode(langData.languages);
-        }
-        const data = await fetch(contentListPath(locale)).then((r) => r.json());
+    fetch("/api/content")
+      .then((r) => r.json())
+      .then((data: { items?: ContentItem[] }) => {
         if (Array.isArray(data.items)) setItems(data.items);
-      } catch {
+      })
+      .catch(() => {
         /* keep prefetched or empty */
-      }
-    }
-    void loadContent();
+      });
+    fetch("/api/languages")
+      .then((r) => r.json())
+      .then((data: { languages?: Array<{ code: string; isDefault?: boolean }> }) => {
+        if (Array.isArray(data.languages)) setLanguages(data.languages);
+      })
+      .catch(() => {});
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data: { home_page_id?: string | null; blog_page_id?: string | null }) => {
@@ -88,7 +82,7 @@ export default function ContentPage() {
         if (Array.isArray(data.types)) setTypes(data.types);
       })
       .catch(() => {});
-  }, [defaultLocale]);
+  }, []);
 
   const [query, setQuery] = useState("");
   const [searchItems, setSearchItems] = useState<ContentItem[]>([]);
@@ -96,14 +90,14 @@ export default function ContentPage() {
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchError, setSearchError] = useState("");
-  useEffect(() => { setSearchPage(1); }, [query, filter, statusFilter]);
+  useEffect(() => { setSearchPage(1); }, [query, filter, localeFilter, statusFilter]);
   useEffect(() => {
     if (!query.trim()) { setSearchItems([]); setSearchBusy(false); setSearchError(""); return; }
     const controller = new AbortController();
     setSearchBusy(true); setSearchError(""); setSearchItems([]);
     const timer = setTimeout(() => {
       const params = new URLSearchParams({ q: query, page: String(searchPage), limit: "20" });
-      if (defaultLocale) params.set("locale", defaultLocale);
+      if (localeFilter !== "all") params.set("locale", localeFilter);
       if (filter !== "all") params.set("type", filter);
       if (statusFilter !== "all") params.set("status", statusFilter);
       void fetch(`/api/search?${params}`, { signal: controller.signal }).then(async response => {
@@ -114,11 +108,12 @@ export default function ContentPage() {
         .finally(() => { if (!controller.signal.aborted) setSearchBusy(false); });
     }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [query, filter, statusFilter, searchPage, defaultLocale, t]);
+  }, [query, filter, localeFilter, statusFilter, searchPage, t]);
 
   const filtered = query.trim() ? searchItems : items.filter(
     (i) =>
       (filter === "all" || i.type === filter) &&
+      (localeFilter === "all" || i.locale === localeFilter) &&
       (statusFilter === "all" || (statusFilter === "scheduled" ? Boolean(i.publishOn || i.unpublishOn) : i.status === statusFilter)),
   );
 
@@ -225,6 +220,21 @@ export default function ContentPage() {
             {`${s[0]!.toUpperCase()}${s.slice(1)}`}
           </button>
         ))}
+        {languages.length > 1 && (
+          <>
+            <span className="jf-filterbar__sep" aria-hidden="true" />
+            {["all", ...languages.map((l) => l.code)].map((code) => (
+              <button
+                key={code}
+                className="jf-chip"
+                aria-pressed={localeFilter === code}
+                onClick={() => setLocaleFilter(code)}
+              >
+                {code === "all" ? "All languages" : code}
+              </button>
+            ))}
+          </>
+        )}
         <span className="jf-meta" style={{ marginInlineStart: "auto" }}>
           {filtered.length} of {query.trim() ? searchTotal : items.length}
         </span>

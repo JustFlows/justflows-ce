@@ -399,7 +399,13 @@ async function buildBlogRenderContext(
   };
 }
 
-const COMMENT_BANNERS = new Set<CommentsBannerState>(["posted", "pending", "error", "captcha"]);
+const COMMENT_BANNERS = new Set<CommentsBannerState>([
+  "posted",
+  "pending",
+  "error",
+  "captcha",
+  "rate_limited",
+]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function sameOriginReferer(req: Request): boolean {
