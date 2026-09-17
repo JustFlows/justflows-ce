@@ -194,14 +194,9 @@ async function addDerivedResponses(
   };
 
   if (pathname === "/admin/content") {
-    const langs = read<{ languages?: Array<{ code?: string; isDefault?: boolean }> }>(
-      "/api/languages",
-    );
-    const defaultLocale =
-      langs?.languages?.find((lang) => lang.isDefault)?.code ?? langs?.languages?.[0]?.code;
-    derived.add(
-      defaultLocale ? `/api/content?locale=${encodeURIComponent(defaultLocale)}` : "/api/content",
-    );
+    // Admin content list spans every language; the site's default
+    // published locale must never gate what admins can see here.
+    derived.add("/api/content");
   }
   if (/^\/admin\/content\/[^/]+$/.test(pathname)) {
     const id = pathname.split("/")[3]!;
@@ -219,23 +214,15 @@ async function addDerivedResponses(
     const menus = read<{ menus?: Array<{ slug?: string }> }>("/api/menus");
     const slug = menus?.menus?.[0]?.slug;
     if (slug) derived.add(`/api/menus/${encodeURIComponent(slug)}`);
-    const langs = read<{ languages?: Array<{ code?: string; isDefault?: boolean }> }>(
-      "/api/languages",
-    );
-    const defaultLocale =
-      langs?.languages?.find((lang) => lang.isDefault)?.code ?? langs?.languages?.[0]?.code;
-    if (defaultLocale) {
-      const localeQuery = `&locale=${encodeURIComponent(defaultLocale)}`;
-      const types = read<{ types?: Array<{ slug?: string }> }>("/api/content-types");
-      const slugs = (types?.types ?? [])
-        .map((type) => type.slug)
-        .filter((slug): slug is string => Boolean(slug));
-      const list = slugs.length > 0 ? slugs : ["page", "post"];
-      for (const type of list) {
-        derived.add(
-          `/api/content?type=${encodeURIComponent(type)}&status=published&limit=100${localeQuery}`,
-        );
-      }
+    // The "add items" content picker spans every language too — see
+    // the /admin/content note above.
+    const types = read<{ types?: Array<{ slug?: string }> }>("/api/content-types");
+    const slugs = (types?.types ?? [])
+      .map((type) => type.slug)
+      .filter((slug): slug is string => Boolean(slug));
+    const list = slugs.length > 0 ? slugs : ["page", "post"];
+    for (const type of list) {
+      derived.add(`/api/content?type=${encodeURIComponent(type)}&status=published&limit=100`);
     }
   }
   const cookie = req.get("cookie") ?? "";

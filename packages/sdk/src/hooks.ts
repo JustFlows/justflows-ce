@@ -149,7 +149,7 @@ export interface CommentsBlockRenderContext {
   readonly page: number;
   readonly totalPages: number;
   /** Set only on the render right after a submission redirect. */
-  readonly banner: "posted" | "pending" | "error" | "captcha" | null;
+  readonly banner: "posted" | "pending" | "error" | "captcha" | "rate_limited" | null;
   /** The signed-in commenter, if any. */
   readonly currentUser: { readonly name: string; readonly email: string } | null;
   readonly captchaProvider: "none" | "turnstile" | "hcaptcha" | "recaptcha" | "recaptcha-v3";
@@ -656,6 +656,12 @@ export interface FilterValueMap {
    * Deactivating the plugin restores the default markup.
    */
   "comments.render": [string, CommentsBlockRenderContext];
+  /**
+   * Optional external candidate spam-scoring service for public comment
+   * submissions (Akismet-style). Seeded with `null`; the host always applies
+   * its own thresholds and never requires a handler to be registered.
+   */
+  "comments.spamBackend": [import("./spam.js").SpamCheckBackend | null, { siteId: string }];
   "content.revision": [ContentRevisionSnapshot, { siteId: string; contentId: string }];
   "media.metadata": [Record<string, unknown>, MediaRef];
   "navigation.items": [NavigationItem[], { siteId: string; location: string }];
@@ -813,6 +819,7 @@ export const HOOK_PERMISSION_PREFIXES: ReadonlyArray<{
   readonly permission: string;
 }> = [
   { prefix: "search.", permission: "content:read" },
+  { prefix: "comments.spamBackend", permission: "network:outbound" },
   { prefix: "auth.", permission: "auth:hook" },
   { prefix: "user.", permission: "users:read" },
   { prefix: "admin.", permission: "admin:extend" },

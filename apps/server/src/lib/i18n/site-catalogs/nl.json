@@ -32,6 +32,7 @@
   "comments.posted_ok": "Bedankt — je reactie is geplaatst.",
   "comments.captcha_failed": "De antispamcontrole is mislukt. Probeer het opnieuw.",
   "comments.error_generic": "Je reactie kon niet worden geplaatst. Probeer het opnieuw.",
+  "comments.rate_limited": "Je reageert te snel achter elkaar. Wacht een paar minuten en probeer het opnieuw.",
   "comments.closed": "Reacties zijn gesloten voor dit bericht.",
   "search.title": "Zoeken op de site",
   "search.query": "Inhoud zoeken",
