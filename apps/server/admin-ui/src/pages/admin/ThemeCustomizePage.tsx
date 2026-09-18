@@ -62,11 +62,19 @@ const SECTION_ORDER = [
   "navigation",
   "advanced",
 ] as const;
-type EditorTab = "homepage" | "blog" | "styles" | "header" | "footer" | "menus" | "templates";
+type EditorTab =
+  | "homepage"
+  | "blog"
+  | "styles"
+  | "header"
+  | "footer"
+  | "menus"
+  | "templates"
+  | "error-pages";
 
 function isEditorTab(value: string | null): value is EditorTab {
   return value === "homepage" || value === "blog" || value === "styles" || value === "header" ||
-    value === "footer" || value === "menus" || value === "templates";
+    value === "footer" || value === "menus" || value === "templates" || value === "error-pages";
 }
 
 interface TemplateSlot {
@@ -95,8 +103,28 @@ const TEMPLATE_SLOT_LABELS: Record<string, { label: string; hint: string }> = {
     label: "Not found (404)",
     hint: "The theme's built-in 404 is translated; a JSON one is English-only unless you translate it",
   },
+  "403": { label: "Forbidden (403)", hint: "Shown when a request is blocked" },
+  "410": { label: "Gone (410)", hint: "Shown when content existed but was permanently removed" },
+  "429": { label: "Rate limited (429)", hint: "Shown when a visitor is sending requests too quickly" },
+  error: { label: "Error (generic)", hint: "Shared fallback for 403, 410, and 429 when no specific template exists" },
   index: { label: "Catch-all (index)", hint: "Used only when no more specific template exists" },
 };
+
+type ErrorPageClass = "404" | "403" | "410" | "429";
+const ERROR_PAGE_CLASSES: ErrorPageClass[] = ["404", "403", "410", "429"];
+
+interface ErrorPageSourceConfig {
+  source: "theme" | "builtin" | "page";
+  pageId?: string;
+}
+type ErrorPageConfig = Partial<Record<ErrorPageClass, ErrorPageSourceConfig>>;
+
+/** One entry per translation group — picking it covers every locale that page has a published translation in. */
+interface ErrorPagePickerOption {
+  id: string;
+  title: string;
+  slug: string;
+}
 
 function slotLabel(slug: string): string {
   const known = TEMPLATE_SLOT_LABELS[slug]?.label;
@@ -194,6 +222,71 @@ export default function CustomizeThemePage() {
   useEffect(() => {
     if (tab === "templates" && templateSlots.length === 0) void loadTemplateList();
   }, [tab, templateSlots.length, loadTemplateList]);
+
+  const [errorPages, setErrorPages] = useState<ErrorPageConfig>({});
+  const [errorThemeSlots, setErrorThemeSlots] = useState<string[]>([]);
+  const [errorPagePickerOptions, setErrorPagePickerOptions] = useState<ErrorPagePickerOption[]>([]);
+  const [errorPagesLoaded, setErrorPagesLoaded] = useState(false);
+  const [errorPageSaving, setErrorPageSaving] = useState<ErrorPageClass | null>(null);
+
+  const loadErrorPages = useCallback(async () => {
+    try {
+      const res = await fetch("/api/error-pages");
+      const data = (await res.json()) as {
+        config?: ErrorPageConfig;
+        themeSlots?: string[];
+        pages?: ErrorPagePickerOption[];
+      };
+      setErrorPages(data.config ?? {});
+      setErrorThemeSlots(data.themeSlots ?? []);
+      setErrorPagePickerOptions(data.pages ?? []);
+    } catch {
+      /* leave as-is */
+    } finally {
+      setErrorPagesLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === "error-pages" && !errorPagesLoaded) void loadErrorPages();
+  }, [tab, errorPagesLoaded, loadErrorPages]);
+
+  async function updateErrorPageSource(
+    errorClass: ErrorPageClass,
+    source: ErrorPageSourceConfig["source"],
+    pageId?: string,
+  ) {
+    setErrorPageSaving(errorClass);
+    setError("");
+    try {
+      const res = await fetch("/api/error-pages", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [errorClass]: { source, pageId } }),
+      });
+      const data = (await res.json()) as { error?: string; config?: ErrorPageConfig };
+      if (!res.ok) throw new Error(data.error ?? "Could not save");
+      setErrorPages(data.config ?? {});
+      reloadPreview();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setErrorPageSaving(null);
+    }
+  }
+
+  function errorPageSelectValue(errorClass: ErrorPageClass): string {
+    const entry = errorPages[errorClass];
+    if (!entry || entry.source === "theme") return "theme";
+    if (entry.source === "builtin") return "builtin";
+    return entry.pageId ? `page:${entry.pageId}` : "theme";
+  }
+
+  function onErrorPageSelectChange(errorClass: ErrorPageClass, value: string) {
+    if (value === "theme") { void updateErrorPageSource(errorClass, "theme"); return; }
+    if (value === "builtin") { void updateErrorPageSource(errorClass, "builtin"); return; }
+    if (value.startsWith("page:")) void updateErrorPageSource(errorClass, "page", value.slice(5));
+  }
 
   const reloadPreview = useCallback(() => {
     const iframe = iframeRef.current;
@@ -681,6 +774,13 @@ export default function CustomizeThemePage() {
         >
           Templates
         </button>
+        <button
+          type="button"
+          className={`jf-theme-builder__tab${tab === "error-pages" ? " jf-theme-builder__tab--active" : ""}`}
+          onClick={() => setTab("error-pages")}
+        >
+          Error pages
+        </button>
       </div>
 
       {tab === "homepage" ? (
@@ -914,6 +1014,49 @@ export default function CustomizeThemePage() {
                 Pick a template on the left to edit it.
               </p>
             )}
+          </div>
+        </div>
+      ) : tab === "error-pages" ? (
+        <div className="jf-editor__body" style={{ padding: "1rem", maxWidth: "40rem" }}>
+          <div className="jf-field">
+            <label className="jf-field__label">Error pages</label>
+            <p className="jf-field__hint" style={{ marginTop: 0 }}>
+              Choose what renders for each error class: the theme's own layout, Justflows'
+              built-in page, or a specific published page. A page is listed once even when it has
+              several translations — visitors get whichever translation matches their language
+              automatically, the same as the home page. 500 and maintenance pages always use the
+              built-in layout so they still work if the site's database is unreachable — edit
+              their text in Settings → Site visibility.
+            </p>
+            <div className="jf-stack" style={{ gap: "1rem", marginTop: "0.75rem" }}>
+              {ERROR_PAGE_CLASSES.map((errorClass) => (
+                <div className="jf-field" key={errorClass}>
+                  <label className="jf-field__label" htmlFor={`jf-error-page-${errorClass}`}>
+                    {TEMPLATE_SLOT_LABELS[errorClass]?.label ?? errorClass}
+                  </label>
+                  <select
+                    id={`jf-error-page-${errorClass}`}
+                    className="jf-input"
+                    value={errorPageSelectValue(errorClass)}
+                    disabled={errorPageSaving === errorClass}
+                    onChange={(e) => onErrorPageSelectChange(errorClass, e.target.value)}
+                  >
+                    <option value="theme">
+                      Theme layout
+                      {errorThemeSlots.includes(errorClass) || errorThemeSlots.includes("error")
+                        ? " (this theme provides one)"
+                        : ""}
+                    </option>
+                    <option value="builtin">Built-in default</option>
+                    {errorPagePickerOptions.map((page) => (
+                      <option key={page.id} value={`page:${page.id}`}>
+                        {page.title || page.slug}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ) : tab === "footer" ? (

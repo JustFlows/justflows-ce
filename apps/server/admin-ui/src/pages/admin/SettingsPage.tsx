@@ -19,6 +19,21 @@ const ROLE_LABELS: Record<(typeof ROLE_OPTIONS)[number], string> = {
   administrator: "Administrator",
 };
 
+interface MaintenanceState {
+  enabled: boolean;
+  heading: string;
+  message: string;
+}
+
+const EMPTY_MAINTENANCE: MaintenanceState = { enabled: false, heading: "", message: "" };
+
+interface ErrorCopyState {
+  heading: string;
+  message: string;
+}
+
+const EMPTY_ERROR_500: ErrorCopyState = { heading: "", message: "" };
+
 type LanguageOption = {
   code: string;
   name: string;
@@ -175,6 +190,12 @@ export default function SettingsPage() {
   );
   const [testingMail, setTestingMail] = useState(false);
   const [mailTest, setMailTest] = useState<string | null>(null);
+  const [maintenance, setMaintenance] = useState<MaintenanceState>(EMPTY_MAINTENANCE);
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
+  const [maintenanceSaved, setMaintenanceSaved] = useState(false);
+  const [errorPage500, setErrorPage500] = useState<ErrorCopyState>(EMPTY_ERROR_500);
+  const [errorPage500Saving, setErrorPage500Saving] = useState(false);
+  const [errorPage500Saved, setErrorPage500Saved] = useState(false);
   const [mailTransports, setMailTransports] = useState(
     prefetched?.mail_transports ?? [
       { id: "sendmail", label: "Sendmail (local)" },
@@ -204,6 +225,66 @@ export default function SettingsPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetch("/api/error-pages")
+      .then((r) => r.json())
+      .then(
+        (data: {
+          config?: { maintenance?: Partial<MaintenanceState>; "500"?: Partial<ErrorCopyState> };
+        }) => {
+          const m = data.config?.maintenance;
+          setMaintenance({
+            enabled: m?.enabled ?? false,
+            heading: m?.heading ?? "",
+            message: m?.message ?? "",
+          });
+          const e500 = data.config?.["500"];
+          setErrorPage500({ heading: e500?.heading ?? "", message: e500?.message ?? "" });
+        },
+      )
+      .catch(() => {});
+  }, []);
+
+  async function saveMaintenance(next: MaintenanceState) {
+    setMaintenance(next);
+    setMaintenanceSaving(true);
+    try {
+      const res = await fetch("/api/error-pages", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maintenance: next }),
+      });
+      if (res.ok) {
+        setMaintenanceSaved(true);
+        setTimeout(() => setMaintenanceSaved(false), 2000);
+      }
+    } catch {
+      /* leave as-is; the toggle stays visually applied but unsaved */
+    } finally {
+      setMaintenanceSaving(false);
+    }
+  }
+
+  async function saveErrorPage500(next: ErrorCopyState) {
+    setErrorPage500(next);
+    setErrorPage500Saving(true);
+    try {
+      const res = await fetch("/api/error-pages", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ "500": next }),
+      });
+      if (res.ok) {
+        setErrorPage500Saved(true);
+        setTimeout(() => setErrorPage500Saved(false), 2000);
+      }
+    } catch {
+      /* leave as-is; the fields stay visually applied but unsaved */
+    } finally {
+      setErrorPage500Saving(false);
+    }
+  }
 
   function patch(partial: Partial<GeneralState>) {
     setGeneral((s) => ({ ...s, ...partial }));
@@ -735,6 +816,105 @@ export default function SettingsPage() {
             When unchecked, visitors see an under-construction page. Administrators and editors can
             still browse the site while logged in.
           </p>
+
+          <label className="jf-checkrow" style={{ marginTop: "1.25rem" }}>
+            <input
+              type="checkbox"
+              checked={maintenance.enabled}
+              disabled={!canManage || maintenanceSaving}
+              onChange={(e) => void saveMaintenance({ ...maintenance, enabled: e.target.checked })}
+            />
+            <span>Maintenance mode</span>
+          </label>
+          <p className="jf-field__hint">
+            Takes priority over every other page, including "Site is live" above, and still works
+            if the site's database is unreachable — use it for planned downtime.
+            Administrators and editors can still browse the site while logged in.
+          </p>
+          {maintenance.enabled && (
+            <div className="jf-stack" style={{ gap: "0.75rem", marginTop: "0.5rem", maxWidth: 480 }}>
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-maintenance-heading">
+                  Heading
+                </label>
+                <input
+                  id="jf-maintenance-heading"
+                  className="jf-input"
+                  type="text"
+                  maxLength={200}
+                  value={maintenance.heading}
+                  disabled={!canManage}
+                  onChange={(e) => setMaintenance({ ...maintenance, heading: e.target.value })}
+                  onBlur={() => void saveMaintenance(maintenance)}
+                  placeholder="We'll be back soon"
+                />
+              </div>
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-maintenance-message">
+                  Message
+                </label>
+                <textarea
+                  id="jf-maintenance-message"
+                  className="jf-input"
+                  maxLength={2000}
+                  rows={3}
+                  value={maintenance.message}
+                  disabled={!canManage}
+                  onChange={(e) => setMaintenance({ ...maintenance, message: e.target.value })}
+                  onBlur={() => void saveMaintenance(maintenance)}
+                  placeholder="This site is down for planned maintenance. Please check back soon."
+                />
+              </div>
+              {maintenanceSaved && <p className="jf-field__hint">Saved.</p>}
+            </div>
+          )}
+
+          <div className="jf-field" style={{ marginTop: "1.25rem" }}>
+            <label className="jf-field__label">Server error (500) page</label>
+            <p className="jf-field__hint" style={{ marginTop: 0 }}>
+              Shown when a request fails unexpectedly. Renders without the database, so it always
+              uses this text rather than a page or theme template.
+            </p>
+            <div className="jf-stack" style={{ gap: "0.75rem", marginTop: "0.5rem", maxWidth: 480 }}>
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-error500-heading">
+                  Heading
+                </label>
+                <input
+                  id="jf-error500-heading"
+                  className="jf-input"
+                  type="text"
+                  maxLength={200}
+                  value={errorPage500.heading}
+                  disabled={!canManage}
+                  onChange={(e) => setErrorPage500({ ...errorPage500, heading: e.target.value })}
+                  onBlur={() => void saveErrorPage500(errorPage500)}
+                  placeholder="Something went wrong"
+                />
+              </div>
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-error500-message">
+                  Message
+                </label>
+                <textarea
+                  id="jf-error500-message"
+                  className="jf-input"
+                  maxLength={2000}
+                  rows={3}
+                  value={errorPage500.message}
+                  disabled={!canManage}
+                  onChange={(e) => setErrorPage500({ ...errorPage500, message: e.target.value })}
+                  onBlur={() => void saveErrorPage500(errorPage500)}
+                  placeholder="The site hit an unexpected error. Please try again shortly."
+                />
+              </div>
+              {errorPage500Saving ? (
+                <p className="jf-field__hint">Saving…</p>
+              ) : (
+                errorPage500Saved && <p className="jf-field__hint">Saved.</p>
+              )}
+            </div>
+          </div>
         </Section>
 
         <Section title="Search engines">

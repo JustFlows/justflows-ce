@@ -10,7 +10,11 @@ import { createPermalinkRouter } from "./permalinks.js";
 import { Router, type Request, type Response } from "express";
 import ejs from "ejs";
 import path from "node:path";
-import { getPublishedContentBySlug, getTranslationAlternates } from "../lib/content-public.js";
+import {
+  getPublishedContentBySlug,
+  getTranslationAlternates,
+  wasPermanentlyRemoved,
+} from "../lib/content-public.js";
 import {
   getActiveLocaleCodes,
   getDefaultLocale,
@@ -47,6 +51,13 @@ import {
 } from "../lib/menus-db.js";
 import { getEffectiveHomeBlocks } from "../lib/theme-home-blocks.js";
 import { getHomeContent, isHomeContentSlug } from "../lib/home-page.js";
+import {
+  getErrorPageConfig,
+  getErrorPageSource,
+  resolveErrorPageContent,
+  type MaintenanceConfig,
+} from "../lib/error-pages.js";
+import { detectStaticErrorLocale, renderStaticErrorPage } from "../lib/static-error-page.js";
 import {
   headerBrandFlags,
   headerRefFromContentFields,
@@ -550,11 +561,47 @@ async function renderUnderConstruction(): Promise<string> {
   return html;
 }
 
+/**
+ * True operator-chosen maintenance mode (justflows-ce#92) — distinct from the
+ * "site is live" / under-construction gate below, which assumes the database
+ * is healthy and just hasn't launched yet. This one renders through the
+ * dependency-free static page and is checked first, so it wins even during a
+ * partial outage the rest of the DB-backed pipeline could still limp through.
+ * A read failure (including the database being genuinely down) is treated as
+ * "not configured" — an actual outage belongs to the 500 backstop, not here.
+ */
+async function ensureNotInMaintenance(req: Request, res: Response): Promise<boolean> {
+  let maintenance: MaintenanceConfig | undefined;
+  try {
+    const siteId = await getSiteId();
+    if (siteId) maintenance = (await getErrorPageConfig(siteId)).maintenance;
+  } catch {
+    return true;
+  }
+  if (!maintenance?.enabled) return true;
+  if (await canViewUnpublishedSite(req, res)) return true;
+
+  res.setHeader("Cache-Control", "private, no-store");
+  res
+    .status(503)
+    .type("html")
+    .send(
+      renderStaticErrorPage("maintenance", {
+        heading: maintenance.heading,
+        message: maintenance.message,
+        locale: detectStaticErrorLocale(req.path, req.get("accept-language")),
+      }),
+    );
+  return false;
+}
+
 async function ensureSiteIsPublic(req: Request, res: Response): Promise<boolean> {
+  if (!(await ensureNotInMaintenance(req, res))) return false;
   if (await isSitePublic()) return true;
   if (await canViewUnpublishedSite(req, res)) return true;
 
   const html = await renderUnderConstruction();
+  res.setHeader("Cache-Control", "private, no-store");
   res.status(503).type("html").send(html);
   return false;
 }
@@ -722,6 +769,11 @@ async function sendPublicHtml(
       res.setHeader("Cache-Control", "private, no-store");
     }
   }
+  // Error pages must never be privately cached by a browser or proxy — the
+  // configured source (or the site itself) can change at any time.
+  if (status >= 400) {
+    res.setHeader("Cache-Control", "private, no-store");
+  }
   res.status(status).type("html").send(html);
   if (!preview && status < 400) {
     void import("../lib/analytics-public.js")
@@ -782,10 +834,97 @@ export async function sendPublicNotFound(req: Request, res: Response): Promise<v
     false,
     async () => {
       const ctx = await buildPageContext(req, res, req.path, false);
-      return renderNotFoundHtml(ctx);
+      return renderNotFoundHtml(ctx, req, res, req.path);
     },
     404,
   );
+}
+
+/** Render the site's themed 403 (blocked request) for callers that need one. */
+export async function sendPublicForbidden(req: Request, res: Response): Promise<void> {
+  if (!(await ensureSiteIsPublic(req, res))) return;
+  await sendPublicHtml(
+    req,
+    res,
+    `${req.path}:403`,
+    false,
+    async () => {
+      const ctx = await buildPageContext(req, res, req.path, false);
+      return renderConfiguredErrorHtml("403", ctx, req, res, req.path);
+    },
+    403,
+  );
+}
+
+/** Render the site's themed 410 (permanently removed) for callers that need one. */
+export async function sendPublicGone(req: Request, res: Response): Promise<void> {
+  if (!(await ensureSiteIsPublic(req, res))) return;
+  await sendPublicHtml(
+    req,
+    res,
+    `${req.path}:410`,
+    false,
+    async () => {
+      const ctx = await buildPageContext(req, res, req.path, false);
+      return renderConfiguredErrorHtml("410", ctx, req, res, req.path);
+    },
+    410,
+  );
+}
+
+/** Render the site's themed 429 (rate-limited) for callers that need one. */
+export async function sendPublicRateLimited(
+  req: Request,
+  res: Response,
+  retryAfterSeconds?: number,
+): Promise<void> {
+  if (typeof retryAfterSeconds === "number" && retryAfterSeconds > 0) {
+    res.setHeader("Retry-After", String(Math.ceil(retryAfterSeconds)));
+  }
+  if (!(await ensureSiteIsPublic(req, res))) return;
+  await sendPublicHtml(
+    req,
+    res,
+    `${req.path}:429`,
+    false,
+    async () => {
+      const ctx = await buildPageContext(req, res, req.path, false);
+      return renderConfiguredErrorHtml("429", ctx, req, res, req.path);
+    },
+    429,
+  );
+}
+
+/**
+ * The dependency-free 500 fallback (justflows-ce#92) for a route handler's own
+ * catch block. Never touches anything but a best-effort settings read, and
+ * that read is itself wrapped so a database outage — quite possibly the
+ * reason the caller is here — cannot turn this into a second failure.
+ */
+async function sendPublicServerError(req: Request, res: Response): Promise<void> {
+  let heading: string | undefined;
+  let message: string | undefined;
+  try {
+    const siteId = await getSiteId();
+    if (siteId) {
+      const config = await getErrorPageConfig(siteId);
+      heading = config["500"]?.heading;
+      message = config["500"]?.message;
+    }
+  } catch {
+    // Fall back to the static page's own generic copy below.
+  }
+  res.setHeader("Cache-Control", "private, no-store");
+  res
+    .status(500)
+    .type("html")
+    .send(
+      renderStaticErrorPage("500", {
+        heading,
+        message,
+        locale: detectStaticErrorLocale(req.path, req.get("accept-language")),
+      }),
+    );
 }
 
 /**
@@ -998,21 +1137,92 @@ async function renderThemeTemplateHtml(
 
 type PageCtx = Awaited<ReturnType<typeof buildPageContext>>;
 
-/** The themed 404 — a `templates/404.json` when the theme has one, else `404.ejs`. */
-async function renderNotFoundHtml(ctx: PageCtx): Promise<string> {
-  const notFoundOpts: TemplateRenderOpts = { preview: ctx.preview };
-  const templateHtml = await renderThemeTemplateHtml(
-    { kind: "notFound" },
-    ctx,
-    templateBlockContext(
-      { content: null, formattedDate: null, contentBodyHtml: "" },
+type ErrorClass = "404" | "403" | "410" | "429";
+
+const ERROR_TEMPLATE_QUERY: Record<ErrorClass, TemplateQuery> = {
+  "404": { kind: "notFound" },
+  "403": { kind: "forbidden" },
+  "410": { kind: "gone" },
+  "429": { kind: "rateLimited" },
+};
+
+const ERROR_TITLE_KEY: Record<ErrorClass, string> = {
+  "404": "404.title",
+  "403": "errors.403.title",
+  "410": "errors.410.title",
+  "429": "errors.429.title",
+};
+
+/**
+ * The themed page for one of the four DB-backed error classes, honoring the
+ * admin's chosen source: a specific published page, the theme's own template
+ * (`templates/403.json`, …, or the shared `templates/error.json` fallback),
+ * or the built-in default. Falls through gracefully at every step — a
+ * deleted/unpublished chosen page, or a theme with no matching template, never
+ * fails the response, it just resolves to the next source.
+ */
+async function renderConfiguredErrorHtml(
+  errorClass: ErrorClass,
+  ctx: PageCtx,
+  req: Request,
+  res: Response,
+  reqPath: string,
+): Promise<string> {
+  const entry = ctx.siteId
+    ? await getErrorPageSource(ctx.siteId, errorClass)
+    : { source: "theme" as const };
+
+  if (entry.source === "page" && entry.pageId && ctx.siteId) {
+    const resolved = await resolveErrorPageContent(ctx.siteId, ctx.locale, entry.pageId);
+    if (resolved) {
+      return renderSinglePageHtml(
+        req,
+        res,
+        reqPath,
+        resolved.slug,
+        resolved.locale,
+        false,
+        [],
+        1,
+        reqPath,
+        resolved,
+      );
+    }
+  }
+
+  if (entry.source !== "builtin") {
+    const opts: TemplateRenderOpts = { preview: ctx.preview };
+    const templateHtml = await renderThemeTemplateHtml(
+      ERROR_TEMPLATE_QUERY[errorClass],
       ctx,
-      notFoundOpts,
-    ),
-    { title: ctx.t("404.title"), mainClass: "site-main" },
-    notFoundOpts,
-  );
-  return templateHtml ?? renderPage("404", { ...ctx, title: ctx.t("404.title") });
+      templateBlockContext(
+        { content: null, formattedDate: null, contentBodyHtml: "" },
+        ctx,
+        opts,
+      ),
+      { title: ctx.t(ERROR_TITLE_KEY[errorClass]), mainClass: "site-main" },
+      opts,
+    );
+    if (templateHtml) return templateHtml;
+  }
+
+  if (errorClass === "404") return renderPage("404", { ...ctx, title: ctx.t("404.title") });
+  return renderPage("error", {
+    ...ctx,
+    errorClass,
+    title: ctx.t(ERROR_TITLE_KEY[errorClass]),
+    body: ctx.t(`errors.${errorClass}.body`),
+  });
+}
+
+/** The themed 404 — see {@link renderConfiguredErrorHtml}. */
+async function renderNotFoundHtml(
+  ctx: PageCtx,
+  req: Request,
+  res: Response,
+  reqPath: string,
+): Promise<string> {
+  return renderConfiguredErrorHtml("404", ctx, req, res, reqPath);
 }
 
 function languageLinksFor(
@@ -1385,7 +1595,15 @@ router.get("/sitemap.xml", async (_req, res, next) => {
   }
 });
 
-router.get(["/search", "/:locale/search"], rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false }), async (req, res) => {
+router.get(["/search", "/:locale/search"], rateLimit({
+  windowMs: 60_000,
+  limit: 60,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  handler: (req, res, next) => {
+    void sendPublicRateLimited(req, res).catch(next);
+  },
+}), async (req, res) => {
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("X-Robots-Tag", "noindex, follow");
   if (!(await ensureSiteIsPublic(req, res))) return;
@@ -1401,8 +1619,9 @@ router.get(["/search", "/:locale/search"], rateLimit({ windowMs: 60_000, limit: 
     const themed = await renderThemeTemplateHtml({ kind: "search" }, ctx,
       templateBlockContext({ content: null, formattedDate: null, contentBodyHtml: bodyHtml }, ctx, {}), viewData);
     res.type("html").send(themed ?? await renderPage("template", { ...ctx, ...viewData, bodyHtml }));
-  } catch {
-    res.status(500).type("text/plain").send("Search is temporarily unavailable");
+  } catch (err) {
+    console.error("[justflows] search render failed:", err);
+    await sendPublicServerError(req, res);
   }
 });
 
@@ -1410,6 +1629,7 @@ router.use(
   createPermalinkRouter({
     canView: ensureSiteIsPublic,
     previewAllowed: isPreviewAllowed,
+    rateLimited: sendPublicRateLimited,
     async renderContent(req, res, { content, path, basePath, pageNumber, alternates }) {
       const preview = await isPreviewAllowed(req, res);
       await sendPublicHtml(req, res, path, preview, () =>
@@ -1451,7 +1671,7 @@ router.get("/", async (req, res, next) => {
     );
   } catch (err) {
     console.error("[justflows] home render failed:", err);
-    res.status(500).type("text/plain").send("Internal server error");
+    await sendPublicServerError(req, res);
   }
 });
 
@@ -1491,7 +1711,7 @@ async function renderSinglePageHtml(
       : null;
   }
   if (!pageContent) {
-    return renderNotFoundHtml(pageCtx);
+    return renderNotFoundHtml(pageCtx, req, res, reqPath);
   }
   const withTranslations = {
     ...pageCtx,
@@ -1634,6 +1854,10 @@ router.get("/:segment", async (req, res, next) => {
 
     const content = await getPublishedContentBySlug(slug, ctx.locale, preview);
     if (!content) {
+      if (ctx.siteId && (await wasPermanentlyRemoved(ctx.siteId, slug, ctx.locale))) {
+        await sendPublicGone(req, res);
+        return;
+      }
       await sendPublicHtml(
         req,
         res,
@@ -1641,7 +1865,7 @@ router.get("/:segment", async (req, res, next) => {
         preview,
         async () => {
           const ctx404 = await buildPageContext(req, res, req.path, preview);
-          return renderNotFoundHtml(ctx404);
+          return renderNotFoundHtml(ctx404, req, res, req.path);
         },
         404,
       );
@@ -1675,7 +1899,7 @@ router.get("/:segment", async (req, res, next) => {
     );
   } catch (err) {
     console.error("[justflows] page render failed:", err);
-    res.status(500).type("text/plain").send("Internal server error");
+    await sendPublicServerError(req, res);
   }
 });
 
@@ -1700,6 +1924,10 @@ router.get("/:segment/page/:num", async (req, res, next) => {
 
     const content = await getPublishedContentBySlug(segment, ctx.locale, preview);
     if (!content) {
+      if (ctx.siteId && (await wasPermanentlyRemoved(ctx.siteId, segment, ctx.locale))) {
+        await sendPublicGone(req, res);
+        return;
+      }
       await sendPublicHtml(
         req,
         res,
@@ -1707,7 +1935,7 @@ router.get("/:segment/page/:num", async (req, res, next) => {
         preview,
         async () => {
           const ctx404 = await buildPageContext(req, res, req.path, preview);
-          return renderNotFoundHtml(ctx404);
+          return renderNotFoundHtml(ctx404, req, res, req.path);
         },
         404,
       );
@@ -1751,7 +1979,7 @@ router.get("/:segment/page/:num", async (req, res, next) => {
     );
   } catch (err) {
     console.error("[justflows] paginated page render failed:", err);
-    res.status(500).type("text/plain").send("Internal server error");
+    await sendPublicServerError(req, res);
   }
 });
 
@@ -1783,6 +2011,11 @@ router.get("/:locale/:slug", async (req, res, next) => {
     const content = await getPublishedContentBySlug(slug, locale, preview);
 
     if (!content) {
+      const siteId404 = await getSiteId();
+      if (siteId404 && (await wasPermanentlyRemoved(siteId404, slug, locale))) {
+        await sendPublicGone(req, res);
+        return;
+      }
       await sendPublicHtml(
         req,
         res,
@@ -1790,7 +2023,7 @@ router.get("/:locale/:slug", async (req, res, next) => {
         preview,
         async () => {
           const ctx404 = await buildPageContext(req, res, req.path, preview);
-          return renderNotFoundHtml(ctx404);
+          return renderNotFoundHtml(ctx404, req, res, req.path);
         },
         404,
       );
@@ -1824,7 +2057,7 @@ router.get("/:locale/:slug", async (req, res, next) => {
     );
   } catch (err) {
     console.error("[justflows] localised page render failed:", err);
-    res.status(500).type("text/plain").send("Internal server error");
+    await sendPublicServerError(req, res);
   }
 });
 
@@ -1858,6 +2091,11 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
     const content = await getPublishedContentBySlug(slug, locale, preview);
 
     if (!content) {
+      const siteId404 = await getSiteId();
+      if (siteId404 && (await wasPermanentlyRemoved(siteId404, slug, locale))) {
+        await sendPublicGone(req, res);
+        return;
+      }
       await sendPublicHtml(
         req,
         res,
@@ -1865,7 +2103,7 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
         preview,
         async () => {
           const ctx404 = await buildPageContext(req, res, req.path, preview);
-          return renderNotFoundHtml(ctx404);
+          return renderNotFoundHtml(ctx404, req, res, req.path);
         },
         404,
       );
@@ -1898,7 +2136,7 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
     );
   } catch (err) {
     console.error("[justflows] localised paginated page render failed:", err);
-    res.status(500).type("text/plain").send("Internal server error");
+    await sendPublicServerError(req, res);
   }
 });
 

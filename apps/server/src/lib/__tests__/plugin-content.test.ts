@@ -26,6 +26,10 @@ vi.mock("../blog-page.js", () => ({
   clearBlogPageIfMatches: vi.fn(),
 }));
 
+vi.mock("../error-pages.js", () => ({
+  clearErrorPageIfMatches: vi.fn(),
+}));
+
 vi.mock("../content-public.js", () => ({
   invalidateContentCache: vi.fn(),
 }));
@@ -39,6 +43,7 @@ vi.mock("../plugin-kv.js", () => ({
 import { getContentTypeBySlug } from "../content-types-db.js";
 import { clearHomePageIfMatches } from "../home-page.js";
 import { clearBlogPageIfMatches } from "../blog-page.js";
+import { clearErrorPageIfMatches } from "../error-pages.js";
 import { invalidateContentCache } from "../content-public.js";
 import { contentTypeSlugsFromManifest, createPluginContentApi } from "../plugin-content.js";
 
@@ -49,6 +54,7 @@ describe("createPluginContentApi.deleteType", () => {
     vi.mocked(getContentTypeBySlug).mockReset();
     vi.mocked(clearHomePageIfMatches).mockReset();
     vi.mocked(clearBlogPageIfMatches).mockReset();
+    vi.mocked(clearErrorPageIfMatches).mockReset();
     vi.mocked(invalidateContentCache).mockReset();
   });
 
@@ -75,6 +81,8 @@ describe("createPluginContentApi.deleteType", () => {
     await expect(api.deleteType("shop")).resolves.toEqual({ pages: 2, typeDeleted: true });
     expect(clearHomePageIfMatches).toHaveBeenCalledWith("site-1", "c1");
     expect(clearBlogPageIfMatches).toHaveBeenCalledWith("site-1", "c2");
+    expect(clearErrorPageIfMatches).toHaveBeenCalledWith("site-1", "c1");
+    expect(clearErrorPageIfMatches).toHaveBeenCalledWith("site-1", "c2");
     expect(run).toHaveBeenCalledWith(
       "DELETE FROM revisions WHERE site_id = ? AND content_id IN (?, ?)",
       ["site-1", "c1", "c2"],
