@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 import { Router } from "express";
-import { MANAGE_API_OPENAPI } from "../../lib/openapi-manage.js";
-import { getRuntimeHooks } from "../../lib/plugin-runtime.js";
+import { MANAGE_API_OPENAPI } from "../../lib/http/openapi-manage.js";
+import { getRuntimeHooks } from "../../lib/plugins/plugin-runtime.js";
 
 const router = Router();
 

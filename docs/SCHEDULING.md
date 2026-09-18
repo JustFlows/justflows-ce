@@ -113,16 +113,27 @@ work. Audit actions are `content.schedule_set`, `content.schedule_changed`,
 
 ## Developer verification
 
-Focused tests live in server `lib/__tests__` and `routes/__tests__`, with editor
-checks colocated beside `ContentSchedule.tsx`. The opt-in database suite runs the
-real new migration against focused fixtures for the existing content/revision
-schema and exercises transactions and concurrent workers:
+Scheduling tests follow the [shared test layout](CONVENTIONS.md#tests):
+
+- Server unit tests: `apps/server/tests/unit/content/content-scheduling.test.ts`
+  and `apps/server/tests/unit/content/content-preview.test.ts`.
+- HTTP integration tests:
+  `apps/server/tests/integration/routes/content/content-schedule.test.ts`.
+- Admin editor tests:
+  `apps/server/admin-ui/tests/components/ContentSchedule.test.tsx`.
+- Database integration tests:
+  `apps/server/tests/integration/database/content-scheduling-db.integration.test.ts`.
+
+Run `pnpm test --force` from the repository root for the normal suites. The
+opt-in database suite runs the scheduling migration against focused fixtures for
+the existing content/revision schema and exercises transactions and concurrent
+workers. From the repository root:
 
 ```sh
 SCHEDULE_TEST_DATABASE=1 DB_NAME=schedule_test DB_DRIVER=postgres \
 DB_HOST=127.0.0.1 DB_PORT=5432 DB_USER=postgres DB_PASSWORD=local-test-value \
 DB_SSL=0 pnpm --filter @justflows/server exec vitest run \
-  src/lib/__tests__/content-scheduling-db.integration.test.ts
+  tests/integration/database/content-scheduling-db.integration.test.ts
 ```
 
 Use a fresh disposable database named `schedule_test`. Repeat with `mysql` and

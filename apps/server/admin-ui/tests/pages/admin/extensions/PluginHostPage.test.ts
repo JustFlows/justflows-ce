@@ -1,0 +1,54 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { matchPluginMenuItem } from "../../../../src/pages/admin/extensions/PluginHostPage";
+import { setAdminSsrPayload } from "../../../../src/ssr-data";
+import type { PluginMenuItem } from "../../../../src/config/admin-nav";
+
+const items: PluginMenuItem[] = [
+  {
+    pluginId: "justflows.consent",
+    id: "consent",
+    label: "Cookie Consent",
+    path: "/admin/plugins/justflows.consent",
+    icon: "🍪",
+    domain: "security",
+  },
+  {
+    pluginId: "justflows.shop",
+    id: "products",
+    label: "Products",
+    path: "/admin/plugins/justflows.shop/products",
+    icon: "📦",
+    domain: "commerce",
+  },
+];
+
+afterEach(() => setAdminSsrPayload(null));
+
+describe("matchPluginMenuItem", () => {
+  it("matches canonical /admin paths when the admin URL is the default", () => {
+    expect(matchPluginMenuItem(items, "/admin/plugins/justflows.consent")?.pluginId).toBe(
+      "justflows.consent",
+    );
+    expect(matchPluginMenuItem(items, "/admin/plugins/justflows.shop/products/42")?.id).toBe(
+      "products",
+    );
+  });
+
+  it("matches when the admin URL has been moved", () => {
+    setAdminSsrPayload({ url: "/", locale: "en-US", adminBasePath: "/admin-test", responses: {} });
+    expect(matchPluginMenuItem(items, "/admin-test/plugins/justflows.consent")?.pluginId).toBe(
+      "justflows.consent",
+    );
+    expect(matchPluginMenuItem(items, "/admin-test/plugins/justflows.shop/products/42")?.id).toBe(
+      "products",
+    );
+    expect(matchPluginMenuItem(items, "/admin/plugins/justflows.consent")?.pluginId).toBe(
+      "justflows.consent",
+    );
+  });
+
+  it("returns undefined for an unrelated path", () => {
+    setAdminSsrPayload({ url: "/", locale: "en-US", adminBasePath: "/admin-test", responses: {} });
+    expect(matchPluginMenuItem(items, "/admin-test/settings")).toBeUndefined();
+  });
+});

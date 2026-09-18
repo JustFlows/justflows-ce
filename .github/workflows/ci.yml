@@ -20,7 +20,7 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter "@justflows/server^..." build
+      - run: pnpm --filter "@justflows/server..." build
       - run: pnpm --filter @justflows/sdk test
       - run: pnpm sdk:api:check
       - run: pnpm --filter @justflows/core test

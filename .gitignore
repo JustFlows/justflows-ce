@@ -21,6 +21,9 @@ out/
 .vite/
 *.tsbuildinfo
 vite.config.*.timestamp-*
+# Compiled from apps/server/public-scripts/src/*.ts (see docs/CONVENTIONS.md)
+/public/js/*.js
+/public/js/*.js.map
 
 # Test output
 coverage/

@@ -121,7 +121,7 @@ degrade to a plain `<img>`.
 ### Where it applies
 
 Every public surface that renders an uploaded image goes through the same
-resolver ([`responsive-media.ts`](../apps/server/src/lib/responsive-media.ts)):
+resolver ([`responsive-media.ts`](../apps/server/src/lib/media/responsive-media.ts)):
 
 - **`core.image`** blocks;
 - the **Gallery** block (`justflows.gallery.grid`) — grid, masonry, carousel,

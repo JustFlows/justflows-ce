@@ -174,6 +174,10 @@ async function resetPassword(flags: Flags): Promise<void> {
       `\n✓ Password reset for ${account.email} (${account.role}) on site ${account.site_id}.\n` +
         "  All sessions were signed out and pending email reset links were invalidated.",
     );
+    // codeql[js/clear-text-logging]: this offline CLI's only job, when run
+    // without --password, is generating a password and showing it to the
+    // operator who is running it interactively — there is no other channel to
+    // return it through (see the function doc comment above).
     if (generated) console.log(`\n  New password: ${password}\n`);
   } finally {
     await db.close().catch(() => undefined);

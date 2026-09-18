@@ -42,6 +42,16 @@ User-visible work must cite the matching [Public Roadmap](https://github.com/org
 - `migrations`: the consolidated schema baseline and later tracked SQL migrations for all database dialects.
 - `docker`, `scripts`, and `server.js`: distribution, hosting, startup, and releases.
 
+## Folder and test placement
+
+Follow `docs/CONVENTIONS.md` for the complete layout. Server helpers and routes
+are grouped by domain; admin pages use `pages/admin/<domain>/`. Tests belong
+in the owning app/package/plugin's `tests/` tree, outside production `src`.
+Keep the admin browser suite under `apps/server/admin-ui/tests/` and HTTP/DB
+integration suites under `apps/server/tests/integration/`. Update imports,
+mock paths, assets, worker entrypoints, and test configs together when moving
+files. Preserve package public exports and route registration order.
+
 ## Verification
 
 Use package-level checks while iterating, then relevant root checks when practical. Typical commands are `pnpm --filter <package> typecheck`, `pnpm --filter <package> test`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. Report checks not run and why.

@@ -2,17 +2,17 @@
 
 import { Router } from "express";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { clientIp } from "../../lib/rate-limit.js";
+import { getDb } from "../../lib/database/db.js";
+import { clientIp } from "../../lib/security/rate-limit.js";
 import {
   createWebhook,
   deleteWebhook,
   listWebhookEventTypes,
   rotateWebhookSecret,
   updateWebhook,
-} from "../../lib/webhooks.js";
-import { auditLog } from "../../lib/audit-log.js";
-import { sendServerError } from "../../lib/send-error.js";
+} from "../../lib/http/webhooks.js";
+import { auditLog } from "../../lib/security/audit-log.js";
+import { sendServerError } from "../../lib/http/send-error.js";
 import { badRequest, ensureKeyCan, notFound, sendJson } from "./envelope.js";
 
 /**

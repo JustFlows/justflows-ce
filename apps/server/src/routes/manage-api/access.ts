@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { Router, type Request } from "express";
-import { clientIp } from "../../lib/rate-limit.js";
+import { clientIp } from "../../lib/security/rate-limit.js";
 import {
   createUser,
   CreateUserSchema,
@@ -11,7 +11,7 @@ import {
   PatchUserSchema,
   updateUser,
   type UserAdminActor,
-} from "../../lib/users-admin.js";
+} from "../../lib/auth/users-admin.js";
 import {
   createRole,
   deleteRole,
@@ -19,8 +19,8 @@ import {
   RoleSchema,
   updateRole,
   type RoleAdminActor,
-} from "../../lib/roles-admin.js";
-import { sendServerError } from "../../lib/send-error.js";
+} from "../../lib/auth/roles-admin.js";
+import { sendServerError } from "../../lib/http/send-error.js";
 import { badRequest, ensureKeyCan, paginate, relay, sendJson } from "./envelope.js";
 
 const router = Router();
