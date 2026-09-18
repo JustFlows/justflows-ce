@@ -232,14 +232,23 @@ function safePath(base, rel) {
 // path is both a TOCTOU window and the shape CodeQL's path-injection query
 // flags as multiple independent filesystem sinks for one tainted path; a
 // single open closes both.
-async function sendFile(res, filePath) {
+//
+// Both callers already ran `filePath` through safePath() (or pass the fixed
+// `adminIndex` constant), but the containment check below is repeated here,
+// right against `base`, so this function never depends on a caller elsewhere
+// having done it — `filePath` cannot resolve outside `base` and reach the
+// open() call below.
+async function sendFile(res, filePath, base) {
+  const resolvedBase = path.resolve(base);
+  const resolved = path.resolve(filePath);
+  if (resolved !== resolvedBase && !resolved.startsWith(resolvedBase + path.sep)) {
+    res.writeHead(404, withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
+    res.end("Not found");
+    return;
+  }
   let handle;
   try {
-    // codeql[js/path-injection]: both callers already ran filePath through
-    // safePath() above (or pass the fixed adminIndex constant) — resolved,
-    // contained under base with a trailing-separator check, and realpath'd to
-    // close symlink escapes — before it ever reaches this function.
-    handle = await fsp.open(filePath, "r");
+    handle = await fsp.open(resolved, "r");
     const stat = await handle.stat();
     if (!stat.isFile()) throw new Error("not a file");
   } catch {
@@ -248,7 +257,7 @@ async function sendFile(res, filePath) {
     res.end("Not found");
     return;
   }
-  const ext = path.extname(filePath).toLowerCase();
+  const ext = path.extname(resolved).toLowerCase();
   res.writeHead(
     200,
     withSecurityHeaders({ "Content-Type": MIME[ext] || "application/octet-stream" }),
@@ -454,6 +463,41 @@ function dispatch(app, req, res) {
   });
 }
 
+/**
+ * GET /api/bootstrap/status — the setup page's poll target. Its own logic
+ * decides what an anonymous caller sees; nothing about *reaching* this
+ * function (route dispatch on a fixed path) affects that decision.
+ */
+function handleBootstrapStatus(req, res) {
+  if (rateLimited(req, "status", 240, 60_000)) {
+    sendJson(res, 429, { error: "Too many requests" });
+    return;
+  }
+  // Once installed this answers with nothing but the flag the setup page
+  // needs to redirect. Everything else here — the job record, whether this is
+  // a git checkout, and above all the installer log — described the host to
+  // any anonymous caller, on a route that never checked install state.
+  if (isInstalled()) {
+    sendJson(res, 200, { installed: true });
+    return;
+  }
+  const tokenRequired = !installToken.isLoopbackAddress(clientIp(req));
+  // The log is the npm transcript: absolute paths, the full dependency tree,
+  // and any build error. Released only to a caller who has proved control of
+  // the files, which by this point in the flow the setup page has.
+  const authorised = bootstrapAuthorised(req, null);
+  sendJson(res, 200, {
+    installed: false,
+    gitCheckout: gate.isGitCheckout(root),
+    allowed: gate.bootstrapSpawnAllowed(root),
+    ready: gate.depsReady(root),
+    job: gate.jobStatus(root),
+    tokenRequired,
+    tokenFile: installToken.installTokenFileExists(root) ? "install-token/TOKEN.txt" : null,
+    log: authorised ? gate.readLogTail(root) : "",
+  });
+}
+
 const server = http.createServer((req, res) => {
   const pathname = (req.url ?? "/").split("?")[0];
 
@@ -470,39 +514,8 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // codeql[js/user-controlled-bypass]: this is ordinary route dispatch on a
-  // fixed literal, not the security check. `pathname` only decides which
-  // handler runs; the actual authorization decision inside — whether
-  // bootstrapAuthorised()'s caller gets the log tail — is independent of it
-  // and is covered by its own doc comment above.
   if (pathname === "/api/bootstrap/status") {
-    if (rateLimited(req, "status", 240, 60_000)) {
-      sendJson(res, 429, { error: "Too many requests" });
-      return;
-    }
-    // Once installed this answers with nothing but the flag the setup page
-    // needs to redirect. Everything else here — the job record, whether this is
-    // a git checkout, and above all the installer log — described the host to
-    // any anonymous caller, on a route that never checked install state.
-    if (isInstalled()) {
-      sendJson(res, 200, { installed: true });
-      return;
-    }
-    const tokenRequired = !installToken.isLoopbackAddress(clientIp(req));
-    // The log is the npm transcript: absolute paths, the full dependency tree,
-    // and any build error. Released only to a caller who has proved control of
-    // the files, which by this point in the flow the setup page has.
-    const authorised = bootstrapAuthorised(req, null);
-    sendJson(res, 200, {
-      installed: false,
-      gitCheckout: gate.isGitCheckout(root),
-      allowed: gate.bootstrapSpawnAllowed(root),
-      ready: gate.depsReady(root),
-      job: gate.jobStatus(root),
-      tokenRequired,
-      tokenFile: installToken.installTokenFileExists(root) ? "install-token/TOKEN.txt" : null,
-      log: authorised ? gate.readLogTail(root) : "",
-    });
+    handleBootstrapStatus(req, res);
     return;
   }
 
@@ -574,14 +587,14 @@ const server = http.createServer((req, res) => {
       res.end();
       return;
     }
-    sendFile(res, adminIndex);
+    sendFile(res, adminIndex, adminDist);
     return;
   }
 
   if (pathname.startsWith("/assets/")) {
     const file = safePath(adminDist, pathname.slice(1));
     if (file) {
-      sendFile(res, file);
+      sendFile(res, file, adminDist);
       return;
     }
   }
