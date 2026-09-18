@@ -28,7 +28,17 @@ export type { UpdateStep } from "./core-update-status.js";
 
 const MAX_ZIP_BYTES = 200 * 1024 * 1024; // 200 MB
 
-/** Paths never overwritten during a core update. */
+/**
+ * Top-level entries a core update never touches — runtime state, secrets,
+ * and directories where an operator can drop content of their own directly
+ * next to what the core ships. `themes/`, `plugins/` and `css-providers/`
+ * are the ones without a separate "-installed" split (unlike
+ * `packages-installed/` and `css-providers-installed/`, which keep
+ * npm-managed dependencies out of the way of anything hand-authored): a
+ * bundled theme/plugin/provider and a site's own custom one live in the
+ * same directory, so syncing it against the new package the way core code
+ * is synced could delete a site's installed theme or plugin.
+ */
 const PRESERVE_TOP_LEVEL = new Set([
   ".env",
   ".env.local",
@@ -37,7 +47,25 @@ const PRESERVE_TOP_LEVEL = new Set([
   "packages-installed",
   ".updates",
   "node_modules",
+  "node_modules.pnpm-hidden",
+  "themes",
+  "plugins",
+  "css-providers",
+  "css-providers-installed",
+  "install-token",
+  "tmp",
+  "data",
+  "static-export",
+  ".hosting-backup",
+  ".git",
 ]);
+
+/** Loose root-level files a release never ships and must never delete. */
+const PRESERVE_ROOT_FILE_PATTERNS = [
+  /^\.env\..+$/,
+  /\.(pem|key|crt|p12|pfx)$/,
+  /\.(db|db-journal|sqlite|sqlite-journal|sqlite3|sqlite3-journal)$/,
+];
 
 /** Raised when a second update is requested while one is already running. */
 export class UpdateInProgressError extends Error {
@@ -125,9 +153,11 @@ function runCopiedMigrations(root: string): { ok: boolean; output: string } {
 }
 
 function shouldPreserve(relativePath: string): boolean {
-  const top = relativePath.split(path.sep)[0] ?? relativePath;
+  const segments = relativePath.split(path.sep);
+  const top = segments[0] ?? relativePath;
   if (PRESERVE_TOP_LEVEL.has(top)) return true;
   if (relativePath.startsWith(".updates" + path.sep)) return true;
+  if (segments.length === 1 && PRESERVE_ROOT_FILE_PATTERNS.some((re) => re.test(top))) return true;
   return false;
 }
 
@@ -150,21 +180,6 @@ async function copyUpdateFiles(sourceRoot: string, destRoot: string): Promise<nu
   return copied;
 }
 
-/**
- * Top-level trees a release fully owns and regenerates from scratch — no
- * runtime code ever writes under them, so a file that exists here but not in
- * the new package is stale, left behind by a path a later release renamed or
- * removed (the domain-based module reorg in v0.2.5 left the pre-reorg
- * apps/server/dist/lib/** tree in place, for example; copyUpdateFiles only
- * ever adds files, so nothing removed it).
- *
- * Deliberately excludes themes/, plugins/ and css-providers/: those
- * directories mix core-bundled content with whatever an operator installs
- * straight into the same directory, so pruning them the same way could
- * delete a site's installed theme or plugin.
- */
-const SYNC_TOP_LEVEL = ["apps", "packages", "scripts", "migrations"];
-
 /** Delete `dir` if walking it (post-prune) finds nothing left, recursing into now-empty children first. */
 async function removeIfEmpty(dir: string): Promise<void> {
   let entries: string[];
@@ -185,29 +200,46 @@ async function removeIfEmpty(dir: string): Promise<void> {
   }
 }
 
-/** Remove files under {@link SYNC_TOP_LEVEL} that the new package no longer ships. */
+/**
+ * Remove anything under `destRoot` the new package no longer ships — a file
+ * a later release renamed or removed otherwise sits there forever, since
+ * copyUpdateFiles only ever adds or overwrites (the domain-based module
+ * reorg in v0.2.5 left the pre-reorg apps/server/dist/lib/** tree in place
+ * this way).
+ *
+ * Walks `destRoot` top-level-entry by top-level-entry rather than as one
+ * flat tree, so a {@link PRESERVE_TOP_LEVEL} entry — themes/, plugins/,
+ * node_modules/, and the rest — is skipped without ever being descended
+ * into: correctness for the ones holding custom content that must never be
+ * touched, and performance for the potentially huge ones (node_modules/,
+ * uploads/) that would otherwise be walked in full just to be filtered back
+ * out file by file.
+ */
 async function pruneStaleFiles(sourceRoot: string, destRoot: string): Promise<number> {
   let removed = 0;
+  const sourceFiles = new Set(await walkFiles(sourceRoot));
 
-  for (const top of SYNC_TOP_LEVEL) {
-    const destTop = path.join(destRoot, top);
-    if (!fs.existsSync(destTop)) continue;
+  for (const entry of await fsp.readdir(destRoot, { withFileTypes: true })) {
+    if (PRESERVE_TOP_LEVEL.has(entry.name)) continue;
 
-    const sourceTop = path.join(sourceRoot, top);
-    const sourceFiles = fs.existsSync(sourceTop) ? new Set(await walkFiles(sourceTop)) : new Set<string>();
-
-    for (const rel of await walkFiles(destTop)) {
-      if (sourceFiles.has(rel)) continue;
-      const relFromRoot = path.join(top, rel);
-      if (shouldPreserve(relFromRoot)) continue;
-
-      const abs = resolvePathUnderRoot(destRoot, relFromRoot);
+    if (entry.isDirectory()) {
+      const destTop = path.join(destRoot, entry.name);
+      for (const rel of await walkFiles(destTop, destRoot)) {
+        if (sourceFiles.has(rel)) continue;
+        const abs = resolvePathUnderRoot(destRoot, rel);
+        if (!abs) continue;
+        await fsp.rm(abs, { force: true });
+        removed++;
+      }
+      await removeIfEmpty(destTop);
+    } else {
+      if (PRESERVE_ROOT_FILE_PATTERNS.some((re) => re.test(entry.name))) continue;
+      if (sourceFiles.has(entry.name)) continue;
+      const abs = resolvePathUnderRoot(destRoot, entry.name);
       if (!abs) continue;
       await fsp.rm(abs, { force: true });
       removed++;
     }
-
-    await removeIfEmpty(destTop);
   }
 
   return removed;
