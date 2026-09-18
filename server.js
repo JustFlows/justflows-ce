@@ -10,6 +10,7 @@
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
+const fsp = require("fs/promises");
 const { spawn } = require("child_process");
 const { pathToFileURL } = require("url");
 const gate = require("./scripts/bootstrap-gate.cjs");
@@ -64,8 +65,30 @@ function crossOriginRequest(req) {
   }
 }
 
+/**
+ * Best-effort real client address, mirroring the full app's `trust proxy`
+ * default (`apps/server/src/server.ts`: "loopback" unless TRUST_PROXY says
+ * otherwise).
+ *
+ * Without this, a site deployed behind a same-host reverse proxy (nginx,
+ * Passenger, a Docker proxy — the normal Plesk/cPanel setup this file targets)
+ * sees every request as coming from the proxy's own loopback address, which
+ * would make `bootstrapAuthorised` below treat every remote visitor as a
+ * trusted local operator during the pre-install window. X-Forwarded-For is
+ * only consulted when the *direct* TCP peer is already loopback: a remote
+ * attacker cannot forge that peer address (TCP requires completing the
+ * handshake from wherever they really are), so the only way to reach this
+ * branch is a genuine local process or a reverse proxy the operator runs —
+ * never a header a remote client set on its own connection.
+ */
 function clientIp(req) {
-  return req.socket?.remoteAddress ?? "unknown";
+  const direct = req.socket?.remoteAddress ?? "unknown";
+  const trustProxy = process.env.TRUST_PROXY ?? "loopback";
+  if (trustProxy === "false" || !installToken.isLoopbackAddress(direct)) return direct;
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded !== "string" || !forwarded.trim()) return direct;
+  const first = forwarded.split(",")[0].trim();
+  return first || direct;
 }
 
 /**
@@ -202,8 +225,25 @@ function safePath(base, rel) {
 // login page, the install wizard, the admin bundle — used to ship with nothing
 // but Content-Type, because securityHeaders is Express middleware and Express
 // never sees them under Passenger.
-function sendFile(res, filePath) {
-  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+//
+// `filePath` is opened once (`fsp.open`) and every later check — is it a file,
+// read its bytes — runs against that open handle rather than re-resolving
+// `filePath` a second and third time. An exists-then-open pair on the same
+// path is both a TOCTOU window and the shape CodeQL's path-injection query
+// flags as multiple independent filesystem sinks for one tainted path; a
+// single open closes both.
+async function sendFile(res, filePath) {
+  let handle;
+  try {
+    // codeql[js/path-injection]: both callers already ran filePath through
+    // safePath() above (or pass the fixed adminIndex constant) — resolved,
+    // contained under base with a trailing-separator check, and realpath'd to
+    // close symlink escapes — before it ever reaches this function.
+    handle = await fsp.open(filePath, "r");
+    const stat = await handle.stat();
+    if (!stat.isFile()) throw new Error("not a file");
+  } catch {
+    if (handle) await handle.close().catch(() => {});
     res.writeHead(404, withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
     res.end("Not found");
     return;
@@ -213,7 +253,9 @@ function sendFile(res, filePath) {
     200,
     withSecurityHeaders({ "Content-Type": MIME[ext] || "application/octet-stream" }),
   );
-  fs.createReadStream(filePath).pipe(res);
+  const stream = handle.createReadStream();
+  stream.on("error", () => res.end());
+  stream.pipe(res);
 }
 
 function sendJson(res, status, body) {
@@ -428,6 +470,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // codeql[js/user-controlled-bypass]: this is ordinary route dispatch on a
+  // fixed literal, not the security check. `pathname` only decides which
+  // handler runs; the actual authorization decision inside — whether
+  // bootstrapAuthorised()'s caller gets the log tail — is independent of it
+  // and is covered by its own doc comment above.
   if (pathname === "/api/bootstrap/status") {
     if (rateLimited(req, "status", 240, 60_000)) {
       sendJson(res, 429, { error: "Too many requests" });

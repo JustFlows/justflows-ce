@@ -42,7 +42,15 @@ export function isGplCompatibleLicense(license: string | undefined): boolean {
   const value = license.trim();
   if (BLOCKED_PATTERN.test(value)) return false;
 
-  const parts = value.split(/\s+OR\s+/i).map((part) => normalizeLicenseToken(part));
+  // Collapse whitespace runs first so the split itself needs no `\s+`: a
+  // manifest license string with many repeated spaces and no "OR" used to
+  // make `\s+OR\s+` backtrack quadratically (js/polynomial-redos) — this is
+  // parsed from plugin/theme manifests, which are library input, not code
+  // this project controls.
+  const parts = value
+    .replace(/\s+/g, " ")
+    .split(/ OR /i)
+    .map((part) => normalizeLicenseToken(part));
   if (parts.length === 0) return false;
 
   return parts.every((part) => GPL_COMPATIBLE_IDENTIFIERS.has(part));

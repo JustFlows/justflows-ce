@@ -30,6 +30,9 @@ const RESERVED_RESPONSE_HEADERS = new Set<string>([
 /** Request headers never forwarded to plugin code. */
 const STRIPPED_REQUEST_HEADERS = new Set(["cookie", "authorization", "proxy-authorization"]);
 
+/** Never assign these as plain object keys sourced from request data. */
+const UNSAFE_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
 /** Public plugin mutations whose own validation/rate limits replace session-bound CSRF. */
 const PUBLIC_PLUGIN_MUTATIONS = new Set(["POST /justflows-forms/submit"]);
 
@@ -92,10 +95,12 @@ export async function dispatchPluginHttp(
   try {
     const query: Record<string, string> = {};
     for (const [key, value] of Object.entries(req.query)) {
+      if (UNSAFE_OBJECT_KEYS.has(key)) continue;
       if (typeof value === "string") query[key] = value;
     }
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(req.headers)) {
+      if (UNSAFE_OBJECT_KEYS.has(key)) continue;
       if (typeof value !== "string") continue;
       if (STRIPPED_REQUEST_HEADERS.has(key.toLowerCase())) continue;
       headers[key] = value;

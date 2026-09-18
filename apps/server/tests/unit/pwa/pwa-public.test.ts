@@ -39,7 +39,7 @@ describe("buildPwaBodyHtml", () => {
     // Every <script> tag must carry a src attribute; none may be a bare
     // inline block (this is exactly what broke the install prompt under the
     // real CSP — curl showed correct HTML but Chrome silently dropped it).
-    const scriptTags = html.match(/<script\b[^>]*>/g) ?? [];
+    const scriptTags = html.match(/<script\b[^>]*>/gi) ?? [];
     expect(scriptTags.length).toBeGreaterThan(0);
     for (const tag of scriptTags) expect(tag).toMatch(/\bsrc="/);
   });

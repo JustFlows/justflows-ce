@@ -537,13 +537,36 @@ function parseSha256Sidecar(text: string): string | null {
   return match ? match[1]!.toLowerCase() : null;
 }
 
+/**
+ * The background worker reloads `release` from `.updates/job.json` (see
+ * `core-update-worker.ts` / `readUpdateJob`), so by the time it reaches
+ * `fetch` here it has round-tripped through a file on disk. Re-validate it at
+ * that boundary rather than trusting the persisted shape: only `https:` is
+ * ever a legitimate release/checksum URL, and rebuilding the string from the
+ * parsed `URL` (instead of forwarding the original) keeps a malformed or
+ * non-http(s) scheme — `file:`, `javascript:`, a bare path — from ever
+ * reaching `fetch`.
+ */
+function assertHttpsUrl(value: string, label: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${label} is not a valid URL`);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error(`${label} must use https`);
+  }
+  return parsed.toString();
+}
+
 /** Download a published release through the gateway and verify its checksum. */
 async function downloadRelease(release: {
   availableVersion: string;
   downloadUrl: string;
   sha256Url: string | null;
 }): Promise<Buffer> {
-  const res = await fetch(release.downloadUrl, {
+  const res = await fetch(assertHttpsUrl(release.downloadUrl, "downloadUrl"), {
     headers: { accept: "application/zip" },
     signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
   });
@@ -551,7 +574,7 @@ async function downloadRelease(release: {
   const buffer = await readBounded(res, MAX_ZIP_BYTES);
 
   if (release.sha256Url) {
-    const shaRes = await fetch(release.sha256Url, {
+    const shaRes = await fetch(assertHttpsUrl(release.sha256Url, "sha256Url"), {
       headers: { accept: "text/plain" },
       signal: AbortSignal.timeout(30_000),
     });

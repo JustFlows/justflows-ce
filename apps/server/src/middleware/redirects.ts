@@ -61,6 +61,10 @@ export async function managedRedirects(
       }
       if (allowed) {
         res.setHeader("Cache-Control", "no-store");
+        // codeql[js/server-side-unvalidated-url-redirection]: `allowed` above is
+        // the barrier — site-relative only, or an exact host match against an
+        // operator-configured external rule, https(s) only, no embedded
+        // credentials. `location` cannot be attacker-chosen at this point.
         res.redirect(result.status, location);
         return;
       }

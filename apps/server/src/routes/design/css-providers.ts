@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import fs from "node:fs";
 import path from "node:path";
 import { requireRole, requireSession } from "../../middleware/auth.js";
@@ -135,6 +136,18 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
 
 /** Public static assets for the active CSS provider (not under /api). */
 export const cssProviderAssetsRouter = Router();
+
+// This handler reads and stats files off disk on every request. CodeQL's
+// js/missing-rate-limiting only models express-rate-limit, so guard it
+// explicitly even though it's read-only.
+const cssProviderAssetsLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 300,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many requests" },
+});
+cssProviderAssetsRouter.use(cssProviderAssetsLimit);
 
 cssProviderAssetsRouter.get("/*file", async (req, res) => {
   try {

@@ -105,7 +105,12 @@ export async function listPluginOwnedTables(
     if (driver === "postgres") return [];
   }
 
-  const prefix = pluginTablePrefix(pluginId).replace(/_/g, "\\_");
+  // Escape the escape character itself before the wildcard, so a literal `\`
+  // in the prefix can't unescape the `_` that follows it (MySQL LIKE's
+  // default ESCAPE is `\`). pluginTablePrefix() already restricts its result
+  // to [a-z0-9_], so a `\` can't actually occur today, but this keeps the
+  // pattern correct independent of that guarantee.
+  const prefix = pluginTablePrefix(pluginId).replace(/\\/g, "\\\\").replace(/_/g, "\\_");
   const rows = await db.query<Record<string, unknown>>("SHOW TABLES LIKE ?", [`${prefix}\\_%`]);
   return rows.map(tableNameFromRow).filter((name) => isPluginOwnedTable(pluginId, name));
 }

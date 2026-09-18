@@ -1423,7 +1423,18 @@ function previewQuery(req: Request): string {
   return req.query.preview === "1" ? "?preview=1" : "";
 }
 
-/** Send /nl-nl/about-us to /nl-NL/about-us when casing differs from the stored tag. */
+/**
+ * Send /nl-nl/about-us to /nl-NL/about-us when casing differs from the stored tag.
+ *
+ * The result is never attacker-steerable into an open redirect: `parseLocalePrefix`
+ * splits `reqPath` on "/" and drops empty segments, so a crafted `//evil.com/x`
+ * collapses to `["evil.com", "x"]` — "evil.com" cannot match a real locale code in
+ * `activeLocales`, so `locale` comes back null and this returns null before
+ * `localePath` ever runs. When it does match, `localePath` rebuilds the path as
+ * `/${locale}` + the filtered, re-joined rest segments, which can never contain a
+ * leading "//" or a scheme. Every caller appends only the fixed `previewQuery()`
+ * literal, never anything else from the request.
+ */
 function canonicalLocaleRedirect(
   reqPath: string,
   activeLocales: string[],
@@ -1834,6 +1845,9 @@ router.get("/:segment", async (req, res, next) => {
     const preview = await isPreviewAllowed(req, res);
     const canonical = canonicalLocaleRedirect(req.path, activeLocales, defaultLocale);
     if (canonical) {
+      // codeql[js/server-side-unvalidated-url-redirection]: canonical is built by
+      // canonicalLocaleRedirect(), which only ever returns "/" + a validated
+      // locale code + sanitized rest segments — see that function's comment.
       res.redirect(302, canonical + previewQuery(req));
       return;
     }
@@ -2005,6 +2019,9 @@ router.get("/:locale/:slug", async (req, res, next) => {
     const preview = await isPreviewAllowed(req, res);
     const canonical = canonicalLocaleRedirect(req.path, activeLocales, defaultLocale);
     if (canonical) {
+      // codeql[js/server-side-unvalidated-url-redirection]: canonical is built by
+      // canonicalLocaleRedirect(), which only ever returns "/" + a validated
+      // locale code + sanitized rest segments — see that function's comment.
       res.redirect(302, canonical + previewQuery(req));
       return;
     }
@@ -2084,6 +2101,9 @@ router.get("/:locale/:slug/page/:num", async (req, res, next) => {
     const defaultLocale = await getDefaultLocale();
     const canonical = canonicalLocaleRedirect(req.path, activeLocales, defaultLocale);
     if (canonical) {
+      // codeql[js/server-side-unvalidated-url-redirection]: canonical is built by
+      // canonicalLocaleRedirect(), which only ever returns "/" + a validated
+      // locale code + sanitized rest segments — see that function's comment.
       res.redirect(302, canonical + previewQuery(req));
       return;
     }
