@@ -3,6 +3,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { getJfRoot } from "../runtime/jf-root.js";
+import { resolveNpmBin } from "../runtime/node-bin.js";
 import { resolvePathUnderBase } from "../security/safe-path.js";
 
 export function cssProvidersInstallDir(): string {
@@ -184,7 +185,7 @@ export async function swapCssProviderPackages(manifest: Record<string, unknown> 
   if (Object.keys(deps).length === 0) return;
 
   runCommand(
-    "npm",
+    resolveNpmBin(),
     [
       "install",
       "--omit=dev",
