@@ -12,6 +12,7 @@ import ContentListPage from "../admin/ContentListPage";
 import MediaPage from "../admin/MediaPage";
 import PluginsPage from "../admin/PluginsPage";
 import MenusPage from "../admin/MenusPage";
+import PwaSettingsPage from "../admin/PwaSettingsPage";
 
 function jsonResponse(body: unknown, status = 200): Promise<Response> {
   return Promise.resolve({
@@ -46,6 +47,30 @@ function mockFetch(): void {
       if (path.includes("/api/plugins")) return jsonResponse({ plugins: [] });
       if (path.includes("/api/languages")) {
         return jsonResponse({ languages: [{ code: "en-US", isDefault: true, isActive: true }] });
+      }
+      if (path.includes("/api/settings/pwa")) {
+        return jsonResponse({
+          enabled: false,
+          appName: "My Site",
+          shortName: "",
+          description: "",
+          iconUrl: "",
+          icon192Url: "",
+          icon512Url: "/uploads/icon-512.png",
+          appleTouchIconUrl: "",
+          maskableIconUrl: "",
+          maskableIcon192Url: "",
+          maskableIcon512Url: "",
+          themeColor: "#111111",
+          backgroundColor: "#ffffff",
+          display: "standalone",
+          startUrl: "/",
+          shortcuts: [],
+          installUi: { enabled: true, label: "", description: "", showLogo: true },
+          offline: { title: "", message: "", imageUrl: "" },
+          assetCache: { enabled: true, maxEntries: 100, maxAgeSeconds: 604800 },
+          diagnostics: { https: true, manifestUrl: "/manifest.webmanifest", serviceWorkerUrl: "/sw.js" },
+        });
       }
       if (path.includes("/api/menus/design-presets")) return jsonResponse({ presets: [] });
       if (path === "/api/menus") {
@@ -288,5 +313,19 @@ describe("admin accessibility", () => {
     const closeBtn = await screen.findByRole("button", { name: "Close" });
     await user.click(closeBtn);
     expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+  });
+
+  it("has no critical axe findings on PWA settings", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <I18nProvider>
+          <PwaSettingsPage />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("My Site")).toBeInTheDocument();
+    });
+    await expectNoCriticalAxe(container);
   });
 });

@@ -25,6 +25,7 @@ import UsersPage from "./pages/admin/UsersPage";
 import EditUserPage from "./pages/admin/EditUserPage";
 import RedirectsPage from "./pages/admin/RedirectsPage";
 import PermalinksPage from "./pages/admin/PermalinksPage";
+import PwaSettingsPage from "./pages/admin/PwaSettingsPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import EmailsPage from "./pages/admin/EmailsPage";
 import CommentsPage from "./pages/admin/CommentsPage";
@@ -49,7 +50,7 @@ import PluginHostPage from "./pages/admin/PluginHostPage";
 import { SiteFavicon } from "@components/SiteIdentity";
 import { canAccessPath } from "./config/admin-nav";
 import AdminPathPage from "./pages/admin/security/AdminPathPage";
-import { adminBasePath, publicAdminPath } from "./admin-path";
+import { adminBasePath, currentPathname, isPreAuthPath, publicAdminPath } from "./admin-path";
 
 /**
  * Guards the couple of full-bleed editors that render outside AdminShell (and
@@ -63,11 +64,16 @@ function RequireNavAccess({ path, children }: { path: string; children: React.Re
 
 export default function App() {
   const admin = adminBasePath();
+  // /login, /install, etc. render before a session exists and hardcode their
+  // own product-mark branding (see LoginPage) — they don't use the site's own
+  // logo/favicon, and /api/site/identity 404s there for an anonymous caller
+  // when Public API is off, so skip the fetch entirely rather than accept it.
+  const isPreAuth = isPreAuthPath(currentPathname());
   return (
     <I18nProvider>
       <SessionProvider>
         <PluginMenuProvider>
-          <SiteFavicon />
+          {!isPreAuth && <SiteFavicon />}
           <Routes>
             <Route path="/install" element={<InstallPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -121,6 +127,7 @@ export default function App() {
               <Route path="users/:id" element={<EditUserPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="settings/permalinks" element={<PermalinksPage />} />
+              <Route path="settings/pwa" element={<PwaSettingsPage />} />
               <Route path="redirects" element={<RedirectsPage />} />
               <Route path="emails" element={<EmailsPage />} />
               <Route path="comments" element={<CommentsPage />} />

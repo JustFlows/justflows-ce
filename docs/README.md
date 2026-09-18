@@ -27,4 +27,5 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Testing extensions](TESTING-EXTENSIONS.md)        | Unit tests and running against CE                                 |
 | [Cache](CACHE.md)                                  | `ctx.cache` and revalidation                                      |
 | [Static / edge export](STATIC-EXPORT.md)           | Export published pages to files for object storage or a CDN       |
+| [Progressive Web App](PWA.md)                      | Installable public-site PWA: manifest, icons, offline, updates    |
 | [Trash and retention](TRASH.md)                    | Recoverable deletion, restore, purge, and media warnings          |

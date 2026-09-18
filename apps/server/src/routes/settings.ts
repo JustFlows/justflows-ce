@@ -199,6 +199,137 @@ router.put("/comments", requireRole("administrator"), async (req, res) => {
   }
 });
 
+const PwaShortcutSchema = z.object({
+  name: z.string().min(1).max(100),
+  url: z.string().min(1).max(2048),
+  description: z.string().max(300).optional(),
+});
+
+const PwaSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  appName: z.string().max(100).optional(),
+  shortName: z.string().max(40).optional(),
+  description: z.string().max(300).optional(),
+  iconUrl: z.string().max(2048).optional(),
+  maskableIconUrl: z.string().max(2048).optional(),
+  themeColor: z.string().max(9).optional(),
+  backgroundColor: z.string().max(9).optional(),
+  display: z.enum(["standalone", "fullscreen", "minimal-ui", "browser"]).optional(),
+  startUrl: z.string().max(2048).optional(),
+  shortcuts: z.array(PwaShortcutSchema).max(4).optional(),
+  installUi: z
+    .object({
+      enabled: z.boolean().optional(),
+      label: z.string().max(100).optional(),
+      description: z.string().max(300).optional(),
+      showLogo: z.boolean().optional(),
+    })
+    .optional(),
+  offline: z
+    .object({
+      title: z.string().max(150).optional(),
+      message: z.string().max(500).optional(),
+      imageUrl: z.string().max(2048).optional(),
+    })
+    .optional(),
+  assetCache: z
+    .object({
+      enabled: z.boolean().optional(),
+      maxEntries: z.coerce.number().int().min(10).max(500).optional(),
+      maxAgeSeconds: z.coerce.number().int().min(3600).max(90 * 86_400).optional(),
+    })
+    .optional(),
+});
+
+router.get("/pwa", requireRole("administrator"), async (req, res) => {
+  try {
+    const { getPwaSettings } = await import("../lib/pwa-settings.js");
+    const siteId = await getSiteId();
+    if (!siteId) return void res.status(503).json({ error: "No site found" });
+    const settings = await getPwaSettings(siteId);
+    res.json({
+      ...settings,
+      diagnostics: {
+        https: req.secure || req.get("x-forwarded-proto") === "https",
+        manifestUrl: "/manifest.webmanifest",
+        serviceWorkerUrl: "/sw.js",
+      },
+    });
+  } catch (e) {
+    sendServerError(res, "settings", e);
+  }
+});
+
+router.put("/pwa", requireRole("administrator"), async (req, res) => {
+  try {
+    const body = PwaSettingsSchema.parse(req.body);
+    const siteId = await getSiteId();
+    if (!siteId) return void res.status(503).json({ error: "No site found" });
+    const session = req.session!;
+    const actor = {
+      siteId,
+      userId: session.userId,
+      role: session.role,
+      ip: req.ip ?? null,
+      userAgent: req.get("user-agent") ?? null,
+    };
+
+    const { getPwaSettings, savePwaSettings, isSafePublicPath } = await import(
+      "../lib/pwa-settings.js"
+    );
+    const { generatePwaIconPair } = await import("../lib/pwa-icons.js");
+
+    if (body.startUrl !== undefined && !isSafePublicPath(body.startUrl)) {
+      res.status(400).json({ error: "Start URL must be a public path outside /admin, /api, /login, and /install" });
+      return;
+    }
+    const badShortcut = body.shortcuts?.find((s) => !isSafePublicPath(s.url));
+    if (badShortcut) {
+      res.status(400).json({ error: `Shortcut URL "${badShortcut.url}" is not a public path` });
+      return;
+    }
+
+    const current = await getPwaSettings(siteId);
+    const patch: Record<string, unknown> = { ...body };
+
+    if (body.iconUrl !== undefined && body.iconUrl !== current.iconUrl) {
+      const { url512, url192 } = await generatePwaIconPair(siteId, actor, body.iconUrl, "icon");
+      patch.icon512Url = url512;
+      patch.icon192Url = url192;
+      patch.appleTouchIconUrl = url192;
+    }
+    if (body.maskableIconUrl !== undefined && body.maskableIconUrl !== current.maskableIconUrl) {
+      const { url512, url192 } = await generatePwaIconPair(
+        siteId,
+        actor,
+        body.maskableIconUrl,
+        "maskable-icon",
+      );
+      patch.maskableIcon512Url = url512;
+      patch.maskableIcon192Url = url192;
+    }
+
+    const saved = await savePwaSettings(siteId, patch);
+    auditFromRequest(req, "settings.changed", { detail: "pwa" });
+    await revalidateOnUpdate("settings");
+    const { invalidatePublicPages } = await import("../lib/public-cache.js");
+    await invalidatePublicPages();
+    res.json(saved);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      res.status(400).json({ error: e.issues[0]?.message ?? "Invalid PWA settings" });
+      return;
+    }
+    const { PwaValidationError } = await import("../lib/pwa-settings.js");
+    const { PwaIconError } = await import("../lib/pwa-icons.js");
+    if (e instanceof PwaValidationError || e instanceof PwaIconError) {
+      res.status(400).json({ error: e.message });
+      return;
+    }
+    sendServerError(res, "settings", e);
+  }
+});
+
 router.post("/test-mail", requireCapability("mail:manage"), async (_req, res) => {
   try {
     const result = await sendTestMail();

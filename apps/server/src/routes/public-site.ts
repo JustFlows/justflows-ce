@@ -856,6 +856,18 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   }
   // The Forms plugin ships its own enhancement script via `manifest.assets`,
   // so it is already in `pluginAssetHead` above — nothing forms-specific here.
+  let pwaBody = "";
+  if (siteId && !data.preview) {
+    const { getPwaSettings } = await import("../lib/pwa-settings.js");
+    const { buildPwaHeadHtml, buildPwaBodyHtml } = await import("../lib/pwa-public.js");
+    const pwaSettings = await getPwaSettings(siteId);
+    // A theme or plugin may already emit its own manifest link; never duplicate it.
+    if (!headExtra.includes('rel="manifest"')) {
+      const pwaHead = buildPwaHeadHtml(pwaSettings);
+      if (pwaHead) headExtra = headExtra ? `${headExtra}\n${pwaHead}` : pwaHead;
+    }
+    pwaBody = buildPwaBodyHtml(pwaSettings);
+  }
   if (hooks.has("html.head")) {
     headExtra = hooks.applyFilterSync(
       "html.head",
@@ -918,6 +930,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     headExtra,
     analyticsHead,
     analyticsBody,
+    pwaBody,
     hreflangLinks,
     title: documentTitle,
   });

@@ -4,7 +4,7 @@ export interface ImageDerivative {
   name: string;
   width: number;
   height?: number;
-  format: "webp" | "avif" | "jpeg";
+  format: "webp" | "avif" | "jpeg" | "png";
   quality: number;
 }
 
@@ -62,6 +62,9 @@ export async function generateDerivatives(
     } else if (def.format === "avif") {
       pipeline = pipeline.avif({ quality: def.quality });
       mimeType = "image/avif";
+    } else if (def.format === "png") {
+      pipeline = pipeline.png();
+      mimeType = "image/png";
     } else {
       pipeline = pipeline.jpeg({ quality: def.quality });
       mimeType = "image/jpeg";

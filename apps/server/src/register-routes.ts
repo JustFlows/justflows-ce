@@ -117,6 +117,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: staticExportRoutes },
     { default: apiKeysRoutes },
     { default: manageApiRoutes },
+    { default: pwaPublicRoutes },
   ] = await Promise.all([
     import("./routes/content.js"),
     import("./routes/media.js"),
@@ -157,6 +158,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/static-export.js"),
     import("./routes/api-keys.js"),
     import("./routes/manage-api/index.js"),
+    import("./routes/pwa-public.js"),
   ]);
 
   const { apiKeyAuth } = await import("./middleware/api-key-auth.js");
@@ -396,6 +398,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       res.type("text/plain").send(buildSecurityTxt(securityTxtOrigin()));
     });
   }
+
+  app.use(requireInstalled, pwaPublicRoutes);
 
   app.get("/sitemap.xml", requireInstalled, async (_req, res, next) => {
     try {
