@@ -32,7 +32,8 @@
 
 <body>
   <%- typeof analyticsBody !=='undefined' ? analyticsBody : '' %>
-    <%- body %>
+    <%- typeof pwaBody !=='undefined' ? pwaBody : '' %>
+      <%- body %>
       <footer class="site-footer">
         <% if (typeof footerBlocksHtml !=='undefined' && footerBlocksHtml) { %>
           <div class="site-footer-blocks"><%- footerBlocksHtml %></div>

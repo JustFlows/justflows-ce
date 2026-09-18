@@ -142,6 +142,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     items: [
       { key: "nav.settings", to: "/admin/settings", icon: "⚙" },
       { key: "nav.permalinks", to: "/admin/settings/permalinks", icon: "↗" },
+      { key: "nav.pwa", to: "/admin/settings/pwa", icon: "📱" },
       { key: "nav.redirects", to: "/admin/redirects", icon: "↪" },
       { key: "nav.emails", to: "/admin/emails", icon: "✉" },
       { key: "nav.languages", to: "/admin/languages", icon: "🌐" },
@@ -252,6 +253,7 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/webhooks": ["administrator"],
   "/admin/settings/api": ["administrator"],
   "/admin/settings/permalinks": ["administrator"],
+  "/admin/settings/pwa": ["administrator"],
   "/admin/redirects": ["administrator"],
   "/admin/plugins/justflows.analytics": ["administrator", "editor"],
   // Consent and Forms sat at their own top-level paths with no rule (visible to

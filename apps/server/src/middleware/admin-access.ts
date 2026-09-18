@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import { getSession } from "../lib/session.js";
-import { getEffectiveAccess } from "../lib/access-policy.js";
+import { getSession } from "../lib/auth/session.js";
+import { getEffectiveAccess } from "../lib/auth/access-policy.js";
 
 /**
  * Gate for the /admin surface: a session is required, and a subscriber — who

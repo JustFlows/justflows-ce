@@ -10,14 +10,14 @@ import {
   getMenuBySlug,
   listMenus,
   updateMenu,
-} from "../../lib/menus-db.js";
+} from "../../lib/navigation/menus-db.js";
 import {
   createContentType,
   deleteContentType,
   getContentTypeBySlug,
   listContentTypes,
   updateContentType,
-} from "../../lib/content-types-db.js";
+} from "../../lib/content/content-types-db.js";
 import {
   addLanguage,
   deleteLanguage,
@@ -25,11 +25,11 @@ import {
   setDefaultLanguageByCode,
   updateLanguage,
 } from "../../lib/i18n/languages-db.js";
-import { listRedirects, saveRedirects } from "../../lib/redirects-db.js";
-import { RedirectValidationError, validateRedirect } from "../../lib/redirects.js";
-import { auditLog } from "../../lib/audit-log.js";
-import { clientIp } from "../../lib/rate-limit.js";
-import { sendServerError } from "../../lib/send-error.js";
+import { listRedirects, saveRedirects } from "../../lib/navigation/redirects-db.js";
+import { RedirectValidationError, validateRedirect } from "../../lib/navigation/redirects.js";
+import { auditLog } from "../../lib/security/audit-log.js";
+import { clientIp } from "../../lib/security/rate-limit.js";
+import { sendServerError } from "../../lib/http/send-error.js";
 import { badRequest, ensureKeyCan, notFound, paginate, relay, sendJson } from "./envelope.js";
 import type { Request, Response } from "express";
 

@@ -34,7 +34,9 @@ dist/styles/plugin.css
 The host does not compile or copy assets after install. Resolve packaged files
 relative to `import.meta.url`, and make the plugin's `build` script create every
 file its runtime reads. Keep source-only files out of the archive when the
-compiled `dist/` copy is sufficient.
+compiled `dist/` copy is sufficient. Dedicated `tests/` folders,
+`tsconfig.tests.json`, and Vitest configurations are development files and
+should not be included in `.jfpkg` archives.
 
 Pack from the plugin folder so the manifest is not nested:
 

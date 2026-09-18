@@ -16,8 +16,9 @@
     "build:styles": "node scripts/build-styles.mjs",
     "dev": "tsc -p tsconfig.json --watch",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "clean": "rm -rf dist"
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm typecheck:tests",
+    "clean": "rm -rf dist",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit"
   },
   "dependencies": {
     "@justflows/sdk": "workspace:*"

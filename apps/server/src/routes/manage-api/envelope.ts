@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import type { Request, Response } from "express";
 import type { AccessResource, UserCapability } from "@justflows/sdk";
-import { keyCan } from "../../lib/api-keys.js";
+import { keyCan } from "../../lib/auth/api-keys.js";
 
 /**
  * Shared response envelope for `/api/manage/v1`: the `{ error }` shape the
@@ -102,13 +102,14 @@ export function paginate<T>(items: T[], req: Request, fallbackLimit = 50): Page<
   };
 }
 
-// codeql[js/insufficient-password-hash]: not a credential hash. `payload` is
-// an arbitrary JSON response body — for the settings routes that can include
-// password-reset *settings* (`passwordResetEnabled`/`passwordResetRoles`,
-// booleans and a role list), never a password value; CodeQL's taint tracker
-// flags the field names, not real secret material. SHA-1 here only has to be
-// fast and collision-resistant enough for an HTTP ETag / If-None-Match check.
+// `payload` is an arbitrary JSON response body — for the settings routes that
+// can include password-reset *settings* (`passwordResetEnabled`/
+// `passwordResetRoles`, booleans and a role list), never a password value;
+// CodeQL's taint tracker flags the field names, not real secret material.
+// SHA-1 here only has to be fast and collision-resistant enough for an HTTP
+// ETag / If-None-Match check — it is not a credential hash.
 export function etagFor(payload: unknown): string {
+  // codeql[js/insufficient-password-hash]: see comment above — not a credential hash.
   return `"${createHash("sha1").update(JSON.stringify(payload)).digest("base64url")}"`;
 }
 

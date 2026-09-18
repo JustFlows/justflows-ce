@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { safeMediaSrc } from "@justflows/blocks";
 
 interface MediaItem {
   url: string;
@@ -94,7 +95,7 @@ export default function MediaImageField({
         data-empty={!value || undefined}
       >
         {value ? (
-          <img src={value} alt="" />
+          <img src={safeMediaSrc(value)} alt="" />
         ) : (
           <span className="jf-field__hint">No image selected</span>
         )}
@@ -147,7 +148,7 @@ export default function MediaImageField({
                 title={item.filename}
                 onClick={() => pick(item.url)}
               >
-                <img src={item.url} alt="" />
+                <img src={safeMediaSrc(item.url)} alt="" />
               </button>
             ))
           )}

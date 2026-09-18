@@ -2,7 +2,7 @@
 
 import { Router } from "express";
 import { z } from "zod";
-import { clientIp } from "../../lib/rate-limit.js";
+import { clientIp } from "../../lib/security/rate-limit.js";
 import {
   editComment,
   listComments,
@@ -10,8 +10,8 @@ import {
   replyToComment,
   setCommentStatuses,
   type ModerationActor,
-} from "../../lib/comments-moderation.js";
-import { sendServerError } from "../../lib/send-error.js";
+} from "../../lib/comments/comments-moderation.js";
+import { sendServerError } from "../../lib/http/send-error.js";
 import { badRequest, ensureKeyCan, paginate, relay, sendJson } from "./envelope.js";
 import type { Request } from "express";
 

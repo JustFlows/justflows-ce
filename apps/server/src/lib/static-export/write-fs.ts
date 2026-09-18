@@ -2,7 +2,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { resolvePathUnderBase } from "../safe-path.js";
+import { resolvePathUnderBase } from "../security/safe-path.js";
 import { isSafeRelativeFile } from "./paths.js";
 
 export interface OutputFile {

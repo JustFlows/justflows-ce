@@ -22,6 +22,10 @@ export const TEMPLATE_SLOTS = [
   "archive",
   "search",
   "404",
+  "403",
+  "410",
+  "429",
+  "error",
   "index",
 ] as const;
 

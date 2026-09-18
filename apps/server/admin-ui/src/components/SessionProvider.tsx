@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { currentPathname, isPreAuthPath } from "../admin-path";
 import { initialJson } from "../ssr-data";
 
 export interface SessionInfo {
@@ -30,18 +31,22 @@ function isSessionInfo(raw: unknown): raw is SessionInfo {
  * its own role check on the server regardless of what the client renders.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
+  // /login, /install, etc. never have a session and the server never embeds
+  // SSR data on them — skip the request outright rather than let it 401.
+  const skipFetch = isPreAuthPath(currentPathname());
   const initial = initialJson<unknown>("/api/auth/me");
   const initialSession = isSessionInfo(initial) ? initial : null;
   const [session, setSession] = useState<SessionInfo | null>(initialSession);
-  const [loading, setLoading] = useState(initial === undefined);
+  const [loading, setLoading] = useState(!skipFetch && initial === undefined);
 
   useEffect(() => {
+    if (skipFetch) return;
     fetch("/api/auth/me")
       .then(async (res) => (res.ok ? ((await res.json()) as unknown) : null))
       .then((data) => setSession(isSessionInfo(data) ? data : null))
       .catch(() => setSession(null))
       .finally(() => setLoading(false));
-  }, []);
+  }, [skipFetch]);
 
   return <SessionContext.Provider value={{ session, loading }}>{children}</SessionContext.Provider>;
 }
