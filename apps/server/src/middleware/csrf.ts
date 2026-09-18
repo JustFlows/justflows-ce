@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { timingSafeEqual } from "node:crypto";
-import { csrfTokenFor, getSession, syncCsrfCookie } from "../lib/session.js";
-import { logSafe } from "../lib/log-safe.js";
+import { csrfTokenFor, getSession, syncCsrfCookie } from "../lib/auth/session.js";
+import { logSafe } from "../lib/security/log-safe.js";
 
 const CSRF_COOKIE = "jf_csrf";
 const CSRF_HEADER = "x-csrf-token";

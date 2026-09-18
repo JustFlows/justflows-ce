@@ -1,5 +1,33 @@
 import { getAdminSsrPayload } from "./ssr-data";
 
+/**
+ * Pages served before a session can exist. The server never embeds SSR data
+ * (session, plugin menu, site identity) on these — they're a bare
+ * `res.sendFile(index.html)` (see `withCsrfCookie` in server.ts) — so any
+ * client-side fetch that needs a session or renders only inside the
+ * authenticated shell should skip itself here instead of firing a request
+ * guaranteed to 401/404 and littering the console with it.
+ */
+export const PRE_AUTH_PATHS = ["/install", "/login", "/register", "/forgot-password", "/reset-password"] as const;
+
+export function isPreAuthPath(pathname: string): boolean {
+  return (PRE_AUTH_PATHS as readonly string[]).includes(pathname);
+}
+
+/**
+ * The real (browser) URL, not React Router's virtual location — `/login` and
+ * `/admin` are two different server-rendered documents (see `server.ts`),
+ * never a client-side route transition, so this only needs to be correct at
+ * mount time, and reading it this way means callers don't need a `<Router>`
+ * ancestor at all (useful for tests, and one less thing to wire up).
+ * `entry-server.tsx` never renders the admin app for a pre-auth page, so
+ * defaulting to "not pre-auth" when `window` is undefined is always correct
+ * for the real SSR pass, not just a safe fallback.
+ */
+export function currentPathname(): string {
+  return typeof window === "undefined" ? "" : window.location.pathname;
+}
+
 // The SSR payload is JSON parsed out of a <script> element's text content, so
 // every field is treated as untrusted. The admin base path flows into link
 // hrefs, history entries and `window.location`, so it is validated here, at the

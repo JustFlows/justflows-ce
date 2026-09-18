@@ -2,7 +2,7 @@
 
 import type { Request, RequestHandler, Response } from "express";
 import { ipKeyGenerator, rateLimit } from "express-rate-limit";
-import { getManageApiRateLimit } from "../lib/manage-api-settings.js";
+import { getManageApiRateLimit } from "../lib/http/manage-api-settings.js";
 
 /**
  * Per-key and per-IP rate limiting for `/api/manage/v1`.

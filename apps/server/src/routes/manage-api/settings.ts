@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 
 import { Router } from "express";
-import { clientIp } from "../../lib/rate-limit.js";
+import { clientIp } from "../../lib/security/rate-limit.js";
 import {
   applySettingsChange,
   getSettingsPayload,
   SettingsSchema,
-} from "../../lib/settings-admin.js";
-import { sendServerError } from "../../lib/send-error.js";
+} from "../../lib/settings/settings-admin.js";
+import { sendServerError } from "../../lib/http/send-error.js";
 import { badRequest, ensureKeyCan, relay, sendJson } from "./envelope.js";
 
 const router = Router();

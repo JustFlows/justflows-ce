@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.5]
+
+### Added
+
+- **Configurable public-site PWA.** Settings → PWA lets a site owner turn
+  their public site into an installable, offline-friendly Progressive Web
+  App: app identity and generated icons, theme/background colors, display
+  mode, a validated start URL, up to four app shortcuts, an install prompt,
+  a branded offline fallback, and bounded static-asset caching. Disabled by
+  default; enabling requires no build step, plugin, or file edit. Disabling
+  retires the service worker cleanly at its existing URL so installed apps
+  recover without manual cleanup. ([#127](https://github.com/JustFlows/justflows-ce/issues/127))
+- **Customizable 404 and error pages.** Theme customize → **Error pages** lets
+  an admin choose, per class (404, 403, 410, 429), what renders: the theme's
+  own template resolution, Justflows' built-in page, or a specific published
+  page — offered once per translation group, so the matching locale renders
+  automatically. The template hierarchy gains `403`, `410`, `429`, and a
+  shared `error` fallback slot alongside the existing `404`; themes can ship
+  `templates/403.json` / `410.json` / `429.json` / `error.json` through the
+  same per-site override mechanism (draft/publish/reset) 404 already had. The
+  chosen source never changes the HTTP status — a selected page still answers
+  403/404/410/429, it cannot 200 a blocked or missing resource — and every
+  error response is sent `Cache-Control: private, no-store`. 500 and a new,
+  separate **maintenance mode** (Settings → Site visibility, distinct from
+  "Site is live") always render a static, dependency-free page with an
+  admin-editable heading/message and no database, cache, or plugin-runtime
+  access, so they still work during a database outage; the pre-boot `server.js`
+  layer's boot-failure response no longer leaks the underlying error message
+  and now renders the same branded page. Both the static fallback and the
+  built-in 404/403/410/429 pages are localized from the request (URL prefix,
+  then `Accept-Language`) across the site's bundled languages. A real 410 now
+  fires for a URL whose page was trashed (soft-deleted) rather than never
+  existing, until trash retention expires it into a normal 404; the public
+  site's global and search rate limiters now answer 429 with the themed page
+  instead of plain JSON/text. Admin-provided heading/message text is
+  sanitized before storage and HTML-escaped at render; built-in copy never
+  reflects the request path, query, or headers.
+  ([#92](https://github.com/JustFlows/justflows-ce/issues/92))
+
 ## [0.2.4]
 
 ### Added

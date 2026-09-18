@@ -1,0 +1,14 @@
+<%- include('partials/header') %>
+
+<main class="site-main" style="text-align: center; padding-top: 6rem;">
+  <h1 style="font-size: 4rem; font-weight: 900; color: var(--color-muted);"><%= errorClass %></h1>
+  <p style="color: var(--color-muted); margin: 1rem 0 0.5rem;"><%= title %></p>
+  <% if (typeof body !== 'undefined' && body) { %>
+    <p style="color: var(--color-muted); margin: 0 0 1.5rem;"><%= body %></p>
+  <% } %>
+  <form role="search" action="<%= localePath(locale, '/search', defaultLocale) %>" method="get" style="margin: 0 0 2rem; display: flex; gap: 0.5rem; justify-content: center;">
+    <input type="search" name="q" placeholder="<%= t('search.query') %>" aria-label="<%= t('search.query') %>">
+    <button type="submit" class="btn"><%= t('search.submit') %></button>
+  </form>
+  <a href="<%= localePath(locale, '/', defaultLocale) %>" class="btn"><%= t('404.back') %></a>
+</main>

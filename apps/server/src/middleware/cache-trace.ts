@@ -5,7 +5,7 @@ import {
   pageCacheStatus,
   runWithCacheTrace,
   type CacheTraceRequest,
-} from "../lib/cache-trace.js";
+} from "../lib/cache/cache-trace.js";
 
 /**
  * Per-request cache tracing + response headers:

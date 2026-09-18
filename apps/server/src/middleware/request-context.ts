@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { NextFunction, Request, Response } from "express";
-import { createRequestId, runWithRequestId } from "../lib/diagnostics.js";
+import { createRequestId, runWithRequestId } from "../lib/runtime/diagnostics.js";
 
 declare global {
   namespace Express {

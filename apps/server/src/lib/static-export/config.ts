@@ -2,7 +2,7 @@
 
 import path from "node:path";
 import { parseEnvBool } from "@justflows/core";
-import { getJfRoot } from "../jf-root.js";
+import { getJfRoot } from "../runtime/jf-root.js";
 
 /** Resolved `STATIC_EXPORT_*` configuration for one export run. */
 export interface StaticExportConfig {

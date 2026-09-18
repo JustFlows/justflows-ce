@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { NextFunction, Request, Response } from "express";
-import { clientIp, consumeRateLimit } from "../lib/rate-limit.js";
+import { clientIp, consumeRateLimit } from "../lib/security/rate-limit.js";
 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 120;

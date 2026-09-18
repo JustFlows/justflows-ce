@@ -138,7 +138,7 @@ export const coreBlocks: BlockDefinition[] = [
         objectFit,
         sizes: sanitizeSizes(r["sizes"]),
         loading: str(r["loading"]) === "eager" ? "eager" : "lazy",
-        // Server-injected in `apps/server/src/lib/responsive-blocks.ts` from the
+        // Server-injected in `apps/server/src/lib/rendering/responsive-blocks.ts` from the
         // media library's stored derivatives; re-sanitized here because block
         // props are persisted, editable JSON.
         responsive: sanitizeResponsiveProp(r["responsive"]),

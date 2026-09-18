@@ -4,10 +4,11 @@ import { isInstalled, requireInstalled, blockIfInstalled } from "./middleware/in
 import { publicApiGuard } from "./middleware/public-api.js";
 import { publicApiCors } from "./middleware/public-api-cors.js";
 import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
-import { logSafe } from "./lib/log-safe.js";
-import { adminClientDir, renderAdminPage } from "./lib/admin-ssr.js";
+import { logSafe } from "./lib/security/log-safe.js";
+import { detectStaticErrorLocale, renderStaticErrorPage } from "./lib/rendering/static-error-page.js";
+import { adminClientDir, renderAdminPage } from "./lib/admin/admin-ssr.js";
 import { adminAccessGate } from "./middleware/admin-access.js";
-import { getAdminPathConfig, toInternalAdminPath } from "./lib/admin-path.js";
+import { getAdminPathConfig, toInternalAdminPath } from "./lib/admin/admin-path.js";
 
 /** Admin SPA document routes, including the common trailing-slash root. */
 export const ADMIN_PAGE_PATH_RE = /^\/admin(?:\/.*)?$/;
@@ -22,7 +23,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   if (isInstalled()) {
     try {
-      const { applyPendingMigrations } = await import("./lib/run-migrations.js");
+      const { applyPendingMigrations } = await import("./lib/database/run-migrations.js");
       await applyPendingMigrations();
     } catch (err) {
       // A half-migrated schema must not serve traffic. Surface the failure so the
@@ -30,24 +31,24 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       console.error("[justflows] Pending migrations failed:", err);
       throw err instanceof Error ? err : new Error(String(err));
     }
-    const { startRevisionJobs } = await import("./lib/revision-jobs.js");
+    const { startRevisionJobs } = await import("./lib/content/revision-jobs.js");
     startRevisionJobs();
-    const { startCoreAutoUpdateJob } = await import("./lib/core-auto-update.js");
+    const { startCoreAutoUpdateJob } = await import("./lib/updates/core-auto-update.js");
     startCoreAutoUpdateJob();
-    const { startTrashPurgeJob } = await import("./lib/trash.js");
+    const { startTrashPurgeJob } = await import("./lib/content/trash.js");
     startTrashPurgeJob();
-    const { startCommentSpamPurgeJob } = await import("./lib/comments-spam-purge.js");
+    const { startCommentSpamPurgeJob } = await import("./lib/comments/comments-spam-purge.js");
     startCommentSpamPurgeJob();
     try {
-      const { getSiteId } = await import("./lib/site-settings.js");
+      const { getSiteId } = await import("./lib/settings/site-settings.js");
       const siteId = await getSiteId();
       if (siteId) {
         const { migrateTemplatePartsFromSettings } =
-          await import("./lib/template-parts-migrate.js");
+          await import("./lib/rendering/template-parts-migrate.js");
         await migrateTemplatePartsFromSettings(siteId);
-        const { migrateThemeDesignsFromSettings } = await import("./lib/theme-designs-migrate.js");
+        const { migrateThemeDesignsFromSettings } = await import("./lib/themes/theme-designs-migrate.js");
         await migrateThemeDesignsFromSettings(siteId);
-        const { backfillSiteHeaderLibrary } = await import("./lib/site-header-backfill.js");
+        const { backfillSiteHeaderLibrary } = await import("./lib/rendering/site-header-backfill.js");
         await backfillSiteHeaderLibrary(siteId);
       }
     } catch (err) {
@@ -56,24 +57,24 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     // Refresh the site-root .htaccess so existing installs pick up hardening
     // changes on their next boot (fresh installs get it from markInstalled()).
     try {
-      const { writeRootHtaccess } = await import("./lib/root-htaccess.js");
+      const { writeRootHtaccess } = await import("./lib/security/root-htaccess.js");
       await writeRootHtaccess();
     } catch {
       // Non-fatal: read-only filesystem, nginx host, or a hand-edited file.
     }
   }
 
-  const { ensurePluginRuntime } = await import("./lib/plugin-runtime.js");
+  const { ensurePluginRuntime } = await import("./lib/plugins/plugin-runtime.js");
   await ensurePluginRuntime();
   if (isInstalled()) {
-    const { getSiteId: getSearchSiteId } = await import("./lib/site-settings.js");
+    const { getSiteId: getSearchSiteId } = await import("./lib/settings/site-settings.js");
     const searchSiteId = await getSearchSiteId();
-    if (searchSiteId) await (await import("./lib/search-db.js")).startSearchIndex(searchSiteId);
-    const { startWebhookJobs } = await import("./lib/webhooks.js");
+    if (searchSiteId) await (await import("./lib/search/search-db.js")).startSearchIndex(searchSiteId);
+    const { startWebhookJobs } = await import("./lib/http/webhooks.js");
     await startWebhookJobs();
     const { installStaticExportAutoRebuild } = await import("./lib/static-export/auto.js");
     installStaticExportAutoRebuild();
-    const { startContentScheduleJobs } = await import("./lib/content-scheduling-db.js");
+    const { startContentScheduleJobs } = await import("./lib/content/content-scheduling-db.js");
     startContentScheduleJobs();
   }
 
@@ -96,7 +97,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: performanceRoutes },
     { default: importRoutes },
     { default: siteRoutes, serveThemeCss },
-    { default: publicSiteRoutes, sendPublicNotFound },
+    { default: publicSiteRoutes, sendPublicNotFound, sendPublicRateLimited },
     { default: languagesRoutes },
     { default: menusRoutes },
     { default: blocksRoutes },
@@ -113,50 +114,54 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: trashRoutes },
     { default: emailsRoutes },
     { default: templatesRoutes },
+    { default: errorPagesRoutes },
     { default: patternsRoutes },
     { default: staticExportRoutes },
     { default: apiKeysRoutes },
     { default: manageApiRoutes },
+    { default: pwaPublicRoutes },
   ] = await Promise.all([
-    import("./routes/content.js"),
-    import("./routes/media.js"),
-    import("./routes/comments.js"),
-    import("./routes/comment-rules.js"),
-    import("./routes/comment-spam-terms.js"),
-    import("./routes/users.js"),
-    import("./routes/settings.js"),
-    import("./routes/security.js"),
-    import("./routes/themes.js"),
-    import("./routes/css-providers.js"),
-    import("./routes/plugins.js"),
-    import("./routes/marketplace.js"),
-    import("./routes/public-api.js"),
-    import("./routes/updates.js"),
-    import("./routes/cache.js"),
-    import("./routes/performance.js"),
-    import("./routes/import.js"),
-    import("./routes/site.js"),
-    import("./routes/public-site.js"),
-    import("./routes/languages.js"),
-    import("./routes/menus.js"),
-    import("./routes/blocks.js"),
-    import("./routes/analytics.js"),
-    import("./routes/content-types.js"),
-    import("./routes/reusable-blocks.js"),
-    import("./routes/site-header.js"),
-    import("./routes/audit.js"),
-    import("./routes/webhooks.js"),
-    import("./routes/preferences.js"),
-    import("./routes/diagnostics.js"),
-    import("./routes/cookies.js"),
-    import("./routes/roles.js"),
-    import("./routes/trash.js"),
-    import("./routes/emails.js"),
-    import("./routes/templates.js"),
-    import("./routes/patterns.js"),
-    import("./routes/static-export.js"),
-    import("./routes/api-keys.js"),
+    import("./routes/content/content.js"),
+    import("./routes/media/media.js"),
+    import("./routes/comments/comments.js"),
+    import("./routes/comments/comment-rules.js"),
+    import("./routes/comments/comment-spam-terms.js"),
+    import("./routes/auth/users.js"),
+    import("./routes/settings/settings.js"),
+    import("./routes/system/security.js"),
+    import("./routes/design/themes.js"),
+    import("./routes/design/css-providers.js"),
+    import("./routes/extensions/plugins.js"),
+    import("./routes/extensions/marketplace.js"),
+    import("./routes/public/public-api.js"),
+    import("./routes/system/updates.js"),
+    import("./routes/system/cache.js"),
+    import("./routes/system/performance.js"),
+    import("./routes/content/import.js"),
+    import("./routes/design/site.js"),
+    import("./routes/public/public-site.js"),
+    import("./routes/settings/languages.js"),
+    import("./routes/design/menus.js"),
+    import("./routes/content/blocks.js"),
+    import("./routes/system/analytics.js"),
+    import("./routes/content/content-types.js"),
+    import("./routes/content/reusable-blocks.js"),
+    import("./routes/design/site-header.js"),
+    import("./routes/system/audit.js"),
+    import("./routes/settings/webhooks.js"),
+    import("./routes/auth/preferences.js"),
+    import("./routes/system/diagnostics.js"),
+    import("./routes/settings/cookies.js"),
+    import("./routes/auth/roles.js"),
+    import("./routes/content/trash.js"),
+    import("./routes/settings/emails.js"),
+    import("./routes/design/templates.js"),
+    import("./routes/settings/error-pages.js"),
+    import("./routes/design/patterns.js"),
+    import("./routes/system/static-export.js"),
+    import("./routes/auth/api-keys.js"),
     import("./routes/manage-api/index.js"),
+    import("./routes/public/pwa-public.js"),
   ]);
 
   const { apiKeyAuth } = await import("./middleware/api-key-auth.js");
@@ -165,7 +170,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   app.use(blockIfInstalled);
 
-  app.use("/api/search", requireInstalled, (await import("./routes/search.js")).default);
+  app.use("/api/search", requireInstalled, (await import("./routes/public/search.js")).default);
   app.use("/api/content", requireInstalled, contentRoutes);
   app.use("/api/trash", requireInstalled, trashRoutes);
   app.use("/api/media", requireInstalled, mediaRoutes);
@@ -193,13 +198,14 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/reusable-blocks", requireInstalled, reusableBlocksRoutes);
   app.use("/api/template-parts", requireInstalled, templatePartsRouter);
   app.use("/api/templates", requireInstalled, templatesRoutes);
+  app.use("/api/error-pages", requireInstalled, errorPagesRoutes);
   app.use("/api/patterns", requireInstalled, patternsRoutes);
   app.use("/api/headers", requireInstalled, siteHeaderRoutes);
   app.use("/api/blocks", requireInstalled, blocksRoutes);
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
   app.use("/api/audit", requireInstalled, auditRoutes);
-  app.use("/api/redirects", requireInstalled, (await import("./routes/redirects.js")).default);
+  app.use("/api/redirects", requireInstalled, (await import("./routes/settings/redirects.js")).default);
   app.use("/api/webhooks", requireInstalled, webhooksRoutes);
   app.use("/api/preferences", requireInstalled, preferencesRoutes);
   app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
@@ -262,7 +268,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // plugin. Keep a host-side per-IP ceiling here so an absent or lax
   // plugin-side limiter cannot leave the endpoint an unbounded spam / SMTP sink.
   {
-    const { clientIp, consumeRateLimit } = await import("./lib/rate-limit.js");
+    const { clientIp, consumeRateLimit } = await import("./lib/security/rate-limit.js");
     app.post(
       "/justflows-forms/submit",
       (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -281,9 +287,9 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.post("/justflows-comments/submit", requireInstalled, async (req, res) => {
     applyFormCors(req.get("origin"), (n, v) => res.setHeader(n, v));
     try {
-      const { acceptCommentSubmission } = await import("./lib/comments-public.js");
-      const { clientIp } = await import("./lib/rate-limit.js");
-      const { getSession } = await import("./lib/session.js");
+      const { acceptCommentSubmission } = await import("./lib/comments/comments-public.js");
+      const { clientIp } = await import("./lib/security/rate-limit.js");
+      const { getSession } = await import("./lib/auth/session.js");
       const session = getSession(req);
       const result = await acceptCommentSubmission({
         body: (req.body ?? {}) as Record<string, unknown>,
@@ -331,7 +337,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
           return;
         }
       }
-      const { clientIp, consumeRateLimit } = await import("./lib/rate-limit.js");
+      const { clientIp, consumeRateLimit } = await import("./lib/security/rate-limit.js");
       if (!consumeRateLimit(`beacon:ip:${clientIp(req)}`, 120, 60_000)) {
         res.status(204).end();
         return;
@@ -352,7 +358,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
           typeof body.ref === "string" && body.ref.length <= 2048 && /^https?:\/\//i.test(body.ref)
             ? body.ref
             : undefined;
-        const { recordBeaconPageview } = await import("./lib/analytics-public.js");
+        const { recordBeaconPageview } = await import("./lib/rendering/analytics-public.js");
         await recordBeaconPageview({
           path,
           userAgent: String(req.headers["user-agent"] ?? ""),
@@ -368,7 +374,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   app.get("/justflows-comments/unsubscribe", requireInstalled, async (req, res) => {
     try {
-      const { clearCommentNotify } = await import("./lib/comments-public.js");
+      const { clearCommentNotify } = await import("./lib/comments/comments-public.js");
       const token = typeof req.query.token === "string" ? req.query.token : "";
       const ok = await clearCommentNotify(token);
       res
@@ -389,7 +395,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   });
 
   // RFC 9116. Served from both the well-known location and the legacy root path.
-  const { buildSecurityTxt, securityTxtOrigin } = await import("./lib/security-txt.js");
+  const { buildSecurityTxt, securityTxtOrigin } = await import("./lib/security/security-txt.js");
   for (const route of ["/.well-known/security.txt", "/security.txt"]) {
     app.get(route, (_req, res) => {
       // Built per request so Expires cannot go stale on a long-lived process.
@@ -397,10 +403,12 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     });
   }
 
+  app.use(requireInstalled, pwaPublicRoutes);
+
   app.get("/sitemap.xml", requireInstalled, async (_req, res, next) => {
     try {
-      const { buildSitemapXml } = await import("./lib/seo-public.js");
-      const { getSiteId } = await import("./lib/themes-db.js");
+      const { buildSitemapXml } = await import("./lib/rendering/seo-public.js");
+      const { getSiteId } = await import("./lib/themes/themes-db.js");
       const siteId = await getSiteId();
       if (!siteId) {
         next();
@@ -447,14 +455,14 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     void renderAdminPage(req, res);
   });
 
-  app.use(requireInstalled, (await import("./lib/plugin-http.js")).dispatchPluginHttp);
+  app.use(requireInstalled, (await import("./lib/plugins/plugin-http.js")).dispatchPluginHttp);
 
   // Static assets a plugin ships in its package (`manifest.assets`). Runs after
   // the dynamic `ctx.http` routes so a plugin can still override a path.
   const { resolvePluginAssetFile, getPluginBundle, clearPluginAssetsCache } =
-    await import("./lib/plugin-assets.js");
+    await import("./lib/plugins/plugin-assets.js");
   const { resolvePluginAdminFile, clearPluginAdminAppCache } =
-    await import("./lib/plugin-admin-app.js");
+    await import("./lib/plugins/plugin-admin-app.js");
   const pluginAssetLimit = rateLimit({
     windowMs: 60_000,
     limit: 600,
@@ -467,8 +475,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // source maps, JSON config) must not be readable anonymously — unlike the
   // public `/ext/<id>/**` asset route below. Mirrors `adminAccessGate` but
   // gates every file, not just pages, and answers JSON rather than redirecting.
-  const { getSession } = await import("./lib/session.js");
-  const { getEffectiveAccess } = await import("./lib/access-policy.js");
+  const { getSession } = await import("./lib/auth/session.js");
+  const { getEffectiveAccess } = await import("./lib/auth/access-policy.js");
   const requirePluginAdminAccess = (
     req: express.Request,
     res: express.Response,
@@ -576,7 +584,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     },
   );
   if (isInstalled()) {
-    const { getRuntimeHooks } = await import("./lib/plugin-runtime.js");
+    const { getRuntimeHooks } = await import("./lib/plugins/plugin-runtime.js");
     const hooks = getRuntimeHooks();
     for (const hook of ["plugin.activated", "plugin.deactivated", "plugin.uninstalled"] as const) {
       hooks.action(hook, () => {
@@ -607,7 +615,15 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // Managed rules override public content, but never platform or plugin routes.
   app.use(
     requireInstalled,
-    rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: "draft-8", legacyHeaders: false }),
+    rateLimit({
+      windowMs: 60_000,
+      limit: 600,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      handler: (req, res, next) => {
+        void sendPublicRateLimited(req, res).catch(next);
+      },
+    }),
     (await import("./middleware/redirects.js")).managedRedirects,
   );
   app.use(requireInstalled, publicSiteRoutes);
@@ -616,7 +632,12 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // in development, and any handler that throws without its own catch would
   // otherwise leak internals to an anonymous caller.
   app.use(
-    (err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    async (
+      err: unknown,
+      req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction,
+    ) => {
       console.error(
         "[justflows] unhandled error",
         JSON.stringify({ method: logSafe(req.method), path: logSafe(req.path) }),
@@ -627,7 +648,33 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
         res.status(500).json({ error: "Internal server error" });
         return;
       }
-      res.status(500).type("text/plain").send("Internal server error");
+      // Best-effort: the error that landed us here may itself be a database
+      // outage, so this must never fail a second time trying to brand the page.
+      let heading: string | undefined;
+      let message: string | undefined;
+      try {
+        const { getSiteId } = await import("./lib/settings/site-settings.js");
+        const { getErrorPageConfig } = await import("./lib/rendering/error-pages.js");
+        const siteId = await getSiteId();
+        if (siteId) {
+          const config = await getErrorPageConfig(siteId);
+          heading = config["500"]?.heading;
+          message = config["500"]?.message;
+        }
+      } catch {
+        // Fall back to the static page's own generic copy below.
+      }
+      res.setHeader("Cache-Control", "private, no-store");
+      res
+        .status(500)
+        .type("html")
+        .send(
+          renderStaticErrorPage("500", {
+            heading,
+            message,
+            locale: detectStaticErrorLocale(req.path, req.get("accept-language")),
+          }),
+        );
     },
   );
 }

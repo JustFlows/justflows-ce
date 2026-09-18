@@ -1,6 +1,6 @@
 import compression from "compression";
 import type { Request, Response } from "express";
-import { getPerformanceConfig } from "../lib/performance-settings.js";
+import { getPerformanceConfig } from "../lib/cache/performance-settings.js";
 
 const COMPRESSIBLE = /^\s*(?:text\/|application\/(?:json|javascript|xml|wasm|svg\+xml|ld\+json)|image\/svg\+xml)/i;
 

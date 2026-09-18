@@ -10,6 +10,7 @@
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
+const fsp = require("fs/promises");
 const { spawn } = require("child_process");
 const { pathToFileURL } = require("url");
 const gate = require("./scripts/bootstrap-gate.cjs");
@@ -64,8 +65,30 @@ function crossOriginRequest(req) {
   }
 }
 
+/**
+ * Best-effort real client address, mirroring the full app's `trust proxy`
+ * default (`apps/server/src/server.ts`: "loopback" unless TRUST_PROXY says
+ * otherwise).
+ *
+ * Without this, a site deployed behind a same-host reverse proxy (nginx,
+ * Passenger, a Docker proxy — the normal Plesk/cPanel setup this file targets)
+ * sees every request as coming from the proxy's own loopback address, which
+ * would make `bootstrapAuthorised` below treat every remote visitor as a
+ * trusted local operator during the pre-install window. X-Forwarded-For is
+ * only consulted when the *direct* TCP peer is already loopback: a remote
+ * attacker cannot forge that peer address (TCP requires completing the
+ * handshake from wherever they really are), so the only way to reach this
+ * branch is a genuine local process or a reverse proxy the operator runs —
+ * never a header a remote client set on its own connection.
+ */
 function clientIp(req) {
-  return req.socket?.remoteAddress ?? "unknown";
+  const direct = req.socket?.remoteAddress ?? "unknown";
+  const trustProxy = process.env.TRUST_PROXY ?? "loopback";
+  if (trustProxy === "false" || !installToken.isLoopbackAddress(direct)) return direct;
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded !== "string" || !forwarded.trim()) return direct;
+  const first = forwarded.split(",")[0].trim();
+  return first || direct;
 }
 
 /**
@@ -202,23 +225,154 @@ function safePath(base, rel) {
 // login page, the install wizard, the admin bundle — used to ship with nothing
 // but Content-Type, because securityHeaders is Express middleware and Express
 // never sees them under Passenger.
-function sendFile(res, filePath) {
-  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+//
+// `filePath` is opened once (`fsp.open`) and every later check — is it a file,
+// read its bytes — runs against that open handle rather than re-resolving
+// `filePath` a second and third time. An exists-then-open pair on the same
+// path is both a TOCTOU window and the shape CodeQL's path-injection query
+// flags as multiple independent filesystem sinks for one tainted path; a
+// single open closes both.
+//
+// Both callers already ran `filePath` through safePath() (or pass the fixed
+// `adminIndex` constant), but the containment check below is repeated here,
+// right against `base`, so this function never depends on a caller elsewhere
+// having done it — `filePath` cannot resolve outside `base` and reach the
+// open() call below.
+async function sendFile(res, filePath, base) {
+  const resolvedBase = path.resolve(base);
+  const resolved = path.resolve(filePath);
+  if (resolved !== resolvedBase && !resolved.startsWith(resolvedBase + path.sep)) {
     res.writeHead(404, withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
     res.end("Not found");
     return;
   }
-  const ext = path.extname(filePath).toLowerCase();
+  let handle;
+  try {
+    handle = await fsp.open(resolved, "r");
+    const stat = await handle.stat();
+    if (!stat.isFile()) throw new Error("not a file");
+  } catch {
+    if (handle) await handle.close().catch(() => {});
+    res.writeHead(404, withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
+    res.end("Not found");
+    return;
+  }
+  const ext = path.extname(resolved).toLowerCase();
   res.writeHead(
     200,
     withSecurityHeaders({ "Content-Type": MIME[ext] || "application/octet-stream" }),
   );
-  fs.createReadStream(filePath).pipe(res);
+  const stream = handle.createReadStream();
+  stream.on("error", () => res.end());
+  stream.pipe(res);
 }
 
 function sendJson(res, status, body) {
   res.writeHead(status, withSecurityHeaders({ "Content-Type": "application/json" }));
   res.end(JSON.stringify(body));
+}
+
+/**
+ * Dependency-free 500 fallback (justflows-ce#92) for when the full app cannot
+ * even boot — no database, cache, or plugin runtime exists yet at this point,
+ * so this cannot go through Express or the theme system. It mirrors
+ * `apps/server/src/lib/rendering/static-error-page.ts` as an independent copy (this
+ * layer runs before that compiled module exists on disk); both read the same
+ * `apps/server/{dist,src}/views/static/error-fallback.html` and
+ * `lib/i18n/site-catalogs/*.json` files, which are the single source of truth
+ * for wording and design — keep the two loaders in sync if either changes.
+ * Unlike the full app's version, this one cannot read the admin's custom
+ * 500-page text (that setting lives in a database this layer cannot reach),
+ * so it always shows the bundled locale-aware default copy.
+ */
+const STATIC_ERROR_LOCALES = ["en", "de", "es", "fr", "nl"];
+const STATIC_ERROR_DEFAULTS = {
+  "500": {
+    badge: "Temporary error",
+    title: "Something went wrong",
+    body: "The site hit an unexpected error. Please try again shortly.",
+  },
+};
+
+function firstExistingPath(candidates) {
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return candidates[candidates.length - 1];
+}
+
+function escapeStaticErrorHtml(value) {
+  return String(value).replace(
+    /[&<>"']/g,
+    (char) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char],
+  );
+}
+
+function detectStaticErrorLocale(pathname, acceptLanguageHeader) {
+  const prefix = (pathname.split("/").find(Boolean) || "").toLowerCase().split("-")[0];
+  if (STATIC_ERROR_LOCALES.includes(prefix)) return prefix;
+  if (acceptLanguageHeader) {
+    for (const part of acceptLanguageHeader.split(",")) {
+      const code = (part.split(";")[0] || "").trim().toLowerCase().split("-")[0];
+      if (STATIC_ERROR_LOCALES.includes(code)) return code;
+    }
+  }
+  return "en";
+}
+
+function sendStaticErrorPage(res, status, kind, req) {
+  let template;
+  try {
+    template = fs.readFileSync(
+      firstExistingPath([
+        path.join(root, "apps/server/dist/views/static/error-fallback.html"),
+        path.join(root, "apps/server/src/views/static/error-fallback.html"),
+      ]),
+      "utf8",
+    );
+  } catch {
+    res.writeHead(status, withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
+    res.end("The site is temporarily unavailable. Please try again shortly.");
+    return;
+  }
+
+  const locale = detectStaticErrorLocale(
+    (req.url ?? "/").split("?")[0],
+    req.headers["accept-language"],
+  );
+  let catalog = {};
+  try {
+    catalog = JSON.parse(
+      fs.readFileSync(
+        firstExistingPath([
+          path.join(root, `apps/server/dist/lib/i18n/site-catalogs/${locale}.json`),
+          path.join(root, `apps/server/src/lib/i18n/site-catalogs/${locale}.json`),
+        ]),
+        "utf8",
+      ),
+    );
+  } catch {
+    catalog = {};
+  }
+
+  const defaults = STATIC_ERROR_DEFAULTS[kind];
+  const siteTitle = "This site";
+  const badge = catalog[`errors.${kind}.badge`] || defaults.badge;
+  const heading = catalog[`errors.${kind}.title`] || defaults.title;
+  const message = catalog[`errors.${kind}.body`] || defaults.body;
+  const html = template
+    .replace(/\{\{TITLE\}\}/g, escapeStaticErrorHtml(`${siteTitle} — ${heading}`))
+    .replace(/\{\{SITE_TITLE\}\}/g, escapeStaticErrorHtml(siteTitle))
+    .replace(/\{\{BADGE\}\}/g, escapeStaticErrorHtml(badge))
+    .replace(/\{\{HEADING\}\}/g, escapeStaticErrorHtml(heading))
+    .replace(/\{\{MESSAGE\}\}/g, escapeStaticErrorHtml(message));
+
+  res.writeHead(
+    status,
+    withSecurityHeaders({ "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store" }),
+  );
+  res.end(html);
 }
 
 /**
@@ -309,6 +463,41 @@ function dispatch(app, req, res) {
   });
 }
 
+/**
+ * GET /api/bootstrap/status — the setup page's poll target. Its own logic
+ * decides what an anonymous caller sees; nothing about *reaching* this
+ * function (route dispatch on a fixed path) affects that decision.
+ */
+function handleBootstrapStatus(req, res) {
+  if (rateLimited(req, "status", 240, 60_000)) {
+    sendJson(res, 429, { error: "Too many requests" });
+    return;
+  }
+  // Once installed this answers with nothing but the flag the setup page
+  // needs to redirect. Everything else here — the job record, whether this is
+  // a git checkout, and above all the installer log — described the host to
+  // any anonymous caller, on a route that never checked install state.
+  if (isInstalled()) {
+    sendJson(res, 200, { installed: true });
+    return;
+  }
+  const tokenRequired = !installToken.isLoopbackAddress(clientIp(req));
+  // The log is the npm transcript: absolute paths, the full dependency tree,
+  // and any build error. Released only to a caller who has proved control of
+  // the files, which by this point in the flow the setup page has.
+  const authorised = bootstrapAuthorised(req, null);
+  sendJson(res, 200, {
+    installed: false,
+    gitCheckout: gate.isGitCheckout(root),
+    allowed: gate.bootstrapSpawnAllowed(root),
+    ready: gate.depsReady(root),
+    job: gate.jobStatus(root),
+    tokenRequired,
+    tokenFile: installToken.installTokenFileExists(root) ? "install-token/TOKEN.txt" : null,
+    log: authorised ? gate.readLogTail(root) : "",
+  });
+}
+
 const server = http.createServer((req, res) => {
   const pathname = (req.url ?? "/").split("?")[0];
 
@@ -326,33 +515,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (pathname === "/api/bootstrap/status") {
-    if (rateLimited(req, "status", 240, 60_000)) {
-      sendJson(res, 429, { error: "Too many requests" });
-      return;
-    }
-    // Once installed this answers with nothing but the flag the setup page
-    // needs to redirect. Everything else here — the job record, whether this is
-    // a git checkout, and above all the installer log — described the host to
-    // any anonymous caller, on a route that never checked install state.
-    if (isInstalled()) {
-      sendJson(res, 200, { installed: true });
-      return;
-    }
-    const tokenRequired = !installToken.isLoopbackAddress(clientIp(req));
-    // The log is the npm transcript: absolute paths, the full dependency tree,
-    // and any build error. Released only to a caller who has proved control of
-    // the files, which by this point in the flow the setup page has.
-    const authorised = bootstrapAuthorised(req, null);
-    sendJson(res, 200, {
-      installed: false,
-      gitCheckout: gate.isGitCheckout(root),
-      allowed: gate.bootstrapSpawnAllowed(root),
-      ready: gate.depsReady(root),
-      job: gate.jobStatus(root),
-      tokenRequired,
-      tokenFile: installToken.installTokenFileExists(root) ? "install-token/TOKEN.txt" : null,
-      log: authorised ? gate.readLogTail(root) : "",
-    });
+    handleBootstrapStatus(req, res);
     return;
   }
 
@@ -424,14 +587,14 @@ const server = http.createServer((req, res) => {
       res.end();
       return;
     }
-    sendFile(res, adminIndex);
+    sendFile(res, adminIndex, adminDist);
     return;
   }
 
   if (pathname.startsWith("/assets/")) {
     const file = safePath(adminDist, pathname.slice(1));
     if (file) {
-      sendFile(res, file);
+      sendFile(res, file, adminDist);
       return;
     }
   }
@@ -459,13 +622,12 @@ const server = http.createServer((req, res) => {
 
   bootFullApp()
     .then((app) => dispatch(app, req, res))
-    .catch((err) => {
+    .catch(() => {
+      // bootFullApp() already logged the real error server-side. The response
+      // must never carry err.message — on a database failure that can be a
+      // connection string, on anything else it can be an internal file path.
       if (!res.headersSent) {
-        sendJson(res, 503, {
-          ok: false,
-          error: "boot_failed",
-          message: err instanceof Error ? err.message : String(err),
-        });
+        sendStaticErrorPage(res, 503, "500", req);
       }
     });
 });

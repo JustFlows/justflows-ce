@@ -6,7 +6,7 @@
  *
  * Root `server.js` must mint this before the Express app boots, so shared-hosting
  * File Manager shows `install-token/TOKEN.txt` as soon as Node starts.
- * Keep the file format in sync with apps/server/src/lib/install-token.ts.
+ * Keep the file format in sync with apps/server/src/lib/installation/install-token.ts.
  */
 
 const fs = require("node:fs");
