@@ -4,6 +4,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { getJfRoot } from "../runtime/jf-root.js";
+import { resolveNpmBin } from "../runtime/node-bin.js";
 import { requestPassengerRestart } from "../runtime/app-restart.js";
 import { verifyUpdateArchiveSignature } from "../extensions/package-trust.js";
 import { extractZipSafely, resolvePathUnderRoot } from "../security/safe-zip.js";
@@ -66,21 +67,6 @@ function runCommand(
     .join("\n")
     .trim();
   return { ok: result.status === 0 && !result.error, output };
-}
-
-/**
- * Absolute path to `npm` alongside the currently running `node` binary.
- * Every node distribution (nodenv, nvm, plain installs) ships npm in the same
- * `bin/` directory as `node` itself, so this resolves correctly even when the
- * host process's PATH doesn't have a working node version manager shim for
- * `JF_ROOT` (e.g. Passenger launched with an absolute node path and no
- * `.node-version` / `nodenv global` set) — the exact case that produces
- * "nodenv: npm: command not found" on hosts where node 22/24 are installed
- * but no version is selected for this directory.
- */
-function resolveNpmBin(): string {
-  const candidate = path.join(path.dirname(process.execPath), "npm");
-  return fs.existsSync(candidate) ? candidate : "npm";
 }
 
 /**
