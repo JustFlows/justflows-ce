@@ -7,6 +7,7 @@ import { getHomeContent } from "../home-page.js";
 import { getDefaultLocale, getActiveLocaleCodes } from "../i18n/languages-db.js";
 import { localePath } from "../i18n/locales.js";
 import { getRuntimeHooks } from "../plugin-runtime.js";
+import { getPwaSettings } from "../pwa-settings.js";
 import { normalizeUrlPath } from "./paths.js";
 
 /** A synthetic path that never resolves, used to capture the themed 404 page. */
@@ -62,6 +63,17 @@ export async function discoverRoutes(
 
   const siteId = await getSiteId();
   if (siteId) {
+    // The service-worker registration is an inline <script>, invisible to link
+    // discovery below, so the manifest/worker/offline page are seeded
+    // explicitly whenever PWA is enabled — the export is otherwise a working
+    // static site with no installable app.
+    const pwaSettings = await getPwaSettings(siteId).catch(() => null);
+    if (pwaSettings?.enabled) {
+      paths.add("/manifest.webmanifest");
+      paths.add("/sw.js");
+      paths.add("/pwa-offline.html");
+    }
+
     const defaultLocale = await getDefaultLocale(siteId);
     const [activeLocales, published, home] = await Promise.all([
       getActiveLocaleCodes(siteId),

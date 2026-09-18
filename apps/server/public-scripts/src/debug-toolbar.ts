@@ -1,3 +1,18 @@
+interface DebugToolbarPayload {
+  durationMs?: number;
+  pageCache?: string;
+  pageCacheReason?: string;
+  objectCache?: string;
+  databaseQueries?: number;
+  databaseMs?: number;
+  hookRuns?: number;
+  hookErrors?: number;
+  theme?: string;
+  template?: string;
+  requestId?: string;
+  diagnosticsUrl?: string;
+}
+
 (() => {
   "use strict";
 
@@ -50,19 +65,37 @@
     }
   `;
 
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, (char) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-    })[char]);
+  function escapeHtml(value: unknown): string {
+    return String(value).replace(
+      /[&<>"']/g,
+      (char) =>
+        (
+          {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          } as Record<string, string>
+        )[char] as string,
+    );
   }
 
   class JustflowsDebugToolbar extends HTMLElement {
-    connectedCallback() {
+    connectedCallback(): void {
       if (this.shadowRoot) return;
-      let data;
-      try { data = JSON.parse(this.dataset.payload || "{}"); } catch { return; }
+      let data: DebugToolbarPayload;
+      try {
+        data = JSON.parse(this.dataset.payload || "{}");
+      } catch {
+        return;
+      }
       let stored = "midnight";
-      try { stored = localStorage.getItem(THEME_KEY) || "midnight"; } catch { /* storage can be disabled */ }
+      try {
+        stored = localStorage.getItem(THEME_KEY) || "midnight";
+      } catch {
+        /* storage can be disabled */
+      }
       const theme = THEMES.has(stored) ? stored : "midnight";
       this.dataset.theme = theme;
       const e = escapeHtml;
@@ -80,23 +113,31 @@
           <div><dt>Template</dt><dd><code>${e(data.template)}</code></dd></div>
         </dl><div class="footer"><a class="link" href="${e(data.diagnosticsUrl)}">Open Diagnostics</a><label class="theme-label" for="jf-debug-theme">Toolbar theme</label><select id="jf-debug-theme"><option value="midnight">Midnight</option><option value="daylight">Daylight</option><option value="contrast">High contrast</option></select></div></div>
       </aside>`;
-      const toggle = shadow.querySelector(".toggle");
-      const panel = shadow.querySelector(".panel");
-      const select = shadow.querySelector("select");
+      const toggle = shadow.querySelector<HTMLButtonElement>(".toggle")!;
+      const panel = shadow.querySelector<HTMLDivElement>(".panel")!;
+      const select = shadow.querySelector<HTMLSelectElement>("select")!;
       select.value = theme;
       toggle.addEventListener("click", () => {
         const open = toggle.getAttribute("aria-expanded") === "true";
         toggle.setAttribute("aria-expanded", String(!open));
         panel.hidden = open;
       });
-      shadow.querySelector(".copy").addEventListener("click", async (event) => {
-        try { await navigator.clipboard.writeText(String(data.requestId || "")); event.currentTarget.textContent = "Copied"; }
-        catch { event.currentTarget.textContent = "Copy failed"; }
+      shadow.querySelector<HTMLButtonElement>(".copy")!.addEventListener("click", async (event) => {
+        try {
+          await navigator.clipboard.writeText(String(data.requestId || ""));
+          (event.currentTarget as HTMLButtonElement).textContent = "Copied";
+        } catch {
+          (event.currentTarget as HTMLButtonElement).textContent = "Copy failed";
+        }
       });
       select.addEventListener("change", () => {
         const next = THEMES.has(select.value) ? select.value : "midnight";
         this.dataset.theme = next;
-        try { localStorage.setItem(THEME_KEY, next); } catch { /* keep the in-page selection */ }
+        try {
+          localStorage.setItem(THEME_KEY, next);
+        } catch {
+          /* keep the in-page selection */
+        }
       });
     }
   }

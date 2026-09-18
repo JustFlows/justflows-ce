@@ -333,6 +333,20 @@ the export regenerates on save — no manual **Run full export** needed. (This i
 the generic `PluginHttpResponse.revalidate` path; any plugin with a bespoke
 config route can use it — see [PLUGINS.md](PLUGINS.md#revalidate-after-a-config-write).)
 
+### PWA (installable app) exports statically
+
+When [a PWA is enabled](PWA.md), the manifest, service worker, and offline
+fallback page are seeded into the crawl explicitly — the service worker's
+`navigator.serviceWorker.register()` call is an inline `<script>`, invisible
+to the `<script src>`/`<link>`/`<img>`/CSS-`url()` scanner above — and written
+into the export like any other file. All three are static once generated, so
+the exported site stays fully installable and offline-capable with **no
+origin at all**. Saving a PWA setting calls the same `settings` cache-revalidate
+trigger every other settings write does, so with auto-rebuild on, the export
+regenerates the same way it does after a Cookie Consent config change.
+Because the export is a snapshot, `manifest.webmanifest` and `sw.js` only pick
+up a change on the next export run.
+
 ### What needs a reachable origin
 
 | Feature                                               | On a static host                                                                                                |

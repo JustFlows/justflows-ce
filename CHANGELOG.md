@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.5-dev.1] [UNRELEASED]
+
+### Added
+
+- **Configurable public-site PWA.** Settings → PWA lets a site owner turn
+  their public site into an installable, offline-friendly Progressive Web
+  App: app identity and generated icons, theme/background colors, display
+  mode, a validated start URL, up to four app shortcuts, an install prompt,
+  a branded offline fallback, and bounded static-asset caching. Disabled by
+  default; enabling requires no build step, plugin, or file edit. Disabling
+  retires the service worker cleanly at its existing URL so installed apps
+  recover without manual cleanup. ([#127](https://github.com/JustFlows/justflows-ce/issues/127))
+
 ## [0.2.4]
 
 ### Added

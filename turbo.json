@@ -10,7 +10,7 @@
     "@justflows/server#build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**", "admin-ui/dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", "admin-ui/dist/**", "../../public/js/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
       "cache": false,

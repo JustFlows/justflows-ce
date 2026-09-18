@@ -78,6 +78,31 @@ singular when there's only one entry.
   not a collision — the package file is framework-neutral logic and the
   `apps/server` file is the Express-side singleton/wiring around it.
 
+## `apps/server/public-scripts/src` (compiled `public/js/*.js`)
+
+- One `.ts` file per script, flat, kebab-case, matching the served filename
+  (`site-nav.ts` → `/js/site-nav.js`). Each file is fully independent — no
+  imports between them — since each ships as its own standalone IIFE.
+- `apps/server/public-scripts/build.mjs` compiles them with esbuild into
+  `public/js/*.js` (repo root) at the same stable, non-content-hashed
+  filenames the served URLs have always used; `public-scripts/tsconfig.json`
+  exists only for `tsc --noEmit` type-checking (esbuild does not type-check).
+  Both run as part of `pnpm --filter @justflows/server build`/`typecheck`.
+- `public/js/*.js` is generated and gitignored (see `.gitignore`) — same
+  convention as `apps/server/admin-ui/dist`. Edit the `.ts` source, not the
+  compiled file; run `pnpm --filter @justflows/server dev:public-scripts` for
+  a watch build while iterating.
+- A file needing a custom `Window`/global augmentation (`declare global`)
+  needs at least one top-level `import`/`export` for TypeScript to treat it
+  as a module; these files add a trailing `export {};`, which esbuild strips
+  from the IIFE output entirely.
+- Never emit these as inline `<script>` blocks server-side — the default
+  public-site CSP is `script-src 'self'` with no `'unsafe-inline'`, which
+  silently drops inline scripts. Pass server-rendered config via `data-*`
+  attributes on the `<script src="...">` tag (read via
+  `document.currentScript.dataset`), not an inline config block — see
+  `pwa-install.ts` and `pwa-public.ts`.
+
 ## `apps/server/admin-ui/src` (SSR admin application)
 
 - `entry-server.tsx` is the Node render entry; `entry-client.tsx` is the browser

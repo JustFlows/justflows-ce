@@ -3,7 +3,27 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../i18n/I18nProvider";
 import { PluginMenuProvider } from "@components/PluginMenuProvider";
+import { SessionProvider } from "@components/SessionProvider";
 import PluginHostPage from "../admin/PluginHostPage";
+
+/**
+ * PluginMenuProvider only fetches the admin menu once SessionProvider
+ * resolves a real session — wrap every test's own fetch mock so
+ * `/api/auth/me` resolves to one, instead of falling through to that mock's
+ * generic `{}` fallback (which is a valid 200 but not a valid SessionInfo,
+ * and would leave the menu fetch — and every assertion below — never firing).
+ */
+function withSession(
+  handler: (path: string) => Promise<Response>,
+): (input: RequestInfo | URL) => Promise<Response> {
+  return (input) => {
+    const path = String(input);
+    if (path.includes("/api/auth/me")) {
+      return jsonResponse({ id: "u1", email: "admin@example.com", role: "administrator" });
+    }
+    return handler(path);
+  };
+}
 
 const shopMenu = [
   {
@@ -53,9 +73,11 @@ function renderHost(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <I18nProvider>
-        <PluginMenuProvider>
-          <PluginHostPage />
-        </PluginMenuProvider>
+        <SessionProvider>
+          <PluginMenuProvider>
+            <PluginHostPage />
+          </PluginMenuProvider>
+        </SessionProvider>
       </I18nProvider>
     </MemoryRouter>,
   );
@@ -67,24 +89,25 @@ describe("PluginHostPage", () => {
   it("renders the plugin page declared on the admin menu", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn((input: RequestInfo | URL) => {
-        const path = String(input);
-        if (path.includes("/api/plugins/admin-menu")) {
-          return jsonResponse({
-            items: [
-              {
-                pluginId: "acme.reports",
-                id: "reports",
-                label: "Reports",
-                path: "/admin/reports",
-                icon: "🛍",
-                domain: "extensions",
-              },
-            ],
-          });
-        }
-        return jsonResponse({});
-      }),
+      vi.fn(
+        withSession((path) => {
+          if (path.includes("/api/plugins/admin-menu")) {
+            return jsonResponse({
+              items: [
+                {
+                  pluginId: "acme.reports",
+                  id: "reports",
+                  label: "Reports",
+                  path: "/admin/reports",
+                  icon: "🛍",
+                  domain: "extensions",
+                },
+              ],
+            });
+          }
+          return jsonResponse({});
+        }),
+      ),
     );
 
     renderHost("/admin/reports");
@@ -99,44 +122,45 @@ describe("PluginHostPage", () => {
   });
 
   it("renders a first-run setup wizard from GET /ext/{id}/setup", async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const path = String(input);
-      if (path.includes("/api/plugins/admin-menu")) {
-        return jsonResponse({ items: shopMenu });
-      }
-      if (path.includes("/ext/justflows.shop/setup")) {
-        return jsonResponse({
-          kind: "setup",
-          complete: false,
-          title: "Commerce database",
-          description: "Choose a topology.",
-          step: 1,
-          steps: [
-            { id: "welcome", label: "Welcome" },
-            { id: "topology", label: "Database" },
-            { id: "probe", label: "Health check" },
-          ],
-          fields: [
-            {
-              name: "topology",
-              label: "Storage topology",
-              type: "select",
-              options: [
-                { value: "shared", label: "Use the current Justflows database" },
-                { value: "separate", label: "Use a separate commerce database" },
-              ],
-            },
-          ],
-          values: { topology: "shared" },
-          envManaged: false,
-          passwordConfigured: false,
-          readOnly: false,
-          canContinue: true,
-          canFinish: false,
-        });
-      }
-      return jsonResponse({});
-    });
+    const fetchMock = vi.fn(
+      withSession((path) => {
+        if (path.includes("/api/plugins/admin-menu")) {
+          return jsonResponse({ items: shopMenu });
+        }
+        if (path.includes("/ext/justflows.shop/setup")) {
+          return jsonResponse({
+            kind: "setup",
+            complete: false,
+            title: "Commerce database",
+            description: "Choose a topology.",
+            step: 1,
+            steps: [
+              { id: "welcome", label: "Welcome" },
+              { id: "topology", label: "Database" },
+              { id: "probe", label: "Health check" },
+            ],
+            fields: [
+              {
+                name: "topology",
+                label: "Storage topology",
+                type: "select",
+                options: [
+                  { value: "shared", label: "Use the current Justflows database" },
+                  { value: "separate", label: "Use a separate commerce database" },
+                ],
+              },
+            ],
+            values: { topology: "shared" },
+            envManaged: false,
+            passwordConfigured: false,
+            readOnly: false,
+            canContinue: true,
+            canFinish: false,
+          });
+        }
+        return jsonResponse({});
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     renderHost("/admin/plugins/justflows.shop");
@@ -149,40 +173,41 @@ describe("PluginHostPage", () => {
   });
 
   it("does not mount the setup wizard on a nested shop page", async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const path = String(input);
-      if (path.includes("/api/plugins/admin-menu")) {
-        return jsonResponse({ items: shopMenu });
-      }
-      if (path.includes("/api/content-types")) {
-        return jsonResponse({ types: [{ slug: "product", label: "Product" }] });
-      }
-      if (path.includes("/api/content?")) {
-        return jsonResponse({
-          items: [
-            {
-              id: "prod-1",
-              type: "product",
-              title: "Canvas tote",
-              slug: "canvas-tote",
-              locale: "en-US",
-              status: "published",
-              updatedAt: "2026-08-28T00:00:00.000Z",
-            },
-            {
-              id: "prod-2",
-              type: "product",
-              title: "Draft mug",
-              slug: "draft-mug",
-              locale: "nl-NL",
-              status: "draft",
-              updatedAt: "2026-08-27T00:00:00.000Z",
-            },
-          ],
-        });
-      }
-      return jsonResponse({});
-    });
+    const fetchMock = vi.fn(
+      withSession((path) => {
+        if (path.includes("/api/plugins/admin-menu")) {
+          return jsonResponse({ items: shopMenu });
+        }
+        if (path.includes("/api/content-types")) {
+          return jsonResponse({ types: [{ slug: "product", label: "Product" }] });
+        }
+        if (path.includes("/api/content?")) {
+          return jsonResponse({
+            items: [
+              {
+                id: "prod-1",
+                type: "product",
+                title: "Canvas tote",
+                slug: "canvas-tote",
+                locale: "en-US",
+                status: "published",
+                updatedAt: "2026-08-28T00:00:00.000Z",
+              },
+              {
+                id: "prod-2",
+                type: "product",
+                title: "Draft mug",
+                slug: "draft-mug",
+                locale: "nl-NL",
+                status: "draft",
+                updatedAt: "2026-08-27T00:00:00.000Z",
+              },
+            ],
+          });
+        }
+        return jsonResponse({});
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     renderHost("/admin/plugins/justflows.shop/products");
@@ -208,47 +233,48 @@ describe("PluginHostPage", () => {
   });
 
   it("pages through every product until the content cursor is exhausted", async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const path = String(input);
-      if (path.includes("/api/plugins/admin-menu")) {
-        return jsonResponse({ items: shopMenu });
-      }
-      if (path.includes("/api/content-types")) {
-        return jsonResponse({ types: [{ slug: "product", label: "Product" }] });
-      }
-      if (path.includes("/api/content?")) {
-        if (path.includes("cursor=")) {
+    const fetchMock = vi.fn(
+      withSession((path) => {
+        if (path.includes("/api/plugins/admin-menu")) {
+          return jsonResponse({ items: shopMenu });
+        }
+        if (path.includes("/api/content-types")) {
+          return jsonResponse({ types: [{ slug: "product", label: "Product" }] });
+        }
+        if (path.includes("/api/content?")) {
+          if (path.includes("cursor=")) {
+            return jsonResponse({
+              items: [
+                {
+                  id: "prod-2",
+                  type: "product",
+                  title: "Second product",
+                  slug: "second",
+                  locale: "en-US",
+                  status: "published",
+                  updatedAt: "2026-08-27T00:00:00.000Z",
+                },
+              ],
+            });
+          }
           return jsonResponse({
             items: [
               {
-                id: "prod-2",
+                id: "prod-1",
                 type: "product",
-                title: "Second product",
-                slug: "second",
+                title: "First product",
+                slug: "first",
                 locale: "en-US",
                 status: "published",
-                updatedAt: "2026-08-27T00:00:00.000Z",
+                updatedAt: "2026-08-28T00:00:00.000Z",
               },
             ],
+            nextCursor: "c1",
           });
         }
-        return jsonResponse({
-          items: [
-            {
-              id: "prod-1",
-              type: "product",
-              title: "First product",
-              slug: "first",
-              locale: "en-US",
-              status: "published",
-              updatedAt: "2026-08-28T00:00:00.000Z",
-            },
-          ],
-          nextCursor: "c1",
-        });
-      }
-      return jsonResponse({});
-    });
+        return jsonResponse({});
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     renderHost("/admin/plugins/justflows.shop/products");
@@ -261,19 +287,20 @@ describe("PluginHostPage", () => {
   it("shows an empty catalog when there are no product entries", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn((input: RequestInfo | URL) => {
-        const path = String(input);
-        if (path.includes("/api/plugins/admin-menu")) {
-          return jsonResponse({ items: shopMenu });
-        }
-        if (path.includes("/api/content-types")) {
-          return jsonResponse({ types: [{ slug: "product", label: "Product" }] });
-        }
-        if (path.includes("/api/content?")) {
-          return jsonResponse({ items: [] });
-        }
-        return jsonResponse({});
-      }),
+      vi.fn(
+        withSession((path) => {
+          if (path.includes("/api/plugins/admin-menu")) {
+            return jsonResponse({ items: shopMenu });
+          }
+          if (path.includes("/api/content-types")) {
+            return jsonResponse({ types: [{ slug: "product", label: "Product" }] });
+          }
+          if (path.includes("/api/content?")) {
+            return jsonResponse({ items: [] });
+          }
+          return jsonResponse({});
+        }),
+      ),
     );
 
     renderHost("/admin/plugins/justflows.shop/products");
@@ -289,13 +316,14 @@ describe("PluginHostPage", () => {
   it("keeps a placeholder on nested pages that do not list a content type", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn((input: RequestInfo | URL) => {
-        const path = String(input);
-        if (path.includes("/api/plugins/admin-menu")) {
-          return jsonResponse({ items: shopMenu });
-        }
-        return jsonResponse({});
-      }),
+      vi.fn(
+        withSession((path) => {
+          if (path.includes("/api/plugins/admin-menu")) {
+            return jsonResponse({ items: shopMenu });
+          }
+          return jsonResponse({});
+        }),
+      ),
     );
 
     renderHost("/admin/plugins/justflows.shop/orders");
@@ -307,37 +335,38 @@ describe("PluginHostPage", () => {
   it("shows shop landing tiles after setup is complete", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn((input: RequestInfo | URL) => {
-        const path = String(input);
-        if (path.includes("/api/plugins/admin-menu")) {
-          return jsonResponse({ items: shopMenu });
-        }
-        if (path.includes("/ext/justflows.shop/setup")) {
-          return jsonResponse({
-            kind: "setup",
-            complete: true,
-            title: "Store settings",
-            description: "Using the current Justflows database.",
-            step: 5,
-            steps: [
-              { id: "welcome", label: "Welcome" },
-              { id: "review", label: "Review" },
-            ],
-            fields: [
-              { name: "storeName", label: "Store name", type: "text" },
-              { name: "address", label: "Business address", type: "text" },
-              { name: "sandbox", label: "Sandbox / test mode", type: "checkbox" },
-            ],
-            values: { storeName: "JS store", address: "Keizersgracht 1", sandbox: false },
-            envManaged: false,
-            passwordConfigured: false,
-            readOnly: false,
-            canContinue: false,
-            canFinish: false,
-          });
-        }
-        return jsonResponse({});
-      }),
+      vi.fn(
+        withSession((path) => {
+          if (path.includes("/api/plugins/admin-menu")) {
+            return jsonResponse({ items: shopMenu });
+          }
+          if (path.includes("/ext/justflows.shop/setup")) {
+            return jsonResponse({
+              kind: "setup",
+              complete: true,
+              title: "Store settings",
+              description: "Using the current Justflows database.",
+              step: 5,
+              steps: [
+                { id: "welcome", label: "Welcome" },
+                { id: "review", label: "Review" },
+              ],
+              fields: [
+                { name: "storeName", label: "Store name", type: "text" },
+                { name: "address", label: "Business address", type: "text" },
+                { name: "sandbox", label: "Sandbox / test mode", type: "checkbox" },
+              ],
+              values: { storeName: "JS store", address: "Keizersgracht 1", sandbox: false },
+              envManaged: false,
+              passwordConfigured: false,
+              readOnly: false,
+              canContinue: false,
+              canFinish: false,
+            });
+          }
+          return jsonResponse({});
+        }),
+      ),
     );
 
     renderHost("/admin/plugins/justflows.shop");
