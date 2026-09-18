@@ -150,6 +150,69 @@ async function copyUpdateFiles(sourceRoot: string, destRoot: string): Promise<nu
   return copied;
 }
 
+/**
+ * Top-level trees a release fully owns and regenerates from scratch — no
+ * runtime code ever writes under them, so a file that exists here but not in
+ * the new package is stale, left behind by a path a later release renamed or
+ * removed (the domain-based module reorg in v0.2.5 left the pre-reorg
+ * apps/server/dist/lib/** tree in place, for example; copyUpdateFiles only
+ * ever adds files, so nothing removed it).
+ *
+ * Deliberately excludes themes/, plugins/ and css-providers/: those
+ * directories mix core-bundled content with whatever an operator installs
+ * straight into the same directory, so pruning them the same way could
+ * delete a site's installed theme or plugin.
+ */
+const SYNC_TOP_LEVEL = ["apps", "packages", "scripts", "migrations"];
+
+/** Delete `dir` if walking it (post-prune) finds nothing left, recursing into now-empty children first. */
+async function removeIfEmpty(dir: string): Promise<void> {
+  let entries: string[];
+  try {
+    entries = await fsp.readdir(dir);
+  } catch {
+    return;
+  }
+  for (const name of entries) {
+    const full = path.join(dir, name);
+    const stat = await fsp.lstat(full).catch(() => null);
+    if (stat?.isDirectory()) await removeIfEmpty(full);
+  }
+  try {
+    if ((await fsp.readdir(dir)).length === 0) await fsp.rmdir(dir);
+  } catch {
+    // Not empty, or already gone — either way there's nothing to do.
+  }
+}
+
+/** Remove files under {@link SYNC_TOP_LEVEL} that the new package no longer ships. */
+async function pruneStaleFiles(sourceRoot: string, destRoot: string): Promise<number> {
+  let removed = 0;
+
+  for (const top of SYNC_TOP_LEVEL) {
+    const destTop = path.join(destRoot, top);
+    if (!fs.existsSync(destTop)) continue;
+
+    const sourceTop = path.join(sourceRoot, top);
+    const sourceFiles = fs.existsSync(sourceTop) ? new Set(await walkFiles(sourceTop)) : new Set<string>();
+
+    for (const rel of await walkFiles(destTop)) {
+      if (sourceFiles.has(rel)) continue;
+      const relFromRoot = path.join(top, rel);
+      if (shouldPreserve(relFromRoot)) continue;
+
+      const abs = resolvePathUnderRoot(destRoot, relFromRoot);
+      if (!abs) continue;
+      await fsp.rm(abs, { force: true });
+      removed++;
+    }
+
+    await removeIfEmpty(destTop);
+  }
+
+  return removed;
+}
+
 function findExtractedRoot(extractDir: string): string {
   // Flat layout: files at archive root (current justflows.zip format).
   if (fs.existsSync(path.join(extractDir, "server.js"))) {
@@ -396,10 +459,13 @@ export async function applyCoreUpdate(
     record({ step: "validate", ok: true, detail: `Package verified (v${newVersion})` });
 
     const copied = await copyUpdateFiles(sourceRoot, root);
+    const pruned = await pruneStaleFiles(sourceRoot, root);
     record({
       step: "copy",
       ok: true,
-      detail: `Updated ${copied} files (.env and uploads preserved)`,
+      detail:
+        `Updated ${copied} files (.env and uploads preserved)` +
+        (pruned > 0 ? `, removed ${pruned} stale file${pruned === 1 ? "" : "s"}` : ""),
     });
 
     const migrate = runCopiedMigrations(root);
