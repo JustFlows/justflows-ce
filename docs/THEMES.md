@@ -148,6 +148,8 @@ themes/<slug>/
     archive.json / archive-<type>.json
     search.json
     404.json
+    403.json / 410.json / 429.json  # see "Error pages" below
+    error.json                      # shared fallback for 403 / 410 / 429
   parts/
     header.json
     footer.json
@@ -198,6 +200,34 @@ to `demo/home.json`, `home` to `demo/blog.json`, and the `footer` part to
 `demo/footer.json`. Header chrome stays config-shaped (`demo/header.json`, see
 below), not a block part. A theme that ships no template for a slot falls all
 the way through to the built-in `single.ejs` / `home.ejs` / `404.ejs`.
+
+### Error pages (404 / 403 / 410 / 429 / 500 / maintenance)
+
+For 404, 403, 410, and 429, an admin picks the source per class in **Theme
+customize → Error pages**: the theme's own resolution (the slot below, falling
+back to the built-in page), the built-in page outright, or a specific
+published page. A page is offered once per translation group — whichever
+locale a visitor is on resolves automatically, the same as the home page.
+
+- `404.json` was the only error slot before this; it keeps its name rather
+  than becoming `error-404.json`, so an existing theme's file and any site's
+  per-site override both keep working unchanged.
+- `403.json`, `410.json`, and `429.json` are each theme's specific override for
+  that class. `error.json` is the shared fallback all three try next, before
+  falling through to the built-in page — the generic "error template" a theme
+  can ship once instead of three near-identical files.
+- Resolution for these four goes through the same `resolveEffectiveTemplate`
+  hierarchy as every other slot (site override beats the theme's file), it is
+  just gated first by the admin's chosen source.
+
+500 and maintenance-mode pages are **not** part of the template hierarchy and
+a theme cannot supply one. Both must render with no database, cache, or
+plugin-runtime access — the whole point is that they still work when one of
+those is the reason the page is showing — so they are always the same static,
+built-in layout (`apps/server/src/views/static/error-fallback.html`), with an
+admin-editable heading and message (Settings → Site visibility) rather than a
+block document. A theme's `templates/*.json` can embed dynamic, DB-backed
+blocks, which is exactly what these two pages cannot depend on.
 
 ## Stylesheet order
 

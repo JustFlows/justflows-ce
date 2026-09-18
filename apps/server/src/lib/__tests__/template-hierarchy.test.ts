@@ -11,6 +11,9 @@ describe("templateCandidates", () => {
       templateCandidates({ kind: "archive", contentType: "product" }),
       templateCandidates({ kind: "search" }),
       templateCandidates({ kind: "notFound" }),
+      templateCandidates({ kind: "forbidden" }),
+      templateCandidates({ kind: "gone" }),
+      templateCandidates({ kind: "rateLimited" }),
     ];
     for (const list of queries) expect(list[list.length - 1]).toBe("index");
   });
@@ -82,9 +85,25 @@ describe("TEMPLATE_SLOTS", () => {
       "archive",
       "search",
       "404",
+      "403",
+      "410",
+      "429",
+      "error",
       "index",
     ]) {
       expect(TEMPLATE_SLOTS).toContain(slot);
     }
+  });
+});
+
+describe("error-class candidates (justflows-ce#92)", () => {
+  it("does not change the existing 404 candidate list", () => {
+    expect(templateCandidates({ kind: "notFound" })).toEqual(["404", "index"]);
+  });
+
+  it("falls back through the shared generic error slug before index", () => {
+    expect(templateCandidates({ kind: "forbidden" })).toEqual(["403", "error", "index"]);
+    expect(templateCandidates({ kind: "gone" })).toEqual(["410", "error", "index"]);
+    expect(templateCandidates({ kind: "rateLimited" })).toEqual(["429", "error", "index"]);
   });
 });

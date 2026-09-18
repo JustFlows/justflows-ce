@@ -15,6 +15,7 @@ import { createContentType, getContentTypeBySlug } from "./content-types-db.js";
 import { getDefaultLocale } from "./i18n/languages-db.js";
 import { clearHomePageIfMatches } from "./home-page.js";
 import { clearBlogPageIfMatches } from "./blog-page.js";
+import { clearErrorPageIfMatches } from "./error-pages.js";
 import { invalidateContentCache } from "./content-public.js";
 import {
   getPluginHostItem,
@@ -302,6 +303,7 @@ export async function deletePluginOwnedContentType(
   for (const row of rows) {
     await clearHomePageIfMatches(siteId, row.id);
     await clearBlogPageIfMatches(siteId, row.id);
+    await clearErrorPageIfMatches(siteId, row.id);
   }
   if (rows.length > 0) {
     const placeholders = rows.map(() => "?").join(", ");

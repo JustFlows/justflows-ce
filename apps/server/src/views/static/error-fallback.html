@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="generator" content="Justflows">
+  <title>{{TITLE}}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --jf-indigo: #4f46e5;
+      --jf-indigo-light: #818cf8;
+      --jf-slate-900: #0f172a;
+      --jf-slate-600: #475569;
+      --jf-slate-400: #94a3b8;
+      --jf-slate-100: #f1f5f9;
+      --jf-white: #ffffff;
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--jf-slate-900);
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(79, 70, 229, 0.12), transparent),
+        var(--jf-white);
+      -webkit-font-smoothing: antialiased;
+      padding: 2rem 1.5rem;
+    }
+
+    .ef-wrap {
+      width: 100%;
+      max-width: 520px;
+      text-align: center;
+    }
+
+    .ef-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .ef-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--jf-indigo), var(--jf-indigo-light));
+      color: var(--jf-white);
+      font-weight: 800;
+      font-size: 1.15rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: -0.03em;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+    }
+
+    .ef-site-name {
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+      color: var(--jf-slate-900);
+    }
+
+    .ef-card {
+      background: var(--jf-white);
+      border: 1px solid var(--jf-slate-100);
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06);
+    }
+
+    .ef-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--jf-indigo);
+      background: rgba(79, 70, 229, 0.08);
+      border: 1px solid rgba(79, 70, 229, 0.15);
+      border-radius: 999px;
+      padding: 0.3rem 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+    }
+
+    .ef-message {
+      margin: 0;
+      color: var(--jf-slate-600);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .ef-footer {
+      margin-top: 2.5rem;
+      font-size: 0.8rem;
+      color: var(--jf-slate-400);
+    }
+
+    .ef-footer a {
+      color: var(--jf-slate-400);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .ef-footer a:hover { color: var(--jf-indigo); }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --jf-slate-900: #f1f5f9;
+        --jf-slate-600: #94a3b8;
+        --jf-slate-400: #64748b;
+        --jf-slate-100: #1e293b;
+        --jf-white: #0f172a;
+      }
+
+      body {
+        background:
+          radial-gradient(ellipse 80% 60% at 50% -10%, rgba(129, 140, 248, 0.15), transparent),
+          #0f172a;
+      }
+
+      .ef-card {
+        background: #1e293b;
+        border-color: #334155;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+
+      .ef-badge {
+        color: var(--jf-indigo-light);
+        background: rgba(129, 140, 248, 0.1);
+        border-color: rgba(129, 140, 248, 0.2);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="ef-wrap">
+    <div class="ef-brand">
+      <div class="ef-mark" aria-hidden="true">J</div>
+      <span class="ef-site-name">{{SITE_TITLE}}</span>
+    </div>
+
+    <div class="ef-card">
+      <span class="ef-badge">{{BADGE}}</span>
+      <h1>{{HEADING}}</h1>
+      <p class="ef-message">{{MESSAGE}}</p>
+    </div>
+
+    <p class="ef-footer">
+      Powered by <a href="https://github.com/justflows/justflows">Justflows</a>
+    </p>
+  </div>
+</body>
+</html>

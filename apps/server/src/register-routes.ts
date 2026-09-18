@@ -5,6 +5,7 @@ import { publicApiGuard } from "./middleware/public-api.js";
 import { publicApiCors } from "./middleware/public-api-cors.js";
 import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
 import { logSafe } from "./lib/log-safe.js";
+import { detectStaticErrorLocale, renderStaticErrorPage } from "./lib/static-error-page.js";
 import { adminClientDir, renderAdminPage } from "./lib/admin-ssr.js";
 import { adminAccessGate } from "./middleware/admin-access.js";
 import { getAdminPathConfig, toInternalAdminPath } from "./lib/admin-path.js";
@@ -96,7 +97,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: performanceRoutes },
     { default: importRoutes },
     { default: siteRoutes, serveThemeCss },
-    { default: publicSiteRoutes, sendPublicNotFound },
+    { default: publicSiteRoutes, sendPublicNotFound, sendPublicRateLimited },
     { default: languagesRoutes },
     { default: menusRoutes },
     { default: blocksRoutes },
@@ -113,6 +114,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: trashRoutes },
     { default: emailsRoutes },
     { default: templatesRoutes },
+    { default: errorPagesRoutes },
     { default: patternsRoutes },
     { default: staticExportRoutes },
     { default: apiKeysRoutes },
@@ -154,6 +156,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/trash.js"),
     import("./routes/emails.js"),
     import("./routes/templates.js"),
+    import("./routes/error-pages.js"),
     import("./routes/patterns.js"),
     import("./routes/static-export.js"),
     import("./routes/api-keys.js"),
@@ -195,6 +198,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/reusable-blocks", requireInstalled, reusableBlocksRoutes);
   app.use("/api/template-parts", requireInstalled, templatePartsRouter);
   app.use("/api/templates", requireInstalled, templatesRoutes);
+  app.use("/api/error-pages", requireInstalled, errorPagesRoutes);
   app.use("/api/patterns", requireInstalled, patternsRoutes);
   app.use("/api/headers", requireInstalled, siteHeaderRoutes);
   app.use("/api/blocks", requireInstalled, blocksRoutes);
@@ -611,7 +615,15 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // Managed rules override public content, but never platform or plugin routes.
   app.use(
     requireInstalled,
-    rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: "draft-8", legacyHeaders: false }),
+    rateLimit({
+      windowMs: 60_000,
+      limit: 600,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      handler: (req, res, next) => {
+        void sendPublicRateLimited(req, res).catch(next);
+      },
+    }),
     (await import("./middleware/redirects.js")).managedRedirects,
   );
   app.use(requireInstalled, publicSiteRoutes);
@@ -620,7 +632,12 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // in development, and any handler that throws without its own catch would
   // otherwise leak internals to an anonymous caller.
   app.use(
-    (err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    async (
+      err: unknown,
+      req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction,
+    ) => {
       console.error(
         "[justflows] unhandled error",
         JSON.stringify({ method: logSafe(req.method), path: logSafe(req.path) }),
@@ -631,7 +648,33 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
         res.status(500).json({ error: "Internal server error" });
         return;
       }
-      res.status(500).type("text/plain").send("Internal server error");
+      // Best-effort: the error that landed us here may itself be a database
+      // outage, so this must never fail a second time trying to brand the page.
+      let heading: string | undefined;
+      let message: string | undefined;
+      try {
+        const { getSiteId } = await import("./lib/site-settings.js");
+        const { getErrorPageConfig } = await import("./lib/error-pages.js");
+        const siteId = await getSiteId();
+        if (siteId) {
+          const config = await getErrorPageConfig(siteId);
+          heading = config["500"]?.heading;
+          message = config["500"]?.message;
+        }
+      } catch {
+        // Fall back to the static page's own generic copy below.
+      }
+      res.setHeader("Cache-Control", "private, no-store");
+      res
+        .status(500)
+        .type("html")
+        .send(
+          renderStaticErrorPage("500", {
+            heading,
+            message,
+            locale: detectStaticErrorLocale(req.path, req.get("accept-language")),
+          }),
+        );
     },
   );
 }

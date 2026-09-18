@@ -119,6 +119,28 @@ export async function getPublishedContentBySlug(
   );
 }
 
+/**
+ * Whether this URL used to resolve to a real, published page and was
+ * deliberately removed (soft-deleted to trash), rather than never having
+ * existed (justflows-ce#92's 410 vs. 404 distinction). Queried only as a
+ * last resort after a normal published-content lookup misses, since trash
+ * has a retention window — once a trashed row is purged this correctly
+ * reverts to 404, matching how a permanently gone URL eventually behaves
+ * anywhere else.
+ */
+export async function wasPermanentlyRemoved(
+  siteId: string,
+  slug: string,
+  locale: string,
+): Promise<boolean> {
+  const db = await getDb();
+  const rows = await db.query<{ id: string }>(
+    "SELECT id FROM content WHERE site_id = ? AND locale = ? AND original_slug = ? AND status = 'trashed' LIMIT 1",
+    [siteId, locale, slug],
+  );
+  return rows.length > 0;
+}
+
 async function fetchTranslationAlternates(
   translationGroupId: string,
 ): Promise<Array<{ locale: string; slug: string }>> {

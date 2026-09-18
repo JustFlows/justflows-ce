@@ -26,6 +26,10 @@ export const TEMPLATE_SLOTS = [
   "archive",
   "search",
   "404",
+  "403",
+  "410",
+  "429",
+  "error",
   "index",
 ] as const;
 
@@ -43,14 +47,20 @@ export type TemplatePartSlot = (typeof TEMPLATE_PART_SLOTS)[number];
  * - `singular`  — one content row (page, post, or a custom content type).
  * - `archive`   — a list view for a content type (not yet routed; reserved).
  * - `search`    — public search results, filters, and pagination.
- * - `notFound`  — nothing matched the URL.
+ * - `notFound`  — nothing matched the URL (404).
+ * - `forbidden` — the request is blocked (403).
+ * - `gone`      — the resource existed but was permanently removed (410).
+ * - `rateLimited` — the visitor is being rate-limited (429).
  */
 export type TemplateQuery =
   | { kind: "home"; frontPageKind: "page" | "posts"; slug?: string }
   | { kind: "singular"; contentType: string; slug: string }
   | { kind: "archive"; contentType: string }
   | { kind: "search" }
-  | { kind: "notFound" };
+  | { kind: "notFound" }
+  | { kind: "forbidden" }
+  | { kind: "gone" }
+  | { kind: "rateLimited" };
 
 /** Keep a slug safe to interpolate into a filename: lowercase, `[a-z0-9-]`. */
 function slugSegment(raw: string): string {
@@ -108,6 +118,12 @@ export function templateCandidates(query: TemplateQuery): string[] {
       return dedupe(["search", "index"]);
     case "notFound":
       return dedupe(["404", "index"]);
+    case "forbidden":
+      return dedupe(["403", "error", "index"]);
+    case "gone":
+      return dedupe(["410", "error", "index"]);
+    case "rateLimited":
+      return dedupe(["429", "error", "index"]);
   }
 }
 

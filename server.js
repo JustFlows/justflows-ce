@@ -222,6 +222,109 @@ function sendJson(res, status, body) {
 }
 
 /**
+ * Dependency-free 500 fallback (justflows-ce#92) for when the full app cannot
+ * even boot — no database, cache, or plugin runtime exists yet at this point,
+ * so this cannot go through Express or the theme system. It mirrors
+ * `apps/server/src/lib/static-error-page.ts` as an independent copy (this
+ * layer runs before that compiled module exists on disk); both read the same
+ * `apps/server/{dist,src}/views/static/error-fallback.html` and
+ * `lib/i18n/site-catalogs/*.json` files, which are the single source of truth
+ * for wording and design — keep the two loaders in sync if either changes.
+ * Unlike the full app's version, this one cannot read the admin's custom
+ * 500-page text (that setting lives in a database this layer cannot reach),
+ * so it always shows the bundled locale-aware default copy.
+ */
+const STATIC_ERROR_LOCALES = ["en", "de", "es", "fr", "nl"];
+const STATIC_ERROR_DEFAULTS = {
+  "500": {
+    badge: "Temporary error",
+    title: "Something went wrong",
+    body: "The site hit an unexpected error. Please try again shortly.",
+  },
+};
+
+function firstExistingPath(candidates) {
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return candidates[candidates.length - 1];
+}
+
+function escapeStaticErrorHtml(value) {
+  return String(value).replace(
+    /[&<>"']/g,
+    (char) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char],
+  );
+}
+
+function detectStaticErrorLocale(pathname, acceptLanguageHeader) {
+  const prefix = (pathname.split("/").find(Boolean) || "").toLowerCase().split("-")[0];
+  if (STATIC_ERROR_LOCALES.includes(prefix)) return prefix;
+  if (acceptLanguageHeader) {
+    for (const part of acceptLanguageHeader.split(",")) {
+      const code = (part.split(";")[0] || "").trim().toLowerCase().split("-")[0];
+      if (STATIC_ERROR_LOCALES.includes(code)) return code;
+    }
+  }
+  return "en";
+}
+
+function sendStaticErrorPage(res, status, kind, req) {
+  let template;
+  try {
+    template = fs.readFileSync(
+      firstExistingPath([
+        path.join(root, "apps/server/dist/views/static/error-fallback.html"),
+        path.join(root, "apps/server/src/views/static/error-fallback.html"),
+      ]),
+      "utf8",
+    );
+  } catch {
+    res.writeHead(status, withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
+    res.end("The site is temporarily unavailable. Please try again shortly.");
+    return;
+  }
+
+  const locale = detectStaticErrorLocale(
+    (req.url ?? "/").split("?")[0],
+    req.headers["accept-language"],
+  );
+  let catalog = {};
+  try {
+    catalog = JSON.parse(
+      fs.readFileSync(
+        firstExistingPath([
+          path.join(root, `apps/server/dist/lib/i18n/site-catalogs/${locale}.json`),
+          path.join(root, `apps/server/src/lib/i18n/site-catalogs/${locale}.json`),
+        ]),
+        "utf8",
+      ),
+    );
+  } catch {
+    catalog = {};
+  }
+
+  const defaults = STATIC_ERROR_DEFAULTS[kind];
+  const siteTitle = "This site";
+  const badge = catalog[`errors.${kind}.badge`] || defaults.badge;
+  const heading = catalog[`errors.${kind}.title`] || defaults.title;
+  const message = catalog[`errors.${kind}.body`] || defaults.body;
+  const html = template
+    .replace(/\{\{TITLE\}\}/g, escapeStaticErrorHtml(`${siteTitle} — ${heading}`))
+    .replace(/\{\{SITE_TITLE\}\}/g, escapeStaticErrorHtml(siteTitle))
+    .replace(/\{\{BADGE\}\}/g, escapeStaticErrorHtml(badge))
+    .replace(/\{\{HEADING\}\}/g, escapeStaticErrorHtml(heading))
+    .replace(/\{\{MESSAGE\}\}/g, escapeStaticErrorHtml(message));
+
+  res.writeHead(
+    status,
+    withSecurityHeaders({ "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store" }),
+  );
+  res.end(html);
+}
+
+/**
  * Serve the first-run page with a nonce for its one inline script.
  *
  * The baseline CSP is script-src 'self', which would otherwise blank this page
@@ -459,13 +562,12 @@ const server = http.createServer((req, res) => {
 
   bootFullApp()
     .then((app) => dispatch(app, req, res))
-    .catch((err) => {
+    .catch(() => {
+      // bootFullApp() already logged the real error server-side. The response
+      // must never carry err.message — on a database failure that can be a
+      // connection string, on anything else it can be an internal file path.
       if (!res.headersSent) {
-        sendJson(res, 503, {
-          ok: false,
-          error: "boot_failed",
-          message: err instanceof Error ? err.message : String(err),
-        });
+        sendStaticErrorPage(res, 503, "500", req);
       }
     });
 });

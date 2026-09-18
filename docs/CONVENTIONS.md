@@ -66,6 +66,11 @@ singular when there's only one entry.
 - `views/*.ejs`: flat, kebab-case for multi-word views
   (`under-construction.ejs`). Nest only for genuinely reusable fragments,
   as `views/partials/` already does.
+- `views/static/*.html`: plain (non-EJS) HTML consumed by a dependency-free
+  renderer that cannot assume the EJS engine or database is reachable
+  (`error-fallback.html`, loaded via simple `{{TOKEN}}` string substitution
+  by `lib/static-error-page.ts`). Reserve this folder for that case, not as
+  a general alternative to `.ejs`.
 - Tests live in a single `__tests__/` folder per directory
   (`lib/__tests__`, `middleware/__tests__`) — this is the established
   pattern for `apps/server/src` specifically and differs from the
@@ -180,7 +185,7 @@ singular when there's only one entry.
 - Never edit the shipped `0012_baseline` or a later applied migration (see
   `AGENTS.md`). Add the next number, even if only one dialect's schema
   actually changes. Find the highest number in `migrations/` and use the next number;
-  `0030_content_scheduling` is currently the latest.
+  `0033_spam_term_source` is currently the latest.
 - Add each new migration name to `MIGRATION_ORDER` in
   `apps/server/src/lib/run-migrations.ts`. The runner skips names already
   recorded in `_migrations`.
