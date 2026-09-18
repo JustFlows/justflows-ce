@@ -19,6 +19,19 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
+// The absolute node binary already running this script, and npm/npx from the
+// same bin/ directory — every node distribution (nodenv, nvm, plain installs)
+// ships all three together. Spawning by these instead of the bare "node" /
+// "npm" / "npx" strings avoids depending on PATH to resolve them, which fails
+// with "nodenv: node: command not found" whenever this script runs inside a
+// process (Passenger, a cron job, …) whose PATH has no node version selected
+// for this directory, even though a version is installed.
+const NODE_BIN = process.execPath;
+function resolveBin(name) {
+  const candidate = path.join(path.dirname(process.execPath), name);
+  return fs.existsSync(candidate) ? candidate : name;
+}
+
 const PACKAGE_BUILD_ORDER = [
   "packages/blocks",
   "packages/core",
@@ -74,10 +87,10 @@ function tscBin() {
 function runTsc(tsconfigPath) {
   const bin = tscBin();
   if (bin) {
-    return run("node", [bin, "-p", tsconfigPath]);
+    return run(NODE_BIN, [bin, "-p", tsconfigPath]);
   }
   // Avoid `npx tsc` — npm may resolve the unrelated "tsc" package instead of typescript.
-  return run("npx", ["--package=typescript", "tsc", "-p", tsconfigPath]);
+  return run(resolveBin("npx"), ["--package=typescript", "tsc", "-p", tsconfigPath]);
 }
 
 function buildPackage(relDir) {
@@ -95,7 +108,7 @@ function buildPackage(relDir) {
 
 function buildServer() {
   log("Building admin UI…");
-  runOrFail("npx", ["vite", "build", "--config", "apps/server/admin-ui/vite.config.ts"]);
+  runOrFail(resolveBin("npx"), ["vite", "build", "--config", "apps/server/admin-ui/vite.config.ts"]);
 
   log("Building Express server…");
   const bin = tscBin();
@@ -103,7 +116,7 @@ function buildServer() {
     console.error("typescript not installed — run ensureBuildTooling first");
     process.exit(1);
   }
-  runOrFail("node", [bin, "-p", "apps/server/tsconfig.json"]);
+  runOrFail(NODE_BIN, [bin, "-p", "apps/server/tsconfig.json"]);
 
   const distI18n = path.join(ROOT, "apps/server/dist/lib/i18n");
   fs.mkdirSync(distI18n, { recursive: true });
@@ -129,7 +142,7 @@ function ensureBuildTooling() {
   if (!needsBuild()) return;
 
   log("Installing build tools (typescript, vite)…");
-  runOrFail("npm", [
+  runOrFail(resolveBin("npm"), [
     "install",
     "--no-save",
     "--ignore-scripts",
@@ -154,7 +167,7 @@ function bundleServer() {
   if (!fs.existsSync(bundleScript)) return;
 
   log("Bundling server for faster boot…");
-  run("node", ["scripts/bundle-server.js"]);
+  run(NODE_BIN, ["scripts/bundle-server.js"]);
 }
 
 function touchPassengerRestart() {
@@ -184,7 +197,7 @@ function restorePnpmNodeModules(hidden) {
 
 function restoreDevManifests() {
   if (!fs.existsSync(path.join(ROOT, ".git"))) return;
-  run("node", ["scripts/restore-hosting.js"]);
+  run(NODE_BIN, ["scripts/restore-hosting.js"]);
 }
 
 function main() {
@@ -197,12 +210,12 @@ function main() {
 
   if (!buildOnly) {
     log("Patching package.json files for npm…");
-    runOrFail("node", ["scripts/prepare-hosting.js"]);
+    runOrFail(NODE_BIN, ["scripts/prepare-hosting.js"]);
 
     const pnpmTree = stashPnpmNodeModules();
 
     log("Installing production dependencies…");
-    const installCode = run("npm", ["install", "--omit=dev", "--ignore-scripts"]);
+    const installCode = run(resolveBin("npm"), ["install", "--omit=dev", "--ignore-scripts"]);
 
     // The patched manifests (file: paths, no devDependencies) are only needed
     // for the npm install above; node_modules is what the rest of this script
