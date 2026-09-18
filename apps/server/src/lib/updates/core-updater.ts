@@ -69,6 +69,21 @@ function runCommand(
 }
 
 /**
+ * Absolute path to `npm` alongside the currently running `node` binary.
+ * Every node distribution (nodenv, nvm, plain installs) ships npm in the same
+ * `bin/` directory as `node` itself, so this resolves correctly even when the
+ * host process's PATH doesn't have a working node version manager shim for
+ * `JF_ROOT` (e.g. Passenger launched with an absolute node path and no
+ * `.node-version` / `nodenv global` set) — the exact case that produces
+ * "nodenv: npm: command not found" on hosts where node 22/24 are installed
+ * but no version is selected for this directory.
+ */
+function resolveNpmBin(): string {
+  const candidate = path.join(path.dirname(process.execPath), "npm");
+  return fs.existsSync(candidate) ? candidate : "npm";
+}
+
+/**
  * Install dependencies with the package manager the release was built with.
  * This repo is a pnpm workspace; running `npm install` at the root resolves the
  * whole monorepo against `package-lock.json` and, on a memory-limited Plesk
@@ -88,7 +103,11 @@ function runDependencyInstall(root: string): { ok: boolean; output: string; tool
     }
     // pnpm not available — fall through to npm.
   }
-  const npm = runCommand("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], root);
+  const npm = runCommand(
+    resolveNpmBin(),
+    ["install", "--ignore-scripts", "--no-audit", "--no-fund"],
+    root,
+  );
   return {
     ok: npm.ok,
     output: npm.ok ? "Dependencies installed with npm" : npm.output,
@@ -116,7 +135,7 @@ function runCopiedMigrations(root: string): { ok: boolean; output: string } {
   if (!fs.existsSync(entry)) {
     return { ok: false, output: "Missing apps/server/dist/lib/database/apply-pending-migrations-cli.js" };
   }
-  return runCommand("node", [entry], root, 5 * 60 * 1000);
+  return runCommand(process.execPath, [entry], root, 5 * 60 * 1000);
 }
 
 function shouldPreserve(relativePath: string): boolean {
@@ -444,7 +463,7 @@ export async function applyCoreUpdate(
     if (hasBuiltServer) {
       record({ step: "build", ok: true, detail: "Using pre-built artifacts from update package" });
     } else {
-      const build = runCommand("node", ["scripts/install-all.js", "--build-only"], root);
+      const build = runCommand(process.execPath, ["scripts/install-all.js", "--build-only"], root);
       record({
         step: "build",
         ok: build.ok,
