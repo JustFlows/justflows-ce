@@ -6,18 +6,18 @@ import path from "node:path";
 import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 
-import { uploadsDir, getJfRoot, viewsDir } from "./lib/jf-root.js";
+import { uploadsDir, getJfRoot, viewsDir } from "./lib/runtime/jf-root.js";
 import { isInstalled } from "./middleware/install-guard.js";
-import { installToken, installTokenRequired } from "./lib/install-token.js";
+import { installToken, installTokenRequired } from "./lib/installation/install-token.js";
 import { serveAdminI18n } from "./lib/i18n/admin-catalog.js";
 import { csrfProtection } from "./middleware/csrf.js";
-import { setCsrfCookie } from "./lib/session.js";
+import { setCsrfCookie } from "./lib/auth/session.js";
 import { securityHeaders } from "./middleware/security-headers.js";
 import { cacheTraceMiddleware } from "./middleware/cache-trace.js";
 import { createGzipMiddleware } from "./middleware/gzip.js";
 import { browserCacheMiddleware, staticMaxAgeMs } from "./middleware/browser-cache.js";
 import { rateLimit } from "express-rate-limit";
-import { adminClientDir, adminClientIndex } from "./lib/admin-ssr.js";
+import { adminClientDir, adminClientIndex } from "./lib/admin/admin-ssr.js";
 import { requestContext } from "./middleware/request-context.js";
 
 let corePromise: Promise<void> | null = null;
@@ -28,8 +28,8 @@ function ensureCoreRoutes(app: express.Application): Promise<void> {
   if (!corePromise) {
     corePromise = (async () => {
       const [{ default: authRoutes }, { default: installRoutes }] = await Promise.all([
-        import("./routes/auth.js"),
-        import("./routes/install.js"),
+        import("./routes/auth/auth.js"),
+        import("./routes/system/install.js"),
       ]);
 
       app.use("/api/auth", authRoutes);
@@ -76,7 +76,7 @@ export function createApp(): express.Application {
   app.use((req, res, next) => {
     const started = Date.now();
     res.on("finish", () => {
-      void import("./lib/plugin-runtime.js")
+      void import("./lib/plugins/plugin-runtime.js")
         .then(({ getRuntimeHooks }) =>
           getRuntimeHooks().dispatchAction(
             "request.after",

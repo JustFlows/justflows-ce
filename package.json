@@ -36,7 +36,8 @@
     "make-zip": "bash scripts/make-zip.sh",
     "export:static": "node scripts/export-static.js",
     "sdk:api:check": "node scripts/check-sdk-api.mjs",
-    "sdk:api:update": "node scripts/check-sdk-api.mjs --update"
+    "sdk:api:update": "node scripts/check-sdk-api.mjs --update",
+    "typecheck:tests": "pnpm -r --if-present typecheck:tests"
   },
   "dependencies": {
     "@justflows/blocks": "file:./packages/blocks",

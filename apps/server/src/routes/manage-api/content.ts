@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 
 import { Router, type Request } from "express";
-import { ContentScheduleSchema, ScheduleError, setContentSchedule } from "../../lib/content-scheduling-db.js";
-import { getDb } from "../../lib/db.js";
-import { serializeContentRow } from "../../lib/content-api.js";
+import { ContentScheduleSchema, ScheduleError, setContentSchedule } from "../../lib/content/content-scheduling-db.js";
+import { getDb } from "../../lib/database/db.js";
+import { serializeContentRow } from "../../lib/content/content-api.js";
 import {
   getRevisionById,
   listRevisions,
   revisionColumn,
   serializeRevision,
-} from "../../lib/content-revisions.js";
+} from "../../lib/content/content-revisions.js";
 import { resolveContentLocale } from "../../lib/i18n/languages-db.js";
 import {
   applyDraftUpdate,
@@ -21,9 +21,9 @@ import {
   trashContentEntry,
   unpublishRow,
   type ContentActor,
-} from "../../lib/content-write.js";
-import { getEffectiveAccess } from "../../lib/access-policy.js";
-import { sendServerError } from "../../lib/send-error.js";
+} from "../../lib/content/content-write.js";
+import { getEffectiveAccess } from "../../lib/auth/access-policy.js";
+import { sendServerError } from "../../lib/http/send-error.js";
 import { badRequest, ensureKeyCan, notFound, paginate, relay, sendJson } from "./envelope.js";
 
 const router = Router();

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { NextFunction, Request, Response } from "express";
-import { getManageApiAllowedOrigins } from "../lib/manage-api-settings.js";
+import { getManageApiAllowedOrigins } from "../lib/http/manage-api-settings.js";
 
 /**
  * CORS for the federated management API.

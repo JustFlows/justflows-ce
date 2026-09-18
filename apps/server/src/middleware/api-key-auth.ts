@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 
 import type { NextFunction, Request, Response } from "express";
-import { auditLog } from "../lib/audit-log.js";
-import { clientIp } from "../lib/rate-limit.js";
-import { logSafe } from "../lib/log-safe.js";
+import { auditLog } from "../lib/security/audit-log.js";
+import { clientIp } from "../lib/security/rate-limit.js";
+import { logSafe } from "../lib/security/log-safe.js";
 import {
   recordApiKeyUse,
   verifyApiKey,
   type ApiKeyOwner,
   type ApiKeyRecord,
-} from "../lib/api-keys.js";
-import { isManageApiEnabled } from "../lib/manage-api-settings.js";
+} from "../lib/auth/api-keys.js";
+import { isManageApiEnabled } from "../lib/http/manage-api-settings.js";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

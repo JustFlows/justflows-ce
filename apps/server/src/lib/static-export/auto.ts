@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { CacheRevalidatedEvent, CacheRevalidateTrigger, ContentRef } from "@justflows/sdk";
-import { getRuntimeHooks } from "../plugin-runtime.js";
+import { getRuntimeHooks } from "../plugins/plugin-runtime.js";
 import { getStaticExportConfig } from "./config.js";
 import { runStaticExport } from "./index.js";
 

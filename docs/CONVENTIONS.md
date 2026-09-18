@@ -40,18 +40,13 @@ singular when there's only one entry.
   or an implementation plus its types). A folder containing a single
   `hash.ts` or a single `types.ts` should usually just be a top-level file
   (`hash.ts`, `types.ts`) instead.
-- Tests are colocated as `<name>.test.ts` next to the file under test. This
-  is the standard going forward for all packages. A few packages still use a
-  `src/__tests__/` folder from before this was written down — leave those as
-  they are rather than a drive-by rename, but write new tests colocated and
-  migrate a package's tests to colocated form when you're already touching
-  most of its `src/` in one PR.
-- A package with no tests yet should start with colocated `*.test.ts`, not a
-  `__tests__/` folder.
+- Tests live outside `src` in the owning package's `tests/unit/` or
+  `tests/integration/` tree. Mirror source subfolders when useful; keep the
+  `<name>.test.ts` suffix. See [Tests](#tests).
 
 ## `apps/server/src` (Express app)
 
-- `routes/<resource>.ts`: one file per resource, named for the resource the
+- `routes/<domain>/<resource>.ts`: one file per resource, named for the resource the
   routes serve. Use the plural form for collection-style resources
   (`blocks.ts`, `menus.ts`, `themes.ts`, `users.ts`) and the singular/mass
   form for singleton or whole-site concerns (`content.ts`, `install.ts`,
@@ -59,7 +54,7 @@ singular when there's only one entry.
   default.
 - `middleware/<concern>.ts`: kebab-case, named for what the middleware
   enforces or attaches, not for where it's used.
-- `lib/<concern>.ts`: kebab-case. Files that read/write a specific table or
+- `lib/<domain>/<concern>.ts`: kebab-case. Files that read/write a specific table or
   domain use the `<concern>-db.ts` suffix (`themes-db.ts`, `menus-db.ts`,
   `plugins-db.ts`, `css-providers-db.ts`); keep using that suffix for new
   DB-access modules so it stays a reliable signal.
@@ -69,17 +64,22 @@ singular when there's only one entry.
 - `views/static/*.html`: plain (non-EJS) HTML consumed by a dependency-free
   renderer that cannot assume the EJS engine or database is reachable
   (`error-fallback.html`, loaded via simple `{{TOKEN}}` string substitution
-  by `lib/static-error-page.ts`). Reserve this folder for that case, not as
+  by `lib/rendering/static-error-page.ts`). Reserve this folder for that case, not as
   a general alternative to `.ejs`.
-- Tests live in a single `__tests__/` folder per directory
-  (`lib/__tests__`, `middleware/__tests__`) — this is the established
-  pattern for `apps/server/src` specifically and differs from the
-  colocated-test rule for `packages/*`; don't mix the two within this tree.
+- Group `lib` by responsibility: authentication in `auth/`, database connection
+  and migrations in `database/`, mail in `email/`, content in `content/`,
+  extension runtime in `plugins/`, and rendering in `rendering/`. Existing
+  `i18n/` and `static-export/` remain self-contained. Keep framework-neutral
+  behavior in its existing `packages/*` owner; folders do not create new APIs.
+- Group HTTP routes by domain (`auth/`, `content/`, `design/`, `settings/`,
+  `system/`, etc.). Keep `manage-api/` as the versioned management API boundary.
+  Route registration order remains explicit in `register-routes.ts`.
+- Server tests live in `apps/server/tests/`, not in `src`.
 - A package (`packages/x`) and its host-side wiring in `apps/server/src/lib`
   may legitimately share a base filename when one wraps the other (for
   example `packages/cache/src/jf-cache.ts` and
-  `apps/server/src/lib/jf-cache.ts`, or `site-widgets.ts` in both
-  `packages/blocks/src/core` and `apps/server/src/lib`). This is intentional,
+  `apps/server/src/lib/cache/jf-cache.ts`, or `site-widgets.ts` in both
+  `packages/blocks/src/core` and `apps/server/src/lib/rendering`). This is intentional,
   not a collision — the package file is framework-neutral logic and the
   `apps/server` file is the Express-side singleton/wiring around it.
 
@@ -135,10 +135,60 @@ singular when there's only one entry.
   convention — this is the one deliberate exception to kebab-case for
   non-component files.
 - `lib/`, `config/`, `i18n/`: kebab-case utility modules.
-- Tests are colocated as `<Name>.test.tsx` / `<name>.test.ts` next to the
-  file under test. `pages/__tests__/admin-a11y.test.tsx` predates this rule
-  and covers cross-page a11y assertions rather than one page, which is why
-  it doesn't live next to a single page file — leave it where it is.
+- Group admin pages under `pages/admin/<domain>/` (for example `content/`,
+  `design/`, `extensions/`, `settings/`, and `security/`). Feature-specific
+  panels belong with their pages; shared components remain in `components/`.
+- Tests live in `apps/server/admin-ui/tests/`, mirroring `pages/`,
+  `components/`, `lib/`, and `config/`. Shared setup and accessibility helpers
+  live in `tests/helpers/`. The browser suite has its own jsdom Vitest project.
+
+## Tests
+
+Every app, package, and example plugin owns its tests. Do not create a shared
+monorepo test dumping ground or put new test files inside production `src`.
+
+```text
+apps/server/
+  src/lib/<domain>/
+  src/routes/<domain>/
+  tests/unit/<domain>/
+  tests/integration/routes/<domain>/
+  tests/integration/middleware/
+  tests/integration/database/
+  admin-ui/src/pages/admin/<domain>/
+  admin-ui/tests/pages/admin/<domain>/
+packages/<name>/
+  src/
+  tests/unit/
+  tests/integration/          # when needed
+```
+
+- Unit suites test an isolated behavior. HTTP suites exercising Express routes
+  belong under `tests/integration/routes/`, including suites using mocked DBs.
+  HTTP middleware suites belong under `tests/integration/middleware/`.
+  Real database suites belong under `tests/integration/database/`; preserve
+  their disposable-database opt-in guards. Public script unit tests live in
+  `apps/server/tests/unit/public-scripts/` and use jsdom.
+- Put shared fixtures and helpers under the owning `tests/` tree when needed;
+  do not add empty placeholder directories. Keep `.integration.test.ts` on
+  opt-in database suites so their execution requirements remain visible.
+- Each owner's `vitest.config.ts` discovers `tests/**/*.test.ts(x)` only.
+  Root `vitest.config.mts` lists the server, browser, package, and example-plugin
+  projects. `pnpm test` runs declared workspace test scripts through Turbo.
+  Packages without tests do not declare a test script; add one with the first
+  real suite rather than using `--passWithNoTests`.
+- Production TypeScript configs exclude tests. Server, package, and example
+  plugin `tsconfig.tests.json` files typecheck tests without emitting them, and
+  their normal `typecheck` scripts run that check too. Use
+  `pnpm typecheck:tests` to run these checks directly. Browser tests run
+  in the admin Vitest suite; Vite builds the admin client and SSR bundles.
+- A move must update static imports, dynamic imports, mocks, fixtures,
+  module-relative assets, compiled worker paths, and documented commands.
+  Validate a clean build so stale output cannot conceal broken paths.
+- Internal `file:` dependencies are retained for distribution. Turbo build
+  tasks explicitly list these dependencies because its workspace graph does
+  not infer them here. Keep those edges in `turbo.json` in sync when adding
+  a dependency; tests and typechecks depend on their own package build.
 
 ## Plugins (`plugins/*`)
 
@@ -187,7 +237,7 @@ singular when there's only one entry.
   actually changes. Find the highest number in `migrations/` and use the next number;
   `0033_spam_term_source` is currently the latest.
 - Add each new migration name to `MIGRATION_ORDER` in
-  `apps/server/src/lib/run-migrations.ts`. The runner skips names already
+  `apps/server/src/lib/database/run-migrations.ts`. The runner skips names already
   recorded in `_migrations`.
 
 ## Scripts (`scripts/*`)
@@ -198,16 +248,18 @@ singular when there's only one entry.
   (`scripts/bootstrap-gate.cjs` and `scripts/install-token.cjs` predate this
   rule and don't need the distinction; new scripts should default to `.js`.)
 
+For copyable workspace, focused-suite, and database commands, see
+[local testing](TESTING-EXTENSIONS.md#workspace-verification).
+
 ## Resolved gaps
 
 These were flagged in the initial structure audit and have since been fixed
 to match the rules above:
 
-- `public/js/*.js` is now tracked in version control (it's hand-authored
-  source referenced directly by `apps/server/src/views/layout.ejs`, not a
-  build artifact).
-- `apps/server/src/lib/i18n/admin/` and `.../catalogs/` are renamed to
-  `admin-catalogs/` and `site-catalogs/` — they hold different catalogs (the
+- Public scripts live in `apps/server/public-scripts/src/`. Their compiled
+  `public/js/*.js` output is generated and gitignored.
+- `apps/server/src/lib/i18n/admin-catalogs/` and
+  `apps/server/src/lib/i18n/site-catalogs/` hold different catalogs (the
   admin application's nested translation bundle vs. the public site's flat one), and
   the parallel `-catalogs` suffix makes that distinction explicit instead of
   one directory looking like the unqualified default.

@@ -4,10 +4,47 @@ Justflows is one Express application with three deliberately different render
 paths. Production releases ship all compiled output; installation never asks a
 site owner to run Vite, TypeScript, npm build, or pnpm build.
 
+## Source and test layout
+
+The monorepo separates framework-neutral domain packages from Express and React
+integration. Server helpers, routes, and admin pages are grouped by domain:
+
+```text
+apps/server/
+  src/
+    server.ts                  Express entry point
+    register-routes.ts         Explicit route registration and ordering
+    lib/<domain>/              Server helpers: auth, content, cache, rendering, etc.
+    routes/<domain>/           HTTP handlers: auth, content, design, settings, etc.
+    routes/manage-api/         Management API boundary
+    middleware/                Request middleware
+    views/                     EJS views and static HTML fallbacks
+  tests/unit/<domain>/
+  tests/integration/routes/<domain>/
+  tests/integration/middleware/
+  tests/integration/database/
+  admin-ui/
+    src/pages/admin/<domain>/  Feature pages and their panels
+    src/components/            Shared and feature-grouped React components
+    tests/                     Browser tests mirroring pages, components, and helpers
+  public-scripts/src/          Standalone public browser scripts
+packages/<name>/
+  src/                         Framework-neutral implementation and public exports
+  tests/                       Package-owned unit and integration tests
+plugins/hello-world/
+  src/                         Example plugin implementation
+  tests/unit/                  Example plugin tests
+```
+
+Tests are outside production source trees. The admin browser suite has its own
+Vitest configuration; server HTTP and database suites stay with the server.
+See [naming and placement conventions](CONVENTIONS.md) for ownership rules and
+[local test commands](TESTING-EXTENSIONS.md#workspace-verification) for execution.
+
 ## Public website and SEO
 
 Public pages are rendered completely on the server by
-`apps/server/src/routes/public-site.ts` and the EJS views under
+`apps/server/src/routes/public/public-site.ts` and the EJS views under
 `apps/server/src/views`. The first HTML response contains the published blocks,
 navigation, title, meta description, canonical URL, Open Graph tags, structured
 data, and language alternates. Search crawlers do not need to execute React or
@@ -24,7 +61,7 @@ Unlike meta tags and `sitemap.xml`, RSS 2.0 / Atom 1.0 / JSON Feed 1.1 output is
 **not** host-rendered — it is owned by the first-party **SEO Toolkit** plugin
 (`justflows.seo`, published through the plugin registry, not bundled in this
 repo). Its manifest declares `hostCooperative: true`, so once installed the
-runtime activates it (see `plugin-runtime.ts` — `isRuntimeSkippedFirstParty`)
+runtime activates it (see `apps/server/src/lib/plugins/plugin-runtime.ts` — `isRuntimeSkippedFirstParty`)
 instead of leaving it inert like the other first-party plugins the host renders
 itself. It then wires itself up through public SDK surfaces only:
 
@@ -35,12 +72,12 @@ itself. It then wires itself up through public SDK surfaces only:
   feed bodies (`ctx.cache`, `feed:` prefix);
 - `staticExport.routes` filter to seed the exporter with the feed URLs.
 
-| URL | Feed |
-| --- | --- |
-| `/feed.xml` | Site-wide — the content types in the SEO setting `feedTypes` (posts by default) |
-| `/<type>/feed.xml` | One content type |
-| `/author/<username>/feed.xml` | One author |
-| `/<locale>/…/feed.xml` | Any of the above, for a non-default locale (`.atom` / `.json` alongside every `.xml`) |
+| URL                           | Feed                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------- |
+| `/feed.xml`                   | Site-wide — the content types in the SEO setting `feedTypes` (posts by default)       |
+| `/<type>/feed.xml`            | One content type                                                                      |
+| `/author/<username>/feed.xml` | One author                                                                            |
+| `/<locale>/…/feed.xml`        | Any of the above, for a non-default locale (`.atom` / `.json` alongside every `.xml`) |
 
 Feeds are locale-aware, list the newest `feedItemCount` entries (default 20),
 exclude scheduled (`publishedAt` in the future), expired, and per-entry
@@ -65,9 +102,9 @@ rebuilds. See [Static / edge export](STATIC-EXPORT.md).
 
 The Vite/React admin has two entry points:
 
-- `admin-ui/src/entry-server.tsx` renders the requested route with React's
+- `apps/server/admin-ui/src/entry-server.tsx` renders the requested route with React's
   server renderer and React Router's `StaticRouter`.
-- `admin-ui/src/entry-client.tsx` hydrates that markup with `BrowserRouter` and
+- `apps/server/admin-ui/src/entry-client.tsx` hydrates that markup with `BrowserRouter` and
   installs CSRF handling for later mutations.
 
 For an authenticated `/admin/*` navigation, Express validates the session,
@@ -92,7 +129,8 @@ same client bundle but do not require the authenticated admin SSR data path.
 `pnpm --filter @justflows/server build` produces:
 
 ```text
-apps/server/dist/                         compiled Express server and views
+apps/server/dist/                         compiled Express server, views, and catalogs
+apps/server/dist/lib/<domain>/            compiled helpers and worker entrypoints
 apps/server/admin-ui/dist/client/         browser HTML, JavaScript, CSS, assets
 apps/server/admin-ui/dist/server/         Node SSR bundle (entry-server.js)
 ```
@@ -100,7 +138,9 @@ apps/server/admin-ui/dist/server/         Node SSR bundle (entry-server.js)
 The updater and first-run bootstrap consider the application built only when
 the Express output, client HTML, and SSR entry all exist. Docker copies both
 admin outputs into the runtime image. `scripts/make-zip.sh` builds them before
-creating an official shared-hosting archive.
+creating an official shared-hosting archive. The archive excludes dedicated
+`tests/` folders, `tsconfig.tests.json`, and Vitest configurations. Production
+TypeScript builds do not emit test files.
 
 Consequently:
 
@@ -115,11 +155,18 @@ Consequently:
 Use the normal workspace commands:
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
+pnpm build
 pnpm dev
-pnpm --filter @justflows/server test
-pnpm --filter @justflows/server build
+# Run verification separately from the development process:
+pnpm test --force
+pnpm typecheck
 ```
+
+Root `pnpm build` orders workspace dependencies through Turbo. Internal `file:`
+dependencies have explicit build edges in `turbo.json`; keep them aligned with
+package manifests. Root test and typecheck tasks depend on their package builds.
+For a focused server run after building, use `pnpm --filter @justflows/server test`.
 
 The admin client and SSR builds deliberately use separate Vite configurations.
 The browser build is split into stable React vendor, admin-page, and visual
@@ -129,13 +176,13 @@ remains one Node entry because it must synchronously render every admin route.
 Universal components must not read `window`, `document`, `navigator`, or
 `localStorage` during render. Browser-only work belongs in effects, event
 handlers, or the client entry. New initial GET requests must be added to the
-route-aware prefetch list in `apps/server/src/lib/admin-ssr.ts` or replaced with
+route-aware prefetch list in `apps/server/src/lib/admin/admin-ssr.ts` or replaced with
 a server loader, and should have an SSR test.
 
 ## Scheduled content lifecycle
 
 The server owns persisted publishing/expiry deadlines and the
-`@justflows/jobs` scanner in `lib/content-scheduling-db.ts`. Row-locked
+`@justflows/jobs` scanner in `apps/server/src/lib/content/content-scheduling-db.ts`. Row-locked
 transactions commit content, history, webhook deliveries and an event together;
 post-commit events invalidate caches and notify plugins. The latest saved working
 revision replaces the live snapshot only at its due time. Signed single-entry

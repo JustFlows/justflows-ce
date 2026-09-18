@@ -186,7 +186,7 @@ suite against a disposable database named `search_test`:
 SEARCH_TEST_DATABASE=1 DB_DRIVER=postgres DB_HOST=127.0.0.1 \
   DB_PORT=5432 DB_NAME=search_test DB_USER=postgres DB_PASSWORD='' \
   pnpm --filter @justflows/server exec vitest run \
-  src/lib/__tests__/search-db.integration.test.ts
+  tests/integration/database/search-db.integration.test.ts
 ```
 
 Use `mysql` or `mariadb` and their connection details for the other engines.

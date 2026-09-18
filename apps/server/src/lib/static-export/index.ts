@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 import type { CacheRevalidateTrigger } from "@justflows/sdk";
-import { getRuntimeHooks } from "../plugin-runtime.js";
-import { getJustflowsVersion } from "../version.js";
+import { getRuntimeHooks } from "../plugins/plugin-runtime.js";
+import { getJustflowsVersion } from "../runtime/version.js";
 import { assetPathsFromCss, isCssPath, originHost } from "./assets.js";
 import {
   assertExportOrigin,
@@ -32,8 +32,8 @@ import {
   type RouteDeps,
   type StaticExportManifest,
 } from "./manifest.js";
-import { getAdminPathConfig } from "../admin-path.js";
-import { getPerformanceConfig } from "../performance-settings.js";
+import { getAdminPathConfig } from "../admin/admin-path.js";
+import { getPerformanceConfig } from "../cache/performance-settings.js";
 import { normalizeUrlPath, urlPathToFile } from "./paths.js";
 import { redirectStubHtml, writeExport, type OutputFile } from "./write-fs.js";
 
@@ -461,7 +461,7 @@ export async function runStaticExport(
     log(`⚠ Stopped at STATIC_EXPORT_MAX_PAGES=${cfg.maxPages}; raise it to export the rest.`);
   }
 
-  const { getSiteId } = await import("../themes-db.js");
+  const { getSiteId } = await import("../themes/themes-db.js");
   const siteId = (await getSiteId()) ?? "";
   const actionRewrites = await resolveActionRewrites(cfg.originUrl, siteId);
   if (actionRewrites.size > 0) {
@@ -653,7 +653,7 @@ export async function runStaticExport(
   // Files that vanished (seed now 404s) must be removed even without a full prune.
   if (prunePaths.size > 0 && !prune && prev) {
     const { rm, realpath, mkdir } = await import("node:fs/promises");
-    const { resolvePathUnderBase } = await import("../safe-path.js");
+    const { resolvePathUnderBase } = await import("../security/safe-path.js");
     await mkdir(cfg.outDir, { recursive: true });
     const base = await realpath(cfg.outDir);
     for (const p of prunePaths) {
@@ -761,7 +761,7 @@ export async function clearStaticExport(
   const { outDir } = getStaticExportConfig();
   const fsp = await import("node:fs/promises");
   const nodePath = await import("node:path");
-  const { getJfRoot } = await import("../jf-root.js");
+  const { getJfRoot } = await import("../runtime/jf-root.js");
 
   // `force` skips only the manifest-presence check below — never this one. A
   // misconfigured `STATIC_EXPORT_DIR` (`.`, `..`, an absolute path) must not let

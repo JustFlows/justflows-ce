@@ -8,16 +8,31 @@
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "@justflows/server#build": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build",
+        "@justflows/blocks#build",
+        "@justflows/cache#build",
+        "@justflows/content#build",
+        "@justflows/core#build",
+        "@justflows/installer#build",
+        "@justflows/jobs#build",
+        "@justflows/plugin-api#build"
+      ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**", "admin-ui/dist/**", "../../public/js/**", ".next/**", "!.next/cache/**"]
+      "outputs": [
+        "dist/**",
+        "admin-ui/dist/**",
+        "../../public/js/**",
+        ".next/**",
+        "!.next/cache/**"
+      ]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
     "test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["build"],
       "inputs": ["$TURBO_DEFAULT$"],
       "outputs": ["coverage/**"]
     },
@@ -25,11 +40,46 @@
       "inputs": ["$TURBO_DEFAULT$"]
     },
     "typecheck": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["build"],
       "inputs": ["$TURBO_DEFAULT$"]
     },
     "clean": {
       "cache": false
+    },
+    "@justflows/database#build": {
+      "dependsOn": ["^build", "@justflows/core#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@justflows/auth#build": {
+      "dependsOn": [
+        "^build",
+        "@justflows/core#build",
+        "@justflows/database#build",
+        "@justflows/sdk#build"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@justflows/content#build": {
+      "dependsOn": ["^build", "@justflows/auth#build", "@justflows/core#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@justflows/plugin-api#build": {
+      "dependsOn": ["^build", "@justflows/core#build", "@justflows/sdk#build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
+    },
+    "@justflows/installer#build": {
+      "dependsOn": [
+        "^build",
+        "@justflows/auth#build",
+        "@justflows/core#build",
+        "@justflows/sdk#build"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**"]
     }
   }
 }

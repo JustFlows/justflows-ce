@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import type { NextFunction, Request, Response } from "express";
-import { envFilePath } from "../lib/jf-root.js";
+import { envFilePath } from "../lib/runtime/jf-root.js";
 
 /**
  * Set once a database probe has confirmed a site row exists. Install state was
@@ -32,7 +32,7 @@ export function isInstalled(): boolean {
 export async function confirmInstalledFromDatabase(): Promise<void> {
   if (confirmedBySchema || !process.env.DB_DRIVER) return;
   try {
-    const { getDb } = await import("../lib/db.js");
+    const { getDb } = await import("../lib/database/db.js");
     const db = await getDb();
     const rows = await db.query<{ id: string }>("SELECT id FROM sites LIMIT 1");
     if (rows[0]?.id) {
@@ -82,7 +82,7 @@ export function blockIfInstalled(req: Request, res: Response, next: NextFunction
     return;
   }
   if (req.path === "/install" || req.path.startsWith("/api/install")) {
-    void import("../lib/admin-path.js")
+    void import("../lib/admin/admin-path.js")
       .then(({ getAdminPathConfig }) => getAdminPathConfig())
       .then((config) => res.redirect(config.path))
       .catch(next);

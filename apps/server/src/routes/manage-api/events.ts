@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 import { Router } from "express";
-import { listEventCatalog } from "../../lib/event-schemas.js";
-import { sendServerError } from "../../lib/send-error.js";
+import { listEventCatalog } from "../../lib/runtime/event-schemas.js";
+import { sendServerError } from "../../lib/http/send-error.js";
 import { sendJson } from "./envelope.js";
 
 const router = Router();

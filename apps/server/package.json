@@ -13,9 +13,10 @@
     "build:admin-ui": "vite build --config admin-ui/vite.config.ts && vite build --config admin-ui/vite.ssr.config.ts",
     "build:public-scripts": "NODE_ENV=production node public-scripts/build.mjs",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit && tsc -p public-scripts/tsconfig.json --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p public-scripts/tsconfig.json --noEmit && pnpm typecheck:tests",
     "test": "vitest run && vitest run --config admin-ui/vitest.config.ts",
-    "clean": "rm -rf dist admin-ui/dist ../../public/js/*.js"
+    "clean": "rm -rf dist admin-ui/dist ../../public/js/*.js",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit"
   },
   "dependencies": {
     "@justflows/blocks": "file:../../packages/blocks",
