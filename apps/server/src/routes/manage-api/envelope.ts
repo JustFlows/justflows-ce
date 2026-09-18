@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import type { Request, Response } from "express";
 import type { AccessResource, UserCapability } from "@justflows/sdk";
-import { keyCan } from "../../lib/api-keys.js";
+import { keyCan } from "../../lib/auth/api-keys.js";
 
 /**
  * Shared response envelope for `/api/manage/v1`: the `{ error }` shape the

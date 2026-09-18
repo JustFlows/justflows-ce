@@ -1,9 +1,52 @@
-# Testing extensions against Community Edition
+# Testing Community Edition and extensions
+
+## Workspace verification
+
+Run these commands from the `justflows-ce-development` repository root:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm test --force
+pnpm typecheck
+```
+
+`pnpm test --force` runs all declared workspace test scripts and bypasses Turbo's
+cached results. It includes server, admin UI, domain packages, and the example
+plugin, with required builds ordered first. `pnpm test` allows cache reuse.
+For a clean production build, run `pnpm clean` followed by `pnpm build`.
+
+The database integration suites are opt-in and require separate fresh,
+disposable databases. They remain skipped during a normal run. Follow the
+[scheduling commands](SCHEDULING.md#developer-verification) for `schedule_test`
+and [search commands](SEARCH.md#local-verification) for `search_test`. Run them
+separately with the corresponding environment variables and connection details.
+
+Tests live in each app/package/plugin's `tests/` folder; see the
+[test placement conventions](CONVENTIONS.md#tests). The root `vitest.config.mts`
+lists the individual projects, including the separate admin browser project.
+Production source configs exclude tests. Server, package, and example-plugin
+`typecheck` commands also run their `tsconfig.tests.json` checks; use
+`pnpm typecheck:tests` to run just those checks after building dependencies.
+
+For focused runs after a workspace build:
+
+```bash
+# Server and admin UI suites
+pnpm --filter @justflows/server test
+
+# One server suite
+pnpm --filter @justflows/server exec vitest run tests/unit/auth/password.test.ts
+
+# Admin browser suite only
+pnpm --filter @justflows/server exec vitest run --config admin-ui/vitest.config.ts
+```
 
 ## Unit tests
 
-`plugins/hello-world` uses Vitest with a mocked context. Copy that pattern for
-hook registration and `activate` / `deactivate`.
+`plugins/hello-world/tests/unit/index.test.ts` uses Vitest with a mocked context.
+Copy that pattern for hook registration and `activate` / `deactivate`. Keep new
+plugin tests in `plugins/<name>/tests/unit/` and configure the plugin's Vitest
+project to discover `tests/**/*.test.ts`; implementation belongs in `src/`.
 
 ```bash
 pnpm --filter justflows.hello-world test

@@ -12,5 +12,13 @@
     "verbatimModuleSyntax": false
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "admin-ui", "src/**/__tests__/**"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/__tests__/**",
+    "admin-ui"
+  ]
 }

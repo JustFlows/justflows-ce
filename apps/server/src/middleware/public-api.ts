@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { canUsePublicApiWhileOff, isPublicApiEnabled } from "../lib/public-api-access.js";
+import { canUsePublicApiWhileOff, isPublicApiEnabled } from "../lib/http/public-api-access.js";
 
 /**
  * Guards every public-facing API route. When Admin → Settings → Public API is

@@ -36,7 +36,7 @@ Themes use `justflows-theme.json` (or `justflows.json` with `type: "theme"`).
 See [THEMES.md](THEMES.md).
 
 Invalid manifests fail install. Tests live in
-`packages/installer/src/package-manifest.test.ts`.
+`packages/installer/tests/unit/package-manifest.test.ts`.
 
 This compatibility field and its SDK schema are shared by plugins, themes, and
 CSS providers. The legacy top-level `justflows` field is accepted for existing

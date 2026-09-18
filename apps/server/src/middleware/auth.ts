@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
-import { resolveSession } from "../lib/auth-session.js";
-import { syncCsrfCookie, type SessionPayload } from "../lib/session.js";
-import { userCan } from "../lib/access-policy.js";
+import { resolveSession } from "../lib/auth/auth-session.js";
+import { syncCsrfCookie, type SessionPayload } from "../lib/auth/session.js";
+import { userCan } from "../lib/auth/access-policy.js";
 import type { AccessResource, UserCapability } from "@justflows/sdk";
 
 declare global {

@@ -3,11 +3,11 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import multer, { MulterError } from "multer";
-import { getDb } from "../../lib/db.js";
-import { maxUploadBytes, formatMb } from "../../lib/media-quota.js";
-import { listMediaItems, storeMediaUpload, trashMediaItem } from "../../lib/media-write.js";
-import { clientIp } from "../../lib/rate-limit.js";
-import { sendServerError } from "../../lib/send-error.js";
+import { getDb } from "../../lib/database/db.js";
+import { maxUploadBytes, formatMb } from "../../lib/media/media-quota.js";
+import { listMediaItems, storeMediaUpload, trashMediaItem } from "../../lib/media/media-write.js";
+import { clientIp } from "../../lib/security/rate-limit.js";
+import { sendServerError } from "../../lib/http/send-error.js";
 import { badRequest, ensureKeyCan, notFound, paginate, relay, sendJson } from "./envelope.js";
 
 const router = Router();

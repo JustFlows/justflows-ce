@@ -18,8 +18,9 @@
     "dev": "tsc -p tsconfig.json --watch",
     "test": "vitest run",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "clean": "rm -rf dist coverage"
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm typecheck:tests",
+    "clean": "rm -rf dist coverage",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit"
   },
   "devDependencies": {
     "jsdom": "^30.0.1",

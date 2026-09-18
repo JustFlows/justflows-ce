@@ -92,6 +92,9 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/coverage/*" \
     -x "$NAME/.nyc_output/*" \
     -x "$NAME/test-results/*" \
+    -x "$NAME/**/tests/*" \
+    -x "$NAME/**/tsconfig.tests.json" \
+    -x "$NAME/**/vitest.config.*" \
     -x "$NAME/playwright-report/*" \
     -x "$NAME/**/*.log" \
     -x "$NAME/.DS_Store" \
@@ -152,7 +155,7 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/.gitignore" \
     -x "$NAME/.eslintrc.js" \
     -x "$NAME/.prettierrc" \
-    -x "$NAME/vitest.workspace.ts" \
+    -x "$NAME/vitest.config.mts" \
     -x "$NAME/AGENTS.md" \
     -x "$NAME/CONTRIBUTING.md" \
     -x "$NAME/CODE_OF_CONDUCT.md" \
@@ -183,6 +186,9 @@ else
     -x "coverage/*" \
     -x ".nyc_output/*" \
     -x "test-results/*" \
+    -x "**/tests/*" \
+    -x "**/tsconfig.tests.json" \
+    -x "**/vitest.config.*" \
     -x "playwright-report/*" \
     -x "**/*.log" \
     -x ".DS_Store" \
@@ -243,7 +249,7 @@ else
     -x ".gitignore" \
     -x ".eslintrc.js" \
     -x ".prettierrc" \
-    -x "vitest.workspace.ts" \
+    -x "vitest.config.mts" \
     -x "AGENTS.md" \
     -x "CONTRIBUTING.md" \
     -x "CODE_OF_CONDUCT.md" \

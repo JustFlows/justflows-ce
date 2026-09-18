@@ -2,8 +2,8 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import type { Request, Response } from "express";
-import { getJfRoot } from "../jf-root.js";
-import { param } from "../params.js";
+import { getJfRoot } from "../runtime/jf-root.js";
+import { param } from "../http/params.js";
 import { ADMIN_UI_LOCALES } from "./locales.js";
 import { flattenCatalog, type MessageCatalog } from "./translate.js";
 

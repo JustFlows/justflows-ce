@@ -6,8 +6,8 @@ import {
   getSecurityHeadersConfig,
   resolveHeaders,
   type RequestArea,
-} from "../lib/security-headers.js";
-import { getAdminPathConfig, toInternalAdminPath } from "../lib/admin-path.js";
+} from "../lib/security/security-headers.js";
+import { getAdminPathConfig, toInternalAdminPath } from "../lib/admin/admin-path.js";
 
 /**
  * Escape hatch. A policy that locks the owner out of the admin has to be
@@ -47,8 +47,8 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
       apply(res, config, ctx);
       if (config.removeServerHeader) res.removeHeader("Server");
       if (ctx.area === "public") {
-        const { getConfiguredGoogleTagId } = await import("../lib/analytics-public.js");
-        const { googleTagInlineHashes, withGoogleTagCsp } = await import("../lib/google-tag.js");
+        const { getConfiguredGoogleTagId } = await import("../lib/rendering/analytics-public.js");
+        const { googleTagInlineHashes, withGoogleTagCsp } = await import("../lib/rendering/google-tag.js");
         const googleTagId = await getConfiguredGoogleTagId();
         if (googleTagId) {
           const hashes = googleTagInlineHashes(googleTagId);
@@ -64,7 +64,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
         }
 
         const { getCaptchaProviderForCsp, withCaptchaCsp } =
-          await import("../lib/comments-captcha-csp.js");
+          await import("../lib/comments/comments-captcha-csp.js");
         const captchaProvider = await getCaptchaProviderForCsp();
         if (captchaProvider !== "none") {
           for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {

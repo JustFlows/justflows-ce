@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { getDb } from "../db.js";
-import { getSiteId } from "../site-settings.js";
+import { getDb } from "../database/db.js";
+import { getSiteId } from "../settings/site-settings.js";
 import { DEFAULT_CONTENT_LOCALE, metaForCode, matchActiveLocale, normalizeLocale, type LanguageMeta } from "./locales.js";
 
 export interface LanguageRow {

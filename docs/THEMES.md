@@ -6,7 +6,7 @@ and blog layouts.
 
 ## Resolution order
 
-`resolveThemeDir` in `apps/server/src/lib/theme-files.ts`:
+`resolveThemeDir` in `apps/server/src/lib/themes/theme-files.ts`:
 
 1. The theme's stored `installedPath` (uploaded `.jfpkg`)
 2. `packages-installed/themes/<id>/` (latest version folder)
@@ -155,9 +155,9 @@ themes/<slug>/
     footer.json
 ```
 
-`templateCandidates()` in `apps/server/src/lib/template-hierarchy.ts` turns a
+`templateCandidates()` in `apps/server/src/lib/rendering/template-hierarchy.ts` turns a
 request into an ordered, most-specific-first list of slugs; `resolveThemeTemplate`
-in `apps/server/src/lib/theme-files.ts` returns the first slug the theme actually
+in `apps/server/src/lib/themes/theme-files.ts` returns the first slug the theme actually
 ships a file for. A `page` content type resolves through `page` → `singular`;
 every other type through `single` → `singular`; both end at `index`.
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 import type { Request, Response, NextFunction } from "express";
-import { getSiteId } from "../lib/site-settings.js";
-import { reservedPermalinkPath } from "../lib/permalinks-db.js";
-import { runtimeRedirects, recordNotFound } from "../lib/redirects-db.js";
-import { matchRedirect, resolveRedirect, safeRedirectTarget } from "../lib/redirects.js";
+import { getSiteId } from "../lib/settings/site-settings.js";
+import { reservedPermalinkPath } from "../lib/navigation/permalinks-db.js";
+import { runtimeRedirects, recordNotFound } from "../lib/navigation/redirects-db.js";
+import { matchRedirect, resolveRedirect, safeRedirectTarget } from "../lib/navigation/redirects.js";
 
 let pendingLogs = 0;
 let logWarning = false;

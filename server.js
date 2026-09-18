@@ -225,7 +225,7 @@ function sendJson(res, status, body) {
  * Dependency-free 500 fallback (justflows-ce#92) for when the full app cannot
  * even boot — no database, cache, or plugin runtime exists yet at this point,
  * so this cannot go through Express or the theme system. It mirrors
- * `apps/server/src/lib/static-error-page.ts` as an independent copy (this
+ * `apps/server/src/lib/rendering/static-error-page.ts` as an independent copy (this
  * layer runs before that compiled module exists on disk); both read the same
  * `apps/server/{dist,src}/views/static/error-fallback.html` and
  * `lib/i18n/site-catalogs/*.json` files, which are the single source of truth
