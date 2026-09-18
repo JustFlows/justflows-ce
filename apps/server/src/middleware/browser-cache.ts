@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { getPerformanceConfig } from "../lib/performance-settings.js";
+import { getPerformanceConfig } from "../lib/cache/performance-settings.js";
 
 const NO_BROWSER_CACHE = /^\/(admin|api|install|login)(\/|$)/;
 

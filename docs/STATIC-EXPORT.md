@@ -153,12 +153,12 @@ Set `STATIC_EXPORT_AUTO=1` (needs `CACHE_REVALIDATE_ENABLED=1` — that is what
 fires the trigger). After any change the exporter waits `STATIC_EXPORT_DEBOUNCE_MS`,
 then runs an **incremental** export:
 
-| Change                                                    | What rebuilds                                                                                                                                          |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Change                                                    | What rebuilds                                                                                                                                                         |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | publish / unpublish / update a page or post               | that page's routes (per the manifest `deps`), its translation siblings, every route with a dynamic list (blog/archive/home), `sitemap.xml`, and the syndication feeds |
-| delete / unpublish so a URL now 404s                      | that page's files are **removed** and `sitemap.xml` + feeds are rewritten                                                                              |
-| menu, theme, Customizer, CSS provider, or settings change | **every** route, plus `theme.css` and other assets                                                                                                     |
-| newly published page                                      | picked up by the incremental run that publish triggers — discovery re-reads the live sitemap and published list and seeds any path not in the manifest |
+| delete / unpublish so a URL now 404s                      | that page's files are **removed** and `sitemap.xml` + feeds are rewritten                                                                                             |
+| menu, theme, Customizer, CSS provider, or settings change | **every** route, plus `theme.css` and other assets                                                                                                                    |
+| newly published page                                      | picked up by the incremental run that publish triggers — discovery re-reads the live sitemap and published list and seeds any path not in the manifest                |
 
 A **full** export always prunes: any file under `STATIC_EXPORT_DIR` not produced
 by the run is deleted (and emptied directories are cleaned up), so a full export
@@ -332,6 +332,20 @@ every page. Its admin route returns `revalidate: true`, so with auto-rebuild on
 the export regenerates on save — no manual **Run full export** needed. (This is
 the generic `PluginHttpResponse.revalidate` path; any plugin with a bespoke
 config route can use it — see [PLUGINS.md](PLUGINS.md#revalidate-after-a-config-write).)
+
+### PWA (installable app) exports statically
+
+When [a PWA is enabled](PWA.md), the manifest, service worker, and offline
+fallback page are seeded into the crawl explicitly — the service worker's
+`navigator.serviceWorker.register()` call is an inline `<script>`, invisible
+to the `<script src>`/`<link>`/`<img>`/CSS-`url()` scanner above — and written
+into the export like any other file. All three are static once generated, so
+the exported site stays fully installable and offline-capable with **no
+origin at all**. Saving a PWA setting calls the same `settings` cache-revalidate
+trigger every other settings write does, so with auto-rebuild on, the export
+regenerates the same way it does after a Cookie Consent config change.
+Because the export is a snapshot, `manifest.webmanifest` and `sw.js` only pick
+up a change on the next export run.
 
 ### What needs a reachable origin
 
@@ -531,7 +545,7 @@ Same verification as nginx: check `/` and `/contact` (static) **and** the admin
 and `/api/healthz` (dynamic).
 
 **Renamed admin path.** The admin path is a site setting (`security.admin_path`,
-default `/admin` — [`admin-path.ts`](../apps/server/src/lib/admin-path.ts)), so
+default `/admin` — [`admin-path.ts`](../apps/server/src/lib/admin/admin-path.ts)), so
 it lives in the database, not anywhere nginx can read. If an admin renames it,
 edit the `location ^~ /admin` line to match — or drop that line entirely: an
 unknown admin slug is not a file in the export, so `location /` still falls

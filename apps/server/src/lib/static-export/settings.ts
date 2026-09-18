@@ -3,8 +3,8 @@
 import path from "node:path";
 import { z } from "zod";
 import { parseEnvBool } from "@justflows/core";
-import { getJfRoot } from "../jf-root.js";
-import { applyEnvToProcess, readEnvMap, updateEnvKeys } from "../env-file.js";
+import { getJfRoot } from "../runtime/jf-root.js";
+import { applyEnvToProcess, readEnvMap, updateEnvKeys } from "../settings/env-file.js";
 import { getStaticExportConfig, intFromEnv } from "./config.js";
 import { isStaticExportAutoArmed, refreshStaticExportAutoRebuild } from "./auto.js";
 

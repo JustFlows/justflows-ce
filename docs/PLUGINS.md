@@ -2,9 +2,11 @@
 
 Start from [`plugins/hello-world`](../plugins/hello-world). That folder is the
 supported example: copy it, change the id, and build.
-[`plugins/consent`](../plugins/consent) is a fuller first-party example — a
-stylesheet, sync and async filters, HTTP routes, a bundled browser runtime, an
-admin page, and `plugin_data` records with `deleteData` cleanup.
+The first-party Consent plugin lives in the separate plugin registry repository,
+not in this checkout. It provides a fuller example: a stylesheet, sync and async
+filters, HTTP routes, a bundled browser runtime, an admin page, and `plugin_data`
+records with `deleteData` cleanup. Local example tests live in
+`plugins/hello-world/tests/unit/`; see [local testing](TESTING-EXTENSIONS.md).
 
 ```bash
 cp -R plugins/hello-world plugins/my-seo
@@ -217,13 +219,13 @@ On activation the host:
 **Host ⇄ frame bridge.** The two sides talk only over `postMessage` (use
 `@justflows/admin-bridge`), never a shared React runtime:
 
-| Direction | Message | Purpose |
-| --------- | ------- | ------- |
-| plugin → host | `ready` | frame mounted; host replies with `context` |
-| plugin → host | `resize { height }` | host sizes the iframe to fit |
-| plugin → host | `navigate { path }` | host routes to another `/admin/…` page (or opens an `http(s)` URL in a new tab) |
-| host → plugin | `context { locale, adminBase, routePath, theme }` | sent on `ready` and on load |
-| host → plugin | `route { routePath }` | host URL changed under the plugin's path — follow it in the frame's own router |
+| Direction     | Message                                           | Purpose                                                                         |
+| ------------- | ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| plugin → host | `ready`                                           | frame mounted; host replies with `context`                                      |
+| plugin → host | `resize { height }`                               | host sizes the iframe to fit                                                    |
+| plugin → host | `navigate { path }`                               | host routes to another `/admin/…` page (or opens an `http(s)` URL in a new tab) |
+| host → plugin | `context { locale, adminBase, routePath, theme }` | sent on `ready` and on load                                                     |
+| host → plugin | `route { routePath }`                             | host URL changed under the plugin's path — follow it in the frame's own router  |
 
 The frame is same-origin, so the plugin reads the CSRF cookie itself and calls
 its **own** `ctx.http` routes for data — nothing is proxied through core. Server

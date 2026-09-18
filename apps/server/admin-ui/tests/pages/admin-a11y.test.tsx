@@ -1,0 +1,331 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PluginMenuProvider } from "@components/PluginMenuProvider";
+import { SessionProvider } from "@components/SessionProvider";
+import { I18nProvider } from "../../src/i18n/I18nProvider";
+import { expectNoCriticalAxe } from "../helpers/a11y";
+import LoginPage from "../../src/pages/LoginPage";
+import InstallPage from "../../src/pages/InstallPage";
+import ContentListPage from "../../src/pages/admin/content/ContentListPage";
+import MediaPage from "../../src/pages/admin/media/MediaPage";
+import PluginsPage from "../../src/pages/admin/extensions/PluginsPage";
+import MenusPage from "../../src/pages/admin/design/MenusPage";
+import PwaSettingsPage from "../../src/pages/admin/settings/PwaSettingsPage";
+
+function jsonResponse(body: unknown, status = 200): Promise<Response> {
+  return Promise.resolve({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  } as Response);
+}
+
+function mockFetch(): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.includes("/api/bootstrap/status")) return jsonResponse({ ready: true });
+      if (path.includes("/api/install/status"))
+        return jsonResponse({ tokenRequired: false, tokenFile: null });
+      if (path.includes("/api/auth/registration")) return jsonResponse({ enabled: false });
+      if (path.includes("/api/auth/csrf")) return jsonResponse({ ok: true });
+      if (path.includes("/api/auth/me"))
+        return jsonResponse({ id: "u1", email: "admin@example.com", role: "administrator" });
+      if (path.includes("/api/content-types")) {
+        return jsonResponse({
+          types: [
+            { slug: "post", label: "Post" },
+            { slug: "page", label: "Page" },
+          ],
+        });
+      }
+      if (path.includes("/api/content")) return jsonResponse({ items: [] });
+      if (path.includes("/api/plugins/admin-menu")) return jsonResponse({ items: [] });
+      if (path.includes("/api/plugins")) return jsonResponse({ plugins: [] });
+      if (path.includes("/api/languages")) {
+        return jsonResponse({ languages: [{ code: "en-US", isDefault: true, isActive: true }] });
+      }
+      if (path.includes("/api/settings/pwa")) {
+        return jsonResponse({
+          enabled: false,
+          appName: "My Site",
+          shortName: "",
+          description: "",
+          iconUrl: "",
+          icon192Url: "",
+          icon512Url: "/uploads/icon-512.png",
+          appleTouchIconUrl: "",
+          maskableIconUrl: "",
+          maskableIcon192Url: "",
+          maskableIcon512Url: "",
+          themeColor: "#111111",
+          backgroundColor: "#ffffff",
+          display: "standalone",
+          startUrl: "/",
+          shortcuts: [],
+          installUi: { enabled: true, label: "", description: "", showLogo: true },
+          offline: { title: "", message: "", imageUrl: "" },
+          assetCache: { enabled: true, maxEntries: 100, maxAgeSeconds: 604800 },
+          diagnostics: { https: true, manifestUrl: "/manifest.webmanifest", serviceWorkerUrl: "/sw.js" },
+        });
+      }
+      if (path.includes("/api/menus/design-presets")) return jsonResponse({ presets: [] });
+      if (path === "/api/menus") {
+        return jsonResponse({ menus: [{ id: "m1", slug: "primary", name: "Primary", items: [] }] });
+      }
+      if (path.startsWith("/api/menus/")) {
+        return jsonResponse({
+          menu: {
+            id: "m1",
+            slug: "primary",
+            name: "Primary",
+            items: [{ id: "1", label: "About", type: "custom", url: "/about" }],
+          },
+        });
+      }
+      return jsonResponse({});
+    }),
+  );
+}
+
+describe("admin accessibility", () => {
+  beforeEach(() => {
+    mockFetch();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("has no critical axe findings on login", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to your site" }),
+    ).toBeInTheDocument();
+    await expectNoCriticalAxe(container);
+  });
+
+  it("completes the login form with the keyboard", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+
+    await user.tab();
+    expect(screen.getByLabelText("Email address")).toHaveFocus();
+    await user.keyboard("admin@example.com");
+    await user.tab();
+    expect(screen.getByLabelText("Password")).toHaveFocus();
+    await user.keyboard("secret-password");
+    await user.tab();
+    expect(screen.getByRole("button", { name: /sign in/i })).toHaveFocus();
+  });
+
+  it("holds the site wizard until first-run files are ready", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const path = String(input);
+        if (path.includes("/api/bootstrap/status")) {
+          return jsonResponse({ ready: false, log: "npm install" });
+        }
+        return jsonResponse({});
+      }),
+    );
+    render(
+      <MemoryRouter>
+        <InstallPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole("heading", { name: "Preparing files…" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Welcome" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Database" })).not.toBeInTheDocument();
+  });
+
+  it("has no critical axe findings on the install wizard", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <InstallPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole("heading", { name: "Installation" })).toBeInTheDocument();
+    await expectNoCriticalAxe(container);
+  });
+
+  it("completes install welcome and database steps with the keyboard", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <InstallPage />
+      </MemoryRouter>,
+    );
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: /let's go/i })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(await screen.findByRole("heading", { name: "Database" })).toBeInTheDocument();
+
+    await user.tab();
+    expect(screen.getByLabelText("Database type")).toHaveFocus();
+    await expectNoCriticalAxe(
+      screen.getByRole("heading", { name: "Database" }).closest(".jf-auth") as HTMLElement,
+    );
+  });
+
+  it("has no critical axe findings on the content list", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <I18nProvider><ContentListPage /></I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: /new post/i })).toBeInTheDocument();
+    });
+    await expectNoCriticalAxe(container);
+  });
+
+  it("has no critical axe findings on media", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <MediaPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("heading", { name: "Media Library" })).toBeInTheDocument();
+    await expectNoCriticalAxe(container);
+  });
+
+  it("reaches the media dropzone with the keyboard", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <MediaPage />
+      </MemoryRouter>,
+    );
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Upload files" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: /regenerate responsive images/i })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: /upload files\. drop files here/i })).toHaveFocus();
+  });
+
+  it("has no critical axe findings on plugins", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <I18nProvider>
+          <SessionProvider>
+            <PluginMenuProvider>
+              <PluginsPage />
+            </PluginMenuProvider>
+          </SessionProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("No plugins installed")).toBeInTheDocument();
+    });
+    await expectNoCriticalAxe(container);
+  });
+
+  it("reaches the plugin upload control with the keyboard", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <SessionProvider>
+            <PluginMenuProvider>
+              <PluginsPage />
+            </PluginMenuProvider>
+          </SessionProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("No plugins installed")).toBeInTheDocument();
+    });
+    await user.tab();
+    expect(screen.getByRole("button", { name: /upload a plugin package/i })).toHaveFocus();
+  });
+
+  it("has no critical axe findings on the menu designer", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <I18nProvider>
+          <SessionProvider>
+            <MenusPage />
+          </SessionProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("About")).toBeInTheDocument();
+    // jsdom's <iframe> has no working postMessage bridge, which axe-core's
+    // (same-origin, real-browser-only) frame traversal needs — the live
+    // preview iframe itself renders the real public page and is out of
+    // scope for this admin-UI a11y pass regardless.
+    container.querySelector("iframe")?.remove();
+    await expectNoCriticalAxe(container);
+  });
+
+  it("reaches a menu item's keyboard controls with Tab and can duplicate it", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <SessionProvider>
+            <MenusPage />
+          </SessionProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("About");
+    const duplicateBtn = screen.getByRole("button", { name: "Duplicate" });
+    duplicateBtn.focus();
+    expect(duplicateBtn).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(screen.getAllByText("About")).toHaveLength(2);
+  });
+
+  it("closes an open item drawer's settings with a reachable Close control", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <SessionProvider>
+            <MenusPage />
+          </SessionProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByText("About"));
+    const closeBtn = await screen.findByRole("button", { name: "Close" });
+    await user.click(closeBtn);
+    expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+  });
+
+  it("has no critical axe findings on PWA settings", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <I18nProvider>
+          <PwaSettingsPage />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("My Site")).toBeInTheDocument();
+    });
+    await expectNoCriticalAxe(container);
+  });
+});

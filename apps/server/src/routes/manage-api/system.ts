@@ -2,20 +2,20 @@
 
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { clientIp } from "../../lib/rate-limit.js";
-import { listPlugins } from "../../lib/plugins-db.js";
-import { activatePluginAdmin, deactivatePluginAdmin } from "../../lib/plugins-admin.js";
-import { listThemes } from "../../lib/themes-db.js";
-import { getSiteId } from "../../lib/site-settings.js";
-import { activateThemeAdmin } from "../../lib/themes-admin.js";
-import { getJfCache, wipeCacheStorage } from "../../lib/jf-cache.js";
-import { inspectCacheStorage } from "../../lib/public-cache.js";
+import { clientIp } from "../../lib/security/rate-limit.js";
+import { listPlugins } from "../../lib/plugins/plugins-db.js";
+import { activatePluginAdmin, deactivatePluginAdmin } from "../../lib/plugins/plugins-admin.js";
+import { listThemes } from "../../lib/themes/themes-db.js";
+import { getSiteId } from "../../lib/settings/site-settings.js";
+import { activateThemeAdmin } from "../../lib/themes/themes-admin.js";
+import { getJfCache, wipeCacheStorage } from "../../lib/cache/jf-cache.js";
+import { inspectCacheStorage } from "../../lib/cache/public-cache.js";
 import { clearStaticExport, getStaticExportStatus, runStaticExport } from "../../lib/static-export/index.js";
-import { getJustflowsVersion } from "../../lib/version.js";
-import { MIGRATION_ORDER } from "../../lib/run-migrations.js";
-import { recentDiagnosticErrors, debugMode } from "../../lib/diagnostics.js";
-import { runHealthChecks } from "../../lib/health-checks.js";
-import { sendServerError } from "../../lib/send-error.js";
+import { getJustflowsVersion } from "../../lib/runtime/version.js";
+import { MIGRATION_ORDER } from "../../lib/database/run-migrations.js";
+import { recentDiagnosticErrors, debugMode } from "../../lib/runtime/diagnostics.js";
+import { runHealthChecks } from "../../lib/runtime/health-checks.js";
+import { sendServerError } from "../../lib/http/send-error.js";
 import { ensureKeyCan, relay, sendJson } from "./envelope.js";
 import type { Request } from "express";
 

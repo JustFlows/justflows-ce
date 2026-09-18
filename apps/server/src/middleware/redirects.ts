@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 import type { Request, Response, NextFunction } from "express";
-import { getSiteId } from "../lib/site-settings.js";
-import { reservedPermalinkPath } from "../lib/permalinks-db.js";
-import { runtimeRedirects, recordNotFound } from "../lib/redirects-db.js";
-import { matchRedirect, resolveRedirect, safeRedirectTarget } from "../lib/redirects.js";
+import { getSiteId } from "../lib/settings/site-settings.js";
+import { reservedPermalinkPath } from "../lib/navigation/permalinks-db.js";
+import { runtimeRedirects, recordNotFound } from "../lib/navigation/redirects-db.js";
+import { matchRedirect, resolveRedirect, safeRedirectTarget } from "../lib/navigation/redirects.js";
 
 let pendingLogs = 0;
 let logWarning = false;
@@ -61,6 +61,10 @@ export async function managedRedirects(
       }
       if (allowed) {
         res.setHeader("Cache-Control", "no-store");
+        // codeql[js/server-side-unvalidated-url-redirection]: `allowed` above is
+        // the barrier — site-relative only, or an exact host match against an
+        // operator-configured external rule, https(s) only, no embedded
+        // credentials. `location` cannot be attacker-chosen at this point.
         res.redirect(result.status, location);
         return;
       }

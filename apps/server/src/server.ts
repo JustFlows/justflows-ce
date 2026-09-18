@@ -6,18 +6,18 @@ import path from "node:path";
 import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 
-import { uploadsDir, getJfRoot, viewsDir } from "./lib/jf-root.js";
+import { uploadsDir, getJfRoot, viewsDir } from "./lib/runtime/jf-root.js";
 import { isInstalled } from "./middleware/install-guard.js";
-import { installToken, installTokenRequired } from "./lib/install-token.js";
+import { installToken, installTokenRequired } from "./lib/installation/install-token.js";
 import { serveAdminI18n } from "./lib/i18n/admin-catalog.js";
 import { csrfProtection } from "./middleware/csrf.js";
-import { setCsrfCookie } from "./lib/session.js";
+import { setCsrfCookie } from "./lib/auth/session.js";
 import { securityHeaders } from "./middleware/security-headers.js";
 import { cacheTraceMiddleware } from "./middleware/cache-trace.js";
 import { createGzipMiddleware } from "./middleware/gzip.js";
 import { browserCacheMiddleware, staticMaxAgeMs } from "./middleware/browser-cache.js";
 import { rateLimit } from "express-rate-limit";
-import { adminClientDir, adminClientIndex } from "./lib/admin-ssr.js";
+import { adminClientDir, adminClientIndex } from "./lib/admin/admin-ssr.js";
 import { requestContext } from "./middleware/request-context.js";
 
 let corePromise: Promise<void> | null = null;
@@ -28,8 +28,8 @@ function ensureCoreRoutes(app: express.Application): Promise<void> {
   if (!corePromise) {
     corePromise = (async () => {
       const [{ default: authRoutes }, { default: installRoutes }] = await Promise.all([
-        import("./routes/auth.js"),
-        import("./routes/install.js"),
+        import("./routes/auth/auth.js"),
+        import("./routes/system/install.js"),
       ]);
 
       app.use("/api/auth", authRoutes);
@@ -76,7 +76,7 @@ export function createApp(): express.Application {
   app.use((req, res, next) => {
     const started = Date.now();
     res.on("finish", () => {
-      void import("./lib/plugin-runtime.js")
+      void import("./lib/plugins/plugin-runtime.js")
         .then(({ getRuntimeHooks }) =>
           getRuntimeHooks().dispatchAction(
             "request.after",
@@ -122,17 +122,18 @@ export function createApp(): express.Application {
     express.static(path.join(getJfRoot(), "public"), {
       maxAge: staticMaxAge,
       setHeaders: (res, filePath) => {
-        // Every script/style under `public/` is hand-authored source served at a
-        // stable, unversioned URL (see docs/CONVENTIONS.md) — the theme runtime
-        // (site-nav.js, site-chrome.js, …) and any hand-written CSS. A long
-        // max-age would pin stale copies until it expires (the "my edit isn't
+        // Every script under `public/js` is compiled from
+        // apps/server/public-scripts/src/*.ts (see docs/CONVENTIONS.md) and
+        // any hand-written CSS lives alongside it — all served at a stable,
+        // unversioned URL (site-nav.js, site-chrome.js, …). A long max-age
+        // would pin stale copies until it expires (the "my edit isn't
         // showing up" trap), and none of these files are content-hashed, so the
         // blanket downgrade to `no-cache` is correct for the whole set, not just
         // today's list. `no-cache` still keeps the file cached and revalidates
         // with the ETag — the server answers 304 until the bytes change.
         // Content-hashed bundles live under the admin app's own asset path, not
         // here, and keep their long max-age.
-        if (/\.(?:js|mjs|css)$/i.test(filePath)) {
+        if (/\.(?:js|mjs|css|map)$/i.test(filePath)) {
           res.setHeader("Cache-Control", "no-cache");
         }
       },

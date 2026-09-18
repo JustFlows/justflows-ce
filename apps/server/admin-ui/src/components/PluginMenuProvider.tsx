@@ -9,6 +9,7 @@ import {
 } from "react";
 import { buildNavDomains, type NavDomain, type PluginMenuItem } from "../config/admin-nav";
 import { initialJson } from "../ssr-data";
+import { useSession } from "./SessionProvider";
 
 interface PluginMenuValue {
   /** Admin pages owned by the plugins currently installed. */
@@ -35,6 +36,7 @@ function isMenuItem(raw: unknown): raw is PluginMenuItem {
 }
 
 export function PluginMenuProvider({ children }: { children: ReactNode }) {
+  const { session, loading: sessionLoading } = useSession();
   const initial = initialJson<{ items?: unknown }>("/api/plugins/admin-menu")?.items;
   const initialItems = Array.isArray(initial) ? initial.filter(isMenuItem) : [];
   const [items, setItems] = useState<PluginMenuItem[]>(initialItems);
@@ -58,8 +60,22 @@ export function PluginMenuProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // No point asking for admin-only plugin pages before a session exists —
+    // it only ever 401s (every consumer of this menu renders inside the
+    // authenticated shell anyway) and SessionProvider skips itself on
+    // pre-auth pages, where `session` never resolves at all. While the
+    // session check is still in flight, leave `loading` alone rather than
+    // flipping it to false early — that would let a consumer (PluginHostPage)
+    // read an empty menu as "confirmed empty" and navigate away before the
+    // real fetch below ever gets a chance to run.
+    if (sessionLoading) return;
+    if (!session) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     void refresh();
-  }, [refresh]);
+  }, [sessionLoading, session, refresh]);
 
   const value = useMemo(
     () => ({ items, domains: buildNavDomains(items), loading, refresh }),

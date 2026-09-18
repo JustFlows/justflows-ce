@@ -12,7 +12,7 @@ import {
   type PromoContent,
 } from "./mega-region";
 
-/** Must stay in sync with `MEGA_MENU_SAFE_BLOCK_KINDS` in `apps/server/src/lib/menus-db.ts`
+/** Must stay in sync with `MEGA_MENU_SAFE_BLOCK_KINDS` in `apps/server/src/lib/navigation/menus-db.ts`
  * (and `packages/sdk/src/hooks.ts`) — this only narrows what the advanced editor offers to
  * insert; the server re-validates and strips anything outside this set regardless. */
 const MEGA_MENU_SAFE_BLOCK_KINDS = [

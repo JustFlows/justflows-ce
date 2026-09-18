@@ -69,15 +69,15 @@ git commit -s -m "fix(auth): validate session expiry"
 This is the public development repository. Do not push to `main` or `develop`.
 Releases are published from `main` to [`JustFlows/justflows-ce`](https://github.com/JustFlows/justflows-ce) `developers` first. A version is cut from `developers` to `main` there.
 
-| Branch | Purpose |
-| --- | --- |
-| `main` | Stable snapshot. Protected. Update only by PR from `develop`. |
-| `develop` | Integration. Protected. Update only by PR from a prefixed branch. |
-| `feature/<name>` | New work. Branch this off `develop`. |
-| `bug/<name>` or `fix/<name>` | Bug fixes. |
-| `patch/<name>` | Patches. |
-| `hotfix/<name>` | Production emergencies, branched from `main`. |
-| `chore/`, `docs/`, `refactor/`, `test/` | Also allowed. |
+| Branch                                  | Purpose                                                           |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| `main`                                  | Stable snapshot. Protected. Update only by PR from `develop`.     |
+| `develop`                               | Integration. Protected. Update only by PR from a prefixed branch. |
+| `feature/<name>`                        | New work. Branch this off `develop`.                              |
+| `bug/<name>` or `fix/<name>`            | Bug fixes.                                                        |
+| `patch/<name>`                          | Patches.                                                          |
+| `hotfix/<name>`                         | Production emergencies, branched from `main`.                     |
+| `chore/`, `docs/`, `refactor/`, `test/` | Also allowed.                                                     |
 
 Branch names outside those prefixes are rejected.
 
@@ -115,6 +115,11 @@ pnpm test
 pnpm --filter @justflows/installer test
 pnpm --filter @justflows/server test
 ```
+
+Test files belong in the owning app or package's `tests/` directory; see
+[folder and test conventions](docs/CONVENTIONS.md#tests). Server, package, and
+example-plugin typechecks include their test suites (`pnpm typecheck:tests`
+runs those checks directly).
 
 `pnpm test` runs every workspace package that declares a `test` script (Turbo). Installer tests cover the `.jfpkg` manifest contract used by the plugin/theme installer. Server tests cover SEO helpers, the public OpenAPI document, and axe checks on login, install, content, media, and plugin admin routes.
 

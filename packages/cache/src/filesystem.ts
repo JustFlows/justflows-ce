@@ -3,14 +3,15 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { CacheAdapter } from "./adapter.js";
 
-// codeql[js/insufficient-password-hash]: not a credential hash. This derives
-// a cache filename from an arbitrary cache key (CodeQL's taint tracker flags
-// it because some callers build that key from an object with a
+// This derives a cache filename from an arbitrary cache key (CodeQL's taint
+// tracker flags it because some callers build that key from an object with a
 // password-reset *setting*, e.g. `passwordResetEnabled`/`passwordResetRoles`
 // — feature flags, never a password value). SHA-256 is the right tool here:
 // fast, deterministic, collision-resistant filenames. Slow-hashing it would
-// only make every cache read/write pay a multi-hundred-millisecond tax.
+// only make every cache read/write pay a multi-hundred-millisecond tax — it
+// is not a credential hash.
 function cacheFileName(key: string): string {
+  // codeql[js/insufficient-password-hash]: see comment above — not a credential hash.
   return `${createHash("sha256").update(key).digest("hex")}.json`;
 }
 

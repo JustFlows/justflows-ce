@@ -125,10 +125,12 @@ routes already invalidate the `content:` prefix on save and delete.
 
 ## The API
 
-Server code uses the shared singleton:
+Server code uses the shared singleton in
+`apps/server/src/lib/cache/jf-cache.ts`. For example, from a route under
+`apps/server/src/routes/content/`:
 
 ```ts
-import { getJfCache } from "../lib/jf-cache.js";
+import { getJfCache } from "../../lib/cache/jf-cache.js";
 
 const cache = getJfCache();
 ```
@@ -376,11 +378,11 @@ Verify in browser DevTools → Network: look for `Content-Encoding: gzip` and
 
 ## Package layout
 
-| Path                              | Role                                                        |
-| --------------------------------- | ----------------------------------------------------------- |
-| `packages/cache/`                 | `@justflows/cache` — adapters, `JfCache`, `createJfCache()` |
-| `apps/server/src/lib/jf-cache.ts` | Server singleton wired from `.env`                          |
-| `packages/core/src/config/`       | `CacheConfigSchema`, env loading                            |
+| Path                                    | Role                                                        |
+| --------------------------------------- | ----------------------------------------------------------- |
+| `packages/cache/`                       | `@justflows/cache` — adapters, `JfCache`, `createJfCache()` |
+| `apps/server/src/lib/cache/jf-cache.ts` | Server singleton wired from `.env`                          |
+| `packages/core/src/config/`             | `CacheConfigSchema`, env loading                            |
 
 For a mental model: **`@justflows/cache`** is the library; **`getJfCache()`**
 is the one shared instance the running server uses.
