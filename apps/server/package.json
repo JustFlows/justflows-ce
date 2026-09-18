@@ -7,13 +7,15 @@
   "scripts": {
     "dev": "tsx watch --env-file=../../.env src/server.ts",
     "dev:admin": "vite --config admin-ui/vite.config.ts",
-    "build": "npm run build:admin-ui && npm run build:server",
+    "dev:public-scripts": "node public-scripts/build.mjs --watch",
+    "build": "npm run build:public-scripts && npm run build:admin-ui && npm run build:server",
     "build:server": "tsc -p tsconfig.json && rm -rf dist/views && cp -r src/views dist/views && mkdir -p dist/lib/i18n && rm -rf dist/lib/i18n/site-catalogs dist/lib/i18n/admin-catalogs && cp -r src/lib/i18n/site-catalogs src/lib/i18n/admin-catalogs dist/lib/i18n/",
     "build:admin-ui": "vite build --config admin-ui/vite.config.ts && vite build --config admin-ui/vite.ssr.config.ts",
+    "build:public-scripts": "NODE_ENV=production node public-scripts/build.mjs",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p public-scripts/tsconfig.json --noEmit",
     "test": "vitest run && vitest run --config admin-ui/vitest.config.ts",
-    "clean": "rm -rf dist admin-ui/dist"
+    "clean": "rm -rf dist admin-ui/dist ../../public/js/*.js"
   },
   "dependencies": {
     "@justflows/blocks": "file:../../packages/blocks",
@@ -50,6 +52,7 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
     "axe-core": "^4.13.0",
+    "esbuild": "0.28.2",
     "framer-motion": "^13.1.1",
     "jsdom": "^30.0.1",
     "react": "^19.2.8",

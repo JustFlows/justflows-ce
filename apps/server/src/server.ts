@@ -122,17 +122,18 @@ export function createApp(): express.Application {
     express.static(path.join(getJfRoot(), "public"), {
       maxAge: staticMaxAge,
       setHeaders: (res, filePath) => {
-        // Every script/style under `public/` is hand-authored source served at a
-        // stable, unversioned URL (see docs/CONVENTIONS.md) — the theme runtime
-        // (site-nav.js, site-chrome.js, …) and any hand-written CSS. A long
-        // max-age would pin stale copies until it expires (the "my edit isn't
+        // Every script under `public/js` is compiled from
+        // apps/server/public-scripts/src/*.ts (see docs/CONVENTIONS.md) and
+        // any hand-written CSS lives alongside it — all served at a stable,
+        // unversioned URL (site-nav.js, site-chrome.js, …). A long max-age
+        // would pin stale copies until it expires (the "my edit isn't
         // showing up" trap), and none of these files are content-hashed, so the
         // blanket downgrade to `no-cache` is correct for the whole set, not just
         // today's list. `no-cache` still keeps the file cached and revalidates
         // with the ETag — the server answers 304 until the bytes change.
         // Content-hashed bundles live under the admin app's own asset path, not
         // here, and keep their long max-age.
-        if (/\.(?:js|mjs|css)$/i.test(filePath)) {
+        if (/\.(?:js|mjs|css|map)$/i.test(filePath)) {
           res.setHeader("Cache-Control", "no-cache");
         }
       },
