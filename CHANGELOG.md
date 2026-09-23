@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.6-dev.1] [UNRELEASED]
+
+### Added
+
+- **Inline images, footnotes, and math formulas in the paragraph/quote editor.**
+  The inline rich-text toolbar gained an image button (upload a file, paste a
+  URL, or pick from the media library), strikethrough, and a "More formats"
+  menu covering inline code, highlight, subscript/superscript, keyboard
+  input, language markup, footnotes, and inline math (LaTeX, rendered with
+  KaTeX). Footnotes are numbered in document order and collected into a
+  footnotes list at the end of the page on the public site; math renders
+  identically — self-hosted, no external requests — in both the editor's
+  canvas and the published page.
+
+### Fixed
+
+- **Selected paragraph/heading blocks looked cluttered in the page builder.**
+  A selected-and-focused text block stacked three near-identical highlight
+  layers — the block row's own selection background, a redundant duplicate
+  outline, and the text field's hover tint — into one oversized, muddy box
+  with no visible boundary between "this block is selected" and "this is the
+  text field." The editing field now renders as a clean white inset with a
+  clear border, and grows a little on focus instead of hugging the text.
+- **Site URL changes in Settings could revert after a restart.** Saving a new
+  site URL only updated the running process's environment, not the `.env`
+  file it was loaded from, so the change was lost the next time the server
+  restarted and `loadConfig()` re-read the stale value from disk.
+
 ## [0.2.5]
 
 ### Added
