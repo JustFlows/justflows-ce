@@ -29,7 +29,7 @@ import {
 } from "../../lib/i18n/locales.js";
 import { formatContentDate, getGeneralSettings } from "../../lib/settings/general-settings.js";
 import { hydrateSiteWidgets } from "../../lib/rendering/site-widgets.js";
-import { applyContentBlocks, applyContentRender } from "../../lib/content/content-render.js";
+import { applyContentBlocks, applyContentRender, applyFootnotes } from "../../lib/content/content-render.js";
 import { withResponsiveImages } from "../../lib/rendering/responsive-blocks.js";
 import { createTranslator, type MessageCatalog } from "../../lib/i18n/translate.js";
 import {
@@ -987,6 +987,12 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   if (faviconHead) {
     headExtra = headExtra ? `${faviconHead}\n${headExtra}` : faviconHead;
   }
+  // Self-hosted KaTeX CSS for inline math formulas (see renderMath in
+  // @justflows/blocks) — a stylesheet, so cheap to include unconditionally
+  // rather than threading a "does this page have a formula" flag through.
+  headExtra = headExtra
+    ? `${headExtra}\n<link rel="stylesheet" href="/vendor/katex/katex.min.css">`
+    : '<link rel="stylesheet" href="/vendor/katex/katex.min.css">';
   // Auto-enqueued client assets declared by active plugins (`manifest.assets`).
   const { renderPluginAssetHeadHtml } = await import("../../lib/plugins/plugin-assets.js");
   const pluginAssetHead = await renderPluginAssetHeadHtml();
@@ -1485,13 +1491,15 @@ async function renderHomeHtml(
   let bodyHtml: string | undefined;
   if (home) {
     bodyHtml = withSiteWidgets(
-      await applyContentRender(
-        await renderBlocksHtml(
-          await applyContentBlocks(home.blocks.blocks, home),
-          submittedFormIdFrom(req),
-          blogCtx,
+      applyFootnotes(
+        await applyContentRender(
+          await renderBlocksHtml(
+            await applyContentBlocks(home.blocks.blocks, home),
+            submittedFormIdFrom(req),
+            blogCtx,
+          ),
+          home,
         ),
-        home,
       ),
       withHeader,
     );
@@ -1758,14 +1766,16 @@ async function renderSinglePageHtml(
     reqPath,
   );
   const bodyHtml = withSiteWidgets(
-    await applyContentRender(
-      await renderBlocksHtml(
-        await applyContentBlocks(pageContent.blocks.blocks, pageContent),
-        submittedFormIdFrom(req),
-        blogCtx,
-        commentCtx,
+    applyFootnotes(
+      await applyContentRender(
+        await renderBlocksHtml(
+          await applyContentBlocks(pageContent.blocks.blocks, pageContent),
+          submittedFormIdFrom(req),
+          blogCtx,
+          commentCtx,
+        ),
+        pageContent,
       ),
-      pageContent,
     ),
     withHeader,
   );

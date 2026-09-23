@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { BlockNode, BlockCatalogEntry } from "./types";
 import { BlockPreview, useThemePreviewStylesheet } from "./BlockPreview";
 import { createBlock } from "./block-defaults";
-import { insertBlock, moveBlock, removeBlock } from "./block-tree";
+import { insertBlock, moveBlock, removeBlock, updateBlockProps } from "./block-tree";
 import DropZone from "./DropZone";
 import { useBuilderDrag } from "./DragContext";
 import { useBlockMoveHandle } from "./useBlockMoveHandle";
@@ -203,6 +203,12 @@ function BlockRow({
     change(list.map((b) => (b.id === block.id ? { ...b, children: nextChildren } : b)));
   };
 
+  const updateProps = (id: string, props: Record<string, unknown>) => {
+    const list = parentBlocks ?? blocks;
+    const change = parentBlocks ? onParentChange! : onRootChange;
+    change(updateBlockProps(list, id, props));
+  };
+
   return (
     <div
       style={{
@@ -294,6 +300,7 @@ function BlockRow({
           depth={depth}
           selectedId={selectedId}
           onSelect={onSelect}
+          onUpdateProps={updateProps}
           renderChildren={
             hasChildren
               ? (_childList, childDepth) => {
