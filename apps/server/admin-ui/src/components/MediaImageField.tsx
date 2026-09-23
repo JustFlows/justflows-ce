@@ -1,34 +1,8 @@
 import { useRef, useState } from "react";
 import { safeMediaSrc } from "@justflows/blocks";
+import { loadImageLibrary, uploadImage, type MediaLibraryItem } from "../lib/media-library";
 
-interface MediaItem {
-  url: string;
-  filename: string;
-}
-
-function isImageItem(item: Record<string, unknown>): boolean {
-  const mime = String(item.mimeType ?? item.mime_type ?? "");
-  const url = String(item.url ?? "");
-  return Boolean(url) && mime.startsWith("image/");
-}
-
-async function uploadImage(file: File): Promise<string> {
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch("/api/media", { method: "POST", body: form });
-  const data = (await res.json()) as { url?: string; error?: string };
-  if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed");
-  return data.url;
-}
-
-async function loadLibrary(): Promise<MediaItem[]> {
-  const res = await fetch("/api/media?limit=80");
-  const body = (await res.json()) as { items?: Array<Record<string, unknown>> };
-  return (body.items ?? []).filter(isImageItem).map((item) => ({
-    url: String(item.url),
-    filename: String(item.filename ?? item.url),
-  }));
-}
+type MediaItem = MediaLibraryItem;
 
 export default function MediaImageField({
   id,
@@ -56,7 +30,7 @@ export default function MediaImageField({
     setLibraryOpen(true);
     if (library) return;
     try {
-      setLibrary(await loadLibrary());
+      setLibrary(await loadImageLibrary());
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setLibrary([]);

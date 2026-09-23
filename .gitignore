@@ -25,6 +25,9 @@ vite.config.*.timestamp-*
 /public/js/*.js
 /public/js/*.js.map
 
+# Copied from node_modules by apps/server/public-scripts/copy-vendor.mjs
+/public/vendor/
+
 # Test output
 coverage/
 .nyc_output/

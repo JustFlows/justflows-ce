@@ -2,6 +2,7 @@
 import { searchBlock } from "./search.js";
 import type { BlockDefinition } from "../registry/block-registry.js";
 import { sanitizeHtmlBlock, sanitizeRichText } from "../sanitize.js";
+import { renderMath } from "../math.js";
 import { esc, safeHref, safeMediaSrc } from "../safe-url.js";
 import { siteWidgetBlocks } from "./site-widgets.js";
 import { GRID_DEFAULT_COLUMNS, GRID_MAX_COLUMNS, GRID_MIN_COLUMNS } from "../layout.js";
@@ -87,7 +88,7 @@ export const coreBlocks: BlockDefinition[] = [
     schema: { text: { type: "richtext", required: true } },
     validateProps: (raw) => ({ text: str((raw as Record<string, unknown>)["text"]) }),
     render: (props) =>
-      `<div class="jf-paragraph">${sanitizeRichText((props as { text: string }).text)}</div>`,
+      `<div class="jf-paragraph">${renderMath(sanitizeRichText((props as { text: string }).text))}</div>`,
   },
   {
     type: "core.heading",
@@ -192,9 +193,10 @@ export const coreBlocks: BlockDefinition[] = [
     },
     render: (props) => {
       const { text, attribution } = props as { text: string; attribution: string };
+      const body = renderMath(sanitizeRichText(text));
       return attribution
-        ? `<blockquote><div class="jf-quote__text">${sanitizeRichText(text)}</div><cite>${esc(attribution)}</cite></blockquote>`
-        : `<blockquote><div class="jf-quote__text">${sanitizeRichText(text)}</div></blockquote>`;
+        ? `<blockquote><div class="jf-quote__text">${body}</div><cite>${esc(attribution)}</cite></blockquote>`
+        : `<blockquote><div class="jf-quote__text">${body}</div></blockquote>`;
     },
   },
   {

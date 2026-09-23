@@ -1,9 +1,10 @@
 import { useT } from "../../i18n/I18nProvider";
 import { cloneElement, isValidElement, useEffect, type ReactElement } from "react";
 import type { BlockNode } from "./types";
-import { parseBlockStyle, sanitizeHtmlBlock, sanitizeRichText } from "@justflows/blocks";
+import { parseBlockStyle, renderMath, sanitizeHtmlBlock, sanitizeRichText } from "@justflows/blocks";
 import MotionPreview from "./MotionPreview";
 import { applyMergeTags, useProductTags } from "../../lib/product-tags";
+import { InlineEditable } from "./InlineEditable";
 
 /** Class the active theme's stylesheet is scoped to (see `serveThemeCss`). */
 export const THEME_PREVIEW_SCOPE = "jf-theme-surface";
@@ -39,6 +40,8 @@ interface BlockPreviewProps {
   onSelect?: (id: string) => void;
   selectedId?: string | null;
   renderChildren?: (children: BlockNode[], depth: number) => React.ReactNode;
+  /** Commits an inline edit (paragraph/heading/quote text) made directly in the canvas. */
+  onUpdateProps?: (id: string, props: Record<string, unknown>) => void;
 }
 
 export function BlockPreview({
@@ -47,6 +50,7 @@ export function BlockPreview({
   onSelect,
   selectedId,
   renderChildren,
+  onUpdateProps,
 }: BlockPreviewProps) {
   const { t } = useT();
   const p = block.props;
@@ -95,8 +99,6 @@ export function BlockPreview({
             : undefined
         }
         style={{
-          outline: isSelected ? "2px solid var(--jf-accent)" : undefined,
-          outlineOffset: 2,
           borderRadius: 4,
           cursor: onSelect ? "pointer" : undefined,
           maxWidth: blockStyle.maxWidth > 0 ? `min(100%, ${blockStyle.maxWidth}px)` : undefined,
@@ -241,12 +243,23 @@ export function BlockPreview({
     }
 
     case "core.paragraph":
+      if (isSelected && onUpdateProps) {
+        return wrap(
+          <InlineEditable
+            as="div"
+            className="jf-paragraph"
+            value={typeof p.text === "string" ? p.text : ""}
+            placeholder="Type a paragraph…"
+            onCommit={(html) => onUpdateProps(block.id, { ...p, text: html })}
+          />,
+        );
+      }
       return wrap(
         <div
           className="jf-paragraph"
           dangerouslySetInnerHTML={{
             __html:
-              sanitizeRichText(text(p.text)) ||
+              renderMath(sanitizeRichText(text(p.text))) ||
               "<em style='color:var(--jf-text-3)'>Empty paragraph</em>",
           }}
         />,
@@ -255,6 +268,17 @@ export function BlockPreview({
     case "core.heading": {
       const Tag = `h${Math.min(6, Math.max(1, (p.level as number) ?? 2))}` as
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+      if (isSelected && onUpdateProps) {
+        return wrap(
+          <InlineEditable
+            as={Tag}
+            mode="plain"
+            value={typeof p.text === "string" ? p.text : ""}
+            placeholder="Heading"
+            onCommit={(value) => onUpdateProps(block.id, { ...p, text: value })}
+          />,
+        );
+      }
       const heading = text(p.text);
       return wrap(<Tag>{heading || <em style={{ color: "var(--jf-text-3)" }}>Heading</em>}</Tag>);
     }
@@ -302,11 +326,30 @@ export function BlockPreview({
       );
 
     case "core.quote":
+      if (isSelected && onUpdateProps) {
+        return wrap(
+          <blockquote>
+            <InlineEditable
+              as="div"
+              className="jf-quote__text"
+              value={typeof p.text === "string" ? p.text : ""}
+              placeholder="Quote"
+              onCommit={(html) => onUpdateProps(block.id, { ...p, text: html })}
+            />
+            {(p.attribution as string) ? <cite>— {p.attribution as string}</cite> : null}
+          </blockquote>,
+        );
+      }
       return wrap(
         <blockquote>
-          <div className="jf-quote__text">
-            {(p.text as string) || <em style={{ color: "var(--jf-text-3)" }}>Quote</em>}
-          </div>
+          <div
+            className="jf-quote__text"
+            dangerouslySetInnerHTML={{
+              __html:
+                renderMath(sanitizeRichText((p.text as string) || "")) ||
+                "<em style='color:var(--jf-text-3)'>Quote</em>",
+            }}
+          />
           {(p.attribution as string) ? <cite>— {p.attribution as string}</cite> : null}
         </blockquote>,
       );
