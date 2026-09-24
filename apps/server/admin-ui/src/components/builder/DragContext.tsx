@@ -1,3 +1,4 @@
+import { useT } from "../../i18n/I18nProvider";
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from "react";
 import type { BlockCatalogEntry, BlockNode } from "./types";
 import { createBlock } from "./block-defaults";
@@ -55,6 +56,7 @@ export function BuilderDragProvider({
   onSelect,
   children,
 }: BuilderDragProviderProps) {
+  const { t } = useT();
   const payloadRef = useRef<DragPayload>({ type: null, blockId: null });
   const dropTargetRef = useRef<DropTarget | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -146,7 +148,7 @@ export function BuilderDragProvider({
     }
 
     reset();
-  }, [blocks, headerBlocks, catalog, isHeaderTarget, onChange, onHeaderBlocksChange, onSelect, reset]);
+  }, [blocks, headerBlocks, catalog, isHeaderTarget, onChange, onHeaderBlocksChange, onSelect, reset, t]);
 
   const handleLibraryDrop = useCallback(
     (parentId: string | null, parentType: string | null, index: number, e: React.DragEvent): boolean => {
@@ -157,7 +159,7 @@ export function BuilderDragProvider({
       if (!type || payloadRef.current.blockId) return false;
       if (!canDropBlockType(parentType, type, catalog)) return false;
 
-      const block = createBlock(type);
+      const block = createBlock(type, t);
       if (isHeaderTarget(parentId)) {
         if (!onHeaderBlocksChange) return false;
         onHeaderBlocksChange(insertBlock(headerBlocks, destParentId(parentId), index, block));
@@ -168,7 +170,7 @@ export function BuilderDragProvider({
       reset();
       return true;
     },
-    [blocks, headerBlocks, catalog, isHeaderTarget, onChange, onHeaderBlocksChange, onSelect, reset],
+    [blocks, headerBlocks, catalog, isHeaderTarget, onChange, onHeaderBlocksChange, onSelect, reset, t],
   );
 
   return (

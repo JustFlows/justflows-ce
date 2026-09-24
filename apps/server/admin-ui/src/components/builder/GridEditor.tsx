@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useT } from "../../i18n/I18nProvider";
 import { compactBlockPlacement, isPlacementShaped, type BlockPlacement } from "@justflows/blocks";
 import { createBlock } from "./block-defaults";
 import { DND_BLOCK_TYPE } from "./dnd";
@@ -48,6 +49,7 @@ export default function GridEditor({
   selectedId,
   renderChild,
 }: GridEditorProps) {
+  const { t } = useT();
   const gridRef = useRef<HTMLDivElement>(null);
   const { dragging, dragPayload } = useBuilderDrag();
   const [ghost, setGhost] = useState<BlockPlacement | null>(null);
@@ -116,7 +118,7 @@ export default function GridEditor({
     if (!type || dragPayload.blockId) return;
     const cell = cellFromPointer(e.clientX, e.clientY);
     if (!cell) return;
-    const created = createBlock(type);
+    const created = createBlock(type, t);
     onChildrenChange([...children, withPlacement(created, placementForDrop(cell, columns), columns)]);
     onSelect(created.id);
   }
@@ -214,7 +216,7 @@ export default function GridEditor({
 
       {children.length === 0 && (
         <p style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", margin: 0, color: "var(--jf-text-3)", fontSize: "0.8rem", pointerEvents: "none", zIndex: 2 }}>
-          Drag a block onto the grid
+          {t("builder.grid.dragBlockOntoGrid")}
         </p>
       )}
     </div>
@@ -230,11 +232,12 @@ function ResizeHandle({
   active: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
 }) {
+  const { t } = useT();
   const [hover, setHover] = useState(false);
   return (
     <div
       role="presentation"
-      title={side === "start" ? "Drag to change the start column" : "Drag to change the width"}
+      title={side === "start" ? t("builder.grid.dragChangeStartColumn") : t("builder.grid.dragChangeWidth")}
       onPointerDown={onPointerDown}
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
@@ -266,12 +269,13 @@ function MoveHandle({
   columns: number;
   onPointerDown: (e: React.PointerEvent) => void;
 }) {
+  const { t } = useT();
   return (
     <button
       type="button"
       onPointerDown={onPointerDown}
       onClick={(e) => e.stopPropagation()}
-      title="Drag to move on the grid"
+      title={t("builder.grid.dragMoveOnGrid")}
       style={{
         position: "absolute",
         top: -9,

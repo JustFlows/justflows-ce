@@ -39,7 +39,7 @@
           <div class="site-footer-blocks"><%- footerBlocksHtml %></div>
           <% } else { %>
             <% if (typeof footerNavItems !=='undefined' && footerNavItems.length> 0) { %>
-              <nav class="site-footer-nav" aria-label="Footer">
+              <nav class="site-footer-nav" aria-label="<%= t('nav.footer') %>">
                 <%- include('partials/nav-menu', {
                   items: footerNavItems,
                   menuDesign: typeof footerMenuDesign !== 'undefined' && footerMenuDesign ? footerMenuDesign : { layout: 'footer', activation: 'hover', breakpoint: 768, mobilePattern: 'accordion', alignment: 'start' },

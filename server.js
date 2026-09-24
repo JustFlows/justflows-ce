@@ -357,11 +357,13 @@ function sendStaticErrorPage(res, status, kind, req) {
   }
 
   const defaults = STATIC_ERROR_DEFAULTS[kind];
-  const siteTitle = "This site";
+  const siteTitle = catalog["site.title_fallback"] || "This site";
   const badge = catalog[`errors.${kind}.badge`] || defaults.badge;
   const heading = catalog[`errors.${kind}.title`] || defaults.title;
   const message = catalog[`errors.${kind}.body`] || defaults.body;
   const html = template
+    .replace(/\{\{LOCALE\}\}/g, escapeStaticErrorHtml(locale))
+    .replace(/\{\{POWERED_BY\}\}/g, escapeStaticErrorHtml(catalog["footer.powered_by"] || "Powered by"))
     .replace(/\{\{TITLE\}\}/g, escapeStaticErrorHtml(`${siteTitle} — ${heading}`))
     .replace(/\{\{SITE_TITLE\}\}/g, escapeStaticErrorHtml(siteTitle))
     .replace(/\{\{BADGE\}\}/g, escapeStaticErrorHtml(badge))

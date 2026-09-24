@@ -64,7 +64,7 @@ export default function ReusablePanel({
         body: JSON.stringify({ name: name.trim() || undefined, blocks: [block] }),
       });
       const body = await res.json() as { error?: string; item?: ReusableItem };
-      if (!res.ok || !body.item) throw new Error(body.error ?? "Could not save");
+      if (!res.ok || !body.item) throw new Error(body.error ?? t("ui.reusablePanel.couldNotSave"));
       onReload();
       setName("");
       if (convert) onConvert(body.item.id);

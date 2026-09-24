@@ -112,7 +112,7 @@ function sectionsToText(sections: unknown): string {
     .join("\n\n");
 }
 
-function textToSections(text: string): Array<{ name: string; items: string[] }> {
+function textToSections(text: string, fallbackName: string): Array<{ name: string; items: string[] }> {
   return text
     .replace(/\r\n/g, "\n")
     .trim()
@@ -120,7 +120,7 @@ function textToSections(text: string): Array<{ name: string; items: string[] }> 
     .map((chunk) => {
       const lines = chunk.split("\n").map((line) => line.trim()).filter(Boolean);
       return {
-        name: (lines[0] ?? "Details").replace(/:$/, ""),
+        name: (lines[0] ?? fallbackName).replace(/:$/, ""),
         items: lines.slice(1).map((line) => line.replace(/^\s*[-*]\s*/, "")),
       };
     })
@@ -221,58 +221,58 @@ export default function BlockInspector({
   switch (block.type) {
     case "core.section":
       fields = <>
-        {select("background", "Background", [
-          { value: "default", label: "Default" },
-          { value: "muted", label: "Muted" },
-          { value: "primary", label: "Primary tint" },
-          { value: "dark", label: "Dark" },
-          { value: "gradient", label: "Gradient" },
+        {select("background", t("builder.inspector.field.background"), [
+          { value: "default", label: t("common.default") },
+          { value: "muted", label: t("builder.inspector.option.backgroundMuted") },
+          { value: "primary", label: t("builder.inspector.option.backgroundPrimaryTint") },
+          { value: "dark", label: t("builder.inspector.option.backgroundDark") },
+          { value: "gradient", label: t("builder.inspector.option.backgroundGradient") },
         ])}
-        {select("padding", "Padding", [
-          { value: "sm", label: "Small" },
-          { value: "md", label: "Medium" },
-          { value: "lg", label: "Large" },
-          { value: "xl", label: "Extra large" },
+        {select("padding", t("builder.inspector.field.padding"), [
+          { value: "sm", label: t("builder.layout.value.sm") },
+          { value: "md", label: t("builder.layout.value.md") },
+          { value: "lg", label: t("builder.layout.value.lg") },
+          { value: "xl", label: t("builder.inspector.option.extraLarge") },
         ])}
-        {select("align", "Alignment", [
-          { value: "left", label: "Left" },
-          { value: "center", label: "Center" },
+        {select("align", t("builder.inspector.field.alignment"), [
+          { value: "left", label: t("builder.layout.value.left") },
+          { value: "center", label: t("builder.layout.value.center") },
         ])}
       </>;
       break;
 
     case "core.container":
-      fields = select("width", "Width", [
-        { value: "narrow", label: "Narrow" },
-        { value: "default", label: "Default" },
-        { value: "wide", label: "Wide" },
-        { value: "full", label: "Full" },
+      fields = select("width", t("builder.inspector.field.width"), [
+        { value: "narrow", label: t("builder.layout.value.narrow") },
+        { value: "default", label: t("common.default") },
+        { value: "wide", label: t("builder.layout.value.wide") },
+        { value: "full", label: t("builder.layout.value.full") },
       ]);
       break;
 
     case "core.columns":
       fields = <>
-        <label style={fieldLabel}>Columns
+        <label style={fieldLabel}>{t("builder.inspector.field.columns")}
           <input type="number" style={fieldInput} min={2} max={4} value={(p.columns as number) ?? 2} onChange={(e) => set("columns", Number(e.target.value))} />
         </label>
-        {select("gap", "Gap", [
-          { value: "sm", label: "Small" },
-          { value: "md", label: "Medium" },
-          { value: "lg", label: "Large" },
+        {select("gap", t("builder.inspector.field.gap"), [
+          { value: "sm", label: t("builder.layout.value.sm") },
+          { value: "md", label: t("builder.layout.value.md") },
+          { value: "lg", label: t("builder.layout.value.lg") },
         ])}
       </>;
       break;
 
     case "core.hero":
       fields = <>
-        {textInput("heading", "Heading")}
-        {textArea("subheading", "Subheading", 2)}
-        {textInput("buttonLabel", "Button label")}
-        <InternalLinkField value={(p.buttonUrl as string) ?? ""} onChange={(url) => set("buttonUrl", url)} label="Button URL" placeholder="/about or https://…" />
-        {textInput("backgroundImage", "Background image URL")}
-        {select("align", "Alignment", [
-          { value: "left", label: "Left" },
-          { value: "center", label: "Center" },
+        {textInput("heading", t("builder.inspector.field.heading"))}
+        {textArea("subheading", t("builder.inspector.field.subheading"), 2)}
+        {textInput("buttonLabel", t("builder.inspector.field.buttonLabel"))}
+        <InternalLinkField value={(p.buttonUrl as string) ?? ""} onChange={(url) => set("buttonUrl", url)} label={t("builder.inspector.field.buttonUrl")} placeholder={t("builder.inspector.placeholder.internalLink")} />
+        {textInput("backgroundImage", t("builder.inspector.field.backgroundImageUrl"))}
+        {select("align", t("builder.inspector.field.alignment"), [
+          { value: "left", label: t("builder.layout.value.left") },
+          { value: "center", label: t("builder.layout.value.center") },
         ])}
       </>;
       break;
@@ -283,22 +283,22 @@ export default function BlockInspector({
 
     case "core.cta":
       fields = <>
-        {textInput("heading", "Heading")}
-        {textArea("text", "Text", 2)}
-        {textInput("buttonLabel", "Button label")}
-        <InternalLinkField value={(p.buttonUrl as string) ?? ""} onChange={(url) => set("buttonUrl", url)} label="Button URL" />
-        {select("variant", "Style", [
-          { value: "primary", label: "Primary" },
-          { value: "dark", label: "Dark" },
+        {textInput("heading", t("builder.inspector.field.heading"))}
+        {textArea("text", t("builder.inspector.field.text"), 2)}
+        {textInput("buttonLabel", t("builder.inspector.field.buttonLabel"))}
+        <InternalLinkField value={(p.buttonUrl as string) ?? ""} onChange={(url) => set("buttonUrl", url)} label={t("builder.inspector.field.buttonUrl")} />
+        {select("variant", t("builder.inspector.field.style"), [
+          { value: "primary", label: t("builder.inspector.option.primary") },
+          { value: "dark", label: t("builder.inspector.option.backgroundDark") },
         ])}
       </>;
       break;
 
-    case "core.paragraph": fields = textArea("text", "Text", 5, true); break;
+    case "core.paragraph": fields = textArea("text", t("builder.inspector.field.text"), 5, true); break;
     case "core.heading":
       fields = <>
-        {textInput("text", "Heading text", "", true)}
-        <label style={fieldLabel}>Level
+        {textInput("text", t("builder.inspector.field.headingText"), "", true)}
+        <label style={fieldLabel}>{t("builder.inspector.field.level")}
           <select style={fieldInput} value={(p.level as number) ?? 2} onChange={(e) => set("level", Number(e.target.value))}>
             {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>H{n}</option>)}
           </select>
@@ -309,38 +309,38 @@ export default function BlockInspector({
       fields = <>
         <MediaImageField
           id={`block-${block.id}-image`}
-          label="Image"
+          label={t("builder.inspector.field.image")}
           value={(p.src as string) ?? ""}
           onChange={(url) => set("src", url)}
         />
-        {textInput("alt", "Alt text")}
-        {textInput("caption", "Caption")}
+        {textInput("alt", t("builder.inspector.field.altText"))}
+        {textInput("caption", t("builder.inspector.field.caption"))}
         <div className="jf-block-panel__grid2">
-          <label className="jf-block-panel__field jf-block-panel__field--inline">Width (px)
-            <input type="number" min={0} max={10000} placeholder="Auto" value={(p.width as number) || ""} onChange={(e) => set("width", Number(e.target.value) || 0)} />
+          <label className="jf-block-panel__field jf-block-panel__field--inline">{t("builder.inspector.field.widthPx")}
+            <input type="number" min={0} max={10000} placeholder={t("builder.inspector.placeholder.auto")} value={(p.width as number) || ""} onChange={(e) => set("width", Number(e.target.value) || 0)} />
           </label>
-          <label className="jf-block-panel__field jf-block-panel__field--inline">Height (px)
-            <input type="number" min={0} max={10000} placeholder="Auto" value={(p.height as number) || ""} onChange={(e) => set("height", Number(e.target.value) || 0)} />
+          <label className="jf-block-panel__field jf-block-panel__field--inline">{t("builder.inspector.field.heightPx")}
+            <input type="number" min={0} max={10000} placeholder={t("builder.inspector.placeholder.auto")} value={(p.height as number) || ""} onChange={(e) => set("height", Number(e.target.value) || 0)} />
           </label>
         </div>
-        {select("objectFit", "Image fit", [
-          { value: "contain", label: "Contain" },
-          { value: "cover", label: "Cover" },
-          { value: "fill", label: "Stretch" },
+        {select("objectFit", t("builder.inspector.field.imageFit"), [
+          { value: "contain", label: t("builder.inspector.option.contain") },
+          { value: "cover", label: t("builder.inspector.option.cover") },
+          { value: "fill", label: t("builder.inspector.option.stretch") },
         ])}
       </>;
       break;
     case "core.quote":
-      fields = <>{textArea("text", "Quote", 3)}{textInput("attribution", "Attribution")}</>;
+      fields = <>{textArea("text", t("builder.inspector.field.quote"), 3)}{textInput("attribution", t("builder.inspector.field.attribution"))}</>;
       break;
     case "core.button":
       fields = <>
-        {textInput("label", "Label")}
-        <InternalLinkField value={(p.url as string) ?? ""} onChange={(url) => set("url", url)} label="URL" />
-        {select("variant", "Variant", [
-          { value: "primary", label: "Primary" },
-          { value: "secondary", label: "Secondary" },
-          { value: "outline", label: "Outline" },
+        {textInput("label", t("builder.inspector.field.label"))}
+        <InternalLinkField value={(p.url as string) ?? ""} onChange={(url) => set("url", url)} label={t("builder.inspector.field.url")} />
+        {select("variant", t("builder.inspector.field.variant"), [
+          { value: "primary", label: t("builder.inspector.option.primary") },
+          { value: "secondary", label: t("builder.inspector.option.secondary") },
+          { value: "outline", label: t("builder.inspector.option.outline") },
         ])}
       </>;
       break;
@@ -349,112 +349,111 @@ export default function BlockInspector({
       break;
     case "core.spacer":
       fields = (
-        <label style={fieldLabel}>Height (px)
+        <label style={fieldLabel}>{t("builder.inspector.field.heightPx")}
           <input type="number" style={fieldInput} min={8} max={500} value={(p.height as number) ?? 40} onChange={(e) => set("height", Number(e.target.value))} />
         </label>
       );
       break;
     case "core.code":
-      fields = <>{textArea("code", "Code", 8)}{textInput("language", "Language")}</>;
+      fields = <>{textArea("code", t("builder.inspector.field.code"), 8)}{textInput("language", t("builder.inspector.field.language"))}</>;
       break;
-    case "core.embed": fields = textInput("url", "URL"); break;
-    case "core.html": fields = textArea("html", "HTML", 6, true); break;
+    case "core.embed": fields = textInput("url", t("builder.inspector.field.url")); break;
+    case "core.html": fields = textArea("html", t("builder.inspector.field.html"), 6, true); break;
     case "core.divider":
-      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>No settings.</p>;
+      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>{t("builder.inspector.noSettings")}</p>;
       break;
     case "core.color-scheme":
       fields = <>
-        {select("style", "Style", [
-          { value: "buttons", label: "Buttons" },
-          { value: "icons", label: "Icons" },
-          { value: "segmented", label: "Segmented control" },
-          { value: "toggle", label: "Single sun / moon toggle" },
-          { value: "switch", label: "Switch" },
-          { value: "select", label: "Compact dropdown" },
-          { value: "labels", label: "Text labels" },
-          { value: "tooltip-icons", label: "Icon buttons with tooltips" },
+        {select("style", t("builder.inspector.field.style"), [
+          { value: "buttons", label: t("builder.inspector.option.buttons") },
+          { value: "icons", label: t("builder.inspector.option.icons") },
+          { value: "segmented", label: t("builder.inspector.option.segmentedControl") },
+          { value: "toggle", label: t("builder.inspector.option.singleSunMoonToggle") },
+          { value: "switch", label: t("builder.inspector.option.switch") },
+          { value: "select", label: t("builder.inspector.option.compactDropdown") },
+          { value: "labels", label: t("builder.inspector.option.textLabels") },
+          { value: "tooltip-icons", label: t("builder.inspector.option.iconButtonsWithTooltips") },
         ])}
-        {select("align", "Alignment", [
-          { value: "left", label: "Left" },
-          { value: "center", label: "Center" },
-          { value: "right", label: "Right" },
+        {select("align", t("builder.inspector.field.alignment"), [
+          { value: "left", label: t("builder.layout.value.left") },
+          { value: "center", label: t("builder.layout.value.center") },
+          { value: "right", label: t("builder.layout.value.right") },
         ])}
-        {select("size", "Size", [
-          { value: "sm", label: "Small" },
-          { value: "md", label: "Medium" },
-          { value: "lg", label: "Large" },
+        {select("size", t("builder.inspector.field.size"), [
+          { value: "sm", label: t("builder.layout.value.sm") },
+          { value: "md", label: t("builder.layout.value.md") },
+          { value: "lg", label: t("builder.layout.value.lg") },
         ])}
-        {select("radius", "Corners", [
-          { value: "pill", label: "Pill" },
-          { value: "rounded", label: "Rounded" },
-          { value: "square", label: "Square" },
+        {select("radius", t("builder.inspector.field.corners"), [
+          { value: "pill", label: t("builder.layout.value.pill") },
+          { value: "rounded", label: t("builder.inspector.option.rounded") },
+          { value: "square", label: t("builder.inspector.option.square") },
         ])}
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showSystem === true} onChange={(e) => set("showSystem", e.target.checked)} />
-          Show an “Auto” option
+          {t("builder.inspector.colorScheme.showAutoOption")}
         </label>
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.animate !== false} onChange={(e) => set("animate", e.target.checked)} />
-          Animate the icon change
+          {t("builder.inspector.colorScheme.animateIconChange")}
         </label>
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
-          Visitors who have not chosen already follow their device setting. Auto lets them go back to it.
+          {t("builder.inspector.colorScheme.autoHint")}
         </p>
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0.25rem 0 0" }}>
-          Icons and labels — leave blank to keep the defaults (☀ Light, ☾ Dark, ◐ Auto).
+          {t("builder.inspector.colorScheme.iconsHint")}
         </p>
-        {textInput("lightIcon", "Light icon", "☀")}
-        {textInput("lightLabel", "Light label", "Light")}
-        {textInput("darkIcon", "Dark icon", "☾")}
-        {textInput("darkLabel", "Dark label", "Dark")}
-        {p.showSystem === true ? textInput("autoIcon", "Auto icon", "◐") : null}
-        {p.showSystem === true ? textInput("autoLabel", "Auto label", "Auto") : null}
+        {textInput("lightIcon", t("builder.inspector.colorScheme.lightIcon"), "☀")}
+        {textInput("lightLabel", t("builder.inspector.colorScheme.lightLabel"), t("builder.inspector.colorScheme.lightDefault"))}
+        {textInput("darkIcon", t("builder.inspector.colorScheme.darkIcon"), "☾")}
+        {textInput("darkLabel", t("builder.inspector.colorScheme.darkLabel"), t("builder.inspector.colorScheme.darkDefault"))}
+        {p.showSystem === true ? textInput("autoIcon", t("builder.inspector.colorScheme.autoIcon"), "◐") : null}
+        {p.showSystem === true ? textInput("autoLabel", t("builder.inspector.colorScheme.autoLabel"), t("builder.inspector.colorScheme.autoDefault")) : null}
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0.25rem 0 0" }}>
-          Hover, active, and focus colours follow the theme. A theme can override them
-          through the <code>--jf-color-scheme-*</code> CSS variables.
+          {t("builder.inspector.colorScheme.hoverHint", { cssVar: "--jf-color-scheme-*" })}
         </p>
       </>;
       break;
     case "core.language-switcher":
       fields = <>
-        {select("style", "Style", [
-          { value: "locale-full", label: "Locale (nl-NL)" },
-          { value: "locale-short", label: "Short locale (nl)" },
-          { value: "flags", label: "Flags" },
-          { value: "flag-locale", label: "Flag and locale" },
-          { value: "flag-country", label: "Flag and country name" },
+        {select("style", t("builder.inspector.field.style"), [
+          { value: "locale-full", label: t("builder.inspector.option.localeFull") },
+          { value: "locale-short", label: t("builder.inspector.option.localeShort") },
+          { value: "flags", label: t("builder.inspector.option.flags") },
+          { value: "flag-locale", label: t("builder.inspector.option.flagAndLocale") },
+          { value: "flag-country", label: t("builder.inspector.option.flagAndCountryName") },
         ])}
-        {select("align", "Alignment", [
-          { value: "left", label: "Left" },
-          { value: "center", label: "Center" },
-          { value: "right", label: "Right" },
+        {select("align", t("builder.inspector.field.alignment"), [
+          { value: "left", label: t("builder.layout.value.left") },
+          { value: "center", label: t("builder.layout.value.center") },
+          { value: "right", label: t("builder.layout.value.right") },
         ])}
-        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>Shown when the site has more than one active language.</p>
+        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>{t("builder.inspector.languageSwitcherHint")}</p>
       </>;
       break;
     case "core.auth-links":
       fields = <>
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showLogin !== false} onChange={(e) => set("showLogin", e.target.checked)} />
-          Show login
+          {t("builder.inspector.authLinks.showLogin")}
         </label>
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showRegister !== false} onChange={(e) => set("showRegister", e.target.checked)} />
-          Show register
+          {t("builder.inspector.authLinks.showRegister")}
         </label>
-        {textInput("loginLabel", "Login label")}
-        {textInput("registerLabel", "Register label")}
-        {select("style", "Style", [
-          { value: "buttons", label: "Buttons" },
-          { value: "links", label: "Links" },
+        {textInput("loginLabel", t("builder.inspector.authLinks.loginLabel"))}
+        {textInput("registerLabel", t("builder.inspector.authLinks.registerLabel"))}
+        {select("style", t("builder.inspector.field.style"), [
+          { value: "buttons", label: t("builder.inspector.option.buttons") },
+          { value: "links", label: t("builder.inspector.option.links") },
         ])}
-        {select("align", "Alignment", [
-          { value: "left", label: "Left" },
-          { value: "center", label: "Center" },
-          { value: "right", label: "Right" },
+        {select("align", t("builder.inspector.field.alignment"), [
+          { value: "left", label: t("builder.layout.value.left") },
+          { value: "center", label: t("builder.layout.value.center") },
+          { value: "right", label: t("builder.layout.value.right") },
         ])}
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
-          Register is shown on the public site only when Settings → Anyone can register is on.
+          {t("builder.inspector.authLinks.registerHint")}
         </p>
       </>;
       break;
@@ -470,7 +469,7 @@ export default function BlockInspector({
       break;
     case "core.group":
     case "core.column":
-      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>Add content blocks inside this container.</p>;
+      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>{t("builder.inspector.addContentBlocksHint")}</p>;
       break;
     case "justflows.gallery.grid":
       fields = (
@@ -486,113 +485,113 @@ export default function BlockInspector({
       break;
     case "justflows.blog.postList":
       fields = <>
-        {select("layout", "Layout", [
-          { value: "grid", label: "Grid" },
-          { value: "list", label: "List" },
+        {select("layout", t("builder.inspector.field.layout"), [
+          { value: "grid", label: t("builder.inspector.option.grid") },
+          { value: "list", label: t("builder.inspector.option.list") },
         ])}
-        <label style={fieldLabel}>Columns (grid layout)
+        <label style={fieldLabel}>{t("builder.inspector.postList.columnsGridLayout")}
           <input type="number" style={fieldInput} min={1} max={4} value={(p.columns as number) ?? 3} onChange={(e) => set("columns", Number(e.target.value))} />
         </label>
-        <label style={fieldLabel}>Posts per page
+        <label style={fieldLabel}>{t("builder.inspector.postList.postsPerPage")}
           <input
             type="number"
             style={fieldInput}
             min={0}
             max={100}
-            placeholder="Use site default"
+            placeholder={t("builder.inspector.placeholder.useSiteDefault")}
             value={(p.postsPerPage as number) || ""}
             onChange={(e) => set("postsPerPage", e.target.value === "" ? 0 : Number(e.target.value))}
           />
         </label>
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showFeaturedImage !== false} onChange={(e) => set("showFeaturedImage", e.target.checked)} />
-          Show featured image
+          {t("builder.inspector.postList.showFeaturedImage")}
         </label>
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showDate !== false} onChange={(e) => set("showDate", e.target.checked)} />
-          Show date
+          {t("builder.inspector.postList.showDate")}
         </label>
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showExcerpt !== false} onChange={(e) => set("showExcerpt", e.target.checked)} />
-          Show excerpt
+          {t("builder.inspector.postList.showExcerpt")}
         </label>
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
-          Lists published posts, newest first. Pagination uses /page/2, /page/3, etc. under this page's URL.
+          {t("builder.inspector.postList.hint")}
         </p>
       </>;
       break;
     case "justflows.shop.gallery":
       fields = <>
-        {select("layout", "Layout", [
-          { value: "thumbs", label: "Thumbnails" },
-          { value: "featured", label: "Featured + two" },
-          { value: "mosaic", label: "Mosaic" },
-          { value: "single", label: "Single image" },
+        {select("layout", t("builder.inspector.field.layout"), [
+          { value: "thumbs", label: t("builder.inspector.option.thumbnails") },
+          { value: "featured", label: t("builder.inspector.option.featuredPlusTwo") },
+          { value: "mosaic", label: t("builder.inspector.option.mosaic") },
+          { value: "single", label: t("builder.inspector.option.singleImage") },
         ])}
-        <label style={fieldLabel}>Images
+        <label style={fieldLabel}>{t("builder.inspector.field.images")}
           <textarea
             rows={6}
             style={fieldInput}
             value={linesOf(p.images, ["src", "alt"])}
             onChange={(e) => set("images", parsePipes(e.target.value, ["src", "alt"]))}
           />
-          <span style={fieldHint}>One image per line: URL | alt text</span>
+          <span style={fieldHint}>{t("builder.inspector.hint.imagePerLineUrlAlt")}</span>
         </label>
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.lightbox !== false} onChange={(e) => set("lightbox", e.target.checked)} />
-          Lightbox
+          {t("builder.inspector.field.lightbox")}
         </label>
       </>;
       break;
     case "justflows.shop.buy-box":
       fields = <>
-        {textInput("title", "Title", "{{title}}", true)}
-        {textInput("price", "Price", "{{price}}", true)}
-        {textInput("comparePrice", "Compare at price", "{{comparePrice}}", true)}
-        {textArea("description", "Description", 3, true)}
-        {textInput("meta", "Meta", "SKU {{sku}}", true)}
-        {textArea("attributes", "Options", 3, true)}
-        {textInput("cartLabel", "Add to cart label")}
-        {textInput("cartUrl", "Add to cart URL", "/cart")}
-        {textInput("stockNote", "Stock note")}
-        {textInput("shipping", "Shipping line", "", true)}
-        {textInput("guarantee", "Guarantee")}
+        {textInput("title", t("builder.inspector.field.title"), "{{title}}", true)}
+        {textInput("price", t("builder.inspector.field.price"), "{{price}}", true)}
+        {textInput("comparePrice", t("builder.inspector.field.comparePrice"), "{{comparePrice}}", true)}
+        {textArea("description", t("builder.inspector.field.description"), 3, true)}
+        {textInput("meta", t("builder.inspector.field.meta"), "SKU {{sku}}", true)}
+        {textArea("attributes", t("builder.inspector.field.options"), 3, true)}
+        {textInput("cartLabel", t("builder.inspector.buyBox.addToCartLabel"))}
+        {textInput("cartUrl", t("builder.inspector.buyBox.addToCartUrl"), "/cart")}
+        {textInput("stockNote", t("builder.inspector.buyBox.stockNote"))}
+        {textInput("shipping", t("builder.inspector.buyBox.shippingLine"), "", true)}
+        {textInput("guarantee", t("builder.inspector.buyBox.guarantee"))}
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showRating === true} onChange={(e) => set("showRating", e.target.checked)} />
-          Show rating
+          {t("builder.inspector.field.showRating")}
         </label>
         {p.showRating === true ? (
           <>
-            <label style={fieldLabel}>Average (0–5)
+            <label style={fieldLabel}>{t("builder.inspector.field.average05")}
               <input type="number" style={fieldInput} min={0} max={5} step={0.5} value={Number(p.ratingAverage) || 0} onChange={(e) => set("ratingAverage", Number(e.target.value))} />
             </label>
-            {textInput("reviewCount", "Review count label")}
+            {textInput("reviewCount", t("builder.inspector.buyBox.reviewCountLabel"))}
           </>
         ) : null}
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showWishlist === true} onChange={(e) => set("showWishlist", e.target.checked)} />
-          Show wishlist link
+          {t("builder.inspector.buyBox.showWishlistLink")}
         </label>
       </>;
       break;
     case "justflows.shop.breadcrumbs":
       fields = <>
-        {textInput("current", "Current page", "{{title}}", true)}
-        <label style={fieldLabel}>Trail
+        {textInput("current", t("builder.inspector.breadcrumbs.currentPage"), "{{title}}", true)}
+        <label style={fieldLabel}>{t("builder.inspector.breadcrumbs.trail")}
           <textarea
             rows={3}
             style={fieldInput}
             value={linesOf(p.items, ["name", "href"])}
             onChange={(e) => set("items", parsePipes(e.target.value, ["name", "href"]))}
           />
-          <span style={fieldHint}>One crumb per line: name | /path</span>
+          <span style={fieldHint}>{t("builder.inspector.hint.crumbPerLine")}</span>
         </label>
       </>;
       break;
     case "justflows.shop.highlights":
       fields = <>
-        {textInput("heading", "Heading")}
-        <label style={fieldLabel}>Items
+        {textInput("heading", t("builder.inspector.field.heading"))}
+        <label style={fieldLabel}>{t("builder.inspector.field.items")}
           <textarea
             rows={5}
             style={fieldInput}
@@ -604,44 +603,44 @@ export default function BlockInspector({
       break;
     case "justflows.shop.accordion":
       fields = (
-        <label style={fieldLabel}>Sections
+        <label style={fieldLabel}>{t("builder.inspector.field.sections")}
           <textarea
             rows={10}
             style={fieldInput}
             value={sectionsToText(p.sections)}
-            onChange={(e) => set("sections", textToSections(e.target.value))}
+            onChange={(e) => set("sections", textToSections(e.target.value, t("common.details")))}
           />
-          <span style={fieldHint}>Heading, then bullets. Blank line starts a new section.</span>
+          <span style={fieldHint}>{t("builder.inspector.hint.headingThenBullets")}</span>
         </label>
       );
       break;
     case "justflows.shop.policies":
       fields = (
-        <label style={fieldLabel}>Policies
+        <label style={fieldLabel}>{t("builder.inspector.field.policies")}
           <textarea
             rows={6}
             style={fieldInput}
             value={linesOf(p.items, ["name", "description", "imageSrc"])}
             onChange={(e) => set("items", parsePipes(e.target.value, ["name", "description", "imageSrc"]))}
           />
-          <span style={fieldHint}>One card per line: name | description | icon URL</span>
+          <span style={fieldHint}>{t("builder.inspector.hint.cardPerLineNameDescIcon")}</span>
         </label>
       );
       break;
     case "justflows.shop.reviews":
       fields = <>
-        {textInput("heading", "Heading")}
-        <label style={fieldLabel}>Average (0–5)
+        {textInput("heading", t("builder.inspector.field.heading"))}
+        <label style={fieldLabel}>{t("builder.inspector.field.average05")}
           <input type="number" style={fieldInput} min={0} max={5} step={0.5} value={Number(p.average) || 0} onChange={(e) => set("average", Number(e.target.value))} />
         </label>
-        <label style={fieldLabel}>Total reviews
+        <label style={fieldLabel}>{t("builder.inspector.reviews.totalReviews")}
           <input type="number" style={fieldInput} min={0} value={Number(p.totalCount) || 0} onChange={(e) => set("totalCount", Number(e.target.value))} />
         </label>
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showHistogram === true} onChange={(e) => set("showHistogram", e.target.checked)} />
-          Show rating breakdown
+          {t("builder.inspector.reviews.showRatingBreakdown")}
         </label>
-        <label style={fieldLabel}>Breakdown
+        <label style={fieldLabel}>{t("builder.inspector.reviews.breakdown")}
           <textarea
             rows={5}
             style={fieldInput}
@@ -651,90 +650,90 @@ export default function BlockInspector({
               return { rating: Number(rating) || 0, count: Number(count) || 0 };
             }).filter((row) => row.rating > 0))}
           />
-          <span style={fieldHint}>One row per rating: 5:12</span>
+          <span style={fieldHint}>{t("builder.inspector.hint.rowPerRating")}</span>
         </label>
-        <label style={fieldLabel}>Featured reviews
+        <label style={fieldLabel}>{t("builder.inspector.reviews.featuredReviews")}
           <textarea
             rows={6}
             style={fieldInput}
             value={linesOf(p.items, ["rating", "author", "title", "content", "avatarSrc"])}
             onChange={(e) => set("items", parsePipes(e.target.value, ["rating", "author", "title", "content", "avatarSrc"]))}
           />
-          <span style={fieldHint}>rating | author | title | content | avatar URL</span>
+          <span style={fieldHint}>{t("builder.inspector.hint.reviewFields")}</span>
         </label>
-        {textInput("writeLabel", "Write review label")}
-        {textInput("writeHref", "Write review URL")}
+        {textInput("writeLabel", t("builder.inspector.reviews.writeReviewLabel"))}
+        {textInput("writeHref", t("builder.inspector.reviews.writeReviewUrl"))}
       </>;
       break;
     case "justflows.shop.related":
       fields = <>
-        {textInput("heading", "Heading")}
-        {select("layout", "Layout", [
-          { value: "cards", label: "Cards" },
-          { value: "overlay", label: "Overlay" },
+        {textInput("heading", t("builder.inspector.field.heading"))}
+        {select("layout", t("builder.inspector.field.layout"), [
+          { value: "cards", label: t("builder.inspector.option.cards") },
+          { value: "overlay", label: t("builder.inspector.option.overlay") },
         ])}
-        <label style={fieldLabel}>Products
+        <label style={fieldLabel}>{t("builder.inspector.field.products")}
           <textarea
             rows={6}
             style={fieldInput}
             value={linesOf(p.items, ["imageSrc", "name", "price", "href", "color"])}
             onChange={(e) => set("items", parsePipes(e.target.value, ["imageSrc", "name", "price", "href", "color"]))}
           />
-          <span style={fieldHint}>image URL | name | price | link | color</span>
+          <span style={fieldHint}>{t("builder.inspector.hint.productFieldsShort")}</span>
         </label>
       </>;
       break;
     case "justflows.shop.product-list":
       fields = <>
-        {select("layout", "Layout", [
-          { value: "inline", label: "Inline price" },
-          { value: "cta", label: "CTA link" },
-          { value: "swatches", label: "Color swatches" },
-          { value: "tall", label: "Tall images" },
-          { value: "overlay", label: "Overlay + add button" },
-          { value: "simple", label: "Simple" },
-          { value: "favorites", label: "Tall images + CTA" },
-          { value: "border", label: "Border grid" },
-          { value: "supporting", label: "Supporting text" },
-          { value: "hover", label: "Hover CTA" },
-          { value: "cards", label: "Detail cards" },
+        {select("layout", t("builder.inspector.field.layout"), [
+          { value: "inline", label: t("builder.inspector.option.inlinePrice") },
+          { value: "cta", label: t("builder.inspector.option.ctaLink") },
+          { value: "swatches", label: t("builder.inspector.option.colorSwatches") },
+          { value: "tall", label: t("builder.inspector.option.tallImages") },
+          { value: "overlay", label: t("builder.inspector.option.overlayPlusAddButton") },
+          { value: "simple", label: t("builder.inspector.option.simple") },
+          { value: "favorites", label: t("builder.inspector.option.tallImagesPlusCta") },
+          { value: "border", label: t("builder.inspector.option.borderGrid") },
+          { value: "supporting", label: t("builder.inspector.option.supportingText") },
+          { value: "hover", label: t("builder.inspector.option.hoverCta") },
+          { value: "cards", label: t("builder.inspector.option.detailCards") },
         ])}
-        {textInput("heading", "Heading")}
+        {textInput("heading", t("builder.inspector.field.heading"))}
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.headingHidden === true} onChange={(e) => set("headingHidden", e.target.checked)} />
-          Hide heading
+          {t("builder.inspector.productList.hideHeading")}
         </label>
-        {textInput("ctaLabel", "Collection link label")}
-        {textInput("ctaHref", "Collection link URL", "/shop")}
-        {String(p.layout) === "overlay" ? textInput("addLabel", "Add button label") : null}
-        <label style={fieldLabel}>Products
+        {textInput("ctaLabel", t("builder.inspector.productList.collectionLinkLabel"))}
+        {textInput("ctaHref", t("builder.inspector.productList.collectionLinkUrl"), "/shop")}
+        {String(p.layout) === "overlay" ? textInput("addLabel", t("builder.inspector.productList.addButtonLabel")) : null}
+        <label style={fieldLabel}>{t("builder.inspector.field.products")}
           <textarea
             rows={8}
             style={fieldInput}
             value={productListLines(p.items)}
             onChange={(e) => set("items", parsePipes(e.target.value, ["imageSrc", "name", "price", "href", "color", "description", "rating", "reviewCount", "colors"]))}
           />
-          <span style={fieldHint}>image URL | name | price | link | color | description | rating | reviews | Black:#111827,White:#F9FAFB</span>
+          <span style={fieldHint}>{t("builder.inspector.hint.productFieldsLong")}</span>
         </label>
       </>;
       break;
     case "justflows.shop.detail-shots":
       fields = <>
-        {textInput("heading", "Heading")}
-        {textArea("intro", "Intro", 3)}
-        <label style={fieldLabel}>Shots
+        {textInput("heading", t("builder.inspector.field.heading"))}
+        {textArea("intro", t("builder.inspector.field.intro"), 3)}
+        <label style={fieldLabel}>{t("builder.inspector.detailShots.shots")}
           <textarea
             rows={5}
             style={fieldInput}
             value={linesOf(p.items, ["src", "alt", "text"])}
             onChange={(e) => set("items", parsePipes(e.target.value, ["src", "alt", "text"]))}
           />
-          <span style={fieldHint}>image URL | alt | caption</span>
+          <span style={fieldHint}>{t("builder.inspector.hint.shotFields")}</span>
         </label>
       </>;
       break;
     default:
-      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>No settings for this block.</p>;
+      fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>{t("builder.inspector.noSettingsForBlock")}</p>;
   }
 
   return (
@@ -792,7 +791,7 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
   }
 
   function addItem() {
-    onChange({ ...p, items: [...items, { icon: "✦", title: "New feature", description: "" }] });
+    onChange({ ...p, items: [...items, { icon: "✦", title: t("builder.inspector.features.newFeature"), description: "" }] });
     setOpen(items.length);
   }
 
@@ -800,12 +799,14 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
     onChange({ ...p, items: items.filter((_, idx) => idx !== i) });
   }
 
+  const { t } = useT();
+
   return (
     <>
-      <label style={fieldLabel}>Section heading
+      <label style={fieldLabel}>{t("builder.inspector.features.sectionHeading")}
         <input type="text" style={fieldInput} value={heading} onChange={(e) => onChange({ ...p, heading: e.target.value })} />
       </label>
-      <label style={fieldLabel}>Columns
+      <label style={fieldLabel}>{t("builder.inspector.field.columns")}
         <input type="number" style={fieldInput} min={2} max={4} value={columns} onChange={(e) => onChange({ ...p, columns: Number(e.target.value) })} />
       </label>
       <div style={{ marginTop: "0.5rem" }}>
@@ -816,26 +817,26 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
               onClick={() => setOpen(open === i ? null : i)}
               style={{ width: "100%", padding: "0.5rem 0.75rem", background: "var(--jf-surface-2)", border: "none", textAlign: "left", fontWeight: 600, fontSize: "0.8rem", cursor: "pointer" }}
             >
-              {item.icon} {item.title || `Feature ${i + 1}`}
+              {item.icon} {item.title || t("builder.inspector.features.featureN", { n: i + 1 })}
             </button>
             {open === i && (
               <div style={{ padding: "0.75rem" }}>
-                <label style={fieldLabel}>Icon
+                <label style={fieldLabel}>{t("builder.inspector.field.icon")}
                   <input type="text" style={fieldInput} value={item.icon} onChange={(e) => updateItem(i, { icon: e.target.value })} />
                 </label>
-                <label style={fieldLabel}>Title
+                <label style={fieldLabel}>{t("builder.inspector.field.title")}
                   <input type="text" style={fieldInput} value={item.title} onChange={(e) => updateItem(i, { title: e.target.value })} />
                 </label>
-                <label style={fieldLabel}>Description
+                <label style={fieldLabel}>{t("builder.inspector.field.description")}
                   <textarea rows={2} style={fieldInput} value={item.description} onChange={(e) => updateItem(i, { description: e.target.value })} />
                 </label>
-                <button type="button" onClick={() => removeItem(i)} style={{ color: "var(--jf-danger)", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>Remove</button>
+                <button type="button" onClick={() => removeItem(i)} style={{ color: "var(--jf-danger)", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>{t("builder.inspector.remove")}</button>
               </div>
             )}
           </div>
         ))}
         <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
-          + Add feature
+          {t("builder.inspector.features.addFeature")}
         </button>
       </div>
     </>
@@ -851,12 +852,15 @@ let internalLinkCache: InternalLinkOption[] | null = null;
  * so an internal link can be chosen by title instead of hand-typed and mistyped.
  * Stores a plain root-relative path (e.g. "/about"), same as a typed one.
  */
-function InternalLinkField({ value, onChange, label = "URL", placeholder = "/about or https://…" }: {
+function InternalLinkField({ value, onChange, label, placeholder }: {
   value: string;
   onChange: (value: string) => void;
   label?: string;
   placeholder?: string;
 }) {
+  const { t } = useT();
+  const resolvedLabel = label ?? t("builder.inspector.field.url");
+  const resolvedPlaceholder = placeholder ?? t("builder.inspector.placeholder.internalLink");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [options, setOptions] = useState<InternalLinkOption[]>(internalLinkCache ?? []);
@@ -888,20 +892,20 @@ function InternalLinkField({ value, onChange, label = "URL", placeholder = "/abo
 
   return (
     <label style={fieldLabel}>
-      {label}
+      {resolvedLabel}
       <div style={{ display: "flex", gap: "0.35rem" }}>
         <input
           type="text"
           style={{ ...fieldInput, flex: 1 }}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
         <button
           type="button"
           onClick={togglePicker}
-          title="Pick a page or post on this site"
-          aria-label="Pick a page or post on this site"
+          title={t("builder.inspector.internalLink.pickPageOrPost")}
+          aria-label={t("builder.inspector.internalLink.pickPageOrPost")}
           style={{ padding: "0 0.6rem", border: "1px solid var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.9rem" }}
         >
           {loading ? "…" : "📄"}
@@ -910,7 +914,7 @@ function InternalLinkField({ value, onChange, label = "URL", placeholder = "/abo
       {open && (
         <div style={{ border: "1px solid var(--jf-border)", borderRadius: 6, maxHeight: 220, overflow: "auto", background: "#fff" }}>
           {options.length === 0 ? (
-            <div style={{ padding: "0.5rem 0.6rem", fontSize: "0.75rem", color: "var(--jf-text-3)" }}>No published pages or posts yet.</div>
+            <div style={{ padding: "0.5rem 0.6rem", fontSize: "0.75rem", color: "var(--jf-text-3)" }}>{t("builder.inspector.internalLink.noPublishedYet")}</div>
           ) : (
             options.map((item) => (
               <button
@@ -920,7 +924,7 @@ function InternalLinkField({ value, onChange, label = "URL", placeholder = "/abo
                 style={{ display: "block", width: "100%", textAlign: "left", padding: "0.4rem 0.6rem", border: "none", borderBottom: "1px solid var(--jf-border)", background: "none", cursor: "pointer", fontSize: "0.8rem" }}
               >
                 <span style={{ color: "var(--jf-text-3)", marginRight: "0.35rem" }}>{item.type === "page" ? "📄" : "📝"}</span>
-                {item.title || `(untitled ${item.type})`}
+                {item.title || t("builder.inspector.internalLink.untitled", { type: item.type })}
                 <span style={{ color: "var(--jf-text-3)" }}> — /{item.slug}</span>
               </button>
             ))
@@ -939,13 +943,14 @@ function LinkListEditor({ items, heading, onChange, p }: {
   onChange: (props: Record<string, unknown>) => void;
   p: Record<string, unknown>;
 }) {
+  const { t } = useT();
   function updateItem(i: number, patch: Partial<LinkItem>) {
     const next = items.map((item, idx) => (idx === i ? { ...item, ...patch } : item));
     onChange({ ...p, items: next });
   }
 
   function addItem() {
-    onChange({ ...p, items: [...items, { label: "New link", url: "/" }] });
+    onChange({ ...p, items: [...items, { label: t("builder.inspector.linkList.newLink"), url: "/" }] });
   }
 
   function removeItem(i: number) {
@@ -962,25 +967,25 @@ function LinkListEditor({ items, heading, onChange, p }: {
 
   return (
     <>
-      <label style={fieldLabel}>Heading (optional)
-        <input type="text" style={fieldInput} placeholder="e.g. Product" value={heading} onChange={(e) => onChange({ ...p, heading: e.target.value })} />
+      <label style={fieldLabel}>{t("builder.inspector.linkList.headingOptional")}
+        <input type="text" style={fieldInput} placeholder={t("builder.inspector.linkList.headingPlaceholder")} value={heading} onChange={(e) => onChange({ ...p, heading: e.target.value })} />
       </label>
       <div style={{ marginTop: "0.5rem" }}>
         {items.map((item, i) => (
           <div key={i} style={{ border: "1px solid var(--jf-border)", borderRadius: 6, marginBottom: "0.5rem", padding: "0.6rem" }}>
-            <label style={fieldLabel}>Label
+            <label style={fieldLabel}>{t("builder.inspector.field.label")}
               <input type="text" style={fieldInput} value={item.label} onChange={(e) => updateItem(i, { label: e.target.value })} />
             </label>
             <InternalLinkField value={item.url} onChange={(url) => updateItem(i, { url })} />
             <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button type="button" onClick={() => moveItem(i, -1)} disabled={i === 0} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-text-2)" }}>↑ Move up</button>
-              <button type="button" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-text-2)" }}>↓ Move down</button>
-              <button type="button" onClick={() => removeItem(i)} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-danger)", marginLeft: "auto" }}>Remove</button>
+              <button type="button" onClick={() => moveItem(i, -1)} disabled={i === 0} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-text-2)" }}>↑ {t("builder.inspector.moveUp")}</button>
+              <button type="button" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-text-2)" }}>↓ {t("builder.inspector.moveDown")}</button>
+              <button type="button" onClick={() => removeItem(i)} style={{ background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer", color: "var(--jf-danger)", marginLeft: "auto" }}>{t("builder.inspector.remove")}</button>
             </div>
           </div>
         ))}
         <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
-          + Add link
+          {t("builder.inspector.linkList.addLink")}
         </button>
       </div>
     </>
@@ -1004,6 +1009,7 @@ function GalleryEditor({
   onChange: (props: Record<string, unknown>) => void;
   p: Record<string, unknown>;
 }) {
+  const { t } = useT();
   const [library, setLibrary] = useState<Array<{ url: string; filename: string }>>([]);
   const [showLibrary, setShowLibrary] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1043,7 +1049,7 @@ function GalleryEditor({
         form.append("file", file);
         const res = await fetch("/api/media", { method: "POST", body: form });
         const data = (await res.json()) as { url?: string; error?: string };
-        if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed");
+        if (!res.ok || !data.url) throw new Error(data.error ?? t("builder.inspector.gallery.uploadFailed"));
         uploaded.push({ src: data.url, alt: "", caption: "" });
         setLibrary((prev) => [{ url: data.url as string, filename: file.name }, ...prev]);
       }
@@ -1059,29 +1065,29 @@ function GalleryEditor({
   return (
     <>
       <label style={fieldLabel}>
-        Layout
+        {t("builder.inspector.field.layout")}
         <select style={fieldInput} value={layout} onChange={(e) => emit({ layout: e.target.value })}>
-          <option value="grid">Grid</option>
-          <option value="masonry">Masonry</option>
-          <option value="carousel">Carousel</option>
-          <option value="slideshow">Slideshow (fade)</option>
-          <option value="list">List</option>
+          <option value="grid">{t("builder.inspector.option.grid")}</option>
+          <option value="masonry">{t("builder.inspector.option.masonry")}</option>
+          <option value="carousel">{t("builder.inspector.option.carousel")}</option>
+          <option value="slideshow">{t("builder.inspector.option.slideshowFade")}</option>
+          <option value="list">{t("builder.inspector.option.list")}</option>
         </select>
       </label>
       {(layout === "grid" || layout === "masonry") && (
         <label style={fieldLabel}>
-          Columns
+          {t("builder.inspector.field.columns")}
           <input type="number" min={2} max={6} style={fieldInput} value={columns} onChange={(e) => emit({ columns: Number(e.target.value) })} />
         </label>
       )}
       {(layout === "carousel" || layout === "slideshow") && (
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0 0 0.75rem" }}>
-          One image shown at a time, with dots to jump between them. Reorder images below to change the order.
+          {t("builder.inspector.gallery.carouselHint")}
         </p>
       )}
       <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
         <input type="checkbox" checked={lightbox} onChange={(e) => emit({ lightbox: e.target.checked })} />
-        Lightbox
+        {t("builder.inspector.field.lightbox")}
       </label>
 
       {items.map((item, index) => (
@@ -1091,24 +1097,24 @@ function GalleryEditor({
           ) : null}
           <input
             style={{ ...fieldInput, marginBottom: "0.35rem" }}
-            placeholder="Image URL"
+            placeholder={t("builder.inspector.placeholder.imageUrl")}
             value={item.src}
             onChange={(e) => emit({ items: items.map((row, i) => (i === index ? { ...row, src: e.target.value } : row)) })}
           />
           <input
             style={{ ...fieldInput, marginBottom: "0.35rem" }}
-            placeholder="Alt text"
+            placeholder={t("builder.inspector.field.altText")}
             value={item.alt}
             onChange={(e) => emit({ items: items.map((row, i) => (i === index ? { ...row, alt: e.target.value } : row)) })}
           />
           <input
             style={{ ...fieldInput, marginBottom: "0.35rem" }}
-            placeholder="Caption"
+            placeholder={t("builder.inspector.field.caption")}
             value={item.caption}
             onChange={(e) => emit({ items: items.map((row, i) => (i === index ? { ...row, caption: e.target.value } : row)) })}
           />
           <button type="button" onClick={() => emit({ items: items.filter((_, i) => i !== index) })} style={{ color: "var(--jf-danger)", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>
-            Remove
+            {t("builder.inspector.remove")}
           </button>
         </div>
       ))}
@@ -1119,7 +1125,7 @@ function GalleryEditor({
         disabled={uploading}
         style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: uploading ? "default" : "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}
       >
-        {uploading ? "Uploading…" : "⇧ Upload from device"}
+        {uploading ? t("builder.inspector.gallery.uploading") : t("builder.inspector.gallery.uploadFromDevice")}
       </button>
       <input
         ref={fileRef}
@@ -1133,15 +1139,15 @@ function GalleryEditor({
         <p style={{ color: "var(--jf-danger)", fontSize: "0.75rem", margin: "0 0 0.4rem" }}>{uploadError}</p>
       ) : null}
       <button type="button" onClick={() => addUrl("")} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}>
-        + Add image URL
+        {t("builder.inspector.gallery.addImageUrl")}
       </button>
       <button type="button" onClick={loadLibrary} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
-        Add from media library
+        {t("builder.inspector.gallery.addFromMediaLibrary")}
       </button>
       {showLibrary && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem", marginTop: "0.5rem", maxHeight: 180, overflow: "auto" }}>
           {library.length === 0 ? (
-            <p style={{ color: "var(--jf-text-3)", fontSize: "0.75rem", gridColumn: "1 / -1" }}>No images in the media library yet.</p>
+            <p style={{ color: "var(--jf-text-3)", fontSize: "0.75rem", gridColumn: "1 / -1" }}>{t("builder.inspector.gallery.noImagesYet")}</p>
           ) : library.map((file) => (
             <button
               key={file.url}

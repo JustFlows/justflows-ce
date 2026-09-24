@@ -1,9 +1,10 @@
+import { translateEnglish, type Translate } from "../i18n/translate";
 import type { BlockDocument, BlockNode } from "@components/builder/types";
 import { sanitizeHtmlBlock, sanitizeRichText, safeHref, safeMediaSrc } from "@justflows/blocks";
 
-export function renderBlock(block: BlockNode): React.ReactNode {
+export function renderBlock(block: BlockNode, t: Translate = translateEnglish): React.ReactNode {
   const p = block.props;
-  const children = block.children?.map(renderBlock);
+  const children = block.children?.map((child) => renderBlock(child, t));
 
   switch (block.type) {
     case "core.section":
@@ -91,7 +92,7 @@ export function renderBlock(block: BlockNode): React.ReactNode {
     case "core.button":
       return (
         <a key={block.id} href={safeHref((p.url as string) || "#")} className={`btn btn--${p.variant ?? "primary"}`}>
-          {(p.label as string) || "Button"}
+          {(p.label as string) || t("builder.preview.button")}
         </a>
       );
     case "core.divider":
@@ -114,6 +115,6 @@ export function renderBlock(block: BlockNode): React.ReactNode {
   }
 }
 
-export function renderBlocks(blocks: BlockDocument | undefined): React.ReactNode {
-  return blocks?.blocks.map(renderBlock);
+export function renderBlocks(blocks: BlockDocument | undefined, t: Translate = translateEnglish): React.ReactNode {
+  return blocks?.blocks.map((block) => renderBlock(block, t));
 }

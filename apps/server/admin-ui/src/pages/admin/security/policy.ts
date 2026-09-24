@@ -204,9 +204,9 @@ export function serializeHsts(parts: HstsParts): string {
 }
 
 export const HSTS_PRESETS = [
-  { label: "5 minutes — for testing", seconds: 300 },
-  { label: "1 day", seconds: 86400 },
-  { label: "6 months — preload minimum", seconds: 15768000 },
-  { label: "1 year — recommended", seconds: 31536000 },
-  { label: "2 years — preload list default", seconds: 63072000 },
+  { label: "security.headers.hsts.presets.fiveMinutes", seconds: 300 },
+  { label: "security.headers.hsts.presets.oneDay", seconds: 86400 },
+  { label: "security.headers.hsts.presets.sixMonths", seconds: 15768000 },
+  { label: "security.headers.hsts.presets.oneYear", seconds: 31536000 },
+  { label: "security.headers.hsts.presets.twoYears", seconds: 63072000 },
 ];

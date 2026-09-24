@@ -63,5 +63,20 @@
   "search.empty": "No matching content. Try fewer words or different filters.",
   "search.pagination": "Search pages",
   "search.previous": "Previous",
-  "search.next": "Next"
+  "search.next": "Next",
+  "construction.title": "Coming soon",
+  "construction.badge": "Under construction",
+  "construction.heading": "We’re building something great",
+  "construction.body": "This site isn’t live yet. Check back soon.",
+  "site.title_fallback": "This site",
+  "nav.primary": "Primary navigation",
+  "nav.footer": "Footer navigation",
+  "auth.account": "Account",
+  "pwa.install": "Install",
+  "pwa.description": "Install this app for a faster, full-screen experience.",
+  "pwa.installAria": "Install this app",
+  "pwa.dismiss": "Dismiss",
+  "pwa.iosInstructions": "Install this app: tap Share, then “Add to Home Screen”.",
+  "pwa.updateAvailable": "An update is available.",
+  "pwa.reload": "Reload"
 }

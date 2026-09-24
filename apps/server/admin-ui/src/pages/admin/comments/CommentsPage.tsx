@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { sanitizeRichText } from "@justflows/blocks";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface Comment {
   id: string;
@@ -25,38 +26,38 @@ function emailDomainOf(email: string): string | null {
   return at === -1 ? null : email.slice(at + 1).trim().toLowerCase() || null;
 }
 
-const HELD_REASON_LABELS: Record<string, string> = {
-  blocklist: "matched a block rule",
-  external_spam: "flagged by an external spam service",
-  score: "auto-flagged by the spam score",
-  moderation: "held because moderation is required for all comments",
-  first_time: "held as this commenter's first comment",
+const HELD_REASON_LABEL_KEYS: Record<string, string> = {
+  blocklist: "comments.heldReason.blocklist",
+  external_spam: "comments.heldReason.externalSpam",
+  score: "comments.heldReason.score",
+  moderation: "comments.heldReason.moderation",
+  first_time: "comments.heldReason.firstTime",
 };
 
 /** Turn a raw stored reason code into a moderator-readable label. */
-function describeReason(reason: string): string {
+function describeReason(reason: string, t: (key: string, vars?: Record<string, string | number>) => string): string {
   const [code, detail] = reason.split(/:(.*)/s);
   switch (code) {
     case "links":
-      return `${detail} link${detail === "1" ? "" : "s"} in the comment`;
+      return t("comments.reasonLinks", { count: detail, plural: detail === "1" ? "" : "s" });
     case "keywords":
-      return `${detail} spam keyword${detail === "1" ? "" : "s"} matched`;
+      return t("comments.reasonKeywords", { count: detail, plural: detail === "1" ? "" : "s" });
     case "disposable_email":
-      return "disposable email domain";
+      return t("comments.reasonDisposableEmail");
     case "repetitive":
-      return "repetitive text";
+      return t("comments.reasonRepetitive");
     case "form_token_missing":
-      return "no submission-timing token (bot-like)";
+      return t("comments.reasonNoToken");
     case "form_too_fast":
-      return "submitted too quickly after the page loaded";
+      return t("comments.reasonTooFast");
     case "trained":
-      return `matches terms learned from past "mark as spam" actions: ${detail}`;
+      return t("comments.reasonTrained", { detail });
     case "rule": {
       const field = (detail ?? "").replace("author_", "").replace("_", " ");
-      return `matched an admin block rule (${field})`;
+      return t("comments.reasonRule", { field });
     }
     case "external":
-      return `external spam service: ${detail || "flagged"}`;
+      return t("comments.reasonExternal", { detail: detail || t("comments.flaggedFallback") });
     default:
       return reason;
   }
@@ -76,7 +77,15 @@ const STATUS_TABS = ["pending", "approved", "spam", "trash"] as const;
 type StatusTab = (typeof STATUS_TABS)[number];
 const PAGE_SIZE = 30;
 
+const STATUS_TAB_LABEL_KEYS: Record<StatusTab, string> = {
+  pending: "comments.tabPending",
+  approved: "comments.tabApproved",
+  spam: "comments.tabSpam",
+  trash: "comments.tabTrash",
+};
+
 export default function CommentsPage() {
+  const { t } = useT();
   const [tab, setTab] = useState<StatusTab>("pending");
   const [comments, setComments] = useState<Comment[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -124,7 +133,7 @@ export default function CommentsPage() {
   }
 
   async function hardDelete() {
-    if (selected.size === 0 || !confirm(`Permanently delete ${selected.size} comment(s)?`)) return;
+    if (selected.size === 0 || !confirm(t("comments.deleteConfirm", { count: selected.size }))) return;
     setBusy(true);
     try {
       await fetch("/api/comments", {
@@ -139,7 +148,7 @@ export default function CommentsPage() {
   }
 
   async function editBody(c: Comment) {
-    const next = prompt("Edit comment", stripTags(c.body));
+    const next = prompt(t("comments.editCommentPrompt"), stripTags(c.body));
     if (next == null || !next.trim()) return;
     setBusy(true);
     try {
@@ -155,7 +164,7 @@ export default function CommentsPage() {
   }
 
   async function reply(c: Comment) {
-    const text = prompt(`Reply to ${c.author_name}`);
+    const text = prompt(t("comments.replyToPrompt", { name: c.author_name }));
     if (text == null || !text.trim()) return;
     setBusy(true);
     try {
@@ -171,7 +180,12 @@ export default function CommentsPage() {
   }
 
   async function blockPattern(field: "author_email" | "author_domain" | "ip", pattern: string) {
-    if (!confirm(`Block all future comments matching this ${field.replace("author_", "")}?\n\n${pattern}`)) return;
+    if (
+      !confirm(
+        t("comments.blockConfirm", { field: field.replace("author_", ""), pattern }),
+      )
+    )
+      return;
     setBusy(true);
     try {
       await fetch("/api/comment-rules", {
@@ -201,8 +215,8 @@ export default function CommentsPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Comments</h1>
-          <p>Moderate discussion across your site</p>
+          <h1>{t("comments.heading")}</h1>
+          <p>{t("comments.subtitle")}</p>
         </div>
       </header>
 
@@ -215,37 +229,37 @@ export default function CommentsPage() {
             aria-selected={tab === s}
             onClick={() => switchTab(s)}
           >
-            {s}
+            {t(STATUS_TAB_LABEL_KEYS[s])}
           </button>
         ))}
       </div>
 
       {selected.size > 0 && (
         <div className="jf-toolbar">
-          <strong style={{ color: "var(--jf-accent)" }}>{selected.size} selected</strong>
+          <strong style={{ color: "var(--jf-accent)" }}>{t("comments.selectedCount", { count: selected.size })}</strong>
           {tab !== "approved" && (
             <button className="jf-btn jf-btn--ghost" disabled={busy} onClick={() => bulkAction("approve")}>
-              Approve
+              {t("comments.approve")}
             </button>
           )}
           {tab === "approved" && (
             <button className="jf-btn jf-btn--ghost" disabled={busy} onClick={() => bulkAction("pending")}>
-              Unapprove
+              {t("comments.unapprove")}
             </button>
           )}
           {tab !== "spam" && (
             <button className="jf-btn jf-btn--ghost" disabled={busy} onClick={() => bulkAction("spam")}>
-              Mark spam
+              {t("comments.markSpam")}
             </button>
           )}
           {tab !== "trash" && (
             <button className="jf-btn jf-btn--danger" disabled={busy} onClick={() => bulkAction("trash")}>
-              Trash
+              {t("comments.trashAction")}
             </button>
           )}
           {tab === "trash" && (
             <button className="jf-btn jf-btn--danger" disabled={busy} onClick={hardDelete}>
-              Delete permanently
+              {t("comments.deletePermanently")}
             </button>
           )}
         </div>
@@ -263,15 +277,15 @@ export default function CommentsPage() {
             <span className="jf-empty__icon" aria-hidden="true">
               💬
             </span>
-            <span className="jf-empty__title">No {tab} comments</span>
-            <p>Nothing needs your attention here right now.</p>
+            <span className="jf-empty__title">{t("comments.noComments", { tab: t(STATUS_TAB_LABEL_KEYS[tab]) })}</span>
+            <p>{t("comments.emptyHint")}</p>
           </div>
         ) : (
           <>
             <div className="jf-card__head">
               <label className="jf-row" style={{ gap: "0.6rem", cursor: "pointer" }}>
                 <input type="checkbox" checked={selected.size === comments.length} onChange={toggleAll} />
-                <span className="jf-card__title">Select all</span>
+                <span className="jf-card__title">{t("comments.selectAll")}</span>
               </label>
             </div>
             <div className="jf-list">
@@ -282,24 +296,24 @@ export default function CommentsPage() {
                     checked={selected.has(c.id)}
                     onChange={() => toggleOne(c.id)}
                     style={{ marginTop: "0.3rem" }}
-                    aria-label={`Select comment by ${c.author_name}`}
+                    aria-label={t("comments.selectCommentAria", { name: c.author_name })}
                   />
                   <div className="jf-list__main">
                     <div className="jf-row" style={{ gap: "0.6rem", marginBottom: "0.15rem" }}>
                       <strong style={{ fontSize: "0.875rem" }}>{c.author_name}</strong>
                       <span className="jf-meta">{c.author_email}</span>
-                      {c.parent_id && <span className="jf-meta">↳ reply</span>}
+                      {c.parent_id && <span className="jf-meta">↳ {t("comments.replyIndicator")}</span>}
                       {c.content_title &&
                         (c.content_slug ? (
                           <a className="jf-meta" href={`/${c.content_slug}`} target="_blank" rel="noreferrer">
-                            on: {c.content_title}
+                            {t("comments.onContent", { title: c.content_title })}
                           </a>
                         ) : (
-                          <span className="jf-meta">on: {c.content_title}</span>
+                          <span className="jf-meta">{t("comments.onContent", { title: c.content_title })}</span>
                         ))}
                       <span className="jf-meta" style={{ marginInlineStart: "auto" }}>
                         {new Date(c.created_at).toLocaleDateString()}
-                        {c.edited_at ? " · edited" : ""}
+                        {c.edited_at ? ` · ${t("comments.editedLabel")}` : ""}
                       </span>
                     </div>
                     {typeof c.spam_score === "number" && c.spam_score > 0 && (
@@ -312,12 +326,17 @@ export default function CommentsPage() {
                           borderRadius: "0.35rem",
                         }}
                       >
-                        <strong>Spam score {c.spam_score}/100</strong>
-                        {c.held_reason && ` — ${HELD_REASON_LABELS[c.held_reason] ?? c.held_reason}`}
+                        <strong>{t("comments.spamScore", { score: c.spam_score })}</strong>
+                        {c.held_reason &&
+                          ` — ${
+                            HELD_REASON_LABEL_KEYS[c.held_reason]
+                              ? t(HELD_REASON_LABEL_KEYS[c.held_reason])
+                              : c.held_reason
+                          }`}
                         {parseSpamReasons(c.spam_reasons).length > 0 && (
                           <ul style={{ margin: "0.25rem 0 0", paddingInlineStart: "1.1rem" }}>
                             {parseSpamReasons(c.spam_reasons).map((reason, i) => (
-                              <li key={i}>{describeReason(reason)}</li>
+                              <li key={i}>{describeReason(reason, t)}</li>
                             ))}
                           </ul>
                         )}
@@ -330,10 +349,10 @@ export default function CommentsPage() {
                     />
                     <div className="jf-row" style={{ gap: "0.5rem", marginTop: "0.4rem" }}>
                       <button className="jf-btn jf-btn--ghost jf-btn--sm" disabled={busy} onClick={() => reply(c)}>
-                        Reply
+                        {t("comments.reply")}
                       </button>
                       <button className="jf-btn jf-btn--ghost jf-btn--sm" disabled={busy} onClick={() => editBody(c)}>
-                        Edit
+                        {t("comments.edit")}
                       </button>
                       {c.author_email && (
                         <button
@@ -341,7 +360,7 @@ export default function CommentsPage() {
                           disabled={busy}
                           onClick={() => blockPattern("author_email", c.author_email)}
                         >
-                          Block email
+                          {t("comments.blockEmail")}
                         </button>
                       )}
                       {emailDomainOf(c.author_email ?? "") && (
@@ -350,7 +369,7 @@ export default function CommentsPage() {
                           disabled={busy}
                           onClick={() => blockPattern("author_domain", emailDomainOf(c.author_email)!)}
                         >
-                          Block domain
+                          {t("comments.blockDomain")}
                         </button>
                       )}
                       {c.ip_address && (
@@ -359,7 +378,7 @@ export default function CommentsPage() {
                           disabled={busy}
                           onClick={() => blockPattern("ip", c.ip_address!)}
                         >
-                          Block IP
+                          {t("comments.blockIp")}
                         </button>
                       )}
                     </div>
@@ -378,17 +397,17 @@ export default function CommentsPage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            ← Previous
+            ← {t("comments.previous")}
           </button>
           <span className="jf-meta">
-            Page {page} of {totalPages}
+            {t("comments.pageOf", { page, totalPages })}
           </span>
           <button
             className="jf-btn jf-btn--ghost"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
-            Next →
+            {t("comments.next")} →
           </button>
         </div>
       )}

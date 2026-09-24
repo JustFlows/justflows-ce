@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { publicAdminPath } from "../../../admin-path";
 import { LoadError, PageSkeleton, SaveBar, Section } from "./components";
+import { useT } from "../../../i18n/I18nProvider";
 
 type Config = { path: string; oldPathBehavior: "not_found" | "redirect" };
 
 export default function AdminPathPage() {
+  const { t } = useT();
   const [saved, setSaved] = useState<Config | null>(null);
   const [draft, setDraft] = useState<Config>({ path: "/admin", oldPathBehavior: "not_found" });
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export default function AdminPathPage() {
     void fetch("/api/security/admin-path")
       .then(async (response) => {
         const body = await response.json();
-        if (!response.ok) throw new Error(body.error || "Could not load the admin path.");
+        if (!response.ok) throw new Error(body.error || t("security.adminPath.errors.loadFailed"));
         setSaved(body.config);
         setDraft(body.config);
         setRecovery(Boolean(body.recoveryOverride));
@@ -40,10 +42,10 @@ export default function AdminPathPage() {
         body: JSON.stringify({ path: draft.path }),
       });
       const previewBody = await preview.json();
-      if (!preview.ok) throw new Error(previewBody.error || "That path cannot be used.");
+      if (!preview.ok) throw new Error(previewBody.error || t("security.adminPath.errors.invalidPath"));
       if (
         !window.confirm(
-          `Move the administration area to ${previewBody.path}? Keep this tab open while Justflows verifies the new route.`,
+          t("security.adminPath.confirmMove", { path: previewBody.path }),
         )
       )
         return;
@@ -54,7 +56,7 @@ export default function AdminPathPage() {
         body: JSON.stringify(draft),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Could not save the admin path.");
+      if (!response.ok) throw new Error(body.error || t("security.adminPath.errors.saveFailed"));
       const check = await fetch(`${body.config.path}/security/admin-path`, {
         method: "GET",
         cache: "no-store",
@@ -66,7 +68,7 @@ export default function AdminPathPage() {
           body: JSON.stringify(saved),
         });
         throw new Error(
-          "The new route could not be reached, so Justflows restored the previous path.",
+          t("security.adminPath.errors.routeUnreachable"),
         );
       }
       window.location.assign(`${body.config.path}/security/admin-path?saved=1`);
@@ -78,17 +80,16 @@ export default function AdminPathPage() {
   }
 
   if (!saved && !error) return <PageSkeleton />;
-  if (!saved) return <LoadError error={error ?? "Unknown error"} />;
+  if (!saved) return <LoadError error={error ?? t("security.shared.unknownError")} />;
   const dirty = saved.path !== draft.path || saved.oldPathBehavior !== draft.oldPathBehavior;
 
   return (
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Admin URL</h1>
+          <h1>{t("security.adminPath.title")}</h1>
           <p>
-            Move the administration entry point to a private, memorable path. Authentication and
-            rate limiting remain essential.
+            {t("security.adminPath.subtitle")}
           </p>
         </div>
       </header>
@@ -99,19 +100,19 @@ export default function AdminPathPage() {
             ⚠
           </span>
           <div>
-            <div className="jf-banner__title">Recovery override is active</div>
+            <div className="jf-banner__title">{t("security.adminPath.recoveryBanner.title")}</div>
             <div className="jf-banner__sub">
-              Remove <code>JF_ADMIN_PATH_RECOVERY</code> from the server environment and restart
-              before saving changes here.
+              {t("security.adminPath.recoveryBanner.subPrefix")} <code>JF_ADMIN_PATH_RECOVERY</code>{" "}
+              {t("security.adminPath.recoveryBanner.subSuffix")}
             </div>
           </div>
         </div>
       )}
 
-      <Section title="Admin address">
+      <Section title={t("security.adminPath.address.title")}>
         <div className="jf-field">
           <label className="jf-field__label" htmlFor="admin-path">
-            Path
+            {t("security.adminPath.address.pathLabel")}
           </label>
           <input
             id="admin-path"
@@ -125,21 +126,22 @@ export default function AdminPathPage() {
             aria-describedby="admin-path-help"
           />
           <p id="admin-path-help" className="jf-field__hint">
-            Start with <code>/</code> and use letters, numbers, hyphens, underscores, or nested
-            paths. Do not add a trailing slash.
+            {t("security.adminPath.address.pathHelpPrefix")} <code>/</code>{" "}
+            {t("security.adminPath.address.pathHelpSuffix")}
           </p>
         </div>
         <p className="jf-field__hint">
-          Current address: <code>{publicAdminPath("/admin")}</code>
+          {t("security.adminPath.address.current")} <code>{publicAdminPath("/admin")}</code>
         </p>
       </Section>
 
-      <Section title="Old admin address">
+      <Section title={t("security.adminPath.oldAddress.title")}>
         <p className="jf-field__hint">
-          Choose what visitors receive when they request <code>/admin</code> after the move.
+          {t("security.adminPath.oldAddress.hintPrefix")} <code>/admin</code>{" "}
+          {t("security.adminPath.oldAddress.hintSuffix")}
         </p>
         <fieldset className="jf-choice">
-          <legend className="jf-field__label">Requests to /admin</legend>
+          <legend className="jf-field__label">{t("security.adminPath.oldAddress.legend")}</legend>
           <label className="jf-checkrow">
             <input
               name="old-admin-path"
@@ -148,9 +150,9 @@ export default function AdminPathPage() {
               onChange={() => setDraft({ ...draft, oldPathBehavior: "not_found" })}
             />
             <span>
-              Return 404 <span className="jf-chip">Recommended</span>
+              {t("security.adminPath.oldAddress.notFound")} <span className="jf-chip">{t("security.shared.recommended")}</span>
               <span className="jf-checkrow__meta">
-                Do not reveal that the administration area moved elsewhere.
+                {t("security.adminPath.oldAddress.notFoundMeta")}
               </span>
             </span>
           </label>
@@ -162,30 +164,28 @@ export default function AdminPathPage() {
               onChange={() => setDraft({ ...draft, oldPathBehavior: "redirect" })}
             />
             <span>
-              Redirect to the new address
+              {t("security.adminPath.oldAddress.redirect")}
               <span className="jf-checkrow__meta">
-                More convenient, but exposes the configured path to anyone visiting /admin.
+                {t("security.adminPath.oldAddress.redirectMeta")}
               </span>
             </span>
           </label>
         </fieldset>
       </Section>
 
-      <Section title="Recovery">
+      <Section title={t("security.adminPath.recoverySection.title")}>
         <p>
-          If a reverse proxy or cache blocks the new address, set{" "}
-          <code>JF_ADMIN_PATH_RECOVERY=/admin</code> in the server environment and restart. The
-          override restores access without changing the saved setting.
+          {t("security.adminPath.recoverySection.bodyPrefix")}{" "}
+          <code>JF_ADMIN_PATH_RECOVERY=/admin</code> {t("security.adminPath.recoverySection.bodySuffix")}
         </p>
         <div className="jf-banner jf-banner--warn">
           <span className="jf-banner__icon" aria-hidden="true">
             !
           </span>
           <div>
-            <div className="jf-banner__title">Keep this page open while saving</div>
+            <div className="jf-banner__title">{t("security.adminPath.recoverySection.warnTitle")}</div>
             <div className="jf-banner__sub">
-              Justflows checks the new route before sending you there. If it cannot be reached, the
-              previous address is restored automatically.
+              {t("security.adminPath.recoverySection.warnSub")}
             </div>
           </div>
         </div>
@@ -203,7 +203,7 @@ export default function AdminPathPage() {
         }}
       >
         {recovery && (
-          <span className="jf-status jf-status--dirty">Saving is disabled by recovery mode</span>
+          <span className="jf-status jf-status--dirty">{t("security.adminPath.savingDisabled")}</span>
         )}
       </SaveBar>
     </div>

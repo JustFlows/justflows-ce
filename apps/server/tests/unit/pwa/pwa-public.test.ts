@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { buildPwaBodyHtml, buildPwaHeadHtml } from "../../../src/lib/pwa/pwa-public.js";
 import { DEFAULT_PWA_SETTINGS, type PwaSettings } from "../../../src/lib/pwa/pwa-settings.js";
 
+const t = (key: string) => `translated:${key}`;
+
 const enabled: PwaSettings = { ...DEFAULT_PWA_SETTINGS, enabled: true };
 
 describe("buildPwaHeadHtml", () => {
@@ -20,13 +22,13 @@ describe("buildPwaHeadHtml", () => {
 
 describe("buildPwaBodyHtml", () => {
   it("is empty when PWA is disabled", () => {
-    expect(buildPwaBodyHtml(DEFAULT_PWA_SETTINGS)).toBe("");
+    expect(buildPwaBodyHtml(DEFAULT_PWA_SETTINGS, t)).toBe("");
   });
 
   it("registers the service worker as an external script but skips the install script when installUi is disabled", () => {
     const settings = { ...enabled, installUi: { ...enabled.installUi, enabled: false } };
-    const html = buildPwaBodyHtml(settings);
-    expect(html).toContain('<script src="/js/pwa-register.js" defer></script>');
+    const html = buildPwaBodyHtml(settings, t);
+    expect(html).toContain('<script src="/js/pwa-register.js" defer');
     expect(html).not.toContain("pwa-install.js");
   });
 
@@ -35,7 +37,7 @@ describe("buildPwaBodyHtml", () => {
       ...enabled,
       installUi: { enabled: true, label: "Get the app", description: "Fast and offline-ready", showLogo: false },
     };
-    const html = buildPwaBodyHtml(settings);
+    const html = buildPwaBodyHtml(settings, t);
     // Every <script> tag must carry a src attribute; none may be a bare
     // inline block (this is exactly what broke the install prompt under the
     // real CSP — curl showed correct HTML but Chrome silently dropped it).
@@ -49,11 +51,21 @@ describe("buildPwaBodyHtml", () => {
       ...enabled,
       installUi: { enabled: true, label: "Get the app", description: "Fast and offline-ready", showLogo: false },
     };
-    const html = buildPwaBodyHtml(settings);
+    const html = buildPwaBodyHtml(settings, t);
     expect(html).toContain('<script src="/js/pwa-install.js" defer');
     expect(html).toContain('data-label="Get the app"');
     expect(html).toContain('data-description="Fast and offline-ready"');
     expect(html).toContain('data-show-logo="0"');
+  });
+
+  it("passes translated defaults, update messages, and accessible labels to both scripts", () => {
+    const html = buildPwaBodyHtml(enabled, t);
+    for (const [attribute, key] of [
+      ["label", "pwa.install"], ["description", "pwa.description"],
+      ["install-aria", "pwa.installAria"], ["dismiss", "pwa.dismiss"],
+      ["ios-instructions", "pwa.iosInstructions"],
+      ["update-available", "pwa.updateAvailable"], ["reload", "pwa.reload"],
+    ]) expect(html).toContain(`data-${attribute}="translated:${key}"`);
   });
 
   it("HTML-attribute-escapes a label containing a double quote so it cannot close the attribute early", () => {
@@ -61,7 +73,7 @@ describe("buildPwaBodyHtml", () => {
       ...enabled,
       installUi: { enabled: true, label: '"><script>alert(1)</script>', description: "", showLogo: true },
     };
-    const html = buildPwaBodyHtml(settings);
+    const html = buildPwaBodyHtml(settings, t);
     // The raw payload must never appear verbatim inside the attribute value —
     // the escaped quote is what actually matters (it's what prevents the
     // value from terminating the attribute and injecting a new one/a tag).

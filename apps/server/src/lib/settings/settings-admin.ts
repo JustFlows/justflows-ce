@@ -14,6 +14,7 @@ import { getMailConfig, saveMailConfig, toPublicMailSettings, type MailTransport
 import { isMailTransport } from "../email/mail-config.js";
 import { sanitizeFaviconUrl } from "../media/favicon.js";
 import { SiteUrlSchema } from "./site-url.js";
+import { updateEnvKeys } from "./env-file.js";
 import { auditLog } from "../security/audit-log.js";
 import { resolveFaviconUrl } from "../themes/theme-customize.js";
 
@@ -218,7 +219,6 @@ export async function applySettingsChange(
   if (body.site_url !== undefined) {
     siteUpdates.push("url = ?");
     siteParams.push(body.site_url);
-    process.env.APP_URL = body.site_url;
   }
 
   const siteId = await getSiteId();
@@ -227,6 +227,13 @@ export async function applySettingsChange(
     if (!siteId) return { status: 503, body: { error: "No site found — complete install first" } };
     siteParams.push(siteId);
     await db.run(`UPDATE sites SET ${siteUpdates.join(", ")} WHERE id = ?`, siteParams);
+  }
+
+  if (body.site_url !== undefined) {
+    // Persist to .env, not just process.env, so the value survives a restart
+    // instead of reverting to whatever loadConfig() last read from disk.
+    await updateEnvKeys({ APP_URL: body.site_url });
+    process.env.APP_URL = body.site_url;
   }
 
   const settingsToUpdate: [string, unknown][] = [];

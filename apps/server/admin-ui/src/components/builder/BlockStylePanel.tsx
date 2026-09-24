@@ -165,8 +165,8 @@ export default function BlockStylePanel({
                   onClick={() => insertToken(tk)}
                   title={
                     tk.description
-                      ? `${tk.description}\n\nClick to add & { ${tk.name}: … }`
-                      : `Click to add & { ${tk.name}: … }`
+                      ? `${tk.description}\n\n${t("ui.blockStylePanel.addToken", { name: tk.name })}`
+                      : t("ui.blockStylePanel.addToken", { name: tk.name })
                   }
                   style={{
                     display: "block",

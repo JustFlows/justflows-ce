@@ -1,3 +1,4 @@
+import { translateEnglish, type Translate } from "../../i18n/translate";
 import type { BlockNode } from "./types";
 import { uid } from "../../lib/uid";
 
@@ -5,33 +6,34 @@ function newId(): string {
   return uid();
 }
 
-export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
+export function defaultProps(t: Translate): Record<string, Record<string, unknown>> {
+return {
   "core.section": { background: "default", padding: "lg", align: "left" },
   "core.container": { width: "default" },
   "core.group": {},
   "core.columns": { columns: 2, gap: "md" },
   "core.column": {},
   "core.hero": {
-    heading: "Build something great",
-    subheading: "A clean, modern page builder for your site.",
-    buttonLabel: "Get started",
+    heading: t("ui.blockDefaults.buildSomethingGreat"),
+    subheading: t("ui.blockDefaults.aCleanModernPageBuilderForYourSite"),
+    buttonLabel: t("ui.blockDefaults.getStarted"),
     buttonUrl: "/",
     backgroundImage: "",
     align: "center",
   },
   "core.features": {
-    heading: "Features",
+    heading: t("ui.blockDefaults.features"),
     columns: 3,
     items: [
-      { icon: "⚡", title: "Fast", description: "Lightweight and performant." },
-      { icon: "🎨", title: "Flexible", description: "Sections and blocks you control." },
-      { icon: "🔒", title: "Secure", description: "Your content stays on your server." },
+      { icon: "⚡", title: t("ui.blockDefaults.fast"), description: t("ui.blockDefaults.lightweightAndPerformant") },
+      { icon: "🎨", title: t("ui.blockDefaults.flexible"), description: t("ui.blockDefaults.sectionsAndBlocksYouControl") },
+      { icon: "🔒", title: t("ui.blockDefaults.secure"), description: t("ui.blockDefaults.yourContentStaysOnYourServer") },
     ],
   },
   "core.cta": {
-    heading: "Ready to get started?",
-    text: "Create beautiful pages in minutes.",
-    buttonLabel: "Contact us",
+    heading: t("ui.blockDefaults.readyToGetStarted"),
+    text: t("ui.blockDefaults.createBeautifulPagesInMinutes"),
+    buttonLabel: t("ui.blockDefaults.contactUs"),
     buttonUrl: "/contact",
     variant: "primary",
   },
@@ -41,10 +43,10 @@ export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
   "core.quote": { text: "", attribution: "" },
   "core.button": { label: "", url: "", variant: "primary" },
   "core.link-list": {
-    heading: "Links",
+    heading: t("ui.blockDefaults.links"),
     items: [
-      { label: "Link one", url: "/" },
-      { label: "Link two", url: "/" },
+      { label: t("ui.blockDefaults.linkOne"), url: "/" },
+      { label: t("ui.blockDefaults.linkTwo"), url: "/" },
     ],
   },
   "core.divider": {},
@@ -65,10 +67,10 @@ export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
     layout: "thumbs",
     lightbox: true,
     images: [
-      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-03-product-01.jpg", alt: "Product photo 1" },
-      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-03-product-02.jpg", alt: "Product photo 2" },
-      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-03-product-03.jpg", alt: "Product photo 3" },
-      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-03-product-04.jpg", alt: "Product photo 4" },
+      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-03-product-01.jpg", alt: t("ui.blockDefaults.productPhoto1") },
+      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-03-product-02.jpg", alt: t("ui.blockDefaults.productPhoto2") },
+      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-03-product-03.jpg", alt: t("ui.blockDefaults.productPhoto3") },
+      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-03-product-04.jpg", alt: t("ui.blockDefaults.productPhoto4") },
     ],
   },
   "justflows.shop.buy-box": {
@@ -78,7 +80,7 @@ export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
     description: "{{excerpt}}",
     meta: "SKU {{sku}}",
     attributes: "{{attributes}}",
-    cartLabel: "Add to cart",
+    cartLabel: t("ui.blockDefaults.addToCart"),
     cartUrl: "/cart",
     shipping: "{{weight}} {{weightUnit}} · {{dimensions}}",
     showRating: false,
@@ -86,65 +88,65 @@ export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
   },
   "justflows.shop.breadcrumbs": {
     current: "{{title}}",
-    items: [{ name: "Shop", href: "/shop" }],
+    items: [{ name: t("ui.blockDefaults.shop"), href: "/shop" }],
   },
   "justflows.shop.highlights": {
-    heading: "Highlights",
-    items: ["Replace these highlights with your product features."],
+    heading: t("ui.blockDefaults.highlights"),
+    items: [t("ui.blockDefaults.replaceTheseHighlightsWithYourProductFeatures")],
   },
   "justflows.shop.accordion": {
     sections: [
-      { name: "Specifications", items: ["SKU: {{sku}}", "Price: {{price}}", "Stock: {{stock}}"] },
-      { name: "Shipping", items: ["Replace this with your shipping copy."] },
+      { name: t("ui.blockDefaults.specifications"), items: ["SKU: {{sku}}", "Price: {{price}}", "Stock: {{stock}}"] },
+      { name: t("ui.blockDefaults.shipping"), items: [t("ui.blockDefaults.replaceThisWithYourShippingCopy")] },
     ],
   },
   "justflows.shop.policies": {
     items: [
-      { name: "Free delivery", description: "Replace this with your shipping policy.", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce/icons/icon-delivery-light.svg" },
-      { name: "Customer support", description: "Replace this with how customers can reach you.", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce/icons/icon-chat-light.svg" },
+      { name: t("ui.blockDefaults.freeDelivery"), description: t("ui.blockDefaults.replaceThisWithYourShippingPolicy"), imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce/icons/icon-delivery-light.svg" },
+      { name: t("ui.blockDefaults.customerSupport"), description: t("ui.blockDefaults.replaceThisWithHowCustomersCanReachYou"), imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce/icons/icon-chat-light.svg" },
     ],
   },
   "justflows.shop.reviews": {
-    heading: "Customer Reviews",
+    heading: t("ui.blockDefaults.customerReviews"),
     average: 0,
     totalCount: 0,
     showHistogram: false,
     items: [],
-    writeLabel: "Write a review",
+    writeLabel: t("ui.blockDefaults.writeAReview"),
     writeHref: "#",
   },
   "justflows.shop.related": {
-    heading: "You may also like",
+    heading: t("ui.blockDefaults.youMayAlsoLike"),
     layout: "cards",
     items: [
-      { name: "Related product", href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-01.jpg", imageAlt: "Related product 1", price: "", color: "" },
-      { name: "Related product", href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-02.jpg", imageAlt: "Related product 2", price: "", color: "" },
+      { name: t("ui.blockDefaults.relatedProduct"), href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-01.jpg", imageAlt: t("ui.blockDefaults.relatedProduct1"), price: "", color: "" },
+      { name: t("ui.blockDefaults.relatedProduct"), href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-02.jpg", imageAlt: t("ui.blockDefaults.relatedProduct2"), price: "", color: "" },
     ],
   },
   "justflows.shop.product-list": {
     layout: "inline",
-    heading: "Customers also purchased",
+    heading: t("ui.blockDefaults.customersAlsoPurchased"),
     headingHidden: false,
     ctaLabel: "",
     ctaHref: "/shop",
-    addLabel: "Add to bag",
+    addLabel: t("ui.blockDefaults.addToBag"),
     items: [
-      { name: "Basic Tee", href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-01.jpg", imageAlt: "Front of men's Basic Tee in black.", price: "$35", color: "Black", description: "Everyday cotton crewneck.", rating: 5, reviewCount: 38, colors: [{ name: "Black", colorBg: "#111827" }, { name: "White", colorBg: "#F9FAFB" }] },
-      { name: "Basic Tee", href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-02.jpg", imageAlt: "Front of men's Basic Tee in white.", price: "$35", color: "Aspen White", description: "Soft unisex fit.", rating: 5, reviewCount: 18, colors: [{ name: "Aspen White", colorBg: "#F9FAFB" }, { name: "Black", colorBg: "#111827" }] },
-      { name: "Basic Tee", href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-03.jpg", imageAlt: "Front of men's Basic Tee in dark gray.", price: "$35", color: "Charcoal", description: "Heavyweight jersey.", rating: 4, reviewCount: 21, colors: [{ name: "Charcoal", colorBg: "#4B5563" }, { name: "Black", colorBg: "#111827" }] },
-      { name: "Artwork Tee", href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-04.jpg", imageAlt: "Front of men's Artwork Tee in peach.", price: "$35", color: "Iso Dots", description: "Printed cotton tee.", rating: 5, reviewCount: 24, colors: [{ name: "Iso Dots", colorBg: "#FED7AA" }, { name: "Natural", colorBg: "#FEF3C7" }] },
+      { name: t("ui.blockDefaults.basicTee"), href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-01.jpg", imageAlt: t("ui.blockDefaults.frontOfMenSBasicTeeInBlack"), price: "$35", color: t("ui.blockDefaults.black"), description: t("ui.blockDefaults.everydayCottonCrewneck"), rating: 5, reviewCount: 38, colors: [{ name: t("ui.blockDefaults.black"), colorBg: "#111827" }, { name: t("ui.blockDefaults.white"), colorBg: "#F9FAFB" }] },
+      { name: t("ui.blockDefaults.basicTee"), href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-02.jpg", imageAlt: t("ui.blockDefaults.frontOfMenSBasicTeeInWhite"), price: "$35", color: t("ui.blockDefaults.aspenWhite"), description: t("ui.blockDefaults.softUnisexFit"), rating: 5, reviewCount: 18, colors: [{ name: t("ui.blockDefaults.aspenWhite"), colorBg: "#F9FAFB" }, { name: t("ui.blockDefaults.black"), colorBg: "#111827" }] },
+      { name: t("ui.blockDefaults.basicTee"), href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-03.jpg", imageAlt: t("ui.blockDefaults.frontOfMenSBasicTeeInDarkGray"), price: "$35", color: t("ui.blockDefaults.charcoal"), description: t("ui.blockDefaults.heavyweightJersey"), rating: 4, reviewCount: 21, colors: [{ name: t("ui.blockDefaults.charcoal"), colorBg: "#4B5563" }, { name: t("ui.blockDefaults.black"), colorBg: "#111827" }] },
+      { name: t("ui.blockDefaults.artworkTee"), href: "/shop", imageSrc: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-01-related-product-04.jpg", imageAlt: t("ui.blockDefaults.frontOfMenSArtworkTeeInPeach"), price: "$35", color: t("ui.blockDefaults.isoDots"), description: t("ui.blockDefaults.printedCottonTee"), rating: 5, reviewCount: 24, colors: [{ name: t("ui.blockDefaults.isoDots"), colorBg: "#FED7AA" }, { name: t("ui.blockDefaults.natural"), colorBg: "#FEF3C7" }] },
     ],
   },
   "justflows.shop.detail-shots": {
-    heading: "The Fine Details",
+    heading: t("ui.blockDefaults.theFineDetails"),
     intro: "",
     items: [
-      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-04-detail-product-shot-01.jpg", alt: "Detail photo 1", text: "Replace this caption." },
-      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-04-detail-product-shot-02.jpg", alt: "Detail photo 2", text: "Replace this caption." },
+      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-04-detail-product-shot-01.jpg", alt: t("ui.blockDefaults.detailPhoto1"), text: t("ui.blockDefaults.replaceThisCaption") },
+      { src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-04-detail-product-shot-02.jpg", alt: t("ui.blockDefaults.detailPhoto2"), text: t("ui.blockDefaults.replaceThisCaption") },
     ],
   },
   "core.grid": { columns: 12, gap: "md", rowHeight: "auto" },
-  "core.search": { label: "Search", contentType: "", taxonomy: "", term: "", showFilters: false, limit: 20 },
+  "core.search": { label: t("ui.blockDefaults.search"), contentType: "", taxonomy: "", term: "", showFilters: false, limit: 20 },
   "core.color-scheme": {
     style: "buttons",
     align: "right",
@@ -155,31 +157,35 @@ export const DEFAULT_PROPS: Record<string, Record<string, unknown>> = {
     lightIcon: "☀",
     darkIcon: "☾",
     autoIcon: "◐",
-    lightLabel: "Light",
-    darkLabel: "Dark",
-    autoLabel: "Auto",
+    lightLabel: t("ui.blockDefaults.light"),
+    darkLabel: t("ui.blockDefaults.dark"),
+    autoLabel: t("ui.blockDefaults.auto"),
   },
   "core.language-switcher": { style: "locale-short", align: "right" },
   "core.auth-links": {
     showLogin: true,
     showRegister: true,
-    loginLabel: "Log in",
-    registerLabel: "Register",
+    loginLabel: t("ui.blockDefaults.logIn"),
+    registerLabel: t("ui.blockDefaults.register"),
     style: "buttons",
     align: "right",
   },
 };
 
+}
+
+export const DEFAULT_PROPS = defaultProps(translateEnglish);
+
 function makeColumn(): BlockNode {
   return { id: newId(), type: "core.column", version: 1, props: {}, children: [] };
 }
 
-export function createBlock(type: string): BlockNode {
+export function createBlock(type: string, t: Translate = translateEnglish): BlockNode {
   const block: BlockNode = {
     id: newId(),
     type,
     version: 1,
-    props: { ...(DEFAULT_PROPS[type] ?? {}) },
+    props: { ...(defaultProps(t)[type] ?? {}) },
   };
 
   if (type === "core.columns") {
@@ -205,13 +211,13 @@ export function syncColumnCount(block: BlockNode): BlockNode {
   return { ...block, props: { ...block.props, columns: target }, children };
 }
 
-export const CATEGORY_LABELS: Record<string, string> = {
-  sections: "Sections",
-  layout: "Layout",
-  content: "Content",
-  media: "Media",
-  commerce: "Commerce",
-  site: "Site",
+export const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  sections: "ui.blockCategories.sections",
+  layout: "ui.blockCategories.layout",
+  content: "ui.blockCategories.content",
+  media: "ui.blockCategories.media",
+  commerce: "ui.blockCategories.commerce",
+  site: "ui.blockCategories.site",
 };
 
 export const CATEGORY_ORDER = ["sections", "layout", "content", "media", "commerce", "site"];

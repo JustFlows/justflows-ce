@@ -5,13 +5,13 @@ import { useT } from "../../../i18n/I18nProvider";
 import DashboardWelcomePanel, { useDashboardWelcome } from "./DashboardWelcomePanel";
 
 const tiles = [
-  { label: "Content", href: "/admin/content", icon: "📝", description: "Manage posts and pages" },
-  { label: "Media", href: "/admin/media", icon: "🖼", description: "Upload and manage files" },
-  { label: "Plugins", href: "/admin/plugins", icon: "🔌", description: "Install and manage plugins" },
-  { label: "Themes", href: "/admin/themes", icon: "🎨", description: "Customize your site's look" },
-  { label: "Users", href: "/admin/users", icon: "👤", description: "Manage site members" },
-  { label: "Settings", href: "/admin/settings", icon: "⚙", description: "Configure your site" },
-];
+  { key: "content", href: "/admin/content", icon: "📝" },
+  { key: "media", href: "/admin/media", icon: "🖼" },
+  { key: "plugins", href: "/admin/plugins", icon: "🔌" },
+  { key: "themes", href: "/admin/themes", icon: "🎨" },
+  { key: "users", href: "/admin/users", icon: "👤" },
+  { key: "settings", href: "/admin/settings", icon: "⚙" },
+] as const;
 
 export default function AdminDashboard() {
   const role = useSessionRole();
@@ -23,12 +23,12 @@ export default function AdminDashboard() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Dashboard</h1>
-          <p>Everything you need to run your site, in one place.</p>
+          <h1>{t("nav.dashboard")}</h1>
+          <p>{t("dashboard.subtitle")}</p>
         </div>
         <div className="jf-pagehead__actions">
-          <Link className="jf-btn jf-btn--ghost" to="/admin/content/new?type=page">+ New page</Link>
-          <Link className="jf-btn jf-btn--primary" to="/admin/content/new?type=post">+ New post</Link>
+          <Link className="jf-btn jf-btn--ghost" to="/admin/content/new?type=page">{t("dashboard.newPage")}</Link>
+          <Link className="jf-btn jf-btn--primary" to="/admin/content/new?type=post">{t("dashboard.newPost")}</Link>
         </div>
       </header>
 
@@ -38,8 +38,8 @@ export default function AdminDashboard() {
         {visibleTiles.map((item) => (
           <Link key={item.href} to={item.href} className="jf-tile">
             <span className="jf-tile__icon" aria-hidden="true">{item.icon}</span>
-            <div className="jf-tile__label">{item.label}</div>
-            <div className="jf-tile__desc">{item.description}</div>
+            <div className="jf-tile__label">{t(`nav.${item.key}`)}</div>
+            <div className="jf-tile__desc">{t(`dashboard.tiles.${item.key}`)}</div>
           </Link>
         ))}
       </div>

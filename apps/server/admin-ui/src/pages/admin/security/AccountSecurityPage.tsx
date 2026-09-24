@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Section } from "./components";
+import { useT } from "../../../i18n/I18nProvider";
 
 type TotpStatus = {
   enabled: boolean;
@@ -27,6 +28,7 @@ async function postJson(url: string, body: unknown): Promise<{ ok: boolean; data
  * equivalent to shell access.
  */
 export default function AccountSecurityPage() {
+  const { t } = useT();
   const [status, setStatus] = useState<TotpStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -49,8 +51,8 @@ export default function AccountSecurityPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Your account</h1>
-          <p>The password and second factor protecting your own sign-in.</p>
+          <h1>{t("security.account.title")}</h1>
+          <p>{t("security.account.subtitle")}</p>
         </div>
       </header>
 
@@ -59,8 +61,10 @@ export default function AccountSecurityPage() {
       <SessionsSection />
 
       {loadError ? (
-        <Section title="Two-factor authentication">
-          <p className="jf-status jf-status--error">Could not load status: {loadError}</p>
+        <Section title={t("security.account.twoFactor.title")}>
+          <p className="jf-status jf-status--error">
+            {t("security.account.twoFactor.loadError", { message: loadError })}
+          </p>
         </Section>
       ) : (
         <TwoFactorSection status={status} onChange={refresh} />
@@ -79,52 +83,72 @@ type DeviceSession = {
 };
 
 function SessionsSection() {
+  const { t } = useT();
   const [sessions, setSessions] = useState<DeviceSession[]>([]);
   const [notice, setNotice] = useState<Notice>(null);
   const refresh = useCallback(async () => {
     const res = await fetch("/api/auth/sessions");
     const data = await res.json() as { sessions?: DeviceSession[]; error?: string };
-    if (!res.ok) { setNotice({ kind: "error", text: data.error ?? "Could not load sessions." }); return; }
+    if (!res.ok) { setNotice({ kind: "error", text: data.error ?? t("security.account.sessions.loadError") }); return; }
     setSessions(data.sessions ?? []);
-  }, []);
+  }, [t]);
   useEffect(() => { void refresh(); }, [refresh]);
 
   async function revoke(id: string) {
     const res = await fetch(`/api/auth/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
     const data = await res.json() as { error?: string };
-    if (!res.ok) { setNotice({ kind: "error", text: data.error ?? "Could not revoke session." }); return; }
-    setNotice({ kind: "ok", text: "Session revoked." });
+    if (!res.ok) { setNotice({ kind: "error", text: data.error ?? t("security.account.sessions.revokeError") }); return; }
+    setNotice({ kind: "ok", text: t("security.account.sessions.revoked") });
     await refresh();
   }
 
   async function revokeOthers() {
     const { ok, data } = await postJson("/api/auth/sessions/revoke-others", {});
-    if (!ok) { setNotice({ kind: "error", text: data.error ?? "Could not revoke sessions." }); return; }
-    setNotice({ kind: "ok", text: `${data.revoked} other session${data.revoked === 1 ? "" : "s"} revoked.` });
+    if (!ok) { setNotice({ kind: "error", text: data.error ?? t("security.account.sessions.revokeOthersError") }); return; }
+    setNotice({ kind: "ok", text: t("security.account.sessions.othersRevoked", { count: data.revoked }) });
     await refresh();
   }
 
   return (
-    <Section title="Active sessions">
-      <p className="jf-field__hint">Devices currently signed in to your account.</p>
+    <Section title={t("security.account.sessions.title")}>
+      <p className="jf-field__hint">{t("security.account.sessions.hint")}</p>
       {notice ? <p className={`jf-status jf-status--${notice.kind === "ok" ? "saved" : "error"}`}>{notice.text}</p> : null}
       <div className="jf-stack">
         {sessions.map((session) => (
           <div className="jf-row" key={session.id}>
             <div style={{ flex: 1 }}>
-              <strong>{session.current ? "This device" : session.user_agent || "Unknown device"}</strong>
-              <div className="jf-field__hint">{session.ip || "Unknown IP"} · last active {new Date(session.last_seen_at).toLocaleString()}</div>
+              <strong>
+                {session.current
+                  ? t("security.account.sessions.thisDevice")
+                  : session.user_agent || t("security.account.sessions.unknownDevice")}
+              </strong>
+              <div className="jf-field__hint">
+                {session.ip || t("security.account.sessions.unknownIp")}
+                {" · "}
+                {t("security.account.sessions.lastActive", {
+                  date: new Date(session.last_seen_at).toLocaleString(),
+                })}
+              </div>
             </div>
-            {!session.current ? <button className="jf-btn jf-btn--ghost" type="button" onClick={() => void revoke(session.id)}>Revoke</button> : null}
+            {!session.current ? (
+              <button className="jf-btn jf-btn--ghost" type="button" onClick={() => void revoke(session.id)}>
+                {t("security.account.sessions.revoke")}
+              </button>
+            ) : null}
           </div>
         ))}
-        {sessions.length > 1 ? <button className="jf-btn jf-btn--ghost" type="button" onClick={() => void revokeOthers()}>Revoke all other sessions</button> : null}
+        {sessions.length > 1 ? (
+          <button className="jf-btn jf-btn--ghost" type="button" onClick={() => void revokeOthers()}>
+            {t("security.account.sessions.revokeAllOthers")}
+          </button>
+        ) : null}
       </div>
     </Section>
   );
 }
 
 function PasswordSection() {
+  const { t } = useT();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -136,7 +160,7 @@ function PasswordSection() {
     setNotice(null);
 
     if (next !== confirm) {
-      setNotice({ kind: "error", text: "The two new passwords do not match." });
+      setNotice({ kind: "error", text: t("security.account.password.mismatch") });
       return;
     }
 
@@ -148,7 +172,7 @@ function PasswordSection() {
     setBusy(false);
 
     if (!ok) {
-      setNotice({ kind: "error", text: data.error ?? "Could not change the password." });
+      setNotice({ kind: "error", text: data.error ?? t("security.account.password.changeError") });
       return;
     }
     setCurrent("");
@@ -156,15 +180,15 @@ function PasswordSection() {
     setConfirm("");
     setNotice({
       kind: "ok",
-      text: "Password changed. Every other session has been signed out.",
+      text: t("security.account.password.changed"),
     });
   };
 
   return (
-    <Section title="Password">
+    <Section title={t("security.account.password.title")}>
       <form className="jf-stack" onSubmit={submit}>
         <label className="jf-field">
-          <span className="jf-field__label">Current password</span>
+          <span className="jf-field__label">{t("security.account.password.current")}</span>
           <input
             className="jf-input"
             type="password"
@@ -175,7 +199,7 @@ function PasswordSection() {
           />
         </label>
         <label className="jf-field">
-          <span className="jf-field__label">New password</span>
+          <span className="jf-field__label">{t("security.account.password.new")}</span>
           <input
             className="jf-input"
             type="password"
@@ -185,10 +209,10 @@ function PasswordSection() {
             onChange={(e) => setNext(e.target.value)}
             required
           />
-          <small className="jf-field__hint">At least 12 characters. Length matters more than symbols.</small>
+          <small className="jf-field__hint">{t("security.account.password.newHint")}</small>
         </label>
         <label className="jf-field">
-          <span className="jf-field__label">Confirm new password</span>
+          <span className="jf-field__label">{t("security.account.password.confirm")}</span>
           <input
             className="jf-input"
             type="password"
@@ -206,7 +230,7 @@ function PasswordSection() {
         ) : null}
         <div className="jf-row">
           <button className="jf-btn jf-btn--primary" type="submit" disabled={busy}>
-            {busy ? "Changing…" : "Change password"}
+            {busy ? t("security.account.password.changing") : t("security.account.password.submit")}
           </button>
         </div>
       </form>
@@ -221,6 +245,7 @@ function TwoFactorSection({
   status: TotpStatus | null;
   onChange: () => Promise<void>;
 }) {
+  const { t } = useT();
   const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null);
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
@@ -230,7 +255,7 @@ function TwoFactorSection({
 
   if (!status) {
     return (
-      <Section title="Two-factor authentication">
+      <Section title={t("security.account.twoFactor.title")}>
         <p className="jf-skeleton" />
       </Section>
     );
@@ -242,7 +267,7 @@ function TwoFactorSection({
     const { ok, data } = await postJson("/api/auth/2fa/setup", {});
     setBusy(false);
     if (!ok) {
-      setNotice({ kind: "error", text: data.error ?? "Could not start setup." });
+      setNotice({ kind: "error", text: data.error ?? t("security.account.twoFactor.setupError") });
       return;
     }
     setSetup({ secret: data.secret, uri: data.uri });
@@ -255,7 +280,7 @@ function TwoFactorSection({
     const { ok, data } = await postJson("/api/auth/2fa/enable", { code });
     setBusy(false);
     if (!ok) {
-      setNotice({ kind: "error", text: data.error ?? "Could not turn on two-factor." });
+      setNotice({ kind: "error", text: data.error ?? t("security.account.twoFactor.enableError") });
       return;
     }
     setSetup(null);
@@ -271,12 +296,12 @@ function TwoFactorSection({
     const { ok, data } = await postJson("/api/auth/2fa/disable", { password, code });
     setBusy(false);
     if (!ok) {
-      setNotice({ kind: "error", text: data.error ?? "Could not turn off two-factor." });
+      setNotice({ kind: "error", text: data.error ?? t("security.account.twoFactor.disableError") });
       return;
     }
     setPassword("");
     setCode("");
-    setNotice({ kind: "ok", text: "Two-factor authentication is off." });
+    setNotice({ kind: "ok", text: t("security.account.twoFactor.disabled") });
     await onChange();
   };
 
@@ -285,22 +310,19 @@ function TwoFactorSection({
   // secret, not a break-glass measure.
   if (recoveryCodes) {
     return (
-      <Section title="Save your recovery codes">
-        <p>
-          Each code works once, and only these ten exist. Store them somewhere you can reach
-          without your phone — they are the way back in if you lose the authenticator.
-        </p>
+      <Section title={t("security.account.twoFactor.recovery.title")}>
+        <p>{t("security.account.twoFactor.recovery.body")}</p>
         <div className="jf-banner jf-banner--warn">
           <span className="jf-banner__icon" aria-hidden="true">⚠</span>
           <div>
-            <div className="jf-banner__title">This is the only time they are shown</div>
-            <div className="jf-banner__sub">Copy them somewhere safe before you continue.</div>
+            <div className="jf-banner__title">{t("security.account.twoFactor.recovery.onlyShownTitle")}</div>
+            <div className="jf-banner__sub">{t("security.account.twoFactor.recovery.onlyShownSub")}</div>
           </div>
         </div>
         <pre className="jf-secret jf-secret--list">{recoveryCodes.join("\n")}</pre>
         <div className="jf-row">
           <button className="jf-btn jf-btn--primary" type="button" onClick={() => setRecoveryCodes(null)}>
-            I have saved them
+            {t("security.account.twoFactor.recovery.saved")}
           </button>
         </div>
       </Section>
@@ -309,21 +331,19 @@ function TwoFactorSection({
 
   if (status.enabled) {
     return (
-      <Section title="Two-factor authentication">
+      <Section title={t("security.account.twoFactor.title")}>
         <p className="jf-status jf-status--saved">
-          On. Sign-in asks for a code from your authenticator app.
+          {t("security.account.twoFactor.enabledStatus")}
         </p>
         <p>
-          {status.recoveryCodesRemaining} unused recovery{" "}
-          {status.recoveryCodesRemaining === 1 ? "code" : "codes"} left.
+          {t("security.account.twoFactor.recoveryCodesLeft", { count: status.recoveryCodesRemaining })}
         </p>
         <form className="jf-stack" onSubmit={disable}>
           <p>
-            Turning this off asks for your password and a current code, so a borrowed session
-            cannot remove the thing that protects it.
+            {t("security.account.twoFactor.disableExplain")}
           </p>
           <label className="jf-field">
-            <span className="jf-field__label">Password</span>
+            <span className="jf-field__label">{t("security.account.twoFactor.password")}</span>
             <input
               className="jf-input"
               type="password"
@@ -334,7 +354,7 @@ function TwoFactorSection({
             />
           </label>
           <label className="jf-field">
-            <span className="jf-field__label">Authentication or recovery code</span>
+            <span className="jf-field__label">{t("security.account.twoFactor.codeLabel")}</span>
             <input
               className="jf-input"
               inputMode="numeric"
@@ -351,7 +371,7 @@ function TwoFactorSection({
           ) : null}
           <div className="jf-row">
             <button className="jf-btn" type="submit" disabled={busy}>
-              {busy ? "Turning off…" : "Turn off two-factor"}
+              {busy ? t("security.account.twoFactor.turningOff") : t("security.account.twoFactor.turnOff")}
             </button>
           </div>
         </form>
@@ -361,21 +381,20 @@ function TwoFactorSection({
 
   if (setup) {
     return (
-      <Section title="Set up two-factor authentication">
+      <Section title={t("security.account.twoFactor.setup.title")}>
         <p>
-          Add this key to an authenticator app, then enter the code it shows. On a phone, the
-          link below opens the app directly.
+          {t("security.account.twoFactor.setup.body")}
         </p>
         <label className="jf-field">
-          <span className="jf-field__label">Setup key</span>
+          <span className="jf-field__label">{t("security.account.twoFactor.setup.keyLabel")}</span>
           <pre className="jf-secret">{setup.secret}</pre>
         </label>
         <p>
-          <a href={setup.uri}>Open in your authenticator app</a>
+          <a href={setup.uri}>{t("security.account.twoFactor.setup.openApp")}</a>
         </p>
         <form className="jf-stack" onSubmit={enable}>
           <label className="jf-field">
-            <span className="jf-field__label">Code from the app</span>
+            <span className="jf-field__label">{t("security.account.twoFactor.setup.codeLabel")}</span>
             <input
               className="jf-input"
               inputMode="numeric"
@@ -385,7 +404,7 @@ function TwoFactorSection({
               onChange={(e) => setCode(e.target.value)}
               required
             />
-            <small className="jf-field__hint">Six digits. Nothing changes until this code checks out.</small>
+            <small className="jf-field__hint">{t("security.account.twoFactor.setup.codeHint")}</small>
           </label>
           {notice ? (
             <p className={`jf-status jf-status--${notice.kind === "ok" ? "saved" : "error"}`}>
@@ -394,10 +413,10 @@ function TwoFactorSection({
           ) : null}
           <div className="jf-row">
             <button className="jf-btn jf-btn--primary" type="submit" disabled={busy}>
-              {busy ? "Checking…" : "Turn on two-factor"}
+              {busy ? t("security.account.twoFactor.checking") : t("security.account.twoFactor.turnOn")}
             </button>
             <button className="jf-btn" type="button" onClick={() => setSetup(null)}>
-              Cancel
+              {t("common.cancel")}
             </button>
           </div>
         </form>
@@ -406,11 +425,9 @@ function TwoFactorSection({
   }
 
   return (
-    <Section title="Two-factor authentication">
+    <Section title={t("security.account.twoFactor.title")}>
       <p>
-        Off. A password is currently the only thing between an attacker and this account —
-        and an administrator here can install extensions and update the core, which is server
-        access.
+        {t("security.account.twoFactor.off.body")}
       </p>
       {notice ? (
         <p className={`jf-status jf-status--${notice.kind === "ok" ? "saved" : "error"}`}>
@@ -419,7 +436,7 @@ function TwoFactorSection({
       ) : null}
       <div className="jf-row">
         <button className="jf-btn jf-btn--primary" type="button" onClick={begin} disabled={busy}>
-          {busy ? "Starting…" : "Set up two-factor"}
+          {busy ? t("security.account.twoFactor.starting") : t("security.account.twoFactor.setUp")}
         </button>
       </div>
     </Section>
