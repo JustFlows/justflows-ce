@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render } from "../../helpers/render";
+import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BuilderDragProvider } from "../../../src/components/builder/DragContext";
 import GridEditor from "../../../src/components/builder/GridEditor";

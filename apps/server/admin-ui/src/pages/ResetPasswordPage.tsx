@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "../admin-router";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import { ensureCsrfCookie } from "../lib/csrf";
+import { useT } from "../i18n/I18nProvider";
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -17,6 +18,7 @@ type Phase = "checking" | "invalid" | "form" | "done";
  * sign the user in — they return to /login, where a second factor still applies.
  */
 export default function ResetPasswordPage() {
+  const { t } = useT();
   const navigate = useNavigate();
   const tokenRef = useRef<string>("");
   const [phase, setPhase] = useState<Phase>("checking");
@@ -66,11 +68,11 @@ export default function ResetPasswordPage() {
     setError("");
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+      setError(t("auth.resetPassword.minLength", { min: MIN_PASSWORD_LENGTH }));
       return;
     }
     if (password !== confirm) {
-      setError("The two passwords do not match");
+      setError(t("auth.resetPassword.mismatch"));
       return;
     }
 
@@ -89,14 +91,14 @@ export default function ResetPasswordPage() {
           setPhase("invalid");
           return;
         }
-        setError(data.error ?? "Could not reset your password");
+        setError(data.error ?? t("auth.resetPassword.resetFailed"));
         return;
       }
 
       setPhase("done");
       window.setTimeout(() => navigate("/login"), 2500);
     } catch {
-      setError("An unexpected error occurred");
+      setError(t("auth.unexpectedError"));
     } finally {
       setLoading(false);
     }
@@ -110,7 +112,7 @@ export default function ResetPasswordPage() {
             <JustflowsLogo />
             Justflows
           </div>
-          <h1 className="jf-auth__sub">Choose a new password</h1>
+          <h1 className="jf-auth__sub">{t("auth.resetPassword.heading")}</h1>
         </div>
 
         {phase === "checking" && (
@@ -122,10 +124,10 @@ export default function ResetPasswordPage() {
         {phase === "invalid" && (
           <div className="jf-auth__body">
             <div className="jf-alert jf-alert--error" role="alert">
-              This reset link is invalid or has expired. Reset links can only be used once.
+              {t("auth.resetPassword.invalidLink")}
             </div>
             <Link className="jf-btn jf-btn--primary jf-btn--block" to="/forgot-password">
-              Request a new link
+              {t("auth.resetPassword.requestNewLink")}
             </Link>
           </div>
         )}
@@ -133,11 +135,10 @@ export default function ResetPasswordPage() {
         {phase === "done" && (
           <div className="jf-auth__body">
             <div className="jf-alert jf-alert--success" role="status">
-              Your password has been changed and every other session was signed out. Redirecting
-              you to sign in…
+              {t("auth.resetPassword.doneMessage")}
             </div>
             <Link className="jf-btn jf-btn--primary jf-btn--block" to="/login">
-              Sign in now
+              {t("auth.resetPassword.signInNow")}
             </Link>
           </div>
         )}
@@ -146,7 +147,7 @@ export default function ResetPasswordPage() {
           <form onSubmit={submit} className="jf-auth__body">
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-reset-password">
-                New password
+                {t("auth.resetPassword.newPasswordLabel")}
               </label>
               <input
                 id="jf-reset-password"
@@ -159,12 +160,12 @@ export default function ResetPasswordPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
               <small className="jf-field__hint">
-                At least {MIN_PASSWORD_LENGTH} characters. Longer is stronger.
+                {t("auth.resetPassword.passwordHint", { min: MIN_PASSWORD_LENGTH })}
               </small>
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-reset-confirm">
-                Confirm new password
+                {t("auth.resetPassword.confirmPasswordLabel")}
               </label>
               <input
                 id="jf-reset-confirm"
@@ -189,7 +190,7 @@ export default function ResetPasswordPage() {
               type="submit"
               disabled={loading}
             >
-              {loading ? "Saving…" : "Set new password →"}
+              {loading ? t("common.saving") : t("auth.resetPassword.setNewPasswordCta")}
             </button>
           </form>
         )}

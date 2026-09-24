@@ -16,15 +16,18 @@ type Delivery = {
 type FormState = { name: string; url: string; events: string[]; active: boolean };
 const EMPTY: FormState = { name: "", url: "", events: [], active: true };
 
-async function json<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
-  const body = response.status === 204 ? null : await response.json();
-  if (!response.ok) throw new Error((body as { error?: string } | null)?.error ?? "Request failed");
-  return body as T;
-}
+
 
 export default function WebhooksPage() {
   const { t } = useT();
+
+  async function json<T>(url: string, init?: RequestInit): Promise<T> {
+    const response = await fetch(url, init);
+    const body = response.status === 204 ? null : await response.json();
+    if (!response.ok) throw new Error((body as { error?: string } | null)?.error ?? t("common.requestFailed"));
+    return body as T;
+  }
+
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [eventTypes, setEventTypes] = useState<string[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
@@ -90,7 +93,7 @@ export default function WebhooksPage() {
       reset();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
+      setError(err instanceof Error ? err.message : t("ui.webhooksPage.requestFailed"));
     } finally {
       setSaving(false);
     }

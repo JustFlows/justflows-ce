@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { safeMediaSrc } from "@justflows/blocks";
 import { loadImageLibrary, uploadImage, type MediaLibraryItem } from "../lib/media-library";
+import { useT } from "../i18n/I18nProvider";
 
 type MediaItem = MediaLibraryItem;
 
@@ -19,6 +20,7 @@ export default function MediaImageField({
   onChange: (url: string) => void;
   square?: boolean;
 }) {
+  const { t } = useT();
   const fileRef = useRef<HTMLInputElement>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [library, setLibrary] = useState<MediaItem[] | null>(null);
@@ -42,7 +44,7 @@ export default function MediaImageField({
     setBusy(true);
     setError("");
     try {
-      const url = await uploadImage(file);
+      const url = await uploadImage(file, t);
       onChange(url);
       setLibraryOpen(false);
       setLibrary((prev) => (prev ? [{ url, filename: file.name }, ...prev] : prev));
@@ -71,13 +73,13 @@ export default function MediaImageField({
         {value ? (
           <img src={safeMediaSrc(value)} alt="" />
         ) : (
-          <span className="jf-field__hint">No image selected</span>
+          <span className="jf-field__hint">{t("mediaField.noImageSelected")}</span>
         )}
       </div>
 
       <div className="jf-row">
         <button type="button" className="jf-btn jf-btn--sm" onClick={openLibrary} disabled={busy}>
-          {value ? "Select" : "Select image"}
+          {value ? t("mediaField.select") : t("mediaField.selectImage")}
         </button>
         <button
           type="button"
@@ -85,11 +87,11 @@ export default function MediaImageField({
           onClick={() => fileRef.current?.click()}
           disabled={busy}
         >
-          {busy ? "Uploading…" : "Upload"}
+          {busy ? t("mediaField.uploading") : t("mediaField.upload")}
         </button>
         {value ? (
           <button type="button" className="jf-btn jf-btn--sm jf-btn--quiet" onClick={() => onChange("")}>
-            Remove
+            {t("mediaField.remove")}
           </button>
         ) : null}
       </div>
@@ -105,12 +107,12 @@ export default function MediaImageField({
       {error ? <p className="jf-field__hint" role="alert" style={{ color: "var(--jf-danger)" }}>{error}</p> : null}
 
       {libraryOpen ? (
-        <div className="jf-media-library" role="listbox" aria-label="Media library">
+        <div className="jf-media-library" role="listbox" aria-label={t("mediaField.mediaLibraryAriaLabel")}>
           {library === null ? (
-            <p className="jf-field__hint" style={{ gridColumn: "1 / -1" }}>Loading…</p>
+            <p className="jf-field__hint" style={{ gridColumn: "1 / -1" }}>{t("common.loading")}</p>
           ) : library.length === 0 ? (
             <p className="jf-field__hint" style={{ gridColumn: "1 / -1" }}>
-              No images yet. Upload one, or add files in Media.
+              {t("mediaField.noImagesYet")}
             </p>
           ) : (
             library.map((item) => (
@@ -130,7 +132,7 @@ export default function MediaImageField({
       ) : null}
 
       <details>
-        <summary className="jf-field__hint" style={{ cursor: "pointer" }}>Paste URL</summary>
+        <summary className="jf-field__hint" style={{ cursor: "pointer" }}>{t("mediaField.pasteUrl")}</summary>
         <input
           id={id}
           className="jf-input"

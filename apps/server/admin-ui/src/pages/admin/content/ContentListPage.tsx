@@ -24,6 +24,13 @@ interface ContentTypeSummary {
 
 const STATUS_FILTERS = ["all", "draft", "published", "scheduled"] as const;
 
+const STATUS_FILTER_LABEL_KEYS: Record<(typeof STATUS_FILTERS)[number], string> = {
+  all: "content.list.statusAll",
+  draft: "content.list.statusDraft",
+  published: "content.list.statusPublished",
+  scheduled: "content.list.statusScheduled",
+};
+
 export default function ContentPage() {
   const { t } = useT();
   // Admin content list always spans every language, regardless of the
@@ -124,8 +131,8 @@ export default function ContentPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Content</h1>
-          <p>Posts, pages and custom content types</p>
+          <h1>{t("content.list.heading")}</h1>
+          <p>{t("content.list.subtitle")}</p>
         </div>
         <div className="jf-pagehead__actions">
           {types
@@ -136,7 +143,7 @@ export default function ContentPage() {
                 to={`/admin/content/new?type=${encodeURIComponent(type.slug)}`}
                 className="jf-btn jf-btn--ghost"
               >
-                + New {type.label.toLowerCase()}
+                {t("content.list.newItem", { label: type.label.toLowerCase() })}
               </Link>
             ))}
           {primaryType && (
@@ -144,7 +151,7 @@ export default function ContentPage() {
               to={`/admin/content/new?type=${encodeURIComponent(primaryType.slug)}`}
               className="jf-btn jf-btn--primary"
             >
-              + New {primaryType.label.toLowerCase()}
+              {t("content.list.newItem", { label: primaryType.label.toLowerCase() })}
             </Link>
           )}
         </div>
@@ -199,14 +206,14 @@ export default function ContentPage() {
       )}
       <button className="jf-btn jf-btn--secondary" aria-pressed={agenda} onClick={() => setAgenda(value => !value)}>{t("scheduling.agenda")}</button>
       <div className="jf-filterbar">
-        {["all", ...types.map((t) => t.slug)].map((t) => (
+        {["all", ...types.map((type) => type.slug)].map((typeSlug) => (
           <button
-            key={t}
+            key={typeSlug}
             className="jf-chip"
-            aria-pressed={filter === t}
-            onClick={() => setFilter(t)}
+            aria-pressed={filter === typeSlug}
+            onClick={() => setFilter(typeSlug)}
           >
-            {t === "all" ? "All" : typeLabel(t)}
+            {typeSlug === "all" ? t("content.list.allTypes") : typeLabel(typeSlug)}
           </button>
         ))}
         <span className="jf-filterbar__sep" aria-hidden="true" />
@@ -217,7 +224,7 @@ export default function ContentPage() {
             aria-pressed={statusFilter === s}
             onClick={() => setStatusFilter(s)}
           >
-            {`${s[0]!.toUpperCase()}${s.slice(1)}`}
+            {t(STATUS_FILTER_LABEL_KEYS[s])}
           </button>
         ))}
         {languages.length > 1 && (
@@ -230,13 +237,16 @@ export default function ContentPage() {
                 aria-pressed={localeFilter === code}
                 onClick={() => setLocaleFilter(code)}
               >
-                {code === "all" ? "All languages" : code}
+                {code === "all" ? t("content.list.allLanguages") : code}
               </button>
             ))}
           </>
         )}
         <span className="jf-meta" style={{ marginInlineStart: "auto" }}>
-          {filtered.length} of {query.trim() ? searchTotal : items.length}
+          {t("content.list.filteredCount", {
+            count: filtered.length,
+            total: query.trim() ? searchTotal : items.length,
+          })}
         </span>
       </div>
 
@@ -247,12 +257,12 @@ export default function ContentPage() {
               📝
             </span>
             <span className="jf-empty__title">
-              {query.trim() ? t("search.empty") : "Nothing here yet"}
+              {query.trim() ? t("search.empty") : t("content.list.emptyTitle")}
             </span>
             <p>
               {items.length === 0
-                ? "Create your first post or page to get started."
-                : "No content matches the current filters."}
+                ? t("content.list.emptyCreateFirst")
+                : t("content.list.emptyNoMatches")}
             </p>
           </div>
         ) : (
@@ -260,14 +270,14 @@ export default function ContentPage() {
             <table className="jf-table">
               <thead>
                 <tr>
-                  <th>Title</th>
-                  <th>Type</th>
-                  <th>Language</th>
-                  <th>Status</th>
-                  <th>Slug</th>
-                  <th>Updated</th>
+                  <th>{t("content.list.colTitle")}</th>
+                  <th>{t("content.list.colType")}</th>
+                  <th>{t("content.list.colLanguage")}</th>
+                  <th>{t("content.list.colStatus")}</th>
+                  <th>{t("content.list.colSlug")}</th>
+                  <th>{t("content.list.colUpdated")}</th>
                   <th>
-                    <span className="jf-sr-only">Actions</span>
+                    <span className="jf-sr-only">{t("common.actions")}</span>
                   </th>
                 </tr>
               </thead>
@@ -281,7 +291,7 @@ export default function ContentPage() {
                           className="jf-badge jf-badge--published"
                           style={{ marginInlineStart: "0.5rem" }}
                         >
-                          Home
+                          {t("content.list.homeBadge")}
                         </span>
                       ) : null}
                       {blogPageId === item.id ? (
@@ -289,7 +299,7 @@ export default function ContentPage() {
                           className="jf-badge jf-badge--published"
                           style={{ marginInlineStart: "0.5rem" }}
                         >
-                          Blog
+                          {t("content.list.blogBadge")}
                         </span>
                       ) : null}
                     </td>
@@ -305,7 +315,7 @@ export default function ContentPage() {
                     </td>
                     <td className="jf-td--actions">
                       <Link to={`/admin/content/${item.id}`} className="jf-btn jf-btn--quiet">
-                        Edit
+                        {t("content.list.edit")}
                       </Link>
                     </td>
                   </tr>
@@ -320,8 +330,9 @@ export default function ContentPage() {
 }
 
 function StatusBadge({ status, hasWorkingRevision }: { status: string; hasWorkingRevision?: boolean }) {
+  const { t } = useT();
   if (status === "published" && hasWorkingRevision) {
-    return <span className="jf-badge jf-badge--info">Published — draft changes</span>;
+    return <span className="jf-badge jf-badge--info">{t("content.list.publishedDraftBadge")}</span>;
   }
   const variant: Record<string, string> = {
     published: " jf-badge--published",

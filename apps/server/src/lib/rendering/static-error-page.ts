@@ -124,13 +124,16 @@ export function renderStaticErrorPage(
   kind: StaticErrorKind,
   vars: StaticErrorPageVars = {},
 ): string {
-  const catalog = loadStaticCatalog(vars.locale ?? "en");
-  const siteTitle = vars.siteTitle?.trim() || "This site";
+  const locale = STATIC_ERROR_LOCALES.find((code) => code === vars.locale) ?? "en";
+  const catalog = loadStaticCatalog(locale);
+  const siteTitle = vars.siteTitle?.trim() || catalog["site.title_fallback"] || "This site";
   const badge = catalog[`errors.${kind}.badge`] ?? DEFAULT_BADGE[kind];
   const heading = vars.heading?.trim() || catalog[`errors.${kind}.title`] || DEFAULT_HEADING[kind];
   const message = vars.message?.trim() || catalog[`errors.${kind}.body`] || DEFAULT_MESSAGE[kind];
   const template = loadTemplate();
   return template
+    .replaceAll("{{LOCALE}}", escapeStaticHtml(locale))
+    .replaceAll("{{POWERED_BY}}", escapeStaticHtml(catalog["footer.powered_by"] || "Powered by"))
     .replaceAll("{{TITLE}}", escapeStaticHtml(`${siteTitle} — ${heading}`))
     .replaceAll("{{SITE_TITLE}}", escapeStaticHtml(siteTitle))
     .replaceAll("{{BADGE}}", escapeStaticHtml(badge))

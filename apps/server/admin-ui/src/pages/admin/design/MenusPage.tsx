@@ -1,3 +1,4 @@
+import { translateEnglish, type Translate } from "../../../i18n/translate";
 import { useEffect, useState } from "react";
 import { Link } from "../../../admin-router";
 import { useT } from "../../../i18n/I18nProvider";
@@ -9,9 +10,9 @@ import MenuEditor, {
 } from "../../../components/menu-designer/MenuEditor";
 import type { MenuDesignPreset } from "../../../components/menu-designer/MenuDesignPanel";
 
-const FALLBACK_CONTENT_TYPES: ContentTypeOption[] = [
-  { slug: "page", label: "Page" },
-  { slug: "post", label: "Post" },
+const fallbackContentTypes = (t: Translate): ContentTypeOption[] => [
+  { slug: "page", label: t("menus.fallbackPage") },
+  { slug: "post", label: t("menus.fallbackPost") },
 ];
 
 function sortContentTypes(types: ContentTypeOption[]): ContentTypeOption[] {
@@ -23,11 +24,11 @@ function sortContentTypes(types: ContentTypeOption[]): ContentTypeOption[] {
   });
 }
 
-function normalizeContentTypes(types: ContentTypeOption[] | undefined): ContentTypeOption[] {
+function normalizeContentTypes(types: ContentTypeOption[] | undefined, t: Translate = translateEnglish): ContentTypeOption[] {
   const cleaned = sortContentTypes(
     (types ?? []).filter((type) => type.slug && type.label && type.slug !== "custom"),
   );
-  return cleaned.length > 0 ? cleaned : FALLBACK_CONTENT_TYPES;
+  return cleaned.length > 0 ? cleaned : fallbackContentTypes(t);
 }
 
 export default function MenusPage({ embedded = false }: { embedded?: boolean } = {}) {
@@ -41,7 +42,7 @@ export default function MenusPage({ embedded = false }: { embedded?: boolean } =
   const [selectedSlug, setSelectedSlug] = useState("primary");
   const [designPresets, setDesignPresets] = useState<MenuDesignPreset[]>([]);
   const [activeLocales, setActiveLocales] = useState<string[]>([]);
-  const [contentTypes, setContentTypes] = useState<ContentTypeOption[]>(FALLBACK_CONTENT_TYPES);
+  const [contentTypes, setContentTypes] = useState<ContentTypeOption[]>(fallbackContentTypes(t));
   const [contentByType, setContentByType] = useState<Record<string, ContentOption[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +84,7 @@ export default function MenusPage({ embedded = false }: { embedded?: boolean } =
     setActiveLocales(languages.filter((l) => l.isActive !== false).map((l) => l.code));
     const typesRes = await fetch("/api/content-types");
     const typesData = await typesRes.json();
-    const fetched = normalizeContentTypes(typesData.types as ContentTypeOption[] | undefined);
+    const fetched = normalizeContentTypes(typesData.types as ContentTypeOption[] | undefined, t);
     const entries = await Promise.all(
       fetched.map(async (type) => {
         const res = await fetch(
@@ -144,7 +145,7 @@ export default function MenusPage({ embedded = false }: { embedded?: boolean } =
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Failed to create menu");
+      setError(data.error ?? t("ui.menusPage.failedToCreateMenu"));
       return;
     }
     setNewMenuName("");

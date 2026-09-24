@@ -195,7 +195,7 @@ export default function BlockLayoutPanel({
           {current && !isNone ? (
             <button
               type="button"
-              aria-label={`Clear ${label}`}
+              aria-label={t("common.clearField", { label })}
               onClick={() => set({ [key]: "" } as Partial<BlockStyle>)}
               style={{ ...clearBtnStyle, width: 28, padding: 0, fontSize: "1rem" }}
             >
@@ -290,7 +290,7 @@ export default function BlockLayoutPanel({
             {style.opacity ? (
               <button
                 type="button"
-                aria-label={`Clear ${t("builder.layout.opacity")}`}
+                aria-label={t("common.clearField", { label: t("builder.layout.opacity") })}
                 onClick={() => set({ opacity: "" } as Partial<BlockStyle>)}
                 style={{ ...clearBtnStyle, width: 28, padding: 0, fontSize: "1rem" }}
               >

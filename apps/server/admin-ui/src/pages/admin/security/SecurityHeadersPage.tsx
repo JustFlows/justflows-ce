@@ -11,8 +11,10 @@ import {
 } from "./components";
 import { ChoiceEditor, CspEditor, HstsEditor, PermissionsEditor, RawEditor } from "./editors";
 import type { HeaderEntry, SecurityHeaderDef, SecurityHeaderId } from "./types";
+import { useT } from "../../../i18n/I18nProvider";
 
 export default function SecurityHeadersPage() {
+  const { t } = useT();
   const state = useSecurityConfig();
   const { hash } = useLocation();
   const [rawMode, setRawMode] = useState<Set<SecurityHeaderId>>(new Set());
@@ -32,7 +34,7 @@ export default function SecurityHeadersPage() {
 
   if (state.loading) return <PageSkeleton />;
   if (!state.payload || !state.draft || !state.audit) {
-    return <LoadError error={state.error ?? "Unknown error"} />;
+    return <LoadError error={state.error ?? t("security.shared.unknownError")} />;
   }
 
   const { draft, payload } = state;
@@ -55,10 +57,9 @@ export default function SecurityHeadersPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Security headers</h1>
+          <h1>{t("security.headers.title")}</h1>
           <p>
-            Every header your site can send, and exactly what each one does. Changes go live for the
-            next request after you save.
+            {t("security.headers.subtitle")}
           </p>
         </div>
         <div className="jf-pagehead__actions">
@@ -116,6 +117,7 @@ function HeaderCard({
   onChange: (changes: Partial<HeaderEntry>) => void;
   onResetValue: () => void;
 }) {
+  const { t } = useT();
   const structured = def.editor !== "text";
   const showRaw = raw || !structured;
 
@@ -134,7 +136,7 @@ function HeaderCard({
       <div className="jf-card__head">
         <h2 className="jf-card__title">
           {def.title}
-          {def.recommended && !entry.enabled && <span className="jf-chip">Recommended</span>}
+          {def.recommended && !entry.enabled && <span className="jf-chip">{t("security.shared.recommended")}</span>}
         </h2>
         <label className="jf-checkrow">
           <input
@@ -142,7 +144,7 @@ function HeaderCard({
             checked={entry.enabled}
             onChange={(e) => onChange({ enabled: e.target.checked })}
           />
-          <span>{entry.enabled ? "On" : "Off"}</span>
+          <span>{entry.enabled ? t("security.headers.card.on") : t("security.headers.card.off")}</span>
         </label>
       </div>
 
@@ -171,9 +173,9 @@ function HeaderCard({
 
             <div className="jf-meta">
               <div className="jf-meta__row">
-                <span className="jf-field__label">Sent as</span>
+                <span className="jf-field__label">{t("security.headers.card.sentAs")}</span>
                 <code className="jf-code jf-truncate">
-                  {wireName}: {entry.value || "(empty)"}
+                  {wireName}: {entry.value || t("security.headers.card.empty")}
                 </code>
               </div>
             </div>
@@ -182,16 +184,16 @@ function HeaderCard({
 
         <div className="jf-row">
           <a className="jf-btn jf-btn--quiet" href={def.docs} target="_blank" rel="noreferrer noopener">
-            Reference ↗
+            {t("security.headers.card.reference")}
           </a>
           {entry.enabled && structured && (
             <button type="button" className="jf-btn jf-btn--quiet" onClick={onToggleRaw}>
-              {raw ? "Use the guided editor" : "Edit the raw value"}
+              {raw ? t("security.headers.card.useGuided") : t("security.headers.card.editRaw")}
             </button>
           )}
           {entry.enabled && (
             <button type="button" className="jf-btn jf-btn--quiet" onClick={onResetValue}>
-              Reset to the default value
+              {t("security.headers.card.resetDefault")}
             </button>
           )}
         </div>

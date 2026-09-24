@@ -60,5 +60,25 @@
   "search.empty": "Aucun résultat. Essayez moins de mots ou d’autres filtres.",
   "search.pagination": "Pages de recherche",
   "search.previous": "Précédent",
-  "search.next": "Suivant"
+  "search.next": "Suivant",
+  "menus": {
+    "toggleMenu": "Menu",
+    "toggleSubmenu": "Basculer le sous-menu",
+    "closeMenu": "Fermer le menu"
+  },
+  "construction.title": "Bientôt disponible",
+  "construction.badge": "En construction",
+  "construction.heading": "Nous préparons quelque chose de formidable",
+  "construction.body": "Ce site n’est pas encore en ligne. Revenez bientôt.",
+  "site.title_fallback": "Ce site",
+  "nav.primary": "Navigation principale",
+  "nav.footer": "Navigation de pied de page",
+  "auth.account": "Compte",
+  "pwa.install": "Installer",
+  "pwa.description": "Installez cette application pour une expérience plus rapide en plein écran.",
+  "pwa.installAria": "Installer cette application",
+  "pwa.dismiss": "Fermer",
+  "pwa.iosInstructions": "Installez cette application : touchez Partager, puis « Sur l’écran d’accueil ».",
+  "pwa.updateAvailable": "Une mise à jour est disponible.",
+  "pwa.reload": "Recharger"
 }

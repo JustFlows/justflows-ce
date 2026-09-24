@@ -78,7 +78,7 @@
         <span class="site-brand-text"><%= identity.siteTitle %></span>
       <% } %>
     </a>
-    <nav class="site-nav" aria-label="Primary">
+    <nav class="site-nav" aria-label="<%= t('nav.primary') %>">
       <%- include('nav-menu', {
         items: typeof navItems !== 'undefined' ? navItems : [],
         menuDesign: typeof menuDesign !== 'undefined' ? menuDesign : undefined,
@@ -129,7 +129,7 @@
         </div>
       <% } %>
       <% if (hdr.showAuthLinks) { %>
-        <nav class="jf-auth-links jf-auth-links--buttons" aria-label="Account">
+        <nav class="jf-auth-links jf-auth-links--buttons" aria-label="<%= t('auth.account') %>">
           <a href="/login" class="btn btn--outline"><%= typeof t === 'function' ? t('auth.login') : 'Log in' %></a>
           <% if (typeof usersCanRegister !== 'undefined' && usersCanRegister) { %>
             <a href="/register" class="btn btn--primary"><%= typeof t === 'function' ? t('auth.register') : 'Register' %></a>

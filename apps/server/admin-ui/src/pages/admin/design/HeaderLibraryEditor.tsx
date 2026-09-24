@@ -9,6 +9,7 @@ import {
   type SiteHeaderLibraryDTO,
 } from "../../../lib/page-header";
 import { uid } from "../../../lib/uid";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface ActiveLanguage {
   code: string;
@@ -37,6 +38,7 @@ function newEntry(name: string): SiteHeaderEntryDTO {
  * overrides — and edit the selected one with the shared header builder.
  */
 export default function HeaderLibraryEditor() {
+  const { t } = useT();
   const [lib, setLib] = useState<SiteHeaderLibraryDTO>(emptyLib);
   const [entryId, setEntryId] = useState<string>("");
   const [locale, setLocale] = useState<string>(BASE_LOCALE);
@@ -120,14 +122,14 @@ export default function HeaderLibraryEditor() {
 
   function renameHeader() {
     if (!entry) return;
-    const name = window.prompt("Header name", entry.name)?.trim();
+    const name = window.prompt(t("headerLibrary.renamePrompt"), entry.name)?.trim();
     if (!name) return;
     updateEntry(entry.id, (e) => ({ ...e, name: name.slice(0, 120) }));
   }
 
   function deleteHeader() {
     if (!entry) return;
-    if (!window.confirm(`Delete "${entry.name}"? Pages using it fall back to the site default.`)) return;
+    if (!window.confirm(t("headerLibrary.deleteConfirm", { name: entry.name }))) return;
     setLib((prev) => {
       const entries = prev.entries.filter((e) => e.id !== entry.id);
       return {
@@ -166,7 +168,7 @@ export default function HeaderLibraryEditor() {
         body: JSON.stringify({ library: lib, draft: !publish }),
       });
       const body = (await res.json()) as { error?: string; library?: SiteHeaderLibraryDTO };
-      if (!res.ok) throw new Error(body.error ?? "Could not save the header");
+      if (!res.ok) throw new Error(body.error ?? t("headerLibrary.saveError"));
       if (publish && body.library) {
         setLib(body.library);
         if (!body.library.entries.some((e) => e.id === entryId)) {
@@ -183,7 +185,7 @@ export default function HeaderLibraryEditor() {
     }
   }
 
-  if (loading) return <div className="jf-center">Loading headers…</div>;
+  if (loading) return <div className="jf-center">{t("headerLibrary.loading")}</div>;
 
   const overridden = Boolean(entry && locale !== BASE_LOCALE && entry.overrides[locale]);
 
@@ -194,27 +196,27 @@ export default function HeaderLibraryEditor() {
         style={{ padding: "1.1rem", display: "flex", flexDirection: "column", gap: "1.4rem" }}
       >
         <div className="jf-field">
-          <label className="jf-field__label" htmlFor="jf-header-entry">Header</label>
+          <label className="jf-field__label" htmlFor="jf-header-entry">{t("headerLibrary.headerLabel")}</label>
           <select
             id="jf-header-entry"
             className="jf-input"
             value={entryId}
             onChange={(e) => { setEntryId(e.target.value); setLocale(BASE_LOCALE); }}
           >
-            {lib.entries.length === 0 && <option value="">No headers yet</option>}
+            {lib.entries.length === 0 && <option value="">{t("headerLibrary.noHeadersYet")}</option>}
             {lib.entries.map((e) => (
               <option key={e.id} value={e.id}>
-                {e.name}{e.id === lib.defaultId ? " · default" : ""}
+                {e.name}{e.id === lib.defaultId ? t("ui.headerLibraryEditor.default") : ""}
               </option>
             ))}
           </select>
           <div style={{ display: "flex", gap: "0.4rem" }}>
-            <button type="button" className="jf-btn jf-btn--sm jf-btn--ghost" onClick={addHeader}>New</button>
+            <button type="button" className="jf-btn jf-btn--sm jf-btn--ghost" onClick={addHeader}>{t("headerLibrary.new")}</button>
             {entry && (
-              <button type="button" className="jf-btn jf-btn--sm jf-btn--ghost" onClick={renameHeader}>Rename</button>
+              <button type="button" className="jf-btn jf-btn--sm jf-btn--ghost" onClick={renameHeader}>{t("headerLibrary.rename")}</button>
             )}
             {entry && (
-              <button type="button" className="jf-btn jf-btn--sm jf-btn--ghost" onClick={deleteHeader}>Delete</button>
+              <button type="button" className="jf-btn jf-btn--sm jf-btn--ghost" onClick={deleteHeader}>{t("common.delete")}</button>
             )}
           </div>
           {entry && entry.id !== lib.defaultId && (
@@ -224,22 +226,22 @@ export default function HeaderLibraryEditor() {
               style={{ marginTop: "0.1rem" }}
               onClick={makeDefault}
             >
-              Set as site default
+              {t("headerLibrary.setAsDefault")}
             </button>
           )}
           <p className="jf-field__hint">
             {entry?.id === lib.defaultId
-              ? "Shown on every page that hasn’t chosen a different header."
-              : "Choose this header per page from the dropdown in the page builder."}
+              ? t("headerLibrary.hintIsDefault")
+              : t("headerLibrary.hintChoosePerPage")}
           </p>
         </div>
 
         {entry && languages.length > 1 && (
           <div className="jf-field">
-            <span className="jf-field__label">Language</span>
+            <span className="jf-field__label">{t("headerLibrary.language")}</span>
             <div
               role="tablist"
-              aria-label="Header language"
+              aria-label={t("headerLibrary.languageAriaLabel")}
               style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}
             >
               <button
@@ -249,7 +251,7 @@ export default function HeaderLibraryEditor() {
                 className={`jf-btn jf-btn--sm ${locale === BASE_LOCALE ? "jf-btn--primary" : "jf-btn--ghost"}`}
                 onClick={() => setLocale(BASE_LOCALE)}
               >
-                Base
+                {t("headerLibrary.base")}
               </button>
               {languages.map((l) => (
                 <button
@@ -259,7 +261,7 @@ export default function HeaderLibraryEditor() {
                   aria-selected={locale === l.code}
                   className={`jf-btn jf-btn--sm ${locale === l.code ? "jf-btn--primary" : "jf-btn--ghost"}`}
                   onClick={() => setLocale(l.code)}
-                  title={entry.overrides[l.code] ? "Overrides the base header" : "Inherits the base header"}
+                  title={entry.overrides[l.code] ? t("headerLibrary.overridesBase") : t("headerLibrary.inheritsBase")}
                 >
                   {l.nativeName || l.code}{entry.overrides[l.code] ? " •" : ""}
                 </button>
@@ -269,12 +271,12 @@ export default function HeaderLibraryEditor() {
               <div className="jf-field__hint" style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "flex-start" }}>
                 <span>
                   {overridden
-                    ? "Overrides the base header for this language."
-                    : "Inherits the base header — edit below to override it."}
+                    ? t("headerLibrary.overriddenHint")
+                    : t("headerLibrary.inheritedHint")}
                 </span>
                 {overridden && (
                   <button type="button" className="jf-btn jf-btn--sm jf-btn--ghost" onClick={clearLocaleOverride}>
-                    Reset to base
+                    {t("headerLibrary.resetToBase")}
                   </button>
                 )}
               </div>
@@ -299,7 +301,7 @@ export default function HeaderLibraryEditor() {
               disabled={saving}
               onClick={() => void save(false)}
             >
-              {saving ? "Saving…" : "Save draft"}
+              {saving ? t("common.saving") : t("content.saveDraft")}
             </button>
             <button
               type="button"
@@ -308,11 +310,11 @@ export default function HeaderLibraryEditor() {
               disabled={saving}
               onClick={() => void save(true)}
             >
-              Publish
+              {t("content.publish")}
             </button>
           </div>
           {status === "saved" && (
-            <span className="jf-field__hint" style={{ color: "var(--jf-success)" }}>✓ Saved</span>
+            <span className="jf-field__hint" style={{ color: "var(--jf-success)" }}>✓ {t("common.saved")}</span>
           )}
           {status === "error" && (
             <span className="jf-field__hint" style={{ color: "var(--jf-danger)" }}>{error}</span>
@@ -334,7 +336,7 @@ export default function HeaderLibraryEditor() {
           />
         ) : (
           <p className="jf-field__hint" style={{ padding: "1.1rem" }}>
-            Create a header to start building.
+            {t("headerLibrary.emptyState")}
           </p>
         )}
       </div>

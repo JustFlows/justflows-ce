@@ -1,3 +1,4 @@
+import { useT } from "../../i18n/I18nProvider";
 import { useRef } from "react";
 import type { BlockDocument } from "./types";
 import { downloadJson, parseThemeDesignJson, readJsonFile } from "./block-json";
@@ -17,6 +18,7 @@ export default function BlockJsonTools({
   exportFilename = "theme-design.json",
   variant = "bar",
 }: BlockJsonToolsProps) {
+  const { t } = useT();
   const fileRef = useRef<HTMLInputElement>(null);
 
   function handleExport() {
@@ -34,11 +36,11 @@ export default function BlockJsonTools({
     if (!file) return;
 
     try {
-      const raw = await readJsonFile(file);
-      const parsed = parseThemeDesignJson(raw);
+      const raw = await readJsonFile(file, t);
+      const parsed = parseThemeDesignJson(raw, t);
       const replace =
         blocks.blocks.length === 0 ||
-        window.confirm("Replace all blocks with the imported design? Cancel to append instead.");
+        window.confirm(t("ui.blockJsonTools.replaceAllBlocksWithTheImportedDesignCancelToAppend"));
       const imported = replace
         ? parsed.blocks
         : { version: 1 as const, blocks: [...blocks.blocks, ...parsed.blocks.blocks] };
@@ -60,11 +62,9 @@ export default function BlockJsonTools({
         onChange={handleFileChange}
       />
       <button type="button" className={btnClass} onClick={() => fileRef.current?.click()}>
-        Import JSON
-      </button>
+        {t("ui.blockJsonTools.importJSON")}</button>
       <button type="button" className={btnClass} onClick={handleExport}>
-        Export JSON
-      </button>
+        {t("ui.blockJsonTools.exportJSON")}</button>
     </>
   );
 }

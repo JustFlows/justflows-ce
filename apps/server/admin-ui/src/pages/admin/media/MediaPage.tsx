@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface MediaItem {
   id: string;
@@ -45,6 +46,7 @@ function isImage(mimeType: string) {
 }
 
 export default function MediaPage() {
+  const { t } = useT();
   const [items, setItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -61,7 +63,7 @@ export default function MediaPage() {
       try {
         const res = await fetch("/api/media");
         const data = (await res.json()) as { items?: MediaItem[]; error?: string };
-        if (!res.ok) throw new Error(data.error ?? "Failed to load media");
+        if (!res.ok) throw new Error(data.error ?? t("media.loadFailed"));
         setItems(data.items ?? []);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -82,7 +84,7 @@ export default function MediaPage() {
       form.append("file", file);
       const res = await fetch("/api/media", { method: "POST", body: form });
       const data = (await res.json()) as MediaItem & { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      if (!res.ok) throw new Error(data.error ?? t("media.uploadFailed"));
       setItems((i) => [data, ...i]);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -96,11 +98,11 @@ export default function MediaPage() {
   }
 
   async function trash(item: MediaItem) {
-    if (!confirm(`Move “${item.filename}” to trash?`)) return;
+    if (!confirm(t("media.trashConfirm", { filename: item.filename }))) return;
     const res = await fetch(`/api/media/${item.id}`, { method: "DELETE" });
     if (!res.ok) {
       const data = (await res.json()) as { error?: string };
-      setError(data.error ?? "Could not trash media");
+      setError(data.error ?? t("media.trashFailed"));
       return;
     }
     setItems((current) => current.filter((candidate) => candidate.id !== item.id));
@@ -135,9 +137,9 @@ export default function MediaPage() {
     try {
       const res = await fetch("/api/media/regenerate", { method: "POST" });
       const data = (await res.json()) as RegenerateStatus & { error?: string; started?: boolean };
-      if (res.status === 403) throw new Error("Only administrators can regenerate the library");
+      if (res.status === 403) throw new Error(t("media.regenerateForbidden"));
       if (!res.ok && res.status !== 409)
-        throw new Error(data.error ?? "Could not start regeneration");
+        throw new Error(data.error ?? t("media.regenerateFailed"));
       setRegen(data);
       pollRegen();
     } catch (e) {
@@ -150,20 +152,20 @@ export default function MediaPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Media Library</h1>
-          <p>{loading ? "…" : `${items.length} ${items.length === 1 ? "file" : "files"}`}</p>
+          <h1>{t("media.title")}</h1>
+          <p>{loading ? "…" : t("media.fileCount", { count: items.length })}</p>
         </div>
         <div className="jf-pagehead__actions">
           <button className="jf-btn jf-btn--primary" onClick={() => inputRef.current?.click()}>
-            Upload files
+            {t("media.uploadButton")}
           </button>
           <button
             className="jf-btn jf-btn--ghost"
             onClick={() => void regenerateAll()}
             disabled={regenBusy}
-            title="Rebuild resized variants and WebP/AVIF for every image with the current settings"
+            title={t("media.regenerateTooltip")}
           >
-            {regenBusy ? "Regenerating…" : "↻ Regenerate responsive images"}
+            {regenBusy ? t("media.regenerating") : t("media.regenerateButton")}
           </button>
         </div>
         <input
@@ -171,7 +173,7 @@ export default function MediaPage() {
           type="file"
           multiple
           accept="image/*,video/*,audio/*,application/pdf"
-          aria-label="Choose files to upload"
+          aria-label={t("media.chooseFilesAriaLabel")}
           style={{ display: "none" }}
           onChange={(e) => {
             if (e.target.files) uploadFiles(e.target.files);
@@ -183,13 +185,12 @@ export default function MediaPage() {
         <div className={`jf-alert ${regen.failed > 0 ? "jf-alert--error" : "jf-alert--success"}`}>
           {regen.running ? (
             <span>
-              Regenerating… {regen.processed + regen.skipped + regen.failed}/{regen.total}
+              {t("media.regeneratingProgress", { done: regen.processed + regen.skipped + regen.failed, total: regen.total })}
               {regen.currentFile ? ` — ${regen.currentFile}` : ""}
             </span>
           ) : (
             <span>
-              ✓ Regeneration finished: {regen.processed} rebuilt, {regen.skipped} skipped,{" "}
-              {regen.failed} failed.
+              {t("media.regenerateFinished", { processed: regen.processed, skipped: regen.skipped, failed: regen.failed })}
             </span>
           )}
           {regen.errors.length > 0 && (
@@ -207,7 +208,7 @@ export default function MediaPage() {
         data-dragging={dragging}
         role="button"
         tabIndex={0}
-        aria-label="Upload files. Drop files here or press Enter to browse."
+        aria-label={t("media.dropzoneAriaLabel")}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -226,7 +227,7 @@ export default function MediaPage() {
           }
         }}
       >
-        {uploading ? "Uploading…" : "Drop files here to upload"}
+        {uploading ? t("media.uploading") : t("media.dropFilesHere")}
       </div>
 
       {error && (
@@ -241,8 +242,8 @@ export default function MediaPage() {
             <span className="jf-empty__icon" aria-hidden="true">
               🖼
             </span>
-            <span className="jf-empty__title">No files yet</span>
-            <p>Upload images, video, audio or PDFs to use them across your site.</p>
+            <span className="jf-empty__title">{t("media.emptyTitle")}</span>
+            <p>{t("media.emptyDesc")}</p>
           </div>
         </div>
       ) : (
@@ -254,7 +255,7 @@ export default function MediaPage() {
                 className="jf-thumb jf-thumb--sm"
                 style={{ border: 0, cursor: "pointer", width: "100%" }}
                 onClick={() => (isImage(item.mimeType) ? setSelected(item) : undefined)}
-                aria-label={`Edit ${item.filename}`}
+                aria-label={t("media.editAriaLabel", { filename: item.filename })}
               >
                 {item.mimeType.startsWith("image/") ? (
                   <img src={item.url} alt={item.filename} />
@@ -279,7 +280,7 @@ export default function MediaPage() {
                       className={`jf-badge jf-badge--${item.hasVariants ? "ok" : "warn"}`}
                       style={{ fontSize: "0.66rem" }}
                     >
-                      {item.hasVariants ? "Responsive" : "Original only"}
+                      {item.hasVariants ? t("media.responsiveBadge") : t("media.originalOnlyBadge")}
                     </span>
                   )}
                 </div>
@@ -290,7 +291,7 @@ export default function MediaPage() {
                       className="jf-btn jf-btn--ghost jf-btn--sm"
                       onClick={() => setSelected(item)}
                     >
-                      Edit
+                      {t("media.editButton")}
                     </button>
                   )}
                   <button
@@ -298,7 +299,7 @@ export default function MediaPage() {
                     className="jf-btn jf-btn--ghost jf-btn--sm"
                     onClick={() => void trash(item)}
                   >
-                    Trash
+                    {t("media.trashButton")}
                   </button>
                 </div>
               </div>
@@ -331,6 +332,7 @@ function MediaDetailDialog({
   onClose: () => void;
   onSaved: (updated: MediaItem) => void;
 }) {
+  const { t } = useT();
   const [alt, setAlt] = useState(item.altText ?? "");
   const [caption, setCaption] = useState(item.caption ?? "");
   const [focalX, setFocalX] = useState(item.focalX ?? 0.5);
@@ -375,7 +377,7 @@ function MediaDetailDialog({
         body: JSON.stringify({ altText: alt, caption, focalX, focalY }),
       });
       const data = (await res.json()) as { error?: string; ok?: boolean };
-      if (!res.ok || data.error) throw new Error(data.error ?? "Could not save");
+      if (!res.ok || data.error) throw new Error(data.error ?? t("media.saveFailed"));
       onSaved({ ...item, altText: alt, caption, focalX, focalY });
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -388,7 +390,7 @@ function MediaDetailDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Edit ${item.filename}`}
+      aria-label={t("media.editAriaLabel", { filename: item.filename })}
       className="jf-media-detail__backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -398,14 +400,14 @@ function MediaDetailDialog({
         <div className="jf-card__head">
           <h2 className="jf-card__title jf-truncate">{item.filename}</h2>
           <button type="button" className="jf-btn jf-btn--ghost jf-btn--sm" onClick={onClose}>
-            Close
+            {t("common.close")}
           </button>
         </div>
         <div className="jf-card__body jf-stack">
           <p className="jf-field__hint">
-            Click the image to set the focal point — art-directed crops (thumbnails and{" "}
-            <code className="jf-code">object-fit: cover</code> boxes) keep this point in view.
-            Saving a new focal point rebuilds this image’s variants.
+            {t("media.focalPointHintBefore")}{" "}
+            <code className="jf-code">object-fit: cover</code>{" "}
+            {t("media.focalPointHintAfter")}
           </p>
           <div
             className="jf-media-detail__stage"
@@ -420,8 +422,8 @@ function MediaDetailDialog({
             />
           </div>
           <p className="jf-field__hint">
-            Focal point: {(focalX * 100).toFixed(0)}% / {(focalY * 100).toFixed(0)}%
-            {item.width && item.height ? ` — original ${item.width}×${item.height}` : ""}
+            {t("media.focalPointLabel", { x: (focalX * 100).toFixed(0), y: (focalY * 100).toFixed(0) })}
+            {item.width && item.height ? ` — ${t("media.originalDimensions", { width: item.width, height: item.height })}` : ""}
             {"  "}
             <button
               type="button"
@@ -431,13 +433,13 @@ function MediaDetailDialog({
                 setFocalY(0.5);
               }}
             >
-              Reset to centre
+              {t("media.resetToCentre")}
             </button>
           </p>
 
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-media-alt">
-              Alt text
+              {t("media.altTextLabel")}
             </label>
             <input
               id="jf-media-alt"
@@ -446,12 +448,12 @@ function MediaDetailDialog({
               maxLength={2000}
               disabled={!detailLoaded}
               onChange={(e) => setAlt(e.target.value)}
-              placeholder="Describe the image for screen readers and search engines"
+              placeholder={t("media.altTextPlaceholder")}
             />
           </div>
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-media-caption">
-              Caption
+              {t("media.captionLabel")}
             </label>
             <input
               id="jf-media-caption"
@@ -470,10 +472,10 @@ function MediaDetailDialog({
               onClick={() => void save()}
               disabled={saving}
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? t("common.saving") : t("common.save")}
             </button>
             <button className="jf-btn jf-btn--ghost" onClick={onClose} disabled={saving}>
-              Cancel
+              {t("common.cancel")}
             </button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "../../../admin-router";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface AnalyticsSummary {
   collecting: boolean;
@@ -12,6 +13,7 @@ interface AnalyticsSummary {
 }
 
 export default function AnalyticsPage() {
+  const { t } = useT();
   const [data, setData] = useState<AnalyticsSummary | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -38,47 +40,47 @@ export default function AnalyticsPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Analytics</h1>
-          <p>Page views, referrers, and devices stored on this site. Google only sees visits if you added a tag.</p>
+          <h1>{t("analytics.title")}</h1>
+          <p>{t("analytics.subtitle")}</p>
         </div>
         <Link className="jf-btn jf-btn--ghost" to="/admin/plugins/justflows.analytics/settings">
-          Settings
+          {t("analytics.settings")}
         </Link>
       </header>
 
       {error && <div className="jf-alert jf-alert--error" role="alert">{error}</div>}
 
       {loading || !data ? (
-        <div className="jf-card"><div className="jf-card__body">Loading…</div></div>
+        <div className="jf-card"><div className="jf-card__body">{t("common.loading")}</div></div>
       ) : !data.collecting ? (
         <div className="jf-card">
           <div className="jf-empty">
-            <span className="jf-empty__title">Analytics is not collecting</span>
-            <p>Install Analytics from the marketplace, or activate it under Plugins if it is deactivated.</p>
+            <span className="jf-empty__title">{t("analytics.notCollectingTitle")}</span>
+            <p>{t("analytics.notCollectingBody")}</p>
             <Link className="jf-btn jf-btn--primary" to="/admin/plugins">
-              Open Plugins
+              {t("analytics.openPlugins")}
             </Link>
           </div>
         </div>
       ) : (
         <div className="jf-stack">
           {!data.enabled && (
-            <div className="jf-alert">Collection is paused in plugin settings.</div>
+            <div className="jf-alert">{t("analytics.collectionPaused")}</div>
           )}
 
           <div className="jf-grid jf-grid--2">
             <div className="jf-card">
-              <div className="jf-card__head"><h2 className="jf-card__title">Page views</h2></div>
+              <div className="jf-card__head"><h2 className="jf-card__title">{t("analytics.pageViews")}</h2></div>
               <div className="jf-card__body">
                 <p style={{ fontSize: "2rem", fontWeight: 700, margin: 0 }}>{data.totals.views}</p>
-                <p className="jf-meta">Last 14 days of recorded public visits</p>
+                <p className="jf-meta">{t("analytics.last14Days")}</p>
               </div>
             </div>
             <div className="jf-card">
-              <div className="jf-card__head"><h2 className="jf-card__title">Devices</h2></div>
+              <div className="jf-card__head"><h2 className="jf-card__title">{t("analytics.devices")}</h2></div>
               <div className="jf-card__body">
                 {data.devices.length === 0 ? (
-                  <p className="jf-meta">No device data yet. Visit the public site, then refresh.</p>
+                  <p className="jf-meta">{t("analytics.noDeviceData")}</p>
                 ) : (
                   <ul className="jf-stack jf-stack--sm" style={{ listStyle: "none", padding: 0, margin: 0 }}>
                     {data.devices.map((row) => (
@@ -94,10 +96,10 @@ export default function AnalyticsPage() {
           </div>
 
           <div className="jf-card">
-            <div className="jf-card__head"><h2 className="jf-card__title">Views by day</h2></div>
+            <div className="jf-card__head"><h2 className="jf-card__title">{t("analytics.viewsByDay")}</h2></div>
             <div className="jf-card__body">
               {data.daily.length === 0 ? (
-                <p className="jf-meta">Nothing recorded yet.</p>
+                <p className="jf-meta">{t("analytics.nothingRecorded")}</p>
               ) : (
                 <div className="jf-stack jf-stack--sm">
                   {data.daily.map((row) => (
@@ -125,13 +127,13 @@ export default function AnalyticsPage() {
 
           <div className="jf-grid jf-grid--2">
             <div className="jf-card">
-              <div className="jf-card__head"><h2 className="jf-card__title">Top pages</h2></div>
+              <div className="jf-card__head"><h2 className="jf-card__title">{t("analytics.topPages")}</h2></div>
               <div className="jf-card__body">
                 {data.pages.length === 0 ? (
-                  <p className="jf-meta">No pages yet.</p>
+                  <p className="jf-meta">{t("analytics.noPagesYet")}</p>
                 ) : (
                   <table className="jf-table">
-                    <thead><tr><th>Path</th><th>Views</th></tr></thead>
+                    <thead><tr><th>{t("analytics.path")}</th><th>{t("analytics.views")}</th></tr></thead>
                     <tbody>
                       {data.pages.map((row) => (
                         <tr key={row.path}>
@@ -145,13 +147,13 @@ export default function AnalyticsPage() {
               </div>
             </div>
             <div className="jf-card">
-              <div className="jf-card__head"><h2 className="jf-card__title">Referrers</h2></div>
+              <div className="jf-card__head"><h2 className="jf-card__title">{t("analytics.referrers")}</h2></div>
               <div className="jf-card__body">
                 {data.referrers.length === 0 ? (
-                  <p className="jf-meta">No referrers yet.</p>
+                  <p className="jf-meta">{t("analytics.noReferrersYet")}</p>
                 ) : (
                   <table className="jf-table">
-                    <thead><tr><th>Source</th><th>Views</th></tr></thead>
+                    <thead><tr><th>{t("analytics.source")}</th><th>{t("analytics.views")}</th></tr></thead>
                     <tbody>
                       {data.referrers.map((row) => (
                         <tr key={row.referrer}>

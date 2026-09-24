@@ -21,6 +21,9 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Public navigation accessibility labels and PWA install/update prompts now use the site translation catalogs, while preserving custom install text. ([#127](https://github.com/JustFlows/justflows-ce/issues/127))
+- Completed missing translation keys for builder controls, security settings, and update progress in all five admin languages. Restart messages, block counts, and language previews now respect localization; blank translations are filled, and under-construction and static error pages translate their text and declare the correct document language. ([#17](https://github.com/JustFlows/justflows-ce/issues/17))
+
 - **Selected paragraph/heading blocks looked cluttered in the page builder.**
   A selected-and-focused text block stacked three near-identical highlight
   layers — the block row's own selection background, a redundant duplicate

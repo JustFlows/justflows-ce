@@ -1,5 +1,7 @@
+import { translateEnglish, type Translate } from "../../../i18n/translate";
 import { useEffect, useState } from "react";
 import { usePluginMenu } from "@components/PluginMenuProvider";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface RegistryPrice {
   amount: number;
@@ -43,12 +45,12 @@ export function listingIsComingSoon(item: MarketplaceItem): boolean {
   return item.registry?.comingSoon === true;
 }
 
-export function listingPriceLabel(item: MarketplaceItem): string | null {
+export function listingPriceLabel(item: MarketplaceItem, t: Translate = translateEnglish): string | null {
   if (!listingIsPaid(item)) return null;
   const price = item.registry?.price;
   const amount = price?.amount ?? item.pricing?.amount;
   const currency = price?.currency ?? item.pricing?.currency;
-  if (amount == null || !currency) return listingIsPaid(item) ? "Paid" : null;
+  if (amount == null || !currency) return listingIsPaid(item) ? t("common.paid") : null;
   try {
     const formatted = new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amount);
     if (price?.interval === "month") return `${formatted} / month`;
@@ -71,7 +73,19 @@ export function installedPackageIds(
 
 const CATEGORIES = ["All", "Plugins", "Themes", "SEO", "Forms", "Analytics", "Media", "E-commerce"];
 
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  All: "marketplace.categories.all",
+  Plugins: "marketplace.categories.plugins",
+  Themes: "marketplace.categories.themes",
+  SEO: "marketplace.categories.seo",
+  Forms: "marketplace.categories.forms",
+  Analytics: "marketplace.categories.analytics",
+  Media: "marketplace.categories.media",
+  "E-commerce": "marketplace.categories.ecommerce",
+};
+
 export default function MarketplacePage() {
+  const { t } = useT();
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -141,19 +155,19 @@ export default function MarketplacePage() {
       });
       const data = await res.json() as { error?: string; checkoutUrl?: string };
       if (res.status === 403) {
-        throw new Error(data.error ?? "This listing is coming soon and cannot be installed yet.");
+        throw new Error(data.error ?? t("marketplace.comingSoonInstallError"));
       }
       if (res.status === 402) {
         window.open(data.checkoutUrl ?? "https://justflows.com/marketplace", "_blank");
-        throw new Error(data.error ?? "Commercial listing");
+        throw new Error(data.error ?? t("marketplace.commercialListingError"));
       }
-      if (!res.ok) throw new Error(data.error ?? "Install failed");
+      if (!res.ok) throw new Error(data.error ?? t("marketplace.installFailed"));
       setInstalled((prev) => new Set(prev).add(item.id));
       // A newly installed plugin may own admin pages — surface them right away.
       if (item.type === "plugin") await refreshMenu();
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        setError("Install timed out. Extract the latest justflows.zip, run npm run install:all, and restart Node.js.");
+        setError(t("marketplace.installTimeout"));
       } else {
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -167,8 +181,8 @@ export default function MarketplacePage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Marketplace</h1>
-          <p>Discover and install plugins and themes for your site</p>
+          <h1>{t("marketplace.title")}</h1>
+          <p>{t("marketplace.subtitle")}</p>
         </div>
       </header>
 
@@ -177,10 +191,10 @@ export default function MarketplacePage() {
         <input
           type="search"
           className="jf-input"
-          placeholder="Search plugins and themes…"
+          placeholder={t("marketplace.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          aria-label="Search the marketplace"
+          aria-label={t("marketplace.searchAriaLabel")}
         />
         <div className="jf-filterbar">
           {CATEGORIES.map((cat) => (
@@ -190,11 +204,11 @@ export default function MarketplacePage() {
               aria-pressed={category === cat}
               onClick={() => setCategory(cat)}
             >
-              {cat}
+              {t(CATEGORY_LABEL_KEYS[cat] ?? cat)}
             </button>
           ))}
           <span className="jf-meta" style={{ marginInlineStart: "auto" }}>
-            {loading ? "Loading…" : `${filtered.length} result${filtered.length !== 1 ? "s" : ""}`}
+            {loading ? t("common.loading") : t("marketplace.resultsCount", { count: filtered.length })}
           </span>
         </div>
       </div>
@@ -203,8 +217,8 @@ export default function MarketplacePage() {
         <div className="jf-card">
           <div className="jf-empty">
             <span className="jf-empty__icon" aria-hidden="true">🔍</span>
-            <span className="jf-empty__title">{loading ? "Loading catalogue" : "Nothing matches that search"}</span>
-            <p>{loading ? "Fetching listings from the Justflows API." : "Try a different keyword or clear the category filter."}</p>
+            <span className="jf-empty__title">{loading ? t("marketplace.loadingCatalogue") : t("marketplace.emptyTitle")}</span>
+            <p>{loading ? t("marketplace.loadingListings") : t("marketplace.emptyDesc")}</p>
           </div>
         </div>
       ) : (
@@ -214,7 +228,7 @@ export default function MarketplacePage() {
             const isInstalled = installed.has(item.id);
             const paid = listingIsPaid(item);
             const comingSoon = listingIsComingSoon(item);
-            const priceLabel = listingPriceLabel(item);
+            const priceLabel = listingPriceLabel(item, t);
 
             return (
               <div key={item.id} className="jf-card">
@@ -223,8 +237,8 @@ export default function MarketplacePage() {
                     <span className={`jf-badge ${item.type === "theme" ? "jf-badge--warn" : "jf-badge--info"}`}>
                       {item.type}
                     </span>
-                    {comingSoon && <span className="jf-badge jf-badge--warn">Coming soon</span>}
-                    {paid && <span className="jf-badge">{priceLabel ?? "paid"}</span>}
+                    {comingSoon && <span className="jf-badge jf-badge--warn">{t("marketplace.comingSoon")}</span>}
+                    {paid && <span className="jf-badge">{priceLabel ?? t("common.paid")}</span>}
                     <span className="jf-meta" style={{ marginInlineStart: "auto" }}>
                       ↓ {item.downloads.toLocaleString()}
                     </span>
@@ -232,7 +246,7 @@ export default function MarketplacePage() {
 
                   <h3 className="jf-section-title">{item.name}</h3>
                   <p className="jf-list__desc" style={{ flex: 1 }}>{item.description}</p>
-                  <p className="jf-meta">v{item.version} · by {item.publisher ?? item.author ?? "Justflows"}</p>
+                  <p className="jf-meta">{t("marketplace.versionBy", { version: item.version, publisher: item.publisher ?? item.author ?? "Justflows" })}</p>
 
                   <button
                     className={`jf-btn jf-btn--block ${isInstalled ? "jf-btn--success" : isInstalling || comingSoon ? "jf-btn--ghost" : "jf-btn--primary"}`}
@@ -242,14 +256,14 @@ export default function MarketplacePage() {
                     disabled={isInstalling || isInstalled || comingSoon}
                   >
                     {isInstalled
-                      ? "✓ Installed"
+                      ? t("marketplace.installedLabel")
                       : isInstalling
-                        ? "Installing…"
+                        ? t("marketplace.installing")
                         : comingSoon
-                          ? "Coming soon"
+                          ? t("marketplace.comingSoon")
                           : paid
-                            ? "Get on Justflows"
-                            : "Install"}
+                            ? t("marketplace.getOnJustflows")
+                            : t("marketplace.install")}
                   </button>
                 </div>
               </div>

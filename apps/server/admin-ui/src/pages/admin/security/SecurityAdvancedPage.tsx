@@ -11,6 +11,7 @@ import {
   Section,
 } from "./components";
 import { SCOPE_LABELS, type CustomHeader, type HeaderScope, type SecurityHeadersConfig } from "./types";
+import { useT } from "../../../i18n/I18nProvider";
 
 /**
  * Headers that frame the response body. The server refuses them too — listing
@@ -33,6 +34,7 @@ const PROTECTED_NAMES = new Set([
 ]);
 
 export default function SecurityAdvancedPage() {
+  const { t } = useT();
   const state = useSecurityConfig();
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export default function SecurityAdvancedPage() {
 
   if (state.loading) return <PageSkeleton />;
   if (!state.payload || !state.draft) {
-    return <LoadError error={state.error ?? "Unknown error"} />;
+    return <LoadError error={state.error ?? t("security.shared.unknownError")} />;
   }
 
   const { draft, payload } = state;
@@ -55,18 +57,18 @@ export default function SecurityAdvancedPage() {
 
   function problemWith(header: CustomHeader, index: number): string | null {
     const name = header.name.trim();
-    if (!name) return "Give the header a name.";
-    if (!/^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/.test(name)) return "That is not a valid header name.";
+    if (!name) return t("security.advanced.validation.needName");
+    if (!/^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/.test(name)) return t("security.advanced.validation.invalidName");
     if (PROTECTED_NAMES.has(name.toLowerCase())) {
-      return "This header controls the response body and cannot be overridden here.";
+      return t("security.advanced.validation.protected");
     }
     if (knownHeaderNames.has(name.toLowerCase())) {
-      return "This header has its own settings page — configure it there instead.";
+      return t("security.advanced.validation.hasOwnPage");
     }
     if (draft.custom.some((h, i) => i !== index && h.name.trim().toLowerCase() === name.toLowerCase())) {
-      return "Another row already sets this header.";
+      return t("security.advanced.validation.duplicate");
     }
-    if (/[\r\n]/.test(header.value)) return "Header values cannot contain line breaks.";
+    if (/[\r\n]/.test(header.value)) return t("security.advanced.validation.lineBreaks");
     return null;
   }
 
@@ -75,13 +77,17 @@ export default function SecurityAdvancedPage() {
     try {
       const parsed = JSON.parse(importText) as SecurityHeadersConfig;
       if (!parsed || typeof parsed !== "object" || !parsed.headers) {
-        setImportError("That does not look like a Justflows security configuration.");
+        setImportError(t("security.advanced.import.notConfig"));
         return;
       }
       state.replaceDraft(parsed);
       setImportText("");
     } catch (e) {
-      setImportError(`Could not read the JSON: ${e instanceof Error ? e.message : String(e)}`);
+      setImportError(
+        t("security.advanced.import.readError", {
+          message: e instanceof Error ? e.message : String(e),
+        }),
+      );
     }
   }
 
@@ -91,8 +97,8 @@ export default function SecurityAdvancedPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Advanced security</h1>
-          <p>Custom response headers, the exact output, and moving a configuration between sites.</p>
+          <h1>{t("security.advanced.title")}</h1>
+          <p>{t("security.advanced.subtitle")}</p>
         </div>
         <div className="jf-pagehead__actions">
           {state.audit && <GradeBadge audit={state.audit} live={state.dirty} />}
@@ -102,7 +108,7 @@ export default function SecurityAdvancedPage() {
       {payload.killSwitch && <KillSwitchNotice />}
 
       <Section
-        title="Custom response headers"
+        title={t("security.advanced.customHeaders.title")}
         action={
           <button
             className="jf-btn jf-btn--ghost"
@@ -111,13 +117,12 @@ export default function SecurityAdvancedPage() {
             }
             disabled={draft.custom.length >= 50}
           >
-            Add header
+            {t("security.advanced.customHeaders.add")}
           </button>
         }
       >
         <p className="jf-field__hint">
-          Anything the pages above do not cover — a reporting endpoint, a vendor header, something
-          new that browsers have only just shipped. These are sent exactly as written.
+          {t("security.advanced.customHeaders.hint")}
         </p>
 
         {draft.custom.length === 0 ? (
@@ -125,7 +130,7 @@ export default function SecurityAdvancedPage() {
             <div className="jf-empty__icon" aria-hidden="true">
               ⌗
             </div>
-            <div className="jf-empty__title">No custom headers</div>
+            <div className="jf-empty__title">{t("security.advanced.customHeaders.emptyTitle")}</div>
           </div>
         ) : (
           <div className="jf-stack jf-stack--sm">
@@ -137,7 +142,7 @@ export default function SecurityAdvancedPage() {
                     <div className="jf-itemrow">
                       <div className="jf-field" style={{ flex: "0 0 18rem" }}>
                         <label className="jf-field__label" htmlFor={`custom-name-${index}`}>
-                          Header name
+                          {t("security.advanced.customHeaders.nameLabel")}
                         </label>
                         <input
                           id={`custom-name-${index}`}
@@ -153,7 +158,7 @@ export default function SecurityAdvancedPage() {
                       </div>
                       <div className="jf-field" style={{ flex: 1 }}>
                         <label className="jf-field__label" htmlFor={`custom-value-${index}`}>
-                          Value
+                          {t("security.advanced.customHeaders.valueLabel")}
                         </label>
                         <input
                           id={`custom-value-${index}`}
@@ -170,7 +175,9 @@ export default function SecurityAdvancedPage() {
                       <button
                         type="button"
                         className="jf-iconbtn jf-iconbtn--danger"
-                        aria-label={`Remove ${header.name || "header"}`}
+                        aria-label={t("security.advanced.customHeaders.removeAria", {
+                          name: header.name || t("security.advanced.customHeaders.headerFallback"),
+                        })}
                         onClick={() => setCustom(draft.custom.filter((_, i) => i !== index))}
                       >
                         ✕
@@ -198,11 +205,13 @@ export default function SecurityAdvancedPage() {
                           }}
                         />
                         <span>
-                          Send this header
+                          {t("security.advanced.customHeaders.send")}
                           <span className="jf-checkrow__meta">
                             {header.enabled
-                              ? `Active for: ${SCOPE_LABELS[header.scope].toLowerCase()}.`
-                              : "Kept here but not sent."}
+                              ? t("security.advanced.customHeaders.sendActiveMeta", {
+                                  scope: t(SCOPE_LABELS[header.scope]).toLowerCase(),
+                                })
+                              : t("security.advanced.customHeaders.sendInactiveMeta")}
                           </span>
                         </span>
                       </label>
@@ -217,7 +226,7 @@ export default function SecurityAdvancedPage() {
         )}
       </Section>
 
-      <Section title="Server identification">
+      <Section title={t("security.advanced.serverId.title")}>
         <label className="jf-checkrow jf-checkrow--stacked">
           <input
             type="checkbox"
@@ -230,30 +239,29 @@ export default function SecurityAdvancedPage() {
             }
           />
           <span>
-            Strip the <code>Server</code> header
+            {t("security.advanced.serverId.stripLabelPrefix")} <code>Server</code>{" "}
+            {t("security.advanced.serverId.stripLabelSuffix")}
             <span className="jf-checkrow__meta">
-              Hides the web server name and version that a proxy in front of Justflows may add.
-              Justflows sends <code>X-Powered-By: Justflows</code> (not Express). This is
-              obscurity for the underlying stack — not a defence — but it does make you a
-              less obvious target for scripted scans aimed at specific servers.
+              {t("security.advanced.serverId.metaPrefix")} <code>X-Powered-By: Justflows</code>{" "}
+              {t("security.advanced.serverId.metaSuffix")}
             </span>
           </span>
         </label>
       </Section>
 
-      <Section title="What gets sent">
+      <Section title={t("security.advanced.whatSent.title")}>
         <div className="jf-stack jf-stack--sm">
-          <h3 className="jf-section-title">Public site over HTTPS</h3>
+          <h3 className="jf-section-title">{t("security.advanced.whatSent.publicSecure")}</h3>
           {state.effective && <HeaderPreview headers={state.effective.publicSecure} />}
-          <h3 className="jf-section-title">Admin &amp; API</h3>
+          <h3 className="jf-section-title">{t("security.advanced.whatSent.admin")}</h3>
           {state.effective && <HeaderPreview headers={state.effective.admin} />}
         </div>
       </Section>
 
-      <Section title="Move this configuration">
+      <Section title={t("security.advanced.move.title")}>
         <div className="jf-field">
           <label className="jf-field__label" htmlFor="security-export">
-            Current configuration
+            {t("security.advanced.move.currentConfigLabel")}
           </label>
           <textarea
             id="security-export"
@@ -264,13 +272,13 @@ export default function SecurityAdvancedPage() {
             onFocus={(e) => e.currentTarget.select()}
           />
           <p className="jf-field__hint">
-            Copy this to reproduce the same policy on another Justflows site.
+            {t("security.advanced.move.currentConfigHint")}
           </p>
         </div>
 
         <div className="jf-field">
           <label className="jf-field__label" htmlFor="security-import">
-            Paste a configuration to load
+            {t("security.advanced.move.pasteLabel")}
           </label>
           <textarea
             id="security-import"
@@ -287,20 +295,18 @@ export default function SecurityAdvancedPage() {
               onClick={applyImport}
               disabled={!importText.trim()}
             >
-              Load into the editor
+              {t("security.advanced.move.loadButton")}
             </button>
             <span className="jf-field__hint">
-              Loaded for review only — nothing changes until you save.
+              {t("security.advanced.move.loadHint")}
             </span>
           </div>
         </div>
       </Section>
 
-      <Section title="Start over">
+      <Section title={t("security.advanced.reset.title")}>
         <p className="jf-field__hint">
-          Restores the headers Justflows ships with: X-Frame-Options, X-Content-Type-Options,
-          Referrer-Policy and HSTS on, everything else off, and no custom headers. This saves
-          immediately.
+          {t("security.advanced.reset.hint")}
         </p>
         <div className="jf-row">
           {confirmingReset ? (
@@ -313,26 +319,24 @@ export default function SecurityAdvancedPage() {
                 }}
                 disabled={state.saving}
               >
-                Yes, reset everything
+                {t("security.advanced.reset.confirm")}
               </button>
               <button className="jf-btn jf-btn--ghost" onClick={() => setConfirmingReset(false)}>
-                Cancel
+                {t("common.cancel")}
               </button>
             </>
           ) : (
             <button className="jf-btn jf-btn--danger" onClick={() => setConfirmingReset(true)}>
-              Reset to defaults
+              {t("security.advanced.reset.button")}
             </button>
           )}
         </div>
       </Section>
 
-      <Section title="If a policy locks you out">
+      <Section title={t("security.advanced.lockout.title")}>
         <p className="jf-field__hint">
-          A Content Security Policy strict enough to break the admin would normally leave you with no
-          way in to fix it. Set <code>JF_SECURITY_HEADERS_DISABLED=1</code> in the environment and
-          restart: the site falls back to the built-in defaults, this screen keeps working, and your
-          saved configuration is left untouched so you can correct it and remove the variable again.
+          {t("security.advanced.lockout.bodyPrefix")} <code>JF_SECURITY_HEADERS_DISABLED=1</code>{" "}
+          {t("security.advanced.lockout.bodySuffix")}
         </p>
       </Section>
 

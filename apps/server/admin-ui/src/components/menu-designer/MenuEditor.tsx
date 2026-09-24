@@ -167,7 +167,7 @@ export default function MenuEditor({
         body: JSON.stringify({ name: menuName, items, design, draft: false }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Save failed");
+      if (!res.ok) throw new Error(data.error ?? t("ui.menuEditor.saveFailed"));
       const nextItems = cloneItems(data.menu.items ?? []);
       const nextDesign: MenuDesign = { ...DEFAULT_MENU_DESIGN, ...(data.menu.design ?? {}) };
       setItems(nextItems);

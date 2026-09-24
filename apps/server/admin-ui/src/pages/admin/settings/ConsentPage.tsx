@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useSessionRole } from "@components/SessionProvider";
+import { useT } from "../../../i18n/I18nProvider";
 
 /* Mirrors plugins/consent/src/config.ts */
 type OptionalCategory = "preferences" | "analytics" | "marketing";
@@ -93,56 +94,159 @@ const POSITIONS_BY_LAYOUT: Record<Layout, Position[]> = {
   modal: ["center"],
 };
 
-const EMPTY_TEXT: LocalizedText = {
-  bannerTitle: "We value your privacy",
-  bannerBody:
-    "We use cookies to run this site and, with your consent, to measure traffic and personalise content.",
-  privacyPolicyLabel: "Privacy policy",
-  acceptAllLabel: "Accept all",
-  rejectAllLabel: "Reject non-essential",
-  saveLabel: "Save preferences",
-  preferencesLabel: "Manage preferences",
-  necessaryName: "Strictly necessary",
-  necessaryDescription: "Required for the site to work. Always on.",
-  embedNote: "This content is hosted off-site and is blocked until you accept marketing cookies.",
-  embedUnlockLabel: "Load content",
-  categories: {
-    preferences: {
-      name: "Preferences",
-      description: "Remembers choices such as language or region.",
-    },
-    analytics: { name: "Analytics", description: "Helps us understand how visitors use the site." },
-    marketing: {
-      name: "Marketing",
-      description: "Used for relevant content and campaign measurement.",
-    },
-  },
-};
-
-const TEXT_FIELDS: Array<[keyof LocalizedText, string, boolean]> = [
-  ["bannerTitle", "Banner title", false],
-  ["bannerBody", "Banner body", true],
-  ["privacyPolicyLabel", "Privacy-policy link label", false],
-  ["acceptAllLabel", "Accept-all button", false],
-  ["rejectAllLabel", "Reject button", false],
-  ["saveLabel", "Save button", false],
-  ["preferencesLabel", "Preferences button", false],
-  ["necessaryName", "“Necessary” category name", false],
-  ["necessaryDescription", "“Necessary” category description", true],
-  ["embedNote", "Blocked-embed note", true],
-  ["embedUnlockLabel", "Embed unlock button", false],
+const TEXT_FIELD_KEYS: Array<[keyof LocalizedText, boolean]> = [
+  ["bannerTitle", false],
+  ["bannerBody", true],
+  ["privacyPolicyLabel", false],
+  ["acceptAllLabel", false],
+  ["rejectAllLabel", false],
+  ["saveLabel", false],
+  ["preferencesLabel", false],
+  ["necessaryName", false],
+  ["necessaryDescription", true],
+  ["embedNote", true],
+  ["embedUnlockLabel", false],
 ];
 
-const COLOR_FIELDS: Array<[keyof ConsentDesign["colors"], string]> = [
-  ["background", "Background"],
-  ["text", "Text"],
-  ["accent", "Accent (buttons, links)"],
-  ["accentText", "Accent text"],
-  ["border", "Border"],
+const COLOR_FIELD_KEYS: Array<keyof ConsentDesign["colors"]> = [
+  "background",
+  "text",
+  "accent",
+  "accentText",
+  "border",
 ];
 
 export default function ConsentPage() {
+  const { t } = useT();
   const canManage = useSessionRole() === "administrator";
+
+  const emptyText: LocalizedText = useMemo(
+    () => ({
+      bannerTitle: t("consent.defaultText.bannerTitle"),
+      bannerBody: t("consent.defaultText.bannerBody"),
+      privacyPolicyLabel: t("consent.defaultText.privacyPolicyLabel"),
+      acceptAllLabel: t("consent.defaultText.acceptAllLabel"),
+      rejectAllLabel: t("consent.defaultText.rejectAllLabel"),
+      saveLabel: t("consent.defaultText.saveLabel"),
+      preferencesLabel: t("consent.defaultText.preferencesLabel"),
+      necessaryName: t("consent.defaultText.necessaryName"),
+      necessaryDescription: t("consent.defaultText.necessaryDescription"),
+      embedNote: t("consent.defaultText.embedNote"),
+      embedUnlockLabel: t("consent.defaultText.embedUnlockLabel"),
+      categories: {
+        preferences: {
+          name: t("consent.defaultText.categories.preferences.name"),
+          description: t("consent.defaultText.categories.preferences.description"),
+        },
+        analytics: {
+          name: t("consent.defaultText.categories.analytics.name"),
+          description: t("consent.defaultText.categories.analytics.description"),
+        },
+        marketing: {
+          name: t("consent.defaultText.categories.marketing.name"),
+          description: t("consent.defaultText.categories.marketing.description"),
+        },
+      },
+    }),
+    [t],
+  );
+
+  function textFieldLabel(field: keyof LocalizedText): string {
+    switch (field) {
+      case "bannerTitle":
+        return t("consent.textFieldLabel.bannerTitle");
+      case "bannerBody":
+        return t("consent.textFieldLabel.bannerBody");
+      case "privacyPolicyLabel":
+        return t("consent.textFieldLabel.privacyPolicyLabel");
+      case "acceptAllLabel":
+        return t("consent.textFieldLabel.acceptAllLabel");
+      case "rejectAllLabel":
+        return t("consent.textFieldLabel.rejectAllLabel");
+      case "saveLabel":
+        return t("consent.textFieldLabel.saveLabel");
+      case "preferencesLabel":
+        return t("consent.textFieldLabel.preferencesLabel");
+      case "necessaryName":
+        return t("consent.textFieldLabel.necessaryName");
+      case "necessaryDescription":
+        return t("consent.textFieldLabel.necessaryDescription");
+      case "embedNote":
+        return t("consent.textFieldLabel.embedNote");
+      case "embedUnlockLabel":
+        return t("consent.textFieldLabel.embedUnlockLabel");
+      default:
+        return field;
+    }
+  }
+
+  function colorFieldLabel(key: keyof ConsentDesign["colors"]): string {
+    switch (key) {
+      case "background":
+        return t("consent.colorField.background");
+      case "text":
+        return t("consent.colorField.text");
+      case "accent":
+        return t("consent.colorField.accent");
+      case "accentText":
+        return t("consent.colorField.accentText");
+      case "border":
+        return t("consent.colorField.border");
+      case "backdrop":
+        return t("consent.modalBackdropLabel");
+      default:
+        return key;
+    }
+  }
+
+  function categoryLabel(category: OptionalCategory | "necessary"): string {
+    switch (category) {
+      case "necessary":
+        return t("consent.category.necessary");
+      case "preferences":
+        return t("consent.category.preferences");
+      case "analytics":
+        return t("consent.category.analytics");
+      case "marketing":
+        return t("consent.category.marketing");
+      default:
+        return category;
+    }
+  }
+
+  function layoutShortLabel(l: Layout): string {
+    switch (l) {
+      case "bar":
+        return t("consent.layoutShort.bar");
+      case "box":
+        return t("consent.layoutShort.box");
+      case "modal":
+        return t("consent.layoutShort.modal");
+      default:
+        return l;
+    }
+  }
+
+  function positionLabel(p: Position): string {
+    switch (p) {
+      case "top":
+        return t("consent.position.top");
+      case "bottom":
+        return t("consent.position.bottom");
+      case "top-left":
+        return t("consent.position.topLeft");
+      case "top-right":
+        return t("consent.position.topRight");
+      case "bottom-left":
+        return t("consent.position.bottomLeft");
+      case "bottom-right":
+        return t("consent.position.bottomRight");
+      case "center":
+        return t("consent.position.center");
+      default:
+        return p;
+    }
+  }
 
   const [config, setConfig] = useState<ConsentConfig | null>(null);
   const [languages, setLanguages] = useState<SiteLanguage[]>([]);
@@ -180,10 +284,10 @@ export default function ConsentPage() {
         const list: SiteLanguage[] =
           Array.isArray(langs?.languages) && langs.languages.length
             ? langs.languages
-            : [{ code: cfg.defaultLocale || "en", nativeName: "Default", isDefault: true }];
+            : [{ code: cfg.defaultLocale || "en", nativeName: t("ui.consentPage.default"), isDefault: true }];
         // Make sure every site language has an editable translation block.
         const translations = { ...cfg.translations };
-        const seed = translations[cfg.defaultLocale] ?? EMPTY_TEXT;
+        const seed = translations[cfg.defaultLocale] ?? emptyText;
         for (const lang of list) {
           if (!translations[lang.code]) {
             translations[lang.code] = JSON.parse(JSON.stringify(seed)) as LocalizedText;
@@ -211,7 +315,7 @@ export default function ConsentPage() {
   function setText(field: keyof LocalizedText, value: string) {
     setConfig((c) => {
       if (!c) return c;
-      const current = c.translations[activeLocale] ?? EMPTY_TEXT;
+      const current = c.translations[activeLocale] ?? emptyText;
       return {
         ...c,
         translations: { ...c.translations, [activeLocale]: { ...current, [field]: value } },
@@ -223,7 +327,7 @@ export default function ConsentPage() {
   function setCategoryCopy(cat: OptionalCategory, part: "name" | "description", value: string) {
     setConfig((c) => {
       if (!c) return c;
-      const current = c.translations[activeLocale] ?? EMPTY_TEXT;
+      const current = c.translations[activeLocale] ?? emptyText;
       return {
         ...c,
         translations: {
@@ -272,7 +376,7 @@ export default function ConsentPage() {
     })
       .then(async (r) => {
         const body = (await r.json()) as ConsentConfig & { error?: string };
-        if (!r.ok) throw new Error(body.error ?? "Save failed");
+        if (!r.ok) throw new Error(body.error ?? t("ui.consentPage.saveFailed"));
         // Keep the languages the operator is editing even if the server has not
         // stored an entry for them yet.
         const translations = { ...body.translations };
@@ -289,10 +393,10 @@ export default function ConsentPage() {
   }
 
   function erase(cid: string) {
-    if (!window.confirm(`Erase the consent record for ${cid}? This cannot be undone.`)) return;
+    if (!window.confirm(t("consent.eraseConfirm", { cid }))) return;
     fetch(`${BASE}/records/${encodeURIComponent(cid)}`, { method: "DELETE" })
       .then((r) => {
-        if (!r.ok && r.status !== 204) throw new Error("Erase failed");
+        if (!r.ok && r.status !== 204) throw new Error(t("ui.consentPage.eraseFailed"));
         setRecords((rows) => rows.filter((row) => row.cid !== cid));
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
@@ -322,7 +426,7 @@ export default function ConsentPage() {
           overrides?: Record<string, string>;
           error?: string;
         };
-        if (!r.ok) throw new Error(body.error ?? "Save failed");
+        if (!r.ok) throw new Error(body.error ?? t("ui.consentPage.saveFailed"));
         setCookies(body.cookies ?? []);
         setOverrides(body.overrides ?? {});
       })
@@ -336,13 +440,13 @@ export default function ConsentPage() {
     return totals;
   }, [records]);
 
-  const text = config?.translations[activeLocale] ?? EMPTY_TEXT;
+  const text = config?.translations[activeLocale] ?? emptyText;
 
   if (!canManage) {
     return (
       <div className="jf-page">
         <div className="jf-alert jf-alert--error" role="alert">
-          Cookie Consent settings are available to administrators only.
+          {t("consent.onlyAdmins")}
         </div>
       </div>
     );
@@ -352,14 +456,11 @@ export default function ConsentPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Cookie Consent</h1>
-          <p>
-            First-party consent banner, preference center, and script/embed gating. Non-essential
-            scripts and embeds stay blocked until their category is accepted.
-          </p>
+          <h1>{t("consent.pageTitle")}</h1>
+          <p>{t("consent.pageDescription")}</p>
         </div>
         <a className="jf-btn jf-btn--ghost" href={`${BASE}/records.csv`}>
-          Export records (CSV)
+          {t("consent.exportRecordsCsv")}
         </a>
       </header>
 
@@ -368,18 +469,18 @@ export default function ConsentPage() {
           {error}
         </div>
       )}
-      {saved && <div className="jf-alert">Settings saved.</div>}
+      {saved && <div className="jf-alert">{t("consent.settingsSaved")}</div>}
 
       {loading || !config ? (
         <div className="jf-card">
-          <div className="jf-card__body">Loading…</div>
+          <div className="jf-card__body">{t("common.loading")}</div>
         </div>
       ) : (
         <div className="jf-stack">
           {/* ── Behaviour ─────────────────────────────────────────────── */}
           <div className="jf-card">
             <div className="jf-card__head">
-              <h2 className="jf-card__title">Behaviour</h2>
+              <h2 className="jf-card__title">{t("consent.behaviourTitle")}</h2>
             </div>
             <div className="jf-card__body jf-stack">
               <label className="jf-checkrow">
@@ -388,12 +489,12 @@ export default function ConsentPage() {
                   checked={config.enabled}
                   onChange={(e) => set("enabled", e.target.checked)}
                 />
-                <span>Show the consent banner on the public site</span>
+                <span>{t("consent.showBannerLabel")}</span>
               </label>
 
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jfc-mode">
-                  Display mode
+                  {t("consent.displayModeLabel")}
                 </label>
                 <select
                   id="jfc-mode"
@@ -403,14 +504,11 @@ export default function ConsentPage() {
                     set("displayMode", e.target.value as ConsentConfig["displayMode"])
                   }
                 >
-                  <option value="always">Always show</option>
-                  <option value="eu">EU / EEA visitors only (best-effort, timezone based)</option>
-                  <option value="off">Off</option>
+                  <option value="always">{t("consent.displayModeAlways")}</option>
+                  <option value="eu">{t("consent.displayModeEu")}</option>
+                  <option value="off">{t("consent.displayModeOff")}</option>
                 </select>
-                <p className="jf-field__hint">
-                  Geo detection is best-effort and runs in the visitor&rsquo;s browser — no IP
-                  lookup, no third party.
-                </p>
+                <p className="jf-field__hint">{t("consent.geoHint")}</p>
               </div>
 
               <label className="jf-checkrow">
@@ -420,10 +518,9 @@ export default function ConsentPage() {
                   onChange={(e) => set("logConsent", e.target.checked)}
                 />
                 <span>
-                  Store an audit record for each consent decision
+                  {t("consent.logConsentLabel")}
                   <span className="jf-field__hint" style={{ display: "block", marginTop: 2 }}>
-                    Off: the banner still enforces choices, but no rows are written to the database
-                    and no beacon is sent. Turn off if you don&rsquo;t need the audit log.
+                    {t("consent.logConsentHint")}
                   </span>
                 </span>
               </label>
@@ -431,7 +528,7 @@ export default function ConsentPage() {
               <div className="jf-grid jf-grid--2">
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jfc-pv">
-                    Policy version
+                    {t("consent.policyVersionLabel")}
                   </label>
                   <input
                     id="jfc-pv"
@@ -439,14 +536,11 @@ export default function ConsentPage() {
                     value={config.policyVersion}
                     onChange={(e) => set("policyVersion", e.target.value)}
                   />
-                  <p className="jf-field__hint">
-                    Bump when the policy changes — prior consent is invalidated and the banner
-                    re-appears. Editing translations does not.
-                  </p>
+                  <p className="jf-field__hint">{t("consent.policyVersionHint")}</p>
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jfc-purl">
-                    Privacy policy URL
+                    {t("consent.privacyPolicyUrlLabel")}
                   </label>
                   <input
                     id="jfc-purl"
@@ -459,7 +553,7 @@ export default function ConsentPage() {
 
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jfc-reopen">
-                  Re-open selector
+                  {t("consent.reopenSelectorLabel")}
                 </label>
                 <input
                   id="jfc-reopen"
@@ -467,9 +561,7 @@ export default function ConsentPage() {
                   value={config.reopenSelector}
                   onChange={(e) => set("reopenSelector", e.target.value)}
                 />
-                <p className="jf-field__hint">
-                  Clicks on elements matching this CSS selector re-open the preference center.
-                </p>
+                <p className="jf-field__hint">{t("consent.reopenSelectorHint")}</p>
               </div>
             </div>
           </div>
@@ -477,12 +569,11 @@ export default function ConsentPage() {
           {/* ── Categories offered ────────────────────────────────────── */}
           <div className="jf-card">
             <div className="jf-card__head">
-              <h2 className="jf-card__title">Categories</h2>
+              <h2 className="jf-card__title">{t("consent.categoriesTitle")}</h2>
             </div>
             <div className="jf-card__body jf-stack">
               <p className="jf-meta">
-                <strong>Strictly necessary</strong> is always on. Choose which optional categories
-                visitors can consent to.
+                <strong>{t("consent.category.necessary")}</strong> {t("consent.categoriesIntro")}
               </p>
               {OPTIONAL.map((category) => (
                 <label className="jf-checkrow" key={category}>
@@ -493,7 +584,7 @@ export default function ConsentPage() {
                       set("categories", { ...config.categories, [category]: e.target.checked })
                     }
                   />
-                  <span style={{ textTransform: "capitalize" }}>{category}</span>
+                  <span style={{ textTransform: "capitalize" }}>{categoryLabel(category)}</span>
                 </label>
               ))}
             </div>
@@ -502,7 +593,7 @@ export default function ConsentPage() {
           {/* ── Text (per language) ───────────────────────────────────── */}
           <div className="jf-card">
             <div className="jf-card__head">
-              <h2 className="jf-card__title">Text</h2>
+              <h2 className="jf-card__title">{t("consent.textSectionTitle")}</h2>
             </div>
             <div className="jf-card__body jf-stack">
               {languages.length > 1 && (
@@ -527,10 +618,10 @@ export default function ConsentPage() {
                 </div>
               )}
 
-              {TEXT_FIELDS.map(([field, label, multiline]) => (
+              {TEXT_FIELD_KEYS.map(([field, multiline]) => (
                 <div className="jf-field" key={field}>
                   <label className="jf-field__label" htmlFor={`jfc-t-${field}`}>
-                    {label}
+                    {textFieldLabel(field)}
                   </label>
                   {multiline ? (
                     <textarea
@@ -555,7 +646,7 @@ export default function ConsentPage() {
                 <div className="jf-grid jf-grid--2" key={category}>
                   <div className="jf-field">
                     <label className="jf-field__label" htmlFor={`jfc-cn-${category}`}>
-                      <span style={{ textTransform: "capitalize" }}>{category}</span> name
+                      {t("consent.categoryNameFieldLabel", { category: categoryLabel(category) })}
                     </label>
                     <input
                       id={`jfc-cn-${category}`}
@@ -566,7 +657,9 @@ export default function ConsentPage() {
                   </div>
                   <div className="jf-field">
                     <label className="jf-field__label" htmlFor={`jfc-cd-${category}`}>
-                      <span style={{ textTransform: "capitalize" }}>{category}</span> description
+                      {t("consent.categoryDescriptionFieldLabel", {
+                        category: categoryLabel(category),
+                      })}
                     </label>
                     <input
                       id={`jfc-cd-${category}`}
@@ -583,13 +676,13 @@ export default function ConsentPage() {
           {/* ── Design ────────────────────────────────────────────────── */}
           <div className="jf-card">
             <div className="jf-card__head">
-              <h2 className="jf-card__title">Design &amp; placement</h2>
+              <h2 className="jf-card__title">{t("consent.designTitle")}</h2>
             </div>
             <div className="jf-card__body jf-stack">
               <div className="jf-grid jf-grid--2">
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jfc-layout">
-                    Layout
+                    {t("consent.layoutLabel")}
                   </label>
                   <select
                     id="jfc-layout"
@@ -600,17 +693,17 @@ export default function ConsentPage() {
                     {LAYOUTS.map((l) => (
                       <option key={l} value={l}>
                         {l === "bar"
-                          ? "Bar (full-width strip)"
+                          ? t("consent.layoutBar")
                           : l === "box"
-                            ? "Box (floating card)"
-                            : "Modal (centered, blocks the page)"}
+                            ? t("consent.layoutBox")
+                            : t("consent.layoutModal")}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jfc-pos">
-                    Position
+                    {t("consent.positionLabel")}
                   </label>
                   <select
                     id="jfc-pos"
@@ -621,7 +714,7 @@ export default function ConsentPage() {
                   >
                     {POSITIONS_BY_LAYOUT[config.design.layout].map((p) => (
                       <option key={p} value={p}>
-                        {p}
+                        {positionLabel(p)}
                       </option>
                     ))}
                   </select>
@@ -631,7 +724,7 @@ export default function ConsentPage() {
               <div className="jf-grid jf-grid--2">
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jfc-panelr">
-                    Panel corner radius
+                    {t("consent.panelRadiusLabel")}
                   </label>
                   <input
                     id="jfc-panelr"
@@ -642,7 +735,7 @@ export default function ConsentPage() {
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jfc-btnr">
-                    Button corner radius
+                    {t("consent.buttonRadiusLabel")}
                   </label>
                   <input
                     id="jfc-btnr"
@@ -653,7 +746,7 @@ export default function ConsentPage() {
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jfc-width">
-                    Panel width (box / modal)
+                    {t("consent.panelWidthLabel")}
                   </label>
                   <input
                     id="jfc-width"
@@ -664,7 +757,7 @@ export default function ConsentPage() {
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jfc-backdrop">
-                    Modal backdrop
+                    {t("consent.modalBackdropLabel")}
                   </label>
                   <input
                     id="jfc-backdrop"
@@ -681,15 +774,15 @@ export default function ConsentPage() {
                   checked={config.design.useThemeColors}
                   onChange={(e) => setDesign("useThemeColors", e.target.checked)}
                 />
-                <span>Use the active theme&rsquo;s colours (recommended)</span>
+                <span>{t("consent.useThemeColorsLabel")}</span>
               </label>
 
               {!config.design.useThemeColors && (
                 <div className="jf-grid jf-grid--2">
-                  {COLOR_FIELDS.map(([key, label]) => (
+                  {COLOR_FIELD_KEYS.map((key) => (
                     <div className="jf-field" key={key}>
                       <label className="jf-field__label" htmlFor={`jfc-c-${key}`}>
-                        {label}
+                        {colorFieldLabel(key)}
                       </label>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <input
@@ -718,6 +811,10 @@ export default function ConsentPage() {
                 design={config.design}
                 text={text}
                 privacyUrl={config.privacyPolicyUrl}
+                previewCaption={t("consent.previewCaption", {
+                  layout: layoutShortLabel(config.design.layout),
+                  position: positionLabel(config.design.position),
+                })}
               />
             </div>
           </div>
@@ -725,7 +822,7 @@ export default function ConsentPage() {
           {/* ── Script & embed gating ─────────────────────────────────── */}
           <div className="jf-card">
             <div className="jf-card__head">
-              <h2 className="jf-card__title">Script &amp; embed gating</h2>
+              <h2 className="jf-card__title">{t("consent.scriptEmbedGatingTitle")}</h2>
             </div>
             <div className="jf-card__body jf-stack">
               <label className="jf-checkrow">
@@ -734,38 +831,33 @@ export default function ConsentPage() {
                   checked={config.gateEmbeds}
                   onChange={(e) => set("gateEmbeds", e.target.checked)}
                 />
-                <span>
-                  Replace off-site embeds in page content with an unlockable placeholder until
-                  Marketing is accepted
-                </span>
+                <span>{t("consent.gateEmbedsLabel")}</span>
               </label>
 
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jfc-as">
-                  Analytics head snippet
+                  {t("consent.analyticsSnippetLabel")}
                 </label>
                 <textarea
                   id="jfc-as"
                   className="jf-input"
                   rows={3}
-                  placeholder="<script>…</script> — runs only after the visitor accepts Analytics"
+                  placeholder={t("consent.analyticsSnippetPlaceholder")}
                   value={config.analyticsSnippet}
                   onChange={(e) => set("analyticsSnippet", e.target.value)}
                 />
-                <p className="jf-field__hint">
-                  The Google Tag configured in the Analytics plugin is gated automatically.
-                </p>
+                <p className="jf-field__hint">{t("consent.analyticsSnippetHint")}</p>
               </div>
 
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jfc-ms">
-                  Marketing head snippet
+                  {t("consent.marketingSnippetLabel")}
                 </label>
                 <textarea
                   id="jfc-ms"
                   className="jf-input"
                   rows={3}
-                  placeholder="<script>…</script> — runs only after the visitor accepts Marketing"
+                  placeholder={t("consent.marketingSnippetPlaceholder")}
                   value={config.marketingSnippet}
                   onChange={(e) => set("marketingSnippet", e.target.value)}
                 />
@@ -780,39 +872,34 @@ export default function ConsentPage() {
               onClick={save}
               disabled={saving}
             >
-              {saving ? "Saving…" : "Save settings"}
+              {saving ? t("common.saving") : t("consent.saveSettingsButton")}
             </button>
           </div>
 
           {/* ── Cookie declarations ──────────────────────────────────── */}
           <div className="jf-card">
             <div className="jf-card__head">
-              <h2 className="jf-card__title">Cookie declarations</h2>
+              <h2 className="jf-card__title">{t("consent.cookieDeclarationsTitle")}</h2>
             </div>
             <div className="jf-card__body jf-stack">
               <p className="jf-meta">
-                Every cookie the platform and each active plugin has registered via the{" "}
-                <code>ctx.cookies</code> hook. The consent banner discloses these per category and,
-                when a visitor withdraws a category, the runtime expires its cookies. Re-classify a
-                cookie below to override the category its developer chose. <code>necessary</code>{" "}
-                cookies are always allowed and cannot be blocked.
+                {t("consent.cookieDeclarationsIntro1")} <code>ctx.cookies</code>{" "}
+                {t("consent.cookieDeclarationsIntro2")} <code>necessary</code>{" "}
+                {t("consent.cookieDeclarationsIntro3")}
               </p>
               {cookies.length === 0 ? (
-                <p className="jf-meta">
-                  No cookies registered yet. Core cookies appear once the site is running; plugin
-                  cookies appear when the plugin is active.
-                </p>
+                <p className="jf-meta">{t("consent.noCookiesRegistered")}</p>
               ) : (
                 <div style={{ overflowX: "auto" }}>
                   <table className="jf-table">
                     <thead>
                       <tr>
-                        <th>Name</th>
-                        <th>Set by</th>
-                        <th>Purpose</th>
-                        <th>Duration</th>
-                        <th>Declared</th>
-                        <th>Category (override)</th>
+                        <th>{t("consent.tableHeader.name")}</th>
+                        <th>{t("consent.tableHeader.setBy")}</th>
+                        <th>{t("consent.tableHeader.purpose")}</th>
+                        <th>{t("consent.tableHeader.duration")}</th>
+                        <th>{t("consent.tableHeader.declared")}</th>
+                        <th>{t("consent.tableHeader.categoryOverride")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -822,7 +909,9 @@ export default function ConsentPage() {
                           <td>{cookie.provider || cookie.declaredBy}</td>
                           <td>{cookie.purpose}</td>
                           <td>{cookie.duration || "—"}</td>
-                          <td style={{ textTransform: "capitalize" }}>{cookie.category}</td>
+                          <td style={{ textTransform: "capitalize" }}>
+                            {categoryLabel(cookie.category as OptionalCategory | "necessary")}
+                          </td>
                           <td>
                             <select
                               className="jf-input"
@@ -831,8 +920,8 @@ export default function ConsentPage() {
                             >
                               {ALL_CATEGORIES.map((c) => (
                                 <option key={c} value={c}>
-                                  {c}
-                                  {c === cookie.category ? " (declared)" : ""}
+                                  {categoryLabel(c)}
+                                  {c === cookie.category ? ` (${t("consent.declaredSuffix")})` : ""}
                                 </option>
                               ))}
                             </select>
@@ -850,7 +939,7 @@ export default function ConsentPage() {
                   onClick={saveOverrides}
                   disabled={savingOverrides || cookies.length === 0}
                 >
-                  {savingOverrides ? "Saving…" : "Save category overrides"}
+                  {savingOverrides ? t("common.saving") : t("consent.saveCategoryOverridesButton")}
                 </button>
               </div>
             </div>
@@ -859,36 +948,37 @@ export default function ConsentPage() {
           {/* ── Records ───────────────────────────────────────────────── */}
           <div className="jf-card">
             <div className="jf-card__head">
-              <h2 className="jf-card__title">Consent records</h2>
+              <h2 className="jf-card__title">{t("consent.consentRecordsTitle")}</h2>
             </div>
             <div className="jf-card__body jf-stack">
               {!config.logConsent && (
-                <div className="jf-alert">
-                  Audit logging is off — no new records are written. Existing rows below are kept
-                  until erased.
-                </div>
+                <div className="jf-alert">{t("consent.auditLoggingOff")}</div>
               )}
               <p className="jf-meta">
-                {summary.total} record{summary.total === 1 ? "" : "s"} — analytics accepted by{" "}
-                {summary.analytics}, marketing by {summary.marketing}, preferences by{" "}
-                {summary.preferences}. Each row is bound to the policy version and hash in effect
-                when it was recorded.
+                {t("consent.recordsSummary", {
+                  total: summary.total,
+                  recordWord:
+                    summary.total === 1
+                      ? t("consent.recordSingular")
+                      : t("consent.recordPlural"),
+                  analytics: summary.analytics,
+                  marketing: summary.marketing,
+                  preferences: summary.preferences,
+                })}
               </p>
               {records.length === 0 ? (
-                <p className="jf-meta">
-                  Nothing recorded yet. Visit the public site in a fresh session and make a choice.
-                </p>
+                <p className="jf-meta">{t("consent.noRecordsYet")}</p>
               ) : (
                 <div style={{ overflowX: "auto" }}>
                   <table className="jf-table">
                     <thead>
                       <tr>
-                        <th>Recorded</th>
-                        <th>Client ID</th>
-                        <th>Policy</th>
-                        <th>Choices</th>
-                        <th>Locale</th>
-                        <th>Device</th>
+                        <th>{t("consent.recordsTableHeader.recorded")}</th>
+                        <th>{t("consent.recordsTableHeader.clientId")}</th>
+                        <th>{t("consent.recordsTableHeader.policy")}</th>
+                        <th>{t("consent.recordsTableHeader.choices")}</th>
+                        <th>{t("consent.recordsTableHeader.locale")}</th>
+                        <th>{t("consent.recordsTableHeader.device")}</th>
                         <th />
                       </tr>
                     </thead>
@@ -901,8 +991,9 @@ export default function ConsentPage() {
                             v{row.policyVersion} · {row.policyHash.slice(0, 8)}
                           </td>
                           <td>
-                            {["necessary", ...OPTIONAL]
+                            {(["necessary", ...OPTIONAL] as Array<OptionalCategory | "necessary">)
                               .filter((category) => row.choices?.[category])
+                              .map((category) => categoryLabel(category))
                               .join(", ")}
                           </td>
                           <td>{row.locale || "—"}</td>
@@ -913,7 +1004,7 @@ export default function ConsentPage() {
                               className="jf-btn jf-btn--ghost"
                               onClick={() => erase(row.cid)}
                             >
-                              Erase
+                              {t("consent.eraseButton")}
                             </button>
                           </td>
                         </tr>
@@ -934,10 +1025,12 @@ function BannerPreview({
   design,
   text,
   privacyUrl,
+  previewCaption,
 }: {
   design: ConsentDesign;
   text: LocalizedText;
   privacyUrl: string;
+  previewCaption: string;
 }) {
   const c = design.colors;
   const themed = design.useThemeColors;
@@ -977,9 +1070,7 @@ function BannerPreview({
       : "center";
   return (
     <div className="jf-field">
-      <span className="jf-field__label">
-        Preview — {design.layout} · {design.position}
-      </span>
+      <span className="jf-field__label">{previewCaption}</span>
       <div
         style={{
           background:

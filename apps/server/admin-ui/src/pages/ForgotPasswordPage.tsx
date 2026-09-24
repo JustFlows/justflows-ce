@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "../admin-router";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import { ensureCsrfCookie } from "../lib/csrf";
+import { useT } from "../i18n/I18nProvider";
 
 /**
  * "Forgot password" entry point for both the admin and the public user login.
@@ -13,6 +14,7 @@ import { ensureCsrfCookie } from "../lib/csrf";
  * the documented CLI fallback.
  */
 export default function ForgotPasswordPage() {
+  const { t } = useT();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -33,14 +35,14 @@ export default function ForgotPasswordPage() {
 
       if (res.status === 429) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(data.error ?? "Too many requests. Try again later.");
+        setError(data.error ?? t("auth.forgotPassword.tooManyRequests"));
         return;
       }
 
       // Any other outcome is deliberately indistinguishable.
       setSent(true);
     } catch {
-      setError("An unexpected error occurred");
+      setError(t("auth.unexpectedError"));
     } finally {
       setLoading(false);
     }
@@ -54,33 +56,29 @@ export default function ForgotPasswordPage() {
             <JustflowsLogo />
             Justflows
           </div>
-          <h1 className="jf-auth__sub">Reset your password</h1>
+          <h1 className="jf-auth__sub">{t("auth.forgotPassword.heading")}</h1>
         </div>
 
         {sent ? (
           <div className="jf-auth__body">
             <div className="jf-alert jf-alert--success" role="status">
-              If an account exists for that address, a reset link is on its way. The link works
-              once and expires soon.
+              {t("auth.forgotPassword.successMessage")}
             </div>
             <p className="jf-field__hint" style={{ margin: 0 }}>
-              No email after a few minutes? Check your spam folder. If your site has no outgoing
-              mail configured, ask an administrator to reset your password — they can also do it
-              from the command line.
+              {t("auth.forgotPassword.noEmailHint")}
             </p>
             <Link className="jf-btn jf-btn--primary jf-btn--block" to="/login">
-              Back to sign in
+              {t("auth.forgotPassword.backToSignIn")}
             </Link>
           </div>
         ) : (
           <form onSubmit={submit} className="jf-auth__body">
             <p className="jf-field__hint" style={{ margin: 0 }}>
-              Enter the email address for your account and we&apos;ll send a link to choose a new
-              password.
+              {t("auth.forgotPassword.instructions")}
             </p>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-forgot-email">
-                Email address
+                {t("auth.emailLabel")}
               </label>
               <input
                 id="jf-forgot-email"
@@ -105,10 +103,10 @@ export default function ForgotPasswordPage() {
               type="submit"
               disabled={loading}
             >
-              {loading ? "Sending…" : "Send reset link →"}
+              {loading ? t("auth.forgotPassword.sending") : t("auth.forgotPassword.sendCta")}
             </button>
             <p className="jf-auth__footer">
-              Remembered it? <Link to="/login">Sign in</Link>
+              {t("auth.forgotPassword.rememberedIt")} <Link to="/login">{t("auth.signInLink")}</Link>
             </p>
           </form>
         )}

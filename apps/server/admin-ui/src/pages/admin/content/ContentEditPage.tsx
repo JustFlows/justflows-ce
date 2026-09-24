@@ -182,8 +182,8 @@ export default function EditContentPage() {
     fetch(`/api/content/${id}`)
       .then(async (r) => {
         const data = (await r.json()) as ContentItem & { error?: string };
-        if (!r.ok) throw new Error(data.error ?? "Failed to load content");
-        if (!data.id) throw new Error("Content not found");
+        if (!r.ok) throw new Error(data.error ?? t("content.loadFailed"));
+        if (!data.id) throw new Error(t("content.notFoundError"));
         setItem(data);
         setBaseline(JSON.stringify(data));
         if (shouldSeedProductLayout(data) && isEmptyBlockDocument(data.blocks)) {
@@ -207,7 +207,7 @@ export default function EditContentPage() {
           });
         return Promise.all([loadTranslations(groupId), loadRevisions()]);
       })
-      .catch((err: Error) => setError(err.message ?? "Failed to load content"))
+      .catch((err: Error) => setError(err.message ?? t("content.loadFailed")))
       .finally(() => setLoading(false));
   }, [id, loadTranslations, loadRevisions]);
 
@@ -263,7 +263,7 @@ export default function EditContentPage() {
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error ?? "Failed to unpublish");
+          setError(data.error ?? t("content.unpublishFailed"));
           return;
         }
         setItem(data);
@@ -327,7 +327,7 @@ export default function EditContentPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to save");
+        setError(data.error ?? t("content.saveFailedError"));
         return;
       }
       setItem(data);
@@ -373,7 +373,7 @@ export default function EditContentPage() {
         });
         const savedItem = (await saveRes.json()) as ContentItem & { error?: string };
         if (!saveRes.ok) {
-          setError(savedItem.error ?? "Failed to save");
+          setError(savedItem.error ?? t("content.saveFailedError"));
           return;
         }
         setItem(savedItem);
@@ -389,7 +389,7 @@ export default function EditContentPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to publish");
+        setError(data.error ?? t("content.publishFailed"));
         return;
       }
       setItem(data);
@@ -413,7 +413,7 @@ export default function EditContentPage() {
       const res = await fetch(`/api/content/${id}/discard-draft`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to discard");
+        setError(data.error ?? t("content.discardFailed"));
         return;
       }
       setItem(data);
@@ -446,7 +446,7 @@ export default function EditContentPage() {
       const res = await fetch(`/api/content/${id}/revisions/${rev.id}/restore`, { method: "POST" });
       const data = (await res.json()) as ContentItem & { error?: string };
       if (!res.ok) {
-        setError(data.error ?? "Failed to restore");
+        setError(data.error ?? t("content.restoreFailed"));
         return;
       }
       setItem(data);
@@ -478,7 +478,7 @@ export default function EditContentPage() {
         return;
       }
       if (!res.ok) {
-        setError(data.error ?? "Failed to create translation");
+        setError(data.error ?? t("content.translationCreateFailed"));
         return;
       }
       navigate(`/admin/content/${data.id}`);
@@ -496,7 +496,7 @@ export default function EditContentPage() {
   }
 
   async function deleteItem() {
-    if (!confirm("Move this content to trash? You can restore it during the retention period."))
+    if (!confirm(t("content.deleteConfirm")))
       return;
     await fetch(`/api/content/${id}`, { method: "DELETE" });
     navigate(item?.type === "product" ? "/admin/plugins/justflows.shop/products" : "/admin/content");
@@ -528,7 +528,7 @@ export default function EditContentPage() {
         body: JSON.stringify({ contentId: enabled ? item.id : null }),
       });
       const data = (await res.json()) as { error?: string; homePageId?: string | null };
-      if (!res.ok) throw new Error(data.error ?? "Could not update the home page");
+      if (!res.ok) throw new Error(data.error ?? t("content.homePageUpdateFailed"));
       setHomePageId(data.homePageId ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -548,7 +548,7 @@ export default function EditContentPage() {
         body: JSON.stringify({ contentId: enabled ? item.id : null }),
       });
       const data = (await res.json()) as { error?: string; blogPageId?: string | null };
-      if (!res.ok) throw new Error(data.error ?? "Could not update the blog page");
+      if (!res.ok) throw new Error(data.error ?? t("content.blogPageUpdateFailed"));
       setBlogPageId(data.blogPageId ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -564,7 +564,7 @@ export default function EditContentPage() {
       <>
         <Topbar onBack={() => navigate("/admin/content")} backLabel={t("common.back")} />
         <div className="jf-page">
-          <div className="jf-alert jf-alert--error">{error ?? "Not found"}</div>
+          <div className="jf-alert jf-alert--error">{error ?? t("content.notFoundFallback")}</div>
         </div>
       </>
     );
@@ -650,7 +650,7 @@ export default function EditContentPage() {
                         onClick={() => navigateToTranslation(translation.id)}
                       >
                         {lang.nativeName}
-                        {translation.status !== "published" ? " · draft" : ""}
+                        {translation.status !== "published" ? t("ui.contentEditPage.draft") : ""}
                       </button>
                     );
                   }
@@ -693,14 +693,14 @@ export default function EditContentPage() {
             </div>
 
             <div className="jf-editpane">
-              <nav className="jf-editnav" aria-label="Settings sections">
+              <nav className="jf-editnav" aria-label={t("content.settingsSectionsAriaLabel")}>
                 {(
                   [
-                    ["content", "Content"],
-                    ["seo", "SEO"],
-                    ["discussion", "Discussion"],
+                    ["content", t("content.contentHeading")],
+                    ["seo", t("content.seoHeading")],
+                    ["discussion", t("content.discussionHeading")],
                     ["revisions", t("content.revisions")],
-                    ["advanced", "Advanced"],
+                    ["advanced", t("content.advancedHeading")],
                   ] as [EditSection, string][]
                 ).map(([id, navLabel]) => (
                   <button
@@ -749,8 +749,7 @@ export default function EditContentPage() {
                             rows={3}
                           />
                           <span className="jf-field__hint">
-                            Shown in listings. Used as the meta description if SEO description is
-                            empty.
+                            {t("content.excerptHint")}
                           </span>
                         </div>
                       </div>
@@ -769,7 +768,7 @@ export default function EditContentPage() {
                     {typeFields.length > 0 && (
                       <div className="jf-card">
                         <div className="jf-card__head">
-                          <h2 className="jf-card__title">Fields</h2>
+                          <h2 className="jf-card__title">{t("content.fieldsHeading")}</h2>
                         </div>
                         <div
                           className="jf-card__body"
@@ -790,7 +789,7 @@ export default function EditContentPage() {
                     {isPage && (
                       <div className="jf-card">
                         <div className="jf-card__head">
-                          <h2 className="jf-card__title">Header</h2>
+                          <h2 className="jf-card__title">{t("content.headerHeading")}</h2>
                         </div>
                         <div className="jf-card__body">
                           <HeaderRefField
@@ -806,19 +805,18 @@ export default function EditContentPage() {
 
                     <div className="jf-card">
                       <div className="jf-card__head">
-                        <h2 className="jf-card__title">Content</h2>
+                        <h2 className="jf-card__title">{t("content.contentHeading")}</h2>
                         <button
                           type="button"
                           className="jf-btn jf-btn--primary"
                           onClick={() => navigate(`/admin/content/${id}/builder`)}
                         >
-                          Open page builder
+                          {t("content.openPageBuilder")}
                         </button>
                       </div>
                       <div className="jf-card__body">
                         <p className="jf-field__hint" style={{ margin: 0 }}>
-                          This content's layout and blocks are edited in the page builder. This
-                          screen is for settings — title, slug, publishing, SEO.
+                          {t("content.pageBuilderHint")}
                         </p>
                       </div>
                     </div>
@@ -828,7 +826,7 @@ export default function EditContentPage() {
                 {section === "seo" && (
                   <div className="jf-card">
                     <div className="jf-card__head">
-                      <h2 className="jf-card__title">SEO</h2>
+                      <h2 className="jf-card__title">{t("content.seoHeading")}</h2>
                     </div>
                     <div
                       className="jf-card__body"
@@ -836,7 +834,7 @@ export default function EditContentPage() {
                     >
                       <div className="jf-field">
                         <label className="jf-field__label" htmlFor="jf-seo-title">
-                          SEO title
+                          {t("content.seoTitleLabel")}
                         </label>
                         <input
                           id="jf-seo-title"
@@ -848,12 +846,12 @@ export default function EditContentPage() {
                           placeholder={item.title}
                         />
                         <span className="jf-field__hint">
-                          Overrides the page title in search results and social shares.
+                          {t("content.seoTitleHint")}
                         </span>
                       </div>
                       <div className="jf-field">
                         <label className="jf-field__label" htmlFor="jf-seo-description">
-                          Meta description
+                          {t("content.metaDescriptionLabel")}
                         </label>
                         <textarea
                           id="jf-seo-description"
@@ -865,16 +863,15 @@ export default function EditContentPage() {
                               : ""
                           }
                           onChange={(e) => patchField("seoDescription", e.target.value)}
-                          placeholder={item.excerpt || "A short summary for search engines"}
+                          placeholder={item.excerpt || t("content.metaDescriptionPlaceholder")}
                         />
                         <span className="jf-field__hint">
-                          If empty, the excerpt or title is used. Shown in Google and Open Graph
-                          previews.
+                          {t("content.metaDescriptionHint")}
                         </span>
                       </div>
                       <div className="jf-field">
                         <label className="jf-field__label" htmlFor="jf-seo-canonical">
-                          Canonical URL
+                          {t("content.canonicalUrlLabel")}
                         </label>
                         <input
                           id="jf-seo-canonical"
@@ -888,13 +885,13 @@ export default function EditContentPage() {
                           placeholder={publicHref}
                         />
                         <span className="jf-field__hint">
-                          Leave empty to use this page’s permalink.
+                          {t("content.canonicalUrlHint")}
                         </span>
                       </div>
                       <MediaImageField
                         id="jf-seo-image"
-                        label="Social image"
-                        description="Used for Open Graph and Twitter cards. Falls back to no image if empty."
+                        label={t("content.socialImageLabel")}
+                        description={t("content.socialImageDescription")}
                         value={
                           typeof item.fields?.seoImage === "string" ? item.fields.seoImage : ""
                         }
@@ -917,11 +914,10 @@ export default function EditContentPage() {
                               }
                               onChange={(e) => patchField("seoFeedExclude", e.target.checked)}
                             />
-                            Exclude from RSS / Atom / JSON feeds
+                            {t("content.excludeFeedsLabel")}
                           </label>
                           <span className="jf-field__hint">
-                            The page stays public and in the sitemap; it is left out of every
-                            syndication feed.
+                            {t("content.excludeFeedsHint")}
                           </span>
                         </div>
                       )}
@@ -932,12 +928,12 @@ export default function EditContentPage() {
                 {section === "discussion" && (
                   <div className="jf-card">
                     <div className="jf-card__head">
-                      <h2 className="jf-card__title">Discussion</h2>
+                      <h2 className="jf-card__title">{t("content.discussionHeading")}</h2>
                     </div>
                     <div className="jf-card__body">
                       <div className="jf-field">
                         <label className="jf-field__label" htmlFor="jf-comments-mode">
-                          Comments
+                          {t("content.commentsLabel")}
                         </label>
                         <select
                           id="jf-comments-mode"
@@ -954,12 +950,12 @@ export default function EditContentPage() {
                             )
                           }
                         >
-                          <option value="inherit">Use site default</option>
-                          <option value="open">Open — always accept comments</option>
-                          <option value="closed">Closed — hide the form</option>
+                          <option value="inherit">{t("content.commentsUseSiteDefault")}</option>
+                          <option value="open">{t("content.commentsOpen")}</option>
+                          <option value="closed">{t("content.commentsClosed")}</option>
                         </select>
                         <span className="jf-field__hint">
-                          Comments show only where a Comments block is placed in the content.
+                          {t("content.commentsHint")}
                         </span>
                       </div>
                     </div>
@@ -1041,20 +1037,20 @@ export default function EditContentPage() {
                   <>
                     <div className="jf-card">
                       <div className="jf-card__head">
-                        <h2 className="jf-card__title">Details</h2>
+                        <h2 className="jf-card__title">{t("content.detailsHeading")}</h2>
                       </div>
                       <div className="jf-card__body">
                         <dl style={{ margin: 0 }}>
                           <div className="jf-meta__row">
-                            <dt>Type</dt>
+                            <dt>{t("content.typeLabel")}</dt>
                             <dd>{item.type}</dd>
                           </div>
                           <div className="jf-meta__row">
-                            <dt>Permalink</dt>
+                            <dt>{t("content.permalinkLabel")}</dt>
                             <dd>{publicHref}</dd>
                           </div>
                           <div className="jf-meta__row">
-                            <dt>ID</dt>
+                            <dt>{t("content.idLabel")}</dt>
                             <dd>{item.id}</dd>
                           </div>
                         </dl>
@@ -1073,7 +1069,7 @@ export default function EditContentPage() {
                           className="jf-field__hint"
                           style={{ margin: "0.6rem 0 0", textAlign: "center" }}
                         >
-                          This cannot be undone.
+                          {t("content.deleteCannotBeUndone")}
                         </p>
                       </div>
                     </div>
@@ -1086,7 +1082,7 @@ export default function EditContentPage() {
           <aside className="jf-rail">
             <div className="jf-card">
               <div className="jf-card__head">
-                <h2 className="jf-card__title">Publish</h2>
+                <h2 className="jf-card__title">{t("content.publishHeading")}</h2>
                 <StatusBadge status={item.status} hasWorkingRevision={item.hasWorkingRevision} />
               </div>
               <div
@@ -1099,8 +1095,7 @@ export default function EditContentPage() {
                     {currentLang ? `${currentLang.nativeName} (${currentLang.code})` : itemLocale}
                   </p>
                   <span className="jf-field__hint">
-                    Language is set when content is created. Use the translation tabs above to add
-                    other languages.
+                    {t("content.languageHint")}
                   </span>
                 </div>
 
@@ -1148,7 +1143,7 @@ export default function EditContentPage() {
                     disabled={saving}
                     onClick={() => save("draft")}
                   >
-                    Unpublish
+                    {t("content.unpublish")}
                   </button>
                 )}
 
@@ -1177,7 +1172,7 @@ export default function EditContentPage() {
                     <span className="jf-field__label">{t("content.compareDraft")}</span>
                     {compare.length === 0 ? (
                       <p className="jf-field__hint" style={{ margin: 0 }}>
-                        No differences.
+                        {t("content.noDifferences")}
                       </p>
                     ) : (
                       <ul style={{ margin: 0, paddingInlineStart: "1.1rem" }}>
@@ -1213,7 +1208,7 @@ export default function EditContentPage() {
                     {isHomePage ? (
                       <>
                         <p className="jf-field__hint" style={{ margin: 0 }}>
-                          This page is the site home page (/).
+                          {t("content.homePageNotice")}
                         </p>
                         <button
                           type="button"
@@ -1221,7 +1216,7 @@ export default function EditContentPage() {
                           disabled={homeSaving}
                           onClick={() => setAsHomePage(false)}
                         >
-                          {homeSaving ? "Updating…" : "Stop using as home page"}
+                          {homeSaving ? t("content.updating") : t("content.stopUsingAsHomePage")}
                         </button>
                       </>
                     ) : (
@@ -1231,7 +1226,7 @@ export default function EditContentPage() {
                         disabled={homeSaving}
                         onClick={() => setAsHomePage(true)}
                       >
-                        {homeSaving ? "Updating…" : "Set as home page"}
+                        {homeSaving ? t("content.updating") : t("content.setAsHomePage")}
                       </button>
                     )}
                   </div>
@@ -1242,7 +1237,7 @@ export default function EditContentPage() {
                     {isBlogPage ? (
                       <>
                         <p className="jf-field__hint" style={{ margin: 0 }}>
-                          This page is the site blog page.
+                          {t("content.blogPageNotice")}
                         </p>
                         <button
                           type="button"
@@ -1250,7 +1245,7 @@ export default function EditContentPage() {
                           disabled={blogSaving}
                           onClick={() => setAsBlogPage(false)}
                         >
-                          {blogSaving ? "Updating…" : "Stop using as blog page"}
+                          {blogSaving ? t("content.updating") : t("content.stopUsingAsBlogPage")}
                         </button>
                       </>
                     ) : (
@@ -1260,7 +1255,7 @@ export default function EditContentPage() {
                         disabled={blogSaving}
                         onClick={() => setAsBlogPage(true)}
                       >
-                        {blogSaving ? "Updating…" : "Set as blog page"}
+                        {blogSaving ? t("content.updating") : t("content.setAsBlogPage")}
                       </button>
                     )}
                   </div>
@@ -1319,9 +1314,9 @@ function SaveState({
   if (saving) return <span className="jf-status jf-status--dirty">{t("common.saving")}…</span>;
   if (autosaving)
     return <span className="jf-status jf-status--dirty">{t("content.autosaving")}</span>;
-  if (error) return <span className="jf-status jf-status--error">Save failed</span>;
+  if (error) return <span className="jf-status jf-status--error">{t("content.saveFailedStatus")}</span>;
   if (saved) return <span className="jf-status jf-status--saved">✓ {t("content.draftSaved")}</span>;
-  if (dirty) return <span className="jf-status jf-status--dirty">Unsaved changes</span>;
+  if (dirty) return <span className="jf-status jf-status--dirty">{t("content.unsavedChanges")}</span>;
   return null;
 }
 
@@ -1332,8 +1327,9 @@ function StatusBadge({
   status: string;
   hasWorkingRevision?: boolean;
 }) {
+  const { t } = useT();
   if (status === "published" && hasWorkingRevision) {
-    return <span className="jf-badge jf-badge--info">Published — draft</span>;
+    return <span className="jf-badge jf-badge--info">{t("content.publishedDraftBadge")}</span>;
   }
   const variant = status === "published" || status === "archived" ? ` jf-badge--${status}` : "";
   return <span className={`jf-badge${variant}`}>{status}</span>;
@@ -1354,6 +1350,7 @@ function TypeFieldInput({
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
+  const { t } = useT();
   const id = `jf-cf-${field.key}`;
   const current = fieldValue(value);
 
@@ -1396,7 +1393,7 @@ function TypeFieldInput({
           value={current}
           onChange={(e) => onChange(e.target.value)}
         >
-          <option value="">Select…</option>
+          <option value="">{t("ui.contentEditPage.select")}</option>
           {(field.options ?? []).map((option) => (
             <option key={option} value={option}>
               {option}
