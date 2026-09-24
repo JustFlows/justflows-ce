@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { interpolate } from "./translate";
 import { EMBEDDED_EN } from "./embedded-en";
 import { getAdminSsrPayload, initialJson } from "../ssr-data";
 
@@ -25,15 +26,6 @@ interface I18nContextValue {
 const STORAGE_KEY = "jf_admin_locale";
 
 const I18nContext = createContext<I18nContextValue | null>(null);
-
-function interpolate(msg: string, vars?: Record<string, string | number>): string {
-  if (!vars) return msg;
-  let out = msg;
-  for (const [k, v] of Object.entries(vars)) {
-    out = out.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
-  }
-  return out;
-}
 
 function detectInitialLocale(): AdminUiLocale {
   const ssrLocale = getAdminSsrPayload()?.locale;
@@ -107,7 +99,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>) => {
-      const msg = messages[key] ?? fallback[key] ?? key;
+      const msg = messages[key] ?? fallback[key] ?? EMBEDDED_EN[key] ?? key;
       return interpolate(msg, vars);
     },
     [messages, fallback],

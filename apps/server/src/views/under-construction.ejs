@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<%= locale %>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <meta name="generator" content="Justflows <%= justflowsVersion %>">
-  <title><%= siteTitle %> — Coming soon</title>
+  <title><%= siteTitle %> — <%= t('construction.title') %></title>
   <%- typeof faviconHead !== 'undefined' ? faviconHead : '' %>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -186,12 +186,12 @@
     </div>
 
     <div class="uc-card">
-      <span class="uc-badge">Under construction</span>
-      <h1>We&rsquo;re building something great</h1>
+      <span class="uc-badge"><%= t('construction.badge') %></span>
+      <h1><%= t('construction.heading') %></h1>
       <% if (tagline) { %>
         <p class="uc-tagline"><%= tagline %></p>
       <% } else { %>
-        <p class="uc-tagline">This site isn&rsquo;t live yet. Check back soon.</p>
+        <p class="uc-tagline"><%= t('construction.body') %></p>
       <% } %>
       <div class="uc-progress" aria-hidden="true">
         <span class="uc-dot"></span>
@@ -201,7 +201,7 @@
     </div>
 
     <p class="uc-footer">
-      Powered by <a href="https://github.com/justflows/justflows">Justflows</a>
+      <%= t('footer.powered_by') %> <a href="https://github.com/justflows/justflows">Justflows</a>
     </p>
   </div>
 </body>

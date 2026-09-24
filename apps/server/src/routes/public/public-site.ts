@@ -29,7 +29,7 @@ import {
 } from "../../lib/i18n/locales.js";
 import { formatContentDate, getGeneralSettings } from "../../lib/settings/general-settings.js";
 import { hydrateSiteWidgets } from "../../lib/rendering/site-widgets.js";
-import { applyContentBlocks, applyContentRender } from "../../lib/content/content-render.js";
+import { applyContentBlocks, applyContentRender, applyFootnotes } from "../../lib/content/content-render.js";
 import { withResponsiveImages } from "../../lib/rendering/responsive-blocks.js";
 import { createTranslator, type MessageCatalog } from "../../lib/i18n/translate.js";
 import {
@@ -530,12 +530,19 @@ function withSiteWidgets(
   });
 }
 
-async function renderUnderConstruction(): Promise<string> {
+async function renderUnderConstruction(req: Request): Promise<string> {
+  const activeLocales = await getActiveLocaleCodes();
+  const defaultLocale = await getDefaultLocale();
+  const { locale: prefixLocale } = parseLocalePrefix(req.path, activeLocales);
+  const locale = await resolveContentLocale(prefixLocale ?? defaultLocale);
+  const t = createTranslator(await loadCatalog(locale), await loadCatalog("en"));
   const siteId = (await getSiteId()) ?? "";
-  const identity = await loadIdentity(false);
+  const identity = await loadIdentity(false, locale);
   const hookContext = { siteId, siteTitle: identity.siteTitle, tagline: identity.tagline };
 
   let html = await ejs.renderFile(path.join(templateDir, "under-construction.ejs"), {
+    locale,
+    t,
     siteTitle: identity.siteTitle,
     tagline: identity.tagline,
     faviconHead: buildFaviconHeadHtml(identity.faviconUrl),
@@ -600,7 +607,7 @@ async function ensureSiteIsPublic(req: Request, res: Response): Promise<boolean>
   if (await isSitePublic()) return true;
   if (await canViewUnpublishedSite(req, res)) return true;
 
-  const html = await renderUnderConstruction();
+  const html = await renderUnderConstruction(req);
   res.setHeader("Cache-Control", "private, no-store");
   res.status(503).type("html").send(html);
   return false;
@@ -987,6 +994,12 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   if (faviconHead) {
     headExtra = headExtra ? `${faviconHead}\n${headExtra}` : faviconHead;
   }
+  // Self-hosted KaTeX CSS for inline math formulas (see renderMath in
+  // @justflows/blocks) — a stylesheet, so cheap to include unconditionally
+  // rather than threading a "does this page have a formula" flag through.
+  headExtra = headExtra
+    ? `${headExtra}\n<link rel="stylesheet" href="/vendor/katex/katex.min.css">`
+    : '<link rel="stylesheet" href="/vendor/katex/katex.min.css">';
   // Auto-enqueued client assets declared by active plugins (`manifest.assets`).
   const { renderPluginAssetHeadHtml } = await import("../../lib/plugins/plugin-assets.js");
   const pluginAssetHead = await renderPluginAssetHeadHtml();
@@ -1005,7 +1018,10 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       const pwaHead = buildPwaHeadHtml(pwaSettings);
       if (pwaHead) headExtra = headExtra ? `${headExtra}\n${pwaHead}` : pwaHead;
     }
-    pwaBody = buildPwaBodyHtml(pwaSettings);
+    const pwaTranslate = typeof data.t === "function"
+      ? data.t as (key: string) => string
+      : createTranslator(await loadCatalog(String(data.locale ?? "en")));
+    pwaBody = buildPwaBodyHtml(pwaSettings, pwaTranslate);
   }
   if (hooks.has("html.head")) {
     headExtra = hooks.applyFilterSync(
@@ -1485,13 +1501,15 @@ async function renderHomeHtml(
   let bodyHtml: string | undefined;
   if (home) {
     bodyHtml = withSiteWidgets(
-      await applyContentRender(
-        await renderBlocksHtml(
-          await applyContentBlocks(home.blocks.blocks, home),
-          submittedFormIdFrom(req),
-          blogCtx,
+      applyFootnotes(
+        await applyContentRender(
+          await renderBlocksHtml(
+            await applyContentBlocks(home.blocks.blocks, home),
+            submittedFormIdFrom(req),
+            blogCtx,
+          ),
+          home,
         ),
-        home,
       ),
       withHeader,
     );
@@ -1758,14 +1776,16 @@ async function renderSinglePageHtml(
     reqPath,
   );
   const bodyHtml = withSiteWidgets(
-    await applyContentRender(
-      await renderBlocksHtml(
-        await applyContentBlocks(pageContent.blocks.blocks, pageContent),
-        submittedFormIdFrom(req),
-        blogCtx,
-        commentCtx,
+    applyFootnotes(
+      await applyContentRender(
+        await renderBlocksHtml(
+          await applyContentBlocks(pageContent.blocks.blocks, pageContent),
+          submittedFormIdFrom(req),
+          blogCtx,
+          commentCtx,
+        ),
+        pageContent,
       ),
-      pageContent,
     ),
     withHeader,
   );

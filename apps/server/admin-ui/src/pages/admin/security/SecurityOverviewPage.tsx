@@ -12,23 +12,31 @@ import {
   Section,
 } from "./components";
 import type { FindingLevel } from "./types";
+import { useT } from "../../../i18n/I18nProvider";
+
+const PREVIEW_TAB_KEYS = {
+  publicSecure: "security.overview.tabs.publicSecure",
+  publicInsecure: "security.overview.tabs.publicInsecure",
+  admin: "security.overview.tabs.admin",
+} as const;
 
 const PREVIEW_TABS = [
-  { key: "publicSecure", label: "Public site (HTTPS)" },
-  { key: "publicInsecure", label: "Public site (HTTP)" },
-  { key: "admin", label: "Admin & API" },
+  { key: "publicSecure" },
+  { key: "publicInsecure" },
+  { key: "admin" },
 ] as const;
 
 /** Issues first, then the things already handled. */
 const LEVEL_ORDER: FindingLevel[] = ["critical", "warning", "info", "pass"];
 
 export default function SecurityOverviewPage() {
+  const { t } = useT();
   const state = useSecurityConfig();
   const [tab, setTab] = useState<(typeof PREVIEW_TABS)[number]["key"]>("publicSecure");
 
   if (state.loading) return <PageSkeleton />;
   if (!state.payload || !state.draft || !state.audit) {
-    return <LoadError error={state.error ?? "Unknown error"} />;
+    return <LoadError error={state.error ?? t("security.shared.unknownError")} />;
   }
 
   const { audit, effective, payload } = state;
@@ -45,8 +53,8 @@ export default function SecurityOverviewPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Security</h1>
-          <p>What your site tells visitors' browsers to enforce, and what is still missing.</p>
+          <h1>{t("security.overview.title")}</h1>
+          <p>{t("security.overview.subtitle")}</p>
         </div>
         <div className="jf-pagehead__actions">
           <GradeBadge audit={audit} live={state.dirty} />
@@ -69,44 +77,48 @@ export default function SecurityOverviewPage() {
         </span>
         <div>
           <div className="jf-banner__title">
-            Grade {audit.grade} — {audit.score} out of 100
+            {t("security.overview.banner.grade", { grade: audit.grade, score: audit.score })}
           </div>
           <div className="jf-banner__sub">
-            {audit.counts.critical} critical, {audit.counts.warning} warnings,{" "}
-            {audit.counts.info} suggestions, {audit.counts.pass} protections in place.
-            {state.dirty && " Based on your unsaved changes."}
+            {t("security.overview.banner.summary", {
+              critical: audit.counts.critical,
+              warning: audit.counts.warning,
+              info: audit.counts.info,
+              pass: audit.counts.pass,
+            })}
+            {state.dirty && ` ${t("security.overview.banner.unsavedNote")}`}
           </div>
         </div>
       </div>
 
       <Section
-        title="Recommended configuration"
+        title={t("security.overview.recommended.title")}
         action={
           <button
             className="jf-btn jf-btn--primary"
             onClick={() => state.replaceDraft(payload.recommended)}
             disabled={alreadyRecommended || state.saving}
           >
-            {alreadyRecommended ? "Already applied" : "Apply recommended"}
+            {alreadyRecommended
+              ? t("security.overview.recommended.alreadyApplied")
+              : t("security.overview.recommended.apply")}
           </button>
         }
       >
         <p className="jf-field__hint">
-          Turns on every header we consider a baseline for a public site, with the Content Security
-          Policy in report-only mode so nothing breaks while you check the reports. Review the result
-          below and save when you are happy with it — nothing changes until you do.
+          {t("security.overview.recommended.body")}
         </p>
         <div className="jf-row">
           <Link className="jf-btn jf-btn--ghost" to="/admin/security/headers">
-            Edit each header
+            {t("security.overview.recommended.editHeaders")}
           </Link>
           <Link className="jf-btn jf-btn--ghost" to="/admin/security/advanced">
-            Custom headers &amp; import
+            {t("security.overview.recommended.customHeaders")}
           </Link>
         </div>
       </Section>
 
-      <Section title={`Findings (${open.length} open)`}>
+      <Section title={t("security.overview.findings.title", { count: open.length })}>
         <div className="jf-list">
           {ordered.map((finding) => (
             <div key={finding.id} className="jf-list__row">
@@ -121,7 +133,9 @@ export default function SecurityOverviewPage() {
                   className="jf-btn jf-btn--quiet"
                   to={`/admin/security/headers#${finding.headerId}`}
                 >
-                  {finding.level === "pass" ? "Review" : "Fix"}
+                  {finding.level === "pass"
+                    ? t("security.overview.findings.review")
+                    : t("security.overview.findings.fix")}
                 </Link>
               )}
             </div>
@@ -129,23 +143,23 @@ export default function SecurityOverviewPage() {
         </div>
       </Section>
 
-      <Section title="Headers being sent">
+      <Section title={t("security.overview.headersSent.title")}>
         <div className="jf-tabs" role="tablist">
-          {PREVIEW_TABS.map((t) => (
+          {PREVIEW_TABS.map((tabDef) => (
             <button
-              key={t.key}
+              key={tabDef.key}
               role="tab"
               className="jf-tab"
-              aria-selected={tab === t.key}
-              onClick={() => setTab(t.key)}
+              aria-selected={tab === tabDef.key}
+              onClick={() => setTab(tabDef.key)}
             >
-              {t.label}
+              {t(PREVIEW_TAB_KEYS[tabDef.key])}
             </button>
           ))}
         </div>
         {effective && <HeaderPreview headers={effective[tab]} />}
         <p className="jf-field__hint">
-          Exactly what a browser receives, worked out from the configuration currently on screen.
+          {t("security.overview.headersSent.hint")}
         </p>
       </Section>
 

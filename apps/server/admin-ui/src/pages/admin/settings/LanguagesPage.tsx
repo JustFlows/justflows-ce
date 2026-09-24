@@ -61,7 +61,7 @@ export default function LanguagesPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Failed to add language");
+      setError(data.error ?? t("ui.languagesPage.failedToAddLanguage"));
       return;
     }
     setSelectedCode("");
@@ -88,7 +88,7 @@ export default function LanguagesPage() {
     const res = await fetch(`/api/languages/${lang.id}`, { method: "DELETE" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(typeof data.error === "string" ? data.error : "Failed to delete language");
+      setError(typeof data.error === "string" ? data.error : t("ui.languagesPage.failedToDeleteLanguage"));
       return;
     }
     await load();

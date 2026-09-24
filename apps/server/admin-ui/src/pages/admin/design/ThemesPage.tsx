@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "../../../admin-router";
 import { useSessionRole } from "@components/SessionProvider";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface Theme {
   id: string;
@@ -32,6 +33,7 @@ interface RegistryTheme {
 }
 
 export default function ThemesPage() {
+  const { t } = useT();
   // Uploading and activating a theme are administrator-only on the server;
   // an editor (who can also reach this page) can only view and customize.
   const canManage = useSessionRole() === "administrator";
@@ -64,7 +66,7 @@ export default function ThemesPage() {
     fetch("/api/marketplace?type=themes")
       .then(async (res) => {
         const data = await res.json() as { items?: RegistryTheme[]; error?: string };
-        if (!res.ok) throw new Error(data.error ?? "Theme catalog unavailable");
+        if (!res.ok) throw new Error(data.error ?? t("themes.catalogUnavailable"));
         return data;
       })
       .then((data) => {
@@ -87,10 +89,10 @@ export default function ThemesPage() {
       form.append("file", file);
       const res = await fetch("/api/themes", { method: "POST", body: form });
       const data = await res.json() as { theme?: Theme; error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      if (!res.ok) throw new Error(data.error ?? t("design.uploadFailed"));
       if (data.theme) {
-        setThemes((t) => [...t, { ...data.theme!, status: "installed", active: false }]);
-        setUploadSuccess(`"${data.theme.name}" installed successfully`);
+        setThemes((prev) => [...prev, { ...data.theme!, status: "installed", active: false }]);
+        setUploadSuccess(t("design.uploadSuccess", { name: data.theme.name }));
       }
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : String(e));
@@ -127,13 +129,13 @@ export default function ThemesPage() {
       if (res.status === 402) {
         window.open(data.checkoutUrl ?? "https://justflows.com/marketplace", "_blank");
       }
-      if (!res.ok) throw new Error(data.error ?? "Theme installation failed");
+      if (!res.ok) throw new Error(data.error ?? t("themes.installFailed"));
       if (data.theme) {
         setThemes((current) => [
           ...current.filter((installed) => (installed.theme_id ?? installed.themeId ?? installed.id) !== theme.id),
           { ...data.theme!, theme_id: data.theme!.theme_id ?? data.theme!.themeId, status: "installed", active: false },
         ]);
-        setUploadSuccess(`"${data.theme.name}" installed successfully`);
+        setUploadSuccess(t("design.uploadSuccess", { name: data.theme.name }));
       }
     } catch (err: unknown) {
       setCatalogError(err instanceof Error ? err.message : String(err));
@@ -144,12 +146,12 @@ export default function ThemesPage() {
 
   async function removeTheme(theme: Theme) {
     const themeId = theme.theme_id ?? theme.themeId ?? theme.id;
-    if (!confirm(`Delete "${theme.name}"? You can install it again from the marketplace.`)) return;
+    if (!confirm(t("themes.deleteConfirm", { name: theme.name }))) return;
     setDeleteError("");
     const res = await fetch(`/api/themes/${encodeURIComponent(themeId)}`, { method: "DELETE" });
     const data = await res.json().catch(() => ({})) as { error?: string };
     if (!res.ok) {
-      setDeleteError(data.error ?? "Theme could not be deleted");
+      setDeleteError(data.error ?? t("themes.deleteFailed"));
       return;
     }
     setThemes((current) => current.filter(
@@ -163,14 +165,14 @@ export default function ThemesPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Themes</h1>
-          <p>Manage the appearance of your site</p>
+          <h1>{t("nav.themes")}</h1>
+          <p>{t("themes.subtitle")}</p>
         </div>
         <div className="jf-pagehead__actions">
-          <Link to="/admin/themes/customize?tab=menus" className="jf-btn jf-btn--ghost">Configure menus</Link>
+          <Link to="/admin/themes/customize?tab=menus" className="jf-btn jf-btn--ghost">{t("themes.configureMenus")}</Link>
           {activeTheme && (
             <Link to="/admin/themes/customize" className="jf-btn jf-btn--primary">
-              Customize active theme
+              {t("themes.customizeActive")}
             </Link>
           )}
         </div>
@@ -179,7 +181,7 @@ export default function ThemesPage() {
       {canManage && (
       <div className="jf-card">
         <div className="jf-card__head">
-          <h2 className="jf-card__title">Upload theme</h2>
+          <h2 className="jf-card__title">{t("themes.uploadTitle")}</h2>
         </div>
         <div className="jf-card__body jf-stack">
           <input
@@ -195,9 +197,9 @@ export default function ThemesPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
             >
-              {uploading ? "Installing…" : "Choose .jfpkg file…"}
+              {uploading ? t("design.uploading") : t("themes.chooseFile")}
             </button>
-            <span className="jf-meta">Upload a .jfpkg theme package to install it</span>
+            <span className="jf-meta">{t("themes.uploadHint")}</span>
           </div>
           {uploadError && <div className="jf-alert jf-alert--error" role="alert">{uploadError}</div>}
           {uploadSuccess && <div className="jf-alert jf-alert--success">{uploadSuccess}</div>}
@@ -217,8 +219,8 @@ export default function ThemesPage() {
         <div className="jf-card">
           <div className="jf-empty">
             <span className="jf-empty__icon" aria-hidden="true">🎨</span>
-            <span className="jf-empty__title">No themes installed</span>
-            <p>Upload a .jfpkg file above to install your first theme.</p>
+            <span className="jf-empty__title">{t("themes.emptyTitle")}</span>
+            <p>{t("themes.emptyHint")}</p>
           </div>
         </div>
       ) : (
@@ -234,15 +236,15 @@ export default function ThemesPage() {
                     <strong>{theme.name}</strong>
                     {isActive && (
                       <span className="jf-badge jf-badge--info" style={{ marginInlineStart: "auto" }}>
-                        active
+                        {t("common.active")}
                       </span>
                     )}
                   </div>
                   {theme.description && <p className="jf-list__desc">{theme.description}</p>}
-                  <p className="jf-meta">v{theme.version} by {theme.publisher}</p>
+                  <p className="jf-meta">{t("themes.versionByPublisher", { version: theme.version, publisher: theme.publisher })}</p>
                   {isActive ? (
                     <Link to="/admin/themes/customize" className="jf-btn jf-btn--primary jf-btn--block">
-                      Customize
+                      {t("themes.customize")}
                     </Link>
                   ) : canManage ? (
                     <div className="jf-stack jf-stack--sm">
@@ -250,14 +252,14 @@ export default function ThemesPage() {
                         className="jf-btn jf-btn--ghost jf-btn--block"
                         onClick={() => activateTheme(themeId)}
                       >
-                        Activate
+                        {t("themes.activate")}
                       </button>
                       {themeId !== "justflows.default" && (
                         <button
                           className="jf-btn jf-btn--danger jf-btn--block"
                           onClick={() => void removeTheme(theme)}
                         >
-                          Delete
+                          {t("common.delete")}
                         </button>
                       )}
                     </div>
@@ -272,8 +274,8 @@ export default function ThemesPage() {
       {canManage && (
         <section className="jf-stack">
           <div>
-            <h2>Available themes</h2>
-            <p className="jf-meta">Themes published in the Justflows marketplace.</p>
+            <h2>{t("themes.availableTitle")}</h2>
+            <p className="jf-meta">{t("themes.availableHint")}</p>
           </div>
           {catalogError && <div className="jf-alert jf-alert--error" role="alert">{catalogError}</div>}
           {catalogLoading ? (
@@ -285,7 +287,7 @@ export default function ThemesPage() {
             <div className="jf-card">
               <div className="jf-empty">
                 <span className="jf-empty__icon" aria-hidden="true">🛍️</span>
-                <span className="jf-empty__title">No marketplace themes available</span>
+                <span className="jf-empty__title">{t("themes.noMarketplaceThemes")}</span>
               </div>
             </div>
           ) : (
@@ -304,24 +306,24 @@ export default function ThemesPage() {
                     <div className="jf-card__body jf-stack jf-stack--sm">
                       <div className="jf-row">
                         <strong>{theme.name}</strong>
-                        {isPaid && <span className="jf-badge" style={{ marginInlineStart: "auto" }}>paid</span>}
+                        {isPaid && <span className="jf-badge" style={{ marginInlineStart: "auto" }}>{t("themes.paidBadge")}</span>}
                       </div>
                       {theme.description && <p className="jf-list__desc">{theme.description}</p>}
-                      <p className="jf-meta">v{theme.version} by {theme.publisher ?? "Unknown publisher"}</p>
+                      <p className="jf-meta">{t("themes.versionByPublisher", { version: theme.version, publisher: theme.publisher ?? t("themes.unknownPublisher") })}</p>
                       <button
                         className="jf-btn jf-btn--primary jf-btn--block"
                         disabled={isInstalled || isComingSoon || installingTheme === theme.id}
                         onClick={() => void installTheme(theme)}
                       >
                         {isInstalled
-                          ? "Installed"
+                          ? t("themes.installed")
                           : isComingSoon
-                            ? "Coming soon"
+                            ? t("themes.comingSoon")
                             : installingTheme === theme.id
-                              ? "Installing…"
+                              ? t("design.uploading")
                               : isPaid
-                                ? "View purchase options"
-                                : "Install"}
+                                ? t("themes.viewPurchaseOptions")
+                                : t("themes.install")}
                       </button>
                     </div>
                   </div>

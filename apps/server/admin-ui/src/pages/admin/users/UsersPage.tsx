@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "../../../admin-router";
 import { useCapability } from "@components/SessionProvider";
+import { useT } from "../../../i18n/I18nProvider";
 import RolesPanel from "./RolesPanel";
 
 interface User {
@@ -18,6 +19,7 @@ export default function UsersPage() {
   // Inviting, editing and removing are all administrator-only on the server;
   // an editor can only read this list, so those controls simply aren't here
   // for them rather than failing when clicked.
+  const { t } = useT();
   const canManage = useCapability("users:manage");
   const [users, setUsers] = useState<User[]>([]);
   const [showInvite, setShowInvite] = useState(false);
@@ -32,7 +34,7 @@ export default function UsersPage() {
     fetch("/api/users")
       .then(async (res) => {
         const data = await res.json() as { users?: Array<Record<string, string>>; error?: string };
-        if (!res.ok) throw new Error(data.error ?? "Failed to load users");
+        if (!res.ok) throw new Error(data.error ?? t("users.failedToLoadUsers"));
         setUsers((data.users ?? []).map((user) => ({
           id: user.id,
           email: user.email,
@@ -58,11 +60,11 @@ export default function UsersPage() {
         body: JSON.stringify(invite),
       });
       const data = await res.json() as { user?: User; error?: string; warning?: string };
-      if (!res.ok || !data.user) throw new Error(data.error ?? "Failed to invite user");
+      if (!res.ok || !data.user) throw new Error(data.error ?? t("users.failedToInviteUser"));
       setUsers((current) => [...current, data.user!]);
       setInvite({ email: "", role: "subscriber" });
       setShowInvite(false);
-      setNotice(data.warning ?? "Invitation sent.");
+      setNotice(data.warning ?? t("users.invitationSent"));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -71,16 +73,16 @@ export default function UsersPage() {
   }
 
   async function removeUser(user: User) {
-    if (!window.confirm(`Remove ${user.displayName || user.email}? This cannot be undone.`)) return;
+    if (!window.confirm(t("users.deleteUserConfirm", { name: user.displayName || user.email }))) return;
     setRemovingId(user.id);
     setError("");
     setNotice("");
     try {
       const res = await fetch(`/api/users/${encodeURIComponent(user.id)}`, { method: "DELETE" });
       const data = await res.json() as { ok?: boolean; error?: string };
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to remove user");
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("users.failedToRemoveUser"));
       setUsers((current) => current.filter((u) => u.id !== user.id));
-      setNotice("User removed.");
+      setNotice(t("users.userRemoved"));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -92,13 +94,13 @@ export default function UsersPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Users</h1>
-          <p>Manage who has access to your site</p>
+          <h1>{t("users.title")}</h1>
+          <p>{t("users.subtitle")}</p>
         </div>
         {canManage && (
           <div className="jf-pagehead__actions">
             <button className="jf-btn jf-btn--primary" onClick={() => setShowInvite(true)}>
-              + Invite user
+              + {t("users.inviteUser")}
             </button>
           </div>
         )}
@@ -107,12 +109,12 @@ export default function UsersPage() {
       {canManage && showInvite && (
         <form className="jf-card" onSubmit={sendInvite}>
           <div className="jf-card__head">
-            <h2 className="jf-card__title">Invite a user</h2>
+            <h2 className="jf-card__title">{t("users.inviteAUser")}</h2>
           </div>
           <div className="jf-card__body jf-stack">
             <div className="jf-grid jf-grid--2">
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-invite-email">Email address</label>
+                <label className="jf-field__label" htmlFor="jf-invite-email">{t("users.emailAddress")}</label>
                 <input
                   id="jf-invite-email"
                   className="jf-input"
@@ -124,7 +126,7 @@ export default function UsersPage() {
                 />
               </div>
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-invite-role">Role</label>
+                <label className="jf-field__label" htmlFor="jf-invite-role">{t("users.role")}</label>
                 <select
                   id="jf-invite-role"
                   className="jf-input"
@@ -137,9 +139,9 @@ export default function UsersPage() {
             </div>
             <div className="jf-row">
               <button className="jf-btn jf-btn--primary" type="submit" disabled={saving}>
-                {saving ? "Sending…" : "Send invite"}
+                {saving ? t("users.sending") : t("users.sendInvite")}
               </button>
-              <button className="jf-btn jf-btn--ghost" type="button" onClick={() => setShowInvite(false)} disabled={saving}>Cancel</button>
+              <button className="jf-btn jf-btn--ghost" type="button" onClick={() => setShowInvite(false)} disabled={saving}>{t("common.cancel")}</button>
             </div>
           </div>
         </form>
@@ -155,17 +157,17 @@ export default function UsersPage() {
           <table className="jf-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Joined</th>
-                {canManage && <th><span className="jf-sr-only">Actions</span></th>}
+                <th>{t("users.name")}</th>
+                <th>{t("users.email")}</th>
+                <th>{t("users.username")}</th>
+                <th>{t("users.role")}</th>
+                <th>{t("users.joined")}</th>
+                {canManage && <th><span className="jf-sr-only">{t("common.actions")}</span></th>}
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={canManage ? 6 : 5}>Loading users…</td></tr>}
-              {!loading && users.length === 0 && <tr><td colSpan={canManage ? 6 : 5}>No users found.</td></tr>}
+              {loading && <tr><td colSpan={canManage ? 6 : 5}>{t("users.loadingUsers")}</td></tr>}
+              {!loading && users.length === 0 && <tr><td colSpan={canManage ? 6 : 5}>{t("users.noUsersFound")}</td></tr>}
               {users.map((u) => (
                 <tr key={u.id}>
                   <td className="jf-td--strong">{u.displayName}</td>
@@ -179,14 +181,14 @@ export default function UsersPage() {
                   <td className="jf-td--muted">{u.createdAt.slice(0, 10)}</td>
                   {canManage && (
                     <td className="jf-td--actions">
-                      <Link className="jf-btn jf-btn--quiet" to={`/admin/users/${u.id}`}>Edit</Link>
+                      <Link className="jf-btn jf-btn--quiet" to={`/admin/users/${u.id}`}>{t("users.editUser")}</Link>
                       {u.role !== "administrator" && (
                         <button
                           className="jf-btn jf-btn--ghost"
                           disabled={removingId === u.id}
                           onClick={() => removeUser(u)}
                         >
-                          {removingId === u.id ? "Removing…" : "Remove"}
+                          {removingId === u.id ? t("users.removing") : t("users.remove")}
                         </button>
                       )}
                     </td>

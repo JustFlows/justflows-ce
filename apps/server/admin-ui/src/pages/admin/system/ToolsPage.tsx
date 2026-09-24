@@ -1,6 +1,7 @@
 import { SearchToolsCard } from "../../../components/SearchToolsCard";
 import { useEffect, useRef, useState } from "react";
 import { waitForSiteRestart } from "../../../lib/wait-for-restart.js";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface ImportResult {
   ok: boolean;
@@ -146,6 +147,7 @@ function logVariant(line: string): string {
 }
 
 export default function ToolsPage() {
+  const { t } = useT();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -242,7 +244,7 @@ export default function ToolsPage() {
         // try next endpoint
       }
     }
-    setPerfError("Could not load performance settings");
+    setPerfError(t("tools.performance.loadFailed"));
   }
 
   async function loadSxStatus() {
@@ -279,7 +281,7 @@ export default function ToolsPage() {
         error?: string;
       } & Partial<StaticExportSettingsResponse>;
       if (!res.ok || !data.ok) {
-        setSxError(data.error ?? "Could not save settings");
+        setSxError(data.error ?? t("tools.staticExport.saveFailed"));
         return;
       }
       if (data.settings) setSxSettings(data.settings);
@@ -305,7 +307,7 @@ export default function ToolsPage() {
       const data = (await res.json()) as StaticExportRunResponse;
       setSxLog(data.log ?? []);
       if (!res.ok || !data.ok) {
-        setSxError(data.error ?? "Export finished with errors — see the log.");
+        setSxError(data.error ?? t("tools.staticExport.exportFinishedWithErrors"));
       }
       await loadSxStatus();
     } catch (e) {
@@ -316,8 +318,11 @@ export default function ToolsPage() {
   }
 
   async function clearStaticExport() {
-    const dir = sxRuntimeInfo?.outDir ?? "the export folder";
-    if (typeof window !== "undefined" && !window.confirm(`Delete ${dir} and everything in it?`)) {
+    const dir = sxRuntimeInfo?.outDir ?? t("tools.staticExport.theExportFolder");
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(t("tools.staticExport.clearConfirm", { dir }))
+    ) {
       return;
     }
     setSxError(null);
@@ -331,9 +336,13 @@ export default function ToolsPage() {
       });
       const data = (await res.json()) as { ok?: boolean; removed?: boolean; reason?: string };
       if (!res.ok || !data.ok) {
-        setSxError(data.reason ?? "Could not clear the export.");
+        setSxError(data.reason ?? t("tools.staticExport.clearFailed"));
       } else {
-        setSxLog([data.removed ? `✓ Deleted ${dir}` : "✓ Nothing to clear"]);
+        setSxLog([
+          data.removed
+            ? `✓ ${t("tools.staticExport.deleted", { dir })}`
+            : `✓ ${t("tools.staticExport.nothingToClear")}`,
+        ]);
       }
       await loadSxStatus();
     } catch (e) {
@@ -422,7 +431,7 @@ export default function ToolsPage() {
       };
 
       if (!res.ok) {
-        throw new Error(data.error ?? "Failed to save performance settings");
+        throw new Error(data.error ?? t("tools.performance.saveFailed"));
       }
 
       if (data.settings) {
@@ -432,17 +441,17 @@ export default function ToolsPage() {
         if (data.settings.revalidate) setRevalidate(data.settings.revalidate);
       }
       setPerfSaved(true);
-      addLog("✓ Performance settings written to .env");
+      addLog(`✓ ${t("tools.performance.settingsWritten")}`);
 
       if (data.restarting) {
         setPerfSaving(false);
         setRestarting(true);
-        const back = await waitForSiteRestart(addLog);
+        const back = await waitForSiteRestart(t, addLog);
         if (!back) setRestartFailed(true);
         setRestarting(false);
       } else if (data.restartRequired) {
         setRestartFailed(true);
-        addLog("⚠ Could not auto-restart — restart manually in Plesk → Node.js");
+        addLog(`⚠ ${t("tools.manualRestartNeededLog")}`);
       }
     } catch (e) {
       setPerfError(e instanceof Error ? e.message : String(e));
@@ -461,11 +470,17 @@ export default function ToolsPage() {
         const data = (await res.json()) as { ok?: boolean; error?: string; enabled?: boolean };
         if (!res.ok) continue;
         setRuntime((r) => (r ? { ...r, active: data.enabled ?? cache.enabled } : r));
-        addLog(`✓ Object cache cleared${data.enabled === false ? " (caching is disabled)" : ""}`);
+        addLog(
+          `✓ ${
+            data.enabled === false
+              ? t("tools.performance.cacheClearedDisabled")
+              : t("tools.performance.cacheCleared")
+          }`,
+        );
         await loadPerfStats();
         return;
       }
-      throw new Error("Failed to clear cache");
+      throw new Error(t("tools.performance.clearFailed"));
     } catch (e) {
       setPerfError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -479,51 +494,67 @@ export default function ToolsPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Tools</h1>
-          <p>Import, export, and site utilities</p>
+          <h1>{t("tools.title")}</h1>
+          <p>{t("tools.subtitle")}</p>
         </div>
       </header>
 
       <div className="jf-card">
         <div className="jf-card__head">
-          <h2 className="jf-card__title">Performance suite</h2>
+          <h2 className="jf-card__title">{t("tools.performance.title")}</h2>
         </div>
         <div className="jf-card__body jf-stack">
           <p className="jf-prose">
-            Object cache, GZIP compression, and browser cache headers for faster public pages.
-            Responses include <code className="jf-code">X-Jf-Cache</code>,{" "}
+            {t("tools.performance.description")}{" "}
+            <code className="jf-code">X-Jf-Cache</code>,{" "}
             <code className="jf-code">X-Jf-Page-Cache</code>,{" "}
-            <code className="jf-code">Content-Encoding</code>, and{" "}
-            <code className="jf-code">Cache-Control</code> when active.
+            <code className="jf-code">Content-Encoding</code>, {t("tools.performance.descriptionAnd")}{" "}
+            <code className="jf-code">Cache-Control</code> {t("tools.performance.descriptionSuffix")}
           </p>
 
           {!perfLoading && perfStats && (
             <div className="jf-stack" style={{ gap: "0.75rem" }}>
               <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
                 <span className={`jf-badge jf-badge--${perfStats.enabled ? "ok" : "warn"}`}>
-                  Object cache {perfStats.enabled ? "on" : "off"}
+                  {perfStats.enabled
+                    ? t("tools.performance.objectCacheOn")
+                    : t("tools.performance.objectCacheOff")}
                 </span>
                 <span className={`jf-badge jf-badge--${perfStats.gzip.enabled ? "ok" : "warn"}`}>
-                  GZIP {perfStats.gzip.enabled ? "on" : "off"}
+                  {perfStats.gzip.enabled
+                    ? t("tools.performance.gzipOn")
+                    : t("tools.performance.gzipOff")}
                 </span>
                 <span
                   className={`jf-badge jf-badge--${perfStats.browserCache.enabled ? "ok" : "warn"}`}
                 >
-                  Browser cache {perfStats.browserCache.enabled ? "on" : "off"}
+                  {perfStats.browserCache.enabled
+                    ? t("tools.performance.browserCacheOn")
+                    : t("tools.performance.browserCacheOff")}
                 </span>
                 {perfStats.revalidate && (
                   <span
                     className={`jf-badge jf-badge--${perfStats.revalidate.enabled ? "ok" : "warn"}`}
                   >
-                    Revalidate {perfStats.revalidate.enabled ? "on" : "off"}
+                    {perfStats.revalidate.enabled
+                      ? t("tools.performance.revalidateOn")
+                      : t("tools.performance.revalidateOff")}
                   </span>
                 )}
                 <span className="jf-badge jf-badge--info">
-                  {perfStats.stats.hits} hits / {perfStats.stats.misses} misses
-                  {perfStats.stats.hitRate !== null ? ` (${perfStats.stats.hitRate}%)` : ""}
+                  {t("tools.performance.hitsMisses", {
+                    hits: perfStats.stats.hits,
+                    misses: perfStats.stats.misses,
+                  })}
+                  {perfStats.stats.hitRate !== null
+                    ? t("tools.performance.hitRateSuffix", { rate: perfStats.stats.hitRate })
+                    : ""}
                 </span>
                 <span className="jf-badge jf-badge--info">
-                  {perfStats.storage.keyCount} keys · {formatBytes(perfStats.storage.totalBytes)}
+                  {t("tools.performance.keysStorage", {
+                    count: perfStats.storage.keyCount,
+                    size: formatBytes(perfStats.storage.totalBytes),
+                  })}
                 </span>
                 <button
                   type="button"
@@ -531,13 +562,17 @@ export default function ToolsPage() {
                   onClick={() => loadPerfStats()}
                   disabled={statsLoading}
                 >
-                  {statsLoading ? "Refreshing…" : "↻ Refresh stats"}
+                  {statsLoading
+                    ? t("tools.performance.refreshing")
+                    : `↻ ${t("tools.performance.refreshStats")}`}
                 </button>
               </div>
               {perfStats.storage.sampleKeys.length > 0 && (
                 <details>
                   <summary className="jf-field__hint" style={{ cursor: "pointer" }}>
-                    Sample cache files ({perfStats.storage.sampleKeys.length})
+                    {t("tools.performance.sampleCacheFiles", {
+                      count: perfStats.storage.sampleKeys.length,
+                    })}
                   </summary>
                   <ul
                     style={{
@@ -563,18 +598,18 @@ export default function ToolsPage() {
             <>
               <hr className="jf-divider" />
 
-              <h3 className="jf-card__subtitle">Object cache (jf-cache)</h3>
+              <h3 className="jf-card__subtitle">{t("tools.performance.objectCacheHeading")}</h3>
               <p className="jf-field__hint">
-                Read-through cache for content, menus, theme data, and full HTML pages.
+                {t("tools.performance.objectCacheHint")}
               </p>
 
               <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
                 <span className={`jf-badge jf-badge--${cache.enabled ? "ok" : "warn"}`}>
-                  {cache.enabled ? "Enabled" : "Disabled"}
+                  {cache.enabled ? t("tools.status.enabled") : t("tools.status.disabled")}
                 </span>
                 <span className="jf-badge jf-badge--info">{cache.driver}</span>
                 {runtime !== null && runtime.active !== cache.enabled && (
-                  <span className="jf-badge jf-badge--warn">Restart required to apply</span>
+                  <span className="jf-badge jf-badge--warn">{t("tools.performance.restartRequiredBadge")}</span>
                 )}
               </div>
 
@@ -585,13 +620,13 @@ export default function ToolsPage() {
                   onChange={(e) => setCache((s) => ({ ...s, enabled: e.target.checked }))}
                   disabled={perfBusy}
                 />
-                <span>Enable object cache</span>
+                <span>{t("tools.performance.enableObjectCache")}</span>
               </label>
 
               <div className="jf-grid jf-grid--2">
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-cache-driver">
-                    Driver
+                    {t("tools.performance.driverLabel")}
                   </label>
                   <select
                     id="jf-cache-driver"
@@ -605,13 +640,13 @@ export default function ToolsPage() {
                     }
                     disabled={perfBusy}
                   >
-                    <option value="filesystem">Filesystem (default, survives restarts)</option>
-                    <option value="memory">Memory (per process, fastest)</option>
+                    <option value="filesystem">{t("tools.performance.driverFilesystem")}</option>
+                    <option value="memory">{t("tools.performance.driverMemory")}</option>
                   </select>
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-cache-ttl">
-                    TTL (seconds)
+                    {t("tools.performance.ttlLabel")}
                   </label>
                   <input
                     id="jf-cache-ttl"
@@ -631,7 +666,7 @@ export default function ToolsPage() {
               {cache.driver === "filesystem" && (
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-cache-dir">
-                    Cache directory
+                    {t("tools.performance.cacheDirLabel")}
                   </label>
                   <input
                     id="jf-cache-dir"
@@ -646,11 +681,11 @@ export default function ToolsPage() {
 
               <hr className="jf-divider" />
 
-              <h3 className="jf-card__subtitle">Revalidate on update</h3>
+              <h3 className="jf-card__subtitle">{t("tools.performance.revalidateHeading")}</h3>
               <p className="jf-field__hint">
-                When content, menus, theme, or settings change, clear the selected cache layers
-                immediately. Turn off to rely on TTL only. Fires the{" "}
-                <code className="jf-code">cache.revalidated</code> hook for plugins.
+                {t("tools.performance.revalidateHint1")}{" "}
+                <code className="jf-code">cache.revalidated</code>{" "}
+                {t("tools.performance.revalidateHint2")}
               </p>
 
               <label className="jf-checkrow">
@@ -660,7 +695,7 @@ export default function ToolsPage() {
                   onChange={(e) => setRevalidate((s) => ({ ...s, enabled: e.target.checked }))}
                   disabled={perfBusy}
                 />
-                <span>Revalidate selected objects when data changes</span>
+                <span>{t("tools.performance.revalidateCheckbox")}</span>
               </label>
 
               <div
@@ -669,12 +704,12 @@ export default function ToolsPage() {
               >
                 {(
                   [
-                    ["pages", "Full HTML pages"],
-                    ["content", "Content entries (posts / pages)"],
-                    ["menus", "Menus"],
-                    ["theme", "Theme customizations"],
-                    ["cssProviders", "CSS providers"],
-                    ["site", "Site context"],
+                    ["pages", t("tools.performance.revalidateObjects.pages")],
+                    ["content", t("tools.performance.revalidateObjects.content")],
+                    ["menus", t("tools.performance.revalidateObjects.menus")],
+                    ["theme", t("tools.performance.revalidateObjects.theme")],
+                    ["cssProviders", t("tools.performance.revalidateObjects.cssProviders")],
+                    ["site", t("tools.performance.revalidateObjects.site")],
                   ] as const
                 ).map(([key, label]) => (
                   <label key={key} className="jf-checkrow">
@@ -696,9 +731,9 @@ export default function ToolsPage() {
 
               <hr className="jf-divider" />
 
-              <h3 className="jf-card__subtitle">GZIP compression</h3>
+              <h3 className="jf-card__subtitle">{t("tools.performance.gzipHeading")}</h3>
               <p className="jf-field__hint">
-                Compresses HTML, JSON, CSS, and JavaScript when the browser accepts gzip.
+                {t("tools.performance.gzipHint")}
               </p>
 
               <label className="jf-checkrow">
@@ -708,13 +743,13 @@ export default function ToolsPage() {
                   onChange={(e) => setGzip((s) => ({ ...s, enabled: e.target.checked }))}
                   disabled={perfBusy}
                 />
-                <span>Enable GZIP compression</span>
+                <span>{t("tools.performance.enableGzip")}</span>
               </label>
 
               <div className="jf-grid jf-grid--2">
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-gzip-level">
-                    Compression level
+                    {t("tools.performance.compressionLevelLabel")}
                   </label>
                   <input
                     id="jf-gzip-level"
@@ -726,11 +761,11 @@ export default function ToolsPage() {
                     onChange={(e) => setGzip((s) => ({ ...s, level: Number(e.target.value) || 6 }))}
                     disabled={perfBusy || !gzip.enabled}
                   />
-                  <p className="jf-field__hint">1 = fastest, 9 = smallest (default 6).</p>
+                  <p className="jf-field__hint">{t("tools.performance.compressionLevelHint")}</p>
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-gzip-min">
-                    Minimum size (bytes)
+                    {t("tools.performance.minSizeLabel")}
                   </label>
                   <input
                     id="jf-gzip-min"
@@ -744,16 +779,16 @@ export default function ToolsPage() {
                     }
                     disabled={perfBusy || !gzip.enabled}
                   />
-                  <p className="jf-field__hint">Skip compression for tiny responses.</p>
+                  <p className="jf-field__hint">{t("tools.performance.minSizeHint")}</p>
                 </div>
               </div>
 
               <hr className="jf-divider" />
 
-              <h3 className="jf-card__subtitle">Browser cache</h3>
+              <h3 className="jf-card__subtitle">{t("tools.performance.browserCacheHeading")}</h3>
               <p className="jf-field__hint">
-                Sets <code className="jf-code">Cache-Control</code> on public HTML and static files.
-                Admin and API routes always get <code className="jf-code">no-store</code>.
+                {t("tools.performance.browserCacheHint1")} <code className="jf-code">Cache-Control</code>{" "}
+                {t("tools.performance.browserCacheHint2")} <code className="jf-code">no-store</code>.
               </p>
 
               <label className="jf-checkrow">
@@ -763,13 +798,13 @@ export default function ToolsPage() {
                   onChange={(e) => setBrowserCache((s) => ({ ...s, enabled: e.target.checked }))}
                   disabled={perfBusy}
                 />
-                <span>Enable browser cache headers</span>
+                <span>{t("tools.performance.enableBrowserCache")}</span>
               </label>
 
               <div className="jf-grid jf-grid--3">
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-bc-html">
-                    HTML max-age (s)
+                    {t("tools.performance.htmlMaxAgeLabel")}
                   </label>
                   <input
                     id="jf-bc-html"
@@ -789,7 +824,7 @@ export default function ToolsPage() {
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-bc-static">
-                    Static max-age (s)
+                    {t("tools.performance.staticMaxAgeLabel")}
                   </label>
                   <input
                     id="jf-bc-static"
@@ -809,7 +844,7 @@ export default function ToolsPage() {
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-bc-swr">
-                    Stale-while-revalidate (s)
+                    {t("tools.performance.swrLabel")}
                   </label>
                   <input
                     id="jf-bc-swr"
@@ -831,7 +866,8 @@ export default function ToolsPage() {
 
               {envPath && (
                 <p className="jf-field__hint">
-                  Config file: <code className="jf-code">{envPath}</code>
+                  {t("tools.performance.configFile")}{" "}
+                  <code className="jf-code">{envPath}</code>
                 </p>
               )}
 
@@ -841,17 +877,21 @@ export default function ToolsPage() {
                   onClick={savePerformanceSettings}
                   disabled={perfBusy || cacheClearing}
                 >
-                  {perfSaving ? "Saving…" : restarting ? "Restarting…" : "Save all & restart app"}
+                  {perfSaving
+                    ? t("common.saving")
+                    : restarting
+                      ? t("tools.performance.restartingLabel")
+                      : t("tools.performance.saveAndRestart")}
                 </button>
                 <button
                   className="jf-btn jf-btn--ghost"
                   onClick={clearCache}
                   disabled={perfBusy || cacheClearing}
                 >
-                  {cacheClearing ? "Clearing…" : "Clear object cache"}
+                  {cacheClearing ? t("tools.performance.clearing") : t("tools.performance.clearObjectCache")}
                 </button>
                 {perfSaved && !perfBusy && (
-                  <span className="jf-status jf-status--saved">✓ Saved</span>
+                  <span className="jf-status jf-status--saved">✓ {t("common.saved")}</span>
                 )}
                 {perfError && <span className="jf-status jf-status--error">{perfError}</span>}
               </div>
@@ -862,9 +902,9 @@ export default function ToolsPage() {
                     ⚠️
                   </span>
                   <div>
-                    <div className="jf-banner__title">Manual restart needed</div>
+                    <div className="jf-banner__title">{t("tools.manualRestartTitle")}</div>
                     <div className="jf-banner__sub">
-                      Go to Plesk → Node.js → Restart App, then refresh this page.
+                      {t("tools.manualRestartBody")}
                     </div>
                   </div>
                 </div>
@@ -876,7 +916,7 @@ export default function ToolsPage() {
 
       {log.length > 0 && (
         <div className="jf-log">
-          <p className="jf-log__label">Performance log</p>
+          <p className="jf-log__label">{t("tools.performance.logLabel")}</p>
           {log.map((line, i) => (
             <p key={i} className={`jf-log__line${logVariant(line)}`}>
               {line}
@@ -887,12 +927,11 @@ export default function ToolsPage() {
 
       <div className="jf-card">
         <div className="jf-card__head">
-          <h2 className="jf-card__title">Import from WordPress</h2>
+          <h2 className="jf-card__title">{t("tools.wordpress.title")}</h2>
         </div>
         <div className="jf-card__body jf-stack">
           <p className="jf-prose">
-            Upload a WordPress export file (.xml from Tools → Export in the WordPress admin) to
-            bring your posts and pages across.
+            {t("tools.wordpress.description")}
           </p>
 
           <input
@@ -912,7 +951,7 @@ export default function ToolsPage() {
               onClick={() => fileRef.current?.click()}
               disabled={importing}
             >
-              {importing ? "Importing…" : "Upload WordPress .xml"}
+              {importing ? t("tools.wordpress.importing") : t("tools.wordpress.uploadButton")}
             </button>
           </div>
 
@@ -920,22 +959,22 @@ export default function ToolsPage() {
             (result.ok ? (
               <div className="jf-alert jf-alert--success">
                 <div>
-                  <strong>✓ Import complete</strong>
+                  <strong>✓ {t("tools.wordpress.importComplete")}</strong>
                   <ul style={{ margin: "0.4rem 0 0", paddingInlineStart: "1.1rem" }}>
-                    <li>Posts imported: {result.imported?.posts}</li>
-                    <li>Pages imported: {result.imported?.pages}</li>
-                    <li>Skipped: {result.imported?.skipped}</li>
+                    <li>{t("tools.wordpress.postsImported", { count: result.imported?.posts ?? 0 })}</li>
+                    <li>{t("tools.wordpress.pagesImported", { count: result.imported?.pages ?? 0 })}</li>
+                    <li>{t("tools.wordpress.skipped", { count: result.imported?.skipped ?? 0 })}</li>
                   </ul>
                   {result.errors && result.errors.length > 0 && (
                     <p style={{ margin: "0.4rem 0 0" }}>
-                      {result.errors.length} item(s) had errors. Check the server logs.
+                      {t("tools.wordpress.itemsHadErrors", { count: result.errors.length })}
                     </p>
                   )}
                 </div>
               </div>
             ) : (
               <div className="jf-alert jf-alert--error" role="alert">
-                <strong>Import failed:</strong>&nbsp;{result.error}
+                <strong>{t("tools.wordpress.importFailed")}</strong>&nbsp;{result.error}
               </div>
             ))}
         </div>
@@ -943,48 +982,54 @@ export default function ToolsPage() {
 
       <div className="jf-card">
         <div className="jf-card__head">
-          <h2 className="jf-card__title">Static site export</h2>
+          <h2 className="jf-card__title">{t("tools.staticExport.title")}</h2>
         </div>
         <div className="jf-card__body jf-stack">
           <p className="jf-prose">
-            Write every published page plus its assets, <code className="jf-code">sitemap.xml</code>
-            , <code className="jf-code">robots.txt</code> and{" "}
-            <code className="jf-code">theme.css</code> to a folder you can serve from object storage
-            or a CDN — no Node origin needed for those pages. See{" "}
-            <code className="jf-code">docs/STATIC-EXPORT.md</code> for deployment and rebuild
-            details.
+            {t("tools.staticExport.description1")} <code className="jf-code">sitemap.xml</code>
+            , <code className="jf-code">robots.txt</code> {t("tools.staticExport.description2")}{" "}
+            <code className="jf-code">theme.css</code> {t("tools.staticExport.description3")}{" "}
+            <code className="jf-code">docs/STATIC-EXPORT.md</code> {t("tools.staticExport.description4")}
           </p>
 
           <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
             <span className={`jf-badge jf-badge--${sxRuntimeInfo?.autoArmed ? "ok" : "warn"}`}>
-              Auto-rebuild{" "}
-              {sxRuntimeInfo?.autoArmed ? "armed" : sxSettings?.auto ? "on (idle)" : "off"}
+              {sxRuntimeInfo?.autoArmed
+                ? t("tools.staticExport.autoRebuildArmed")
+                : sxSettings?.auto
+                  ? t("tools.staticExport.autoRebuildOnIdle")
+                  : t("tools.staticExport.autoRebuildOff")}
             </span>
             {sxSettings?.auto && sxRuntimeInfo && !sxRuntimeInfo.revalidateEnabled && (
-              <span className="jf-badge jf-badge--warn">Needs CACHE_REVALIDATE_ENABLED=1</span>
+              <span className="jf-badge jf-badge--warn">{t("tools.staticExport.needsRevalidateEnv")}</span>
             )}
             {sxStatus?.lastRun ? (
               <>
                 <span className="jf-badge jf-badge--info">
-                  Last: {new Date(sxStatus.lastRun.generatedAt).toLocaleString()} (
-                  {sxStatus.lastRun.mode})
+                  {t("tools.staticExport.lastRun", {
+                    date: new Date(sxStatus.lastRun.generatedAt).toLocaleString(),
+                    mode: sxStatus.lastRun.mode,
+                  })}
                 </span>
                 <span className="jf-badge jf-badge--info">
-                  {sxStatus.lastRun.pages} pages · {sxStatus.lastRun.assets} assets
+                  {t("tools.staticExport.pagesAssets", {
+                    pages: sxStatus.lastRun.pages,
+                    assets: sxStatus.lastRun.assets,
+                  })}
                 </span>
               </>
             ) : (
-              <span className="jf-badge jf-badge--warn">Never run</span>
+              <span className="jf-badge jf-badge--warn">{t("tools.staticExport.neverRun")}</span>
             )}
           </div>
 
           {sxSettings && (
             <>
-              <h3 className="jf-card__subtitle">Configuration</h3>
+              <h3 className="jf-card__subtitle">{t("tools.staticExport.configurationHeading")}</h3>
               <p className="jf-field__hint">
-                Saved to <code className="jf-code">{sxEnvPath || ".env"}</code> as{" "}
-                <code className="jf-code">STATIC_EXPORT_*</code> and applied immediately — no
-                restart.
+                {t("tools.staticExport.savedToPrefix", { path: sxEnvPath || ".env" })}{" "}
+                <code className="jf-code">STATIC_EXPORT_*</code>{" "}
+                {t("tools.staticExport.savedToSuffix")}
               </p>
 
               <label className="jf-checkrow">
@@ -995,53 +1040,52 @@ export default function ToolsPage() {
                   disabled={sxSaving || sxRunning}
                 />
                 <span>
-                  Static export enabled — when off, the Run actions and auto-rebuild are refused
-                  (files already on disk are left alone; use <strong>Clear export</strong> to remove
-                  them).
+                  {t("tools.staticExport.enabledCheckboxText1")}{" "}
+                  <strong>{t("tools.staticExport.clearExport")}</strong>{" "}
+                  {t("tools.staticExport.enabledCheckboxText2")}
                 </span>
               </label>
 
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-sx-dir">
-                  Output directory
+                  {t("tools.staticExport.outputDirLabel")}
                 </label>
                 <input
                   id="jf-sx-dir"
                   className="jf-input"
                   value={sxSettings.dir}
-                  placeholder="./static-export"
+                  placeholder={t("tools.staticExport.outputDirPlaceholder")}
                   onChange={(e) => setSxSettings({ ...sxSettings, dir: e.target.value })}
                   disabled={sxSaving || sxRunning}
                 />
                 <p className="jf-field__hint">
-                  Relative paths resolve from the install root. Resolves to{" "}
+                  {t("tools.staticExport.outputDirHint")}{" "}
                   <code className="jf-code">{sxRuntimeInfo?.outDir}</code>.
                 </p>
               </div>
 
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-sx-base">
-                  Public base URL
+                  {t("tools.staticExport.baseUrlLabel")}
                 </label>
                 <input
                   id="jf-sx-base"
                   className="jf-input"
                   value={sxSettings.baseUrl}
-                  placeholder="https://www.example.com — defaults to APP_URL"
+                  placeholder={t("tools.staticExport.baseUrlPlaceholder")}
                   onChange={(e) => setSxSettings({ ...sxSettings, baseUrl: e.target.value })}
                   disabled={sxSaving || sxRunning}
                 />
                 <p className="jf-field__hint">
-                  Recorded in the manifest and used to detect same-origin links while crawling.
-                  Canonical tags and <code className="jf-code">sitemap.xml</code> URLs are rendered
-                  from <code className="jf-code">APP_URL</code> — set that to your public origin for
-                  a production export.
+                  {t("tools.staticExport.baseUrlHint1")} <code className="jf-code">sitemap.xml</code>{" "}
+                  {t("tools.staticExport.baseUrlHint2")} <code className="jf-code">APP_URL</code>{" "}
+                  {t("tools.staticExport.baseUrlHint3")}
                 </p>
               </div>
 
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-sx-crawl">
-                  Crawl URL
+                  {t("tools.staticExport.crawlUrlLabel")}
                 </label>
                 <div className="jf-row" style={{ gap: "0.5rem", alignItems: "stretch" }}>
                   <input
@@ -1049,7 +1093,7 @@ export default function ToolsPage() {
                     className="jf-input"
                     style={{ flex: 1 }}
                     value={sxSettings.crawlUrl}
-                    placeholder="https://www.example.com — blank crawls this server directly"
+                    placeholder={t("tools.staticExport.crawlUrlPlaceholder")}
                     onChange={(e) => setSxSettings({ ...sxSettings, crawlUrl: e.target.value })}
                     disabled={sxSaving || sxRunning}
                   />
@@ -1059,7 +1103,7 @@ export default function ToolsPage() {
                     onClick={() => setSxSettings({ ...sxSettings, crawlUrl: suggestedOrigin })}
                     disabled={sxSaving || sxRunning || !suggestedOrigin}
                   >
-                    Use this site
+                    {t("tools.staticExport.useThisSite")}
                   </button>
                   {sxSettings.crawlUrl && (
                     <button
@@ -1068,22 +1112,19 @@ export default function ToolsPage() {
                       onClick={() => setSxSettings({ ...sxSettings, crawlUrl: "" })}
                       disabled={sxSaving || sxRunning}
                     >
-                      Clear
+                      {t("tools.staticExport.clearButton")}
                     </button>
                   )}
                 </div>
                 <p className="jf-field__hint">
-                  Where the crawler fetches pages from. Leave blank to read this server directly
-                  (loopback in development, <code className="jf-code">APP_URL</code> on production).
-                  Set it to your public domain when the app runs behind Passenger / Plesk, where a
-                  loopback port is not reachable — the crawl still carries the export header, so it
-                  bypasses analytics and preview toolbars.
+                  {t("tools.staticExport.crawlUrlHint1")} <code className="jf-code">APP_URL</code>{" "}
+                  {t("tools.staticExport.crawlUrlHint2")}
                 </p>
               </div>
 
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-sx-origin">
-                  Dynamic-endpoint origin
+                  {t("tools.staticExport.originLabel")}
                 </label>
                 <div className="jf-row" style={{ gap: "0.5rem", alignItems: "stretch" }}>
                   <input
@@ -1091,7 +1132,7 @@ export default function ToolsPage() {
                     className="jf-input"
                     style={{ flex: 1 }}
                     value={sxSettings.originUrl}
-                    placeholder="https://app.example.com — leave blank for a hybrid proxy"
+                    placeholder={t("tools.staticExport.originPlaceholder")}
                     onChange={(e) => setSxSettings({ ...sxSettings, originUrl: e.target.value })}
                     disabled={sxSaving || sxRunning}
                   />
@@ -1101,7 +1142,7 @@ export default function ToolsPage() {
                     onClick={() => setSxSettings({ ...sxSettings, originUrl: suggestedOrigin })}
                     disabled={sxSaving || sxRunning || !suggestedOrigin}
                   >
-                    Use this site
+                    {t("tools.staticExport.useThisSite")}
                   </button>
                   {sxSettings.originUrl && (
                     <button
@@ -1110,26 +1151,29 @@ export default function ToolsPage() {
                       onClick={() => setSxSettings({ ...sxSettings, originUrl: "" })}
                       disabled={sxSaving || sxRunning}
                     >
-                      Clear
+                      {t("tools.staticExport.clearButton")}
                     </button>
                   )}
                 </div>
                 <p className="jf-field__hint">
-                  When set, <code className="jf-code">&lt;form&gt;</code> actions for form and
-                  comment submission are rewritten to absolute URLs against this origin. The
-                  exported pages then submit forms by <code className="jf-code">fetch()</code> and
-                  show the confirmation in place — no navigation. <strong>Use this site</strong>{" "}
-                  fills it with{" "}
-                  <code className="jf-code">{suggestedOrigin || "this site's origin"}</code>. Leave
-                  blank if the CDN proxies <code className="jf-code">/justflows-forms/*</code> and{" "}
-                  <code className="jf-code">/justflows-comments/*</code> to the origin (hybrid) —
-                  same result, no CORS.
+                  {t("tools.staticExport.originHint1")} <code className="jf-code">&lt;form&gt;</code>{" "}
+                  {t("tools.staticExport.originHint2")} <code className="jf-code">fetch()</code>{" "}
+                  {t("tools.staticExport.originHint3")}{" "}
+                  <strong>{t("tools.staticExport.useThisSite")}</strong>{" "}
+                  {t("tools.staticExport.originHint4")}{" "}
+                  <code className="jf-code">
+                    {suggestedOrigin || t("tools.staticExport.thisSitesOrigin")}
+                  </code>
+                  . {t("tools.staticExport.originHint5")} <code className="jf-code">/justflows-forms/*</code>{" "}
+                  {t("tools.staticExport.originHint6")}{" "}
+                  <code className="jf-code">/justflows-comments/*</code>{" "}
+                  {t("tools.staticExport.originHint7")}
                 </p>
               </div>
 
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-sx-cors">
-                  Allowed static origins (CORS)
+                  {t("tools.staticExport.corsLabel")}
                 </label>
                 <input
                   id="jf-sx-cors"
@@ -1140,19 +1184,19 @@ export default function ToolsPage() {
                   disabled={sxSaving || sxRunning}
                 />
                 <p className="jf-field__hint">
-                  Comma-separated origins allowed to cross-origin{" "}
-                  <code className="jf-code">fetch()</code> the submit endpoints. Only needed with a{" "}
-                  <em>Dynamic-endpoint origin</em> set. <code className="jf-code">APP_URL</code> /{" "}
-                  <code className="jf-code">STATIC_EXPORT_BASE_URL</code> and, outside production,
-                  any <code className="jf-code">localhost</code> port are always allowed — so local
-                  testing needs nothing here.
+                  {t("tools.staticExport.corsHint1")} <code className="jf-code">fetch()</code>{" "}
+                  {t("tools.staticExport.corsHint2")} <em>{t("tools.staticExport.originLabel")}</em>{" "}
+                  {t("tools.staticExport.corsHint3")} <code className="jf-code">APP_URL</code> /{" "}
+                  <code className="jf-code">STATIC_EXPORT_BASE_URL</code>{" "}
+                  {t("tools.staticExport.corsHint4")}{" "}
+                  <code className="jf-code">localhost</code> {t("tools.staticExport.corsHint5")}
                 </p>
               </div>
 
               <div className="jf-grid jf-grid--3">
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-sx-max">
-                    Max pages
+                    {t("tools.staticExport.maxPagesLabel")}
                   </label>
                   <input
                     id="jf-sx-max"
@@ -1169,7 +1213,7 @@ export default function ToolsPage() {
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-sx-conc">
-                    Concurrency
+                    {t("tools.staticExport.concurrencyLabel")}
                   </label>
                   <input
                     id="jf-sx-conc"
@@ -1186,7 +1230,7 @@ export default function ToolsPage() {
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-sx-debounce">
-                    Auto debounce (ms)
+                    {t("tools.staticExport.autoDebounceLabel")}
                   </label>
                   <input
                     id="jf-sx-debounce"
@@ -1211,8 +1255,7 @@ export default function ToolsPage() {
                   disabled={sxSaving || sxRunning}
                 />
                 <span>
-                  Rebuild automatically after publish, unpublish, delete, menu, theme, or settings
-                  changes
+                  {t("tools.staticExport.autoRebuildCheckbox")}
                 </span>
               </label>
 
@@ -1222,10 +1265,10 @@ export default function ToolsPage() {
                   onClick={saveSxSettings}
                   disabled={sxSaving || sxRunning}
                 >
-                  {sxSaving ? "Saving…" : "Save settings"}
+                  {sxSaving ? t("tools.staticExport.saving") : t("tools.staticExport.saveSettings")}
                 </button>
                 {sxSaved && !sxSaving && (
-                  <span className="jf-status jf-status--saved">✓ Saved</span>
+                  <span className="jf-status jf-status--saved">✓ {t("common.saved")}</span>
                 )}
               </div>
             </>
@@ -1235,7 +1278,7 @@ export default function ToolsPage() {
 
           {sxSettings && !sxSettings.enabled && (
             <p className="jf-status jf-status--error">
-              Static export is off. Enable it in Configuration and Save to run.
+              {t("tools.staticExport.exportOff")}
             </p>
           )}
 
@@ -1245,7 +1288,7 @@ export default function ToolsPage() {
               onClick={() => runStaticExport("full")}
               disabled={sxRunning || sxSaving || sxSettings?.enabled === false}
             >
-              {sxRunning ? "Exporting…" : "Run full export"}
+              {sxRunning ? t("tools.staticExport.exporting") : t("tools.staticExport.runFullExport")}
             </button>
             <button
               className="jf-btn jf-btn--ghost"
@@ -1254,44 +1297,46 @@ export default function ToolsPage() {
                 sxRunning || sxSaving || !sxStatus?.hasExport || sxSettings?.enabled === false
               }
             >
-              Run incremental
+              {t("tools.staticExport.runIncremental")}
             </button>
             <button
               className="jf-btn jf-btn--ghost"
               onClick={() => void clearStaticExport()}
               disabled={sxRunning || sxSaving || !sxStatus?.hasExport}
             >
-              Clear export
+              {t("tools.staticExport.clearExport")}
             </button>
             {sxError && <span className="jf-status jf-status--error">{sxError}</span>}
           </div>
           <p className="jf-field__hint">
-            <strong>Clear export</strong> deletes the whole{" "}
-            <code className="jf-code">{sxRuntimeInfo?.outDir ?? "static-export"}</code> folder.
-            Disabling auto-rebuild does not remove any files.
+            <strong>{t("tools.staticExport.clearExport")}</strong>{" "}
+            {t("tools.staticExport.clearExportHint1")}{" "}
+            <code className="jf-code">{sxRuntimeInfo?.outDir ?? "static-export"}</code>{" "}
+            {t("tools.staticExport.clearExportHint2")}
           </p>
 
           <details>
             <summary className="jf-field__hint" style={{ cursor: "pointer" }}>
-              Dynamic features (forms, preview, comments, search)
+              {t("tools.staticExport.dynamicFeaturesSummary")}
             </summary>
             <p className="jf-prose" style={{ marginTop: "0.5rem" }}>
-              Preview URLs are never exported. Client scripts (menus, animations, language switch
-              UI) are downloaded and work offline. <strong>Forms submit in place</strong> via{" "}
-              <code className="jf-code">fetch()</code> and show the confirmation without leaving the
-              page — as long as the submit endpoint is reachable: a <strong>hybrid</strong> deploy
-              (CDN proxies <code className="jf-code">/justflows-forms/*</code>,{" "}
+              {t("tools.staticExport.dynamicFeaturesHint1")}{" "}
+              <strong>{t("tools.staticExport.formsSubmitInPlace")}</strong>{" "}
+              {t("tools.staticExport.dynamicFeaturesHint2")} <code className="jf-code">fetch()</code>{" "}
+              {t("tools.staticExport.dynamicFeaturesHint3")} <strong>{t("tools.staticExport.hybrid")}</strong>{" "}
+              {t("tools.staticExport.dynamicFeaturesHint4")}{" "}
+              <code className="jf-code">/justflows-forms/*</code>,{" "}
               <code className="jf-code">/justflows-comments/*</code>,{" "}
-              <code className="jf-code">/api</code>, <code className="jf-code">/admin</code> to the
-              origin) or a <strong>Dynamic-endpoint origin</strong> set above. Comment posting,
-              login/registration and search still need the origin. Client analytics (Google Tag)
-              works; the server-side pageview counter does not.
+              <code className="jf-code">/api</code>, <code className="jf-code">/admin</code>{" "}
+              {t("tools.staticExport.dynamicFeaturesHint5")}{" "}
+              <strong>{t("tools.staticExport.dynamicEndpointOrigin")}</strong>{" "}
+              {t("tools.staticExport.dynamicFeaturesHint6")}
             </p>
           </details>
 
           {sxLog.length > 0 && (
             <div className="jf-log">
-              <p className="jf-log__label">Export log</p>
+              <p className="jf-log__label">{t("tools.staticExport.exportLogLabel")}</p>
               {sxLog.map((line, i) => (
                 <p key={i} className={`jf-log__line${logVariant(line)}`}>
                   {line}
@@ -1334,6 +1379,7 @@ interface RegenStatus {
 }
 
 function ResponsiveImagesCard() {
+  const { t } = useT();
   const [settings, setSettings] = useState<MediaSettings | null>(null);
   const [widthsText, setWidthsText] = useState("");
   const [envPath, setEnvPath] = useState("");
@@ -1349,10 +1395,10 @@ function ResponsiveImagesCard() {
       try {
         const res = await fetch("/api/media/settings");
         if (res.status === 403) {
-          setError("Only administrators can change responsive-image settings.");
+          setError(t("tools.responsiveImages.adminOnlySettings"));
           return;
         }
-        if (!res.ok) throw new Error("Could not load responsive-image settings");
+        if (!res.ok) throw new Error(t("tools.responsiveImages.loadFailed"));
         const data = (await res.json()) as { settings: MediaSettings; envPath: string };
         setSettings(data.settings);
         setWidthsText(data.settings.widths.join(", "));
@@ -1415,7 +1461,7 @@ function ResponsiveImagesCard() {
         error?: string;
         settings?: MediaSettings;
       };
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Could not save settings");
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("tools.responsiveImages.saveFailed"));
       if (data.settings) {
         setSettings(data.settings);
         setWidthsText(data.settings.widths.join(", "));
@@ -1434,9 +1480,9 @@ function ResponsiveImagesCard() {
     try {
       const res = await fetch("/api/media/regenerate", { method: "POST" });
       const data = (await res.json()) as RegenStatus & { error?: string };
-      if (res.status === 403) throw new Error("Only administrators can regenerate the library");
+      if (res.status === 403) throw new Error(t("tools.responsiveImages.adminOnlyRegenerate"));
       if (!res.ok && res.status !== 409)
-        throw new Error(data.error ?? "Could not start regeneration");
+        throw new Error(data.error ?? t("tools.responsiveImages.regenerateFailed"));
       setStatus(data);
       startPolling();
     } catch (e) {
@@ -1452,15 +1498,15 @@ function ResponsiveImagesCard() {
   return (
     <div className="jf-card">
       <div className="jf-card__head">
-        <h2 className="jf-card__title">Responsive images</h2>
+        <h2 className="jf-card__title">{t("tools.responsiveImages.title")}</h2>
       </div>
       <div className="jf-card__body jf-stack">
         <p className="jf-prose">
-          Every uploaded photo gets resized variants plus modern formats (WebP, and AVIF when
-          enabled). Image blocks and themes emit <code className="jf-code">&lt;picture&gt;</code> /{" "}
-          <code className="jf-code">srcset</code> with intrinsic{" "}
-          <code className="jf-code">width</code>/<code className="jf-code">height</code>, lazy
-          loading, and a focal point set in the Media Library. SVGs are never rasterised. See{" "}
+          {t("tools.responsiveImages.description1")}{" "}
+          <code className="jf-code">&lt;picture&gt;</code> /{" "}
+          <code className="jf-code">srcset</code> {t("tools.responsiveImages.description2")}{" "}
+          <code className="jf-code">width</code>/<code className="jf-code">height</code>
+          {t("tools.responsiveImages.description3")}{" "}
           <code className="jf-code">docs/MEDIA.md</code>.
         </p>
 
@@ -1475,7 +1521,7 @@ function ResponsiveImagesCard() {
                 onChange={(e) => upd("enabled", e.target.checked)}
                 disabled={saving}
               />
-              <span>Generate responsive variants on upload</span>
+              <span>{t("tools.responsiveImages.generateOnUpload")}</span>
             </label>
 
             <label className="jf-checkrow">
@@ -1486,10 +1532,8 @@ function ResponsiveImagesCard() {
                 disabled={saving}
               />
               <span>
-                Emit <code className="jf-code">&lt;picture&gt;</code> /{" "}
-                <code className="jf-code">srcset</code> on the public site — image blocks,
-                galleries, blog lists, and theme templates. Turn off to serve the original
-                everywhere (generated files are kept).
+                {t("tools.responsiveImages.emitMarkup1")} <code className="jf-code">&lt;picture&gt;</code> /{" "}
+                <code className="jf-code">srcset</code> {t("tools.responsiveImages.emitMarkup2")}
               </span>
             </label>
 
@@ -1501,7 +1545,7 @@ function ResponsiveImagesCard() {
                 disabled={saving || !settings.enabled}
               />
               <span>
-                Also generate AVIF (smaller files, noticeably slower to encode — off by default)
+                {t("tools.responsiveImages.generateAvif")}
               </span>
             </label>
 
@@ -1512,12 +1556,12 @@ function ResponsiveImagesCard() {
                 onChange={(e) => upd("stripMetadata", e.target.checked)}
                 disabled={saving || !settings.enabled}
               />
-              <span>Strip EXIF/GPS metadata from generated variants</span>
+              <span>{t("tools.responsiveImages.stripMetadata")}</span>
             </label>
 
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-img-widths">
-                Variant widths (px, comma-separated)
+                {t("tools.responsiveImages.variantWidthsLabel")}
               </label>
               <input
                 id="jf-img-widths"
@@ -1532,7 +1576,7 @@ function ResponsiveImagesCard() {
             <div className="jf-grid jf-grid--2">
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-img-maxw">
-                  Max width (px)
+                  {t("tools.responsiveImages.maxWidthLabel")}
                 </label>
                 <input
                   id="jf-img-maxw"
@@ -1547,7 +1591,7 @@ function ResponsiveImagesCard() {
               </div>
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-img-thumb">
-                  Thumbnail size (px, 0 = off)
+                  {t("tools.responsiveImages.thumbnailSizeLabel")}
                 </label>
                 <input
                   id="jf-img-thumb"
@@ -1565,7 +1609,7 @@ function ResponsiveImagesCard() {
             <div className="jf-grid jf-grid--3">
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-img-qw">
-                  WebP quality
+                  {t("tools.responsiveImages.webpQualityLabel")}
                 </label>
                 <input
                   id="jf-img-qw"
@@ -1580,7 +1624,7 @@ function ResponsiveImagesCard() {
               </div>
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-img-qa">
-                  AVIF quality
+                  {t("tools.responsiveImages.avifQualityLabel")}
                 </label>
                 <input
                   id="jf-img-qa"
@@ -1595,7 +1639,7 @@ function ResponsiveImagesCard() {
               </div>
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-img-qj">
-                  JPEG quality
+                  {t("tools.responsiveImages.jpegQualityLabel")}
                 </label>
                 <input
                   id="jf-img-qj"
@@ -1612,7 +1656,7 @@ function ResponsiveImagesCard() {
 
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-img-keep">
-                Keep original only (filename globs, comma-separated)
+                {t("tools.responsiveImages.keepOriginalLabel")}
               </label>
               <input
                 id="jf-img-keep"
@@ -1623,14 +1667,15 @@ function ResponsiveImagesCard() {
                 disabled={saving || !settings.enabled}
               />
               <p className="jf-field__hint">
-                Matching uploads are stored untouched — logos, transparency edge cases, pixel art.
+                {t("tools.responsiveImages.keepOriginalHint")}
               </p>
             </div>
 
             {envPath && (
               <p className="jf-field__hint">
-                Saved to <code className="jf-code">{envPath}</code> as{" "}
-                <code className="jf-code">JF_IMAGE_*</code> — applied immediately, no restart.
+                {t("tools.responsiveImages.savedToPrefix")} <code className="jf-code">{envPath}</code>{" "}
+                {t("tools.responsiveImages.savedToSuffix")} <code className="jf-code">JF_IMAGE_*</code>{" "}
+                {t("tools.responsiveImages.savedToTail")}
               </p>
             )}
 
@@ -1640,19 +1685,18 @@ function ResponsiveImagesCard() {
                 onClick={() => void saveSettings()}
                 disabled={saving}
               >
-                {saving ? "Saving…" : "Save settings"}
+                {saving ? t("common.saving") : t("tools.staticExport.saveSettings")}
               </button>
-              {saved && !saving && <span className="jf-status jf-status--saved">✓ Saved</span>}
+              {saved && !saving && <span className="jf-status jf-status--saved">✓ {t("common.saved")}</span>}
             </div>
           </>
         )}
 
         <hr className="jf-divider" />
 
-        <h3 className="jf-card__subtitle">Regenerate</h3>
+        <h3 className="jf-card__subtitle">{t("tools.responsiveImages.regenerateHeading")}</h3>
         <p className="jf-field__hint">
-          Rebuild every image’s variant set with the current settings — run this after changing
-          widths, formats, or quality. New uploads are processed automatically.
+          {t("tools.responsiveImages.regenerateHint")}
         </p>
 
         {status && (status.running || status.finishedAt) && (
@@ -1661,13 +1705,19 @@ function ResponsiveImagesCard() {
           >
             {status.running ? (
               <span>
-                Working… {status.processed + status.skipped + status.failed}/{status.total}
+                {t("tools.responsiveImages.working", {
+                  done: status.processed + status.skipped + status.failed,
+                  total: status.total,
+                })}
                 {status.currentFile ? ` — ${status.currentFile}` : ""}
               </span>
             ) : (
               <span>
-                ✓ Finished: {status.processed} rebuilt, {status.skipped} skipped, {status.failed}{" "}
-                failed.
+                ✓ {t("tools.responsiveImages.finished", {
+                  rebuilt: status.processed,
+                  skipped: status.skipped,
+                  failed: status.failed,
+                })}
               </span>
             )}
             {status.errors.length > 0 && (
@@ -1688,7 +1738,7 @@ function ResponsiveImagesCard() {
             onClick={() => void regenerate()}
             disabled={busy || settings?.enabled === false}
           >
-            {busy ? "Regenerating…" : "Regenerate all images"}
+            {busy ? t("tools.responsiveImages.regenerating") : t("tools.responsiveImages.regenerateAll")}
           </button>
         </div>
       </div>

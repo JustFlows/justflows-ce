@@ -1,3 +1,4 @@
+import { useT } from "../../i18n/I18nProvider";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BlockDocument, BlockCatalogEntry, BlockNode } from "./types";
 import BlockLibrary from "./BlockLibrary";
@@ -72,6 +73,7 @@ export default function PageBuilder({
   enableKeyboardShortcut = true,
   flatCanvas = false,
 }: PageBuilderProps) {
+  const { t } = useT();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [fullCatalog, setFullCatalog] = useState<BlockCatalogEntry[]>([]);
   const catalog = useMemo(
@@ -82,7 +84,7 @@ export default function PageBuilder({
     [fullCatalog, allowedBlockTypes],
   );
   const [menus, setMenus] = useState<HeaderMenu[]>([]);
-  const [identity, setIdentity] = useState({ siteTitle: "Site title", logoUrl: "" });
+  const [identity, setIdentity] = useState({ siteTitle: t("ui.pageBuilder.siteTitle"), logoUrl: "" });
   const [siteDefaultSlug, setSiteDefaultSlug] = useState("primary");
   const pageHeader = header ?? DEFAULT_PAGE_HEADER;
   const { items: reusable, reload: reloadReusable } = useReusableBlocks();
@@ -104,7 +106,7 @@ export default function PageBuilder({
       .then((r) => r.json())
       .then((data: { siteTitle?: string; logoUrl?: string; headerMenu?: string }) => {
         setIdentity({
-          siteTitle: data.siteTitle ?? "Site title",
+          siteTitle: data.siteTitle ?? t("ui.pageBuilder.siteTitle"),
           logoUrl: data.logoUrl ?? "",
         });
         if (data.headerMenu?.trim()) setSiteDefaultSlug(data.headerMenu.trim());
@@ -181,14 +183,14 @@ export default function PageBuilder({
             ? null
             : libraryTargetParent(headerBlocks, selectedId, catalogMap);
         const index = getChildCount(headerBlocks, parentId);
-        const block = createBlock(type);
+        const block = createBlock(type, t);
         emitHeaderBlocks(insertBlock(headerBlocks, parentId, index, block));
         setSelectedId(block.id);
         return;
       }
       const parentId = libraryTargetParent(blocks, selectedId, catalogMap);
       const index = getChildCount(blocks, parentId);
-      const block = createBlock(type);
+      const block = createBlock(type, t);
       emit(insertBlock(blocks, parentId, index, block));
       setSelectedId(block.id);
     },
@@ -220,7 +222,7 @@ export default function PageBuilder({
       if (
         replaceCanvas &&
         blocks.length > 0 &&
-        !window.confirm("Replace the current page with this full-page pattern?")
+        !window.confirm(t("ui.pageBuilder.replaceTheCurrentPageWithThisFullPagePattern"))
       ) {
         return;
       }
@@ -290,22 +292,19 @@ export default function PageBuilder({
         className="jf-builder-toolbar__btn"
         onClick={history.undo}
         disabled={!history.canUndo}
-        title="Undo (⌘Z)"
+        title={t("ui.pageBuilder.undoZ")}
       >
-        ↩ Undo
-      </button>
+        {t("ui.pageBuilder.undo")}</button>
       <button
         type="button"
         className="jf-builder-toolbar__btn"
         onClick={history.redo}
         disabled={!history.canRedo}
-        title="Redo (⇧⌘Z)"
+        title={t("ui.pageBuilder.redoZ")}
       >
-        ↪ Redo
-      </button>
+        {t("ui.pageBuilder.redo")}</button>
       <span className="jf-builder-toolbar__count">
-        {headerOnly ? headerBlocks.length : blocks.length}{" "}
-        {(headerOnly ? headerBlocks.length : blocks.length) === 1 ? "block" : "blocks"}
+        {t((headerOnly ? headerBlocks.length : blocks.length) === 1 ? "builder.blockCountOne" : "builder.blockCountMany", { count: headerOnly ? headerBlocks.length : blocks.length })}
       </span>
     </div>
   );

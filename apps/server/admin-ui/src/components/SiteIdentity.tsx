@@ -1,3 +1,4 @@
+import { useT } from "../i18n/I18nProvider";
 import { useEffect, useState } from "react";
 import { initialJson } from "../ssr-data";
 
@@ -9,9 +10,10 @@ interface SiteIdentity {
 }
 
 export function useSiteIdentity(): SiteIdentity {
+  const { t } = useT();
   const prefetched = initialJson<Partial<SiteIdentity>>("/api/site/identity");
   const [identity, setIdentity] = useState<SiteIdentity>({
-    siteTitle: prefetched?.siteTitle ?? "My Site",
+    siteTitle: prefetched?.siteTitle ?? t("ui.siteIdentity.mySite"),
     tagline: prefetched?.tagline ?? "",
     logoUrl: prefetched?.logoUrl ?? "",
     faviconUrl: prefetched?.faviconUrl ?? "",
@@ -25,7 +27,7 @@ export function useSiteIdentity(): SiteIdentity {
       .then((r) => r.json())
       .then((data: Partial<SiteIdentity>) =>
         setIdentity({
-          siteTitle: data.siteTitle ?? "My Site",
+          siteTitle: data.siteTitle ?? t("ui.siteIdentity.mySite"),
           tagline: data.tagline ?? "",
           logoUrl: data.logoUrl ?? "",
           faviconUrl: data.faviconUrl ?? "",

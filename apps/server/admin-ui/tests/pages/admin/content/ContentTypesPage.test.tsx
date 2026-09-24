@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render } from "../../../helpers/render";
+import { screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SessionProvider } from "@components/SessionProvider";
 import ContentTypesPage from "../../../../src/pages/admin/content/ContentTypesPage";

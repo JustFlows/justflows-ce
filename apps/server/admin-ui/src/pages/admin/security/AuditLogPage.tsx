@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Section } from "./components";
+import { useT } from "../../../i18n/I18nProvider";
 
 type Entry = {
   id: string;
@@ -22,6 +23,7 @@ type Payload = { entries: Entry[]; actions: string[]; retentionDays: number };
  * this, from where, and when. Nothing recorded it before.
  */
 export default function AuditLogPage() {
+  const { t } = useT();
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
@@ -54,21 +56,21 @@ export default function AuditLogPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Audit log</h1>
-          <p>Sign-ins, privilege changes, and everything that installs or replaces code.</p>
+          <h1>{t("security.audit.title")}</h1>
+          <p>{t("security.audit.subtitle")}</p>
         </div>
       </header>
 
       <Section
-        title="Recent activity"
+        title={t("security.audit.recent.title")}
         action={
           <select
             className="jf-input"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            aria-label="Filter by action"
+            aria-label={t("security.audit.filterLabel")}
           >
-            <option value="">All actions</option>
+            <option value="">{t("security.audit.allActions")}</option>
             {(data?.actions ?? []).map((a) => (
               <option key={a} value={a}>
                 {a}
@@ -82,17 +84,17 @@ export default function AuditLogPage() {
         {!data ? (
           <p className="jf-skeleton" />
         ) : data.entries.length === 0 ? (
-          <p>Nothing recorded yet for this filter.</p>
+          <p>{t("security.audit.empty")}</p>
         ) : (
           <div className="jf-tablewrap">
             <table className="jf-table">
               <thead>
                 <tr>
-                  <th>When</th>
-                  <th>Action</th>
-                  <th>Who</th>
-                  <th>Target</th>
-                  <th>From</th>
+                  <th>{t("security.audit.table.when")}</th>
+                  <th>{t("security.audit.table.action")}</th>
+                  <th>{t("security.audit.table.who")}</th>
+                  <th>{t("security.audit.table.target")}</th>
+                  <th>{t("security.audit.table.from")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -120,22 +122,19 @@ export default function AuditLogPage() {
         )}
       </Section>
 
-      <Section title="Retention">
+      <Section title={t("security.audit.retention.title")}>
         <p>
-          The current retention window is {data?.retentionDays ?? 365} days. If no custom value is
-          configured, Justflows uses the default of 365 days. To change it, set{" "}
-          <code className="jf-code">JF_AUDIT_RETENTION_DAYS</code> in the server environment and
-          restart the application. This page does not change the server environment.
+          {t("security.audit.retention.windowPrefix", { days: data?.retentionDays ?? 365 })}{" "}
+          <code className="jf-code">JF_AUDIT_RETENTION_DAYS</code>{" "}
+          {t("security.audit.retention.windowSuffix")}
         </p>
         <p>
-          <strong>Apply retention now</strong> permanently deletes audit entries older than the
-          current window. It does not delete newer entries; if none are old enough, zero entries
-          will be removed. Retention is necessary because the log contains personal data such as IP
-          addresses.
+          <strong>{t("security.audit.retention.applyButtonLabel")}</strong>{" "}
+          {t("security.audit.retention.applyExplain")}
         </p>
         <div className="jf-row">
           <button className="jf-btn" type="button" onClick={prune} disabled={busy}>
-            {busy ? "Removing…" : "Apply retention now"}
+            {busy ? t("security.audit.retention.removing") : t("security.audit.retention.applyButtonLabel")}
           </button>
         </div>
       </Section>

@@ -8,6 +8,9 @@ const RICHTEXT_TAGS = [
   "em",
   "i",
   "u",
+  "s",
+  "strike",
+  "del",
   "a",
   "ul",
   "ol",
@@ -20,18 +23,28 @@ const RICHTEXT_TAGS = [
   "blockquote",
   "code",
   "span",
+  "img",
+  "sub",
+  "sup",
+  "mark",
+  "kbd",
 ] as const;
 
 const RICHTEXT_OPTIONS: sanitizeHtmlLib.IOptions = {
   allowedTags: [...RICHTEXT_TAGS],
   allowedAttributes: {
     a: ["href", "title", "target", "rel"],
-    span: ["class"],
+    span: ["class", "lang", "data-formula"],
+    sup: ["class", "data-footnote"],
+    img: ["src", "alt", "width", "height", "loading"],
   },
   allowedSchemes: ["http", "https", "mailto"],
   // Defaults to true, which lets <a href="//attacker.example"> through the
   // scheme allowlist entirely — useful for phishing under the site's branding.
   allowProtocolRelative: false,
+  allowedSchemesByTag: {
+    img: ["http", "https"],
+  },
   transformTags: {
     a: (_tagName: string, attribs: Record<string, string>) => ({
       tagName: "a",
@@ -49,7 +62,6 @@ const HTML_BLOCK_OPTIONS: sanitizeHtmlLib.IOptions = {
     ...RICHTEXT_TAGS,
     "div",
     "section",
-    "img",
     "figure",
     "figcaption",
     "hr",

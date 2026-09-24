@@ -1,3 +1,4 @@
+import { useT } from "../../../i18n/I18nProvider";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   EffectiveHeaders,
@@ -37,6 +38,7 @@ function clone<T>(value: T): T {
  * the same whole-config document, so they all share this hook.
  */
 export function useSecurityConfig(): SecurityState {
+  const { t } = useT();
   const [payload, setPayload] = useState<SecurityPayload | null>(null);
   const [draft, setDraftState] = useState<SecurityHeadersConfig | null>(null);
   const [audit, setAudit] = useState<SecurityAudit | null>(null);
@@ -134,7 +136,7 @@ export function useSecurityConfig(): SecurityState {
           effective?: EffectiveHeaders;
         };
         if (!res.ok) {
-          setError(data.error ?? `Could not save (HTTP ${res.status})`);
+          setError(data.error ?? t("security.shared.saveFailedStatus", { status: res.status }));
           return false;
         }
         if (data.config) {
@@ -163,7 +165,7 @@ export function useSecurityConfig(): SecurityState {
         setSaving(false);
       }
     },
-    [],
+    [t],
   );
 
   const save = useCallback(() => {

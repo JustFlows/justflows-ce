@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Link, Navigate } from "../../../admin-router";
 import { useSessionRole } from "@components/SessionProvider";
 import { initialJson } from "../../../ssr-data";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface SettingField {
   type: "string" | "number" | "boolean" | "text";
@@ -44,6 +45,7 @@ export default function PluginSettingsPage() {
   // Reading and saving plugin settings are both administrator-only on the
   // server, unlike the plugin list itself (administrator + editor).
   const role = useSessionRole();
+  const { t } = useT();
   const canManage = role === "administrator";
   const prefetched = id ? initialJson<PluginSettingsPayload>(`/api/plugins/${id}/settings`) : undefined;
   const prefetchedSchema = asSettingsSchema(prefetched?.schema);
@@ -59,7 +61,7 @@ export default function PluginSettingsPage() {
     if (data.error) throw new Error(data.error);
     const nextSchema = asSettingsSchema(data.schema);
     if (!nextSchema) {
-      throw new Error("Plugin settings could not be loaded.");
+      throw new Error(t("pluginSettings.loadFailed"));
     }
     const langs = data.languages ?? [];
     setSchema(nextSchema);
@@ -74,7 +76,7 @@ export default function PluginSettingsPage() {
     fetch(`/api/plugins/${id}/settings`)
       .then(async (r) => {
         const data = (await r.json()) as PluginSettingsPayload;
-        if (!r.ok) throw new Error(data.error ?? "Could not load plugin settings");
+        if (!r.ok) throw new Error(data.error ?? t("pluginSettings.fetchFailed"));
         applyPayload(data);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
@@ -114,7 +116,7 @@ export default function PluginSettingsPage() {
       });
       const next = await res.json() as PluginSettingsPayload;
       if (!res.ok) {
-        setError(next.error ?? "Save failed");
+        setError(next.error ?? t("pluginSettings.saveFailed"));
         return;
       }
       if (asSettingsSchema(next.schema)) {
@@ -122,7 +124,7 @@ export default function PluginSettingsPage() {
       } else {
         const refreshed = await fetch(`/api/plugins/${id}/settings`);
         const data = (await refreshed.json()) as PluginSettingsPayload;
-        if (!refreshed.ok) throw new Error(data.error ?? "Could not reload plugin settings");
+        if (!refreshed.ok) throw new Error(data.error ?? t("pluginSettings.reloadFailed"));
         applyPayload(data);
       }
       setSaved(true);
@@ -190,14 +192,14 @@ export default function PluginSettingsPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Plugin settings</h1>
+          <h1>{t("pluginSettings.title")}</h1>
           <p><code className="jf-code">{id}</code></p>
         </div>
-        <Link to="/admin/plugins" className="jf-btn jf-btn--ghost">Back</Link>
+        <Link to="/admin/plugins" className="jf-btn jf-btn--ghost">{t("common.back")}</Link>
       </header>
 
       {loading ? (
-        <div className="jf-card"><div className="jf-card__body">Loading…</div></div>
+        <div className="jf-card"><div className="jf-card__body">{t("common.loading")}</div></div>
       ) : error ? (
         <div className="jf-card">
           <div className="jf-alert jf-alert--error" role="alert">{error}</div>
@@ -205,19 +207,19 @@ export default function PluginSettingsPage() {
       ) : Object.keys(schema).length === 0 ? (
         <div className="jf-card">
           <div className="jf-empty">
-            <span className="jf-empty__title">No settings</span>
-            <p>This plugin does not declare a settings schema.</p>
+            <span className="jf-empty__title">{t("pluginSettings.emptyTitle")}</span>
+            <p>{t("pluginSettings.emptyDesc")}</p>
           </div>
         </div>
       ) : (
         <div className="jf-stack">
           {error && <div className="jf-alert jf-alert--error" role="alert">{error}</div>}
-          {saved && <div className="jf-alert jf-alert--success">Saved</div>}
+          {saved && <div className="jf-alert jf-alert--success">{t("common.saved")}</div>}
 
           {localizedEntries.length > 0 && (
             <div className="jf-card">
               <div className="jf-card__head">
-                <h2 className="jf-card__title">Per language</h2>
+                <h2 className="jf-card__title">{t("pluginSettings.perLanguage")}</h2>
               </div>
               <div className="jf-card__body jf-stack">
                 {languages.length > 1 && (
@@ -232,7 +234,7 @@ export default function PluginSettingsPage() {
                         onClick={() => setLocale(lang.code)}
                       >
                         {lang.nativeName}
-                        {lang.isDefault ? " · default" : ""}
+                        {lang.isDefault ? ` · ${t("common.default")}` : ""}
                       </button>
                     ))}
                   </div>
@@ -245,7 +247,7 @@ export default function PluginSettingsPage() {
           {globalEntries.length > 0 && (
             <div className="jf-card">
               <div className="jf-card__head">
-                <h2 className="jf-card__title">{localizedEntries.length > 0 ? "All languages" : "Settings"}</h2>
+                <h2 className="jf-card__title">{localizedEntries.length > 0 ? t("pluginSettings.allLanguages") : t("pluginSettings.settingsHeading")}</h2>
               </div>
               <div className="jf-card__body jf-stack">
                 {globalEntries.map(([key, field]) => renderField(key, field, false))}
@@ -254,7 +256,7 @@ export default function PluginSettingsPage() {
           )}
 
           <div className="jf-row">
-            <button className="jf-btn jf-btn--primary" onClick={() => void save()}>Save settings</button>
+            <button className="jf-btn jf-btn--primary" onClick={() => void save()}>{t("pluginSettings.saveButton")}</button>
           </div>
         </div>
       )}

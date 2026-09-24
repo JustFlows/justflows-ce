@@ -50,12 +50,7 @@ const EMPTY: FormState = {
   expiresAt: "",
 };
 
-async function json<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
-  const body = response.status === 204 ? null : await response.json();
-  if (!response.ok) throw new Error((body as { error?: string } | null)?.error ?? "Request failed");
-  return body as T;
-}
+
 
 const csv = (value: string): string[] =>
   value
@@ -65,6 +60,14 @@ const csv = (value: string): string[] =>
 
 export default function ApiKeysPage() {
   const { t } = useT();
+
+  async function json<T>(url: string, init?: RequestInit): Promise<T> {
+    const response = await fetch(url, init);
+    const body = response.status === 204 ? null : await response.json();
+    if (!response.ok) throw new Error((body as { error?: string } | null)?.error ?? t("common.requestFailed"));
+    return body as T;
+  }
+
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [capabilities, setCapabilities] = useState<string[]>([]);
   const [settings, setSettings] = useState<Settings>({
@@ -131,7 +134,7 @@ export default function ApiKeysPage() {
       setForm(EMPTY);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
+      setError(err instanceof Error ? err.message : t("ui.apiKeysPage.requestFailed"));
     } finally {
       setSaving(false);
     }
@@ -144,7 +147,7 @@ export default function ApiKeysPage() {
       setSecret(res.key);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
+      setError(err instanceof Error ? err.message : t("ui.apiKeysPage.requestFailed"));
     }
   }
   async function revoke(id: string) {
@@ -153,7 +156,7 @@ export default function ApiKeysPage() {
       await json(`/api/api-keys/${id}/revoke`, { method: "POST" });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
+      setError(err instanceof Error ? err.message : t("ui.apiKeysPage.requestFailed"));
     }
   }
   async function remove(id: string) {
@@ -162,7 +165,7 @@ export default function ApiKeysPage() {
       await json(`/api/api-keys/${id}`, { method: "DELETE" });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
+      setError(err instanceof Error ? err.message : t("ui.apiKeysPage.requestFailed"));
     }
   }
 
@@ -178,7 +181,7 @@ export default function ApiKeysPage() {
       });
       setSettings(saved);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
+      setError(err instanceof Error ? err.message : t("ui.apiKeysPage.requestFailed"));
     } finally {
       setSavingSettings(false);
     }

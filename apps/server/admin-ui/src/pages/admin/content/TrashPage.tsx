@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSessionRole } from "@components/SessionProvider";
+import { useT } from "../../../i18n/I18nProvider";
 
 type TrashItem = {
   id: string;
@@ -11,6 +12,7 @@ type TrashItem = {
 };
 
 export default function TrashPage() {
+  const { t } = useT();
   const canPurge = useSessionRole() === "administrator";
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,7 @@ export default function TrashPage() {
     try {
       const res = await fetch("/api/trash");
       const data = (await res.json()) as { items?: TrashItem[]; error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Could not load trash");
+      if (!res.ok) throw new Error(data.error ?? t("trash.loadFailed"));
       setItems(data.items ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -38,7 +40,7 @@ export default function TrashPage() {
     const res = await fetch(`/api/trash/${item.type}/${item.id}/restore`, { method: "POST" });
     const data = (await res.json()) as { error?: string };
     if (!res.ok) {
-      setError(data.error ?? "Could not restore item");
+      setError(data.error ?? t("trash.restoreFailed"));
       return;
     }
     setItems((current) => current.filter((candidate) => candidate !== item));
@@ -46,14 +48,14 @@ export default function TrashPage() {
 
   async function purge(item: TrashItem) {
     const warning = item.referenced
-      ? "This media file is still referenced by content. Delete it permanently anyway?"
-      : `Permanently delete “${item.label}”? This cannot be undone.`;
+      ? t("trash.referencedWarning")
+      : t("trash.deleteConfirm", { label: item.label });
     if (!confirm(warning)) return;
     const suffix = item.referenced ? "?confirmReferenced=true" : "";
     const res = await fetch(`/api/trash/${item.type}/${item.id}${suffix}`, { method: "DELETE" });
     const data = (await res.json()) as { error?: string };
     if (!res.ok) {
-      setError(data.error ?? "Could not delete item");
+      setError(data.error ?? t("trash.deleteFailed"));
       return;
     }
     setItems((current) => current.filter((candidate) => candidate !== item));
@@ -61,16 +63,14 @@ export default function TrashPage() {
 
   async function emptyTrash() {
     const referenced = items.filter((item) => item.type === "media" && item.referenced).length;
-    if (
-      !confirm(
-        `Permanently delete all ${items.length} items?${referenced ? ` ${referenced} referenced media file(s) will also be deleted.` : ""}`,
-      )
-    )
-      return;
+    const confirmMessage =
+      t("trash.emptyConfirm", { count: items.length }) +
+      (referenced ? t("trash.emptyConfirmReferencedSuffix", { count: referenced }) : "");
+    if (!confirm(confirmMessage)) return;
     const res = await fetch(`/api/trash?confirmReferenced=true`, { method: "DELETE" });
     const data = (await res.json()) as { error?: string };
     if (!res.ok) {
-      setError(data.error ?? "Could not empty trash");
+      setError(data.error ?? t("trash.emptyFailed"));
       return;
     }
     setItems([]);
@@ -80,8 +80,8 @@ export default function TrashPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Trash</h1>
-          <p>Recoverable content, media, comments and menus</p>
+          <h1>{t("trash.heading")}</h1>
+          <p>{t("trash.subtitle")}</p>
         </div>
         <div className="jf-pagehead__actions">
           {canPurge && (
@@ -91,7 +91,7 @@ export default function TrashPage() {
               disabled={!items.length}
               onClick={() => void emptyTrash()}
             >
-              Empty trash
+              {t("trash.emptyTrash")}
             </button>
           )}
         </div>
@@ -102,14 +102,14 @@ export default function TrashPage() {
         </div>
       )}
       {loading ? (
-        <p>Loading…</p>
+        <p>{t("common.loading")}</p>
       ) : items.length === 0 ? (
         <div className="jf-card">
           <div className="jf-empty">
             <span className="jf-empty__icon" aria-hidden="true">
               ♻
             </span>
-            <span className="jf-empty__title">Trash is empty</span>
+            <span className="jf-empty__title">{t("trash.emptyState")}</span>
           </div>
         </div>
       ) : (
@@ -118,10 +118,10 @@ export default function TrashPage() {
             <table className="jf-table">
               <thead>
                 <tr>
-                  <th>Item</th>
-                  <th>Type</th>
-                  <th>Trashed</th>
-                  <th>Actions</th>
+                  <th>{t("trash.colItem")}</th>
+                  <th>{t("trash.colType")}</th>
+                  <th>{t("trash.colTrashed")}</th>
+                  <th>{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -131,7 +131,7 @@ export default function TrashPage() {
                       <strong>{item.label}</strong>
                       {item.detail && <div className="jf-meta">{item.detail}</div>}
                       {item.referenced && (
-                        <div className="jf-status jf-status--warning">Referenced by content</div>
+                        <div className="jf-status jf-status--warning">{t("trash.referencedByContent")}</div>
                       )}
                     </td>
                     <td>{item.type}</td>
@@ -143,7 +143,7 @@ export default function TrashPage() {
                           className="jf-btn jf-btn--sm"
                           onClick={() => void restore(item)}
                         >
-                          Restore
+                          {t("trash.restore")}
                         </button>
                         {canPurge && (
                           <button
@@ -151,7 +151,7 @@ export default function TrashPage() {
                             className="jf-btn jf-btn--danger jf-btn--sm"
                             onClick={() => void purge(item)}
                           >
-                            Delete permanently
+                            {t("trash.deletePermanently")}
                           </button>
                         )}
                       </div>

@@ -5,6 +5,9 @@ import MediaImageField from "@components/MediaImageField";
 import PageBuilder, { type BlockDocument } from "@components/builder/PageBuilder";
 import HeaderLibraryEditor from "./HeaderLibraryEditor";
 import MenusPage from "./MenusPage";
+import { useT } from "../../../i18n/I18nProvider";
+
+type TFunc = (key: string, vars?: Record<string, string | number>) => string;
 
 type ControlType = "color" | "font" | "text" | "image" | "range" | "code" | "select";
 
@@ -84,31 +87,32 @@ interface TemplateSlot {
   hasDraft: boolean;
 }
 
-/** Friendly labels for the WordPress-style template slugs. */
-const TEMPLATE_SLOT_LABELS: Record<string, { label: string; hint: string }> = {
-  "front-page": {
-    label: "Front page",
-    hint: "The site root (/) — your chosen home page or the theme's home layout",
-  },
-  home: { label: "Blog home", hint: "The list of blog posts (used at / when no home page is set)" },
-  single: { label: "Single post", hint: "One blog post, or any non-page content row" },
-  page: { label: "Page", hint: "A standalone page" },
-  singular: {
-    label: "Post or page (fallback)",
-    hint: "Shared fallback for both Single post and Page",
-  },
-  archive: { label: "Archive (list)", hint: "A list view for a content type — not routed yet" },
-  search: { label: "Search results", hint: "Not routed yet" },
-  "404": {
-    label: "Not found (404)",
-    hint: "The theme's built-in 404 is translated; a JSON one is English-only unless you translate it",
-  },
-  "403": { label: "Forbidden (403)", hint: "Shown when a request is blocked" },
-  "410": { label: "Gone (410)", hint: "Shown when content existed but was permanently removed" },
-  "429": { label: "Rate limited (429)", hint: "Shown when a visitor is sending requests too quickly" },
-  error: { label: "Error (generic)", hint: "Shared fallback for 403, 410, and 429 when no specific template exists" },
-  index: { label: "Catch-all (index)", hint: "Used only when no more specific template exists" },
+/** Friendly labels for the WordPress-style template slugs — catalog keys, looked up via `t`. */
+const TEMPLATE_SLOT_KEYS: Record<string, { labelKey: string; hintKey: string }> = {
+  "front-page": { labelKey: "themeCustomize.slotFrontPageLabel", hintKey: "themeCustomize.slotFrontPageHint" },
+  home: { labelKey: "themeCustomize.slotHomeLabel", hintKey: "themeCustomize.slotHomeHint" },
+  single: { labelKey: "themeCustomize.slotSingleLabel", hintKey: "themeCustomize.slotSingleHint" },
+  page: { labelKey: "themeCustomize.slotPageLabel", hintKey: "themeCustomize.slotPageHint" },
+  singular: { labelKey: "themeCustomize.slotSingularLabel", hintKey: "themeCustomize.slotSingularHint" },
+  archive: { labelKey: "themeCustomize.slotArchiveLabel", hintKey: "themeCustomize.slotArchiveHint" },
+  search: { labelKey: "themeCustomize.slotSearchLabel", hintKey: "themeCustomize.slotSearchHint" },
+  "404": { labelKey: "themeCustomize.slot404Label", hintKey: "themeCustomize.slot404Hint" },
+  "403": { labelKey: "themeCustomize.slot403Label", hintKey: "themeCustomize.slot403Hint" },
+  "410": { labelKey: "themeCustomize.slot410Label", hintKey: "themeCustomize.slot410Hint" },
+  "429": { labelKey: "themeCustomize.slot429Label", hintKey: "themeCustomize.slot429Hint" },
+  error: { labelKey: "themeCustomize.slotErrorLabel", hintKey: "themeCustomize.slotErrorHint" },
+  index: { labelKey: "themeCustomize.slotIndexLabel", hintKey: "themeCustomize.slotIndexHint" },
 };
+
+function templateSlotLabel(t: TFunc, slug: string): string | undefined {
+  const keys = TEMPLATE_SLOT_KEYS[slug];
+  return keys ? t(keys.labelKey) : undefined;
+}
+
+function templateSlotHint(t: TFunc, slug: string): string | undefined {
+  const keys = TEMPLATE_SLOT_KEYS[slug];
+  return keys ? t(keys.hintKey) : undefined;
+}
 
 type ErrorPageClass = "404" | "403" | "410" | "429";
 const ERROR_PAGE_CLASSES: ErrorPageClass[] = ["404", "403", "410", "429"];
@@ -126,13 +130,13 @@ interface ErrorPagePickerOption {
   slug: string;
 }
 
-function slotLabel(slug: string): string {
-  const known = TEMPLATE_SLOT_LABELS[slug]?.label;
+function slotLabel(t: TFunc, slug: string): string {
+  const known = templateSlotLabel(t, slug);
   if (known) return known;
   // single-product, page-about, … → "Single: product", "Page: about"
   const dash = slug.indexOf("-");
   if (dash > 0) {
-    const base = TEMPLATE_SLOT_LABELS[slug.slice(0, dash)]?.label ?? slug.slice(0, dash);
+    const base = templateSlotLabel(t, slug.slice(0, dash)) ?? slug.slice(0, dash);
     return `${base}: ${slug.slice(dash + 1)}`;
   }
   return slug;
@@ -146,6 +150,7 @@ function localePath(locale: string, slug: string, defaultLocale: string): string
 
 export default function CustomizeThemePage() {
   const navigate = useNavigate();
+  const { t } = useT();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const stylesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -265,7 +270,7 @@ export default function CustomizeThemePage() {
         body: JSON.stringify({ [errorClass]: { source, pageId } }),
       });
       const data = (await res.json()) as { error?: string; config?: ErrorPageConfig };
-      if (!res.ok) throw new Error(data.error ?? "Could not save");
+      if (!res.ok) throw new Error(data.error ?? t("themeCustomize.errorPageSaveError"));
       setErrorPages(data.config ?? {});
       reloadPreview();
     } catch (e) {
@@ -326,8 +331,8 @@ export default function CustomizeThemePage() {
           blogPageId?: string | null;
           pages?: ThemePageOption[];
         };
-        if (!r.ok) throw new Error(data.error ?? "Failed to load customizer");
-        setThemeName(data.theme?.name ?? "Theme");
+        if (!r.ok) throw new Error(data.error ?? t("themeCustomize.loadError"));
+        setThemeName(data.theme?.name ?? t("themeCustomize.themeFallbackName"));
         setSchema(data.schema ?? {});
         setMods(data.mods ?? {});
         setHomePageId(data.homePageId ?? null);
@@ -350,7 +355,7 @@ export default function CustomizeThemePage() {
           body: JSON.stringify({ mods, draft: !publish, publish }),
         });
         const data = (await res.json()) as { error?: string; mods?: ThemeMods };
-        if (!res.ok) throw new Error(data.error ?? "Failed to save");
+        if (!res.ok) throw new Error(data.error ?? t("themeCustomize.saveError"));
         if (data.mods) setMods(data.mods);
         setDirty(false);
         setSaved(true);
@@ -379,7 +384,7 @@ export default function CustomizeThemePage() {
             body: JSON.stringify({ mods: nextMods, draft: true, publish: false }),
           });
           const data = (await res.json()) as { error?: string };
-          if (!res.ok) throw new Error(data.error ?? "Failed to save draft");
+          if (!res.ok) throw new Error(data.error ?? t("themeCustomize.saveDraftError"));
           reloadPreview();
         } catch (e) {
           setError(e instanceof Error ? e.message : String(e));
@@ -401,7 +406,7 @@ export default function CustomizeThemePage() {
         body: JSON.stringify({ contentId }),
       });
       const data = (await res.json()) as { error?: string; homePageId?: string | null };
-      if (!res.ok) throw new Error(data.error ?? "Could not set the home page");
+      if (!res.ok) throw new Error(data.error ?? t("themeCustomize.homePageError"));
       setHomePageId(data.homePageId ?? null);
       reloadPreview();
     } catch (e) {
@@ -412,9 +417,7 @@ export default function CustomizeThemePage() {
   }
 
   async function convertThemeHome() {
-    if (
-      !window.confirm("Create a page from the current homepage layout and use it as the home page?")
-    )
+    if (!window.confirm(t("themeCustomize.convertHomeConfirm")))
       return;
     setConverting(true);
     setError("");
@@ -425,7 +428,7 @@ export default function CustomizeThemePage() {
         homePageId?: string;
         page?: ThemePageOption;
       };
-      if (!res.ok) throw new Error(data.error ?? "Could not create a home page");
+      if (!res.ok) throw new Error(data.error ?? t("themeCustomize.createHomePageError"));
       if (data.page)
         setPages((prev) => [data.page!, ...prev.filter((p) => p.id !== data.page!.id)]);
       setHomePageId(data.homePageId ?? null);
@@ -447,7 +450,7 @@ export default function CustomizeThemePage() {
         body: JSON.stringify({ contentId }),
       });
       const data = (await res.json()) as { error?: string; blogPageId?: string | null };
-      if (!res.ok) throw new Error(data.error ?? "Could not set the blog page");
+      if (!res.ok) throw new Error(data.error ?? t("themeCustomize.blogPageError"));
       setBlogPageId(data.blogPageId ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -457,7 +460,7 @@ export default function CustomizeThemePage() {
   }
 
   async function convertThemeBlog() {
-    if (!window.confirm("Create a page from the default blog layout and use it as the blog page?"))
+    if (!window.confirm(t("themeCustomize.convertBlogConfirm")))
       return;
     setConvertingBlog(true);
     setError("");
@@ -468,7 +471,7 @@ export default function CustomizeThemePage() {
         blogPageId?: string;
         page?: ThemePageOption;
       };
-      if (!res.ok) throw new Error(data.error ?? "Could not create a blog page");
+      if (!res.ok) throw new Error(data.error ?? t("themeCustomize.createBlogPageError"));
       if (data.page)
         setPages((prev) => [data.page!, ...prev.filter((p) => p.id !== data.page!.id)]);
       setBlogPageId(data.blogPageId ?? null);
@@ -500,7 +503,7 @@ export default function CustomizeThemePage() {
         body: JSON.stringify({ blocks: footer.blocks, draft: !publish }),
       });
       const data = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Could not save the footer");
+      if (!res.ok) throw new Error(data.error ?? t("themeCustomize.footerSaveError"));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       reloadPreview();
@@ -522,7 +525,7 @@ export default function CustomizeThemePage() {
         body: JSON.stringify({ blocks: templateDoc.blocks, draft: !publish }),
       });
       const data = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Could not save the template");
+      if (!res.ok) throw new Error(data.error ?? t("themeCustomize.templateSaveError"));
       setSaved(true);
       setTemplateFromDefault(false);
       setTimeout(() => setSaved(false), 2000);
@@ -537,11 +540,7 @@ export default function CustomizeThemePage() {
 
   async function resetTemplate() {
     if (!templateSlug) return;
-    if (
-      !window.confirm(
-        `Reset "${templateSlug}" to the theme's own version? Your customisations for this template are removed.`,
-      )
-    )
+    if (!window.confirm(t("themeCustomize.resetTemplateConfirm", { slug: templateSlug })))
       return;
     setTemplateSaving(true);
     try {
@@ -561,8 +560,8 @@ export default function CustomizeThemePage() {
 
   async function saveAsTheme() {
     const name = window.prompt(
-      "Save the current theme and all your customisations as a new theme.\nName:",
-      `${themeName} (custom)`,
+      t("themeCustomize.saveAsPrompt"),
+      t("themeCustomize.saveAsDefaultName", { name: themeName }),
     );
     if (name == null || !name.trim()) return;
     setSavingAs(true);
@@ -574,7 +573,7 @@ export default function CustomizeThemePage() {
         body: JSON.stringify({ name: name.trim(), activate: true }),
       });
       const data = (await res.json()) as { error?: string; themeId?: string };
-      if (!res.ok) throw new Error(data.error ?? "Could not save the theme");
+      if (!res.ok) throw new Error(data.error ?? t("themeCustomize.saveThemeError"));
       navigate("/admin/themes");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -584,12 +583,12 @@ export default function CustomizeThemePage() {
   }
 
   async function exitCustomize() {
-    if (dirty && !window.confirm("You have unsaved style changes. Exit anyway?")) return;
+    if (dirty && !window.confirm(t("themeCustomize.exitConfirm"))) return;
     await fetch("/api/themes/customize", { method: "DELETE" }).catch(() => {});
     navigate("/admin/themes");
   }
 
-  if (loading) return <div className="jf-center">Loading theme builder…</div>;
+  if (loading) return <div className="jf-center">{t("themeCustomize.loading")}</div>;
 
   if (error && !themeName) {
     return (
@@ -597,7 +596,7 @@ export default function CustomizeThemePage() {
         <div className="jf-stack" style={{ alignItems: "center" }}>
           <div className="jf-alert jf-alert--error">{error}</div>
           <button className="jf-btn jf-btn--ghost" onClick={() => navigate("/admin/themes")}>
-            Back to themes
+            {t("themeCustomize.backToThemes")}
           </button>
         </div>
       </div>
@@ -614,42 +613,42 @@ export default function CustomizeThemePage() {
     <div className="jf-editor">
       <header className="jf-editor__bar">
         <button type="button" className="jf-btn jf-btn--onbar" onClick={exitCustomize}>
-          ← Exit
+          ← {t("themeCustomize.exit")}
         </button>
 
         <div className="jf-editor__title">
-          <div className="jf-editor__name">Theme builder · {themeName}</div>
+          <div className="jf-editor__name">{t("themeCustomize.headerTitle", { themeName })}</div>
           <div className="jf-editor__sub">
             {tab === "homepage"
-              ? "Choose which page is the site home"
+              ? t("themeCustomize.subHomepage")
               : tab === "blog"
-                ? "Choose which page lists your blog posts"
+                ? t("themeCustomize.subBlog")
                 : tab === "header"
-                  ? "Named headers, one shown on every page — with per-language overrides"
+                  ? t("themeCustomize.subHeader")
                   : tab === "footer"
-                    ? "Blocks shown at the bottom of every page"
+                    ? t("themeCustomize.subFooter")
                     : tab === "templates"
-                      ? "Page structure per content type — the WordPress-style template hierarchy"
-                      : "Colors, fonts, spacing, headings & layout"}
-            {dirty ? " · unsaved changes" : ""}
+                      ? t("themeCustomize.subTemplates")
+                      : t("themeCustomize.subStyles")}
+            {dirty ? t("themeCustomize.unsavedSuffix") : ""}
           </div>
         </div>
 
         <div className="jf-editor__actions">
-          {saved && <span className="jf-editor__status jf-editor__status--ok">✓ Saved</span>}
-          {saving && !publishing && <span className="jf-editor__status">Saving…</span>}
+          {saved && <span className="jf-editor__status jf-editor__status--ok">✓ {t("common.saved")}</span>}
+          {saving && !publishing && <span className="jf-editor__status">{t("common.saving")}</span>}
           {error && <span className="jf-editor__status jf-editor__status--error">{error}</span>}
           <a className="jf-btn jf-btn--onbar" href="/?preview=1" target="_blank" rel="noreferrer">
-            Preview ↗
+            {t("themeCustomize.preview")} ↗
           </a>
           <button
             type="button"
             className="jf-btn jf-btn--onbar"
             disabled={savingAs}
             onClick={() => void saveAsTheme()}
-            title="Copy this theme plus every customisation into a new, independent theme"
+            title={t("themeCustomize.saveAsTitle")}
           >
-            {savingAs ? "Saving…" : "Save as new theme…"}
+            {savingAs ? t("common.saving") : t("themeCustomize.saveAsButton")}
           </button>
           {tab === "styles" && (
             <>
@@ -659,7 +658,7 @@ export default function CustomizeThemePage() {
                 disabled={saving || publishing}
                 onClick={() => persist(false)}
               >
-                {saving ? "Saving…" : "Save draft"}
+                {saving ? t("common.saving") : t("content.saveDraft")}
               </button>
               <button
                 type="button"
@@ -667,7 +666,7 @@ export default function CustomizeThemePage() {
                 disabled={saving || publishing}
                 onClick={() => persist(true)}
               >
-                {publishing ? "Publishing…" : "Publish"}
+                {publishing ? t("themeCustomize.publishing") : t("content.publish")}
               </button>
             </>
           )}
@@ -679,7 +678,7 @@ export default function CustomizeThemePage() {
                 disabled={footerSaving}
                 onClick={() => void saveFooter(false)}
               >
-                {footerSaving ? "Saving…" : "Save draft"}
+                {footerSaving ? t("common.saving") : t("content.saveDraft")}
               </button>
               <button
                 type="button"
@@ -687,7 +686,7 @@ export default function CustomizeThemePage() {
                 disabled={footerSaving}
                 onClick={() => void saveFooter(true)}
               >
-                Publish
+                {t("content.publish")}
               </button>
             </>
           )}
@@ -700,7 +699,7 @@ export default function CustomizeThemePage() {
                   disabled={templateSaving}
                   onClick={() => void resetTemplate()}
                 >
-                  Reset to theme
+                  {t("themeCustomize.resetToTheme")}
                 </button>
               )}
               <button
@@ -709,7 +708,7 @@ export default function CustomizeThemePage() {
                 disabled={templateSaving}
                 onClick={() => void saveTemplate(false)}
               >
-                {templateSaving ? "Saving…" : "Save draft"}
+                {templateSaving ? t("common.saving") : t("content.saveDraft")}
               </button>
               <button
                 type="button"
@@ -717,7 +716,7 @@ export default function CustomizeThemePage() {
                 disabled={templateSaving}
                 onClick={() => void saveTemplate(true)}
               >
-                Publish
+                {t("content.publish")}
               </button>
             </>
           )}
@@ -730,56 +729,56 @@ export default function CustomizeThemePage() {
           className={`jf-theme-builder__tab${tab === "homepage" ? " jf-theme-builder__tab--active" : ""}`}
           onClick={() => setTab("homepage")}
         >
-          Home page
+          {t("themeCustomize.tabHomepage")}
         </button>
         <button
           type="button"
           className={`jf-theme-builder__tab${tab === "blog" ? " jf-theme-builder__tab--active" : ""}`}
           onClick={() => setTab("blog")}
         >
-          Blog
+          {t("themeCustomize.tabBlog")}
         </button>
         <button
           type="button"
           className={`jf-theme-builder__tab${tab === "styles" ? " jf-theme-builder__tab--active" : ""}`}
           onClick={() => setTab("styles")}
         >
-          Styles
+          {t("themeCustomize.tabStyles")}
         </button>
         <button
           type="button"
           className={`jf-theme-builder__tab${tab === "header" ? " jf-theme-builder__tab--active" : ""}`}
           onClick={() => setTab("header")}
         >
-          Header
+          {t("themeCustomize.tabHeader")}
         </button>
         <button
           type="button"
           className={`jf-theme-builder__tab${tab === "footer" ? " jf-theme-builder__tab--active" : ""}`}
           onClick={() => setTab("footer")}
         >
-          Footer
+          {t("themeCustomize.tabFooter")}
         </button>
         <button
           type="button"
           className={`jf-theme-builder__tab${tab === "menus" ? " jf-theme-builder__tab--active" : ""}`}
           onClick={() => setTab("menus")}
         >
-          Menus
+          {t("nav.menus")}
         </button>
         <button
           type="button"
           className={`jf-theme-builder__tab${tab === "templates" ? " jf-theme-builder__tab--active" : ""}`}
           onClick={() => setTab("templates")}
         >
-          Templates
+          {t("themeCustomize.tabTemplates")}
         </button>
         <button
           type="button"
           className={`jf-theme-builder__tab${tab === "error-pages" ? " jf-theme-builder__tab--active" : ""}`}
           onClick={() => setTab("error-pages")}
         >
-          Error pages
+          {t("themeCustomize.tabErrorPages")}
         </button>
       </div>
 
@@ -788,7 +787,7 @@ export default function CustomizeThemePage() {
           <aside className="jf-customizer__controls" style={{ padding: "1rem" }}>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-home-page">
-                Home page
+                {t("themeCustomize.homePageLabel")}
               </label>
               <select
                 id="jf-home-page"
@@ -797,7 +796,7 @@ export default function CustomizeThemePage() {
                 disabled={saving || converting}
                 onChange={(e) => selectHomePage(e.target.value || null)}
               >
-                <option value="">Theme layout (not a page yet)</option>
+                <option value="">{t("themeCustomize.themeLayoutOption")}</option>
                 {pages.map((page) => (
                   <option key={page.id} value={page.id}>
                     {page.title || page.slug}{" "}
@@ -806,8 +805,7 @@ export default function CustomizeThemePage() {
                 ))}
               </select>
               <p className="jf-field__hint">
-                Any page can be the home page. Edit its header, menu, and blocks in the page
-                builder.
+                {t("themeCustomize.homeHint")}
               </p>
             </div>
             {selectedHome ? (
@@ -816,16 +814,16 @@ export default function CustomizeThemePage() {
                   className="jf-btn jf-btn--primary jf-btn--block"
                   to={`/admin/content/${selectedHome.id}/builder`}
                 >
-                  Edit this page
+                  {t("themeCustomize.editThisPage")}
                 </Link>
                 <Link
                   className="jf-btn jf-btn--ghost jf-btn--block"
                   to={`/admin/content/${selectedHome.id}`}
                 >
-                  Page settings
+                  {t("themeCustomize.pageSettings")}
                 </Link>
                 <p className="jf-field__hint" style={{ margin: 0 }}>
-                  Live at / · permalink /{selectedHome.slug}
+                  {t("themeCustomize.liveAtHome", { slug: selectedHome.slug })}
                 </p>
               </div>
             ) : (
@@ -836,23 +834,23 @@ export default function CustomizeThemePage() {
                   disabled={converting}
                   onClick={() => void convertThemeHome()}
                 >
-                  {converting ? "Creating…" : "Turn current layout into a page"}
+                  {converting ? t("themeCustomize.creating") : t("themeCustomize.turnHomeIntoPage")}
                 </button>
                 <Link
                   className="jf-btn jf-btn--ghost jf-btn--block"
                   to="/admin/content/new?type=page"
                 >
-                  Create a new page
+                  {t("themeCustomize.createNewPage")}
                 </Link>
                 <p className="jf-field__hint" style={{ margin: 0 }}>
-                  Until you pick a page, / still uses the theme homepage layout.
+                  {t("themeCustomize.homeFallbackHint")}
                 </p>
               </div>
             )}
           </aside>
           <div className="jf-customizer__preview">
-            <div className="jf-card__title">Live preview</div>
-            <iframe ref={iframeRef} src="/?preview=1" title="Home page preview" />
+            <div className="jf-card__title">{t("themeCustomize.livePreview")}</div>
+            <iframe ref={iframeRef} src="/?preview=1" title={t("themeCustomize.homePreviewTitle")} />
           </div>
         </div>
       ) : tab === "blog" ? (
@@ -860,7 +858,7 @@ export default function CustomizeThemePage() {
           <aside className="jf-customizer__controls" style={{ padding: "1rem" }}>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-blog-page">
-                Blog page
+                {t("themeCustomize.blogPageLabel")}
               </label>
               <select
                 id="jf-blog-page"
@@ -869,7 +867,7 @@ export default function CustomizeThemePage() {
                 disabled={saving || convertingBlog}
                 onChange={(e) => selectBlogPage(e.target.value || null)}
               >
-                <option value="">No blog page yet</option>
+                <option value="">{t("themeCustomize.noBlogPageOption")}</option>
                 {pages.map((page) => (
                   <option key={page.id} value={page.id}>
                     {page.title || page.slug}{" "}
@@ -878,8 +876,7 @@ export default function CustomizeThemePage() {
                 ))}
               </select>
               <p className="jf-field__hint">
-                Any page can be the blog page — drop a "Post List" block on it in the page builder
-                to list posts, or use the default layout below as a starting point.
+                {t("themeCustomize.blogHint")}
               </p>
             </div>
             {selectedBlog ? (
@@ -888,16 +885,16 @@ export default function CustomizeThemePage() {
                   className="jf-btn jf-btn--primary jf-btn--block"
                   to={`/admin/content/${selectedBlog.id}/builder`}
                 >
-                  Edit this page
+                  {t("themeCustomize.editThisPage")}
                 </Link>
                 <Link
                   className="jf-btn jf-btn--ghost jf-btn--block"
                   to={`/admin/content/${selectedBlog.id}`}
                 >
-                  Page settings
+                  {t("themeCustomize.pageSettings")}
                 </Link>
                 <p className="jf-field__hint" style={{ margin: 0 }}>
-                  Live at /{selectedBlog.slug}
+                  {t("themeCustomize.liveAtBlog", { slug: selectedBlog.slug })}
                 </p>
               </div>
             ) : (
@@ -908,27 +905,27 @@ export default function CustomizeThemePage() {
                   disabled={convertingBlog}
                   onClick={() => void convertThemeBlog()}
                 >
-                  {convertingBlog ? "Creating…" : "Turn default blog layout into a page"}
+                  {convertingBlog ? t("themeCustomize.creating") : t("themeCustomize.turnBlogIntoPage")}
                 </button>
                 <Link
                   className="jf-btn jf-btn--ghost jf-btn--block"
                   to="/admin/content/new?type=page"
                 >
-                  Create a new page
+                  {t("themeCustomize.createNewPage")}
                 </Link>
                 <p className="jf-field__hint" style={{ margin: 0 }}>
-                  Until you pick a page, the site has no blog index.
+                  {t("themeCustomize.blogFallbackHint")}
                 </p>
               </div>
             )}
           </aside>
           <div className="jf-customizer__preview">
-            <div className="jf-card__title">Live preview</div>
+            <div className="jf-card__title">{t("themeCustomize.livePreview")}</div>
             {blogPreviewSrc ? (
-              <iframe src={blogPreviewSrc} title="Blog page preview" />
+              <iframe src={blogPreviewSrc} title={t("themeCustomize.blogPreviewTitle")} />
             ) : (
               <p className="jf-field__hint" style={{ padding: "1rem" }}>
-                Pick or create a blog page to preview it here.
+                {t("themeCustomize.blogPreviewEmpty")}
               </p>
             )}
           </div>
@@ -937,15 +934,14 @@ export default function CustomizeThemePage() {
         <div className="jf-customizer">
           <aside className="jf-customizer__controls" style={{ padding: "1rem" }}>
             <div className="jf-field">
-              <label className="jf-field__label">Templates</label>
+              <label className="jf-field__label">{t("themeCustomize.templatesLabel")}</label>
               <p className="jf-field__hint" style={{ marginTop: 0 }}>
-                Each template decides the structure of a kind of page. Edit one and it overrides the
-                theme's version for this site; reset to go back.
+                {t("themeCustomize.templatesHint")}
               </p>
               <div className="jf-stack" style={{ gap: "0.35rem", marginTop: "0.5rem" }}>
                 {templateSlots.length === 0 && (
                   <p className="jf-field__hint" style={{ margin: 0 }}>
-                    This theme ships no template files yet.
+                    {t("themeCustomize.noTemplatesHint")}
                   </p>
                 )}
                 {templateSlots.map((slot) => (
@@ -956,15 +952,15 @@ export default function CustomizeThemePage() {
                       templateSlug === slot.slug ? " jf-btn--primary" : " jf-btn--ghost"
                     }`}
                     style={{ justifyContent: "space-between", display: "flex", textAlign: "left" }}
-                    title={TEMPLATE_SLOT_LABELS[slot.slug]?.hint ?? slot.slug}
+                    title={templateSlotHint(t, slot.slug) ?? slot.slug}
                     onClick={() => void openTemplate(slot.slug)}
                   >
                     <span>
-                      {slotLabel(slot.slug)}{" "}
+                      {slotLabel(t, slot.slug)}{" "}
                       <span style={{ fontSize: "0.7rem", opacity: 0.6 }}>{slot.slug}</span>
                     </span>
                     <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>
-                      {slot.customised ? (slot.hasDraft ? "customised · draft" : "customised") : ""}
+                      {slot.customised ? (slot.hasDraft ? t("themeCustomize.customisedDraft") : t("themeCustomize.customised")) : ""}
                     </span>
                   </button>
                 ))}
@@ -974,7 +970,7 @@ export default function CustomizeThemePage() {
             {creatableSlots.length > 0 && (
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-add-template">
-                  Add a template
+                  {t("themeCustomize.addTemplateLabel")}
                 </label>
                 <select
                   id="jf-add-template"
@@ -984,16 +980,15 @@ export default function CustomizeThemePage() {
                     if (e.target.value) void openTemplate(e.target.value);
                   }}
                 >
-                  <option value="">Choose a slot…</option>
+                  <option value="">{t("themeCustomize.chooseSlotOption")}</option>
                   {creatableSlots.map((slug) => (
                     <option key={slug} value={slug}>
-                      {slotLabel(slug)} ({slug})
+                      {slotLabel(t, slug)} ({slug})
                     </option>
                   ))}
                 </select>
                 <p className="jf-field__hint">
-                  {TEMPLATE_SLOT_LABELS[templateSlug ?? ""]?.hint ??
-                    "Start from a blank canvas; Publish creates the override."}
+                  {templateSlotHint(t, templateSlug ?? "") ?? t("themeCustomize.blankCanvasHint")}
                 </p>
               </div>
             )}
@@ -1003,15 +998,15 @@ export default function CustomizeThemePage() {
               <div className="jf-editor__body">
                 {templateFromDefault && (
                   <div className="jf-alert" style={{ margin: "0.75rem", fontSize: "0.85rem" }}>
-                    Editing <strong>{templateSlug}</strong> — starting from the theme's version.
-                    Publish to save it as this site's own.
+                    {t("themeCustomize.editingFromDefaultPrefix")} <strong>{templateSlug}</strong>{" "}
+                    {t("themeCustomize.editingFromDefaultSuffix")}
                   </div>
                 )}
                 <PageBuilder value={templateDoc} onChange={setTemplateDoc} />
               </div>
             ) : (
               <p className="jf-field__hint" style={{ padding: "1rem" }}>
-                Pick a template on the left to edit it.
+                {t("themeCustomize.pickTemplateHint")}
               </p>
             )}
           </div>
@@ -1019,20 +1014,15 @@ export default function CustomizeThemePage() {
       ) : tab === "error-pages" ? (
         <div className="jf-editor__body" style={{ padding: "1rem", maxWidth: "40rem" }}>
           <div className="jf-field">
-            <label className="jf-field__label">Error pages</label>
+            <label className="jf-field__label">{t("themeCustomize.tabErrorPages")}</label>
             <p className="jf-field__hint" style={{ marginTop: 0 }}>
-              Choose what renders for each error class: the theme's own layout, Justflows'
-              built-in page, or a specific published page. A page is listed once even when it has
-              several translations — visitors get whichever translation matches their language
-              automatically, the same as the home page. 500 and maintenance pages always use the
-              built-in layout so they still work if the site's database is unreachable — edit
-              their text in Settings → Site visibility.
+              {t("themeCustomize.errorPagesHint")}
             </p>
             <div className="jf-stack" style={{ gap: "1rem", marginTop: "0.75rem" }}>
               {ERROR_PAGE_CLASSES.map((errorClass) => (
                 <div className="jf-field" key={errorClass}>
                   <label className="jf-field__label" htmlFor={`jf-error-page-${errorClass}`}>
-                    {TEMPLATE_SLOT_LABELS[errorClass]?.label ?? errorClass}
+                    {templateSlotLabel(t, errorClass) ?? errorClass}
                   </label>
                   <select
                     id={`jf-error-page-${errorClass}`}
@@ -1042,12 +1032,12 @@ export default function CustomizeThemePage() {
                     onChange={(e) => onErrorPageSelectChange(errorClass, e.target.value)}
                   >
                     <option value="theme">
-                      Theme layout
+                      {t("themeCustomize.themeLayoutOptionShort")}
                       {errorThemeSlots.includes(errorClass) || errorThemeSlots.includes("error")
-                        ? " (this theme provides one)"
+                        ? t("themeCustomize.themeProvidesOneSuffix")
                         : ""}
                     </option>
-                    <option value="builtin">Built-in default</option>
+                    <option value="builtin">{t("themeCustomize.builtinDefaultOption")}</option>
                     {errorPagePickerOptions.map((page) => (
                       <option key={page.id} value={`page:${page.id}`}>
                         {page.title || page.slug}
@@ -1100,20 +1090,16 @@ export default function CustomizeThemePage() {
                     <div className="jf-accordion__panel">
                       {sectionKey === "colorsDark" && (
                         <p className="jf-field__hint">
-                          Used when a visitor picks dark mode, or when their device asks for it and
-                          they have not chosen. These are a separate palette — changing a colour
-                          above does not change it here.
+                          {t("themeCustomize.colorsDarkHint")}
                         </p>
                       )}
                       {sectionKey === "navigation" && (
                         <p className="jf-field__hint">
-                          Assign the default header and footer menus. Build the headers themselves
-                          on the Header tab, and design the menus themselves — layout, dropdowns,
-                          mega menus, items — on the{" "}
+                          {t("themeCustomize.navigationHintPrefix")}{" "}
                           <button type="button" className="jf-linkbtn" onClick={() => setTab("menus")}>
-                            Menus tab
+                            {t("themeCustomize.menusTabLink")}
                           </button>
-                          ; each page picks a header from a dropdown.
+                          {t("themeCustomize.navigationHintSuffix")}
                         </p>
                       )}
                       {Object.entries(section.controls).map(([key, control]) => (
@@ -1134,8 +1120,8 @@ export default function CustomizeThemePage() {
           </aside>
 
           <div className="jf-customizer__preview">
-            <div className="jf-card__title">Live preview</div>
-            <iframe ref={iframeRef} src="/?preview=1" title="Theme preview" />
+            <div className="jf-card__title">{t("themeCustomize.livePreview")}</div>
+            <iframe ref={iframeRef} src="/?preview=1" title={t("themeCustomize.themePreviewTitle")} />
           </div>
         </div>
       )}
@@ -1156,6 +1142,7 @@ function ControlField({
   value: string | number;
   onChange: (v: string | number) => void;
 }) {
+  const { t } = useT();
   const id = `${sectionKey}-${controlKey}`;
 
   if (control.type === "color") {
@@ -1176,7 +1163,7 @@ function ControlField({
             className="jf-input jf-input--mono"
             type="text"
             value={String(value)}
-            aria-label={`${control.label} hex value`}
+            aria-label={t("themeCustomize.hexValueAriaLabel", { label: control.label })}
             onChange={(e) => onChange(e.target.value)}
           />
         </div>
@@ -1238,7 +1225,7 @@ function ControlField({
           rows={6}
           value={String(value)}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="/* Your custom CSS */"
+          placeholder={t("ui.themeCustomizePage.yourCustomCSS")}
         />
       </div>
     );

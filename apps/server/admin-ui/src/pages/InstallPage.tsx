@@ -10,8 +10,16 @@ import {
   metaForCode,
   normalizeLocale,
 } from "@lib/i18n/locales";
+import { useT } from "../i18n/I18nProvider";
 
 type Step = "preparing" | "welcome" | "database" | "site" | "account" | "installing" | "done";
+
+const STEP_LABEL_KEYS: Record<"welcome" | "database" | "site" | "account", string> = {
+  welcome: "install.steps.welcome",
+  database: "install.steps.database",
+  site: "install.steps.site",
+  account: "install.steps.account",
+};
 
 interface DbForm {
   driver: "postgres" | "mysql" | "mariadb";
@@ -56,6 +64,7 @@ const DEFAULT_PORTS: Record<DbForm["driver"], string> = {
 };
 
 export default function InstallPage() {
+  const { t } = useT();
   const navigate = useNavigate();
 
   const [step, setStep] = useState<Step>("welcome");
@@ -203,7 +212,7 @@ export default function InstallPage() {
     }
 
     try {
-      addLog("Connecting to database…");
+      addLog(t("install.installing.connectingLog"));
       const res = await fetch("/api/install", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -236,7 +245,7 @@ export default function InstallPage() {
       const contentType = res.headers.get("content-type") ?? "";
       if (!contentType.includes("text/event-stream")) {
         const text = await res.text();
-        let message = text.trim() || `Install failed (${res.status})`;
+        let message = text.trim() || t("install.installing.failedWithStatus", { status: res.status });
         try {
           const json = JSON.parse(text) as { message?: string; error?: string };
           if (json.error === "not_ready") {
@@ -251,7 +260,7 @@ export default function InstallPage() {
       }
 
       // Stream log events from the response body
-      if (!res.body) throw new Error("No response body");
+      if (!res.body) throw new Error(t("install.installing.noResponseBody"));
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -307,12 +316,12 @@ export default function InstallPage() {
             <JustflowsLogo />
             Justflows
           </div>
-          <h1 className="jf-auth__sub">Installation</h1>
+          <h1 className="jf-auth__sub">{t("install.title")}</h1>
         </div>
 
         {/* Progress dots */}
         {step !== "preparing" && step !== "installing" && step !== "done" && (
-          <ol className="jf-steps" aria-label="Installation steps">
+          <ol className="jf-steps" aria-label={t("install.stepsAriaLabel")}>
             {(["welcome", "database", "site", "account"] as const).map((s) => (
               <li
                 key={s}
@@ -320,7 +329,7 @@ export default function InstallPage() {
                 data-current={s === step}
                 aria-current={s === step ? "step" : undefined}
               >
-                <span className="jf-sr-only">{s}</span>
+                <span className="jf-sr-only">{t(STEP_LABEL_KEYS[s])}</span>
               </li>
             ))}
           </ol>
@@ -330,11 +339,8 @@ export default function InstallPage() {
           {/* ── PREPARING (first-run npm install) ──────────────────────── */}
           {step === "preparing" && (
             <div className="jf-stack">
-              <h2 className="jf-section-title">Preparing files…</h2>
-              <p className="jf-prose">
-                Justflows is still installing what it needs. The site wizard starts
-                after this finishes — your database is not touched yet.
-              </p>
+              <h2 className="jf-section-title">{t("install.preparing.heading")}</h2>
+              <p className="jf-prose">{t("install.preparing.body")}</p>
               {bootstrapLog ? (
                 <div className="jf-log" role="log" aria-live="polite" aria-relevant="additions">
                   <pre className="jf-log__line" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
@@ -348,19 +354,17 @@ export default function InstallPage() {
           {/* ── WELCOME ─────────────────────────────────────────────────── */}
           {step === "welcome" && (
             <div className="jf-stack">
-              <h2 className="jf-section-title">Welcome</h2>
-              <p className="jf-prose">
-                You are about to set up Justflows. You will need:
-              </p>
+              <h2 className="jf-section-title">{t("install.welcome.heading")}</h2>
+              <p className="jf-prose">{t("install.welcome.intro")}</p>
               <ul className="jf-prose" style={{ paddingInlineStart: "1.25rem", lineHeight: 2 }}>
-                <li>A database (PostgreSQL, MySQL, or MariaDB)</li>
-                <li>The database hostname, name, username and password</li>
-                <li>The default language for the public site</li>
-                <li>An email address for your admin account</li>
+                <li>{t("install.welcome.needDatabase")}</li>
+                <li>{t("install.welcome.needDbDetails")}</li>
+                <li>{t("install.welcome.needLanguage")}</li>
+                <li>{t("install.welcome.needEmail")}</li>
               </ul>
-              <p className="jf-prose">Everything else is handled automatically.</p>
+              <p className="jf-prose">{t("install.welcome.outro")}</p>
               <button className="jf-btn jf-btn--primary" onClick={() => setStep("database")}>
-                Let's go →
+                {t("install.welcome.cta")}
               </button>
             </div>
           )}
@@ -368,13 +372,10 @@ export default function InstallPage() {
           {/* ── DATABASE ────────────────────────────────────────────────── */}
           {step === "database" && (
             <div className="jf-stack">
-              <h2 className="jf-section-title">Database</h2>
-              <p className="jf-prose">
-                Your web host will have given you these details. If you are
-                running Docker or using a local setup, the defaults usually work.
-              </p>
+              <h2 className="jf-section-title">{t("install.database.heading")}</h2>
+              <p className="jf-prose">{t("install.database.intro")}</p>
 
-              <Field label="Database type">
+              <Field label={t("install.database.typeLabel")}>
                 <select
                   className="jf-input"
                   value={db.driver}
@@ -394,7 +395,7 @@ export default function InstallPage() {
               </Field>
 
               <div className="jf-grid" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(90px, 120px)" }}>
-                <Field label="Database host">
+                <Field label={t("install.database.hostLabel")}>
                   <input
                     className="jf-input"
                     value={db.host}
@@ -402,7 +403,7 @@ export default function InstallPage() {
                     onChange={(e) => setDb((d) => ({ ...d, host: e.target.value }))}
                   />
                 </Field>
-                <Field label="Port">
+                <Field label={t("install.database.portLabel")}>
                   <input
                     className="jf-input"
                     value={db.port}
@@ -411,7 +412,7 @@ export default function InstallPage() {
                 </Field>
               </div>
 
-              <Field label="Database name">
+              <Field label={t("install.database.nameLabel")}>
                 <input
                   className="jf-input"
                   value={db.database}
@@ -421,7 +422,7 @@ export default function InstallPage() {
               </Field>
 
               <div className="jf-grid jf-grid--2">
-                <Field label="Database username">
+                <Field label={t("install.database.usernameLabel")}>
                   <input
                     className="jf-input"
                     value={db.username}
@@ -430,7 +431,7 @@ export default function InstallPage() {
                     onChange={(e) => setDb((d) => ({ ...d, username: e.target.value }))}
                   />
                 </Field>
-                <Field label="Database password">
+                <Field label={t("install.database.passwordLabel")}>
                   <input
                     className="jf-input"
                     type="password"
@@ -442,13 +443,13 @@ export default function InstallPage() {
               </div>
 
               <Row>
-                <button className="jf-btn jf-btn--ghost" onClick={() => setStep("welcome")}>← Back</button>
+                <button className="jf-btn jf-btn--ghost" onClick={() => setStep("welcome")}>{t("install.back")}</button>
                 <button
                   className="jf-btn jf-btn--primary"
                   disabled={!db.host || !db.database || !db.username}
                   onClick={() => setStep("site")}
                 >
-                  Next →
+                  {t("install.next")}
                 </button>
               </Row>
             </div>
@@ -457,24 +458,24 @@ export default function InstallPage() {
           {/* ── SITE ────────────────────────────────────────────────────── */}
           {step === "site" && (
             <div className="jf-stack">
-              <h2 className="jf-section-title">Your site</h2>
-              <Field label="Site name">
+              <h2 className="jf-section-title">{t("install.site.heading")}</h2>
+              <Field label={t("install.site.nameLabel")}>
                 <input
                   className="jf-input"
                   value={site.name}
-                  placeholder="My Website"
+                  placeholder={t("ui.installPage.myWebsite")}
                   onChange={(e) => setSite((s) => ({ ...s, name: e.target.value }))}
                 />
               </Field>
-              <Field label="Tagline (optional)">
+              <Field label={t("install.site.taglineLabel")}>
                 <input
                   className="jf-input"
                   value={site.description}
-                  placeholder="Just another great website"
+                  placeholder={t("ui.installPage.justAnotherGreatWebsite")}
                   onChange={(e) => setSite((s) => ({ ...s, description: e.target.value }))}
                 />
               </Field>
-              <Field label="Default site language">
+              <Field label={t("install.site.languageLabel")}>
                 <select
                   className="jf-input"
                   value={localeChoice}
@@ -485,15 +486,15 @@ export default function InstallPage() {
                       {localeOptionLabel(code)}
                     </option>
                   ))}
-                  <option value={OTHER_LOCALE}>Other…</option>
+                  <option value={OTHER_LOCALE}>{t("install.site.otherLanguageOption")}</option>
                 </select>
               </Field>
               {localeChoice === OTHER_LOCALE && (
                 <Field
-                  label="Language code"
+                  label={t("install.site.languageCodeLabel")}
                   error={
                     customLocale.trim().length > 0 && !normalizeLocale(customLocale)
-                      ? "Use a valid code such as en-US or nl-NL"
+                      ? t("install.site.languageCodeError")
                       : undefined
                   }
                 >
@@ -509,26 +510,26 @@ export default function InstallPage() {
                 </Field>
               )}
               <p className="jf-field__hint">
-                This is installed as the site&rsquo;s default language. You can add more later in
-                Admin → Languages.
+                {t("install.site.languageHint")}
                 {customLocalePreview && normalizeLocale(customLocale) ? (
                   <>
                     {" "}
-                    Preview: {customLocalePreview.name} · {customLocalePreview.nativeName}
+                    {t("install.site.previewPrefix")} {customLocalePreview.name} ·{" "}
+                    {customLocalePreview.nativeName}
                   </>
                 ) : null}
               </p>
               <p className="jf-field__hint">
-                Your site URL is detected automatically: <strong>{siteUrl || "…"}</strong>
+                {t("install.site.urlDetectedLabel")} <strong>{siteUrl || "…"}</strong>
               </p>
               <Row>
-                <button className="jf-btn jf-btn--ghost" onClick={() => setStep("database")}>← Back</button>
+                <button className="jf-btn jf-btn--ghost" onClick={() => setStep("database")}>{t("install.back")}</button>
                 <button
                   className="jf-btn jf-btn--primary"
                   disabled={!canContinueSite}
                   onClick={() => setStep("account")}
                 >
-                  Next →
+                  {t("install.next")}
                 </button>
               </Row>
             </div>
@@ -537,45 +538,37 @@ export default function InstallPage() {
           {/* ── ACCOUNT ─────────────────────────────────────────────────── */}
           {step === "account" && (
             <div className="jf-stack">
-              <h2 className="jf-section-title">Admin account</h2>
-              <p className="jf-prose">This will be your login to manage the site.</p>
+              <h2 className="jf-section-title">{t("install.account.heading")}</h2>
+              <p className="jf-prose">{t("install.account.intro")}</p>
 
               {tokenRequired && (
-                <Field label="Setup key">
+                <Field label={t("install.account.setupKeyLabel")}>
                   <input
                     className="jf-input"
                     value={installTokenValue}
-                    placeholder="Paste the key from TOKEN.txt"
+                    placeholder={t("install.account.setupKeyPlaceholder")}
                     autoComplete="off"
                     spellCheck={false}
                     onChange={(e) => setInstallTokenValue(e.target.value)}
                   />
                   <div className="jf-callout">
-                    <p className="jf-callout__title">Where to find your setup key</p>
+                    <p className="jf-callout__title">{t("install.account.setupKeyCalloutTitle")}</p>
                     <ol className="jf-callout__steps">
+                      <li>{t("install.account.setupKeyStep1")}</li>
                       <li>
-                        Open your site&rsquo;s files the same way you uploaded Justflows — your
-                        host&rsquo;s File Manager (cPanel, Plesk, DirectAdmin) or an FTP app.
+                        {t("install.account.setupKeyStep2Before")}{" "}
+                        <code>{tokenFile ? tokenFile.split("/")[0] : "install-token"}</code>{" "}
+                        {t("install.account.setupKeyStep2Between")} <code>TOKEN.txt</code>.
                       </li>
-                      <li>
-                        Go into the <code>{tokenFile ? tokenFile.split("/")[0] : "install-token"}</code>{" "}
-                        folder and open <code>TOKEN.txt</code>.
-                      </li>
-                      <li>Copy the key from that file and paste it above.</li>
+                      <li>{t("install.account.setupKeyStep3")}</li>
                     </ol>
-                    <p className="jf-callout__note">
-                      This is how Justflows knows the person setting up the site is the person who
-                      owns it — nobody who simply finds your address can claim it first. The folder
-                      is deleted automatically once setup finishes.
-                    </p>
-                    <p className="jf-callout__note">
-                      Running your own server? The key is also printed in the startup log.
-                    </p>
+                    <p className="jf-callout__note">{t("install.account.setupKeyNote1")}</p>
+                    <p className="jf-callout__note">{t("install.account.setupKeyNote2")}</p>
                   </div>
                 </Field>
               )}
 
-              <Field label="Your email">
+              <Field label={t("install.account.emailLabel")}>
                 <input
                   className="jf-input"
                   type="email"
@@ -586,7 +579,7 @@ export default function InstallPage() {
               </Field>
 
               <div className="jf-grid jf-grid--2">
-                <Field label="Username">
+                <Field label={t("install.account.usernameLabel")}>
                   <input
                     className="jf-input"
                     value={account.username}
@@ -594,11 +587,11 @@ export default function InstallPage() {
                     onChange={(e) => setAccount((a) => ({ ...a, username: e.target.value }))}
                   />
                 </Field>
-                <Field label="Display name">
+                <Field label={t("install.account.displayNameLabel")}>
                   <input
                     className="jf-input"
                     value={account.displayName}
-                    placeholder="Site Admin"
+                    placeholder={t("ui.installPage.siteAdmin")}
                     onChange={(e) => setAccount((a) => ({ ...a, displayName: e.target.value }))}
                   />
                 </Field>
@@ -606,8 +599,8 @@ export default function InstallPage() {
 
               <div className="jf-grid jf-grid--2">
                 <Field
-                  label="Password"
-                  error={account.password.length > 0 && account.password.length < 12 ? "Password must be at least 12 characters" : undefined}
+                  label={t("install.account.passwordLabel")}
+                  error={account.password.length > 0 && account.password.length < 12 ? t("install.account.passwordTooShort") : undefined}
                 >
                   <input
                     className={`jf-input${account.password.length > 0 && account.password.length < 12 ? " jf-input--invalid" : ""}`}
@@ -617,7 +610,7 @@ export default function InstallPage() {
                     onChange={(e) => setAccount((a) => ({ ...a, password: e.target.value }))}
                   />
                 </Field>
-                <Field label="Confirm password" error={!passwordsMatch ? "Passwords do not match" : undefined}>
+                <Field label={t("install.account.confirmPasswordLabel")} error={!passwordsMatch ? t("install.account.passwordsMismatch") : undefined}>
                   <input
                     className={`jf-input${!passwordsMatch ? " jf-input--invalid" : ""}`}
                     type="password"
@@ -638,23 +631,19 @@ export default function InstallPage() {
                   onChange={(e) => setAccount((a) => ({ ...a, emailDetails: e.target.checked }))}
                 />
                 <span>
-                  Email the full site details and admin credentials to this address
-                  <span className="jf-checkrow__meta">
-                    Includes your password, site URL, and database connection details (not the
-                    database password). Uses this host&rsquo;s mailer. Installation still finishes
-                    if the email cannot be sent.
-                  </span>
+                  {t("install.account.emailDetailsLabel")}
+                  <span className="jf-checkrow__meta">{t("install.account.emailDetailsMeta")}</span>
                 </span>
               </label>
 
               <Row>
-                <button className="jf-btn jf-btn--ghost" onClick={() => setStep("site")}>← Back</button>
+                <button className="jf-btn jf-btn--ghost" onClick={() => setStep("site")}>{t("install.back")}</button>
                 <button
                   className="jf-btn jf-btn--primary"
                   disabled={!canInstall}
                   onClick={runInstall}
                 >
-                  Install Justflows
+                  {t("install.account.installCta")}
                 </button>
               </Row>
             </div>
@@ -663,7 +652,9 @@ export default function InstallPage() {
           {/* ── INSTALLING ──────────────────────────────────────────────── */}
           {step === "installing" && (
             <div className="jf-stack">
-              <h2 className="jf-section-title">{fatalError ? "Installation failed" : "Installing…"}</h2>
+              <h2 className="jf-section-title">
+                {fatalError ? t("install.installing.failedHeading") : t("install.installing.heading")}
+              </h2>
               <div className="jf-log" role="log" aria-live="polite" aria-relevant="additions">
                 {log.map((entry, i) => (
                   <p
@@ -681,13 +672,13 @@ export default function InstallPage() {
 
               {fatalError && (
                 <div className="jf-alert jf-alert--error" role="alert">
-                  <strong>Error:</strong> {fatalError}
+                  <strong>{t("install.installing.errorLabel")}</strong> {fatalError}
                 </div>
               )}
 
               {fatalError && (
                 <button className="jf-btn jf-btn--ghost" onClick={() => setStep("database")}>
-                  ← Fix settings and try again
+                  {t("install.installing.fixSettings")}
                 </button>
               )}
             </div>
@@ -698,16 +689,17 @@ export default function InstallPage() {
             <div className="jf-stack" style={{ textAlign: "center", alignItems: "center" }}>
               <div style={{ fontSize: "3.5rem", marginBottom: "0.75rem" }}>🎉</div>
               <h2 className="jf-section-title">
-                {site.name || "Your site"} is ready!
+                {t("install.done.heading", { name: site.name || t("install.done.defaultSiteName") })}
               </h2>
               <p className="jf-prose" style={{ marginInline: "auto" }}>
-                Sign in with <strong>{account.email}</strong> to get started.
+                {t("install.done.signInPrefix")} <strong>{account.email}</strong>{" "}
+                {t("install.done.signInSuffix")}
               </p>
               <button
                 className="jf-btn jf-btn--primary"
                 onClick={() => navigate("/admin")}
               >
-                Go to Admin dashboard →
+                {t("install.done.dashboardCta")}
               </button>
             </div>
           )}
