@@ -1,3 +1,4 @@
+import { useT } from "../../i18n/I18nProvider";
 import { useState } from "react";
 import { useBuilderDrag, dropTargetMatches, type DropTarget } from "./DragContext";
 import { canDropBlockType } from "./dnd";
@@ -20,11 +21,12 @@ export default function DropZone({
   parentType,
   index,
   catalog,
-  label = "Drop block here",
+  label,
   compact = false,
   alwaysShow = false,
   inline = false,
 }: DropZoneProps) {
+  const { t } = useT();
   const { dragging, dragPayload, activeDropTarget, handleLibraryDrop } = useBuilderDrag();
   const [dragOver, setDragOver] = useState(false);
 
@@ -101,7 +103,7 @@ export default function DropZone({
         touchAction: "none",
       }}
     >
-      {highlighted && canDrop ? "Release to drop" : compact ? "Drop here" : label}
+      {highlighted && canDrop ? t("ui.dropZone.releaseToDrop") : compact ? t("ui.dropZone.dropHere") : (label ?? t("ui.dropZone.dropBlockHere"))}
     </div>
   );
 }

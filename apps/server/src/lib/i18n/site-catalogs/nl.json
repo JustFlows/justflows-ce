@@ -60,5 +60,25 @@
   "search.empty": "Geen resultaten. Probeer minder woorden of andere filters.",
   "search.pagination": "Zoekpagina’s",
   "search.previous": "Vorige",
-  "search.next": "Volgende"
+  "search.next": "Volgende",
+  "menus": {
+    "toggleMenu": "Menu",
+    "toggleSubmenu": "Submenu schakelen",
+    "closeMenu": "Menu sluiten"
+  },
+  "construction.title": "Binnenkort beschikbaar",
+  "construction.badge": "In aanbouw",
+  "construction.heading": "We bouwen aan iets moois",
+  "construction.body": "Deze website is nog niet live. Kom binnenkort terug.",
+  "site.title_fallback": "Deze website",
+  "nav.primary": "Hoofdnavigatie",
+  "nav.footer": "Footernavigatie",
+  "auth.account": "Account",
+  "pwa.install": "Installeren",
+  "pwa.description": "Installeer deze app voor een snellere ervaring op volledig scherm.",
+  "pwa.installAria": "Installeer deze app",
+  "pwa.dismiss": "Sluiten",
+  "pwa.iosInstructions": "Installeer deze app: tik op Deel en vervolgens op ‘Zet op beginscherm’.",
+  "pwa.updateAvailable": "Er is een update beschikbaar.",
+  "pwa.reload": "Opnieuw laden"
 }

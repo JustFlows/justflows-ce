@@ -49,7 +49,7 @@ export default function PageJsonPanel({
 
   function apply() {
     try {
-      const parsed = parsePageJson(draft);
+      const parsed = parsePageJson(draft, t);
       onApply({
         blocks: parsed.blocks,
         ...(header && parsed.header !== undefined ? { header: parsePageHeader(parsed.header) } : {}),

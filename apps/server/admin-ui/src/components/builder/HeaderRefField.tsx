@@ -1,5 +1,6 @@
 import { publicAdminPath } from "../../admin-path";
 import { useEffect, useRef, useState } from "react";
+import { useT } from "../../i18n/I18nProvider";
 import {
   NO_HEADER_REF,
   SITE_DEFAULT_HEADER_REF,
@@ -24,6 +25,7 @@ export default function HeaderRefField({
   onChange?: (ref: string) => void;
   compact?: boolean;
 }) {
+  const { t } = useT();
   const [items, setItems] = useState<SiteHeaderOptionDTO[]>([]);
   const [templates, setTemplates] = useState<HeaderTemplateOptionDTO[]>([]);
   const [defaultId, setDefaultId] = useState<string | null>(null);
@@ -84,13 +86,13 @@ export default function HeaderRefField({
       className={compact ? "jf-editor__select" : "jf-input"}
       value={current}
       onChange={(e) => void choose(e.target.value)}
-      aria-label="Header for this page"
+      aria-label={t("builder.headerRef.headerForThisPage")}
     >
       <option value={SITE_DEFAULT_HEADER_REF}>
-        Site default{defaultName ? ` — ${defaultName}` : ""}
+        {t("builder.headerRef.siteDefault")}{defaultName ? ` — ${defaultName}` : ""}
       </option>
       {ownEntries.length > 0 && (
-        <optgroup label="Your headers">
+        <optgroup label={t("builder.headerRef.yourHeaders")}>
           {ownEntries.map((i) => (
             <option key={i.id} value={i.id}>
               {i.name}
@@ -99,16 +101,16 @@ export default function HeaderRefField({
         </optgroup>
       )}
       {templates.length > 0 && (
-        <optgroup label="From plugins">
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-              {t.source ? ` (${t.source})` : ""}
+        <optgroup label={t("builder.headerRef.fromPlugins")}>
+          {templates.map((tpl) => (
+            <option key={tpl.id} value={tpl.id}>
+              {tpl.name}
+              {tpl.source ? ` (${tpl.source})` : ""}
             </option>
           ))}
         </optgroup>
       )}
-      <option value={NO_HEADER_REF}>None</option>
+      <option value={NO_HEADER_REF}>{t("builder.headerRef.none")}</option>
     </select>
   );
 
@@ -116,29 +118,29 @@ export default function HeaderRefField({
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
         {select}
-        {state === "saving" && <span className="jf-editor__status">Saving…</span>}
+        {state === "saving" && <span className="jf-editor__status">{t("common.saving")}</span>}
         {state === "saved" && <span className="jf-editor__status jf-editor__status--ok">✓</span>}
-        {state === "error" && <span className="jf-editor__status jf-editor__status--error">Failed</span>}
+        {state === "error" && <span className="jf-editor__status jf-editor__status--error">{t("builder.headerRef.failed")}</span>}
       </span>
     );
   }
 
   return (
     <div className="jf-field">
-      <label className="jf-field__label">Header</label>
+      <label className="jf-field__label">{t("builder.headerRef.header")}</label>
       {select}
       <p className="jf-field__hint">
         {state === "saving"
-          ? "Saving…"
+          ? t("common.saving")
           : state === "saved"
-            ? "Saved."
+            ? t("builder.headerRef.saved")
             : state === "error"
-              ? "Could not save — try again."
+              ? t("builder.headerRef.couldNotSave")
               : (
                 <>
-                  Applies right away. Build headers in{" "}
+                  {t("builder.headerRef.appliesRightAway")}{" "}
                   <a href={publicAdminPath("/admin/themes/customize")} target="_blank" rel="noopener noreferrer">
-                    Theme builder → Header
+                    {t("builder.headerRef.themeBuilderHeaderLink")}
                   </a>
                   .
                 </>

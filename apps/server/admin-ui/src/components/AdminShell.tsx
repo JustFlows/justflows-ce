@@ -68,7 +68,7 @@ export default function AdminShell() {
         type="button"
         className="jf-scrim"
         data-open={navOpen}
-        aria-label="Close navigation"
+        aria-label={t("shell.closeNavigation")}
         onClick={() => setNavOpen(false)}
       />
 
@@ -78,7 +78,7 @@ export default function AdminShell() {
           <span className="jf-brand__name">Justflows</span>
         </div>
 
-        <nav className="jf-nav" aria-label="Admin">
+        <nav className="jf-nav" aria-label={t("shell.adminNavLabel")}>
           <NavLink to={ADMIN_DASHBOARD.to} end={ADMIN_DASHBOARD.end} className="jf-nav__link">
             <span className="jf-nav__icon" aria-hidden="true">
               {ADMIN_DASHBOARD.icon}
@@ -129,7 +129,7 @@ export default function AdminShell() {
             type="button"
             className="jf-navtoggle"
             onClick={() => setNavOpen(true)}
-            aria-label="Open navigation"
+            aria-label={t("shell.openNavigation")}
             aria-expanded={navOpen}
           >
             <svg

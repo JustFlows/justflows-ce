@@ -16,6 +16,7 @@ import {
   type PermissionChoice,
 } from "./policy";
 import type { HeaderEntry, SecurityHeaderDef } from "./types";
+import { useT } from "../../../i18n/I18nProvider";
 
 export type EditorProps = {
   def: SecurityHeaderDef;
@@ -25,6 +26,7 @@ export type EditorProps = {
 
 /** A fixed vocabulary: show every value with what it actually does. */
 export function ChoiceEditor({ def, entry, onChange }: EditorProps) {
+  const { t } = useT();
   return (
     <div className="jf-stack jf-stack--sm">
       {def.options?.map((option) => (
@@ -37,7 +39,7 @@ export function ChoiceEditor({ def, entry, onChange }: EditorProps) {
           />
           <span>
             <code>{option.label}</code>
-            {option.recommended && <span className="jf-chip">Recommended</span>}
+            {option.recommended && <span className="jf-chip">{t("security.shared.recommended")}</span>}
             <span className="jf-checkrow__meta">{option.hint}</span>
           </span>
         </label>
@@ -47,6 +49,7 @@ export function ChoiceEditor({ def, entry, onChange }: EditorProps) {
 }
 
 export function HstsEditor({ def, entry, onChange }: EditorProps) {
+  const { t } = useT();
   const parts = useMemo(() => parseHsts(entry.value), [entry.value]);
   const update = (next: Partial<typeof parts>) =>
     onChange({ value: serializeHsts({ ...parts, ...next }) });
@@ -56,7 +59,7 @@ export function HstsEditor({ def, entry, onChange }: EditorProps) {
       <div className="jf-grid jf-grid--2">
         <div className="jf-field">
           <label className="jf-field__label" htmlFor={`${def.id}-preset`}>
-            How long browsers should remember
+            {t("security.headers.hsts.presetLabel")}
           </label>
           <select
             id={`${def.id}-preset`}
@@ -69,15 +72,15 @@ export function HstsEditor({ def, entry, onChange }: EditorProps) {
           >
             {HSTS_PRESETS.map((preset) => (
               <option key={preset.seconds} value={preset.seconds}>
-                {preset.label}
+                {t(preset.label)}
               </option>
             ))}
-            <option value="custom">Custom…</option>
+            <option value="custom">{t("security.headers.hsts.customOption")}</option>
           </select>
         </div>
         <div className="jf-field">
           <label className="jf-field__label" htmlFor={`${def.id}-maxage`}>
-            max-age in seconds
+            {t("security.headers.hsts.maxAgeLabel")}
           </label>
           <input
             id={`${def.id}-maxage`}
@@ -97,10 +100,9 @@ export function HstsEditor({ def, entry, onChange }: EditorProps) {
           onChange={(e) => update({ includeSubDomains: e.target.checked })}
         />
         <span>
-          Cover every subdomain
+          {t("security.headers.hsts.includeSubdomains")}
           <span className="jf-checkrow__meta">
-            Recommended. Make sure every subdomain really does serve HTTPS first — this applies to
-            all of them at once.
+            {t("security.headers.hsts.includeSubdomainsMeta")}
           </span>
         </span>
       </label>
@@ -112,10 +114,9 @@ export function HstsEditor({ def, entry, onChange }: EditorProps) {
           onChange={(e) => update({ preload: e.target.checked })}
         />
         <span>
-          Request inclusion in the browser preload list
+          {t("security.headers.hsts.preload")}
           <span className="jf-checkrow__meta">
-            Only tick this if you intend to submit the domain at hstspreload.org. Removal takes
-            months, and every subdomain must serve HTTPS for as long as you are listed.
+            {t("security.headers.hsts.preloadMeta")}
           </span>
         </span>
       </label>
@@ -127,17 +128,16 @@ export function HstsEditor({ def, entry, onChange }: EditorProps) {
           onChange={(e) => onChange({ onlyWhenSecure: e.target.checked })}
         />
         <span>
-          Only send over HTTPS
+          {t("security.headers.hsts.onlyHttps")}
           <span className="jf-checkrow__meta">
-            Browsers ignore this header on plain HTTP anyway. Leave it ticked unless you are
-            debugging behind a proxy that hides the real protocol.
+            {t("security.headers.hsts.onlyHttpsMeta")}
           </span>
         </span>
       </label>
 
       {parts.preload && !parts.includeSubDomains && (
         <p className="jf-status jf-status--error">
-          The preload list will reject this domain unless includeSubDomains is also set.
+          {t("security.headers.hsts.preloadRequiresSubdomains")}
         </p>
       )}
     </div>
@@ -145,6 +145,7 @@ export function HstsEditor({ def, entry, onChange }: EditorProps) {
 }
 
 export function CspEditor({ def, entry, onChange }: EditorProps) {
+  const { t } = useT();
   const directives = useMemo(() => parseCsp(entry.value), [entry.value]);
   const used = new Set(directives.map((d) => d.name));
 
@@ -154,7 +155,7 @@ export function CspEditor({ def, entry, onChange }: EditorProps) {
     <div className="jf-stack jf-stack--sm">
       <div className="jf-field">
         <label className="jf-field__label" htmlFor={`${def.id}-mode`}>
-          Mode
+          {t("security.headers.csp.modeLabel")}
         </label>
         <select
           id={`${def.id}-mode`}
@@ -162,13 +163,13 @@ export function CspEditor({ def, entry, onChange }: EditorProps) {
           value={entry.mode ?? "enforce"}
           onChange={(e) => onChange({ mode: e.target.value as "enforce" | "report-only" })}
         >
-          <option value="report-only">Report only — log violations, block nothing</option>
-          <option value="enforce">Enforce — block anything the policy does not allow</option>
+          <option value="report-only">{t("security.headers.csp.modeReportOnly")}</option>
+          <option value="enforce">{t("security.headers.csp.modeEnforce")}</option>
         </select>
         <p className="jf-field__hint">
           {entry.mode === "report-only"
-            ? "Sent as Content-Security-Policy-Report-Only. Start here, watch the browser console on your own pages, then switch to Enforce."
-            : "Sent as Content-Security-Policy. Anything the policy misses will be blocked for real visitors."}
+            ? t("security.headers.csp.hintReportOnly")
+            : t("security.headers.csp.hintEnforce")}
         </p>
       </div>
 
@@ -177,7 +178,7 @@ export function CspEditor({ def, entry, onChange }: EditorProps) {
           <div key={directive.name} className="jf-itemrow">
             <div className="jf-field" style={{ flex: "0 0 15rem" }}>
               <label className="jf-field__label" htmlFor={`${def.id}-d-${index}`}>
-                Directive
+                {t("security.headers.csp.directiveLabel")}
               </label>
               <input
                 id={`${def.id}-d-${index}`}
@@ -192,7 +193,9 @@ export function CspEditor({ def, entry, onChange }: EditorProps) {
             </div>
             <div className="jf-field" style={{ flex: 1 }}>
               <label className="jf-field__label" htmlFor={`${def.id}-v-${index}`}>
-                {CSP_VALUELESS_DIRECTIVES.has(directive.name) ? "No value needed" : "Allowed sources"}
+                {CSP_VALUELESS_DIRECTIVES.has(directive.name)
+                  ? t("security.headers.csp.noValueNeeded")
+                  : t("security.headers.csp.allowedSources")}
               </label>
               <input
                 id={`${def.id}-v-${index}`}
@@ -234,7 +237,7 @@ export function CspEditor({ def, entry, onChange }: EditorProps) {
             <button
               type="button"
               className="jf-iconbtn jf-iconbtn--danger"
-              aria-label={`Remove ${directive.name}`}
+              aria-label={t("security.headers.csp.removeDirective", { name: directive.name })}
               onClick={() => write(directives.filter((_, i) => i !== index))}
             >
               ✕
@@ -245,7 +248,7 @@ export function CspEditor({ def, entry, onChange }: EditorProps) {
 
       <div className="jf-field">
         <label className="jf-field__label" htmlFor={`${def.id}-add`}>
-          Add a directive
+          {t("security.headers.csp.addDirectiveLabel")}
         </label>
         <select
           id={`${def.id}-add`}
@@ -257,7 +260,7 @@ export function CspEditor({ def, entry, onChange }: EditorProps) {
             e.target.value = "";
           }}
         >
-          <option value="">Choose a directive…</option>
+          <option value="">{t("security.headers.csp.chooseDirective")}</option>
           {CSP_DIRECTIVES.filter((d) => !used.has(d)).map((d) => (
             <option key={d} value={d}>
               {d}
@@ -270,6 +273,7 @@ export function CspEditor({ def, entry, onChange }: EditorProps) {
 }
 
 export function PermissionsEditor({ def, entry, onChange }: EditorProps) {
+  const { t } = useT();
   const entries = useMemo(() => parsePermissionsPolicy(entry.value), [entry.value]);
   const used = new Set(entries.map((e) => e.feature));
   const write = (next: typeof entries) => onChange({ value: serializePermissionsPolicy(next) });
@@ -277,18 +281,19 @@ export function PermissionsEditor({ def, entry, onChange }: EditorProps) {
   return (
     <div className="jf-stack jf-stack--sm">
       <p className="jf-field__hint">
-        A feature that is not listed here keeps the browser default, which usually means it is
-        allowed. Listing it and choosing <em>Blocked</em> is what switches it off.
+        {t("security.headers.permissions.hintPrefix")}{" "}
+        <em>{t("security.headers.permissions.blockedEm")}</em>{" "}
+        {t("security.headers.permissions.hintSuffix")}
       </p>
 
       <div className="jf-tablewrap">
         <table className="jf-table">
           <thead>
             <tr>
-              <th>Feature</th>
-              <th>Who may use it</th>
-              <th>Allowlist</th>
-              <th aria-label="Remove" />
+              <th>{t("security.headers.permissions.table.feature")}</th>
+              <th>{t("security.headers.permissions.table.whoMayUse")}</th>
+              <th>{t("security.headers.permissions.table.allowlist")}</th>
+              <th aria-label={t("security.headers.permissions.table.removeAria")} />
             </tr>
           </thead>
           <tbody>
@@ -302,7 +307,7 @@ export function PermissionsEditor({ def, entry, onChange }: EditorProps) {
                   <td>
                     <select
                       className="jf-input"
-                      aria-label={`Policy for ${item.feature}`}
+                      aria-label={t("security.headers.permissions.policyForAria", { feature: item.feature })}
                       value={choice}
                       onChange={(e) => {
                         const next = [...entries];
@@ -316,16 +321,16 @@ export function PermissionsEditor({ def, entry, onChange }: EditorProps) {
                         write(next);
                       }}
                     >
-                      <option value="none">Blocked for everyone</option>
-                      <option value="self">Your own site only</option>
-                      <option value="all">Any site, including embeds</option>
-                      <option value="custom">Specific origins…</option>
+                      <option value="none">{t("security.headers.permissions.policy.blocked")}</option>
+                      <option value="self">{t("security.headers.permissions.policy.selfOnly")}</option>
+                      <option value="all">{t("security.headers.permissions.policy.any")}</option>
+                      <option value="custom">{t("security.headers.permissions.policy.custom")}</option>
                     </select>
                   </td>
                   <td>
                     <input
                       className="jf-input jf-input--mono"
-                      aria-label={`Allowlist for ${item.feature}`}
+                      aria-label={t("security.headers.permissions.allowlistForAria", { feature: item.feature })}
                       value={item.allowlist}
                       disabled={choice !== "custom"}
                       onChange={(e) => {
@@ -339,7 +344,7 @@ export function PermissionsEditor({ def, entry, onChange }: EditorProps) {
                     <button
                       type="button"
                       className="jf-iconbtn jf-iconbtn--danger"
-                      aria-label={`Remove ${item.feature}`}
+                      aria-label={t("security.headers.permissions.removeFeatureAria", { feature: item.feature })}
                       onClick={() => write(entries.filter((_, i) => i !== index))}
                     >
                       ✕
@@ -354,7 +359,7 @@ export function PermissionsEditor({ def, entry, onChange }: EditorProps) {
 
       <div className="jf-field">
         <label className="jf-field__label" htmlFor={`${def.id}-addfeature`}>
-          Add a feature
+          {t("security.headers.permissions.addFeatureLabel")}
         </label>
         <select
           id={`${def.id}-addfeature`}
@@ -366,7 +371,7 @@ export function PermissionsEditor({ def, entry, onChange }: EditorProps) {
             e.target.value = "";
           }}
         >
-          <option value="">Choose a feature…</option>
+          <option value="">{t("security.headers.permissions.chooseFeature")}</option>
           {PERMISSIONS_FEATURES.filter((f) => !used.has(f)).map((f) => (
             <option key={f} value={f}>
               {f}
@@ -379,10 +384,11 @@ export function PermissionsEditor({ def, entry, onChange }: EditorProps) {
 }
 
 export function RawEditor({ def, entry, onChange }: EditorProps) {
+  const { t } = useT();
   return (
     <div className="jf-field">
       <label className="jf-field__label" htmlFor={`${def.id}-raw`}>
-        {def.header} value
+        {t("security.headers.raw.valueLabel", { header: def.header })}
       </label>
       <textarea
         id={`${def.id}-raw`}
@@ -392,8 +398,7 @@ export function RawEditor({ def, entry, onChange }: EditorProps) {
         onChange={(e) => onChange({ value: e.target.value })}
       />
       <p className="jf-field__hint">
-        Sent verbatim. Line breaks are rejected when you save, because a header value cannot contain
-        them.
+        {t("security.headers.raw.hint")}
       </p>
     </div>
   );

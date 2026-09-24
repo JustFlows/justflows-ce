@@ -530,12 +530,19 @@ function withSiteWidgets(
   });
 }
 
-async function renderUnderConstruction(): Promise<string> {
+async function renderUnderConstruction(req: Request): Promise<string> {
+  const activeLocales = await getActiveLocaleCodes();
+  const defaultLocale = await getDefaultLocale();
+  const { locale: prefixLocale } = parseLocalePrefix(req.path, activeLocales);
+  const locale = await resolveContentLocale(prefixLocale ?? defaultLocale);
+  const t = createTranslator(await loadCatalog(locale), await loadCatalog("en"));
   const siteId = (await getSiteId()) ?? "";
-  const identity = await loadIdentity(false);
+  const identity = await loadIdentity(false, locale);
   const hookContext = { siteId, siteTitle: identity.siteTitle, tagline: identity.tagline };
 
   let html = await ejs.renderFile(path.join(templateDir, "under-construction.ejs"), {
+    locale,
+    t,
     siteTitle: identity.siteTitle,
     tagline: identity.tagline,
     faviconHead: buildFaviconHeadHtml(identity.faviconUrl),
@@ -600,7 +607,7 @@ async function ensureSiteIsPublic(req: Request, res: Response): Promise<boolean>
   if (await isSitePublic()) return true;
   if (await canViewUnpublishedSite(req, res)) return true;
 
-  const html = await renderUnderConstruction();
+  const html = await renderUnderConstruction(req);
   res.setHeader("Cache-Control", "private, no-store");
   res.status(503).type("html").send(html);
   return false;
@@ -1011,7 +1018,10 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       const pwaHead = buildPwaHeadHtml(pwaSettings);
       if (pwaHead) headExtra = headExtra ? `${headExtra}\n${pwaHead}` : pwaHead;
     }
-    pwaBody = buildPwaBodyHtml(pwaSettings);
+    const pwaTranslate = typeof data.t === "function"
+      ? data.t as (key: string) => string
+      : createTranslator(await loadCatalog(String(data.locale ?? "en")));
+    pwaBody = buildPwaBodyHtml(pwaSettings, pwaTranslate);
   }
   if (hooks.has("html.head")) {
     headExtra = hooks.applyFilterSync(

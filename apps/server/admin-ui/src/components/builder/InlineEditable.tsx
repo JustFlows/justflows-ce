@@ -1,3 +1,4 @@
+import { useT } from "../../i18n/I18nProvider";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState, type HTMLAttributes } from "react";
 import { esc, renderMath, safeMediaSrc, sanitizeMediaSrc, sanitizeRichText } from "@justflows/blocks";
@@ -34,6 +35,7 @@ export function InlineEditable({
   style,
   ...rest
 }: InlineEditableProps) {
+  const { t } = useT();
   const elRef = useRef<HTMLElement | null>(null);
   const [focused, setFocused] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<{ top: number; left: number } | null>(null);
@@ -142,7 +144,7 @@ export function InlineEditable({
     if (!el || !sel || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
     if (!el.contains(range.commonAncestorContainer) || range.collapsed) return;
-    const code = window.prompt("Language code (e.g. en, fr, es)");
+    const code = window.prompt(t("builder.inline.languageCodePrompt"));
     if (!code?.trim()) return;
     const wrapper = document.createElement("span");
     wrapper.lang = code.trim();
@@ -167,7 +169,7 @@ export function InlineEditable({
     if (!el || !sel || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
     if (!el.contains(range.commonAncestorContainer)) return;
-    const text = window.prompt("Footnote text");
+    const text = window.prompt(t("builder.inline.footnoteTextPrompt"));
     if (!text?.trim()) return;
     const marker = document.createElement("sup");
     marker.className = "jf-footnote-ref";
@@ -190,7 +192,7 @@ export function InlineEditable({
     if (!el || !sel || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
     if (!el.contains(range.commonAncestorContainer)) return;
-    const formula = window.prompt("LaTeX formula (e.g. E = mc^2)");
+    const formula = window.prompt(t("builder.inline.latexFormulaPrompt"));
     if (!formula?.trim()) return;
     const wrapper = document.createElement("div");
     wrapper.innerHTML = renderMath(
@@ -247,7 +249,7 @@ export function InlineEditable({
               type="button"
               className="jf-inline-toolbar__btn"
               style={{ fontWeight: 700 }}
-              title="Bold (⌘B)"
+              title={t("builder.inline.boldTooltip")}
               onClick={() => exec("bold")}
             >
               B
@@ -256,7 +258,7 @@ export function InlineEditable({
               type="button"
               className="jf-inline-toolbar__btn"
               style={{ fontStyle: "italic" }}
-              title="Italic (⌘I)"
+              title={t("builder.inline.italicTooltip")}
               onClick={() => exec("italic")}
             >
               I
@@ -265,7 +267,7 @@ export function InlineEditable({
               type="button"
               className="jf-inline-toolbar__btn"
               style={{ textDecoration: "underline" }}
-              title="Underline (⌘U)"
+              title={t("builder.inline.underlineTooltip")}
               onClick={() => exec("underline")}
             >
               U
@@ -274,7 +276,7 @@ export function InlineEditable({
               type="button"
               className="jf-inline-toolbar__btn"
               style={{ textDecoration: "line-through" }}
-              title="Strikethrough"
+              title={t("builder.inline.strikethroughTooltip")}
               onClick={() => exec("strikeThrough")}
             >
               S
@@ -282,7 +284,7 @@ export function InlineEditable({
             <button
               type="button"
               className="jf-inline-toolbar__btn"
-              title="Link (or remove, if the caret is already in one)"
+              title={t("builder.inline.linkTooltip")}
               onClick={() => {
                 const sel = window.getSelection();
                 const node = sel?.anchorNode;
@@ -293,7 +295,7 @@ export function InlineEditable({
                   exec("unlink");
                   return;
                 }
-                const url = window.prompt("Link URL");
+                const url = window.prompt(t("builder.inline.linkUrlPrompt"));
                 if (url) exec("createLink", url);
               }}
             >
@@ -302,7 +304,7 @@ export function InlineEditable({
             <button
               type="button"
               className="jf-inline-toolbar__btn"
-              title="Insert image"
+              title={t("builder.inline.insertImageTooltip")}
               onClick={() => {
                 const sel = window.getSelection();
                 const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
@@ -318,7 +320,7 @@ export function InlineEditable({
                 <button
                   type="button"
                   className="jf-inline-toolbar__btn"
-                  title="Bullet list"
+                  title={t("builder.inline.bulletListTooltip")}
                   onClick={() => exec("insertUnorderedList")}
                 >
                   •
@@ -326,7 +328,7 @@ export function InlineEditable({
                 <button
                   type="button"
                   className="jf-inline-toolbar__btn"
-                  title="Numbered list"
+                  title={t("builder.inline.numberedListTooltip")}
                   onClick={() => exec("insertOrderedList")}
                 >
                   1.
@@ -336,7 +338,7 @@ export function InlineEditable({
             <button
               type="button"
               className="jf-inline-toolbar__btn"
-              title="Clear formatting"
+              title={t("builder.inline.clearFormattingTooltip")}
               onClick={() => exec("removeFormat")}
             >
               ✕
@@ -344,7 +346,7 @@ export function InlineEditable({
             <button
               type="button"
               className="jf-inline-toolbar__btn"
-              title="More formats"
+              title={t("builder.inline.moreFormatsTooltip")}
               onClick={() => {
                 const sel = window.getSelection();
                 const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
@@ -477,14 +479,14 @@ const MORE_FORMATS: Array<{
   label: string;
   icon: string;
 }> = [
-  { key: "inlineCode", label: "Inline code", icon: "</>" },
-  { key: "highlight", label: "Highlight", icon: "🖍" },
-  { key: "subscript", label: "Subscript", icon: "X₂" },
-  { key: "superscript", label: "Superscript", icon: "X²" },
-  { key: "keyboard", label: "Keyboard input", icon: "⌨" },
-  { key: "footnote", label: "Footnote", icon: "†" },
-  { key: "math", label: "Math (LaTeX)", icon: "√x" },
-  { key: "language", label: "Language", icon: "🌐" },
+  { key: "inlineCode", label: "builder.inline.format.inlineCode", icon: "</>" },
+  { key: "highlight", label: "builder.inline.format.highlight", icon: "🖍" },
+  { key: "subscript", label: "builder.inline.format.subscript", icon: "X₂" },
+  { key: "superscript", label: "builder.inline.format.superscript", icon: "X²" },
+  { key: "keyboard", label: "builder.inline.format.keyboardInput", icon: "⌨" },
+  { key: "footnote", label: "builder.inline.format.footnote", icon: "†" },
+  { key: "math", label: "builder.inline.format.mathLatex", icon: "√x" },
+  { key: "language", label: "builder.inline.format.language", icon: "🌐" },
 ];
 
 function MoreFormatsMenu({
@@ -512,6 +514,7 @@ function MoreFormatsMenu({
   onFootnote: () => void;
   onMath: () => void;
 }) {
+  const { t } = useT();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const handlers = {
     inlineCode: onInlineCode,
@@ -551,7 +554,7 @@ function MoreFormatsMenu({
           <span className="jf-inline-more-menu__icon" aria-hidden="true">
             {item.icon}
           </span>
-          {item.label}
+          {t(item.label)}
         </button>
       ))}
     </div>,
@@ -570,6 +573,7 @@ function ImagePickerPopover({
   onInsert: (url: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const popRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [library, setLibrary] = useState<MediaLibraryItem[] | null>(null);
@@ -614,7 +618,7 @@ function ImagePickerPopover({
     setBusy(true);
     setError("");
     try {
-      onInsert(await uploadImage(file));
+      onInsert(await uploadImage(file, t));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -632,7 +636,7 @@ function ImagePickerPopover({
           onClick={() => fileRef.current?.click()}
           disabled={busy}
         >
-          {busy ? "Uploading…" : "Upload image"}
+          {busy ? t("builder.inline.uploading") : t("builder.inline.uploadImage")}
         </button>
         <input
           ref={fileRef}
@@ -646,7 +650,7 @@ function ImagePickerPopover({
         <input
           type="text"
           className="jf-input"
-          placeholder="Image URL…"
+          placeholder={t("builder.inline.imageUrlPlaceholder")}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => {
@@ -662,7 +666,7 @@ function ImagePickerPopover({
           disabled={!url.trim()}
           onClick={() => onInsert(url.trim())}
         >
-          Insert
+          {t("builder.inline.insert")}
         </button>
       </div>
       {error ? (
@@ -671,7 +675,7 @@ function ImagePickerPopover({
         </p>
       ) : null}
       {library === null ? (
-        <p className="jf-field__hint">Loading library…</p>
+        <p className="jf-field__hint">{t("builder.inline.loadingLibrary")}</p>
       ) : library.length > 0 ? (
         <div className="jf-media-library jf-inline-image-picker__library">
           {library.map((item) => (

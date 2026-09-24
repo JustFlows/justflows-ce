@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { initialJson } from "../../../ssr-data";
 import { useSessionRole } from "@components/SessionProvider";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface FieldDef {
   key: string;
@@ -29,11 +30,12 @@ const FIELD_TYPES = [
   "select",
 ] as const;
 
-function emptyField(): FieldDef {
-  return { key: `field_${Date.now()}`, label: "New field", type: "text", required: false };
+function emptyField(label: string): FieldDef {
+  return { key: `field_${Date.now()}`, label, type: "text", required: false };
 }
 
 export default function ContentTypesPage() {
+  const { t } = useT();
   // Everyone who can reach this page can read types; creating, editing
   // fields, and deleting are all administrator-only on the server.
   const canManage = useSessionRole() === "administrator";
@@ -53,7 +55,7 @@ export default function ContentTypesPage() {
   async function load() {
     const res = await fetch("/api/content-types");
     const data = (await res.json()) as { types?: ContentType[]; error?: string };
-    if (!res.ok) throw new Error(data.error ?? "Failed to load content types");
+    if (!res.ok) throw new Error(data.error ?? t("contentTypes.loadFailed"));
     setTypes(data.types ?? []);
   }
 
@@ -81,7 +83,7 @@ export default function ContentTypesPage() {
         }),
       });
       const data = (await res.json()) as { type?: ContentType; error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Failed to save");
+      if (!res.ok) throw new Error(data.error ?? t("contentTypes.saveFailed"));
       if (data.type) updateLocal(type.slug, data.type);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -101,7 +103,7 @@ export default function ContentTypesPage() {
         body: JSON.stringify(newType),
       });
       const data = (await res.json()) as { type?: ContentType; error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Failed to create");
+      if (!res.ok) throw new Error(data.error ?? t("contentTypes.createFailed"));
       if (data.type) setTypes((prev) => [...prev, data.type!]);
       setCreating(false);
       setNewType({ slug: "", label: "", description: "" });
@@ -114,11 +116,7 @@ export default function ContentTypesPage() {
 
   async function removeType(type: ContentType) {
     if (type.builtin) return;
-    if (
-      !confirm(
-        `Delete content type “${type.label}”? Existing entries of this type must be removed first.`,
-      )
-    )
+    if (!confirm(t("contentTypes.deleteConfirm", { label: type.label })))
       return;
     setSaving(true);
     setError(null);
@@ -127,7 +125,7 @@ export default function ContentTypesPage() {
         method: "DELETE",
       });
       const data = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Failed to delete");
+      if (!res.ok) throw new Error(data.error ?? t("contentTypes.deleteFailed"));
       setTypes((prev) => prev.filter((t) => t.slug !== type.slug));
       if (editing === type.slug) setEditing(null);
     } catch (err) {
@@ -140,7 +138,7 @@ export default function ContentTypesPage() {
   if (loading) {
     return (
       <div className="jf-page" aria-busy="true">
-        <p>Loading content types…</p>
+        <p>{t("contentTypes.loading")}</p>
       </div>
     );
   }
@@ -149,13 +147,13 @@ export default function ContentTypesPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Content Types</h1>
-          <p>Define custom content types and their fields. Posts and pages stay built-in.</p>
+          <h1>{t("contentTypes.heading")}</h1>
+          <p>{t("contentTypes.subtitle")}</p>
         </div>
         {canManage && (
           <div className="jf-pagehead__actions">
             <button className="jf-btn jf-btn--primary" onClick={() => setCreating(true)}>
-              + New type
+              {t("contentTypes.newType")}
             </button>
           </div>
         )}
@@ -170,13 +168,13 @@ export default function ContentTypesPage() {
       {canManage && creating && (
         <div className="jf-card jf-card--active">
           <div className="jf-card__head">
-            <h2 className="jf-card__title">New content type</h2>
+            <h2 className="jf-card__title">{t("contentTypes.newTypeHeading")}</h2>
           </div>
           <div className="jf-card__body jf-stack">
             <div className="jf-grid jf-grid--2">
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-ct-slug">
-                  Slug
+                  {t("contentTypes.slugLabel")}
                 </label>
                 <input
                   id="jf-ct-slug"
@@ -190,30 +188,30 @@ export default function ContentTypesPage() {
                     })
                   }
                 />
-                <span className="jf-field__hint">Lowercase, used in URLs and the API.</span>
+                <span className="jf-field__hint">{t("contentTypes.slugHint")}</span>
               </div>
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-ct-label">
-                  Label
+                  {t("contentTypes.labelLabel")}
                 </label>
                 <input
                   id="jf-ct-label"
                   className="jf-input"
-                  placeholder="Products"
+                  placeholder={t("ui.contentTypesPage.products")}
                   value={newType.label}
                   onChange={(e) => setNewType({ ...newType, label: e.target.value })}
                 />
-                <span className="jf-field__hint">Shown throughout the admin.</span>
+                <span className="jf-field__hint">{t("contentTypes.labelHint")}</span>
               </div>
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-ct-desc">
-                Description
+                {t("contentTypes.descriptionLabel")}
               </label>
               <input
                 id="jf-ct-desc"
                 className="jf-input"
-                placeholder="Optional"
+                placeholder={t("contentTypes.optionalPlaceholder")}
                 value={newType.description}
                 onChange={(e) => setNewType({ ...newType, description: e.target.value })}
               />
@@ -224,10 +222,10 @@ export default function ContentTypesPage() {
                 disabled={saving}
                 onClick={() => void saveNew()}
               >
-                Save
+                {t("common.save")}
               </button>
               <button className="jf-btn jf-btn--ghost" onClick={() => setCreating(false)}>
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
           </div>
@@ -244,7 +242,7 @@ export default function ContentTypesPage() {
                   <div className="jf-row" style={{ gap: "0.5rem" }}>
                     <strong>{type.label}</strong>
                     <code className="jf-code">{type.slug}</code>
-                    {type.builtin && <span className="jf-badge">built-in</span>}
+                    {type.builtin && <span className="jf-badge">{t("contentTypes.builtinBadge")}</span>}
                   </div>
                   {type.description && <p className="jf-list__desc">{type.description}</p>}
                 </div>
@@ -253,11 +251,11 @@ export default function ContentTypesPage() {
                     className="jf-btn jf-btn--ghost"
                     onClick={() => setEditing(isEditing ? null : type.slug)}
                   >
-                    {isEditing ? "Close" : "Edit fields"}
+                    {isEditing ? t("contentTypes.closeFields") : t("contentTypes.editFields")}
                   </button>
                   {canManage && !type.builtin && (
                     <button className="jf-btn jf-btn--danger" onClick={() => void removeType(type)}>
-                      Delete
+                      {t("common.delete")}
                     </button>
                   )}
                 </div>
@@ -265,10 +263,10 @@ export default function ContentTypesPage() {
 
               {isEditing && (
                 <div className="jf-card__body jf-stack">
-                  <h3 className="jf-card__title">Fields ({type.fields.length})</h3>
+                  <h3 className="jf-card__title">{t("contentTypes.fieldsHeading", { count: type.fields.length })}</h3>
 
                   {type.fields.length === 0 && (
-                    <p className="jf-prose">No fields yet — add one below.</p>
+                    <p className="jf-prose">{t("contentTypes.noFieldsYet")}</p>
                   )}
 
                   {type.fields.map((field, i) => (
@@ -282,7 +280,7 @@ export default function ContentTypesPage() {
                     >
                       <input
                         className="jf-input"
-                        aria-label="Field key"
+                        aria-label={t("contentTypes.fieldKeyAria")}
                         placeholder="key"
                         value={field.key}
                         disabled={!canManage}
@@ -297,8 +295,8 @@ export default function ContentTypesPage() {
                       />
                       <input
                         className="jf-input"
-                        aria-label="Field label"
-                        placeholder="Label"
+                        aria-label={t("contentTypes.fieldLabelAria")}
+                        placeholder={t("contentTypes.labelLabel")}
                         value={field.label}
                         disabled={!canManage}
                         onChange={(e) =>
@@ -312,7 +310,7 @@ export default function ContentTypesPage() {
                       />
                       <select
                         className="jf-input"
-                        aria-label="Field type"
+                        aria-label={t("contentTypes.fieldTypeAria")}
                         value={field.type}
                         disabled={!canManage}
                         onChange={(e) =>
@@ -344,13 +342,13 @@ export default function ContentTypesPage() {
                             })
                           }
                         />
-                        Required
+                        {t("contentTypes.requiredLabel")}
                       </label>
                       {field.type === "select" && (
                         <input
                           className="jf-input"
-                          aria-label="Select options"
-                          placeholder="small, medium, large"
+                          aria-label={t("contentTypes.selectOptionsAria")}
+                          placeholder={t("ui.contentTypesPage.smallMediumLarge")}
                           value={(field.options ?? []).join(", ")}
                           disabled={!canManage}
                           onChange={(e) =>
@@ -374,7 +372,7 @@ export default function ContentTypesPage() {
                       {canManage && (
                         <button
                           className="jf-btn jf-btn--danger"
-                          aria-label={`Remove field ${field.label}`}
+                          aria-label={t("contentTypes.removeFieldAria", { label: field.label })}
                           onClick={() =>
                             updateLocal(type.slug, {
                               ...type,
@@ -393,17 +391,17 @@ export default function ContentTypesPage() {
                       <button
                         className="jf-btn jf-btn--ghost"
                         onClick={() =>
-                          updateLocal(type.slug, { ...type, fields: [...type.fields, emptyField()] })
+                          updateLocal(type.slug, { ...type, fields: [...type.fields, emptyField(t("ui.contentTypesPage.newField"))] })
                         }
                       >
-                        + Add field
+                        {t("contentTypes.addField")}
                       </button>
                       <button
                         className="jf-btn jf-btn--primary"
                         disabled={saving}
                         onClick={() => void persist(type)}
                       >
-                        {saving ? "Saving…" : "Save fields"}
+                        {saving ? t("common.saving") : t("contentTypes.saveFields")}
                       </button>
                     </div>
                   )}

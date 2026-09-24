@@ -1,3 +1,4 @@
+import { translateEnglish, type Translate } from "../i18n/translate";
 export interface MediaLibraryItem {
   url: string;
   filename: string;
@@ -9,12 +10,12 @@ function isImageItem(item: Record<string, unknown>): boolean {
   return Boolean(url) && mime.startsWith("image/");
 }
 
-export async function uploadImage(file: File): Promise<string> {
+export async function uploadImage(file: File, t: Translate = translateEnglish): Promise<string> {
   const form = new FormData();
   form.append("file", file);
   const res = await fetch("/api/media", { method: "POST", body: form });
   const data = (await res.json()) as { url?: string; error?: string };
-  if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed");
+  if (!res.ok || !data.url) throw new Error(data.error ?? t("common.uploadFailed"));
   return data.url;
 }
 

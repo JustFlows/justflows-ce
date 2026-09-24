@@ -1,7 +1,7 @@
 /** Poll until the app responds after a Passenger restart (tmp/restart.txt). */
-export async function waitForSiteRestart(onLog?: (line: string) => void): Promise<boolean> {
+export async function waitForSiteRestart(t: (key: string) => string, onLog?: (line: string) => void): Promise<boolean> {
   const log = (line: string) => onLog?.(line);
-  log("↻ App is restarting — waiting for site to come back…");
+  log(`↻ ${t("updates.log.appRestarting")}`);
   await sleep(3000);
 
   for (let attempt = 0; attempt < 20; attempt++) {
@@ -10,7 +10,7 @@ export async function waitForSiteRestart(onLog?: (line: string) => void): Promis
       if (res.ok) {
         const body = await res.json() as { boot?: string };
         if (body.boot === "ready") {
-          log("✓ Site is back online — reloading…");
+          log(`✓ ${t("updates.log.siteBack")}`);
           await sleep(800);
           window.location.reload();
           return true;
@@ -22,7 +22,7 @@ export async function waitForSiteRestart(onLog?: (line: string) => void): Promis
     await sleep(1500);
   }
 
-  log("⚠ Restart may still be in progress — refresh the page manually if needed");
+  log(`⚠ ${t("updates.log.restartInProgress")}`);
   return false;
 }
 

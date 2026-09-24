@@ -64,7 +64,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.contentTypes", to: "/admin/content-types", icon: "🗂" },
       { key: "nav.media", to: "/admin/media", icon: "🖼" },
       { key: "nav.comments", to: "/admin/comments", icon: "💬" },
-      { key: "nav.trash", label: "Trash", to: "/admin/trash", icon: "♻" },
+      { key: "nav.trash",  to: "/admin/trash", icon: "♻" },
     ],
   },
   {

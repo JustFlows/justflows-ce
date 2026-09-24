@@ -36,7 +36,7 @@ export default function BlockJsonPanel({
 
   function apply() {
     try {
-      onApply(parseBlockNodeJson(draft, block));
+      onApply(parseBlockNodeJson(draft, block, t));
       setError("");
       setApplied(true);
     } catch (e) {

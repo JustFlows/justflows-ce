@@ -1,7 +1,7 @@
 import { useT } from "../../i18n/I18nProvider";
 import { cloneElement, isValidElement, useEffect, type ReactElement } from "react";
 import type { BlockNode } from "./types";
-import { parseBlockStyle, renderMath, sanitizeHtmlBlock, sanitizeRichText } from "@justflows/blocks";
+import { esc, parseBlockStyle, renderMath, sanitizeHtmlBlock, sanitizeRichText } from "@justflows/blocks";
 import MotionPreview from "./MotionPreview";
 import { applyMergeTags, useProductTags } from "../../lib/product-tags";
 import { InlineEditable } from "./InlineEditable";
@@ -52,7 +52,7 @@ export function BlockPreview({
   renderChildren,
   onUpdateProps,
 }: BlockPreviewProps) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const p = block.props;
   const tags = useProductTags();
   const text = (value: unknown) => applyMergeTags(String(value ?? ""), tags);
@@ -136,7 +136,7 @@ export function BlockPreview({
           <div className="jf-section__inner">
             {renderChildren?.(block.children ?? [], depth + 1) ?? (
               <div style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", padding: "0.5rem" }}>
-                Empty section — add blocks
+                {t("builder.preview.emptySectionAddBlocks")}
               </div>
             )}
           </div>
@@ -149,7 +149,7 @@ export function BlockPreview({
         <div className={`jf-container jf-container--${(p.width as string) || "default"}`}>
           {renderChildren?.(block.children ?? [], depth + 1) ?? (
             <div style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", padding: "0.5rem" }}>
-              Empty container
+              {t("builder.preview.emptyContainer")}
             </div>
           )}
         </div>,
@@ -177,7 +177,7 @@ export function BlockPreview({
       return wrap(
         <div className="jf-column" style={{ minHeight: 72 }}>
           {renderChildren?.(block.children ?? [], depth + 1) ?? (
-            <div style={{ color: "var(--jf-text-3)", fontSize: "0.75rem" }}>Drop content here</div>
+            <div style={{ color: "var(--jf-text-3)", fontSize: "0.75rem" }}>{t("builder.preview.dropContentHere")}</div>
           )}
         </div>,
       );
@@ -191,7 +191,7 @@ export function BlockPreview({
           style={bgImage ? { backgroundImage: `url(${bgImage})` } : undefined}
         >
           <div className="jf-hero__inner">
-            <h1 className="jf-hero__heading">{(p.heading as string) || "Hero heading"}</h1>
+            <h1 className="jf-hero__heading">{(p.heading as string) || t("builder.preview.heroHeading")}</h1>
             {(p.subheading as string) && <p className="jf-hero__sub">{p.subheading as string}</p>}
             {(p.buttonLabel as string) && (
               <span className="btn btn--primary jf-hero__btn">{p.buttonLabel as string}</span>
@@ -217,7 +217,7 @@ export function BlockPreview({
               {items.map((item, i) => (
                 <div key={i} className="jf-feature">
                   <span className="jf-feature__icon">{item.icon}</span>
-                  <h3 className="jf-feature__title">{item.title || "Feature"}</h3>
+                  <h3 className="jf-feature__title">{item.title || t("builder.preview.feature")}</h3>
                   <p className="jf-feature__desc">{item.description}</p>
                 </div>
               ))}
@@ -232,7 +232,7 @@ export function BlockPreview({
       return wrap(
         <section className={`jf-cta jf-cta--${variant}`}>
           <div className="jf-container jf-container--default">
-            <h2 className="jf-cta__heading">{(p.heading as string) || "Call to action"}</h2>
+            <h2 className="jf-cta__heading">{(p.heading as string) || t("builder.preview.callToAction")}</h2>
             {(p.text as string) && <p className="jf-cta__text">{p.text as string}</p>}
             {(p.buttonLabel as string) && (
               <span className="btn btn--primary jf-cta__btn">{p.buttonLabel as string}</span>
@@ -249,7 +249,7 @@ export function BlockPreview({
             as="div"
             className="jf-paragraph"
             value={typeof p.text === "string" ? p.text : ""}
-            placeholder="Type a paragraph…"
+            placeholder={t("builder.preview.typeAParagraph")}
             onCommit={(html) => onUpdateProps(block.id, { ...p, text: html })}
           />,
         );
@@ -260,7 +260,7 @@ export function BlockPreview({
           dangerouslySetInnerHTML={{
             __html:
               renderMath(sanitizeRichText(text(p.text))) ||
-              "<em style='color:var(--jf-text-3)'>Empty paragraph</em>",
+              `<em style='color:var(--jf-text-3)'>${esc(t("builder.preview.emptyParagraph"))}</em>`,
           }}
         />,
       );
@@ -274,13 +274,13 @@ export function BlockPreview({
             as={Tag}
             mode="plain"
             value={typeof p.text === "string" ? p.text : ""}
-            placeholder="Heading"
+            placeholder={t("builder.preview.heading")}
             onCommit={(value) => onUpdateProps(block.id, { ...p, text: value })}
           />,
         );
       }
       const heading = text(p.text);
-      return wrap(<Tag>{heading || <em style={{ color: "var(--jf-text-3)" }}>Heading</em>}</Tag>);
+      return wrap(<Tag>{heading || <em style={{ color: "var(--jf-text-3)" }}>{t("builder.preview.heading")}</em>}</Tag>);
     }
 
     case "core.image":
@@ -320,8 +320,7 @@ export function BlockPreview({
               color: "var(--jf-text-3)",
             }}
           >
-            No image
-          </div>
+            {t("builder.preview.noImage")}</div>
         ),
       );
 
@@ -333,7 +332,7 @@ export function BlockPreview({
               as="div"
               className="jf-quote__text"
               value={typeof p.text === "string" ? p.text : ""}
-              placeholder="Quote"
+              placeholder={t("builder.preview.quote")}
               onCommit={(html) => onUpdateProps(block.id, { ...p, text: html })}
             />
             {(p.attribution as string) ? <cite>— {p.attribution as string}</cite> : null}
@@ -347,7 +346,7 @@ export function BlockPreview({
             dangerouslySetInnerHTML={{
               __html:
                 renderMath(sanitizeRichText((p.text as string) || "")) ||
-                "<em style='color:var(--jf-text-3)'>Quote</em>",
+                `<em style='color:var(--jf-text-3)'>${esc(t("builder.preview.quote"))}</em>`,
             }}
           />
           {(p.attribution as string) ? <cite>— {p.attribution as string}</cite> : null}
@@ -357,7 +356,7 @@ export function BlockPreview({
     case "core.button":
       return wrap(
         <span className={`btn btn--${(p.variant as string) || "primary"}`}>
-          {(p.label as string) || "Button"}
+          {(p.label as string) || t("builder.preview.button")}
         </span>,
       );
 
@@ -369,12 +368,12 @@ export function BlockPreview({
             <h3 className="jf-link-list__heading">{p.heading as string}</h3>
           )}
           {items.length === 0 ? (
-            <div style={{ color: "var(--jf-text-3)", fontSize: "0.8rem" }}>No links yet</div>
+            <div style={{ color: "var(--jf-text-3)", fontSize: "0.8rem" }}>{t("builder.preview.noLinksYet")}</div>
           ) : (
             <ul className="jf-link-list__items">
               {items.map((item, i) => (
                 <li key={i}>
-                  <span className="jf-link-list__link">{item.label || item.url || "Link"}</span>
+                  <span className="jf-link-list__link">{item.label || item.url || t("builder.preview.link")}</span>
                 </li>
               ))}
             </ul>
@@ -427,7 +426,7 @@ export function BlockPreview({
             fontSize: "0.875rem",
           }}
         >
-          Embed: {(p.url as string) || "no URL"}
+          {t("builder.preview.embed")}{(p.url as string) || t("builder.preview.noURL")}
         </div>,
       );
 
@@ -436,7 +435,7 @@ export function BlockPreview({
         <div
           className="jf-html"
           dangerouslySetInnerHTML={{
-            __html: sanitizeHtmlBlock(text(p.html)) || "<p>HTML</p>",
+            __html: sanitizeHtmlBlock(text(p.html)) || `<p>${esc(t("builder.preview.html"))}</p>`,
           }}
         />,
       );
@@ -462,8 +461,7 @@ export function BlockPreview({
               color: "var(--jf-text-3)",
             }}
           >
-            Empty gallery
-          </div>,
+            {t("builder.preview.emptyGallery")}</div>,
         );
       }
       const shown =
@@ -524,11 +522,11 @@ export function BlockPreview({
       const lightIcon = (p.lightIcon as string) || "☀";
       const darkIcon = (p.darkIcon as string) || "☾";
       const schemeModes: Array<[string, string]> = [
-        [lightIcon, (p.lightLabel as string) || "Light"],
-        [darkIcon, (p.darkLabel as string) || "Dark"],
+        [lightIcon, (p.lightLabel as string) || t("builder.preview.light")],
+        [darkIcon, (p.darkLabel as string) || t("builder.preview.dark")],
       ];
       if (p.showSystem === true)
-        schemeModes.push([(p.autoIcon as string) || "◐", (p.autoLabel as string) || "Auto"]);
+        schemeModes.push([(p.autoIcon as string) || "◐", (p.autoLabel as string) || t("builder.preview.auto")]);
       const iconOnly = schemeStyle === "icons" || schemeStyle === "tooltip-icons";
       const textOnly = schemeStyle === "labels";
       const pillRadius = p.radius === "square" ? 0 : p.radius === "rounded" ? 8 : 999;
@@ -558,7 +556,7 @@ export function BlockPreview({
             }}
           >
             <span style={{ fontSize: chipSize.fontSize ?? "0.8rem", fontWeight: 600 }}>
-              {(p.darkLabel as string) || "Dark"}
+              {(p.darkLabel as string) || t("builder.preview.dark")}
             </span>
             <span
               style={{
@@ -629,8 +627,8 @@ export function BlockPreview({
     case "core.language-switcher":
       const languageStyle = (p.style as string) || "locale-short";
       const previewLanguages = [
-        { full: "en-US", short: "en", flag: "🇺🇸", country: "United States" },
-        { full: "nl-NL", short: "nl", flag: "🇳🇱", country: "Netherlands" },
+        { full: "en-US", short: "en", flag: "🇺🇸", country: new Intl.DisplayNames([locale], { type: "region" }).of("US"), name: new Intl.DisplayNames(["en"], { type: "language" }).of("en") },
+        { full: "nl-NL", short: "nl", flag: "🇳🇱", country: new Intl.DisplayNames([locale], { type: "region" }).of("NL"), name: new Intl.DisplayNames(["nl"], { type: "language" }).of("nl") },
       ];
       return wrap(
         <div
@@ -653,9 +651,7 @@ export function BlockPreview({
                     : languageStyle === "flag-country"
                       ? `${language.flag} ${language.country}`
                       : languageStyle === "names"
-                        ? index === 0
-                          ? "English"
-                          : "Nederlands"
+                        ? language.name
                         : language.short;
             return (
               <span
@@ -687,12 +683,12 @@ export function BlockPreview({
                 border: "1px solid var(--jf-border-strong)",
               }}
             >
-              {(p.loginLabel as string) || "Log in"}
+              {(p.loginLabel as string) || t("builder.preview.logIn")}
             </span>
           ) : null}
           {p.showRegister !== false ? (
             <span style={{ ...widgetChip, background: "var(--jf-accent)", color: "#fff" }}>
-              {(p.registerLabel as string) || "Register"}
+              {(p.registerLabel as string) || t("builder.preview.register")}
             </span>
           ) : null}
         </div>,
@@ -704,8 +700,7 @@ export function BlockPreview({
       return wrap(
         <div>
           <div style={{ fontSize: "0.7rem", color: "var(--jf-text-3)", marginBottom: "0.5rem" }}>
-            📰 Blog posts — newest {(Number(p.postsPerPage) || undefined) ?? "N"} shown, paginated
-          </div>
+            {t("builder.preview.blogPostsNewest")}{(Number(p.postsPerPage) || undefined) ?? "N"} {t("builder.preview.shownPaginated")}</div>
           <div
             style={{
               display: "grid",
@@ -781,8 +776,7 @@ export function BlockPreview({
               color: "var(--jf-text-3)",
             }}
           >
-            Product gallery
-          </div>,
+            {t("builder.preview.productGallery")}</div>,
         );
       }
       return wrap(
@@ -825,9 +819,9 @@ export function BlockPreview({
     case "justflows.shop.buy-box":
       return wrap(
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <div style={{ fontSize: "1.35rem", fontWeight: 800 }}>{text(p.title) || "Product"}</div>
+          <div style={{ fontSize: "1.35rem", fontWeight: 800 }}>{text(p.title) || t("builder.preview.product")}</div>
           <div style={{ display: "flex", gap: "0.6rem", alignItems: "baseline" }}>
-            <strong>{text(p.price) || "Price"}</strong>
+            <strong>{text(p.price) || t("builder.preview.price")}</strong>
             {text(p.comparePrice) ? (
               <span style={{ color: "var(--jf-text-3)", textDecoration: "line-through" }}>
                 {text(p.comparePrice)}
@@ -848,7 +842,7 @@ export function BlockPreview({
               fontSize: "0.85rem",
             }}
           >
-            {text(p.cartLabel) || "Add to cart"}
+            {text(p.cartLabel) || t("builder.preview.addToCart")}
           </div>
         </div>,
       );
@@ -862,7 +856,7 @@ export function BlockPreview({
             .filter(Boolean)
             .join(" / ")}
           {items.length ? " / " : ""}
-          {text(p.current) || "Product"}
+          {text(p.current) || t("builder.preview.product")}
         </div>,
       );
     }
@@ -872,7 +866,7 @@ export function BlockPreview({
       return wrap(
         <div>
           <div style={{ fontWeight: 700, marginBottom: "0.35rem" }}>
-            {text(p.heading) || "Highlights"}
+            {text(p.heading) || t("builder.preview.highlights")}
           </div>
           <ul
             style={{
@@ -903,7 +897,7 @@ export function BlockPreview({
                 fontWeight: 600,
               }}
             >
-              {section.name || "Details"}
+              {section.name || t("builder.preview.details")}
             </div>
           ))}
         </div>,
@@ -939,12 +933,12 @@ export function BlockPreview({
       return wrap(
         <div>
           <div style={{ fontWeight: 700, marginBottom: "0.35rem" }}>
-            {text(p.heading) || "Customer Reviews"}
+            {text(p.heading) || t("builder.preview.customerReviews")}
           </div>
           <div style={{ color: "var(--jf-text-3)", fontSize: "0.85rem" }}>
             {Number(p.average) > 0
-              ? `${p.average} ★ · ${p.totalCount || 0} reviews`
-              : "No reviews yet"}
+              ? t("builder.preview.reviewSummary", { average: Number(p.average), count: Number(p.totalCount) || 0 })
+              : t("builder.preview.noReviewsYet")}
           </div>
         </div>,
       );
@@ -957,7 +951,7 @@ export function BlockPreview({
       return wrap(
         <div>
           <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>
-            {text(p.heading) || "You may also like"}
+            {text(p.heading) || t("builder.preview.youMayAlsoLike")}
           </div>
           <div
             style={{
@@ -997,7 +991,7 @@ export function BlockPreview({
       return wrap(
         <div>
           <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>
-            {text(p.heading) || "Product list"}
+            {text(p.heading) || t("builder.preview.productList")}
           </div>
           <div
             style={{
@@ -1044,7 +1038,7 @@ export function BlockPreview({
       return wrap(
         <div>
           <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>
-            {text(p.heading) || "The Fine Details"}
+            {text(p.heading) || t("builder.preview.theFineDetails")}
           </div>
           <div
             style={{
@@ -1078,14 +1072,14 @@ export function BlockPreview({
     case "core.post-title": {
       const level = Math.min(6, Math.max(1, Number(p.level) || 1));
       const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
-      return wrap(<Tag className="post-title">Post title</Tag>);
+      return wrap(<Tag className="post-title">{t("builder.preview.postTitle")}</Tag>);
     }
 
     case "core.post-meta":
-      return wrap(<p className="post-meta">Published date</p>);
+      return wrap(<p className="post-meta">{t("builder.preview.publishedDate")}</p>);
 
     case "core.post-excerpt":
-      return wrap(<p className="post-excerpt">The post excerpt appears here.</p>);
+      return wrap(<p className="post-excerpt">{t("builder.preview.thePostExcerptAppearsHere")}</p>);
 
     case "core.featured-image":
       return wrap(
@@ -1101,8 +1095,7 @@ export function BlockPreview({
             borderRadius: 6,
           }}
         >
-          Featured image
-        </figure>,
+          {t("builder.preview.featuredImage")}</figure>,
       );
 
     case "core.post-content":
@@ -1116,8 +1109,7 @@ export function BlockPreview({
             fontSize: "0.8rem",
           }}
         >
-          ¶ Post content — the page or post's own blocks render here
-        </div>,
+          {t("builder.preview.postContentThePageOrPostSOwnBlocksRender")}</div>,
       );
 
     case "core.template-part":
@@ -1131,7 +1123,7 @@ export function BlockPreview({
             fontSize: "0.8rem",
           }}
         >
-          ▤ Template part: {String(p.slug || "header")}
+          {t("builder.preview.templatePart")}{String(p.slug || "header")}
         </div>,
       );
 

@@ -6,6 +6,7 @@ import HeaderRefField from "@components/builder/HeaderRefField";
 import { fieldsWithHeaderRef, headerRefFromFields } from "../../../lib/page-header";
 import { fetchProductPattern, isEmptyBlockDocument, shouldSeedProductLayout, usesPageBuilderChrome } from "../../../lib/content-layout";
 import { catalogPreviewTags } from "../../../lib/product-tags";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface ContentItem {
   id: string;
@@ -24,6 +25,7 @@ interface ContentItem {
 export default function PageBuilderPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useT();
 
   const [item, setItem] = useState<ContentItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ export default function PageBuilderPage() {
     fetch(`/api/content/${id}`)
       .then(async (r) => {
         const data = await r.json() as ContentItem & { error?: string };
-        if (!r.ok) throw new Error(data.error ?? "Failed to load");
+        if (!r.ok) throw new Error(data.error ?? t("pageBuilderPage.loadError"));
         if (shouldSeedProductLayout(data) && isEmptyBlockDocument(data.blocks)) {
           const pattern = await fetchProductPattern();
           if (pattern) data.blocks = pattern as ContentItem["blocks"];
@@ -74,7 +76,7 @@ export default function PageBuilderPage() {
         }),
       });
       const data = await res.json() as ContentItem & { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Save failed");
+      if (!res.ok) throw new Error(data.error ?? t("pageBuilderPage.saveFailed"));
       setItem(data);
       if (publish) {
         const published = await fetch(`/api/content/${id}/publish`, {
@@ -83,7 +85,7 @@ export default function PageBuilderPage() {
           body: JSON.stringify({ expectedVersion: data.version }),
         });
         const body = await published.json() as ContentItem & { error?: string };
-        if (!published.ok) throw new Error(body.error ?? "Publish failed");
+        if (!published.ok) throw new Error(body.error ?? t("pageBuilderPage.publishFailed"));
         setItem(body);
       }
       setSaved(true);
@@ -95,12 +97,12 @@ export default function PageBuilderPage() {
     }
   }, [item, id]);
 
-  if (loading) return <div className="jf-center">Loading page builder…</div>;
+  if (loading) return <div className="jf-center">{t("pageBuilderPage.loading")}</div>;
 
   if (!item) {
     return (
       <div className="jf-center">
-        <div className="jf-alert jf-alert--error">{error || "Not found"}</div>
+        <div className="jf-alert jf-alert--error">{error || t("pageBuilderPage.notFound")}</div>
       </div>
     );
   }
@@ -116,13 +118,13 @@ export default function PageBuilderPage() {
           className="jf-btn jf-btn--onbar"
           onClick={() => navigate(`/admin/content/${id}`)}
         >
-          ← Back
+          ← {t("common.back")}
         </button>
 
         <div className="jf-editor__title">
-          <div className="jf-editor__name">{item.title || "Untitled page"}</div>
+          <div className="jf-editor__name">{item.title || t("pageBuilderPage.untitledPage")}</div>
           <div className="jf-editor__sub">
-            Page builder · {item.status}{item.hasWorkingRevision ? " — draft changes" : ""}
+            {t("pageBuilderPage.statusLine", { status: item.status })}{item.hasWorkingRevision ? t("pageBuilderPage.draftChangesSuffix") : ""}
           </div>
         </div>
 
@@ -137,19 +139,19 @@ export default function PageBuilderPage() {
               compact
             />
           )}
-          {saved && <span className="jf-editor__status jf-editor__status--ok">✓ Saved</span>}
+          {saved && <span className="jf-editor__status jf-editor__status--ok">✓ {t("common.saved")}</span>}
           {error && <span className="jf-editor__status jf-editor__status--error">{error}</span>}
           {previewUrl && (
             <a className="jf-btn jf-btn--onbar" href={previewUrl} target="_blank" rel="noreferrer">
-              Preview ↗
+              {t("pageBuilderPage.preview")} ↗
             </a>
           )}
           <button type="button" className="jf-btn jf-btn--onbar" disabled={saving} onClick={() => save(false)}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? t("common.saving") : t("common.save")}
           </button>
           {item.status !== "published" || item.hasWorkingRevision ? (
             <button type="button" className="jf-btn jf-btn--primary" disabled={saving} onClick={() => save(true)}>
-              Publish
+              {t("content.publish")}
             </button>
           ) : null}
         </div>

@@ -105,7 +105,7 @@ export default function PatternLibrary({
       });
       if (!res.ok)
         throw new Error(
-          ((await res.json()) as { error?: string }).error ?? "Could not save pattern",
+          ((await res.json()) as { error?: string }).error ?? t("ui.patternLibrary.couldNotSavePattern"),
         );
       await reload();
     } catch (err) {
@@ -125,7 +125,7 @@ export default function PatternLibrary({
         body: JSON.stringify(parsed),
       });
       if (!res.ok)
-        throw new Error(((await res.json()) as { error?: string }).error ?? "Invalid pattern set");
+        throw new Error(((await res.json()) as { error?: string }).error ?? t("ui.patternLibrary.invalidPatternSet"));
       await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("builder.patterns.importError"));
@@ -136,7 +136,7 @@ export default function PatternLibrary({
   }
 
   async function removeSelected() {
-    if (!selected || selected.source !== "site" || !window.confirm(`Delete “${selected.title}”?`))
+    if (!selected || selected.source !== "site" || !window.confirm(t("common.deleteNamed", { name: selected.title })))
       return;
     const res = await fetch(`/api/patterns/${encodeURIComponent(selected.id)}`, {
       method: "DELETE",

@@ -1,5 +1,6 @@
 import { publicAdminPath } from "../../admin-path";
 import type { CSSProperties } from "react";
+import { useT } from "../../i18n/I18nProvider";
 import type { PageHeaderConfig } from "../../lib/page-header";
 import type { BlockCatalogEntry, BlockNode } from "./types";
 import { HEADER_SELECTED_ID } from "../../lib/page-header";
@@ -59,6 +60,7 @@ export function HeaderInspector({
   /** Editing a library header in the theme customizer — there is no "this page". */
   libraryMode?: boolean;
 }) {
+  const { t } = useT();
   const set = (patch: Partial<PageHeaderConfig>) => onChange({ ...header, ...patch });
   const fieldLabel: CSSProperties = {
     display: "flex",
@@ -81,7 +83,7 @@ export function HeaderInspector({
 
   return (
     <div>
-      <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem" }}>Header &amp; navigation</h3>
+      <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem" }}>{t("builder.headerChrome.headerAndNavigation")}</h3>
       {!libraryMode && (
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input
@@ -89,44 +91,44 @@ export function HeaderInspector({
             checked={header.visible}
             onChange={(e) => set({ visible: e.target.checked })}
           />
-          Show header on this page
+          {t("builder.headerChrome.showHeaderOnThisPage")}
         </label>
       )}
       {(libraryMode || header.visible) && (
         <>
           <label style={fieldLabel}>
-            Navigation menu
+            {t("builder.headerChrome.navigationMenu")}
             <select
               style={fieldInput}
               value={header.menuMode}
               onChange={(e) => set({ menuMode: e.target.value as PageHeaderConfig["menuMode"] })}
             >
-              <option value="inherit">Site default ({siteDefaultSlug || "primary"})</option>
-              <option value="menu">A specific menu</option>
-              <option value="none">No menu</option>
+              <option value="inherit">{t("builder.headerChrome.siteDefaultSlug", { slug: siteDefaultSlug || "primary" })}</option>
+              <option value="menu">{t("builder.headerChrome.aSpecificMenu")}</option>
+              <option value="none">{t("builder.headerChrome.noMenu")}</option>
             </select>
           </label>
           {header.menuMode === "menu" && (
             <label style={fieldLabel}>
-              Menu
+              {t("builder.headerChrome.menu")}
               <select
                 style={fieldInput}
                 value={header.menuSlug}
                 onChange={(e) => set({ menuSlug: e.target.value })}
               >
-                <option value="">Select a menu…</option>
+                <option value="">{t("builder.headerChrome.selectAMenu")}</option>
                 {menus.map((menu) => (
                   <option key={menu.slug} value={menu.slug}>
-                    {menu.name} ({menu.slug})
+                    {t("builder.headerChrome.menuNameSlug", { name: menu.name, slug: menu.slug })}
                   </option>
                 ))}
               </select>
             </label>
           )}
           <p style={{ fontSize: "0.75rem", color: "var(--jf-text-3)", margin: "0 0 0.9rem" }}>
-            Edit menu links and layout in{" "}
+            {t("builder.headerChrome.editMenuLinksIn")}{" "}
             <a href={publicAdminPath("/admin/themes/customize?tab=menus")} target="_blank" rel="noopener noreferrer">
-              Themes → Customize → Menus
+              {t("builder.headerChrome.themesCustomizeMenusLink")}
             </a>.
           </p>
           <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
@@ -135,7 +137,7 @@ export function HeaderInspector({
               checked={header.showLogo}
               onChange={(e) => set({ showLogo: e.target.checked })}
             />
-            Show logo
+            {t("builder.headerChrome.showLogo")}
           </label>
           <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
             <input
@@ -143,34 +145,34 @@ export function HeaderInspector({
               checked={header.showTitle}
               onChange={(e) => set({ showTitle: e.target.checked })}
             />
-            Show site title
+            {t("builder.headerChrome.showSiteTitle")}
           </label>
           <label style={fieldLabel}>
-            Layout
+            {t("builder.inspector.field.layout")}
             <select
               style={fieldInput}
               value={header.layout}
               onChange={(e) => set({ layout: e.target.value as PageHeaderConfig["layout"] })}
             >
-              <option value="logo-left">Logo left, menu right</option>
-              <option value="logo-center">Centered</option>
-              <option value="split">Split</option>
+              <option value="logo-left">{t("builder.headerChrome.logoLeftMenuRight")}</option>
+              <option value="logo-center">{t("builder.headerChrome.centered")}</option>
+              <option value="split">{t("builder.headerChrome.split")}</option>
             </select>
           </label>
           <label style={fieldLabel}>
-            Mobile layout
+            {t("builder.headerChrome.mobileLayout")}
             <select
               style={fieldInput}
               value={header.mobileLayout}
               onChange={(e) => set({ mobileLayout: e.target.value as PageHeaderConfig["mobileLayout"] })}
             >
-              <option value="logo-left">Logo left, hamburger right</option>
-              <option value="logo-center">Hamburger left, logo centered</option>
-              <option value="hamburger-logo">Hamburger left, logo beside it</option>
-              <option value="hamburger-only">Hamburger only, logo inside menu</option>
+              <option value="logo-left">{t("builder.headerChrome.logoLeftHamburgerRight")}</option>
+              <option value="logo-center">{t("builder.headerChrome.hamburgerLeftLogoCentered")}</option>
+              <option value="hamburger-logo">{t("builder.headerChrome.hamburgerLeftLogoBeside")}</option>
+              <option value="hamburger-only">{t("builder.headerChrome.hamburgerOnlyLogoInsideMenu")}</option>
             </select>
             <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>
-              How the bar rearranges below the menu&rsquo;s mobile breakpoint.
+              {t("builder.headerChrome.mobileLayoutHint")}
             </span>
           </label>
           <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
@@ -179,20 +181,20 @@ export function HeaderInspector({
               checked={header.sticky}
               onChange={(e) => set({ sticky: e.target.checked })}
             />
-            Sticky header
+            {t("builder.headerChrome.stickyHeader")}
           </label>
           <label style={fieldLabel}>
-            Background
+            {t("builder.inspector.field.background")}
             <input
               style={fieldInput}
               type="text"
-              placeholder="Theme default"
+              placeholder={t("builder.headerChrome.themeDefault")}
               value={header.background}
               onChange={(e) => set({ background: e.target.value })}
             />
           </label>
           <p style={{ fontSize: "0.75rem", color: "var(--jf-text-3)", margin: "0.25rem 0 0.6rem", fontWeight: 700 }}>
-            Header widgets
+            {t("builder.headerChrome.headerWidgets")}
           </p>
           <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
             <input
@@ -200,21 +202,21 @@ export function HeaderInspector({
               checked={header.showLanguageSwitcher}
               onChange={(e) => set({ showLanguageSwitcher: e.target.checked })}
             />
-            Language switcher
+            {t("builder.headerChrome.languageSwitcher")}
           </label>
           {header.showLanguageSwitcher && (
             <label style={{ ...fieldLabel, paddingLeft: "1.5rem" }}>
-              Language selector style
+              {t("builder.headerChrome.languageSelectorStyle")}
               <select
                 style={fieldInput}
                 value={header.languageSwitcherStyle}
                 onChange={(e) => set({ languageSwitcherStyle: e.target.value as PageHeaderConfig["languageSwitcherStyle"] })}
               >
-                <option value="locale-full">Locale (nl-NL)</option>
-                <option value="locale-short">Short locale (nl)</option>
-                <option value="flags">Flags</option>
-                <option value="flag-locale">Flag and locale</option>
-                <option value="flag-country">Flag and country name</option>
+                <option value="locale-full">{t("builder.inspector.option.localeFull")}</option>
+                <option value="locale-short">{t("builder.inspector.option.localeShort")}</option>
+                <option value="flags">{t("builder.inspector.option.flags")}</option>
+                <option value="flag-locale">{t("builder.inspector.option.flagAndLocale")}</option>
+                <option value="flag-country">{t("builder.inspector.option.flagAndCountryName")}</option>
               </select>
             </label>
           )}
@@ -224,7 +226,7 @@ export function HeaderInspector({
               checked={header.showColorScheme}
               onChange={(e) => set({ showColorScheme: e.target.checked })}
             />
-            Light / dark toggle
+            {t("builder.headerChrome.lightDarkToggle")}
           </label>
           {header.showColorScheme && (
             <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem", paddingLeft: "1.5rem" }}>
@@ -233,7 +235,7 @@ export function HeaderInspector({
                 checked={header.showColorSchemeSystem}
                 onChange={(e) => set({ showColorSchemeSystem: e.target.checked })}
               />
-              Add an “Auto” option
+              {t("builder.headerChrome.addAutoOption")}
             </label>
           )}
           <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
@@ -242,10 +244,10 @@ export function HeaderInspector({
               checked={header.showAuthLinks}
               onChange={(e) => set({ showAuthLinks: e.target.checked })}
             />
-            Login / register
+            {t("builder.headerChrome.loginRegister")}
           </label>
           <p style={{ fontSize: "0.75rem", color: "var(--jf-text-3)", margin: "0 0 0.5rem" }}>
-            Drag any block from the library into the header. Site blocks include light/dark, language, and login/register. Register only appears on the public site when Settings → Anyone can register is on.
+            {t("builder.headerChrome.dragBlockHint")}
           </p>
         </>
       )}
@@ -276,6 +278,7 @@ export default function HeaderChrome({
   onSelectBlock: (id: string | null) => void;
   onBlocksChange: (blocks: BlockNode[]) => void;
 }) {
+  const { t, locale } = useT();
   if (!header.visible) {
     return (
       <button
@@ -286,7 +289,7 @@ export default function HeaderChrome({
           onSelect();
         }}
       >
-        Header hidden on this page — click to restore
+        {t("builder.headerChrome.headerHiddenClickToRestore")}
       </button>
     );
   }
@@ -304,7 +307,7 @@ export default function HeaderChrome({
       className={`jf-header-chrome${layoutClass}${selected ? " is-selected" : ""}`}
       style={header.background ? { background: header.background } : undefined}
       role="group"
-      aria-label="Edit header and navigation"
+      aria-label={t("builder.headerChrome.editHeaderAndNavigation")}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
@@ -315,7 +318,7 @@ export default function HeaderChrome({
           <img src={identity.logoUrl} alt="" className="jf-header-chrome__logo" />
         ) : null}
         {header.showTitle ? (
-          <span className="jf-header-chrome__title">{identity.siteTitle || "Site title"}</span>
+          <span className="jf-header-chrome__title">{identity.siteTitle || t("builder.headerChrome.siteTitle")}</span>
         ) : null}
       </span>
       <span className="jf-header-chrome__nav">
@@ -324,19 +327,19 @@ export default function HeaderChrome({
             <span key={label} className="jf-header-chrome__link">{label}</span>
           ))
         ) : (
-          <span className="jf-header-chrome__empty">No menu items — click to choose a menu</span>
+          <span className="jf-header-chrome__empty">{t("builder.headerChrome.noMenuItemsClickToChoose")}</span>
         )}
         {header.showLanguageSwitcher ? (
           <span className="jf-header-chrome__widget">
             {header.languageSwitcherStyle === "locale-full" ? "en-US"
               : header.languageSwitcherStyle === "flags" ? "🇺🇸"
                 : header.languageSwitcherStyle === "flag-locale" ? "🇺🇸 en"
-                  : header.languageSwitcherStyle === "flag-country" ? "🇺🇸 United States"
+                  : header.languageSwitcherStyle === "flag-country" ? `🇺🇸 ${new Intl.DisplayNames([locale], { type: "region" }).of("US")}`
                     : "en"} ⌄
           </span>
         ) : null}
         {header.showColorScheme ? <span className="jf-header-chrome__widget">◐</span> : null}
-        {header.showAuthLinks ? <span className="jf-header-chrome__widget">Log in</span> : null}
+        {header.showAuthLinks ? <span className="jf-header-chrome__widget">{t("builder.headerChrome.logIn")}</span> : null}
         <div
           className="jf-header-chrome__blocks"
           onClick={(e) => e.stopPropagation()}
@@ -352,8 +355,8 @@ export default function HeaderChrome({
             compact
             showEmptyState={false}
             showAddSlot
-            addLabel="+ Add to header"
-            emptyLabel="Drop blocks here"
+            addLabel={t("builder.headerChrome.addToHeader")}
+            emptyLabel={t("builder.headerChrome.dropBlocksHere")}
           />
         </div>
       </span>

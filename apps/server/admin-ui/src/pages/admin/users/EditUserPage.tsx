@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useNavigate } from "../../../admin-router";
 import { useCapability } from "@components/SessionProvider";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface User {
   id: string;
@@ -38,6 +39,7 @@ function fromApi(user: Record<string, any>): User {
 export default function EditUserPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useT();
   // Updating, resetting a password and removing are all administrator-only on
   // the server; an editor can reach this page (they can read the list) but
   // gets a read-only profile rather than controls that would 403.
@@ -67,7 +69,7 @@ export default function EditUserPage() {
     fetch(`/api/users/${encodeURIComponent(id ?? "")}`)
       .then(async (res) => {
         const data = await res.json() as { user?: Record<string, string>; error?: string };
-        if (!res.ok || !data.user) throw new Error(data.error ?? "Failed to load user");
+        if (!res.ok || !data.user) throw new Error(data.error ?? t("users.edit.failedToLoadUser"));
         const loaded = fromApi(data.user);
         setUser(loaded);
         setDisplayName(loaded.displayName);
@@ -152,7 +154,7 @@ export default function EditUserPage() {
         body: JSON.stringify(body),
       });
       const data = await res.json() as { ok?: boolean; error?: string };
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to update user");
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("users.edit.failedToUpdateUser"));
       setUser((current) => (current
         ? {
             ...current,
@@ -165,7 +167,7 @@ export default function EditUserPage() {
               : current.scopes,
           }
         : current));
-      setNotice("User updated.");
+      setNotice(t("users.edit.userUpdated"));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -186,10 +188,10 @@ export default function EditUserPage() {
         body: JSON.stringify({ newPassword }),
       });
       const data = await res.json() as { ok?: boolean; error?: string };
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to reset password");
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("users.edit.failedToResetPassword"));
       setNewPassword("");
       setShowPasswordReset(false);
-      setNotice("Password reset. The user has been signed out everywhere.");
+      setNotice(t("users.edit.passwordResetNotice"));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -199,13 +201,13 @@ export default function EditUserPage() {
 
   async function removeUser() {
     if (!user) return;
-    if (!window.confirm(`Remove ${user.displayName || user.email}? This cannot be undone.`)) return;
+    if (!window.confirm(t("users.edit.removeUserConfirm", { name: user.displayName || user.email }))) return;
     setRemoving(true);
     setError("");
     try {
       const res = await fetch(`/api/users/${encodeURIComponent(user.id)}`, { method: "DELETE" });
       const data = await res.json() as { ok?: boolean; error?: string };
-      if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to remove user");
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("users.edit.failedToRemoveUser"));
       navigate("/admin/users");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -217,9 +219,9 @@ export default function EditUserPage() {
     return (
       <>
         <header className="jf-topbar">
-          <button className="jf-btn jf-btn--quiet" onClick={() => navigate("/admin/users")}>← Back</button>
+          <button className="jf-btn jf-btn--quiet" onClick={() => navigate("/admin/users")}>← {t("common.back")}</button>
         </header>
-        <div className="jf-page">Loading user…</div>
+        <div className="jf-page">{t("users.edit.loadingUser")}</div>
       </>
     );
   }
@@ -228,10 +230,10 @@ export default function EditUserPage() {
     return (
       <>
         <header className="jf-topbar">
-          <button className="jf-btn jf-btn--quiet" onClick={() => navigate("/admin/users")}>← Back</button>
+          <button className="jf-btn jf-btn--quiet" onClick={() => navigate("/admin/users")}>← {t("common.back")}</button>
         </header>
         <div className="jf-page">
-          <div className="jf-alert jf-alert--error" role="alert">{error || "User not found"}</div>
+          <div className="jf-alert jf-alert--error" role="alert">{error || t("users.edit.userNotFound")}</div>
         </div>
       </>
     );
@@ -240,15 +242,15 @@ export default function EditUserPage() {
   return (
     <>
       <header className="jf-topbar">
-        <button className="jf-btn jf-btn--quiet" onClick={() => navigate("/admin/users")}>← Back</button>
+        <button className="jf-btn jf-btn--quiet" onClick={() => navigate("/admin/users")}>← {t("common.back")}</button>
         <div className="jf-topbar__title">
-          <span className="jf-topbar__eyebrow">Edit user</span>
+          <span className="jf-topbar__eyebrow">{t("users.edit.eyebrow")}</span>
           <h1>{user.displayName || user.email}</h1>
         </div>
         {canManage && (
           <div className="jf-topbar__actions">
             <button className="jf-btn jf-btn--primary" form="jf-edit-user-form" type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Save changes"}
+              {saving ? t("common.saving") : t("users.edit.saveChanges")}
             </button>
           </div>
         )}
@@ -260,22 +262,22 @@ export default function EditUserPage() {
 
         <form id="jf-edit-user-form" className="jf-card" onSubmit={save}>
           <div className="jf-card__head">
-            <h2 className="jf-card__title">Profile</h2>
+            <h2 className="jf-card__title">{t("users.edit.profile")}</h2>
           </div>
           <div className="jf-card__body jf-stack">
             <div className="jf-grid jf-grid--2">
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-edit-email">Email address</label>
+                <label className="jf-field__label" htmlFor="jf-edit-email">{t("users.edit.emailAddress")}</label>
                 <input id="jf-edit-email" className="jf-input" type="email" value={user.email} disabled />
               </div>
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-edit-username">Username</label>
+                <label className="jf-field__label" htmlFor="jf-edit-username">{t("users.edit.username")}</label>
                 <input id="jf-edit-username" className="jf-input" value={`@${user.username}`} disabled />
               </div>
             </div>
             <div className="jf-grid jf-grid--2">
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-edit-displayname">Display name</label>
+                <label className="jf-field__label" htmlFor="jf-edit-displayname">{t("users.edit.displayName")}</label>
                 <input
                   id="jf-edit-displayname"
                   className="jf-input"
@@ -286,7 +288,7 @@ export default function EditUserPage() {
                 />
               </div>
               <div className="jf-field">
-                <label className="jf-field__label" htmlFor="jf-edit-role">Role</label>
+                <label className="jf-field__label" htmlFor="jf-edit-role">{t("users.edit.role")}</label>
                 <select
                   id="jf-edit-role"
                   className="jf-input"
@@ -295,20 +297,20 @@ export default function EditUserPage() {
                   onChange={(e) => setRole(e.target.value)}
                 >
                   {(roles.length ? roles : ROLES.map((id) => ({ id, name: id, builtIn: true }))).map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}{r.builtIn ? " (built-in)" : ""}</option>
+                    <option key={r.id} value={r.id}>{r.name}{r.builtIn ? ` (${t("users.edit.builtIn")})` : ""}</option>
                   ))}
                 </select>
               </div>
             </div>
-            <span className="jf-field__hint">Joined {user.createdAt.slice(0, 10)}</span>
+            <span className="jf-field__hint">{t("users.edit.joined", { date: user.createdAt.slice(0, 10) })}</span>
           </div>
         </form>
 
         {canManage && capabilities.length > 0 && (
           <div className="jf-card">
-            <div className="jf-card__head"><h2 className="jf-card__title">Individual access</h2></div>
+            <div className="jf-card__head"><h2 className="jf-card__title">{t("users.edit.individualAccess")}</h2></div>
             <div className="jf-card__body jf-stack">
-              <p className="jf-field__hint">Grant or explicitly deny capabilities on top of the selected role. Denies always win.</p>
+              <p className="jf-field__hint">{t("users.edit.individualAccessHint")}</p>
               <div className="jf-grid jf-grid--2">
                 {capabilities.map((capability) => (
                   <div className="jf-field" key={capability}>
@@ -323,20 +325,24 @@ export default function EditUserPage() {
                         setDenies((current) => value === "deny" ? [...new Set([...current, capability])] : current.filter((item) => item !== capability));
                       }}
                     >
-                      <option value="inherit">Inherit from role</option>
-                      <option value="grant">Grant</option>
-                      <option value="deny">Deny</option>
+                      <option value="inherit">{t("users.edit.inherit")}</option>
+                      <option value="grant">{t("users.edit.grant")}</option>
+                      <option value="deny">{t("users.edit.deny")}</option>
                     </select>
                   </div>
                 ))}
               </div>
-              <p className="jf-field__hint">Effective access preview: {user.effectiveCapabilities.length ? user.effectiveCapabilities.join(", ") : "No capabilities"}. Save to refresh the calculated preview.</p>
+              <p className="jf-field__hint">{t("users.edit.effectiveAccessPreview", { capabilities: user.effectiveCapabilities.length ? user.effectiveCapabilities.join(", ") : t("users.edit.noCapabilities") })}</p>
               <div className="jf-grid jf-grid--2">
-                <label className="jf-field"><span className="jf-field__label">Content types</span><input className="jf-input" placeholder="post, page" value={contentTypes} onChange={(e) => setContentTypes(e.target.value)} /><span className="jf-field__hint">Comma-separated; empty allows every type.</span></label>
-                <label className="jf-field"><span className="jf-field__label">Locales</span><input className="jf-input" placeholder="nl-NL, nl-BE" value={locales} onChange={(e) => setLocales(e.target.value)} /><span className="jf-field__hint">Comma-separated; empty allows every locale.</span></label>
+                <label className="jf-field"><span className="jf-field__label">{t("users.edit.contentTypes")}</span><input className="jf-input" placeholder="post, page" value={contentTypes} onChange={(e) => setContentTypes(e.target.value)} /><span className="jf-field__hint">{t("users.edit.contentTypesHint")}</span></label>
+                <label className="jf-field"><span className="jf-field__label">{t("users.edit.locales")}</span><input className="jf-input" placeholder="nl-NL, nl-BE" value={locales} onChange={(e) => setLocales(e.target.value)} /><span className="jf-field__hint">{t("users.edit.localesHint")}</span></label>
               </div>
-              <label className="jf-field"><span><input type="checkbox" checked={ownOnly} onChange={(e) => setOwnOnly(e.target.checked)} /> Only content owned by this user</span></label>
-              <p className="jf-field__hint">Content scope preview: {contentTypes || "all content types"}; {locales || "all locales"}; {ownOnly ? "owned content only" : "any owner"}.</p>
+              <label className="jf-field"><span><input type="checkbox" checked={ownOnly} onChange={(e) => setOwnOnly(e.target.checked)} /> {t("users.edit.ownContentOnly")}</span></label>
+              <p className="jf-field__hint">{t("users.edit.contentScopePreview", {
+                contentTypes: contentTypes || t("users.edit.allContentTypes"),
+                locales: locales || t("users.edit.allLocales"),
+                ownership: ownOnly ? t("users.edit.ownedContentOnly") : t("users.edit.anyOwner"),
+              })}</p>
             </div>
           </div>
         )}
@@ -344,19 +350,19 @@ export default function EditUserPage() {
         {canManage && (
         <div className="jf-card">
           <div className="jf-card__head">
-            <h2 className="jf-card__title">Password</h2>
+            <h2 className="jf-card__title">{t("users.edit.password")}</h2>
           </div>
           <div className="jf-card__body jf-stack">
             {!showPasswordReset ? (
               <div className="jf-row">
                 <button type="button" className="jf-btn jf-btn--ghost" onClick={() => setShowPasswordReset(true)}>
-                  Reset password
+                  {t("users.edit.resetPassword")}
                 </button>
               </div>
             ) : (
               <form className="jf-stack" onSubmit={resetPassword}>
                 <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-edit-newpassword">New password</label>
+                  <label className="jf-field__label" htmlFor="jf-edit-newpassword">{t("users.edit.newPassword")}</label>
                   <input
                     id="jf-edit-newpassword"
                     className="jf-input"
@@ -367,11 +373,11 @@ export default function EditUserPage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                   />
-                  <span className="jf-field__hint">This signs the user out everywhere and can&apos;t be undone.</span>
+                  <span className="jf-field__hint">{t("users.edit.newPasswordHint")}</span>
                 </div>
                 <div className="jf-row">
                   <button className="jf-btn jf-btn--primary" type="submit" disabled={resettingPassword}>
-                    {resettingPassword ? "Resetting…" : "Set new password"}
+                    {resettingPassword ? t("users.edit.resettingPassword") : t("users.edit.setNewPassword")}
                   </button>
                   <button
                     className="jf-btn jf-btn--ghost"
@@ -379,7 +385,7 @@ export default function EditUserPage() {
                     disabled={resettingPassword}
                     onClick={() => { setShowPasswordReset(false); setNewPassword(""); }}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                 </div>
               </form>
@@ -391,13 +397,13 @@ export default function EditUserPage() {
         {canManage && (
         <div className="jf-card">
           <div className="jf-card__head">
-            <h2 className="jf-card__title">Danger zone</h2>
+            <h2 className="jf-card__title">{t("users.edit.dangerZone")}</h2>
           </div>
           <div className="jf-card__body jf-stack">
-            <p className="jf-field__hint">Removing a user permanently deletes their account. This cannot be undone.</p>
+            <p className="jf-field__hint">{t("users.edit.removeUserHint")}</p>
             <div className="jf-row">
               <button type="button" className="jf-btn jf-btn--danger" disabled={removing} onClick={removeUser}>
-                {removing ? "Removing…" : "Remove user"}
+                {removing ? t("users.edit.removingUser") : t("users.edit.removeUser")}
               </button>
             </div>
           </div>
