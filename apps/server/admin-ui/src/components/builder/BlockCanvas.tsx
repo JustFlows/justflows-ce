@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useT } from "../../i18n/I18nProvider";
 import type { BlockNode, BlockCatalogEntry } from "./types";
 import { BlockPreview, useThemePreviewStylesheet } from "./BlockPreview";
 import { createBlock } from "./block-defaults";
-import { insertBlock, moveBlock, removeBlock } from "./block-tree";
+import { insertBlock, moveBlock, removeBlock, updateBlockProps } from "./block-tree";
 import DropZone from "./DropZone";
 import { useBuilderDrag } from "./DragContext";
 import { useBlockMoveHandle } from "./useBlockMoveHandle";
@@ -53,6 +54,7 @@ export function PageCanvas({
   emptyLabel,
   rootQuickAll = false,
 }: PageCanvasProps) {
+  const { t } = useT();
   const { dragging } = useBuilderDrag();
   const inline = compact;
   useThemePreviewStylesheet();
@@ -76,9 +78,9 @@ export function PageCanvas({
           }}
         >
           <div style={{ fontSize: "2rem", marginBottom: "0.5rem", opacity: 0.5 }}>▭</div>
-          <p style={{ margin: 0, fontSize: "0.9rem" }}>Drag a section or hero here</p>
+          <p style={{ margin: 0, fontSize: "0.9rem" }}>{t("builder.canvas.dragSectionHere")}</p>
           <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem" }}>
-            Or pick from the library on the left
+            {t("builder.canvas.orPickFromLibrary")}
           </p>
         </div>
       )}
@@ -89,7 +91,7 @@ export function PageCanvas({
           parentType={rootParentType}
           index={0}
           catalog={catalog}
-          label={emptyLabel ?? "Drop section here"}
+          label={emptyLabel ?? t("builder.canvas.dropSectionHere")}
           alwaysShow={compact}
           compact={compact}
           inline={inline}
@@ -128,15 +130,15 @@ export function PageCanvas({
           catalog={catalog}
           compact
           inline={inline}
-          label="Drop at end"
+          label={t("builder.canvas.dropAtEnd")}
         />
       )}
 
       {showAddSlot && (
         <AddBlockSlot
-          label={addLabel ?? (rootQuickAll ? "+ Add block" : "+ Add section")}
+          label={addLabel ?? (rootQuickAll ? t("builder.canvas.addBlock") : t("builder.canvas.addSection"))}
           onPick={(type) => {
-            const block = createBlock(type);
+            const block = createBlock(type, t);
             onChange([...blocks, block]);
             onSelect(block.id);
           }}
@@ -176,6 +178,7 @@ function BlockRow({
   onParentChange?: (blocks: BlockNode[]) => void;
   parentType?: string | null;
 }) {
+  const { t } = useT();
   const meta = catalog.get(block.type);
   const isSelected = selectedId === block.id;
   const hasChildren = meta?.supportsChildren ?? false;
@@ -201,6 +204,12 @@ function BlockRow({
     const list = parentBlocks ?? blocks;
     const change = parentBlocks ? onParentChange! : onRootChange;
     change(list.map((b) => (b.id === block.id ? { ...b, children: nextChildren } : b)));
+  };
+
+  const updateProps = (id: string, props: Record<string, unknown>) => {
+    const list = parentBlocks ?? blocks;
+    const change = parentBlocks ? onParentChange! : onRootChange;
+    change(updateBlockProps(list, id, props));
   };
 
   return (
@@ -232,7 +241,7 @@ function BlockRow({
         }}
       >
         <span
-          title="Drag to move"
+          title={t("builder.canvas.dragToMove")}
           aria-hidden="true"
           style={{
             color: "var(--jf-text-3)",
@@ -261,7 +270,7 @@ function BlockRow({
         >
           <button
             type="button"
-            aria-label="Move block up"
+            aria-label={t("builder.canvas.moveBlockUp")}
             onClick={() => move(-1)}
             disabled={index === 0}
             style={iconBtn}
@@ -270,7 +279,7 @@ function BlockRow({
           </button>
           <button
             type="button"
-            aria-label="Move block down"
+            aria-label={t("builder.canvas.moveBlockDown")}
             onClick={() => move(1)}
             disabled={index === total - 1}
             style={iconBtn}
@@ -279,7 +288,7 @@ function BlockRow({
           </button>
           <button
             type="button"
-            aria-label="Remove block"
+            aria-label={t("builder.canvas.removeBlock")}
             onClick={remove}
             style={{ ...iconBtn, color: "var(--jf-danger)" }}
           >
@@ -294,6 +303,7 @@ function BlockRow({
           depth={depth}
           selectedId={selectedId}
           onSelect={onSelect}
+          onUpdateProps={updateProps}
           renderChildren={
             hasChildren
               ? (_childList, childDepth) => {
@@ -330,9 +340,9 @@ function BlockRow({
                           renderChild={childRow}
                         />
                         <AddBlockSlot
-                          label="+ Add block"
+                          label={t("builder.canvas.addBlock")}
                           onPick={(type) => {
-                            const created = createBlock(type);
+                            const created = createBlock(type, t);
                             const placement = parseBlockPlacement(
                               { col: 1, span: columns, row: nextRow(children, columns) },
                               columns,
@@ -378,7 +388,7 @@ function BlockRow({
                           parentType={block.type}
                           index={0}
                           catalog={catalog}
-                          label="Drop content here"
+                          label={t("builder.canvas.dropContentHere")}
                           alwaysShow
                         />
                       )}
@@ -393,9 +403,9 @@ function BlockRow({
                         />
                       )}
                       <AddBlockSlot
-                        label="+ Add block"
+                        label={t("builder.canvas.addBlock")}
                         onPick={(type) => {
-                          const created = createBlock(type);
+                          const created = createBlock(type, t);
                           onRootChange(insertBlock(blocks, block.id, children.length, created));
                           onSelect(created.id);
                         }}

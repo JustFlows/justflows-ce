@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+import en from "../../src/lib/i18n/site-catalogs/en.json";
+
 (function () {
   "use strict";
 
@@ -7,6 +10,7 @@
   // `'unsafe-inline'` — see docs/PWA.md and pwa-install.ts for the same
   // reasoning applied to the install-prompt banner.
   if (!("serviceWorker" in navigator)) return;
+  const labels = (document.currentScript as HTMLScriptElement | null)?.dataset;
 
   function showUpdateToast(installingWorker: ServiceWorker): void {
     const toast = document.createElement("div");
@@ -17,12 +21,12 @@
       "box-shadow:0 2px 12px rgba(0,0,0,.25);display:flex;gap:.75rem;align-items:center";
 
     const text = document.createElement("span");
-    text.textContent = "An update is available.";
+    text.textContent = labels?.updateAvailable || en["pwa.updateAvailable"];
     toast.appendChild(text);
 
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = "Reload";
+    button.textContent = labels?.reload || en["pwa.reload"];
     button.style.cssText =
       "font:inherit;background:#fff;color:#111;border:0;border-radius:.3rem;padding:.35rem .75rem;cursor:pointer";
     button.addEventListener("click", () => {

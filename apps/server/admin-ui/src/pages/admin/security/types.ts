@@ -96,13 +96,13 @@ export type SecurityPayload = {
 };
 
 export const SCOPE_LABELS: Record<HeaderScope, string> = {
-  all: "Everywhere",
-  public: "Public site only",
-  admin: "Admin & API only",
+  all: "security.shared.scope.all.label",
+  public: "security.shared.scope.public.label",
+  admin: "security.shared.scope.admin.label",
 };
 
 export const SCOPE_HINTS: Record<HeaderScope, string> = {
-  all: "Sent with every response.",
-  public: "Sent on themed pages, not on /admin, /login, /register or the API.",
-  admin: "Sent on /admin, /login, /register, /install and the API only.",
+  all: "security.shared.scope.all.hint",
+  public: "security.shared.scope.public.hint",
+  admin: "security.shared.scope.admin.hint",
 };

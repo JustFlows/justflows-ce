@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import { useT } from "../../i18n/I18nProvider";
 import type { BlockCatalogEntry, BlockNode } from "./types";
-import { CATEGORY_LABELS, CATEGORY_ORDER } from "./block-defaults";
+import { CATEGORY_LABEL_KEYS, CATEGORY_ORDER } from "./block-defaults";
 import { useBuilderDrag } from "./DragContext";
 import { DND_BLOCK_TYPE } from "./dnd";
 import PatternLibrary from "./PatternLibrary";
@@ -44,6 +45,7 @@ export default function BlockLibrary({
   isPage = false,
   headerOnly = false,
 }: BlockLibraryProps) {
+  const { t } = useT();
   const [query, setQuery] = useState("");
   const [openCat, setOpenCat] = useState<string>("patterns");
   const { onDragStartType, onDragEnd } = useBuilderDrag();
@@ -107,15 +109,15 @@ export default function BlockLibrary({
             marginBottom: "0.25rem",
           }}
         >
-          Blocks
+          {t("builder.blockLibrary.blocks")}
         </div>
         <p style={{ margin: "0 0 0.5rem", fontSize: "0.65rem", color: "var(--jf-text-3)" }}>
-          Drag into a section or click to add
+          {t("builder.blockLibrary.dragOrClickHint")}
         </p>
         <input
           type="search"
-          placeholder="Search blocks…"
-          aria-label="Search blocks"
+          placeholder={t("builder.blockLibrary.searchBlocksPlaceholder")}
+          aria-label={t("builder.blockLibrary.searchBlocks")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{
@@ -165,7 +167,7 @@ export default function BlockLibrary({
                   cursor: "pointer",
                 }}
               >
-                {CATEGORY_LABELS[cat] ?? cat}
+                {CATEGORY_LABEL_KEYS[cat] ? t(CATEGORY_LABEL_KEYS[cat]) : cat}
                 <span>{isOpen ? "−" : "+"}</span>
               </button>
               {isOpen && (

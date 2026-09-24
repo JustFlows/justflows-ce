@@ -9,15 +9,9 @@ import {
 import MediaImageField from "@components/MediaImageField";
 import { useCapability, useSessionRole } from "@components/SessionProvider";
 import { initialJson } from "../../../ssr-data";
+import { useT } from "../../../i18n/I18nProvider";
 
 const ROLE_OPTIONS = ["subscriber", "contributor", "author", "editor", "administrator"] as const;
-const ROLE_LABELS: Record<(typeof ROLE_OPTIONS)[number], string> = {
-  subscriber: "Subscriber",
-  contributor: "Contributor",
-  author: "Author",
-  editor: "Editor",
-  administrator: "Administrator",
-};
 
 interface MaintenanceState {
   enabled: boolean;
@@ -114,9 +108,9 @@ type SettingsPayload = Record<string, unknown> & {
   mail_transports?: Array<{ id: string; label: string }>;
 };
 
-function generalFromPayload(data: SettingsPayload): GeneralState {
+function generalFromPayload(data: SettingsPayload, fallbackName: string): GeneralState {
   return {
-    name: typeof data.site_name === "string" ? data.site_name : "My Site",
+    name: typeof data.site_name === "string" ? data.site_name : fallbackName,
     description: typeof data.site_description === "string" ? data.site_description : "",
     url: typeof data.site_url === "string" ? data.site_url : "",
     adminEmail: typeof data.admin_email === "string" ? data.admin_email : "",
@@ -164,11 +158,12 @@ function groupTimezones(zones: string[]): Array<{ region: string; zones: string[
 export default function SettingsPage() {
   // Reading settings is open to every admin-eligible role; saving them (and
   // sending a test email) is administrator-only.
+  const { t } = useT();
   const canManage = useSessionRole() === "administrator";
   const canReadMail = useCapability("mail:read");
   const canManageMail = useCapability("mail:manage");
   const prefetched = initialJson<SettingsPayload>("/api/settings");
-  const initialGeneral = prefetched ? generalFromPayload(prefetched) : EMPTY;
+  const initialGeneral = prefetched ? generalFromPayload(prefetched, t("common.mySite")) : EMPTY;
   const [general, setGeneral] = useState<GeneralState>(initialGeneral);
   const [languages, setLanguages] = useState<LanguageOption[]>(prefetched?.languages ?? []);
   const [timezones, setTimezones] = useState<string[]>(
@@ -198,8 +193,8 @@ export default function SettingsPage() {
   const [errorPage500Saved, setErrorPage500Saved] = useState(false);
   const [mailTransports, setMailTransports] = useState(
     prefetched?.mail_transports ?? [
-      { id: "sendmail", label: "Sendmail (local)" },
-      { id: "smtp", label: "SMTP" },
+      { id: "sendmail", label: t("settings.mail.transportSendmail") },
+      { id: "smtp", label: t("settings.mail.transportSmtp") },
     ],
   );
 
@@ -213,7 +208,7 @@ export default function SettingsPage() {
       .then((data: SettingsPayload) => {
         const dateFormat = data.date_format ?? "F j, Y";
         const timeFormat = data.time_format ?? "g:i a";
-        setGeneral(generalFromPayload(data));
+        setGeneral(generalFromPayload(data, t("common.mySite")));
         setLanguages(data.languages ?? []);
         setTimezones(
           Array.isArray(data.timezones) && data.timezones.length > 0 ? data.timezones : ["UTC"],
@@ -330,7 +325,7 @@ export default function SettingsPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error ?? "Failed to save");
+        setError(data.error ?? t("settings.common.saveFailedFallback"));
         return;
       }
       setSaved(true);
@@ -351,11 +346,14 @@ export default function SettingsPage() {
       const res = await fetch("/api/settings/test-mail", { method: "POST" });
       const data = (await res.json()) as { error?: string; response?: string };
       if (!res.ok) {
-        setMailTest(data.error ?? "Could not send test email");
+        setMailTest(data.error ?? t("settings.mail.testFailedFallback"));
         return;
       }
       setMailTest(
-        `Sent to ${general.adminEmail}. Transport response: ${data.response ?? "Accepted"}`,
+        t("settings.mail.testSentMessage", {
+          email: general.adminEmail,
+          response: data.response ?? t("settings.mail.testResponseFallback"),
+        }),
       );
     } catch (e) {
       setMailTest(String(e));
@@ -383,8 +381,8 @@ export default function SettingsPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>General Settings</h1>
-          <p>Site title, membership, language, and how dates are displayed</p>
+          <h1>{t("settings.pageTitle")}</h1>
+          <p>{t("settings.pageSubtitle")}</p>
         </div>
       </header>
 
@@ -392,11 +390,11 @@ export default function SettingsPage() {
           below in one shot — cheaper and less error-prone than gating each
           of the dozens of controls in this form individually. */}
       <fieldset disabled={!canManage} style={{ border: 0, margin: 0, padding: 0 }}>
-        <Section title="Site identity">
+        <Section title={t("settings.general.siteIdentityTitle")}>
           <div className="jf-grid jf-grid--2">
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-site-name">
-                Site Title
+                {t("settings.general.siteTitleLabel")}
               </label>
               <input
                 id="jf-site-name"
@@ -407,7 +405,7 @@ export default function SettingsPage() {
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-site-url">
-                Site Address (URL)
+                {t("settings.general.siteUrlLabel")}
               </label>
               <input
                 id="jf-site-url"
@@ -416,38 +414,36 @@ export default function SettingsPage() {
                 placeholder="https://example.com"
                 onChange={(e) => patch({ url: e.target.value })}
               />
-              <p className="jf-field__hint">
-                The address people type in their browser to reach this site.
-              </p>
+              <p className="jf-field__hint">{t("settings.general.siteUrlHint")}</p>
             </div>
           </div>
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-tagline">
-              Tagline
+              {t("settings.general.taglineLabel")}
             </label>
             <input
               id="jf-tagline"
               className="jf-input"
               value={general.description}
-              placeholder="Just another great website"
+              placeholder={t("settings.general.taglinePlaceholder")}
               onChange={(e) => patch({ description: e.target.value })}
             />
-            <p className="jf-field__hint">In a few words, explain what this site is about.</p>
+            <p className="jf-field__hint">{t("settings.general.taglineHint")}</p>
           </div>
           <MediaImageField
             id="jf-site-icon"
-            label="Site Icon"
-            description="Used as the browser and app icon. Square images work best, at least 512 × 512 pixels."
+            label={t("settings.general.siteIconLabel")}
+            description={t("settings.general.siteIconDescription")}
             value={general.faviconUrl}
             onChange={(url) => patch({ faviconUrl: url })}
             square
           />
         </Section>
 
-        <Section title="Administration">
+        <Section title={t("settings.general.administrationTitle")}>
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-admin-email">
-              Administration Email Address
+              {t("settings.general.adminEmailLabel")}
             </label>
             <input
               id="jf-admin-email"
@@ -458,23 +454,18 @@ export default function SettingsPage() {
               required
               onChange={(e) => patch({ adminEmail: e.target.value })}
             />
-            <p className="jf-field__hint">
-              Used for site administration notifications such as comment moderation, new user
-              registrations, and system alerts. This is not the email address you log in with.
-            </p>
+            <p className="jf-field__hint">{t("settings.general.adminEmailHint")}</p>
           </div>
         </Section>
 
-        <Section title="Outgoing mail">
+        <Section title={t("settings.mail.title")}>
           <p className="jf-field__hint" style={{ marginTop: 0 }}>
-            Sends through the server itself — the same idea as PHPMailer. Sendmail uses the
-            host&apos;s local mailer. Switch to SMTP if this machine needs authenticated submission
-            (Plesk mailbox, localhost:587, and so on).
+            {t("settings.mail.transportHint")}
           </p>
           <div className="jf-grid jf-grid--2">
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-mail-transport">
-                Mailer
+                {t("settings.mail.mailerLabel")}
               </label>
               <select
                 id="jf-mail-transport"
@@ -491,24 +482,22 @@ export default function SettingsPage() {
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-mail-from-name">
-                From name
+                {t("settings.mail.fromNameLabel")}
               </label>
               <input
                 id="jf-mail-from-name"
                 className="jf-input"
                 value={general.mailFromName}
-                placeholder={general.name || "Site name"}
+                placeholder={general.name || t("settings.mail.fromNameFallback")}
                 onChange={(e) => patch({ mailFromName: e.target.value })}
               />
-              <p className="jf-field__hint">
-                Leave blank to use the site title. From address is the administration email.
-              </p>
+              <p className="jf-field__hint">{t("settings.mail.fromNameHint")}</p>
             </div>
           </div>
           <div className="jf-grid jf-grid--2">
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-mail-from-address">
-                From address
+                {t("settings.mail.fromAddressLabel")}
               </label>
               <input
                 id="jf-mail-from-address"
@@ -521,7 +510,7 @@ export default function SettingsPage() {
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-mail-reply-to">
-                Reply-To
+                {t("settings.mail.replyToLabel")}
               </label>
               <input
                 id="jf-mail-reply-to"
@@ -533,7 +522,7 @@ export default function SettingsPage() {
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-mail-envelope">
-                Envelope sender
+                {t("settings.mail.envelopeSenderLabel")}
               </label>
               <input
                 id="jf-mail-envelope"
@@ -545,12 +534,12 @@ export default function SettingsPage() {
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-mail-rate">
-                Rate / concurrency
+                {t("settings.mail.rateLabel")}
               </label>
               <div className="jf-row">
                 <input
                   id="jf-mail-rate"
-                  aria-label="Messages per minute"
+                  aria-label={t("settings.mail.rateAriaLabel")}
                   className="jf-input"
                   type="number"
                   min="1"
@@ -558,7 +547,7 @@ export default function SettingsPage() {
                   onChange={(e) => patch({ mailRateLimit: e.target.value })}
                 />
                 <input
-                  aria-label="Concurrent messages"
+                  aria-label={t("settings.mail.concurrencyAriaLabel")}
                   className="jf-input"
                   type="number"
                   min="1"
@@ -573,7 +562,7 @@ export default function SettingsPage() {
               <div className="jf-grid jf-grid--2">
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-smtp-host">
-                    SMTP host
+                    {t("settings.mail.smtpHostLabel")}
                   </label>
                   <input
                     id="jf-smtp-host"
@@ -585,7 +574,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-smtp-port">
-                    Port
+                    {t("settings.mail.portLabel")}
                   </label>
                   <input
                     id="jf-smtp-port"
@@ -601,7 +590,7 @@ export default function SettingsPage() {
               <div className="jf-grid jf-grid--2">
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-smtp-secure">
-                    Encryption
+                    {t("settings.mail.encryptionLabel")}
                   </label>
                   <select
                     id="jf-smtp-secure"
@@ -614,14 +603,14 @@ export default function SettingsPage() {
                       });
                     }}
                   >
-                    <option value="none">None</option>
-                    <option value="starttls">STARTTLS</option>
-                    <option value="ssl">SSL/TLS</option>
+                    <option value="none">{t("settings.mail.encryptionNone")}</option>
+                    <option value="starttls">{t("settings.mail.encryptionStarttls")}</option>
+                    <option value="ssl">{t("settings.mail.encryptionSsl")}</option>
                   </select>
                 </div>
                 <div className="jf-field">
                   <label className="jf-field__label" htmlFor="jf-smtp-user">
-                    Username
+                    {t("settings.mail.usernameLabel")}
                   </label>
                   <input
                     id="jf-smtp-user"
@@ -634,7 +623,7 @@ export default function SettingsPage() {
               </div>
               <div className="jf-field" style={{ maxWidth: 320 }}>
                 <label className="jf-field__label" htmlFor="jf-smtp-pass">
-                  Password
+                  {t("settings.mail.passwordLabel")}
                 </label>
                 <input
                   id="jf-smtp-pass"
@@ -642,7 +631,7 @@ export default function SettingsPage() {
                   type="password"
                   value={general.smtpPass}
                   autoComplete="new-password"
-                  placeholder={general.smtpPassSet ? "Stored — leave blank to keep" : ""}
+                  placeholder={general.smtpPassSet ? t("settings.mail.passwordStoredPlaceholder") : ""}
                   onChange={(e) => patch({ smtpPass: e.target.value })}
                 />
               </div>
@@ -650,36 +639,30 @@ export default function SettingsPage() {
           )}
           <div className="jf-row">
             <button type="button" className="jf-btn" onClick={testMail} disabled={testingMail}>
-              {testingMail ? "Sending…" : "Send test email"}
+              {testingMail ? t("settings.mail.sendingButton") : t("settings.mail.sendTestButton")}
             </button>
             {mailTest && <span className="jf-field__hint">{mailTest}</span>}
           </div>
-          <p className="jf-field__hint">
-            Save mail settings before sending a test. The message goes to the administration email
-            address.
-          </p>
-          <p className="jf-field__hint">
-            Publish SPF for your sending host, enable DKIM at the provider, and add a DMARC policy
-            for the From domain. Justflows reports these as guidance and does not alter DNS.
-          </p>
+          <p className="jf-field__hint">{t("settings.mail.testBeforeSaveHint")}</p>
+          <p className="jf-field__hint">{t("settings.mail.dnsHint")}</p>
         </Section>
 
-        <Section title="Membership">
+        <Section title={t("settings.membership.title")}>
           <label className="jf-checkrow">
             <input
               type="checkbox"
               checked={general.usersCanRegister}
               onChange={(e) => patch({ usersCanRegister: e.target.checked })}
             />
-            <span>Anyone can register</span>
+            <span>{t("settings.membership.allowRegistration")}</span>
           </label>
           <p className="jf-field__hint">
-            When checked, visitors can create an account at <code>/register</code>. New accounts
-            receive the default role below.
+            {t("settings.membership.registrationHintBefore")} <code>/register</code>
+            {t("settings.membership.registrationHintAfter")}
           </p>
           <div className="jf-field" style={{ maxWidth: 280 }}>
             <label className="jf-field__label" htmlFor="jf-default-role">
-              New User Default Role
+              {t("settings.membership.defaultRoleLabel")}
             </label>
             <select
               id="jf-default-role"
@@ -689,17 +672,17 @@ export default function SettingsPage() {
             >
               {ROLE_OPTIONS.map((role) => (
                 <option key={role} value={role}>
-                  {ROLE_LABELS[role]}
+                  {t(`settings.membership.roles.${role}`)}
                 </option>
               ))}
             </select>
           </div>
         </Section>
 
-        <Section title="Language">
+        <Section title={t("settings.locale.languageSectionTitle")}>
           <div className="jf-field" style={{ maxWidth: 320 }}>
             <label className="jf-field__label" htmlFor="jf-site-language">
-              Site Language
+              {t("settings.locale.siteLanguageLabel")}
             </label>
             <select
               id="jf-site-language"
@@ -725,16 +708,16 @@ export default function SettingsPage() {
               ))}
             </select>
             <p className="jf-field__hint">
-              Default language for published content. Add more languages under{" "}
-              <a href={publicAdminPath("/admin/languages")}>Languages</a>.
+              {t("settings.locale.siteLanguageHintBefore")}{" "}
+              <a href={publicAdminPath("/admin/languages")}>{t("settings.locale.languagesLinkText")}</a>.
             </p>
           </div>
         </Section>
 
-        <Section title="Timezone">
+        <Section title={t("settings.locale.timezoneSectionTitle")}>
           <div className="jf-field" style={{ maxWidth: 420 }}>
             <label className="jf-field__label" htmlFor="jf-tz">
-              Timezone
+              {t("settings.locale.timezoneLabel")}
             </label>
             <select
               id="jf-tz"
@@ -753,15 +736,15 @@ export default function SettingsPage() {
               ))}
             </select>
             <p className="jf-field__hint">
-              Universal time is <strong>{utcTime}</strong>. Local time is{" "}
-              <strong>{localTime}</strong>.
+              {t("settings.locale.universalTimeLabel")} <strong>{utcTime}</strong>.{" "}
+              {t("settings.locale.localTimeLabel")} <strong>{localTime}</strong>.
             </p>
           </div>
         </Section>
 
-        <Section title="Date and time">
+        <Section title={t("settings.datetime.title")}>
           <FormatPicker
-            legend="Date Format"
+            legend={t("settings.datetime.dateFormatLegend")}
             name="date_format"
             presets={DATE_FORMAT_PRESETS}
             value={general.dateFormat}
@@ -773,7 +756,7 @@ export default function SettingsPage() {
             }}
           />
           <FormatPicker
-            legend="Time Format"
+            legend={t("settings.datetime.timeFormatLegend")}
             name="time_format"
             presets={TIME_FORMAT_PRESETS}
             value={general.timeFormat}
@@ -786,7 +769,7 @@ export default function SettingsPage() {
           />
           <div className="jf-field" style={{ maxWidth: 240 }}>
             <label className="jf-field__label" htmlFor="jf-week-start">
-              Week Starts On
+              {t("settings.datetime.weekStartLabel")}
             </label>
             <select
               id="jf-week-start"
@@ -803,19 +786,16 @@ export default function SettingsPage() {
           </div>
         </Section>
 
-        <Section title="Site visibility">
+        <Section title={t("settings.visibility.title")}>
           <label className="jf-checkrow">
             <input
               type="checkbox"
               checked={general.sitePublic}
               onChange={(e) => patch({ sitePublic: e.target.checked })}
             />
-            <span>Site is live</span>
+            <span>{t("settings.visibility.siteLiveLabel")}</span>
           </label>
-          <p className="jf-field__hint">
-            When unchecked, visitors see an under-construction page. Administrators and editors can
-            still browse the site while logged in.
-          </p>
+          <p className="jf-field__hint">{t("settings.visibility.siteLiveHint")}</p>
 
           <label className="jf-checkrow" style={{ marginTop: "1.25rem" }}>
             <input
@@ -824,18 +804,14 @@ export default function SettingsPage() {
               disabled={!canManage || maintenanceSaving}
               onChange={(e) => void saveMaintenance({ ...maintenance, enabled: e.target.checked })}
             />
-            <span>Maintenance mode</span>
+            <span>{t("settings.visibility.maintenanceModeLabel")}</span>
           </label>
-          <p className="jf-field__hint">
-            Takes priority over every other page, including "Site is live" above, and still works
-            if the site's database is unreachable — use it for planned downtime.
-            Administrators and editors can still browse the site while logged in.
-          </p>
+          <p className="jf-field__hint">{t("settings.visibility.maintenanceModeHint")}</p>
           {maintenance.enabled && (
             <div className="jf-stack" style={{ gap: "0.75rem", marginTop: "0.5rem", maxWidth: 480 }}>
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-maintenance-heading">
-                  Heading
+                  {t("settings.errorPages.headingLabel")}
                 </label>
                 <input
                   id="jf-maintenance-heading"
@@ -846,12 +822,12 @@ export default function SettingsPage() {
                   disabled={!canManage}
                   onChange={(e) => setMaintenance({ ...maintenance, heading: e.target.value })}
                   onBlur={() => void saveMaintenance(maintenance)}
-                  placeholder="We'll be back soon"
+                  placeholder={t("settings.errorPages.maintenanceHeadingPlaceholder")}
                 />
               </div>
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-maintenance-message">
-                  Message
+                  {t("settings.errorPages.messageLabel")}
                 </label>
                 <textarea
                   id="jf-maintenance-message"
@@ -862,23 +838,22 @@ export default function SettingsPage() {
                   disabled={!canManage}
                   onChange={(e) => setMaintenance({ ...maintenance, message: e.target.value })}
                   onBlur={() => void saveMaintenance(maintenance)}
-                  placeholder="This site is down for planned maintenance. Please check back soon."
+                  placeholder={t("settings.errorPages.maintenanceMessagePlaceholder")}
                 />
               </div>
-              {maintenanceSaved && <p className="jf-field__hint">Saved.</p>}
+              {maintenanceSaved && <p className="jf-field__hint">{t("settings.errorPages.savedNotice")}</p>}
             </div>
           )}
 
           <div className="jf-field" style={{ marginTop: "1.25rem" }}>
-            <label className="jf-field__label">Server error (500) page</label>
+            <label className="jf-field__label">{t("settings.errorPages.serverErrorTitle")}</label>
             <p className="jf-field__hint" style={{ marginTop: 0 }}>
-              Shown when a request fails unexpectedly. Renders without the database, so it always
-              uses this text rather than a page or theme template.
+              {t("settings.errorPages.serverErrorHint")}
             </p>
             <div className="jf-stack" style={{ gap: "0.75rem", marginTop: "0.5rem", maxWidth: 480 }}>
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-error500-heading">
-                  Heading
+                  {t("settings.errorPages.headingLabel")}
                 </label>
                 <input
                   id="jf-error500-heading"
@@ -889,12 +864,12 @@ export default function SettingsPage() {
                   disabled={!canManage}
                   onChange={(e) => setErrorPage500({ ...errorPage500, heading: e.target.value })}
                   onBlur={() => void saveErrorPage500(errorPage500)}
-                  placeholder="Something went wrong"
+                  placeholder={t("settings.errorPages.error500HeadingPlaceholder")}
                 />
               </div>
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-error500-message">
-                  Message
+                  {t("settings.errorPages.messageLabel")}
                 </label>
                 <textarea
                   id="jf-error500-message"
@@ -905,37 +880,38 @@ export default function SettingsPage() {
                   disabled={!canManage}
                   onChange={(e) => setErrorPage500({ ...errorPage500, message: e.target.value })}
                   onBlur={() => void saveErrorPage500(errorPage500)}
-                  placeholder="The site hit an unexpected error. Please try again shortly."
+                  placeholder={t("settings.errorPages.error500MessagePlaceholder")}
                 />
               </div>
               {errorPage500Saving ? (
-                <p className="jf-field__hint">Saving…</p>
+                <p className="jf-field__hint">{t("common.saving")}</p>
               ) : (
-                errorPage500Saved && <p className="jf-field__hint">Saved.</p>
+                errorPage500Saved && <p className="jf-field__hint">{t("settings.errorPages.savedNotice")}</p>
               )}
             </div>
           </div>
         </Section>
 
-        <Section title="Search engines">
+        <Section title={t("settings.searchEngines.title")}>
           <label className="jf-checkrow">
             <input
               type="checkbox"
               checked={general.discourageSearchEngines}
               onChange={(e) => patch({ discourageSearchEngines: e.target.checked })}
             />
-            <span>Discourage search engines from indexing this site</span>
+            <span>{t("settings.searchEngines.discourageLabel")}</span>
           </label>
           <p className="jf-field__hint">
-            Adds a <code>noindex</code> meta tag and blocks crawlers via <code>robots.txt</code>.
-            Independent of the live setting.
+            {t("settings.searchEngines.discourageHintPrefix")} <code>noindex</code>{" "}
+            {t("settings.searchEngines.discourageHintMiddle")} <code>robots.txt</code>
+            {t("settings.searchEngines.discourageHintSuffix")}
           </p>
         </Section>
 
-        <Section title="Reading">
+        <Section title={t("settings.reading.title")}>
           <div className="jf-field" style={{ maxWidth: 200 }}>
             <label className="jf-field__label" htmlFor="jf-ppp">
-              Blog pages show at most
+              {t("settings.reading.postsPerPageLabel")}
             </label>
             <input
               id="jf-ppp"
@@ -946,14 +922,14 @@ export default function SettingsPage() {
               value={general.postsPerPage}
               onChange={(e) => patch({ postsPerPage: e.target.value })}
             />
-            <p className="jf-field__hint">posts</p>
+            <p className="jf-field__hint">{t("settings.reading.postsUnit")}</p>
           </div>
         </Section>
 
-        <Section title="Trash retention">
+        <Section title={t("settings.trash.title")}>
           <div className="jf-field" style={{ maxWidth: 240 }}>
             <label className="jf-field__label" htmlFor="jf-trash-retention">
-              Permanently delete trashed items after
+              {t("settings.trash.retentionLabel")}
             </label>
             <input
               id="jf-trash-retention"
@@ -964,7 +940,7 @@ export default function SettingsPage() {
               value={general.trashRetentionDays}
               onChange={(e) => patch({ trashRetentionDays: e.target.value })}
             />
-            <p className="jf-field__hint">days (default: 30)</p>
+            <p className="jf-field__hint">{t("settings.trash.retentionUnit")}</p>
           </div>
         </Section>
       </fieldset>
@@ -974,9 +950,9 @@ export default function SettingsPage() {
       {canManage && (
         <div className="jf-row">
           <button className="jf-btn jf-btn--primary" onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save Changes"}
+            {saving ? t("common.saving") : t("settings.general.saveButton")}
           </button>
-          {saved && <span className="jf-status jf-status--saved">✓ Settings saved</span>}
+          {saved && <span className="jf-status jf-status--saved">{t("settings.general.savedStatus")}</span>}
           {error && <span className="jf-status jf-status--error">{error}</span>}
         </div>
       )}
@@ -1000,6 +976,7 @@ type Delivery = {
 };
 
 function EmailOperations({ canRetry }: { canRetry: boolean }) {
+  const { t } = useT();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -1008,7 +985,7 @@ function EmailOperations({ canRetry }: { canRetry: boolean }) {
       `/api/settings/email/logs${filter ? `?status=${encodeURIComponent(filter)}` : ""}`,
     );
     const data = (await response.json()) as { deliveries?: Delivery[]; error?: string };
-    if (!response.ok) throw new Error(data.error ?? "Could not load email log");
+    if (!response.ok) throw new Error(data.error ?? t("settings.emailLog.loadFailedFallback"));
     setDeliveries(data.deliveries ?? []);
   }
   useEffect(() => {
@@ -1017,14 +994,14 @@ function EmailOperations({ canRetry }: { canRetry: boolean }) {
   async function retry(id: string) {
     const response = await fetch(`/api/settings/email/logs/${id}/retry`, { method: "POST" });
     const data = (await response.json()) as { error?: string };
-    if (!response.ok) setError(data.error ?? "Retry failed");
+    if (!response.ok) setError(data.error ?? t("settings.emailLog.retryFailedFallback"));
     else await load();
   }
   return (
-    <Section title="Email delivery log">
+    <Section title={t("settings.emailLog.title")}>
       <div className="jf-row">
         <label className="jf-field__label" htmlFor="jf-mail-status">
-          Status
+          {t("settings.emailLog.statusLabel")}
         </label>
         <select
           id="jf-mail-status"
@@ -1032,14 +1009,14 @@ function EmailOperations({ canRetry }: { canRetry: boolean }) {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         >
-          <option value="">All</option>
-          <option value="queued">Queued</option>
-          <option value="sent">Sent</option>
-          <option value="deferred">Deferred</option>
-          <option value="failed">Failed / dead letter</option>
+          <option value="">{t("settings.emailLog.statusAll")}</option>
+          <option value="queued">{t("settings.emailLog.statusQueued")}</option>
+          <option value="sent">{t("settings.emailLog.statusSent")}</option>
+          <option value="deferred">{t("settings.emailLog.statusDeferred")}</option>
+          <option value="failed">{t("settings.emailLog.statusFailed")}</option>
         </select>
         <button type="button" className="jf-btn" onClick={() => void load()}>
-          Refresh
+          {t("settings.emailLog.refreshButton")}
         </button>
       </div>
       {error && (
@@ -1048,17 +1025,17 @@ function EmailOperations({ canRetry }: { canRetry: boolean }) {
         </p>
       )}
       {deliveries.length === 0 ? (
-        <p className="jf-field__hint">No outbound email matches this status.</p>
+        <p className="jf-field__hint">{t("settings.emailLog.emptyState")}</p>
       ) : (
         <div className="jf-table-wrap">
           <table className="jf-table">
             <thead>
               <tr>
-                <th>When</th>
-                <th>Type / recipient</th>
-                <th>Subject</th>
-                <th>Status</th>
-                <th>Transport response</th>
+                <th>{t("settings.emailLog.columnWhen")}</th>
+                <th>{t("settings.emailLog.columnTypeRecipient")}</th>
+                <th>{t("settings.emailLog.columnSubject")}</th>
+                <th>{t("settings.emailLog.statusLabel")}</th>
+                <th>{t("settings.emailLog.columnTransportResponse")}</th>
                 <th />
               </tr>
             </thead>
@@ -1075,11 +1052,11 @@ function EmailOperations({ canRetry }: { canRetry: boolean }) {
                   <td>
                     {row.status} ({row.attempts})
                   </td>
-                  <td>{row.error_detail ?? row.provider_response ?? "—"}</td>
+                  <td>{row.error_detail ?? row.provider_response ?? t("settings.emailLog.noResponseFallback")}</td>
                   <td>
                     {canRetry && row.status !== "sent" && (
                       <button type="button" className="jf-btn" onClick={() => void retry(row.id)}>
-                        Retry
+                        {t("settings.emailLog.retryButton")}
                       </button>
                     )}
                   </td>
@@ -1138,6 +1115,7 @@ const DISCUSSION_DEFAULTS: CommentSettingsState = {
 };
 
 function DiscussionSettings() {
+  const { t } = useT();
   const [state, setState] = useState<CommentSettingsState>(DISCUSSION_DEFAULTS);
   const [secret, setSecret] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1148,7 +1126,7 @@ function DiscussionSettings() {
   useEffect(() => {
     let cancelled = false;
     fetch("/api/settings/comments")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(t("ui.settingsPage.loadFailed")))))
       .then((data: Partial<CommentSettingsState>) => {
         if (!cancelled) setState({ ...DISCUSSION_DEFAULTS, ...data });
       })
@@ -1177,7 +1155,7 @@ function DiscussionSettings() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to save");
+        setError(data.error ?? t("settings.common.saveFailedFallback"));
         return;
       }
       setState({ ...DISCUSSION_DEFAULTS, ...data });
@@ -1185,7 +1163,7 @@ function DiscussionSettings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch {
-      setError("Failed to save");
+      setError(t("settings.common.saveFailedFallback"));
     } finally {
       setSaving(false);
     }
@@ -1195,19 +1173,16 @@ function DiscussionSettings() {
 
   return (
     <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
-      <Section title="Discussion">
+      <Section title={t("settings.discussion.title")}>
         <label className="jf-checkrow">
           <input
             type="checkbox"
             checked={state.enabled}
             onChange={(e) => patch({ enabled: e.target.checked })}
           />
-          <span>Allow comments on the site</span>
+          <span>{t("settings.discussion.allowComments")}</span>
         </label>
-        <p className="jf-field__hint">
-          Comments still only appear on a post that has a Comments block. A post's own Discussion
-          setting can override this either way.
-        </p>
+        <p className="jf-field__hint">{t("settings.discussion.allowCommentsHint")}</p>
 
         <label className="jf-checkrow">
           <input
@@ -1215,7 +1190,7 @@ function DiscussionSettings() {
             checked={state.requireModeration}
             onChange={(e) => patch({ requireModeration: e.target.checked })}
           />
-          <span>Hold new comments for moderation</span>
+          <span>{t("settings.discussion.requireModeration")}</span>
         </label>
 
         <label className="jf-checkrow">
@@ -1224,7 +1199,7 @@ function DiscussionSettings() {
             checked={state.notifyModerator}
             onChange={(e) => patch({ notifyModerator: e.target.checked })}
           />
-          <span>Email the admin address when a comment needs moderation</span>
+          <span>{t("settings.discussion.notifyModerator")}</span>
         </label>
 
         <label className="jf-checkrow">
@@ -1233,13 +1208,13 @@ function DiscussionSettings() {
             checked={state.allowUrls}
             onChange={(e) => patch({ allowUrls: e.target.checked })}
           />
-          <span>Show a website field and link commenter names</span>
+          <span>{t("settings.discussion.allowUrls")}</span>
         </label>
 
         <div className="jf-grid jf-grid--2">
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-c-close">
-              Close comments after
+              {t("settings.discussion.closeAfterLabel")}
             </label>
             <input
               id="jf-c-close"
@@ -1250,11 +1225,11 @@ function DiscussionSettings() {
               value={state.closeAfterDays}
               onChange={(e) => patch({ closeAfterDays: Number(e.target.value) })}
             />
-            <p className="jf-field__hint">days (0 = never)</p>
+            <p className="jf-field__hint">{t("settings.discussion.closeAfterUnit")}</p>
           </div>
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-c-page">
-              Comments per page
+              {t("settings.discussion.pageSizeLabel")}
             </label>
             <input
               id="jf-c-page"
@@ -1268,7 +1243,7 @@ function DiscussionSettings() {
           </div>
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-c-max">
-              Maximum comment length
+              {t("settings.discussion.maxLengthLabel")}
             </label>
             <input
               id="jf-c-max"
@@ -1279,11 +1254,11 @@ function DiscussionSettings() {
               value={state.maxLength}
               onChange={(e) => patch({ maxLength: Number(e.target.value) })}
             />
-            <p className="jf-field__hint">characters</p>
+            <p className="jf-field__hint">{t("settings.discussion.maxLengthUnit")}</p>
           </div>
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-c-depth">
-              Maximum reply depth
+              {t("settings.discussion.maxDepthLabel")}
             </label>
             <input
               id="jf-c-depth"
@@ -1299,7 +1274,7 @@ function DiscussionSettings() {
 
         <div className="jf-field">
           <label className="jf-field__label" htmlFor="jf-c-captcha">
-            Spam protection (CAPTCHA)
+            {t("settings.discussion.captchaLabel")}
           </label>
           <select
             id="jf-c-captcha"
@@ -1309,22 +1284,19 @@ function DiscussionSettings() {
               patch({ captchaProvider: e.target.value as CommentSettingsState["captchaProvider"] })
             }
           >
-            <option value="none">None (honeypot + rate limit only)</option>
-            <option value="turnstile">Cloudflare Turnstile</option>
-            <option value="hcaptcha">hCaptcha</option>
-            <option value="recaptcha">Google reCAPTCHA v2</option>
-            <option value="recaptcha-v3">Google reCAPTCHA v3</option>
+            <option value="none">{t("settings.discussion.captchaOptionNone")}</option>
+            <option value="turnstile">{t("settings.discussion.captchaOptionTurnstile")}</option>
+            <option value="hcaptcha">{t("settings.discussion.captchaOptionHcaptcha")}</option>
+            <option value="recaptcha">{t("settings.discussion.captchaOptionRecaptcha")}</option>
+            <option value="recaptcha-v3">{t("settings.discussion.captchaOptionRecaptchaV3")}</option>
           </select>
-          <p className="jf-field__hint">
-            The provider and keys set here are also used by any form (Extensions → Forms) that has
-            “Require a CAPTCHA on this form” turned on.
-          </p>
+          <p className="jf-field__hint">{t("settings.discussion.captchaHint")}</p>
         </div>
         {state.captchaProvider !== "none" && (
           <div className="jf-grid jf-grid--2">
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-c-site">
-                Site key
+                {t("settings.discussion.siteKeyLabel")}
               </label>
               <input
                 id="jf-c-site"
@@ -1336,24 +1308,24 @@ function DiscussionSettings() {
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-c-secret">
-                Secret key
+                {t("settings.discussion.secretKeyLabel")}
               </label>
               <input
                 id="jf-c-secret"
                 className="jf-input"
                 type="password"
-                placeholder={state.captchaSecretKeySet ? "•••••••• (stored)" : ""}
+                placeholder={state.captchaSecretKeySet ? t("settings.discussion.secretKeyPlaceholder") : ""}
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
               />
-              <p className="jf-field__hint">Leave blank to keep the stored key.</p>
+              <p className="jf-field__hint">{t("settings.discussion.secretKeyHint")}</p>
             </div>
           </div>
         )}
         {state.captchaProvider === "recaptcha-v3" && (
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-c-score">
-              Minimum reCAPTCHA score
+              {t("settings.discussion.minScoreLabel")}
             </label>
             <input
               id="jf-c-score"
@@ -1365,31 +1337,25 @@ function DiscussionSettings() {
               value={state.captchaScoreThreshold}
               onChange={(e) => patch({ captchaScoreThreshold: Number(e.target.value) })}
             />
-            <p className="jf-field__hint">
-              0 allows more submissions; 1 is strictest. The recommended starting value is 0.5.
-            </p>
+            <p className="jf-field__hint">{t("settings.discussion.minScoreHint")}</p>
           </div>
         )}
 
         <div className="jf-row" style={{ marginTop: "1rem" }}>
           <button className="jf-btn jf-btn--primary" onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save discussion settings"}
+            {saving ? t("common.saving") : t("settings.discussion.saveButton")}
           </button>
-          {saved && <span className="jf-status jf-status--saved">✓ Saved</span>}
+          {saved && <span className="jf-status jf-status--saved">{t("settings.discussion.savedStatus")}</span>}
           {error && <span className="jf-status jf-status--error">{error}</span>}
         </div>
       </Section>
 
-      <Section title="Spam protection">
-        <p className="jf-field__hint">
-          Every submission is rate limited and honeypot-checked regardless of the settings below.
-          These control the local heuristic score that decides whether a comment auto-approves, is
-          held for moderation, or is auto-marked spam.
-        </p>
+      <Section title={t("settings.spam.title")}>
+        <p className="jf-field__hint">{t("settings.spam.heuristicHint")}</p>
         <div className="jf-grid jf-grid--2">
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-c-hold">
-              Hold threshold
+              {t("settings.spam.holdThresholdLabel")}
             </label>
             <input
               id="jf-c-hold"
@@ -1400,11 +1366,11 @@ function DiscussionSettings() {
               value={state.spamHoldThreshold}
               onChange={(e) => patch({ spamHoldThreshold: Number(e.target.value) })}
             />
-            <p className="jf-field__hint">Score (0-100) at or above which a comment is held.</p>
+            <p className="jf-field__hint">{t("settings.spam.holdThresholdHint")}</p>
           </div>
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-c-reject">
-              Auto-spam threshold
+              {t("settings.spam.rejectThresholdLabel")}
             </label>
             <input
               id="jf-c-reject"
@@ -1415,11 +1381,11 @@ function DiscussionSettings() {
               value={state.spamRejectThreshold}
               onChange={(e) => patch({ spamRejectThreshold: Number(e.target.value) })}
             />
-            <p className="jf-field__hint">Score at or above which a comment is auto-marked spam.</p>
+            <p className="jf-field__hint">{t("settings.spam.rejectThresholdHint")}</p>
           </div>
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-c-render-age">
-              Minimum time to submit
+              {t("settings.spam.minRenderAgeLabel")}
             </label>
             <input
               id="jf-c-render-age"
@@ -1430,13 +1396,11 @@ function DiscussionSettings() {
               value={state.minRenderAgeSeconds}
               onChange={(e) => patch({ minRenderAgeSeconds: Number(e.target.value) })}
             />
-            <p className="jf-field__hint">
-              seconds — a submission faster than this after the form loaded is a spam signal.
-            </p>
+            <p className="jf-field__hint">{t("settings.spam.minRenderAgeHint")}</p>
           </div>
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-c-links">
-              Link threshold
+              {t("settings.spam.linkThresholdLabel")}
             </label>
             <input
               id="jf-c-links"
@@ -1447,11 +1411,11 @@ function DiscussionSettings() {
               value={state.linkThreshold}
               onChange={(e) => patch({ linkThreshold: Number(e.target.value) })}
             />
-            <p className="jf-field__hint">More links than this in a comment is a spam signal.</p>
+            <p className="jf-field__hint">{t("settings.spam.linkThresholdHint")}</p>
           </div>
           <div className="jf-field">
             <label className="jf-field__label" htmlFor="jf-c-retention">
-              Spam retention
+              {t("settings.spam.retentionLabel")}
             </label>
             <input
               id="jf-c-retention"
@@ -1462,7 +1426,7 @@ function DiscussionSettings() {
               value={state.spamRetentionDays}
               onChange={(e) => patch({ spamRetentionDays: Number(e.target.value) })}
             />
-            <p className="jf-field__hint">days a spam-marked comment is kept before it's purged.</p>
+            <p className="jf-field__hint">{t("settings.spam.retentionHint")}</p>
           </div>
         </div>
 
@@ -1472,7 +1436,7 @@ function DiscussionSettings() {
             checked={state.firstCommentHold}
             onChange={(e) => patch({ firstCommentHold: e.target.checked })}
           />
-          <span>Hold a commenter's first-ever comment for moderation</span>
+          <span>{t("settings.spam.firstCommentHold")}</span>
         </label>
 
         <label className="jf-checkrow">
@@ -1481,14 +1445,14 @@ function DiscussionSettings() {
             checked={state.autoApprovePreviouslyApproved}
             onChange={(e) => patch({ autoApprovePreviouslyApproved: e.target.checked })}
           />
-          <span>Auto-approve a commenter who already has an approved comment</span>
+          <span>{t("settings.spam.autoApprovePreviouslyApproved")}</span>
         </label>
 
         <div className="jf-row" style={{ marginTop: "1rem" }}>
           <button className="jf-btn jf-btn--primary" onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save discussion settings"}
+            {saving ? t("common.saving") : t("settings.discussion.saveButton")}
           </button>
-          {saved && <span className="jf-status jf-status--saved">✓ Saved</span>}
+          {saved && <span className="jf-status jf-status--saved">{t("settings.discussion.savedStatus")}</span>}
           {error && <span className="jf-status jf-status--error">{error}</span>}
         </div>
       </Section>
@@ -1508,25 +1472,27 @@ interface ModerationRule {
   hitCount: number;
 }
 
-const RULE_FIELD_LABELS: Record<ModerationRule["field"], string> = {
-  author_email: "Author email",
-  author_domain: "Domain",
-  ip: "IP address",
-  phrase: "Phrase",
+const RULE_FIELD_KEYS: Record<ModerationRule["field"], string> = {
+  author_email: "authorEmail",
+  author_domain: "domain",
+  ip: "ip",
+  phrase: "phrase",
 };
 
 function ModerationRulesManager() {
+  const { t } = useT();
   const [rules, setRules] = useState<ModerationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [list, setList] = useState<ModerationRule["list"]>("block");
   const [field, setField] = useState<ModerationRule["field"]>("author_domain");
   const [pattern, setPattern] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const fieldLabel = (f: ModerationRule["field"]) => t(`settings.moderationRules.fields.${RULE_FIELD_KEYS[f]}`);
 
   function load() {
     setLoading(true);
     fetch("/api/comment-rules")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(t("ui.settingsPage.loadFailed")))))
       .then((data: { rules: ModerationRule[] }) => setRules(data.rules ?? []))
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -1545,13 +1511,13 @@ function ModerationRulesManager() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to add rule");
+        setError(data.error ?? t("settings.moderationRules.addFailedFallback"));
         return;
       }
       setPattern("");
       load();
     } catch {
-      setError("Failed to add rule");
+      setError(t("settings.moderationRules.addFailedFallback"));
     }
   }
 
@@ -1561,52 +1527,49 @@ function ModerationRulesManager() {
   }
 
   return (
-    <Section title="Block & allow lists">
-      <p className="jf-field__hint">
-        An explicit rule always wins over the heuristic score. Allow rules take priority over block
-        rules when both would match.
-      </p>
+    <Section title={t("settings.moderationRules.title")}>
+      <p className="jf-field__hint">{t("settings.moderationRules.hint")}</p>
       <div className="jf-row" style={{ gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
         <select
           className="jf-input"
           value={list}
           onChange={(e) => setList(e.target.value as ModerationRule["list"])}
         >
-          <option value="block">Block</option>
-          <option value="allow">Allow</option>
+          <option value="block">{t("settings.moderationRules.listBlock")}</option>
+          <option value="allow">{t("settings.moderationRules.listAllow")}</option>
         </select>
         <select
           className="jf-input"
           value={field}
           onChange={(e) => setField(e.target.value as ModerationRule["field"])}
         >
-          <option value="author_email">Author email</option>
-          <option value="author_domain">Domain</option>
-          <option value="ip">IP address</option>
-          <option value="phrase">Phrase</option>
+          <option value="author_email">{t("settings.moderationRules.fields.authorEmail")}</option>
+          <option value="author_domain">{t("settings.moderationRules.fields.domain")}</option>
+          <option value="ip">{t("settings.moderationRules.fields.ip")}</option>
+          <option value="phrase">{t("settings.moderationRules.fields.phrase")}</option>
         </select>
         <input
           className="jf-input"
           style={{ flex: 1, minWidth: "12rem" }}
-          placeholder="Pattern"
+          placeholder={t("settings.moderationRules.patternPlaceholder")}
           value={pattern}
           onChange={(e) => setPattern(e.target.value)}
         />
         <button className="jf-btn" onClick={addRule}>
-          Add rule
+          {t("settings.moderationRules.addButton")}
         </button>
       </div>
       {error && <p className="jf-status jf-status--error">{error}</p>}
       {loading ? null : rules.length === 0 ? (
-        <p className="jf-field__hint">No rules yet.</p>
+        <p className="jf-field__hint">{t("settings.moderationRules.emptyState")}</p>
       ) : (
         <table className="jf-table">
           <thead>
             <tr>
-              <th>List</th>
-              <th>Field</th>
-              <th>Pattern</th>
-              <th>Hits</th>
+              <th>{t("settings.moderationRules.columnList")}</th>
+              <th>{t("settings.moderationRules.columnField")}</th>
+              <th>{t("settings.moderationRules.columnPattern")}</th>
+              <th>{t("settings.moderationRules.columnHits")}</th>
               <th />
             </tr>
           </thead>
@@ -1614,12 +1577,12 @@ function ModerationRulesManager() {
             {rules.map((r) => (
               <tr key={r.id}>
                 <td>{r.list}</td>
-                <td>{RULE_FIELD_LABELS[r.field]}</td>
+                <td>{fieldLabel(r.field)}</td>
                 <td>{r.pattern}</td>
                 <td>{r.hitCount}</td>
                 <td>
                   <button className="jf-btn jf-btn--ghost jf-btn--sm" onClick={() => removeRule(r.id)}>
-                    Remove
+                    {t("settings.moderationRules.removeButton")}
                   </button>
                 </td>
               </tr>
@@ -1641,6 +1604,7 @@ interface SpamTerm {
 }
 
 function SpamTermsManager() {
+  const { t } = useT();
   const [terms, setTerms] = useState<SpamTerm[]>([]);
   const [loading, setLoading] = useState(true);
   const [kind, setKind] = useState<SpamTerm["kind"]>("phrase");
@@ -1650,7 +1614,7 @@ function SpamTermsManager() {
   function load() {
     setLoading(true);
     fetch("/api/comment-spam-terms")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(t("ui.settingsPage.loadFailed")))))
       .then((data: { terms: SpamTerm[] }) => setTerms(data.terms ?? []))
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -1669,13 +1633,13 @@ function SpamTermsManager() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to add term");
+        setError(data.error ?? t("settings.spamTerms.addFailedFallback"));
         return;
       }
       setValue("");
       load();
     } catch {
-      setError("Failed to add term");
+      setError(t("settings.spamTerms.addFailedFallback"));
     }
   }
 
@@ -1685,52 +1649,48 @@ function SpamTermsManager() {
   }
 
   return (
-    <Section title="Spam signal terms">
-      <p className="jf-field__hint">
-        Extra words, phrases, or domains that add to the heuristic score rather than deciding a
-        comment outright — unlike a block rule above. Marking a comment as spam also adds terms
-        here automatically ("learned"); those can be removed the same way.
-      </p>
+    <Section title={t("settings.spamTerms.title")}>
+      <p className="jf-field__hint">{t("settings.spamTerms.hint")}</p>
       <div className="jf-row" style={{ gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
         <select className="jf-input" value={kind} onChange={(e) => setKind(e.target.value as SpamTerm["kind"])}>
-          <option value="phrase">Phrase</option>
-          <option value="domain">Domain</option>
+          <option value="phrase">{t("settings.spamTerms.kindPhrase")}</option>
+          <option value="domain">{t("settings.spamTerms.kindDomain")}</option>
         </select>
         <input
           className="jf-input"
           style={{ flex: 1, minWidth: "12rem" }}
-          placeholder={kind === "domain" ? "spam4free.example" : "free crypto"}
+          placeholder={kind === "domain" ? "spam4free.example" : t("ui.settingsPage.freeCrypto")}
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
         <button className="jf-btn" onClick={addTerm}>
-          Add term
+          {t("settings.spamTerms.addButton")}
         </button>
       </div>
       {error && <p className="jf-status jf-status--error">{error}</p>}
       {loading ? null : terms.length === 0 ? (
-        <p className="jf-field__hint">No terms yet.</p>
+        <p className="jf-field__hint">{t("settings.spamTerms.emptyState")}</p>
       ) : (
         <table className="jf-table">
           <thead>
             <tr>
-              <th>Kind</th>
-              <th>Value</th>
-              <th>Weight</th>
-              <th>Source</th>
+              <th>{t("settings.spamTerms.columnKind")}</th>
+              <th>{t("settings.spamTerms.columnValue")}</th>
+              <th>{t("settings.spamTerms.columnWeight")}</th>
+              <th>{t("settings.spamTerms.columnSource")}</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {terms.map((t) => (
-              <tr key={t.id}>
-                <td>{t.kind}</td>
-                <td>{t.value}</td>
-                <td>{t.weight}</td>
-                <td>{t.source === "manual" ? "added by you" : "learned"}</td>
+            {terms.map((term) => (
+              <tr key={term.id}>
+                <td>{term.kind}</td>
+                <td>{term.value}</td>
+                <td>{term.weight}</td>
+                <td>{term.source === "manual" ? t("settings.spamTerms.sourceManual") : t("settings.spamTerms.sourceLearned")}</td>
                 <td>
-                  <button className="jf-btn jf-btn--ghost jf-btn--sm" onClick={() => removeTerm(t.id)}>
-                    Remove
+                  <button className="jf-btn jf-btn--ghost jf-btn--sm" onClick={() => removeTerm(term.id)}>
+                    {t("settings.spamTerms.removeButton")}
                   </button>
                 </td>
               </tr>
@@ -1759,6 +1719,7 @@ function FormatPicker({
   preview: (format: string) => string;
   onSelect: (format: string, custom: boolean) => void;
 }) {
+  const { t } = useT();
   return (
     <fieldset className="jf-choice">
       <legend className="jf-field__label">{legend}</legend>
@@ -1776,13 +1737,13 @@ function FormatPicker({
       ))}
       <label className="jf-checkrow">
         <input type="radio" name={name} checked={custom} onChange={() => onSelect(value, true)} />
-        <span>Custom:</span>
+        <span>{t("settings.datetime.customLabel")}</span>
         <input
           className="jf-input"
           style={{ maxWidth: 180 }}
           value={custom ? value : ""}
           placeholder={presets[0]}
-          aria-label={`Custom ${legend.toLowerCase()}`}
+          aria-label={t("settings.datetime.customAriaLabel", { legend: legend.toLowerCase() })}
           onFocus={() => onSelect(value || presets[0]!, true)}
           onChange={(e) => onSelect(e.target.value, true)}
         />

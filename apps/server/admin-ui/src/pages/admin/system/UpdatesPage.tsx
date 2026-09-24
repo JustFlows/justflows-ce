@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { initialJson } from "../../../ssr-data";
+import { useT } from "../../../i18n/I18nProvider";
 
 interface UpdateStep {
   step: string;
@@ -56,19 +57,19 @@ interface StartResponse {
   status?: UpdateStatus;
 }
 
-const PHASE_LABEL: Record<string, string> = {
-  queued: "Queued",
-  downloading: "Downloading",
-  verifying: "Verifying",
-  extracting: "Extracting",
-  validating: "Validating",
-  copying: "Copying files",
-  migrating: "Running migrations",
-  installing: "Installing dependencies",
-  building: "Building",
-  restarting: "Restarting",
-  done: "Done",
-  failed: "Failed",
+const PHASE_LABEL_KEYS: Record<string, string> = {
+  queued: "updates.phase.queued",
+  downloading: "updates.phase.downloading",
+  verifying: "updates.phase.verifying",
+  extracting: "updates.phase.extracting",
+  validating: "updates.phase.validating",
+  copying: "updates.phase.copyingFiles",
+  migrating: "updates.phase.runningMigrations",
+  installing: "updates.phase.installingDependencies",
+  building: "updates.phase.building",
+  restarting: "updates.phase.restarting",
+  done: "updates.phase.done",
+  failed: "updates.phase.failed",
 };
 
 function logVariant(line: string): string {
@@ -85,6 +86,7 @@ function fetchWithTimeout(input: string, init: RequestInit = {}, ms = 30_000): P
 }
 
 export default function UpdatesPage() {
+  const { t } = useT();
   const prefetched = initialJson<{
     currentVersion?: string;
     version?: string;
@@ -109,6 +111,11 @@ export default function UpdatesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollFailures = useRef(0);
+
+  function phaseLabelFor(p: string): string {
+    const key = PHASE_LABEL_KEYS[p];
+    return key ? t(key) : p;
+  }
 
   useEffect(() => {
     fetch("/api/updates")
@@ -177,7 +184,7 @@ export default function UpdatesPage() {
       void waitForSiteBack();
     } else if (status.restartRequired) {
       setRestartFailed(true);
-      addLog("⚠ Could not auto-restart — restart manually in Plesk → Node.js");
+      addLog(`⚠ ${t("updates.log.manualRestartNeeded")}`);
     }
   }
 
@@ -200,7 +207,7 @@ export default function UpdatesPage() {
         setInstalling(false);
         setUploading(false);
         setRestartFailed(true);
-        addLog("⚠ Lost contact with the server — refresh this page to check the result");
+        addLog(`⚠ ${t("updates.log.lostContact")}`);
         return;
       }
     }
@@ -228,8 +235,8 @@ export default function UpdatesPage() {
       if (data.autoUpdate) setAutoUpdate(data.autoUpdate);
       addLog(
         data.updates?.length
-          ? `Found ${data.updates.length} update(s)`
-          : "Everything is up to date",
+          ? t("updates.log.foundUpdates", { count: data.updates.length })
+          : t("updates.log.upToDate"),
       );
     } finally {
       setChecking(false);
@@ -239,14 +246,14 @@ export default function UpdatesPage() {
   async function waitForSiteBack() {
     setRestarting(true);
     setPhase("restarting");
-    addLog("↻ App is restarting — waiting for site to come back…");
+    addLog(`↻ ${t("updates.log.appRestarting")}`);
     await sleep(4000);
 
     for (let attempt = 0; attempt < 45; attempt++) {
       try {
         const res = await fetchWithTimeout("/api/install/status", { cache: "no-store" }, 5000);
         if (res.ok) {
-          addLog("✓ Site is back online — reloading…");
+          addLog(`✓ ${t("updates.log.siteBack")}`);
           await sleep(1500);
           window.location.reload();
           return;
@@ -258,7 +265,7 @@ export default function UpdatesPage() {
     }
 
     setRestartFailed(true);
-    addLog("⚠ Restart may still be in progress — refresh the page manually if needed");
+    addLog(`⚠ ${t("updates.log.restartInProgress")}`);
     setRestarting(false);
   }
 
@@ -283,7 +290,7 @@ export default function UpdatesPage() {
       }
 
       if (res.status === 409) {
-        addLog(`⚠ ${data.error ?? "An update is already running"}`);
+        addLog(`⚠ ${data.error ?? t("updates.log.alreadyRunning")}`);
         if (data.status) applyStatus(data.status);
         startPolling();
         return;
@@ -291,7 +298,7 @@ export default function UpdatesPage() {
 
       if (data.background) {
         if (data.status) applyStatus(data.status);
-        addLog("↻ Update running in the background…");
+        addLog(`↻ ${t("updates.log.runningInBackground")}`);
         startPolling();
         return;
       }
@@ -303,14 +310,16 @@ export default function UpdatesPage() {
         }
       }
       if (!res.ok || data.ok === false) {
-        throw new Error(data.error ?? data.steps?.find((s) => !s.ok)?.detail ?? "Update failed");
+        throw new Error(
+          data.error ?? data.steps?.find((s) => !s.ok)?.detail ?? t("updates.log.updateFailed"),
+        );
       }
       if (data.newVersion) setCurrentVersion(data.newVersion);
       if (data.restarting) {
         await waitForSiteBack();
       } else if (data.restartRequired) {
         setRestartFailed(true);
-        addLog("⚠ Could not auto-restart — restart manually in Plesk → Node.js");
+        addLog(`⚠ ${t("updates.log.manualRestartNeeded")}`);
       }
       setInstalling(false);
       setUploading(false);
@@ -318,7 +327,7 @@ export default function UpdatesPage() {
       const msg = e instanceof Error ? e.message : String(e);
       // A dropped connection here usually means the worker is busy or the app is
       // restarting — fall back to polling rather than declaring failure.
-      addLog(`⚠ ${msg} — checking update status…`);
+      addLog(`⚠ ${t("updates.log.checkingStatus", { message: msg })}`);
       startPolling();
     }
   }
@@ -327,7 +336,7 @@ export default function UpdatesPage() {
     setUploading(true);
     setInstalling(true);
     setLog([]);
-    addLog(`Uploading ${file.name}…`);
+    addLog(t("updates.log.uploading", { file: file.name }));
 
     const form = new FormData();
     form.append("file", file);
@@ -346,7 +355,7 @@ export default function UpdatesPage() {
   async function installRemote(item: UpdateItem) {
     setInstalling(true);
     setLog([]);
-    addLog(`Starting update to Justflows v${item.availableVersion}…`);
+    addLog(t("updates.log.startingUpdate", { version: item.availableVersion }));
 
     await runUpdateFlow(
       fetchWithTimeout(
@@ -369,16 +378,12 @@ export default function UpdatesPage() {
    * remote update, so it still restarts the site.
    */
   async function forceReinstall() {
-    if (
-      !window.confirm(
-        `Force reinstall Justflows v${currentVersion}? This re-downloads and reapplies the current release and restarts the site.`,
-      )
-    ) {
+    if (!window.confirm(t("updates.forceReinstallConfirm", { version: currentVersion }))) {
       return;
     }
     setInstalling(true);
     setLog([]);
-    addLog(`Force reinstalling Justflows v${currentVersion}…`);
+    addLog(t("updates.log.forceReinstalling", { version: currentVersion }));
 
     await runUpdateFlow(
       fetchWithTimeout(
@@ -402,7 +407,7 @@ export default function UpdatesPage() {
         body: JSON.stringify({ autoUpdate: { enabled: next } }),
       });
       const data = (await res.json()) as { autoUpdate?: AutoUpdateInfo; error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Could not save");
+      if (!res.ok) throw new Error(data.error ?? t("updates.autoUpdate.saveFailed"));
       if (data.autoUpdate) setAutoUpdate(data.autoUpdate);
     } catch (e) {
       addLog(`✗ ${e instanceof Error ? e.message : String(e)}`);
@@ -412,15 +417,15 @@ export default function UpdatesPage() {
   }
 
   const busy = uploading || installing || restarting;
-  const phaseLabel = phase ? (PHASE_LABEL[phase] ?? phase) : null;
+  const phaseLabel = phase ? phaseLabelFor(phase) : null;
 
   return (
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Updates</h1>
+          <h1>{t("updates.title")}</h1>
           <p>
-            Current version: <strong>v{currentVersion}</strong>
+            {t("updates.currentVersion")} <strong>v{currentVersion}</strong>
           </p>
         </div>
         <div className="jf-pagehead__actions">
@@ -429,28 +434,28 @@ export default function UpdatesPage() {
             onClick={checkForUpdates}
             disabled={checking || busy}
           >
-            {checking ? "Checking…" : "Check for updates"}
+            {checking ? t("updates.checking") : t("updates.checkForUpdates")}
           </button>
           <button
             className="jf-btn jf-btn--ghost"
             onClick={forceReinstall}
             disabled={checking || busy}
-            title="Re-download and reapply the current release — use this to repair a broken install"
+            title={t("updates.forceReinstallTitle")}
           >
-            Force reinstall
+            {t("updates.forceReinstall")}
           </button>
         </div>
       </header>
 
       <div className="jf-card">
         <div className="jf-card__head">
-          <h2 className="jf-card__title">Upload Justflows update</h2>
+          <h2 className="jf-card__title">{t("updates.upload.title")}</h2>
         </div>
         <div className="jf-card__body jf-stack">
           <p className="jf-prose">
-            Upload a <code className="jf-code">justflows.zip</code> file. Justflows extracts it,
-            updates the database, installs dependencies, and restarts the site by itself
-            (Plesk/Passenger). Your <code className="jf-code">.env</code> and uploads are preserved.
+            {t("updates.upload.description1")} <code className="jf-code">justflows.zip</code>{" "}
+            {t("updates.upload.description2")} <code className="jf-code">.env</code>{" "}
+            {t("updates.upload.description3")}
           </p>
 
           <input
@@ -471,18 +476,18 @@ export default function UpdatesPage() {
               disabled={busy}
             >
               {uploading
-                ? "Uploading…"
+                ? t("updates.upload.uploading")
                 : restarting
-                  ? "Restarting…"
+                  ? t("updates.restarting")
                   : installing
-                    ? `Updating… ${phaseLabel ?? ""}`.trim()
-                    : "Choose justflows.zip…"}
+                    ? `${t("updates.updating")} ${phaseLabel ?? ""}`.trim()
+                    : t("updates.upload.chooseFile")}
             </button>
             {busy && (
               <span className="jf-meta">
                 {restarting
-                  ? "Waiting for app to restart — page will reload automatically"
-                  : "The update runs in the background — you can safely leave this page"}
+                  ? t("updates.waitingRestart")
+                  : t("updates.upload.backgroundHint")}
               </span>
             )}
           </div>
@@ -493,9 +498,9 @@ export default function UpdatesPage() {
                 ⚠️
               </span>
               <div>
-                <div className="jf-banner__title">Manual restart needed</div>
+                <div className="jf-banner__title">{t("updates.manualRestartTitle")}</div>
                 <div className="jf-banner__sub">
-                  Go to Plesk → Node.js → Restart App, then refresh this page.
+                  {t("updates.manualRestartBody")}
                 </div>
               </div>
             </div>
@@ -509,8 +514,8 @@ export default function UpdatesPage() {
             <span className="jf-empty__icon" aria-hidden="true">
               ⬆
             </span>
-            <span className="jf-empty__title">No remote updates available</span>
-            <p>Use the upload above to install a new justflows.zip manually.</p>
+            <span className="jf-empty__title">{t("updates.empty.title")}</span>
+            <p>{t("updates.empty.body")}</p>
           </div>
         </div>
       ) : (
@@ -523,7 +528,7 @@ export default function UpdatesPage() {
                     {item.name}
                     {item.autoUpdatable === false && (
                       <span className="jf-badge jf-badge--warn" style={{ marginLeft: 8 }}>
-                        major
+                        {t("updates.majorBadge")}
                       </span>
                     )}
                   </div>
@@ -534,15 +539,14 @@ export default function UpdatesPage() {
                       <>
                         {" · "}
                         <a href={item.notesUrl} target="_blank" rel="noreferrer">
-                          Release notes
+                          {t("updates.releaseNotes")}
                         </a>
                       </>
                     )}
                   </p>
                   {item.autoUpdatable === false && (
                     <p className="jf-meta">
-                      This is a major version upgrade and may include breaking changes. Review the
-                      release notes before installing.
+                      {t("updates.majorVersionWarning")}
                     </p>
                   )}
                 </div>
@@ -553,10 +557,10 @@ export default function UpdatesPage() {
                     disabled={busy || checking}
                   >
                     {installing
-                      ? `Updating… ${phaseLabel ?? ""}`.trim()
+                      ? `${t("updates.updating")} ${phaseLabel ?? ""}`.trim()
                       : restarting
-                        ? "Restarting…"
-                        : `Update to v${item.availableVersion}`}
+                        ? t("updates.restarting")
+                        : t("updates.updateToVersion", { version: item.availableVersion })}
                   </button>
                 ) : (
                   <span className="jf-badge jf-badge--info">{item.type}</span>
@@ -569,7 +573,7 @@ export default function UpdatesPage() {
 
       <div className="jf-card">
         <div className="jf-card__head">
-          <h2 className="jf-card__title">Automatic updates</h2>
+          <h2 className="jf-card__title">{t("updates.autoUpdate.title")}</h2>
         </div>
         <div className="jf-card__body jf-stack">
           <label className="jf-row" style={{ alignItems: "center", gap: 10 }}>
@@ -580,19 +584,21 @@ export default function UpdatesPage() {
               onChange={(e) => toggleAutoUpdate(e.target.checked)}
             />
             <span>
-              Install new <code className="jf-code">0.x</code> releases automatically
+              {t("updates.autoUpdate.checkboxText1")} <code className="jf-code">0.x</code>{" "}
+              {t("updates.autoUpdate.checkboxText2")}
             </span>
           </label>
           <p className="jf-prose">
-            When on, Justflows checks daily and installs newer releases that keep the same major
-            version (for example <code className="jf-code">v{currentVersion}</code> →{" "}
-            <code className="jf-code">v0.x.y</code>). Major version upgrades are never installed
-            automatically — they can carry breaking changes and always need your confirmation above.
+            {t("updates.autoUpdate.description1")}{" "}
+            <code className="jf-code">v{currentVersion}</code> {t("updates.autoUpdate.description2")}{" "}
+            <code className="jf-code">v0.x.y</code>
+            {t("updates.autoUpdate.description3")}
           </p>
           {!autoUpdate.available && (
             <p className="jf-meta">
-              Automatic updates are disabled on this server (
-              <code className="jf-code">JUSTFLOWS_DISABLE_AUTO_UPDATE</code>).
+              {t("updates.autoUpdate.disabledHint1")}
+              <code className="jf-code">JUSTFLOWS_DISABLE_AUTO_UPDATE</code>
+              {t("updates.autoUpdate.disabledHint2")}
             </p>
           )}
         </div>
@@ -601,7 +607,7 @@ export default function UpdatesPage() {
       {log.length > 0 && (
         <div className="jf-log">
           <p className="jf-log__label">
-            Update log{phaseLabel && installing ? ` — ${phaseLabel}` : ""}
+            {t("updates.logLabel")}{phaseLabel && installing ? ` — ${phaseLabel}` : ""}
           </p>
           {log.map((line, i) => (
             <p key={i} className={`jf-log__line${logVariant(line)}`}>

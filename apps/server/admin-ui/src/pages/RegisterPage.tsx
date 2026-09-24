@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "../admin-router";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import { publicAdminPath, safeRedirectPath } from "../admin-path";
+import { useT } from "../i18n/I18nProvider";
 
 export default function RegisterPage() {
+  const { t } = useT();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -46,7 +48,7 @@ export default function RegisterPage() {
       const data = (await res.json()) as { error?: string; role?: string; redirectTo?: string };
 
       if (!res.ok) {
-        setError(data.error ?? "Registration failed");
+        setError(data.error ?? t("auth.register.registrationFailed"));
         return;
       }
 
@@ -58,7 +60,7 @@ export default function RegisterPage() {
         data.role === "subscriber" ? "/" : publicAdminPath("/admin"),
       );
     } catch {
-      setError("An unexpected error occurred");
+      setError(t("auth.unexpectedError"));
     } finally {
       setLoading(false);
     }
@@ -73,7 +75,11 @@ export default function RegisterPage() {
             Justflows
           </div>
           <div className="jf-auth__sub">
-            {checking ? "Checking…" : closed ? "Registration is closed" : "Create an account"}
+            {checking
+              ? t("auth.register.checking")
+              : closed
+                ? t("auth.register.closedHeading")
+                : t("auth.register.heading")}
           </div>
         </div>
 
@@ -84,18 +90,17 @@ export default function RegisterPage() {
         ) : closed ? (
           <div className="jf-auth__body">
             <p className="jf-field__hint" style={{ margin: 0 }}>
-              This site is not accepting new accounts. If you already have one, you can sign in
-              instead.
+              {t("auth.register.closedBody")}
             </p>
             <Link className="jf-btn jf-btn--primary jf-btn--block" to="/login">
-              Sign in →
+              {t("auth.signInCta")}
             </Link>
           </div>
         ) : (
           <form onSubmit={submit} className="jf-auth__body">
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-reg-email">
-                Email address
+                {t("auth.emailLabel")}
               </label>
               <input
                 id="jf-reg-email"
@@ -109,7 +114,7 @@ export default function RegisterPage() {
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-reg-username">
-                Username
+                {t("auth.register.usernameLabel")}
               </label>
               <input
                 id="jf-reg-username"
@@ -124,7 +129,8 @@ export default function RegisterPage() {
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-reg-name">
-                Display name <span className="jf-field__hint">(optional)</span>
+                {t("auth.register.displayNameLabel")}{" "}
+                <span className="jf-field__hint">{t("auth.register.optionalHint")}</span>
               </label>
               <input
                 id="jf-reg-name"
@@ -136,7 +142,7 @@ export default function RegisterPage() {
             </div>
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-reg-password">
-                Password
+                {t("auth.passwordLabel")}
               </label>
               <input
                 id="jf-reg-password"
@@ -161,14 +167,14 @@ export default function RegisterPage() {
               type="submit"
               disabled={loading}
             >
-              {loading ? "Creating account…" : "Create account →"}
+              {loading ? t("auth.register.creatingAccount") : t("auth.register.createAccountCta")}
             </button>
             <p className="jf-auth__footer">
-              Already have an account? <Link to="/login">Sign in</Link>
+              {t("auth.register.haveAccount")} <Link to="/login">{t("auth.signInLink")}</Link>
               {canReset && (
                 <>
                   {" · "}
-                  <Link to="/forgot-password">Forgot your password?</Link>
+                  <Link to="/forgot-password">{t("auth.forgotPasswordLink")}</Link>
                 </>
               )}
             </p>

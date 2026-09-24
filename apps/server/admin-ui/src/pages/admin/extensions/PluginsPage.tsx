@@ -51,7 +51,7 @@ export default function PluginsPage() {
 
   async function handleFile(file: File) {
     if (!file.name.endsWith(".jfpkg") && !file.name.endsWith(".zip")) {
-      setUploadError("Please upload a .jfpkg file");
+      setUploadError(t("plugins.uploadInvalidFile"));
       return;
     }
 
@@ -72,17 +72,17 @@ export default function PluginsPage() {
         data = JSON.parse(raw) as { plugin?: Plugin; error?: string };
       } catch {
         const plain = raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-        throw new Error(plain.slice(0, 180) || `Upload failed (${res.status})`);
+        throw new Error(plain.slice(0, 180) || t("common.uploadFailedStatus", { status: res.status }));
       }
-      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      if (!res.ok) throw new Error(data.error ?? t("plugins.uploadFailed"));
       if (data.plugin) {
         setPlugins((p) => [...p, data.plugin!]);
-        setUploadSuccess(`"${data.plugin.name}" installed successfully`);
+        setUploadSuccess(t("plugins.uploadSuccess", { name: data.plugin.name }));
         await refreshMenu();
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
-        setUploadError("Install timed out. Extract the latest justflows.zip, run npm run install:all, and restart Node.js.");
+        setUploadError(t("plugins.installTimeout"));
       } else {
         setUploadError(e instanceof Error ? e.message : String(e));
       }
@@ -126,15 +126,15 @@ export default function PluginsPage() {
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>Plugins</h1>
-          <p>Extend your site with plugins</p>
+          <h1>{t("plugins.title")}</h1>
+          <p>{t("plugins.subtitle")}</p>
         </div>
       </header>
 
       {canManage && (
       <div className="jf-card">
         <div className="jf-card__head">
-          <h2 className="jf-card__title">Upload plugin</h2>
+          <h2 className="jf-card__title">{t("plugins.uploadHeading")}</h2>
         </div>
         <div className="jf-card__body jf-stack">
           <div
@@ -152,21 +152,21 @@ export default function PluginsPage() {
             }}
             onClick={() => fileInputRef.current?.click()}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
-            aria-label="Upload a plugin package. Drop a .jfpkg file here or press Enter to browse."
+            aria-label={t("plugins.uploadDropzoneAriaLabel")}
           >
             <input
               ref={fileInputRef}
               type="file"
               accept=".jfpkg,.zip"
-              aria-label="Choose a plugin package"
+              aria-label={t("plugins.choosePackageAriaLabel")}
               style={{ display: "none" }}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
             />
             <span className="jf-dropzone__icon" aria-hidden="true">📦</span>
             <span className="jf-dropzone__title">
-              {uploading ? "Installing…" : "Drop a .jfpkg file here"}
+              {uploading ? t("plugins.installing") : t("plugins.dropHere")}
             </span>
-            <span>or click to browse</span>
+            <span>{t("plugins.orClickToBrowse")}</span>
           </div>
 
           {uploadError && <div className="jf-alert jf-alert--error" role="alert">{uploadError}</div>}
@@ -177,7 +177,7 @@ export default function PluginsPage() {
 
       <div className="jf-card">
         <div className="jf-card__head">
-          <h2 className="jf-card__title">Installed plugins ({plugins.length})</h2>
+          <h2 className="jf-card__title">{t("plugins.installedHeading", { count: plugins.length })}</h2>
         </div>
 
         {deleteError && (
@@ -194,8 +194,8 @@ export default function PluginsPage() {
         ) : plugins.length === 0 ? (
           <div className="jf-empty">
             <span className="jf-empty__icon" aria-hidden="true">🔌</span>
-            <span className="jf-empty__title">No plugins installed</span>
-            <p>Upload a .jfpkg file above to add functionality to your site.</p>
+            <span className="jf-empty__title">{t("plugins.emptyTitle")}</span>
+            <p>{t("plugins.emptyDesc")}</p>
           </div>
         ) : (
           <div className="jf-list">
@@ -208,20 +208,20 @@ export default function PluginsPage() {
                     <span className={`jf-badge${STATUS_VARIANT[p.status]}`}>{p.status}</span>
                   </div>
                   {p.description && <p className="jf-list__desc">{p.description}</p>}
-                  <p className="jf-meta">by {p.publisher} · <code className="jf-code">{p.id}</code></p>
+                  <p className="jf-meta">{t("ui.pluginsPage.by")}{p.publisher} · <code className="jf-code">{p.id}</code></p>
                 </div>
                 {canManage && (
                   <div className="jf-row" style={{ flexWrap: "nowrap" }}>
                     {p.settingsSchema && Object.keys(p.settingsSchema).length > 0 && (
                       <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${p.id}/settings`}>
-                        Settings
+                        {t("plugins.settingsLink")}
                       </Link>
                     )}
                     <button className="jf-btn jf-btn--ghost" onClick={() => togglePlugin(p.id, p.status)}>
-                      {p.status === "active" ? "Deactivate" : "Activate"}
+                      {p.status === "active" ? t("plugins.deactivate") : t("plugins.activate")}
                     </button>
                     <button className="jf-btn jf-btn--danger" onClick={() => void deletePlugin(p)}>
-                      Delete
+                      {t("common.delete")}
                     </button>
                   </div>
                 )}

@@ -19,7 +19,7 @@
   "errors.maintenance.badge": "Mantenimiento",
   "errors.maintenance.title": "Volveremos pronto",
   "errors.maintenance.body": "El sitio está en mantenimiento programado. Vuelve a consultarlo pronto.",
-  "footer.powered_by": "Desarrollado por",
+  "footer.powered_by": "Desarrollado con",
   "auth.login": "Iniciar sesión",
   "auth.register": "Registrarse",
   "color_scheme.light": "Claro",
@@ -60,5 +60,25 @@
   "search.empty": "Sin resultados. Prueba menos palabras u otros filtros.",
   "search.pagination": "Páginas de búsqueda",
   "search.previous": "Anterior",
-  "search.next": "Siguiente"
+  "search.next": "Siguiente",
+  "menus": {
+    "toggleMenu": "Menú",
+    "toggleSubmenu": "Alternar submenú",
+    "closeMenu": "Cerrar menú"
+  },
+  "construction.title": "Próximamente",
+  "construction.badge": "En construcción",
+  "construction.heading": "Estamos creando algo increíble",
+  "construction.body": "Este sitio aún no está disponible. Vuelve pronto.",
+  "site.title_fallback": "Este sitio",
+  "nav.primary": "Navegación principal",
+  "nav.footer": "Navegación del pie de página",
+  "auth.account": "Cuenta",
+  "pwa.install": "Instalar",
+  "pwa.description": "Instala esta aplicación para disfrutar de una experiencia más rápida a pantalla completa.",
+  "pwa.installAria": "Instalar esta aplicación",
+  "pwa.dismiss": "Cerrar",
+  "pwa.iosInstructions": "Instala esta aplicación: toca Compartir y luego «Añadir a pantalla de inicio».",
+  "pwa.updateAvailable": "Hay una actualización disponible.",
+  "pwa.reload": "Recargar"
 }

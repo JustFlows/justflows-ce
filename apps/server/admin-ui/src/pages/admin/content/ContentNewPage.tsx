@@ -82,7 +82,7 @@ function NewContentForm() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to create");
+        setError(data.error ?? t("content.new.createFailed"));
         return;
       }
       if (isProduct && catalogPayloadRef.current && typeof data.id === "string") {
@@ -105,7 +105,7 @@ function NewContentForm() {
     }
   }
 
-  const label = type === "page" ? t("content.newPage") : type === "post" ? t("content.newPost") : `New ${typeLabel}`;
+  const label = type === "page" ? t("content.newPage") : type === "post" ? t("content.newPost") : t("content.new.newTypeLabel", { typeLabel });
 
   return (
     <>
@@ -155,7 +155,7 @@ function NewContentForm() {
                   onChange={(e) => { setSlugEdited(true); setSlug(e.target.value); }}
                 />
               </div>
-              <span className="jf-field__hint">Generated from the title until you edit it.</span>
+              <span className="jf-field__hint">{t("content.new.slugHint")}</span>
             </div>
 
             <div className="jf-field">
@@ -181,7 +181,7 @@ function NewContentForm() {
                 onChange={(e) => setExcerpt(e.target.value)}
                 rows={3}
               />
-              <span className="jf-field__hint">Used as the meta description until you set a dedicated SEO description.</span>
+              <span className="jf-field__hint">{t("content.new.excerptHint")}</span>
             </div>
           </div>
         </div>

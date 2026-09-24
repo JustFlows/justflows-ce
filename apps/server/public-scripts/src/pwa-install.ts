@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+import en from "../../src/lib/i18n/site-catalogs/en.json";
+
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
@@ -32,8 +35,8 @@ interface BeforeInstallPromptEvent extends Event {
   function config(): InstallConfig {
     const data = (SCRIPT_TAG && SCRIPT_TAG.dataset) || ({} as DOMStringMap);
     return {
-      label: data.label || "Install",
-      description: data.description || "Install this app for a faster, full-screen experience.",
+      label: data.label || en["pwa.install"],
+      description: data.description || en["pwa.description"],
       showLogo: data.showLogo !== "0",
     };
   }
@@ -82,7 +85,7 @@ interface BeforeInstallPromptEvent extends Event {
   ): HTMLDivElement {
     const banner = document.createElement("div");
     banner.setAttribute("role", "region");
-    banner.setAttribute("aria-label", "Install this app");
+    banner.setAttribute("aria-label", SCRIPT_TAG?.dataset.installAria || en["pwa.installAria"]);
     banner.style.cssText =
       "position:fixed;left:1rem;right:1rem;bottom:1rem;z-index:2147483000;" +
       "max-width:26rem;margin:0 auto;background:#111;color:#fff;border-radius:.6rem;" +
@@ -113,7 +116,7 @@ interface BeforeInstallPromptEvent extends Event {
 
     const dismiss = document.createElement("button");
     dismiss.type = "button";
-    dismiss.setAttribute("aria-label", "Dismiss");
+    dismiss.setAttribute("aria-label", SCRIPT_TAG?.dataset.dismiss || en["pwa.dismiss"]);
     dismiss.textContent = "✕";
     dismiss.style.cssText =
       "font:inherit;background:transparent;color:#fff;border:0;padding:.4rem;cursor:pointer;opacity:.8";
@@ -162,7 +165,7 @@ interface BeforeInstallPromptEvent extends Event {
     // only the logo follows the site's own choice.
     if (isIos() && isSafari()) {
       document.body.appendChild(
-        buildBanner(null, "Install this app: tap Share, then “Add to Home Screen”.", "", cfg.showLogo),
+        buildBanner(null, SCRIPT_TAG?.dataset.iosInstructions || en["pwa.iosInstructions"], "", cfg.showLogo),
       );
     }
   });

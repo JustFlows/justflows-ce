@@ -50,11 +50,16 @@ describe("renderStaticErrorPage", () => {
   it("falls back to generic English copy when the requested locale is unknown", () => {
     const html = renderStaticErrorPage("maintenance", { locale: "xx" });
     expect(html).toContain("We&#39;ll be back soon");
+    expect(html).toContain('lang="en"');
   });
 
   it("uses the bundled locale's default copy when no admin text is set", () => {
     const html = renderStaticErrorPage("500", { locale: "de" });
     expect(html).toContain("Etwas ist schiefgelaufen");
+    expect(html).toContain('lang="de"');
+    expect(html).toContain("Diese Website");
+    expect(html).toContain("Bereitgestellt von");
+    expect(html).not.toContain("Powered by");
   });
 
   it("escapes admin-provided heading/message instead of interpolating them raw", () => {
