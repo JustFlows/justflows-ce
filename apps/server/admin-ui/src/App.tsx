@@ -26,6 +26,7 @@ import EditUserPage from "./pages/admin/users/EditUserPage";
 import RedirectsPage from "./pages/admin/settings/RedirectsPage";
 import PermalinksPage from "./pages/admin/settings/PermalinksPage";
 import PwaSettingsPage from "./pages/admin/settings/PwaSettingsPage";
+import PlaceholdersPage from "./pages/admin/settings/PlaceholdersPage";
 import SettingsPage from "./pages/admin/settings/SettingsPage";
 import EmailsPage from "./pages/admin/settings/EmailsPage";
 import CommentsPage from "./pages/admin/comments/CommentsPage";
@@ -129,6 +130,7 @@ export default function App() {
               <Route path="settings" element={<SettingsPage />} />
               <Route path="settings/permalinks" element={<PermalinksPage />} />
               <Route path="settings/pwa" element={<PwaSettingsPage />} />
+              <Route path="settings/placeholders" element={<PlaceholdersPage />} />
               <Route path="redirects" element={<RedirectsPage />} />
               <Route path="emails" element={<EmailsPage />} />
               <Route path="comments" element={<CommentsPage />} />

@@ -55,11 +55,13 @@
     "shopRefunds": "Reembolsos",
     "shopEmails": "Correos electrónicos",
     "shopReports": "Informes",
+    "shopPage": "Página de la tienda",
     "redirects": "Redirecciones",
     "diagnostics": "Diagnóstico",
     "apiKeys": "API",
     "permalinks": "Enlaces permanentes",
-    "pwa": "PWA"
+    "pwa": "PWA",
+    "placeholders": "Imágenes predeterminadas"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -923,6 +925,7 @@
         "columnsGridLayout": "Columnas (diseño en cuadrícula)",
         "postsPerPage": "Entradas por página",
         "showFeaturedImage": "Mostrar imagen destacada",
+        "showPlaceholder": "Mostrar una imagen predeterminada si la entrada no tiene imagen",
         "showDate": "Mostrar fecha",
         "showExcerpt": "Mostrar extracto",
         "hint": "Muestra las entradas publicadas, de la más reciente a la más antigua. La paginación usa /page/2, /page/3, etc. bajo la URL de esta página."
@@ -997,7 +1000,15 @@
         "noImagesYet": "Aún no hay imágenes en la biblioteca de medios."
       },
       "moveUp": "Subir",
-      "moveDown": "Bajar"
+      "moveDown": "Bajar",
+      "schemaField": {
+        "loadFailed": "No se pudieron cargar las opciones.",
+        "loading": "Cargando opciones…",
+        "noOptions": "Todavía no hay nada que elegir.",
+        "none": "— Ninguno —",
+        "search": "Buscar…",
+        "selected": "{count} seleccionados"
+      }
     },
     "blockLibrary": {
       "blocks": "Bloques",
@@ -1215,6 +1226,28 @@
     "save": "Guardar enlaces permanentes",
     "saving": "Guardando…",
     "history": "URLs de contenido anteriores ({count})"
+  },
+  "placeholders": {
+    "title": "Imágenes predeterminadas",
+    "description": "Imágenes que se muestran cuando una entrada, un producto o un bloque no tiene imagen propia.",
+    "failed": "No se pudieron cargar ni guardar las imágenes predeterminadas.",
+    "retry": "Reintentar",
+    "saved": "Imágenes predeterminadas guardadas.",
+    "save": "Guardar imágenes predeterminadas",
+    "saving": "Guardando…",
+    "enable": "Mostrar una imagen predeterminada cuando falte una imagen",
+    "enableHint": "Si está desactivado, un hueco de imagen vacío sigue vacío. Cada bloque también puede desactivarlo.",
+    "images": "Imágenes",
+    "kindHint": "{size} · {owner}. Déjalo vacío para usar la imagen de abajo.",
+    "ownerCore": "Justflows",
+    "defaultPreview": "Imagen predeterminada actual: {label}",
+    "kinds": {
+      "generic": "Imagen genérica",
+      "featured": "Imagen destacada",
+      "thumbnail": "Miniatura",
+      "avatar": "Avatar",
+      "og": "Imagen para compartir en redes sociales"
+    }
   },
   "pwa": {
     "title": "PWA",

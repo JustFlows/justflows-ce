@@ -23,14 +23,21 @@ import {
 } from "../../lib/i18n/languages-db.js";
 import {
   localePath,
+  localizeHtmlLinks,
   matchActiveLocale,
+  UNLOCALIZED_PATH_SEGMENTS,
   displayLocaleCode,
   localePresentation,
 } from "../../lib/i18n/locales.js";
 import { formatContentDate, getGeneralSettings } from "../../lib/settings/general-settings.js";
 import { hydrateSiteWidgets } from "../../lib/rendering/site-widgets.js";
 import { applyContentBlocks, applyContentRender, applyFootnotes } from "../../lib/content/content-render.js";
-import { withResponsiveImages } from "../../lib/rendering/responsive-blocks.js";
+import { defaultBlocksForContentType, isEmptyBlockDocument } from "../../lib/content/default-content-blocks.js";
+import {
+  withImagePlaceholders,
+  withResponsiveImages,
+} from "../../lib/rendering/responsive-blocks.js";
+import { primePlaceholders, resolvePlaceholder } from "../../lib/media/placeholders.js";
 import { createTranslator, type MessageCatalog } from "../../lib/i18n/translate.js";
 import {
   defaultModsFromSchema,
@@ -91,7 +98,7 @@ import {
   isSitePublic,
   shouldDiscourageSearchEngines,
 } from "../../lib/settings/site-visibility.js";
-import { getRuntimeHooks } from "../../lib/plugins/plugin-runtime.js";
+import { getPluginLoader, getRuntimeHooks } from "../../lib/plugins/plugin-runtime.js";
 import {
   buildSeoHeadHtml,
   buildSitemapXml,
@@ -391,7 +398,13 @@ async function renderBlocksHtml(
 ): Promise<string> {
   if (await isGalleryPluginEnabled()) registerGalleryBlock();
   else unregisterGalleryBlock();
-  const resolved = await withResponsiveImages(await withReusables(blocks), await getSiteId());
+  const siteId = await getSiteId();
+  // Plugin block render() is sync; warm the settings its placeholder lookups read.
+  await primePlaceholders(siteId);
+  const resolved = withImagePlaceholders(
+    await withResponsiveImages(await withReusables(blocks), siteId),
+    siteId,
+  );
   try {
     return await renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx, templateCtx);
   } catch {
@@ -734,6 +747,45 @@ async function loadMenuDesign(
   );
 }
 
+/**
+ * Keep visitors in the language they picked: on a `/nl-NL/...` page, internal
+ * links emitted by blocks, themes and plugins (`/shop`, `/product/x`) get the
+ * `/nl-NL` prefix here, so extension authors never build locale URLs.
+ * Plugin HTTP routes and the configurable admin path are app routes, not pages.
+ */
+async function localizePageLinks(reqPath: string, html: string): Promise<string> {
+  const activeLocales = await getActiveLocaleCodes();
+  if (activeLocales.length < 2) return html;
+  const { locale } = parseLocalePrefix(reqPath, activeLocales);
+  const defaultLocale = await getDefaultLocale();
+  if (!locale || locale === defaultLocale) return html;
+  const router = getPluginLoader()?.httpRouter;
+  const adminPath = (await getAdminPathConfig()).path.replace(/\/+$/, "");
+  const localized = localizeHtmlLinks(html, {
+    locale,
+    defaultLocale,
+    activeLocales,
+    isAppRoute: (pathname) =>
+      (adminPath !== "" && (pathname === adminPath || pathname.startsWith(`${adminPath}/`))) ||
+      Boolean(router && (router.match("GET", pathname) || router.match("POST", pathname))),
+  });
+  // Links a script adds after load (a cart drawer, a fetched product grid) are
+  // localized in the browser by /js/locale-links.js with the same rules.
+  const adminSegment = adminPath.split("/").filter(Boolean)[0];
+  const config = JSON.stringify({
+    locale,
+    locales: activeLocales,
+    skip: [...new Set([...UNLOCALIZED_PATH_SEGMENTS, ...(adminSegment ? [adminSegment] : [])])],
+  }).replace(/</g, "\\u003c");
+  const tail =
+    `<script type="application/json" id="jf-locale-links">${config}</script>` +
+    `<script src="/js/locale-links.js" defer></script>`;
+  const bodyEnd = localized.lastIndexOf("</body>");
+  return bodyEnd === -1
+    ? localized
+    : `${localized.slice(0, bodyEnd)}${tail}${localized.slice(bodyEnd)}`;
+}
+
 async function sendPublicHtml(
   req: Request,
   res: Response,
@@ -750,7 +802,9 @@ async function sendPublicHtml(
   if (bypass || !getJfCache().enabled) {
     res.locals.jfPageCache = "BYPASS";
   }
-  let html = await getCachedPageHtml(pageKey, bypass, render);
+  let html = await getCachedPageHtml(pageKey, bypass, async () =>
+    localizePageLinks(req.path, await render()),
+  );
   if (debugMode().enabled) {
     const session = await resolveSession(req, res);
     if (session?.role === "administrator") {
@@ -981,6 +1035,21 @@ export function hreflangAlternates(opts: {
   return links;
 }
 
+/**
+ * `og:image` for a page: its own image, else the site logo (crawlers skip SVG),
+ * else the `og` placeholder. `""` when placeholders are off and nothing else fits.
+ */
+async function shareImageFor(
+  siteId: string,
+  pageImage: string,
+  logoUrl: string | undefined,
+): Promise<string> {
+  if (pageImage) return pageImage;
+  const logo = (logoUrl ?? "").trim();
+  if (logo && !/\.svg(?:[?#]|$)/i.test(logo)) return logo;
+  return (await resolvePlaceholder("og", siteId))?.src ?? "";
+}
+
 async function renderPage(view: string, data: Record<string, unknown>): Promise<string> {
   const pageData = { ...data, localePath, justflowsVersion: getJustflowsVersion() };
   const hooks = getRuntimeHooks();
@@ -994,6 +1063,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   const pageDescription = seoFromContent.description || String(data.seoDescription ?? "");
   let headExtra = "";
   let documentTitle = pageTitle;
+  const identity = data.identity as { faviconUrl?: string; logoUrl?: string } | undefined;
   if (siteId) {
     const settings = await getSeoSettings(siteId, String(data.locale ?? ""));
     const page = {
@@ -1001,13 +1071,14 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       description: pageDescription,
       excerpt: content?.excerpt,
       path: String(data.publicPath ?? data.restPath ?? "/"),
-      canonical: seoFromContent.canonical || undefined,
-      image: seoFromContent.image || undefined,
+      canonical:
+        seoFromContent.canonical ||
+        (typeof data.canonicalPath === "string" ? `${siteOrigin()}${data.canonicalPath}` : undefined),
+      image: (await shareImageFor(siteId, seoFromContent.image, identity?.logoUrl)) || undefined,
     };
     documentTitle = resolveSeoTitle(page, settings);
     headExtra = buildSeoHeadHtml(page, settings);
   }
-  const identity = data.identity as { faviconUrl?: string } | undefined;
   const faviconHead = buildFaviconHeadHtml(identity?.faviconUrl ?? "");
   if (faviconHead) {
     headExtra = headExtra ? `${faviconHead}\n${headExtra}` : faviconHead;
@@ -1093,7 +1164,12 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       )
     : [];
   const hreflangLinks =
-    view === "404" || data.discourageSearchEngines === true || !Array.isArray(data.activeLocales)
+    view === "404" ||
+    data.discourageSearchEngines === true ||
+    // An untranslated entry shown under another locale's URL canonicalises to
+    // the original, so it must not advertise itself as that locale's version.
+    typeof data.canonicalPath === "string" ||
+    !Array.isArray(data.activeLocales)
       ? []
       : hreflangAlternates({
           activeLocales: data.activeLocales as string[],
@@ -1527,7 +1603,7 @@ async function renderHomeHtml(
       applyFootnotes(
         await applyContentRender(
           await renderBlocksHtml(
-            await applyContentBlocks(home.blocks.blocks, home),
+            await applyContentBlocks(home.blocks.blocks, home, ctx.locale),
             submittedFormIdFrom(req),
             blogCtx,
           ),
@@ -1682,7 +1758,7 @@ router.use(
     canView: ensureSiteIsPublic,
     previewAllowed: isPreviewAllowed,
     rateLimited: sendPublicRateLimited,
-    async renderContent(req, res, { content, path, basePath, pageNumber, alternates }) {
+    async renderContent(req, res, { content, path, basePath, pageNumber, alternates, canonicalPath }) {
       const preview = await isPreviewAllowed(req, res);
       await sendPublicHtml(req, res, path, preview, () =>
         renderSinglePageHtml(
@@ -1696,6 +1772,8 @@ router.use(
           pageNumber,
           basePath,
           content,
+          false,
+          canonicalPath,
         ),
       );
     },
@@ -1745,8 +1823,13 @@ async function renderSinglePageHtml(
   basePath: string,
   resolvedContent?: ContentResponse,
   scopedPreview = false,
+  canonicalPath?: string,
 ): Promise<string> {
-  const pageCtx = { ...(await buildPageContext(req, res, reqPath, preview)), publicPath: reqPath };
+  const pageCtx = {
+    ...(await buildPageContext(req, res, reqPath, preview)),
+    publicPath: reqPath,
+    ...(canonicalPath ? { canonicalPath } : {}),
+  };
   let pageContent = resolvedContent ?? (await getPublishedContentBySlug(slug, locale, preview));
   if (resolvedContent) {
     const { getDb } = await import("../../lib/database/db.js");
@@ -1764,6 +1847,16 @@ async function renderSinglePageHtml(
   }
   if (!pageContent) {
     return renderNotFoundHtml(pageCtx, req, res, reqPath);
+  }
+  // Rows saved without a body (seeds, imports, older installs) render the
+  // type's starting pattern — the same canvas the editor seeds on open —
+  // instead of an empty page. Translations stay empty, matching the editor.
+  const isOriginal = !pageContent.translationGroupId || pageContent.translationGroupId === pageContent.id;
+  if (isOriginal && isEmptyBlockDocument(pageContent.blocks)) {
+    const fallback = await defaultBlocksForContentType(String(pageContent.type));
+    if (!isEmptyBlockDocument(fallback)) {
+      pageContent = { ...pageContent, blocks: fallback as ContentResponse["blocks"] };
+    }
   }
   const layout = await layoutForContent(
     { type: String(pageContent.type), slug: String(pageContent.slug ?? slug), siteId: pageContent.siteId },
@@ -1807,7 +1900,7 @@ async function renderSinglePageHtml(
     applyFootnotes(
       await applyContentRender(
         await renderBlocksHtml(
-          await applyContentBlocks(pageContent.blocks.blocks, pageContent),
+          await applyContentBlocks(pageContent.blocks.blocks, pageContent, pageCtx.locale),
           submittedFormIdFrom(req),
           blogCtx,
           commentCtx,

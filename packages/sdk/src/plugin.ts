@@ -613,6 +613,13 @@ export interface PluginHttpRequest {
    * construction, whatever its author intended.
    */
   session: PluginHttpSession | null;
+  /**
+   * The visitor's language: the locale of the site page that made the request
+   * (`/nl-NL/shop` → `nl-NL`), otherwise the site default. Pass it to
+   * `ctx.content.listPublished({ locale, fallback: true })` to answer in the
+   * visitor's language. Absent on older hosts.
+   */
+  locale?: string;
 }
 
 export interface PluginHttpResponse {
@@ -644,12 +651,45 @@ export type PluginHttpHandler = (
   req: PluginHttpRequest,
 ) => PluginHttpResponse | Promise<PluginHttpResponse>;
 
+/**
+ * Per-IP ceiling the host enforces before the handler runs.
+ * `limit` is an integer from 1 to 10_000. `windowMs` is an integer from
+ * 1_000 to 3_600_000. `key` shares one counter across several routes of this
+ * plugin (cart add and cart update). It is letters, digits, and hyphens, up
+ * to 40 characters, and must start with a letter or digit. Without `key`,
+ * the route has its own counter.
+ */
+export interface PluginHttpRateLimit {
+  limit: number;
+  windowMs: number;
+  key?: string;
+}
+
+/**
+ * Policy the host applies to one registered route. Defaults stay strict:
+ * a non-GET route requires the session CSRF token, nothing is rate-limited,
+ * and the handler does not receive the raw request bytes.
+ */
+export interface PluginHttpRouteOptions {
+  /**
+   * Skip the session CSRF token. Use this only when the plugin authenticates
+   * the call another way, such as a signed webhook. GET never requires CSRF.
+   */
+  csrf?: false;
+  rateLimit?: PluginHttpRateLimit;
+  /**
+   * Keep the exact request bytes on `req.rawBody` so the handler can verify
+   * a signature. Parsed JSON is not the signed payload.
+   */
+  rawBody?: true;
+}
+
 export interface PluginHttpApi {
-  get(path: string, handler: PluginHttpHandler): void;
-  post(path: string, handler: PluginHttpHandler): void;
-  put(path: string, handler: PluginHttpHandler): void;
-  patch(path: string, handler: PluginHttpHandler): void;
-  delete(path: string, handler: PluginHttpHandler): void;
+  get(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
+  post(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
+  put(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
+  patch(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
+  delete(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
 }
 
 export interface PluginJobContext {
@@ -764,6 +804,31 @@ export interface PluginDataApi {
   clear(): Promise<void>;
 }
 
+/** One editable prop of a plugin block, as the page-builder inspector shows it. */
+export interface PluginBlockField {
+  type: string;
+  required?: boolean;
+  default?: unknown;
+  /** Fixed choices. The field renders as a dropdown, or checkboxes with `multiple`. */
+  options?: string[];
+  /** Display text per option value. The raw value is shown when one is missing. */
+  optionLabels?: Record<string, string>;
+  /** Inspector label. Defaults to the prop key. */
+  label?: string;
+  /** One line of help under the field. */
+  help?: string;
+  /**
+   * Same-origin path the editor GETs for choices instead of `options`. It must
+   * answer `{ options: [{ value, label }] }`; plugins usually point it at their
+   * own route, e.g. `/ext/<plugin-id>/blocks/options/products`.
+   */
+  optionsUrl?: string;
+  /** Pick several choices. The prop is saved as a string array. */
+  multiple?: boolean;
+  /** Only show the field while another prop equals one of these values. */
+  showWhen?: { field: string; equals: string | string[] };
+}
+
 export interface PluginBlockDefinition {
   type: string;
   version: number;
@@ -771,10 +836,7 @@ export interface PluginBlockDefinition {
   description?: string;
   icon?: string;
   category?: string;
-  schema: Record<
-    string,
-    { type: string; required?: boolean; default?: unknown; options?: string[] }
-  >;
+  schema: Record<string, PluginBlockField>;
   supportsChildren?: boolean;
   allowedChildTypes?: string[];
   render(props: Record<string, unknown>, children?: string): string;
@@ -828,6 +890,12 @@ export interface PluginPublishedEntry {
   title: string;
   slug: string;
   locale: string;
+  /**
+   * Shared id of every language version of this entry. The original's own id,
+   * so a plugin table keyed by the original content id joins on this.
+   * Absent on older hosts.
+   */
+  translationGroupId?: string;
   excerpt: string | null;
   fields: Record<string, unknown>;
   authorId: string | null;
@@ -844,6 +912,11 @@ export interface PluginListPublishedQuery {
   types?: string[];
   /** Restrict to one locale. Omit for every active locale. */
   locale?: string;
+  /**
+   * With `locale`: return one entry per translation group, the `locale`
+   * version when it exists and the default-locale original otherwise.
+   */
+  fallback?: boolean;
   authorId?: string;
   /** `users.username`; resolved to an id by the host. */
   authorUsername?: string;
@@ -1152,6 +1225,13 @@ export interface PluginContext {
 
   /** Register sanitized block patterns for the editor. Removed on deactivate. */
   patterns: PluginPatternsApi;
+
+  /**
+   * Placeholder images for empty image slots. Use `placeholder()` instead of
+   * shipping a private fallback so the site owner's choice applies everywhere.
+   * No permission required.
+   */
+  media: import("./placeholders.js").PluginMediaApi;
 
   /**
    * Create content types and pages the plugin needs. Requires `content:create`.

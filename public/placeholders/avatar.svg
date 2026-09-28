@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="">
+<style>.bg{fill:#eef1f5}.fg{fill:#a7b0bf}@media (prefers-color-scheme:dark){.bg{fill:#1e232b}.fg{fill:#4a5261}}</style>
+<rect class="bg" width="256" height="256"/>
+<circle class="fg" cx="128" cy="100" r="44"/>
+<path class="fg" d="M40 256c0-52 39-88 88-88s88 36 88 88z"/>
+</svg>

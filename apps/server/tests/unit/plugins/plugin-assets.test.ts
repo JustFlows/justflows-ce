@@ -4,7 +4,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { assetTags, buildBundle, safeAssetRel } from "../../../src/lib/plugins/plugin-assets.js";
+import {
+  assetTags,
+  buildBundle,
+  safeAssetRel,
+  servableAssetRel,
+} from "../../../src/lib/plugins/plugin-assets.js";
 
 describe("safeAssetRel", () => {
   it("accepts relative .js/.mjs/.css paths", () => {
@@ -20,6 +25,24 @@ describe("safeAssetRel", () => {
     expect(safeAssetRel("run.sh")).toBeNull();
     expect(safeAssetRel("script.js.map")).toBeNull();
     expect(safeAssetRel(42)).toBeNull();
+  });
+});
+
+describe("servableAssetRel", () => {
+  it("serves scripts, stylesheets, and images", () => {
+    expect(servableAssetRel("product.js")).toBe("product.js");
+    expect(servableAssetRel("img/product-placeholder.svg")).toBe("img/product-placeholder.svg");
+    expect(servableAssetRel("photo.JPG")).toBe("photo.JPG");
+  });
+
+  it("rejects other files and unsafe paths", () => {
+    for (const bad of ["../secret.svg", "a/../../b.png", "/abs.png", "data.json", "page.html", ""]) {
+      expect(servableAssetRel(bad), bad).toBeNull();
+    }
+  });
+
+  it("never enqueues an image as a script or stylesheet", () => {
+    expect(safeAssetRel("product-placeholder.svg")).toBeNull();
   });
 });
 

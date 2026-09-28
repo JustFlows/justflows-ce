@@ -55,11 +55,13 @@
     "shopRefunds": "Terugbetalingen",
     "shopEmails": "E-mails",
     "shopReports": "Rapporten",
+    "shopPage": "Winkelpagina",
     "redirects": "Omleidingen",
     "diagnostics": "Diagnostiek",
     "apiKeys": "API",
     "permalinks": "Permalinks",
-    "pwa": "PWA"
+    "pwa": "PWA",
+    "placeholders": "Standaardafbeeldingen"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -923,6 +925,7 @@
         "columnsGridLayout": "Kolommen (rasterindeling)",
         "postsPerPage": "Berichten per pagina",
         "showFeaturedImage": "Uitgelichte afbeelding tonen",
+        "showPlaceholder": "Standaardafbeelding tonen als een bericht geen afbeelding heeft",
         "showDate": "Datum tonen",
         "showExcerpt": "Samenvatting tonen",
         "hint": "Toont gepubliceerde berichten, nieuwste eerst. Paginering gebruikt /page/2, /page/3 enz. onder de URL van deze pagina."
@@ -997,7 +1000,15 @@
         "noImagesYet": "Nog geen afbeeldingen in de mediabibliotheek."
       },
       "moveUp": "Omhoog",
-      "moveDown": "Omlaag"
+      "moveDown": "Omlaag",
+      "schemaField": {
+        "loadFailed": "Opties konden niet worden geladen.",
+        "loading": "Opties laden…",
+        "noOptions": "Nog niets om uit te kiezen.",
+        "none": "— Geen —",
+        "search": "Zoeken…",
+        "selected": "{count} geselecteerd"
+      }
     },
     "blockLibrary": {
       "blocks": "Blokken",
@@ -1215,6 +1226,28 @@
     "save": "Permalinks opslaan",
     "saving": "Bezig met opslaan…",
     "history": "Oude inhouds-URL's ({count})"
+  },
+  "placeholders": {
+    "title": "Standaardafbeeldingen",
+    "description": "Afbeeldingen die verschijnen als een bericht, product of blok zelf geen afbeelding heeft.",
+    "failed": "De standaardafbeeldingen konden niet worden geladen of opgeslagen.",
+    "retry": "Opnieuw proberen",
+    "saved": "Standaardafbeeldingen opgeslagen.",
+    "save": "Standaardafbeeldingen opslaan",
+    "saving": "Opslaan…",
+    "enable": "Standaardafbeelding tonen als een afbeelding ontbreekt",
+    "enableHint": "Staat dit uit, dan blijft een lege afbeeldingsplek leeg. Blokken kunnen dit ook per blok uitzetten.",
+    "images": "Afbeeldingen",
+    "kindHint": "{size} · {owner}. Laat leeg om de afbeelding hieronder te gebruiken.",
+    "ownerCore": "Justflows",
+    "defaultPreview": "Huidige standaardafbeelding: {label}",
+    "kinds": {
+      "generic": "Algemene afbeelding",
+      "featured": "Uitgelichte afbeelding",
+      "thumbnail": "Miniatuur",
+      "avatar": "Profielfoto",
+      "og": "Afbeelding bij delen op sociale media"
+    }
   },
   "pwa": {
     "title": "PWA",

@@ -1,6 +1,6 @@
 import { useT } from "../../i18n/I18nProvider";
 import { useEffect, useRef, useState } from "react";
-import type { BlockNode, BlockCatalogEntry } from "./types";
+import type { BlockNode, BlockCatalogEntry, BlockSchemaField } from "./types";
 import { syncColumnCount } from "./block-defaults";
 import AnimationPanel from "./AnimationPanel";
 import ThemeBlockControls from "./ThemeBlockControls";
@@ -507,6 +507,12 @@ export default function BlockInspector({
           <input type="checkbox" checked={p.showFeaturedImage !== false} onChange={(e) => set("showFeaturedImage", e.target.checked)} />
           {t("builder.inspector.postList.showFeaturedImage")}
         </label>
+        {p.showFeaturedImage !== false && (
+          <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+            <input type="checkbox" checked={p.showPlaceholder !== false} onChange={(e) => set("showPlaceholder", e.target.checked)} />
+            {t("builder.inspector.postList.showPlaceholder")}
+          </label>
+        )}
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showDate !== false} onChange={(e) => set("showDate", e.target.checked)} />
           {t("builder.inspector.postList.showDate")}
@@ -521,54 +527,15 @@ export default function BlockInspector({
       </>;
       break;
     default: {
-      const schema = catalogEntry?.schema;
-      const keys = schema ? Object.keys(schema) : [];
+      const schema = catalogEntry?.schema ?? {};
+      const keys = Object.keys(schema).filter((key) => schemaFieldVisible(schema[key]!, p, schema));
       fields = keys.length === 0 ? (
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>{t("builder.inspector.noSettingsForBlock")}</p>
       ) : (
         <>
-          {keys.map((key) => {
-            const field = schema?.[key];
-            const kind = field?.type ?? "string";
-            const label = key;
-            if (kind === "boolean") {
-              return (
-                <label key={key} style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
-                  <input type="checkbox" checked={p[key] === true} onChange={(e) => set(key, e.target.checked)} />
-                  {label}
-                </label>
-              );
-            }
-            if (kind === "number") {
-              return (
-                <label key={key} style={fieldLabel}>{label}
-                  <input type="number" style={fieldInput} value={Number(p[key]) || 0} onChange={(e) => set(key, Number(e.target.value))} />
-                </label>
-              );
-            }
-            if (Array.isArray(field?.options) && field.options.length > 0) {
-              return (
-                <label key={key} style={fieldLabel}>{label}
-                  <select style={fieldInput} value={String(p[key] ?? field.options[0])} onChange={(e) => set(key, e.target.value)}>
-                    {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
-                  </select>
-                </label>
-              );
-            }
-            if (kind === "textarea") {
-              const value = Array.isArray(p[key]) ? JSON.stringify(p[key], null, 2) : String(p[key] ?? "");
-              return (
-                <label key={key} style={fieldLabel}>{label}
-                  <textarea rows={4} style={fieldInput} value={value} onChange={(e) => set(key, e.target.value)} />
-                </label>
-              );
-            }
-            return (
-              <label key={key} style={fieldLabel}>{label}
-                <input style={fieldInput} value={String(p[key] ?? "")} onChange={(e) => set(key, e.target.value)} />
-              </label>
-            );
-          })}
+          {keys.map((key) => (
+            <SchemaField key={key} name={key} field={schema[key]!} value={p[key]} onChange={(value) => set(key, value)} />
+          ))}
         </>
       );
       break;
@@ -679,6 +646,186 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
         </button>
       </div>
     </>
+  );
+}
+
+interface SchemaOption { value: string; label: string }
+
+/** The value a schema field currently has, falling back to its default the way the block does. */
+function schemaFieldValue(field: BlockSchemaField | undefined, value: unknown): unknown {
+  if (value !== undefined && value !== null && value !== "") return value;
+  if (field?.default !== undefined) return field.default;
+  return field?.options?.[0];
+}
+
+/** `showWhen` lets a plugin hide fields that do not apply to the current choice. */
+export function schemaFieldVisible(
+  field: BlockSchemaField,
+  props: Record<string, unknown>,
+  schema: Record<string, BlockSchemaField>,
+): boolean {
+  const rule = field.showWhen;
+  if (!rule?.field) return true;
+  const current = String(schemaFieldValue(schema[rule.field], props[rule.field]) ?? "");
+  const wanted = Array.isArray(rule.equals) ? rule.equals : [rule.equals];
+  return wanted.map(String).includes(current);
+}
+
+function schemaList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value === "string") return value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
+/** Only same-origin paths; a plugin cannot point the editor at another host. */
+function safeOptionsUrl(url: string | undefined): string | null {
+  if (!url || !url.startsWith("/") || url.startsWith("//") || url.startsWith("/\\")) return null;
+  return url;
+}
+
+const schemaOptionCache = new Map<string, SchemaOption[]>();
+
+function useSchemaOptions(field: BlockSchemaField): { options: SchemaOption[]; loading: boolean; failed: boolean } {
+  const url = safeOptionsUrl(field.optionsUrl);
+  const staticOptions = (field.options ?? []).map((value) => ({ value, label: field.optionLabels?.[value] ?? value }));
+  const [remote, setRemote] = useState<SchemaOption[] | null>(url ? schemaOptionCache.get(url) ?? null : null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!url || schemaOptionCache.has(url)) return;
+    let cancelled = false;
+    setFailed(false);
+    fetch(url, { credentials: "same-origin" })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        const body = (await res.json()) as { options?: Array<{ value?: unknown; label?: unknown }> };
+        const rows = (body.options ?? [])
+          .map((row) => ({ value: String(row.value ?? ""), label: String(row.label ?? row.value ?? "") }))
+          .filter((row) => row.value);
+        schemaOptionCache.set(url, rows);
+        if (!cancelled) setRemote(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+  if (!url) return { options: staticOptions, loading: false, failed: false };
+  return { options: remote ?? [], loading: remote === null && !failed, failed };
+}
+
+/** Several choices as a searchable checkbox list. Checked values keep the order they were picked in. */
+function MultiChoice({ options, value, onChange }: {
+  options: SchemaOption[];
+  value: string[];
+  onChange: (value: string[]) => void;
+}) {
+  const { t } = useT();
+  const [query, setQuery] = useState("");
+  const needle = query.trim().toLowerCase();
+  const shown = needle ? options.filter((option) => option.label.toLowerCase().includes(needle)) : options;
+  const toggle = (id: string, on: boolean) => onChange(on ? [...value, id] : value.filter((item) => item !== id));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+      {options.length > 8 && (
+        <input
+          type="search"
+          style={fieldInput}
+          placeholder={t("builder.inspector.schemaField.search")}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      )}
+      <div style={{ border: "1px solid var(--jf-border)", borderRadius: 6, maxHeight: 220, overflow: "auto", background: "#fff", padding: "0.25rem 0" }}>
+        {shown.map((option) => (
+          <label
+            key={option.value}
+            style={{ display: "flex", alignItems: "center", gap: "0.45rem", padding: "0.25rem 0.6rem", fontSize: "0.8rem", fontWeight: 400, cursor: "pointer" }}
+          >
+            <input type="checkbox" checked={value.includes(option.value)} onChange={(e) => toggle(option.value, e.target.checked)} />
+            {option.label}
+          </label>
+        ))}
+      </div>
+      <span style={fieldHint}>{t("builder.inspector.schemaField.selected", { count: value.length })}</span>
+    </div>
+  );
+}
+
+/** One plugin block prop, rendered from its schema entry. */
+function SchemaField({ name, field, value, onChange }: {
+  name: string;
+  field: BlockSchemaField;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
+  const { t } = useT();
+  const kind = field.type ?? "string";
+  const label = field.label || name;
+  const help = field.help ? <span style={fieldHint}>{field.help}</span> : null;
+  const hasChoices = Boolean(field.optionsUrl) || (Array.isArray(field.options) && field.options.length > 0);
+  const { options, loading, failed } = useSchemaOptions(field);
+
+  if (kind === "boolean") {
+    return (
+      <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+        <input type="checkbox" checked={schemaFieldValue(field, value) === true} onChange={(e) => onChange(e.target.checked)} />
+        {label}
+      </label>
+    );
+  }
+  if (kind === "number") {
+    return (
+      <label style={fieldLabel}>{label}
+        <input type="number" style={fieldInput} value={Number(schemaFieldValue(field, value)) || 0} onChange={(e) => onChange(Number(e.target.value))} />
+        {help}
+      </label>
+    );
+  }
+  if (hasChoices) {
+    const status = loading
+      ? t("builder.inspector.schemaField.loading")
+      : failed
+        ? t("builder.inspector.schemaField.loadFailed")
+        : options.length === 0
+          ? t("builder.inspector.schemaField.noOptions")
+          : "";
+    if (field.multiple) {
+      return (
+        <div style={fieldLabel}>{label}
+          {status ? <span style={fieldHint}>{status}</span> : <MultiChoice options={options} value={schemaList(value)} onChange={onChange} />}
+          {help}
+        </div>
+      );
+    }
+    const current = String(schemaFieldValue(field, value) ?? "");
+    return (
+      <label style={fieldLabel}>{label}
+        {status && field.optionsUrl ? <span style={fieldHint}>{status}</span> : (
+          <select style={fieldInput} value={current} onChange={(e) => onChange(e.target.value)}>
+            {field.optionsUrl && <option value="">{t("builder.inspector.schemaField.none")}</option>}
+            {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        )}
+        {help}
+      </label>
+    );
+  }
+  if (kind === "textarea") {
+    const text = Array.isArray(value) ? JSON.stringify(value, null, 2) : String(value ?? "");
+    return (
+      <label style={fieldLabel}>{label}
+        <textarea rows={4} style={fieldInput} value={text} onChange={(e) => onChange(e.target.value)} />
+        {help}
+      </label>
+    );
+  }
+  return (
+    <label style={fieldLabel}>{label}
+      <input style={fieldInput} value={String(value ?? "")} placeholder={typeof field.default === "string" ? field.default : undefined} onChange={(e) => onChange(e.target.value)} />
+      {help}
+    </label>
   );
 }
 

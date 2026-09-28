@@ -55,11 +55,13 @@
     "shopRefunds": "Remboursements",
     "shopEmails": "E-mails",
     "shopReports": "Rapports",
+    "shopPage": "Page boutique",
     "redirects": "Redirections",
     "diagnostics": "Diagnostic",
     "apiKeys": "API",
     "permalinks": "Permaliens",
-    "pwa": "PWA"
+    "pwa": "PWA",
+    "placeholders": "Images par défaut"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -923,6 +925,7 @@
         "columnsGridLayout": "Colonnes (disposition en grille)",
         "postsPerPage": "Articles par page",
         "showFeaturedImage": "Afficher l’image mise en avant",
+        "showPlaceholder": "Afficher une image par défaut si aucune image",
         "showDate": "Afficher la date",
         "showExcerpt": "Afficher l'extrait",
         "hint": "Affiche les articles publiés, du plus récent au plus ancien. La pagination utilise /page/2, /page/3, etc. sous l’URL de cette page."
@@ -997,7 +1000,15 @@
         "noImagesYet": "Pas encore d'images dans la médiathèque."
       },
       "moveUp": "Monter",
-      "moveDown": "Descendre"
+      "moveDown": "Descendre",
+      "schemaField": {
+        "loadFailed": "Impossible de charger les options.",
+        "loading": "Chargement des options…",
+        "noOptions": "Rien à choisir pour le moment.",
+        "none": "— Aucun —",
+        "search": "Rechercher…",
+        "selected": "{count} sélectionné(s)"
+      }
     },
     "blockLibrary": {
       "blocks": "Blocs",
@@ -1215,6 +1226,28 @@
     "save": "Enregistrer les permaliens",
     "saving": "Enregistrement…",
     "history": "Anciennes URL de contenu ({count})"
+  },
+  "placeholders": {
+    "title": "Images par défaut",
+    "description": "Images affichées lorsqu’un article, un produit ou un bloc n’a pas d’image.",
+    "failed": "Impossible de charger ou d’enregistrer les images par défaut.",
+    "retry": "Réessayer",
+    "saved": "Images par défaut enregistrées.",
+    "save": "Enregistrer les images par défaut",
+    "saving": "Enregistrement…",
+    "enable": "Afficher une image par défaut quand une image manque",
+    "enableHint": "Désactivé, un emplacement d’image vide reste vide. Chaque bloc peut aussi désactiver l’image par défaut.",
+    "images": "Images par défaut",
+    "kindHint": "{size} · {owner}. Laissez vide pour utiliser l’image par défaut ci-dessous.",
+    "ownerCore": "Justflows",
+    "defaultPreview": "Image par défaut : {label}",
+    "kinds": {
+      "generic": "Image générique",
+      "featured": "Image mise en avant",
+      "thumbnail": "Miniature",
+      "avatar": "Avatar",
+      "og": "Image de partage sur les réseaux sociaux"
+    }
   },
   "pwa": {
     "title": "PWA",

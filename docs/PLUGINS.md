@@ -70,6 +70,60 @@ choosing a compatibility range or deprecating a public integration.
 `blocks.register`, `patterns.register`, and `cookies.declare` / `cookies.list`. See
 [HOOKS.md](HOOKS.md) and [PERMISSIONS.md](PERMISSIONS.md).
 
+## Register blocks
+
+`ctx.blocks.register()` adds a block to the page builder. Its `schema` builds
+the inspector: each key is one prop, and the field entry
+(`PluginBlockField`) controls how it is edited.
+
+| Field | Effect in the inspector |
+| --- | --- |
+| `type` | `string`, `textarea`, `number`, `boolean`, or `select` |
+| `label`, `help` | Field label (defaults to the prop key) and one line of help |
+| `default` | Shown while the prop is unset. Blocks start with empty props, so `validateProps` must apply the same default |
+| `options`, `optionLabels` | Fixed choices and the text shown for each value |
+| `optionsUrl` | Same-origin path the editor GETs for choices. It must answer `{ options: [{ value, label }] }` |
+| `multiple` | Pick several choices as a searchable checklist. The prop is saved as a string array, in the order they were ticked |
+| `showWhen` | `{ field, equals }`: show the field only while another prop equals that value or one of an array of values |
+
+```ts
+ctx.blocks.register({
+  type: "acme.featured",
+  version: 1,
+  title: "Featured items",
+  schema: {
+    source: { type: "select", label: "Show", options: ["all", "picked"], optionLabels: { all: "Everything", picked: "Pick items" }, default: "all" },
+    items: {
+      type: "select",
+      label: "Items",
+      multiple: true,
+      optionsUrl: "/ext/acme.featured/blocks/options/items",
+      showWhen: { field: "source", equals: "picked" },
+    },
+  },
+  validateProps: (raw) => ({ /* coerce and default every prop */ }),
+  render: (props) => "…",
+});
+```
+
+The options route is an ordinary plugin HTTP route; check the session and a
+capability before answering. `render` is synchronous, so load live data in a
+`content.blocks` filter and write it into the block props before render (Shop's
+product list does this).
+
+### Links and languages
+
+Link to site pages with plain root paths such as `/shop` or
+`/product/${slug}`. Do not add a locale prefix yourself. On a page rendered
+in a non-default language (`/nl-NL/...`), the host prefixes internal
+`<a href>` and `<form action>` targets in the rendered HTML. It also loads a
+small script that does the same for links your client code adds later. The
+host leaves alone paths that already have a locale, app routes (`/api`,
+`/ext`, `/login`, the admin path), your registered HTTP routes, files (a dot
+in the last segment), and `hreflang` links. If a page has no translation in
+that language, `/nl-NL/<path>` shows the default-language entry with Dutch
+site chrome. Its canonical URL points at the original.
+
 ## Register editor patterns
 
 Plugins can contribute complete page designs or smaller sections to the block
@@ -104,6 +158,63 @@ confirmation; every other category appends to the current page.
 
 The returned disposer removes that one registration early when needed. Plugins
 can normally ignore it because deactivation removes all their patterns.
+
+## Placeholder images
+
+When an image slot is empty, show the site's placeholder. Don't ship your own
+fallback. `ctx.media` is synchronous, so a block's `render()` can call it, and
+it needs no permission:
+
+```ts
+render(props) {
+  const img = props.imageSrc
+    ? `<img src="${esc(props.imageSrc)}" alt="${esc(props.alt)}">`
+    : ctx.media.placeholderHtml("thumbnail", { className: "acme-card__img" });
+  return `<div class="acme-card">${img}</div>`;
+}
+```
+
+`placeholder(kind)` returns `{ kind, src, width, height, source }`, or `null`
+when the site owner switched placeholders off. `placeholderHtml()` returns a
+decorative, sized `<img class="jf-placeholder jf-placeholder--<kind>">`, or `""`
+when placeholders are off.
+
+The core kinds are `generic` (4:3), `featured` (16:9), `thumbnail` (1:1),
+`avatar`, and `og` (1200×630 PNG). An unknown kind gets `generic`.
+
+To ship a default for a kind of your own, register it under your plugin id. It
+appears in Admin → Settings → Placeholders, where the site owner can replace
+it. It is removed on deactivate:
+
+```ts
+ctx.media.registerPlaceholder("acme.shop.product", {
+  src: "/ext/acme.shop/product-placeholder.svg", // from manifest.assets.dir
+  width: 800,
+  height: 800,
+  label: "Product image",
+});
+```
+
+For each kind, the first match wins:
+
+1. the site owner's image;
+2. the `media.placeholder` filter;
+3. your registered image;
+4. the shipped default.
+
+The filter is synchronous. Return another image, or `null` to leave the slot
+empty:
+
+```ts
+ctx.hooks.filter("media.placeholder", (image, { kind }) =>
+  kind === "avatar" ? { ...image!, src: "/ext/acme.avatars/face.svg" } : image,
+);
+```
+
+`src` must be a site-root path or an `https:` URL; the host ignores anything
+else. `/ext/<pluginId>/` serves images (`.svg`, `.png`, `.jpg`, `.webp`,
+`.avif`, `.gif`) from your `manifest.assets.dir` as well as scripts and
+stylesheets. SVGs are served with a sandboxing Content-Security-Policy.
 
 ## Declare the cookies you set
 
@@ -439,6 +550,35 @@ origin (`APP_URL`, `STATIC_EXPORT_BASE_URL`, `STATIC_EXPORT_ALLOWED_ORIGINS`, or
 `localhost` off production); plugins cannot set `Access-Control-*` themselves. A
 plain `<img>` or `navigator.sendBeacon` GET is not CORS-checked and needs
 nothing.
+
+### Host policy on a route
+
+Plugin routes are not under `/api`, so the host CSRF middleware does not see
+them. The dispatcher requires a session CSRF token on every non-GET route
+unless that route opts out. A route is not rate-limited unless it asks. Pass
+the policy as the third argument of `ctx.http.get` / `post` / `put` / `patch`
+/ `delete`:
+
+```ts
+ctx.http.post("payments/hooks/:gateway/:token", handler, {
+  csrf: false,
+  rawBody: true,
+  rateLimit: { limit: 60, windowMs: 60_000, key: "payment-hook" },
+});
+```
+
+- `csrf: false` skips the session token. Use it only when the handler
+  authenticates the call another way (a signed webhook, a public form with
+  its own check). GET never requires CSRF.
+- `rateLimit` is a per-IP ceiling the host enforces before the handler runs.
+  `limit` is 1–10_000 requests per `windowMs` (1_000–3_600_000). `key` shares
+  one counter across several routes of this plugin. Deactivating the plugin
+  drops the ceiling with the route.
+- `rawBody: true` puts the exact request bytes on `req.rawBody` for a
+  signature check. The host does not forward those bytes to any other route.
+
+The host does not special-case a plugin's URLs. A plugin that needs a public
+mutation, a ceiling, or the raw body declares it here.
 
 ## First-run setup
 

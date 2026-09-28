@@ -24,6 +24,7 @@ import { getJustflowsVersion } from "../runtime/version.js";
 import { recordDiagnosticError } from "../runtime/diagnostics.js";
 import { registerMailTransport, unregisterMailTransports } from "../email/mail-transports.js";
 import { registerEmailTemplate } from "../email/email-templates.js";
+import { resolvePlaceholderSync } from "../media/placeholders.js";
 
 let app: App | null = null;
 let loader: PluginLoader | null = null;
@@ -288,6 +289,7 @@ export async function ensurePluginRuntime(): Promise<void> {
           },
         }),
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),
+        placeholderResolver: (siteId, kind) => resolvePlaceholderSync(siteId, kind),
         i18nProvider: (siteId) => ({
           defaultLocale: async () =>
             (await import("../i18n/languages-db.js")).getDefaultLocale(siteId),

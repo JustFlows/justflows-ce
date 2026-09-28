@@ -5,10 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.2.6]
+## [0.2.7-dev.1] [UNRELEASED]
 
 ### Added
 
+- **Placeholder images.** Justflows ships neutral placeholder images for a generic image, a featured image, a thumbnail, an avatar, and the social share image. Featured Image and Post List show the placeholder when a post has no image, an Image block without an image shows the generic one, and a page with no share image falls back to the site logo and then the share placeholder. Settings → Placeholders replaces any placeholder with your own image or turns them all off, and Featured Image and Post List can each turn them off. `og:image` is now an absolute URL.
+- **SDK: `ctx.media` placeholders.** `ctx.media.placeholder(kind)` and `placeholderHtml(kind)` return the site's placeholder from a block's `render()`. `ctx.media.registerPlaceholder()` ships a default for a plugin's own kind, and the `media.placeholder` filter replaces or clears one. See docs/PLUGINS.md.
+- **Shop page.** `/shop` lists published catalog products. A sidebar can hold search and category and tag filters. Products show in a grid by default, or as a list. Commerce → Shop page turns the sidebar, search, each filter, the default layout, and the visitor layout switch on or off.
+- **Shop blocks choose from the catalog.** Product list and Related products show all products, products related to a product, products you pick, or products from chosen categories or tags, with a sort order and a product count. Gallery, Buy box, Breadcrumbs, and the details accordion can show a picked product on any page. Breadcrumbs follow the product's category, and every shop block field has a label and help text.
+- **SDK: richer plugin block fields.** A block schema field can set `label`, `help`, `optionLabels`, `optionsUrl` (choices loaded from a same-origin route), `multiple` (a checklist saved as a string array), and `showWhen` (hide the field unless another prop matches). See `PluginBlockField` and docs/PLUGINS.md.
 - **Product pages sell the catalog item.** A product detail page shows that product's price, stock, and variations. Choosing an option such as size updates the price, SKU, and stock, and Add to cart stores the selected variation. Related products come from the catalog. The product template no longer repeats the blog title and date.
 - **Shop cart page.** `/shop/cart` lists each product with its photo, options, unit price, and line total. Quantities can be changed or removed, the subtotal follows the catalog tax display, and checkout stays closed until every line can be sold. Shipping is left for checkout. The cart template no longer shows the blog date and excerpt.
 - **Shop checkout page.** `/shop/checkout` collects contact, shipping, and billing, then prices delivery, tax, and discounts from the shop settings. Country lists follow the selling and shipping countries. Guest checkout closes when the shop requires an account. Enabled payment methods are offered without collecting card details, and a placed order is stored as awaiting payment.
@@ -22,17 +27,9 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **Plugin errors show up in Diagnostics.** Every plugin's `ctx.logger.error()` call, every exception from a plugin hook handler, and every uncaught plugin route failure now lands in Admin → System → Diagnostics → Recent errors, tagged `plugin:<id>`. Plugins do not opt in and cannot opt out. A failing plugin route now also returns a `requestId`.
 - **Shop publishes health checks.** Diagnostics shows whether Shop setup is complete and whether each enabled payment gateway has its credentials for the current mode.
 
-- **Inline images, footnotes, and math formulas in the paragraph/quote editor.**
-  The inline rich-text toolbar gained an image button (upload a file, paste a
-  URL, or pick from the media library), strikethrough, and a "More formats"
-  menu covering inline code, highlight, subscript/superscript, keyboard
-  input, language markup, footnotes, and inline math (LaTeX, rendered with
-  KaTeX). Footnotes are numbered in document order and collected into a
-  footnotes list at the end of the page on the public site; math renders
-  identically — self-hosted, no external requests — in both the editor's
-  canvas and the published page.
-
 ### Changed
+
+- **SDK:** A plugin declares CSRF exemption, a host rate limit, and raw-body capture on the `ctx.http` route itself (`PluginHttpRouteOptions`). The host applies that policy and no longer matches Shop cart, checkout, catalog, or payment-webhook URLs.
 
 - **Theme layout targets come from the active plugin.** `theme.layoutScopes` adds a customizer layout section (content width and wide width) for a public prefix and the pages under it. `permalinks.typeBases` contributes that type's default permalink base. Core ships neither; deactivating the plugin removes both. Shop registers Product (`/product`) and Shop (`/shop`) while it is active.
 
@@ -44,6 +41,23 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **Shop product pages calculate tax.** When tax is on, the product price, `{{price}}`, and related products follow Prices in the catalog. A price entered excluding tax is shown with tax added when the catalog displays prices including tax. The price suffix is filled in. When the catalog shows prices excluding tax, the product page shows that net price large and the including-tax price in small text beside it.
 - **A rejected Mollie key shows on Diagnostics.** Shop tested a standard API key against Mollie's organization endpoint, which only accepts an organization token, so a sandbox key from Developers → API keys was refused. The connection test now uses the current profile. Admin → System → Diagnostics lists that failure on the overview and under Plugin health checks. ([#57](https://github.com/JustFlows/justflows-ce/issues/57))
 - **Product options show in the content editor menu.** Editing a product listed one Product data item for the whole catalog. Images, pricing, inventory, shipping, attributes, variations, categories, and tags are now separate menu entries, and the editor shows the one you pick.
+
+## [0.2.6]
+
+### Added
+
+- **Inline images, footnotes, and math formulas in the paragraph/quote editor.**
+  The inline rich-text toolbar gained an image button (upload a file, paste a
+  URL, or pick from the media library), strikethrough, and a "More formats"
+  menu covering inline code, highlight, subscript/superscript, keyboard
+  input, language markup, footnotes, and inline math (LaTeX, rendered with
+  KaTeX). Footnotes are numbered in document order and collected into a
+  footnotes list at the end of the page on the public site; math renders
+  identically — self-hosted, no external requests — in both the editor's
+  canvas and the published page.
+
+### Fixed
+
 - Public navigation accessibility labels and PWA install/update prompts now use the site translation catalogs, while preserving custom install text. ([#127](https://github.com/JustFlows/justflows-ce/issues/127))
 - Completed missing translation keys for builder controls, security settings, and update progress in all five admin languages. Restart messages, block counts, and language previews now respect localization; blank translations are filled, and under-construction and static error pages translate their text and declare the correct document language. ([#17](https://github.com/JustFlows/justflows-ce/issues/17))
 

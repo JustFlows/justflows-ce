@@ -55,11 +55,13 @@
     "shopRefunds": "Erstattungen",
     "shopEmails": "E-Mails",
     "shopReports": "Berichte",
+    "shopPage": "Shop-Seite",
     "redirects": "Weiterleitungen",
     "diagnostics": "Diagnose",
     "apiKeys": "API",
     "permalinks": "Permalinks",
-    "pwa": "PWA"
+    "pwa": "PWA",
+    "placeholders": "Standardbilder"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -923,6 +925,7 @@
         "columnsGridLayout": "Spalten (Rasterlayout)",
         "postsPerPage": "Beiträge pro Seite",
         "showFeaturedImage": "Beitragsbild anzeigen",
+        "showPlaceholder": "Standardbild zeigen, wenn ein Beitrag kein Bild hat",
         "showDate": "Datum anzeigen",
         "showExcerpt": "Auszug anzeigen",
         "hint": "Listet veröffentlichte Beiträge auf, die neuesten zuerst. Die Seitennummerierung verwendet /page/2, /page/3 usw. unter der URL dieser Seite."
@@ -997,7 +1000,15 @@
         "noImagesYet": "Noch keine Bilder in der Mediathek."
       },
       "moveUp": "Nach oben",
-      "moveDown": "Nach unten"
+      "moveDown": "Nach unten",
+      "schemaField": {
+        "loadFailed": "Optionen konnten nicht geladen werden.",
+        "loading": "Optionen werden geladen…",
+        "noOptions": "Noch nichts zur Auswahl.",
+        "none": "— Keine —",
+        "search": "Suchen…",
+        "selected": "{count} ausgewählt"
+      }
     },
     "blockLibrary": {
       "blocks": "Blöcke",
@@ -1215,6 +1226,28 @@
     "save": "Permalinks speichern",
     "saving": "Wird gespeichert…",
     "history": "Frühere Inhalts-URLs ({count})"
+  },
+  "placeholders": {
+    "title": "Standardbilder",
+    "description": "Bilder, die erscheinen, wenn ein Beitrag, Produkt oder Block kein eigenes Bild hat.",
+    "failed": "Die Standardbilder konnten nicht geladen oder gespeichert werden.",
+    "retry": "Erneut versuchen",
+    "saved": "Standardbilder gespeichert.",
+    "save": "Standardbilder speichern",
+    "saving": "Speichern…",
+    "enable": "Standardbild zeigen, wenn ein Bild fehlt",
+    "enableHint": "Ist dies aus, bleibt ein leerer Bildplatz leer. Blöcke können dies auch einzeln abschalten.",
+    "images": "Bilder",
+    "kindHint": "{size} · {owner}. Leer lassen, um das Bild unten zu verwenden.",
+    "ownerCore": "Justflows",
+    "defaultPreview": "Aktuelles Standardbild: {label}",
+    "kinds": {
+      "generic": "Allgemeines Bild",
+      "featured": "Beitragsbild",
+      "thumbnail": "Vorschaubild",
+      "avatar": "Profilbild",
+      "og": "Bild für soziale Medien"
+    }
   },
   "pwa": {
     "title": "PWA",

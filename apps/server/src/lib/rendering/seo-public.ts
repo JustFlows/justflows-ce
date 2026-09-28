@@ -151,7 +151,10 @@ export function buildSeoHeadHtml(
   const path = page.path.startsWith("/") ? page.path : `/${page.path}`;
   const url = origin ? `${origin}${path}` : path;
   const canonicalRaw = (page.canonical ?? "").trim() || url;
-  const image = (page.image ?? "").trim();
+  const rawImage = (page.image ?? "").trim();
+  // Crawlers need an absolute og:image; stored media URLs are site-root paths.
+  const image =
+    origin && rawImage.startsWith("/") && !rawImage.startsWith("//") ? `${origin}${rawImage}` : rawImage;
   const twitter = settings.twitterHandle.trim();
   const twitterCard = image ? "summary_large_image" : "summary";
 

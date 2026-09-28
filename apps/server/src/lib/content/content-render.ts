@@ -16,8 +16,9 @@ function decodeMustacheEntities(input: string): string {
   return input.replaceAll("&#123;", "{").replaceAll("&#125;", "}");
 }
 
-function filterContext(content: ContentRenderInput) {
+function filterContext(content: ContentRenderInput, locale?: string) {
   return {
+    ...(locale ? { locale } : {}),
     siteId: content.siteId,
     contentId: content.id,
     type: content.type,
@@ -32,12 +33,16 @@ function hookContext(content: ContentRenderInput) {
 }
 
 /** Fill `{{tags}}` in block props before HTML render. Plugins do the filling. */
-export async function applyContentBlocks<T>(blocks: T, content: ContentRenderInput): Promise<T> {
+export async function applyContentBlocks<T>(
+  blocks: T,
+  content: ContentRenderInput,
+  locale?: string,
+): Promise<T> {
   await ensurePluginRuntime();
   return getRuntimeHooks().applyFilter(
     "content.blocks",
     blocks,
-    filterContext(content),
+    filterContext(content, locale),
     hookContext(content),
   );
 }

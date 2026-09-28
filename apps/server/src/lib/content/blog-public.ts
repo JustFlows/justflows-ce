@@ -11,6 +11,9 @@ import {
   type ResponsiveProp,
 } from "../media/responsive-media.js";
 import type { ContentResponse } from "./content-api.js";
+import { placeholderImgHtml } from "@justflows/plugin-api";
+import type { PlaceholderImage } from "@justflows/sdk";
+import { resolvePlaceholder } from "../media/placeholders.js";
 
 export const BLOG_POST_LIST_BLOCK_TYPE = "justflows.blog.postList";
 
@@ -24,6 +27,8 @@ export interface BlogPostListProps {
   showExcerpt: boolean;
   showDate: boolean;
   showFeaturedImage: boolean;
+  /** Show the thumbnail placeholder for posts without a featured image. */
+  showPlaceholder: boolean;
   postsPerPage: number | null;
 }
 
@@ -50,6 +55,7 @@ export function parseBlogPostListProps(raw: unknown): BlogPostListProps {
     showExcerpt: row.showExcerpt !== false && row.showExcerpt !== "false",
     showDate: row.showDate !== false && row.showDate !== "false",
     showFeaturedImage: row.showFeaturedImage !== false && row.showFeaturedImage !== "false",
+    showPlaceholder: row.showPlaceholder !== false && row.showPlaceholder !== "false",
     postsPerPage,
   };
 }
@@ -87,6 +93,7 @@ function postListItemHtml(
   dateLabel: string,
   href: string,
   responsive?: Map<string, ResponsiveProp>,
+  placeholder?: PlaceholderImage | null,
 ): string {
   const rawImage = props.showFeaturedImage ? featuredImageRawOf(post) : "";
   const image = rawImage ? safeMediaSrc(rawImage) : "";
@@ -97,7 +104,9 @@ function postListItemHtml(
           responsive?.get(rawImage),
         ),
       )
-    : "";
+    : props.showFeaturedImage && placeholder
+      ? placeholderImgHtml(placeholder)
+      : "";
   const media = imgHtml
     ? `<a class="post-thumb" href="${esc(href)}" tabindex="-1" aria-hidden="true">${imgHtml}</a>`
     : "";
@@ -170,9 +179,13 @@ export async function renderBlogPostListBlockHtml(
   const responsive = props.showFeaturedImage
     ? await loadResponsiveProps(items.map(featuredImageRawOf).filter(Boolean), ctx.siteId)
     : undefined;
+  const placeholder =
+    props.showFeaturedImage && props.showPlaceholder && items.some((post) => !featuredImageRawOf(post))
+      ? await resolvePlaceholder("featured", ctx.siteId)
+      : null;
   const rows = items
     .map((post, i) =>
-      postListItemHtml(post, props, ctx, dateLabels[i] ?? "", hrefs[i]!, responsive),
+      postListItemHtml(post, props, ctx, dateLabels[i] ?? "", hrefs[i]!, responsive, placeholder),
     )
     .join("\n");
   const listClass =
@@ -206,6 +219,7 @@ export function registerBlogPostListBlock(): void {
       showExcerpt: { type: "boolean", default: true },
       showDate: { type: "boolean", default: true },
       showFeaturedImage: { type: "boolean", default: true },
+      showPlaceholder: { type: "boolean", default: true },
       postsPerPage: { type: "number", default: 0 },
     },
     validateProps: (raw) => parseBlogPostListProps(raw) as unknown as Record<string, unknown>,

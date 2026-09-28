@@ -57,8 +57,10 @@
     "shopRefunds": "Refunds",
     "shopEmails": "Emails",
     "shopReports": "Reports",
+    "shopPage": "Shop page",
     "permalinks": "Permalinks",
     "pwa": "PWA",
+    "placeholders": "Placeholders",
     "redirects": "Redirects"
   },
   "webhooks": {
@@ -1075,7 +1077,8 @@
         "postsPerPage": "Posts per page",
         "showDate": "Show date",
         "showExcerpt": "Show excerpt",
-        "showFeaturedImage": "Show featured image"
+        "showFeaturedImage": "Show featured image",
+        "showPlaceholder": "Show placeholder when a post has no image"
       },
       "productList": {
         "addButtonLabel": "Add button label",
@@ -1091,6 +1094,14 @@
         "totalReviews": "Total reviews",
         "writeReviewLabel": "Write review label",
         "writeReviewUrl": "Write review URL"
+      },
+      "schemaField": {
+        "loadFailed": "Could not load options.",
+        "loading": "Loading options…",
+        "noOptions": "Nothing to choose from yet.",
+        "none": "— None —",
+        "search": "Search…",
+        "selected": "{count} selected"
       }
     },
     "preview": {
@@ -1213,6 +1224,28 @@
     "save": "Save permalinks",
     "saving": "Saving…",
     "history": "Historical content URLs ({count})"
+  },
+  "placeholders": {
+    "title": "Placeholders",
+    "description": "Images shown when a post, product, or block has no image of its own.",
+    "failed": "Could not load or save placeholder settings.",
+    "retry": "Retry",
+    "saved": "Placeholder settings saved.",
+    "save": "Save placeholders",
+    "saving": "Saving…",
+    "enable": "Show placeholders for missing images",
+    "enableHint": "When this is off, an empty image slot stays empty. Blocks can also turn placeholders off one by one.",
+    "images": "Placeholder images",
+    "kindHint": "{size} · {owner}. Leave empty to use the default below.",
+    "ownerCore": "Justflows",
+    "defaultPreview": "Default {label} placeholder",
+    "kinds": {
+      "generic": "Generic image",
+      "featured": "Featured image",
+      "thumbnail": "Thumbnail",
+      "avatar": "Avatar",
+      "og": "Social share image"
+    }
   },
   "pwa": {
     "title": "PWA",
