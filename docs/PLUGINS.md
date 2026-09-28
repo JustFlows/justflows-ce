@@ -130,6 +130,30 @@ plugin's — with the operator's category overrides applied
 `GET`/`PUT /api/cookies`). Before setting a non-essential cookie from your own
 client code, check `window.justflowsConsent?.allowed("<name>")`.
 
+## Page templates
+
+A plugin that owns content types ships their page templates itself, so themes
+stay plugin-agnostic. Declare a `templates` block and put block documents (the
+same shape as a theme's `templates/*.json`) in that folder:
+
+```jsonc
+// justflows.json
+"templates": { "dir": "templates" }   // default "templates"; relative, no ".."
+```
+
+```text
+plugins/ecommerce/templates/
+  single-product.json
+  single-shop-cart.json
+  single-shop-checkout.json
+```
+
+While the plugin is active, the host checks each template-hierarchy slug in this
+order: the site's own override, then the active theme's file, then the plugin's
+file. A theme can still restyle a plugin page by shipping the same slug, and a
+plugin template beats the generic `single` / `singular` fallbacks. Deactivating
+the plugin drops its templates. Ship the folder inside your `.jfpkg`.
+
 ## Client-side assets
 
 For a stylesheet folded into `/theme.css`, keep using the `theme.css` filter

@@ -93,6 +93,7 @@ export type {
 export {
   PluginManifestSchema,
   PluginAssetsSchema,
+  PluginTemplatesSchema,
   PluginAdminAppSchema,
   PluginPermissionSchema,
   SENSITIVE_PERMISSIONS,
