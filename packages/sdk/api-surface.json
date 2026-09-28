@@ -152,6 +152,7 @@
   "PluginSchemaIndex",
   "PluginSchemaTable",
   "PluginSecretsApi",
+  "PluginTemplatesSchema",
   "PluginUserActor",
   "PluginUserCreateInput",
   "PluginUserCreateResult",

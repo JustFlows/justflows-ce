@@ -3462,5 +3462,12 @@
       "failedToSaveRole": "Failed to save role",
       "failedToDeleteRole": "Failed to delete role"
     }
+  },
+  "meta": {
+    "description": "Justflows admin panel: manage your site's content, media, design, and settings.",
+    "login": "Sign in",
+    "register": "Create account",
+    "forgotPassword": "Forgot password",
+    "resetPassword": "Reset password"
   }
 }

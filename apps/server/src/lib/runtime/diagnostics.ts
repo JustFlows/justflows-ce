@@ -88,7 +88,7 @@ export function redactDiagnosticValue(value: unknown, key = "", seen = new WeakS
   if (value === null || typeof value === "number" || typeof value === "boolean") return value;
   if (typeof value === "string") {
     if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(value)) return "[REDACTED]";
-    if (/^[a-z][a-z0-9+.-]*:\/\/[^\s/@]+:[^\s/@]+@/i.test(value)) return "[REDACTED]";
+    if (/^[a-z][a-z0-9+.-]*:\/\/[^\s/@:]+:[^\s/@]+@/i.test(value)) return "[REDACTED]";
     return value
       .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [REDACTED]")
       .replace(/\b(password|passwd|secret|token|api[_-]?key|authorization|cookie)\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]")

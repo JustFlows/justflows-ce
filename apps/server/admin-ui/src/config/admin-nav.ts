@@ -287,6 +287,22 @@ export function findDomainForPath(
   return null;
 }
 
+/** The page a URL belongs to: the dashboard, else the longest matching nav item. */
+export function findNavItemForPath(
+  pathname: string,
+  domains: NavDomain[] = ADMIN_NAV_DOMAINS,
+): NavItem | null {
+  pathname = internalAdminPath(pathname);
+  if (matchesNavItem(pathname, ADMIN_DASHBOARD)) return ADMIN_DASHBOARD;
+  let best: NavItem | null = null;
+  for (const domain of domains) {
+    for (const item of domain.items) {
+      if (matchesNavItem(pathname, item) && (!best || item.to.length > best.to.length)) best = item;
+    }
+  }
+  return best;
+}
+
 export function isDomainActive(domain: NavDomain, pathname: string): boolean {
   pathname = internalAdminPath(pathname);
   return domain.items.some((item) => matchesNavItem(pathname, item));

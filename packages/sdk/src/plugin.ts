@@ -220,6 +220,26 @@ export const PluginAssetsSchema = z.object({
   styles: z.array(PluginAssetFileSchema).max(20).optional(),
 });
 
+/**
+ * Page templates a plugin ships in its package: `<dir>/<slug>.json` block
+ * documents (same shape as a theme's `templates/*.json`). While the plugin is
+ * active the host resolves them after the site override and the active theme's
+ * own file for that slug, so templates for plugin-owned content types (e.g.
+ * `single-product`) live with the plugin, and a theme can still override them.
+ */
+export const PluginTemplatesSchema = z.object({
+  /** Package-relative folder holding the templates. Defaults to `templates`. */
+  dir: z
+    .string()
+    .max(128)
+    .regex(
+      /^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/,
+      "Templates dir must be a relative folder path (e.g. 'templates')",
+    )
+    .refine((v) => !v.split("/").includes(".."), "Templates dir must not contain '..'")
+    .optional(),
+});
+
 /** An HTML entry file for a plugin admin screen: relative, no traversal. */
 const PluginAdminEntrySchema = z
   .string()
@@ -393,6 +413,8 @@ export const PluginManifestSchema = z
      * `dir`**; both must be `.js`/`.mjs` or `.css` and contain no `..`.
      */
     assets: PluginAssetsSchema.optional(),
+    /** Page templates shipped inside the plugin package (see PluginTemplatesSchema). */
+    templates: PluginTemplatesSchema.optional(),
     /**
      * A self-contained admin app the plugin ships and the host mounts in a
      * same-origin `<iframe>` for each declared route (see PluginAdminAppSchema).
@@ -571,6 +593,12 @@ export interface PluginHttpRequest {
   query: Record<string, string>;
   params: Record<string, string>;
   body: unknown;
+  /**
+   * Exact request bytes for signature checks. Set only for routes that opt in
+   * at the host JSON parser, such as payment webhooks. Absent for every other
+   * plugin route.
+   */
+  rawBody?: string;
   /**
    * Request headers, with `cookie` and `authorization` removed — a plugin route
    * has no reason to read the session cookie, and handing it over made every

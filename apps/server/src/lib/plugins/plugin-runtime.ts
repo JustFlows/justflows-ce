@@ -21,6 +21,7 @@ import { createPluginDatabasesApi } from "./plugin-databases.js";
 import { createPluginContentApi } from "./plugin-content.js";
 import { isInstalled } from "../../middleware/install-guard.js";
 import { getJustflowsVersion } from "../runtime/version.js";
+import { recordDiagnosticError } from "../runtime/diagnostics.js";
 import { registerMailTransport, unregisterMailTransports } from "../email/mail-transports.js";
 import { registerEmailTemplate } from "../email/email-templates.js";
 
@@ -200,6 +201,10 @@ export async function ensurePluginRuntime(): Promise<void> {
       const { createPluginCacheApi } = await import("./plugin-cache.js");
       loader = new PluginLoader(app, {
         justflowsVersion: getJustflowsVersion(),
+        // Mandatory for every plugin: logged errors and failing hook handlers
+        // land in Admin → System → Diagnostics under the plugin's id.
+        errorReporter: (pluginId, context, error) =>
+          recordDiagnosticError(`plugin:${pluginId} ${context}`, error),
         cacheFactory: (pluginId) => createPluginCacheApi(pluginId, getJfCache()),
         dataFactory: (pluginId, siteId) => createPluginDataApi(pluginId, siteId),
         jobsFactory: (pluginId) => createPluginJobsApi(pluginId),

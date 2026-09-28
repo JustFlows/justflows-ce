@@ -68,6 +68,13 @@ export type PluginSettingsAdapter = {
   delete?(siteId: string, pluginId: string, key: string): Promise<void>;
 };
 
+/**
+ * Host sink for plugin failures. Every `ctx.logger.error()` call and every
+ * exception thrown from a plugin hook handler is forwarded here, so plugin
+ * errors reach the core diagnostics without the plugin opting in.
+ */
+export type PluginErrorReporter = (pluginId: string, context: string, error: unknown) => void;
+
 export interface PluginBlockRegistry {
   register(definition: PluginBlockDefinition): void;
   unregister(type: string): void;
@@ -165,6 +172,7 @@ export class PluginLoader {
   private readonly settingsAdapter: PluginSettingsAdapter;
   private readonly blockRegistry: PluginBlockRegistry | undefined;
   private readonly justflowsVersion: string;
+  private readonly errorReporter: PluginErrorReporter | undefined;
   private readonly registeredBlocks = new Map<string, string[]>();
   private readonly coreCookiesFn: () => Promise<CookieDeclaration[]>;
   private readonly cookieOverrides: (siteId: string) => Promise<Record<string, CookieCategory>>;
@@ -205,6 +213,7 @@ export class PluginLoader {
       roleRegistry?: PluginRoleRegistry;
       diagnosticRegistry?: PluginDiagnosticRegistry;
       patternRegistry?: PluginPatternRegistry;
+      errorReporter?: PluginErrorReporter;
     },
   ) {
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
@@ -254,6 +263,41 @@ export class PluginLoader {
     this.cookieOverrides = options?.cookieOverrides ?? (async () => ({}));
     this.blockRegistry = options?.blockRegistry;
     this.justflowsVersion = options?.justflowsVersion ?? "unknown";
+    this.errorReporter = options?.errorReporter;
+  }
+
+  /** Forward a plugin failure to the host. A broken reporter never breaks the plugin. */
+  private reportError(pluginId: string, context: string, error: unknown): void {
+    if (!this.errorReporter) return;
+    try {
+      this.errorReporter(pluginId, context, error);
+    } catch {
+      // diagnostics are best-effort
+    }
+  }
+
+  /**
+   * Wrap a hook handler so a throw or rejection is reported before the hooks
+   * registry sees it. The error is rethrown unchanged, so failure counting and
+   * auto-disable keep working. Gate aborts are intentional, not failures.
+   */
+  private reportingHandler(pluginId: string, hook: string, handler: unknown): unknown {
+    if (typeof handler !== "function") return handler;
+    const fn = handler as (...args: unknown[]) => unknown;
+    const report = (err: unknown): never => {
+      if (!(err instanceof Error && err.name === "HookAbortError"))
+        this.reportError(pluginId, `hook:${hook}`, err);
+      throw err;
+    };
+    return (...args: unknown[]) => {
+      let result: unknown;
+      try {
+        result = fn(...args);
+      } catch (err) {
+        report(err);
+      }
+      return result instanceof Promise ? result.catch(report) : result;
+    };
   }
 
   /**
@@ -405,7 +449,21 @@ export class PluginLoader {
   private buildContext(manifest: PluginManifest, siteId: string): PluginContext {
     const pluginId = manifest.id;
     const permissions = new Set(manifest.permissions);
-    const logger = this.app.logger.child({ pluginId });
+    const baseLogger = this.app.logger.child({ pluginId });
+    const logger: PluginContext["logger"] = {
+      debug: (message, context) => baseLogger.debug(message, context),
+      info: (message, context) => baseLogger.info(message, context),
+      warn: (message, context) => baseLogger.warn(message, context),
+      error: (message, context) => {
+        baseLogger.error(message, context);
+        const detail = context?.["error"];
+        this.reportError(
+          pluginId,
+          message,
+          detail === undefined ? message : detail instanceof Error ? detail : String(detail),
+        );
+      },
+    };
     const settings = this.settingsAdapter;
     const hooks = this.app.hooks;
     const cache = this.cacheFactory(pluginId);
@@ -443,10 +501,11 @@ export class PluginLoader {
     ): Unsubscribe => {
       assertMayListen(hook);
       const opts = { ...options, pluginId };
+      const wrapped = this.reportingHandler(pluginId, hook, handler);
       if (kind === "filter") {
-        return hooks.filter(hook, handler as never, opts);
+        return hooks.filter(hook, wrapped as never, opts);
       }
-      return hooks.action(hook, handler as never, opts);
+      return hooks.action(hook, wrapped as never, opts);
     };
 
     return {

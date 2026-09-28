@@ -3464,5 +3464,12 @@
     "blockStylePanel": {
       "addToken": "Haz clic para añadir & { {name}: … }"
     }
+  },
+  "meta": {
+    "description": "Panel de administración de Justflows: gestiona el contenido, los medios, el diseño y los ajustes de tu sitio.",
+    "login": "Iniciar sesión",
+    "register": "Crear cuenta",
+    "forgotPassword": "Contraseña olvidada",
+    "resetPassword": "Restablecer contraseña"
   }
 }

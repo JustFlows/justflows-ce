@@ -4,6 +4,7 @@ import type { Request, Response, NextFunction } from "express";
 import type { PluginHttpMethod } from "@justflows/sdk";
 import { isProtectedHeaderName, SECURITY_HEADER_DEFS } from "../security/security-headers.js";
 import { resolveSession } from "../auth/auth-session.js";
+import { recordDiagnosticError } from "../runtime/diagnostics.js";
 
 /**
  * Headers a plugin may not set on the response.
@@ -36,8 +37,28 @@ const UNSAFE_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 /** Public plugin mutations whose own validation/rate limits replace session-bound CSRF. */
 const PUBLIC_PLUGIN_MUTATIONS = new Set(["POST /justflows-forms/submit"]);
 
+const PAYMENT_HOOK = /^\/ext\/justflows\.shop\/payments\/hooks\/[a-z0-9-]+\/[a-z0-9]{20,}$/;
+const SHOP_CART_POST = /^\/ext\/justflows\.shop\/cart\/(?:items|lines)$/;
+const SHOP_CHECKOUT_POST = /^\/ext\/justflows\.shop\/checkout(?:\/quote)?$/;
+const SHOP_CHECKOUT_RETURN = /^\/ext\/justflows\.shop\/checkout\/return$/;
+
+export function isShopCartMutation(method: PluginHttpMethod, path: string): boolean {
+  return method === "POST" && SHOP_CART_POST.test(path);
+}
+
+export function isShopCheckoutMutation(method: PluginHttpMethod, path: string): boolean {
+  return method === "POST" && SHOP_CHECKOUT_POST.test(path);
+}
+
+export function isShopCheckoutReturn(method: PluginHttpMethod, path: string): boolean {
+  return method === "GET" && SHOP_CHECKOUT_RETURN.test(path);
+}
+
 export function requiresPluginCsrf(method: PluginHttpMethod, path: string): boolean {
-  return method !== "GET" && !PUBLIC_PLUGIN_MUTATIONS.has(`${method} ${path}`);
+  if (method === "GET") return false;
+  if (PUBLIC_PLUGIN_MUTATIONS.has(`${method} ${path}`)) return false;
+  if (method === "POST" && PAYMENT_HOOK.test(path)) return false;
+  return true;
 }
 
 export function isReservedPluginResponseHeader(name: string): boolean {
@@ -81,6 +102,24 @@ export async function dispatchPluginHttp(
   // These routes are mounted at the application root, not under /api, so the
   // csrfProtection middleware never sees them — every plugin mutation was
   // cross-site forgeable. Checked here, on the one path that reaches them.
+  if (method === "POST" && PAYMENT_HOOK.test(req.path)) {
+    const { clientIp, consumeRateLimit } = await import("../security/rate-limit.js");
+    if (!consumeRateLimit(`shop-payment-hook:${clientIp(req)}`, 60, 60_000)) {
+      res.status(429).json({ error: "Too many requests" });
+      return;
+    }
+  }
+
+  if (isShopCartMutation(method, req.path) || isShopCheckoutMutation(method, req.path) || isShopCheckoutReturn(method, req.path)) {
+    const { clientIp, consumeRateLimit } = await import("../security/rate-limit.js");
+    const checkout = isShopCheckoutMutation(method, req.path) || isShopCheckoutReturn(method, req.path);
+    const bucket = checkout ? "shop-checkout" : "shop-cart";
+    if (!consumeRateLimit(`${bucket}:${clientIp(req)}`, checkout ? 60 : 30, 60_000)) {
+      res.status(429).json({ error: "Too many requests" });
+      return;
+    }
+  }
+
   if (requiresPluginCsrf(method, req.path)) {
     const { csrfProtection } = await import("../../middleware/csrf.js");
     // Synchronous: it either calls next() or answers 403 itself, so the flag
@@ -119,6 +158,7 @@ export async function dispatchPluginHttp(
       query,
       params,
       body: req.body,
+      ...((req as { rawBody?: string }).rawBody !== undefined ? { rawBody: (req as { rawBody?: string }).rawBody } : {}),
       headers,
       session: session
         ? {
@@ -177,7 +217,9 @@ export async function dispatchPluginHttp(
     }
   } catch (err) {
     const routeLabel = `${match.pluginId}${req.path}`.replace(/\r/g, "").replace(/\n/g, "");
+    const diagnostic = recordDiagnosticError(`plugin:${match.pluginId} route ${req.path}`, err);
     console.error("[justflows] plugin route failed: %s", JSON.stringify(routeLabel), err);
-    if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
+    if (!res.headersSent)
+      res.status(500).json({ error: "Internal server error", requestId: diagnostic.requestId });
   }
 }

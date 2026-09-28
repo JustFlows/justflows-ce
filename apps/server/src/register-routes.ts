@@ -475,6 +475,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     await import("./lib/plugins/plugin-assets.js");
   const { resolvePluginAdminFile, clearPluginAdminAppCache } =
     await import("./lib/plugins/plugin-admin-app.js");
+  const { clearPluginTemplatesCache } = await import("./lib/plugins/plugin-templates.js");
   const pluginAssetLimit = rateLimit({
     windowMs: 60_000,
     limit: 600,
@@ -602,6 +603,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       hooks.action(hook, () => {
         clearPluginAssetsCache();
         clearPluginAdminAppCache();
+        clearPluginTemplatesCache();
       });
     }
   }
