@@ -139,6 +139,8 @@ export type {
   PluginHttpSession,
   PluginHttpResponse,
   PluginHttpHandler,
+  PluginHttpRateLimit,
+  PluginHttpRouteOptions,
   PluginJobsApi,
   PluginMailTransportApi,
   PluginMailMessage,
@@ -167,6 +169,7 @@ export type {
   PluginDiagnosticStatus,
   PluginBlocksApi,
   PluginBlockDefinition,
+  PluginBlockField,
   PluginPatternsApi,
   PluginPatternDefinition,
   PluginContentApi,
@@ -191,6 +194,22 @@ export type {
   ResolvedCookie,
   PluginCookiesApi,
 } from "./cookies.js";
+
+// Placeholders — default images for empty image slots
+export {
+  CORE_PLACEHOLDER_KINDS,
+  PLACEHOLDER_KIND_RE,
+  PlaceholderDefinitionSchema,
+} from "./placeholders.js";
+export type {
+  CorePlaceholderKind,
+  PlaceholderKind,
+  PlaceholderDefinition,
+  PlaceholderImage,
+  PlaceholderFilterContext,
+  PlaceholderHtmlOptions,
+  PluginMediaApi,
+} from "./placeholders.js";
 
 // Capabilities — user capability system
 export {

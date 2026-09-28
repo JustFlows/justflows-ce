@@ -178,6 +178,14 @@ export const UNLOCALIZED_PATH_SEGMENTS = new Set([
   "assets",
   "css-providers",
   "favicon.ico",
+  "forgot-password",
+  "ext",
+  "preview",
+  "vendor",
+  ".well-known",
+  "justflows-comments",
+  "justflows-analytics",
+  "justflows-forms",
 ]);
 
 /** Build a public URL path with optional locale prefix (default locale has no prefix). */
@@ -230,4 +238,45 @@ export function localizePublicPath(
   const first = restPath.split("/").filter(Boolean)[0];
   if (first && UNLOCALIZED_PATH_SEGMENTS.has(first)) return restPath;
   return localePath(locale, restPath, defaultLocale);
+}
+
+export interface LocalizeHtmlLinksOptions {
+  locale: string;
+  defaultLocale: string;
+  activeLocales: string[];
+  /** Extra app routes to leave alone (for example plugin HTTP routes). */
+  isAppRoute?: (pathname: string) => boolean;
+}
+
+const LINK_TAG_RE = /<(a|form)\b[^>]*>/gi;
+const LINK_ATTR_RE = /(\s(?:href|action)\s*=\s*)(["'])(\/(?!\/)[^"']*)\2/i;
+
+/**
+ * Give every site-internal `<a href>` and `<form action>` in a rendered public
+ * page the page's locale prefix, so blocks, themes and plugins can link to
+ * `/shop` and still keep a `/nl-NL` visitor in Dutch. Paths that already carry
+ * a locale, app routes, files (a dot in the last segment) and anchors with
+ * `hreflang` (language switchers) are left as-is. The default locale is a no-op.
+ */
+export function localizeHtmlLinks(html: string, opts: LocalizeHtmlLinksOptions): string {
+  const loc = normalizeLocale(opts.locale) ?? opts.locale;
+  const def = normalizeLocale(opts.defaultLocale) ?? opts.defaultLocale;
+  if (loc === def) return html;
+
+  return html.replace(LINK_TAG_RE, (tag) => {
+    if (/\shreflang\s*=/i.test(tag)) return tag;
+    return tag.replace(LINK_ATTR_RE, (whole, prefix: string, quote: string, url: string) => {
+      const cut = url.search(/[?#]/);
+      const pathname = cut === -1 ? url : url.slice(0, cut);
+      const suffix = cut === -1 ? "" : url.slice(cut);
+      const segments = pathname.split("/").filter(Boolean);
+      const first = segments[0];
+      const last = segments[segments.length - 1] ?? "";
+      if (first && matchActiveLocale(first, opts.activeLocales)) return whole;
+      if (first && UNLOCALIZED_PATH_SEGMENTS.has(first)) return whole;
+      if (last.includes(".")) return whole;
+      if (opts.isAppRoute?.(pathname)) return whole;
+      return `${prefix}${quote}${localePath(loc, pathname, def)}${suffix}${quote}`;
+    });
+  });
 }

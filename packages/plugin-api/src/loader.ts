@@ -22,6 +22,7 @@ import {
   type Unsubscribe,
   type CookieCategory,
   type CookieDeclaration,
+  type PlaceholderImage,
 } from "@justflows/sdk";
 import type { App } from "@justflows/core";
 import { PluginHttpRouter } from "./http-router.js";
@@ -30,6 +31,7 @@ import { PluginCapabilityRegistry } from "./capability-registry.js";
 import { PluginRoleRegistry } from "./role-registry.js";
 import { PluginDiagnosticRegistry } from "./diagnostic-registry.js";
 import { PluginPatternRegistry } from "./pattern-registry.js";
+import { PluginPlaceholderRegistry, placeholderImgHtml } from "./placeholder-registry.js";
 
 export interface LoadedPlugin {
   manifest: PluginManifest;
@@ -73,6 +75,9 @@ export type PluginSettingsAdapter = {
  * exception thrown from a plugin hook handler is forwarded here, so plugin
  * errors reach the core diagnostics without the plugin opting in.
  */
+/** Resolve a placeholder for one site. `null` means placeholders are switched off. */
+export type PluginPlaceholderResolver = (siteId: string, kind: string) => PlaceholderImage | null;
+
 export type PluginErrorReporter = (pluginId: string, context: string, error: unknown) => void;
 
 export interface PluginBlockRegistry {
@@ -182,6 +187,8 @@ export class PluginLoader {
   readonly roleRegistry: PluginRoleRegistry;
   readonly diagnosticRegistry: PluginDiagnosticRegistry;
   readonly patternRegistry: PluginPatternRegistry;
+  readonly placeholderRegistry: PluginPlaceholderRegistry;
+  private readonly placeholderResolver: PluginPlaceholderResolver;
 
   constructor(
     private readonly app: App,
@@ -213,6 +220,10 @@ export class PluginLoader {
       roleRegistry?: PluginRoleRegistry;
       diagnosticRegistry?: PluginDiagnosticRegistry;
       patternRegistry?: PluginPatternRegistry;
+      placeholderRegistry?: PluginPlaceholderRegistry;
+      /** Host resolution (site choice, filter, shipped defaults). Without one,
+       * only plugin-registered kinds resolve. */
+      placeholderResolver?: PluginPlaceholderResolver;
       errorReporter?: PluginErrorReporter;
     },
   ) {
@@ -257,6 +268,15 @@ export class PluginLoader {
     this.roleRegistry = options?.roleRegistry ?? new PluginRoleRegistry();
     this.diagnosticRegistry = options?.diagnosticRegistry ?? new PluginDiagnosticRegistry();
     this.patternRegistry = options?.patternRegistry ?? new PluginPatternRegistry();
+    this.placeholderRegistry = options?.placeholderRegistry ?? new PluginPlaceholderRegistry();
+    this.placeholderResolver =
+      options?.placeholderResolver ??
+      ((_siteId, kind) => {
+        const entry = this.placeholderRegistry.get(kind);
+        return entry
+          ? { kind, src: entry.src, width: entry.width, height: entry.height, source: "plugin" }
+          : null;
+      });
     const coreCookies = options?.coreCookies ?? [];
     this.coreCookiesFn =
       typeof coreCookies === "function" ? async () => coreCookies() : async () => coreCookies;
@@ -439,6 +459,7 @@ export class PluginLoader {
     this.roleRegistry.removePlugin(pluginId);
     this.diagnosticRegistry.removePlugin(pluginId);
     this.patternRegistry.removePlugin(pluginId);
+    this.placeholderRegistry.removePlugin(pluginId);
     this.jobsCleanup?.(pluginId);
     this.mailCleanup?.(pluginId);
     const types = this.registeredBlocks.get(pluginId) ?? [];
@@ -576,11 +597,11 @@ export class PluginLoader {
         delete: (key) => settings.delete?.(siteId, pluginId, key) ?? Promise.resolve(),
       },
       http: {
-        get: (path, handler) => this.httpRouter.register(pluginId, "GET", path, handler),
-        post: (path, handler) => this.httpRouter.register(pluginId, "POST", path, handler),
-        put: (path, handler) => this.httpRouter.register(pluginId, "PUT", path, handler),
-        patch: (path, handler) => this.httpRouter.register(pluginId, "PATCH", path, handler),
-        delete: (path, handler) => this.httpRouter.register(pluginId, "DELETE", path, handler),
+        get: (path, handler, options) => this.httpRouter.register(pluginId, "GET", path, handler, options),
+        post: (path, handler, options) => this.httpRouter.register(pluginId, "POST", path, handler, options),
+        put: (path, handler, options) => this.httpRouter.register(pluginId, "PUT", path, handler, options),
+        patch: (path, handler, options) => this.httpRouter.register(pluginId, "PATCH", path, handler, options),
+        delete: (path, handler, options) => this.httpRouter.register(pluginId, "DELETE", path, handler, options),
       },
       jobs: this.scopedJobs(pluginId, permissions),
       mail: this.mailFactory(pluginId, permissions),
@@ -615,6 +636,15 @@ export class PluginLoader {
       },
       patterns: {
         register: (pattern) => this.patternRegistry.register(pluginId, pattern),
+      },
+      media: {
+        placeholder: (kind) => this.placeholderResolver(siteId, kind),
+        placeholderHtml: (kind, options) => {
+          const image = this.placeholderResolver(siteId, kind);
+          return image ? placeholderImgHtml(image, options) : "";
+        },
+        registerPlaceholder: (kind, definition) =>
+          this.placeholderRegistry.register(pluginId, kind, definition),
       },
       logger,
     };

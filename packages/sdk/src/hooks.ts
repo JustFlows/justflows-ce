@@ -113,6 +113,12 @@ export interface ContentRenderContext {
   readonly title?: string;
   readonly excerpt?: string | null;
   readonly translationGroupId?: string;
+  /**
+   * Language of the page being rendered (the URL's locale). Can differ from the
+   * entry's own locale when an untranslated entry is shown under another
+   * language's prefix. Absent on older hosts.
+   */
+  readonly locale?: string;
 }
 
 /** One approved comment in the public thread, passed to `comments.render`. */
@@ -702,6 +708,17 @@ export interface FilterValueMap {
   "comments.spamBackend": [import("./spam.js").SpamCheckBackend | null, { siteId: string }];
   "content.revision": [ContentRevisionSnapshot, { siteId: string; contentId: string }];
   "media.metadata": [Record<string, unknown>, MediaRef];
+  /**
+   * The placeholder shown for an empty image slot of `kind`. Seeded with the
+   * plugin-registered or shipped image; return another image, or `null` to
+   * leave the slot empty. Skipped when the site owner picked their own image
+   * or switched placeholders off. Runs on block render, so handlers must be
+   * synchronous.
+   */
+  "media.placeholder": [
+    import("./placeholders.js").PlaceholderImage | null,
+    import("./placeholders.js").PlaceholderFilterContext,
+  ];
   "navigation.items": [NavigationItem[], { siteId: string; location: string }];
   /**
    * Menu design presets a site owner can pick beyond the built-in set, shown
@@ -837,6 +854,7 @@ export const SYNC_FILTERS = [
   "html.head",
   "analytics.head",
   "site.underConstruction.render",
+  "media.placeholder",
 ] as const;
 
 // ─── Name and handler helpers ──────────────────────────────────────────────

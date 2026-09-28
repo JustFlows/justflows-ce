@@ -30,6 +30,8 @@ interface PermalinkHandlers {
       basePath: string;
       pageNumber: number;
       alternates: Array<{ locale: string; slug: string; href: string }>;
+      /** Set when a locale-prefixed URL renders untranslated default-locale content. */
+      canonicalPath?: string;
     },
   ): Promise<void>;
   renderArchive(
@@ -162,6 +164,74 @@ export function createPermalinkRouter(handlers: PermalinkHandlers): Router {
             match = legacy[0];
           }
           if (match) target = permalinkPath(match, state.settings, defaultLocale, state.layoutScopes);
+        }
+        // `/nl-NL/product/x` with no Dutch translation: show the default-locale
+        // entry under the Dutch URL (Dutch chrome, links stay in /nl-NL) instead
+        // of a 404, with canonical pointing at the original. A translation that
+        // lives at another slug gets a redirect to its own URL.
+        if (!match && !identity && root.locale && root.locale !== defaultLocale) {
+          const rest = parseLocalePrefix(requestedPath, activeLocales).restPath;
+          const source =
+            rest === "/"
+              ? undefined
+              : items.find(
+                  (item) =>
+                    item.locale === defaultLocale &&
+                    comparable(permalinkPath(item, state.settings, defaultLocale, state.layoutScopes)) ===
+                      comparable(rest),
+                );
+          const sourcePath = source
+            ? permalinkPath(source, state.settings, defaultLocale, state.layoutScopes)
+            : "";
+          if (source && !sourcePath.includes("?")) {
+            if (!(await handlers.canView(req, res))) return;
+            const translation = source.translationGroupId
+              ? items.find(
+                  (item) =>
+                    item.translationGroupId === source.translationGroupId &&
+                    item.locale === root.locale,
+                )
+              : undefined;
+            if (translation) {
+              res.redirect(
+                preview ? 302 : 301,
+                permalinkPath(translation, state.settings, defaultLocale, state.layoutScopes),
+              );
+              return;
+            }
+            const home = await getHomeContent(siteId, defaultLocale, false);
+            const basePath = slashPath(
+              localePath(root.locale, home?.id === source.id ? "/" : sourcePath, defaultLocale),
+              state.settings.trailingSlash,
+            );
+            const localizedTarget =
+              pagination && pageNumber > 1
+                ? slashPath(`${basePath.replace(/\/$/, "")}/page/${pageNumber}`, state.settings.trailingSlash)
+                : basePath;
+            if (req.path !== localizedTarget || home?.id === source.id) {
+              res.redirect(preview ? 302 : 301, localizedTarget);
+              return;
+            }
+            const alternates = items
+              .filter(
+                (item) =>
+                  source.translationGroupId && item.translationGroupId === source.translationGroupId,
+              )
+              .map((item) => ({
+                locale: item.locale,
+                slug: item.slug,
+                href: permalinkPath(item, state.settings, defaultLocale, state.layoutScopes),
+              }));
+            await handlers.renderContent(req, res, {
+              content: source,
+              path: localizedTarget,
+              basePath,
+              pageNumber,
+              alternates,
+              canonicalPath: sourcePath,
+            });
+            return;
+          }
         }
         if (!match) {
           if (identity) {

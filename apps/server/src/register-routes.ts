@@ -588,6 +588,10 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
         }
         res.type(file.contentType);
         res.setHeader("Cache-Control", "public, max-age=300");
+        if (file.contentType.startsWith("image/svg")) {
+          // An SVG opened directly runs as a document on this origin; keep it inert.
+          res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+        }
         res.sendFile(file.absPath, (err) => {
           if (err && !res.headersSent) next();
         });

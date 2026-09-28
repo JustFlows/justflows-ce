@@ -80,6 +80,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Editor and operating-system files
+/README.md
 .DS_Store
 Thumbs.db
 .idea/

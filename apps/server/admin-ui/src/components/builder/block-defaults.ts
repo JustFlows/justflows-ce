@@ -61,6 +61,7 @@ return {
     showExcerpt: true,
     showDate: true,
     showFeaturedImage: true,
+    showPlaceholder: true,
     postsPerPage: 0,
   },
   "core.grid": { columns: 12, gap: "md", rowHeight: "auto" },
