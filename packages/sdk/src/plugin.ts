@@ -594,6 +594,12 @@ export interface PluginHttpRequest {
   params: Record<string, string>;
   body: unknown;
   /**
+   * Exact request bytes for signature checks. Set only for routes that opt in
+   * at the host JSON parser, such as payment webhooks. Absent for every other
+   * plugin route.
+   */
+  rawBody?: string;
+  /**
    * Request headers, with `cookie` and `authorization` removed — a plugin route
    * has no reason to read the session cookie, and handing it over made every
    * installed plugin a credential holder. Use `session` for identity.

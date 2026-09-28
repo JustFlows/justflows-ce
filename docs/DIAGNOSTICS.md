@@ -36,6 +36,21 @@ Set `ADMIN_URL` when the admin server is not at `http://localhost:3001`. Copy th
 `X-Request-Id` response header when reporting a failing request, then use the
 request ID to locate its trace in Admin → System → Diagnostics.
 
+## Plugin errors
+
+Plugin errors are captured by the host. Plugins do not opt in and cannot opt
+out. Each entry appears under Recent errors with the context `plugin:<id>`:
+
+- every `ctx.logger.error(message, { error })` call — the message becomes the
+  context and `error` the recorded message;
+- every exception or rejection thrown by a plugin hook handler (gate aborts
+  excluded), which the hooks registry still counts toward auto-disable;
+- every plugin HTTP route that throws, which also returns the `requestId`.
+
+Entries are redacted like every other diagnostic. Log with
+`ctx.logger.error` when you catch an unexpected failure; do not swallow it or
+write it with `console.error`, or it will not reach Diagnostics.
+
 ## Publish a plugin health check
 
 Declare `diagnostics:publish` in the plugin manifest, then register a read-only

@@ -47,7 +47,8 @@ import { PluginMenuProvider } from "@components/PluginMenuProvider";
 import { SessionProvider, useSessionRole } from "@components/SessionProvider";
 import PluginRoute from "@components/PluginRoute";
 import PluginHostPage from "./pages/admin/extensions/PluginHostPage";
-import { SiteFavicon } from "@components/SiteIdentity";
+import { SiteHead } from "@components/SiteIdentity";
+import { DocumentMeta } from "@components/DocumentMeta";
 import { canAccessPath } from "./config/admin-nav";
 import AdminPathPage from "./pages/admin/security/AdminPathPage";
 import { adminBasePath, currentPathname, isPreAuthPath, publicAdminPath } from "./admin-path";
@@ -73,7 +74,7 @@ export default function App() {
     <I18nProvider>
       <SessionProvider>
         <PluginMenuProvider>
-          {!isPreAuth && <SiteFavicon />}
+          {isPreAuth ? <DocumentMeta /> : <SiteHead />}
           <Routes>
             <Route path="/install" element={<InstallPage />} />
             <Route path="/login" element={<LoginPage />} />

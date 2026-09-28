@@ -161,13 +161,20 @@ export default function HealthPage() {
         {(() => {
           const heapPercent = Math.round((report.runtime.memory.heapUsedBytes / Math.max(1, report.runtime.memory.heapTotalBytes)) * 100);
           const systemPercent = Math.round((report.runtime.memory.systemUsedBytes / Math.max(1, report.runtime.memory.systemTotalBytes)) * 100);
-          const hasIssues = !report.database.connected || !report.database.migrations.current || report.hooks.totals.errors > 0 || report.errors.length > 0;
+          const pluginErrors = report.pluginChecks.filter((check) => check.result.status === "error");
+          const hasIssues = !report.database.connected || !report.database.migrations.current || report.hooks.totals.errors > 0 || report.errors.length > 0 || pluginErrors.length > 0;
           const dbStatus = report.database.connected ? t("health.overview.connected") : t("health.overview.unavailable");
           const migrationsStatus = report.database.migrations.current ? t("health.overview.migrationsCurrent") : t("health.overview.migrationsPending");
           return <>
             <div className={`jf-banner jf-banner--${hasIssues ? "warn" : "ok"}`}>
               <span className="jf-banner__icon" aria-hidden="true">{hasIssues ? "⚠" : "✓"}</span>
-              <div><div className="jf-banner__title">{hasIssues ? t("health.overview.issuesFound") : t("health.overview.allHealthy")}</div><div className="jf-banner__sub">{t("health.overview.statusLine", { dbStatus, migrationsStatus, errorCount: report.errors.length })}</div></div>
+              <div>
+                <div className="jf-banner__title">{hasIssues ? t("health.overview.issuesFound") : t("health.overview.allHealthy")}</div>
+                <div className="jf-banner__sub">{t("health.overview.statusLine", { dbStatus, migrationsStatus, errorCount: report.errors.length })}</div>
+                {pluginErrors.map((check) => (
+                  <div className="jf-banner__sub" key={`${check.pluginId}/${check.id}`}>{check.label}: {check.result.summary}</div>
+                ))}
+              </div>
             </div>
 
             <div className="jf-diagnostics-overview">
@@ -227,7 +234,7 @@ export default function HealthPage() {
 
         <section className="jf-card">
           <div className="jf-card__head"><div><h2 className="jf-card__title">{t("health.pluginChecks.title")}</h2><p className="jf-field__hint">{t("health.pluginChecks.hint")}</p></div><span className="jf-badge jf-badge--info">{t("health.pluginChecks.count", { count: report.pluginChecks.length })}</span></div>
-          <div className="jf-card__body jf-card__body--flush">{report.pluginChecks.length === 0 ? <div className="jf-empty"><p>{t("health.pluginChecks.none")}</p></div> : <div className="jf-tablewrap"><table className="jf-table"><thead><tr><th>{t("health.pluginChecks.colPlugin")}</th><th>{t("health.pluginChecks.colCheck")}</th><th>{t("health.pluginChecks.colStatus")}</th><th>{t("health.pluginChecks.colSummary")}</th></tr></thead><tbody>{report.pluginChecks.map((check) => <tr key={`${check.pluginId}/${check.id}`}><td className="jf-td--mono">{check.pluginId}</td><td>{check.label}<br /><code className="jf-code">{check.id}</code></td><td>{check.result.status}</td><td>{check.result.summary}</td></tr>)}</tbody></table></div>}</div>
+          <div className="jf-card__body jf-card__body--flush">{report.pluginChecks.length === 0 ? <div className="jf-empty"><p>{t("health.pluginChecks.none")}</p></div> : <div className="jf-tablewrap"><table className="jf-table"><thead><tr><th>{t("health.pluginChecks.colPlugin")}</th><th>{t("health.pluginChecks.colCheck")}</th><th>{t("health.pluginChecks.colStatus")}</th><th>{t("health.pluginChecks.colSummary")}</th></tr></thead><tbody>{report.pluginChecks.map((check) => <tr key={`${check.pluginId}/${check.id}`}><td className="jf-td--mono">{check.pluginId}</td><td>{check.label}<br /><code className="jf-code">{check.id}</code></td><td><span className={`jf-badge jf-badge--${check.result.status === "error" ? "error" : check.result.status === "warning" ? "warn" : "ok"}`}>{check.result.status}</span></td><td>{check.result.summary}</td></tr>)}</tbody></table></div>}</div>
         </section>
 
         <section className="jf-card">

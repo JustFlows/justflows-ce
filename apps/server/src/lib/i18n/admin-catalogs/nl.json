@@ -3464,5 +3464,12 @@
     "blockStylePanel": {
       "addToken": "Klik om & { {name}: … } toe te voegen"
     }
+  },
+  "meta": {
+    "description": "Justflows-beheerpaneel: beheer de inhoud, media, vormgeving en instellingen van je site.",
+    "login": "Inloggen",
+    "register": "Account aanmaken",
+    "forgotPassword": "Wachtwoord vergeten",
+    "resetPassword": "Wachtwoord opnieuw instellen"
   }
 }
