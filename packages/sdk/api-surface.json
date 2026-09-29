@@ -125,6 +125,8 @@
   "PluginDatabaseProbeResult",
   "PluginDatabaseTarget",
   "PluginDatabasesApi",
+  "PluginDeleteCreatedByCounts",
+  "PluginDeleteCreatedByResult",
   "PluginDiagnosticCheck",
   "PluginDiagnosticResult",
   "PluginDiagnosticStatus",

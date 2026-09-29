@@ -180,6 +180,8 @@ export type {
   PluginContentField,
   PluginContentEnsureResult,
   PluginContentDeleteTypeResult,
+  PluginDeleteCreatedByResult,
+  PluginDeleteCreatedByCounts,
   PluginPublishedEntry,
   PluginListPublishedQuery,
   JustflowsRuntimeVersions,

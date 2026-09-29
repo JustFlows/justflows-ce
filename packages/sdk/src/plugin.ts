@@ -916,6 +916,17 @@ export type PluginContentDeleteTypeResult = {
   typeDeleted: boolean;
 };
 
+/** Records removed because one user created them. */
+export interface PluginDeleteCreatedByCounts {
+  content: number;
+  media: number;
+  comments: number;
+}
+
+export type PluginDeleteCreatedByResult =
+  | ({ ok: true } & PluginDeleteCreatedByCounts)
+  | { ok: false; error: string };
+
 /** One published content entry as returned by {@link PluginContentApi.listPublished}. */
 export interface PluginPublishedEntry {
   id: string;
@@ -994,6 +1005,15 @@ export interface PluginContentApi {
    * Built-in slugs `post` and `page` cannot be deleted.
    */
   deleteType(slug: string): Promise<PluginContentDeleteTypeResult>;
+
+  /**
+   * Permanently delete records this user created: content they authored (any
+   * status, including trash), media they uploaded, and comments they wrote.
+   * Also drops their unpublished working revisions on other people's entries.
+   * Does not delete the user, and refuses when that user is an administrator.
+   * Requires `content:delete`.
+   */
+  deleteCreatedBy(userId: string): Promise<PluginDeleteCreatedByResult>;
 }
 
 export type PluginDatabaseDriver = "postgres" | "mysql" | "mariadb";

@@ -40,7 +40,9 @@ install-token/
 .updates/
 tmp/
 uploads/
-plugins/
+# Runtime copies of installed plugins. Source plugins in this repo stay tracked.
+plugins/*
+!plugins/README.md
 packages-installed/
 css-providers-installed/
 data/installed.json

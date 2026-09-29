@@ -17,6 +17,7 @@ import { clearHomePageIfMatches } from "../content/home-page.js";
 import { clearBlogPageIfMatches } from "../content/blog-page.js";
 import { clearErrorPageIfMatches } from "../rendering/error-pages.js";
 import { invalidateContentCache } from "../content/content-public.js";
+import { deleteRecordsCreatedBy } from "../content/delete-created-by.js";
 import {
   getPluginHostItem,
   PLUGIN_HOST_CONTENT_TYPES_ITEM,
@@ -285,6 +286,10 @@ export function createPluginContentApi(pluginId: string, siteId: string): Plugin
 
     async deleteType(inputSlug) {
       return deletePluginOwnedContentType(siteId, inputSlug);
+    },
+
+    deleteCreatedBy(userId) {
+      return deleteRecordsCreatedBy(siteId, userId);
     },
   };
 }

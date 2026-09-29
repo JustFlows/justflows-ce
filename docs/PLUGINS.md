@@ -674,6 +674,12 @@ Built-in slugs `post` and `page` cannot be recreated.
 **Delete shop pages and posts when this plugin is removed** so uninstall can
 clear storefront pages and product posts as well as `shop_*` tables.
 
+`deleteCreatedBy(userId)` also requires `content:delete`. It permanently
+deletes content that user authored, media they uploaded, and comments they
+wrote, and it drops their unpublished working revisions on other entries. It
+does not delete the user. It refuses when that user is an administrator, and
+it does not remove anyone else's rows.
+
 Admin → Plugins → Settings reads `settingsSchema` from the loaded module, then
 `justflows.json`, then the stored row. `plugin.settings` / `plugin.settings.write`
 overlay values on the plugin runtime. Saving returns the same schema and values
