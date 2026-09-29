@@ -42,12 +42,13 @@ export default function PluginHostPage() {
   if (!item) return <Navigate to="/admin" replace />;
 
   const heading = pluginHeading(t, item);
+  const showSettings = !settingsInMenu(items, item.pluginId);
 
   // A plugin that ships its own admin app owns the whole screen: the host
   // frames the plugin's HTML and only relays navigation / height over
   // postMessage. No core page, no shared React runtime.
   if (item.adminAppUrl) {
-    return <PluginFrame key={item.path} item={item} heading={heading} />;
+    return <PluginFrame key={item.path} item={item} heading={heading} showSettings={showSettings} />;
   }
   const onSetupPage = Boolean(item.setupPath) && internalAdminPath(pathname) === item.setupPath;
   const siblings = items.filter(
@@ -80,6 +81,7 @@ export default function PluginHostPage() {
         contentType={item.contentType}
         heading={heading}
         icon={item.icon}
+        showSettings={showSettings}
         importPath={items.find((entry) => entry.path === `${item.path}/import`)?.path}
       />
     );
@@ -92,9 +94,11 @@ export default function PluginHostPage() {
           <h1>{heading}</h1>
           <p className="jf-meta">{item.pluginId}</p>
         </div>
-        <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${item.pluginId}/settings`}>
-          {t("pluginPage.settings")}
-        </Link>
+        {showSettings ? (
+          <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${item.pluginId}/settings`}>
+            {t("pluginPage.settings")}
+          </Link>
+        ) : null}
       </header>
 
       {onSetupPage ? (
@@ -126,7 +130,15 @@ const FRAME_MAX_HEIGHT = 20000;
  * The plugin reads the CSRF cookie itself (same origin) and calls its own
  * `ctx.http` routes for data — nothing is proxied through core.
  */
-function PluginFrame({ item, heading }: { item: PluginMenuItem; heading: string }) {
+function PluginFrame({
+  item,
+  heading,
+  showSettings,
+}: {
+  item: PluginMenuItem;
+  heading: string;
+  showSettings: boolean;
+}) {
   const { t, locale } = useT();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -203,9 +215,11 @@ function PluginFrame({ item, heading }: { item: PluginMenuItem; heading: string 
           <h1>{heading}</h1>
           <p className="jf-meta">{item.pluginId}</p>
         </div>
-        <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${item.pluginId}/settings`}>
-          {t("pluginPage.settings")}
-        </Link>
+        {showSettings ? (
+          <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${item.pluginId}/settings`}>
+            {t("pluginPage.settings")}
+          </Link>
+        ) : null}
       </header>
       <iframe
         ref={frameRef}
@@ -237,6 +251,18 @@ export function matchPluginMenuItem(
     }
   }
   return best;
+}
+
+/**
+ * A plugin that lists its own `/admin/plugins/{id}/settings` page as a menu tab
+ * (Shop does) reaches settings from the subnav, so the header button would be a
+ * second, confusing way in.
+ */
+function settingsInMenu(items: PluginMenuItem[], pluginId: string): boolean {
+  const path = `/admin/plugins/${pluginId}/settings`;
+  return items.some(
+    (entry) => entry.pluginId === pluginId && entry.path === path && entry.listed !== false,
+  );
 }
 
 function pluginHeading(
@@ -322,12 +348,14 @@ function PluginContentTypeList({
   contentType,
   heading,
   icon,
+  showSettings,
   importPath,
 }: {
   pluginId: string;
   contentType: string;
   heading: string;
   icon: string;
+  showSettings: boolean;
   importPath?: string;
 }) {
   const { t } = useT();
@@ -414,9 +442,11 @@ function PluginContentTypeList({
           <p className="jf-meta">{pluginId}</p>
         </div>
         <div className="jf-pagehead__actions">
-          <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${pluginId}/settings`}>
-            {t("pluginPage.settings")}
-          </Link>
+          {showSettings ? (
+            <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${pluginId}/settings`}>
+              {t("pluginPage.settings")}
+            </Link>
+          ) : null}
           {importPath ? (
             <Link className="jf-btn jf-btn--ghost" to={importPath}>
               {t("pluginPage.import")}
