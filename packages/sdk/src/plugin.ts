@@ -564,6 +564,18 @@ export type PluginUserCreateResult =
   | { ok: true; user: PluginCreatedUser }
   | { ok: false; status: number; error: string };
 
+/** Which existing user `ctx.users.addRole()` targets: by id or by sign-in email. */
+export type PluginUserTarget = { userId: string } | { email: string };
+
+export interface PluginRoleUser extends PluginCreatedUser {
+  /** Primary role first, then additional roles. */
+  roles: readonly string[];
+}
+
+export type PluginUserRoleResult =
+  | { ok: true; user: PluginRoleUser }
+  | { ok: false; status: number; error: string };
+
 export interface PluginUsersApi {
   /**
    * Create a site user in a role this plugin registered.
@@ -571,6 +583,22 @@ export interface PluginUsersApi {
    * password policy, uniqueness, and audit logging.
    */
   create(input: PluginUserCreateInput, actor: PluginUserActor): Promise<PluginUserCreateResult>;
+  /**
+   * Give an existing user a role this plugin registered, as an additional
+   * role next to the one they have. Their primary role, sign-in, and every
+   * other role stay as they are; the new role's capabilities are added.
+   * Doing nothing when the user already holds the role is a success.
+   * Requires the `users:manage` manifest permission.
+   * Optional: older hosts do not provide it.
+   */
+  addRole?(target: PluginUserTarget, role: string, actor: PluginUserActor): Promise<PluginUserRoleResult>;
+  /**
+   * Read one site user with all their roles, or null when there is none.
+   * Requires the `users:manage` manifest permission. Use it from a
+   * `user.created` / `user.updated` action to react to role changes.
+   * Optional: older hosts do not provide it.
+   */
+  get?(userId: string): Promise<PluginRoleUser | null>;
 }
 
 /** The signed-in user behind a plugin request, when there is one. */
@@ -578,6 +606,11 @@ export interface PluginHttpSession {
   userId: string;
   siteId: string;
   role: string;
+  /**
+   * Primary role first, then any additional roles. Absent on older hosts;
+   * fall back to `[role]`.
+   */
+  roles?: readonly string[];
   email: string;
   /** Effective grants after role, per-user additions, and explicit denies. */
   capabilities: readonly UserCapability[];

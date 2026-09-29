@@ -203,6 +203,7 @@ export async function dispatchPluginHttp(
             userId: session.userId,
             siteId: session.siteId,
             role: session.role,
+            roles: access?.roles ?? [session.role],
             email: session.email,
             capabilities: access?.capabilities ?? [],
             scopes: access?.policy.scopes ?? {},

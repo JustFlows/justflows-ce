@@ -13,7 +13,9 @@ import { auditLog } from "../security/audit-log.js";
 import {
   availableCapabilityDefinitions,
   CAPABILITY_ID_PATTERN,
+  capabilitiesOfRoles,
   getEffectiveAccess,
+  listAdditionalRoles,
 } from "./access-policy.js";
 
 /**
@@ -78,29 +80,148 @@ function audit(
 }
 
 export async function listUsers(siteId: string): Promise<Record<string, unknown>[]> {
-  return (await getDb()).query<Record<string, unknown>>(
+  const db = await getDb();
+  const users = await db.query<Record<string, unknown>>(
     "SELECT id, email, username, display_name, role, created_at FROM users WHERE site_id = ? ORDER BY created_at ASC",
     [siteId],
   );
+  const extra = await db
+    .query<{ user_id: string; role: string }>(
+      "SELECT user_id, role FROM user_additional_roles WHERE site_id = ? ORDER BY role",
+      [siteId],
+    )
+    .catch(() => []);
+  const byUser = new Map<string, string[]>();
+  for (const row of extra) {
+    if (row.role === "administrator") continue;
+    byUser.set(String(row.user_id), [...(byUser.get(String(row.user_id)) ?? []), String(row.role)]);
+  }
+  return users.map((user) => ({
+    ...user,
+    additionalRoles: (byUser.get(String(user.id)) ?? []).filter((role) => role !== user.role),
+  }));
 }
 
-export async function getUserWithAccess(siteId: string, userId: string): Promise<UserAdminResult> {
+/**
+ * Additional roles must be built-in or plugin-registered roles (custom access
+ * roles live in the access policy instead) and never administrator — admin
+ * rights come only from the primary role, which every role check reads.
+ */
+async function validateAdditionalRoles(roles: readonly string[]): Promise<string | null> {
+  const assignable = new Set((await listAssignableRoles()).map((entry) => entry.id));
+  for (const role of roles) {
+    if (role === "administrator") return "Administrator can only be a primary role";
+    if (!assignable.has(role)) return "Unknown role";
+  }
+  return null;
+}
+
+async function writeAdditionalRoles(
+  db: DbClient,
+  siteId: string,
+  userId: string,
+  roles: readonly string[],
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.run("DELETE FROM user_additional_roles WHERE user_id = ? AND site_id = ?", [userId, siteId]);
+    for (const role of roles) {
+      await tx.run(
+        "INSERT INTO user_additional_roles (user_id, site_id, role, created_at) VALUES (?, ?, ?, ?)",
+        [userId, siteId, role, now()],
+      );
+    }
+  });
+}
+
+export interface UserDetailOptions {
+  /**
+   * Include the user's recent audit trail. The trail holds IP addresses, so
+   * only administrators may see it — the same rule as GET /api/audit.
+   */
+  includeActivity?: boolean;
+}
+
+/** A detail section that fails (pending migration, dialect quirk) is empty, not a failed page. */
+async function optionalQuery<T>(db: DbClient, sql: string, params: string[]): Promise<T[]> {
+  try {
+    return await db.query<T>(sql, params);
+  } catch {
+    return [];
+  }
+}
+
+export async function getUserWithAccess(
+  siteId: string,
+  userId: string,
+  options: UserDetailOptions = {},
+): Promise<UserAdminResult> {
   const db = await getDb();
   const rows = await db.query<Record<string, unknown>>(
-    "SELECT id, email, username, display_name, role, created_at FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+    "SELECT id, email, username, display_name, role, created_at, updated_at, totp_confirmed_at FROM users WHERE id = ? AND site_id = ? LIMIT 1",
     [userId, siteId],
   );
   if (!rows[0]) return { status: 404, body: { error: "User not found" } };
-  const user = rows[0] as Record<string, unknown> & { id: string; role: string };
-  const access = await getEffectiveAccess(user.id, siteId, user.role, db);
+  const row = rows[0] as Record<string, unknown> & { id: string; role: string };
+  const access = await getEffectiveAccess(row.id, siteId, row.role, db);
+
+  const statusCounts = await optionalQuery<{ status: string; count: number | string }>(
+    db,
+    "SELECT status, COUNT(*) AS count FROM content WHERE site_id = ? AND author_id = ? AND trashed_at IS NULL GROUP BY status",
+    [siteId, row.id],
+  );
+  const contentByStatus = Object.fromEntries(statusCounts.map((entry) => [String(entry.status), Number(entry.count)]));
+  const recentContent = await optionalQuery<Record<string, unknown>>(
+    db,
+    "SELECT id, type, title, status, updated_at FROM content WHERE site_id = ? AND author_id = ? AND trashed_at IS NULL ORDER BY updated_at DESC LIMIT 10",
+    [siteId, row.id],
+  );
+  const recentActivity = options.includeActivity
+    ? await optionalQuery<Record<string, unknown>>(
+        db,
+        "SELECT id, occurred_at, action, outcome, target, ip FROM audit_log WHERE site_id = ? AND actor_id = ? ORDER BY occurred_at DESC LIMIT 20",
+        [siteId, row.id],
+      )
+    : undefined;
+
   return {
     status: 200,
     body: {
       user: {
-        ...user,
+        // Listed explicitly: the row also carries the TOTP column, and the
+        // secret-adjacent state is reported only as a boolean.
+        id: row.id,
+        email: row.email,
+        username: row.username,
+        display_name: row.display_name,
+        role: row.role,
+        created_at: row.created_at,
+        updated_at: row.updated_at ?? null,
+        twoFactorEnabled: row.totp_confirmed_at != null,
         roleId: access.roleId,
+        additionalRoles: access.additionalRoles,
         accessPolicy: access.policy,
         effectiveCapabilities: access.capabilities,
+        content: {
+          total: Object.values(contentByStatus).reduce((sum, count) => sum + count, 0),
+          byStatus: contentByStatus,
+          recent: recentContent.map((item) => ({
+            id: String(item.id),
+            type: String(item.type),
+            title: String(item.title),
+            status: String(item.status),
+            updatedAt: item.updated_at == null ? null : String(item.updated_at),
+          })),
+        },
+        ...(recentActivity && {
+          recentActivity: recentActivity.map((entry) => ({
+            id: String(entry.id),
+            occurredAt: String(entry.occurred_at ?? ""),
+            action: String(entry.action),
+            outcome: String(entry.outcome ?? "success"),
+            target: entry.target == null ? null : String(entry.target),
+            ip: entry.ip == null ? null : String(entry.ip),
+          })),
+        }),
       },
     },
   };
@@ -156,6 +277,8 @@ export const PatchUserSchema = z.object({
     )
     .optional(),
   displayName: z.string().min(1).optional(),
+  /** Replaces the user's additional roles. See validateAdditionalRoles(). */
+  additionalRoles: z.array(z.string().regex(STORED_ROLE_ID)).max(20).optional(),
 });
 export type PatchUserInput = z.infer<typeof PatchUserSchema>;
 
@@ -164,13 +287,25 @@ export async function updateUser(
   patch: PatchUserInput,
   actor: UserAdminActor,
 ): Promise<UserAdminResult> {
-  const { role, roleId, grants, denies, scopes, displayName } = patch;
+  const { role, roleId, grants, denies, scopes, displayName, additionalRoles } = patch;
   const db = await getDb();
 
-  const accessChanged =
+  const policyChanged =
     roleId !== undefined || grants !== undefined || denies !== undefined || scopes !== undefined;
-  if (accessChanged && targetUserId === actor.userId) {
+  const accessChanged = policyChanged || additionalRoles !== undefined;
+  const selfChange = accessChanged && targetUserId === actor.userId;
+  if (selfChange && policyChanged) {
     return { status: 400, body: { error: "You cannot change your own access policy" } };
+  }
+  // Your own additional roles may change as long as that grants nothing you
+  // can't already do — an administrator can add Customer to themselves; a
+  // users:manage custom role can't hand itself editor.
+  if (selfChange && additionalRoles) {
+    const current = await getEffectiveAccess(targetUserId, actor.siteId, actor.role, db);
+    const held = new Set<string>(current.capabilities);
+    if ((await capabilitiesOfRoles(additionalRoles)).some((capability) => !held.has(capability))) {
+      return { status: 400, body: { error: "You cannot give yourself access you don't already have" } };
+    }
   }
   if (accessChanged) {
     const available = new Set((await availableCapabilityDefinitions()).map(({ id }) => id));
@@ -182,6 +317,10 @@ export async function updateUser(
 
   if (role && !(await isAssignableRole(role))) {
     return { status: 400, body: { error: "Unknown role" } };
+  }
+  if (additionalRoles) {
+    const invalid = await validateAdditionalRoles(additionalRoles);
+    if (invalid) return { status: 400, body: { error: invalid } };
   }
 
   let customRoleId: string | null = null;
@@ -237,13 +376,19 @@ export async function updateUser(
     values.push(now(), targetUserId, actor.siteId);
     await db.run(`UPDATE users SET ${fields.join(", ")} WHERE id = ? AND site_id = ?`, values);
   }
-  if (accessChanged) {
-    const current = await getEffectiveAccess(
-      targetUserId,
-      actor.siteId,
-      storedRole ?? targetRole ?? "subscriber",
-      db,
-    );
+  // A role change can land on a role the user also held as an additional
+  // one; drop it there so the same role is never listed twice.
+  const primaryRole = storedRole ?? targetRole ?? "subscriber";
+  if (additionalRoles !== undefined) {
+    await writeAdditionalRoles(db, actor.siteId, targetUserId, [...new Set(additionalRoles)].filter((entry) => entry !== primaryRole));
+  } else if (storedRole) {
+    const held = await listAdditionalRoles(targetUserId, actor.siteId, db);
+    if (held.includes(storedRole)) {
+      await writeAdditionalRoles(db, actor.siteId, targetUserId, held.filter((entry) => entry !== storedRole));
+    }
+  }
+  if (policyChanged) {
+    const current = await getEffectiveAccess(targetUserId, actor.siteId, primaryRole, db);
     await db.transaction(async (tx) => {
       await tx.run("DELETE FROM user_access_policies WHERE user_id = ? AND site_id = ?", [
         targetUserId,
@@ -264,8 +409,19 @@ export async function updateUser(
         ],
       );
     });
-    await revokeUserSessions(targetUserId, actor.siteId);
-    audit(actor, "user.access_changed", targetUserId, `role=${roleId ?? role ?? current.roleId}`);
+  }
+  if (accessChanged) {
+    const current = await getEffectiveAccess(targetUserId, actor.siteId, primaryRole, db);
+    // Signing everyone out after an access change also signs out the admin
+    // who just saved their own roles. Capabilities resolve per request, and a
+    // self-change can't add any, so there is nothing to cut off.
+    if (!selfChange) await revokeUserSessions(targetUserId, actor.siteId);
+    audit(
+      actor,
+      "user.access_changed",
+      targetUserId,
+      `role=${roleId ?? role ?? current.roleId}; additional=${current.additionalRoles.join(",") || "none"}`,
+    );
     const { getRuntimeHooks } = await import("../plugins/plugin-runtime.js");
     await getRuntimeHooks().dispatchAction(
       "user.accessChanged",
@@ -276,6 +432,91 @@ export async function updateUser(
   if (storedRole) audit(actor, "user.role_changed", targetUserId, `role=${storedRole}`);
   await emitUserEvent("user.updated", targetUserId, actor.siteId);
   return { status: 200, body: { ok: true } };
+}
+
+/** One user with every role they hold, for `ctx.users.get()`. */
+export async function getUserRoles(
+  siteId: string,
+  userId: string,
+): Promise<{ id: string; email: string; username: string; displayName: string; role: string; roles: string[] } | null> {
+  const db = await getDb();
+  const row = (
+    await db.query<Record<string, unknown>>(
+      "SELECT id, email, username, display_name, role FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+      [userId, siteId],
+    )
+  )[0];
+  if (!row) return null;
+  const extra = (await listAdditionalRoles(String(row.id), siteId, db)).filter((entry) => entry !== row.role);
+  return {
+    id: String(row.id),
+    email: String(row.email),
+    username: String(row.username),
+    displayName: String(row.display_name),
+    role: String(row.role),
+    roles: [String(row.role), ...extra],
+  };
+}
+
+export type AdditionalRoleTarget = { userId: string } | { email: string };
+
+export type AddRoleResult =
+  | {
+      ok: true;
+      user: { id: string; email: string; username: string; displayName: string; role: string; roles: string[] };
+    }
+  | { ok: false; status: number; error: string };
+
+/**
+ * Give an existing user one more role, keeping their primary role and sign-in.
+ * Behind `ctx.users.addRole()`: Shop uses it to make an existing subscriber a
+ * customer. The plugin loader has already checked the plugin owns the role.
+ *
+ * Sessions are not revoked: capabilities are resolved on every request, and
+ * adding a role only ever adds them — signing a shopper out mid-checkout for
+ * gaining the customer role would be the wrong trade.
+ */
+export async function addAdditionalRole(
+  siteId: string,
+  target: AdditionalRoleTarget,
+  role: string,
+  actor: Pick<UserAdminActor, "userId" | "role">,
+): Promise<AddRoleResult> {
+  const invalid = await validateAdditionalRoles([role]);
+  if (invalid) return { ok: false, status: 400, error: invalid };
+  const db = await getDb();
+  const [column, value] = "userId" in target
+    ? (["id", target.userId] as const)
+    : (["email", target.email.toLowerCase()] as const);
+  const row = (
+    await db.query<Record<string, unknown>>(
+      `SELECT id, email, username, display_name, role FROM users WHERE ${column} = ? AND site_id = ? LIMIT 1`,
+      [value, siteId],
+    )
+  )[0];
+  if (!row) return { ok: false, status: 404, error: "User not found" };
+  const userId = String(row.id);
+  const held = await listAdditionalRoles(userId, siteId, db);
+  if (row.role !== role && !held.includes(role)) {
+    await db.run(
+      "INSERT INTO user_additional_roles (user_id, site_id, role, created_at) VALUES (?, ?, ?, ?)",
+      [userId, siteId, role, now()],
+    );
+    held.push(role);
+    audit({ siteId, ...actor }, "user.access_changed", userId, `additional+=${role}`);
+    await emitUserEvent("user.updated", userId, siteId);
+  }
+  return {
+    ok: true,
+    user: {
+      id: userId,
+      email: String(row.email),
+      username: String(row.username),
+      displayName: String(row.display_name),
+      role: String(row.role),
+      roles: [String(row.role), ...held.filter((entry) => entry !== row.role)],
+    },
+  };
 }
 
 export async function deleteUser(

@@ -287,6 +287,14 @@ export async function ensurePluginRuntime(): Promise<void> {
               throw err;
             }
           },
+          addRole: async (target, role, actor) => {
+            const { addAdditionalRole } = await import("../auth/users-admin.js");
+            return addAdditionalRole(siteId, target, role, actor);
+          },
+          get: async (userId) => {
+            const { getUserRoles } = await import("../auth/users-admin.js");
+            return getUserRoles(siteId, userId);
+          },
         }),
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),
         placeholderResolver: (siteId, kind) => resolvePlaceholderSync(siteId, kind),

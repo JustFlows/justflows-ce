@@ -112,4 +112,57 @@ describe("plugin user creation", () => {
       ),
     ).rejects.toThrow(/users:manage/);
   });
+
+  it("adds only a role the plugin registered, and only with users:manage", async () => {
+    const addRole = vi.fn(async () => ({
+      ok: true as const,
+      user: { id: "u1", email: "ada@example.com", username: "ada", displayName: "Ada", role: "subscriber", roles: ["subscriber", "customer"] },
+    }));
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, {
+      usersFactory: () => ({ create: vi.fn(), addRole }),
+    });
+    let shop: PluginContext | undefined;
+    let other: PluginContext | undefined;
+    let unprivileged: PluginContext | undefined;
+    loader.register(
+      plugin("justflows.shop", ["users:manage"], (ctx) => {
+        shop = ctx;
+        ctx.roles.register({ id: "customer", label: "Customer", capabilities: [] });
+      }),
+    );
+    loader.register(plugin("justflows.other", ["users:manage"], (ctx) => { other = ctx; }));
+    loader.register(plugin("justflows.plain", [], (ctx) => { unprivileged = ctx; }));
+    await loader.activate("justflows.shop", "site-1");
+    await loader.activate("justflows.other", "site-1");
+    await loader.activate("justflows.plain", "site-1");
+    const actor = { userId: "admin", role: "administrator" };
+
+    await expect(shop!.users.addRole!({ email: "ada@example.com" }, "customer", actor)).resolves.toEqual(
+      expect.objectContaining({ ok: true }),
+    );
+    expect(addRole).toHaveBeenCalledWith({ email: "ada@example.com" }, "customer", actor);
+
+    const refused = { ok: false, status: 400, error: "Plugins can only add a role they registered." };
+    await expect(other!.users.addRole!({ userId: "u1" }, "customer", actor)).resolves.toEqual(refused);
+    await expect(shop!.users.addRole!({ userId: "u1" }, "editor", actor)).resolves.toEqual(refused);
+    await expect(unprivileged!.users.addRole!({ userId: "u1" }, "customer", actor)).rejects.toThrow(/users:manage/);
+    expect(addRole).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a user only with users:manage", async () => {
+    const user = { id: "u1", email: "ada@example.com", username: "ada", displayName: "Ada", role: "subscriber", roles: ["subscriber"] };
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, { usersFactory: () => ({ create: vi.fn(), get: async () => user }) });
+    let shop: PluginContext | undefined;
+    let plain: PluginContext | undefined;
+    loader.register(plugin("justflows.shop", ["users:manage"], (ctx) => { shop = ctx; }));
+    loader.register(plugin("justflows.plain", [], (ctx) => { plain = ctx; }));
+    await loader.activate("justflows.shop", "site-1");
+    await loader.activate("justflows.plain", "site-1");
+
+    await expect(shop!.users.get!("u1")).resolves.toEqual(user);
+    await expect(plain!.users.get!("u1")).rejects.toThrow(/users:manage/);
+  });
 });
+

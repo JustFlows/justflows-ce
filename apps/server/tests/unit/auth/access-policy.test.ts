@@ -94,3 +94,52 @@ describe("getEffectiveAccess ownership defaults", () => {
     expect(access.policy.scopes?.["content:update"]).toEqual({ ownership: "any" });
   });
 });
+
+describe("getEffectiveAccess additional roles", () => {
+  function routedDb(extraRoles: string[]): DbClient {
+    return {
+      query: async (sql: string) =>
+        /FROM user_additional_roles/i.test(sql) ? extraRoles.map((role) => ({ role })) : [],
+    } as unknown as DbClient;
+  }
+
+  it("adds the capabilities of each additional role to the primary role's", async () => {
+    const access = await getEffectiveAccess("user-1", "site-1", "subscriber", routedDb(["author"]));
+    expect(access.roleId).toBe("subscriber");
+    expect(access.roles).toEqual(["subscriber", "author"]);
+    expect(access.capabilities).toEqual(expect.arrayContaining(["content:read", "content:create", "media:upload"]));
+  });
+
+  it("keeps an additional author limited to their own content", async () => {
+    const access = await getEffectiveAccess("user-1", "site-1", "subscriber", routedDb(["author"]));
+    expect(access.policy.scopes?.["content:update"]).toEqual({ ownership: "self" });
+  });
+
+  it("lets an editor who is also an author edit everything", async () => {
+    const access = await getEffectiveAccess("user-1", "site-1", "editor", routedDb(["author"]));
+    expect(access.policy.scopes?.["content:update"]).toBeUndefined();
+  });
+
+  it("never grants administrator through an additional role", async () => {
+    const access = await getEffectiveAccess("user-1", "site-1", "subscriber", routedDb(["administrator"]));
+    expect(access.additionalRoles).toEqual([]);
+    expect(access.capabilities).not.toContain("users:manage");
+  });
+
+  it("ignores an additional role equal to the primary one", async () => {
+    const access = await getEffectiveAccess("user-1", "site-1", "subscriber", routedDb(["subscriber"]));
+    expect(access.roles).toEqual(["subscriber"]);
+  });
+
+  it("treats a missing table (pre-migration) as no additional roles", async () => {
+    const db = {
+      query: async (sql: string) => {
+        if (/FROM user_additional_roles/i.test(sql)) throw new Error("relation does not exist");
+        return [];
+      },
+    } as unknown as DbClient;
+    const access = await getEffectiveAccess("user-1", "site-1", "subscriber", db);
+    expect(access.roles).toEqual(["subscriber"]);
+    expect(access.capabilities).toEqual(["content:read"]);
+  });
+});

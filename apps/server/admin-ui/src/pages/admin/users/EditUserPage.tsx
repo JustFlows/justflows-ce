@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useNavigate } from "../../../admin-router";
+import { Link, useNavigate } from "../../../admin-router";
 import { useCapability } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 
@@ -12,10 +12,31 @@ interface User {
   role: string;
   createdAt: string;
   roleId: string;
+  additionalRoles: string[];
   grants: string[];
   denies: string[];
   effectiveCapabilities: string[];
   scopes: Record<string, { contentTypes?: string[]; locales?: string[]; ownership?: "any" | "self" }>;
+  updatedAt: string | null;
+  twoFactorEnabled: boolean;
+  content: {
+    total: number;
+    byStatus: Record<string, number>;
+    recent: Array<{ id: string; type: string; title: string; status: string; updatedAt: string | null }>;
+  };
+  /** Present only for administrators — the server omits it for everyone else. */
+  recentActivity?: Array<{ id: string; occurredAt: string; action: string; outcome: string; target: string | null; ip: string | null }>;
+}
+
+const STATUS_BADGE: Record<string, string> = {
+  published: " jf-badge--published",
+  archived: " jf-badge--archived",
+};
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 const ROLES = ["administrator", "editor", "author", "contributor", "subscriber"];
@@ -29,10 +50,19 @@ function fromApi(user: Record<string, any>): User {
     role: user.role,
     createdAt: user.created_at,
     roleId: user.roleId ?? user.role,
+    additionalRoles: user.additionalRoles ?? [],
     grants: user.accessPolicy?.grants ?? [],
     denies: user.accessPolicy?.denies ?? [],
     effectiveCapabilities: user.effectiveCapabilities ?? [],
     scopes: user.accessPolicy?.scopes ?? {},
+    updatedAt: user.updated_at ?? null,
+    twoFactorEnabled: Boolean(user.twoFactorEnabled),
+    content: {
+      total: Number(user.content?.total ?? 0),
+      byStatus: user.content?.byStatus ?? {},
+      recent: user.content?.recent ?? [],
+    },
+    recentActivity: user.recentActivity,
   };
 }
 
@@ -48,6 +78,7 @@ export default function EditUserPage() {
   const [user, setUser] = useState<User | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState("subscriber");
+  const [additionalRoles, setAdditionalRoles] = useState<string[]>([]);
   const [roles, setRoles] = useState<Array<{ id: string; name: string; builtIn: boolean; pluginId?: string | null }>>([]);
   const [capabilities, setCapabilities] = useState<string[]>([]);
   const [grants, setGrants] = useState<string[]>([]);
@@ -74,6 +105,7 @@ export default function EditUserPage() {
         setUser(loaded);
         setDisplayName(loaded.displayName);
         setRole(loaded.roleId);
+        setAdditionalRoles(loaded.additionalRoles);
         setGrants(loaded.grants);
         setDenies(loaded.denies);
         const contentScope = loaded.scopes["content:update"] ?? {};
@@ -123,6 +155,10 @@ export default function EditUserPage() {
       // (even a plain display-name edit) blocks admins from editing their
       // own profile and force-revokes every session on every save.
       const roleChanged = role !== user.roleId;
+      // A role picked as primary can't also be additional; the server drops
+      // it too, but sending the clean list keeps the change detection honest.
+      const nextAdditional = additionalRoles.filter((entry) => entry !== role);
+      const additionalChanged = !sameMembers(nextAdditional, user.additionalRoles);
       const grantsChanged = !sameMembers(grants, user.grants);
       const deniesChanged = !sameMembers(denies, user.denies);
       const baselineScope = user.scopes["content:update"] ?? {};
@@ -138,6 +174,7 @@ export default function EditUserPage() {
         if (assignsUserRole) body.role = role;
         body.roleId = role;
       }
+      if (additionalChanged) body.additionalRoles = nextAdditional;
       if (grantsChanged) body.grants = grants;
       if (deniesChanged) body.denies = denies;
       if (scopeChanged) {
@@ -162,6 +199,7 @@ export default function EditUserPage() {
             ...current,
             displayName,
             roleId: role,
+            additionalRoles: nextAdditional,
             grants,
             denies,
             scopes: scopeChanged
@@ -169,6 +207,7 @@ export default function EditUserPage() {
               : current.scopes,
           }
         : current));
+      setAdditionalRoles(nextAdditional);
       setNotice(t("users.edit.userUpdated"));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -217,6 +256,11 @@ export default function EditUserPage() {
     }
   }
 
+  // Built-in and plugin roles only: a custom access role is the whole policy,
+  // not something to stack. Administrator stays primary-only (server rule).
+  const additionalChoices = (roles.length ? roles : ROLES.map((id) => ({ id, name: id, builtIn: true, pluginId: null })))
+    .filter((entry) => (entry.builtIn || entry.pluginId) && entry.id !== "administrator" && entry.id !== role);
+
   if (loading) {
     return (
       <>
@@ -246,7 +290,7 @@ export default function EditUserPage() {
       <header className="jf-topbar">
         <button className="jf-btn jf-btn--quiet" onClick={() => navigate("/admin/users")}>← {t("common.back")}</button>
         <div className="jf-topbar__title">
-          <span className="jf-topbar__eyebrow">{t("users.edit.eyebrow")}</span>
+          <span className="jf-topbar__eyebrow">{canManage ? t("users.edit.eyebrow") : t("users.edit.eyebrowView")}</span>
           <h1>{user.displayName || user.email}</h1>
         </div>
         {canManage && (
@@ -304,9 +348,155 @@ export default function EditUserPage() {
                 </select>
               </div>
             </div>
+            {additionalChoices.length > 0 && (
+              <fieldset className="jf-field" style={{ border: 0, margin: 0, padding: 0 }}>
+                <legend className="jf-field__label">{t("users.edit.additionalRoles")}</legend>
+                <div className="jf-row">
+                  {additionalChoices.map((choice) => (
+                    <label key={choice.id}>
+                      <input
+                        type="checkbox"
+                        disabled={!canManage}
+                        checked={additionalRoles.includes(choice.id)}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setAdditionalRoles((current) => checked
+                            ? [...new Set([...current, choice.id])]
+                            : current.filter((entry) => entry !== choice.id));
+                        }}
+                      />{" "}
+                      {choice.name}
+                    </label>
+                  ))}
+                </div>
+                <span className="jf-field__hint">{t("users.edit.additionalRolesHint")}</span>
+              </fieldset>
+            )}
             <span className="jf-field__hint">{t("users.edit.joined", { date: user.createdAt.slice(0, 10) })}</span>
           </div>
         </form>
+
+        <div className="jf-card">
+          <div className="jf-card__head">
+            <h2 className="jf-card__title">{t("users.edit.account")}</h2>
+          </div>
+          <div className="jf-card__body">
+            <dl>
+              <div className="jf-meta__row"><dt>{t("users.edit.userId")}</dt><dd>{user.id}</dd></div>
+              <div className="jf-meta__row"><dt>{t("users.edit.role")}</dt><dd>{[user.roleId, ...user.additionalRoles].join(", ")}</dd></div>
+              <div className="jf-meta__row"><dt>{t("users.edit.createdAt")}</dt><dd>{formatDate(user.createdAt)}</dd></div>
+              <div className="jf-meta__row"><dt>{t("users.edit.updatedAt")}</dt><dd>{formatDate(user.updatedAt)}</dd></div>
+              <div className="jf-meta__row">
+                <dt>{t("users.edit.twoFactor")}</dt>
+                <dd>{user.twoFactorEnabled ? t("users.edit.twoFactorEnabled") : t("users.edit.twoFactorDisabled")}</dd>
+              </div>
+              <div className="jf-meta__row"><dt>{t("users.edit.contentAuthored")}</dt><dd>{user.content.total}</dd></div>
+            </dl>
+            {user.recentActivity && (
+              <div className="jf-row">
+                <a className="jf-btn jf-btn--ghost" href={`/api/users/${encodeURIComponent(user.id)}/personal-data`} download>
+                  {t("users.edit.downloadPersonalData")}
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="jf-card">
+          <div className="jf-card__head">
+            <h2 className="jf-card__title">{t("users.edit.content")}</h2>
+          </div>
+          <div className="jf-card__body jf-stack">
+            {user.content.total === 0 ? (
+              <p className="jf-field__hint">{t("users.edit.noContent")}</p>
+            ) : (
+              <>
+                <div className="jf-row">
+                  {Object.entries(user.content.byStatus).map(([status, count]) => (
+                    <span key={status} className={`jf-badge${STATUS_BADGE[status] ?? ""}`}>{status}: {count}</span>
+                  ))}
+                </div>
+                <div className="jf-tablewrap">
+                  <table className="jf-table">
+                    <thead>
+                      <tr>
+                        <th>{t("users.edit.contentTitle")}</th>
+                        <th>{t("users.edit.contentType")}</th>
+                        <th>{t("users.edit.contentStatus")}</th>
+                        <th>{t("users.edit.updatedAt")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {user.content.recent.map((item) => (
+                        <tr key={item.id}>
+                          <td className="jf-td--strong"><Link to={`/admin/content/${item.id}`}>{item.title || item.id}</Link></td>
+                          <td className="jf-td--mono">{item.type}</td>
+                          <td><span className={`jf-badge${STATUS_BADGE[item.status] ?? ""}`}>{item.status}</span></td>
+                          <td className="jf-td--muted">{formatDate(item.updatedAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="jf-card">
+          <div className="jf-card__head">
+            <h2 className="jf-card__title">{t("users.edit.effectiveCapabilities")}</h2>
+          </div>
+          <div className="jf-card__body">
+            {user.effectiveCapabilities.length === 0 ? (
+              <p className="jf-field__hint">{t("users.edit.noCapabilities")}</p>
+            ) : (
+              <div className="jf-row">
+                {user.effectiveCapabilities.map((capability) => (
+                  <span key={capability} className="jf-badge">{capability}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {user.recentActivity && (
+          <div className="jf-card">
+            <div className="jf-card__head">
+              <h2 className="jf-card__title">{t("users.edit.recentActivity")}</h2>
+            </div>
+            <div className="jf-card__body">
+              {user.recentActivity.length === 0 ? (
+                <p className="jf-field__hint">{t("users.edit.noActivity")}</p>
+              ) : (
+                <div className="jf-tablewrap">
+                  <table className="jf-table">
+                    <thead>
+                      <tr>
+                        <th>{t("users.edit.activityWhen")}</th>
+                        <th>{t("users.edit.activityAction")}</th>
+                        <th>{t("users.edit.activityOutcome")}</th>
+                        <th>{t("users.edit.activityTarget")}</th>
+                        <th>{t("users.edit.activityIp")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {user.recentActivity.map((entry) => (
+                        <tr key={entry.id}>
+                          <td className="jf-td--muted">{formatDate(entry.occurredAt)}</td>
+                          <td className="jf-td--mono">{entry.action}</td>
+                          <td>{entry.outcome}</td>
+                          <td className="jf-td--mono">{entry.target ?? "—"}</td>
+                          <td className="jf-td--mono">{entry.ip ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {canManage && capabilities.length > 0 && (
           <div className="jf-card">
