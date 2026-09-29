@@ -11,7 +11,7 @@ import { interpolate } from "./translate";
 import { EMBEDDED_EN } from "./embedded-en";
 import { getAdminSsrPayload, initialJson } from "../ssr-data";
 
-export const ADMIN_UI_LOCALES = ["en", "nl", "de", "fr", "es"] as const;
+export const ADMIN_UI_LOCALES = ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"] as const;
 export type AdminUiLocale = (typeof ADMIN_UI_LOCALES)[number];
 
 type Messages = Record<string, string>;

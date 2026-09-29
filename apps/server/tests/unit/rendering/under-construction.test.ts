@@ -8,7 +8,7 @@ import { createTranslator } from "../../../src/lib/i18n/translate.js";
 const template = fileURLToPath(new URL("../../../src/views/under-construction.ejs", import.meta.url));
 
 describe("under-construction translations", () => {
-  for (const locale of ["en", "nl", "de", "fr", "es"]) {
+  for (const locale of ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"]) {
     it(`renders the ${locale} catalog and escapes site-provided text`, async () => {
       const catalog = JSON.parse(fs.readFileSync(new URL(`../../../src/lib/i18n/site-catalogs/${locale}.json`, import.meta.url), "utf8"));
       const render = (tagline: string) => ejs.renderFile(template, {

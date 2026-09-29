@@ -159,6 +159,9 @@ const NULL_CONTENT: PluginContentApi = {
   deleteType: async () => {
     throw new Error("Content API is not available in this runtime");
   },
+  deleteCreatedBy: async () => {
+    throw new Error("Content API is not available in this runtime");
+  },
 };
 
 export class PluginLoader {
@@ -724,6 +727,10 @@ export class PluginLoader {
       deleteType: (slug) => {
         assertDelete();
         return inner.deleteType(slug);
+      },
+      deleteCreatedBy: (userId) => {
+        assertDelete();
+        return inner.deleteCreatedBy(userId);
       },
     };
   }

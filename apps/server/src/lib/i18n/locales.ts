@@ -24,6 +24,8 @@ export const INSTALL_LOCALE_CODES = [
   "pt-BR",
   "pt-PT",
   "pl-PL",
+  "uk-UA",
+  "ru-RU",
   "cs-CZ",
   "sv-SE",
   "da-DK",
@@ -36,7 +38,7 @@ export const INSTALL_LOCALE_CODES = [
 ] as const;
 
 /** Admin chrome catalogs we ship (not public content languages). */
-export const ADMIN_UI_LOCALES = ["en", "nl", "de", "fr", "es"] as const;
+export const ADMIN_UI_LOCALES = ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"] as const;
 export type AdminUiLocale = (typeof ADMIN_UI_LOCALES)[number];
 
 /**
