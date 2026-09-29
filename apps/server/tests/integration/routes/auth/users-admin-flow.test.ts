@@ -26,6 +26,7 @@ interface UserRow {
 
 const SITE_ID = "22222222-2222-4222-8222-222222222222";
 let users: UserRow[];
+let extraRoles: Array<{ user_id: string; site_id: string; role: string }>;
 
 function findById(id: unknown): UserRow | undefined {
   return users.find((u) => u.id === id);
@@ -43,6 +44,14 @@ function applySet(row: UserRow, setClause: string, params: unknown[]): void {
 const fakeDb = {
   async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
     if (/FROM sites/i.test(sql)) return [] as T[];
+    if (/FROM user_additional_roles WHERE user_id = \?/i.test(sql)) {
+      const [userId, siteId] = params;
+      return extraRoles.filter((r) => r.user_id === userId && r.site_id === siteId) as unknown as T[];
+    }
+    if (/FROM user_additional_roles WHERE site_id = \?/i.test(sql)) {
+      const [siteId] = params;
+      return extraRoles.filter((r) => r.site_id === siteId) as unknown as T[];
+    }
 
     if (/COUNT\(\*\) as count FROM users WHERE site_id = \? AND role = 'administrator'/i.test(sql)) {
       const [siteId] = params;
@@ -66,6 +75,16 @@ const fakeDb = {
     return [] as T[];
   },
   async run(sql: string, params: unknown[] = []): Promise<void> {
+    if (/DELETE FROM user_additional_roles/i.test(sql)) {
+      const [userId, siteId] = params;
+      extraRoles = extraRoles.filter((r) => !(r.user_id === userId && r.site_id === siteId));
+      return;
+    }
+    if (/INSERT INTO user_additional_roles/i.test(sql)) {
+      const [userId, siteId, role] = params as string[];
+      extraRoles.push({ user_id: userId!, site_id: siteId!, role: role! });
+      return;
+    }
     if (/DELETE FROM users WHERE id = \? AND site_id = \?/i.test(sql)) {
       const [id, siteId] = params;
       users = users.filter((u) => !(u.id === id && u.site_id === siteId));
@@ -77,6 +96,9 @@ const fakeDb = {
       const row = findById(id);
       if (row) applySet(row, setClause, params);
     }
+  },
+  async transaction<T>(fn: (tx: unknown) => Promise<T>): Promise<T> {
+    return fn(fakeDb);
   },
   async close(): Promise<void> {},
 };
@@ -196,6 +218,7 @@ beforeEach(async () => {
   resetRateLimits();
   admin1 = await makeUser({ id: "admin-1", email: "admin1@example.com", role: "administrator", display_name: "Admin One" });
   users = [admin1];
+  extraRoles = [];
 });
 
 async function signIn(email: string, jar: Jar) {
@@ -262,7 +285,10 @@ describe("authorization", () => {
     await signIn(editor.email, jar);
 
     expect((await get("/api/users", jar)).status).toBe(200);
-    expect((await get(`/api/users/${admin1.id}`, jar)).status).toBe(200);
+    const detail = await get(`/api/users/${admin1.id}`, jar);
+    expect(detail.status).toBe(200);
+    // The audit trail carries IP addresses: administrators only.
+    expect(detail.body.user).not.toHaveProperty("recentActivity");
   });
 });
 
@@ -273,6 +299,19 @@ describe("GET /api/users/:id", () => {
     const res = await get(`/api/users/${admin1.id}`, jar);
     expect(res.status).toBe(200);
     expect(res.body.user).toMatchObject({ id: admin1.id, email: admin1.email, role: "administrator" });
+  });
+
+  it("returns the detail sections without leaking credential columns", async () => {
+    const jar = new Jar();
+    await signIn(admin1.email, jar);
+    const res = await get(`/api/users/${admin1.id}`, jar);
+    expect(res.body.user).toMatchObject({
+      twoFactorEnabled: false,
+      content: { total: 0, byStatus: {}, recent: [] },
+      recentActivity: [],
+    });
+    expect(res.body.user).not.toHaveProperty("password_hash");
+    expect(res.body.user).not.toHaveProperty("totp_confirmed_at");
   });
 
   it("404s for an unknown id", async () => {
@@ -321,6 +360,80 @@ describe("PATCH /api/users/:id", () => {
     await signIn(admin1.email, jar);
     const res = await patch("/api/users/does-not-exist", { role: "editor" }, jar);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("additional roles", () => {
+  it("adds, lists, and replaces a user's additional roles", async () => {
+    const member = await makeUser({ id: "member-1", email: "member@example.com", role: "subscriber" });
+    users.push(member);
+    const jar = new Jar();
+    await signIn(admin1.email, jar);
+
+    expect((await patch(`/api/users/${member.id}`, { additionalRoles: ["author"] }, jar)).status).toBe(200);
+    expect(findById(member.id)?.role).toBe("subscriber");
+
+    const detail = await get(`/api/users/${member.id}`, jar);
+    expect(detail.body.user.additionalRoles).toEqual(["author"]);
+    expect(detail.body.user.effectiveCapabilities).toEqual(expect.arrayContaining(["content:read", "content:create"]));
+    const list = await get("/api/users", jar);
+    expect(list.body.users.find((u: { id: string }) => u.id === member.id).additionalRoles).toEqual(["author"]);
+
+    expect((await patch(`/api/users/${member.id}`, { additionalRoles: [] }, jar)).status).toBe(200);
+    expect((await get(`/api/users/${member.id}`, jar)).body.user.additionalRoles).toEqual([]);
+  });
+
+  it("refuses administrator and unknown roles as additional roles", async () => {
+    const member = await makeUser({ id: "member-1", email: "member@example.com", role: "subscriber" });
+    users.push(member);
+    const jar = new Jar();
+    await signIn(admin1.email, jar);
+
+    const admin = await patch(`/api/users/${member.id}`, { additionalRoles: ["administrator"] }, jar);
+    expect(admin.status).toBe(400);
+    expect(admin.body.error).toMatch(/primary role/i);
+    expect((await patch(`/api/users/${member.id}`, { additionalRoles: ["wizard"] }, jar)).status).toBe(400);
+    expect(extraRoles).toEqual([]);
+  });
+
+  it("drops an additional role once it becomes the primary role", async () => {
+    const member = await makeUser({ id: "member-1", email: "member@example.com", role: "subscriber" });
+    users.push(member);
+    extraRoles.push({ user_id: member.id, site_id: SITE_ID, role: "author" });
+    const jar = new Jar();
+    await signIn(admin1.email, jar);
+
+    expect((await patch(`/api/users/${member.id}`, { role: "author" }, jar)).status).toBe(200);
+    expect(findById(member.id)?.role).toBe("author");
+    expect(extraRoles).toEqual([]);
+  });
+
+  it("lets an administrator add a role to themselves without signing them out", async () => {
+    const jar = new Jar();
+    await signIn(admin1.email, jar);
+
+    expect((await patch(`/api/users/${admin1.id}`, { additionalRoles: ["subscriber"] }, jar)).status).toBe(200);
+    expect(extraRoles).toEqual([{ user_id: admin1.id, site_id: SITE_ID, role: "subscriber" }]);
+    expect((await get(`/api/users/${admin1.id}`, jar)).status).toBe(200);
+  });
+
+  it("still refuses changing your own grants and denies", async () => {
+    const jar = new Jar();
+    await signIn(admin1.email, jar);
+    const res = await patch(`/api/users/${admin1.id}`, { grants: [] }, jar);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/own access policy/i);
+  });
+
+  it("blocks a non-admin from changing additional roles", async () => {
+    const editor = await makeUser({ id: "editor-1", email: "editor@example.com", role: "editor" });
+    const member = await makeUser({ id: "member-1", email: "member@example.com", role: "subscriber" });
+    users.push(editor, member);
+    const jar = new Jar();
+    await signIn(editor.email, jar);
+
+    expect((await patch(`/api/users/${member.id}`, { additionalRoles: ["author"] }, jar)).status).toBe(403);
+    expect(extraRoles).toEqual([]);
   });
 });
 

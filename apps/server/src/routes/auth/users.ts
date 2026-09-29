@@ -56,7 +56,9 @@ router.get("/", requireCapability("users:read"), async (req, res) => {
 
 router.get("/:id", requireCapability("users:read"), async (req, res) => {
   try {
-    const result = await getUserWithAccess(req.session!.siteId, param(req.params.id));
+    const result = await getUserWithAccess(req.session!.siteId, param(req.params.id), {
+      includeActivity: req.session!.role === "administrator",
+    });
     res.status(result.status).json(result.body);
   } catch (err) {
     sendServerError(res, "users", err);

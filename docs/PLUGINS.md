@@ -298,7 +298,8 @@ No `ctx.http` route and no `html.head` filter. Deactivating the plugin drops
 its route and rebuilds the bundle without it. The **static-site exporter
 downloads the bundle automatically**, so a plugin's front-end works on a
 static/CDN deployment with zero extra wiring — see
-[STATIC-EXPORT.md](STATIC-EXPORT.md).
+[STATIC-EXPORT.md](STATIC-EXPORT.md). Pages that must stay live go through
+[`staticExport.exclude`](#keep-a-page-out-of-the-static-export).
 
 Each `scripts` entry is wrapped in its own IIFE before concatenation, so a
 missing semicolon or a stray top-level `var` in one plugin can't break another;
@@ -550,6 +551,28 @@ origin (`APP_URL`, `STATIC_EXPORT_BASE_URL`, `STATIC_EXPORT_ALLOWED_ORIGINS`, or
 `localhost` off production); plugins cannot set `Access-Control-*` themselves. A
 plain `<img>` or `navigator.sendBeacon` GET is not CORS-checked and needs
 nothing.
+
+### Keep a page out of the static export
+
+A page that differs per visitor (a cart, a checkout, an account page) or must
+always show live data should not be frozen into a static export. List it with
+the `staticExport.exclude` filter:
+
+```ts
+ctx.hooks.filter("staticExport.exclude", (exclusions) => [
+  ...exclusions,
+  { path: "/shop/checkout" }, // this page and everything below it
+  { path: "/account", match: "exact" }, // only this page
+]);
+```
+
+The exporter never crawls an excluded path, even when a page links to it. It
+removes copies from earlier runs, and the generated `.htaccess` / `_nginx.conf`
+route the path to the app. With `STATIC_EXPORT_ORIGIN_URL` set, links to it
+point at that origin. Paths are literal, so add each locale's copy
+(`/nl-NL/shop/checkout`) from `ctx.i18n.locales()`. See
+[STATIC-EXPORT.md](STATIC-EXPORT.md#pages-a-plugin-keeps-live) for the path
+rules.
 
 ### Host policy on a route
 

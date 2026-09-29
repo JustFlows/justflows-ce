@@ -1839,6 +1839,9 @@ select.jf-input {
 .jf-table tbody tr:hover td {
   background: var(--jf-surface-2);
 }
+.jf-table tbody tr.jf-tr--clickable {
+  cursor: pointer;
+}
 
 .jf-table td.jf-td--strong {
   color: var(--jf-text);

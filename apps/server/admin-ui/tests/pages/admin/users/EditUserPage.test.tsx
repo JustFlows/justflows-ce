@@ -142,6 +142,43 @@ describe("EditUserPage as an administrator", () => {
   });
 });
 
+describe("EditUserPage additional roles", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("saves a checked additional role and never offers administrator or the primary role", async () => {
+    const calls: unknown[] = [];
+    mockFetch("administrator", (input, init) => {
+      if (init?.method === "PATCH") {
+        calls.push(JSON.parse(String(init.body)));
+        return jsonResponse({ ok: true });
+      }
+      if (String(input) === "/api/roles") {
+        return jsonResponse({
+          roles: [
+            { id: "administrator", name: "Administrator", builtIn: true },
+            { id: "subscriber", name: "Subscriber", builtIn: true },
+            { id: "customer", name: "Customer", builtIn: false, pluginId: "justflows.shop" },
+            { id: "custom-1", name: "Custom", builtIn: false, pluginId: null },
+          ],
+          capabilities: [],
+        });
+      }
+      return undefined;
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    const customer = await screen.findByRole("checkbox", { name: "Customer" });
+    expect(screen.queryByRole("checkbox", { name: "Administrator" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Subscriber" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Custom" })).not.toBeInTheDocument();
+
+    await user.click(customer);
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(calls).toEqual([{ displayName: "Member One", additionalRoles: ["customer"] }]));
+  });
+});
+
 describe("EditUserPage as an editor", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -155,5 +192,38 @@ describe("EditUserPage as an editor", () => {
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reset password" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Remove user" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent activity")).not.toBeInTheDocument();
+  });
+});
+
+describe("EditUserPage detail sections", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shows account data, authored content, capabilities and activity", async () => {
+    mockFetch("administrator", (input) => {
+      if (String(input) !== "/api/users/member-1") return undefined;
+      return jsonResponse({
+        user: {
+          ...USER,
+          updated_at: "2026-02-01T00:00:00.000Z",
+          twoFactorEnabled: true,
+          effectiveCapabilities: ["content:read"],
+          content: {
+            total: 1,
+            byStatus: { published: 1 },
+            recent: [{ id: "post-1", type: "post", title: "Hello world", status: "published", updatedAt: "2026-02-01T00:00:00.000Z" }],
+          },
+          recentActivity: [{ id: "a1", occurredAt: "2026-02-01T00:00:00.000Z", action: "auth.login", outcome: "success", target: null, ip: "127.0.0.1" }],
+        },
+      });
+    });
+    renderPage();
+
+    expect(await screen.findByText("member-1")).toBeInTheDocument();
+    expect(screen.getByText("Enabled")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Hello world" })).toHaveAttribute("href", "/admin/content/post-1");
+    expect(screen.getByText("content:read")).toBeInTheDocument();
+    expect(screen.getByText("auth.login")).toBeInTheDocument();
+    expect(screen.getByText("127.0.0.1")).toBeInTheDocument();
   });
 });

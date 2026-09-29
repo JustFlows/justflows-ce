@@ -562,6 +562,33 @@ export class PluginLoader {
           }
           return this.usersFactory(pluginId, siteId, permissions).create(input, actor);
         },
+        addRole: async (target, role, actor) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(
+              `Plugin "${pluginId}" cannot change user roles without the "users:manage" permission`,
+            );
+          }
+          const registered = this.roleRegistry.get(String(role ?? ""));
+          if (!registered || registered.pluginId !== pluginId) {
+            return {
+              ok: false,
+              status: 400,
+              error: "Plugins can only add a role they registered.",
+            };
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          if (!users.addRole) {
+            return { ok: false, status: 501, error: "Adding roles is not available in this runtime." };
+          }
+          return users.addRole(target, role, actor);
+        },
+        get: async (userId) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(`Plugin "${pluginId}" cannot read users without the "users:manage" permission`);
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          return users.get ? users.get(userId) : null;
+        },
       },
       diagnostics: {
         register: (check) => {

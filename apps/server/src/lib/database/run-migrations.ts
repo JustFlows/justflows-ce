@@ -26,6 +26,7 @@ export const MIGRATION_ORDER = [
   "0032_comment_trash_repair",
   "0033_spam_term_source",
   "0034_user_role_text",
+  "0035_user_additional_roles",
 ] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";

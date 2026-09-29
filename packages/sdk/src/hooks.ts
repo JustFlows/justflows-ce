@@ -338,6 +338,21 @@ export interface StaticExportDeployEvent {
   readonly summary: StaticExportCompletedEvent;
 }
 
+/**
+ * A URL path the static-site exporter leaves to the live app
+ * (`staticExport.exclude`). The path is never crawled, written, or linked to
+ * as a static file; copies from earlier runs are removed; the generated
+ * `.htaccess` / `_nginx.conf` route it to the app; and with
+ * `STATIC_EXPORT_ORIGIN_URL` set, links and form actions pointing at it are
+ * rewritten to that origin.
+ */
+export interface StaticExportExclusion {
+  /** Root-relative URL path, e.g. `/shop/checkout`. Letters, digits, `.`, `_`, `~`, `-` per segment. */
+  path: string;
+  /** `prefix` (default) also covers every path below it on a `/` boundary; `exact` only this path. */
+  match?: "exact" | "prefix";
+}
+
 export interface NavigationItem {
   id: string;
   label: string;
@@ -805,7 +820,8 @@ export interface FilterValueMap {
   /**
    * The seed URL paths the static-site exporter will crawl, before link
    * discovery. Seeded from `sitemap.xml` plus every published entry. Add paths a
-   * plugin renders dynamically, or drop paths that must not be exported.
+   * plugin renders dynamically. A dropped seed is still crawled when a page
+   * links to it; use `staticExport.exclude` to keep a path out of the export.
    */
   "staticExport.routes": [string[], { siteId: string }];
   /**
@@ -826,6 +842,13 @@ export interface FilterValueMap {
    * config fetched at runtime, a font referenced only from inline JS.
    */
   "staticExport.assets": [string[], { siteId: string }];
+  /**
+   * Paths the static-site exporter must leave to the live app: per-visitor
+   * pages (cart, checkout, account), pages that must always show live data,
+   * or asset URLs that must not be copied. Seeded empty. Invalid entries,
+   * `/`, and the core dynamic prefixes (admin, `/api`, auth pages) are ignored.
+   */
+  "staticExport.exclude": [StaticExportExclusion[], { siteId: string }];
   "site.underConstruction.render": [string, UnderConstructionContext];
   /** Adjust final sender fields. The host revalidates all header values. */
   "email.sender": [EmailSender, EmailDeliveryContext];

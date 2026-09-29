@@ -155,7 +155,7 @@ export const MANAGE_API_OPENAPI = {
     },
     "/users/{id}": {
       get: op("Get a user with effective access", "users:read"),
-      patch: op("Update a user's role, access policy or display name", "users:manage"),
+      patch: op("Update a user's role, additional roles, access policy or display name", "users:manage"),
       delete: op("Delete a user", "users:manage"),
     },
     "/roles": {
