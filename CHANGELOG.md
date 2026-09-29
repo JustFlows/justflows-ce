@@ -36,6 +36,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Shop sandbox mode uses the PostNL shipping sandbox.** With Sandbox / test mode on, Test connection still asks PostNL for delivery options, and it also creates a confirmed shipment on the PostNL shipping sandbox and reads that shipment's status. Live mode does not create a shipment.
+
 - **SDK:** A plugin declares CSRF exemption, a host rate limit, and raw-body capture on the `ctx.http` route itself (`PluginHttpRouteOptions`). The host applies that policy and no longer matches Shop cart, checkout, catalog, or payment-webhook URLs.
 
 - **Theme layout targets come from the active plugin.** `theme.layoutScopes` adds a customizer layout section (content width and wide width) for a public prefix and the pages under it. `permalinks.typeBases` contributes that type's default permalink base. Core ships neither; deactivating the plugin removes both. Shop registers Product (`/product`) and Shop (`/shop`) while it is active.
@@ -44,6 +46,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Shop orders reserve stock, and a paid order commits it.** Placing an order holds tracked stock for the inventory hold time: available goes down and reserved goes up. When the payment is captured, that quantity moves to committed. An unpaid hold returns to available when the hold time ends. Opening Commerce → Inventory commits stock for payments that were already captured and releases holds that have expired.
 - **Shop sends order, payment, and refund emails.** Placing an order emails the customer (Order confirmed) and the store contact address (New order). Capturing a payment emails Payment received, and recording a refund emails Refund issued. Commerce → Emails lists each message that went out. A template that is switched off is not sent.
 - **Mollie checkout opens Mollie's payment page.** Choosing Mollie at checkout starts a payment and sends the customer to Mollie. A test API key opens Mollie's test payment page. The order stays awaiting payment until Mollie reports it paid. Bank transfer, cash, and check still confirm on this page.
 - **Shop product pages calculate tax.** When tax is on, the product price, `{{price}}`, and related products follow Prices in the catalog. A price entered excluding tax is shown with tax added when the catalog displays prices including tax. The price suffix is filled in. When the catalog shows prices excluding tax, the product page shows that net price large and the including-tax price in small text beside it.
