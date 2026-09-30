@@ -1887,7 +1887,13 @@
       "analytics": "Estadísticas",
       "media": "Medios",
       "ecommerce": "Comercio electrónico"
-    }
+    },
+    "beta": "Beta",
+    "betaWarning": "Versión beta: puede ser inestable o cambiar antes del lanzamiento. Pruébala primero en un sitio de pruebas.",
+    "betaDisabledHint": "Las instalaciones beta están desactivadas en este sitio.",
+    "betaSettingsLink": "Cambiar en Ajustes",
+    "betaDisabledButton": "Beta — no activada",
+    "betaInstallConfirm": "{name} es una versión beta. Puede ser inestable, perder datos o cambiar antes de su versión estable. ¿Instalarla de todos modos?"
   },
   "pluginSettings": {
     "loadFailed": "No se pudieron cargar los ajustes del plugin.",
@@ -2628,6 +2634,11 @@
       "title": "Lectura",
       "postsPerPageLabel": "Las páginas del blog muestran como máximo",
       "postsUnit": "entradas"
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "allowBetaLabel": "Permitir instalar plugins y temas beta desde el Marketplace",
+      "allowBetaHint": "Los listados beta son versiones preliminares. Pueden ser inestables o cambiar antes del lanzamiento. Cada instalación sigue pidiendo confirmación."
     },
     "trash": {
       "title": "Retención de la papelera",

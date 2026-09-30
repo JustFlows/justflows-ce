@@ -1,3 +1,4 @@
+import { publicAdminPath } from "../../../admin-path";
 import { translateEnglish, type Translate } from "../../../i18n/translate";
 import { useEffect, useState } from "react";
 import { usePluginMenu } from "@components/PluginMenuProvider";
@@ -27,6 +28,7 @@ interface MarketplaceItem {
     listed?: boolean;
     free?: boolean;
     comingSoon?: boolean;
+    beta?: boolean;
     price?: RegistryPrice;
   };
 }
@@ -43,6 +45,10 @@ export function listingIsPaid(item: MarketplaceItem): boolean {
 
 export function listingIsComingSoon(item: MarketplaceItem): boolean {
   return item.registry?.comingSoon === true;
+}
+
+export function listingIsBeta(item: MarketplaceItem): boolean {
+  return item.registry?.beta === true;
 }
 
 export function listingPriceLabel(item: MarketplaceItem, t: Translate = translateEnglish): string | null {
@@ -94,15 +100,17 @@ export default function MarketplacePage() {
   const { refresh: refreshMenu } = usePluginMenu();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [allowBeta, setAllowBeta] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [marketRes, pluginsRes, themesRes] = await Promise.all([
+        const [marketRes, pluginsRes, themesRes, settingsRes] = await Promise.all([
           fetch("/api/marketplace"),
           fetch("/api/plugins"),
           fetch("/api/themes"),
+          fetch("/api/settings"),
         ]);
         const market = (await marketRes.json()) as { items?: MarketplaceItem[]; error?: string };
         if (market.error) throw new Error(market.error);
@@ -110,7 +118,11 @@ export default function MarketplacePage() {
         const themes = (await themesRes.json()) as {
           themes?: { themeId?: string; theme_id?: string; id?: string }[];
         };
+        const settings = (await settingsRes.json().catch(() => ({}))) as {
+          marketplace_allow_beta?: boolean;
+        };
         if (cancelled) return;
+        setAllowBeta(settings.marketplace_allow_beta === true);
         setItems(Array.isArray(market.items) ? market.items.filter(listingIsVisible) : []);
         setInstalled(installedPackageIds(plugins.plugins ?? [], themes.themes ?? []));
       } catch (err: unknown) {
@@ -142,6 +154,9 @@ export default function MarketplacePage() {
   });
 
   async function install(item: MarketplaceItem) {
+    if (listingIsBeta(item) && !window.confirm(t("marketplace.betaInstallConfirm", { name: item.name }))) {
+      return;
+    }
     setInstalling(item.id);
     setError("");
     const controller = new AbortController();
@@ -228,6 +243,10 @@ export default function MarketplacePage() {
             const isInstalled = installed.has(item.id);
             const paid = listingIsPaid(item);
             const comingSoon = listingIsComingSoon(item);
+            const beta = listingIsBeta(item);
+            // Beta listings stay visible so admins know they exist, but only
+            // install once the site has opted in.
+            const blocked = comingSoon || (beta && !allowBeta);
             const priceLabel = listingPriceLabel(item, t);
 
             return (
@@ -238,6 +257,7 @@ export default function MarketplacePage() {
                       {item.type}
                     </span>
                     {comingSoon && <span className="jf-badge jf-badge--warn">{t("marketplace.comingSoon")}</span>}
+                    {beta && <span className="jf-badge jf-badge--warn">{t("marketplace.beta")}</span>}
                     {paid && <span className="jf-badge">{priceLabel ?? t("common.paid")}</span>}
                     <span className="jf-meta" style={{ marginInlineStart: "auto" }}>
                       ↓ {item.downloads.toLocaleString()}
@@ -246,14 +266,26 @@ export default function MarketplacePage() {
 
                   <h3 className="jf-section-title">{item.name}</h3>
                   <p className="jf-list__desc" style={{ flex: 1 }}>{item.description}</p>
+                  {beta && (
+                    <p className="jf-field__hint">
+                      {allowBeta ? (
+                        t("marketplace.betaWarning")
+                      ) : (
+                        <>
+                          {t("marketplace.betaDisabledHint")}{" "}
+                          <a href={publicAdminPath("/admin/settings")}>{t("marketplace.betaSettingsLink")}</a>
+                        </>
+                      )}
+                    </p>
+                  )}
                   <p className="jf-meta">{t("marketplace.versionBy", { version: item.version, publisher: item.publisher ?? item.author ?? "Justflows" })}</p>
 
                   <button
-                    className={`jf-btn jf-btn--block ${isInstalled ? "jf-btn--success" : isInstalling || comingSoon ? "jf-btn--ghost" : "jf-btn--primary"}`}
+                    className={`jf-btn jf-btn--block ${isInstalled ? "jf-btn--success" : isInstalling || blocked ? "jf-btn--ghost" : "jf-btn--primary"}`}
                     onClick={() => {
-                      if (!comingSoon) void install(item);
+                      if (!blocked) void install(item);
                     }}
-                    disabled={isInstalling || isInstalled || comingSoon}
+                    disabled={isInstalling || isInstalled || blocked}
                   >
                     {isInstalled
                       ? t("marketplace.installedLabel")
@@ -261,9 +293,11 @@ export default function MarketplacePage() {
                         ? t("marketplace.installing")
                         : comingSoon
                           ? t("marketplace.comingSoon")
-                          : paid
-                            ? t("marketplace.getOnJustflows")
-                            : t("marketplace.install")}
+                          : blocked
+                            ? t("marketplace.betaDisabledButton")
+                            : paid
+                              ? t("marketplace.getOnJustflows")
+                              : t("marketplace.install")}
                   </button>
                 </div>
               </div>

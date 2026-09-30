@@ -1887,7 +1887,13 @@
       "analytics": "Statistiques",
       "media": "Médias",
       "ecommerce": "E-commerce"
-    }
+    },
+    "beta": "Bêta",
+    "betaWarning": "Version bêta : elle peut être instable ou changer avant sa sortie. Testez d’abord sur un site de préproduction.",
+    "betaDisabledHint": "Les installations bêta sont désactivées pour ce site.",
+    "betaSettingsLink": "Modifier dans les réglages",
+    "betaDisabledButton": "Bêta — non activée",
+    "betaInstallConfirm": "{name} est une version bêta. Elle peut être instable, perdre des données ou changer avant sa version stable. L’installer quand même ?"
   },
   "pluginSettings": {
     "loadFailed": "Les réglages de l’extension n’ont pas pu être chargés.",
@@ -2628,6 +2634,11 @@
       "title": "Lecture",
       "postsPerPageLabel": "Les pages du blog affichent au maximum",
       "postsUnit": "articles"
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "allowBetaLabel": "Autoriser l’installation d’extensions et de thèmes bêta depuis le Marketplace",
+      "allowBetaHint": "Les fiches bêta sont des préversions. Elles peuvent être instables ou changer avant leur sortie. Chaque installation demande toujours une confirmation."
     },
     "trash": {
       "title": "Conservation dans la corbeille",

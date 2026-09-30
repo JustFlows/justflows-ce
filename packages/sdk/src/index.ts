@@ -115,6 +115,7 @@ export {
   isRegistryListingPaid,
   isRegistryListingVisible,
   isRegistryListingComingSoon,
+  isRegistryListingBeta,
 } from "./registry.js";
 export type { RegistryListing, RegistryPrice } from "./registry.js";
 export type {

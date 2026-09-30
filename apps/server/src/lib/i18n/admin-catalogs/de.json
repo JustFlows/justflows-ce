@@ -1887,7 +1887,13 @@
       "analytics": "Statistik",
       "media": "Medien",
       "ecommerce": "E-Commerce"
-    }
+    },
+    "beta": "Beta",
+    "betaWarning": "Beta-Version: kann instabil sein oder sich vor der Veröffentlichung ändern. Zuerst auf einer Staging-Site testen.",
+    "betaDisabledHint": "Beta-Installationen sind für diese Website deaktiviert.",
+    "betaSettingsLink": "In den Einstellungen ändern",
+    "betaDisabledButton": "Beta — nicht aktiviert",
+    "betaInstallConfirm": "{name} ist eine Beta-Version. Sie kann instabil sein, Daten verlieren oder sich vor der stabilen Veröffentlichung ändern. Trotzdem installieren?"
   },
   "pluginSettings": {
     "loadFailed": "Plugin-Einstellungen konnten nicht geladen werden.",
@@ -2628,6 +2634,11 @@
       "title": "Lesen",
       "postsPerPageLabel": "Blog-Seiten zeigen höchstens",
       "postsUnit": "Beiträge"
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "allowBetaLabel": "Installation von Beta-Plugins und -Themes aus dem Marketplace erlauben",
+      "allowBetaHint": "Beta-Einträge sind Vorabversionen. Sie können instabil sein oder sich vor der Veröffentlichung ändern. Jede Installation fragt weiterhin nach einer Bestätigung."
     },
     "trash": {
       "title": "Aufbewahrung im Papierkorb",
