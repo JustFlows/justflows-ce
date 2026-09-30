@@ -50,7 +50,7 @@
     "express": "^5.2.1",
     "multer": "^2.3.0",
     "mysql2": "^3.24.1",
-    "nodemailer": "^9.1.0",
+    "nodemailer": "^10.0.12",
     "postgres": "^3.4.9",
     "zod": "^4.4.3",
     "@justflows/cache": "file:./packages/cache",
