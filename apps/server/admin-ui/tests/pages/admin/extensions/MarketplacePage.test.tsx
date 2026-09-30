@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { installedPackageIds, listingIsPaid, listingPriceLabel } from "../../../../src/pages/admin/extensions/MarketplacePage";
+import {
+  installedPackageIds,
+  listingIsBeta,
+  listingIsPaid,
+  listingPriceLabel,
+} from "../../../../src/pages/admin/extensions/MarketplacePage";
 
 const shop = {
   id: "justflows.shop",
@@ -30,6 +35,12 @@ describe("Marketplace listing metadata", () => {
 
     expect(listingIsPaid(listing)).toBe(false);
     expect(listingPriceLabel(listing)).toBeNull();
+  });
+
+  it("flags beta listings from registry.beta", () => {
+    expect(listingIsBeta({ ...shop, registry: { free: true, beta: true } })).toBe(true);
+    expect(listingIsBeta({ ...shop, registry: { free: true } })).toBe(false);
+    expect(listingIsBeta(shop)).toBe(false);
   });
 
   it("uses registry price for a paid listing", () => {

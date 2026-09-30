@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Link } from "../../../admin-router";
+import { Link, useNavigate } from "../../../admin-router";
 import { useCapability } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 import RolesPanel from "./RolesPanel";
@@ -10,20 +10,25 @@ interface User {
   username: string;
   displayName: string;
   role: string;
+  additionalRoles: string[];
   createdAt: string;
 }
 
 const ROLES = ["administrator", "editor", "author", "contributor", "subscriber"];
+
+type InviteRole = { id: string; name: string; builtIn?: boolean; pluginId?: string | null };
 
 export default function UsersPage() {
   // Inviting, editing and removing are all administrator-only on the server;
   // an editor can only read this list, so those controls simply aren't here
   // for them rather than failing when clicked.
   const { t } = useT();
+  const navigate = useNavigate();
   const canManage = useCapability("users:manage");
   const [users, setUsers] = useState<User[]>([]);
   const [showInvite, setShowInvite] = useState(false);
   const [invite, setInvite] = useState({ email: "", role: "subscriber" });
+  const [inviteRoles, setInviteRoles] = useState<InviteRole[]>(ROLES.map((id) => ({ id, name: id, builtIn: true })));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -31,9 +36,20 @@ export default function UsersPage() {
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
+    fetch("/api/roles")
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json() as { roles?: InviteRole[] };
+        const assignable = (data.roles ?? []).filter((role) => role.builtIn || role.pluginId);
+        if (assignable.length > 0) setInviteRoles(assignable);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     fetch("/api/users")
       .then(async (res) => {
-        const data = await res.json() as { users?: Array<Record<string, string>>; error?: string };
+        const data = await res.json() as { users?: Array<Record<string, string> & { additionalRoles?: string[] }>; error?: string };
         if (!res.ok) throw new Error(data.error ?? t("users.failedToLoadUsers"));
         setUsers((data.users ?? []).map((user) => ({
           id: user.id,
@@ -41,6 +57,7 @@ export default function UsersPage() {
           username: user.username,
           displayName: user.display_name,
           role: user.role,
+          additionalRoles: user.additionalRoles ?? [],
           createdAt: user.created_at,
         })));
       })
@@ -61,7 +78,7 @@ export default function UsersPage() {
       });
       const data = await res.json() as { user?: User; error?: string; warning?: string };
       if (!res.ok || !data.user) throw new Error(data.error ?? t("users.failedToInviteUser"));
-      setUsers((current) => [...current, data.user!]);
+      setUsers((current) => [...current, { ...data.user!, additionalRoles: data.user!.additionalRoles ?? [] }]);
       setInvite({ email: "", role: "subscriber" });
       setShowInvite(false);
       setNotice(data.warning ?? t("users.invitationSent"));
@@ -133,7 +150,7 @@ export default function UsersPage() {
                   value={invite.role}
                   onChange={(e) => setInvite((i) => ({ ...i, role: e.target.value }))}
                 >
-                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                  {inviteRoles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
             </div>
@@ -169,14 +186,30 @@ export default function UsersPage() {
               {loading && <tr><td colSpan={canManage ? 6 : 5}>{t("users.loadingUsers")}</td></tr>}
               {!loading && users.length === 0 && <tr><td colSpan={canManage ? 6 : 5}>{t("users.noUsersFound")}</td></tr>}
               {users.map((u) => (
-                <tr key={u.id}>
-                  <td className="jf-td--strong">{u.displayName}</td>
+                <tr
+                  key={u.id}
+                  className="jf-tr--clickable"
+                  onClick={(event) => {
+                    // The name link is the accessible target; the rest of the
+                    // row is a pointer convenience that leaves its own buttons alone.
+                    if ((event.target as HTMLElement).closest("a, button")) return;
+                    navigate(`/admin/users/${u.id}`);
+                  }}
+                >
+                  <td className="jf-td--strong">
+                    <Link to={`/admin/users/${u.id}`}>{u.displayName || u.email}</Link>
+                  </td>
                   <td>{u.email}</td>
                   <td className="jf-td--mono">@{u.username}</td>
                   <td>
-                    <span className={`jf-badge${u.role === "administrator" ? " jf-badge--info" : ""}`}>
-                      {u.role}
-                    </span>
+                    <div className="jf-row">
+                      <span className={`jf-badge${u.role === "administrator" ? " jf-badge--info" : ""}`}>
+                        {u.role}
+                      </span>
+                      {u.additionalRoles.map((extra) => (
+                        <span key={extra} className="jf-badge">{extra}</span>
+                      ))}
+                    </div>
                   </td>
                   <td className="jf-td--muted">{u.createdAt.slice(0, 10)}</td>
                   {canManage && (

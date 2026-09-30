@@ -23,3 +23,6 @@ minimumReleaseAgeExclude:
   - turbo@2.10.11
   - vitest@4.1.11
   - mysql2@3.24.1
+
+overrides:
+  "undici@>=8.0.0 <8.10.2": 8.10.2

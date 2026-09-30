@@ -16,6 +16,7 @@
 import { esc, type BlockDefinition } from "@justflows/blocks";
 import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
 import { renderMediaImage } from "../media/responsive-media.js";
+import { renderPlaceholder } from "../media/placeholders.js";
 import type { TemplatePartSlot } from "./template-hierarchy.js";
 import { TEMPLATE_PART_SLOTS } from "./template-hierarchy.js";
 
@@ -109,13 +110,17 @@ export async function renderTemplateBlockHtml(
 
     case FEATURED_IMAGE_BLOCK_TYPE: {
       const raw = content ? featuredImageRaw(content.fields) : "";
-      if (!raw) return "";
-      const img = await renderMediaImage({
-        url: raw,
-        alt: content?.title ?? "",
-        loading: "lazy",
-        sizes: "(max-width: 1000px) 100vw, 1000px",
-      });
+      const img = raw
+        ? await renderMediaImage({
+            url: raw,
+            alt: content?.title ?? "",
+            loading: "lazy",
+            sizes: "(max-width: 1000px) 100vw, 1000px",
+          })
+        : // No entry (404, archive): nothing to stand in for.
+          content && props.placeholder !== false && props.placeholder !== "false"
+          ? await renderPlaceholder("featured")
+          : "";
       return img ? `<figure class="post-featured-image">${img}</figure>` : "";
     }
 
@@ -178,7 +183,15 @@ export function registerTemplateBlocks(): void {
       title: "Featured Image",
       description: "The current page or post's featured image. For use in a theme template.",
       icon: "🖼",
-      schema: {},
+      schema: {
+        // Show the site's featured-image placeholder when the entry has no image.
+        placeholder: {
+          type: "boolean" as const,
+          default: true,
+          label: "Show placeholder when empty",
+          help: "Uses the placeholder from Settings → Placeholders.",
+        },
+      },
     },
     {
       type: TEMPLATE_PART_BLOCK_TYPE,

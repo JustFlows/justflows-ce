@@ -10,6 +10,7 @@ describe("parseBlogPostListProps", () => {
       showExcerpt: true,
       showDate: true,
       showFeaturedImage: true,
+      showPlaceholder: true,
       postsPerPage: null,
     });
   });
@@ -37,5 +38,6 @@ describe("parseBlogPostListProps", () => {
     expect(props.showExcerpt).toBe(false);
     expect(props.showDate).toBe(false);
     expect(props.showFeaturedImage).toBe(false);
+    expect(parseBlogPostListProps({ showPlaceholder: "false" }).showPlaceholder).toBe(false);
   });
 });

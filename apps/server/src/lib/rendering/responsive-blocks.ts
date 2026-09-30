@@ -8,6 +8,7 @@ import {
   responsiveMarkupEnabled,
   type ResponsiveProp,
 } from "../media/responsive-media.js";
+import { resolvePlaceholderSync } from "../media/placeholders.js";
 
 /**
  * Attach the media library's stored responsive derivatives to the image-bearing
@@ -98,4 +99,34 @@ export async function withResponsiveImages(
   if (byUrl.size === 0) return blocks;
 
   return mapTree(blocks, byUrl);
+}
+
+function hasEmptyImage(blocks: BlockNode[]): boolean {
+  return blocks.some(
+    (block) =>
+      (block.type === "core.image" && !String(block.props?.["src"] ?? "").trim()) ||
+      (block.children?.length ? hasEmptyImage(block.children) : false),
+  );
+}
+
+function fillEmptyImages(blocks: BlockNode[], src: string): BlockNode[] {
+  return blocks.map((block) => {
+    const children = block.children?.length ? fillEmptyImages(block.children, src) : block.children;
+    const next = children !== block.children ? { ...block, children } : block;
+    if (block.type === "core.image" && !String(block.props?.["src"] ?? "").trim()) {
+      return { ...next, props: { ...block.props, src, alt: "" } };
+    }
+    return next;
+  });
+}
+
+/**
+ * Point every `core.image` that has no image at the site's `generic`
+ * placeholder. Unchanged when placeholders are off. Call after
+ * `primePlaceholders` so the site's own placeholder applies.
+ */
+export function withImagePlaceholders(blocks: BlockNode[], siteId: string | null): BlockNode[] {
+  if (!siteId || !hasEmptyImage(blocks)) return blocks;
+  const image = resolvePlaceholderSync(siteId, "generic");
+  return image ? fillEmptyImages(blocks, image.src) : blocks;
 }

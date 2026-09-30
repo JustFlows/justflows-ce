@@ -17,6 +17,7 @@ import { clearHomePageIfMatches } from "../content/home-page.js";
 import { clearBlogPageIfMatches } from "../content/blog-page.js";
 import { clearErrorPageIfMatches } from "../rendering/error-pages.js";
 import { invalidateContentCache } from "../content/content-public.js";
+import { deleteRecordsCreatedBy } from "../content/delete-created-by.js";
 import {
   getPluginHostItem,
   PLUGIN_HOST_CONTENT_TYPES_ITEM,
@@ -35,6 +36,24 @@ function slugify(value: string): string {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .slice(0, 200);
+}
+
+/**
+ * One entry per translation group: the `locale` version, else whichever other
+ * version the query let through (the default-locale original). Keeps the
+ * newest-first order of each group's first row.
+ */
+function preferLocale<T extends { id: string; locale: string; translationGroupId: string | null }>(
+  entries: T[],
+  locale: string,
+): T[] {
+  const chosen = new Map<string, T>();
+  for (const entry of entries) {
+    const group = entry.translationGroupId ?? entry.id;
+    const current = chosen.get(group);
+    if (!current || (current.locale !== locale && entry.locale === locale)) chosen.set(group, entry);
+  }
+  return [...chosen.values()];
 }
 
 /** Optional expiry timestamp a plugin or import may have stored on a content row. */
@@ -90,7 +109,11 @@ export function createPluginContentApi(pluginId: string, siteId: string): Plugin
         sql += ` AND type IN (${types.map(() => "?").join(", ")})`;
         params.push(...types);
       }
-      if (query.locale) {
+      const defaultLocale = query.locale && query.fallback ? await getDefaultLocale(siteId) : null;
+      if (query.locale && defaultLocale && defaultLocale !== query.locale) {
+        sql += " AND locale IN (?, ?)";
+        params.push(query.locale, defaultLocale);
+      } else if (query.locale) {
         sql += " AND locale = ?";
         params.push(query.locale);
       }
@@ -104,7 +127,7 @@ export function createPluginContentApi(pluginId: string, siteId: string): Plugin
 
       const rows = await db.query<Record<string, unknown>>(sql, params);
       const now = Date.now();
-      const entries = rows
+      const visible = rows
         .map((row) => serializeContentRow(row))
         .filter((entry) => {
           if (!query.includeScheduled && entry.publishedAt) {
@@ -113,8 +136,8 @@ export function createPluginContentApi(pluginId: string, siteId: string): Plugin
           }
           const expiry = expiryTimestamp(entry.fields);
           return expiry === null || expiry > now;
-        })
-        .slice(0, limit);
+        });
+      const entries = (defaultLocale ? preferLocale(visible, query.locale!) : visible).slice(0, limit);
 
       const names = await authorNames(
         siteId,
@@ -127,6 +150,7 @@ export function createPluginContentApi(pluginId: string, siteId: string): Plugin
         title: entry.title,
         slug: entry.slug,
         locale: entry.locale,
+        translationGroupId: entry.translationGroupId ?? entry.id,
         excerpt: entry.excerpt,
         fields: entry.fields,
         authorId: entry.authorId,
@@ -262,6 +286,10 @@ export function createPluginContentApi(pluginId: string, siteId: string): Plugin
 
     async deleteType(inputSlug) {
       return deletePluginOwnedContentType(siteId, inputSlug);
+    },
+
+    deleteCreatedBy(userId) {
+      return deleteRecordsCreatedBy(siteId, userId);
     },
   };
 }

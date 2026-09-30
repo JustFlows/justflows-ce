@@ -5,7 +5,8 @@ import { getDb } from "../../lib/database/db.js";
 import { requireCapability, requireRole } from "../../middleware/auth.js";
 import { param } from "../../lib/http/params.js";
 import { hashPassword } from "../../lib/auth/password.js";
-import { USER_ROLE_VALUES } from "../../lib/auth/rbac.js";
+import { isAssignableRole } from "../../lib/auth/assignable-roles.js";
+import { STORED_ROLE_ID } from "../../lib/auth/rbac.js";
 import { PasswordSchema } from "../../lib/auth/password-policy.js";
 import { revokeUserSessions } from "../../lib/auth/auth-session.js";
 import { clearUserResets } from "../../lib/auth/password-reset-db.js";
@@ -55,7 +56,9 @@ router.get("/", requireCapability("users:read"), async (req, res) => {
 
 router.get("/:id", requireCapability("users:read"), async (req, res) => {
   try {
-    const result = await getUserWithAccess(req.session!.siteId, param(req.params.id));
+    const result = await getUserWithAccess(req.session!.siteId, param(req.params.id), {
+      includeActivity: req.session!.role === "administrator",
+    });
     res.status(result.status).json(result.body);
   } catch (err) {
     sendServerError(res, "users", err);
@@ -78,7 +81,7 @@ router.post("/", requireRole("administrator"), async (req, res) => {
 
 const InviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(USER_ROLE_VALUES).optional(),
+  role: z.string().regex(STORED_ROLE_ID).optional(),
 });
 
 router.post("/invite", requireRole("administrator"), async (req, res) => {
@@ -97,6 +100,10 @@ router.post("/invite", requireRole("administrator"), async (req, res) => {
     const displayName = localPart.slice(0, 255);
     const password = randomBytes(24).toString("base64url");
     const role = body.data.role ?? "subscriber";
+    if (!(await isAssignableRole(role))) {
+      res.status(400).json({ error: "Unknown role" });
+      return;
+    }
     const id = randomUUID();
     const timestamp = now();
     const db = await getDb();

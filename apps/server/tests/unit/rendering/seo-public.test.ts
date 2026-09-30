@@ -52,6 +52,16 @@ describe("buildSeoHeadHtml", () => {
     expect(html).toContain("/sitemap.xml");
   });
 
+  it("makes a site-root share image absolute", () => {
+    const html = buildSeoHeadHtml(
+      { title: "About", path: "/about", image: "/placeholders/og.png" },
+      settings,
+      "https://example.com",
+    );
+    expect(html).toContain('property="og:image" content="https://example.com/placeholders/og.png"');
+    expect(html).not.toContain('content="//');
+  });
+
   it("escapes attribute values", () => {
     const html = buildSeoHeadHtml(
       { title: 'A "quoted" title', path: "/x" },

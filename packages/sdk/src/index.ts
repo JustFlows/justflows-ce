@@ -37,6 +37,7 @@ export type {
   ActionHandlerFor,
   GateHandlerFor,
   FilterHandlerFor,
+  ThemeLayoutScope,
   AppEvent,
   ContentRef,
   ContentDeletedRef,
@@ -82,6 +83,7 @@ export type {
   CacheRevalidatedEvent,
   StaticExportCompletedEvent,
   StaticExportDeployEvent,
+  StaticExportExclusion,
   EmailDeliveryContext,
   EmailBeforeSendEvent,
   EmailDeliveryEvent,
@@ -92,6 +94,7 @@ export type {
 export {
   PluginManifestSchema,
   PluginAssetsSchema,
+  PluginTemplatesSchema,
   PluginAdminAppSchema,
   PluginPermissionSchema,
   SENSITIVE_PERMISSIONS,
@@ -112,6 +115,7 @@ export {
   isRegistryListingPaid,
   isRegistryListingVisible,
   isRegistryListingComingSoon,
+  isRegistryListingBeta,
 } from "./registry.js";
 export type { RegistryListing, RegistryPrice } from "./registry.js";
 export type {
@@ -124,12 +128,24 @@ export type {
   PluginModule,
   PluginCacheApi,
   PluginCapabilitiesApi,
+  PluginRoleDefinition,
+  PluginRolesApi,
+  PluginUserActor,
+  PluginUserCreateInput,
+  PluginCreatedUser,
+  PluginUserCreateResult,
+  PluginRoleUser,
+  PluginUserRoleResult,
+  PluginUserTarget,
+  PluginUsersApi,
   PluginHttpApi,
   PluginHttpMethod,
   PluginHttpRequest,
   PluginHttpSession,
   PluginHttpResponse,
   PluginHttpHandler,
+  PluginHttpRateLimit,
+  PluginHttpRouteOptions,
   PluginJobsApi,
   PluginMailTransportApi,
   PluginMailMessage,
@@ -158,12 +174,15 @@ export type {
   PluginDiagnosticStatus,
   PluginBlocksApi,
   PluginBlockDefinition,
+  PluginBlockField,
   PluginPatternsApi,
   PluginPatternDefinition,
   PluginContentApi,
   PluginContentField,
   PluginContentEnsureResult,
   PluginContentDeleteTypeResult,
+  PluginDeleteCreatedByResult,
+  PluginDeleteCreatedByCounts,
   PluginPublishedEntry,
   PluginListPublishedQuery,
   JustflowsRuntimeVersions,
@@ -182,6 +201,22 @@ export type {
   ResolvedCookie,
   PluginCookiesApi,
 } from "./cookies.js";
+
+// Placeholders — default images for empty image slots
+export {
+  CORE_PLACEHOLDER_KINDS,
+  PLACEHOLDER_KIND_RE,
+  PlaceholderDefinitionSchema,
+} from "./placeholders.js";
+export type {
+  CorePlaceholderKind,
+  PlaceholderKind,
+  PlaceholderDefinition,
+  PlaceholderImage,
+  PlaceholderFilterContext,
+  PlaceholderHtmlOptions,
+  PluginMediaApi,
+} from "./placeholders.js";
 
 // Capabilities — user capability system
 export {

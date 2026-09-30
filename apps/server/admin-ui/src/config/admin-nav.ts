@@ -32,6 +32,8 @@ export type PluginMenuItem = {
   end?: boolean;
   /** When set, the host setup wizard mounts only on this path. */
   setupPath?: string;
+  /** `false` keeps the page routable without a nav entry. */
+  listed?: boolean;
   /** When set, the plugin host lists CMS entries of this type. */
   contentType?: string;
   /**
@@ -40,7 +42,85 @@ export type PluginMenuItem = {
    * owns the whole screen; the host only frames it.
    */
   adminAppUrl?: string;
+  /** Locale code → catalog URL declared in the plugin manifest. */
+  adminCatalogs?: Record<string, string>;
 };
+
+/**
+ * Admin app a plugin embeds in the content editor for a CMS type.
+ * The host matches `contentType` plus `adminAppUrl` and does not know the plugin.
+ */
+export function contentEditorFor(
+  items: PluginMenuItem[],
+  contentType: string | undefined,
+): PluginMenuItem | undefined {
+  if (!contentType) return undefined;
+  return items.find((item) => item.contentType === contentType && Boolean(item.adminAppUrl));
+}
+
+const PLUGIN_SECTION_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export type PluginEditorSection = { id: string; label: string };
+
+/** Keep plugin-published editor menu entries the host can render safely. */
+export function parsePluginSections(value: unknown): PluginEditorSection[] {
+  if (!Array.isArray(value)) return [];
+  const sections: PluginEditorSection[] = [];
+  const seen = new Set<string>();
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const id = (raw as { id?: unknown }).id;
+    const label = (raw as { label?: unknown }).label;
+    if (typeof id !== "string" || typeof label !== "string") continue;
+    const cleanId = id.trim();
+    const cleanLabel = label.trim();
+    if (!PLUGIN_SECTION_ID.test(cleanId) || cleanId.length > 40 || !cleanLabel || cleanLabel.length > 60) {
+      continue;
+    }
+    if (seen.has(cleanId)) continue;
+    seen.add(cleanId);
+    sections.push({ id: cleanId, label: cleanLabel });
+    if (sections.length >= 12) break;
+  }
+  return sections;
+}
+
+export type EditorNavEntry = { id: string; label: string };
+
+/** Content-editor menu. Plugin sections replace the single plugin screen label. */
+export function contentEditorNav(input: {
+  contentLabel: string;
+  seoLabel: string;
+  discussionLabel: string;
+  revisionsLabel: string;
+  advancedLabel: string;
+  pluginLabel?: string;
+  pluginSections?: PluginEditorSection[];
+}): EditorNavEntry[] {
+  const plugin =
+    input.pluginSections && input.pluginSections.length > 0
+      ? input.pluginSections.map((section) => ({ id: `plugin:${section.id}`, label: section.label }))
+      : input.pluginLabel
+        ? [{ id: "plugin", label: input.pluginLabel }]
+        : [];
+  return [
+    { id: "content", label: input.contentLabel },
+    ...plugin,
+    { id: "seo", label: input.seoLabel },
+    { id: "discussion", label: input.discussionLabel },
+    { id: "revisions", label: input.revisionsLabel },
+    { id: "advanced", label: input.advancedLabel },
+  ];
+}
+
+/** List page for a CMS type a plugin owns (the menu item without its own admin app). */
+export function contentListPath(
+  items: PluginMenuItem[],
+  contentType: string | undefined,
+): string | undefined {
+  if (!contentType) return undefined;
+  return items.find((item) => item.contentType === contentType && !item.adminAppUrl)?.path;
+}
 
 export const ADMIN_DASHBOARD: NavItem = {
   key: "nav.dashboard",
@@ -143,6 +223,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.settings", to: "/admin/settings", icon: "⚙" },
       { key: "nav.permalinks", to: "/admin/settings/permalinks", icon: "↗" },
       { key: "nav.pwa", to: "/admin/settings/pwa", icon: "📱" },
+      { key: "nav.placeholders", to: "/admin/settings/placeholders", icon: "🖼" },
       { key: "nav.redirects", to: "/admin/redirects", icon: "↪" },
       { key: "nav.emails", to: "/admin/emails", icon: "✉" },
       { key: "nav.languages", to: "/admin/languages", icon: "🌐" },
@@ -177,7 +258,9 @@ export function buildNavDomains(pluginItems: PluginMenuItem[]): NavDomain[] {
 
   return ADMIN_NAV_DOMAINS.map((domain) => {
     const owned = pluginItems.filter(
-      (item) => (slugs.has(item.domain) ? item.domain : "extensions") === domain.slug,
+      (item) =>
+        item.listed !== false &&
+        (slugs.has(item.domain) ? item.domain : "extensions") === domain.slug,
     );
     if (owned.length === 0) return domain;
 
@@ -203,6 +286,22 @@ export function findDomainForPath(
     }
   }
   return null;
+}
+
+/** The page a URL belongs to: the dashboard, else the longest matching nav item. */
+export function findNavItemForPath(
+  pathname: string,
+  domains: NavDomain[] = ADMIN_NAV_DOMAINS,
+): NavItem | null {
+  pathname = internalAdminPath(pathname);
+  if (matchesNavItem(pathname, ADMIN_DASHBOARD)) return ADMIN_DASHBOARD;
+  let best: NavItem | null = null;
+  for (const domain of domains) {
+    for (const item of domain.items) {
+      if (matchesNavItem(pathname, item) && (!best || item.to.length > best.to.length)) best = item;
+    }
+  }
+  return best;
 }
 
 export function isDomainActive(domain: NavDomain, pathname: string): boolean {
@@ -254,6 +353,7 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/settings/api": ["administrator"],
   "/admin/settings/permalinks": ["administrator"],
   "/admin/settings/pwa": ["administrator"],
+  "/admin/settings/placeholders": ["administrator"],
   "/admin/redirects": ["administrator"],
   "/admin/plugins/justflows.analytics": ["administrator", "editor"],
   // Consent and Forms sat at their own top-level paths with no rule (visible to

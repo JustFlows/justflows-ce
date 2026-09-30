@@ -102,6 +102,8 @@ export async function crawlPages(
     concurrency: number;
     publicUrl: string;
     discoverLinks: boolean;
+    /** Paths left to the live app (`staticExport.exclude`): never fetched, even when linked. */
+    exclude?: (path: string) => boolean;
   },
 ): Promise<CrawlOutcome> {
   const publicHost = originHost(opts.publicUrl);
@@ -109,7 +111,7 @@ export async function crawlPages(
   const seen = new Set<string>();
   const enqueue = (path: string) => {
     const norm = normalizeUrlPath(path);
-    if (seen.has(norm)) return;
+    if (seen.has(norm) || opts.exclude?.(norm)) return;
     seen.add(norm);
     queue.push(norm);
   };

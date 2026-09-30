@@ -27,6 +27,8 @@ export interface RemoteCoreRelease {
   notesUrl: string;
   downloadUrl: string | null;
   sha256Url: string | null;
+  /** `justflows.zip.sig`; null from a gateway or release that predates signing. */
+  signatureUrl?: string | null;
   size: number | null;
 }
 
@@ -41,6 +43,7 @@ export interface AvailableCoreUpdate {
   publishedAt: string | null;
   downloadUrl: string;
   sha256Url: string | null;
+  signatureUrl: string | null;
   /** True when this jump keeps the same major and can be auto-installed. */
   autoUpdatable: boolean;
 }
@@ -174,6 +177,7 @@ export async function getAvailableCoreUpdate(
     publishedAt: latest.publishedAt,
     downloadUrl: latest.downloadUrl,
     sha256Url: latest.sha256Url,
+    signatureUrl: latest.signatureUrl ?? null,
     autoUpdatable: isAutoUpdateEligible(currentVersion, latest.version),
   };
 }
@@ -202,6 +206,7 @@ export async function getLatestCoreReleaseForReinstall(): Promise<AvailableCoreU
     publishedAt: latest.publishedAt,
     downloadUrl: latest.downloadUrl,
     sha256Url: latest.sha256Url,
+    signatureUrl: latest.signatureUrl ?? null,
     autoUpdatable: isAutoUpdateEligible(currentVersion, latest.version),
   };
 }

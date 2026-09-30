@@ -11,6 +11,9 @@ describe("admin SSR", () => {
     expect(paths).toContain("/api/plugins/admin-menu");
     expect(paths).toContain("/api/i18n/en");
     expect(paths).toContain("/api/i18n/nl");
+    for (const locale of ["pl", "uk", "ru"]) {
+      expect(paths).toContain(`/api/i18n/${locale}`);
+    }
     expect(paths).toContain("/api/languages");
     expect(paths).toContain("/api/settings");
     expect(paths).toContain("/api/content-types");

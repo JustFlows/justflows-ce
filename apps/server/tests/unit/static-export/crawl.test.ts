@@ -58,6 +58,31 @@ describe("crawlPages", () => {
     expect(homeAssets).toContain("/theme.css");
   });
 
+  it("never fetches an excluded path, even when a page links to it", async () => {
+    const fetched: string[] = [];
+    const site = fakeSite({
+      "/": `<a href="/shop">s</a><a href="/shop/cart">c</a><a href="/shop/cart/step">x</a>`,
+      "/shop": `<p>shop</p>`,
+      "/shop/cart": `<p>cart</p>`,
+    });
+    const out = await crawlPages(
+      ["/", "/shop/cart"],
+      async (path) => {
+        fetched.push(path);
+        return site(path);
+      },
+      {
+        maxPages: 50,
+        concurrency: 2,
+        publicUrl: "",
+        discoverLinks: true,
+        exclude: (path) => path === "/shop/cart" || path.startsWith("/shop/cart/"),
+      },
+    );
+    expect(out.pages.map((p) => p.path).sort()).toEqual(["/", "/shop"]);
+    expect(fetched.some((path) => path.startsWith("/shop/cart"))).toBe(false);
+  });
+
   it("crawls pages whose slug merely starts with a reserved prefix", async () => {
     const site = fakeSite({
       "/":

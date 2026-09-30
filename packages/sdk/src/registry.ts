@@ -18,6 +18,8 @@ export const RegistryPriceSchema = z.object({
  * 2. `listed` — publisher visibility. Internal approval does not show it unless this is true.
  *
  * `comingSoon` keeps a listed plugin visible but not installable.
+ * `beta` marks a pre-release listing: installable only on sites that opted in
+ * to beta installs, and always behind a warning.
  */
 export const RegistryListingSchema = z
   .object({
@@ -25,6 +27,9 @@ export const RegistryListingSchema = z
     listed: z.boolean().default(true),
     free: z.boolean().default(true),
     comingSoon: z.boolean().default(false),
+    // Optional rather than defaulted: a default makes it required on the
+    // inferred manifest type and breaks plugins that omit it.
+    beta: z.boolean().optional(),
     price: RegistryPriceSchema.optional(),
   })
   .superRefine((value, ctx) => {
@@ -82,4 +87,13 @@ export function isRegistryListingComingSoon(listing: unknown): boolean {
   const registry = asRecord(row["registry"]);
   if (registry && typeof registry["comingSoon"] === "boolean") return registry["comingSoon"];
   return row["comingSoon"] === true;
+}
+
+/** Pre-release listing. Missing `beta` is treated as stable. */
+export function isRegistryListingBeta(listing: unknown): boolean {
+  const row = asRecord(listing);
+  if (!row) return false;
+  const registry = asRecord(row["registry"]);
+  if (registry && typeof registry["beta"] === "boolean") return registry["beta"];
+  return row["beta"] === true;
 }

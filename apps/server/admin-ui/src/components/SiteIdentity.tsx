@@ -1,6 +1,7 @@
 import { useT } from "../i18n/I18nProvider";
 import { useEffect, useState } from "react";
 import { initialJson } from "../ssr-data";
+import { DocumentMeta } from "./DocumentMeta";
 
 interface SiteIdentity {
   siteTitle: string;
@@ -65,13 +66,21 @@ export function SiteBrand({ identity, href = "/" }: { identity: SiteIdentity; hr
   );
 }
 
-/** Sets the admin/login tab icon from Site Identity. */
-export function SiteFavicon() {
+/** Sets the admin tab icon and title from Site Identity (one fetch for both). */
+export function SiteHead() {
   const identity = useSiteIdentity();
+  return (
+    <>
+      <SiteFavicon faviconUrl={identity.faviconUrl} />
+      <DocumentMeta siteTitle={identity.siteTitle} />
+    </>
+  );
+}
 
+function SiteFavicon({ faviconUrl }: { faviconUrl: string }) {
   useEffect(() => {
     if (typeof document === "undefined") return;
-    const url = identity.faviconUrl.trim();
+    const url = faviconUrl.trim();
     if (!url) return;
 
     let icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
@@ -89,7 +98,7 @@ export function SiteFavicon() {
       document.head.appendChild(apple);
     }
     apple.href = url;
-  }, [identity.faviconUrl]);
+  }, [faviconUrl]);
 
   return null;
 }

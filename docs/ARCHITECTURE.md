@@ -148,6 +148,12 @@ Consequently:
 - Release ZIP users upload prebuilt artifacts and install runtime dependencies
   through the browser bootstrap.
 - Core updates may use the prebuilt artifacts contained in the update archive.
+- Installed sites apply a core update only when it is verified (see
+  `SECURITY.md`). With `JUSTFLOWS_CORE_RELEASE_KEY_FILE` set,
+  `scripts/make-zip.sh` writes `justflows.zip.sig` through
+  `scripts/sign-core-release.mjs`. Attach it to the GitHub release beside
+  `justflows.zip` and `justflows.zip.sha256`; the API gateway serves it as
+  `signatureUrl`.
 - Only source contributors need pnpm and the build commands.
 
 ## Development

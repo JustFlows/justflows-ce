@@ -167,6 +167,11 @@ export const AdminMenuItemSchema = z.object({
   /** Match the path exactly instead of as a prefix. */
   end: z.boolean().optional(),
   /**
+   * When false, the page stays reachable but is left out of the admin nav.
+   * Use it for a screen opened by a button on another plugin page.
+   */
+  listed: z.boolean().optional(),
+  /**
    * CMS type slug. When set, the generic plugin host lists every content row
    * of that type on this page (for example Shop Products → `product`).
    */
@@ -215,6 +220,26 @@ export const PluginAssetsSchema = z.object({
   styles: z.array(PluginAssetFileSchema).max(20).optional(),
 });
 
+/**
+ * Page templates a plugin ships in its package: `<dir>/<slug>.json` block
+ * documents (same shape as a theme's `templates/*.json`). While the plugin is
+ * active the host resolves them after the site override and the active theme's
+ * own file for that slug, so templates for plugin-owned content types (e.g.
+ * `single-product`) live with the plugin, and a theme can still override them.
+ */
+export const PluginTemplatesSchema = z.object({
+  /** Package-relative folder holding the templates. Defaults to `templates`. */
+  dir: z
+    .string()
+    .max(128)
+    .regex(
+      /^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/,
+      "Templates dir must be a relative folder path (e.g. 'templates')",
+    )
+    .refine((v) => !v.split("/").includes(".."), "Templates dir must not contain '..'")
+    .optional(),
+});
+
 /** An HTML entry file for a plugin admin screen: relative, no traversal. */
 const PluginAdminEntrySchema = z
   .string()
@@ -258,6 +283,34 @@ export const PluginAdminAppSchema = z.object({
     .refine((v) => !v.split("/").includes(".."), "Admin dir must not contain '..'")
     .optional(),
   routes: z.array(PluginAdminRouteSchema).min(1).max(20),
+  /**
+   * Admin UI catalogs, keyed by locale code. Each value is a `.json` file
+   * relative to `dir` (for example `locales/nl.json`). The host serves it at
+   * `/ext/<pluginId>/admin/<path>` and passes those URLs to the frame as
+   * `context.catalogs`.
+   */
+  locales: z
+    .record(
+      z
+        .string()
+        .regex(/^[a-z]{2,8}(?:-[A-Za-z0-9]{2,8}){0,2}$/, "Locale code must look like en or nl-NL"),
+      z
+        .string()
+        .min(1)
+        .max(160)
+        .regex(/^[a-zA-Z0-9][a-zA-Z0-9._/-]*\.json$/, "Locale file must be a relative .json path")
+        .refine((value) => !value.split("/").includes(".."), "Locale file must not contain '..'"),
+    )
+    .refine((value) => Object.keys(value).length <= 20, "At most 20 locale files")
+    .optional(),
+}).superRefine((app, ctx) => {
+  if (!app.locales?.["en"]) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["locales", "en"],
+      message: "An admin app must declare an English catalog at locales.en (for example locales/en.json). It is the fallback for every other locale.",
+    });
+  }
 });
 
 /**
@@ -360,6 +413,8 @@ export const PluginManifestSchema = z
      * `dir`**; both must be `.js`/`.mjs` or `.css` and contain no `..`.
      */
     assets: PluginAssetsSchema.optional(),
+    /** Page templates shipped inside the plugin package (see PluginTemplatesSchema). */
+    templates: PluginTemplatesSchema.optional(),
     /**
      * A self-contained admin app the plugin ships and the host mounts in a
      * same-origin `<iframe>` for each declared route (see PluginAdminAppSchema).
@@ -464,11 +519,98 @@ export interface PluginCapabilitiesApi {
   register(definition: UserCapabilityDefinition): void;
 }
 
+/**
+ * A user role this plugin contributes while it is active. The id is stored on
+ * `users.role` (for example Shop's `customer`). It must not replace a core role.
+ */
+export interface PluginRoleDefinition {
+  /** Lowercase id, 2–32 characters: letters, digits, and hyphens. */
+  readonly id: string;
+  readonly label: string;
+  readonly description?: string;
+  /** Capabilities granted to this role. Empty means no administration access. */
+  readonly capabilities?: readonly UserCapability[];
+}
+
+export interface PluginRolesApi {
+  /** Register a user role for as long as this plugin is active. */
+  register(definition: PluginRoleDefinition): void;
+}
+
+/** Signed-in staff member a plugin attributes a user mutation to. */
+export interface PluginUserActor {
+  userId: string;
+  role: string;
+}
+
+export interface PluginUserCreateInput {
+  email: string;
+  username: string;
+  displayName: string;
+  password: string;
+  /** Must be a role this plugin registered. Core roles are rejected. */
+  role: string;
+}
+
+export interface PluginCreatedUser {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string;
+  role: string;
+}
+
+export type PluginUserCreateResult =
+  | { ok: true; user: PluginCreatedUser }
+  | { ok: false; status: number; error: string };
+
+/** Which existing user `ctx.users.addRole()` targets: by id or by sign-in email. */
+export type PluginUserTarget = { userId: string } | { email: string };
+
+export interface PluginRoleUser extends PluginCreatedUser {
+  /** Primary role first, then additional roles. */
+  roles: readonly string[];
+}
+
+export type PluginUserRoleResult =
+  | { ok: true; user: PluginRoleUser }
+  | { ok: false; status: number; error: string };
+
+export interface PluginUsersApi {
+  /**
+   * Create a site user in a role this plugin registered.
+   * Requires the `users:manage` manifest permission. The host still applies
+   * password policy, uniqueness, and audit logging.
+   */
+  create(input: PluginUserCreateInput, actor: PluginUserActor): Promise<PluginUserCreateResult>;
+  /**
+   * Give an existing user a role this plugin registered, as an additional
+   * role next to the one they have. Their primary role, sign-in, and every
+   * other role stay as they are; the new role's capabilities are added.
+   * Doing nothing when the user already holds the role is a success.
+   * Requires the `users:manage` manifest permission.
+   * Optional: older hosts do not provide it.
+   */
+  addRole?(target: PluginUserTarget, role: string, actor: PluginUserActor): Promise<PluginUserRoleResult>;
+  /**
+   * Read one site user with all their roles, or null when there is none.
+   * Requires the `users:manage` manifest permission. Use it from a
+   * `user.created` / `user.updated` action to react to role changes.
+   * Optional: older hosts do not provide it.
+   */
+  get?(userId: string): Promise<PluginRoleUser | null>;
+}
+
 /** The signed-in user behind a plugin request, when there is one. */
 export interface PluginHttpSession {
   userId: string;
   siteId: string;
   role: string;
+  /**
+   * Primary role first, then any additional roles. Absent on older hosts;
+   * fall back to `[role]`.
+   */
+  roles?: readonly string[];
   email: string;
   /** Effective grants after role, per-user additions, and explicit denies. */
   capabilities: readonly UserCapability[];
@@ -485,6 +627,12 @@ export interface PluginHttpRequest {
   params: Record<string, string>;
   body: unknown;
   /**
+   * Exact request bytes for signature checks. Set only for routes that opt in
+   * at the host JSON parser, such as payment webhooks. Absent for every other
+   * plugin route.
+   */
+  rawBody?: string;
+  /**
    * Request headers, with `cookie` and `authorization` removed — a plugin route
    * has no reason to read the session cookie, and handing it over made every
    * installed plugin a credential holder. Use `session` for identity.
@@ -498,6 +646,13 @@ export interface PluginHttpRequest {
    * construction, whatever its author intended.
    */
   session: PluginHttpSession | null;
+  /**
+   * The visitor's language: the locale of the site page that made the request
+   * (`/nl-NL/shop` → `nl-NL`), otherwise the site default. Pass it to
+   * `ctx.content.listPublished({ locale, fallback: true })` to answer in the
+   * visitor's language. Absent on older hosts.
+   */
+  locale?: string;
 }
 
 export interface PluginHttpResponse {
@@ -529,12 +684,45 @@ export type PluginHttpHandler = (
   req: PluginHttpRequest,
 ) => PluginHttpResponse | Promise<PluginHttpResponse>;
 
+/**
+ * Per-IP ceiling the host enforces before the handler runs.
+ * `limit` is an integer from 1 to 10_000. `windowMs` is an integer from
+ * 1_000 to 3_600_000. `key` shares one counter across several routes of this
+ * plugin (cart add and cart update). It is letters, digits, and hyphens, up
+ * to 40 characters, and must start with a letter or digit. Without `key`,
+ * the route has its own counter.
+ */
+export interface PluginHttpRateLimit {
+  limit: number;
+  windowMs: number;
+  key?: string;
+}
+
+/**
+ * Policy the host applies to one registered route. Defaults stay strict:
+ * a non-GET route requires the session CSRF token, nothing is rate-limited,
+ * and the handler does not receive the raw request bytes.
+ */
+export interface PluginHttpRouteOptions {
+  /**
+   * Skip the session CSRF token. Use this only when the plugin authenticates
+   * the call another way, such as a signed webhook. GET never requires CSRF.
+   */
+  csrf?: false;
+  rateLimit?: PluginHttpRateLimit;
+  /**
+   * Keep the exact request bytes on `req.rawBody` so the handler can verify
+   * a signature. Parsed JSON is not the signed payload.
+   */
+  rawBody?: true;
+}
+
 export interface PluginHttpApi {
-  get(path: string, handler: PluginHttpHandler): void;
-  post(path: string, handler: PluginHttpHandler): void;
-  put(path: string, handler: PluginHttpHandler): void;
-  patch(path: string, handler: PluginHttpHandler): void;
-  delete(path: string, handler: PluginHttpHandler): void;
+  get(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
+  post(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
+  put(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
+  patch(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
+  delete(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
 }
 
 export interface PluginJobContext {
@@ -649,6 +837,31 @@ export interface PluginDataApi {
   clear(): Promise<void>;
 }
 
+/** One editable prop of a plugin block, as the page-builder inspector shows it. */
+export interface PluginBlockField {
+  type: string;
+  required?: boolean;
+  default?: unknown;
+  /** Fixed choices. The field renders as a dropdown, or checkboxes with `multiple`. */
+  options?: string[];
+  /** Display text per option value. The raw value is shown when one is missing. */
+  optionLabels?: Record<string, string>;
+  /** Inspector label. Defaults to the prop key. */
+  label?: string;
+  /** One line of help under the field. */
+  help?: string;
+  /**
+   * Same-origin path the editor GETs for choices instead of `options`. It must
+   * answer `{ options: [{ value, label }] }`; plugins usually point it at their
+   * own route, e.g. `/ext/<plugin-id>/blocks/options/products`.
+   */
+  optionsUrl?: string;
+  /** Pick several choices. The prop is saved as a string array. */
+  multiple?: boolean;
+  /** Only show the field while another prop equals one of these values. */
+  showWhen?: { field: string; equals: string | string[] };
+}
+
 export interface PluginBlockDefinition {
   type: string;
   version: number;
@@ -656,10 +869,7 @@ export interface PluginBlockDefinition {
   description?: string;
   icon?: string;
   category?: string;
-  schema: Record<
-    string,
-    { type: string; required?: boolean; default?: unknown; options?: string[] }
-  >;
+  schema: Record<string, PluginBlockField>;
   supportsChildren?: boolean;
   allowedChildTypes?: string[];
   render(props: Record<string, unknown>, children?: string): string;
@@ -706,6 +916,17 @@ export type PluginContentDeleteTypeResult = {
   typeDeleted: boolean;
 };
 
+/** Records removed because one user created them. */
+export interface PluginDeleteCreatedByCounts {
+  content: number;
+  media: number;
+  comments: number;
+}
+
+export type PluginDeleteCreatedByResult =
+  | ({ ok: true } & PluginDeleteCreatedByCounts)
+  | { ok: false; error: string };
+
 /** One published content entry as returned by {@link PluginContentApi.listPublished}. */
 export interface PluginPublishedEntry {
   id: string;
@@ -713,6 +934,12 @@ export interface PluginPublishedEntry {
   title: string;
   slug: string;
   locale: string;
+  /**
+   * Shared id of every language version of this entry. The original's own id,
+   * so a plugin table keyed by the original content id joins on this.
+   * Absent on older hosts.
+   */
+  translationGroupId?: string;
   excerpt: string | null;
   fields: Record<string, unknown>;
   authorId: string | null;
@@ -729,6 +956,11 @@ export interface PluginListPublishedQuery {
   types?: string[];
   /** Restrict to one locale. Omit for every active locale. */
   locale?: string;
+  /**
+   * With `locale`: return one entry per translation group, the `locale`
+   * version when it exists and the default-locale original otherwise.
+   */
+  fallback?: boolean;
   authorId?: string;
   /** `users.username`; resolved to an id by the host. */
   authorUsername?: string;
@@ -773,6 +1005,15 @@ export interface PluginContentApi {
    * Built-in slugs `post` and `page` cannot be deleted.
    */
   deleteType(slug: string): Promise<PluginContentDeleteTypeResult>;
+
+  /**
+   * Permanently delete records this user created: content they authored (any
+   * status, including trash), media they uploaded, and comments they wrote.
+   * Also drops their unpublished working revisions on other people's entries.
+   * Does not delete the user, and refuses when that user is an administrator.
+   * Requires `content:delete`.
+   */
+  deleteCreatedBy(userId: string): Promise<PluginDeleteCreatedByResult>;
 }
 
 export type PluginDatabaseDriver = "postgres" | "mysql" | "mariadb";
@@ -930,6 +1171,8 @@ export interface PluginContext {
   readonly runtime: JustflowsRuntimeVersions;
   readonly permissions: ReadonlySet<PluginPermission>;
   readonly capabilities: PluginCapabilitiesApi;
+  readonly roles: PluginRolesApi;
+  readonly users: PluginUsersApi;
   readonly diagnostics: PluginDiagnosticsApi;
 
   /**
@@ -1035,6 +1278,13 @@ export interface PluginContext {
 
   /** Register sanitized block patterns for the editor. Removed on deactivate. */
   patterns: PluginPatternsApi;
+
+  /**
+   * Placeholder images for empty image slots. Use `placeholder()` instead of
+   * shipping a private fallback so the site owner's choice applies everywhere.
+   * No permission required.
+   */
+  media: import("./placeholders.js").PluginMediaApi;
 
   /**
    * Create content types and pages the plugin needs. Requires `content:create`.

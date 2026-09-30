@@ -27,6 +27,7 @@ interface RegistryTheme {
     listed?: boolean;
     free?: boolean;
     comingSoon?: boolean;
+    beta?: boolean;
     price?: { amount?: number; currency?: string };
   };
   pricing?: { type?: "free" | "paid"; amount?: number; currency?: string };
@@ -43,6 +44,7 @@ export default function ThemesPage() {
   const [catalogLoading, setCatalogLoading] = useState(canManage);
   const [catalogError, setCatalogError] = useState("");
   const [installingTheme, setInstallingTheme] = useState<string | null>(null);
+  const [allowBeta, setAllowBeta] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
@@ -78,6 +80,10 @@ export default function ThemesPage() {
       })
       .catch((err: unknown) => setCatalogError(err instanceof Error ? err.message : String(err)))
       .finally(() => setCatalogLoading(false));
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data: { marketplace_allow_beta?: boolean }) => setAllowBeta(data.marketplace_allow_beta === true))
+      .catch(() => {});
   }, [canManage]);
 
   async function handleFile(file: File) {
@@ -113,6 +119,9 @@ export default function ThemesPage() {
   }
 
   async function installTheme(theme: RegistryTheme) {
+    if (theme.registry?.beta === true && !window.confirm(t("marketplace.betaInstallConfirm", { name: theme.name }))) {
+      return;
+    }
     setInstallingTheme(theme.id);
     setCatalogError("");
     try {
@@ -297,6 +306,8 @@ export default function ThemesPage() {
                   (installed) => (installed.theme_id ?? installed.themeId ?? installed.id) === theme.id,
                 );
                 const isComingSoon = theme.registry?.comingSoon === true;
+                const isBeta = theme.registry?.beta === true;
+                const betaBlocked = isBeta && !allowBeta;
                 const isPaid = typeof theme.registry?.free === "boolean"
                   ? !theme.registry.free
                   : theme.pricing?.type === "paid";
@@ -306,20 +317,23 @@ export default function ThemesPage() {
                     <div className="jf-card__body jf-stack jf-stack--sm">
                       <div className="jf-row">
                         <strong>{theme.name}</strong>
+                        {isBeta && <span className="jf-badge jf-badge--warn">{t("marketplace.beta")}</span>}
                         {isPaid && <span className="jf-badge" style={{ marginInlineStart: "auto" }}>{t("themes.paidBadge")}</span>}
                       </div>
                       {theme.description && <p className="jf-list__desc">{theme.description}</p>}
                       <p className="jf-meta">{t("themes.versionByPublisher", { version: theme.version, publisher: theme.publisher ?? t("themes.unknownPublisher") })}</p>
                       <button
                         className="jf-btn jf-btn--primary jf-btn--block"
-                        disabled={isInstalled || isComingSoon || installingTheme === theme.id}
+                        disabled={isInstalled || isComingSoon || betaBlocked || installingTheme === theme.id}
                         onClick={() => void installTheme(theme)}
                       >
                         {isInstalled
                           ? t("themes.installed")
                           : isComingSoon
                             ? t("themes.comingSoon")
-                            : installingTheme === theme.id
+                            : betaBlocked
+                              ? t("marketplace.betaDisabledButton")
+                              : installingTheme === theme.id
                               ? t("design.uploading")
                               : isPaid
                                 ? t("themes.viewPurchaseOptions")

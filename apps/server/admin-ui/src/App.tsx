@@ -26,6 +26,7 @@ import EditUserPage from "./pages/admin/users/EditUserPage";
 import RedirectsPage from "./pages/admin/settings/RedirectsPage";
 import PermalinksPage from "./pages/admin/settings/PermalinksPage";
 import PwaSettingsPage from "./pages/admin/settings/PwaSettingsPage";
+import PlaceholdersPage from "./pages/admin/settings/PlaceholdersPage";
 import SettingsPage from "./pages/admin/settings/SettingsPage";
 import EmailsPage from "./pages/admin/settings/EmailsPage";
 import CommentsPage from "./pages/admin/comments/CommentsPage";
@@ -47,7 +48,8 @@ import { PluginMenuProvider } from "@components/PluginMenuProvider";
 import { SessionProvider, useSessionRole } from "@components/SessionProvider";
 import PluginRoute from "@components/PluginRoute";
 import PluginHostPage from "./pages/admin/extensions/PluginHostPage";
-import { SiteFavicon } from "@components/SiteIdentity";
+import { SiteHead } from "@components/SiteIdentity";
+import { DocumentMeta } from "@components/DocumentMeta";
 import { canAccessPath } from "./config/admin-nav";
 import AdminPathPage from "./pages/admin/security/AdminPathPage";
 import { adminBasePath, currentPathname, isPreAuthPath, publicAdminPath } from "./admin-path";
@@ -73,7 +75,7 @@ export default function App() {
     <I18nProvider>
       <SessionProvider>
         <PluginMenuProvider>
-          {!isPreAuth && <SiteFavicon />}
+          {isPreAuth ? <DocumentMeta /> : <SiteHead />}
           <Routes>
             <Route path="/install" element={<InstallPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -128,6 +130,7 @@ export default function App() {
               <Route path="settings" element={<SettingsPage />} />
               <Route path="settings/permalinks" element={<PermalinksPage />} />
               <Route path="settings/pwa" element={<PwaSettingsPage />} />
+              <Route path="settings/placeholders" element={<PlaceholdersPage />} />
               <Route path="redirects" element={<RedirectsPage />} />
               <Route path="emails" element={<EmailsPage />} />
               <Route path="comments" element={<CommentsPage />} />
