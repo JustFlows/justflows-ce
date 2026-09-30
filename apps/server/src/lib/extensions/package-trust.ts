@@ -171,8 +171,9 @@ export function assertPackageIsTrusted(
  * release, then drop the old one.
  */
 export const CORE_RELEASE_PUBLIC_KEYS: readonly string[] = [
-  // TODO(release-key): paste the public key printed by
-  // `node scripts/sign-core-release.mjs --generate-key` before this ships.
+  `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAuVVJOPaJYnkAKdgzbowWBSlvFhBnFzL+W/zgq+jH9+c=
+-----END PUBLIC KEY-----`,
 ];
 
 /** Bytes a core release signature covers. Binds the version so an older signed
