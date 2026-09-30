@@ -3389,6 +3389,7 @@
     "upload": {
       "backgroundHint": "Aktualizacja działa w tle — możesz bezpiecznie opuścić tę stronę",
       "chooseFile": "Wybierz justflows.zip…",
+      "signatureHint": "Wybierz justflows.zip razem z justflows.zip.sig z tego samego wydania. Justflows instaluje tylko aktualizację, którą może zweryfikować.",
       "description1": "Prześlij plik",
       "description2": "plik. Justflows rozpakowuje go, aktualizuje bazę danych, instaluje zależności i samodzielnie uruchamia ponownie witrynę (Plesk/Passenger). Twój",
       "description3": "i przesłane pliki zostaną zachowane.",

@@ -162,6 +162,7 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/SECURITY.md" \
     -x "$NAME/scripts/make-zip.sh" \
     -x "$NAME/scripts/generate-sbom.mjs" \
+    -x "$NAME/scripts/sign-core-release.mjs" \
     -x "$NAME/scripts/check-sdk-api.mjs" \
     -x "$NAME/scripts/scan-secrets.mjs" \
     -x "$NAME/scripts/restore-hosting.js"
@@ -256,6 +257,7 @@ else
     -x "SECURITY.md" \
     -x "scripts/make-zip.sh" \
     -x "scripts/generate-sbom.mjs" \
+    -x "scripts/sign-core-release.mjs" \
     -x "scripts/check-sdk-api.mjs" \
     -x "scripts/scan-secrets.mjs" \
     -x "scripts/restore-hosting.js"
@@ -286,6 +288,14 @@ OUT_NAME="$(basename "$OUT")"
     sha256sum "$OUT_NAME" > "$OUT_NAME.sha256"
   fi
 )
+# Sites refuse a core update without a valid release signature, so a public
+# release needs justflows.zip.sig next to the zip. See SECURITY.md.
+if [ -n "${JUSTFLOWS_CORE_RELEASE_KEY_FILE:-}" ] || [ -n "${JUSTFLOWS_CORE_RELEASE_KEY:-}" ]; then
+  echo "==> Signing release…"
+  node "$ROOT/scripts/sign-core-release.mjs" "$OUT_DIR/$OUT_NAME"
+else
+  echo "==> Not signing: set JUSTFLOWS_CORE_RELEASE_KEY_FILE to sign a public release."
+fi
 # The SBOM is inside the zip; publish it beside the release too, so an operator
 # can answer "does this contain the package in today's advisory?" without
 # downloading and unpacking the archive first.

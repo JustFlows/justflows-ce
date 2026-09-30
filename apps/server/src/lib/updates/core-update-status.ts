@@ -65,11 +65,17 @@ export interface UpdateJob {
   zipPath: string | null;
   /** Optional HMAC signature supplied with an operator upload. */
   signature: string | null;
+  /**
+   * Official release signature (`justflows.zip.sig`) supplied with an upload.
+   * Optional so a job written by an older build still parses.
+   */
+  releaseSignature?: string | null;
   /** Remote download descriptor (remote path). */
   release: {
     availableVersion: string;
     downloadUrl: string;
     sha256Url: string | null;
+    signatureUrl?: string | null;
   } | null;
   /**
    * When set, the worker skips extraction and treats this directory as the

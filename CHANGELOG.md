@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.2.7-dev.1] [UNRELEASED]
+## [0.2.7]
 
 ### Added
 
@@ -40,6 +40,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **Shop publishes health checks.** Diagnostics shows whether Shop setup is complete and whether each enabled payment gateway has its credentials for the current mode.
 
 ### Changed
+
+- **Core updates are verified by default.** Every release now ships `justflows.zip.sig`, an Ed25519 signature over the archive and its version, next to `justflows.zip`. Update, force reinstall, automatic updates, and uploads all refuse an archive without a valid signature. To upload a release by hand, select `justflows.zip` and `justflows.zip.sig` together. A pinned `JUSTFLOWS_UPDATE_DIGEST` or an HMAC made with `JUSTFLOWS_UPDATE_SIGNING_KEY` still lets an operator apply their own build. `JUSTFLOWS_ALLOW_UNSIGNED_CORE_UPDATES=1` turns the check off. An operator's `JUSTFLOWS_UPDATE_SIGNING_KEY` no longer blocks the Update button, because official releases carry their own signature.
 
 - **Shop sandbox mode uses the PostNL shipping sandbox.** With Sandbox / test mode on, Test connection still asks PostNL for delivery options, and it also creates a confirmed shipment on the PostNL shipping sandbox and reads that shipment's status. Live mode does not create a shipment.
 

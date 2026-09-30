@@ -3389,6 +3389,7 @@
     "upload": {
       "backgroundHint": "The update runs in the background — you can safely leave this page",
       "chooseFile": "Choose justflows.zip…",
+      "signatureHint": "Select justflows.zip together with justflows.zip.sig from the same release. Justflows only applies an update it can verify.",
       "description1": "Upload a",
       "description2": "file. Justflows extracts it, updates the database, installs dependencies, and restarts the site by itself (Plesk/Passenger). Your",
       "description3": "and uploads are preserved.",

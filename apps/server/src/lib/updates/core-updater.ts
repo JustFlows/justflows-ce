@@ -6,7 +6,7 @@ import path from "node:path";
 import { getJfRoot } from "../runtime/jf-root.js";
 import { resolveNpmBin } from "../runtime/node-bin.js";
 import { requestPassengerRestart } from "../runtime/app-restart.js";
-import { verifyUpdateArchiveSignature } from "../extensions/package-trust.js";
+import { assertCoreUpdateIsTrusted } from "../extensions/package-trust.js";
 import { extractZipSafely, resolvePathUnderRoot } from "../security/safe-zip.js";
 import {
   acquireLock,
@@ -344,7 +344,12 @@ const STEP_PHASE: Record<string, UpdatePhase> = {
 };
 
 interface ApplyOptions {
+  /** Operator HMAC made with JUSTFLOWS_UPDATE_SIGNING_KEY. */
   signature?: string;
+  /** Official Justflows release signature (`justflows.zip.sig`, base64 Ed25519). */
+  releaseSignature?: string;
+  /** Remote path: the version the gateway said it was serving. */
+  expectedVersion?: string;
   /** Caller already holds the update lock and initialised status (worker path). */
   assumeLocked?: boolean;
   /** Archive is already unpacked here — skip staging + extraction. */
@@ -446,28 +451,6 @@ export async function applyCoreUpdate(
       detail: `${(uploadBuffer.byteLength / 1024 / 1024).toFixed(1)} MB (sha256: ${digest.slice(0, 12)}…)`,
     });
 
-    const expectedDigest = process.env.JUSTFLOWS_UPDATE_DIGEST?.trim().toLowerCase();
-    if (expectedDigest && digest !== expectedDigest) {
-      record({
-        step: "validate",
-        ok: false,
-        detail: "Update digest does not match JUSTFLOWS_UPDATE_DIGEST",
-      });
-      return finish({
-        ok: false,
-        steps,
-        currentVersion,
-        newVersion: currentVersion,
-        restartRequired: false,
-        restarting: false,
-      });
-    }
-
-    verifyUpdateArchiveSignature(uploadBuffer, options?.signature);
-    if (process.env.JUSTFLOWS_UPDATE_SIGNING_KEY) {
-      record({ step: "signature", ok: true, detail: "Update signature verified" });
-    }
-
     if (!options?.preExtractedDir) {
       extractZipSafely(zipPath, extractDir);
     }
@@ -489,6 +472,50 @@ export async function applyCoreUpdate(
     const newVersion = validated.version;
     patchUpdateStatus({ targetVersion: newVersion });
     record({ step: "validate", ok: true, detail: `Package verified (v${newVersion})` });
+
+    if (options?.expectedVersion && options.expectedVersion !== newVersion) {
+      record({
+        step: "signature",
+        ok: false,
+        detail: `Downloaded archive is v${newVersion}, expected v${options.expectedVersion}`,
+      });
+      return finish({
+        ok: false,
+        steps,
+        currentVersion,
+        newVersion: currentVersion,
+        restartRequired: false,
+        restarting: false,
+      });
+    }
+
+    // Verified after extraction because the release signature binds the
+    // archive's own version. Nothing has been written outside staging yet.
+    let trust: string;
+    try {
+      trust = assertCoreUpdateIsTrusted({
+        buffer: uploadBuffer,
+        digest,
+        version: newVersion,
+        releaseSignature: options?.releaseSignature,
+        signature: options?.signature,
+      });
+    } catch (err) {
+      record({
+        step: "signature",
+        ok: false,
+        detail: err instanceof Error ? err.message : String(err),
+      });
+      return finish({
+        ok: false,
+        steps,
+        currentVersion,
+        newVersion: currentVersion,
+        restartRequired: false,
+        restarting: false,
+      });
+    }
+    record({ step: "signature", ok: true, detail: trust });
 
     const copied = await copyUpdateFiles(sourceRoot, root);
     const pruned = await pruneStaleFiles(sourceRoot, root);
@@ -663,12 +690,23 @@ function assertHttpsUrl(value: string, label: string): string {
   return parsed.toString();
 }
 
-/** Download a published release through the gateway and verify its checksum. */
-async function downloadRelease(release: {
+/** A published release as the gateway describes it. */
+export interface CoreReleaseDownload {
   availableVersion: string;
   downloadUrl: string;
   sha256Url: string | null;
-}): Promise<Buffer> {
+  /** `justflows.zip.sig`. Optional so a job written by an older build still parses. */
+  signatureUrl?: string | null;
+}
+
+/**
+ * Download a published release through the gateway, verify its checksum, and
+ * fetch its release signature. The signature itself is checked in
+ * {@link applyCoreUpdate}, against the version inside the archive.
+ */
+async function downloadRelease(
+  release: CoreReleaseDownload,
+): Promise<{ buffer: Buffer; releaseSignature: string | undefined }> {
   const res = await fetch(assertHttpsUrl(release.downloadUrl, "downloadUrl"), {
     headers: { accept: "application/zip" },
     signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
@@ -691,7 +729,17 @@ async function downloadRelease(release: {
       );
     }
   }
-  return buffer;
+
+  let releaseSignature: string | undefined;
+  if (release.signatureUrl) {
+    const sigRes = await fetch(assertHttpsUrl(release.signatureUrl, "signatureUrl"), {
+      headers: { accept: "text/plain" },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!sigRes.ok) throw new Error(`Could not fetch release signature (${sigRes.status})`);
+    releaseSignature = (await readBounded(sigRes, 4096)).toString("utf8").trim();
+  }
+  return { buffer, releaseSignature };
 }
 
 /**
@@ -700,13 +748,13 @@ async function downloadRelease(release: {
  * admin "Update" button goes through {@link startCoreUpdate} instead).
  */
 export async function applyCoreUpdateFromRelease(
-  release: { availableVersion: string; downloadUrl: string; sha256Url: string | null },
+  release: CoreReleaseDownload,
   options?: { siteId?: string | null; source?: "auto" | "remote" },
 ): Promise<UpdateResult> {
   const currentVersion = readVersion(getJfRoot());
-  let buffer: Buffer;
+  let downloaded: Awaited<ReturnType<typeof downloadRelease>>;
   try {
-    buffer = await downloadRelease(release);
+    downloaded = await downloadRelease(release);
   } catch (err) {
     return {
       ok: false,
@@ -720,7 +768,9 @@ export async function applyCoreUpdateFromRelease(
     };
   }
 
-  return applyCoreUpdate(buffer, "justflows.zip", {
+  return applyCoreUpdate(downloaded.buffer, "justflows.zip", {
+    releaseSignature: downloaded.releaseSignature,
+    expectedVersion: release.availableVersion,
     siteId: options?.siteId ?? null,
     source: options?.source ?? "auto",
   });
@@ -749,7 +799,8 @@ export async function startCoreUpdate(opts: {
   filename?: string;
   buffer?: Buffer;
   signature?: string;
-  release?: { availableVersion: string; downloadUrl: string; sha256Url: string | null };
+  releaseSignature?: string;
+  release?: CoreReleaseDownload;
 }): Promise<{ mode: "background" | "foreground"; status: UpdateStatus; result?: UpdateResult }> {
   if (readUpdateStatus().running) throw new UpdateInProgressError();
 
@@ -816,6 +867,7 @@ export async function startCoreUpdate(opts: {
       targetVersion: opts.release?.availableVersion ?? null,
       zipPath,
       signature: opts.signature ?? null,
+      releaseSignature: opts.releaseSignature ?? null,
       release: opts.release ?? null,
       preExtractedDir,
     };
@@ -865,11 +917,14 @@ export async function executeUpdateJob(job: UpdateJob): Promise<UpdateResult> {
 
   try {
     let buffer: Buffer;
+    let releaseSignature = job.releaseSignature ?? undefined;
     if (job.source === "remote" && job.release) {
       patchUpdateStatus({ phase: "downloading" });
       appendUpdateLog(`↻ Downloading Justflows v${job.release.availableVersion}…`);
-      buffer = await downloadRelease(job.release);
-      appendUpdateLog("✓ download: archive verified");
+      const downloaded = await downloadRelease(job.release);
+      buffer = downloaded.buffer;
+      releaseSignature = downloaded.releaseSignature;
+      appendUpdateLog("✓ download: checksum verified");
     } else if (job.zipPath) {
       buffer = await fsp.readFile(job.zipPath);
     } else {
@@ -878,6 +933,8 @@ export async function executeUpdateJob(job: UpdateJob): Promise<UpdateResult> {
 
     return await applyCoreUpdate(buffer, "justflows.zip", {
       signature: job.signature ?? undefined,
+      releaseSignature,
+      expectedVersion: job.source === "remote" ? job.release?.availableVersion : undefined,
       assumeLocked: true,
       preExtractedDir: job.preExtractedDir ?? undefined,
       siteId: job.siteId,

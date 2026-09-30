@@ -29,8 +29,15 @@ it carries a valid marketplace signature or its SHA-256 digest is pinned in
 `JUSTFLOWS_TRUSTED_PACKAGE_DIGESTS`. Setting `JUSTFLOWS_ALLOW_UNSIGNED_PACKAGES=1`
 opts out and restores the pre-0.1.2 behaviour; do not set it on a public host.
 
-Core update archives are the remaining unverified path — set
-`JUSTFLOWS_UPDATE_SIGNING_KEY` or `JUSTFLOWS_UPDATE_DIGEST` to close it.
+Core update archives are verified by default too. Every official release ships
+`justflows.zip.sig`, an Ed25519 signature over the archive's SHA-256 digest and
+its version, made with a Justflows core release key whose public half is pinned
+in the core. It is a separate key from the marketplace one. The Update button,
+automatic updates, and uploads all refuse an archive without a valid signature.
+To apply your own build, pin its digest in `JUSTFLOWS_UPDATE_DIGEST` or sign it
+with `JUSTFLOWS_UPDATE_SIGNING_KEY` (HMAC-SHA256).
+`JUSTFLOWS_ALLOW_UNSIGNED_CORE_UPDATES=1` turns the check off; do not set it on
+a public host.
 
 ## Production hardening
 
@@ -40,14 +47,7 @@ Required:
 - Do not commit `.env` files, credentials, or private keys.
 - Do not expose database ports to the public internet.
 
-Strongly recommended before exposing admin on the public internet:
-
-```
-JUSTFLOWS_UPDATE_DIGEST=...
-JUSTFLOWS_UPDATE_SIGNING_KEY=...
-```
-
-Package signature enforcement needs no configuration — it is the default. Pin your
+Package and core update signature enforcement needs no configuration — it is the default. Pin your
 own builds with `JUSTFLOWS_TRUSTED_PACKAGE_DIGESTS=<package-id>:<sha256>` rather
 than turning enforcement off.
 

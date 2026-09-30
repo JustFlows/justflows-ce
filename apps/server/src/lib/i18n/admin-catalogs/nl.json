@@ -3207,6 +3207,7 @@
       "title": "Justflows-update uploaden",
       "uploading": "Uploaden…",
       "chooseFile": "Kies justflows.zip…",
+      "signatureHint": "Selecteer justflows.zip samen met justflows.zip.sig uit dezelfde release. Justflows past alleen een update toe die het kan verifiëren.",
       "backgroundHint": "De update draait op de achtergrond — je kunt deze pagina gerust verlaten",
       "description1": "Upload een",
       "description2": "bestand. Justflows pakt het uit, werkt de database bij, installeert afhankelijkheden en herstart de site zelf (Plesk/Passenger). Je",
