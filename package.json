@@ -41,22 +41,22 @@
   },
   "dependencies": {
     "@justflows/blocks": "file:./packages/blocks",
+    "@justflows/cache": "file:./packages/cache",
+    "@justflows/content": "file:./packages/content",
     "@justflows/core": "file:./packages/core",
     "@justflows/installer": "file:./packages/installer",
     "@justflows/plugin-api": "file:./packages/plugin-api",
     "@justflows/sdk": "file:./packages/sdk",
+    "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "ejs": "^6.0.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
     "multer": "^2.3.0",
     "mysql2": "^3.24.1",
     "nodemailer": "^10.0.12",
     "postgres": "^3.4.9",
-    "zod": "^4.4.3",
-    "@justflows/cache": "file:./packages/cache",
-    "@justflows/content": "file:./packages/content",
-    "compression": "^1.8.1",
-    "express-rate-limit": "^8.6.2"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.67.0",
@@ -65,7 +65,7 @@
     "esbuild": "0.28.2",
     "eslint": "^10.9.0",
     "prettier": "^3.9.6",
-    "turbo": "^2.10.11",
+    "turbo": "^2.11.5",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.11"
   },
