@@ -2111,7 +2111,13 @@
     "installing": "Instaluję…",
     "getOnJustflows": "Wsiadaj na Justflows",
     "install": "Zainstaluj",
-    "versionBy": "v{version} · autorstwa {publisher}"
+    "versionBy": "v{version} · autorstwa {publisher}",
+    "beta": "Beta",
+    "betaWarning": "Wersja beta: może być niestabilna lub zmienić się przed wydaniem. Najpierw przetestuj ją na stronie testowej.",
+    "betaDisabledHint": "Instalacje wersji beta są wyłączone dla tej strony.",
+    "betaSettingsLink": "Zmień w Ustawieniach",
+    "betaDisabledButton": "Beta — niewłączona",
+    "betaInstallConfirm": "{name} to wersja beta. Może być niestabilna, utracić dane lub zmienić się przed wydaniem stabilnym. Zainstalować mimo to?"
   },
   "pluginSettings": {
     "loadFailed": "Nie udało się wczytać ustawień wtyczki.",
@@ -2991,6 +2997,11 @@
       "title": "Czytanie",
       "postsPerPageLabel": "Strony bloga pokazują co najwyżej",
       "postsUnit": "posty"
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "allowBetaLabel": "Zezwalaj na instalowanie wtyczek i motywów beta z Marketplace",
+      "allowBetaHint": "Pozycje beta to wersje przedpremierowe. Mogą być niestabilne lub zmienić się przed wydaniem. Każda instalacja nadal wymaga potwierdzenia."
     },
     "trash": {
       "title": "Zatrzymywanie śmieci",

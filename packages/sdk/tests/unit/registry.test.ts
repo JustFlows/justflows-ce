@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   RegistryListingSchema,
+  isRegistryListingBeta,
   isRegistryListingComingSoon,
   isRegistryListingPaid,
   isRegistryListingVisible,
@@ -83,6 +84,14 @@ describe("registry listing visibility", () => {
     expect(isRegistryListingComingSoon({ comingSoon: true })).toBe(true);
     expect(isRegistryListingComingSoon({ registry: { comingSoon: false } })).toBe(false);
     expect(isRegistryListingComingSoon({})).toBe(false);
+  });
+
+  it("treats beta as an opt-in pre-release listing", () => {
+    expect(isRegistryListingBeta({ registry: { beta: true, listed: true } })).toBe(true);
+    expect(isRegistryListingBeta({ beta: true })).toBe(true);
+    expect(isRegistryListingBeta({ beta: true, registry: { beta: false } })).toBe(false);
+    expect(isRegistryListingBeta({ registry: { listed: true } })).toBe(false);
+    expect(isRegistryListingBeta({})).toBe(false);
   });
 
   it("prefers explicit registry availability over legacy catalogue fields", () => {

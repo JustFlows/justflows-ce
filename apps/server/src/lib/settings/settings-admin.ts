@@ -63,6 +63,7 @@ export const SettingsSchema = z.object({
   mail_rate_limit: z.coerce.number().int().min(1).max(10000).optional(),
   mail_concurrency: z.coerce.number().int().min(1).max(100).optional(),
   favicon_url: z.string().max(2048).optional(),
+  marketplace_allow_beta: z.boolean().optional(),
 });
 export type SettingsInput = z.infer<typeof SettingsSchema>;
 
@@ -192,6 +193,7 @@ export async function getSettingsPayload(opts: { isAdmin: boolean }): Promise<Re
     mail_concurrency: mail.concurrency,
     mail_transports: mail.transports,
     favicon_url: await resolveFaviconUrl(),
+    marketplace_allow_beta: extras["marketplace_allow_beta"] === true,
     home_page_id: siteId ? await getHomePageId(siteId) : null,
     blog_page_id: siteId ? await getBlogPageId(siteId) : null,
   };
@@ -278,6 +280,8 @@ export async function applySettingsChange(
   if (body.start_of_week !== undefined) settingsToUpdate.push(["start_of_week", body.start_of_week]);
   if (body.favicon_url !== undefined)
     settingsToUpdate.push(["favicon_url", sanitizeFaviconUrl(body.favicon_url)]);
+  if (body.marketplace_allow_beta !== undefined)
+    settingsToUpdate.push(["marketplace_allow_beta", body.marketplace_allow_beta]);
 
   const mailPatch = {
     ...(body.mail_transport !== undefined

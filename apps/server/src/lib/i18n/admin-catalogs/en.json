@@ -2111,7 +2111,13 @@
     "installing": "Installing…",
     "getOnJustflows": "Get on Justflows",
     "install": "Install",
-    "versionBy": "v{version} · by {publisher}"
+    "versionBy": "v{version} · by {publisher}",
+    "beta": "Beta",
+    "betaWarning": "Beta build: it may be unstable or change before release. Test on a staging site first.",
+    "betaDisabledHint": "Beta installs are turned off for this site.",
+    "betaSettingsLink": "Change in Settings",
+    "betaDisabledButton": "Beta — not enabled",
+    "betaInstallConfirm": "{name} is a beta. It may be unstable, lose data, or change before its stable release. Install it anyway?"
   },
   "pluginSettings": {
     "loadFailed": "Plugin settings could not be loaded.",
@@ -2991,6 +2997,11 @@
       "title": "Reading",
       "postsPerPageLabel": "Blog pages show at most",
       "postsUnit": "posts"
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "allowBetaLabel": "Allow installing beta plugins and themes from the Marketplace",
+      "allowBetaHint": "Beta listings are pre-release builds. They may be unstable or change before release. Each install still asks for confirmation."
     },
     "trash": {
       "title": "Trash retention",

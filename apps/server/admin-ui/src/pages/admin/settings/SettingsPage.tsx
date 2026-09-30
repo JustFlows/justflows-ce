@@ -89,6 +89,7 @@ type GeneralState = {
   mailRateLimit: string;
   mailConcurrency: string;
   faviconUrl: string;
+  allowBetaInstalls: boolean;
 };
 
 const EMPTY: GeneralState = {
@@ -121,6 +122,7 @@ const EMPTY: GeneralState = {
   mailRateLimit: "60",
   mailConcurrency: "5",
   faviconUrl: "",
+  allowBetaInstalls: false,
 };
 
 type SettingsPayload = Record<string, unknown> & {
@@ -165,6 +167,7 @@ function generalFromPayload(data: SettingsPayload, fallbackName: string): Genera
     mailRateLimit: String(data.mail_rate_limit ?? 60),
     mailConcurrency: String(data.mail_concurrency ?? 5),
     faviconUrl: typeof data.favicon_url === "string" ? data.favicon_url : "",
+    allowBetaInstalls: data.marketplace_allow_beta === true,
   };
 }
 
@@ -349,6 +352,7 @@ export default function SettingsPage() {
           mail_rate_limit: Number(general.mailRateLimit),
           mail_concurrency: Number(general.mailConcurrency),
           favicon_url: general.faviconUrl,
+          marketplace_allow_beta: general.allowBetaInstalls,
         }),
       });
       if (!res.ok) {
@@ -955,6 +959,18 @@ export default function SettingsPage() {
             />
             <p className="jf-field__hint">{t("settings.reading.postsUnit")}</p>
           </div>
+        </Section>
+
+        <Section title={t("settings.marketplace.title")}>
+          <label className="jf-checkrow">
+            <input
+              type="checkbox"
+              checked={general.allowBetaInstalls}
+              onChange={(e) => patch({ allowBetaInstalls: e.target.checked })}
+            />
+            <span>{t("settings.marketplace.allowBetaLabel")}</span>
+          </label>
+          <p className="jf-field__hint">{t("settings.marketplace.allowBetaHint")}</p>
         </Section>
 
         <Section title={t("settings.trash.title")}>

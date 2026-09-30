@@ -703,7 +703,8 @@ listing without mixing it into site settings:
     "commercialMarketplace": false,
     "listed": true,
     "free": true,
-    "comingSoon": false
+    "comingSoon": false,
+    "beta": false
   }
 }
 ```
@@ -711,6 +712,7 @@ listing without mixing it into site settings:
 - `commercialMarketplace` — internal: this plugin is live on the commercial Justflows marketplace.
 - `listed` — publisher visibility. Internal approval does not show the plugin in Admin → Marketplace unless this is also true.
 - `comingSoon` — the listing is visible so administrators know it is coming, but Install is disabled and `POST /api/marketplace/install` returns 403.
+- `beta` — a pre-release build. The listing shows a Beta badge. Install stays disabled, and `POST /api/marketplace/install` returns 403 (`code: "beta_disabled"`), until an administrator turns on **Settings → Marketplace → Allow installing beta plugins and themes**. With that on, each install asks for confirmation with a warning first.
 - `free` — set `false` and add `price`: `{ "amount": 49, "currency": "EUR", "interval": "year" }` for a paid listing.
 
-Paid, coming-soon, or unlisted catalogue rows cannot be installed from the in-app Marketplace; paid listings send the administrator to justflows.com.
+Paid, coming-soon, or unlisted catalogue rows cannot be installed from the in-app Marketplace, and neither can beta rows unless the site allows them; paid listings send the administrator to justflows.com.

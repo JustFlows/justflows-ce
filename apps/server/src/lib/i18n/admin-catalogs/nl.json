@@ -1887,7 +1887,13 @@
       "analytics": "Statistieken",
       "media": "Media",
       "ecommerce": "E-commerce"
-    }
+    },
+    "beta": "Bèta",
+    "betaWarning": "Bètaversie: kan instabiel zijn of nog veranderen vóór de release. Test eerst op een testsite.",
+    "betaDisabledHint": "Bèta-installaties staan uit voor deze site.",
+    "betaSettingsLink": "Wijzigen in Instellingen",
+    "betaDisabledButton": "Bèta — niet ingeschakeld",
+    "betaInstallConfirm": "{name} is een bètaversie. Deze kan instabiel zijn, gegevens verliezen of nog veranderen vóór de stabiele release. Toch installeren?"
   },
   "pluginSettings": {
     "loadFailed": "Plugininstellingen konden niet worden geladen.",
@@ -2628,6 +2634,11 @@
       "title": "Lezen",
       "postsPerPageLabel": "Blogpagina's tonen maximaal",
       "postsUnit": "berichten"
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "allowBetaLabel": "Installeren van bèta-plugins en -thema's uit de Marketplace toestaan",
+      "allowBetaHint": "Bèta-vermeldingen zijn pre-releaseversies. Ze kunnen instabiel zijn of nog veranderen vóór de release. Elke installatie vraagt nog om bevestiging."
     },
     "trash": {
       "title": "Bewaartermijn prullenbak",

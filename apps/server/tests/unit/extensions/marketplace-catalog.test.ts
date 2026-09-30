@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import {
   filterMarketplaceCatalogBody,
+  marketplaceListingIsBeta,
   marketplaceListingIsComingSoon,
   marketplaceListingIsPaid,
 } from "../../../src/lib/extensions/marketplace-catalog.js";
@@ -46,5 +47,13 @@ describe("marketplaceListingIsComingSoon", () => {
     );
     expect(marketplaceListingIsComingSoon({ registry: { comingSoon: false } })).toBe(false);
     expect(marketplaceListingIsComingSoon({})).toBe(false);
+  });
+});
+
+describe("marketplaceListingIsBeta", () => {
+  it("uses registry.beta when present", () => {
+    expect(marketplaceListingIsBeta({ registry: { beta: true, listed: true } })).toBe(true);
+    expect(marketplaceListingIsBeta({ registry: { beta: false } })).toBe(false);
+    expect(marketplaceListingIsBeta({})).toBe(false);
   });
 });
