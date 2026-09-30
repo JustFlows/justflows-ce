@@ -285,7 +285,7 @@ function sendJson(res, status, body) {
  * 500-page text (that setting lives in a database this layer cannot reach),
  * so it always shows the bundled locale-aware default copy.
  */
-const STATIC_ERROR_LOCALES = ["en", "de", "es", "fr", "nl"];
+const STATIC_ERROR_LOCALES = ["en", "de", "es", "fr", "nl", "pl", "uk", "ru"];
 const STATIC_ERROR_DEFAULTS = {
   "500": {
     badge: "Temporary error",

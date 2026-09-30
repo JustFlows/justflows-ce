@@ -16,8 +16,9 @@ function decodeMustacheEntities(input: string): string {
   return input.replaceAll("&#123;", "{").replaceAll("&#125;", "}");
 }
 
-function filterContext(content: ContentRenderInput) {
+function filterContext(content: ContentRenderInput, locale?: string) {
   return {
+    ...(locale ? { locale } : {}),
     siteId: content.siteId,
     contentId: content.id,
     type: content.type,
@@ -31,18 +32,17 @@ function hookContext(content: ContentRenderInput) {
   return { siteId: content.siteId, source: "http" as const };
 }
 
-function looksTagged(value: string): boolean {
-  return value.includes("{{") || value.includes("&#123;");
-}
-
-/** Fill `{{tags}}` in block props before HTML render (Shop catalog, and similar). */
-export async function applyContentBlocks<T>(blocks: T, content: ContentRenderInput): Promise<T> {
-  if (!looksTagged(JSON.stringify(blocks))) return blocks;
+/** Fill `{{tags}}` in block props before HTML render. Plugins do the filling. */
+export async function applyContentBlocks<T>(
+  blocks: T,
+  content: ContentRenderInput,
+  locale?: string,
+): Promise<T> {
   await ensurePluginRuntime();
   return getRuntimeHooks().applyFilter(
     "content.blocks",
     blocks,
-    filterContext(content),
+    filterContext(content, locale),
     hookContext(content),
   );
 }

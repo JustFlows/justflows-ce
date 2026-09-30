@@ -7,7 +7,8 @@ import { revalidateOnUpdate } from "../cache/cache-revalidate.js";
 import { formatPhpDate, isValidTimeZone, listTimeZones } from "../i18n/datetime-format.js";
 import { getGeneralSettings } from "./general-settings.js";
 import { getDefaultLocale, listLanguages, setDefaultLanguageByCode } from "../i18n/languages-db.js";
-import { USER_ROLE_VALUES } from "../auth/rbac.js";
+import { isAssignableRole, listAssignableRoles } from "../auth/assignable-roles.js";
+import { STORED_ROLE_ID, USER_ROLE_VALUES } from "../auth/rbac.js";
 import { getHomePageId } from "../content/home-page.js";
 import { getBlogPageId } from "../content/blog-page.js";
 import { getMailConfig, saveMailConfig, toPublicMailSettings, type MailTransport } from "../email/mail.js";
@@ -39,9 +40,9 @@ export const SettingsSchema = z.object({
   discourage_search_engines: z.boolean().optional(),
   admin_email: z.string().email().optional(),
   users_can_register: z.boolean().optional(),
-  default_role: z.enum(USER_ROLE_VALUES).optional(),
+  default_role: z.string().regex(STORED_ROLE_ID).optional(),
   password_reset_enabled: z.boolean().optional(),
-  password_reset_roles: z.array(z.enum(USER_ROLE_VALUES)).max(USER_ROLE_VALUES.length).optional(),
+  password_reset_roles: z.array(z.string().regex(STORED_ROLE_ID)).max(32).optional(),
   site_language: z.string().min(2).max(20).optional(),
   date_format: z.string().min(1).max(50).optional(),
   time_format: z.string().min(1).max(50).optional(),
@@ -62,6 +63,7 @@ export const SettingsSchema = z.object({
   mail_rate_limit: z.coerce.number().int().min(1).max(10000).optional(),
   mail_concurrency: z.coerce.number().int().min(1).max(100).optional(),
   favicon_url: z.string().max(2048).optional(),
+  marketplace_allow_beta: z.boolean().optional(),
 });
 export type SettingsInput = z.infer<typeof SettingsSchema>;
 
@@ -163,6 +165,7 @@ export async function getSettingsPayload(opts: { isAdmin: boolean }): Promise<Re
     admin_email: general.adminEmail,
     users_can_register: general.usersCanRegister,
     default_role: general.defaultRole,
+    assignable_roles: (await listAssignableRoles()).map(({ id, label }) => ({ id, label })),
     password_reset_enabled: general.passwordResetEnabled,
     password_reset_roles: general.passwordResetRoles,
     site_language: siteLanguage,
@@ -190,6 +193,7 @@ export async function getSettingsPayload(opts: { isAdmin: boolean }): Promise<Re
     mail_concurrency: mail.concurrency,
     mail_transports: mail.transports,
     favicon_url: await resolveFaviconUrl(),
+    marketplace_allow_beta: extras["marketplace_allow_beta"] === true,
     home_page_id: siteId ? await getHomePageId(siteId) : null,
     blog_page_id: siteId ? await getBlogPageId(siteId) : null,
   };
@@ -204,6 +208,18 @@ export async function applySettingsChange(
   body: SettingsInput,
   actor: SettingsActor,
 ): Promise<SettingsResult> {
+  if (body.default_role !== undefined && !(await isAssignableRole(body.default_role))) {
+    return { status: 400, body: { error: "Unknown role" } };
+  }
+  if (
+    body.password_reset_roles !== undefined &&
+    (await Promise.all(body.password_reset_roles.map((role) => isAssignableRole(role)))).some(
+      (ok) => !ok,
+    )
+  ) {
+    return { status: 400, body: { error: "Unknown role" } };
+  }
+
   const db = await getDb();
 
   const siteUpdates: string[] = [];
@@ -264,6 +280,8 @@ export async function applySettingsChange(
   if (body.start_of_week !== undefined) settingsToUpdate.push(["start_of_week", body.start_of_week]);
   if (body.favicon_url !== undefined)
     settingsToUpdate.push(["favicon_url", sanitizeFaviconUrl(body.favicon_url)]);
+  if (body.marketplace_allow_beta !== undefined)
+    settingsToUpdate.push(["marketplace_allow_beta", body.marketplace_allow_beta]);
 
   const mailPatch = {
     ...(body.mail_transport !== undefined

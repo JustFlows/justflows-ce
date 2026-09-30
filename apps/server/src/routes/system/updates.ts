@@ -1,4 +1,4 @@
-import { Router, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import { startCoreUpdate, UpdateInProgressError } from "../../lib/updates/core-updater.js";
 import { readUpdateStatus } from "../../lib/updates/core-update-status.js";
 import { runAllMigrations } from "../../lib/database/run-migrations.js";
@@ -95,8 +95,32 @@ function handleStartError(res: Response, err: unknown): void {
   res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
 }
 
-router.post("/upload", requireRole("administrator"), upload.single("file"), async (req, res) => {
-  const file = req.file;
+const uploadFields = upload.fields([
+  { name: "file", maxCount: 1 },
+  { name: "releaseSignature", maxCount: 1 },
+]);
+
+const MAX_SIGNATURE_BYTES = 4096;
+
+function uploadedFile(req: Request, field: string): Express.Multer.File | undefined {
+  const files = req.files as Record<string, Express.Multer.File[] | undefined> | undefined;
+  return files?.[field]?.[0];
+}
+
+/** The official `justflows.zip.sig`, sent as a file part, form field, or header. */
+function readReleaseSignature(req: Request): string | undefined {
+  const sigFile = uploadedFile(req, "releaseSignature");
+  if (sigFile) {
+    if (sigFile.size > MAX_SIGNATURE_BYTES) throw new Error("Release signature file is too large");
+    return sigFile.buffer.toString("utf8").trim();
+  }
+  if (typeof req.body?.releaseSignature === "string") return req.body.releaseSignature;
+  const header = req.headers["x-justflows-release-signature"];
+  return typeof header === "string" ? header : undefined;
+}
+
+router.post("/upload", requireRole("administrator"), uploadFields, async (req, res) => {
+  const file = uploadedFile(req, "file");
   if (!file) {
     res.status(400).json({ error: "No file provided" });
     return;
@@ -110,8 +134,10 @@ router.post("/upload", requireRole("administrator"), upload.single("file"), asyn
   });
 
   try {
+    const releaseSignature = readReleaseSignature(req);
     const { mode, status, result } = await startCoreUpdate({
       source: "upload",
+      releaseSignature,
       siteId: req.session!.siteId,
       filename: file.originalname,
       buffer: file.buffer,
@@ -183,6 +209,7 @@ router.post("/remote", requireRole("administrator"), async (req, res) => {
         availableVersion: update.availableVersion,
         downloadUrl: update.downloadUrl,
         sha256Url: update.sha256Url,
+        signatureUrl: update.signatureUrl,
       },
     });
     if (mode === "background") {

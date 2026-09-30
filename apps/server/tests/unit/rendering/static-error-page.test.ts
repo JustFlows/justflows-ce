@@ -30,6 +30,23 @@ describe("detectStaticErrorLocale", () => {
   });
 });
 
+describe("new public-site locales", () => {
+  it.each([
+    ["pl-PL", "pl", "Coś poszło nie tak", "Wkrótce wrócimy"],
+    ["uk-UA", "uk", "Щось пішло не так", "Ми скоро повернемося"],
+    ["ru-RU", "ru", "Что-то пошло не так", "Мы скоро вернёмся"],
+  ])("detects and renders %s during outages", (tag, locale, error, maintenance) => {
+    expect(detectStaticErrorLocale(`/${tag}/page`, "en-US")).toBe(locale);
+    expect(detectStaticErrorLocale("/", `${tag},en;q=0.8`)).toBe(locale);
+    for (const [kind, heading] of [["500", error], ["maintenance", maintenance]] as const) {
+      const html = renderStaticErrorPage(kind, { locale });
+      expect(html).toContain(`lang="${locale}"`);
+      expect(html).toContain(heading);
+      expect(html).not.toMatch(/\{\{[A-Z_]+\}\}/);
+    }
+  });
+});
+
 describe("escapeStaticHtml", () => {
   it("escapes the five HTML-significant characters, not a broader tag-stripping regex", () => {
     expect(escapeStaticHtml(`<script>alert("x")</script>&'`)).toBe(

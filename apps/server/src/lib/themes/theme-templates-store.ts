@@ -25,6 +25,7 @@ import {
 } from "./theme-templates-db.js";
 import { listThemeTemplateSlugs, loadThemeTemplate } from "./theme-files.js";
 import { templateCandidates, type TemplateQuery } from "../rendering/template-hierarchy.js";
+import { loadPluginTemplate } from "../plugins/plugin-templates.js";
 import type { BlockNode } from "../runtime/types.js";
 
 const TEMPLATE_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,80}$/;
@@ -143,12 +144,13 @@ export async function listTemplateSlots(
 export interface ResolvedTemplate {
   slug: string;
   blocks: BlockNode[];
-  source: "override" | "theme";
+  source: "override" | "theme" | "plugin";
 }
 
 /**
  * The template to render for a request: per-slug, a site override (its draft in
- * preview) beats the theme's file; the first candidate slug with either wins.
+ * preview) beats the theme's file, which beats an active plugin's template
+ * (`manifest.templates`); the first candidate slug with any of them wins.
  * `null` means no template anywhere — the caller falls back to the built-in view.
  */
 export async function resolveEffectiveTemplate(
@@ -169,6 +171,8 @@ export async function resolveEffectiveTemplate(
     }
     const themeBlocks = loadThemeTemplate(themeId, slug, installedPath);
     if (themeBlocks?.length) return { slug, blocks: themeBlocks, source: "theme" };
+    const pluginBlocks = await loadPluginTemplate(slug);
+    if (pluginBlocks?.length) return { slug, blocks: pluginBlocks, source: "plugin" };
   }
   return null;
 }

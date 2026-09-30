@@ -19,6 +19,7 @@ import { browserCacheMiddleware, staticMaxAgeMs } from "./middleware/browser-cac
 import { rateLimit } from "express-rate-limit";
 import { adminClientDir, adminClientIndex } from "./lib/admin/admin-ssr.js";
 import { requestContext } from "./middleware/request-context.js";
+import { getPluginLoader } from "./lib/plugins/plugin-runtime.js";
 
 let corePromise: Promise<void> | null = null;
 let deferredLoaded = false;
@@ -71,7 +72,28 @@ export function createApp(): express.Application {
     next();
   });
   app.use(cookieParser());
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({
+    limit: "2mb",
+    verify: (req, _res, buf) => {
+      // A plugin route that opts in (`rawBody: true`) signs these bytes.
+      // Parsed JSON cannot be verified. The lookup is synchronous because
+      // this callback is.
+      const method = req.method ?? "";
+      const url = req.url?.split("?")[0] ?? "";
+      if (method !== "POST" && method !== "PUT" && method !== "PATCH" && method !== "DELETE") return;
+      const loader = getPluginLoader();
+      const matched = loader?.httpRouter.match(method, url);
+      if (matched?.route.rawBody === true) {
+        Object.assign(req, { rawBody: buf.toString("utf8") });
+        return;
+      }
+      // Passenger can parse the body before plugin routes exist. Keep a small
+      // copy; dispatch forwards it only when the matched route asked for it.
+      if (!loader && buf.length <= 65_536 && url.startsWith("/ext/")) {
+        Object.assign(req, { rawBody: buf.toString("utf8") });
+      }
+    },
+  }));
   app.use(express.urlencoded({ extended: true }));
   app.use((req, res, next) => {
     const started = Date.now();

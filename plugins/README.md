@@ -12,9 +12,15 @@ themes, blocks, testing, and SDK compatibility).
 ```
 plugins/
 ├── hello-world/     Official example — copy this
+├── demo/            Demo sign-in and scheduled plugin reset
 ├── consent/         First-party Cookie Consent (banner, consent API, script/embed gating)
 └── acme-seo/        Your plugin (folder name is yours)
 ```
+
+`demo/` is a standalone sandbox: a Demo role and demo user, an administrator
+who is never edited, and a scheduled reset of whatever installed plugins
+declare through `justflows.demo.targets`, `justflows.demo.snapshot`, and
+`justflows.demo.restore`. See [plugins/demo/README.md](demo/README.md).
 
 `consent/` is a fuller worked example: a `theme.css` stylesheet, sync `html.head`
 and `analytics.head` filters, an async `content.render` filter, plugin HTTP

@@ -70,6 +70,60 @@ choosing a compatibility range or deprecating a public integration.
 `blocks.register`, `patterns.register`, and `cookies.declare` / `cookies.list`. See
 [HOOKS.md](HOOKS.md) and [PERMISSIONS.md](PERMISSIONS.md).
 
+## Register blocks
+
+`ctx.blocks.register()` adds a block to the page builder. Its `schema` builds
+the inspector: each key is one prop, and the field entry
+(`PluginBlockField`) controls how it is edited.
+
+| Field | Effect in the inspector |
+| --- | --- |
+| `type` | `string`, `textarea`, `number`, `boolean`, or `select` |
+| `label`, `help` | Field label (defaults to the prop key) and one line of help |
+| `default` | Shown while the prop is unset. Blocks start with empty props, so `validateProps` must apply the same default |
+| `options`, `optionLabels` | Fixed choices and the text shown for each value |
+| `optionsUrl` | Same-origin path the editor GETs for choices. It must answer `{ options: [{ value, label }] }` |
+| `multiple` | Pick several choices as a searchable checklist. The prop is saved as a string array, in the order they were ticked |
+| `showWhen` | `{ field, equals }`: show the field only while another prop equals that value or one of an array of values |
+
+```ts
+ctx.blocks.register({
+  type: "acme.featured",
+  version: 1,
+  title: "Featured items",
+  schema: {
+    source: { type: "select", label: "Show", options: ["all", "picked"], optionLabels: { all: "Everything", picked: "Pick items" }, default: "all" },
+    items: {
+      type: "select",
+      label: "Items",
+      multiple: true,
+      optionsUrl: "/ext/acme.featured/blocks/options/items",
+      showWhen: { field: "source", equals: "picked" },
+    },
+  },
+  validateProps: (raw) => ({ /* coerce and default every prop */ }),
+  render: (props) => "…",
+});
+```
+
+The options route is an ordinary plugin HTTP route; check the session and a
+capability before answering. `render` is synchronous, so load live data in a
+`content.blocks` filter and write it into the block props before render (Shop's
+product list does this).
+
+### Links and languages
+
+Link to site pages with plain root paths such as `/shop` or
+`/product/${slug}`. Do not add a locale prefix yourself. On a page rendered
+in a non-default language (`/nl-NL/...`), the host prefixes internal
+`<a href>` and `<form action>` targets in the rendered HTML. It also loads a
+small script that does the same for links your client code adds later. The
+host leaves alone paths that already have a locale, app routes (`/api`,
+`/ext`, `/login`, the admin path), your registered HTTP routes, files (a dot
+in the last segment), and `hreflang` links. If a page has no translation in
+that language, `/nl-NL/<path>` shows the default-language entry with Dutch
+site chrome. Its canonical URL points at the original.
+
 ## Register editor patterns
 
 Plugins can contribute complete page designs or smaller sections to the block
@@ -105,6 +159,63 @@ confirmation; every other category appends to the current page.
 The returned disposer removes that one registration early when needed. Plugins
 can normally ignore it because deactivation removes all their patterns.
 
+## Placeholder images
+
+When an image slot is empty, show the site's placeholder. Don't ship your own
+fallback. `ctx.media` is synchronous, so a block's `render()` can call it, and
+it needs no permission:
+
+```ts
+render(props) {
+  const img = props.imageSrc
+    ? `<img src="${esc(props.imageSrc)}" alt="${esc(props.alt)}">`
+    : ctx.media.placeholderHtml("thumbnail", { className: "acme-card__img" });
+  return `<div class="acme-card">${img}</div>`;
+}
+```
+
+`placeholder(kind)` returns `{ kind, src, width, height, source }`, or `null`
+when the site owner switched placeholders off. `placeholderHtml()` returns a
+decorative, sized `<img class="jf-placeholder jf-placeholder--<kind>">`, or `""`
+when placeholders are off.
+
+The core kinds are `generic` (4:3), `featured` (16:9), `thumbnail` (1:1),
+`avatar`, and `og` (1200×630 PNG). An unknown kind gets `generic`.
+
+To ship a default for a kind of your own, register it under your plugin id. It
+appears in Admin → Settings → Placeholders, where the site owner can replace
+it. It is removed on deactivate:
+
+```ts
+ctx.media.registerPlaceholder("acme.shop.product", {
+  src: "/ext/acme.shop/product-placeholder.svg", // from manifest.assets.dir
+  width: 800,
+  height: 800,
+  label: "Product image",
+});
+```
+
+For each kind, the first match wins:
+
+1. the site owner's image;
+2. the `media.placeholder` filter;
+3. your registered image;
+4. the shipped default.
+
+The filter is synchronous. Return another image, or `null` to leave the slot
+empty:
+
+```ts
+ctx.hooks.filter("media.placeholder", (image, { kind }) =>
+  kind === "avatar" ? { ...image!, src: "/ext/acme.avatars/face.svg" } : image,
+);
+```
+
+`src` must be a site-root path or an `https:` URL; the host ignores anything
+else. `/ext/<pluginId>/` serves images (`.svg`, `.png`, `.jpg`, `.webp`,
+`.avif`, `.gif`) from your `manifest.assets.dir` as well as scripts and
+stylesheets. SVGs are served with a sandboxing Content-Security-Policy.
+
 ## Declare the cookies you set
 
 Any plugin that writes a cookie that is **not strictly necessary** must declare
@@ -129,6 +240,30 @@ plugin's — with the operator's category overrides applied
 (`Admin → Extensions → Cookie Consent → Cookie declarations`, backed by
 `GET`/`PUT /api/cookies`). Before setting a non-essential cookie from your own
 client code, check `window.justflowsConsent?.allowed("<name>")`.
+
+## Page templates
+
+A plugin that owns content types ships their page templates itself, so themes
+stay plugin-agnostic. Declare a `templates` block and put block documents (the
+same shape as a theme's `templates/*.json`) in that folder:
+
+```jsonc
+// justflows.json
+"templates": { "dir": "templates" }   // default "templates"; relative, no ".."
+```
+
+```text
+plugins/ecommerce/templates/
+  single-product.json
+  single-shop-cart.json
+  single-shop-checkout.json
+```
+
+While the plugin is active, the host checks each template-hierarchy slug in this
+order: the site's own override, then the active theme's file, then the plugin's
+file. A theme can still restyle a plugin page by shipping the same slug, and a
+plugin template beats the generic `single` / `singular` fallbacks. Deactivating
+the plugin drops its templates. Ship the folder inside your `.jfpkg`.
 
 ## Client-side assets
 
@@ -163,7 +298,8 @@ No `ctx.http` route and no `html.head` filter. Deactivating the plugin drops
 its route and rebuilds the bundle without it. The **static-site exporter
 downloads the bundle automatically**, so a plugin's front-end works on a
 static/CDN deployment with zero extra wiring — see
-[STATIC-EXPORT.md](STATIC-EXPORT.md).
+[STATIC-EXPORT.md](STATIC-EXPORT.md). Pages that must stay live go through
+[`staticExport.exclude`](#keep-a-page-out-of-the-static-export).
 
 Each `scripts` entry is wrapped in its own IIFE before concatenation, so a
 missing semicolon or a stray top-level `var` in one plugin can't break another;
@@ -198,6 +334,10 @@ route, or `if (pluginId === …)` for it.
 ],
 "adminApp": {
   "dir": "admin",                       // default "admin"; relative, may be "dist/admin"
+  "locales": {                          // required; paths are relative to dir
+    "en": "locales/en.json",            // required fallback catalog
+    "nl": "locales/nl.json"             // optional extra languages
+  },
   "routes": [
     { "entry": "index.html", "title": "Forms" }   // no `path` → the namespace root
   ]
@@ -224,7 +364,7 @@ On activation the host:
 | plugin → host | `ready`                                           | frame mounted; host replies with `context`                                      |
 | plugin → host | `resize { height }`                               | host sizes the iframe to fit                                                    |
 | plugin → host | `navigate { path }`                               | host routes to another `/admin/…` page (or opens an `http(s)` URL in a new tab) |
-| host → plugin | `context { locale, adminBase, routePath, theme }` | sent on `ready` and on load                                                     |
+| host → plugin | `context { locale, adminBase, routePath, theme, catalogs }` | sent on `ready` and on load. `catalogs` maps each `adminApp.locales` code to its `/ext/…/admin/…json` URL |
 | host → plugin | `route { routePath }`                             | host URL changed under the plugin's path — follow it in the frame's own router  |
 
 The frame is same-origin, so the plugin reads the CSRF cookie itself and calls
@@ -235,6 +375,15 @@ module, exactly as for any plugin; only the screen moved into the frame.
 Rules: `dir` and `entry` are relative, no `..`; `entry` must be `.html`; each
 `path` is relative to `/admin/plugins/<your plugin id>` (omit it for the root);
 at most 20 routes. Ship the `dir` inside your `.jfpkg`.
+
+**Locales are part of the manifest.** An `adminApp` must declare `locales.en`.
+That English file is the default catalog: the frame uses it whenever the admin
+language has no catalog, and for any string missing from another language. Add
+further codes (`nl`, `de`, `fr`, `es`, …) only when you ship those files. Paths
+are relative to `dir`. Each file is a flat JSON object of string values, for
+example `{ "save": "Save" }`. A minimal English catalog may contain only the
+strings the screen shows. CI rejects a plugin manifest that ships `adminApp`
+without `locales.en`, and rejects a declared path whose JSON file is missing.
 
 ## Ship your own stylesheet
 
@@ -356,23 +505,23 @@ page such as `orders` does not keep the parent tab selected.
 The host loads `GET /ext/{pluginId}/setup` only on the plugin's `setupPath`.
 Other `adminMenu` paths from that plugin get a landing page, not the wizard.
 When more than one menu path could match the URL, the longest path wins.
-Set `contentType` on a menu item to list every CMS entry of that type on the
-page (Shop Products uses `product`). New entries open
-`/admin/content/new?type=…`; existing rows open `/admin/content/{id}`. Shop
-serves product commerce data from `GET`/`PUT /ext/justflows.shop/catalog/{contentId}`
-(`?group=` is the translation group) and the content editor (create and edit)
-shows those fields on type `product`. Creating a `product` content row also
-inserts `shop_products` via `content.created`, keyed by `translationGroupId` so
-every locale shares SKU, prices, and stock. Translating a product empties
-title, excerpt, and SEO fields, copies the tagged layout, and does not insert a
-second commerce row. The Default theme Product detail page-builder layout uses
-`{{price}}`, `{{sku}}`, `{{title}}`, `{{excerpt}}`, `{{attributes}}`, and related
-tags; Shop fills them on `content.blocks` (before HTML render) and
-`content.render`. Shop also registers storefront blocks (`justflows.shop.gallery`,
-buy box, product list, reviews, and the rest) used by the Default theme product
-patterns and the **Ecommerce storefront** homepage pattern.
-The layout is seeded only on the original locale when the
-canvas is empty.
+Set `contentType` on a menu item to list that type on the page, one row per
+translation group in the site's default language. Other languages are edited
+on the content item. New entries open `/admin/content/new?type=…`; existing rows open
+`/admin/content/{id}`. Give a second menu item the same `contentType`,
+`listed: false`, and an `adminApp` route on that path, and the content editor
+embeds that admin app while the row is open. The host passes `contentId` and
+`translationGroupId` on the admin bridge and posts `save` when the editor
+saves. The plugin can `reportSections` so the editor lists those entries in
+its menu (Images, Pricing, Inventory, and the rest) and posts `section` when
+the operator picks one. Without sections, the editor shows one item using the
+menu label. The plugin reads and writes its own HTTP routes. Creating a content row
+fires `content.created`. A plugin that needs a blank translation (empty title,
+excerpt, and fields, shared commerce data) filters `content.translationSeed`.
+A plugin that wants the page builder for its type filters `content.editor` and
+appends the type slug on `content.patternTypes`. Merge-tag previews in the
+builder come from `content.mergeTags`, which the editor loads at
+`GET /api/content/{id}/merge-tags`.
 
 ### Revalidate after a config write
 
@@ -403,6 +552,57 @@ origin (`APP_URL`, `STATIC_EXPORT_BASE_URL`, `STATIC_EXPORT_ALLOWED_ORIGINS`, or
 plain `<img>` or `navigator.sendBeacon` GET is not CORS-checked and needs
 nothing.
 
+### Keep a page out of the static export
+
+A page that differs per visitor (a cart, a checkout, an account page) or must
+always show live data should not be frozen into a static export. List it with
+the `staticExport.exclude` filter:
+
+```ts
+ctx.hooks.filter("staticExport.exclude", (exclusions) => [
+  ...exclusions,
+  { path: "/shop/checkout" }, // this page and everything below it
+  { path: "/account", match: "exact" }, // only this page
+]);
+```
+
+The exporter never crawls an excluded path, even when a page links to it. It
+removes copies from earlier runs, and the generated `.htaccess` / `_nginx.conf`
+route the path to the app. With `STATIC_EXPORT_ORIGIN_URL` set, links to it
+point at that origin. Paths are literal, so add each locale's copy
+(`/nl-NL/shop/checkout`) from `ctx.i18n.locales()`. See
+[STATIC-EXPORT.md](STATIC-EXPORT.md#pages-a-plugin-keeps-live) for the path
+rules.
+
+### Host policy on a route
+
+Plugin routes are not under `/api`, so the host CSRF middleware does not see
+them. The dispatcher requires a session CSRF token on every non-GET route
+unless that route opts out. A route is not rate-limited unless it asks. Pass
+the policy as the third argument of `ctx.http.get` / `post` / `put` / `patch`
+/ `delete`:
+
+```ts
+ctx.http.post("payments/hooks/:gateway/:token", handler, {
+  csrf: false,
+  rawBody: true,
+  rateLimit: { limit: 60, windowMs: 60_000, key: "payment-hook" },
+});
+```
+
+- `csrf: false` skips the session token. Use it only when the handler
+  authenticates the call another way (a signed webhook, a public form with
+  its own check). GET never requires CSRF.
+- `rateLimit` is a per-IP ceiling the host enforces before the handler runs.
+  `limit` is 1–10_000 requests per `windowMs` (1_000–3_600_000). `key` shares
+  one counter across several routes of this plugin. Deactivating the plugin
+  drops the ceiling with the route.
+- `rawBody: true` puts the exact request bytes on `req.rawBody` for a
+  signature check. The host does not forward those bytes to any other route.
+
+The host does not special-case a plugin's URLs. A plugin that needs a public
+mutation, a ceiling, or the raw body declares it here.
+
 ## First-run setup
 
 A plugin that needs configuration before it is usable (database topology,
@@ -431,7 +631,7 @@ Store passwords with `ctx.secrets` (encrypted, never returned on GET — use
 `has()`). Probe the current Justflows database with `ctx.databases.probeShared()`,
 or a separate database with `ctx.databases.probe(...)`. Remote hosts require
 `network:outbound`. Create plugin-owned tables with `ctx.databases.ensureSchema()`;
-names are prefixed with the plugin slug (`justflows.shop` → `shop_products`) so
+names are prefixed with the plugin slug (`acme.forms` → `forms_entries`) so
 an extension cannot create core tables. Drop them from `deleteData()` with
 `ctx.databases.dropSchema()`. Changing topology after setup is a
 migration, not a later settings toggle.
@@ -474,6 +674,12 @@ Built-in slugs `post` and `page` cannot be recreated.
 **Delete shop pages and posts when this plugin is removed** so uninstall can
 clear storefront pages and product posts as well as `shop_*` tables.
 
+`deleteCreatedBy(userId)` also requires `content:delete`. It permanently
+deletes content that user authored, media they uploaded, and comments they
+wrote, and it drops their unpublished working revisions on other entries. It
+does not delete the user. It refuses when that user is an administrator, and
+it does not remove anyone else's rows.
+
 Admin → Plugins → Settings reads `settingsSchema` from the loaded module, then
 `justflows.json`, then the stored row. `plugin.settings` / `plugin.settings.write`
 overlay values on the plugin runtime. Saving returns the same schema and values
@@ -497,7 +703,8 @@ listing without mixing it into site settings:
     "commercialMarketplace": false,
     "listed": true,
     "free": true,
-    "comingSoon": false
+    "comingSoon": false,
+    "beta": false
   }
 }
 ```
@@ -505,6 +712,7 @@ listing without mixing it into site settings:
 - `commercialMarketplace` — internal: this plugin is live on the commercial Justflows marketplace.
 - `listed` — publisher visibility. Internal approval does not show the plugin in Admin → Marketplace unless this is also true.
 - `comingSoon` — the listing is visible so administrators know it is coming, but Install is disabled and `POST /api/marketplace/install` returns 403.
+- `beta` — a pre-release build. The listing shows a Beta badge. Install stays disabled, and `POST /api/marketplace/install` returns 403 (`code: "beta_disabled"`), until an administrator turns on **Settings → Marketplace → Allow installing beta plugins and themes**. With that on, each install asks for confirmation with a warning first.
 - `free` — set `false` and add `price`: `{ "amount": 49, "currency": "EUR", "interval": "year" }` for a paid listing.
 
-Paid, coming-soon, or unlisted catalogue rows cannot be installed from the in-app Marketplace; paid listings send the administrator to justflows.com.
+Paid, coming-soon, or unlisted catalogue rows cannot be installed from the in-app Marketplace, and neither can beta rows unless the site allows them; paid listings send the administrator to justflows.com.

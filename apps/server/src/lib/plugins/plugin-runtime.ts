@@ -21,8 +21,10 @@ import { createPluginDatabasesApi } from "./plugin-databases.js";
 import { createPluginContentApi } from "./plugin-content.js";
 import { isInstalled } from "../../middleware/install-guard.js";
 import { getJustflowsVersion } from "../runtime/version.js";
+import { recordDiagnosticError } from "../runtime/diagnostics.js";
 import { registerMailTransport, unregisterMailTransports } from "../email/mail-transports.js";
 import { registerEmailTemplate } from "../email/email-templates.js";
+import { resolvePlaceholderSync } from "../media/placeholders.js";
 
 let app: App | null = null;
 let loader: PluginLoader | null = null;
@@ -200,6 +202,10 @@ export async function ensurePluginRuntime(): Promise<void> {
       const { createPluginCacheApi } = await import("./plugin-cache.js");
       loader = new PluginLoader(app, {
         justflowsVersion: getJustflowsVersion(),
+        // Mandatory for every plugin: logged errors and failing hook handlers
+        // land in Admin → System → Diagnostics under the plugin's id.
+        errorReporter: (pluginId, context, error) =>
+          recordDiagnosticError(`plugin:${pluginId} ${context}`, error),
         cacheFactory: (pluginId) => createPluginCacheApi(pluginId, getJfCache()),
         dataFactory: (pluginId, siteId) => createPluginDataApi(pluginId, siteId),
         jobsFactory: (pluginId) => createPluginJobsApi(pluginId),
@@ -242,7 +248,56 @@ export async function ensurePluginRuntime(): Promise<void> {
         secretsFactory: (pluginId, siteId) => createPluginSecretsApi(pluginId, siteId),
         databasesFactory: (pluginId, siteId, permissions) =>
           createPluginDatabasesApi(pluginId, siteId, permissions),
+        usersFactory: (_pluginId, siteId) => ({
+          create: async (input, actor) => {
+            const { createUser, CreateUserSchema } = await import("../auth/users-admin.js");
+            const parsed = CreateUserSchema.safeParse(input);
+            if (!parsed.success) {
+              return {
+                ok: false,
+                status: 400,
+                error: parsed.error.issues[0]?.message ?? "Invalid user",
+              };
+            }
+            try {
+              const result = await createUser(parsed.data, {
+                siteId,
+                userId: actor.userId,
+                role: actor.role,
+              });
+              const body = result.body as { error?: string; id?: string; email?: string; username?: string; displayName?: string; role?: string };
+              if (result.status >= 400 || !body.id || !body.email || !body.username || !body.displayName || !body.role) {
+                return { ok: false, status: result.status, error: body.error ?? "Could not create the user." };
+              }
+              return {
+                ok: true,
+                user: {
+                  id: body.id,
+                  email: body.email,
+                  username: body.username,
+                  displayName: body.displayName,
+                  role: body.role,
+                },
+              };
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              if (/unique|duplicate/i.test(message)) {
+                return { ok: false, status: 409, error: "A user with that email or username already exists." };
+              }
+              throw err;
+            }
+          },
+          addRole: async (target, role, actor) => {
+            const { addAdditionalRole } = await import("../auth/users-admin.js");
+            return addAdditionalRole(siteId, target, role, actor);
+          },
+          get: async (userId) => {
+            const { getUserRoles } = await import("../auth/users-admin.js");
+            return getUserRoles(siteId, userId);
+          },
+        }),
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),
+        placeholderResolver: (siteId, kind) => resolvePlaceholderSync(siteId, kind),
         i18nProvider: (siteId) => ({
           defaultLocale: async () =>
             (await import("../i18n/languages-db.js")).getDefaultLocale(siteId),

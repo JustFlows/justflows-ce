@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Request, Response } from "express";
 import { getJfRoot } from "../runtime/jf-root.js";
 import { logSafe } from "../security/log-safe.js";
+import { ADMIN_UI_LOCALES } from "../i18n/locales.js";
 
 interface SerializedResponse {
   status: number;
@@ -24,7 +25,7 @@ interface AdminSsrPayload {
 
 type RenderAdmin = (url: string, payload: AdminSsrPayload) => string;
 
-const ADMIN_LOCALES = ["en", "nl", "de", "fr", "es"] as const;
+const ADMIN_LOCALES = ADMIN_UI_LOCALES;
 const SCRIPT_UNSAFE = /[<>&\u2028\u2029]/g;
 
 function adminUiDist(): string {

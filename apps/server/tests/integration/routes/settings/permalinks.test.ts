@@ -57,6 +57,7 @@ beforeEach(() => {
   state = {
     settings: { ...defaults, structure: PERMALINK_PRESETS.day, trailingSlash: "always" },
     redirects: { "/old": "p1" },
+    layoutScopes: [],
   };
   items = [
     serializeContentRow({
@@ -80,6 +81,21 @@ describe("public permalink routing", () => {
     const response = await get("/nl-NL");
     expect(response.status).toBe(301);
     expect(response.headers.get("location")).toBe("/nl-NL/");
+  });
+  it("renders untranslated default-locale content under another locale's prefix", async () => {
+    const response = await get("/nl-NL/2026/09/07/hello/");
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.content.id).toBe("p1");
+    expect(data.path).toBe("/nl-NL/2026/09/07/hello/");
+    expect(data.canonicalPath).toBe("/2026/09/07/hello/");
+  });
+  it("sends a prefixed default-locale URL to the real translation", async () => {
+    items[0]!.translationGroupId = "p1";
+    items.push({ ...items[0]!, id: "p2", slug: "hallo", locale: "nl-NL", translationGroupId: "p1" });
+    const response = await get("/nl-NL/2026/09/07/hello/");
+    expect(response.status).toBe(301);
+    expect(response.headers.get("location")).toBe("/nl-NL/2026/09/07/hallo/");
   });
   it("does not serve disabled locales", async () => {
     items[0]!.locale = "de-DE";

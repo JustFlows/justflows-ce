@@ -51,17 +51,35 @@ hard-code role names.
 Sites may also create custom roles through Admin → Users. A user's effective
 access is resolved in this order:
 
-1. capabilities from the selected built-in or custom role;
+1. capabilities from the selected built-in or custom role, plus those of any
+   additional roles;
 2. optional per-user grants;
 3. explicit per-user denies (a deny always wins);
 4. resource scopes for site, content type, locale, and ownership.
+
+### Additional roles
+
+A user has one primary role (`users.role`) and can hold additional built-in or
+plugin roles next to it. For example, a subscriber can also be a Shop
+`customer`. Set them under **Admin → Users → (user) → Additional roles**, or
+with `additionalRoles` on `PATCH /api/users/:id`. They are stored in
+`user_additional_roles`.
+
+- Additional roles only add capabilities. `requireRole()`, `session.role`, and
+  the last-administrator guard read the primary role only.
+- `administrator` can only be a primary role. Custom roles cannot be
+  additional roles, because a custom role replaces the whole access policy.
+- Author and contributor stay limited to their own content whether they are
+  primary or additional. The limit lifts only when another held role, such as
+  editor, grants the same capability without it.
 
 Use `requireCapability()` at HTTP boundaries and `userCan()` where the resource
 is loaded inside a handler. Pass the resource's `siteId`, `contentType`,
 `locale`, and `ownerId` so scoped grants are enforceable server-side. Hiding a
 button in Admin is only a convenience.
 
-Plugin HTTP handlers receive `session.capabilities` and `session.scopes` as a
+Plugin HTTP handlers receive `session.roles` (primary first),
+`session.capabilities`, and `session.scopes` as a
 read-only preview of the host-resolved policy. Plugins must still declare their
 own manifest permissions; user access never expands a plugin's sandbox.
 
@@ -92,3 +110,47 @@ effective access until its owning plugin registers it again.
 A plugin that contributes an admin page still runs in the signed-in user's
 session. An author without `plugins:install` cannot upload packages even if a
 plugin UI looks like it could.
+
+## Plugin-defined user roles
+
+A plugin can add a role while it is active. The id is stored on `users.role`
+and shows up in New User Default Role, invites, and the user editor. Shop
+registers `customer` (no administration capabilities) on activation.
+Deactivation removes the role from those lists; accounts that already have it
+keep the stored id and lose the plugin's capabilities until it is active again.
+
+```ts
+async activate(ctx) {
+  ctx.roles.register({
+    id: "customer",
+    label: "Customer",
+    description: "Registered shop customer. No administration access.",
+    capabilities: [],
+  });
+}
+```
+
+The id is 2–32 lowercase letters, digits, and hyphens. A plugin cannot replace
+a core role (`subscriber`, `contributor`, `author`, `editor`, `administrator`)
+or another plugin's registration.
+
+`ctx.users.create` needs the `users:manage` manifest permission. It can only
+assign a role that same plugin registered, so Shop can create a `customer`
+and cannot create an administrator. The host still enforces password policy,
+uniqueness, and the audit log. The `actor` is the signed-in staff member.
+
+`ctx.users.addRole(target, role, actor)` gives an existing user, found by
+`{ userId }` or `{ email }`, one of the plugin's own roles as an additional
+role. Their primary role and sign-in stay as they are. It needs the same
+`users:manage` permission and the same ownership rule. It succeeds without a
+change when the user already holds the role, and returns status 404 when there
+is no such user. Shop uses it when a customer is added under an email that
+already signs in, and when a signed-in user places their first order. The
+method is optional on the SDK type, so check `ctx.users.addRole` before calling
+it on older hosts.
+
+`ctx.users.get(userId)` returns one user with all their roles (`roles`, main
+role first), or `null`. It needs `users:manage` and is optional on older
+hosts. Call it from a `user.created` or `user.updated` action to react to
+role changes. Shop uses it to create a customer record for anyone who gains
+the `customer` role, including a role ticked under Admin → Users.

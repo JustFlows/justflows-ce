@@ -45,6 +45,21 @@ const CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
 };
 
+/**
+ * Images a plugin may serve from its asset dir at `/ext/<id>/**` (placeholders,
+ * icons). Only scripts and stylesheets are enqueued and bundled.
+ */
+const IMAGE_CONTENT_TYPES: Record<string, string> = {
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".gif": "image/gif",
+};
+const REL_IMAGE_RE = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*\.(svg|png|jpe?g|webp|avif|gif)$/i;
+
 let cache: {
   at: number;
   sets: PluginAssetSet[];
@@ -92,6 +107,14 @@ export function safeAssetRel(value: unknown): string | null {
   if (typeof value !== "string" || value.startsWith("/") || !REL_FILE_RE.test(value)) return null;
   if (value.split("/").includes("..")) return null;
   return value;
+}
+
+/** A path `/ext/<id>/**` may serve: a script, stylesheet, or image. */
+export function servableAssetRel(value: unknown): string | null {
+  const asset = safeAssetRel(value);
+  if (asset) return asset;
+  if (typeof value !== "string" || value.startsWith("/") || !REL_IMAGE_RE.test(value)) return null;
+  return value.split("/").includes("..") ? null : value;
 }
 
 /** `<link>` / `<script>` tags for one plugin's asset lists (pure, no I/O). */
@@ -298,7 +321,7 @@ export async function resolvePluginAssetFile(
   relPath: string,
 ): Promise<{ absPath: string; contentType: string } | null> {
   if (!PLUGIN_ID_RE.test(pluginId)) return null;
-  const rel = safeAssetRel(relPath);
+  const rel = servableAssetRel(relPath);
   if (!rel) return null;
 
   const sets = await getPluginAssetSets();
@@ -313,7 +336,7 @@ export async function resolvePluginAssetFile(
     return null;
   }
   const ext = rel.slice(rel.lastIndexOf(".")).toLowerCase();
-  const contentType = CONTENT_TYPES[ext];
+  const contentType = CONTENT_TYPES[ext] ?? IMAGE_CONTENT_TYPES[ext];
   if (!contentType) return null;
   return { absPath: abs, contentType };
 }

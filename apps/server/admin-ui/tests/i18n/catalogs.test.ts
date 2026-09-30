@@ -9,7 +9,7 @@ import literalExceptions from "./literal-exceptions.json";
 
 const sourceRoot = fileURLToPath(new URL("../../src", import.meta.url));
 const catalogRoot = fileURLToPath(new URL("../../../src/lib/i18n", import.meta.url));
-const locales = ["en", "nl", "de", "fr", "es"];
+const locales = ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"];
 
 function flatten(object: Record<string, unknown>, prefix = ""): Record<string, string> {
   const result: Record<string, string> = {};

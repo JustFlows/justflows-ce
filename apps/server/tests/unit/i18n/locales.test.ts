@@ -5,6 +5,7 @@ import {
   displayLocaleCode,
   localePresentation,
   localePath,
+  localizeHtmlLinks,
   localizePublicPath,
   matchActiveLocale,
   normalizeLocale,
@@ -148,5 +149,48 @@ describe("localizePublicPath", () => {
     expect(localizePublicPath("#", "nl", "en", active)).toBe("#");
     expect(localizePublicPath("/login", "nl", "en", active)).toBe("/login");
     expect(localizePublicPath("/admin", "nl", "en", active)).toBe("/admin");
+  });
+});
+
+describe("localizeHtmlLinks", () => {
+  const opts = { locale: "nl-NL", defaultLocale: "en-US", activeLocales: ["en-US", "nl-NL"] };
+
+  it("prefixes internal links and form actions with the page locale", () => {
+    const html =
+      '<a class="btn" href="/shop">Shop</a><a href="/product/denim-jacket?ref=home#top">x</a>' +
+      '<a href="/">Home</a><form method="get" action="/search"></form>';
+    expect(localizeHtmlLinks(html, opts)).toBe(
+      '<a class="btn" href="/nl-NL/shop">Shop</a><a href="/nl-NL/product/denim-jacket?ref=home#top">x</a>' +
+        '<a href="/nl-NL">Home</a><form method="get" action="/nl-NL/search"></form>',
+    );
+  });
+
+  it("leaves the default locale untouched", () => {
+    const html = '<a href="/shop">Shop</a>';
+    expect(localizeHtmlLinks(html, { ...opts, locale: "en-US" })).toBe(html);
+  });
+
+  it("skips prefixed, external, app, file, and hreflang links", () => {
+    const html = [
+      '<a href="/nl-NL/contact">a</a>',
+      '<a href="https://example.com/shop">b</a>',
+      '<a href="//cdn.example.com/x">c</a>',
+      '<a href="/login">d</a>',
+      '<a href="/ext/justflows.shop/cart">e</a>',
+      '<a href="/uploads/a/b.png">f</a>',
+      '<a href="/sitemap.xml">g</a>',
+      '<a href="/" hreflang="en-US" lang="en-US">EN</a>',
+      '<link rel="alternate" hreflang="en-US" href="/">',
+      '<link rel="stylesheet" href="/theme.css">',
+      '<a href="#reviews">h</a>',
+    ].join("");
+    expect(localizeHtmlLinks(html, opts)).toBe(html);
+  });
+
+  it("asks the host whether a path is an app route", () => {
+    const html = '<form action="/justflows-newsletter/subscribe"></form><a href="/shop">s</a>';
+    expect(
+      localizeHtmlLinks(html, { ...opts, isAppRoute: (p) => p.startsWith("/justflows-newsletter") }),
+    ).toBe('<form action="/justflows-newsletter/subscribe"></form><a href="/nl-NL/shop">s</a>');
   });
 });
