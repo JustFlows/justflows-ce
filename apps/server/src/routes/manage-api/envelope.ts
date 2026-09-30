@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-import { createHash } from "node:crypto";
 import type { Request, Response } from "express";
 import type { AccessResource, UserCapability } from "@justflows/sdk";
 import { keyCan } from "../../lib/auth/api-keys.js";
@@ -102,25 +101,32 @@ export function paginate<T>(items: T[], req: Request, fallbackLimit = 50): Page<
   };
 }
 
-// `payload` is an arbitrary JSON response body — for the settings routes that
-// can include password-reset *settings* (`passwordResetEnabled`/
-// `passwordResetRoles`, booleans and a role list), never a password value;
-// CodeQL's taint tracker flags the field names, not real secret material.
-// SHA-1 here only has to be fast and collision-resistant enough for an HTTP
-// ETag / If-None-Match check — it is not a credential hash.
-export function etagFor(payload: unknown): string {
-  // codeql[js/insufficient-password-hash]: see comment above — not a credential hash.
-  return `"${createHash("sha1").update(JSON.stringify(payload)).digest("base64url")}"`;
+type ETagFn = (body: string | Buffer, encoding?: BufferEncoding) => string;
+
+/**
+ * ETag for a response body, from the app's own `etag fn` (the `etag` package
+ * Express uses for `res.send`). Undefined when the app has ETags turned off.
+ */
+export function etagFor(req: Request, body: string): string | undefined {
+  const generate = req.app.get("etag fn") as ETagFn | undefined;
+  return generate ? generate(body, "utf8") : undefined;
 }
 
-/** Send JSON with an ETag, answering 304 when `If-None-Match` matches. */
+/**
+ * Send JSON with an ETag, answering 304 when `If-None-Match` matches. The
+ * comparison is done here rather than through `req.fresh`, because `fetch`
+ * adds `Cache-Control: no-cache` to a request that sets `If-None-Match` itself
+ * and `req.fresh` never answers 304 to that.
+ */
 export function sendJson(req: Request, res: Response, payload: unknown): void {
-  const etag = etagFor(payload);
-  res.setHeader("ETag", etag);
-  const inm = req.get("if-none-match");
-  if (inm && inm === etag) {
-    res.status(304).end();
-    return;
+  const body = JSON.stringify(payload);
+  const etag = etagFor(req, body);
+  if (etag) {
+    res.setHeader("ETag", etag);
+    if (req.get("if-none-match") === etag) {
+      res.status(304).end();
+      return;
+    }
   }
-  res.json(payload);
+  res.type("application/json").send(body);
 }
