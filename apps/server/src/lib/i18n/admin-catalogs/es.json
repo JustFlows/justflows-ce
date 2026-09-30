@@ -3207,6 +3207,7 @@
       "title": "Subir actualización de Justflows",
       "uploading": "Subiendo…",
       "chooseFile": "Elegir justflows.zip…",
+      "signatureHint": "Selecciona justflows.zip junto con justflows.zip.sig de la misma versión. Justflows solo aplica una actualización que puede verificar.",
       "backgroundHint": "La actualización se ejecuta en segundo plano; puedes salir de esta página sin problema",
       "description1": "Sube un archivo",
       "description2": "— Justflows lo extrae, actualiza la base de datos, instala las dependencias y reinicia el sitio por sí solo (Plesk/Passenger). Tu archivo",

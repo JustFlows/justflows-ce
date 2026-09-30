@@ -3389,6 +3389,7 @@
     "upload": {
       "backgroundHint": "Оновлення працює у фоновому режимі — ви можете сміливо залишати цю сторінку",
       "chooseFile": "Виберіть justflows.zip…",
+      "signatureHint": "Виберіть justflows.zip разом із justflows.zip.sig з того самого релізу. Justflows застосовує лише оновлення, яке може перевірити.",
       "description1": "Завантажити a",
       "description2": "файл. Justflows розпаковує його, оновлює базу даних, встановлює залежності та самостійно перезапускає сайт (Plesk/Passenger). ваш",
       "description3": "і завантаження зберігаються.",

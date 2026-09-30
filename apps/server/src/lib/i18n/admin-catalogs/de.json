@@ -3207,6 +3207,7 @@
       "title": "Justflows-Update hochladen",
       "uploading": "Wird hochgeladen…",
       "chooseFile": "justflows.zip auswählen…",
+      "signatureHint": "Wählen Sie justflows.zip zusammen mit justflows.zip.sig aus demselben Release aus. Justflows installiert nur ein Update, das es verifizieren kann.",
       "backgroundHint": "Das Update läuft im Hintergrund – Sie können diese Seite gefahrlos verlassen",
       "description1": "Laden Sie eine",
       "description2": "Datei hoch. Justflows entpackt sie, aktualisiert die Datenbank, installiert Abhängigkeiten und startet die Website selbstständig neu (Plesk/Passenger). Ihre",

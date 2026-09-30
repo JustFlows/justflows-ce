@@ -3207,6 +3207,7 @@
       "title": "Téléverser une mise à jour de Justflows",
       "uploading": "Téléversement…",
       "chooseFile": "Choisir justflows.zip…",
+      "signatureHint": "Sélectionnez justflows.zip avec justflows.zip.sig de la même version. Justflows n’applique qu’une mise à jour qu’il peut vérifier.",
       "backgroundHint": "La mise à jour tourne en arrière-plan — vous pouvez quitter cette page en toute sécurité",
       "description1": "Téléversez un fichier",
       "description2": "— Justflows l’extrait, met à jour la base de données, installe les dépendances et redémarre le site automatiquement (Plesk/Passenger). Votre fichier",
