@@ -27,6 +27,8 @@ import {
 } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 function fail(message) {
   console.error(`sign-core-release: ${message}`);
@@ -37,20 +39,32 @@ function payload(version, digestHex) {
   return Buffer.from(`justflows-core\n${version}\n${digestHex.toLowerCase()}`, "utf8");
 }
 
-function readVersionFromZip(zipPath) {
-  for (const entry of ["package.json", "justflows/package.json"]) {
-    try {
-      const raw = execFileSync("unzip", ["-p", zipPath, entry], {
-        stdio: ["ignore", "pipe", "ignore"],
-      });
-      if (raw.length === 0) continue;
-      const pkg = JSON.parse(raw.toString("utf8"));
-      if (pkg.name === "justflows" && typeof pkg.version === "string") return pkg.version;
-    } catch {
-      /* try the next location */
+/**
+ * Read the version from the exact bytes being signed. `unzip` needs a file, so
+ * it gets a private copy of `zipBytes` rather than the original path, which
+ * could change between reading the version and hashing the archive.
+ */
+function readVersionFromZip(zipBytes) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jf-sign-"));
+  try {
+    const copy = path.join(dir, "archive.zip");
+    fs.writeFileSync(copy, zipBytes, { mode: 0o600, flag: "wx" });
+    for (const entry of ["package.json", "justflows/package.json"]) {
+      try {
+        const raw = execFileSync("unzip", ["-p", copy, entry], {
+          stdio: ["ignore", "pipe", "ignore"],
+        });
+        if (raw.length === 0) continue;
+        const pkg = JSON.parse(raw.toString("utf8"));
+        if (pkg.name === "justflows" && typeof pkg.version === "string") return pkg.version;
+      } catch {
+        /* try the next location */
+      }
     }
+    return null;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
-  return null;
 }
 
 function loadPrivateKey() {
@@ -67,12 +81,17 @@ const args = process.argv.slice(2);
 if (args[0] === "--generate-key") {
   const out = args[1];
   if (!out) fail("usage: --generate-key <private-key.pem>");
-  if (fs.existsSync(out)) fail(`${out} already exists; refusing to overwrite a key`);
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
-  fs.writeFileSync(out, privateKey.export({ type: "pkcs8", format: "pem" }), {
-    mode: 0o600,
-    flag: "wx",
-  });
+  try {
+    // "wx" creates the file or fails if it exists, in one step.
+    fs.writeFileSync(out, privateKey.export({ type: "pkcs8", format: "pem" }), {
+      mode: 0o600,
+      flag: "wx",
+    });
+  } catch (err) {
+    if (err?.code === "EEXIST") fail(`${out} already exists; refusing to overwrite a key`);
+    throw err;
+  }
   console.log(`Private key written to ${out}. Keep it out of every repository.\n`);
   console.log("Public key for CORE_RELEASE_PUBLIC_KEYS:\n");
   console.log(publicKey.export({ type: "spki", format: "pem" }).toString().trim());
@@ -85,12 +104,19 @@ const zipPath = args.find(
   (a, i) => !a.startsWith("--") && (versionFlag < 0 || i !== versionFlag + 1),
 );
 if (!zipPath) fail("usage: sign-core-release.mjs <justflows.zip> [--version X.Y.Z]");
-if (!fs.existsSync(zipPath)) fail(`${zipPath} not found`);
 
-const version = explicitVersion ?? readVersionFromZip(zipPath);
+// Read the archive once; the digest and the version both come from these bytes.
+let zipBytes;
+try {
+  zipBytes = fs.readFileSync(zipPath);
+} catch (err) {
+  fail(err?.code === "ENOENT" ? `${zipPath} not found` : `cannot read ${zipPath}: ${err?.message}`);
+}
+
+const version = explicitVersion ?? readVersionFromZip(zipBytes);
 if (!version) fail("could not read the version from the archive's package.json; pass --version");
 
-const digest = createHash("sha256").update(fs.readFileSync(zipPath)).digest("hex");
+const digest = createHash("sha256").update(zipBytes).digest("hex");
 const privateKey = loadPrivateKey();
 const signature = sign(null, payload(version, digest), privateKey);
 
