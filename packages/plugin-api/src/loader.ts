@@ -15,19 +15,23 @@ import {
   type PluginMailTransportApi,
   type PluginSecretsApi,
   type PluginDatabasesApi,
+  type PluginUsersApi,
   type PluginBlockDefinition,
   type PluginContentApi,
   type HookRegisterOptions,
   type Unsubscribe,
   type CookieCategory,
   type CookieDeclaration,
+  type PlaceholderImage,
 } from "@justflows/sdk";
 import type { App } from "@justflows/core";
 import { PluginHttpRouter } from "./http-router.js";
 import { PluginCookieRegistry } from "./cookie-registry.js";
 import { PluginCapabilityRegistry } from "./capability-registry.js";
+import { PluginRoleRegistry } from "./role-registry.js";
 import { PluginDiagnosticRegistry } from "./diagnostic-registry.js";
 import { PluginPatternRegistry } from "./pattern-registry.js";
+import { PluginPlaceholderRegistry, placeholderImgHtml } from "./placeholder-registry.js";
 
 export interface LoadedPlugin {
   manifest: PluginManifest;
@@ -50,6 +54,11 @@ export type PluginDatabasesFactory = (
   permissions: ReadonlySet<PluginPermission>,
 ) => PluginDatabasesApi;
 export type PluginContentFactory = (pluginId: string, siteId: string) => PluginContentApi;
+export type PluginUsersFactory = (
+  pluginId: string,
+  siteId: string,
+  permissions: ReadonlySet<PluginPermission>,
+) => PluginUsersApi;
 /** Read-only view of the site's configured locales, exposed to plugins as `ctx.i18n`. */
 export type PluginI18nProvider = (siteId: string) => {
   defaultLocale(): Promise<string>;
@@ -60,6 +69,16 @@ export type PluginSettingsAdapter = {
   set<T = unknown>(siteId: string, pluginId: string, key: string, value: T): Promise<void>;
   delete?(siteId: string, pluginId: string, key: string): Promise<void>;
 };
+
+/**
+ * Host sink for plugin failures. Every `ctx.logger.error()` call and every
+ * exception thrown from a plugin hook handler is forwarded here, so plugin
+ * errors reach the core diagnostics without the plugin opting in.
+ */
+/** Resolve a placeholder for one site. `null` means placeholders are switched off. */
+export type PluginPlaceholderResolver = (siteId: string, kind: string) => PlaceholderImage | null;
+
+export type PluginErrorReporter = (pluginId: string, context: string, error: unknown) => void;
 
 export interface PluginBlockRegistry {
   register(definition: PluginBlockDefinition): void;
@@ -123,6 +142,12 @@ const NULL_DATABASES: PluginDatabasesApi = {
   columns: async () => [],
 };
 
+const NULL_USERS: PluginUsersApi = {
+  create: async () => {
+    throw new Error("User creation is not available in this runtime");
+  },
+};
+
 const NULL_CONTENT: PluginContentApi = {
   listPublished: async () => [],
   ensureType: async () => {
@@ -132,6 +157,9 @@ const NULL_CONTENT: PluginContentApi = {
     throw new Error("Content API is not available in this runtime");
   },
   deleteType: async () => {
+    throw new Error("Content API is not available in this runtime");
+  },
+  deleteCreatedBy: async () => {
     throw new Error("Content API is not available in this runtime");
   },
 };
@@ -145,20 +173,25 @@ export class PluginLoader {
   private readonly secretsFactory: PluginSecretsFactory;
   private readonly databasesFactory: PluginDatabasesFactory;
   private readonly contentFactory: PluginContentFactory;
+  private readonly usersFactory: PluginUsersFactory;
   private readonly i18nProvider: PluginI18nProvider;
   private readonly jobsCleanup: ((pluginId: string) => void) | undefined;
   private readonly mailCleanup: ((pluginId: string) => void) | undefined;
   private readonly settingsAdapter: PluginSettingsAdapter;
   private readonly blockRegistry: PluginBlockRegistry | undefined;
   private readonly justflowsVersion: string;
+  private readonly errorReporter: PluginErrorReporter | undefined;
   private readonly registeredBlocks = new Map<string, string[]>();
   private readonly coreCookiesFn: () => Promise<CookieDeclaration[]>;
   private readonly cookieOverrides: (siteId: string) => Promise<Record<string, CookieCategory>>;
   readonly httpRouter: PluginHttpRouter;
   readonly cookieRegistry: PluginCookieRegistry;
   readonly capabilityRegistry: PluginCapabilityRegistry;
+  readonly roleRegistry: PluginRoleRegistry;
   readonly diagnosticRegistry: PluginDiagnosticRegistry;
   readonly patternRegistry: PluginPatternRegistry;
+  readonly placeholderRegistry: PluginPlaceholderRegistry;
+  private readonly placeholderResolver: PluginPlaceholderResolver;
 
   constructor(
     private readonly app: App,
@@ -170,6 +203,7 @@ export class PluginLoader {
       secretsFactory?: PluginSecretsFactory;
       databasesFactory?: PluginDatabasesFactory;
       contentFactory?: PluginContentFactory;
+      usersFactory?: PluginUsersFactory;
       i18nProvider?: PluginI18nProvider;
       jobsCleanup?: (pluginId: string) => void;
       mailCleanup?: (pluginId: string) => void;
@@ -186,8 +220,14 @@ export class PluginLoader {
       cookieOverrides?: (siteId: string) => Promise<Record<string, CookieCategory>>;
       cookieRegistry?: PluginCookieRegistry;
       capabilityRegistry?: PluginCapabilityRegistry;
+      roleRegistry?: PluginRoleRegistry;
       diagnosticRegistry?: PluginDiagnosticRegistry;
       patternRegistry?: PluginPatternRegistry;
+      placeholderRegistry?: PluginPlaceholderRegistry;
+      /** Host resolution (site choice, filter, shipped defaults). Without one,
+       * only plugin-registered kinds resolve. */
+      placeholderResolver?: PluginPlaceholderResolver;
+      errorReporter?: PluginErrorReporter;
     },
   ) {
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
@@ -210,6 +250,7 @@ export class PluginLoader {
     this.databasesFactory =
       options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
+    this.usersFactory = options?.usersFactory ?? (() => NULL_USERS);
     this.i18nProvider =
       options?.i18nProvider ??
       (() => ({
@@ -227,14 +268,59 @@ export class PluginLoader {
     this.httpRouter = options?.httpRouter ?? new PluginHttpRouter();
     this.cookieRegistry = options?.cookieRegistry ?? new PluginCookieRegistry();
     this.capabilityRegistry = options?.capabilityRegistry ?? new PluginCapabilityRegistry();
+    this.roleRegistry = options?.roleRegistry ?? new PluginRoleRegistry();
     this.diagnosticRegistry = options?.diagnosticRegistry ?? new PluginDiagnosticRegistry();
     this.patternRegistry = options?.patternRegistry ?? new PluginPatternRegistry();
+    this.placeholderRegistry = options?.placeholderRegistry ?? new PluginPlaceholderRegistry();
+    this.placeholderResolver =
+      options?.placeholderResolver ??
+      ((_siteId, kind) => {
+        const entry = this.placeholderRegistry.get(kind);
+        return entry
+          ? { kind, src: entry.src, width: entry.width, height: entry.height, source: "plugin" }
+          : null;
+      });
     const coreCookies = options?.coreCookies ?? [];
     this.coreCookiesFn =
       typeof coreCookies === "function" ? async () => coreCookies() : async () => coreCookies;
     this.cookieOverrides = options?.cookieOverrides ?? (async () => ({}));
     this.blockRegistry = options?.blockRegistry;
     this.justflowsVersion = options?.justflowsVersion ?? "unknown";
+    this.errorReporter = options?.errorReporter;
+  }
+
+  /** Forward a plugin failure to the host. A broken reporter never breaks the plugin. */
+  private reportError(pluginId: string, context: string, error: unknown): void {
+    if (!this.errorReporter) return;
+    try {
+      this.errorReporter(pluginId, context, error);
+    } catch {
+      // diagnostics are best-effort
+    }
+  }
+
+  /**
+   * Wrap a hook handler so a throw or rejection is reported before the hooks
+   * registry sees it. The error is rethrown unchanged, so failure counting and
+   * auto-disable keep working. Gate aborts are intentional, not failures.
+   */
+  private reportingHandler(pluginId: string, hook: string, handler: unknown): unknown {
+    if (typeof handler !== "function") return handler;
+    const fn = handler as (...args: unknown[]) => unknown;
+    const report = (err: unknown): never => {
+      if (!(err instanceof Error && err.name === "HookAbortError"))
+        this.reportError(pluginId, `hook:${hook}`, err);
+      throw err;
+    };
+    return (...args: unknown[]) => {
+      let result: unknown;
+      try {
+        result = fn(...args);
+      } catch (err) {
+        report(err);
+      }
+      return result instanceof Promise ? result.catch(report) : result;
+    };
   }
 
   /**
@@ -373,8 +459,10 @@ export class PluginLoader {
     this.httpRouter.removePlugin(pluginId);
     this.cookieRegistry.removePlugin(pluginId);
     this.capabilityRegistry.removePlugin(pluginId);
+    this.roleRegistry.removePlugin(pluginId);
     this.diagnosticRegistry.removePlugin(pluginId);
     this.patternRegistry.removePlugin(pluginId);
+    this.placeholderRegistry.removePlugin(pluginId);
     this.jobsCleanup?.(pluginId);
     this.mailCleanup?.(pluginId);
     const types = this.registeredBlocks.get(pluginId) ?? [];
@@ -385,7 +473,21 @@ export class PluginLoader {
   private buildContext(manifest: PluginManifest, siteId: string): PluginContext {
     const pluginId = manifest.id;
     const permissions = new Set(manifest.permissions);
-    const logger = this.app.logger.child({ pluginId });
+    const baseLogger = this.app.logger.child({ pluginId });
+    const logger: PluginContext["logger"] = {
+      debug: (message, context) => baseLogger.debug(message, context),
+      info: (message, context) => baseLogger.info(message, context),
+      warn: (message, context) => baseLogger.warn(message, context),
+      error: (message, context) => {
+        baseLogger.error(message, context);
+        const detail = context?.["error"];
+        this.reportError(
+          pluginId,
+          message,
+          detail === undefined ? message : detail instanceof Error ? detail : String(detail),
+        );
+      },
+    };
     const settings = this.settingsAdapter;
     const hooks = this.app.hooks;
     const cache = this.cacheFactory(pluginId);
@@ -423,10 +525,11 @@ export class PluginLoader {
     ): Unsubscribe => {
       assertMayListen(hook);
       const opts = { ...options, pluginId };
+      const wrapped = this.reportingHandler(pluginId, hook, handler);
       if (kind === "filter") {
-        return hooks.filter(hook, handler as never, opts);
+        return hooks.filter(hook, wrapped as never, opts);
       }
-      return hooks.action(hook, handler as never, opts);
+      return hooks.action(hook, wrapped as never, opts);
     };
 
     return {
@@ -440,6 +543,55 @@ export class PluginLoader {
       permissions,
       capabilities: {
         register: (definition) => this.capabilityRegistry.register(pluginId, definition),
+      },
+      roles: {
+        register: (definition) => this.roleRegistry.register(pluginId, definition),
+      },
+      users: {
+        create: async (input, actor) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(
+              `Plugin "${pluginId}" cannot create users without the "users:manage" permission`,
+            );
+          }
+          const role = String(input.role ?? "");
+          const registered = this.roleRegistry.get(role);
+          if (!registered || registered.pluginId !== pluginId) {
+            return {
+              ok: false,
+              status: 400,
+              error: "Plugins can only create users in a role they registered.",
+            };
+          }
+          return this.usersFactory(pluginId, siteId, permissions).create(input, actor);
+        },
+        addRole: async (target, role, actor) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(
+              `Plugin "${pluginId}" cannot change user roles without the "users:manage" permission`,
+            );
+          }
+          const registered = this.roleRegistry.get(String(role ?? ""));
+          if (!registered || registered.pluginId !== pluginId) {
+            return {
+              ok: false,
+              status: 400,
+              error: "Plugins can only add a role they registered.",
+            };
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          if (!users.addRole) {
+            return { ok: false, status: 501, error: "Adding roles is not available in this runtime." };
+          }
+          return users.addRole(target, role, actor);
+        },
+        get: async (userId) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(`Plugin "${pluginId}" cannot read users without the "users:manage" permission`);
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          return users.get ? users.get(userId) : null;
+        },
       },
       diagnostics: {
         register: (check) => {
@@ -475,11 +627,11 @@ export class PluginLoader {
         delete: (key) => settings.delete?.(siteId, pluginId, key) ?? Promise.resolve(),
       },
       http: {
-        get: (path, handler) => this.httpRouter.register(pluginId, "GET", path, handler),
-        post: (path, handler) => this.httpRouter.register(pluginId, "POST", path, handler),
-        put: (path, handler) => this.httpRouter.register(pluginId, "PUT", path, handler),
-        patch: (path, handler) => this.httpRouter.register(pluginId, "PATCH", path, handler),
-        delete: (path, handler) => this.httpRouter.register(pluginId, "DELETE", path, handler),
+        get: (path, handler, options) => this.httpRouter.register(pluginId, "GET", path, handler, options),
+        post: (path, handler, options) => this.httpRouter.register(pluginId, "POST", path, handler, options),
+        put: (path, handler, options) => this.httpRouter.register(pluginId, "PUT", path, handler, options),
+        patch: (path, handler, options) => this.httpRouter.register(pluginId, "PATCH", path, handler, options),
+        delete: (path, handler, options) => this.httpRouter.register(pluginId, "DELETE", path, handler, options),
       },
       jobs: this.scopedJobs(pluginId, permissions),
       mail: this.mailFactory(pluginId, permissions),
@@ -514,6 +666,15 @@ export class PluginLoader {
       },
       patterns: {
         register: (pattern) => this.patternRegistry.register(pluginId, pattern),
+      },
+      media: {
+        placeholder: (kind) => this.placeholderResolver(siteId, kind),
+        placeholderHtml: (kind, options) => {
+          const image = this.placeholderResolver(siteId, kind);
+          return image ? placeholderImgHtml(image, options) : "";
+        },
+        registerPlaceholder: (kind, definition) =>
+          this.placeholderRegistry.register(pluginId, kind, definition),
       },
       logger,
     };
@@ -566,6 +727,10 @@ export class PluginLoader {
       deleteType: (slug) => {
         assertDelete();
         return inner.deleteType(slug);
+      },
+      deleteCreatedBy: (userId) => {
+        assertDelete();
+        return inner.deleteCreatedBy(userId);
       },
     };
   }

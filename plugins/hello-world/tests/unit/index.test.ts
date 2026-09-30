@@ -9,6 +9,7 @@ const mockCtx = {
     filter: vi.fn(),
   },
   patterns: { register: vi.fn() },
+  media: { registerPlaceholder: vi.fn() },
   settings: {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue(undefined),
@@ -46,6 +47,10 @@ describe("hello-world plugin", () => {
     await plugin.activate(mockCtx as unknown as Parameters<typeof plugin.activate>[0]);
     expect(mockCtx.hooks.action).toHaveBeenCalledWith("content.published", expect.any(Function));
     expect(mockCtx.hooks.filter).toHaveBeenCalledWith("theme.css", expect.any(Function));
+    expect(mockCtx.media.registerPlaceholder).toHaveBeenCalledWith(
+      "justflows.hello-world.card",
+      expect.objectContaining({ src: "/ext/justflows.hello-world/hello-world-placeholder.svg" }),
+    );
     expect(mockCtx.logger.info).toHaveBeenCalledWith("Hello World plugin activated");
   });
 

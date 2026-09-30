@@ -13,6 +13,12 @@ import {
 } from "./config.js";
 import { crawlPages, type FetchedResource } from "./crawl.js";
 import { discoverRoutes, NOT_FOUND_PROBE } from "./discover.js";
+import {
+  isExcludedPath,
+  rewriteExcludedLinks,
+  sanitizeExclusions,
+  type ExportExclusion,
+} from "./exclusions.js";
 import { computeAffected } from "./invalidate.js";
 import {
   manifestFiles,
@@ -333,6 +339,23 @@ function rewriteActions(html: string, rewrites: Map<string, string>): string {
 }
 
 /**
+ * Paths plugins leave to the live app (`staticExport.exclude`), validated. A
+ * broken filter must not abort the export, so it counts as no exclusions.
+ */
+async function resolveExclusions(siteId: string, adminPath: string): Promise<ExportExclusion[]> {
+  const hooks = getRuntimeHooks();
+  if (!hooks.has("staticExport.exclude")) return [];
+  try {
+    return sanitizeExclusions(
+      await hooks.applyFilter("staticExport.exclude", [], { siteId }),
+      adminPath,
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Stamp every exported page with a `window.__JF_ORIGIN__` hint in `<head>`.
  *
  * This is deliberately generic — the exporter has no per-plugin knowledge. Two
@@ -393,6 +416,22 @@ export async function runStaticExport(
     return { ok: res.status >= 200 && res.status < 300, body: res.body.toString("utf8") };
   };
 
+  const { getSiteId } = await import("../themes/themes-db.js");
+  const siteId = (await getSiteId()) ?? "";
+  const adminPath = await getAdminPathConfig()
+    .then((config) => config.path)
+    .catch(() => "/admin");
+  const exclusions = await resolveExclusions(siteId, adminPath);
+  const excluded = (path: string) => isExcludedPath(path, exclusions);
+  if (exclusions.length > 0) {
+    log(
+      `• Leaving ${exclusions.length} path(s) to the live app: ` +
+        exclusions
+          .map((rule) => (rule.match === "exact" ? rule.path : `${rule.path}/*`))
+          .join(", "),
+    );
+  }
+
   const discovered = await discoverRoutes(fetchText);
   const pathToContentIds = new Map<string, string[]>();
   const pathToGroupIds = new Map<string, string[]>();
@@ -446,11 +485,13 @@ export async function runStaticExport(
     }
   }
 
+  seeds = seeds.filter((path) => path === NOT_FOUND_PROBE || !excluded(path));
   const crawl = await crawlPages(seeds, fetcher, {
     maxPages: cfg.maxPages,
     concurrency: cfg.concurrency,
     publicUrl: cfg.publicUrl,
     discoverLinks,
+    exclude: excluded,
   });
   errors.push(...crawl.errors);
   // A crawl that threw on some fetches or stopped at the page cap did not see
@@ -461,8 +502,6 @@ export async function runStaticExport(
     log(`⚠ Stopped at STATIC_EXPORT_MAX_PAGES=${cfg.maxPages}; raise it to export the rest.`);
   }
 
-  const { getSiteId } = await import("../themes/themes-db.js");
-  const siteId = (await getSiteId()) ?? "";
   const actionRewrites = await resolveActionRewrites(cfg.originUrl, siteId);
   if (actionRewrites.size > 0) {
     log(
@@ -475,6 +514,8 @@ export async function runStaticExport(
     if (!page.contentType.includes("text/html")) return page.body;
     let html = page.body.toString("utf8");
     if (actionRewrites.size > 0) html = rewriteActions(html, actionRewrites);
+    // Split origin: the static host cannot serve an excluded page, so send links there to the app.
+    html = rewriteExcludedLinks(html, exclusions, cfg.originUrl);
     html = decoratePage(html, cfg.originUrl);
     return Buffer.from(html, "utf8");
   };
@@ -593,6 +634,10 @@ export async function runStaticExport(
     ? assetRefs
     : new Set([...assetRefs].filter((ref) => !knownAssetPaths.has(ref)));
 
+  for (const ref of [...refsToFetch]) {
+    if (excluded(ref)) refsToFetch.delete(ref);
+  }
+
   const assets: ManifestAsset[] = [];
   if (refsToFetch.size > 0) {
     const fetchedAssets = await collectAssets(
@@ -631,6 +676,16 @@ export async function runStaticExport(
     );
   }
 
+  // A path a plugin now excludes must not keep serving an old static copy,
+  // whether or not this run prunes.
+  const staleAssets = new Set<string>();
+  for (const route of prev?.routes ?? []) {
+    if (route.path !== "/404.html" && excluded(route.path)) prunePaths.add(route.path);
+  }
+  for (const asset of prev?.assets ?? []) {
+    if (excluded(asset.path)) staleAssets.add(asset.file);
+  }
+
   // ── Merge with the previous manifest when not pruning ─────────────────────
   // `prune` is false on a targeted incremental run (and on a downgraded run
   // above), so untouched files stay on disk; carry their manifest entries
@@ -647,11 +702,15 @@ export async function runStaticExport(
     // did (a full/asset run replaces the lot; a targeted run adds only the new
     // files a rebuilt page pulled in).
     const replacedAssets = new Set(assets.map((a) => a.file));
-    finalAssets = [...prev.assets.filter((a) => !replacedAssets.has(a.file)), ...assets];
+    finalAssets = [
+      ...prev.assets.filter((a) => !replacedAssets.has(a.file) && !staleAssets.has(a.file)),
+      ...assets,
+    ];
   }
 
-  // Files that vanished (seed now 404s) must be removed even without a full prune.
-  if (prunePaths.size > 0 && !prune && prev) {
+  // Files that vanished (seed now 404s, or a plugin now excludes the path) must
+  // be removed even without a full prune.
+  if ((prunePaths.size > 0 || staleAssets.size > 0) && !prune && prev) {
     const { rm, realpath, mkdir } = await import("node:fs/promises");
     const { resolvePathUnderBase } = await import("../security/safe-path.js");
     await mkdir(cfg.outDir, { recursive: true });
@@ -661,7 +720,12 @@ export async function runStaticExport(
       if (!gone) continue;
       const abs = resolvePathUnderBase(base, gone.file);
       if (abs) await rm(abs, { force: true }).catch(() => {});
-      log(`↻ removed ${gone.file} (origin now 404)`);
+      log(`↻ removed ${gone.file} (${excluded(p) ? "left to the live app" : "origin now 404"})`);
+    }
+    for (const file of staleAssets) {
+      const abs = resolvePathUnderBase(base, file);
+      if (abs) await rm(abs, { force: true }).catch(() => {});
+      log(`↻ removed ${file} (left to the live app)`);
     }
   }
 
@@ -691,10 +755,9 @@ export async function runStaticExport(
   // Cloudflare Pages / Netlify. Each file is regenerated only while it still
   // carries the sentinel line, so a hand-edited one is left alone.
   try {
-    const adminPath = (await getAdminPathConfig()).path;
     const managed: Array<[string, string]> = [
-      [HTACCESS_FILE, renderHtaccess({ adminPath })],
-      [NGINX_FILE, renderNginxConf({ adminPath, rootDir: cfg.outDir })],
+      [HTACCESS_FILE, renderHtaccess({ adminPath, exclusions })],
+      [NGINX_FILE, renderNginxConf({ adminPath, rootDir: cfg.outDir, exclusions })],
     ];
     for (const [name, body] of managed) {
       const result = await writeManagedFile(cfg.outDir, name, body);

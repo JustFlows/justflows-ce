@@ -11,6 +11,19 @@ export interface BlockDocument {
   blocks: BlockNode[];
 }
 
+/** One plugin block prop as the inspector renders it (mirrors `PluginBlockField` in @justflows/sdk). */
+export interface BlockSchemaField {
+  type?: string;
+  default?: unknown;
+  options?: string[];
+  optionLabels?: Record<string, string>;
+  label?: string;
+  help?: string;
+  optionsUrl?: string;
+  multiple?: boolean;
+  showWhen?: { field: string; equals: string | string[] };
+}
+
 export interface BlockCatalogEntry {
   type: string;
   version: number;
@@ -20,6 +33,7 @@ export interface BlockCatalogEntry {
   category: string;
   supportsChildren: boolean;
   allowedChildTypes?: string[];
+  schema?: Record<string, BlockSchemaField>;
 }
 
 export type BlockPath = number[];

@@ -332,7 +332,11 @@ export default function UpdatesPage() {
     }
   }
 
-  async function uploadZip(file: File) {
+  async function uploadZip(files: FileList) {
+    const list = Array.from(files);
+    const file = list.find((f) => f.name.toLowerCase().endsWith(".zip"));
+    const signature = list.find((f) => f.name.toLowerCase().endsWith(".sig"));
+    if (!file) return;
     setUploading(true);
     setInstalling(true);
     setLog([]);
@@ -340,6 +344,7 @@ export default function UpdatesPage() {
 
     const form = new FormData();
     form.append("file", file);
+    if (signature) form.append("releaseSignature", signature);
     try {
       // Long timeout: the upload body itself can be large; the pipeline no longer
       // runs inside this request.
@@ -461,13 +466,14 @@ export default function UpdatesPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".zip"
+            accept=".zip,.sig"
+            multiple
             style={{ display: "none" }}
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) uploadZip(f);
+              if (e.target.files?.length) uploadZip(e.target.files);
             }}
           />
+          <p className="jf-meta">{t("updates.upload.signatureHint")}</p>
 
           <div className="jf-row">
             <button

@@ -358,6 +358,7 @@ up a change on the next export run.
 | **Cookie consent records + disclosure**               | `/ext/justflows.consent/*` — banner/gating work offline; record log + cookie table need the endpoint reachable  |
 | **Login / register / password reset / language POST** | origin only — never route these to the static host                                                              |
 | **Search**                                            | needs the origin, or a client-side / third-party index                                                          |
+| **Plugin-excluded pages** (`staticExport.exclude`)    | never exported — served by the origin; see [Pages a plugin keeps live](#pages-a-plugin-keeps-live)              |
 
 Two ways to make the submit endpoint reachable:
 
@@ -575,15 +576,53 @@ the origin field with this install's `APP_URL`.
 > A same-origin hybrid setup needs no CORS and no allow-list — prefer it unless
 > the host genuinely cannot proxy.
 
+### Pages a plugin keeps live
+
+Some pages must never be frozen: a cart, a checkout, a customer account, or
+anything that shows data per visitor. A plugin lists them with the
+`staticExport.exclude` filter, and the exporter then:
+
+- never crawls them, even when another page links to them;
+- removes any copy an earlier run wrote (on incremental runs too);
+- skips excluded asset URLs;
+- adds them to the dynamic hand-off in the generated `.htaccess` and
+  `_nginx.conf`, so the web server routes them to the app;
+- with `STATIC_EXPORT_ORIGIN_URL` set, rewrites `href="…"` and `action="…"`
+  that point at them to that origin, so visitors on the static host land on
+  the live page.
+
+```ts
+ctx.hooks.filter("staticExport.exclude", (exclusions) => [
+  ...exclusions,
+  { path: "/shop/checkout" }, // and everything below it
+  { path: "/account", match: "exact" }, // only this page
+]);
+```
+
+`match` defaults to `prefix`, which matches on a `/` boundary: `/shop/cart`
+covers `/shop/cart/step-2` but not `/shop/cartoon`. Paths are literal, so list
+localized copies (`/nl-NL/shop/checkout`) too; `ctx.i18n.locales()` gives the
+active locales. Paths may only use letters, digits, `.`, `_`, `~`, `-` and
+`/`. Invalid entries, `/`, and paths core already routes to the app (the admin
+path, `/api`, the auth pages, `/ext`) are ignored. A filter that throws counts
+as no exclusions; the export still runs. The Shop plugin uses this for its
+cart, checkout, order confirmation, customer account, and order tracking pages.
+
+Exclusion keeps a page out of the export. It does not make a script on an
+exported page talk to a different origin: in a split-origin setup, a plugin
+script that calls its own routes still has to use `window.__JF_ORIGIN__` and
+return `cors: true` on those routes.
+
 ## Hooks
 
-| Hook                      | Kind              | Use                                                                                                                |
-| ------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `staticExport.routes`     | filter `string[]` | add/remove seed paths before the crawl                                                                             |
-| `staticExport.assets`     | filter `string[]` | add same-origin asset URLs the scanner cannot discover (dynamic imports, workers, runtime-fetched JSON)            |
-| `staticExport.formAction` | filter `string`   | override the `<form action>` written for a dynamic endpoint (`{ endpoint: "forms" \| "comments", defaultAction }`) |
-| `staticExport.completed`  | action            | observe a finished run (`{ ok, mode, pages, assets, bytes, pruned, errors, … }`)                                   |
-| `staticExport.deploy`     | action            | push the directory to object storage / a CDN                                                                       |
+| Hook                      | Kind                             | Use                                                                                                                |
+| ------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `staticExport.routes`     | filter `string[]`                | add/remove seed paths before the crawl (a removed seed is still crawled when linked; use `staticExport.exclude`)   |
+| `staticExport.exclude`    | filter `StaticExportExclusion[]` | paths left to the live app — never crawled, pruned, routed to the app, links rewritten to the origin               |
+| `staticExport.assets`     | filter `string[]`                | add same-origin asset URLs the scanner cannot discover (dynamic imports, workers, runtime-fetched JSON)            |
+| `staticExport.formAction` | filter `string`                  | override the `<form action>` written for a dynamic endpoint (`{ endpoint: "forms" \| "comments", defaultAction }`) |
+| `staticExport.completed`  | action                           | observe a finished run (`{ ok, mode, pages, assets, bytes, pruned, errors, … }`)                                   |
+| `staticExport.deploy`     | action                           | push the directory to object storage / a CDN                                                                       |
 
 ## Limitations
 

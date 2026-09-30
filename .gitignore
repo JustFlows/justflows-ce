@@ -40,6 +40,9 @@ install-token/
 .updates/
 tmp/
 uploads/
+# Runtime copies of installed plugins. Source plugins in this repo stay tracked.
+plugins/*
+!plugins/README.md
 packages-installed/
 css-providers-installed/
 data/installed.json
@@ -79,6 +82,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Editor and operating-system files
+/README.md
 .DS_Store
 Thumbs.db
 .idea/

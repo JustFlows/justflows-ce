@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="">
+<style>.bg{fill:#eef1f5}.fg{fill:none;stroke:#a7b0bf;stroke-width:8.2;stroke-linejoin:round;stroke-linecap:round}.dot{fill:#a7b0bf}@media (prefers-color-scheme:dark){.bg{fill:#1e232b}.fg{stroke:#4a5261}.dot{fill:#4a5261}}</style>
+<rect class="bg" width="1600" height="900"/>
+<rect class="fg" x="701.0" y="370.8" width="198.0" height="158.4" rx="15.8"/>
+<circle class="dot" cx="760.4" cy="424.3" r="15.8"/>
+<path class="fg" d="M716.8 505.4L776.2 454.0L815.8 489.6L843.6 465.8L883.2 501.5"/>
+</svg>

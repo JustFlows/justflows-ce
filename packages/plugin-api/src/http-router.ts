@@ -3,8 +3,10 @@
 import type {
   PluginHttpHandler,
   PluginHttpMethod,
+  PluginHttpRateLimit,
   PluginHttpRequest,
   PluginHttpResponse,
+  PluginHttpRouteOptions,
 } from "@justflows/sdk";
 
 export interface RegisteredPluginRoute {
@@ -12,6 +14,42 @@ export interface RegisteredPluginRoute {
   method: PluginHttpMethod;
   path: string;
   handler: PluginHttpHandler;
+  csrf?: false;
+  rateLimit?: PluginHttpRateLimit;
+  rawBody?: true;
+}
+
+const RATE_KEY = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+/** Copy only the fields the host understands, and reject a limit that would not hold. */
+export function normalizePluginHttpRouteOptions(
+  pluginId: string,
+  options?: PluginHttpRouteOptions,
+): Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody"> {
+  if (!options) return {};
+  const normalized: Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody"> = {};
+  if (options.csrf !== undefined && options.csrf !== false) {
+    throw new Error(`Plugin "${pluginId}" can only set csrf to false`);
+  }
+  if (options.csrf === false) normalized.csrf = false;
+  if (options.rawBody !== undefined && options.rawBody !== true) {
+    throw new Error(`Plugin "${pluginId}" can only set rawBody to true`);
+  }
+  if (options.rawBody === true) normalized.rawBody = true;
+  if (options.rateLimit) {
+    const { limit, windowMs, key } = options.rateLimit;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 10_000) {
+      throw new Error(`Plugin "${pluginId}" rate limit must be an integer from 1 to 10000`);
+    }
+    if (!Number.isInteger(windowMs) || windowMs < 1_000 || windowMs > 3_600_000) {
+      throw new Error(`Plugin "${pluginId}" rate-limit window must be from 1000 to 3600000 milliseconds`);
+    }
+    if (key !== undefined && !RATE_KEY.test(key)) {
+      throw new Error(`Plugin "${pluginId}" rate-limit key must be 1–40 letters, digits, or hyphens`);
+    }
+    normalized.rateLimit = key === undefined ? { limit, windowMs } : { limit, windowMs, key };
+  }
+  return normalized;
 }
 
 function normalizePath(path: string): string {
@@ -60,6 +98,7 @@ export class PluginHttpRouter {
     method: PluginHttpMethod,
     rawPath: string,
     handler: PluginHttpHandler,
+    options?: PluginHttpRouteOptions,
   ): void {
     const path = rawPath.startsWith("/")
       ? normalizePath(rawPath)
@@ -72,7 +111,13 @@ export class PluginHttpRouter {
       );
     }
 
-    this.routes.push({ pluginId, method, path, handler });
+    this.routes.push({
+      pluginId,
+      method,
+      path,
+      handler,
+      ...normalizePluginHttpRouteOptions(pluginId, options),
+    });
   }
 
   removePlugin(pluginId: string): void {

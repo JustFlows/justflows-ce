@@ -17,6 +17,13 @@ export interface BlockSchema {
     required?: boolean;
     default?: unknown;
     options?: string[]; // for select
+    /** Inspector hints for plugin blocks; see `PluginBlockField` in @justflows/sdk. */
+    optionLabels?: Record<string, string>;
+    label?: string;
+    help?: string;
+    optionsUrl?: string;
+    multiple?: boolean;
+    showWhen?: { field: string; equals: string | string[] };
   };
 }
 

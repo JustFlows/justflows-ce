@@ -42,6 +42,9 @@
     "languages": "Languages",
     "shop": "Shop",
     "shopProducts": "Products",
+    "shopImport": "Import",
+    "shopCategories": "Categories",
+    "shopTags": "Tags",
     "shopAttributes": "Attributes",
     "shopInventory": "Inventory",
     "shopOrders": "Orders",
@@ -54,8 +57,10 @@
     "shopRefunds": "Refunds",
     "shopEmails": "Emails",
     "shopReports": "Reports",
+    "shopPage": "Shop page",
     "permalinks": "Permalinks",
     "pwa": "PWA",
+    "placeholders": "Placeholders",
     "redirects": "Redirects"
   },
   "webhooks": {
@@ -168,75 +173,16 @@
     "sectionBody": "{section} will appear here as this plugin ships the screen.",
     "pagesBody": "Open a page from {plugin}.",
     "newType": "New {type}",
+    "import": "Import",
+    "selectAll": "Select all",
+    "deleteSelected": "Delete {count}",
+    "trashConfirm": "Move {count} products to trash? You can restore them during the retention period.",
     "listEmptyTitle": "No {section} yet",
     "listEmptyBody": "Create the first {type} to get started.",
     "listError": "Could not load {section}.",
     "edit": "Edit",
     "status": "Status",
     "updated": "Updated"
-  },
-  "shop": {
-    "productData": "Product",
-    "pricing": "Pricing",
-    "inventory": "Inventory",
-    "shipping": "Shipping",
-    "attributes": "Attributes",
-    "variations": "Variations",
-    "productType": "Product type",
-    "types": {
-      "simple": "Simple",
-      "variable": "Variable",
-      "virtual": "Virtual",
-      "downloadable": "Downloadable"
-    },
-    "visibility": "Visibility",
-    "visibilities": {
-      "public": "Public",
-      "hidden": "Hidden",
-      "catalog-only": "Catalog only",
-      "search-only": "Search only"
-    },
-    "sku": "SKU",
-    "barcode": "Barcode",
-    "regularPrice": "Regular price",
-    "salePrice": "Sale price",
-    "saleStarts": "Sale starts",
-    "saleEnds": "Sale ends",
-    "cost": "Cost",
-    "taxClass": "Tax class",
-    "shippingClass": "Shipping class",
-    "trackInventory": "Track inventory",
-    "stock": "Stock",
-    "stockOnVariations": "Stock is set on each variation.",
-    "backorder": "Backorders",
-    "backorders": {
-      "disabled": "Do not allow",
-      "allowed": "Allow",
-      "notify": "Allow, notify customer"
-    },
-    "soldIndividually": "Limit purchases to one per order",
-    "minQty": "Minimum quantity",
-    "maxQty": "Maximum quantity",
-    "qtyStep": "Quantity step",
-    "weight": "Weight",
-    "length": "Length",
-    "width": "Width",
-    "height": "Height",
-    "attributeName": "Attribute",
-    "attributeValues": "Values",
-    "attributeValuesHint": "Comma-separated, for example Red, Blue, Green.",
-    "addAttribute": "Add attribute",
-    "removeAttribute": "Remove attribute",
-    "generateVariations": "Generate variations",
-    "generateHint": "Add attributes such as Size or Color, then generate a variation for every combination.",
-    "variationEnabled": "Enabled",
-    "variationOptions": "Options",
-    "addVariation": "Add variation",
-    "noVariations": "No variations yet. Generate them from the attributes above.",
-    "setupRequired": "Finish Shop setup to store prices and stock.",
-    "sharedAcrossTranslations": "SKU, prices, and stock are the same for every translation. In the page builder, insert tags such as {{price}} and {{sku}} to show those values.",
-    "openSetup": "Open Shop setup",
-    "saveFailed": "Product data could not be saved."
   },
   "pluginSetup": {
     "next": "Continue",
@@ -397,7 +343,8 @@
       "newTypeLabel": "New {typeLabel}",
       "slugHint": "Generated from the title until you edit it.",
       "excerptHint": "Used as the meta description until you set a dedicated SEO description."
-    }
+    },
+    "pluginDataSaveFailed": "This plugin's fields could not be saved."
   },
   "languages": {
     "title": "Languages",
@@ -1130,7 +1077,8 @@
         "postsPerPage": "Posts per page",
         "showDate": "Show date",
         "showExcerpt": "Show excerpt",
-        "showFeaturedImage": "Show featured image"
+        "showFeaturedImage": "Show featured image",
+        "showPlaceholder": "Show placeholder when a post has no image"
       },
       "productList": {
         "addButtonLabel": "Add button label",
@@ -1146,6 +1094,14 @@
         "totalReviews": "Total reviews",
         "writeReviewLabel": "Write review label",
         "writeReviewUrl": "Write review URL"
+      },
+      "schemaField": {
+        "loadFailed": "Could not load options.",
+        "loading": "Loading options…",
+        "noOptions": "Nothing to choose from yet.",
+        "none": "— None —",
+        "search": "Search…",
+        "selected": "{count} selected"
       }
     },
     "preview": {
@@ -1261,13 +1217,35 @@
     "never": "Without trailing slash",
     "always": "With trailing slash",
     "types": "Content type bases",
-    "baseHelp": "Use a path such as resources/articles, without surrounding slashes. Leave a type base empty to keep its slug at the site root.",
+    "baseHelp": "Use a path such as resources/articles, without surrounding slashes. Product defaults to product and Shop defaults to shop, so a product is /product/its-slug and the Product detail page at /product is the parent. Leave other types empty to keep their slug at the site root.",
     "categoryBase": "Category base",
     "tagBase": "Tag base",
     "localeHelp": "Locale prefixes appear before the structure. The default locale has no prefix; other enabled locales keep their full locale tag. The homepage stays at the locale root.",
     "save": "Save permalinks",
     "saving": "Saving…",
     "history": "Historical content URLs ({count})"
+  },
+  "placeholders": {
+    "title": "Placeholders",
+    "description": "Images shown when a post, product, or block has no image of its own.",
+    "failed": "Could not load or save placeholder settings.",
+    "retry": "Retry",
+    "saved": "Placeholder settings saved.",
+    "save": "Save placeholders",
+    "saving": "Saving…",
+    "enable": "Show placeholders for missing images",
+    "enableHint": "When this is off, an empty image slot stays empty. Blocks can also turn placeholders off one by one.",
+    "images": "Placeholder images",
+    "kindHint": "{size} · {owner}. Leave empty to use the default below.",
+    "ownerCore": "Justflows",
+    "defaultPreview": "Default {label} placeholder",
+    "kinds": {
+      "generic": "Generic image",
+      "featured": "Featured image",
+      "thumbnail": "Thumbnail",
+      "avatar": "Avatar",
+      "og": "Social share image"
+    }
   },
   "pwa": {
     "title": "PWA",
@@ -2026,6 +2004,9 @@
     "themeProvidesOneSuffix": " (this theme provides one)",
     "builtinDefaultOption": "Built-in default",
     "colorsDarkHint": "Used when a visitor picks dark mode, or when their device asks for it and they have not chosen. These are a separate palette — changing a colour above does not change it here.",
+    "layoutScope": "Applies to",
+    "layoutScopeSite": "Whole site",
+    "layoutScopeHint": "A content type uses these widths on its parent URL and every page under it. Product applies to /product and each product detail page.",
     "navigationHintPrefix": "Assign the default header and footer menus. Build the headers themselves on the Header tab, and design the menus themselves — layout, dropdowns, mega menus, items — on the",
     "menusTabLink": "Menus tab",
     "navigationHintSuffix": "; each page picks a header from a dropdown.",
@@ -2130,7 +2111,13 @@
     "installing": "Installing…",
     "getOnJustflows": "Get on Justflows",
     "install": "Install",
-    "versionBy": "v{version} · by {publisher}"
+    "versionBy": "v{version} · by {publisher}",
+    "beta": "Beta",
+    "betaWarning": "Beta build: it may be unstable or change before release. Test on a staging site first.",
+    "betaDisabledHint": "Beta installs are turned off for this site.",
+    "betaSettingsLink": "Change in Settings",
+    "betaDisabledButton": "Beta — not enabled",
+    "betaInstallConfirm": "{name} is a beta. It may be unstable, lose data, or change before its stable release. Install it anyway?"
   },
   "pluginSettings": {
     "loadFailed": "Plugin settings could not be loaded.",
@@ -2959,7 +2946,8 @@
         "contributor": "Contributor",
         "author": "Author",
         "editor": "Editor",
-        "administrator": "Administrator"
+        "administrator": "Administrator",
+        "customer": "Customer"
       }
     },
     "locale": {
@@ -3009,6 +2997,11 @@
       "title": "Reading",
       "postsPerPageLabel": "Blog pages show at most",
       "postsUnit": "posts"
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "allowBetaLabel": "Allow installing beta plugins and themes from the Marketplace",
+      "allowBetaHint": "Beta listings are pre-release builds. They may be unstable or change before release. Each install still asks for confirmation."
     },
     "trash": {
       "title": "Trash retention",
@@ -3396,6 +3389,7 @@
     "upload": {
       "backgroundHint": "The update runs in the background — you can safely leave this page",
       "chooseFile": "Choose justflows.zip…",
+      "signatureHint": "Select justflows.zip together with justflows.zip.sig from the same release. Justflows only applies an update it can verify.",
       "description1": "Upload a",
       "description2": "file. Justflows extracts it, updates the database, installs dependencies, and restarts the site by itself (Plesk/Passenger). Your",
       "description3": "and uploads are preserved.",
@@ -3487,7 +3481,32 @@
       "failedToLoadUser": "Failed to load user",
       "failedToUpdateUser": "Failed to update user",
       "failedToResetPassword": "Failed to reset password",
-      "failedToRemoveUser": "Failed to remove user"
+      "failedToRemoveUser": "Failed to remove user",
+      "eyebrowView": "User",
+      "account": "Account",
+      "userId": "User ID",
+      "createdAt": "Created",
+      "updatedAt": "Last updated",
+      "twoFactor": "Two-factor authentication",
+      "twoFactorEnabled": "Enabled",
+      "twoFactorDisabled": "Not enabled",
+      "contentAuthored": "Content authored",
+      "downloadPersonalData": "Download personal data",
+      "content": "Content",
+      "noContent": "This user has not authored any content.",
+      "contentTitle": "Title",
+      "contentType": "Type",
+      "contentStatus": "Status",
+      "effectiveCapabilities": "Effective capabilities",
+      "recentActivity": "Recent activity",
+      "noActivity": "No recorded activity.",
+      "activityWhen": "When",
+      "activityAction": "Action",
+      "activityOutcome": "Outcome",
+      "activityTarget": "Target",
+      "activityIp": "IP address",
+      "additionalRoles": "Additional roles",
+      "additionalRolesHint": "The user keeps their main role and also gets everything these roles allow. For example, a subscriber can also be a shop customer. Administrator can only be a main role."
     },
     "roles": {
       "title": "Roles and capabilities",
@@ -3513,5 +3532,12 @@
       "failedToSaveRole": "Failed to save role",
       "failedToDeleteRole": "Failed to delete role"
     }
+  },
+  "meta": {
+    "description": "Justflows admin panel: manage your site's content, media, design, and settings.",
+    "login": "Sign in",
+    "register": "Create account",
+    "forgotPassword": "Forgot password",
+    "resetPassword": "Reset password"
   }
 }

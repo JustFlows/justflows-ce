@@ -1,4 +1,9 @@
-import { createHmac, createPublicKey, timingSafeEqual, verify as verifySignature } from "node:crypto";
+import {
+  createHmac,
+  createPublicKey,
+  timingSafeEqual,
+  verify as verifySignature,
+} from "node:crypto";
 
 function readTrustedDigests(): Map<string, string> {
   const raw = process.env.JUSTFLOWS_TRUSTED_PACKAGE_DIGESTS ?? "";
@@ -156,24 +161,128 @@ export function assertPackageIsTrusted(
   );
 }
 
-/** Optional HMAC verification for core update archives. */
-export function verifyUpdateArchiveSignature(buffer: Buffer, signature: string | undefined): void {
-  const key = process.env.JUSTFLOWS_UPDATE_SIGNING_KEY;
-  if (!key) return;
+/**
+ * Justflows core release Ed25519 public keys (SPKI PEM). Every official
+ * `justflows.zip` is published with a `justflows.zip.sig` made by the matching
+ * private key (`scripts/sign-core-release.mjs`). This is a separate key from the
+ * marketplace one, so a compromised registry cannot sign a core update.
+ *
+ * A list so a key can be rotated: ship the new key next to the old one for one
+ * release, then drop the old one.
+ */
+export const CORE_RELEASE_PUBLIC_KEYS: readonly string[] = [
+  `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAuVVJOPaJYnkAKdgzbowWBSlvFhBnFzL+W/zgq+jH9+c=
+-----END PUBLIC KEY-----`,
+];
 
-  if (!signature?.trim()) {
-    throw new Error("Core update signature is required (JUSTFLOWS_UPDATE_SIGNING_KEY is set)");
+/** Bytes a core release signature covers. Binds the version so an older signed
+ * build cannot be passed off as a newer one. */
+export function coreReleaseSignPayload(version: string, digestHex: string): Buffer {
+  return Buffer.from(`justflows-core\n${version}\n${digestHex.toLowerCase()}`, "utf8");
+}
+
+export function verifyCoreReleaseSignature(
+  digestHex: string,
+  version: string,
+  signatureB64: string | undefined,
+  publicKeys: readonly string[] = CORE_RELEASE_PUBLIC_KEYS,
+): boolean {
+  if (!digestHex || !version || !signatureB64?.trim()) return false;
+  const payload = coreReleaseSignPayload(version, digestHex);
+  const signature = Buffer.from(signatureB64.trim(), "base64");
+  for (const pem of publicKeys) {
+    try {
+      if (verifySignature(null, payload, createPublicKey(pem), signature)) return true;
+    } catch {
+      /* try the next key */
+    }
+  }
+  return false;
+}
+
+/**
+ * Core updates must be verified by default. `JUSTFLOWS_ALLOW_UNSIGNED_CORE_UPDATES=1`
+ * opts out, for local development and for operators who build their own core.
+ */
+export function allowUnsignedCoreUpdates(): boolean {
+  return process.env.JUSTFLOWS_ALLOW_UNSIGNED_CORE_UPDATES === "1";
+}
+
+function verifyUpdateHmac(buffer: Buffer, key: string, signature: string | undefined): boolean {
+  if (!signature?.trim()) return false;
+  const expected = createHmac("sha256", key).update(buffer).digest("hex");
+  const a = Buffer.from(expected, "utf-8");
+  const b = Buffer.from(signature.trim().toLowerCase(), "utf-8");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export interface CoreUpdateTrustInput {
+  buffer: Buffer;
+  digest: string;
+  /** Version read from the archive's own package.json. */
+  version: string;
+  /** Ed25519 signature published with an official release (base64). */
+  releaseSignature?: string;
+  /** Operator HMAC made with JUSTFLOWS_UPDATE_SIGNING_KEY (hex). */
+  signature?: string;
+}
+
+/**
+ * Refuse a core update archive nobody vouched for. Replacing the core runs new
+ * code in this process, so this is the same bar as installing a package.
+ *
+ * Accepted, in order: an operator-pinned `JUSTFLOWS_UPDATE_DIGEST` (a mismatch
+ * always fails), an official Justflows release signature, or an operator HMAC
+ * made with `JUSTFLOWS_UPDATE_SIGNING_KEY`. Returns how the archive was verified.
+ */
+export function assertCoreUpdateIsTrusted(
+  input: CoreUpdateTrustInput,
+  publicKeys: readonly string[] = CORE_RELEASE_PUBLIC_KEYS,
+): string {
+  const digest = input.digest.toLowerCase();
+
+  const pinned = process.env.JUSTFLOWS_UPDATE_DIGEST?.trim().toLowerCase();
+  if (pinned) {
+    if (digest !== pinned) throw new Error("Update digest does not match JUSTFLOWS_UPDATE_DIGEST");
+    return "Digest matches JUSTFLOWS_UPDATE_DIGEST";
   }
 
-  const expected = createHmac("sha256", key).update(buffer).digest("hex");
-  try {
-    const a = Buffer.from(expected, "utf-8");
-    const b = Buffer.from(signature.trim().toLowerCase(), "utf-8");
-    if (a.length !== b.length || !timingSafeEqual(a, b)) {
-      throw new Error("Core update signature is invalid");
-    }
-  } catch (err) {
-    if (err instanceof Error && err.message.includes("signature")) throw err;
+  if (verifyCoreReleaseSignature(digest, input.version, input.releaseSignature, publicKeys)) {
+    return `Justflows release signature verified (v${input.version})`;
+  }
+
+  const hmacKey = process.env.JUSTFLOWS_UPDATE_SIGNING_KEY;
+  if (hmacKey && verifyUpdateHmac(input.buffer, hmacKey, input.signature)) {
+    return "Update signature verified (JUSTFLOWS_UPDATE_SIGNING_KEY)";
+  }
+
+  if (input.releaseSignature?.trim()) {
+    throw new Error(
+      `The Justflows release signature does not match this archive (v${input.version}). ` +
+        "Download justflows.zip and justflows.zip.sig from the same release and try again.",
+    );
+  }
+  if (hmacKey && input.signature?.trim()) {
     throw new Error("Core update signature is invalid");
   }
+
+  if (allowUnsignedCoreUpdates()) {
+    console.warn(
+      "[justflows] SECURITY: applying an unverified core update. JUSTFLOWS_ALLOW_UNSIGNED_CORE_UPDATES is set.",
+      JSON.stringify({ version: input.version, digest }),
+    );
+    return "Unverified — JUSTFLOWS_ALLOW_UNSIGNED_CORE_UPDATES is set";
+  }
+
+  throw new Error(
+    "This core update could not be verified. Updating the core runs its code on your server, " +
+      "so Justflows only applies an official release together with its signature " +
+      "(justflows.zip.sig, published next to justflows.zip on every release).\n\n" +
+      `Digest of the archive you supplied: ${digest}\n\n` +
+      "To apply your own build instead, pin it:\n" +
+      `  JUSTFLOWS_UPDATE_DIGEST=${digest}\n` +
+      "or, if you build your own core and accept the risk, allow unsigned updates:\n" +
+      "  JUSTFLOWS_ALLOW_UNSIGNED_CORE_UPDATES=1",
+  );
 }

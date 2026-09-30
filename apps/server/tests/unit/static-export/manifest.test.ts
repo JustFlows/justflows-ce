@@ -154,6 +154,19 @@ describe("renderHtaccess", () => {
     expect(out).toMatch(/^\s*#\s*RewriteRule \^\(admin\|api\|/m);
   });
 
+  it("adds plugin exclusions to the dynamic hand-off", () => {
+    const out = renderHtaccess({
+      adminPath: "/admin",
+      exclusions: [
+        { path: "/shop/checkout", match: "prefix" },
+        { path: "/account.html", match: "exact" },
+      ],
+    });
+    expect(out).toContain("|justflows-analytics|shop/checkout)(/|$)");
+    expect(out).toMatch(/^\s*#\s*RewriteRule \^\(account\\\.html\)\/\?\$ /m);
+    expect(renderHtaccess({ adminPath: "/admin" })).not.toContain(")/?$ http://127.0.0.1:3000");
+  });
+
   it("substitutes a renamed admin path into the dynamic group", () => {
     const out = renderHtaccess({ adminPath: "/control-room" });
     expect(out).toContain("^(control-room|api|login|register|");
@@ -175,6 +188,20 @@ describe("renderNginxConf", () => {
     // both proxy and Passenger shown for @fallback, neither assumed
     expect(out).toContain("proxy_pass http://127.0.0.1:3000;");
     expect(out).toContain("passenger_enabled on;");
+  });
+
+  it("routes plugin exclusions to the app before the static site block", () => {
+    const out = renderNginxConf({
+      adminPath: "/admin",
+      rootDir: "/srv/x",
+      exclusions: [{ path: "/shop/cart", match: "prefix" }],
+    });
+    expect(out).toContain("location = /shop/cart  { try_files /_pass @fallback; }");
+    expect(out).toContain("location ^~ /shop/cart/ { try_files /_pass @fallback; }");
+    expect(out.indexOf("/shop/cart")).toBeLessThan(out.indexOf("location / {"));
+    expect(renderNginxConf({ adminPath: "/admin", rootDir: "/srv/x" })).not.toContain(
+      "staticExport.exclude",
+    );
   });
 
   it("uses the renamed admin path for its location block", () => {

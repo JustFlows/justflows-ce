@@ -1,7 +1,7 @@
 import { render } from "../../../helpers/render";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionProvider } from "@components/SessionProvider";
 import UsersPage from "../../../../src/pages/admin/users/UsersPage";
@@ -40,9 +40,12 @@ function mockFetch(role: string, onDelete?: (id: string) => void): void {
 
 function renderPage() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={["/admin/users"]}>
       <SessionProvider>
-        <UsersPage />
+        <Routes>
+          <Route path="/admin/users" element={<UsersPage />} />
+          <Route path="/admin/users/:id" element={<div>User detail</div>} />
+        </Routes>
       </SessionProvider>
     </MemoryRouter>,
   );
@@ -106,5 +109,21 @@ describe("UsersPage as an editor", () => {
     expect(screen.queryByRole("button", { name: "+ Invite user" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+  });
+
+  it("links each user's name to their detail page", async () => {
+    mockFetch("editor");
+    renderPage();
+
+    expect(await screen.findByRole("link", { name: "Member One" })).toHaveAttribute("href", "/admin/users/member-1");
+  });
+
+  it("opens the user when the row is clicked", async () => {
+    mockFetch("editor");
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("member@example.com"));
+    expect(await screen.findByText("User detail")).toBeInTheDocument();
   });
 });

@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../src/lib/media/placeholders.js", () => ({
+  renderPlaceholder: async (kind: string) => `<img data-jf-placeholder="${kind}">`,
+}));
 import {
   FEATURED_IMAGE_BLOCK_TYPE,
   POST_CONTENT_BLOCK_TYPE,
@@ -77,16 +81,16 @@ describe("renderTemplateBlockHtml", () => {
     ).toBe("");
   });
 
-  it("featured-image reads fields.seoImage and is empty without one", async () => {
+  it("featured-image reads fields.seoImage and shows the placeholder without one", async () => {
     expect(await renderTemplateBlockHtml(FEATURED_IMAGE_BLOCK_TYPE, {}, ctx())).toContain(
       'src="/media/hero.jpg"',
     );
+    const empty = ctx({ content: { ...ctx().content!, fields: {} } });
+    expect(await renderTemplateBlockHtml(FEATURED_IMAGE_BLOCK_TYPE, {}, empty)).toBe(
+      '<figure class="post-featured-image"><img data-jf-placeholder="featured"></figure>',
+    );
     expect(
-      await renderTemplateBlockHtml(
-        FEATURED_IMAGE_BLOCK_TYPE,
-        {},
-        ctx({ content: { ...ctx().content!, fields: {} } }),
-      ),
+      await renderTemplateBlockHtml(FEATURED_IMAGE_BLOCK_TYPE, { placeholder: false }, empty),
     ).toBe("");
   });
 

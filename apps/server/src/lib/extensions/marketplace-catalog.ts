@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import {
+  isRegistryListingBeta,
   isRegistryListingComingSoon,
   isRegistryListingPaid,
   isRegistryListingVisible,
@@ -33,3 +34,10 @@ export function marketplaceListingIsVisible(listing: unknown): boolean {
 export function marketplaceListingIsComingSoon(listing: unknown): boolean {
   return isRegistryListingComingSoon(listing);
 }
+
+export function marketplaceListingIsBeta(listing: unknown): boolean {
+  return isRegistryListingBeta(listing);
+}
+
+/** Site setting that lets administrators install `registry.beta` listings. */
+export const MARKETPLACE_ALLOW_BETA_SETTING = "marketplace_allow_beta";

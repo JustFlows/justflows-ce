@@ -231,7 +231,13 @@ describe("plugin hook context", () => {
     const ensurePage = vi.fn().mockResolvedValue({ created: true, id: "p", slug: "shop" });
     const app = new App(CONFIG);
     const loader = new PluginLoader(app, {
-      contentFactory: () => ({ ensureType, ensurePage, listPublished: vi.fn().mockResolvedValue([]), deleteType: vi.fn() }),
+      contentFactory: () => ({
+        ensureType,
+        ensurePage,
+        listPublished: vi.fn().mockResolvedValue([]),
+        deleteType: vi.fn(),
+        deleteCreatedBy: vi.fn(),
+      }),
     });
     loader.register(
       makePlugin({ permissions: ["content:create", "content:publish"] }, async (ctx) => {
@@ -273,6 +279,7 @@ describe("plugin hook context", () => {
         ensurePage: vi.fn(),
         listPublished: vi.fn().mockResolvedValue([]),
         deleteType,
+        deleteCreatedBy: vi.fn(),
       }),
     });
     loader.register(
@@ -282,6 +289,48 @@ describe("plugin hook context", () => {
     );
     await loader.activate("justflows.test", "site-1");
     expect(deleteType).toHaveBeenCalledWith("product");
+  });
+
+  it("refuses deleteCreatedBy without content:delete", async () => {
+    const deleteCreatedBy = vi.fn();
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, {
+      contentFactory: () => ({
+        ensureType: vi.fn(),
+        ensurePage: vi.fn(),
+        listPublished: vi.fn().mockResolvedValue([]),
+        deleteType: vi.fn(),
+        deleteCreatedBy,
+      }),
+    });
+    loader.register(
+      makePlugin({ permissions: [] }, async (ctx) => {
+        await ctx.content.deleteCreatedBy("user-1");
+      }),
+    );
+    await expect(loader.activate("justflows.test", "site-1")).rejects.toThrow(/content:delete/);
+    expect(deleteCreatedBy).not.toHaveBeenCalled();
+  });
+
+  it("allows deleteCreatedBy when content:delete is declared", async () => {
+    const deleteCreatedBy = vi.fn().mockResolvedValue({ ok: true, content: 1, media: 0, comments: 0 });
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, {
+      contentFactory: () => ({
+        ensureType: vi.fn(),
+        ensurePage: vi.fn(),
+        listPublished: vi.fn().mockResolvedValue([]),
+        deleteType: vi.fn(),
+        deleteCreatedBy,
+      }),
+    });
+    loader.register(
+      makePlugin({ permissions: ["content:delete"] }, async (ctx) => {
+        await ctx.content.deleteCreatedBy("user-1");
+      }),
+    );
+    await loader.activate("justflows.test", "site-1");
+    expect(deleteCreatedBy).toHaveBeenCalledWith("user-1");
   });
 
   it("collects cookie declarations, applies overrides, and drops them on deactivate", async () => {

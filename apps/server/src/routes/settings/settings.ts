@@ -199,6 +199,63 @@ router.put("/comments", requireRole("administrator"), async (req, res) => {
   }
 });
 
+const PlaceholderSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  images: z
+    .record(
+      z.string().regex(/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/).max(120),
+      z.object({ url: z.string().max(2048) }).nullable(),
+    )
+    .optional(),
+});
+
+router.get("/placeholders", requireRole("administrator"), async (_req, res) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) return void res.status(503).json({ error: "No site found" });
+    const { getPlaceholderAdminState } = await import("../../lib/media/placeholders.js");
+    res.json(await getPlaceholderAdminState(siteId));
+  } catch (e) {
+    sendServerError(res, "settings", e);
+  }
+});
+
+router.put("/placeholders", requireRole("administrator"), async (req, res) => {
+  try {
+    const body = PlaceholderSettingsSchema.parse(req.body);
+    const siteId = await getSiteId();
+    if (!siteId) return void res.status(503).json({ error: "No site found" });
+    const { getPlaceholderAdminState, savePlaceholderSettings } = await import(
+      "../../lib/media/placeholders.js"
+    );
+    const db = await getDb();
+    await savePlaceholderSettings(siteId, body, async (url) => {
+      const rows = await db.query<{ width: number | string | null; height: number | string | null }>(
+        "SELECT width, height FROM media WHERE site_id = ? AND url = ? AND trashed_at IS NULL LIMIT 1",
+        [siteId, url],
+      );
+      const row = rows[0];
+      return row ? { width: Number(row.width) || 0, height: Number(row.height) || 0 } : null;
+    });
+    auditFromRequest(req, "settings.changed", { detail: "placeholders" });
+    await revalidateOnUpdate("settings");
+    const { invalidatePublicPages } = await import("../../lib/cache/public-cache.js");
+    await invalidatePublicPages();
+    res.json(await getPlaceholderAdminState(siteId));
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      res.status(400).json({ error: e.issues[0]?.message ?? "Invalid placeholder settings" });
+      return;
+    }
+    const { PlaceholderValidationError } = await import("../../lib/media/placeholders.js");
+    if (e instanceof PlaceholderValidationError) {
+      res.status(400).json({ error: e.message });
+      return;
+    }
+    sendServerError(res, "settings", e);
+  }
+});
+
 const PwaShortcutSchema = z.object({
   name: z.string().min(1).max(100),
   url: z.string().min(1).max(2048),

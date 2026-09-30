@@ -26,12 +26,14 @@ function sendWithEtag(
   body: string,
   cacheControl: string,
 ): void {
-  const etag = etagFor(body);
-  res.setHeader("ETag", etag);
+  const etag = etagFor(req, body);
   res.setHeader("Cache-Control", cacheControl);
-  if (req.get("if-none-match") === etag) {
-    res.status(304).end();
-    return;
+  if (etag) {
+    res.setHeader("ETag", etag);
+    if (req.get("if-none-match") === etag) {
+      res.status(304).end();
+      return;
+    }
   }
   res.type(contentType).send(body);
 }

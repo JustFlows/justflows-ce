@@ -58,6 +58,16 @@ const helloWorld: PluginModule = {
       ],
     });
 
+    // A default image for a kind this plugin owns. Site owners can replace it
+    // in Admin → Settings → Placeholders. In a block's render(), use
+    // `ctx.media.placeholderHtml("justflows.hello-world.card")` for an empty slot.
+    ctx.media.registerPlaceholder("justflows.hello-world.card", {
+      src: "/ext/justflows.hello-world/hello-world-placeholder.svg",
+      width: 600,
+      height: 400,
+      label: "Hello World card",
+    });
+
     dispose = ctx.hooks.action("content.published", async (event) => {
       ctx.logger.info("Hello World: content was published", {
         contentId: event.contentId,

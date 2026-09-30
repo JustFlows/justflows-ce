@@ -9,11 +9,14 @@ import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
 import { ARCHIVE_LIMITS } from "@justflows/installer";
 import {
   filterMarketplaceCatalogBody,
+  MARKETPLACE_ALLOW_BETA_SETTING,
+  marketplaceListingIsBeta,
   marketplaceListingIsComingSoon,
   marketplaceListingIsPaid,
   marketplaceListingIsVisible,
 } from "../../lib/extensions/marketplace-catalog.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
+import { getSiteSetting } from "../../lib/settings/site-settings.js";
 
 const router = Router();
 
@@ -101,6 +104,7 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
         free?: boolean;
         commercialMarketplace?: boolean;
         comingSoon?: boolean;
+        beta?: boolean;
       };
     };
 
@@ -112,6 +116,22 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
     if (marketplaceListingIsComingSoon(listing)) {
       res.status(403).json({ error: "This listing is coming soon and cannot be installed yet." });
       return;
+    }
+
+    // Enforced here, not only in the UI: beta builds stay uninstallable until
+    // an administrator opts the site in under Settings.
+    if (marketplaceListingIsBeta(listing)) {
+      const siteId = req.session?.siteId;
+      const allowBeta = siteId
+        ? (await getSiteSetting<boolean>(siteId, MARKETPLACE_ALLOW_BETA_SETTING)) === true
+        : false;
+      if (!allowBeta) {
+        res.status(403).json({
+          error: "This listing is a beta. Allow beta installs in Settings to install it.",
+          code: "beta_disabled",
+        });
+        return;
+      }
     }
 
     if (marketplaceListingIsPaid(listing)) {

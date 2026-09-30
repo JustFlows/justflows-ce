@@ -23,7 +23,7 @@ import { getJfRoot, viewsDir } from "../runtime/jf-root.js";
 export type StaticErrorKind = "500" | "maintenance";
 
 /** The locales the bundled `site-catalogs/*.json` files ship translations for. */
-export const STATIC_ERROR_LOCALES = ["en", "de", "es", "fr", "nl"] as const;
+export const STATIC_ERROR_LOCALES = ["en", "de", "es", "fr", "nl", "pl", "uk", "ru"] as const;
 
 const DEFAULT_BADGE: Record<StaticErrorKind, string> = {
   "500": "Temporary error",
