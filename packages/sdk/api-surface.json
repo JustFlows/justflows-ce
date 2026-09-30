@@ -222,6 +222,7 @@
   "gplLicenseValidationMessage",
   "isGplCompatibleLicense",
   "isOwnedHookName",
+  "isRegistryListingBeta",
   "isRegistryListingComingSoon",
   "isRegistryListingPaid",
   "isRegistryListingVisible",
