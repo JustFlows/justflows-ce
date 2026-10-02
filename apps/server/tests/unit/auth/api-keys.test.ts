@@ -21,6 +21,7 @@ const INSERT_COLUMNS = [
   "allowed_ips_json",
   "allowed_origins_json",
   "rate_limit_per_min",
+  "mcp_user_tools",
   "expires_at",
   "created_at",
   "updated_at",

@@ -11,6 +11,9 @@ import {
   type ApiKeyRecord,
 } from "../lib/auth/api-keys.js";
 import { isManageApiEnabled } from "../lib/http/manage-api-settings.js";
+import { publicOrigin } from "../lib/ai/ai-settings.js";
+import { ACCESS_TOKEN_PREFIX, verifyAccessToken } from "../lib/ai/oauth/oauth-store.js";
+import { principalFromGrant } from "../lib/ai/tools/principal.js";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -27,7 +30,7 @@ function deny(res: Response): void {
   res.status(401).json({ error: "Unauthorized" });
 }
 
-function bearerToken(req: Request): string | null {
+export function bearerToken(req: Request): string | null {
   const header = (req.get("authorization") ?? "").trim();
   // Match only the fixed "Bearer" prefix plus one whitespace char with the
   // regex, then take the remainder with plain string ops. `\s+` next to
@@ -38,12 +41,12 @@ function bearerToken(req: Request): string | null {
   return header.slice(prefix[0].length).trim() || null;
 }
 
-function ipAllowed(record: ApiKeyRecord, ip: string): boolean {
+export function ipAllowed(record: ApiKeyRecord, ip: string): boolean {
   if (record.allowedIps.length === 0) return true;
   return record.allowedIps.includes(ip);
 }
 
-function originAllowed(record: ApiKeyRecord, origin: string | undefined): boolean {
+export function originAllowed(record: ApiKeyRecord, origin: string | undefined): boolean {
   // A missing Origin header is a non-browser (server-to-server) client; the
   // per-key origin allowlist only constrains browsers.
   if (!origin) return true;
@@ -84,6 +87,28 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
     if (!token) {
       await auditFailure(req, null);
       deny(res);
+      return;
+    }
+
+    // An OAuth access token bound to this API (agent-facing use, #159) resolves
+    // to the same synthetic session as a key: granted ∩ the user's current access.
+    if (token.startsWith(ACCESS_TOKEN_PREFIX)) {
+      const grant = await verifyAccessToken(token, `${publicOrigin(req)}/api/manage/v1`).catch(() => null);
+      if (!grant || !(await isManageApiEnabled())) {
+        deny(res);
+        return;
+      }
+      const principal = principalFromGrant(grant.grant, grant.role);
+      req.apiKey = principal.key;
+      req.apiKeyOwner = principal.owner;
+      req.session = {
+        userId: principal.owner.userId,
+        siteId: principal.owner.siteId,
+        role: "api-key",
+        email: "",
+        iat: Math.floor(Date.now() / 1000),
+      };
+      next();
       return;
     }
 

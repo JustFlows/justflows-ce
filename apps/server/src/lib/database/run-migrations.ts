@@ -2,32 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { migrationsDir } from "../runtime/jf-root.js";
 
-export const MIGRATION_ORDER = [
-  "0012_baseline",
-  "0013_public_comments",
-  "0014_content_webhooks",
-  "0015_theme_designs",
-  "0016_user_preferences",
-  "0017_password_resets",
-  "0018_access_control",
-  "0019_device_sessions",
-  "0020_email_delivery",
-  "0021_trash_retention",
-  "0022_email_templates",
-  "0023_templates",
-  "0024_menu_designer",
-  "0025_redirect_manager",
-  "0026_api_keys",
-  "0027_media_responsive",
-  "0028_site_search",
-  "0029_search_metrics",
-  "0030_content_scheduling",
-  "0031_comment_spam",
-  "0032_comment_trash_repair",
-  "0033_spam_term_source",
-  "0034_user_role_text",
-  "0035_user_additional_roles",
-] as const;
+export const MIGRATION_ORDER = ["0036_baseline"] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";
 
@@ -123,7 +98,7 @@ export function migrationFileCandidates(name: string, driver: DbDriver): string[
   return [`${name}.mysql.sql`, `${name}.sql`];
 }
 
-export async function readMigrationDdl(name: string, driver: DbDriver): Promise<string | null> {
+async function readMigrationFile(name: string, driver: DbDriver): Promise<string | null> {
   const dir = migrationsDir();
   for (const candidate of migrationFileCandidates(name, driver)) {
     try {
@@ -133,6 +108,54 @@ export async function readMigrationDdl(name: string, driver: DbDriver): Promise<
     }
   }
   return null;
+}
+
+/**
+ * DDL for a migration: its own file, or — for a migration folded into a
+ * baseline — that migration's section of the baseline.
+ */
+export async function readMigrationDdl(name: string, driver: DbDriver): Promise<string | null> {
+  const ddl = await readMigrationFile(name, driver);
+  if (ddl !== null) return ddl;
+  for (const baseline of MIGRATION_ORDER.filter(isBaseline)) {
+    const baselineDdl = await readMigrationFile(baseline, driver);
+    const section = baselineDdl
+      ? baselineSections(baselineDdl).find((s) => s.name === name)
+      : undefined;
+    if (section) return section.ddl;
+  }
+  return null;
+}
+
+/** A baseline folds the full ordered history up to its number into one file. */
+function isBaseline(name: string): boolean {
+  return /^\d{4}_baseline$/.test(name);
+}
+
+function migrationNumber(name: string): number {
+  return Number.parseInt(name.slice(0, 4), 10);
+}
+
+const SECTION_MARKER = /^-- Consolidated migration: (\d{4}_\w+)[ \t]*$/gm;
+
+/** Split a baseline into the original migrations it consolidates, in order. */
+export function baselineSections(ddl: string): { name: string; ddl: string }[] {
+  const markers = [...ddl.matchAll(SECTION_MARKER)];
+  return markers.map((match, i) => ({
+    name: match[1] ?? "",
+    ddl: ddl.slice(match.index + match[0].length, markers[i + 1]?.index ?? ddl.length),
+  }));
+}
+
+/**
+ * Whether a database already has a consolidated migration: it was recorded
+ * under its own name, or under an older baseline that already contained it.
+ */
+function sectionRecorded(name: string, recorded: ReadonlySet<string>): boolean {
+  if (recorded.has(name)) return true;
+  return [...recorded].some(
+    (entry) => isBaseline(entry) && migrationNumber(entry) >= migrationNumber(name),
+  );
 }
 
 function withoutIfExists(sql: string): string {
@@ -237,7 +260,17 @@ async function applyMigrations(
     // The shipped DDL is deliberately idempotent (IF NOT EXISTS plus ignorable
     // duplicate-object errors), so a failed run re-applies safely on next boot.
     // That is the recovery path for MySQL/MariaDB, whose DDL auto-commits.
-    await runMigrationStatements(sql, ddl, driver);
+    if (isBaseline(name)) {
+      // Upgrades run only the history this database is missing. Replaying
+      // applied sections is not safe: 0001 would recreate the user_role enum
+      // that 0034 dropped.
+      for (const section of baselineSections(ddl)) {
+        if (sectionRecorded(section.name, recorded)) continue;
+        await runMigrationStatements(sql, section.ddl, driver);
+      }
+    } else {
+      await runMigrationStatements(sql, ddl, driver);
+    }
     try {
       // Record only after every statement succeeded.
       await sql.run("INSERT INTO _migrations (name) VALUES (?)", [name]);

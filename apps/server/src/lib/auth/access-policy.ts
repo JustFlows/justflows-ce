@@ -8,6 +8,8 @@ import {
   type AccessResource,
   type UserCapability,
 } from "@justflows/sdk";
+import { effectivePrimaryRole } from "./plugin-role-fallback.js";
+import { listAssignableRoles } from "./assignable-roles.js";
 import { getDb, type DbClient } from "../database/db.js";
 
 /**
@@ -123,8 +125,11 @@ export async function getEffectiveAccess(
   const row = rows[0];
   const definitions = await availableCapabilityDefinitions();
   const available = new Set<string>(definitions.map(({ id }) => id));
+  fallbackRole = await effectivePrimaryRole(siteId, fallbackRole);
   const roleId = row?.role_id ?? fallbackRole;
-  const additionalRoles = (await listAdditionalRoles(userId, siteId, client)).filter((role) => role !== fallbackRole);
+  const activeRoles = new Set((await listAssignableRoles()).map(({ id }) => id));
+  const additionalRoles = (await listAdditionalRoles(userId, siteId, client))
+    .filter((role) => role !== fallbackRole && activeRoles.has(role));
   // Each role that contributes capabilities, and whether it is one of the
   // built-in roles limited to their own content. A custom primary role
   // (row.role_id set) defines its own scopes, so it counts as unlimited.

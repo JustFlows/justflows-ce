@@ -8,6 +8,22 @@ import { usePluginMenu } from "./PluginMenuProvider";
 import { useSessionRole } from "./SessionProvider";
 import { JustflowsLogo } from "./JustflowsLogo";
 import { initialJson } from "../ssr-data";
+import { AssistantProvider, useAssistant } from "./ai/AssistantProvider";
+
+/** Sidebar entry that opens the assistant panel, for users with ai:use. */
+function AssistantButton() {
+  const { t } = useT();
+  const { available, open } = useAssistant();
+  if (!available) return null;
+  return (
+    <button type="button" className="jf-nav__link jf-nav__button" onClick={() => open()}>
+      <span className="jf-nav__icon" aria-hidden="true">
+        ✦
+      </span>
+      {t("ai.assistant.title")}
+    </button>
+  );
+}
 
 export default function AdminShell() {
   const navigate = useNavigate();
@@ -63,6 +79,7 @@ export default function AdminShell() {
   }
 
   return (
+    <AssistantProvider>
     <div className="jf-app">
       <button
         type="button"
@@ -99,6 +116,7 @@ export default function AdminShell() {
               {t(domain.key)}
             </Link>
           ))}
+          <AssistantButton />
         </nav>
 
         <div className="jf-sidebar__footer">
@@ -161,5 +179,6 @@ export default function AdminShell() {
         <Outlet />
       </main>
     </div>
+    </AssistantProvider>
   );
 }

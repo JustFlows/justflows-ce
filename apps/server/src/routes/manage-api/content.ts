@@ -49,6 +49,8 @@ router.get("/", async (req, res) => {
   const type = typeof req.query.type === "string" ? req.query.type : undefined;
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
   const locale = typeof req.query.locale === "string" ? req.query.locale : undefined;
+  const search = typeof req.query.search === "string" ? req.query.search.trim().slice(0, 200) : "";
+  const author = typeof req.query.author === "string" ? req.query.author : undefined;
   if (!(await ensureKeyCan(req, res, "content:read", { contentType: type, locale }))) return;
 
   try {
@@ -75,6 +77,17 @@ router.get("/", async (req, res) => {
     if (locale) {
       sql += " AND c.locale = ?";
       params.push(await resolveContentLocale(locale, owner.siteId));
+    }
+    if (search) {
+      // Escape LIKE wildcards with `!` (portable across all three engines) so a
+      // search for "50%" matches the text literally.
+      const pattern = `%${search.replace(/[!%_]/g, (ch) => `!${ch}`)}%`;
+      sql += " AND (LOWER(c.title) LIKE LOWER(?) ESCAPE '!' OR LOWER(c.slug) LIKE LOWER(?) ESCAPE '!')";
+      params.push(pattern, pattern);
+    }
+    if (author) {
+      sql += " AND c.author_id = ?";
+      params.push(author);
     }
     // Scope enforced on the read itself, not only at route entry.
     const keyOwnership = req.apiKey?.scope.ownership;

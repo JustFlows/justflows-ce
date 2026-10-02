@@ -564,6 +564,37 @@ export interface OpenApiDocument {
   [key: string]: unknown;
 }
 
+/** Who an MCP or assistant tool call runs as. */
+export interface McpToolCallContext {
+  siteId: string;
+  userId: string;
+  /** `mcp` for an external MCP client, `assistant` for the in-admin assistant. */
+  via: "mcp" | "assistant";
+  /** Client display name ("Claude", "Cursor", "Assistant"). */
+  client: string;
+  /** The capabilities this call may exercise (key or grant ∩ the user's current access). */
+  capabilities: readonly string[];
+}
+
+/**
+ * An extra agent tool a plugin contributes through the `mcp.tools` filter. The
+ * host lists it only to sessions that hold `capability`, checks it again before
+ * every call, and records each non-read-only call in the audit log. `handler`
+ * must enforce any finer-grained (per-resource) checks itself.
+ */
+export interface McpToolDefinition {
+  /** Unique, `snake_case`, prefixed with the plugin (`acme_seo_score`). */
+  name: string;
+  title?: string;
+  /** Written for a model: what the tool does and when to use it. */
+  description: string;
+  /** JSON Schema for the arguments (`type: "object"`). */
+  inputSchema: Record<string, unknown>;
+  capability: string;
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean };
+  handler(args: Record<string, unknown>, context: McpToolCallContext): unknown | Promise<unknown>;
+}
+
 // ─── Action map ────────────────────────────────────────────────────────────
 
 /**
@@ -778,6 +809,11 @@ export interface FilterValueMap {
   /** Intercept a settings save so a plugin can persist domain rows and drop keys. */
   "plugin.settings.write": [Record<string, unknown>, { pluginId: string; siteId: string }];
   "openapi.document": [OpenApiDocument, { version: string }];
+  /**
+   * Extra tools for the MCP server and the in-admin assistant. Seeded with
+   * `[]`; each handler appends its tools. Mirrors `openapi.document`.
+   */
+  "mcp.tools": [McpToolDefinition[], { siteId: string }];
   "http.responseHeaders": [Record<string, string>, { method: string; path: string }];
   "html.head": [
     string,

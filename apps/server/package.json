@@ -27,6 +27,7 @@
     "@justflows/jobs": "file:../../packages/jobs",
     "@justflows/media": "workspace:*",
     "@justflows/plugin-api": "file:../../packages/plugin-api",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "ejs": "^6.0.1",

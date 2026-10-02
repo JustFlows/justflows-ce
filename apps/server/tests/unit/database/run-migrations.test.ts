@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { migrationsDir } from "../../../src/lib/runtime/jf-root.js";
 import {
   MIGRATION_ORDER,
+  baselineSections,
   isIgnorableMigrationError,
   migrationFileCandidates,
   readMigrationDdl,
@@ -14,40 +15,58 @@ import {
   splitSqlStatements,
 } from "../../../src/lib/database/run-migrations.js";
 
+const LEGACY_MIGRATIONS = [
+  "0001_initial",
+  "0002_multilingual",
+  "0003_css_providers",
+  "0004_plugin_data",
+  "0005_content_types",
+  "0006_session_revocation",
+  "0007_totp",
+  "0008_audit_log",
+  "0009_audit_log_compat",
+  "0010_content_revisions",
+  "0011_default_locale_en_us",
+  "0012_template_parts",
+  "0013_public_comments",
+  "0014_content_webhooks",
+  "0015_theme_designs",
+  "0016_user_preferences",
+  "0017_password_resets",
+  "0018_access_control",
+  "0019_device_sessions",
+  "0020_email_delivery",
+  "0021_trash_retention",
+  "0022_email_templates",
+  "0023_templates",
+  "0024_menu_designer",
+  "0025_redirect_manager",
+  "0026_api_keys",
+  "0027_media_responsive",
+  "0028_site_search",
+  "0029_search_metrics",
+  "0030_content_scheduling",
+  "0031_comment_spam",
+  "0032_comment_trash_repair",
+  "0033_spam_term_source",
+  "0034_user_role_text",
+  "0035_user_additional_roles",
+  "0036_ai_byok",
+];
+
 describe("MIGRATION_ORDER", () => {
-  it("uses the consolidated schema through migration 0012, then tracked migrations", () => {
-    expect(MIGRATION_ORDER).toEqual([
-      "0012_baseline",
-      "0013_public_comments",
-      "0014_content_webhooks",
-      "0015_theme_designs",
-      "0016_user_preferences",
-      "0017_password_resets",
-      "0018_access_control",
-      "0019_device_sessions",
-      "0020_email_delivery",
-      "0021_trash_retention",
-      "0022_email_templates",
-      "0023_templates",
-      "0024_menu_designer",
-      "0025_redirect_manager",
-      "0026_api_keys",
-      "0027_media_responsive",
-      "0028_site_search",
-      "0029_search_metrics",
-      "0030_content_scheduling",
-      "0031_comment_spam",
-      "0032_comment_trash_repair",
-      "0033_spam_term_source",
-      "0034_user_role_text",
-      "0035_user_additional_roles",
-    ]);
+  it("uses the consolidated schema through migration 0036", () => {
+    expect(MIGRATION_ORDER).toEqual(["0036_baseline"]);
   });
 
-  // Each tracked migration after the baseline ships two files: the bare
-  // `.sql` for PostgreSQL and `.mysql.sql` shared by MySQL and MariaDB. A
-  // dialect-specific `.mariadb.sql` is only added if the DDL must diverge — it
-  // never has — so its absence is asserted, not tolerated.
+  it("contains every legacy migration in order for each database dialect", () => {
+    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
+      const ddl = fs.readFileSync(path.join(migrationsDir(), `0036_baseline${suffix}`), "utf8");
+      expect(baselineSections(ddl).map((s) => s.name)).toEqual(LEGACY_MIGRATIONS);
+    }
+  });
+
+  // Folded migrations stay addressable by name, so a test can apply one on its own.
   const TRACKED: { name: string; marker: RegExp }[] = [
     { name: "0013_public_comments", marker: /ALTER TABLE comments ADD COLUMN.*notify/i },
     { name: "0014_content_webhooks", marker: /CREATE TABLE IF NOT EXISTS webhook_endpoints/i },
@@ -55,78 +74,50 @@ describe("MIGRATION_ORDER", () => {
     { name: "0016_user_preferences", marker: /CREATE TABLE IF NOT EXISTS user_preferences/i },
     { name: "0017_password_resets", marker: /CREATE TABLE IF NOT EXISTS password_resets/i },
     { name: "0018_access_control", marker: /CREATE TABLE IF NOT EXISTS access_roles/i },
-    { name: "0034_user_role_text", marker: /varchar\(32\)/i },
-    { name: "0035_user_additional_roles", marker: /CREATE TABLE IF NOT EXISTS user_additional_roles/i },
     { name: "0019_device_sessions", marker: /CREATE TABLE IF NOT EXISTS user_sessions/i },
     { name: "0020_email_delivery", marker: /CREATE TABLE IF NOT EXISTS email_deliveries/i },
-    { name: "0022_email_templates", marker: /CREATE TABLE IF NOT EXISTS email_template_versions/i },
     { name: "0021_trash_retention", marker: /ALTER TABLE content ADD COLUMN.*trashed_at/i },
+    { name: "0022_email_templates", marker: /CREATE TABLE IF NOT EXISTS email_template_versions/i },
     { name: "0023_templates", marker: /CREATE TABLE IF NOT EXISTS theme_templates/i },
     { name: "0024_menu_designer", marker: /ALTER TABLE menus ADD COLUMN.*schema_version/i },
     { name: "0026_api_keys", marker: /CREATE TABLE IF NOT EXISTS api_keys/i },
+    { name: "0034_user_role_text", marker: /varchar\(32\)/i },
+    {
+      name: "0035_user_additional_roles",
+      marker: /CREATE TABLE IF NOT EXISTS user_additional_roles/i,
+    },
+    { name: "0036_ai_byok", marker: /CREATE TABLE IF NOT EXISTS oauth_tokens/i },
   ];
 
   for (const { name, marker } of TRACKED) {
-    it(`ships ${name} as postgres + shared mysql, no standalone .mariadb.sql`, () => {
-      expect(fs.existsSync(path.join(migrationsDir(), `${name}.mariadb.sql`))).toBe(false);
-      for (const suffix of [".sql", ".mysql.sql"]) {
-        const ddl = fs.readFileSync(path.join(migrationsDir(), `${name}${suffix}`), "utf8");
-        const statements = splitSqlStatements(ddl, suffix === ".sql" ? "postgres" : "mysql");
-        expect(statements.some((s) => marker.test(s))).toBe(true);
+    it(`resolves ${name} from the baseline for every dialect`, async () => {
+      for (const driver of ["postgres", "mysql", "mariadb"] as const) {
+        const ddl = await readMigrationDdl(name, driver);
+        expect(splitSqlStatements(ddl ?? "", driver).some((s) => marker.test(s))).toBe(true);
       }
-    });
-
-    it(`resolves ${name} for MariaDB to identical DDL (backwards compatible)`, async () => {
-      expect(migrationFileCandidates(name, "mariadb")).toEqual([
-        `${name}.mariadb.sql`,
-        `${name}.mysql.sql`,
-        `${name}.sql`,
-      ]);
-      const mysqlDdl = await readMigrationDdl(name, "mysql");
-      const mariadbDdl = await readMigrationDdl(name, "mariadb");
-      expect(mariadbDdl).toBe(mysqlDdl);
-      expect(marker.test(mariadbDdl ?? "")).toBe(true);
+      // MariaDB shared the MySQL DDL for every migration after 0012.
+      expect(await readMigrationDdl(name, "mariadb")).toBe(await readMigrationDdl(name, "mysql"));
     });
   }
 
-  it("does not rebuild MySQL/MariaDB revisions with a new foreign key or generated unique slot", () => {
+  it("resolves MariaDB through its own file, then MySQL, then the bare file", () => {
+    expect(migrationFileCandidates("0037_example", "mariadb")).toEqual([
+      "0037_example.mariadb.sql",
+      "0037_example.mysql.sql",
+      "0037_example.sql",
+    ]);
+  });
+
+  it("does not rebuild MySQL/MariaDB revisions with a new foreign key or generated unique slot", async () => {
     for (const dialect of ["mysql", "mariadb"] as const) {
-      const ddl = fs.readFileSync(
-        path.join(migrationsDir(), `0012_baseline.${dialect}.sql`),
-        "utf8",
+      const statements = splitSqlStatements(
+        (await readMigrationDdl("0010_content_revisions", dialect)) ?? "",
+        dialect,
       );
-      const revisionDdl =
-        ddl
-          .split("Consolidated migration: 0010_content_revisions")[1]
-          ?.split("Consolidated migration: 0011_default_locale_en_us")[0] ?? "";
-      const statements = splitSqlStatements(revisionDdl, dialect);
+      expect(statements.length).toBeGreaterThan(0);
       expect(statements.join("\n")).not.toMatch(/FOREIGN KEY/i);
       expect(statements.join("\n")).not.toMatch(/GENERATED ALWAYS/i);
       expect(statements.join("\n")).not.toMatch(/CREATE UNIQUE INDEX/i);
-    }
-  });
-
-  it("contains every legacy migration in order for each database dialect", () => {
-    const names = [
-      "0001_initial",
-      "0002_multilingual",
-      "0003_css_providers",
-      "0004_plugin_data",
-      "0005_content_types",
-      "0006_session_revocation",
-      "0007_totp",
-      "0008_audit_log",
-      "0009_audit_log_compat",
-      "0010_content_revisions",
-      "0011_default_locale_en_us",
-      "0012_template_parts",
-    ];
-
-    for (const suffix of [".sql", ".mysql.sql", ".mariadb.sql"]) {
-      const ddl = fs.readFileSync(path.join(migrationsDir(), `0012_baseline${suffix}`), "utf8");
-      const positions = names.map((name) => ddl.indexOf(`Consolidated migration: ${name}`));
-      expect(positions.every((position) => position >= 0)).toBe(true);
-      expect(positions).toEqual([...positions].sort((a, b) => a - b));
     }
   });
 });
@@ -147,11 +138,11 @@ describe("runAllMigrations", () => {
       },
     };
 
-    await runAllMigrations(sql, "postgres", ["0012_baseline"]);
+    await runAllMigrations(sql, "postgres", ["0036_baseline"]);
     const firstRunCount = ran.length;
-    await runAllMigrations(sql, "postgres", ["0012_baseline"]);
+    await runAllMigrations(sql, "postgres", ["0036_baseline"]);
 
-    expect(applied).toEqual(new Set(["0012_baseline"]));
+    expect(applied).toEqual(new Set(["0036_baseline"]));
     expect(ran.slice(firstRunCount)).toEqual([
       expect.stringContaining("CREATE TABLE IF NOT EXISTS _migrations"),
     ]);
@@ -255,9 +246,60 @@ describe("runAllMigrations bookkeeping", () => {
   it("cannot skip later migrations because 0001 was already recorded", async () => {
     const db = makeFakeDb({ driver: "postgres", applied: ["0001_initial"] });
 
-    const result = await runAllMigrations(db, "postgres");
+    await runAllMigrations(db, "postgres");
 
-    expect(result.applied).toContain("0014_content_webhooks");
+    expect(db.statements.some((s) => s.includes("CREATE TYPE user_role"))).toBe(false);
+    expect(db.statements.some((s) => s.includes("webhook_endpoints"))).toBe(true);
+  });
+
+  it("runs the whole baseline on a fresh database", async () => {
+    const db = makeFakeDb({ driver: "postgres" });
+
+    await runAllMigrations(db, "postgres");
+
+    expect(db.statements.some((s) => s.includes("CREATE TYPE user_role"))).toBe(true);
+    expect(db.statements.some((s) => s.includes("oauth_tokens"))).toBe(true);
+  });
+
+  for (const driver of ["postgres", "mysql", "mariadb"] as const) {
+    it(`upgrades a ${driver} site on 0012_baseline with only 0013 onwards`, async () => {
+      const db = makeFakeDb({ driver, applied: ["0012_baseline"] });
+
+      const result = await runAllMigrations(db, driver);
+
+      expect(result.applied).toEqual(["0036_baseline"]);
+      expect(db.statements.some((s) => /CREATE TABLE IF NOT EXISTS template_parts/i.test(s))).toBe(
+        false,
+      );
+      expect(db.statements.some((s) => s.includes("webhook_endpoints"))).toBe(true);
+    });
+  }
+
+  it("does not replay 0001 after 0034 dropped the user_role enum", async () => {
+    const applied = ["0012_baseline", ...LEGACY_MIGRATIONS.slice(12, -1)];
+    const db = makeFakeDb({ driver: "postgres", applied });
+
+    await runAllMigrations(db, "postgres");
+
+    expect(db.statements.some((s) => s.includes("CREATE TYPE user_role"))).toBe(false);
+    expect(db.statements.some((s) => s.includes("webhook_endpoints"))).toBe(false);
+    expect(db.statements.some((s) => s.includes("oauth_tokens"))).toBe(true);
+    expect(db.applied.has("0036_baseline")).toBe(true);
+  });
+
+  it("only records the baseline on a site that already has every folded migration", async () => {
+    const db = makeFakeDb({
+      driver: "mysql",
+      applied: ["0012_baseline", ...LEGACY_MIGRATIONS.slice(12)],
+    });
+
+    const result = await runAllMigrations(db, "mysql");
+
+    expect(result.applied).toEqual(["0036_baseline"]);
+    const schemaChanges = db.statements.filter(
+      (s) => /^(CREATE|ALTER|DROP|UPDATE|INSERT)\b/i.test(s.trim()) && !s.includes("_migrations"),
+    );
+    expect(schemaChanges).toEqual([]);
   });
 
   it("serializes a second run behind the first by reading recorded migrations", async () => {
@@ -297,7 +339,7 @@ describe("runAllMigrations locking", () => {
 
     expect(db.lockEvents).toEqual(["pg-acquire", "pg-release"]);
     expect(db.reservedOpen).toBe(0);
-    expect(db.applied.has("0014_content_webhooks")).toBe(false);
+    expect(db.applied.has("0036_baseline")).toBe(false);
   });
 
   it("runs unlocked when the runner cannot reserve a connection", async () => {

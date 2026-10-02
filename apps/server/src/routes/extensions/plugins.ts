@@ -234,7 +234,7 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
     }
   }
 
-  await runtimeDeactivatePlugin(session.siteId, pluginId).catch(() => null);
+  await runtimeDeactivatePlugin(session.siteId, pluginId);
   // Forget the module so a later reinstall imports the new build, and delete
   // the extracted files — uninstall used to drop only the DB row, leaving
   // every file under packages-installed/ behind.

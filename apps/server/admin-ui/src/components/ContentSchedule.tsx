@@ -186,7 +186,7 @@ export default function ContentSchedule<T extends ScheduleContent>({
           {error}
         </p>
       )}
-      {message && <p role="status">{message}</p>}
+      {message && <p role="status" data-notice-focus="true">{message}</p>}
     </fieldset>
   );
 }
