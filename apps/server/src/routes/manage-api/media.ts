@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: MIT
 
 import { Router } from "express";
+import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import multer, { MulterError } from "multer";
 import { getDb } from "../../lib/database/db.js";
 import { maxUploadBytes, formatMb } from "../../lib/media/media-quota.js";
-import { listMediaItems, storeMediaUpload, trashMediaItem } from "../../lib/media/media-write.js";
+import {
+  listMediaItems,
+  storeMediaUpload,
+  trashMediaItem,
+  updateMediaMetadata,
+} from "../../lib/media/media-write.js";
 import { clientIp } from "../../lib/security/rate-limit.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { badRequest, ensureKeyCan, notFound, paginate, relay, sendJson } from "./envelope.js";
@@ -80,6 +86,38 @@ router.post("/", uploadLimit, (req, res) => {
       })();
     });
   })();
+});
+
+const MetadataSchema = z.object({
+  altText: z.string().max(2000).nullable().optional(),
+  caption: z.string().max(2000).nullable().optional(),
+  focalX: z.number().min(0).max(1).nullable().optional(),
+  focalY: z.number().min(0).max(1).nullable().optional(),
+});
+
+// Same capability the media library needs to change an item's details.
+router.patch("/:id", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "media:upload"))) return;
+  const body = MetadataSchema.safeParse(req.body ?? {});
+  if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid metadata");
+  try {
+    relay(
+      res,
+      await updateMediaMetadata(
+        req.params.id,
+        {
+          siteId: req.apiKeyOwner!.siteId,
+          userId: req.apiKeyOwner!.userId,
+          role: "api-key",
+          ip: clientIp(req),
+          userAgent: req.get("user-agent") ?? null,
+        },
+        body.data,
+      ),
+    );
+  } catch (err) {
+    sendServerError(res, "manage.media", err);
+  }
 });
 
 router.delete("/:id", async (req, res) => {

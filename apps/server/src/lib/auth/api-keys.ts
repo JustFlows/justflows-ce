@@ -32,6 +32,8 @@ export interface ApiKeyRecord {
   allowedIps: string[];
   allowedOrigins: string[];
   rateLimitPerMin: number | null;
+  /** Whether MCP may list the users & roles tools for this key (off by default). */
+  mcpUserTools: boolean;
   expiresAt: string | null;
   revokedAt: string | null;
   lastUsedAt: string | null;
@@ -121,6 +123,7 @@ function rowToRecord(row: Record<string, unknown>): ApiKeyRecord {
     allowedIps: parseJsonArray(row.allowed_ips_json),
     allowedOrigins: parseJsonArray(row.allowed_origins_json),
     rateLimitPerMin: row.rate_limit_per_min == null ? null : Number(row.rate_limit_per_min),
+    mcpUserTools: row.mcp_user_tools === true || Number(row.mcp_user_tools) === 1,
     expiresAt: toIso(row.expires_at),
     revokedAt: toIso(row.revoked_at),
     lastUsedAt: toIso(row.last_used_at),
@@ -132,7 +135,7 @@ function rowToRecord(row: Record<string, unknown>): ApiKeyRecord {
 }
 
 const SELECT_COLUMNS =
-  "id, site_id, name, key_prefix, owner_user_id, created_by, capabilities_json, scopes_json, allowed_ips_json, allowed_origins_json, rate_limit_per_min, expires_at, revoked_at, last_used_at, last_used_ip, request_count, created_at, updated_at";
+  "id, site_id, name, key_prefix, owner_user_id, created_by, capabilities_json, scopes_json, allowed_ips_json, allowed_origins_json, rate_limit_per_min, mcp_user_tools, expires_at, revoked_at, last_used_at, last_used_ip, request_count, created_at, updated_at";
 
 export async function listApiKeys(siteId: string): Promise<ApiKeyRecord[]> {
   const rows = await (
@@ -207,6 +210,7 @@ export interface CreateApiKeyInput {
   allowedIps?: string[];
   allowedOrigins?: string[];
   rateLimitPerMin?: number | null;
+  mcpUserTools?: boolean;
   expiresAt?: string | null;
 }
 
@@ -227,9 +231,9 @@ export async function createApiKey(
     `INSERT INTO api_keys
        (id, site_id, name, key_prefix, key_hash, owner_user_id, created_by,
         capabilities_json, scopes_json, allowed_ips_json, allowed_origins_json,
-        rate_limit_per_min, expires_at, revoked_at, last_used_at, last_used_ip,
+        rate_limit_per_min, mcp_user_tools, expires_at, revoked_at, last_used_at, last_used_ip,
         request_count, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, 0, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, 0, ?, ?)`,
     [
       id,
       input.siteId,
@@ -243,6 +247,7 @@ export async function createApiKey(
       JSON.stringify(sanitizeStringList(input.allowedIps, 50)),
       JSON.stringify(sanitizeStringList(input.allowedOrigins, 50)),
       input.rateLimitPerMin ?? null,
+      input.mcpUserTools === true,
       expiresAt,
       now,
       now,
@@ -261,6 +266,7 @@ export interface UpdateApiKeyInput {
   allowedIps?: string[];
   allowedOrigins?: string[];
   rateLimitPerMin?: number | null;
+  mcpUserTools?: boolean;
   expiresAt?: string | null;
 }
 
@@ -274,7 +280,7 @@ export async function updateApiKey(
   if (!existing) return null;
 
   const sets: string[] = [];
-  const params: (string | number | null)[] = [];
+  const params: (string | number | boolean | null)[] = [];
 
   if (patch.name !== undefined) {
     sets.push("name = ?");
@@ -301,6 +307,10 @@ export async function updateApiKey(
   if (patch.rateLimitPerMin !== undefined) {
     sets.push("rate_limit_per_min = ?");
     params.push(patch.rateLimitPerMin ?? null);
+  }
+  if (patch.mcpUserTools !== undefined) {
+    sets.push("mcp_user_tools = ?");
+    params.push(patch.mcpUserTools === true);
   }
   if (patch.expiresAt !== undefined) {
     sets.push("expires_at = ?");

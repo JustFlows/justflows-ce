@@ -8,9 +8,11 @@ vi.mock("../../../../src/i18n/I18nProvider", () => ({
 }));
 
 const calls: { url: string; method: string; body: unknown }[] = [];
+let manageEnabled = false;
 
 beforeEach(() => {
   calls.length = 0;
+  manageEnabled = false;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -46,13 +48,49 @@ beforeEach(() => {
           { status: 200 },
         );
       }
-      if (url.endsWith("/settings") && method === "GET") {
+      if (url.endsWith("/api/api-keys/settings") && method === "GET") {
         return new Response(
           JSON.stringify({
             publicApiEnabled: false,
-            enabled: false,
+            enabled: manageEnabled,
             rateLimitPerMin: 120,
             allowedOrigins: [],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith("/api/ai/settings") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            mcpEnabled: true,
+            assistantEnabled: false,
+            allowPrivateEndpoints: false,
+            userDailyLimit: null,
+            mcpRateLimit: null,
+            mcpUrl: "http://localhost:3000/api/mcp",
+            origin: "http://localhost:3000",
+            publicHttps: false,
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/api/oauth/grants")) {
+        return new Response(
+          JSON.stringify({
+            grants: [
+              {
+                id: "g1",
+                clientId: "jfc_x",
+                clientName: "Claude",
+                userId: "u1",
+                userEmail: "a@example.com",
+                userName: "Ada",
+                capabilities: ["content:read"],
+                userTools: false,
+                createdAt: "2026-10-01T10:00:00.000Z",
+                lastUsedAt: null,
+              },
+            ],
           }),
           { status: 200 },
         );
@@ -96,5 +134,42 @@ describe("ApiKeysPage", () => {
     await screen.findByRole("heading", { name: "apiKeys.title" });
     await user.type(screen.getByLabelText("apiKeys.name"), "Empty");
     expect(screen.getByRole("button", { name: "apiKeys.add" })).toBeDisabled();
+  });
+
+  it("shows the MCP URL and warns about non-public HTTPS", async () => {
+    const user = userEvent.setup();
+    render(<ApiKeysPage />);
+    expect(await screen.findByDisplayValue("http://localhost:3000/api/mcp")).toBeInTheDocument();
+    expect(screen.getByText("ai.connect.httpsTitle")).toBeInTheDocument();
+    expect(await screen.findByText("Claude")).toBeInTheDocument();
+    // MCP needs the management API too: until it is on, no key can be made here.
+    expect(screen.getByRole("button", { name: "ai.connect.createKey" })).toBeDisabled();
+    expect(screen.getByText("ai.connect.needsManageApi")).toBeInTheDocument();
+  });
+
+  it("creates a preset key for the chosen client once MCP and the management API are on", async () => {
+    manageEnabled = true;
+    const user = userEvent.setup();
+    render(<ApiKeysPage />);
+    await screen.findByDisplayValue("http://localhost:3000/api/mcp");
+    await waitFor(() => expect(screen.getByRole("button", { name: "ai.connect.createKey" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "ai.connect.createKey" }));
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/api/api-keys") && c.method === "POST")).toBe(true));
+    const created = calls.find((c) => c.url.endsWith("/api/api-keys") && c.method === "POST")!.body as {
+      name: string;
+      capabilities: string[];
+    };
+    // Content editor preset, limited to what this admin can grant.
+    expect(created.capabilities).toEqual(["content:read", "content:create", "media:read"]);
+    expect(created.name).toMatch(/^Cursor/);
+  });
+
+  it("revokes a connected app", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("confirm", () => true);
+    render(<ApiKeysPage />);
+    await screen.findByText("Claude");
+    await user.click(screen.getByRole("button", { name: "ai.apps.revoke" }));
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/api/oauth/grants/g1") && c.method === "DELETE")).toBe(true));
   });
 });

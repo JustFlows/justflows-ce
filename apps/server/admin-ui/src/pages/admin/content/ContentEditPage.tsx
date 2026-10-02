@@ -1,5 +1,7 @@
 import ContentSchedule from "../../../components/ContentSchedule";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import EditorAiActions, { type EditorAiChanges } from "../../../components/ai/EditorAiActions";
+import AiErrorBoundary from "../../../components/ai/AiErrorBoundary";
 import { useParams } from "react-router-dom";
 import { useNavigate } from "../../../admin-router";
 import { type BlockDocument } from "@components/BlockEditor";
@@ -86,6 +88,9 @@ interface RevisionSummary {
   kind: string;
   createdAt: string;
   authorName: string | null;
+  /** "mcp" or "assistant" when an AI agent made the change (#159). */
+  via?: string | null;
+  viaClient?: string | null;
 }
 
 const VISIBLE_REVISION_HISTORY = 5;
@@ -615,6 +620,14 @@ export default function EditContentPage() {
         </div>
 
         <div className="jf-topbar__actions">
+          <AiErrorBoundary>
+            <EditorAiActions
+              item={item}
+              languages={languages}
+              onApply={(changes: EditorAiChanges) => patch(changes as Partial<ContentItem>)}
+              onTranslationCreated={(translationId) => navigateToTranslation(translationId)}
+            />
+          </AiErrorBoundary>
           <SaveState
             saving={saving}
             saved={saved}
@@ -1030,6 +1043,7 @@ export default function EditContentPage() {
                                   <p className="jf-revision-list__meta">
                                     {formatRevisionTime(rev.createdAt, locale)}
                                     {rev.authorName ? ` · ${rev.authorName}` : ""}
+                                    {rev.via ? ` · ${t("ai.revisions.via", { client: rev.viaClient || t(rev.via === "assistant" ? "ai.assistant.title" : "ai.revisions.agent") })}` : ""}
                                     {` · ${t("content.revisionVersion", { version: rev.version })}`}
                                   </p>
                                   {open && (

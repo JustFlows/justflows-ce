@@ -34,6 +34,7 @@ function toDto(record: ApiKeyRecord) {
     allowedIps: record.allowedIps,
     allowedOrigins: record.allowedOrigins,
     rateLimitPerMin: record.rateLimitPerMin,
+    mcpUserTools: record.mcpUserTools,
     expiresAt: record.expiresAt,
     revokedAt: record.revokedAt,
     lastUsedAt: record.lastUsedAt,
@@ -66,6 +67,7 @@ const CreateSchema = z.object({
   allowedIps: z.array(z.string().max(64)).max(50).optional(),
   allowedOrigins: z.array(z.string().max(255)).max(50).optional(),
   rateLimitPerMin: z.number().int().min(1).max(100_000).nullable().optional(),
+  mcpUserTools: z.boolean().optional(),
   expiresAt: z.string().datetime().nullable().optional(),
 });
 
@@ -76,6 +78,7 @@ const PatchSchema = z.object({
   allowedIps: z.array(z.string().max(64)).max(50).optional(),
   allowedOrigins: z.array(z.string().max(255)).max(50).optional(),
   rateLimitPerMin: z.number().int().min(1).max(100_000).nullable().optional(),
+  mcpUserTools: z.boolean().optional(),
   expiresAt: z.string().datetime().nullable().optional(),
 });
 
@@ -157,6 +160,7 @@ router.post("/", async (req, res) => {
       allowedIps: body.data.allowedIps,
       allowedOrigins: body.data.allowedOrigins,
       rateLimitPerMin: body.data.rateLimitPerMin ?? null,
+      mcpUserTools: body.data.mcpUserTools === true,
       expiresAt: body.data.expiresAt ?? null,
     });
     auditFromRequest(req, "apikey.created", {
@@ -190,6 +194,7 @@ router.patch("/:id", async (req, res) => {
         allowedIps: body.data.allowedIps,
         allowedOrigins: body.data.allowedOrigins,
         rateLimitPerMin: body.data.rateLimitPerMin,
+        mcpUserTools: body.data.mcpUserTools,
         expiresAt: body.data.expiresAt,
       },
       ownerOf(req),

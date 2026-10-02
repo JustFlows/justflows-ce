@@ -71,6 +71,8 @@
   "MENU_LAYOUTS",
   "MENU_MOBILE_MOTIONS",
   "MENU_MOBILE_PATTERNS",
+  "McpToolCallContext",
+  "McpToolDefinition",
   "MediaRef",
   "MediaUploadGateEvent",
   "MediaUploadedEvent",

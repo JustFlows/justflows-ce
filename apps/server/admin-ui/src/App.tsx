@@ -1,3 +1,4 @@
+import NoticeFocus from "./components/NoticeFocus";
 import { Outlet, Route, Routes } from "react-router-dom";
 import { Navigate } from "./admin-router";
 import AdminShell from "@components/AdminShell";
@@ -43,6 +44,8 @@ import AccountSecurityPage from "./pages/admin/security/AccountSecurityPage";
 import AuditLogPage from "./pages/admin/security/AuditLogPage";
 import WebhooksPage from "./pages/admin/settings/WebhooksPage";
 import ApiKeysPage from "./pages/admin/settings/ApiKeysPage";
+import AiSettingsPage from "./pages/admin/settings/AiSettingsPage";
+import OAuthConsentPage from "./pages/OAuthConsentPage";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { PluginMenuProvider } from "@components/PluginMenuProvider";
 import { SessionProvider, useSessionRole } from "@components/SessionProvider";
@@ -74,6 +77,7 @@ export default function App() {
   return (
     <I18nProvider>
       <SessionProvider>
+        <NoticeFocus />
         <PluginMenuProvider>
           {isPreAuth ? <DocumentMeta /> : <SiteHead />}
           <Routes>
@@ -82,6 +86,7 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/oauth/consent" element={<OAuthConsentPage />} />
             <Route
               path={`${admin}/themes/customize`}
               element={
@@ -141,6 +146,7 @@ export default function App() {
               <Route path="updates" element={<UpdatesPage />} />
               <Route path="webhooks" element={<WebhooksPage />} />
               <Route path="settings/api" element={<ApiKeysPage />} />
+              <Route path="settings/ai" element={<AiSettingsPage />} />
               <Route path="languages" element={<LanguagesPage />} />
               <Route path="security" element={<SecurityOverviewPage />} />
               <Route path="security/headers" element={<SecurityHeadersPage />} />
