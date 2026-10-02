@@ -242,6 +242,9 @@ export function stampAdminAppUrls(
   // no sidebar entry and would render `<Navigate to="/admin">` — the screen
   // would be unreachable. Synthesize a nav entry for it (the plugin owns the
   // whole screen, so a default icon and the "extensions" domain are enough).
+  // A route nested under one of the plugin's own pages (`products/bulk-edit`
+  // under `products`, not just under the plugin root) is a sub-page: it joins
+  // that page's domain and stays out of the sidebar.
   const takenPaths = new Set(out.map((i) => i.path));
   for (const route of routes) {
     if (stampedKeys.has(`${route.pluginId} ${route.path}`) || takenPaths.has(route.path)) {
@@ -252,13 +255,23 @@ export function stampAdminAppUrls(
       .replace(/[./]+/g, "-")
       .replace(/^-+|-+$/g, "");
     if (!MENU_ID_RE.test(id)) continue;
+    const root = pluginAdminBasePath(route.pluginId);
+    const parent = out
+      .filter(
+        (item) =>
+          item.pluginId === route.pluginId &&
+          item.path !== root &&
+          route.path.startsWith(`${item.path}/`),
+      )
+      .sort((a, b) => b.path.length - a.path.length)[0];
     out.push({
       pluginId: route.pluginId,
       id,
       label: (route.title || id).slice(0, 60),
       path: route.path,
-      icon: "🔌",
-      domain: "extensions" as PluginAdminMenuItem["domain"],
+      icon: parent?.icon ?? "🔌",
+      domain: parent?.domain ?? ("extensions" as PluginAdminMenuItem["domain"]),
+      ...(parent ? { listed: false } : {}),
       adminAppUrl: route.entryUrl,
       ...(route.catalogs ? { adminCatalogs: route.catalogs } : {}),
     });

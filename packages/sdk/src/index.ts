@@ -78,6 +78,8 @@ export type {
   HeaderTemplate,
   HeaderResolveContext,
   OpenApiDocument,
+  McpToolCallContext,
+  McpToolDefinition,
   CacheObjectType,
   CacheRevalidateTrigger,
   CacheRevalidatedEvent,

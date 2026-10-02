@@ -239,6 +239,16 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     manageApiRoutes,
   );
 
+  // Bring your own AI (#159): the MCP endpoint (API key or OAuth bearer, its own
+  // switch and rate limits), the cookie-authenticated assistant, provider and
+  // consent APIs, and the OAuth 2.1 authorization server at the site root.
+  app.use("/api/mcp", requireInstalled, (await import("./routes/ai/mcp.js")).default);
+  app.use("/api/ai", requireInstalled, (await import("./routes/ai/ai.js")).default);
+  app.use("/api/oauth", requireInstalled, (await import("./routes/ai/oauth-consent.js")).default);
+  // Root-level paths (/.well-known/oauth-*, /oauth/*); every handler answers
+  // 404 unless the site is installed and MCP is on (isMcpEnabled fails closed).
+  app.use((await import("./routes/ai/oauth.js")).default);
+
   // Everything below is public-facing: one switch (Settings → Public API) takes
   // the whole surface offline. Mounted on the prefix so future public routes
   // inherit the guard automatically.

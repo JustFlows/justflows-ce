@@ -400,6 +400,69 @@ describe("PluginHostPage", () => {
     confirm.mockRestore();
   });
 
+  it("hands the selected products to the plugin bulk edit page", async () => {
+    sessionStorage.clear();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        withSession((path) => {
+          if (path.includes("/api/plugins/admin-menu")) {
+            return jsonResponse({
+              items: [
+                ...shopMenu,
+                {
+                  pluginId: "justflows.shop",
+                  id: "plugins-justflows-shop-products-bulk-edit",
+                  label: "Bulk edit products",
+                  path: "/admin/plugins/justflows.shop/products/bulk-edit",
+                  icon: "📦",
+                  domain: "commerce",
+                  listed: false,
+                  adminAppUrl: "/ext/justflows.shop/admin/bulk-edit.html",
+                },
+              ],
+            });
+          }
+          if (path.includes("/api/content-types")) {
+            return jsonResponse({ types: [{ slug: "product", label: "Product" }] });
+          }
+          if (path.includes("/api/content?")) {
+            return jsonResponse({
+              items: [
+                {
+                  id: "prod-1",
+                  type: "product",
+                  title: "Canvas tote",
+                  slug: "canvas-tote",
+                  locale: "en-US",
+                  translationGroupId: "group-1",
+                  status: "published",
+                  updatedAt: "2026-08-28T00:00:00.000Z",
+                },
+              ],
+            });
+          }
+          return jsonResponse({});
+        }),
+      ),
+    );
+
+    renderHost("/admin/plugins/justflows.shop/products");
+
+    expect(screen.queryByRole("button", { name: "Bulk edit 1" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Canvas tote" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bulk edit 1" }));
+
+    expect(JSON.parse(sessionStorage.getItem("jf.admin.bulkSelection") ?? "null")).toEqual({
+      type: "product",
+      items: [{ id: "prod-1", translationGroupId: "group-1", title: "Canvas tote" }],
+    });
+    expect(await screen.findByTitle("Bulk edit products")).toHaveAttribute(
+      "src",
+      "/ext/justflows.shop/admin/bulk-edit.html",
+    );
+  });
+
   it("pages through every product until the content cursor is exhausted", async () => {
     const fetchMock = vi.fn(
       withSession((path) => {

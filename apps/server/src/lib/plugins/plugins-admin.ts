@@ -57,8 +57,8 @@ export async function deactivatePluginAdmin(
   actor: PluginAdminActor,
 ): Promise<PluginAdminResult> {
   const { runtimeDeactivatePlugin } = await import("./plugin-runtime.js");
+  await runtimeDeactivatePlugin(actor.siteId, pluginId);
   await deactivatePlugin(actor.siteId, pluginId);
-  await runtimeDeactivatePlugin(actor.siteId, pluginId).catch(() => null);
   void auditLog({
     siteId: actor.siteId,
     action: "plugin.deactivated",
