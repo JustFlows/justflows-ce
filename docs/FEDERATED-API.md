@@ -116,6 +116,14 @@ upload, plugin/theme activation, static export) carry an additional limiter.
 that stays a plugin concern. HTTP integrations *observe* via webhook events and
 *act* via this API.
 
+## AI agents (MCP)
+
+The same operations are available to AI agents over MCP at `/api/mcp`, as
+tools generated from this API with the same capability checks. API keys work
+there unchanged; hosted connectors (claude.ai, ChatGPT) use OAuth 2.1, and an
+OAuth access token bound to `/api/manage/v1` is also accepted here. See
+[Bring your own AI](AI.md).
+
 ## Discoverability
 
 `GET /api/manage/v1/openapi.json` is the OpenAPI 3.1 document for the whole

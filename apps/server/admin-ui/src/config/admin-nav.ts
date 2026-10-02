@@ -229,6 +229,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.languages", to: "/admin/languages", icon: "🌐" },
       { key: "nav.webhooks", to: "/admin/webhooks", icon: "↗" },
       { key: "nav.apiKeys", to: "/admin/settings/api", icon: "🔑" },
+      { key: "nav.ai", to: "/admin/settings/ai", icon: "✦" },
     ],
   },
 ];
@@ -351,6 +352,7 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/updates": ["administrator"],
   "/admin/webhooks": ["administrator"],
   "/admin/settings/api": ["administrator"],
+  "/admin/settings/ai": ["administrator"],
   "/admin/settings/permalinks": ["administrator"],
   "/admin/settings/pwa": ["administrator"],
   "/admin/settings/placeholders": ["administrator"],

@@ -23,7 +23,10 @@ import { catalogRowsForDefaultLanguage } from "../../../lib/translation-groups";
  * `/admin/plugins/acme.forms` does not steal `.../forms/entries`. A menu
  * item with `contentType` lists CMS entries of that type from `/api/content`,
  * one row per translation group in the site's default language. Other
- * languages stay on the content editor.
+ * languages stay on the content editor. When the plugin has a
+ * `{path}/bulk-edit` page, the selected rows are handed to it through
+ * `sessionStorage` (`BULK_SELECTION_KEY`) because a long id list does not fit
+ * in a URL.
  */
 export default function PluginHostPage() {
   const { t } = useT();
@@ -83,6 +86,7 @@ export default function PluginHostPage() {
         icon={item.icon}
         showSettings={showSettings}
         importPath={items.find((entry) => entry.path === `${item.path}/import`)?.path}
+        bulkEditPath={items.find((entry) => entry.path === `${item.path}/bulk-edit`)?.path}
       />
     );
   }
@@ -301,6 +305,9 @@ function defaultLocaleFrom(body: unknown): string {
 
 const CONTENT_PAGE_SIZE = 100;
 
+/** Same-origin plugin frames read the list selection from here. */
+export const BULK_SELECTION_KEY = "jf.admin.bulkSelection";
+
 async function loadAllContentOfType(type: string): Promise<ContentListItem[]> {
   const items: ContentListItem[] = [];
   let cursor: string | undefined;
@@ -350,6 +357,7 @@ function PluginContentTypeList({
   icon,
   showSettings,
   importPath,
+  bulkEditPath,
 }: {
   pluginId: string;
   contentType: string;
@@ -357,8 +365,10 @@ function PluginContentTypeList({
   icon: string;
   showSettings: boolean;
   importPath?: string;
+  bulkEditPath?: string;
 }) {
   const { t } = useT();
+  const navigate = useNavigate();
   const [items, setItems] = useState<ContentListItem[]>([]);
   const [typeLabel, setTypeLabel] = useState(contentType);
   const [loading, setLoading] = useState(true);
@@ -417,6 +427,19 @@ function PluginContentTypeList({
     });
   }
 
+  function bulkEditSelected(): void {
+    if (!bulkEditPath || selected.size === 0) return;
+    const chosen = items
+      .filter((item) => selected.has(item.id))
+      .map((item) => ({ id: item.id, translationGroupId: item.translationGroupId, title: item.title }));
+    try {
+      sessionStorage.setItem(BULK_SELECTION_KEY, JSON.stringify({ type: contentType, items: chosen }));
+    } catch {
+      return;
+    }
+    navigate(bulkEditPath);
+  }
+
   async function deleteSelected(): Promise<void> {
     if (selected.size === 0 || deleting) return;
     if (!window.confirm(t("pluginPage.trashConfirm", { count: selected.size }))) return;
@@ -451,6 +474,11 @@ function PluginContentTypeList({
             <Link className="jf-btn jf-btn--ghost" to={importPath}>
               {t("pluginPage.import")}
             </Link>
+          ) : null}
+          {selected.size > 0 && bulkEditPath ? (
+            <button type="button" className="jf-btn jf-btn--ghost" onClick={bulkEditSelected}>
+              {t("pluginPage.bulkEdit", { count: selected.size })}
+            </button>
           ) : null}
           {selected.size > 0 ? (
             <button type="button" className="jf-btn jf-btn--danger" disabled={deleting} onClick={() => void deleteSelected()}>

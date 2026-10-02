@@ -226,19 +226,29 @@ packages/<name>/
   runner tries `.mariadb.sql`, then `.mysql.sql`, then the bare `.sql`
   (`migrationFileCandidates` in `run-migrations.ts`). Only add a separate
   `NNNN_description.mariadb.sql` when the DDL must actually differ between the
-  two — it has not so far, and `0013`–`0016` no longer carry one. Only the
-  consolidated `0012_baseline` still ships all three files.
+  two — it has not so far. Only the consolidated `0036_baseline` ships all
+  three files.
 - Zero-pad the number to four digits. Use `snake_case` for the description.
-- `0012_baseline` contains the ordered schema history from `0001` through
-  `0012`. It is used for both fresh installations and upgrades from older
-  releases, then recorded once in the existing `_migrations` table.
-- Never edit the shipped `0012_baseline` or a later applied migration (see
+- `0036_baseline` contains the ordered schema history from `0001` through
+  `0036`, one section per original migration, each headed by a
+  `-- Consolidated migration: NNNN_name` marker. A fresh install runs every
+  section. An existing site runs only the sections it has not recorded:
+  either under their own name, or under an older baseline (`0012_baseline`
+  covers `0001`–`0012`). The baseline is then recorded once in `_migrations`.
+  Sections stay addressable by name through `readMigrationDdl`, so a test can
+  still apply a single folded migration.
+- Never edit the shipped `0036_baseline` or a later applied migration (see
   `AGENTS.md`). Add the next number, even if only one dialect's schema
-  actually changes. Find the highest number in `migrations/` and use the next number;
-  `0033_spam_term_source` is currently the latest.
+  actually changes. Find the highest number in `migrations/` and use the next
+  number; `0037` is next after the baseline.
 - Add each new migration name to `MIGRATION_ORDER` in
   `apps/server/src/lib/database/run-migrations.ts`. The runner skips names already
   recorded in `_migrations`.
+- To fold migrations into a new baseline later, append each one's DDL, behind
+  its section marker, to the previous baseline for every dialect. Name the
+  result after the last migration it contains and replace `MIGRATION_ORDER`
+  with it. Keep the markers: they are what lets existing sites skip history
+  they already have.
 
 ## Scripts (`scripts/*`)
 
@@ -267,3 +277,20 @@ to match the rules above:
   subdirectories: `password/hash.ts` → `password.ts`,
   `capabilities/index.ts` → `capabilities.ts`, `session/types.ts` →
   `session.ts`, matching the flat style of `sdk`, `updater`, and `jobs`.
+
+## Admin notice focus
+
+The app-level `NoticeFocus` component reveals and focuses new or changed
+`.jf-alert`, `.jf-status--saved`, `.jf-status--error`, `.jf-status--warning`,
+`.jf-editor__status--ok`, `.jf-editor__status--error`, and `[role="alert"]`
+messages. Use these for action results, including save confirmations and errors.
+Custom important feedback can opt in with `data-notice-focus="true"`.
+Use `data-notice-focus="false"` on background updates or their container when
+focus should stay with the user's work. Plain `role="status"` is not enough to
+opt in because it also labels loading and search progress.
+
+Keep message semantics (`role="alert"` or `role="status"`) on the notice itself.
+Focus does not move for existing banners on initial mount or hidden notices,
+and never leaves an open modal for background feedback. The handler observes
+the host document; independently rendered plugin iframe apps must manage
+feedback focus inside their own document.

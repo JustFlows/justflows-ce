@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useT } from "../../../i18n/I18nProvider";
+import ConnectAgentCard from "../../../components/ai/ConnectAgentCard";
+import ConnectedAppsCard from "../../../components/ai/ConnectedAppsCard";
+import AiErrorBoundary from "../../../components/ai/AiErrorBoundary";
 
 type Scope = {
   contentTypes?: string[];
@@ -15,6 +18,7 @@ type ApiKey = {
   allowedIps: string[];
   allowedOrigins: string[];
   rateLimitPerMin: number | null;
+  mcpUserTools: boolean;
   expiresAt: string | null;
   revokedAt: string | null;
   lastUsedAt: string | null;
@@ -35,6 +39,7 @@ type FormState = {
   allowedIps: string;
   allowedOrigins: string;
   rateLimitPerMin: string;
+  mcpUserTools: boolean;
   expiresAt: string;
 };
 
@@ -47,6 +52,7 @@ const EMPTY: FormState = {
   allowedIps: "",
   allowedOrigins: "",
   rateLimitPerMin: "",
+  mcpUserTools: false,
   expiresAt: "",
 };
 
@@ -127,6 +133,7 @@ export default function ApiKeysPage() {
           allowedIps: csv(form.allowedIps),
           allowedOrigins: csv(form.allowedOrigins),
           rateLimitPerMin: form.rateLimitPerMin ? Number(form.rateLimitPerMin) : null,
+          mcpUserTools: form.mcpUserTools && form.capabilities.includes("users:manage"),
           expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
         }),
       });
@@ -275,6 +282,10 @@ export default function ApiKeysPage() {
         </form>
       </section>
 
+      <AiErrorBoundary>
+        <ConnectAgentCard manageApiEnabled={settings.enabled} grantable={capabilities} onKeyCreated={load} />
+      </AiErrorBoundary>
+
       <section className="jf-card jf-card--overflow-visible">
         <div className="jf-card__head">
           <h2 className="jf-card__title">{t("apiKeys.add")}</h2>
@@ -417,6 +428,17 @@ export default function ApiKeysPage() {
             </label>
           </div>
 
+          {form.capabilities.includes("users:manage") && (
+            <label className="jf-checkrow">
+              <input
+                type="checkbox"
+                checked={form.mcpUserTools}
+                onChange={(e) => setForm({ ...form, mcpUserTools: e.target.checked })}
+              />
+              <span>{t("ai.connect.userTools")}</span>
+            </label>
+          )}
+
           <div>
             <button className="jf-btn jf-btn--primary" type="submit" disabled={!canSubmit}>
               {saving ? t("common.saving") : t("apiKeys.add")}
@@ -455,6 +477,7 @@ export default function ApiKeysPage() {
                       {key.revokedAt && (
                         <span className="jf-badge jf-badge--warn">{t("apiKeys.revoked")}</span>
                       )}
+                      {key.mcpUserTools && <span className="jf-badge">{t("ai.apps.userTools")}</span>}
                     </td>
                     <td className="jf-td--mono">{key.keyPrefix}…</td>
                     <td>{key.capabilities.length}</td>
@@ -495,6 +518,10 @@ export default function ApiKeysPage() {
           </table>
         </div>
       </section>
+
+      <AiErrorBoundary>
+        <ConnectedAppsCard all />
+      </AiErrorBoundary>
     </div>
   );
 }

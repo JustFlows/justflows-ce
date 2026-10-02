@@ -60,6 +60,13 @@ export default function LoginPage() {
       // navigation (not client-side routing) so the server's own gate is the one
       // source of truth. `publicAdminPath` is only a fall-back for an older
       // server that does not send `redirectTo`.
+      // An AI connector's consent screen sent the user here to sign in first;
+      // only that one page may be returned to, so `next` is not an open redirect.
+      const next = new URLSearchParams(window.location.search).get("next");
+      if (next && next.startsWith("/oauth/consent?")) {
+        window.location.href = safeRedirectPath(next, "/");
+        return;
+      }
       window.location.href = safeRedirectPath(
         data.redirectTo,
         data.role === "subscriber" ? "/" : publicAdminPath("/admin"),

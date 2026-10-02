@@ -73,7 +73,18 @@ export const MANAGE_API_OPENAPI = {
     "/events": { get: op("Platform event catalog with payload schemas", "(any key)") },
 
     "/content": {
-      get: op("List content (cursor paginated)", "content:read"),
+      get: {
+        ...op("List content (cursor paginated)", "content:read"),
+        parameters: [
+          { name: "type", in: "query", schema: { type: "string" } },
+          { name: "status", in: "query", schema: { type: "string", enum: ["draft", "published", "archived", "scheduled", "trash"] } },
+          { name: "locale", in: "query", schema: { type: "string" } },
+          { name: "search", in: "query", description: "Case-insensitive match on title or slug", schema: { type: "string" } },
+          { name: "author", in: "query", description: "Author user id", schema: { type: "string" } },
+          { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 200 } },
+          { name: "cursor", in: "query", schema: { type: "string" } },
+        ],
+      },
       post: op("Create a content entry (draft)", "content:create", { "201": { description: "Created" } }),
     },
     "/content/{id}": {
@@ -106,6 +117,7 @@ export const MANAGE_API_OPENAPI = {
     },
     "/media/{id}": {
       get: op("Get one media item", "media:read"),
+      patch: op("Update alt text, caption or focal point", "media:upload"),
       delete: op("Move a media item to trash", "media:delete"),
     },
 
