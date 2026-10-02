@@ -199,6 +199,17 @@ describe("token endpoint", () => {
     expect(replay.status).toBe(400);
   });
 
+  it("refuses grant types other than authorization_code and refresh_token", async () => {
+    const { body } = await register();
+    const res = await fetch(`${origin}/oauth/token`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "client_credentials", client_id: String(body.client_id) }).toString(),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "unsupported_grant_type" });
+  });
+
   it("answers an unknown client with invalid_client and does not say why", async () => {
     const res = await fetch(`${origin}/oauth/token`, {
       method: "POST",
