@@ -196,48 +196,76 @@ function plainError(res: Response, message: string): void {
   res.status(400).type("text/plain").send(`Authorization request rejected: ${message}`);
 }
 
-router.get("/oauth/authorize", authorizeLimit, enabled, noStore, async (req: Request, res: Response) => {
+/**
+ * A refused authorization request. With `redirect`, the client's verified
+ * redirect URI is told; without it, the error is shown as a page.
+ */
+class RejectedRequest extends Error {
+  constructor(
+    message: string,
+    readonly redirect?: { uri: string; state: string | null; error: string },
+  ) {
+    super(message);
+    this.name = "RejectedRequest";
+  }
+}
+
+/**
+ * Validates an authorization request (RFC 6749 §4.1.1 with PKCE, S256 only)
+ * and returns the fields to sign. Throws `RejectedRequest` otherwise.
+ * Every check lives here so the route only ever signs a validated request.
+ */
+async function parseConsentRequest(req: Request): Promise<Parameters<typeof signAuthorizationRequest>[0]> {
   const q = req.query as Record<string, unknown>;
   const str = (value: unknown) => (typeof value === "string" ? value : "");
-  try {
-    const client = await getClientByClientId(str(q.client_id));
-    // Without a known client and an exact redirect URI match there is nowhere
-    // safe to send an error, so it is shown here instead (RFC 6749 §4.1.2.1).
-    if (!client) return plainError(res, "unknown client_id.");
-    const redirectUri = str(q.redirect_uri);
-    if (!redirectUri || !client.redirectUris.includes(redirectUri)) {
-      return plainError(res, "redirect_uri does not exactly match a registered URI.");
-    }
-    const state = str(q.state) || null;
-    const back = (error: string, description: string) => {
-      const url = new URL(redirectUri);
-      url.searchParams.set("error", error);
-      url.searchParams.set("error_description", description);
-      if (state) url.searchParams.set("state", state);
-      url.searchParams.set("iss", publicOrigin(req));
-      res.redirect(302, url.toString());
-    };
-    if (str(q.response_type) !== "code") return back("unsupported_response_type", "Only response_type=code is supported");
-    const challenge = str(q.code_challenge);
-    if (!challenge || str(q.code_challenge_method) !== "S256" || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) {
-      return back("invalid_request", "PKCE with code_challenge_method=S256 is required");
-    }
-    const resource = str(q.resource) || mcpResourceUrl(req);
-    if (!allowedResources(req).includes(resource)) return back("invalid_target", "Unknown resource");
-
-    const request = signAuthorizationRequest({
-      clientId: client.clientId,
-      redirectUri,
-      codeChallenge: challenge,
-      state,
-      resource,
-      scope: str(q.scope) || null,
-    });
-    res.redirect(302, `/oauth/consent?request=${encodeURIComponent(request)}`);
-  } catch (err) {
-    console.error("[justflows] oauth authorize error", JSON.stringify(logSafe(String(err))));
-    plainError(res, "the server could not process the request.");
+  const client = await getClientByClientId(str(q.client_id));
+  // Without a known client and an exact redirect URI match there is nowhere
+  // safe to send an error, so it is shown here instead (RFC 6749 §4.1.2.1).
+  if (!client) throw new RejectedRequest("unknown client_id.");
+  const redirectUri = str(q.redirect_uri);
+  if (!redirectUri || !client.redirectUris.includes(redirectUri)) {
+    throw new RejectedRequest("redirect_uri does not exactly match a registered URI.");
   }
+  const state = str(q.state) || null;
+  const back = (error: string, description: string) =>
+    new RejectedRequest(description, { uri: redirectUri, state, error });
+  if (str(q.response_type) !== "code") throw back("unsupported_response_type", "Only response_type=code is supported");
+  const challenge = str(q.code_challenge);
+  if (!challenge || str(q.code_challenge_method) !== "S256" || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) {
+    throw back("invalid_request", "PKCE with code_challenge_method=S256 is required");
+  }
+  const resource = str(q.resource) || mcpResourceUrl(req);
+  if (!allowedResources(req).includes(resource)) throw back("invalid_target", "Unknown resource");
+  return {
+    clientId: client.clientId,
+    redirectUri,
+    codeChallenge: challenge,
+    state,
+    resource,
+    scope: str(q.scope) || null,
+  };
+}
+
+function sendRejection(req: Request, res: Response, rejection: RejectedRequest): void {
+  if (!rejection.redirect) return plainError(res, rejection.message);
+  const url = new URL(rejection.redirect.uri);
+  url.searchParams.set("error", rejection.redirect.error);
+  url.searchParams.set("error_description", rejection.message);
+  if (rejection.redirect.state) url.searchParams.set("state", rejection.redirect.state);
+  url.searchParams.set("iss", publicOrigin(req));
+  res.redirect(302, url.toString());
+}
+
+router.get("/oauth/authorize", authorizeLimit, enabled, noStore, async (req: Request, res: Response) => {
+  let request: string;
+  try {
+    request = signAuthorizationRequest(await parseConsentRequest(req));
+  } catch (err) {
+    if (err instanceof RejectedRequest) return sendRejection(req, res, err);
+    console.error("[justflows] oauth authorize error", JSON.stringify(logSafe(String(err))));
+    return plainError(res, "the server could not process the request.");
+  }
+  res.redirect(302, `/oauth/consent?request=${encodeURIComponent(request)}`);
 });
 
 /* --------------------------------- tokens -------------------------------- */
@@ -265,6 +293,30 @@ async function clientFromRequest(req: Request): Promise<OAuthClient> {
   return client;
 }
 
+type TokenGrant = (client: OAuthClient, resource: string | undefined) => ReturnType<typeof refreshAccessToken>;
+
+/**
+ * Picks the grant for a token request. Each grant checks its own code or
+ * refresh token, so the route runs the result without branching on input.
+ */
+function tokenGrant(body: Record<string, unknown>): TokenGrant {
+  switch (body.grant_type) {
+    case "authorization_code":
+      return (client, resource) =>
+        exchangeAuthorizationCode({
+          client,
+          code: body.code,
+          redirectUri: body.redirect_uri,
+          codeVerifier: body.code_verifier,
+          resource,
+        });
+    case "refresh_token":
+      return (client, resource) => refreshAccessToken({ client, refreshToken: body.refresh_token, resource });
+    default:
+      throw new OAuthError("unsupported_grant_type", "Only authorization_code and refresh_token are supported");
+  }
+}
+
 router.post("/oauth/token", tokenLimit, enabled, openCors, noStore, async (req: Request, res: Response) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   try {
@@ -273,23 +325,8 @@ router.post("/oauth/token", tokenLimit, enabled, openCors, noStore, async (req: 
     if (resource !== undefined && !allowedResources(req).includes(resource)) {
       throw new OAuthError("invalid_target", "Unknown resource");
     }
-    if (body.grant_type === "authorization_code") {
-      res.json(
-        await exchangeAuthorizationCode({
-          client,
-          code: body.code,
-          redirectUri: body.redirect_uri,
-          codeVerifier: body.code_verifier,
-          resource,
-        }),
-      );
-      return;
-    }
-    if (body.grant_type === "refresh_token") {
-      res.json(await refreshAccessToken({ client, refreshToken: body.refresh_token, resource }));
-      return;
-    }
-    throw new OAuthError("unsupported_grant_type", "Only authorization_code and refresh_token are supported");
+    const grant = tokenGrant(body);
+    res.json(await grant(client, resource));
   } catch (err) {
     oauthError(res, err);
   }
