@@ -246,9 +246,12 @@ async function clientFromRequest(req: Request): Promise<OAuthClient> {
   const body = (req.body ?? {}) as Record<string, unknown>;
   let clientId = typeof body.client_id === "string" ? body.client_id : "";
   let secret = typeof body.client_secret === "string" ? body.client_secret : undefined;
-  const basic = /^Basic\s+(.+)$/i.exec(req.get("authorization") ?? "");
+  // Parsed without a regex: `\s+(.+)` backtracks quadratically on long runs of spaces.
+  const authorization = req.get("authorization") ?? "";
+  const basic =
+    authorization.slice(0, 6).toLowerCase() === "basic " ? authorization.slice(6).trim() : "";
   if (basic) {
-    const decoded = Buffer.from(basic[1]!, "base64").toString("utf8");
+    const decoded = Buffer.from(basic, "base64").toString("utf8");
     const colon = decoded.indexOf(":");
     if (colon > 0) {
       clientId = decodeURIComponent(decoded.slice(0, colon));

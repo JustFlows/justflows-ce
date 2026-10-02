@@ -209,6 +209,29 @@ describe("token endpoint", () => {
     expect(await res.json()).toEqual({ error: "invalid_client", error_description: "Client authentication failed" });
   });
 
+  it("authenticates a confidential client with HTTP Basic credentials", async () => {
+    const { body } = await register({ client_name: "Server", redirect_uris: [REDIRECT], token_endpoint_auth_method: "client_secret_basic" });
+    expect(typeof body.client_secret).toBe("string");
+    const refresh = (authorization: string) =>
+      fetch(`${origin}/oauth/token`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", authorization },
+        body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: "jfo_rt_x" }).toString(),
+      });
+    const basic = (secret: string) =>
+      Buffer.from(`${encodeURIComponent(String(body.client_id))}:${encodeURIComponent(secret)}`).toString("base64");
+
+    // Authenticated: the bogus refresh token is the only problem.
+    const ok = await refresh(`basic  ${basic(String(body.client_secret))}`);
+    expect(await ok.json()).toMatchObject({ error: "invalid_grant" });
+    expect((await refresh(`Basic ${basic("wrong")}`)).status).toBe(401);
+
+    // A long run of spaces after the scheme is answered without slow backtracking.
+    const started = Date.now();
+    expect((await refresh(`Basic ${" ".repeat(10_000)}x`)).status).toBe(401);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
   it("rate-limits the registration endpoint", async () => {
     const statuses: number[] = [];
     for (let i = 0; i < 25; i += 1) statuses.push((await register()).res.status);
