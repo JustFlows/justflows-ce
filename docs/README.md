@@ -15,6 +15,7 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Hooks](HOOKS.md)                                     | Actions, gates, and filters                                           |
 | [Webhooks](WEBHOOKS.md)                               | Signed outbound events, retries, and plugin event types               |
 | [Federated management API](FEDERATED-API.md)          | API keys and the `/api/manage/v1` surface for headless operation      |
+| [Bring your own AI](AI.md)                            | MCP server for Claude/ChatGPT/Cursor, OAuth, BYOK admin assistant     |
 | [Email delivery](EMAIL.md)                            | Transport setup, delivery logs, suppression, and provider plugins     |
 | [Manifest](MANIFEST.md)                               | `justflows.json` / `justflows-theme.json` fields                      |
 | [SDK compatibility](SDK-COMPATIBILITY.md)             | Version ranges, runtime versions, deprecation, and API stability      |

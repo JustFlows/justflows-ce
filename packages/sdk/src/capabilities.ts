@@ -35,6 +35,7 @@ export const USER_CAPABILITIES = [
   "updates:manage",
   "site:admin",
   "analytics:read",
+  "ai:use",
 ] as const;
 
 export type CoreUserCapability = (typeof USER_CAPABILITIES)[number];
@@ -101,6 +102,7 @@ export const ROLE_CAPABILITIES: Record<string, UserCapability[]> = {
     "comments:moderate",
     "users:read",
     "analytics:read",
+    "ai:use",
   ],
   author: [
     "content:read",

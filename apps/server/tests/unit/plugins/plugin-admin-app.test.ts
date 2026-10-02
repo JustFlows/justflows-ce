@@ -187,4 +187,41 @@ describe("stampAdminAppUrls", () => {
     expect(out).toHaveLength(1);
     expect(out[0]?.adminAppUrl).toBe("/ext/acme.forms/admin/index.html");
   });
+
+  it("hides a synthesized sub-page under the plugin page it is nested in", () => {
+    const parent: AdminMenuEntry = {
+      pluginId: "acme.shop",
+      id: "products",
+      label: "Products",
+      path: "/admin/plugins/acme.shop/products",
+      icon: "📦",
+      domain: "commerce",
+    };
+    const root: AdminMenuEntry = { ...parent, id: "shop", label: "Shop", path: "/admin/plugins/acme.shop" };
+    const out = stampAdminAppUrls(
+      [root, parent],
+      [
+        {
+          pluginId: "acme.shop",
+          path: "/admin/plugins/acme.shop/reports",
+          entryUrl: "/ext/acme.shop/admin/reports.html",
+        },
+        {
+          pluginId: "acme.shop",
+          path: "/admin/plugins/acme.shop/products/bulk-edit",
+          entryUrl: "/ext/acme.shop/admin/bulk-edit.html",
+          title: "Bulk edit products",
+        },
+      ],
+    );
+    expect(out[2]).toMatchObject({ path: "/admin/plugins/acme.shop/reports", domain: "extensions" });
+    expect(out[2]?.listed).toBeUndefined();
+    expect(out[3]).toMatchObject({
+      path: "/admin/plugins/acme.shop/products/bulk-edit",
+      icon: "📦",
+      domain: "commerce",
+      listed: false,
+      adminAppUrl: "/ext/acme.shop/admin/bulk-edit.html",
+    });
+  });
 });

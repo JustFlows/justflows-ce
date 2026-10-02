@@ -8,7 +8,14 @@ import { getAdminSsrPayload } from "./ssr-data";
  * authenticated shell should skip itself here instead of firing a request
  * guaranteed to 401/404 and littering the console with it.
  */
-export const PRE_AUTH_PATHS = ["/install", "/login", "/register", "/forgot-password", "/reset-password"] as const;
+export const PRE_AUTH_PATHS = [
+  "/install",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/oauth/consent",
+] as const;
 
 export function isPreAuthPath(pathname: string): boolean {
   return (PRE_AUTH_PATHS as readonly string[]).includes(pathname);

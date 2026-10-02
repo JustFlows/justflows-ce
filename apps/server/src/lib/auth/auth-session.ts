@@ -1,3 +1,4 @@
+import { effectivePrimaryRole } from "./plugin-role-fallback.js";
 import type { Request, Response } from "express";
 import { getDb } from "../database/db.js";
 import { logSafe } from "../security/log-safe.js";
@@ -64,16 +65,17 @@ export async function resolveSession(req: Request, res: Response): Promise<Sessi
     const currentVersion = user.token_version === undefined ? null : Number(user.token_version ?? 0);
     if (currentVersion !== null && Number(session.tv ?? 0) !== currentVersion) return null;
 
-    if (user.role !== session.role || user.email !== session.email) {
+    const role = await effectivePrimaryRole(session.siteId, user.role);
+    if (role !== session.role || user.email !== session.email) {
       setSessionCookie(res, {
         sid: session.sid,
         userId: session.userId,
         siteId: session.siteId,
-        role: user.role,
+        role,
         email: user.email,
         tv: currentVersion ?? session.tv ?? 0,
       });
-      return { ...session, role: user.role, email: user.email, tv: currentVersion ?? session.tv ?? 0 };
+      return { ...session, role, email: user.email, tv: currentVersion ?? session.tv ?? 0 };
     }
 
     return session;

@@ -22,6 +22,7 @@ import {
   type ContentWorkingMeta,
 } from "./content-api.js";
 import { getSiteSetting } from "../settings/site-settings.js";
+import { agentOriginColumns } from "../ai/agent-origin.js";
 
 export const REVISION_MAX_HISTORY_SETTING = "revisions.max_history";
 
@@ -62,6 +63,10 @@ export interface StoredRevision {
   updatedAt: string;
   updatedBy: string | null;
   authorName: string | null;
+  /** 'mcp' or 'assistant' when an AI agent made the change; null from the admin UI. */
+  via: string | null;
+  /** The agent's client name ("Claude", "Cursor"), when `via` is set. */
+  viaClient: string | null;
 }
 
 function asSource(value: unknown): RevisionSource {
@@ -121,6 +126,8 @@ export function parseRevisionRow(row: Record<string, unknown>): StoredRevision {
     updatedAt: toIsoTimestamp(row.updated_at) ?? toIsoTimestamp(row.created_at) ?? "",
     updatedBy: row.updated_by == null ? null : String(row.updated_by),
     authorName: row.author_name == null ? null : String(row.author_name),
+    via: row.via == null ? null : String(row.via),
+    viaClient: row.via_client == null ? null : String(row.via_client),
   };
 }
 
@@ -277,12 +284,13 @@ export async function upsertWorkingRevision(
   }
 
   const stamp = nowSql();
+  const [via, viaClient] = agentOriginColumns();
   if (existing) {
     const changed = await db.execute(
       `UPDATE revisions
        SET title = ?, slug = ?, excerpt = ?, locale = ?, translation_group_id = ?,
            blocks = ?, fields = ?, version = ?, base_version = ?, ${sourceCol()} = ?,
-           updated_at = ?, updated_by = ?
+           updated_at = ?, updated_by = ?, via = ?, via_client = ?
        WHERE id = ? AND content_id = ? AND site_id = ? AND ${kindCol()} = 'working' AND version = ?`,
       [
         input.snapshot.title,
@@ -297,6 +305,8 @@ export async function upsertWorkingRevision(
         input.source,
         stamp,
         input.actorId,
+        via,
+        viaClient,
         existing.id,
         contentId,
         siteId,
@@ -312,8 +322,8 @@ export async function upsertWorkingRevision(
     `INSERT INTO revisions (
        id, content_id, site_id, title, slug, excerpt, locale, translation_group_id,
        blocks, fields, version, base_version, ${kindCol()}, ${sourceCol()}, created_by, created_at,
-       updated_by, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'working', ?, ?, ?, ?, ?)`,
+       updated_by, updated_at, via, via_client
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'working', ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       contentId,
@@ -331,6 +341,8 @@ export async function upsertWorkingRevision(
       stamp,
       input.actorId,
       stamp,
+      via,
+      viaClient,
     ],
   );
   return (await getWorkingRevision(contentId, siteId, db)) ?? null;
@@ -345,12 +357,13 @@ export async function insertHistoricalSnapshot(
   const db = client ?? await getDb();
   const id = randomUUID();
   const stamp = nowSql();
+  const [via, viaClient] = agentOriginColumns();
   await db.run(
     `INSERT INTO revisions (
        id, content_id, site_id, title, slug, excerpt, locale, translation_group_id,
        blocks, fields, version, base_version, ${kindCol()}, ${sourceCol()}, created_by, created_at,
-       updated_by, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'historical', 'manual', ?, ?, ?, ?)`,
+       updated_by, updated_at, via, via_client
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'historical', 'manual', ?, ?, ?, ?, ?, ?)`,
     [
       id,
       String(liveRow.id),
@@ -368,6 +381,8 @@ export async function insertHistoricalSnapshot(
       stamp,
       actorId,
       stamp,
+      via,
+      viaClient,
     ],
   );
   return id;
@@ -540,6 +555,8 @@ export function serializeRevision(rev: StoredRevision, opts: { includeBody?: boo
     updatedAt: rev.updatedAt,
     updatedBy: rev.updatedBy,
     authorName: rev.authorName,
+    via: rev.via,
+    viaClient: rev.viaClient,
   };
   if (!opts.includeBody) return summary;
   return { ...summary, blocks: rev.blocks, fields: rev.fields };
