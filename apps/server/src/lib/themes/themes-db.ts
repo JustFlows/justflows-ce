@@ -251,6 +251,42 @@ export async function insertTheme(
   );
 }
 
+/**
+ * Point an installed theme at a newer package. Status, activation, and the
+ * customizer mods (stored separately) are kept; package defaults are replaced.
+ */
+export async function updateThemePackage(
+  siteId: string,
+  themeId: string,
+  theme: {
+    name: string;
+    version: string;
+    publisher: string;
+    description?: string;
+    cssVariables: Record<string, string>;
+    manifest: Record<string, unknown>;
+  },
+): Promise<void> {
+  const db = await getDb();
+  await db.run(
+    `UPDATE themes
+        SET name = ?, version = ?, publisher = ?, description = ?,
+            css_variables = ?, manifest = ?, updated_at = ?
+      WHERE site_id = ? AND theme_id = ?`,
+    [
+      theme.name,
+      theme.version,
+      theme.publisher,
+      theme.description ?? null,
+      JSON.stringify(theme.cssVariables),
+      JSON.stringify(theme.manifest),
+      now(),
+      siteId,
+      themeId,
+    ],
+  );
+}
+
 export async function activateTheme(siteId: string, themeId: string): Promise<boolean> {
   const db = await getDb();
 

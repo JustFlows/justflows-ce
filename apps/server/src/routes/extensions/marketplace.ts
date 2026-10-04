@@ -1,58 +1,34 @@
 // SPDX-License-Identifier: MIT
 
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { requireRole } from "../../middleware/auth.js";
-import { assertPackageIsTrusted } from "../../lib/extensions/package-trust.js";
+import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { sendPackageInstallError } from "../../lib/extensions/package-install-error.js";
-import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
-import { ARCHIVE_LIMITS } from "@justflows/installer";
+import { filterMarketplaceCatalogBody } from "../../lib/extensions/marketplace-catalog.js";
 import {
-  filterMarketplaceCatalogBody,
-  MARKETPLACE_ALLOW_BETA_SETTING,
-  marketplaceListingIsBeta,
-  marketplaceListingIsComingSoon,
-  marketplaceListingIsPaid,
-  marketplaceListingIsVisible,
-} from "../../lib/extensions/marketplace-catalog.js";
-import { getJustflowsVersion } from "../../lib/runtime/version.js";
-import { getSiteSetting } from "../../lib/settings/site-settings.js";
+  FETCH_TIMEOUT_MS,
+  installMarketplacePackage,
+  JUSTFLOWS_API_BASE,
+  MarketplaceRequestError,
+} from "../../lib/extensions/marketplace-package.js";
+import {
+  checkExtensionUpdates,
+  setExtensionAutoUpdate,
+  updateExtension,
+} from "../../lib/extensions/extension-updates.js";
 
 const router = Router();
 
-const JUSTFLOWS_API_BASE = "https://api.justflows.com";
-
-/**
- * A registry that hangs or answers forever is still a dependency failure.
- * Without a deadline the request thread stalled indefinitely, and
- * `await download.arrayBuffer()` buffered the whole body before the installer's
- * 50 MB limit could apply — so the ceiling only ever ran after the memory had
- * already been spent.
- */
-const FETCH_TIMEOUT_MS = 30_000;
-const DOWNLOAD_TIMEOUT_MS = 120_000;
-
-/** Read a response body, aborting once it exceeds `maxBytes`. */
-async function readBounded(response: Response, maxBytes: number): Promise<Buffer> {
-  const declared = Number(response.headers.get("content-length") ?? "");
-  if (Number.isFinite(declared) && declared > maxBytes) {
-    throw new Error(`Package exceeds ${Math.floor(maxBytes / 1024 / 1024)} MB limit`);
-  }
-  if (!response.body) return Buffer.alloc(0);
-
-  const chunks: Buffer[] = [];
-  let total = 0;
-  // Streamed rather than trusting Content-Length, which a hostile or broken
-  // registry can understate or omit entirely.
-  for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
-    total += chunk.byteLength;
-    if (total > maxBytes) {
-      throw new Error(`Package exceeds ${Math.floor(maxBytes / 1024 / 1024)} MB limit`);
-    }
-    chunks.push(Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
-}
+// Updates download, extract, and swap packages on disk.
+const updateRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many update requests" },
+});
 
 router.get("/", requireRole("administrator"), async (req, res) => {
   try {
@@ -85,105 +61,11 @@ const InstallSchema = z.object({
 router.post("/install", requireRole("administrator"), async (req, res) => {
   try {
     const { type, id, version } = InstallSchema.parse(req.body);
-    const versionSegment = version
-      ? `/versions/${encodeURIComponent(version)}`
-      : "/versions/latest";
-    const kind = type === "plugin" ? "plugins" : "themes";
-    const metaUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kind}/${encodeURIComponent(id)}${versionSegment}`;
-    const metaRes = await fetch(metaUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    if (!metaRes.ok) {
-      res.status(metaRes.status).json({ error: `Listing not found (${id})` });
-      return;
-    }
-    const listing = (await metaRes.json()) as {
-      version?: string;
-      channel?: string;
-      pricing?: { type?: string };
-      registry?: {
-        listed?: boolean;
-        free?: boolean;
-        commercialMarketplace?: boolean;
-        comingSoon?: boolean;
-        beta?: boolean;
-      };
-    };
-
-    if (!marketplaceListingIsVisible(listing)) {
-      res.status(404).json({ error: `Listing not found (${id})` });
-      return;
-    }
-
-    if (marketplaceListingIsComingSoon(listing)) {
-      res.status(403).json({ error: "This listing is coming soon and cannot be installed yet." });
-      return;
-    }
-
-    // Enforced here, not only in the UI: beta builds stay uninstallable until
-    // an administrator opts the site in under Settings.
-    if (marketplaceListingIsBeta(listing)) {
-      const siteId = req.session?.siteId;
-      const allowBeta = siteId
-        ? (await getSiteSetting<boolean>(siteId, MARKETPLACE_ALLOW_BETA_SETTING)) === true
-        : false;
-      if (!allowBeta) {
-        res.status(403).json({
-          error: "This listing is a beta. Allow beta installs in Settings to install it.",
-          code: "beta_disabled",
-        });
-        return;
-      }
-    }
-
-    if (marketplaceListingIsPaid(listing)) {
-      res.status(402).json({
-        error: "This listing is commercial. Get it on Justflows.",
-        checkoutUrl: "https://justflows.com/marketplace",
-      });
-      return;
-    }
-
-    const resolvedVersion = version ?? listing.version;
-    if (!resolvedVersion) {
-      res.status(400).json({ error: "Version is required" });
-      return;
-    }
-
-    // Always download via the public API. Registry downloadUrl is an internal
-    // path (e.g. /v1/plugins/...) which Node fetch cannot resolve.
-    const downloadUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kind}/${encodeURIComponent(id)}/versions/${encodeURIComponent(resolvedVersion)}/download`;
-    const download = await fetch(downloadUrl, {
-      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
-    });
-    if (!download.ok) {
-      res.status(download.status).json({ error: "Download failed" });
-      return;
-    }
-
-    const buffer = await readBounded(download, ARCHIVE_LIMITS.maxCompressedBytes);
-    const digest = download.headers.get("x-justflows-digest") ?? "";
-    const signature = download.headers.get("x-justflows-signature") ?? "";
-
-    const { PackageInstaller } = await import("@justflows/installer");
-    const installer = new PackageInstaller();
-    const packagesDir = packagesInstalledDir();
-    // Verified inside the installer, while the package is still staged — see
-    // the note on InstallOptions.verify.
-    const result = await installer.installFromBuffer(buffer, {
-      packagesDir,
-      justflowsVersion: getJustflowsVersion(),
-      source: "marketplace",
-      expectedDigest: digest || undefined,
-      // Plugins run as code — install each build to its own directory so a
-      // reinstall is imported fresh without a process restart.
-      revisioned: type === "plugin",
-      verify: (manifest, resultDigest) => {
-        if (manifest.type !== type) {
-          throw new Error(`Package type mismatch (expected ${type})`);
-        }
-        assertPackageIsTrusted(manifest as unknown as Record<string, unknown>, resultDigest, {
-          marketplaceSignature: signature || undefined,
-        });
-      },
+    const result = await installMarketplacePackage({
+      type,
+      id,
+      version,
+      siteId: req.session?.siteId,
     });
 
     if (type === "plugin") {
@@ -233,8 +115,95 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
     await insertTheme(siteId, theme);
     res.json({ theme: { ...theme, status: "installed", active: false } });
   } catch (err) {
+    if (err instanceof MarketplaceRequestError) {
+      res.status(err.status).json(err.body);
+      return;
+    }
     sendPackageInstallError(res, err);
   }
+});
+
+// Installed plugins/themes that have a newer compatible Marketplace build.
+// Cached for an hour; `?force=1` re-reads the catalogue.
+router.get("/updates", updateRateLimit, requireRole("administrator"), async (req, res) => {
+  const siteId = req.session?.siteId;
+  if (!siteId) {
+    res.status(503).json({ error: "No site found — complete install first" });
+    return;
+  }
+  try {
+    const report = await checkExtensionUpdates(siteId, { force: req.query.force === "1" });
+    res.setHeader("Cache-Control", "private, no-store");
+    res.json(report);
+  } catch (err) {
+    console.error("[justflows] extension update check failed:", String(err).replace(/\n/g, " "));
+    res.status(503).json({ error: "Could not check the Marketplace for updates" });
+  }
+});
+
+const UpdateSchema = z.object({
+  type: z.enum(["plugin", "theme"]),
+  id: z.string().min(1),
+  version: z.string().optional(),
+});
+
+router.post("/update", updateRateLimit, requireRole("administrator"), async (req, res) => {
+  const parsed = UpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "type and id are required" });
+    return;
+  }
+  const siteId = req.session?.siteId;
+  if (!siteId) {
+    res.status(503).json({ error: "No site found — complete install first" });
+    return;
+  }
+  const { type, id, version } = parsed.data;
+  try {
+    const result = await updateExtension(siteId, type, id, {
+      version,
+      source: "manual",
+      actor: {
+        userId: req.session?.userId ?? null,
+        role: req.session?.role ?? null,
+        ip: req.ip ?? null,
+        userAgent: req.get("user-agent") ?? null,
+      },
+    });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    if (err instanceof MarketplaceRequestError) {
+      res.status(err.status).json(err.body);
+      return;
+    }
+    sendPackageInstallError(res, err);
+  }
+});
+
+const AutoUpdateSchema = z.object({
+  type: z.enum(["plugin", "theme"]),
+  id: z.string().min(1),
+  enabled: z.boolean(),
+});
+
+router.put("/auto-update", requireRole("administrator"), async (req, res) => {
+  const parsed = AutoUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "type, id, and enabled are required" });
+    return;
+  }
+  const siteId = req.session?.siteId;
+  if (!siteId) {
+    res.status(503).json({ error: "No site found — complete install first" });
+    return;
+  }
+  const { type, id, enabled } = parsed.data;
+  const autoUpdate = await setExtensionAutoUpdate(siteId, type, id, enabled);
+  auditFromRequest(req, "extension.auto_update_toggled", {
+    target: `${type}:${id}`,
+    detail: enabled ? "enabled" : "disabled",
+  });
+  res.json({ ok: true, autoUpdate });
 });
 
 export default router;

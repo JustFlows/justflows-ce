@@ -1897,6 +1897,25 @@
     "betaDisabledButton": "Bêta — non activée",
     "betaInstallConfirm": "{name} est une version bêta. Elle peut être instable, perdre des données ou changer avant sa version stable. L’installer quand même ?"
   },
+  "extensionUpdates": {
+    "checking": "Recherche de mises à jour…",
+    "checkNow": "Rechercher des mises à jour",
+    "checkFailed": "Impossible de vérifier les mises à jour sur la Marketplace.",
+    "availableCount": "{count} mise(s) à jour disponible(s)",
+    "upToDate": "Tout est à jour.",
+    "badge": "Mise à jour disponible : v{version}",
+    "updateTo": "Mettre à jour vers v{version}",
+    "updating": "Mise à jour…",
+    "updateTitle": "Installer v{to} à la place de v{from}",
+    "updated": "{name} a été mis à jour vers v{version}.",
+    "updateFailed": "Échec de la mise à jour",
+    "updateTimeout": "La mise à jour a expiré. Rechargez la page pour vérifier si elle s’est terminée.",
+    "activationFailed": "{name} a été mis à jour, mais la nouvelle version n’a pas pu être activée : {error}",
+    "majorConfirm": "{name} {from} → {to} est une mise à jour majeure qui peut introduire des changements incompatibles. Mettre à jour maintenant ?",
+    "autoUpdate": "Mise à jour automatique",
+    "autoUpdateFailed": "Impossible de modifier le réglage de mise à jour automatique.",
+    "operatorDisabled": "Les mises à jour automatiques sont désactivées par l’opérateur du serveur (JUSTFLOWS_DISABLE_AUTO_UPDATE). Les mises à jour manuelles restent possibles."
+  },
   "pluginSettings": {
     "loadFailed": "Les réglages de l’extension n’ont pas pu être chargés.",
     "fetchFailed": "Impossible de charger les réglages de l’extension",

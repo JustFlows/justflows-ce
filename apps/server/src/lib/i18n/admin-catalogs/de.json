@@ -1897,6 +1897,25 @@
     "betaDisabledButton": "Beta — nicht aktiviert",
     "betaInstallConfirm": "{name} ist eine Beta-Version. Sie kann instabil sein, Daten verlieren oder sich vor der stabilen Veröffentlichung ändern. Trotzdem installieren?"
   },
+  "extensionUpdates": {
+    "checking": "Suche nach Updates…",
+    "checkNow": "Nach Updates suchen",
+    "checkFailed": "Der Marketplace konnte nicht auf Updates geprüft werden.",
+    "availableCount": "{count} Update(s) verfügbar",
+    "upToDate": "Alles ist auf dem neuesten Stand.",
+    "badge": "Update verfügbar: v{version}",
+    "updateTo": "Auf v{version} aktualisieren",
+    "updating": "Wird aktualisiert…",
+    "updateTitle": "v{to} über v{from} installieren",
+    "updated": "{name} wurde auf v{version} aktualisiert.",
+    "updateFailed": "Aktualisierung fehlgeschlagen",
+    "updateTimeout": "Die Aktualisierung hat zu lange gedauert. Laden Sie die Seite neu, um zu prüfen, ob sie abgeschlossen wurde.",
+    "activationFailed": "{name} wurde aktualisiert, aber die neue Version konnte nicht aktiviert werden: {error}",
+    "majorConfirm": "{name} {from} → {to} ist ein Major-Update und kann inkompatible Änderungen enthalten. Jetzt aktualisieren?",
+    "autoUpdate": "Automatisch aktualisieren",
+    "autoUpdateFailed": "Die Einstellung für automatische Updates konnte nicht geändert werden.",
+    "operatorDisabled": "Automatische Updates wurden vom Serverbetreiber deaktiviert (JUSTFLOWS_DISABLE_AUTO_UPDATE). Manuelle Updates funktionieren weiterhin."
+  },
   "pluginSettings": {
     "loadFailed": "Plugin-Einstellungen konnten nicht geladen werden.",
     "fetchFailed": "Plugin-Einstellungen konnten nicht geladen werden",

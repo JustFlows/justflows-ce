@@ -2121,6 +2121,25 @@
     "betaDisabledButton": "Beta — niewłączona",
     "betaInstallConfirm": "{name} to wersja beta. Może być niestabilna, utracić dane lub zmienić się przed wydaniem stabilnym. Zainstalować mimo to?"
   },
+  "extensionUpdates": {
+    "checking": "Sprawdzanie aktualizacji…",
+    "checkNow": "Sprawdź aktualizacje",
+    "checkFailed": "Nie udało się sprawdzić aktualizacji w Marketplace.",
+    "availableCount": "Dostępne aktualizacje: {count}",
+    "upToDate": "Wszystko jest aktualne.",
+    "badge": "Dostępna aktualizacja: v{version}",
+    "updateTo": "Aktualizuj do v{version}",
+    "updating": "Aktualizowanie…",
+    "updateTitle": "Zainstaluj v{to} w miejsce v{from}",
+    "updated": "Zaktualizowano {name} do v{version}.",
+    "updateFailed": "Aktualizacja nie powiodła się",
+    "updateTimeout": "Przekroczono czas aktualizacji. Odśwież stronę, aby sprawdzić, czy się zakończyła.",
+    "activationFailed": "Zaktualizowano {name}, ale nowej wersji nie udało się aktywować: {error}",
+    "majorConfirm": "{name} {from} → {to} to duża aktualizacja, która może zawierać niezgodne zmiany. Zaktualizować teraz?",
+    "autoUpdate": "Automatyczna aktualizacja",
+    "autoUpdateFailed": "Nie udało się zmienić ustawienia automatycznej aktualizacji.",
+    "operatorDisabled": "Automatyczne aktualizacje zostały wyłączone przez operatora serwera (JUSTFLOWS_DISABLE_AUTO_UPDATE). Ręczne aktualizacje nadal działają."
+  },
   "pluginSettings": {
     "loadFailed": "Nie udało się wczytać ustawień wtyczki.",
     "fetchFailed": "Nie można załadować ustawień wtyczki",
