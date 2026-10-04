@@ -3,6 +3,13 @@ import { Link, useNavigate } from "../../../admin-router";
 import { usePluginMenu } from "@components/PluginMenuProvider";
 import { useSessionRole } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
+import {
+  ExtensionAutoUpdateToggle,
+  ExtensionUpdateBadge,
+  ExtensionUpdateButton,
+  ExtensionUpdatesBar,
+  useExtensionUpdates,
+} from "@components/ExtensionUpdates";
 
 interface Plugin {
   id: string;
@@ -38,6 +45,7 @@ export default function PluginsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Installing, activating, or deleting a plugin changes which admin pages exist.
   const { refresh: refreshMenu } = usePluginMenu();
+  const updates = useExtensionUpdates(canManage);
 
   useEffect(() => {
     fetch("/api/plugins")
@@ -180,6 +188,12 @@ export default function PluginsPage() {
           <h2 className="jf-card__title">{t("plugins.installedHeading", { count: plugins.length })}</h2>
         </div>
 
+        {canManage && (
+          <div className="jf-card__body">
+            <ExtensionUpdatesBar state={updates} />
+          </div>
+        )}
+
         {deleteError && (
           <div className="jf-card__body">
             <div className="jf-alert jf-alert--error" role="alert">{deleteError}</div>
@@ -206,12 +220,30 @@ export default function PluginsPage() {
                     <strong>{p.name}</strong>
                     <span className="jf-meta">v{p.version}</span>
                     <span className={`jf-badge${STATUS_VARIANT[p.status]}`}>{p.status}</span>
+                    {canManage && <ExtensionUpdateBadge state={updates} type="plugin" id={p.id} />}
                   </div>
                   {p.description && <p className="jf-list__desc">{p.description}</p>}
                   <p className="jf-meta">{t("ui.pluginsPage.by")}{p.publisher} · <code className="jf-code">{p.id}</code></p>
+                  {canManage && <ExtensionAutoUpdateToggle state={updates} type="plugin" id={p.id} />}
                 </div>
                 {canManage && (
                   <div className="jf-row" style={{ flexWrap: "nowrap" }}>
+                    <ExtensionUpdateButton
+                      state={updates}
+                      type="plugin"
+                      id={p.id}
+                      onUpdated={(result) => {
+                        setPlugins((list) => list.map((item) =>
+                          item.id === result.id
+                            ? {
+                                ...item,
+                                version: result.version,
+                                ...(result.activationError ? { status: "error" as const } : {}),
+                              }
+                            : item));
+                        void refreshMenu();
+                      }}
+                    />
                     {p.settingsSchema && Object.keys(p.settingsSchema).length > 0 && (
                       <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${p.id}/settings`}>
                         {t("plugins.settingsLink")}

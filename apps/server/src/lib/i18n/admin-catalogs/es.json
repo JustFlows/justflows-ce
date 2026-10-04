@@ -1897,6 +1897,25 @@
     "betaDisabledButton": "Beta — no activada",
     "betaInstallConfirm": "{name} es una versión beta. Puede ser inestable, perder datos o cambiar antes de su versión estable. ¿Instalarla de todos modos?"
   },
+  "extensionUpdates": {
+    "checking": "Buscando actualizaciones…",
+    "checkNow": "Buscar actualizaciones",
+    "checkFailed": "No se pudieron buscar actualizaciones en el Marketplace.",
+    "availableCount": "{count} actualización(es) disponible(s)",
+    "upToDate": "Todo está actualizado.",
+    "badge": "Actualización disponible: v{version}",
+    "updateTo": "Actualizar a v{version}",
+    "updating": "Actualizando…",
+    "updateTitle": "Instalar v{to} sobre v{from}",
+    "updated": "{name} se actualizó a v{version}.",
+    "updateFailed": "La actualización falló",
+    "updateTimeout": "La actualización tardó demasiado. Recarga la página para ver si terminó.",
+    "activationFailed": "{name} se actualizó, pero la nueva versión no se pudo activar: {error}",
+    "majorConfirm": "{name} {from} → {to} es una actualización mayor y puede incluir cambios incompatibles. ¿Actualizar ahora?",
+    "autoUpdate": "Actualización automática",
+    "autoUpdateFailed": "No se pudo cambiar la configuración de actualización automática.",
+    "operatorDisabled": "El operador del servidor desactivó las actualizaciones automáticas (JUSTFLOWS_DISABLE_AUTO_UPDATE). Las actualizaciones manuales siguen funcionando."
+  },
   "pluginSettings": {
     "loadFailed": "No se pudieron cargar los ajustes del plugin.",
     "fetchFailed": "No se pudieron cargar los ajustes del plugin",

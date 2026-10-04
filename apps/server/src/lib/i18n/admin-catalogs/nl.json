@@ -1897,6 +1897,25 @@
     "betaDisabledButton": "Bèta — niet ingeschakeld",
     "betaInstallConfirm": "{name} is een bètaversie. Deze kan instabiel zijn, gegevens verliezen of nog veranderen vóór de stabiele release. Toch installeren?"
   },
+  "extensionUpdates": {
+    "checking": "Controleren op updates…",
+    "checkNow": "Controleren op updates",
+    "checkFailed": "Kon de Marketplace niet controleren op updates.",
+    "availableCount": "{count} update(s) beschikbaar",
+    "upToDate": "Alles is up-to-date.",
+    "badge": "Update beschikbaar: v{version}",
+    "updateTo": "Bijwerken naar v{version}",
+    "updating": "Bijwerken…",
+    "updateTitle": "v{to} installeren over v{from}",
+    "updated": "{name} bijgewerkt naar v{version}.",
+    "updateFailed": "Bijwerken mislukt",
+    "updateTimeout": "Het bijwerken duurde te lang. Herlaad de pagina om te zien of het is gelukt.",
+    "activationFailed": "{name} is bijgewerkt, maar de nieuwe versie kon niet worden geactiveerd: {error}",
+    "majorConfirm": "{name} {from} → {to} is een grote update en kan wijzigingen bevatten die iets breken. Nu bijwerken?",
+    "autoUpdate": "Automatisch bijwerken",
+    "autoUpdateFailed": "Kon de instelling voor automatisch bijwerken niet wijzigen.",
+    "operatorDisabled": "Automatische updates zijn uitgeschakeld door de serverbeheerder (JUSTFLOWS_DISABLE_AUTO_UPDATE). Handmatig bijwerken werkt nog wel."
+  },
   "pluginSettings": {
     "loadFailed": "Plugininstellingen konden niet worden geladen.",
     "fetchFailed": "Plugininstellingen konden niet worden geladen",

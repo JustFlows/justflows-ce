@@ -2121,6 +2121,25 @@
     "betaDisabledButton": "Beta — not enabled",
     "betaInstallConfirm": "{name} is a beta. It may be unstable, lose data, or change before its stable release. Install it anyway?"
   },
+  "extensionUpdates": {
+    "checking": "Checking for updates…",
+    "checkNow": "Check for updates",
+    "checkFailed": "Could not check the Marketplace for updates.",
+    "availableCount": "{count} update(s) available",
+    "upToDate": "Everything is up to date.",
+    "badge": "Update available: v{version}",
+    "updateTo": "Update to v{version}",
+    "updating": "Updating…",
+    "updateTitle": "Install v{to} over v{from}",
+    "updated": "{name} updated to v{version}.",
+    "updateFailed": "Update failed",
+    "updateTimeout": "The update timed out. Reload the page to see whether it finished.",
+    "activationFailed": "{name} was updated, but the new version failed to activate: {error}",
+    "majorConfirm": "{name} {from} → {to} is a major update and may include breaking changes. Update now?",
+    "autoUpdate": "Auto-update",
+    "autoUpdateFailed": "Could not change the auto-update setting.",
+    "operatorDisabled": "Automatic updates are disabled by the server operator (JUSTFLOWS_DISABLE_AUTO_UPDATE). Manual updates still work."
+  },
   "pluginSettings": {
     "loadFailed": "Plugin settings could not be loaded.",
     "fetchFailed": "Could not load plugin settings",
