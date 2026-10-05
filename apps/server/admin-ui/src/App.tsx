@@ -45,10 +45,12 @@ import AuditLogPage from "./pages/admin/security/AuditLogPage";
 import WebhooksPage from "./pages/admin/settings/WebhooksPage";
 import ApiKeysPage from "./pages/admin/settings/ApiKeysPage";
 import AiSettingsPage from "./pages/admin/settings/AiSettingsPage";
+import PlatformPage from "./pages/admin/platform/PlatformPage";
+import SignupPage from "./pages/SignupPage";
 import OAuthConsentPage from "./pages/OAuthConsentPage";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { PluginMenuProvider } from "@components/PluginMenuProvider";
-import { SessionProvider, useSessionRole } from "@components/SessionProvider";
+import { SessionProvider, useSession } from "@components/SessionProvider";
 import PluginRoute from "@components/PluginRoute";
 import PluginHostPage from "./pages/admin/extensions/PluginHostPage";
 import { SiteHead } from "@components/SiteIdentity";
@@ -62,8 +64,12 @@ import { adminBasePath, currentPathname, isPreAuthPath, publicAdminPath } from "
  * so miss its own role gate). Same rule table, same "bounce, don't 403".
  */
 function RequireNavAccess({ path, children }: { path: string; children: React.ReactNode }) {
-  const role = useSessionRole();
-  if (role !== null && !canAccessPath(role, path)) return <Navigate to="/admin" replace />;
+  const { session } = useSession();
+  const role = session?.role ?? null;
+  const audience = session
+    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true }
+    : undefined;
+  if (role !== null && !canAccessPath(role, path, audience)) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }
 
@@ -87,6 +93,7 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/oauth/consent" element={<OAuthConsentPage />} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route
               path={`${admin}/themes/customize`}
               element={
@@ -147,6 +154,7 @@ export default function App() {
               <Route path="webhooks" element={<WebhooksPage />} />
               <Route path="settings/api" element={<ApiKeysPage />} />
               <Route path="settings/ai" element={<AiSettingsPage />} />
+              <Route path="platform" element={<PlatformPage />} />
               <Route path="languages" element={<LanguagesPage />} />
               <Route path="security" element={<SecurityOverviewPage />} />
               <Route path="security/headers" element={<SecurityHeadersPage />} />

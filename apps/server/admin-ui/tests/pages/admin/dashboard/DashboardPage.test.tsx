@@ -35,7 +35,7 @@ function mockFetch(
       calls.push({ method, url, body });
 
       if (url === "/api/auth/me") {
-        return jsonResponse({ id: "self", email: "self@example.com", role });
+        return jsonResponse({ id: "self", email: "self@example.com", role, installationRoot: true });
       }
       if (url === "/api/preferences" || url.startsWith("/api/preferences/")) {
         if (opts.preferencesFails) return Promise.reject(new Error("offline"));

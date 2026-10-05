@@ -62,7 +62,8 @@
     "pwa": "PWA",
     "placeholders": "Placeholders",
     "redirects": "Redirects",
-    "ai": "AI"
+    "ai": "AI",
+    "platform": "Platform"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -3732,5 +3733,58 @@
       "crashed": "Something went wrong in this AI panel:",
       "retry": "Try again"
     }
+  },
+  "platform": {
+    "title": "Platform",
+    "intro": "Workspaces can stay on this installation's database or use a separate database. Credentials for a separate database stay on the platform and are not shown to the workspace.",
+    "current": "Current database",
+    "separate": "Separate database",
+    "inherit": "Workspace database",
+    "create": "Create workspace",
+    "name": "Workspace name",
+    "siteName": "Site name",
+    "hostname": "Hostname",
+    "userMode": "Users",
+    "isolated": "Isolated users",
+    "shared": "Shared users",
+    "database": "Database",
+    "workspaceDatabase": "This workspace's database",
+    "sharedStays": "Shared users stay on the workspace database. Choose current or separate when you create the workspace.",
+    "addSite": "Add a site",
+    "email": "Email",
+    "displayName": "Display name",
+    "workspaces": "Workspaces",
+    "host": "Host",
+    "port": "Port",
+    "databaseName": "Database name",
+    "username": "Username",
+    "password": "Password",
+    "suspend": "Suspend",
+    "reactivate": "Reactivate",
+    "signup": "Public signup",
+    "baseDomain": "Signup domain",
+    "saved": "Saved",
+    "forbidden": "Only a platform operator can open this page.",
+    "empty": "No workspaces yet.",
+    "emptyHint": "Create a workspace above to give a tenant its own sites and users.",
+    "workspace": "Workspace",
+    "administrator": "First administrator",
+    "status": "Status",
+    "sites": "Sites",
+    "signupEnabled": "Let visitors create their own workspace",
+    "signupHint": "Visitors use the signup page, not this screen. Enter a hostname such as example.com or localhost. A site named my-site is then reached at my-site.example.com. Those sites use this installation's database. A separate database is only available when you create the workspace here and enter the connection.",
+    "signupOpen": "Open the signup page"
+  },
+  "signup": {
+    "title": "Create your site",
+    "siteName": "Site name",
+    "address": "Site address",
+    "name": "Your name",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Create site",
+    "done": "Your site is ready.",
+    "creating": "Creating site…",
+    "open": "Open your site"
   }
 }

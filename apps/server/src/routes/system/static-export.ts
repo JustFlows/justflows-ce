@@ -2,7 +2,7 @@
 
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
-import { requireRole } from "../../middleware/auth.js";
+import { requireInstallationRoot, requireRole } from "../../middleware/auth.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import {
   clearStaticExport,
@@ -14,7 +14,7 @@ import {
   readStaticExportSettings,
   StaticExportSettingsSchema,
 } from "../../lib/static-export/settings.js";
-import { assertExportOrigin } from "../../lib/static-export/config.js";
+import { assertExportOrigin, siteLoopbackOrigin } from "../../lib/static-export/config.js";
 
 const router = Router();
 
@@ -89,8 +89,9 @@ router.post("/run", runLimit, async (req, res) => {
   // a raw 127.0.0.1:PORT is not this app behind a proxy (Passenger, Plesk).
   const isProd = process.env.NODE_ENV === "production";
   const localPort = req.socket.localPort;
-  const resolvedBase =
-    baseUrl ?? (!isProd && localPort ? `http://127.0.0.1:${localPort}` : undefined);
+  // With more than one site, a bare 127.0.0.1 matches no site, so address this
+  // site by its own hostname on that port.
+  const resolvedBase = baseUrl ?? (!isProd && localPort ? siteLoopbackOrigin(localPort) : undefined);
 
   const log: string[] = [];
   try {
@@ -141,7 +142,8 @@ router.get("/settings", async (_req, res) => {
 });
 
 /** Persist the settings to .env and apply them without a restart. */
-router.post("/settings", async (req, res) => {
+// These settings live in the shared .env and describe the root site.
+router.post("/settings", requireInstallationRoot, async (req, res) => {
   const parsed = StaticExportSettingsSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid settings" });

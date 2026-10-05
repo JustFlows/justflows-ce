@@ -8,6 +8,10 @@ export interface SessionInfo {
   role: string;
   roleId?: string;
   capabilities?: string[];
+  /** True for the installation's first site. */
+  installationRoot?: boolean;
+  /** True for the account that manages workspaces. */
+  platformOperator?: boolean;
 }
 
 interface SessionValue {

@@ -2,6 +2,8 @@
 
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import http from "node:http";
+import https from "node:https";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Request, Response } from "express";
@@ -140,6 +142,8 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add("/api/cache/stats");
   } else if (pathname === "/admin/health") {
     paths.add("/api/diagnostics");
+  } else if (pathname === "/admin/platform") {
+    paths.add("/api/platform/overview");
   } else if (pathname === "/admin/languages") {
     paths.add("/api/languages");
   } else if (
@@ -158,30 +162,71 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
   return [...paths];
 }
 
+/**
+ * Host header for a loopback prefetch.
+ *
+ * The connection stays on 127.0.0.1, but that name is not a site once a
+ * second hostname exists. The prefetch has to present the same Host the
+ * browser used, or `/api/auth/me` 404s and the admin sidebar renders with
+ * no role.
+ */
+export function ssrPrefetchHost(hostname: string, hostHeader: string | undefined): string {
+  const header = hostHeader?.split(",")[0]?.trim() ?? "";
+  if (!hostname) return header || "127.0.0.1";
+  const port = header.startsWith("[") ? "" : (header.match(/:(\d+)$/)?.[1] ?? "");
+  if (!port || port === "80" || port === "443") return hostname;
+  return `${hostname}:${port}`;
+}
+
 async function fetchOne(
   origin: string,
   requestPath: string,
   cookie: string,
+  host: string,
 ): Promise<SerializedResponse> {
-  const response = await fetch(new URL(requestPath, origin), {
-    headers: { accept: "application/json", cookie },
-    redirect: "manual",
-    signal: AbortSignal.timeout(10_000),
+  const url = new URL(requestPath, origin);
+  const transport = url.protocol === "https:" ? https : http;
+  return await new Promise((resolve, reject) => {
+    const req = transport.request(
+      {
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port: url.port,
+        path: `${url.pathname}${url.search}`,
+        method: "GET",
+        headers: {
+          accept: "application/json",
+          cookie,
+          host,
+        },
+        timeout: 10_000,
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer | string) => chunks.push(Buffer.from(chunk)));
+        response.on("end", () => {
+          const headers: Record<string, string> = {};
+          const contentType = response.headers["content-type"];
+          if (typeof contentType === "string") headers["content-type"] = contentType;
+          resolve({
+            status: response.statusCode ?? 0,
+            statusText: response.statusMessage ?? "",
+            headers,
+            body: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+      },
+    );
+    req.on("error", reject);
+    req.on("timeout", () => req.destroy(new Error("SSR prefetch timed out")));
+    req.end();
   });
-  const headers: Record<string, string> = {};
-  const contentType = response.headers.get("content-type");
-  if (contentType) headers["content-type"] = contentType;
-  return {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-    body: await response.text(),
-  };
 }
 
 async function addDerivedResponses(
   req: Request,
   origin: string,
+  host: string,
   responses: Record<string, SerializedResponse>,
 ): Promise<void> {
   const pathname = new URL(req.originalUrl, "http://justflows.local").pathname;
@@ -230,7 +275,7 @@ async function addDerivedResponses(
   await Promise.all(
     [...derived].map(async (requestPath) => {
       try {
-        responses[requestPath] = await fetchOne(origin, requestPath, cookie);
+        responses[requestPath] = await fetchOne(origin, requestPath, cookie, host);
       } catch {
         /* client can recover */
       }
@@ -261,6 +306,7 @@ async function buildPayload(req: Request): Promise<AdminSsrPayload> {
     }
   }
   const cookie = req.get("cookie") ?? "";
+  const host = ssrPrefetchHost(req.hostname, req.get("host"));
   await Promise.all(
     adminPrefetchPaths(
       toInternalAdminPath(
@@ -269,13 +315,13 @@ async function buildPayload(req: Request): Promise<AdminSsrPayload> {
       ) ?? payload.url,
     ).map(async (requestPath) => {
       try {
-        payload.responses[requestPath] = await fetchOne(origin, requestPath, cookie);
+        payload.responses[requestPath] = await fetchOne(origin, requestPath, cookie, host);
       } catch {
         /* client can recover */
       }
     }),
   );
-  await addDerivedResponses(req, origin, payload.responses);
+  await addDerivedResponses(req, origin, host, payload.responses);
   return payload;
 }
 

@@ -34,6 +34,23 @@ describe("SSR fetch cache", () => {
     expect(native).not.toHaveBeenCalled();
   });
 
+  it("does not replay a failed prefetch", async () => {
+    const native = vi.fn().mockResolvedValue(new Response("native"));
+    window.fetch = native;
+    const failed = payload();
+    failed.responses["/api/auth/me"] = {
+      status: 404,
+      statusText: "Not Found",
+      headers: { "content-type": "text/plain" },
+      body: "Site not found",
+    };
+    installSsrFetchCache(failed);
+
+    const response = await fetch("/api/auth/me");
+    expect(await response.text()).toBe("native");
+    expect(native).toHaveBeenCalledTimes(1);
+  });
+
   it("invalidates prefetched reads when a mutation begins", async () => {
     const native = vi.fn().mockResolvedValue(new Response("native"));
     window.fetch = native;

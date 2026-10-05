@@ -240,7 +240,7 @@ packages/<name>/
 - Never edit the shipped `0036_baseline` or a later applied migration (see
   `AGENTS.md`). Add the next number, even if only one dialect's schema
   actually changes. Find the highest number in `migrations/` and use the next
-  number; `0037` is next after the baseline.
+  number; `0038` is next after `0037_tenancy`.
 - Add each new migration name to `MIGRATION_ORDER` in
   `apps/server/src/lib/database/run-migrations.ts`. The runner skips names already
   recorded in `_migrations`.

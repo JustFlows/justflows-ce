@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [UNRELEASED]
+
+### Added
+
+- **Multi-site workspaces with a database choice.** One installation can serve many hostnames. Each workspace uses the current database or a separate database, with isolated users or shared users and per-site roles. Unknown hosts are refused. Platform operators suspend and reactivate a workspace without affecting the others. Public signup assigns `slug.example.com` on the current database. A separate database is chosen only by a platform operator who supplies the connection. Plugins read the current workspace and, with `platform:tenancy`, create and manage workspaces through `ctx.tenancy` and `/api/manage/v1/tenants`. See docs/MULTISITE.md. Adds migration `0037_tenancy`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Store uploads in S3, R2, or MinIO.** `STORAGE_DRIVER=s3` now stores media in an S3-compatible bucket, signed with AWS Signature V4. Set `STORAGE_S3_BUCKET`, `STORAGE_S3_REGION`, `STORAGE_S3_ACCESS_KEY_ID`, `STORAGE_S3_SECRET_ACCESS_KEY`, and `STORAGE_S3_ENDPOINT` for anything other than AWS. The older `S3_*` names are still read. Media URLs stay `/uploads/...`: Justflows streams them from the bucket, or redirects to `STORAGE_S3_PUBLIC_URL` when set. `STORAGE_S3_PREFIX` lets several installs share a bucket. `pnpm storage:sync` copies existing local uploads into the bucket. Before this, the setting was read but ignored. See docs/MEDIA.md.
+
+### Fixed
+
+- **Admin menu on a second site.** The sidebar stayed on Dashboard because the signed-in role was loaded from `127.0.0.1`. That address is not a site once another hostname exists, so every other menu item was hidden. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Installation pages stay on the main site.** Updates, diagnostics, platform, and the server cache are hidden from a site created later. That site keeps its own content, users, and settings. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Each site's files stay in its own folder.** Trashed media moves into `uploads/<siteId>/.trash/` instead of a shared trash; items trashed earlier still restore. A static export from a second site crawls that site's hostname and writes to `static-export-sites/<hostname>/` instead of the main site's `static-export/`, and auto-rebuild queues each site separately. "Save as new theme" forks go to `packages-installed/sites/<siteId>/themes/`. The `STATIC_EXPORT_*` settings can only be changed on the main site. See docs/MULTISITE.md. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Deleting a saved theme.** Deleting a theme made with "Save as new theme" failed with "Theme install path is invalid".
+- **Trashed media could be downloaded through Apache.** The generated root `.htaccess` now refuses `.trash` paths; existing installs pick it up on their next start.
+
 ## [0.2.8]
 
 ### Added

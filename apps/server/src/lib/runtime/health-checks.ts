@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 import os from "node:os";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { getDb } from "../database/db.js";
 import { getJfCache } from "../cache/jf-cache.js";
 import { inspectCacheStorage } from "../cache/public-cache.js";
@@ -39,12 +37,15 @@ async function checkDatabase(): Promise<CheckResult> {
 
 async function checkFilesystem(): Promise<CheckResult> {
   try {
-    const uploadsDir = process.env.STORAGE_LOCAL_PATH ?? "./uploads";
-    await fs.mkdir(uploadsDir, { recursive: true });
-    const testFile = path.join(uploadsDir, ".healthcheck");
-    await fs.writeFile(testFile, "ok");
-    await fs.unlink(testFile);
-    return { name: "Filesystem", status: "ok", message: "Writable" };
+    const { getUploadStore } = await import("../media/upload-store.js");
+    const store = getUploadStore();
+    await store.put(".healthcheck", Buffer.from("ok"), "text/plain");
+    await store.delete(".healthcheck");
+    return {
+      name: "Filesystem",
+      status: "ok",
+      message: store.driver === "s3" ? "Upload bucket writable" : "Writable",
+    };
   } catch (e) {
     return { name: "Filesystem", status: "error", message: String(e) };
   }

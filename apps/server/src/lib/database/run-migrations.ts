@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { migrationsDir } from "../runtime/jf-root.js";
 
-export const MIGRATION_ORDER = ["0036_baseline"] as const;
+export const MIGRATION_ORDER = ["0036_baseline", "0037_tenancy"] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";
 
@@ -74,6 +74,8 @@ export function isIgnorableMigrationError(err: unknown): boolean {
   if (msg.includes("already exists")) return true;
   if (msg.includes("duplicate column")) return true;
   if (msg.includes("duplicate key name")) return true;
+  if (msg.includes("duplicate foreign key")) return true;
+  if (msg.includes("duplicate check constraint")) return true;
   if (msg.includes("duplicate key value")) return true;
   if (msg.includes("duplicate entry")) return true;
   if (msg.includes("check that it exists")) return true;

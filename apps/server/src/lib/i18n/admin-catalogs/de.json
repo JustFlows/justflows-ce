@@ -62,7 +62,8 @@
     "permalinks": "Permalinks",
     "pwa": "PWA",
     "placeholders": "Standardbilder",
-    "ai": "KI"
+    "ai": "KI",
+    "platform": "Plattform"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -3734,5 +3735,58 @@
       "crashed": "In diesem KI-Bereich ist ein Fehler aufgetreten:",
       "retry": "Erneut versuchen"
     }
+  },
+  "platform": {
+    "title": "Plattform",
+    "intro": "Arbeitsbereiche können die Datenbank dieser Installation oder eine separate Datenbank verwenden. Zugangsdaten für eine separate Datenbank bleiben auf der Plattform und werden dem Arbeitsbereich nicht angezeigt.",
+    "current": "Aktuelle Datenbank",
+    "separate": "Separate Datenbank",
+    "inherit": "Datenbank des Arbeitsbereichs",
+    "create": "Arbeitsbereich erstellen",
+    "name": "Name des Arbeitsbereichs",
+    "siteName": "Name der Website",
+    "hostname": "Hostname",
+    "userMode": "Benutzer",
+    "isolated": "Getrennte Benutzer",
+    "shared": "Gemeinsame Benutzer",
+    "database": "Datenbank",
+    "workspaceDatabase": "Datenbank dieses Arbeitsbereichs",
+    "sharedStays": "Gemeinsame Benutzer bleiben in der Datenbank des Arbeitsbereichs. Wählen Sie „aktuell“ oder „separat“, wenn Sie den Arbeitsbereich erstellen.",
+    "addSite": "Website hinzufügen",
+    "email": "E-Mail",
+    "displayName": "Anzeigename",
+    "workspaces": "Arbeitsbereiche",
+    "host": "Host",
+    "port": "Port",
+    "databaseName": "Datenbankname",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "suspend": "Sperren",
+    "reactivate": "Reaktivieren",
+    "signup": "Öffentliche Registrierung",
+    "baseDomain": "Registrierungsdomain",
+    "saved": "Gespeichert",
+    "forbidden": "Nur ein Plattformbetreiber kann diese Seite öffnen.",
+    "empty": "Noch keine Arbeitsbereiche.",
+    "emptyHint": "Erstellen Sie oben einen Arbeitsbereich, um einem Mandanten eigene Websites und Benutzer zu geben.",
+    "workspace": "Arbeitsbereich",
+    "administrator": "Erster Administrator",
+    "status": "Status",
+    "sites": "Websites",
+    "signupEnabled": "Besucher eigene Arbeitsbereiche erstellen lassen",
+    "signupHint": "Besucher nutzen die Registrierungsseite, nicht diese Ansicht. Geben Sie einen Hostnamen wie example.com oder localhost ein. Eine Website namens my-site ist dann unter my-site.example.com erreichbar. Diese Websites verwenden die Datenbank dieser Installation. Eine separate Datenbank ist nur verfügbar, wenn Sie den Arbeitsbereich hier erstellen und die Verbindung angeben.",
+    "signupOpen": "Registrierungsseite öffnen"
+  },
+  "signup": {
+    "title": "Erstellen Sie Ihre Website",
+    "siteName": "Name der Website",
+    "address": "Adresse der Website",
+    "name": "Ihr Name",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "submit": "Website erstellen",
+    "done": "Ihre Website ist bereit.",
+    "creating": "Website wird erstellt…",
+    "open": "Ihre Website öffnen"
   }
 }

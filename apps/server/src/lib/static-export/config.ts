@@ -3,6 +3,7 @@
 import path from "node:path";
 import { parseEnvBool } from "@justflows/core";
 import { getJfRoot } from "../runtime/jf-root.js";
+import { getTenantContext } from "../tenancy/context.js";
 
 /** Resolved `STATIC_EXPORT_*` configuration for one export run. */
 export interface StaticExportConfig {
@@ -91,6 +92,35 @@ export function isProxiedHost(): boolean {
 }
 
 /**
+ * The site this export belongs to when it is not the installation's root site.
+ * Each such site gets its own output folder and crawls its own hostname; the
+ * `STATIC_EXPORT_*` / `APP_URL` env values describe the root site only. Null
+ * for a single-site install, the root site, and CLI runs (no request context).
+ */
+export function secondaryExportSite(): { hostname: string; siteId: string } | null {
+  const ctx = getTenantContext();
+  if (!ctx || ctx.rootSite) return null;
+  return { hostname: ctx.hostname, siteId: ctx.siteId };
+}
+
+/**
+ * Folder name for a site's export. The hostname is readable on disk; anything
+ * that is not a plain hostname falls back to the site id.
+ */
+function siteFolderName(site: { hostname: string; siteId: string }): string {
+  if (/^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/.test(site.hostname) && !site.hostname.includes("..")) {
+    return site.hostname;
+  }
+  return site.siteId.replace(/[^A-Za-z0-9_-]/g, "_") || "site";
+}
+
+/** Loopback-reachable origin for the current site's hostname, or plain loopback. */
+export function siteLoopbackOrigin(port: number): string {
+  const host = getTenantContext()?.hostname;
+  return host ? `http://${host}:${port}` : `http://127.0.0.1:${port}`;
+}
+
+/**
  * The origin the crawler fetches bytes from. Precedence:
  *
  *   1. an explicit override — CLI `--base-url`, the admin request body, or (off
@@ -104,6 +134,11 @@ export function isProxiedHost(): boolean {
  *   4. loopback on `PORT` — the self-contained default for dev and plain Node.
  */
 function resolveCrawlBase(override: string | undefined, port: number): string {
+  if (override) return trimSlash(override);
+  // A secondary site is addressed by its own hostname; the env origins belong
+  // to the root site.
+  const site = secondaryExportSite();
+  if (site) return isProxiedHost() ? `https://${site.hostname}` : `http://${site.hostname}:${port}`;
   // Passenger (Plesk, cPanel) gives the app no reachable loopback TCP port, so
   // treat it like production even if NODE_ENV is unset.
   const proxied = isProxiedHost();
@@ -116,7 +151,7 @@ function resolveCrawlBase(override: string | undefined, port: number): string {
   for (const candidate of candidates) {
     if (candidate) return trimSlash(candidate);
   }
-  return `http://127.0.0.1:${port}`;
+  return siteLoopbackOrigin(port);
 }
 
 /** Origins the operator has explicitly declared as this site's own. */
@@ -172,6 +207,17 @@ export function assertExportOrigin(raw: string): string {
   const loopbackHost = LOOPBACK[url.hostname.toLowerCase()];
   if (loopbackHost) return `${scheme}://${loopbackHost}${port}`;
 
+  // The current site's own registered hostname. With more than one site,
+  // loopback no longer maps to a site, so this is how the crawler reaches it.
+  const ctx = getTenantContext();
+  if (ctx?.hostname && url.hostname.toLowerCase() === ctx.hostname) {
+    return `${scheme}://${ctx.hostname}${port}`;
+  }
+  // The env origins describe the root site; a secondary site must not crawl it.
+  if (secondaryExportSite()) {
+    throw new Error(`crawl origin ${raw} is not loopback or this site's own hostname`);
+  }
+
   for (const entry of configuredCrawlOrigins()) {
     let configured: URL;
     try {
@@ -204,9 +250,12 @@ export function getStaticExportConfig(
   const jfRoot = getJfRoot();
   const defaultDir = path.resolve(jfRoot, "static-export");
   const configuredDir = process.env.STATIC_EXPORT_DIR?.trim();
-  const publicUrl = trimSlash(
-    process.env.STATIC_EXPORT_BASE_URL?.trim() || process.env.APP_URL?.trim() || "",
-  );
+  const site = secondaryExportSite();
+  const baseUrl = resolveCrawlBase(overrides.baseUrl, port);
+  // A secondary site publishes under its own hostname, not the root's APP_URL.
+  const publicUrl = site
+    ? baseUrl
+    : trimSlash(process.env.STATIC_EXPORT_BASE_URL?.trim() || process.env.APP_URL?.trim() || "");
 
   // The export directory is written to and recursively cleared, so a
   // configured value that resolves outside the app root (`.`, `..`, `/var/www`)
@@ -218,20 +267,26 @@ export function getStaticExportConfig(
       return defaultDir;
     return abs;
   };
+  const rootDir = overrides.outDir
+    ? resolveOutDir(overrides.outDir, process.cwd())
+    : configuredDir
+      ? resolveOutDir(configuredDir, jfRoot)
+      : defaultDir;
 
   return {
     enabled: overrides.enabled ?? parseEnvBool(process.env.STATIC_EXPORT_ENABLED, true),
-    outDir: overrides.outDir
-      ? resolveOutDir(overrides.outDir, process.cwd())
-      : configuredDir
-        ? resolveOutDir(configuredDir, jfRoot)
-        : defaultDir,
-    baseUrl: resolveCrawlBase(overrides.baseUrl, port),
+    // Each secondary site writes to its own sibling folder
+    // (`static-export-sites/<hostname>`), never inside the root site's export,
+    // so a deploy, prune, or clear of one site cannot touch another's files.
+    outDir: site ? path.join(`${rootDir}-sites`, siteFolderName(site)) : rootDir,
+    baseUrl,
     publicUrl: overrides.publicUrl !== undefined ? trimSlash(overrides.publicUrl) : publicUrl,
     originUrl:
       overrides.originUrl !== undefined
         ? trimSlash(overrides.originUrl)
-        : trimSlash(process.env.STATIC_EXPORT_ORIGIN_URL?.trim() || ""),
+        : site
+          ? ""
+          : trimSlash(process.env.STATIC_EXPORT_ORIGIN_URL?.trim() || ""),
     allowedOrigins:
       overrides.allowedOrigins ??
       (process.env.STATIC_EXPORT_ALLOWED_ORIGINS ?? "")

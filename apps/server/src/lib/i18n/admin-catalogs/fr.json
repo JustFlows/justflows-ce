@@ -62,7 +62,8 @@
     "permalinks": "Permaliens",
     "pwa": "PWA",
     "placeholders": "Images par défaut",
-    "ai": "IA"
+    "ai": "IA",
+    "platform": "Plateforme"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -3734,5 +3735,58 @@
       "crashed": "Une erreur s’est produite dans ce panneau d’IA :",
       "retry": "Réessayer"
     }
+  },
+  "platform": {
+    "title": "Plateforme",
+    "intro": "Les espaces de travail peuvent utiliser la base de données de cette installation ou une base de données distincte. Les identifiants d’une base distincte restent sur la plateforme et ne sont pas montrés à l’espace de travail.",
+    "current": "Base de données actuelle",
+    "separate": "Base de données distincte",
+    "inherit": "Base de données de l’espace de travail",
+    "create": "Créer un espace de travail",
+    "name": "Nom de l’espace de travail",
+    "siteName": "Nom du site",
+    "hostname": "Nom d’hôte",
+    "userMode": "Utilisateurs",
+    "isolated": "Utilisateurs isolés",
+    "shared": "Utilisateurs partagés",
+    "database": "Base de données",
+    "workspaceDatabase": "Base de données de cet espace de travail",
+    "sharedStays": "Les utilisateurs partagés restent dans la base de données de l’espace de travail. Choisissez actuelle ou distincte lors de la création de l’espace de travail.",
+    "addSite": "Ajouter un site",
+    "email": "E-mail",
+    "displayName": "Nom affiché",
+    "workspaces": "Espaces de travail",
+    "host": "Hôte",
+    "port": "Port",
+    "databaseName": "Nom de la base de données",
+    "username": "Nom d’utilisateur",
+    "password": "Mot de passe",
+    "suspend": "Suspendre",
+    "reactivate": "Réactiver",
+    "signup": "Inscription publique",
+    "baseDomain": "Domaine d’inscription",
+    "saved": "Enregistré",
+    "forbidden": "Seul un opérateur de la plateforme peut ouvrir cette page.",
+    "empty": "Aucun espace de travail pour l’instant.",
+    "emptyHint": "Créez un espace de travail ci-dessus pour donner à un client ses propres sites et utilisateurs.",
+    "workspace": "Espace de travail",
+    "administrator": "Premier administrateur",
+    "status": "Statut",
+    "sites": "Sites",
+    "signupEnabled": "Permettre aux visiteurs de créer leur propre espace de travail",
+    "signupHint": "Les visiteurs utilisent la page d’inscription, pas cet écran. Saisissez un nom d’hôte comme example.com ou localhost. Un site nommé my-site est alors accessible à my-site.example.com. Ces sites utilisent la base de données de cette installation. Une base de données distincte n’est disponible que si vous créez l’espace de travail ici et saisissez la connexion.",
+    "signupOpen": "Ouvrir la page d’inscription"
+  },
+  "signup": {
+    "title": "Créez votre site",
+    "siteName": "Nom du site",
+    "address": "Adresse du site",
+    "name": "Votre nom",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "submit": "Créer le site",
+    "done": "Votre site est prêt.",
+    "creating": "Création du site…",
+    "open": "Ouvrir votre site"
   }
 }

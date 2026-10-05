@@ -62,7 +62,8 @@
     "permalinks": "Enlaces permanentes",
     "pwa": "PWA",
     "placeholders": "Imágenes predeterminadas",
-    "ai": "IA"
+    "ai": "IA",
+    "platform": "Plataforma"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -3734,5 +3735,58 @@
       "crashed": "Algo salió mal en este panel de IA:",
       "retry": "Reintentar"
     }
+  },
+  "platform": {
+    "title": "Plataforma",
+    "intro": "Los espacios de trabajo pueden usar la base de datos de esta instalación o una base de datos independiente. Las credenciales de una base de datos independiente se quedan en la plataforma y no se muestran al espacio de trabajo.",
+    "current": "Base de datos actual",
+    "separate": "Base de datos independiente",
+    "inherit": "Base de datos del espacio de trabajo",
+    "create": "Crear espacio de trabajo",
+    "name": "Nombre del espacio de trabajo",
+    "siteName": "Nombre del sitio",
+    "hostname": "Nombre de host",
+    "userMode": "Usuarios",
+    "isolated": "Usuarios aislados",
+    "shared": "Usuarios compartidos",
+    "database": "Base de datos",
+    "workspaceDatabase": "Base de datos de este espacio de trabajo",
+    "sharedStays": "Los usuarios compartidos se quedan en la base de datos del espacio de trabajo. Elige actual o independiente al crear el espacio de trabajo.",
+    "addSite": "Añadir un sitio",
+    "email": "Correo electrónico",
+    "displayName": "Nombre visible",
+    "workspaces": "Espacios de trabajo",
+    "host": "Host",
+    "port": "Puerto",
+    "databaseName": "Nombre de la base de datos",
+    "username": "Nombre de usuario",
+    "password": "Contraseña",
+    "suspend": "Suspender",
+    "reactivate": "Reactivar",
+    "signup": "Registro público",
+    "baseDomain": "Dominio de registro",
+    "saved": "Guardado",
+    "forbidden": "Solo un operador de la plataforma puede abrir esta página.",
+    "empty": "Todavía no hay espacios de trabajo.",
+    "emptyHint": "Crea un espacio de trabajo arriba para dar a un cliente sus propios sitios y usuarios.",
+    "workspace": "Espacio de trabajo",
+    "administrator": "Primer administrador",
+    "status": "Estado",
+    "sites": "Sitios",
+    "signupEnabled": "Permitir que los visitantes creen su propio espacio de trabajo",
+    "signupHint": "Los visitantes usan la página de registro, no esta pantalla. Introduce un nombre de host como example.com o localhost. Un sitio llamado my-site estará entonces en my-site.example.com. Esos sitios usan la base de datos de esta instalación. Una base de datos independiente solo está disponible si creas el espacio de trabajo aquí e introduces la conexión.",
+    "signupOpen": "Abrir la página de registro"
+  },
+  "signup": {
+    "title": "Crea tu sitio",
+    "siteName": "Nombre del sitio",
+    "address": "Dirección del sitio",
+    "name": "Tu nombre",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Crear sitio",
+    "done": "Tu sitio está listo.",
+    "creating": "Creando el sitio…",
+    "open": "Abrir tu sitio"
   }
 }

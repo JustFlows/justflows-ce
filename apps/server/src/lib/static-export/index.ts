@@ -7,6 +7,7 @@ import { assetPathsFromCss, isCssPath, originHost } from "./assets.js";
 import {
   assertExportOrigin,
   getStaticExportConfig,
+  secondaryExportSite,
   STATIC_EXPORT_HEADER,
   stripTrailingSlashes,
   type StaticExportConfig,
@@ -199,7 +200,10 @@ async function verifyOrigin(origin: string): Promise<OriginVerdict> {
  * Throws with a pointed message when nothing usable answers.
  */
 async function resolveCrawlOrigin(baseUrl: string, log: (line: string) => void): Promise<string> {
-  const appUrl = stripTrailingSlashes(process.env.APP_URL?.trim() ?? "");
+  // APP_URL is the root site's origin; a secondary site only crawls itself.
+  const appUrl = secondaryExportSite()
+    ? ""
+    : stripTrailingSlashes(process.env.APP_URL?.trim() ?? "");
   const requested = appUrl && appUrl !== baseUrl ? [baseUrl, appUrl] : [baseUrl];
 
   // `assertExportOrigin` is the single gate every fetch below sits behind

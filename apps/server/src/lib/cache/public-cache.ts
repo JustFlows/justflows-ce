@@ -50,7 +50,9 @@ export async function getCachedPageHtml(
   if (preview || !cache.enabled) {
     return render();
   }
-  return cache.remember(`${PAGE_CACHE_PREFIX}${pageKey}`, await publicCacheTtl(), render);
+  const { getTenantContext } = await import("../tenancy/context.js");
+  const siteId = getTenantContext()?.siteId ?? "site";
+  return cache.remember(`${PAGE_CACHE_PREFIX}${siteId}:${pageKey}`, await publicCacheTtl(), render);
 }
 
 /** Generic remember helper for public-site data. */

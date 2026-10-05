@@ -15,10 +15,11 @@ import { getPluginLoader, getRuntimeHooks } from "../../lib/plugins/plugin-runti
 import { getPluginJobScheduler } from "../../lib/plugins/plugin-jobs.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { MIGRATION_ORDER } from "../../lib/database/run-migrations.js";
-import { requireRole } from "../../middleware/auth.js";
+import { requireInstallationRoot, requireRole } from "../../middleware/auth.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { applyEnvToProcess, updateEnvKeys } from "../../lib/settings/env-file.js";
-import { getJfRoot, uploadsDir } from "../../lib/runtime/jf-root.js";
+import { getJfRoot } from "../../lib/runtime/jf-root.js";
+import { getUploadStore } from "../../lib/media/upload-store.js";
 import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { sendTestMail } from "../../lib/email/mail.js";
@@ -32,7 +33,7 @@ const diagnosticsLimit = rateLimit({
   message: { error: "Too many diagnostics requests" },
 });
 
-router.use(requireRole("administrator"), diagnosticsLimit, (_req, res, next) => {
+router.use(requireRole("administrator"), requireInstallationRoot, diagnosticsLimit, (_req, res, next) => {
   res.setHeader("Cache-Control", "private, no-store");
   next();
 });
@@ -292,12 +293,15 @@ router.post("/test", async (req, res) => {
       const result = await sendTestMail();
       if (!result.ok) throw new Error(result.error ?? "Test email failed to send");
     } else if (parsed.data.action === "storage") {
-      const dir = uploadsDir();
-      const probePath = path.join(dir, `.diagnostics-probe-${randomUUID()}`);
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(probePath, "justflows diagnostics probe");
-      fs.readFileSync(probePath);
-      fs.unlinkSync(probePath);
+      // Round-trips through the configured driver (local folder or S3).
+      const store = getUploadStore();
+      const probeKey = `.diagnostics-probe-${randomUUID()}`;
+      await store.put(probeKey, Buffer.from("justflows diagnostics probe"), "text/plain");
+      try {
+        if (!(await store.read(probeKey))) throw new Error(`Upload storage (${store.driver}) did not return the probe file`);
+      } finally {
+        await store.delete(probeKey);
+      }
     } else getPluginJobScheduler().listJobs();
     auditFromRequest(req, "diagnostics.test_run", { detail: parsed.data.action });
     res.json({ ok: true, action: parsed.data.action, latencyMs: Math.round((performance.now() - started) * 100) / 100 });

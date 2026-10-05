@@ -62,7 +62,8 @@
     "permalinks": "Permalinks",
     "pwa": "PWA",
     "placeholders": "Standaardafbeeldingen",
-    "ai": "AI"
+    "ai": "AI",
+    "platform": "Platform"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -3734,5 +3735,58 @@
       "crashed": "Er ging iets mis in dit AI-onderdeel:",
       "retry": "Opnieuw proberen"
     }
+  },
+  "platform": {
+    "title": "Platform",
+    "intro": "Werkruimten kunnen de database van deze installatie gebruiken of een aparte database. Inloggegevens voor een aparte database blijven op het platform en worden niet aan de werkruimte getoond.",
+    "current": "Huidige database",
+    "separate": "Aparte database",
+    "inherit": "Database van de werkruimte",
+    "create": "Werkruimte aanmaken",
+    "name": "Naam van de werkruimte",
+    "siteName": "Sitenaam",
+    "hostname": "Hostnaam",
+    "userMode": "Gebruikers",
+    "isolated": "Gescheiden gebruikers",
+    "shared": "Gedeelde gebruikers",
+    "database": "Database",
+    "workspaceDatabase": "Database van deze werkruimte",
+    "sharedStays": "Gedeelde gebruikers blijven in de database van de werkruimte. Kies huidig of apart wanneer je de werkruimte aanmaakt.",
+    "addSite": "Site toevoegen",
+    "email": "E-mail",
+    "displayName": "Weergavenaam",
+    "workspaces": "Werkruimten",
+    "host": "Host",
+    "port": "Poort",
+    "databaseName": "Databasenaam",
+    "username": "Gebruikersnaam",
+    "password": "Wachtwoord",
+    "suspend": "Opschorten",
+    "reactivate": "Heractiveren",
+    "signup": "Openbare registratie",
+    "baseDomain": "Registratiedomein",
+    "saved": "Opgeslagen",
+    "forbidden": "Alleen een platformbeheerder kan deze pagina openen.",
+    "empty": "Nog geen werkruimten.",
+    "emptyHint": "Maak hierboven een werkruimte aan om een klant eigen sites en gebruikers te geven.",
+    "workspace": "Werkruimte",
+    "administrator": "Eerste beheerder",
+    "status": "Status",
+    "sites": "Sites",
+    "signupEnabled": "Bezoekers zelf een werkruimte laten aanmaken",
+    "signupHint": "Bezoekers gebruiken de registratiepagina, niet dit scherm. Vul een hostnaam in zoals example.com of localhost. Een site met de naam my-site is dan bereikbaar op my-site.example.com. Die sites gebruiken de database van deze installatie. Een aparte database is alleen beschikbaar als je de werkruimte hier aanmaakt en de verbinding invult.",
+    "signupOpen": "Registratiepagina openen"
+  },
+  "signup": {
+    "title": "Maak je site aan",
+    "siteName": "Sitenaam",
+    "address": "Siteadres",
+    "name": "Je naam",
+    "email": "E-mail",
+    "password": "Wachtwoord",
+    "submit": "Site aanmaken",
+    "done": "Je site is klaar.",
+    "creating": "Site wordt aangemaakt…",
+    "open": "Je site openen"
   }
 }

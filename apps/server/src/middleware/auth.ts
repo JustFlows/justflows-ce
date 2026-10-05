@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { resolveSession } from "../lib/auth/auth-session.js";
 import { syncCsrfCookie, type SessionPayload } from "../lib/auth/session.js";
 import { userCan } from "../lib/auth/access-policy.js";
+import { isInstallationRootRequest, sessionMatchesRequestSite } from "../lib/tenancy/access.js";
 import type { AccessResource, UserCapability } from "@justflows/sdk";
 
 declare global {
@@ -12,6 +13,16 @@ declare global {
   }
 }
 
+function bindSession(req: Request, res: Response, session: SessionPayload): boolean {
+  syncCsrfCookie(req, res, session);
+  if (!sessionMatchesRequestSite(session.siteId)) {
+    res.status(403).json({ error: "This session is not for this site" });
+    return false;
+  }
+  req.session = session;
+  return true;
+}
+
 export function requireSession(req: Request, res: Response, next: NextFunction): void {
   resolveSession(req, res)
     .then((session) => {
@@ -19,10 +30,7 @@ export function requireSession(req: Request, res: Response, next: NextFunction):
         res.status(401).json({ error: "Unauthorized" });
         return;
       }
-      // Every authenticated request re-syncs, so a cookie that has drifted out
-      // of step is corrected rather than leaving the account unable to write.
-      syncCsrfCookie(req, res, session);
-      req.session = session;
+      if (!bindSession(req, res, session)) return;
       next();
     })
     .catch(next);
@@ -40,8 +48,7 @@ export function requireRole(...roles: string[]) {
           res.status(403).json({ error: "Forbidden" });
           return;
         }
-        syncCsrfCookie(req, res, session);
-        req.session = session;
+        if (!bindSession(req, res, session)) return;
         next();
       })
       .catch(next);
@@ -60,6 +67,10 @@ export function requireCapability(
           res.status(401).json({ error: "Unauthorized" });
           return;
         }
+        if (!sessionMatchesRequestSite(session.siteId)) {
+          res.status(403).json({ error: "This session is not for this site" });
+          return;
+        }
         if (!(await userCan(session, capability, resource?.(req) ?? {}))) {
           res.status(403).json({ error: "Forbidden" });
           return;
@@ -72,10 +83,23 @@ export function requireCapability(
   };
 }
 
+/** Core updates, diagnostics, and process settings. Site administrators do not get these. */
+export function requireInstallationRoot(req: Request, res: Response, next: NextFunction): void {
+  if (!req.session) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if (!isInstallationRootRequest()) {
+    res.status(403).json({ error: "This is managed on the main site." });
+    return;
+  }
+  next();
+}
+
 export function optionalSession(req: Request, res: Response, next: NextFunction): void {
   resolveSession(req, res)
     .then((session) => {
-      if (session) {
+      if (session && sessionMatchesRequestSite(session.siteId)) {
         syncCsrfCookie(req, res, session);
         req.session = session;
       }

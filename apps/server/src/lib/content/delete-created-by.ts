@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-import fs from "node:fs/promises";
 import type { PluginDeleteCreatedByResult } from "@justflows/sdk";
 import { getDb } from "../database/db.js";
 import { clearBlogPageIfMatches } from "./blog-page.js";
 import { clearHomePageIfMatches } from "./home-page.js";
 import { invalidateContentCache } from "./content-public.js";
 import { clearErrorPageIfMatches } from "../rendering/error-pages.js";
-import { uploadsDir } from "../runtime/jf-root.js";
-import { resolvePathUnderBase } from "../security/safe-path.js";
+import { liveUploadKey, trashedUploadKeyCandidates } from "../media/upload-paths.js";
+import { getUploadStore } from "../media/upload-store.js";
 import { removeVariantDir } from "../media/media-responsive.js";
 
 const USER_ID = /^[A-Za-z0-9-]{1,64}$/;
@@ -24,13 +23,10 @@ interface OwnedMedia {
 }
 
 async function unlinkStorage(storageKey: string): Promise<void> {
-  for (const trashed of [false, true]) {
-    const segments = trashed ? [".trash", storageKey] : [storageKey];
-    const filePath = resolvePathUnderBase(uploadsDir(), ...segments);
-    if (!filePath) continue;
-    await fs.unlink(filePath).catch((err: NodeJS.ErrnoException) => {
-      if (err.code !== "ENOENT") throw err;
-    });
+  const store = getUploadStore();
+  const live = liveUploadKey(storageKey);
+  for (const key of [...(live ? [live] : []), ...trashedUploadKeyCandidates(storageKey)]) {
+    await store.delete(key);
   }
 }
 

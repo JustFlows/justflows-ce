@@ -57,10 +57,11 @@ const fakeDb = {
   async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
     if (/FROM users/i.test(sql)) {
       const byEmail = /email = \?/.test(sql);
-      const match = byEmail ? user.email === params[0] : user.id === params[0];
+      // Sign-in scopes the lookup to the site, so the email is not always the first parameter.
+      const match = byEmail ? params.includes(user.email) : user.id === params[0];
       return match ? ([{ ...user }] as unknown as T[]) : [];
     }
-    if (/FROM sites/i.test(sql)) return [{ name: "Test Site" }] as unknown as T[];
+    if (/FROM sites/i.test(sql)) return [{ id: user.site_id, name: "Test Site" }] as unknown as T[];
     return [] as T[];
   },
   async run(sql: string, params: unknown[] = []): Promise<void> {

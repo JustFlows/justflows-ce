@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "../database/db.js";
+import { getTenantContext } from "../tenancy/context.js";
 
 function now(): string {
   return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
@@ -22,9 +23,12 @@ export function settingsKeyColumn(): string {
 }
 
 export async function getSiteId(): Promise<string | null> {
+  const current = getTenantContext();
+  if (current?.siteId) return current.siteId;
   const db = await getDb();
-  const rows = await db.query<{ id: string }>("SELECT id FROM sites LIMIT 1");
-  return rows[0]?.id ?? null;
+  const rows = await db.query<{ id: string }>("SELECT id FROM sites LIMIT 2");
+  if (rows.length === 1) return rows[0]?.id ?? null;
+  return null;
 }
 
 export async function getSiteSetting<T>(siteId: string, key: string): Promise<T | null> {
