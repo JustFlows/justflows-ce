@@ -62,7 +62,10 @@ moved, or removed without touching another:
 `/uploads` only serves a site's own folder on its own host. A static export run
 from a site crawls that site's hostname and publishes under it; the
 `STATIC_EXPORT_*` settings in `.env` describe the main site and can only be
-changed there. Auto-rebuild queues each site separately.
+changed there. A customer site can turn static export off for itself under
+Tools. That does not change the installation, and it leaves files already
+exported until that site clears them. Auto-rebuild queues each site separately
+and skips a site that turned export off.
 
 Shared by every site: bundled themes and plugins, marketplace packages under
 `packages-installed/themes/` and `packages-installed/plugins/`, the cache

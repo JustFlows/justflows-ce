@@ -42,6 +42,7 @@ import {
 import { getAdminPathConfig } from "../admin/admin-path.js";
 import { getPerformanceConfig } from "../cache/performance-settings.js";
 import { normalizeUrlPath, urlPathToFile } from "./paths.js";
+import { isCurrentSiteStaticExportEnabled } from "./site-enabled.js";
 import { redirectStubHtml, writeExport, type OutputFile } from "./write-fs.js";
 
 export interface RunStaticExportOptions {
@@ -411,6 +412,9 @@ export async function runStaticExport(
     throw new Error(
       "Static export is disabled (STATIC_EXPORT_ENABLED=0). Enable it in Admin → Tools.",
     );
+  }
+  if (!options.force && !(await isCurrentSiteStaticExportEnabled())) {
+    throw new Error("Static export is turned off for this website.");
   }
 
   const crawlBase = await resolveCrawlOrigin(cfg.baseUrl, log);

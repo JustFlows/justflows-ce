@@ -124,7 +124,8 @@ want it:
    Existing files stay; nothing regenerates.
 2. **Disable the feature** — untick _Static export enabled_ (or
    `STATIC_EXPORT_ENABLED=0`). The Run actions and auto-rebuild are refused; the
-   folder is untouched.
+   folder is untouched. On a customer site, untick _Static export for this
+   website_ instead. That stops exports of that site only.
 3. **Delete the files** — **Clear export** in the Tools card, or
    `pnpm export:static -- --clear` (`--force` to skip the "is this really an
    export folder?" check). This `rm -rf`s `STATIC_EXPORT_DIR`.
