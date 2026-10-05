@@ -17,6 +17,7 @@ import {
   StaticExportSettingsSchema,
 } from "../../lib/static-export/settings.js";
 import { assertExportOrigin, siteLoopbackOrigin } from "../../lib/static-export/config.js";
+import { setCurrentSiteStaticExportEnabled } from "../../lib/static-export/site-enabled.js";
 
 const router = Router();
 
@@ -162,6 +163,25 @@ router.post("/clear", runLimit, async (req, res) => {
 router.get("/settings", async (_req, res) => {
   try {
     res.json(hideInstallPaths(await readStaticExportSettings()));
+  } catch (err) {
+    sendServerError(res, "static-export", err);
+  }
+});
+
+/** Turn static export off for this website. Does not change the installation `.env`. */
+router.post("/site", async (req, res) => {
+  if (isInstallationRootRequest()) {
+    res.status(403).json({ error: "This is managed on the main site." });
+    return;
+  }
+  const enabled = (req.body as { enabled?: unknown } | undefined)?.enabled;
+  if (typeof enabled !== "boolean") {
+    res.status(400).json({ error: "enabled must be true or false." });
+    return;
+  }
+  try {
+    await setCurrentSiteStaticExportEnabled(enabled);
+    res.json(hideInstallPaths({ ok: true, ...(await readStaticExportSettings()) }));
   } catch (err) {
     sendServerError(res, "static-export", err);
   }

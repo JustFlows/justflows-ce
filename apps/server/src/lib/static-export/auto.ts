@@ -5,6 +5,7 @@ import { getRuntimeHooks } from "../plugins/plugin-runtime.js";
 import { getTenantContext } from "../tenancy/context.js";
 import { getStaticExportConfig } from "./config.js";
 import { runStaticExport } from "./index.js";
+import { isCurrentSiteStaticExportEnabled } from "./site-enabled.js";
 
 type Unsubscribe = () => void;
 
@@ -65,6 +66,7 @@ async function flush(queue: SiteQueue): Promise<void> {
 
   queue.running = true;
   try {
+    if (!(await isCurrentSiteStaticExportEnabled())) return;
     const globalTrigger = triggers.find((t) => t !== "content");
     // A non-content trigger means chrome changed → rebuild everything. Otherwise
     // use the content ids we captured so the run stays targeted.
@@ -126,20 +128,30 @@ export function refreshStaticExportAutoRebuild(): void {
   if (!cfg.enabled || !cfg.auto) return;
 
   const hooks = getRuntimeHooks();
+  const remember = (apply: (queue: SiteQueue) => void) => {
+    void isCurrentSiteStaticExportEnabled()
+      .then((allowed) => {
+        if (!allowed) return;
+        const queue = currentQueue();
+        apply(queue);
+        schedule(queue, cfg.debounceMs);
+      })
+      .catch(() => undefined);
+  };
   disposers.push(
     hooks.action("cache.revalidated", (event: CacheRevalidatedEvent) => {
-      const queue = currentQueue();
-      queue.triggers.add(event.trigger);
-      schedule(queue, cfg.debounceMs);
+      void remember((queue) => {
+        queue.triggers.add(event.trigger);
+      });
     }),
   );
   // Capture the specific ids so a content change can stay a targeted rebuild.
   const noteContent = (event: ContentRef) => {
-    const queue = currentQueue();
-    if (event.contentId) queue.contentIds.add(event.contentId);
-    if (event.translationGroupId) queue.groupIds.add(event.translationGroupId);
-    queue.triggers.add("content");
-    schedule(queue, cfg.debounceMs);
+    void remember((queue) => {
+      if (event.contentId) queue.contentIds.add(event.contentId);
+      if (event.translationGroupId) queue.groupIds.add(event.translationGroupId);
+      queue.triggers.add("content");
+    });
   };
   for (const hook of ["content.published", "content.unpublished", "content.deleted"] as const) {
     disposers.push(hooks.action(hook, noteContent));

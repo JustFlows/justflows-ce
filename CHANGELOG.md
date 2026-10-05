@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [UNRELEASED]
+## [0.2.9]
 
 ### Added
 
@@ -16,6 +16,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A customer site can turn static export off.** Tools on that site has its own switch. Turning it off stops new exports and automatic rebuilds of that website. It does not change the installation, and files already exported stay until that site clears them. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **An agent stays on the website it was connected to.** The MCP address shown in the admin is that site's own `/api/mcp`. A key or sign-in for one website is refused on another, so it cannot read or change the other site. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Customer sites no longer show the server folder or the recovery environment variable.** Clearing a static export says it removes this website's export. The admin-path recovery instructions stay on the platform site. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **CDN settings stay on the platform site.** A customer site can clear its own cached pages. It cannot change the CDN connection. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
