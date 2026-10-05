@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { Request } from "express";
 import { afterEach, describe, expect, it } from "vitest";
 import { mcpResourceUrl, publicOrigin } from "../../../src/lib/ai/ai-settings.js";
 import { runWithTenant, type TenantRequestContext } from "../../../src/lib/tenancy/context.js";
@@ -6,7 +7,7 @@ import { runWithTenant, type TenantRequestContext } from "../../../src/lib/tenan
 const req = {
   protocol: "https",
   get: () => "ignored.example",
-};
+} as unknown as Request;
 
 function tenant(hostname: string): TenantRequestContext {
   return {
