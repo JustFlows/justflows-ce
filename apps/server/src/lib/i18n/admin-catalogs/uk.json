@@ -3270,8 +3270,7 @@
       "title": "Чуйні зображення",
       "variantWidthsLabel": "Варіант ширини (пікселі, розділені комами)",
       "webpQualityLabel": "Якість WebP",
-      "working": "Працює… {done}/{total}",
-      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
+      "working": "Працює… {done}/{total}"
     },
     "staticExport": {
       "autoDebounceLabel": "Автоматичне усунення дребезгу (мс)",
@@ -3352,7 +3351,6 @@
       "thisSitesOrigin": "походження цього сайту",
       "title": "Експорт статичного сайту",
       "useThisSite": "Використовуйте цей сайт",
-      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
       "clearExportHintSite": "видаляє експорт цього сайту. Вимкнення автоматичного відновлення не видаляє файли.",
       "thisWebsiteExport": "експорт цього сайту"
     },

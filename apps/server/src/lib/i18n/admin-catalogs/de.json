@@ -3145,7 +3145,6 @@
       "thisSitesOrigin": "die Origin dieser Website",
       "originHint5": "Leer lassen, wenn das CDN",
       "originHint6": "und",
-      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
       "clearExportHintSite": "löscht den Export dieser Website. Das Deaktivieren des automatischen Neuaufbaus entfernt keine Dateien.",
       "thisWebsiteExport": "den Export dieser Website"
     },
@@ -3200,8 +3199,7 @@
       "savedToSuffix": "als",
       "savedToTail": "– sofort wirksam, kein Neustart nötig.",
       "working": "Wird verarbeitet… {done}/{total}",
-      "finished": "Fertig: {rebuilt} neu erzeugt, {skipped} übersprungen, {failed} fehlgeschlagen.",
-      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
+      "finished": "Fertig: {rebuilt} neu erzeugt, {skipped} übersprungen, {failed} fehlgeschlagen."
     },
     "manualRestartNeededLog": "Automatischer Neustart nicht möglich – starten Sie manuell in Plesk → Node.js neu"
   },
