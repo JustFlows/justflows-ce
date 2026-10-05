@@ -263,7 +263,7 @@ export async function syncBundledPlugins(siteId: string): Promise<void> {
     await db.run(
       `INSERT INTO plugins
          (id, site_id, plugin_id, version, status, manifest, approved_permissions, safe_mode, installed_at, updated_at)
-       VALUES (?, ?, ?, ?, 'inactive', ?, ?, 0, ?, ?)`,
+       VALUES (?, ?, ?, ?, 'inactive', ?, ?, FALSE, ?, ?)`,
       [
         randomUUID(),
         siteId,
@@ -322,7 +322,7 @@ export async function insertPlugin(
   await db.run(
     `INSERT INTO plugins
        (id, site_id, plugin_id, version, status, manifest, approved_permissions, safe_mode, installed_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, ?, ?)`,
     [
       id,
       siteId,

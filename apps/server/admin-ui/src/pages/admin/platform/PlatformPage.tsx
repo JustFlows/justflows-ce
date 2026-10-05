@@ -13,7 +13,13 @@ interface Overview {
   }>;
   sites: Array<{ id: string; tenant_id: string; name: string; hostname: string | null; status: string; database_choice: string }>;
   databases: Array<{ id: string; tenant_id: string; mode: string; status: string; database_name: string | null; host: string | null }>;
-  settings: { signupEnabled?: boolean; baseDomain?: string } | null;
+  settings: {
+    signupEnabled?: boolean;
+    signupDatabaseMode?: "current" | "separate";
+    baseDomain?: string;
+    signupDatabase?: { host: string; port: number; database: string; username: string; passwordSet: boolean } | null;
+    purgeAfterDays?: number;
+  } | null;
 }
 
 export default function PlatformPage() {
@@ -86,6 +92,37 @@ export default function PlatformPage() {
     if (next.ok) setOverview(await next.json() as Overview);
   }
 
+  async function purge(id: string, name: string) {
+    if (!window.confirm(t("platform.purgeConfirm", { name }))) return;
+    setError("");
+    const res = await fetch(`/api/platform/tenants/${id}/purge`, { method: "POST" });
+    if (!res.ok) {
+      const body = await res.json() as { error?: string };
+      setError(body.error ?? t("platform.purgeFailed"));
+      return;
+    }
+    setNotice(t("platform.purged"));
+    const next = await fetch("/api/platform/overview");
+    if (next.ok) setOverview(await next.json() as Overview);
+  }
+
+  async function savePurgeDays(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const purgeAfterDays = Number(form.get("purgeAfterDays"));
+    const res = await fetch("/api/platform/settings/purge", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ purgeAfterDays }),
+    });
+    const body = await res.json() as { error?: string; settings?: Overview["settings"] };
+    if (!res.ok) setError(body.error ?? t("platform.purgeFailed"));
+    else {
+      setNotice(t("platform.saved"));
+      if (body.settings) setOverview((current) => current ? { ...current, settings: body.settings ?? current.settings } : current);
+    }
+  }
+
   async function act(id: string, action: "suspend" | "reactivate") {
     setError("");
     const res = await fetch(`/api/platform/tenants/${id}/${action}`, { method: "POST" });
@@ -101,17 +138,32 @@ export default function PlatformPage() {
   async function saveSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const signupDatabaseMode = form.get("signupDatabaseMode") === "separate" ? "separate" : "current";
+    const database = signupDatabaseMode === "separate"
+      ? {
+          host: String(form.get("signupDbHost") ?? ""),
+          port: Number(form.get("signupDbPort") ?? 5432),
+          database: String(form.get("signupDbName") ?? ""),
+          username: String(form.get("signupDbUser") ?? ""),
+          password: String(form.get("signupDbPassword") ?? ""),
+        }
+      : undefined;
     const res = await fetch("/api/platform/settings", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         signupEnabled: form.get("signupEnabled") === "on",
+        signupDatabaseMode,
         baseDomain: form.get("baseDomain"),
+        database,
       }),
     });
-    const body = await res.json() as { error?: string };
+    const body = await res.json() as { error?: string; settings?: Overview["settings"] };
     if (!res.ok) setError(body.error ?? "Could not save signup settings");
-    else setNotice(t("platform.saved"));
+    else {
+      setNotice(t("platform.saved"));
+      if (body.settings) setOverview((current) => current ? { ...current, settings: body.settings ?? current.settings } : current);
+    }
   }
 
   return (
@@ -220,12 +272,25 @@ export default function PlatformPage() {
                           )}
                         </td>
                         <td className="jf-td--actions">
-                          <button type="button" className="jf-btn jf-btn--sm" aria-expanded={adding} onClick={() => setAddingSiteTo(adding ? null : tenant.id)}>
-                            {t("platform.addSite")}
-                          </button>{" "}
-                          {tenant.status === "suspended"
-                            ? <button type="button" className="jf-btn jf-btn--sm" onClick={() => void act(tenant.id, "reactivate")}>{t("platform.reactivate")}</button>
-                            : <button type="button" className="jf-btn jf-btn--danger jf-btn--sm" onClick={() => void act(tenant.id, "suspend")}>{t("platform.suspend")}</button>}
+                          {tenant.status === "deleted" ? (
+                            <button type="button" className="jf-btn jf-btn--danger jf-btn--sm" onClick={() => void purge(tenant.id, tenant.name)}>
+                              {t("platform.purgeNow")}
+                            </button>
+                          ) : (
+                            <>
+                              <button type="button" className="jf-btn jf-btn--sm" aria-expanded={adding} onClick={() => setAddingSiteTo(adding ? null : tenant.id)}>
+                                {t("platform.addSite")}
+                              </button>{" "}
+                              {tenant.status === "suspended" ? (
+                                <>
+                                  <button type="button" className="jf-btn jf-btn--sm" onClick={() => void act(tenant.id, "reactivate")}>{t("platform.reactivate")}</button>{" "}
+                                  <button type="button" className="jf-btn jf-btn--danger jf-btn--sm" onClick={() => void purge(tenant.id, tenant.name)}>{t("platform.purgeNow")}</button>
+                                </>
+                              ) : (
+                                <button type="button" className="jf-btn jf-btn--danger jf-btn--sm" onClick={() => void act(tenant.id, "suspend")}>{t("platform.suspend")}</button>
+                              )}
+                            </>
+                          )}
                         </td>
                       </tr>
                       {adding ? (
@@ -256,26 +321,165 @@ export default function PlatformPage() {
 
       <section className="jf-card">
         <div className="jf-card__head">
-          <h2 className="jf-card__title">{t("platform.signup")}</h2>
+          <h2 className="jf-card__title">{t("platform.purgeTitle")}</h2>
         </div>
-        <form className="jf-card__body jf-stack" onSubmit={saveSignup}>
-          <label className="jf-checkrow">
-            <input name="signupEnabled" type="checkbox" defaultChecked={overview?.settings?.signupEnabled === true} />
-            <span>{t("platform.signupEnabled")}</span>
-          </label>
-          <p className="jf-field__hint">{t("platform.signupHint")}</p>
-          <div className="jf-grid jf-grid--2">
-            <Field label={t("platform.baseDomain")}>
-              <input className="jf-input jf-input--mono" name="baseDomain" defaultValue={overview?.settings?.baseDomain ?? ""} placeholder="example.com" />
-            </Field>
+        <form key={overview?.settings?.purgeAfterDays ?? 30} className="jf-card__body jf-stack" onSubmit={(event) => void savePurgeDays(event)}>
+          <p className="jf-field__hint">{t("platform.purgeHint")}</p>
+          <div className="jf-field" style={{ maxWidth: 160 }}>
+            <label className="jf-field__label" htmlFor="jf-purge-days">{t("platform.purgeDays")}</label>
+            <input
+              id="jf-purge-days"
+              className="jf-input"
+              name="purgeAfterDays"
+              type="number"
+              min={0}
+              max={3650}
+              required
+              defaultValue={overview?.settings?.purgeAfterDays ?? 30}
+            />
           </div>
-          <p><a href="/signup">{t("platform.signupOpen")}</a></p>
           <div className="jf-row">
             <button className="jf-btn jf-btn--primary" type="submit">{t("common.save")}</button>
           </div>
         </form>
       </section>
+
+      <section className="jf-card">
+        <div className="jf-card__head">
+          <h2 className="jf-card__title">{t("platform.signup")}</h2>
+        </div>
+        <SignupSettingsForm
+          settings={overview?.settings}
+          hint={t("platform.signupHint")}
+          databaseHint={t("platform.signupDatabaseHint")}
+          enabledLabel={t("platform.signupEnabled")}
+          domainLabel={t("platform.baseDomain")}
+          currentLabel={t("platform.current")}
+          separateLabel={t("platform.separate")}
+          databaseLabel={t("platform.database")}
+          passwordKeep={t("platform.passwordKeep")}
+          hostLabel={t("platform.host")}
+          portLabel={t("platform.port")}
+          databaseNameLabel={t("platform.databaseName")}
+          usernameLabel={t("platform.username")}
+          passwordLabel={t("platform.password")}
+          openLabel={t("platform.signupOpen")}
+          saveLabel={t("common.save")}
+          onSubmit={saveSignup}
+        />
+      </section>
     </div>
+  );
+}
+
+function readSignupSettings(value: Overview["settings"] | string | null | undefined): {
+  signupEnabled: boolean;
+  signupDatabaseMode: "current" | "separate";
+  baseDomain: string;
+  signupDatabase: NonNullable<Overview["settings"]>["signupDatabase"];
+} {
+  const empty = { signupEnabled: false, signupDatabaseMode: "current" as const, baseDomain: "", signupDatabase: null };
+  let raw: unknown = value;
+  for (let depth = 0; depth < 2 && typeof raw === "string"; depth += 1) {
+    try {
+      raw = JSON.parse(raw) as unknown;
+    } catch {
+      return empty;
+    }
+  }
+  if (!raw || typeof raw !== "object") return empty;
+  const record = raw as NonNullable<Overview["settings"]>;
+  const database = record.signupDatabase;
+  return {
+    signupEnabled: record.signupEnabled === true,
+    signupDatabaseMode: record.signupDatabaseMode === "separate" ? "separate" : "current",
+    baseDomain: typeof record.baseDomain === "string" ? record.baseDomain : "",
+    signupDatabase: database && typeof database.host === "string" ? database : null,
+  };
+}
+
+function SignupSettingsForm({
+  settings,
+  hint,
+  databaseHint,
+  enabledLabel,
+  domainLabel,
+  currentLabel,
+  separateLabel,
+  databaseLabel,
+  passwordKeep,
+  hostLabel,
+  portLabel,
+  databaseNameLabel,
+  usernameLabel,
+  passwordLabel,
+  openLabel,
+  saveLabel,
+  onSubmit,
+}: {
+  settings: Overview["settings"] | string | null | undefined;
+  hint: string;
+  databaseHint: string;
+  enabledLabel: string;
+  domainLabel: string;
+  currentLabel: string;
+  separateLabel: string;
+  databaseLabel: string;
+  passwordKeep: string;
+  hostLabel: string;
+  portLabel: string;
+  databaseNameLabel: string;
+  usernameLabel: string;
+  passwordLabel: string;
+  openLabel: string;
+  saveLabel: string;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const signup = readSignupSettings(settings);
+  const [databaseMode, setDatabaseMode] = useState<"current" | "separate">(signup.signupDatabaseMode);
+  const database = signup.signupDatabase;
+  return (
+    <form key={`${signup.signupEnabled}:${signup.signupDatabaseMode}:${signup.baseDomain}:${database?.host ?? ""}`} className="jf-card__body jf-stack" onSubmit={onSubmit}>
+      <label className="jf-checkrow">
+        <input name="signupEnabled" type="checkbox" defaultChecked={signup.signupEnabled} />
+        <span>{enabledLabel}</span>
+      </label>
+      <p className="jf-field__hint">{hint}</p>
+      <div className="jf-grid jf-grid--2">
+        <Field label={domainLabel}>
+          <input className="jf-input jf-input--mono" name="baseDomain" defaultValue={signup.baseDomain} placeholder="example.com" />
+        </Field>
+      </div>
+      <fieldset className="jf-choice">
+        <legend className="jf-field__label">{databaseLabel}</legend>
+        <label className="jf-checkrow">
+          <input type="radio" name="signupDatabaseMode" value="current" checked={databaseMode === "current"} onChange={() => setDatabaseMode("current")} />
+          <span>{currentLabel}</span>
+        </label>
+        <label className="jf-checkrow">
+          <input type="radio" name="signupDatabaseMode" value="separate" checked={databaseMode === "separate"} onChange={() => setDatabaseMode("separate")} />
+          <span>{separateLabel}</span>
+        </label>
+      </fieldset>
+      {databaseMode === "separate" ? (
+        <>
+          <p className="jf-field__hint">{databaseHint}</p>
+          <div className="jf-grid jf-grid--2">
+            <Field label={hostLabel}><input className="jf-input jf-input--mono" name="signupDbHost" required defaultValue={database?.host ?? "localhost"} /></Field>
+            <Field label={portLabel}><input className="jf-input jf-input--mono" name="signupDbPort" required defaultValue={String(database?.port ?? 5432)} inputMode="numeric" /></Field>
+            <Field label={databaseNameLabel}><input className="jf-input jf-input--mono" name="signupDbName" required defaultValue={database?.database ?? ""} /></Field>
+            <Field label={usernameLabel}><input className="jf-input jf-input--mono" name="signupDbUser" required defaultValue={database?.username ?? ""} /></Field>
+            <Field label={passwordLabel}>
+              <input className="jf-input" name="signupDbPassword" type="password" autoComplete="new-password" placeholder={database?.passwordSet ? passwordKeep : ""} />
+            </Field>
+          </div>
+        </>
+      ) : null}
+      <p><a href="/signup">{openLabel}</a></p>
+      <div className="jf-row">
+        <button className="jf-btn jf-btn--primary" type="submit">{saveLabel}</button>
+      </div>
+    </form>
   );
 }
 

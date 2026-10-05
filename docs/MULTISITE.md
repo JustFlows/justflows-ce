@@ -32,7 +32,7 @@ Store the hostname without a scheme or path (`www.example.com`, `my-site.example
 
 While the installation has exactly one site, `localhost` still opens that site so an existing install keeps working. After a second site exists, each host must be registered. Add `site-a.localhost` and `site-b.localhost` to your hosts file to try two sites locally.
 
-Signup uses `slug.<base domain>`. Turn it on under Admin → Platform and set the base domain. A site created there uses the current database. Visitors do not enter a database connection. A separate database is only available when a platform operator creates the workspace and supplies the connection. The link after signup keeps the scheme and port of the signup page, so a local site opens at `http://my-site.localhost:3000`.
+Signup uses `slug.<base domain>`. Turn it on under Admin → Platform and set the base domain. Visitors do not enter a database connection. The same screen chooses the current database or one separate database for every new signup. The installation keeps the platform site and the routing; the password stays on the platform. The link after signup keeps the scheme and port of the signup page, so a local site opens at `http://my-site.localhost:3000`.
 
 ## Operations
 

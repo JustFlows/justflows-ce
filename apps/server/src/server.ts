@@ -120,12 +120,12 @@ export function createApp(): express.Application {
   app.use(createGzipMiddleware());
   app.use(cacheTraceMiddleware);
   app.use(browserCacheMiddleware);
-  // Registered before anything that can send a response so every route
-  // inherits the policy — csrfProtection included, since it answers 403 itself
-  // and those responses used to go out bare.
-  app.use(securityHeaders);
+  // The site has to be known before security headers and the object cache,
+  // both of which are stored per site. csrfProtection still runs after the
+  // headers, so its own 403 keeps the policy.
   app.use(tenantContext);
   app.use(rejectForeignSiteId);
+  app.use(securityHeaders);
 
   app.use("/api", csrfProtection);
 

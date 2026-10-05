@@ -61,6 +61,29 @@ describe("FilesystemCache key isolation", () => {
     expect(fs.readdirSync(dir).every((n) => /^[a-f0-9]{64}\.json$/.test(n))).toBe(true);
   });
 
+  it("stores each site in its own directory and invalidates only that site", async () => {
+    const siteA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const siteB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    await cache.set(`s:${siteA}:page:html:/`, "A");
+    await cache.set(`s:${siteA}:menus:primary`, "MENU");
+    await cache.set(`s:${siteB}:page:html:/`, "B");
+    await cache.set("page:html:/shared", "SHARED");
+
+    expect(fs.existsSync(path.join(dir, siteA))).toBe(true);
+    expect(fs.existsSync(path.join(dir, siteB))).toBe(true);
+    expect(fs.readdirSync(path.join(dir, siteA)).every((name) => /^[a-f0-9]{64}\.json$/.test(name))).toBe(true);
+
+    await cache.invalidate(`s:${siteA}:page:html:`);
+    expect(await cache.get(`s:${siteA}:page:html:/`)).toBeUndefined();
+    expect(await cache.get(`s:${siteA}:menus:primary`)).toBe("MENU");
+    expect(await cache.get(`s:${siteB}:page:html:/`)).toBe("B");
+
+    await cache.invalidate("page:html:");
+    expect(await cache.get(`s:${siteB}:page:html:/`)).toBeUndefined();
+    expect(await cache.get(`s:${siteA}:menus:primary`)).toBe("MENU");
+    expect(await cache.get("page:html:/shared")).toBeUndefined();
+  });
+
   it("ignores directory entries that are not contained cache files", async () => {
     fs.writeFileSync(path.join(dir, "broken.json"), "not json");
     fs.mkdirSync(path.join(dir, "nested"));

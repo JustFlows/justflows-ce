@@ -72,27 +72,46 @@ export async function invalidatePublicSiteCache(): Promise<void> {
   await revalidateOnUpdate("manual");
 }
 
+const SITE_DIR = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function inspectCacheStorage(): Promise<{
   keyCount: number;
   totalBytes: number;
   sampleKeys: string[];
 }> {
   const cacheDir = cacheStorageDir();
+  let keyCount = 0;
+  let totalBytes = 0;
+  const sampleKeys: string[] = [];
+
+  async function readJson(dir: string, label: string): Promise<void> {
+    let names: string[] = [];
+    try {
+      names = await fs.readdir(dir);
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      if (!name.endsWith(".json")) continue;
+      const stat = await fs.stat(path.join(dir, name)).catch(() => null);
+      if (!stat?.isFile()) continue;
+      keyCount += 1;
+      totalBytes += stat.size;
+      if (sampleKeys.length < 20) sampleKeys.push(label ? `${label}/${name}` : name);
+    }
+  }
 
   try {
-    const entries = await fs.readdir(cacheDir);
-    const jsonFiles = entries.filter((n) => n.endsWith(".json"));
-    let totalBytes = 0;
-    for (const name of jsonFiles) {
-      const stat = await fs.stat(path.join(cacheDir, name));
-      totalBytes += stat.size;
+    await readJson(cacheDir, "");
+    const entries = await fs.readdir(cacheDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory() && SITE_DIR.test(entry.name)) {
+        await readJson(path.join(cacheDir, entry.name), entry.name);
+      }
     }
-    return {
-      keyCount: jsonFiles.length,
-      totalBytes,
-      sampleKeys: jsonFiles.slice(0, 20),
-    };
   } catch {
     return { keyCount: 0, totalBytes: 0, sampleKeys: [] };
   }
+
+  return { keyCount, totalBytes, sampleKeys };
 }

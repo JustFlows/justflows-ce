@@ -320,7 +320,9 @@ export default function ToolsPage() {
   }
 
   async function clearStaticExport() {
-    const dir = sxRuntimeInfo?.outDir ?? t("tools.staticExport.theExportFolder");
+    const dir = installationRoot
+      ? (sxRuntimeInfo?.outDir ?? t("tools.staticExport.theExportFolder"))
+      : t("tools.staticExport.thisWebsiteExport");
     if (
       typeof window !== "undefined" &&
       !window.confirm(t("tools.staticExport.clearConfirm", { dir }))
@@ -1034,7 +1036,7 @@ export default function ToolsPage() {
             )}
           </div>
 
-          {sxSettings && (
+          {installationRoot && sxSettings && (
             <>
               <h3 className="jf-card__subtitle">{t("tools.staticExport.configurationHeading")}</h3>
               <p className="jf-field__hint">
@@ -1285,6 +1287,10 @@ export default function ToolsPage() {
             </>
           )}
 
+          {!installationRoot && (
+            <p className="jf-field__hint">{t("tools.staticExport.managedOnPlatform")}</p>
+          )}
+
           <hr className="jf-divider" />
 
           {sxSettings && !sxSettings.enabled && (
@@ -1319,12 +1325,19 @@ export default function ToolsPage() {
             </button>
             {sxError && <span className="jf-status jf-status--error">{sxError}</span>}
           </div>
-          <p className="jf-field__hint">
-            <strong>{t("tools.staticExport.clearExport")}</strong>{" "}
-            {t("tools.staticExport.clearExportHint1")}{" "}
-            <code className="jf-code">{sxRuntimeInfo?.outDir ?? "static-export"}</code>{" "}
-            {t("tools.staticExport.clearExportHint2")}
-          </p>
+          {installationRoot ? (
+            <p className="jf-field__hint">
+              <strong>{t("tools.staticExport.clearExport")}</strong>{" "}
+              {t("tools.staticExport.clearExportHint1")}{" "}
+              <code className="jf-code">{sxRuntimeInfo?.outDir ?? "static-export"}</code>{" "}
+              {t("tools.staticExport.clearExportHint2")}
+            </p>
+          ) : (
+            <p className="jf-field__hint">
+              <strong>{t("tools.staticExport.clearExport")}</strong>{" "}
+              {t("tools.staticExport.clearExportHintSite")}
+            </p>
+          )}
 
           <details>
             <summary className="jf-field__hint" style={{ cursor: "pointer" }}>
@@ -1391,6 +1404,7 @@ interface RegenStatus {
 
 function ResponsiveImagesCard() {
   const { t } = useT();
+  const installationRoot = useSession().session?.installationRoot === true;
   const [settings, setSettings] = useState<MediaSettings | null>(null);
   const [widthsText, setWidthsText] = useState("");
   const [envPath, setEnvPath] = useState("");
@@ -1523,7 +1537,11 @@ function ResponsiveImagesCard() {
 
         {error && <div className="jf-alert jf-alert--error">{error}</div>}
 
-        {settings && (
+        {!installationRoot && (
+          <p className="jf-field__hint">{t("tools.responsiveImages.managedOnPlatform")}</p>
+        )}
+
+        {installationRoot && settings && (
           <>
             <label className="jf-checkrow">
               <input

@@ -95,3 +95,4 @@ Thumbs.db
 # Local deployment tooling
 .vercel/
 .netlify/
+.cursor/mcp/*

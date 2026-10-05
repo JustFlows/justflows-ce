@@ -63,6 +63,7 @@
     "pwa": "PWA",
     "placeholders": "Standaardafbeeldingen",
     "ai": "AI",
+    "cdn": "CDN",
     "platform": "Platform"
   },
   "webhooks": {
@@ -2048,7 +2049,8 @@
       "recoveryBanner": {
         "title": "Herstelmodus is actief",
         "subPrefix": "Verwijderen",
-        "subSuffix": "uit de serveromgeving en herstart voordat je hier wijzigingen opslaat."
+        "subSuffix": "uit de serveromgeving en herstart voordat je hier wijzigingen opslaat.",
+        "locked": "Het platform heeft dit beheeradres vergrendeld. Opslaan blijft uit tot die vergrendeling daar wordt opgeheven."
       },
       "address": {
         "title": "Beheeradres",
@@ -2634,6 +2636,15 @@
       "maintenanceModeLabel": "Onderhoudsmodus",
       "maintenanceModeHint": "Heeft voorrang op elke andere pagina, ook op ‘De site is live’ hierboven, en werkt ook als de database van de site onbereikbaar is — gebruik dit voor gepland onderhoud. Beheerders en redacteuren kunnen de site nog steeds bekijken als ze zijn ingelogd."
     },
+    "deleteWebsite": {
+      "title": "Website verwijderen",
+      "hint": "Verwijdert deze website en het adres. Dit kan niet ongedaan worden gemaakt. De platformsite kan hier niet worden verwijderd.",
+      "confirmLabel": "Typ de hostnaam van deze site om te bevestigen",
+      "button": "Website verwijderen",
+      "deleting": "Verwijderen…",
+      "confirm": "Deze website verwijderen? Dit kan niet ongedaan worden gemaakt.",
+      "failed": "Deze website kon niet worden verwijderd."
+    },
     "errorPages": {
       "headingLabel": "Kop",
       "maintenanceHeadingPlaceholder": "We zijn zo weer terug",
@@ -3133,7 +3144,10 @@
       "originHint4": "vult het met",
       "thisSitesOrigin": "de origin van deze site",
       "originHint5": "Laat leeg als de CDN",
-      "originHint6": "en"
+      "originHint6": "en",
+      "managedOnPlatform": "Deze instellingen horen bij de installatie. Wijzig ze op de platformsite.",
+      "clearExportHintSite": "verwijdert de export van deze website. Automatisch opnieuw bouwen uitschakelen verwijdert geen bestanden.",
+      "thisWebsiteExport": "de export van deze website"
     },
     "title": "Gereedschap",
     "subtitle": "Importeren, exporteren en hulpmiddelen voor de site",
@@ -3186,7 +3200,8 @@
       "savedToSuffix": "als",
       "savedToTail": "— direct toegepast, geen herstart nodig.",
       "working": "Bezig… {done}/{total}",
-      "finished": "Klaar: {rebuilt} opnieuw gemaakt, {skipped} overgeslagen, {failed} mislukt."
+      "finished": "Klaar: {rebuilt} opnieuw gemaakt, {skipped} overgeslagen, {failed} mislukt.",
+      "managedOnPlatform": "Beeldformaten horen bij de installatie. Wijzig ze op de platformsite. Opnieuw genereren bouwt nog wel de afbeeldingen van deze site."
     },
     "manualRestartNeededLog": "Automatisch herstarten is niet gelukt — herstart handmatig in Plesk → Node.js"
   },
@@ -3736,6 +3751,43 @@
       "retry": "Opnieuw proberen"
     }
   },
+  "cdn": {
+    "title": "CDN",
+    "description": "Koppel een CDN zodat wijzigingen direct bij bezoekers aankomen. Telkens wanneer Justflows de eigen cache van deze site leegt, worden ook de pagina's van de site op het CDN gewist.",
+    "connectionTitle": "Koppeling",
+    "provider": "Provider",
+    "docs": "Documentatie van de provider",
+    "noAccount": "Nog geen account?",
+    "signup": "Maak een {provider}-account aan",
+    "enabled": "Op dit CDN legen wanneer de site verandert",
+    "enabledHint": "Zet dit uit om de instellingen te bewaren zonder te legen.",
+    "secretSaved": "Opgeslagen (…{last4}). Laat leeg om te behouden.",
+    "save": "Koppeling opslaan",
+    "saved": "CDN-koppeling opgeslagen.",
+    "test": "Koppeling testen",
+    "testing": "Testen…",
+    "testOk": "{provider} heeft de koppeling geaccepteerd.",
+    "remove": "Koppeling verwijderen",
+    "removeConfirm": "De CDN-koppeling verwijderen? Wijzigingen worden dan niet meer op dit CDN geleegd.",
+    "removed": "CDN-koppeling verwijderd.",
+    "environmentFallback": "Deze installatie leegt deze site al op een CDN. Een koppeling die je hier opslaat en aanzet, wordt in plaats daarvan gebruikt.",
+    "managedOnPlatform": "De CDN-verbinding staat op de platformsite. Je kunt hier de cache van deze website legen.",
+    "purgeUnavailable": "De platformsite heeft nog geen CDN gekoppeld.",
+    "purgeTitle": "Nu legen",
+    "purgeHint": "Wis alle gecachte pagina's van deze site op het CDN. Justflows doet dit ook na elke hervalidatie.",
+    "purge": "Deze site legen",
+    "purging": "Legen…",
+    "purged": "Legen aangevraagd voor {urls}.",
+    "failed": "De CDN-instellingen konden niet worden geladen of opgeslagen.",
+    "fields": {
+      "bunny": {
+        "apiKey": "API-sleutel van het account",
+        "apiKeyHint": "Bunny.net → Account settings → API key.",
+        "pullZoneId": "Pull zone-ID",
+        "pullZoneIdHint": "Optioneel. Nodig om de hele pull zone in één keer te legen."
+      }
+    }
+  },
   "platform": {
     "title": "Platform",
     "intro": "Werkruimten kunnen de database van deze installatie gebruiken of een aparte database. Inloggegevens voor een aparte database blijven op het platform en worden niet aan de werkruimte getoond.",
@@ -3774,8 +3826,17 @@
     "status": "Status",
     "sites": "Sites",
     "signupEnabled": "Bezoekers zelf een werkruimte laten aanmaken",
-    "signupHint": "Bezoekers gebruiken de registratiepagina, niet dit scherm. Vul een hostnaam in zoals example.com of localhost. Een site met de naam my-site is dan bereikbaar op my-site.example.com. Die sites gebruiken de database van deze installatie. Een aparte database is alleen beschikbaar als je de werkruimte hier aanmaakt en de verbinding invult.",
-    "signupOpen": "Registratiepagina openen"
+    "signupHint": "Bezoekers gebruiken de registratiepagina, niet dit scherm. Vul een hostnaam in zoals example.com of localhost. Een site met de naam my-site is dan bereikbaar op my-site.example.com. Kies een aparte database om die werkruimten buiten de database van deze installatie te houden.",
+    "signupDatabaseHint": "Elke nieuwe registratie maakt een werkruimte in deze database. Deze installatie, inclusief de platformsite, blijft op de eigen database. Het wachtwoord wordt hier bewaard en niet opnieuw getoond.",
+    "passwordKeep": "Laat leeg om het opgeslagen wachtwoord te houden.",
+    "signupOpen": "Registratiepagina openen",
+    "purgeTitle": "Verwijderde websites",
+    "purgeHint": "Een website die als verwijderd staat, wordt na dit aantal dagen helemaal gewist: pagina's, gebruikers en bestanden. 0 zet de automatische opruiming uit. Je kunt er ook een direct uit de lijst wissen.",
+    "purgeDays": "Dagen",
+    "purgeNow": "Definitief wissen",
+    "purgeConfirm": "{name} definitief wissen? Pagina's, gebruikers en bestanden worden verwijderd. Dit kan niet ongedaan worden gemaakt.",
+    "purgeFailed": "Die website kon niet worden gewist.",
+    "purged": "Website gewist."
   },
   "signup": {
     "title": "Maak je site aan",

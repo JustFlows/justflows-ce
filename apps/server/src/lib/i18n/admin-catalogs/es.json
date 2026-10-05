@@ -63,6 +63,7 @@
     "pwa": "PWA",
     "placeholders": "Imágenes predeterminadas",
     "ai": "IA",
+    "cdn": "CDN",
     "platform": "Plataforma"
   },
   "webhooks": {
@@ -2048,7 +2049,8 @@
       "recoveryBanner": {
         "title": "El modo de recuperación está activo",
         "subPrefix": "Quitar",
-        "subSuffix": "del entorno del servidor y reinicia antes de guardar cambios aquí."
+        "subSuffix": "del entorno del servidor y reinicia antes de guardar cambios aquí.",
+        "locked": "La plataforma ha bloqueado esta dirección de administración. Guardar sigue desactivado hasta que se quite ese bloqueo."
       },
       "address": {
         "title": "Dirección de administración",
@@ -2767,6 +2769,15 @@
       "sourceManual": "añadido por ti",
       "sourceLearned": "aprendido",
       "removeButton": "Quitar"
+    },
+    "deleteWebsite": {
+      "title": "Delete website",
+      "hint": "Removes this website and its address. This cannot be undone. The platform site cannot be deleted here.",
+      "confirmLabel": "Type this site's hostname to confirm",
+      "button": "Delete website",
+      "deleting": "Deleting…",
+      "confirm": "Delete this website? This cannot be undone.",
+      "failed": "Could not delete this website."
     }
   },
   "analytics": {
@@ -3133,7 +3144,10 @@
       "originHint4": "lo rellena con",
       "thisSitesOrigin": "el origen de este sitio",
       "originHint5": "Déjalo en blanco si la CDN redirige",
-      "originHint6": "y"
+      "originHint6": "y",
+      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
+      "clearExportHintSite": "elimina la exportación de este sitio. Desactivar la reconstrucción automática no elimina ningún archivo.",
+      "thisWebsiteExport": "la exportación de este sitio"
     },
     "title": "Herramientas",
     "subtitle": "Importación, exportación y utilidades del sitio",
@@ -3186,7 +3200,8 @@
       "savedToSuffix": "como",
       "savedToTail": "— se aplica de inmediato, sin reiniciar.",
       "working": "Procesando… {done}/{total}",
-      "finished": "Terminado: {rebuilt} regeneradas, {skipped} omitidas, {failed} con error."
+      "finished": "Terminado: {rebuilt} regeneradas, {skipped} omitidas, {failed} con error.",
+      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
     },
     "manualRestartNeededLog": "No se pudo reiniciar automáticamente: reinicia manualmente en Plesk → Node.js"
   },
@@ -3736,6 +3751,43 @@
       "retry": "Reintentar"
     }
   },
+  "cdn": {
+    "title": "CDN",
+    "description": "Conecta un CDN para que los cambios lleguen a los visitantes al instante. Cada vez que Justflows vacía su propia caché de este sitio, también vacía las páginas del sitio en el CDN.",
+    "connectionTitle": "Conexión",
+    "provider": "Proveedor",
+    "docs": "Documentación del proveedor",
+    "noAccount": "¿Aún no tienes cuenta?",
+    "signup": "Crea una cuenta de {provider}",
+    "enabled": "Purgar en este CDN cuando cambie el sitio",
+    "enabledHint": "Desactívalo para conservar los ajustes sin purgar.",
+    "secretSaved": "Guardada (…{last4}). Déjalo vacío para conservarla.",
+    "save": "Guardar conexión",
+    "saved": "Conexión CDN guardada.",
+    "test": "Probar conexión",
+    "testing": "Probando…",
+    "testOk": "{provider} aceptó la conexión.",
+    "remove": "Quitar conexión",
+    "removeConfirm": "¿Quitar la conexión CDN? Los cambios ya no se purgarán en este CDN.",
+    "removed": "Conexión CDN quitada.",
+    "environmentFallback": "Esta instalación ya purga este sitio en un CDN. Si guardas y activas aquí una conexión, se usará esa en su lugar.",
+    "managedOnPlatform": "La conexión CDN se configura en el sitio de la plataforma. Aquí puede vaciar la caché de este sitio.",
+    "purgeUnavailable": "El sitio de la plataforma todavía no ha conectado un CDN.",
+    "purgeTitle": "Purgar ahora",
+    "purgeHint": "Vacía todas las páginas en caché de este sitio en el CDN. Justflows también lo hace después de cada revalidación.",
+    "purge": "Purgar este sitio",
+    "purging": "Purgando…",
+    "purged": "Purga solicitada para {urls}.",
+    "failed": "No se pudieron cargar ni guardar los ajustes del CDN.",
+    "fields": {
+      "bunny": {
+        "apiKey": "Clave API de la cuenta",
+        "apiKeyHint": "Bunny.net → Account settings → API key.",
+        "pullZoneId": "ID de la pull zone",
+        "pullZoneIdHint": "Opcional. Necesario para vaciar toda la pull zone de una vez."
+      }
+    }
+  },
   "platform": {
     "title": "Plataforma",
     "intro": "Los espacios de trabajo pueden usar la base de datos de esta instalación o una base de datos independiente. Las credenciales de una base de datos independiente se quedan en la plataforma y no se muestran al espacio de trabajo.",
@@ -3775,7 +3827,16 @@
     "sites": "Sitios",
     "signupEnabled": "Permitir que los visitantes creen su propio espacio de trabajo",
     "signupHint": "Los visitantes usan la página de registro, no esta pantalla. Introduce un nombre de host como example.com o localhost. Un sitio llamado my-site estará entonces en my-site.example.com. Esos sitios usan la base de datos de esta instalación. Una base de datos independiente solo está disponible si creas el espacio de trabajo aquí e introduces la conexión.",
-    "signupOpen": "Abrir la página de registro"
+    "signupDatabaseHint": "Every new signup creates a workspace in this database. This installation, including the platform site, stays on its own database. The password is stored here and is not shown again.",
+    "passwordKeep": "Leave blank to keep the saved password.",
+    "signupOpen": "Abrir la página de registro",
+    "purgeTitle": "Deleted websites",
+    "purgeHint": "A website marked deleted is removed completely after this many days: pages, users, and files. 0 turns the automatic cleanup off. You can also remove one from the list.",
+    "purgeDays": "Days",
+    "purgeNow": "Delete permanently",
+    "purgeConfirm": "Permanently delete {name}? Pages, users, and files are removed. This cannot be undone.",
+    "purgeFailed": "Could not remove that website.",
+    "purged": "Website removed."
   },
   "signup": {
     "title": "Crea tu sitio",

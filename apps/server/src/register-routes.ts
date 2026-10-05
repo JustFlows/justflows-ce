@@ -51,6 +51,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startExtensionAutoUpdateJob();
     const { startTrashPurgeJob } = await import("./lib/content/trash.js");
     startTrashPurgeJob();
+    const { startDeletedSitePurgeJob } = await import("./lib/tenancy/purge-deleted-job.js");
+    startDeletedSitePurgeJob();
     const { startCommentSpamPurgeJob } = await import("./lib/comments/comments-spam-purge.js");
     startCommentSpamPurgeJob();
     try {
@@ -227,6 +229,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
   app.use("/api/cookies", requireInstalled, cookiesRoutes);
   app.use("/api/roles", requireInstalled, rolesRoutes);
+  app.use("/api/cdn", requireInstalled, (await import("./routes/settings/cdn.js")).default);
 
   // Cookie-authenticated management of API keys (Admin → Settings → API).
   app.use("/api/api-keys", requireInstalled, apiKeysRoutes);

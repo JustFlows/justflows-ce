@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isInstallationRootRequest } from "../../../src/lib/tenancy/access.js";
+import { isInstallationRootRequest, sessionMatchesRequestSite } from "../../../src/lib/tenancy/access.js";
 import { validateDatabaseChoice } from "../../../src/lib/tenancy/choice.js";
 import { runWithTenant, type TenantRequestContext } from "../../../src/lib/tenancy/context.js";
 import { pickHost, signupBaseDomain, signupSiteOrigin, type HostRecord } from "../../../src/lib/tenancy/host.js";
+import { buildSaasSettings, readSaasSettings, readSignupDatabaseTarget, withPurgeAfterDays } from "../../../src/lib/tenancy/saas-settings.js";
+import { deletedLongEnough } from "../../../src/lib/tenancy/purge-deleted.js";
 import { createPluginTenancyApi } from "../../../src/lib/plugins/plugin-tenancy.js";
 
 const siteA: HostRecord = {
@@ -120,6 +122,14 @@ describe("installation root", () => {
     activePluginIds: null,
   };
 
+  it("accepts a credential only for the site this request is serving", () => {
+    expect(sessionMatchesRequestSite("site-b")).toBe(true);
+    runWithTenant({ ...site, siteId: "site-a", rootSite: false }, () => {
+      expect(sessionMatchesRequestSite("site-a")).toBe(true);
+      expect(sessionMatchesRequestSite("site-b")).toBe(false);
+    });
+  });
+
   it("keeps process settings on the installation site", () => {
     expect(isInstallationRootRequest()).toBe(true);
     runWithTenant({ ...site, rootSite: false }, () => {
@@ -128,6 +138,73 @@ describe("installation root", () => {
     runWithTenant({ ...site, rootSite: true }, () => {
       expect(isInstallationRootRequest()).toBe(true);
     });
+  });
+});
+
+describe("saas settings", () => {
+  it("reads a jsonb object and a jsonb string written by a double-encoded insert", () => {
+    expect(readSaasSettings({ signupEnabled: true, baseDomain: "justflows.com" })).toEqual({
+      signupEnabled: true,
+      signupDatabaseMode: "current",
+      baseDomain: "justflows.com",
+      signupDatabase: null,
+      purgeAfterDays: 30,
+    });
+    expect(readSaasSettings('{"signupEnabled":true,"baseDomain":"justflows.com"}')).toEqual({
+      signupEnabled: true,
+      signupDatabaseMode: "current",
+      baseDomain: "justflows.com",
+      signupDatabase: null,
+      purgeAfterDays: 30,
+    });
+    expect(readSaasSettings(null)).toBeNull();
+  });
+
+  it("keeps the signup database password out of the platform page and reuses it when left blank", () => {
+    process.env.APP_SECRET = "test-secret-that-is-at-least-32-characters-long";
+    const first = buildSaasSettings(null, {
+      signupEnabled: true,
+      signupDatabaseMode: "separate",
+      baseDomain: "justflows.com",
+      database: { host: "db.internal", port: 5432, database: "customers", username: "justflows", password: "secret-db-password" },
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const shown = readSaasSettings(first.stored);
+    expect(shown?.signupDatabase).toEqual({
+      host: "db.internal",
+      port: 5432,
+      database: "customers",
+      username: "justflows",
+      passwordSet: true,
+    });
+    expect(JSON.stringify(shown)).not.toContain("secret-db-password");
+    expect(readSignupDatabaseTarget(first.stored)?.password).toBe("secret-db-password");
+
+    const kept = buildSaasSettings(first.stored, {
+      signupEnabled: true,
+      signupDatabaseMode: "separate",
+      baseDomain: "justflows.com",
+      database: { host: "db.internal", port: 5432, database: "customers", username: "justflows", password: "" },
+    });
+    expect(kept.ok).toBe(true);
+    if (!kept.ok) return;
+    expect(readSignupDatabaseTarget(kept.stored)?.password).toBe("secret-db-password");
+    expect(readSaasSettings(kept.stored)?.purgeAfterDays).toBe(30);
+    const timed = withPurgeAfterDays(kept.stored, 14);
+    expect(timed.purgeAfterDays).toBe(14);
+    expect(readSignupDatabaseTarget(timed)?.password).toBe("secret-db-password");
+  });
+});
+
+describe("deleted website cleanup", () => {
+  const now = Date.parse("2026-10-05T12:00:00Z");
+
+  it("waits the configured number of days and never runs when the wait is 0", () => {
+    expect(deletedLongEnough("2026-10-04 12:00:00", 1, now)).toBe(true);
+    expect(deletedLongEnough("2026-10-04 12:00:01", 1, now)).toBe(false);
+    expect(deletedLongEnough(new Date("2026-09-01T12:00:00Z"), 30, now)).toBe(true);
+    expect(deletedLongEnough("2026-10-01 12:00:00", 0, now)).toBe(false);
   });
 });
 

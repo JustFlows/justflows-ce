@@ -14,7 +14,7 @@ import {
   type DatabaseTarget,
 } from "./choice.js";
 import type { DatabaseChoice, DatabaseMode, UserMode } from "./context.js";
-import { hostnameFromUrl, isValidHostname, slugify } from "./host.js";
+import { hostnameFromUrl, isValidHostname, normalizeHostname, slugify } from "./host.js";
 
 type Sql = Pick<DbClient, "run" | "query">;
 
@@ -394,6 +394,45 @@ export async function deleteTenant(tenantId: string, actorId: string, dropDataba
   await audit(actorId, "tenant.deleted", tenantId, dropDatabase ? "drop database requested" : "records marked deleted");
   await workspaceAction("workspace.deleted", { tenantId, dropDatabase });
   return { ok: true, tenantId, siteId: "", hostname: "" };
+}
+
+/**
+ * Removes one customer site from routing. The installation's first site cannot
+ * be deleted here. A shared signup database is left in place: other sites may
+ * still use it.
+ */
+export async function deleteCustomerSite(siteId: string, confirmHostname: string, actorId: string): Promise<ProvisionResult> {
+  const db = await getControlDb();
+  const sites = await db.query<{ id: string; tenant_id: string; status: string }>(
+    "SELECT id, tenant_id, status FROM sites WHERE id = ? LIMIT 1",
+    [siteId],
+  );
+  const site = sites[0];
+  if (!site || site.status === "deleted") return { ok: false, status: 404, error: "Site not found." };
+  const roots = await db.query<{ id: string }>(
+    "SELECT id FROM sites WHERE status <> 'deleted' ORDER BY created_at ASC, id ASC LIMIT 1",
+    [],
+  );
+  if (String(roots[0]?.id ?? "") === siteId) {
+    return { ok: false, status: 403, error: "The platform site cannot be deleted from its settings." };
+  }
+  const domains = await db.query<{ hostname: string }>("SELECT hostname FROM site_domains WHERE site_id = ?", [siteId]);
+  const confirmed = normalizeHostname(confirmHostname);
+  if (!domains.some((row) => normalizeHostname(String(row.hostname)) === confirmed)) {
+    return { ok: false, status: 400, error: "Type this site's hostname to confirm." };
+  }
+  const stamp = now();
+  await db.run("UPDATE sites SET status = 'deleted', active = ?, updated_at = ? WHERE id = ?", [false, stamp, siteId]);
+  await db.run("DELETE FROM site_domains WHERE site_id = ?", [siteId]);
+  const remaining = await db.query<{ count: number | string }>(
+    "SELECT COUNT(*) AS count FROM sites WHERE tenant_id = ? AND status <> 'deleted'",
+    [site.tenant_id],
+  );
+  if (Number(remaining[0]?.count ?? 0) === 0) {
+    await db.run("UPDATE tenants SET status = 'deleted', updated_at = ? WHERE id = ?", [stamp, site.tenant_id]);
+  }
+  await audit(actorId, "site.deleted", siteId, confirmed);
+  return { ok: true, tenantId: site.tenant_id, siteId, hostname: confirmed };
 }
 
 function decryptPassword(value: string): string {

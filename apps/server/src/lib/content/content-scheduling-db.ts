@@ -261,7 +261,7 @@ export async function deliverScheduleEvents(): Promise<void> {
       transition: string;
     };
     await rememberContentPermalink(payload.before, payload.after);
-    await invalidateContentCache(true);
+    await invalidateContentCache(true, event.site_id);
     if (event.event !== "content.schedule_expired") {
       await getRuntimeHooks().dispatchAction(
         event.event,
