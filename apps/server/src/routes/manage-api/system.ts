@@ -16,6 +16,7 @@ import { MIGRATION_ORDER } from "../../lib/database/run-migrations.js";
 import { recentDiagnosticErrors, debugMode } from "../../lib/runtime/diagnostics.js";
 import { runHealthChecks } from "../../lib/runtime/health-checks.js";
 import { sendServerError } from "../../lib/http/send-error.js";
+import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import { ensureKeyCan, relay, sendJson } from "./envelope.js";
 import type { Request } from "express";
 
@@ -101,8 +102,15 @@ router.post("/themes/:id/activate", async (req, res) => {
 
 /* -------------------------------- cache ------------------------------- */
 
+function requireRoot(res: { status(code: number): { json(body: unknown): void } }): boolean {
+  if (isInstallationRootRequest()) return true;
+  res.status(403).json({ error: "This is managed on the main site." });
+  return false;
+}
+
 router.get("/cache/stats", async (req, res) => {
   if (!(await ensureKeyCan(req, res, "settings:read"))) return;
+  if (!requireRoot(res)) return;
   try {
     const cache = getJfCache();
     const storage = await inspectCacheStorage();
@@ -114,6 +122,7 @@ router.get("/cache/stats", async (req, res) => {
 
 router.post("/cache/clear", expensiveLimit, async (req, res) => {
   if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!requireRoot(res)) return;
   try {
     const cache = getJfCache();
     await cache.clear();
@@ -162,6 +171,7 @@ router.post("/static-export/clear", expensiveLimit, async (req, res) => {
 
 router.get("/diagnostics", async (req, res) => {
   if (!(await ensureKeyCan(req, res, "site:admin"))) return;
+  if (!requireRoot(res)) return;
   try {
     sendJson(req, res, {
       version: getJustflowsVersion(),
@@ -177,6 +187,7 @@ router.get("/diagnostics", async (req, res) => {
 });
 
 router.get("/health", async (_req, res) => {
+  if (!requireRoot(res)) return;
   res.json(await runHealthChecks());
 });
 

@@ -62,7 +62,8 @@
     "pwa": "PWA",
     "placeholders": "Elementy zastępcze",
     "redirects": "Przekierowuje",
-    "ai": "AI"
+    "ai": "AI",
+    "platform": "Platforma"
   },
   "webhooks": {
     "title": "Haki internetowe",
@@ -3732,5 +3733,58 @@
       "crashed": "Coś poszło nie tak w tym panelu AI:",
       "retry": "Spróbuj ponownie"
     }
+  },
+  "platform": {
+    "title": "Platforma",
+    "intro": "Przestrzenie robocze mogą korzystać z bazy danych tej instalacji lub z osobnej bazy danych. Dane logowania do osobnej bazy pozostają na platformie i nie są pokazywane przestrzeni roboczej.",
+    "current": "Bieżąca baza danych",
+    "separate": "Osobna baza danych",
+    "inherit": "Baza danych przestrzeni roboczej",
+    "create": "Utwórz przestrzeń roboczą",
+    "name": "Nazwa przestrzeni roboczej",
+    "siteName": "Nazwa witryny",
+    "hostname": "Nazwa hosta",
+    "userMode": "Użytkownicy",
+    "isolated": "Oddzielni użytkownicy",
+    "shared": "Wspólni użytkownicy",
+    "database": "Baza danych",
+    "workspaceDatabase": "Baza danych tej przestrzeni roboczej",
+    "sharedStays": "Wspólni użytkownicy pozostają w bazie danych przestrzeni roboczej. Wybierz bieżącą lub osobną podczas tworzenia przestrzeni roboczej.",
+    "addSite": "Dodaj witrynę",
+    "email": "E-mail",
+    "displayName": "Nazwa wyświetlana",
+    "workspaces": "Przestrzenie robocze",
+    "host": "Host",
+    "port": "Port",
+    "databaseName": "Nazwa bazy danych",
+    "username": "Nazwa użytkownika",
+    "password": "Hasło",
+    "suspend": "Zawieś",
+    "reactivate": "Aktywuj ponownie",
+    "signup": "Publiczna rejestracja",
+    "baseDomain": "Domena rejestracji",
+    "saved": "Zapisano",
+    "forbidden": "Tylko operator platformy może otworzyć tę stronę.",
+    "empty": "Brak przestrzeni roboczych.",
+    "emptyHint": "Utwórz powyżej przestrzeń roboczą, aby dać klientowi własne witryny i użytkowników.",
+    "workspace": "Przestrzeń robocza",
+    "administrator": "Pierwszy administrator",
+    "status": "Status",
+    "sites": "Witryny",
+    "signupEnabled": "Pozwól odwiedzającym tworzyć własne przestrzenie robocze",
+    "signupHint": "Odwiedzający korzystają ze strony rejestracji, a nie z tego ekranu. Wpisz nazwę hosta, na przykład example.com lub localhost. Witryna o nazwie my-site będzie wtedy dostępna pod adresem my-site.example.com. Te witryny korzystają z bazy danych tej instalacji. Osobna baza danych jest dostępna tylko wtedy, gdy utworzysz przestrzeń roboczą tutaj i podasz połączenie.",
+    "signupOpen": "Otwórz stronę rejestracji"
+  },
+  "signup": {
+    "title": "Utwórz swoją witrynę",
+    "siteName": "Nazwa witryny",
+    "address": "Adres witryny",
+    "name": "Twoje imię",
+    "email": "E-mail",
+    "password": "Hasło",
+    "submit": "Utwórz witrynę",
+    "done": "Twoja witryna jest gotowa.",
+    "creating": "Tworzenie witryny…",
+    "open": "Otwórz swoją witrynę"
   }
 }

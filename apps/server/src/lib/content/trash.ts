@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-import fs from "node:fs/promises";
-import path from "node:path";
 import { JobScheduler } from "@justflows/jobs";
 import { getDb } from "../database/db.js";
-import { uploadsDir } from "../runtime/jf-root.js";
-import { resolvePathUnderBase } from "../security/safe-path.js";
+import {
+  liveUploadKey,
+  trashedUploadKey,
+  trashedUploadKeyCandidates,
+} from "../media/upload-paths.js";
+import { getUploadStore } from "../media/upload-store.js";
 import { getSiteSetting } from "../settings/site-settings.js";
 import { auditLog } from "../security/audit-log.js";
 import { moveVariantDir, removeVariantDir } from "../media/media-responsive.js";
@@ -23,19 +25,18 @@ export interface TrashItem {
   referenced?: boolean;
 }
 
-function mediaPath(storageKey: string, trashed: boolean): string | null {
-  return resolvePathUnderBase(uploadsDir(), ...(trashed ? [".trash", storageKey] : [storageKey]));
-}
-
 export async function moveMediaStorage(storageKey: string, toTrash: boolean): Promise<void> {
-  const source = mediaPath(storageKey, !toTrash);
-  const target = mediaPath(storageKey, toTrash);
-  if (!source || !target) throw new Error("Unsafe media storage key");
-  await fs.mkdir(path.dirname(target), { recursive: true });
-  try {
-    await fs.rename(source, target);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+  const live = liveUploadKey(storageKey);
+  const trashed = trashedUploadKey(storageKey);
+  if (!live || !trashed) throw new Error("Unsafe media storage key");
+  const store = getUploadStore();
+  if (toTrash) {
+    await store.move(live, trashed);
+    return;
+  }
+  // Restore from the site's own trash, then the legacy shared one.
+  for (const candidate of trashedUploadKeyCandidates(storageKey)) {
+    if (await store.move(candidate, live)) return;
   }
 }
 
@@ -204,11 +205,8 @@ export async function purgeTrashItem(
       id,
       siteId,
     ]);
-    const filePath = mediaPath(row.storage_key, true);
-    if (filePath)
-      await fs.unlink(filePath).catch((err: NodeJS.ErrnoException) => {
-        if (err.code !== "ENOENT") throw err;
-      });
+    const store = getUploadStore();
+    for (const key of trashedUploadKeyCandidates(row.storage_key)) await store.delete(key);
     await removeVariantDir(siteId, id).catch(() => undefined);
     return;
   }

@@ -30,6 +30,16 @@ describe("HooksRegistry — actions", () => {
     expect(calls).toEqual(["a", "b"]);
   });
 
+  it("skips a plugin that is not active for the current site", async () => {
+    const { hooks } = makeRegistry();
+    const calls: string[] = [];
+    hooks.action("test.site", () => { calls.push("core"); });
+    hooks.action("test.site", () => { calls.push("plugin"); }, { pluginId: "demo.plugin" });
+    hooks.setPluginSiteGate((pluginId, siteId) => pluginId === "demo.plugin" && siteId === "site-a", () => "site-b");
+    await hooks.dispatchAction("test.site", {});
+    expect(calls).toEqual(["core"]);
+  });
+
   it("runs handlers in priority order, ties by registration order", async () => {
     const { hooks } = makeRegistry();
     const calls: number[] = [];

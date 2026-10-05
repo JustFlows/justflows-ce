@@ -43,7 +43,7 @@ function applySet(row: UserRow, setClause: string, params: unknown[]): void {
 /** Minimal SQL interpreter covering only the statements auth + users routes issue. */
 const fakeDb = {
   async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-    if (/FROM sites/i.test(sql)) return [] as T[];
+    if (/FROM sites/i.test(sql)) return [{ id: SITE_ID }] as T[];
     if (/FROM user_additional_roles WHERE user_id = \?/i.test(sql)) {
       const [userId, siteId] = params;
       return extraRoles.filter((r) => r.user_id === userId && r.site_id === siteId) as unknown as T[];
@@ -61,6 +61,11 @@ const fakeDb = {
     if (/FROM users WHERE site_id = \? ORDER BY created_at/i.test(sql)) {
       const [siteId] = params;
       return users.filter((u) => u.site_id === siteId) as unknown as T[];
+    }
+    if (/FROM users WHERE site_id = \? AND email = \?/i.test(sql)) {
+      const [siteId, email] = params;
+      const row = users.find((u) => u.site_id === siteId && u.email === email);
+      return row ? ([{ ...row }] as unknown as T[]) : [];
     }
     if (/FROM users WHERE email = \?/i.test(sql)) {
       const [email] = params;

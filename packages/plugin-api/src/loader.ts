@@ -15,6 +15,7 @@ import {
   type PluginMailTransportApi,
   type PluginSecretsApi,
   type PluginDatabasesApi,
+  type PluginTenancyApi,
   type PluginUsersApi,
   type PluginBlockDefinition,
   type PluginContentApi,
@@ -53,6 +54,10 @@ export type PluginDatabasesFactory = (
   siteId: string,
   permissions: ReadonlySet<PluginPermission>,
 ) => PluginDatabasesApi;
+export type PluginTenancyFactory = (
+  pluginId: string,
+  permissions: ReadonlySet<PluginPermission>,
+) => PluginTenancyApi;
 export type PluginContentFactory = (pluginId: string, siteId: string) => PluginContentApi;
 export type PluginUsersFactory = (
   pluginId: string,
@@ -142,6 +147,31 @@ const NULL_DATABASES: PluginDatabasesApi = {
   columns: async () => [],
 };
 
+const NULL_TENANCY: PluginTenancyApi = {
+  current: async () => null,
+  listWorkspaces: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  listSites: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  createWorkspace: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  addSite: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  suspend: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  reactivate: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  deleteWorkspace: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+};
+
 const NULL_USERS: PluginUsersApi = {
   create: async () => {
     throw new Error("User creation is not available in this runtime");
@@ -172,6 +202,7 @@ export class PluginLoader {
   private readonly mailFactory: PluginMailFactory;
   private readonly secretsFactory: PluginSecretsFactory;
   private readonly databasesFactory: PluginDatabasesFactory;
+  private readonly tenancyFactory: PluginTenancyFactory;
   private readonly contentFactory: PluginContentFactory;
   private readonly usersFactory: PluginUsersFactory;
   private readonly i18nProvider: PluginI18nProvider;
@@ -202,6 +233,7 @@ export class PluginLoader {
       mailFactory?: PluginMailFactory;
       secretsFactory?: PluginSecretsFactory;
       databasesFactory?: PluginDatabasesFactory;
+      tenancyFactory?: PluginTenancyFactory;
       contentFactory?: PluginContentFactory;
       usersFactory?: PluginUsersFactory;
       i18nProvider?: PluginI18nProvider;
@@ -249,6 +281,7 @@ export class PluginLoader {
     this.secretsFactory = options?.secretsFactory ?? (() => NULL_SECRETS);
     this.databasesFactory =
       options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
+    this.tenancyFactory = options?.tenancyFactory ?? (() => NULL_TENANCY);
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
     this.usersFactory = options?.usersFactory ?? (() => NULL_USERS);
     this.i18nProvider =
@@ -638,6 +671,7 @@ export class PluginLoader {
       data,
       secrets: this.secretsFactory(pluginId, siteId),
       databases: this.databasesFactory(pluginId, siteId, permissions),
+      tenancy: this.tenancyFactory(pluginId, permissions),
       cookies: {
         declare: (cookie) => this.cookieRegistry.declare(pluginId, cookie),
         list: async () =>

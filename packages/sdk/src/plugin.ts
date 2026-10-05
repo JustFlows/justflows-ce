@@ -47,6 +47,7 @@ export const PluginPermissionSchema = z.enum([
   "mail:templates",
   "mail:hook",
   "auth:hook",
+  "platform:tenancy",
 ]);
 
 export type PluginPermission = z.infer<typeof PluginPermissionSchema>;
@@ -60,6 +61,7 @@ export const SENSITIVE_PERMISSIONS: PluginPermission[] = [
   "mail:transport",
   "mail:templates",
   "mail:hook",
+  "platform:tenancy",
 ];
 
 /** Host/runtime versions exposed to an activated extension. */
@@ -1070,6 +1072,87 @@ export interface PluginSchemaApplyResult {
   error?: string;
 }
 
+export interface PluginWorkspace {
+  id: string;
+  name: string;
+  slug: string;
+  status: "active" | "suspended" | "provisioning" | "deleted";
+  userMode: "isolated" | "shared";
+  databaseMode: "current" | "separate";
+}
+
+export interface PluginWorkspaceSite {
+  id: string;
+  tenantId: string;
+  name: string;
+  hostname: string | null;
+  status: string;
+  databaseChoice: "inherit" | "current" | "separate";
+}
+
+/** The workspace bound to the current request. No connection secrets. */
+export interface PluginWorkspaceContext {
+  tenantId: string;
+  siteId: string;
+  hostname: string;
+  userMode: "isolated" | "shared";
+  databaseMode: "current" | "separate";
+}
+
+export interface PluginWorkspaceAdminInput {
+  email: string;
+  username: string;
+  displayName: string;
+  password: string;
+}
+
+export interface PluginWorkspaceDatabaseInput {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+}
+
+export interface PluginCreateWorkspaceInput {
+  name: string;
+  slug?: string;
+  userMode: "isolated" | "shared";
+  databaseMode: "current" | "separate";
+  siteName: string;
+  hostname: string;
+  admin: PluginWorkspaceAdminInput;
+  database?: PluginWorkspaceDatabaseInput;
+}
+
+export interface PluginAddSiteInput {
+  name: string;
+  hostname: string;
+  databaseChoice: "inherit" | "current" | "separate";
+  database?: PluginWorkspaceDatabaseInput;
+  admin?: PluginWorkspaceAdminInput;
+}
+
+export type PluginTenancyResult =
+  | { ok: true; tenantId: string; siteId: string; hostname: string }
+  | { ok: false; status: number; error: string };
+
+/**
+ * Workspace and site placement. `current()` is available to every plugin.
+ * Listing and changing workspaces requires `platform:tenancy`. Stored database
+ * passwords are never returned.
+ */
+export interface PluginTenancyApi {
+  current(): Promise<PluginWorkspaceContext | null>;
+  listWorkspaces(): Promise<PluginWorkspace[]>;
+  listSites(tenantId: string): Promise<PluginWorkspaceSite[]>;
+  createWorkspace(input: PluginCreateWorkspaceInput): Promise<PluginTenancyResult>;
+  addSite(tenantId: string, input: PluginAddSiteInput): Promise<PluginTenancyResult>;
+  suspend(tenantId: string): Promise<PluginTenancyResult>;
+  reactivate(tenantId: string): Promise<PluginTenancyResult>;
+  deleteWorkspace(tenantId: string, options?: { dropDatabase?: boolean }): Promise<PluginTenancyResult>;
+}
+
 export interface PluginDatabasesApi {
   /** Probe the site's existing Justflows database. */
   probeShared(): Promise<PluginDatabaseProbeResult>;
@@ -1264,6 +1347,12 @@ export interface PluginContext {
 
   /** Short-lived database probes for plugin-owned storage topology. */
   databases: PluginDatabasesApi;
+
+  /**
+   * Workspaces and sites. Read the request with `current()`. Creating,
+   * suspending, and deleting requires `platform:tenancy`.
+   */
+  tenancy: PluginTenancyApi;
 
   /**
    * The site cookie registry. `declare()` every non-essential cookie this plugin

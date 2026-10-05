@@ -230,6 +230,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.webhooks", to: "/admin/webhooks", icon: "↗" },
       { key: "nav.apiKeys", to: "/admin/settings/api", icon: "🔑" },
       { key: "nav.ai", to: "/admin/settings/ai", icon: "✦" },
+      { key: "nav.platform", to: "/admin/platform", icon: "🏢" },
     ],
   },
 ];
@@ -353,6 +354,7 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/webhooks": ["administrator"],
   "/admin/settings/api": ["administrator"],
   "/admin/settings/ai": ["administrator"],
+  "/admin/platform": ["administrator"],
   "/admin/settings/permalinks": ["administrator"],
   "/admin/settings/pwa": ["administrator"],
   "/admin/settings/placeholders": ["administrator"],
@@ -379,9 +381,31 @@ export function navRuleFor(pathname: string): string | null {
   return null;
 }
 
+/** Who is looking. Omitted fields keep the older role-only check. */
+export interface NavAudience {
+  /** False on a site created under this installation. Updates and health stay on the first site. */
+  installationRoot?: boolean;
+  /** False for a site administrator who cannot manage workspaces. */
+  platformOperator?: boolean;
+}
+
+const INSTALLATION_ROOT_PREFIXES = ["/admin/health", "/admin/updates"];
+const OPERATOR_PREFIXES = ["/admin/platform"];
+
+function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
+  return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 /** Can this role open the page a URL belongs to, per the table above? */
-export function canAccessPath(role: string | null | undefined, pathname: string): boolean {
+export function canAccessPath(
+  role: string | null | undefined,
+  pathname: string,
+  audience?: NavAudience,
+): boolean {
   if (!role) return false;
+  pathname = internalAdminPath(pathname);
+  if (audience?.installationRoot === false && matchesPrefix(pathname, INSTALLATION_ROOT_PREFIXES)) return false;
+  if (audience?.platformOperator === false && matchesPrefix(pathname, OPERATOR_PREFIXES)) return false;
   const rule = navRuleFor(pathname);
   if (!rule) return true;
   return (NAV_ACCESS[rule] ?? ALL_ADMIN_ROLES).includes(role);
@@ -391,11 +415,12 @@ export function canAccessPath(role: string | null | undefined, pathname: string)
 export function filterDomainsByRole(
   domains: NavDomain[],
   role: string | null | undefined,
+  audience?: NavAudience,
 ): NavDomain[] {
   return domains
     .map((domain) => ({
       ...domain,
-      items: domain.items.filter((item) => canAccessPath(role, item.to)),
+      items: domain.items.filter((item) => canAccessPath(role, item.to, audience)),
     }))
     .filter((domain) => domain.items.length > 0);
 }

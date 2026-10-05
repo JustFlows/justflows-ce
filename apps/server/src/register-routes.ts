@@ -192,6 +192,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/comment-rules", requireInstalled, commentRulesRoutes);
   app.use("/api/comment-spam-terms", requireInstalled, commentSpamTermsRoutes);
   app.use("/api/users", requireInstalled, usersRoutes);
+  app.use("/api/platform", requireInstalled, (await import("./routes/platform/tenants.js")).default);
+  app.use("/api/signup", requireInstalled, (await import("./routes/public/signup.js")).default);
   app.use("/api/settings", requireInstalled, settingsRoutes);
   app.use("/api/emails", requireInstalled, emailsRoutes);
   app.use("/api/security", requireInstalled, securityRoutes);

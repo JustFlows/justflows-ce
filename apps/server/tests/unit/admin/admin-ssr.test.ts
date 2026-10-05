@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from "vitest";
-import { adminPrefetchPaths, serializeAdminSsrData } from "../../../src/lib/admin/admin-ssr.js";
+import { adminPrefetchPaths, serializeAdminSsrData, ssrPrefetchHost } from "../../../src/lib/admin/admin-ssr.js";
 
 describe("admin SSR", () => {
   it("prefetches shared and route data for the content screen", () => {
@@ -32,6 +32,12 @@ describe("admin SSR", () => {
     expect(paths).toContain("/api/languages");
     expect(paths).toContain("/api/content-types");
     expect(paths).not.toContain("/api/content?type=page&status=published&limit=100");
+  });
+
+  it("prefetches as the browser host, not the loopback address", () => {
+    expect(ssrPrefetchHost("demo.localhost", "demo.localhost:3000")).toBe("demo.localhost:3000");
+    expect(ssrPrefetchHost("example.com", "example.com")).toBe("example.com");
+    expect(ssrPrefetchHost("", undefined)).toBe("127.0.0.1");
   });
 
   it("cannot break out of the embedded JSON script", () => {

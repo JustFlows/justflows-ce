@@ -7,10 +7,11 @@ import {
   readPerformanceSettings,
 } from "../../lib/cache/performance-settings.js";
 import { inspectCacheStorage } from "../../lib/cache/public-cache.js";
-import { requireRole } from "../../middleware/auth.js";
+import { requireInstallationRoot, requireRole } from "../../middleware/auth.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 
 const router = Router();
+router.use(requireRole("administrator"), requireInstallationRoot);
 
 router.get("/settings", requireRole("administrator"), async (_req, res) => {
   try {

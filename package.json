@@ -35,6 +35,7 @@
     "build:server": "\"${npm_node_execpath:-node}\" scripts/install-all.js --build-only",
     "make-zip": "bash scripts/make-zip.sh",
     "export:static": "node scripts/export-static.js",
+    "storage:sync": "node scripts/storage-sync.js",
     "sdk:api:check": "node scripts/check-sdk-api.mjs",
     "sdk:api:update": "node scripts/check-sdk-api.mjs --update",
     "typecheck:tests": "pnpm -r --if-present typecheck:tests"

@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-import fs from "node:fs/promises";
 import { getDb } from "../database/db.js";
-import { uploadsDir } from "../runtime/jf-root.js";
-import { resolvePathUnderBase } from "../security/safe-path.js";
+import { readUpload } from "../media/upload-store.js";
 import { extractImageMetadata, generateDerivatives } from "@justflows/media";
 import { storeMediaUpload, type MediaActor } from "../media/media-write.js";
 
@@ -34,13 +32,7 @@ async function readUploadBuffer(siteId: string, url: string): Promise<Buffer | n
   );
   const storageKey = rows[0]?.storage_key;
   if (!storageKey) return null;
-  const abs = resolvePathUnderBase(uploadsDir(), storageKey);
-  if (!abs) return null;
-  try {
-    return await fs.readFile(abs);
-  } catch {
-    return null;
-  }
+  return readUpload(storageKey);
 }
 
 export interface GeneratedIconPair {

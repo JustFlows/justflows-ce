@@ -67,7 +67,9 @@ export function installSsrFetchCache(payload: AdminSsrPayload | null): void {
     if (method === "GET" || method === "HEAD") {
       const key = requestKey(input);
       const cached = key ? responses.get(key) : undefined;
-      if (cached) {
+      // A failed prefetch must not stick. The browser then asks the real host,
+      // which is the site the session belongs to.
+      if (cached && cached.status >= 200 && cached.status < 300) {
         return Promise.resolve(
           new Response(method === "HEAD" ? null : cached.body, {
             status: cached.status,

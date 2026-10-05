@@ -5,7 +5,7 @@ import { ADMIN_UI_LOCALES, useT, type AdminUiLocale } from "../i18n/I18nProvider
 import { ADMIN_DASHBOARD, canAccessPath, filterDomainsByRole, findDomainForPath, isDomainActive } from "../config/admin-nav";
 import DomainSubnav from "./DomainSubnav";
 import { usePluginMenu } from "./PluginMenuProvider";
-import { useSessionRole } from "./SessionProvider";
+import { useSession, useSessionRole } from "./SessionProvider";
 import { JustflowsLogo } from "./JustflowsLogo";
 import { initialJson } from "../ssr-data";
 import { AssistantProvider, useAssistant } from "./ai/AssistantProvider";
@@ -34,15 +34,19 @@ export default function AdminShell() {
     () => initialJson<{ version?: string }>("/api/updates")?.version ?? "",
   );
   const role = useSessionRole();
+  const { session } = useSession();
+  const audience = session
+    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true }
+    : undefined;
   // Domains carry the pages of whichever plugins are installed right now, cut
   // down to the ones this role won't hit a 403 opening.
   const { domains: allDomains } = usePluginMenu();
-  const domains = useMemo(() => filterDomainsByRole(allDomains, role), [allDomains, role]);
+  const domains = useMemo(() => filterDomainsByRole(allDomains, role, audience), [allDomains, role, audience]);
   const activeDomain = findDomainForPath(pathname, domains);
   // A role's own capabilities can only be known once /api/auth/me resolves —
   // usually already true from SSR. Never bounce on that first, unresolved
   // render; only once we actually know the role lacks access.
-  const canOpenCurrentPage = role === null || canAccessPath(role, pathname);
+  const canOpenCurrentPage = role === null || canAccessPath(role, pathname, audience);
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => setNavOpen(false), [pathname]);

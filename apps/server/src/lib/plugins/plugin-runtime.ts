@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { pathToFileURL } from "node:url";
+import { getTenantContext } from "../tenancy/context.js";
 import { App, loadConfig } from "@justflows/core";
 import { PluginLoader } from "@justflows/plugin-api";
 import type { PluginModule } from "@justflows/sdk";
@@ -18,6 +19,7 @@ import { createPluginDataApi } from "./plugin-data.js";
 import { createPluginJobsApi, getPluginJobScheduler } from "./plugin-jobs.js";
 import { createPluginSecretsApi } from "./plugin-secrets.js";
 import { createPluginDatabasesApi } from "./plugin-databases.js";
+import { createPluginTenancyApi } from "./plugin-tenancy.js";
 import { createPluginContentApi } from "./plugin-content.js";
 import { isInstalled } from "../../middleware/install-guard.js";
 import { getJustflowsVersion } from "../runtime/version.js";
@@ -198,6 +200,14 @@ export async function ensurePluginRuntime(): Promise<void> {
     try {
       app = new App(loadConfig());
       await app.start();
+      app.hooks.setPluginSiteGate(
+        (pluginId, siteId) => {
+          const current = getTenantContext();
+          if (!current || current.siteId !== siteId || current.activePluginIds === null) return true;
+          return current.activePluginIds.has(pluginId);
+        },
+        () => getTenantContext()?.siteId,
+      );
       const { getJfCache } = await import("../cache/jf-cache.js");
       const { createPluginCacheApi } = await import("./plugin-cache.js");
       loader = new PluginLoader(app, {
@@ -248,6 +258,7 @@ export async function ensurePluginRuntime(): Promise<void> {
         secretsFactory: (pluginId, siteId) => createPluginSecretsApi(pluginId, siteId),
         databasesFactory: (pluginId, siteId, permissions) =>
           createPluginDatabasesApi(pluginId, siteId, permissions),
+        tenancyFactory: (pluginId, permissions) => createPluginTenancyApi(pluginId, permissions),
         usersFactory: (_pluginId, siteId) => ({
           create: async (input, actor) => {
             const { createUser, CreateUserSchema } = await import("../auth/users-admin.js");

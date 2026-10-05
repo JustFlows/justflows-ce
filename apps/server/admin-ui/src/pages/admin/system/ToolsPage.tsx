@@ -1,6 +1,7 @@
 import { SearchToolsCard } from "../../../components/SearchToolsCard";
 import { useEffect, useRef, useState } from "react";
 import { waitForSiteRestart } from "../../../lib/wait-for-restart.js";
+import { useSession } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 
 interface ImportResult {
@@ -148,6 +149,7 @@ function logVariant(line: string): string {
 
 export default function ToolsPage() {
   const { t } = useT();
+  const installationRoot = useSession().session?.installationRoot === true;
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -353,10 +355,17 @@ export default function ToolsPage() {
   }
 
   useEffect(() => {
-    void loadPerformanceSettings().finally(() => setPerfLoading(false));
-    void loadPerfStats();
     void loadSxStatus();
   }, []);
+
+  useEffect(() => {
+    if (!installationRoot) {
+      setPerfLoading(false);
+      return;
+    }
+    void loadPerformanceSettings().finally(() => setPerfLoading(false));
+    void loadPerfStats();
+  }, [installationRoot]);
 
   function addLog(line: string) {
     setLog((l) => [...l, line]);
@@ -499,6 +508,7 @@ export default function ToolsPage() {
         </div>
       </header>
 
+      {installationRoot ? (
       <div className="jf-card">
         <div className="jf-card__head">
           <h2 className="jf-card__title">{t("tools.performance.title")}</h2>
@@ -913,8 +923,9 @@ export default function ToolsPage() {
           )}
         </div>
       </div>
+      ) : null}
 
-      {log.length > 0 && (
+      {installationRoot && log.length > 0 && (
         <div className="jf-log">
           <p className="jf-log__label">{t("tools.performance.logLabel")}</p>
           {log.map((line, i) => (

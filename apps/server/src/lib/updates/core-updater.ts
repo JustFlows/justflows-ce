@@ -56,6 +56,7 @@ const PRESERVE_TOP_LEVEL = new Set([
   "tmp",
   "data",
   "static-export",
+  "static-export-sites",
   ".hosting-backup",
   ".git",
 ]);

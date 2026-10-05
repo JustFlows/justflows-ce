@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 import { randomUUID } from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { getDb } from "../database/db.js";
-import { uploadsDir } from "../runtime/jf-root.js";
-import { resolvePathUnderBase } from "../security/safe-path.js";
+import { getUploadStore, readUpload } from "./upload-store.js";
 import { contentMatchesMimeType } from "./file-type.js";
 import { checkLibraryQuota, formatMb } from "./media-quota.js";
 import { moveMediaStorage } from "../content/trash.js";
@@ -274,13 +271,7 @@ export async function updateMediaMetadata(
 }
 
 async function readOriginal(storageKey: string): Promise<Buffer | null> {
-  const abs = resolvePathUnderBase(uploadsDir(), storageKey);
-  if (!abs) return null;
-  try {
-    return await fs.readFile(abs);
-  } catch {
-    return null;
-  }
+  return readUpload(storageKey);
 }
 
 function stripNewlines(value: unknown): string {
@@ -330,11 +321,8 @@ export async function storeMediaUpload(
     };
   }
 
-  const baseDir = uploadsDir();
   const storageKey = `${actor.siteId}/${randomUUID()}${ext}`;
-  const filePath = path.join(baseDir, storageKey);
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, file.buffer);
+  await getUploadStore().put(storageKey, file.buffer, file.mimetype);
 
   const url = `/uploads/${storageKey}`;
   const id = randomUUID();

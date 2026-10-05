@@ -4,6 +4,7 @@
  * Returns a simple run/query interface compatible with both postgres and mysql2.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "node:fs";
 import path from "node:path";
 import { envFilePath } from "../runtime/jf-root.js";
@@ -53,10 +54,24 @@ export interface DbClient {
 }
 
 let _client: DbClient | null = null;
-let _instrumentedClient: DbClient | null = null;
+
+const requestDatabase = new AsyncLocalStorage<DbClient>();
+
+/** Run `fn` so `getDb()` returns this connection instead of the installation database. */
+export function runWithDatabase<T>(client: DbClient, fn: () => T): T {
+  return requestDatabase.run(client, fn);
+}
+
+export interface DbConnectionConfig {
+  driver: "postgres" | "mysql" | "mariadb";
+  host: string;
+  port: string;
+  database: string;
+  username: string;
+  password: string;
+}
 
 function instrumentClient(client: DbClient): DbClient {
-  if (_instrumentedClient) return _instrumentedClient;
   const timed = <TArgs extends unknown[], TResult>(fn: (...args: TArgs) => Promise<TResult>) =>
     async (...args: TArgs): Promise<TResult> => {
       const started = performance.now();
@@ -66,7 +81,7 @@ function instrumentClient(client: DbClient): DbClient {
         recordDatabaseTiming(performance.now() - started);
       }
     };
-  _instrumentedClient = {
+  return {
     ...client,
     run: timed(client.run.bind(client)),
     query: timed(client.query.bind(client)) as DbClient["query"],
@@ -75,24 +90,42 @@ function instrumentClient(client: DbClient): DbClient {
     reserve: client.reserve?.bind(client),
     close: client.close.bind(client),
   };
-  return _instrumentedClient;
 }
 
 export async function getDb(): Promise<DbClient> {
-  if (_client) return instrumentClient(_client);
+  const scoped = requestDatabase.getStore();
+  if (scoped) return scoped;
+  return getControlDb();
+}
 
+/** The installation database. Routing and platform records always live here. */
+export async function getControlDb(): Promise<DbClient> {
+  if (_client) return _client;
   ensureEnvLoaded();
-
-  const driver = process.env.DB_DRIVER as "postgres" | "mysql" | "mariadb" | undefined;
-  const host = process.env.DB_HOST ?? "localhost";
-  const port = process.env.DB_PORT ?? (driver === "postgres" ? "5432" : "3306");
-  const database = process.env.DB_NAME ?? "justflows";
-  const username = process.env.DB_USER ?? "";
-  const password = process.env.DB_PASSWORD ?? "";
-
+  const driver = process.env.DB_DRIVER as DbConnectionConfig["driver"] | undefined;
   if (!driver) {
     throw new Error("DB_DRIVER not set — run the install wizard first.");
   }
+  _client = await createDbClient({
+    driver,
+    host: process.env.DB_HOST ?? "localhost",
+    port: process.env.DB_PORT ?? (driver === "postgres" ? "5432" : "3306"),
+    database: process.env.DB_NAME ?? "justflows",
+    username: process.env.DB_USER ?? "",
+    password: process.env.DB_PASSWORD ?? "",
+  });
+  return _client;
+}
+
+export async function createDbClient(config: DbConnectionConfig): Promise<DbClient> {
+  const driver = config.driver;
+  const host = config.host;
+  const port = config.port;
+  const database = config.database;
+  const username = config.username;
+  const password = config.password;
+
+  ensureEnvLoaded();
 
   // Neither driver negotiates TLS on its own, so a managed database (Neon, RDS,
   // PlanetScale) was reached in cleartext — credentials and content included.
@@ -114,7 +147,7 @@ export async function getDb(): Promise<DbClient> {
       ssl: useSsl ? { rejectUnauthorized } : false,
     });
 
-    _client = {
+    return instrumentClient({
       run: async (query, params = []) => {
         let i = 0;
         const pgQuery = query.replace(/\?/g, () => `$${++i}`);
@@ -176,7 +209,7 @@ export async function getDb(): Promise<DbClient> {
         };
       },
       close: () => sql.end(),
-    };
+    });
   } else {
     const mysql = await import("mysql2/promise");
     const pool = mysql.createPool({
@@ -192,7 +225,7 @@ export async function getDb(): Promise<DbClient> {
       ...(useSsl ? { ssl: { minVersion: "TLSv1.2", rejectUnauthorized } } : {}),
     });
 
-    _client = {
+    return instrumentClient({
       run: async (query, params = []) => {
         // DDL (DROP TABLE, SET …) cannot use prepared statements on MariaDB.
         if (params.length === 0) {
@@ -257,14 +290,11 @@ export async function getDb(): Promise<DbClient> {
         };
       },
       close: async () => pool.end(),
-    };
+    });
   }
-
-  return instrumentClient(_client!);
 }
 
 /** Reset the cached client (call after install completes). */
 export function resetDb() {
   _client = null;
-  _instrumentedClient = null;
 }

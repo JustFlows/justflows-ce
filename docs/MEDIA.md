@@ -161,12 +161,51 @@ time.
 
 ## Storage and CDN
 
-Variants live under the same `uploads/` path as originals
-(`STORAGE_LOCAL_PATH`), in a per-image folder. Any setup that offloads or
-fronts `/uploads` with a CDN or S3-compatible bucket serves the variants from
-the same path with no extra configuration. The static export
-(`docs/STATIC-EXPORT.md`) already follows `srcset` and `<source>` URLs, so
-exported pages copy every referenced variant.
+Every file a site uploads lives under that site's own folder, in the same layout
+for both storage drivers:
 
-Trashing an image moves its variant folder to `uploads/.trash/` alongside the
-original; restoring moves it back; purging deletes it.
+```text
+<siteId>/<uuid>.<ext>            original
+<siteId>/<mediaId>/<w>.<ext>     responsive variants
+<siteId>/.trash/...              trashed originals and variants
+```
+
+Trashing an image moves the original and its variant folder into the site's
+`.trash/`; restoring moves them back; purging deletes them. Items trashed before
+trash moved into the site folder (the shared `uploads/.trash/<siteId>/`) still
+restore and purge. `.trash` is never served: `/uploads` returns 404 for it and the
+generated root `.htaccess` refuses it.
+
+`STORAGE_DRIVER` picks where the files go:
+
+- `local` (default) — the `uploads/` folder (`STORAGE_LOCAL_PATH`).
+- `s3` — an S3-compatible bucket (AWS S3, Cloudflare R2, MinIO). Set
+  `STORAGE_S3_BUCKET`, `STORAGE_S3_ACCESS_KEY_ID`,
+  `STORAGE_S3_SECRET_ACCESS_KEY`, and `STORAGE_S3_REGION` (`auto` for R2), plus
+  `STORAGE_S3_ENDPOINT` for anything that is not AWS. Requests are signed with
+  AWS Signature V4. `STORAGE_S3_PREFIX` puts every key under a prefix so several
+  installs can share one bucket. The older `S3_*` names are still read.
+
+Media URLs stay `/uploads/<key>` with either driver, so switching never rewrites
+content. With S3, Justflows streams `/uploads` from the bucket (range and
+conditional requests pass through). Set `STORAGE_S3_PUBLIC_URL` to a public
+bucket or CDN URL to redirect there instead; the static exporter still receives
+the file inline, so exports never contain redirects for assets. A public bucket
+serves any key to anyone who knows it, including another site's, so leave
+`STORAGE_S3_PUBLIC_URL` unset if each site's files must only be reachable on its
+own host.
+
+Before switching an existing install to S3, copy the local files into the
+bucket:
+
+```bash
+pnpm storage:sync --dry-run   # list what would be copied
+pnpm storage:sync             # copy; keys already in the bucket are skipped
+```
+
+The command needs a compiled server and never deletes local files.
+The storage test on Admin → System → Health writes, reads, and deletes a probe
+file through the configured driver.
+
+The static export (`docs/STATIC-EXPORT.md`) follows `srcset` and `<source>`
+URLs, so exported pages copy every referenced variant.
