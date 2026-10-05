@@ -3270,8 +3270,7 @@
       "title": "Реакционные изображения",
       "variantWidthsLabel": "Ширина варианта (px, разделенная на запятую)",
       "webpQualityLabel": "Качество WebP",
-      "working": "Работаю... {done}/{total}",
-      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
+      "working": "Работаю... {done}/{total}"
     },
     "staticExport": {
       "autoDebounceLabel": "Автомобильный дебют (мс)",
@@ -3352,7 +3351,6 @@
       "thisSitesOrigin": "происхождение этого сайта",
       "title": "Экспорт статичной площадки",
       "useThisSite": "Используйте этот сайт",
-      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
       "clearExportHintSite": "удаляет экспорт этого сайта. Отключение автоперестройки не удаляет файлы.",
       "thisWebsiteExport": "экспорт этого сайта"
     },

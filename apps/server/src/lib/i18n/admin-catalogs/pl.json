@@ -3270,8 +3270,7 @@
       "title": "Responsywne obrazy",
       "variantWidthsLabel": "Szerokości wariantów (px, oddzielone przecinkami)",
       "webpQualityLabel": "Jakość WebP",
-      "working": "Działa… {done}/{total}",
-      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
+      "working": "Działa… {done}/{total}"
     },
     "staticExport": {
       "autoDebounceLabel": "Automatyczne odrzucanie (ms)",
@@ -3352,7 +3351,6 @@
       "thisSitesOrigin": "pochodzenie tej witryny",
       "title": "Eksport witryny statycznej",
       "useThisSite": "Skorzystaj z tej witryny",
-      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
       "clearExportHintSite": "usuwa eksport tej witryny. Wyłączenie automatycznej odbudowy nie usuwa żadnych plików.",
       "thisWebsiteExport": "eksport tej witryny"
     },

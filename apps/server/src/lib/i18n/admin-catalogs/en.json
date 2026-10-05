@@ -3270,8 +3270,7 @@
       "title": "Responsive images",
       "variantWidthsLabel": "Variant widths (px, comma-separated)",
       "webpQualityLabel": "WebP quality",
-      "working": "Working… {done}/{total}",
-      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
+      "working": "Working… {done}/{total}"
     },
     "staticExport": {
       "autoDebounceLabel": "Auto debounce (ms)",
@@ -3352,7 +3351,6 @@
       "thisSitesOrigin": "this site's origin",
       "title": "Static site export",
       "useThisSite": "Use this site",
-      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
       "clearExportHintSite": "deletes this website's export. Disabling auto-rebuild does not remove any files.",
       "thisWebsiteExport": "this website's export"
     },

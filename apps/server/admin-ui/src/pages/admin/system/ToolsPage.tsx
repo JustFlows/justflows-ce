@@ -1287,10 +1287,6 @@ export default function ToolsPage() {
             </>
           )}
 
-          {!installationRoot && (
-            <p className="jf-field__hint">{t("tools.staticExport.managedOnPlatform")}</p>
-          )}
-
           <hr className="jf-divider" />
 
           {sxSettings && !sxSettings.enabled && (
@@ -1536,10 +1532,6 @@ function ResponsiveImagesCard() {
         </p>
 
         {error && <div className="jf-alert jf-alert--error">{error}</div>}
-
-        {!installationRoot && (
-          <p className="jf-field__hint">{t("tools.responsiveImages.managedOnPlatform")}</p>
-        )}
 
         {installationRoot && settings && (
           <>

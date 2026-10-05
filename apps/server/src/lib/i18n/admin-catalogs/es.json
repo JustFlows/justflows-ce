@@ -3145,7 +3145,6 @@
       "thisSitesOrigin": "el origen de este sitio",
       "originHint5": "Déjalo en blanco si la CDN redirige",
       "originHint6": "y",
-      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
       "clearExportHintSite": "elimina la exportación de este sitio. Desactivar la reconstrucción automática no elimina ningún archivo.",
       "thisWebsiteExport": "la exportación de este sitio"
     },
@@ -3200,8 +3199,7 @@
       "savedToSuffix": "como",
       "savedToTail": "— se aplica de inmediato, sin reiniciar.",
       "working": "Procesando… {done}/{total}",
-      "finished": "Terminado: {rebuilt} regeneradas, {skipped} omitidas, {failed} con error.",
-      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
+      "finished": "Terminado: {rebuilt} regeneradas, {skipped} omitidas, {failed} con error."
     },
     "manualRestartNeededLog": "No se pudo reiniciar automáticamente: reinicia manualmente en Plesk → Node.js"
   },

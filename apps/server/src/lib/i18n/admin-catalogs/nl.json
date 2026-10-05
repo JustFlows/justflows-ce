@@ -3145,7 +3145,6 @@
       "thisSitesOrigin": "de origin van deze site",
       "originHint5": "Laat leeg als de CDN",
       "originHint6": "en",
-      "managedOnPlatform": "Deze instellingen horen bij de installatie. Wijzig ze op de platformsite.",
       "clearExportHintSite": "verwijdert de export van deze website. Automatisch opnieuw bouwen uitschakelen verwijdert geen bestanden.",
       "thisWebsiteExport": "de export van deze website"
     },
@@ -3200,8 +3199,7 @@
       "savedToSuffix": "als",
       "savedToTail": "— direct toegepast, geen herstart nodig.",
       "working": "Bezig… {done}/{total}",
-      "finished": "Klaar: {rebuilt} opnieuw gemaakt, {skipped} overgeslagen, {failed} mislukt.",
-      "managedOnPlatform": "Beeldformaten horen bij de installatie. Wijzig ze op de platformsite. Opnieuw genereren bouwt nog wel de afbeeldingen van deze site."
+      "finished": "Klaar: {rebuilt} opnieuw gemaakt, {skipped} overgeslagen, {failed} mislukt."
     },
     "manualRestartNeededLog": "Automatisch herstarten is niet gelukt — herstart handmatig in Plesk → Node.js"
   },
