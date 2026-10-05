@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { getTenantContext } from "../tenancy/context.js";
 import { slashPath } from "../navigation/permalinks.js";
 import { contentPermalink, getPermalinkState, listPermalinkTerms, taxonomyPermalink } from "../navigation/permalinks-db.js";
 import { getPlugin } from "../plugins/plugins-db.js";
@@ -69,7 +70,13 @@ export function jsonLdPayload(value: unknown): string {
   );
 }
 
+/** Public origin of the site being served. APP_URL stays the installation address. */
 export function siteOrigin(): string {
+  const host = getTenantContext()?.hostname?.trim().toLowerCase() ?? "";
+  if (host && !host.includes("/") && !host.includes(" ")) {
+    const secure = host !== "localhost" && !host.startsWith("127.0.0.1");
+    return `${secure ? "https" : "http"}://${host}`;
+  }
   return (process.env.APP_URL ?? "").replace(/\/$/, "");
 }
 

@@ -7,7 +7,7 @@ import {
   formatPhpDate,
 } from "@lib/i18n/datetime-format";
 import MediaImageField from "@components/MediaImageField";
-import { useCapability, useSessionRole } from "@components/SessionProvider";
+import { useCapability, useSession, useSessionRole } from "@components/SessionProvider";
 import { initialJson } from "../../../ssr-data";
 import { useT } from "../../../i18n/I18nProvider";
 
@@ -187,6 +187,11 @@ export default function SettingsPage() {
   // sending a test email) is administrator-only.
   const { t } = useT();
   const canManage = useSessionRole() === "administrator";
+  const { session } = useSession();
+  const canDeleteSite = canManage && session?.installationRoot === false;
+  const [deleteHostname, setDeleteHostname] = useState("");
+  const [deletingSite, setDeletingSite] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const canReadMail = useCapability("mail:read");
   const canManageMail = useCapability("mail:manage");
   const prefetched = initialJson<SettingsPayload>("/api/settings");
@@ -391,6 +396,31 @@ export default function SettingsPage() {
       setMailTest(String(e));
     } finally {
       setTestingMail(false);
+    }
+  }
+
+  async function deleteThisWebsite() {
+    const hostname = deleteHostname.trim();
+    if (!hostname || deletingSite) return;
+    if (!window.confirm(t("settings.deleteWebsite.confirm"))) return;
+    setDeletingSite(true);
+    setDeleteError(null);
+    try {
+      const response = await fetch("/api/settings/delete-website", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hostname }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        setDeleteError(data.error ?? t("settings.deleteWebsite.failed"));
+        setDeletingSite(false);
+        return;
+      }
+      window.location.href = "https://justflows.com";
+    } catch {
+      setDeleteError(t("settings.deleteWebsite.failed"));
+      setDeletingSite(false);
     }
   }
 
@@ -1005,6 +1035,37 @@ export default function SettingsPage() {
       )}
 
       {canManage && <DiscussionSettings />}
+
+      {canDeleteSite && (
+        <Section title={t("settings.deleteWebsite.title")}>
+          <p className="jf-field__hint">{t("settings.deleteWebsite.hint")}</p>
+          <div className="jf-field" style={{ maxWidth: 420 }}>
+            <label className="jf-field__label" htmlFor="jf-delete-hostname">
+              {t("settings.deleteWebsite.confirmLabel")}
+            </label>
+            <input
+              id="jf-delete-hostname"
+              className="jf-input"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={deleteHostname}
+              disabled={deletingSite}
+              placeholder={typeof window === "undefined" ? "" : window.location.hostname}
+              onChange={(e) => setDeleteHostname(e.target.value)}
+            />
+          </div>
+          {deleteError && <p className="jf-status jf-status--error">{deleteError}</p>}
+          <button
+            type="button"
+            className="jf-btn jf-btn--danger"
+            disabled={deletingSite || deleteHostname.trim().length === 0}
+            onClick={() => void deleteThisWebsite()}
+          >
+            {deletingSite ? t("settings.deleteWebsite.deleting") : t("settings.deleteWebsite.button")}
+          </button>
+        </Section>
+      )}
     </div>
   );
 }

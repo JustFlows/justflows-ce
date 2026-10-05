@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getControlDb } from "../../lib/database/db.js";
 import { createWorkspace } from "../../lib/tenancy/provision.js";
 import { isValidHostname, signupBaseDomain, signupSiteOrigin, slugify } from "../../lib/tenancy/host.js";
+import { readSaasSettings, readSignupDatabaseTarget } from "../../lib/tenancy/saas-settings.js";
 import { clientIp, consumeRateLimit, rateLimitRetryAfter } from "../../lib/security/rate-limit.js";
 
 const router = Router();
@@ -16,11 +17,6 @@ const signupLimit = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false,
 });
-
-interface SaasSettings {
-  signupEnabled: boolean;
-  baseDomain: string;
-}
 
 router.post("/", signupLimit, async (req, res) => {
   const ip = clientIp(req);
@@ -41,9 +37,8 @@ router.post("/", signupLimit, async (req, res) => {
     return;
   }
   const db = await getControlDb();
-  const rows = await db.query<{ value: SaasSettings | string }>("SELECT value FROM platform_settings WHERE setting_key = 'saas' LIMIT 1");
-  const raw = rows[0]?.value;
-  const settings = (typeof raw === "string" ? JSON.parse(raw) : raw) as SaasSettings | undefined;
+  const rows = await db.query<{ value: unknown }>("SELECT value FROM platform_settings WHERE setting_key = 'saas' LIMIT 1");
+  const settings = readSaasSettings(rows[0]?.value);
   if (!settings?.signupEnabled) {
     res.status(403).json({ error: "Public signup is turned off." });
     return;
@@ -65,13 +60,20 @@ router.post("/", signupLimit, async (req, res) => {
     req.get("x-forwarded-proto") ?? req.protocol ?? "http",
     req.get("x-forwarded-host") ?? req.get("host") ?? "",
   );
-  // Visitors cannot supply a database. A separate database is only chosen
-  // when a platform operator creates the workspace and enters the connection.
+  // Visitors never supply a database. The platform operator chooses, on
+  // Platform → Public signup, whether new workspaces stay here or go to one
+  // separate database. That connection stays on the platform.
+  const signupDatabase = settings.signupDatabaseMode === "separate" ? readSignupDatabaseTarget(rows[0]?.value) : null;
+  if (settings.signupDatabaseMode === "separate" && !signupDatabase) {
+    res.status(503).json({ error: "The operator has not configured the signup database." });
+    return;
+  }
   const result = await createWorkspace({
     name: body.data.siteName,
     slug,
     userMode: "isolated",
-    databaseMode: "current",
+    databaseMode: signupDatabase ? "separate" : "current",
+    database: signupDatabase ?? undefined,
     siteName: body.data.siteName,
     hostname,
     siteUrl: origin,

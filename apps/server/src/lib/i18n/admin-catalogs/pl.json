@@ -63,6 +63,7 @@
     "placeholders": "Elementy zastępcze",
     "redirects": "Przekierowuje",
     "ai": "AI",
+    "cdn": "CDN",
     "platform": "Platforma"
   },
   "webhooks": {
@@ -2655,7 +2656,8 @@
       "recoveryBanner": {
         "subPrefix": "Usuń",
         "subSuffix": "ze środowiska serwera i uruchom ponownie przed zapisaniem zmian tutaj.",
-        "title": "Obejście odzyskiwania jest aktywne"
+        "title": "Obejście odzyskiwania jest aktywne",
+        "locked": "Platforma zablokowała ten adres administracyjny. Zapisywanie pozostaje wyłączone, dopóki blokada nie zostanie zdjęta."
       },
       "recoverySection": {
         "bodyPrefix": "Jeśli odwrotne proxy lub pamięć podręczna blokuje nowy adres, ustaw",
@@ -3133,6 +3135,15 @@
       "sourceManual": "dodane przez Ciebie",
       "sourceLearned": "nauczył się",
       "removeButton": "Usuń"
+    },
+    "deleteWebsite": {
+      "title": "Delete website",
+      "hint": "Removes this website and its address. This cannot be undone. The platform site cannot be deleted here.",
+      "confirmLabel": "Type this site's hostname to confirm",
+      "button": "Delete website",
+      "deleting": "Deleting…",
+      "confirm": "Delete this website? This cannot be undone.",
+      "failed": "Could not delete this website."
     }
   },
   "analytics": {
@@ -3259,7 +3270,8 @@
       "title": "Responsywne obrazy",
       "variantWidthsLabel": "Szerokości wariantów (px, oddzielone przecinkami)",
       "webpQualityLabel": "Jakość WebP",
-      "working": "Działa… {done}/{total}"
+      "working": "Działa… {done}/{total}",
+      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
     },
     "staticExport": {
       "autoDebounceLabel": "Automatyczne odrzucanie (ms)",
@@ -3339,7 +3351,10 @@
       "theExportFolder": "folder eksportu",
       "thisSitesOrigin": "pochodzenie tej witryny",
       "title": "Eksport witryny statycznej",
-      "useThisSite": "Skorzystaj z tej witryny"
+      "useThisSite": "Skorzystaj z tej witryny",
+      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
+      "clearExportHintSite": "usuwa eksport tej witryny. Wyłączenie automatycznej odbudowy nie usuwa żadnych plików.",
+      "thisWebsiteExport": "eksport tej witryny"
     },
     "status": {
       "disabled": "Wyłączone",
@@ -3734,6 +3749,43 @@
       "retry": "Spróbuj ponownie"
     }
   },
+  "cdn": {
+    "title": "CDN",
+    "description": "Połącz CDN, aby zmiany od razu docierały do odwiedzających. Za każdym razem, gdy Justflows czyści własną pamięć podręczną tej witryny, czyści też jej strony w CDN.",
+    "connectionTitle": "Połączenie",
+    "provider": "Dostawca",
+    "docs": "Dokumentacja dostawcy",
+    "noAccount": "Nie masz jeszcze konta?",
+    "signup": "Załóż konto {provider}",
+    "enabled": "Czyść w tym CDN, gdy witryna się zmienia",
+    "enabledHint": "Wyłącz, aby zachować ustawienia bez czyszczenia.",
+    "secretSaved": "Zapisany (…{last4}). Zostaw puste, aby go zachować.",
+    "save": "Zapisz połączenie",
+    "saved": "Połączenie z CDN zapisane.",
+    "test": "Testuj połączenie",
+    "testing": "Testowanie…",
+    "testOk": "{provider} zaakceptował połączenie.",
+    "remove": "Usuń połączenie",
+    "removeConfirm": "Usunąć połączenie z CDN? Zmiany nie będą już czyszczone w tym CDN.",
+    "removed": "Połączenie z CDN usunięte.",
+    "environmentFallback": "Ta instalacja już czyści tę witrynę w CDN. Połączenie zapisane i włączone tutaj zostanie użyte zamiast niego.",
+    "managedOnPlatform": "Połączenie CDN ustawia się na stronie platformy. Tutaj możesz wyczyścić pamięć podręczną tej witryny.",
+    "purgeUnavailable": "Strona platformy nie ma jeszcze podłączonego CDN.",
+    "purgeTitle": "Wyczyść teraz",
+    "purgeHint": "Usuń wszystkie strony tej witryny z pamięci podręcznej CDN. Justflows robi to też po każdej rewalidacji.",
+    "purge": "Wyczyść tę witrynę",
+    "purging": "Czyszczenie…",
+    "purged": "Zlecono czyszczenie dla {urls}.",
+    "failed": "Nie udało się wczytać ani zapisać ustawień CDN.",
+    "fields": {
+      "bunny": {
+        "apiKey": "Klucz API konta",
+        "apiKeyHint": "Bunny.net → Account settings → API key.",
+        "pullZoneId": "ID pull zone",
+        "pullZoneIdHint": "Opcjonalnie. Potrzebne, aby wyczyścić całą pull zone naraz."
+      }
+    }
+  },
   "platform": {
     "title": "Platforma",
     "intro": "Przestrzenie robocze mogą korzystać z bazy danych tej instalacji lub z osobnej bazy danych. Dane logowania do osobnej bazy pozostają na platformie i nie są pokazywane przestrzeni roboczej.",
@@ -3773,7 +3825,16 @@
     "sites": "Witryny",
     "signupEnabled": "Pozwól odwiedzającym tworzyć własne przestrzenie robocze",
     "signupHint": "Odwiedzający korzystają ze strony rejestracji, a nie z tego ekranu. Wpisz nazwę hosta, na przykład example.com lub localhost. Witryna o nazwie my-site będzie wtedy dostępna pod adresem my-site.example.com. Te witryny korzystają z bazy danych tej instalacji. Osobna baza danych jest dostępna tylko wtedy, gdy utworzysz przestrzeń roboczą tutaj i podasz połączenie.",
-    "signupOpen": "Otwórz stronę rejestracji"
+    "signupDatabaseHint": "Every new signup creates a workspace in this database. This installation, including the platform site, stays on its own database. The password is stored here and is not shown again.",
+    "passwordKeep": "Leave blank to keep the saved password.",
+    "signupOpen": "Otwórz stronę rejestracji",
+    "purgeTitle": "Deleted websites",
+    "purgeHint": "A website marked deleted is removed completely after this many days: pages, users, and files. 0 turns the automatic cleanup off. You can also remove one from the list.",
+    "purgeDays": "Days",
+    "purgeNow": "Delete permanently",
+    "purgeConfirm": "Permanently delete {name}? Pages, users, and files are removed. This cannot be undone.",
+    "purgeFailed": "Could not remove that website.",
+    "purged": "Website removed."
   },
   "signup": {
     "title": "Utwórz swoją witrynę",

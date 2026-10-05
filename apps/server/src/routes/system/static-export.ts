@@ -4,6 +4,8 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { requireInstallationRoot, requireRole } from "../../middleware/auth.js";
 import { sendServerError } from "../../lib/http/send-error.js";
+import { getJfRoot } from "../../lib/runtime/jf-root.js";
+import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import {
   clearStaticExport,
   getStaticExportStatus,
@@ -34,6 +36,28 @@ function isAllowedCrawlBase(raw: string): boolean {
   }
 }
 
+/** A customer site must not learn the server directory the export is written to. */
+function hideInstallPaths<T>(value: T): T {
+  if (isInstallationRootRequest()) return value;
+  const root = getJfRoot();
+  const walk = (item: unknown): unknown => {
+    if (typeof item === "string") {
+      if (!item.includes(root) && !item.includes("static-export-sites")) return item;
+      return item.split(root).join("").replace(/\/?static-export-sites\/\S+/g, "this website's export");
+    }
+    if (Array.isArray(item)) return item.map(walk);
+    if (item && typeof item === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [key, child] of Object.entries(item)) {
+        out[key] = key === "outDir" || key === "envPath" ? "" : walk(child);
+      }
+      return out;
+    }
+    return item;
+  };
+  return walk(value) as T;
+}
+
 const runLimit = rateLimit({
   windowMs: 60_000,
   limit: 6,
@@ -53,7 +77,7 @@ let inProgress: Promise<unknown> | null = null;
 router.get("/status", async (_req, res) => {
   try {
     const status = await getStaticExportStatus();
-    res.json({ ...status, running: inProgress != null });
+    res.json(hideInstallPaths({ ...status, running: inProgress != null }));
   } catch (err) {
     sendServerError(res, "static-export", err);
   }
@@ -104,14 +128,16 @@ router.post("/run", runLimit, async (req, res) => {
     });
     inProgress = run;
     const summary = await run;
-    res.json({ ok: summary.ok, summary, log });
+    res.json(hideInstallPaths({ ok: summary.ok, summary, log }));
   } catch (err) {
     log.push(`✗ ${err instanceof Error ? err.message : String(err)}`);
-    res.status(500).json({
-      ok: false,
-      error: err instanceof Error ? err.message : String(err),
-      log,
-    });
+    res.status(500).json(
+      hideInstallPaths({
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+        log,
+      }),
+    );
   } finally {
     inProgress = null;
   }
@@ -126,7 +152,7 @@ router.post("/clear", runLimit, async (req, res) => {
   try {
     const force = (req.body as { force?: unknown })?.force === true;
     const result = await clearStaticExport({ force });
-    res.status(result.ok ? 200 : 400).json(result);
+    res.status(result.ok ? 200 : 400).json(hideInstallPaths(result));
   } catch (err) {
     sendServerError(res, "static-export", err);
   }
@@ -135,7 +161,7 @@ router.post("/clear", runLimit, async (req, res) => {
 /** Read the editable STATIC_EXPORT_* settings (from .env, with live fallbacks). */
 router.get("/settings", async (_req, res) => {
   try {
-    res.json(await readStaticExportSettings());
+    res.json(hideInstallPaths(await readStaticExportSettings()));
   } catch (err) {
     sendServerError(res, "static-export", err);
   }

@@ -3,6 +3,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { loadConfig, parseEnvBool } from "@justflows/core";
 import { createJfCache, type JfCache } from "@justflows/cache";
+import { scopeCacheKey } from "./site-cache-key.js";
 import { getJfRoot } from "../runtime/jf-root.js";
 import { logCacheEventIfDebug, recordCacheEvent } from "./cache-trace.js";
 import { resolvePathUnderBase } from "../security/safe-path.js";
@@ -75,6 +76,7 @@ export function getJfCache(): JfCache {
   // enabled flag changes so CACHE_ENABLED=0 actually takes effect.
   if (!instance || instanceEnabled !== opts.enabled) {
     instance = attachObserver(createJfCache(opts));
+    instance.setKeyScope(scopeCacheKey);
     instanceEnabled = opts.enabled;
     if (!opts.enabled) wipeCacheStorageSync();
   }

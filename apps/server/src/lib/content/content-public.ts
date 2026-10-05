@@ -3,6 +3,7 @@ import { serializeContentRow, type ContentResponse } from "./content-api.js";
 import { overlayWorkingOnRow } from "./content-revisions.js";
 import { getDefaultLocale, resolveContentLocale } from "../i18n/languages-db.js";
 import { getJfCache } from "../cache/jf-cache.js";
+import { cacheSiteId } from "../cache/site-cache-key.js";
 
 const CONTENT_CACHE_PREFIX = "content:";
 
@@ -22,13 +23,13 @@ async function contentCacheTtl(): Promise<number> {
 
 import { revalidateOnUpdate } from "../cache/cache-revalidate.js";
 
-export async function invalidateContentCache(force = false): Promise<void> {
+export async function invalidateContentCache(force = false, siteId?: string): Promise<void> {
   if (force) {
     const { revalidateSelected } = await import("../cache/cache-revalidate.js");
     await revalidateSelected(["content", "pages", "menus"]);
   }
   await getJfCache().invalidate("content:permalink:");
-  await revalidateOnUpdate("content");
+  await revalidateOnUpdate("content", siteId ? { siteId } : undefined);
 }
 
 async function loadPublishedRow(
@@ -112,7 +113,7 @@ export async function getPublishedContentBySlug(
     return fetchPublishedContentBySlug(slug, requestedLocale, true);
   }
 
-  const cacheKey = `${CONTENT_CACHE_PREFIX}published:${slug}:${requestedLocale ?? ""}`;
+  const cacheKey = `${CONTENT_CACHE_PREFIX}published:${cacheSiteId()}:${slug}:${requestedLocale ?? ""}`;
 
   return getJfCache().remember(cacheKey, await contentCacheTtl(), () =>
     fetchPublishedContentBySlug(slug, requestedLocale, false),
@@ -155,7 +156,7 @@ async function fetchTranslationAlternates(
 export async function getTranslationAlternates(
   translationGroupId: string,
 ): Promise<Array<{ locale: string; slug: string }>> {
-  const cacheKey = `${CONTENT_CACHE_PREFIX}alternates:${translationGroupId}`;
+  const cacheKey = `${CONTENT_CACHE_PREFIX}alternates:${cacheSiteId()}:${translationGroupId}`;
 
   return getJfCache().remember(cacheKey, await contentCacheTtl(), () =>
     fetchTranslationAlternates(translationGroupId),

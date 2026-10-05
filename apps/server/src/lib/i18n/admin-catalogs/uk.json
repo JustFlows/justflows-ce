@@ -63,6 +63,7 @@
     "placeholders": "Заповнювачі",
     "redirects": "Перенаправлення",
     "ai": "ШІ",
+    "cdn": "CDN",
     "platform": "Платформа"
   },
   "webhooks": {
@@ -2655,7 +2656,8 @@
       "recoveryBanner": {
         "subPrefix": "видалити",
         "subSuffix": "із середовища сервера та перезапустіть, перш ніж зберегти зміни тут.",
-        "title": "Перевизначення відновлення активне"
+        "title": "Перевизначення відновлення активне",
+        "locked": "Платформа заблокувала цю адресу адмінки. Збереження вимкнено, доки цей блок не знімуть."
       },
       "recoverySection": {
         "bodyPrefix": "Якщо зворотний проксі або кеш блокує нову адресу, установіть",
@@ -3133,6 +3135,15 @@
       "sourceManual": "додані вами",
       "sourceLearned": "дізнався",
       "removeButton": "видалити"
+    },
+    "deleteWebsite": {
+      "title": "Delete website",
+      "hint": "Removes this website and its address. This cannot be undone. The platform site cannot be deleted here.",
+      "confirmLabel": "Type this site's hostname to confirm",
+      "button": "Delete website",
+      "deleting": "Deleting…",
+      "confirm": "Delete this website? This cannot be undone.",
+      "failed": "Could not delete this website."
     }
   },
   "analytics": {
@@ -3259,7 +3270,8 @@
       "title": "Чуйні зображення",
       "variantWidthsLabel": "Варіант ширини (пікселі, розділені комами)",
       "webpQualityLabel": "Якість WebP",
-      "working": "Працює… {done}/{total}"
+      "working": "Працює… {done}/{total}",
+      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
     },
     "staticExport": {
       "autoDebounceLabel": "Автоматичне усунення дребезгу (мс)",
@@ -3339,7 +3351,10 @@
       "theExportFolder": "папку експорту",
       "thisSitesOrigin": "походження цього сайту",
       "title": "Експорт статичного сайту",
-      "useThisSite": "Використовуйте цей сайт"
+      "useThisSite": "Використовуйте цей сайт",
+      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
+      "clearExportHintSite": "видаляє експорт цього сайту. Вимкнення автоматичного відновлення не видаляє файли.",
+      "thisWebsiteExport": "експорт цього сайту"
     },
     "status": {
       "disabled": "Вимкнено",
@@ -3734,6 +3749,43 @@
       "retry": "Спробувати ще раз"
     }
   },
+  "cdn": {
+    "title": "CDN",
+    "description": "Підключіть CDN, щоб зміни одразу бачили відвідувачі. Щоразу, коли Justflows очищує власний кеш цього сайту, він також очищує сторінки сайту в CDN.",
+    "connectionTitle": "Підключення",
+    "provider": "Провайдер",
+    "docs": "Документація провайдера",
+    "noAccount": "Ще немає облікового запису?",
+    "signup": "Створити обліковий запис {provider}",
+    "enabled": "Очищувати в цьому CDN, коли сайт змінюється",
+    "enabledHint": "Вимкніть, щоб зберегти налаштування без очищення.",
+    "secretSaved": "Збережено (…{last4}). Залиште порожнім, щоб не змінювати.",
+    "save": "Зберегти підключення",
+    "saved": "Підключення CDN збережено.",
+    "test": "Перевірити підключення",
+    "testing": "Перевірка…",
+    "testOk": "{provider} прийняв підключення.",
+    "remove": "Видалити підключення",
+    "removeConfirm": "Видалити підключення CDN? Зміни більше не очищуватимуться в цьому CDN.",
+    "removed": "Підключення CDN видалено.",
+    "environmentFallback": "Ця інсталяція вже очищує цей сайт у CDN. Підключення, яке ви збережете й увімкнете тут, використовуватиметься замість нього.",
+    "managedOnPlatform": "З’єднання CDN налаштовується на сайті платформи. Тут можна очистити кеш цього сайту.",
+    "purgeUnavailable": "Сайт платформи ще не підключив CDN.",
+    "purgeTitle": "Очистити зараз",
+    "purgeHint": "Очистити всі кешовані сторінки цього сайту в CDN. Justflows також робить це після кожної ревалідації.",
+    "purge": "Очистити цей сайт",
+    "purging": "Очищення…",
+    "purged": "Очищення запитано для {urls}.",
+    "failed": "Не вдалося завантажити або зберегти налаштування CDN.",
+    "fields": {
+      "bunny": {
+        "apiKey": "API-ключ облікового запису",
+        "apiKeyHint": "Bunny.net → Account settings → API key.",
+        "pullZoneId": "ID pull zone",
+        "pullZoneIdHint": "Необов’язково. Потрібно, щоб очистити всю pull zone одразу."
+      }
+    }
+  },
   "platform": {
     "title": "Платформа",
     "intro": "Робочі простори можуть використовувати базу даних цієї інсталяції або окрему базу даних. Облікові дані окремої бази залишаються на платформі й не показуються робочому простору.",
@@ -3773,7 +3825,16 @@
     "sites": "Сайти",
     "signupEnabled": "Дозволити відвідувачам створювати власний робочий простір",
     "signupHint": "Відвідувачі користуються сторінкою реєстрації, а не цим екраном. Введіть ім’я хоста, наприклад example.com або localhost. Сайт з назвою my-site тоді буде доступний за адресою my-site.example.com. Ці сайти використовують базу даних цієї інсталяції. Окрема база даних доступна лише тоді, коли ви створюєте робочий простір тут і вказуєте підключення.",
-    "signupOpen": "Відкрити сторінку реєстрації"
+    "signupDatabaseHint": "Every new signup creates a workspace in this database. This installation, including the platform site, stays on its own database. The password is stored here and is not shown again.",
+    "passwordKeep": "Leave blank to keep the saved password.",
+    "signupOpen": "Відкрити сторінку реєстрації",
+    "purgeTitle": "Deleted websites",
+    "purgeHint": "A website marked deleted is removed completely after this many days: pages, users, and files. 0 turns the automatic cleanup off. You can also remove one from the list.",
+    "purgeDays": "Days",
+    "purgeNow": "Delete permanently",
+    "purgeConfirm": "Permanently delete {name}? Pages, users, and files are removed. This cannot be undone.",
+    "purgeFailed": "Could not remove that website.",
+    "purged": "Website removed."
   },
   "signup": {
     "title": "Створіть свій сайт",

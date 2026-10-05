@@ -45,6 +45,7 @@ import AuditLogPage from "./pages/admin/security/AuditLogPage";
 import WebhooksPage from "./pages/admin/settings/WebhooksPage";
 import ApiKeysPage from "./pages/admin/settings/ApiKeysPage";
 import AiSettingsPage from "./pages/admin/settings/AiSettingsPage";
+import CdnSettingsPage from "./pages/admin/settings/CdnSettingsPage";
 import PlatformPage from "./pages/admin/platform/PlatformPage";
 import SignupPage from "./pages/SignupPage";
 import OAuthConsentPage from "./pages/OAuthConsentPage";
@@ -154,6 +155,7 @@ export default function App() {
               <Route path="webhooks" element={<WebhooksPage />} />
               <Route path="settings/api" element={<ApiKeysPage />} />
               <Route path="settings/ai" element={<AiSettingsPage />} />
+              <Route path="settings/cdn" element={<CdnSettingsPage />} />
               <Route path="platform" element={<PlatformPage />} />
               <Route path="languages" element={<LanguagesPage />} />
               <Route path="security" element={<SecurityOverviewPage />} />

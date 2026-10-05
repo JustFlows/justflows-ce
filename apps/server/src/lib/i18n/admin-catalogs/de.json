@@ -63,6 +63,7 @@
     "pwa": "PWA",
     "placeholders": "Standardbilder",
     "ai": "KI",
+    "cdn": "CDN",
     "platform": "Plattform"
   },
   "webhooks": {
@@ -2048,7 +2049,8 @@
       "recoveryBanner": {
         "title": "Wiederherstellungsmodus ist aktiv",
         "subPrefix": "Entfernen",
-        "subSuffix": "aus der Serverumgebung und starten Sie neu, bevor Sie hier Änderungen speichern."
+        "subSuffix": "aus der Serverumgebung und starten Sie neu, bevor Sie hier Änderungen speichern.",
+        "locked": "Die Plattform hat diese Admin-Adresse gesperrt. Speichern bleibt aus, bis die Sperre dort aufgehoben wird."
       },
       "address": {
         "title": "Admin-Adresse",
@@ -2767,6 +2769,15 @@
       "sourceManual": "von Ihnen hinzugefügt",
       "sourceLearned": "gelernt",
       "removeButton": "Entfernen"
+    },
+    "deleteWebsite": {
+      "title": "Delete website",
+      "hint": "Removes this website and its address. This cannot be undone. The platform site cannot be deleted here.",
+      "confirmLabel": "Type this site's hostname to confirm",
+      "button": "Delete website",
+      "deleting": "Deleting…",
+      "confirm": "Delete this website? This cannot be undone.",
+      "failed": "Could not delete this website."
     }
   },
   "analytics": {
@@ -3133,7 +3144,10 @@
       "originHint4": "füllt es mit",
       "thisSitesOrigin": "die Origin dieser Website",
       "originHint5": "Leer lassen, wenn das CDN",
-      "originHint6": "und"
+      "originHint6": "und",
+      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
+      "clearExportHintSite": "löscht den Export dieser Website. Das Deaktivieren des automatischen Neuaufbaus entfernt keine Dateien.",
+      "thisWebsiteExport": "den Export dieser Website"
     },
     "title": "Tools",
     "subtitle": "Import, Export und Werkzeuge für die Website",
@@ -3186,7 +3200,8 @@
       "savedToSuffix": "als",
       "savedToTail": "– sofort wirksam, kein Neustart nötig.",
       "working": "Wird verarbeitet… {done}/{total}",
-      "finished": "Fertig: {rebuilt} neu erzeugt, {skipped} übersprungen, {failed} fehlgeschlagen."
+      "finished": "Fertig: {rebuilt} neu erzeugt, {skipped} übersprungen, {failed} fehlgeschlagen.",
+      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
     },
     "manualRestartNeededLog": "Automatischer Neustart nicht möglich – starten Sie manuell in Plesk → Node.js neu"
   },
@@ -3736,6 +3751,43 @@
       "retry": "Erneut versuchen"
     }
   },
+  "cdn": {
+    "title": "CDN",
+    "description": "Verbinde ein CDN, damit Änderungen sofort bei Besuchern ankommen. Immer wenn Justflows den eigenen Cache dieser Website leert, werden auch die Seiten der Website im CDN gelöscht.",
+    "connectionTitle": "Verbindung",
+    "provider": "Anbieter",
+    "docs": "Dokumentation des Anbieters",
+    "noAccount": "Noch kein Konto?",
+    "signup": "{provider}-Konto erstellen",
+    "enabled": "Bei Änderungen an der Website in diesem CDN leeren",
+    "enabledHint": "Deaktiviere dies, um die Einstellungen zu behalten, ohne zu leeren.",
+    "secretSaved": "Gespeichert (…{last4}). Leer lassen, um ihn zu behalten.",
+    "save": "Verbindung speichern",
+    "saved": "CDN-Verbindung gespeichert.",
+    "test": "Verbindung testen",
+    "testing": "Wird getestet…",
+    "testOk": "{provider} hat die Verbindung akzeptiert.",
+    "remove": "Verbindung entfernen",
+    "removeConfirm": "CDN-Verbindung entfernen? Änderungen werden dann nicht mehr in diesem CDN geleert.",
+    "removed": "CDN-Verbindung entfernt.",
+    "environmentFallback": "Diese Installation leert diese Website bereits in einem CDN. Eine Verbindung, die du hier speicherst und aktivierst, wird stattdessen verwendet.",
+    "managedOnPlatform": "Die CDN-Verbindung wird auf der Plattform-Website festgelegt. Hier können Sie den Cache dieser Website leeren.",
+    "purgeUnavailable": "Die Plattform-Website hat noch kein CDN verbunden.",
+    "purgeTitle": "Jetzt leeren",
+    "purgeHint": "Alle zwischengespeicherten Seiten dieser Website im CDN löschen. Justflows macht das auch nach jeder Revalidierung.",
+    "purge": "Diese Website leeren",
+    "purging": "Wird geleert…",
+    "purged": "Leeren angefordert für {urls}.",
+    "failed": "Die CDN-Einstellungen konnten nicht geladen oder gespeichert werden.",
+    "fields": {
+      "bunny": {
+        "apiKey": "API-Schlüssel des Kontos",
+        "apiKeyHint": "Bunny.net → Account settings → API key.",
+        "pullZoneId": "Pull-Zone-ID",
+        "pullZoneIdHint": "Optional. Wird benötigt, um die gesamte Pull Zone auf einmal zu leeren."
+      }
+    }
+  },
   "platform": {
     "title": "Plattform",
     "intro": "Arbeitsbereiche können die Datenbank dieser Installation oder eine separate Datenbank verwenden. Zugangsdaten für eine separate Datenbank bleiben auf der Plattform und werden dem Arbeitsbereich nicht angezeigt.",
@@ -3775,7 +3827,16 @@
     "sites": "Websites",
     "signupEnabled": "Besucher eigene Arbeitsbereiche erstellen lassen",
     "signupHint": "Besucher nutzen die Registrierungsseite, nicht diese Ansicht. Geben Sie einen Hostnamen wie example.com oder localhost ein. Eine Website namens my-site ist dann unter my-site.example.com erreichbar. Diese Websites verwenden die Datenbank dieser Installation. Eine separate Datenbank ist nur verfügbar, wenn Sie den Arbeitsbereich hier erstellen und die Verbindung angeben.",
-    "signupOpen": "Registrierungsseite öffnen"
+    "signupDatabaseHint": "Every new signup creates a workspace in this database. This installation, including the platform site, stays on its own database. The password is stored here and is not shown again.",
+    "passwordKeep": "Leave blank to keep the saved password.",
+    "signupOpen": "Registrierungsseite öffnen",
+    "purgeTitle": "Deleted websites",
+    "purgeHint": "A website marked deleted is removed completely after this many days: pages, users, and files. 0 turns the automatic cleanup off. You can also remove one from the list.",
+    "purgeDays": "Days",
+    "purgeNow": "Delete permanently",
+    "purgeConfirm": "Permanently delete {name}? Pages, users, and files are removed. This cannot be undone.",
+    "purgeFailed": "Could not remove that website.",
+    "purged": "Website removed."
   },
   "signup": {
     "title": "Erstellen Sie Ihre Website",

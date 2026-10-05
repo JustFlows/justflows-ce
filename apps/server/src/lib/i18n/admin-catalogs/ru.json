@@ -63,6 +63,7 @@
     "placeholders": "Заполнители",
     "redirects": "Перенаправления",
     "ai": "ИИ",
+    "cdn": "CDN",
     "platform": "Платформа"
   },
   "webhooks": {
@@ -2655,7 +2656,8 @@
       "recoveryBanner": {
         "subPrefix": "Удалить",
         "subSuffix": "из среды сервера и перезапуск перед тем, как сохранить изменения здесь.",
-        "title": "Регулирование возврата активировано"
+        "title": "Регулирование возврата активировано",
+        "locked": "Платформа заблокировала этот адрес админки. Сохранение выключено, пока эту блокировку не снимут."
       },
       "recoverySection": {
         "bodyPrefix": "Если обратный прокси или кэш блокирует новый адрес, назначьте",
@@ -3133,6 +3135,15 @@
       "sourceManual": "добавлено вами",
       "sourceLearned": "Извлеченные уроки",
       "removeButton": "Удалить"
+    },
+    "deleteWebsite": {
+      "title": "Delete website",
+      "hint": "Removes this website and its address. This cannot be undone. The platform site cannot be deleted here.",
+      "confirmLabel": "Type this site's hostname to confirm",
+      "button": "Delete website",
+      "deleting": "Deleting…",
+      "confirm": "Delete this website? This cannot be undone.",
+      "failed": "Could not delete this website."
     }
   },
   "analytics": {
@@ -3259,7 +3270,8 @@
       "title": "Реакционные изображения",
       "variantWidthsLabel": "Ширина варианта (px, разделенная на запятую)",
       "webpQualityLabel": "Качество WebP",
-      "working": "Работаю... {done}/{total}"
+      "working": "Работаю... {done}/{total}",
+      "managedOnPlatform": "Image sizes belong to the installation. Change them on the platform site. Regenerating still rebuilds this site's images."
     },
     "staticExport": {
       "autoDebounceLabel": "Автомобильный дебют (мс)",
@@ -3339,7 +3351,10 @@
       "theExportFolder": "папка экспорта",
       "thisSitesOrigin": "происхождение этого сайта",
       "title": "Экспорт статичной площадки",
-      "useThisSite": "Используйте этот сайт"
+      "useThisSite": "Используйте этот сайт",
+      "managedOnPlatform": "These settings belong to the installation. Change them on the platform site.",
+      "clearExportHintSite": "удаляет экспорт этого сайта. Отключение автоперестройки не удаляет файлы.",
+      "thisWebsiteExport": "экспорт этого сайта"
     },
     "status": {
       "disabled": "Отключено",
@@ -3734,6 +3749,43 @@
       "retry": "Повторить"
     }
   },
+  "cdn": {
+    "title": "CDN",
+    "description": "Подключите CDN, чтобы изменения сразу видели посетители. Каждый раз, когда Justflows очищает собственный кеш этого сайта, он также очищает страницы сайта в CDN.",
+    "connectionTitle": "Подключение",
+    "provider": "Провайдер",
+    "docs": "Документация провайдера",
+    "noAccount": "Ещё нет аккаунта?",
+    "signup": "Создать аккаунт {provider}",
+    "enabled": "Очищать в этом CDN при изменении сайта",
+    "enabledHint": "Выключите, чтобы сохранить настройки без очистки.",
+    "secretSaved": "Сохранён (…{last4}). Оставьте пустым, чтобы не менять.",
+    "save": "Сохранить подключение",
+    "saved": "Подключение CDN сохранено.",
+    "test": "Проверить подключение",
+    "testing": "Проверка…",
+    "testOk": "{provider} принял подключение.",
+    "remove": "Удалить подключение",
+    "removeConfirm": "Удалить подключение CDN? Изменения больше не будут очищаться в этом CDN.",
+    "removed": "Подключение CDN удалено.",
+    "environmentFallback": "Эта установка уже очищает этот сайт в CDN. Подключение, которое вы сохраните и включите здесь, будет использоваться вместо него.",
+    "managedOnPlatform": "Подключение CDN задаётся на сайте платформы. Здесь можно очистить кэш этого сайта.",
+    "purgeUnavailable": "Сайт платформы ещё не подключил CDN.",
+    "purgeTitle": "Очистить сейчас",
+    "purgeHint": "Очистить все кешированные страницы этого сайта в CDN. Justflows также делает это после каждой ревалидации.",
+    "purge": "Очистить этот сайт",
+    "purging": "Очистка…",
+    "purged": "Очистка запрошена для {urls}.",
+    "failed": "Не удалось загрузить или сохранить настройки CDN.",
+    "fields": {
+      "bunny": {
+        "apiKey": "API-ключ аккаунта",
+        "apiKeyHint": "Bunny.net → Account settings → API key.",
+        "pullZoneId": "ID pull zone",
+        "pullZoneIdHint": "Необязательно. Нужно, чтобы очистить всю pull zone сразу."
+      }
+    }
+  },
   "platform": {
     "title": "Платформа",
     "intro": "Рабочие пространства могут использовать базу данных этой установки или отдельную базу данных. Учётные данные отдельной базы остаются на платформе и не показываются рабочему пространству.",
@@ -3773,7 +3825,16 @@
     "sites": "Сайты",
     "signupEnabled": "Разрешить посетителям создавать собственное рабочее пространство",
     "signupHint": "Посетители используют страницу регистрации, а не этот экран. Введите имя хоста, например example.com или localhost. Сайт с именем my-site тогда будет доступен по адресу my-site.example.com. Эти сайты используют базу данных этой установки. Отдельная база данных доступна только при создании рабочего пространства здесь с указанием подключения.",
-    "signupOpen": "Открыть страницу регистрации"
+    "signupDatabaseHint": "Every new signup creates a workspace in this database. This installation, including the platform site, stays on its own database. The password is stored here and is not shown again.",
+    "passwordKeep": "Leave blank to keep the saved password.",
+    "signupOpen": "Открыть страницу регистрации",
+    "purgeTitle": "Deleted websites",
+    "purgeHint": "A website marked deleted is removed completely after this many days: pages, users, and files. 0 turns the automatic cleanup off. You can also remove one from the list.",
+    "purgeDays": "Days",
+    "purgeNow": "Delete permanently",
+    "purgeConfirm": "Permanently delete {name}? Pages, users, and files are removed. This cannot be undone.",
+    "purgeFailed": "Could not remove that website.",
+    "purged": "Website removed."
   },
   "signup": {
     "title": "Создайте свой сайт",

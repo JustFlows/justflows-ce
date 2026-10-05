@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import { requireRole } from "../../middleware/auth.js";
+import { requireInstallationRoot, requireRole } from "../../middleware/auth.js";
 import { MEDIA_WRITE_ROLES, ROLES } from "../../lib/auth/rbac.js";
 import { formatMb, maxUploadBytes } from "../../lib/media/media-quota.js";
 import multer, { MulterError } from "multer";
@@ -105,7 +105,7 @@ router.get("/settings", requireRole(ROLES.ADMIN), async (_req, res) => {
   }
 });
 
-router.post("/settings", requireRole(ROLES.ADMIN), async (req, res) => {
+router.post("/settings", requireRole(ROLES.ADMIN), requireInstallationRoot, async (req, res) => {
   try {
     res.json(await applyMediaSettings(req.body));
   } catch (err) {

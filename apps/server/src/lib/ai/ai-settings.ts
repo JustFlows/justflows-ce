@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { Request } from "express";
+import { getTenantContext } from "../tenancy/context.js";
 import { getSiteId, getSiteSetting, setSiteSetting } from "../settings/site-settings.js";
 import { getManageApiRateLimit, isManageApiEnabled } from "../http/manage-api-settings.js";
 
@@ -119,12 +120,17 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "0.0.0
 /**
  * The public origin the MCP resource and OAuth issuer are advertised under.
  *
- * `APP_URL` wins when it names a real host; a loopback `APP_URL` (the shipped
- * default) falls back to the request's own origin so a site reached through a
- * tunnel or proxy still advertises the URL the client actually used. The
- * request origin relies on `trust proxy` for the scheme.
+ * On a multisite request this is the site being served, so an agent for one
+ * website is bound to that hostname and cannot be reused on another. A
+ * single-site install keeps `APP_URL` when it names a real host; a loopback
+ * `APP_URL` falls back to the request origin. The request origin relies on
+ * `trust proxy` for the scheme.
  */
 export function publicOrigin(req: Pick<Request, "protocol" | "get">): string {
+  const siteHost = getTenantContext()?.hostname?.trim().toLowerCase();
+  if (siteHost && !LOOPBACK_HOSTS.has(siteHost)) {
+    return `${req.protocol}://${siteHost}`;
+  }
   const configured = process.env.APP_URL?.trim();
   if (configured) {
     try {

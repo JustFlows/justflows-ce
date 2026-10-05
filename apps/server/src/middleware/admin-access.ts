@@ -21,7 +21,15 @@ export function adminAccessGate(req: Request, res: Response, next: NextFunction)
   }
 
   const session = getSession(req);
-  if (!session) { res.redirect("/login"); return; }
+  if (!session) {
+    // A CDN will cache this redirect. On a renamed admin path that is not in
+    // the edge bypass list, the cached 302 sends every later sign-in back to
+    // the login page, including one that just set a session cookie.
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("CDN-Cache-Control", "no-store");
+    res.redirect("/login");
+    return;
+  }
   if (session.role !== "subscriber") { next(); return; }
   getEffectiveAccess(session.userId, session.siteId, session.role)
     .then((access) => {
