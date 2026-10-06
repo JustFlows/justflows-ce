@@ -73,6 +73,22 @@ describe("rewriteResponsiveHtml", () => {
     expect(rewriteResponsiveHtml(html, byUrl)).toBe(html);
   });
 
+  it("ends a script at a close tag with whitespace and rewrites the image after it", () => {
+    const script = `<SCRIPT type="x">'<img src="${DRESS}">'</script\n >`;
+    const out = rewriteResponsiveHtml(`${script}<img src="${DRESS}" alt="">`, byUrl);
+    expect(out.startsWith(script)).toBe(true);
+    expect(out.slice(script.length).startsWith("<picture")).toBe(true);
+  });
+
+  it("protects an unclosed comment and scans repeated comment openers in linear time", () => {
+    const unclosed = `<!-- <img src="${DRESS}" alt="">`;
+    expect(rewriteResponsiveHtml(unclosed, byUrl)).toBe(unclosed);
+    const hostile = "<!--".repeat(50_000);
+    const started = performance.now();
+    expect(rewriteResponsiveHtml(hostile, byUrl)).toBe(hostile);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
   it("keeps eager loading and an id", () => {
     const html = `<img id="hero-photo" src="${DRESS}" alt="" loading="eager">`;
     const out = rewriteResponsiveHtml(html, byUrl);

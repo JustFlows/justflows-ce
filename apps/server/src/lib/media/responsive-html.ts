@@ -29,8 +29,7 @@ import {
 const IMG_RE = /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
 const BG_RE =
   /background-image\s*:\s*url\(\s*(?:&quot;|"|')?(\/uploads\/[^"'()\s&]+)(?:&quot;|"|')?\s*\)/gi;
-const PROTECTED_RE =
-  /<!--[\s\S]*?-->|<script\b[^>]*>[\s\S]*?<\/script>|<textarea\b[^>]*>[\s\S]*?<\/textarea>/gi;
+const PROTECTED_OPEN_RE = /<!--|<script|<textarea/;
 const ATTR_RE = /([:@A-Za-z_][\w:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
 
 interface Replacement {
@@ -57,10 +56,46 @@ export function uploadPath(raw: string): string | null {
   return path;
 }
 
+/** True when `lower[index]` ends a tag name (`<script>`, `</script >`, `<script\n`). */
+function tagNameEnds(lower: string, index: number): boolean {
+  const ch = lower[index];
+  return ch === undefined || ch === ">" || ch === "/" || /\s/.test(ch);
+}
+
+/** Index just past the `</name ...>` that closes a raw-text element, or the end of input. */
+function rawTextEnd(lower: string, name: string, from: number): number {
+  const close = `</${name}`;
+  let at = lower.indexOf(close, from);
+  while (at !== -1 && !tagNameEnds(lower, at + close.length)) at = lower.indexOf(close, at + 1);
+  if (at === -1) return lower.length;
+  const gt = lower.indexOf(">", at + close.length);
+  return gt === -1 ? lower.length : gt + 1;
+}
+
+/**
+ * Comments, `<script>`, and `<textarea>` spans. Scanned with `indexOf` rather
+ * than one lazy regex so hostile input cannot trigger polynomial backtracking,
+ * and close tags with trailing whitespace (`</script >`) still end the span.
+ * An unclosed span runs to the end of the input, as it does in the browser.
+ */
 function protectedSpans(html: string): Array<[number, number]> {
   const spans: Array<[number, number]> = [];
-  for (const match of html.matchAll(PROTECTED_RE)) {
-    if (match.index !== undefined) spans.push([match.index, match.index + match[0].length]);
+  const lower = html.toLowerCase();
+  const opener = new RegExp(PROTECTED_OPEN_RE, "g");
+  let match: RegExpExecArray | null;
+  while ((match = opener.exec(lower)) !== null) {
+    const start = match.index;
+    let end: number;
+    if (match[0] === "<!--") {
+      const close = lower.indexOf("-->", start + 4);
+      end = close === -1 ? lower.length : close + 3;
+    } else {
+      const name = match[0].slice(1);
+      if (!tagNameEnds(lower, start + match[0].length)) continue;
+      end = rawTextEnd(lower, name, start + match[0].length);
+    }
+    spans.push([start, end]);
+    opener.lastIndex = end;
   }
   return spans;
 }

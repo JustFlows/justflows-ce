@@ -278,10 +278,11 @@ describe("requestAppRestart", () => {
 
 describe("restart helper", () => {
   it("is valid JavaScript and refuses to signal pid 1 or a unit that is not a service name", () => {
-    const file = path.join(os.tmpdir(), `jf-restart-helper-${process.pid}.js`);
-    fs.writeFileSync(file, restartHelperSource);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jf-restart-helper-"));
+    const file = path.join(dir, "helper.js");
+    fs.writeFileSync(file, restartHelperSource, { mode: 0o600 });
     const checked = spawnSync(process.execPath, ["--check", file], { encoding: "utf8" });
-    fs.rmSync(file, { force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
     expect(checked.status).toBe(0);
 
     const refused = spawnSync(process.execPath, ["-e", restartHelperSource, "--", "signal", "1", "SIGTERM"], {
