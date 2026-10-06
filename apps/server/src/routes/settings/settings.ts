@@ -16,6 +16,9 @@ import {
   removeEmailSuppression,
 } from "../../lib/email/mail.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
+import { clearSessionCookie } from "../../lib/auth/session.js";
+import { revokeDeviceSession } from "../../lib/auth/device-sessions.js";
+import { deleteCustomerSite } from "../../lib/tenancy/provision.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import type { CommentSettings } from "../../lib/comments/comments-settings.js";
 
@@ -469,6 +472,31 @@ router.delete("/email/suppressions/:id", requireCapability("mail:manage"), async
     if (e instanceof z.ZodError)
       return void res.status(400).json({ error: "Invalid suppression id" });
     sendServerError(res, "email suppression", e);
+  }
+});
+
+router.post("/delete-website", requireRole("administrator"), async (req, res) => {
+  const parsed = z.object({ hostname: z.string().trim().min(1).max(253) }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Type this site's hostname to confirm." });
+    return;
+  }
+  try {
+    const session = req.session!;
+    const result = await deleteCustomerSite(session.siteId, parsed.data.hostname, session.userId);
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+    try {
+      if (session.sid) await revokeDeviceSession(session.sid, session.userId, session.siteId);
+    } catch {
+      // The site is already removed from routing. Signing out still happens below.
+    }
+    clearSessionCookie(res);
+    res.json({ ok: true });
+  } catch (err) {
+    sendServerError(res, "delete website", err);
   }
 });
 

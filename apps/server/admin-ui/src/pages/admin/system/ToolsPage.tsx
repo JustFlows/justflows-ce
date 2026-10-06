@@ -1,6 +1,7 @@
 import { SearchToolsCard } from "../../../components/SearchToolsCard";
 import { useEffect, useRef, useState } from "react";
 import { waitForSiteRestart } from "../../../lib/wait-for-restart.js";
+import { useSession } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 
 interface ImportResult {
@@ -97,6 +98,7 @@ interface StaticExportSettingsResponse {
     appUrl: string;
   };
   envPath: string;
+  siteEnabled?: boolean;
 }
 
 interface StaticExportRunResponse {
@@ -148,6 +150,7 @@ function logVariant(line: string): string {
 
 export default function ToolsPage() {
   const { t } = useT();
+  const installationRoot = useSession().session?.installationRoot === true;
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -206,6 +209,7 @@ export default function ToolsPage() {
   const [sxEnvPath, setSxEnvPath] = useState("");
   const [sxSaving, setSxSaving] = useState(false);
   const [sxSaved, setSxSaved] = useState(false);
+  const [sxSiteEnabled, setSxSiteEnabled] = useState(true);
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const suggestedOrigin = sxRuntimeInfo?.appUrl || browserOrigin;
 
@@ -259,6 +263,7 @@ export default function ToolsPage() {
         setSxSettings(data.settings);
         setSxRuntimeInfo(data.runtime);
         setSxEnvPath(data.envPath);
+        setSxSiteEnabled(data.siteEnabled !== false);
       }
     } catch {
       // non-fatal — the card renders "no export yet"
@@ -286,6 +291,35 @@ export default function ToolsPage() {
       }
       if (data.settings) setSxSettings(data.settings);
       if (data.runtime) setSxRuntimeInfo(data.runtime);
+      if (typeof data.siteEnabled === "boolean") setSxSiteEnabled(data.siteEnabled);
+      setSxSaved(true);
+    } catch (e) {
+      setSxError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSxSaving(false);
+    }
+  }
+
+  async function saveSiteExport() {
+    setSxError(null);
+    setSxSaved(false);
+    setSxSaving(true);
+    try {
+      const res = await fetch("/api/static-export/site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: sxSiteEnabled }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        siteEnabled?: boolean;
+      };
+      if (!res.ok || !data.ok) {
+        setSxError(data.error ?? t("tools.staticExport.saveFailed"));
+        return;
+      }
+      if (typeof data.siteEnabled === "boolean") setSxSiteEnabled(data.siteEnabled);
       setSxSaved(true);
     } catch (e) {
       setSxError(e instanceof Error ? e.message : String(e));
@@ -318,7 +352,9 @@ export default function ToolsPage() {
   }
 
   async function clearStaticExport() {
-    const dir = sxRuntimeInfo?.outDir ?? t("tools.staticExport.theExportFolder");
+    const dir = installationRoot
+      ? (sxRuntimeInfo?.outDir ?? t("tools.staticExport.theExportFolder"))
+      : t("tools.staticExport.thisWebsiteExport");
     if (
       typeof window !== "undefined" &&
       !window.confirm(t("tools.staticExport.clearConfirm", { dir }))
@@ -353,10 +389,17 @@ export default function ToolsPage() {
   }
 
   useEffect(() => {
-    void loadPerformanceSettings().finally(() => setPerfLoading(false));
-    void loadPerfStats();
     void loadSxStatus();
   }, []);
+
+  useEffect(() => {
+    if (!installationRoot) {
+      setPerfLoading(false);
+      return;
+    }
+    void loadPerformanceSettings().finally(() => setPerfLoading(false));
+    void loadPerfStats();
+  }, [installationRoot]);
 
   function addLog(line: string) {
     setLog((l) => [...l, line]);
@@ -499,6 +542,7 @@ export default function ToolsPage() {
         </div>
       </header>
 
+      {installationRoot ? (
       <div className="jf-card">
         <div className="jf-card__head">
           <h2 className="jf-card__title">{t("tools.performance.title")}</h2>
@@ -913,8 +957,9 @@ export default function ToolsPage() {
           )}
         </div>
       </div>
+      ) : null}
 
-      {log.length > 0 && (
+      {installationRoot && log.length > 0 && (
         <div className="jf-log">
           <p className="jf-log__label">{t("tools.performance.logLabel")}</p>
           {log.map((line, i) => (
@@ -1023,7 +1068,7 @@ export default function ToolsPage() {
             )}
           </div>
 
-          {sxSettings && (
+          {installationRoot && sxSettings && (
             <>
               <h3 className="jf-card__subtitle">{t("tools.staticExport.configurationHeading")}</h3>
               <p className="jf-field__hint">
@@ -1274,19 +1319,54 @@ export default function ToolsPage() {
             </>
           )}
 
+          {!installationRoot && sxSettings && (
+            <>
+              <label className="jf-checkrow">
+                <input
+                  type="checkbox"
+                  checked={sxSiteEnabled}
+                  onChange={(e) => {
+                    setSxSiteEnabled(e.target.checked);
+                    setSxSaved(false);
+                  }}
+                  disabled={sxSaving || sxRunning}
+                />
+                <span>{t("tools.staticExport.siteEnabled")}</span>
+              </label>
+              <p className="jf-field__hint">{t("tools.staticExport.siteEnabledHint")}</p>
+              <div className="jf-row">
+                <button
+                  className="jf-btn jf-btn--primary"
+                  onClick={() => void saveSiteExport()}
+                  disabled={sxSaving || sxRunning}
+                >
+                  {sxSaving ? t("tools.staticExport.saving") : t("tools.staticExport.saveSettings")}
+                </button>
+                {sxSaved && !sxSaving && (
+                  <span className="jf-status jf-status--saved">✓ {t("common.saved")}</span>
+                )}
+              </div>
+            </>
+          )}
+
           <hr className="jf-divider" />
 
           {sxSettings && !sxSettings.enabled && (
             <p className="jf-status jf-status--error">
-              {t("tools.staticExport.exportOff")}
+              {installationRoot
+                ? t("tools.staticExport.exportOff")
+                : t("tools.staticExport.exportOffSite")}
             </p>
+          )}
+          {sxSettings?.enabled && !installationRoot && !sxSiteEnabled && (
+            <p className="jf-status jf-status--error">{t("tools.staticExport.siteExportOff")}</p>
           )}
 
           <div className="jf-row">
             <button
               className="jf-btn jf-btn--primary"
               onClick={() => runStaticExport("full")}
-              disabled={sxRunning || sxSaving || sxSettings?.enabled === false}
+              disabled={sxRunning || sxSaving || sxSettings?.enabled === false || (!installationRoot && !sxSiteEnabled)}
             >
               {sxRunning ? t("tools.staticExport.exporting") : t("tools.staticExport.runFullExport")}
             </button>
@@ -1294,7 +1374,11 @@ export default function ToolsPage() {
               className="jf-btn jf-btn--ghost"
               onClick={() => runStaticExport("incremental")}
               disabled={
-                sxRunning || sxSaving || !sxStatus?.hasExport || sxSettings?.enabled === false
+                sxRunning ||
+                sxSaving ||
+                !sxStatus?.hasExport ||
+                sxSettings?.enabled === false ||
+                (!installationRoot && !sxSiteEnabled)
               }
             >
               {t("tools.staticExport.runIncremental")}
@@ -1308,12 +1392,19 @@ export default function ToolsPage() {
             </button>
             {sxError && <span className="jf-status jf-status--error">{sxError}</span>}
           </div>
-          <p className="jf-field__hint">
-            <strong>{t("tools.staticExport.clearExport")}</strong>{" "}
-            {t("tools.staticExport.clearExportHint1")}{" "}
-            <code className="jf-code">{sxRuntimeInfo?.outDir ?? "static-export"}</code>{" "}
-            {t("tools.staticExport.clearExportHint2")}
-          </p>
+          {installationRoot ? (
+            <p className="jf-field__hint">
+              <strong>{t("tools.staticExport.clearExport")}</strong>{" "}
+              {t("tools.staticExport.clearExportHint1")}{" "}
+              <code className="jf-code">{sxRuntimeInfo?.outDir ?? "static-export"}</code>{" "}
+              {t("tools.staticExport.clearExportHint2")}
+            </p>
+          ) : (
+            <p className="jf-field__hint">
+              <strong>{t("tools.staticExport.clearExport")}</strong>{" "}
+              {t("tools.staticExport.clearExportHintSite")}
+            </p>
+          )}
 
           <details>
             <summary className="jf-field__hint" style={{ cursor: "pointer" }}>
@@ -1380,6 +1471,7 @@ interface RegenStatus {
 
 function ResponsiveImagesCard() {
   const { t } = useT();
+  const installationRoot = useSession().session?.installationRoot === true;
   const [settings, setSettings] = useState<MediaSettings | null>(null);
   const [widthsText, setWidthsText] = useState("");
   const [envPath, setEnvPath] = useState("");
@@ -1512,7 +1604,7 @@ function ResponsiveImagesCard() {
 
         {error && <div className="jf-alert jf-alert--error">{error}</div>}
 
-        {settings && (
+        {installationRoot && settings && (
           <>
             <label className="jf-checkrow">
               <input

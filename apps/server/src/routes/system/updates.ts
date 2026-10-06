@@ -4,7 +4,8 @@ import { readUpdateStatus } from "../../lib/updates/core-update-status.js";
 import { runAllMigrations } from "../../lib/database/run-migrations.js";
 import { getDb } from "../../lib/database/db.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
-import { requireRole } from "../../middleware/auth.js";
+import { requireInstallationRoot, requireRole } from "../../middleware/auth.js";
+import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import {
   getAvailableCoreUpdate,
@@ -20,6 +21,17 @@ import multer from "multer";
 import { sendServerError } from "../../lib/http/send-error.js";
 
 const router = Router();
+router.use(requireRole("administrator"));
+// The sidebar reads the installed version on every admin page. A customer site
+// may see that version and nothing else. Installing an update stays on the
+// platform site.
+router.use((req, res, next) => {
+  if (req.method === "GET" && req.path === "/") {
+    next();
+    return;
+  }
+  requireInstallationRoot(req, res, next);
+});
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
 
 /**
@@ -31,6 +43,10 @@ const SSR_DISCOVERY_BUDGET_MS = 2500;
 
 router.get("/", requireRole("administrator"), async (_req, res) => {
   const version = getJustflowsVersion();
+  if (!isInstallationRootRequest()) {
+    res.json({ version, currentVersion: version, updateAvailable: false, updates: [] });
+    return;
+  }
   const update = await Promise.race([
     getAvailableCoreUpdate().catch(() => null),
     new Promise<null>((resolve) => setTimeout(() => resolve(null), SSR_DISCOVERY_BUDGET_MS)),

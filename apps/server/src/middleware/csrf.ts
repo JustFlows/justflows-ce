@@ -10,12 +10,13 @@ const CSRF_HEADER = "x-csrf-token";
  * Paths that run before a session exists, so there is nothing to bind a token
  * to. `/install` is guarded by blockIfInstalled and the first-run window;
  * `/auth/register` by the registration switch and its own rate limits. Login is
- * no longer exempt — see below. `/mcp` authenticates only by its Bearer header
- * and never reads a cookie, so there is no ambient credential to ride; a
- * tokenless request must reach it to get the 401 challenge OAuth discovery
- * starts from.
+ * no longer exempt — see below. `/signup` is the public workspace form: it has
+ * no session cookie to ride, and its own rate limit. `/mcp` authenticates only
+ * by its Bearer header and never reads a cookie, so there is no ambient
+ * credential to ride; a tokenless request must reach it to get the 401
+ * challenge OAuth discovery starts from.
  */
-const SKIP_PREFIXES = ["/auth/register", "/install", "/mcp"];
+const SKIP_PREFIXES = ["/auth/register", "/install", "/mcp", "/signup"];
 
 /**
  * A bearer-token request (the federated management API, `/api/manage/v1`)

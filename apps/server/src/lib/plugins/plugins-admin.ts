@@ -57,7 +57,15 @@ export async function deactivatePluginAdmin(
   actor: PluginAdminActor,
 ): Promise<PluginAdminResult> {
   const { runtimeDeactivatePlugin } = await import("./plugin-runtime.js");
-  await runtimeDeactivatePlugin(actor.siteId, pluginId);
+  const { isInstallationRootSite } = await import("../tenancy/registry.js");
+  const { otherSitesHaveActivePlugin } = await import("./plugin-multisite.js");
+  // The loaded module is shared by every site. Another site turning the plugin
+  // off only changes its own row. Unload it when the main site turns it off
+  // and no other site still has it on.
+  if (await isInstallationRootSite(actor.siteId)) {
+    const others = await otherSitesHaveActivePlugin(pluginId, actor.siteId);
+    if (!others) await runtimeDeactivatePlugin(actor.siteId, pluginId);
+  }
   await deactivatePlugin(actor.siteId, pluginId);
   void auditLog({
     siteId: actor.siteId,

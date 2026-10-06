@@ -262,6 +262,12 @@ function backoff(attempt: number): number {
 }
 
 export async function processDueWebhookDeliveries(): Promise<number> {
+  const { runAcrossDatabases } = await import("../tenancy/connections.js");
+  const counts = await runAcrossDatabases(() => deliverDueWebhooks());
+  return counts.reduce((sum, count) => sum + count, 0);
+}
+
+async function deliverDueWebhooks(): Promise<number> {
   const db = await getDb();
   const now = sqlTime();
   const rows = await db.query<Record<string, unknown>>(

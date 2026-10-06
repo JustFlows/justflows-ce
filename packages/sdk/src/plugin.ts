@@ -47,6 +47,7 @@ export const PluginPermissionSchema = z.enum([
   "mail:templates",
   "mail:hook",
   "auth:hook",
+  "platform:tenancy",
 ]);
 
 export type PluginPermission = z.infer<typeof PluginPermissionSchema>;
@@ -60,6 +61,7 @@ export const SENSITIVE_PERMISSIONS: PluginPermission[] = [
   "mail:transport",
   "mail:templates",
   "mail:hook",
+  "platform:tenancy",
 ];
 
 /** Host/runtime versions exposed to an activated extension. */
@@ -359,6 +361,13 @@ export const PluginManifestSchema = z
      * host may activate it. Ignored for third-party plugins.
      */
     hostCooperative: z.boolean().optional(),
+    /**
+     * When true, the main site may offer this plugin to other sites. Those
+     * sites can activate it and change only their own rows. They cannot
+     * install the package or drop its tables. Omit or false to keep the
+     * plugin on the main site.
+     */
+    allowMultisite: z.boolean().optional(),
     settingsSchema: z
       .record(
         z.string(),
@@ -1070,6 +1079,89 @@ export interface PluginSchemaApplyResult {
   error?: string;
 }
 
+export interface PluginWorkspace {
+  id: string;
+  name: string;
+  slug: string;
+  status: "active" | "suspended" | "provisioning" | "deleted";
+  userMode: "isolated" | "shared";
+  databaseMode: "current" | "separate";
+}
+
+export interface PluginWorkspaceSite {
+  id: string;
+  tenantId: string;
+  name: string;
+  hostname: string | null;
+  status: string;
+  databaseChoice: "inherit" | "current" | "separate";
+}
+
+/** The workspace bound to the current request. No connection secrets. */
+export interface PluginWorkspaceContext {
+  tenantId: string;
+  siteId: string;
+  hostname: string;
+  userMode: "isolated" | "shared";
+  databaseMode: "current" | "separate";
+  /** True on the site created with the installation. */
+  rootSite: boolean;
+}
+
+export interface PluginWorkspaceAdminInput {
+  email: string;
+  username: string;
+  displayName: string;
+  password: string;
+}
+
+export interface PluginWorkspaceDatabaseInput {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+}
+
+export interface PluginCreateWorkspaceInput {
+  name: string;
+  slug?: string;
+  userMode: "isolated" | "shared";
+  databaseMode: "current" | "separate";
+  siteName: string;
+  hostname: string;
+  admin: PluginWorkspaceAdminInput;
+  database?: PluginWorkspaceDatabaseInput;
+}
+
+export interface PluginAddSiteInput {
+  name: string;
+  hostname: string;
+  databaseChoice: "inherit" | "current" | "separate";
+  database?: PluginWorkspaceDatabaseInput;
+  admin?: PluginWorkspaceAdminInput;
+}
+
+export type PluginTenancyResult =
+  | { ok: true; tenantId: string; siteId: string; hostname: string }
+  | { ok: false; status: number; error: string };
+
+/**
+ * Workspace and site placement. `current()` is available to every plugin.
+ * Listing and changing workspaces requires `platform:tenancy`. Stored database
+ * passwords are never returned.
+ */
+export interface PluginTenancyApi {
+  current(): Promise<PluginWorkspaceContext | null>;
+  listWorkspaces(): Promise<PluginWorkspace[]>;
+  listSites(tenantId: string): Promise<PluginWorkspaceSite[]>;
+  createWorkspace(input: PluginCreateWorkspaceInput): Promise<PluginTenancyResult>;
+  addSite(tenantId: string, input: PluginAddSiteInput): Promise<PluginTenancyResult>;
+  suspend(tenantId: string): Promise<PluginTenancyResult>;
+  reactivate(tenantId: string): Promise<PluginTenancyResult>;
+  deleteWorkspace(tenantId: string, options?: { dropDatabase?: boolean }): Promise<PluginTenancyResult>;
+}
+
 export interface PluginDatabasesApi {
   /** Probe the site's existing Justflows database. */
   probeShared(): Promise<PluginDatabaseProbeResult>;
@@ -1090,12 +1182,19 @@ export interface PluginDatabasesApi {
   /**
    * Drop this plugin's prefixed tables. Pass the same `tables` / `target` used
    * with `ensureSchema`. Omit `tables` to drop every table owned by the prefix.
-   * Call this from `deleteData()`.
+   * Call this from `deleteData()` on the main site. Another site cannot drop
+   * the tables: the host deletes that site's rows instead.
    */
   dropSchema(
     tables?: PluginSchemaTable[],
     options?: { target?: PluginDatabaseTarget },
   ): Promise<PluginSchemaApplyResult>;
+
+  /**
+   * Delete this site's rows from the plugin's tables. Tables stay, so other
+   * sites keep their rows. `site_id` is the only match.
+   */
+  clear(tables?: PluginSchemaTable[]): Promise<PluginSchemaApplyResult>;
 
   /**
    * Insert or replace a row in a plugin-owned table (`stores` → `shop_stores`).
@@ -1266,6 +1365,12 @@ export interface PluginContext {
   databases: PluginDatabasesApi;
 
   /**
+   * Workspaces and sites. Read the request with `current()`. Creating,
+   * suspending, and deleting requires `platform:tenancy`.
+   */
+  tenancy: PluginTenancyApi;
+
+  /**
    * The site cookie registry. `declare()` every non-essential cookie this plugin
    * sets so the consent banner can disclose it and expire it on withdrawal;
    * `list()` returns the whole registry (host + all plugins) with operator
@@ -1351,6 +1456,12 @@ export async function pluginShouldDeleteContent(
 export interface PluginModule {
   manifest: PluginManifest;
   activate(ctx: PluginContext): void | Promise<void>;
+  /**
+   * Called when a site activates the plugin and the module is already running
+   * because another site loaded it first. Create tables here. `activate` still
+   * runs the first time the module loads.
+   */
+  provision?(ctx: PluginContext): void | Promise<void>;
   deactivate?(ctx: PluginContext): void | Promise<void>;
   /**
    * Called when the plugin is deleted, before deactivation. Drop tables and

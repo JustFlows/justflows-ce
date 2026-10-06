@@ -230,11 +230,14 @@ router.post("/", async (req, res) => {
 
     emit("step", "Creating your site…");
     const siteId = randomUUID();
+    const tenantId = randomUUID();
+    const { insertInstallTenant, finishInstallTenancy } = await import("../../lib/tenancy/provision.js");
     try {
+      await insertInstallTenant(sql, { tenantId, siteName: site.name, stamp: now() });
       await sql.run(
-        `INSERT INTO sites (id, name, url, description, active, installed_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [siteId, site.name, site.url, site.description ?? null, true, now(), now(), now()],
+        `INSERT INTO sites (id, name, url, description, active, installed_at, created_at, updated_at, tenant_id, status, database_choice)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'inherit')`,
+        [siteId, site.name, site.url, site.description ?? null, true, now(), now(), now(), tenantId],
       );
     } catch (e) {
       console.error("[justflows] install: site row failed:", e);
@@ -265,6 +268,14 @@ router.post("/", async (req, res) => {
     } catch (e) {
       console.error("[justflows] install: admin account failed:", e);
       emit("error", "Could not create the administrator account. Check the server log for details.");
+      res.end();
+      return;
+    }
+    try {
+      await finishInstallTenancy(sql, { tenantId, siteId, siteUrl: site.url, userId, stamp: now() });
+    } catch (e) {
+      console.error("[justflows] install: tenancy seed failed:", e);
+      emit("error", "Could not finish the site record. Check the server log for details.");
       res.end();
       return;
     }

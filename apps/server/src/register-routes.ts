@@ -47,8 +47,12 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startRevisionJobs();
     const { startCoreAutoUpdateJob } = await import("./lib/updates/core-auto-update.js");
     startCoreAutoUpdateJob();
+    const { startExtensionAutoUpdateJob } = await import("./lib/extensions/extension-updates.js");
+    startExtensionAutoUpdateJob();
     const { startTrashPurgeJob } = await import("./lib/content/trash.js");
     startTrashPurgeJob();
+    const { startDeletedSitePurgeJob } = await import("./lib/tenancy/purge-deleted-job.js");
+    startDeletedSitePurgeJob();
     const { startCommentSpamPurgeJob } = await import("./lib/comments/comments-spam-purge.js");
     startCommentSpamPurgeJob();
     try {
@@ -190,6 +194,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/comment-rules", requireInstalled, commentRulesRoutes);
   app.use("/api/comment-spam-terms", requireInstalled, commentSpamTermsRoutes);
   app.use("/api/users", requireInstalled, usersRoutes);
+  app.use("/api/platform", requireInstalled, (await import("./routes/platform/tenants.js")).default);
+  app.use("/api/signup", requireInstalled, (await import("./routes/public/signup.js")).default);
   app.use("/api/settings", requireInstalled, settingsRoutes);
   app.use("/api/emails", requireInstalled, emailsRoutes);
   app.use("/api/security", requireInstalled, securityRoutes);
@@ -223,6 +229,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
   app.use("/api/cookies", requireInstalled, cookiesRoutes);
   app.use("/api/roles", requireInstalled, rolesRoutes);
+  app.use("/api/cdn", requireInstalled, (await import("./routes/settings/cdn.js")).default);
 
   // Cookie-authenticated management of API keys (Admin → Settings → API).
   app.use("/api/api-keys", requireInstalled, apiKeysRoutes);

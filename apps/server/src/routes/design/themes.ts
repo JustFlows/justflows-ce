@@ -64,7 +64,7 @@ import { param } from "../../lib/http/params.js";
 import multer from "multer";
 import { assertPackageIsTrusted } from "../../lib/extensions/package-trust.js";
 import { sendPackageInstallError } from "../../lib/extensions/package-install-error.js";
-import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
+import { packagesInstalledDir, siteThemesDir } from "../../lib/extensions/packages-dir.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { sendServerError } from "../../lib/http/send-error.js";
@@ -451,17 +451,24 @@ router.delete("/:id", requireRole("administrator"), themeDeleteRequestLimit, asy
     }
     if (installedPath) {
       const packagesDir = packagesInstalledDir();
-      const expectedPath = resolvePathUnderBase(
-        packagesDir,
-        "themes",
-        theme.theme_id,
-        theme.version,
-      );
+      // A marketplace package (`themes/<id>/<version>`), this site's own fork
+      // (`sites/<siteId>/themes/<id>`), or a fork saved before per-site
+      // folders (`themes/local.<slug>`).
+      const siteRoot = siteThemesDir(siteId);
+      const expectedPaths = [
+        resolvePathUnderBase(packagesDir, "themes", theme.theme_id, theme.version),
+        siteRoot
+          ? resolvePathUnderBase(packagesDir, path.relative(packagesDir, siteRoot), theme.theme_id)
+          : null,
+        theme.theme_id.startsWith("local.")
+          ? resolvePathUnderBase(packagesDir, "themes", theme.theme_id)
+          : null,
+      ].filter((p): p is string => p !== null);
       const safeInstalledPath = resolvePathUnderBase(
         packagesDir,
         path.relative(packagesDir, installedPath),
       );
-      if (!expectedPath || safeInstalledPath !== expectedPath) {
+      if (!safeInstalledPath || !expectedPaths.includes(safeInstalledPath)) {
         res.status(400).json({ error: "Theme install path is invalid." });
         return;
       }

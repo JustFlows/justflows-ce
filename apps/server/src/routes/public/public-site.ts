@@ -115,6 +115,7 @@ import {
   SITE_CTX_PREFIX,
   THEME_MODS_PREFIX,
 } from "../../lib/cache/public-cache.js";
+import { cacheSiteId } from "../../lib/cache/site-cache-key.js";
 import { getJfCache } from "../../lib/cache/jf-cache.js";
 import { getRuntimeBlockRegistry } from "../../lib/rendering/runtime-blocks.js";
 import type { BlockNode } from "../../lib/runtime/types.js";
@@ -224,7 +225,7 @@ async function layoutForContent(content: { type: string; slug: string; siteId: s
 
 async function loadThemeMods(preview = false): Promise<ReturnType<typeof mergeMods>> {
   return rememberPublic(
-    `${THEME_MODS_PREFIX}${preview ? "preview" : "live"}`,
+    `${THEME_MODS_PREFIX}${cacheSiteId()}:${preview ? "preview" : "live"}`,
     async () => {
       await ensureThemesTable();
       const siteId = await getSiteId();
@@ -260,7 +261,7 @@ async function loadIdentity(
 }
 
 async function loadCssProviderAssets(): Promise<ReturnType<typeof resolveProviderAssets>> {
-  return rememberPublic(`${CSS_PROVIDER_PREFIX}active`, async () => {
+  return rememberPublic(`${CSS_PROVIDER_PREFIX}${cacheSiteId()}:active`, async () => {
     await ensureCssProvidersTable();
     const siteId = await getSiteId();
     if (!siteId) return { stylesheets: [] };
@@ -377,7 +378,7 @@ async function withReusables(blocks: BlockNode[]): Promise<BlockNode[]> {
   if (!siteId) return blocks;
   const { listReusableBlocks, resolveReusableBlocks } = await import("../../lib/rendering/reusable-blocks.js");
   // Cached as an array: a Map does not survive a serializing cache backend.
-  const saved = await rememberPublic("reusable-blocks", () => listReusableBlocks(siteId), false);
+  const saved = await rememberPublic(`reusable-blocks:${siteId}`, () => listReusableBlocks(siteId), false);
   return resolveReusableBlocks(blocks, new Map(saved.map((item) => [item.id, item])));
 }
 
@@ -660,7 +661,7 @@ async function resolvePublicMenuVisibility(
  * the answer itself is cached (under the same menus prefix, invalidated by every menu save) so the
  * common case (no visibility rules) still costs zero extra DB reads once warm. */
 async function menuIsCacheable(siteId: string, menuSlug: string): Promise<boolean> {
-  return rememberPublic(`${MENUS_PREFIX}${menuSlug}:cacheable`, async () => {
+  return rememberPublic(`${MENUS_PREFIX}${siteId}:${menuSlug}:cacheable`, async () => {
     const menu = await getMenuBySlug(siteId, menuSlug);
     return !menu || !menuHasVisibilityRules(getEffectiveMenuItems(menu, false));
   });
@@ -722,7 +723,7 @@ async function loadNavItems(
     resolved = await getNavItemsForMenuSlug(menuSlug, locale, defaultLocale, preview, visibility);
   } else {
     resolved = await rememberPublic(
-      `${MENUS_PREFIX}${menuSlug}:${locale}:${defaultLocale}:${preview ? "preview" : "live"}`,
+      `${MENUS_PREFIX}${cacheSiteId(siteId)}:${menuSlug}:${locale}:${defaultLocale}:${preview ? "preview" : "live"}`,
       () => getNavItemsForMenuSlug(menuSlug, locale, defaultLocale, preview),
       preview,
     );
@@ -738,7 +739,7 @@ async function loadMenuDesign(
   preview: boolean,
 ): Promise<MenuDesign | null> {
   return rememberPublic(
-    `${MENUS_PREFIX}${menuSlug}:design:${preview ? "preview" : "live"}`,
+    `${MENUS_PREFIX}${siteId}:${menuSlug}:design:${preview ? "preview" : "live"}`,
     async () => {
       const menu = await getMenuBySlug(siteId, menuSlug);
       return menu ? getEffectiveMenuDesign(menu, preview) : null;
@@ -1420,7 +1421,7 @@ async function buildPageContext(req: Request, res: Response, reqPath: string, pr
   // default; pages resolve their chosen entry in applyPageHeader below.
   const headerLib: SiteHeaderLibrary = siteId
     ? await rememberPublic(
-        `${SITE_CTX_PREFIX}header:lib:${preview ? "preview" : "live"}`,
+        `${SITE_CTX_PREFIX}${siteId}:header:lib:${preview ? "preview" : "live"}`,
         () => getEffectiveSiteHeaderLibrary(siteId, preview),
         preview,
       )
@@ -1443,7 +1444,7 @@ async function buildPageContext(req: Request, res: Response, reqPath: string, pr
   const activeTheme = siteId ? await getActiveTheme(siteId) : null;
   const footerBlocks = siteId
     ? await rememberPublic(
-        `template-part:footer:${activeTheme?.theme_id ?? "none"}:${preview ? "preview" : "live"}`,
+        `template-part:footer:${siteId}:${activeTheme?.theme_id ?? "none"}:${preview ? "preview" : "live"}`,
         async () => {
           const { getEffectiveTemplatePart } = await import("../../lib/rendering/template-parts.js");
           const stored = await getEffectiveTemplatePart(siteId, "footer", preview);

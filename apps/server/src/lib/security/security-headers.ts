@@ -5,6 +5,7 @@ import path from "node:path";
 import { z } from "zod";
 import { getSiteId, getSiteSetting, setSiteSetting } from "../settings/site-settings.js";
 import { getJfCache } from "../cache/jf-cache.js";
+import { cacheSiteId } from "../cache/site-cache-key.js";
 import { getJfRoot } from "../runtime/jf-root.js";
 
 /**
@@ -748,8 +749,12 @@ const CACHE_TTL_ERROR_SECONDS = 5;
 
 const SECURITY_HEADERS_CACHE_KEY = "security-headers:config";
 
+function securityHeadersCacheKey(): string {
+  return `${SECURITY_HEADERS_CACHE_KEY}:${cacheSiteId()}`;
+}
+
 export function invalidateSecurityHeadersCache(): void {
-  void getJfCache().delete(SECURITY_HEADERS_CACHE_KEY);
+  void getJfCache().delete(securityHeadersCacheKey());
 }
 
 async function loadSecurityHeadersFromDb(): Promise<SecurityHeadersConfig> {
@@ -769,13 +774,13 @@ export async function getSecurityHeadersConfig(): Promise<SecurityHeadersConfig>
 
   try {
     return await cache.remember(
-      SECURITY_HEADERS_CACHE_KEY,
+      securityHeadersCacheKey(),
       CACHE_TTL_SECONDS,
       loadSecurityHeadersFromDb,
     );
   } catch {
     try {
-      return await cache.remember(SECURITY_HEADERS_CACHE_KEY, CACHE_TTL_ERROR_SECONDS, async () =>
+      return await cache.remember(securityHeadersCacheKey(), CACHE_TTL_ERROR_SECONDS, async () =>
         defaultConfig(),
       );
     } catch {

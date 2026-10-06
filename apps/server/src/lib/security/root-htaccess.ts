@@ -46,6 +46,9 @@ Options -Indexes
   # Internal directories — never reachable over HTTP.
   RewriteRule ^(?:apps|packages|scripts|node_modules|data|prisma|migrations|src|dist|build|coverage|test|tests|__tests__|\\.git|\\.github|\\.cache|\\.next|tmp|log|logs|backup|backups|install-token)(?:/|$) - [F,L]
 
+  # Trashed uploads (uploads/<siteId>/.trash/) — kept for restore, never public.
+  RewriteRule (?:^|/)\\.trash(?:/|$) - [F,L]
+
   # Individual project / server files at any depth.
   RewriteCond %{REQUEST_FILENAME} -f
   RewriteRule (?:^|/)(?:server\\.js|ecosystem\\.config\\.js|Dockerfile|docker-compose\\.ya?ml|Makefile|Procfile|pnpm-lock\\.yaml|yarn\\.lock|package(?:-lock)?\\.json|tsconfig(?:\\.[\\w-]+)?\\.json|turbo\\.json|vite\\.config\\.[jt]s|CHANGELOG\\.md|README\\.md)$ - [F,L]

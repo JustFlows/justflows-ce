@@ -1094,4 +1094,10 @@ export const EXCLUDED_OPERATIONS: Record<string, string> = {
   "POST /webhooks/{id}/rotate-secret": "Returns a signing secret; secrets never go into tool results.",
   "POST /static-export/clear": "Deletes the export output from disk; left to the admin.",
   "POST /menus": "Exposed through menus_upsert, which creates the menu when it is missing.",
+  "GET /tenants": "Platform-operator only; workspaces are not managed from an agent session.",
+  "POST /tenants": "Platform-operator only; provisions databases, left to the operator.",
+  "POST /tenants/{id}/sites": "Platform-operator only; provisions databases, left to the operator.",
+  "POST /tenants/{id}/suspend": "Platform-operator only; takes a whole workspace offline.",
+  "POST /tenants/{id}/reactivate": "Platform-operator only; workspace lifecycle is left to the operator.",
+  "DELETE /tenants/{id}": "Platform-operator only; can drop databases, left to the operator.",
 };

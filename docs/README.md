@@ -10,6 +10,7 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Redirect manager](REDIRECTS.md)                      | Redirect rules, 404 reports, URL suggestions, CSV and automation      |
 | [Permalinks](PERMALINKS.md)                           | URL structures, locale prefixes, taxonomy bases, and redirects        |
 | [Architecture](ARCHITECTURE.md)                       | Source/test layout, public rendering, admin SSR, builds, and hosting  |
+| [Multi-site and tenancy](MULTISITE.md)                | Workspaces, host routing, current or separate databases, and signup   |
 | [Naming and structure conventions](CONVENTIONS.md)    | Adding a folder or file: what to name it and where it goes            |
 | [Plugin author guide](PLUGINS.md)                     | First plugin: lifecycle, context, admin pages                         |
 | [Hooks](HOOKS.md)                                     | Actions, gates, and filters                                           |

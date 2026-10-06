@@ -93,5 +93,9 @@
   "en": "BCP 47 language code.",
   "install-token": "Installation token filename.",
   "spam4free.example": "Example domain.",
-  "static-export": "Output directory name."
+  "static-export": "Output directory name.",
+  "my-site": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "site-a.localhost": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "site-b.localhost": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "example.com": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose."
 }

@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-import fs from "node:fs/promises";
-import path from "node:path";
 import { getDb } from "../database/db.js";
-import { uploadsDir } from "../runtime/jf-root.js";
-import { resolvePathUnderBase } from "../security/safe-path.js";
+import { readUpload } from "./upload-store.js";
 import { generateAndStoreVariants, resolveImageConfig } from "./media-responsive.js";
 
 /**
@@ -68,14 +65,8 @@ interface MediaRow {
 }
 
 async function processRow(siteId: string, row: MediaRow): Promise<"done" | "skipped" | "failed"> {
-  const abs = resolvePathUnderBase(uploadsDir(), row.storage_key);
-  if (!abs) return "failed";
-  let buffer: Buffer;
-  try {
-    buffer = await fs.readFile(abs);
-  } catch {
-    return "failed";
-  }
+  const buffer = await readUpload(row.storage_key);
+  if (!buffer) return "failed";
 
   const focalX = row.focal_x == null ? null : Number(row.focal_x);
   const focalY = row.focal_y == null ? null : Number(row.focal_y);

@@ -60,7 +60,7 @@ export async function ensureDefaultLanguages(siteId?: string): Promise<void> {
   const en = metaForCode(DEFAULT_CONTENT_LOCALE);
   await db.run(
     `INSERT INTO languages (id, site_id, code, name, native_name, is_default, is_active, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 1, 1, 0, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, TRUE, TRUE, 0, ?, ?)`,
     [randomUUID(), sid, en.code, en.name, en.nativeName, now(), now()],
   );
 }
@@ -112,7 +112,7 @@ export async function addLanguage(
 
   await db.run(
     `INSERT INTO languages (id, site_id, code, name, native_name, is_default, is_active, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 0, 1, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, FALSE, TRUE, ?, ?, ?)`,
     [id, siteId, meta.code, meta.name, meta.nativeName, sortOrder, now(), now()],
   );
 
@@ -139,7 +139,7 @@ export async function setDefaultLanguageByCode(siteId: string, code: string): Pr
 
 export async function setDefaultLanguage(siteId: string, languageId: string): Promise<void> {
   const db = await getDb();
-  await db.run("UPDATE languages SET is_default = 0, updated_at = ? WHERE site_id = ?", [now(), siteId]);
+  await db.run("UPDATE languages SET is_default = FALSE, updated_at = ? WHERE site_id = ?", [now(), siteId]);
 
   const isDefault = process.env.DB_DRIVER === "postgres" ? true : 1;
   await db.run("UPDATE languages SET is_default = ?, updated_at = ? WHERE id = ? AND site_id = ?", [

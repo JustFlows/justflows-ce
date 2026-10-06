@@ -2,18 +2,41 @@
 
 import type { CacheRevalidatedEvent, CacheRevalidateTrigger, ContentRef } from "@justflows/sdk";
 import { getRuntimeHooks } from "../plugins/plugin-runtime.js";
+import { getTenantContext } from "../tenancy/context.js";
 import { getStaticExportConfig } from "./config.js";
 import { runStaticExport } from "./index.js";
+import { isCurrentSiteStaticExportEnabled } from "./site-enabled.js";
 
 type Unsubscribe = () => void;
 
 let disposers: Unsubscribe[] = [];
 let armed = false;
-let timer: NodeJS.Timeout | null = null;
-let running = false;
-let pendingTriggers = new Set<CacheRevalidateTrigger>();
-let pendingContentIds = new Set<string>();
-let pendingGroupIds = new Set<string>();
+
+/**
+ * Pending work for one site. Revalidations from different sites must never be
+ * coalesced into one run: each site rebuilds into its own export folder. The
+ * timer is scheduled from the site's own request context, which the callback
+ * inherits (tenant + database), so the run targets that site.
+ */
+interface SiteQueue {
+  timer: NodeJS.Timeout | null;
+  running: boolean;
+  triggers: Set<CacheRevalidateTrigger>;
+  contentIds: Set<string>;
+  groupIds: Set<string>;
+}
+
+const queues = new Map<string, SiteQueue>();
+
+function currentQueue(): SiteQueue {
+  const key = getTenantContext()?.siteId ?? "";
+  let queue = queues.get(key);
+  if (!queue) {
+    queue = { timer: null, running: false, triggers: new Set(), contentIds: new Set(), groupIds: new Set() };
+    queues.set(key, queue);
+  }
+  return queue;
+}
 
 /** Strip CR/LF so crawled URLs in exporter output cannot forge log lines
  *  (CodeQL js/log-injection only accepts an empty replacement as a sanitizer). */
@@ -22,26 +45,28 @@ function stripNewlines(value: string): string {
 }
 
 function logLine(line: string): void {
-  console.log(`[justflows] static-export ${stripNewlines(line)}`);
+  const host = getTenantContext()?.hostname;
+  console.log(`[justflows] static-export ${host ? `${stripNewlines(host)} ` : ""}${stripNewlines(line)}`);
 }
 
-async function flush(): Promise<void> {
-  timer = null;
-  if (running) {
+async function flush(queue: SiteQueue): Promise<void> {
+  queue.timer = null;
+  if (queue.running) {
     // A run is in progress; re-arm so the events that arrived meanwhile are honoured.
-    schedule(getStaticExportConfig().debounceMs);
+    schedule(queue, getStaticExportConfig().debounceMs);
     return;
   }
-  const triggers = [...pendingTriggers];
-  const contentIds = [...pendingContentIds];
-  const translationGroupIds = [...pendingGroupIds];
-  pendingTriggers = new Set();
-  pendingContentIds = new Set();
-  pendingGroupIds = new Set();
+  const triggers = [...queue.triggers];
+  const contentIds = [...queue.contentIds];
+  const translationGroupIds = [...queue.groupIds];
+  queue.triggers = new Set();
+  queue.contentIds = new Set();
+  queue.groupIds = new Set();
   if (triggers.length === 0) return;
 
-  running = true;
+  queue.running = true;
   try {
+    if (!(await isCurrentSiteStaticExportEnabled())) return;
     const globalTrigger = triggers.find((t) => t !== "content");
     // A non-content trigger means chrome changed → rebuild everything. Otherwise
     // use the content ids we captured so the run stays targeted.
@@ -61,15 +86,16 @@ async function flush(): Promise<void> {
   } catch (err) {
     logLine(`rebuild failed: ${err instanceof Error ? err.message : String(err)}`);
   } finally {
-    running = false;
-    if (pendingTriggers.size > 0) schedule(getStaticExportConfig().debounceMs);
+    queue.running = false;
+    if (queue.triggers.size > 0) schedule(queue, getStaticExportConfig().debounceMs);
   }
 }
 
-function schedule(delayMs: number): void {
-  if (timer) clearTimeout(timer);
-  timer = setTimeout(() => void flush(), delayMs);
+function schedule(queue: SiteQueue, delayMs: number): void {
+  if (queue.timer) clearTimeout(queue.timer);
+  const timer = setTimeout(() => void flush(queue), delayMs);
   if (typeof timer.unref === "function") timer.unref();
+  queue.timer = timer;
 }
 
 function teardown(): void {
@@ -81,9 +107,9 @@ function teardown(): void {
     }
   }
   disposers = [];
-  if (timer) {
-    clearTimeout(timer);
-    timer = null;
+  for (const queue of queues.values()) {
+    if (queue.timer) clearTimeout(queue.timer);
+    queue.timer = null;
   }
   armed = false;
 }
@@ -102,18 +128,30 @@ export function refreshStaticExportAutoRebuild(): void {
   if (!cfg.enabled || !cfg.auto) return;
 
   const hooks = getRuntimeHooks();
+  const remember = (apply: (queue: SiteQueue) => void) => {
+    void isCurrentSiteStaticExportEnabled()
+      .then((allowed) => {
+        if (!allowed) return;
+        const queue = currentQueue();
+        apply(queue);
+        schedule(queue, cfg.debounceMs);
+      })
+      .catch(() => undefined);
+  };
   disposers.push(
     hooks.action("cache.revalidated", (event: CacheRevalidatedEvent) => {
-      pendingTriggers.add(event.trigger);
-      schedule(cfg.debounceMs);
+      void remember((queue) => {
+        queue.triggers.add(event.trigger);
+      });
     }),
   );
   // Capture the specific ids so a content change can stay a targeted rebuild.
   const noteContent = (event: ContentRef) => {
-    if (event.contentId) pendingContentIds.add(event.contentId);
-    if (event.translationGroupId) pendingGroupIds.add(event.translationGroupId);
-    pendingTriggers.add("content");
-    schedule(cfg.debounceMs);
+    void remember((queue) => {
+      if (event.contentId) queue.contentIds.add(event.contentId);
+      if (event.translationGroupId) queue.groupIds.add(event.translationGroupId);
+      queue.triggers.add("content");
+    });
   };
   for (const hook of ["content.published", "content.unpublished", "content.deleted"] as const) {
     disposers.push(hooks.action(hook, noteContent));

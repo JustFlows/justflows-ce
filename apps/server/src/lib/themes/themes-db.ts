@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getDb } from "../database/db.js";
 import { runAllMigrations } from "../database/run-migrations.js";
+import { getSiteId } from "../settings/site-settings.js";
 import { DEFAULT_THEME_CSS_VARS } from "./theme-customize.js";
 import { themesDir } from "./theme-files.js";
 import { randomUUID } from "node:crypto";
@@ -34,11 +35,7 @@ export async function ensureThemesTable(): Promise<void> {
   await runAllMigrations(db, driver);
 }
 
-export async function getSiteId(): Promise<string | null> {
-  const db = await getDb();
-  const rows = await db.query<{ id: string }>("SELECT id FROM sites LIMIT 1");
-  return rows[0]?.id ?? null;
-}
+export { getSiteId };
 
 export async function ensureDefaultTheme(siteId: string): Promise<void> {
   const db = await getDb();
@@ -247,6 +244,42 @@ export async function insertTheme(
       JSON.stringify(theme.manifest),
       now(),
       now(),
+    ],
+  );
+}
+
+/**
+ * Point an installed theme at a newer package. Status, activation, and the
+ * customizer mods (stored separately) are kept; package defaults are replaced.
+ */
+export async function updateThemePackage(
+  siteId: string,
+  themeId: string,
+  theme: {
+    name: string;
+    version: string;
+    publisher: string;
+    description?: string;
+    cssVariables: Record<string, string>;
+    manifest: Record<string, unknown>;
+  },
+): Promise<void> {
+  const db = await getDb();
+  await db.run(
+    `UPDATE themes
+        SET name = ?, version = ?, publisher = ?, description = ?,
+            css_variables = ?, manifest = ?, updated_at = ?
+      WHERE site_id = ? AND theme_id = ?`,
+    [
+      theme.name,
+      theme.version,
+      theme.publisher,
+      theme.description ?? null,
+      JSON.stringify(theme.cssVariables),
+      JSON.stringify(theme.manifest),
+      now(),
+      siteId,
+      themeId,
     ],
   );
 }

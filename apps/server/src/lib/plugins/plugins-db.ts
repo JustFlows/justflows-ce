@@ -36,6 +36,10 @@ export interface PluginDto {
     localized?: boolean;
   }>;
   setupPath?: string;
+  /** The package allows the main site to offer it to other sites. */
+  allowMultisite?: boolean;
+  /** The main site has turned that offer on. */
+  multisiteEnabled?: boolean;
 }
 
 export function pluginsDir(): string {
@@ -186,6 +190,7 @@ export function pluginToDto(row: PluginRow): PluginDto {
     status: row.status,
     settingsSchema,
     setupPath: setupPathFromManifest(manifest),
+    allowMultisite: manifest.allowMultisite === true,
   };
 }
 
@@ -263,7 +268,7 @@ export async function syncBundledPlugins(siteId: string): Promise<void> {
     await db.run(
       `INSERT INTO plugins
          (id, site_id, plugin_id, version, status, manifest, approved_permissions, safe_mode, installed_at, updated_at)
-       VALUES (?, ?, ?, ?, 'inactive', ?, ?, 0, ?, ?)`,
+       VALUES (?, ?, ?, ?, 'inactive', ?, ?, FALSE, ?, ?)`,
       [
         randomUUID(),
         siteId,
@@ -322,7 +327,7 @@ export async function insertPlugin(
   await db.run(
     `INSERT INTO plugins
        (id, site_id, plugin_id, version, status, manifest, approved_permissions, safe_mode, installed_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, ?, ?)`,
     [
       id,
       siteId,

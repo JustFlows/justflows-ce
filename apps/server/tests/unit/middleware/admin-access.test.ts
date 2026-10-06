@@ -18,7 +18,10 @@ function fakeReq(path: string, cookieValue?: string): Request {
 }
 
 function fakeRes() {
-  return { redirect: vi.fn() } as unknown as Response & { redirect: ReturnType<typeof vi.fn> };
+  return { redirect: vi.fn(), setHeader: vi.fn() } as unknown as Response & {
+    redirect: ReturnType<typeof vi.fn>;
+    setHeader: ReturnType<typeof vi.fn>;
+  };
 }
 
 describe("adminAccessGate", () => {
@@ -30,6 +33,8 @@ describe("adminAccessGate", () => {
     adminAccessGate(req, res, next);
 
     expect(res.redirect).toHaveBeenCalledWith("/login");
+    expect(res.setHeader).toHaveBeenCalledWith("Cache-Control", "private, no-store");
+    expect(res.setHeader).toHaveBeenCalledWith("CDN-Cache-Control", "no-store");
     expect(next).not.toHaveBeenCalled();
   });
 

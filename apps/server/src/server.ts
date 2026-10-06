@@ -6,7 +6,8 @@ import path from "node:path";
 import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 
-import { uploadsDir, getJfRoot, viewsDir } from "./lib/runtime/jf-root.js";
+import { getJfRoot, viewsDir } from "./lib/runtime/jf-root.js";
+import { uploadsHandler } from "./lib/media/upload-serve.js";
 import { isInstalled } from "./middleware/install-guard.js";
 import { installToken, installTokenRequired } from "./lib/installation/install-token.js";
 import { serveAdminI18n } from "./lib/i18n/admin-catalog.js";
@@ -19,6 +20,7 @@ import { browserCacheMiddleware, staticMaxAgeMs } from "./middleware/browser-cac
 import { rateLimit } from "express-rate-limit";
 import { adminClientDir, adminClientIndex } from "./lib/admin/admin-ssr.js";
 import { requestContext } from "./middleware/request-context.js";
+import { rejectForeignSiteId, tenantContext, uploadsSiteGuard } from "./middleware/tenant-context.js";
 import { getPluginLoader } from "./lib/plugins/plugin-runtime.js";
 
 let corePromise: Promise<void> | null = null;
@@ -118,28 +120,18 @@ export function createApp(): express.Application {
   app.use(createGzipMiddleware());
   app.use(cacheTraceMiddleware);
   app.use(browserCacheMiddleware);
-  // Registered before anything that can send a response so every route
-  // inherits the policy — csrfProtection included, since it answers 403 itself
-  // and those responses used to go out bare.
+  // The site has to be known before security headers and the object cache,
+  // both of which are stored per site. csrfProtection still runs after the
+  // headers, so its own 403 keeps the policy.
+  app.use(tenantContext);
+  app.use(rejectForeignSiteId);
   app.use(securityHeaders);
 
   app.use("/api", csrfProtection);
 
   const staticMaxAge = staticMaxAgeMs();
-  app.use(
-    "/uploads",
-    express.static(uploadsDir(), {
-      maxAge: staticMaxAge,
-      setHeaders: (res, filePath) => {
-        // A PDF rendered inline runs in this origin's context, where its own
-        // scripting and form actions apply. Uploads are user content, so hand
-        // them to the viewer as a download instead.
-        if (filePath.toLowerCase().endsWith(".pdf")) {
-          res.setHeader("Content-Disposition", "attachment");
-        }
-      },
-    }),
-  );
+  // Local folder or S3 bucket, per STORAGE_DRIVER (see lib/media/upload-serve.ts).
+  app.use("/uploads", uploadsSiteGuard, uploadsHandler(staticMaxAge));
   app.use(
     express.static(path.join(getJfRoot(), "public"), {
       maxAge: staticMaxAge,
@@ -206,6 +198,7 @@ export function createApp(): express.Application {
   app.get("/login", authPageRateLimit, withCsrfCookie);
   app.get("/register", authPageRateLimit, withCsrfCookie);
   app.get("/forgot-password", authPageRateLimit, withCsrfCookie);
+  app.get("/signup", authPageRateLimit, withCsrfCookie);
   // The OAuth consent screen for MCP connectors (#159). Like /login it is served
   // without SSR data; the page signs the user in first when needed.
   app.get("/oauth/consent", authPageRateLimit, (req: express.Request, res: express.Response) => {

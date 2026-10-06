@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "../../../admin-router";
 import { useSessionRole } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
+import {
+  ExtensionAutoUpdateToggle,
+  ExtensionUpdateBadge,
+  ExtensionUpdateButton,
+  ExtensionUpdatesBar,
+  useExtensionUpdates,
+} from "@components/ExtensionUpdates";
 
 interface Theme {
   id: string;
@@ -50,6 +57,7 @@ export default function ThemesPage() {
   const [uploadSuccess, setUploadSuccess] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const updates = useExtensionUpdates(canManage);
 
   useEffect(() => {
     fetch("/api/themes")
@@ -233,6 +241,8 @@ export default function ThemesPage() {
           </div>
         </div>
       ) : (
+        <>
+        {canManage && <ExtensionUpdatesBar state={updates} />}
         <div className="jf-cardgrid">
           {themes.map((theme) => {
             const isActive = theme.active || theme.status === "active";
@@ -248,9 +258,25 @@ export default function ThemesPage() {
                         {t("common.active")}
                       </span>
                     )}
+                    {canManage && <ExtensionUpdateBadge state={updates} type="theme" id={themeId} />}
                   </div>
                   {theme.description && <p className="jf-list__desc">{theme.description}</p>}
                   <p className="jf-meta">{t("themes.versionByPublisher", { version: theme.version, publisher: theme.publisher })}</p>
+                  {canManage && (
+                    <>
+                      <ExtensionUpdateButton
+                        state={updates}
+                        type="theme"
+                        id={themeId}
+                        block
+                        onUpdated={(result) => {
+                          setThemes((list) => list.map((item) =>
+                            (item.theme_id ?? item.id) === result.id ? { ...item, version: result.version } : item));
+                        }}
+                      />
+                      <ExtensionAutoUpdateToggle state={updates} type="theme" id={themeId} />
+                    </>
+                  )}
                   {isActive ? (
                     <Link to="/admin/themes/customize" className="jf-btn jf-btn--primary jf-btn--block">
                       {t("themes.customize")}
@@ -278,6 +304,7 @@ export default function ThemesPage() {
             );
           })}
         </div>
+        </>
       )}
 
       {canManage && (

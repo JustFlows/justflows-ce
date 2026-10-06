@@ -8,9 +8,15 @@ and blog layouts.
 
 `resolveThemeDir` in `apps/server/src/lib/themes/theme-files.ts`:
 
-1. The theme's stored `installedPath` (uploaded `.jfpkg`)
+1. The theme's stored `installedPath` (uploaded `.jfpkg`, or a saved fork)
 2. `packages-installed/themes/<id>/` (latest version folder)
 3. Bundled `themes/<slug>/` (id `justflows.default` → `themes/default`)
+
+"Save as new theme" writes the fork to the site's own folder,
+`packages-installed/sites/<siteId>/themes/local.<slug>/`. It holds that site's
+templates and Customizer values, and only that site's theme row points at it.
+Forks saved earlier stay in `packages-installed/themes/local.<slug>/` and keep
+working; deleting one removes its folder.
 
 A directory is a theme if it contains `justflows-theme.json` or
 `justflows.json`.
