@@ -62,6 +62,17 @@ function formatDate(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
+/** The saved site address as an http(s) link, or "" when it is not one. */
+function safeHttpUrl(value: string | null | undefined): string {
+  if (!value) return "";
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+  } catch {
+    return "";
+  }
+}
+
 function asKind(value: string): DomainDraft["kind"] {
   if (value === "subdomain" || value === "custom") return value;
   return "primary";
@@ -189,7 +200,7 @@ export default function PlatformSitePage() {
   }
 
   const locked = record != null && record.site.status !== "active" && record.site.status !== "suspended";
-  const openUrl = /^https?:\/\//i.test(url) ? url : "";
+  const openUrl = safeHttpUrl(record?.site.url);
   const goBack = () => navigate("/admin/platform");
 
   if (!record) {
