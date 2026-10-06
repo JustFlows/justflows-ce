@@ -9,6 +9,7 @@ import { logSafe } from "../lib/security/log-safe.js";
 import { getMcpRateLimit, isMcpEnabled, mcpResourceUrl, publicOrigin } from "../lib/ai/ai-settings.js";
 import { ACCESS_TOKEN_PREFIX, verifyAccessToken } from "../lib/ai/oauth/oauth-store.js";
 import { principalFromApiKey, principalFromGrant, type AgentPrincipal } from "../lib/ai/tools/principal.js";
+import { sessionMatchesRequestSite } from "../lib/tenancy/access.js";
 import { bearerToken, ipAllowed, originAllowed } from "./api-key-auth.js";
 
 declare global {
@@ -81,6 +82,11 @@ export function mcpAuth(req: Request, res: Response, next: NextFunction): void {
         challenge(req, res, true);
         return;
       }
+      if (!sessionMatchesRequestSite(verified.grant.siteId)) {
+        await auditFailure(req, verified.grant.siteId, verified.grant.id);
+        challenge(req, res, true);
+        return;
+      }
       req.agentPrincipal = principalFromGrant(verified.grant, verified.role);
       next();
       return;
@@ -100,7 +106,12 @@ export function mcpAuth(req: Request, res: Response, next: NextFunction): void {
     }
     const { record, owner, rejection } = verified;
     const ip = clientIp(req);
-    if (rejection || !ipAllowed(record, ip) || !originAllowed(record, req.get("origin") ?? undefined)) {
+    if (
+      rejection ||
+      !sessionMatchesRequestSite(owner.siteId) ||
+      !ipAllowed(record, ip) ||
+      !originAllowed(record, req.get("origin") ?? undefined)
+    ) {
       await auditFailure(req, owner.siteId, record.id);
       challenge(req, res, true);
       return;

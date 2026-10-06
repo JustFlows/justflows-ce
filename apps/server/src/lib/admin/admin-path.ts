@@ -26,7 +26,13 @@ const RESERVED_FIRST_SEGMENTS = new Set([
   "sitemap.xml",
 ]);
 
-let cached: AdminPathConfig | null = null;
+/** Per site. A single slot made the first site's path apply to every hostname. */
+const cachedBySite = new Map<string, AdminPathConfig>();
+
+export function clearAdminPathCache(siteId?: string): void {
+  if (siteId) cachedBySite.delete(siteId);
+  else cachedBySite.clear();
+}
 
 export function validateAdminPath(value: unknown): string {
   if (typeof value !== "string") throw new Error("Admin path must be a string.");
@@ -67,12 +73,13 @@ export async function getAdminPathConfig(): Promise<AdminPathConfig> {
       oldPathBehavior: "not_found",
     };
   }
-  if (cached) return cached;
   const siteId = await getSiteId();
-  cached = siteId
-    ? normalize(await getSiteSetting(siteId, ADMIN_PATH_SETTING_KEY))
-    : { ...DEFAULT_CONFIG };
-  return cached;
+  if (!siteId) return { ...DEFAULT_CONFIG };
+  const hit = cachedBySite.get(siteId);
+  if (hit) return hit;
+  const config = normalize(await getSiteSetting(siteId, ADMIN_PATH_SETTING_KEY));
+  cachedBySite.set(siteId, config);
+  return config;
 }
 
 export async function saveAdminPathConfig(config: AdminPathConfig): Promise<AdminPathConfig> {
@@ -83,7 +90,7 @@ export async function saveAdminPathConfig(config: AdminPathConfig): Promise<Admi
     oldPathBehavior: config.oldPathBehavior === "redirect" ? "redirect" : "not_found",
   };
   await setSiteSetting(siteId, ADMIN_PATH_SETTING_KEY, normalized);
-  cached = normalized;
+  cachedBySite.set(siteId, normalized);
   return normalized;
 }
 

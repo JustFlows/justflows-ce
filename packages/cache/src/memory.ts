@@ -1,4 +1,5 @@
 import type { CacheAdapter } from "./adapter.js";
+import { cacheKeyMatchesPrefix } from "./site-key.js";
 
 interface Entry<T> {
   value: T;
@@ -37,7 +38,7 @@ export class MemoryCache implements CacheAdapter {
 
   async invalidate(prefix: string): Promise<void> {
     for (const key of this.store.keys()) {
-      if (key.startsWith(prefix)) this.store.delete(key);
+      if (cacheKeyMatchesPrefix(key, prefix)) this.store.delete(key);
     }
   }
 

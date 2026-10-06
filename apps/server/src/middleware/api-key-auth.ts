@@ -14,6 +14,7 @@ import { isManageApiEnabled } from "../lib/http/manage-api-settings.js";
 import { publicOrigin } from "../lib/ai/ai-settings.js";
 import { ACCESS_TOKEN_PREFIX, verifyAccessToken } from "../lib/ai/oauth/oauth-store.js";
 import { principalFromGrant } from "../lib/ai/tools/principal.js";
+import { sessionMatchesRequestSite } from "../lib/tenancy/access.js";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -98,6 +99,10 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
         deny(res);
         return;
       }
+      if (!sessionMatchesRequestSite(grant.grant.siteId)) {
+        deny(res);
+        return;
+      }
       const principal = principalFromGrant(grant.grant, grant.role);
       req.apiKey = principal.key;
       req.apiKeyOwner = principal.owner;
@@ -130,7 +135,7 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
     const { record, owner, rejection } = verified;
     req.apiKeyOwner = owner;
 
-    if (rejection || !(await isManageApiEnabled())) {
+    if (rejection || !sessionMatchesRequestSite(owner.siteId) || !(await isManageApiEnabled())) {
       await auditFailure(req, record.id);
       deny(res);
       return;

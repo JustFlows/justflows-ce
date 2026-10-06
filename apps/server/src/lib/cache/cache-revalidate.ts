@@ -1,6 +1,8 @@
 import type { CacheObjectType, CacheRevalidateTrigger } from "@justflows/sdk";
 import { parseEnvBool } from "@justflows/core";
 import { getJfCache } from "./jf-cache.js";
+import { scopeCacheKeyTo } from "./site-cache-key.js";
+import { getTenantContext } from "../tenancy/context.js";
 import {
   CSS_PROVIDER_PREFIX,
   MENUS_PREFIX,
@@ -9,6 +11,7 @@ import {
   THEME_MODS_PREFIX,
 } from "./public-cache.js";
 import { getRuntimeHooks } from "../plugins/plugin-runtime.js";
+import { purgeCdnCache } from "../cdn/cdn-purge.js";
 
 export const CACHE_OBJECT_TYPES: readonly CacheObjectType[] = [
   "pages",
@@ -114,8 +117,9 @@ export async function revalidateOnUpdate(
   }
 
   const cache = getJfCache();
+  const siteId = opts?.siteId ?? getTenantContext()?.siteId;
   for (const obj of objects) {
-    await cache.invalidate(PREFIX_BY_OBJECT[obj]);
+    await cache.invalidate(scopeCacheKeyTo(siteId, PREFIX_BY_OBJECT[obj]));
   }
 
   try {
@@ -126,6 +130,15 @@ export async function revalidateOnUpdate(
     );
   } catch {
     // hooks must not break cache invalidation
+  }
+
+  try {
+    await purgeCdnCache({
+      siteId: typeof siteId === "string" ? siteId : undefined,
+      hostname: getTenantContext()?.hostname,
+    });
+  } catch {
+    // A CDN failure must not fail the save that cleared the local cache.
   }
 
   return { revalidated: objects, skipped: false };

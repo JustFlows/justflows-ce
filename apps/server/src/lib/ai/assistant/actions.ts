@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-import fs from "node:fs/promises";
 import { z } from "zod";
 import { getMediaItem } from "../../media/media-write.js";
 import { getDb } from "../../database/db.js";
-import { uploadsDir } from "../../runtime/jf-root.js";
-import { resolvePathUnderBase } from "../../security/safe-path.js";
+import { readUpload } from "../../media/upload-store.js";
 import { keyCan } from "../../auth/api-keys.js";
 import { getRuntimeBlockRegistry } from "../../rendering/runtime-blocks.js";
 import { describeBlockCatalog, validateAgentBlockDocument } from "../agent-blocks.js";
@@ -168,9 +166,7 @@ export async function runEditorAction(
       if (!item) throw new ActionError("Media not found.", 404);
       const mimeType = String(item.mimeType ?? "");
       if (!/^image\/(jpeg|png|gif|webp)$/.test(mimeType)) throw new ActionError("Alt text can only be generated for JPEG, PNG, GIF or WebP images.");
-      const file = resolvePathUnderBase(uploadsDir(), String(item.storageKey ?? ""));
-      if (!file) throw new ActionError("Media not found.", 404);
-      const data = await fs.readFile(file).catch(() => null);
+      const data = await readUpload(String(item.storageKey ?? ""));
       if (!data) throw new ActionError("The image file could not be read.", 404);
       if (data.length > 5 * 1024 * 1024) throw new ActionError("The image is too large to describe (5 MB limit).");
       const out = await complete(

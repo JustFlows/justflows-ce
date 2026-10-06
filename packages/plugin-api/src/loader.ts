@@ -15,6 +15,7 @@ import {
   type PluginMailTransportApi,
   type PluginSecretsApi,
   type PluginDatabasesApi,
+  type PluginTenancyApi,
   type PluginUsersApi,
   type PluginBlockDefinition,
   type PluginContentApi,
@@ -53,6 +54,10 @@ export type PluginDatabasesFactory = (
   siteId: string,
   permissions: ReadonlySet<PluginPermission>,
 ) => PluginDatabasesApi;
+export type PluginTenancyFactory = (
+  pluginId: string,
+  permissions: ReadonlySet<PluginPermission>,
+) => PluginTenancyApi;
 export type PluginContentFactory = (pluginId: string, siteId: string) => PluginContentApi;
 export type PluginUsersFactory = (
   pluginId: string,
@@ -135,11 +140,37 @@ const NULL_DATABASES: PluginDatabasesApi = {
   }),
   ensureSchema: async () => ({ ok: false, error: "Database schema is not available", tables: [] }),
   dropSchema: async () => ({ ok: false, error: "Database schema is not available", tables: [] }),
+  clear: async () => ({ ok: false, error: "Database schema is not available", tables: [] }),
   upsert: async () => undefined,
   findOne: async () => undefined,
   find: async () => [],
   delete: async () => undefined,
   columns: async () => [],
+};
+
+const NULL_TENANCY: PluginTenancyApi = {
+  current: async () => null,
+  listWorkspaces: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  listSites: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  createWorkspace: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  addSite: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  suspend: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  reactivate: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
+  deleteWorkspace: async () => {
+    throw new Error("Workspace management is not available in this runtime");
+  },
 };
 
 const NULL_USERS: PluginUsersApi = {
@@ -172,6 +203,7 @@ export class PluginLoader {
   private readonly mailFactory: PluginMailFactory;
   private readonly secretsFactory: PluginSecretsFactory;
   private readonly databasesFactory: PluginDatabasesFactory;
+  private readonly tenancyFactory: PluginTenancyFactory;
   private readonly contentFactory: PluginContentFactory;
   private readonly usersFactory: PluginUsersFactory;
   private readonly i18nProvider: PluginI18nProvider;
@@ -202,6 +234,7 @@ export class PluginLoader {
       mailFactory?: PluginMailFactory;
       secretsFactory?: PluginSecretsFactory;
       databasesFactory?: PluginDatabasesFactory;
+      tenancyFactory?: PluginTenancyFactory;
       contentFactory?: PluginContentFactory;
       usersFactory?: PluginUsersFactory;
       i18nProvider?: PluginI18nProvider;
@@ -249,6 +282,7 @@ export class PluginLoader {
     this.secretsFactory = options?.secretsFactory ?? (() => NULL_SECRETS);
     this.databasesFactory =
       options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
+    this.tenancyFactory = options?.tenancyFactory ?? (() => NULL_TENANCY);
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
     this.usersFactory = options?.usersFactory ?? (() => NULL_USERS);
     this.i18nProvider =
@@ -356,9 +390,14 @@ export class PluginLoader {
   async activate(pluginId: string, siteId: string): Promise<void> {
     const entry = this.plugins.get(pluginId);
     if (!entry) throw new Error(`Plugin "${pluginId}" is not registered`);
-    if (entry.state === "active") return;
 
     const ctx = this.buildContext(entry.manifest, siteId);
+    // Another site may already have loaded the module. The main site still
+    // needs `provision` so its tables are created in every site database.
+    if (entry.state === "active") {
+      await entry.module.provision?.(ctx);
+      return;
+    }
 
     try {
       await entry.module.activate(ctx);
@@ -638,6 +677,7 @@ export class PluginLoader {
       data,
       secrets: this.secretsFactory(pluginId, siteId),
       databases: this.databasesFactory(pluginId, siteId, permissions),
+      tenancy: this.tenancyFactory(pluginId, permissions),
       cookies: {
         declare: (cookie) => this.cookieRegistry.declare(pluginId, cookie),
         list: async () =>

@@ -15,6 +15,7 @@ export const PRE_AUTH_PATHS = [
   "/forgot-password",
   "/reset-password",
   "/oauth/consent",
+  "/signup",
 ] as const;
 
 export function isPreAuthPath(pathname: string): boolean {

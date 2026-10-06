@@ -71,7 +71,17 @@ router.get("/me", requireSession, async (req, res) => {
   const session = req.session!;
   const { getEffectiveAccess } = await import("../../lib/auth/access-policy.js");
   const access = await getEffectiveAccess(session.userId, session.siteId, session.role);
-  res.json({ id: session.userId, email: session.email, role: session.role, roleId: access.roleId, capabilities: access.capabilities });
+  const tenancy = await import("../../lib/tenancy/access.js");
+  const operator = await tenancy.isPlatformOperator(session.userId);
+  res.json({
+    id: session.userId,
+    email: session.email,
+    role: session.role,
+    roleId: access.roleId,
+    capabilities: access.capabilities,
+    platformOperator: operator,
+    installationRoot: tenancy.isInstallationRootRequest(),
+  });
 });
 
 /**
@@ -126,33 +136,26 @@ router.post("/login", loginRequestLimit, async (req, res) => {
   }
 
   try {
-    const db = await getDb();
-    // Scoped to the site. Registration enforces uniqueness per site_id, so two
-    // accounts can legitimately share an address across sites — an unscoped
-    // lookup then picked whichever row the database returned first, which is
-    // not a decision authentication should be leaving to row order.
     const siteId = await getSiteId();
-    type UserRow = {
-      id: string;
-      site_id: string;
-      email: string;
-      password_hash: string;
-      role: string;
-      token_version: number | null;
-    };
-    const rows = siteId
-      ? await db.query<UserRow>(
-          "SELECT id, site_id, email, password_hash, role, token_version FROM users WHERE site_id = ? AND email = ? LIMIT 1",
-          [siteId, normalizedEmail],
-        )
-      : // No site row yet means the install did not finish; fall back rather
-        // than lock the owner out of a half-built site.
-        await db.query<UserRow>(
-          "SELECT id, site_id, email, password_hash, role, token_version FROM users WHERE email = ? LIMIT 1",
-          [normalizedEmail],
-        );
-
-    const user = rows[0];
+    if (!siteId) {
+      await new Promise((r) => setTimeout(r, 300 + Math.random() * 200));
+      res.status(401).json({ error: "Invalid email or password" });
+      return;
+    }
+    const { findLoginAccount } = await import("../../lib/tenancy/access.js");
+    const account = await findLoginAccount(siteId, normalizedEmail);
+    const user = account
+      ? {
+          id: account.id,
+          site_id: account.siteId,
+          home_site_id: account.homeSiteId,
+          email: account.email,
+          password_hash: account.password_hash,
+          role: account.role,
+          token_version: account.token_version,
+        }
+      : undefined;
+    const db = await getDb();
     const valid = user ? await verifyPassword(password, user.password_hash) : false;
 
     if (!user || !valid) {
@@ -181,7 +184,7 @@ router.post("/login", loginRequestLimit, async (req, res) => {
     // neither — this must not become an oracle for "that address exists and has
     // 2FA". The rate limits above already counted this attempt.
     const { getTotpState, consumeRecoveryCode } = await import("../../lib/auth/totp-db.js");
-    const totpState = await getTotpState(user.id, user.site_id);
+    const totpState = await getTotpState(user.id, user.home_site_id);
     if (totpState.enabled) {
       const supplied = body.data.totp?.trim() ?? "";
       if (!supplied) {
@@ -194,7 +197,7 @@ router.post("/login", loginRequestLimit, async (req, res) => {
       const { verifyTotp } = await import("../../lib/auth/totp.js");
       const codeOk =
         verifyTotp(totpState.secret ?? "", supplied) ||
-        (await consumeRecoveryCode(user.id, user.site_id, supplied));
+        (await consumeRecoveryCode(user.id, user.home_site_id, supplied));
 
       if (!codeOk) {
         void auditLog({

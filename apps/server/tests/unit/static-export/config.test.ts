@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { assertExportOrigin, getStaticExportConfig, stripTrailingSlashes } from "../../../src/lib/static-export/config.js";
 import { getJfRoot } from "../../../src/lib/runtime/jf-root.js";
+import { runWithTenant, type TenantRequestContext } from "../../../src/lib/tenancy/context.js";
 
 const saved = { ...process.env };
 beforeEach(() => {
@@ -11,6 +12,7 @@ beforeEach(() => {
   delete process.env.STATIC_EXPORT_BASE_URL;
   delete process.env.STATIC_EXPORT_CRAWL_URL;
   delete process.env.STATIC_EXPORT_DIR;
+  delete process.env.STATIC_EXPORT_ORIGIN_URL;
   delete process.env.PORT;
   process.env.NODE_ENV = "test";
 });
@@ -114,5 +116,51 @@ describe("getStaticExportConfig — outDir containment", () => {
       process.env.STATIC_EXPORT_DIR = bad;
       expect(getStaticExportConfig().outDir).toBe(defaultDir);
     }
+  });
+});
+
+describe("getStaticExportConfig — multisite isolation", () => {
+  const site = (hostname: string, rootSite: boolean): TenantRequestContext => ({
+    tenantId: "t1",
+    siteId: `site-${hostname}`,
+    hostname,
+    userMode: "isolated",
+    databaseMode: "current",
+    rootSite,
+    activePluginIds: null,
+  });
+
+  it("keeps the root site in the shared export folder", () => {
+    const cfg = runWithTenant(site("localhost", true), () => getStaticExportConfig());
+    expect(cfg.outDir).toBe(path.resolve(getJfRoot(), "static-export"));
+  });
+
+  it("gives a secondary site its own sibling folder, never inside the root export", () => {
+    const cfg = runWithTenant(site("demo.localhost", false), () => getStaticExportConfig());
+    expect(cfg.outDir).toBe(path.resolve(getJfRoot(), "static-export-sites", "demo.localhost"));
+  });
+
+  it("nests a secondary site under a configured STATIC_EXPORT_DIR", () => {
+    process.env.STATIC_EXPORT_DIR = "dist/site";
+    const cfg = runWithTenant(site("demo.localhost", false), () => getStaticExportConfig());
+    expect(cfg.outDir).toBe(path.resolve(getJfRoot(), "dist/site-sites", "demo.localhost"));
+  });
+
+  it("crawls and publishes a secondary site under its own hostname, ignoring the root's env", () => {
+    process.env.PORT = "3000";
+    process.env.APP_URL = "http://localhost:3000";
+    process.env.STATIC_EXPORT_ORIGIN_URL = "https://origin.example.com";
+    const cfg = runWithTenant(site("demo.localhost", false), () => getStaticExportConfig());
+    expect(cfg.baseUrl).toBe("http://demo.localhost:3000");
+    expect(cfg.publicUrl).toBe("http://demo.localhost:3000");
+    expect(cfg.originUrl).toBe("");
+  });
+
+  it("allows a site's own hostname as crawl origin but not the root's APP_URL", () => {
+    process.env.APP_URL = "https://www.example.com";
+    runWithTenant(site("demo.example.com", false), () => {
+      expect(assertExportOrigin("https://demo.example.com")).toBe("https://demo.example.com");
+      expect(() => assertExportOrigin("https://www.example.com")).toThrow();
+    });
   });
 });

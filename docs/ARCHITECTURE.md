@@ -185,6 +185,13 @@ handlers, or the client entry. New initial GET requests must be added to the
 route-aware prefetch list in `apps/server/src/lib/admin/admin-ssr.ts` or replaced with
 a server loader, and should have an SSR test.
 
+## Multi-site routing
+
+The host is resolved to one workspace before content, media, or admin handlers
+run. Routing lives in the installation database. A workspace that chose a
+separate database is queried through that connection for the rest of the
+request. See [Multi-site and tenancy](MULTISITE.md).
+
 ## Scheduled content lifecycle
 
 The server owns persisted publishing/expiry deadlines and the

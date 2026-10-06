@@ -184,6 +184,17 @@ export const MANAGE_API_OPENAPI = {
       patch: op("Change site settings", "settings:manage"),
     },
 
+    "/tenants": {
+      get: op("List workspaces and sites. The key's user must be a platform operator. Passwords are never returned.", "platform operator"),
+      post: op("Create a workspace on the current database or a separate one", "platform operator", { "201": { description: "Created" } }),
+    },
+    "/tenants/{id}/sites": {
+      post: op("Add a site. Choose inherit, current, or separate", "platform operator", { "201": { description: "Created" } }),
+    },
+    "/tenants/{id}/suspend": { post: op("Suspend a workspace", "platform operator") },
+    "/tenants/{id}/reactivate": { post: op("Reactivate a workspace", "platform operator") },
+    "/tenants/{id}": { delete: op("Mark a workspace deleted. dropDatabase drops only that workspace's separate databases", "platform operator") },
+
     "/plugins": { get: op("List installed plugins", "plugins:read") },
     "/plugins/{id}/activate": { post: op("Activate a plugin", "plugins:activate") },
     "/plugins/{id}/deactivate": { post: op("Deactivate a plugin", "plugins:activate") },

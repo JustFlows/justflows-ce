@@ -88,12 +88,12 @@ interface PluginAdminSet {
   routes: PluginAdminRouteInfo[];
 }
 
-let cache: { at: number; sets: PluginAdminSet[] } | null = null;
+const caches = new Map<string, { at: number; sets: PluginAdminSet[] }>();
 const TTL_MS = 15_000;
 
 /** Drop the memo — call after a plugin activates / deactivates / is removed. */
 export function clearPluginAdminAppCache(): void {
-  cache = null;
+  caches.clear();
 }
 
 function extname(rel: string): string {
@@ -156,8 +156,7 @@ export function parseAdminAppSpec(
   return routes.length ? { dir, routes, ...(Object.keys(locales).length ? { locales } : {}) } : null;
 }
 
-async function loadPluginAdminSets(): Promise<PluginAdminSet[]> {
-  const siteId = await getSiteId();
+async function loadPluginAdminSets(siteId: string): Promise<PluginAdminSet[]> {
   if (!siteId) return [];
 
   const db = await getDb();
@@ -245,17 +244,23 @@ async function loadPluginAdminSets(): Promise<PluginAdminSet[]> {
   return out;
 }
 
-async function getAdminSets(): Promise<PluginAdminSet[]> {
+async function getAdminSets(siteId?: string): Promise<PluginAdminSet[]> {
+  const id = siteId ?? (await getSiteId()) ?? "";
   const now = Date.now();
-  if (cache && now - cache.at < TTL_MS) return cache.sets;
-  const sets = await loadPluginAdminSets().catch(() => [] as PluginAdminSet[]);
-  cache = { at: now, sets };
+  const cached = caches.get(id);
+  if (cached && now - cached.at < TTL_MS) return cached.sets;
+  const sets = await loadPluginAdminSets(id).catch(() => [] as PluginAdminSet[]);
+  caches.set(id, { at: now, sets });
   return sets;
 }
 
-/** Every admin screen contributed by an active plugin, for the sidebar / frame host. */
-export async function getPluginAdminRoutes(): Promise<PluginAdminRouteInfo[]> {
-  const sets = await getAdminSets();
+/**
+ * Admin screens of plugins active on `siteId`. Omit `siteId` to use the
+ * request site. One site's active plugin must not supply another's menu:
+ * the main site can keep Shop on while another site has it off.
+ */
+export async function getPluginAdminRoutes(siteId?: string): Promise<PluginAdminRouteInfo[]> {
+  const sets = await getAdminSets(siteId);
   return sets.flatMap((set) => set.routes);
 }
 

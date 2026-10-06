@@ -130,6 +130,7 @@ describe("csrfProtection exemptions", () => {
   it("still exempts the pre-session bootstrap paths", () => {
     expect(run({ path: "/install" }).passed).toBe(true);
     expect(run({ path: "/auth/register" }).passed).toBe(true);
+    expect(run({ path: "/signup" }).passed).toBe(true);
   });
 
   it("accepts login after the session cookie is gone when the anonymous token is present", () => {

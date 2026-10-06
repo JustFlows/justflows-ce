@@ -8,14 +8,19 @@ import type {
   PluginSchemaTable,
 } from "@justflows/sdk";
 import type { DbClient } from "../database/db.js";
+
 import { isLocalDatabaseHost, probeDatabase, probeSharedDatabase } from "../database/db-probe.js";
 import {
   applyPluginSchema,
+  deletePluginSiteRows,
   dropPluginSchema,
   isPluginOwnedTable,
+  listPluginOwnedTables,
   openTargetDatabase,
   pluginTableName,
 } from "./plugin-schema.js";
+import { mayDropPluginTables, otherSitesHavePlugin } from "./plugin-multisite.js";
+import { pluginCallSiteId } from "./request-site.js";
 import {
   PLUGIN_HOST_SCHEMA_ITEM,
   PLUGIN_HOST_SCHEMA_PASSWORD_ITEM,
@@ -93,6 +98,72 @@ async function openHandle(
   };
 }
 
+async function applySchemaRemoval(
+  pluginId: string,
+  siteId: string,
+  permissions: ReadonlySet<PluginPermission> | ReadonlySet<string>,
+  tables: PluginSchemaTable[] | undefined,
+  options: { target?: PluginDatabaseTarget } | undefined,
+  allowDrop: boolean,
+): Promise<{ ok: boolean; tables: string[]; error?: string }> {
+  let target = options?.target;
+  let knownTables: string[] | undefined;
+  try {
+    if (siteId) {
+      const recorded = await recordedTarget(pluginId, siteId);
+      knownTables = recorded.tables;
+      if (!target && recorded.target) target = recorded.target;
+    }
+  } catch {
+    // Plugin-supplied arguments are enough when host metadata is missing.
+  }
+
+  const { isInstallationRootSite } = await import("../tenancy/registry.js");
+  const root = siteId ? await isInstallationRootSite(siteId) : true;
+  const others = siteId ? await otherSitesHavePlugin(pluginId, siteId) : false;
+  const drop = allowDrop && mayDropPluginTables({ installationRoot: root, otherSitesUsePlugin: others });
+  if (drop) {
+    return dropPluginSchema({
+      pluginId,
+      ...(tables ? { tables } : {}),
+      ...(target ? { target } : {}),
+      ...(knownTables ? { knownTables } : {}),
+      allowRemote: permissions.has("network:outbound"),
+    });
+  }
+
+  const driver: PluginDatabaseDriver = target?.driver
+    ?? ((process.env.DB_DRIVER as PluginDatabaseDriver | undefined) || "mysql");
+  let db: DbClient | undefined;
+  let close = false;
+  try {
+    const known = tables?.length
+      ? tables.map((table) => pluginTableName(pluginId, table.name))
+      : (knownTables ?? []);
+    if (target) {
+      if (!isLocalDatabaseHost(target.host) && !permissions.has("network:outbound")) {
+        return {
+          ok: false,
+          tables: [],
+          error: `Plugin "${pluginId}" cannot change a remote database without the "network:outbound" permission.`,
+        };
+      }
+      db = await openTargetDatabase(target);
+      close = true;
+    } else {
+      const { getDb } = await import("../database/db.js");
+      db = await getDb();
+    }
+    const cleared = await deletePluginSiteRows(db, pluginId, siteId, driver, known);
+    return { ok: true, tables: cleared };
+  } catch (err) {
+    const { sanitizeProbeError } = await import("../database/db-probe.js");
+    return { ok: false, tables: [], error: sanitizeProbeError(err) };
+  } finally {
+    if (close) await db?.close();
+  }
+}
+
 export function createPluginDatabasesApi(
   pluginId: string,
   siteId: string,
@@ -113,13 +184,45 @@ export function createPluginDatabasesApi(
       return probeDatabase(target);
     },
     async ensureSchema(tables: PluginSchemaTable[], options?: { target?: PluginDatabaseTarget; rebuild?: string[] }) {
+      const sid = pluginCallSiteId(siteId);
+      const { isInstallationRootSite } = await import("../tenancy/registry.js");
+      const root = await isInstallationRootSite(sid);
+      if (!root && !options?.target) {
+        if (options?.rebuild?.length) {
+          return { ok: false, tables: [], error: "Only the main site can change this plugin's tables." };
+        }
+        const driver = (process.env.DB_DRIVER as PluginDatabaseDriver | undefined) || "mysql";
+        const { getDb } = await import("../database/db.js");
+        const existing = await listPluginOwnedTables(await getDb(), pluginId, driver);
+        if (existing.length === 0) {
+          return {
+            ok: false,
+            tables: [],
+            error: "The main site has to set up this plugin before another site can use it.",
+          };
+        }
+        return { ok: true, tables: existing };
+      }
+      const rebuild = root ? options?.rebuild : undefined;
       const result = await applyPluginSchema({
         pluginId,
         tables,
         ...(options?.target ? { target: options.target } : {}),
-        ...(options?.rebuild?.length ? { rebuild: options.rebuild } : {}),
+        ...(rebuild?.length ? { rebuild } : {}),
         allowRemote: permissions.has("network:outbound"),
       });
+      if (result.ok && root && !options?.target) {
+        const { runOnSeparateDatabases } = await import("../tenancy/connections.js");
+        const others = await runOnSeparateDatabases(() =>
+          applyPluginSchema({
+            pluginId,
+            tables,
+            allowRemote: permissions.has("network:outbound"),
+          }),
+        );
+        const failed = others.find((item) => !item.ok);
+        if (failed) return failed;
+      }
       if (result.ok) {
         try {
           await recordAppliedPluginSchema(pluginId, result.tables, options?.target);
@@ -130,31 +233,19 @@ export function createPluginDatabasesApi(
       return result;
     },
     async dropSchema(tables?: PluginSchemaTable[], options?: { target?: PluginDatabaseTarget }) {
-      let target = options?.target;
-      let knownTables: string[] | undefined;
-      try {
-        const sid = siteId || (await getSiteId()) || "";
-        if (sid) {
-          const recorded = await recordedTarget(pluginId, sid);
-          knownTables = recorded.tables;
-          if (!target && recorded.target) target = recorded.target;
-        }
-      } catch {
-        // Plugin-supplied arguments are enough when host metadata is missing.
-      }
-      return dropPluginSchema({
-        pluginId,
-        ...(tables ? { tables } : {}),
-        ...(target ? { target } : {}),
-        ...(knownTables ? { knownTables } : {}),
-        allowRemote: permissions.has("network:outbound"),
-      });
+      const sid = pluginCallSiteId(siteId) || (await getSiteId()) || "";
+      return applySchemaRemoval(pluginId, sid, permissions, tables, options, true);
+    },
+    async clear(tables?: PluginSchemaTable[]) {
+      const sid = pluginCallSiteId(siteId) || (await getSiteId()) || "";
+      return applySchemaRemoval(pluginId, sid, permissions, tables, undefined, false);
     },
     async upsert(table, row, options) {
+      const sid = pluginCallSiteId(siteId);
       const tableName = ownedTable(pluginId, table);
-      const handle = await openHandle(pluginId, siteId, permissions);
+      const handle = await openHandle(pluginId, sid, permissions);
       const match = (options?.match?.length ? options.match : ["id"]).filter((col) => IDENT.test(col));
-      const payload: Record<string, Scalar> = { ...row, site_id: siteId };
+      const payload: Record<string, Scalar> = { ...row, site_id: sid };
       const columns = Object.keys(payload).filter((col) => IDENT.test(col));
       if (columns.length === 0) return;
       try {
@@ -164,13 +255,13 @@ export function createPluginDatabasesApi(
           const clause = whereCols.map((col) => `${quoteIdent(col, handle.driver)} = ?`).join(" AND ");
           const rows = await handle.db.query<{ id: string }>(
             `SELECT id FROM ${quoteIdent(tableName, handle.driver)} WHERE ${quoteIdent("site_id", handle.driver)} = ? AND ${clause} LIMIT 1`,
-            [siteId, ...whereCols.map((col) => payload[col] ?? null)],
+            [sid, ...whereCols.map((col) => payload[col] ?? null)],
           );
           existingId = rows[0]?.id ? asString(rows[0].id) : undefined;
         } else {
           const rows = await handle.db.query<{ id: string }>(
             `SELECT id FROM ${quoteIdent(tableName, handle.driver)} WHERE ${quoteIdent("site_id", handle.driver)} = ? LIMIT 1`,
-            [siteId],
+            [sid],
           );
           existingId = rows[0]?.id ? asString(rows[0].id) : undefined;
         }
@@ -179,7 +270,7 @@ export function createPluginDatabasesApi(
           if (updates.length === 0) return;
           await handle.db.run(
             `UPDATE ${quoteIdent(tableName, handle.driver)} SET ${updates.map((col) => `${quoteIdent(col, handle.driver)} = ?`).join(", ")} WHERE ${quoteIdent("site_id", handle.driver)} = ? AND ${quoteIdent("id", handle.driver)} = ?`,
-            [...updates.map((col) => payload[col] ?? null), siteId, existingId],
+            [...updates.map((col) => payload[col] ?? null), sid, existingId],
           );
           return;
         }
@@ -192,8 +283,9 @@ export function createPluginDatabasesApi(
       }
     },
     async findOne(table, where = {}) {
+      const sid = pluginCallSiteId(siteId);
       const tableName = ownedTable(pluginId, table);
-      const handle = await openHandle(pluginId, siteId, permissions);
+      const handle = await openHandle(pluginId, sid, permissions);
       const filters = Object.entries(where).filter(([col]) => IDENT.test(col));
       try {
         const clause = [
@@ -202,7 +294,7 @@ export function createPluginDatabasesApi(
         ].join(" AND ");
         const rows = await handle.db.query<Record<string, unknown>>(
           `SELECT * FROM ${quoteIdent(tableName, handle.driver)} WHERE ${clause} LIMIT 1`,
-          [siteId, ...filters.map(([, value]) => value)],
+          [sid, ...filters.map(([, value]) => value)],
         );
         return rows[0];
       } catch {
@@ -212,8 +304,9 @@ export function createPluginDatabasesApi(
       }
     },
     async find(table, where = {}, options) {
+      const sid = pluginCallSiteId(siteId);
       const tableName = ownedTable(pluginId, table);
-      const handle = await openHandle(pluginId, siteId, permissions);
+      const handle = await openHandle(pluginId, sid, permissions);
       const filters = Object.entries(where).filter(([col]) => IDENT.test(col));
       const limit = Math.min(Math.max(1, Math.trunc(options?.limit ?? 100)), 500);
       try {
@@ -223,7 +316,7 @@ export function createPluginDatabasesApi(
         ].join(" AND ");
         return await handle.db.query<Record<string, unknown>>(
           `SELECT * FROM ${quoteIdent(tableName, handle.driver)} WHERE ${clause} LIMIT ?`,
-          [siteId, ...filters.map(([, value]) => value), limit],
+          [sid, ...filters.map(([, value]) => value), limit],
         );
       } catch {
         return [];
@@ -232,12 +325,13 @@ export function createPluginDatabasesApi(
       }
     },
     async delete(table, where) {
+      const sid = pluginCallSiteId(siteId);
       const tableName = ownedTable(pluginId, table);
       const filters = Object.entries(where).filter(([col]) => IDENT.test(col));
       if (filters.length === 0) {
         throw new Error(`Plugin "${pluginId}" cannot delete from "${table}" without a column match`);
       }
-      const handle = await openHandle(pluginId, siteId, permissions);
+      const handle = await openHandle(pluginId, sid, permissions);
       try {
         const clause = [
           `${quoteIdent("site_id", handle.driver)} = ?`,
@@ -245,15 +339,16 @@ export function createPluginDatabasesApi(
         ].join(" AND ");
         await handle.db.run(
           `DELETE FROM ${quoteIdent(tableName, handle.driver)} WHERE ${clause}`,
-          [siteId, ...filters.map(([, value]) => value)],
+          [sid, ...filters.map(([, value]) => value)],
         );
       } finally {
         if (handle.close) await handle.db.close();
       }
     },
     async columns(table) {
+      const sid = pluginCallSiteId(siteId);
       const tableName = ownedTable(pluginId, table);
-      const handle = await openHandle(pluginId, siteId, permissions);
+      const handle = await openHandle(pluginId, sid, permissions);
       try {
         if (handle.driver === "postgres") {
           const rows = await handle.db.query<{ column_name: string }>(

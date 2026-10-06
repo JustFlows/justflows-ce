@@ -3,7 +3,8 @@
 /**
  * "Save as new theme" — materialise the active theme plus this site's
  * customisations (Customizer mods, template overrides, footer, home/blog
- * layouts) into a standalone theme package under `packages-installed/themes/`.
+ * layouts) into a standalone theme package under the site's own folder,
+ * `packages-installed/sites/<siteId>/themes/`. Other sites never see it.
  *
  * The fork is independent: later edits to the original theme, or to the site's
  * overrides, do not touch it, and it can be exported or activated like any
@@ -15,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { resolvePathUnderBase } from "../security/safe-path.js";
-import { packagesInstalledDir } from "../extensions/packages-dir.js";
+import { packagesInstalledDir, siteThemesDir } from "../extensions/packages-dir.js";
 import { resolveThemeDir } from "./theme-files.js";
 import { getActiveTheme, getTheme, insertTheme, themeInstalledPath } from "./themes-db.js";
 import {
@@ -51,14 +52,20 @@ async function uniqueThemeId(
   siteId: string,
   base: string,
 ): Promise<{ themeId: string; dir: string }> {
-  const root = resolvePathUnderBase(packagesInstalledDir(), "themes");
-  if (!root) throw new Error("packages-installed/themes is not writable");
+  const root = siteThemesDir(siteId);
+  if (!root) throw new Error("The site's theme folder is not writable");
+  // Forks saved before per-site folders live in the shared themes folder.
+  const legacyRoot = resolvePathUnderBase(packagesInstalledDir(), "themes");
   for (let n = 1; n < 200; n++) {
     const slug = n === 1 ? base : `${base}-${n}`;
     const themeId = `local.${slug}`;
     const dir = resolvePathUnderBase(root, themeId);
     if (!dir) continue;
     if (fs.existsSync(dir)) continue;
+    // Keep ids distinct from a legacy shared fork, which the id-based theme
+    // folder lookup could otherwise resolve to.
+    const legacyDir = legacyRoot ? resolvePathUnderBase(legacyRoot, themeId) : null;
+    if (legacyDir && fs.existsSync(legacyDir)) continue;
     if (await getTheme(siteId, themeId)) continue;
     return { themeId, dir };
   }
@@ -87,6 +94,7 @@ export async function forkActiveTheme(
   const { themeId, dir: destDir } = await uniqueThemeId(siteId, slugify(name));
 
   // 1. Copy the theme's own files (styles, patterns, templates, parts, demo).
+  fs.mkdirSync(path.dirname(destDir), { recursive: true });
   fs.cpSync(srcDir, destDir, { recursive: true });
 
   const sub = (...p: string[]): string => {

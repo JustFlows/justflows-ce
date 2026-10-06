@@ -7,6 +7,7 @@ import { assetPathsFromCss, isCssPath, originHost } from "./assets.js";
 import {
   assertExportOrigin,
   getStaticExportConfig,
+  secondaryExportSite,
   STATIC_EXPORT_HEADER,
   stripTrailingSlashes,
   type StaticExportConfig,
@@ -41,6 +42,7 @@ import {
 import { getAdminPathConfig } from "../admin/admin-path.js";
 import { getPerformanceConfig } from "../cache/performance-settings.js";
 import { normalizeUrlPath, urlPathToFile } from "./paths.js";
+import { isCurrentSiteStaticExportEnabled } from "./site-enabled.js";
 import { redirectStubHtml, writeExport, type OutputFile } from "./write-fs.js";
 
 export interface RunStaticExportOptions {
@@ -199,7 +201,10 @@ async function verifyOrigin(origin: string): Promise<OriginVerdict> {
  * Throws with a pointed message when nothing usable answers.
  */
 async function resolveCrawlOrigin(baseUrl: string, log: (line: string) => void): Promise<string> {
-  const appUrl = stripTrailingSlashes(process.env.APP_URL?.trim() ?? "");
+  // APP_URL is the root site's origin; a secondary site only crawls itself.
+  const appUrl = secondaryExportSite()
+    ? ""
+    : stripTrailingSlashes(process.env.APP_URL?.trim() ?? "");
   const requested = appUrl && appUrl !== baseUrl ? [baseUrl, appUrl] : [baseUrl];
 
   // `assertExportOrigin` is the single gate every fetch below sits behind
@@ -407,6 +412,9 @@ export async function runStaticExport(
     throw new Error(
       "Static export is disabled (STATIC_EXPORT_ENABLED=0). Enable it in Admin → Tools.",
     );
+  }
+  if (!options.force && !(await isCurrentSiteStaticExportEnabled())) {
+    throw new Error("Static export is turned off for this website.");
   }
 
   const crawlBase = await resolveCrawlOrigin(cfg.baseUrl, log);

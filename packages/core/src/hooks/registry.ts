@@ -151,6 +151,8 @@ export class HooksRegistry {
   private readonly maxDepth: number;
   private readonly freezeEvents: boolean;
   private readonly timing: boolean;
+  private pluginSiteGate: ((pluginId: string, siteId: string) => boolean) | null = null;
+  private currentSiteId: (() => string | undefined) | null = null;
 
   private seq = 0;
 
@@ -161,6 +163,25 @@ export class HooksRegistry {
     this.maxDepth = options.maxDepth ?? 32;
     this.freezeEvents = options.freezeEvents ?? false;
     this.timing = this.slowHandlerMs > 0;
+  }
+
+  /**
+   * Skip plugin handlers that are not active for the request site.
+   * Core handlers have no plugin id and always run. With no current site, nothing is skipped.
+   */
+  setPluginSiteGate(
+    gate: ((pluginId: string, siteId: string) => boolean) | null,
+    currentSiteId?: () => string | undefined,
+  ): void {
+    this.pluginSiteGate = gate;
+    this.currentSiteId = currentSiteId ?? null;
+  }
+
+  private pluginAllowed(reg: Registration, context: HookContext): boolean {
+    if (!reg.pluginId || !this.pluginSiteGate) return true;
+    const siteId = context.siteId ?? this.currentSiteId?.();
+    if (!siteId) return true;
+    return this.pluginSiteGate(reg.pluginId, siteId);
   }
 
   // ─── Registration ────────────────────────────────────────────────────────
@@ -295,7 +316,7 @@ export class HooksRegistry {
     try {
       for (let i = 0; i < list.length; i++) {
         const reg = list[i];
-        if (reg === undefined || reg.removed || reg.disabled) continue;
+        if (reg === undefined || reg.removed || reg.disabled || !this.pluginAllowed(reg, context)) continue;
         if (reg.once) this.remove(this.actions, reg);
 
         const started = this.timing ? performance.now() : 0;
@@ -331,7 +352,7 @@ export class HooksRegistry {
   ): Promise<void> | undefined {
     for (let i = start; i < list.length; i++) {
       const reg = list[i];
-      if (reg === undefined || reg.removed || reg.disabled) continue;
+      if (reg === undefined || reg.removed || reg.disabled || !this.pluginAllowed(reg, context)) continue;
       if (reg.once) this.remove(this.actions, reg);
 
       const started = this.timing ? performance.now() : 0;
@@ -387,7 +408,7 @@ export class HooksRegistry {
     try {
       for (let i = 0; i < list.length; i++) {
         const reg = list[i];
-        if (reg === undefined || reg.removed || reg.disabled) continue;
+        if (reg === undefined || reg.removed || reg.disabled || !this.pluginAllowed(reg, context)) continue;
         if (reg.once) this.remove(this.actions, reg);
 
         let cancelled: string | undefined;
@@ -487,7 +508,7 @@ export class HooksRegistry {
 
     for (let i = start; i < list.length; i++) {
       const reg = list[i];
-      if (reg === undefined || reg.removed || reg.disabled) continue;
+      if (reg === undefined || reg.removed || reg.disabled || !this.pluginAllowed(reg, hookContext)) continue;
       if (reg.once) this.remove(this.filters, reg);
 
       const started = this.timing ? performance.now() : 0;

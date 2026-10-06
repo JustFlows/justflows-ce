@@ -2,7 +2,15 @@ import { publicAdminPath } from "../../../admin-path";
 import { translateEnglish, type Translate } from "../../../i18n/translate";
 import { useEffect, useState } from "react";
 import { usePluginMenu } from "@components/PluginMenuProvider";
+import { useSession } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
+import {
+  ExtensionAutoUpdateToggle,
+  ExtensionUpdateBadge,
+  ExtensionUpdateButton,
+  ExtensionUpdatesBar,
+  useExtensionUpdates,
+} from "@components/ExtensionUpdates";
 
 interface RegistryPrice {
   amount: number;
@@ -92,6 +100,7 @@ const CATEGORY_LABEL_KEYS: Record<string, string> = {
 
 export default function MarketplacePage() {
   const { t } = useT();
+  const installationRoot = useSession().session?.installationRoot !== false;
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -101,6 +110,7 @@ export default function MarketplacePage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [allowBeta, setAllowBeta] = useState(false);
+  const updates = useExtensionUpdates(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -211,6 +221,7 @@ export default function MarketplacePage() {
           onChange={(e) => setSearch(e.target.value)}
           aria-label={t("marketplace.searchAriaLabel")}
         />
+        <ExtensionUpdatesBar state={updates} />
         <div className="jf-filterbar">
           {CATEGORIES.map((cat) => (
             <button
@@ -246,7 +257,8 @@ export default function MarketplacePage() {
             const beta = listingIsBeta(item);
             // Beta listings stay visible so admins know they exist, but only
             // install once the site has opted in.
-            const blocked = comingSoon || (beta && !allowBeta);
+            const pluginElsewhere = !installationRoot && item.type === "plugin";
+            const blocked = comingSoon || (beta && !allowBeta) || pluginElsewhere;
             const priceLabel = listingPriceLabel(item, t);
 
             return (
@@ -259,6 +271,7 @@ export default function MarketplacePage() {
                     {comingSoon && <span className="jf-badge jf-badge--warn">{t("marketplace.comingSoon")}</span>}
                     {beta && <span className="jf-badge jf-badge--warn">{t("marketplace.beta")}</span>}
                     {paid && <span className="jf-badge">{priceLabel ?? t("common.paid")}</span>}
+                    {isInstalled && <ExtensionUpdateBadge state={updates} type={item.type} id={item.id} />}
                     <span className="jf-meta" style={{ marginInlineStart: "auto" }}>
                       ↓ {item.downloads.toLocaleString()}
                     </span>
@@ -280,25 +293,40 @@ export default function MarketplacePage() {
                   )}
                   <p className="jf-meta">{t("marketplace.versionBy", { version: item.version, publisher: item.publisher ?? item.author ?? "Justflows" })}</p>
 
-                  <button
-                    className={`jf-btn jf-btn--block ${isInstalled ? "jf-btn--success" : isInstalling || blocked ? "jf-btn--ghost" : "jf-btn--primary"}`}
-                    onClick={() => {
-                      if (!blocked) void install(item);
-                    }}
-                    disabled={isInstalling || isInstalled || blocked}
-                  >
-                    {isInstalled
-                      ? t("marketplace.installedLabel")
-                      : isInstalling
-                        ? t("marketplace.installing")
-                        : comingSoon
-                          ? t("marketplace.comingSoon")
-                          : blocked
-                            ? t("marketplace.betaDisabledButton")
-                            : paid
-                              ? t("marketplace.getOnJustflows")
-                              : t("marketplace.install")}
-                  </button>
+                  {isInstalled && !pluginElsewhere && updates.updateFor(item.type, item.id) ? (
+                    <ExtensionUpdateButton
+                      state={updates}
+                      type={item.type}
+                      id={item.id}
+                      block
+                      onUpdated={() => {
+                        if (item.type === "plugin") void refreshMenu();
+                      }}
+                    />
+                  ) : (
+                    <button
+                      className={`jf-btn jf-btn--block ${isInstalled ? "jf-btn--success" : isInstalling || blocked ? "jf-btn--ghost" : "jf-btn--primary"}`}
+                      onClick={() => {
+                        if (!blocked) void install(item);
+                      }}
+                      disabled={isInstalling || isInstalled || blocked}
+                    >
+                      {isInstalled
+                        ? t("marketplace.installedLabel")
+                        : isInstalling
+                          ? t("marketplace.installing")
+                          : comingSoon
+                            ? t("marketplace.comingSoon")
+                              : pluginElsewhere
+                                ? t("marketplace.installOnMainSite")
+                              : blocked
+                              ? t("marketplace.betaDisabledButton")
+                              : paid
+                                ? t("marketplace.getOnJustflows")
+                                : t("marketplace.install")}
+                    </button>
+                  )}
+                  {isInstalled && !pluginElsewhere && <ExtensionAutoUpdateToggle state={updates} type={item.type} id={item.id} />}
                 </div>
               </div>
             );

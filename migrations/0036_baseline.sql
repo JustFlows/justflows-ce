@@ -484,9 +484,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
   detail      TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_log_site_time ON audit_log(site_id, occurred_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(site_id, action);
-
 COMMIT;
 
 
@@ -668,7 +665,7 @@ CREATE INDEX IF NOT EXISTS idx_comments_unsubscribe
 
 CREATE TABLE IF NOT EXISTS webhook_endpoints (
   id VARCHAR(36) PRIMARY KEY,
-  site_id VARCHAR(36) NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
   name VARCHAR(120) NOT NULL,
   url VARCHAR(2048) NOT NULL,
   events TEXT NOT NULL,
@@ -684,7 +681,7 @@ CREATE INDEX IF NOT EXISTS idx_webhook_endpoints_site
 CREATE TABLE IF NOT EXISTS webhook_deliveries (
   id VARCHAR(36) PRIMARY KEY,
   endpoint_id VARCHAR(36) NOT NULL REFERENCES webhook_endpoints(id) ON DELETE CASCADE,
-  site_id VARCHAR(36) NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
   event VARCHAR(160) NOT NULL,
   payload TEXT NOT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
@@ -1025,11 +1022,11 @@ CREATE INDEX IF NOT EXISTS idx_redirect_not_found_seen ON redirect_not_found(sit
 
 CREATE TABLE IF NOT EXISTS api_keys (
   id VARCHAR(36) PRIMARY KEY,
-  site_id VARCHAR(36) NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
   name VARCHAR(120) NOT NULL,
   key_prefix VARCHAR(16) NOT NULL,
   key_hash VARCHAR(128) NOT NULL UNIQUE,
-  owner_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_by VARCHAR(36) NOT NULL,
   capabilities_json TEXT NOT NULL DEFAULT '[]',
   scopes_json TEXT NOT NULL DEFAULT '{}',

@@ -256,9 +256,11 @@ export async function startSearchIndex(siteId: string): Promise<void> {
   }
   // Repairs writes from import/restore and interrupted or failed hook delivery.
   const timer = setInterval(() => {
-    void rebuildSearchIndex(siteId, true).catch(() =>
-      console.error("[justflows] Search index reconciliation failed"),
-    );
+    void import("../tenancy/connections.js")
+      .then(({ eachActiveSite }) => eachActiveSite(async (id) => {
+        await rebuildSearchIndex(id, true);
+      }))
+      .catch(() => console.error("[justflows] Search index reconciliation failed"));
   }, 60_000);
   timer.unref();
 }

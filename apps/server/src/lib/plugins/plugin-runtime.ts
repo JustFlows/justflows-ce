@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { pathToFileURL } from "node:url";
+import { getTenantContext } from "../tenancy/context.js";
 import { App, loadConfig } from "@justflows/core";
 import { PluginLoader } from "@justflows/plugin-api";
 import type { PluginModule } from "@justflows/sdk";
@@ -18,6 +19,7 @@ import { createPluginDataApi } from "./plugin-data.js";
 import { createPluginJobsApi, getPluginJobScheduler } from "./plugin-jobs.js";
 import { createPluginSecretsApi } from "./plugin-secrets.js";
 import { createPluginDatabasesApi } from "./plugin-databases.js";
+import { createPluginTenancyApi } from "./plugin-tenancy.js";
 import { createPluginContentApi } from "./plugin-content.js";
 import { isInstalled } from "../../middleware/install-guard.js";
 import { getJustflowsVersion } from "../runtime/version.js";
@@ -86,10 +88,23 @@ async function resolvePluginModule(
   return null;
 }
 
+/**
+ * The site whose active plugins this process should load. A request uses that
+ * request's site. Boot has no request, and a multisite install then has more
+ * than one row in `sites`, so getSiteId() is empty. Use the installation root
+ * so the main site's plugins register and create their tables.
+ */
+async function runtimeSiteId(): Promise<string | null> {
+  const current = await getSiteId();
+  if (current) return current;
+  const { installationRootSiteId } = await import("../tenancy/registry.js");
+  return installationRootSiteId();
+}
+
 async function registerKnownPlugins(): Promise<void> {
   if (!loader) return;
 
-  const siteId = await getSiteId();
+  const siteId = await runtimeSiteId();
   if (!siteId) return;
 
   const db = await getDb();
@@ -136,7 +151,7 @@ async function registerKnownPlugins(): Promise<void> {
 async function activateActivePlugins(): Promise<void> {
   if (!loader) return;
 
-  const siteId = await getSiteId();
+  const siteId = await runtimeSiteId();
   if (!siteId) return;
 
   const db = await getDb();
@@ -198,6 +213,14 @@ export async function ensurePluginRuntime(): Promise<void> {
     try {
       app = new App(loadConfig());
       await app.start();
+      app.hooks.setPluginSiteGate(
+        (pluginId, siteId) => {
+          const current = getTenantContext();
+          if (!current || current.siteId !== siteId || current.activePluginIds === null) return true;
+          return current.activePluginIds.has(pluginId);
+        },
+        () => getTenantContext()?.siteId,
+      );
       const { getJfCache } = await import("../cache/jf-cache.js");
       const { createPluginCacheApi } = await import("./plugin-cache.js");
       loader = new PluginLoader(app, {
@@ -248,6 +271,7 @@ export async function ensurePluginRuntime(): Promise<void> {
         secretsFactory: (pluginId, siteId) => createPluginSecretsApi(pluginId, siteId),
         databasesFactory: (pluginId, siteId, permissions) =>
           createPluginDatabasesApi(pluginId, siteId, permissions),
+        tenancyFactory: (pluginId, permissions) => createPluginTenancyApi(pluginId, permissions),
         usersFactory: (_pluginId, siteId) => ({
           create: async (input, actor) => {
             const { createUser, CreateUserSchema } = await import("../auth/users-admin.js");
@@ -315,15 +339,18 @@ export async function ensurePluginRuntime(): Promise<void> {
             key: string,
           ): Promise<T | undefined> => {
             const { getPluginSetting } = await import("./plugin-kv.js");
-            return getPluginSetting<T>(pluginId, siteId, key);
+            const { pluginCallSiteId } = await import("./request-site.js");
+            return getPluginSetting<T>(pluginId, pluginCallSiteId(siteId), key);
           },
           set: async (siteId: string, pluginId: string, key: string, value: unknown) => {
             const { setPluginSetting } = await import("./plugin-kv.js");
-            await setPluginSetting(pluginId, siteId, key, value);
+            const { pluginCallSiteId } = await import("./request-site.js");
+            await setPluginSetting(pluginId, pluginCallSiteId(siteId), key, value);
           },
           delete: async (siteId: string, pluginId: string, key: string) => {
             const { deletePluginSetting } = await import("./plugin-kv.js");
-            await deletePluginSetting(pluginId, siteId, key);
+            const { pluginCallSiteId } = await import("./request-site.js");
+            await deletePluginSetting(pluginId, pluginCallSiteId(siteId), key);
           },
         },
       });
