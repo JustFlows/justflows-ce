@@ -179,6 +179,12 @@ when the site owner switched placeholders off. `placeholderHtml()` returns a
 decorative, sized `<img class="jf-placeholder jf-placeholder--<kind>">`, or `""`
 when placeholders are off.
 
+A plain `<img src="/uploads/...">` in that markup is upgraded on the public
+page to `<picture>` / `srcset` (WebP, and AVIF when it is enabled) whenever
+the file has responsive variants. The block does not have to call
+`renderMediaImage()` for that. Call it when the image needs a `sizes` value
+other than `100vw`. See [Media and responsive images](MEDIA.md).
+
 The core kinds are `generic` (4:3), `featured` (16:9), `thumbnail` (1:1),
 `avatar`, and `og` (1200×630 PNG). An unknown kind gets `generic`.
 

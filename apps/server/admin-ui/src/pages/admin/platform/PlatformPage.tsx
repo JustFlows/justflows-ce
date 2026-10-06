@@ -246,7 +246,7 @@ export default function PlatformPage() {
                     <Fragment key={tenant.id}>
                       <tr>
                         <td className="jf-td--strong">
-                          {tenant.name}
+                          <Link to={`/admin/platform/workspaces/${tenant.id}`}>{tenant.name}</Link>
                           <div className="jf-field__hint">{tenant.slug}</div>
                         </td>
                         <td>

@@ -1,20 +1,26 @@
 // SPDX-License-Identifier: MIT
 
 import { Router, type Request } from "express";
+import { z } from "zod";
 import { ContentScheduleSchema, ScheduleError, setContentSchedule } from "../../lib/content/content-scheduling-db.js";
 import { getDb } from "../../lib/database/db.js";
-import { serializeContentRow } from "../../lib/content/content-api.js";
+import { normalizeFields, serializeContentRow } from "../../lib/content/content-api.js";
 import {
   getRevisionById,
+  getWorkingRevision,
   listRevisions,
   revisionColumn,
   serializeRevision,
 } from "../../lib/content/content-revisions.js";
 import { resolveContentLocale } from "../../lib/i18n/languages-db.js";
+import { invalidateContentCache } from "../../lib/content/content-public.js";
+import { revalidateOnUpdate } from "../../lib/cache/cache-revalidate.js";
+import { PAGE_HEADER_REF_FIELD, SITE_DEFAULT_HEADER_REF } from "../../lib/rendering/page-header.js";
 import {
   applyDraftUpdate,
   CreateContentSchema,
   createContentEntry,
+  now,
   PatchContentSchema,
   publishRow,
   saveWorkingRow,
@@ -256,6 +262,54 @@ router.delete("/:id", async (req, res) => {
         actorOf(req),
       ),
     );
+  } catch (err) {
+    sendServerError(res, "manage.content", err);
+  }
+});
+
+const HeaderRefSchema = z.object({ ref: z.string().max(64) });
+
+router.put("/:id/header-ref", async (req, res) => {
+  const id = req.params.id;
+  const parsed = HeaderRefSchema.safeParse(req.body);
+  if (!parsed.success) return badRequest(res, parsed.error.issues[0]?.message ?? "Invalid header ref");
+  const raw = parsed.data.ref.trim();
+  const ref = raw === SITE_DEFAULT_HEADER_REF ? "" : raw;
+  try {
+    const owner = req.apiKeyOwner!;
+    const row = await loadRow(owner.siteId, id);
+    if (!row) return notFound(res);
+    if (
+      !(await ensureKeyCan(req, res, "content:update", {
+        contentType: String(row.type),
+        locale: String(row.locale),
+        ownerId: row.author_id as string | null,
+      }))
+    )
+      return;
+    const withRef = (value: unknown): string => {
+      const fields = normalizeFields(value);
+      if (ref) fields[PAGE_HEADER_REF_FIELD] = ref;
+      else delete fields[PAGE_HEADER_REF_FIELD];
+      return JSON.stringify(fields);
+    };
+    const db = await getDb();
+    await db.run("UPDATE content SET fields = ?, updated_at = ? WHERE id = ? AND site_id = ?", [
+      withRef(row.fields),
+      now(),
+      id,
+      owner.siteId,
+    ]);
+    const working = await getWorkingRevision(id, owner.siteId);
+    if (working) {
+      await db.run(
+        `UPDATE revisions SET fields = ? WHERE content_id = ? AND site_id = ? AND ${revisionColumn("kind")} = 'working'`,
+        [withRef(working.fields), id, owner.siteId],
+      );
+    }
+    await invalidateContentCache();
+    await revalidateOnUpdate("content");
+    res.json({ ok: true, ref: ref || SITE_DEFAULT_HEADER_REF });
   } catch (err) {
     sendServerError(res, "manage.content", err);
   }

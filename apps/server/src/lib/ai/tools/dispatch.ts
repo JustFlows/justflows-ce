@@ -5,6 +5,7 @@ import http from "node:http";
 import { duplexPair } from "node:stream";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { runWithAgentOrigin } from "../agent-origin.js";
+import { getTenantContext, runWithTenant, type TenantRequestContext } from "../../tenancy/context.js";
 import type { AgentPrincipal } from "./principal.js";
 
 /**
@@ -30,6 +31,22 @@ const DISPATCH_HEADER = "x-jf-agent-dispatch";
 
 interface PendingDispatch {
   principal: AgentPrincipal;
+  /** Captured from the outer request. The in-memory hop does not keep it. */
+  tenant?: TenantRequestContext;
+}
+
+/** Site id for `getSiteId()`, using the key's site when the outer request had no tenant. */
+function tenantFor(siteId: string, captured: TenantRequestContext | undefined): TenantRequestContext {
+  if (captured?.siteId === siteId) return captured;
+  return {
+    tenantId: captured?.tenantId ?? "",
+    siteId,
+    hostname: captured?.hostname ?? "",
+    userMode: captured?.userMode ?? "isolated",
+    databaseMode: captured?.databaseMode ?? "current",
+    rootSite: captured?.rootSite,
+    activePluginIds: captured?.activePluginIds ?? null,
+  };
 }
 
 const pending = new Map<string, PendingDispatch>();
@@ -58,8 +75,32 @@ async function buildInternalServer(): Promise<http.Server> {
       email: "",
       iat: Math.floor(Date.now() / 1000),
     };
-    // Revisions written by this request record that an agent made them.
-    void runWithAgentOrigin({ via: principal.via, client: principal.clientName }, async () => next());
+    // The in-memory hop is a new turn, so the outer request's site and database
+    // are not visible here. Re-enter both for the whole response: theme and
+    // header services call getSiteId() / getDb(), and a site on its own database
+    // must not be read from the installation database.
+    void (async () => {
+      const { runWithSiteDatabase } = await import("../../tenancy/provision.js");
+      await runWithSiteDatabase(principal.owner.siteId, () =>
+        new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          res.once("finish", done);
+          res.once("close", done);
+          runWithTenant(tenantFor(principal.owner.siteId, entry.tenant), () => {
+            void runWithAgentOrigin({ via: principal.via, client: principal.clientName }, async () => next()).catch(
+              reject,
+            );
+          });
+        }),
+      );
+    })().catch(() => {
+      if (!res.headersSent) res.status(500).json({ error: "Internal error" });
+    });
   });
   app.use(express.json({ limit: "2mb" }));
   app.use("/api/manage/v1", manageApiRoutes);
@@ -139,7 +180,7 @@ export async function dispatchManageApi(
 
   const token = randomBytes(24).toString("base64url");
   headers[DISPATCH_HEADER] = token;
-  pending.set(token, { principal });
+  pending.set(token, { principal, tenant: getTenantContext() });
 
   try {
     const [clientSide, serverSide] = duplexPair();

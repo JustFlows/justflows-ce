@@ -44,7 +44,11 @@ import { getDefaultLocale } from "../../lib/i18n/languages-db.js";
 import { sanitizeBlockDocument } from "@justflows/blocks";
 import { pluginPatternById } from "../../lib/content/default-content-blocks.js";
 import { ensurePluginRuntime } from "../../lib/plugins/plugin-runtime.js";
-import { listThemePatterns, loadThemePattern } from "../../lib/themes/theme-files.js";
+import {
+  listThemePatterns,
+  loadThemePattern,
+  mergeInstalledThemeRecord,
+} from "../../lib/themes/theme-files.js";
 import {
   activateTheme,
   deleteTheme,
@@ -78,15 +82,6 @@ const themeDeleteRequestLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-
-function extractCssVariables(manifest: Record<string, unknown>): Record<string, string> {
-  const vars = (manifest.cssVariables ?? manifest.css_variables ?? {}) as Record<string, unknown>;
-  const result: Record<string, string> = {};
-  for (const [k, v] of Object.entries(vars)) {
-    if (typeof v === "string") result[k] = v;
-  }
-  return result;
-}
 
 router.get("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
   try {
@@ -145,11 +140,14 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
       return;
     }
 
-    const manifest = {
-      ...(result.manifest as unknown as Record<string, unknown>),
-      installedPath: result.installedPath,
-    };
-    const cssVariables = extractCssVariables(manifest);
+    const installed = mergeInstalledThemeRecord({
+      themeId: result.manifest.id,
+      manifest: {
+        ...(result.manifest as unknown as Record<string, unknown>),
+        installedPath: result.installedPath,
+      },
+      cssVariables: {},
+    });
 
     const theme = {
       id: randomUUID(),
@@ -158,8 +156,8 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
       version: result.manifest.version,
       publisher: result.manifest.publisher,
       description: result.manifest.description,
-      cssVariables,
-      manifest,
+      cssVariables: installed.cssVariables,
+      manifest: installed.manifest,
     };
 
     await insertTheme(siteId, theme);
@@ -308,7 +306,7 @@ router.get("/style-tokens", requireRole(...CONTENT_READ_ROLES), async (_req, res
     const themeId = theme?.theme_id ?? "justflows.default";
     const schema = schemaWithThemeControls(theme?.manifest);
     const published = siteId ? ((await getThemeMods(themeId, false)) ?? {}) : {};
-    const mods = mergeMods(defaultModsFromSchema(schema), published);
+    const mods = mergeMods(defaultModsFromSchema(schema, theme?.css_variables), published);
     const vars = modsToCssVariables(
       (theme?.css_variables as Record<string, string> | undefined) ?? {},
       mods,
@@ -535,7 +533,10 @@ router.get("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res
       return;
     }
 
-    const defaults = defaultModsFromSchema(schemaWithThemeControls(theme.manifest));
+    const defaults = defaultModsFromSchema(
+      schemaWithThemeControls(theme.manifest),
+      theme.css_variables,
+    );
     const published = (await getThemeMods(theme.theme_id, false)) ?? {};
     const draft = (await getThemeMods(theme.theme_id, true)) ?? {};
     const effective = mergeMods(mergeMods(defaults, published), draft);
@@ -615,7 +616,10 @@ router.patch("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, re
       return;
     }
 
-    const defaults = defaultModsFromSchema(schemaWithThemeControls(theme.manifest));
+    const defaults = defaultModsFromSchema(
+      schemaWithThemeControls(theme.manifest),
+      theme.css_variables,
+    );
     const published = (await getThemeMods(theme.theme_id, false)) ?? {};
     const base = mergeMods(defaults, published);
     const currentMods = mergeMods(base, (await getThemeMods(theme.theme_id, true)) ?? {});

@@ -6,6 +6,7 @@ import {
   mergeMods,
   modsToCssVariables,
   schemaWithThemeControls,
+  THEME_CUSTOMIZE_SCHEMA,
 } from "../../../src/lib/themes/theme-customize.js";
 
 const sampleManifest = {
@@ -81,6 +82,42 @@ describe("schemaWithThemeControls", () => {
   it("returns just the built-in schema when the manifest has no customize block", () => {
     expect(schemaWithThemeControls({}).sample).toBeUndefined();
     expect(schemaWithThemeControls(null).colors).toBeTruthy();
+  });
+});
+
+describe("defaultModsFromSchema package palette", () => {
+  const haldenVars = {
+    "--color-primary": "#161514",
+    "--color-bg": "#faf9f6",
+    "--font-sans": '"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif',
+    "--heading-weight": "400",
+    "--radius-sm": "0px",
+    "--max-width": "760px",
+    "--h1-size": "3.6rem",
+  };
+
+  it("starts from the package palette instead of the built-in blue defaults", () => {
+    const mods = defaultModsFromSchema(THEME_CUSTOMIZE_SCHEMA, haldenVars);
+    expect(mods.colors?.["--color-primary"]).toBe("#161514");
+    expect(mods.colors?.["--color-bg"]).toBe("#faf9f6");
+    expect(mods.typography?.["--font-sans"]).toBe(haldenVars["--font-sans"]);
+    expect(mods.headings?.["--heading-weight"]).toBe("400");
+    expect(mods.headings?.["--h1-size"]).toBe(3.6);
+    expect(mods.radius?.["--radius-sm"]).toBe(0);
+    expect(mods.layout?.contentWidth).toBe(760);
+  });
+
+  it("leaves the dark palette on the built-in defaults", () => {
+    const mods = defaultModsFromSchema(THEME_CUSTOMIZE_SCHEMA, haldenVars);
+    expect(mods.colorsDark?.["--color-bg"]).toBe("#0f172a");
+    expect(mods.colorsDark?.["--color-primary"]).toBe("#60a5fa");
+  });
+
+  it("ignores a package colour that could break out of the declaration", () => {
+    const mods = defaultModsFromSchema(THEME_CUSTOMIZE_SCHEMA, {
+      "--color-primary": "red; } body { display:none",
+    });
+    expect(mods.colors?.["--color-primary"]).toBe("#3b82f6");
   });
 });
 

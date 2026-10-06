@@ -144,13 +144,13 @@ annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`).
 | Menus | `menus_list`, `menus_get`, `menus_upsert`, `menus_delete` |
 | Comments | `comments_list`, `comments_moderate` (one or many), `comments_edit`, `comments_reply`, `comments_delete` |
 | Content types | `content_types_create`, `content_types_update`, `content_types_delete` |
-| Site | `settings_get`, `settings_update`, `languages_list/create/update/delete`, `redirects_list/create/update`, `plugins_list/activate/deactivate`, `themes_list/activate`, `cache_stats`, `cache_clear`, `static_export_status`, `static_export_run`, `site_health`, `site_diagnostics` |
+| Site | `settings_get`, `settings_update`, `languages_list/create/update/delete`, `redirects_list/create/update`, `permalinks_get/update`, `plugins_list/activate/deactivate`, `themes_list/activate`, `cache_stats`, `cache_clear`, `static_export_status`, `static_export_run`, `static_export_clear`, `trash_list/restore/purge`, `analytics_summary`, `comment_rules_list/create/delete`, `spam_terms_list/create/delete`, `cookies_get/update`, `email_templates_list/update/restore/preview`, `email_design_update/restore`, `site_health`, `site_diagnostics` |
+| Design | `headers_get`, `headers_options`, `headers_update`, `template_parts_get/update` (the footer is part `footer`), `content_set_header`, `templates_list/get/update/discard_draft/reset`, `themes_customize_get/update/discard_draft`, `reusable_blocks_list/save/delete`, `patterns_list/get/save/delete/export/import`, `error_pages_get/update` |
 | Users & roles | `users_list/get/create/update/delete`, `roles_list/create/update/delete`. Listed only when the key or OAuth grant turns on **users & roles tools**, even with `users:manage`. |
 
-Not exposed: the OpenAPI document, the event catalog, key-owned webhooks
-(their secrets never go into tool results), and deleting the static export.
-The management API has no taxonomy-term endpoints yet, so there are no
-taxonomy tools.
+A full-admin key (every capability except `ai:use`, with users & roles tools turned on) is offered every tool above. A session still only sees the tools its capabilities allow.
+
+Not exposed, because the result is a secret or the action replaces the running install: the OpenAPI document, the event catalog, webhook endpoints and their signing secrets, API key creation, plugin and theme zip upload, and applying a core update. The management API has no taxonomy-term endpoints yet, so there are no taxonomy tools. Sending a test email stays in the admin.
 
 **Agent content is validated.** `content_create` and `content_update` check
 block bodies against the live block registry before anything is written:

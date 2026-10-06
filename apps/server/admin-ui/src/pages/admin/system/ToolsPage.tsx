@@ -1,5 +1,6 @@
 import { SearchToolsCard } from "../../../components/SearchToolsCard";
 import { useEffect, useRef, useState } from "react";
+import { manualRestartKey, serviceUnitName } from "../../../lib/restart-notice.js";
 import { waitForSiteRestart } from "../../../lib/wait-for-restart.js";
 import { useSession } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
@@ -194,6 +195,8 @@ export default function ToolsPage() {
   const [perfSaved, setPerfSaved] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [restartFailed, setRestartFailed] = useState(false);
+  const [restartMethod, setRestartMethod] = useState<string | undefined>();
+  const [restartTarget, setRestartTarget] = useState<string | undefined>();
   const [log, setLog] = useState<string[]>([]);
   const [perfStats, setPerfStats] = useState<PerformanceStatsResponse | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -470,6 +473,8 @@ export default function ToolsPage() {
         error?: string;
         restarting?: boolean;
         restartRequired?: boolean;
+        restartMethod?: string;
+        restartTarget?: string;
         settings?: PerformanceSettingsResponse["settings"];
       };
 
@@ -489,12 +494,13 @@ export default function ToolsPage() {
       if (data.restarting) {
         setPerfSaving(false);
         setRestarting(true);
-        const back = await waitForSiteRestart(t, addLog);
-        if (!back) setRestartFailed(true);
+        await waitForSiteRestart(t, addLog);
         setRestarting(false);
       } else if (data.restartRequired) {
+        setRestartMethod(data.restartMethod);
+        setRestartTarget(data.restartTarget);
         setRestartFailed(true);
-        addLog(`⚠ ${t("tools.manualRestartNeededLog")}`);
+        addLog(`⚠ ${t(manualRestartKey("tools", "log", data.restartMethod), { unit: serviceUnitName(data.restartTarget) })}`);
       }
     } catch (e) {
       setPerfError(e instanceof Error ? e.message : String(e));
@@ -948,7 +954,7 @@ export default function ToolsPage() {
                   <div>
                     <div className="jf-banner__title">{t("tools.manualRestartTitle")}</div>
                     <div className="jf-banner__sub">
-                      {t("tools.manualRestartBody")}
+                      {t(manualRestartKey("tools", "body", restartMethod), { unit: serviceUnitName(restartTarget) })}
                     </div>
                   </div>
                 </div>

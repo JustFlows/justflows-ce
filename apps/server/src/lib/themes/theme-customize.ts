@@ -292,7 +292,9 @@ export interface ThemeMods {
 // ─── Theme-contributed customize controls ────────────────────────────────────
 //
 // A theme package may add its own Customizer sections through a `customize`
-// block in `justflows-theme.json`. Only value-token controls are accepted
+// block in `justflows-theme.json` (or in `justflows.json`). The installer
+// drops unknown keys, so uploaded themes are merged back from those files
+// before this runs. Only value-token controls are accepted
 // (color / range / select / font) and every control key must be a CSS custom
 // property — the same shape `modsToCssVariables` already knows how to emit, so a
 // theme-contributed slider or colour flows to `:root` with no emitter change.
@@ -483,14 +485,63 @@ function clampNumber(raw: unknown, fallback: number, min: number, max: number): 
   return Math.min(max, Math.max(min, n));
 }
 
+/** Controls stored under a plain key whose package value uses a CSS variable. */
+const PACKAGE_CONTROL_VARS: Record<string, string> = {
+  contentWidth: "--max-width",
+  baseFontSize: "--base-font-size",
+};
+
+/**
+ * A package `cssVariables` entry usable as this control's starting value.
+ * Dark colours share names with the light palette, so callers skip `colorsDark`.
+ */
+function modFromThemeVariable(
+  control: CustomizeControl,
+  themeVars: Record<string, string> | undefined,
+  controlKey: string,
+): string | number | undefined {
+  if (!themeVars) return undefined;
+  const varName = controlKey.startsWith("--") ? controlKey : PACKAGE_CONTROL_VARS[controlKey];
+  if (!varName) return undefined;
+  const raw = themeVars[varName];
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+
+  switch (control.type) {
+    case "color":
+      return isSafeCssColor(trimmed) ? trimmed : undefined;
+    case "font":
+      return isSafeCssFontStack(trimmed) ? trimmed : undefined;
+    case "select": {
+      const allowed = control.options?.some((option) => option.value === trimmed);
+      return allowed && !CSS_VALUE_FORBIDDEN.test(trimmed) ? trimmed : undefined;
+    }
+    case "range": {
+      const unit = control.unit ?? "";
+      const text = unit && trimmed.endsWith(unit) ? trimmed.slice(0, -unit.length).trim() : trimmed;
+      if (!/^[+-]?(\d+\.?\d*|\.\d+)$/.test(text)) return undefined;
+      const n = clampNumber(Number(text), Number.NaN, control.min ?? -1e6, control.max ?? 1e6);
+      return Number.isFinite(n) ? n : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
 export function defaultModsFromSchema(
   schema: Record<string, CustomizeSection> = THEME_CUSTOMIZE_SCHEMA,
+  themeVars?: Record<string, string>,
 ): ThemeMods {
   const mods: ThemeMods = {};
   for (const [sectionKey, section] of Object.entries(schema)) {
     const bucket: Record<string, string | number> = {};
+    const seedFromPackage = sectionKey !== "colorsDark";
     for (const [controlKey, control] of Object.entries(section.controls)) {
-      bucket[controlKey] = control.default;
+      const seeded = seedFromPackage
+        ? modFromThemeVariable(control, themeVars, controlKey)
+        : undefined;
+      bucket[controlKey] = seeded ?? control.default;
     }
     mods[sectionKey] = bucket;
   }
@@ -760,7 +811,7 @@ export async function getEffectiveThemeCss(preview = false): Promise<string> {
   const themeVars = theme?.css_variables ?? {};
   const schema = schemaWithThemeControls(theme?.manifest);
 
-  const defaults = defaultModsFromSchema(schema);
+  const defaults = defaultModsFromSchema(schema, themeVars);
   const published = (await getThemeMods(themeId, false)) ?? {};
   const draft = preview ? ((await getThemeMods(themeId, true)) ?? {}) : {};
 
@@ -851,10 +902,14 @@ export async function getSiteIdentity(
   logoUrl: string;
   faviconUrl: string;
 }> {
+  const siteId = await getSiteId();
   const db = await import("../database/db.js").then((m) => m.getDb());
-  const rows = await db.query<{ name: string; description: string | null }>(
-    "SELECT name, description FROM sites LIMIT 1",
-  );
+  const rows = siteId
+    ? await db.query<{ name: string; description: string | null }>(
+        "SELECT name, description FROM sites WHERE id = ? LIMIT 1",
+        [siteId],
+      )
+    : [];
   const site = rows[0];
   const siteTitle = site?.name?.trim() || "My Site";
   const tagline = site?.description ?? "";
@@ -886,12 +941,33 @@ export function getNavigationMenuSlugs(mods: ThemeMods): {
   };
 }
 
+/**
+ * A package font stack is often not one of the built-in presets. Add it so the
+ * Customizer dropdown shows the theme's own face as the selected value.
+ */
+function includePackageFonts(
+  schema: Record<string, CustomizeSection>,
+  themeVars: Record<string, string> | undefined,
+): void {
+  if (!themeVars) return;
+  for (const section of Object.values(schema)) {
+    for (const [key, control] of Object.entries(section.controls)) {
+      if (control.type !== "font" || !key.startsWith("--")) continue;
+      const value = themeVars[key]?.trim();
+      if (!value || !isSafeCssFontStack(value)) continue;
+      if (control.options?.some((option) => option.value === value)) continue;
+      control.options = [...(control.options ?? []), { label: "Theme default", value }];
+    }
+  }
+}
+
 /** Inject live menu options into the navigation section of the customize schema. */
 export async function getCustomizeSchema(
   siteId: string,
 ): Promise<Record<string, CustomizeSection>> {
   const theme = await getActiveTheme(siteId);
   const schema = schemaWithThemeControls(theme?.manifest);
+  includePackageFonts(schema, theme?.css_variables);
   const { listMenus } = await import("../navigation/menus-db.js");
   const menus = await listMenus(siteId);
   const menuOptions = [
