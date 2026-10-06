@@ -84,6 +84,9 @@ async function siteDescribe(_args: Record<string, unknown>, ctx: ToolCallContext
       authoring:
         "Content bodies are { version: 1, blocks: [ { type, props, children? } ] } using only the block types above. " +
         "New entries are drafts; publish with content_publish. Pass expectedVersion from content_get to content_update. " +
+        "The site header is a library: headers_get, then headers_update. Point a page at one with content_set_header " +
+        "(an entry id, __default__, or __none__). The footer is template part \"footer\": template_parts_get and template_parts_update. " +
+        "Page templates are templates_list / templates_get / templates_update. Theme colours, home and blog blocks are themes_customize_get / themes_customize_update. " +
         "Read the justflows://docs/authoring resource for a worked example.",
     },
   };
@@ -270,6 +273,55 @@ async function commentsModerate(args: Record<string, unknown>, ctx: ToolCallCont
   const ids = Array.isArray(args.ids) ? args.ids : typeof args.id === "string" ? [args.id] : [];
   if (ids.length === 0) return { ok: false, error: 'Provide "id" or "ids".' };
   return callManage(ctx, "PATCH", "/comments", {}, { body: { ids, action: args.action } });
+}
+
+async function rejectBlocks(blocks: unknown): Promise<string | null> {
+  const checked = await checkBlocks(blocks);
+  return checked.error ?? null;
+}
+
+async function templatePartsUpdate(args: Record<string, unknown>, ctx: ToolCallContext): Promise<ToolOutcome> {
+  const problem = await rejectBlocks(args.blocks);
+  if (problem) return { ok: false, error: problem };
+  return callManage(ctx, "PUT", "/template-parts/{part}", args);
+}
+
+async function templatesUpdate(args: Record<string, unknown>, ctx: ToolCallContext): Promise<ToolOutcome> {
+  const problem = await rejectBlocks(args.blocks);
+  if (problem) return { ok: false, error: problem };
+  return callManage(ctx, "PUT", "/templates/{slug}", args);
+}
+
+async function reusableBlocksSave(args: Record<string, unknown>, ctx: ToolCallContext): Promise<ToolOutcome> {
+  const problem = await rejectBlocks(args.blocks);
+  if (problem) return { ok: false, error: problem };
+  return callManage(ctx, "PUT", "/reusable-blocks", args);
+}
+
+async function headersUpdate(args: Record<string, unknown>, ctx: ToolCallContext): Promise<ToolOutcome> {
+  const library = args.library;
+  if (library && typeof library === "object" && Array.isArray((library as { entries?: unknown }).entries)) {
+    for (const entry of (library as { entries: unknown[] }).entries) {
+      if (!entry || typeof entry !== "object") continue;
+      const base = (entry as { base?: { blocks?: unknown } }).base;
+      if (base && Array.isArray(base.blocks)) {
+        const problem = await rejectBlocks(base.blocks);
+        if (problem) return { ok: false, error: problem };
+      }
+    }
+  }
+  return callManage(ctx, "PUT", "/headers", {}, { body: { library: args.library, draft: args.draft === true } });
+}
+
+async function themesCustomizeUpdate(args: Record<string, unknown>, ctx: ToolCallContext): Promise<ToolOutcome> {
+  for (const key of ["blocks", "blogBlocks"] as const) {
+    const value = args[key];
+    if (value && typeof value === "object" && Array.isArray((value as { blocks?: unknown }).blocks)) {
+      const problem = await rejectBlocks((value as { blocks: unknown }).blocks);
+      if (problem) return { ok: false, error: problem };
+    }
+  }
+  return callManage(ctx, "PATCH", "/themes/customize", args);
 }
 
 /* -------------------------------- catalog -------------------------------- */
@@ -940,6 +992,16 @@ export const CORE_TOOLS: AgentTool[] = [
     group: "site",
   }),
   manageTool({
+    name: "static_export_clear",
+    title: "Delete the static export",
+    description: "Delete the generated static export from disk.",
+    method: "POST",
+    path: "/static-export/clear",
+    input: object({ force: bool("Delete even when an export is still marked in progress.") }),
+    annotations: DESTRUCTIVE,
+    group: "site",
+  }),
+  manageTool({
     name: "site_health",
     title: "Health checks",
     description: "Run the platform health checks.",
@@ -956,6 +1018,612 @@ export const CORE_TOOLS: AgentTool[] = [
     path: "/diagnostics",
     annotations: READ,
     group: "site",
+  }),
+
+  // Design — header, footer, templates, theme appearance.
+  manageTool({
+    name: "headers_get",
+    title: "Read the header library",
+    description:
+      "The site header library: published entries and the draft, when one exists. Each entry has id, name, base (layout, menu, colours, blocks) and per-locale overrides. One entry is defaultId.",
+    method: "GET",
+    path: "/headers",
+    annotations: READ,
+    group: "design",
+  }),
+  manageTool({
+    name: "headers_options",
+    title: "List headers a page can use",
+    description:
+      "Short list for content_set_header: each entry id and name, which one is the default, and header designs contributed by the theme or plugins.",
+    method: "GET",
+    path: "/headers/options",
+    input: object({ preview: bool("Include the unpublished draft library.") }),
+    annotations: READ,
+    group: "design",
+  }),
+  custom({
+    name: "headers_update",
+    title: "Save the header library",
+    description:
+      "Replace the header library. Send the complete library from headers_get. draft true keeps it unpublished; omit draft to publish it on every page that uses the default or that entry. Entry ids are letters, numbers, _ or - (max 64). base.blocks use the block catalog.",
+    inputSchema: object(
+      {
+        library: {
+          type: "object",
+          description:
+            '{ version: 1, defaultId: string | null, entries: [ { id, name, base, overrides } ] }. base follows the header fields (visible, menuMode, menuSlug, showLogo, showTitle, layout, mobileLayout, sticky, background, showLanguageSwitcher, languageSwitcherStyle, showColorScheme, showAuthLinks, blocks).',
+        },
+        draft: bool("Save a draft instead of publishing."),
+      },
+      ["library"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+    operation: { method: "PUT", path: "/headers" },
+    run: headersUpdate,
+  }),
+  manageTool({
+    name: "template_parts_get",
+    title: "Read a template part",
+    description:
+      'Read a site-wide template part. The footer is part "footer". blocks is what is published; draft is the unpublished copy. fromThemeDefault means nothing has been saved yet and blocks are the theme\'s starting footer.',
+    method: "GET",
+    path: "/template-parts/{part}",
+    input: object({ part: str('Template part. Use "footer".', { enum: ["footer"] }) }, ["part"]),
+    annotations: READ,
+    group: "design",
+    targetArg: "part",
+  }),
+  custom({
+    name: "template_parts_update",
+    title: "Save a template part",
+    description:
+      'Replace a template part. For the footer, part is "footer" and blocks is the full block list. draft true saves without publishing. Omit draft to publish it on every page.',
+    inputSchema: object(
+      {
+        part: str('Template part. Use "footer".', { enum: ["footer"] }),
+        blocks: { type: "array", items: { type: "object" }, description: "The complete block list." },
+        draft: bool("Save a draft instead of publishing."),
+      },
+      ["part", "blocks"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+    operation: { method: "PUT", path: "/template-parts/{part}" },
+    targetArg: "part",
+    run: templatePartsUpdate,
+  }),
+  manageTool({
+    name: "templates_list",
+    title: "List page templates",
+    description: "Page templates for the active theme: which exist, which the site has customised, and which can be created.",
+    method: "GET",
+    path: "/templates",
+    annotations: READ,
+    group: "design",
+  }),
+  manageTool({
+    name: "templates_get",
+    title: "Read a page template",
+    description: "One page template's blocks. fromThemeDefault means the site has not customised it yet.",
+    method: "GET",
+    path: "/templates/{slug}",
+    input: object({ slug: str("Template slug, such as index, single, or archive.") }, ["slug"]),
+    annotations: READ,
+    group: "design",
+    targetArg: "slug",
+  }),
+  custom({
+    name: "templates_update",
+    title: "Save a page template",
+    description: "Replace a page template's blocks. draft true saves without publishing.",
+    inputSchema: object(
+      {
+        slug: str("Template slug."),
+        blocks: { type: "array", items: { type: "object" }, description: "The complete block list." },
+        draft: bool("Save a draft instead of publishing."),
+      },
+      ["slug", "blocks"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+    operation: { method: "PUT", path: "/templates/{slug}" },
+    targetArg: "slug",
+    run: templatesUpdate,
+  }),
+  manageTool({
+    name: "templates_discard_draft",
+    title: "Discard a template draft",
+    description: "Drop the unpublished draft of a page template and keep the published override.",
+    method: "POST",
+    path: "/templates/{slug}/discard-draft",
+    input: object({ slug: str("Template slug.") }, ["slug"]),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+    targetArg: "slug",
+  }),
+  manageTool({
+    name: "templates_reset",
+    title: "Reset a page template",
+    description: "Remove the site's override so the template falls back to the theme file.",
+    method: "DELETE",
+    path: "/templates/{slug}",
+    input: object({ slug: str("Template slug.") }, ["slug"]),
+    annotations: DESTRUCTIVE,
+    group: "design",
+    targetArg: "slug",
+  }),
+  manageTool({
+    name: "themes_customize_get",
+    title: "Read theme appearance",
+    description:
+      "Active theme appearance: colour and layout mods, the customizer schema, home blocks, blog blocks, and which pages are the home and blog.",
+    method: "GET",
+    path: "/themes/customize",
+    annotations: READ,
+    group: "design",
+  }),
+  custom({
+    name: "themes_customize_update",
+    title: "Change theme appearance",
+    description:
+      "Change theme mods, home blocks, blog blocks, or which page is the home or blog. publish true writes the live theme. Otherwise the change is a draft (draft defaults to true). Send only the fields you want to change.",
+    inputSchema: object(
+      {
+        mods: { type: "object", description: "Theme mod sections, as returned by themes_customize_get." },
+        blocks: BLOCKS_SCHEMA,
+        blogBlocks: BLOCKS_SCHEMA,
+        homePageId: { type: ["string", "null"], description: "Page id used as the homepage, or null." },
+        blogPageId: { type: ["string", "null"], description: "Page id used as the blog, or null." },
+        draft: bool("Save as a draft. Defaults to true when publish is not set."),
+        publish: bool("Publish the appearance, home blocks and blog blocks."),
+      },
+      [],
+      true,
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+    operation: { method: "PATCH", path: "/themes/customize" },
+    run: themesCustomizeUpdate,
+  }),
+  manageTool({
+    name: "themes_customize_discard_draft",
+    title: "Discard theme drafts",
+    description: "Drop unpublished theme appearance, home and blog drafts. The published theme stays.",
+    method: "DELETE",
+    path: "/themes/customize",
+    annotations: DESTRUCTIVE,
+    group: "design",
+  }),
+  manageTool({
+    name: "content_set_header",
+    title: "Choose a page header",
+    description:
+      'Which header a page renders. ref is an entry id from headers_options, "__default__" for the site default, or "__none__" for no header. This is live chrome, not a content draft.',
+    method: "PUT",
+    path: "/content/{id}/header-ref",
+    input: object(
+      {
+        id: str("Page or other entry id."),
+        ref: str('Header entry id, "__default__", or "__none__".'),
+      },
+      ["id", "ref"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "reusable_blocks_list",
+    title: "List reusable blocks",
+    description: "Reusable blocks that can be inserted into content.",
+    method: "GET",
+    path: "/reusable-blocks",
+    annotations: READ,
+    group: "design",
+  }),
+  custom({
+    name: "reusable_blocks_save",
+    title: "Save a reusable block",
+    description: "Create or replace a reusable block. Pass the existing id to replace one.",
+    inputSchema: object(
+      {
+        id: str("Existing id to replace. Omitted when creating."),
+        name: str("Display name."),
+        blocks: { type: "array", items: { type: "object" }, description: "The saved block tree." },
+      },
+      ["blocks"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+    operation: { method: "PUT", path: "/reusable-blocks" },
+    targetArg: "id",
+    run: reusableBlocksSave,
+  }),
+  manageTool({
+    name: "reusable_blocks_delete",
+    title: "Delete a reusable block",
+    description: "Delete a reusable block.",
+    method: "DELETE",
+    path: "/reusable-blocks/{id}",
+    input: object({ id: str("Reusable block id.") }, ["id"]),
+    annotations: DESTRUCTIVE,
+    group: "design",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "patterns_list",
+    title: "List block patterns",
+    description: "Site, theme and plugin block patterns. Use patterns_get for the blocks of one pattern.",
+    method: "GET",
+    path: "/patterns",
+    input: object({ locale: str("Optional locale code.") }),
+    annotations: READ,
+    group: "design",
+  }),
+  manageTool({
+    name: "patterns_get",
+    title: "Read a block pattern",
+    description: "One pattern, including its blocks. source is site, theme or plugin.",
+    method: "GET",
+    path: "/patterns/{source}/{id}",
+    input: object(
+      {
+        source: str("site, theme or plugin.", { enum: ["site", "theme", "plugin"] }),
+        id: str("Pattern id."),
+        locale: str("Optional locale code."),
+      },
+      ["source", "id"],
+    ),
+    annotations: READ,
+    group: "design",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "patterns_save",
+    title: "Save a block pattern",
+    description: "Create or replace a site pattern. Send the pattern fields (title, blocks, and an id to replace).",
+    method: "PUT",
+    path: "/patterns",
+    input: object({ synced: bool("Also store the pattern as a reusable block.") }, [], true),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+  }),
+  manageTool({
+    name: "patterns_delete",
+    title: "Delete a site pattern",
+    description: "Delete a pattern saved on the site.",
+    method: "DELETE",
+    path: "/patterns/{id}",
+    input: object({ id: str("Pattern id.") }, ["id"]),
+    annotations: DESTRUCTIVE,
+    group: "design",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "patterns_export",
+    title: "Export site patterns",
+    description: "The site pattern set, suitable for patterns_import.",
+    method: "GET",
+    path: "/patterns/export",
+    annotations: READ,
+    group: "design",
+  }),
+  manageTool({
+    name: "patterns_import",
+    title: "Import site patterns",
+    description: "Import a pattern set previously exported with patterns_export.",
+    method: "POST",
+    path: "/patterns/import",
+    input: object({}, [], true),
+    annotations: WRITE,
+    group: "design",
+  }),
+  manageTool({
+    name: "error_pages_get",
+    title: "Read error pages",
+    description: "Which theme template or page each error class (404, 403, 410, 429, 500, maintenance) renders.",
+    method: "GET",
+    path: "/error-pages",
+    annotations: READ,
+    group: "design",
+  }),
+  manageTool({
+    name: "error_pages_update",
+    title: "Change error pages",
+    description: "Replace error page sources. Send the config object error_pages_get returns.",
+    method: "PUT",
+    path: "/error-pages",
+    input: object({}, [], true),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+  }),
+
+  // More of the administrator surface.
+  manageTool({
+    name: "permalinks_get",
+    title: "Read permalinks",
+    description: "Permalink structure, presets, and the base path for each content type.",
+    method: "GET",
+    path: "/permalinks",
+    annotations: READ,
+    group: "site",
+  }),
+  manageTool({
+    name: "permalinks_update",
+    title: "Change permalinks",
+    description: "Replace permalink settings. Read permalinks_get first and send every field.",
+    method: "PUT",
+    path: "/permalinks",
+    input: object(
+      {
+        structure: str("Structure, for example /%postname%/."),
+        typeBases: { type: "object", description: "Base path per content type slug." },
+        categoryBase: str("Category base."),
+        tagBase: str("Tag base."),
+        taxonomyBases: { type: "object", description: "Base path per taxonomy slug." },
+        trailingSlash: str("never or always.", { enum: ["never", "always"] }),
+      },
+      ["structure", "typeBases", "categoryBase", "tagBase", "taxonomyBases", "trailingSlash"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "site",
+  }),
+  manageTool({
+    name: "trash_list",
+    title: "List trash",
+    description: "Trashed content, media, comments and menus.",
+    method: "GET",
+    path: "/trash",
+    annotations: READ,
+    group: "site",
+  }),
+  manageTool({
+    name: "trash_restore",
+    title: "Restore trash",
+    description: "Restore one or more trash items.",
+    method: "POST",
+    path: "/trash/restore",
+    input: object(
+      {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: { type: "string", enum: ["content", "media", "comment", "menu"] },
+              id: { type: "string" },
+            },
+            required: ["type", "id"],
+          },
+        },
+      },
+      ["items"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "site",
+  }),
+  manageTool({
+    name: "trash_purge",
+    title: "Empty selected trash",
+    description: "Permanently delete the selected trash items. This cannot be undone. confirmReferenced true also deletes media that is still used.",
+    method: "DELETE",
+    path: "/trash",
+    input: object(
+      {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: { type: "string", enum: ["content", "media", "comment", "menu"] },
+              id: { type: "string" },
+            },
+            required: ["type", "id"],
+          },
+        },
+        confirmReferenced: bool("Also delete media that other content still references."),
+      },
+      ["items"],
+    ),
+    annotations: DESTRUCTIVE,
+    group: "site",
+  }),
+  manageTool({
+    name: "analytics_summary",
+    title: "Analytics summary",
+    description: "The site analytics summary.",
+    method: "GET",
+    path: "/analytics",
+    annotations: READ,
+    group: "site",
+  }),
+  manageTool({
+    name: "comment_rules_list",
+    title: "List comment rules",
+    description: "Block and allow rules for comments.",
+    method: "GET",
+    path: "/comment-rules",
+    annotations: READ,
+    group: "site",
+  }),
+  manageTool({
+    name: "comment_rules_create",
+    title: "Add a comment rule",
+    description: "Add a block or allow rule. list is block or allow. field is author_email, author_domain, ip or phrase.",
+    method: "POST",
+    path: "/comment-rules",
+    input: object(
+      {
+        list: str("block or allow.", { enum: ["block", "allow"] }),
+        field: str("author_email, author_domain, ip or phrase.", { enum: ["author_email", "author_domain", "ip", "phrase"] }),
+        pattern: str("The value to match."),
+        note: str("Optional note."),
+      },
+      ["list", "field", "pattern"],
+    ),
+    annotations: WRITE,
+    group: "site",
+  }),
+  manageTool({
+    name: "comment_rules_delete",
+    title: "Remove a comment rule",
+    description: "Remove a comment moderation rule.",
+    method: "DELETE",
+    path: "/comment-rules/{id}",
+    input: object({ id: str("Rule id.") }, ["id"]),
+    annotations: DESTRUCTIVE,
+    group: "site",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "spam_terms_list",
+    title: "List spam terms",
+    description: "Manual and trained spam terms.",
+    method: "GET",
+    path: "/comment-spam-terms",
+    annotations: READ,
+    group: "site",
+  }),
+  manageTool({
+    name: "spam_terms_create",
+    title: "Add a spam term",
+    description: "Add a domain or phrase that counts toward the spam score.",
+    method: "POST",
+    path: "/comment-spam-terms",
+    input: object(
+      {
+        kind: str("domain or phrase.", { enum: ["domain", "phrase"] }),
+        value: str("The domain or phrase."),
+      },
+      ["kind", "value"],
+    ),
+    annotations: WRITE,
+    group: "site",
+  }),
+  manageTool({
+    name: "spam_terms_delete",
+    title: "Remove a spam term",
+    description: "Remove a spam term.",
+    method: "DELETE",
+    path: "/comment-spam-terms/{id}",
+    input: object({ id: str("Term id.") }, ["id"]),
+    annotations: DESTRUCTIVE,
+    group: "site",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "cookies_get",
+    title: "Read the cookie registry",
+    description: "Cookies the site sets, and the category override for each name.",
+    method: "GET",
+    path: "/cookies",
+    annotations: READ,
+    group: "site",
+  }),
+  manageTool({
+    name: "cookies_update",
+    title: "Reclassify cookies",
+    description: 'Set cookie categories. overrides maps a cookie name to necessary, preferences, analytics or marketing.',
+    method: "PUT",
+    path: "/cookies",
+    input: object(
+      { overrides: { type: "object", description: "Cookie name to category." } },
+      ["overrides"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "site",
+  }),
+  manageTool({
+    name: "email_templates_list",
+    title: "List email templates",
+    description: "Transactional email templates and the shared email design.",
+    method: "GET",
+    path: "/email-templates",
+    input: object({ locale: str("Locale code. Defaults to the site default.") }),
+    annotations: READ,
+    group: "site",
+  }),
+  manageTool({
+    name: "email_design_update",
+    title: "Change the email design",
+    description: "Change the shared email design (logo, colours, footer). publish true makes it the live design.",
+    method: "PUT",
+    path: "/email-templates/design",
+    input: object(
+      {
+        design: { type: "object", description: "The design object from email_templates_list." },
+        publish: bool("Publish the design."),
+      },
+      ["design"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "site",
+  }),
+  manageTool({
+    name: "email_design_restore",
+    title: "Restore the email design",
+    description: "Put the shared email design back to the built-in default, as a draft.",
+    method: "POST",
+    path: "/email-templates/design/restore",
+    annotations: IDEMPOTENT_WRITE,
+    group: "site",
+  }),
+  manageTool({
+    name: "email_templates_update",
+    title: "Save an email template",
+    description: "Save one transactional email. key is the template key from email_templates_list, such as core.password-reset.",
+    method: "PUT",
+    path: "/email-templates/{key}",
+    input: object(
+      {
+        key: str("Template key."),
+        locale: str("Locale code."),
+        enabled: bool("Whether the template is sent."),
+        senderName: str("Sender name. Empty uses the site default."),
+        replyToPolicy: str("global or none.", { enum: ["global", "none"] }),
+        subject: str("Subject line."),
+        preheader: str("Preheader."),
+        html: str("HTML body."),
+        text: str("Plain-text body."),
+        publish: bool("Publish this version."),
+      },
+      ["key", "locale", "enabled", "senderName", "replyToPolicy", "subject", "preheader", "html", "text"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "site",
+    targetArg: "key",
+  }),
+  manageTool({
+    name: "email_templates_restore",
+    title: "Restore an email template",
+    description: "Put one email template back to its built-in copy, as a draft.",
+    method: "POST",
+    path: "/email-templates/{key}/restore",
+    input: object({ key: str("Template key."), locale: str("Locale code.") }, ["key", "locale"]),
+    annotations: IDEMPOTENT_WRITE,
+    group: "site",
+    targetArg: "key",
+  }),
+  manageTool({
+    name: "email_templates_preview",
+    title: "Preview an email template",
+    description: "Render an email template with sample values. Does not send mail.",
+    method: "POST",
+    path: "/email-templates/{key}/preview",
+    input: object(
+      {
+        key: str("Template key."),
+        locale: str("Locale code."),
+        mode: str("draft or published.", { enum: ["draft", "published"] }),
+        values: { type: "object", description: "Extra sample values keyed by variable name." },
+      },
+      ["key"],
+    ),
+    annotations: READ,
+    group: "site",
+    targetArg: "key",
   }),
 
   // Users & roles — listed only when the key or grant turned them on.
@@ -1092,7 +1760,6 @@ export const EXCLUDED_OPERATIONS: Record<string, string> = {
   "PUT /webhooks/{id}": "Webhook endpoints are owned by a stored API key, not by an agent session.",
   "DELETE /webhooks/{id}": "Webhook endpoints are owned by a stored API key, not by an agent session.",
   "POST /webhooks/{id}/rotate-secret": "Returns a signing secret; secrets never go into tool results.",
-  "POST /static-export/clear": "Deletes the export output from disk; left to the admin.",
   "POST /menus": "Exposed through menus_upsert, which creates the menu when it is missing.",
   "GET /tenants": "Platform-operator only; workspaces are not managed from an agent session.",
   "POST /tenants": "Platform-operator only; provisions databases, left to the operator.",

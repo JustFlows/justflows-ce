@@ -38,7 +38,12 @@ For a packaged `.jfpkg`, the install contract is the archive-root
 `justflows.json` with `type: "theme"`; the installer checks its range before the
 theme leaves staging. `justflows-theme.json` is the runtime theme metadata and
 should carry the same range so a source checkout or bundled theme states its
-contract too. When both files ship, keep their ranges identical. See
+contract too. When both files ship, keep their ranges identical. Customizer
+sections (`customize`), per-block inspector fields (`blockControls`), and
+`cssVariables` are read from the installed package: `justflows-theme.json`
+when it declares them, otherwise the same keys in `justflows.json`. The
+installer does not keep those keys, and a theme already on disk is picked up
+without a re-upload. See
 [Manifest](MANIFEST.md), [Packaging](PACKAGING.md), and
 [SDK compatibility](SDK-COMPATIBILITY.md).
 
@@ -395,10 +400,15 @@ a fixed size, so a heading chosen on a desktop still scales down.
 ## Theme-contributed controls
 
 A theme package adds its own Customizer sections through a `customize` block in
-`justflows-theme.json`. `schemaWithThemeControls` merges them onto
-`THEME_CUSTOMIZE_SCHEMA` for the active theme, and because the whole mods
-pipeline (`defaultModsFromSchema`, `mergeMods`, `modsToCssVariables`) is
-schema-driven, the values flow straight to `:root` — no emitter change.
+`justflows-theme.json`. The same block in `justflows.json` is used when the
+theme file does not declare one. Uploaded themes are included: the host reads
+the package files, not only the fields the installer kept.
+`schemaWithThemeControls` merges them onto `THEME_CUSTOMIZE_SCHEMA` for the
+active theme, and because the whole mods pipeline (`defaultModsFromSchema`,
+`mergeMods`, `modsToCssVariables`) is schema-driven, the values flow straight
+to `:root` — no emitter change. Package `cssVariables` are the Customizer's
+starting values for the light palette, so a theme's own colours and type are
+what the site uses until an editor saves a different choice.
 
 ```json
 "customize": {

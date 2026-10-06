@@ -33,7 +33,7 @@ export const MANAGE_API_OPENAPI = {
     title: "Justflows Federated Management API",
     version: "manage/v1",
     description:
-      "Operate Justflows headlessly over HTTP: content, media, comments, menus, content types, users, roles, settings, languages, redirects, plugins, themes, cache, static export, diagnostics, the event catalog and self-managed webhooks. Authenticate with a revocable API key as `Authorization: Bearer jfk_…`. Enable the surface in Admin → Settings → API. Each operation reuses the same capability check as its cookie-authenticated counterpart.",
+      "Operate Justflows headlessly over HTTP: content, media, comments, menus, the header library, footer and templates, theme appearance, content types, users, roles, settings, languages, redirects, permalinks, plugins, themes, cache, static export, trash, email templates, diagnostics, the event catalog and self-managed webhooks. Authenticate with a revocable API key as `Authorization: Bearer jfk_…`. Enable the surface in Admin → Settings → API. Each operation reuses the same capability check as its cookie-authenticated counterpart.",
   },
   servers: [{ url: "/api/manage/v1" }],
   security: [{ bearerAuth: [] }],
@@ -107,6 +107,9 @@ export const MANAGE_API_OPENAPI = {
     "/content/{id}/revisions": { get: op("List revisions", "content:revisions:read") },
     "/content/{id}/revisions/{revisionId}": {
       get: op("Get one revision (with body)", "content:revisions:read"),
+    },
+    "/content/{id}/header-ref": {
+      put: op("Choose which header library entry a page renders (__default__, __none__, or an entry id)", "content:update"),
     },
 
     "/media": {
@@ -208,6 +211,75 @@ export const MANAGE_API_OPENAPI = {
     "/static-export/clear": { post: op("Delete the static export output", "settings:manage") },
     "/diagnostics": { get: op("Version, migrations and runtime diagnostics", "site:admin") },
     "/health": { get: op("Platform health checks", "(any key)") },
+
+    "/headers": {
+      get: op("Read the site header library (published and draft)", "content:read"),
+      put: op("Save or publish the site header library", "settings:manage"),
+    },
+    "/headers/options": { get: op("Header picker options for pages", "content:read") },
+    "/template-parts/{part}": {
+      get: op("Read a template part (footer) including its draft", "content:read"),
+      put: op("Save or publish a template part", "settings:manage"),
+    },
+    "/templates": { get: op("List page templates for the active theme", "content:read") },
+    "/templates/{slug}": {
+      get: op("Read one page template", "content:read"),
+      put: op("Save or publish a page template", "settings:manage"),
+      delete: op("Reset a page template to the theme file", "settings:manage"),
+    },
+    "/templates/{slug}/discard-draft": { post: op("Discard a page template draft", "settings:manage") },
+    "/themes/customize": {
+      get: op("Read theme appearance, home blocks and blog blocks", "content:read"),
+      patch: op("Change theme appearance, home blocks, blog blocks, or the home and blog pages", "settings:manage"),
+      delete: op("Discard unpublished theme customizer drafts", "settings:manage"),
+    },
+    "/reusable-blocks": {
+      get: op("List reusable blocks", "content:read"),
+      put: op("Create or replace a reusable block", "settings:manage"),
+    },
+    "/reusable-blocks/{id}": { delete: op("Delete a reusable block", "settings:manage") },
+    "/patterns": {
+      get: op("List site, theme and plugin block patterns", "content:read"),
+      put: op("Save a site block pattern", "settings:manage"),
+    },
+    "/patterns/export": { get: op("Export the site pattern set", "settings:manage") },
+    "/patterns/import": { post: op("Import a pattern set", "settings:manage") },
+    "/patterns/{source}/{id}": { get: op("Read one pattern (source is site, theme or plugin)", "content:read") },
+    "/patterns/{id}": { delete: op("Delete a site pattern", "settings:manage") },
+    "/error-pages": {
+      get: op("Read error page sources", "content:read"),
+      put: op("Change error page sources", "settings:manage"),
+    },
+    "/permalinks": {
+      get: op("Read permalink structure, presets and type bases", "settings:read"),
+      put: op("Replace permalink settings", "settings:manage"),
+    },
+    "/trash": {
+      get: op("List trashed content, media, comments and menus", "content:delete"),
+      delete: op("Permanently delete selected trash items", "site:admin"),
+    },
+    "/trash/restore": { post: op("Restore trash items", "content:delete") },
+    "/analytics": { get: op("Site analytics summary", "analytics:read") },
+    "/comment-rules": {
+      get: op("List comment block and allow rules", "comments:moderate"),
+      post: op("Add a comment moderation rule", "settings:manage", { "201": { description: "Created" } }),
+    },
+    "/comment-rules/{id}": { delete: op("Remove a comment moderation rule", "settings:manage") },
+    "/comment-spam-terms": {
+      get: op("List spam terms", "comments:moderate"),
+      post: op("Add a spam term", "settings:manage", { "201": { description: "Created" } }),
+    },
+    "/comment-spam-terms/{id}": { delete: op("Remove a spam term", "settings:manage") },
+    "/cookies": {
+      get: op("Read the cookie registry and category overrides", "settings:read"),
+      put: op("Reclassify cookies by name", "settings:manage"),
+    },
+    "/email-templates": { get: op("List email templates and the email design", "email-templates:read") },
+    "/email-templates/design": { put: op("Save the email design", "email-templates:manage") },
+    "/email-templates/design/restore": { post: op("Restore the default email design", "email-templates:manage") },
+    "/email-templates/{key}": { put: op("Save an email template", "email-templates:manage") },
+    "/email-templates/{key}/restore": { post: op("Restore an email template to its default", "email-templates:manage") },
+    "/email-templates/{key}/preview": { post: op("Preview an email template", "email-templates:read") },
 
     "/webhooks": {
       get: op("List the webhook endpoints this key registered", "settings:manage"),

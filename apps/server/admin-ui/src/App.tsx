@@ -49,6 +49,7 @@ import CdnSettingsPage from "./pages/admin/settings/CdnSettingsPage";
 import PlatformPage from "./pages/admin/platform/PlatformPage";
 import PlatformSitePage from "./pages/admin/platform/PlatformSitePage";
 import PlatformSiteUsersPage from "./pages/admin/platform/PlatformSiteUsersPage";
+import PlatformWorkspacePage from "./pages/admin/platform/PlatformWorkspacePage";
 import SignupPage from "./pages/SignupPage";
 import OAuthConsentPage from "./pages/OAuthConsentPage";
 import { I18nProvider } from "./i18n/I18nProvider";
@@ -160,6 +161,7 @@ export default function App() {
               <Route path="settings/cdn" element={<CdnSettingsPage />} />
               <Route path="platform/sites/:id/users" element={<PlatformSiteUsersPage />} />
               <Route path="platform/sites/:id" element={<PlatformSitePage />} />
+              <Route path="platform/workspaces/:id" element={<PlatformWorkspacePage />} />
               <Route path="platform" element={<PlatformPage />} />
               <Route path="languages" element={<LanguagesPage />} />
               <Route path="security" element={<SecurityOverviewPage />} />

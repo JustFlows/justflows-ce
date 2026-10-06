@@ -174,7 +174,9 @@ intrinsic `width`/`height`, `loading="lazy"`, and `decoding="async"`. Set
 point comes from the Media Library, not the block. See
 [Media and responsive images](MEDIA.md); `renderResponsiveImage` from
 `@justflows/blocks` is exported for theme and plugin blocks that build their own
-image markup.
+image markup. A plugin or theme that emits a plain `<img src="/uploads/...">`,
+or a hero `background-image`, is upgraded to the same derivatives on the public
+page, so it does not have to call the helper to get WebP/AVIF.
 
 ## Blog post lists
 

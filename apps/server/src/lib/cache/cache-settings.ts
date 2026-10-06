@@ -5,7 +5,7 @@ import { parseEnvBool } from "@justflows/core";
 import { getJfRoot } from "../runtime/jf-root.js";
 import { applyEnvToProcess, readEnvMap, updateEnvKeys } from "../settings/env-file.js";
 import { resetJfCache, wipeCacheStorage } from "./jf-cache.js";
-import { requestPassengerRestart } from "../runtime/app-restart.js";
+import { requestAppRestart } from "../runtime/app-restart.js";
 
 export const CacheSettingsBodySchema = z.object({
   enabled: z.boolean(),
@@ -112,7 +112,7 @@ export async function applyCacheSettings(body: CacheSettings): Promise<{
 
   resetJfCache();
 
-  const restart = await requestPassengerRestart(getJfRoot());
+  const restart = await requestAppRestart(getJfRoot());
   const snapshot = await readCacheSettings();
 
   return {

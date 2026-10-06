@@ -34,7 +34,10 @@ Installer `PackageManifestSchema` is the install contract:
 | `adminApp`           | Plugin-only. Requires `admin:extend` in `permissions`. A self-contained admin build `{ dir?, locales, routes: [{ path, entry, title? }] }`. `locales.en` is required and is the fallback catalog (a flat JSON object of strings, path relative to `dir`). The host serves `<dir>/**` at `/ext/<id>/admin/**` (admin-authenticated) and mounts each route's `entry` in a same-origin `<iframe>`. See [PLUGINS.md](PLUGINS.md#ship-your-own-admin-app) |
 
 Themes use `justflows-theme.json` (or `justflows.json` with `type: "theme"`).
-See [THEMES.md](THEMES.md).
+`customize`, `blockControls`, and `cssVariables` belong in
+`justflows-theme.json`. The host also accepts them in `justflows.json`. The
+installer schema does not store those keys; the theme route reads them from
+the package files. See [THEMES.md](THEMES.md).
 
 Invalid manifests fail install. Tests live in
 `packages/installer/tests/unit/package-manifest.test.ts`.

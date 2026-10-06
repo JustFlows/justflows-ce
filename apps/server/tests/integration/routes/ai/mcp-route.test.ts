@@ -45,16 +45,18 @@ vi.mock("../../../../src/lib/auth/api-keys.js", async (orig) => {
     recordApiKeyUse: async () => {},
   };
 });
-vi.mock("../../../../src/lib/database/db.js", () => ({
-  getDb: async () => ({
+vi.mock("../../../../src/lib/database/db.js", () => {
+  const db = {
     query: async (sql: string) =>
       /FROM content c/.test(sql)
         ? [{ id: "c1", type: "post", title: "Hello", slug: "hello", locale: "en-US", status: "draft", version: 1 }]
         : [],
     run: async () => undefined,
     execute: async () => 0,
-  }),
-}));
+  };
+  // The in-process dispatch looks up the key's site database on the control db.
+  return { getDb: async () => db, getControlDb: async () => db };
+});
 vi.mock("../../../../src/lib/i18n/languages-db.js", async (orig) => ({
   ...(await orig<typeof import("../../../../src/lib/i18n/languages-db.js")>()),
   resolveContentLocale: async (l: string) => l,

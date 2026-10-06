@@ -8,6 +8,7 @@ import { getRuntimeBlockRegistry } from "../rendering/runtime-blocks.js";
 import { ensurePluginRuntime, getRuntimeHooks } from "../plugins/plugin-runtime.js";
 import { consumeRateLimit } from "../security/rate-limit.js";
 import { getGeneralSettings } from "../settings/general-settings.js";
+import { getSiteId } from "../settings/site-settings.js";
 import { commentsStateFor, getCommentSettings, type CommentSettings } from "./comments-settings.js";
 import { CAPTCHA_META, renderCaptchaWidget, verifyCaptcha } from "../security/captcha.js";
 import { createCommentFormToken, verifyCommentFormToken } from "./comment-form-token.js";
@@ -620,8 +621,7 @@ export async function acceptCommentSubmission(
   }
 
   const db = await getDb();
-  const siteRows = await db.query<{ id: string }>("SELECT id FROM sites LIMIT 1");
-  const siteId = siteRows[0]?.id;
+  const siteId = await getSiteId();
   if (!siteId) return fail(404, "Comments are not available");
 
   const settings = await getCommentSettings(siteId);

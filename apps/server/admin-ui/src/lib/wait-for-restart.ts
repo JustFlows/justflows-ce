@@ -1,10 +1,14 @@
-/** Poll until the app responds after a Passenger restart (tmp/restart.txt). */
+/**
+ * Poll until the app has finished loading after a restart.
+ * A systemd stop/start plus a cold boot can take about a minute. `/api/healthz`
+ * returns 200 with `boot: "starting"` the whole time, so that is not "back".
+ */
 export async function waitForSiteRestart(t: (key: string) => string, onLog?: (line: string) => void): Promise<boolean> {
   const log = (line: string) => onLog?.(line);
   log(`↻ ${t("updates.log.appRestarting")}`);
   await sleep(3000);
 
-  for (let attempt = 0; attempt < 20; attempt++) {
+  for (let attempt = 0; attempt < 70; attempt++) {
     try {
       const res = await fetchWithTimeout("/api/healthz", 5000);
       if (res.ok) {
@@ -17,7 +21,7 @@ export async function waitForSiteRestart(t: (key: string) => string, onLog?: (li
         }
       }
     } catch {
-      // expected while Passenger restarts
+      // expected while the process is down
     }
     await sleep(1500);
   }

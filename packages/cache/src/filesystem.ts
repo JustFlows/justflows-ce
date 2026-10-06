@@ -12,7 +12,7 @@ import { cacheKeyMatchesPrefix, isSiteShardName, siteShard } from "./site-key.js
 // only make every cache read/write pay a multi-hundred-millisecond tax — it
 // is not a credential hash.
 function cacheFileName(key: string): string {
-  // codeql[js/insufficient-password-hash]: see comment above — not a credential hash.
+  // js/insufficient-password-hash is excluded in .github/codeql/codeql-config.yml.
   return `${createHash("sha256").update(key).digest("hex")}.json`;
 }
 

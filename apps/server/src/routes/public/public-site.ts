@@ -38,6 +38,7 @@ import {
   withResponsiveImages,
 } from "../../lib/rendering/responsive-blocks.js";
 import { primePlaceholders, resolvePlaceholder } from "../../lib/media/placeholders.js";
+import { upgradeResponsiveHtml } from "../../lib/media/responsive-html.js";
 import { createTranslator, type MessageCatalog } from "../../lib/i18n/translate.js";
 import {
   defaultModsFromSchema,
@@ -46,6 +47,7 @@ import {
   getThemeMods,
   layoutScopeCss,
   mergeMods,
+  schemaWithThemeControls,
 } from "../../lib/themes/theme-customize.js";
 import { listLayoutScopes } from "../../lib/themes/layout-scopes.js";
 import {
@@ -233,7 +235,10 @@ async function loadThemeMods(preview = false): Promise<ReturnType<typeof mergeMo
 
       const theme = await getActiveTheme(siteId);
       const themeId = theme?.theme_id ?? "justflows.default";
-      const defaults = defaultModsFromSchema();
+      const defaults = defaultModsFromSchema(
+        schemaWithThemeControls(theme?.manifest),
+        theme?.css_variables,
+      );
       const published = (await getThemeMods(themeId, false)) ?? {};
       const draft = preview ? ((await getThemeMods(themeId, true)) ?? {}) : {};
       return mergeMods(mergeMods(defaults, published), draft);
@@ -406,11 +411,15 @@ async function renderBlocksHtml(
     await withResponsiveImages(await withReusables(blocks), siteId),
     siteId,
   );
+  let html: string;
   try {
-    return await renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx, templateCtx);
+    html = await renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx, templateCtx);
   } catch {
-    return renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx, templateCtx);
+    html = await renderBlockTree(resolved, submittedFormId, blogCtx, commentCtx, templateCtx);
   }
+  // Plugin blocks and theme HTML emit their own <img> tags. Upgrade those to
+  // the same <picture>/srcset (and hero background image-set) as core.image.
+  return upgradeResponsiveHtml(html, siteId);
 }
 
 /** Posts-per-page fallback for `justflows.blog.postList` blocks that don't override it. */
