@@ -74,6 +74,20 @@ function decide(record: HostRecord, viaLoopback: boolean): HostDecision {
   return { kind: "ready", record, viaLoopback };
 }
 
+/**
+ * Customer sites are subdomains until a custom domain can be attached.
+ * `dirkswebsite.justflows.com` and a bare slug such as `construction-demo` are
+ * subdomains. A hostname outside the platform domain is custom. Loopback stays primary.
+ */
+export function siteDomainKind(hostname: string, baseDomain: string): "primary" | "subdomain" | "custom" {
+  const host = normalizeHostname(hostname);
+  const base = normalizeHostname(baseDomain);
+  if (!host || isLoopbackHost(host)) return "primary";
+  if (base && host.endsWith(`.${base}`) && host.length > base.length + 1) return "subdomain";
+  if (!host.includes(".")) return "subdomain";
+  return "custom";
+}
+
 export function isValidHostname(hostname: string): boolean {
   const host = normalizeHostname(hostname);
   if (!host || host.length > 253 || host.includes("..") || /[\s/\\]/.test(host)) return false;

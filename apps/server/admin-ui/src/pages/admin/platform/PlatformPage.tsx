@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Link } from "../../../admin-router";
 import { useT } from "../../../i18n/I18nProvider";
 import { initialJson } from "../../../ssr-data";
 
@@ -260,9 +261,7 @@ export default function PlatformPage() {
                             <div className="jf-stack jf-stack--sm">
                               {sites.map((site) => (
                                 <div key={site.id}>
-                                  {site.hostname
-                                    ? <a href={`https://${site.hostname}/admin`}>{site.hostname}</a>
-                                    : <span className="jf-badge">{site.status}</span>}
+                                  <Link to={`/admin/platform/sites/${site.id}`}>{site.hostname ?? site.name}</Link>
                                   <div className="jf-field__hint">
                                     {site.name} · {site.database_choice === "separate" ? t("platform.separate") : site.database_choice === "current" ? t("platform.current") : t("platform.inherit")}
                                   </div>

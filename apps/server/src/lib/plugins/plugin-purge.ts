@@ -12,9 +12,12 @@ import { packagesInstalledDir } from "../extensions/packages-dir.js";
 import { decryptSecret, encryptSecret } from "../security/secret-box.js";
 import { sanitizeProbeError } from "../database/db-probe.js";
 import {
+  deletePluginSiteRows,
   dropPluginOwnedTables,
   openTargetDatabase,
 } from "./plugin-schema.js";
+import { mayDropPluginTables, otherSitesHavePlugin } from "./plugin-multisite.js";
+import { isInstallationRootSite } from "../tenancy/registry.js";
 import { deleteAllPluginData } from "./plugin-data.js";
 import {
   deletePluginHostItem,
@@ -210,6 +213,10 @@ export async function purgePluginStorage(
   const driver = (process.env.DB_DRIVER as PluginDatabaseDriver | undefined) || "mysql";
   const dropped: string[] = [];
   let remoteError: string | undefined;
+  const dropTables = mayDropPluginTables({
+    installationRoot: await isInstallationRootSite(siteId),
+    otherSitesUsePlugin: await otherSitesHavePlugin(pluginId, siteId),
+  });
 
   const meta = await getPluginHostItem<AppliedPluginSchemaMeta>(
     pluginId,
@@ -224,7 +231,16 @@ export async function purgePluginStorage(
   if (meta?.target) {
     try {
       const password = decryptSecret(storedPassword ?? "");
-      dropped.push(...(await dropOnSeparateTarget(pluginId, meta, password)));
+      if (dropTables) {
+        dropped.push(...(await dropOnSeparateTarget(pluginId, meta, password)));
+      } else {
+        const remote = await openTargetDatabase({ ...meta.target, password, ssl: meta.target.ssl });
+        try {
+          dropped.push(...(await deletePluginSiteRows(remote, pluginId, siteId, meta.target.driver, meta.tables)));
+        } finally {
+          await remote.close();
+        }
+      }
     } catch (err) {
       remoteError = sanitizeProbeError(err);
     }
@@ -232,7 +248,11 @@ export async function purgePluginStorage(
 
   try {
     const db = await getDb();
-    dropped.push(...(await dropPluginOwnedTables(db, pluginId, driver, meta?.tables ?? [])));
+    dropped.push(
+      ...(dropTables
+        ? await dropPluginOwnedTables(db, pluginId, driver, meta?.tables ?? [])
+        : await deletePluginSiteRows(db, pluginId, siteId, driver, meta?.tables ?? [])),
+    );
     await deleteAllPluginData(pluginId, siteId);
     await deletePluginSiteSettings(siteId, pluginId);
   } catch (err) {

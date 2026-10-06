@@ -326,15 +326,18 @@ export async function ensurePluginRuntime(): Promise<void> {
             key: string,
           ): Promise<T | undefined> => {
             const { getPluginSetting } = await import("./plugin-kv.js");
-            return getPluginSetting<T>(pluginId, siteId, key);
+            const { pluginCallSiteId } = await import("./request-site.js");
+            return getPluginSetting<T>(pluginId, pluginCallSiteId(siteId), key);
           },
           set: async (siteId: string, pluginId: string, key: string, value: unknown) => {
             const { setPluginSetting } = await import("./plugin-kv.js");
-            await setPluginSetting(pluginId, siteId, key, value);
+            const { pluginCallSiteId } = await import("./request-site.js");
+            await setPluginSetting(pluginId, pluginCallSiteId(siteId), key, value);
           },
           delete: async (siteId: string, pluginId: string, key: string) => {
             const { deletePluginSetting } = await import("./plugin-kv.js");
-            await deletePluginSetting(pluginId, siteId, key);
+            const { pluginCallSiteId } = await import("./request-site.js");
+            await deletePluginSetting(pluginId, pluginCallSiteId(siteId), key);
           },
         },
       });

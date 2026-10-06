@@ -246,6 +246,10 @@ export async function updateExtension(
 ): Promise<ExtensionUpdateResult> {
   const actor = options.actor ?? {};
   if (type === "plugin") {
+    const { isInstallationRootSite } = await import("../tenancy/registry.js");
+    if (!(await isInstallationRootSite(siteId))) {
+      throw new MarketplaceRequestError(403, { error: "Plugins are updated on the main site." });
+    }
     const { getPlugin, insertPlugin, markPluginError } = await import("../plugins/plugins-db.js");
     const existing = await getPlugin(siteId, id);
     if (!existing) throw new MarketplaceRequestError(404, { error: "Plugin not found" });

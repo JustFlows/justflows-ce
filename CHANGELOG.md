@@ -5,10 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.2.9]
+## [0.2.9] [UNRELEASED]
 
 ### Added
 
+- **A plugin can be offered to other sites.** `allowMultisite` on the plugin manifest lets the main site turn on “Available on other sites”. Another site can then activate that plugin. It cannot install the package or delete the plugin’s tables. Removing it there deletes only that site’s entries. The tables stay until the main site removes the plugin and no other site still uses it. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Edit a website from Platform.** A platform operator opens a website from the workspace list. Its page shows the site id and the website's name, description, address, domains, status, and database connection. Those fields can be changed there. Moving a website onto a different database stays a separate step. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Manage a website's users from Platform.** The website page links to a Users page where a platform operator lists, adds, edits, and removes that site's accounts, changes their role, and sets a new password. It works for websites with isolated users and on a separate database: the accounts are read from and saved to the database that website uses. If that database cannot be reached, the page says so and changes nothing. Each change is logged in the website's audit log and in the platform audit. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Remove a deleted website completely.** On Platform, a website that is suspended or already marked deleted can be removed at once. Pages, users, and files go with it. A shared database is not dropped. The same cleanup runs on its own after a number of days set on that page. 0 leaves deleted websites in the list until they are removed there. The platform workspace cannot be removed. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Delete a customer website from its settings.** An administrator of a site created later can delete that website under Settings. They confirm by typing the hostname. The platform site cannot be deleted this way, and a shared signup database is left in place. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Multi-site workspaces with a database choice.** One installation can serve many hostnames. Each workspace uses the current database or a separate database, with isolated users or shared users and per-site roles. Unknown hosts are refused. Platform operators suspend and reactivate a workspace without affecting the others. Public signup assigns `slug.example.com` on the current database. A separate database is chosen only by a platform operator who supplies the connection. Plugins read the current workspace and, with `platform:tenancy`, create and manage workspaces through `ctx.tenancy` and `/api/manage/v1/tenants`. See docs/MULTISITE.md. Adds migration `0037_tenancy`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
@@ -16,6 +19,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A website on the platform domain is a subdomain.** Opening it from Platform showed the domain kind as custom. A hostname under the signup domain, such as `dirkswebsite.justflows.com`, is a subdomain. A hostname outside that domain stays a custom domain. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **A customer site can turn static export off.** Tools on that site has its own switch. Turning it off stops new exports and automatic rebuilds of that website. It does not change the installation, and files already exported stay until that site clears them. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **An agent stays on the website it was connected to.** The MCP address shown in the admin is that site's own `/api/mcp`. A key or sign-in for one website is refused on another, so it cannot read or change the other site. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Customer sites no longer show the server folder or the recovery environment variable.** Clearing a static export says it removes this website's export. The admin-path recovery instructions stay on the platform site. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))

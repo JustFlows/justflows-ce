@@ -14,7 +14,8 @@ import {
   type DatabaseTarget,
 } from "./choice.js";
 import type { DatabaseChoice, DatabaseMode, UserMode } from "./context.js";
-import { hostnameFromUrl, isValidHostname, normalizeHostname, slugify } from "./host.js";
+import { hostnameFromUrl, isValidHostname, normalizeHostname, siteDomainKind, slugify } from "./host.js";
+import { platformBaseDomain } from "./saas-settings.js";
 
 type Sql = Pick<DbClient, "run" | "query">;
 
@@ -120,6 +121,7 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Prov
   const stamp = now();
   const status = input.databaseMode === "separate" ? "provisioning" : "active";
   const siteUrl = input.siteUrl ?? `https://${hostname}`;
+  const domainKind = siteDomainKind(hostname, await platformBaseDomain());
   try {
     await db.run(
       `INSERT INTO tenants (id, name, slug, status, user_mode, database_mode, created_at, updated_at)
@@ -134,7 +136,7 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Prov
     await db.run(
       `INSERT INTO site_domains (id, site_id, hostname, kind, verified, is_primary, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [randomUUID(), siteId, hostname, hostname.includes(".") ? "custom" : "primary", true, true, stamp],
+      [randomUUID(), siteId, hostname, domainKind, true, true, stamp],
     );
     const databaseId = randomUUID();
     if (input.databaseMode === "current") {
@@ -258,8 +260,8 @@ async function seedSiteContents(
       [input.siteId, input.siteName, `https://${input.hostname}`, true, input.stamp, input.stamp, input.stamp, input.tenantId],
     );
     await db.run(
-      `INSERT INTO site_domains (id, site_id, hostname, kind, verified, is_primary, created_at) VALUES (?, ?, ?, 'primary', ?, ?, ?)`,
-      [randomUUID(), input.siteId, input.hostname, true, true, input.stamp],
+      `INSERT INTO site_domains (id, site_id, hostname, kind, verified, is_primary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [randomUUID(), input.siteId, input.hostname, siteDomainKind(input.hostname, await platformBaseDomain()), true, true, input.stamp],
     );
   }
   const userId = randomUUID();
@@ -566,14 +568,15 @@ export async function createAdditionalSite(input: {
   const siteId = randomUUID();
   const stamp = now();
   const siteUrl = `https://${hostname}`;
+  const domainKind = siteDomainKind(hostname, await platformBaseDomain());
   await db.run(
     `INSERT INTO sites (id, name, url, description, active, installed_at, created_at, updated_at, tenant_id, status, database_choice)
      VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, 'active', ?)`,
     [siteId, input.name, siteUrl, true, stamp, stamp, stamp, input.tenantId, input.databaseChoice],
   );
   await db.run(
-    `INSERT INTO site_domains (id, site_id, hostname, kind, verified, is_primary, created_at) VALUES (?, ?, ?, 'custom', ?, ?, ?)`,
-    [randomUUID(), siteId, hostname, true, true, stamp],
+    `INSERT INTO site_domains (id, site_id, hostname, kind, verified, is_primary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [randomUUID(), siteId, hostname, domainKind, true, true, stamp],
   );
 
   const dataMode = choice.mode;
@@ -641,8 +644,8 @@ export async function createAdditionalSite(input: {
         [siteId, input.name, siteUrl, true, stamp, stamp, stamp, input.tenantId],
       );
       await data.run(
-        `INSERT INTO site_domains (id, site_id, hostname, kind, verified, is_primary, created_at) VALUES (?, ?, ?, 'custom', ?, ?, ?)`,
-        [randomUUID(), siteId, hostname, true, true, stamp],
+        `INSERT INTO site_domains (id, site_id, hostname, kind, verified, is_primary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [randomUUID(), siteId, hostname, domainKind, true, true, stamp],
       );
       if (userMode === "shared") await grantWorkspaceAdmins(data, input.tenantId, siteId, stamp);
       else if (input.admin) {

@@ -1,11 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { isInstallationRootRequest, sessionMatchesRequestSite } from "../../../src/lib/tenancy/access.js";
 import { validateDatabaseChoice } from "../../../src/lib/tenancy/choice.js";
+import { validateSiteEdit, type SiteEditInput } from "../../../src/lib/tenancy/site-record.js";
 import { runWithTenant, type TenantRequestContext } from "../../../src/lib/tenancy/context.js";
-import { pickHost, signupBaseDomain, signupSiteOrigin, type HostRecord } from "../../../src/lib/tenancy/host.js";
+import { pickHost, signupBaseDomain, signupSiteOrigin, siteDomainKind, type HostRecord } from "../../../src/lib/tenancy/host.js";
 import { buildSaasSettings, readSaasSettings, readSignupDatabaseTarget, withPurgeAfterDays } from "../../../src/lib/tenancy/saas-settings.js";
 import { deletedLongEnough } from "../../../src/lib/tenancy/purge-deleted.js";
 import { createPluginTenancyApi } from "../../../src/lib/plugins/plugin-tenancy.js";
+
+function siteEdit(overrides: Partial<SiteEditInput> = {}): SiteEditInput {
+  return {
+    name: "Site A",
+    description: "A customer site",
+    url: "https://a.example.com",
+    status: "active",
+    databaseChoice: "inherit",
+    domains: [{ id: null, hostname: "A.EXAMPLE.COM", kind: "custom", verified: true, isPrimary: true }],
+    database: null,
+    ...overrides,
+  };
+}
+
+function siteContext(overrides: Partial<Parameters<typeof validateSiteEdit>[1]> = {}): Parameters<typeof validateSiteEdit>[1] {
+  return {
+    currentStatus: "active",
+    currentChoice: "inherit",
+    userMode: "isolated",
+    tenantMode: "current",
+    siteDatabase: false,
+    takenHostnames: new Set<string>(),
+    ...overrides,
+  };
+}
 
 const siteA: HostRecord = {
   hostname: "a.example.com",
@@ -24,6 +50,27 @@ const siteB: HostRecord = {
   siteId: "site-b",
   tenantId: "tenant-b",
 };
+
+describe("domain kind", () => {
+  it("calls a hostname under the platform domain a subdomain", () => {
+    expect(siteDomainKind("dirkswebsite.justflows.com", "justflows.com")).toBe("subdomain");
+    expect(siteDomainKind("DIRKSWEBSITE.JUSTFLOWS.COM", "JustFlows.com")).toBe("subdomain");
+  });
+
+  it("does not treat the platform domain itself as a subdomain", () => {
+    expect(siteDomainKind("justflows.com", "justflows.com")).toBe("custom");
+  });
+
+  it("keeps a hostname outside the platform domain as a custom domain", () => {
+    expect(siteDomainKind("example.com", "justflows.com")).toBe("custom");
+    expect(siteDomainKind("notjustflows.com", "justflows.com")).toBe("custom");
+  });
+
+  it("keeps loopback as primary and a customer slug as a subdomain", () => {
+    expect(siteDomainKind("localhost", "justflows.com")).toBe("primary");
+    expect(siteDomainKind("construction-demo", "justflows.com")).toBe("subdomain");
+  });
+});
 
 describe("host routing", () => {
   it("does not fall back to another site when the host is unknown", () => {
@@ -85,6 +132,47 @@ describe("database choice", () => {
       target: { host: "localhost", port: 5432, database: "jf_a", username: "jf", password: "" },
     });
     expect(result).toEqual({ ok: true, mode: "separate" });
+  });
+
+  it("accepts a website rename that keeps one primary domain", () => {
+    const result = validateSiteEdit(siteEdit(), siteContext());
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.domains[0]?.hostname).toBe("a.example.com");
+  });
+
+  it("rejects two primary addresses", () => {
+    const input = siteEdit();
+    input.domains.push({ id: null, hostname: "www.a.example.com", kind: "custom", verified: false, isPrimary: true });
+    expect(validateSiteEdit(input, siteContext()).ok).toBe(false);
+  });
+
+  it("rejects a hostname another website already uses", () => {
+    const result = validateSiteEdit(siteEdit(), siteContext({ takenHostnames: new Set(["a.example.com"]) }));
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects a site URL on a domain that is not listed", () => {
+    const input = siteEdit({ url: "https://other.example.com" });
+    expect(validateSiteEdit(input, siteContext()).ok).toBe(false);
+  });
+
+  it("rejects moving a website off the database it already uses", () => {
+    const result = validateSiteEdit(siteEdit({ databaseChoice: "current" }), siteContext({ tenantMode: "separate" }));
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects edits while a website is deleted", () => {
+    expect(validateSiteEdit(siteEdit(), siteContext({ currentStatus: "deleted" })).ok).toBe(false);
+  });
+
+  it("rejects changing the workspace database from a website page", () => {
+    const result = validateSiteEdit(
+      siteEdit({
+        database: { host: "db.internal", port: 5432, database: "jf_a", username: "jf", password: "" },
+      }),
+      siteContext(),
+    );
+    expect(result.ok).toBe(false);
   });
 
   it("refuses to split shared users onto a site-specific database", () => {

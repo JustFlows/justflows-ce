@@ -115,6 +115,53 @@ export async function listPluginOwnedTables(
   return rows.map(tableNameFromRow).filter((name) => isPluginOwnedTable(pluginId, name));
 }
 
+async function tableHasSiteId(
+  db: Pick<DbClient, "query">,
+  tableName: string,
+  driver: PluginDatabaseDriver,
+): Promise<boolean> {
+  try {
+    const sql =
+      driver === "postgres"
+        ? "SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = 'site_id' LIMIT 1"
+        : "SELECT COLUMN_NAME AS column_name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'site_id' LIMIT 1";
+    const rows = await db.query<Record<string, unknown>>(sql, [tableName]);
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Delete one site's rows. Tables that have no `site_id` column are left untouched. */
+export async function deletePluginSiteRows(
+  db: Pick<DbClient, "run" | "query">,
+  pluginId: string,
+  siteId: string,
+  driver: PluginDatabaseDriver,
+  knownTables: string[] = [],
+): Promise<string[]> {
+  let tables: string[] = [];
+  try {
+    tables = await listPluginOwnedTables(db, pluginId, driver);
+  } catch {
+    tables = [];
+  }
+  if (tables.length === 0) {
+    tables = knownTables.filter((name) => isPluginOwnedTable(pluginId, name));
+  }
+  const cleared: string[] = [];
+  for (const name of tables) {
+    if (!isPluginOwnedTable(pluginId, name)) continue;
+    if (!(await tableHasSiteId(db, name, driver))) continue;
+    await db.run(
+      `DELETE FROM ${quoteIdent(name, driver)} WHERE ${quoteIdent("site_id", driver)} = ?`,
+      [siteId],
+    );
+    cleared.push(name);
+  }
+  return cleared;
+}
+
 export async function dropPluginOwnedTables(
   db: Pick<DbClient, "run" | "query">,
   pluginId: string,

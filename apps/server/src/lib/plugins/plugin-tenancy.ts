@@ -44,6 +44,7 @@ export function createPluginTenancyApi(
         hostname: current.hostname,
         userMode: current.userMode,
         databaseMode: current.databaseMode,
+        rootSite: current.rootSite === true,
       };
     },
 

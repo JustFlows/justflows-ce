@@ -43,6 +43,16 @@ export function databaseConfigFromRow(row: SeparateDatabaseRow): DbConnectionCon
   };
 }
 
+/** Drop a cached connection so the next use opens one with the saved credentials. */
+export async function dropSeparateDatabasePool(databaseId: string): Promise<void> {
+  const prefix = `${databaseId}:`;
+  for (const [key, client] of [...pools.entries()]) {
+    if (!key.startsWith(prefix)) continue;
+    pools.delete(key);
+    await client.close().catch(() => undefined);
+  }
+}
+
 export async function borrowSeparateDatabase(row: SeparateDatabaseRow): Promise<DbClient | null> {
   const config = databaseConfigFromRow(row);
   if (!config) return null;

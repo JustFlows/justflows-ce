@@ -208,6 +208,11 @@ describe("PackageManifestSchema registry", () => {
     expect(parsed.contentTypes).toEqual(["product", "shop"]);
   });
 
+  it("keeps allowMultisite so a package can be offered to other sites", () => {
+    const parsed = PackageManifestSchema.parse({ ...base, allowMultisite: true });
+    expect(parsed.allowMultisite).toBe(true);
+  });
+
   it("rejects a paid listing without a price", () => {
     const result = PackageManifestSchema.safeParse({
       ...base,

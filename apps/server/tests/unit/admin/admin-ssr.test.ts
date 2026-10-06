@@ -23,6 +23,8 @@ describe("admin SSR", () => {
   it("prefetches dynamic editor and plugin settings paths", () => {
     expect(adminPrefetchPaths("/admin/content/abc")).toContain("/api/content/abc");
     expect(adminPrefetchPaths("/admin/plugins/demo/settings")).toContain("/api/plugins/demo/settings");
+    expect(adminPrefetchPaths("/admin/platform/sites/site-a")).toContain("/api/platform/sites/site-a");
+    expect(adminPrefetchPaths("/admin/platform/sites/site-a/users")).toContain("/api/platform/sites/site-a/users");
     expect(adminPrefetchPaths("/admin/themes/customize?preview=1")).toContain("/api/site/identity?preview=1");
   });
 

@@ -78,7 +78,9 @@ Migration `0037_tenancy` creates a Primary workspace on the current database, at
 
 ## Plugins
 
-A plugin reads the workspace for the current request with `ctx.tenancy.current()`. That object has the workspace id, site id, hostname, user mode, and database mode. It never includes a database password.
+A plugin is installed on the main site. It reaches other sites only when its manifest sets `allowMultisite` to `true` and the main site turns on **Available on other sites**. Another site can activate that plugin. It cannot install a package, and it cannot drop the plugin's tables. Removing the plugin there deletes only that site's rows. The main site can delete the plugin, and drop its tables, once no other site still has it.
+
+A plugin reads the workspace for the current request with `ctx.tenancy.current()`. That object has the workspace id, site id, hostname, user mode, database mode, and whether this is the main site. It never includes a database password.
 
 Creating, listing, suspending, reactivating, and deleting workspaces requires the `platform:tenancy` manifest permission. The same operations are on the management API at `/api/manage/v1/tenants` for an API key whose user is a platform operator.
 

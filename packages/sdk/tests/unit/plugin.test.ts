@@ -10,6 +10,13 @@ const base = {
   license: "GPL-2.0-or-later",
 };
 
+describe("PluginManifestSchema — multisite", () => {
+  it("keeps allowMultisite and treats a missing flag as not set", () => {
+    expect(PluginManifestSchema.parse({ ...base, allowMultisite: true }).allowMultisite).toBe(true);
+    expect(PluginManifestSchema.parse(base).allowMultisite).toBeUndefined();
+  });
+});
+
 describe("PluginManifestSchema — mail sending", () => {
   it("accepts mail:send and treats it as sensitive", () => {
     const parsed = PluginManifestSchema.parse({ ...base, permissions: ["mail:send"] });

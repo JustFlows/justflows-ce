@@ -140,6 +140,7 @@ const NULL_DATABASES: PluginDatabasesApi = {
   }),
   ensureSchema: async () => ({ ok: false, error: "Database schema is not available", tables: [] }),
   dropSchema: async () => ({ ok: false, error: "Database schema is not available", tables: [] }),
+  clear: async () => ({ ok: false, error: "Database schema is not available", tables: [] }),
   upsert: async () => undefined,
   findOne: async () => undefined,
   find: async () => [],
