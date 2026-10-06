@@ -391,7 +391,7 @@ export interface NavAudience {
   platformOperator?: boolean;
 }
 
-const INSTALLATION_ROOT_PREFIXES = ["/admin/health", "/admin/updates"];
+const INSTALLATION_ROOT_PREFIXES = ["/admin/health", "/admin/updates", "/admin/marketplace"];
 const OPERATOR_PREFIXES = ["/admin/platform"];
 
 function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {

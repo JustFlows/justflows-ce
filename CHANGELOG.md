@@ -5,11 +5,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.2.9] [UNRELEASED]
+## [0.2.9]
 
 ### Added
 
-- **A plugin can be offered to other sites.** `allowMultisite` on the plugin manifest lets the main site turn on “Available on other sites”. Another site can then activate that plugin. It cannot install the package or delete the plugin’s tables. Removing it there deletes only that site’s entries. The tables stay until the main site removes the plugin and no other site still uses it. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **A plugin can be offered to other sites.** On Plugins, the main site turns on “Allow on other sites” for each plugin. Another site can then activate or deactivate it. It is not turned on there until that site does so. That site cannot install a plugin, open the Marketplace, or remove a plugin. Only the main site can remove one. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Edit a website from Platform.** A platform operator opens a website from the workspace list. Its page shows the site id and the website's name, description, address, domains, status, and database connection. Those fields can be changed there. Moving a website onto a different database stays a separate step. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Manage a website's users from Platform.** The website page links to a Users page where a platform operator lists, adds, edits, and removes that site's accounts, changes their role, and sets a new password. It works for websites with isolated users and on a separate database: the accounts are read from and saved to the database that website uses. If that database cannot be reached, the page says so and changes nothing. Each change is logged in the website's audit log and in the platform audit. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Remove a deleted website completely.** On Platform, a website that is suspended or already marked deleted can be removed at once. Pages, users, and files go with it. A shared database is not dropped. The same cleanup runs on its own after a number of days set on that page. 0 leaves deleted websites in the list until they are removed there. The platform workspace cannot be removed. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
@@ -19,6 +19,9 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Deactivating a plugin removes its admin pages from that site.** Shop stayed active on the main site, and its screens (Import products, Bulk edit, Attributes, and the rest) stayed in the top menu of a site that had turned Shop off. That site's menu now lists only plugins that site has turned on. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Activating a plugin on the main site creates its tables in every site database.** Shop tables were created only in the main site's database, so a site on its own database had none. The main site now creates those tables in each site database when the plugin is activated there, and again when the server starts with that plugin already active. Another site still cannot create or delete them. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Another site shows the plugin version the main site installed.** A site on its own database kept the copy from when the plugin was first offered, so Plugins there still said Shop 0.1.1 after the main site updated to 0.1.2. That site now shows and activates the main site's current package. It stays off until that site turns it on. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **A website on the platform domain is a subdomain.** Opening it from Platform showed the domain kind as custom. A hostname under the signup domain, such as `dirkswebsite.justflows.com`, is a subdomain. A hostname outside that domain stays a custom domain. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **A customer site can turn static export off.** Tools on that site has its own switch. Turning it off stops new exports and automatic rebuilds of that website. It does not change the installation, and files already exported stay until that site clears them. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **An agent stays on the website it was connected to.** The MCP address shown in the admin is that site's own `/api/mcp`. A key or sign-in for one website is refused on another, so it cannot read or change the other site. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))

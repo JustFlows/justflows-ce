@@ -88,10 +88,23 @@ async function resolvePluginModule(
   return null;
 }
 
+/**
+ * The site whose active plugins this process should load. A request uses that
+ * request's site. Boot has no request, and a multisite install then has more
+ * than one row in `sites`, so getSiteId() is empty. Use the installation root
+ * so the main site's plugins register and create their tables.
+ */
+async function runtimeSiteId(): Promise<string | null> {
+  const current = await getSiteId();
+  if (current) return current;
+  const { installationRootSiteId } = await import("../tenancy/registry.js");
+  return installationRootSiteId();
+}
+
 async function registerKnownPlugins(): Promise<void> {
   if (!loader) return;
 
-  const siteId = await getSiteId();
+  const siteId = await runtimeSiteId();
   if (!siteId) return;
 
   const db = await getDb();
@@ -138,7 +151,7 @@ async function registerKnownPlugins(): Promise<void> {
 async function activateActivePlugins(): Promise<void> {
   if (!loader) return;
 
-  const siteId = await getSiteId();
+  const siteId = await runtimeSiteId();
   if (!siteId) return;
 
   const db = await getDb();

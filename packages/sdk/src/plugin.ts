@@ -1456,6 +1456,12 @@ export async function pluginShouldDeleteContent(
 export interface PluginModule {
   manifest: PluginManifest;
   activate(ctx: PluginContext): void | Promise<void>;
+  /**
+   * Called when a site activates the plugin and the module is already running
+   * because another site loaded it first. Create tables here. `activate` still
+   * runs the first time the module loads.
+   */
+  provision?(ctx: PluginContext): void | Promise<void>;
   deactivate?(ctx: PluginContext): void | Promise<void>;
   /**
    * Called when the plugin is deleted, before deactivation. Drop tables and

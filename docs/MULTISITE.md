@@ -78,7 +78,7 @@ Migration `0037_tenancy` creates a Primary workspace on the current database, at
 
 ## Plugins
 
-A plugin is installed on the main site. It reaches other sites only when its manifest sets `allowMultisite` to `true` and the main site turns on **Available on other sites**. Another site can activate that plugin. It cannot install a package, and it cannot drop the plugin's tables. Removing the plugin there deletes only that site's rows. The main site can delete the plugin, and drop its tables, once no other site still has it.
+A plugin is installed on the main site. On Plugins, that site turns on **Allow on other sites** for each plugin it wants to share. Another site can then activate or deactivate it. Turning it off there removes its admin pages from that site's menu. The plugin can stay on for the main site. It is not turned on there by itself. It shows the version the main site installed, including after an update. Activating the plugin on the main site creates its tables in every site database. Starting the server with that plugin already active on the main site does the same. Another site uses those tables and cannot create or delete them. That site cannot install a plugin, open the Marketplace, or remove a plugin. Only the main site removes one.
 
 A plugin reads the workspace for the current request with `ctx.tenancy.current()`. That object has the workspace id, site id, hostname, user mode, database mode, and whether this is the main site. It never includes a database password.
 

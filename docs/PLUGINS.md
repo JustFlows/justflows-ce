@@ -641,8 +641,10 @@ migration, not a later settings toggle.
 Set `"allowMultisite": true` in `justflows.json` when every row is stored with
 `site_id` and another site can run the plugin without touching anyone else's
 data. The plugin is still installed on the main site. That site turns on
-**Available on other sites**. Another site can then activate it. It cannot
-upload the package, and removing it there does not drop the tables.
+**Allow on other sites** for each plugin. Another site can then activate or
+deactivate it. It is not turned on there until that site does so. It shows the
+version the main site installed, including after an update. It cannot
+upload the package or remove the plugin.
 
 `site_settings` is only for the site (title, timezone, mail, and other core
 options). Plugin key-value rows go in `plugin_data`. Activation is

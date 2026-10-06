@@ -66,6 +66,8 @@ describe("canAccessPath", () => {
     const site = { installationRoot: false, platformOperator: false };
     expect(canAccessPath("administrator", "/admin/updates", site)).toBe(false);
     expect(canAccessPath("administrator", "/admin/health", site)).toBe(false);
+    expect(canAccessPath("administrator", "/admin/marketplace", site)).toBe(false);
+    expect(canAccessPath("administrator", "/admin/marketplace", { installationRoot: true })).toBe(true);
     expect(canAccessPath("administrator", "/admin/platform", site)).toBe(false);
     expect(canAccessPath("administrator", "/admin/platform/sites/site-a", site)).toBe(false);
     expect(canAccessPath("administrator", "/admin/platform/sites/site-a", { installationRoot: true, platformOperator: true })).toBe(true);
@@ -76,6 +78,7 @@ describe("canAccessPath", () => {
     const paths = filtered.flatMap((domain) => domain.items.map((item) => item.to));
     expect(paths).not.toContain("/admin/updates");
     expect(paths).not.toContain("/admin/health");
+    expect(paths).not.toContain("/admin/marketplace");
     expect(paths).not.toContain("/admin/platform");
     expect(paths).toContain("/admin/tools");
     expect(paths).toContain("/admin/settings");

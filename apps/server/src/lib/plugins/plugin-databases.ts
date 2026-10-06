@@ -211,6 +211,18 @@ export function createPluginDatabasesApi(
         ...(rebuild?.length ? { rebuild } : {}),
         allowRemote: permissions.has("network:outbound"),
       });
+      if (result.ok && root && !options?.target) {
+        const { runOnSeparateDatabases } = await import("../tenancy/connections.js");
+        const others = await runOnSeparateDatabases(() =>
+          applyPluginSchema({
+            pluginId,
+            tables,
+            allowRemote: permissions.has("network:outbound"),
+          }),
+        );
+        const failed = others.find((item) => !item.ok);
+        if (failed) return failed;
+      }
       if (result.ok) {
         try {
           await recordAppliedPluginSchema(pluginId, result.tables, options?.target);

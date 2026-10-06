@@ -390,9 +390,14 @@ export class PluginLoader {
   async activate(pluginId: string, siteId: string): Promise<void> {
     const entry = this.plugins.get(pluginId);
     if (!entry) throw new Error(`Plugin "${pluginId}" is not registered`);
-    if (entry.state === "active") return;
 
     const ctx = this.buildContext(entry.manifest, siteId);
+    // Another site may already have loaded the module. The main site still
+    // needs `provision` so its tables are created in every site database.
+    if (entry.state === "active") {
+      await entry.module.provision?.(ctx);
+      return;
+    }
 
     try {
       await entry.module.activate(ctx);

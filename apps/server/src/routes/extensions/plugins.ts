@@ -182,13 +182,7 @@ router.post("/:id/multisite", requireRole("administrator"), async (req, res) => 
     res.status(404).json({ error: "Plugin not found" });
     return;
   }
-  const { manifestAllowsMultisite, setPluginOfferedToOtherSites } = await import(
-    "../../lib/plugins/plugin-multisite.js"
-  );
-  if (!manifestAllowsMultisite(row.manifest)) {
-    res.status(400).json({ error: "This plugin does not allow other sites to use it." });
-    return;
-  }
+  const { setPluginOfferedToOtherSites } = await import("../../lib/plugins/plugin-multisite.js");
   const enabled = req.body?.enabled === true;
   await setPluginOfferedToOtherSites(pluginId, session.siteId, enabled);
   res.json({ ok: true, multisiteEnabled: enabled });
@@ -241,16 +235,17 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
     shouldPurgePluginContent,
     shouldPurgePluginData,
   } = await import("../../lib/plugins/plugin-purge.js");
-  const shouldPurge = await shouldPurgePluginData(session.siteId, pluginId);
-  const shouldPurgeContent = await shouldPurgePluginContent(session.siteId, pluginId);
-  const { otherSitesHavePlugin } = await import("../../lib/plugins/plugin-multisite.js");
-  const others = await otherSitesHavePlugin(pluginId, session.siteId);
-  if (isInstallationRootRequest() && others) {
-    res.status(409).json({
-      error: "Other sites still use this plugin. Remove it from those sites before deleting it here.",
-    });
+  if (!isInstallationRootRequest()) {
+    res.status(403).json({ error: "Only the main site can remove a plugin." });
     return;
   }
+  const shouldPurge = await shouldPurgePluginData(session.siteId, pluginId);
+  const shouldPurgeContent = await shouldPurgePluginContent(session.siteId, pluginId);
+  const { getDb } = await import("../../lib/database/db.js");
+  const db = await getDb();
+  await db.run("DELETE FROM plugins WHERE plugin_id = ? AND site_id <> ?", [pluginId, session.siteId]);
+  const { otherSitesHavePlugin } = await import("../../lib/plugins/plugin-multisite.js");
+  const others = await otherSitesHavePlugin(pluginId, session.siteId);
 
   let hookError: string | undefined;
   try {

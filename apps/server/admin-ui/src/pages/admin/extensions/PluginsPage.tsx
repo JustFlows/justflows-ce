@@ -242,7 +242,7 @@ export default function PluginsPage() {
                   </div>
                   {p.description && <p className="jf-list__desc">{p.description}</p>}
                   <p className="jf-meta">{t("ui.pluginsPage.by")}{p.publisher} · <code className="jf-code">{p.id}</code></p>
-                  {canManage && installationRoot && p.allowMultisite && (
+                  {canManage && installationRoot && (
                     <label className="jf-row" style={{ gap: "0.5rem" }}>
                       <input
                         type="checkbox"
@@ -252,7 +252,7 @@ export default function PluginsPage() {
                       <span>{t("plugins.multisiteEnable")}</span>
                     </label>
                   )}
-                  {canManage && installationRoot && p.allowMultisite && (
+                  {canManage && installationRoot && (
                     <p className="jf-meta">{t("plugins.multisiteHint")}</p>
                   )}
                   {canManage && installationRoot && <ExtensionAutoUpdateToggle state={updates} type="plugin" id={p.id} />}
@@ -285,9 +285,11 @@ export default function PluginsPage() {
                     <button className="jf-btn jf-btn--ghost" onClick={() => togglePlugin(p.id, p.status)}>
                       {p.status === "active" ? t("plugins.deactivate") : t("plugins.activate")}
                     </button>
-                    <button className="jf-btn jf-btn--danger" onClick={() => void deletePlugin(p)}>
-                      {installationRoot ? t("common.delete") : t("plugins.removeFromSite")}
-                    </button>
+                    {installationRoot && (
+                      <button className="jf-btn jf-btn--danger" onClick={() => void deletePlugin(p)}>
+                        {t("common.delete")}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
