@@ -94,8 +94,13 @@ function asInt(value: unknown, fallback: number): number {
 
 async function siteName(): Promise<string> {
   try {
+    const siteId = await getSiteId();
+    if (!siteId) return "Justflows";
     const db = await getDb();
-    const rows = await db.query<{ name: string }>("SELECT name FROM sites LIMIT 1");
+    const rows = await db.query<{ name: string }>(
+      "SELECT name FROM sites WHERE id = ? LIMIT 1",
+      [siteId],
+    );
     return rows[0]?.name?.trim() || "Justflows";
   } catch {
     return "Justflows";

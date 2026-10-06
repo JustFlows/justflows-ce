@@ -117,9 +117,7 @@ export async function getSettingsPayload(opts: { isAdmin: boolean }): Promise<Re
         "SELECT name, url, description FROM sites WHERE id = ? LIMIT 1",
         [settingsSiteId],
       )
-    : await db.query<{ name: string; url: string; description: string | null }>(
-        "SELECT name, url, description FROM sites LIMIT 1",
-      );
+    : [];
   const site = siteRows[0] ?? { name: "", url: "", description: "" };
 
   const settingRows = settingsSiteId
@@ -127,9 +125,7 @@ export async function getSettingsPayload(opts: { isAdmin: boolean }): Promise<Re
         `SELECT ${settingsKeyColumn()} AS k, value FROM site_settings WHERE site_id = ?`,
         [settingsSiteId],
       )
-    : await db.query<{ k: string; value: string }>(
-        `SELECT ${settingsKeyColumn()} AS k, value FROM site_settings`,
-      );
+    : [];
   const extras: Record<string, unknown> = {};
   for (const row of settingRows) {
     try {

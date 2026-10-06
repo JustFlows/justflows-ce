@@ -3167,7 +3167,10 @@
       "disabled": "Deaktiviert"
     },
     "manualRestartTitle": "Manueller Neustart erforderlich",
-    "manualRestartBody": "Gehen Sie zu Plesk → Node.js → Restart App und aktualisieren Sie dann diese Seite.",
+    "manualRestartBody": "Starten Sie Justflows auf dem Server neu und aktualisieren Sie dann diese Seite.",
+    "manualRestartBodyContainer": "Starten Sie den Justflows-Container neu und aktualisieren Sie dann diese Seite.",
+    "manualRestartBodyPassenger": "Gehen Sie zu Plesk → Node.js → Restart App und aktualisieren Sie dann diese Seite.",
+    "manualRestartBodySystemd": "Starten Sie den Dienst {unit} neu und aktualisieren Sie dann diese Seite.",
     "wordpress": {
       "title": "Import aus WordPress",
       "description": "Laden Sie eine WordPress-Exportdatei hoch (.xml über Werkzeuge → Daten exportieren in der WordPress-Verwaltung), um Ihre Beiträge und Seiten zu übernehmen.",
@@ -3213,7 +3216,10 @@
       "working": "Wird verarbeitet… {done}/{total}",
       "finished": "Fertig: {rebuilt} neu erzeugt, {skipped} übersprungen, {failed} fehlgeschlagen."
     },
-    "manualRestartNeededLog": "Automatischer Neustart nicht möglich – starten Sie manuell in Plesk → Node.js neu"
+    "manualRestartNeededLog": "Automatischer Neustart nicht möglich – starten Sie Justflows auf dem Server neu",
+    "manualRestartNeededLogContainer": "Automatischer Neustart nicht möglich – starten Sie den Justflows-Container neu",
+    "manualRestartNeededLogPassenger": "Automatischer Neustart nicht möglich – starten Sie manuell in Plesk → Node.js neu",
+    "manualRestartNeededLogSystemd": "Automatischer Neustart nicht möglich – starten Sie den Dienst {unit} neu"
   },
   "updates": {
     "log": {
@@ -3224,7 +3230,10 @@
       "uploading": "{file} wird hochgeladen…",
       "startingUpdate": "Update auf Justflows v{version} wird gestartet…",
       "forceReinstalling": "Neuinstallation von Justflows v{version} wird erzwungen…",
-      "manualRestartNeeded": "Automatischer Neustart nicht möglich – starten Sie manuell in Plesk → Node.js neu",
+      "manualRestartNeeded": "Automatischer Neustart nicht möglich – starten Sie Justflows auf dem Server neu",
+      "manualRestartNeededContainer": "Automatischer Neustart nicht möglich – starten Sie den Justflows-Container neu",
+      "manualRestartNeededPassenger": "Automatischer Neustart nicht möglich – starten Sie manuell in Plesk → Node.js neu",
+      "manualRestartNeededSystemd": "Automatischer Neustart nicht möglich – starten Sie den Dienst {unit} neu",
       "lostContact": "Verbindung zum Server verloren – aktualisieren Sie diese Seite, um das Ergebnis zu prüfen",
       "appRestarting": "Die App wird neu gestartet – warte, bis die Website wieder erreichbar ist…",
       "siteBack": "Die Website ist wieder online – wird neu geladen…",
@@ -3257,13 +3266,16 @@
       "signatureHint": "Wählen Sie justflows.zip zusammen mit justflows.zip.sig aus demselben Release aus. Justflows installiert nur ein Update, das es verifizieren kann.",
       "backgroundHint": "Das Update läuft im Hintergrund – Sie können diese Seite gefahrlos verlassen",
       "description1": "Laden Sie eine",
-      "description2": "Datei hoch. Justflows entpackt sie, aktualisiert die Datenbank, installiert Abhängigkeiten und startet die Website selbstständig neu (Plesk/Passenger). Ihre",
+      "description2": "Datei hoch. Justflows entpackt sie, aktualisiert die Datenbank, installiert Abhängigkeiten und startet die Website selbstständig neu. Ihre",
       "description3": "und Uploads bleiben erhalten."
     },
     "restarting": "Wird neu gestartet…",
     "waitingRestart": "Warte auf den Neustart der App – die Seite wird automatisch neu geladen",
     "manualRestartTitle": "Manueller Neustart erforderlich",
-    "manualRestartBody": "Gehen Sie zu Plesk → Node.js → Restart App und aktualisieren Sie dann diese Seite.",
+    "manualRestartBody": "Starten Sie Justflows auf dem Server neu und aktualisieren Sie dann diese Seite.",
+    "manualRestartBodyContainer": "Starten Sie den Justflows-Container neu und aktualisieren Sie dann diese Seite.",
+    "manualRestartBodyPassenger": "Gehen Sie zu Plesk → Node.js → Restart App und aktualisieren Sie dann diese Seite.",
+    "manualRestartBodySystemd": "Starten Sie den Dienst {unit} neu und aktualisieren Sie dann diese Seite.",
     "empty": {
       "title": "Keine Remote-Updates verfügbar",
       "body": "Verwenden Sie den Upload oben, um eine neue justflows.zip manuell zu installieren."
@@ -3889,7 +3901,16 @@
     "siteUserAdd": "Benutzer hinzufügen",
     "siteUserPassword": "Passwort",
     "siteUsersWhere": "Diese Konten werden in der Datenbank gelesen und gespeichert, die diese Website verwendet.",
-    "siteUsersShared": "Dieser Workspace teilt Benutzer. Es werden nur Konten angezeigt, deren Heimat diese Website ist."
+    "siteUsersShared": "Dieser Workspace teilt Benutzer. Es werden nur Konten angezeigt, deren Heimat diese Website ist.",
+    "slug": "Slug",
+    "slugHint": "Kleinbuchstaben, Ziffern und Bindestriche. Jeder Arbeitsbereich braucht einen eigenen Slug.",
+    "slugPrimary": "Der Plattform-Arbeitsbereich behält den Slug primary.",
+    "workspaceIntro": "Ändern Sie Namen und Slug dieses Arbeitsbereichs. Die Adresse dieser Seite enthält die Arbeitsbereich-ID.",
+    "workspaceId": "Arbeitsbereich-ID",
+    "workspaceNotFound": "Dieser Arbeitsbereich wurde nicht gefunden.",
+    "workspaceLoadFailed": "Dieser Arbeitsbereich konnte nicht geladen werden.",
+    "workspaceSaveFailed": "Dieser Arbeitsbereich konnte nicht gespeichert werden.",
+    "workspaceLoading": "Arbeitsbereich wird geladen…"
   },
   "signup": {
     "title": "Erstellen Sie Ihre Website",

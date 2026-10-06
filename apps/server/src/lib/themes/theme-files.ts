@@ -131,6 +131,101 @@ function readJsonFile<T>(baseDir: string, ...segments: string[]): T | null {
   }
 }
 
+/**
+ * Runtime theme fields the installer does not keep. `PackageManifestSchema`
+ * strips unknown keys from `justflows.json`, so a Customizer section declared
+ * there — or, as documented, in `justflows-theme.json` — never reaches the
+ * stored row. These are read back from the package directory.
+ */
+const THEME_CSS_VAR_NAME = /^--[A-Za-z0-9_-]{1,64}$/;
+const THEME_CSS_VAR_UNSAFE = /[;{}<>@\\]|\/\*|\*\//;
+
+export interface ThemePackageRuntime {
+  customize?: Record<string, unknown>;
+  blockControls?: Record<string, unknown>;
+  cssVariables: Record<string, string>;
+}
+
+function plainObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function cssVariablesFromManifest(raw: Record<string, unknown> | null): Record<string, string> {
+  const source = plainObject(raw?.cssVariables ?? raw?.css_variables);
+  if (!source) return {};
+  const vars: Record<string, string> = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (!THEME_CSS_VAR_NAME.test(key) || typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.length > 500 || THEME_CSS_VAR_UNSAFE.test(trimmed)) continue;
+    vars[key] = trimmed;
+  }
+  return vars;
+}
+
+function runtimeObject(
+  themeFile: Record<string, unknown> | null,
+  installFile: Record<string, unknown> | null,
+  key: "customize" | "blockControls",
+): Record<string, unknown> | undefined {
+  const fromTheme = plainObject(themeFile?.[key]);
+  const fromInstall = plainObject(installFile?.[key]);
+  const chosen = fromTheme && Object.keys(fromTheme).length > 0 ? fromTheme : fromInstall;
+  return chosen && Object.keys(chosen).length > 0 ? chosen : undefined;
+}
+
+/** Read Customizer fields from a theme directory already known to be trusted. */
+export function readThemePackageRuntime(dir: string): ThemePackageRuntime | null {
+  const trusted = themeDirUnderKnownRoots(dir);
+  if (!trusted || !isThemePackageDir(trusted)) return null;
+  const themeFile = readJsonFile<Record<string, unknown>>(trusted, "justflows-theme.json");
+  const installFile = readJsonFile<Record<string, unknown>>(trusted, "justflows.json");
+  const customize = runtimeObject(themeFile, installFile, "customize");
+  const blockControls = runtimeObject(themeFile, installFile, "blockControls");
+  return {
+    ...(customize ? { customize } : {}),
+    ...(blockControls ? { blockControls } : {}),
+    cssVariables: {
+      ...cssVariablesFromManifest(installFile),
+      ...cssVariablesFromManifest(themeFile),
+    },
+  };
+}
+
+export interface InstalledThemeRecord {
+  themeId: string;
+  manifest: Record<string, unknown>;
+  cssVariables: Record<string, string>;
+}
+
+/**
+ * Overlay `customize`, `blockControls`, and `cssVariables` from the installed
+ * package onto the row the installer stored. A value already in `cssVariables`
+ * wins, so a fork's baked palette is kept. Package files win for the two
+ * Customizer maps, because that is where a theme declares them.
+ */
+export function mergeInstalledThemeRecord(record: InstalledThemeRecord): InstalledThemeRecord {
+  const installedPath = record.manifest.installedPath;
+  const explicit = typeof installedPath === "string" ? readThemePackageRuntime(installedPath) : null;
+  // Older uploads stored the installer manifest without installedPath. The
+  // package is still on disk under packages-installed/themes/<id>/<version>.
+  const runtime =
+    explicit ??
+    (() => {
+      const dir = latestInstalledThemeDir(record.themeId);
+      return dir ? readThemePackageRuntime(dir) : null;
+    })();
+  if (!runtime) return record;
+
+  const cssVariables = { ...runtime.cssVariables, ...record.cssVariables };
+  const manifest: Record<string, unknown> = { ...record.manifest };
+  if (runtime.customize) manifest.customize = runtime.customize;
+  if (runtime.blockControls) manifest.blockControls = runtime.blockControls;
+  if (Object.keys(cssVariables).length > 0) manifest.cssVariables = cssVariables;
+  return { ...record, manifest, cssVariables };
+}
+
 /** Concatenate theme stylesheets (global.css, components.css, blocks.css). */
 export function loadThemeStyles(themeId: string, installedPath?: string | null): string {
   const dir = resolveThemeDir(themeId, installedPath);

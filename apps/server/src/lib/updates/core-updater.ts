@@ -5,7 +5,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { getJfRoot } from "../runtime/jf-root.js";
 import { resolveNpmBin } from "../runtime/node-bin.js";
-import { requestPassengerRestart } from "../runtime/app-restart.js";
+import { requestAppRestart } from "../runtime/app-restart.js";
 import { assertCoreUpdateIsTrusted } from "../extensions/package-trust.js";
 import { extractZipSafely, resolvePathUnderRoot } from "../security/safe-zip.js";
 import {
@@ -329,6 +329,8 @@ interface UpdateResult {
   newVersion: string;
   restartRequired: boolean;
   restarting: boolean;
+  restartMethod?: string;
+  restartTarget?: string;
 }
 
 const STEP_PHASE: Record<string, UpdatePhase> = {
@@ -361,7 +363,7 @@ interface ApplyOptions {
 
 /**
  * Copy a verified core archive into place, migrate, install dependencies,
- * (re)build if needed, and ask Passenger to restart. Every step is mirrored to
+ * (re)build if needed, and restart the running app. Every step is mirrored to
  * `.updates/status.json` so the admin UI can follow along and recover after a
  * page reload or a dropped connection.
  */
@@ -396,6 +398,8 @@ export async function applyCoreUpdate(
       newVersion: result.newVersion,
       restartRequired: result.restartRequired,
       restarting: result.restarting,
+      restartMethod: result.restartMethod,
+      restartTarget: result.restartTarget,
       finishedAt: Date.now(),
       error: error ?? null,
       steps: [...steps],
@@ -593,13 +597,11 @@ export async function applyCoreUpdate(
       }
     }
 
-    const restart = await requestPassengerRestart(root);
+    const restart = await requestAppRestart(root);
     record({
       step: "restart",
       ok: restart.ok,
-      detail: restart.ok
-        ? "Site will reload on the next request"
-        : (restart.error ?? "Could not trigger restart"),
+      detail: restart.ok ? restart.detail : (restart.error ?? "Could not trigger restart"),
     });
 
     const ok = migrate.ok && restart.ok;
@@ -620,6 +622,8 @@ export async function applyCoreUpdate(
       newVersion,
       restartRequired: !restart.ok,
       restarting: restart.ok,
+      restartMethod: restart.method,
+      restartTarget: restart.method === "systemd" ? restart.path : undefined,
     });
   } catch (err) {
     record({ step: "error", ok: false, detail: err instanceof Error ? err.message : String(err) });

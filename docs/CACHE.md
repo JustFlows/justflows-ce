@@ -13,7 +13,7 @@ single-node hosting (Plesk, cPanel, one VPS).
 ## Turn it on or off
 
 **Admin UI:** **Tools → Performance suite** — configure object cache, GZIP, and browser cache;
-save once and the app restarts automatically (via `tmp/restart.txt` on Plesk/Passenger).
+save once and the app restarts automatically (Passenger, systemd, Docker, and the other ways Justflows is hosted).
 
 Or add these to `.env` manually (see also `.env.example`):
 

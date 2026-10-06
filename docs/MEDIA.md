@@ -129,13 +129,26 @@ resolver ([`responsive-media.ts`](../apps/server/src/lib/media/responsive-media.
 - **blog-post-list** featured-image thumbnails;
 - the **Featured Image** theme-template block (`core.featured-image`).
 
-Plugin and theme blocks get the same treatment by calling `renderMediaImage()`
-(async, one URL) or `loadResponsiveProps()` + `renderResponsiveImage()` (a batch,
-for many images) instead of writing their own `<img>` tag.
+Theme HTML and plugin blocks do not have to call that resolver themselves.
+After a page renders, a second pass
+([`responsive-html.ts`](../apps/server/src/lib/media/responsive-html.ts)) finds
+every bare `<img src="/uploads/...">` — a shop product card, a Custom HTML
+tile, a plugin `render()` — and, when that file has derivatives, replaces it
+with the same `<picture>` / `srcset`. The wrapper is `display: contents`, so
+the theme's rules for that `<img>` (width, aspect ratio, object-fit) still
+apply. An image that is already inside `<picture>` or already has a `srcset`
+is left as the block wrote it.
+
+A CSS `background-image` that points at an upload (including `core.hero`) is
+rewritten to `image-set()` so the browser can pick AVIF or WebP. The sized
+fallback stays as a plain `url()` for browsers that ignore `image-set()`.
+
+`renderMediaImage()` is still there when a plugin wants a layout-aware `sizes`
+value instead of the `100vw` default this pass uses.
 
 Not converted: the site logo and nav icons (small brand assets — use
-`JF_IMAGE_KEEP_ORIGINAL`), CSS `background-image` (e.g. `core.hero`), HTML email,
-and social `og:image` meta tags.
+`JF_IMAGE_KEEP_ORIGINAL`; files with no derivatives are left untouched), HTML
+email, and social `og:image` meta tags. SVGs are never rewritten.
 
 Setting **`JF_IMAGE_RESPONSIVE_MARKUP=0`** makes all of the above emit a plain
 `<img src>` pointing at the original — the generated files stay on disk, so you

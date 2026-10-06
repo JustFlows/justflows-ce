@@ -96,6 +96,8 @@ router.post("/settings", requireRole("administrator"), async (req, res) => {
       ok: result.ok,
       restarting: result.restarting,
       restartRequired: result.restartRequired,
+      restartMethod: result.restartMethod,
+      restartTarget: result.restartTarget,
       settings: result.settings.cache,
     });
   } catch (err) {

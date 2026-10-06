@@ -9,7 +9,7 @@ import { getDb } from "../database/db.js";
 import { runAllMigrations } from "../database/run-migrations.js";
 import { getSiteId } from "../settings/site-settings.js";
 import { DEFAULT_THEME_CSS_VARS } from "./theme-customize.js";
-import { themesDir } from "./theme-files.js";
+import { mergeInstalledThemeRecord, themesDir } from "./theme-files.js";
 import { randomUUID } from "node:crypto";
 
 export interface ThemeRow {
@@ -323,13 +323,21 @@ export async function activateTheme(siteId: string, themeId: string): Promise<bo
 }
 
 function parseThemeRow(row: ThemeRow): ThemeRow {
+  const manifest: Record<string, unknown> =
+    typeof row.manifest === "string" ? JSON.parse(row.manifest) : (row.manifest ?? {});
+  const cssVariables: Record<string, string> =
+    typeof row.css_variables === "string"
+      ? JSON.parse(row.css_variables)
+      : (row.css_variables ?? {});
+  const merged = mergeInstalledThemeRecord({
+    themeId: row.theme_id,
+    manifest,
+    cssVariables,
+  });
   return {
     ...row,
-    css_variables:
-      typeof row.css_variables === "string"
-        ? JSON.parse(row.css_variables)
-        : (row.css_variables ?? {}),
-    manifest: typeof row.manifest === "string" ? JSON.parse(row.manifest) : (row.manifest ?? {}),
+    css_variables: merged.cssVariables,
+    manifest: merged.manifest,
   };
 }
 

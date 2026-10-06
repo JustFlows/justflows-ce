@@ -7,7 +7,9 @@ import contentRoutes from "./content.js";
 import eventsRoutes from "./events.js";
 import mediaRoutes from "./media.js";
 import openapiRoutes from "./openapi.js";
+import designRoutes from "./design.js";
 import settingsRoutes from "./settings.js";
+import siteAdminRoutes from "./site-admin.js";
 import systemRoutes from "./system.js";
 import tenantsRoutes from "./tenants.js";
 import taxonomyRoutes from "./taxonomy.js";
@@ -38,6 +40,8 @@ router.use("/content", contentRoutes);
 router.use("/media", mediaRoutes);
 router.use("/comments", commentsRoutes);
 router.use("/settings", settingsRoutes);
+router.use("/", designRoutes);
+router.use("/", siteAdminRoutes);
 router.use("/tenants", tenantsRoutes);
 router.use("/webhooks", webhooksRoutes);
 // Flat sub-paths (menus, content-types, languages, redirects / users, roles /

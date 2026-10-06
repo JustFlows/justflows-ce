@@ -26,6 +26,7 @@ export type ToolGroup =
   | "menus"
   | "comments"
   | "content-types"
+  | "design"
   | "site"
   | "users"
   | "plugin";

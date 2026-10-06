@@ -4,7 +4,7 @@ import { parseEnvBool } from "@justflows/core";
 import { getJfRoot } from "../runtime/jf-root.js";
 import { applyEnvToProcess, readEnvMap, updateEnvKeys } from "../settings/env-file.js";
 import { resetJfCache, wipeCacheStorage } from "./jf-cache.js";
-import { requestPassengerRestart } from "../runtime/app-restart.js";
+import { requestAppRestart } from "../runtime/app-restart.js";
 import {
   CacheSettingsBodySchema,
   type CacheSettings,
@@ -188,6 +188,8 @@ export async function applyPerformanceSettings(body: PerformanceSettings): Promi
   ok: boolean;
   restarting: boolean;
   restartRequired: boolean;
+  restartMethod: string;
+  restartTarget?: string;
   settings: PerformanceRuntimeConfig;
 }> {
   const parsed = PerformanceSettingsBodySchema.parse(body);
@@ -206,13 +208,15 @@ export async function applyPerformanceSettings(body: PerformanceSettings): Promi
 
   resetJfCache();
 
-  const restart = await requestPassengerRestart(getJfRoot());
+  const restart = await requestAppRestart(getJfRoot());
   const snapshot = await readPerformanceSettings();
 
   return {
     ok: true,
     restarting: restart.ok,
     restartRequired: !restart.ok,
+    restartMethod: restart.method,
+    restartTarget: restart.method === "systemd" ? restart.path : undefined,
     settings: snapshot.settings,
   };
 }
