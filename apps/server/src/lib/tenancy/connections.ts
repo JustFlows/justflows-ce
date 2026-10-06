@@ -43,6 +43,16 @@ export function databaseConfigFromRow(row: SeparateDatabaseRow): DbConnectionCon
   };
 }
 
+/** Drop a cached connection so the next use opens one with the saved credentials. */
+export async function dropSeparateDatabasePool(databaseId: string): Promise<void> {
+  const prefix = `${databaseId}:`;
+  for (const [key, client] of [...pools.entries()]) {
+    if (!key.startsWith(prefix)) continue;
+    pools.delete(key);
+    await client.close().catch(() => undefined);
+  }
+}
+
 export async function borrowSeparateDatabase(row: SeparateDatabaseRow): Promise<DbClient | null> {
   const config = databaseConfigFromRow(row);
   if (!config) return null;
@@ -70,24 +80,25 @@ export async function separateDatabaseForSite(tenantId: string, siteId: string, 
   return rows.find((row) => row.site_id === null) ?? rows[0] ?? null;
 }
 
-/** Run once on the installation database and once on every ready separate database. */
-export async function runAcrossDatabases<T>(fn: () => Promise<T>): Promise<T[]> {
-  const results: T[] = [];
-  results.push(await fn());
-  let rows: SeparateDatabaseRow[] = [];
+async function readySeparateDatabases(): Promise<SeparateDatabaseRow[]> {
   try {
     const db = await getControlDb();
-    rows = await db.query<SeparateDatabaseRow>(
+    return await db.query<SeparateDatabaseRow>(
       `SELECT id, tenant_id, site_id, mode, status, driver, host, port, database_name, username,
               password_ciphertext, updated_at
        FROM tenant_databases
        WHERE mode = 'separate' AND status = 'ready'`,
     );
   } catch {
-    return results;
+    return [];
   }
+}
+
+/** Run on every ready separate database. The same database is opened once. */
+export async function runOnSeparateDatabases<T>(fn: () => Promise<T>): Promise<T[]> {
+  const results: T[] = [];
   const seen = new Set<string>();
-  for (const row of rows) {
+  for (const row of await readySeparateDatabases()) {
     const key = `${row.host}:${row.port}:${row.database_name}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -103,6 +114,11 @@ export async function runAcrossDatabases<T>(fn: () => Promise<T>): Promise<T[]> 
     }
   }
   return results;
+}
+
+/** Run once on the installation database and once on every ready separate database. */
+export async function runAcrossDatabases<T>(fn: () => Promise<T>): Promise<T[]> {
+  return [await fn(), ...(await runOnSeparateDatabases(fn))];
 }
 
 export async function eachActiveSite(fn: (siteId: string) => Promise<void>): Promise<void> {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getControlDb } from "../../lib/database/db.js";
@@ -17,6 +17,20 @@ import {
   reactivateTenant,
   suspendTenant,
 } from "../../lib/tenancy/provision.js";
+import { loadPlatformSite, updatePlatformSite, type SiteEditInput } from "../../lib/tenancy/site-record.js";
+import {
+  createSiteUser,
+  deleteSiteUser,
+  getSiteUser,
+  listSiteUsers,
+  resetSiteUserPassword,
+  updateSiteUser,
+  type PlatformOperator,
+} from "../../lib/tenancy/site-users.js";
+import { CreateUserSchema } from "../../lib/auth/users-admin.js";
+import { STORED_ROLE_ID } from "../../lib/auth/rbac.js";
+import { PasswordSchema } from "../../lib/auth/password-policy.js";
+import { sendServerError } from "../../lib/http/send-error.js";
 import { decryptSecret } from "../../lib/security/secret-box.js";
 
 const router = Router();
@@ -84,6 +98,129 @@ const CreateTenant = z.object({
     password: z.string().min(12).max(1024),
   }),
   database: DatabaseSchema.optional(),
+});
+
+router.get("/sites/:id", async (req, res) => {
+  const site = await loadPlatformSite(String(req.params.id));
+  if (!site) {
+    res.status(404).json({ error: "That website was not found." });
+    return;
+  }
+  res.json(site);
+});
+
+const SiteDomainEdit = z.object({
+  id: z.string().uuid().nullable(),
+  hostname: z.string().min(1).max(253),
+  kind: z.enum(["primary", "subdomain", "custom"]),
+  verified: z.boolean(),
+  isPrimary: z.boolean(),
+});
+
+const SiteEdit = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().max(10000),
+  url: z.string().min(1).max(2048),
+  status: z.enum(["active", "suspended"]),
+  databaseChoice: z.enum(["inherit", "current", "separate"]),
+  domains: z.array(SiteDomainEdit).min(1).max(20),
+  database: z
+    .object({
+      host: z.string().max(255),
+      port: z.coerce.number().int(),
+      database: z.string().max(64),
+      username: z.string().max(255),
+      password: z.string().max(1024),
+    })
+    .nullable(),
+});
+
+router.put("/sites/:id", async (req, res) => {
+  const body = SiteEdit.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid website" });
+    return;
+  }
+  const result = await updatePlatformSite(String(req.params.id), body.data as SiteEditInput, req.session!.userId);
+  res.status(result.ok ? 200 : result.status).json(result.ok ? result.site : { error: result.error });
+});
+
+function operatorOf(req: Request): PlatformOperator {
+  return { userId: req.session!.userId, ip: req.ip ?? null, userAgent: req.get("user-agent") ?? null };
+}
+
+function send(res: Response, outcome: { status: number; body: unknown }): void {
+  res.status(outcome.status).json(outcome.body);
+}
+
+const SiteUserPatchSchema = z.object({
+  displayName: z.string().min(1).max(255).optional(),
+  role: z.string().regex(STORED_ROLE_ID).optional(),
+});
+
+const SiteUserPasswordSchema = z.object({ newPassword: PasswordSchema });
+
+router.get("/sites/:id/users", async (req, res) => {
+  try {
+    send(res, await listSiteUsers(String(req.params.id)));
+  } catch (err) {
+    sendServerError(res, "platform site users", err);
+  }
+});
+
+router.post("/sites/:id/users", async (req, res) => {
+  const body = CreateUserSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid user" });
+    return;
+  }
+  try {
+    send(res, await createSiteUser(String(req.params.id), body.data, operatorOf(req)));
+  } catch (err) {
+    sendServerError(res, "platform site users", err);
+  }
+});
+
+router.get("/sites/:id/users/:userId", async (req, res) => {
+  try {
+    send(res, await getSiteUser(String(req.params.id), String(req.params.userId)));
+  } catch (err) {
+    sendServerError(res, "platform site users", err);
+  }
+});
+
+router.patch("/sites/:id/users/:userId", async (req, res) => {
+  const body = SiteUserPatchSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid user" });
+    return;
+  }
+  try {
+    send(res, await updateSiteUser(String(req.params.id), String(req.params.userId), body.data, operatorOf(req)));
+  } catch (err) {
+    sendServerError(res, "platform site users", err);
+  }
+});
+
+router.post("/sites/:id/users/:userId/password", async (req, res) => {
+  const body = SiteUserPasswordSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid password" });
+    return;
+  }
+  try {
+    send(res, await resetSiteUserPassword(String(req.params.id), String(req.params.userId), body.data.newPassword, operatorOf(req)));
+  } catch (err) {
+    sendServerError(res, "platform site users", err);
+  }
+});
+
+router.delete("/sites/:id/users/:userId", async (req, res) => {
+  try {
+    send(res, await deleteSiteUser(String(req.params.id), String(req.params.userId), operatorOf(req)));
+  } catch (err) {
+    sendServerError(res, "platform site users", err);
+  }
 });
 
 router.post("/tenants", async (req, res) => {

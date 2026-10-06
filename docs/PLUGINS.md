@@ -633,8 +633,18 @@ or a separate database with `ctx.databases.probe(...)`. Remote hosts require
 `network:outbound`. Create plugin-owned tables with `ctx.databases.ensureSchema()`;
 names are prefixed with the plugin slug (`acme.forms` → `forms_entries`) so
 an extension cannot create core tables. Drop them from `deleteData()` with
-`ctx.databases.dropSchema()`. Changing topology after setup is a
+`ctx.databases.dropSchema()`. On a site other than the main site that call
+deletes only that site's rows. `ctx.databases.clear()` does the same on
+purpose. Changing topology after setup is a
 migration, not a later settings toggle.
+
+Set `"allowMultisite": true` in `justflows.json` when every row is stored with
+`site_id` and another site can run the plugin without touching anyone else's
+data. The plugin is still installed on the main site. That site turns on
+**Allow on other sites** for each plugin. Another site can then activate or
+deactivate it. It is not turned on there until that site does so. It shows the
+version the main site installed, including after an update. It cannot
+upload the package or remove the plugin.
 
 `site_settings` is only for the site (title, timezone, mail, and other core
 options). Plugin key-value rows go in `plugin_data`. Activation is

@@ -70,6 +70,11 @@ export const PackageManifestSchema = z
     /** CSS-provider-only: optional scripts loaded from installed packages */
     scripts: z.array(CssAssetSchema).default([]),
     permissions: z.array(z.string()).default([]),
+    /**
+     * When true, the main site may offer this plugin to other sites. Those
+     * sites can activate it and change only their own rows.
+     */
+    allowMultisite: z.boolean().optional(),
     dependencies: z.record(z.string(), z.string()).default({}),
     settingsSchema: z
       .record(

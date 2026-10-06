@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { requireRole, requireSession } from "../../middleware/auth.js";
+import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import { param } from "../../lib/http/params.js";
 import {
   deletePlugin,
   getPlugin,
   insertPlugin,
-  listPlugins,
   pluginToDto,
   type PluginRow,
 } from "../../lib/plugins/plugins-db.js";
@@ -85,7 +85,8 @@ router.get("/", requireRole("administrator", "editor"), async (req, res) => {
   try {
     const { ensurePluginRuntime } = await import("../../lib/plugins/plugin-runtime.js");
     await ensurePluginRuntime();
-    const plugins = await listPlugins(session.siteId);
+    const { listVisiblePlugins } = await import("../../lib/plugins/plugin-multisite.js");
+    const plugins = await listVisiblePlugins(session.siteId);
     res.json({ plugins });
   } catch (err) {
     sendServerError(res, "plugins", err);
@@ -93,6 +94,10 @@ router.get("/", requireRole("administrator", "editor"), async (req, res) => {
 });
 
 router.post("/", requireRole("administrator"), upload.single("file"), async (req, res) => {
+  if (!isInstallationRootRequest()) {
+    res.status(403).json({ error: "Plugins are installed on the main site." });
+    return;
+  }
   try {
     const file = req.file;
     if (!file) {
@@ -165,9 +170,36 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
   }
 });
 
+router.post("/:id/multisite", requireRole("administrator"), async (req, res) => {
+  if (!isInstallationRootRequest()) {
+    res.status(403).json({ error: "This is managed on the main site." });
+    return;
+  }
+  const session = req.session!;
+  const pluginId = param(req.params.id);
+  const row = await getPlugin(session.siteId, pluginId);
+  if (!row) {
+    res.status(404).json({ error: "Plugin not found" });
+    return;
+  }
+  const { setPluginOfferedToOtherSites } = await import("../../lib/plugins/plugin-multisite.js");
+  const enabled = req.body?.enabled === true;
+  await setPluginOfferedToOtherSites(pluginId, session.siteId, enabled);
+  res.json({ ok: true, multisiteEnabled: enabled });
+});
+
 router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   const session = req.session!;
-  const result = await activatePluginAdmin(param(req.params.id), {
+  const pluginId = param(req.params.id);
+  if (!isInstallationRootRequest()) {
+    const { prepareSubsitedActivation } = await import("../../lib/plugins/plugin-multisite.js");
+    const ready = await prepareSubsitedActivation(session.siteId, pluginId);
+    if (!ready.ok) {
+      res.status(403).json({ error: ready.error });
+      return;
+    }
+  }
+  const result = await activatePluginAdmin(pluginId, {
     siteId: session.siteId,
     userId: session.userId,
     role: session.role,
@@ -203,8 +235,17 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
     shouldPurgePluginContent,
     shouldPurgePluginData,
   } = await import("../../lib/plugins/plugin-purge.js");
+  if (!isInstallationRootRequest()) {
+    res.status(403).json({ error: "Only the main site can remove a plugin." });
+    return;
+  }
   const shouldPurge = await shouldPurgePluginData(session.siteId, pluginId);
   const shouldPurgeContent = await shouldPurgePluginContent(session.siteId, pluginId);
+  const { getDb } = await import("../../lib/database/db.js");
+  const db = await getDb();
+  await db.run("DELETE FROM plugins WHERE plugin_id = ? AND site_id <> ?", [pluginId, session.siteId]);
+  const { otherSitesHavePlugin } = await import("../../lib/plugins/plugin-multisite.js");
+  const others = await otherSitesHavePlugin(pluginId, session.siteId);
 
   let hookError: string | undefined;
   try {
@@ -234,12 +275,12 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
     }
   }
 
-  await runtimeDeactivatePlugin(session.siteId, pluginId);
-  // Forget the module so a later reinstall imports the new build, and delete
-  // the extracted files — uninstall used to drop only the DB row, leaving
-  // every file under packages-installed/ behind.
-  await runtimeUnloadPlugin(pluginId).catch(() => null);
-  const filesPurged = purgePluginFiles(row?.manifest);
+  // Deactivate unloads the process-wide module. Leave it running while another
+  // site still has the plugin.
+  if (!others) await runtimeDeactivatePlugin(session.siteId, pluginId);
+  const ownsPackage = isInstallationRootRequest() && !others;
+  if (ownsPackage) await runtimeUnloadPlugin(pluginId).catch(() => null);
+  const filesPurged = ownsPackage ? purgePluginFiles(row?.manifest) : { ok: true as const };
   await deletePlugin(session.siteId, pluginId);
   auditFromRequest(req, "plugin.deleted", { target: pluginId });
   await getRuntimeHooks()

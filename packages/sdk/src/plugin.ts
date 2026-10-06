@@ -361,6 +361,13 @@ export const PluginManifestSchema = z
      * host may activate it. Ignored for third-party plugins.
      */
     hostCooperative: z.boolean().optional(),
+    /**
+     * When true, the main site may offer this plugin to other sites. Those
+     * sites can activate it and change only their own rows. They cannot
+     * install the package or drop its tables. Omit or false to keep the
+     * plugin on the main site.
+     */
+    allowMultisite: z.boolean().optional(),
     settingsSchema: z
       .record(
         z.string(),
@@ -1097,6 +1104,8 @@ export interface PluginWorkspaceContext {
   hostname: string;
   userMode: "isolated" | "shared";
   databaseMode: "current" | "separate";
+  /** True on the site created with the installation. */
+  rootSite: boolean;
 }
 
 export interface PluginWorkspaceAdminInput {
@@ -1173,12 +1182,19 @@ export interface PluginDatabasesApi {
   /**
    * Drop this plugin's prefixed tables. Pass the same `tables` / `target` used
    * with `ensureSchema`. Omit `tables` to drop every table owned by the prefix.
-   * Call this from `deleteData()`.
+   * Call this from `deleteData()` on the main site. Another site cannot drop
+   * the tables: the host deletes that site's rows instead.
    */
   dropSchema(
     tables?: PluginSchemaTable[],
     options?: { target?: PluginDatabaseTarget },
   ): Promise<PluginSchemaApplyResult>;
+
+  /**
+   * Delete this site's rows from the plugin's tables. Tables stay, so other
+   * sites keep their rows. `site_id` is the only match.
+   */
+  clear(tables?: PluginSchemaTable[]): Promise<PluginSchemaApplyResult>;
 
   /**
    * Insert or replace a row in a plugin-owned table (`stores` → `shop_stores`).
@@ -1440,6 +1456,12 @@ export async function pluginShouldDeleteContent(
 export interface PluginModule {
   manifest: PluginManifest;
   activate(ctx: PluginContext): void | Promise<void>;
+  /**
+   * Called when a site activates the plugin and the module is already running
+   * because another site loaded it first. Create tables here. `activate` still
+   * runs the first time the module loads.
+   */
+  provision?(ctx: PluginContext): void | Promise<void>;
   deactivate?(ctx: PluginContext): void | Promise<void>;
   /**
    * Called when the plugin is deleted, before deactivation. Drop tables and

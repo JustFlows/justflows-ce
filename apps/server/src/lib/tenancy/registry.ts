@@ -81,3 +81,23 @@ export async function resolveHost(hostname: string, db?: DbClient): Promise<Host
 export function hostnameOf(url: string): string | null {
   return hostnameFromUrl(url);
 }
+
+/** The site created with the installation. Null when tenancy tables are not there yet. */
+export async function installationRootSiteId(db?: DbClient): Promise<string | null> {
+  const client = db ?? (await getControlDb());
+  try {
+    const roots = await client.query<{ id: string }>(
+      "SELECT id FROM sites WHERE status <> 'deleted' ORDER BY created_at ASC, id ASC LIMIT 1",
+    );
+    return roots[0] ? String(roots[0].id) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A missing tenancy table is a single-site install, which is the root site. */
+export async function isInstallationRootSite(siteId: string): Promise<boolean> {
+  const root = await installationRootSiteId();
+  if (!root) return true;
+  return root === siteId;
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "../../../admin-router";
 import { usePluginMenu } from "@components/PluginMenuProvider";
-import { useSessionRole } from "@components/SessionProvider";
+import { useSession, useSessionRole } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 import {
   ExtensionAutoUpdateToggle,
@@ -20,6 +20,8 @@ interface Plugin {
   publisher: string;
   settingsSchema?: Record<string, unknown>;
   setupPath?: string;
+  allowMultisite?: boolean;
+  multisiteEnabled?: boolean;
 }
 
 const STATUS_VARIANT: Record<Plugin["status"], string> = {
@@ -33,6 +35,7 @@ export default function PluginsPage() {
   // Upload, activate/deactivate, delete, and per-plugin settings are all
   // administrator-only on the server; an editor can only read this list.
   const canManage = useSessionRole() === "administrator";
+  const installationRoot = useSession().session?.installationRoot !== false;
   const { t } = useT();
   const navigate = useNavigate();
   const [plugins, setPlugins] = useState<Plugin[]>([]);
@@ -116,8 +119,23 @@ export default function PluginsPage() {
     }
   }
 
+  async function setMultisite(id: string, enabled: boolean) {
+    const res = await fetch(`/api/plugins/${encodeURIComponent(id)}/multisite`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      setDeleteError(data.error ?? t("plugins.multisiteFailed"));
+      return;
+    }
+    setPlugins((list) => list.map((item) => (item.id === id ? { ...item, multisiteEnabled: enabled } : item)));
+  }
+
   async function deletePlugin(plugin: Plugin) {
-    if (!confirm(t("plugins.deleteConfirm", { name: plugin.name }))) return;
+    const confirmKey = installationRoot ? "plugins.deleteConfirm" : "plugins.removeFromSiteConfirm";
+    if (!confirm(t(confirmKey, { name: plugin.name }))) return;
     setDeleteError("");
     const res = await fetch(`/api/plugins/${encodeURIComponent(plugin.id)}`, { method: "DELETE" });
     const data = (await res.json().catch(() => ({}))) as { error?: string; warning?: string };
@@ -135,11 +153,11 @@ export default function PluginsPage() {
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
           <h1>{t("plugins.title")}</h1>
-          <p>{t("plugins.subtitle")}</p>
+          <p>{installationRoot ? t("plugins.subtitle") : t("plugins.subtitleSite")}</p>
         </div>
       </header>
 
-      {canManage && (
+      {canManage && installationRoot && (
       <div className="jf-card">
         <div className="jf-card__head">
           <h2 className="jf-card__title">{t("plugins.uploadHeading")}</h2>
@@ -188,7 +206,7 @@ export default function PluginsPage() {
           <h2 className="jf-card__title">{t("plugins.installedHeading", { count: plugins.length })}</h2>
         </div>
 
-        {canManage && (
+        {canManage && installationRoot && (
           <div className="jf-card__body">
             <ExtensionUpdatesBar state={updates} />
           </div>
@@ -209,7 +227,7 @@ export default function PluginsPage() {
           <div className="jf-empty">
             <span className="jf-empty__icon" aria-hidden="true">🔌</span>
             <span className="jf-empty__title">{t("plugins.emptyTitle")}</span>
-            <p>{t("plugins.emptyDesc")}</p>
+            <p>{installationRoot ? t("plugins.emptyDesc") : t("plugins.emptyDescSite")}</p>
           </div>
         ) : (
           <div className="jf-list">
@@ -220,14 +238,28 @@ export default function PluginsPage() {
                     <strong>{p.name}</strong>
                     <span className="jf-meta">v{p.version}</span>
                     <span className={`jf-badge${STATUS_VARIANT[p.status]}`}>{p.status}</span>
-                    {canManage && <ExtensionUpdateBadge state={updates} type="plugin" id={p.id} />}
+                    {canManage && installationRoot && <ExtensionUpdateBadge state={updates} type="plugin" id={p.id} />}
                   </div>
                   {p.description && <p className="jf-list__desc">{p.description}</p>}
                   <p className="jf-meta">{t("ui.pluginsPage.by")}{p.publisher} · <code className="jf-code">{p.id}</code></p>
-                  {canManage && <ExtensionAutoUpdateToggle state={updates} type="plugin" id={p.id} />}
+                  {canManage && installationRoot && (
+                    <label className="jf-row" style={{ gap: "0.5rem" }}>
+                      <input
+                        type="checkbox"
+                        checked={p.multisiteEnabled === true}
+                        onChange={(e) => void setMultisite(p.id, e.target.checked)}
+                      />
+                      <span>{t("plugins.multisiteEnable")}</span>
+                    </label>
+                  )}
+                  {canManage && installationRoot && (
+                    <p className="jf-meta">{t("plugins.multisiteHint")}</p>
+                  )}
+                  {canManage && installationRoot && <ExtensionAutoUpdateToggle state={updates} type="plugin" id={p.id} />}
                 </div>
                 {canManage && (
                   <div className="jf-row" style={{ flexWrap: "nowrap" }}>
+                    {installationRoot && (
                     <ExtensionUpdateButton
                       state={updates}
                       type="plugin"
@@ -244,6 +276,7 @@ export default function PluginsPage() {
                         void refreshMenu();
                       }}
                     />
+                    )}
                     {p.settingsSchema && Object.keys(p.settingsSchema).length > 0 && (
                       <Link className="jf-btn jf-btn--ghost" to={`/admin/plugins/${p.id}/settings`}>
                         {t("plugins.settingsLink")}
@@ -252,9 +285,11 @@ export default function PluginsPage() {
                     <button className="jf-btn jf-btn--ghost" onClick={() => togglePlugin(p.id, p.status)}>
                       {p.status === "active" ? t("plugins.deactivate") : t("plugins.activate")}
                     </button>
-                    <button className="jf-btn jf-btn--danger" onClick={() => void deletePlugin(p)}>
-                      {t("common.delete")}
-                    </button>
+                    {installationRoot && (
+                      <button className="jf-btn jf-btn--danger" onClick={() => void deletePlugin(p)}>
+                        {t("common.delete")}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

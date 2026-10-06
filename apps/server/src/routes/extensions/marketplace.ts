@@ -4,6 +4,7 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { requireRole } from "../../middleware/auth.js";
+import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { sendPackageInstallError } from "../../lib/extensions/package-install-error.js";
 import { filterMarketplaceCatalogBody } from "../../lib/extensions/marketplace-catalog.js";
@@ -61,6 +62,10 @@ const InstallSchema = z.object({
 router.post("/install", requireRole("administrator"), async (req, res) => {
   try {
     const { type, id, version } = InstallSchema.parse(req.body);
+    if (type === "plugin" && !isInstallationRootRequest()) {
+      res.status(403).json({ error: "Plugins are installed on the main site." });
+      return;
+    }
     const result = await installMarketplacePackage({
       type,
       id,

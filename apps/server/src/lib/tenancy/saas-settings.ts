@@ -57,6 +57,17 @@ export function clampPurgeAfterDays(value: unknown, fallback = 30): number {
  * then finds no `signupEnabled` field. Accept that stored string, and a real
  * object, as the same settings.
  */
+export async function platformBaseDomain(): Promise<string> {
+  try {
+    const { getControlDb } = await import("../database/db.js");
+    const db = await getControlDb();
+    const rows = await db.query<{ value: unknown }>("SELECT value FROM platform_settings WHERE setting_key = 'saas' LIMIT 1");
+    return readSaasSettings(rows[0]?.value)?.baseDomain ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function readSaasSettings(value: unknown): SaasSettings | null {
   const stored = parseStored(value);
   if (!stored) return null;

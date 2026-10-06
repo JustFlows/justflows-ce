@@ -2,6 +2,7 @@ import { publicAdminPath } from "../../../admin-path";
 import { translateEnglish, type Translate } from "../../../i18n/translate";
 import { useEffect, useState } from "react";
 import { usePluginMenu } from "@components/PluginMenuProvider";
+import { useSession } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 import {
   ExtensionAutoUpdateToggle,
@@ -99,6 +100,7 @@ const CATEGORY_LABEL_KEYS: Record<string, string> = {
 
 export default function MarketplacePage() {
   const { t } = useT();
+  const installationRoot = useSession().session?.installationRoot !== false;
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -255,7 +257,8 @@ export default function MarketplacePage() {
             const beta = listingIsBeta(item);
             // Beta listings stay visible so admins know they exist, but only
             // install once the site has opted in.
-            const blocked = comingSoon || (beta && !allowBeta);
+            const pluginElsewhere = !installationRoot && item.type === "plugin";
+            const blocked = comingSoon || (beta && !allowBeta) || pluginElsewhere;
             const priceLabel = listingPriceLabel(item, t);
 
             return (
@@ -290,7 +293,7 @@ export default function MarketplacePage() {
                   )}
                   <p className="jf-meta">{t("marketplace.versionBy", { version: item.version, publisher: item.publisher ?? item.author ?? "Justflows" })}</p>
 
-                  {isInstalled && updates.updateFor(item.type, item.id) ? (
+                  {isInstalled && !pluginElsewhere && updates.updateFor(item.type, item.id) ? (
                     <ExtensionUpdateButton
                       state={updates}
                       type={item.type}
@@ -314,14 +317,16 @@ export default function MarketplacePage() {
                           ? t("marketplace.installing")
                           : comingSoon
                             ? t("marketplace.comingSoon")
-                            : blocked
+                              : pluginElsewhere
+                                ? t("marketplace.installOnMainSite")
+                              : blocked
                               ? t("marketplace.betaDisabledButton")
                               : paid
                                 ? t("marketplace.getOnJustflows")
                                 : t("marketplace.install")}
                     </button>
                   )}
-                  {isInstalled && <ExtensionAutoUpdateToggle state={updates} type={item.type} id={item.id} />}
+                  {isInstalled && !pluginElsewhere && <ExtensionAutoUpdateToggle state={updates} type={item.type} id={item.id} />}
                 </div>
               </div>
             );

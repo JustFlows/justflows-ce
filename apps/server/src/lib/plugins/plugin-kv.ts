@@ -12,6 +12,8 @@ export const PLUGIN_HOST_COLLECTION = "_host";
 export const PLUGIN_HOST_SCHEMA_ITEM = "schema";
 export const PLUGIN_HOST_SCHEMA_PASSWORD_ITEM = "schemaPassword";
 export const PLUGIN_HOST_CONTENT_TYPES_ITEM = "contentTypes";
+/** Root-site choice: other sites may activate this plugin. */
+export const PLUGIN_HOST_MULTISITE_ITEM = "multisite";
 
 function legacySettingKey(pluginId: string, key: string): string {
   return `plugin.${pluginId}:${key}`;

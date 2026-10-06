@@ -7,6 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 const settings = new Map<string, unknown>();
 const upstreamCalls: string[] = [];
+let isRootSite = true;
 
 vi.mock("../../../../src/middleware/auth.js", () => ({
   requireRole: () => (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -28,6 +29,9 @@ vi.mock("../../../../src/lib/settings/site-settings.js", () => ({
 vi.mock("../../../../src/lib/security/audit-log.js", () => ({
   auditFromRequest: () => undefined,
   auditLog: async () => undefined,
+}));
+vi.mock("../../../../src/lib/tenancy/registry.js", () => ({
+  isInstallationRootSite: async () => isRootSite,
 }));
 vi.mock("../../../../src/lib/plugins/plugins-db.js", () => ({
   getPlugin: async () => null,
@@ -62,6 +66,7 @@ afterAll(() => new Promise((r) => server.close(() => r(null))));
 beforeEach(() => {
   settings.clear();
   upstreamCalls.length = 0;
+  isRootSite = true;
 });
 
 function send(method: string, path: string, body: unknown) {
@@ -81,6 +86,13 @@ describe("POST /api/marketplace/update", () => {
   it("refuses to update a plugin that is not installed, without downloading", async () => {
     const res = await send("POST", "/update", { type: "plugin", id: "acme.missing" });
     expect(res.status).toBe(404);
+    expect(upstreamCalls).toEqual([]);
+  });
+
+  it("refuses to update a plugin from a site that is not the installation root", async () => {
+    isRootSite = false;
+    const res = await send("POST", "/update", { type: "plugin", id: "acme.forms" });
+    expect(res.status).toBe(403);
     expect(upstreamCalls).toEqual([]);
   });
 });

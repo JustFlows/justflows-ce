@@ -36,6 +36,10 @@ export interface PluginDto {
     localized?: boolean;
   }>;
   setupPath?: string;
+  /** The package allows the main site to offer it to other sites. */
+  allowMultisite?: boolean;
+  /** The main site has turned that offer on. */
+  multisiteEnabled?: boolean;
 }
 
 export function pluginsDir(): string {
@@ -186,6 +190,7 @@ export function pluginToDto(row: PluginRow): PluginDto {
     status: row.status,
     settingsSchema,
     setupPath: setupPathFromManifest(manifest),
+    allowMultisite: manifest.allowMultisite === true,
   };
 }
 
