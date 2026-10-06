@@ -7,29 +7,31 @@ import {
   getPluginSecretCipher,
   setPluginSecretCipher,
 } from "./plugin-kv.js";
+import { pluginCallSiteId } from "./request-site.js";
 
 const KEY_RE = /^[a-z0-9]+(?:[.:][a-z0-9]+)*$/;
 
-export function createPluginSecretsApi(pluginId: string, siteId: string): PluginSecretsApi {
+export function createPluginSecretsApi(pluginId: string, activatedSiteId: string): PluginSecretsApi {
+  const siteId = () => pluginCallSiteId(activatedSiteId);
   return {
     async set(key, value) {
       if (!KEY_RE.test(key)) throw new Error("Secret key must be dotted lowercase identifiers");
-      await setPluginSecretCipher(pluginId, siteId, key, encryptSecret(value));
+      await setPluginSecretCipher(pluginId, siteId(), key, encryptSecret(value));
     },
     async get(key) {
       if (!KEY_RE.test(key)) throw new Error("Secret key must be dotted lowercase identifiers");
-      const stored = await getPluginSecretCipher(pluginId, siteId, key);
+      const stored = await getPluginSecretCipher(pluginId, siteId(), key);
       const plain = decryptSecret(stored ?? "");
       return plain || undefined;
     },
     async has(key) {
       if (!KEY_RE.test(key)) throw new Error("Secret key must be dotted lowercase identifiers");
-      const stored = await getPluginSecretCipher(pluginId, siteId, key);
+      const stored = await getPluginSecretCipher(pluginId, siteId(), key);
       return Boolean(stored);
     },
     async delete(key) {
       if (!KEY_RE.test(key)) throw new Error("Secret key must be dotted lowercase identifiers");
-      await deletePluginSecretCipher(pluginId, siteId, key);
+      await deletePluginSecretCipher(pluginId, siteId(), key);
     },
   };
 }

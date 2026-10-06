@@ -597,6 +597,49 @@ export interface McpToolDefinition {
 
 // ─── Action map ────────────────────────────────────────────────────────────
 
+/** A workspace a plugin may observe. Connection secrets are never included. */
+export interface WorkspaceEvent {
+  tenantId: string;
+  siteId: string;
+  hostname: string;
+  userMode: "isolated" | "shared";
+  databaseMode: "current" | "separate";
+}
+
+export interface WorkspaceStatusEvent {
+  tenantId: string;
+}
+
+export interface WorkspaceDeleteEvent {
+  tenantId: string;
+  dropDatabase: boolean;
+}
+
+export interface WorkspaceCreateGateEvent {
+  name: string;
+  slug: string;
+  userMode: "isolated" | "shared";
+  databaseMode: "current" | "separate";
+  siteName: string;
+  hostname: string;
+}
+
+export interface SiteCreateEvent {
+  tenantId: string;
+  siteId: string;
+  hostname: string;
+  databaseChoice: "inherit" | "current" | "separate";
+}
+
+export interface SiteCreateGateEvent {
+  tenantId: string;
+  name: string;
+  hostname: string;
+  databaseChoice: "inherit" | "current" | "separate";
+  userMode: "isolated" | "shared";
+  databaseMode: "current" | "separate";
+}
+
 /**
  * Every core action, mapped to its payload. Actions observe something that
  * already happened; they cannot cancel it.
@@ -650,6 +693,12 @@ export interface ActionEventMap {
   /** Observe the bounded response or error after every outbound attempt. */
   "webhook.delivered": WebhookDeliveryEvent;
 
+  "workspace.created": WorkspaceEvent;
+  "workspace.suspended": WorkspaceStatusEvent;
+  "workspace.reactivated": WorkspaceStatusEvent;
+  "workspace.deleted": WorkspaceDeleteEvent;
+  "site.created": SiteCreateEvent;
+
   "request.before": RequestStartEvent;
   "request.after": RequestEndEvent;
 
@@ -689,6 +738,12 @@ export interface GateEventMap {
 
   /** Cancel a final, rendered delivery before it is queued or sent. */
   "email.beforeSend": EmailBeforeSendEvent;
+
+  "workspace.beforeCreate": WorkspaceCreateGateEvent;
+  "workspace.beforeSuspend": WorkspaceStatusEvent;
+  "workspace.beforeReactivate": WorkspaceStatusEvent;
+  "workspace.beforeDelete": WorkspaceDeleteEvent;
+  "site.beforeCreate": SiteCreateGateEvent;
 }
 
 // ─── Filter map ────────────────────────────────────────────────────────────

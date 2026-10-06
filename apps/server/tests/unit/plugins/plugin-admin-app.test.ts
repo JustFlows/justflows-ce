@@ -1,7 +1,24 @@
 // SPDX-License-Identifier: MIT
 
-import { describe, expect, it } from "vitest";
-import { parseAdminAppSpec, safeAdminRel } from "../../../src/lib/plugins/plugin-admin-app.js";
+import { describe, expect, it, vi } from "vitest";
+
+const queriedSites: string[] = [];
+
+vi.mock("../../../src/lib/database/db.js", () => ({
+  getDb: async () => ({
+    query: async (_sql: string, params: unknown[] = []) => {
+      queriedSites.push(String(params[0] ?? ""));
+      return [];
+    },
+  }),
+}));
+
+import {
+  clearPluginAdminAppCache,
+  getPluginAdminRoutes,
+  parseAdminAppSpec,
+  safeAdminRel,
+} from "../../../src/lib/plugins/plugin-admin-app.js";
 import { stampAdminAppUrls, type AdminMenuEntry } from "../../../src/lib/admin/admin-menu.js";
 
 describe("safeAdminRel", () => {
@@ -223,5 +240,16 @@ describe("stampAdminAppUrls", () => {
       listed: false,
       adminAppUrl: "/ext/acme.shop/admin/bulk-edit.html",
     });
+  });
+});
+
+describe("getPluginAdminRoutes", () => {
+  it("loads each site's active plugins instead of reusing another site's menu", async () => {
+    clearPluginAdminAppCache();
+    queriedSites.length = 0;
+    await getPluginAdminRoutes("site-root");
+    await getPluginAdminRoutes("site-other");
+    await getPluginAdminRoutes("site-root");
+    expect(queriedSites).toEqual(["site-root", "site-other"]);
   });
 });

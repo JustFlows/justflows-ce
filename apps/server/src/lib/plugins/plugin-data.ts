@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import type { PluginDataApi, PluginDataRecord } from "@justflows/sdk";
 import { getDb, type DbClient } from "../database/db.js";
+import { pluginCallSiteId } from "./request-site.js";
 import { runAllMigrations } from "../database/run-migrations.js";
 
 let ensured = false;
@@ -157,23 +158,24 @@ export async function deleteAllPluginData(pluginId: string, siteId: string): Pro
   await db.run("DELETE FROM plugin_data WHERE site_id = ? AND plugin_id = ?", [siteId, pluginId]);
 }
 
-export function createPluginDataApi(pluginId: string, siteId: string): PluginDataApi {
+export function createPluginDataApi(pluginId: string, activatedSiteId: string): PluginDataApi {
+  const siteId = () => pluginCallSiteId(activatedSiteId);
   return {
     async list<T = unknown>(collection: string): Promise<PluginDataRecord<T>[]> {
       await ensurePluginDataTable();
-      return pluginDataOps(await getDb(), pluginId, siteId).list<T>(collection);
+      return pluginDataOps(await getDb(), pluginId, siteId()).list<T>(collection);
     },
     async get<T = unknown>(collection: string, id: string): Promise<PluginDataRecord<T> | undefined> {
       await ensurePluginDataTable();
-      return pluginDataOps(await getDb(), pluginId, siteId).get<T>(collection, id);
+      return pluginDataOps(await getDb(), pluginId, siteId()).get<T>(collection, id);
     },
     async put<T = unknown>(collection: string, id: string, data: T): Promise<void> {
       await ensurePluginDataTable();
-      return pluginDataOps(await getDb(), pluginId, siteId).put(collection, id, data);
+      return pluginDataOps(await getDb(), pluginId, siteId()).put(collection, id, data);
     },
     async delete(collection: string, id: string): Promise<void> {
       await ensurePluginDataTable();
-      return pluginDataOps(await getDb(), pluginId, siteId).delete(collection, id);
+      return pluginDataOps(await getDb(), pluginId, siteId()).delete(collection, id);
     },
     async cas<T = unknown>(
       collection: string,
@@ -182,15 +184,16 @@ export function createPluginDataApi(pluginId: string, siteId: string): PluginDat
       data: T,
     ): Promise<boolean> {
       await ensurePluginDataTable();
-      return pluginDataOps(await getDb(), pluginId, siteId).cas(collection, id, expectedUpdatedAt, data);
+      return pluginDataOps(await getDb(), pluginId, siteId()).cas(collection, id, expectedUpdatedAt, data);
     },
     async transaction<T>(fn: (tx: PluginDataApi) => Promise<T>): Promise<T> {
       await ensurePluginDataTable();
       const root = await getDb();
-      return root.transaction((tx) => fn(pluginDataOps(tx, pluginId, siteId)));
+      const sid = siteId();
+      return root.transaction((tx) => fn(pluginDataOps(tx, pluginId, sid)));
     },
     async clear(): Promise<void> {
-      await deleteAllPluginData(pluginId, siteId);
+      await deleteAllPluginData(pluginId, siteId());
     },
   };
 }

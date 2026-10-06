@@ -33,11 +33,27 @@ function cacheControlForPath(pathname: string): string | null {
   return null;
 }
 
+/**
+ * Public HTML with no browser-cache setting was left without a cache header.
+ * The CDN then kept that page for its own default (30 days), so a new favicon
+ * stayed on the admin tab and never reached the public site.
+ */
+function edgeCacheForUncachedHtml(pathname: string): boolean {
+  if (getPerformanceConfig().browserCache.enabled) return false;
+  if (STATIC_PATHS.test(pathname) || pathname === "/theme.css") return false;
+  return !pathname.includes(".") || pathname === "/favicon.ico";
+}
+
 /** Set Cache-Control early — must not patch res.end (breaks GZIP compression). */
 export function browserCacheMiddleware(req: Request, res: Response, next: NextFunction): void {
   if (req.method === "GET") {
     const value = cacheControlForPath(req.path);
-    if (value) res.setHeader("Cache-Control", value);
+    if (value) {
+      res.setHeader("Cache-Control", value);
+    } else if (edgeCacheForUncachedHtml(req.path)) {
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("CDN-Cache-Control", "no-store");
+    }
   }
   next();
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "../../../admin-router";
-import { useSessionRole } from "@components/SessionProvider";
+import { useSession, useSessionRole } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 import { canAccessPath } from "../../../config/admin-nav";
 import { DISCOVERY_CARDS } from "../../../config/discovery-cards";
@@ -95,12 +95,16 @@ export default function DashboardWelcomePanel({
   welcome: ReturnType<typeof useDashboardWelcome>;
 }) {
   const role = useSessionRole();
+  const { session } = useSession();
   const { t } = useT();
   const { state, update } = welcome;
 
   if (role !== "administrator" || state.dismissed) return null;
 
-  const cards = DISCOVERY_CARDS.filter((card) => card.external || canAccessPath(role, card.href));
+  const audience = session
+    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true }
+    : undefined;
+  const cards = DISCOVERY_CARDS.filter((card) => card.external || canAccessPath(role, card.href, audience));
   const expanded = !state.collapsed;
 
   return (

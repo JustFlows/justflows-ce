@@ -206,7 +206,7 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
   );
 
   const { getPluginAdminRoutes } = await import("../plugins/plugin-admin-app.js");
-  const adminAppRoutes = await getPluginAdminRoutes().catch(() => []);
+  const adminAppRoutes = await getPluginAdminRoutes(siteId).catch(() => []);
 
   return stampAdminAppUrls(
     stampSetupPaths(finalizeAdminMenu(Array.isArray(filtered) ? filtered : entries), setupByPlugin),

@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 
-import fs from "node:fs/promises";
-import path from "node:path";
 import {
   generateResponsiveSet,
   isRasterImageMimeType,
   formatExtension,
+  formatMimeType,
   type OutputFormat,
   type ResponsiveImageConfig,
 } from "@justflows/media";
-import { uploadsDir } from "../runtime/jf-root.js";
-import { resolvePathUnderBase } from "../security/safe-path.js";
+import { legacyTrashedVariantPrefix, variantPrefix } from "./upload-paths.js";
+import { getUploadStore } from "./upload-store.js";
 
 /**
  * Server-side glue for responsive image derivatives (#103).
@@ -133,8 +132,13 @@ export function keepOriginalOnly(filename: string, globs: string[]): boolean {
 
 function variantDir(siteId: string, mediaId: string, trashed = false): string | null {
   if (!UUID_RE.test(siteId) || !UUID_RE.test(mediaId)) return null;
-  const segments = trashed ? [".trash", siteId, mediaId] : [siteId, mediaId];
-  return resolvePathUnderBase(uploadsDir(), ...segments);
+  return variantPrefix(siteId, mediaId, trashed);
+}
+
+/** Trashed variant folder in the pre-per-site shared trash. */
+function legacyTrashedVariantDir(siteId: string, mediaId: string): string | null {
+  if (!UUID_RE.test(siteId) || !UUID_RE.test(mediaId)) return null;
+  return legacyTrashedVariantPrefix(siteId, mediaId);
 }
 
 export interface GenerateVariantsInput {
@@ -168,15 +172,13 @@ export async function generateAndStoreVariants(
     focal: input.focal ?? null,
   });
 
-  await fs.mkdir(dir, { recursive: true });
-
+  const store = getUploadStore();
   const variants: MediaVariantRecord[] = [];
   let thumb: MediaDerivatives["thumb"];
 
   for (const v of set.variants) {
     const ext = formatExtension(v.format);
-    const file = path.join(dir, `${v.name}.${ext}`);
-    await fs.writeFile(file, v.data);
+    await store.put(`${dir}${v.name}.${ext}`, v.data, formatMimeType(v.format));
     const url = `/uploads/${input.siteId}/${input.mediaId}/${v.name}.${ext}`;
     if (v.kind === "thumb") {
       thumb = { url, w: v.width, h: v.height };
@@ -201,23 +203,28 @@ export async function moveVariantDir(
   mediaId: string,
   toTrash: boolean,
 ): Promise<void> {
-  const from = variantDir(siteId, mediaId, !toTrash);
+  // Restoring checks the site's own trash first, then the legacy shared one.
+  const sources = toTrash
+    ? [variantDir(siteId, mediaId, false)]
+    : [variantDir(siteId, mediaId, true), legacyTrashedVariantDir(siteId, mediaId)];
   const to = variantDir(siteId, mediaId, toTrash);
-  if (!from || !to) return;
-  try {
-    await fs.access(from);
-  } catch {
-    return; // nothing generated for this item
+  if (!to) return;
+  const store = getUploadStore();
+  for (const from of sources) {
+    // move() is false when nothing was generated there.
+    if (from && (await store.move(from, to))) return;
   }
-  await fs.mkdir(path.dirname(to), { recursive: true });
-  await fs.rm(to, { recursive: true, force: true });
-  await fs.rename(from, to);
 }
 
 /** Permanently remove a media item's variant folder (both live and trashed copies). */
 export async function removeVariantDir(siteId: string, mediaId: string): Promise<void> {
-  for (const trashed of [false, true]) {
-    const dir = variantDir(siteId, mediaId, trashed);
-    if (dir) await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  const dirs = [
+    variantDir(siteId, mediaId, false),
+    variantDir(siteId, mediaId, true),
+    legacyTrashedVariantDir(siteId, mediaId),
+  ];
+  const store = getUploadStore();
+  for (const dir of dirs) {
+    if (dir) await store.deletePrefix(dir).catch(() => undefined);
   }
 }

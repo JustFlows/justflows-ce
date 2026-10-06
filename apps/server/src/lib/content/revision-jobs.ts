@@ -13,17 +13,20 @@ async function runPrune(): Promise<void> {
   if (running) return;
   running = true;
   try {
-    const removed = await pruneHistoricalBatch();
-    if (removed > 0) {
-      const siteId = await getSiteId();
-      if (siteId) {
-        void auditLog({
-          siteId,
-          action: "content.revision_pruned",
-          detail: `removed=${removed}`,
-        });
+    const { runAcrossDatabases } = await import("../tenancy/connections.js");
+    await runAcrossDatabases(async () => {
+      const removed = await pruneHistoricalBatch();
+      if (removed > 0) {
+        const siteId = await getSiteId();
+        if (siteId) {
+          void auditLog({
+            siteId,
+            action: "content.revision_pruned",
+            detail: `removed=${removed}`,
+          });
+        }
       }
-    }
+    });
   } catch (err) {
     console.error("[justflows] Revision prune failed:", err);
   } finally {

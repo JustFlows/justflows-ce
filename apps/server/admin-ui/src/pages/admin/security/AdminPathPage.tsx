@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { publicAdminPath } from "../../../admin-path";
+import { useSession } from "@components/SessionProvider";
 import { LoadError, PageSkeleton, SaveBar, Section } from "./components";
 import { useT } from "../../../i18n/I18nProvider";
 
@@ -7,6 +8,7 @@ type Config = { path: string; oldPathBehavior: "not_found" | "redirect" };
 
 export default function AdminPathPage() {
   const { t } = useT();
+  const installationRoot = useSession().session?.installationRoot === true;
   const [saved, setSaved] = useState<Config | null>(null);
   const [draft, setDraft] = useState<Config>({ path: "/admin", oldPathBehavior: "not_found" });
   const [error, setError] = useState<string | null>(null);
@@ -102,8 +104,14 @@ export default function AdminPathPage() {
           <div>
             <div className="jf-banner__title">{t("security.adminPath.recoveryBanner.title")}</div>
             <div className="jf-banner__sub">
-              {t("security.adminPath.recoveryBanner.subPrefix")} <code>JF_ADMIN_PATH_RECOVERY</code>{" "}
-              {t("security.adminPath.recoveryBanner.subSuffix")}
+              {installationRoot ? (
+                <>
+                  {t("security.adminPath.recoveryBanner.subPrefix")} <code>JF_ADMIN_PATH_RECOVERY</code>{" "}
+                  {t("security.adminPath.recoveryBanner.subSuffix")}
+                </>
+              ) : (
+                t("security.adminPath.recoveryBanner.locked")
+              )}
             </div>
           </div>
         </div>
@@ -173,23 +181,33 @@ export default function AdminPathPage() {
         </fieldset>
       </Section>
 
-      <Section title={t("security.adminPath.recoverySection.title")}>
-        <p>
-          {t("security.adminPath.recoverySection.bodyPrefix")}{" "}
-          <code>JF_ADMIN_PATH_RECOVERY=/admin</code> {t("security.adminPath.recoverySection.bodySuffix")}
-        </p>
+      {installationRoot ? (
+        <Section title={t("security.adminPath.recoverySection.title")}>
+          <p>
+            {t("security.adminPath.recoverySection.bodyPrefix")}{" "}
+            <code>JF_ADMIN_PATH_RECOVERY=/admin</code> {t("security.adminPath.recoverySection.bodySuffix")}
+          </p>
+          <div className="jf-banner jf-banner--warn">
+            <span className="jf-banner__icon" aria-hidden="true">
+              !
+            </span>
+            <div>
+              <div className="jf-banner__title">{t("security.adminPath.recoverySection.warnTitle")}</div>
+              <div className="jf-banner__sub">{t("security.adminPath.recoverySection.warnSub")}</div>
+            </div>
+          </div>
+        </Section>
+      ) : (
         <div className="jf-banner jf-banner--warn">
           <span className="jf-banner__icon" aria-hidden="true">
             !
           </span>
           <div>
             <div className="jf-banner__title">{t("security.adminPath.recoverySection.warnTitle")}</div>
-            <div className="jf-banner__sub">
-              {t("security.adminPath.recoverySection.warnSub")}
-            </div>
+            <div className="jf-banner__sub">{t("security.adminPath.recoverySection.warnSub")}</div>
           </div>
         </div>
-      </Section>
+      )}
 
       <SaveBar
         dirty={dirty && !recovery}

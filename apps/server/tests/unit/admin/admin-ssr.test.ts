@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from "vitest";
-import { adminPrefetchPaths, serializeAdminSsrData } from "../../../src/lib/admin/admin-ssr.js";
+import { adminPrefetchPaths, serializeAdminSsrData, ssrPrefetchHost } from "../../../src/lib/admin/admin-ssr.js";
 
 describe("admin SSR", () => {
   it("prefetches shared and route data for the content screen", () => {
@@ -23,6 +23,8 @@ describe("admin SSR", () => {
   it("prefetches dynamic editor and plugin settings paths", () => {
     expect(adminPrefetchPaths("/admin/content/abc")).toContain("/api/content/abc");
     expect(adminPrefetchPaths("/admin/plugins/demo/settings")).toContain("/api/plugins/demo/settings");
+    expect(adminPrefetchPaths("/admin/platform/sites/site-a")).toContain("/api/platform/sites/site-a");
+    expect(adminPrefetchPaths("/admin/platform/sites/site-a/users")).toContain("/api/platform/sites/site-a/users");
     expect(adminPrefetchPaths("/admin/themes/customize?preview=1")).toContain("/api/site/identity?preview=1");
   });
 
@@ -32,6 +34,12 @@ describe("admin SSR", () => {
     expect(paths).toContain("/api/languages");
     expect(paths).toContain("/api/content-types");
     expect(paths).not.toContain("/api/content?type=page&status=published&limit=100");
+  });
+
+  it("prefetches as the browser host, not the loopback address", () => {
+    expect(ssrPrefetchHost("demo.localhost", "demo.localhost:3000")).toBe("demo.localhost:3000");
+    expect(ssrPrefetchHost("example.com", "example.com")).toBe("example.com");
+    expect(ssrPrefetchHost("", undefined)).toBe("127.0.0.1");
   });
 
   it("cannot break out of the embedded JSON script", () => {

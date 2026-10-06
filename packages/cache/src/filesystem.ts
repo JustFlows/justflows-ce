@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { CacheAdapter } from "./adapter.js";
+import { cacheKeyMatchesPrefix, isSiteShardName, siteShard } from "./site-key.js";
 
 // This derives a cache filename from an arbitrary cache key (CodeQL's taint
 // tracker flags it because some callers build that key from an object with a
@@ -39,7 +40,9 @@ export class FilesystemCache implements CacheAdapter {
    * filesystem path component.
    */
   private filePath(key: string): string {
-    const resolved = resolvePathUnderBase(this.dir, cacheFileName(key));
+    const shard = siteShard(key);
+    const dir = shard ? path.join(this.dir, shard) : this.dir;
+    const resolved = resolvePathUnderBase(dir, cacheFileName(key));
     if (!resolved) throw new Error("Invalid cache path");
     return resolved;
   }
@@ -59,7 +62,7 @@ export class FilesystemCache implements CacheAdapter {
   }
 
   async set<T = unknown>(key: string, value: T, ttlSeconds?: number): Promise<void> {
-    await fs.mkdir(this.dir, { recursive: true });
+    await fs.mkdir(path.dirname(this.filePath(key)), { recursive: true });
     const ttl = ttlSeconds ?? this.defaultTtlSeconds;
     const entry: Entry<T> = {
       key,
@@ -74,37 +77,63 @@ export class FilesystemCache implements CacheAdapter {
   }
 
   async invalidate(prefix: string): Promise<void> {
+    const shard = siteShard(prefix);
+    if (shard) {
+      await this.invalidateDir(path.join(this.dir, shard), prefix);
+      return;
+    }
+    await this.invalidateDir(this.dir, prefix);
+    let entries: import("node:fs").Dirent[] = [];
     try {
-      const entries = await fs.readdir(this.dir);
-      for (const name of entries) {
-        const file = resolvePathUnderBase(this.dir, name);
-        if (!file || !name.endsWith(".json")) continue;
-        const raw = await fs.readFile(file, "utf-8").catch(() => "");
-        if (!raw) continue;
-        let entry: Partial<Entry<unknown>>;
-        try {
-          entry = JSON.parse(raw) as Partial<Entry<unknown>>;
-        } catch {
-          continue;
-        }
-        if (typeof entry.key === "string" && entry.key.startsWith(prefix)) await fs.unlink(file).catch(() => null);
-      }
+      entries = await fs.readdir(this.dir, { withFileTypes: true });
     } catch {
-      // dir doesn't exist
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory() && isSiteShardName(entry.name)) {
+        await this.invalidateDir(path.join(this.dir, entry.name), prefix);
+      }
+    }
+  }
+
+  private async invalidateDir(dir: string, prefix: string): Promise<void> {
+    let names: string[] = [];
+    try {
+      names = await fs.readdir(dir);
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      const file = resolvePathUnderBase(dir, name);
+      if (!file || !name.endsWith(".json")) continue;
+      const raw = await fs.readFile(file, "utf-8").catch(() => "");
+      if (!raw) continue;
+      let entry: Partial<Entry<unknown>>;
+      try {
+        entry = JSON.parse(raw) as Partial<Entry<unknown>>;
+      } catch {
+        continue;
+      }
+      if (typeof entry.key === "string" && cacheKeyMatchesPrefix(entry.key, prefix)) {
+        await fs.unlink(file).catch(() => null);
+      }
     }
   }
 
   async clear(): Promise<void> {
+    let entries: import("node:fs").Dirent[] = [];
     try {
-      const entries = await fs.readdir(this.dir);
-      for (const name of entries) {
-        if (name.endsWith(".json")) {
-          const file = resolvePathUnderBase(this.dir, name);
-          if (file) await fs.unlink(file).catch(() => null);
-        }
-      }
+      entries = await fs.readdir(this.dir, { withFileTypes: true });
     } catch {
-      // dir doesn't exist
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith(".json")) {
+        const file = resolvePathUnderBase(this.dir, entry.name);
+        if (file) await fs.unlink(file).catch(() => null);
+      } else if (entry.isDirectory() && isSiteShardName(entry.name)) {
+        await fs.rm(path.join(this.dir, entry.name), { recursive: true, force: true }).catch(() => null);
+      }
     }
   }
 

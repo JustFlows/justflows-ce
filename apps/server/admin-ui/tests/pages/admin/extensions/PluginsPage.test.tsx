@@ -151,6 +151,79 @@ describe("PluginsPage as an administrator", () => {
   });
 });
 
+describe("PluginsPage updates", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function mockUpdates(): void {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const path = String(input);
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (path === "/api/auth/me") {
+          return jsonResponse({ id: "self", email: "self@example.com", role: "administrator" });
+        }
+        if (path === "/api/plugins/admin-menu") return jsonResponse({ items: [] });
+        if (path === "/api/plugins") return jsonResponse({ plugins: PLUGINS });
+        if (path === "/api/marketplace/updates") {
+          return jsonResponse({
+            checkedAt: "2026-10-02T00:00:00.000Z",
+            updates: [
+              {
+                type: "plugin",
+                id: "seo-kit",
+                name: "SEO Kit",
+                installedVersion: "1.0.0",
+                availableVersion: "1.1.0",
+                autoUpdatable: true,
+                autoUpdate: false,
+                beta: false,
+              },
+            ],
+            autoUpdate: { plugin: [], theme: [] },
+            autoUpdateDisabledByOperator: false,
+          });
+        }
+        if (path === "/api/marketplace/update" && method === "POST") {
+          return jsonResponse({ ok: true, type: "plugin", id: "seo-kit", previousVersion: "1.0.0", version: "1.1.0" });
+        }
+        if (path === "/api/marketplace/auto-update" && method === "PUT") {
+          return jsonResponse({ ok: true, autoUpdate: { plugin: ["seo-kit"], theme: [] } });
+        }
+        return jsonResponse({});
+      }),
+    );
+  }
+
+  it("shows an update button and installs the new version", async () => {
+    mockUpdates();
+    renderPage();
+    const user = userEvent.setup();
+    const button = await screen.findByRole("button", { name: "Update to v1.1.0" });
+    expect(screen.getByText("Update available: v1.1.0")).toBeInTheDocument();
+    await user.click(button);
+    expect(await screen.findByText("SEO Kit updated to v1.1.0.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Update to v1.1.0" })).not.toBeInTheDocument();
+    expect(screen.getByText("v1.1.0")).toBeInTheDocument();
+    const call = vi.mocked(fetch).mock.calls.find((c) => String(c[0]) === "/api/marketplace/update");
+    expect(JSON.parse(String((call?.[1] as RequestInit).body))).toEqual({
+      type: "plugin",
+      id: "seo-kit",
+      version: "1.1.0",
+    });
+  });
+
+  it("toggles auto-update for a plugin", async () => {
+    mockUpdates();
+    renderPage();
+    const user = userEvent.setup();
+    const toggle = await screen.findByRole("checkbox", { name: "Auto-update" });
+    expect(toggle).not.toBeChecked();
+    await user.click(toggle);
+    expect(await screen.findByRole("checkbox", { name: "Auto-update" })).toBeChecked();
+  });
+});
+
 describe("PluginsPage as an editor", () => {
   afterEach(() => vi.unstubAllGlobals());
 

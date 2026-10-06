@@ -9,6 +9,7 @@ import mediaRoutes from "./media.js";
 import openapiRoutes from "./openapi.js";
 import settingsRoutes from "./settings.js";
 import systemRoutes from "./system.js";
+import tenantsRoutes from "./tenants.js";
 import taxonomyRoutes from "./taxonomy.js";
 import webhooksRoutes from "./webhooks.js";
 
@@ -37,6 +38,7 @@ router.use("/content", contentRoutes);
 router.use("/media", mediaRoutes);
 router.use("/comments", commentsRoutes);
 router.use("/settings", settingsRoutes);
+router.use("/tenants", tenantsRoutes);
 router.use("/webhooks", webhooksRoutes);
 // Flat sub-paths (menus, content-types, languages, redirects / users, roles /
 // plugins, themes, cache, static-export, diagnostics, health).

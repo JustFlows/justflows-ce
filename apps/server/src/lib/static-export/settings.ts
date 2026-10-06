@@ -7,6 +7,7 @@ import { getJfRoot } from "../runtime/jf-root.js";
 import { applyEnvToProcess, readEnvMap, updateEnvKeys } from "../settings/env-file.js";
 import { getStaticExportConfig, intFromEnv } from "./config.js";
 import { isStaticExportAutoArmed, refreshStaticExportAutoRebuild } from "./auto.js";
+import { isCurrentSiteStaticExportEnabled } from "./site-enabled.js";
 
 /** An http(s) URL with no characters that could break out of an HTML attribute
  *  or an inline `<script>` when the value is later stamped into exported pages. */
@@ -85,6 +86,8 @@ export async function readStaticExportSettings(): Promise<{
     appUrl: string;
   };
   envPath: string;
+  /** False when this website has turned static export off. The installation site is always true. */
+  siteEnabled: boolean;
 }> {
   const map = await readEnvMap();
   const settings: StaticExportSettings = {
@@ -111,6 +114,7 @@ export async function readStaticExportSettings(): Promise<{
       appUrl: (process.env.APP_URL ?? "").trim().replace(/\/+$/, ""),
     },
     envPath: path.join(getJfRoot(), ".env"),
+    siteEnabled: await isCurrentSiteStaticExportEnabled(),
   };
 }
 

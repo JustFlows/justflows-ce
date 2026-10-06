@@ -4,9 +4,11 @@ export { MediaService } from "./media-service.js";
 export type { MediaItem, UploadOptions } from "./media-service.js";
 export { LocalStorageAdapter } from "./adapters/local-adapter.js";
 export { S3StorageAdapter } from "./adapters/s3-adapter.js";
-export type { StorageAdapter } from "./adapters/storage-adapter.js";
+export type { StorageAdapter, StoredObject } from "./adapters/storage-adapter.js";
 export type { LocalAdapterOptions } from "./adapters/local-adapter.js";
-export type { S3AdapterOptions } from "./adapters/s3-adapter.js";
+export type { S3AdapterOptions, S3ObjectResponse } from "./adapters/s3-adapter.js";
+export { signV4, sha256Hex, uriEncode, encodeKeyPath } from "./adapters/sigv4.js";
+export type { SigV4Credentials, SigV4Request } from "./adapters/sigv4.js";
 export {
   generateDerivatives,
   extractImageMetadata,

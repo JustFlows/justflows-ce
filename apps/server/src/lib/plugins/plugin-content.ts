@@ -10,6 +10,7 @@ import {
 } from "@justflows/content";
 import { sanitizeBlockDocument } from "@justflows/blocks";
 import { getDb } from "../database/db.js";
+import { pluginCallSiteId } from "./request-site.js";
 import { serializeContentRow } from "../content/content-api.js";
 import { createContentType, getContentTypeBySlug } from "../content/content-types-db.js";
 import { getDefaultLocale } from "../i18n/languages-db.js";
@@ -92,9 +93,10 @@ async function authorNames(siteId: string, ids: string[]): Promise<Map<string, s
   return new Map(rows.map((row) => [String(row.id), row.display_name || row.username]));
 }
 
-export function createPluginContentApi(pluginId: string, siteId: string): PluginContentApi {
+export function createPluginContentApi(pluginId: string, activatedSiteId: string): PluginContentApi {
   return {
     async listPublished(query = {}) {
+      const siteId = pluginCallSiteId(activatedSiteId);
       const limit = Math.min(Math.max(Math.floor(query.limit ?? 20), 1), 200);
       const types = (query.types ?? []).map((slug) => slug.trim()).filter(Boolean);
       const authorId =
@@ -162,6 +164,7 @@ export function createPluginContentApi(pluginId: string, siteId: string): Plugin
     },
 
     async ensureType(input) {
+      const siteId = pluginCallSiteId(activatedSiteId);
       const slug = normalizeContentTypeSlug(ContentTypeSlugSchema.parse(input.slug));
       if (isBuiltinContentTypeSlug(slug)) {
         throw new Error(`Cannot recreate a built-in content type "${slug}"`);
@@ -192,6 +195,7 @@ export function createPluginContentApi(pluginId: string, siteId: string): Plugin
     },
 
     async ensurePage(input) {
+      const siteId = pluginCallSiteId(activatedSiteId);
       const type = normalizeContentTypeSlug(ContentTypeSlugSchema.parse(input.type));
       const registered = await getContentTypeBySlug(type, siteId);
       if (!registered) {
@@ -285,11 +289,12 @@ export function createPluginContentApi(pluginId: string, siteId: string): Plugin
     },
 
     async deleteType(inputSlug) {
+      const siteId = pluginCallSiteId(activatedSiteId);
       return deletePluginOwnedContentType(siteId, inputSlug);
     },
 
     deleteCreatedBy(userId) {
-      return deleteRecordsCreatedBy(siteId, userId);
+      return deleteRecordsCreatedBy(pluginCallSiteId(activatedSiteId), userId);
     },
   };
 }

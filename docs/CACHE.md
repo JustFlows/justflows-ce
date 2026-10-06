@@ -90,8 +90,8 @@ Check in browser DevTools → Network → select a page request → Response hea
 With `LOG_LEVEL=debug`, each cache operation logs to the server console:
 
 ```
-[jf-cache] HIT page:html:/about:
-[jf-cache] MISS content:published:about:
+[jf-cache] HIT page:html:<siteId>:/about:
+[jf-cache] MISS content:published:<siteId>:about:
 ```
 
 ### Site Health
@@ -191,19 +191,21 @@ Use a consistent prefix so invalidation stays simple:
 Examples:
 
 ```
-content:published:about:
-content:published:about:nl
-content:published-posts:site-abc:nl:10:0
-content:alternates:550e8400-e29b-41d4-a716-446655440000
-menus:primary:site-abc
-theme-mods:justflows.default
-security-headers:config
+content:published:<siteId>:about:
+content:published:<siteId>:about:nl
+content:published-posts:<siteId>:nl:10:0
+content:alternates:<siteId>:550e8400-e29b-41d4-a716-446655440000
+menus:<siteId>:primary
+theme:mods:<siteId>:live
+security-headers:config:<siteId>
 ```
+
+On a request, Justflows also prefixes the key with `s:<siteId>:` and, for the filesystem driver, writes the file under `.cache/<siteId>/`. A publish clears that site's directory only. Keys written with no site stay in `.cache` itself.
 
 Rules of thumb:
 
 - Start with a **namespace** you can wipe (`content:`, `menus:`).
-- Include **locale or scope** when the value differs per locale or site.
+- Include the **site id** on every key. Locale goes in the key when the value differs per language.
 - Keep keys **stable** — changing the key scheme orphan old entries until TTL
   expires or you call `clear()`.
 
@@ -363,6 +365,40 @@ Configure everything from **Admin → Tools → Performance suite**, or set thes
 When a page/post is saved, only **selected** layers that the trigger affects are cleared
 (e.g. content updates clear `content` + `pages` if both are selected). Disable to rely
 on TTL alone. Emits `cache.revalidated` for plugins.
+
+### CDN purge
+
+That same save also tells the site's CDN to drop its cached pages
+(`https://<hostname>/*` for every hostname of the site). Connect a CDN under
+**Admin → Settings → CDN** (`/admin/settings/cdn`, `settings:manage`):
+
+| Provider  | Fields                                                                    |
+| --------- | ------------------------------------------------------------------------- |
+| Bunny.net | Account API key (required), pull zone ID (optional, for a full-zone purge) |
+
+The connection is saved on the platform site only, in `site_settings`
+(`cdn_provider`). A customer site does not get that form. Its page only purges
+that site's hostnames (`https://<hostname>/*`) through the platform connection.
+Secret fields are encrypted with `APP_SECRET` and never returned; the page shows
+their last four characters. **Test connection** checks the credentials; **Purge
+this site** clears the site at the CDN by hand. Turning a connection off keeps it
+without purging.
+
+When the platform site has no connection turned on, every site falls back to the
+installation's environment:
+
+| Variable             | Purpose                                                  |
+| -------------------- | -------------------------------------------------------- |
+| `BUNNY_API_KEY`      | Bunny.net account API key used for every site.          |
+| `BUNNY_PULL_ZONE_ID` | Pull zone cleared when the whole zone has to be purged. |
+
+Without either, only the server cache is cleared. A CDN failure is logged and never
+fails the save.
+
+Providers live in `apps/server/src/lib/cdn/providers/`. To add one, implement
+`CdnProviderAdapter` (`verify`, `purgeUrls`, `purgeAll`, and its `fields`), add its id
+to `CDN_PROVIDER_IDS`, register it in `providers/index.ts`, and add
+`cdn.fields.<provider>.<field>` labels to the admin catalogs.
 
 The static-site exporter's optional auto-rebuild (`STATIC_EXPORT_AUTO=1`) listens
 on this same `cache.revalidated` action, so it needs `CACHE_REVALIDATE_ENABLED=1`

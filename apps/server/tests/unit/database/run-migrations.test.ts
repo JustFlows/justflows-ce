@@ -56,7 +56,7 @@ const LEGACY_MIGRATIONS = [
 
 describe("MIGRATION_ORDER", () => {
   it("uses the consolidated schema through migration 0036", () => {
-    expect(MIGRATION_ORDER).toEqual(["0036_baseline"]);
+    expect(MIGRATION_ORDER).toEqual(["0036_baseline", "0037_tenancy"]);
   });
 
   it("contains every legacy migration in order for each database dialect", () => {
@@ -267,7 +267,7 @@ describe("runAllMigrations bookkeeping", () => {
 
       const result = await runAllMigrations(db, driver);
 
-      expect(result.applied).toEqual(["0036_baseline"]);
+      expect(result.applied).toEqual(["0036_baseline", "0037_tenancy"]);
       expect(db.statements.some((s) => /CREATE TABLE IF NOT EXISTS template_parts/i.test(s))).toBe(
         false,
       );
@@ -295,11 +295,12 @@ describe("runAllMigrations bookkeeping", () => {
 
     const result = await runAllMigrations(db, "mysql");
 
-    expect(result.applied).toEqual(["0036_baseline"]);
+    expect(result.applied).toEqual(["0036_baseline", "0037_tenancy"]);
     const schemaChanges = db.statements.filter(
       (s) => /^(CREATE|ALTER|DROP|UPDATE|INSERT)\b/i.test(s.trim()) && !s.includes("_migrations"),
     );
-    expect(schemaChanges).toEqual([]);
+    expect(schemaChanges.some((s) => s.includes("webhook_endpoints"))).toBe(false);
+    expect(schemaChanges.some((s) => s.includes("tenants"))).toBe(true);
   });
 
   it("serializes a second run behind the first by reading recorded migrations", async () => {

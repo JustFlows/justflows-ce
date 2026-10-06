@@ -48,6 +48,7 @@ css-providers-installed/
 data/installed.json
 .hosting-backup/
 /static-export/
+/static-export-sites/
 # Site-root .htaccess is generated on the target host at install (root-htaccess.ts)
 /.htaccess
 
@@ -94,3 +95,4 @@ Thumbs.db
 # Local deployment tooling
 .vercel/
 .netlify/
+.cursor/mcp/*

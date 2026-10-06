@@ -23,9 +23,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     storage: {
       driver: env["STORAGE_DRIVER"],
       localPath: env["STORAGE_LOCAL_PATH"],
-      s3Bucket: env["STORAGE_S3_BUCKET"],
-      s3Region: env["STORAGE_S3_REGION"],
-      s3Endpoint: env["STORAGE_S3_ENDPOINT"],
+      // STORAGE_S3_* is canonical; the older S3_* names are still read.
+      s3Bucket: env["STORAGE_S3_BUCKET"] || env["S3_BUCKET"],
+      s3Region: env["STORAGE_S3_REGION"] || env["S3_REGION"],
+      s3Endpoint: env["STORAGE_S3_ENDPOINT"] || env["S3_ENDPOINT"],
     },
     cache: {
       enabled: parseEnvBool(env["CACHE_ENABLED"], false),

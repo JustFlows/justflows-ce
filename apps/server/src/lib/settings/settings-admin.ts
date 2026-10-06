@@ -16,6 +16,7 @@ import { isMailTransport } from "../email/mail-config.js";
 import { sanitizeFaviconUrl } from "../media/favicon.js";
 import { SiteUrlSchema } from "./site-url.js";
 import { updateEnvKeys } from "./env-file.js";
+import { getTenantContext } from "../tenancy/context.js";
 import { auditLog } from "../security/audit-log.js";
 import { resolveFaviconUrl } from "../themes/theme-customize.js";
 
@@ -245,9 +246,9 @@ export async function applySettingsChange(
     await db.run(`UPDATE sites SET ${siteUpdates.join(", ")} WHERE id = ?`, siteParams);
   }
 
-  if (body.site_url !== undefined) {
-    // Persist to .env, not just process.env, so the value survives a restart
-    // instead of reverting to whatever loadConfig() last read from disk.
+  if (body.site_url !== undefined && getTenantContext()?.rootSite !== false) {
+    // The installation address. A customer site keeps its own sites.url and
+    // must not replace APP_URL for every other hostname.
     await updateEnvKeys({ APP_URL: body.site_url });
     process.env.APP_URL = body.site_url;
   }
