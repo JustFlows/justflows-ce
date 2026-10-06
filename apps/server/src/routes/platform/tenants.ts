@@ -18,6 +18,7 @@ import {
   suspendTenant,
 } from "../../lib/tenancy/provision.js";
 import { loadPlatformSite, updatePlatformSite, type SiteEditInput } from "../../lib/tenancy/site-record.js";
+import { loadPlatformWorkspace, updatePlatformWorkspace } from "../../lib/tenancy/workspace-record.js";
 import {
   createSiteUser,
   deleteSiteUser,
@@ -239,6 +240,30 @@ const CreateSite = z.object({
   databaseChoice: z.enum(["inherit", "current", "separate"]),
   database: DatabaseSchema.optional(),
   admin: CreateTenant.shape.admin.optional(),
+});
+
+router.get("/tenants/:id", async (req, res) => {
+  const workspace = await loadPlatformWorkspace(String(req.params.id));
+  if (!workspace) {
+    res.status(404).json({ error: "That workspace was not found." });
+    return;
+  }
+  res.json(workspace);
+});
+
+const WorkspaceEdit = z.object({
+  name: z.string().min(1).max(255),
+  slug: z.string().min(1).max(60),
+});
+
+router.put("/tenants/:id", async (req, res) => {
+  const body = WorkspaceEdit.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid workspace" });
+    return;
+  }
+  const result = await updatePlatformWorkspace(String(req.params.id), body.data, req.session!.userId);
+  res.status(result.ok ? 200 : result.status).json(result.ok ? result.workspace : { error: result.error });
 });
 
 router.post("/tenants/:id/sites", async (req, res) => {

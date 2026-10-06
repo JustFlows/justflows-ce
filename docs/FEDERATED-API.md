@@ -73,7 +73,10 @@ credential). Cookie auth on these routes still requires it.
 | Languages | `GET/POST /languages`, `PATCH/DELETE /languages/{id}` | `settings:read` / `settings:manage` |
 | Redirects | `GET/POST /redirects`, `PUT /redirects/{id}` | `settings:read` / `settings:manage` |
 | Plugins | `GET /plugins`, `POST /plugins/{id}/activate` · `/deactivate` | `plugins:read` / `plugins:activate` |
-| Themes | `GET /themes`, `POST /themes/{id}/activate` | `themes:read` / `themes:activate` |
+| Themes | `GET /themes`, `POST /themes/{id}/activate`, `GET/PATCH/DELETE /themes/customize` | `themes:read` / `themes:activate` / `content:read` / `settings:manage` |
+| Header and footer | `GET/PUT /headers`, `GET /headers/options`, `GET/PUT /template-parts/{part}`, `PUT /content/{id}/header-ref` | `content:read` / `settings:manage` / `content:update` |
+| Templates and patterns | `GET/PUT/DELETE /templates/{slug}`, `GET/PUT /reusable-blocks`, `GET/PUT/DELETE /patterns` | `content:read` / `settings:manage` |
+| Permalinks, cookies, trash, email | `GET/PUT /permalinks`, `GET/PUT /cookies`, `GET /trash`, `POST /trash/restore`, `DELETE /trash`, `GET/PUT /email-templates` | `settings:read` / `settings:manage` / `content:delete` / `site:admin` / `email-templates:read` / `email-templates:manage` |
 | Cache | `GET /cache/stats`, `POST /cache/clear` | `settings:read` / `settings:manage` |
 | Static export | `GET /static-export`, `POST /static-export/run` · `/clear` | `settings:read` / `settings:manage` |
 | Diagnostics / health | `GET /diagnostics`, `GET /health` | `site:admin` / (any key) |

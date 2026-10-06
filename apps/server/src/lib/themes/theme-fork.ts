@@ -129,7 +129,7 @@ export async function forkActiveTheme(
   const schema = await getCustomizeSchema(siteId);
   const themeVars = (active.css_variables ?? {}) as Record<string, string>;
   const mods = mergeMods(
-    defaultModsFromSchema(schema),
+    defaultModsFromSchema(schema, themeVars),
     (await getThemeMods(active.theme_id, false)) ?? {},
   );
   const light = modsToCssVariables(themeVars, mods, schema);

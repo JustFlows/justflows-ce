@@ -3167,7 +3167,10 @@
       "disabled": "Desactivado"
     },
     "manualRestartTitle": "Es necesario reiniciar manualmente",
-    "manualRestartBody": "Ve a Plesk → Node.js → Restart App y luego actualiza esta página.",
+    "manualRestartBody": "Reinicia Justflows en el servidor y luego actualiza esta página.",
+    "manualRestartBodyContainer": "Reinicia el contenedor de Justflows y luego actualiza esta página.",
+    "manualRestartBodyPassenger": "Ve a Plesk → Node.js → Restart App y luego actualiza esta página.",
+    "manualRestartBodySystemd": "Reinicia el servicio {unit} y luego actualiza esta página.",
     "wordpress": {
       "title": "Importar desde WordPress",
       "description": "Sube un archivo de exportación de WordPress (.xml desde Herramientas → Exportar en la administración de WordPress) para traer tus entradas y páginas.",
@@ -3213,7 +3216,10 @@
       "working": "Procesando… {done}/{total}",
       "finished": "Terminado: {rebuilt} regeneradas, {skipped} omitidas, {failed} con error."
     },
-    "manualRestartNeededLog": "No se pudo reiniciar automáticamente: reinicia manualmente en Plesk → Node.js"
+    "manualRestartNeededLog": "No se pudo reiniciar automáticamente: reinicia Justflows en el servidor",
+    "manualRestartNeededLogContainer": "No se pudo reiniciar automáticamente: reinicia el contenedor de Justflows",
+    "manualRestartNeededLogPassenger": "No se pudo reiniciar automáticamente: reinicia manualmente en Plesk → Node.js",
+    "manualRestartNeededLogSystemd": "No se pudo reiniciar automáticamente: reinicia el servicio {unit}"
   },
   "updates": {
     "log": {
@@ -3224,7 +3230,10 @@
       "uploading": "Subiendo {file}…",
       "startingUpdate": "Iniciando la actualización a Justflows v{version}…",
       "forceReinstalling": "Forzando la reinstalación de Justflows v{version}…",
-      "manualRestartNeeded": "No se pudo reiniciar automáticamente: reinicia manualmente en Plesk → Node.js",
+      "manualRestartNeeded": "No se pudo reiniciar automáticamente: reinicia Justflows en el servidor",
+      "manualRestartNeededContainer": "No se pudo reiniciar automáticamente: reinicia el contenedor de Justflows",
+      "manualRestartNeededPassenger": "No se pudo reiniciar automáticamente: reinicia manualmente en Plesk → Node.js",
+      "manualRestartNeededSystemd": "No se pudo reiniciar automáticamente: reinicia el servicio {unit}",
       "lostContact": "Se perdió el contacto con el servidor: actualiza esta página para ver el resultado",
       "appRestarting": "La app se está reiniciando; esperando a que el sitio vuelva…",
       "siteBack": "El sitio vuelve a estar en línea; recargando…",
@@ -3257,13 +3266,16 @@
       "signatureHint": "Selecciona justflows.zip junto con justflows.zip.sig de la misma versión. Justflows solo aplica una actualización que puede verificar.",
       "backgroundHint": "La actualización se ejecuta en segundo plano; puedes salir de esta página sin problema",
       "description1": "Sube un archivo",
-      "description2": "— Justflows lo extrae, actualiza la base de datos, instala las dependencias y reinicia el sitio por sí solo (Plesk/Passenger). Tu archivo",
+      "description2": "— Justflows lo extrae, actualiza la base de datos, instala las dependencias y reinicia el sitio por sí solo. Tu archivo",
       "description3": "y los archivos subidos se conservan."
     },
     "restarting": "Reiniciando…",
     "waitingRestart": "Esperando a que la app se reinicie; la página se recargará automáticamente",
     "manualRestartTitle": "Es necesario reiniciar manualmente",
-    "manualRestartBody": "Ve a Plesk → Node.js → Restart App y luego actualiza esta página.",
+    "manualRestartBody": "Reinicia Justflows en el servidor y luego actualiza esta página.",
+    "manualRestartBodyContainer": "Reinicia el contenedor de Justflows y luego actualiza esta página.",
+    "manualRestartBodyPassenger": "Ve a Plesk → Node.js → Restart App y luego actualiza esta página.",
+    "manualRestartBodySystemd": "Reinicia el servicio {unit} y luego actualiza esta página.",
     "empty": {
       "title": "No hay actualizaciones remotas disponibles",
       "body": "Usa la subida de arriba para instalar manualmente un nuevo justflows.zip."
@@ -3889,7 +3901,16 @@
     "siteUserAdd": "Añadir un usuario",
     "siteUserPassword": "Contraseña",
     "siteUsersWhere": "Estas cuentas se leen y se guardan en la base de datos que usa este sitio web.",
-    "siteUsersShared": "Este espacio de trabajo comparte usuarios. Solo se muestran las cuentas cuyo sitio principal es este."
+    "siteUsersShared": "Este espacio de trabajo comparte usuarios. Solo se muestran las cuentas cuyo sitio principal es este.",
+    "slug": "Slug",
+    "slugHint": "Letras minúsculas, números y guiones. Cada espacio de trabajo necesita su propio slug.",
+    "slugPrimary": "El espacio de trabajo de la plataforma conserva el slug primary.",
+    "workspaceIntro": "Cambia el nombre y el slug de este espacio de trabajo. La dirección de esta página incluye el ID del espacio de trabajo.",
+    "workspaceId": "ID del espacio de trabajo",
+    "workspaceNotFound": "No se encontró ese espacio de trabajo.",
+    "workspaceLoadFailed": "No se pudo cargar este espacio de trabajo.",
+    "workspaceSaveFailed": "No se pudo guardar este espacio de trabajo.",
+    "workspaceLoading": "Cargando espacio de trabajo…"
   },
   "signup": {
     "title": "Crea tu sitio",

@@ -3167,7 +3167,10 @@
       "disabled": "Uitgeschakeld"
     },
     "manualRestartTitle": "Handmatige herstart nodig",
-    "manualRestartBody": "Ga naar Plesk → Node.js → Restart App en vernieuw daarna deze pagina.",
+    "manualRestartBody": "Herstart Justflows op de server en vernieuw daarna deze pagina.",
+    "manualRestartBodyContainer": "Herstart de Justflows-container en vernieuw daarna deze pagina.",
+    "manualRestartBodyPassenger": "Ga naar Plesk → Node.js → Restart App en vernieuw daarna deze pagina.",
+    "manualRestartBodySystemd": "Herstart de service {unit} en vernieuw daarna deze pagina.",
     "wordpress": {
       "title": "Importeren uit WordPress",
       "description": "Upload een WordPress-exportbestand (.xml via Extra → Exporteren in het WordPress-beheer) om je berichten en pagina's over te zetten.",
@@ -3213,7 +3216,10 @@
       "working": "Bezig… {done}/{total}",
       "finished": "Klaar: {rebuilt} opnieuw gemaakt, {skipped} overgeslagen, {failed} mislukt."
     },
-    "manualRestartNeededLog": "Automatisch herstarten is niet gelukt — herstart handmatig in Plesk → Node.js"
+    "manualRestartNeededLog": "Automatisch herstarten is niet gelukt — herstart Justflows op de server",
+    "manualRestartNeededLogContainer": "Automatisch herstarten is niet gelukt — herstart de Justflows-container",
+    "manualRestartNeededLogPassenger": "Automatisch herstarten is niet gelukt — herstart handmatig in Plesk → Node.js",
+    "manualRestartNeededLogSystemd": "Automatisch herstarten is niet gelukt — herstart de service {unit}"
   },
   "updates": {
     "log": {
@@ -3224,7 +3230,10 @@
       "uploading": "{file} uploaden…",
       "startingUpdate": "Update naar Justflows v{version} wordt gestart…",
       "forceReinstalling": "Justflows v{version} wordt geforceerd opnieuw geïnstalleerd…",
-      "manualRestartNeeded": "Automatisch herstarten is niet gelukt — herstart handmatig in Plesk → Node.js",
+      "manualRestartNeeded": "Automatisch herstarten is niet gelukt — herstart Justflows op de server",
+      "manualRestartNeededContainer": "Automatisch herstarten is niet gelukt — herstart de Justflows-container",
+      "manualRestartNeededPassenger": "Automatisch herstarten is niet gelukt — herstart handmatig in Plesk → Node.js",
+      "manualRestartNeededSystemd": "Automatisch herstarten is niet gelukt — herstart de service {unit}",
       "lostContact": "Contact met de server verloren — vernieuw deze pagina om het resultaat te bekijken",
       "appRestarting": "De app wordt herstart — wachten tot de site terug is…",
       "siteBack": "De site is weer online — opnieuw laden…",
@@ -3257,13 +3266,16 @@
       "signatureHint": "Selecteer justflows.zip samen met justflows.zip.sig uit dezelfde release. Justflows past alleen een update toe die het kan verifiëren.",
       "backgroundHint": "De update draait op de achtergrond — je kunt deze pagina gerust verlaten",
       "description1": "Upload een",
-      "description2": "bestand. Justflows pakt het uit, werkt de database bij, installeert afhankelijkheden en herstart de site zelf (Plesk/Passenger). Je",
+      "description2": "bestand. Justflows pakt het uit, werkt de database bij, installeert afhankelijkheden en herstart de site zelf. Je",
       "description3": "en uploads blijven behouden."
     },
     "restarting": "Herstarten…",
     "waitingRestart": "Wachten tot de app is herstart — de pagina wordt automatisch opnieuw geladen",
     "manualRestartTitle": "Handmatige herstart nodig",
-    "manualRestartBody": "Ga naar Plesk → Node.js → Restart App en vernieuw daarna deze pagina.",
+    "manualRestartBody": "Herstart Justflows op de server en vernieuw daarna deze pagina.",
+    "manualRestartBodyContainer": "Herstart de Justflows-container en vernieuw daarna deze pagina.",
+    "manualRestartBodyPassenger": "Ga naar Plesk → Node.js → Restart App en vernieuw daarna deze pagina.",
+    "manualRestartBodySystemd": "Herstart de service {unit} en vernieuw daarna deze pagina.",
     "empty": {
       "title": "Geen externe updates beschikbaar",
       "body": "Gebruik de upload hierboven om een nieuwe justflows.zip handmatig te installeren."
@@ -3889,7 +3901,16 @@
     "siteUserAdd": "Gebruiker toevoegen",
     "siteUserPassword": "Wachtwoord",
     "siteUsersWhere": "Deze accounts worden gelezen uit en opgeslagen in de database die deze website gebruikt.",
-    "siteUsersShared": "Deze werkruimte deelt gebruikers. Alleen accounts met deze website als thuissite worden getoond."
+    "siteUsersShared": "Deze werkruimte deelt gebruikers. Alleen accounts met deze website als thuissite worden getoond.",
+    "slug": "Slug",
+    "slugHint": "Kleine letters, cijfers en streepjes. Elke werkruimte heeft een eigen slug nodig.",
+    "slugPrimary": "De platformwerkruimte houdt de slug primary.",
+    "workspaceIntro": "Wijzig de naam en slug van deze werkruimte. Het adres van deze pagina bevat het werkruimte-id.",
+    "workspaceId": "Werkruimte-id",
+    "workspaceNotFound": "Die werkruimte is niet gevonden.",
+    "workspaceLoadFailed": "Kan deze werkruimte niet laden.",
+    "workspaceSaveFailed": "Kan deze werkruimte niet opslaan.",
+    "workspaceLoading": "Werkruimte laden…"
   },
   "signup": {
     "title": "Maak je site aan",

@@ -45,6 +45,7 @@ vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
 
 import { acceptCommentSubmission, renderCommentsBlockHtml, clearCommentNotify } from "../../../src/lib/comments/comments-public.js";
 import { resetRateLimits } from "../../../src/lib/security/rate-limit.js";
+import { runWithTenant } from "../../../src/lib/tenancy/context.js";
 
 const PUBLISHED_POST = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -257,6 +258,29 @@ describe("acceptCommentSubmission", () => {
     const res = await acceptCommentSubmission(form());
     expect(res.status).toBe(403);
     expect(res.location).toContain("comment=error");
+  });
+
+  it("posts on the website being visited when several websites share the database", async () => {
+    routeQuery({ sites: [{ id: "workspace" }, { id: "subsite" }] });
+    const unbound = await acceptCommentSubmission(form());
+    expect(unbound.status).toBe(404);
+
+    await runWithTenant(
+      {
+        tenantId: "tenant",
+        siteId: "subsite",
+        hostname: "construction-demo.example.com",
+        userMode: "isolated",
+        databaseMode: "current",
+        rootSite: false,
+        activePluginIds: null,
+      },
+      () => acceptCommentSubmission(form()),
+    );
+    const contentCall = query.mock.calls.find(
+      (call) => typeof call[0] === "string" && /FROM content WHERE id/i.test(call[0]),
+    );
+    expect(contentCall?.[1]).toEqual([PUBLISHED_POST.id, "subsite"]);
   });
 
   it("never leaves a visitor on a bare '/justflows-comments/submit' error page — every failure carries a location", async () => {

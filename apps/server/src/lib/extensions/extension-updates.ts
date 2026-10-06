@@ -309,19 +309,22 @@ export async function updateExtension(
   if (!existing) throw new MarketplaceRequestError(404, { error: "Theme not found" });
 
   const result = await installMarketplacePackage({ type, id, version: options.version, siteId });
-  const manifest = result.manifest as Record<string, unknown>;
-  const vars = (manifest.cssVariables ?? manifest.css_variables ?? {}) as Record<string, unknown>;
-  const cssVariables: Record<string, string> = {};
-  for (const [k, v] of Object.entries(vars)) {
-    if (typeof v === "string") cssVariables[k] = v;
-  }
+  const { mergeInstalledThemeRecord } = await import("../themes/theme-files.js");
+  const installed = mergeInstalledThemeRecord({
+    themeId: result.manifest.id,
+    manifest: {
+      ...(result.manifest as unknown as Record<string, unknown>),
+      installedPath: result.installedPath,
+    },
+    cssVariables: {},
+  });
   await updateThemePackage(siteId, id, {
     name: result.manifest.name,
     version: result.manifest.version,
     publisher: result.manifest.publisher,
     description: result.manifest.description,
-    cssVariables,
-    manifest: { ...manifest, installedPath: result.installedPath },
+    cssVariables: installed.cssVariables,
+    manifest: installed.manifest,
   });
 
   void auditLog({

@@ -1,4 +1,5 @@
 import { getDb } from "../database/db.js";
+import { getSiteId } from "../settings/site-settings.js";
 import { serializeContentRow, type ContentResponse } from "./content-api.js";
 import { overlayWorkingOnRow } from "./content-revisions.js";
 import { getDefaultLocale, resolveContentLocale } from "../i18n/languages-db.js";
@@ -79,9 +80,7 @@ async function fetchPublishedContentBySlug(
   requestedLocale?: string,
   preview = false,
 ): Promise<ContentResponse | null> {
-  const db = await getDb();
-  const sites = await db.query<{ id: string }>("SELECT id FROM sites LIMIT 1");
-  const siteId = sites[0]?.id;
+  const siteId = await getSiteId();
   if (!siteId) return null;
 
   const locale = await resolveContentLocale(requestedLocale, siteId);
@@ -145,10 +144,12 @@ export async function wasPermanentlyRemoved(
 async function fetchTranslationAlternates(
   translationGroupId: string,
 ): Promise<Array<{ locale: string; slug: string }>> {
+  const siteId = await getSiteId();
+  if (!siteId) return [];
   const db = await getDb();
   const rows = await db.query<{ locale: string; slug: string }>(
-    "SELECT locale, slug FROM content WHERE translation_group_id = ? AND status = 'published'",
-    [translationGroupId],
+    "SELECT locale, slug FROM content WHERE site_id = ? AND translation_group_id = ? AND status = 'published'",
+    [siteId, translationGroupId],
   );
   return rows.map((r) => ({ locale: String(r.locale), slug: String(r.slug) }));
 }

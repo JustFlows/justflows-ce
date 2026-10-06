@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.0]
+
+### Added
+
+- **A full-admin agent can edit the whole site.** MCP tools now cover the header library, the footer, page templates, theme appearance, reusable blocks, patterns, error pages, permalinks, trash, analytics, comment rules, cookies, and email templates. A page's header is set with `content_set_header`. Each tool calls the management API with the same capability check as the admin. A full-admin key sees every one of these. Zip uploads, webhook secrets, API keys, and applying a core update stay in the admin. ([#159](https://github.com/JustFlows/justflows-ce/issues/159))
+
+### Fixed
+
+- **Theme and plugin images use the responsive variants.** A shop card, a theme HTML tile, or any other plugin image that points at an upload is now served as AVIF or WebP, with a sized JPEG fallback, the same way an image block is. A hero background is included. Turning responsive markup off in Tools still serves the original. ([#103](https://github.com/JustFlows/justflows-ce/issues/103))
+- **An uploaded theme keeps its Customizer section.** Controls declared in the theme package show in the Customizer, and the block inspector shows the fields that package named. The theme's own colours, fonts, and sizes are the starting values. A theme already installed picks this up from its package without being uploaded again. ([#165](https://github.com/JustFlows/justflows-ce/issues/165))
+
 ## [0.2.9]
 
 ### Added
@@ -19,6 +30,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A manual restart no longer tells every host to use Plesk.** On this kind of server the notice says to restart the Justflows service. Plesk is mentioned only when the app is running under Passenger.
+- **Saving performance settings finishes the restart.** The save stopped the app and systemd started it again, but the page only watched a health check that stays unfinished until the app has loaded, and it gave up before that. It then said to restart the app in Plesk. The app now loads as soon as the process starts, and the page waits until that load has finished.
+- **An update reloads the running app.** Applying an update, or saving the server cache, only asked Phusion Passenger to reload. A site started by systemd kept serving the previous version. Justflows now restarts itself under systemd, Docker and other containers, Kubernetes, PM2, forever, supervisord, OpenRC, s6, runit, launchd, nodemon, and a Windows service. When nothing is supervising the process, it starts the app again.
+- **A sub-site uses its own name and pages.** The public site read the first website in the database, so a sub-site showed the workspace name in the browser title, header, and description, and could serve that website's pages, comments, and mail name. Those now come from the website the visitor opened. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Deactivating a plugin removes its admin pages from that site.** Shop stayed active on the main site, and its screens (Import products, Bulk edit, Attributes, and the rest) stayed in the top menu of a site that had turned Shop off. That site's menu now lists only plugins that site has turned on. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Activating a plugin on the main site creates its tables in every site database.** Shop tables were created only in the main site's database, so a site on its own database had none. The main site now creates those tables in each site database when the plugin is activated there, and again when the server starts with that plugin already active. Another site still cannot create or delete them. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Another site shows the plugin version the main site installed.** A site on its own database kept the copy from when the plugin was first offered, so Plugins there still said Shop 0.1.1 after the main site updated to 0.1.2. That site now shows and activates the main site's current package. It stays off until that site turns it on. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))

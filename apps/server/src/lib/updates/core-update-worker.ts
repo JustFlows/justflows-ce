@@ -4,7 +4,7 @@
  * Detached entrypoint for a core update.
  *
  * `startCoreUpdate` spawns this file with `{ detached: true }` so the work — file
- * copy, migrations, `pnpm install`, rebuild, Passenger restart — runs outside the
+ * copy, migrations, `pnpm install`, rebuild, app restart — runs outside the
  * HTTP request and survives the web worker being recycled. Progress and the
  * final result are written to `.updates/status.json`; the admin UI polls it.
  */
