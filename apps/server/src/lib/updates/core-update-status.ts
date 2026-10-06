@@ -51,6 +51,10 @@ export interface UpdateStatus {
   error: string | null;
   restartRequired: boolean;
   restarting: boolean;
+  /** Supervisor that was asked to reload, when a manual restart is still needed. */
+  restartMethod?: string;
+  /** systemd unit, when `restartMethod` is `systemd`. */
+  restartTarget?: string;
   steps: UpdateStep[];
   log: string[];
 }

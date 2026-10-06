@@ -85,6 +85,8 @@ describe("tool generation from the management API", () => {
       "menus_list", "menus_get", "menus_upsert", "menus_delete",
       "comments_list", "comments_moderate", "comments_reply", "comments_delete",
       "content_types_create", "content_types_update", "content_types_delete",
+      "headers_get", "headers_update", "headers_options", "template_parts_get", "template_parts_update",
+      "content_set_header", "templates_list", "themes_customize_get", "themes_customize_update",
     ]) {
       expect(names.has(name), name).toBe(true);
     }
@@ -110,6 +112,26 @@ describe("capability filtering", () => {
     const on = (await toolsForPrincipal(principal(["users:read", "users:manage"], true))).map((t) => t.name);
     expect(on).toContain("users_list");
     expect(on).toContain("roles_create");
+  });
+
+  it("offers header, footer and user tools to a full admin key", async () => {
+    const all = [
+      "content:read", "content:create", "content:update", "content:delete", "content:publish",
+      "content:revisions:read", "media:read", "media:upload", "media:delete", "comments:moderate",
+      "settings:read", "settings:manage", "themes:read", "themes:activate", "plugins:read", "plugins:activate",
+      "users:read", "users:manage", "email-templates:read", "email-templates:manage", "analytics:read", "site:admin",
+    ];
+    access.capabilities = all;
+    const names = (await toolsForPrincipal(principal(all, true))).map((tool) => tool.name);
+    expect(names).toContain("headers_get");
+    expect(names).toContain("headers_update");
+    expect(names).toContain("template_parts_get");
+    expect(names).toContain("template_parts_update");
+    expect(names).toContain("content_set_header");
+    expect(names).toContain("themes_customize_update");
+    expect(names).toContain("users_list");
+    expect(names).toContain("email_templates_list");
+    expect(names).toContain("trash_purge");
   });
 
   it("refuses a direct call to a tool that is not listed, without dispatching", async () => {

@@ -46,14 +46,22 @@ function asInt(value: unknown, fallback: number): number {
   return fallback;
 }
 
-async function fallbackAdminEmail(): Promise<string> {
+async function fallbackAdminEmail(siteId: string): Promise<string> {
   try {
     const db = await getDb();
     const rows = await db.query<{ email: string }>(
-      "SELECT email FROM users WHERE role = ? ORDER BY created_at ASC LIMIT 1",
-      ["administrator"],
+      "SELECT email FROM users WHERE site_id = ? AND role = ? ORDER BY created_at ASC LIMIT 1",
+      [siteId, "administrator"],
     );
-    return rows[0]?.email ?? "";
+    if (rows[0]?.email) return rows[0].email;
+    const members = await db.query<{ email: string }>(
+      `SELECT u.email FROM site_memberships m
+       JOIN users u ON u.id = m.user_id
+       WHERE m.site_id = ? AND m.role = ?
+       ORDER BY m.created_at ASC LIMIT 1`,
+      [siteId, "administrator"],
+    );
+    return members[0]?.email ?? "";
   } catch {
     return "";
   }
@@ -107,7 +115,7 @@ export async function getGeneralSettings(siteId?: string | null): Promise<Genera
   const coversEveryCoreRole = USER_ROLE_VALUES.every((role) => passwordResetRoles.includes(role));
 
   return {
-    adminEmail: asString(storedEmail, "") || (await fallbackAdminEmail()),
+    adminEmail: asString(storedEmail, "") || (await fallbackAdminEmail(id)),
     usersCanRegister: asBool(usersCanRegister, false),
     defaultRole: assignable.has(defaultRole) ? defaultRole : "subscriber",
     // Absent setting means "on": recovery is a safety net you have to opt out of.

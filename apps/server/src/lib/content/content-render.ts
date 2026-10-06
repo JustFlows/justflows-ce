@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { upgradeResponsiveHtml } from "../media/responsive-html.js";
 import { ensurePluginRuntime, getRuntimeHooks } from "../plugins/plugin-runtime.js";
 
 type ContentRenderInput = {
@@ -55,12 +56,14 @@ export async function applyContentRender(
   const decoded = decodeMustacheEntities(html);
   if (!decoded.includes("{{")) return decoded;
   await ensurePluginRuntime();
-  return getRuntimeHooks().applyFilter(
+  const filtered = await getRuntimeHooks().applyFilter(
     "content.render",
     decoded,
     filterContext(content),
     hookContext(content),
   );
+  // A content.render filter can insert upload <img> tags after the block pass.
+  return upgradeResponsiveHtml(filtered, content.siteId);
 }
 
 const FOOTNOTE_REF_RE = /<sup\b[^>]*\bdata-footnote="([^"]*)"[^>]*>[\s\S]*?<\/sup>/gi;

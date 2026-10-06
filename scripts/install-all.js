@@ -10,7 +10,8 @@
  *   1. Patch workspace manifests for npm (no pnpm required)
  *   2. npm install — production deps at root + linked packages
  *   3. Build packages + admin UI + server (if dist/ is missing or --rebuild)
- *   4. Touch tmp/restart.txt for Passenger
+ *   4. Touch tmp/restart.txt so Passenger reloads. An update started in the
+ *      admin restarts systemd, containers, and the other supervisors itself.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";

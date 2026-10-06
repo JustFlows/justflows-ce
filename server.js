@@ -636,9 +636,20 @@ const server = http.createServer((req, res) => {
 
 module.exports = server;
 
+/**
+ * `/api/healthz` answers before the app is loaded and reports `boot: "starting"`
+ * until `bootFullApp()` finishes. Start that load at listen time so a restart
+ * is visible without waiting for some other request to arrive.
+ */
+function beginBoot() {
+  if (process.env.JF_EAGER_BOOT === "1" && isInstalled()) {
+    bootFullApp().catch(() => {});
+  }
+}
+
 // Phusion Passenger (Plesk/cPanel) — must call listen() before routing requests.
 if (typeof PhusionPassenger !== "undefined") {
-  server.listen("passenger");
+  server.listen("passenger", beginBoot);
 } else if (require.main === module) {
   const port = parseInt(process.env.PORT ?? "3000", 10);
   const host = process.env.HOSTNAME ?? "0.0.0.0";
@@ -648,5 +659,6 @@ if (typeof PhusionPassenger !== "undefined") {
   server.listen(port, host, () => {
     console.log(`> Justflows ready on http://${displayHost}:${port}`);
     console.log(`> Open that URL in a browser to install`);
+    beginBoot();
   });
 }

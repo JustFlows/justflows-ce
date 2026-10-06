@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { initialJson } from "../../../ssr-data";
 import { useT } from "../../../i18n/I18nProvider";
+import { manualRestartKey, serviceUnitName } from "../../../lib/restart-notice.js";
 
 interface UpdateStep {
   step: string;
@@ -40,6 +41,8 @@ interface UpdateStatus {
   error: string | null;
   restartRequired: boolean;
   restarting: boolean;
+  restartMethod?: string;
+  restartTarget?: string;
   steps: UpdateStep[];
   log: string[];
 }
@@ -54,6 +57,8 @@ interface StartResponse {
   newVersion?: string;
   restartRequired?: boolean;
   restarting?: boolean;
+  restartMethod?: string;
+  restartTarget?: string;
   status?: UpdateStatus;
 }
 
@@ -108,6 +113,8 @@ export default function UpdatesPage() {
   const [phase, setPhase] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [restartFailed, setRestartFailed] = useState(false);
+  const [restartMethod, setRestartMethod] = useState<string | undefined>();
+  const [restartTarget, setRestartTarget] = useState<string | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollFailures = useRef(0);
@@ -176,6 +183,13 @@ export default function UpdatesPage() {
     if (status.newVersion) setCurrentVersion(status.newVersion);
   }
 
+  function noteManualRestart(method?: string, target?: string) {
+    setRestartMethod(method);
+    setRestartTarget(target);
+    setRestartFailed(true);
+    addLog(`⚠ ${t(manualRestartKey("updates", "log", method), { unit: serviceUnitName(target) })}`);
+  }
+
   function finishRun(status: UpdateStatus) {
     stopPolling();
     setInstalling(false);
@@ -183,8 +197,7 @@ export default function UpdatesPage() {
     if (status.ok && status.restarting) {
       void waitForSiteBack();
     } else if (status.restartRequired) {
-      setRestartFailed(true);
-      addLog(`⚠ ${t("updates.log.manualRestartNeeded")}`);
+      noteManualRestart(status.restartMethod, status.restartTarget);
     }
   }
 
@@ -318,8 +331,7 @@ export default function UpdatesPage() {
       if (data.restarting) {
         await waitForSiteBack();
       } else if (data.restartRequired) {
-        setRestartFailed(true);
-        addLog(`⚠ ${t("updates.log.manualRestartNeeded")}`);
+        noteManualRestart(data.restartMethod, data.restartTarget);
       }
       setInstalling(false);
       setUploading(false);
@@ -506,7 +518,7 @@ export default function UpdatesPage() {
               <div>
                 <div className="jf-banner__title">{t("updates.manualRestartTitle")}</div>
                 <div className="jf-banner__sub">
-                  {t("updates.manualRestartBody")}
+                  {t(manualRestartKey("updates", "body", restartMethod), { unit: serviceUnitName(restartTarget) })}
                 </div>
               </div>
             </div>
