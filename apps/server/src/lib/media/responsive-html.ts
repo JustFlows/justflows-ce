@@ -29,7 +29,7 @@ import {
 const IMG_RE = /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
 const BG_RE =
   /background-image\s*:\s*url\(\s*(?:&quot;|"|')?(\/uploads\/[^"'()\s&]+)(?:&quot;|"|')?\s*\)/gi;
-const PROTECTED_OPEN_RE = /<!--|<script|<textarea/;
+const PROTECTED_OPEN_RE = /<!--|<script|<textarea/i;
 const ATTR_RE = /([:@A-Za-z_][\w:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
 
 interface Replacement {
@@ -81,7 +81,7 @@ function rawTextEnd(lower: string, name: string, from: number): number {
 function protectedSpans(html: string): Array<[number, number]> {
   const spans: Array<[number, number]> = [];
   const lower = html.toLowerCase();
-  const opener = new RegExp(PROTECTED_OPEN_RE, "g");
+  const opener = new RegExp(PROTECTED_OPEN_RE, "gi");
   let match: RegExpExecArray | null;
   while ((match = opener.exec(lower)) !== null) {
     const start = match.index;
