@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { lookup as dnsLookup, type LookupAddress } from "node:dns";
-import type { LookupFunction } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
 import { Agent, fetch as undiciFetch } from "undici";
 import { isBlockedWebhookAddress } from "./webhook-url.js";
 
@@ -41,6 +41,14 @@ export interface PinnedRequestInit extends RequestInit {
 export async function pinnedFetch(url: URL | string, init: PinnedRequestInit = {}): Promise<Response> {
   const { allowPrivate = false, ...rest } = init;
   if (allowPrivate) return fetch(url, rest);
+  // Sockets skip DNS lookup for an IP literal, so the agent's check never runs
+  // for one; apply the same policy here.
+  const host = new URL(url).hostname.replace(/^\[|\]$/g, "");
+  if (isIP(host) && isBlockedWebhookAddress(host)) {
+    throw new TypeError("fetch failed", {
+      cause: new BlockedAddressError("Private and loopback addresses are not allowed"),
+    });
+  }
   const response = await undiciFetch(url, {
     ...(rest as Parameters<typeof undiciFetch>[1]),
     dispatcher: publicAgent,

@@ -18,6 +18,13 @@ describe("pinned outbound fetch", () => {
     expect((error as Error).cause).toBeInstanceOf(BlockedAddressError);
   });
 
+  it("refuses a private IP literal, which never goes through DNS", async () => {
+    for (const target of [`http://127.0.0.1:${port}/`, `http://[::ffff:127.0.0.1]:${port}/`]) {
+      const error = await pinnedFetch(target).catch((err: unknown) => err);
+      expect((error as Error).cause).toBeInstanceOf(BlockedAddressError);
+    }
+  });
+
   it("connects to private addresses only when explicitly allowed", async () => {
     const response = await pinnedFetch(`http://localhost:${port}/`, { allowPrivate: true });
     expect(await response.text()).toBe("internal");
