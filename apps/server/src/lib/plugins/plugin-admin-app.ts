@@ -249,6 +249,10 @@ async function getAdminSets(siteId?: string): Promise<PluginAdminSet[]> {
   const now = Date.now();
   const cached = caches.get(id);
   if (cached && now - cached.at < TTL_MS) return cached.sets;
+  // Another site's row may still point at a build folder the main site's
+  // reinstall deleted; refresh it before resolving files from it.
+  const { syncSubsitePluginCopies } = await import("./plugin-multisite.js");
+  if (id) await syncSubsitePluginCopies(id).catch(() => false);
   const sets = await loadPluginAdminSets(id).catch(() => [] as PluginAdminSet[]);
   caches.set(id, { at: now, sets });
   return sets;
