@@ -4,6 +4,8 @@ import type { Request, Response, NextFunction } from "express";
 import type { PluginHttpMethod, PluginHttpRateLimit } from "@justflows/sdk";
 import { isProtectedHeaderName, SECURITY_HEADER_DEFS } from "../security/security-headers.js";
 import { resolveSession } from "../auth/auth-session.js";
+import { getTenantContext } from "../tenancy/context.js";
+import { sessionMatchesRequestSite } from "../tenancy/access.js";
 import { recordDiagnosticError } from "../runtime/diagnostics.js";
 import { parseLocalePrefix } from "../i18n/locales.js";
 
@@ -103,6 +105,13 @@ export function pluginRequestLocale(
   return defaultLocale;
 }
 
+/** Whether the request's site has this plugin active. Single-site requests have no allowlist to apply. */
+export function pluginActiveForRequest(pluginId: string): boolean {
+  const ctx = getTenantContext();
+  if (!ctx) return true;
+  return ctx.activePluginIds !== null && ctx.activePluginIds.has(pluginId);
+}
+
 export async function dispatchPluginHttp(
   req: Request,
   res: Response,
@@ -135,6 +144,13 @@ export async function dispatchPluginHttp(
     return;
   }
   const { route: match, params } = matched;
+
+  // The router is process-wide; a route only exists on sites where its plugin
+  // is active. An unknown allowlist fails closed.
+  if (!pluginActiveForRequest(match.pluginId)) {
+    next();
+    return;
+  }
 
   // These routes are mounted at the application root, not under /api, so the
   // csrfProtection middleware never sees them — every plugin mutation was
@@ -174,7 +190,9 @@ export async function dispatchPluginHttp(
       headers[key] = value;
     }
 
-    const session = await resolveSession(req, res).catch(() => null);
+    // Same rule as the core auth middleware: a cookie only counts on the site it was issued for.
+    const resolved = await resolveSession(req, res).catch(() => null);
+    const session = resolved && sessionMatchesRequestSite(resolved.siteId) ? resolved : null;
     const access = session
       ? await import("../auth/access-policy.js").then(({ getEffectiveAccess }) =>
           getEffectiveAccess(session.userId, session.siteId, session.role),

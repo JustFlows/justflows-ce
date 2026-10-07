@@ -51,6 +51,14 @@ export interface InstallOptions {
    * build directory.
    */
   revisioned?: boolean;
+  /**
+   * Install into a content-addressed directory (`…/<id>/<version>/<digest>/`)
+   * that is never replaced or pruned. Reinstalling the same archive reuses the
+   * existing directory; a different archive with the same id and version gets
+   * its own. For packages several sites can share, so one site's install can
+   * never change or remove the files another site is using.
+   */
+  immutable?: boolean;
 }
 
 export interface InstallResult {
@@ -153,6 +161,29 @@ export class PackageInstaller {
         manifest.version,
       );
       const revision = digest.slice(0, 16);
+      if (options.immutable) {
+        const sharedDir = resolveWithinDir(
+          options.packagesDir,
+          `${manifest.type}s`,
+          manifest.id,
+          manifest.version,
+          digest,
+        );
+        await fs.mkdir(path.dirname(sharedDir), { recursive: true });
+        const exists = () => fs.stat(sharedDir).then((stat) => stat.isDirectory(), () => false);
+        if (await exists()) {
+          await fs.rm(stagingDir, { recursive: true, force: true });
+        } else {
+          try {
+            await fs.rename(stagingDir, sharedDir);
+          } catch (err) {
+            // A concurrent install of the same archive got there first.
+            if (!(await exists())) throw err;
+            await fs.rm(stagingDir, { recursive: true, force: true });
+          }
+        }
+        return { manifest, installedPath: sharedDir, digest, source };
+      }
       const finalDir = options.revisioned
         ? resolveWithinDir(
             options.packagesDir,

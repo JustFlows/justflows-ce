@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { createSemaphore } from "../security/upload-admission.js";
 import {
   generateResponsiveSet,
   isRasterImageMimeType,
@@ -43,6 +44,8 @@ export interface MediaDerivatives {
   widths: number[];
   formats: OutputFormat[];
   generatedAt: string;
+  /** Every byte written for this image's generated files, thumbnail included. */
+  totalBytes?: number;
 }
 
 export interface ResolvedImageConfig {
@@ -148,7 +151,14 @@ export interface GenerateVariantsInput {
   mimeType: string;
   buffer: Buffer;
   focal?: { x: number; y: number } | null;
+  /**
+   * Most bytes the generated files (variants and thumbnail) may take. Going
+   * over removes everything written so far and throws.
+   */
+  maxBytes?: number;
 }
+
+export class DerivativeBudgetError extends Error {}
 
 /**
  * Build and persist the responsive variant set for one image. Returns the
@@ -156,7 +166,24 @@ export interface GenerateVariantsInput {
  * type is not a raster image, or the filename is on the keep-original list.
  * Throws only on an unexpected processing/IO failure — callers keep the upload.
  */
+/** Bytes the variant files of one image take up, for library limits. */
+export function derivativeBytes(derivatives: MediaDerivatives | null | undefined): number {
+  if (!derivatives) return 0;
+  if (typeof derivatives.totalBytes === "number") return derivatives.totalBytes;
+  return derivatives.variants.reduce((sum, variant) => sum + (Number(variant.bytes) || 0), 0);
+}
+
+// Decoding and re-encoding images is CPU- and memory-heavy and shared by every
+// site in the process; uploads, focal-point rebuilds and regeneration queue here.
+const imageWork = createSemaphore(Math.max(1, Number(process.env.JF_IMAGE_CONCURRENCY) || 2));
+
 export async function generateAndStoreVariants(
+  input: GenerateVariantsInput,
+): Promise<MediaDerivatives | null> {
+  return imageWork(() => generateAndStoreVariantsNow(input));
+}
+
+async function generateAndStoreVariantsNow(
   input: GenerateVariantsInput,
 ): Promise<MediaDerivatives | null> {
   const { enabled, config, keepOriginalGlobs } = resolveImageConfig();
@@ -177,16 +204,27 @@ export async function generateAndStoreVariants(
   const store = getUploadStore();
   const variants: MediaVariantRecord[] = [];
   let thumb: MediaDerivatives["thumb"];
+  let totalBytes = 0;
 
-  for (const v of set.variants) {
-    const ext = formatExtension(v.format);
-    await store.put(`${dir}${v.name}.${ext}`, v.data, formatMimeType(v.format));
-    const url = `/uploads/${input.siteId}/${input.mediaId}/${v.name}.${ext}`;
-    if (v.kind === "thumb") {
-      thumb = { url, w: v.width, h: v.height };
-    } else {
-      variants.push({ w: v.width, h: v.height, format: v.format, url, bytes: v.sizeBytes });
+  try {
+    for (const v of set.variants) {
+      totalBytes += v.data.length;
+      if (input.maxBytes !== undefined && totalBytes > input.maxBytes) {
+        throw new DerivativeBudgetError("Generated image sizes would exceed the space reserved for them");
+      }
+      const ext = formatExtension(v.format);
+      await store.put(`${dir}${v.name}.${ext}`, v.data, formatMimeType(v.format));
+      const url = `/uploads/${input.siteId}/${input.mediaId}/${v.name}.${ext}`;
+      if (v.kind === "thumb") {
+        thumb = { url, w: v.width, h: v.height };
+      } else {
+        variants.push({ w: v.width, h: v.height, format: v.format, url, bytes: v.sizeBytes });
+      }
     }
+  } catch (err) {
+    // Never leave files behind that no derivatives record accounts for.
+    await store.deletePrefix(dir).catch(() => undefined);
+    throw err;
   }
 
   return {
@@ -196,6 +234,7 @@ export async function generateAndStoreVariants(
     widths: [...new Set(variants.map((v) => v.w))].sort((a, b) => a - b),
     formats: config.formats,
     generatedAt: new Date().toISOString(),
+    totalBytes,
   };
 }
 

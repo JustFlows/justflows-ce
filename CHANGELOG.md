@@ -15,6 +15,20 @@ and this project uses [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - **Only active hostnames route.** A hostname a website is still verifying, or one that failed its checks, is not served. Hostnames that already existed, and ones an operator adds on a website page, stay active. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Connecting a domain by nameservers needs a TXT check first.** Add the `_justflows` TXT record at the domain's current DNS provider, then change the nameservers. A domain that already uses the platform's nameservers connects with DNS records instead. DNS records can be edited once the domain is verified. Adds migration `0040_security_hardening`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+### Fixed
+
+- **A website's settings stay inside that website.** Installation SMTP credentials are only used with the installation's own mail server, and a site that sends through its own server enters its own password. Only the main site can allow private AI provider addresses. Removing or reinstalling a theme, or switching CSS provider, on one site no longer changes the files another site uses. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Plugin routes answer only on sites where the plugin is on**, and a sign-in only counts on the site it was made for. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **A site that cannot be looked up is not served.** When the site list, a site's own database, or its plugin list cannot be read, the request gets a temporary error instead of single-site behaviour. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Managing users does not grant more access than you have.** Someone with user management can assign roles, custom roles, permissions, and scopes only within their own access, and cannot change or remove an administrator. A permission they hold only partly, such as for their own content, cannot be given to anyone else. API keys are limited to their own permissions and scope.
+- **Uploaded packages must be pinned or marketplace-signed.** A signature inside the package's own manifest is no longer accepted.
+- **Outbound requests check the address they connect to.** Webhooks, AI providers, and agent downloads refuse private addresses in every IPv6 form, at connection time. A webhook response is read only up to a small limit and within the delivery timeout.
+- **Uploads are bounded.** Each site has a limit on uploads in progress, oversized uploads are refused before and while they are read, uploads accept only a few small form fields, image processing runs a few at a time, and generated image sizes count toward media limits from the moment the upload is accepted.
+- **Static export only crawls the site being exported.** A website other than the main site cannot choose the address the exporter connects to, and the exporter reaches the site through this application rather than the site's own DNS. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Removing an unverified domain leaves the CDN alone.** Only a hostname this installation attached is detached when a domain is removed or expires. Adds migration `0041_domain_provider_attachment`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Dependencies:** multer 2.4.0, qs 6.16.0, ip-address 10.7.3, and esbuild 0.25.12 for drizzle-kit.
 
 ## [0.3.2]
 

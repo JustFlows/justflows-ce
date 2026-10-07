@@ -5,6 +5,7 @@ import { ROLE_CAPABILITIES } from "@justflows/sdk";
 import { z } from "zod";
 import { getDb } from "../database/db.js";
 import { availableCapabilityDefinitions, CAPABILITY_ID_PATTERN } from "./access-policy.js";
+import { delegationAuthority, exceedsAuthority, type DelegatingActor } from "./delegation.js";
 import { auditLog } from "../security/audit-log.js";
 
 /**
@@ -21,13 +22,12 @@ export const RoleSchema = z.object({
 });
 export type RoleInput = z.infer<typeof RoleSchema>;
 
-export interface RoleAdminActor {
-  siteId: string;
-  userId: string;
-  role: string;
+export interface RoleAdminActor extends DelegatingActor {
   ip?: string | null;
   userAgent?: string | null;
 }
+
+const BEYOND_AUTHORITY = { status: 403, body: { error: "A role cannot include access you don't have yourself" } };
 
 export interface RoleAdminResult {
   status: number;
@@ -111,6 +111,9 @@ export async function createRole(input: RoleInput, actor: RoleAdminActor): Promi
   if (input.capabilities.some((capability) => !available.has(capability))) {
     return { status: 400, body: { error: "Unknown or inactive capability" } };
   }
+  if (exceedsAuthority(await delegationAuthority(actor, await getDb()), input.capabilities)) {
+    return BEYOND_AUTHORITY;
+  }
   const { enforceQuota } = await import("../tenancy/quotas.js");
   const quota = await enforceQuota("roles", actor.siteId, 1);
   if (quota) return { status: quota.status, body: { error: quota.error, code: quota.code, meter: quota.meter } };
@@ -144,6 +147,10 @@ export async function updateRole(
     )
   ) {
     return { status: 400, body: { error: "Unknown or inactive capability" } };
+  }
+  // Editing a role changes the access of everyone who holds it, the editor included.
+  if (exceedsAuthority(await delegationAuthority(actor, db), [...preserved, ...input.capabilities])) {
+    return BEYOND_AUTHORITY;
   }
   const changed = await db.execute(
     "UPDATE access_roles SET name = ?, description = ?, capabilities_json = ?, updated_at = ? WHERE id = ? AND site_id = ?",

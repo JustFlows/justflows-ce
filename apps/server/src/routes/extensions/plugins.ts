@@ -17,9 +17,19 @@ import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
+import rateLimit from "express-rate-limit";
+import { admitPackageUpload, multipartLimits, PACKAGE_UPLOAD_BYTES, withMultipartErrors } from "../../lib/security/upload-admission.js";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: multipartLimits(PACKAGE_UPLOAD_BYTES) });
+// Extension and import uploads unpack archives and touch the filesystem;
+// counted per client before anything is buffered.
+const packageUploadRequestLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
 
 function noStore(res: { setHeader: (name: string, value: string) => void }): void {
   res.setHeader("Cache-Control", "private, no-store");
@@ -93,7 +103,7 @@ router.get("/", requireRole("administrator", "editor"), async (req, res) => {
   }
 });
 
-router.post("/", requireRole("administrator"), upload.single("file"), async (req, res) => {
+router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitPackageUpload("plugin"), withMultipartErrors(upload.single("file")), async (req, res) => {
   if (!isInstallationRootRequest()) {
     res.status(403).json({ error: "Plugins are installed on the main site." });
     return;

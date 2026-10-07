@@ -295,7 +295,7 @@ async function usageFor(meter: QuotaMeterDefinition, scopeId: string): Promise<n
     return querySiteNumber(scopeId, "SELECT COUNT(*) AS total FROM media WHERE site_id = ?", [scopeId]);
   }
   if (meter.key === "media.bytes") {
-    return querySiteNumber(scopeId, "SELECT COALESCE(SUM(size_bytes), 0) AS total FROM media WHERE site_id = ?", [scopeId]);
+    return querySiteNumber(scopeId, "SELECT COALESCE(SUM(size_bytes + derivative_bytes), 0) AS total FROM media WHERE site_id = ?", [scopeId]);
   }
   if (meter.key === "plugins") {
     return querySiteNumber(scopeId, "SELECT COUNT(*) AS total FROM plugins WHERE site_id = ?", [scopeId]);

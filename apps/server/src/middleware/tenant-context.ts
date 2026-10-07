@@ -5,6 +5,7 @@ import { getDb, runWithDatabase } from "../lib/database/db.js";
 import { isInstalled } from "./install-guard.js";
 import { runWithTenant, type TenantRequestContext } from "../lib/tenancy/context.js";
 import { borrowSeparateDatabase, separateDatabaseForSite } from "../lib/tenancy/connections.js";
+import { effectiveDatabaseMode } from "../lib/tenancy/choice.js";
 import { resolveHost } from "../lib/tenancy/registry.js";
 import { primaryRedirectHost, type HostRecord } from "../lib/tenancy/host.js";
 
@@ -23,8 +24,16 @@ export function tenantContext(req: Request, res: Response, next: NextFunction): 
   void bindTenant(req, res, next).catch(next);
 }
 
+function sendUnavailable(res: Response): void {
+  res.status(503).set("Retry-After", "5").type("text/plain").send("This site is temporarily unavailable");
+}
+
 async function bindTenant(req: Request, res: Response, next: NextFunction): Promise<void> {
   const decision = await resolveHost(req.hostname);
+  if (decision.kind === "unavailable") {
+    sendUnavailable(res);
+    return;
+  }
   if (decision.kind === "unconfigured") {
     next();
     return;
@@ -52,15 +61,33 @@ async function bindTenant(req: Request, res: Response, next: NextFunction): Prom
     rootSite: record.rootSite === true,
     activePluginIds: null,
   };
-  const separate = await separateDatabaseForSite(
-    record.tenantId,
-    record.siteId,
-    record.databaseChoice,
-    record.databaseMode,
-  );
-  const client = separate ? await borrowSeparateDatabase(separate) : null;
+  const needsSeparate = effectiveDatabaseMode(record.databaseMode, record.databaseChoice) === "separate";
+  let client = null;
+  try {
+    const separate = await separateDatabaseForSite(
+      record.tenantId,
+      record.siteId,
+      record.databaseChoice,
+      record.databaseMode,
+    );
+    client = separate ? await borrowSeparateDatabase(separate) : null;
+  } catch {
+    client = null;
+  }
+  // A site that lives in its own database must never fall through to the
+  // installation database.
+  if (needsSeparate && !client) {
+    sendUnavailable(res);
+    return;
+  }
   const start = () => {
-    void loadPluginAllowlist(context).finally(() => {
+    void loadPluginAllowlist(context).then((loaded) => {
+      // Plugin hooks and routes are gated on this list; without it the
+      // request cannot be served safely.
+      if (!loaded) {
+        sendUnavailable(res);
+        return;
+      }
       runWithTenant(context, () => {
         void redirectToPrimary(req, res, record, decision.viaLoopback).then(
           (sent) => {
@@ -92,7 +119,7 @@ async function redirectToPrimary(req: Request, res: Response, record: HostRecord
   return true;
 }
 
-async function loadPluginAllowlist(context: TenantRequestContext): Promise<void> {
+async function loadPluginAllowlist(context: TenantRequestContext): Promise<boolean> {
   try {
     const db = await getDb();
     const rows = await db.query<{ plugin_id: string }>(
@@ -100,8 +127,10 @@ async function loadPluginAllowlist(context: TenantRequestContext): Promise<void>
       [context.siteId],
     );
     context.activePluginIds = new Set(rows.map((row: { plugin_id: string }) => String(row.plugin_id)));
+    return true;
   } catch {
     context.activePluginIds = null;
+    return false;
   }
 }
 
@@ -115,6 +144,10 @@ async function guardUploads(req: Request, res: Response, next: NextFunction): Pr
     return;
   }
   const decision = await resolveHost(req.hostname);
+  if (decision.kind === "unavailable") {
+    res.status(503).end();
+    return;
+  }
   if (decision.kind === "unconfigured") {
     next();
     return;
@@ -145,6 +178,10 @@ export function rejectForeignSiteId(req: Request, res: Response, next: NextFunct
     return;
   }
   void resolveHost(req.hostname).then((decision) => {
+    if (decision.kind === "unavailable") {
+      res.status(503).json({ error: "This site is temporarily unavailable" });
+      return;
+    }
     if (decision.kind === "ready" && presented !== decision.record.siteId) {
       res.status(403).json({ error: "Site does not match this host" });
       return;

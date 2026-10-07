@@ -9,7 +9,7 @@ import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { clientIp } from "../../lib/security/rate-limit.js";
 import { logSafe } from "../../lib/security/log-safe.js";
 import { sendServerError } from "../../lib/http/send-error.js";
-import { getAiSettings, isAssistantEnabled, isPublicHttpsOrigin, mcpResourceUrl, publicOrigin, saveAiSettings } from "../../lib/ai/ai-settings.js";
+import { AiSettingsError, getAiSettings, isAssistantEnabled, isPublicHttpsOrigin, mcpResourceUrl, publicOrigin, saveAiSettings } from "../../lib/ai/ai-settings.js";
 import {
   availableProviders,
   CredentialError,
@@ -103,6 +103,7 @@ router.put("/settings", requireCapability("settings:manage"), async (req, res) =
     });
     res.json(saved);
   } catch (err) {
+    if (err instanceof AiSettingsError) return res.status(403).json({ error: err.message });
     sendServerError(res, "ai.settings", err);
   }
 });

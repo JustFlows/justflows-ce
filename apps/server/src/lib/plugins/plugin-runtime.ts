@@ -292,6 +292,8 @@ export async function ensurePluginRuntime(): Promise<void> {
                 siteId,
                 userId: actor.userId,
                 role: actor.role,
+                // The loader only lets a plugin create users in a role it registered.
+                trustedCaller: true,
               });
               const body = result.body as { error?: string; id?: string; email?: string; username?: string; displayName?: string; role?: string };
               if (result.status >= 400 || !body.id || !body.email || !body.username || !body.displayName || !body.role) {

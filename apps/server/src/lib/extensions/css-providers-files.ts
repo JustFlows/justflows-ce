@@ -1,5 +1,6 @@
 import path from "node:path";
 import {
+  cssProviderBuildKey,
   cssProvidersInstallDir,
   resolveInstalledAssetPath,
 } from "./css-provider-install.js";
@@ -11,7 +12,7 @@ export interface ResolvedCssAsset {
   defer?: boolean;
 }
 
-function resolveAssetUrl(value: string): string | null {
+function resolveAssetUrl(value: string, buildKey: string): string | null {
   if (/^https?:\/\//i.test(value) || value.startsWith("//")) {
     return null;
   }
@@ -20,12 +21,14 @@ function resolveAssetUrl(value: string): string | null {
     .replace(/^\.?\//, "")
     .replace(/^node_modules\//, "");
   if (!normalized) return null;
-  return `/css-providers/${normalized.split("/").map(encodeURIComponent).join("/")}`;
+  // The build key scopes the URL to one immutable build, so a site never
+  // serves a stylesheet another site's provider choice produced.
+  return `/css-providers/${buildKey}/${normalized.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-function parseAsset(raw: unknown, kind: "stylesheet" | "script"): ResolvedCssAsset | null {
+function parseAsset(raw: unknown, kind: "stylesheet" | "script", buildKey: string): ResolvedCssAsset | null {
   if (typeof raw === "string") {
-    const url = resolveAssetUrl(raw);
+    const url = resolveAssetUrl(raw, buildKey);
     if (!url) return null;
     return kind === "stylesheet" ? { href: url } : { src: url };
   }
@@ -36,7 +39,7 @@ function parseAsset(raw: unknown, kind: "stylesheet" | "script"): ResolvedCssAss
   const value = asset[key] ?? asset.href ?? asset.src;
   if (typeof value !== "string" || !value) return null;
 
-  const url = resolveAssetUrl(value);
+  const url = resolveAssetUrl(value, buildKey);
   if (!url) return null;
 
   const resolved: ResolvedCssAsset = { [key]: url };
@@ -52,10 +55,12 @@ export function resolveProviderAssets(provider: CssProviderRow | null): {
   }
 
   const manifest = provider.manifest ?? {};
+  const buildKey = cssProviderBuildKey(manifest);
+  if (!buildKey) return { stylesheets: [] };
   const rawStylesheets = Array.isArray(manifest.stylesheets) ? manifest.stylesheets : [];
 
   const stylesheets = rawStylesheets
-    .map((item) => parseAsset(item, "stylesheet"))
+    .map((item) => parseAsset(item, "stylesheet", buildKey))
     .filter((item): item is ResolvedCssAsset => item !== null && Boolean(item.href))
     .filter((item) => assetExists(item.href!));
 
