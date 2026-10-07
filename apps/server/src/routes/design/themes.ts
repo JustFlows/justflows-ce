@@ -74,9 +74,18 @@ import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { resolvePathUnderBase } from "../../lib/security/safe-path.js";
 import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
+import { admitPackageUpload, PACKAGE_UPLOAD_BYTES } from "../../lib/security/upload-admission.js";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: PACKAGE_UPLOAD_BYTES } });
+// Extension and import uploads unpack archives and touch the filesystem;
+// counted per client before anything is buffered.
+const packageUploadRequestLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
 const themeDeleteRequestLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
@@ -104,7 +113,7 @@ router.get("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
   }
 });
 
-router.post("/", requireRole("administrator"), upload.single("file"), async (req, res) => {
+router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitPackageUpload("theme"), upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
     if (!file) {

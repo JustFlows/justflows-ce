@@ -17,6 +17,7 @@ import {
 } from "../../lib/media/media-write.js";
 import { readMediaSettings, applyMediaSettings } from "../../lib/media/media-settings.js";
 import { regenerateStatus, startRegenerate } from "../../lib/media/media-regenerate.js";
+import { admitUpload } from "../../lib/security/upload-admission.js";
 
 const router = Router();
 const mediaUploadRequestLimit = rateLimit({
@@ -34,6 +35,7 @@ const regenerateLimit = rateLimit({
   legacyHeaders: false,
 });
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: maxUploadBytes() } });
+const admitMediaUpload = admitUpload({ name: "media", maxBytes: maxUploadBytes(), perSite: 4, global: 16 });
 
 /**
  * multer rejects an oversized file by throwing, which the global handler turns
@@ -70,6 +72,7 @@ router.post(
   "/",
   mediaUploadRequestLimit,
   requireRole(...MEDIA_WRITE_ROLES),
+  admitMediaUpload,
   uploadSingle("file"),
   async (req, res) => {
     const session = req.session!;

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { createSemaphore } from "../security/upload-admission.js";
 import {
   generateResponsiveSet,
   isRasterImageMimeType,
@@ -156,7 +157,23 @@ export interface GenerateVariantsInput {
  * type is not a raster image, or the filename is on the keep-original list.
  * Throws only on an unexpected processing/IO failure — callers keep the upload.
  */
+/** Bytes the variant files of one image take up, for library limits. */
+export function derivativeBytes(derivatives: MediaDerivatives | null | undefined): number {
+  if (!derivatives) return 0;
+  return derivatives.variants.reduce((sum, variant) => sum + (Number(variant.bytes) || 0), 0);
+}
+
+// Decoding and re-encoding images is CPU- and memory-heavy and shared by every
+// site in the process; uploads, focal-point rebuilds and regeneration queue here.
+const imageWork = createSemaphore(Math.max(1, Number(process.env.JF_IMAGE_CONCURRENCY) || 2));
+
 export async function generateAndStoreVariants(
+  input: GenerateVariantsInput,
+): Promise<MediaDerivatives | null> {
+  return imageWork(() => generateAndStoreVariantsNow(input));
+}
+
+async function generateAndStoreVariantsNow(
   input: GenerateVariantsInput,
 ): Promise<MediaDerivatives | null> {
   const { enabled, config, keepOriginalGlobs } = resolveImageConfig();

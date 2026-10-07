@@ -5,9 +5,12 @@ import { getDb } from "../database/db.js";
 import { getUploadStore, readUpload } from "./upload-store.js";
 import { contentMatchesMimeType } from "./file-type.js";
 import { checkLibraryQuota, formatMb } from "./media-quota.js";
+import { createKeyedLock } from "../security/upload-admission.js";
+import { isRasterImageMimeType } from "@justflows/media";
 import { moveMediaStorage } from "../content/trash.js";
 import { auditLog } from "../security/audit-log.js";
 import {
+  derivativeBytes,
   generateAndStoreVariants,
   moveVariantDir,
   type MediaDerivatives,
@@ -237,9 +240,10 @@ export async function updateMediaMetadata(
           await (
             await getDb()
           ).run(
-            "UPDATE media SET derivatives = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+            "UPDATE media SET derivatives = ?, derivative_bytes = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
             [
               JSON.stringify(rebuilt),
+              derivativeBytes(rebuilt),
               rebuilt.base.w,
               rebuilt.base.h,
               rebuilt.base.format,
@@ -290,6 +294,8 @@ export interface MediaWriteResult {
   body: unknown;
 }
 
+const uploadLock = createKeyedLock();
+
 export async function storeMediaUpload(
   file: UploadInput,
   actor: MediaActor,
@@ -308,47 +314,62 @@ export async function storeMediaUpload(
       body: { error: `File contents do not match the declared type (${file.mimetype})` },
     };
   }
-  // Checked after the type checks, so a rejected type never reports a quota figure.
-  const quota = await checkLibraryQuota(actor.siteId, file.size);
-  if (!quota.ok) {
-    return {
-      status: 413,
-      body: {
-        error:
-          `The media library is full (${formatMb(quota.usedBytes)} of ${formatMb(quota.limitBytes)} used). ` +
-          "Delete something, or raise JF_MAX_LIBRARY_MB.",
-      },
-    };
-  }
-  const { enforceQuota } = await import("../tenancy/quotas.js");
-  const configured = await enforceQuota("media.bytes", actor.siteId, file.size);
-  if (configured) {
-    return { status: configured.status, body: { error: configured.error, code: configured.code, meter: configured.meter } };
-  }
+  // Quota check, store and insert run one upload at a time per site, so
+  // concurrent uploads cannot all pass against the same remaining budget.
+  // Raster images reserve room for their generated variants as well.
+  const reserved = file.size * (isRasterImageMimeType(file.mimetype) ? 2 : 1);
+  const admitted = await uploadLock(actor.siteId, async (): Promise<MediaWriteResult | { storageKey: string; url: string; id: string }> => {
+    // Checked after the type checks, so a rejected type never reports a quota figure.
+    const quota = await checkLibraryQuota(actor.siteId, reserved);
+    if (!quota.ok) {
+      return {
+        status: 413,
+        body: {
+          error:
+            `The media library is full (${formatMb(quota.usedBytes)} of ${formatMb(quota.limitBytes)} used). ` +
+            "Delete something, or raise JF_MAX_LIBRARY_MB.",
+        },
+      };
+    }
+    const { enforceQuota } = await import("../tenancy/quotas.js");
+    const configured = await enforceQuota("media.bytes", actor.siteId, reserved);
+    if (configured) {
+      return { status: configured.status, body: { error: configured.error, code: configured.code, meter: configured.meter } };
+    }
 
-  const storageKey = `${actor.siteId}/${randomUUID()}${ext}`;
-  await getUploadStore().put(storageKey, file.buffer, file.mimetype);
+    const storageKey = `${actor.siteId}/${randomUUID()}${ext}`;
+    await getUploadStore().put(storageKey, file.buffer, file.mimetype);
 
-  const url = `/uploads/${storageKey}`;
-  const id = randomUUID();
-  await (
-    await getDb()
-  ).run(
-    `INSERT INTO media (id, site_id, filename, mime_type, size_bytes, storage_key, url, uploaded_by, uploaded_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      actor.siteId,
-      file.originalname,
-      file.mimetype,
-      file.size,
-      storageKey,
-      url,
-      actor.userId,
-      now(),
-      now(),
-    ],
-  );
+    const url = `/uploads/${storageKey}`;
+    const id = randomUUID();
+    try {
+      await (
+        await getDb()
+      ).run(
+        `INSERT INTO media (id, site_id, filename, mime_type, size_bytes, storage_key, url, uploaded_by, uploaded_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          actor.siteId,
+          file.originalname,
+          file.mimetype,
+          file.size,
+          storageKey,
+          url,
+          actor.userId,
+          now(),
+          now(),
+        ],
+      );
+    } catch (err) {
+      // Never leave a stored file no row accounts for.
+      await getUploadStore().delete(storageKey).catch(() => undefined);
+      throw err;
+    }
+    return { storageKey, url, id };
+  });
+  if ("status" in admitted) return admitted;
+  const { url, id } = admitted;
 
   // Responsive derivatives (resized variants + WebP/AVIF) are generated inline
   // so a page can ship a correct `srcset` on the first render. A failure here
@@ -368,9 +389,10 @@ export async function storeMediaUpload(
       await (
         await getDb()
       ).run(
-        "UPDATE media SET derivatives = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+        "UPDATE media SET derivatives = ?, derivative_bytes = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
         [
           JSON.stringify(derivatives),
+          derivativeBytes(derivatives),
           derivatives.base.w,
           derivatives.base.h,
           derivatives.base.format,

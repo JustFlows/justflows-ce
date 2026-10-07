@@ -15,9 +15,11 @@ import {
 import { clientIp } from "../../lib/security/rate-limit.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { badRequest, ensureKeyCan, notFound, paginate, relay, sendJson } from "./envelope.js";
+import { admitUpload } from "../../lib/security/upload-admission.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: maxUploadBytes() } });
+const admitMediaUpload = admitUpload({ name: "media", maxBytes: maxUploadBytes(), perSite: 4, global: 16 });
 
 // Writing an uploaded file to disk is expensive work; CodeQL only models
 // express-rate-limit, so it guards this route directly in addition to the
@@ -59,7 +61,7 @@ router.get("/:id", async (req, res) => {
 router.post("/", uploadLimit, (req, res) => {
   void (async () => {
     if (!(await ensureKeyCan(req, res, "media:upload"))) return;
-    upload.single("file")(req, res, (err: unknown) => {
+    admitMediaUpload(req, res, () => upload.single("file")(req, res, (err: unknown) => {
       void (async () => {
         if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
           return badRequest(res, `File is too large (limit ${formatMb(maxUploadBytes())}).`);
@@ -84,7 +86,7 @@ router.post("/", uploadLimit, (req, res) => {
           sendServerError(res, "manage.media", uploadErr);
         }
       })();
-    });
+    }));
   })();
 });
 

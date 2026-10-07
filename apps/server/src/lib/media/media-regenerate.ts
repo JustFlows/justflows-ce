@@ -2,7 +2,8 @@
 
 import { getDb } from "../database/db.js";
 import { readUpload } from "./upload-store.js";
-import { generateAndStoreVariants, resolveImageConfig } from "./media-responsive.js";
+import { derivativeBytes,
+  generateAndStoreVariants, resolveImageConfig } from "./media-responsive.js";
 
 /**
  * Admin → Tools "Regenerate responsive images" job (#103).
@@ -88,9 +89,10 @@ async function processRow(siteId: string, row: MediaRow): Promise<"done" | "skip
   await (
     await getDb()
   ).run(
-    "UPDATE media SET derivatives = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+    "UPDATE media SET derivatives = ?, derivative_bytes = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
     [
       JSON.stringify(derivatives),
+      derivativeBytes(derivatives),
       derivatives.base.w,
       derivatives.base.h,
       derivatives.base.format,

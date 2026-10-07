@@ -20,9 +20,18 @@ import { auditFromRequest } from "../../lib/security/audit-log.js";
 import multer from "multer";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
+import { admitPackageUpload, PACKAGE_UPLOAD_BYTES } from "../../lib/security/upload-admission.js";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: PACKAGE_UPLOAD_BYTES } });
+// Extension and import uploads unpack archives and touch the filesystem;
+// counted per client before anything is buffered.
+const packageUploadRequestLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
 
 router.get("/", requireSession, async (req, res) => {
   const session = req.session!;
@@ -41,7 +50,7 @@ router.get("/", requireSession, async (req, res) => {
   }
 });
 
-router.post("/", requireRole("administrator"), upload.single("file"), async (req, res) => {
+router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitPackageUpload("css-provider"), upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
