@@ -618,6 +618,7 @@ makes both correctness and performance attributable to a specific extension.
 | `workspace.deleted`                                                             | `{ tenantId, dropDatabase }`                                                                                                                                                                                                                |
 | `site.created`                                                                  | `{ tenantId, siteId, hostname, databaseChoice }`                                                                                                                                                                                            |
 | `quota.updated`                                                                 | `{ scope, scopeId, limits }` — after a quota save. `limits` maps each meter to a number or `null` (unlimited). Requires `platform:tenancy` to listen.                                                                                        |
+| `domain.added` / `activated` / `failed` / `removed`                             | `{ siteId, domainId, hostname, mode, provider }` — a website's custom domain was added, verified and served, stopped after failed checks, or removed (by the site, or released unverified). `mode` is `records` or `nameservers`. Requires `platform:tenancy` to listen. |
 | `plugin.installed` / `activated` / `deactivated` / `deleteData` / `uninstalled` | `{ pluginId, version, siteId? }` — `plugin.deleteData` runs after that plugin's `deleteData()` hook                                                                                                                                         |
 | `theme.installed` / `theme.activated`                                           | `{ themeId, version, siteId? }`                                                                                                                                                                                                             |
 | `request.before`                                                                | `{ method, path }`                                                                                                                                                                                                                          |
@@ -639,6 +640,7 @@ makes both correctness and performance attributable to a specific extension.
 | `workspace.beforeSuspend` / `beforeReactivate` | `{ tenantId }` |
 | `workspace.beforeDelete` | `{ tenantId, dropDatabase }` |
 | `site.beforeCreate` | `{ tenantId, name, hostname, databaseChoice, userMode, databaseMode }` |
+| `domain.beforeAdd` | `{ siteId, hostname, mode }` — cancel to refuse a custom domain, for example until a plan is paid. Requires `platform:tenancy`. |
 
 ### Filters
 

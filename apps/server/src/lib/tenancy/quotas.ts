@@ -64,6 +64,9 @@ defineCore("feature.cdn", "site", "CDN", "flag");
 defineCore("feature.trash", "site", "Trash", "flag");
 defineCore("feature.tools", "site", "Tools", "flag");
 defineCore("feature.plugins", "site", "Plugins", "flag");
+defineCore("feature.customDomains", "site", "Custom domains", "flag");
+defineCore("feature.managedDns", "site", "DNS hosting", "flag");
+defineCore("domains.custom", "site", "Connected domains", "count");
 
 export function listMeterDefinitions(scope?: QuotaScope): QuotaMeterDefinition[] {
   return [...meters.values()].filter((meter) => scope === undefined || meter.scope === scope);
@@ -300,7 +303,23 @@ async function usageFor(meter: QuotaMeterDefinition, scopeId: string): Promise<n
   if (meter.key === "roles") {
     return querySiteNumber(scopeId, "SELECT COUNT(*) AS total FROM access_roles WHERE site_id = ?", [scopeId]);
   }
+  if (meter.key === "domains.custom") return countCustomDomains(scopeId);
   return null;
+}
+
+/** Domains live on the platform database. A `www.` row added with its parent does not count. */
+async function countCustomDomains(siteId: string): Promise<number | null> {
+  try {
+    const db = await getControlDb();
+    const rows = await db.query<{ total: string | number | null }>(
+      "SELECT COUNT(*) AS total FROM site_domains WHERE site_id = ? AND kind = 'custom' AND parent_id IS NULL",
+      [siteId],
+    );
+    const value = Number(rows[0]?.total ?? 0);
+    return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
+  } catch {
+    return null;
+  }
 }
 
 async function countCustomContentTypes(siteId: string): Promise<number | null> {

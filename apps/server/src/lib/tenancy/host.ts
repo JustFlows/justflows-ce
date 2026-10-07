@@ -13,6 +13,10 @@ export interface HostRecord {
   databaseChoice: DatabaseChoice;
   /** The site created with the installation. */
   rootSite?: boolean;
+  /** The site's primary address, when it has an active one. */
+  primaryHostname?: string;
+  /** True when that primary address is a custom domain. */
+  primaryCustom?: boolean;
 }
 
 export type HostDecision =
@@ -72,6 +76,30 @@ function decide(record: HostRecord, viaLoopback: boolean): HostDecision {
     return { kind: "provisioning", record };
   }
   return { kind: "ready", record, viaLoopback };
+}
+
+/**
+ * Where a public request should be sent instead: the site's custom primary
+ * domain, when the visitor came in on another of its addresses. Admin, API,
+ * and asset paths stay on the address they used, so a site can still be
+ * managed while its domain is broken.
+ */
+export function primaryRedirectHost(input: {
+  record: HostRecord;
+  viaLoopback: boolean;
+  method: string;
+  path: string;
+  adminBase: string;
+}): string | null {
+  const { record } = input;
+  if (input.viaLoopback || !record.primaryCustom || !record.primaryHostname) return null;
+  if (record.primaryHostname === record.hostname) return null;
+  if (input.method !== "GET" && input.method !== "HEAD") return null;
+  const path = input.path;
+  const admin = input.adminBase.replace(/\/+$/, "") || "/admin";
+  const kept = ["/api", "/admin", "/assets", "/uploads", "/css-providers", "/.well-known", admin];
+  if (kept.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return null;
+  return record.primaryHostname;
 }
 
 /**
