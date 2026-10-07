@@ -134,10 +134,14 @@ export function signupBaseDomain(value: string): string | null {
 }
 
 /** Public site URL, using the scheme and port of the page the visitor signed up on. */
+/** The stored origin of a new site: only http/https, and only a valid port. */
 export function signupSiteOrigin(hostname: string, protocol: string, hostHeader: string): string {
-  const scheme = protocol.split(",")[0]?.trim() || "http";
+  const claimed = protocol.split(",")[0]?.trim().toLowerCase();
+  const scheme = claimed === "https" || claimed === "http" ? claimed : "https";
   const host = hostHeader.split(",")[0]?.trim() ?? "";
-  const port = host.startsWith("[") ? "" : (host.match(/:(\d+)$/)?.[1] ?? "");
+  const rawPort = host.startsWith("[") ? "" : (host.match(/:(\d{1,5})$/)?.[1] ?? "");
+  const portNumber = Number(rawPort);
+  const port = rawPort && portNumber >= 1 && portNumber <= 65535 ? String(portNumber) : "";
   return `${scheme}://${hostname}${port ? `:${port}` : ""}`;
 }
 
