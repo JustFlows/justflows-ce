@@ -151,6 +151,9 @@ function manifestMenu(manifest: Record<string, unknown>, pluginId: string): Admi
  * The sidebar is built from this, so a deleted plugin's pages disappear with it.
  */
 export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntry[]> {
+  const { syncSubsitePluginCopies } = await import("../plugins/plugin-multisite.js");
+  await syncSubsitePluginCopies(siteId).catch(() => false);
+
   const db = await getDb();
   const rows = await db.query<{
     plugin_id: string;
