@@ -47,6 +47,8 @@ import ApiKeysPage from "./pages/admin/settings/ApiKeysPage";
 import AiSettingsPage from "./pages/admin/settings/AiSettingsPage";
 import CdnSettingsPage from "./pages/admin/settings/CdnSettingsPage";
 import PlatformPage from "./pages/admin/platform/PlatformPage";
+import PlatformSitesPage from "./pages/admin/platform/PlatformSitesPage";
+import PlatformDefaultsPage from "./pages/admin/platform/PlatformDefaultsPage";
 import PlatformSitePage from "./pages/admin/platform/PlatformSitePage";
 import PlatformSiteUsersPage from "./pages/admin/platform/PlatformSiteUsersPage";
 import PlatformWorkspacePage from "./pages/admin/platform/PlatformWorkspacePage";
@@ -71,7 +73,7 @@ function RequireNavAccess({ path, children }: { path: string; children: React.Re
   const { session } = useSession();
   const role = session?.role ?? null;
   const audience = session
-    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true }
+    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true, disabledPaths: session.disabledPaths }
     : undefined;
   if (role !== null && !canAccessPath(role, path, audience)) return <Navigate to="/admin" replace />;
   return <>{children}</>;
@@ -161,8 +163,11 @@ export default function App() {
               <Route path="settings/cdn" element={<CdnSettingsPage />} />
               <Route path="platform/sites/:id/users" element={<PlatformSiteUsersPage />} />
               <Route path="platform/sites/:id" element={<PlatformSitePage />} />
+              <Route path="platform/sites" element={<PlatformSitesPage />} />
               <Route path="platform/workspaces/:id" element={<PlatformWorkspacePage />} />
-              <Route path="platform" element={<PlatformPage />} />
+              <Route path="platform/workspaces" element={<PlatformPage />} />
+              <Route path="platform/defaults" element={<PlatformDefaultsPage />} />
+              <Route path="platform" element={<Navigate to="/admin/platform/workspaces" replace />} />
               <Route path="languages" element={<LanguagesPage />} />
               <Route path="security" element={<SecurityOverviewPage />} />
               <Route path="security/headers" element={<SecurityHeadersPage />} />

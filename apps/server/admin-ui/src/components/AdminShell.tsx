@@ -36,7 +36,7 @@ export default function AdminShell() {
   const role = useSessionRole();
   const { session } = useSession();
   const audience = session
-    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true }
+    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true, disabledPaths: session.disabledPaths }
     : undefined;
   // Domains carry the pages of whichever plugins are installed right now, cut
   // down to the ones this role won't hit a 403 opening.

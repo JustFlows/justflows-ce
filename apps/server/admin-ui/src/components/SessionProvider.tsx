@@ -10,8 +10,10 @@ export interface SessionInfo {
   capabilities?: string[];
   /** True for the installation's first site. */
   installationRoot?: boolean;
-  /** True for the account that manages workspaces. */
-  platformOperator?: boolean;
+  /** Admin paths hidden because this website turned a feature off. */
+  disabledPaths?: string[];
+  /** Feature keys stored as off, so a control inside a page can be removed. */
+  disabledFeatures?: string[];
 }
 
 interface SessionValue {
@@ -64,6 +66,13 @@ export function useSession(): SessionValue {
 /** Convenience for the common case of just needing the role. */
 export function useSessionRole(): string | null {
   return useSession().session?.role ?? null;
+}
+
+/** True unless this website stored the feature as off. Missing session data stays allowed. */
+export function useFeatureEnabled(key: string): boolean {
+  const features = useSession().session?.disabledFeatures;
+  if (!features) return true;
+  return !features.includes(key);
 }
 
 export function useCapability(capability: string): boolean {

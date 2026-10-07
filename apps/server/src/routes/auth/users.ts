@@ -104,6 +104,12 @@ router.post("/invite", requireRole("administrator"), async (req, res) => {
       res.status(400).json({ error: "Unknown role" });
       return;
     }
+    const { enforceQuota } = await import("../../lib/tenancy/quotas.js");
+    const quota = await enforceQuota("users", session.siteId, 1);
+    if (quota) {
+      res.status(quota.status).json({ error: quota.error, code: quota.code, meter: quota.meter });
+      return;
+    }
     const id = randomUUID();
     const timestamp = now();
     const db = await getDb();

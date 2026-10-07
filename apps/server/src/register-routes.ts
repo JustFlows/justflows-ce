@@ -9,6 +9,7 @@ import { detectStaticErrorLocale, renderStaticErrorPage } from "./lib/rendering/
 import { adminClientDir, renderAdminPage } from "./lib/admin/admin-ssr.js";
 import { adminAccessGate } from "./middleware/admin-access.js";
 import { getAdminPathConfig, toInternalAdminPath } from "./lib/admin/admin-path.js";
+import { requireSiteFeature } from "./lib/tenancy/site-features.js";
 
 /** Admin SPA document routes, including the common trailing-slash root. */
 export const ADMIN_PAGE_PATH_RE = /^\/admin(?:\/.*)?$/;
@@ -188,21 +189,21 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   app.use("/api/search", requireInstalled, (await import("./routes/public/search.js")).default);
   app.use("/api/content", requireInstalled, contentRoutes);
-  app.use("/api/trash", requireInstalled, trashRoutes);
+  app.use("/api/trash", requireInstalled, requireSiteFeature("feature.trash"), trashRoutes);
   app.use("/api/media", requireInstalled, mediaRoutes);
-  app.use("/api/comments", requireInstalled, commentsRoutes);
-  app.use("/api/comment-rules", requireInstalled, commentRulesRoutes);
-  app.use("/api/comment-spam-terms", requireInstalled, commentSpamTermsRoutes);
+  app.use("/api/comments", requireInstalled, requireSiteFeature("feature.comments"), commentsRoutes);
+  app.use("/api/comment-rules", requireInstalled, requireSiteFeature("feature.comments"), commentRulesRoutes);
+  app.use("/api/comment-spam-terms", requireInstalled, requireSiteFeature("feature.comments"), commentSpamTermsRoutes);
   app.use("/api/users", requireInstalled, usersRoutes);
   app.use("/api/platform", requireInstalled, (await import("./routes/platform/tenants.js")).default);
   app.use("/api/signup", requireInstalled, (await import("./routes/public/signup.js")).default);
   app.use("/api/settings", requireInstalled, settingsRoutes);
-  app.use("/api/emails", requireInstalled, emailsRoutes);
+  app.use("/api/emails", requireInstalled, requireSiteFeature("feature.emails"), emailsRoutes);
   app.use("/api/security", requireInstalled, securityRoutes);
   app.use("/api/themes", requireInstalled, themesRoutes);
-  app.use("/api/css-providers", requireInstalled, cssProvidersRoutes);
+  app.use("/api/css-providers", requireInstalled, requireSiteFeature("feature.design"), cssProvidersRoutes);
   app.use("/css-providers", requireInstalled, cssProviderAssetsRouter);
-  app.use("/api/plugins", requireInstalled, pluginsRoutes);
+  app.use("/api/plugins", requireInstalled, requireSiteFeature("feature.plugins"), pluginsRoutes);
   app.use("/api/marketplace", requireInstalled, marketplaceRoutes);
   app.use("/api/health", requireInstalled, healthRouter);
   app.use("/api/updates", requireInstalled, updatesRoutes);
@@ -211,7 +212,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/db", requireInstalled, dbRouter);
   app.use("/api/import", requireInstalled, importRoutes);
   app.use("/api/static-export", requireInstalled, staticExportRoutes);
-  app.use("/api/languages", requireInstalled, languagesRoutes);
+  app.use("/api/languages", requireInstalled, requireSiteFeature("feature.languages"), languagesRoutes);
   app.use("/api/menus", requireInstalled, menusRoutes);
   app.use("/api/reusable-blocks", requireInstalled, reusableBlocksRoutes);
   app.use("/api/template-parts", requireInstalled, templatePartsRouter);
@@ -223,16 +224,16 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
   app.use("/api/audit", requireInstalled, auditRoutes);
-  app.use("/api/redirects", requireInstalled, (await import("./routes/settings/redirects.js")).default);
-  app.use("/api/webhooks", requireInstalled, webhooksRoutes);
+  app.use("/api/redirects", requireInstalled, requireSiteFeature("feature.redirects"), (await import("./routes/settings/redirects.js")).default);
+  app.use("/api/webhooks", requireInstalled, requireSiteFeature("feature.webhooks"), webhooksRoutes);
   app.use("/api/preferences", requireInstalled, preferencesRoutes);
   app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
   app.use("/api/cookies", requireInstalled, cookiesRoutes);
   app.use("/api/roles", requireInstalled, rolesRoutes);
-  app.use("/api/cdn", requireInstalled, (await import("./routes/settings/cdn.js")).default);
+  app.use("/api/cdn", requireInstalled, requireSiteFeature("feature.cdn"), (await import("./routes/settings/cdn.js")).default);
 
   // Cookie-authenticated management of API keys (Admin → Settings → API).
-  app.use("/api/api-keys", requireInstalled, apiKeysRoutes);
+  app.use("/api/api-keys", requireInstalled, requireSiteFeature("feature.api"), apiKeysRoutes);
   // The federated management API (#135): Bearer-key auth, per-key + per-IP rate
   // limiting, and explicit-origin CORS (never `*`). Preflight runs before auth
   // because a browser sends no Authorization on OPTIONS.
@@ -250,7 +251,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // switch and rate limits), the cookie-authenticated assistant, provider and
   // consent APIs, and the OAuth 2.1 authorization server at the site root.
   app.use("/api/mcp", requireInstalled, (await import("./routes/ai/mcp.js")).default);
-  app.use("/api/ai", requireInstalled, (await import("./routes/ai/ai.js")).default);
+  app.use("/api/ai", requireInstalled, requireSiteFeature("feature.ai"), (await import("./routes/ai/ai.js")).default);
   app.use("/api/oauth", requireInstalled, (await import("./routes/ai/oauth-consent.js")).default);
   // Root-level paths (/.well-known/oauth-*, /oauth/*); every handler answers
   // 404 unless the site is installed and MCP is on (isMcpEnabled fails closed).

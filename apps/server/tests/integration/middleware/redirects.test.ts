@@ -6,6 +6,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import type { RedirectRule } from "../../../src/lib/navigation/redirects.js";
 let rules: RedirectRule[] = [];
 const log = vi.fn(async (..._args: unknown[]) => {});
+// Site feature switches live in the control database; keep the feature on here.
+vi.mock("../../../src/lib/tenancy/site-features.js", () => ({ siteFeatureEnabled: async () => true }));
 vi.mock("../../../src/lib/settings/site-settings.js", () => ({ getSiteId: async () => "site" }));
 vi.mock("../../../src/lib/navigation/permalinks-db.js", () => ({
   reservedPermalinkPath: async (path: string) => /^\/(api|admin|control-room)(\/|$)/.test(path),

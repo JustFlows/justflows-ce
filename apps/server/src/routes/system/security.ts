@@ -18,11 +18,25 @@ import {
 } from "../../lib/security/security-headers.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { getAdminPathConfig, saveAdminPathConfig, validateAdminPath } from "../../lib/admin/admin-path.js";
+import { requireSiteFeature } from "../../lib/tenancy/site-features.js";
 
 const router = Router();
 
 /** Security configuration is an administrator-only surface, read included. */
 const adminOnly = requireRole("administrator");
+
+router.use((req, res, next) => {
+  const feature = req.path === "/headers" || req.path.startsWith("/headers/")
+    ? "feature.securityHeaders"
+    : req.path === "/admin-path" || req.path.startsWith("/admin-path/")
+      ? "feature.securityAdminPath"
+      : null;
+  if (!feature) {
+    next();
+    return;
+  }
+  requireSiteFeature(feature)(req, res, next);
+});
 
 router.get("/admin-path", adminOnly, async (_req, res) => {
   try {

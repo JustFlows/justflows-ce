@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "../../../admin-router";
 import { useT } from "../../../i18n/I18nProvider";
 import { initialJson } from "../../../ssr-data";
@@ -21,6 +21,7 @@ interface Overview {
     signupDatabase?: { host: string; port: number; database: string; username: string; passwordSet: boolean } | null;
     purgeAfterDays?: number;
   } | null;
+  installationPort?: number;
 }
 
 export default function PlatformPage() {
@@ -29,6 +30,7 @@ export default function PlatformPage() {
   const [overview, setOverview] = useState<Overview | null>(seeded ?? null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [signupStatus, setSignupStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [databaseMode, setDatabaseMode] = useState<"current" | "separate">("current");
   const [userMode, setUserMode] = useState<"isolated" | "shared">("isolated");
   const [busy, setBusy] = useState(false);
@@ -58,7 +60,7 @@ export default function PlatformPage() {
     const database = databaseMode === "separate"
       ? {
           host: String(form.get("dbHost") ?? ""),
-          port: Number(form.get("dbPort") ?? 5432),
+          port: Number(form.get("dbPort") ?? overview?.installationPort ?? 3306),
           database: String(form.get("dbName") ?? ""),
           username: String(form.get("dbUser") ?? ""),
           password: String(form.get("dbPassword") ?? ""),
@@ -138,12 +140,15 @@ export default function PlatformPage() {
 
   async function saveSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
+    setNotice("");
+    setSignupStatus(null);
     const form = new FormData(event.currentTarget);
     const signupDatabaseMode = form.get("signupDatabaseMode") === "separate" ? "separate" : "current";
     const database = signupDatabaseMode === "separate"
       ? {
           host: String(form.get("signupDbHost") ?? ""),
-          port: Number(form.get("signupDbPort") ?? 5432),
+          port: Number(form.get("signupDbPort") ?? overview?.installationPort ?? 3306),
           database: String(form.get("signupDbName") ?? ""),
           username: String(form.get("signupDbUser") ?? ""),
           password: String(form.get("signupDbPassword") ?? ""),
@@ -160,18 +165,19 @@ export default function PlatformPage() {
       }),
     });
     const body = await res.json() as { error?: string; settings?: Overview["settings"] };
-    if (!res.ok) setError(body.error ?? "Could not save signup settings");
-    else {
-      setNotice(t("platform.saved"));
-      if (body.settings) setOverview((current) => current ? { ...current, settings: body.settings ?? current.settings } : current);
+    if (!res.ok) {
+      setSignupStatus({ ok: false, text: body.error ?? "Could not save signup settings" });
+      return;
     }
+    setSignupStatus({ ok: true, text: t("platform.saved") });
+    if (body.settings) setOverview((current) => current ? { ...current, settings: body.settings ?? current.settings } : current);
   }
 
   return (
     <div className="jf-page">
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
-          <h1>{t("platform.title")}</h1>
+          <h1>{t("platform.workspaces")}</h1>
           <p>{t("platform.intro")}</p>
         </div>
       </header>
@@ -202,7 +208,7 @@ export default function PlatformPage() {
                 <label className="jf-checkrow"><input type="radio" name="databaseMode" checked={databaseMode === "separate"} onChange={() => setDatabaseMode("separate")} /><span>{t("platform.separate")}</span></label>
               </fieldset>
             </div>
-            {databaseMode === "separate" ? <DatabaseFields /> : null}
+            {databaseMode === "separate" ? <DatabaseFields defaultPort={overview?.installationPort ?? 3306} /> : null}
           </div>
           <div className="jf-stack">
             <h3 className="jf-section-title">{t("platform.administrator")}</h3>
@@ -296,6 +302,7 @@ export default function PlatformPage() {
                         <tr>
                           <td colSpan={6}>
                             <AddSiteForm
+                              defaultPort={overview?.installationPort ?? 3306}
                               tenant={tenant}
                               onCancel={() => setAddingSiteTo(null)}
                               onCreated={async () => {
@@ -362,8 +369,10 @@ export default function PlatformPage() {
           databaseNameLabel={t("platform.databaseName")}
           usernameLabel={t("platform.username")}
           passwordLabel={t("platform.password")}
+          defaultPort={overview?.installationPort ?? 3306}
           openLabel={t("platform.signupOpen")}
           saveLabel={t("common.save")}
+          status={signupStatus}
           onSubmit={saveSignup}
         />
       </section>
@@ -412,8 +421,10 @@ function SignupSettingsForm({
   databaseNameLabel,
   usernameLabel,
   passwordLabel,
+  defaultPort,
   openLabel,
   saveLabel,
+  status,
   onSubmit,
 }: {
   settings: Overview["settings"] | string | null | undefined;
@@ -430,15 +441,56 @@ function SignupSettingsForm({
   databaseNameLabel: string;
   usernameLabel: string;
   passwordLabel: string;
+  defaultPort: number;
   openLabel: string;
   saveLabel: string;
+  status: { ok: boolean; text: string } | null;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const { t } = useT();
+  const formRef = useRef<HTMLFormElement>(null);
   const signup = readSignupSettings(settings);
   const [databaseMode, setDatabaseMode] = useState<"current" | "separate">(signup.signupDatabaseMode);
+  const [testing, setTesting] = useState(false);
+  const [testError, setTestError] = useState("");
+  const [testOk, setTestOk] = useState(false);
   const database = signup.signupDatabase;
+
+  async function onTest() {
+    const form = formRef.current;
+    if (!form) return;
+    setTesting(true);
+    setTestError("");
+    setTestOk(false);
+    const data = new FormData(form);
+    const res = await fetch("/api/platform/settings/test-database", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        host: String(data.get("signupDbHost") ?? ""),
+        port: Number(data.get("signupDbPort") ?? defaultPort),
+        database: String(data.get("signupDbName") ?? ""),
+        username: String(data.get("signupDbUser") ?? ""),
+        password: String(data.get("signupDbPassword") ?? ""),
+      }),
+    });
+    const body = await res.json() as { error?: string };
+    setTesting(false);
+    if (!res.ok) setTestError(body.error ?? t("platform.testConnectionFailed"));
+    else setTestOk(true);
+  }
+
   return (
-    <form key={`${signup.signupEnabled}:${signup.signupDatabaseMode}:${signup.baseDomain}:${database?.host ?? ""}`} className="jf-card__body jf-stack" onSubmit={onSubmit}>
+    <form
+      ref={formRef}
+      key={`${signup.signupEnabled}:${signup.signupDatabaseMode}:${signup.baseDomain}:${database?.host ?? ""}:${database?.port ?? ""}`}
+      className="jf-card__body jf-stack"
+      onSubmit={(event) => {
+        setTestError("");
+        setTestOk(false);
+        onSubmit(event);
+      }}
+    >
       <label className="jf-checkrow">
         <input name="signupEnabled" type="checkbox" defaultChecked={signup.signupEnabled} />
         <span>{enabledLabel}</span>
@@ -465,7 +517,7 @@ function SignupSettingsForm({
           <p className="jf-field__hint">{databaseHint}</p>
           <div className="jf-grid jf-grid--2">
             <Field label={hostLabel}><input className="jf-input jf-input--mono" name="signupDbHost" required defaultValue={database?.host ?? "localhost"} /></Field>
-            <Field label={portLabel}><input className="jf-input jf-input--mono" name="signupDbPort" required defaultValue={String(database?.port ?? 5432)} inputMode="numeric" /></Field>
+            <Field label={portLabel}><input className="jf-input jf-input--mono" name="signupDbPort" required defaultValue={String(database?.port ?? defaultPort)} inputMode="numeric" /></Field>
             <Field label={databaseNameLabel}><input className="jf-input jf-input--mono" name="signupDbName" required defaultValue={database?.database ?? ""} /></Field>
             <Field label={usernameLabel}><input className="jf-input jf-input--mono" name="signupDbUser" required defaultValue={database?.username ?? ""} /></Field>
             <Field label={passwordLabel}>
@@ -477,6 +529,16 @@ function SignupSettingsForm({
       <p><a href="/signup">{openLabel}</a></p>
       <div className="jf-row">
         <button className="jf-btn jf-btn--primary" type="submit">{saveLabel}</button>
+        {databaseMode === "separate" ? (
+          <button className="jf-btn" type="button" disabled={testing} onClick={() => void onTest()}>
+            {testing ? t("platform.testingConnection") : t("platform.testConnection")}
+          </button>
+        ) : null}
+        {testError ? <span className="jf-status jf-status--error">{testError}</span> : null}
+        {testOk ? <span className="jf-status jf-status--saved">{t("platform.testConnectionOk")}</span> : null}
+        {!testError && !testOk && status ? (
+          <span className={`jf-status ${status.ok ? "jf-status--saved" : "jf-status--error"}`}>{status.text}</span>
+        ) : null}
       </div>
     </form>
   );
@@ -491,12 +553,12 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function DatabaseFields() {
+function DatabaseFields({ defaultPort }: { defaultPort: number }) {
   const { t } = useT();
   return (
     <div className="jf-grid jf-grid--2">
       <Field label={t("platform.host")}><input className="jf-input jf-input--mono" name="dbHost" required defaultValue="localhost" /></Field>
-      <Field label={t("platform.port")}><input className="jf-input jf-input--mono" name="dbPort" required defaultValue="5432" inputMode="numeric" /></Field>
+      <Field label={t("platform.port")}><input className="jf-input jf-input--mono" name="dbPort" required defaultValue={String(defaultPort)} inputMode="numeric" /></Field>
       <Field label={t("platform.databaseName")}><input className="jf-input jf-input--mono" name="dbName" required /></Field>
       <Field label={t("platform.username")}><input className="jf-input jf-input--mono" name="dbUser" required /></Field>
       <Field label={t("platform.password")}><input className="jf-input" name="dbPassword" type="password" /></Field>
@@ -517,11 +579,13 @@ function AdminFields() {
 }
 
 function AddSiteForm({
+  defaultPort,
   tenant,
   onCancel,
   onCreated,
   onError,
 }: {
+  defaultPort: number;
   tenant: Overview["tenants"][number];
   onCancel: () => void;
   onCreated: () => Promise<void>;
@@ -544,7 +608,7 @@ function AddSiteForm({
     const database = databaseChoice === "separate"
       ? {
           host: String(form.get("dbHost") ?? ""),
-          port: Number(form.get("dbPort") ?? 5432),
+          port: Number(form.get("dbPort") ?? defaultPort),
           database: String(form.get("dbName") ?? ""),
           username: String(form.get("dbUser") ?? ""),
           password: String(form.get("dbPassword") ?? ""),
@@ -601,7 +665,7 @@ function AddSiteForm({
           </label>
         </fieldset>
       )}
-      {choice === "separate" && !shared ? <DatabaseFields /> : null}
+      {choice === "separate" && !shared ? <DatabaseFields defaultPort={defaultPort} /> : null}
       {shared ? null : (
         <>
           <h3 className="jf-section-title">{t("platform.administrator")}</h3>

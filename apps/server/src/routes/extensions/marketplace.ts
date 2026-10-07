@@ -62,6 +62,15 @@ const InstallSchema = z.object({
 router.post("/install", requireRole("administrator"), async (req, res) => {
   try {
     const { type, id, version } = InstallSchema.parse(req.body);
+    const { siteFeatureEnabled } = await import("../../lib/tenancy/site-features.js");
+    if (type === "theme" && !(await siteFeatureEnabled("feature.themeUpload", req.session?.siteId))) {
+      res.status(403).json({ error: "Theme upload is turned off for this website.", code: "feature_disabled", meter: "feature.themeUpload" });
+      return;
+    }
+    if (type === "plugin" && !(await siteFeatureEnabled("feature.plugins", req.session?.siteId))) {
+      res.status(403).json({ error: "Plugins are turned off for this website.", code: "feature_disabled", meter: "feature.plugins" });
+      return;
+    }
     if (type === "plugin" && !isInstallationRootRequest()) {
       res.status(403).json({ error: "Plugins are installed on the main site." });
       return;

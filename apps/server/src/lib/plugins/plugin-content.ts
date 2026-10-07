@@ -248,6 +248,10 @@ export function createPluginContentApi(pluginId: string, activatedSiteId: string
         return { created: false, id: "", slug };
       }
 
+      const { enforceQuota } = await import("../tenancy/quotas.js");
+      const quota = await enforceQuota("content", siteId, 1);
+      if (quota) throw new Error(quota.error);
+
       const status = input.status === "published" ? "published" : "draft";
       const id = randomUUID();
       const timestamp = now();

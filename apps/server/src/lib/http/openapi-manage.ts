@@ -194,6 +194,14 @@ export const MANAGE_API_OPENAPI = {
     "/tenants/{id}/sites": {
       post: op("Add a site. Choose inherit, current, or separate", "platform operator", { "201": { description: "Created" } }),
     },
+    "/tenants/{id}/quotas": {
+      get: op("Read workspace quota meters, including current usage", "platform operator"),
+      put: op("Replace workspace quota limits. Null clears a meter back to unlimited", "platform operator"),
+    },
+    "/sites/{id}/quotas": {
+      get: op("Read website quota meters, including current usage", "platform operator"),
+      put: op("Replace website quota limits. Null clears a meter back to unlimited", "platform operator"),
+    },
     "/tenants/{id}/suspend": { post: op("Suspend a workspace", "platform operator") },
     "/tenants/{id}/reactivate": { post: op("Reactivate a workspace", "platform operator") },
     "/tenants/{id}": { delete: op("Mark a workspace deleted. dropDatabase drops only that workspace's separate databases", "platform operator") },

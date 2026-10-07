@@ -493,6 +493,12 @@ export async function createContentEntry(
     throw err;
   }
 
+  const { enforceQuota } = await import("../tenancy/quotas.js");
+  const quota = await enforceQuota("content", actor.siteId, 1);
+  if (quota) return { status: quota.status, body: { error: quota.error, code: quota.code, meter: quota.meter } };
+  const typed = await enforceQuota(`content.${type}`, actor.siteId, 1);
+  if (typed) return { status: typed.status, body: { error: typed.error, code: typed.code, meter: typed.meter } };
+
   const db = await getDb();
   const blockDoc = isEmptyBlockDocument(blocks) ? await defaultBlocksForContentType(type) : blocks;
 

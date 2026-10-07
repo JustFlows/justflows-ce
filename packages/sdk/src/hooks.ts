@@ -631,6 +631,21 @@ export interface SiteCreateEvent {
   databaseChoice: "inherit" | "current" | "separate";
 }
 
+export interface QuotaUpdatedEvent {
+  scope: "workspace" | "site";
+  scopeId: string;
+  /** Meter key to the stored limit. `null` means that meter is unlimited. */
+  limits: Record<string, number | null>;
+}
+
+export interface QuotaLimitContext {
+  key: string;
+  scope: "workspace" | "site";
+  scopeId: string;
+  /** The value stored for this meter, before this filter. `null` means unlimited. */
+  storedLimit: number | null;
+}
+
 export interface SiteCreateGateEvent {
   tenantId: string;
   name: string;
@@ -718,6 +733,9 @@ export interface ActionEventMap {
   "email.sent": EmailDeliveryEvent;
   /** The attempt failed or was deferred. */
   "email.failed": EmailDeliveryEvent;
+
+  /** Fired after a platform operator or a plugin saves quota limits. */
+  "quota.updated": QuotaUpdatedEvent;
 }
 
 // ─── Gate map ──────────────────────────────────────────────────────────────
@@ -949,6 +967,12 @@ export interface FilterValueMap {
   "email.html": [string, EmailDeliveryContext];
   /** Adjust final plain text. Changed output is stripped to plain text. */
   "email.text": [string, EmailDeliveryContext];
+  /**
+   * The limit that will be enforced. Seeded with the stored value (`null` means
+   * unlimited). Return a lower number to tighten it. A higher number or `null`
+   * cannot raise a stored limit. Listening requires `platform:tenancy`.
+   */
+  "quota.effectiveLimit": [number | null, QuotaLimitContext];
 }
 
 /** One customizer layout target contributed by an active plugin. */
@@ -1018,6 +1042,7 @@ export const HOOK_PERMISSION_PREFIXES: ReadonlyArray<{
   { prefix: "user.", permission: "users:read" },
   { prefix: "admin.", permission: "admin:extend" },
   { prefix: "email.", permission: "mail:hook" },
+  { prefix: "quota.", permission: "platform:tenancy" },
 ];
 
 /** The permission a hook name requires, or `null` when it is unrestricted. */

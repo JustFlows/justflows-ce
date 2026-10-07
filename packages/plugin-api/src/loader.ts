@@ -16,6 +16,7 @@ import {
   type PluginSecretsApi,
   type PluginDatabasesApi,
   type PluginTenancyApi,
+  type PluginQuotasApi,
   type PluginUsersApi,
   type PluginBlockDefinition,
   type PluginContentApi,
@@ -58,6 +59,11 @@ export type PluginTenancyFactory = (
   pluginId: string,
   permissions: ReadonlySet<PluginPermission>,
 ) => PluginTenancyApi;
+export type PluginQuotasFactory = (
+  pluginId: string,
+  permissions: ReadonlySet<PluginPermission>,
+  siteId: string,
+) => PluginQuotasApi;
 export type PluginContentFactory = (pluginId: string, siteId: string) => PluginContentApi;
 export type PluginUsersFactory = (
   pluginId: string,
@@ -148,6 +154,15 @@ const NULL_DATABASES: PluginDatabasesApi = {
   columns: async () => [],
 };
 
+const NULL_QUOTAS: PluginQuotasApi = {
+  register: () => () => undefined,
+  check: async () => ({ ok: true, limit: null, used: 0, remaining: null }),
+  get: async (key) => ({ key, scope: "site", label: key, unit: "count", limit: null, used: null }),
+  set: async () => {
+    throw new Error("Quotas are not available in this runtime");
+  },
+};
+
 const NULL_TENANCY: PluginTenancyApi = {
   current: async () => null,
   listWorkspaces: async () => {
@@ -204,6 +219,8 @@ export class PluginLoader {
   private readonly secretsFactory: PluginSecretsFactory;
   private readonly databasesFactory: PluginDatabasesFactory;
   private readonly tenancyFactory: PluginTenancyFactory;
+  private readonly quotasFactory: PluginQuotasFactory;
+  private readonly quotasCleanup: ((pluginId: string) => void) | undefined;
   private readonly contentFactory: PluginContentFactory;
   private readonly usersFactory: PluginUsersFactory;
   private readonly i18nProvider: PluginI18nProvider;
@@ -235,6 +252,8 @@ export class PluginLoader {
       secretsFactory?: PluginSecretsFactory;
       databasesFactory?: PluginDatabasesFactory;
       tenancyFactory?: PluginTenancyFactory;
+      quotasFactory?: PluginQuotasFactory;
+      quotasCleanup?: (pluginId: string) => void;
       contentFactory?: PluginContentFactory;
       usersFactory?: PluginUsersFactory;
       i18nProvider?: PluginI18nProvider;
@@ -283,6 +302,8 @@ export class PluginLoader {
     this.databasesFactory =
       options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
     this.tenancyFactory = options?.tenancyFactory ?? (() => NULL_TENANCY);
+    this.quotasFactory = options?.quotasFactory ?? (() => NULL_QUOTAS);
+    this.quotasCleanup = options?.quotasCleanup;
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
     this.usersFactory = options?.usersFactory ?? (() => NULL_USERS);
     this.i18nProvider =
@@ -504,6 +525,7 @@ export class PluginLoader {
     this.placeholderRegistry.removePlugin(pluginId);
     this.jobsCleanup?.(pluginId);
     this.mailCleanup?.(pluginId);
+    this.quotasCleanup?.(pluginId);
     const types = this.registeredBlocks.get(pluginId) ?? [];
     for (const type of types) this.blockRegistry?.unregister(type);
     this.registeredBlocks.delete(pluginId);
@@ -678,6 +700,7 @@ export class PluginLoader {
       secrets: this.secretsFactory(pluginId, siteId),
       databases: this.databasesFactory(pluginId, siteId, permissions),
       tenancy: this.tenancyFactory(pluginId, permissions),
+      quotas: this.quotasFactory(pluginId, permissions, siteId),
       cookies: {
         declare: (cookie) => this.cookieRegistry.declare(pluginId, cookie),
         list: async () =>
