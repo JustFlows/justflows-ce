@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   challengeName,
   challengeValue,
+  checkNameserverDomain,
   checkNameservers,
   checkRecords,
   type DnsResolver,
@@ -116,7 +117,7 @@ describe("nameservers check", () => {
         ns: { "example.com": ["NS2.justflows.com.", "ns1.justflows.com"] },
       }),
     );
-    expect(ok.ownership).toBe(true);
+    expect(ok.routing).toBe(true);
     const partial = await checkNameservers(
       "example.com",
       ["ns1.justflows.com", "ns2.justflows.com"],
@@ -124,13 +125,42 @@ describe("nameservers check", () => {
         ns: { "example.com": ["ns1.justflows.com", "ns1.other.net"] },
       }),
     );
-    expect(partial.ownership).toBe(false);
+    expect(partial.routing).toBe(false);
   });
 
   it("never passes with no expected nameservers", async () => {
     expect(
       (await checkNameservers("example.com", [], resolver({ ns: { "example.com": [] } })))
-        .ownership,
+        .routing,
     ).toBe(false);
+  });
+});
+
+describe("nameserver domain ownership", () => {
+  const expected = ["kiki.bunny.net", "coco.bunny.net"];
+  const challenge = { [challengeName("example.com")]: [[challengeValue("abc123")]] };
+
+  it("never treats an existing delegation to the shared nameservers as ownership", async () => {
+    const result = await checkNameserverDomain(
+      { hostname: "example.com", token: "abc123", expected, ownershipProven: false },
+      resolver({ ns: { "example.com": expected }, txt: challenge }),
+    );
+    expect(result).toMatchObject({ ownership: false, routing: true, provenNow: false });
+  });
+
+  it("proves ownership with the TXT challenge while the domain is still on its own DNS", async () => {
+    const result = await checkNameserverDomain(
+      { hostname: "example.com", token: "abc123", expected, ownershipProven: false },
+      resolver({ ns: { "example.com": ["ns1.registrar.example"] }, txt: challenge }),
+    );
+    expect(result).toMatchObject({ ownership: true, routing: false, provenNow: true });
+  });
+
+  it("routes once proven ownership is followed by the delegation", async () => {
+    const result = await checkNameserverDomain(
+      { hostname: "example.com", token: "abc123", expected, ownershipProven: true },
+      resolver({ ns: { "example.com": expected } }),
+    );
+    expect(result).toMatchObject({ ownership: true, routing: true, problem: "" });
   });
 });

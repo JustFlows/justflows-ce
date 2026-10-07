@@ -15,6 +15,7 @@ import { platformBaseDomain } from "../tenancy/saas-settings.js";
 import {
   challengeName,
   challengeValue,
+  checkNameserverDomain,
   checkNameservers,
   checkRecords,
   systemResolver,
@@ -55,11 +56,12 @@ interface DomainRow {
   check_failures: number | string;
   checked_at: string | Date | null;
   verified_at: string | Date | null;
+  ownership_proven_at?: string | Date | null;
   created_at: string | Date;
 }
 
 const COLUMNS = `id, site_id, hostname, kind, verified, is_primary, status, connect_mode, verification_token, parent_id,
-  provider, dns_zone_id, tls_status, last_error, check_failures, checked_at, verified_at, created_at`;
+  provider, dns_zone_id, tls_status, last_error, check_failures, checked_at, verified_at, ownership_proven_at, created_at`;
 
 export interface DnsInstruction {
   type: "TXT" | "CNAME" | "A" | "AAAA" | "NS" | "ALIAS";
@@ -170,18 +172,28 @@ function expectedNameservers(settings: StoredDomainSettings): string[] {
 }
 
 export function dnsInstructions(
-  row: Pick<DomainRow, "hostname" | "connect_mode" | "verification_token" | "parent_id">,
+  row: Pick<DomainRow, "hostname" | "connect_mode" | "verification_token" | "parent_id"> &
+    Partial<Pick<DomainRow, "ownership_proven_at">>,
   settings: StoredDomainSettings,
 ): DnsInstruction[] {
   const mode = asMode(row.connect_mode);
   if (row.parent_id || !mode) return [];
   if (mode === "nameservers") {
-    return expectedNameservers(settings).map((ns) => ({
-      type: "NS",
-      name: row.hostname,
-      value: ns,
-      purpose: "nameserver",
-    }));
+    // The TXT record goes in at the DNS provider the domain uses today,
+    // before the nameservers change.
+    const verify: DnsInstruction[] =
+      row.verification_token && !row.ownership_proven_at
+        ? [{ type: "TXT", name: challengeName(row.hostname), value: challengeValue(row.verification_token), purpose: "verify" }]
+        : [];
+    return [
+      ...verify,
+      ...expectedNameservers(settings).map((ns): DnsInstruction => ({
+        type: "NS",
+        name: row.hostname,
+        value: ns,
+        purpose: "nameserver",
+      })),
+    ];
   }
   const list: DnsInstruction[] = [];
   if (row.verification_token) {
@@ -372,6 +384,7 @@ export function cleanCustomHostname(
 export async function addCustomDomain(
   siteId: string,
   input: AddDomainInput,
+  resolver: DnsResolver = systemResolver(),
 ): Promise<DomainResult<SiteDomainView[]>> {
   const settings = await readDomainSettings();
   const access = await domainAccess(siteId, settings);
@@ -418,6 +431,16 @@ export async function addCustomDomain(
   let zoneId: string | null = null;
   if (input.mode === "nameservers") {
     if (!provider.hostsZones) return fail(400, "Connecting by nameservers needs Bunny DNS.");
+    // Already delegated to the shared nameservers means someone else may own
+    // the zone there; ownership has to be proven at the domain's own DNS first.
+    const delegated = await checkNameservers(hostname, expectedNameservers(settings), resolver);
+    if (delegated.routing) {
+      return fail(
+        409,
+        "This domain already uses the platform's nameservers, so it cannot be verified this way. " +
+          "Point it back to its previous DNS provider first, or connect it with DNS records.",
+      );
+    }
     try {
       const zone = await provider.createZone(hostname, {
         nameservers: settings.nameservers,
@@ -448,7 +471,7 @@ export async function addCustomDomain(
             false,
             now,
             input.mode,
-            parent && input.mode === "records" ? randomBytes(16).toString("hex") : null,
+            parent ? randomBytes(16).toString("hex") : null,
             parent ? null : parentId,
             settings.provider,
             parent ? zoneId : null,
@@ -493,7 +516,25 @@ async function dnsCheck(row: DomainRow, settings: StoredDomainSettings, resolver
   if (asMode(row.connect_mode) === "nameservers") {
     // A public lookup decides. Bunny's NameserversDetected flag was seen true
     // while the registry still delegated the domain elsewhere.
-    return checkNameservers(String(row.hostname), expectedNameservers(settings), resolver);
+    let token = String(row.verification_token ?? "");
+    if (!token && !row.ownership_proven_at) {
+      // Added before ownership checks existed: issue a challenge now.
+      token = randomBytes(16).toString("hex");
+      await (await getControlDb()).run("UPDATE site_domains SET verification_token = ? WHERE id = ?", [token, String(row.id)]);
+    }
+    const check = await checkNameserverDomain(
+      {
+        hostname: String(row.hostname),
+        token,
+        expected: expectedNameservers(settings),
+        ownershipProven: Boolean(row.ownership_proven_at),
+      },
+      resolver,
+    );
+    if (check.provenNow) {
+      await (await getControlDb()).run("UPDATE site_domains SET ownership_proven_at = ? WHERE id = ?", [stamp(), String(row.id)]);
+    }
+    return check;
   }
   return checkRecords(
     {
@@ -835,6 +876,8 @@ async function zoneFor(
 ): Promise<DomainResult<{ row: DomainRow; provider: DomainProvider }>> {
   const row = await rowById(siteId, id);
   if (!row || !row.dns_zone_id) return fail(404, "That domain has no DNS zone here.");
+  // Records in the zone only matter once the domain is proven to be theirs.
+  if (!row.ownership_proven_at) return fail(409, "Verify that you own this domain before managing its DNS records.");
   const managed = await enforceQuota("feature.managedDns", siteId, 0);
   if (managed) return fromBlock(managed);
   const provider = await domainProviderFor(await readDomainSettings());

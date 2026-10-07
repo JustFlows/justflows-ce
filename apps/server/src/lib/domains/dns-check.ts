@@ -99,7 +99,7 @@ export async function checkRecords(
   return { ownership, routing, problem };
 }
 
-/** Nameservers mode: the domain's NS set has to be the expected one. */
+/** Whether the domain's public NS set is the expected one. Delegation alone never proves ownership. */
 export async function checkNameservers(
   hostname: string,
   expected: readonly string[],
@@ -109,8 +109,54 @@ export async function checkNameservers(
   const wanted = expected.map(clean).filter(Boolean);
   const ok = wanted.length > 0 && wanted.every((ns) => found.has(ns));
   return {
-    ownership: ok,
+    ownership: false,
     routing: ok,
     problem: ok ? "" : `The nameservers of ${hostname} are not ${wanted.join(" and ")} yet.`,
   };
+}
+
+export async function hasChallenge(hostname: string, token: string, resolver: DnsResolver): Promise<boolean> {
+  if (!token) return false;
+  const txt = await safe(resolver.resolveTxt(challengeName(hostname)), [] as string[][]);
+  const expected = challengeValue(token);
+  return txt.some((chunks) => chunks.join("").trim() === expected);
+}
+
+export interface NameserverDomainInput {
+  hostname: string;
+  token: string;
+  expected: readonly string[];
+  /** Ownership was already proven on an earlier check. */
+  ownershipProven: boolean;
+}
+
+/**
+ * Nameservers mode. Pointing the domain at shared nameservers proves nothing
+ * on its own: another customer of the same DNS provider already has that
+ * delegation. Ownership is proven with the TXT challenge, read while the
+ * domain is still served by its existing DNS — once it is delegated here,
+ * TXT answers would come from a zone the requesting site controls.
+ */
+export async function checkNameserverDomain(
+  input: NameserverDomainInput,
+  resolver: DnsResolver,
+): Promise<DnsCheckResult & { provenNow: boolean }> {
+  const delegation = await checkNameservers(input.hostname, input.expected, resolver);
+  let ownership = input.ownershipProven;
+  let provenNow = false;
+  if (!ownership && !delegation.routing && (await hasChallenge(input.hostname, input.token, resolver))) {
+    ownership = true;
+    provenNow = true;
+  }
+  let problem = "";
+  if (!ownership) {
+    problem = delegation.routing
+      ? `${input.hostname} already uses these nameservers, so ownership cannot be proven here. ` +
+        `Add the TXT record ${challengeName(input.hostname)} at the DNS provider the domain used before, ` +
+        "point the nameservers back there until it is verified, or connect it with DNS records."
+      : `The TXT record ${challengeName(input.hostname)} was not found yet. Add it at your current DNS provider before changing nameservers.`;
+  } else if (!delegation.routing) {
+    problem = delegation.problem;
+  }
+  return { ownership, routing: delegation.routing, problem, provenNow };
 }
