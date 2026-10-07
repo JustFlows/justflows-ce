@@ -74,6 +74,69 @@ export async function otherSitesHaveActivePlugin(pluginId: string, siteId: strin
   }
 }
 
+/**
+ * Another site keeps its own copy of the main site's plugin row. The copy is
+ * stale when the version differs, and also when the main site reinstalled the
+ * same version: each upload lands in a new `<version>/<digest>/` folder and the
+ * old folder is deleted, so a copy with the old `installedPath` points nowhere
+ * (no admin screens, assets, or templates on that site).
+ */
+export function subsitePluginCopyIsStale(
+  local: { version: string; manifest: unknown },
+  root: { version: string; manifest: unknown },
+): boolean {
+  if (local.version !== root.version) return true;
+  return JSON.stringify(asManifest(local.manifest)) !== JSON.stringify(asManifest(root.manifest));
+}
+
+const SUBSITE_SYNC_TTL_MS = 15_000;
+const subsiteSyncedAt = new Map<string, number>();
+
+/**
+ * Bring this site's copies of the main site's plugins up to date. Runs before
+ * the admin menu and plugin admin screens read the local rows, so a reinstall
+ * on the main site reaches other sites without anyone opening Extensions there.
+ * Returns true when a row changed.
+ */
+export async function syncSubsitePluginCopies(siteId: string): Promise<boolean> {
+  const last = subsiteSyncedAt.get(siteId);
+  if (last !== undefined && Date.now() - last < SUBSITE_SYNC_TTL_MS) return false;
+  subsiteSyncedAt.set(siteId, Date.now());
+
+  const rootId = await installationRootSiteId();
+  if (!rootId || rootId === siteId) return false;
+
+  let changed = false;
+  try {
+    const db = await getDb();
+    const localRows = await db.query<PluginRow>("SELECT * FROM plugins WHERE site_id = ?", [siteId]);
+    if (localRows.length === 0) return false;
+    const control = await getControlDb();
+    for (const raw of localRows) {
+      const local = parseRow(raw);
+      const rows = await control.query<PluginRow>(
+        "SELECT * FROM plugins WHERE site_id = ? AND plugin_id = ? LIMIT 1",
+        [rootId, local.plugin_id],
+      );
+      const root = rows[0] ? parseRow(rows[0]) : null;
+      if (!root || !subsitePluginCopyIsStale(local, root)) continue;
+      await insertPlugin(siteId, {
+        pluginId: root.plugin_id,
+        version: root.version,
+        manifest: root.manifest,
+      });
+      changed = true;
+    }
+  } catch {
+    // No tenancy or plugin tables yet.
+  }
+  if (changed) {
+    const { clearPluginAdminAppCache } = await import("./plugin-admin-app.js");
+    clearPluginAdminAppCache();
+  }
+  return changed;
+}
+
 function stamp(): string {
   return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
 }
@@ -160,7 +223,7 @@ export async function listVisiblePlugins(siteId: string): Promise<PluginDto[]> {
     if (!(await isPluginOfferedToOtherSites(row.plugin_id, rootId))) continue;
     offeredIds.add(row.plugin_id);
     const local = await getPlugin(siteId, row.plugin_id);
-    if (local && local.version !== row.version) {
+    if (local && subsitePluginCopyIsStale(local, row)) {
       await insertPlugin(siteId, {
         pluginId: row.plugin_id,
         version: row.version,
@@ -215,7 +278,7 @@ export async function prepareSubsitedActivation(
   }
   const local = await getPlugin(siteId, pluginId);
   if (local) {
-    if (local.version !== rootPlugin.version) {
+    if (subsitePluginCopyIsStale(local, rootPlugin)) {
       await insertPlugin(siteId, {
         pluginId: rootPlugin.plugin_id,
         version: rootPlugin.version,
