@@ -17,7 +17,7 @@ import {
 } from "../../lib/media/media-write.js";
 import { readMediaSettings, applyMediaSettings } from "../../lib/media/media-settings.js";
 import { regenerateStatus, startRegenerate } from "../../lib/media/media-regenerate.js";
-import { admitUpload } from "../../lib/security/upload-admission.js";
+import { admitUpload, multipartLimits } from "../../lib/security/upload-admission.js";
 
 const router = Router();
 const mediaUploadRequestLimit = rateLimit({
@@ -34,7 +34,7 @@ const regenerateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: maxUploadBytes() } });
+const upload = multer({ storage: multer.memoryStorage(), limits: multipartLimits(maxUploadBytes()) });
 const admitMediaUpload = admitUpload({ name: "media", maxBytes: maxUploadBytes(), perSite: 4, global: 16 });
 
 /**
@@ -49,8 +49,13 @@ function uploadSingle(field: string) {
     next: import("express").NextFunction,
   ) => {
     upload.single(field)(req, res, (err: unknown) => {
+      if (res.headersSent) return;
       if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
         res.status(413).json({ error: `File is too large (limit ${formatMb(maxUploadBytes())}).` });
+        return;
+      }
+      if (err instanceof MulterError) {
+        res.status(400).json({ error: "The upload has unexpected or too many fields." });
         return;
       }
       next(err);

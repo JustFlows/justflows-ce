@@ -5,10 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { admitUpload, createKeyedLock, createSemaphore } from "../../../src/lib/security/upload-admission.js";
 
 function fakeRequest(siteId: string, contentLength?: number) {
-  return {
+  return Object.assign(new EventEmitter(), {
     session: { siteId },
     get: (name: string) => (name === "content-length" && contentLength !== undefined ? String(contentLength) : undefined),
-  } as never;
+  }) as never;
 }
 
 function fakeResponse() {

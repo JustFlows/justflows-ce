@@ -15,10 +15,10 @@ import {
 import { clientIp } from "../../lib/security/rate-limit.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { badRequest, ensureKeyCan, notFound, paginate, relay, sendJson } from "./envelope.js";
-import { admitUpload } from "../../lib/security/upload-admission.js";
+import { admitUpload, multipartLimits } from "../../lib/security/upload-admission.js";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: maxUploadBytes() } });
+const upload = multer({ storage: multer.memoryStorage(), limits: multipartLimits(maxUploadBytes()) });
 const admitMediaUpload = admitUpload({ name: "media", maxBytes: maxUploadBytes(), perSite: 4, global: 16 });
 
 // Writing an uploaded file to disk is expensive work; CodeQL only models
@@ -63,9 +63,11 @@ router.post("/", uploadLimit, (req, res) => {
     if (!(await ensureKeyCan(req, res, "media:upload"))) return;
     admitMediaUpload(req, res, () => upload.single("file")(req, res, (err: unknown) => {
       void (async () => {
+        if (res.headersSent) return;
         if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
           return badRequest(res, `File is too large (limit ${formatMb(maxUploadBytes())}).`);
         }
+        if (err instanceof MulterError) return badRequest(res, "The upload has unexpected or too many fields.");
         if (err) return sendServerError(res, "manage.media", err);
         const file = req.file;
         if (!file) return badRequest(res, "No file provided");

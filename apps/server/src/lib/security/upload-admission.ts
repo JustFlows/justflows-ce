@@ -82,6 +82,22 @@ export function admitUpload(options: UploadAdmissionOptions) {
     };
     res.once("finish", release);
     res.once("close", release);
+    // Count what actually arrives: a chunked request has no Content-Length to
+    // check up front. Multer pipes the request in the same tick, so this
+    // listener sees the same bytes without taking any from it.
+    const budget = options.maxBytes + MULTIPART_OVERHEAD;
+    let received = 0;
+    const count = (chunk: Buffer) => {
+      received += chunk.length;
+      if (received <= budget) return;
+      req.off("data", count);
+      req.unpipe();
+      if (!res.headersSent) {
+        res.status(413).set("Connection", "close").json({ error: `File is too large (limit ${Math.round(options.maxBytes / 1024 / 1024)} MB).` });
+      }
+      req.destroy();
+    };
+    req.on("data", count);
     next();
   };
 }
@@ -126,4 +142,41 @@ export const PACKAGE_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 export function admitPackageUpload(name: string) {
   return admitUpload({ name, maxBytes: PACKAGE_UPLOAD_BYTES, perSite: 1, global: 4 });
+}
+
+/**
+ * Multer limits for routes that accept a file and, at most, a few small text
+ * fields. Multer's defaults allow unlimited fields of up to 1 MB each, all
+ * buffered in memory, which a file-size limit does nothing about.
+ */
+export function multipartLimits(fileSize: number, files = 1) {
+  return {
+    fileSize,
+    files,
+    fields: 10,
+    fieldSize: 16 * 1024,
+    fieldNameSize: 100,
+    parts: files + 10,
+    headerPairs: 100,
+  };
+}
+
+/** Wrap a multer middleware so its limit errors become 413/400 answers instead of 500s. */
+export function withMultipartErrors(
+  middleware: (req: Request, res: Response, next: (err?: unknown) => void) => void,
+) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    middleware(req, res, (err?: unknown) => {
+      // The byte budget already answered and dropped the connection.
+      if (res.headersSent) return;
+      if (err && typeof err === "object" && (err as { name?: string }).name === "MulterError") {
+        const code = (err as { code?: string }).code ?? "";
+        res
+          .status(code === "LIMIT_FILE_SIZE" ? 413 : 400)
+          .json({ error: code === "LIMIT_FILE_SIZE" ? "File is too large." : "The upload has unexpected or too many fields." });
+        return;
+      }
+      next(err as Error | undefined);
+    });
+  };
 }
