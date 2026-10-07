@@ -729,10 +729,11 @@ export async function replaceQuotaDefaults(
   const checked = validateAssignment(scope, limits);
   if (!checked.ok) return checked;
   const store = await readDefaultStore();
-  const next: Record<string, number> = {};
-  for (const [key, limit] of Object.entries(checked.limits)) {
-    if (limit !== null) next[key] = limit;
-  }
+  // Built from entries, not `next[key] =`: keys are request data (validated
+  // meter keys), and a computed write is a property-injection sink.
+  const next: Record<string, number> = Object.fromEntries(
+    Object.entries(checked.limits).filter((entry): entry is [string, number] => entry[1] !== null),
+  );
   store[scope] = next;
   await writeDefaultStore(store);
   await audit(actorId, scope, JSON.stringify(next));
