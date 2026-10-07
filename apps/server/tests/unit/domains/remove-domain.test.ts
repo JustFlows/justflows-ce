@@ -91,8 +91,13 @@ beforeEach(() => {
   ];
 });
 
+function markAttached() {
+  m.rows = m.rows.map((row) => ({ ...row, verified: true, status: "active", provider_attached_at: "2026-10-07 11:00:00" }));
+}
+
 describe("removing a custom domain", () => {
   it("removes both hostnames and the DNS zone at the provider, then the rows", async () => {
+    markAttached();
     const result = await removeCustomDomain("site", parent);
     expect(result.ok).toBe(true);
     expect(m.detach.mock.calls.map((call) => call[0])).toEqual(["example.com", "www.example.com"]);
@@ -101,6 +106,7 @@ describe("removing a custom domain", () => {
   });
 
   it("keeps the domain when the provider refuses", async () => {
+    markAttached();
     m.deleteZone.mockRejectedValue(new DomainProviderError("Bunny.net could not be reached."));
     const result = await removeCustomDomain("site", parent);
     expect(result).toMatchObject({ ok: false, status: 502 });
@@ -109,5 +115,22 @@ describe("removing a custom domain", () => {
     );
     expect(m.detach).toHaveBeenCalledTimes(2);
     expect(m.deleted).toEqual([]);
+  });
+
+  it("never detaches a hostname an unverified claim did not attach", async () => {
+    m.rows = [
+      { ...m.rows[0]!, connect_mode: "records", dns_zone_id: null },
+    ];
+    const result = await removeCustomDomain("site", parent);
+    expect(result.ok).toBe(true);
+    expect(m.detach).not.toHaveBeenCalled();
+    expect(m.deleted).toEqual([parent]);
+  });
+
+  it("still removes the DNS zone an unverified nameserver claim created", async () => {
+    const result = await removeCustomDomain("site", parent);
+    expect(result.ok).toBe(true);
+    expect(m.detach).not.toHaveBeenCalled();
+    expect(m.deleteZone).toHaveBeenCalledWith("910531");
   });
 });

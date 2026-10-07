@@ -57,11 +57,12 @@ interface DomainRow {
   checked_at: string | Date | null;
   verified_at: string | Date | null;
   ownership_proven_at?: string | Date | null;
+  provider_attached_at?: string | Date | null;
   created_at: string | Date;
 }
 
 const COLUMNS = `id, site_id, hostname, kind, verified, is_primary, status, connect_mode, verification_token, parent_id,
-  provider, dns_zone_id, tls_status, last_error, check_failures, checked_at, verified_at, ownership_proven_at, created_at`;
+  provider, dns_zone_id, tls_status, last_error, check_failures, checked_at, verified_at, ownership_proven_at, provider_attached_at, created_at`;
 
 export interface DnsInstruction {
   type: "TXT" | "CNAME" | "A" | "AAAA" | "NS" | "ALIAS";
@@ -499,6 +500,13 @@ async function activate(
 ): Promise<{ tls: TlsStatus; error: string | null }> {
   try {
     await provider.attachHostname(String(row.hostname));
+    // From here on, this claim owns the provider-side hostname and may remove it.
+    if (!row.provider_attached_at) {
+      await (await getControlDb()).run(
+        "UPDATE site_domains SET provider_attached_at = ? WHERE id = ? AND provider_attached_at IS NULL",
+        [stamp(), String(row.id)],
+      );
+    }
     const tls = await provider.issueCertificate(String(row.hostname));
     return {
       tls,
@@ -700,11 +708,16 @@ async function releaseAtProvider(
   let failure: string | null = null;
   for (const row of rows) {
     if (String(row.kind) !== "custom" || !row.provider) continue;
-    try {
-      await provider.detachHostname(String(row.hostname));
-    } catch (err) {
-      failure ??= shortError(err);
-      console.error("[justflows] could not detach domain:", JSON.stringify(shortError(err)));
+    // Only detach a hostname this claim attached. A pending or unverified
+    // claim never did, and the same hostname may belong to something else at
+    // the provider; when in doubt, leave it alone.
+    if (row.provider_attached_at) {
+      try {
+        await provider.detachHostname(String(row.hostname));
+      } catch (err) {
+        failure ??= shortError(err);
+        console.error("[justflows] could not detach domain:", JSON.stringify(shortError(err)));
+      }
     }
     if (row.dns_zone_id) {
       try {
