@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: MIT
 
 import { Router, type Request, type Response } from "express";
+import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getControlDb } from "../../lib/database/db.js";
 import { requireSession } from "../../middleware/auth.js";
 import { isPlatformOperator } from "../../lib/tenancy/access.js";
 import { signupBaseDomain } from "../../lib/tenancy/host.js";
-import { buildSaasSettings, readSaasSettings, withPurgeAfterDays } from "../../lib/tenancy/saas-settings.js";
+import { buildSaasSettings, readSaasSettings, readSignupDatabaseTarget, withPurgeAfterDays } from "../../lib/tenancy/saas-settings.js";
 import { purgeDeletedTenant } from "../../lib/tenancy/purge-deleted.js";
 import {
   createAdditionalSite,
   createWorkspace,
   deleteTenant,
   migrateTenantDatabase,
+  probeSeparateDatabase,
   reactivateTenant,
   suspendTenant,
 } from "../../lib/tenancy/provision.js";
@@ -82,8 +84,20 @@ router.get("/overview", async (_req, res) => {
     [false, true],
   );
   const settings = await db.query<{ value: unknown }>("SELECT value FROM platform_settings WHERE setting_key = 'saas' LIMIT 1");
-  res.json({ tenants, sites, databases, settings: readSaasSettings(settings[0]?.value) });
+  res.json({
+    tenants,
+    sites,
+    databases,
+    settings: readSaasSettings(settings[0]?.value),
+    installationPort: installationDatabasePort(),
+  });
 });
+
+function installationDatabasePort(): number {
+  const configured = Number(process.env.DB_PORT);
+  if (Number.isInteger(configured) && configured >= 1 && configured <= 65535) return configured;
+  return process.env.DB_DRIVER === "postgres" ? 5432 : 3306;
+}
 
 const CreateTenant = z.object({
   name: z.string().min(1).max(255),
@@ -107,7 +121,8 @@ router.get("/sites/:id", async (req, res) => {
     res.status(404).json({ error: "That website was not found." });
     return;
   }
-  res.json(site);
+  const { listQuotaMeters } = await import("../../lib/tenancy/quotas.js");
+  res.json({ ...site, quotas: { meters: await listQuotaMeters("site", String(req.params.id)) } });
 });
 
 const SiteDomainEdit = z.object({
@@ -248,7 +263,8 @@ router.get("/tenants/:id", async (req, res) => {
     res.status(404).json({ error: "That workspace was not found." });
     return;
   }
-  res.json(workspace);
+  const { listQuotaMeters } = await import("../../lib/tenancy/quotas.js");
+  res.json({ ...workspace, quotas: { meters: await listQuotaMeters("workspace", String(req.params.id)) } });
 });
 
 const WorkspaceEdit = z.object({
@@ -266,6 +282,61 @@ router.put("/tenants/:id", async (req, res) => {
   res.status(result.ok ? 200 : result.status).json(result.ok ? result.workspace : { error: result.error });
 });
 
+function quotaFailure(result: { error: string; code?: string; meter?: string }): { error: string; code?: string; meter?: string } {
+  return { error: result.error, ...(result.code ? { code: result.code, meter: result.meter } : {}) };
+}
+
+const QuotaLimitsSchema = z.record(
+  z.string().regex(/^[a-z][a-zA-Z0-9.-]{0,118}$/),
+  z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).nullable(),
+);
+
+router.put("/sites/:id/quotas", async (req, res) => {
+  const body = z.object({ limits: QuotaLimitsSchema }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid limits" });
+    return;
+  }
+  const { replaceQuotaLimits } = await import("../../lib/tenancy/quotas.js");
+  const result = await replaceQuotaLimits("site", String(req.params.id), body.data.limits, req.session!.userId);
+  res.status(result.ok ? 200 : result.status).json(result.ok ? { quotas: { meters: result.meters } } : { error: result.error });
+});
+
+router.put("/tenants/:id/quotas", async (req, res) => {
+  const body = z.object({ limits: QuotaLimitsSchema }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid limits" });
+    return;
+  }
+  const { replaceQuotaLimits } = await import("../../lib/tenancy/quotas.js");
+  const result = await replaceQuotaLimits("workspace", String(req.params.id), body.data.limits, req.session!.userId);
+  res.status(result.ok ? 200 : result.status).json(result.ok ? { quotas: { meters: result.meters } } : { error: result.error });
+});
+
+router.get("/quota-defaults", async (_req, res) => {
+  const { listQuotaDefaultMeters } = await import("../../lib/tenancy/quotas.js");
+  res.json({
+    workspace: { meters: await listQuotaDefaultMeters("workspace") },
+    site: { meters: await listQuotaDefaultMeters("site") },
+  });
+});
+
+router.put("/quota-defaults/:scope", async (req, res) => {
+  const scope = req.params.scope === "workspace" || req.params.scope === "site" ? req.params.scope : null;
+  if (!scope) {
+    res.status(400).json({ error: "Choose workspace or site." });
+    return;
+  }
+  const body = z.object({ limits: QuotaLimitsSchema }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid limits" });
+    return;
+  }
+  const { replaceQuotaDefaults } = await import("../../lib/tenancy/quotas.js");
+  const result = await replaceQuotaDefaults(scope, body.data.limits, req.session!.userId);
+  res.status(result.ok ? 200 : result.status).json(result.ok ? { quotas: { meters: result.meters } } : { error: result.error });
+});
+
 router.post("/tenants/:id/sites", async (req, res) => {
   const body = CreateSite.safeParse(req.body);
   if (!body.success) {
@@ -277,7 +348,7 @@ router.post("/tenants/:id/sites", async (req, res) => {
     ...body.data,
     actorId: req.session!.userId,
   });
-  res.status(result.ok ? 201 : result.status).json(result.ok ? result : { error: result.error });
+  res.status(result.ok ? 201 : result.status).json(result.ok ? result : quotaFailure(result));
 });
 
 router.post("/tenants/:id/suspend", async (req, res) => {
@@ -362,8 +433,58 @@ router.put("/settings", async (req, res) => {
   }
   const settings = built.stored;
   await storeSaasSettings(db, driver, settings);
+  await copySignupDatabaseOntoWorkspaces(db, existing[0]?.value, settings);
   res.json({ ok: true, settings: readSaasSettings(settings) });
 });
+
+const testDatabaseLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
+
+router.post("/settings/test-database", testDatabaseLimit, async (req, res) => {
+  const body = DatabaseSchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid connection" });
+    return;
+  }
+  let password = body.data.password;
+  if (!password) {
+    const db = await getControlDb();
+    const existing = await db.query<{ value: unknown }>("SELECT value FROM platform_settings WHERE setting_key = 'saas' LIMIT 1");
+    password = readSignupDatabaseTarget(existing[0]?.value)?.password ?? "";
+  }
+  if (!password) {
+    res.status(400).json({ error: "Database password is required." });
+    return;
+  }
+  const result = await probeSeparateDatabase({ ...body.data, password });
+  if (!result.ok) {
+    res.status(502).json({ error: result.error });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+/** Workspace rows keep a copy of the signup connection. A later edit of that connection updates those copies. */
+async function copySignupDatabaseOntoWorkspaces(
+  db: Awaited<ReturnType<typeof getControlDb>>,
+  previous: unknown,
+  settings: { signupDatabaseMode: "current" | "separate"; signupDatabase?: { host: string; port: number; database: string; username: string; passwordCiphertext: string } },
+): Promise<void> {
+  const prior = readSaasSettings(previous)?.signupDatabase;
+  const next = settings.signupDatabase;
+  if (settings.signupDatabaseMode !== "separate" || !prior || !next) return;
+  const stamp = new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  await db.run(
+    `UPDATE tenant_databases
+     SET host = ?, port = ?, database_name = ?, username = ?, password_ciphertext = ?, last_error = NULL, updated_at = ?
+     WHERE mode = 'separate' AND host = ? AND database_name = ? AND username = ?`,
+    [next.host, next.port, next.database, next.username, next.passwordCiphertext, stamp, prior.host, prior.database, prior.username],
+  );
+}
 
 router.put("/settings/purge", async (req, res) => {
   const body = z.object({ purgeAfterDays: z.number().int().min(0).max(3650) }).safeParse(req.body);

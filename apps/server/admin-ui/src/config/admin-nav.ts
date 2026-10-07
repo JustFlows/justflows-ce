@@ -231,7 +231,16 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.apiKeys", to: "/admin/settings/api", icon: "🔑" },
       { key: "nav.ai", to: "/admin/settings/ai", icon: "✦" },
       { key: "nav.cdn", to: "/admin/settings/cdn", icon: "☁" },
-      { key: "nav.platform", to: "/admin/platform", icon: "🏢" },
+    ],
+  },
+  {
+    key: "nav.domains.platform",
+    slug: "platform",
+    icon: "🏢",
+    items: [
+      { key: "nav.workspaces", to: "/admin/platform/workspaces", icon: "🏢" },
+      { key: "nav.sites", to: "/admin/platform/sites", icon: "🌐" },
+      { key: "nav.defaults", to: "/admin/platform/defaults", icon: "⚖" },
     ],
   },
 ];
@@ -389,6 +398,8 @@ export interface NavAudience {
   installationRoot?: boolean;
   /** False for a site administrator who cannot manage workspaces. */
   platformOperator?: boolean;
+  /** Admin paths this website is not allowed to open. */
+  disabledPaths?: readonly string[];
 }
 
 const INSTALLATION_ROOT_PREFIXES = ["/admin/health", "/admin/updates", "/admin/marketplace"];
@@ -408,6 +419,7 @@ export function canAccessPath(
   pathname = internalAdminPath(pathname);
   if (audience?.installationRoot === false && matchesPrefix(pathname, INSTALLATION_ROOT_PREFIXES)) return false;
   if (audience?.platformOperator === false && matchesPrefix(pathname, OPERATOR_PREFIXES)) return false;
+  if (audience?.disabledPaths && matchesPrefix(pathname, audience.disabledPaths)) return false;
   const rule = navRuleFor(pathname);
   if (!rule) return true;
   return (NAV_ACCESS[rule] ?? ALL_ADMIN_ROLES).includes(role);

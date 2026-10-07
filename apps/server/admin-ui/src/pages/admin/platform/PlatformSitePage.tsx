@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Link, useNavigate } from "../../../admin-router";
 import { useT } from "../../../i18n/I18nProvider";
 import { initialJson } from "../../../ssr-data";
+import QuotaLimitsCard, { type QuotaMeter } from "./QuotaLimitsCard";
 
 interface PlatformSite {
   site: {
@@ -45,6 +46,7 @@ interface PlatformSite {
     scope: "site" | "workspace";
     editable: boolean;
   } | null;
+  quotas?: { meters: QuotaMeter[] };
 }
 
 interface DomainDraft {
@@ -201,7 +203,7 @@ export default function PlatformSitePage() {
 
   const locked = record != null && record.site.status !== "active" && record.site.status !== "suspended";
   const openUrl = safeHttpUrl(record?.site.url);
-  const goBack = () => navigate("/admin/platform");
+  const goBack = () => navigate("/admin/platform/sites");
 
   if (!record) {
     return (
@@ -464,6 +466,11 @@ export default function PlatformSitePage() {
             </section>
           </aside>
         </form>
+        <QuotaLimitsCard
+          key={id}
+          endpoint={`/api/platform/sites/${encodeURIComponent(id ?? "")}/quotas`}
+          meters={record.quotas?.meters ?? []}
+        />
       </div>
     </>
   );

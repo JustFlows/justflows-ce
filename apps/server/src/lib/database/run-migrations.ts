@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { migrationsDir } from "../runtime/jf-root.js";
 
-export const MIGRATION_ORDER = ["0036_baseline", "0037_tenancy"] as const;
+export const MIGRATION_ORDER = ["0036_baseline", "0037_tenancy", "0038_quota_limits"] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";
 

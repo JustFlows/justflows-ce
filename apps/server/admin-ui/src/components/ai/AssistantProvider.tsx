@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { useCapability } from "../SessionProvider";
+import { useCapability, useFeatureEnabled } from "../SessionProvider";
 import AiErrorBoundary from "./AiErrorBoundary";
 import AssistantPanel from "./AssistantPanel";
 
@@ -16,7 +16,7 @@ interface AssistantContextValue {
 const AssistantContext = createContext<AssistantContextValue>({ available: false, open: () => {}, close: () => {} });
 
 export function AssistantProvider({ children }: { children: ReactNode }) {
-  const available = useCapability("ai:use");
+  const available = useCapability("ai:use") && useFeatureEnabled("feature" + ".ai");
   const [isOpen, setOpen] = useState(false);
   const [context, setContext] = useState<string | undefined>();
 

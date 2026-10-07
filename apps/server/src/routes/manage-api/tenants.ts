@@ -111,7 +111,9 @@ router.post("/:id/sites", async (req, res) => {
     ...body.data,
     actorId: req.apiKeyOwner!.userId,
   });
-  res.status(result.ok ? 201 : result.status).json(result.ok ? result : { error: result.error });
+  res.status(result.ok ? 201 : result.status).json(
+    result.ok ? result : { error: result.error, ...(result.code ? { code: result.code, meter: result.meter } : {}) },
+  );
 });
 
 router.post("/:id/suspend", async (req, res) => {
@@ -131,6 +133,75 @@ router.delete("/:id", async (req, res) => {
   const dropDatabase = req.body?.dropDatabase === true;
   const result = await deleteTenant(String(req.params.id), req.apiKeyOwner!.userId, dropDatabase);
   res.status(result.ok ? 200 : result.status).json(result.ok ? { ok: true } : { error: result.error });
+});
+
+const QuotaLimitsSchema = z.record(
+  z.string().regex(/^[a-z][a-zA-Z0-9.-]{0,118}$/),
+  z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).nullable(),
+);
+
+async function saveQuotas(
+  scope: "workspace" | "site",
+  scopeId: string,
+  body: unknown,
+  actorId: string,
+  res: Parameters<typeof sendError>[0],
+): Promise<void> {
+  const parsed = z.object({ limits: QuotaLimitsSchema }).safeParse(body);
+  if (!parsed.success) {
+    sendError(res, 400, parsed.error.issues[0]?.message ?? "Invalid limits");
+    return;
+  }
+  const { replaceQuotaLimits } = await import("../../lib/tenancy/quotas.js");
+  const result = await replaceQuotaLimits(scope, scopeId, parsed.data.limits, actorId);
+  if (!result.ok) {
+    sendError(res, result.status, result.error);
+    return;
+  }
+  res.json({ quotas: { meters: result.meters } });
+}
+
+router.get("/:id/quotas", async (req, res) => {
+  if (!(await requireOperator(req, res))) return;
+  const db = await getControlDb();
+  const rows = await db.query<{ id: string }>(
+    "SELECT id FROM tenants WHERE id = ? AND status <> 'deleted' LIMIT 1",
+    [String(req.params.id)],
+  );
+  if (!rows[0]) {
+    sendError(res, 404, "That workspace was not found.");
+    return;
+  }
+  const { listQuotaMeters } = await import("../../lib/tenancy/quotas.js");
+  res.json({ quotas: { meters: await listQuotaMeters("workspace", String(req.params.id)) } });
+});
+
+router.put("/:id/quotas", async (req, res) => {
+  if (!(await requireOperator(req, res))) return;
+  await saveQuotas("workspace", String(req.params.id), req.body, req.apiKeyOwner!.userId, res);
+});
+
+export const siteQuotaRoutes = Router();
+siteQuotaRoutes.use(writeLimit);
+
+siteQuotaRoutes.get("/:id/quotas", async (req, res) => {
+  if (!(await requireOperator(req, res))) return;
+  const db = await getControlDb();
+  const rows = await db.query<{ id: string }>(
+    "SELECT id FROM sites WHERE id = ? AND status <> 'deleted' LIMIT 1",
+    [String(req.params.id)],
+  );
+  if (!rows[0]) {
+    sendError(res, 404, "That website was not found.");
+    return;
+  }
+  const { listQuotaMeters } = await import("../../lib/tenancy/quotas.js");
+  res.json({ quotas: { meters: await listQuotaMeters("site", String(req.params.id)) } });
+});
+
+siteQuotaRoutes.put("/:id/quotas", async (req, res) => {
+  if (!(await requireOperator(req, res))) return;
+  await saveQuotas("site", String(req.params.id), req.body, req.apiKeyOwner!.userId, res);
 });
 
 export default router;

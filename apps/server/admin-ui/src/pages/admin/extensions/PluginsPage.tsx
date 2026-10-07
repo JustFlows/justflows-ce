@@ -103,18 +103,26 @@ export default function PluginsPage() {
     }
   }
 
-  async function togglePlugin(id: string, currentStatus: Plugin["status"]) {
-    const action = currentStatus === "active" ? "deactivate" : "activate";
-    const res = await fetch(`/api/plugins/${id}/${action}`, { method: "POST" });
-    if (res.ok) {
-      setPlugins((list) => list.map((p) =>
-        p.id === id ? { ...p, status: action === "activate" ? "active" : "inactive" } : p));
-      await refreshMenu();
-      if (action === "activate") {
-        const data = (await res.json().catch(() => ({}))) as { setupPath?: string };
-        if (typeof data.setupPath === "string" && data.setupPath.startsWith("/admin/")) {
-          navigate(data.setupPath);
-        }
+  async function togglePlugin(plugin: Plugin) {
+    const action = plugin.status === "active" ? "deactivate" : "activate";
+    if (action === "deactivate" && !installationRoot) {
+      if (!confirm(t("plugins.deactivateSiteConfirm", { name: plugin.name }))) return;
+    }
+    const res = await fetch(`/api/plugins/${encodeURIComponent(plugin.id)}/${action}`, { method: "POST" });
+    const data = (await res.json().catch(() => ({}))) as { setupPath?: string; error?: string };
+    if (!res.ok) {
+      setDeleteError(data.error ?? t(action === "deactivate" ? "plugins.deactivateFailed" : "plugins.activateFailed"));
+      return;
+    }
+    setPlugins((list) =>
+      list.map((p) =>
+        p.id === plugin.id ? { ...p, status: action === "activate" ? "active" : "inactive" } : p,
+      ),
+    );
+    await refreshMenu();
+    if (action === "activate") {
+      if (typeof data.setupPath === "string" && data.setupPath.startsWith("/admin/")) {
+        navigate(data.setupPath);
       }
     }
   }
@@ -282,7 +290,7 @@ export default function PluginsPage() {
                         {t("plugins.settingsLink")}
                       </Link>
                     )}
-                    <button className="jf-btn jf-btn--ghost" onClick={() => togglePlugin(p.id, p.status)}>
+                    <button className="jf-btn jf-btn--ghost" onClick={() => void togglePlugin(p)}>
                       {p.status === "active" ? t("plugins.deactivate") : t("plugins.activate")}
                     </button>
                     {installationRoot && (

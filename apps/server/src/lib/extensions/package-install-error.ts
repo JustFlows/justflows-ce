@@ -2,6 +2,7 @@
 
 import type { Response } from "express";
 import { ArchiveSafetyError, PackageRejectedError } from "@justflows/installer";
+import { QuotaRefusalError } from "../tenancy/quotas.js";
 
 /**
  * Answer a failed package install.
@@ -14,6 +15,10 @@ import { ArchiveSafetyError, PackageRejectedError } from "@justflows/installer";
  * carry filesystem paths and driver internals into the response.
  */
 export function sendPackageInstallError(res: Response, err: unknown): void {
+  if (err instanceof QuotaRefusalError) {
+    res.status(err.status).json({ error: err.message, code: err.code, meter: err.meter });
+    return;
+  }
   if (err instanceof PackageRejectedError || err instanceof ArchiveSafetyError) {
     res.status(400).json({ error: err.message });
     return;

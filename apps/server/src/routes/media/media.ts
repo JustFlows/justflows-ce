@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { requireInstallationRoot, requireRole } from "../../middleware/auth.js";
+import { requireSiteFeature } from "../../lib/tenancy/site-features.js";
 import { MEDIA_WRITE_ROLES, ROLES } from "../../lib/auth/rbac.js";
 import { formatMb, maxUploadBytes } from "../../lib/media/media-quota.js";
 import multer, { MulterError } from "multer";
@@ -117,7 +118,7 @@ router.post("/settings", requireRole(ROLES.ADMIN), requireInstallationRoot, asyn
   }
 });
 
-router.post("/regenerate", regenerateLimit, requireRole(ROLES.ADMIN), (req, res) => {
+router.post("/regenerate", regenerateLimit, requireRole(ROLES.ADMIN), requireSiteFeature("feature.responsiveImages"), (req, res) => {
   const started = startRegenerate(req.session!.siteId);
   if (!started) {
     res

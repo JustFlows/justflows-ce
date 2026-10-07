@@ -320,6 +320,11 @@ export async function storeMediaUpload(
       },
     };
   }
+  const { enforceQuota } = await import("../tenancy/quotas.js");
+  const configured = await enforceQuota("media.bytes", actor.siteId, file.size);
+  if (configured) {
+    return { status: configured.status, body: { error: configured.error, code: configured.code, meter: configured.meter } };
+  }
 
   const storageKey = `${actor.siteId}/${randomUUID()}${ext}`;
   await getUploadStore().put(storageKey, file.buffer, file.mimetype);

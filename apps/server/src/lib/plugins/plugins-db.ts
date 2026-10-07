@@ -304,6 +304,11 @@ export async function insertPlugin(
 ): Promise<PluginDto> {
   const db = await getDb();
   const existing = await getPlugin(siteId, plugin.pluginId);
+  if (!existing) {
+    const { enforceQuota, QuotaRefusalError } = await import("../tenancy/quotas.js");
+    const quota = await enforceQuota("plugins", siteId, 1);
+    if (quota) throw new QuotaRefusalError(quota);
+  }
   const status = existing?.status ?? plugin.status ?? "installed";
   const stamp = now();
 

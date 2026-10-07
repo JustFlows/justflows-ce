@@ -1162,6 +1162,58 @@ export interface PluginTenancyApi {
   deleteWorkspace(tenantId: string, options?: { dropDatabase?: boolean }): Promise<PluginTenancyResult>;
 }
 
+export type QuotaScope = "workspace" | "site";
+export type QuotaUnit = "count" | "bytes" | "flag";
+
+/** A meter a plugin asks the host to enforce. The key must start with the plugin id. */
+export interface QuotaMeterRegistration {
+  key: string;
+  scope: QuotaScope;
+  label: string;
+  unit: QuotaUnit;
+  /**
+   * Current usage for one workspace or site. The platform limits page calls
+   * this. Omit it when the plugin only passes `used` to `check`.
+   */
+  count?(scopeId: string): Promise<number>;
+}
+
+/** Result of `quotas.check`. `limit` and `remaining` are null when nothing is configured. */
+export interface QuotaDecision {
+  ok: boolean;
+  limit: number | null;
+  used: number;
+  remaining: number | null;
+}
+
+/** One meter as the host currently knows it. `used` is null when it could not be counted. */
+export interface QuotaMeterView {
+  key: string;
+  scope: QuotaScope;
+  label: string;
+  unit: QuotaUnit;
+  limit: number | null;
+  used: number | null;
+}
+
+/**
+ * Configured ceilings. Every plugin may register meters and check them.
+ * `set` writes the same limits a platform operator edits and requires
+ * `platform:tenancy`. A missing limit is unlimited.
+ */
+export interface PluginQuotasApi {
+  register(meter: QuotaMeterRegistration): Unsubscribe;
+  /**
+   * Whether `delta` more units still fit. Core meters (`sites`, `users`,
+   * `content`, `media.bytes`) are counted by the host. A plugin meter needs
+   * `used`, the plugin's own current count, before the new units.
+   */
+  check(key: string, input?: { delta?: number; used?: number }): Promise<QuotaDecision>;
+  get(key: string): Promise<QuotaMeterView>;
+  /** `null` clears the meter back to unlimited. */
+  set(key: string, limit: number | null): Promise<void>;
+}
+
 export interface PluginDatabasesApi {
   /** Probe the site's existing Justflows database. */
   probeShared(): Promise<PluginDatabaseProbeResult>;
@@ -1369,6 +1421,13 @@ export interface PluginContext {
    * suspending, and deleting requires `platform:tenancy`.
    */
   tenancy: PluginTenancyApi;
+
+  /**
+   * Workspace and site ceilings. Register a meter, then `check` it before
+   * creating a record the host does not count itself. `set` requires
+   * `platform:tenancy`.
+   */
+  quotas: PluginQuotasApi;
 
   /**
    * The site cookie registry. `declare()` every non-essential cookie this plugin
