@@ -106,28 +106,48 @@ function runCommand(
  * to npm only when pnpm is genuinely not on PATH.
  */
 function runDependencyInstall(root: string): { ok: boolean; output: string; tool: string } {
+  let installed: { ok: boolean; output: string; tool: string } | undefined;
   if (fs.existsSync(path.join(root, "pnpm-lock.yaml"))) {
     const pnpm = runCommand(
       "pnpm",
       ["install", "--frozen-lockfile", "--prod=false", "--ignore-scripts"],
       root,
     );
-    if (pnpm.ok) return { ok: true, output: "Dependencies installed with pnpm", tool: "pnpm" };
-    if (!/ENOENT|not found|not recognized/i.test(pnpm.output)) {
+    if (pnpm.ok) installed = { ok: true, output: "Dependencies installed with pnpm", tool: "pnpm" };
+    else if (!/ENOENT|not found|not recognized/i.test(pnpm.output)) {
       return { ok: false, output: pnpm.output, tool: "pnpm" };
     }
     // pnpm not available — fall through to npm.
   }
-  const npm = runCommand(
-    resolveNpmBin(),
-    ["install", "--ignore-scripts", "--no-audit", "--no-fund"],
-    root,
-  );
-  return {
-    ok: npm.ok,
-    output: npm.ok ? "Dependencies installed with npm" : npm.output,
-    tool: "npm",
-  };
+  if (!installed) {
+    const npm = runCommand(
+      resolveNpmBin(),
+      ["install", "--ignore-scripts", "--no-audit", "--no-fund"],
+      root,
+    );
+    installed = {
+      ok: npm.ok,
+      output: npm.ok ? "Dependencies installed with npm" : npm.output,
+      tool: "npm",
+    };
+  }
+  if (!installed.ok) return installed;
+
+  // The lockfile often names sharp's platform packages without resolving them.
+  // Install the binary for this machine before restart, or the new process
+  // boots into the temporary error page.
+  const script = path.join(root, "scripts", "ensure-sharp-runtime.js");
+  if (!fs.existsSync(script)) return installed;
+  const sharp = runCommand(process.execPath, [script], root, 5 * 60 * 1000);
+  if (!sharp.ok) {
+    return {
+      ok: false,
+      output: sharp.output || "Could not install the sharp binary for this system",
+      tool: installed.tool,
+    };
+  }
+  const note = sharp.output.trim();
+  return note ? { ...installed, output: `${installed.output}. ${note}` } : installed;
 }
 
 async function walkFiles(dir: string, base = dir): Promise<string[]> {
