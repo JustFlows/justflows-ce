@@ -65,6 +65,8 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
       packagesDir,
       justflowsVersion: getJustflowsVersion(),
       source: "upload",
+      // Shared between sites: never replace files another site may be using.
+      immutable: true,
       verify: (manifest, digest) => {
         if (manifest.type !== "css-provider") {
           throw new Error(
