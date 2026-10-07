@@ -161,9 +161,12 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
   const entries: AdminMenuEntry[] = [];
   const seenPaths = new Set<string>();
   const setupByPlugin = new Map<string, string>();
+  /** Plugins active on this site — used to drop stale adminApp / filter leftovers. */
+  const activePluginIds = new Set<string>();
 
   for (const row of rows) {
     if (!MENU_VISIBLE_STATUSES.has(row.status)) continue;
+    activePluginIds.add(row.plugin_id);
 
     let manifest: Record<string, unknown> = {};
     try {
@@ -206,12 +209,18 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
   );
 
   const { getPluginAdminRoutes } = await import("../plugins/plugin-admin-app.js");
-  const adminAppRoutes = await getPluginAdminRoutes(siteId).catch(() => []);
-
-  return stampAdminAppUrls(
-    stampSetupPaths(finalizeAdminMenu(Array.isArray(filtered) ? filtered : entries), setupByPlugin),
-    adminAppRoutes,
+  // Re-check against this site's active set. Sub-site deactivate does not unload
+  // the shared module, so the adminApp memo can briefly keep another site's
+  // screens; never synthesize nav for a plugin this site has turned off.
+  const adminAppRoutes = (await getPluginAdminRoutes(siteId).catch(() => [])).filter((route) =>
+    activePluginIds.has(route.pluginId),
   );
+
+  const menu = finalizeAdminMenu(Array.isArray(filtered) ? filtered : entries).filter((item) =>
+    activePluginIds.has(item.pluginId),
+  );
+
+  return stampAdminAppUrls(stampSetupPaths(menu, setupByPlugin), adminAppRoutes);
 }
 
 /**

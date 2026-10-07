@@ -111,6 +111,9 @@ export async function createRole(input: RoleInput, actor: RoleAdminActor): Promi
   if (input.capabilities.some((capability) => !available.has(capability))) {
     return { status: 400, body: { error: "Unknown or inactive capability" } };
   }
+  const { enforceQuota } = await import("../tenancy/quotas.js");
+  const quota = await enforceQuota("roles", actor.siteId, 1);
+  if (quota) return { status: quota.status, body: { error: quota.error, code: quota.code, meter: quota.meter } };
   const id = randomUUID();
   await (
     await getDb()

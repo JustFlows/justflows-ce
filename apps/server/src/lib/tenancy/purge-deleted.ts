@@ -85,11 +85,25 @@ async function removeSiteFiles(siteId: string, hostnames: string[]): Promise<voi
   }
 }
 
-async function deleteSiteRows(client: Pick<DbClient, "run">, siteIds: string[], tenantId: string): Promise<void> {
+function databaseErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object" || !("code" in error)) return undefined;
+  return typeof error.code === "string" ? error.code : undefined;
+}
+
+async function deleteSiteRows(client: Pick<DbClient, "run">, siteIds: string[], tenantId: string, allowMissingTables = false): Promise<void> {
+  const remove = async (sql: string, id: string): Promise<void> => {
+    try {
+      await client.run(sql, [id]);
+    } catch (error) {
+      // A failed provisioning attempt may never have created these tables.
+      // Only separate content databases may be incomplete; root cleanup stays strict.
+      if (!allowMissingTables || !["ER_NO_SUCH_TABLE", "42P01"].includes(databaseErrorCode(error) ?? "")) throw error;
+    }
+  };
   for (const siteId of siteIds) {
-    await client.run("DELETE FROM sites WHERE id = ?", [siteId]);
+    await remove("DELETE FROM sites WHERE id = ?", siteId);
   }
-  await client.run("DELETE FROM tenants WHERE id = ?", [tenantId]);
+  await remove("DELETE FROM tenants WHERE id = ?", tenantId);
 }
 
 /**
@@ -142,18 +156,23 @@ export async function purgeDeletedTenant(tenantId: string, actorId: string | nul
     const shared = Number(others[0]?.count ?? 0) > 0;
     const password = decryptSecret(row.password_ciphertext);
     const engine = driver();
-    const content = await createDbClient({
-      driver: engine,
-      host: row.host,
-      port: String(row.port),
-      database: row.database_name,
-      username: row.username,
-      password,
-    });
+    let content: DbClient | undefined;
     try {
-      await deleteSiteRows(content, sites.map((site) => site.id), tenantId);
+      content = await createDbClient({
+        driver: engine,
+        host: row.host,
+        port: String(row.port),
+        database: row.database_name,
+        username: row.username,
+        password,
+      });
+      await deleteSiteRows(content, sites.map((site) => site.id), tenantId, true);
+    } catch (error) {
+      // The separate database may already be gone. Do not hide authentication,
+      // connection, or other SQL failures that could leave customer data behind.
+      if (!["ER_BAD_DB_ERROR", "3D000"].includes(databaseErrorCode(error) ?? "")) throw error;
     } finally {
-      await content.close();
+      await content?.close();
     }
     if (!shared) {
       try {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isInstallationRootRequest, sessionMatchesRequestSite } from "../../../src/lib/tenancy/access.js";
-import { validateDatabaseChoice } from "../../../src/lib/tenancy/choice.js";
+import { sanitizeDatabaseError, validateDatabaseChoice } from "../../../src/lib/tenancy/choice.js";
 import { validateSiteEdit, type SiteEditInput } from "../../../src/lib/tenancy/site-record.js";
 import { runWithTenant, type TenantRequestContext } from "../../../src/lib/tenancy/context.js";
 import { pickHost, signupBaseDomain, signupSiteOrigin, siteDomainKind, type HostRecord } from "../../../src/lib/tenancy/host.js";
@@ -96,6 +96,15 @@ describe("host routing", () => {
     const decision = pickHost({ hostname: "localhost", records: [siteA], siteCount: 1 });
     expect(decision.kind).toBe("ready");
     if (decision.kind === "ready") expect(decision.record.siteId).toBe("site-a");
+  });
+});
+
+describe("database connection errors", () => {
+  it("keeps the nested reason when the driver wraps a refused connection", () => {
+    const nested = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:5432"), { code: "ECONNREFUSED" });
+    const wrapped = new AggregateError([nested], "");
+    expect(sanitizeDatabaseError(wrapped, "secret-db-password")).toContain("ECONNREFUSED");
+    expect(sanitizeDatabaseError(new Error("password secret-db-password rejected"), "secret-db-password")).toBe("password [redacted] rejected");
   });
 });
 

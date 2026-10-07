@@ -22,6 +22,8 @@ export async function managedRedirects(
     if (await reservedPermalinkPath(req.path)) return next();
     const siteId = await getSiteId();
     if (!siteId) return next();
+    const { siteFeatureEnabled } = await import("../lib/tenancy/site-features.js");
+    if (!(await siteFeatureEnabled("feature.redirects", siteId))) return next();
     const { rules, canonicalize } = await runtimeRedirects(siteId);
     const incoming =
       req.path + (typeof req.query.p === "string" ? `?p=${encodeURIComponent(req.query.p)}` : "");

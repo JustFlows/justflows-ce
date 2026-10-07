@@ -88,6 +88,13 @@ router.post("/wordpress", requireRole("administrator"), upload.single("file"), a
           ? new Date(pubDate).toISOString().replace("T", " ").replace(/\.\d+Z$/, "")
           : null;
 
+        const { enforceQuota } = await import("../../lib/tenancy/quotas.js");
+        const quota = await enforceQuota("content", session.siteId, 1);
+        if (quota) {
+          result.errors.push(quota.error);
+          break;
+        }
+
         await db
           .run(
             `INSERT INTO content (id, site_id, type, title, slug, excerpt, blocks, fields, status, author_id, published_at, created_at, updated_at)

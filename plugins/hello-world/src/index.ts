@@ -68,6 +68,26 @@ const helloWorld: PluginModule = {
       label: "Hello World card",
     });
 
+    // A plugin-owned meter. Call check before inserting a row. Core meters
+    // (sites, users, content, media.bytes) are counted by the host. An empty
+    // limit is unlimited. set() needs the platform:tenancy permission.
+    ctx.quotas.register({
+      key: "justflows.hello-world.notes",
+      scope: "site",
+      label: "Hello World notes",
+      unit: "count",
+    });
+    try {
+      const notes = await ctx.quotas.check("justflows.hello-world.notes", { delta: 1, used: 0 });
+      if (!notes.ok) {
+        ctx.logger.info("Hello World: note limit reached", { limit: notes.limit ?? 0 });
+      }
+    } catch (err) {
+      ctx.logger.warn("Hello World: could not read the note limit", {
+        error: err instanceof Error ? err.message : "failed",
+      });
+    }
+
     dispose = ctx.hooks.action("content.published", async (event) => {
       ctx.logger.info("Hello World: content was published", {
         contentId: event.contentId,

@@ -224,11 +224,17 @@ export async function prepareSubsitedActivation(
     }
     return { ok: true };
   }
-  await insertPlugin(siteId, {
-    pluginId: rootPlugin.plugin_id,
-    version: rootPlugin.version,
-    manifest: rootPlugin.manifest,
-    status: "inactive",
-  });
+  const { QuotaRefusalError } = await import("../tenancy/quotas.js");
+  try {
+    await insertPlugin(siteId, {
+      pluginId: rootPlugin.plugin_id,
+      version: rootPlugin.version,
+      manifest: rootPlugin.manifest,
+      status: "inactive",
+    });
+  } catch (err) {
+    if (err instanceof QuotaRefusalError) return { ok: false, error: err.message };
+    throw err;
+  }
   return { ok: true };
 }

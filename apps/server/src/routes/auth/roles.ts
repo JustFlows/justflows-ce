@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { Router, type Request } from "express";
 import { requireCapability } from "../../middleware/auth.js";
+import { requireSiteFeature } from "../../lib/tenancy/site-features.js";
 import { param } from "../../lib/http/params.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import {
@@ -34,7 +35,7 @@ router.get("/", requireCapability("users:read"), async (req, res) => {
   }
 });
 
-router.post("/", manage, async (req, res) => {
+router.post("/", manage, requireSiteFeature("feature.roles"), async (req, res) => {
   const body = RoleSchema.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: body.error.issues[0]?.message });

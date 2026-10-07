@@ -56,6 +56,12 @@ describe("canAccessPath", () => {
     }
   });
 
+  it("hides an admin path when the website turned that feature off", () => {
+    expect(canAccessPath("administrator", "/admin/comments", { disabledPaths: ["/admin/comments"] })).toBe(false);
+    expect(canAccessPath("administrator", "/admin/security/account", { disabledPaths: ["/admin/security/headers"] })).toBe(true);
+    expect(canAccessPath("administrator", "/admin/security/headers", { disabledPaths: ["/admin/security/headers"] })).toBe(false);
+  });
+
   it("leaves the Security > Account page open to every admin-eligible role", () => {
     for (const role of ["administrator", "editor", "author", "contributor"]) {
       expect(canAccessPath(role, "/admin/security/account")).toBe(true);
@@ -79,7 +85,9 @@ describe("canAccessPath", () => {
     expect(paths).not.toContain("/admin/updates");
     expect(paths).not.toContain("/admin/health");
     expect(paths).not.toContain("/admin/marketplace");
-    expect(paths).not.toContain("/admin/platform");
+    expect(paths).not.toContain("/admin/platform/workspaces");
+    expect(paths).not.toContain("/admin/platform/sites");
+    expect(paths).not.toContain("/admin/platform/defaults");
     expect(paths).toContain("/admin/tools");
     expect(paths).toContain("/admin/settings");
   });

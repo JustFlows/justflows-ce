@@ -7,6 +7,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 let stored: Record<string, unknown> = {};
 
+// Site feature switches live in the control database; keep the feature on here.
+vi.mock("../../../../src/lib/tenancy/site-features.js", () => ({ siteFeatureEnabled: async () => true }));
 vi.mock("../../../../src/lib/settings/site-settings.js", () => ({
   getSiteId: async () => "s1",
   getSiteSetting: async () => stored,

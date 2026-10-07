@@ -114,6 +114,11 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
       res.status(400).json({ error: "Only .jfpkg files are accepted" });
       return;
     }
+    const { siteFeatureEnabled } = await import("../../lib/tenancy/site-features.js");
+    if (!(await siteFeatureEnabled("feature.themeUpload", req.session?.siteId))) {
+      res.status(403).json({ error: "Theme upload is turned off for this website.", code: "feature_disabled", meter: "feature.themeUpload" });
+      return;
+    }
 
     const { PackageInstaller } = await import("@justflows/installer");
     const installer = new PackageInstaller();
@@ -697,6 +702,12 @@ router.post("/customize/promote-home", requireRole(...THEME_CUSTOMIZE_ROLES), as
       .toISOString()
       .replace("T", " ")
       .replace(/\.\d+Z$/, "");
+    const { enforceQuota } = await import("../../lib/tenancy/quotas.js");
+    const quota = await enforceQuota("content", siteId, 1);
+    if (quota) {
+      res.status(quota.status).json({ error: quota.error, code: quota.code, meter: quota.meter });
+      return;
+    }
     await db.run(
       `INSERT INTO content (id, site_id, type, title, slug, locale, translation_group_id, excerpt, blocks, fields, status, author_id, published_at, created_at, updated_at)
        VALUES (?, ?, 'page', ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?)`,
@@ -766,6 +777,12 @@ router.post("/customize/promote-blog", requireRole(...THEME_CUSTOMIZE_ROLES), as
       .toISOString()
       .replace("T", " ")
       .replace(/\.\d+Z$/, "");
+    const { enforceQuota } = await import("../../lib/tenancy/quotas.js");
+    const quota = await enforceQuota("content", siteId, 1);
+    if (quota) {
+      res.status(quota.status).json({ error: quota.error, code: quota.code, meter: quota.meter });
+      return;
+    }
     await db.run(
       `INSERT INTO content (id, site_id, type, title, slug, locale, translation_group_id, excerpt, blocks, fields, status, author_id, published_at, created_at, updated_at)
        VALUES (?, ?, 'page', ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?)`,

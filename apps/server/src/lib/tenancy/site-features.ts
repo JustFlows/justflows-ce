@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT
+
+import type { RequestHandler } from "express";
+import { getTenantContext } from "./context.js";
+import { enforceQuota, quotaLimitMap } from "./quotas.js";
+
+/** A site feature. Off (stored 0) hides the admin paths and blocks the feature. Absent stays on. */
+export interface SiteFeature {
+  key: string;
+  paths: readonly string[];
+}
+
+export const SITE_FEATURES: readonly SiteFeature[] = [
+  { key: "feature.comments", paths: ["/admin/comments"] },
+  { key: "feature.themeUpload", paths: [] },
+  { key: "feature.design", paths: ["/admin/design"] },
+  { key: "feature.roles", paths: [] },
+  { key: "feature.responsiveImages", paths: [] },
+  { key: "feature.securityAdvanced", paths: ["/admin/security/advanced"] },
+  { key: "feature.securityHeaders", paths: ["/admin/security/headers"] },
+  { key: "feature.securityAdminPath", paths: ["/admin/security/admin-path"] },
+  { key: "feature.securityAudit", paths: ["/admin/security/audit"] },
+  { key: "feature.pwa", paths: ["/admin/settings/pwa"] },
+  { key: "feature.redirects", paths: ["/admin/redirects"] },
+  { key: "feature.permalinks", paths: ["/admin/settings/permalinks"] },
+  { key: "feature.placeholders", paths: ["/admin/settings/placeholders"] },
+  { key: "feature.emails", paths: ["/admin/emails"] },
+  { key: "feature.languages", paths: ["/admin/languages"] },
+  { key: "feature.webhooks", paths: ["/admin/webhooks"] },
+  { key: "feature.api", paths: ["/admin/settings/api"] },
+  { key: "feature.ai", paths: ["/admin/settings/ai"] },
+  { key: "feature.cdn", paths: ["/admin/settings/cdn"] },
+  { key: "feature.trash", paths: ["/admin/trash"] },
+  { key: "feature.tools", paths: ["/admin/tools"] },
+  { key: "feature.plugins", paths: ["/admin/plugins"] },
+];
+
+/** Admin paths hidden because this website turned the feature off. */
+export async function disabledAdminPaths(siteId: string): Promise<string[]> {
+  const limits = await quotaLimitMap("site", siteId);
+  return disabledPathsFromLimits(limits);
+}
+
+/** Feature keys stored as off, so in-page controls can be removed. */
+export async function disabledFeatureKeys(siteId: string): Promise<string[]> {
+  const limits = await quotaLimitMap("site", siteId);
+  return SITE_FEATURES.filter((feature) => limits.get(feature.key) === 0).map((feature) => feature.key);
+}
+
+function disabledPathsFromLimits(limits: Map<string, number>): string[] {
+  const paths: string[] = [];
+  for (const feature of SITE_FEATURES) {
+    if (limits.get(feature.key) === 0) paths.push(...feature.paths);
+  }
+  return paths;
+}
+
+/** True when the feature is allowed. No site, or no stored 0, means allowed. */
+export async function siteFeatureEnabled(key: string, siteId?: string | null): Promise<boolean> {
+  const id = siteId || getTenantContext()?.siteId;
+  if (!id) return true;
+  const block = await enforceQuota(key, id, 0);
+  return block === null;
+}
+
+/** Block a route when the current website has this feature turned off. */
+export function requireSiteFeature(key: string): RequestHandler {
+  return (req, res, next) => {
+    const siteId = req.session?.siteId || getTenantContext()?.siteId;
+    if (!siteId) {
+      next();
+      return;
+    }
+    void enforceQuota(key, siteId, 0)
+      .then((block) => {
+        if (!block) {
+          next();
+          return;
+        }
+        res.status(block.status).json({ error: block.error, code: block.code, meter: block.meter });
+      })
+      .catch(next);
+  };
+}
