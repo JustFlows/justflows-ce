@@ -73,6 +73,7 @@ import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { resolvePathUnderBase } from "../../lib/security/safe-path.js";
+import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -130,6 +131,8 @@ router.post("/", requireRole("administrator"), upload.single("file"), async (req
       packagesDir,
       justflowsVersion: getJustflowsVersion(),
       source: "upload",
+      // Shared between sites: never replace files another site may be using.
+      immutable: true,
       verify: (manifest, digest) => {
         if (manifest.type !== "theme") {
           throw new Error("Uploaded package is not a theme (manifest.type must be 'theme')");
@@ -428,6 +431,29 @@ router.post("/:id/activate", requireRole("administrator"), async (req, res) => {
   }
 });
 
+/** Whether any site, in any database, still uses this theme folder. Errors count as "in use". */
+async function themeFilesStillUsed(themeId: string, version: string, folder: string): Promise<boolean> {
+  try {
+    const { runAcrossDatabasesStrict } = await import("../../lib/tenancy/connections.js");
+    const { getDb } = await import("../../lib/database/db.js");
+    const answers = await runAcrossDatabasesStrict(async () => {
+      const db = await getDb();
+      const rows = await db.query<{ version: string; manifest: unknown }>(
+        "SELECT version, manifest FROM themes WHERE theme_id = ?",
+        [themeId],
+      );
+      return rows.some((row) => {
+        const manifest = typeof row.manifest === "string" ? (JSON.parse(row.manifest) as Record<string, unknown>) : (row.manifest as Record<string, unknown> | null);
+        const used = typeof manifest?.installedPath === "string" ? manifest.installedPath : null;
+        return used ? path.resolve(used) === folder : String(row.version) === version;
+      });
+    });
+    return answers.some(Boolean);
+  } catch {
+    return true;
+  }
+}
+
 router.delete("/:id", requireRole("administrator"), themeDeleteRequestLimit, async (req, res) => {
   try {
     await ensureThemesTable();
@@ -452,32 +478,44 @@ router.delete("/:id", requireRole("administrator"), themeDeleteRequestLimit, asy
       res.status(409).json({ error: "The default bundled theme cannot be deleted." });
       return;
     }
+    let removePath: string | null = null;
+    let shared = false;
     if (installedPath) {
       const packagesDir = packagesInstalledDir();
-      // A marketplace package (`themes/<id>/<version>`), this site's own fork
-      // (`sites/<siteId>/themes/<id>`), or a fork saved before per-site
-      // folders (`themes/local.<slug>`).
+      // A marketplace or uploaded package (`themes/<id>/<version>[/<digest>]`),
+      // this site's own fork (`sites/<siteId>/themes/<id>`), or a fork saved
+      // before per-site folders (`themes/local.<slug>`).
       const siteRoot = siteThemesDir(siteId);
-      const expectedPaths = [
-        resolvePathUnderBase(packagesDir, "themes", theme.theme_id, theme.version),
-        siteRoot
-          ? resolvePathUnderBase(packagesDir, path.relative(packagesDir, siteRoot), theme.theme_id)
-          : null,
-        theme.theme_id.startsWith("local.")
-          ? resolvePathUnderBase(packagesDir, "themes", theme.theme_id)
-          : null,
-      ].filter((p): p is string => p !== null);
+      const versionDir = resolvePathUnderBase(packagesDir, "themes", theme.theme_id, theme.version);
+      const ownFork = siteRoot
+        ? resolvePathUnderBase(packagesDir, path.relative(packagesDir, siteRoot), theme.theme_id)
+        : null;
+      const legacyFork = theme.theme_id.startsWith("local.")
+        ? resolvePathUnderBase(packagesDir, "themes", theme.theme_id)
+        : null;
       const safeInstalledPath = resolvePathUnderBase(
         packagesDir,
         path.relative(packagesDir, installedPath),
       );
-      if (!safeInstalledPath || !expectedPaths.includes(safeInstalledPath)) {
+      const isBuildOfVersion =
+        !!versionDir && !!safeInstalledPath && path.dirname(safeInstalledPath) === versionDir;
+      if (
+        !safeInstalledPath ||
+        !(safeInstalledPath === versionDir || isBuildOfVersion || safeInstalledPath === ownFork || safeInstalledPath === legacyFork)
+      ) {
         res.status(400).json({ error: "Theme install path is invalid." });
         return;
       }
-      await fs.rm(safeInstalledPath, { recursive: true, force: true });
+      removePath = safeInstalledPath;
+      shared = safeInstalledPath !== ownFork;
     }
     await deleteTheme(siteId, themeId);
+    // Package folders outside this site's own fork can be in use by other
+    // sites. A site only removes its own reference; the files go only when the
+    // main site deletes them and no site in any database still points there.
+    if (removePath && (!shared || (isInstallationRootRequest() && !(await themeFilesStillUsed(theme.theme_id, theme.version, removePath))))) {
+      await fs.rm(removePath, { recursive: true, force: true });
+    }
     auditFromRequest(req, "theme.deleted", { target: themeId, detail: `version=${theme.version}` });
     await revalidateOnUpdate("theme");
     res.json({ ok: true });
