@@ -506,19 +506,19 @@ function validateAssignment(
 ): { ok: true; limits: Record<string, number | null> } | { ok: false; status: number; error: string } {
   const keys = Object.keys(limits);
   if (keys.length > 50) return { ok: false, status: 400, error: "Too many limits." };
-  const normalized: Record<string, number | null> = {};
+  const normalized: Array<[string, number | null]> = [];
   for (const key of keys) {
     const meter = meterByKey(key);
     if (!meter || meter.scope !== scope) {
       return { ok: false, status: 400, error: `Unknown quota meter "${key}".` };
     }
     try {
-      normalized[key] = assertLimit(limits[key] ?? null);
+      normalized.push([key, assertLimit(limits[key] ?? null)]);
     } catch (err) {
       return { ok: false, status: 400, error: err instanceof Error ? err.message : "Invalid limit." };
     }
   }
-  return { ok: true, limits: normalized };
+  return { ok: true, limits: Object.fromEntries(normalized) };
 }
 
 async function writeLimits(
@@ -729,13 +729,12 @@ export async function replaceQuotaDefaults(
   const checked = validateAssignment(scope, limits);
   if (!checked.ok) return checked;
   const store = await readDefaultStore();
-  // Built from entries, not `next[key] =`: keys are request data (validated
-  // meter keys), and a computed write is a property-injection sink.
+  // No computed writes here: meter keys and `scope` come from the request, and
+  // `obj[requestValue] =` is a property-injection sink even after validation.
   const next: Record<string, number> = Object.fromEntries(
     Object.entries(checked.limits).filter((entry): entry is [string, number] => entry[1] !== null),
   );
-  store[scope] = next;
-  await writeDefaultStore(store);
+  await writeDefaultStore(scope === "workspace" ? { ...store, workspace: next } : { ...store, site: next });
   await audit(actorId, scope, JSON.stringify(next));
   return { ok: true, meters: await listQuotaDefaultMeters(scope) };
 }
