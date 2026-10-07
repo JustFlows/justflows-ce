@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { getControlDb, type DbClient } from "../database/db.js";
+import { isMissingColumnError, isMissingTableError } from "../database/schema-errors.js";
 import type { DatabaseChoice, DatabaseMode, TenantStatus, UserMode } from "./context.js";
 import { hostnameFromUrl, pickHost, type HostDecision, type HostRecord } from "./host.js";
 
@@ -20,7 +21,8 @@ interface DomainRow {
 /**
  * Only active hostnames route. A custom domain that is still being verified,
  * or that stopped pointing here, is not served. Before migration 0039 the
- * status column does not exist yet, so every row routes as it did.
+ * status column does not exist yet, so every row routes as it did. Any other
+ * failure propagates: it must never silently drop the status filter.
  */
 async function domainRows(client: DbClient): Promise<DomainRow[]> {
   try {
@@ -35,7 +37,8 @@ async function domainRows(client: DbClient): Promise<DomainRow[]> {
        WHERE d.status = 'active'`,
       [true],
     );
-  } catch {
+  } catch (error) {
+    if (!isMissingColumnError(error)) throw error;
     return client.query<DomainRow>(
       `SELECT d.hostname, s.id AS site_id, s.tenant_id, s.status AS site_status,
               t.status AS tenant_status, t.user_mode, t.database_mode, s.database_choice
@@ -64,6 +67,11 @@ function asChoice(value: string): DatabaseChoice {
   return "inherit";
 }
 
+/**
+ * Null only when the tenancy tables do not exist (a single-site install that
+ * predates multisite). Any other database failure throws, so a transient
+ * control-plane error can never be mistaken for single-site mode.
+ */
 export async function loadHostRecords(db?: DbClient): Promise<{
   records: HostRecord[];
   siteCount: number;
@@ -94,13 +102,22 @@ export async function loadHostRecords(db?: DbClient): Promise<{
           : {}),
       })),
     };
-  } catch {
-    return null;
+  } catch (error) {
+    if (isMissingTableError(error)) return null;
+    throw error;
   }
 }
 
-export async function resolveHost(hostname: string, db?: DbClient): Promise<HostDecision | { kind: "unconfigured" }> {
-  const loaded = await loadHostRecords(db);
+export type ResolvedHost = HostDecision | { kind: "unconfigured" } | { kind: "unavailable" };
+
+/** `unavailable` means routing could not be established; callers must refuse the request. */
+export async function resolveHost(hostname: string, db?: DbClient): Promise<ResolvedHost> {
+  let loaded: Awaited<ReturnType<typeof loadHostRecords>>;
+  try {
+    loaded = await loadHostRecords(db);
+  } catch {
+    return { kind: "unavailable" };
+  }
   if (!loaded) return { kind: "unconfigured" };
   if (loaded.records.length === 0 && loaded.siteCount <= 1) return { kind: "unconfigured" };
   return pickHost({ hostname, records: loaded.records, siteCount: loaded.siteCount });
@@ -118,8 +135,9 @@ export async function installationRootSiteId(db?: DbClient): Promise<string | nu
       "SELECT id FROM sites WHERE status <> 'deleted' ORDER BY created_at ASC, id ASC LIMIT 1",
     );
     return roots[0] ? String(roots[0].id) : null;
-  } catch {
-    return null;
+  } catch (error) {
+    if (isMissingTableError(error)) return null;
+    throw error;
   }
 }
 
