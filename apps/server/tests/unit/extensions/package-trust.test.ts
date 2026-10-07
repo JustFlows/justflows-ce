@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assertPackageIsTrusted } from "../../../src/lib/extensions/package-trust.js";
 
@@ -25,5 +26,15 @@ describe("assertPackageIsTrusted", () => {
     expect(() =>
       assertPackageIsTrusted(manifest, digest, { marketplaceSignature: "bm90IGEgc2lnbmF0dXJl" }),
     ).toThrow(/does not match trusted value/);
+  });
+
+  it("does not accept a signature carried inside the manifest, which cannot cover the archive", () => {
+    vi.stubEnv("APP_SECRET", "test-secret");
+    vi.stubEnv("JUSTFLOWS_ALLOW_UNSIGNED_PACKAGES", "");
+    const canonical = JSON.stringify(manifest, Object.keys(manifest).sort());
+    const packageSignature = createHmac("sha256", "test-secret").update(canonical).digest("hex");
+    for (const archiveDigest of [digest, pinned]) {
+      expect(() => assertPackageIsTrusted({ ...manifest, packageSignature }, archiveDigest)).toThrow(/could not be verified/);
+    }
   });
 });
