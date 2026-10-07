@@ -53,6 +53,10 @@ if ! npm install --omit=dev --ignore-scripts --package-lock-only \
   echo "    (skipping lockfile — npm arborist failed; zip will still work)"
   rm -f "$ROOT/package-lock.json"
 fi
+# npm can list sharp's linux/mac/windows binaries as names only. Pin and
+# re-lock any that have no package entry, or the server install skips them
+# and the process cannot boot after restart.
+node "$ROOT/scripts/lock-sharp-platforms.js"
 restore_pnpm_node_modules
 
 echo "==> Generating SBOM…"

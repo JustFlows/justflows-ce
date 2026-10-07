@@ -217,6 +217,14 @@ function main() {
 
     log("Installing production dependencies…");
     const installCode = run(resolveBin("npm"), ["install", "--omit=dev", "--ignore-scripts"]);
+    if (installCode === 0) {
+      const sharpCode = run(NODE_BIN, ["scripts/ensure-sharp-runtime.js"]);
+      if (sharpCode !== 0) {
+        restoreDevManifests();
+        restorePnpmNodeModules(pnpmTree);
+        process.exit(sharpCode);
+      }
+    }
 
     // The patched manifests (file: paths, no devDependencies) are only needed
     // for the npm install above; node_modules is what the rest of this script
