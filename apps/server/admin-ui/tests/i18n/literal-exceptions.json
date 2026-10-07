@@ -97,5 +97,10 @@
   "my-site": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
   "site-a.localhost": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
   "site-b.localhost": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
-  "example.com": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose."
+  "example.com": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "Bunny.net": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "TTL": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "https://": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "example.b-cdn.net": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "ns1.example.com ns2.example.com": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose."
 }

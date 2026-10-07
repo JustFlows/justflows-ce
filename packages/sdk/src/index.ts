@@ -44,6 +44,8 @@ export type {
   WorkspaceCreateGateEvent,
   SiteCreateEvent,
   SiteCreateGateEvent,
+  DomainEvent,
+  DomainAddGateEvent,
   AppEvent,
   ContentRef,
   ContentDeletedRef,

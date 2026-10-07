@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.3] [UNRELEASED]
+
+### Added
+
+- **A website can connect its own domain.** Settings → Domains adds a domain by DNS records (a TXT check plus a CNAME) or, with Bunny DNS, by pointing the domain's nameservers at the platform. A background check verifies DNS, attaches the hostname, and issues the certificate before the domain is served. A connected domain can become the primary address, and the site's other addresses then redirect to it. A domain that is never verified is released; one that stops pointing here is no longer served. With nameservers, the website manages its own MX, TXT, and other records. Adds migration `0039_custom_domains`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Offer custom domains as a paid feature.** Platform → Custom domains turns the feature on, chooses Bunny.net or this server, sets your own nameservers, and holds an upgrade link. Each website's access comes from the limits `feature.customDomains`, `domains.custom`, and `feature.managedDns`, which Defaults and plugins can set per plan. Plugins with `platform:tenancy` can refuse a domain with the `domain.beforeAdd` gate and react to `domain.added`, `domain.activated`, `domain.failed`, and `domain.removed`. `/api/domains/tls-allowed` answers Caddy's on-demand TLS check. See docs/MULTISITE.md. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+### Changed
+
+- **Only active hostnames route.** A hostname a website is still verifying, or one that failed its checks, is not served. Hostnames that already existed, and ones an operator adds on a website page, stay active. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
 ## [0.3.2]
 
 ### Added

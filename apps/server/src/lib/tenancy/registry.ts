@@ -13,6 +13,37 @@ interface DomainRow {
   user_mode: string;
   database_mode: string;
   database_choice: string;
+  primary_hostname?: string | null;
+  primary_kind?: string | null;
+}
+
+/**
+ * Only active hostnames route. A custom domain that is still being verified,
+ * or that stopped pointing here, is not served. Before migration 0039 the
+ * status column does not exist yet, so every row routes as it did.
+ */
+async function domainRows(client: DbClient): Promise<DomainRow[]> {
+  try {
+    return await client.query<DomainRow>(
+      `SELECT d.hostname, s.id AS site_id, s.tenant_id, s.status AS site_status,
+              t.status AS tenant_status, t.user_mode, t.database_mode, s.database_choice,
+              p.hostname AS primary_hostname, p.kind AS primary_kind
+       FROM site_domains d
+       JOIN sites s ON s.id = d.site_id
+       JOIN tenants t ON t.id = s.tenant_id
+       LEFT JOIN site_domains p ON p.site_id = s.id AND p.is_primary = ? AND p.status = 'active'
+       WHERE d.status = 'active'`,
+      [true],
+    );
+  } catch {
+    return client.query<DomainRow>(
+      `SELECT d.hostname, s.id AS site_id, s.tenant_id, s.status AS site_status,
+              t.status AS tenant_status, t.user_mode, t.database_mode, s.database_choice
+       FROM site_domains d
+       JOIN sites s ON s.id = d.site_id
+       JOIN tenants t ON t.id = s.tenant_id`,
+    );
+  }
 }
 
 function asStatus(value: string): TenantStatus {
@@ -45,13 +76,7 @@ export async function loadHostRecords(db?: DbClient): Promise<{
       "SELECT id FROM sites WHERE status <> 'deleted' ORDER BY created_at ASC, id ASC LIMIT 1",
     );
     const rootSiteId = roots[0] ? String(roots[0].id) : "";
-    const rows = await client.query<DomainRow>(
-      `SELECT d.hostname, s.id AS site_id, s.tenant_id, s.status AS site_status,
-              t.status AS tenant_status, t.user_mode, t.database_mode, s.database_choice
-       FROM site_domains d
-       JOIN sites s ON s.id = d.site_id
-       JOIN tenants t ON t.id = s.tenant_id`,
-    );
+    const rows = await domainRows(client);
     return {
       siteCount,
       records: rows.map((row) => ({
@@ -64,6 +89,9 @@ export async function loadHostRecords(db?: DbClient): Promise<{
         databaseMode: asDatabaseMode(String(row.database_mode)),
         databaseChoice: asChoice(String(row.database_choice)),
         rootSite: String(row.site_id) === rootSiteId,
+        ...(row.primary_hostname
+          ? { primaryHostname: String(row.primary_hostname).toLowerCase(), primaryCustom: row.primary_kind === "custom" }
+          : {}),
       })),
     };
   } catch {

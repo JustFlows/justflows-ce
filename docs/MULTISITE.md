@@ -30,9 +30,41 @@ Updates, diagnostics, and the server cache live on the installation's first site
 
 Store the hostname without a scheme or path (`www.example.com`, `my-site.example.com`). Point DNS at this installation. Terminate TLS at the reverse proxy or host. Justflows does not issue certificates.
 
+A hostname only routes while its status is active. Hostnames an operator adds on a website page are active straight away. A custom domain a website connects itself is not served until it is verified (see below).
+
 While the installation has exactly one site, `localhost` still opens that site so an existing install keeps working. After a second site exists, each host must be registered. Add `site-a.localhost` and `site-b.localhost` to your hosts file to try two sites locally.
 
 Signup uses `slug.<base domain>`. Turn it on under Admin → Platform and set the base domain. Visitors do not enter a database connection. The same screen chooses the current database or one separate database for every new signup. The installation keeps the platform site and the routing; the password stays on the platform. The link after signup keeps the scheme and port of the signup page, so a local site opens at `http://my-site.localhost:3000`.
+
+## Custom domains
+
+A website can connect a domain it owns under **Settings → Domains**. A platform operator sets this up under **Platform → Custom domains**. It is off until turned on there.
+
+**Two ways to connect.** The operator chooses which are offered.
+
+- **DNS records.** The customer keeps their DNS host. They add a TXT record `_justflows.<domain>` with the value shown, and point the domain at the CNAME target. A bare domain (`example.com`) needs ALIAS, ANAME, or CNAME flattening at their DNS host, or the A and AAAA addresses the operator lists.
+- **Nameservers** (Bunny DNS only). Justflows creates a DNS zone for the domain at Bunny, with records that serve the website, plus `www.` when that option is on. The customer changes the nameservers at their registrar. The website can then add its own records (MX, TXT, A, AAAA, CNAME, CAA, SRV) under **DNS records**. The records that serve the website cannot be changed. Before switching, the customer should copy their email and other records, because the old DNS host stops answering.
+
+**Verification.** A background job checks pending domains every few minutes. **Check now** runs the check at once. Once DNS is right, the hostname is attached to the provider, a certificate is issued, and the domain starts routing. A domain that is never verified is released after the number of days the operator sets, so a name cannot be held by someone who does not own it. A connected domain is checked again every 6 hours. After the operator's number of failures in a row, it stops being served. If it was the primary address, the platform subdomain becomes primary again.
+
+**Primary address.** A connected domain can be made primary. That changes the site URL to `https://<domain>`. With **Send visitors to the custom primary domain** on, public pages on the site's other addresses redirect there with a 301. Admin, API, and upload paths stay on the address they were opened on, so the site can still be managed when its domain breaks.
+
+**Providers.**
+
+- **Bunny.net.** Put a Bunny pull zone in front of this installation and turn on *Forward Host Header*, so Justflows sees the customer's hostname. Enter the pull zone ID. The API key from Settings → CDN is used unless the page has its own. **Test connection** fills in the CNAME target from the pull zone's own hostname (`<zone>.b-cdn.net`). Bunny issues the certificates.
+- **This server.** Customers point DNS straight at this installation, and the reverse proxy issues certificates. For Caddy, use on-demand TLS with `ask http://127.0.0.1:3000/api/domains/tls-allowed`. It answers `200` only for a hostname that is a verified domain on this installation.
+
+**Your own nameservers.** By default customers see `kiki.bunny.net` and `coco.bunny.net`. To show your own (`ns1.example.com`, `ns2.example.com`), enter them on the platform page and create glue records for them at the registrar of that domain: the first at `91.200.176.1` / `2400:52e0:fff0::1`, the second at `109.104.147.1` / `2400:52e0:fff2::1`. New zones are created with those names. Zones created earlier keep the names they had.
+
+**Selling it.** What each website may do is set with three limits, on each website page and under Defaults:
+
+| Meter | Meaning |
+| --- | --- |
+| `feature.customDomains` | Off: Settings → Domains is hidden on that website and its domain API is refused. |
+| `domains.custom` | How many domains the website may connect. A `www.` added with its domain does not count. |
+| `feature.managedDns` | Off: the website cannot connect by nameservers or edit DNS records. |
+
+Set **Upgrade link** to send a website to your pricing page when it reaches its domain limit, or when only nameservers are offered and DNS hosting is off. A subscription plugin lowers these per plan with the `quota.effectiveLimit` filter or `ctx.quotas.set`. It can also refuse a domain with the `domain.beforeAdd` gate and charge on `domain.activated`. Turning a meter off later does not disconnect domains that are already connected.
 
 ## Operations
 
@@ -108,4 +140,4 @@ Plugins register their own meters with `ctx.quotas.register` and call `ctx.quota
 
 ## What Justflows does not operate
 
-DNS, TLS certificates, subscriptions, and outbound email stay with the operator. A plugin can add paid plans. Justflows provisions the database you configure.
+DNS for the platform's own domains, TLS certificates outside Bunny.net, subscriptions, and outbound email stay with the operator. A plugin can add paid plans. Justflows provisions the database you configure, and with Bunny.net it attaches custom domains, issues their certificates, and creates DNS zones for them.

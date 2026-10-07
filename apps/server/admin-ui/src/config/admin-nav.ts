@@ -231,6 +231,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.apiKeys", to: "/admin/settings/api", icon: "🔑" },
       { key: "nav.ai", to: "/admin/settings/ai", icon: "✦" },
       { key: "nav.cdn", to: "/admin/settings/cdn", icon: "☁" },
+      { key: "nav.siteDomains", to: "/admin/settings/domains", icon: "🔗" },
     ],
   },
   {
@@ -241,6 +242,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.workspaces", to: "/admin/platform/workspaces", icon: "🏢" },
       { key: "nav.sites", to: "/admin/platform/sites", icon: "🌐" },
       { key: "nav.defaults", to: "/admin/platform/defaults", icon: "⚖" },
+      { key: "nav.customDomains", to: "/admin/platform/domains", icon: "🔗" },
     ],
   },
 ];
@@ -365,6 +367,7 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/settings/api": ["administrator"],
   "/admin/settings/ai": ["administrator"],
   "/admin/settings/cdn": ["administrator"],
+  "/admin/settings/domains": ["administrator"],
   "/admin/platform": ["administrator"],
   "/admin/settings/permalinks": ["administrator"],
   "/admin/settings/pwa": ["administrator"],

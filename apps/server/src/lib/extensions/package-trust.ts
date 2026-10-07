@@ -109,15 +109,10 @@ export function assertPackageIsTrusted(
   options?: PackageTrustOptions,
 ): void {
   const packageId = typeof manifest.id === "string" ? manifest.id : "";
-  const trusted = readTrustedDigests();
 
-  if (packageId && trusted.has(packageId)) {
-    if (trusted.get(packageId) !== digest.toLowerCase()) {
-      throw new Error(`Package digest does not match trusted value for ${packageId}`);
-    }
-    return;
-  }
-
+  // A marketplace signature is publisher proof and outranks a local pin. Checked
+  // first so a digest pinned for an earlier manual upload of the same id cannot
+  // block a newer, properly signed marketplace release.
   if (options?.marketplaceSignature) {
     const version = typeof manifest.version === "string" ? manifest.version : "";
     const publisher = typeof manifest.publisher === "string" ? manifest.publisher : "";
@@ -130,6 +125,14 @@ export function assertPackageIsTrusted(
     ) {
       return;
     }
+  }
+
+  const trusted = readTrustedDigests();
+  if (packageId && trusted.has(packageId)) {
+    if (trusted.get(packageId) !== digest.toLowerCase()) {
+      throw new Error(`Package digest does not match trusted value for ${packageId}`);
+    }
+    return;
   }
 
   const signature =

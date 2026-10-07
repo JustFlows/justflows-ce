@@ -6,8 +6,9 @@ import { isInstalled } from "./install-guard.js";
 import { runWithTenant, type TenantRequestContext } from "../lib/tenancy/context.js";
 import { borrowSeparateDatabase, separateDatabaseForSite } from "../lib/tenancy/connections.js";
 import { resolveHost } from "../lib/tenancy/registry.js";
+import { primaryRedirectHost, type HostRecord } from "../lib/tenancy/host.js";
 
-const SKIP = new Set(["/api/healthz", "/api/install", "/api/i18n"]);
+const SKIP = new Set(["/api/healthz", "/api/install", "/api/i18n", "/api/domains/tls-allowed"]);
 
 function skipped(path: string): boolean {
   if (SKIP.has(path)) return true;
@@ -60,7 +61,14 @@ async function bindTenant(req: Request, res: Response, next: NextFunction): Prom
   const client = separate ? await borrowSeparateDatabase(separate) : null;
   const start = () => {
     void loadPluginAllowlist(context).finally(() => {
-      runWithTenant(context, () => next());
+      runWithTenant(context, () => {
+        void redirectToPrimary(req, res, record, decision.viaLoopback).then(
+          (sent) => {
+            if (!sent) next();
+          },
+          () => next(),
+        );
+      });
     });
   };
   if (client) {
@@ -68,6 +76,20 @@ async function bindTenant(req: Request, res: Response, next: NextFunction): Prom
     return;
   }
   start();
+}
+
+/** A site whose primary address is a custom domain is served there. */
+async function redirectToPrimary(req: Request, res: Response, record: HostRecord, viaLoopback: boolean): Promise<boolean> {
+  if (!record.primaryCustom || !record.primaryHostname || record.primaryHostname === record.hostname) return false;
+  const { cachedDomainSettings } = await import("../lib/domains/domain-settings.js");
+  const settings = await cachedDomainSettings();
+  if (!settings.enabled || !settings.redirectToPrimary) return false;
+  const { getAdminPathConfig } = await import("../lib/admin/admin-path.js");
+  const adminBase = (await getAdminPathConfig()).path;
+  const host = primaryRedirectHost({ record, viaLoopback, method: req.method, path: req.path, adminBase });
+  if (!host) return false;
+  res.redirect(301, `https://${host}${req.originalUrl.startsWith("/") ? req.originalUrl : "/"}`);
+  return true;
 }
 
 async function loadPluginAllowlist(context: TenantRequestContext): Promise<void> {
