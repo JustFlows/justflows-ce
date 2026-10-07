@@ -105,4 +105,38 @@ describe("delegated user management", () => {
     expect((await updateUser("other", { role: "administrator" }, keyActor)).status).toBe(403);
     expect((await updateUser("other", { role: "administrator" }, { siteId: "site-1", userId: "admin", role: "administrator" })).status).toBe(200);
   });
+
+  it("cannot hand out a capability it only holds within a scope", async () => {
+    db.roles.set("scoped-manager", ["users:read", "users:manage", "content:update"]);
+    db.policies.set("mgr", {
+      role_id: "scoped-manager",
+      grants_json: "[]",
+      denies_json: "[]",
+      scopes_json: JSON.stringify({ "content:update": { ownership: "self" } }),
+    });
+    const widen = { grants: ["content:update"], scopes: { "content:update": { ownership: "any" as const } } };
+    expect((await updateUser("other", widen, manager)).status).toBe(403);
+    expect((await updateUser("mgr", widen, manager)).status).toBe(400); // own policy is never self-editable
+    expect((await updateUser("other", { grants: ["content:update"] }, manager)).status).toBe(403);
+    expect((await createRole({ name: "Editors", capabilities: ["content:update"] }, manager)).status).toBe(403);
+    // Unscoped capabilities stay delegable.
+    expect((await updateUser("other", { grants: ["users:read"] }, manager)).status).toBe(200);
+  });
+
+  it("treats a scoped API key as unable to delegate anything beyond the default role", async () => {
+    const keyActor = {
+      siteId: "site-1",
+      userId: "admin",
+      role: "administrator",
+      capabilityCeiling: ["users:manage", "users:read", "content:update"],
+      scopeCeiling: { contentTypes: ["post"] },
+    };
+    expect((await updateUser("other", { grants: ["content:update"] }, keyActor)).status).toBe(403);
+    expect((await updateUser("other", { role: "subscriber" }, keyActor)).status).toBe(200);
+  });
+
+  it("does not turn the default role into grantable capabilities", async () => {
+    // subscriber is the default role; its capabilities are not the manager's own.
+    expect((await updateUser("other", { grants: ["content:read"] }, manager)).status).toBe(403);
+  });
 });

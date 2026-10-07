@@ -14,6 +14,7 @@ import {
   customRoleCapabilities,
   delegationAuthority,
   exceedsAuthority,
+  roleCapabilitiesToDelegate,
   type DelegatingActor,
 } from "./delegation.js";
 import {
@@ -252,7 +253,7 @@ export async function createUser(
     return { status: 400, body: { error: "Unknown role" } };
   }
   const authority = await delegationAuthority(actor, await getDb());
-  if (!authority.unrestricted && (role === "administrator" || exceedsAuthority(authority, await capabilitiesOfRoles([role])))) {
+  if (!authority.unrestricted && (role === "administrator" || exceedsAuthority(authority, await roleCapabilitiesToDelegate(authority, role)))) {
     return BEYOND_AUTHORITY;
   }
   const { enforceQuota } = await import("../tenancy/quotas.js");
@@ -384,13 +385,23 @@ export async function updateUser(
         ? await customRoleCapabilities(db, actor.siteId, customRoleId)
         : keepsCustomRole
           ? await customRoleCapabilities(db, actor.siteId, current.roleId)
-          : await capabilitiesOfRoles([storedRole ?? targetRole ?? "subscriber"]);
+          : await roleCapabilitiesToDelegate(authority, storedRole ?? targetRole ?? "subscriber");
       const resulting = [
         ...primaryCapabilities,
         ...(await capabilitiesOfRoles(additionalRoles ?? current.additionalRoles)),
         ...(grants ?? (policyChanged ? current.policy.grants ?? [] : [])),
       ];
       if (exceedsAuthority(authority, resulting)) return BEYOND_AUTHORITY;
+      // Changing a scope widens or narrows what a capability reaches; either
+      // way it is delegation, so the actor must hold that capability unscoped.
+      if (scopes !== undefined) {
+        const before = (current.policy.scopes ?? {}) as Record<string, unknown>;
+        const changed = new Set([...Object.keys(before), ...Object.keys(scopes)]);
+        for (const capability of changed) {
+          if (JSON.stringify(before[capability] ?? null) === JSON.stringify(scopes[capability] ?? null)) continue;
+          if (exceedsAuthority(authority, [capability])) return BEYOND_AUTHORITY;
+        }
+      }
     }
   }
 

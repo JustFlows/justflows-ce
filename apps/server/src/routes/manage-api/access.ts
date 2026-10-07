@@ -34,6 +34,7 @@ function actorOf(req: Request): UserAdminActor & RoleAdminActor {
     userAgent: req.get("user-agent") ?? null,
     // A key (or OAuth grant) can never hand out more than it was given.
     capabilityCeiling: req.apiKey?.capabilities ?? [],
+    scopeCeiling: req.apiKey?.scope ?? null,
   };
 }
 
