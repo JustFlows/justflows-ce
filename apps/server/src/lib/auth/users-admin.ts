@@ -11,6 +11,12 @@ import { PasswordSchema } from "./password-policy.js";
 import { revokeUserSessions } from "./auth-session.js";
 import { auditLog } from "../security/audit-log.js";
 import {
+  customRoleCapabilities,
+  delegationAuthority,
+  exceedsAuthority,
+  type DelegatingActor,
+} from "./delegation.js";
+import {
   availableCapabilityDefinitions,
   CAPABILITY_ID_PATTERN,
   capabilitiesOfRoles,
@@ -26,10 +32,7 @@ import {
  * Invitations, password resets and GDPR export/erase stay route-only.
  */
 
-export interface UserAdminActor {
-  siteId: string;
-  userId: string;
-  role: string;
+export interface UserAdminActor extends DelegatingActor {
   ip?: string | null;
   userAgent?: string | null;
 }
@@ -42,6 +45,8 @@ export interface UserAdminResult {
 function now(): string {
   return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
 }
+
+const BEYOND_AUTHORITY = { status: 403, body: { error: "You cannot give access you don't have yourself" } };
 
 export async function emitUserEvent(
   event: "user.created" | "user.updated" | "user.deleted",
@@ -246,6 +251,10 @@ export async function createUser(
   if (!(await isAssignableRole(role))) {
     return { status: 400, body: { error: "Unknown role" } };
   }
+  const authority = await delegationAuthority(actor, await getDb());
+  if (!authority.unrestricted && (role === "administrator" || exceedsAuthority(authority, await capabilitiesOfRoles([role])))) {
+    return BEYOND_AUTHORITY;
+  }
   const { enforceQuota } = await import("../tenancy/quotas.js");
   const quota = await enforceQuota("users", actor.siteId, 1);
   if (quota) return { status: quota.status, body: { error: quota.error, code: quota.code, meter: quota.meter } };
@@ -356,6 +365,32 @@ export async function updateUser(
       (await countAdministrators(db, actor.siteId)) <= 1
     ) {
       return { status: 400, body: { error: "Cannot demote the last administrator" } };
+    }
+  }
+
+  if (storedRole || accessChanged) {
+    const authority = await delegationAuthority(actor, db);
+    if (!authority.unrestricted) {
+      // Administrators are only managed by administrators.
+      if (targetRole === "administrator") {
+        return { status: 403, body: { error: "Only an administrator can change another administrator" } };
+      }
+      const current = await getEffectiveAccess(targetUserId, actor.siteId, targetRole ?? "subscriber", db);
+      if (storedRole === "administrator") return BEYOND_AUTHORITY;
+      // Everything the user will hold afterwards, before denies: the primary
+      // role (custom or built-in), additional roles, and direct grants.
+      const keepsCustomRole = !policyChanged && current.roleId !== current.roles[0];
+      const primaryCapabilities = customRoleId
+        ? await customRoleCapabilities(db, actor.siteId, customRoleId)
+        : keepsCustomRole
+          ? await customRoleCapabilities(db, actor.siteId, current.roleId)
+          : await capabilitiesOfRoles([storedRole ?? targetRole ?? "subscriber"]);
+      const resulting = [
+        ...primaryCapabilities,
+        ...(await capabilitiesOfRoles(additionalRoles ?? current.additionalRoles)),
+        ...(grants ?? (policyChanged ? current.policy.grants ?? [] : [])),
+      ];
+      if (exceedsAuthority(authority, resulting)) return BEYOND_AUTHORITY;
     }
   }
 
@@ -539,6 +574,11 @@ export async function deleteUser(
   if (!target) return { status: 404, body: { error: "User not found" } };
   if (target.role === "administrator" && (await countAdministrators(db, actor.siteId)) <= 1) {
     return { status: 400, body: { error: "Cannot delete the last administrator" } };
+  }
+  if (!(await delegationAuthority(actor, db)).unrestricted) {
+    if (target.role === "administrator") {
+      return { status: 403, body: { error: "Only an administrator can delete another administrator" } };
+    }
   }
   await db.run("DELETE FROM users WHERE id = ? AND site_id = ?", [targetUserId, actor.siteId]);
   audit(actor, "user.deleted", targetUserId);
