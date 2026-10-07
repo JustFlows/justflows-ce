@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.3.1]
+## [0.3.2]
 
 ### Added
 
@@ -17,11 +17,15 @@ and this project uses [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - **Remove a workspace even when its separate database was never provisioned.** Permanent deletion tolerates missing site or workspace tables and an already missing separate database, then removes the workspace from the platform database. Other database errors still stop deletion. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
-
 - **Turning a plugin off on another site clears that site's plugin menu.** Shop screens such as Import products stayed under Extensions after deactivate because the shared module was not unloaded and a short admin-app cache kept those routes. That site's menu now drops inactive plugins immediately. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Turning a plugin off on another site can delete that site's plugin data.** Another site cannot uninstall a plugin. When `deleteDataOnUninstall` or `deleteContentOnUninstall` is on, deactivate there runs the same site-scoped cleanup as a remove: the `deleteData` hook, owned pages and posts, and that site's rows. Tables stay for other sites. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **A turned-off site feature removes its control.** Create user roles, custom theme upload, the assistant, and responsive image tools stay out of that website's admin when the switch is off. The server still refuses the action. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Saving the signup database updates the connection workspaces already use.** Changing the host, port, database name, or username on Platform → Workspaces writes that connection, and workspace rows that still point at the previous one pick up the new values. Test connection checks the login. A signup that cannot reach the database does not leave a workspace behind. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+## [0.3.1]
+
+### Fixed
+
 - **An update comes back after it restarts.** The update installed dependencies from a lockfile that named sharp's Linux binary but did not include the file, then restarted. The new process could not start, and the site stayed on the temporary error page. The update now installs that binary for the machine it is running on before it restarts. Release archives lock the binary as well, so a later install can find it.
 
 ## [0.3.0]
