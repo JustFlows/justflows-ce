@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const control = {
   query: vi.fn(async (_sql: string, _params?: readonly unknown[]): Promise<Array<Record<string, unknown>>> => []),
-  run: vi.fn(async () => undefined),
+  run: vi.fn(async (_sql: string, _params?: readonly unknown[]): Promise<void> => undefined),
   transaction: vi.fn(async (fn: (tx: { run: typeof control.run; query: typeof control.query }) => Promise<void>) => {
     await fn(control);
   }),
