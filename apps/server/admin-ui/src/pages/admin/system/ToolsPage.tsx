@@ -2,7 +2,7 @@ import { SearchToolsCard } from "../../../components/SearchToolsCard";
 import { useEffect, useRef, useState } from "react";
 import { manualRestartKey, serviceUnitName } from "../../../lib/restart-notice.js";
 import { waitForSiteRestart } from "../../../lib/wait-for-restart.js";
-import { useSession } from "@components/SessionProvider";
+import { useFeatureEnabled, useSession } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 
 interface ImportResult {
@@ -1477,6 +1477,7 @@ interface RegenStatus {
 
 function ResponsiveImagesCard() {
   const { t } = useT();
+  const enabled = useFeatureEnabled("feature" + ".responsiveImages");
   const installationRoot = useSession().session?.installationRoot === true;
   const [settings, setSettings] = useState<MediaSettings | null>(null);
   const [widthsText, setWidthsText] = useState("");
@@ -1593,6 +1594,7 @@ function ResponsiveImagesCard() {
     setSettings((s) => (s ? { ...s, [key]: value } : s));
   }
 
+  if (!enabled) return null;
   return (
     <div className="jf-card">
       <div className="jf-card__head">

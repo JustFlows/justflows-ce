@@ -47,9 +47,62 @@ export async function activatePluginAdmin(
   });
   const { revalidateOnUpdate } = await import("../cache/cache-revalidate.js");
   await revalidateOnUpdate("plugin");
+  const { clearPluginAdminAppCache } = await import("./plugin-admin-app.js");
+  const { clearPluginAssetsCache } = await import("./plugin-assets.js");
+  clearPluginAdminAppCache();
+  clearPluginAssetsCache();
   const row = await getPlugin(actor.siteId, pluginId);
   const setupPath = row ? pluginToDto(row).setupPath : undefined;
   return { status: 200, body: { ok: true, ...(setupPath ? { setupPath } : {}) } };
+}
+
+/**
+ * Another site cannot uninstall a plugin. When its delete-on-uninstall
+ * settings are on, turning the plugin off here removes that site's rows and
+ * owned CMS types. Tables stay for every other site.
+ */
+async function purgeSubsitedPluginData(
+  siteId: string,
+  pluginId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const {
+    shouldPurgePluginData,
+    shouldPurgePluginContent,
+    purgePluginContent,
+    purgePluginStorage,
+  } = await import("./plugin-purge.js");
+  const shouldPurge = await shouldPurgePluginData(siteId, pluginId);
+  const shouldPurgeContent = await shouldPurgePluginContent(siteId, pluginId);
+  if (!shouldPurge && !shouldPurgeContent) return { ok: true };
+
+  const row = await getPlugin(siteId, pluginId);
+  const { runtimeDeletePluginData } = await import("./plugin-runtime.js");
+  let hookError: string | undefined;
+  try {
+    await runtimeDeletePluginData(siteId, pluginId);
+  } catch (err) {
+    const { sanitizeProbeError } = await import("../database/db-probe.js");
+    hookError = sanitizeProbeError(err);
+  }
+
+  if (shouldPurgeContent) {
+    const purgedContent = await purgePluginContent(siteId, pluginId, row?.manifest);
+    if (!purgedContent.ok) {
+      return {
+        ok: false,
+        error: purgedContent.error ?? hookError ?? "Plugin pages and posts could not be deleted",
+      };
+    }
+  }
+
+  if (shouldPurge) {
+    const purged = await purgePluginStorage(siteId, pluginId);
+    if (!purged.ok) {
+      return { ok: false, error: purged.error ?? hookError ?? "Plugin data could not be deleted" };
+    }
+  }
+
+  return { ok: true };
 }
 
 export async function deactivatePluginAdmin(
@@ -59,14 +112,24 @@ export async function deactivatePluginAdmin(
   const { runtimeDeactivatePlugin } = await import("./plugin-runtime.js");
   const { isInstallationRootSite } = await import("../tenancy/registry.js");
   const { otherSitesHaveActivePlugin } = await import("./plugin-multisite.js");
+  const root = await isInstallationRootSite(actor.siteId);
   // The loaded module is shared by every site. Another site turning the plugin
   // off only changes its own row. Unload it when the main site turns it off
   // and no other site still has it on.
-  if (await isInstallationRootSite(actor.siteId)) {
+  if (root) {
     const others = await otherSitesHaveActivePlugin(pluginId, actor.siteId);
     if (!others) await runtimeDeactivatePlugin(actor.siteId, pluginId);
+  } else {
+    const purged = await purgeSubsitedPluginData(actor.siteId, pluginId);
+    if (!purged.ok) return { status: 500, body: { error: purged.error } };
   }
   await deactivatePlugin(actor.siteId, pluginId);
+  // Sub-site deactivation does not fire plugin.deactivated (the module stays
+  // loaded for the main site), so clear admin memos here every time.
+  const { clearPluginAdminAppCache } = await import("./plugin-admin-app.js");
+  const { clearPluginAssetsCache } = await import("./plugin-assets.js");
+  clearPluginAdminAppCache();
+  clearPluginAssetsCache();
   void auditLog({
     siteId: actor.siteId,
     action: "plugin.deactivated",

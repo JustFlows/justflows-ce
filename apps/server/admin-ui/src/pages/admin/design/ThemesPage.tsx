@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "../../../admin-router";
-import { useSessionRole } from "@components/SessionProvider";
+import { useFeatureEnabled, useSessionRole } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 import {
   ExtensionAutoUpdateToggle,
@@ -45,6 +45,7 @@ export default function ThemesPage() {
   // Uploading and activating a theme are administrator-only on the server;
   // an editor (who can also reach this page) can only view and customize.
   const canManage = useSessionRole() === "administrator";
+  const canUploadTheme = useFeatureEnabled("feature" + ".themeUpload");
   const [themes, setThemes] = useState<Theme[]>([]);
   const [availableThemes, setAvailableThemes] = useState<RegistryTheme[]>([]);
   const [loading, setLoading] = useState(true);
@@ -195,7 +196,7 @@ export default function ThemesPage() {
         </div>
       </header>
 
-      {canManage && (
+      {canManage && canUploadTheme && (
       <div className="jf-card">
         <div className="jf-card__head">
           <h2 className="jf-card__title">{t("themes.uploadTitle")}</h2>

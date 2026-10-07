@@ -9,6 +9,8 @@ let allowBeta: boolean | null = null;
 let listingRegistry: Record<string, unknown> = {};
 const upstreamCalls: string[] = [];
 
+// Site feature switches live in the control database; keep the feature on here.
+vi.mock("../../../../src/lib/tenancy/site-features.js", () => ({ siteFeatureEnabled: async () => true }));
 vi.mock("../../../../src/middleware/auth.js", () => ({
   requireRole: () => (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     (req as unknown as { session: { siteId: string } }).session = { siteId: "site-1" };

@@ -1459,6 +1459,18 @@ select.jf-input {
   white-space: nowrap;
 }
 
+.jf-inputgroup__suffix {
+  display: flex;
+  align-items: center;
+  padding-inline: 0.7rem;
+  background: var(--jf-surface-3);
+  border-inline-start: 1px solid var(--jf-border);
+  color: var(--jf-text-3);
+  font-size: 0.8rem;
+  font-family: var(--jf-font-mono);
+  white-space: nowrap;
+}
+
 .jf-inputgroup .jf-input {
   border: 0;
   border-radius: 0;
@@ -1467,6 +1479,34 @@ select.jf-input {
 }
 .jf-inputgroup .jf-input:focus {
   box-shadow: none;
+}
+
+/* Quota limits: numeric limits in a responsive grid, feature switches as a
+   compact checklist underneath. */
+.jf-quota-grid {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  align-items: start;
+}
+
+.jf-quota-features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.jf-quota-features > legend {
+  padding: 0;
+  margin-block-end: 0.25rem;
+}
+
+.jf-quota-features__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.125rem 1rem;
+  margin-block-start: 0.25rem;
 }
 
 /* ------------------------------------------------------------ buttons --- */

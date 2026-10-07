@@ -280,6 +280,13 @@ router.post(
         throw err;
       }
 
+      const { enforceQuota } = await import("../../lib/tenancy/quotas.js");
+      const quota = await enforceQuota("content", session.siteId, 1);
+      if (quota) {
+        res.status(quota.status).json({ error: quota.error, code: quota.code, meter: quota.meter });
+        return;
+      }
+
       const blocksValue = JSON.stringify(sanitizeBlockDocument(seed?.blocks ?? parsedBlocks));
       const fieldsValue = JSON.stringify(seed?.fields ?? {});
 

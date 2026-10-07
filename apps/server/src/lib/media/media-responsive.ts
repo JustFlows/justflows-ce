@@ -161,6 +161,8 @@ export async function generateAndStoreVariants(
 ): Promise<MediaDerivatives | null> {
   const { enabled, config, keepOriginalGlobs } = resolveImageConfig();
   if (!enabled) return null;
+  const { siteFeatureEnabled } = await import("../tenancy/site-features.js");
+  if (!(await siteFeatureEnabled("feature.responsiveImages", input.siteId))) return null;
   if (!isRasterImageMimeType(input.mimeType)) return null;
   if (keepOriginalOnly(input.filename, keepOriginalGlobs)) return null;
 

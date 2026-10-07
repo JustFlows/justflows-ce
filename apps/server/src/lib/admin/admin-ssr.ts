@@ -142,8 +142,10 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add("/api/cache/stats");
   } else if (pathname === "/admin/health") {
     paths.add("/api/diagnostics");
-  } else if (pathname === "/admin/platform") {
+  } else if (pathname === "/admin/platform/workspaces" || pathname === "/admin/platform/sites") {
     paths.add("/api/platform/overview");
+  } else if (pathname === "/admin/platform/defaults") {
+    paths.add("/api/platform/quota-defaults");
   } else if (/^\/admin\/platform\/workspaces\/[^/]+$/.test(pathname)) {
     const id = pathname.split("/")[4] ?? "";
     paths.add(`/api/platform/tenants/${encodeURIComponent(id)}`);

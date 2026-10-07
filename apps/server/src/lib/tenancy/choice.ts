@@ -66,8 +66,24 @@ export function validateDatabaseChoice(input: {
   return { ok: true, mode };
 }
 
+function databaseErrorText(err: unknown): string {
+  if (err instanceof AggregateError) {
+    for (const nested of err.errors) {
+      const text = databaseErrorText(nested);
+      if (text !== "database connection failed") return text;
+    }
+    if (err.message.trim()) return err.message;
+  }
+  if (err instanceof Error && err.message.trim()) return err.message;
+  if (err && typeof err === "object" && "code" in err) {
+    const code = (err as { code?: unknown }).code;
+    if (typeof code === "string" && code.trim()) return code;
+  }
+  return "database connection failed";
+}
+
 export function sanitizeDatabaseError(err: unknown, password: string): string {
-  const raw = err instanceof Error ? err.message : "database connection failed";
+  const raw = databaseErrorText(err);
   const redacted = password ? raw.split(password).join("[redacted]") : raw;
   return redacted.replace(/[\r\n]/g, " ").slice(0, 300);
 }

@@ -110,6 +110,8 @@ const fakeDb = {
 
 vi.mock("../../../../src/lib/database/db.js", () => ({
   getDb: async () => fakeDb,
+  // /me reads this site's feature switches from quota_limits on the control DB.
+  getControlDb: async () => fakeDb,
   resetDb: () => {},
 }));
 vi.mock("../../../../src/lib/email/mail.js", () => ({

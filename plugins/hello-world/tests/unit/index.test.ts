@@ -10,6 +10,10 @@ const mockCtx = {
   },
   patterns: { register: vi.fn() },
   media: { registerPlaceholder: vi.fn() },
+  quotas: {
+    register: vi.fn(),
+    check: vi.fn().mockResolvedValue({ ok: true, used: 0, limit: null }),
+  },
   settings: {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue(undefined),
@@ -50,6 +54,9 @@ describe("hello-world plugin", () => {
     expect(mockCtx.media.registerPlaceholder).toHaveBeenCalledWith(
       "justflows.hello-world.card",
       expect.objectContaining({ src: "/ext/justflows.hello-world/hello-world-placeholder.svg" }),
+    );
+    expect(mockCtx.quotas.register).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "justflows.hello-world.notes", scope: "site" }),
     );
     expect(mockCtx.logger.info).toHaveBeenCalledWith("Hello World plugin activated");
   });
