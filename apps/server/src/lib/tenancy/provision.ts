@@ -69,7 +69,7 @@ export interface CreateWorkspaceInput {
 
 export type ProvisionResult =
   | { ok: true; tenantId: string; siteId: string; hostname: string }
-  | { ok: false; status: number; error: string };
+  | { ok: false; status: number; error: string; code?: string; meter?: string };
 
 async function audit(actorId: string | null, action: string, target: string, detail: string): Promise<void> {
   const db = await getControlDb();
@@ -79,6 +79,16 @@ async function audit(actorId: string | null, action: string, target: string, det
     "INSERT INTO platform_audit (id, actor_id, action, target, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)",
     [randomUUID(), uuid, action, target, note, now()],
   );
+}
+
+async function copyQuotaDefaults(scope: "workspace" | "site", scopeId: string): Promise<void> {
+  try {
+    const { applyQuotaDefaults } = await import("./quotas.js");
+    await applyQuotaDefaults(scope, scopeId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "failed";
+    console.error("[justflows] quota defaults were not applied:", JSON.stringify(message.replace(/[\r\n]/g, " ")));
+  }
 }
 
 async function hostnameTaken(hostname: string): Promise<boolean> {
@@ -170,11 +180,7 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Prov
       );
       const opened = await openSeparateDatabase(target);
       if (!opened.ok) {
-        await db.run("UPDATE tenant_databases SET status = 'failed', last_error = ?, updated_at = ? WHERE id = ?", [
-          opened.error,
-          now(),
-          databaseId,
-        ]);
+        await discardNewWorkspace(db, tenantId, siteId);
         return { ok: false, status: 502, error: "The separate database could not be prepared. Nothing else was changed." };
       }
       try {
@@ -218,6 +224,8 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Prov
         await db.run("INSERT INTO platform_operators (user_id, created_at) VALUES (?, ?)", [owners[0].id, stamp]);
       }
     }
+    await copyQuotaDefaults("workspace", tenantId);
+    await copyQuotaDefaults("site", siteId);
     await audit(input.actorId, "tenant.created", tenantId, `database=${input.databaseMode};users=${input.userMode}`);
     await workspaceAction("workspace.created", {
       tenantId,
@@ -286,6 +294,33 @@ async function seedSiteContents(
      VALUES (?, ?, 'en', 'English', 'English', ?, ?, 0, ?, ?)`,
     [randomUUID(), input.siteId, true, true, input.stamp, input.stamp],
   );
+}
+
+/** Check the login and the named database. Does not create a database. */
+export async function probeSeparateDatabase(target: DatabaseTarget): Promise<{ ok: true } | { ok: false; error: string }> {
+  const driver = installationDriver();
+  try {
+    const client = await createDbClient({
+      driver,
+      host: target.host,
+      port: String(target.port),
+      database: target.database,
+      username: target.username,
+      password: target.password,
+    });
+    await client.query("SELECT 1");
+    await client.close();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: sanitizeDatabaseError(err, target.password) };
+  }
+}
+
+async function discardNewWorkspace(db: Sql, tenantId: string, siteId: string): Promise<void> {
+  await db.run("DELETE FROM site_domains WHERE site_id = ?", [siteId]);
+  await db.run("DELETE FROM tenant_databases WHERE tenant_id = ?", [tenantId]);
+  await db.run("DELETE FROM sites WHERE id = ?", [siteId]);
+  await db.run("DELETE FROM tenants WHERE id = ?", [tenantId]);
 }
 
 async function openSeparateDatabase(target: DatabaseTarget): Promise<{ ok: true; client: DbClient } | { ok: false; error: string }> {
@@ -564,6 +599,9 @@ export async function createAdditionalSite(input: {
     databaseMode: choice.mode,
   });
   if (blocked) return { ok: false, status: 403, error: blocked };
+  const { enforceQuota } = await import("./quotas.js");
+  const quota = await enforceQuota("sites", input.tenantId, 1);
+  if (quota) return { ok: false, status: quota.status, error: quota.error, code: quota.code, meter: quota.meter };
 
   const siteId = randomUUID();
   const stamp = now();
@@ -663,6 +701,7 @@ export async function createAdditionalSite(input: {
       await ensureSiteTheme(siteId);
     });
   }
+  await copyQuotaDefaults("site", siteId);
   await audit(input.actorId, "site.created", siteId, `database=${input.databaseChoice}`);
   await workspaceAction("site.created", {
     tenantId: input.tenantId,

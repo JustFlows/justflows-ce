@@ -7,8 +7,21 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.3.1]
 
+### Added
+
+- **Turn site features on or off, and cap each kind of content.** A website can limit users, posts of each type, custom content types, media files, media megabytes, plugins, and custom roles. It can also turn off comments, theme upload, design, roles, responsive images, security sections, PWA, redirects, and the other site admin sections. Off hides that menu and blocks the feature. An empty number means no limit. A feature left on stays available. Defaults copy onto a website when it is created. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Set the limits a new workspace or website starts with.** Platform → Defaults stores a number for each limit. Content types a plugin has already created, such as a shop's products, are included. A new workspace and a new website copy those numbers when they are created. An empty field means no limit. Workspaces and websites that already exist keep the limits on their own pages. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Platform has its own place in the admin menu.** Workspaces and Sites are the tabs at the top of that section. Settings no longer includes Platform. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Assign limits to a workspace or a website.** A platform operator sets how many sites a workspace may have, and how many users, content entries, and megabytes of media a website may have. An empty field means no limit. New items are refused at the limit; existing items stay. Plugins register their own meters and call `ctx.quotas.check` before they create a record. A plugin with `platform:tenancy` can set the same limits. See docs/MULTISITE.md. Adds migration `0038_quota_limits`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
 ### Fixed
 
+- **Remove a workspace even when its separate database was never provisioned.** Permanent deletion tolerates missing site or workspace tables and an already missing separate database, then removes the workspace from the platform database. Other database errors still stop deletion. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Turning a plugin off on another site clears that site's plugin menu.** Shop screens such as Import products stayed under Extensions after deactivate because the shared module was not unloaded and a short admin-app cache kept those routes. That site's menu now drops inactive plugins immediately. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Turning a plugin off on another site can delete that site's plugin data.** Another site cannot uninstall a plugin. When `deleteDataOnUninstall` or `deleteContentOnUninstall` is on, deactivate there runs the same site-scoped cleanup as a remove: the `deleteData` hook, owned pages and posts, and that site's rows. Tables stay for other sites. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **A turned-off site feature removes its control.** Create user roles, custom theme upload, the assistant, and responsive image tools stay out of that website's admin when the switch is off. The server still refuses the action. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Saving the signup database updates the connection workspaces already use.** Changing the host, port, database name, or username on Platform → Workspaces writes that connection, and workspace rows that still point at the previous one pick up the new values. Test connection checks the login. A signup that cannot reach the database does not leave a workspace behind. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **An update comes back after it restarts.** The update installed dependencies from a lockfile that named sharp's Linux binary but did not include the file, then restarted. The new process could not start, and the site stayed on the temporary error page. The update now installs that binary for the machine it is running on before it restarts. Release archives lock the binary as well, so a later install can find it.
 
 ## [0.3.0]

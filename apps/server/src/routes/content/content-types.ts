@@ -79,6 +79,12 @@ router.post("/", requireRole("administrator"), async (req, res) => {
 
   try {
     await ensureBuiltinContentTypes(session.siteId);
+    const { enforceQuota } = await import("../../lib/tenancy/quotas.js");
+    const quota = await enforceQuota("content.types", session.siteId, 1);
+    if (quota) {
+      res.status(quota.status).json({ error: quota.error, code: quota.code, meter: quota.meter });
+      return;
+    }
     const type = await createContentType(session.siteId, body.data);
     res.status(201).json({ type });
   } catch (err) {

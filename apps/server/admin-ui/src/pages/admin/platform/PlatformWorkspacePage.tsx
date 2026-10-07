@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Link, useNavigate } from "../../../admin-router";
 import { useT } from "../../../i18n/I18nProvider";
 import { initialJson } from "../../../ssr-data";
+import QuotaLimitsCard, { type QuotaMeter } from "./QuotaLimitsCard";
 
 interface PlatformWorkspace {
   workspace: {
@@ -33,6 +34,7 @@ interface PlatformWorkspace {
     username: string;
     lastError: string | null;
   } | null;
+  quotas?: { meters: QuotaMeter[] };
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -133,7 +135,7 @@ export default function PlatformWorkspacePage() {
     }
   }
 
-  const goBack = () => navigate("/admin/platform");
+  const goBack = () => navigate("/admin/platform/workspaces");
 
   if (!record) {
     return (
@@ -293,6 +295,11 @@ export default function PlatformWorkspacePage() {
             </section>
           </aside>
         </form>
+        <QuotaLimitsCard
+          key={id}
+          endpoint={`/api/platform/tenants/${encodeURIComponent(id ?? "")}/quotas`}
+          meters={record.quotas?.meters ?? []}
+        />
       </div>
     </>
   );

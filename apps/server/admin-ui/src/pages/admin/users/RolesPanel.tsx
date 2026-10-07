@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFeatureEnabled } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 
 type Role = { id: string; name: string; description?: string | null; builtIn: boolean; pluginId?: string | null; capabilities: string[] };
@@ -8,6 +9,7 @@ const title = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 export default function RolesPanel() {
   const { t } = useT();
+  const canCreateRoles = useFeatureEnabled("feature" + ".roles");
   const [roles, setRoles] = useState<Role[]>([]);
   const [all, setAll] = useState<Capability[]>([]);
   const [editing, setEditing] = useState<Role | null>(null);
@@ -72,7 +74,7 @@ export default function RolesPanel() {
     <section className="jf-card jf-roles" aria-labelledby="jf-roles-title">
       <div className="jf-card__head">
         <div><h2 className="jf-card__title" id="jf-roles-title">{t("users.roles.title")}</h2><p className="jf-roles__subtitle">{t("users.roles.subtitle")}</p></div>
-        <button className="jf-btn jf-btn--primary jf-btn--sm" type="button" onClick={() => setEditing({ ...NEW_ROLE })}>+ {t("users.roles.createRole")}</button>
+        {canCreateRoles ? <button className="jf-btn jf-btn--primary jf-btn--sm" type="button" onClick={() => setEditing({ ...NEW_ROLE })}>+ {t("users.roles.createRole")}</button> : null}
       </div>
       {error && <div className="jf-alert jf-alert--error jf-roles__alert" role="alert">{error}</div>}
       <div className="jf-card__body--flush">

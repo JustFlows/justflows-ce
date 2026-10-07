@@ -81,6 +81,8 @@ router.get("/me", requireSession, async (req, res) => {
     capabilities: access.capabilities,
     platformOperator: operator,
     installationRoot: tenancy.isInstallationRootRequest(),
+    disabledPaths: session.siteId ? await (await import("../../lib/tenancy/site-features.js")).disabledAdminPaths(session.siteId) : [],
+    disabledFeatures: session.siteId ? await (await import("../../lib/tenancy/site-features.js")).disabledFeatureKeys(session.siteId) : [],
   });
 });
 
@@ -363,6 +365,13 @@ router.post("/register", registerRequestLimit, async (req, res) => {
     );
     if (existing[0]) {
       res.status(409).json({ error: "That email or username is already registered" });
+      return;
+    }
+
+    const { enforceQuota } = await import("../../lib/tenancy/quotas.js");
+    const quota = await enforceQuota("users", siteId, 1);
+    if (quota) {
+      res.status(quota.status).json({ error: quota.error, code: quota.code, meter: quota.meter });
       return;
     }
 

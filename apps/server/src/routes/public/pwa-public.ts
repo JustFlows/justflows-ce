@@ -44,6 +44,8 @@ router.get("/manifest.webmanifest", async (req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) return void res.status(404).end();
+    const { siteFeatureEnabled } = await import("../../lib/tenancy/site-features.js");
+    if (!(await siteFeatureEnabled("feature.pwa", siteId))) return void res.status(404).end();
     const settings = await getPwaSettings(siteId);
     if (!settings.enabled) return void res.status(404).end();
     const manifest = buildManifestJson(settings, siteOrigin(), String(req.locale ?? "en"));
@@ -64,8 +66,10 @@ router.get("/sw.js", async (req, res) => {
   try {
     const siteId = await getSiteId();
     const settings = siteId ? await getPwaSettings(siteId) : null;
+    const { siteFeatureEnabled } = await import("../../lib/tenancy/site-features.js");
+    const allowed = siteId ? await siteFeatureEnabled("feature.pwa", siteId) : false;
     const script =
-      settings && settings.enabled
+      settings && settings.enabled && allowed
         ? buildServiceWorkerScript(settings)
         : buildRetirementServiceWorkerScript();
     // A service worker byte stream must always be revalidated — browsers
@@ -82,6 +86,8 @@ router.get("/pwa-offline.html", async (req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) return void res.status(404).end();
+    const { siteFeatureEnabled } = await import("../../lib/tenancy/site-features.js");
+    if (!(await siteFeatureEnabled("feature.pwa", siteId))) return void res.status(404).end();
     const settings = await getPwaSettings(siteId);
     if (!settings.enabled) return void res.status(404).end();
     sendWithEtag(

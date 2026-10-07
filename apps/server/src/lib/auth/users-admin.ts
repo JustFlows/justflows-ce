@@ -246,6 +246,9 @@ export async function createUser(
   if (!(await isAssignableRole(role))) {
     return { status: 400, body: { error: "Unknown role" } };
   }
+  const { enforceQuota } = await import("../tenancy/quotas.js");
+  const quota = await enforceQuota("users", actor.siteId, 1);
+  if (quota) return { status: quota.status, body: { error: quota.error, code: quota.code, meter: quota.meter } };
   const passwordHash = await hashPassword(password);
   const id = randomUUID();
   await (

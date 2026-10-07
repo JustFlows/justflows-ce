@@ -20,6 +20,7 @@ import { clearSessionCookie } from "../../lib/auth/session.js";
 import { revokeDeviceSession } from "../../lib/auth/device-sessions.js";
 import { deleteCustomerSite } from "../../lib/tenancy/provision.js";
 import { sendServerError } from "../../lib/http/send-error.js";
+import { requireSiteFeature } from "../../lib/tenancy/site-features.js";
 import type { CommentSettings } from "../../lib/comments/comments-settings.js";
 
 import { PermalinkSettingsSchema, PERMALINK_PRESETS } from "../../lib/navigation/permalinks.js";
@@ -32,6 +33,22 @@ import {
 } from "../../lib/settings/settings-admin.js";
 
 const router = Router();
+
+const SETTINGS_FEATURES: Array<[string, string]> = [
+  ["/permalinks", "feature.permalinks"],
+  ["/comments", "feature.comments"],
+  ["/placeholders", "feature.placeholders"],
+  ["/pwa", "feature.pwa"],
+];
+
+router.use((req, res, next) => {
+  const feature = SETTINGS_FEATURES.find(([prefix]) => req.path === prefix || req.path.startsWith(`${prefix}/`))?.[1];
+  if (!feature) {
+    next();
+    return;
+  }
+  requireSiteFeature(feature)(req, res, next);
+});
 router.get("/permalinks", requireSession, requireRole("administrator"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
