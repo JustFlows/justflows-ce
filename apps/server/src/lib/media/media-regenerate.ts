@@ -2,8 +2,8 @@
 
 import { getDb } from "../database/db.js";
 import { readUpload } from "./upload-store.js";
-import { derivativeBytes,
-  generateAndStoreVariants, resolveImageConfig } from "./media-responsive.js";
+import { resolveImageConfig } from "./media-responsive.js";
+import { rebuildVariantsWithinQuota } from "./media-write.js";
 
 /**
  * Admin → Tools "Regenerate responsive images" job (#103).
@@ -72,9 +72,8 @@ async function processRow(siteId: string, row: MediaRow): Promise<"done" | "skip
   const focalX = row.focal_x == null ? null : Number(row.focal_x);
   const focalY = row.focal_y == null ? null : Number(row.focal_y);
 
-  const derivatives = await generateAndStoreVariants({
-    siteId,
-    mediaId: row.id,
+  // Same budget as a focal-point change: never grows past the media limits.
+  const result = await rebuildVariantsWithinQuota(siteId, row.id, {
     filename: row.filename,
     mimeType: row.mime_type,
     buffer,
@@ -83,25 +82,7 @@ async function processRow(siteId: string, row: MediaRow): Promise<"done" | "skip
         ? { x: focalX, y: focalY }
         : null,
   });
-
-  if (!derivatives) return "skipped";
-
-  await (
-    await getDb()
-  ).run(
-    "UPDATE media SET derivatives = ?, derivative_bytes = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
-    [
-      JSON.stringify(derivatives),
-      derivativeBytes(derivatives),
-      derivatives.base.w,
-      derivatives.base.h,
-      derivatives.base.format,
-      now(),
-      now(),
-      row.id,
-      siteId,
-    ],
-  );
+  if (!result || result === "skipped") return "skipped";
   return "done";
 }
 
