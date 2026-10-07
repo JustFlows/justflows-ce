@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.1]
+
+### Fixed
+
+- **An update comes back after it restarts.** The update installed dependencies from a lockfile that named sharp's Linux binary but did not include the file, then restarted. The new process could not start, and the site stayed on the temporary error page. The update now installs that binary for the machine it is running on before it restarts. Release archives lock the binary as well, so a later install can find it.
+
 ## [0.3.0]
 
 ### Added
