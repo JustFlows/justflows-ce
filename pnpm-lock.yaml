@@ -152,6 +152,9 @@ importers:
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
+      undici:
+        specifier: 8.10.2
+        version: 8.10.2
       zod:
         specifier: ^4.4.3
         version: 4.4.3

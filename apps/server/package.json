@@ -38,6 +38,7 @@
     "mysql2": "^3.23.3",
     "nodemailer": "^10.0.12",
     "postgres": "^3.4.9",
+    "undici": "8.10.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
