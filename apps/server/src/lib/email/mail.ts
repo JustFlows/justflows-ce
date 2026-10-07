@@ -122,7 +122,21 @@ function envFallback(): Partial<MailConfig> {
   return out;
 }
 
-export async function getMailConfig(siteId?: string | null): Promise<MailConfig> {
+interface ResolvedMailConfig {
+  config: MailConfig;
+  /** The password came from the installation environment, not this site's record. */
+  passwordFromEnv: boolean;
+  /** Mail goes to the operator-configured relay (SMTP_HOST / SMTP_PORT). */
+  usesInstallationRelay: boolean;
+}
+
+/**
+ * SMTP_USER / SMTP_PASS belong to the installation's mail relay. They are only
+ * ever paired with that relay (SMTP_HOST / SMTP_PORT): a site that points mail
+ * at any other server must bring its own credentials, so installation secrets
+ * are never offered to a destination a site administrator chose.
+ */
+async function resolveMailConfig(siteId?: string | null): Promise<ResolvedMailConfig> {
   const id = siteId ?? (await getSiteId());
   const env = envFallback();
   const stored = id ? await getSiteSetting<Partial<MailConfig>>(id, "mail") : null;
@@ -130,28 +144,76 @@ export async function getMailConfig(siteId?: string | null): Promise<MailConfig>
 
   const transportRaw = asString(raw.transport ?? env.transport, DEFAULT_MAIL_CONFIG.transport);
   const secureRaw = asString(raw.smtpSecure ?? env.smtpSecure, DEFAULT_MAIL_CONFIG.smtpSecure);
+  const smtpHost = asString(raw.smtpHost ?? env.smtpHost, DEFAULT_MAIL_CONFIG.smtpHost);
+  const smtpPort = asInt(raw.smtpPort ?? env.smtpPort, DEFAULT_MAIL_CONFIG.smtpPort);
+  const envHost = asString(env.smtpHost, DEFAULT_MAIL_CONFIG.smtpHost);
+  const envPort = asInt(env.smtpPort, DEFAULT_MAIL_CONFIG.smtpPort);
+  const envUser = asString(env.smtpUser, DEFAULT_MAIL_CONFIG.smtpUser);
+  const storedUser = typeof raw.smtpUser === "string" ? raw.smtpUser : undefined;
+  const isEnvRelay =
+    smtpHost.trim().toLowerCase() === envHost.trim().toLowerCase() &&
+    smtpPort === envPort &&
+    (env.smtpSecure === undefined || secureRaw === env.smtpSecure) &&
+    (storedUser === undefined || storedUser === "" || storedUser === envUser);
+  const passwordFromEnv = !raw.smtpPass && isEnvRelay && Boolean(env.smtpPass);
 
-  return {
+  const config: MailConfig = {
     transport: isMailTransport(transportRaw) ? transportRaw : DEFAULT_MAIL_CONFIG.transport,
     fromName: asString(raw.fromName, DEFAULT_MAIL_CONFIG.fromName),
     fromAddress: asString(raw.fromAddress, DEFAULT_MAIL_CONFIG.fromAddress),
     replyTo: asString(raw.replyTo, DEFAULT_MAIL_CONFIG.replyTo),
     envelopeSender: asString(raw.envelopeSender, DEFAULT_MAIL_CONFIG.envelopeSender),
-    smtpHost: asString(raw.smtpHost ?? env.smtpHost, DEFAULT_MAIL_CONFIG.smtpHost),
-    smtpPort: asInt(raw.smtpPort ?? env.smtpPort, DEFAULT_MAIL_CONFIG.smtpPort),
+    smtpHost,
+    smtpPort,
     smtpSecure: isSmtpSecure(secureRaw) ? secureRaw : DEFAULT_MAIL_CONFIG.smtpSecure,
-    smtpUser: asString(raw.smtpUser ?? env.smtpUser, DEFAULT_MAIL_CONFIG.smtpUser),
+    smtpUser: storedUser || (isEnvRelay ? envUser : DEFAULT_MAIL_CONFIG.smtpUser),
     // Stored encrypted since 0.1.2; decryptSecret passes plaintext through so
     // configs written by an older release keep working until the next save.
     smtpPass: raw.smtpPass
       ? decryptSecret(raw.smtpPass)
-      : asString(env.smtpPass, DEFAULT_MAIL_CONFIG.smtpPass),
+      : passwordFromEnv
+        ? asString(env.smtpPass, DEFAULT_MAIL_CONFIG.smtpPass)
+        : DEFAULT_MAIL_CONFIG.smtpPass,
     rateLimitPerMinute: Math.max(
       1,
       asInt(raw.rateLimitPerMinute, DEFAULT_MAIL_CONFIG.rateLimitPerMinute),
     ),
     concurrency: Math.max(1, asInt(raw.concurrency, DEFAULT_MAIL_CONFIG.concurrency)),
   };
+  return { config, passwordFromEnv, usesInstallationRelay: isEnvRelay };
+}
+
+const SITE_SMTP_PORTS = new Set([25, 465, 587, 2525]);
+
+/**
+ * Transport options for this send. The installation site and the operator's
+ * own relay are trusted as configured. Any other site's SMTP server is a
+ * destination a site administrator chose, so it must be a public address on a
+ * standard SMTP port, and the connection is pinned to the address that was
+ * checked (TLS still verifies the configured hostname).
+ */
+async function transportOptionsFor(siteId: string, resolved: ResolvedMailConfig): Promise<Record<string, unknown>> {
+  const options = buildTransportOptions(resolved.config);
+  if (resolved.config.transport !== "smtp" || resolved.usesInstallationRelay) return options;
+  const { isInstallationRootSite } = await import("../tenancy/registry.js");
+  if (await isInstallationRootSite(siteId)) return options;
+  const host = String(options.host);
+  if (!SITE_SMTP_PORTS.has(Number(options.port))) {
+    throw new Error("SMTP port must be 25, 465, 587 or 2525");
+  }
+  const { lookup } = await import("node:dns/promises");
+  const { isIP } = await import("node:net");
+  const { isBlockedWebhookAddress, isLocalHostName } = await import("../security/webhook-url.js");
+  if (isLocalHostName(host)) throw new Error("Private SMTP servers are not allowed");
+  const answers = isIP(host) ? [{ address: host }] : await lookup(host, { all: true, verbatim: true });
+  if (answers.length === 0 || answers.some(({ address }) => isBlockedWebhookAddress(address))) {
+    throw new Error("Private SMTP servers are not allowed");
+  }
+  return isIP(host) ? options : { ...options, host: answers[0]!.address, tls: { servername: host } };
+}
+
+export async function getMailConfig(siteId?: string | null): Promise<MailConfig> {
+  return (await resolveMailConfig(siteId)).config;
 }
 
 export function toPublicMailSettings(config: MailConfig): PublicMailSettings {
@@ -180,13 +242,21 @@ export async function saveMailConfig(
   siteId: string,
   patch: Partial<MailConfig> & { smtpPass?: string },
 ): Promise<void> {
-  const current = await getMailConfig(siteId);
-  const next: MailConfig = {
-    ...current,
-    ...patch,
-    smtpPass:
-      patch.smtpPass === undefined || patch.smtpPass === "" ? current.smtpPass : patch.smtpPass,
-  };
+  const { config: current, passwordFromEnv } = await resolveMailConfig(siteId);
+  const next: MailConfig = { ...current, ...patch };
+  // A blank password keeps the site's own saved password, but only while the
+  // server and account stay the same. Changing where mail goes (or as whom)
+  // requires entering the password again, and an installation password is
+  // never copied into a site's record.
+  const sameAccount =
+    next.transport === current.transport &&
+    next.smtpHost.trim().toLowerCase() === current.smtpHost.trim().toLowerCase() &&
+    next.smtpPort === current.smtpPort &&
+    next.smtpUser.trim() === current.smtpUser.trim();
+  const keepPassword = (patch.smtpPass === undefined || patch.smtpPass === "") && sameAccount;
+  next.smtpPass = keepPassword ? (passwordFromEnv ? "" : current.smtpPass) : (patch.smtpPass ?? "");
+  // Keep an inherited relay account inherited rather than pinning it here.
+  if (passwordFromEnv && keepPassword && next.smtpUser === current.smtpUser) next.smtpUser = "";
   await setSiteSetting(siteId, "mail", {
     ...next,
     smtpPass: next.smtpPass ? encryptSecret(next.smtpPass) : "",
@@ -336,7 +406,8 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
     if (!siteId) return { ok: false, error: "No site found" };
     if (await isSuppressed(siteId, message))
       return { ok: false, error: "Recipient is suppressed for this email type" };
-    config = await getMailConfig(siteId);
+    const resolved = await resolveMailConfig(siteId);
+    config = resolved.config;
     const from = await fromHeader(config, message.fromName);
     if (!from) {
       const error = "Set an administration email address first";
@@ -417,7 +488,7 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
       return { ok: true, response: result.response, messageId: result.messageId, logId };
     }
     const transporter = nodemailer.createTransport(
-      buildTransportOptions(config) as Parameters<typeof nodemailer.createTransport>[0],
+      (await transportOptionsFor(siteId, resolved)) as Parameters<typeof nodemailer.createTransport>[0],
     );
     const result = await withDeliverySlot(config, () => transporter.sendMail(outgoing));
     const response = String(result.response ?? result.messageId ?? "Accepted");
