@@ -74,6 +74,8 @@ export type PluginUsersFactory = (
 export type PluginI18nProvider = (siteId: string) => {
   defaultLocale(): Promise<string>;
   locales(): Promise<string[]>;
+  timeZone(): Promise<string>;
+  countries(locale?: string): Promise<Array<{ code: string; name: string }>>;
 };
 export type PluginSettingsAdapter = {
   get<T = unknown>(siteId: string, pluginId: string, key: string): Promise<T | undefined>;
@@ -151,6 +153,12 @@ const NULL_DATABASES: PluginDatabasesApi = {
   findOne: async () => undefined,
   find: async () => [],
   delete: async () => undefined,
+  insert: async () => false,
+  update: async () => 0,
+  increment: async () => 0,
+  transaction: async () => {
+    throw new Error("Database transactions are not available");
+  },
   columns: async () => [],
 };
 
@@ -311,6 +319,8 @@ export class PluginLoader {
       (() => ({
         defaultLocale: async () => "en-US",
         locales: async () => ["en-US"],
+        timeZone: async () => "UTC",
+        countries: async () => [],
       }));
     this.jobsCleanup = options?.jobsCleanup;
     this.mailCleanup = options?.mailCleanup;

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import type {
   PluginDatabasesApi,
   PluginDatabaseDriver,
   PluginDatabaseTarget,
   PluginPermission,
+  PluginRowOps,
   PluginSchemaTable,
 } from "@justflows/sdk";
 import type { DbClient } from "../database/db.js";
@@ -29,17 +31,26 @@ import {
 import { decryptSecret } from "../security/secret-box.js";
 import { getSiteId } from "../settings/site-settings.js";
 import { recordAppliedPluginSchema, type AppliedPluginSchemaMeta } from "./plugin-purge.js";
+import {
+  deleteRows,
+  incrementRows,
+  insertRow,
+  isDuplicateKeyError,
+  isRetryableTransactionError,
+  quoteIdent,
+  selectRows,
+  updateRows,
+} from "./plugin-row-sql.js";
 
 const IDENT = /^[a-z][a-z0-9_]{0,47}$/;
+const TRANSACTION_ATTEMPTS = 3;
 
 type Scalar = string | number | boolean | null;
+type Executor = Pick<DbClient, "run" | "query" | "execute">;
+type RowHandle = { db: Executor; driver: PluginDatabaseDriver; inTransaction: boolean };
 
-function quoteIdent(value: string, driver: PluginDatabaseDriver): string {
-  if (!IDENT.test(value)) {
-    throw new Error(`Invalid identifier "${value}"`);
-  }
-  return driver === "postgres" ? `"${value}"` : `\`${value}\``;
-}
+/** The open transaction for one plugin on one site, joined by row calls made inside it. */
+const activeTransaction = new AsyncLocalStorage<{ pluginId: string; siteId: string; handle: RowHandle }>();
 
 function ownedTable(pluginId: string, table: string): string {
   const tableName = pluginTableName(pluginId, table);
@@ -169,7 +180,28 @@ export function createPluginDatabasesApi(
   siteId: string,
   permissions: ReadonlySet<PluginPermission> | ReadonlySet<string>,
 ): PluginDatabasesApi {
-  return {
+  /** Run on the open transaction for this plugin and site, or on a fresh handle. */
+  async function withRows<T>(sid: string, fn: (handle: RowHandle) => Promise<T>): Promise<T> {
+    const open = activeTransaction.getStore();
+    if (open && open.pluginId === pluginId && open.siteId === sid) return fn(open.handle);
+    const handle = await openHandle(pluginId, sid, permissions);
+    try {
+      return await fn({ db: handle.db, driver: handle.driver, inTransaction: false });
+    } finally {
+      if (handle.close) await handle.db.close();
+    }
+  }
+
+  async function deleteMatching(table: string, where: Record<string, Scalar>): Promise<number> {
+    const sid = pluginCallSiteId(siteId);
+    const tableName = ownedTable(pluginId, table);
+    return withRows(sid, async (handle) => {
+      const statement = deleteRows(tableName, sid, where, handle.driver);
+      return handle.db.execute(statement.sql, statement.params);
+    });
+  }
+
+  const api: PluginDatabasesApi = {
     probeShared: () => probeSharedDatabase(),
     async probe(target: PluginDatabaseTarget) {
       if (!isLocalDatabaseHost(target.host) && !permissions.has("network:outbound")) {
@@ -243,12 +275,11 @@ export function createPluginDatabasesApi(
     async upsert(table, row, options) {
       const sid = pluginCallSiteId(siteId);
       const tableName = ownedTable(pluginId, table);
-      const handle = await openHandle(pluginId, sid, permissions);
       const match = (options?.match?.length ? options.match : ["id"]).filter((col) => IDENT.test(col));
       const payload: Record<string, Scalar> = { ...row, site_id: sid };
       const columns = Object.keys(payload).filter((col) => IDENT.test(col));
       if (columns.length === 0) return;
-      try {
+      await withRows(sid, async (handle) => {
         const whereCols = match.filter((col) => payload[col] !== undefined && payload[col] !== null);
         let existingId: string | undefined;
         if (whereCols.length > 0) {
@@ -278,71 +309,87 @@ export function createPluginDatabasesApi(
           `INSERT INTO ${quoteIdent(tableName, handle.driver)} (${columns.map((col) => quoteIdent(col, handle.driver)).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
           columns.map((col) => payload[col] ?? null),
         );
-      } finally {
-        if (handle.close) await handle.db.close();
-      }
+      });
     },
-    async findOne(table, where = {}) {
+    async findOne(table, where = {}, options) {
       const sid = pluginCallSiteId(siteId);
       const tableName = ownedTable(pluginId, table);
-      const handle = await openHandle(pluginId, sid, permissions);
-      const filters = Object.entries(where).filter(([col]) => IDENT.test(col));
-      try {
-        const clause = [
-          `${quoteIdent("site_id", handle.driver)} = ?`,
-          ...filters.map(([col]) => `${quoteIdent(col, handle.driver)} = ?`),
-        ].join(" AND ");
-        const rows = await handle.db.query<Record<string, unknown>>(
-          `SELECT * FROM ${quoteIdent(tableName, handle.driver)} WHERE ${clause} LIMIT 1`,
-          [sid, ...filters.map(([, value]) => value)],
-        );
-        return rows[0];
-      } catch {
-        return undefined;
-      } finally {
-        if (handle.close) await handle.db.close();
-      }
+      return withRows(sid, async (handle) => {
+        const statement = selectRows(tableName, sid, where, { ...options, limit: 1 }, handle.driver);
+        try {
+          const rows = await handle.db.query<Record<string, unknown>>(statement.sql, statement.params);
+          return rows[0];
+        } catch (err) {
+          if (handle.inTransaction) throw err;
+          return undefined;
+        }
+      });
     },
     async find(table, where = {}, options) {
       const sid = pluginCallSiteId(siteId);
       const tableName = ownedTable(pluginId, table);
-      const handle = await openHandle(pluginId, sid, permissions);
-      const filters = Object.entries(where).filter(([col]) => IDENT.test(col));
-      const limit = Math.min(Math.max(1, Math.trunc(options?.limit ?? 100)), 500);
-      try {
-        const clause = [
-          `${quoteIdent("site_id", handle.driver)} = ?`,
-          ...filters.map(([col]) => `${quoteIdent(col, handle.driver)} = ?`),
-        ].join(" AND ");
-        return await handle.db.query<Record<string, unknown>>(
-          `SELECT * FROM ${quoteIdent(tableName, handle.driver)} WHERE ${clause} LIMIT ?`,
-          [sid, ...filters.map(([, value]) => value), limit],
-        );
-      } catch {
-        return [];
-      } finally {
-        if (handle.close) await handle.db.close();
-      }
+      return withRows(sid, async (handle) => {
+        try {
+          const statement = selectRows(tableName, sid, where, options, handle.driver);
+          return await handle.db.query<Record<string, unknown>>(statement.sql, statement.params);
+        } catch (err) {
+          if (handle.inTransaction) throw err;
+          return [];
+        }
+      });
     },
     async delete(table, where) {
+      await deleteMatching(table, where);
+    },
+    async insert(table, row) {
       const sid = pluginCallSiteId(siteId);
       const tableName = ownedTable(pluginId, table);
-      const filters = Object.entries(where).filter(([col]) => IDENT.test(col));
-      if (filters.length === 0) {
-        throw new Error(`Plugin "${pluginId}" cannot delete from "${table}" without a column match`);
-      }
-      const handle = await openHandle(pluginId, sid, permissions);
-      try {
-        const clause = [
-          `${quoteIdent("site_id", handle.driver)} = ?`,
-          ...filters.map(([col]) => `${quoteIdent(col, handle.driver)} = ?`),
-        ].join(" AND ");
-        await handle.db.run(
-          `DELETE FROM ${quoteIdent(tableName, handle.driver)} WHERE ${clause}`,
-          [sid, ...filters.map(([, value]) => value)],
-        );
-      } finally {
-        if (handle.close) await handle.db.close();
+      return withRows(sid, async (handle) => {
+        const statement = insertRow(tableName, sid, row, handle.driver);
+        try {
+          return (await handle.db.execute(statement.sql, statement.params)) > 0;
+        } catch (err) {
+          if (isDuplicateKeyError(err)) return false;
+          throw err;
+        }
+      });
+    },
+    async update(table, where, values) {
+      const sid = pluginCallSiteId(siteId);
+      const tableName = ownedTable(pluginId, table);
+      return withRows(sid, async (handle) => {
+        const statement = updateRows(tableName, sid, where, values, handle.driver);
+        if (!statement) return 0;
+        return handle.db.execute(statement.sql, statement.params);
+      });
+    },
+    async increment(table, where, deltas, options) {
+      const sid = pluginCallSiteId(siteId);
+      const tableName = ownedTable(pluginId, table);
+      return withRows(sid, async (handle) => {
+        const statement = incrementRows(tableName, sid, where, deltas, options, handle.driver);
+        if (!statement) return 0;
+        return handle.db.execute(statement.sql, statement.params);
+      });
+    },
+    async transaction(fn) {
+      const sid = pluginCallSiteId(siteId);
+      const open = activeTransaction.getStore();
+      if (open && open.pluginId === pluginId && open.siteId === sid) return fn(rowOps);
+      for (let attempt = 1; ; attempt += 1) {
+        const handle = await openHandle(pluginId, sid, permissions);
+        try {
+          return await handle.db.transaction((tx) =>
+            activeTransaction.run(
+              { pluginId, siteId: sid, handle: { db: tx, driver: handle.driver, inTransaction: true } },
+              () => fn(rowOps),
+            ),
+          );
+        } catch (err) {
+          if (attempt >= TRANSACTION_ATTEMPTS || !isRetryableTransactionError(err)) throw err;
+        } finally {
+          if (handle.close) await handle.db.close();
+        }
       }
     },
     async columns(table) {
@@ -368,4 +415,14 @@ export function createPluginDatabasesApi(
       }
     },
   };
+  const rowOps: PluginRowOps = {
+    findOne: (table, where, options) => api.findOne(table, where, options),
+    find: (table, where, options) => api.find(table, where, options),
+    insert: (table, row) => api.insert(table, row),
+    upsert: (table, row, options) => api.upsert(table, row, options),
+    update: (table, where, values) => api.update(table, where, values),
+    increment: (table, where, deltas, options) => api.increment(table, where, deltas, options),
+    delete: (table, where) => deleteMatching(table, where),
+  };
+  return api;
 }
