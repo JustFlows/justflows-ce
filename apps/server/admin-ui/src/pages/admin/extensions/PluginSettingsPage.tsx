@@ -6,11 +6,13 @@ import { initialJson } from "../../../ssr-data";
 import { useT } from "../../../i18n/I18nProvider";
 
 interface SettingField {
-  type: "string" | "number" | "boolean" | "text";
+  type: "string" | "number" | "boolean" | "text" | "select";
   label: string;
   description?: string;
   default?: unknown;
   localized?: boolean;
+  /** Filled in by the server for `select`, including host lists such as time zones and countries. */
+  options?: Array<{ value: string; label: string }>;
 }
 
 interface SiteLanguage {
@@ -149,6 +151,21 @@ export default function PluginSettingsPage() {
                 : setValues((v) => ({ ...v, [key]: e.target.checked }))
             }
           />
+        ) : field.type === "select" && !localized ? (
+          <select
+            className="jf-input"
+            value={String(value ?? "")}
+            onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+          >
+            {!(field.options ?? []).some((option) => option.value === String(value ?? "")) && (
+              <option value={String(value ?? "")}>{String(value ?? "")}</option>
+            )}
+            {(field.options ?? []).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         ) : field.type === "text" ? (
           <textarea
             className="jf-input"

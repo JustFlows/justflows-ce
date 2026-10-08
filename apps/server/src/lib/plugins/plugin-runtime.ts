@@ -333,6 +333,21 @@ export async function ensurePluginRuntime(): Promise<void> {
             (await import("../i18n/languages-db.js")).getDefaultLocale(siteId),
           locales: async () =>
             (await import("../i18n/languages-db.js")).getActiveLocaleCodes(siteId),
+          // The request's site, like other plugin facades, so another site gets its own zone.
+          timeZone: async () => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { getGeneralSettings } = await import("../settings/general-settings.js");
+            const { isValidTimeZone } = await import("../i18n/datetime-format.js");
+            const zone = (await getGeneralSettings(pluginCallSiteId(siteId))).timezone;
+            return zone && isValidTimeZone(zone) ? zone : "UTC";
+          },
+          countries: async (locale?: string) => {
+            const { listCountries } = await import("../i18n/countries.js");
+            if (locale) return listCountries(locale);
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { getDefaultLocale } = await import("../i18n/languages-db.js");
+            return listCountries(await getDefaultLocale(pluginCallSiteId(siteId)));
+          },
         }),
         blockRegistry: pluginBlockAdapter(),
         coreCookies: async () => (await import("../security/cookie-registry.js")).getCoreCookies(),

@@ -85,7 +85,8 @@ async function readPluginSettings(
     merged.googleTagId = parsed ?? "";
   }
 
-  return { schema, values: merged, languages };
+  const { resolveSettingsSchema } = await import("../../lib/plugins/plugin-settings-options.js");
+  return { schema: resolveSettingsSchema(schema, defaultLocale), values: merged, languages };
 }
 
 // The installed extension set and its versions fingerprint the site.
@@ -378,7 +379,13 @@ router.put("/:id/settings", requireRole("administrator"), async (req, res) => {
         next[key] = parsed;
         continue;
       }
-      next[key] = body[key];
+      const { checkSettingValue } = await import("../../lib/plugins/plugin-settings-options.js");
+      const checked = checkSettingValue(schema[key], body[key]);
+      if (!checked.ok) {
+        res.status(400).json({ error: checked.error });
+        return;
+      }
+      next[key] = checked.value;
     }
     next = (await getRuntimeHooks().applyFilter(
       "plugin.settings.write",
