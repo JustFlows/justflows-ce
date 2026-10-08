@@ -115,6 +115,11 @@ const PluginContentFrame = forwardRef<
     return () => window.removeEventListener("message", onMessage);
   }, [onDirty, onSections, sendContext]);
 
+  // The server-rendered frame can finish loading before hydration attaches.
+  useEffect(() => {
+    sendContext();
+  }, [sendContext]);
+
   useEffect(() => {
     if (sectionId) post({ type: "section", sectionId });
   }, [post, sectionId]);

@@ -24,6 +24,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Plugin admin pages keep their language and route after a reload.** The host delivers context when hydration attaches, even if the plugin iframe loaded before its handlers. Later language and catalog changes reach the frame too. ([#69](https://github.com/JustFlows/justflows-ce/issues/69))
+
 - **Plugin updates accept dropdown settings.** The package installer now accepts `select` settings and preserves their fixed choices and core country or time-zone sources, allowing Shop 0.1.3 to install. Startup logs now report an active plugin's missing module or registration failure.
 
 - **Transactions on a plugin's separate database.** A plugin's separate database ignored transactions and reported no changed rows; both now work as on the main database.

@@ -206,6 +206,13 @@ function PluginFrame({
     return () => window.removeEventListener("message", onMessage);
   }, [navigate, sendContext]);
 
+  // An SSR iframe may have loaded and sent `ready` before hydration attached
+  // the handlers. Deliver context on attachment too, and refresh it when the
+  // locale or catalog URLs change. The ready/load handlers cover later loads.
+  useEffect(() => {
+    sendContext();
+  }, [sendContext]);
+
   // Host-driven navigation under the plugin's own path subtree: tell the frame
   // so its internal router can follow without a full reload.
   useEffect(() => {
