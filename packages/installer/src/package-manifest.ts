@@ -80,11 +80,16 @@ export const PackageManifestSchema = z
       .record(
         z.string(),
         z.object({
-          type: z.enum(["string", "number", "boolean", "text"]),
+          type: z.enum(["string", "number", "boolean", "text", "select"]),
           label: z.string().min(1),
           description: z.string().optional(),
           default: z.unknown().optional(),
           localized: z.boolean().optional(),
+          options: z
+            .array(z.object({ value: z.string().max(200), label: z.string().min(1).max(200) }))
+            .max(200)
+            .optional(),
+          optionsSource: z.enum(["timezones", "countries"]).optional(),
         }),
       )
       .optional(),
