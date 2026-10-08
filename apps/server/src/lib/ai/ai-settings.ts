@@ -2,6 +2,7 @@
 
 import type { Request } from "express";
 import { getTenantContext } from "../tenancy/context.js";
+import { isInstallationRootRequest } from "../tenancy/access.js";
 import { getSiteId, getSiteSetting, setSiteSetting } from "../settings/site-settings.js";
 import { getManageApiRateLimit, isManageApiEnabled } from "../http/manage-api-settings.js";
 
@@ -14,7 +15,9 @@ import { getManageApiRateLimit, isManageApiEnabled } from "../http/manage-api-se
  * - `ai_assistant_enabled` — the in-admin assistant. Off by default.
  * - `ai_allow_private_endpoints` — lets an administrator point an
  *   OpenAI-compatible provider at a private or loopback address (a local
- *   Ollama or LM Studio). Never applies to `media_upload` source URLs.
+ *   Ollama or LM Studio). Never applies to `media_upload` source URLs. This
+ *   is installation network policy, so only the root site can turn it on; on
+ *   any other site the effective value is always false.
  * - `ai_user_daily_limit` — optional assistant requests per user per day.
  * - `mcp_rate_limit` — per-minute MCP ceiling per key/token and per IP; falls
  *   back to `manage_api_rate_limit`.
@@ -65,6 +68,7 @@ export async function isAssistantEnabled(): Promise<boolean> {
 }
 
 export async function allowPrivateAiEndpoints(): Promise<boolean> {
+  if (!isInstallationRootRequest()) return false;
   return readBoolean("ai_allow_private_endpoints");
 }
 
@@ -88,6 +92,8 @@ export async function getAiSettings(): Promise<AiSettings> {
   return { mcpEnabled, assistantEnabled, allowPrivateEndpoints, userDailyLimit, mcpRateLimit };
 }
 
+export class AiSettingsError extends Error {}
+
 export async function saveAiSettings(patch: Partial<AiSettings>): Promise<AiSettings> {
   const siteId = await getSiteId();
   if (!siteId) throw new Error("Site is not installed");
@@ -96,6 +102,9 @@ export async function saveAiSettings(patch: Partial<AiSettings>): Promise<AiSett
     await setSiteSetting(siteId, "ai_assistant_enabled", patch.assistantEnabled === true);
   }
   if (patch.allowPrivateEndpoints !== undefined) {
+    if (patch.allowPrivateEndpoints === true && !isInstallationRootRequest()) {
+      throw new AiSettingsError("Private provider addresses can only be allowed on the main site.");
+    }
     await setSiteSetting(siteId, "ai_allow_private_endpoints", patch.allowPrivateEndpoints === true);
   }
   if (patch.userDailyLimit !== undefined) {

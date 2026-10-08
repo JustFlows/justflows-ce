@@ -302,8 +302,31 @@ export async function openTargetDatabase(target: PluginDatabaseTarget): Promise<
         const rows = await sql.unsafe(pgQuery, params as Parameters<typeof sql.unsafe>[1]);
         return rows as unknown as T[];
       },
-      execute: async () => 0,
-      transaction: async (fn) => fn({ run: async () => undefined, query: async () => [], execute: async () => 0 }),
+      execute: async (query, params = []) => {
+        let i = 0;
+        const pgQuery = query.replace(/\?/g, () => `$${++i}`);
+        const rows = await sql.unsafe(pgQuery, params as Parameters<typeof sql.unsafe>[1]);
+        return Number((rows as { count?: number }).count ?? 0);
+      },
+      transaction: async (fn) => {
+        const value = await sql.begin(async (txSql) => {
+          const exec = (query: string, params: (string | number | boolean | null)[]) => {
+            let i = 0;
+            const pgQuery = query.replace(/\?/g, () => `$${++i}`);
+            return txSql.unsafe(pgQuery, params as Parameters<typeof txSql.unsafe>[1]);
+          };
+          return fn({
+            run: async (query, params = []) => {
+              await exec(query, params);
+            },
+            query: async <T>(query: string, params: (string | number | boolean | null)[] = []) =>
+              (await exec(query, params)) as unknown as T[],
+            execute: async (query, params = []) =>
+              Number(((await exec(query, params)) as { count?: number }).count ?? 0),
+          });
+        });
+        return value as Awaited<ReturnType<typeof fn>>;
+      },
       close: () => sql.end({ timeout: 2 }),
     };
   }
@@ -329,8 +352,34 @@ export async function openTargetDatabase(target: PluginDatabaseTarget): Promise<
         params.length === 0 ? await conn.query(query) : await conn.execute(query, params);
       return rows as T[];
     },
-    execute: async () => 0,
-    transaction: async (fn) => fn({ run: async () => undefined, query: async () => [], execute: async () => 0 }),
+    execute: async (query, params = []) => {
+      const [result] = await conn.execute(query, params);
+      return Number((result as { affectedRows?: number }).affectedRows ?? 0);
+    },
+    // One connection per handle, so a transaction owns it until it ends.
+    transaction: async (fn) => {
+      await conn.beginTransaction();
+      try {
+        const value = await fn({
+          run: async (query, params = []) => {
+            await conn.execute(query, params);
+          },
+          query: async <T>(query: string, params: (string | number | boolean | null)[] = []) => {
+            const [rows] = await conn.execute(query, params);
+            return rows as T[];
+          },
+          execute: async (query, params = []) => {
+            const [result] = await conn.execute(query, params);
+            return Number((result as { affectedRows?: number }).affectedRows ?? 0);
+          },
+        });
+        await conn.commit();
+        return value;
+      } catch (err) {
+        await conn.rollback();
+        throw err;
+      }
+    },
     close: async () => {
       await conn.end();
     },

@@ -35,10 +35,11 @@ export interface QuotaCheck {
 }
 
 /**
- * Whether a new file of `incomingBytes` still fits.
+ * Whether a new file of `incomingBytes` still fits. Counts originals and
+ * their generated variants.
  *
- * A read failure returns ok — a broken SUM should not make the library
- * read-only, and the per-file cap still applies.
+ * A read failure refuses the upload: a limit that lifts whenever the usage
+ * query fails is not a limit.
  */
 export async function checkLibraryQuota(
   siteId: string,
@@ -48,13 +49,13 @@ export async function checkLibraryQuota(
   try {
     const db = await getDb();
     const rows = await db.query<{ total: string | number | null }>(
-      "SELECT SUM(size_bytes) AS total FROM media WHERE site_id = ?",
+      "SELECT SUM(size_bytes + derivative_bytes) AS total FROM media WHERE site_id = ?",
       [siteId],
     );
     const usedBytes = Number(rows[0]?.total ?? 0) || 0;
     return { ok: usedBytes + incomingBytes <= limitBytes, usedBytes, limitBytes };
   } catch {
-    return { ok: true, usedBytes: 0, limitBytes };
+    return { ok: false, usedBytes: limitBytes, limitBytes };
   }
 }
 

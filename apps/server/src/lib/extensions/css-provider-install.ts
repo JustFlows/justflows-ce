@@ -1,4 +1,5 @@
-import { spawnSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -55,19 +56,25 @@ export function getProviderNpmDependencies(manifest: Record<string, unknown>): R
   return result;
 }
 
-function runCommand(cmd: string, args: string[], cwd: string, label: string): void {
-  const result = spawnSync(cmd, args, {
-    cwd,
-    stdio: "pipe",
-    encoding: "utf-8",
-    timeout: 180_000,
-    env: { ...process.env, NODE_ENV: "production" },
+function runCommand(cmd: string, args: string[], cwd: string, label: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      cmd,
+      args,
+      {
+        cwd,
+        encoding: "utf-8",
+        timeout: 180_000,
+        maxBuffer: 4 * 1024 * 1024,
+        env: { ...process.env, NODE_ENV: "production" },
+      },
+      (error, stdout, stderr) => {
+        if (!error) return resolve();
+        const detail = (stderr || stdout || "").trim().slice(0, 2000);
+        reject(new Error(`${label} failed${detail ? `: ${detail}` : ""}`));
+      },
+    );
   });
-
-  if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout || "").trim();
-    throw new Error(`${label} failed${detail ? `: ${detail}` : ""}`);
-  }
 }
 
 /**
@@ -151,7 +158,7 @@ async function runPostInstall(
     );
   }
 
-  runCommand(
+  await runCommand(
     tailwindBin,
     ["-i", inputDest, "-o", outputAbs, "--minify"],
     installDir,
@@ -160,49 +167,106 @@ async function runPostInstall(
 }
 
 /**
- * Replace the active CSS provider npm packages.
- * Clears previous node_modules and installs only the selected provider's dependencies.
+ * Each distinct provider build lives in its own folder, named by a hash of
+ * everything that goes into it (dependencies, build config, and the package
+ * folder, which is itself content-addressed). Builds are never replaced or
+ * removed by activation, so one site switching providers cannot change or
+ * delete the stylesheet another site is serving.
  */
-export async function swapCssProviderPackages(manifest: Record<string, unknown> | null): Promise<void> {
-  const installDir = cssProvidersInstallDir();
-  await fsp.mkdir(installDir, { recursive: true });
-
-  const deps = manifest ? getProviderNpmDependencies(manifest) : {};
-
-  await fsp.rm(path.join(installDir, "node_modules"), { recursive: true, force: true });
-  await fsp.rm(path.join(installDir, "dist"), { recursive: true, force: true });
-  await fsp.rm(path.join(installDir, "package-lock.json"), { force: true });
-
-  const packageJson = {
-    name: "justflows-css-provider-active",
-    private: true,
-    version: "1.0.0",
-    dependencies: deps,
+export function cssProviderBuildKey(manifest: Record<string, unknown> | null): string | null {
+  if (!manifest) return null;
+  const deps = getProviderNpmDependencies(manifest);
+  if (Object.keys(deps).length === 0) return null;
+  const source = {
+    deps: Object.fromEntries(Object.entries(deps).sort(([a], [b]) => a.localeCompare(b))),
+    postInstall: manifest.postInstall ?? null,
+    installedPath: typeof manifest.installedPath === "string" ? manifest.installedPath : null,
+    bundledPath: typeof manifest.bundledPath === "string" ? manifest.bundledPath : null,
+    registry: process.env.NPM_REGISTRY || "https://registry.npmjs.org/",
   };
+  return createHash("sha256").update(JSON.stringify(source)).digest("hex").slice(0, 24);
+}
 
-  await fsp.writeFile(path.join(installDir, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`, "utf-8");
+const BUILD_KEY_RE = /^[a-f0-9]{24}$/;
+const COMPLETE_MARKER = ".complete";
 
-  if (Object.keys(deps).length === 0) return;
+function buildsRoot(): string {
+  return path.join(cssProvidersInstallDir(), "builds");
+}
 
-  runCommand(
-    resolveNpmBin(),
-    [
-      "install",
-      "--omit=dev",
-      // Does not sandbox the install: runPostInstall executes a binary out of
-      // the tree this produces. It only stops a package's own lifecycle scripts
-      // from running before we get there.
-      "--ignore-scripts",
-      "--registry",
-      process.env.NPM_REGISTRY || "https://registry.npmjs.org/",
-    ],
-    installDir,
-    "CSS provider npm install",
-  );
+export function cssProviderBuildDir(key: string): string | null {
+  if (!BUILD_KEY_RE.test(key)) return null;
+  return resolvePathUnderBase(buildsRoot(), key);
+}
 
-  if (manifest) {
-    await runPostInstall(manifest, installDir);
+function buildIsComplete(dir: string): boolean {
+  return fs.existsSync(path.join(dir, COMPLETE_MARKER));
+}
+
+// One build at a time for the whole process, and one in flight per key: a
+// build runs npm and Tailwind, which are expensive and shared.
+let buildQueue: Promise<unknown> = Promise.resolve();
+const inFlight = new Map<string, Promise<void>>();
+
+async function buildInto(manifest: Record<string, unknown>, key: string, finalDir: string): Promise<void> {
+  if (buildIsComplete(finalDir)) return;
+  const staging = path.join(buildsRoot(), `.staging-${key}-${randomUUID()}`);
+  await fsp.mkdir(staging, { recursive: true });
+  try {
+    const packageJson = {
+      name: "justflows-css-provider-build",
+      private: true,
+      version: "1.0.0",
+      dependencies: getProviderNpmDependencies(manifest),
+    };
+    await fsp.writeFile(path.join(staging, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`, "utf-8");
+    await runCommand(
+      resolveNpmBin(),
+      [
+        "install",
+        "--omit=dev",
+        // Does not sandbox the install: runPostInstall executes a binary out of
+        // the tree this produces. It only stops a package's own lifecycle scripts
+        // from running before we get there.
+        "--ignore-scripts",
+        "--registry",
+        process.env.NPM_REGISTRY || "https://registry.npmjs.org/",
+      ],
+      staging,
+      "CSS provider npm install",
+    );
+    await runPostInstall(manifest, staging);
+    await fsp.writeFile(path.join(staging, COMPLETE_MARKER), new Date().toISOString(), "utf-8");
+    await fsp.rm(finalDir, { recursive: true, force: true });
+    try {
+      await fsp.rename(staging, finalDir);
+    } catch (err) {
+      if (!buildIsComplete(finalDir)) throw err;
+    }
+  } finally {
+    await fsp.rm(staging, { recursive: true, force: true });
   }
+}
+
+/**
+ * Make sure the provider's build exists. Returns its key, or null for a
+ * provider with nothing to build (such as "None").
+ */
+export async function ensureCssProviderBuild(manifest: Record<string, unknown> | null): Promise<string | null> {
+  const key = cssProviderBuildKey(manifest);
+  if (!key || !manifest) return null;
+  const finalDir = cssProviderBuildDir(key);
+  if (!finalDir) return null;
+  if (buildIsComplete(finalDir)) return key;
+  let pending = inFlight.get(key);
+  if (!pending) {
+    pending = buildQueue.then(() => buildInto(manifest, key, finalDir));
+    buildQueue = pending.catch(() => undefined);
+    inFlight.set(key, pending);
+    void pending.finally(() => inFlight.delete(key)).catch(() => undefined);
+  }
+  await pending;
+  return key;
 }
 
 /**
@@ -212,17 +276,25 @@ export async function swapCssProviderPackages(manifest: Record<string, unknown> 
  */
 const SERVABLE_ROOTS = ["node_modules", "dist"] as const;
 
+/**
+ * A file inside one provider build. `relativePath` starts with the build key,
+ * as in the URLs resolveProviderAssets() publishes.
+ */
 export function resolveInstalledAssetPath(relativePath: string): string | null {
-  const installDir = cssProvidersInstallDir();
+  const cleaned = relativePath.replace(/^\.?\//, "");
+  const slash = cleaned.indexOf("/");
+  if (slash <= 0) return null;
+  const buildDir = cssProviderBuildDir(cleaned.slice(0, slash));
+  if (!buildDir || !buildIsComplete(buildDir)) return null;
   const normalized = path
-    .normalize(relativePath.replace(/^\.?\//, ""))
+    .normalize(cleaned.slice(slash + 1))
     .replace(/^(\.\.(\/|\\|$))+/, "")
     .replace(/^node_modules[/\\]/, "");
 
   if (!normalized || path.isAbsolute(normalized)) return null;
 
   for (const root of SERVABLE_ROOTS) {
-    const base = path.join(installDir, root);
+    const base = path.join(buildDir, root);
     // A manifest href may name the root explicitly ("dist/tailwind.css") or omit
     // it ("tailwindcss/tailwind.css", where resolveAssetUrl stripped
     // "node_modules/"), so try both against each root.
@@ -233,9 +305,8 @@ export function resolveInstalledAssetPath(relativePath: string): string | null {
     for (const candidate of new Set([withoutRoot, normalized])) {
       if (!candidate) continue;
       // resolvePathUnderBase appends the separator before comparing, so a
-      // sibling directory such as "css-providers-installed-x" cannot satisfy the
-      // check, and it resolves symlinks so a link inside the package cannot
-      // point out of it.
+      // sibling directory cannot satisfy the check, and it resolves symlinks
+      // so a link inside the package cannot point out of it.
       const resolved = resolvePathUnderBase(base, candidate);
       if (resolved && fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
         return resolved;

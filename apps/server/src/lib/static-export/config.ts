@@ -166,6 +166,17 @@ function configuredCrawlOrigins(): string[] {
     .filter((v): v is string => Boolean(v));
 }
 
+const listenerPorts = new Set<number>();
+
+/** Record a port this process is serving on (the port an admin request arrived on). */
+export function noteListenerPort(port: number | undefined): void {
+  if (port && Number.isInteger(port) && port > 0 && port <= 65535) listenerPorts.add(port);
+}
+
+function isListenerPort(port: number): boolean {
+  return port === intFromEnv(process.env.PORT, 3000, 1, 65535) || listenerPorts.has(port);
+}
+
 /**
  * Resolve `raw` to an origin the exporter is allowed to fetch from, or throw.
  *
@@ -204,17 +215,26 @@ export function assertExportOrigin(raw: string): string {
     "::1": "[::1]",
     "[::1]": "[::1]",
   };
+  const secondary = secondaryExportSite();
+  // Loopback means this app's own listener, never "any local service". Only
+  // the main site off production may aim at another local port (a dev server).
+  const onListener = isListenerPort(portNum || (scheme === "https" ? 443 : 80));
   const loopbackHost = LOOPBACK[url.hostname.toLowerCase()];
-  if (loopbackHost) return `${scheme}://${loopbackHost}${port}`;
+  if (loopbackHost) {
+    if (onListener || (!secondary && !isProxiedHost())) return `${scheme}://${loopbackHost}${port}`;
+    throw new Error(`crawl origin ${raw} is not this application's own port`);
+  }
 
-  // The current site's own registered hostname. With more than one site,
-  // loopback no longer maps to a site, so this is how the crawler reaches it.
+  // The current site's own registered hostname, on the app's port or the
+  // default port. With more than one site, loopback no longer maps to a site,
+  // so this is how the crawler reaches it.
   const ctx = getTenantContext();
   if (ctx?.hostname && url.hostname.toLowerCase() === ctx.hostname) {
-    return `${scheme}://${ctx.hostname}${port}`;
+    if (!port || onListener) return `${scheme}://${ctx.hostname}${port}`;
+    throw new Error(`crawl origin ${raw} must use this site's default port`);
   }
   // The env origins describe the root site; a secondary site must not crawl it.
-  if (secondaryExportSite()) {
+  if (secondary) {
     throw new Error(`crawl origin ${raw} is not loopback or this site's own hostname`);
   }
 

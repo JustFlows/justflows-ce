@@ -11,7 +11,7 @@ vi.mock("../../../src/lib/ai/ai-settings.js", () => ({ allowPrivateAiEndpoints: 
 const credentials = await import("../../../src/lib/ai/provider-credentials.js");
 
 const SITE = "site-1";
-const KEY = "sk-ant-api03-SECRETSECRETSECRET-abcd";
+const KEY = "sk-ant-api03-SECRETSECRETSECRET-abcd"; // scan-secrets:allow (fixture)
 
 beforeEach(() => {
   state.db = createSqliteDb();

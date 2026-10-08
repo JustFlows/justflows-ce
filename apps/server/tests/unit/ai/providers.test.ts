@@ -6,6 +6,15 @@ import { openAiCompatibleAdapter } from "../../../src/lib/ai/providers/openai-co
 import { toOpenAiMessages } from "../../../src/lib/ai/providers/openai/chat-completions.js";
 import { ProviderError, type ChatEvent, type ChatMessage } from "../../../src/lib/ai/providers/types.js";
 
+// Requests go through the connect-time pinned agent in production; route them
+// back to the stubbed global fetch here.
+vi.mock("../../../src/lib/security/pinned-fetch.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../src/lib/security/pinned-fetch.js")>()),
+  pinnedFetch: (url: URL | string, { allowPrivate: _allowPrivate, ...init }: RequestInit & { allowPrivate?: boolean } = {}) =>
+    fetch(url, init),
+}));
+
+
 function sse(events: unknown[]): Response {
   const body = events.map((event) => `data: ${typeof event === "string" ? event : JSON.stringify(event)}\n\n`).join("");
   return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });

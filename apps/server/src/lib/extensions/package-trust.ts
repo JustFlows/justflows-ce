@@ -31,38 +31,6 @@ export function allowUnsignedPackages(): boolean {
 }
 
 /**
- * Verify an operator's own countersignature over the canonical manifest JSON.
- *
- * This is NOT proof of provenance: the key is this installation's APP_SECRET, so
- * it only attests that someone with access to this server's secret vouched for
- * the package. It is the signed equivalent of pinning a digest, and carries the
- * same weight — no more. Publisher identity comes only from
- * verifyMarketplaceSignature, which checks a pinned Ed25519 public key.
- */
-export function verifyManifestSignature(
-  manifest: Record<string, unknown>,
-  signature: string,
-): boolean {
-  const secret = process.env.APP_SECRET;
-  if (!secret || !signature) return false;
-
-  const payload = { ...manifest };
-  delete payload.packageSignature;
-  delete payload.signature;
-
-  const canonical = JSON.stringify(payload, Object.keys(payload).sort());
-  const expected = createHmac("sha256", secret).update(canonical).digest("hex");
-
-  try {
-    const a = Buffer.from(expected, "utf-8");
-    const b = Buffer.from(signature.toLowerCase(), "utf-8");
-    return a.length === b.length && timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Justflows marketplace Ed25519 public key (SPKI PEM).
  * Packages from api.justflows.com are signed with the matching private key.
  */
@@ -109,15 +77,10 @@ export function assertPackageIsTrusted(
   options?: PackageTrustOptions,
 ): void {
   const packageId = typeof manifest.id === "string" ? manifest.id : "";
-  const trusted = readTrustedDigests();
 
-  if (packageId && trusted.has(packageId)) {
-    if (trusted.get(packageId) !== digest.toLowerCase()) {
-      throw new Error(`Package digest does not match trusted value for ${packageId}`);
-    }
-    return;
-  }
-
+  // A marketplace signature is publisher proof and outranks a local pin. Checked
+  // first so a digest pinned for an earlier manual upload of the same id cannot
+  // block a newer, properly signed marketplace release.
   if (options?.marketplaceSignature) {
     const version = typeof manifest.version === "string" ? manifest.version : "";
     const publisher = typeof manifest.publisher === "string" ? manifest.publisher : "";
@@ -132,14 +95,18 @@ export function assertPackageIsTrusted(
     }
   }
 
-  const signature =
-    (typeof manifest.packageSignature === "string" && manifest.packageSignature) ||
-    (typeof manifest.signature === "string" && manifest.signature) ||
-    "";
-
-  if (signature && verifyManifestSignature(manifest, signature)) {
+  const trusted = readTrustedDigests();
+  if (packageId && trusted.has(packageId)) {
+    if (trusted.get(packageId) !== digest.toLowerCase()) {
+      throw new Error(`Package digest does not match trusted value for ${packageId}`);
+    }
     return;
   }
+
+  // A signature carried inside the manifest is deliberately not accepted: the
+  // manifest is part of the archive, so it can never vouch for the archive's
+  // other files. Only a pinned digest or a marketplace signature over the
+  // archive digest proves the bytes.
 
   if (allowUnsignedPackages()) {
     console.warn(

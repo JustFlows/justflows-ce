@@ -18,6 +18,7 @@ import {
   setCoreAutoUpdateEnabled,
 } from "../../lib/updates/core-auto-update.js";
 import multer from "multer";
+import { multipartLimits } from "../../lib/security/upload-admission.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 
 const router = Router();
@@ -32,7 +33,7 @@ router.use((req, res, next) => {
   }
   requireInstallationRoot(req, res, next);
 });
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: multipartLimits(200 * 1024 * 1024, 2) });
 
 /**
  * This route is prefetched during admin SSR, so it must return fast. Give
