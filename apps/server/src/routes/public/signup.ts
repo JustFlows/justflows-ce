@@ -57,8 +57,10 @@ router.post("/", signupLimit, async (req, res) => {
   const username = slug.replace(/-/g, "").slice(0, 30) || "owner";
   const origin = signupSiteOrigin(
     hostname,
-    req.get("x-forwarded-proto") ?? req.protocol ?? "http",
-    req.get("x-forwarded-host") ?? req.get("host") ?? "",
+    // req.protocol and req.host honour forwarded headers only from proxies
+    // the deployment trusts (`trust proxy`), never from the visitor directly.
+    req.protocol ?? "http",
+    req.host ?? req.get("host") ?? "",
   );
   // Visitors never supply a database. The platform operator chooses, on
   // Platform → Public signup, whether new workspaces stay here or go to one

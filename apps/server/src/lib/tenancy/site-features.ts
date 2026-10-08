@@ -33,12 +33,17 @@ export const SITE_FEATURES: readonly SiteFeature[] = [
   { key: "feature.trash", paths: ["/admin/trash"] },
   { key: "feature.tools", paths: ["/admin/tools"] },
   { key: "feature.plugins", paths: ["/admin/plugins"] },
+  { key: "feature.customDomains", paths: ["/admin/settings/domains"] },
+  { key: "feature.managedDns", paths: [] },
 ];
 
 /** Admin paths hidden because this website turned the feature off. */
 export async function disabledAdminPaths(siteId: string): Promise<string[]> {
   const limits = await quotaLimitMap("site", siteId);
-  return disabledPathsFromLimits(limits);
+  const paths = disabledPathsFromLimits(limits);
+  const { cachedDomainSettings } = await import("../domains/domain-settings.js");
+  if (!(await cachedDomainSettings()).enabled) paths.push("/admin/settings/domains");
+  return paths;
 }
 
 /** Feature keys stored as off, so in-page controls can be removed. */

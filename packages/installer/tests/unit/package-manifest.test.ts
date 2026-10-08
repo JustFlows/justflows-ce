@@ -221,3 +221,27 @@ describe("PackageManifestSchema registry", () => {
     expect(result.success).toBe(false);
   });
 });
+
+
+describe("PackageManifestSchema select settings", () => {
+  it("preserves core option sources and fixed choices during install", () => {
+    const settingsSchema = {
+      country: { type: "select", label: "Country", default: "NL", optionsSource: "countries" },
+      timeZone: { type: "select", label: "Time zone", default: "", optionsSource: "timezones",
+        options: [{ value: "", label: "Same as the site" }] },
+    };
+    expect(PackageManifestSchema.parse({ ...base, settingsSchema }).settingsSchema).toEqual(settingsSchema);
+  });
+
+  it("rejects unsupported sources and malformed choices", () => {
+    for (const extra of [
+      { optionsSource: "unknown" },
+      { options: [{ value: 42, label: "Invalid" }] },
+      { options: [{ value: "NL", label: "" }] },
+    ]) {
+      expect(PackageManifestSchema.safeParse({
+        ...base, settingsSchema: { country: { type: "select", label: "Country", ...extra } },
+      }).success).toBe(false);
+    }
+  });
+});

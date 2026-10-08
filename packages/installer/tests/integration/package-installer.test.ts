@@ -294,3 +294,28 @@ describe("PackageInstaller revisioned installs", () => {
     expect(result.installedPath).toBe(path.join(packagesDir, "plugins", "justflows.probe", "2.0.0"));
   });
 });
+
+describe("PackageInstaller immutable installs", () => {
+  it("never replaces or prunes a build another site may be using", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "jfpkg-imm-"));
+    const packagesDir = path.join(root, "packages-installed");
+    const installer = new PackageInstaller();
+
+    const first = await packageWithVersion(root, "1.0.0", "imm-a");
+    const a = await installer.installFromBuffer(first, { packagesDir, immutable: true });
+    await fs.writeFile(path.join(a.installedPath, "marker"), "site A");
+
+    // The same archive again reuses the existing folder untouched.
+    const again = await installer.installFromBuffer(first, { packagesDir, immutable: true });
+    expect(again.installedPath).toBe(a.installedPath);
+    await expect(fs.readFile(path.join(a.installedPath, "marker"), "utf8")).resolves.toBe("site A");
+
+    // A different archive with the same id and version gets its own folder.
+    await fs.writeFile(path.join(root, "src", "payload.js"), "// other build\n");
+    const archive2 = path.join(root, "pkg-imm-b.jfpkg");
+    await tar.c({ gzip: true, file: archive2, cwd: path.join(root, "src") }, ["justflows.json", "payload.js"]);
+    const b = await installer.installFromBuffer(await fs.readFile(archive2), { packagesDir, immutable: true });
+    expect(b.installedPath).not.toBe(a.installedPath);
+    await expect(fs.readFile(path.join(a.installedPath, "marker"), "utf8")).resolves.toBe("site A");
+  });
+});

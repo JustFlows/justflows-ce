@@ -34,6 +34,8 @@ export interface PluginDto {
     description?: string;
     default?: unknown;
     localized?: boolean;
+    options?: Array<{ value: string; label: string }>;
+    optionsSource?: "timezones" | "countries";
   }>;
   setupPath?: string;
   /** The package allows the main site to offer it to other sites. */

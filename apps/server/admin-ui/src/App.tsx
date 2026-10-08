@@ -46,9 +46,11 @@ import WebhooksPage from "./pages/admin/settings/WebhooksPage";
 import ApiKeysPage from "./pages/admin/settings/ApiKeysPage";
 import AiSettingsPage from "./pages/admin/settings/AiSettingsPage";
 import CdnSettingsPage from "./pages/admin/settings/CdnSettingsPage";
+import DomainsPage from "./pages/admin/settings/DomainsPage";
 import PlatformPage from "./pages/admin/platform/PlatformPage";
 import PlatformSitesPage from "./pages/admin/platform/PlatformSitesPage";
 import PlatformDefaultsPage from "./pages/admin/platform/PlatformDefaultsPage";
+import PlatformDomainsPage from "./pages/admin/platform/PlatformDomainsPage";
 import PlatformSitePage from "./pages/admin/platform/PlatformSitePage";
 import PlatformSiteUsersPage from "./pages/admin/platform/PlatformSiteUsersPage";
 import PlatformWorkspacePage from "./pages/admin/platform/PlatformWorkspacePage";
@@ -161,12 +163,14 @@ export default function App() {
               <Route path="settings/api" element={<ApiKeysPage />} />
               <Route path="settings/ai" element={<AiSettingsPage />} />
               <Route path="settings/cdn" element={<CdnSettingsPage />} />
+              <Route path="settings/domains" element={<DomainsPage />} />
               <Route path="platform/sites/:id/users" element={<PlatformSiteUsersPage />} />
               <Route path="platform/sites/:id" element={<PlatformSitePage />} />
               <Route path="platform/sites" element={<PlatformSitesPage />} />
               <Route path="platform/workspaces/:id" element={<PlatformWorkspacePage />} />
               <Route path="platform/workspaces" element={<PlatformPage />} />
               <Route path="platform/defaults" element={<PlatformDefaultsPage />} />
+              <Route path="platform/domains" element={<PlatformDomainsPage />} />
               <Route path="platform" element={<Navigate to="/admin/platform/workspaces" replace />} />
               <Route path="languages" element={<LanguagesPage />} />
               <Route path="security" element={<SecurityOverviewPage />} />

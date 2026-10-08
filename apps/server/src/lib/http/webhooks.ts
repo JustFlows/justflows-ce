@@ -5,6 +5,7 @@ import { JobScheduler } from "@justflows/jobs";
 import type { HookContext } from "@justflows/core";
 import { getDb, type DbClient } from "../database/db.js";
 import { decryptSecret, encryptSecret } from "../security/secret-box.js";
+import { pinnedFetch } from "../security/pinned-fetch.js";
 import { validateWebhookUrl } from "../security/webhook-url.js";
 
 export const CORE_WEBHOOK_EVENTS = [
@@ -278,6 +279,28 @@ async function deliverDueWebhooks(): Promise<number> {
   return rows.length;
 }
 
+const DELIVERY_TIMEOUT_MS = 10_000;
+const RESPONSE_PREFIX_BYTES = 2048;
+
+/** Keep the first `maxBytes` of a response and cancel the rest of the stream. */
+async function readResponsePrefix(response: Response, maxBytes: number): Promise<string> {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  try {
+    while (total < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(Buffer.from(value));
+      total += value.byteLength;
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  return Buffer.concat(chunks).subarray(0, maxBytes).toString("utf8");
+}
+
 async function deliver(row: Record<string, unknown>): Promise<void> {
   const db = await getDb();
   const id = String(row.id);
@@ -291,27 +314,23 @@ async function deliver(row: Record<string, unknown>): Promise<void> {
     const payload = String(row.payload);
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const signature = signWebhookPayload(decryptSecret(row.secret_ciphertext), timestamp, payload);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10_000);
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method: "POST",
-        redirect: "manual",
-        signal: controller.signal,
-        headers: {
-          "content-type": "application/json",
-          "user-agent": "Justflows-Webhooks/1.0",
-          "x-justflows-delivery": id,
-          "x-justflows-timestamp": timestamp,
-          "x-justflows-signature": `sha256=${signature}`,
-        },
-        body: payload,
-      });
-    } finally {
-      clearTimeout(timer);
-    }
-    const responseBody = (await response.text()).slice(0, 2048);
+    // One deadline covers connect, headers and the (capped) body read, so a
+    // receiver that sends headers and then stalls cannot hold the worker.
+    const signal = AbortSignal.timeout(DELIVERY_TIMEOUT_MS);
+    const response = await pinnedFetch(url, {
+      method: "POST",
+      redirect: "manual",
+      signal,
+      headers: {
+        "content-type": "application/json",
+        "user-agent": "Justflows-Webhooks/1.0",
+        "x-justflows-delivery": id,
+        "x-justflows-timestamp": timestamp,
+        "x-justflows-signature": `sha256=${signature}`,
+      },
+      body: payload,
+    });
+    const responseBody = await readResponsePrefix(response, RESPONSE_PREFIX_BYTES);
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${responseBody}`);
     const done = sqlTime();
     await db.run(

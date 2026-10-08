@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { isMissingTableError } from "../database/schema-errors.js";
 import {
   createDbClient,
   getControlDb,
@@ -112,6 +113,36 @@ export async function runOnSeparateDatabases<T>(fn: () => Promise<T>): Promise<T
         JSON.stringify(err instanceof Error ? err.message.replace(/[\r\n]/g, " ") : "failed"),
       );
     }
+  }
+  return results;
+}
+
+/**
+ * Like runAcrossDatabases, but any database that cannot be reached or
+ * queried makes the whole call throw. For checks whose answer must cover
+ * every site, such as "is anything still using this file?".
+ */
+export async function runAcrossDatabasesStrict<T>(fn: () => Promise<T>): Promise<T[]> {
+  const results: T[] = [await fn()];
+  const seen = new Set<string>();
+  const db = await getControlDb();
+  const rows = await db.query<SeparateDatabaseRow>(
+    `SELECT id, tenant_id, site_id, mode, status, driver, host, port, database_name, username,
+            password_ciphertext, updated_at
+     FROM tenant_databases
+     WHERE mode = 'separate' AND status = 'ready'`,
+  ).catch((error: unknown) => {
+    // An install without the tenancy tables has no other databases.
+    if (isMissingTableError(error)) return [] as SeparateDatabaseRow[];
+    throw error;
+  });
+  for (const row of rows) {
+    const key = `${row.host}:${row.port}:${row.database_name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const client = await borrowSeparateDatabase(row);
+    if (!client) throw new Error("A site database could not be opened");
+    results.push(await runWithDatabase(client, fn));
   }
   return results;
 }

@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT
+
+import { describe, expect, it, vi } from "vitest";
+import type { DbClient } from "../../../src/lib/database/db.js";
+import { installationRootSiteId, resolveHost } from "../../../src/lib/tenancy/registry.js";
+
+function failingClient(error: unknown, okUntil = 0): DbClient {
+  let calls = 0;
+  return {
+    query: vi.fn(async (sql: string) => {
+      calls += 1;
+      if (calls <= okUntil) return sql.includes("COUNT") ? [{ count: 2 }] : [{ id: "root" }];
+      throw error;
+    }),
+  } as unknown as DbClient;
+}
+
+const timeout = Object.assign(new Error("Connection terminated due to connection timeout"), { code: "ETIMEDOUT" });
+const missingTable = Object.assign(new Error('relation "sites" does not exist'), { code: "42P01" });
+
+describe("tenant registry failures", () => {
+  it("reports a failed routing query as unavailable, never as single-site", async () => {
+    await expect(resolveHost("a.example.com", failingClient(timeout))).resolves.toEqual({ kind: "unavailable" });
+  });
+
+  it("does not drop the active-domain filter when the domain query fails for another reason", async () => {
+    await expect(resolveHost("a.example.com", failingClient(timeout, 2))).resolves.toEqual({ kind: "unavailable" });
+  });
+
+  it("treats a database without tenancy tables as a single-site install", async () => {
+    await expect(resolveHost("a.example.com", failingClient(missingTable))).resolves.toEqual({ kind: "unconfigured" });
+    await expect(installationRootSiteId(failingClient(missingTable))).resolves.toBeNull();
+  });
+
+  it("does not answer root identity when the lookup fails", async () => {
+    await expect(installationRootSiteId(failingClient(timeout))).rejects.toThrow("timeout");
+  });
+});

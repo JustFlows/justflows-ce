@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ query: vi.fn(), run: vi.fn(), create: vi.fn(), contentRun: vi.fn(), close: vi.fn() }));
+const m = vi.hoisted(() => ({ query: vi.fn(), run: vi.fn(), create: vi.fn(), contentRun: vi.fn(), close: vi.fn(), release: vi.fn() }));
 vi.mock("../../../src/lib/database/db.js", () => ({ getControlDb: async () => ({ query: m.query, run: m.run }), createDbClient: m.create }));
 vi.mock("../../../src/lib/security/secret-box.js", () => ({ decryptSecret: () => "test-password" }));
+vi.mock("../../../src/lib/domains/custom-domains.js", () => ({ releaseSitesAtProvider: m.release }));
 import { purgeDeletedTenant } from "../../../src/lib/tenancy/purge-deleted.js";
 const id = "11111111-1111-4111-8111-111111111111";
 beforeEach(() => {
@@ -26,6 +27,7 @@ describe("permanent workspace deletion", () => {
     expect(m.run).toHaveBeenCalledWith("DELETE FROM tenants WHERE id = ?", [id]);
     expect(m.run).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO platform_audit"), expect.any(Array));
     expect(m.close).toHaveBeenCalledOnce();
+    expect(m.release).toHaveBeenCalledWith(["invalid-file-id"]);
   });
   it("continues deleting tenant rows when only sites is missing", async () => {
     m.contentRun.mockRejectedValueOnce({ code: "ER_NO_SUCH_TABLE" }).mockResolvedValueOnce(undefined);

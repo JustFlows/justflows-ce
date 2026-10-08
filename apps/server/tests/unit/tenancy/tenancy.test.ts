@@ -206,6 +206,8 @@ describe("signup domain", () => {
   it("keeps the signup page scheme and port on the new hostname", () => {
     expect(signupSiteOrigin("my-site.localhost", "http", "localhost:3000")).toBe("http://my-site.localhost:3000");
     expect(signupSiteOrigin("my-site.example.com", "https", "example.com")).toBe("https://my-site.example.com");
+    expect(signupSiteOrigin("my-site.example.com", "javascript", "example.com")).toBe("https://my-site.example.com");
+    expect(signupSiteOrigin("my-site.example.com", "https", "example.com:99999")).toBe("https://my-site.example.com");
   });
 });
 

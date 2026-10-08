@@ -638,6 +638,22 @@ export interface QuotaUpdatedEvent {
   limits: Record<string, number | null>;
 }
 
+/** A custom domain a website connected. */
+export interface DomainEvent {
+  siteId: string;
+  domainId: string;
+  hostname: string;
+  /** `records`: the customer edits their own DNS. `nameservers`: the platform hosts the zone. */
+  mode: "records" | "nameservers";
+  provider: "manual" | "bunny";
+}
+
+export interface DomainAddGateEvent {
+  siteId: string;
+  hostname: string;
+  mode: "records" | "nameservers";
+}
+
 export interface QuotaLimitContext {
   key: string;
   scope: "workspace" | "site";
@@ -736,6 +752,15 @@ export interface ActionEventMap {
 
   /** Fired after a platform operator or a plugin saves quota limits. */
   "quota.updated": QuotaUpdatedEvent;
+
+  /** A website added a custom domain. It is not served until it is verified. */
+  "domain.added": DomainEvent;
+  /** DNS was verified and the certificate is in place. The domain is served. */
+  "domain.activated": DomainEvent;
+  /** An active domain failed its checks too often and is no longer served. */
+  "domain.failed": DomainEvent;
+  /** Removed by the website, or released after it stayed unverified. */
+  "domain.removed": DomainEvent;
 }
 
 // ─── Gate map ──────────────────────────────────────────────────────────────
@@ -762,6 +787,8 @@ export interface GateEventMap {
   "workspace.beforeReactivate": WorkspaceStatusEvent;
   "workspace.beforeDelete": WorkspaceDeleteEvent;
   "site.beforeCreate": SiteCreateGateEvent;
+  /** Before a website adds a custom domain. Cancel to refuse it, for example to require a paid plan. */
+  "domain.beforeAdd": DomainAddGateEvent;
 }
 
 // ─── Filter map ────────────────────────────────────────────────────────────
@@ -1043,6 +1070,7 @@ export const HOOK_PERMISSION_PREFIXES: ReadonlyArray<{
   { prefix: "admin.", permission: "admin:extend" },
   { prefix: "email.", permission: "mail:hook" },
   { prefix: "quota.", permission: "platform:tenancy" },
+  { prefix: "domain.", permission: "platform:tenancy" },
 ];
 
 /** The permission a hook name requires, or `null` when it is unrestricted. */

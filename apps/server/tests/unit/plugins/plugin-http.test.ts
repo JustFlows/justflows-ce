@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from "vitest";
-import { pluginRouteRateBucket, requiresPluginCsrf } from "../../../src/lib/plugins/plugin-http.js";
+import { pluginActiveForRequest, pluginRouteRateBucket, requiresPluginCsrf } from "../../../src/lib/plugins/plugin-http.js";
+import { runWithTenant } from "../../../src/lib/tenancy/context.js";
 
 describe("requiresPluginCsrf", () => {
   it("allows the public Forms submission route without a session token", () => {
@@ -49,5 +50,33 @@ describe("pluginRouteRateBucket", () => {
       })?.bucket,
     ).toBe("plugin:acme.shop:/ext/acme.shop/storefront");
     expect(pluginRouteRateBucket({ pluginId: "acme.shop", path: "/ext/acme.shop/cart" })).toBeNull();
+  });
+});
+
+describe("pluginActiveForRequest", () => {
+  const site = {
+    tenantId: "tenant-b",
+    siteId: "site-b",
+    hostname: "b.example.com",
+    userMode: "isolated" as const,
+    databaseMode: "current" as const,
+    rootSite: false,
+  };
+
+  it("only exposes routes of plugins active on the request's site", () => {
+    runWithTenant({ ...site, activePluginIds: new Set(["acme.other"]) }, () => {
+      expect(pluginActiveForRequest("acme.shop")).toBe(false);
+      expect(pluginActiveForRequest("acme.other")).toBe(true);
+    });
+  });
+
+  it("fails closed when the site's allowlist is unknown", () => {
+    runWithTenant({ ...site, activePluginIds: null }, () => {
+      expect(pluginActiveForRequest("acme.shop")).toBe(false);
+    });
+  });
+
+  it("allows single-site requests, which have no allowlist", () => {
+    expect(pluginActiveForRequest("acme.shop")).toBe(true);
   });
 });

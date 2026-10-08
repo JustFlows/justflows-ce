@@ -658,7 +658,66 @@ options). Plugin key-value rows go in `plugin_data`. Activation is
 plugin's own tables. Use `ctx.databases.upsert()` / `findOne()` / `find()` /
 `delete()` for those tables, and `ctx.settings` only for small plugin keys such
 as setup progress. `find()` is site-scoped and capped; `delete()` requires a
-column match so a plugin cannot empty a table in one call.
+column match so a plugin cannot empty a table in one call. A `null` filter
+value matches `IS NULL`, and an invalid column name is an error rather than
+being ignored.
+
+For work that must not race or half-finish (stock, orders, balances), use the
+row primitives and `transaction()`. They run on PostgreSQL, MySQL, and MariaDB,
+on the shared database or the plugin's separate one:
+
+- `insert()` returns `false` instead of writing when a unique key already holds
+  the value. Use it to claim an idempotency key or a provider event once.
+- `update(table, where, values)` returns the number of matched rows, so a status
+  in `where` works as compare-and-set.
+- `increment(table, where, deltas, { min, set })` adds integer deltas in one
+  statement and skips a row that would fall below `min`.
+- `find()` / `findOne()` accept `orderBy` and `lock` (`SELECT … FOR UPDATE`).
+
+```ts
+await ctx.databases.transaction(async (tx) => {
+  await tx.findOne("inventory", { id }, { lock: true });
+  const moved = await tx.increment("inventory", { id }, { available: -qty }, { min: { available: 0 } });
+  if (moved !== 1) throw new Error("Not enough stock");
+  await tx.insert("stock_movements", { id: newId(), inventory_id: id, delta: -qty });
+});
+```
+
+The transaction commits when the callback resolves and rolls back when it
+throws. Any `ctx.databases` row call made while it runs joins it, including a
+nested `transaction()`. A deadlock is retried up to three times, so keep
+network calls and other side effects out of the callback.
+
+## Background jobs
+
+With the `jobs:register` permission, `ctx.jobs.register()` runs a handler on a
+five-part cron schedule (minute precision), and `ctx.jobs.enqueue()` runs a
+registered job once, optionally after `delayMs`.
+
+```ts
+ctx.jobs.register({
+  name: "reconcile",
+  schedule: "*/5 * * * *",
+  perSite: true,
+  handler: async () => {
+    await repairOpenWork(ctx);
+    return { success: true };
+  },
+});
+```
+
+A plugin module is activated once per process, not once per site, so a job
+without `perSite` runs once with no site context. With `perSite: true` the
+host runs the handler once for each site where the plugin is active, inside
+that site's context: `ctx.databases`, `ctx.settings`, `ctx.secrets`, and
+`ctx.content` act on that site, on its own database when it has one. One
+site's failure does not stop the others; `handler` receives the site in
+`siteId`.
+
+The scheduler runs in the server process and does not persist its queue. A
+restart loses enqueued runs and in-flight attempts, so keep the work state in
+your tables and make each run look at what is still open, rather than relying
+on a job payload.
 
 ## Content types and pages
 
@@ -700,6 +759,32 @@ Admin → Plugins → Settings reads `settingsSchema` from the loaded module, th
 `justflows.json`, then the stored row. `plugin.settings` / `plugin.settings.write`
 overlay values on the plugin runtime. Saving returns the same schema and values
 as loading, so the form does not go blank after Save.
+
+Field `type` is `string`, `text`, `number`, `boolean`, or `select`. A `select`
+lists `options` (`{ value, label }`) and/or names an `optionsSource` the host
+fills in from the same lists core uses, so a plugin never ships its own copy:
+
+| `optionsSource` | Choices | Stored value |
+| --------------- | ------- | ------------ |
+| `timezones` | Every IANA time zone, as Settings → General | `Europe/Amsterdam` |
+| `countries` | Every ISO 3166-1 country, named in the site's language | `NL` |
+
+Fixed `options` come first, which suits a blank "use the site's setting"
+choice. Saving refuses a value that is not one of the choices.
+
+```json
+"timeZone": {
+  "type": "select",
+  "label": "Store time zone",
+  "default": "",
+  "options": [{ "value": "", "label": "Same as the site" }],
+  "optionsSource": "timezones"
+}
+```
+
+Plugin code reads the same data through `ctx.i18n`: `timeZone()` returns the
+site's time zone (`UTC` when unset) and `countries(locale?)` the country list
+with names, both for the site of the current request.
 
 ## Two install paths
 

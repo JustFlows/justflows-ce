@@ -5,9 +5,12 @@ import { getDb } from "../database/db.js";
 import { getUploadStore, readUpload } from "./upload-store.js";
 import { contentMatchesMimeType } from "./file-type.js";
 import { checkLibraryQuota, formatMb } from "./media-quota.js";
+import { createKeyedLock } from "../security/upload-admission.js";
+import { isRasterImageMimeType } from "@justflows/media";
 import { moveMediaStorage } from "../content/trash.js";
 import { auditLog } from "../security/audit-log.js";
 import {
+  derivativeBytes,
   generateAndStoreVariants,
   moveVariantDir,
   type MediaDerivatives,
@@ -224,33 +227,16 @@ export async function updateMediaMetadata(
     const originalBytes = await readOriginal(String(current.storageKey));
     if (originalBytes) {
       try {
-        const rebuilt = await generateAndStoreVariants({
-          siteId: actor.siteId,
-          mediaId: id,
+        const rebuilt = await rebuildVariantsWithinQuota(actor.siteId, id, {
           filename: String(current.filename),
           mimeType: String(current.mimeType),
           buffer: originalBytes,
           focal: focalX != null && focalY != null ? { x: focalX, y: focalY } : null,
         });
-        if (rebuilt) {
-          derivatives = rebuilt;
-          await (
-            await getDb()
-          ).run(
-            "UPDATE media SET derivatives = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
-            [
-              JSON.stringify(rebuilt),
-              rebuilt.base.w,
-              rebuilt.base.h,
-              rebuilt.base.format,
-              now(),
-              now(),
-              id,
-              actor.siteId,
-            ],
-          );
-        }
+        if (rebuilt && rebuilt !== "skipped") derivatives = rebuilt;
       } catch (err) {
+        // The failed set was removed and the row's variants cleared.
+        derivatives = null;
         console.error("[justflows] focal-point variant rebuild failed:", stripNewlines(err));
       }
     }
@@ -290,6 +276,52 @@ export interface MediaWriteResult {
   body: unknown;
 }
 
+const uploadLock = createKeyedLock();
+
+/**
+ * Regenerate one image's variants without letting them grow past the media
+ * limits. The new set may take at most the original's size, and only when
+ * the library has room for that over what the old set used. On success the
+ * row records the real size; on failure the generator has removed the files,
+ * so the row's variants are cleared. Returns "skipped" when there is no room.
+ */
+export async function rebuildVariantsWithinQuota(
+  siteId: string,
+  mediaId: string,
+  input: { filename: string; mimeType: string; buffer: Buffer; focal: { x: number; y: number } | null },
+): Promise<MediaDerivatives | null | "skipped"> {
+  const db = await getDb();
+  const budget = input.buffer.length;
+  return uploadLock(siteId, async () => {
+    const rows = await db.query<{ derivative_bytes: number | string | null }>(
+      "SELECT derivative_bytes FROM media WHERE id = ? AND site_id = ? LIMIT 1",
+      [mediaId, siteId],
+    );
+    const growth = Math.max(0, budget - (Number(rows[0]?.derivative_bytes ?? 0) || 0));
+    if (growth > 0) {
+      if (!(await checkLibraryQuota(siteId, growth)).ok) return "skipped";
+      const { enforceQuota } = await import("../tenancy/quotas.js");
+      if (await enforceQuota("media.bytes", siteId, growth)) return "skipped";
+    }
+    try {
+      const rebuilt = await generateAndStoreVariants({ siteId, mediaId, ...input, maxBytes: budget });
+      if (rebuilt) {
+        await db.run(
+          "UPDATE media SET derivatives = ?, derivative_bytes = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+          [JSON.stringify(rebuilt), derivativeBytes(rebuilt), rebuilt.base.w, rebuilt.base.h, rebuilt.base.format, now(), now(), mediaId, siteId],
+        );
+      }
+      return rebuilt;
+    } catch (err) {
+      await db.run(
+        "UPDATE media SET derivatives = NULL, derivative_bytes = 0, variants_generated_at = NULL, updated_at = ? WHERE id = ? AND site_id = ?",
+        [now(), mediaId, siteId],
+      );
+      throw err;
+    }
+  });
+}
+
 export async function storeMediaUpload(
   file: UploadInput,
   actor: MediaActor,
@@ -308,47 +340,78 @@ export async function storeMediaUpload(
       body: { error: `File contents do not match the declared type (${file.mimetype})` },
     };
   }
-  // Checked after the type checks, so a rejected type never reports a quota figure.
-  const quota = await checkLibraryQuota(actor.siteId, file.size);
-  if (!quota.ok) {
-    return {
-      status: 413,
-      body: {
-        error:
-          `The media library is full (${formatMb(quota.usedBytes)} of ${formatMb(quota.limitBytes)} used). ` +
-          "Delete something, or raise JF_MAX_LIBRARY_MB.",
-      },
-    };
-  }
-  const { enforceQuota } = await import("../tenancy/quotas.js");
-  const configured = await enforceQuota("media.bytes", actor.siteId, file.size);
-  if (configured) {
-    return { status: configured.status, body: { error: configured.error, code: configured.code, meter: configured.meter } };
-  }
+  // Quota check, store and insert run one upload at a time per site, so
+  // concurrent uploads cannot all pass against the same remaining budget.
+  // Raster images reserve room for their generated variants as well.
+  const variantBudget = isRasterImageMimeType(file.mimetype) ? file.size : 0;
+  const reserved = file.size + variantBudget;
+  const admitted = await uploadLock(actor.siteId, async (): Promise<MediaWriteResult | { storageKey: string; url: string; id: string }> => {
+    // Checked after the type checks, so a rejected type never reports a quota figure.
+    const quota = await checkLibraryQuota(actor.siteId, reserved);
+    if (!quota.ok) {
+      return {
+        status: 413,
+        body: {
+          error:
+            `The media library is full (${formatMb(quota.usedBytes)} of ${formatMb(quota.limitBytes)} used). ` +
+            "Delete something, or raise JF_MAX_LIBRARY_MB.",
+        },
+      };
+    }
+    const { enforceQuota } = await import("../tenancy/quotas.js");
+    const configured = await enforceQuota("media.bytes", actor.siteId, reserved);
+    if (configured) {
+      return { status: configured.status, body: { error: configured.error, code: configured.code, meter: configured.meter } };
+    }
 
-  const storageKey = `${actor.siteId}/${randomUUID()}${ext}`;
-  await getUploadStore().put(storageKey, file.buffer, file.mimetype);
+    const storageKey = `${actor.siteId}/${randomUUID()}${ext}`;
+    await getUploadStore().put(storageKey, file.buffer, file.mimetype);
 
-  const url = `/uploads/${storageKey}`;
-  const id = randomUUID();
-  await (
-    await getDb()
-  ).run(
-    `INSERT INTO media (id, site_id, filename, mime_type, size_bytes, storage_key, url, uploaded_by, uploaded_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      actor.siteId,
-      file.originalname,
-      file.mimetype,
-      file.size,
-      storageKey,
-      url,
-      actor.userId,
-      now(),
-      now(),
-    ],
-  );
+    const url = `/uploads/${storageKey}`;
+    const id = randomUUID();
+    try {
+      await (
+        await getDb()
+      ).run(
+        `INSERT INTO media (id, site_id, filename, mime_type, size_bytes, derivative_bytes, storage_key, url, uploaded_by, uploaded_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          actor.siteId,
+          file.originalname,
+          file.mimetype,
+          file.size,
+          // The variant reservation is recorded with the row, so it counts
+          // against the quota until the real size replaces it.
+          variantBudget,
+          storageKey,
+          url,
+          actor.userId,
+          now(),
+          now(),
+        ],
+      );
+    } catch (err) {
+      // Never leave a stored file no row accounts for.
+      await getUploadStore().delete(storageKey).catch(() => undefined);
+      throw err;
+    }
+    // Check again with the row in place. Another worker process may have
+    // admitted an upload at the same time; if together they no longer fit,
+    // this one is withdrawn, so usage can never end above the limit.
+    const after = await checkLibraryQuota(actor.siteId, 0);
+    const afterConfigured = after.ok ? await enforceQuota("media.bytes", actor.siteId, 0) : null;
+    if (!after.ok || afterConfigured) {
+      await (await getDb()).run("DELETE FROM media WHERE id = ? AND site_id = ?", [id, actor.siteId]);
+      await getUploadStore().delete(storageKey).catch(() => undefined);
+      return afterConfigured
+        ? { status: afterConfigured.status, body: { error: afterConfigured.error, code: afterConfigured.code, meter: afterConfigured.meter } }
+        : { status: 413, body: { error: "The media library is full. Delete something, or raise JF_MAX_LIBRARY_MB." } };
+    }
+    return { storageKey, url, id };
+  });
+  if ("status" in admitted) return admitted;
+  const { url, id } = admitted;
 
   // Responsive derivatives (resized variants + WebP/AVIF) are generated inline
   // so a page can ship a correct `srcset` on the first render. A failure here
@@ -363,14 +426,19 @@ export async function storeMediaUpload(
       mimeType: file.mimetype,
       buffer: file.buffer,
       focal: null,
+      maxBytes: variantBudget,
     });
+    if (!derivatives) {
+      await (await getDb()).run("UPDATE media SET derivative_bytes = 0 WHERE id = ? AND site_id = ?", [id, actor.siteId]);
+    }
     if (derivatives) {
       await (
         await getDb()
       ).run(
-        "UPDATE media SET derivatives = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+        "UPDATE media SET derivatives = ?, derivative_bytes = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
         [
           JSON.stringify(derivatives),
+          derivativeBytes(derivatives),
           derivatives.base.w,
           derivatives.base.h,
           derivatives.base.format,
@@ -383,6 +451,10 @@ export async function storeMediaUpload(
     }
   } catch (err) {
     console.error("[justflows] media derivative generation failed:", stripNewlines(err));
+    // The generator removed anything it wrote; release the reservation.
+    await (await getDb())
+      .run("UPDATE media SET derivative_bytes = 0 WHERE id = ? AND site_id = ?", [id, actor.siteId])
+      .catch(() => undefined);
   }
 
   return {
