@@ -24,6 +24,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Plugin updates accept dropdown settings.** The package installer now accepts `select` settings and preserves their fixed choices and core country or time-zone sources, allowing Shop 0.1.3 to install. Startup logs now report an active plugin's missing module or registration failure.
+
 - **Transactions on a plugin's separate database.** A plugin's separate database ignored transactions and reported no changed rows; both now work as on the main database.
 - **A website's settings stay inside that website.** Installation SMTP credentials are only used with the installation's own mail server, and a site that sends through its own server enters its own password. Only the main site can allow private AI provider addresses. Removing or reinstalling a theme, or switching CSS provider, on one site no longer changes the files another site uses. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **Plugin routes answer only on sites where the plugin is on**, and a sign-in only counts on the site it was made for. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
