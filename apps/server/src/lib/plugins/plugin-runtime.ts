@@ -124,12 +124,15 @@ async function registerKnownPlugins(): Promise<void> {
     const manifest =
       typeof row.manifest === "string" ? JSON.parse(row.manifest) : (row.manifest ?? {});
     const pluginModule = await resolvePluginModule(manifest);
-    if (!pluginModule) continue;
+    if (!pluginModule) {
+      console.error("[plugins] active plugin module could not be loaded:", JSON.stringify(row.plugin_id));
+      continue;
+    }
 
     try {
       loader.register(pluginModule);
-    } catch {
-      // already registered or invalid manifest
+    } catch (err) {
+      console.error("[plugins] registration failed:", JSON.stringify(row.plugin_id), err);
     }
   }
 
