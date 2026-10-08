@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 import { isIP } from "node:net";
-import { validateWebhookUrl } from "../security/webhook-url.js";
+import { BlockedAddressError, pinnedFetch } from "../security/pinned-fetch.js";
+import { isBlockedWebhookAddress, isLocalHostName, validateWebhookUrl } from "../security/webhook-url.js";
 
 /**
  * Outbound HTTP for agent features, with the webhook SSRF guard applied to the
@@ -46,8 +47,8 @@ export async function assertOutboundUrl(value: string, allowPrivate = false): Pr
 /** Whether a host is a literal private/loopback address or a local name. */
 export function isLocalHostname(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return true;
-  return isIP(host) !== 0 && /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|f[cd])/.test(host);
+  if (isLocalHostName(host)) return true;
+  return isIP(host) !== 0 && isBlockedWebhookAddress(host);
 }
 
 export interface GuardedFetchOptions extends Omit<RequestInit, "redirect" | "signal"> {
@@ -67,7 +68,15 @@ export async function guardedFetch(value: string, options: GuardedFetchOptions =
   let current = value;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     const url = await assertOutboundUrl(current, allowPrivate);
-    const response = await fetch(url, { ...init, redirect: "manual", signal: combined });
+    let response: Response;
+    try {
+      response = await pinnedFetch(url, { ...init, allowPrivate, redirect: "manual", signal: combined });
+    } catch (err) {
+      if (err instanceof Error && err.cause instanceof BlockedAddressError) {
+        throw new OutboundUrlError(err.cause.message);
+      }
+      throw err;
+    }
     if (response.status >= 300 && response.status < 400 && response.headers.get("location")) {
       await response.body?.cancel().catch(() => undefined);
       current = new URL(response.headers.get("location")!, url).toString();

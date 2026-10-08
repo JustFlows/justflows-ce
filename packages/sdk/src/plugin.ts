@@ -372,11 +372,22 @@ export const PluginManifestSchema = z
       .record(
         z.string(),
         z.object({
-          type: z.enum(["string", "number", "boolean", "text"]),
+          type: z.enum(["string", "number", "boolean", "text", "select"]),
           label: z.string().min(1),
           description: z.string().optional(),
           default: z.unknown().optional(),
           localized: z.boolean().optional(),
+          /** For `select`: fixed choices, shown before any from `optionsSource`. */
+          options: z
+            .array(z.object({ value: z.string().max(200), label: z.string().min(1).max(200) }))
+            .max(200)
+            .optional(),
+          /**
+           * For `select`: choices the host fills in, from the same lists core uses.
+           * `timezones`: every IANA time zone, as Settings → General.
+           * `countries`: every ISO 3166-1 country, stored as its two-letter code.
+           */
+          optionsSource: z.enum(["timezones", "countries"]).optional(),
         }),
       )
       .optional(),
@@ -740,6 +751,8 @@ export interface PluginJobContext {
   attempt: number;
   scheduledAt: Date;
   payload?: unknown;
+  /** The site this run is for. Set when the job was registered with `perSite`. */
+  siteId?: string;
 }
 
 export interface PluginJobResult {
@@ -751,6 +764,13 @@ export interface PluginJobDefinition {
   name: string;
   schedule?: string;
   maxAttempts?: number;
+  /**
+   * Run the handler once for every site where the plugin is active, inside
+   * that site's context, so `ctx.databases`, `ctx.settings`, and `ctx.secrets`
+   * act on that site. One site's failure does not stop the others.
+   * Without it, the handler runs once with no site context.
+   */
+  perSite?: boolean;
   handler(ctx: PluginJobContext): Promise<PluginJobResult>;
 }
 
@@ -1214,6 +1234,76 @@ export interface PluginQuotasApi {
   set(key: string, limit: number | null): Promise<void>;
 }
 
+export type PluginRowValue = string | number | boolean | null;
+
+/** Column equality filters. A `null` value matches `IS NULL`. */
+export type PluginRowMatch = Record<string, PluginRowValue>;
+
+export interface PluginRowOrder {
+  column: string;
+  direction?: "asc" | "desc";
+}
+
+export interface PluginRowFindOptions {
+  /** Defaults to 100, capped at 500. */
+  limit?: number;
+  /** Deterministic order. Add `id` last when other columns can tie. */
+  orderBy?: PluginRowOrder[];
+  /**
+   * Lock the matched rows (`SELECT … FOR UPDATE`) until the surrounding
+   * `transaction` ends. Has no lasting effect outside a transaction.
+   */
+  lock?: boolean;
+}
+
+export interface PluginRowIncrementOptions {
+  /**
+   * Lower bounds the row must still meet after the change. A row that would
+   * fall below one is left alone and is not counted.
+   */
+  min?: Record<string, number>;
+  /** Plain values written in the same statement, such as `updated_at`. */
+  set?: PluginRowMatch;
+}
+
+/**
+ * Row operations on plugin-owned tables, always scoped to the current site.
+ * Inside `transaction`, the same methods run on the transaction's connection
+ * and errors propagate instead of returning empty results.
+ */
+export interface PluginRowOps {
+  findOne(
+    table: string,
+    where?: PluginRowMatch,
+    options?: Omit<PluginRowFindOptions, "limit">,
+  ): Promise<Record<string, unknown> | undefined>;
+  find(table: string, where?: PluginRowMatch, options?: PluginRowFindOptions): Promise<Record<string, unknown>[]>;
+  /**
+   * Insert one row. Returns `false`, and writes nothing, when a unique key
+   * already holds an equal value. Use it to claim an idempotency key or event.
+   */
+  insert(table: string, row: PluginRowMatch): Promise<boolean>;
+  upsert(table: string, row: PluginRowMatch, options?: { match?: string[] }): Promise<void>;
+  /**
+   * Set `values` on every row matching `where`. Returns the number of matched
+   * rows, so a status or version in `where` works as compare-and-set.
+   * `where` must name at least one column.
+   */
+  update(table: string, where: PluginRowMatch, values: PluginRowMatch): Promise<number>;
+  /**
+   * Add integer deltas in one statement (`available = available - 2`), so
+   * concurrent callers cannot lose each other's change. Returns matched rows.
+   */
+  increment(
+    table: string,
+    where: PluginRowMatch,
+    deltas: Record<string, number>,
+    options?: PluginRowIncrementOptions,
+  ): Promise<number>;
+  /** Returns the number of deleted rows. `where` must name at least one column. */
+  delete(table: string, where: PluginRowMatch): Promise<number | void>;
+}
+
 export interface PluginDatabasesApi {
   /** Probe the site's existing Justflows database. */
   probeShared(): Promise<PluginDatabaseProbeResult>;
@@ -1261,7 +1351,8 @@ export interface PluginDatabasesApi {
   /** First matching row in a plugin-owned table, always scoped to this site. */
   findOne(
     table: string,
-    where?: Record<string, string | number | boolean | null>,
+    where?: PluginRowMatch,
+    options?: Omit<PluginRowFindOptions, "limit">,
   ): Promise<Record<string, unknown> | undefined>;
 
   /**
@@ -1270,15 +1361,36 @@ export interface PluginDatabasesApi {
    */
   find(
     table: string,
-    where?: Record<string, string | number | boolean | null>,
-    options?: { limit?: number },
+    where?: PluginRowMatch,
+    options?: PluginRowFindOptions,
   ): Promise<Record<string, unknown>[]>;
 
   /**
    * Delete matching rows in a plugin-owned table. `where` must include at
    * least one column besides the implicit site scope.
    */
-  delete(table: string, where: Record<string, string | number | boolean | null>): Promise<void>;
+  delete(table: string, where: PluginRowMatch): Promise<void>;
+
+  /** See `PluginRowOps.insert`. */
+  insert(table: string, row: PluginRowMatch): Promise<boolean>;
+  /** See `PluginRowOps.update`. */
+  update(table: string, where: PluginRowMatch, values: PluginRowMatch): Promise<number>;
+  /** See `PluginRowOps.increment`. */
+  increment(
+    table: string,
+    where: PluginRowMatch,
+    deltas: Record<string, number>,
+    options?: PluginRowIncrementOptions,
+  ): Promise<number>;
+
+  /**
+   * Run `fn` in one transaction on the database holding this plugin's tables:
+   * it commits when `fn` resolves and rolls back when it throws. Calls to
+   * `ctx.databases` row methods made while `fn` runs join the same
+   * transaction, as does a nested `transaction`. Keep network calls out of
+   * `fn`; locks are held until it returns.
+   */
+  transaction<T>(fn: (tx: PluginRowOps) => Promise<T>): Promise<T>;
 
   /** Column names for a plugin-owned table, or `[]` when the table does not exist. */
   columns(table: string): Promise<string[]>;
@@ -1464,6 +1576,13 @@ export interface PluginContext {
     defaultLocale(): Promise<string>;
     /** Every active locale code, default first. */
     locales(): Promise<string[]>;
+    /** The site's time zone (IANA) from Settings → General, e.g. `Europe/Amsterdam`. `UTC` when unset. */
+    timeZone(): Promise<string>;
+    /**
+     * Every ISO 3166-1 country with its name in `locale` (default: the site's
+     * default locale), sorted by name. The same list core and plugin settings use.
+     */
+    countries(locale?: string): Promise<Array<{ code: string; name: string }>>;
   };
 
   logger: {

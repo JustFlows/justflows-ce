@@ -137,6 +137,8 @@ export async function purgeDeletedTenant(tenantId: string, actorId: string | nul
   for (const site of sites) {
     await removeSiteFiles(site.id, hostnamesBySite.get(site.id) ?? []);
   }
+  const { releaseSitesAtProvider } = await import("../domains/custom-domains.js");
+  await releaseSitesAtProvider(sites.map((site) => String(site.id)));
 
   const databases = await db.query<DatabaseRow>(
     `SELECT host, port, database_name, username, password_ciphertext FROM tenant_databases

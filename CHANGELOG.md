@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.3]
+
+### Added
+
+- **A website can connect its own domain.** Settings → Domains adds a domain by DNS records (a TXT check plus a CNAME) or, with Bunny DNS, by pointing the domain's nameservers at the platform. A background check verifies DNS, attaches the hostname, and issues the certificate before the domain is served. A connected domain can become the primary address, and the site's other addresses then redirect to it. A domain that is never verified is released; one that stops pointing here is no longer served. With nameservers, the website manages its own MX, TXT, and other records. Adds migration `0039_custom_domains`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Offer custom domains as a paid feature.** Platform → Custom domains turns the feature on, chooses Bunny.net or this server, sets your own nameservers, and holds an upgrade link. Each website's access comes from the limits `feature.customDomains`, `domains.custom`, and `feature.managedDns`, which Defaults and plugins can set per plan. Plugins with `platform:tenancy` can refuse a domain with the `domain.beforeAdd` gate and react to `domain.added`, `domain.activated`, `domain.failed`, and `domain.removed`. `/api/domains/tls-allowed` answers Caddy's on-demand TLS check. See docs/MULTISITE.md. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Dropdown plugin settings from core lists.** A plugin setting can be a `select`, with its own choices or with `optionsSource: "timezones"` or `"countries"`, filled in from the same lists as Settings → General. Saving refuses a value that is not listed. Core now has one ISO country list. Plugins can read the site's time zone and that country list with `ctx.i18n.timeZone()` and `ctx.i18n.countries()`. See docs/PLUGINS.md.
+- **Plugin jobs can run for every site.** A job registered with `perSite: true` runs once for each site where the plugin is active, inside that site's context and database, and receives `siteId`. One site's failure does not stop the others. Background jobs are now described in docs/PLUGINS.md.
+- **Plugins can write their tables atomically.** `ctx.databases.transaction()` runs several row calls as one transaction, and `insert()`, `update()`, and `increment()` give plugins a unique-key claim, compare-and-set, and a guarded counter in one statement. `find()` and `findOne()` accept `orderBy` and `lock`. Works on PostgreSQL, MySQL, and MariaDB, on the shared database or a plugin's separate one. See docs/PLUGINS.md.
+
+### Changed
+
+- **Plugin row filters match `null` with `IS NULL`.** `ctx.databases.find()`, `findOne()`, and `delete()` used to compare `null` with `=`, which matched nothing. An invalid column name in a filter is now an error instead of being dropped from the filter.
+- **Only active hostnames route.** A hostname a website is still verifying, or one that failed its checks, is not served. Hostnames that already existed, and ones an operator adds on a website page, stay active. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Connecting a domain by nameservers needs a TXT check first.** Add the `_justflows` TXT record at the domain's current DNS provider, then change the nameservers. A domain that already uses the platform's nameservers connects with DNS records instead. DNS records can be edited once the domain is verified. Adds migration `0040_security_hardening`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+### Fixed
+
+- **Transactions on a plugin's separate database.** A plugin's separate database ignored transactions and reported no changed rows; both now work as on the main database.
+- **A website's settings stay inside that website.** Installation SMTP credentials are only used with the installation's own mail server, and a site that sends through its own server enters its own password. Only the main site can allow private AI provider addresses. Removing or reinstalling a theme, or switching CSS provider, on one site no longer changes the files another site uses. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Plugin routes answer only on sites where the plugin is on**, and a sign-in only counts on the site it was made for. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **A site that cannot be looked up is not served.** When the site list, a site's own database, or its plugin list cannot be read, the request gets a temporary error instead of single-site behaviour. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Managing users does not grant more access than you have.** Someone with user management can assign roles, custom roles, permissions, and scopes only within their own access, and cannot change or remove an administrator. A permission they hold only partly, such as for their own content, cannot be given to anyone else. API keys are limited to their own permissions and scope.
+- **Uploaded packages must be pinned or marketplace-signed.** A signature inside the package's own manifest is no longer accepted.
+- **Outbound requests check the address they connect to.** Webhooks, AI providers, and agent downloads refuse private addresses in every IPv6 form, at connection time. A webhook response is read only up to a small limit and within the delivery timeout.
+- **Uploads are bounded.** Each site has a limit on uploads in progress, oversized uploads are refused before and while they are read, uploads accept only a few small form fields, image processing runs a few at a time, and generated image sizes count toward media limits from the moment the upload is accepted.
+- **Static export only crawls the site being exported.** A website other than the main site cannot choose the address the exporter connects to, and the exporter reaches the site through this application rather than the site's own DNS. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Removing an unverified domain leaves the CDN alone.** Only a hostname this installation attached is detached when a domain is removed or expires. Adds migration `0041_domain_provider_attachment`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Dependencies:** multer 2.4.0, qs 6.16.0, ip-address 10.7.3, and esbuild 0.25.12 for drizzle-kit.
+
 ## [0.3.2]
 
 ### Added

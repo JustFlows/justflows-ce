@@ -35,7 +35,7 @@ describe("diagnostic redaction", () => {
 
   it("redacts credentials embedded in connection URLs and private keys", () => {
     expect(redactDiagnosticValue("postgres://user:pass@db/site")).toBe("[REDACTED]");
-    expect(redactDiagnosticValue("-----BEGIN PRIVATE KEY-----\nsecret")).toBe("[REDACTED]");
+    expect(redactDiagnosticValue("-----BEGIN PRIVATE KEY-----\nsecret")).toBe("[REDACTED]"); // scan-secrets:allow (fixture)
   });
 
   it("redacts credentials embedded in otherwise safe error messages", () => {

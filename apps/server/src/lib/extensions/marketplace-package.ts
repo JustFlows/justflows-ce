@@ -186,6 +186,9 @@ export async function installMarketplacePackage(options: {
     // Plugins run as code — install each build to its own directory so a
     // reinstall is imported fresh without a process restart.
     revisioned: type === "plugin",
+    // Themes are shared between sites: a reinstall must never replace files
+    // another site is using.
+    immutable: type === "theme",
     verify: (manifest, resultDigest) => {
       if (manifest.type !== type) {
         throw new Error(`Package type mismatch (expected ${type})`);

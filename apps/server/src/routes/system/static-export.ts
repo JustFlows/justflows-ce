@@ -16,7 +16,7 @@ import {
   readStaticExportSettings,
   StaticExportSettingsSchema,
 } from "../../lib/static-export/settings.js";
-import { assertExportOrigin, siteLoopbackOrigin } from "../../lib/static-export/config.js";
+import { assertExportOrigin, noteListenerPort, siteLoopbackOrigin } from "../../lib/static-export/config.js";
 import { setCurrentSiteStaticExportEnabled } from "../../lib/static-export/site-enabled.js";
 
 const router = Router();
@@ -94,6 +94,13 @@ router.post("/run", runLimit, async (req, res) => {
   const mode = body.mode === "incremental" ? "incremental" : "full";
   const baseUrlRaw =
     typeof body.baseUrl === "string" && body.baseUrl.trim() ? body.baseUrl.trim() : "";
+  noteListenerPort(req.socket.localPort);
+  // Only the installation's operator chooses where the crawler connects; a
+  // customer site always crawls itself.
+  if (baseUrlRaw && !isInstallationRootRequest()) {
+    res.status(400).json({ ok: false, error: "baseUrl can only be set on the main site." });
+    return;
+  }
   if (baseUrlRaw && !isAllowedCrawlBase(baseUrlRaw)) {
     res.status(400).json({
       ok: false,

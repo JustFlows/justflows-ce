@@ -56,6 +56,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startDeletedSitePurgeJob();
     const { startCommentSpamPurgeJob } = await import("./lib/comments/comments-spam-purge.js");
     startCommentSpamPurgeJob();
+    const { startDomainCheckJob } = await import("./lib/domains/custom-domains.js");
+    startDomainCheckJob();
     try {
       const { getSiteId } = await import("./lib/settings/site-settings.js");
       const siteId = await getSiteId();
@@ -195,6 +197,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/comment-rules", requireInstalled, requireSiteFeature("feature.comments"), commentRulesRoutes);
   app.use("/api/comment-spam-terms", requireInstalled, requireSiteFeature("feature.comments"), commentSpamTermsRoutes);
   app.use("/api/users", requireInstalled, usersRoutes);
+  app.use("/api/platform/custom-domains", requireInstalled, (await import("./routes/platform/custom-domains.js")).default);
   app.use("/api/platform", requireInstalled, (await import("./routes/platform/tenants.js")).default);
   app.use("/api/signup", requireInstalled, (await import("./routes/public/signup.js")).default);
   app.use("/api/settings", requireInstalled, settingsRoutes);
@@ -231,6 +234,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/cookies", requireInstalled, cookiesRoutes);
   app.use("/api/roles", requireInstalled, rolesRoutes);
   app.use("/api/cdn", requireInstalled, requireSiteFeature("feature.cdn"), (await import("./routes/settings/cdn.js")).default);
+  // `/api/domains/tls-allowed` has no session or site, so the feature check lets it through.
+  app.use("/api/domains", requireInstalled, requireSiteFeature("feature.customDomains"), (await import("./routes/settings/domains.js")).default);
 
   // Cookie-authenticated management of API keys (Admin → Settings → API).
   app.use("/api/api-keys", requireInstalled, requireSiteFeature("feature.api"), apiKeysRoutes);

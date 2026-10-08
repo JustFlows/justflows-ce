@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "../database/db.js";
 import { getJfRoot } from "../runtime/jf-root.js";
 import { runAllMigrations } from "../database/run-migrations.js";
-import { swapCssProviderPackages, getProviderNpmDependencies, cssProvidersInstallDir } from "./css-provider-install.js";
+import { ensureCssProviderBuild } from "./css-provider-install.js";
 import { getSiteId } from "../themes/themes-db.js";
 
 export interface CssProviderRow {
@@ -209,14 +209,7 @@ export async function getActiveCssProvider(siteId: string): Promise<CssProviderR
 
 async function ensureActiveProviderPackages(provider: CssProviderRow): Promise<void> {
   if (provider.provider_id === "justflows.none") return;
-
-  const deps = getProviderNpmDependencies(provider.manifest);
-  if (Object.keys(deps).length === 0) return;
-
-  const nodeModules = path.join(cssProvidersInstallDir(), "node_modules");
-  if (fs.existsSync(nodeModules)) return;
-
-  await swapCssProviderPackages(provider.manifest);
+  await ensureCssProviderBuild(provider.manifest);
 }
 
 export async function getCssProviderById(
@@ -291,7 +284,7 @@ export async function activateCssProvider(siteId: string, providerId: string): P
     throw new Error("CSS provider not found");
   }
 
-  await swapCssProviderPackages(provider.manifest);
+  await ensureCssProviderBuild(provider.manifest);
 
   const db = await getDb();
   await db.run(

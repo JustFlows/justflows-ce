@@ -13,6 +13,10 @@ export interface HostRecord {
   databaseChoice: DatabaseChoice;
   /** The site created with the installation. */
   rootSite?: boolean;
+  /** The site's primary address, when it has an active one. */
+  primaryHostname?: string;
+  /** True when that primary address is a custom domain. */
+  primaryCustom?: boolean;
 }
 
 export type HostDecision =
@@ -75,6 +79,30 @@ function decide(record: HostRecord, viaLoopback: boolean): HostDecision {
 }
 
 /**
+ * Where a public request should be sent instead: the site's custom primary
+ * domain, when the visitor came in on another of its addresses. Admin, API,
+ * and asset paths stay on the address they used, so a site can still be
+ * managed while its domain is broken.
+ */
+export function primaryRedirectHost(input: {
+  record: HostRecord;
+  viaLoopback: boolean;
+  method: string;
+  path: string;
+  adminBase: string;
+}): string | null {
+  const { record } = input;
+  if (input.viaLoopback || !record.primaryCustom || !record.primaryHostname) return null;
+  if (record.primaryHostname === record.hostname) return null;
+  if (input.method !== "GET" && input.method !== "HEAD") return null;
+  const path = input.path;
+  const admin = input.adminBase.replace(/\/+$/, "") || "/admin";
+  const kept = ["/api", "/admin", "/assets", "/uploads", "/css-providers", "/.well-known", admin];
+  if (kept.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return null;
+  return record.primaryHostname;
+}
+
+/**
  * Customer sites are subdomains until a custom domain can be attached.
  * `dirkswebsite.justflows.com` and a bare slug such as `construction-demo` are
  * subdomains. A hostname outside the platform domain is custom. Loopback stays primary.
@@ -106,10 +134,14 @@ export function signupBaseDomain(value: string): string | null {
 }
 
 /** Public site URL, using the scheme and port of the page the visitor signed up on. */
+/** The stored origin of a new site: only http/https, and only a valid port. */
 export function signupSiteOrigin(hostname: string, protocol: string, hostHeader: string): string {
-  const scheme = protocol.split(",")[0]?.trim() || "http";
+  const claimed = protocol.split(",")[0]?.trim().toLowerCase();
+  const scheme = claimed === "https" || claimed === "http" ? claimed : "https";
   const host = hostHeader.split(",")[0]?.trim() ?? "";
-  const port = host.startsWith("[") ? "" : (host.match(/:(\d+)$/)?.[1] ?? "");
+  const rawPort = host.startsWith("[") ? "" : (host.match(/:(\d{1,5})$/)?.[1] ?? "");
+  const portNumber = Number(rawPort);
+  const port = rawPort && portNumber >= 1 && portNumber <= 65535 ? String(portNumber) : "";
   return `${scheme}://${hostname}${port ? `:${port}` : ""}`;
 }
 

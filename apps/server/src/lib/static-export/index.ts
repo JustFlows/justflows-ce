@@ -13,6 +13,7 @@ import {
   type StaticExportConfig,
 } from "./config.js";
 import { crawlPages, type FetchedResource } from "./crawl.js";
+import { exportFetch } from "./export-fetch.js";
 import { discoverRoutes, NOT_FOUND_PROBE } from "./discover.js";
 import {
   isExcludedPath,
@@ -101,7 +102,7 @@ function localeFromPath(path: string): string | undefined {
 function makeFetcher(baseUrl: string): (path: string) => Promise<FetchedResource> {
   return async (path: string) => {
     const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
-    const res = await fetch(url, {
+    const res = await exportFetch(url, {
       redirect: "manual",
       headers: { [STATIC_EXPORT_HEADER]: "1", "user-agent": "JustFlows-StaticExport/1" },
     });
@@ -162,7 +163,10 @@ async function readJson(res: Response): Promise<Record<string, unknown> | null> 
 async function verifyOrigin(origin: string): Promise<OriginVerdict> {
   let health: Response;
   try {
-    health = await fetch(`${origin}/api/healthz`, { headers: { [STATIC_EXPORT_HEADER]: "1" } });
+    health = await exportFetch(`${origin}/api/healthz`, {
+      redirect: "manual",
+      headers: { [STATIC_EXPORT_HEADER]: "1" },
+    });
   } catch (err) {
     return { kind: "unreachable", detail: err instanceof Error ? err.message : String(err) };
   }
@@ -173,10 +177,19 @@ async function verifyOrigin(origin: string): Promise<OriginVerdict> {
     if (body.installed) return { kind: "ok", detail: "healthz installed=true" };
   }
 
+  // A secondary site must prove it reached this application. "Something
+  // answered /" is only accepted for the main site's operator-configured
+  // origins, where a proxy may shadow /api/healthz.
+  if (secondaryExportSite()) {
+    return body?.installed === false
+      ? { kind: "not-installed", detail: "healthz installed=false" }
+      : { kind: "unreachable", detail: "no JustFlows healthz" };
+  }
+
   // healthz was missing, not ours, or said installed=false — confirm against `/`.
   let root: Response;
   try {
-    root = await fetch(`${origin}/`, {
+    root = await exportFetch(`${origin}/`, {
       redirect: "manual",
       headers: { [STATIC_EXPORT_HEADER]: "1", "user-agent": "JustFlows-StaticExport/1" },
     });

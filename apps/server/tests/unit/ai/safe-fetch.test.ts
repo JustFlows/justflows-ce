@@ -2,6 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assertOutboundUrl, guardedFetch, OutboundUrlError, readLimited } from "../../../src/lib/ai/safe-fetch.js";
 
+// Requests go through the connect-time pinned agent in production; route them
+// back to the stubbed global fetch here.
+vi.mock("../../../src/lib/security/pinned-fetch.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../src/lib/security/pinned-fetch.js")>()),
+  pinnedFetch: (url: URL | string, { allowPrivate: _allowPrivate, ...init }: RequestInit & { allowPrivate?: boolean } = {}) =>
+    fetch(url, init),
+}));
+
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
