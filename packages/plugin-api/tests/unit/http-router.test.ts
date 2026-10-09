@@ -40,6 +40,18 @@ describe("PluginHttpRouter", () => {
     expect(router.match("POST", "/ext/acme.shop/payments/hooks/stripe/token")).toBeUndefined();
   });
 
+  it("keeps a binary body limit for uploads and refuses one out of range", () => {
+    const router = new PluginHttpRouter();
+    router.register("acme.shop", "POST", "files/:id", async () => ({ body: "ok" }), { binaryBody: { maxBytes: 50_000_000 } });
+    expect(router.match("POST", "/ext/acme.shop/files/1")?.route.binaryBody).toEqual({ maxBytes: 50_000_000 });
+    expect(() =>
+      router.register("acme.shop", "POST", "big", async () => ({ body: "x" }), { binaryBody: { maxBytes: 2 * 1024 ** 3 } }),
+    ).toThrow(/maxBytes/);
+    expect(() =>
+      router.register("acme.shop", "POST", "both", async () => ({ body: "x" }), { rawBody: true, binaryBody: { maxBytes: 10 } }),
+    ).toThrow(/cannot combine/);
+  });
+
   it("rejects a rate limit that would not hold", () => {
     const router = new PluginHttpRouter();
     expect(() =>

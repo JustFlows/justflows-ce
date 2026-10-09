@@ -54,6 +54,7 @@
     "shopTax": "Taxes",
     "shopDiscounts": "Réductions",
     "shopRefunds": "Remboursements",
+    "shopInvoices": "Factures",
     "shopEmails": "E-mails",
     "shopReports": "Rapports",
     "shopPage": "Page boutique",
@@ -70,7 +71,8 @@
     "workspaces": "Espaces de travail",
     "defaults": "Valeurs par défaut",
     "siteDomains": "Domaines",
-    "customDomains": "Domaines personnalisés"
+    "customDomains": "Domaines personnalisés",
+    "storage": "Stockage"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -4095,5 +4097,50 @@
     "failureThresholdHint": "Un domaine connecté est vérifié toutes les 6 heures. Après autant d'échecs consécutifs, il n'est plus servi.",
     "testOk": "La connexion au fournisseur fonctionne.",
     "testOkTarget": "La connexion au fournisseur fonctionne. Cible CNAME : {target}"
+  },
+  "storage": {
+    "title": "Stockage",
+    "description": "Où ce site garde ses fichiers privés, comme les produits vendus en téléchargement. Ils ne sont jamais publics : les visiteurs ne les obtiennent que par le site, qui vérifie qu’ils y ont droit.",
+    "inUseTitle": "En service",
+    "source": {
+      "site": "La connexion de stockage propre à ce site.",
+      "platform": "La connexion de stockage de la plateforme, définie sur le site principal.",
+      "environment": "Le bucket S3 de l’installation (STORAGE_DRIVER=s3), dans un dossier privé.",
+      "local": "Le disque du serveur, dans un dossier privé hors des fichiers publics."
+    },
+    "publicBucket": "Le bucket S3 de l’installation est public (STORAGE_S3_PUBLIC_URL est défini) : les fichiers privés sont donc gardés sur le disque du serveur. Ajoutez un bucket privé ci-dessous pour utiliser S3.",
+    "copying": "Copie de {count} fichiers vers le stockage actuel. Elle se fait en arrière-plan ; les téléchargements continuent de fonctionner.",
+    "filesUsage": "Fichiers privés",
+    "bytesUsage": "Stockage des fichiers privés",
+    "usageUnlimited": "{used} (sans limite)",
+    "usageOf": "{used} sur {limit}",
+    "managedOnPlatform": "Ce site utilise le stockage de la plateforme. Votre formule n’inclut pas de connexion de stockage propre.",
+    "connectionTitleRoot": "Connexion de stockage de la plateforme",
+    "connectionTitle": "Stockage propre à ce site",
+    "connectionHintRoot": "Chaque site utilise ce bucket compatible S3, sauf s’il a le sien. Chaque site a son propre dossier. Laissez vide pour utiliser le bucket S3 de l’installation ou le disque du serveur.",
+    "connectionHint": "Utilisez votre propre bucket compatible S3 pour ce site au lieu de celui de la plateforme.",
+    "endpoint": "Point de terminaison",
+    "endpointHint": "Par exemple https://s3.gra.io.cloud.ovh.net ou https://<account>.r2.cloudflarestorage.com. Laissez vide pour Amazon S3.",
+    "region": "Région",
+    "regionHint": "Par exemple eu-west-1, gra ou auto.",
+    "bucket": "Bucket",
+    "bucketHint": "Gardez ce bucket privé ; ne le rendez jamais public.",
+    "prefix": "Dossier",
+    "prefixHint": "Dossier facultatif dans le bucket, pour partager un bucket entre plusieurs installations.",
+    "accessKeyId": "Clé d’accès",
+    "secretAccessKey": "Clé secrète",
+    "secretSaved": "Enregistrée (…{last4}). Laissez vide pour la conserver.",
+    "pathStyle": "Utiliser des adresses de type chemin (nécessaire chez la plupart des fournisseurs autres qu’Amazon S3)",
+    "saveHint": "L’enregistrement teste d’abord la connexion. Les fichiers existants y sont ensuite copiés en arrière-plan ; les copies déjà stockées restent en place.",
+    "save": "Enregistrer la connexion",
+    "saved": "Connexion de stockage enregistrée. Les fichiers existants y sont copiés.",
+    "test": "Tester la connexion",
+    "testing": "Test en cours…",
+    "testOk": "Le bucket a accepté un fichier de test.",
+    "remove": "Supprimer la connexion",
+    "removeConfirm": "Supprimer le stockage propre à ce site ? Ses fichiers sont recopiés vers le stockage de la plateforme.",
+    "removeConfirmRoot": "Supprimer la connexion de stockage de la plateforme ? Les sites sans stockage propre passent au bucket S3 de l’installation ou au disque du serveur, et leurs fichiers y sont copiés.",
+    "removed": "Connexion de stockage supprimée.",
+    "failed": "Impossible de charger ou d’enregistrer les réglages de stockage."
   }
 }

@@ -74,6 +74,40 @@ export interface MailMessage {
   transactional?: boolean;
   /** Internal retry counter; callers should omit it. */
   retryAttempt?: number;
+  /** Files sent with the message. Checked by the caller (see `checkMailAttachments`); never written to the delivery log. */
+  attachments?: MailAttachment[];
+}
+
+export type MailAttachment = { filename: string; content: Buffer; contentType: string };
+
+const ATTACHMENT_TYPES = new Set(["application/pdf", "image/png", "image/jpeg", "text/csv", "text/plain", "text/calendar"]);
+const MAX_ATTACHMENTS = 5;
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const MAX_ATTACHMENTS_BYTES = 15 * 1024 * 1024;
+
+/**
+ * Attachments from an untrusted caller (a plugin), cleaned: allowed types,
+ * size limits, and a plain file name. Throws when they break a limit.
+ */
+export function checkMailAttachments(raw: unknown): MailAttachment[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw)) throw new Error("attachments must be a list");
+  if (raw.length > MAX_ATTACHMENTS) throw new Error(`At most ${MAX_ATTACHMENTS} attachments per email`);
+  let total = 0;
+  const out = raw.map((item: unknown) => {
+    const record = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+    const content = record["content"];
+    const contentType = typeof record["contentType"] === "string" ? record["contentType"].toLowerCase().split(";")[0]!.trim() : "";
+    if (!Buffer.isBuffer(content) || content.length === 0) throw new Error("An attachment has no content");
+    if (!ATTACHMENT_TYPES.has(contentType)) throw new Error(`Attachment type ${contentType || "(none)"} is not allowed`);
+    if (content.length > MAX_ATTACHMENT_BYTES) throw new Error("An attachment is larger than 10 MB");
+    total += content.length;
+    const name = typeof record["filename"] === "string" ? record["filename"] : "";
+    const filename = name.replace(/[\\/\u0000-\u001f"<>:|?*]+/g, "_").trim().slice(0, 120) || "attachment";
+    return { filename, content, contentType };
+  });
+  if (total > MAX_ATTACHMENTS_BYTES) throw new Error("Attachments are larger than 15 MB together");
+  return out;
 }
 
 export type MailResult =
@@ -308,7 +342,11 @@ async function createDeliveryLog(
         maskRecipient(message.to),
         recipientHash(message.to),
         encryptSecret(message.to.trim()),
-        encryptSecret(JSON.stringify(message)),
+        // Attachments stay out of the log: only their names, types, and sizes are kept.
+        encryptSecret(JSON.stringify({
+          ...message,
+          attachments: message.attachments?.map((item) => ({ filename: item.filename, contentType: item.contentType, size: item.content.length })),
+        })),
         message.subject,
         "queued",
         transport,
@@ -469,6 +507,7 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
       html,
       replyTo: sender.replyTo,
       envelope: sender.envelopeSender ? { from: sender.envelopeSender, to: [to] } : undefined,
+      ...(message.attachments?.length ? { attachments: message.attachments.map((item) => ({ ...item })) } : {}),
     };
     if (config.transport.startsWith("plugin:")) {
       const plugin = getRegisteredMailTransport(config.transport);
@@ -630,7 +669,9 @@ export async function retryEmailDelivery(siteId: string, id: string): Promise<Ma
   );
   if (!rows[0]) return { ok: false, error: "Email delivery not found" };
   const message = JSON.parse(decryptSecret(rows[0].message_encrypted)) as MailMessage;
-  return sendMail(message);
+  // The log has no attachment content; the retry goes out without them.
+  const { attachments: _logged, ...rest } = message;
+  return sendMail(rest);
 }
 
 export async function addEmailSuppression(

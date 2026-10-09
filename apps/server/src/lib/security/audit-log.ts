@@ -92,6 +92,8 @@ export const AUDIT_ACTIONS = [
   "cdn.settings_saved",
   "cdn.settings_removed",
   "cdn.purged",
+  "storage.removed",
+  "storage.saved",
   "domain.added",
   "domain.removed",
   "domain.primary_changed",

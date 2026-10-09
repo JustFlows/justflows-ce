@@ -115,6 +115,11 @@ const PluginContentFrame = forwardRef<
     return () => window.removeEventListener("message", onMessage);
   }, [onDirty, onSections, sendContext]);
 
+  // The server-rendered frame can finish loading before hydration attaches.
+  useEffect(() => {
+    sendContext();
+  }, [sendContext]);
+
   useEffect(() => {
     if (sectionId) post({ type: "section", sectionId });
   }, [post, sectionId]);
@@ -130,7 +135,10 @@ const PluginContentFrame = forwardRef<
       hidden={hidden}
       style={{ height, width: "100%", border: 0 }}
       onLoad={sendContext}
-      sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-downloads allow-modals"
+      // New tabs (an invoice PDF, a printable page) open outside the sandbox: Chrome
+      // will not show a PDF in a sandboxed tab. Scripts plus same-origin already
+      // give the plugin page full access, so this widens nothing.
+      sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
     />
   );
 });
