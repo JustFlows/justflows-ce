@@ -17,6 +17,7 @@ import {
   isSafeUploadKey,
   type S3UploadStore,
 } from "./upload-store.js";
+import { PRIVATE_UPLOADS_FOLDER } from "../files/private-storage.js";
 
 /** Request headers forwarded to S3 so range and conditional requests work. */
 const PASSTHROUGH = [
@@ -117,12 +118,29 @@ async function serveFromS3(
  * express.static; S3 is proxied (or redirected to its public URL). The driver
  * is checked per request, so it follows the environment without a restart.
  */
+/** True for a request path inside the private-files folder of the uploads bucket. */
+export function isPrivateUploadPath(requestPath: string): boolean {
+  let decoded = requestPath;
+  try {
+    decoded = decodeURIComponent(requestPath);
+  } catch {
+    return true;
+  }
+  const first = decoded.split(/[\\/]+/).filter(Boolean)[0] ?? "";
+  return first.toLowerCase() === PRIVATE_UPLOADS_FOLDER;
+}
+
 export function uploadsHandler(maxAgeMs: number): RequestHandler {
   const local = express.static(uploadsDir(), {
     maxAge: maxAgeMs,
     setHeaders: (res, filePath) => forceDownload(res, filePath),
   });
   return (req, res, next) => {
+    // Private files can share the uploads bucket under `.private/`; that folder is never public.
+    if (isPrivateUploadPath(req.path)) {
+      res.status(404).end();
+      return;
+    }
     let store;
     try {
       store = getUploadStore();

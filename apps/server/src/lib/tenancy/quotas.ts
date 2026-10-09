@@ -40,6 +40,8 @@ defineCore("content.post", "site", "Posts", "count");
 defineCore("content.page", "site", "Pages", "count");
 defineCore("media.files", "site", "Media files", "count");
 defineCore("media.bytes", "site", "Media library", "bytes");
+defineCore("files.count", "site", "Private files", "count");
+defineCore("files.bytes", "site", "Private file storage", "bytes");
 defineCore("plugins", "site", "Installed plugins", "count");
 defineCore("roles", "site", "Custom user roles", "count");
 defineCore("feature.comments", "site", "Comments", "flag");
@@ -67,6 +69,7 @@ defineCore("feature.plugins", "site", "Plugins", "flag");
 defineCore("feature.customDomains", "site", "Custom domains", "flag");
 defineCore("feature.managedDns", "site", "DNS hosting", "flag");
 defineCore("domains.custom", "site", "Connected domains", "count");
+defineCore("feature.ownStorage", "site", "Own file storage", "flag");
 
 export function listMeterDefinitions(scope?: QuotaScope): QuotaMeterDefinition[] {
   return [...meters.values()].filter((meter) => scope === undefined || meter.scope === scope);
@@ -297,6 +300,12 @@ async function usageFor(meter: QuotaMeterDefinition, scopeId: string): Promise<n
   if (meter.key === "media.bytes") {
     return querySiteNumber(scopeId, "SELECT COALESCE(SUM(size_bytes + derivative_bytes), 0) AS total FROM media WHERE site_id = ?", [scopeId]);
   }
+  if (meter.key === "files.count") {
+    return querySiteNumber(scopeId, "SELECT COUNT(*) AS total FROM private_files WHERE site_id = ?", [scopeId]);
+  }
+  if (meter.key === "files.bytes") {
+    return querySiteNumber(scopeId, "SELECT COALESCE(SUM(size_bytes), 0) AS total FROM private_files WHERE site_id = ?", [scopeId]);
+  }
   if (meter.key === "plugins") {
     return querySiteNumber(scopeId, "SELECT COUNT(*) AS total FROM plugins WHERE site_id = ?", [scopeId]);
   }
@@ -442,6 +451,8 @@ function refusal(meter: QuotaMeterDefinition, limit: number): QuotaBlock {
           ? `This site has reached its content limit (${limit}).`
           : meter.key === "media.bytes"
             ? `This site has reached its media limit (${media}).`
+            : meter.key === "files.bytes"
+              ? `This site has reached its private file storage limit (${media}).`
             : `The limit for ${meter.label} has been reached (${media}).`;
   return { status: 409, error, code: "quota_exceeded", meter: meter.key };
 }

@@ -70,7 +70,8 @@
     "workspaces": "Werkruimten",
     "defaults": "Standaarden",
     "siteDomains": "Domeinen",
-    "customDomains": "Eigen domeinen"
+    "customDomains": "Eigen domeinen",
+    "storage": "Opslag"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -4095,5 +4096,50 @@
     "failureThresholdHint": "Een gekoppeld domein wordt elke 6 uur gecontroleerd. Na zoveel mislukkingen op rij wordt het niet meer geserveerd.",
     "testOk": "De koppeling met de provider werkt.",
     "testOkTarget": "De koppeling met de provider werkt. CNAME-doel: {target}"
+  },
+  "storage": {
+    "title": "Opslag",
+    "description": "Waar deze site privébestanden bewaart, zoals producten die als download worden verkocht. Ze zijn nooit openbaar: bezoekers krijgen ze alleen via de site, die controleert of dat mag.",
+    "inUseTitle": "In gebruik",
+    "source": {
+      "site": "De eigen opslagverbinding van deze site.",
+      "platform": "De opslagverbinding van het platform, ingesteld op de hoofdsite.",
+      "environment": "De S3-bucket van de installatie (STORAGE_DRIVER=s3), in een privémap.",
+      "local": "De schijf van de server, in een privémap buiten de openbare uploads."
+    },
+    "publicBucket": "De S3-bucket van de installatie is openbaar (STORAGE_S3_PUBLIC_URL is ingesteld), dus privébestanden staan op de schijf van de server. Voeg hieronder een privébucket toe om S3 te gebruiken.",
+    "copying": "{count} bestanden worden naar de huidige opslag gekopieerd. Dit gebeurt op de achtergrond; downloads blijven werken.",
+    "filesUsage": "Privébestanden",
+    "bytesUsage": "Opslag voor privébestanden",
+    "usageUnlimited": "{used} (geen limiet)",
+    "usageOf": "{used} van {limit}",
+    "managedOnPlatform": "Deze site gebruikt de opslag van het platform. Je abonnement bevat geen eigen opslagverbinding.",
+    "connectionTitleRoot": "Opslagverbinding van het platform",
+    "connectionTitle": "Eigen opslag van deze site",
+    "connectionHintRoot": "Elke site gebruikt deze S3-compatibele bucket, tenzij hij een eigen heeft. Elke site krijgt een eigen map. Laat leeg om de S3-bucket van de installatie of de schijf van de server te gebruiken.",
+    "connectionHint": "Gebruik voor deze site je eigen S3-compatibele bucket in plaats van die van het platform.",
+    "endpoint": "Endpoint",
+    "endpointHint": "Bijvoorbeeld https://s3.gra.io.cloud.ovh.net of https://<account>.r2.cloudflarestorage.com. Laat leeg voor Amazon S3.",
+    "region": "Regio",
+    "regionHint": "Bijvoorbeeld eu-west-1, gra of auto.",
+    "bucket": "Bucket",
+    "bucketHint": "Houd deze bucket privé; maak hem nooit openbaar.",
+    "prefix": "Map",
+    "prefixHint": "Optionele map in de bucket, om één bucket met meerdere installaties te delen.",
+    "accessKeyId": "Toegangssleutel",
+    "secretAccessKey": "Geheime sleutel",
+    "secretSaved": "Opgeslagen (…{last4}). Laat leeg om te behouden.",
+    "pathStyle": "Adressen in padstijl gebruiken (nodig bij de meeste aanbieders behalve Amazon S3)",
+    "saveHint": "Bij opslaan wordt de verbinding eerst getest. Bestaande bestanden worden daarna op de achtergrond gekopieerd; de kopieën die er al staan blijven waar ze zijn.",
+    "save": "Verbinding opslaan",
+    "saved": "Opslagverbinding opgeslagen. Bestaande bestanden worden ernaartoe gekopieerd.",
+    "test": "Verbinding testen",
+    "testing": "Testen…",
+    "testOk": "De bucket heeft een testbestand geaccepteerd.",
+    "remove": "Verbinding verwijderen",
+    "removeConfirm": "De eigen opslag van deze site verwijderen? De bestanden worden teruggekopieerd naar de opslag van het platform.",
+    "removeConfirmRoot": "De opslagverbinding van het platform verwijderen? Sites zonder eigen opslag gaan naar de S3-bucket van de installatie of de schijf van de server, en hun bestanden worden daarheen gekopieerd.",
+    "removed": "Opslagverbinding verwijderd.",
+    "failed": "De opslaginstellingen konden niet worden geladen of opgeslagen."
   }
 }

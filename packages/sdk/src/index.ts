@@ -174,6 +174,7 @@ export type {
   PluginRowMatch,
   PluginRowOps,
   PluginRowOrder,
+  PluginRowRange,
   PluginRowValue,
   PluginTenancyApi,
   PluginQuotasApi,
@@ -213,6 +214,10 @@ export type {
   PluginDeleteCreatedByResult,
   PluginDeleteCreatedByCounts,
   PluginPublishedEntry,
+  PluginPublishedPage,
+  PluginPrivateFile,
+  PluginFilesApi,
+  PluginGetPublishedQuery,
   PluginListPublishedQuery,
   JustflowsRuntimeVersions,
 } from "./plugin.js";

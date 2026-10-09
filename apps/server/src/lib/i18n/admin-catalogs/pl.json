@@ -70,7 +70,8 @@
     "workspaces": "Przestrzenie robocze",
     "defaults": "Domyślne",
     "siteDomains": "Domeny",
-    "customDomains": "Własne domeny"
+    "customDomains": "Własne domeny",
+    "storage": "Magazyn"
   },
   "webhooks": {
     "title": "Haki internetowe",
@@ -4093,5 +4094,50 @@
     "failureThresholdHint": "Podłączona domena jest sprawdzana co 6 godzin. Po tylu nieudanych sprawdzeniach z rzędu przestaje być obsługiwana.",
     "testOk": "Połączenie z dostawcą działa.",
     "testOkTarget": "Połączenie z dostawcą działa. Cel CNAME: {target}"
+  },
+  "storage": {
+    "title": "Magazyn",
+    "description": "Gdzie ta witryna przechowuje pliki prywatne, na przykład produkty sprzedawane do pobrania. Nigdy nie są publiczne: odwiedzający otrzymują je tylko przez witrynę, która sprawdza, czy mogą.",
+    "inUseTitle": "W użyciu",
+    "source": {
+      "site": "Własne połączenie magazynu tej witryny.",
+      "platform": "Połączenie magazynu platformy, ustawione w witrynie głównej.",
+      "environment": "Bucket S3 instalacji (STORAGE_DRIVER=s3), w prywatnym folderze.",
+      "local": "Dysk serwera, w prywatnym folderze poza publicznymi plikami."
+    },
+    "publicBucket": "Bucket S3 instalacji jest publiczny (ustawiono STORAGE_S3_PUBLIC_URL), więc pliki prywatne są przechowywane na dysku serwera. Dodaj poniżej prywatny bucket, aby używać S3.",
+    "copying": "Kopiowanie {count} plików do bieżącego magazynu. Odbywa się w tle; pobieranie nadal działa.",
+    "filesUsage": "Pliki prywatne",
+    "bytesUsage": "Miejsce na pliki prywatne",
+    "usageUnlimited": "{used} (bez limitu)",
+    "usageOf": "{used} z {limit}",
+    "managedOnPlatform": "Ta witryna korzysta z magazynu platformy. Twój plan nie obejmuje własnego połączenia magazynu.",
+    "connectionTitleRoot": "Połączenie magazynu platformy",
+    "connectionTitle": "Własny magazyn tej witryny",
+    "connectionHintRoot": "Każda witryna używa tego bucketu zgodnego z S3, chyba że ma własny. Każda witryna dostaje własny folder. Pozostaw puste, aby używać bucketu S3 instalacji lub dysku serwera.",
+    "connectionHint": "Użyj dla tej witryny własnego bucketu zgodnego z S3 zamiast bucketu platformy.",
+    "endpoint": "Punkt końcowy",
+    "endpointHint": "Na przykład https://s3.gra.io.cloud.ovh.net lub https://<account>.r2.cloudflarestorage.com. Pozostaw puste dla Amazon S3.",
+    "region": "Region",
+    "regionHint": "Na przykład eu-west-1, gra lub auto.",
+    "bucket": "Bucket",
+    "bucketHint": "Zachowaj ten bucket jako prywatny; nigdy nie udostępniaj go publicznie.",
+    "prefix": "Folder",
+    "prefixHint": "Opcjonalny folder w buckecie, aby dzielić jeden bucket między instalacjami.",
+    "accessKeyId": "Klucz dostępu",
+    "secretAccessKey": "Klucz tajny",
+    "secretSaved": "Zapisano (…{last4}). Pozostaw puste, aby zachować.",
+    "pathStyle": "Używaj adresów w stylu ścieżki (wymagane u większości dostawców poza Amazon S3)",
+    "saveHint": "Przy zapisie połączenie jest najpierw testowane. Istniejące pliki są potem kopiowane w tle; już zapisane kopie zostają na miejscu.",
+    "save": "Zapisz połączenie",
+    "saved": "Połączenie magazynu zapisane. Istniejące pliki są do niego kopiowane.",
+    "test": "Testuj połączenie",
+    "testing": "Testowanie…",
+    "testOk": "Bucket przyjął plik testowy.",
+    "remove": "Usuń połączenie",
+    "removeConfirm": "Usunąć własny magazyn tej witryny? Jej pliki zostaną skopiowane z powrotem do magazynu platformy.",
+    "removeConfirmRoot": "Usunąć połączenie magazynu platformy? Witryny bez własnego magazynu przejdą na bucket S3 instalacji lub dysk serwera, a ich pliki zostaną tam skopiowane.",
+    "removed": "Połączenie magazynu usunięte.",
+    "failed": "Nie udało się wczytać ani zapisać ustawień magazynu."
   }
 }

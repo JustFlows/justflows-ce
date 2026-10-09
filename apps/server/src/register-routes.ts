@@ -58,6 +58,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startCommentSpamPurgeJob();
     const { startDomainCheckJob } = await import("./lib/domains/custom-domains.js");
     startDomainCheckJob();
+    const { startPrivateFilesCopyJob } = await import("./lib/files/private-files-job.js");
+    startPrivateFilesCopyJob();
     try {
       const { getSiteId } = await import("./lib/settings/site-settings.js");
       const siteId = await getSiteId();
@@ -234,6 +236,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/cookies", requireInstalled, cookiesRoutes);
   app.use("/api/roles", requireInstalled, rolesRoutes);
   app.use("/api/cdn", requireInstalled, requireSiteFeature("feature.cdn"), (await import("./routes/settings/cdn.js")).default);
+  app.use("/api/storage", requireInstalled, (await import("./routes/settings/storage.js")).default);
   // `/api/domains/tls-allowed` has no session or site, so the feature check lets it through.
   app.use("/api/domains", requireInstalled, requireSiteFeature("feature.customDomains"), (await import("./routes/settings/domains.js")).default);
 
