@@ -155,6 +155,7 @@
   "PluginJobResult",
   "PluginJobsApi",
   "PluginListPublishedQuery",
+  "PluginMailAttachment",
   "PluginMailMessage",
   "PluginMailResult",
   "PluginMailTransportApi",

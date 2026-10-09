@@ -9,10 +9,15 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Plugins can attach files to emails.** `ctx.mail.send({ attachments: [{ filename, content, contentType }] })` sends up to 5 files (PDF, PNG, JPEG, CSV, plain text, calendar; 10 MB each, 15 MB together) through SMTP, sendmail, or a plugin transport (`message.attachments`). The delivery log keeps only their names, types, and sizes, so a delivery retried from the admin is sent without them. Shop uses this to send invoices and credit notes as PDF. See docs/EMAIL.md.
 - **Private file storage for plugins.** `ctx.files` (permission `files:private`) stores files for one site that are never public, such as products sold as downloads, and a plugin route answers `{ file: { key } }` to have the host stream one, with `Range` support and without revealing the storage address. Settings → Storage sets an S3-compatible connection (AWS, OVH, Cloudflare R2, MinIO, …) on the root site for every site; a site may save its own when its plan allows `feature.ownStorage`; with it off, the Storage page is removed from that site's admin. Without one, private files go to the installation's `STORAGE_DRIVER=s3` bucket under `.private/` (not when `STORAGE_S3_PUBLIC_URL` makes it public; `/uploads` never serves that folder) or to `PRIVATE_STORAGE_PATH` on disk. Each site has its own folder. A changed storage starts a background copy of existing files; downloads keep working meanwhile. New limits `files.count` and `files.bytes` count private files per site. Adds migration `0042_private_files`. See docs/PLUGINS.md and docs/MULTISITE.md.
 - **Plugin routes can take file uploads.** A route registered with `binaryBody: { maxBytes }` receives the raw request body as a `Buffer` (up to 1 GiB) instead of JSON, with CSRF and rate limits unchanged.
 - **Plugins can read date ranges and page through their rows.** `ctx.databases.find()` accepts `range` (`gt`, `gte`, `lt`, `lte` per column) and `after`, a keyset cursor that continues after the last row of the previous page in `orderBy` order. Together they read any number of rows in a period, 500 at a time. Works on PostgreSQL, MySQL, and MariaDB. See docs/PLUGINS.md.
 - **Plugins can read one published page with its blocks.** `ctx.content.getPublished({ type, slug, locale })` returns a published entry and its blocks, in the visitor's language when a translation is published, or `null`. It requires `content:read` and is optional on the SDK type, so plugins on older hosts keep working. Shop uses it for its shared product layout. See docs/PLUGINS.md.
+
+### Fixed
+
+- **Plugin admin pages can open PDFs in a new tab.** Tabs opened from a plugin's admin page no longer inherit its frame sandbox (`allow-popups-to-escape-sandbox`), so Chrome shows PDFs and printable pages there instead of blocking them (`ERR_BLOCKED_BY_CLIENT`).
 
 ## [0.3.3]
 

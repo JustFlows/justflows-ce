@@ -103,3 +103,29 @@ const result = await ctx.mail.send({
 
 Plugin messages use the host delivery log, rate limits, retries, suppression
 checks, and email hooks. Their delivery type is namespaced to the plugin id.
+
+### Attachments
+
+`attachments` sends files with the message, for example an invoice:
+
+```ts
+await ctx.mail.send({
+  to: "customer@example.com",
+  subject: "Invoice INV-2026-00042",
+  text: "Your invoice is attached.",
+  attachments: [{ filename: "INV-2026-00042.pdf", content: pdfBuffer, contentType: "application/pdf" }],
+});
+```
+
+- At most 5 files, each up to 10 MB and 15 MB together. Allowed types: PDF,
+  PNG, JPEG, CSV, plain text, and `text/calendar`. A message that breaks a
+  limit is refused with `{ ok: false, error }` and not sent.
+- File names are reduced to a plain name (no paths or control characters).
+- SMTP and sendmail send them. Transports registered with
+  `ctx.mail.register()` receive them on `message.attachments`; transports
+  written before attachments existed ignore them.
+- The delivery log keeps only each file's name, type, and size. Automatic
+  retries of a deferred message still send the files; a delivery retried by
+  hand from the admin goes out without them. Plugins that must not lose an
+  attachment keep their own outbox (as Shop does) and send again.
+- Hosts without this feature ignore `attachments` and send the text alone.
