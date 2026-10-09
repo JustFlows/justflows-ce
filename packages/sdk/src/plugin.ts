@@ -48,6 +48,7 @@ export const PluginPermissionSchema = z.enum([
   "mail:hook",
   "auth:hook",
   "platform:tenancy",
+  "files:private",
 ]);
 
 export type PluginPermission = z.infer<typeof PluginPermissionSchema>;
@@ -689,6 +690,20 @@ export interface PluginHttpResponse {
    */
   revalidate?: boolean;
   /**
+   * Answer with one of this plugin's private files (`ctx.files`) instead of a
+   * body. The host streams it from wherever the site stores private files,
+   * honours `Range` requests, and never reveals the storage address. Only the
+   * route's own plugin's files on the current site can be sent. A missing
+   * file answers 404.
+   */
+  file?: {
+    key: string;
+    /** Download name; defaults to the key's last segment. */
+    filename?: string;
+    /** `attachment` (default) asks the browser to save it. */
+    disposition?: "attachment" | "inline";
+  };
+  /**
    * Let a statically-exported page (served from a different origin) read this
    * response cross-origin. The host adds `Access-Control-Allow-Origin` for
    * vouched-for origins only — `APP_URL`, `STATIC_EXPORT_BASE_URL`, anything in
@@ -735,6 +750,12 @@ export interface PluginHttpRouteOptions {
    * a signature. Parsed JSON is not the signed payload.
    */
   rawBody?: true;
+  /**
+   * Accept the request body as raw bytes instead of JSON: `req.body` is a
+   * `Buffer` and `content-type` says what it is. For file uploads, up to
+   * `maxBytes` (host maximum 1 GiB). CSRF and rate limits still apply.
+   */
+  binaryBody?: { maxBytes: number };
 }
 
 export interface PluginHttpApi {
@@ -999,7 +1020,57 @@ export interface PluginListPublishedQuery {
   includeScheduled?: boolean;
 }
 
+/** One published entry with its blocks, as returned by {@link PluginContentApi.getPublished}. */
+export interface PluginPublishedPage extends PluginPublishedEntry {
+  /** The entry's block tree (the `blocks` of its block document), as published. */
+  blocks: unknown[];
+}
+
+export interface PluginGetPublishedQuery {
+  /** Content-type slug. */
+  type: string;
+  /** The entry's slug, in the site's default locale. */
+  slug: string;
+  /**
+   * Visitor locale. Returns the published translation in this locale when
+   * there is one, otherwise the default-locale entry. Omit for the default.
+   */
+  locale?: string;
+}
+
+/** A private file as `ctx.files` describes it. */
+export interface PluginPrivateFile {
+  /** The plugin's own key, for example `downloads/<productId>/manual.pdf`. */
+  key: string;
+  size: number;
+  contentType: string;
+  sha256: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PluginFilesApi {
+  /**
+   * Store or replace a file. Keys are relative paths without `..`. Throws a
+   * quota error (status 409) when the site's private-file limits are reached.
+   */
+  put(key: string, data: Buffer, options?: { contentType?: string }): Promise<PluginPrivateFile>;
+  get(key: string): Promise<PluginPrivateFile | null>;
+  /** The whole file in memory. Prefer answering a route with `{ file }` for downloads. */
+  read(key: string): Promise<Buffer | null>;
+  delete(key: string): Promise<boolean>;
+  /** Files under a key prefix (all when omitted), up to 500. */
+  list(prefix?: string): Promise<PluginPrivateFile[]>;
+}
+
 export interface PluginContentApi {
+  /**
+   * One published entry by type and slug, with its blocks — for example a page
+   * a plugin uses as a shared layout. Null when no such entry is published.
+   * Requires the `content:read` permission. Absent on older hosts.
+   */
+  getPublished?(query: PluginGetPublishedQuery): Promise<PluginPublishedPage | null>;
+
   /**
    * List published content, newest first. Requires the `content:read` permission.
    * Scheduled (future `publishedAt`) and expired entries are excluded unless
@@ -1244,11 +1315,30 @@ export interface PluginRowOrder {
   direction?: "asc" | "desc";
 }
 
+/** Bounds on one column. Values are compared as the database compares them. */
+export interface PluginRowRange {
+  gt?: Exclude<PluginRowValue, null>;
+  gte?: Exclude<PluginRowValue, null>;
+  lt?: Exclude<PluginRowValue, null>;
+  lte?: Exclude<PluginRowValue, null>;
+}
+
 export interface PluginRowFindOptions {
   /** Defaults to 100, capped at 500. */
   limit?: number;
   /** Deterministic order. Add `id` last when other columns can tie. */
   orderBy?: PluginRowOrder[];
+  /**
+   * Range conditions, combined with the equality `where`:
+   * `{ created_at: { gte: "2026-10-01 00:00:00", lt: "2026-11-01 00:00:00" } }`.
+   */
+  range?: Record<string, PluginRowRange>;
+  /**
+   * Keyset paging: return the rows after this one in `orderBy` order. Pass the
+   * `orderBy` column values of the last row of the previous page; every
+   * `orderBy` column is required and may not be null. Requires `orderBy`.
+   */
+  after?: PluginRowMatch;
   /**
    * Lock the matched rows (`SELECT … FOR UPDATE`) until the surrounding
    * `transaction` ends. Has no lasting effect outside a transaction.
@@ -1542,6 +1632,15 @@ export interface PluginContext {
   quotas: PluginQuotasApi;
 
   /**
+   * Private files for this site, never public. Requires `files:private`.
+   * Stored on the storage the site resolves to (its own S3 connection, the
+   * root site's, the environment bucket, or local disk) and counted against
+   * the site's `files.count` / `files.bytes` limits. Serve one with a route
+   * that returns `{ file: { key } }`. Absent on older hosts.
+   */
+  files?: PluginFilesApi;
+
+  /**
    * The site cookie registry. `declare()` every non-essential cookie this plugin
    * sets so the consent banner can disclose it and expire it on withdrawal;
    * `list()` returns the whole registry (host + all plugins) with operator
@@ -1566,7 +1665,7 @@ export interface PluginContext {
    * Create content types and pages the plugin needs. Requires `content:create`.
    * Publishing a page also requires `content:publish`. `deleteType` requires
    * `content:delete`. Existing slugs are left alone on create (idempotent).
-   * `listPublished` requires `content:read`.
+   * `listPublished` and `getPublished` require `content:read`.
    */
   content: PluginContentApi;
 

@@ -23,6 +23,7 @@ import { createPluginTenancyApi } from "./plugin-tenancy.js";
 import { createPluginQuotasApi } from "./plugin-quotas.js";
 import { unregisterPluginMeters } from "../tenancy/quotas.js";
 import { createPluginContentApi } from "./plugin-content.js";
+import { createPluginFilesApi } from "./plugin-files.js";
 import { isInstalled } from "../../middleware/install-guard.js";
 import { getJustflowsVersion } from "../runtime/version.js";
 import { recordDiagnosticError } from "../runtime/diagnostics.js";
@@ -279,6 +280,7 @@ export async function ensurePluginRuntime(): Promise<void> {
         tenancyFactory: (pluginId, permissions) => createPluginTenancyApi(pluginId, permissions),
         quotasFactory: (pluginId, permissions, siteId) => createPluginQuotasApi(pluginId, permissions, siteId),
         quotasCleanup: unregisterPluginMeters,
+        filesFactory: (pluginId, siteId) => createPluginFilesApi(pluginId, siteId),
         usersFactory: (_pluginId, siteId) => ({
           create: async (input, actor) => {
             const { createUser, CreateUserSchema } = await import("../auth/users-admin.js");

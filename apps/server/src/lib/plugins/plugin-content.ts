@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { randomUUID } from "node:crypto";
-import type { PluginContentApi, PluginPublishedEntry } from "@justflows/sdk";
+import type { PluginContentApi, PluginPublishedEntry, PluginPublishedPage } from "@justflows/sdk";
 import {
   ContentTypeFieldsSchema,
   ContentTypeSlugSchema,
@@ -93,8 +93,63 @@ async function authorNames(siteId: string, ids: string[]): Promise<Map<string, s
   return new Map(rows.map((row) => [String(row.id), row.display_name || row.username]));
 }
 
+/** Published, not scheduled for later, and not expired. */
+function liveNow(entry: { publishedAt: string | null; fields: Record<string, unknown> }, now: number): boolean {
+  if (entry.publishedAt) {
+    const published = Date.parse(entry.publishedAt);
+    if (!Number.isNaN(published) && published > now) return false;
+  }
+  const expiry = expiryTimestamp(entry.fields);
+  return expiry === null || expiry > now;
+}
+
 export function createPluginContentApi(pluginId: string, activatedSiteId: string): PluginContentApi {
   return {
+    async getPublished(query) {
+      const siteId = pluginCallSiteId(activatedSiteId);
+      const type = query.type.trim();
+      const slug = query.slug.trim();
+      if (!type || !slug) return null;
+      const db = await getDb();
+      const defaultLocale = await getDefaultLocale(siteId);
+      const rows = await db.query<Record<string, unknown>>(
+        "SELECT * FROM content WHERE site_id = ? AND type = ? AND slug = ? AND status = 'published' AND locale = ? LIMIT 1",
+        [siteId, type, slug, defaultLocale],
+      );
+      let row = rows[0] ?? null;
+      if (!row) return null;
+      // A translation keeps the original's group but may have its own slug.
+      const locale = query.locale?.trim();
+      const group = row["translation_group_id"] == null ? String(row["id"]) : String(row["translation_group_id"]);
+      if (locale && locale !== defaultLocale) {
+        const translated = await db.query<Record<string, unknown>>(
+          "SELECT * FROM content WHERE site_id = ? AND translation_group_id = ? AND locale = ? AND status = 'published' LIMIT 1",
+          [siteId, group, locale],
+        );
+        if (translated[0] && liveNow(serializeContentRow(translated[0]), Date.now())) row = translated[0];
+      }
+      const entry = serializeContentRow(row);
+      if (!liveNow(entry, Date.now())) return null;
+      const names = await authorNames(siteId, entry.authorId ? [entry.authorId] : []);
+      const page: PluginPublishedPage = {
+        id: entry.id,
+        type: entry.type,
+        title: entry.title,
+        slug: entry.slug,
+        locale: entry.locale,
+        translationGroupId: entry.translationGroupId ?? entry.id,
+        excerpt: entry.excerpt,
+        fields: entry.fields,
+        authorId: entry.authorId,
+        authorName: (entry.authorId && names.get(entry.authorId)) || null,
+        publishedAt: entry.publishedAt,
+        updatedAt: entry.updatedAt,
+        createdAt: entry.createdAt,
+        blocks: Array.isArray(entry.blocks?.blocks) ? entry.blocks.blocks : [],
+      };
+      return page;
+    },
+
     async listPublished(query = {}) {
       const siteId = pluginCallSiteId(activatedSiteId);
       const limit = Math.min(Math.max(Math.floor(query.limit ?? 20), 1), 200);

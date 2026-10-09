@@ -70,7 +70,8 @@
     "workspaces": "Espacios de trabajo",
     "defaults": "Valores predeterminados",
     "siteDomains": "Dominios",
-    "customDomains": "Dominios propios"
+    "customDomains": "Dominios propios",
+    "storage": "Almacenamiento"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -4095,5 +4096,50 @@
     "failureThresholdHint": "Un dominio conectado se comprueba cada 6 horas. Tras este número de fallos seguidos deja de servirse.",
     "testOk": "La conexión con el proveedor funciona.",
     "testOkTarget": "La conexión con el proveedor funciona. Destino del CNAME: {target}"
+  },
+  "storage": {
+    "title": "Almacenamiento",
+    "description": "Dónde guarda este sitio sus archivos privados, como productos vendidos como descarga. Nunca son públicos: los visitantes solo los obtienen a través del sitio, que comprueba que pueden.",
+    "inUseTitle": "En uso",
+    "source": {
+      "site": "La conexión de almacenamiento propia de este sitio.",
+      "platform": "La conexión de almacenamiento de la plataforma, configurada en el sitio principal.",
+      "environment": "El bucket S3 de la instalación (STORAGE_DRIVER=s3), en una carpeta privada.",
+      "local": "El disco del servidor, en una carpeta privada fuera de los archivos públicos."
+    },
+    "publicBucket": "El bucket S3 de la instalación es público (STORAGE_S3_PUBLIC_URL está definido), así que los archivos privados se guardan en el disco del servidor. Añade un bucket privado abajo para usar S3.",
+    "copying": "Copiando {count} archivos al almacenamiento actual. Se hace en segundo plano; las descargas siguen funcionando.",
+    "filesUsage": "Archivos privados",
+    "bytesUsage": "Almacenamiento de archivos privados",
+    "usageUnlimited": "{used} (sin límite)",
+    "usageOf": "{used} de {limit}",
+    "managedOnPlatform": "Este sitio usa el almacenamiento de la plataforma. Tu plan no incluye una conexión de almacenamiento propia.",
+    "connectionTitleRoot": "Conexión de almacenamiento de la plataforma",
+    "connectionTitle": "Almacenamiento propio de este sitio",
+    "connectionHintRoot": "Cada sitio usa este bucket compatible con S3, salvo que tenga el suyo. Cada sitio tiene su propia carpeta. Déjalo vacío para usar el bucket S3 de la instalación o el disco del servidor.",
+    "connectionHint": "Usa tu propio bucket compatible con S3 para este sitio en lugar del de la plataforma.",
+    "endpoint": "Endpoint",
+    "endpointHint": "Por ejemplo https://s3.gra.io.cloud.ovh.net o https://<account>.r2.cloudflarestorage.com. Déjalo vacío para Amazon S3.",
+    "region": "Región",
+    "regionHint": "Por ejemplo eu-west-1, gra o auto.",
+    "bucket": "Bucket",
+    "bucketHint": "Mantén este bucket privado; nunca lo hagas público.",
+    "prefix": "Carpeta",
+    "prefixHint": "Carpeta opcional dentro del bucket, para compartir un bucket entre instalaciones.",
+    "accessKeyId": "Clave de acceso",
+    "secretAccessKey": "Clave secreta",
+    "secretSaved": "Guardada (…{last4}). Déjala vacía para conservarla.",
+    "pathStyle": "Usar direcciones de tipo ruta (necesario en la mayoría de proveedores salvo Amazon S3)",
+    "saveHint": "Al guardar se prueba primero la conexión. Después, los archivos existentes se copian en segundo plano; las copias ya guardadas se quedan donde están.",
+    "save": "Guardar conexión",
+    "saved": "Conexión de almacenamiento guardada. Los archivos existentes se están copiando.",
+    "test": "Probar conexión",
+    "testing": "Probando…",
+    "testOk": "El bucket aceptó un archivo de prueba.",
+    "remove": "Quitar conexión",
+    "removeConfirm": "¿Quitar el almacenamiento propio de este sitio? Sus archivos se copian de vuelta al almacenamiento de la plataforma.",
+    "removeConfirmRoot": "¿Quitar la conexión de almacenamiento de la plataforma? Los sitios sin almacenamiento propio pasan al bucket S3 de la instalación o al disco del servidor, y sus archivos se copian allí.",
+    "removed": "Conexión de almacenamiento quitada.",
+    "failed": "No se pudieron cargar ni guardar los ajustes de almacenamiento."
   }
 }

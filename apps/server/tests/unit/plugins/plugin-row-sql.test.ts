@@ -43,6 +43,47 @@ describe("plugin row SQL", () => {
     );
   });
 
+  it("adds range bounds next to the equality filter", () => {
+    const statement = selectRows(
+      "shop_orders",
+      SITE,
+      { status: "paid" },
+      { range: { created_at: { gte: "2026-10-01 00:00:00", lt: "2026-11-01 00:00:00" } } },
+      "postgres",
+    );
+    expect(statement.sql).toBe(
+      `SELECT * FROM "shop_orders" WHERE "site_id" = ? AND "status" = ? AND "created_at" >= ? AND "created_at" < ? LIMIT 100`,
+    );
+    expect(statement.params).toEqual([SITE, "paid", "2026-10-01 00:00:00", "2026-11-01 00:00:00"]);
+    expect(() => selectRows("t", SITE, {}, { range: { "a b": { gt: 1 } } }, "mysql")).toThrow(/Invalid identifier/);
+  });
+
+  it("continues after the last row of a page in orderBy order", () => {
+    const statement = selectRows(
+      "shop_orders",
+      SITE,
+      {},
+      {
+        orderBy: [{ column: "created_at", direction: "desc" }, { column: "id" }],
+        after: { created_at: "2026-10-05 10:00:00", id: "o9" },
+        limit: 2,
+      },
+      "mysql",
+    );
+    expect(statement.sql).toBe(
+      "SELECT * FROM `shop_orders` WHERE `site_id` = ? AND ((`created_at` < ?) OR (`created_at` = ? AND `id` > ?))" +
+        " ORDER BY `created_at` DESC, `id` ASC LIMIT 2",
+    );
+    expect(statement.params).toEqual([SITE, "2026-10-05 10:00:00", "2026-10-05 10:00:00", "o9"]);
+  });
+
+  it("refuses a page cursor without orderBy or with a missing value", () => {
+    expect(() => selectRows("t", SITE, {}, { after: { id: "x" } }, "mysql")).toThrow(/orderBy/);
+    expect(() =>
+      selectRows("t", SITE, {}, { orderBy: [{ column: "created_at" }, { column: "id" }], after: { id: "x" } }, "mysql"),
+    ).toThrow(/created_at/);
+  });
+
   it("skips unique conflicts on PostgreSQL inserts", () => {
     const statement = insertRow("shop_claims", SITE, { id: "c", key: "k" }, "postgres");
     expect(statement.sql).toBe(
