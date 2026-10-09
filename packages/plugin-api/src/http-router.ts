@@ -17,7 +17,11 @@ export interface RegisteredPluginRoute {
   csrf?: false;
   rateLimit?: PluginHttpRateLimit;
   rawBody?: true;
+  binaryBody?: { maxBytes: number };
 }
+
+/** The largest upload a plugin route may accept with `binaryBody`. */
+export const MAX_PLUGIN_BINARY_BODY = 1024 * 1024 * 1024;
 
 const RATE_KEY = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
@@ -25,9 +29,9 @@ const RATE_KEY = /^[a-z0-9][a-z0-9-]{0,39}$/;
 export function normalizePluginHttpRouteOptions(
   pluginId: string,
   options?: PluginHttpRouteOptions,
-): Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody"> {
+): Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody" | "binaryBody"> {
   if (!options) return {};
-  const normalized: Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody"> = {};
+  const normalized: Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody" | "binaryBody"> = {};
   if (options.csrf !== undefined && options.csrf !== false) {
     throw new Error(`Plugin "${pluginId}" can only set csrf to false`);
   }
@@ -36,6 +40,14 @@ export function normalizePluginHttpRouteOptions(
     throw new Error(`Plugin "${pluginId}" can only set rawBody to true`);
   }
   if (options.rawBody === true) normalized.rawBody = true;
+  if (options.binaryBody !== undefined) {
+    const max = options.binaryBody?.maxBytes;
+    if (!Number.isInteger(max) || max < 1 || max > MAX_PLUGIN_BINARY_BODY) {
+      throw new Error(`Plugin "${pluginId}" binaryBody.maxBytes must be an integer from 1 to ${MAX_PLUGIN_BINARY_BODY}`);
+    }
+    if (normalized.rawBody) throw new Error(`Plugin "${pluginId}" cannot combine rawBody and binaryBody`);
+    normalized.binaryBody = { maxBytes: max };
+  }
   if (options.rateLimit) {
     const { limit, windowMs, key } = options.rateLimit;
     if (!Number.isInteger(limit) || limit < 1 || limit > 10_000) {

@@ -56,6 +56,7 @@
     "shopTax": "Tax",
     "shopDiscounts": "Discounts",
     "shopRefunds": "Refunds",
+    "shopInvoices": "Invoices",
     "shopEmails": "Emails",
     "shopReports": "Reports",
     "shopPage": "Shop page",
@@ -70,7 +71,8 @@
     "workspaces": "Workspaces",
     "defaults": "Defaults",
     "siteDomains": "Domains",
-    "customDomains": "Custom domains"
+    "customDomains": "Custom domains",
+    "storage": "Storage"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -4093,5 +4095,50 @@
     "failureThresholdHint": "A connected domain is checked every 6 hours. After this many failures in a row it is no longer served.",
     "testOk": "The provider connection works.",
     "testOkTarget": "The provider connection works. CNAME target: {target}"
+  },
+  "storage": {
+    "title": "Storage",
+    "description": "Where this site keeps private files, such as products sold as downloads. They are never public: visitors only get them through the site, which checks they may.",
+    "inUseTitle": "In use",
+    "source": {
+      "site": "This site's own storage connection.",
+      "platform": "The platform's storage connection, set on the root site.",
+      "environment": "The installation's S3 bucket (STORAGE_DRIVER=s3), in a private folder.",
+      "local": "The server's disk, in a private folder outside the public uploads."
+    },
+    "publicBucket": "The installation's S3 bucket is public (STORAGE_S3_PUBLIC_URL is set), so private files are kept on the server's disk instead. Add a private bucket below to use S3.",
+    "copying": "Copying {count} files to the current storage. This runs in the background; downloads keep working meanwhile.",
+    "filesUsage": "Private files",
+    "bytesUsage": "Private file storage",
+    "usageUnlimited": "{used} (no limit)",
+    "usageOf": "{used} of {limit}",
+    "managedOnPlatform": "This site uses the platform's storage. Your plan does not include your own storage connection.",
+    "connectionTitleRoot": "Platform storage connection",
+    "connectionTitle": "This site's own storage",
+    "connectionHintRoot": "Every site uses this S3-compatible bucket unless it has its own. Each site gets its own folder. Leave it empty to use the installation's S3 bucket or the server's disk.",
+    "connectionHint": "Use your own S3-compatible bucket for this site instead of the platform's.",
+    "endpoint": "Endpoint",
+    "endpointHint": "For example https://s3.gra.io.cloud.ovh.net or https://<account>.r2.cloudflarestorage.com. Leave empty for Amazon S3.",
+    "region": "Region",
+    "regionHint": "For example eu-west-1, gra, or auto.",
+    "bucket": "Bucket",
+    "bucketHint": "Keep this bucket private; never make it public.",
+    "prefix": "Folder",
+    "prefixHint": "Optional folder inside the bucket, to share one bucket between installations.",
+    "accessKeyId": "Access key",
+    "secretAccessKey": "Secret key",
+    "secretSaved": "Saved (…{last4}). Leave empty to keep it.",
+    "pathStyle": "Use path-style addresses (needed by most providers other than Amazon S3)",
+    "saveHint": "Saving tests the connection first. Existing files are then copied to it in the background; the copies already stored stay where they are.",
+    "save": "Save connection",
+    "saved": "Storage connection saved. Existing files are being copied to it.",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "testOk": "The bucket accepted a test file.",
+    "remove": "Remove connection",
+    "removeConfirm": "Remove this site's own storage? Its files are copied back to the platform's storage.",
+    "removeConfirmRoot": "Remove the platform storage connection? Sites without their own storage move to the installation's S3 bucket or the server's disk, and their files are copied there.",
+    "removed": "Storage connection removed.",
+    "failed": "Could not load or save the storage settings."
   }
 }

@@ -135,6 +135,9 @@ A platform operator sets ceilings on the workspace page and on each website page
 | Website | `plugins` | Installed plugins |
 | Website | `roles` | Custom roles. Creating roles also requires the feature to be on |
 | Website | `media.bytes` | Media library bytes. The environment library cap still applies, and the smaller ceiling wins |
+| Website | `files.count` | Private files plugins store with `ctx.files`, such as downloads |
+| Website | `files.bytes` | Bytes of those private files |
+| Website | `feature.ownStorage` | Whether the website may save its own private-file storage. Off removes Settings → Storage from that website (menu and page) and it uses the root site's storage. The root site always keeps the page |
 
 Plugins register their own meters with `ctx.quotas.register` and call `ctx.quotas.check` before they insert a row. The host does not count plugin tables, so the plugin passes `used`. `ctx.quotas.set` writes the same limits the operator edits and requires `platform:tenancy`. A subscription plugin uses that to apply a plan. The filter `quota.effectiveLimit` may lower a stored limit. It cannot raise one. The action `quota.updated` runs after a save. Both require `platform:tenancy` to listen. The same reads and writes are on `/api/manage/v1/tenants/:id/quotas` and `/api/manage/v1/sites/:id/quotas`.
 

@@ -20,6 +20,7 @@ import {
   type PluginUsersApi,
   type PluginBlockDefinition,
   type PluginContentApi,
+  type PluginFilesApi,
   type HookRegisterOptions,
   type Unsubscribe,
   type CookieCategory,
@@ -65,6 +66,7 @@ export type PluginQuotasFactory = (
   siteId: string,
 ) => PluginQuotasApi;
 export type PluginContentFactory = (pluginId: string, siteId: string) => PluginContentApi;
+export type PluginFilesFactory = (pluginId: string, siteId: string) => PluginFilesApi;
 export type PluginUsersFactory = (
   pluginId: string,
   siteId: string,
@@ -202,7 +204,20 @@ const NULL_USERS: PluginUsersApi = {
   },
 };
 
+const filesUnavailable = async (): Promise<never> => {
+  throw new Error("Private files are not available in this runtime");
+};
+
+const NULL_FILES: PluginFilesApi = {
+  put: filesUnavailable,
+  get: filesUnavailable,
+  read: filesUnavailable,
+  delete: filesUnavailable,
+  list: filesUnavailable,
+};
+
 const NULL_CONTENT: PluginContentApi = {
+  getPublished: async () => null,
   listPublished: async () => [],
   ensureType: async () => {
     throw new Error("Content API is not available in this runtime");
@@ -230,6 +245,7 @@ export class PluginLoader {
   private readonly quotasFactory: PluginQuotasFactory;
   private readonly quotasCleanup: ((pluginId: string) => void) | undefined;
   private readonly contentFactory: PluginContentFactory;
+  private readonly filesFactory: PluginFilesFactory;
   private readonly usersFactory: PluginUsersFactory;
   private readonly i18nProvider: PluginI18nProvider;
   private readonly jobsCleanup: ((pluginId: string) => void) | undefined;
@@ -263,6 +279,7 @@ export class PluginLoader {
       quotasFactory?: PluginQuotasFactory;
       quotasCleanup?: (pluginId: string) => void;
       contentFactory?: PluginContentFactory;
+      filesFactory?: PluginFilesFactory;
       usersFactory?: PluginUsersFactory;
       i18nProvider?: PluginI18nProvider;
       jobsCleanup?: (pluginId: string) => void;
@@ -313,6 +330,7 @@ export class PluginLoader {
     this.quotasFactory = options?.quotasFactory ?? (() => NULL_QUOTAS);
     this.quotasCleanup = options?.quotasCleanup;
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
+    this.filesFactory = options?.filesFactory ?? (() => NULL_FILES);
     this.usersFactory = options?.usersFactory ?? (() => NULL_USERS);
     this.i18nProvider =
       options?.i18nProvider ??
@@ -711,6 +729,7 @@ export class PluginLoader {
       databases: this.databasesFactory(pluginId, siteId, permissions),
       tenancy: this.tenancyFactory(pluginId, permissions),
       quotas: this.quotasFactory(pluginId, permissions, siteId),
+      files: this.scopedFiles(pluginId, siteId, permissions),
       cookies: {
         declare: (cookie) => this.cookieRegistry.declare(pluginId, cookie),
         list: async () =>
@@ -753,6 +772,25 @@ export class PluginLoader {
     };
   }
 
+  private scopedFiles(pluginId: string, siteId: string, permissions: Set<PluginPermission>): PluginFilesApi {
+    const inner = this.filesFactory(pluginId, siteId);
+    const allowed = <A extends unknown[], R>(fn: (...args: A) => Promise<R>) => (...args: A): Promise<R> => {
+      if (!permissions.has("files:private")) {
+        return Promise.reject(
+          new Error(`Plugin "${pluginId}" cannot use private files without the "files:private" permission. Add it to the plugin manifest.`),
+        );
+      }
+      return fn(...args);
+    };
+    return {
+      put: allowed((key: string, data: Buffer, options?: { contentType?: string }) => inner.put(key, data, options)),
+      get: allowed((key: string) => inner.get(key)),
+      read: allowed((key: string) => inner.read(key)),
+      delete: allowed((key: string) => inner.delete(key)),
+      list: allowed((prefix?: string) => inner.list(prefix)),
+    };
+  }
+
   private scopedContent(
     pluginId: string,
     siteId: string,
@@ -783,11 +821,20 @@ export class PluginLoader {
         `Plugin "${pluginId}" cannot read content without the "content:read" permission. Add it to the plugin manifest.`,
       );
     };
+    const getPublished = inner.getPublished?.bind(inner);
     return {
       listPublished: (query) => {
         assertRead();
         return inner.listPublished(query);
       },
+      ...(getPublished
+        ? {
+            getPublished: (query: Parameters<NonNullable<PluginContentApi["getPublished"]>>[0]) => {
+              assertRead();
+              return getPublished(query);
+            },
+          }
+        : {}),
       ensureType: (input) => {
         assertCreate();
         return inner.ensureType(input);

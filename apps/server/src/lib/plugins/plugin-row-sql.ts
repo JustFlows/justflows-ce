@@ -52,6 +52,60 @@ function requireFilter(where: PluginRowMatch | undefined, action: string): void 
   }
 }
 
+const RANGE_OPS = { gt: ">", gte: ">=", lt: "<", lte: "<=" } as const;
+
+/** `col >= ? AND col < ?` for each bounded column. Throws on a null bound. */
+function rangeClause(
+  range: PluginRowFindOptions["range"],
+  driver: PluginDatabaseDriver,
+): RowStatement {
+  const parts: string[] = [];
+  const params: PluginRowValue[] = [];
+  for (const [col, bounds] of Object.entries(range ?? {})) {
+    for (const [key, op] of Object.entries(RANGE_OPS) as [keyof typeof RANGE_OPS, string][]) {
+      const value = bounds?.[key];
+      if (value === undefined) continue;
+      if (value === null) throw new Error(`Range bound "${key}" for "${col}" cannot be null`);
+      parts.push(`${quoteIdent(col, driver)} ${op} ?`);
+      params.push(value);
+    }
+  }
+  return { sql: parts.join(" AND "), params };
+}
+
+/**
+ * Keyset condition for "after this row" in `orderBy` order:
+ * `(a > ?) OR (a = ? AND b > ?)`, with `<` for descending columns.
+ */
+function afterClause(
+  after: PluginRowMatch | undefined,
+  orderBy: PluginRowFindOptions["orderBy"],
+  driver: PluginDatabaseDriver,
+): RowStatement {
+  if (!after) return { sql: "", params: [] };
+  const order = orderBy ?? [];
+  if (order.length === 0) throw new Error("`after` needs `orderBy`");
+  for (const item of order) {
+    const value = after[item.column];
+    if (value === undefined || value === null) {
+      throw new Error(`\`after\` needs a non-null value for orderBy column "${item.column}"`);
+    }
+  }
+  const branches: string[] = [];
+  const params: PluginRowValue[] = [];
+  order.forEach((item, index) => {
+    const terms: string[] = [];
+    for (const earlier of order.slice(0, index)) {
+      terms.push(`${quoteIdent(earlier.column, driver)} = ?`);
+      params.push(after[earlier.column] as PluginRowValue);
+    }
+    terms.push(`${quoteIdent(item.column, driver)} ${item.direction === "desc" ? "<" : ">"} ?`);
+    params.push(after[item.column] as PluginRowValue);
+    branches.push(`(${terms.join(" AND ")})`);
+  });
+  return { sql: `(${branches.join(" OR ")})`, params };
+}
+
 export function selectRows(
   table: string,
   siteId: string,
@@ -59,7 +113,13 @@ export function selectRows(
   options: PluginRowFindOptions | undefined,
   driver: PluginDatabaseDriver,
 ): RowStatement {
-  const filter = whereClause(siteId, where, driver);
+  const base = whereClause(siteId, where, driver);
+  const range = rangeClause(options?.range, driver);
+  const after = afterClause(options?.after, options?.orderBy, driver);
+  const filter = {
+    sql: [base.sql, range.sql, after.sql].filter(Boolean).join(" AND "),
+    params: [...base.params, ...range.params, ...after.params],
+  };
   const limit = Math.min(Math.max(1, Math.trunc(options?.limit ?? 100) || 100), MAX_LIMIT);
   const order = (options?.orderBy ?? []).map(
     (item) => `${quoteIdent(item.column, driver)} ${item.direction === "desc" ? "DESC" : "ASC"}`,

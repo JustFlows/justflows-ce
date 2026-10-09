@@ -54,6 +54,7 @@
     "shopTax": "Steuern",
     "shopDiscounts": "Rabatte",
     "shopRefunds": "Erstattungen",
+    "shopInvoices": "Rechnungen",
     "shopEmails": "E-Mails",
     "shopReports": "Berichte",
     "shopPage": "Shop-Seite",
@@ -70,7 +71,8 @@
     "workspaces": "Arbeitsbereiche",
     "defaults": "Standards",
     "siteDomains": "Domains",
-    "customDomains": "Eigene Domains"
+    "customDomains": "Eigene Domains",
+    "storage": "Speicher"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -4095,5 +4097,50 @@
     "failureThresholdHint": "Eine verbundene Domain wird alle 6 Stunden geprüft. Nach so vielen Fehlschlägen in Folge wird sie nicht mehr ausgeliefert.",
     "testOk": "Die Verbindung zum Anbieter funktioniert.",
     "testOkTarget": "Die Verbindung zum Anbieter funktioniert. CNAME-Ziel: {target}"
+  },
+  "storage": {
+    "title": "Speicher",
+    "description": "Wo diese Website private Dateien aufbewahrt, etwa als Download verkaufte Produkte. Sie sind nie öffentlich: Besucher erhalten sie nur über die Website, die prüft, ob sie dürfen.",
+    "inUseTitle": "In Verwendung",
+    "source": {
+      "site": "Die eigene Speicherverbindung dieser Website.",
+      "platform": "Die Speicherverbindung der Plattform, auf der Hauptwebsite eingerichtet.",
+      "environment": "Der S3-Bucket der Installation (STORAGE_DRIVER=s3), in einem privaten Ordner.",
+      "local": "Die Festplatte des Servers, in einem privaten Ordner außerhalb der öffentlichen Uploads."
+    },
+    "publicBucket": "Der S3-Bucket der Installation ist öffentlich (STORAGE_S3_PUBLIC_URL ist gesetzt), daher liegen private Dateien auf der Festplatte des Servers. Füge unten einen privaten Bucket hinzu, um S3 zu nutzen.",
+    "copying": "{count} Dateien werden in den aktuellen Speicher kopiert. Das läuft im Hintergrund; Downloads funktionieren weiter.",
+    "filesUsage": "Private Dateien",
+    "bytesUsage": "Speicher für private Dateien",
+    "usageUnlimited": "{used} (kein Limit)",
+    "usageOf": "{used} von {limit}",
+    "managedOnPlatform": "Diese Website nutzt den Speicher der Plattform. Dein Tarif enthält keine eigene Speicherverbindung.",
+    "connectionTitleRoot": "Speicherverbindung der Plattform",
+    "connectionTitle": "Eigener Speicher dieser Website",
+    "connectionHintRoot": "Jede Website nutzt diesen S3-kompatiblen Bucket, sofern sie keinen eigenen hat. Jede Website erhält einen eigenen Ordner. Leer lassen, um den S3-Bucket der Installation oder die Festplatte des Servers zu nutzen.",
+    "connectionHint": "Nutze für diese Website deinen eigenen S3-kompatiblen Bucket statt den der Plattform.",
+    "endpoint": "Endpunkt",
+    "endpointHint": "Zum Beispiel https://s3.gra.io.cloud.ovh.net oder https://<account>.r2.cloudflarestorage.com. Für Amazon S3 leer lassen.",
+    "region": "Region",
+    "regionHint": "Zum Beispiel eu-west-1, gra oder auto.",
+    "bucket": "Bucket",
+    "bucketHint": "Halte diesen Bucket privat; mache ihn nie öffentlich.",
+    "prefix": "Ordner",
+    "prefixHint": "Optionaler Ordner im Bucket, um einen Bucket mit mehreren Installationen zu teilen.",
+    "accessKeyId": "Zugriffsschlüssel",
+    "secretAccessKey": "Geheimer Schlüssel",
+    "secretSaved": "Gespeichert (…{last4}). Leer lassen, um ihn zu behalten.",
+    "pathStyle": "Adressen im Pfadstil verwenden (bei den meisten Anbietern außer Amazon S3 nötig)",
+    "saveHint": "Beim Speichern wird die Verbindung zuerst getestet. Vorhandene Dateien werden danach im Hintergrund kopiert; die bereits gespeicherten Kopien bleiben, wo sie sind.",
+    "save": "Verbindung speichern",
+    "saved": "Speicherverbindung gespeichert. Vorhandene Dateien werden dorthin kopiert.",
+    "test": "Verbindung testen",
+    "testing": "Wird getestet…",
+    "testOk": "Der Bucket hat eine Testdatei angenommen.",
+    "remove": "Verbindung entfernen",
+    "removeConfirm": "Den eigenen Speicher dieser Website entfernen? Die Dateien werden in den Speicher der Plattform zurückkopiert.",
+    "removeConfirmRoot": "Die Speicherverbindung der Plattform entfernen? Websites ohne eigenen Speicher wechseln zum S3-Bucket der Installation oder zur Festplatte des Servers, und ihre Dateien werden dorthin kopiert.",
+    "removed": "Speicherverbindung entfernt.",
+    "failed": "Die Speichereinstellungen konnten nicht geladen oder gespeichert werden."
   }
 }

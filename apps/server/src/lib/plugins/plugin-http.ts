@@ -251,6 +251,12 @@ export async function dispatchPluginHttp(
     }
     if (result.type) res.type(result.type);
 
+    if (result.file && typeof result.file.key === "string") {
+      const { sendPrivateFile } = await import("../files/private-file-response.js");
+      await sendPrivateFile(req, res, match.pluginId, result.file);
+      return;
+    }
+
     if (Buffer.isBuffer(result.body) || typeof result.body === "string") {
       res.send(result.body);
     } else if (result.body !== undefined) {
