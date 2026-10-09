@@ -46,6 +46,7 @@ import WebhooksPage from "./pages/admin/settings/WebhooksPage";
 import ApiKeysPage from "./pages/admin/settings/ApiKeysPage";
 import AiSettingsPage from "./pages/admin/settings/AiSettingsPage";
 import CdnSettingsPage from "./pages/admin/settings/CdnSettingsPage";
+import StorageSettingsPage from "./pages/admin/settings/StorageSettingsPage";
 import DomainsPage from "./pages/admin/settings/DomainsPage";
 import PlatformPage from "./pages/admin/platform/PlatformPage";
 import PlatformSitesPage from "./pages/admin/platform/PlatformSitesPage";
@@ -163,6 +164,7 @@ export default function App() {
               <Route path="settings/api" element={<ApiKeysPage />} />
               <Route path="settings/ai" element={<AiSettingsPage />} />
               <Route path="settings/cdn" element={<CdnSettingsPage />} />
+              <Route path="settings/storage" element={<StorageSettingsPage />} />
               <Route path="settings/domains" element={<DomainsPage />} />
               <Route path="platform/sites/:id/users" element={<PlatformSiteUsersPage />} />
               <Route path="platform/sites/:id" element={<PlatformSitePage />} />

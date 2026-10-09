@@ -37,10 +37,22 @@ export const SITE_FEATURES: readonly SiteFeature[] = [
   { key: "feature.managedDns", paths: [] },
 ];
 
+/** Plan switch for a website's own private-file storage; off hides Settings → Storage there. */
+export const OWN_STORAGE_FEATURE = "feature.ownStorage";
+export const STORAGE_ADMIN_PATH = "/admin/settings/storage";
+
+async function isRootSite(siteId: string): Promise<boolean> {
+  const { installationRootSiteId } = await import("./registry.js");
+  const rootId = await installationRootSiteId().catch(() => null);
+  return !rootId || rootId === siteId;
+}
+
 /** Admin paths hidden because this website turned the feature off. */
 export async function disabledAdminPaths(siteId: string): Promise<string[]> {
   const limits = await quotaLimitMap("site", siteId);
   const paths = disabledPathsFromLimits(limits);
+  // Storage is the platform's own connection on the root site, so only other sites lose the page.
+  if (limits.get(OWN_STORAGE_FEATURE) === 0 && !(await isRootSite(siteId))) paths.push(STORAGE_ADMIN_PATH);
   const { cachedDomainSettings } = await import("../domains/domain-settings.js");
   if (!(await cachedDomainSettings()).enabled) paths.push("/admin/settings/domains");
   return paths;

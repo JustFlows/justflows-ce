@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
+import { setAdminSsrPayload } from "../../../../src/ssr-data";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../../src/i18n/I18nProvider";
@@ -84,7 +86,41 @@ function renderHost(path: string) {
 }
 
 describe("PluginHostPage", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    setAdminSsrPayload(null);
+  });
+
+  it.each(["payments", "payments/settings", "payments/settings/mollie", "shipping"])(
+    "delivers context to an already-loaded SSR frame on %s without ready or load events",
+    async (page) => {
+      const path = `/admin/plugins/justflows.shop/${page}`;
+      const section = page.split("/")[0];
+      const catalogs = { en: "/ext/justflows.shop/admin/locales/en.json", nl: "/ext/justflows.shop/admin/locales/nl.json" };
+      const items = [{ ...shopMenu[2], id: section, path: `/admin/plugins/justflows.shop/${section}`,
+        adminAppUrl: `/ext/justflows.shop/admin/${section}.html`, adminCatalogs: catalogs }];
+      setAdminSsrPayload({ url: path, locale: "nl", adminBasePath: "/admin", responses: {
+        "/api/plugins/admin-menu": { status: 200, statusText: "OK", headers: {}, body: JSON.stringify({ items }) },
+        "/api/auth/me": { status: 200, statusText: "OK", headers: {}, body: JSON.stringify({ id: "u1", email: "admin@example.com", role: "administrator" }) },
+      } });
+      vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
+      const ui = <MemoryRouter initialEntries={[path]}><I18nProvider><SessionProvider><PluginMenuProvider>
+        <PluginHostPage />
+      </PluginMenuProvider></SessionProvider></I18nProvider></MemoryRouter>;
+      const container = document.createElement("div");
+      document.body.append(container);
+      container.innerHTML = renderToString(ui);
+      const frame = container.querySelector("iframe")!;
+      const post = vi.spyOn(frame.contentWindow!, "postMessage");
+      render(ui, { container, hydrate: true });
+      await waitFor(() => expect(post).toHaveBeenCalledWith({
+        source: "justflows-admin-host", type: "context",
+        context: { locale: "nl", adminBase: "/admin", routePath: path, theme: "", catalogs },
+      }, window.location.origin));
+      expect(container.querySelector("iframe")).toBe(frame);
+    },
+  );
 
   it("renders the plugin page declared on the admin menu", async () => {
     vi.stubGlobal(

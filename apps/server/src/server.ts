@@ -74,6 +74,15 @@ export function createApp(): express.Application {
     next();
   });
   app.use(cookieParser());
+  // A plugin route with `binaryBody` takes raw bytes (file uploads) up to its own limit.
+  app.use((req, res, next) => {
+    if (req.method !== "POST" && req.method !== "PUT" && req.method !== "PATCH") return next();
+    const url = req.url?.split("?")[0] ?? "";
+    if (!url.startsWith("/ext/")) return next();
+    const binary = getPluginLoader()?.httpRouter.match(req.method, url)?.route.binaryBody;
+    if (!binary) return next();
+    express.raw({ type: () => true, limit: binary.maxBytes })(req, res, next);
+  });
   app.use(express.json({
     limit: "2mb",
     verify: (req, _res, buf) => {

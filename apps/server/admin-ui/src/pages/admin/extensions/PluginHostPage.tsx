@@ -206,6 +206,13 @@ function PluginFrame({
     return () => window.removeEventListener("message", onMessage);
   }, [navigate, sendContext]);
 
+  // An SSR iframe may have loaded and sent `ready` before hydration attached
+  // the handlers. Deliver context on attachment too, and refresh it when the
+  // locale or catalog URLs change. The ready/load handlers cover later loads.
+  useEffect(() => {
+    sendContext();
+  }, [sendContext]);
+
   // Host-driven navigation under the plugin's own path subtree: tell the frame
   // so its internal router can follow without a full reload.
   useEffect(() => {
@@ -235,7 +242,10 @@ function PluginFrame({
           setLoaded(true);
           sendContext();
         }}
-        sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-downloads allow-modals"
+        // New tabs (an invoice PDF, a printable page) open outside the sandbox: Chrome
+        // will not show a PDF in a sandboxed tab. Scripts plus same-origin already
+        // give the plugin page full access, so this widens nothing.
+        sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
       />
     </div>
   );

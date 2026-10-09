@@ -168,6 +168,53 @@ describe("createPluginContentApi.ensurePage", () => {
   });
 });
 
+describe("createPluginContentApi.getPublished", () => {
+  const layout = (id: string, locale: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    site_id: "site-1",
+    type: "shop",
+    title: "Product detail",
+    slug: "product",
+    locale,
+    translation_group_id: "p1",
+    status: "published",
+    blocks: JSON.stringify({ version: 1, blocks: [{ id: `b-${locale}`, type: "core.paragraph", version: 1, props: {} }] }),
+    fields: "{}",
+    published_at: "2026-01-01 00:00:00",
+    created_at: "2026-01-01 00:00:00",
+    updated_at: "2026-01-01 00:00:00",
+    ...extra,
+  });
+
+  beforeEach(() => {
+    query.mockReset();
+  });
+
+  it("returns the published entry with its blocks", async () => {
+    query.mockResolvedValueOnce([layout("p1", "en-US")]);
+    const api = createPluginContentApi("justflows.shop", "site-1");
+    const page = await api.getPublished!({ type: "shop", slug: "product" });
+    expect(page).toMatchObject({ id: "p1", type: "shop", slug: "product", blocks: [{ id: "b-en-US" }] });
+    expect(query.mock.calls[0]?.[1]).toEqual(["site-1", "shop", "product", "en-US"]);
+  });
+
+  it("prefers the visitor's published translation and falls back to the original", async () => {
+    query.mockResolvedValueOnce([layout("p1", "en-US")]).mockResolvedValueOnce([layout("p2", "nl-NL", { slug: "product-nl" })]);
+    const api = createPluginContentApi("justflows.shop", "site-1");
+    expect(await api.getPublished!({ type: "shop", slug: "product", locale: "nl-NL" })).toMatchObject({ id: "p2", blocks: [{ id: "b-nl-NL" }] });
+    query.mockResolvedValueOnce([layout("p1", "en-US")]).mockResolvedValueOnce([]);
+    expect(await api.getPublished!({ type: "shop", slug: "product", locale: "de-DE" })).toMatchObject({ id: "p1" });
+  });
+
+  it("returns null when nothing is published, or it is scheduled for later", async () => {
+    query.mockResolvedValueOnce([]);
+    const api = createPluginContentApi("justflows.shop", "site-1");
+    expect(await api.getPublished!({ type: "shop", slug: "product" })).toBeNull();
+    query.mockResolvedValueOnce([layout("p1", "en-US", { published_at: "2999-01-01 00:00:00" })]);
+    expect(await api.getPublished!({ type: "shop", slug: "product" })).toBeNull();
+  });
+});
+
 describe("contentTypeSlugsFromManifest", () => {
   it("reads unique non-builtin slugs", () => {
     expect(

@@ -201,6 +201,46 @@ describe("plugin hook context", () => {
     ).rejects.toMatchObject({ reason: "File too large", pluginId: "justflows.test" });
   });
 
+  it("refuses private files without files:private and allows them with it", async () => {
+    const put = vi.fn().mockResolvedValue({ key: "a.txt", size: 1, contentType: "text/plain", sha256: "", createdAt: "", updatedAt: "" });
+    const filesFactory = () => ({ put, get: vi.fn(), read: vi.fn(), delete: vi.fn(), list: vi.fn() });
+    const denied = new PluginLoader(new App(CONFIG), { filesFactory });
+    denied.register(makePlugin({}, async (ctx) => {
+      await ctx.files!.put("a.txt", Buffer.from("x"));
+    }));
+    await expect(denied.activate("justflows.test", "site-1")).rejects.toThrow(/files:private/);
+    expect(put).not.toHaveBeenCalled();
+
+    const allowed = new PluginLoader(new App(CONFIG), { filesFactory });
+    allowed.register(makePlugin({ permissions: ["files:private"] }, async (ctx) => {
+      await ctx.files!.put("a.txt", Buffer.from("x"), { contentType: "text/plain" });
+    }));
+    await allowed.activate("justflows.test", "site-1");
+    expect(put).toHaveBeenCalledWith("a.txt", Buffer.from("x"), { contentType: "text/plain" });
+  });
+
+  it("refuses getPublished without content:read", async () => {
+    const app = new App(CONFIG);
+    const getPublished = vi.fn().mockResolvedValue(null);
+    const loader = new PluginLoader(app, {
+      contentFactory: () => ({
+        getPublished,
+        ensureType: vi.fn(),
+        ensurePage: vi.fn(),
+        listPublished: vi.fn().mockResolvedValue([]),
+        deleteType: vi.fn(),
+        deleteCreatedBy: vi.fn(),
+      }),
+    });
+    loader.register(
+      makePlugin({}, async (ctx) => {
+        await ctx.content.getPublished!({ type: "shop", slug: "product" });
+      }),
+    );
+    await expect(loader.activate("justflows.test", "site-1")).rejects.toThrow(/content:read/);
+    expect(getPublished).not.toHaveBeenCalled();
+  });
+
   it("refuses ensureType without content:create", async () => {
     await expect(
       activate(

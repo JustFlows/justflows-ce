@@ -688,6 +688,31 @@ throws. Any `ctx.databases` row call made while it runs joins it, including a
 nested `transaction()`. A deadlock is retried up to three times, so keep
 network calls and other side effects out of the callback.
 
+`find()` reads at most 500 rows. To read a date range, or more rows than
+that, add `range` and page with `after`: pass the `orderBy` values of the last
+row you got, and every page starts after it. Order by a unique column last
+(`id`) so no row is skipped or read twice.
+
+```ts
+let after;
+for (;;) {
+  const page = await ctx.databases.find("orders", {}, {
+    range: { created_at: { gte: "2026-10-01 00:00:00", lt: "2026-11-01 00:00:00" } },
+    orderBy: [{ column: "created_at" }, { column: "id" }],
+    limit: 500,
+    ...(after ? { after } : {}),
+  });
+  handle(page);
+  if (page.length < 500) break;
+  const last = page[page.length - 1];
+  after = { created_at: last.created_at, id: last.id };
+}
+```
+
+A range bound or an `after` value cannot be `null`, and `after` needs
+`orderBy`. Older hosts ignore both options, so check rows yourself when your
+plugin may run on one.
+
 ## Background jobs
 
 With the `jobs:register` permission, `ctx.jobs.register()` runs a handler on a
@@ -719,6 +744,55 @@ restart loses enqueued runs and in-flight attempts, so keep the work state in
 your tables and make each run look at what is still open, rather than relying
 on a job payload.
 
+## Private files
+
+With the `files:private` permission, `ctx.files` keeps files for the current
+site that are never public, such as products sold as downloads. Keys are
+relative paths (`downloads/<productId>/manual.pdf`); every file lives in the
+site's and the plugin's own folder.
+
+```ts
+await ctx.files.put(`downloads/${productId}/manual.pdf`, buffer, { contentType: "application/pdf" });
+const info = await ctx.files.get(`downloads/${productId}/manual.pdf`); // size, type, sha256, or null
+await ctx.files.delete(`downloads/${productId}/manual.pdf`);
+const all = await ctx.files.list("downloads/");
+```
+
+To send a file, answer a route with `file` after your own checks. The host
+streams it from storage, honours `Range` (resumable downloads), and never
+reveals where it is stored. A route can only send its own plugin's files on
+the current site.
+
+```ts
+ctx.http.get("downloads/:token", async (req) => {
+  const grant = await findGrant(req.params.token);
+  if (!grant) return { status: 404, body: { error: "Not found" } };
+  return { file: { key: grant.fileKey, filename: grant.name } };
+});
+```
+
+To accept an upload, register the route with `binaryBody`: the request body
+arrives as a `Buffer` (up to `maxBytes`, at most 1 GiB) instead of JSON, with
+CSRF and rate limits as usual.
+
+```ts
+ctx.http.post("products/:id/files", async (req) => {
+  const data = req.body as Buffer;
+  await ctx.files.put(`downloads/${req.params.id}/${newId()}`, data, { contentType: req.headers["content-type"] });
+  return { body: { ok: true } };
+}, { binaryBody: { maxBytes: 512 * 1024 * 1024 } });
+```
+
+`put` checks the site's `files.count` and `files.bytes` limits and throws a
+409 quota error when a file would pass them. Where the bytes go is the
+operator's choice (Settings → Storage): the site's own S3-compatible
+connection when its plan has `feature.ownStorage`, otherwise the root site's,
+then the installation's `STORAGE_DRIVER=s3` bucket under `.private/` (unless
+`STORAGE_S3_PUBLIC_URL` makes it public), then `PRIVATE_STORAGE_PATH` on the
+server's disk. When the storage changes, a background job copies existing
+files; until then they are read from where they were. `ctx.files` is optional
+on the SDK type: older hosts do not have it.
+
 ## Content types and pages
 
 A plugin that needs CMS types or pages can create them from `activate()` with
@@ -748,6 +822,19 @@ Built-in slugs `post` and `page` cannot be recreated.
 (all locales) and then the type. Built-in slugs cannot be deleted. Shop exposes
 **Delete shop pages and posts when this plugin is removed** so uninstall can
 clear storefront pages and product posts as well as `shop_*` tables.
+
+`getPublished({ type, slug, locale })` returns one published entry with its
+blocks, or `null` when none is published (or it is scheduled or expired). Look
+it up by the default-locale slug; with `locale`, the published translation in
+that language is returned when there is one. It requires `content:read`, and
+older hosts do not have it, so call it as `ctx.content.getPublished?.(…)`. Shop
+uses it to render every product in the shared layout kept on its Product detail
+page:
+
+```ts
+const page = await ctx.content.getPublished?.({ type: "shop", slug: "product", locale: context.locale });
+const blocks = page?.blocks ?? [];
+```
 
 `deleteCreatedBy(userId)` also requires `content:delete`. It permanently
 deletes content that user authored, media they uploaded, and comments they
