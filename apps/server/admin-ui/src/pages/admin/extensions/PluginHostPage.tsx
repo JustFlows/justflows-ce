@@ -242,7 +242,10 @@ function PluginFrame({
           setLoaded(true);
           sendContext();
         }}
-        sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-downloads allow-modals"
+        // New tabs (an invoice PDF, a printable page) open outside the sandbox: Chrome
+        // will not show a PDF in a sandboxed tab. Scripts plus same-origin already
+        // give the plugin page full access, so this widens nothing.
+        sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
       />
     </div>
   );

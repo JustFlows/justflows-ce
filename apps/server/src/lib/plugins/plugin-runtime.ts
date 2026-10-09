@@ -242,9 +242,16 @@ export async function ensurePluginRuntime(): Promise<void> {
           send: async (message) => {
             if (!permissions.has("mail:send"))
               throw new Error(`Plugin "${pluginId}" requires the mail:send permission`);
-            const { sendMail } = await import("../email/mail.js");
+            const { checkMailAttachments, sendMail } = await import("../email/mail.js");
+            let attachments: ReturnType<typeof checkMailAttachments>;
+            try {
+              attachments = checkMailAttachments(message.attachments);
+            } catch (err) {
+              return { ok: false, error: err instanceof Error ? err.message : String(err) };
+            }
             const result = await sendMail({
               ...message,
+              ...(attachments ? { attachments } : {}),
               type: `plugin:${pluginId}`,
               transactional: true,
             });

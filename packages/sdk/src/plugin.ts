@@ -800,6 +800,18 @@ export interface PluginJobsApi {
   enqueue(name: string, options?: { delayMs?: number; payload?: unknown }): void;
 }
 
+/**
+ * A file sent with an email, for example an invoice PDF. The host accepts up
+ * to 5 per message, each up to 10 MB and 15 MB together, of the types PDF,
+ * PNG, JPEG, CSV, plain text, and calendar (`text/calendar`). Attachments are
+ * not kept in the delivery log, so a delivery retried from the admin goes out
+ * without them. Older hosts ignore the field and send the email without them.
+ */
+export interface PluginMailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+}
 export interface PluginMailTransportMessage {
   from: string;
   to: string;
@@ -808,6 +820,8 @@ export interface PluginMailTransportMessage {
   html: string;
   replyTo?: string;
   envelopeSender?: string;
+  /** Files to send with the message. Transports written before attachments existed ignore them. */
+  attachments?: PluginMailAttachment[];
 }
 export interface PluginMailMessage {
   to: string;
@@ -815,6 +829,7 @@ export interface PluginMailMessage {
   text: string;
   html?: string;
   replyTo?: string;
+  attachments?: PluginMailAttachment[];
 }
 export type PluginMailResult = { ok: true; messageId?: string } | { ok: false; error: string };
 export interface PluginMailTransportApi {

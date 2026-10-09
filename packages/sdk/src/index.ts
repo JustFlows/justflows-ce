@@ -159,6 +159,7 @@ export type {
   PluginJobsApi,
   PluginMailTransportApi,
   PluginMailMessage,
+  PluginMailAttachment,
   PluginMailResult,
   PluginMailTransportMessage,
   PluginEmailVariableDefinition,
