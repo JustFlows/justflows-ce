@@ -15,6 +15,7 @@ export interface RegisteredPluginRoute {
   method: PluginHttpMethod;
   path: string;
   handler: PluginHttpHandler;
+  structuredErrors?: true;
   csrf?: false;
   rateLimit?: PluginHttpRateLimit;
   rawBody?: true;
@@ -30,9 +31,11 @@ const RATE_KEY = /^[a-z0-9][a-z0-9-]{0,39}$/;
 export function normalizePluginHttpRouteOptions(
   pluginId: string,
   options?: PluginHttpRouteOptions,
-): Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody" | "binaryBody"> {
+): Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody" | "binaryBody" | "structuredErrors"> {
   if (!options) return {};
-  const normalized: Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody" | "binaryBody"> = {};
+  const normalized: Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody" | "binaryBody" | "structuredErrors"> = {};
+  if (options.structuredErrors !== undefined && options.structuredErrors !== true) throw new Error(`Plugin "${pluginId}" can only set structuredErrors to true`);
+  if (options.structuredErrors === true) normalized.structuredErrors = true;
   if (options.csrf !== undefined && options.csrf !== false) {
     throw new Error(`Plugin "${pluginId}" can only set csrf to false`);
   }

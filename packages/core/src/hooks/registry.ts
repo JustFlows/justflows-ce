@@ -20,6 +20,8 @@ export interface HookContext {
   readonly siteId?: string;
   readonly requestId?: string;
   readonly source?: HookSource;
+  /** Host has durably queued this action for outbound webhook delivery. */
+  readonly webhookQueued?: boolean;
   readonly actor?: HookActor;
 }
 

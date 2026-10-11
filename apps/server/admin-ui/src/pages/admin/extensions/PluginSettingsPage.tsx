@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Link, Navigate } from "../../../admin-router";
+import { usePluginMenuItems } from "@components/PluginMenuProvider";
 import { useSessionRole } from "@components/SessionProvider";
 import { initialJson } from "../../../ssr-data";
 import { useT } from "../../../i18n/I18nProvider";
@@ -49,6 +50,12 @@ export default function PluginSettingsPage() {
   const role = useSessionRole();
   const { t } = useT();
   const canManage = role === "administrator";
+  // The plugin's own pages under `settings/` (adminApp routes it lists in admin.menu).
+  const menuItems = usePluginMenuItems();
+  const subPages = useMemo(
+    () => menuItems.filter((item) => item.pluginId === id && item.path.startsWith(`/admin/plugins/${id}/settings/`)),
+    [menuItems, id],
+  );
   const prefetched = id ? initialJson<PluginSettingsPayload>(`/api/plugins/${id}/settings`) : undefined;
   const prefetchedSchema = asSettingsSchema(prefetched?.schema);
   const [schema, setSchema] = useState<Record<string, SettingField>>(prefetchedSchema ?? {});
@@ -214,6 +221,26 @@ export default function PluginSettingsPage() {
         </div>
         <Link to="/admin/plugins" className="jf-btn jf-btn--ghost">{t("common.back")}</Link>
       </header>
+
+      {subPages.length > 0 && (
+        <div className="jf-card">
+          <div className="jf-card__head">
+            <h2 className="jf-card__title">{t("pluginSettings.morePages")}</h2>
+          </div>
+          <div className="jf-card__body">
+            <div className="jf-tiles">
+              {subPages.map((page) => (
+                <Link key={page.path} to={page.path} className="jf-tile">
+                  <span className="jf-tile__icon" aria-hidden="true">{page.icon}</span>
+                  <div className="jf-tile__label">
+                    {page.labelKey && t(page.labelKey) !== page.labelKey ? t(page.labelKey) : page.label}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="jf-card"><div className="jf-card__body">{t("common.loading")}</div></div>

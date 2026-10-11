@@ -60,6 +60,8 @@
     "shopInvoices": "Faktury",
     "shopEmails": "Wiadomości e-mail",
     "shopReports": "Raporty",
+    "shopSubscriptions": "Subskrypcje",
+    "shopBackups": "Kopie zapasowe",
     "shopPage": "Strona sklepu",
     "permalinks": "Linki bezpośrednie",
     "pwa": "PWA",
@@ -2232,7 +2234,8 @@
     "perLanguage": "Według języka",
     "allLanguages": "Wszystkie języki",
     "settingsHeading": "Ustawienia",
-    "saveButton": "Zapisz ustawienia"
+    "saveButton": "Zapisz ustawienia",
+    "morePages": "Więcej ustawień"
   },
   "media": {
     "loadFailed": "Nie udało się załadować multimediów",

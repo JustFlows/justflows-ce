@@ -44,6 +44,11 @@ export default defineConfig({
               priority: 11,
             },
             {
+              name: "admin-design",
+              test: /admin-ui[\\/]src[\\/]pages[\\/]admin[\\/]design[\\/]/,
+              priority: 11,
+            },
+            {
               name: "admin-pages",
               test: /admin-ui[\\/]src[\\/]pages[\\/]admin[\\/]/,
               priority: 10,

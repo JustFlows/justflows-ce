@@ -5,9 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## [0.3.5] [UNRELEASED]
+## [0.3.5]
 
 ### Added
+
+- **Durable plugin event dispatch.** Plugins with an outbox can opt into `ctx.hooks.emit(name, payload, { durable: true })`: webhook deliveries are persisted before isolated listeners run, queue failures propagate for retry, and the host avoids queuing twice. Ordinary actions keep their existing behavior. ([#28](https://github.com/JustFlows/justflows-ce/issues/28))
+- **Structured plugin API guard errors.** Routes may opt into `structuredErrors: true` so CSRF, rate-limit and dispatcher failures share their versioned `{ error: { code, message } }` contract. Legacy plugin errors stay compatible. ([#20](https://github.com/JustFlows/justflows-ce/issues/20))
+
+- **Plugins can ship up to 40 admin pages, and Settings sub-pages.** `adminApp.routes` allows 40 routes instead of 20. A plugin route under `settings/` (for example `settings/backups`) is linked from the plugin's Settings page when the plugin lists it in `admin.menu`, also as an unlisted item. Admin menu labels `nav.shopSubscriptions` and `nav.shopBackups` are in all admin languages.
 
 - **Widget areas: sidebars that plugins and themes can fill.** Appearance → Widgets shows every area at once: drag widgets from the palette (Content, Menu, Recent posts, Search, and plugin widgets) onto an area, reorder them, and expand one to edit its settings, with draft and publish and per-language replacements. Add and delete areas of your own. Choose per content type which area shows and where: left, right, or above the content. Set the sidebar width and gap under Styles → Layout (site-wide or per layout target), or give one area its own width. Core ships a `sidebar` area; themes declare more in `justflows-theme.json` (`widgetAreas`, defaults in `widgets/<key>.json`) or place one with the `core.widget-area` template block, and plugins add areas with default blocks and content types through the `widgets.areas` filter. Also available through the management API and MCP tools (`widget_areas_*`, `widget_layout_update`). The `widgets` plugin API namespace is now reserved for core.
 
@@ -39,6 +44,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **Clear export also removes the current site’s deployed objects.** In object-storage mode, Clear removes the deployment pointer, exported objects, and interrupted uploads from that site’s reserved namespace, then clears its local output. Other sites, media uploads, and private plugin files are preserved. See docs/STATIC-EXPORT.md for configuration, storage layout, and origin behavior. ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
 
 ### Fixed
+
+- **Separate plugin databases preserve UTC timestamps.** PostgreSQL and MySQL/MariaDB plugin connections now use the same timestamp policy as the main database, including transactions. Shop backups moved across dialects no longer fail checksum validation because the host timezone shifted their timestamps. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Times on PostgreSQL no longer move by the server's time-zone offset.** A time written without a zone (such as `2026-10-02 09:30:15`, the form core and plugins use for UTC) was read in the server process's time zone before it was sent, and `TIMESTAMP` columns were read back the same way, so on a server not running in UTC every such value was off by its offset. They are now UTC, as on MySQL and MariaDB. Servers running in UTC (the Docker images) were not affected; data written by an earlier version on a server in another zone keeps its offset.
 
 - **Link workspace subscriptions to their root-site owner.** Workspaces retain their root billing user; Shop links a customer's single owned workspace when assigning or activating a plan and retries previously unapplied limits. Adds migration `0044_workspace_owner`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 

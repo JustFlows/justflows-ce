@@ -8,7 +8,7 @@ import type {
   PluginSchemaColumn,
   PluginSchemaTable,
 } from "@justflows/sdk";
-import type { DbClient } from "../database/db.js";
+import { PG_UTC_TIMESTAMP, type DbClient } from "../database/db.js";
 import { isIgnorableMigrationError } from "../database/run-migrations.js";
 import { isLocalDatabaseHost, sanitizeProbeError } from "../database/db-probe.js";
 
@@ -288,6 +288,7 @@ export async function openTargetDatabase(target: PluginDatabaseTarget): Promise<
     const url = `postgres://${encodeURIComponent(target.username)}:${encodeURIComponent(target.password)}@${target.host}:${target.port}/${target.database}`;
     const sql = postgres(url, {
       max: 1,
+      types: { utcTimestamp: PG_UTC_TIMESTAMP },
       ssl: useSsl ? { rejectUnauthorized } : false,
     });
     return {
@@ -337,6 +338,7 @@ export async function openTargetDatabase(target: PluginDatabaseTarget): Promise<
     user: target.username,
     password: target.password,
     database: target.database,
+    timezone: "Z",
     ...(useSsl ? { ssl: { minVersion: "TLSv1.2" as const, rejectUnauthorized } } : {}),
   });
   return {

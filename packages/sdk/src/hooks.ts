@@ -25,6 +25,8 @@ export interface HookContext {
   readonly siteId?: string;
   readonly requestId?: string;
   readonly source?: HookSource;
+  /** The host persisted outbound webhook deliveries before dispatching this action. */
+  readonly webhookQueued?: boolean;
   readonly actor?: HookActor;
 }
 
@@ -75,7 +77,7 @@ export interface AccountCard {
 
 /** Server-rendered, request-scoped contributions to the default /account page. */
 export interface AccountSection {
-  /** Stable anchor, preferably namespaced: justflows.shop.subscriptions. */
+  /** Stable anchor, preferably namespaced: acme.memberships. */
   id: string;
   title: string;
   description?: string;
@@ -381,7 +383,7 @@ export interface StaticExportDeployEvent {
  * rewritten to that origin.
  */
 export interface StaticExportExclusion {
-  /** Root-relative URL path, e.g. `/shop/checkout`. Letters, digits, `.`, `_`, `~`, `-` per segment. */
+  /** Root-relative URL path, e.g. `/account/profile`. Letters, digits, `.`, `_`, `~`, `-` per segment. */
   path: string;
   /** `prefix` (default) also covers every path below it on a `/` boundary; `exact` only this path. */
   match?: "exact" | "prefix";
@@ -1074,7 +1076,7 @@ export type WidgetAreaPosition = "left" | "right" | "top";
 
 /** One widget area: a named slot of blocks the site owner fills. */
 export interface WidgetAreaDefinition {
-  /** Stable key, such as `sidebar` or `shop-sidebar`: lowercase letters, digits, and dashes, at most 32 characters. */
+  /** Stable key, such as `sidebar` or `article-sidebar`: lowercase letters, digits, and dashes, at most 32 characters. */
   key: string;
   label: string;
   description?: string;

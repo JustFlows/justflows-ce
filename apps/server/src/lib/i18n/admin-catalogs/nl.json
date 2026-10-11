@@ -58,6 +58,8 @@
     "shopInvoices": "Facturen",
     "shopEmails": "E-mails",
     "shopReports": "Rapporten",
+    "shopSubscriptions": "Abonnementen",
+    "shopBackups": "Back-ups",
     "shopPage": "Winkelpagina",
     "redirects": "Omleidingen",
     "diagnostics": "Diagnostiek",
@@ -2008,7 +2010,8 @@
     "perLanguage": "Per taal",
     "allLanguages": "Alle talen",
     "settingsHeading": "Instellingen",
-    "saveButton": "Instellingen opslaan"
+    "saveButton": "Instellingen opslaan",
+    "morePages": "Meer instellingen"
   },
   "media": {
     "loadFailed": "Media konden niet worden geladen",
