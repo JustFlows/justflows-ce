@@ -21,7 +21,9 @@ afterEach(() => {
   }
 });
 
-describe("extractZipSafely", () => {
+// Both tests spawn zip/python3 and extraction runs external tools; on a busy CI
+// runner process start-up alone can pass Vitest's 5s default.
+describe("extractZipSafely", { timeout: 30_000 }, () => {
   it("extracts a nested file after listing entries", () => {
     const src = tmpDir();
     const dest = tmpDir();

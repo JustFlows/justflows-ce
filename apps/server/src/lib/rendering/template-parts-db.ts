@@ -139,3 +139,9 @@ export async function seedTemplatePartRow(
 ): Promise<void> {
   await upsert(siteId, part, { doc, draft_doc: draft ?? null });
 }
+
+/** Remove a part's row entirely (published and draft). */
+export async function deleteTemplatePartRow(siteId: string, part: string): Promise<void> {
+  const db = await getDb();
+  await db.run("DELETE FROM template_parts WHERE site_id = ? AND part = ?", [siteId, part]);
+}

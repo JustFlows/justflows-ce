@@ -56,6 +56,14 @@ export interface DbClient {
 let _client: DbClient | null = null;
 
 const requestDatabase = new AsyncLocalStorage<DbClient>();
+const controlDatabase = new AsyncLocalStorage<{ client: DbClient; active: boolean }>();
+
+/** Reuse a held control transaction; delayed work reverts to the normal pool. */
+export async function runWithControlDatabase<T>(client: DbClient, fn: () => Promise<T>): Promise<T> {
+  const context = { client, active: true };
+  try { return await controlDatabase.run(context, fn); }
+  finally { context.active = false; }
+}
 
 /** Run `fn` so `getDb()` returns this connection instead of the installation database. */
 export function runWithDatabase<T>(client: DbClient, fn: () => T): T {
@@ -70,6 +78,30 @@ export interface DbConnectionConfig {
   username: string;
   password: string;
 }
+
+const ZONELESS_TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/;
+
+/**
+ * Timestamps on PostgreSQL, read and written as UTC like the MySQL pool's
+ * `timezone: "Z"`. postgres.js turns a parameter into `new Date(value)`,
+ * which reads a zone-less string such as `2026-10-02 09:30:15` in the
+ * server process's time zone, and reads `TIMESTAMP` (no zone) results the
+ * same way; on a server not running in UTC every such value moved by its
+ * offset. Strings with a zone and `Date` objects are unchanged.
+ */
+export const PG_UTC_TIMESTAMP = {
+  to: 1184,
+  from: [1114, 1184],
+  serialize: (value: unknown): string => {
+    if (value instanceof Date) return value.toISOString();
+    const text = String(value).trim();
+    return new Date(ZONELESS_TIMESTAMP.test(text) ? `${text.replace(" ", "T")}Z` : text).toISOString();
+  },
+  parse: (value: string): Date => {
+    const text = value.trim();
+    return new Date(ZONELESS_TIMESTAMP.test(text) ? `${text.replace(" ", "T")}Z` : text);
+  },
+};
 
 function instrumentClient(client: DbClient): DbClient {
   const timed = <TArgs extends unknown[], TResult>(fn: (...args: TArgs) => Promise<TResult>) =>
@@ -94,12 +126,15 @@ function instrumentClient(client: DbClient): DbClient {
 
 export async function getDb(): Promise<DbClient> {
   const scoped = requestDatabase.getStore();
-  if (scoped) return scoped;
+  const control = controlDatabase.getStore();
+  if (scoped && scoped !== _client && scoped !== control?.client) return scoped;
   return getControlDb();
 }
 
 /** The installation database. Routing and platform records always live here. */
 export async function getControlDb(): Promise<DbClient> {
+  const scoped = controlDatabase.getStore();
+  if (scoped?.active) return scoped.client;
   if (_client) return _client;
   ensureEnvLoaded();
   const driver = process.env.DB_DRIVER as DbConnectionConfig["driver"] | undefined;
@@ -145,6 +180,7 @@ export async function createDbClient(config: DbConnectionConfig): Promise<DbClie
     const sql = postgres(url, {
       max: 5,
       ssl: useSsl ? { rejectUnauthorized } : false,
+      types: { utcTimestamp: PG_UTC_TIMESTAMP },
     });
 
     return instrumentClient({

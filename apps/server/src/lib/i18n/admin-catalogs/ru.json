@@ -20,6 +20,7 @@
     "forms": "Формы",
     "themes": "Темы",
     "design": "Дизайн",
+    "widgets": "Виджеты",
     "menus": "Меню",
     "users": "Пользователи",
     "settings": "Настройки",
@@ -59,6 +60,8 @@
     "shopInvoices": "Счета",
     "shopEmails": "Электронные письма",
     "shopReports": "Отчеты",
+    "shopSubscriptions": "Подписки",
+    "shopBackups": "Резервные копии",
     "shopPage": "Страница магазина",
     "permalinks": "Постоянные ссылки",
     "pwa": "ПВА",
@@ -242,6 +245,7 @@
     "activateFailed": "Не удалось включить плагин."
   },
   "content": {
+    "accountNotice": "Страницы аккаунта требуют входа. Justflows исключает их из кешей, экспорта, публичного поиска и карт сайта.",
     "newPost": "Новое сообщение",
     "newPage": "Новая страница",
     "editPost": "Редактировать сообщение",
@@ -1815,6 +1819,15 @@
     "couldNotSendTest": "Невозможно отправить тест"
   },
   "contentTypes": {
+    "cacheControlPlaceholder": "public, max-age=300",
+    "cacheInheritType": "Наследовать настройки типа контента",
+    "cachePostHint": "После публикации переопределяет политику кеширования типа контента для этой записи. Приватные политики и no-cache обходят общие кеши и статический экспорт.",
+    "cacheControlLabel": "Cache-Control",
+    "cacheInherit": "Наследовать настройки сайта",
+    "cacheNever": "Никогда не кешировать",
+    "cacheCustom": "Свой заголовок",
+    "cacheControlValue": "Значение Cache-Control",
+    "cacheHint": "Переопределяет политику кеширования страниц этого типа. Приватные политики и no-cache обходят общие кеши и статический экспорт.",
     "loadFailed": "Не удалось загрузить типы содержимого",
     "saveFailed": "Не удалось сохранить",
     "createFailed": "Не удалось создать",
@@ -2062,6 +2075,55 @@
     "slotIndexLabel": "Все вместе (индекс)",
     "slotIndexHint": "Используется только при отсутствии более конкретного шаблона"
   },
+  "widgets": {
+    "loading": "Загрузка виджетов…",
+    "loadError": "Не удалось загрузить области виджетов.",
+    "saveError": "Не удалось сохранить.",
+    "noAreas": "Областей виджетов пока нет.",
+    "widthLabel": "Ширина (px)",
+    "widthPlaceholder": "По умолчанию для сайта",
+    "widthHint": "Оставьте пустым, чтобы использовать ширину боковой панели из Стайлз → Layout. {min}–{max} px.",
+    "draftSuffix": "(черновик)",
+    "fromDefaultHint": "Это виджеты по умолчанию из вашей темы или плагина. Опубликуйте их, чтобы сохранить как свои.",
+    "language": "Язык",
+    "allLanguages": "Все языки",
+    "overriddenHint": "У этого языка свои виджеты.",
+    "inheritedHint": "Используются виджеты для всех языков. Отредактируйте их, чтобы задать этому языку свои.",
+    "resetToBase": "Использовать виджеты для всех языков",
+    "layoutHeading": "Макет",
+    "layoutHint": "Выберите, какую область виджетов показывает каждый тип контента и где.",
+    "defaultArea": "По умолчанию ({area}, {position})",
+    "defaultNone": "По умолчанию (нет)",
+    "noArea": "Нет",
+    "positionLabel": "Положение для {type}",
+    "position": {
+      "left": "Слева",
+      "right": "Справа",
+      "top": "Сверху"
+    },
+    "saveLayout": "Сохранить макет",
+    "pageIntro": "Управляйте виджетами в областях виджетов.",
+    "tabAreas": "Области",
+    "availableWidgets": "Доступные виджеты",
+    "availableHint": "Перетащите виджет в область или нажмите на него, чтобы добавить в выбранную область.",
+    "noWidgets": "Нет доступных виджетов.",
+    "addToArea": "Добавить в {area}",
+    "addArea": "Добавить область виджетов",
+    "areaName": "Название",
+    "areaKey": "Ключ",
+    "areaKeyHint": "Строчные буквы, цифры и дефисы, в начале — буква. Не более 32 символов.",
+    "areaDescription": "Описание",
+    "deleteArea": "Удалить {name}",
+    "deleteAreaConfirm": "Удалить область виджетов «{name}» вместе с виджетами? Типы контента, которые её показывают, не будут показывать область виджетов.",
+    "removeWidget": "Убрать виджет",
+    "widgetKind": "виджет",
+    "dropHere": "Перетащите виджет сюда",
+    "emptyArea": "Перетащите виджеты сюда",
+    "sourceCore": "Ядро",
+    "sourceTheme": "Тема",
+    "sourceSite": "Ваша область",
+    "sourcePlugin": "Плагин"
+  },
   "themes": {
     "catalogUnavailable": "Каталог темы отсутствует",
     "installFailed": "Ошибка установки темы",
@@ -2172,7 +2234,8 @@
     "perLanguage": "По каждому языку",
     "allLanguages": "Все языки",
     "settingsHeading": "Настройки",
-    "saveButton": "Сохранить настройки"
+    "saveButton": "Сохранить настройки",
+    "morePages": "Другие настройки"
   },
   "media": {
     "loadFailed": "Не удалось загрузить среду",
@@ -2480,6 +2543,7 @@
       "content": "Содержимое",
       "media": "Медиафайлы",
       "commerce": "Торговля",
+      "widgets": "Виджеты",
       "site": "Место проведения"
     },
     "blockJson": {
@@ -3381,7 +3445,14 @@
       "title": "Экспорт статичной площадки",
       "useThisSite": "Используйте этот сайт",
       "clearExportHintSite": "удаляет экспорт этого сайта. Отключение автоперестройки не удаляет файлы.",
-      "thisWebsiteExport": "экспорт этого сайта"
+      "thisWebsiteExport": "экспорт этого сайта",
+      "storageLabel": "Export storage",
+      "storageLocal": "Local files",
+      "storageS3": "Object storage (S3 / OVH)",
+      "storageHint": "Uses the installation’s existing S3 connection and a separate folder per site. The local folder stages exports before uploading. Clear removes both local and deployed files.",
+      "responseUnavailable": "The export API returned an unexpected response (HTTP {status}). Check export status before retrying; the export may still be running.",
+      "pollingUnavailable": "Export status is no longer available. Refresh Tools to check the result before starting another export.",
+      "descriptionHtmlOnly": "Export published HTML pages to object storage. Media, styles and scripts keep their existing URLs and are served by the live site or CDN. Exports run in the background with a live progress log."
     },
     "status": {
       "disabled": "Отключено",
@@ -3928,6 +3999,7 @@
     "slugPrimary": "Рабочее пространство платформы сохраняет слаг primary.",
     "workspaceIntro": "Измените название и слаг этого рабочего пространства. Адрес этой страницы содержит идентификатор рабочего пространства.",
     "workspaceId": "Идентификатор рабочего пространства",
+    "workspaceOwner": "Владелец на основном сайте",
     "workspaceNotFound": "Это рабочее пространство не найдено.",
     "workspaceLoadFailed": "Не удалось загрузить это рабочее пространство.",
     "workspaceSaveFailed": "Не удалось сохранить это рабочее пространство.",
@@ -4140,5 +4212,23 @@
     "removeConfirmRoot": "Удалить подключение хранилища платформы? Сайты без своего хранилища перейдут на S3-бакет установки или диск сервера, и их файлы будут скопированы туда.",
     "removed": "Подключение хранилища удалено.",
     "failed": "Не удалось загрузить или сохранить настройки хранилища."
+  },
+  "storageUsage": {
+    "title": "Storage usage",
+    "unknown": "Unknown — usage could not be read",
+    "description": "Managed site files on local disk and external object storage, measured in bytes.",
+    "category": "Category",
+    "local": "Local files",
+    "external": "External storage (S3 / OVH)",
+    "media": "Media and derivatives",
+    "private": "Private files",
+    "exports": "Static exports and retained copies",
+    "total": "Total",
+    "physical": "Physical storage",
+    "logical": "Media and private-file records",
+    "note": "Physical usage includes staging, trash and retained copies. Database records exclude those extra copies. Unknown usage is not counted as zero. External totals cover managed site namespaces, not the entire provider account.",
+    "measured": "Measured at",
+    "limitLabel": "Total storage (local + external)",
+    "measuring": "Measuring storage…"
   }
 }

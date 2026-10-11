@@ -265,6 +265,8 @@ export class PluginLoader {
   readonly patternRegistry: PluginPatternRegistry;
   readonly placeholderRegistry: PluginPlaceholderRegistry;
   private readonly placeholderResolver: PluginPlaceholderResolver;
+  private readonly eventPublisher: ((event: string, payload: unknown, siteId: string) => Promise<void>) | undefined;
+  private readonly currentSiteId: (() => string | undefined) | undefined;
 
   constructor(
     private readonly app: App,
@@ -305,8 +307,20 @@ export class PluginLoader {
        * only plugin-registered kinds resolve. */
       placeholderResolver?: PluginPlaceholderResolver;
       errorReporter?: PluginErrorReporter;
+      /**
+       * The site the current call is for (a request's site, or the site a
+       * per-site job runs for). Hooks a plugin emits carry it, so a webhook
+       * or listener sees the right site when one plugin context serves
+       * several sites. Without it, or when it returns nothing, the site the
+       * plugin was activated for is used.
+       */
+      currentSiteId?: () => string | undefined;
+      /** Persist outbound events before actions (whose listener failures are isolated). */
+      eventPublisher?: (event: string, payload: unknown, siteId: string) => Promise<void>;
     },
   ) {
+    this.currentSiteId = options?.currentSiteId;
+    this.eventPublisher = options?.eventPublisher;
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
     this.dataFactory = options?.dataFactory ?? (() => NULL_DATA);
     this.jobsFactory = options?.jobsFactory ?? (() => NULL_JOBS);
@@ -449,6 +463,7 @@ export class PluginLoader {
     }
 
     try {
+      if (entry.manifest.apiNamespace) this.httpRouter.setApiNamespace(pluginId, entry.manifest.apiNamespace);
       await entry.module.activate(ctx);
       entry.state = "active";
       this.app.logger.info("Plugin activated", { pluginId, version: entry.manifest.version });
@@ -674,6 +689,26 @@ export class PluginLoader {
           }
           return users.addRole(target, role, actor);
         },
+        removeRole: async (target, role, actor) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(
+              `Plugin "${pluginId}" cannot change user roles without the "users:manage" permission`,
+            );
+          }
+          const registered = this.roleRegistry.get(String(role ?? ""));
+          if (!registered || registered.pluginId !== pluginId) {
+            return {
+              ok: false,
+              status: 400,
+              error: "Plugins can only remove a role they registered.",
+            };
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          if (!users.removeRole) {
+            return { ok: false, status: 501, error: "Removing roles is not available in this runtime." };
+          }
+          return users.removeRole(target, role, actor);
+        },
         get: async (userId) => {
           if (!permissions.has("users:manage")) {
             throw new Error(`Plugin "${pluginId}" cannot read users without the "users:manage" permission`);
@@ -696,17 +731,22 @@ export class PluginLoader {
         action: (hook, handler, options) => register("action", hook, handler, options),
         gate: (hook, handler, options) => register("gate", hook, handler, options),
         filter: (hook, handler, options) => register("filter", hook, handler, options),
-        emit: async (hook, event) => {
+        emit: async (hook, event, options) => {
           assertMayEmit(hook);
-          await hooks.dispatchAction(hook, event, { siteId, source: "system" });
+          const callSiteId = this.currentSiteId?.() || siteId;
+          if (options?.durable) {
+            if (!this.eventPublisher) throw new Error("Durable plugin event delivery is not available in this runtime");
+            await this.eventPublisher(hook, event, callSiteId);
+          }
+          await hooks.dispatchAction(hook, event, { siteId: callSiteId, source: "system", ...(options?.durable ? { webhookQueued: true } : {}) });
         },
         apply: async (hook, value, context) => {
           assertMayEmit(hook);
-          return hooks.applyFilter(hook, value, context, { siteId, source: "system" });
+          return hooks.applyFilter(hook, value, context, { siteId: this.currentSiteId?.() || siteId, source: "system" });
         },
         check: async (hook, event) => {
           assertMayEmit(hook);
-          await hooks.dispatchGate(hook, event as object, { siteId, source: "system" });
+          await hooks.dispatchGate(hook, event as object, { siteId: this.currentSiteId?.() || siteId, source: "system" });
         },
         has: (hook) => hooks.has(hook),
       },
@@ -716,6 +756,7 @@ export class PluginLoader {
         delete: (key) => settings.delete?.(siteId, pluginId, key) ?? Promise.resolve(),
       },
       http: {
+        url: (path = "") => this.httpRouter.url(pluginId, path),
         get: (path, handler, options) => this.httpRouter.register(pluginId, "GET", path, handler, options),
         post: (path, handler, options) => this.httpRouter.register(pluginId, "POST", path, handler, options),
         put: (path, handler, options) => this.httpRouter.register(pluginId, "PUT", path, handler, options),

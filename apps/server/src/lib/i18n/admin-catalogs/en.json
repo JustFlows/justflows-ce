@@ -20,6 +20,7 @@
     "forms": "Forms",
     "themes": "Themes",
     "design": "Design",
+    "widgets": "Widgets",
     "menus": "Menus",
     "users": "Users",
     "settings": "Settings",
@@ -59,6 +60,8 @@
     "shopInvoices": "Invoices",
     "shopEmails": "Emails",
     "shopReports": "Reports",
+    "shopSubscriptions": "Subscriptions",
+    "shopBackups": "Backups",
     "shopPage": "Shop page",
     "permalinks": "Permalinks",
     "pwa": "PWA",
@@ -242,6 +245,7 @@
     "activateFailed": "The plugin could not be turned on."
   },
   "content": {
+    "accountNotice": "Account pages require sign-in. Justflows excludes them from caches, exports, public search and sitemaps.",
     "newPost": "New Post",
     "newPage": "New Page",
     "editPost": "Edit Post",
@@ -1815,6 +1819,15 @@
     "couldNotSendTest": "Could not send test"
   },
   "contentTypes": {
+    "cacheControlPlaceholder": "public, max-age=300",
+    "cacheInheritType": "Inherit content type default",
+    "cachePostHint": "Overrides this post’s content type cache policy after publication. Private and no-cache policies bypass shared caches and static exports.",
+    "cacheControlLabel": "Cache-Control",
+    "cacheInherit": "Inherit site default",
+    "cacheNever": "Never cache",
+    "cacheCustom": "Custom header",
+    "cacheControlValue": "Cache-Control value",
+    "cacheHint": "Overrides the site cache policy for pages of this type. Private and no-cache policies bypass shared caches and static exports.",
     "loadFailed": "Failed to load content types",
     "saveFailed": "Failed to save",
     "createFailed": "Failed to create",
@@ -2062,6 +2075,55 @@
     "slotIndexLabel": "Catch-all (index)",
     "slotIndexHint": "Used only when no more specific template exists"
   },
+  "widgets": {
+    "loading": "Loading widgets…",
+    "loadError": "Could not load widget areas.",
+    "saveError": "Could not save.",
+    "noAreas": "No widget areas yet.",
+    "widthLabel": "Width (px)",
+    "widthPlaceholder": "Site default",
+    "widthHint": "Leave empty to use the sidebar width from Styles → Layout. {min}–{max} px.",
+    "draftSuffix": "(draft)",
+    "fromDefaultHint": "These are the default widgets from your theme or plugin. Publish to keep them as your own.",
+    "language": "Language",
+    "allLanguages": "All languages",
+    "overriddenHint": "This language has its own widgets.",
+    "inheritedHint": "Uses the widgets for all languages. Edit them to give this language its own.",
+    "resetToBase": "Use the widgets for all languages",
+    "layoutHeading": "Layout",
+    "layoutHint": "Choose which widget area each content type shows, and where.",
+    "defaultArea": "Default ({area}, {position})",
+    "defaultNone": "Default (none)",
+    "noArea": "None",
+    "positionLabel": "Position for {type}",
+    "position": {
+      "left": "Left",
+      "right": "Right",
+      "top": "Above"
+    },
+    "saveLayout": "Save layout",
+    "pageIntro": "Manage the widgets in your widget areas.",
+    "tabAreas": "Areas",
+    "availableWidgets": "Available widgets",
+    "availableHint": "Drag a widget onto an area, or click it to add it to the selected area.",
+    "noWidgets": "No widgets available.",
+    "addToArea": "Add to {area}",
+    "addArea": "Add widget area",
+    "areaName": "Name",
+    "areaKey": "Key",
+    "areaKeyHint": "Lowercase letters, digits, and dashes, starting with a letter. At most 32 characters.",
+    "areaDescription": "Description",
+    "deleteArea": "Delete {name}",
+    "deleteAreaConfirm": "Delete the widget area “{name}” and its widgets? Content types that show it will show no widget area.",
+    "removeWidget": "Remove widget",
+    "widgetKind": "widget",
+    "dropHere": "Drop a widget here",
+    "emptyArea": "Drag widgets here",
+    "sourceCore": "Core",
+    "sourceTheme": "Theme",
+    "sourceSite": "Your area",
+    "sourcePlugin": "Plugin"
+  },
   "themes": {
     "catalogUnavailable": "Theme catalog unavailable",
     "installFailed": "Theme installation failed",
@@ -2172,7 +2234,8 @@
     "perLanguage": "Per language",
     "allLanguages": "All languages",
     "settingsHeading": "Settings",
-    "saveButton": "Save settings"
+    "saveButton": "Save settings",
+    "morePages": "More settings"
   },
   "media": {
     "loadFailed": "Failed to load media",
@@ -2480,6 +2543,7 @@
       "content": "Content",
       "media": "Media",
       "commerce": "Commerce",
+      "widgets": "Widgets",
       "site": "Site"
     },
     "blockJson": {
@@ -3381,7 +3445,14 @@
       "title": "Static site export",
       "useThisSite": "Use this site",
       "clearExportHintSite": "deletes this website's export. Disabling auto-rebuild does not remove any files.",
-      "thisWebsiteExport": "this website's export"
+      "thisWebsiteExport": "this website's export",
+      "storageLabel": "Export storage",
+      "storageLocal": "Local files",
+      "storageS3": "Object storage (S3 / OVH)",
+      "storageHint": "Uses the installation’s existing S3 connection and a separate folder per site. The local folder stages exports before uploading. Clear removes both local and deployed files.",
+      "responseUnavailable": "The export API returned an unexpected response (HTTP {status}). Check export status before retrying; the export may still be running.",
+      "pollingUnavailable": "Export status is no longer available. Refresh Tools to check the result before starting another export.",
+      "descriptionHtmlOnly": "Export published HTML pages to object storage. Media, styles and scripts keep their existing URLs and are served by the live site or CDN. Exports run in the background with a live progress log."
     },
     "status": {
       "disabled": "Disabled",
@@ -3928,6 +3999,7 @@
     "slugPrimary": "The platform workspace keeps the slug primary.",
     "workspaceIntro": "Change this workspace's name and slug. The address of this page includes the workspace id.",
     "workspaceId": "Workspace id",
+    "workspaceOwner": "Root owner",
     "workspaceNotFound": "That workspace was not found.",
     "workspaceLoadFailed": "Could not load this workspace.",
     "workspaceSaveFailed": "Could not save this workspace.",
@@ -4140,5 +4212,23 @@
     "removeConfirmRoot": "Remove the platform storage connection? Sites without their own storage move to the installation's S3 bucket or the server's disk, and their files are copied there.",
     "removed": "Storage connection removed.",
     "failed": "Could not load or save the storage settings."
+  },
+  "storageUsage": {
+    "title": "Storage usage",
+    "unknown": "Unknown — usage could not be read",
+    "description": "Managed site files on local disk and external object storage, measured in bytes.",
+    "category": "Category",
+    "local": "Local files",
+    "external": "External storage (S3 / OVH)",
+    "media": "Media and derivatives",
+    "private": "Private files",
+    "exports": "Static exports and retained copies",
+    "total": "Total",
+    "physical": "Physical storage",
+    "logical": "Media and private-file records",
+    "note": "Physical usage includes staging, trash and retained copies. Database records exclude those extra copies. Unknown usage is not counted as zero. External totals cover managed site namespaces, not the entire provider account.",
+    "measured": "Measured at",
+    "limitLabel": "Total storage (local + external)",
+    "measuring": "Measuring storage…"
   }
 }
