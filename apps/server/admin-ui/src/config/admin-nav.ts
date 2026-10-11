@@ -160,8 +160,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     items: [
       { key: "nav.themes", to: "/admin/themes", icon: "🎨" },
       { key: "nav.design", to: "/admin/design", icon: "🎛" },
-      // Opens the theme builder's Widgets tab directly.
-      { key: "nav.widgets", to: "/admin/themes/customize?tab=widgets", icon: "▥" },
+      { key: "nav.widgets", to: "/admin/widgets", icon: "▥" },
       // Menus moved into Themes → Customize → Menus, alongside Header/Footer/
       // Templates — it's a theme-builder concern, not a separate top-level
       // page. The /admin/menus route still works for old links/bookmarks.
@@ -351,6 +350,7 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/comments": ["administrator", "editor"],
   "/admin/trash": ["administrator", "editor"],
   "/admin/themes": ["administrator", "editor"],
+  "/admin/widgets": ["administrator", "editor"],
   "/admin/plugins": ["administrator", "editor"],
   "/admin/marketplace": ["administrator"],
   "/admin/security": ["administrator"],

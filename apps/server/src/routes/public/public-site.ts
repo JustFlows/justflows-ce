@@ -148,6 +148,9 @@ import {
   type TemplateBlockContext,
 } from "../../lib/rendering/template-blocks.js";
 import { resolvePublicTemplate, resolveThemePartBlocks } from "../../lib/rendering/template-render.js";
+import { registerCoreWidgets, withCoreWidgetData, type WidgetMenuItem } from "../../lib/rendering/core-widgets.js";
+import { listPublishedPostsPage } from "../../lib/content/content-public.js";
+import { contentPermalinks } from "../../lib/navigation/permalinks-db.js";
 import {
   blocksPlaceWidgetArea,
   getWidgetLayout,
@@ -195,6 +198,7 @@ const blockRegistry = getRuntimeBlockRegistry();
 registerBlogPostListBlock();
 registerCommentsBlock();
 registerTemplateBlocks();
+registerCoreWidgets();
 
 const RESERVED = new Set([
   "admin",
@@ -1231,7 +1235,36 @@ interface TemplateRenderOpts {
 }
 
 /** The page context fields widget areas need: the site, its locale, and preview. */
-type WidgetPageCtx = SiteWidgetCtx & { siteId: string; locale: string };
+type WidgetPageCtx = SiteWidgetCtx & { siteId: string; locale: string; defaultLocale?: string };
+
+function widgetMenuItems(items: Array<{ label: string; url: string; target?: string; children?: unknown[] }>): WidgetMenuItem[] {
+  return items.map((item) => ({
+    label: item.label,
+    url: item.url,
+    ...(item.target ? { target: item.target } : {}),
+    ...(Array.isArray(item.children) && item.children.length
+      ? { children: widgetMenuItems(item.children as typeof items) }
+      : {}),
+  }));
+}
+
+/** Menus, recent posts, and the search URL for the core widgets in an area. */
+function coreWidgetSource(page: WidgetPageCtx, preview: boolean) {
+  const defaultLocale = page.defaultLocale ?? page.locale;
+  return {
+    menu: async (slug: string) =>
+      widgetMenuItems(await getNavItemsForMenuSlug(slug, page.locale, defaultLocale, preview)),
+    recentPosts: async (limit: number) => {
+      const { items } = await listPublishedPostsPage(page.siteId, page.locale, { limit, offset: 0 });
+      const [hrefs, dates] = await Promise.all([
+        contentPermalinks(items),
+        Promise.all(items.map((post) => (post.publishedAt ? formatContentDate(post.publishedAt) : Promise.resolve("")))),
+      ]);
+      return items.map((post, i) => ({ title: post.title, href: hrefs[i] ?? "#", date: dates[i] ?? "" }));
+    },
+    searchAction: () => localePath(page.locale, "/search", defaultLocale),
+  };
+}
 
 /** The site's widget areas and per-type layout, cached with the theme layer. */
 async function loadWidgetSetup(
@@ -1261,8 +1294,9 @@ async function renderWidgetAreaForPage(
     preview,
   );
   if (!resolved.blocks.length) return { html: "", width: resolved.width };
+  const blocks = await withCoreWidgetData(resolved.blocks, coreWidgetSource(page, preview));
   const html = withSiteWidgets(
-    await renderBlocksHtml(resolved.blocks, opts.submittedFormId, opts.blogCtx, opts.commentCtx),
+    await renderBlocksHtml(blocks, opts.submittedFormId, opts.blogCtx, opts.commentCtx),
     page,
   );
   return { html: widgetAreaHtml(area, html, resolved.width), width: resolved.width };
@@ -1270,7 +1304,7 @@ async function renderWidgetAreaForPage(
 
 /**
  * Wrap a content type's page body in the widget layout assigned to that type
- * (Appearance → Customize → Widgets). Unchanged when the type has no area or
+ * (Appearance → Widgets). Unchanged when the type has no area or
  * the area is empty.
  */
 async function applyContentTypeWidgets(

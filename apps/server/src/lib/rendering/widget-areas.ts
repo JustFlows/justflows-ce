@@ -7,6 +7,7 @@ import { getActiveTheme, themeInstalledPath } from "../themes/themes-db.js";
 import { loadThemeWidgetAreas, loadThemeWidgetDefault } from "../themes/theme-files.js";
 import {
   clearTemplatePartDraftDoc,
+  deleteTemplatePartRow,
   getTemplatePartDocs,
   publishTemplatePartDoc,
   saveTemplatePartDraft,
@@ -35,6 +36,9 @@ export const WIDGET_AREA_BLOCK_TYPE = "core.widget-area";
 
 const PART_PREFIX = "widgets:";
 const LAYOUT_PART = "widget-layout";
+/** Areas the site owner added under Widgets → Add widget area. */
+const SITE_AREAS_PART = "widget-areas";
+const MAX_SITE_AREAS = 50;
 const CONTENT_TYPE_RE = /^[a-z][a-z0-9_-]{0,59}$/;
 const LOCALE_RE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/;
 const MAX_LOCALES = 64;
@@ -42,7 +46,7 @@ const MAX_LOCALES = 64;
 export const WIDGET_AREA_WIDTH_MIN = 160;
 export const WIDGET_AREA_WIDTH_MAX = 640;
 
-export type WidgetAreaSource = "core" | "theme" | "plugin";
+export type WidgetAreaSource = "core" | "theme" | "site" | "plugin";
 
 export interface WidgetArea {
   key: string;
@@ -114,9 +118,84 @@ function cleanArea(raw: unknown, source: WidgetAreaSource): WidgetArea | null {
   return area;
 }
 
+/* ------------------------------ site areas ------------------------------- */
+
+export interface SiteWidgetAreaInput {
+  key: string;
+  label: string;
+  description?: string;
+}
+
+function cleanSiteArea(raw: unknown): SiteWidgetAreaInput | null {
+  const row = record(raw);
+  if (!row) return null;
+  const key = typeof row.key === "string" ? row.key.trim() : "";
+  const label = typeof row.label === "string" ? row.label.trim().slice(0, 80) : "";
+  if (!WIDGET_AREA_KEY_RE.test(key) || !label) return null;
+  const description = typeof row.description === "string" ? row.description.trim().slice(0, 300) : "";
+  return description ? { key, label, description } : { key, label };
+}
+
+/** The areas the site owner added themselves, in the order they were added. */
+export async function listSiteWidgetAreas(siteId: string): Promise<SiteWidgetAreaInput[]> {
+  const { doc } = await getTemplatePartDocs<unknown>(siteId, SITE_AREAS_PART);
+  const rows = record(doc)?.areas;
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set<string>();
+  const out: SiteWidgetAreaInput[] = [];
+  for (const raw of rows) {
+    const area = cleanSiteArea(raw);
+    if (!area || seen.has(area.key)) continue;
+    seen.add(area.key);
+    out.push(area);
+  }
+  return out;
+}
+
+export class WidgetAreaError extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 404 | 409,
+  ) {
+    super(message);
+  }
+}
+
+/** Add a site-owned area. The key must be new across every area the site offers. */
+export async function createSiteWidgetArea(siteId: string, raw: unknown): Promise<SiteWidgetAreaInput> {
+  const area = cleanSiteArea(raw);
+  if (!area) throw new WidgetAreaError("Give the area a name and a key of lowercase letters, digits, and dashes.", 400);
+  if ((await listWidgetAreas(siteId)).some((row) => row.key === area.key)) {
+    throw new WidgetAreaError(`A widget area with the key "${area.key}" already exists.`, 409);
+  }
+  const current = await listSiteWidgetAreas(siteId);
+  if (current.length >= MAX_SITE_AREAS) throw new WidgetAreaError("This site has the maximum number of widget areas.", 400);
+  await saveTemplatePartPublished(siteId, SITE_AREAS_PART, { version: 1, areas: [...current, area] });
+  return area;
+}
+
 /**
- * Every widget area this site offers, in order: core, theme, then plugins. A
- * theme may relabel the core `sidebar` by declaring the same key.
+ * Delete a site-owned area with its blocks and every layout rule that shows
+ * it. Core, theme, and plugin areas cannot be deleted.
+ */
+export async function deleteSiteWidgetArea(siteId: string, key: string): Promise<void> {
+  const current = await listSiteWidgetAreas(siteId);
+  if (!current.some((row) => row.key === key)) {
+    throw new WidgetAreaError("Only widget areas you added can be deleted.", 404);
+  }
+  await saveTemplatePartPublished(siteId, SITE_AREAS_PART, {
+    version: 1,
+    areas: current.filter((row) => row.key !== key),
+  });
+  await deleteTemplatePartRow(siteId, partKey(key));
+  const rules = await getWidgetLayout(siteId);
+  const kept = Object.fromEntries(Object.entries(rules).filter(([, rule]) => rule.area !== key));
+  if (Object.keys(kept).length !== Object.keys(rules).length) await saveWidgetLayout(siteId, kept);
+}
+
+/**
+ * Every widget area this site offers, in order: core, theme, the site's own,
+ * then plugins. A theme may relabel the core `sidebar` by declaring the same key.
  */
 export async function listWidgetAreas(siteId: string): Promise<WidgetArea[]> {
   const theme = await getActiveTheme(siteId);
@@ -133,7 +212,11 @@ export async function listWidgetAreas(siteId: string): Promise<WidgetArea[]> {
     const defaults = loadThemeWidgetDefault(themeId, area.key, installedPath);
     if (defaults) area.defaultBlocks = defaults;
   }
-  const seeded = new Set(seed.map((row) => row.key));
+  const themed = new Set(seed.map((row) => row.key));
+  for (const area of await listSiteWidgetAreas(siteId)) {
+    if (!themed.has(area.key)) seed.push({ ...area });
+  }
+  const siteOwned = new Set(seed.map((row) => row.key).filter((key) => !themed.has(key)));
 
   await ensurePluginRuntime();
   const raw = await getRuntimeHooks().applyFilter(
@@ -149,7 +232,15 @@ export async function listWidgetAreas(siteId: string): Promise<WidgetArea[]> {
   for (const item of list) {
     const key = record(item)?.key;
     const source: WidgetAreaSource =
-      typeof key === "string" && seeded.has(key) ? (key === CORE_SIDEBAR.key ? "core" : "theme") : "plugin";
+      typeof key !== "string"
+        ? "plugin"
+        : key === CORE_SIDEBAR.key
+          ? "core"
+          : themed.has(key)
+            ? "theme"
+            : siteOwned.has(key)
+              ? "site"
+              : "plugin";
     const area = cleanArea(item, source);
     if (!area || seen.has(area.key)) continue;
     seen.add(area.key);

@@ -58,6 +58,9 @@ import {
 } from "../../lib/rendering/template-parts.js";
 import {
   clearWidgetAreaDraft,
+  createSiteWidgetArea,
+  deleteSiteWidgetArea,
+  WidgetAreaError,
   getWidgetLayout,
   readWidgetAreaForEditor,
   saveWidgetAreaDoc,
@@ -372,6 +375,42 @@ router.put("/widgets/layout", async (req, res) => {
     res.json({ layout });
   } catch (err) {
     sendServerError(res, "manage.widgets.layout", err);
+  }
+});
+
+const WidgetAreaCreateSchema = z.object({
+  key: z.string().max(32),
+  label: z.string().max(80),
+  description: z.string().max(300).optional(),
+});
+
+router.post("/widgets/areas", fileLimit, async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  const body = WidgetAreaCreateSchema.safeParse(req.body);
+  if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid widget area");
+  try {
+    res.status(201).json({ area: await createSiteWidgetArea(siteId(req), body.data) });
+  } catch (err) {
+    if (err instanceof WidgetAreaError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    sendServerError(res, "manage.widgets.create", err);
+  }
+});
+
+router.delete("/widgets/areas/:key", fileLimit, async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  try {
+    await deleteSiteWidgetArea(siteId(req), param(req.params.key));
+    await revalidateOnUpdate("theme");
+    res.json({ ok: true });
+  } catch (err) {
+    if (err instanceof WidgetAreaError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    sendServerError(res, "manage.widgets.delete", err);
   }
 });
 

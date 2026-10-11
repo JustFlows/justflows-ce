@@ -19,6 +19,9 @@ vi.mock("../../../src/lib/rendering/template-parts-db.js", () => ({
   publishTemplatePartDoc: async (_siteId: string, part: string, doc: unknown) => {
     rows.set(part, { doc, draft: null });
   },
+  deleteTemplatePartRow: async (_siteId: string, part: string) => {
+    rows.delete(part);
+  },
   clearTemplatePartDraftDoc: async (_siteId: string, part: string) => {
     const row = rows.get(part);
     if (row) row.draft = null;
@@ -44,6 +47,9 @@ vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
 
 import {
   blocksPlaceWidgetArea,
+  createSiteWidgetArea,
+  deleteSiteWidgetArea,
+  WidgetAreaError,
   getWidgetAreaDocs,
   layoutForContentType,
   listWidgetAreas,
@@ -303,5 +309,43 @@ describe("area width", () => {
       /^<div class="jf-widget-layout jf-widget-layout--right" data-jf-widget-position="right" style="--jf-sidebar-width:256px">/,
     );
     expect(withWidgetLayout("<p>b</p>", "right", widgetAreaHtml(area(), "<p>w</p>"))).not.toContain("style=");
+  });
+});
+
+describe("site-owned areas", () => {
+  it("adds an area after core and theme areas, before plugin areas", async () => {
+    themeAreas.push({ key: "footer-1", label: "Footer" });
+    pluginFilter = (areas) => [...areas, { key: "shop-sidebar", label: "Shop sidebar" }];
+    await createSiteWidgetArea(SITE, { key: "promo", label: "Promo", description: "Banners" });
+    const areas = await listWidgetAreas(SITE);
+    expect(areas.map((row) => [row.key, row.source])).toEqual([
+      ["sidebar", "core"],
+      ["footer-1", "theme"],
+      ["promo", "site"],
+      ["shop-sidebar", "plugin"],
+    ]);
+    expect(areas[2]?.description).toBe("Banners");
+  });
+
+  it("refuses a taken or malformed key", async () => {
+    await expect(createSiteWidgetArea(SITE, { key: "sidebar", label: "Again" })).rejects.toMatchObject({ status: 409 });
+    await expect(createSiteWidgetArea(SITE, { key: "Bad Key", label: "x" })).rejects.toBeInstanceOf(WidgetAreaError);
+  });
+
+  it("deletes the area with its blocks and the layout rules that show it", async () => {
+    await createSiteWidgetArea(SITE, { key: "promo", label: "Promo" });
+    await saveWidgetAreaDoc(SITE, "promo", { blocks: [text("a", "x")] }, "publish");
+    await saveWidgetLayout(SITE, {
+      post: { area: "promo", position: "left" },
+      page: { area: "sidebar", position: "right" },
+    });
+    await deleteSiteWidgetArea(SITE, "promo");
+    expect((await listWidgetAreas(SITE)).map((row) => row.key)).toEqual(["sidebar"]);
+    expect(rows.has("widgets:promo")).toBe(false);
+    expect(await getWidgetLayout(SITE)).toEqual({ page: { area: "sidebar", position: "right" } });
+  });
+
+  it("never deletes core, theme, or plugin areas", async () => {
+    await expect(deleteSiteWidgetArea(SITE, "sidebar")).rejects.toMatchObject({ status: 404 });
   });
 });

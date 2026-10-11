@@ -1158,6 +1158,36 @@ export const CORE_TOOLS: AgentTool[] = [
     run: widgetAreasUpdate,
   }),
   manageTool({
+    name: "widget_areas_create",
+    title: "Add a widget area",
+    description:
+      "Add a widget area of the site's own, such as a second sidebar or a footer column. key is lowercase letters, digits, and dashes (at most 32) and must be new. Fill it with widget_areas_update and show it with widget_layout_update or a core.widget-area block in a template.",
+    method: "POST",
+    path: "/widgets/areas",
+    input: object(
+      {
+        key: str("Area key, such as footer-1."),
+        label: str("Name shown to editors."),
+        description: str("What the area is for."),
+      },
+      ["key", "label"],
+    ),
+    annotations: WRITE,
+    group: "design",
+  }),
+  manageTool({
+    name: "widget_areas_delete",
+    title: "Delete a widget area",
+    description:
+      "Delete a widget area the site added, with its blocks and every layout rule that shows it. Core, theme, and plugin areas cannot be deleted.",
+    method: "DELETE",
+    path: "/widgets/areas/{key}",
+    input: object({ key: str("Widget area key.") }, ["key"]),
+    annotations: DESTRUCTIVE,
+    group: "design",
+    targetArg: "key",
+  }),
+  manageTool({
     name: "widget_areas_discard_draft",
     title: "Discard a widget area draft",
     description: "Drop the unpublished draft of a widget area and keep what is published.",
