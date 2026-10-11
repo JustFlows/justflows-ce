@@ -19,6 +19,8 @@ interface AreaDoc {
   version: 1;
   blocks: Blocks;
   locales: Record<string, Blocks>;
+  /** Own width in px; null uses the site's sidebar width (Styles → Layout). */
+  width: number | null;
 }
 
 interface LayoutRule {
@@ -37,8 +39,11 @@ const DEFAULT_RULE = "__default";
 /** Layout select value for "show no widget area". */
 const NO_AREA = "__none";
 
+const WIDTH_MIN = 160;
+const WIDTH_MAX = 640;
+
 function emptyDoc(): AreaDoc {
-  return { version: 1, blocks: [], locales: {} };
+  return { version: 1, blocks: [], locales: {}, width: null };
 }
 
 /**
@@ -100,7 +105,8 @@ export default function WidgetAreasEditor() {
       .then((r) => r.json())
       .then((body: { doc?: AreaDoc; draft?: AreaDoc | null; fromDefault?: boolean }) => {
         if (cancelled) return;
-        setDoc(body.draft ?? body.doc ?? emptyDoc());
+        const next = body.draft ?? body.doc ?? emptyDoc();
+        setDoc({ ...next, width: next.width ?? null });
         setFromDefault(Boolean(body.fromDefault) && !body.draft);
         setLocale(BASE_LOCALE);
         setStatus("");
@@ -130,6 +136,12 @@ export default function WidgetAreasEditor() {
     );
   }
 
+  function onWidthChange(raw: string) {
+    setStatus("");
+    const n = Number(raw);
+    setDoc((prev) => ({ ...prev, width: raw.trim() === "" || !Number.isFinite(n) ? null : Math.round(n) }));
+  }
+
   function resetLocale() {
     if (locale === BASE_LOCALE) return;
     setDoc((prev) => {
@@ -148,7 +160,12 @@ export default function WidgetAreasEditor() {
       const res = await fetch(`/api/widgets/areas/${encodeURIComponent(area.key)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blocks: doc.blocks, locales: doc.locales, draft: !publish }),
+        body: JSON.stringify({
+          blocks: doc.blocks,
+          locales: doc.locales,
+          width: doc.width === null ? null : Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, doc.width)),
+          draft: !publish,
+        }),
       });
       const body = (await res.json()) as { error?: string; doc?: AreaDoc };
       if (!res.ok) throw new Error(body.error ?? t("widgets.saveError"));
@@ -253,6 +270,24 @@ export default function WidgetAreasEditor() {
           {area?.description && <p className="jf-field__hint">{area.description}</p>}
           {fromDefault && <p className="jf-field__hint">{t("widgets.fromDefaultHint")}</p>}
         </div>
+
+        {ready && (
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="jf-widget-width">{t("widgets.widthLabel")}</label>
+            <input
+              id="jf-widget-width"
+              className="jf-input"
+              type="number"
+              min={WIDTH_MIN}
+              max={WIDTH_MAX}
+              step={8}
+              placeholder={t("widgets.widthPlaceholder")}
+              value={doc.width ?? ""}
+              onChange={(e) => onWidthChange(e.target.value)}
+            />
+            <p className="jf-field__hint">{t("widgets.widthHint", { min: WIDTH_MIN, max: WIDTH_MAX })}</p>
+          </div>
+        )}
 
         {ready && languages.length > 1 && (
           <div className="jf-field">

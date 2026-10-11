@@ -1141,6 +1141,12 @@ export const CORE_TOOLS: AgentTool[] = [
           additionalProperties: { type: "array", items: { type: "object" } },
           description: "Per-locale block lists, keyed by locale code.",
         },
+        width: {
+          type: ["integer", "null"],
+          minimum: 160,
+          maximum: 640,
+          description: "The area's own width in px beside the content. null or omitted uses the site's sidebar width.",
+        },
         draft: bool("Save a draft instead of publishing."),
       },
       ["key", "blocks"],

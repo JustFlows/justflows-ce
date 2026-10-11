@@ -45,6 +45,7 @@ const BlocksSchema = z.array(z.record(z.string(), z.unknown()));
 const AreaSaveSchema = z.object({
   blocks: BlocksSchema,
   locales: z.record(z.string().max(35), BlocksSchema).default({}),
+  width: z.number().int().min(160).max(640).nullable().default(null),
   draft: z.boolean().default(false),
 });
 

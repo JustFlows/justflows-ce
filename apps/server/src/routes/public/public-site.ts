@@ -153,7 +153,7 @@ import {
   getWidgetLayout,
   layoutForContentType,
   listWidgetAreas,
-  resolveWidgetAreaBlocks,
+  resolveWidgetArea,
   widgetAreaHtml,
   withWidgetLayout,
   type WidgetArea,
@@ -1245,24 +1245,27 @@ async function loadWidgetSetup(
   );
 }
 
-/** One widget area as `<aside>` markup for this request's locale; "" when unknown or empty. */
+/**
+ * One widget area as `<aside>` markup for this request's locale ("" when
+ * empty), plus the area's own width.
+ */
 async function renderWidgetAreaForPage(
   area: WidgetArea,
   page: WidgetPageCtx,
   opts: TemplateRenderOpts,
-): Promise<string> {
+): Promise<{ html: string; width: number | null }> {
   const preview = opts.preview ?? false;
-  const blocks = await rememberPublic(
+  const resolved = await rememberPublic(
     `${THEME_MODS_PREFIX}widget-area:${page.siteId}:${area.key}:${page.locale}`,
-    () => resolveWidgetAreaBlocks(page.siteId, area, page.locale, preview),
+    () => resolveWidgetArea(page.siteId, area, page.locale, preview),
     preview,
   );
-  if (!blocks.length) return "";
+  if (!resolved.blocks.length) return { html: "", width: resolved.width };
   const html = withSiteWidgets(
-    await renderBlocksHtml(blocks, opts.submittedFormId, opts.blogCtx, opts.commentCtx),
+    await renderBlocksHtml(resolved.blocks, opts.submittedFormId, opts.blogCtx, opts.commentCtx),
     page,
   );
-  return widgetAreaHtml(area, html);
+  return { html: widgetAreaHtml(area, html, resolved.width), width: resolved.width };
 }
 
 /**
@@ -1280,7 +1283,8 @@ async function applyContentTypeWidgets(
   const { areas, rules } = await loadWidgetSetup(page.siteId, opts.preview ?? false);
   const layout = layoutForContentType(contentType, areas, rules);
   if (!layout) return bodyHtml;
-  return withWidgetLayout(bodyHtml, layout.position, await renderWidgetAreaForPage(layout.area, page, opts));
+  const rendered = await renderWidgetAreaForPage(layout.area, page, opts);
+  return withWidgetLayout(bodyHtml, layout.position, rendered.html, rendered.width);
 }
 
 /**
@@ -1308,7 +1312,7 @@ function templateBlockContext(
       if (!withHeader.siteId) return "";
       const { areas } = await loadWidgetSetup(withHeader.siteId, opts.preview ?? false);
       const area = areas.find((row) => row.key === key);
-      return area ? renderWidgetAreaForPage(area, withHeader, opts) : "";
+      return area ? (await renderWidgetAreaForPage(area, withHeader, opts)).html : "";
     },
   };
 }

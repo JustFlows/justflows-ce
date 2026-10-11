@@ -38,6 +38,9 @@ const LAYOUT_PART = "widget-layout";
 const CONTENT_TYPE_RE = /^[a-z][a-z0-9_-]{0,59}$/;
 const LOCALE_RE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/;
 const MAX_LOCALES = 64;
+/** Bounds for an area's own width, in px; the same as the Customizer's sidebar width. */
+export const WIDGET_AREA_WIDTH_MIN = 160;
+export const WIDGET_AREA_WIDTH_MAX = 640;
 
 export type WidgetAreaSource = "core" | "theme" | "plugin";
 
@@ -55,6 +58,14 @@ export interface WidgetAreaDoc {
   version: 1;
   blocks: BlockNode[];
   locales: Record<string, BlockNode[]>;
+  /** The area's own width in px beside the content; null uses the site's sidebar width. */
+  width: number | null;
+}
+
+/** What an area shows for one request. */
+export interface ResolvedWidgetArea {
+  blocks: BlockNode[];
+  width: number | null;
 }
 
 /** One content type's widget layout. `area: null` means "no widget area". */
@@ -165,7 +176,13 @@ export function normalizeWidgetAreaDoc(raw: unknown): WidgetAreaDoc {
       locales[code] = cleanBlocks(blocks);
     }
   }
-  return { version: 1, blocks: cleanBlocks(row.blocks), locales };
+  return { version: 1, blocks: cleanBlocks(row.blocks), locales, width: cleanWidth(row.width) };
+}
+
+function cleanWidth(raw: unknown): number | null {
+  const n = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : NaN;
+  if (!Number.isFinite(n)) return null;
+  return Math.min(WIDGET_AREA_WIDTH_MAX, Math.max(WIDGET_AREA_WIDTH_MIN, Math.round(n)));
 }
 
 /** The published and draft documents of one area; `null` when never saved. */
@@ -206,18 +223,31 @@ export function widgetAreaBlocksForLocale(doc: WidgetAreaDoc, locale: string): B
 }
 
 /**
- * The blocks an area renders for this request. Preview prefers the draft. An
- * area the owner never saved shows its theme or plugin default.
+ * What an area renders for this request: its blocks for the locale and its own
+ * width. Preview prefers the draft. An area the owner never saved shows its
+ * theme or plugin default at the site's sidebar width.
  */
+export async function resolveWidgetArea(
+  siteId: string,
+  area: WidgetArea,
+  locale: string,
+  preview = false,
+): Promise<ResolvedWidgetArea> {
+  const { doc, draft } = await getWidgetAreaDocs(siteId, area.key);
+  const chosen = (preview ? draft : null) ?? doc;
+  return chosen
+    ? { blocks: widgetAreaBlocksForLocale(chosen, locale), width: chosen.width }
+    : { blocks: area.defaultBlocks, width: null };
+}
+
+/** The blocks an area renders for this request; see {@link resolveWidgetArea}. */
 export async function resolveWidgetAreaBlocks(
   siteId: string,
   area: WidgetArea,
   locale: string,
   preview = false,
 ): Promise<BlockNode[]> {
-  const { doc, draft } = await getWidgetAreaDocs(siteId, area.key);
-  const chosen = (preview ? draft : null) ?? doc;
-  return chosen ? widgetAreaBlocksForLocale(chosen, locale) : area.defaultBlocks;
+  return (await resolveWidgetArea(siteId, area, locale, preview)).blocks;
 }
 
 /* --------------------------------- layout -------------------------------- */
@@ -274,12 +304,24 @@ export function layoutForContentType(
 
 /* -------------------------------- markup --------------------------------- */
 
-/** One rendered area. Empty when the area has nothing to show. */
-export function widgetAreaHtml(area: Pick<WidgetArea, "key" | "label">, innerHtml: string): string {
+function widthStyle(width: number | null | undefined): string {
+  const px = cleanWidth(width);
+  return px === null ? "" : ` style="--jf-sidebar-width:${px}px"`;
+}
+
+/**
+ * One rendered area. Empty when the area has nothing to show. An area with its
+ * own width carries `--jf-sidebar-width`, for themes that size the `<aside>`.
+ */
+export function widgetAreaHtml(
+  area: Pick<WidgetArea, "key" | "label">,
+  innerHtml: string,
+  width: number | null = null,
+): string {
   if (!innerHtml.trim()) return "";
   return (
     `<aside class="jf-widget-area jf-widget-area--${esc(area.key)}" ` +
-    `data-jf-widget-area="${esc(area.key)}" aria-label="${esc(area.label)}">${innerHtml}</aside>`
+    `data-jf-widget-area="${esc(area.key)}" aria-label="${esc(area.label)}"${widthStyle(width)}>${innerHtml}</aside>`
   );
 }
 
@@ -292,10 +334,11 @@ export function withWidgetLayout(
   bodyHtml: string,
   position: WidgetAreaPosition,
   areaHtml: string,
+  width: number | null = null,
 ): string {
   if (!areaHtml) return bodyHtml;
   return (
-    `<div class="jf-widget-layout jf-widget-layout--${position}" data-jf-widget-position="${position}">` +
+    `<div class="jf-widget-layout jf-widget-layout--${position}" data-jf-widget-position="${position}"${widthStyle(width)}>` +
     `<div class="jf-widget-layout__main">${bodyHtml}</div>${areaHtml}</div>`
   );
 }
@@ -360,7 +403,7 @@ export async function readWidgetAreaForEditor(
       saved: doc !== null,
       hasDraft: draft !== null,
     },
-    doc: doc ?? { version: 1, blocks: area.defaultBlocks, locales: {} },
+    doc: doc ?? { version: 1, blocks: area.defaultBlocks, locales: {}, width: null },
     draft,
     fromDefault: doc === null,
   };

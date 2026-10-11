@@ -50,6 +50,7 @@ import {
   normalizeWidgetAreaDoc,
   normalizeWidgetLayout,
   readWidgetAreaForEditor,
+  resolveWidgetArea,
   resolveWidgetAreaBlocks,
   saveWidgetAreaDoc,
   saveWidgetLayout,
@@ -277,5 +278,30 @@ describe("readWidgetAreaForEditor", () => {
     expect(found?.fromDefault).toBe(true);
     expect(found?.doc.blocks).toHaveLength(1);
     expect(await readWidgetAreaForEditor(SITE, "missing")).toBeNull();
+  });
+});
+
+describe("area width", () => {
+  it("clamps a stored width and drops junk", () => {
+    expect(normalizeWidgetAreaDoc({ blocks: [], width: 240 }).width).toBe(240);
+    expect(normalizeWidgetAreaDoc({ blocks: [], width: 20 }).width).toBe(160);
+    expect(normalizeWidgetAreaDoc({ blocks: [], width: 9999 }).width).toBe(640);
+    expect(normalizeWidgetAreaDoc({ blocks: [], width: "wide" }).width).toBeNull();
+    expect(normalizeWidgetAreaDoc({ blocks: [] }).width).toBeNull();
+  });
+
+  it("resolves the saved width, and none for an unsaved default", async () => {
+    expect((await resolveWidgetArea(SITE, area({ defaultBlocks: [text("d", "x")] }), "en")).width).toBeNull();
+    await saveWidgetAreaDoc(SITE, "sidebar", { blocks: [text("a", "x")], width: 256 }, "publish");
+    expect(await resolveWidgetArea(SITE, area(), "en")).toMatchObject({ width: 256 });
+  });
+
+  it("writes the width onto the layout wrapper and the aside", () => {
+    const aside = widgetAreaHtml(area(), "<p>w</p>", 256);
+    expect(aside).toContain('style="--jf-sidebar-width:256px"');
+    expect(withWidgetLayout("<p>b</p>", "right", aside, 256)).toMatch(
+      /^<div class="jf-widget-layout jf-widget-layout--right" data-jf-widget-position="right" style="--jf-sidebar-width:256px">/,
+    );
+    expect(withWidgetLayout("<p>b</p>", "right", widgetAreaHtml(area(), "<p>w</p>"))).not.toContain("style=");
   });
 });

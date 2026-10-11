@@ -328,6 +328,7 @@ const WidgetBlocksSchema = z.array(z.record(z.string(), z.unknown()));
 const WidgetAreaSaveSchema = z.object({
   blocks: WidgetBlocksSchema,
   locales: z.record(z.string().max(35), WidgetBlocksSchema).default({}),
+  width: z.number().int().min(160).max(640).nullable().default(null),
   draft: z.boolean().default(false),
 });
 

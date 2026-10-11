@@ -566,11 +566,17 @@ shows.
   that places `core.widget-area` itself owns the layout and is not wrapped.
 
 The structural CSS (`widget-layout-css.ts`) sits at the top of `/theme.css`
-with every selector in `:where()`, so any theme rule wins. Tune it with
-`--jf-sidebar-width` (default `18rem`) and `--jf-widget-gap`.
+with every selector in `:where()`, so any theme rule wins. It reads
+`--jf-sidebar-width` (default `18rem`), `--jf-widget-gap` (space between the
+content and the area, default `2rem`), and `--jf-widget-spacing` (space between
+widgets inside an area, default `1.5rem`). Site owners set the first two under
+Styles → Layout — site-wide, or per layout target like the content width — and
+can give one area its own width (160–640 px) in the Widgets tab, stored as the
+area document's `width` and written inline as `--jf-sidebar-width` on the
+layout wrapper and the `<aside>`.
 
 Admin: `GET /api/widgets` (areas, layout, content types), `GET/PUT
-/api/widgets/areas/:key` (`{ blocks, locales, draft }`),
+/api/widgets/areas/:key` (`{ blocks, locales, width, draft }`),
 `DELETE /api/widgets/areas/:key/draft`, `PUT /api/widgets/layout`
 (`{ layout }`). The management API and MCP tools mirror them
 (`widget_areas_list/get/update/discard_draft`, `widget_layout_update`).

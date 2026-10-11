@@ -7,10 +7,12 @@
  * content for `left` and `top`, below it for `right`.
  */
 export function widgetLayoutCss(): string {
-  return `:where(.site-main:has(> .jf-widget-layout)) { max-width: var(--max-width-wide, 1140px); }
+  // Themes cap `main` with `max-width: var(--max-width)` at any specificity.
+  // Redefining the variable on that element widens it without out-ranking them.
+  return `:where(.site-main:has(> .jf-widget-layout)) { --max-width: var(--max-width-wide, 1140px); max-width: var(--max-width-wide, 1140px); }
 :where(.jf-widget-layout) { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--jf-widget-gap, 2rem); width: 100%; }
 :where(.jf-widget-layout__main, .jf-widget-area) { min-width: 0; }
-:where(.jf-widget-area) { display: flex; flex-direction: column; gap: var(--jf-widget-gap, 1.5rem); align-self: start; }
+:where(.jf-widget-area) { display: flex; flex-direction: column; gap: var(--jf-widget-spacing, 1.5rem); align-self: start; }
 :where(.jf-widget-layout--left, .jf-widget-layout--top) > :where(.jf-widget-area) { grid-row: 1; }
 @media (min-width: 900px) {
   :where(.jf-widget-layout--right) { grid-template-columns: minmax(0, 1fr) var(--jf-sidebar-width, 18rem); }
