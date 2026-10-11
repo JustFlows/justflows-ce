@@ -12,6 +12,7 @@ import ContentListPage from "./pages/admin/content/ContentListPage";
 import ContentNewPage from "./pages/admin/content/ContentNewPage";
 import ContentEditPage from "./pages/admin/content/ContentEditPage";
 import ContentTypesPage from "./pages/admin/content/ContentTypesPage";
+import TaxonomiesPage from "./pages/admin/content/TaxonomiesPage";
 import MediaPage from "./pages/admin/media/MediaPage";
 import PluginsPage from "./pages/admin/extensions/PluginsPage";
 import PluginSettingsPage from "./pages/admin/extensions/PluginSettingsPage";
@@ -119,6 +120,7 @@ export default function App() {
               <Route path="content/new" element={<ContentNewPage />} />
               <Route path="content/:id" element={<ContentEditPage />} />
               <Route path="content-types" element={<ContentTypesPage />} />
+              <Route path="taxonomies" element={<TaxonomiesPage />} />
               <Route path="media" element={<MediaPage />} />
               <Route path="plugins" element={<PluginsPage />} />
               <Route path="plugins/:id/settings" element={<PluginSettingsPage />} />

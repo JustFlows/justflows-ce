@@ -142,6 +142,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     items: [
       { key: "nav.content", to: "/admin/content", icon: "📝" },
       { key: "nav.contentTypes", to: "/admin/content-types", icon: "🗂" },
+      { key: "nav.taxonomies", to: "/admin/taxonomies", icon: "🏷" },
       { key: "nav.media", to: "/admin/media", icon: "🖼" },
       { key: "nav.comments", to: "/admin/comments", icon: "💬" },
       { key: "nav.trash",  to: "/admin/trash", icon: "♻" },

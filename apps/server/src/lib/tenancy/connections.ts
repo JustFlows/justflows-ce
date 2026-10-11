@@ -152,22 +152,32 @@ export async function runAcrossDatabases<T>(fn: () => Promise<T>): Promise<T[]> 
   return [await fn(), ...(await runOnSeparateDatabases(fn))];
 }
 
-export async function eachActiveSite(fn: (siteId: string) => Promise<void>): Promise<void> {
+/** Run `fn` on every active site, in its database; `options.siteId` limits it to that one site. */
+export async function eachActiveSite(fn: (siteId: string) => Promise<void>, options: { siteId?: string } = {}): Promise<void> {
   let sites: Array<{ id: string; tenant_id: string; database_choice: string; database_mode: string }> = [];
+  let registry = false;
   try {
     const db = await getControlDb();
+    const only = options.siteId ? " AND s.id = ?" : "";
     sites = await db.query(
       `SELECT s.id, s.tenant_id, s.database_choice, t.database_mode
        FROM sites s JOIN tenants t ON t.id = s.tenant_id
-       WHERE s.status = 'active' AND t.status = 'active'`,
+       WHERE s.status = 'active' AND t.status = 'active'${only}`,
+      options.siteId ? [options.siteId] : [],
     );
+    registry = true;
   } catch {
     sites = [];
   }
   if (sites.length === 0) {
+    // No site registry (single-site install): the one site, when it is the one asked for.
+    if (registry && options.siteId) {
+      const total = await (await getControlDb()).query("SELECT id FROM sites LIMIT 1").catch(() => []);
+      if (total.length > 0) return;
+    }
     const { getSiteId } = await import("../settings/site-settings.js");
     const siteId = await getSiteId();
-    if (siteId) await fn(siteId);
+    if (siteId && (!options.siteId || options.siteId === siteId)) await fn(siteId);
     return;
   }
   for (const site of sites) {

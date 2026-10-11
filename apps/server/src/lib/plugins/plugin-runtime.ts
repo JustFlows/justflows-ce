@@ -16,7 +16,7 @@ import { getSiteId } from "../themes/themes-db.js";
 import { isSafePluginEntry, resolvePathUnderBase } from "../security/safe-path.js";
 import { pluginBlockAdapter } from "../rendering/runtime-blocks.js";
 import { createPluginDataApi } from "./plugin-data.js";
-import { createPluginJobsApi, getPluginJobScheduler } from "./plugin-jobs.js";
+import { createPluginJobsApi, getDurableJobQueue, getPluginJobScheduler } from "./plugin-jobs.js";
 import { createPluginSecretsApi } from "./plugin-secrets.js";
 import { createPluginDatabasesApi } from "./plugin-databases.js";
 import { createPluginTenancyApi } from "./plugin-tenancy.js";
@@ -285,7 +285,10 @@ export async function ensurePluginRuntime(): Promise<void> {
             pluginEmailTemplateCleanup.set(pluginId, cleanup);
           },
         }),
-        jobsCleanup: (pluginId) => getPluginJobScheduler().unregisterPrefix(pluginId),
+        jobsCleanup: (pluginId) => {
+          getPluginJobScheduler().unregisterPrefix(pluginId);
+          getDurableJobQueue().unregisterPrefix(pluginId);
+        },
         mailCleanup: unregisterPluginMail,
         secretsFactory: (pluginId, siteId) => createPluginSecretsApi(pluginId, siteId),
         databasesFactory: (pluginId, siteId, permissions) =>

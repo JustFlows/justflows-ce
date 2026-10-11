@@ -25,6 +25,7 @@ import {
 import { diffSnapshots, DEFAULT_REVISION_MAX_HISTORY } from "@justflows/content";
 import { resolveContentLocale } from "../../lib/i18n/languages-db.js";
 import { invalidateContentCache } from "../../lib/content/content-public.js";
+import { ContentTermsSchema, getContentTerms, setContentTerms, TaxonomyError } from "../../lib/content/taxonomies-db.js";
 import { getRuntimeHooks } from "../../lib/plugins/plugin-runtime.js";
 import { isHookAbortError } from "@justflows/core";
 import { sanitizeBlockDocument } from "@justflows/blocks";
@@ -308,6 +309,13 @@ router.post(
           now(),
           now(),
         ],
+      );
+      // Translations share the source's categories and tags, so %category% URLs line up across locales.
+      await db.run(
+        `INSERT INTO content_terms (content_id, term_id)
+         SELECT ?, ct.term_id FROM content_terms ct JOIN terms t ON t.id = ct.term_id
+         WHERE ct.content_id = ? AND t.site_id = ?`,
+        [newId, String(source.id), session.siteId],
       );
 
       const created = await db.query<Record<string, unknown>>(
@@ -595,6 +603,64 @@ router.put("/:id/header-ref", requireSession, async (req, res) => {
     await revalidateOnUpdate("content");
     res.json({ ok: true, ref: ref || SITE_DEFAULT_HEADER_REF });
   } catch (err) {
+    sendServerError(res, "content", err);
+  }
+});
+
+async function loadTermsRow(id: string, siteId: string): Promise<Record<string, unknown> | undefined> {
+  const db = await getDb();
+  const rows = await db.query<Record<string, unknown>>(
+    "SELECT id, type, author_id, locale FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
+    [id, siteId],
+  );
+  return rows[0];
+}
+
+router.get("/:id/terms", requireSession, async (req, res) => {
+  const session = req.session!;
+  try {
+    const row = await loadTermsRow(param(req.params.id), session.siteId);
+    if (!row) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const resource = { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null };
+    if (!(await userCan(session, "content:read", resource))) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    res.json({ terms: await getContentTerms(session.siteId, String(row.id)) });
+  } catch (err) {
+    sendServerError(res, "content", err);
+  }
+});
+
+router.put("/:id/terms", requireSession, async (req, res) => {
+  const session = req.session!;
+  const body = z.object({ terms: ContentTermsSchema }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.issues[0]?.message });
+    return;
+  }
+  try {
+    const row = await loadTermsRow(param(req.params.id), session.siteId);
+    if (!row) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const resource = { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null };
+    if (!(await userCan(session, "content:update", resource))) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const terms = await setContentTerms(session.siteId, { id: String(row.id), type: String(row.type) }, body.data.terms);
+    await invalidateContentCache(false, session.siteId);
+    res.json({ terms });
+  } catch (err) {
+    if (err instanceof TaxonomyError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     sendServerError(res, "content", err);
   }
 });

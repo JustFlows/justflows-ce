@@ -2,8 +2,11 @@
 
 import { describe, expect, it, vi } from "vitest";
 import {
+  applyCompiledSchema,
   compileDropPluginTables,
   compilePluginSchema,
+  compilePluginSchemaUpgrade,
+  readExistingPluginTables,
   isPluginOwnedTable,
   listPluginOwnedTables,
   pluginOwnedTableLikePattern,
@@ -155,5 +158,88 @@ describe("plugin schema compiler", () => {
         "mysql",
       ),
     ).toThrow(/Invalid table/);
+  });
+});
+
+describe("plugin schema upgrades", () => {
+  const orders = {
+    name: "orders",
+    columns: [
+      { name: "id", type: "uuid" as const, primary: true },
+      { name: "site_id", type: "uuid" as const, notNull: true },
+      { name: "channel", type: "varchar" as const, length: 32, notNull: true, unique: true },
+      { name: "total", type: "bigint" as const, notNull: true },
+    ],
+    indexes: [
+      { name: "site", columns: ["site_id"] },
+      { name: "channel", columns: ["site_id", "channel"], unique: true },
+    ],
+  };
+  const existing = new Map([
+    ["shop_orders", { columns: new Set(["id", "site_id", "total"]), indexes: new Set(["PRIMARY", "idx_shop_orders_site"]) }],
+  ]);
+
+  it("adds a missing column as nullable and not unique, and its missing index", () => {
+    const [upgrade] = compilePluginSchemaUpgrade("justflows.shop", [orders], "mysql", existing);
+    expect(upgrade?.columns).toEqual(["ALTER TABLE `shop_orders` ADD COLUMN `channel` VARCHAR(32)"]);
+    expect(upgrade?.indexes).toEqual([
+      "CREATE UNIQUE INDEX `idx_shop_orders_channel` ON `shop_orders` (`site_id`, `channel`)",
+    ]);
+    expect(upgrade?.columnNames).toEqual(["channel"]);
+  });
+
+  it("leaves postgres indexes to CREATE INDEX IF NOT EXISTS", () => {
+    const [upgrade] = compilePluginSchemaUpgrade("justflows.shop", [orders], "postgres", existing);
+    expect(upgrade?.columns).toEqual(['ALTER TABLE "shop_orders" ADD COLUMN "channel" VARCHAR(32)']);
+    expect(upgrade?.indexes).toEqual([]);
+  });
+
+  it("does nothing for new or complete tables and refuses a missing primary key", () => {
+    expect(compilePluginSchemaUpgrade("justflows.shop", [orders], "mysql", new Map())).toEqual([]);
+    const complete = new Map([
+      ["shop_orders", {
+        columns: new Set(["id", "site_id", "channel", "total"]),
+        indexes: new Set(["idx_shop_orders_site", "idx_shop_orders_channel"]),
+      }],
+    ]);
+    expect(compilePluginSchemaUpgrade("justflows.shop", [orders], "mysql", complete)).toEqual([]);
+    const noKey = new Map([["shop_orders", { columns: new Set(["site_id"]), indexes: new Set<string>() }]]);
+    expect(() => compilePluginSchemaUpgrade("justflows.shop", [orders], "mysql", noKey)).toThrow(/primary key/);
+  });
+
+  it("reads existing columns and indexes of owned tables only", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { TABLE_NAME: "shop_orders", COLUMN_NAME: "id" },
+        { table_name: Buffer.from("shop_orders"), column_name: "total" },
+        { table_name: "users", column_name: "id" },
+      ])
+      .mockResolvedValueOnce([{ TABLE_NAME: "shop_orders", INDEX_NAME: "idx_shop_orders_site" }]);
+    const found = await readExistingPluginTables({ query }, "justflows.shop", "mysql");
+    expect([...found.keys()]).toEqual(["shop_orders"]);
+    expect([...(found.get("shop_orders")?.columns ?? [])]).toEqual(["id", "total"]);
+    expect([...(found.get("shop_orders")?.indexes ?? [])]).toEqual(["idx_shop_orders_site"]);
+    expect(query.mock.calls.every((call) => call[1]?.[0] === "shop!_%")).toBe(true);
+  });
+
+  it("adds columns before indexes and fails on duplicate data under a new unique index", async () => {
+    const compiled = compilePluginSchema("justflows.shop", [orders], "postgres");
+    const upgrades = compilePluginSchemaUpgrade("justflows.shop", [orders], "postgres", existing);
+    const run = vi.fn().mockResolvedValue(undefined);
+    await applyCompiledSchema({ run }, compiled, upgrades);
+    const statements = run.mock.calls.map((call) => String(call[0]));
+    expect(statements[0]).toContain("CREATE TABLE IF NOT EXISTS");
+    expect(statements[1]).toContain("ADD COLUMN");
+    expect(statements.slice(2).every((sql) => sql.startsWith("CREATE"))).toBe(true);
+
+    const mysqlUpgrades = compilePluginSchemaUpgrade("justflows.shop", [orders], "mysql", existing);
+    const failing = vi.fn(async (sql: string) => {
+      if (sql.startsWith("CREATE UNIQUE INDEX")) throw new Error("Duplicate entry 'web' for key");
+      if (sql.includes("ADD COLUMN")) throw new Error("Duplicate column name 'channel'");
+    });
+    await expect(
+      applyCompiledSchema({ run: failing }, compilePluginSchema("justflows.shop", [orders], "mysql"), mysqlUpgrades),
+    ).rejects.toThrow(/Duplicate entry/);
   });
 });

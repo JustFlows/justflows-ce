@@ -75,7 +75,8 @@
     "defaults": "По умолчанию",
     "siteDomains": "Домены",
     "customDomains": "Свои домены",
-    "storage": "Хранилище"
+    "storage": "Хранилище",
+    "taxonomies": "Категории и метки"
   },
   "webhooks": {
     "title": "Вебхуки",
@@ -2332,6 +2333,24 @@
       "completed": "Завершено",
       "retry": "Повторить"
     },
+    "queue": {
+      "title": "Очередь задач",
+      "hint": "Сохранённые запуски задач плагинов во всей установке. Они переживают перезапуск; неудачные хранятся здесь 30 дней. Данные задач никогда не показываются.",
+      "counts": "{queued} в очереди · {running} выполняется · {failed} с ошибкой",
+      "unavailable": "Не настроена",
+      "unavailableHint": "Выполните миграции базы данных, чтобы сохранять задачи. До тех пор они работают в памяти и теряются при перезапуске.",
+      "empty": "Нет задач в ожидании, в работе или с ошибкой.",
+      "colSite": "Сайт",
+      "colRunAt": "Запуск",
+      "colError": "Последняя ошибка",
+      "allSites": "Все сайты",
+      "status": {
+        "queued": "В очереди",
+        "running": "Выполняется",
+        "done": "Готово",
+        "failed": "Ошибка"
+      }
+    },
     "overview": {
       "issuesFound": "Диагностика выявила вопросы, подлежащие рассмотрению",
       "allHealthy": "Все системы мониторинга здоровы.",
@@ -4230,5 +4249,46 @@
     "measured": "Measured at",
     "limitLabel": "Total storage (local + external)",
     "measuring": "Measuring storage…"
+  },
+  "taxonomies": {
+    "heading": "Категории и метки",
+    "subtitle": "Группируйте контент с помощью категорий, меток и собственных таксономий. Первая категория записи подставляется в %category% в постоянных ссылках.",
+    "loading": "Загрузка таксономий…",
+    "loadFailed": "Не удалось загрузить таксономии",
+    "saveFailed": "Не удалось сохранить",
+    "createFailed": "Не удалось создать",
+    "deleteFailed": "Не удалось удалить",
+    "assignFailed": "Не удалось сохранить категории и метки",
+    "newTaxonomy": "+ Новая таксономия",
+    "newTaxonomyHeading": "Новая таксономия",
+    "nameLabel": "Название",
+    "slugLabel": "Slug",
+    "descriptionLabel": "Описание",
+    "optionalPlaceholder": "Необязательно",
+    "taxonomyNamePlaceholder": "Жанры",
+    "taxonomySlugPlaceholder": "genre",
+    "taxonomySlugHint": "Строчными буквами; используется в URL архивов и в API.",
+    "hierarchicalLabel": "Иерархическая (у терминов может быть родитель, как у категорий)",
+    "contentTypesLabel": "Типы контента",
+    "contentTypesHint": "Записи этих типов показывают эту таксономию в редакторе.",
+    "builtinBadge": "встроенная",
+    "usedBy": "Используют: {types}",
+    "usedByNone": "Пока не используется ни одним типом контента",
+    "editTaxonomy": "Настройки",
+    "edit": "Изменить",
+    "addTerm": "Добавить термин",
+    "addTermButton": "Добавить",
+    "slugAutoPlaceholder": "Создаётся из названия",
+    "parentLabel": "Родитель",
+    "noParent": "Нет",
+    "noTerms": "Терминов пока нет.",
+    "countLabel": "Записи",
+    "slugChangeHint": "Старые URL архивов будут перенаправлять на новый slug.",
+    "deleteTermConfirm": "Удалить «{name}»? Термин будет убран из всех записей.",
+    "deleteTaxonomyConfirm": "Удалить таксономию «{name}» со всеми её терминами?",
+    "termNotFound": "«{name}» ещё не существует. Попросите редактора создать его.",
+    "removeTerm": "Убрать {name}",
+    "addOrCreate": "Добавить или создать",
+    "addExisting": "Добавить существующий"
   }
 }

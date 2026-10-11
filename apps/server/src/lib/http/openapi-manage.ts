@@ -111,6 +111,10 @@ export const MANAGE_API_OPENAPI = {
     "/content/{id}/header-ref": {
       put: op("Choose which header library entry a page renders (__default__, __none__, or an entry id)", "content:update"),
     },
+    "/content/{id}/terms": {
+      get: op("List the taxonomy terms assigned to a content entry", "content:read"),
+      put: op("Replace a content entry's terms for each taxonomy named in the body", "content:update"),
+    },
 
     "/media": {
       get: op("List media library items", "media:read"),
@@ -147,6 +151,23 @@ export const MANAGE_API_OPENAPI = {
       get: op("Get one content type", "content:read"),
       patch: op("Update a content type", "settings:manage"),
       delete: op("Delete a content type", "settings:manage"),
+    },
+
+    "/taxonomies": {
+      get: op("List taxonomies (categories, tags, custom) and the content types they apply to", "content:read"),
+      post: op("Create a taxonomy", "settings:manage", { "201": { description: "Created" } }),
+    },
+    "/taxonomies/{slug}": {
+      patch: op("Update a taxonomy's name, description or content types", "settings:manage"),
+      delete: op("Delete a custom taxonomy and its terms", "settings:manage"),
+    },
+    "/taxonomies/{slug}/terms": {
+      get: op("List a taxonomy's terms with entry counts", "content:read"),
+      post: op("Create a term", "content:publish", { "201": { description: "Created" } }),
+    },
+    "/taxonomies/{slug}/terms/{id}": {
+      patch: op("Rename, re-slug or re-parent a term", "content:publish"),
+      delete: op("Delete a term; child terms move up a level", "content:publish"),
     },
 
     "/languages": {

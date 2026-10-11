@@ -237,6 +237,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/blocks", requireInstalled, blocksRoutes);
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
+  app.use("/api/taxonomies", requireInstalled, (await import("./routes/content/taxonomies.js")).default);
   app.use("/api/audit", requireInstalled, auditRoutes);
   app.use("/api/redirects", requireInstalled, requireSiteFeature("feature.redirects"), (await import("./routes/settings/redirects.js")).default);
   app.use("/api/webhooks", requireInstalled, requireSiteFeature("feature.webhooks"), webhooksRoutes);

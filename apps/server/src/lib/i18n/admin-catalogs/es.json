@@ -75,7 +75,8 @@
     "defaults": "Valores predeterminados",
     "siteDomains": "Dominios",
     "customDomains": "Dominios propios",
-    "storage": "Almacenamiento"
+    "storage": "Almacenamiento",
+    "taxonomies": "Categorías y etiquetas"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2935,6 +2936,24 @@
       "completed": "Completado",
       "retry": "Reintentar"
     },
+    "queue": {
+      "title": "Cola de tareas",
+      "hint": "Ejecuciones guardadas de tareas de plugins en toda la instalación. Sobreviven a los reinicios; las fallidas se quedan aquí 30 días. Los datos de las tareas nunca se muestran.",
+      "counts": "{queued} en cola · {running} en curso · {failed} fallidas",
+      "unavailable": "Sin configurar",
+      "unavailableHint": "Ejecuta las migraciones de la base de datos para guardar las tareas. Hasta entonces se ejecutan en memoria y se pierden al reiniciar.",
+      "empty": "No hay nada en espera, en curso ni fallido.",
+      "colSite": "Sitio",
+      "colRunAt": "Se ejecuta",
+      "colError": "Último error",
+      "allSites": "Todos los sitios",
+      "status": {
+        "queued": "En cola",
+        "running": "En curso",
+        "done": "Hecha",
+        "failed": "Fallida"
+      }
+    },
     "header": {
       "title": "Diagnóstico",
       "subtitle": "Estado del sistema, detalles de ejecución e información para solucionar problemas.",
@@ -4232,5 +4251,46 @@
     "measured": "Measured at",
     "limitLabel": "Total storage (local + external)",
     "measuring": "Measuring storage…"
+  },
+  "taxonomies": {
+    "heading": "Categorías y etiquetas",
+    "subtitle": "Agrupa el contenido con categorías, etiquetas y taxonomías propias. La primera categoría de una entrada rellena %category% en los enlaces permanentes.",
+    "loading": "Cargando taxonomías…",
+    "loadFailed": "No se pudieron cargar las taxonomías",
+    "saveFailed": "No se pudo guardar",
+    "createFailed": "No se pudo crear",
+    "deleteFailed": "No se pudo eliminar",
+    "assignFailed": "No se pudieron guardar las categorías y etiquetas",
+    "newTaxonomy": "+ Nueva taxonomía",
+    "newTaxonomyHeading": "Nueva taxonomía",
+    "nameLabel": "Nombre",
+    "slugLabel": "Slug",
+    "descriptionLabel": "Descripción",
+    "optionalPlaceholder": "Opcional",
+    "taxonomyNamePlaceholder": "Géneros",
+    "taxonomySlugPlaceholder": "genero",
+    "taxonomySlugHint": "En minúsculas; se usa en las URL de archivo y en la API.",
+    "hierarchicalLabel": "Jerárquica (los términos pueden tener un término superior, como las categorías)",
+    "contentTypesLabel": "Tipos de contenido",
+    "contentTypesHint": "Las entradas de estos tipos muestran esta taxonomía en el editor.",
+    "builtinBadge": "integrada",
+    "usedBy": "Usada por: {types}",
+    "usedByNone": "Todavía no la usa ningún tipo de contenido",
+    "editTaxonomy": "Ajustes",
+    "edit": "Editar",
+    "addTerm": "Añadir término",
+    "addTermButton": "Añadir",
+    "slugAutoPlaceholder": "Se genera a partir del nombre",
+    "parentLabel": "Superior",
+    "noParent": "Ninguno",
+    "noTerms": "Todavía no hay términos.",
+    "countLabel": "Entradas",
+    "slugChangeHint": "Las URL de archivo antiguas redirigirán al nuevo slug.",
+    "deleteTermConfirm": "¿Eliminar «{name}»? Se quitará de todas las entradas.",
+    "deleteTaxonomyConfirm": "¿Eliminar la taxonomía «{name}» con todos sus términos?",
+    "termNotFound": "«{name}» todavía no existe. Pide a un editor que lo cree.",
+    "removeTerm": "Quitar {name}",
+    "addOrCreate": "Añadir o crear",
+    "addExisting": "Añadir existente"
   }
 }
