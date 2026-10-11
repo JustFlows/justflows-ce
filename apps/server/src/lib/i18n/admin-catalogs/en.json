@@ -75,7 +75,8 @@
     "defaults": "Defaults",
     "siteDomains": "Domains",
     "customDomains": "Custom domains",
-    "storage": "Storage"
+    "storage": "Storage",
+    "taxonomies": "Categories & Tags"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2332,6 +2333,24 @@
       "completed": "Completed",
       "retry": "Retry"
     },
+    "queue": {
+      "title": "Job queue",
+      "hint": "Stored runs of plugin jobs across the installation. They survive restarts; failed runs stay here for 30 days. Payloads are never displayed.",
+      "counts": "{queued} queued · {running} running · {failed} failed",
+      "unavailable": "Not set up",
+      "unavailableHint": "Run the database migrations to store jobs. Until then they run in memory and are lost on restart.",
+      "empty": "Nothing is waiting, running, or failed.",
+      "colSite": "Site",
+      "colRunAt": "Runs at",
+      "colError": "Last error",
+      "allSites": "All sites",
+      "status": {
+        "queued": "Queued",
+        "running": "Running",
+        "done": "Done",
+        "failed": "Failed"
+      }
+    },
     "overview": {
       "issuesFound": "Diagnostics found items to review",
       "allHealthy": "All monitored systems are healthy",
@@ -4230,5 +4249,46 @@
     "measured": "Measured at",
     "limitLabel": "Total storage (local + external)",
     "measuring": "Measuring storage…"
+  },
+  "taxonomies": {
+    "heading": "Categories & Tags",
+    "subtitle": "Group content with categories, tags and your own taxonomies. A post's first category fills %category% in permalinks.",
+    "loading": "Loading taxonomies…",
+    "loadFailed": "Failed to load taxonomies",
+    "saveFailed": "Failed to save",
+    "createFailed": "Failed to create",
+    "deleteFailed": "Failed to delete",
+    "assignFailed": "Failed to save categories and tags",
+    "newTaxonomy": "+ New taxonomy",
+    "newTaxonomyHeading": "New taxonomy",
+    "nameLabel": "Name",
+    "slugLabel": "Slug",
+    "descriptionLabel": "Description",
+    "optionalPlaceholder": "Optional",
+    "taxonomyNamePlaceholder": "Genres",
+    "taxonomySlugPlaceholder": "genre",
+    "taxonomySlugHint": "Lowercase, used in archive URLs and the API.",
+    "hierarchicalLabel": "Hierarchical (terms can have parents, like categories)",
+    "contentTypesLabel": "Content types",
+    "contentTypesHint": "Entries of these types show this taxonomy in the editor.",
+    "builtinBadge": "built-in",
+    "usedBy": "Used by: {types}",
+    "usedByNone": "Not used by any content type yet",
+    "editTaxonomy": "Settings",
+    "edit": "Edit",
+    "addTerm": "Add term",
+    "addTermButton": "Add",
+    "slugAutoPlaceholder": "Generated from the name",
+    "parentLabel": "Parent",
+    "noParent": "None",
+    "noTerms": "No terms yet.",
+    "countLabel": "Entries",
+    "slugChangeHint": "Old archive URLs will redirect to the new slug.",
+    "deleteTermConfirm": "Delete “{name}”? It is removed from every entry.",
+    "deleteTaxonomyConfirm": "Delete taxonomy “{name}” with all its terms?",
+    "termNotFound": "“{name}” does not exist yet. Ask an editor to create it.",
+    "removeTerm": "Remove {name}",
+    "addOrCreate": "Add or create",
+    "addExisting": "Add existing"
   }
 }

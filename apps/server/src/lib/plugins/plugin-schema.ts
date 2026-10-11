@@ -260,17 +260,140 @@ export function compilePluginSchema(
   });
 }
 
+/** Columns and index names an existing plugin table already has. */
+export interface ExistingPluginTable {
+  columns: Set<string>;
+  indexes: Set<string>;
+}
+
+export interface PluginTableUpgrade {
+  tableName: string;
+  /** `ALTER TABLE … ADD COLUMN` statements; run before the table's indexes. */
+  columns: string[];
+  /** `CREATE INDEX` statements for declared indexes the table lacks. */
+  indexes: string[];
+  columnNames: string[];
+  indexNames: string[];
+}
+
+/**
+ * Statements that bring tables that already exist up to their declaration.
+ * Only additions: a declared column the table lacks is added as nullable, with
+ * no UNIQUE constraint (existing rows have no value for it; declare a unique
+ * index instead), and a declared index it lacks is created. Changed types,
+ * removed columns, and removed indexes are left alone.
+ * PostgreSQL indexes already use `CREATE INDEX IF NOT EXISTS` on every apply.
+ */
+export function compilePluginSchemaUpgrade(
+  pluginId: string,
+  tables: PluginSchemaTable[],
+  driver: PluginDatabaseDriver,
+  existing: Map<string, ExistingPluginTable>,
+): PluginTableUpgrade[] {
+  const prefix = pluginTablePrefix(pluginId);
+  const upgrades: PluginTableUpgrade[] = [];
+  for (const table of tables) {
+    const tableName = `${prefix}_${assertIdent("table", table.name)}`;
+    const current = existing.get(tableName);
+    if (!current) continue;
+    const quotedTable = quoteIdent(tableName, driver);
+    const upgrade: PluginTableUpgrade = { tableName, columns: [], indexes: [], columnNames: [], indexNames: [] };
+    for (const column of table.columns) {
+      if (current.columns.has(column.name)) continue;
+      if (column.primary) {
+        throw new Error(`Table "${tableName}" exists without its primary key column "${column.name}"; it cannot be added.`);
+      }
+      upgrade.columns.push(
+        `ALTER TABLE ${quotedTable} ADD COLUMN ${quoteIdent(column.name, driver)} ${sqlType(column, driver)}`,
+      );
+      upgrade.columnNames.push(column.name);
+    }
+    if (driver !== "postgres") {
+      for (const index of table.indexes ?? []) {
+        const indexName = `idx_${tableName}_${assertIdent("index", index.name)}`;
+        if (current.indexes.has(indexName)) continue;
+        const cols = index.columns.map((col) => quoteIdent(col, driver));
+        upgrade.indexes.push(
+          `CREATE ${index.unique ? "UNIQUE " : ""}INDEX ${quoteIdent(indexName, driver)} ON ${quotedTable} (${cols.join(", ")})`,
+        );
+        upgrade.indexNames.push(indexName);
+      }
+    }
+    if (upgrade.columns.length > 0 || upgrade.indexes.length > 0) upgrades.push(upgrade);
+  }
+  return upgrades;
+}
+
+function rowText(row: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    if (row[key] !== undefined) return asTableName(row[key]);
+  }
+  return "";
+}
+
+/** Columns and indexes of this plugin's existing tables, in two queries. */
+export async function readExistingPluginTables(
+  db: Pick<DbClient, "query">,
+  pluginId: string,
+  driver: PluginDatabaseDriver,
+): Promise<Map<string, ExistingPluginTable>> {
+  const pattern = pluginOwnedTableLikePattern(pluginId);
+  const columnsSql =
+    driver === "postgres"
+      ? "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name LIKE ? ESCAPE '!'"
+      : "SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE ? ESCAPE '!'";
+  const indexesSql =
+    driver === "postgres"
+      ? "SELECT tablename AS table_name, indexname AS index_name FROM pg_catalog.pg_indexes WHERE schemaname = current_schema() AND tablename LIKE ? ESCAPE '!'"
+      : "SELECT DISTINCT TABLE_NAME AS table_name, INDEX_NAME AS index_name FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE ? ESCAPE '!'";
+  const existing = new Map<string, ExistingPluginTable>();
+  const entry = (name: string): ExistingPluginTable => {
+    let found = existing.get(name);
+    if (!found) {
+      found = { columns: new Set(), indexes: new Set() };
+      existing.set(name, found);
+    }
+    return found;
+  };
+  for (const row of await db.query<Record<string, unknown>>(columnsSql, [pattern])) {
+    const name = rowText(row, "table_name", "TABLE_NAME");
+    if (isPluginOwnedTable(pluginId, name)) entry(name).columns.add(rowText(row, "column_name", "COLUMN_NAME"));
+  }
+  for (const row of await db.query<Record<string, unknown>>(indexesSql, [pattern])) {
+    const name = rowText(row, "table_name", "TABLE_NAME");
+    if (existing.has(name)) entry(name).indexes.add(rowText(row, "index_name", "INDEX_NAME"));
+  }
+  return existing;
+}
+
+/** A concurrent apply already added it. Duplicate data under a new unique index is not ignored. */
+function isAlreadyApplied(err: unknown): boolean {
+  const msg = String(err).toLowerCase();
+  return msg.includes("duplicate column") || msg.includes("duplicate key name") || msg.includes("already exists");
+}
+
 export async function applyCompiledSchema(
   db: Pick<DbClient, "run">,
   compiled: { tableName: string; sql: string[] }[],
+  upgrades: PluginTableUpgrade[] = [],
 ): Promise<string[]> {
+  const byTable = new Map(upgrades.map((upgrade) => [upgrade.tableName, upgrade]));
   const created: string[] = [];
   for (const table of compiled) {
-    for (const statement of table.sql) {
+    const upgrade = byTable.get(table.tableName);
+    // CREATE TABLE first, then missing columns, then indexes that may use them.
+    const statements = [
+      ...table.sql.slice(0, 1),
+      ...(upgrade?.columns ?? []),
+      ...table.sql.slice(1),
+      ...(upgrade?.indexes ?? []),
+    ];
+    for (const statement of statements) {
       try {
         await db.run(statement);
       } catch (err) {
-        if (!isIgnorableMigrationError(err)) throw err;
+        const added = upgrade && (upgrade.columns.includes(statement) || upgrade.indexes.includes(statement));
+        if (added ? !isAlreadyApplied(err) : !isIgnorableMigrationError(err)) throw err;
       }
     }
     created.push(table.tableName);
@@ -427,8 +550,21 @@ export async function applyPluginSchema(options: {
           }
         }
       }
-      const tables = await applyCompiledSchema(db, compiled);
-      return { ok: true, tables };
+      const upgrades = compilePluginSchemaUpgrade(
+        options.pluginId,
+        options.tables,
+        driver,
+        await readExistingPluginTables(db, options.pluginId, driver),
+      );
+      const tables = await applyCompiledSchema(db, compiled, upgrades);
+      const columnsAdded = upgrades.flatMap((u) => u.columnNames.map((name) => `${u.tableName}.${name}`));
+      const indexesAdded = upgrades.flatMap((u) => u.indexNames);
+      return {
+        ok: true,
+        tables,
+        ...(columnsAdded.length > 0 ? { columnsAdded } : {}),
+        ...(indexesAdded.length > 0 ? { indexesAdded } : {}),
+      };
     } finally {
       if (close) await db.close();
     }

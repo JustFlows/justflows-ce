@@ -75,7 +75,8 @@
     "defaults": "Valeurs par défaut",
     "siteDomains": "Domaines",
     "customDomains": "Domaines personnalisés",
-    "storage": "Stockage"
+    "storage": "Stockage",
+    "taxonomies": "Catégories et étiquettes"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2935,6 +2936,24 @@
       "completed": "Terminé",
       "retry": "Réessayer"
     },
+    "queue": {
+      "title": "File des tâches",
+      "hint": "Exécutions enregistrées des tâches des extensions, pour toute l’installation. Elles survivent aux redémarrages ; les échecs restent ici 30 jours. Les données des tâches ne sont jamais affichées.",
+      "counts": "{queued} en attente · {running} en cours · {failed} en échec",
+      "unavailable": "Non configurée",
+      "unavailableHint": "Exécutez les migrations de la base de données pour enregistrer les tâches. D’ici là, elles tournent en mémoire et sont perdues au redémarrage.",
+      "empty": "Rien n’attend, ne tourne ni n’a échoué.",
+      "colSite": "Site",
+      "colRunAt": "Prévue à",
+      "colError": "Dernière erreur",
+      "allSites": "Tous les sites",
+      "status": {
+        "queued": "En attente",
+        "running": "En cours",
+        "done": "Terminée",
+        "failed": "En échec"
+      }
+    },
     "header": {
       "title": "Diagnostic",
       "subtitle": "État du système, détails d’exécution et informations de dépannage.",
@@ -4232,5 +4251,46 @@
     "measured": "Measured at",
     "limitLabel": "Total storage (local + external)",
     "measuring": "Measuring storage…"
+  },
+  "taxonomies": {
+    "heading": "Catégories et étiquettes",
+    "subtitle": "Classez vos contenus avec des catégories, des étiquettes et vos propres taxonomies. La première catégorie d’un article remplit %category% dans les permaliens.",
+    "loading": "Chargement des taxonomies…",
+    "loadFailed": "Impossible de charger les taxonomies",
+    "saveFailed": "Échec de l’enregistrement",
+    "createFailed": "Échec de la création",
+    "deleteFailed": "Échec de la suppression",
+    "assignFailed": "Impossible d’enregistrer les catégories et étiquettes",
+    "newTaxonomy": "+ Nouvelle taxonomie",
+    "newTaxonomyHeading": "Nouvelle taxonomie",
+    "nameLabel": "Nom",
+    "slugLabel": "Slug",
+    "descriptionLabel": "Description",
+    "optionalPlaceholder": "Facultatif",
+    "taxonomyNamePlaceholder": "Genres",
+    "taxonomySlugPlaceholder": "genre",
+    "taxonomySlugHint": "En minuscules, utilisé dans les URL d’archive et l’API.",
+    "hierarchicalLabel": "Hiérarchique (les termes peuvent avoir un parent, comme les catégories)",
+    "contentTypesLabel": "Types de contenu",
+    "contentTypesHint": "Les entrées de ces types affichent cette taxonomie dans l’éditeur.",
+    "builtinBadge": "intégrée",
+    "usedBy": "Utilisée par : {types}",
+    "usedByNone": "Utilisée par aucun type de contenu pour l’instant",
+    "editTaxonomy": "Réglages",
+    "edit": "Modifier",
+    "addTerm": "Ajouter un terme",
+    "addTermButton": "Ajouter",
+    "slugAutoPlaceholder": "Généré à partir du nom",
+    "parentLabel": "Parent",
+    "noParent": "Aucun",
+    "noTerms": "Aucun terme pour l’instant.",
+    "countLabel": "Entrées",
+    "slugChangeHint": "Les anciennes URL d’archive redirigeront vers le nouveau slug.",
+    "deleteTermConfirm": "Supprimer « {name} » ? Il sera retiré de toutes les entrées.",
+    "deleteTaxonomyConfirm": "Supprimer la taxonomie « {name} » et tous ses termes ?",
+    "termNotFound": "« {name} » n’existe pas encore. Demandez à un éditeur de le créer.",
+    "removeTerm": "Retirer {name}",
+    "addOrCreate": "Ajouter ou créer",
+    "addExisting": "Ajouter un terme existant"
   }
 }

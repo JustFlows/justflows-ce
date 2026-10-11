@@ -75,7 +75,8 @@
     "defaults": "Domyślne",
     "siteDomains": "Domeny",
     "customDomains": "Własne domeny",
-    "storage": "Magazyn"
+    "storage": "Magazyn",
+    "taxonomies": "Kategorie i tagi"
   },
   "webhooks": {
     "title": "Haki internetowe",
@@ -2332,6 +2333,24 @@
       "completed": "Ukończono",
       "retry": "Spróbuj ponownie"
     },
+    "queue": {
+      "title": "Kolejka zadań",
+      "hint": "Zapisane uruchomienia zadań wtyczek w całej instalacji. Przetrwają restart; nieudane zostają tu przez 30 dni. Dane zadań nigdy nie są wyświetlane.",
+      "counts": "{queued} w kolejce · {running} w toku · {failed} nieudanych",
+      "unavailable": "Nieskonfigurowana",
+      "unavailableHint": "Uruchom migracje bazy danych, aby zapisywać zadania. Do tego czasu działają w pamięci i giną przy restarcie.",
+      "empty": "Nic nie czeka, nie działa ani nie zakończyło się błędem.",
+      "colSite": "Witryna",
+      "colRunAt": "Uruchomienie",
+      "colError": "Ostatni błąd",
+      "allSites": "Wszystkie witryny",
+      "status": {
+        "queued": "W kolejce",
+        "running": "W toku",
+        "done": "Gotowe",
+        "failed": "Nieudane"
+      }
+    },
     "overview": {
       "issuesFound": "Diagnostyka znalazła elementy do sprawdzenia",
       "allHealthy": "Wszystkie monitorowane systemy są sprawne",
@@ -4230,5 +4249,46 @@
     "measured": "Measured at",
     "limitLabel": "Total storage (local + external)",
     "measuring": "Measuring storage…"
+  },
+  "taxonomies": {
+    "heading": "Kategorie i tagi",
+    "subtitle": "Porządkuj treści za pomocą kategorii, tagów i własnych taksonomii. Pierwsza kategoria wpisu wypełnia %category% w odnośnikach bezpośrednich.",
+    "loading": "Wczytywanie taksonomii…",
+    "loadFailed": "Nie udało się wczytać taksonomii",
+    "saveFailed": "Nie udało się zapisać",
+    "createFailed": "Nie udało się utworzyć",
+    "deleteFailed": "Nie udało się usunąć",
+    "assignFailed": "Nie udało się zapisać kategorii i tagów",
+    "newTaxonomy": "+ Nowa taksonomia",
+    "newTaxonomyHeading": "Nowa taksonomia",
+    "nameLabel": "Nazwa",
+    "slugLabel": "Slug",
+    "descriptionLabel": "Opis",
+    "optionalPlaceholder": "Opcjonalnie",
+    "taxonomyNamePlaceholder": "Gatunki",
+    "taxonomySlugPlaceholder": "gatunek",
+    "taxonomySlugHint": "Małe litery; używany w adresach archiwów i w API.",
+    "hierarchicalLabel": "Hierarchiczna (terminy mogą mieć termin nadrzędny, jak kategorie)",
+    "contentTypesLabel": "Typy treści",
+    "contentTypesHint": "Wpisy tych typów pokazują tę taksonomię w edytorze.",
+    "builtinBadge": "wbudowana",
+    "usedBy": "Używana przez: {types}",
+    "usedByNone": "Nie używa jej jeszcze żaden typ treści",
+    "editTaxonomy": "Ustawienia",
+    "edit": "Edytuj",
+    "addTerm": "Dodaj termin",
+    "addTermButton": "Dodaj",
+    "slugAutoPlaceholder": "Tworzony na podstawie nazwy",
+    "parentLabel": "Nadrzędny",
+    "noParent": "Brak",
+    "noTerms": "Brak terminów.",
+    "countLabel": "Wpisy",
+    "slugChangeHint": "Stare adresy archiwów będą przekierowywać na nowy slug.",
+    "deleteTermConfirm": "Usunąć „{name}”? Termin zostanie usunięty ze wszystkich wpisów.",
+    "deleteTaxonomyConfirm": "Usunąć taksonomię „{name}” wraz ze wszystkimi terminami?",
+    "termNotFound": "„{name}” jeszcze nie istnieje. Poproś redaktora o jego utworzenie.",
+    "removeTerm": "Usuń {name}",
+    "addOrCreate": "Dodaj lub utwórz",
+    "addExisting": "Dodaj istniejący"
   }
 }

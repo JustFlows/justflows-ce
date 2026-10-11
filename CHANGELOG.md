@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.6] [UNRELEASED]
+
+### Added
+
+- **Categories, tags and custom taxonomies.** Content → Categories & Tags manages terms per taxonomy: add, rename, re-slug, nest categories, and delete (child categories move up a level). Every site gets `category` and `tag` for posts. Administrators can add their own taxonomies and choose which content types use each one. The editor sidebar has a picker per taxonomy, saved with the entry, where editors can also create new terms. A post's first category now fills `%category%` in permalinks, and term archives such as `/category/news` list its entries. Changing a post's category or a term's slug redirects the old URLs. Also available through the management API (`/taxonomies`, `/content/{id}/terms`) and MCP tools (`taxonomies_*`, `terms_*`, `content_terms_get`, `content_terms_set`). Adds migration `0047_taxonomy_content_types`. The `taxonomies` plugin API namespace is now reserved for core.
+- **Durable plugin job queue.** `ctx.jobs.enqueue()` now stores each run in the new `job_queue` table, so enqueued work survives a restart, and every call is its own run with its own payload (before, a second call replaced a pending run's payload). Server processes claim due runs with a lease and heartbeat, so a run executes on one process at a time and one interrupted by a crash is picked up again. Failed runs (a thrown error or `success: false`) are retried after 1, 5, 25 and then 60 minutes up to `maxAttempts`, and stay listed under Diagnostics → Job queue, where administrators can retry them; payloads are never shown. A `perSite` job enqueued for a site now runs only on that site. `enqueue()` returns a promise that resolves once the run is stored. Adds migration `0048_job_queue`; without it, runs stay in memory as before.
+- **Plugin tables upgrade with the plugin.** `ctx.databases.ensureSchema()` now adds declared columns and indexes that existing plugin tables lack, on PostgreSQL, MySQL, and MariaDB, and reports them as `columnsAdded` and `indexesAdded`. Added columns are nullable and not unique; types are never changed and nothing is dropped. A unique index that existing rows break fails the call instead of being skipped. Before, only missing tables were created, so a column added in a plugin update never reached existing installations.
+
 ## [0.3.5]
 
 ### Added

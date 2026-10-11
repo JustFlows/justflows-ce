@@ -75,7 +75,8 @@
     "defaults": "Типові",
     "siteDomains": "Домени",
     "customDomains": "Власні домени",
-    "storage": "Сховище"
+    "storage": "Сховище",
+    "taxonomies": "Категорії та теги"
   },
   "webhooks": {
     "title": "Веб-хуки",
@@ -2332,6 +2333,24 @@
       "completed": "Виконано",
       "retry": "Повторіть спробу"
     },
+    "queue": {
+      "title": "Черга завдань",
+      "hint": "Збережені запуски завдань плагінів у всій установці. Вони переживають перезапуск; невдалі зберігаються тут 30 днів. Дані завдань ніколи не показуються.",
+      "counts": "{queued} у черзі · {running} виконується · {failed} з помилкою",
+      "unavailable": "Не налаштована",
+      "unavailableHint": "Виконайте міграції бази даних, щоб зберігати завдання. Доти вони працюють у пам’яті й втрачаються під час перезапуску.",
+      "empty": "Немає завдань в очікуванні, у роботі чи з помилкою.",
+      "colSite": "Сайт",
+      "colRunAt": "Запуск",
+      "colError": "Остання помилка",
+      "allSites": "Усі сайти",
+      "status": {
+        "queued": "У черзі",
+        "running": "Виконується",
+        "done": "Готово",
+        "failed": "Помилка"
+      }
+    },
     "overview": {
       "issuesFound": "Діагностика знайшла елементи для перегляду",
       "allHealthy": "Усі контрольовані системи справні",
@@ -4230,5 +4249,46 @@
     "measured": "Measured at",
     "limitLabel": "Total storage (local + external)",
     "measuring": "Measuring storage…"
+  },
+  "taxonomies": {
+    "heading": "Категорії та теги",
+    "subtitle": "Групуйте вміст за допомогою категорій, тегів і власних таксономій. Перша категорія запису підставляється в %category% у постійних посиланнях.",
+    "loading": "Завантаження таксономій…",
+    "loadFailed": "Не вдалося завантажити таксономії",
+    "saveFailed": "Не вдалося зберегти",
+    "createFailed": "Не вдалося створити",
+    "deleteFailed": "Не вдалося видалити",
+    "assignFailed": "Не вдалося зберегти категорії та теги",
+    "newTaxonomy": "+ Нова таксономія",
+    "newTaxonomyHeading": "Нова таксономія",
+    "nameLabel": "Назва",
+    "slugLabel": "Slug",
+    "descriptionLabel": "Опис",
+    "optionalPlaceholder": "Необов’язково",
+    "taxonomyNamePlaceholder": "Жанри",
+    "taxonomySlugPlaceholder": "genre",
+    "taxonomySlugHint": "Малими літерами; використовується в URL архівів і в API.",
+    "hierarchicalLabel": "Ієрархічна (терміни можуть мати батьківський термін, як категорії)",
+    "contentTypesLabel": "Типи вмісту",
+    "contentTypesHint": "Записи цих типів показують цю таксономію в редакторі.",
+    "builtinBadge": "вбудована",
+    "usedBy": "Використовують: {types}",
+    "usedByNone": "Поки не використовує жоден тип вмісту",
+    "editTaxonomy": "Налаштування",
+    "edit": "Редагувати",
+    "addTerm": "Додати термін",
+    "addTermButton": "Додати",
+    "slugAutoPlaceholder": "Створюється з назви",
+    "parentLabel": "Батьківський",
+    "noParent": "Немає",
+    "noTerms": "Термінів ще немає.",
+    "countLabel": "Записи",
+    "slugChangeHint": "Старі URL архівів перенаправлятимуть на новий slug.",
+    "deleteTermConfirm": "Видалити «{name}»? Термін буде прибрано з усіх записів.",
+    "deleteTaxonomyConfirm": "Видалити таксономію «{name}» з усіма її термінами?",
+    "termNotFound": "«{name}» ще не існує. Попросіть редактора створити його.",
+    "removeTerm": "Прибрати {name}",
+    "addOrCreate": "Додати або створити",
+    "addExisting": "Додати наявний"
   }
 }

@@ -126,6 +126,8 @@ A plugin is installed on the main site. On Plugins, that site turns on **Allow o
 
 Another site cannot uninstall a plugin. When it turns a plugin off, the host honours that site's `deleteDataOnUninstall` and `deleteContentOnUninstall` settings the same way a full remove would for that site alone: the plugin's `deleteData` hook runs, owned CMS types and entries can be deleted, and that site's rows are cleared. Tables stay so other sites keep their data. Turn those settings off before deactivating if this site's catalog and pages should remain.
 
+Enqueued plugin job runs (`ctx.jobs.enqueue`) are stored once for the whole installation, in the control database's `job_queue` table, with the site that enqueued them. A per-site job runs only on that site, inside its context and database. Diagnostics → Job queue on the main site lists every site's waiting, running, and failed runs.
+
 A plugin reads the workspace for the current request with `ctx.tenancy.current()`. That object has the workspace id, site id, hostname, user mode, database mode, and whether this is the main site. It never includes a database password.
 
 Creating, listing, suspending, reactivating, and deleting workspaces requires the `platform:tenancy` manifest permission. The same operations are on the management API at `/api/manage/v1/tenants` for an API key whose user is a platform operator.

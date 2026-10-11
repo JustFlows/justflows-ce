@@ -819,7 +819,18 @@ export interface PluginJobDefinition {
 
 export interface PluginJobsApi {
   register(def: PluginJobDefinition): void;
-  enqueue(name: string, options?: { delayMs?: number; payload?: unknown }): void;
+  /**
+   * Run a registered job once, after `delayMs`. Each call is its own run with
+   * its own `payload` (JSON, up to 1 MB). On hosts with the durable queue
+   * (core 0.3.6) the run is stored first and survives a restart; the returned
+   * promise resolves once it is stored and never rejects. A run whose handler
+   * throws or returns `success: false` is retried until `maxAttempts`
+   * (default 3), so handlers must be safe to repeat; failed runs are listed in
+   * Diagnostics. A `perSite` job enqueued while handling a site's request or
+   * job runs only for that site; enqueued outside one, for every site.
+   * Throws when the job is not registered.
+   */
+  enqueue(name: string, options?: { delayMs?: number; payload?: unknown }): void | Promise<void>;
 }
 
 /**
@@ -1205,6 +1216,13 @@ export interface PluginSchemaApplyResult {
   ok: boolean;
   tables: string[];
   error?: string;
+  /**
+   * `ensureSchema` only: declared columns it added to tables that already
+   * existed (`shop_orders.channel`). Added columns are nullable and not unique.
+   */
+  columnsAdded?: string[];
+  /** `ensureSchema` only: declared indexes it added to tables that already existed. */
+  indexesAdded?: string[];
 }
 
 export interface PluginWorkspace {
@@ -1469,6 +1487,12 @@ export interface PluginDatabasesApi {
    * Create the plugin's tables if they are missing. Names are prefixed with the
    * plugin slug so a plugin cannot create `users` or other core tables.
    * Omit `target` to use the current Justflows database.
+   *
+   * Tables that already exist get the declared columns and indexes they lack,
+   * so adding a column to a declaration upgrades existing installations. An
+   * added column is nullable and not unique (existing rows have no value);
+   * declare a unique index for it instead. Types, removed columns and removed
+   * indexes are never changed: a plugin migrates its data itself.
    */
   ensureSchema(
     tables: PluginSchemaTable[],

@@ -8,11 +8,12 @@ import path from "node:path";
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
-import { getDb } from "../../lib/database/db.js";
+import { getControlDb, getDb } from "../../lib/database/db.js";
 import { debugMode, recentDiagnosticErrors, recentRequestTraces, redactDiagnosticValue } from "../../lib/runtime/diagnostics.js";
 import { getJfCache } from "../../lib/cache/jf-cache.js";
 import { getPluginLoader, getRuntimeHooks } from "../../lib/plugins/plugin-runtime.js";
-import { getPluginJobScheduler } from "../../lib/plugins/plugin-jobs.js";
+import { getDurableJobQueue, getPluginJobScheduler } from "../../lib/plugins/plugin-jobs.js";
+import { countJobs, listOpenJobs, retryFailedJob } from "../../lib/jobs/job-queue-db.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { MIGRATION_ORDER } from "../../lib/database/run-migrations.js";
 import { requireInstallationRoot, requireRole } from "../../middleware/auth.js";
@@ -225,6 +226,19 @@ function parsePermissions(value: string | string[]): string[] {
   } catch { return []; }
 }
 
+/** The durable queue across the installation: counts and unfinished or failed runs, without payloads. */
+async function queueReport() {
+  const queue = getDurableJobQueue();
+  if (!(await queue.isAvailable())) return { available: false as const };
+  try {
+    const db = await getControlDb();
+    const [counts, items] = await Promise.all([countJobs(db), listOpenJobs(db, 50)]);
+    return { available: true as const, running: queue.isRunning(), counts, items };
+  } catch {
+    return { available: false as const };
+  }
+}
+
 async function buildReport(siteId: string) {
   const cache = getJfCache();
   const cacheStats = cache.getStats();
@@ -271,7 +285,7 @@ async function buildReport(siteId: string) {
         disabled: hooks.filter((hook) => hook.disabled).length,
       },
     },
-    jobs: { running: getPluginJobScheduler().isRunning(), items: getPluginJobScheduler().listJobs() },
+    jobs: { running: getPluginJobScheduler().isRunning(), items: getPluginJobScheduler().listJobs(), queue: await queueReport() },
     pluginChecks: redactDiagnosticValue(pluginChecks),
     errors: recentDiagnosticErrors(),
     traces: recentRequestTraces(),
@@ -307,6 +321,19 @@ router.post("/test", async (req, res) => {
     auditFromRequest(req, "diagnostics.test_run", { detail: parsed.data.action });
     res.json({ ok: true, action: parsed.data.action, latencyMs: Math.round((performance.now() - started) * 100) / 100 });
   } catch (err) { sendServerError(res, `diagnostics ${parsed.data.action} test`, err); }
+});
+
+router.post("/jobs/queue/:id/retry", async (req, res) => {
+  const id = String(req.params.id);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) { res.status(404).json({ error: "Unknown queued job" }); return; }
+  try {
+    if (!(await retryFailedJob(await getControlDb(), id, Date.now()))) {
+      res.status(409).json({ error: "Only failed jobs can be retried" });
+      return;
+    }
+    auditFromRequest(req, "diagnostics.job_retried", { detail: `queue:${id}` });
+    res.json({ ok: true });
+  } catch (err) { sendServerError(res, "diagnostics queue retry", err); }
 });
 
 router.post("/jobs/:name/retry", (req, res) => {
