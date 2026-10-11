@@ -380,7 +380,10 @@ module, exactly as for any plugin; only the screen moved into the frame.
 
 Rules: `dir` and `entry` are relative, no `..`; `entry` must be `.html`; each
 `path` is relative to `/admin/plugins/<your plugin id>` (omit it for the root);
-at most 20 routes. Ship the `dir` inside your `.jfpkg`.
+at most 40 routes. Ship the `dir` inside your `.jfpkg`. A route whose `path`
+starts with `settings/` (for example `settings/backups`) is a sub-page of the
+plugin's Settings page, which links to it when the plugin's `admin.menu` lists
+that path (it can be `listed: false` to stay out of the menu).
 
 **Locales are part of the manifest.** An `adminApp` must declare `locales.en`.
 That English file is the default catalog: the frame uses it whenever the admin
@@ -951,3 +954,15 @@ Shop demonstrates the migration in `plugins/ecommerce`; Hello World's `status`
 route is available at `/api/hello-world/status`. Updating source requires building
 and installing the updated plugin package before an installed site uses its
 new manifest and browser assets.
+
+### Durable outbound plugin events
+
+A plugin with its own persisted event outbox can call
+`ctx.hooks.emit(name, payload, { durable: true })` to persist core webhook
+deliveries before dispatching action listeners. Queue failures reject that
+call, so the plugin can retain and retry its pending event. The runtime
+marks the action context `webhookQueued` to prevent the core observer from
+queuing it again. Ordinary `emit(name, payload)` retains isolated-listener
+semantics. A runtime without a durable publisher rejects durable dispatch.
+Declare event names with `webhook.eventTypes`, document versioned JSON
+payloads, and require receivers to deduplicate on a stable event key.

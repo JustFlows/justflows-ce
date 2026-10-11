@@ -58,6 +58,8 @@
     "shopInvoices": "Factures",
     "shopEmails": "E-mails",
     "shopReports": "Rapports",
+    "shopSubscriptions": "Abonnements",
+    "shopBackups": "Sauvegardes",
     "shopPage": "Page boutique",
     "redirects": "Redirections",
     "diagnostics": "Diagnostic",
@@ -2008,7 +2010,8 @@
     "perLanguage": "Par langue",
     "allLanguages": "Toutes les langues",
     "settingsHeading": "Paramètres",
-    "saveButton": "Enregistrer les réglages"
+    "saveButton": "Enregistrer les réglages",
+    "morePages": "Autres réglages"
   },
   "media": {
     "loadFailed": "Impossible de charger les médias",

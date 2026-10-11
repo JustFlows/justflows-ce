@@ -79,6 +79,30 @@ export interface DbConnectionConfig {
   password: string;
 }
 
+const ZONELESS_TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/;
+
+/**
+ * Timestamps on PostgreSQL, read and written as UTC like the MySQL pool's
+ * `timezone: "Z"`. postgres.js turns a parameter into `new Date(value)`,
+ * which reads a zone-less string such as `2026-10-02 09:30:15` in the
+ * server process's time zone, and reads `TIMESTAMP` (no zone) results the
+ * same way; on a server not running in UTC every such value moved by its
+ * offset. Strings with a zone and `Date` objects are unchanged.
+ */
+export const PG_UTC_TIMESTAMP = {
+  to: 1184,
+  from: [1114, 1184],
+  serialize: (value: unknown): string => {
+    if (value instanceof Date) return value.toISOString();
+    const text = String(value).trim();
+    return new Date(ZONELESS_TIMESTAMP.test(text) ? `${text.replace(" ", "T")}Z` : text).toISOString();
+  },
+  parse: (value: string): Date => {
+    const text = value.trim();
+    return new Date(ZONELESS_TIMESTAMP.test(text) ? `${text.replace(" ", "T")}Z` : text);
+  },
+};
+
 function instrumentClient(client: DbClient): DbClient {
   const timed = <TArgs extends unknown[], TResult>(fn: (...args: TArgs) => Promise<TResult>) =>
     async (...args: TArgs): Promise<TResult> => {
@@ -156,6 +180,7 @@ export async function createDbClient(config: DbConnectionConfig): Promise<DbClie
     const sql = postgres(url, {
       max: 5,
       ssl: useSsl ? { rejectUnauthorized } : false,
+      types: { utcTimestamp: PG_UTC_TIMESTAMP },
     });
 
     return instrumentClient({

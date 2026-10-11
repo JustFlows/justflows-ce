@@ -60,6 +60,8 @@
     "shopInvoices": "Invoices",
     "shopEmails": "Emails",
     "shopReports": "Reports",
+    "shopSubscriptions": "Subscriptions",
+    "shopBackups": "Backups",
     "shopPage": "Shop page",
     "permalinks": "Permalinks",
     "pwa": "PWA",
@@ -2232,7 +2234,8 @@
     "perLanguage": "Per language",
     "allLanguages": "All languages",
     "settingsHeading": "Settings",
-    "saveButton": "Save settings"
+    "saveButton": "Save settings",
+    "morePages": "More settings"
   },
   "media": {
     "loadFailed": "Failed to load media",

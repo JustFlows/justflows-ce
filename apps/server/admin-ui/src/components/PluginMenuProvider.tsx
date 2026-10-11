@@ -85,6 +85,11 @@ export function PluginMenuProvider({ children }: { children: ReactNode }) {
   return <PluginMenuContext.Provider value={value}>{children}</PluginMenuContext.Provider>;
 }
 
+/** The installed plugins' admin pages, or none outside a `PluginMenuProvider`. */
+export function usePluginMenuItems(): PluginMenuItem[] {
+  return useContext(PluginMenuContext)?.items ?? [];
+}
+
 export function usePluginMenu(): PluginMenuValue {
   const ctx = useContext(PluginMenuContext);
   if (!ctx) throw new Error("usePluginMenu must be used within PluginMenuProvider");

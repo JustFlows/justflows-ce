@@ -100,7 +100,7 @@ describe("parseAdminAppSpec", () => {
     expect(parseAdminAppSpec(null, "acme.forms")).toBeNull();
   });
 
-  it("dedupes repeated paths and caps at 20", () => {
+  it("dedupes repeated paths and caps at 40", () => {
     const spec = parseAdminAppSpec(
       {
         routes: [
@@ -114,10 +114,10 @@ describe("parseAdminAppSpec", () => {
     expect(spec?.routes[0]?.entry).toBe("a.html");
 
     const many = parseAdminAppSpec(
-      { routes: Array.from({ length: 30 }, (_, i) => ({ path: `p${i}`, entry: "i.html" })) },
+      { routes: Array.from({ length: 50 }, (_, i) => ({ path: `p${i}`, entry: "i.html" })) },
       "acme.forms",
     );
-    expect(many?.routes.length).toBe(20);
+    expect(many?.routes.length).toBe(40);
   });
 });
 

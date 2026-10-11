@@ -60,6 +60,8 @@
     "shopInvoices": "Счета",
     "shopEmails": "Электронные письма",
     "shopReports": "Отчеты",
+    "shopSubscriptions": "Подписки",
+    "shopBackups": "Резервные копии",
     "shopPage": "Страница магазина",
     "permalinks": "Постоянные ссылки",
     "pwa": "ПВА",
@@ -2232,7 +2234,8 @@
     "perLanguage": "По каждому языку",
     "allLanguages": "Все языки",
     "settingsHeading": "Настройки",
-    "saveButton": "Сохранить настройки"
+    "saveButton": "Сохранить настройки",
+    "morePages": "Другие настройки"
   },
   "media": {
     "loadFailed": "Не удалось загрузить среду",

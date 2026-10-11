@@ -286,7 +286,11 @@ export const PluginAdminAppSchema = z.object({
     )
     .refine((v) => !v.split("/").includes(".."), "Admin dir must not contain '..'")
     .optional(),
-  routes: z.array(PluginAdminRouteSchema).min(1).max(20),
+  /**
+   * One per admin screen. Bounded because manifests come from third-party
+   * packages; 40 leaves room for a large plugin such as Shop.
+   */
+  routes: z.array(PluginAdminRouteSchema).min(1).max(40),
   /**
    * Admin UI catalogs, keyed by locale code. Each value is a `.json` file
    * relative to `dir` (for example `locales/nl.json`). The host serves it at
@@ -753,6 +757,8 @@ export interface PluginHttpRateLimit {
  * and the handler does not receive the raw request bytes.
  */
 export interface PluginHttpRouteOptions {
+  /** Host guard failures use { error: { code, message } } for a stable JSON API. */
+  structuredErrors?: true;
   /**
    * Skip the session CSRF token. Use this only when the plugin authenticates
    * the call another way, such as a signed webhook. GET never requires CSRF.
@@ -1622,7 +1628,8 @@ export interface PluginContext {
     ): Unsubscribe;
 
     /** Emit a hook owned by this plugin. Names outside its namespace are rejected. */
-    emit<K extends ActionName>(hook: K, event: ActionPayload<K>): Promise<void>;
+    /** Durable dispatch queues outbound webhooks first and propagates queue failures. */
+    emit<K extends ActionName>(hook: K, event: ActionPayload<K>, options?: { durable?: true }): Promise<void>;
 
     /** Apply a filter owned by this plugin. Names outside its namespace are rejected. */
     apply<K extends FilterName>(

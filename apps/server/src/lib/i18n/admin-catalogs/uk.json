@@ -60,6 +60,8 @@
     "shopInvoices": "Рахунки",
     "shopEmails": "Електронні листи",
     "shopReports": "Звіти",
+    "shopSubscriptions": "Підписки",
+    "shopBackups": "Резервні копії",
     "shopPage": "Сторінка магазину",
     "permalinks": "Постійні посилання",
     "pwa": "PWA",
@@ -2232,7 +2234,8 @@
     "perLanguage": "За мовою",
     "allLanguages": "Всі мови",
     "settingsHeading": "Налаштування",
-    "saveButton": "Зберегти налаштування"
+    "saveButton": "Зберегти налаштування",
+    "morePages": "Інші налаштування"
   },
   "media": {
     "loadFailed": "Не вдалося завантажити медіа",
