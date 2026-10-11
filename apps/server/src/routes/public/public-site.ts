@@ -148,6 +148,17 @@ import {
   type TemplateBlockContext,
 } from "../../lib/rendering/template-blocks.js";
 import { resolvePublicTemplate, resolveThemePartBlocks } from "../../lib/rendering/template-render.js";
+import {
+  blocksPlaceWidgetArea,
+  getWidgetLayout,
+  layoutForContentType,
+  listWidgetAreas,
+  resolveWidgetArea,
+  widgetAreaHtml,
+  withWidgetLayout,
+  type WidgetArea,
+  type WidgetLayoutRule,
+} from "../../lib/rendering/widget-areas.js";
 import type { TemplateQuery } from "../../lib/rendering/template-hierarchy.js";
 import { getSession } from "../../lib/auth/session.js";
 import { getSiteSetting } from "../../lib/settings/site-settings.js";
@@ -1219,14 +1230,72 @@ interface TemplateRenderOpts {
   preview?: boolean;
 }
 
+/** The page context fields widget areas need: the site, its locale, and preview. */
+type WidgetPageCtx = SiteWidgetCtx & { siteId: string; locale: string };
+
+/** The site's widget areas and per-type layout, cached with the theme layer. */
+async function loadWidgetSetup(
+  siteId: string,
+  preview: boolean,
+): Promise<{ areas: WidgetArea[]; rules: Record<string, WidgetLayoutRule> }> {
+  return rememberPublic(
+    `${THEME_MODS_PREFIX}widget-setup:${siteId}`,
+    async () => ({ areas: await listWidgetAreas(siteId), rules: await getWidgetLayout(siteId) }),
+    preview,
+  );
+}
+
+/**
+ * One widget area as `<aside>` markup for this request's locale ("" when
+ * empty), plus the area's own width.
+ */
+async function renderWidgetAreaForPage(
+  area: WidgetArea,
+  page: WidgetPageCtx,
+  opts: TemplateRenderOpts,
+): Promise<{ html: string; width: number | null }> {
+  const preview = opts.preview ?? false;
+  const resolved = await rememberPublic(
+    `${THEME_MODS_PREFIX}widget-area:${page.siteId}:${area.key}:${page.locale}`,
+    () => resolveWidgetArea(page.siteId, area, page.locale, preview),
+    preview,
+  );
+  if (!resolved.blocks.length) return { html: "", width: resolved.width };
+  const html = withSiteWidgets(
+    await renderBlocksHtml(resolved.blocks, opts.submittedFormId, opts.blogCtx, opts.commentCtx),
+    page,
+  );
+  return { html: widgetAreaHtml(area, html, resolved.width), width: resolved.width };
+}
+
+/**
+ * Wrap a content type's page body in the widget layout assigned to that type
+ * (Appearance → Customize → Widgets). Unchanged when the type has no area or
+ * the area is empty.
+ */
+async function applyContentTypeWidgets(
+  bodyHtml: string,
+  contentType: string,
+  page: WidgetPageCtx,
+  opts: TemplateRenderOpts,
+): Promise<string> {
+  if (!page.siteId) return bodyHtml;
+  const { areas, rules } = await loadWidgetSetup(page.siteId, opts.preview ?? false);
+  const layout = layoutForContentType(contentType, areas, rules);
+  if (!layout) return bodyHtml;
+  const rendered = await renderWidgetAreaForPage(layout.area, page, opts);
+  return withWidgetLayout(bodyHtml, layout.position, rendered.html, rendered.width);
+}
+
 /**
  * Build the {@link TemplateBlockContext} for a request, wiring `core.template-part`
  * to render the active theme's `parts/<slug>.json` through the same header ctx
- * and widgets as the rest of the page.
+ * and widgets as the rest of the page, and `core.widget-area` to the site's
+ * widget areas.
  */
 function templateBlockContext(
-  base: Omit<TemplateBlockContext, "renderPart">,
-  withHeader: SiteWidgetCtx,
+  base: Omit<TemplateBlockContext, "renderPart" | "renderWidgetArea">,
+  withHeader: WidgetPageCtx,
   opts: TemplateRenderOpts = {},
 ): TemplateBlockContext {
   return {
@@ -1239,6 +1308,12 @@ function templateBlockContext(
         withHeader,
       );
     },
+    renderWidgetArea: async (key) => {
+      if (!withHeader.siteId) return "";
+      const { areas } = await loadWidgetSetup(withHeader.siteId, opts.preview ?? false);
+      const area = areas.find((row) => row.key === key);
+      return area ? (await renderWidgetAreaForPage(area, withHeader, opts)).html : "";
+    },
   };
 }
 
@@ -1250,14 +1325,14 @@ function templateBlockContext(
  */
 async function renderThemeTemplateHtml(
   query: TemplateQuery,
-  withHeader: SiteWidgetCtx & Record<string, unknown>,
+  withHeader: WidgetPageCtx & Record<string, unknown>,
   templateCtx: TemplateBlockContext,
   viewData: Record<string, unknown>,
   opts: TemplateRenderOpts = {},
 ): Promise<string | null> {
   const tpl = await resolvePublicTemplate(query, opts.preview ?? false);
   if (!tpl) return null;
-  const bodyHtml = withSiteWidgets(
+  let bodyHtml = withSiteWidgets(
     await renderBlocksHtml(
       tpl.blocks,
       opts.submittedFormId,
@@ -1267,6 +1342,10 @@ async function renderThemeTemplateHtml(
     ),
     withHeader,
   );
+  // A template that places its own widget area owns the layout.
+  if (query.kind === "singular" && !blocksPlaceWidgetArea(tpl.blocks)) {
+    bodyHtml = await applyContentTypeWidgets(bodyHtml, query.contentType, withHeader, opts);
+  }
   return renderPage("template", { ...withHeader, ...viewData, bodyHtml });
 }
 
@@ -1986,7 +2065,7 @@ export async function renderSinglePageHtml(
   return renderPage("single", {
     ...withHeader,
     content: pageContent,
-    bodyHtml,
+    bodyHtml: await applyContentTypeWidgets(bodyHtml, String(pageContent.type), withHeader, templateOpts),
     alternates,
     formattedDate,
     title: pageContent.title,

@@ -5,6 +5,7 @@ import MediaImageField from "@components/MediaImageField";
 import PageBuilder, { type BlockDocument } from "@components/builder/PageBuilder";
 import HeaderLibraryEditor from "./HeaderLibraryEditor";
 import MenusPage from "./MenusPage";
+import WidgetAreasEditor from "./WidgetAreasEditor";
 import { useT } from "../../../i18n/I18nProvider";
 
 type TFunc = (key: string, vars?: Record<string, string | number>) => string;
@@ -71,13 +72,14 @@ type EditorTab =
   | "styles"
   | "header"
   | "footer"
+  | "widgets"
   | "menus"
   | "templates"
   | "error-pages";
 
 function isEditorTab(value: string | null): value is EditorTab {
   return value === "homepage" || value === "blog" || value === "styles" || value === "header" ||
-    value === "footer" || value === "menus" || value === "templates" || value === "error-pages";
+    value === "footer" || value === "widgets" || value === "menus" || value === "templates" || value === "error-pages";
 }
 
 interface TemplateSlot {
@@ -502,7 +504,31 @@ export default function CustomizeThemePage() {
     }
   }
 
+  /**
+   * Show a token change in the live preview at once by setting its CSS
+   * variable on the preview document. The debounced draft save still reloads
+   * the preview afterwards, so the server-built stylesheet stays the truth.
+   */
+  function previewToken(section: string, storedKey: string, value: string | number) {
+    if (["identity", "colorsDark", "navigation", "advanced"].includes(section)) return;
+    const key = storedKey.split("__")[0] ?? storedKey;
+    const control = schema[section]?.controls[key];
+    if (!control) return;
+    const name = key === "contentWidth" ? "--max-width" : key === "baseFontSize" ? "--base-font-size" : key;
+    if (!name.startsWith("--")) return;
+    const css = control.type === "range" ? `${value}${control.unit ?? ""}` : String(value);
+    try {
+      const doc = iframeRef.current?.contentDocument;
+      // A per-section value lives on `body.jf-layout-…`, which outranks `:root`.
+      const target = storedKey.includes("__") ? doc?.body : doc?.documentElement;
+      target?.style.setProperty(name, css);
+    } catch {
+      // A cross-origin preview cannot be touched; the reload after saving covers it.
+    }
+  }
+
   function updateMod(section: string, key: string, value: string | number) {
+    previewToken(section, key, value);
     setMods((prev) => {
       const next = {
         ...prev,
@@ -647,6 +673,8 @@ export default function CustomizeThemePage() {
                   ? t("themeCustomize.subHeader")
                   : tab === "footer"
                     ? t("themeCustomize.subFooter")
+                    : tab === "widgets"
+                      ? t("themeCustomize.subWidgets")
                     : tab === "templates"
                       ? t("themeCustomize.subTemplates")
                       : t("themeCustomize.subStyles")}
@@ -778,6 +806,13 @@ export default function CustomizeThemePage() {
           onClick={() => setTab("footer")}
         >
           {t("themeCustomize.tabFooter")}
+        </button>
+        <button
+          type="button"
+          className={`jf-theme-builder__tab${tab === "widgets" ? " jf-theme-builder__tab--active" : ""}`}
+          onClick={() => setTab("widgets")}
+        >
+          {t("themeCustomize.tabWidgets")}
         </button>
         <button
           type="button"
@@ -1076,6 +1111,10 @@ export default function CustomizeThemePage() {
       ) : tab === "header" ? (
         <div className="jf-editor__body">
           <HeaderLibraryEditor />
+        </div>
+      ) : tab === "widgets" ? (
+        <div className="jf-editor__body">
+          <WidgetAreasEditor />
         </div>
       ) : tab === "menus" ? (
         <div className="jf-editor__body">

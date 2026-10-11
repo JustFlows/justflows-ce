@@ -255,6 +255,8 @@
   "UserCapability",
   "UserCapabilityDefinition",
   "UserEvent",
+  "WidgetAreaDefinition",
+  "WidgetAreaPosition",
   "WorkspaceCreateGateEvent",
   "WorkspaceDeleteEvent",
   "WorkspaceEvent",

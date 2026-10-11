@@ -3,7 +3,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { getDb, runWithDatabase } from "../lib/database/db.js";
 import { isInstalled } from "./install-guard.js";
-import { runWithTenant, type TenantRequestContext } from "../lib/tenancy/context.js";
+import { loopbackPort, runWithTenant, type TenantRequestContext } from "../lib/tenancy/context.js";
 import { borrowSeparateDatabase, separateDatabaseForSite } from "../lib/tenancy/connections.js";
 import { effectiveDatabaseMode } from "../lib/tenancy/choice.js";
 import { resolveHost } from "../lib/tenancy/registry.js";
@@ -56,6 +56,7 @@ async function bindTenant(req: Request, res: Response, next: NextFunction): Prom
     tenantId: record.tenantId,
     siteId: record.siteId,
     hostname: record.hostname,
+    devPort: loopbackPort(record.hostname, req.headers.host),
     userMode: record.userMode,
     databaseMode: record.databaseMode,
     rootSite: record.rootSite === true,

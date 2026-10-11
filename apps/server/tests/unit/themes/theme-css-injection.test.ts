@@ -96,6 +96,16 @@ describe("modsToCssVariables", () => {
     expect(shop).toBe("");
     expect(clamped).toContain("1200px");
   });
+
+  it("emits the sidebar width and gap, site-wide and per content type", () => {
+    const vars = modsToCssVariables({}, { layout: { "--jf-sidebar-width": 320, "--jf-widget-gap": 9999 } });
+    expect(vars["--jf-sidebar-width"]).toBe("320px");
+    expect(vars["--jf-widget-gap"]).toBe("128px");
+    expect(modsToCssVariables({}, {})["--jf-sidebar-width"]).toBeUndefined();
+
+    const shop = layoutScopeCss({ layout: { "--jf-sidebar-width__shop": 100 } }, "shop");
+    expect(shop).toBe("body.jf-layout-shop{--jf-sidebar-width:160px;}");
+  });
 });
 
 describe("buildThemeStylesheet", () => {
