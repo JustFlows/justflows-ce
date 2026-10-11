@@ -5,6 +5,74 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.5]
+
+### Added
+
+- **Durable plugin event dispatch.** Plugins with an outbox can opt into `ctx.hooks.emit(name, payload, { durable: true })`: webhook deliveries are persisted before isolated listeners run, queue failures propagate for retry, and the host avoids queuing twice. Ordinary actions keep their existing behavior. ([#28](https://github.com/JustFlows/justflows-ce/issues/28))
+- **Structured plugin API guard errors.** Routes may opt into `structuredErrors: true` so CSRF, rate-limit and dispatcher failures share their versioned `{ error: { code, message } }` contract. Legacy plugin errors stay compatible. ([#20](https://github.com/JustFlows/justflows-ce/issues/20))
+
+- **Plugins can ship up to 40 admin pages, and Settings sub-pages.** `adminApp.routes` allows 40 routes instead of 20. A plugin route under `settings/` (for example `settings/backups`) is linked from the plugin's Settings page when the plugin lists it in `admin.menu`, also as an unlisted item. Admin menu labels `nav.shopSubscriptions` and `nav.shopBackups` are in all admin languages.
+
+- **Widget areas: sidebars that plugins and themes can fill.** Appearance → Widgets shows every area at once: drag widgets from the palette (Content, Menu, Recent posts, Search, and plugin widgets) onto an area, reorder them, and expand one to edit its settings, with draft and publish and per-language replacements. Add and delete areas of your own. Choose per content type which area shows and where: left, right, or above the content. Set the sidebar width and gap under Styles → Layout (site-wide or per layout target), or give one area its own width. Core ships a `sidebar` area; themes declare more in `justflows-theme.json` (`widgetAreas`, defaults in `widgets/<key>.json`) or place one with the `core.widget-area` template block, and plugins add areas with default blocks and content types through the `widgets.areas` filter. Also available through the management API and MCP tools (`widget_areas_*`, `widget_layout_update`). The `widgets` plugin API namespace is now reserved for core.
+
+- **Set Cache-Control per content type or individual post.** Inherit site settings, disable caching, or configure a validated header. Per-post overrides live under Advanced and follow drafts and revisions. Mandatory private types have no override control. Policies govern live pages, shared page caches and static exports. Adds migration `0046_content_type_cache_control`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Customize frontend account pages in the page builder.** The core `account` content type seeds a default page with editable headings, layout and account-section blocks. Personal data stays request-scoped. Authentication and exclusions from caches, public APIs/search, sitemaps and static exports follow the content type, including renamed URLs and pagination. Adds migration `0045_account_pages` for existing sites. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Workspace owners have a frontend account.** `/account` on the root site lists only the signed-in owner's workspaces, sites, subscriptions and resource limits. Owners can rename workspaces and sites, create sites within their plan's allowance and access each site's sign-in. Root owners land here after login; no root admin access is required. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Show the workspace's root owner.** Workspace details display the owner's name, email and user ID with links to their user page. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Plugins can set limits for another workspace or site.** `ctx.quotas.set(key, limit, { tenantId } | { siteId })` and `ctx.quotas.get(key, target)` reach a given workspace or site, with `platform:tenancy` and only from the installation's root site; `ctx.quotas.meters()` lists every meter. Calls without a target behave as before. Shop's subscription plans use this to apply platform limits to a subscriber's workspace.
+- **New workspaces name their administrator to platform plugins.** The `tenancy.workspaceCreated` action carries `workspace.created`'s fields plus the first administrator's email; listening requires `platform:tenancy`, so `workspace.created` stays free of personal data. Shop uses it to give new workspaces a default plan.
+- **Plugins can take back a role they gave.** `ctx.users.removeRole(target, role, actor)` removes one of the plugin's own additional roles, never the primary role (`users:manage`). Shop uses it when a membership subscription ends.
+
+- **Measure local and external storage for the platform and each website.** Diagnostics and Platform → Website show media, private files, and static exports, with local/external totals and a separate logical record total. Physical usage includes staging, trash, retained exports, and earlier private-storage connections. Measurements run in the background; unreadable storage stays unknown. Adds machine-readable storage snapshots to the root diagnostics and site APIs. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+- **Enforce a combined storage allowance per website.** The `storage.bytes` limit, editable as Total storage in site Limits and Platform Defaults, caps local plus external physical bytes. Media uploads and derivatives, private-file writes and storage copies, S3 trash/restore moves, and local/remote static-export writes check the remaining allowance under a database-backed site lock shared across workers. Existing files stay when limits are lowered; new growth is refused, and a configured cap fails closed when usage cannot be measured. Category limits still apply. Adds migration `0043_storage_quota_locks`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Static exports can use the existing S3 / OVH storage connection.** Tools → Static site export selects local files or object storage (`STATIC_EXPORT_STORAGE_DRIVER=local|s3`). Object storage reuses the installation’s `STORAGE_S3_*` connection without changing media storage. Each site has a separate export prefix based on its stable site id, so changing its domain preserves the exported files. Local output remains available for staging and preview. ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+- **Serve exported pages from a private bucket through the existing CDN origin.** The app signs S3 reads and streams exported public pages with their content type, cache policy, and conditional/range response headers, so Bunny can keep using the app as its origin. Admin, API and plugin routes, authenticated visits, query-string requests, and export crawls stay on the live app. Missing objects or storage failures fall back to live rendering. ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+
+### Changed
+
+- **Give plugin APIs neutral public URLs.** Plugins declare `apiNamespace` and use `ctx.http.url()` or the SDK’s `pluginApiUrl()` helper to expose `/api/<namespace>/…` URLs. The host preserves legacy aliases and the same site, authorization, CSRF, rate-limit and request-body policies. Shop’s frontend uses `/api/shop/…`, including checkout and private account actions. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Provide a default frontend user account at `/account`.** Every signed-in user sees core profile details and server-rendered sections from active plugins through the typed `account.sections` hook; root workspace owners also see their workspaces and initial limits. The former `/platform-account` URL redirects here. Account pages and APIs bypass browser, page, static-export, service-worker and proxy caching and send private/no-store headers. Shop contributes customer details, orders and subscription actions. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Publish object-storage exports only after uploads complete.** Content-hash HTML objects are uploaded before a single deployment pointer switches the served routes. Upload failures report an export failure and preserve the previous deployment. Removed routes stop being served from the export; old immutable objects remain until Clear export. Configured CDN caches are purged for the site after deployment. ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+- **Clear export also removes the current site’s deployed objects.** In object-storage mode, Clear removes the deployment pointer, exported objects, and interrupted uploads from that site’s reserved namespace, then clears its local output. Other sites, media uploads, and private plugin files are preserved. See docs/STATIC-EXPORT.md for configuration, storage layout, and origin behavior. ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+
+### Fixed
+
+- **Separate plugin databases preserve UTC timestamps.** PostgreSQL and MySQL/MariaDB plugin connections now use the same timestamp policy as the main database, including transactions. Shop backups moved across dialects no longer fail checksum validation because the host timezone shifted their timestamps. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Times on PostgreSQL no longer move by the server's time-zone offset.** A time written without a zone (such as `2026-10-02 09:30:15`, the form core and plugins use for UTC) was read in the server process's time zone before it was sent, and `TIMESTAMP` columns were read back the same way, so on a server not running in UTC every such value was off by its offset. They are now UTC, as on MySQL and MariaDB. Servers running in UTC (the Docker images) were not affected; data written by an earlier version on a server in another zone keeps its offset.
+
+- **Link workspace subscriptions to their root-site owner.** Workspaces retain their root billing user; Shop links a customer's single owned workspace when assigning or activating a plan and retries previously unapplied limits. Adds migration `0044_workspace_owner`. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Workspace administrators also receive a root-site account.** Workspace creation creates a Subscriber account on the installation's root site for billing, including workspaces with isolated users or a separate database. Existing root accounts are reused without changing their password or permissions. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Check trashed media references without reloading every page and menu per file.** Trash listings load and serialize reference documents once per site operation. ([#108](https://github.com/JustFlows/justflows-ce/issues/108))
+- **Batch permalink generation for lists, navigation, search, sitemaps, and exports.** Share permalink settings, category relationships, and locale-specific home resolution instead of querying for every link. ([#96](https://github.com/JustFlows/justflows-ce/issues/96))
+- **Reuse SEO settings between page identity and metadata rendering.** Read related plugin settings together while retaining legacy values and locale fallback. ([#9](https://github.com/JustFlows/justflows-ce/issues/9))
+- **Batch comment moderation and trash deletion writes.** Preserve per-comment audits, spam training, approval notifications, and cache invalidation. ([#50](https://github.com/JustFlows/justflows-ce/issues/50))
+- **Batch historical revision pruning and reuse each site's retention setting.** Keep historical-only deletion guards and the existing prune limit. ([#65](https://github.com/JustFlows/justflows-ce/issues/65))
+- **Avoid repeated content scans when building redirect history and legacy aliases.** Index identities and count alias sources once while retaining ambiguity checks. ([#100](https://github.com/JustFlows/justflows-ce/issues/100))
+- **Avoid repeated manifest scans and deployment-pointer reads during object-storage exports.** Reuse indexed file metadata and one validated pointer read. ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+- **Read home, blog, and error-page selections once when deleting a content batch.** Home resolution also reuses an already loaded page when its locale and status match. ([#72](https://github.com/JustFlows/justflows-ce/issues/72))
+
+- **Audit entries for accounts visitors create themselves.** A plugin creating a user without a signed-in actor (Shop's account creation at checkout) now records the audit entry with no actor; on PostgreSQL the empty actor id made the audit insert fail silently.
+
+- **Identify pages served from object-storage static exports.** Exported responses include `X-Justflows-Render: static-export`, so operators can distinguish an exported page from live fallback and check Bunny's `CDN-Cache` header separately. ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+
+- **Verify a domain's TXT challenge after its nameservers have switched.** Nameserver checks accept the exact `_justflows.<domain>` verification token at the authoritative DNS provider without requiring a switch back. Missing or incorrect tokens still fail; Justflows does not publish the challenge or permit DNS edits before ownership is proven. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
+
+- **Object-storage exports contain HTML only.** Images, media, styles, scripts, and other non-HTML resources keep their existing URLs instead of being copied into the export bucket. Full and incremental S3 exports stop downloading assets; the next successful deployment removes previously referenced duplicate asset objects from the export namespace without touching the original media. ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+- **Admin exports run in the background and report progress through status polling.** The Run action returns immediately instead of holding a request open throughout the crawl and uploads, avoiding long export requests timing out at a CDN or proxy. Unexpected HTML API responses now show an actionable message instead of a JSON parsing error. Existing synchronous CLI clients remain supported. ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+
+- **Block access to export metadata through shared upload storage.** The `/uploads` handler rejects the reserved `static-export` namespace, including encoded paths, so deployment metadata and stored export objects cannot be fetched through upload URLs. ([#24](https://github.com/JustFlows/justflows-ce/issues/24))
+
 ## [0.3.4]
 
 ### Added

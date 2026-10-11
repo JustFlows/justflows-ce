@@ -10,6 +10,7 @@ import { getActiveTheme, themeInstalledPath } from "./themes-db.js";
 import { sanitizeCustomCss } from "../rendering/safe-css.js";
 import { sanitizeFaviconUrl } from "../media/favicon.js";
 import { blockAnimationCss, blockVisibilityCss } from "@justflows/blocks";
+import { coreWidgetCss, widgetLayoutCss } from "../rendering/widget-layout-css.js";
 
 export type CustomizeControlType =
   "color" | "font" | "text" | "image" | "range" | "code" | "select";
@@ -241,6 +242,24 @@ export const THEME_CUSTOMIZE_SCHEMA: Record<string, CustomizeSection> = {
         min: 800,
         max: 1600,
         unit: "px",
+      },
+      "--jf-sidebar-width": {
+        label: "Sidebar width",
+        type: "range",
+        default: 288,
+        min: 160,
+        max: 640,
+        unit: "px",
+        description: "Width of a widget area beside the content. An area can set its own under Widgets.",
+      },
+      "--jf-widget-gap": {
+        label: "Sidebar gap",
+        type: "range",
+        default: 32,
+        min: 0,
+        max: 128,
+        unit: "px",
+        description: "Space between the content and a widget area.",
       },
     },
   },
@@ -674,6 +693,15 @@ export function layoutScopeCss(mods: ThemeMods, scope: string): string {
       `--max-width-wide:${clampNumber(wide, Number(wideControl?.default ?? 1100), wideControl?.min ?? 800, wideControl?.max ?? 1600)}px`,
     );
   }
+  for (const name of ["--jf-sidebar-width", "--jf-widget-gap"]) {
+    const control = THEME_CUSTOMIZE_SCHEMA.layout?.controls[name];
+    const value = layout[`${name}__${scope}`];
+    if (control && value != null) {
+      declarations.push(
+        `${name}:${clampNumber(value, Number(control.default ?? 0), control.min ?? 0, control.max ?? 1600)}px`,
+      );
+    }
+  }
   if (!declarations.length) return "";
   return `body.jf-layout-${scope}{${declarations.map((item) => `${item};`).join("")}}`;
 }
@@ -883,6 +911,7 @@ export function assembleThemeCss(
   pluginCss = "",
 ): string {
   const parts = [
+    `/* Widget areas */\n${widgetLayoutCss()}\n${coreWidgetCss()}`,
     themeStyles ? `/* Theme styles */\n${themeStyles}` : "",
     tokens,
     `/* Block animations */\n${blockAnimationCss()}`,

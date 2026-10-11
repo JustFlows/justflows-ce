@@ -1,5 +1,14 @@
 // SPDX-License-Identifier: MIT
 
+import { contentCacheRules, contentCacheExclusions, matchContentCacheRule, type ContentCacheRule } from "../cache/content-type-cache.js";
+import { accountPageExclusions } from "../account/pages.js";
+import {
+  staticExportDriver,
+  deployStaticExport,
+  clearDeployedStaticExport,
+  staticExportObjectStore,
+  isHtmlExportEntry,
+} from "./object-storage.js";
 import type { CacheRevalidateTrigger } from "@justflows/sdk";
 import { getRuntimeHooks } from "../plugins/plugin-runtime.js";
 import { getJustflowsVersion } from "../runtime/version.js";
@@ -360,16 +369,14 @@ function rewriteActions(html: string, rewrites: Map<string, string>): string {
  * Paths plugins leave to the live app (`staticExport.exclude`), validated. A
  * broken filter must not abort the export, so it counts as no exclusions.
  */
-async function resolveExclusions(siteId: string, adminPath: string): Promise<ExportExclusion[]> {
+async function resolveExclusions(siteId: string, adminPath: string, rules: ContentCacheRule[]): Promise<ExportExclusion[]> {
   const hooks = getRuntimeHooks();
-  if (!hooks.has("staticExport.exclude")) return [];
+  const core = sanitizeExclusions([...await accountPageExclusions(siteId), ...contentCacheExclusions(rules)], adminPath, true);
+  if (!hooks.has("staticExport.exclude")) return core;
   try {
-    return sanitizeExclusions(
-      await hooks.applyFilter("staticExport.exclude", [], { siteId }),
-      adminPath,
-    );
+    return sanitizeExclusions([...core, ...sanitizeExclusions(await hooks.applyFilter("staticExport.exclude", [], { siteId }), adminPath)], adminPath, true);
   } catch {
-    return [];
+    return core;
   }
 }
 
@@ -412,7 +419,14 @@ function routeDeps(
   };
 }
 
-export async function runStaticExport(
+export async function runStaticExport(options: RunStaticExportOptions = {}): Promise<StaticExportSummary> {
+  const { getSiteId } = await import("../themes/themes-db.js");
+  const siteId = await getSiteId();
+  if (!siteId) throw new Error("Static export needs an installed site");
+  return (await import("../storage/storage-quota.js")).withSiteStorageLock(siteId, () => runStaticExportLocked(options));
+}
+
+async function runStaticExportLocked(
   options: RunStaticExportOptions = {},
 ): Promise<StaticExportSummary> {
   const startedAt = new Date();
@@ -420,6 +434,7 @@ export async function runStaticExport(
   const mode: "full" | "incremental" = options.mode ?? "full";
   const cfg = getStaticExportConfig({ baseUrl: options.baseUrl, publicUrl: options.publicUrl });
   const errors: string[] = [];
+  const htmlOnly = staticExportDriver() === "s3";
 
   if (!cfg.enabled && !options.force) {
     throw new Error(
@@ -430,6 +445,7 @@ export async function runStaticExport(
     throw new Error("Static export is turned off for this website.");
   }
 
+  if (staticExportDriver() === "s3") staticExportObjectStore();
   const crawlBase = await resolveCrawlOrigin(cfg.baseUrl, log);
   const fetcher = makeFetcher(crawlBase);
   const fetchText = async (path: string) => {
@@ -442,7 +458,8 @@ export async function runStaticExport(
   const adminPath = await getAdminPathConfig()
     .then((config) => config.path)
     .catch(() => "/admin");
-  const exclusions = await resolveExclusions(siteId, adminPath);
+  const cacheRules = await contentCacheRules(siteId);
+  const exclusions = await resolveExclusions(siteId, adminPath, cacheRules);
   const excluded = (path: string) => isExcludedPath(path, exclusions);
   if (exclusions.length > 0) {
     log(
@@ -602,7 +619,7 @@ export async function runStaticExport(
         pathToContentIds.get(page.path) ?? [],
         pathToGroupIds.get(page.path) ?? [],
       ),
-      cacheControl: suggestCacheControl(page.path, page.contentType || "text/html", browserCache),
+      cacheControl: matchContentCacheRule(cacheRules, page.path)?.header ?? suggestCacheControl(page.path, page.contentType || "text/html", browserCache),
     });
   }
 
@@ -623,7 +640,7 @@ export async function runStaticExport(
       bytes: body.length,
       sha256: sha256(body),
       deps: { content: [], translationGroups: [], dynamicList: false },
-      cacheControl: suggestCacheControl(from, "text/html", browserCache),
+      cacheControl: matchContentCacheRule(cacheRules, from)?.header ?? suggestCacheControl(from, "text/html", browserCache),
     });
   }
 
@@ -631,7 +648,7 @@ export async function runStaticExport(
   // Let a plugin / custom theme add asset URLs the scanner cannot see
   // (dynamic imports, workers, runtime-fetched JSON, fonts loaded from JS).
   const assetHooks = getRuntimeHooks();
-  if (assetHooks.has("staticExport.assets")) {
+  if (!htmlOnly && assetHooks.has("staticExport.assets")) {
     try {
       const extra = await assetHooks.applyFilter("staticExport.assets", [...assetRefs], { siteId });
       if (Array.isArray(extra)) {
@@ -651,7 +668,7 @@ export async function runStaticExport(
   // be fetched or it 404s on the static host. So always pull refs the previous
   // manifest is missing; only skip the re-fetch of already-known ones.
   const knownAssetPaths = new Set((prev?.assets ?? []).map((a) => a.path));
-  const refsToFetch = assetsWanted
+  const refsToFetch = htmlOnly ? new Set<string>() : assetsWanted
     ? assetRefs
     : new Set([...assetRefs].filter((ref) => !knownAssetPaths.has(ref)));
 
@@ -704,7 +721,7 @@ export async function runStaticExport(
     if (route.path !== "/404.html" && excluded(route.path)) prunePaths.add(route.path);
   }
   for (const asset of prev?.assets ?? []) {
-    if (excluded(asset.path)) staleAssets.add(asset.file);
+    if (htmlOnly || excluded(asset.path)) staleAssets.add(asset.file);
   }
 
   // ── Merge with the previous manifest when not pruning ─────────────────────
@@ -724,9 +741,19 @@ export async function runStaticExport(
     // files a rebuilt page pulled in).
     const replacedAssets = new Set(assets.map((a) => a.file));
     finalAssets = [
-      ...prev.assets.filter((a) => !replacedAssets.has(a.file) && !staleAssets.has(a.file)),
+      ...prev.assets.filter((a) => !htmlOnly && !replacedAssets.has(a.file) && !staleAssets.has(a.file)),
       ...assets,
     ];
+  }
+
+  if (htmlOnly) {
+    finalRoutes = finalRoutes.filter(isHtmlExportEntry);
+    finalAssets = [];
+    // Non-HTML route output is unnecessary for a private HTML origin gateway.
+    const htmlFiles = new Set(finalRoutes.map((route) => route.file));
+    for (let i = files.length - 1; i >= 0; i--) {
+      if (!htmlFiles.has(files[i]!.rel)) files.splice(i, 1);
+    }
   }
 
   // Files that vanished (seed now 404s, or a plugin now excludes the path) must
@@ -751,6 +778,7 @@ export async function runStaticExport(
   }
 
   const manifest: StaticExportManifest = {
+    siteId,
     generatedAt: new Date().toISOString(),
     mode,
     justflowsVersion: getJustflowsVersion(),
@@ -762,6 +790,12 @@ export async function runStaticExport(
 
   const keep = manifestFiles(manifest);
   files.push({ rel: HOST_HEADERS_FILE, body: Buffer.from(renderHostHeaders(manifest), "utf8") });
+  await (await import("../storage/storage-quota.js")).enforceLocalStorageWrites(siteId, cfg.outDir, [
+    ...files,
+    { rel: "_static-export.json", body: Buffer.from(JSON.stringify(manifest, null, 2) + "\n") },
+    { rel: HTACCESS_FILE, body: Buffer.from(renderHtaccess({ adminPath, exclusions })) },
+    { rel: NGINX_FILE, body: Buffer.from(renderNginxConf({ adminPath, rootDir: cfg.outDir, exclusions })) },
+  ]);
   const writeReport = await writeExport(
     cfg.outDir,
     files.filter((f) => f.rel),
@@ -815,6 +849,26 @@ export async function runStaticExport(
   );
   for (const err of errors.slice(0, 20)) log(`✗ ${err}`);
 
+  if (summary.ok && staticExportDriver() === "s3") {
+    try {
+      await deployStaticExport(cfg.outDir, manifest);
+      log("✓ Static export deployed to object storage");
+    } catch (err) {
+      const { QuotaRefusalError } = await import("../tenancy/quotas.js");
+      if (err instanceof QuotaRefusalError) {
+        summary.ok = false;
+        summary.errors.push(err.message);
+        log(`✗ ${err.message}`);
+      } else {
+      summary.ok = false;
+      summary.errors.push(
+        "Object storage deployment failed; check the storage connection and retry the export.",
+      );
+      log("✗ Object storage deployment failed; the previous deployment remains available.");
+      }
+    }
+  }
+
   // Let a deploy plugin push the directory to object storage / a CDN.
   try {
     const hooks = getRuntimeHooks();
@@ -861,11 +915,12 @@ export async function clearStaticExport(
     };
   }
 
+  const remoteRemoved = staticExportDriver() === "s3" ? await clearDeployedStaticExport() : false;
   let exists = false;
   try {
     exists = (await fsp.stat(outDir)).isDirectory();
   } catch {
-    return { ok: true, removed: false, outDir, reason: "nothing to clear" };
+    return { ok: true, removed: remoteRemoved, outDir, reason: "nothing to clear" };
   }
 
   const manifest = await readManifest(outDir);

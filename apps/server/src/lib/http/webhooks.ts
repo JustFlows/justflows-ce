@@ -390,6 +390,8 @@ export async function refreshWebhookEventHooks(): Promise<void> {
     hooks.action(
       event,
       async (payload, context) => {
+        // Plugin events are durably queued before isolated action listeners run.
+        if (context.webhookQueued) return;
         // Scheduled transitions already persisted delivery rows atomically.
         if (context.source === "job" && payload && typeof payload === "object" && "scheduleEventId" in payload) return;
         await enqueueWebhookEvent(event, payload, context);

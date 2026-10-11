@@ -20,6 +20,7 @@
     "forms": "Formularios",
     "themes": "Temas",
     "design": "Diseño",
+    "widgets": "Widgets",
     "menus": "Menús",
     "users": "Usuarios",
     "settings": "Ajustes",
@@ -57,6 +58,8 @@
     "shopInvoices": "Facturas",
     "shopEmails": "Correos electrónicos",
     "shopReports": "Informes",
+    "shopSubscriptions": "Suscripciones",
+    "shopBackups": "Copias de seguridad",
     "shopPage": "Página de la tienda",
     "redirects": "Redirecciones",
     "diagnostics": "Diagnóstico",
@@ -242,6 +245,7 @@
     "activateFailed": "No se pudo activar el plugin."
   },
   "content": {
+    "accountNotice": "Las páginas de cuenta requieren iniciar sesión. Justflows las excluye de las cachés, exportaciones, búsquedas públicas y mapas del sitio.",
     "newPost": "Nueva entrada",
     "newPage": "Nueva página",
     "editPost": "Editar entrada",
@@ -1658,6 +1662,15 @@
     "tabTrash": "papelera"
   },
   "contentTypes": {
+    "cacheControlPlaceholder": "public, max-age=300",
+    "cacheInheritType": "Heredar la configuración del tipo de contenido",
+    "cachePostHint": "Tras publicar, sustituye la política de caché del tipo de contenido para esta entrada. Las políticas privadas y sin caché omiten las cachés compartidas y las exportaciones estáticas.",
+    "cacheControlLabel": "Cache-Control",
+    "cacheInherit": "Heredar la configuración del sitio",
+    "cacheNever": "Nunca almacenar en caché",
+    "cacheCustom": "Cabecera personalizada",
+    "cacheControlValue": "Valor de Cache-Control",
+    "cacheHint": "Sustituye la política de caché para páginas de este tipo. Las políticas privadas y sin caché omiten las cachés compartidas y las exportaciones estáticas.",
     "loadFailed": "No se pudieron cargar los tipos de contenido",
     "saveFailed": "No se pudo guardar",
     "createFailed": "No se pudo crear",
@@ -1854,6 +1867,55 @@
     "slotIndexLabel": "Plantilla general (index)",
     "slotIndexHint": "Solo se usa cuando no existe una plantilla más específica"
   },
+  "widgets": {
+    "loading": "Cargando widgets…",
+    "loadError": "No se pudieron cargar las áreas de widgets.",
+    "saveError": "No se pudo guardar.",
+    "noAreas": "Aún no hay áreas de widgets.",
+    "widthLabel": "Ancho (px)",
+    "widthPlaceholder": "Predeterminado del sitio",
+    "widthHint": "Déjalo vacío para usar el ancho de barra lateral de Estilos → Layout. {min}–{max} px.",
+    "draftSuffix": "(borrador)",
+    "fromDefaultHint": "Estos son los widgets predeterminados de tu tema o plugin. Publícalos para conservarlos como tuyos.",
+    "language": "Idioma",
+    "allLanguages": "Todos los idiomas",
+    "overriddenHint": "Este idioma tiene sus propios widgets.",
+    "inheritedHint": "Usa los widgets de todos los idiomas. Edítalos para que este idioma tenga los suyos.",
+    "resetToBase": "Usar los widgets de todos los idiomas",
+    "layoutHeading": "Diseño",
+    "layoutHint": "Elige qué área de widgets muestra cada tipo de contenido y dónde.",
+    "defaultArea": "Predeterminado ({area}, {position})",
+    "defaultNone": "Predeterminado (ninguna)",
+    "noArea": "Ninguna",
+    "positionLabel": "Posición para {type}",
+    "position": {
+      "left": "Izquierda",
+      "right": "Derecha",
+      "top": "Arriba"
+    },
+    "saveLayout": "Guardar diseño",
+    "pageIntro": "Gestiona los widgets de tus áreas de widgets.",
+    "tabAreas": "Áreas",
+    "availableWidgets": "Widgets disponibles",
+    "availableHint": "Arrastra un widget a un área o haz clic en él para añadirlo al área seleccionada.",
+    "noWidgets": "No hay widgets disponibles.",
+    "addToArea": "Añadir a {area}",
+    "addArea": "Añadir área de widgets",
+    "areaName": "Nombre",
+    "areaKey": "Clave",
+    "areaKeyHint": "Minúsculas, números y guiones, empezando por una letra. 32 caracteres como máximo.",
+    "areaDescription": "Descripción",
+    "deleteArea": "Eliminar {name}",
+    "deleteAreaConfirm": "¿Eliminar el área de widgets «{name}» y sus widgets? Los tipos de contenido que la muestran no mostrarán ningún área de widgets.",
+    "removeWidget": "Quitar widget",
+    "widgetKind": "widget",
+    "dropHere": "Suelta un widget aquí",
+    "emptyArea": "Arrastra widgets aquí",
+    "sourceCore": "Núcleo",
+    "sourceTheme": "Tema",
+    "sourceSite": "Tu área",
+    "sourcePlugin": "Plugin"
+  },
   "themes": {
     "catalogUnavailable": "El catálogo de temas no está disponible",
     "installFailed": "Error al instalar el tema",
@@ -1948,7 +2010,8 @@
     "perLanguage": "Por idioma",
     "allLanguages": "Todos los idiomas",
     "settingsHeading": "Ajustes",
-    "saveButton": "Guardar ajustes"
+    "saveButton": "Guardar ajustes",
+    "morePages": "Más ajustes"
   },
   "media": {
     "loadFailed": "No se pudieron cargar los medios",
@@ -3169,7 +3232,14 @@
       "originHint5": "Déjalo en blanco si la CDN redirige",
       "originHint6": "y",
       "clearExportHintSite": "elimina la exportación de este sitio. Desactivar la reconstrucción automática no elimina ningún archivo.",
-      "thisWebsiteExport": "la exportación de este sitio"
+      "thisWebsiteExport": "la exportación de este sitio",
+      "storageLabel": "Export storage",
+      "storageLocal": "Local files",
+      "storageS3": "Object storage (S3 / OVH)",
+      "storageHint": "Uses the installation’s existing S3 connection and a separate folder per site. The local folder stages exports before uploading. Clear removes both local and deployed files.",
+      "responseUnavailable": "The export API returned an unexpected response (HTTP {status}). Check export status before retrying; the export may still be running.",
+      "pollingUnavailable": "Export status is no longer available. Refresh Tools to check the result before starting another export.",
+      "descriptionHtmlOnly": "Export published HTML pages to object storage. Media, styles and scripts keep their existing URLs and are served by the live site or CDN. Exports run in the background with a live progress log."
     },
     "title": "Herramientas",
     "subtitle": "Importación, exportación y utilidades del sitio",
@@ -3557,6 +3627,7 @@
       "content": "Contenido",
       "media": "Medios",
       "commerce": "Tienda",
+      "widgets": "Widgets",
       "site": "Sitio"
     },
     "blockJson": {
@@ -3930,6 +4001,7 @@
     "slugPrimary": "El espacio de trabajo de la plataforma conserva el slug primary.",
     "workspaceIntro": "Cambia el nombre y el slug de este espacio de trabajo. La dirección de esta página incluye el ID del espacio de trabajo.",
     "workspaceId": "ID del espacio de trabajo",
+    "workspaceOwner": "Propietario en el sitio principal",
     "workspaceNotFound": "No se encontró ese espacio de trabajo.",
     "workspaceLoadFailed": "No se pudo cargar este espacio de trabajo.",
     "workspaceSaveFailed": "No se pudo guardar este espacio de trabajo.",
@@ -4142,5 +4214,23 @@
     "removeConfirmRoot": "¿Quitar la conexión de almacenamiento de la plataforma? Los sitios sin almacenamiento propio pasan al bucket S3 de la instalación o al disco del servidor, y sus archivos se copian allí.",
     "removed": "Conexión de almacenamiento quitada.",
     "failed": "No se pudieron cargar ni guardar los ajustes de almacenamiento."
+  },
+  "storageUsage": {
+    "title": "Storage usage",
+    "unknown": "Unknown — usage could not be read",
+    "description": "Managed site files on local disk and external object storage, measured in bytes.",
+    "category": "Category",
+    "local": "Local files",
+    "external": "External storage (S3 / OVH)",
+    "media": "Media and derivatives",
+    "private": "Private files",
+    "exports": "Static exports and retained copies",
+    "total": "Total",
+    "physical": "Physical storage",
+    "logical": "Media and private-file records",
+    "note": "Physical usage includes staging, trash and retained copies. Database records exclude those extra copies. Unknown usage is not counted as zero. External totals cover managed site namespaces, not the entire provider account.",
+    "measured": "Measured at",
+    "limitLabel": "Total storage (local + external)",
+    "measuring": "Measuring storage…"
   }
 }

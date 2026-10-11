@@ -20,6 +20,7 @@
     "forms": "Formulieren",
     "themes": "Thema's",
     "design": "Design",
+    "widgets": "Widgets",
     "menus": "Menu's",
     "users": "Gebruikers",
     "settings": "Instellingen",
@@ -57,6 +58,8 @@
     "shopInvoices": "Facturen",
     "shopEmails": "E-mails",
     "shopReports": "Rapporten",
+    "shopSubscriptions": "Abonnementen",
+    "shopBackups": "Back-ups",
     "shopPage": "Winkelpagina",
     "redirects": "Omleidingen",
     "diagnostics": "Diagnostiek",
@@ -242,6 +245,7 @@
     "activateFailed": "De plugin kon niet worden aangezet."
   },
   "content": {
+    "accountNotice": "Accountpagina’s vereisen aanmelden. Justflows sluit ze uit van caches, exports, openbare zoekresultaten en sitemaps.",
     "newPost": "Nieuw bericht",
     "newPage": "Nieuwe pagina",
     "editPost": "Bericht bewerken",
@@ -1658,6 +1662,15 @@
     "tabTrash": "prullenbak"
   },
   "contentTypes": {
+    "cacheControlPlaceholder": "public, max-age=300",
+    "cacheInheritType": "Standaard van het contenttype overnemen",
+    "cachePostHint": "Overschrijft na publicatie het cachebeleid van het contenttype voor dit bericht. Privé- en no-cachebeleid omzeilen gedeelde caches en statische exports.",
+    "cacheControlLabel": "Cache-Control",
+    "cacheInherit": "Standaard van de site overnemen",
+    "cacheNever": "Nooit cachen",
+    "cacheCustom": "Aangepaste header",
+    "cacheControlValue": "Cache-Control-waarde",
+    "cacheHint": "Overschrijft het cachebeleid van de site voor pagina’s van dit type. Privé- en no-cachebeleid omzeilen gedeelde caches en statische exports.",
     "loadFailed": "Inhoudstypen konden niet worden geladen",
     "saveFailed": "Opslaan is mislukt",
     "createFailed": "Aanmaken mislukt",
@@ -1854,6 +1867,55 @@
     "slotIndexLabel": "Algemeen (index)",
     "slotIndexHint": "Wordt alleen gebruikt als er geen specifieker sjabloon is"
   },
+  "widgets": {
+    "loading": "Widgets laden…",
+    "loadError": "Kan widgetgebieden niet laden.",
+    "saveError": "Opslaan mislukt.",
+    "noAreas": "Nog geen widgetgebieden.",
+    "widthLabel": "Breedte (px)",
+    "widthPlaceholder": "Standaard van de site",
+    "widthHint": "Laat leeg om de zijbalkbreedte uit Stijlen → Layout te gebruiken. {min}–{max} px.",
+    "draftSuffix": "(concept)",
+    "fromDefaultHint": "Dit zijn de standaardwidgets van je thema of plugin. Publiceer om ze als je eigen versie te bewaren.",
+    "language": "Taal",
+    "allLanguages": "Alle talen",
+    "overriddenHint": "Deze taal heeft eigen widgets.",
+    "inheritedHint": "Gebruikt de widgets van alle talen. Bewerk ze om deze taal eigen widgets te geven.",
+    "resetToBase": "Widgets van alle talen gebruiken",
+    "layoutHeading": "Indeling",
+    "layoutHint": "Kies per contenttype welk widgetgebied wordt getoond, en waar.",
+    "defaultArea": "Standaard ({area}, {position})",
+    "defaultNone": "Standaard (geen)",
+    "noArea": "Geen",
+    "positionLabel": "Positie voor {type}",
+    "position": {
+      "left": "Links",
+      "right": "Rechts",
+      "top": "Boven"
+    },
+    "saveLayout": "Indeling opslaan",
+    "pageIntro": "Beheer de widgets in je widgetgebieden.",
+    "tabAreas": "Gebieden",
+    "availableWidgets": "Beschikbare widgets",
+    "availableHint": "Sleep een widget naar een gebied, of klik erop om hem aan het geselecteerde gebied toe te voegen.",
+    "noWidgets": "Geen widgets beschikbaar.",
+    "addToArea": "Toevoegen aan {area}",
+    "addArea": "Widgetgebied toevoegen",
+    "areaName": "Naam",
+    "areaKey": "Sleutel",
+    "areaKeyHint": "Kleine letters, cijfers en streepjes, beginnend met een letter. Maximaal 32 tekens.",
+    "areaDescription": "Omschrijving",
+    "deleteArea": "{name} verwijderen",
+    "deleteAreaConfirm": "Het widgetgebied “{name}” en de widgets erin verwijderen? Contenttypes die het tonen, tonen dan geen widgetgebied.",
+    "removeWidget": "Widget verwijderen",
+    "widgetKind": "widget",
+    "dropHere": "Zet hier een widget neer",
+    "emptyArea": "Sleep widgets hierheen",
+    "sourceCore": "Kern",
+    "sourceTheme": "Thema",
+    "sourceSite": "Eigen gebied",
+    "sourcePlugin": "Plugin"
+  },
   "themes": {
     "catalogUnavailable": "Themacatalogus niet beschikbaar",
     "installFailed": "Thema-installatie mislukt",
@@ -1948,7 +2010,8 @@
     "perLanguage": "Per taal",
     "allLanguages": "Alle talen",
     "settingsHeading": "Instellingen",
-    "saveButton": "Instellingen opslaan"
+    "saveButton": "Instellingen opslaan",
+    "morePages": "Meer instellingen"
   },
   "media": {
     "loadFailed": "Media konden niet worden geladen",
@@ -3169,7 +3232,14 @@
       "originHint5": "Laat leeg als de CDN",
       "originHint6": "en",
       "clearExportHintSite": "verwijdert de export van deze website. Automatisch opnieuw bouwen uitschakelen verwijdert geen bestanden.",
-      "thisWebsiteExport": "de export van deze website"
+      "thisWebsiteExport": "de export van deze website",
+      "storageLabel": "Export storage",
+      "storageLocal": "Local files",
+      "storageS3": "Object storage (S3 / OVH)",
+      "storageHint": "Uses the installation’s existing S3 connection and a separate folder per site. The local folder stages exports before uploading. Clear removes both local and deployed files.",
+      "responseUnavailable": "The export API returned an unexpected response (HTTP {status}). Check export status before retrying; the export may still be running.",
+      "pollingUnavailable": "Export status is no longer available. Refresh Tools to check the result before starting another export.",
+      "descriptionHtmlOnly": "Export published HTML pages to object storage. Media, styles and scripts keep their existing URLs and are served by the live site or CDN. Exports run in the background with a live progress log."
     },
     "title": "Gereedschap",
     "subtitle": "Importeren, exporteren en hulpmiddelen voor de site",
@@ -3557,6 +3627,7 @@
       "content": "Inhoud",
       "media": "Media",
       "commerce": "Winkel",
+      "widgets": "Widgets",
       "site": "Site"
     },
     "blockJson": {
@@ -3930,6 +4001,7 @@
     "slugPrimary": "De platformwerkruimte houdt de slug primary.",
     "workspaceIntro": "Wijzig de naam en slug van deze werkruimte. Het adres van deze pagina bevat het werkruimte-id.",
     "workspaceId": "Werkruimte-id",
+    "workspaceOwner": "Eigenaar op de hoofdsite",
     "workspaceNotFound": "Die werkruimte is niet gevonden.",
     "workspaceLoadFailed": "Kan deze werkruimte niet laden.",
     "workspaceSaveFailed": "Kan deze werkruimte niet opslaan.",
@@ -4142,5 +4214,23 @@
     "removeConfirmRoot": "De opslagverbinding van het platform verwijderen? Sites zonder eigen opslag gaan naar de S3-bucket van de installatie of de schijf van de server, en hun bestanden worden daarheen gekopieerd.",
     "removed": "Opslagverbinding verwijderd.",
     "failed": "De opslaginstellingen konden niet worden geladen of opgeslagen."
+  },
+  "storageUsage": {
+    "title": "Storage usage",
+    "unknown": "Unknown — usage could not be read",
+    "description": "Managed site files on local disk and external object storage, measured in bytes.",
+    "category": "Category",
+    "local": "Local files",
+    "external": "External storage (S3 / OVH)",
+    "media": "Media and derivatives",
+    "private": "Private files",
+    "exports": "Static exports and retained copies",
+    "total": "Total",
+    "physical": "Physical storage",
+    "logical": "Media and private-file records",
+    "note": "Physical usage includes staging, trash and retained copies. Database records exclude those extra copies. Unknown usage is not counted as zero. External totals cover managed site namespaces, not the entire provider account.",
+    "measured": "Measured at",
+    "limitLabel": "Total storage (local + external)",
+    "measuring": "Measuring storage…"
   }
 }

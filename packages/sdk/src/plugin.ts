@@ -1,3 +1,4 @@
+import { isValidPluginApiNamespace } from "./api-urls.js";
 import { z } from "zod";
 import { gplLicenseValidationMessage, isGplCompatibleLicense } from "./license.js";
 import { RegistryListingSchema } from "./registry.js";
@@ -285,7 +286,11 @@ export const PluginAdminAppSchema = z.object({
     )
     .refine((v) => !v.split("/").includes(".."), "Admin dir must not contain '..'")
     .optional(),
-  routes: z.array(PluginAdminRouteSchema).min(1).max(20),
+  /**
+   * One per admin screen. Bounded because manifests come from third-party
+   * packages; 40 leaves room for a large plugin such as Shop.
+   */
+  routes: z.array(PluginAdminRouteSchema).min(1).max(40),
   /**
    * Admin UI catalogs, keyed by locale code. Each value is a `.json` file
    * relative to `dir` (for example `locales/nl.json`). The host serves it at
@@ -329,6 +334,7 @@ export const PluginManifestSchema = z
     id: z
       .string()
       .regex(PLUGIN_ID_RE, "Plugin ID must be justflows.<name> (lowercase, e.g. justflows.seo)"),
+    apiNamespace: z.string().refine(isValidPluginApiNamespace, "Invalid or reserved plugin API namespace").optional(),
     name: z.string().min(1).max(100),
     // Anchored at both ends: `.regex()` runs RegExp.test(), which honours only
     // the `^`, so a pattern stopping at the patch number leaves everything after
@@ -558,7 +564,11 @@ export interface PluginRolesApi {
   register(definition: PluginRoleDefinition): void;
 }
 
-/** Signed-in staff member a plugin attributes a user mutation to. */
+/**
+ * Signed-in staff member a plugin attributes a user mutation to. For an account
+ * a visitor creates for themselves (for example at a shop checkout), pass an
+ * empty `userId`; the audit log then records the change without an actor.
+ */
 export interface PluginUserActor {
   userId: string;
   role: string;
@@ -620,6 +630,14 @@ export interface PluginUsersApi {
    * Optional: older hosts do not provide it.
    */
   get?(userId: string): Promise<PluginRoleUser | null>;
+  /**
+   * Take back an additional role this plugin registered, such as a membership
+   * that ended. The user's primary role is never changed. Doing nothing when
+   * the user does not hold the role is a success.
+   * Requires the `users:manage` manifest permission.
+   * Optional: older hosts do not provide it.
+   */
+  removeRole?(target: PluginUserTarget, role: string, actor: PluginUserActor): Promise<PluginUserRoleResult>;
 }
 
 /** The signed-in user behind a plugin request, when there is one. */
@@ -739,6 +757,8 @@ export interface PluginHttpRateLimit {
  * and the handler does not receive the raw request bytes.
  */
 export interface PluginHttpRouteOptions {
+  /** Host guard failures use { error: { code, message } } for a stable JSON API. */
+  structuredErrors?: true;
   /**
    * Skip the session CSRF token. Use this only when the plugin authenticates
    * the call another way, such as a signed webhook. GET never requires CSRF.
@@ -759,6 +779,8 @@ export interface PluginHttpRouteOptions {
 }
 
 export interface PluginHttpApi {
+  /** Neutral API URL when apiNamespace is declared; legacy URL otherwise. */
+  url(path?: string): string;
   get(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
   post(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
   put(path: string, handler: PluginHttpHandler, options?: PluginHttpRouteOptions): void;
@@ -1187,6 +1209,8 @@ export interface PluginSchemaApplyResult {
 
 export interface PluginWorkspace {
   id: string;
+  /** The administrator's billing account on the installation root site, when linked. */
+  ownerUserId?: string | null;
   name: string;
   slug: string;
   status: "active" | "suspended" | "provisioning" | "deleted";
@@ -1303,6 +1327,24 @@ export interface QuotaMeterView {
 }
 
 /**
+ * Another workspace or site to read or write limits for. Only with
+ * `platform:tenancy`, and only from the installation's root site: a plugin on a
+ * hosted site cannot change other workspaces. A `siteId` reaches workspace
+ * meters through that site's workspace; a `tenantId` reaches workspace meters only.
+ */
+export type PluginQuotaTarget = { tenantId: string } | { siteId: string };
+
+/** A meter the host knows: core meters and those plugins registered. */
+export interface PluginQuotaMeterInfo {
+  key: string;
+  scope: QuotaScope;
+  label: string;
+  unit: QuotaUnit;
+  /** `core`, or the id of the plugin that registered it. */
+  owner: string;
+}
+
+/**
  * Configured ceilings. Every plugin may register meters and check them.
  * `set` writes the same limits a platform operator edits and requires
  * `platform:tenancy`. A missing limit is unlimited.
@@ -1315,9 +1357,15 @@ export interface PluginQuotasApi {
    * `used`, the plugin's own current count, before the new units.
    */
   check(key: string, input?: { delta?: number; used?: number }): Promise<QuotaDecision>;
-  get(key: string): Promise<QuotaMeterView>;
-  /** `null` clears the meter back to unlimited. */
-  set(key: string, limit: number | null): Promise<void>;
+  /** With `target`, the meter of that workspace or site (see `PluginQuotaTarget`). */
+  get(key: string, target?: PluginQuotaTarget): Promise<QuotaMeterView>;
+  /**
+   * `null` clears the meter back to unlimited. Without `target`, this plugin's
+   * own workspace or site; with it, that one (see `PluginQuotaTarget`).
+   */
+  set(key: string, limit: number | null, target?: PluginQuotaTarget): Promise<void>;
+  /** Every meter the host enforces. Optional: older hosts do not provide it. */
+  meters?(): Promise<PluginQuotaMeterInfo[]>;
 }
 
 export type PluginRowValue = string | number | boolean | null;
@@ -1580,7 +1628,8 @@ export interface PluginContext {
     ): Unsubscribe;
 
     /** Emit a hook owned by this plugin. Names outside its namespace are rejected. */
-    emit<K extends ActionName>(hook: K, event: ActionPayload<K>): Promise<void>;
+    /** Durable dispatch queues outbound webhooks first and propagates queue failures. */
+    emit<K extends ActionName>(hook: K, event: ActionPayload<K>, options?: { durable?: true }): Promise<void>;
 
     /** Apply a filter owned by this plugin. Names outside its namespace are rejected. */
     apply<K extends FilterName>(

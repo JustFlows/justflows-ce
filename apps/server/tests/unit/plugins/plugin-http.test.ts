@@ -80,3 +80,13 @@ describe("pluginActiveForRequest", () => {
     expect(pluginActiveForRequest("acme.shop")).toBe(true);
   });
 });
+
+// Structured guard envelopes are additive; legacy clients retain their string errors.
+describe("structured API errors", () => {
+  it("uses stable guard codes without changing legacy output", async () => {
+    const { pluginHttpErrorBody } = await import("../../../src/lib/plugins/plugin-http.js");
+    expect(pluginHttpErrorBody(true, 429, "Too many requests")).toEqual({ error: { code: "rate_limited", message: "Too many requests" } });
+    expect(pluginHttpErrorBody(true, 403, "Invalid CSRF token")).toEqual({ error: { code: "forbidden", message: "Invalid CSRF token" } });
+    expect(pluginHttpErrorBody(false, 403, "Invalid CSRF token")).toEqual({ error: "Invalid CSRF token" });
+  });
+});

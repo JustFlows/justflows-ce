@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PluginMenuProvider } from "@components/PluginMenuProvider";
 import { SessionProvider } from "@components/SessionProvider";
 import { I18nProvider } from "../../../../src/i18n/I18nProvider";
 import PluginSettingsPage from "../../../../src/pages/admin/extensions/PluginSettingsPage";
@@ -35,6 +36,49 @@ function renderPage() {
 
 describe("PluginSettingsPage", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it("links the plugin's own pages under settings/", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const path = String(input);
+        if (path === "/api/auth/me") {
+          return jsonResponse({ id: "self", email: "self@example.com", role: "administrator" });
+        }
+        if (path === "/api/plugins/admin-menu") {
+          return jsonResponse({
+            items: [
+              { pluginId: "justflows.shop", id: "backups", label: "Backups", path: "/admin/plugins/justflows.shop/settings/backups", icon: "💾", domain: "commerce", listed: false },
+              { pluginId: "justflows.shop", id: "reports", label: "Reports", path: "/admin/plugins/justflows.shop/reports", icon: "📈", domain: "commerce" },
+              { pluginId: "acme.forms", id: "more", label: "Other plugin", path: "/admin/plugins/acme.forms/settings/more", icon: "✉", domain: "extensions" },
+            ],
+          });
+        }
+        if (path === "/api/plugins/justflows.shop/settings") {
+          return jsonResponse({ schema: SCHEMA, values: {}, languages: [] });
+        }
+        return jsonResponse({});
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/admin/plugins/justflows.shop/settings"]}>
+        <I18nProvider>
+          <SessionProvider>
+            <PluginMenuProvider>
+              <Routes>
+                <Route path="/admin/plugins/:id/settings" element={<PluginSettingsPage />} />
+              </Routes>
+            </PluginMenuProvider>
+          </SessionProvider>
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+    const link = await screen.findByRole("link", { name: /Backups/ });
+    expect(link).toHaveAttribute("href", "/admin/plugins/justflows.shop/settings/backups");
+    expect(screen.queryByRole("link", { name: /Reports/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Other plugin/ })).toBeNull();
+  });
 
   it("renders fields from the settings schema", async () => {
     vi.stubGlobal(

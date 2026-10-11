@@ -20,6 +20,7 @@ import ConsentPage from "./pages/admin/settings/ConsentPage";
 import ThemesPage from "./pages/admin/design/ThemesPage";
 import DesignPage from "./pages/admin/design/DesignPage";
 import ThemeCustomizePage from "./pages/admin/design/ThemeCustomizePage";
+import WidgetsPage from "./pages/admin/design/WidgetsPage";
 import PageBuilderPage from "./pages/admin/design/PageBuilderPage";
 import MenusPage from "./pages/admin/design/MenusPage";
 import UsersPage from "./pages/admin/users/UsersPage";
@@ -145,6 +146,7 @@ export default function App() {
               />
               <Route path="themes" element={<ThemesPage />} />
               <Route path="design" element={<DesignPage />} />
+              <Route path="widgets" element={<WidgetsPage />} />
               <Route path="menus" element={<MenusPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="users/:id" element={<EditUserPage />} />
