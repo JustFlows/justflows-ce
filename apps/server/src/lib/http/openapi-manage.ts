@@ -231,9 +231,11 @@ export const MANAGE_API_OPENAPI = {
     },
     "/widgets": { get: op("List widget areas, the per-content-type widget layout, and content types", "content:read") },
     "/widgets/layout": { put: op("Save which widget area each content type shows, and where", "settings:manage") },
+    "/widgets/areas": { post: op("Add a widget area of the site's own", "settings:manage") },
     "/widgets/areas/{key}": {
       get: op("Read one widget area: base blocks, per-locale overrides, and draft", "content:read"),
       put: op("Save or publish a widget area", "settings:manage"),
+      delete: op("Delete a widget area the site added, with its blocks and layout rules", "settings:manage"),
     },
     "/widgets/areas/{key}/discard-draft": { post: op("Discard a widget area draft", "settings:manage") },
     "/templates": { get: op("List page templates for the active theme", "content:read") },

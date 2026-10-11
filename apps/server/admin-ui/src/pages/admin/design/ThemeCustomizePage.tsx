@@ -5,7 +5,6 @@ import MediaImageField from "@components/MediaImageField";
 import PageBuilder, { type BlockDocument } from "@components/builder/PageBuilder";
 import HeaderLibraryEditor from "./HeaderLibraryEditor";
 import MenusPage from "./MenusPage";
-import WidgetAreasEditor from "./WidgetAreasEditor";
 import { useT } from "../../../i18n/I18nProvider";
 
 type TFunc = (key: string, vars?: Record<string, string | number>) => string;
@@ -72,14 +71,13 @@ type EditorTab =
   | "styles"
   | "header"
   | "footer"
-  | "widgets"
   | "menus"
   | "templates"
   | "error-pages";
 
 function isEditorTab(value: string | null): value is EditorTab {
   return value === "homepage" || value === "blog" || value === "styles" || value === "header" ||
-    value === "footer" || value === "widgets" || value === "menus" || value === "templates" || value === "error-pages";
+    value === "footer" || value === "menus" || value === "templates" || value === "error-pages";
 }
 
 interface TemplateSlot {
@@ -179,6 +177,10 @@ export default function CustomizeThemePage() {
   const [footerSaving, setFooterSaving] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get("tab");
+  // Widgets moved to their own page; keep old `?tab=widgets` links working.
+  useEffect(() => {
+    if (initialTab === "widgets") navigate("/admin/widgets", { replace: true });
+  }, [initialTab, navigate]);
   const [tab, setTabState] = useState<EditorTab>(isEditorTab(initialTab) ? initialTab : "homepage");
   const setTab = useCallback(
     (next: EditorTab) => {
@@ -673,8 +675,6 @@ export default function CustomizeThemePage() {
                   ? t("themeCustomize.subHeader")
                   : tab === "footer"
                     ? t("themeCustomize.subFooter")
-                    : tab === "widgets"
-                      ? t("themeCustomize.subWidgets")
                     : tab === "templates"
                       ? t("themeCustomize.subTemplates")
                       : t("themeCustomize.subStyles")}
@@ -806,13 +806,6 @@ export default function CustomizeThemePage() {
           onClick={() => setTab("footer")}
         >
           {t("themeCustomize.tabFooter")}
-        </button>
-        <button
-          type="button"
-          className={`jf-theme-builder__tab${tab === "widgets" ? " jf-theme-builder__tab--active" : ""}`}
-          onClick={() => setTab("widgets")}
-        >
-          {t("themeCustomize.tabWidgets")}
         </button>
         <button
           type="button"
@@ -1112,10 +1105,7 @@ export default function CustomizeThemePage() {
         <div className="jf-editor__body">
           <HeaderLibraryEditor />
         </div>
-      ) : tab === "widgets" ? (
-        <div className="jf-editor__body">
-          <WidgetAreasEditor />
-        </div>
+
       ) : tab === "menus" ? (
         <div className="jf-editor__body">
           <MenusPage embedded />

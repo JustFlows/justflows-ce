@@ -534,13 +534,15 @@ Behavior belongs in plugins via hooks.
 ## Widget areas
 
 A widget area is a named slot of blocks shown next to the page content: the
-sidebar, a shop filter column, a column above the content. Site owners fill
-areas under Theme builder → **Widgets** and choose which area each content type
-shows.
+sidebar, a shop filter column, a column above the content. Site owners manage
+them under Appearance → **Widgets** (`/admin/widgets`): a palette of widgets on
+the left, every area on the right as a list of widgets that expand into their
+settings, and a Layout tab that chooses which area each content type shows.
 
 - **Which areas exist** is site-global: the core `sidebar`, the areas the active
-  theme declares, and the areas active plugins add through the `widgets.areas`
-  filter ([HOOKS.md](HOOKS.md)). A theme declares areas in
+  theme declares, the areas the site owner adds (**Add widget area**, stored in
+  the `template_parts` row `widget-areas`, deletable), and the areas active
+  plugins add through the `widgets.areas` filter ([HOOKS.md](HOOKS.md)). A theme declares areas in
   `justflows-theme.json` and may ship default blocks in `widgets/<key>.json`:
 
   ```json
@@ -571,15 +573,27 @@ with every selector in `:where()`, so any theme rule wins. It reads
 content and the area, default `2rem`), and `--jf-widget-spacing` (space between
 widgets inside an area, default `1.5rem`). Site owners set the first two under
 Styles → Layout — site-wide, or per layout target like the content width — and
-can give one area its own width (160–640 px) in the Widgets tab, stored as the
+can give one area its own width (160–640 px) on the Widgets page, stored as the
 area document's `width` and written inline as `--jf-sidebar-width` on the
 layout wrapper and the `<aside>`.
 
-Admin: `GET /api/widgets` (areas, layout, content types), `GET/PUT
-/api/widgets/areas/:key` (`{ blocks, locales, width, draft }`),
+**Widgets** are blocks with `category: "widgets"`; the Widgets page lists only
+those in its palette, and any registered block a document already holds stays
+editable. Core ships `core.widget-content` (title and rich text),
+`core.widget-menu` (one of the site's menus), `core.widget-recent-posts`, and
+`core.widget-search` (`core-widgets.ts`). Block `render()` is synchronous, so
+the host attaches each widget's data (menu items, posts, the localized search
+URL) to its props as `__data` just before an area renders; outside an area a
+data widget renders nothing. Plugins add widgets by registering blocks in the
+`widgets` category, the way Shop's Product filters does.
+
+Admin: `GET /api/widgets` (areas, layout, content types), `POST /api/widgets/areas`
+(`{ key, label, description? }`), `GET/PUT/DELETE /api/widgets/areas/:key`
+(`{ blocks, locales, width, draft }`; delete only site-owned areas),
 `DELETE /api/widgets/areas/:key/draft`, `PUT /api/widgets/layout`
-(`{ layout }`). The management API and MCP tools mirror them
-(`widget_areas_list/get/update/discard_draft`, `widget_layout_update`).
+(`{ layout }`), and `GET /api/widgets/options/menus` for the Menu widget. The
+management API and MCP tools mirror them
+(`widget_areas_list/get/create/update/delete/discard_draft`, `widget_layout_update`).
 
 ### Search results
 

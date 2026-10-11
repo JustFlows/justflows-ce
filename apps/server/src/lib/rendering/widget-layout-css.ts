@@ -21,3 +21,13 @@ export function widgetLayoutCss(): string {
   :where(.jf-widget-layout--left) > :where(.jf-widget-layout__main) { grid-column: 2; grid-row: 1; }
 }`;
 }
+
+/** Basic widget styles, zero specificity like the layout (`core-widgets.ts` renders the markup). */
+export function coreWidgetCss(): string {
+  return `:where(.jf-widget__title) { font-size: 1rem; margin: 0 0 0.6rem; }
+:where(.jf-widget__list) { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+:where(.jf-widget__list .jf-widget__list) { padding-left: 1rem; margin-top: 0.4rem; }
+:where(.jf-widget__meta) { display: block; font-size: 0.8em; opacity: 0.7; }
+:where(.jf-widget__search) { display: flex; gap: 0.5rem; }
+:where(.jf-widget__search input) { flex: 1; min-width: 0; }`;
+}
