@@ -172,6 +172,57 @@ describe("plugin hook context", () => {
     expect(seen).toEqual([{ score: 42 }]);
   });
 
+  it("tags an emitted hook with the site the call is for", async () => {
+    const app = new App(CONFIG);
+    let current: string | undefined;
+    const loader = new PluginLoader(app, { currentSiteId: () => current });
+    let ctx: PluginContext | undefined;
+    loader.register(makePlugin({}, (c) => { ctx = c; }));
+    await loader.activate("justflows.test", "site-1");
+    const sites: Array<string | undefined> = [];
+    app.hooks.action("justflows.test.scored", (_event, context) => {
+      sites.push(context.siteId);
+    });
+    // Outside a request or per-site job, the activated site.
+    await ctx!.hooks.emit("justflows.test.scored", {} as never);
+    // A per-site job running this context for another site.
+    current = "site-2";
+    await ctx!.hooks.emit("justflows.test.scored", {} as never);
+    expect(sites).toEqual(["site-1", "site-2"]);
+  });
+
+  it("persists outbound events before isolated listeners and propagates a queue failure", async () => {
+    const app = new App(CONFIG);
+    let fail = true;
+    const seen: string[] = [];
+    const loader = new PluginLoader(app, { currentSiteId: () => "site-2", eventPublisher: async (_event, _payload, siteId) => {
+      seen.push(`queue:${siteId}`);
+      if (fail) throw new Error("database unavailable");
+    } });
+    let ctx: PluginContext | undefined;
+    loader.register(makePlugin({}, c => { ctx = c; }));
+    await loader.activate("justflows.test", "site-1");
+    app.hooks.action("justflows.test.scored", (_event, context) => {
+      expect(context.webhookQueued).toBe(true);
+      seen.push("listener");
+    });
+    await expect(ctx!.hooks.emit("justflows.test.scored", {} as never, { durable: true })).rejects.toThrow("database unavailable");
+    expect(seen).toEqual(["queue:site-2"]);
+    fail = false;
+    await ctx!.hooks.emit("justflows.test.scored", {} as never, { durable: true });
+    expect(seen).toEqual(["queue:site-2", "queue:site-2", "listener"]);
+  });
+
+  it("keeps ordinary action semantics and fails closed when durable delivery is unavailable", async () => {
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app);
+    let ctx: PluginContext | undefined;
+    loader.register(makePlugin({}, c => { ctx = c; }));
+    await loader.activate("justflows.test", "site-1");
+    await expect(ctx!.hooks.emit("justflows.test.scored", {} as never)).resolves.toBeUndefined();
+    await expect(ctx!.hooks.emit("justflows.test.scored", {} as never, { durable: true })).rejects.toThrow("not available");
+  });
+
   it("refuses to let a plugin emit a core hook", async () => {
     let error: unknown;
     await activate(
@@ -426,4 +477,17 @@ describe("plugin hook context", () => {
       expect.objectContaining({ pluginId: "justflows.test", version: "1.0.0", siteId: "site-1" }),
     ]);
   });
+});
+
+
+it("exposes neutral URLs through the host context and removes aliases on deactivation", async () => {
+  let url = "";
+  const plugin = makePlugin({ apiNamespace: "shop" }, ctx => {
+    url = ctx.http.url("checkout"); ctx.http.get("checkout", async () => ({ body: {} }));
+  });
+  const { loader } = await activate(plugin);
+  expect(url).toBe("/api/shop/checkout");
+  expect(loader.httpRouter.match("GET", url)?.route.pluginId).toBe(plugin.manifest.id);
+  await loader.deactivate(plugin.manifest.id, "site-1");
+  expect(loader.httpRouter.match("GET", url)).toBeUndefined();
 });

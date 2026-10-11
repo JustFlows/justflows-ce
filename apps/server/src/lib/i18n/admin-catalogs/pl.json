@@ -20,6 +20,7 @@
     "forms": "Formularze",
     "themes": "Motywy",
     "design": "Projekt",
+    "widgets": "Widżety",
     "menus": "Menu",
     "users": "Użytkownicy",
     "settings": "Ustawienia",
@@ -59,6 +60,8 @@
     "shopInvoices": "Faktury",
     "shopEmails": "Wiadomości e-mail",
     "shopReports": "Raporty",
+    "shopSubscriptions": "Subskrypcje",
+    "shopBackups": "Kopie zapasowe",
     "shopPage": "Strona sklepu",
     "permalinks": "Linki bezpośrednie",
     "pwa": "PWA",
@@ -242,6 +245,7 @@
     "activateFailed": "Nie udało się włączyć wtyczki."
   },
   "content": {
+    "accountNotice": "Strony konta wymagają logowania. Justflows wyklucza je z pamięci podręcznej, eksportów, wyszukiwania publicznego i map witryny.",
     "newPost": "Nowy post",
     "newPage": "Nowa strona",
     "editPost": "Edytuj post",
@@ -1815,6 +1819,15 @@
     "couldNotSendTest": "Nie można wysłać testu"
   },
   "contentTypes": {
+    "cacheControlPlaceholder": "public, max-age=300",
+    "cacheInheritType": "Domyślne ustawienia typu treści",
+    "cachePostHint": "Po publikacji zastępuje zasady buforowania typu treści dla tego wpisu. Zasady prywatne i no-cache pomijają współdzielone pamięci podręczne oraz eksporty statyczne.",
+    "cacheControlLabel": "Cache-Control",
+    "cacheInherit": "Domyślne ustawienia witryny",
+    "cacheNever": "Nigdy nie zapisuj w pamięci podręcznej",
+    "cacheCustom": "Własny nagłówek",
+    "cacheControlValue": "Wartość Cache-Control",
+    "cacheHint": "Zastępuje zasady buforowania stron tego typu. Zasady prywatne i no-cache pomijają współdzielone pamięci podręczne oraz eksporty statyczne.",
     "loadFailed": "Nie udało się załadować typów treści",
     "saveFailed": "Nie udało się zapisać",
     "createFailed": "Nie udało się utworzyć",
@@ -2062,6 +2075,55 @@
     "slotIndexLabel": "Catch-all (indeks)",
     "slotIndexHint": "Używane tylko wtedy, gdy nie istnieje żaden bardziej szczegółowy szablon"
   },
+  "widgets": {
+    "loading": "Wczytywanie widżetów…",
+    "loadError": "Nie udało się wczytać obszarów widżetów.",
+    "saveError": "Nie udało się zapisać.",
+    "noAreas": "Brak obszarów widżetów.",
+    "widthLabel": "Szerokość (px)",
+    "widthPlaceholder": "Domyślna dla witryny",
+    "widthHint": "Pozostaw puste, aby użyć szerokości paska bocznego z sekcji Style → Layout. {min}–{max} px.",
+    "draftSuffix": "(szkic)",
+    "fromDefaultHint": "To domyślne widżety motywu lub wtyczki. Opublikuj je, aby zachować je jako własne.",
+    "language": "Język",
+    "allLanguages": "Wszystkie języki",
+    "overriddenHint": "Ten język ma własne widżety.",
+    "inheritedHint": "Używa widżetów wspólnych dla wszystkich języków. Edytuj je, aby nadać temu językowi własne.",
+    "resetToBase": "Użyj widżetów dla wszystkich języków",
+    "layoutHeading": "Układ",
+    "layoutHint": "Wybierz, który obszar widżetów wyświetla każdy typ treści i gdzie.",
+    "defaultArea": "Domyślnie ({area}, {position})",
+    "defaultNone": "Domyślnie (brak)",
+    "noArea": "Brak",
+    "positionLabel": "Pozycja dla: {type}",
+    "position": {
+      "left": "Po lewej",
+      "right": "Po prawej",
+      "top": "Nad treścią"
+    },
+    "saveLayout": "Zapisz układ",
+    "pageIntro": "Zarządzaj widżetami w obszarach widżetów.",
+    "tabAreas": "Obszary",
+    "availableWidgets": "Dostępne widżety",
+    "availableHint": "Przeciągnij widżet do obszaru albo kliknij go, aby dodać go do wybranego obszaru.",
+    "noWidgets": "Brak dostępnych widżetów.",
+    "addToArea": "Dodaj do: {area}",
+    "addArea": "Dodaj obszar widżetów",
+    "areaName": "Nazwa",
+    "areaKey": "Klucz",
+    "areaKeyHint": "Małe litery, cyfry i myślniki, zaczynając od litery. Maksymalnie 32 znaki.",
+    "areaDescription": "Opis",
+    "deleteArea": "Usuń: {name}",
+    "deleteAreaConfirm": "Usunąć obszar widżetów „{name}” wraz z widżetami? Typy treści, które go wyświetlają, nie pokażą żadnego obszaru widżetów.",
+    "removeWidget": "Usuń widżet",
+    "widgetKind": "widżet",
+    "dropHere": "Upuść widżet tutaj",
+    "emptyArea": "Przeciągnij widżety tutaj",
+    "sourceCore": "Rdzeń",
+    "sourceTheme": "Motyw",
+    "sourceSite": "Twój obszar",
+    "sourcePlugin": "Wtyczka"
+  },
   "themes": {
     "catalogUnavailable": "Katalog motywów niedostępny",
     "installFailed": "Instalacja motywu nie powiodła się",
@@ -2172,7 +2234,8 @@
     "perLanguage": "Według języka",
     "allLanguages": "Wszystkie języki",
     "settingsHeading": "Ustawienia",
-    "saveButton": "Zapisz ustawienia"
+    "saveButton": "Zapisz ustawienia",
+    "morePages": "Więcej ustawień"
   },
   "media": {
     "loadFailed": "Nie udało się załadować multimediów",
@@ -2480,6 +2543,7 @@
       "content": "Treść",
       "media": "Media",
       "commerce": "Handel",
+      "widgets": "Widżety",
       "site": "Witryna"
     },
     "blockJson": {
@@ -3381,7 +3445,14 @@
       "title": "Eksport witryny statycznej",
       "useThisSite": "Skorzystaj z tej witryny",
       "clearExportHintSite": "usuwa eksport tej witryny. Wyłączenie automatycznej odbudowy nie usuwa żadnych plików.",
-      "thisWebsiteExport": "eksport tej witryny"
+      "thisWebsiteExport": "eksport tej witryny",
+      "storageLabel": "Export storage",
+      "storageLocal": "Local files",
+      "storageS3": "Object storage (S3 / OVH)",
+      "storageHint": "Uses the installation’s existing S3 connection and a separate folder per site. The local folder stages exports before uploading. Clear removes both local and deployed files.",
+      "responseUnavailable": "The export API returned an unexpected response (HTTP {status}). Check export status before retrying; the export may still be running.",
+      "pollingUnavailable": "Export status is no longer available. Refresh Tools to check the result before starting another export.",
+      "descriptionHtmlOnly": "Export published HTML pages to object storage. Media, styles and scripts keep their existing URLs and are served by the live site or CDN. Exports run in the background with a live progress log."
     },
     "status": {
       "disabled": "Wyłączone",
@@ -3928,6 +3999,7 @@
     "slugPrimary": "Przestrzeń robocza platformy zachowuje slug primary.",
     "workspaceIntro": "Zmień nazwę i slug tej przestrzeni roboczej. Adres tej strony zawiera identyfikator przestrzeni roboczej.",
     "workspaceId": "Identyfikator przestrzeni roboczej",
+    "workspaceOwner": "Właściciel na stronie głównej",
     "workspaceNotFound": "Nie znaleziono tej przestrzeni roboczej.",
     "workspaceLoadFailed": "Nie udało się wczytać tej przestrzeni roboczej.",
     "workspaceSaveFailed": "Nie udało się zapisać tej przestrzeni roboczej.",
@@ -4140,5 +4212,23 @@
     "removeConfirmRoot": "Usunąć połączenie magazynu platformy? Witryny bez własnego magazynu przejdą na bucket S3 instalacji lub dysk serwera, a ich pliki zostaną tam skopiowane.",
     "removed": "Połączenie magazynu usunięte.",
     "failed": "Nie udało się wczytać ani zapisać ustawień magazynu."
+  },
+  "storageUsage": {
+    "title": "Storage usage",
+    "unknown": "Unknown — usage could not be read",
+    "description": "Managed site files on local disk and external object storage, measured in bytes.",
+    "category": "Category",
+    "local": "Local files",
+    "external": "External storage (S3 / OVH)",
+    "media": "Media and derivatives",
+    "private": "Private files",
+    "exports": "Static exports and retained copies",
+    "total": "Total",
+    "physical": "Physical storage",
+    "logical": "Media and private-file records",
+    "note": "Physical usage includes staging, trash and retained copies. Database records exclude those extra copies. Unknown usage is not counted as zero. External totals cover managed site namespaces, not the entire provider account.",
+    "measured": "Measured at",
+    "limitLabel": "Total storage (local + external)",
+    "measuring": "Measuring storage…"
   }
 }

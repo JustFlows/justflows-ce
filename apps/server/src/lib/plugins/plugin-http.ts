@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { accountCacheMiddleware } from "../../middleware/account-cache.js";
 import type { Request, Response, NextFunction } from "express";
 import type { PluginHttpMethod, PluginHttpRateLimit } from "@justflows/sdk";
 import { isProtectedHeaderName, SECURITY_HEADER_DEFS } from "../security/security-headers.js";
@@ -112,6 +113,13 @@ export function pluginActiveForRequest(pluginId: string): boolean {
   return ctx.activePluginIds !== null && ctx.activePluginIds.has(pluginId);
 }
 
+/** Shared API guard envelope, opt-in so legacy plugin clients keep their contract. */
+export function pluginHttpErrorBody(structured: boolean | undefined, status: number, message: string, requestId?: string | null): Record<string, unknown> {
+  if (!structured) return { error: message, ...(requestId ? { requestId } : {}) };
+  const codes: Record<number, string> = { 400: "invalid_request", 401: "unauthorized", 403: "forbidden", 404: "not_found", 429: "rate_limited", 500: "internal_error" };
+  return { error: { code: codes[status] ?? "request_failed", message, ...(requestId ? { requestId } : {}) } };
+}
+
 export async function dispatchPluginHttp(
   req: Request,
   res: Response,
@@ -160,7 +168,7 @@ export async function dispatchPluginHttp(
   if (ceiling) {
     const { clientIp, consumeRateLimit } = await import("../security/rate-limit.js");
     if (!consumeRateLimit(`${ceiling.bucket}:${clientIp(req)}`, ceiling.limit, ceiling.windowMs)) {
-      res.status(429).json({ error: "Too many requests" });
+      res.status(429).json(pluginHttpErrorBody(match.structuredErrors, 429, "Too many requests"));
       return;
     }
   }
@@ -170,9 +178,16 @@ export async function dispatchPluginHttp(
     // Synchronous: it either calls next() or answers 403 itself, so the flag
     // is settled by the time the call returns.
     let passed = false;
-    csrfProtection(req, res, () => {
-      passed = true;
-    });
+    const originalJson = res.json;
+    if (match.structuredErrors) {
+      res.json = function (body: unknown) {
+        const message = body && typeof body === "object" && "error" in body && typeof body.error === "string" ? body.error : "Invalid CSRF token";
+        return originalJson.call(this, pluginHttpErrorBody(true, 403, message));
+      };
+    }
+    try {
+      csrfProtection(req, res, () => { passed = true; });
+    } finally { res.json = originalJson; }
     if (!passed) return;
   }
 
@@ -249,6 +264,8 @@ export async function dispatchPluginHttp(
         res.setHeader(key, value);
       }
     }
+    // A plugin cannot override the host’s private account cache policy.
+    accountCacheMiddleware(req, res, () => undefined);
     if (result.type) res.type(result.type);
 
     if (result.file && typeof result.file.key === "string") {
@@ -283,6 +300,6 @@ export async function dispatchPluginHttp(
     const diagnostic = recordDiagnosticError(`plugin:${match.pluginId} route ${req.path}`, err);
     console.error("[justflows] plugin route failed: %s", JSON.stringify(routeLabel), err);
     if (!res.headersSent)
-      res.status(500).json({ error: "Internal server error", requestId: diagnostic.requestId });
+      res.status(500).json(pluginHttpErrorBody(match.structuredErrors, 500, "Internal server error", diagnostic.requestId));
   }
 }

@@ -139,6 +139,8 @@ interface BlockInspectorProps {
   reusable?: ReusableItem[];
   onReloadReusable?: () => void;
   onConvertToReusable?: (ref: string) => void;
+  /** Only the block's own fields: no title, style, layout, animation, or JSON panels (widget rows). */
+  compact?: boolean;
 }
 
 export default function BlockInspector({
@@ -151,6 +153,7 @@ export default function BlockInspector({
   reusable = [],
   onReloadReusable,
   onConvertToReusable,
+  compact = false,
 }: BlockInspectorProps) {
   const { t } = useT();
   const mergeTags = useMergeTags();
@@ -542,6 +545,8 @@ export default function BlockInspector({
     }
   }
 
+  if (compact) return <div>{fields}</div>;
+
   return (
     <div>
       <div style={{ fontWeight: 700, fontSize: "0.75rem", color: "var(--jf-text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
@@ -812,7 +817,7 @@ function SchemaField({ name, field, value, onChange }: {
       </label>
     );
   }
-  if (kind === "textarea") {
+  if (kind === "textarea" || kind === "richtext") {
     const text = Array.isArray(value) ? JSON.stringify(value, null, 2) : String(value ?? "");
     return (
       <label style={fieldLabel}>{label}

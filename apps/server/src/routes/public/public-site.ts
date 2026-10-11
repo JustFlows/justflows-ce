@@ -1,3 +1,4 @@
+import { isAccountPath } from "../../middleware/account-cache.js";
 import { verifyContentPreview } from "../../lib/content/content-preview.js";
 import { serializeContentRow } from "../../lib/content/content-api.js";
 import { rateLimit } from "express-rate-limit";
@@ -147,6 +148,20 @@ import {
   type TemplateBlockContext,
 } from "../../lib/rendering/template-blocks.js";
 import { resolvePublicTemplate, resolveThemePartBlocks } from "../../lib/rendering/template-render.js";
+import { registerCoreWidgets, withCoreWidgetData, type WidgetMenuItem } from "../../lib/rendering/core-widgets.js";
+import { listPublishedPostsPage } from "../../lib/content/content-public.js";
+import { contentPermalinks } from "../../lib/navigation/permalinks-db.js";
+import {
+  blocksPlaceWidgetArea,
+  getWidgetLayout,
+  layoutForContentType,
+  listWidgetAreas,
+  resolveWidgetArea,
+  widgetAreaHtml,
+  withWidgetLayout,
+  type WidgetArea,
+  type WidgetLayoutRule,
+} from "../../lib/rendering/widget-areas.js";
 import type { TemplateQuery } from "../../lib/rendering/template-hierarchy.js";
 import { getSession } from "../../lib/auth/session.js";
 import { getSiteSetting } from "../../lib/settings/site-settings.js";
@@ -183,12 +198,15 @@ const blockRegistry = getRuntimeBlockRegistry();
 registerBlogPostListBlock();
 registerCommentsBlock();
 registerTemplateBlocks();
+registerCoreWidgets();
 
 const RESERVED = new Set([
   "admin",
   "api",
   "install",
   "login",
+  "account",
+  "platform-account",
   "register",
   "uploads",
   "assets",
@@ -250,7 +268,8 @@ async function loadThemeMods(preview = false): Promise<ReturnType<typeof mergeMo
 async function loadIdentity(
   preview = false,
   locale?: string,
-): Promise<{ siteTitle: string; tagline: string; logoUrl: string; faviconUrl: string }> {
+): Promise<{ siteTitle: string; tagline: string; logoUrl: string; faviconUrl: string;
+  seo?: { siteId: string; locale: string; settings: import("../../lib/rendering/seo-public.js").SeoSettings } }> {
   const mods = await loadThemeMods(preview);
   const identity = await getSiteIdentity(mods, { preview });
   const siteId = await getSiteId();
@@ -262,6 +281,7 @@ async function loadIdentity(
     tagline: seo.defaultDescription || identity.tagline,
     logoUrl: identity.logoUrl,
     faviconUrl: identity.faviconUrl,
+    seo: { siteId, locale: locale ?? "", settings: seo },
   };
 }
 
@@ -529,6 +549,7 @@ async function buildCommentContext(
 
 /** True when this request must skip the shared page cache for comment state. */
 function pageCacheBypassReason(req: Request, preview: boolean): string | null {
+  if (isAccountPath(req.path)) return "private account";
   if (preview) return "preview";
   if (isFormConfirmation(req)) return "form confirmation";
   if (getSession(req)) return "authenticated session";
@@ -807,13 +828,14 @@ async function sendPublicHtml(
   const hooksBefore = getRuntimeHooks().inspect();
   const hookRunsBefore = hooksBefore.reduce((sum, hook) => sum + hook.runs, 0);
   const hookErrorsBefore = hooksBefore.reduce((sum, hook) => sum + hook.errors, 0);
-  const bypassReason = pageCacheBypassReason(req, preview);
+  const bypassReason = res.locals.jfContentCacheBypass ? "content-type" : pageCacheBypassReason(req, preview);
   const bypass = bypassReason !== null;
   if (bypass || !getJfCache().enabled) {
     res.locals.jfPageCache = "BYPASS";
   }
   let html = await getCachedPageHtml(pageKey, bypass, async () =>
     localizePageLinks(req.path, await render()),
+    res.locals.jfContentCacheTtl,
   );
   if (debugMode().enabled) {
     const session = await resolveSession(req, res);
@@ -1073,9 +1095,12 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   const pageDescription = seoFromContent.description || String(data.seoDescription ?? "");
   let headExtra = "";
   let documentTitle = pageTitle;
-  const identity = data.identity as { faviconUrl?: string; logoUrl?: string } | undefined;
+  const identity = data.identity as Awaited<ReturnType<typeof loadIdentity>> | undefined;
   if (siteId) {
-    const settings = await getSeoSettings(siteId, String(data.locale ?? ""));
+    const locale = String(data.locale ?? "");
+    const settings = identity?.seo?.siteId === siteId && identity.seo.locale === locale
+      ? identity.seo.settings
+      : await getSeoSettings(siteId, locale);
     const page = {
       title: pageTitle,
       description: pageDescription,
@@ -1147,7 +1172,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   const body = await ejs.renderFile(path.join(templateDir, `${view}.ejs`), pageData);
   let analyticsHead = "";
   let analyticsBody = "";
-  if (!data.preview && siteId) {
+  if (!data.preview && !data.privateAccount && siteId) {
     const { getConfiguredGoogleTagId } = await import("../../lib/rendering/analytics-public.js");
     const { buildGoogleTagHead, buildGoogleTagBody } = await import("../../lib/rendering/google-tag.js");
     const googleTagId = await getConfiguredGoogleTagId();
@@ -1156,7 +1181,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       analyticsBody = buildGoogleTagBody(googleTagId);
     }
   }
-  if (hooks.has("analytics.head")) {
+  if (!data.privateAccount && hooks.has("analytics.head")) {
     // A consent plugin can rewrite the analytics markup (e.g. defer it behind a
     // consent category) before it reaches the page. Sync — this is a render path.
     analyticsHead = hooks.applyFilterSync(
@@ -1209,14 +1234,102 @@ interface TemplateRenderOpts {
   preview?: boolean;
 }
 
+/** The page context fields widget areas need: the site, its locale, and preview. */
+type WidgetPageCtx = SiteWidgetCtx & { siteId: string; locale: string; defaultLocale?: string };
+
+function widgetMenuItems(items: Array<{ label: string; url: string; target?: string; children?: unknown[] }>): WidgetMenuItem[] {
+  return items.map((item) => ({
+    label: item.label,
+    url: item.url,
+    ...(item.target ? { target: item.target } : {}),
+    ...(Array.isArray(item.children) && item.children.length
+      ? { children: widgetMenuItems(item.children as typeof items) }
+      : {}),
+  }));
+}
+
+/** Menus, recent posts, and the search URL for the core widgets in an area. */
+function coreWidgetSource(page: WidgetPageCtx, preview: boolean) {
+  const defaultLocale = page.defaultLocale ?? page.locale;
+  return {
+    menu: async (slug: string) =>
+      widgetMenuItems(await getNavItemsForMenuSlug(slug, page.locale, defaultLocale, preview)),
+    recentPosts: async (limit: number) => {
+      const { items } = await listPublishedPostsPage(page.siteId, page.locale, { limit, offset: 0 });
+      const [hrefs, dates] = await Promise.all([
+        contentPermalinks(items),
+        Promise.all(items.map((post) => (post.publishedAt ? formatContentDate(post.publishedAt) : Promise.resolve("")))),
+      ]);
+      return items.map((post, i) => ({ title: post.title, href: hrefs[i] ?? "#", date: dates[i] ?? "" }));
+    },
+    searchAction: () => localePath(page.locale, "/search", defaultLocale),
+  };
+}
+
+/** The site's widget areas and per-type layout, cached with the theme layer. */
+async function loadWidgetSetup(
+  siteId: string,
+  preview: boolean,
+): Promise<{ areas: WidgetArea[]; rules: Record<string, WidgetLayoutRule> }> {
+  return rememberPublic(
+    `${THEME_MODS_PREFIX}widget-setup:${siteId}`,
+    async () => ({ areas: await listWidgetAreas(siteId), rules: await getWidgetLayout(siteId) }),
+    preview,
+  );
+}
+
+/**
+ * One widget area as `<aside>` markup for this request's locale ("" when
+ * empty), plus the area's own width.
+ */
+async function renderWidgetAreaForPage(
+  area: WidgetArea,
+  page: WidgetPageCtx,
+  opts: TemplateRenderOpts,
+): Promise<{ html: string; width: number | null }> {
+  const preview = opts.preview ?? false;
+  const resolved = await rememberPublic(
+    `${THEME_MODS_PREFIX}widget-area:${page.siteId}:${area.key}:${page.locale}`,
+    () => resolveWidgetArea(page.siteId, area, page.locale, preview),
+    preview,
+  );
+  if (!resolved.blocks.length) return { html: "", width: resolved.width };
+  const blocks = await withCoreWidgetData(resolved.blocks, coreWidgetSource(page, preview));
+  const html = withSiteWidgets(
+    await renderBlocksHtml(blocks, opts.submittedFormId, opts.blogCtx, opts.commentCtx),
+    page,
+  );
+  return { html: widgetAreaHtml(area, html, resolved.width), width: resolved.width };
+}
+
+/**
+ * Wrap a content type's page body in the widget layout assigned to that type
+ * (Appearance → Widgets). Unchanged when the type has no area or
+ * the area is empty.
+ */
+async function applyContentTypeWidgets(
+  bodyHtml: string,
+  contentType: string,
+  page: WidgetPageCtx,
+  opts: TemplateRenderOpts,
+): Promise<string> {
+  if (!page.siteId) return bodyHtml;
+  const { areas, rules } = await loadWidgetSetup(page.siteId, opts.preview ?? false);
+  const layout = layoutForContentType(contentType, areas, rules);
+  if (!layout) return bodyHtml;
+  const rendered = await renderWidgetAreaForPage(layout.area, page, opts);
+  return withWidgetLayout(bodyHtml, layout.position, rendered.html, rendered.width);
+}
+
 /**
  * Build the {@link TemplateBlockContext} for a request, wiring `core.template-part`
  * to render the active theme's `parts/<slug>.json` through the same header ctx
- * and widgets as the rest of the page.
+ * and widgets as the rest of the page, and `core.widget-area` to the site's
+ * widget areas.
  */
 function templateBlockContext(
-  base: Omit<TemplateBlockContext, "renderPart">,
-  withHeader: SiteWidgetCtx,
+  base: Omit<TemplateBlockContext, "renderPart" | "renderWidgetArea">,
+  withHeader: WidgetPageCtx,
   opts: TemplateRenderOpts = {},
 ): TemplateBlockContext {
   return {
@@ -1229,6 +1342,12 @@ function templateBlockContext(
         withHeader,
       );
     },
+    renderWidgetArea: async (key) => {
+      if (!withHeader.siteId) return "";
+      const { areas } = await loadWidgetSetup(withHeader.siteId, opts.preview ?? false);
+      const area = areas.find((row) => row.key === key);
+      return area ? (await renderWidgetAreaForPage(area, withHeader, opts)).html : "";
+    },
   };
 }
 
@@ -1240,14 +1359,14 @@ function templateBlockContext(
  */
 async function renderThemeTemplateHtml(
   query: TemplateQuery,
-  withHeader: SiteWidgetCtx & Record<string, unknown>,
+  withHeader: WidgetPageCtx & Record<string, unknown>,
   templateCtx: TemplateBlockContext,
   viewData: Record<string, unknown>,
   opts: TemplateRenderOpts = {},
 ): Promise<string | null> {
   const tpl = await resolvePublicTemplate(query, opts.preview ?? false);
   if (!tpl) return null;
-  const bodyHtml = withSiteWidgets(
+  let bodyHtml = withSiteWidgets(
     await renderBlocksHtml(
       tpl.blocks,
       opts.submittedFormId,
@@ -1257,6 +1376,10 @@ async function renderThemeTemplateHtml(
     ),
     withHeader,
   );
+  // A template that places its own widget area owns the layout.
+  if (query.kind === "singular" && !blocksPlaceWidgetArea(tpl.blocks)) {
+    bodyHtml = await applyContentTypeWidgets(bodyHtml, query.contentType, withHeader, opts);
+  }
   return renderPage("template", { ...withHeader, ...viewData, bodyHtml });
 }
 
@@ -1496,7 +1619,8 @@ async function buildPageContext(req: Request, res: Response, reqPath: string, pr
     t,
     title: identity.siteTitle,
     preview,
-    discourageSearchEngines,
+    discourageSearchEngines: res.locals.jfPrivateContent === true || discourageSearchEngines,
+    privateAccount: res.locals.jfPrivateContent === true,
     cssProviderStylesheets: cssProviderAssets.stylesheets,
     header,
     headerBrand: headerBrandFlags(header, identity.logoUrl),
@@ -1821,7 +1945,7 @@ router.get("/", async (req, res, next) => {
  * block embedded in the page's own blocks (not just a theme-provided "blog
  * page") can page through posts no matter which page it lives on.
  */
-async function renderSinglePageHtml(
+export async function renderSinglePageHtml(
   req: Request,
   res: Response,
   reqPath: string,
@@ -1893,7 +2017,7 @@ async function renderSinglePageHtml(
     { id: String(pageContent.id), type: String(pageContent.type) },
   );
   const blogCtx = await buildBlogRenderContext(pageCtx.locale, pageNumber, basePath);
-  const commentCtx = await buildCommentContext(
+  const commentCtx = pageContent.type === "account" ? undefined : await buildCommentContext(
     req,
     {
       id: String(pageContent.id),
@@ -1906,7 +2030,7 @@ async function renderSinglePageHtml(
     pageCtx,
     reqPath,
   );
-  const bodyHtml = withSiteWidgets(
+  let bodyHtml = withSiteWidgets(
     applyFootnotes(
       await applyContentRender(
         await renderBlocksHtml(
@@ -1920,6 +2044,13 @@ async function renderSinglePageHtml(
     ),
     withHeader,
   );
+  if (pageContent.type === "account") {
+    if (!req.session) throw new Error("Account rendering requires an authenticated session");
+    const { renderAccountBlocks } = await import("../../lib/account/render.js");
+    bodyHtml = await renderAccountBlocks(bodyHtml, req.session);
+    withHeader.discourageSearchEngines = true;
+    Object.assign(withHeader, { privateAccount: true });
+  }
   const formattedDate = pageContent.publishedAt
     ? await formatContentDate(pageContent.publishedAt)
     : null;
@@ -1959,7 +2090,7 @@ async function renderSinglePageHtml(
       alternates,
       formattedDate,
       title: pageContent.title,
-      mainClass: String(pageContent.type) === "page" ? "site-main site-main--page" : "site-main",
+      mainClass: ["page", "account"].includes(String(pageContent.type)) ? "site-main site-main--page" : "site-main",
     },
     templateOpts,
   );
@@ -1968,7 +2099,7 @@ async function renderSinglePageHtml(
   return renderPage("single", {
     ...withHeader,
     content: pageContent,
-    bodyHtml,
+    bodyHtml: await applyContentTypeWidgets(bodyHtml, String(pageContent.type), withHeader, templateOpts),
     alternates,
     formattedDate,
     title: pageContent.title,

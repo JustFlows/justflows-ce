@@ -111,7 +111,7 @@ export function safeAdminRel(value: unknown): string | null {
 
 /**
  * Re-validate a stored `adminApp` manifest object (may predate or lie about the
- * schema): a relative `dir` and 1–20 `{ path, entry, title? }` routes, each with
+ * schema): a relative `dir` and 1–40 `{ path, entry, title? }` routes, each with
  * a `/admin/...` path and a relative `.html` entry, no traversal, deduped.
  */
 const LOCALE_RE = /^[a-z]{2,8}(?:-[A-Za-z0-9]{2,8}){0,2}$/;
@@ -128,7 +128,7 @@ export function parseAdminAppSpec(
 
   const routes: Array<{ path: string; entry: string; title?: string }> = [];
   const seen = new Set<string>();
-  for (const rawRoute of spec.routes.slice(0, 20)) {
+  for (const rawRoute of spec.routes.slice(0, 40)) {
     if (!rawRoute || typeof rawRoute !== "object") continue;
     const r = rawRoute as { path?: unknown; entry?: unknown; title?: unknown };
     const path = resolveRoutePath(typeof r.path === "string" ? r.path : "", pluginId);

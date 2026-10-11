@@ -238,6 +238,12 @@ export async function ensurePluginRuntime(): Promise<void> {
         cacheFactory: (pluginId) => createPluginCacheApi(pluginId, getJfCache()),
         dataFactory: (pluginId, siteId) => createPluginDataApi(pluginId, siteId),
         jobsFactory: (pluginId) => createPluginJobsApi(pluginId),
+        // Emitted hooks follow the request's or per-site job's site, like row calls (`pluginCallSiteId`).
+        currentSiteId: () => getTenantContext()?.siteId,
+        eventPublisher: async (event, payload, siteId) => {
+          const { enqueueWebhookEvent } = await import("../http/webhooks.js");
+          await enqueueWebhookEvent(event, payload, { siteId, source: "system" });
+        },
         mailFactory: (pluginId, permissions) => ({
           send: async (message) => {
             if (!permissions.has("mail:send"))
@@ -332,6 +338,10 @@ export async function ensurePluginRuntime(): Promise<void> {
           addRole: async (target, role, actor) => {
             const { addAdditionalRole } = await import("../auth/users-admin.js");
             return addAdditionalRole(siteId, target, role, actor);
+          },
+          removeRole: async (target, role, actor) => {
+            const { removeAdditionalRole } = await import("../auth/users-admin.js");
+            return removeAdditionalRole(siteId, target, role, actor);
           },
           get: async (userId) => {
             const { getUserRoles } = await import("../auth/users-admin.js");
