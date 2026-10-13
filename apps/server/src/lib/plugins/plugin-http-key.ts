@@ -2,7 +2,14 @@
 
 import type { Request, Response } from "express";
 import type { AccessScope, UserCapability } from "@justflows/sdk";
-import { API_KEY_TOKEN_PREFIX, recordApiKeyUse, verifyApiKey, type ApiKeyRecord } from "../auth/api-keys.js";
+import {
+  API_KEY_TOKEN_PREFIX,
+  keyHolds,
+  pluginCapabilityIds,
+  recordApiKeyUse,
+  verifyApiKey,
+  type ApiKeyRecord,
+} from "../auth/api-keys.js";
 import { getEffectiveAccess } from "../auth/access-policy.js";
 import { isManageApiEnabled } from "../http/manage-api-settings.js";
 import { auditLog } from "../security/audit-log.js";
@@ -21,10 +28,9 @@ import { manageApiRateLimit } from "../../middleware/manage-api-rate-limit.js";
  * surfaces use, with the same checks: the Manage API switch, revocation and
  * expiry, the key's site, its IP and Origin allowlists, and its rate limit.
  *
- * Capabilities are the key's set ∩ the owner's current access. Plugin
- * capabilities (Shop's `products:update`) cannot be ticked on a key, so a key
- * holding `site:admin` stands for its owner and carries the owner's whole
- * current set, plugin capabilities included. A key with a scope is refused
+ * Capabilities are what the key holds (`keyHolds`: its own set, plus every
+ * plugin capability when it has `site:admin`) ∩ the owner's current access.
+ * A key with a scope is refused
  * here: plugin routes check capabilities, not scopes, so the scope could not
  * be enforced.
  *
@@ -115,11 +121,8 @@ export async function resolvePluginKeySession(req: Request, res: Response): Prom
     if (!(await passes(limiter, req, res))) return { kind: "limited" };
   }
 
-  const access = await getEffectiveAccess(owner.userId, owner.siteId, owner.role);
-  const owned = new Set(access.capabilities);
-  const capabilities = record.capabilities.includes("site:admin" as UserCapability) && owned.has("site:admin" as UserCapability)
-    ? [...owned]
-    : record.capabilities.filter((capability) => owned.has(capability));
+  const [access, plugin] = await Promise.all([getEffectiveAccess(owner.userId, owner.siteId, owner.role), pluginCapabilityIds()]);
+  const capabilities = access.capabilities.filter((capability) => keyHolds(record, capability, plugin));
 
   await recordApiKeyUse(record.id, ip);
   return {

@@ -40,6 +40,11 @@ vi.mock("../../../src/lib/security/audit-log.js", () => ({
   },
 }));
 vi.mock("../../../src/lib/auth/access-policy.js", () => ({
+  availableCapabilityDefinitions: async () => [
+    { id: "content:read", pluginId: null },
+    { id: "users:manage", pluginId: null },
+    { id: "products:update", pluginId: "justflows.shop" },
+  ],
   getEffectiveAccess: async (userId: string) => ({
     roleId: "administrator",
     additionalRoles: [],
@@ -48,8 +53,8 @@ vi.mock("../../../src/lib/auth/access-policy.js", () => ({
     policy: { scopes: {} },
   }),
 }));
-vi.mock("../../../src/lib/auth/api-keys.js", () => ({
-  API_KEY_TOKEN_PREFIX: "jfk_",
+vi.mock("../../../src/lib/auth/api-keys.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../src/lib/auth/api-keys.js")>()),
   verifyApiKey: async (token: string) =>
     token === "jfk_good" && mocks.key ? { record: mocks.key, owner: OWNER, rejection: mocks.rejection } : null,
   recordApiKeyUse: async (id: string) => {
@@ -110,7 +115,7 @@ const put = (token: string | null) =>
   });
 
 describe("management API keys on plugin routes", () => {
-  it("gives a site:admin key its owner's access, plugin capabilities included, without CSRF", async () => {
+  it("gives a site:admin key the plugin capabilities its owner has, without CSRF", async () => {
     const res = await put("jfk_good");
     expect(res.status).toBe(200);
     expect((await res.json()).authorization).toBeNull();
@@ -119,14 +124,20 @@ describe("management API keys on plugin routes", () => {
     expect(mocks.used).toEqual([mocks.key!["id"]]);
   });
 
+  it("never widens site:admin to core capabilities the key lacks", async () => {
+    mocks.ownerCapabilities = ["content:read", "site:admin", "users:manage", "products:update"];
+    await put("jfk_good");
+    expect(mocks.seen[0]?.capabilities).toEqual(["content:read", "site:admin", "products:update"]);
+  });
+
   it("limits a key without site:admin to its own capabilities the owner still has", async () => {
     mocks.key = key({ capabilities: ["content:read", "users:manage"] });
     await put("jfk_good");
     expect(mocks.seen[0]?.capabilities).toEqual(["content:read"]);
   });
 
-  it("does not let site:admin on a key outrank an owner who lost it", async () => {
-    mocks.ownerCapabilities = ["content:read", "products:update"];
+  it("never gives more than the owner currently has", async () => {
+    mocks.ownerCapabilities = ["content:read"];
     await put("jfk_good");
     expect(mocks.seen[0]?.capabilities).toEqual(["content:read"]);
   });

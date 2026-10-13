@@ -311,7 +311,41 @@ Migration `0036_ai_byok` (PostgreSQL, MySQL, MariaDB) adds:
 
 ## For plugin authors
 
-- **Plugin tools.** A plugin can add tools through the `mcp.tools` filter.
+Agents can use a plugin only where its author allows it. Nothing a plugin
+does is offered to agents unless the plugin opts in, route by route or tool
+by tool.
+
+- **Offer a route as a tool.** Add the `mcp` option to any `ctx.http` route.
+  The route becomes one MCP tool that runs the route's own handler, so your
+  validation, capability checks, and side effects stay in one place.
+
+  ```ts
+  ctx.http.put("products/:id", saveProduct, {
+    mcp: {
+      name: "acme_products_save",
+      description: "Save a product's price and stock. Read it first with acme_products_get.",
+      capability: "products:update",
+      inputSchema: { type: "object", properties: { price: { type: "string" }, stock: { type: "integer" } } },
+    },
+  });
+  ```
+
+  - Path parameters (`:id`) become required string arguments. The other
+    arguments are the query string for GET and DELETE, and the JSON body
+    otherwise.
+  - The handler gets `req.session` with `role: "api-key"` (the owner's role
+    for the admin assistant) and the capabilities the agent may use right now.
+    Keep checking `req.session.capabilities` in the handler as for any caller.
+  - The tool is listed only on sites where the plugin is active, and only to
+    sessions that hold `capability`. It disappears when the plugin is turned
+    off.
+  - GET tools are read-only. Other tools are audited. Set `annotations` to
+    say more (`destructiveHint`, `idempotentHint`).
+  - The route's `rateLimit` applies per agent. Upload routes (`binaryBody`)
+    cannot be tools. A file or binary response is not passed to the agent.
+  - Errors reach the model as their message, including
+    `{ error: { code, message } }` from `structuredErrors` routes.
+- **Plugin tools.** A plugin can also add tools through the `mcp.tools` filter.
   Append `McpToolDefinition` objects: `name`, `description`, `inputSchema`,
   `capability`, optional `annotations`, and `handler(args, context)`.
   - The host lists the tool only to sessions that hold `capability`, checks it
@@ -333,4 +367,13 @@ Migration `0036_ai_byok` (PostgreSQL, MySQL, MariaDB) adds:
     },
   ]);
   ```
-- **Plugin capabilities** work with keys and grants like core ones.
+- **Plugin capabilities** work with keys and grants like core ones: tick them
+  on a key to allow just those tools. A key with **site:admin** also holds
+  every capability plugins register, including plugins installed after the
+  key was made, as long as the key's owner still has them. Core capabilities
+  are never widened this way.
+- **Keys on plugin routes.** The same `jfk_` key authenticates your plugin's
+  HTTP routes directly (`Authorization: Bearer jfk_…`), with the management
+  API's checks and rate limit. Such requests skip CSRF and arrive with
+  `role: "api-key"`. Keys limited to content types, locales, sites, or
+  ownership are refused there, because plugin routes do not check scopes.

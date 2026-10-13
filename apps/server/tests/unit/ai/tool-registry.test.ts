@@ -3,10 +3,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const access = vi.hoisted(() => ({ capabilities: [] as string[] }));
 vi.mock("../../../src/lib/auth/access-policy.js", () => ({
+  availableCapabilityDefinitions: async () => [],
   getEffectiveAccess: async () => ({ roleId: "editor", capabilities: access.capabilities, policy: { scopes: {} } }),
 }));
 const hooks = vi.hoisted(() => ({ tools: [] as unknown[] }));
 vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
+  getPluginLoader: () => null,
   getRuntimeHooks: () => ({
     has: (name: string) => name === "mcp.tools",
     applyFilter: async (_name: string, value: unknown[]) => [...value, ...hooks.tools],
