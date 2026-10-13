@@ -2,7 +2,7 @@
 
 import type { UserCapability } from "@justflows/sdk";
 import { getEffectiveAccess } from "../../auth/access-policy.js";
-import type { ApiKeyOwner, ApiKeyRecord } from "../../auth/api-keys.js";
+import { keyHolds, pluginCapabilityIds, type ApiKeyOwner, type ApiKeyRecord } from "../../auth/api-keys.js";
 import type { AgentVia } from "../agent-origin.js";
 
 /**
@@ -73,9 +73,11 @@ export function syntheticKey(input: {
  * still checked again by the handler it reaches.
  */
 export async function principalCapabilities(principal: AgentPrincipal): Promise<Set<UserCapability>> {
-  const access = await getEffectiveAccess(principal.owner.userId, principal.owner.siteId, principal.owner.role);
-  const owned = new Set(access.capabilities);
-  return new Set(principal.key.capabilities.filter((capability) => owned.has(capability)));
+  const [access, plugin] = await Promise.all([
+    getEffectiveAccess(principal.owner.userId, principal.owner.siteId, principal.owner.role),
+    pluginCapabilityIds(),
+  ]);
+  return new Set(access.capabilities.filter((capability) => keyHolds(principal.key, capability, plugin)));
 }
 
 /** An API key resolved by `verifyApiKey`, used as-is. */

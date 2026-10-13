@@ -5,6 +5,7 @@ import http from "node:http";
 import { duplexPair } from "node:stream";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { runWithAgentOrigin } from "../agent-origin.js";
+import { runAsDelegate } from "../../security/delegated-call.js";
 import { getTenantContext, runWithTenant, type TenantRequestContext } from "../../tenancy/context.js";
 import type { AgentPrincipal } from "./principal.js";
 
@@ -92,9 +93,11 @@ async function buildInternalServer(): Promise<http.Server> {
           res.once("finish", done);
           res.once("close", done);
           runWithTenant(tenantFor(principal.owner.siteId, entry.tenant), () => {
-            void runWithAgentOrigin({ via: principal.via, client: principal.clientName }, async () => next()).catch(
-              reject,
-            );
+            // A new async turn: mark the delegated call again for everything the route runs.
+            const delegate = { kind: principal.kind === "assistant" ? "assistant" : "mcp", client: principal.clientName } as const;
+            void runAsDelegate(delegate, () =>
+              runWithAgentOrigin({ via: principal.via, client: principal.clientName }, async () => next()),
+            ).catch(reject);
           });
         }),
       );

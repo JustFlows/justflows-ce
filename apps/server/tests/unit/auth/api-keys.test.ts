@@ -91,6 +91,7 @@ let ownerCapabilities: string[] = [
   "media:read",
 ];
 vi.mock("../../../src/lib/auth/access-policy.js", () => ({
+  availableCapabilityDefinitions: async () => [],
   getEffectiveAccess: async () => ({
     roleId: ownerRole,
     capabilities: ownerCapabilities,

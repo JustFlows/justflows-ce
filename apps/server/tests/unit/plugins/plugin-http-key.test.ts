@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   seen: [] as Array<PluginHttpRequest["session"]>,
   audits: [] as string[],
   used: [] as string[],
+  delegates: [] as Array<string | undefined>,
 }));
 
 vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
@@ -40,6 +41,11 @@ vi.mock("../../../src/lib/security/audit-log.js", () => ({
   },
 }));
 vi.mock("../../../src/lib/auth/access-policy.js", () => ({
+  availableCapabilityDefinitions: async () => [
+    { id: "content:read", pluginId: null },
+    { id: "users:manage", pluginId: null },
+    { id: "products:update", pluginId: "justflows.shop" },
+  ],
   getEffectiveAccess: async (userId: string) => ({
     roleId: "administrator",
     additionalRoles: [],
@@ -48,8 +54,8 @@ vi.mock("../../../src/lib/auth/access-policy.js", () => ({
     policy: { scopes: {} },
   }),
 }));
-vi.mock("../../../src/lib/auth/api-keys.js", () => ({
-  API_KEY_TOKEN_PREFIX: "jfk_",
+vi.mock("../../../src/lib/auth/api-keys.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../src/lib/auth/api-keys.js")>()),
   verifyApiKey: async (token: string) =>
     token === "jfk_good" && mocks.key ? { record: mocks.key, owner: OWNER, rejection: mocks.rejection } : null,
   recordApiKeyUse: async (id: string) => {
@@ -58,6 +64,7 @@ vi.mock("../../../src/lib/auth/api-keys.js", () => ({
 }));
 
 import { dispatchPluginHttp } from "../../../src/lib/plugins/plugin-http.js";
+import { currentDelegate } from "../../../src/lib/security/delegated-call.js";
 
 function key(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -78,6 +85,7 @@ beforeAll(async () => {
   mocks.router = router;
   const handler = async (req: PluginHttpRequest) => {
     mocks.seen.push(req.session);
+    mocks.delegates.push(currentDelegate()?.kind);
     return { body: { ok: true, authorization: req.headers["authorization"] ?? null } };
   };
   router.register("justflows.shop", "GET", "catalog", handler);
@@ -100,6 +108,7 @@ beforeEach(() => {
   mocks.seen = [];
   mocks.audits = [];
   mocks.used = [];
+  mocks.delegates = [];
 });
 
 const put = (token: string | null) =>
@@ -110,7 +119,7 @@ const put = (token: string | null) =>
   });
 
 describe("management API keys on plugin routes", () => {
-  it("gives a site:admin key its owner's access, plugin capabilities included, without CSRF", async () => {
+  it("gives a site:admin key the plugin capabilities its owner has, without CSRF", async () => {
     const res = await put("jfk_good");
     expect(res.status).toBe(200);
     expect((await res.json()).authorization).toBeNull();
@@ -119,14 +128,20 @@ describe("management API keys on plugin routes", () => {
     expect(mocks.used).toEqual([mocks.key!["id"]]);
   });
 
+  it("never widens site:admin to core capabilities the key lacks", async () => {
+    mocks.ownerCapabilities = ["content:read", "site:admin", "users:manage", "products:update"];
+    await put("jfk_good");
+    expect(mocks.seen[0]?.capabilities).toEqual(["content:read", "site:admin", "products:update"]);
+  });
+
   it("limits a key without site:admin to its own capabilities the owner still has", async () => {
     mocks.key = key({ capabilities: ["content:read", "users:manage"] });
     await put("jfk_good");
     expect(mocks.seen[0]?.capabilities).toEqual(["content:read"]);
   });
 
-  it("does not let site:admin on a key outrank an owner who lost it", async () => {
-    mocks.ownerCapabilities = ["content:read", "products:update"];
+  it("never gives more than the owner currently has", async () => {
+    mocks.ownerCapabilities = ["content:read"];
     await put("jfk_good");
     expect(mocks.seen[0]?.capabilities).toEqual(["content:read"]);
   });
@@ -149,6 +164,12 @@ describe("management API keys on plugin routes", () => {
     mocks.rejection = "expired";
     await put("jfk_good");
     expect(mocks.audits).toEqual(["apikey.auth_failed"]);
+  });
+
+  it("marks a key request as delegated for the handler, and a cookie request not", async () => {
+    await put("jfk_good");
+    await fetch(`${base}/ext/justflows.shop/catalog`);
+    expect(mocks.delegates).toEqual(["api-key", undefined]);
   });
 
   it("keeps CSRF on cookie requests", async () => {

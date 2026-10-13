@@ -4,10 +4,12 @@ import type { McpToolDefinition } from "@justflows/sdk";
 import { keyCan } from "../../auth/api-keys.js";
 import { getRuntimeHooks } from "../../plugins/plugin-runtime.js";
 import { auditLog } from "../../security/audit-log.js";
+import { runAsDelegate } from "../../security/delegated-call.js";
 import { logSafe } from "../../security/log-safe.js";
 import { runWithAgentOrigin } from "../agent-origin.js";
 import { CORE_TOOLS } from "./catalog.js";
 import { READ, type AgentTool, type JsonSchemaObject, type ToolCallContext, type ToolOutcome } from "./manage-tool.js";
+import { pluginRouteTools } from "./plugin-route-tools.js";
 import { principalCapabilities, type AgentPrincipal } from "./principal.js";
 
 /**
@@ -65,21 +67,27 @@ function pluginTool(definition: McpToolDefinition, coreNames: Set<string>): Agen
   };
 }
 
-/** Every tool: the core catalog plus anything plugins add through `mcp.tools`. */
+/**
+ * Every tool: the core catalog, plugin routes offered with the `mcp` route
+ * option, and anything plugins add through `mcp.tools`. A plugin tool never
+ * shadows a core tool; between plugin tools the first name wins.
+ */
 export async function allTools(siteId: string): Promise<AgentTool[]> {
-  const hooks = getRuntimeHooks();
-  if (!hooks.has("mcp.tools")) return CORE_TOOLS;
   const coreNames = new Set(CORE_TOOLS.map((tool) => tool.name));
-  let contributed: unknown;
-  try {
-    contributed = await hooks.applyFilter("mcp.tools", [], { siteId });
-  } catch (err) {
-    console.error("[justflows] mcp.tools filter failed", JSON.stringify(logSafe(String(err))));
-    return CORE_TOOLS;
+  const extra = pluginRouteTools().filter((tool) => !coreNames.has(tool.name));
+  const hooks = getRuntimeHooks();
+  if (hooks.has("mcp.tools")) {
+    try {
+      const contributed = await hooks.applyFilter("mcp.tools", [], { siteId });
+      for (const definition of Array.isArray(contributed) ? contributed : []) {
+        const tool = pluginTool(definition as McpToolDefinition, coreNames);
+        if (tool) extra.push(tool);
+      }
+    } catch (err) {
+      console.error("[justflows] mcp.tools filter failed", JSON.stringify(logSafe(String(err))));
+    }
   }
-  const extra = (Array.isArray(contributed) ? contributed : [])
-    .map((definition) => pluginTool(definition as McpToolDefinition, coreNames))
-    .filter((tool): tool is AgentTool => tool !== null);
+  if (extra.length === 0) return CORE_TOOLS;
   const seen = new Set<string>();
   return [...CORE_TOOLS, ...extra.filter((tool) => (seen.has(tool.name) ? false : (seen.add(tool.name), true)))];
 }
@@ -207,7 +215,11 @@ export async function callTool(
 
   let outcome: ToolOutcome;
   try {
-    outcome = await runWithAgentOrigin({ via: principal.via, client: principal.clientName }, () => tool.run(args, ctx));
+    // Marked before any tool or plugin code runs: platform operations refuse delegated work.
+    const delegate = { kind: principal.kind === "assistant" ? "assistant" : "mcp", client: principal.clientName } as const;
+    outcome = await runAsDelegate(delegate, () =>
+      runWithAgentOrigin({ via: principal.via, client: principal.clientName }, () => tool.run(args, ctx)),
+    );
   } catch (err) {
     console.error("[justflows] agent tool failed", JSON.stringify(logSafe(`${name}: ${String(err)}`)));
     outcome = { ok: false, status: 500, error: "The tool failed to run." };

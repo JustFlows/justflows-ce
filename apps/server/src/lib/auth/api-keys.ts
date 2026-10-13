@@ -426,12 +426,32 @@ export async function recordApiKeyUse(id: string, ip: string | null): Promise<vo
   }
 }
 
+/** Capabilities registered by active plugins, as opposed to core ones. */
+export async function pluginCapabilityIds(): Promise<Set<string>> {
+  const { availableCapabilityDefinitions } = await import("./access-policy.js");
+  return new Set((await availableCapabilityDefinitions()).filter((definition) => definition.pluginId).map(({ id }) => id));
+}
+
+/**
+ * Whether the key itself carries `capability`, before the owner's access.
+ *
+ * A key holds what was ticked on it. A key with `site:admin` also holds every
+ * capability a plugin registers, including plugins installed after the key
+ * was made: such a key stands for a full administrator, and plugin
+ * capabilities could not be ticked on it when it was created. Core
+ * capabilities are never widened this way.
+ */
+export function keyHolds(key: Pick<ApiKeyRecord, "capabilities">, capability: string, pluginCapabilities: ReadonlySet<string>): boolean {
+  if (key.capabilities.includes(capability as UserCapability)) return true;
+  return key.capabilities.includes("site:admin" as UserCapability) && pluginCapabilities.has(capability);
+}
+
 /**
  * Whether a key may exercise `capability` on `resource` *right now*.
  *
- * The key's own capability set is intersected with the owner's current
- * effective capabilities, then both the key's scope and the owner's per-
- * capability scope must allow the resource.
+ * The key's own capability set (see `keyHolds`) is intersected with the
+ * owner's current effective capabilities, then both the key's scope and the
+ * owner's per-capability scope must allow the resource.
  */
 export async function keyCan(
   key: ApiKeyRecord,
@@ -439,7 +459,7 @@ export async function keyCan(
   capability: UserCapability,
   resource: AccessResource = {},
 ): Promise<boolean> {
-  if (!key.capabilities.includes(capability)) return false;
+  if (!keyHolds(key, capability, key.capabilities.includes(capability) ? new Set() : await pluginCapabilityIds())) return false;
   const ownerAccess = await getEffectiveAccess(owner.userId, owner.siteId, owner.role);
   if (!ownerAccess.capabilities.includes(capability)) return false;
   const target: AccessResource = { siteId: owner.siteId, ...resource };

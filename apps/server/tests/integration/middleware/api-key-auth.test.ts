@@ -41,6 +41,7 @@ vi.mock("../../../src/lib/security/audit-log.js", () => ({
 }));
 
 const { apiKeyAuth } = await import("../../../src/middleware/api-key-auth.js");
+const { currentDelegate } = await import("../../../src/lib/security/delegated-call.js");
 
 let server: Server;
 let url: string;
@@ -48,8 +49,10 @@ let url: string;
 beforeAll(async () => {
   const app = express();
   app.use(express.json());
-  app.use("/api/manage/v1", apiKeyAuth, (req, res) => {
-    res.json({ ok: true, keyId: req.apiKey?.id, owner: req.apiKeyOwner, role: req.session?.role });
+  app.use("/api/manage/v1", apiKeyAuth, async (req, res) => {
+    // After an await, as a route's service and plugin hooks would read it.
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    res.json({ ok: true, keyId: req.apiKey?.id, owner: req.apiKeyOwner, role: req.session?.role, delegate: currentDelegate()?.kind ?? null });
   });
   server = app.listen(0);
   await new Promise<void>((r) => server.once("listening", r));
@@ -100,6 +103,7 @@ describe("apiKeyAuth", () => {
       keyId: "key-1",
       owner: { userId: "u1", siteId: "s1", role: "administrator" },
       role: "api-key",
+      delegate: "api-key",
     });
   });
 

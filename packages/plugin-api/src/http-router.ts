@@ -3,6 +3,7 @@
 import { pluginApiUrl } from "@justflows/sdk";
 import type {
   PluginHttpHandler,
+  PluginHttpMcpTool,
   PluginHttpMethod,
   PluginHttpRateLimit,
   PluginHttpRequest,
@@ -20,20 +21,59 @@ export interface RegisteredPluginRoute {
   rateLimit?: PluginHttpRateLimit;
   rawBody?: true;
   binaryBody?: { maxBytes: number };
+  mcp?: PluginHttpMcpTool;
 }
 
 /** The largest upload a plugin route may accept with `binaryBody`. */
 export const MAX_PLUGIN_BINARY_BODY = 1024 * 1024 * 1024;
 
 const RATE_KEY = /^[a-z0-9][a-z0-9-]{0,39}$/;
+/** Same rule as core agent tool names. */
+const MCP_TOOL_NAME = /^[a-z][a-z0-9_]{2,63}$/;
+
+type NormalizedRouteOptions = Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody" | "binaryBody" | "structuredErrors" | "mcp">;
+
+function normalizeMcpTool(pluginId: string, tool: PluginHttpMcpTool, binaryBody: boolean): PluginHttpMcpTool {
+  if (!tool || typeof tool !== "object") throw new Error(`Plugin "${pluginId}" mcp must be an object`);
+  if (typeof tool.name !== "string" || !MCP_TOOL_NAME.test(tool.name)) {
+    throw new Error(`Plugin "${pluginId}" MCP tool name must be 3–64 lowercase letters, digits, or underscores, starting with a letter`);
+  }
+  if (typeof tool.description !== "string" || !tool.description.trim()) {
+    throw new Error(`Plugin "${pluginId}" MCP tool "${tool.name}" needs a description`);
+  }
+  if (typeof tool.capability !== "string" || !tool.capability.trim()) {
+    throw new Error(`Plugin "${pluginId}" MCP tool "${tool.name}" needs a capability`);
+  }
+  if (binaryBody) throw new Error(`Plugin "${pluginId}" MCP tool "${tool.name}" cannot use a binaryBody route`);
+  const schema = tool.inputSchema;
+  if (schema !== undefined && (!schema || typeof schema !== "object" || schema["type"] !== "object")) {
+    throw new Error(`Plugin "${pluginId}" MCP tool "${tool.name}" inputSchema must be a JSON Schema with type "object"`);
+  }
+  return {
+    name: tool.name,
+    ...(typeof tool.title === "string" ? { title: tool.title.slice(0, 120) } : {}),
+    description: tool.description.slice(0, 2_000),
+    capability: tool.capability.trim(),
+    ...(schema ? { inputSchema: schema } : {}),
+    ...(tool.annotations
+      ? {
+          annotations: {
+            readOnlyHint: tool.annotations.readOnlyHint === true,
+            destructiveHint: tool.annotations.destructiveHint === true,
+            idempotentHint: tool.annotations.idempotentHint === true,
+          },
+        }
+      : {}),
+  };
+}
 
 /** Copy only the fields the host understands, and reject a limit that would not hold. */
 export function normalizePluginHttpRouteOptions(
   pluginId: string,
   options?: PluginHttpRouteOptions,
-): Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody" | "binaryBody" | "structuredErrors"> {
+): NormalizedRouteOptions {
   if (!options) return {};
-  const normalized: Pick<RegisteredPluginRoute, "csrf" | "rateLimit" | "rawBody" | "binaryBody" | "structuredErrors"> = {};
+  const normalized: NormalizedRouteOptions = {};
   if (options.structuredErrors !== undefined && options.structuredErrors !== true) throw new Error(`Plugin "${pluginId}" can only set structuredErrors to true`);
   if (options.structuredErrors === true) normalized.structuredErrors = true;
   if (options.csrf !== undefined && options.csrf !== false) {
@@ -65,6 +105,7 @@ export function normalizePluginHttpRouteOptions(
     }
     normalized.rateLimit = key === undefined ? { limit, windowMs } : { limit, windowMs, key };
   }
+  if (options.mcp !== undefined) normalized.mcp = normalizeMcpTool(pluginId, options.mcp, normalized.binaryBody !== undefined);
   return normalized;
 }
 
@@ -155,13 +196,19 @@ export class PluginHttpRouter {
         `Plugin "${pluginId}" cannot claim ${method} ${path} — already claimed by "${conflict.pluginId}"`,
       );
     }
+    const normalized = normalizePluginHttpRouteOptions(pluginId, options);
+    const tool = normalized.mcp?.name;
+    const taken = tool ? this.routes.find((route) => route.mcp?.name === tool) : undefined;
+    if (taken) {
+      throw new Error(`Plugin "${pluginId}" cannot name an MCP tool "${tool}" — already used by "${taken.pluginId}"`);
+    }
 
     this.routes.push({
       pluginId,
       method,
       path,
       handler,
-      ...normalizePluginHttpRouteOptions(pluginId, options),
+      ...normalized,
     });
   }
 
