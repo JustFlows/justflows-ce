@@ -1,4 +1,4 @@
-import { seedAccountPage } from "@justflows/content";
+import { seedAccountPage, seedAuthPages } from "@justflows/content";
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -316,6 +316,7 @@ router.post("/", async (req, res) => {
         ],
       );
       await seedAccountPage(sql, siteId, installLocale.code);
+      await seedAuthPages(sql, siteId, installLocale.code);
     } catch (e) {
       console.error("[justflows] install: language seed failed:", e);
       emit("error", "Could not set up the default language. Check the server log for details.");

@@ -2743,7 +2743,9 @@
         "pathHelpPrefix": "Zacznij od",
         "pathHelpSuffix": "i używaj liter, cyfr, łączników, podkreśleń lub zagnieżdżonych ścieżek. Nie dodawaj końcowego ukośnika.",
         "pathLabel": "Ścieżka",
-        "title": "Adres administratora"
+        "title": "Adres administratora",
+        "signIn": "Logowanie zespołu:",
+        "signInHint": "Członkowie zespołu logują się pod tym adresem. Publiczna strona logowania jest dla użytkowników witryny i nie przyjmuje kont zespołu, gdy ustawiona jest własna ścieżka."
       },
       "confirmMove": "Przenieść obszar administracyjny do {path}? Pozostaw tę kartę otwartą do czasu, gdy Justflows zweryfikuje nową trasę.",
       "errors": {
@@ -3831,7 +3833,8 @@
       "readOnly": "Tylko odczyt",
       "ceiling": "Nigdy nie może zrobić więcej niż twoje własne konto, a dostęp możesz w każdej chwili cofnąć na stronie konta.",
       "allow": "Zezwól",
-      "deny": "Odmów"
+      "deny": "Odmów",
+      "staffHint": "Jeśli należysz do zespołu witryny z własnym adresem panelu, zaloguj się najpierw tam, a potem ponownie otwórz ten link."
     },
     "providers": {
       "keyEnding": "Klucz …{last4}",

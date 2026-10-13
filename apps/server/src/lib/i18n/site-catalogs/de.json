@@ -72,6 +72,8 @@
   "nav.primary": "Hauptnavigation",
   "nav.footer": "Fußzeilennavigation",
   "auth.account": "Konto",
+  "auth.myAccount": "Mein Konto",
+  "auth.signOut": "Abmelden",
   "pwa.install": "Installieren",
   "pwa.description": "Installieren Sie diese App für eine schnellere Nutzung im Vollbildmodus.",
   "pwa.installAria": "Diese App installieren",

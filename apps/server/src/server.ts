@@ -210,9 +210,74 @@ export function createApp(): express.Application {
   };
 
   app.get("/install", authPageRateLimit, withCsrfCookie);
-  app.get("/login", authPageRateLimit, withCsrfCookie);
-  app.get("/register", authPageRateLimit, withCsrfCookie);
-  app.get("/forgot-password", authPageRateLimit, withCsrfCookie);
+  // Members use the site's own themed `auth` pages; staff use the admin's own
+  // pages under `<admin path>/` instead (see register-routes.ts). The bare form
+  // remains the fallback for a site with no such page yet, or when rendering fails.
+  const themedAuthPage = (slug: "login" | "register" | "forgot-password" | "reset-password") =>
+    (req: express.Request, res: express.Response) => {
+      if (slug === "reset-password") res.setHeader("Referrer-Policy", "no-referrer");
+      if (!isInstalled()) { withCsrfCookie(req, res); return; }
+      let csrfIssued = false;
+      const fallback = () => {
+        if (res.headersSent) return;
+        if (csrfIssued) sendAdminSpa(req, res);
+        else withCsrfCookie(req, res);
+      };
+      const failed = (err: unknown) => {
+        console.error(`[justflows] themed /${slug} page failed:`, err);
+        fallback();
+      };
+      Promise.all([ensureCoreRoutes(app), loadDeferredRoutes(app)])
+        .then(() => Promise.all([
+          import("./routes/public/auth-pages.js"),
+          import("./middleware/auth.js"),
+          import("./routes/public/public-site.js"),
+        ]))
+        .then(([{ serveAuthPage }, { optionalSession }, { ensureSiteIsPublic }]) => {
+          optionalSession(req, res, (error?: unknown) => {
+            if (error) { fallback(); return; }
+            // While the site is offline or in maintenance only the staff surface
+            // stays open; these member pages get the same closed page as the rest
+            // of the site, plain-form fallback included.
+            ensureSiteIsPublic(req, res).then((open) => {
+              if (open) continueAuthPage();
+            }).catch((err: unknown) => {
+              // Fail closed: never fall back to a sign-in form we could not gate.
+              console.error(`[justflows] site visibility check for /${slug} failed:`, err);
+              if (!res.headersSent) res.status(503).setHeader("Cache-Control", "private, no-store").type("text/plain").send("Service unavailable");
+            });
+          });
+          const continueAuthPage = () => {
+            // One session serves the admin and the site, so anyone already signed
+            // in — on either surface — has no use for these pages and goes to their
+            // account. An editor previewing the page in the builder still sees it.
+            // A reset link can be opened while signed in, so that page stays.
+            if (req.session && slug !== "reset-password" && req.query.preview !== "1") {
+              const next = typeof req.query.next === "string" ? req.query.next : "";
+              if (slug === "login" && next.startsWith("/oauth/consent?")) {
+                res.redirect(302, next);
+                return;
+              }
+              import("./lib/account/pages.js")
+                .then(({ accountHomeUrl }) => accountHomeUrl(req.session!.siteId))
+                .then((url) => {
+                  res.setHeader("Cache-Control", "private, no-store");
+                  res.redirect(302, url);
+                })
+                .catch(failed);
+              return;
+            }
+            // A signed-in visitor already has a session-bound token (synced above).
+            if (!req.session && !req.cookies?.jf_csrf) { setCsrfCookie(res); csrfIssued = true; }
+            serveAuthPage(slug, req, res, fallback).catch(failed);
+          };
+        })
+        .catch(failed);
+    };
+  app.get("/login", authPageRateLimit, themedAuthPage("login"));
+  app.get("/register", authPageRateLimit, themedAuthPage("register"));
+  app.get("/forgot-password", authPageRateLimit, themedAuthPage("forgot-password"));
+  app.get("/reset-password", authPageRateLimit, themedAuthPage("reset-password"));
   app.get("/signup", authPageRateLimit, withCsrfCookie);
   // The OAuth consent screen for MCP connectors (#159). Like /login it is served
   // without SSR data; the page signs the user in first when needed.
@@ -220,17 +285,6 @@ export function createApp(): express.Application {
     res.setHeader("Referrer-Policy", "no-referrer");
     withCsrfCookie(req, res);
   });
-  // The reset link carries a token in the query string. Keep it out of any
-  // Referer header the page would otherwise send when it loads a subresource or
-  // the user clicks away; the page itself also strips it from the URL on load.
-  app.get(
-    "/reset-password",
-    authPageRateLimit,
-    (req: express.Request, res: express.Response) => {
-      res.setHeader("Referrer-Policy", "no-referrer");
-      withCsrfCookie(req, res);
-    },
-  );
 
   app.get("/", (req, res, next) => {
     if (isInstalled()) {

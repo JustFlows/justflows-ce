@@ -2141,7 +2141,9 @@
         "pathLabel": "Ruta",
         "current": "Dirección actual:",
         "pathHelpPrefix": "Empieza con",
-        "pathHelpSuffix": "y usa letras, números, guiones, guiones bajos o rutas anidadas. No añadas una barra al final."
+        "pathHelpSuffix": "y usa letras, números, guiones, guiones bajos o rutas anidadas. No añadas una barra al final.",
+        "signIn": "Acceso del equipo:",
+        "signInHint": "El equipo inicia sesión en esta dirección. La página pública de acceso es para los miembros del sitio y no acepta cuentas del equipo mientras haya una ruta personalizada."
       },
       "oldAddress": {
         "title": "Dirección de administración anterior",
@@ -3833,7 +3835,8 @@
       "readOnly": "Solo lectura",
       "ceiling": "Nunca puede hacer más que tu propia cuenta, y puedes revocar el acceso cuando quieras desde la página de tu cuenta.",
       "allow": "Permitir",
-      "deny": "Denegar"
+      "deny": "Denegar",
+      "staffHint": "Si formas parte del equipo de un sitio con una dirección de administración personalizada, inicia sesión allí primero y vuelve a abrir este enlace."
     },
     "providers": {
       "keyEnding": "Clave …{last4}",

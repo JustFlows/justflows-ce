@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { accountBlock } from "./account.js";
+import { authFormBlock } from "./auth-form.js";
 import { searchBlock } from "./search.js";
 import type { BlockDefinition } from "../registry/block-registry.js";
 import { sanitizeHtmlBlock, sanitizeRichText } from "../sanitize.js";
@@ -81,6 +82,7 @@ function sanitizeResponsiveProp(raw: unknown): SanitizedResponsive | null {
 export const coreBlocks: BlockDefinition[] = [
   searchBlock,
   accountBlock,
+  authFormBlock,
   {
     type: "core.paragraph",
     version: 1,

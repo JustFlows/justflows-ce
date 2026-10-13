@@ -60,7 +60,7 @@ export async function createContentPermalinkResolver(
   for (const [locale, home] of options.homes ?? []) homes.set(locale, Promise.resolve(home));
   return async (content) => {
     if (content.siteId !== siteId) throw new Error("Permalink resolver belongs to another site");
-    if (contentTypePolicy(content.type).requiresAuthentication) return permalinkPath(content, state.settings, defaultLocale, state.layoutScopes);
+    if (!contentTypePolicy(content.type).publiclyDiscoverable) return permalinkPath(content, state.settings, defaultLocale, state.layoutScopes);
     let home = homes.get(content.locale);
     if (!home) {
       home = getHomeContent(siteId, content.locale, false);

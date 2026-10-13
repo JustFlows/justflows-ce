@@ -2743,7 +2743,9 @@
         "pathHelpPrefix": "Start with",
         "pathHelpSuffix": "and use letters, numbers, hyphens, underscores, or nested paths. Do not add a trailing slash.",
         "pathLabel": "Path",
-        "title": "Admin address"
+        "title": "Admin address",
+        "signIn": "Staff sign-in:",
+        "signInHint": "Staff sign in at this address. The public sign-in page is for site members and does not accept staff accounts while a custom path is set."
       },
       "confirmMove": "Move the administration area to {path}? Keep this tab open while Justflows verifies the new route.",
       "errors": {
@@ -3831,7 +3833,8 @@
       "readOnly": "Read only",
       "ceiling": "It can never do more than your own account can, and you can revoke it at any time from your account page.",
       "allow": "Allow",
-      "deny": "Deny"
+      "deny": "Deny",
+      "staffHint": "Staff on a site with a custom admin address: sign in there first, then open this link again."
     },
     "providers": {
       "keyEnding": "Key …{last4}",

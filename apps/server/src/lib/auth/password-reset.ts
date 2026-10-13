@@ -7,6 +7,7 @@ import { hashPassword } from "./password.js";
 import { revokeUserSessions } from "./auth-session.js";
 import { auditLog } from "../security/audit-log.js";
 import { sendTemplateMail } from "../email/mail.js";
+import { accountSurface, authPagePath, type AuthSurface } from "./auth-surface.js";
 import {
   clearUserResets,
   createPasswordReset,
@@ -36,11 +37,14 @@ function appOrigin(): string {
   return (process.env.APP_URL ?? "").replace(/\/$/, "");
 }
 
-/** The link mailed to the account. The page strips the token from the URL on load. */
-export function resetLinkFor(token: string): string {
+/**
+ * The link mailed to the account: the reset page of the surface it belongs to,
+ * so a staff link carries the admin path to its own owner and nobody else. The
+ * page strips the token from the URL on load.
+ */
+export async function resetLinkFor(token: string, surface: AuthSurface = "site"): Promise<string> {
   const query = `token=${encodeURIComponent(token)}`;
-  const origin = appOrigin();
-  return origin ? `${origin}/reset-password?${query}` : `/reset-password?${query}`;
+  return `${appOrigin()}${await authPagePath(surface, "reset-password")}?${query}`;
 }
 
 function nowSql(): string {
@@ -61,7 +65,11 @@ interface ForgotUserRow {
  * self-service reset is enabled, and the account's role is permitted, a
  * single-use link is mailed. Every outcome writes one audit row.
  */
-export async function processForgotPassword(email: string, ctx: RequestContext): Promise<void> {
+export async function processForgotPassword(
+  email: string,
+  ctx: RequestContext,
+  surface: AuthSurface = "site",
+): Promise<void> {
   const normalized = email.toLowerCase().trim();
 
   try {
@@ -98,6 +106,23 @@ export async function processForgotPassword(email: string, ctx: RequestContext):
 
     if (!user) return;
 
+    // The site's page never mails a staff account and the admin's never mails a
+    // member: each is treated as an unknown address, so the shared answer holds.
+    if ((await accountSurface(user.role, user.id, siteId)) !== surface) {
+      void auditLog({
+        siteId,
+        action: "auth.password_reset_failed",
+        outcome: "failure",
+        actorId: user.id,
+        actorEmail: user.email,
+        target: user.id,
+        ip: ctx.ip,
+        userAgent: ctx.userAgent,
+        detail: surface === "site" ? "staff reset requested on the site's page" : "member reset requested on the admin's page",
+      });
+      return;
+    }
+
     const allowedRoles = settings.passwordResetRoles;
     if (allowedRoles.length > 0 && !allowedRoles.includes(user.role as (typeof allowedRoles)[number])) {
       void auditLog({
@@ -116,7 +141,7 @@ export async function processForgotPassword(email: string, ctx: RequestContext):
 
     const { token, expiresAt } = await createPasswordReset(user.id, siteId, ctx.ip);
     const minutes = Math.max(1, Math.round((expiresAt.getTime() - Date.now()) / 60_000));
-    const link = resetLinkFor(token);
+    const link = await resetLinkFor(token, surface);
 
     // Local-development convenience: print the link so a reset can be tested
     // without a mail catcher. Deliberately gated on NODE_ENV === "development"

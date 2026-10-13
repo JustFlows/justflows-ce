@@ -2141,7 +2141,9 @@
         "pathLabel": "Pfad",
         "current": "Aktuelle Adresse:",
         "pathHelpPrefix": "Beginnen Sie mit",
-        "pathHelpSuffix": "und verwenden Sie Buchstaben, Ziffern, Bindestriche, Unterstriche oder verschachtelte Pfade. Kein abschließender Schrägstrich."
+        "pathHelpSuffix": "und verwenden Sie Buchstaben, Ziffern, Bindestriche, Unterstriche oder verschachtelte Pfade. Kein abschließender Schrägstrich.",
+        "signIn": "Anmeldung für Mitarbeitende:",
+        "signInHint": "Mitarbeitende melden sich unter dieser Adresse an. Die öffentliche Anmeldeseite ist für Mitglieder der Website und akzeptiert keine Mitarbeiterkonten, solange ein eigener Pfad festgelegt ist."
       },
       "oldAddress": {
         "title": "Alte Admin-Adresse",
@@ -3833,7 +3835,8 @@
       "readOnly": "Nur lesen",
       "ceiling": "Sie kann nie mehr als Ihr eigenes Konto, und Sie können den Zugriff jederzeit auf Ihrer Kontoseite widerrufen.",
       "allow": "Erlauben",
-      "deny": "Ablehnen"
+      "deny": "Ablehnen",
+      "staffHint": "Mitarbeitende einer Website mit eigener Admin-Adresse: Melde dich zuerst dort an und öffne diesen Link dann erneut."
     },
     "providers": {
       "keyEnding": "Schlüssel …{last4}",

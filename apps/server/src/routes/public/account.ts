@@ -69,6 +69,26 @@ apiRouter.get("/workspaces/:id/sites/:siteId/limits", async (req, res) => {
   if (!sites.length) { res.status(404).json({ error: "Site not found." }); return; }
   res.json({ meters: await listQuotaMeters("site", siteId.data) });
 });
+/**
+ * The owner's way into one of their sites' admin. Staff sign in on the admin's
+ * own page under that site's admin path — the site's public /login is for
+ * members — and the path may be a secret, so it is looked up only here, for the
+ * verified owner, and handed over as a redirect rather than listed on the page.
+ */
+apiRouter.get("/workspaces/:id/sites/:siteId/admin-sign-in", async (req, res) => {
+  const id = z.string().uuid().safeParse(req.params.id);
+  const siteId = z.string().uuid().safeParse(req.params.siteId);
+  if (!id.success || !siteId.success || !await ownedWorkspace(req.session!.userId, id.data)) { res.status(404).json({ error: "Site not found." }); return; }
+  const db = await getControlDb();
+  const sites = await db.query<{ url: string }>("SELECT url FROM sites WHERE id = ? AND tenant_id = ? AND status = 'active'", [siteId.data, id.data]);
+  let origin: string | null = null;
+  try { const parsed = new URL(String(sites[0]?.url ?? "")); if (["http:", "https:"].includes(parsed.protocol) && !parsed.username && !parsed.password) origin = parsed.origin; } catch { /* No link for an invalid URL. */ }
+  if (!origin) { res.status(404).json({ error: "Site not found." }); return; }
+  const { getAdminPathConfig } = await import("../../lib/admin/admin-path.js");
+  const result = await withSiteUsers(siteId.data, async () => (await getAdminPathConfig()).path);
+  if (!result.ok) { res.status(result.status).json({ error: result.error }); return; }
+  res.redirect(302, `${origin}${result.value}/login`);
+});
 apiRouter.patch("/workspaces/:id", writes, async (req, res) => {
   const id = z.string().uuid().safeParse(req.params.id);
   const body = z.object({ name: z.string().trim().min(1).max(255) }).safeParse(req.body);

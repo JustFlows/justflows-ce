@@ -79,11 +79,19 @@ Also:
   `JF_AUDIT_RETENTION_DAYS` to match your retention policy. It records sign-ins,
   privilege changes, and everything that installs or replaces code — including
   every password-reset request, completion, and failure.
+- Move the admin off `/admin` (Admin → Security → Admin URL). Staff then sign
+  in, request a reset and reset their password only under that path; the
+  site's own `/login`, `/forgot-password` and `/reset-password` are for
+  members, and answer a staff account exactly as they answer an unknown one.
+  The API enforces this, not just the pages. If you lose the address, set
+  `JF_ADMIN_PATH_RECOVERY=/admin` in `.env` and restart. See
+  [docs/AUTH.md](docs/AUTH.md).
 - Self-service password reset (the "Forgot password?" link) needs working
   outgoing mail. Links are single-use, expire (`JF_PASSWORD_RESET_TTL_MINUTES`,
   default 60), are stored only as hashes, and revoke every session on use;
-  a second factor is still required afterwards. Turn it off or limit it to
-  chosen roles under Admin → Settings. With no mail configured, recover from a
+  a second factor is still required afterwards. A staff link only works on the
+  admin's reset page and a member link only on the site's. Turn it off or limit
+  it to chosen roles under Admin → Settings. With no mail configured, recover from a
   shell with `justflows user reset-password --email you@example.com` (run from
   the install directory) — it reads the server's `.env` and has no network
   surface.
