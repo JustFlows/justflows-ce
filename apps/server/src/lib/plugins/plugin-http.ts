@@ -173,7 +173,17 @@ export async function dispatchPluginHttp(
     }
   }
 
-  if (requiresPluginCsrf(method, req.path, match)) {
+  // A management API key stands in for the cookie. It is no ambient credential,
+  // so its requests skip CSRF, and a cookie sent with it is ignored.
+  const { resolvePluginKeySession } = await import("./plugin-http-key.js");
+  const keyed = await resolvePluginKeySession(req, res);
+  if (keyed.kind === "limited") return;
+  if (keyed.kind === "denied") {
+    res.status(401).json(pluginHttpErrorBody(match.structuredErrors, 401, "Unauthorized"));
+    return;
+  }
+
+  if (keyed.kind === "none" && requiresPluginCsrf(method, req.path, match)) {
     const { csrfProtection } = await import("../../middleware/csrf.js");
     // Synchronous: it either calls next() or answers 403 itself, so the flag
     // is settled by the time the call returns.
@@ -206,13 +216,26 @@ export async function dispatchPluginHttp(
     }
 
     // Same rule as the core auth middleware: a cookie only counts on the site it was issued for.
-    const resolved = await resolveSession(req, res).catch(() => null);
-    const session = resolved && sessionMatchesRequestSite(resolved.siteId) ? resolved : null;
-    const access = session
+    const resolved = keyed.kind === "ok" ? null : await resolveSession(req, res).catch(() => null);
+    const cookieSession = resolved && sessionMatchesRequestSite(resolved.siteId) ? resolved : null;
+    const access = cookieSession
       ? await import("../auth/access-policy.js").then(({ getEffectiveAccess }) =>
-          getEffectiveAccess(session.userId, session.siteId, session.role),
+          getEffectiveAccess(cookieSession.userId, cookieSession.siteId, cookieSession.role),
         )
       : null;
+    const session = keyed.kind === "ok"
+      ? keyed.session
+      : cookieSession
+        ? {
+            userId: cookieSession.userId,
+            siteId: cookieSession.siteId,
+            role: cookieSession.role,
+            roles: access?.roles ?? [cookieSession.role],
+            email: cookieSession.email,
+            capabilities: access?.capabilities ?? [],
+            scopes: access?.policy.scopes ?? {},
+          }
+        : null;
 
     const locale = await import("../i18n/languages-db.js")
       .then(async ({ getActiveLocaleCodes, getDefaultLocale }) =>
@@ -231,17 +254,7 @@ export async function dispatchPluginHttp(
         ? { rawBody: (req as { rawBody?: string }).rawBody }
         : {}),
       headers,
-      session: session
-        ? {
-            userId: session.userId,
-            siteId: session.siteId,
-            role: session.role,
-            roles: access?.roles ?? [session.role],
-            email: session.email,
-            capabilities: access?.capabilities ?? [],
-            scopes: access?.policy.scopes ?? {},
-          }
-        : null,
+      session,
     });
 
     const status = result.status ?? 200;
