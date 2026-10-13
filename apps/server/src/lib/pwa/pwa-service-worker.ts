@@ -48,7 +48,7 @@ const ASSET_MAX_ENTRIES = ${JSON.stringify(maxEntries)};
 const ASSET_MAX_AGE_SECONDS = ${JSON.stringify(maxAgeSeconds)};
 const ASSET_ALLOWLIST = [/^\\/uploads\\//, /^\\/theme\\.css$/, /^\\/assets\\//, /^\\/css-providers\\//, /^\\/public\\//];
 const PRIVATE_PATHS = ${JSON.stringify(privatePaths)};
-const NAV_BYPASS = /^\\/(admin|api|login|install|account|platform-account|ext)(\\/|$)/;
+const NAV_BYPASS = /^\\/(admin|api|login|register|forgot-password|reset-password|install|account|platform-account|ext)(\\/|$)/;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

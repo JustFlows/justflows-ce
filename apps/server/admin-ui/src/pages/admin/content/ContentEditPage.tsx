@@ -19,6 +19,7 @@ import {
   type PluginEditorSection,
 } from "../../../config/admin-nav";
 import PluginContentFrame, { type PluginContentFrameHandle } from "./PluginContentFrame";
+import ContentTermsPanel, { type ContentTermsPanelHandle } from "@components/ContentTermsPanel";
 import {
   fetchTypePattern,
   isEmptyBlockDocument,
@@ -151,6 +152,10 @@ export default function EditContentPage() {
   const [blockEditor, setBlockEditor] = useState(false);
   const pluginFrameRef = useRef<PluginContentFrameHandle | null>(null);
   const onPluginDirty = useCallback((next: boolean) => setPluginDirty(next), []);
+  const [termsDirty, setTermsDirty] = useState(false);
+  const termsRef = useRef<ContentTermsPanelHandle | null>(null);
+  const onTermsDirty = useCallback((next: boolean) => setTermsDirty(next), []);
+  const onTermsError = useCallback((message: string) => setError(message), []);
   const onPluginSections = useCallback((next: PluginEditorSection[]) => {
     setPluginSections((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
   }, []);
@@ -251,7 +256,7 @@ export default function EditContentPage() {
     () => Boolean(item) && JSON.stringify(item) !== baseline,
     [item, baseline],
   );
-  const dirty = contentDirty || pluginDirty;
+  const dirty = contentDirty || pluginDirty || termsDirty;
 
   useEffect(() => {
     if (!dirty || saving || !item) return;
@@ -547,6 +552,7 @@ export default function EditContentPage() {
   }
 
   async function saveCatalogData(): Promise<boolean> {
+    if (termsRef.current && !(await termsRef.current.save())) return false;
     if (!pluginEditor || !pluginFrameRef.current) return true;
     const result = await pluginFrameRef.current.save();
     if (!result.ok) setError(result.error || t("content.pluginDataSaveFailed"));
@@ -1321,6 +1327,16 @@ export default function EditContentPage() {
                 )}
               </div>
             </div>
+
+            <ContentTermsPanel
+              ref={termsRef}
+              contentId={item.id}
+              contentType={item.type}
+              canCreateTerms={role === "administrator" || role === "editor"}
+              disabled={saving}
+              onDirty={onTermsDirty}
+              onError={onTermsError}
+            />
           </aside>
         </div>
       </div>

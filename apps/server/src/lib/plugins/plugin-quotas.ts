@@ -2,6 +2,7 @@
 
 import type { PluginPermission, PluginQuotaTarget, PluginQuotasApi, QuotaMeterView } from "@justflows/sdk";
 import { getControlDb } from "../database/db.js";
+import { refuseDelegated } from "../security/delegated-call.js";
 import { installationRootSiteId } from "../tenancy/registry.js";
 import {
   checkQuota,
@@ -27,6 +28,14 @@ export function createPluginQuotasApi(
   function requireTenancy(): void {
     if (!permissions.has("platform:tenancy")) {
       throw new Error(`Plugin "${pluginId}" requires the "platform:tenancy" permission`);
+    }
+  }
+
+  /** The root site only: on a hosted site a plugin could otherwise raise its own workspace's limits. */
+  async function requireRootSite(): Promise<void> {
+    const root = await installationRootSiteId();
+    if (root !== null && root !== siteId) {
+      throw new Error(`Plugin "${pluginId}" can only change limits from the root site.`);
     }
   }
 
@@ -88,6 +97,8 @@ export function createPluginQuotasApi(
     },
     async set(key, limit, target) {
       requireTenancy();
+      refuseDelegated("Changing limits");
+      await requireRootSite();
       if (target) {
         const meter = listMeterDefinitions().find((item) => item.key === key);
         if (!meter) throw new Error(`Unknown quota meter "${key}".`);

@@ -40,6 +40,8 @@ const RESERVED_PREFIXES = [
   "/account",
   "/platform-account",
   "/register",
+  "/forgot-password",
+  "/reset-password",
   "/install",
   "/uploads",
   "/assets",

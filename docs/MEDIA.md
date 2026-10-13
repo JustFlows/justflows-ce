@@ -31,6 +31,15 @@ EXIF/GPS and other metadata are **stripped** from every generated variant by
 default (`JF_IMAGE_STRIP_METADATA=1`); EXIF orientation is baked in first so a
 stripped variant is never sideways. The original keeps its own metadata.
 
+Steps 2 and 3 run in the background on the durable job queue
+(`core.media-variants`), so the upload answers as soon as the original is
+stored and the response carries `variantsPending: true`. Until the job finishes,
+the row keeps room reserved for the variants (3× the original, at least 512 KB)
+against the library limits, and the media library shows the item as
+**Optimizing…**. The job resumes after a restart and retries storage errors.
+Without the `job_queue` table (before migrations have run) variants are built
+inline during the upload.
+
 Generation is best-effort: if it fails, the upload still succeeds with the
 original only, and **Regenerate** (below) can backfill it later.
 
@@ -60,6 +69,7 @@ the change.
 | `JF_IMAGE_FORMATS`           | `webp`                  | Modern formats. `webp,avif` also emits AVIF (slower encode).        |
 | `JF_IMAGE_QUALITY_WEBP`      | `82`                    | WebP encoder quality (1–100).                                       |
 | `JF_IMAGE_QUALITY_AVIF`      | `50`                    | AVIF encoder quality (1–100).                                       |
+| `JF_IMAGE_AVIF_EFFORT`       | `2`                     | AVIF encoder effort (1–9). 4 takes ~6× as long for ~8% smaller files. |
 | `JF_IMAGE_QUALITY_JPEG`      | `82`                    | JPEG fallback quality (1–100).                                      |
 | `JF_IMAGE_STRIP_METADATA`    | `1`                     | Strip EXIF/GPS from generated variants.                             |
 | `JF_IMAGE_THUMB`             | `400x400`               | Focal-point square thumbnail size, or `off`.                        |

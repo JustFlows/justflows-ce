@@ -84,7 +84,8 @@ This is intentionally limited in the first release:
 - **Static asset caching** (optional, on by default) only covers uploaded
   media, `theme.css`, theme/plugin assets, and CSS-provider files — bounded
   by a maximum entry count and a maximum age, both configurable. `/admin`,
-  `/api`, `/login`, `/install`, non-GET requests, and anything carrying an
+  `/api`, `/login`, `/register`, `/forgot-password`, `/reset-password`,
+  `/install`, account pages, non-GET requests, and anything carrying an
   `Authorization` header are never intercepted at all.
 - Forms, comments, uploads, and any other write action simply fail with a
   normal network error offline — nothing is queued for later.

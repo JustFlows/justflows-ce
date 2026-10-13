@@ -36,10 +36,95 @@ export async function readEnvMap(): Promise<Map<string, string>> {
   return map;
 }
 
+function lineKey(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("#")) return null;
+  const eq = trimmed.indexOf("=");
+  return eq === -1 ? null : trimmed.slice(0, eq).trim() || null;
+}
+
+/** `# KEY=example` placeholders, as the install template writes for optional keys. */
+function commentedKey(line: string): string | null {
+  const m = /^#\s*([A-Z][A-Z0-9_]*)=/.exec(line.trim());
+  return m ? m[1]! : null;
+}
+
+/** Leading `_` segments two keys share: JF_IMAGE_WIDTHS / JF_IMAGE_THUMB → 2. */
+function sharedSegments(a: string, b: string): number {
+  const x = a.split("_");
+  const y = b.split("_");
+  let n = 0;
+  while (n < x.length && n < y.length && x[n] === y[n]) n += 1;
+  return n;
+}
+
 /**
- * Merge updates into .env. Pass `null` as a value to remove a key.
- * Preserves unrelated lines and comments.
+ * Merge updates into the lines of an .env file. `null` removes a key.
+ * Unrelated lines and comments are kept. A key not yet in the file goes
+ * where it belongs instead of at the bottom: in place of its commented
+ * placeholder, else right after the key before it in `updates` (the
+ * caller's order), else after the last key of its prefix group
+ * (JF_IMAGE_*, CACHE_*), else at the end.
  */
+export function mergeEnvLines(lines: string[], updates: Record<string, string | null>): string[] {
+  const out: string[] = [];
+  const present = new Set<string>();
+  for (const line of lines) {
+    const key = lineKey(line);
+    if (key === null || !(key in updates)) {
+      out.push(line);
+      continue;
+    }
+    present.add(key);
+    const value = updates[key];
+    if (value !== null) out.push(`${key}=${value}`);
+  }
+
+  const order = Object.keys(updates);
+  const indexOfKey = (key: string): number => out.findIndex((line) => lineKey(line) === key);
+  for (const [position, key] of order.entries()) {
+    const value = updates[key];
+    if (present.has(key) || value === null) continue;
+    const entry = `${key}=${value}`;
+    present.add(key);
+
+    const placeholder = out.findIndex((line) => commentedKey(line) === key);
+    if (placeholder !== -1) {
+      out[placeholder] = entry;
+      continue;
+    }
+
+    let at = -1;
+    for (let i = position - 1; i >= 0 && at === -1; i -= 1) {
+      const found = indexOfKey(order[i]!);
+      if (found !== -1) at = found + 1;
+    }
+    if (at === -1) {
+      // The group prefix: CACHE for CACHE_TTL_SECONDS; under the shared JF_ /
+      // JUSTFLOWS_ namespaces one more segment (JF_IMAGE for JF_IMAGE_AVIF_EFFORT).
+      const needed = /^(JF|JUSTFLOWS)_/.test(key) ? 2 : 1;
+      let best = 0;
+      out.forEach((line, i) => {
+        const other = lineKey(line) ?? commentedKey(line);
+        if (!other) return;
+        const shared = sharedSegments(key, other);
+        if (shared >= needed && shared >= best) {
+          best = shared;
+          at = i + 1;
+        }
+      });
+    }
+    if (at === -1) {
+      while (out.length > 0 && out[out.length - 1]!.trim() === "") out.pop();
+      if (out.length > 0) out.push("");
+      at = out.length;
+    }
+    out.splice(at, 0, entry);
+  }
+  return out;
+}
+
+/** Merge updates into .env (see {@link mergeEnvLines}). Pass `null` as a value to remove a key. */
 export async function updateEnvKeys(updates: Record<string, string | null>): Promise<void> {
   for (const [key, value] of Object.entries(updates)) {
     if (value !== null) assertSafeEnvValue(key, value);
@@ -52,45 +137,7 @@ export async function updateEnvKeys(updates: Record<string, string | null>): Pro
     lines = [];
   }
 
-  const touched = new Set<string>();
-  const out: string[] = [];
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
-      out.push(line);
-      continue;
-    }
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) {
-      out.push(line);
-      continue;
-    }
-    const key = trimmed.slice(0, eq).trim();
-    if (!(key in updates)) {
-      out.push(line);
-      continue;
-    }
-    touched.add(key);
-    const value = updates[key];
-    if (value !== null) out.push(`${key}=${value}`);
-  }
-
-  const additions = Object.entries(updates).filter(
-    ([key, value]) => !touched.has(key) && value !== null,
-  );
-
-  if (additions.length > 0) {
-    if (out.length > 0 && out[out.length - 1] !== "") out.push("");
-    if (!out.some((l) => l.trim().startsWith("# Cache"))) {
-      out.push("# Cache (jf-cache)");
-    }
-    for (const [key, value] of additions) {
-      out.push(`${key}=${value!}`);
-    }
-  }
-
-  const body = out.join("\n").replace(/\n+$/, "") + "\n";
+  const body = mergeEnvLines(lines, updates).join("\n").replace(/\n+$/, "") + "\n";
   await fs.writeFile(envFilePath(), body, { encoding: "utf-8", mode: 0o600 });
   // `mode` only applies when writeFile creates the file. An .env that already
   // existed keeps whatever permissions it had, so set them explicitly.

@@ -15,7 +15,7 @@ export const CONTENT_TYPE_FIELD_KINDS = [
 
 export type ContentFieldKind = (typeof CONTENT_TYPE_FIELD_KINDS)[number];
 
-export const BUILTIN_CONTENT_TYPE_SLUGS = ["post", "page", "account"] as const;
+export const BUILTIN_CONTENT_TYPE_SLUGS = ["post", "page", "account", "auth"] as const;
 export type BuiltinContentTypeSlug = (typeof BUILTIN_CONTENT_TYPE_SLUGS)[number];
 
 export const BUILTIN_CONTENT_TYPES: ReadonlyArray<{
@@ -26,6 +26,7 @@ export const BUILTIN_CONTENT_TYPES: ReadonlyArray<{
   { slug: "post", label: "Post", description: "Blog post" },
   { slug: "page", label: "Page", description: "Static page" },
   { slug: "account", label: "Account", description: "Private, customizable user account page" },
+  { slug: "auth", label: "Sign-in", description: "Themed member sign-in page" },
 ];
 
 /** Fields reserved for core metadata — custom types cannot reuse these keys. */
@@ -99,12 +100,16 @@ export function normalizeContentTypeSlug(value: string): string {
 /** Core privacy policies cannot be weakened by content fields or plugin settings. */
 export function contentTypePolicy(type: string) {
   const privatePage = type === "account";
-  return { requiresAuthentication: privatePage, cacheable: !privatePage,
-    publiclyDiscoverable: !privatePage, exportable: !privatePage } as const;
+  // Sign-in pages are open to anonymous visitors but carry a CSRF cookie and a
+  // credential form, so they are never cached, listed, indexed or exported.
+  const authPage = type === "auth";
+  const hidden = privatePage || authPage;
+  return { requiresAuthentication: privatePage, cacheable: !hidden,
+    publiclyDiscoverable: !hidden, exportable: !hidden } as const;
 }
 
 /** Trusted column names only; used at public SQL boundaries, including preview APIs. */
 export function publicContentTypeSql(column: "type" | "c.type" = "type"): string {
   if (column !== "type" && column !== "c.type") throw new Error("Unknown content type column");
-  return `${column} <> 'account'`;
+  return `${column} NOT IN ('account', 'auth')`;
 }

@@ -77,6 +77,25 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
             if (value) res.setHeader(name, withCaptchaCsp(value, captchaProvider));
           }
         }
+
+        // Exported pages carry an inline `window.__JF_ORIGIN__` stamp. The hash
+        // is harmless on server-rendered pages, so allow it on every public one.
+        try {
+          const { getStaticExportConfig } = await import("../lib/static-export/config.js");
+          const { withOriginStampCsp } = await import("../lib/static-export/origin-stamp.js");
+          const { originUrl } = getStaticExportConfig();
+          for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
+            const current = res.getHeader(name);
+            const value = Array.isArray(current)
+              ? current.join("; ")
+              : typeof current === "string"
+                ? current
+                : "";
+            if (value) res.setHeader(name, withOriginStampCsp(value, originUrl));
+          }
+        } catch {
+          // A broken export config must not cost the page its other CSP additions.
+        }
       }
     })
     .catch(() => {

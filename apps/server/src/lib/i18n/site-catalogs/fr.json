@@ -72,6 +72,8 @@
   "nav.primary": "Navigation principale",
   "nav.footer": "Navigation de pied de page",
   "auth.account": "Compte",
+  "auth.myAccount": "Mon compte",
+  "auth.signOut": "Se déconnecter",
   "pwa.install": "Installer",
   "pwa.description": "Installez cette application pour une expérience plus rapide en plein écran.",
   "pwa.installAria": "Installer cette application",

@@ -212,3 +212,24 @@ describe("buildNavDomains", () => {
     ).toContain("/admin/reports");
   });
 });
+
+
+describe("security feature navigation", () => {
+  it("hides overview and disabled security pages while keeping account security", () => {
+    const audience = { installationRoot: false, disabledPaths: [
+      "/admin/security/headers", "/admin/security/advanced",
+      "/admin/security/admin-path", "/admin/security/audit",
+    ] };
+    expect(canAccessPath("administrator", "/admin/security", audience)).toBe(false);
+    expect(canAccessPath("administrator", "/admin/security/account", audience)).toBe(true);
+    const security = filterDomainsByRole(ADMIN_NAV_DOMAINS, "administrator", audience)
+      .find((domain) => domain.slug === "security");
+    expect(security?.items.map((item) => item.to)).toEqual(["/admin/security/account"]);
+  });
+
+  it("keeps overview when headers are allowed", () => {
+    expect(canAccessPath("administrator", "/admin/security", { disabledPaths: [] })).toBe(true);
+    expect(filterDomainsByRole(ADMIN_NAV_DOMAINS, "administrator", { disabledPaths: [] })
+      .find((domain) => domain.slug === "security")?.items[0]?.to).toBe("/admin/security");
+  });
+});

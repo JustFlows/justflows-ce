@@ -247,6 +247,7 @@ describe("saas settings", () => {
       signupDatabaseMode: "current",
       baseDomain: "justflows.com",
       signupDatabase: null,
+      signupEmailPolicy: { blockDisposable: false, allowListedOnly: false, allow: [], block: [] },
       purgeAfterDays: 30,
     });
     expect(readSaasSettings('{"signupEnabled":true,"baseDomain":"justflows.com"}')).toEqual({
@@ -254,6 +255,7 @@ describe("saas settings", () => {
       signupDatabaseMode: "current",
       baseDomain: "justflows.com",
       signupDatabase: null,
+      signupEmailPolicy: { blockDisposable: false, allowListedOnly: false, allow: [], block: [] },
       purgeAfterDays: 30,
     });
     expect(readSaasSettings(null)).toBeNull();
@@ -303,6 +305,7 @@ describe("deleted website cleanup", () => {
     expect(deletedLongEnough("2026-10-04 12:00:00", 1, now)).toBe(true);
     expect(deletedLongEnough("2026-10-04 12:00:01", 1, now)).toBe(false);
     expect(deletedLongEnough(new Date("2026-09-01T12:00:00Z"), 30, now)).toBe(true);
+    expect(deletedLongEnough("2026-09-01T12:00:00Z", 30, now)).toBe(true);
     expect(deletedLongEnough("2026-10-01 12:00:00", 0, now)).toBe(false);
   });
 });

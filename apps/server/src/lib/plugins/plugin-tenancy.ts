@@ -11,6 +11,9 @@ import type {
   PluginWorkspaceSite,
 } from "@justflows/sdk";
 import { getControlDb } from "../database/db.js";
+import { refuseDelegated } from "../security/delegated-call.js";
+import { getSiteId } from "../settings/site-settings.js";
+import { installationRootSiteId } from "../tenancy/registry.js";
 import { getTenantContext } from "../tenancy/context.js";
 import {
   createAdditionalSite,
@@ -20,9 +23,21 @@ import {
   suspendTenant,
 } from "../tenancy/provision.js";
 
-function requireTenancy(pluginId: string, permissions: ReadonlySet<PluginPermission>): void {
+/**
+ * Every workspace operation needs three things, checked by the host whatever
+ * the plugin's own code does: the `platform:tenancy` permission, the
+ * installation's root site (a plugin on a hosted site must never reach other
+ * workspaces, or its own), and a person rather than an AI agent or API key
+ * behind the call.
+ */
+async function requireTenancy(pluginId: string, permissions: ReadonlySet<PluginPermission>, action: string): Promise<void> {
   if (!permissions.has("platform:tenancy")) {
     throw new Error(`Plugin "${pluginId}" requires the "platform:tenancy" permission`);
+  }
+  refuseDelegated(action);
+  const root = await installationRootSiteId();
+  if (root !== null && root !== (await getSiteId())) {
+    throw new Error(`Plugin "${pluginId}" can only manage workspaces from the root site.`);
   }
 }
 
@@ -49,7 +64,7 @@ export function createPluginTenancyApi(
     },
 
     async listWorkspaces(): Promise<PluginWorkspace[]> {
-      requireTenancy(pluginId, permissions);
+      await requireTenancy(pluginId, permissions, "Listing workspaces");
       const db = await getControlDb();
       const rows = await db.query<{
         id: string;
@@ -75,7 +90,7 @@ export function createPluginTenancyApi(
     },
 
     async listSites(tenantId: string): Promise<PluginWorkspaceSite[]> {
-      requireTenancy(pluginId, permissions);
+      await requireTenancy(pluginId, permissions, "Listing workspace sites");
       const db = await getControlDb();
       const rows = await db.query<{
         id: string;
@@ -103,27 +118,27 @@ export function createPluginTenancyApi(
     },
 
     async createWorkspace(input: PluginCreateWorkspaceInput): Promise<PluginTenancyResult> {
-      requireTenancy(pluginId, permissions);
+      await requireTenancy(pluginId, permissions, "Creating a workspace");
       return asResult(await createWorkspace({ ...input, actorId: null, platformOperator: false }));
     },
 
     async addSite(tenantId: string, input: PluginAddSiteInput): Promise<PluginTenancyResult> {
-      requireTenancy(pluginId, permissions);
+      await requireTenancy(pluginId, permissions, "Adding a site");
       return asResult(await createAdditionalSite({ tenantId, ...input, actorId: `plugin:${pluginId}` }));
     },
 
     async suspend(tenantId: string): Promise<PluginTenancyResult> {
-      requireTenancy(pluginId, permissions);
+      await requireTenancy(pluginId, permissions, "Suspending a workspace");
       return asResult(await suspendTenant(tenantId, `plugin:${pluginId}`));
     },
 
     async reactivate(tenantId: string): Promise<PluginTenancyResult> {
-      requireTenancy(pluginId, permissions);
+      await requireTenancy(pluginId, permissions, "Reactivating a workspace");
       return asResult(await reactivateTenant(tenantId, `plugin:${pluginId}`));
     },
 
     async deleteWorkspace(tenantId: string, options?: { dropDatabase?: boolean }): Promise<PluginTenancyResult> {
-      requireTenancy(pluginId, permissions);
+      await requireTenancy(pluginId, permissions, "Deleting a workspace");
       return asResult(await deleteTenant(tenantId, `plugin:${pluginId}`, options?.dropDatabase === true));
     },
   };

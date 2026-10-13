@@ -119,7 +119,7 @@ in a non-default language (`/nl-NL/...`), the host prefixes internal
 `<a href>` and `<form action>` targets in the rendered HTML. It also loads a
 small script that does the same for links your client code adds later. The
 host leaves alone paths that already have a locale, app routes (`/api`,
-`/ext`, `/login`, the admin path), your registered HTTP routes, files (a dot
+`/ext`, `/login` and the other sign-in pages, the admin path), your registered HTTP routes, files (a dot
 in the last segment), and `hreflang` links. If a page has no translation in
 that language, `/nl-NL/<path>` shows the default-language entry with Dutch
 site chrome. Its canonical URL points at the original.
@@ -647,6 +647,18 @@ deletes only that site's rows. `ctx.databases.clear()` does the same on
 purpose. Changing topology after setup is a
 migration, not a later settings toggle.
 
+Call `ensureSchema()` again on every activation. For tables that already
+exist it adds the declared columns and indexes they lack, so a new column in
+your declaration reaches existing installations; the result lists them in
+`columnsAdded` (`forms_entries.source`) and `indexesAdded`. An added column is
+nullable and has no `UNIQUE` constraint, because existing rows have no value
+for it: handle `NULL` for older rows and declare a unique index instead. The
+host never changes a column's type and never drops columns or indexes. A
+unique index that existing rows violate fails the call (`ok: false`) instead
+of being skipped. Backfills and other data changes are the plugin's own
+ordered migrations; Shop's `src/setup/migrations.ts` is an example that
+records each one in a plugin table and uses a unique row as its lock.
+
 Set `"allowMultisite": true` in `justflows.json` when every row is stored with
 `site_id` and another site can run the plugin without touching anyone else's
 data. The plugin is still installed on the main site. That site turns on
@@ -742,10 +754,27 @@ that site's context: `ctx.databases`, `ctx.settings`, `ctx.secrets`, and
 site's failure does not stop the others; `handler` receives the site in
 `siteId`.
 
-The scheduler runs in the server process and does not persist its queue. A
-restart loses enqueued runs and in-flight attempts, so keep the work state in
-your tables and make each run look at what is still open, rather than relying
-on a job payload.
+Cron runs are planned in the server process and simply run again on their
+next slot after a restart. Enqueued runs are durable: `enqueue()` stores the
+run in the control database's `job_queue` table (migration `0048_job_queue`)
+and resolves once it is stored, so it survives a restart. Each call is its
+own run with its own `payload` (JSON, up to 1 MB). Every server process polls
+for due runs of the jobs it has registered, claims one with a conditional
+update, and holds a 5-minute lease that a heartbeat extends while the handler
+runs; when a process dies, its run is queued again after the lease ends and
+that counts as an attempt. A handler that throws or returns
+`success: false` is retried after 1, 5, 25 and then every 60 minutes until
+`maxAttempts` (default 3), then stays failed. Administrators on the main site
+see waiting, running, and failed runs (never payloads) under Diagnostics →
+Job queue and can retry a failed one. Done runs are deleted after 7 days,
+failed ones after 30.
+
+A `perSite` job enqueued while handling a site's request or job runs only for
+that site; enqueued outside any site, it runs for every site as before. A run
+can happen more than once (a retry, or a lease lost during a long pause), so
+make handlers safe to repeat and keep the work state in your tables. Before
+the migration has run, `enqueue()` falls back to the in-memory scheduler,
+which loses runs on restart.
 
 ## Private files
 

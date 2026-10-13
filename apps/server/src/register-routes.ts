@@ -6,7 +6,8 @@ import { publicApiCors } from "./middleware/public-api-cors.js";
 import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
 import { logSafe } from "./lib/security/log-safe.js";
 import { detectStaticErrorLocale, renderStaticErrorPage } from "./lib/rendering/static-error-page.js";
-import { adminClientDir, renderAdminPage } from "./lib/admin/admin-ssr.js";
+import { adminClientDir, adminClientIndex, renderAdminPage } from "./lib/admin/admin-ssr.js";
+import { setCsrfCookie } from "./lib/auth/session.js";
 import { adminAccessGate } from "./middleware/admin-access.js";
 import { getAdminPathConfig, toInternalAdminPath } from "./lib/admin/admin-path.js";
 import { requireSiteFeature } from "./lib/tenancy/site-features.js";
@@ -60,6 +61,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startDomainCheckJob();
     const { startPrivateFilesCopyJob } = await import("./lib/files/private-files-job.js");
     startPrivateFilesCopyJob();
+    const { startMediaVariantJobs } = await import("./lib/media/media-variant-jobs.js");
+    await startMediaVariantJobs();
     try {
       const { getSiteId } = await import("./lib/settings/site-settings.js");
       const siteId = await getSiteId();
@@ -237,6 +240,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/blocks", requireInstalled, blocksRoutes);
   app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
+  app.use("/api/taxonomies", requireInstalled, (await import("./routes/content/taxonomies.js")).default);
   app.use("/api/audit", requireInstalled, auditRoutes);
   app.use("/api/redirects", requireInstalled, requireSiteFeature("feature.redirects"), (await import("./routes/settings/redirects.js")).default);
   app.use("/api/webhooks", requireInstalled, requireSiteFeature("feature.webhooks"), webhooksRoutes);
@@ -491,6 +495,33 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   });
 
   app.use("/admin/assets", express.static(`${adminClientDir()}/assets`));
+
+  // The staff auth pages — sign in, forgot password, reset password — in the
+  // admin's own design. They sit behind the path rewrite above, so they are only
+  // reachable under the configured admin path (`/admin/login` is a 404 once the
+  // path is moved), and the members' themed pages never link to them. Staff are
+  // invited, so there is no admin registration page.
+  const adminLoginLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 120,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: "Too many requests",
+  });
+  const ADMIN_AUTH_PAGES = ["login", "forgot-password", "reset-password"].flatMap((page) => [`/admin/${page}`, `/admin/${page}/`]);
+  app.get(ADMIN_AUTH_PAGES, requireInstalled, adminLoginLimit, (req, res) => {
+    // Never cached at an edge, and the hidden path never leaves in a Referer;
+    // the reset page's token never leaves at all.
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("CDN-Cache-Control", "no-store");
+    res.setHeader("Referrer-Policy", req.path.startsWith("/admin/reset-password") ? "no-referrer" : "same-origin");
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    if (!req.cookies?.jf_csrf) setCsrfCookie(res);
+    res.sendFile(adminClientIndex(), (err) => {
+      if (!err || res.headersSent) return;
+      res.status(503).send("Admin UI not built.");
+    });
+  });
 
   app.use("/admin", requireInstalled, adminAccessGate);
 

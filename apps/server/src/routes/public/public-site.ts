@@ -588,6 +588,8 @@ function withSiteWidgets(
       login: ctx.t("auth.login"),
       register: ctx.t("auth.register"),
       language: ctx.t("language.label"),
+      account: ctx.t("auth.myAccount"),
+      signOut: ctx.t("auth.signOut"),
     },
   });
 }
@@ -664,7 +666,12 @@ async function ensureNotInMaintenance(req: Request, res: Response): Promise<bool
   return false;
 }
 
-async function ensureSiteIsPublic(req: Request, res: Response): Promise<boolean> {
+/**
+ * Answer a visitor with the maintenance or under-construction page while the
+ * site is closed. Exported for the routes outside the public pipeline that must
+ * close with it: the member auth pages and the account pages.
+ */
+export async function ensureSiteIsPublic(req: Request, res: Response): Promise<boolean> {
   if (!(await ensureNotInMaintenance(req, res))) return false;
   if (await isSitePublic()) return true;
   if (await canViewUnpublishedSite(req, res)) return true;
@@ -2017,7 +2024,7 @@ export async function renderSinglePageHtml(
     { id: String(pageContent.id), type: String(pageContent.type) },
   );
   const blogCtx = await buildBlogRenderContext(pageCtx.locale, pageNumber, basePath);
-  const commentCtx = pageContent.type === "account" ? undefined : await buildCommentContext(
+  const commentCtx = pageContent.type === "account" || pageContent.type === "auth" ? undefined : await buildCommentContext(
     req,
     {
       id: String(pageContent.id),
@@ -2050,6 +2057,11 @@ export async function renderSinglePageHtml(
     bodyHtml = await renderAccountBlocks(bodyHtml, req.session);
     withHeader.discourageSearchEngines = true;
     Object.assign(withHeader, { privateAccount: true });
+  }
+  if (pageContent.type === "auth") {
+    const { renderAuthBlocks } = await import("../../lib/auth/auth-render.js");
+    bodyHtml = await renderAuthBlocks(bodyHtml);
+    withHeader.discourageSearchEngines = true;
   }
   const formattedDate = pageContent.publishedAt
     ? await formatContentDate(pageContent.publishedAt)
@@ -2090,7 +2102,7 @@ export async function renderSinglePageHtml(
       alternates,
       formattedDate,
       title: pageContent.title,
-      mainClass: ["page", "account"].includes(String(pageContent.type)) ? "site-main site-main--page" : "site-main",
+      mainClass: ["page", "account", "auth"].includes(String(pageContent.type)) ? "site-main site-main--page" : "site-main",
     },
     templateOpts,
   );

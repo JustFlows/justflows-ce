@@ -103,6 +103,8 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add(`/api/content/${encodeURIComponent(id)}`);
   } else if (pathname === "/admin/content-types") {
     paths.add("/api/content-types");
+  } else if (pathname === "/admin/taxonomies") {
+    paths.add("/api/taxonomies");
   } else if (pathname === "/admin/media") {
     paths.add("/api/media");
   } else if (pathname === "/admin/plugins") {

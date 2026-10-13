@@ -131,6 +131,7 @@ type SettingsPayload = Record<string, unknown> & {
   date_format?: string;
   time_format?: string;
   mail_transports?: Array<{ id: string; label: string }>;
+  mail_platform_only?: boolean;
   assignable_roles?: Array<{ id?: unknown; label?: unknown }>;
 };
 
@@ -232,6 +233,7 @@ export default function SettingsPage() {
       { id: "smtp", label: t("settings.mail.transportSmtp") },
     ],
   );
+  const [mailPlatformOnly, setMailPlatformOnly] = useState(prefetched?.mail_platform_only === true);
 
   const now = useMemo(() => new Date(), [general.timezone, general.dateFormat, general.timeFormat]);
   const utcTime = formatPhpDate(now, "Y-m-d H:i:s", { timeZone: "UTC" });
@@ -250,6 +252,7 @@ export default function SettingsPage() {
           Array.isArray(data.timezones) && data.timezones.length > 0 ? data.timezones : ["UTC"],
         );
         if (data.mail_transports) setMailTransports(data.mail_transports);
+        setMailPlatformOnly(data.mail_platform_only === true);
         setCustomDate(!(DATE_FORMAT_PRESETS as readonly string[]).includes(dateFormat));
         setCustomTime(!(TIME_FORMAT_PRESETS as readonly string[]).includes(timeFormat));
       })
@@ -344,18 +347,22 @@ export default function SettingsPage() {
           trash_retention_days: Number(general.trashRetentionDays),
           site_public: general.sitePublic,
           discourage_search_engines: general.discourageSearchEngines,
-          mail_transport: general.mailTransport,
-          mail_from_name: general.mailFromName,
-          mail_from_address: general.mailFromAddress,
-          mail_reply_to: general.mailReplyTo,
-          mail_envelope_sender: general.mailEnvelopeSender,
-          smtp_host: general.smtpHost,
-          smtp_port: Number(general.smtpPort),
-          smtp_secure: general.smtpSecure,
-          smtp_user: general.smtpUser,
-          ...(general.smtpPass ? { smtp_pass: general.smtpPass } : {}),
-          mail_rate_limit: Number(general.mailRateLimit),
-          mail_concurrency: Number(general.mailConcurrency),
+          ...(mailPlatformOnly
+            ? {}
+            : {
+                mail_transport: general.mailTransport,
+                mail_from_name: general.mailFromName,
+                mail_from_address: general.mailFromAddress,
+                mail_reply_to: general.mailReplyTo,
+                mail_envelope_sender: general.mailEnvelopeSender,
+                smtp_host: general.smtpHost,
+                smtp_port: Number(general.smtpPort),
+                smtp_secure: general.smtpSecure,
+                smtp_user: general.smtpUser,
+                ...(general.smtpPass ? { smtp_pass: general.smtpPass } : {}),
+                mail_rate_limit: Number(general.mailRateLimit),
+                mail_concurrency: Number(general.mailConcurrency),
+              }),
           favicon_url: general.faviconUrl,
           marketplace_allow_beta: general.allowBetaInstalls,
         }),
@@ -522,8 +529,14 @@ export default function SettingsPage() {
 
         <Section title={t("settings.mail.title")}>
           <p className="jf-field__hint" style={{ marginTop: 0 }}>
-            {t("settings.mail.transportHint")}
+            {mailPlatformOnly
+              ? t("settings.mail.platformOnlyHint")
+              : general.mailTransport === "platform"
+                ? t("settings.mail.platformHint")
+                : t("settings.mail.transportHint")}
           </p>
+          {!mailPlatformOnly && (
+          <>
           <div className="jf-grid jf-grid--2">
             <div className="jf-field">
               <label className="jf-field__label" htmlFor="jf-mail-transport">
@@ -699,6 +712,8 @@ export default function SettingsPage() {
               </div>
             </>
           )}
+          </>
+          )}
           <div className="jf-row">
             <button type="button" className="jf-btn" onClick={testMail} disabled={testingMail}>
               {testingMail ? t("settings.mail.sendingButton") : t("settings.mail.sendTestButton")}
@@ -706,7 +721,9 @@ export default function SettingsPage() {
             {mailTest && <span className="jf-field__hint">{mailTest}</span>}
           </div>
           <p className="jf-field__hint">{t("settings.mail.testBeforeSaveHint")}</p>
-          <p className="jf-field__hint">{t("settings.mail.dnsHint")}</p>
+          {!mailPlatformOnly && general.mailTransport !== "platform" && (
+            <p className="jf-field__hint">{t("settings.mail.dnsHint")}</p>
+          )}
         </Section>
 
         <Section title={t("settings.membership.title")}>

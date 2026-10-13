@@ -141,6 +141,10 @@ export default function AdminPathPage() {
         <p className="jf-field__hint">
           {t("security.adminPath.address.current")} <code>{publicAdminPath("/admin")}</code>
         </p>
+        <p className="jf-field__hint">
+          {t("security.adminPath.address.signIn")} <code>{publicAdminPath("/admin/login")}</code>
+          {saved.path !== "/admin" ? <> {t("security.adminPath.address.signInHint")}</> : null}
+        </p>
       </Section>
 
       <Section title={t("security.adminPath.oldAddress.title")}>

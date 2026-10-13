@@ -5,7 +5,12 @@ import { ensureCsrfCookie } from "../lib/csrf";
 import { publicAdminPath, safeRedirectPath } from "../admin-path";
 import { useT } from "../i18n/I18nProvider";
 
-export default function LoginPage() {
+/**
+ * `adminPath` is set on the staff sign-in page under the admin path. It is sent
+ * with the credentials: once the admin has been moved, the server only opens a
+ * staff session for a request that names the configured path.
+ */
+export default function LoginPage({ adminPath }: { adminPath?: string } = {}) {
   const { t } = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,7 +44,12 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(totpRequired ? { email, password, totp } : { email, password }),
+        body: JSON.stringify({
+          email,
+          password,
+          ...(totpRequired ? { totp } : {}),
+          ...(adminPath ? { adminPath } : {}),
+        }),
       });
 
       const data = (await res.json()) as {
@@ -69,7 +79,7 @@ export default function LoginPage() {
       }
       window.location.href = safeRedirectPath(
         data.redirectTo,
-        data.role === "subscriber" ? "/" : publicAdminPath("/admin"),
+        data.role === "subscriber" ? "/" : (adminPath ?? publicAdminPath("/admin")),
       );
     } catch {
       setError(t("auth.unexpectedError"));
@@ -152,10 +162,10 @@ export default function LoginPage() {
           </button>
           {canReset && (
             <p className="jf-auth__footer">
-              <Link to="/forgot-password">{t("auth.forgotPasswordLink")}</Link>
+              <Link to={adminPath ? `${adminPath}/forgot-password` : "/forgot-password"}>{t("auth.forgotPasswordLink")}</Link>
             </p>
           )}
-          {canRegister && (
+          {canRegister && !adminPath && (
             <p className="jf-auth__footer">
               {t("auth.login.noAccount")} <Link to="/register">{t("auth.login.createAccount")}</Link>
             </p>

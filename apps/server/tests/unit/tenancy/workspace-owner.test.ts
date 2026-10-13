@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DbClient } from "../../../src/lib/database/db.js";
-import { ensureWorkspaceOwnerAccount } from "../../../src/lib/tenancy/workspace-owner.js";
+import { ensureWorkspaceOwnerAccount, rootAccountExists, WorkspaceOwnerTakenError } from "../../../src/lib/tenancy/workspace-owner.js";
 
 const owner = { email: "Owner@Example.com", username: "owner", displayName: "Owner", passwordHash: "hashed-password" };
 const stamp = "2026-10-09 12:00:00";
@@ -30,6 +30,18 @@ describe("workspace owner root account", () => {
     const { db, run } = database(true);
     expect(await ensureWorkspaceOwnerAccount(db, owner, stamp)).toEqual({ siteId: "root-site", userId: "existing-owner", created: false });
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it("refuses an existing root user when a new owner is required", async () => {
+    const { db, run } = database(true);
+    await expect(ensureWorkspaceOwnerAccount(db, owner, stamp, { requireNew: true })).rejects.toBeInstanceOf(WorkspaceOwnerTakenError);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("looks up root accounts by normalized email", async () => {
+    const { db, query } = database(true);
+    expect(await rootAccountExists(db, " Owner@Example.com ")).toBe(true);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("email = ?"), ["owner@example.com"]);
   });
 
   it("handles a root username belonging to another email within the schema limit", async () => {

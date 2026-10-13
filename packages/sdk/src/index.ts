@@ -163,6 +163,7 @@ export type {
   PluginHttpHandler,
   PluginHttpRateLimit,
   PluginHttpRouteOptions,
+  PluginHttpMcpTool,
   PluginJobsApi,
   PluginMailTransportApi,
   PluginMailMessage,

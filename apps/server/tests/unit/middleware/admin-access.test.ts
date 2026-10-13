@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 
 process.env.APP_SECRET = "test-secret-that-is-at-least-32-characters-long";
 
+const adminPath = vi.hoisted(() => ({ path: "/admin" }));
+vi.mock("../../../src/lib/admin/admin-path.js", () => ({
+  getAdminPathConfig: async () => ({ path: adminPath.path, oldPathBehavior: "not_found" }),
+}));
+
 const { adminAccessGate } = await import("../../../src/middleware/admin-access.js");
 const { createSessionToken } = await import("../../../src/lib/auth/session.js");
 
@@ -25,17 +30,27 @@ function fakeRes() {
 }
 
 describe("adminAccessGate", () => {
-  it("redirects to /login when there is no session", () => {
+  it("redirects to the admin sign-in page when there is no session", async () => {
+    adminPath.path = "/admin";
     const req = fakeReq("/admin");
     const res = fakeRes();
     const next = vi.fn();
 
     adminAccessGate(req, res, next);
 
-    expect(res.redirect).toHaveBeenCalledWith("/login");
+    await vi.waitFor(() => expect(res.redirect).toHaveBeenCalledWith("/admin/login"));
     expect(res.setHeader).toHaveBeenCalledWith("Cache-Control", "private, no-store");
     expect(res.setHeader).toHaveBeenCalledWith("CDN-Cache-Control", "no-store");
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it("sends a visitor of a moved admin to the hidden sign-in, never the public /login", async () => {
+    adminPath.path = "/control-room";
+    const res = fakeRes();
+    adminAccessGate(fakeReq("/admin"), res, vi.fn());
+    await vi.waitFor(() => expect(res.redirect).toHaveBeenCalledWith("/control-room/login"));
+    expect(res.redirect).not.toHaveBeenCalledWith("/login");
+    adminPath.path = "/admin";
   });
 
   it("redirects a subscriber to the site instead of the dashboard", async () => {

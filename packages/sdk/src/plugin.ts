@@ -776,6 +776,35 @@ export interface PluginHttpRouteOptions {
    * `maxBytes` (host maximum 1 GiB). CSRF and rate limits still apply.
    */
   binaryBody?: { maxBytes: number };
+  /**
+   * Offer this route to AI agents as an MCP tool. Off unless set: the plugin
+   * chooses which of its functions agents may use. See `PluginHttpMcpTool`.
+   */
+  mcp?: PluginHttpMcpTool;
+}
+
+/**
+ * A plugin route offered to AI agents (MCP clients and the admin assistant).
+ *
+ * The host lists the tool only on sites where the plugin is active, and only
+ * to sessions that hold `capability`. A call runs this route's own handler
+ * with the agent's session (`role: "api-key"`, its capabilities), so the
+ * handler's existing checks apply unchanged. Path parameters (`:id`) become
+ * required string arguments; the other arguments are the query string for
+ * GET and DELETE, and the JSON body otherwise. Non-read-only calls are
+ * audited. A file or binary response is not passed to the agent.
+ */
+export interface PluginHttpMcpTool {
+  /** `snake_case`, unique, prefixed with the plugin (`shop_products_save`). */
+  name: string;
+  title?: string;
+  /** Written for a model: what the tool does and when to use it. */
+  description: string;
+  /** Needed to see and call the tool. Use the capability the handler checks. */
+  capability: string;
+  /** JSON Schema (`type: "object"`) for the query or body arguments. */
+  inputSchema?: Record<string, unknown>;
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean };
 }
 
 export interface PluginHttpApi {
@@ -819,7 +848,18 @@ export interface PluginJobDefinition {
 
 export interface PluginJobsApi {
   register(def: PluginJobDefinition): void;
-  enqueue(name: string, options?: { delayMs?: number; payload?: unknown }): void;
+  /**
+   * Run a registered job once, after `delayMs`. Each call is its own run with
+   * its own `payload` (JSON, up to 1 MB). On hosts with the durable queue
+   * (core 0.3.6) the run is stored first and survives a restart; the returned
+   * promise resolves once it is stored and never rejects. A run whose handler
+   * throws or returns `success: false` is retried until `maxAttempts`
+   * (default 3), so handlers must be safe to repeat; failed runs are listed in
+   * Diagnostics. A `perSite` job enqueued while handling a site's request or
+   * job runs only for that site; enqueued outside one, for every site.
+   * Throws when the job is not registered.
+   */
+  enqueue(name: string, options?: { delayMs?: number; payload?: unknown }): void | Promise<void>;
 }
 
 /**
@@ -1205,6 +1245,13 @@ export interface PluginSchemaApplyResult {
   ok: boolean;
   tables: string[];
   error?: string;
+  /**
+   * `ensureSchema` only: declared columns it added to tables that already
+   * existed (`shop_orders.channel`). Added columns are nullable and not unique.
+   */
+  columnsAdded?: string[];
+  /** `ensureSchema` only: declared indexes it added to tables that already existed. */
+  indexesAdded?: string[];
 }
 
 export interface PluginWorkspace {
@@ -1278,8 +1325,11 @@ export type PluginTenancyResult =
 
 /**
  * Workspace and site placement. `current()` is available to every plugin.
- * Listing and changing workspaces requires `platform:tenancy`. Stored database
- * passwords are never returned.
+ * Every other call requires `platform:tenancy`, runs only on the
+ * installation's root site, and is refused while the plugin works on behalf
+ * of an AI agent, an API key or a connected app (an MCP or assistant tool
+ * call, or a key-authenticated request). The host enforces this whatever the
+ * plugin's code does. Stored database passwords are never returned.
  */
 export interface PluginTenancyApi {
   current(): Promise<PluginWorkspaceContext | null>;
@@ -1289,6 +1339,7 @@ export interface PluginTenancyApi {
   addSite(tenantId: string, input: PluginAddSiteInput): Promise<PluginTenancyResult>;
   suspend(tenantId: string): Promise<PluginTenancyResult>;
   reactivate(tenantId: string): Promise<PluginTenancyResult>;
+  /** Mark deleted for retention cleanup; dropDatabase requests full immediate purge. */
   deleteWorkspace(tenantId: string, options?: { dropDatabase?: boolean }): Promise<PluginTenancyResult>;
 }
 
@@ -1346,8 +1397,10 @@ export interface PluginQuotaMeterInfo {
 
 /**
  * Configured ceilings. Every plugin may register meters and check them.
- * `set` writes the same limits a platform operator edits and requires
- * `platform:tenancy`. A missing limit is unlimited.
+ * `set` writes the same limits a platform operator edits: it requires
+ * `platform:tenancy`, runs only on the installation's root site (also for the
+ * plugin's own workspace), and is refused on behalf of an AI agent or API
+ * key. A missing limit is unlimited.
  */
 export interface PluginQuotasApi {
   register(meter: QuotaMeterRegistration): Unsubscribe;
@@ -1469,6 +1522,12 @@ export interface PluginDatabasesApi {
    * Create the plugin's tables if they are missing. Names are prefixed with the
    * plugin slug so a plugin cannot create `users` or other core tables.
    * Omit `target` to use the current Justflows database.
+   *
+   * Tables that already exist get the declared columns and indexes they lack,
+   * so adding a column to a declaration upgrades existing installations. An
+   * added column is nullable and not unique (existing rows have no value);
+   * declare a unique index for it instead. Types, removed columns and removed
+   * indexes are never changed: a plugin migrates its data itself.
    */
   ensureSchema(
     tables: PluginSchemaTable[],

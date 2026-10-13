@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { currentDelegate } from "../../lib/security/delegated-call.js";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { clientIp } from "../../lib/security/rate-limit.js";
@@ -103,7 +104,7 @@ router.post("/themes/:id/activate", async (req, res) => {
 /* -------------------------------- cache ------------------------------- */
 
 function requireRoot(res: { status(code: number): { json(body: unknown): void } }): boolean {
-  if (isInstallationRootRequest()) return true;
+  if (!currentDelegate() && isInstallationRootRequest()) return true;
   res.status(403).json({ error: "This is managed on the main site." });
   return false;
 }
