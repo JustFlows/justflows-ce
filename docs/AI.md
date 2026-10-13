@@ -345,28 +345,9 @@ by tool.
     cannot be tools. A file or binary response is not passed to the agent.
   - Errors reach the model as their message, including
     `{ error: { code, message } }` from `structuredErrors` routes.
-- **Plugin tools.** A plugin can also add tools through the `mcp.tools` filter.
-  Append `McpToolDefinition` objects: `name`, `description`, `inputSchema`,
-  `capability`, optional `annotations`, and `handler(args, context)`.
-  - The host lists the tool only to sessions that hold `capability`, checks it
-    again on every call, audits non-read-only calls, and attributes revisions.
-  - The handler must do any per-resource checks itself.
-  - Names must be `snake_case`, prefixed with the plugin, and must not shadow
-    a core tool.
-
-  ```ts
-  ctx.hooks.filter("mcp.tools", (tools) => [
-    ...tools,
-    {
-      name: "acme_seo_score",
-      description: "Score an entry for SEO and list what to fix.",
-      inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
-      capability: "content:read",
-      annotations: { readOnlyHint: true },
-      handler: async ({ id }, { siteId }) => scoreEntry(siteId, String(id)),
-    },
-  ]);
-  ```
+- **API-only plugin tools.** Arbitrary `mcp.tools` filter handlers are no
+  longer listed or executed. Expose a registered plugin API route with the
+  `mcp` option instead. This intentionally disables existing handler-only tools.
 - **Agents stay on their site; the host makes sure of it.** A key, grant or
   agent session only ever acts on the site it belongs to, and plugin data is
   stored and read per site by the host. Platform operations are refused by
@@ -387,3 +368,52 @@ by tool.
   API's checks and rate limit. Such requests skip CSRF and arrive with
   `role: "api-key"`. Keys limited to content types, locales, sites, or
   ownership are refused there, because plugin routes do not check scopes.
+
+## Security-sensitive data
+
+MCP and the admin assistant filter tool results before returning them to an
+agent or sending them to an AI provider. This includes core tools, plugin route
+tools. Arbitrary `mcp.tools` handlers are disabled. Nested credential fields, settings rows naming
+secrets, JSON-encoded results, recognizable environment-file text, private keys,
+authorization values, credential URLs, and known sensitive environment values
+are redacted. Binary and unserializable tool results fail closed. MCP
+content-type resources use the same filter; its documentation resource only
+returns an embedded API guide without reading any installation file. Assistant
+history, editor context, and editor-action text are also filtered before provider
+requests. Provider credentials are still used privately to authenticate requests.
+
+This filter supplements site isolation and capability checks. It cannot identify
+every arbitrary secret stored as ordinary prose or prevent trusted server-side
+plugins from encoding secrets or sending data over their own network connections.
+Do not expose credential stores, environment files, database dumps, or unrestricted
+file/SQL readers as plugin tools. Plugins execute in the server process and must
+be trusted. AI model instructions alone are not a security boundary.
+
+## Agent access boundary
+
+Agents operate on the authenticated site's APIs. The shared registry refuses a
+principal whose key/site does not match the request context, and rejects explicit
+foreign `siteId`, `site_id`, or `tenantId` selectors, including nested selectors.
+Core resource IDs are still checked by site-scoped API lookups. Internal dispatch
+captures and restores the already selected request database; it does not look up
+a replacement database or fall back to the installation database on the socket hop.
+Installation-wide cache, health and diagnostics tools are excluded. Delegated
+requests cannot call platform workspace APIs, even with an operator-owned key.
+
+There are no built-in filesystem browsers, shell tools, SQL execution tools or
+core source editors in this agent catalog. MCP resources accept only the embedded
+authoring/block guides and the current site's content-type schemas. `file://`
+URIs and arbitrary installation paths are rejected. API block documents and
+HTML content remain editable site data; they are not server source files.
+
+Direct filesystem and source-code access is forbidden for MCP and AI agents,
+including the installation's `themes/` and `plugins/` directories. There is no
+custom-development exception. Plugins may expose site-scoped functions through
+registered API routes, but those routes must not provide filesystem browsing,
+source-file reads or writes, shell execution, or unrestricted SQL execution.
+
+Plugin API handlers are trusted server code. The host checks site activation,
+capabilities and explicit site selectors, but cannot sandbox arbitrary Node code
+or infer whether an opaque resource ID belongs to another site in a plugin's
+custom database. Plugin handlers must enforce site ownership and the folder
+policy themselves.

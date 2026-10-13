@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { deactivatePluginAdmin } from "../../../src/lib/plugins/plugins-admin.js";
+import { activatePluginAdmin, deactivatePluginAdmin } from "../../../src/lib/plugins/plugins-admin.js";
 
 const mocks = vi.hoisted(() => ({
+  enforceQuota: vi.fn(),
+  runtimeActivate: vi.fn(),
+  persistActive: vi.fn(),
   runtimeDeactivate: vi.fn(),
   runtimeDeleteData: vi.fn(),
   persistInactive: vi.fn(),
@@ -19,15 +22,16 @@ const mocks = vi.hoisted(() => ({
   clearAssets: vi.fn(),
 }));
 vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
+  runtimeActivatePlugin: mocks.runtimeActivate,
   runtimeDeactivatePlugin: mocks.runtimeDeactivate,
   runtimeDeletePluginData: mocks.runtimeDeleteData,
 }));
 vi.mock("../../../src/lib/plugins/plugins-db.js", () => ({
   deactivatePlugin: mocks.persistInactive,
-  activatePlugin: vi.fn(),
+  activatePlugin: mocks.persistActive,
   getPlugin: mocks.getPlugin,
   markPluginError: vi.fn(),
-  pluginToDto: vi.fn(),
+  pluginToDto: vi.fn(() => ({})),
 }));
 vi.mock("../../../src/lib/tenancy/registry.js", () => ({ isInstallationRootSite: mocks.isRoot }));
 vi.mock("../../../src/lib/plugins/plugin-multisite.js", () => ({ otherSitesHaveActivePlugin: mocks.othersActive }));
@@ -45,6 +49,7 @@ vi.mock("../../../src/lib/plugins/plugin-assets.js", () => ({
 }));
 vi.mock("../../../src/lib/security/audit-log.js", () => ({ auditLog: mocks.audit }));
 vi.mock("../../../src/lib/cache/cache-revalidate.js", () => ({ revalidateOnUpdate: mocks.revalidate }));
+vi.mock("../../../src/lib/tenancy/quotas.js", () => ({ enforceQuota: mocks.enforceQuota }));
 const actor = { siteId: "site-1", userId: "admin-1", role: "administrator" };
 
 beforeEach(() => {
@@ -114,5 +119,32 @@ describe("deactivatePluginAdmin", () => {
       body: { error: "disk full" },
     });
     expect(mocks.persistInactive).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("activatePluginAdmin quotas", () => {
+  it("checks the active allowance before runtime activation", async () => {
+    mocks.enforceQuota.mockResolvedValue(null);
+    mocks.runtimeActivate.mockImplementation(async () => {
+      expect(mocks.enforceQuota).toHaveBeenCalledWith("plugins", actor.siteId, 1);
+    });
+    expect(await activatePluginAdmin("shop", actor)).toEqual({ status: 200, body: { ok: true } });
+    expect(mocks.runtimeActivate).toHaveBeenCalledWith(actor.siteId, "shop");
+    expect(mocks.persistActive).toHaveBeenCalledWith(actor.siteId, "shop");
+  });
+
+  it("refuses activation at the limit without running or persisting the plugin", async () => {
+    const block = { status: 409, error: "The limit for Active plugins has been reached (3).", code: "quota_exceeded", meter: "plugins" };
+    mocks.enforceQuota.mockResolvedValue(block);
+    expect(await activatePluginAdmin("shop", actor)).toEqual({ status: 409, body: { error: block.error, code: block.code, meter: block.meter } });
+    expect(mocks.runtimeActivate).not.toHaveBeenCalled();
+    expect(mocks.persistActive).not.toHaveBeenCalled();
+  });
+
+  it("does not consume another slot for an already active plugin", async () => {
+    mocks.getPlugin.mockResolvedValue({ status: "active", manifest: { id: "shop" } });
+    expect((await activatePluginAdmin("shop", actor)).status).toBe(200);
+    expect(mocks.enforceQuota).not.toHaveBeenCalled();
   });
 });

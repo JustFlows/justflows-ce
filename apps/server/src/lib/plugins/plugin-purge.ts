@@ -209,11 +209,12 @@ async function deletePluginSiteSettings(siteId: string, pluginId: string): Promi
 export async function purgePluginStorage(
   siteId: string,
   pluginId: string,
+  options: { rowsOnly?: boolean; strictRemote?: boolean; driver?: PluginDatabaseDriver } = {},
 ): Promise<{ ok: boolean; tables: string[]; error?: string }> {
-  const driver = (process.env.DB_DRIVER as PluginDatabaseDriver | undefined) || "mysql";
+  const driver = options.driver ?? (process.env.DB_DRIVER as PluginDatabaseDriver | undefined) ?? "mysql";
   const dropped: string[] = [];
   let remoteError: string | undefined;
-  const dropTables = mayDropPluginTables({
+  const dropTables = !options.rowsOnly && mayDropPluginTables({
     installationRoot: await isInstallationRootSite(siteId),
     otherSitesUsePlugin: await otherSitesHavePlugin(pluginId, siteId),
   });
@@ -236,7 +237,7 @@ export async function purgePluginStorage(
       } else {
         const remote = await openTargetDatabase({ ...meta.target, password, ssl: meta.target.ssl });
         try {
-          dropped.push(...(await deletePluginSiteRows(remote, pluginId, siteId, meta.target.driver, meta.tables)));
+          dropped.push(...(await deletePluginSiteRows(remote, pluginId, siteId, meta.target.driver, meta.tables, options.strictRemote)));
         } finally {
           await remote.close();
         }
@@ -246,12 +247,14 @@ export async function purgePluginStorage(
     }
   }
 
+  if (remoteError && options.strictRemote) return { ok: false, tables: dropped, error: remoteError };
+
   try {
     const db = await getDb();
     dropped.push(
       ...(dropTables
         ? await dropPluginOwnedTables(db, pluginId, driver, meta?.tables ?? [])
-        : await deletePluginSiteRows(db, pluginId, siteId, driver, meta?.tables ?? [])),
+        : await deletePluginSiteRows(db, pluginId, siteId, driver, meta?.tables ?? [], options.strictRemote)),
     );
     await deleteAllPluginData(pluginId, siteId);
     await deletePluginSiteSettings(siteId, pluginId);

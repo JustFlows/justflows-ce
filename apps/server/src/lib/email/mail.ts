@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import { createHash, randomUUID } from "node:crypto";
-import { getDb } from "../database/db.js";
+import { getControlDb, getDb } from "../database/db.js";
 import { getGeneralSettings } from "../settings/general-settings.js";
 import {
   buildTransportOptions,
@@ -13,7 +13,7 @@ import {
   type MailTransport,
   type SmtpSecure,
 } from "./mail-config.js";
-import { getSiteId, getSiteSetting, setSiteSetting } from "../settings/site-settings.js";
+import { getSiteId, getSiteSetting, parseSettingValue, setSiteSetting, settingsKeyColumn } from "../settings/site-settings.js";
 import { decryptSecret, encryptSecret } from "../security/secret-box.js";
 import { getRegisteredMailTransport, listRegisteredMailTransports } from "./mail-transports.js";
 import { sanitizeHtmlBlock, sanitizePlainText } from "@justflows/blocks";
@@ -162,6 +162,31 @@ interface ResolvedMailConfig {
   passwordFromEnv: boolean;
   /** Mail goes to the operator-configured relay (SMTP_HOST / SMTP_PORT). */
   usesInstallationRelay: boolean;
+  /** A sub-site sending through the installation root site's mail settings. */
+  viaPlatform?: boolean;
+}
+
+/** What a site may do with its own outgoing mail settings. */
+export interface SiteMailScope {
+  /** The installation root site (or a single-site install) keeps every transport. */
+  root: boolean;
+  /** The plan allows this sub-site its own SMTP or plugin transport (`feature.ownMail`). */
+  ownAllowed: boolean;
+  rootId: string | null;
+}
+
+/** API alias for a sub-site's stored "sendmail": send through the platform's mail settings. */
+export const PLATFORM_MAIL_TRANSPORT = "platform";
+
+export async function siteMailScope(siteId: string): Promise<SiteMailScope> {
+  const { installationRootSiteId } = await import("../tenancy/registry.js");
+  const rootId = await installationRootSiteId().catch(() => null);
+  if (!rootId || rootId === siteId) return { root: true, ownAllowed: true, rootId };
+  const { checkQuota } = await import("../tenancy/quotas.js");
+  const ownAllowed = await checkQuota("feature.ownMail", siteId, { delta: 0 })
+    .then((decision) => decision.ok)
+    .catch(() => false);
+  return { root: false, ownAllowed, rootId };
 }
 
 /**
@@ -172,8 +197,12 @@ interface ResolvedMailConfig {
  */
 async function resolveMailConfig(siteId?: string | null): Promise<ResolvedMailConfig> {
   const id = siteId ?? (await getSiteId());
-  const env = envFallback();
   const stored = id ? await getSiteSetting<Partial<MailConfig>>(id, "mail") : null;
+  return resolveStoredMailConfig(stored);
+}
+
+function resolveStoredMailConfig(stored: Partial<MailConfig> | null): ResolvedMailConfig {
+  const env = envFallback();
   const raw = stored && typeof stored === "object" ? stored : {};
 
   const transportRaw = asString(raw.transport ?? env.transport, DEFAULT_MAIL_CONFIG.transport);
@@ -217,6 +246,45 @@ async function resolveMailConfig(siteId?: string | null): Promise<ResolvedMailCo
   return { config, passwordFromEnv, usesInstallationRelay: isEnvRelay };
 }
 
+async function readRootSetting<T>(rootId: string, key: string): Promise<T | null> {
+  const db = await getControlDb();
+  const rows = await db.query<{ value: unknown }>(
+    `SELECT value FROM site_settings WHERE site_id = ? AND ${settingsKeyColumn()} = ? LIMIT 1`,
+    [rootId, key],
+  );
+  return parseSettingValue<T>(rows.length > 0, rows[0]?.value);
+}
+
+/**
+ * The settings a send uses. A sub-site never uses the host's sendmail: unless
+ * its plan allows its own SMTP or plugin transport and one is chosen, it sends
+ * through the root site's transport and sender address, under its own name,
+ * with replies going to its own address.
+ */
+export async function deliveryMailConfig(siteId: string): Promise<ResolvedMailConfig> {
+  const own = await resolveMailConfig(siteId);
+  const scope = await siteMailScope(siteId);
+  if (scope.root || (scope.ownAllowed && own.config.transport !== "sendmail")) return own;
+  if (!scope.rootId) throw new Error("No platform mail settings found");
+  const rootId = scope.rootId;
+  const [rootStored, rootAdminEmail] = await Promise.all([
+    readRootSetting<Partial<MailConfig>>(rootId, "mail"),
+    readRootSetting<string>(rootId, "admin_email"),
+  ]);
+  const platform = resolveStoredMailConfig(rootStored);
+  const general = await getGeneralSettings(siteId);
+  return {
+    ...platform,
+    viaPlatform: true,
+    config: {
+      ...platform.config,
+      fromName: own.config.fromName,
+      fromAddress: platform.config.fromAddress.trim() || (typeof rootAdminEmail === "string" ? rootAdminEmail.trim() : ""),
+      replyTo: own.config.replyTo || general.adminEmail,
+    },
+  };
+}
+
 const SITE_SMTP_PORTS = new Set([25, 465, 587, 2525]);
 
 /**
@@ -228,7 +296,7 @@ const SITE_SMTP_PORTS = new Set([25, 465, 587, 2525]);
  */
 async function transportOptionsFor(siteId: string, resolved: ResolvedMailConfig): Promise<Record<string, unknown>> {
   const options = buildTransportOptions(resolved.config);
-  if (resolved.config.transport !== "smtp" || resolved.usesInstallationRelay) return options;
+  if (resolved.config.transport !== "smtp" || resolved.usesInstallationRelay || resolved.viaPlatform) return options;
   const { isInstallationRootSite } = await import("../tenancy/registry.js");
   if (await isInstallationRootSite(siteId)) return options;
   const host = String(options.host);
@@ -250,9 +318,11 @@ export async function getMailConfig(siteId?: string | null): Promise<MailConfig>
   return (await resolveMailConfig(siteId)).config;
 }
 
-export function toPublicMailSettings(config: MailConfig): PublicMailSettings {
+/** `scope` given for a sub-site: sendmail is shown as platform mail, and only offered as that. */
+export function toPublicMailSettings(config: MailConfig, scope?: SiteMailScope): PublicMailSettings {
+  const subSite = scope !== undefined && !scope.root;
   return {
-    transport: config.transport,
+    transport: subSite && config.transport === "sendmail" ? (PLATFORM_MAIL_TRANSPORT as MailTransport) : config.transport,
     fromName: config.fromName,
     fromAddress: config.fromAddress,
     replyTo: config.replyTo,
@@ -265,7 +335,7 @@ export function toPublicMailSettings(config: MailConfig): PublicMailSettings {
     rateLimitPerMinute: config.rateLimitPerMinute,
     concurrency: config.concurrency,
     transports: [
-      { id: "sendmail", label: "Sendmail (local)" },
+      subSite ? { id: PLATFORM_MAIL_TRANSPORT, label: "Platform mail" } : { id: "sendmail", label: "Sendmail (local)" },
       { id: "smtp", label: "SMTP" },
       ...listRegisteredMailTransports(),
     ],
@@ -442,9 +512,13 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
   try {
     siteId = await getSiteId();
     if (!siteId) return { ok: false, error: "No site found" };
+    const active = await (await getControlDb()).query<{ id: string }>(
+      "SELECT s.id FROM sites s JOIN tenants t ON t.id = s.tenant_id WHERE s.id = ? AND s.status = 'active' AND t.status = 'active' LIMIT 1", [siteId],
+    );
+    if (!active[0]) return { ok: false, error: "The workspace is inactive" };
     if (await isSuppressed(siteId, message))
       return { ok: false, error: "Recipient is suppressed for this email type" };
-    const resolved = await resolveMailConfig(siteId);
+    const resolved = await deliveryMailConfig(siteId);
     config = resolved.config;
     const from = await fromHeader(config, message.fromName);
     if (!from) {

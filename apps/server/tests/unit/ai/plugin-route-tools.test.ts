@@ -149,3 +149,15 @@ describe("mcp route option", () => {
     expect(() => new PluginHttpRouter().register("acme.shop", "POST", "x", async () => ({}), { mcp: ok, binaryBody: { maxBytes: 10 } })).toThrow();
   });
 });
+
+describe("plugin API site boundary", () => {
+  it.each([{ siteId: "s2" }, { site_id: "s2" }, { data: { tenantId: "t2" } }])("refuses a foreign target before plugin code runs: %j", async (args) => {
+    const result = await callTool(principal(["site:admin"]), "acme_products_list", args);
+    expect(result.outcome).toMatchObject({ ok: false, status: 403 });
+    expect(seen).toHaveLength(0);
+  });
+  it("filters credentials returned by a plugin API handler", async () => {
+    (state.router as PluginHttpRouter).register("acme.shop", "GET", "private", async () => ({ body: { nested: { apiKey: "do-not-return" } } }), { mcp: { name: "acme_private", description: "Test private output.", capability: "products:read" } });
+    expect(JSON.stringify(await callTool(principal(["site:admin"]), "acme_private", {}))).not.toContain("do-not-return");
+  });
+});

@@ -50,6 +50,7 @@ function meterLabel(key: string, fallback: string, t: (key: string) => string): 
   if (key === "feature" + ".plugins") return t("platform.featurePlugins");
   if (key === "feature" + ".customDomains") return t("platform.featureCustomDomains");
   if (key === "feature" + ".managedDns") return t("platform.featureManagedDns");
+  if (key === "feature" + ".ownMail") return t("platform.featureOwnMail");
   if (key === "domains" + ".custom") return t("platform.meterCustomDomains");
   return fallback;
 }

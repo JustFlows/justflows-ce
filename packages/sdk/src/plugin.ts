@@ -1339,6 +1339,7 @@ export interface PluginTenancyApi {
   addSite(tenantId: string, input: PluginAddSiteInput): Promise<PluginTenancyResult>;
   suspend(tenantId: string): Promise<PluginTenancyResult>;
   reactivate(tenantId: string): Promise<PluginTenancyResult>;
+  /** Mark deleted for retention cleanup; dropDatabase requests full immediate purge. */
   deleteWorkspace(tenantId: string, options?: { dropDatabase?: boolean }): Promise<PluginTenancyResult>;
 }
 

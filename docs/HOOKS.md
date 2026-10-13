@@ -904,3 +904,28 @@ exclude these paths; Justflows cannot enforce policy inside an independently
 configured external cache. Never configure a cache-everything override for an
 account namespace. If a private page was cached before these exclusions, purge
 that existing entry when deploying the change.
+
+### Workspace suspension and removal
+
+Suspending a customer workspace records `deletion_requested_at`. Suspended and deleted
+workspaces are eligible for the configured purge retention period (zero disables automatic
+purging). Reactivation clears that marker; it does not restart cancelled subscriptions.
+Repeated suspension, deletion and ordinary workspace edits do not reset the retention clock.
+
+Plugins must stop renewals, provisioned services and other activity through
+`workspace.beforeSuspend` / `workspace.beforeDelete`; these required gates fail closed.
+`workspace.suspended` / `workspace.deleted` are notifications after the status change.
+Handlers must be idempotent and must not suspend the same workspace recursively or assign
+a replacement plan. Per-site plugin jobs, outgoing mail and webhook deliveries skip inactive
+workspaces. Work already submitted to an external provider cannot be recalled by the host.
+
+`workspace.beforePurge` receives `{ tenantId }` while workspace/site records still exist.
+Plugins must use this gate to remove external services and operational workspace links
+stored on the root site. Historical references in financial records may remain. Throw or cancel if cleanup fails: the workspace remains for a later retry.
+The host removes recorded plugin table rows (including remote targets), site records with
+cascading related data, durable site job payloads, files, domains and unshared databases.
+`workspace.purged` receives `{ tenantId }` after permanent removal; it is a notification,
+not a place for required cleanup. Shared root accounts and unrelated workspaces remain.
+Shop cancels linked subscriptions and retains them, their events, renewal links and existing
+orders/payments in the root shop's transaction history. Workspace lifecycle hooks must not
+delete financial records; financial retention is independent of workspace cleanup.

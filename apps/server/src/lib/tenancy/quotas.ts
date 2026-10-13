@@ -43,7 +43,7 @@ defineCore("storage.bytes", "site", "Total storage", "bytes");
 defineCore("media.bytes", "site", "Media library", "bytes");
 defineCore("files.count", "site", "Private files", "count");
 defineCore("files.bytes", "site", "Private file storage", "bytes");
-defineCore("plugins", "site", "Installed plugins", "count");
+defineCore("plugins", "site", "Active plugins", "count");
 defineCore("roles", "site", "Custom user roles", "count");
 defineCore("feature.comments", "site", "Comments", "flag");
 defineCore("feature.themeUpload", "site", "Theme upload", "flag");
@@ -71,6 +71,7 @@ defineCore("feature.customDomains", "site", "Custom domains", "flag");
 defineCore("feature.managedDns", "site", "DNS hosting", "flag");
 defineCore("domains.custom", "site", "Connected domains", "count");
 defineCore("feature.ownStorage", "site", "Own file storage", "flag");
+defineCore("feature.ownMail", "site", "Own email settings", "flag");
 
 export function listMeterDefinitions(scope?: QuotaScope): QuotaMeterDefinition[] {
   return [...meters.values()].filter((meter) => scope === undefined || meter.scope === scope);
@@ -312,7 +313,7 @@ async function usageFor(meter: QuotaMeterDefinition, scopeId: string): Promise<n
     return querySiteNumber(scopeId, "SELECT COALESCE(SUM(size_bytes), 0) AS total FROM private_files WHERE site_id = ?", [scopeId]);
   }
   if (meter.key === "plugins") {
-    return querySiteNumber(scopeId, "SELECT COUNT(*) AS total FROM plugins WHERE site_id = ?", [scopeId]);
+    return querySiteNumber(scopeId, "SELECT COUNT(*) AS total FROM plugins WHERE site_id = ? AND status = 'active'", [scopeId]);
   }
   if (meter.key === "roles") {
     return querySiteNumber(scopeId, "SELECT COUNT(*) AS total FROM access_roles WHERE site_id = ?", [scopeId]);

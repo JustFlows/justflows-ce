@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+import { getDb, runWithDatabase, type DbClient } from "../../database/db.js";
+import { sessionMatchesRequestSite } from "../../tenancy/access.js";
 import { randomBytes } from "node:crypto";
 import http from "node:http";
 import { duplexPair } from "node:stream";
@@ -32,6 +34,7 @@ const DISPATCH_HEADER = "x-jf-agent-dispatch";
 
 interface PendingDispatch {
   principal: AgentPrincipal;
+  database: DbClient;
   /** Captured from the outer request. The in-memory hop does not keep it. */
   tenant?: TenantRequestContext;
 }
@@ -76,13 +79,10 @@ async function buildInternalServer(): Promise<http.Server> {
       email: "",
       iat: Math.floor(Date.now() / 1000),
     };
-    // The in-memory hop is a new turn, so the outer request's site and database
-    // are not visible here. Re-enter both for the whole response: theme and
-    // header services call getSiteId() / getDb(), and a site on its own database
-    // must not be read from the installation database.
+    // The socket hop loses the outer async context. Restore the exact database
+    // captured on the authenticated request, never a fallback connection.
     void (async () => {
-      const { runWithSiteDatabase } = await import("../../tenancy/provision.js");
-      await runWithSiteDatabase(principal.owner.siteId, () =>
+      await runWithDatabase(entry.database, () =>
         new Promise<void>((resolve, reject) => {
           let settled = false;
           const done = () => {
@@ -159,6 +159,10 @@ export async function dispatchManageApi(
   principal: AgentPrincipal,
   request: DispatchRequest,
 ): Promise<DispatchResponse> {
+  if (principal.key.siteId !== principal.owner.siteId || !sessionMatchesRequestSite(principal.owner.siteId)) {
+    return { status: 403, body: { error: "Cross-site agent access is forbidden." } };
+  }
+  const database = await getDb();
   const server = await internalServer();
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(request.query ?? {})) {
@@ -183,7 +187,7 @@ export async function dispatchManageApi(
 
   const token = randomBytes(24).toString("base64url");
   headers[DISPATCH_HEADER] = token;
-  pending.set(token, { principal, tenant: getTenantContext() });
+  pending.set(token, { principal, database, tenant: getTenantContext() });
 
   try {
     const [clientSide, serverSide] = duplexPair();

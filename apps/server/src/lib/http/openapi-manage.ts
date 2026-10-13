@@ -225,7 +225,7 @@ export const MANAGE_API_OPENAPI = {
     },
     "/tenants/{id}/suspend": { post: op("Suspend a workspace", "platform operator") },
     "/tenants/{id}/reactivate": { post: op("Reactivate a workspace", "platform operator") },
-    "/tenants/{id}": { delete: op("Mark a workspace deleted. dropDatabase drops only that workspace's separate databases", "platform operator") },
+    "/tenants/{id}": { delete: op("Mark a workspace deleted for retention cleanup. dropDatabase requests full immediate purge, including unshared separate databases", "platform operator") },
 
     "/plugins": { get: op("List installed plugins", "plugins:read") },
     "/plugins/{id}/activate": { post: op("Activate a plugin", "plugins:activate") },

@@ -79,7 +79,11 @@ export default function AdminShell() {
   // would just fail its first fetch. Server-side authorization is what
   // actually protects the data either way.
   if (!canOpenCurrentPage) {
-    return <Navigate to="/admin" replace />;
+    const currentDomain = findDomainForPath(pathname, allDomains);
+    const securityLanding = currentDomain?.slug === "security"
+      ? domains.find((domain) => domain.slug === "security")?.items[0]?.to
+      : undefined;
+    return <Navigate to={securityLanding ?? "/admin"} replace />;
   }
 
   return (
