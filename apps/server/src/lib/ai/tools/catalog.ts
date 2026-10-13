@@ -1130,24 +1130,6 @@ export const CORE_TOOLS: AgentTool[] = [
     targetArg: "id",
   }),
   manageTool({
-    name: "cache_stats",
-    title: "Cache statistics",
-    description: "Object cache and page store statistics.",
-    method: "GET",
-    path: "/cache/stats",
-    annotations: READ,
-    group: "site",
-  }),
-  manageTool({
-    name: "cache_clear",
-    title: "Clear the cache",
-    description: "Clear the object cache and the stored pages.",
-    method: "POST",
-    path: "/cache/clear",
-    annotations: IDEMPOTENT_WRITE,
-    group: "site",
-  }),
-  manageTool({
     name: "static_export_status",
     title: "Static export status",
     description: "Whether a static export exists and when it last ran.",
@@ -1174,24 +1156,6 @@ export const CORE_TOOLS: AgentTool[] = [
     path: "/static-export/clear",
     input: object({ force: bool("Delete even when an export is still marked in progress.") }),
     annotations: DESTRUCTIVE,
-    group: "site",
-  }),
-  manageTool({
-    name: "site_health",
-    title: "Health checks",
-    description: "Run the platform health checks.",
-    method: "GET",
-    path: "/health",
-    annotations: READ,
-    group: "site",
-  }),
-  manageTool({
-    name: "site_diagnostics",
-    title: "Diagnostics",
-    description: "Version, migrations and runtime diagnostics.",
-    method: "GET",
-    path: "/diagnostics",
-    annotations: READ,
     group: "site",
   }),
 
@@ -2048,6 +2012,10 @@ export const CORE_TOOLS: AgentTool[] = [
  * new route cannot silently go missing from MCP.
  */
 export const EXCLUDED_OPERATIONS: Record<string, string> = {
+  "GET /cache/stats": "Installation-wide cache data is not site-isolated.",
+  "POST /cache/clear": "Installation-wide cache changes affect other sites.",
+  "GET /health": "Installation health can expose infrastructure and driver errors.",
+  "GET /diagnostics": "Installation diagnostics are not site-scoped.",
   "GET /openapi.json": "Describes the HTTP API itself; tools/list is the MCP equivalent.",
   "GET /events": "Webhook event catalog; agents act through tools, not webhooks.",
   "GET /webhooks": "Webhook endpoints are owned by a stored API key, not by an agent session.",

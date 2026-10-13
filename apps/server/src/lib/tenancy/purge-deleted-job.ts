@@ -18,17 +18,27 @@ export async function purgeExpiredDeletedTenants(): Promise<JobResult> {
     const settings = await db.query<{ value: unknown }>("SELECT value FROM platform_settings WHERE setting_key = 'saas' LIMIT 1");
     const days = readSaasSettings(settings[0]?.value)?.purgeAfterDays ?? 30;
     if (days < 1) return { success: true, message: "Purging deleted websites is off" };
-    const tenants = await db.query<{ id: string; updated_at: string | Date }>(
-      "SELECT id, updated_at FROM tenants WHERE status = 'deleted' AND slug <> 'primary'",
-    );
-    for (const tenant of tenants) {
-      if (!deletedLongEnough(tenant.updated_at, days)) continue;
-      const result = await purgeDeletedTenant(tenant.id, null);
-      if (result.ok) removed++;
-      else {
-        failed++;
-        console.error("[justflows] Could not remove deleted workspace", tenant.id, result.error);
+    let after: string | undefined;
+    const cutoff = new Date(Date.now() - days * 86_400_000).toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+    for (;;) {
+      const tenants = await db.query<{ id: string; deletion_requested_at: string | Date }>(
+        `SELECT id, deletion_requested_at FROM tenants WHERE status IN ('deleted', 'suspended') AND deletion_requested_at <= ? AND slug <> 'primary'${after ? " AND id > ?" : ""} ORDER BY id LIMIT 100`,
+        [cutoff, ...(after ? [after] : [])],
+      );
+      if (tenants.length === 0) break;
+      after = tenants[tenants.length - 1]!.id;
+      for (const tenant of tenants) {
+        if (!deletedLongEnough(tenant.deletion_requested_at, days)) continue;
+        try {
+          const result = await purgeDeletedTenant(tenant.id, null);
+          if (result.ok) removed++;
+          else failed++;
+        } catch {
+          failed++;
+          console.error("[justflows] Could not remove workspace", tenant.id);
+        }
       }
+      if (tenants.length < 100) break;
     }
     return { success: failed === 0, message: `Removed ${removed} deleted websites${failed ? `, ${failed} failed` : ""}` };
   } catch (err) {
@@ -39,7 +49,7 @@ export async function purgeExpiredDeletedTenants(): Promise<JobResult> {
   }
 }
 
-/** Removes websites that have stayed deleted longer than the platform setting. Runs after boot and once a day. */
+/** Removes suspended/deleted workspaces after the platform retention period. Runs after boot and once a day. */
 export function startDeletedSitePurgeJob(): void {
   registerCoreJob(
     { name: "tenancy.purge-deleted-sites", schedule: "53 3 * * *", handler: purgeExpiredDeletedTenants },

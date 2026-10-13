@@ -9,6 +9,7 @@ import {
   readExistingPluginTables,
   isPluginOwnedTable,
   listPluginOwnedTables,
+  deletePluginSiteRows,
   pluginOwnedTableLikePattern,
   pluginTablePrefix,
 } from "../../../src/lib/plugins/plugin-schema.js";
@@ -241,5 +242,18 @@ describe("plugin schema upgrades", () => {
     await expect(
       applyCompiledSchema({ run: failing }, compilePluginSchema("justflows.shop", [orders], "mysql"), mysqlUpgrades),
     ).rejects.toThrow(/Duplicate entry/);
+  });
+});
+
+describe("required workspace plugin cleanup", () => {
+  it("does not hide a failed table discovery during permanent removal", async () => {
+    const db = { query: vi.fn().mockRejectedValue(new Error("metadata unavailable")), run: vi.fn() };
+    await expect(deletePluginSiteRows(db, "justflows.shop", "site", "postgres", [], true)).rejects.toThrow("metadata unavailable");
+    expect(db.run).not.toHaveBeenCalled();
+  });
+  it("does not mistake a failed column check for a table without site ownership", async () => {
+    const db = { query: vi.fn().mockResolvedValueOnce([{ table_name: "shop_orders" }]).mockRejectedValueOnce(new Error("column metadata unavailable")), run: vi.fn() };
+    await expect(deletePluginSiteRows(db, "justflows.shop", "site", "postgres", [], true)).rejects.toThrow("column metadata unavailable");
+    expect(db.run).not.toHaveBeenCalled();
   });
 });

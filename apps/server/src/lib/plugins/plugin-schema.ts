@@ -87,6 +87,7 @@ export async function listPluginOwnedTables(
   db: Pick<DbClient, "query">,
   pluginId: string,
   driver: PluginDatabaseDriver,
+  strict = false,
 ): Promise<string[]> {
   const fromSchema = async (): Promise<string[]> => {
     const pattern = pluginOwnedTableLikePattern(pluginId);
@@ -101,7 +102,8 @@ export async function listPluginOwnedTables(
   try {
     const names = await fromSchema();
     if (names.length > 0 || driver === "postgres") return names;
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     if (driver === "postgres") return [];
   }
 
@@ -119,6 +121,7 @@ async function tableHasSiteId(
   db: Pick<DbClient, "query">,
   tableName: string,
   driver: PluginDatabaseDriver,
+  strict = false,
 ): Promise<boolean> {
   try {
     const sql =
@@ -127,7 +130,8 @@ async function tableHasSiteId(
         : "SELECT COLUMN_NAME AS column_name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'site_id' LIMIT 1";
     const rows = await db.query<Record<string, unknown>>(sql, [tableName]);
     return rows.length > 0;
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     return false;
   }
 }
@@ -139,11 +143,13 @@ export async function deletePluginSiteRows(
   siteId: string,
   driver: PluginDatabaseDriver,
   knownTables: string[] = [],
+  strict = false,
 ): Promise<string[]> {
   let tables: string[] = [];
   try {
-    tables = await listPluginOwnedTables(db, pluginId, driver);
-  } catch {
+    tables = await listPluginOwnedTables(db, pluginId, driver, strict);
+  } catch (error) {
+    if (strict) throw error;
     tables = [];
   }
   if (tables.length === 0) {
@@ -152,7 +158,7 @@ export async function deletePluginSiteRows(
   const cleared: string[] = [];
   for (const name of tables) {
     if (!isPluginOwnedTable(pluginId, name)) continue;
-    if (!(await tableHasSiteId(db, name, driver))) continue;
+    if (!(await tableHasSiteId(db, name, driver, strict))) continue;
     await db.run(
       `DELETE FROM ${quoteIdent(name, driver)} WHERE ${quoteIdent("site_id", driver)} = ?`,
       [siteId],

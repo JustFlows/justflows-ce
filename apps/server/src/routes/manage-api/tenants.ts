@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { currentDelegate } from "../../lib/security/delegated-call.js";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -41,6 +42,10 @@ const AdminSchema = z.object({
 });
 
 async function requireOperator(req: { apiKeyOwner?: { userId: string } }, res: Parameters<typeof forbidden>[0]): Promise<boolean> {
+  if (currentDelegate()) {
+    forbidden(res);
+    return false;
+  }
   const userId = req.apiKeyOwner?.userId;
   if (!userId) {
     unauthorized(res);

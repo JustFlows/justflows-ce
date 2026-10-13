@@ -17,7 +17,7 @@ import {
 import type { DatabaseChoice, DatabaseMode, UserMode } from "./context.js";
 import { hostnameFromUrl, isValidHostname, normalizeHostname, siteDomainKind, slugify } from "./host.js";
 import { platformBaseDomain } from "./saas-settings.js";
-import { ensureWorkspaceOwnerAccount } from "./workspace-owner.js";
+import { ensureWorkspaceOwnerAccount, rootAccountExists, WorkspaceOwnerTakenError } from "./workspace-owner.js";
 
 type Sql = Pick<DbClient, "run" | "query">;
 
@@ -67,6 +67,8 @@ export interface CreateWorkspaceInput {
   database?: DatabaseTarget;
   actorId: string | null;
   platformOperator?: boolean;
+  /** Public signup: refuse an email that already has a root account instead of attaching to it. */
+  requireNewOwner?: boolean;
 }
 
 export type ProvisionResult =
@@ -93,6 +95,8 @@ async function copyQuotaDefaults(scope: "workspace" | "site", scopeId: string): 
   }
 }
 
+const OWNER_TAKEN = "An account with this email already exists. Sign in to manage your sites.";
+
 async function hostnameTaken(hostname: string): Promise<boolean> {
   const db = await getControlDb();
   const rows = await db.query<{ id: string }>("SELECT id FROM site_domains WHERE hostname = ? LIMIT 1", [hostname]);
@@ -117,6 +121,9 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Prov
     return { ok: false, status: 400, error: "Hostname is not valid." };
   }
   if (await hostnameTaken(hostname)) return { ok: false, status: 409, error: "That hostname is already in use." };
+  if (input.requireNewOwner && await rootAccountExists(await getControlDb(), input.admin.email)) {
+    return { ok: false, status: 409, error: OWNER_TAKEN, code: "email_taken" };
+  }
   const blocked = await workspaceGate("workspace.beforeCreate", {
     name: input.name,
     slug,
@@ -214,7 +221,7 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Prov
       });
       await opened.client.close();
       await db.run("UPDATE tenant_databases SET status = 'ready', last_error = NULL, updated_at = ? WHERE id = ?", [now(), databaseId]);
-      await db.run("UPDATE tenants SET status = 'active', updated_at = ? WHERE id = ?", [now(), tenantId]);
+      await db.run("UPDATE tenants SET status = 'active', deletion_requested_at = NULL, updated_at = ? WHERE id = ?", [now(), tenantId]);
       await db.run("UPDATE sites SET status = 'active', active = ? WHERE id = ?", [true, siteId]);
     }
     if (input.platformOperator) {
@@ -231,7 +238,7 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Prov
       username: input.admin.username,
       displayName: input.admin.displayName,
       passwordHash: await hashPassword(input.admin.password),
-    }, stamp);
+    }, stamp, { requireNew: input.requireNewOwner });
     await db.run("UPDATE tenants SET owner_user_id = ? WHERE id = ?", [rootOwner.userId, tenantId]);
     if (rootOwner.created) {
       const { emitUserEvent } = await import("../auth/users-admin.js");
@@ -258,6 +265,11 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Prov
     });
     return { ok: true, tenantId, siteId, hostname };
   } catch (err) {
+    if (err instanceof WorkspaceOwnerTakenError) {
+      // A concurrent signup claimed this email first.
+      await deleteTenant(tenantId, input.actorId ?? "system", true).catch(() => discardNewWorkspace(db, tenantId, siteId));
+      return { ok: false, status: 409, error: OWNER_TAKEN, code: "email_taken" };
+    }
     console.error("[justflows] workspace provisioning failed:", err instanceof Error ? err.message.replace(/[\r\n]/g, " ") : "failed");
     return { ok: false, status: 500, error: "The workspace could not be created." };
   }
@@ -382,12 +394,12 @@ async function openSeparateDatabase(target: DatabaseTarget): Promise<{ ok: true;
 
 export async function suspendTenant(tenantId: string, actorId: string): Promise<ProvisionResult> {
   const db = await getControlDb();
-  const rows = await db.query<{ id: string }>("SELECT id FROM tenants WHERE id = ? AND status <> 'deleted' LIMIT 1", [tenantId]);
+  const rows = await db.query<{ id: string }>("SELECT id FROM tenants WHERE id = ? AND status <> 'deleted' AND slug <> 'primary' LIMIT 1", [tenantId]);
   if (!rows[0]) return { ok: false, status: 404, error: "Workspace not found." };
   const blocked = await workspaceGate("workspace.beforeSuspend", { tenantId });
   if (blocked) return { ok: false, status: 403, error: blocked };
   const stamp = now();
-  await db.run("UPDATE tenants SET status = 'suspended', updated_at = ? WHERE id = ?", [stamp, tenantId]);
+  await db.run("UPDATE tenants SET status = 'suspended', deletion_requested_at = COALESCE(deletion_requested_at, ?), updated_at = ? WHERE id = ?", [stamp, stamp, tenantId]);
   await db.run("UPDATE sites SET status = 'suspended', active = ? WHERE tenant_id = ?", [false, tenantId]);
   await audit(actorId, "tenant.suspended", tenantId, "sites suspended");
   await workspaceAction("workspace.suspended", { tenantId });
@@ -401,7 +413,8 @@ export async function reactivateTenant(tenantId: string, actorId: string): Promi
   const blocked = await workspaceGate("workspace.beforeReactivate", { tenantId });
   if (blocked) return { ok: false, status: 403, error: blocked };
   const stamp = now();
-  await db.run("UPDATE tenants SET status = 'active', updated_at = ? WHERE id = ?", [stamp, tenantId]);
+  const changed = await db.execute("UPDATE tenants SET status = 'active', deletion_requested_at = NULL, updated_at = ? WHERE id = ? AND status = 'suspended'", [stamp, tenantId]);
+  if (changed === 0) return { ok: false, status: 409, error: "This workspace is being removed and cannot be reactivated." };
   await db.run("UPDATE sites SET status = 'active', active = ? WHERE tenant_id = ? AND status = 'suspended'", [true, tenantId]);
   await audit(actorId, "tenant.reactivated", tenantId, "sites reactivated");
   await workspaceAction("workspace.reactivated", { tenantId });
@@ -411,7 +424,7 @@ export async function reactivateTenant(tenantId: string, actorId: string): Promi
 export async function deleteTenant(tenantId: string, actorId: string, dropDatabase: boolean): Promise<ProvisionResult> {
   const db = await getControlDb();
   const rows = await db.query<{ id: string; database_mode: string }>(
-    "SELECT id, database_mode FROM tenants WHERE id = ? LIMIT 1",
+    "SELECT id, database_mode FROM tenants WHERE id = ? AND slug <> 'primary' LIMIT 1",
     [tenantId],
   );
   const tenant = rows[0];
@@ -419,40 +432,15 @@ export async function deleteTenant(tenantId: string, actorId: string, dropDataba
   const blocked = await workspaceGate("workspace.beforeDelete", { tenantId, dropDatabase });
   if (blocked) return { ok: false, status: 403, error: blocked };
   const stamp = now();
-  await db.run("UPDATE tenants SET status = 'deleted', updated_at = ? WHERE id = ?", [stamp, tenantId]);
+  await db.run("UPDATE tenants SET status = 'deleted', deletion_requested_at = COALESCE(deletion_requested_at, ?), updated_at = ? WHERE id = ?", [stamp, stamp, tenantId]);
   await db.run("UPDATE sites SET status = 'deleted', active = ? WHERE tenant_id = ?", [false, tenantId]);
-  if (dropDatabase && tenant.database_mode === "separate") {
-    const databases = await db.query<{ id: string; host: string; port: number; database_name: string; username: string; password_ciphertext: string }>(
-      `SELECT id, host, port, database_name, username, password_ciphertext FROM tenant_databases
-       WHERE tenant_id = ? AND mode = 'separate' AND database_name IS NOT NULL`,
-      [tenantId],
-    );
-    for (const row of databases) {
-      const password = decryptPassword(row.password_ciphertext);
-      try {
-        const driver = installationDriver();
-        const admin = await createDbClient({
-          driver,
-          host: row.host,
-          port: String(row.port),
-          database: driver === "postgres" ? "postgres" : "mysql",
-          username: row.username,
-          password,
-        });
-        await admin.run(`DROP DATABASE IF EXISTS ${quoteDatabaseIdent(row.database_name, driver)}`);
-        await admin.close();
-        await db.run("UPDATE tenant_databases SET status = 'failed', last_error = NULL, updated_at = ? WHERE id = ?", [stamp, row.id]);
-      } catch (err) {
-        await db.run("UPDATE tenant_databases SET last_error = ?, updated_at = ? WHERE id = ?", [
-          sanitizeDatabaseError(err, password),
-          stamp,
-          row.id,
-        ]);
-      }
-    }
-  }
   await audit(actorId, "tenant.deleted", tenantId, dropDatabase ? "drop database requested" : "records marked deleted");
   await workspaceAction("workspace.deleted", { tenantId, dropDatabase });
+  if (dropDatabase) {
+    const { purgeDeletedTenant } = await import("./purge-deleted.js");
+    const result = await purgeDeletedTenant(tenantId, actorId);
+    if (!result.ok) return result;
+  }
   return { ok: true, tenantId, siteId: "", hostname: "" };
 }
 
@@ -481,15 +469,21 @@ export async function deleteCustomerSite(siteId: string, confirmHostname: string
   if (!domains.some((row) => normalizeHostname(String(row.hostname)) === confirmed)) {
     return { ok: false, status: 400, error: "Type this site's hostname to confirm." };
   }
+  const remaining = await db.query<{ count: number | string }>(
+    "SELECT COUNT(*) AS count FROM sites WHERE tenant_id = ? AND id <> ? AND status <> 'deleted'",
+    [site.tenant_id, siteId],
+  );
+  const lastSite = Number(remaining[0]?.count ?? 0) === 0;
+  if (lastSite) {
+    const blocked = await workspaceGate("workspace.beforeDelete", { tenantId: site.tenant_id, dropDatabase: false });
+    if (blocked) return { ok: false, status: 403, error: blocked };
+  }
   const stamp = now();
   await db.run("UPDATE sites SET status = 'deleted', active = ?, updated_at = ? WHERE id = ?", [false, stamp, siteId]);
-  await db.run("DELETE FROM site_domains WHERE site_id = ?", [siteId]);
-  const remaining = await db.query<{ count: number | string }>(
-    "SELECT COUNT(*) AS count FROM sites WHERE tenant_id = ? AND status <> 'deleted'",
-    [site.tenant_id],
-  );
-  if (Number(remaining[0]?.count ?? 0) === 0) {
-    await db.run("UPDATE tenants SET status = 'deleted', updated_at = ? WHERE id = ?", [stamp, site.tenant_id]);
+  // Keep provider attachment metadata until purge can release the domains successfully.
+  if (lastSite) {
+    await db.run("UPDATE tenants SET status = 'deleted', deletion_requested_at = COALESCE(deletion_requested_at, ?), updated_at = ? WHERE id = ?", [stamp, stamp, site.tenant_id]);
+    await workspaceAction("workspace.deleted", { tenantId: site.tenant_id, dropDatabase: false });
   }
   await audit(actorId, "site.deleted", siteId, confirmed);
   return { ok: true, tenantId: site.tenant_id, siteId, hostname: confirmed };

@@ -73,6 +73,27 @@ describe("enforceQuota", () => {
     expect(block).toMatchObject({ status: 409, code: "quota_exceeded", meter: "sites" });
   });
 
+  it("counts only this site's active plugins and blocks the next activation at the limit", async () => {
+    let active = 0;
+    control.query.mockImplementation(async (sql: string, params?: readonly unknown[]) => {
+      if (sql.includes("quota_limits")) return [{ meter_key: "plugins", limit_value: 3 }];
+      if (sql.includes("FROM sites s JOIN tenants")) return [{ tenant_id: TENANT, database_choice: "shared", database_mode: "shared" }];
+      if (sql.includes("FROM plugins")) {
+        expect(sql).toContain("site_id = ? AND status = 'active'");
+        expect(params).toEqual([SITE]);
+        return [{ total: active }];
+      }
+      return [];
+    });
+    const { enforceQuota } = await import("../../../src/lib/tenancy/quotas.js");
+    expect(await enforceQuota("plugins", SITE)).toBeNull();
+    active = 2;
+    expect(await enforceQuota("plugins", SITE)).toBeNull();
+    active = 3;
+    expect(await enforceQuota("plugins", SITE)).toMatchObject({ status: 409, error: "The limit for Active plugins has been reached (3)." });
+    expect(control.query.mock.calls.some(([sql]) => sql.includes("FROM plugins"))).toBe(true);
+  });
+
   it("rejects a meter on the wrong scope and saves one the plugin registered", async () => {
     const { registerPluginMeter, replaceQuotaLimits, unregisterPluginMeters } = await import("../../../src/lib/tenancy/quotas.js");
     expect(() => registerPluginMeter("acme.shop", { key: "other.products", scope: "site", label: "Products", unit: "count" })).toThrow(/acme\.shop/);

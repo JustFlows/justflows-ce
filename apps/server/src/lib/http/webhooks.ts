@@ -262,17 +262,18 @@ function backoff(attempt: number): number {
 }
 
 export async function processDueWebhookDeliveries(): Promise<number> {
-  const { runAcrossDatabases } = await import("../tenancy/connections.js");
-  const counts = await runAcrossDatabases(() => deliverDueWebhooks());
-  return counts.reduce((sum, count) => sum + count, 0);
+  const { eachActiveSite } = await import("../tenancy/connections.js");
+  let delivered = 0;
+  await eachActiveSite(async (siteId) => { delivered += await deliverDueWebhooks(siteId); });
+  return delivered;
 }
 
-async function deliverDueWebhooks(): Promise<number> {
+async function deliverDueWebhooks(siteId: string): Promise<number> {
   const db = await getDb();
   const now = sqlTime();
   const rows = await db.query<Record<string, unknown>>(
-    "SELECT d.id, d.endpoint_id, d.site_id, d.payload, d.attempt_count, e.url, e.secret_ciphertext FROM webhook_deliveries d JOIN webhook_endpoints e ON e.id = d.endpoint_id WHERE d.status = 'pending' AND d.next_attempt_at <= ? AND e.active = ? ORDER BY d.next_attempt_at ASC LIMIT 20",
-    [now, true],
+    "SELECT d.id, d.endpoint_id, d.site_id, d.payload, d.attempt_count, e.url, e.secret_ciphertext FROM webhook_deliveries d JOIN webhook_endpoints e ON e.id = d.endpoint_id WHERE d.site_id = ? AND d.status = 'pending' AND d.next_attempt_at <= ? AND e.active = ? ORDER BY d.next_attempt_at ASC LIMIT 20",
+    [siteId, now, true],
   );
   for (const row of rows) await deliver(row);
   return rows.length;

@@ -10,8 +10,34 @@ export interface WorkspaceOwnerAccount {
   passwordHash: string;
 }
 
-/** Workspace administrators also need an account on the installation's root site. */
-export async function ensureWorkspaceOwnerAccount(db: DbClient, owner: WorkspaceOwnerAccount, stamp: string): Promise<{ userId: string; siteId: string; created: boolean }> {
+/** Thrown when a new owner must not reuse an existing root account. */
+export class WorkspaceOwnerTakenError extends Error {
+  constructor() {
+    super("An account with this email already exists.");
+  }
+}
+
+/** Whether the installation's root site already has an account with this email. */
+export async function rootAccountExists(db: DbClient, email: string): Promise<boolean> {
+  const rows = await db.query<{ id: string }>(
+    `SELECT u.id FROM users u
+     WHERE u.email = ? AND u.site_id = (SELECT id FROM sites WHERE status <> 'deleted' ORDER BY created_at ASC, id ASC LIMIT 1)
+     LIMIT 1`,
+    [email.trim().toLowerCase()],
+  );
+  return Boolean(rows[0]);
+}
+
+/**
+ * Workspace administrators also need an account on the installation's root site.
+ * With `requireNew`, an existing account with the same email is refused instead of reused.
+ */
+export async function ensureWorkspaceOwnerAccount(
+  db: DbClient,
+  owner: WorkspaceOwnerAccount,
+  stamp: string,
+  options: { requireNew?: boolean } = {},
+): Promise<{ userId: string; siteId: string; created: boolean }> {
   return db.transaction(async (tx) => {
     // Use the same root selection as host routing. Serialize account creation on the root row.
     const roots = await tx.query<{ id: string }>(
@@ -24,7 +50,10 @@ export async function ensureWorkspaceOwnerAccount(db: DbClient, owner: Workspace
       "SELECT id FROM users WHERE site_id = ? AND email = ? LIMIT 1",
       [siteId, email],
     );
-    if (existing[0]) return { userId: existing[0].id, siteId, created: false };
+    if (existing[0]) {
+      if (options.requireNew) throw new WorkspaceOwnerTakenError();
+      return { userId: existing[0].id, siteId, created: false };
+    }
 
     const userId = randomUUID();
     const names = await tx.query<{ id: string }>(

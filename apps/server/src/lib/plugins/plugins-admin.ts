@@ -27,6 +27,12 @@ export async function activatePluginAdmin(
   pluginId: string,
   actor: PluginAdminActor,
 ): Promise<PluginAdminResult> {
+  const existing = await getPlugin(actor.siteId, pluginId);
+  if (existing?.status !== "active") {
+    const { enforceQuota } = await import("../tenancy/quotas.js");
+    const quota = await enforceQuota("plugins", actor.siteId, 1);
+    if (quota) return { status: quota.status, body: { error: quota.error, code: quota.code, meter: quota.meter } };
+  }
   const { runtimeActivatePlugin } = await import("./plugin-runtime.js");
   try {
     await runtimeActivatePlugin(actor.siteId, pluginId);

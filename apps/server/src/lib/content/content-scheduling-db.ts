@@ -253,7 +253,10 @@ export async function deliverScheduleEvents(): Promise<void> {
     event: string;
     payload: string;
   }>("SELECT * FROM content_schedule_events ORDER BY created_at, id LIMIT 100");
+  const { activeSiteIds } = await import("../tenancy/connections.js");
+  const active = await activeSiteIds(events.map((event) => event.site_id));
   for (const event of events) {
+    if (!active.has(event.site_id)) continue;
     const payload = JSON.parse(event.payload) as {
       before: ReturnType<typeof serializeContentRow>;
       after: ReturnType<typeof serializeContentRow>;
@@ -299,7 +302,10 @@ export async function runContentSchedules(): Promise<void> {
       `SELECT id, site_id FROM content WHERE trashed_at IS NULL AND (publish_on <= ? OR unpublish_on <= ?)${scanCursor ? " AND id > ?" : ""} ORDER BY id LIMIT 100`,
       [sqlTime(time), sqlTime(time), ...(scanCursor ? [scanCursor] : [])],
     );
+    const { activeSiteIds } = await import("../tenancy/connections.js");
+    const active = await activeSiteIds(rows.map((row) => row.site_id));
     for (const row of rows) {
+      if (!active.has(row.site_id)) continue;
       try {
         await transitionScheduledContent(row.id, row.site_id, time);
       } catch {

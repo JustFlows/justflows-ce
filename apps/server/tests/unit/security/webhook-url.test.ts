@@ -19,6 +19,11 @@ vi.mock("../../../src/lib/security/pinned-fetch.js", async (importOriginal) => (
 
 const db = vi.hoisted(() => ({ query: vi.fn(), run: vi.fn() }));
 vi.mock("../../../src/lib/database/db.js", () => ({ getDb: async () => db }));
+// Activity filtering is covered by active-site-jobs.test.ts; these tests exercise
+// endpoint validation, signing and bounded responses for one active site.
+vi.mock("../../../src/lib/tenancy/connections.js", () => ({
+  eachActiveSite: async (fn: (siteId: string) => Promise<void>) => fn("site-1"),
+}));
 
 afterEach(() => {
   vi.restoreAllMocks();

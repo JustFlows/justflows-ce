@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const db = { query: vi.fn(async () => []), run: vi.fn(async () => {}), close: vi.fn(async () => {}) };
-  return { db, owner: vi.fn(), emit: vi.fn(), action: vi.fn() };
+  return { db, owner: vi.fn(), exists: vi.fn(), emit: vi.fn(), action: vi.fn() };
 });
 vi.mock("../../../src/lib/database/db.js", () => ({
   getControlDb: async () => mocks.db,
@@ -16,7 +16,11 @@ vi.mock("../../../src/lib/security/secret-box.js", () => ({ encryptSecret: () =>
 vi.mock("../../../src/lib/tenancy/saas-settings.js", () => ({ platformBaseDomain: async () => "example.com" }));
 vi.mock("../../../src/lib/tenancy/quotas.js", () => ({ applyQuotaDefaults: vi.fn() }));
 vi.mock("../../../src/lib/themes/themes-db.js", () => ({ ensureDefaultTheme: vi.fn() }));
-vi.mock("../../../src/lib/tenancy/workspace-owner.js", () => ({ ensureWorkspaceOwnerAccount: mocks.owner }));
+vi.mock("../../../src/lib/tenancy/workspace-owner.js", () => ({
+  ensureWorkspaceOwnerAccount: mocks.owner,
+  rootAccountExists: mocks.exists,
+  WorkspaceOwnerTakenError: class WorkspaceOwnerTakenError extends Error {},
+}));
 vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
   getRuntimeHooks: () => ({ dispatchGate: vi.fn(), dispatchAction: mocks.action }),
 }));
@@ -27,6 +31,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("DB_DRIVER", "mariadb");
   mocks.owner.mockResolvedValue({ siteId: "root-site", userId: "root-owner", created: true });
+  mocks.exists.mockResolvedValue(false);
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -41,10 +46,22 @@ describe("workspace provisioning root owner", () => {
     expect(result.ok).toBe(true);
     expect(mocks.owner).toHaveBeenCalledWith(mocks.db, {
       email: "owner@example.com", username: "owner", displayName: "Owner", passwordHash: "password-hash",
-    }, expect.any(String));
+    }, expect.any(String), { requireNew: undefined });
     expect(mocks.emit).toHaveBeenCalledWith("user.created", "root-owner", "root-site");
     expect(mocks.db.run).toHaveBeenCalledWith("UPDATE tenants SET owner_user_id = ? WHERE id = ?", ["root-owner", expect.any(String)]);
     expect(mocks.owner.mock.invocationCallOrder[0]).toBeLessThan(mocks.action.mock.invocationCallOrder[0]!);
     expect(mocks.action).toHaveBeenCalledWith("tenancy.workspaceCreated", expect.objectContaining({ adminEmail: "owner@example.com" }), { source: "system" });
+  });
+
+  it("refuses public signup for an email that already has a root account", async () => {
+    mocks.exists.mockResolvedValue(true);
+    const result = await createWorkspace({
+      name: "Again", siteName: "Again", hostname: "again.example.com", userMode: "isolated", databaseMode: "current",
+      admin: { email: "owner@example.com", username: "owner", displayName: "Owner", password: "new-password" },
+      actorId: null, requireNewOwner: true,
+    });
+    expect(result).toMatchObject({ ok: false, status: 409, code: "email_taken" });
+    expect(mocks.db.run).not.toHaveBeenCalled();
+    expect(mocks.owner).not.toHaveBeenCalled();
   });
 });
