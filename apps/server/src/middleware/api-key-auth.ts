@@ -2,6 +2,7 @@
 
 import type { NextFunction, Request, Response } from "express";
 import { auditLog } from "../lib/security/audit-log.js";
+import { runAsDelegate } from "../lib/security/delegated-call.js";
 import { clientIp } from "../lib/security/rate-limit.js";
 import { logSafe } from "../lib/security/log-safe.js";
 import {
@@ -113,7 +114,7 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
         email: "",
         iat: Math.floor(Date.now() / 1000),
       };
-      next();
+      runAsDelegate({ kind: "oauth", client: principal.clientName }, () => next());
       return;
     }
 
@@ -157,6 +158,6 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
       iat: Math.floor(Date.now() / 1000),
     };
     await recordApiKeyUse(record.id, ip);
-    next();
+    runAsDelegate({ kind: "api-key", client: record.name }, () => next());
   })().catch(next);
 }

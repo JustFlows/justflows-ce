@@ -27,6 +27,7 @@ vi.mock("../../../src/lib/security/audit-log.js", () => ({ auditLog: audit }));
 
 const { callTool, toolsForPrincipal } = await import("../../../src/lib/ai/tools/registry.js");
 const { syntheticKey } = await import("../../../src/lib/ai/tools/principal.js");
+const { currentDelegate } = await import("../../../src/lib/security/delegated-call.js");
 import type { AgentPrincipal } from "../../../src/lib/ai/tools/principal.js";
 
 function principal(keyCapabilities: string[]): AgentPrincipal {
@@ -43,14 +44,17 @@ function principal(keyCapabilities: string[]): AgentPrincipal {
 }
 
 const seen: PluginHttpRequest[] = [];
+const delegates: Array<string | undefined> = [];
 
 beforeEach(() => {
   seen.length = 0;
+  delegates.length = 0;
   audit.mockClear();
   state.capabilities = ["content:read", "site:admin", "users:manage", "products:read", "products:update"];
   const router = new PluginHttpRouter();
   router.register("acme.shop", "GET", "products", async (req) => {
     seen.push(req);
+    delegates.push(currentDelegate()?.kind);
     return { body: { products: [], q: req.query["search"] ?? null } };
   }, {
     mcp: { name: "acme_products_list", description: "List products.", capability: "products:read", inputSchema: { type: "object", properties: { search: { type: "string" } } } },
@@ -88,6 +92,11 @@ describe("plugin routes offered as MCP tools", () => {
     expect(seen[1]!.session).toMatchObject({ userId: "u1", role: "api-key" });
     expect(seen[1]!.session!.capabilities).toEqual(["content:read", "site:admin", "products:read", "products:update"]);
     expect(audit.mock.calls.map(([entry]) => entry.detail)).toEqual([expect.stringContaining("tool=acme_products_save")]);
+  });
+
+  it("runs plugin code as delegated work, so platform operations refuse", async () => {
+    await callTool(principal(["site:admin"]), "acme_products_list", {});
+    expect(delegates).toEqual(["mcp"]);
   });
 
   it("hides plugin tools from a key without site:admin or the capability itself", async () => {

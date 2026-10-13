@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   seen: [] as Array<PluginHttpRequest["session"]>,
   audits: [] as string[],
   used: [] as string[],
+  delegates: [] as Array<string | undefined>,
 }));
 
 vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
@@ -63,6 +64,7 @@ vi.mock("../../../src/lib/auth/api-keys.js", async (importOriginal) => ({
 }));
 
 import { dispatchPluginHttp } from "../../../src/lib/plugins/plugin-http.js";
+import { currentDelegate } from "../../../src/lib/security/delegated-call.js";
 
 function key(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -83,6 +85,7 @@ beforeAll(async () => {
   mocks.router = router;
   const handler = async (req: PluginHttpRequest) => {
     mocks.seen.push(req.session);
+    mocks.delegates.push(currentDelegate()?.kind);
     return { body: { ok: true, authorization: req.headers["authorization"] ?? null } };
   };
   router.register("justflows.shop", "GET", "catalog", handler);
@@ -105,6 +108,7 @@ beforeEach(() => {
   mocks.seen = [];
   mocks.audits = [];
   mocks.used = [];
+  mocks.delegates = [];
 });
 
 const put = (token: string | null) =>
@@ -160,6 +164,12 @@ describe("management API keys on plugin routes", () => {
     mocks.rejection = "expired";
     await put("jfk_good");
     expect(mocks.audits).toEqual(["apikey.auth_failed"]);
+  });
+
+  it("marks a key request as delegated for the handler, and a cookie request not", async () => {
+    await put("jfk_good");
+    await fetch(`${base}/ext/justflows.shop/catalog`);
+    expect(mocks.delegates).toEqual(["api-key", undefined]);
   });
 
   it("keeps CSRF on cookie requests", async () => {

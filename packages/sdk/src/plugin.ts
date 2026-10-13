@@ -1325,8 +1325,11 @@ export type PluginTenancyResult =
 
 /**
  * Workspace and site placement. `current()` is available to every plugin.
- * Listing and changing workspaces requires `platform:tenancy`. Stored database
- * passwords are never returned.
+ * Every other call requires `platform:tenancy`, runs only on the
+ * installation's root site, and is refused while the plugin works on behalf
+ * of an AI agent, an API key or a connected app (an MCP or assistant tool
+ * call, or a key-authenticated request). The host enforces this whatever the
+ * plugin's code does. Stored database passwords are never returned.
  */
 export interface PluginTenancyApi {
   current(): Promise<PluginWorkspaceContext | null>;
@@ -1393,8 +1396,10 @@ export interface PluginQuotaMeterInfo {
 
 /**
  * Configured ceilings. Every plugin may register meters and check them.
- * `set` writes the same limits a platform operator edits and requires
- * `platform:tenancy`. A missing limit is unlimited.
+ * `set` writes the same limits a platform operator edits: it requires
+ * `platform:tenancy`, runs only on the installation's root site (also for the
+ * plugin's own workspace), and is refused on behalf of an AI agent or API
+ * key. A missing limit is unlimited.
  */
 export interface PluginQuotasApi {
   register(meter: QuotaMeterRegistration): Unsubscribe;

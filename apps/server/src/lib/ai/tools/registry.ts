@@ -4,6 +4,7 @@ import type { McpToolDefinition } from "@justflows/sdk";
 import { keyCan } from "../../auth/api-keys.js";
 import { getRuntimeHooks } from "../../plugins/plugin-runtime.js";
 import { auditLog } from "../../security/audit-log.js";
+import { runAsDelegate } from "../../security/delegated-call.js";
 import { logSafe } from "../../security/log-safe.js";
 import { runWithAgentOrigin } from "../agent-origin.js";
 import { CORE_TOOLS } from "./catalog.js";
@@ -214,7 +215,11 @@ export async function callTool(
 
   let outcome: ToolOutcome;
   try {
-    outcome = await runWithAgentOrigin({ via: principal.via, client: principal.clientName }, () => tool.run(args, ctx));
+    // Marked before any tool or plugin code runs: platform operations refuse delegated work.
+    const delegate = { kind: principal.kind === "assistant" ? "assistant" : "mcp", client: principal.clientName } as const;
+    outcome = await runAsDelegate(delegate, () =>
+      runWithAgentOrigin({ via: principal.via, client: principal.clientName }, () => tool.run(args, ctx)),
+    );
   } catch (err) {
     console.error("[justflows] agent tool failed", JSON.stringify(logSafe(`${name}: ${String(err)}`)));
     outcome = { ok: false, status: 500, error: "The tool failed to run." };

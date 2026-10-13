@@ -52,7 +52,7 @@ export type PluginKeyResult =
   | { kind: "none" }
   | { kind: "denied" }
   | { kind: "limited" }
-  | { kind: "ok"; session: PluginKeySession };
+  | { kind: "ok"; session: PluginKeySession; client: string };
 
 function scoped(record: ApiKeyRecord): boolean {
   return Object.keys(record.scope ?? {}).length > 0;
@@ -127,6 +127,7 @@ export async function resolvePluginKeySession(req: Request, res: Response): Prom
   await recordApiKeyUse(record.id, ip);
   return {
     kind: "ok",
+    client: record.name,
     session: {
       userId: owner.userId,
       siteId: owner.siteId,

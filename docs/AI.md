@@ -367,6 +367,16 @@ by tool.
     },
   ]);
   ```
+- **Agents stay on their site; the host makes sure of it.** A key, grant or
+  agent session only ever acts on the site it belongs to, and plugin data is
+  stored and read per site by the host. Platform operations are refused by
+  the host when an agent or key is behind the call, whatever a plugin's code
+  does: `ctx.tenancy` (listing, creating, suspending, reactivating or deleting
+  workspaces, adding sites) and `ctx.quotas.set`. They also run only on the
+  installation's root site. The host marks MCP and assistant tool calls,
+  Manage API requests and key requests to plugin routes before any plugin
+  code runs, including hooks those calls trigger. Do not offer tools that
+  depend on these operations: they will fail for agents.
 - **Plugin capabilities** work with keys and grants like core ones: tick them
   on a key to allow just those tools. A key with **site:admin** also holds
   every capability plugins register, including plugins installed after the

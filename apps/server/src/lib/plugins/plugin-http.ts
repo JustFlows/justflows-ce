@@ -2,12 +2,13 @@
 
 import { accountCacheMiddleware } from "../../middleware/account-cache.js";
 import type { Request, Response, NextFunction } from "express";
-import type { PluginHttpMethod, PluginHttpRateLimit } from "@justflows/sdk";
+import type { PluginHttpMethod, PluginHttpRateLimit, PluginHttpRequest } from "@justflows/sdk";
 import { isProtectedHeaderName, SECURITY_HEADER_DEFS } from "../security/security-headers.js";
 import { resolveSession } from "../auth/auth-session.js";
 import { getTenantContext } from "../tenancy/context.js";
 import { sessionMatchesRequestSite } from "../tenancy/access.js";
 import { recordDiagnosticError } from "../runtime/diagnostics.js";
+import { runAsDelegate } from "../security/delegated-call.js";
 import { parseLocalePrefix } from "../i18n/locales.js";
 
 /**
@@ -243,7 +244,7 @@ export async function dispatchPluginHttp(
       )
       .catch(() => undefined);
 
-    const result = await match.handler({
+    const request: PluginHttpRequest = {
       method,
       ...(locale ? { locale } : {}),
       path: req.path,
@@ -255,7 +256,11 @@ export async function dispatchPluginHttp(
         : {}),
       headers,
       session,
-    });
+    };
+    // A key request is delegated work: platform operations the handler tries are refused.
+    const result = keyed.kind === "ok"
+      ? await runAsDelegate({ kind: "api-key", client: keyed.client }, () => match.handler(request))
+      : await match.handler(request);
 
     const status = result.status ?? 200;
     res.status(status);
