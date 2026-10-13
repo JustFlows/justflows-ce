@@ -14,6 +14,8 @@ interface MediaItem {
   focalX?: number | null;
   focalY?: number | null;
   hasVariants?: boolean;
+  /** Variants are still being built in the background. */
+  variantsPending?: boolean;
   uploadedAt: string;
 }
 
@@ -57,6 +59,24 @@ export default function MediaPage() {
   const [regenBusy, setRegenBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const anyPending = items.some((item) => item.variantsPending);
+
+  // Refresh the grid while variants build in the background, so the badge
+  // turns to "Responsive" without a reload. Stops after five minutes.
+  useEffect(() => {
+    if (!anyPending) return;
+    const startedAt = Date.now();
+    const timer = setInterval(async () => {
+      if (Date.now() - startedAt > 5 * 60_000) return clearInterval(timer);
+      try {
+        const res = await fetch("/api/media");
+        if (res.ok) setItems(((await res.json()) as { items?: MediaItem[] }).items ?? []);
+      } catch {
+        // keep polling
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [anyPending]);
 
   useEffect(() => {
     (async () => {
@@ -277,10 +297,14 @@ export default function MediaPage() {
                 <div className="jf-row" style={{ gap: "0.35rem", marginTop: "0.35rem" }}>
                   {isImage(item.mimeType) && (
                     <span
-                      className={`jf-badge jf-badge--${item.hasVariants ? "ok" : "warn"}`}
+                      className={`jf-badge jf-badge--${item.hasVariants ? "ok" : item.variantsPending ? "info" : "warn"}`}
                       style={{ fontSize: "0.66rem" }}
                     >
-                      {item.hasVariants ? t("media.responsiveBadge") : t("media.originalOnlyBadge")}
+                      {item.hasVariants
+                        ? t("media.responsiveBadge")
+                        : item.variantsPending
+                          ? t("media.optimizingBadge")
+                          : t("media.originalOnlyBadge")}
                     </span>
                   )}
                 </div>

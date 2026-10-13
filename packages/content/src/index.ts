@@ -57,5 +57,7 @@ export type { SearchQuery } from "./search.js";
 
 export { contentTypePolicy, publicContentTypeSql } from "./service/content-types.js";
 export { DEFAULT_ACCOUNT_BLOCKS, seedAccountPage } from "./service/account-page.js";
+export { AUTH_PAGES, AUTH_PAGE_SLUGS, DEFAULT_AUTH_BLOCKS, defaultAuthBlocks, seedAuthPages } from "./service/auth-page.js";
+export type { AuthPageSlug } from "./service/auth-page.js";
 
 export { ContentCacheFieldsSchema, validateContentCacheFields, effectiveContentCacheControl, ContentTypeCacheControlSchema, NEVER_CACHE_CONTROL, normalizeCacheControl, cacheControlPolicy } from "./service/cache-control.js";

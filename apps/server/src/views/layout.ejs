@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="<%= locale %>">
+<html lang="<%= locale %>"<% if (typeof t === 'function') { %> data-jf-session-account="<%= t('auth.myAccount') %>" data-jf-session-signout="<%= t('auth.signOut') %>"<% } %>>
 
 <head>
   <meta charset="UTF-8">
@@ -28,6 +28,7 @@
                           <script src="/js/site-chrome.js"></script>
                           <script src="/js/site-nav.js"></script>
                           <script src="/js/site-toast.js"></script>
+                          <script src="/js/site-session.js" defer></script>
 </head>
 
 <body<% if (typeof bodyClass === 'string' && /^jf-layout-[a-z0-9-]+$/.test(bodyClass)) { %> class="<%= bodyClass %>"<% } %>>

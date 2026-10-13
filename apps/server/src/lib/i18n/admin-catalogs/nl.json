@@ -75,7 +75,8 @@
     "defaults": "Standaarden",
     "siteDomains": "Domeinen",
     "customDomains": "Eigen domeinen",
-    "storage": "Opslag"
+    "storage": "Opslag",
+    "taxonomies": "Categorieën & tags"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2034,6 +2035,7 @@
     "editAriaLabel": "{filename} bewerken",
     "responsiveBadge": "Responsief",
     "originalOnlyBadge": "Alleen origineel",
+    "optimizingBadge": "Optimaliseren…",
     "editButton": "Bewerken",
     "trashButton": "Prullenbak",
     "saveFailed": "Opslaan mislukt",
@@ -2139,7 +2141,9 @@
         "pathLabel": "Pad",
         "current": "Huidig adres:",
         "pathHelpPrefix": "Begin met",
-        "pathHelpSuffix": "en gebruik letters, cijfers, koppeltekens, underscores of geneste paden. Zet geen schuine streep aan het eind."
+        "pathHelpSuffix": "en gebruik letters, cijfers, koppeltekens, underscores of geneste paden. Zet geen schuine streep aan het eind.",
+        "signIn": "Inloggen voor medewerkers:",
+        "signInHint": "Medewerkers loggen in op dit adres. De openbare inlogpagina is voor leden van de site en accepteert geen medewerkersaccounts zolang er een eigen pad is ingesteld."
       },
       "oldAddress": {
         "title": "Oud beheeradres",
@@ -2631,6 +2635,8 @@
       "testFailedFallback": "Test-e-mail kon niet worden verzonden",
       "title": "Uitgaande e-mail",
       "transportHint": "Verstuurt via de server zelf — hetzelfde idee als PHPMailer. Sendmail gebruikt de lokale mailfunctie van de host. Schakel over naar SMTP als deze machine geauthenticeerde verzending nodig heeft (Plesk-mailbox, localhost:587 enzovoort).",
+      "platformHint": "Verstuurt via de mailserver en het afzenderadres van het platform. Je afzendernaam geldt, en antwoorden gaan naar je antwoordadres of het e-mailadres van de beheerder.",
+      "platformOnlyHint": "Deze website verstuurt e-mail via de e-mailinstellingen van het platform. Je abonnement bevat geen eigen e-mailinstellingen.",
       "mailerLabel": "E-mailprogramma",
       "fromNameLabel": "Afzendernaam",
       "fromNameFallback": "Naam van de site",
@@ -2922,18 +2928,42 @@
     "jobs": {
       "retryFailed": "Taak opnieuw uitvoeren mislukt",
       "title": "Taakplanner",
-      "hint": "Taken van plugins; de payloads worden nooit getoond.",
+      "hint": "Achtergrondtaken van de core en van plugins; de payloads worden nooit getoond.",
       "running": "Actief",
       "stopped": "Gestopt",
-      "noJobs": "Er zijn geen plugin-taken geregistreerd.",
+      "noJobs": "Er zijn geen taken geregistreerd.",
       "colJob": "Taak",
+      "colOwner": "Eigenaar",
       "colStatus": "Status",
       "colSchedule": "Planning",
       "colAttempts": "Pogingen",
       "colLastResult": "Laatste resultaat",
       "onDemand": "Op verzoek",
       "completed": "Voltooid",
-      "retry": "Opnieuw proberen"
+      "failedRun": "Mislukt",
+      "retry": "Opnieuw proberen",
+      "owner": {
+        "core": "Core",
+        "plugin": "Plugin"
+      }
+    },
+    "queue": {
+      "title": "Takenwachtrij",
+      "hint": "Opgeslagen uitvoeringen van plugintaken in de hele installatie. Ze overleven een herstart; mislukte blijven hier 30 dagen staan. Gegevens van taken worden nooit getoond.",
+      "counts": "{queued} in de wachtrij · {running} bezig · {failed} mislukt",
+      "unavailable": "Niet ingericht",
+      "unavailableHint": "Voer de databasemigraties uit om taken op te slaan. Tot die tijd draaien ze in het geheugen en gaan ze verloren bij een herstart.",
+      "empty": "Niets wacht, loopt of is mislukt.",
+      "colSite": "Site",
+      "colRunAt": "Gepland op",
+      "colError": "Laatste fout",
+      "allSites": "Alle sites",
+      "status": {
+        "queued": "In de wachtrij",
+        "running": "Bezig",
+        "done": "Klaar",
+        "failed": "Mislukt"
+      }
     },
     "header": {
       "title": "Diagnostiek",
@@ -3282,6 +3312,8 @@
       "thumbnailSizeLabel": "Miniatuurgrootte (px, 0 = uit)",
       "webpQualityLabel": "WebP-kwaliteit",
       "avifQualityLabel": "AVIF-kwaliteit",
+      "avifEffortLabel": "AVIF-inspanning (1–9)",
+      "avifEffortHint": "Hoger geeft kleinere bestanden maar is trager: 4 duurt ongeveer zes keer zo lang als 2, voor bestanden die zo'n 8% kleiner zijn.",
       "jpegQualityLabel": "JPEG-kwaliteit",
       "keepOriginalLabel": "Alleen origineel bewaren (bestandsnaampatronen, kommagescheiden)",
       "keepOriginalHint": "Uploads die hieraan voldoen, worden onbewerkt opgeslagen — logo's, randgevallen met transparantie, pixelart.",
@@ -3803,7 +3835,8 @@
       "readOnly": "Alleen lezen",
       "ceiling": "De app kan nooit meer dan je eigen account, en je kunt de toegang altijd intrekken via je accountpagina.",
       "allow": "Toestaan",
-      "deny": "Weigeren"
+      "deny": "Weigeren",
+      "staffHint": "Medewerker van een site met een eigen beheeradres? Log daar eerst in en open deze link daarna opnieuw."
     },
     "providers": {
       "keyEnding": "Sleutel …{last4}",
@@ -3937,6 +3970,14 @@
     "sites": "Sites",
     "sitesEmpty": "Nog geen websites.",
     "sitesIntro": "Elke website op deze installatie. Open er een om het adres, de status en de limieten te wijzigen.",
+    "signupEmailSecurity": "E-mailbeveiliging voor aanmelding",
+    "signupBlockDisposable": "Tijdelijke e-mailadressen blokkeren",
+    "signupAllowListedOnly": "Alleen aanmelding vanaf de toestemmingslijst toestaan",
+    "signupAllowList": "Toegestane e-mailadressen en domeinen",
+    "signupBlockList": "Geblokkeerde e-mailadressen en domeinen",
+    "signupAllowListPlaceholder": "person@example.com\nexample.org",
+    "signupBlockListPlaceholder": "spammer@example.com\nunwanted.example",
+    "signupEmailPolicyHint": "Eén e-mailadres of domein per regel, of gescheiden door komma’s; maximaal 1.000 per lijst. Hoofdletters worden genegeerd. Domeinen omvatten subdomeinen. Blokkades gaan altijd voor; toegestane vermeldingen omzeilen de blokkade van tijdelijke adressen. Bij alleen toestemmingslijst worden alle andere adressen geweigerd. Geldt voor nieuwe openbare werkruimteaanmeldingen.",
     "signupEnabled": "Bezoekers zelf een werkruimte laten aanmaken",
     "signupHint": "Bezoekers gebruiken de registratiepagina, niet dit scherm. Vul een hostnaam in zoals example.com of localhost. Een site met de naam my-site is dan bereikbaar op my-site.example.com. Kies een aparte database om die werkruimten buiten de database van deze installatie te houden.",
     "signupDatabaseHint": "Elke nieuwe registratie maakt een werkruimte in deze database. Deze installatie, inclusief de platformsite, blijft op de eigen database. Het wachtwoord wordt hier bewaard en niet opnieuw getoond.",
@@ -4046,12 +4087,13 @@
     "meterPosts": "Berichten",
     "meterPages": "Pagina's",
     "meterMediaFiles": "Mediabestanden",
-    "meterPlugins": "Geïnstalleerde plugins",
+    "meterPlugins": "Actieve plugins",
     "meterRoles": "Eigen gebruikersrollen",
     "workspaceLoading": "Werkruimte laden…",
     "unitMegabytes": "MB",
     "featureCustomDomains": "Eigen domeinen",
     "featureManagedDns": "DNS-hosting",
+    "featureOwnMail": "Eigen e-mailinstellingen",
     "meterCustomDomains": "Gekoppelde domeinen"
   },
   "signup": {
@@ -4232,5 +4274,46 @@
     "measured": "Measured at",
     "limitLabel": "Total storage (local + external)",
     "measuring": "Measuring storage…"
+  },
+  "taxonomies": {
+    "heading": "Categorieën & tags",
+    "subtitle": "Groepeer content met categorieën, tags en eigen taxonomieën. De eerste categorie van een bericht vult %category% in permalinks.",
+    "loading": "Taxonomieën laden…",
+    "loadFailed": "Taxonomieën laden mislukt",
+    "saveFailed": "Opslaan mislukt",
+    "createFailed": "Aanmaken mislukt",
+    "deleteFailed": "Verwijderen mislukt",
+    "assignFailed": "Categorieën en tags opslaan mislukt",
+    "newTaxonomy": "+ Nieuwe taxonomie",
+    "newTaxonomyHeading": "Nieuwe taxonomie",
+    "nameLabel": "Naam",
+    "slugLabel": "Slug",
+    "descriptionLabel": "Beschrijving",
+    "optionalPlaceholder": "Optioneel",
+    "taxonomyNamePlaceholder": "Genres",
+    "taxonomySlugPlaceholder": "genre",
+    "taxonomySlugHint": "Kleine letters, gebruikt in archief-URL's en de API.",
+    "hierarchicalLabel": "Hiërarchisch (termen kunnen een bovenliggende term hebben, zoals categorieën)",
+    "contentTypesLabel": "Contenttypes",
+    "contentTypesHint": "Items van deze types tonen deze taxonomie in de editor.",
+    "builtinBadge": "ingebouwd",
+    "usedBy": "Gebruikt door: {types}",
+    "usedByNone": "Nog door geen enkel contenttype gebruikt",
+    "editTaxonomy": "Instellingen",
+    "edit": "Bewerken",
+    "addTerm": "Term toevoegen",
+    "addTermButton": "Toevoegen",
+    "slugAutoPlaceholder": "Wordt gemaakt op basis van de naam",
+    "parentLabel": "Bovenliggend",
+    "noParent": "Geen",
+    "noTerms": "Nog geen termen.",
+    "countLabel": "Items",
+    "slugChangeHint": "Oude archief-URL's worden doorgestuurd naar de nieuwe slug.",
+    "deleteTermConfirm": "“{name}” verwijderen? De term wordt van elk item verwijderd.",
+    "deleteTaxonomyConfirm": "Taxonomie “{name}” met al haar termen verwijderen?",
+    "termNotFound": "“{name}” bestaat nog niet. Vraag een redacteur om deze aan te maken.",
+    "removeTerm": "{name} verwijderen",
+    "addOrCreate": "Toevoegen of aanmaken",
+    "addExisting": "Bestaande toevoegen"
   }
 }

@@ -13,6 +13,9 @@ process.env.STATE = "INSTALLED";
  * reveals whether an address exists, a link works exactly once, an expired link
  * is refused, the account's sessions are all revoked, and no session is
  * established — so a second factor still stands between the reset and access.
+ *
+ * The default account is a member, using the site's own pages. Staff use the
+ * admin's pages under the admin path; that split is covered at the end.
  */
 
 const SITE_ID = "22222222-2222-4222-8222-222222222222";
@@ -134,7 +137,7 @@ const fakeDb = {
   async close(): Promise<void> {},
 };
 
-vi.mock("../../../../src/lib/database/db.js", () => ({ getDb: async () => fakeDb, resetDb: () => {} }));
+vi.mock("../../../../src/lib/database/db.js", () => ({ getDb: async () => fakeDb, getControlDb: async () => fakeDb, resetDb: () => {} }));
 vi.mock("../../../../src/lib/settings/general-settings.js", () => ({
   getGeneralSettings: async () => settings,
 }));
@@ -152,6 +155,16 @@ vi.mock("../../../../src/lib/email/mail.js", () => ({
     return { ok: true };
   },
   notifyAdmin: async () => ({ ok: true }),
+}));
+const adminPath = vi.hoisted(() => ({ path: "/control-room" }));
+vi.mock("../../../../src/lib/admin/admin-path.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../../src/lib/admin/admin-path.js")>()),
+  getAdminPathConfig: async () => ({ path: adminPath.path, oldPathBehavior: "not_found" }),
+}));
+const siteState = vi.hoisted(() => ({ closed: false }));
+vi.mock("../../../../src/lib/settings/site-visibility.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../../src/lib/settings/site-visibility.js")>()),
+  isSiteClosed: async () => siteState.closed,
 }));
 vi.mock("../../../../src/lib/plugins/plugin-runtime.js", () => ({
   getRuntimeHooks: () => ({ dispatchAction: async () => {}, has: () => false }),
@@ -226,6 +239,15 @@ function tokenFromMail(): string {
 }
 
 beforeAll(async () => {
+  // The forgot-password work is not awaited by the route, and `flush` gives it a
+  // fixed window. Load the modules its account check imports lazily up front,
+  // so the first test does not spend that window on module loading.
+  await Promise.all([
+    import("../../../../src/lib/auth/auth-surface.js"),
+    import("../../../../src/lib/auth/access-policy.js"),
+    import("../../../../src/lib/tenancy/registry.js"),
+    import("../../../../src/lib/account/pages.js"),
+  ]);
   const app = express();
   app.use((req, _res, next) => {
     req.cookies = Object.fromEntries(
@@ -273,7 +295,7 @@ beforeEach(async () => {
       site_id: SITE_ID,
       email: "person@example.com",
       display_name: "Person",
-      role: "administrator",
+      role: "subscriber",
       password_hash: await hashPassword("the-old-password-1"),
       token_version: 0,
     },
@@ -489,10 +511,10 @@ describe("administrator controls", () => {
 
   it("honours a role allowlist", async () => {
     settings.passwordResetRoles = ["editor"];
-    await requestReset("person@example.com"); // person is an administrator
+    await requestReset("person@example.com"); // person is a subscriber
     expect(sentMail).toHaveLength(0);
 
-    settings.passwordResetRoles = ["administrator"];
+    settings.passwordResetRoles = ["subscriber"];
     await requestReset("person@example.com");
     expect(sentMail).toHaveLength(1);
   });
@@ -530,3 +552,45 @@ async function csrfJar(): Promise<Jar> {
   await get("/api/auth/csrf", jar);
   return jar;
 }
+
+describe("staff and members reset on separate pages", () => {
+  beforeEach(() => { users[0]!.role = "administrator"; });
+
+  it("never mails a staff account from the site's page, with the same answer", async () => {
+    const res = await requestReset("person@example.com");
+    expect(res.body).toEqual({ ok: true });
+    expect(sentMail).toHaveLength(0);
+  });
+
+  it("mails staff a link to the admin's own reset page", async () => {
+    const jar = await csrfJar();
+    await post("/api/auth/password/forgot", { email: "person@example.com", adminPath: "/control-room" }, jar);
+    await flush();
+    expect(sentMail).toHaveLength(1);
+    expect(sentMail[0]!.text).toContain("/control-room/reset-password?token=");
+  });
+
+  it("never mails a member from the admin's page", async () => {
+    users[0]!.role = "subscriber";
+    const jar = await csrfJar();
+    await post("/api/auth/password/forgot", { email: "person@example.com", adminPath: "/control-room" }, jar);
+    await flush();
+    expect(sentMail).toHaveLength(0);
+  });
+
+  it("only redeems a staff link on the admin's page", async () => {
+    const jar = await csrfJar();
+    await post("/api/auth/password/forgot", { email: "person@example.com", adminPath: "/control-room" }, jar);
+    await flush();
+    const token = tokenFromMail();
+
+    expect((await post("/api/auth/password/reset/verify", { token }, await csrfJar())).body).toEqual({ valid: false });
+    const onSite = await post("/api/auth/password/reset", { token, newPassword: "a-brand-new-password-9" }, await csrfJar());
+    expect(onSite.status).toBe(400);
+    expect(resets).toHaveLength(1);
+
+    expect((await post("/api/auth/password/reset/verify", { token, adminPath: "/control-room" }, await csrfJar())).body).toEqual({ valid: true });
+    const onAdmin = await post("/api/auth/password/reset", { token, newPassword: "a-brand-new-password-9", adminPath: "/control-room" }, await csrfJar());
+    expect(onAdmin.status).toBe(200);
+  });
+});

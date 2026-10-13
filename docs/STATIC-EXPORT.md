@@ -297,6 +297,12 @@ pointer removes unpublished/deleted paths from serving; old immutable objects
 remain until **Clear export**, which removes this site's pointer and objects
 as well as its local output. Interrupted uploads are cleaned by Clear too.
 
+A page that returns 404 or 410 during the crawl, such as a broken link in a
+menu or footer, is listed as a warning (`⚠`) in the log and in the run
+summary's `warnings`. It does not fail the run, so the remaining pages still
+deploy. Other crawl errors (5xx, timeouts, unsafe paths) fail the run and skip
+the object-storage deploy.
+
 Keep Bunny's origin pointed at the app. Before public page rendering, the app
 looks up exported paths in the private deployment pointer and streams the
 matching object with signed S3 requests. Existing asset handlers and plugin
@@ -417,7 +423,7 @@ up a change on the next export run.
 | **Comment submission** (`justflows.comments.thread`)  | native POST to `/justflows-comments/submit`; existing threads render at export time and are read-only otherwise |
 | **Pageview analytics**                                | beacon to `/justflows-analytics/collect` — needs the endpoint reachable (hybrid or origin URL)                  |
 | **Cookie consent records + disclosure**               | `/ext/justflows.consent/*` — banner/gating work offline; record log + cookie table need the endpoint reachable  |
-| **Login / register / password reset / language POST** | origin only — never route these to the static host                                                              |
+| **Login / register / password reset / language POST** | origin only — never route these to the static host (staff copies live under the admin path)                     |
 | **Search**                                            | needs the origin, or a client-side / third-party index                                                          |
 | **Plugin-excluded pages** (`staticExport.exclude`)    | never exported — served by the origin; see [Pages a plugin keeps live](#pages-a-plugin-keeps-live)              |
 
@@ -682,7 +688,7 @@ return `cors: true` on those routes.
 | `staticExport.exclude`    | filter `StaticExportExclusion[]` | paths left to the live app — never crawled, pruned, routed to the app, links rewritten to the origin               |
 | `staticExport.assets`     | filter `string[]`                | add same-origin asset URLs the scanner cannot discover (dynamic imports, workers, runtime-fetched JSON)            |
 | `staticExport.formAction` | filter `string`                  | override the `<form action>` written for a dynamic endpoint (`{ endpoint: "forms" \| "comments", defaultAction }`) |
-| `staticExport.completed`  | action                           | observe a finished run (`{ ok, mode, pages, assets, bytes, pruned, errors, … }`)                                   |
+| `staticExport.completed`  | action                           | observe a finished run (`{ ok, mode, pages, assets, bytes, pruned, errors, warnings, … }`)                                   |
 | `staticExport.deploy`     | action                           | push the directory to object storage / a CDN                                                                       |
 
 ## Limitations

@@ -18,6 +18,9 @@ export interface SiteWidgetContext {
     login: string;
     register: string;
     language: string;
+    /** Shown instead of the sign-in links once `/js/site-session.js` finds a session. */
+    account?: string;
+    signOut?: string;
   };
 }
 
@@ -113,6 +116,11 @@ function authInner(
   return parts.join("");
 }
 
+/** Labels `/js/site-session.js` swaps in for a signed-in visitor (cached pages are per locale). */
+function sessionLabels(ctx: SiteWidgetContext): string {
+  return ` data-jf-session-account="${esc(ctx.labels.account ?? "My account")}" data-jf-session-signout="${esc(ctx.labels.signOut ?? "Sign out")}"`;
+}
+
 /** Fill language and auth placeholders with request-time site data. */
 export function hydrateSiteWidgets(html: string, ctx: SiteWidgetContext): string {
   if (!html.includes("data-jf-widget=")) return html;
@@ -144,7 +152,7 @@ export function hydrateSiteWidgets(html: string, ctx: SiteWidgetContext): string
       const registerLabel = attr(attrs, "data-jf-register-label") || ctx.labels.register;
       const inner = authInner(showLogin, showRegister, loginLabel, registerLabel, style, ctx.usersCanRegister);
       if (!inner) return "";
-      return `<nav${attrs}>${inner}</nav>`;
+      return `<nav${attrs}${sessionLabels(ctx)}>${inner}</nav>`;
     },
   );
 

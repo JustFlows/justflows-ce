@@ -142,6 +142,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     items: [
       { key: "nav.content", to: "/admin/content", icon: "📝" },
       { key: "nav.contentTypes", to: "/admin/content-types", icon: "🗂" },
+      { key: "nav.taxonomies", to: "/admin/taxonomies", icon: "🏷" },
       { key: "nav.media", to: "/admin/media", icon: "🖼" },
       { key: "nav.comments", to: "/admin/comments", icon: "💬" },
       { key: "nav.trash",  to: "/admin/trash", icon: "♻" },
@@ -427,6 +428,9 @@ export function canAccessPath(
   if (audience?.installationRoot === false && matchesPrefix(pathname, INSTALLATION_ROOT_PREFIXES)) return false;
   if (audience?.platformOperator === false && matchesPrefix(pathname, OPERATOR_PREFIXES)) return false;
   if (audience?.disabledPaths && matchesPrefix(pathname, audience.disabledPaths)) return false;
+  // Overview reads the security-headers API, so it shares that feature gate.
+  // Keep this exact: account security remains available under the same parent.
+  if (pathname === "/admin/security" && audience?.disabledPaths?.includes("/admin/security/headers")) return false;
   const rule = navRuleFor(pathname);
   if (!rule) return true;
   return (NAV_ACCESS[rule] ?? ALL_ADMIN_ROLES).includes(role);

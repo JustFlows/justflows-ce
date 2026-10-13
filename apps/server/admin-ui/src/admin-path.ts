@@ -19,7 +19,26 @@ export const PRE_AUTH_PATHS = [
 ] as const;
 
 export function isPreAuthPath(pathname: string): boolean {
-  return (PRE_AUTH_PATHS as readonly string[]).includes(pathname);
+  return (PRE_AUTH_PATHS as readonly string[]).includes(pathname) || adminAuthPage(pathname) !== null;
+}
+
+export const ADMIN_AUTH_PAGES = ["login", "forgot-password", "reset-password"] as const;
+export type AdminAuthPage = (typeof ADMIN_AUTH_PAGES)[number];
+
+const ADMIN_AUTH = /^(\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)\/(login|forgot-password|reset-password)\/?$/;
+
+/**
+ * The staff auth page `pathname` is — `<admin path>/login`, `/forgot-password`
+ * or `/reset-password` — with the admin base path, otherwise null. These pages
+ * are bare documents served before a session exists, so there is no SSR payload
+ * to read the base from and it comes from the URL instead; the server only
+ * serves them under the configured path. A real admin page always carries a
+ * payload, which keeps a plugin route ending in `/login` from matching.
+ */
+export function adminAuthPage(pathname: string = currentPathname()): { base: string; page: AdminAuthPage } | null {
+  if (getAdminSsrPayload()) return null;
+  const match = ADMIN_AUTH.exec(pathname);
+  return match ? { base: match[1]!, page: match[2] as AdminAuthPage } : null;
 }
 
 /**

@@ -9,6 +9,8 @@ import { isValidHostname, signupBaseDomain, signupSiteOrigin, slugify } from "..
 import { readSaasSettings, readSignupDatabaseTarget } from "../../lib/tenancy/saas-settings.js";
 import { clientIp, consumeRateLimit, rateLimitRetryAfter } from "../../lib/security/rate-limit.js";
 
+import { signupEmailAllowed } from "../../lib/security/signup-email-policy.js";
+
 const router = Router();
 
 const signupLimit = rateLimit({
@@ -26,7 +28,7 @@ router.post("/", signupLimit, async (req, res) => {
     return;
   }
   const body = z.object({
-    email: z.string().email(),
+    email: z.string().trim().toLowerCase().max(320).email(),
     password: z.string().min(12).max(1024),
     displayName: z.string().min(1).max(255),
     siteName: z.string().min(1).max(255),
@@ -41,6 +43,10 @@ router.post("/", signupLimit, async (req, res) => {
   const settings = readSaasSettings(rows[0]?.value);
   if (!settings?.signupEnabled) {
     res.status(403).json({ error: "Public signup is turned off." });
+    return;
+  }
+  if (!signupEmailAllowed(body.data.email, settings.signupEmailPolicy)) {
+    res.status(403).json({ error: "This email address is not permitted for signup." });
     return;
   }
   const base = signupBaseDomain(settings.baseDomain) ?? "";
@@ -87,6 +93,7 @@ router.post("/", signupLimit, async (req, res) => {
     },
     actorId: null,
     platformOperator: false,
+    requireNewOwner: true,
   });
   if (!result.ok) {
     res.status(result.status).json({ error: result.error });

@@ -3,6 +3,8 @@
 import { eachActiveSite } from "../tenancy/connections.js";
 import { installationRootSiteId } from "../tenancy/registry.js";
 import { copyPrivateFiles, forgetUnusedConnections, storageIdsInUse } from "./private-storage.js";
+import { registerCoreJob } from "../jobs/core-jobs.js";
+import type { JobResult } from "@justflows/jobs";
 
 /**
  * Copies private files to each site's current storage after the storage
@@ -12,24 +14,26 @@ import { copyPrivateFiles, forgetUnusedConnections, storageIdsInUse } from "./pr
  * connections, those are forgotten.
  */
 
-const INTERVAL_MS = 5 * 60 * 1000;
 const PER_SITE = 200;
 
-let timer: ReturnType<typeof setInterval> | null = null;
 let running = false;
 let again = false;
 
-export async function runPrivateFilesCopy(): Promise<void> {
+export async function runPrivateFilesCopy(): Promise<JobResult> {
   if (running) {
     again = true;
-    return;
+    return { success: true, message: "Already running" };
   }
   running = true;
+  let copied = 0;
+  let failed = 0;
   try {
     const inUse = new Set<string>();
     await eachActiveSite(async (siteId) => {
       try {
         const result = await copyPrivateFiles(siteId, PER_SITE);
+        copied += result.copied;
+        failed += result.failed;
         if (result.copied || result.failed) {
           console.info(`[private-files] site ${siteId}: copied ${result.copied}, failed ${result.failed}, left ${result.left}`);
         }
@@ -37,6 +41,7 @@ export async function runPrivateFilesCopy(): Promise<void> {
       } catch (err) {
         // A site we could not read may still use an earlier connection: keep them all.
         inUse.add("*");
+        failed++;
         console.error("[private-files] copy run failed for site", siteId, err instanceof Error ? err.message : "unknown error");
       }
     });
@@ -46,6 +51,7 @@ export async function runPrivateFilesCopy(): Promise<void> {
         if (siteId === rootId) await forgetUnusedConnections(rootId, inUse);
       });
     }
+    return { success: failed === 0, message: `Copied ${copied} private files${failed ? `, ${failed} failed` : ""}` };
   } finally {
     running = false;
     if (again) {
@@ -56,8 +62,5 @@ export async function runPrivateFilesCopy(): Promise<void> {
 }
 
 export function startPrivateFilesCopyJob(): void {
-  if (timer) return;
-  timer = setInterval(() => {
-    void runPrivateFilesCopy();
-  }, INTERVAL_MS);
+  registerCoreJob({ name: "files.private-copy", schedule: "*/5 * * * *", handler: runPrivateFilesCopy });
 }

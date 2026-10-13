@@ -774,6 +774,8 @@ export interface ActionEventMap {
   "workspace.suspended": WorkspaceStatusEvent;
   "workspace.reactivated": WorkspaceStatusEvent;
   "workspace.deleted": WorkspaceDeleteEvent;
+  /** Final removal completed; records are no longer available. */
+  "workspace.purged": WorkspaceStatusEvent;
   "site.created": SiteCreateEvent;
 
   "request.before": RequestStartEvent;
@@ -832,6 +834,8 @@ export interface GateEventMap {
   "workspace.beforeSuspend": WorkspaceStatusEvent;
   "workspace.beforeReactivate": WorkspaceStatusEvent;
   "workspace.beforeDelete": WorkspaceDeleteEvent;
+  /** Required external/plugin cleanup before permanent removal. Failures are retried. */
+  "workspace.beforePurge": WorkspaceStatusEvent;
   "site.beforeCreate": SiteCreateGateEvent;
   /** Before a website adds a custom domain. Cancel to refuse it, for example to require a paid plan. */
   "domain.beforeAdd": DomainAddGateEvent;

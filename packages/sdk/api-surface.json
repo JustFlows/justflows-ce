@@ -148,6 +148,7 @@
   "PluginGetPublishedQuery",
   "PluginHttpApi",
   "PluginHttpHandler",
+  "PluginHttpMcpTool",
   "PluginHttpMethod",
   "PluginHttpRateLimit",
   "PluginHttpRequest",

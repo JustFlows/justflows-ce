@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { getSession } from "../lib/auth/session.js";
 import { getEffectiveAccess } from "../lib/auth/access-policy.js";
+import { getAdminPathConfig } from "../lib/admin/admin-path.js";
 
 /**
  * Gate for the /admin surface: a session is required, and a subscriber — who
@@ -27,7 +28,11 @@ export function adminAccessGate(req: Request, res: Response, next: NextFunction)
     // the login page, including one that just set a session cookie.
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("CDN-Cache-Control", "no-store");
-    res.redirect("/login");
+    // Staff sign in under the admin path itself. The public /login is for
+    // members and will not open a staff session once the path is moved.
+    getAdminPathConfig()
+      .then((config) => res.redirect(`${config.path}/login`))
+      .catch(next);
     return;
   }
   if (session.role !== "subscriber") { next(); return; }

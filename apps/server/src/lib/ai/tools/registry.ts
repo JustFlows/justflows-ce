@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: MIT
 
-import type { McpToolDefinition } from "@justflows/sdk";
-import { keyCan } from "../../auth/api-keys.js";
-import { getRuntimeHooks } from "../../plugins/plugin-runtime.js";
+import { sessionMatchesRequestSite } from "../../tenancy/access.js";
+import { getTenantContext } from "../../tenancy/context.js";
 import { auditLog } from "../../security/audit-log.js";
+import { runAsDelegate } from "../../security/delegated-call.js";
 import { logSafe } from "../../security/log-safe.js";
 import { runWithAgentOrigin } from "../agent-origin.js";
+import { safeAgentData, safeAgentText } from "../agent-data.js";
 import { CORE_TOOLS } from "./catalog.js";
-import { READ, type AgentTool, type JsonSchemaObject, type ToolCallContext, type ToolOutcome } from "./manage-tool.js";
+import {
+  READ,
+  type AgentTool,
+  type JsonSchemaObject,
+  type ToolCallContext,
+  type ToolOutcome,
+} from "./manage-tool.js";
+import { pluginRouteTools } from "./plugin-route-tools.js";
 import { principalCapabilities, type AgentPrincipal } from "./principal.js";
 
 /**
@@ -20,73 +28,46 @@ import { principalCapabilities, type AgentPrincipal } from "./principal.js";
  * not merely cosmetic; the handler it reaches checks the capability again.
  */
 
-const TOOL_NAME = /^[a-z][a-z0-9_]{2,63}$/;
 const MAX_RESULT_CHARS = 100_000;
 
-function pluginTool(definition: McpToolDefinition, coreNames: Set<string>): AgentTool | null {
-  if (!definition || typeof definition !== "object") return null;
-  if (typeof definition.name !== "string" || !TOOL_NAME.test(definition.name) || coreNames.has(definition.name)) return null;
-  if (typeof definition.capability !== "string" || !definition.capability) return null;
-  if (typeof definition.handler !== "function") return null;
-  const schema = definition.inputSchema;
-  const inputSchema: JsonSchemaObject =
-    schema && typeof schema === "object" && schema.type === "object"
-      ? (schema as JsonSchemaObject)
-      : { type: "object", properties: {} };
-  const annotations = {
-    readOnlyHint: definition.annotations?.readOnlyHint === true,
-    destructiveHint: definition.annotations?.destructiveHint === true,
-    idempotentHint: definition.annotations?.idempotentHint === true,
-  };
-  return {
-    name: definition.name,
-    title: typeof definition.title === "string" ? definition.title.slice(0, 120) : definition.name,
-    description: String(definition.description ?? "").slice(0, 2_000),
-    inputSchema,
-    annotations,
-    group: "plugin",
-    capabilities: [definition.capability],
-    async run(args, ctx): Promise<ToolOutcome> {
-      const { principal } = ctx;
-      // Per-call re-check; the plugin's handler owns any per-resource checks.
-      if (!(await keyCan(principal.key, principal.owner, definition.capability))) {
-        return { ok: false, status: 403, error: "Forbidden: this session is not allowed to do that." };
-      }
-      const capabilities = [...(await principalCapabilities(principal))];
-      const data = await definition.handler(args, {
-        siteId: principal.owner.siteId,
-        userId: principal.owner.userId,
-        via: principal.via,
-        client: principal.clientName,
-        capabilities,
-      });
-      return { ok: true, data: data ?? { ok: true } };
-    },
-  };
+/** Only reviewed core operations and explicitly registered plugin API routes.
+ * Arbitrary mcp.tools handlers are deliberately ignored: agents are API-only.
+ */
+export async function allTools(_siteId: string): Promise<AgentTool[]> {
+  const seen = new Set(CORE_TOOLS.map((tool) => tool.name));
+  return [...CORE_TOOLS, ...pluginRouteTools().filter((tool) => {
+    if (seen.has(tool.name)) return false;
+    seen.add(tool.name);
+    return true;
+  })];
 }
 
-/** Every tool: the core catalog plus anything plugins add through `mcp.tools`. */
-export async function allTools(siteId: string): Promise<AgentTool[]> {
-  const hooks = getRuntimeHooks();
-  if (!hooks.has("mcp.tools")) return CORE_TOOLS;
-  const coreNames = new Set(CORE_TOOLS.map((tool) => tool.name));
-  let contributed: unknown;
-  try {
-    contributed = await hooks.applyFilter("mcp.tools", [], { siteId });
-  } catch (err) {
-    console.error("[justflows] mcp.tools filter failed", JSON.stringify(logSafe(String(err))));
-    return CORE_TOOLS;
-  }
-  const extra = (Array.isArray(contributed) ? contributed : [])
-    .map((definition) => pluginTool(definition as McpToolDefinition, coreNames))
-    .filter((tool): tool is AgentTool => tool !== null);
-  const seen = new Set<string>();
-  return [...CORE_TOOLS, ...extra.filter((tool) => (seen.has(tool.name) ? false : (seen.add(tool.name), true)))];
+export function principalMatchesSite(principal: AgentPrincipal): boolean {
+  return principal.key.siteId === principal.owner.siteId && sessionMatchesRequestSite(principal.owner.siteId);
+}
+
+/** Explicit site/workspace selectors cannot override the authenticated target.
+ * Core resource IDs are additionally checked against site_id by their APIs.
+ */
+function foreignTarget(value: unknown, principal: AgentPrincipal, depth = 0): boolean {
+  if (depth > 64) return true;
+  if (!value || typeof value !== "object") return false;
+  const tenant = getTenantContext();
+  return Object.entries(value).some(([key, item]) => {
+    const name = key.replace(/[_-]/g, "").toLowerCase();
+    if (name === "siteid" && item !== principal.owner.siteId) return true;
+    if (name === "tenantid" && (!tenant || item !== tenant.tenantId)) return true;
+    return foreignTarget(item, principal, depth + 1);
+  });
 }
 
 /** The tools this principal may see and call right now. */
 export async function toolsForPrincipal(principal: AgentPrincipal): Promise<AgentTool[]> {
-  const [tools, capabilities] = await Promise.all([allTools(principal.owner.siteId), principalCapabilities(principal)]);
+  if (!principalMatchesSite(principal)) return [];
+  const [tools, capabilities] = await Promise.all([
+    allTools(principal.owner.siteId),
+    principalCapabilities(principal),
+  ]);
   return tools.filter((tool) => {
     if (tool.group === "users" && !principal.userTools) return false;
     return tool.capabilities.every((capability) => capabilities.has(capability));
@@ -123,7 +104,10 @@ function typeMatches(expected: unknown, value: unknown): boolean {
  * handler validates in depth; this turns the common mistakes into errors a
  * model can fix before a request is made.
  */
-export function checkArguments(schema: JsonSchemaObject, args: Record<string, unknown>): string | null {
+export function checkArguments(
+  schema: JsonSchemaObject,
+  args: Record<string, unknown>,
+): string | null {
   for (const key of schema.required ?? []) {
     if (args[key] === undefined) return `Missing required argument "${key}".`;
   }
@@ -148,10 +132,17 @@ export function checkArguments(schema: JsonSchemaObject, args: Record<string, un
 
 function targetOf(tool: AgentTool, args: Record<string, unknown>): string | null {
   const value = tool.targetArg ? args[tool.targetArg] : undefined;
-  return typeof value === "string" || typeof value === "number" ? String(value).slice(0, 255) : null;
+  return typeof value === "string" || typeof value === "number"
+    ? String(value).slice(0, 255)
+    : null;
 }
 
-function audit(tool: AgentTool, args: Record<string, unknown>, ctx: ToolCallContext, outcome: ToolOutcome): void {
+function audit(
+  tool: AgentTool,
+  args: Record<string, unknown>,
+  ctx: ToolCallContext,
+  outcome: ToolOutcome,
+): void {
   if (tool.annotations.readOnlyHint) return;
   const { principal } = ctx;
   // Never the arguments themselves: they can hold content, passwords or keys.
@@ -181,7 +172,10 @@ export interface ToolCallResult extends Pick<AgentTool, "name" | "annotations"> 
 }
 
 /** Find a tool the principal may call, or explain why not (without leaking which). */
-export async function resolveTool(principal: AgentPrincipal, name: string): Promise<AgentTool | null> {
+export async function resolveTool(
+  principal: AgentPrincipal,
+  name: string,
+): Promise<AgentTool | null> {
   const tools = await toolsForPrincipal(principal);
   return tools.find((tool) => tool.name === name) ?? null;
 }
@@ -197,28 +191,60 @@ export async function callTool(
     return {
       name,
       annotations: READ,
-      outcome: { ok: false, status: 403, error: `Tool "${name}" is not available to this session.` },
+      outcome: {
+        ok: false,
+        status: 403,
+        error: `Tool "${name}" is not available to this session.`,
+      },
     };
   }
-  const args = rawArgs && typeof rawArgs === "object" && !Array.isArray(rawArgs) ? (rawArgs as Record<string, unknown>) : {};
+  const args =
+    rawArgs && typeof rawArgs === "object" && !Array.isArray(rawArgs)
+      ? (rawArgs as Record<string, unknown>)
+      : {};
+  if (foreignTarget(args, principal)) {
+    return { name, annotations: tool.annotations, outcome: { ok: false, status: 403, error: "Cross-site agent access is forbidden." } };
+  }
   const problem = checkArguments(tool.inputSchema, args);
   const ctx: ToolCallContext = { principal, ip: meta.ip, userAgent: meta.userAgent };
-  if (problem) return { name, annotations: tool.annotations, outcome: { ok: false, status: 400, error: problem } };
+  if (problem)
+    return {
+      name,
+      annotations: tool.annotations,
+      outcome: { ok: false, status: 400, error: problem },
+    };
 
   let outcome: ToolOutcome;
   try {
-    outcome = await runWithAgentOrigin({ via: principal.via, client: principal.clientName }, () => tool.run(args, ctx));
+    // Marked before any tool or plugin code runs: platform operations refuse delegated work.
+    const delegate = {
+      kind: principal.kind === "assistant" ? "assistant" : "mcp",
+      client: principal.clientName,
+    } as const;
+    outcome = await runAsDelegate(delegate, () =>
+      runWithAgentOrigin({ via: principal.via, client: principal.clientName }, () =>
+        tool.run(args, ctx),
+      ),
+    );
   } catch (err) {
-    console.error("[justflows] agent tool failed", JSON.stringify(logSafe(`${name}: ${String(err)}`)));
+    console.error(
+      "[justflows] agent tool failed",
+      JSON.stringify(logSafe(`${name}: tool execution failed`)),
+    );
     outcome = { ok: false, status: 500, error: "The tool failed to run." };
   }
+  outcome = outcome.ok
+    ? { ok: true, data: safeAgentData(outcome.data) }
+    : { ...outcome, error: safeAgentText(outcome.error) };
   audit(tool, args, ctx, outcome);
   return { name, annotations: tool.annotations, outcome };
 }
 
 /** Serialize a tool outcome for a model, capped so one call cannot flood a context window. */
 export function outcomeText(outcome: ToolOutcome): string {
-  const text = outcome.ok ? JSON.stringify(outcome.data, null, 1) : outcome.error;
+  const text = outcome.ok
+    ? JSON.stringify(safeAgentData(outcome.data), null, 1)
+    : safeAgentText(outcome.error);
   return text.length > MAX_RESULT_CHARS
     ? `${text.slice(0, MAX_RESULT_CHARS)}\n… (truncated; request a smaller page with "limit")`
     : text;

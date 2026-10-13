@@ -152,22 +152,33 @@ export async function runAcrossDatabases<T>(fn: () => Promise<T>): Promise<T[]> 
   return [await fn(), ...(await runOnSeparateDatabases(fn))];
 }
 
-export async function eachActiveSite(fn: (siteId: string) => Promise<void>): Promise<void> {
+/** Run `fn` on every active site, in its database; `options.siteId` limits it to that one site. */
+export async function eachActiveSite(fn: (siteId: string) => Promise<void>, options: { siteId?: string } = {}): Promise<void> {
   let sites: Array<{ id: string; tenant_id: string; database_choice: string; database_mode: string }> = [];
+  let registry = false;
   try {
     const db = await getControlDb();
+    const only = options.siteId ? " AND s.id = ?" : "";
     sites = await db.query(
       `SELECT s.id, s.tenant_id, s.database_choice, t.database_mode
        FROM sites s JOIN tenants t ON t.id = s.tenant_id
-       WHERE s.status = 'active' AND t.status = 'active'`,
+       WHERE s.status = 'active' AND t.status = 'active'${only}`,
+      options.siteId ? [options.siteId] : [],
     );
-  } catch {
+    registry = true;
+  } catch (error) {
+    if (!isMissingTableError(error)) throw error;
     sites = [];
   }
   if (sites.length === 0) {
+    // No site registry (single-site install): the one site, when it is the one asked for.
+    if (registry) {
+      const total = await (await getControlDb()).query("SELECT id FROM sites LIMIT 1");
+      if (total.length > 0) return;
+    }
     const { getSiteId } = await import("../settings/site-settings.js");
     const siteId = await getSiteId();
-    if (siteId) await fn(siteId);
+    if (siteId && (!options.siteId || options.siteId === siteId)) await fn(siteId);
     return;
   }
   for (const site of sites) {
@@ -189,4 +200,26 @@ export async function eachActiveSite(fn: (siteId: string) => Promise<void>): Pro
       );
     }
   }
+}
+
+/** Bounded activity checks against the authoritative registry, even in a content DB. */
+export async function activeSiteIds(siteIds: readonly string[]): Promise<Set<string>> {
+  const ids = [...new Set(siteIds)];
+  const active = new Set<string>();
+  if (ids.length === 0) return active;
+  const db = await getControlDb();
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    const batch = ids.slice(offset, offset + 100);
+    try {
+      const rows = await db.query<{ id: string }>(
+        `SELECT s.id FROM sites s JOIN tenants t ON t.id = s.tenant_id WHERE s.status = 'active' AND t.status = 'active' AND s.id IN (${batch.map(() => "?").join(", ")})`, batch,
+      );
+      for (const row of rows) active.add(String(row.id));
+    } catch (error) {
+      if (!isMissingTableError(error)) throw error;
+      // Pre-tenancy installations only have their local site.
+      for (const id of batch) active.add(id);
+    }
+  }
+  return active;
 }

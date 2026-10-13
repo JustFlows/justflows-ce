@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { defaultSignupEmailPolicy, SignupEmailPolicySchema, type SignupEmailPolicy } from "../security/signup-email-policy.js";
 import { validateDatabaseTarget, type DatabaseTarget } from "./choice.js";
 import { decryptSecret, encryptSecret } from "../security/secret-box.js";
 
@@ -12,6 +13,7 @@ export interface SignupDatabasePublic {
 }
 
 export interface SaasSettings {
+  signupEmailPolicy: SignupEmailPolicy;
   signupEnabled: boolean;
   signupDatabaseMode: "current" | "separate";
   baseDomain: string;
@@ -37,6 +39,7 @@ interface StoredSignupDatabase {
 }
 
 interface StoredSaasSettings {
+  signupEmailPolicy: SignupEmailPolicy;
   signupEnabled: boolean;
   signupDatabaseMode: "current" | "separate";
   baseDomain: string;
@@ -72,6 +75,7 @@ export function readSaasSettings(value: unknown): SaasSettings | null {
   const stored = parseStored(value);
   if (!stored) return null;
   return {
+    signupEmailPolicy: stored.signupEmailPolicy,
     signupEnabled: stored.signupEnabled,
     signupDatabaseMode: stored.signupDatabaseMode,
     baseDomain: stored.baseDomain,
@@ -110,6 +114,7 @@ export function buildSaasSettings(
     signupDatabaseMode: "current" | "separate";
     baseDomain: string;
     database?: SignupDatabaseInput | null;
+    signupEmailPolicy?: SignupEmailPolicy;
   },
 ): { ok: true; stored: StoredSaasSettings } | { ok: false; error: string } {
   const prior = parseStored(previous);
@@ -118,6 +123,7 @@ export function buildSaasSettings(
     return {
       ok: true,
       stored: {
+        signupEmailPolicy: input.signupEmailPolicy ?? prior?.signupEmailPolicy ?? defaultSignupEmailPolicy(),
         signupEnabled: input.signupEnabled,
         signupDatabaseMode: "current",
         baseDomain: input.baseDomain,
@@ -142,6 +148,7 @@ export function buildSaasSettings(
   return {
     ok: true,
     stored: {
+      signupEmailPolicy: input.signupEmailPolicy ?? prior?.signupEmailPolicy ?? defaultSignupEmailPolicy(),
       signupEnabled: input.signupEnabled,
       signupDatabaseMode: "separate",
       baseDomain: input.baseDomain,
@@ -155,6 +162,7 @@ export function buildSaasSettings(
 export function withPurgeAfterDays(previous: unknown, days: number): StoredSaasSettings {
   const prior = parseStored(previous);
   return {
+    signupEmailPolicy: prior?.signupEmailPolicy ?? defaultSignupEmailPolicy(),
     signupEnabled: prior?.signupEnabled === true,
     signupDatabaseMode: prior?.signupDatabaseMode === "separate" ? "separate" : "current",
     baseDomain: prior?.baseDomain ?? "",
@@ -174,6 +182,7 @@ function parseStored(value: unknown): StoredSaasSettings | null {
   }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const record = raw as {
+    signupEmailPolicy?: unknown;
     signupEnabled?: unknown;
     signupDatabaseMode?: unknown;
     baseDomain?: unknown;
@@ -181,6 +190,7 @@ function parseStored(value: unknown): StoredSaasSettings | null {
     purgeAfterDays?: unknown;
   };
   return {
+    signupEmailPolicy: SignupEmailPolicySchema.parse(record.signupEmailPolicy ?? defaultSignupEmailPolicy()),
     signupEnabled: record.signupEnabled === true,
     signupDatabaseMode: record.signupDatabaseMode === "separate" ? "separate" : "current",
     baseDomain: typeof record.baseDomain === "string" ? record.baseDomain : "",

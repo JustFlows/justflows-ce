@@ -129,7 +129,7 @@
         </div>
       <% } %>
       <% if (hdr.showAuthLinks) { %>
-        <nav class="jf-auth-links jf-auth-links--buttons" aria-label="<%= t('auth.account') %>">
+        <nav class="jf-auth-links jf-auth-links--buttons" aria-label="<%= t('auth.account') %>" data-jf-session-account="<%= t('auth.myAccount') %>" data-jf-session-signout="<%= t('auth.signOut') %>">
           <a href="/login" class="btn btn--outline"><%= typeof t === 'function' ? t('auth.login') : 'Log in' %></a>
           <% if (typeof usersCanRegister !== 'undefined' && usersCanRegister) { %>
             <a href="/register" class="btn btn--primary"><%= typeof t === 'function' ? t('auth.register') : 'Register' %></a>

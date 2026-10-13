@@ -72,6 +72,8 @@
   "nav.primary": "Hoofdnavigatie",
   "nav.footer": "Footernavigatie",
   "auth.account": "Account",
+  "auth.myAccount": "Mijn account",
+  "auth.signOut": "Uitloggen",
   "pwa.install": "Installeren",
   "pwa.description": "Installeer deze app voor een snellere ervaring op volledig scherm.",
   "pwa.installAria": "Installeer deze app",

@@ -75,7 +75,8 @@
     "defaults": "Defaults",
     "siteDomains": "Domains",
     "customDomains": "Custom domains",
-    "storage": "Storage"
+    "storage": "Storage",
+    "taxonomies": "Categories & Tags"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2261,6 +2262,7 @@
     "editAriaLabel": "Edit {filename}",
     "responsiveBadge": "Responsive",
     "originalOnlyBadge": "Original only",
+    "optimizingBadge": "Optimizing…",
     "editButton": "Edit",
     "trashButton": "Trash",
     "saveFailed": "Could not save",
@@ -2319,18 +2321,42 @@
     "jobs": {
       "retryFailed": "Job retry failed",
       "title": "Job scheduler",
-      "hint": "Plugin-owned work; payloads are never displayed.",
+      "hint": "Core and plugin background work; payloads are never displayed.",
       "running": "Running",
       "stopped": "Stopped",
-      "noJobs": "No plugin jobs are registered.",
+      "noJobs": "No jobs are registered.",
       "colJob": "Job",
+      "colOwner": "Owner",
       "colStatus": "Status",
       "colSchedule": "Schedule",
       "colAttempts": "Attempts",
       "colLastResult": "Last result",
       "onDemand": "On demand",
       "completed": "Completed",
-      "retry": "Retry"
+      "failedRun": "Failed",
+      "retry": "Retry",
+      "owner": {
+        "core": "Core",
+        "plugin": "Plugin"
+      }
+    },
+    "queue": {
+      "title": "Job queue",
+      "hint": "Stored runs of plugin jobs across the installation. They survive restarts; failed runs stay here for 30 days. Payloads are never displayed.",
+      "counts": "{queued} queued · {running} running · {failed} failed",
+      "unavailable": "Not set up",
+      "unavailableHint": "Run the database migrations to store jobs. Until then they run in memory and are lost on restart.",
+      "empty": "Nothing is waiting, running, or failed.",
+      "colSite": "Site",
+      "colRunAt": "Runs at",
+      "colError": "Last error",
+      "allSites": "All sites",
+      "status": {
+        "queued": "Queued",
+        "running": "Running",
+        "done": "Done",
+        "failed": "Failed"
+      }
     },
     "overview": {
       "issuesFound": "Diagnostics found items to review",
@@ -2717,7 +2743,9 @@
         "pathHelpPrefix": "Start with",
         "pathHelpSuffix": "and use letters, numbers, hyphens, underscores, or nested paths. Do not add a trailing slash.",
         "pathLabel": "Path",
-        "title": "Admin address"
+        "title": "Admin address",
+        "signIn": "Staff sign-in:",
+        "signInHint": "Staff sign in at this address. The public sign-in page is for site members and does not accept staff accounts while a custom path is set."
       },
       "confirmMove": "Move the administration area to {path}? Keep this tab open while Justflows verifies the new route.",
       "errors": {
@@ -3013,6 +3041,8 @@
     "mail": {
       "title": "Outgoing mail",
       "transportHint": "Sends through the server itself — the same idea as PHPMailer. Sendmail uses the host's local mailer. Switch to SMTP if this machine needs authenticated submission (Plesk mailbox, localhost:587, and so on).",
+      "platformHint": "Sends through the platform's mail server and sender address. Your sender name applies, and replies go to your reply-to address or the administration email.",
+      "platformOnlyHint": "This website sends email through the platform's mail settings. Your plan does not include your own email settings.",
       "mailerLabel": "Mailer",
       "transportSendmail": "Sendmail (local)",
       "transportSmtp": "SMTP",
@@ -3332,6 +3362,8 @@
       "adminOnlyRegenerate": "Only administrators can regenerate the library",
       "adminOnlySettings": "Only administrators can change responsive-image settings.",
       "avifQualityLabel": "AVIF quality",
+      "avifEffortLabel": "AVIF effort (1–9)",
+      "avifEffortHint": "Higher is smaller but slower: 4 takes about six times as long as 2 for files around 8% smaller.",
       "description1": "Every uploaded photo gets resized variants plus modern formats (WebP, and AVIF when enabled). Image blocks and themes emit",
       "description2": "with intrinsic",
       "description3": ", lazy loading, and a focal point set in the Media Library. SVGs are never rasterised. See",
@@ -3801,7 +3833,8 @@
       "readOnly": "Read only",
       "ceiling": "It can never do more than your own account can, and you can revoke it at any time from your account page.",
       "allow": "Allow",
-      "deny": "Deny"
+      "deny": "Deny",
+      "staffHint": "Staff on a site with a custom admin address: sign in there first, then open this link again."
     },
     "providers": {
       "keyEnding": "Key …{last4}",
@@ -3935,6 +3968,14 @@
     "sites": "Sites",
     "sitesEmpty": "No websites yet.",
     "sitesIntro": "Every website on this installation. Open one to change its address, status, and limits.",
+    "signupEmailSecurity": "Signup email security",
+    "signupBlockDisposable": "Block disposable email addresses",
+    "signupAllowListedOnly": "Only allow signup from the allow list",
+    "signupAllowList": "Allowed email addresses and domains",
+    "signupBlockList": "Blocked email addresses and domains",
+    "signupAllowListPlaceholder": "person@example.com\nexample.org",
+    "signupBlockListPlaceholder": "spammer@example.com\nunwanted.example",
+    "signupEmailPolicyHint": "Enter one email address or domain per line (or separate with commas), up to 1,000 per list. Matching ignores case. Domains include subdomains. Explicit blocks always win; allowed entries bypass disposable-email blocking. With allow listed only enabled, all other addresses are rejected. These rules apply to new public workspace signups.",
     "signupEnabled": "Let visitors create their own workspace",
     "signupHint": "Visitors use the signup page, not this screen. Enter a hostname such as example.com or localhost. A site named my-site is then reached at my-site.example.com. Choose a separate database to keep those workspaces off this installation's database.",
     "signupDatabaseHint": "Every new signup creates a workspace in this database. This installation, including the platform site, stays on its own database. The password is stored here and is not shown again.",
@@ -3944,8 +3985,8 @@
     "testConnectionOk": "Connected.",
     "testConnectionFailed": "Could not connect.",
     "signupOpen": "Open the signup page",
-    "purgeTitle": "Deleted websites",
-    "purgeHint": "A website marked deleted is removed completely after this many days: pages, users, and files. 0 turns the automatic cleanup off. You can also remove one from the list.",
+    "purgeTitle": "Workspace cleanup",
+    "purgeHint": "Suspended and deleted workspaces are permanently removed after this many days, including their sites, data and files. Suspension stops linked subscriptions. Reactivate before cleanup to keep the workspace; cancelled billing does not restart. 0 turns automatic cleanup off.",
     "purgeDays": "Days",
     "purgeNow": "Delete permanently",
     "purgeConfirm": "Permanently delete {name}? Pages, users, and files are removed. This cannot be undone.",
@@ -4044,12 +4085,13 @@
     "meterPosts": "Posts",
     "meterPages": "Pages",
     "meterMediaFiles": "Media files",
-    "meterPlugins": "Installed plugins",
+    "meterPlugins": "Active plugins",
     "meterRoles": "Custom user roles",
     "workspaceLoading": "Loading workspace…",
     "unitMegabytes": "MB",
     "featureCustomDomains": "Custom domains",
     "featureManagedDns": "DNS hosting",
+    "featureOwnMail": "Own email settings",
     "meterCustomDomains": "Connected domains"
   },
   "signup": {
@@ -4230,5 +4272,46 @@
     "measured": "Measured at",
     "limitLabel": "Total storage (local + external)",
     "measuring": "Measuring storage…"
+  },
+  "taxonomies": {
+    "heading": "Categories & Tags",
+    "subtitle": "Group content with categories, tags and your own taxonomies. A post's first category fills %category% in permalinks.",
+    "loading": "Loading taxonomies…",
+    "loadFailed": "Failed to load taxonomies",
+    "saveFailed": "Failed to save",
+    "createFailed": "Failed to create",
+    "deleteFailed": "Failed to delete",
+    "assignFailed": "Failed to save categories and tags",
+    "newTaxonomy": "+ New taxonomy",
+    "newTaxonomyHeading": "New taxonomy",
+    "nameLabel": "Name",
+    "slugLabel": "Slug",
+    "descriptionLabel": "Description",
+    "optionalPlaceholder": "Optional",
+    "taxonomyNamePlaceholder": "Genres",
+    "taxonomySlugPlaceholder": "genre",
+    "taxonomySlugHint": "Lowercase, used in archive URLs and the API.",
+    "hierarchicalLabel": "Hierarchical (terms can have parents, like categories)",
+    "contentTypesLabel": "Content types",
+    "contentTypesHint": "Entries of these types show this taxonomy in the editor.",
+    "builtinBadge": "built-in",
+    "usedBy": "Used by: {types}",
+    "usedByNone": "Not used by any content type yet",
+    "editTaxonomy": "Settings",
+    "edit": "Edit",
+    "addTerm": "Add term",
+    "addTermButton": "Add",
+    "slugAutoPlaceholder": "Generated from the name",
+    "parentLabel": "Parent",
+    "noParent": "None",
+    "noTerms": "No terms yet.",
+    "countLabel": "Entries",
+    "slugChangeHint": "Old archive URLs will redirect to the new slug.",
+    "deleteTermConfirm": "Delete “{name}”? It is removed from every entry.",
+    "deleteTaxonomyConfirm": "Delete taxonomy “{name}” with all its terms?",
+    "termNotFound": "“{name}” does not exist yet. Ask an editor to create it.",
+    "removeTerm": "Remove {name}",
+    "addOrCreate": "Add or create",
+    "addExisting": "Add existing"
   }
 }

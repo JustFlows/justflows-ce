@@ -6,6 +6,7 @@ import {
   NEVER_CACHE_CONTROL,
   contentTypePolicy,
   seedAccountPage,
+  seedAuthPages,
   BUILTIN_CONTENT_TYPES,
   ContentTypeFieldsSchema,
   isBuiltinContentTypeSlug,
@@ -129,7 +130,9 @@ export async function ensureBuiltinContentTypes(siteId?: string): Promise<void> 
     );
   }
   const { getDefaultLocale } = await import("../i18n/languages-db.js");
-  await seedAccountPage(db, sid, await getDefaultLocale(sid));
+  const locale = await getDefaultLocale(sid);
+  await seedAccountPage(db, sid, locale);
+  await seedAuthPages(db, sid, locale);
 }
 
 export async function listContentTypes(siteId?: string): Promise<ContentTypeDefinition[]> {

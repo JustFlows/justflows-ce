@@ -144,6 +144,7 @@ annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`).
 | Menus | `menus_list`, `menus_get`, `menus_upsert`, `menus_delete` |
 | Comments | `comments_list`, `comments_moderate` (one or many), `comments_edit`, `comments_reply`, `comments_delete` |
 | Content types | `content_types_create`, `content_types_update`, `content_types_delete` |
+| Taxonomies | `taxonomies_list`, `taxonomies_create`, `taxonomies_update`, `taxonomies_delete`, `terms_list`, `terms_create`, `terms_update`, `terms_delete`, `content_terms_get`, `content_terms_set` |
 | Site | `settings_get`, `settings_update`, `languages_list/create/update/delete`, `redirects_list/create/update`, `permalinks_get/update`, `plugins_list/activate/deactivate`, `themes_list/activate`, `cache_stats`, `cache_clear`, `static_export_status`, `static_export_run`, `static_export_clear`, `trash_list/restore/purge`, `analytics_summary`, `comment_rules_list/create/delete`, `spam_terms_list/create/delete`, `cookies_get/update`, `email_templates_list/update/restore/preview`, `email_design_update/restore`, `site_health`, `site_diagnostics` |
 | Design | `headers_get`, `headers_options`, `headers_update`, `template_parts_get/update` (the footer is part `footer`), `widget_areas_list/get/create/update/delete/discard_draft`, `widget_layout_update`, `content_set_header`, `templates_list/get/update/discard_draft/reset`, `themes_customize_get/update/discard_draft`, `reusable_blocks_list/save/delete`, `patterns_list/get/save/delete/export/import`, `error_pages_get/update` |
 | Users & roles | `users_list/get/create/update/delete`, `roles_list/create/update/delete`. Listed only when the key or OAuth grant turns on **users & roles tools**, even with `users:manage`. |
@@ -310,26 +311,109 @@ Migration `0036_ai_byok` (PostgreSQL, MySQL, MariaDB) adds:
 
 ## For plugin authors
 
-- **Plugin tools.** A plugin can add tools through the `mcp.tools` filter.
-  Append `McpToolDefinition` objects: `name`, `description`, `inputSchema`,
-  `capability`, optional `annotations`, and `handler(args, context)`.
-  - The host lists the tool only to sessions that hold `capability`, checks it
-    again on every call, audits non-read-only calls, and attributes revisions.
-  - The handler must do any per-resource checks itself.
-  - Names must be `snake_case`, prefixed with the plugin, and must not shadow
-    a core tool.
+Agents can use a plugin only where its author allows it. Nothing a plugin
+does is offered to agents unless the plugin opts in, route by route or tool
+by tool.
+
+- **Offer a route as a tool.** Add the `mcp` option to any `ctx.http` route.
+  The route becomes one MCP tool that runs the route's own handler, so your
+  validation, capability checks, and side effects stay in one place.
 
   ```ts
-  ctx.hooks.filter("mcp.tools", (tools) => [
-    ...tools,
-    {
-      name: "acme_seo_score",
-      description: "Score an entry for SEO and list what to fix.",
-      inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
-      capability: "content:read",
-      annotations: { readOnlyHint: true },
-      handler: async ({ id }, { siteId }) => scoreEntry(siteId, String(id)),
+  ctx.http.put("products/:id", saveProduct, {
+    mcp: {
+      name: "acme_products_save",
+      description: "Save a product's price and stock. Read it first with acme_products_get.",
+      capability: "products:update",
+      inputSchema: { type: "object", properties: { price: { type: "string" }, stock: { type: "integer" } } },
     },
-  ]);
+  });
   ```
-- **Plugin capabilities** work with keys and grants like core ones.
+
+  - Path parameters (`:id`) become required string arguments. The other
+    arguments are the query string for GET and DELETE, and the JSON body
+    otherwise.
+  - The handler gets `req.session` with `role: "api-key"` (the owner's role
+    for the admin assistant) and the capabilities the agent may use right now.
+    Keep checking `req.session.capabilities` in the handler as for any caller.
+  - The tool is listed only on sites where the plugin is active, and only to
+    sessions that hold `capability`. It disappears when the plugin is turned
+    off.
+  - GET tools are read-only. Other tools are audited. Set `annotations` to
+    say more (`destructiveHint`, `idempotentHint`).
+  - The route's `rateLimit` applies per agent. Upload routes (`binaryBody`)
+    cannot be tools. A file or binary response is not passed to the agent.
+  - Errors reach the model as their message, including
+    `{ error: { code, message } }` from `structuredErrors` routes.
+- **API-only plugin tools.** Arbitrary `mcp.tools` filter handlers are no
+  longer listed or executed. Expose a registered plugin API route with the
+  `mcp` option instead. This intentionally disables existing handler-only tools.
+- **Agents stay on their site; the host makes sure of it.** A key, grant or
+  agent session only ever acts on the site it belongs to, and plugin data is
+  stored and read per site by the host. Platform operations are refused by
+  the host when an agent or key is behind the call, whatever a plugin's code
+  does: `ctx.tenancy` (listing, creating, suspending, reactivating or deleting
+  workspaces, adding sites) and `ctx.quotas.set`. They also run only on the
+  installation's root site. The host marks MCP and assistant tool calls,
+  Manage API requests and key requests to plugin routes before any plugin
+  code runs, including hooks those calls trigger. Do not offer tools that
+  depend on these operations: they will fail for agents.
+- **Plugin capabilities** work with keys and grants like core ones: tick them
+  on a key to allow just those tools. A key with **site:admin** also holds
+  every capability plugins register, including plugins installed after the
+  key was made, as long as the key's owner still has them. Core capabilities
+  are never widened this way.
+- **Keys on plugin routes.** The same `jfk_` key authenticates your plugin's
+  HTTP routes directly (`Authorization: Bearer jfk_…`), with the management
+  API's checks and rate limit. Such requests skip CSRF and arrive with
+  `role: "api-key"`. Keys limited to content types, locales, sites, or
+  ownership are refused there, because plugin routes do not check scopes.
+
+## Security-sensitive data
+
+MCP and the admin assistant filter tool results before returning them to an
+agent or sending them to an AI provider. This includes core tools, plugin route
+tools. Arbitrary `mcp.tools` handlers are disabled. Nested credential fields, settings rows naming
+secrets, JSON-encoded results, recognizable environment-file text, private keys,
+authorization values, credential URLs, and known sensitive environment values
+are redacted. Binary and unserializable tool results fail closed. MCP
+content-type resources use the same filter; its documentation resource only
+returns an embedded API guide without reading any installation file. Assistant
+history, editor context, and editor-action text are also filtered before provider
+requests. Provider credentials are still used privately to authenticate requests.
+
+This filter supplements site isolation and capability checks. It cannot identify
+every arbitrary secret stored as ordinary prose or prevent trusted server-side
+plugins from encoding secrets or sending data over their own network connections.
+Do not expose credential stores, environment files, database dumps, or unrestricted
+file/SQL readers as plugin tools. Plugins execute in the server process and must
+be trusted. AI model instructions alone are not a security boundary.
+
+## Agent access boundary
+
+Agents operate on the authenticated site's APIs. The shared registry refuses a
+principal whose key/site does not match the request context, and rejects explicit
+foreign `siteId`, `site_id`, or `tenantId` selectors, including nested selectors.
+Core resource IDs are still checked by site-scoped API lookups. Internal dispatch
+captures and restores the already selected request database; it does not look up
+a replacement database or fall back to the installation database on the socket hop.
+Installation-wide cache, health and diagnostics tools are excluded. Delegated
+requests cannot call platform workspace APIs, even with an operator-owned key.
+
+There are no built-in filesystem browsers, shell tools, SQL execution tools or
+core source editors in this agent catalog. MCP resources accept only the embedded
+authoring/block guides and the current site's content-type schemas. `file://`
+URIs and arbitrary installation paths are rejected. API block documents and
+HTML content remain editable site data; they are not server source files.
+
+Direct filesystem and source-code access is forbidden for MCP and AI agents,
+including the installation's `themes/` and `plugins/` directories. There is no
+custom-development exception. Plugins may expose site-scoped functions through
+registered API routes, but those routes must not provide filesystem browsing,
+source-file reads or writes, shell execution, or unrestricted SQL execution.
+
+Plugin API handlers are trusted server code. The host checks site activation,
+capabilities and explicit site selectors, but cannot sandbox arbitrary Node code
+or infer whether an opaque resource ID belongs to another site in a plugin's
+custom database. Plugin handlers must enforce site ownership and the folder
+policy themselves.

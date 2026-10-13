@@ -42,8 +42,11 @@
       details.append(make("h3", site.name), make("p", site.url || "No site address", "muted"), make("span", site.status, "badge"));
       const actions = make("div", "", "site-actions");
       if (site.url && site.status === "active") {
-        for (const [suffix, label] of [["", "Visit site ↗"], ["/admin", "Open administration ↗"]]) {
-          const link = make("a", suffix ? "Site sign-in ↗" : label); link.href = site.url + (suffix ? "/login" : ""); link.target = "_blank"; link.rel = "noopener noreferrer"; actions.append(link);
+        // Administration sign-in goes through the account API, which resolves the
+        // site's own (possibly hidden) admin path for the verified owner only.
+        const adminSignIn = `${workspaceUrl()}/sites/${encodeURIComponent(site.id)}/admin-sign-in`;
+        for (const [href, label] of [[site.url, "Visit site ↗"], [adminSignIn, "Admin sign-in ↗"]]) {
+          const link = make("a", label); link.href = href; link.target = "_blank"; link.rel = "noopener noreferrer"; actions.append(link);
         }
       }
       const rename = make("button", "Rename", "secondary"); rename.type = "button";

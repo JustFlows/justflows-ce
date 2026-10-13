@@ -11,7 +11,14 @@ import { isAssignableRole, listAssignableRoles } from "../auth/assignable-roles.
 import { STORED_ROLE_ID, USER_ROLE_VALUES } from "../auth/rbac.js";
 import { getHomePageId } from "../content/home-page.js";
 import { getBlogPageId } from "../content/blog-page.js";
-import { getMailConfig, saveMailConfig, toPublicMailSettings, type MailTransport } from "../email/mail.js";
+import {
+  getMailConfig,
+  PLATFORM_MAIL_TRANSPORT,
+  saveMailConfig,
+  siteMailScope,
+  toPublicMailSettings,
+  type MailTransport,
+} from "../email/mail.js";
 import { isMailTransport } from "../email/mail-config.js";
 import { sanitizeFaviconUrl } from "../media/favicon.js";
 import { SiteUrlSchema } from "./site-url.js";
@@ -50,7 +57,7 @@ export const SettingsSchema = z.object({
   start_of_week: z.coerce.number().int().min(0).max(6).optional(),
   mail_transport: z
     .string()
-    .refine((value) => isMailTransport(value), "Invalid mail transport")
+    .refine((value) => value === PLATFORM_MAIL_TRANSPORT || isMailTransport(value), "Invalid mail transport")
     .optional(),
   mail_from_name: z.string().max(120).optional(),
   mail_from_address: z.string().email().or(z.literal("")).optional(),
@@ -136,7 +143,8 @@ export async function getSettingsPayload(opts: { isAdmin: boolean }): Promise<Re
   }
 
   const general = await getGeneralSettings();
-  const mail = toPublicMailSettings(await getMailConfig());
+  const mailScope = settingsSiteId ? await siteMailScope(settingsSiteId) : null;
+  const mail = toPublicMailSettings(await getMailConfig(), mailScope ?? undefined);
   const languages = await listLanguages();
   const siteLanguage = await getDefaultLocale();
   const siteId = await getSiteId();
@@ -189,6 +197,8 @@ export async function getSettingsPayload(opts: { isAdmin: boolean }): Promise<Re
     mail_rate_limit: mail.rateLimitPerMinute,
     mail_concurrency: mail.concurrency,
     mail_transports: mail.transports,
+    // A sub-site whose plan does not allow its own email settings sends through the platform's.
+    mail_platform_only: Boolean(mailScope && !mailScope.root && !mailScope.ownAllowed),
     favicon_url: await resolveFaviconUrl(),
     marketplace_allow_beta: extras["marketplace_allow_beta"] === true,
     home_page_id: siteId ? await getHomePageId(siteId) : null,
@@ -215,6 +225,11 @@ export async function applySettingsChange(
     )
   ) {
     return { status: 400, body: { error: "Unknown role" } };
+  }
+
+  const mailScope = await getSiteId().then((id) => (id ? siteMailScope(id) : null));
+  if (body.mail_transport === PLATFORM_MAIL_TRANSPORT && (!mailScope || mailScope.root)) {
+    return { status: 400, body: { error: "Invalid mail transport" } };
   }
 
   const db = await getDb();
@@ -282,7 +297,10 @@ export async function applySettingsChange(
 
   const mailPatch = {
     ...(body.mail_transport !== undefined
-      ? { transport: body.mail_transport as MailTransport }
+      ? {
+          // A sub-site stores platform mail as "sendmail"; it never reaches the host's sendmail.
+          transport: (body.mail_transport === PLATFORM_MAIL_TRANSPORT ? "sendmail" : body.mail_transport) as MailTransport,
+        }
       : {}),
     ...(body.mail_from_name !== undefined ? { fromName: body.mail_from_name } : {}),
     ...(body.mail_from_address !== undefined ? { fromAddress: body.mail_from_address } : {}),
@@ -298,7 +316,8 @@ export async function applySettingsChange(
     ...(body.mail_rate_limit !== undefined ? { rateLimitPerMinute: body.mail_rate_limit } : {}),
     ...(body.mail_concurrency !== undefined ? { concurrency: body.mail_concurrency } : {}),
   };
-  const mailTouched = Object.keys(mailPatch).length > 0;
+  // Without `feature.ownMail` a sub-site's mail settings are not used, so edits are ignored.
+  const mailTouched = Object.keys(mailPatch).length > 0 && (!mailScope || mailScope.root || mailScope.ownAllowed);
 
   if (!siteId && settingsToUpdate.length > 0) {
     return { status: 503, body: { error: "No site found — complete install first" } };

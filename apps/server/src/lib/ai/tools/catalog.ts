@@ -2,6 +2,7 @@
 
 import { getDb } from "../../database/db.js";
 import { listContentTypes } from "../../content/content-types-db.js";
+import { listTaxonomies } from "../../content/taxonomies-db.js";
 import { listLanguages } from "../../i18n/languages-db.js";
 import { getActiveTheme } from "../../themes/themes-db.js";
 import { getRuntimeBlockRegistry } from "../../rendering/runtime-blocks.js";
@@ -52,11 +53,12 @@ async function syncedBlockRegistry() {
 async function siteDescribe(_args: Record<string, unknown>, ctx: ToolCallContext): Promise<ToolOutcome> {
   const siteId = ctx.principal.owner.siteId;
   const db = await getDb();
-  const [sites, languages, theme, types, registry, capabilities] = await Promise.all([
+  const [sites, languages, theme, types, taxonomies, registry, capabilities] = await Promise.all([
     db.query<{ name: string; url: string }>("SELECT name, url FROM sites WHERE id = ? LIMIT 1", [siteId]),
     listLanguages(siteId),
     getActiveTheme(siteId),
     listContentTypes(siteId),
+    listTaxonomies(siteId),
     syncedBlockRegistry(),
     principalCapabilities(ctx.principal),
   ]);
@@ -78,6 +80,12 @@ async function siteDescribe(_args: Record<string, unknown>, ctx: ToolCallContext
         builtin: type.builtin,
         fields: type.fields,
       })),
+      taxonomies: taxonomies.map((taxonomy) => ({
+        slug: taxonomy.slug,
+        name: taxonomy.name,
+        hierarchical: taxonomy.hierarchical,
+        contentTypes: taxonomy.contentTypes,
+      })),
       blocks: describeBlockCatalog(registry),
       platformBlockProps: PLATFORM_PROPS,
       capabilities: [...capabilities].sort(),
@@ -87,6 +95,7 @@ async function siteDescribe(_args: Record<string, unknown>, ctx: ToolCallContext
         "The site header is a library: headers_get, then headers_update. Point a page at one with content_set_header " +
         "(an entry id, __default__, or __none__). The footer is template part \"footer\": template_parts_get and template_parts_update. " +
         "Page templates are templates_list / templates_get / templates_update. Theme colours, home and blog blocks are themes_customize_get / themes_customize_update. " +
+        "Categories and tags are taxonomy terms: terms_list / terms_create, then content_terms_set on the entry. " +
         "Read the justflows://docs/authoring resource for a worked example.",
     },
   };
@@ -791,6 +800,161 @@ export const CORE_TOOLS: AgentTool[] = [
     targetArg: "slug",
   }),
 
+  // Taxonomies and terms
+  manageTool({
+    name: "taxonomies_list",
+    title: "List taxonomies",
+    description: "Taxonomies (category, tag and custom ones) with the content types each applies to.",
+    method: "GET",
+    path: "/taxonomies",
+    annotations: READ,
+    group: "content-types",
+  }),
+  manageTool({
+    name: "taxonomies_create",
+    title: "Create a taxonomy",
+    description: "Create a custom taxonomy, e.g. genre for recipes. category and tag already exist.",
+    method: "POST",
+    path: "/taxonomies",
+    input: object(
+      {
+        slug: str("Lowercase slug, e.g. genre.", { pattern: "^[a-z][a-z0-9-]{0,59}$" }),
+        name: str("Display name, e.g. Genres."),
+        description: str("What the taxonomy is for."),
+        hierarchical: bool("Terms can have parent terms, like categories."),
+        contentTypes: { type: "array", items: { type: "string" }, description: "Content type slugs that use this taxonomy." },
+      },
+      ["slug", "name"],
+    ),
+    annotations: WRITE,
+    group: "content-types",
+    targetArg: "slug",
+  }),
+  manageTool({
+    name: "taxonomies_update",
+    title: "Update a taxonomy",
+    description: "Change a taxonomy's name, description or the content types it applies to (send the complete list).",
+    method: "PATCH",
+    path: "/taxonomies/{slug}",
+    input: object(
+      {
+        slug: str("Taxonomy slug."),
+        name: str("Display name."),
+        description: str("Description."),
+        contentTypes: { type: "array", items: { type: "string" }, description: "Complete list of content type slugs." },
+      },
+      ["slug"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "content-types",
+    targetArg: "slug",
+  }),
+  manageTool({
+    name: "taxonomies_delete",
+    title: "Delete a taxonomy",
+    description: "Delete a custom taxonomy with all its terms and assignments. category and tag cannot be deleted.",
+    method: "DELETE",
+    path: "/taxonomies/{slug}",
+    input: object({ slug: str("Taxonomy slug.") }, ["slug"]),
+    annotations: DESTRUCTIVE,
+    group: "content-types",
+    targetArg: "slug",
+  }),
+  manageTool({
+    name: "terms_list",
+    title: "List terms",
+    description: "A taxonomy's terms (e.g. all categories) with id, slug, parentId and entry count.",
+    method: "GET",
+    path: "/taxonomies/{slug}/terms",
+    input: object({ slug: str("Taxonomy slug, e.g. category or tag."), ...PAGINATION }, ["slug"]),
+    annotations: READ,
+    group: "content",
+    targetArg: "slug",
+  }),
+  manageTool({
+    name: "terms_create",
+    title: "Create a term",
+    description: "Add a term to a taxonomy, e.g. a category. The slug is derived from the name when omitted.",
+    method: "POST",
+    path: "/taxonomies/{slug}/terms",
+    input: object(
+      {
+        slug: str("Taxonomy slug, e.g. category."),
+        name: str("Term name, e.g. News."),
+        description: str("Term description."),
+        parentId: str("Parent term id (hierarchical taxonomies only)."),
+      },
+      ["slug", "name"],
+    ),
+    annotations: WRITE,
+    group: "content",
+    targetArg: "slug",
+  }),
+  manageTool({
+    name: "terms_update",
+    title: "Update a term",
+    description: "Rename a term, change its URL slug (old archive URLs redirect) or move it under another parent.",
+    method: "PATCH",
+    path: "/taxonomies/{slug}/terms/{id}",
+    input: object(
+      {
+        slug: str("Taxonomy slug."),
+        id: str("Term id."),
+        name: str("Term name."),
+        description: str("Term description."),
+        parentId: { type: ["string", "null"], description: "Parent term id, or null for top level." },
+      },
+      ["slug", "id"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "content",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "terms_delete",
+    title: "Delete a term",
+    description: "Delete a term and remove it from every entry. Child terms move up a level.",
+    method: "DELETE",
+    path: "/taxonomies/{slug}/terms/{id}",
+    input: object({ slug: str("Taxonomy slug."), id: str("Term id.") }, ["slug", "id"]),
+    annotations: DESTRUCTIVE,
+    group: "content",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "content_terms_get",
+    title: "Get an entry's terms",
+    description: "The categories, tags and other terms assigned to a content entry.",
+    method: "GET",
+    path: "/content/{id}/terms",
+    input: object({ id: str("Content entry id.") }, ["id"]),
+    annotations: READ,
+    group: "content",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "content_terms_set",
+    title: "Set an entry's terms",
+    description:
+      'Replace an entry\'s terms per taxonomy, e.g. { "category": ["<term id>"], "tag": [] }. Taxonomies left out keep their terms. Applies immediately, also to published entries.',
+    method: "PUT",
+    path: "/content/{id}/terms",
+    input: object(
+      {
+        id: str("Content entry id."),
+        terms: {
+          type: "object",
+          description: "Taxonomy slug → complete list of term ids from terms_list.",
+          additionalProperties: { type: "array", items: { type: "string" } },
+        },
+      },
+      ["id", "terms"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "content",
+    targetArg: "id",
+  }),
+
   // Site configuration
   manageTool({
     name: "settings_get",
@@ -966,24 +1130,6 @@ export const CORE_TOOLS: AgentTool[] = [
     targetArg: "id",
   }),
   manageTool({
-    name: "cache_stats",
-    title: "Cache statistics",
-    description: "Object cache and page store statistics.",
-    method: "GET",
-    path: "/cache/stats",
-    annotations: READ,
-    group: "site",
-  }),
-  manageTool({
-    name: "cache_clear",
-    title: "Clear the cache",
-    description: "Clear the object cache and the stored pages.",
-    method: "POST",
-    path: "/cache/clear",
-    annotations: IDEMPOTENT_WRITE,
-    group: "site",
-  }),
-  manageTool({
     name: "static_export_status",
     title: "Static export status",
     description: "Whether a static export exists and when it last ran.",
@@ -1010,24 +1156,6 @@ export const CORE_TOOLS: AgentTool[] = [
     path: "/static-export/clear",
     input: object({ force: bool("Delete even when an export is still marked in progress.") }),
     annotations: DESTRUCTIVE,
-    group: "site",
-  }),
-  manageTool({
-    name: "site_health",
-    title: "Health checks",
-    description: "Run the platform health checks.",
-    method: "GET",
-    path: "/health",
-    annotations: READ,
-    group: "site",
-  }),
-  manageTool({
-    name: "site_diagnostics",
-    title: "Diagnostics",
-    description: "Version, migrations and runtime diagnostics.",
-    method: "GET",
-    path: "/diagnostics",
-    annotations: READ,
     group: "site",
   }),
 
@@ -1884,6 +2012,10 @@ export const CORE_TOOLS: AgentTool[] = [
  * new route cannot silently go missing from MCP.
  */
 export const EXCLUDED_OPERATIONS: Record<string, string> = {
+  "GET /cache/stats": "Installation-wide cache data is not site-isolated.",
+  "POST /cache/clear": "Installation-wide cache changes affect other sites.",
+  "GET /health": "Installation health can expose infrastructure and driver errors.",
+  "GET /diagnostics": "Installation diagnostics are not site-scoped.",
   "GET /openapi.json": "Describes the HTTP API itself; tools/list is the MCP equivalent.",
   "GET /events": "Webhook event catalog; agents act through tools, not webhooks.",
   "GET /webhooks": "Webhook endpoints are owned by a stored API key, not by an agent session.",

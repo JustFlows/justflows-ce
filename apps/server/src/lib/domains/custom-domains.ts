@@ -2,6 +2,7 @@
 
 import { randomBytes, randomUUID } from "node:crypto";
 import { getControlDb } from "../database/db.js";
+import { registerCoreJob } from "../jobs/core-jobs.js";
 import { borrowSeparateDatabase, separateDatabaseForSite } from "../tenancy/connections.js";
 import type { DatabaseChoice, DatabaseMode } from "../tenancy/context.js";
 import {
@@ -762,20 +763,14 @@ export async function removeCustomDomain(
 /** Workspace removal: release every custom domain of these sites at the provider. */
 export async function releaseSitesAtProvider(siteIds: readonly string[]): Promise<void> {
   if (siteIds.length === 0) return;
-  try {
-    const db = await getControlDb();
-    const rows = await db.query<DomainRow>(
-      `SELECT ${COLUMNS} FROM site_domains WHERE kind = 'custom' AND site_id IN (${siteIds.map(() => "?").join(", ")})`,
-      [...siteIds],
-    );
-    if (rows.length === 0) return;
-    await releaseAtProvider(rows, await domainProviderFor(await readDomainSettings()));
-  } catch (err) {
-    console.error(
-      "[justflows] could not release custom domains:",
-      JSON.stringify(err instanceof Error ? err.message.replace(/[\r\n]/g, " ") : "failed"),
-    );
-  }
+  const db = await getControlDb();
+  const rows = await db.query<DomainRow>(
+    `SELECT ${COLUMNS} FROM site_domains WHERE kind = 'custom' AND site_id IN (${siteIds.map(() => "?").join(", ")})`,
+    [...siteIds],
+  );
+  if (rows.length === 0) return;
+  const failure = await releaseAtProvider(rows, await domainProviderFor(await readDomainSettings()));
+  if (failure) throw new Error("Custom domains could not be released; workspace removal will be retried.");
 }
 
 function urlFor(hostname: string, currentUrl: string, custom: boolean): string {
@@ -1030,7 +1025,7 @@ export async function runDomainChecks(resolver: DnsResolver = systemResolver()):
   const settings = await readDomainSettings();
   const db = await getControlDb();
   const rows = await db.query<DomainRow>(
-    `SELECT ${COLUMNS} FROM site_domains WHERE kind = 'custom' AND parent_id IS NULL AND connect_mode IS NOT NULL`,
+    `SELECT ${COLUMNS} FROM site_domains WHERE kind = 'custom' AND parent_id IS NULL AND connect_mode IS NOT NULL AND site_id IN (SELECT s.id FROM sites s JOIN tenants t ON t.id = s.tenant_id WHERE s.status = 'active' AND t.status = 'active')`,
   );
   if (rows.length === 0) return;
   const provider = await domainProviderFor(settings);
@@ -1061,21 +1056,18 @@ export async function runDomainChecks(resolver: DnsResolver = systemResolver()):
   }
 }
 
-let timer: ReturnType<typeof setInterval> | null = null;
-let running = false;
-
 export function startDomainCheckJob(): void {
-  if (timer) return;
-  const tick = () => {
-    if (running) return;
-    running = true;
-    void runDomainChecks().finally(() => {
-      running = false;
-    });
-  };
-  timer = setInterval(tick, 5 * 60 * 1000);
-  timer.unref?.();
-  setTimeout(tick, 30_000).unref?.();
+  registerCoreJob(
+    {
+      name: "domains.check",
+      schedule: "*/5 * * * *",
+      handler: async () => {
+        await runDomainChecks();
+        return { success: true };
+      },
+    },
+    { runAfterMs: 30_000 },
+  );
 }
 
 /** Reverse proxy question: may a certificate be issued for this hostname? */
@@ -1084,7 +1076,7 @@ export async function tlsAllowed(hostname: string): Promise<boolean> {
   if (!host || !isValidHostname(host)) return false;
   const db = await getControlDb();
   const rows = await db.query<{ status: string; verified: unknown; kind: string }>(
-    "SELECT status, verified, kind FROM site_domains WHERE hostname = ? LIMIT 1",
+    "SELECT d.status, d.verified, d.kind FROM site_domains d JOIN sites s ON s.id = d.site_id JOIN tenants t ON t.id = s.tenant_id WHERE d.hostname = ? AND s.status = 'active' AND t.status = 'active' LIMIT 1",
     [host],
   );
   const row = rows[0];

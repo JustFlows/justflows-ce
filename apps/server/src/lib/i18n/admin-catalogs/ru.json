@@ -75,7 +75,8 @@
     "defaults": "По умолчанию",
     "siteDomains": "Домены",
     "customDomains": "Свои домены",
-    "storage": "Хранилище"
+    "storage": "Хранилище",
+    "taxonomies": "Категории и метки"
   },
   "webhooks": {
     "title": "Вебхуки",
@@ -2261,6 +2262,7 @@
     "editAriaLabel": "Правка {filename}",
     "responsiveBadge": "Ответные",
     "originalOnlyBadge": "Только оригинал",
+    "optimizingBadge": "Оптимизация…",
     "editButton": "Редактировать",
     "trashButton": "Корзина",
     "saveFailed": "Невозможно сохранить",
@@ -2319,18 +2321,42 @@
     "jobs": {
       "retryFailed": "Не удалось повторить работу",
       "title": "График работы",
-      "hint": "Работы, принадлежащие водопроводу; полезная нагрузка никогда не показана.",
+      "hint": "Фоновые задачи ядра и плагинов; данные задач никогда не показываются.",
       "running": "Работает",
       "stopped": "Остановлено",
-      "noJobs": "Никаких рабочих мест не зарегистрировано.",
+      "noJobs": "Задачи не зарегистрированы.",
       "colJob": "Задание",
+      "colOwner": "Источник",
       "colStatus": "Статус",
       "colSchedule": "График",
       "colAttempts": "Попытки",
       "colLastResult": "Последний результат",
       "onDemand": "По требованию",
       "completed": "Завершено",
-      "retry": "Повторить"
+      "failedRun": "Ошибка",
+      "retry": "Повторить",
+      "owner": {
+        "core": "Ядро",
+        "plugin": "Плагин"
+      }
+    },
+    "queue": {
+      "title": "Очередь задач",
+      "hint": "Сохранённые запуски задач плагинов во всей установке. Они переживают перезапуск; неудачные хранятся здесь 30 дней. Данные задач никогда не показываются.",
+      "counts": "{queued} в очереди · {running} выполняется · {failed} с ошибкой",
+      "unavailable": "Не настроена",
+      "unavailableHint": "Выполните миграции базы данных, чтобы сохранять задачи. До тех пор они работают в памяти и теряются при перезапуске.",
+      "empty": "Нет задач в ожидании, в работе или с ошибкой.",
+      "colSite": "Сайт",
+      "colRunAt": "Запуск",
+      "colError": "Последняя ошибка",
+      "allSites": "Все сайты",
+      "status": {
+        "queued": "В очереди",
+        "running": "Выполняется",
+        "done": "Готово",
+        "failed": "Ошибка"
+      }
     },
     "overview": {
       "issuesFound": "Диагностика выявила вопросы, подлежащие рассмотрению",
@@ -2717,7 +2743,9 @@
         "pathHelpPrefix": "Начнем с",
         "pathHelpSuffix": "и используйте буквы, числа, дефены, пики или гнезданные пути.",
         "pathLabel": "Путь",
-        "title": "Административный адрес"
+        "title": "Административный адрес",
+        "signIn": "Вход для сотрудников:",
+        "signInHint": "Сотрудники входят по этому адресу. Публичная страница входа предназначена для участников сайта и не принимает учётные записи сотрудников, пока задан собственный путь."
       },
       "confirmMove": "Перенести панель администрирования на {path}? Не закрывайте эту вкладку, пока Justflows проверяет новый маршрут.",
       "errors": {
@@ -3013,6 +3041,8 @@
     "mail": {
       "title": "Отправка исходящей почты",
       "transportHint": "Посылает через сам сервер — ту же идею, что и PHP Mayler. Sendmail использует местный почтовый ящик. Переключиться на SMTP, если этот механизм нуждается в подтверждении (Plesk почтовый ящик, локальный хост:587, и т.д.).",
+      "platformHint": "Отправляет через почтовый сервер и адрес отправителя платформы. Используется ваше имя отправителя, а ответы приходят на ваш адрес для ответа или email администратора.",
+      "platformOnlyHint": "Этот сайт отправляет почту через почтовые настройки платформы. Ваш тариф не включает собственные настройки почты.",
       "mailerLabel": "Мейлер",
       "transportSendmail": "Почта (местная)",
       "transportSmtp": "SMTP",
@@ -3332,6 +3362,8 @@
       "adminOnlyRegenerate": "Только администраторы могут восстановить библиотеку",
       "adminOnlySettings": "Только администраторы могут изменить настройки реагирующего образа.",
       "avifQualityLabel": "Качество AVIF",
+      "avifEffortLabel": "Усилие AVIF (1–9)",
+      "avifEffortHint": "Чем выше, тем меньше файлы, но медленнее: 4 работает примерно в шесть раз дольше, чем 2, а файлы меньше примерно на 8%.",
       "description1": "Каждая загруженная фотография получает новые версии плюс современные форматы (WebP, и AVIF при включении).",
       "description2": "с имманентными свойствами",
       "description3": ", ленивая погрузка и координатор, установленный в Медиа-Библиотеке. SVG никогда не подвергаются рестеризации.",
@@ -3801,7 +3833,8 @@
       "readOnly": "Только чтение",
       "ceiling": "Оно никогда не сможет больше, чем ваша собственная учётная запись, а доступ можно отозвать в любой момент на странице учётной записи.",
       "allow": "Разрешить",
-      "deny": "Отказать"
+      "deny": "Отказать",
+      "staffHint": "Если вы сотрудник сайта с собственным адресом панели управления, сначала войдите там, а затем снова откройте эту ссылку."
     },
     "providers": {
       "keyEnding": "Ключ …{last4}",
@@ -3935,6 +3968,14 @@
     "sites": "Сайты",
     "sitesEmpty": "Сайтов пока нет.",
     "sitesIntro": "Каждый сайт этой установки. Откройте его, чтобы изменить адрес, статус и лимиты.",
+    "signupEmailSecurity": "Безопасность электронной почты при регистрации",
+    "signupBlockDisposable": "Блокировать временные адреса электронной почты",
+    "signupAllowListedOnly": "Разрешать регистрацию только из списка разрешённых",
+    "signupAllowList": "Разрешённые адреса электронной почты и домены",
+    "signupBlockList": "Заблокированные адреса электронной почты и домены",
+    "signupAllowListPlaceholder": "person@example.com\nexample.org",
+    "signupBlockListPlaceholder": "spammer@example.com\nunwanted.example",
+    "signupEmailPolicyHint": "Один адрес или домен на строку либо через запятую; до 1000 в списке. Регистр не учитывается. Домены включают поддомены. Блокировки имеют приоритет; разрешённые записи обходят блокировку временной почты. Режим только разрешённых отклоняет остальные адреса. Правила действуют для новых публичных регистраций рабочих пространств.",
     "signupEnabled": "Разрешить посетителям создавать собственное рабочее пространство",
     "signupHint": "Посетители используют страницу регистрации, а не этот экран. Введите имя хоста, например example.com или localhost. Сайт с именем my-site тогда будет доступен по адресу my-site.example.com. Эти сайты используют базу данных этой установки. Отдельная база данных доступна только при создании рабочего пространства здесь с указанием подключения.",
     "signupDatabaseHint": "Every new signup creates a workspace in this database. This installation, including the platform site, stays on its own database. The password is stored here and is not shown again.",
@@ -3944,8 +3985,8 @@
     "testConnectionOk": "Connected.",
     "testConnectionFailed": "Could not connect.",
     "signupOpen": "Открыть страницу регистрации",
-    "purgeTitle": "Deleted websites",
-    "purgeHint": "A website marked deleted is removed completely after this many days: pages, users, and files. 0 turns the automatic cleanup off. You can also remove one from the list.",
+    "purgeTitle": "Workspace cleanup",
+    "purgeHint": "Suspended and deleted workspaces are permanently removed after this many days, including their sites, data and files. Suspension stops linked subscriptions. Reactivate before cleanup to keep the workspace; cancelled billing does not restart. 0 turns automatic cleanup off.",
     "purgeDays": "Days",
     "purgeNow": "Delete permanently",
     "purgeConfirm": "Permanently delete {name}? Pages, users, and files are removed. This cannot be undone.",
@@ -4044,12 +4085,13 @@
     "meterPosts": "Записи",
     "meterPages": "Страницы",
     "meterMediaFiles": "Медиафайлы",
-    "meterPlugins": "Установленные плагины",
+    "meterPlugins": "Активные плагины",
     "meterRoles": "Свои роли",
     "workspaceLoading": "Загрузка рабочего пространства…",
     "unitMegabytes": "МБ",
     "featureCustomDomains": "Свои домены",
     "featureManagedDns": "DNS-хостинг",
+    "featureOwnMail": "Собственные настройки почты",
     "meterCustomDomains": "Подключённые домены"
   },
   "signup": {
@@ -4230,5 +4272,46 @@
     "measured": "Measured at",
     "limitLabel": "Total storage (local + external)",
     "measuring": "Measuring storage…"
+  },
+  "taxonomies": {
+    "heading": "Категории и метки",
+    "subtitle": "Группируйте контент с помощью категорий, меток и собственных таксономий. Первая категория записи подставляется в %category% в постоянных ссылках.",
+    "loading": "Загрузка таксономий…",
+    "loadFailed": "Не удалось загрузить таксономии",
+    "saveFailed": "Не удалось сохранить",
+    "createFailed": "Не удалось создать",
+    "deleteFailed": "Не удалось удалить",
+    "assignFailed": "Не удалось сохранить категории и метки",
+    "newTaxonomy": "+ Новая таксономия",
+    "newTaxonomyHeading": "Новая таксономия",
+    "nameLabel": "Название",
+    "slugLabel": "Slug",
+    "descriptionLabel": "Описание",
+    "optionalPlaceholder": "Необязательно",
+    "taxonomyNamePlaceholder": "Жанры",
+    "taxonomySlugPlaceholder": "genre",
+    "taxonomySlugHint": "Строчными буквами; используется в URL архивов и в API.",
+    "hierarchicalLabel": "Иерархическая (у терминов может быть родитель, как у категорий)",
+    "contentTypesLabel": "Типы контента",
+    "contentTypesHint": "Записи этих типов показывают эту таксономию в редакторе.",
+    "builtinBadge": "встроенная",
+    "usedBy": "Используют: {types}",
+    "usedByNone": "Пока не используется ни одним типом контента",
+    "editTaxonomy": "Настройки",
+    "edit": "Изменить",
+    "addTerm": "Добавить термин",
+    "addTermButton": "Добавить",
+    "slugAutoPlaceholder": "Создаётся из названия",
+    "parentLabel": "Родитель",
+    "noParent": "Нет",
+    "noTerms": "Терминов пока нет.",
+    "countLabel": "Записи",
+    "slugChangeHint": "Старые URL архивов будут перенаправлять на новый slug.",
+    "deleteTermConfirm": "Удалить «{name}»? Термин будет убран из всех записей.",
+    "deleteTaxonomyConfirm": "Удалить таксономию «{name}» со всеми её терминами?",
+    "termNotFound": "«{name}» ещё не существует. Попросите редактора создать его.",
+    "removeTerm": "Убрать {name}",
+    "addOrCreate": "Добавить или создать",
+    "addExisting": "Добавить существующий"
   }
 }

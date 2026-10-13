@@ -119,6 +119,11 @@ vi.mock("../../../../src/lib/email/mail.js", () => ({
   sendTemplateMail: async () => ({ ok: true }),
   notifyAdmin: async () => ({ ok: true }),
 }));
+const siteState = vi.hoisted(() => ({ closed: false }));
+vi.mock("../../../../src/lib/settings/site-visibility.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../../src/lib/settings/site-visibility.js")>()),
+  isSiteClosed: async () => siteState.closed,
+}));
 vi.mock("../../../../src/lib/plugins/plugin-runtime.js", () => ({
   getRuntimeHooks: () => ({ dispatchAction: async () => {}, has: () => false }),
   ensurePluginRuntime: async () => {},
@@ -230,7 +235,8 @@ beforeEach(async () => {
 
 async function signIn(email: string, jar: Jar) {
   await get("/api/auth/csrf", jar);
-  return post("/api/auth/login", { email, password: PASSWORD }, jar);
+  // Staff sign in through the admin sign-in page, which names the admin path.
+  return post("/api/auth/login", { email, password: PASSWORD, adminPath: "/admin" }, jar);
 }
 
 describe("GET /api/auth/me", () => {

@@ -60,7 +60,7 @@ export async function createContentPermalinkResolver(
   for (const [locale, home] of options.homes ?? []) homes.set(locale, Promise.resolve(home));
   return async (content) => {
     if (content.siteId !== siteId) throw new Error("Permalink resolver belongs to another site");
-    if (contentTypePolicy(content.type).requiresAuthentication) return permalinkPath(content, state.settings, defaultLocale, state.layoutScopes);
+    if (!contentTypePolicy(content.type).publiclyDiscoverable) return permalinkPath(content, state.settings, defaultLocale, state.layoutScopes);
     let home = homes.get(content.locale);
     if (!home) {
       home = getHomeContent(siteId, content.locale, false);
@@ -339,6 +339,58 @@ export async function uniquePermalinkSlug(content: ContentResponse): Promise<str
   throw new PermalinkConflictError(
     "Cannot allocate a unique public URL. Change the permalink structure.",
   );
+}
+
+/**
+ * Run a taxonomy or term-assignment change and keep every public URL it moves
+ * redirecting: published content under `%category%` and term archives.
+ */
+export async function withTermPermalinkHistory<T>(siteId: string, mutate: () => Promise<T>): Promise<T> {
+  const state = await getPermalinkState(siteId);
+  const [defaultLocale, locales] = await Promise.all([getDefaultLocale(siteId), getActiveLocaleCodes()]);
+  const tracksContent = state.settings.structure.includes("%category%");
+  const published = tracksContent
+    ? (await permalinkContent(siteId, false)).filter((item) => item.status === "published")
+    : [];
+  const contentPaths = async (): Promise<Map<string, string>> => {
+    if (!tracksContent) return new Map();
+    const resolve = await createContentPermalinkResolver(siteId, { state, defaultLocale });
+    const paths = new Map<string, string>();
+    for (const item of published) paths.set(item.id, await resolve(item));
+    return paths;
+  };
+  const archivePaths = async (): Promise<Map<string, string>> => {
+    const paths = new Map<string, string>();
+    for (const term of await listPermalinkTerms(siteId))
+      for (const locale of locales)
+        paths.set(`${locale}:${term.id}`, taxonomyPermalink(term, locale, state.settings, defaultLocale));
+    return paths;
+  };
+  const [contentBefore, archivesBefore] = await Promise.all([contentPaths(), archivePaths()]);
+  const result = await mutate();
+  const [contentAfter, archivesAfter] = await Promise.all([contentPaths(), archivePaths()]);
+
+  const raw = (await getSiteSetting<Partial<PermalinkState>>(siteId, "permalinks")) ?? {};
+  const redirects = { ...(raw.redirects ?? {}) };
+  const archiveRedirects = { ...(raw.archiveRedirects ?? {}) };
+  let changed = false;
+  for (const [id, before] of contentBefore) {
+    const after = contentAfter.get(id);
+    if (!after || after === before) continue;
+    redirects[before] = id;
+    delete redirects[after];
+    changed = true;
+  }
+  for (const [identity, before] of archivesBefore) {
+    const after = archivesAfter.get(identity);
+    if (!after || after === before) continue;
+    archiveRedirects[before] = identity;
+    delete archiveRedirects[after];
+    changed = true;
+  }
+  if (changed) await setSiteSetting(siteId, "permalinks", { ...raw, redirects, archiveRedirects });
+  await Promise.all(["page:", "content:", "menus:", "site:"].map((prefix) => getJfCache().invalidate(prefix)));
+  return result;
 }
 
 export async function rememberContentPermalink(

@@ -75,7 +75,8 @@
     "defaults": "Типові",
     "siteDomains": "Домени",
     "customDomains": "Власні домени",
-    "storage": "Сховище"
+    "storage": "Сховище",
+    "taxonomies": "Категорії та теги"
   },
   "webhooks": {
     "title": "Веб-хуки",
@@ -2261,6 +2262,7 @@
     "editAriaLabel": "Редагувати {filename}",
     "responsiveBadge": "Чуйний",
     "originalOnlyBadge": "Тільки оригінал",
+    "optimizingBadge": "Оптимізація…",
     "editButton": "Редагувати",
     "trashButton": "Кошик",
     "saveFailed": "Не вдалося зберегти",
@@ -2319,18 +2321,42 @@
     "jobs": {
       "retryFailed": "Повторна спроба завдання не вдалася",
       "title": "Планувальник завдань",
-      "hint": "Робота над плагіном; корисні навантаження ніколи не відображаються.",
+      "hint": "Фонові завдання ядра та плагінів; дані завдань ніколи не показуються.",
       "running": "Біг",
       "stopped": "Зупинився",
-      "noJobs": "Не зареєстровано жодних завдань плагіна.",
+      "noJobs": "Жодних завдань не зареєстровано.",
       "colJob": "Робота",
+      "colOwner": "Джерело",
       "colStatus": "Статус",
       "colSchedule": "розклад",
       "colAttempts": "Спроби",
       "colLastResult": "Останній результат",
       "onDemand": "На вимогу",
       "completed": "Виконано",
-      "retry": "Повторіть спробу"
+      "failedRun": "Помилка",
+      "retry": "Повторіть спробу",
+      "owner": {
+        "core": "Ядро",
+        "plugin": "Плагін"
+      }
+    },
+    "queue": {
+      "title": "Черга завдань",
+      "hint": "Збережені запуски завдань плагінів у всій установці. Вони переживають перезапуск; невдалі зберігаються тут 30 днів. Дані завдань ніколи не показуються.",
+      "counts": "{queued} у черзі · {running} виконується · {failed} з помилкою",
+      "unavailable": "Не налаштована",
+      "unavailableHint": "Виконайте міграції бази даних, щоб зберігати завдання. Доти вони працюють у пам’яті й втрачаються під час перезапуску.",
+      "empty": "Немає завдань в очікуванні, у роботі чи з помилкою.",
+      "colSite": "Сайт",
+      "colRunAt": "Запуск",
+      "colError": "Остання помилка",
+      "allSites": "Усі сайти",
+      "status": {
+        "queued": "У черзі",
+        "running": "Виконується",
+        "done": "Готово",
+        "failed": "Помилка"
+      }
     },
     "overview": {
       "issuesFound": "Діагностика знайшла елементи для перегляду",
@@ -2717,7 +2743,9 @@
         "pathHelpPrefix": "Почніть з",
         "pathHelpSuffix": "і використовуйте літери, цифри, дефіси, підкреслення або вкладені шляхи. Не додавайте косу риску в кінці.",
         "pathLabel": "шлях",
-        "title": "Адреса адміністратора"
+        "title": "Адреса адміністратора",
+        "signIn": "Вхід для працівників:",
+        "signInHint": "Працівники входять за цією адресою. Публічна сторінка входу призначена для учасників сайту й не приймає облікові записи працівників, поки задано власний шлях."
       },
       "confirmMove": "Перемістити адміністративну область до {path}? Тримайте цю вкладку відкритою, поки Justflows перевіряє новий маршрут.",
       "errors": {
@@ -3013,6 +3041,8 @@
     "mail": {
       "title": "Вихідна пошта",
       "transportHint": "Надсилає через сам сервер — та сама ідея, що й PHPMailer. Sendmail використовує локальну поштову програму хоста. Перейдіть на SMTP, якщо ця машина потребує автентифікованого надсилання (поштова скринька Plesk, localhost:587 тощо).",
+      "platformHint": "Надсилає через поштовий сервер і адресу відправника платформи. Діє ваше ім'я відправника, а відповіді надходять на вашу адресу для відповіді або email адміністратора.",
+      "platformOnlyHint": "Цей сайт надсилає пошту через поштові налаштування платформи. Ваш тариф не містить власних налаштувань пошти.",
       "mailerLabel": "Розсилка",
       "transportSendmail": "Sendmail (локальний)",
       "transportSmtp": "SMTP",
@@ -3332,6 +3362,8 @@
       "adminOnlyRegenerate": "Відновити бібліотеку можуть лише адміністратори",
       "adminOnlySettings": "Лише адміністратори можуть змінювати параметри адаптивного зображення.",
       "avifQualityLabel": "Якість AVIF",
+      "avifEffortLabel": "Зусилля AVIF (1–9)",
+      "avifEffortHint": "Що вище, то менші файли, але повільніше: 4 працює приблизно вшестеро довше, ніж 2, а файли менші приблизно на 8%.",
       "description1": "Every uploaded photo gets resized variants plus modern formats (WebP, and AVIF when enabled). Випромінюють блоки зображень і теми",
       "description2": "з внутрішнім",
       "description3": ", відкладене завантаження та фокусну точку, встановлену в медіатеці. SVG ніколи не растеризуються. див",
@@ -3801,7 +3833,8 @@
       "readOnly": "Лише читання",
       "ceiling": "Він ніколи не зможе більше, ніж ваш власний обліковий запис, а доступ можна будь-коли відкликати на сторінці облікового запису.",
       "allow": "Дозволити",
-      "deny": "Відмовити"
+      "deny": "Відмовити",
+      "staffHint": "Якщо ви працівник сайту з власною адресою панелі керування, спершу увійдіть там, а потім знову відкрийте це посилання."
     },
     "providers": {
       "keyEnding": "Ключ …{last4}",
@@ -3935,6 +3968,14 @@
     "sites": "Сайти",
     "sitesEmpty": "Сайтів ще немає.",
     "sitesIntro": "Кожен сайт цієї інсталяції. Відкрийте його, щоб змінити адресу, статус і ліміти.",
+    "signupEmailSecurity": "Безпека електронної пошти під час реєстрації",
+    "signupBlockDisposable": "Блокувати тимчасові адреси електронної пошти",
+    "signupAllowListedOnly": "Дозволяти реєстрацію лише зі списку дозволених",
+    "signupAllowList": "Дозволені адреси електронної пошти та домени",
+    "signupBlockList": "Заблоковані адреси електронної пошти та домени",
+    "signupAllowListPlaceholder": "person@example.com\nexample.org",
+    "signupBlockListPlaceholder": "spammer@example.com\nunwanted.example",
+    "signupEmailPolicyHint": "Одна адреса або домен на рядок чи через кому; до 1000 у списку. Регістр не враховується. Домени включають піддомени. Блокування має пріоритет; дозволені записи обходять блокування тимчасової пошти. Режим лише дозволених відхиляє інші адреси. Правила діють для нових публічних реєстрацій робочих просторів.",
     "signupEnabled": "Дозволити відвідувачам створювати власний робочий простір",
     "signupHint": "Відвідувачі користуються сторінкою реєстрації, а не цим екраном. Введіть ім’я хоста, наприклад example.com або localhost. Сайт з назвою my-site тоді буде доступний за адресою my-site.example.com. Ці сайти використовують базу даних цієї інсталяції. Окрема база даних доступна лише тоді, коли ви створюєте робочий простір тут і вказуєте підключення.",
     "signupDatabaseHint": "Every new signup creates a workspace in this database. This installation, including the platform site, stays on its own database. The password is stored here and is not shown again.",
@@ -3944,8 +3985,8 @@
     "testConnectionOk": "Connected.",
     "testConnectionFailed": "Could not connect.",
     "signupOpen": "Відкрити сторінку реєстрації",
-    "purgeTitle": "Deleted websites",
-    "purgeHint": "A website marked deleted is removed completely after this many days: pages, users, and files. 0 turns the automatic cleanup off. You can also remove one from the list.",
+    "purgeTitle": "Workspace cleanup",
+    "purgeHint": "Suspended and deleted workspaces are permanently removed after this many days, including their sites, data and files. Suspension stops linked subscriptions. Reactivate before cleanup to keep the workspace; cancelled billing does not restart. 0 turns automatic cleanup off.",
     "purgeDays": "Days",
     "purgeNow": "Delete permanently",
     "purgeConfirm": "Permanently delete {name}? Pages, users, and files are removed. This cannot be undone.",
@@ -4044,12 +4085,13 @@
     "meterPosts": "Записи",
     "meterPages": "Сторінки",
     "meterMediaFiles": "Медіафайли",
-    "meterPlugins": "Встановлені плагіни",
+    "meterPlugins": "Активні плагіни",
     "meterRoles": "Власні ролі",
     "workspaceLoading": "Завантаження робочого простору…",
     "unitMegabytes": "МБ",
     "featureCustomDomains": "Власні домени",
     "featureManagedDns": "DNS-хостинг",
+    "featureOwnMail": "Власні налаштування пошти",
     "meterCustomDomains": "Підключені домени"
   },
   "signup": {
@@ -4230,5 +4272,46 @@
     "measured": "Measured at",
     "limitLabel": "Total storage (local + external)",
     "measuring": "Measuring storage…"
+  },
+  "taxonomies": {
+    "heading": "Категорії та теги",
+    "subtitle": "Групуйте вміст за допомогою категорій, тегів і власних таксономій. Перша категорія запису підставляється в %category% у постійних посиланнях.",
+    "loading": "Завантаження таксономій…",
+    "loadFailed": "Не вдалося завантажити таксономії",
+    "saveFailed": "Не вдалося зберегти",
+    "createFailed": "Не вдалося створити",
+    "deleteFailed": "Не вдалося видалити",
+    "assignFailed": "Не вдалося зберегти категорії та теги",
+    "newTaxonomy": "+ Нова таксономія",
+    "newTaxonomyHeading": "Нова таксономія",
+    "nameLabel": "Назва",
+    "slugLabel": "Slug",
+    "descriptionLabel": "Опис",
+    "optionalPlaceholder": "Необов’язково",
+    "taxonomyNamePlaceholder": "Жанри",
+    "taxonomySlugPlaceholder": "genre",
+    "taxonomySlugHint": "Малими літерами; використовується в URL архівів і в API.",
+    "hierarchicalLabel": "Ієрархічна (терміни можуть мати батьківський термін, як категорії)",
+    "contentTypesLabel": "Типи вмісту",
+    "contentTypesHint": "Записи цих типів показують цю таксономію в редакторі.",
+    "builtinBadge": "вбудована",
+    "usedBy": "Використовують: {types}",
+    "usedByNone": "Поки не використовує жоден тип вмісту",
+    "editTaxonomy": "Налаштування",
+    "edit": "Редагувати",
+    "addTerm": "Додати термін",
+    "addTermButton": "Додати",
+    "slugAutoPlaceholder": "Створюється з назви",
+    "parentLabel": "Батьківський",
+    "noParent": "Немає",
+    "noTerms": "Термінів ще немає.",
+    "countLabel": "Записи",
+    "slugChangeHint": "Старі URL архівів перенаправлятимуть на новий slug.",
+    "deleteTermConfirm": "Видалити «{name}»? Термін буде прибрано з усіх записів.",
+    "deleteTaxonomyConfirm": "Видалити таксономію «{name}» з усіма її термінами?",
+    "termNotFound": "«{name}» ще не існує. Попросіть редактора створити його.",
+    "removeTerm": "Прибрати {name}",
+    "addOrCreate": "Додати або створити",
+    "addExisting": "Додати наявний"
   }
 }

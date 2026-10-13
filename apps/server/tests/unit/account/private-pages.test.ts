@@ -3,7 +3,7 @@ import express from "express";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ authenticated: false, status: "published", render: vi.fn() }));
+const mocks = vi.hoisted(() => ({ authenticated: false, status: "published", render: vi.fn(), closed: false }));
 vi.mock("@justflows/core", async original => ({ ...await original<typeof import("@justflows/core")>(), loadConfig: () => ({ cache: { driver: "memory", enabled: true } }) }));
 vi.mock("../../../src/lib/account/pages.js", () => ({ accountPages: async () => [{ url: "/members/", aliases: ["/old-account"], content: { id: "page-a", siteId: "site-a", type: "account", slug: "members", locale: "en", status: mocks.status } }] }));
 vi.mock("../../../src/lib/settings/site-settings.js", () => ({ getSiteId: async () => "site-a" }));
@@ -13,7 +13,10 @@ vi.mock("../../../src/middleware/auth.js", () => ({ optionalSession: (req: expre
 } }));
 vi.mock("../../../src/lib/auth/auth-session.js", () => ({ isPreviewAllowed: async () => false }));
 vi.mock("../../../src/middleware/security-headers.js", () => ({ securityHeaders: (_req: unknown, _res: unknown, next: () => void) => next() }));
-vi.mock("../../../src/routes/public/public-site.js", () => ({ renderSinglePageHtml: mocks.render }));
+vi.mock("../../../src/routes/public/public-site.js", () => ({ renderSinglePageHtml: mocks.render, ensureSiteIsPublic: async (_req: unknown, res: express.Response) => {
+  if (!mocks.closed) return true;
+  res.status(503).send("Closed for maintenance"); return false;
+} }));
 import { accountPagesRouter } from "../../../src/routes/public/account-pages.js";
 import { getJfCache } from "../../../src/lib/cache/jf-cache.js";
 let server: Server; let base: string;
@@ -42,6 +45,12 @@ describe("private pages by content type", () => {
     expect(res.headers.get("surrogate-control")).toBe("no-store");
     expect(mocks.render.mock.calls[0]?.[9]).toMatchObject({ type: "account", id: "page-a" });
     expect(getJfCache().enabled).toBe(true);
+  });
+  it("closes with the rest of the site while it is offline or in maintenance", async () => {
+    mocks.authenticated = true; mocks.closed = true;
+    const res = await fetch(base + "/members/");
+    expect(res.status).toBe(503); expect(mocks.render).not.toHaveBeenCalled();
+    mocks.closed = false;
   });
   it("does not expose drafts to ordinary account users", async () => {
     mocks.authenticated = true; mocks.status = "draft";

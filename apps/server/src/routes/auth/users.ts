@@ -9,6 +9,7 @@ import { isAssignableRole } from "../../lib/auth/assignable-roles.js";
 import { STORED_ROLE_ID } from "../../lib/auth/rbac.js";
 import { PasswordSchema } from "../../lib/auth/password-policy.js";
 import { revokeUserSessions } from "../../lib/auth/auth-session.js";
+import { getAdminPathConfig } from "../../lib/admin/admin-path.js";
 import { clearUserResets } from "../../lib/auth/password-reset-db.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { erasePersonalData, exportPersonalData } from "../../lib/auth/personal-data.js";
@@ -133,6 +134,13 @@ router.post("/invite", requireRole("administrator"), async (req, res) => {
     auditFromRequest(req, "user.created", { target: id, detail: `role=${role}; invited=true` });
     await emitUserEvent("user.created", id, session.siteId);
     const origin = (process.env.APP_URL ?? "").replace(/\/$/, "");
+    // Staff get the hidden admin sign-in address; the public /login only opens
+    // member sessions once the admin path has been moved.
+    const { getEffectiveAccess } = await import("../../lib/auth/access-policy.js");
+    const access = await getEffectiveAccess(id, session.siteId, role);
+    const signInPath = access.capabilities.some((capability) => capability !== "content:read")
+      ? `${(await getAdminPathConfig()).path}/login`
+      : "/login";
     const mail = await sendMail({
       to: email,
       subject: "You have been invited to Justflows",
@@ -141,7 +149,7 @@ router.post("/invite", requireRole("administrator"), async (req, res) => {
         "",
         `Username: ${username}`,
         `Temporary password: ${password}`,
-        origin ? `Sign in: ${origin}/login` : "Open the site's login page to sign in.",
+        origin ? `Sign in: ${origin}${signInPath}` : `Sign in at ${signInPath} on the site.`,
         "",
         "Change your password after signing in.",
       ].join("\n"),

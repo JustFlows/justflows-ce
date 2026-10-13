@@ -6,6 +6,7 @@ import { extractPlainText } from "@justflows/blocks";
 import { searchTokens, searchHighlight, type SearchQuery } from "@justflows/content";
 import type { SearchBackend, SearchDocument } from "@justflows/sdk";
 import { getDb } from "../database/db.js";
+import { registerCoreJob } from "../jobs/core-jobs.js";
 import { getRuntimeHooks } from "../plugins/plugin-runtime.js";
 import { getSiteSetting, setSiteSetting } from "../settings/site-settings.js";
 import { serializeContentRow } from "../content/content-api.js";
@@ -257,14 +258,22 @@ export async function startSearchIndex(siteId: string): Promise<void> {
     );
   }
   // Repairs writes from import/restore and interrupted or failed hook delivery.
-  const timer = setInterval(() => {
-    void import("../tenancy/connections.js")
-      .then(({ eachActiveSite }) => eachActiveSite(async (id) => {
-        await rebuildSearchIndex(id, true);
-      }))
-      .catch(() => console.error("[justflows] Search index reconciliation failed"));
-  }, 60_000);
-  timer.unref();
+  registerCoreJob({
+    name: "search.reconcile",
+    schedule: "* * * * *",
+    handler: async () => {
+      try {
+        const { eachActiveSite } = await import("../tenancy/connections.js");
+        await eachActiveSite(async (id) => {
+          await rebuildSearchIndex(id, true);
+        });
+        return { success: true };
+      } catch {
+        console.error("[justflows] Search index reconciliation failed");
+        return { success: false, message: "Search index reconciliation failed" };
+      }
+    },
+  });
 }
 
 export interface SearchAccess {

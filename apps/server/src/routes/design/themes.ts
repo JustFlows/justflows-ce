@@ -1,4 +1,4 @@
-import { DEFAULT_ACCOUNT_BLOCKS } from "@justflows/content";
+import { DEFAULT_ACCOUNT_BLOCKS, DEFAULT_AUTH_BLOCKS } from "@justflows/content";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
@@ -209,6 +209,7 @@ router.get("/patterns/:slug", requireRole(...CONTENT_READ_ROLES), async (req, re
     const themeId = theme?.theme_id ?? "justflows.default";
     const slug = param(req.params.slug);
     if (slug === "account") { res.json({ pattern: { id: "account", title: "Account", source: "core", blocks: DEFAULT_ACCOUNT_BLOCKS.blocks } }); return; }
+    if (slug === "auth") { res.json({ pattern: { id: "auth", title: "Sign-in", source: "core", blocks: DEFAULT_AUTH_BLOCKS.blocks } }); return; }
     const pattern = loadThemePattern(themeId, slug, themeInstalledPath(theme));
     if (pattern) {
       res.json({ pattern });
