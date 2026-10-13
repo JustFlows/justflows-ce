@@ -15,7 +15,7 @@ interface DiagnosticsReport {
   hooks: { totals: { handlers: number; runs: number; errors: number; disabled: number }; handlers: Array<{ hook: string; pluginId: string | null; priority: number; runs: number; errors: number; totalMs: number; disabled: boolean }> };
   jobs: {
     running: boolean;
-    items: Array<{ name: string; schedule?: string; attempts: number; maxAttempts: number; status: "pending" | "running" | "failed" | "done"; lastResult?: { success: boolean; message?: string } }>;
+    items: Array<{ name: string; owner: "core" | "plugin"; schedule?: string; attempts: number; maxAttempts: number; status: "pending" | "running" | "failed" | "done"; lastResult?: { success: boolean; message?: string } }>;
     queue?: QueueReport;
   };
   pluginChecks: Array<{ pluginId: string; id: string; label: string; result: { status: "ok" | "warning" | "error"; summary: string } }>;
@@ -254,7 +254,7 @@ export default function HealthPage() {
 
         <section className="jf-card">
           <div className="jf-card__head"><div><h2 className="jf-card__title">{t("health.jobs.title")}</h2><p className="jf-field__hint">{t("health.jobs.hint")}</p></div><span className={`jf-badge jf-badge--${report.jobs.running ? "ok" : "warn"}`}>{report.jobs.running ? t("health.jobs.running") : t("health.jobs.stopped")}</span></div>
-          <div className="jf-card__body jf-card__body--flush">{report.jobs.items.length === 0 ? <div className="jf-empty"><p>{t("health.jobs.noJobs")}</p></div> : <div className="jf-tablewrap"><table className="jf-table"><thead><tr><th>{t("health.jobs.colJob")}</th><th>{t("health.jobs.colStatus")}</th><th>{t("health.jobs.colSchedule")}</th><th>{t("health.jobs.colAttempts")}</th><th>{t("health.jobs.colLastResult")}</th><th /></tr></thead><tbody>{report.jobs.items.map((job) => <tr key={job.name}><td className="jf-td--mono">{job.name}</td><td>{job.status}</td><td>{job.schedule ?? t("health.jobs.onDemand")}</td><td>{job.attempts}/{job.maxAttempts}</td><td>{job.lastResult?.message ?? (job.lastResult?.success ? t("health.jobs.completed") : "—")}</td><td>{job.status === "failed" && <button type="button" className="jf-btn jf-btn--ghost" onClick={() => void retryJob(job.name)}>{t("health.jobs.retry")}</button>}</td></tr>)}</tbody></table></div>}</div>
+          <div className="jf-card__body jf-card__body--flush">{report.jobs.items.length === 0 ? <div className="jf-empty"><p>{t("health.jobs.noJobs")}</p></div> : <div className="jf-tablewrap"><table className="jf-table"><thead><tr><th>{t("health.jobs.colJob")}</th><th>{t("health.jobs.colOwner")}</th><th>{t("health.jobs.colStatus")}</th><th>{t("health.jobs.colSchedule")}</th><th>{t("health.jobs.colAttempts")}</th><th>{t("health.jobs.colLastResult")}</th><th /></tr></thead><tbody>{report.jobs.items.map((job) => <tr key={`${job.owner}:${job.name}`}><td className="jf-td--mono">{job.name}</td><td>{t(`health.jobs.owner.${job.owner}`)}</td><td>{job.status}</td><td>{job.schedule ?? t("health.jobs.onDemand")}</td><td>{job.attempts}/{job.maxAttempts}</td><td>{job.lastResult?.message ?? (job.lastResult ? t(job.lastResult.success ? "health.jobs.completed" : "health.jobs.failedRun") : "—")}</td><td>{job.status === "failed" && <button type="button" className="jf-btn jf-btn--ghost" onClick={() => void retryJob(job.name)}>{t("health.jobs.retry")}</button>}</td></tr>)}</tbody></table></div>}</div>
         </section>
 
         {report.jobs.queue && (

@@ -4419,11 +4419,12 @@ input[type="range"] {
   }
 }
 
-/* Keep action feedback visible below sticky navigation and visibly focused. */
+/* Keep action feedback visible below sticky navigation. Focus moves there
+   for screen readers; a notice is not a control, so it gets no focus ring. */
 [data-notice-focused] {
   scroll-margin-block: 6rem;
 }
-[data-notice-focused]:focus {
-  outline: 2px solid var(--jf-accent);
-  outline-offset: 4px;
+[data-notice-focused]:focus,
+[data-notice-focused]:focus-visible {
+  outline: none;
 }

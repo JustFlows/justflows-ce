@@ -50,6 +50,11 @@ export interface ResponsiveImageConfig {
   formats: OutputFormat[];
   /** Encoder quality per format (1–100). */
   quality: Record<OutputFormat, number>;
+  /**
+   * AVIF encoder effort (0–9). Effort 4 (libaom's default) takes about six
+   * times as long as 2 for files around 8% smaller; default 2.
+   */
+  avifEffort?: number;
   /** Hard ceiling on the largest generated width; the source is downscaled to this at most. */
   maxWidth: number;
   /** Strip EXIF/GPS and other metadata from derived variants (default true). */
@@ -62,6 +67,7 @@ export const DEFAULT_RESPONSIVE_CONFIG: ResponsiveImageConfig = {
   widths: [320, 640, 960, 1280, 1920],
   formats: ["webp"],
   quality: { webp: 82, avif: 50, jpeg: 82, png: 100 },
+  avifEffort: 2,
   maxWidth: 2560,
   stripMetadata: true,
   thumbnail: { width: 400, height: 400 },
@@ -115,22 +121,29 @@ function mergeConfig(partial?: Partial<ResponsiveImageConfig>): ResponsiveImageC
     widths: partial?.widths?.length ? [...partial.widths] : [...base.widths],
     formats: partial?.formats?.length ? [...partial.formats] : [...base.formats],
     quality: { ...base.quality, ...(partial?.quality ?? {}) },
+    avifEffort: clampEffort(partial?.avifEffort ?? base.avifEffort),
     maxWidth: partial?.maxWidth && partial.maxWidth > 0 ? partial.maxWidth : base.maxWidth,
     stripMetadata: partial?.stripMetadata ?? base.stripMetadata,
     thumbnail: partial?.thumbnail === null ? null : (partial?.thumbnail ?? base.thumbnail),
   };
 }
 
+function clampEffort(value: unknown): number {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) ? Math.min(9, Math.max(0, n)) : 2;
+}
+
 function applyFormat(
   pipeline: Sharp,
   format: OutputFormat,
-  quality: Record<OutputFormat, number>,
+  config: Pick<ResponsiveImageConfig, "quality" | "avifEffort">,
 ): Sharp {
+  const quality = config.quality;
   switch (format) {
     case "webp":
       return pipeline.webp({ quality: quality.webp });
     case "avif":
-      return pipeline.avif({ quality: quality.avif });
+      return pipeline.avif({ quality: quality.avif, effort: clampEffort(config.avifEffort) });
     case "png":
       return pipeline.png({ compressionLevel: 9, palette: true });
     case "jpeg":
@@ -220,13 +233,38 @@ export async function generateResponsiveSet(
   const widths = effectiveWidths(srcWidth, config);
   const variants: GeneratedVariant[] = [];
 
+  // Decode (and cap) the source once and scale every width from those pixels,
+  // instead of decoding the file again for each of the ~20 outputs. Kept
+  // metadata cannot survive raw pixels, so that mode decodes per output.
+  const decoded = config.stripMetadata
+    ? await sharp(input, { failOn: "none" })
+        .rotate()
+        .resize({ width: Math.max(...widths), withoutEnlargement: true })
+        .raw()
+        .toBuffer({ resolveWithObject: true })
+    : null;
+  const fromSource = async (): Promise<Sharp> =>
+    decoded
+      ? sharp(decoded.data, {
+          raw: { width: decoded.info.width, height: decoded.info.height, channels: decoded.info.channels },
+        })
+      : baseline(input, config.stripMetadata);
+
   for (const width of widths) {
+    // One resize per width, shared by every format at that width.
+    const scaled = decoded
+      ? await (await fromSource())
+          .resize({ width, withoutEnlargement: true })
+          .raw()
+          .toBuffer({ resolveWithObject: true })
+      : null;
     for (const format of formatsToEmit) {
-      const pipeline = (await baseline(input, config.stripMetadata)).resize({
-        width,
-        withoutEnlargement: true,
-      });
-      const { data, info } = await applyFormat(pipeline, format, config.quality).toBuffer({
+      const pipeline = scaled
+        ? sharp(scaled.data, {
+            raw: { width: scaled.info.width, height: scaled.info.height, channels: scaled.info.channels },
+          })
+        : (await baseline(input, config.stripMetadata)).resize({ width, withoutEnlargement: true });
+      const { data, info } = await applyFormat(pipeline, format, config).toBuffer({
         resolveWithObject: true,
       });
       variants.push({
@@ -245,11 +283,14 @@ export async function generateResponsiveSet(
   if (config.thumbnail) {
     const { width: tw, height: th } = config.thumbnail;
     const thumbFormat: OutputFormat = config.formats.includes("webp") ? "webp" : fallbackFormat;
-    const geo = focalCropGeometry(srcWidth, srcHeight, tw, th, focal);
-    const pipeline = (await baseline(input, config.stripMetadata))
+    // Geometry follows the pixels actually used: the capped decode, if any.
+    const geo = decoded
+      ? focalCropGeometry(decoded.info.width, decoded.info.height, tw, th, focal)
+      : focalCropGeometry(srcWidth, srcHeight, tw, th, focal);
+    const pipeline = (await fromSource())
       .resize(geo.resizeWidth, geo.resizeHeight, { fit: "fill" })
       .extract({ left: geo.left, top: geo.top, width: tw, height: th });
-    const { data, info } = await applyFormat(pipeline, thumbFormat, config.quality).toBuffer({
+    const { data, info } = await applyFormat(pipeline, thumbFormat, config).toBuffer({
       resolveWithObject: true,
     });
     variants.push({

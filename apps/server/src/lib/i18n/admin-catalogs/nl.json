@@ -2035,6 +2035,7 @@
     "editAriaLabel": "{filename} bewerken",
     "responsiveBadge": "Responsief",
     "originalOnlyBadge": "Alleen origineel",
+    "optimizingBadge": "Optimaliseren…",
     "editButton": "Bewerken",
     "trashButton": "Prullenbak",
     "saveFailed": "Opslaan mislukt",
@@ -2923,18 +2924,24 @@
     "jobs": {
       "retryFailed": "Taak opnieuw uitvoeren mislukt",
       "title": "Taakplanner",
-      "hint": "Taken van plugins; de payloads worden nooit getoond.",
+      "hint": "Achtergrondtaken van de core en van plugins; de payloads worden nooit getoond.",
       "running": "Actief",
       "stopped": "Gestopt",
-      "noJobs": "Er zijn geen plugin-taken geregistreerd.",
+      "noJobs": "Er zijn geen taken geregistreerd.",
       "colJob": "Taak",
+      "colOwner": "Eigenaar",
       "colStatus": "Status",
       "colSchedule": "Planning",
       "colAttempts": "Pogingen",
       "colLastResult": "Laatste resultaat",
       "onDemand": "Op verzoek",
       "completed": "Voltooid",
-      "retry": "Opnieuw proberen"
+      "failedRun": "Mislukt",
+      "retry": "Opnieuw proberen",
+      "owner": {
+        "core": "Core",
+        "plugin": "Plugin"
+      }
     },
     "queue": {
       "title": "Takenwachtrij",
@@ -3301,6 +3308,8 @@
       "thumbnailSizeLabel": "Miniatuurgrootte (px, 0 = uit)",
       "webpQualityLabel": "WebP-kwaliteit",
       "avifQualityLabel": "AVIF-kwaliteit",
+      "avifEffortLabel": "AVIF-inspanning (1–9)",
+      "avifEffortHint": "Hoger geeft kleinere bestanden maar is trager: 4 duurt ongeveer zes keer zo lang als 2, voor bestanden die zo'n 8% kleiner zijn.",
       "jpegQualityLabel": "JPEG-kwaliteit",
       "keepOriginalLabel": "Alleen origineel bewaren (bestandsnaampatronen, kommagescheiden)",
       "keepOriginalHint": "Uploads die hieraan voldoen, worden onbewerkt opgeslagen — logo's, randgevallen met transparantie, pixelart.",

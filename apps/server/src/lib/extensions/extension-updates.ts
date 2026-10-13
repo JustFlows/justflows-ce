@@ -28,11 +28,11 @@ import { isAutoUpdateKillSwitchOn } from "../updates/core-auto-update.js";
 import { getJustflowsVersion } from "../runtime/version.js";
 import { auditLog } from "../security/audit-log.js";
 import { getSiteId, getSiteSetting, setSiteSetting } from "../settings/site-settings.js";
+import { registerCoreJob, unregisterCoreJob } from "../jobs/core-jobs.js";
 
 export const EXTENSION_AUTO_UPDATE_SETTING = "extensions.auto_update";
 
 const CHECK_CACHE_MS = 60 * 60 * 1000;
-const AUTO_UPDATE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const AUTO_UPDATE_BOOT_DELAY_MS = 3 * 60 * 1000;
 
 export interface ExtensionAutoUpdateSettings {
@@ -347,12 +347,12 @@ export async function updateExtension(
 /* Unattended updates                                                         */
 /* -------------------------------------------------------------------------- */
 
-let timer: ReturnType<typeof setInterval> | null = null;
-let bootTimer: ReturnType<typeof setTimeout> | null = null;
+const AUTO_UPDATE_JOB = "extensions.auto-update";
+
 let running = false;
 
 /** One pass over opted-in extensions. Exported for tests. */
-export async function runExtensionAutoUpdate(): Promise<void> {
+export async function runExtensionAutoUpdate(): Promise<{ success: false; message: string } | void> {
   if (running) return;
   running = true;
   try {
@@ -396,6 +396,7 @@ export async function runExtensionAutoUpdate(): Promise<void> {
       "[justflows] Extension auto-update check failed:",
       String(err).replace(/\n/g, " "),
     );
+    return { success: false, message: "Extension auto-update check failed" };
   } finally {
     running = false;
   }
@@ -403,19 +404,16 @@ export async function runExtensionAutoUpdate(): Promise<void> {
 
 /** Runs shortly after boot, then twice a day. No-op until an admin opts an extension in. */
 export function startExtensionAutoUpdateJob(): void {
-  if (timer || bootTimer) return;
-  bootTimer = setTimeout(() => {
-    bootTimer = null;
-    void runExtensionAutoUpdate();
-  }, AUTO_UPDATE_BOOT_DELAY_MS);
-  timer = setInterval(() => {
-    void runExtensionAutoUpdate();
-  }, AUTO_UPDATE_INTERVAL_MS);
+  registerCoreJob(
+    {
+      name: AUTO_UPDATE_JOB,
+      schedule: "37 */12 * * *",
+      handler: async () => (await runExtensionAutoUpdate()) ?? { success: true },
+    },
+    { runAfterMs: AUTO_UPDATE_BOOT_DELAY_MS },
+  );
 }
 
 export function stopExtensionAutoUpdateJob(): void {
-  if (timer) clearInterval(timer);
-  if (bootTimer) clearTimeout(bootTimer);
-  timer = null;
-  bootTimer = null;
+  unregisterCoreJob(AUTO_UPDATE_JOB);
 }

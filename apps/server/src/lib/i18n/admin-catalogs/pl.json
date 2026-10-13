@@ -2262,6 +2262,7 @@
     "editAriaLabel": "Edytuj {filename}",
     "responsiveBadge": "Responsywny",
     "originalOnlyBadge": "Tylko oryginał",
+    "optimizingBadge": "Optymalizacja…",
     "editButton": "Edytuj",
     "trashButton": "Kosz",
     "saveFailed": "Nie udało się zapisać",
@@ -2320,18 +2321,24 @@
     "jobs": {
       "retryFailed": "Ponowienie zadania nie powiodło się",
       "title": "Harmonogram zadań",
-      "hint": "Praca będąca własnością wtyczki; ładunki nigdy nie są wyświetlane.",
+      "hint": "Zadania w tle rdzenia i wtyczek; dane zadań nigdy nie są wyświetlane.",
       "running": "Bieganie",
       "stopped": "Zatrzymany",
-      "noJobs": "Nie zarejestrowano żadnych zadań wtyczek.",
+      "noJobs": "Nie zarejestrowano żadnych zadań.",
       "colJob": "Praca",
+      "colOwner": "Źródło",
       "colStatus": "Stan",
       "colSchedule": "Harmonogram",
       "colAttempts": "Próby",
       "colLastResult": "Ostatni wynik",
       "onDemand": "Na żądanie",
       "completed": "Ukończono",
-      "retry": "Spróbuj ponownie"
+      "failedRun": "Niepowodzenie",
+      "retry": "Spróbuj ponownie",
+      "owner": {
+        "core": "Rdzeń",
+        "plugin": "Wtyczka"
+      }
     },
     "queue": {
       "title": "Kolejka zadań",
@@ -3351,6 +3358,8 @@
       "adminOnlyRegenerate": "Tylko administratorzy mogą ponownie wygenerować bibliotekę",
       "adminOnlySettings": "Tylko administratorzy mogą zmieniać ustawienia obrazu responsywnego.",
       "avifQualityLabel": "Jakość AVIF",
+      "avifEffortLabel": "Nakład AVIF (1–9)",
+      "avifEffortHint": "Wyższa wartość daje mniejsze pliki, ale wolniej: 4 trwa około sześć razy dłużej niż 2, a pliki są mniejsze o około 8%.",
       "description1": "Każde przesłane zdjęcie otrzymuje warianty ze zmienionym rozmiarem oraz nowoczesne formaty (WebP i AVIF, jeśli są włączone). Emitowane są bloki obrazów i motywy",
       "description2": "z wewnętrznym",
       "description3": ", leniwe ładowanie i punkt centralny ustawiony w Bibliotece multimediów. Pliki SVG nigdy nie są rasteryzowane. Zobacz",

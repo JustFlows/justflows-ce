@@ -2035,6 +2035,7 @@
     "editAriaLabel": "{filename} bearbeiten",
     "responsiveBadge": "Responsiv",
     "originalOnlyBadge": "Nur Original",
+    "optimizingBadge": "Wird optimiert…",
     "editButton": "Bearbeiten",
     "trashButton": "Papierkorb",
     "saveFailed": "Speichern fehlgeschlagen",
@@ -2923,18 +2924,24 @@
     "jobs": {
       "retryFailed": "Erneute Ausführung des Jobs fehlgeschlagen",
       "title": "Jobplaner",
-      "hint": "Aufgaben von Plugins; Payloads werden nie angezeigt.",
+      "hint": "Hintergrundaufgaben von Core und Plugins; Payloads werden nie angezeigt.",
       "running": "Läuft",
       "stopped": "Angehalten",
-      "noJobs": "Es sind keine Plugin-Jobs registriert.",
+      "noJobs": "Es sind keine Jobs registriert.",
       "colJob": "Job",
+      "colOwner": "Herkunft",
       "colStatus": "Status",
       "colSchedule": "Zeitplan",
       "colAttempts": "Versuche",
       "colLastResult": "Letztes Ergebnis",
       "onDemand": "Auf Anfrage",
       "completed": "Abgeschlossen",
-      "retry": "Erneut versuchen"
+      "failedRun": "Fehlgeschlagen",
+      "retry": "Erneut versuchen",
+      "owner": {
+        "core": "Core",
+        "plugin": "Plugin"
+      }
     },
     "queue": {
       "title": "Auftragswarteschlange",
@@ -3301,6 +3308,8 @@
       "thumbnailSizeLabel": "Größe der Miniaturansicht (px, 0 = aus)",
       "webpQualityLabel": "WebP-Qualität",
       "avifQualityLabel": "AVIF-Qualität",
+      "avifEffortLabel": "AVIF-Aufwand (1–9)",
+      "avifEffortHint": "Höher ergibt kleinere Dateien, ist aber langsamer: 4 dauert etwa sechsmal so lange wie 2 für rund 8 % kleinere Dateien.",
       "jpegQualityLabel": "JPEG-Qualität",
       "keepOriginalLabel": "Nur Original behalten (Dateinamensmuster, kommagetrennt)",
       "keepOriginalHint": "Passende Uploads werden unverändert gespeichert – Logos, Sonderfälle mit Transparenz, Pixel-Art.",

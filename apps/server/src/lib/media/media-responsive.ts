@@ -108,6 +108,7 @@ export function resolveImageConfig(): ResolvedImageConfig {
         jpeg: num(env.JF_IMAGE_QUALITY_JPEG, 82),
         png: 100,
       },
+      avifEffort: num(env.JF_IMAGE_AVIF_EFFORT, 2),
       maxWidth: num(env.JF_IMAGE_MAX_WIDTH, 2560),
       stripMetadata: bool(env.JF_IMAGE_STRIP_METADATA, true),
       thumbnail,
@@ -156,9 +157,44 @@ export interface GenerateVariantsInput {
    * over removes everything written so far and throws.
    */
   maxBytes?: number;
+  /** Records the queue / encode / store phases when given. */
+  timer?: PhaseTimer;
+}
+
+/** Elapsed time per named phase, for tracing slow uploads. */
+export interface PhaseTimer {
+  mark(phase: string): void;
+  /** "phase=ms ..." since the previous mark, plus the total. */
+  summary(): string;
+  totalMs(): number;
+}
+
+export function createPhaseTimer(): PhaseTimer {
+  const start = performance.now();
+  let last = start;
+  const phases: string[] = [];
+  return {
+    mark(phase) {
+      const at = performance.now();
+      phases.push(`${phase}=${Math.round(at - last)}ms`);
+      last = at;
+    },
+    summary: () => `${phases.join(" ")} total=${Math.round(performance.now() - start)}ms`,
+    totalMs: () => performance.now() - start,
+  };
 }
 
 export class DerivativeBudgetError extends Error {}
+
+/**
+ * Room reserved for one image's generated files. The fallback set alone is
+ * about the original's size (PNG especially) before WebP/AVIF and the
+ * thumbnail are added, and a small icon's thumbnail outgrows the icon, so
+ * the budget is a multiple of the original with a floor.
+ */
+export function variantBudgetFor(originalBytes: number): number {
+  return Math.max(originalBytes * 3, 512 * 1024);
+}
 
 /**
  * Build and persist the responsive variant set for one image. Returns the
@@ -180,7 +216,10 @@ const imageWork = createSemaphore(Math.max(1, Number(process.env.JF_IMAGE_CONCUR
 export async function generateAndStoreVariants(
   input: GenerateVariantsInput,
 ): Promise<MediaDerivatives | null> {
-  return imageWork(() => generateAndStoreVariantsNow(input));
+  return imageWork(() => {
+    input.timer?.mark("variants.queue");
+    return generateAndStoreVariantsNow(input);
+  });
 }
 
 async function generateAndStoreVariantsNow(
@@ -200,21 +239,33 @@ async function generateAndStoreVariantsNow(
     config,
     focal: input.focal ?? null,
   });
+  input.timer?.mark(`variants.encode(${set.variants.length})`);
+
+  // Checked before anything is written, so an over-budget set costs no uploads.
+  const totalBytes = set.variants.reduce((sum, v) => sum + v.data.length, 0);
+  if (input.maxBytes !== undefined && totalBytes > input.maxBytes) {
+    throw new DerivativeBudgetError("Generated image sizes would exceed the space reserved for them");
+  }
 
   const store = getUploadStore();
   const variants: MediaVariantRecord[] = [];
   let thumb: MediaDerivatives["thumb"];
-  let totalBytes = 0;
 
   try {
+    // Object storage pays a round trip per file; write the set in parallel.
+    const putSlot = createSemaphore(6);
+    const writes = await Promise.allSettled(
+      set.variants.map((v) => {
+        const ext = formatExtension(v.format);
+        return putSlot(() => store.put(`${dir}${v.name}.${ext}`, v.data, formatMimeType(v.format)));
+      }),
+    );
+    // Every write has settled, so the cleanup below cannot race one still in flight.
+    const failed = writes.find((w): w is PromiseRejectedResult => w.status === "rejected");
+    if (failed) throw failed.reason;
+    input.timer?.mark("variants.store");
     for (const v of set.variants) {
-      totalBytes += v.data.length;
-      if (input.maxBytes !== undefined && totalBytes > input.maxBytes) {
-        throw new DerivativeBudgetError("Generated image sizes would exceed the space reserved for them");
-      }
-      const ext = formatExtension(v.format);
-      await store.put(`${dir}${v.name}.${ext}`, v.data, formatMimeType(v.format));
-      const url = `/uploads/${input.siteId}/${input.mediaId}/${v.name}.${ext}`;
+      const url = `/uploads/${input.siteId}/${input.mediaId}/${v.name}.${formatExtension(v.format)}`;
       if (v.kind === "thumb") {
         thumb = { url, w: v.width, h: v.height };
       } else {

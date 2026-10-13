@@ -2262,6 +2262,7 @@
     "editAriaLabel": "Edit {filename}",
     "responsiveBadge": "Responsive",
     "originalOnlyBadge": "Original only",
+    "optimizingBadge": "Optimizing…",
     "editButton": "Edit",
     "trashButton": "Trash",
     "saveFailed": "Could not save",
@@ -2320,18 +2321,24 @@
     "jobs": {
       "retryFailed": "Job retry failed",
       "title": "Job scheduler",
-      "hint": "Plugin-owned work; payloads are never displayed.",
+      "hint": "Core and plugin background work; payloads are never displayed.",
       "running": "Running",
       "stopped": "Stopped",
-      "noJobs": "No plugin jobs are registered.",
+      "noJobs": "No jobs are registered.",
       "colJob": "Job",
+      "colOwner": "Owner",
       "colStatus": "Status",
       "colSchedule": "Schedule",
       "colAttempts": "Attempts",
       "colLastResult": "Last result",
       "onDemand": "On demand",
       "completed": "Completed",
-      "retry": "Retry"
+      "failedRun": "Failed",
+      "retry": "Retry",
+      "owner": {
+        "core": "Core",
+        "plugin": "Plugin"
+      }
     },
     "queue": {
       "title": "Job queue",
@@ -3351,6 +3358,8 @@
       "adminOnlyRegenerate": "Only administrators can regenerate the library",
       "adminOnlySettings": "Only administrators can change responsive-image settings.",
       "avifQualityLabel": "AVIF quality",
+      "avifEffortLabel": "AVIF effort (1–9)",
+      "avifEffortHint": "Higher is smaller but slower: 4 takes about six times as long as 2 for files around 8% smaller.",
       "description1": "Every uploaded photo gets resized variants plus modern formats (WebP, and AVIF when enabled). Image blocks and themes emit",
       "description2": "with intrinsic",
       "description3": ", lazy loading, and a focal point set in the Media Library. SVGs are never rasterised. See",

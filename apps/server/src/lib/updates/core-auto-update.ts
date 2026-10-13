@@ -12,13 +12,13 @@ import { auditLog } from "../security/audit-log.js";
 import { applyCoreUpdateFromRelease } from "./core-updater.js";
 import { getAvailableCoreUpdate } from "./core-release-check.js";
 import { getSiteId, getSiteSetting, setSiteSetting } from "../settings/site-settings.js";
+import { registerCoreJob, unregisterCoreJob } from "../jobs/core-jobs.js";
 
 export const AUTO_UPDATE_SETTING_KEY = "core.auto_update";
 
 /** Auto-update never crosses a major version — this is shown in the UI. */
 export const AUTO_UPDATE_MAX_SCOPE = "minor";
 
-const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const BOOT_DELAY_MS = 2 * 60 * 1000;
 
 export function isAutoUpdateKillSwitchOn(): boolean {
@@ -37,11 +37,11 @@ export async function setCoreAutoUpdateEnabled(enabled: boolean): Promise<void> 
   await setSiteSetting(siteId, AUTO_UPDATE_SETTING_KEY, enabled);
 }
 
-let timer: ReturnType<typeof setInterval> | null = null;
-let bootTimer: ReturnType<typeof setTimeout> | null = null;
+const JOB_NAME = "core.auto-update";
+
 let running = false;
 
-async function runAutoUpdate(): Promise<void> {
+async function runAutoUpdate(): Promise<{ success: false; message: string } | void> {
   if (running) return;
   running = true;
   try {
@@ -87,6 +87,7 @@ async function runAutoUpdate(): Promise<void> {
     }
   } catch (err) {
     console.error("[justflows] Auto-update check failed:", String(err).replace(/\n/g, " "));
+    return { success: false, message: "Auto-update check failed" };
   } finally {
     running = false;
   }
@@ -94,19 +95,12 @@ async function runAutoUpdate(): Promise<void> {
 
 /** Runs shortly after boot, then once a day. No-op until an admin opts in. */
 export function startCoreAutoUpdateJob(): void {
-  if (timer || bootTimer) return;
-  bootTimer = setTimeout(() => {
-    bootTimer = null;
-    void runAutoUpdate();
-  }, BOOT_DELAY_MS);
-  timer = setInterval(() => {
-    void runAutoUpdate();
-  }, CHECK_INTERVAL_MS);
+  registerCoreJob(
+    { name: JOB_NAME, schedule: "7 4 * * *", handler: async () => (await runAutoUpdate()) ?? { success: true } },
+    { runAfterMs: BOOT_DELAY_MS },
+  );
 }
 
 export function stopCoreAutoUpdateJob(): void {
-  if (timer) clearInterval(timer);
-  if (bootTimer) clearTimeout(bootTimer);
-  timer = null;
-  bootTimer = null;
+  unregisterCoreJob(JOB_NAME);
 }

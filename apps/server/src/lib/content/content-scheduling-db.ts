@@ -3,7 +3,7 @@
 import { enqueueWebhookEvent } from "../http/webhooks.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { JobScheduler } from "@justflows/jobs";
+import { registerCoreJob, unregisterCoreJob } from "../jobs/core-jobs.js";
 import { sanitizeBlockDocument } from "@justflows/blocks";
 import { getDb } from "../database/db.js";
 import { serializeContentRow, toIsoTimestamp } from "./content-api.js";
@@ -314,27 +314,24 @@ export async function runContentSchedules(): Promise<void> {
   }
 }
 
-const scheduler = new JobScheduler(console);
-let started = false;
 export function startContentScheduleJobs(): void {
-  if (started) return;
-  started = true;
-  scheduler.register({
-    name: "content.publish-scheduled",
-    schedule: "* * * * *",
-    handler: async () => {
-      try {
-        await runContentSchedules();
-        return { success: true };
-      } catch {
-        console.error("[justflows] Content scheduling scan failed; retrying next minute");
-        return { success: false };
-      }
+  registerCoreJob(
+    {
+      name: "content.publish-scheduled",
+      schedule: "* * * * *",
+      handler: async () => {
+        try {
+          await runContentSchedules();
+          return { success: true };
+        } catch {
+          console.error("[justflows] Content scheduling scan failed; retrying next minute");
+          return { success: false, message: "Scheduling scan failed; retrying next minute" };
+        }
+      },
     },
-  });
-  scheduler.enqueue("content.publish-scheduled");
-  scheduler.start();
+    { runAfterMs: 0 },
+  );
 }
 export function stopContentScheduleJobs(): void {
-  scheduler.stop();
+  unregisterCoreJob("content.publish-scheduled");
 }
