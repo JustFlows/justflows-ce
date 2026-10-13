@@ -14,7 +14,10 @@ import { auditLog } from "../security/audit-log.js";
 import {
   derivativeBytes,
   generateAndStoreVariants,
+  createPhaseTimer,
   moveVariantDir,
+  variantBudgetFor,
+  type PhaseTimer,
   type MediaDerivatives,
 } from "./media-responsive.js";
 
@@ -85,6 +88,7 @@ export interface MediaItem {
   focalX?: number | null;
   focalY?: number | null;
   hasVariants?: boolean;
+  variantsPending?: boolean;
   uploadedAt: unknown;
 }
 
@@ -93,7 +97,7 @@ export async function listMediaItems(siteId: string, limit: number): Promise<Med
   const rows = await (
     await getDb()
   ).query<Record<string, unknown>>(
-    "SELECT id, filename, mime_type, size_bytes, url, alt_text, caption, width, height, focal_x, focal_y, variants_generated_at, uploaded_at FROM media WHERE site_id = ? AND trashed_at IS NULL ORDER BY uploaded_at DESC LIMIT ?",
+    "SELECT id, filename, mime_type, size_bytes, url, alt_text, caption, width, height, focal_x, focal_y, variants_generated_at, derivative_bytes, uploaded_at FROM media WHERE site_id = ? AND trashed_at IS NULL ORDER BY uploaded_at DESC LIMIT ?",
     [siteId, bounded],
   );
   // camelCase mapping done here rather than via `AS` — an unquoted alias folds
@@ -111,6 +115,8 @@ export async function listMediaItems(siteId: string, limit: number): Promise<Med
     focalX: r.focal_x == null ? null : Number(r.focal_x),
     focalY: r.focal_y == null ? null : Number(r.focal_y),
     hasVariants: r.variants_generated_at != null,
+    // Room is still reserved but no set recorded: a variant job is pending.
+    variantsPending: r.variants_generated_at == null && Number(r.derivative_bytes) > 0,
     uploadedAt: r.uploaded_at,
   }));
 }
@@ -280,6 +286,29 @@ export interface MediaWriteResult {
 
 const uploadLock = createKeyedLock();
 
+/** Record a generated variant set on its row, or release the reservation when none was made. */
+export async function recordVariants(siteId: string, mediaId: string, derivatives: MediaDerivatives | null): Promise<void> {
+  const db = await getDb();
+  if (!derivatives) {
+    await db.run("UPDATE media SET derivative_bytes = 0 WHERE id = ? AND site_id = ?", [mediaId, siteId]);
+    return;
+  }
+  await db.run(
+    "UPDATE media SET derivatives = ?, derivative_bytes = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+    [
+      JSON.stringify(derivatives),
+      derivativeBytes(derivatives),
+      derivatives.base.w,
+      derivatives.base.h,
+      derivatives.base.format,
+      now(),
+      now(),
+      mediaId,
+      siteId,
+    ],
+  );
+}
+
 /**
  * Regenerate one image's variants without letting them grow past the media
  * limits. The new set may take at most the original's size, and only when
@@ -297,7 +326,7 @@ async function rebuildVariantsWithinQuotaLocked(
   input: { filename: string; mimeType: string; buffer: Buffer; focal: { x: number; y: number } | null },
 ): Promise<MediaDerivatives | null | "skipped"> {
   const db = await getDb();
-  const budget = input.buffer.length;
+  const budget = variantBudgetFor(input.buffer.length);
   return uploadLock(siteId, async () => {
     const rows = await db.query<{ derivative_bytes: number | string | null }>(
       "SELECT derivative_bytes FROM media WHERE id = ? AND site_id = ? LIMIT 1",
@@ -321,7 +350,8 @@ async function rebuildVariantsWithinQuotaLocked(
       return rebuilt;
     } catch (err) {
       await db.run(
-        "UPDATE media SET derivatives = NULL, derivative_bytes = 0, variants_generated_at = NULL, updated_at = ? WHERE id = ? AND site_id = ?",
+        // `derivatives` is NOT NULL; '{}' is the schema's "no variants" value.
+        "UPDATE media SET derivatives = '{}', derivative_bytes = 0, variants_generated_at = NULL, updated_at = ? WHERE id = ? AND site_id = ?",
         [now(), mediaId, siteId],
       );
       throw err;
@@ -330,18 +360,26 @@ async function rebuildVariantsWithinQuotaLocked(
 }
 
 export async function storeMediaUpload(file: UploadInput, actor: MediaActor): Promise<MediaWriteResult> {
-  try { return await withSiteStorageLock(actor.siteId, () => storeMediaUploadLocked(file, actor)); }
+  const timer = createPhaseTimer();
+  try { return await withSiteStorageLock(actor.siteId, () => storeMediaUploadLocked(file, actor, timer)); }
   catch (err) {
     const { QuotaRefusalError } = await import("../tenancy/quotas.js");
     if (err instanceof QuotaRefusalError) return { status: err.status, body: { error: err.message, code: err.code, meter: err.meter } };
     throw err;
+  } finally {
+    // Slow uploads log where the time went (lock wait, quota, storage, encode).
+    if (timer.totalMs() > 5000) {
+      console.warn(`[justflows] slow media upload (${file.size} bytes, ${file.mimetype}): ${timer.summary()}`);
+    }
   }
 }
 
 async function storeMediaUploadLocked(
   file: UploadInput,
   actor: MediaActor,
+  timer: PhaseTimer,
 ): Promise<MediaWriteResult> {
+  timer.mark("lock");
   if (file.size !== file.buffer.length) return { status: 400, body: { error: "Upload size does not match its contents" } };
   if (!MEDIA_ALLOWED_TYPES.has(file.mimetype)) {
     return { status: 415, body: { error: `File type not allowed: ${file.mimetype}` } };
@@ -360,9 +398,10 @@ async function storeMediaUploadLocked(
   // Quota check, store and insert run one upload at a time per site, so
   // concurrent uploads cannot all pass against the same remaining budget.
   // Raster images reserve room for their generated variants as well.
-  const variantBudget = isRasterImageMimeType(file.mimetype) ? file.size : 0;
+  const variantBudget = isRasterImageMimeType(file.mimetype) ? variantBudgetFor(file.size) : 0;
   const reserved = file.size + variantBudget;
   const admitted = await uploadLock(actor.siteId, async (): Promise<MediaWriteResult | { storageKey: string; url: string; id: string }> => {
+    timer.mark("uploadLock");
     // Checked after the type checks, so a rejected type never reports a quota figure.
     const quota = await checkLibraryQuota(actor.siteId, reserved);
     if (!quota.ok) {
@@ -383,9 +422,12 @@ async function storeMediaUploadLocked(
       return { status: configured.status, body: { error: configured.error, code: configured.code, meter: configured.meter } };
     }
 
+    timer.mark("mediaQuota");
     await enforceStorageGrowth(actor.siteId, reserved);
+    timer.mark("storageQuota");
     const storageKey = `${actor.siteId}/${randomUUID()}${ext}`;
     await getUploadStore().put(storageKey, file.buffer, file.mimetype);
+    timer.mark("putOriginal");
 
     const url = `/uploads/${storageKey}`;
     const id = randomUUID();
@@ -419,6 +461,7 @@ async function storeMediaUploadLocked(
     // Check again with the row in place. Another worker process may have
     // admitted an upload at the same time; if together they no longer fit,
     // this one is withdrawn, so usage can never end above the limit.
+    timer.mark("insert");
     const after = await checkLibraryQuota(actor.siteId, 0);
     const afterConfigured = after.ok ? await enforceQuota("media.bytes", actor.siteId, 0) : null;
     if (!after.ok || afterConfigured) {
@@ -428,15 +471,37 @@ async function storeMediaUploadLocked(
         ? { status: afterConfigured.status, body: { error: afterConfigured.error, code: afterConfigured.code, meter: afterConfigured.meter } }
         : { status: 413, body: { error: "The media library is full. Delete something, or raise JF_MAX_LIBRARY_MB." } };
     }
+    timer.mark("recheck");
     return { storageKey, url, id };
   });
   if ("status" in admitted) return admitted;
   const { url, id } = admitted;
 
-  // Responsive derivatives (resized variants + WebP/AVIF) are generated inline
-  // so a page can ship a correct `srcset` on the first render. A failure here
-  // is non-fatal — the original is already stored and the Tools → Regenerate
-  // job can backfill.
+  // Responsive derivatives (resized variants + WebP/AVIF) take seconds to tens
+  // of seconds to encode, so they are built by a background job; the
+  // reservation recorded with the row holds their room until it finishes.
+  // Without the job table (before migrations ran) they are built inline. A
+  // failure is non-fatal either way — the original is stored and Tools →
+  // Regenerate can backfill.
+  if (variantBudget > 0) {
+    const { queueMediaVariants } = await import("./media-variant-jobs.js");
+    if (await queueMediaVariants(actor.siteId, id)) {
+      timer.mark("queueVariants");
+      return {
+        status: 201,
+        body: {
+          id,
+          filename: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+          url,
+          uploadedAt: now(),
+          variantsPending: true,
+        },
+      };
+    }
+  }
+
   let derivatives: MediaDerivatives | null = null;
   try {
     derivatives = await generateAndStoreVariants({
@@ -447,28 +512,9 @@ async function storeMediaUploadLocked(
       buffer: file.buffer,
       focal: null,
       maxBytes: variantBudget,
+      timer,
     });
-    if (!derivatives) {
-      await (await getDb()).run("UPDATE media SET derivative_bytes = 0 WHERE id = ? AND site_id = ?", [id, actor.siteId]);
-    }
-    if (derivatives) {
-      await (
-        await getDb()
-      ).run(
-        "UPDATE media SET derivatives = ?, derivative_bytes = ?, width = ?, height = ?, original_format = ?, variants_generated_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
-        [
-          JSON.stringify(derivatives),
-          derivativeBytes(derivatives),
-          derivatives.base.w,
-          derivatives.base.h,
-          derivatives.base.format,
-          now(),
-          now(),
-          id,
-          actor.siteId,
-        ],
-      );
-    }
+    await recordVariants(actor.siteId, id, derivatives);
   } catch (err) {
     console.error("[justflows] media derivative generation failed:", stripNewlines(err));
     // The generator removed anything it wrote; release the reservation.
@@ -476,6 +522,7 @@ async function storeMediaUploadLocked(
       .run("UPDATE media SET derivative_bytes = 0 WHERE id = ? AND site_id = ?", [id, actor.siteId])
       .catch(() => undefined);
   }
+  timer.mark("saveVariants");
 
   return {
     status: 201,

@@ -14,6 +14,7 @@ import {
 } from "../../lib/content/content-revisions.js";
 import { resolveContentLocale } from "../../lib/i18n/languages-db.js";
 import { invalidateContentCache } from "../../lib/content/content-public.js";
+import { ContentTermsSchema, getContentTerms, setContentTerms, TaxonomyError } from "../../lib/content/taxonomies-db.js";
 import { revalidateOnUpdate } from "../../lib/cache/cache-revalidate.js";
 import { PAGE_HEADER_REF_FIELD, SITE_DEFAULT_HEADER_REF } from "../../lib/rendering/page-header.js";
 import {
@@ -311,6 +312,52 @@ router.put("/:id/header-ref", async (req, res) => {
     await revalidateOnUpdate("content");
     res.json({ ok: true, ref: ref || SITE_DEFAULT_HEADER_REF });
   } catch (err) {
+    sendServerError(res, "manage.content", err);
+  }
+});
+
+router.get("/:id/terms", async (req, res) => {
+  try {
+    const owner = req.apiKeyOwner!;
+    const row = await loadRow(owner.siteId, req.params.id);
+    if (!row) return notFound(res);
+    if (
+      !(await ensureKeyCan(req, res, "content:read", {
+        contentType: String(row.type),
+        locale: String(row.locale),
+        ownerId: row.author_id as string | null,
+      }))
+    )
+      return;
+    sendJson(req, res, { terms: await getContentTerms(owner.siteId, String(row.id)) });
+  } catch (err) {
+    sendServerError(res, "manage.content", err);
+  }
+});
+
+router.put("/:id/terms", async (req, res) => {
+  const parsed = z.object({ terms: ContentTermsSchema }).safeParse(req.body);
+  if (!parsed.success) return badRequest(res, parsed.error.issues[0]?.message ?? "Invalid terms");
+  try {
+    const owner = req.apiKeyOwner!;
+    const row = await loadRow(owner.siteId, req.params.id);
+    if (!row) return notFound(res);
+    if (
+      !(await ensureKeyCan(req, res, "content:update", {
+        contentType: String(row.type),
+        locale: String(row.locale),
+        ownerId: row.author_id as string | null,
+      }))
+    )
+      return;
+    const terms = await setContentTerms(owner.siteId, { id: String(row.id), type: String(row.type) }, parsed.data.terms);
+    await invalidateContentCache(false, owner.siteId);
+    res.json({ terms });
+  } catch (err) {
+    if (err instanceof TaxonomyError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     sendServerError(res, "manage.content", err);
   }
 });

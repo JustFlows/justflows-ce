@@ -21,16 +21,28 @@ import {
 import { getRuntimeHooks } from "../../lib/plugins/plugin-runtime.js";
 import { requireRole } from "../../middleware/auth.js";
 import { getSiteId } from "../../lib/settings/site-settings.js";
-import { canViewUnpublishedSite, isSitePublic } from "../../lib/settings/site-visibility.js";
+import { canViewUnpublishedSite, isSiteClosed, isSitePublic } from "../../lib/settings/site-visibility.js";
 import type { Request, Response } from "express";
 import { sendServerError } from "../../lib/http/send-error.js";
 
 const router = Router();
 
+/**
+ * The anonymous content API closes with the site: 404 while it is not yet
+ * public (as before), 503 while it is in maintenance. Signed-in administrators
+ * and editors keep access, as they do on the site. The management API and MCP
+ * are staff tools behind their own keys and stay open.
+ */
 async function ensurePublicApiAccess(req: Request, res: Response): Promise<boolean> {
-  if (await isSitePublic()) return true;
+  const closed = await isSiteClosed();
+  if (!closed) return true;
   if (await canViewUnpublishedSite(req, res)) return true;
-  res.status(404).json({ error: "Not found" });
+  res.setHeader("Cache-Control", "private, no-store");
+  if (await isSitePublic()) {
+    res.status(503).json({ error: "This site is in maintenance. Please try again later." });
+  } else {
+    res.status(404).json({ error: "Not found" });
+  }
   return false;
 }
 

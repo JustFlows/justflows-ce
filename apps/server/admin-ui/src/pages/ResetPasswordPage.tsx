@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "../admin-router";
+import { Link } from "../admin-router";
 import { JustflowsLogo } from "@components/JustflowsLogo";
 import { ensureCsrfCookie } from "../lib/csrf";
 import { useT } from "../i18n/I18nProvider";
@@ -15,11 +15,14 @@ type Phase = "checking" | "invalid" | "form" | "done";
  * component state, and stripped from the address bar immediately so it does not
  * sit in history or leak through a Referer header. It is then exchanged for a
  * validity check, and finally submitted with the new password. Success does not
- * sign the user in — they return to /login, where a second factor still applies.
+ * sign the user in — they return to the sign-in page, where a second factor
+ * still applies. With `adminPath` this is the staff page under the admin path,
+ * which only redeems staff tokens; without it, the members' fallback page.
  */
-export default function ResetPasswordPage() {
+export default function ResetPasswordPage({ adminPath }: { adminPath?: string } = {}) {
+  const authPath = (page: string) => (adminPath ? `${adminPath}/${page}` : `/${page}`);
+  const surface = adminPath ? { adminPath } : {};
   const { t } = useT();
-  const navigate = useNavigate();
   const tokenRef = useRef<string>("");
   const [phase, setPhase] = useState<Phase>("checking");
   const [password, setPassword] = useState("");
@@ -49,7 +52,7 @@ export default function ResetPasswordPage() {
         const res = await fetch("/api/auth/password/reset/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
+          body: JSON.stringify({ token, ...surface }),
         });
         const data = (await res.json().catch(() => ({}))) as { valid?: boolean };
         if (!cancelled) setPhase(res.ok && data.valid ? "form" : "invalid");
@@ -82,7 +85,7 @@ export default function ResetPasswordPage() {
       const res = await fetch("/api/auth/password/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: tokenRef.current, newPassword: password }),
+        body: JSON.stringify({ token: tokenRef.current, newPassword: password, ...surface }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
 
@@ -96,7 +99,7 @@ export default function ResetPasswordPage() {
       }
 
       setPhase("done");
-      window.setTimeout(() => navigate("/login"), 2500);
+      window.setTimeout(() => window.location.assign(authPath("login")), 2500);
     } catch {
       setError(t("auth.unexpectedError"));
     } finally {
@@ -126,7 +129,7 @@ export default function ResetPasswordPage() {
             <div className="jf-alert jf-alert--error" role="alert">
               {t("auth.resetPassword.invalidLink")}
             </div>
-            <Link className="jf-btn jf-btn--primary jf-btn--block" to="/forgot-password">
+            <Link className="jf-btn jf-btn--primary jf-btn--block" to={authPath("forgot-password")}>
               {t("auth.resetPassword.requestNewLink")}
             </Link>
           </div>
@@ -137,7 +140,7 @@ export default function ResetPasswordPage() {
             <div className="jf-alert jf-alert--success" role="status">
               {t("auth.resetPassword.doneMessage")}
             </div>
-            <Link className="jf-btn jf-btn--primary jf-btn--block" to="/login">
+            <Link className="jf-btn jf-btn--primary jf-btn--block" to={authPath("login")}>
               {t("auth.resetPassword.signInNow")}
             </Link>
           </div>

@@ -407,7 +407,10 @@ router.post("/databases/:id/reveal", async (req, res) => {
   res.json({ password: decryptSecret(row.password_ciphertext ?? "") });
 });
 
+import { SignupEmailPolicySchema } from "../../lib/security/signup-email-policy.js";
+
 const SettingsSchema = z.object({
+  signupEmailPolicy: SignupEmailPolicySchema.optional(),
   signupEnabled: z.boolean(),
   signupDatabaseMode: z.enum(["current", "separate"]).optional(),
   baseDomain: z.string().max(253),
@@ -433,6 +436,7 @@ router.put("/settings", async (req, res) => {
     signupDatabaseMode: body.data.signupDatabaseMode ?? "current",
     baseDomain,
     database: body.data.database,
+    signupEmailPolicy: body.data.signupEmailPolicy,
   });
   if (!built.ok) {
     res.status(400).json({ error: built.error });

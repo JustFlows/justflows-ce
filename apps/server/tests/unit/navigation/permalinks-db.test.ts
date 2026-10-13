@@ -37,7 +37,7 @@ vi.mock("../../../src/lib/cache/jf-cache.js", () => ({
     remember: async (_key: string, _ttl: number, load: () => Promise<unknown>) => load(),
   }),
 }));
-const { savePermalinks, getPermalinkState, uniquePermalinkSlug, contentPermalink, contentPermalinks, createContentPermalinkResolver } =
+const { savePermalinks, getPermalinkState, uniquePermalinkSlug, contentPermalink, contentPermalinks, createContentPermalinkResolver, withTermPermalinkHistory } =
   await import("../../../src/lib/navigation/permalinks-db.js");
 const row = {
   id: "p1",
@@ -154,5 +154,31 @@ describe("batch permalink resolution", () => {
     expect(await contentPermalinks([])).toEqual([]);
     expect(query).not.toHaveBeenCalled();
     expect(home).not.toHaveBeenCalled();
+  });
+});
+
+describe("term changes keep old URLs alive", () => {
+  it("redirects content moved by a category change and renamed term archives", async () => {
+    state = { settings: { ...defaults, structure: "/%category%/%postname%/" }, redirects: { "/sports/hello": "p1" } };
+    termRows = [{ id: "t1", slug: "news", name: "News", taxonomy: "category", content_id: "p1" }];
+    await withTermPermalinkHistory("s1", async () => {
+      termRows = [{ id: "t1", slug: "sports", name: "Sports", taxonomy: "category", content_id: "p1" }];
+    });
+    const saved = await getPermalinkState("s1");
+    expect(saved.redirects).toEqual({ "/news/hello": "p1" });
+    expect(saved.archiveRedirects).toEqual({
+      "/category/news": "en-US:t1",
+      "/nl-NL/category/news": "nl-NL:t1",
+    });
+    expect(invalidate).toHaveBeenCalledWith("content:");
+  });
+
+  it("leaves redirect history alone when no public URL moves", async () => {
+    state = { settings: defaults };
+    await withTermPermalinkHistory("s1", async () => {
+      termRows = [{ id: "t1", slug: "news", name: "News", taxonomy: "category", content_id: "p1" }];
+    });
+    expect(set).not.toHaveBeenCalled();
+    expect(invalidate).toHaveBeenCalledWith("page:");
   });
 });

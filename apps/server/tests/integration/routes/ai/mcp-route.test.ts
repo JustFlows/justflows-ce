@@ -10,6 +10,9 @@ delete process.env.APP_URL;
 
 const env = vi.hoisted(() => ({
   enabled: true,
+  requestSite: "s1",
+  separateDatabase: false,
+  queries: [] as Array<{ sql: string; params: unknown[] }>,
   limit: 1000,
   ownerCaps: ["content:read", "content:create", "content:update", "content:delete", "content:publish"],
   keyCaps: ["content:read"],
@@ -45,17 +48,21 @@ vi.mock("../../../../src/lib/auth/api-keys.js", async (orig) => {
     recordApiKeyUse: async () => {},
   };
 });
-vi.mock("../../../../src/lib/database/db.js", () => {
+vi.mock("../../../../src/lib/database/db.js", async () => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  const storage = new AsyncLocalStorage<typeof db>();
   const db = {
-    query: async (sql: string) =>
-      /FROM content c/.test(sql)
+    query: async (sql: string, params: unknown[] = []) => {
+      env.queries.push({ sql, params });
+      return /FROM content c/.test(sql)
         ? [{ id: "c1", type: "post", title: "Hello", slug: "hello", locale: "en-US", status: "draft", version: 1 }]
-        : [],
+        : [];
+    },
     run: async () => undefined,
     execute: async () => 0,
   };
   // The in-process dispatch looks up the key's site database on the control db.
-  return { getDb: async () => db, getControlDb: async () => db };
+  return { getDb: async () => storage.getStore() ?? db, getControlDb: async () => db, runWithDatabase: (client: typeof db, fn: () => unknown) => storage.run(client, fn) };
 });
 vi.mock("../../../../src/lib/i18n/languages-db.js", async (orig) => ({
   ...(await orig<typeof import("../../../../src/lib/i18n/languages-db.js")>()),
@@ -67,6 +74,8 @@ vi.mock("../../../../src/lib/security/audit-log.js", async (orig) => ({
   auditLog: audit,
 }));
 
+const { getDb, runWithDatabase } = await import("../../../../src/lib/database/db.js");
+const { runWithTenant } = await import("../../../../src/lib/tenancy/context.js");
 const { default: mcpRouter } = await import("../../../../src/routes/ai/mcp.js");
 const { csrfProtection } = await import("../../../../src/middleware/csrf.js");
 
@@ -76,6 +85,13 @@ let base: string;
 beforeAll(async () => {
   const app = express();
   app.use(express.json());
+  const shared = await getDb();
+  const separate = { ...shared, query: async <T>(sql: string, params?: (string | number | boolean | null)[]): Promise<T[]> => {
+    const rows = await shared.query<T>(sql, params);
+    return /FROM content c/.test(sql) ? rows.map((row) => ({ ...row, title: "Separate site database" })) : rows;
+  } };
+  app.use((_req, _res, next) => runWithDatabase(env.separateDatabase ? separate : shared, () =>
+    runWithTenant({ siteId: env.requestSite, tenantId: "t1", hostname: "site.test", userMode: "isolated", databaseMode: env.separateDatabase ? "separate" : "current", activePluginIds: new Set() }, next)));
   // The real middleware order: CSRF guards all of /api before any route.
   app.use("/api", csrfProtection);
   app.use("/api/mcp", mcpRouter);
@@ -88,6 +104,9 @@ afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
 beforeEach(() => {
   env.enabled = true;
+  env.requestSite = "s1";
+  env.separateDatabase = false;
+  env.queries = [];
   env.limit = 1000;
   env.keyCaps = ["content:read"];
   env.userTools = false;
@@ -120,7 +139,7 @@ describe("/api/mcp", () => {
     const { res } = await rpc("tools/list", {}, "");
     expect(res.status).toBe(401);
     expect(res.headers.get("www-authenticate")).toMatch(
-      /^Bearer resource_metadata="http:\/\/127\.0\.0\.1:\d+\/\.well-known\/oauth-protected-resource\/api\/mcp"$/,
+      /^Bearer resource_metadata="http:\/\/site\.test\/\.well-known\/oauth-protected-resource\/api\/mcp"$/,
     );
   });
 
@@ -177,5 +196,37 @@ describe("/api/mcp", () => {
   it("rejects GET with 405 (stateless server, no standalone stream)", async () => {
     const res = await fetch(base, { headers: { authorization: "Bearer jfk_good", accept: "text/event-stream" } });
     expect(res.status).toBe(405);
+  });
+});
+
+describe("MCP API-only and site isolation", () => {
+  it("rejects a site-one key on site two", async () => {
+    env.requestSite = "s2";
+    const { res, body } = await rpc("tools/list");
+    expect(res.status).toBe(401);
+    expect(body).toEqual({ error: "Unauthorized" });
+  });
+  it("includes the authenticated site predicate in content lookup", async () => {
+    await rpc("tools/call", { name: "content_get", arguments: { id: "foreign-content" } });
+    expect(env.queries).toContainEqual(expect.objectContaining({ sql: expect.stringMatching(/WHERE id = \? AND site_id = \?/), params: ["foreign-content", "s1"] }));
+  });
+  it.each(["file:///app/.env", "file:///app/apps/server/src/server.ts", "justflows://files/package.json", "justflows://content-types/../../.env"])("rejects file/source resource %s", async (uri) => {
+    const { body } = await rpc("resources/read", { uri });
+    expect(body?.error).toBeDefined();
+    expect(body?.result).toBeUndefined();
+  });
+  it("serves a static block API guide without disk access", async () => {
+    const { body } = await rpc("resources/read", { uri: "justflows://docs/blocks" });
+    expect(JSON.stringify(body?.result)).toContain("blocks_catalog API tool");
+  });
+});
+
+describe("MCP database context", () => {
+  it("preserves the selected separate database through the in-memory HTTP hop", async () => {
+    env.separateDatabase = true;
+    const { body } = await rpc("tools/call", { name: "content_list", arguments: {} });
+    expect(body?.result).toMatchObject({ isError: false });
+    const text = (body?.result?.content as { text: string }[])[0]!.text;
+    expect(JSON.parse(text)).toMatchObject({ data: [{ title: "Separate site database" }] });
   });
 });

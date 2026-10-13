@@ -98,6 +98,29 @@ export function setSessionCookie(res: Response, payload: Omit<SessionPayload, "i
     secure,
   });
   setCsrfCookie(res, payload.userId, Number(payload.tv ?? 0));
+  setSignedInHint(res);
+}
+
+/**
+ * One session serves the admin and the site: `jf_session` is host-wide, so
+ * signing in on either surface signs you in on both. The session cookie is
+ * HttpOnly and public pages come from a shared cache, so the site cannot render
+ * a signed-in header itself. This readable hint tells `/js/site-session.js`
+ * that asking `/api/auth/status` is worthwhile. It carries no identity and
+ * grants nothing; every request is still authorized by `jf_session`.
+ */
+export const SIGNED_IN_HINT_COOKIE = "jf_signed_in";
+
+export function setSignedInHint(res: Response): void {
+  const secure =
+    process.env.NODE_ENV === "production" || (process.env.APP_URL ?? "").startsWith("https://");
+  res.cookie(SIGNED_IN_HINT_COOKIE, "1", {
+    httpOnly: false,
+    sameSite: "lax",
+    path: "/",
+    maxAge: TTL_SECONDS * 1000,
+    secure,
+  });
 }
 
 /**
@@ -146,6 +169,8 @@ export function syncCsrfCookie(
   res: Response,
   session: { userId: string; tv?: number },
 ): void {
+  // Sessions issued before the hint existed get it on their next request.
+  if (req.cookies?.[SIGNED_IN_HINT_COOKIE] !== "1") setSignedInHint(res);
   const expected = csrfTokenFor(session.userId, Number(session.tv ?? 0));
   if (req.cookies?.[CSRF_COOKIE] === expected) return;
   setCsrfCookie(res, session.userId, Number(session.tv ?? 0));
@@ -153,6 +178,7 @@ export function syncCsrfCookie(
 
 export function clearSessionCookie(res: Response): void {
   res.clearCookie(COOKIE_NAME, { httpOnly: true, path: "/" });
+  res.clearCookie(SIGNED_IN_HINT_COOKIE, { path: "/" });
   // Sign-out is a client-side navigate to /login, not a full GET /login, so
   // the hydrated admin would otherwise POST login with no jf_csrf cookie and fail CSRF.
   setCsrfCookie(res);

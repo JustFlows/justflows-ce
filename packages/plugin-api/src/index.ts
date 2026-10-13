@@ -7,7 +7,7 @@ export type {
   PluginErrorReporter,
   PluginPlaceholderResolver,
 } from "./loader.js";
-export { PluginHttpRouter } from "./http-router.js";
+export { PluginHttpRouter, type RegisteredPluginRoute } from "./http-router.js";
 export { PluginCookieRegistry } from "./cookie-registry.js";
 export { PluginCapabilityRegistry } from "./capability-registry.js";
 export { PluginRoleRegistry } from "./role-registry.js";

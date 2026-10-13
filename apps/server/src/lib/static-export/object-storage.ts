@@ -17,10 +17,10 @@ export function staticExportDriver(): "local" | "s3" {
 }
 
 /** Stable site ids keep exports isolated even when a site's primary domain changes. */
-export function staticExportObjectPrefix(): string {
+export function staticExportObjectPrefix(siteId?: string): string {
   const config = s3UploadConfig();
   const ctx = getTenantContext();
-  const site = !ctx || ctx.rootSite ? "root" : ctx.siteId;
+  const site = siteId ?? (!ctx || ctx.rootSite ? "root" : ctx.siteId);
   if (!/^[A-Za-z0-9_-]+$/.test(site)) throw new Error("Invalid static export site id");
   const prefix = [config.prefix, "static-export", "sites", site].filter(Boolean).join("/");
   if (!isSafeUploadKey(prefix)) throw new Error("Invalid static export storage prefix");
@@ -55,13 +55,13 @@ export function deployedObjectKey(prefix: string, entry: DeployedEntry): string 
   return `${prefix}objects/${entry.sha256}/${entry.file}`;
 }
 
-export function staticExportObjectStore(): { adapter: S3StorageAdapter; prefix: string } {
+export function staticExportObjectStore(siteId?: string): { adapter: S3StorageAdapter; prefix: string } {
   return {
     adapter: new S3StorageAdapter({
       ...s3UploadConfig(),
       fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(15_000) }),
     }),
-    prefix: staticExportObjectPrefix(),
+    prefix: staticExportObjectPrefix(siteId),
   };
 }
 
@@ -151,14 +151,15 @@ export async function purgeStaticExportCdn(publicUrl?: string): Promise<void> {
 }
 
 /** Remove only this site's reserved export namespace, never uploads/private files. */
-export async function clearDeployedStaticExport(): Promise<boolean> {
-  const { adapter, prefix } = staticExportObjectStore();
+export async function clearDeployedStaticExport(siteId?: string): Promise<boolean> {
+  const { adapter, prefix } = staticExportObjectStore(siteId);
   const keys = await adapter.list(`${prefix}objects/`);
   if (keys.some((key) => !key.startsWith(`${prefix}objects/`) || !isSafeUploadKey(key)))
     throw new Error("Unsafe static export object key");
   const hadPointer = await adapter.exists(`${prefix}${POINTER}`);
   await adapter.delete(`${prefix}${POINTER}`);
-  await purgeStaticExportCdn();
+  if (siteId) await purgeCdnCache({ siteId });
+  else await purgeStaticExportCdn();
   for (const key of keys) {
     if (!key.startsWith(`${prefix}objects/`) || !isSafeUploadKey(key))
       throw new Error("Unsafe static export object key");

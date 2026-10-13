@@ -22,6 +22,7 @@ import {
   type StaticExportConfig,
 } from "./config.js";
 import { crawlPages, type FetchedResource } from "./crawl.js";
+import { originStampScript } from "./origin-stamp.js";
 import { exportFetch } from "./export-fetch.js";
 import { discoverRoutes, NOT_FOUND_PROBE } from "./discover.js";
 import {
@@ -84,6 +85,8 @@ export interface StaticExportSummary {
   durationMs: number;
   hitPageLimit: boolean;
   errors: string[];
+  /** Pages the origin reported missing (404/410). Reported, but they do not fail the run. */
+  warnings: string[];
   startedAt: string;
   finishedAt: string;
 }
@@ -393,10 +396,8 @@ async function resolveExclusions(siteId: string, adminPath: string, rules: Conte
  *     where a relative URL already reaches the origin.
  */
 function decoratePage(html: string, originUrl: string): string {
-  // `JSON.stringify` does not escape `<` / `/`, so an origin containing
-  // `</script>` would close the tag early. Escape `<` for the inline script.
-  const json = JSON.stringify(originUrl).replace(/</g, "\\u003c");
-  const head = `<script>window.__JF_ORIGIN__=${json};</script>`;
+  // The public CSP allows this exact script by hash (see withOriginStampCsp).
+  const head = `<script>${originStampScript(originUrl)}</script>`;
   if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => `${m}${head}`);
   return `${head}${html}`;
 }
@@ -434,6 +435,7 @@ async function runStaticExportLocked(
   const mode: "full" | "incremental" = options.mode ?? "full";
   const cfg = getStaticExportConfig({ baseUrl: options.baseUrl, publicUrl: options.publicUrl });
   const errors: string[] = [];
+  const warnings: string[] = [];
   const htmlOnly = staticExportDriver() === "s3";
 
   if (!cfg.enabled && !options.force) {
@@ -591,8 +593,9 @@ async function runStaticExportLocked(
     if (page.status >= 400) {
       if (page.status === 404 || page.status === 410) {
         // Genuinely gone: drop its previously-exported file.
+        // A broken link is reported, not fatal: the rest of the site still deploys.
         if (prev?.routes.some((r) => r.path === page.path)) prunePaths.add(page.path);
-        errors.push(`${page.path}: origin returned ${page.status}`);
+        warnings.push(`${page.path}: origin returned ${page.status}`);
       } else {
         // 5xx / 401 / 403 — a transient or auth blip, not a deletion. Keep any
         // file already on disk and skip the destructive prune for this run.
@@ -838,6 +841,7 @@ async function runStaticExportLocked(
     durationMs: finishedAt.getTime() - startedAt.getTime(),
     hitPageLimit: crawl.hitLimit,
     errors,
+    warnings,
     startedAt: startedAt.toISOString(),
     finishedAt: finishedAt.toISOString(),
   };
@@ -847,6 +851,7 @@ async function runStaticExportLocked(
       `${(bytes / 1024).toFixed(0)} KB → ${cfg.outDir}` +
       (summary.pruned ? ` (${summary.pruned} pruned)` : ""),
   );
+  for (const warning of warnings.slice(0, 20)) log(`⚠ ${warning}`);
   for (const err of errors.slice(0, 20)) log(`✗ ${err}`);
 
   if (summary.ok && staticExportDriver() === "s3") {

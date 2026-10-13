@@ -19,6 +19,21 @@ import {
   updateContentType,
 } from "../../lib/content/content-types-db.js";
 import {
+  createTaxonomy,
+  createTerm,
+  deleteTaxonomy,
+  deleteTerm,
+  listTaxonomies,
+  listTerms,
+  TaxonomyCreateSchema,
+  TaxonomyError,
+  TaxonomyPatchSchema,
+  TermCreateSchema,
+  TermPatchSchema,
+  updateTaxonomy,
+  updateTerm,
+} from "../../lib/content/taxonomies-db.js";
+import {
   addLanguage,
   deleteLanguage,
   listLanguages,
@@ -191,6 +206,108 @@ router.delete("/content-types/:slug", async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     contentTypeError(res, err);
+  }
+});
+
+/* ---------------------------- taxonomies ------------------------------- */
+
+function taxonomyError(res: Response, err: unknown): void {
+  if (err instanceof TaxonomyError) {
+    if (err.status === 404) return notFound(res, err.message);
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
+  sendServerError(res, "manage.taxonomies", err);
+}
+
+const TermIdSchema = z.string().uuid();
+
+router.get("/taxonomies", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  try {
+    sendJson(req, res, { taxonomies: await listTaxonomies(req.apiKeyOwner!.siteId) });
+  } catch (err) {
+    taxonomyError(res, err);
+  }
+});
+
+router.post("/taxonomies", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  const body = TaxonomyCreateSchema.safeParse(req.body);
+  if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid taxonomy");
+  try {
+    const taxonomy = await createTaxonomy(req.apiKeyOwner!.siteId, body.data);
+    auditSettings(req, `taxonomy.created:${body.data.slug}`);
+    res.status(201).json({ taxonomy });
+  } catch (err) {
+    taxonomyError(res, err);
+  }
+});
+
+router.patch("/taxonomies/:slug", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  const body = TaxonomyPatchSchema.safeParse(req.body);
+  if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid taxonomy");
+  try {
+    const taxonomy = await updateTaxonomy(req.apiKeyOwner!.siteId, req.params.slug, body.data);
+    auditSettings(req, `taxonomy.updated:${req.params.slug}`);
+    res.json({ taxonomy });
+  } catch (err) {
+    taxonomyError(res, err);
+  }
+});
+
+router.delete("/taxonomies/:slug", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  try {
+    await deleteTaxonomy(req.apiKeyOwner!.siteId, req.params.slug);
+    auditSettings(req, `taxonomy.deleted:${req.params.slug}`);
+    res.json({ ok: true });
+  } catch (err) {
+    taxonomyError(res, err);
+  }
+});
+
+router.get("/taxonomies/:slug/terms", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  try {
+    sendJson(req, res, paginate(await listTerms(req.apiKeyOwner!.siteId, req.params.slug), req, 200));
+  } catch (err) {
+    taxonomyError(res, err);
+  }
+});
+
+router.post("/taxonomies/:slug/terms", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "content:publish"))) return;
+  const body = TermCreateSchema.safeParse(req.body);
+  if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid term");
+  try {
+    res.status(201).json({ term: await createTerm(req.apiKeyOwner!.siteId, req.params.slug, body.data) });
+  } catch (err) {
+    taxonomyError(res, err);
+  }
+});
+
+router.patch("/taxonomies/:slug/terms/:id", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "content:publish"))) return;
+  if (!TermIdSchema.safeParse(req.params.id).success) return badRequest(res, "Invalid term ID.");
+  const body = TermPatchSchema.safeParse(req.body);
+  if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid term");
+  try {
+    res.json({ term: await updateTerm(req.apiKeyOwner!.siteId, req.params.slug, req.params.id, body.data) });
+  } catch (err) {
+    taxonomyError(res, err);
+  }
+});
+
+router.delete("/taxonomies/:slug/terms/:id", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "content:publish"))) return;
+  if (!TermIdSchema.safeParse(req.params.id).success) return badRequest(res, "Invalid term ID.");
+  try {
+    await deleteTerm(req.apiKeyOwner!.siteId, req.params.slug, req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    taxonomyError(res, err);
   }
 });
 

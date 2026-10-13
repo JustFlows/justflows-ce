@@ -12,6 +12,7 @@ import ContentListPage from "./pages/admin/content/ContentListPage";
 import ContentNewPage from "./pages/admin/content/ContentNewPage";
 import ContentEditPage from "./pages/admin/content/ContentEditPage";
 import ContentTypesPage from "./pages/admin/content/ContentTypesPage";
+import TaxonomiesPage from "./pages/admin/content/TaxonomiesPage";
 import MediaPage from "./pages/admin/media/MediaPage";
 import PluginsPage from "./pages/admin/extensions/PluginsPage";
 import PluginSettingsPage from "./pages/admin/extensions/PluginSettingsPage";
@@ -67,7 +68,7 @@ import { SiteHead } from "@components/SiteIdentity";
 import { DocumentMeta } from "@components/DocumentMeta";
 import { canAccessPath } from "./config/admin-nav";
 import AdminPathPage from "./pages/admin/security/AdminPathPage";
-import { adminBasePath, currentPathname, isPreAuthPath, publicAdminPath } from "./admin-path";
+import { adminAuthPage, adminBasePath, currentPathname, isPreAuthPath, publicAdminPath } from "./admin-path";
 
 /**
  * Guards the couple of full-bleed editors that render outside AdminShell (and
@@ -90,6 +91,8 @@ export default function App() {
   // logo/favicon, and /api/site/identity 404s there for an anonymous caller
   // when Public API is off, so skip the fetch entirely rather than accept it.
   const isPreAuth = isPreAuthPath(currentPathname());
+  // Staff auth pages under the admin path; the bare paths are the members' fallbacks.
+  const adminAuth = adminAuthPage()?.base;
   return (
     <I18nProvider>
       <SessionProvider>
@@ -99,6 +102,9 @@ export default function App() {
           <Routes>
             <Route path="/install" element={<InstallPage />} />
             <Route path="/login" element={<LoginPage />} />
+            {adminAuth ? <Route path={`${adminAuth}/login`} element={<LoginPage adminPath={adminAuth} />} /> : null}
+            {adminAuth ? <Route path={`${adminAuth}/forgot-password`} element={<ForgotPasswordPage adminPath={adminAuth} />} /> : null}
+            {adminAuth ? <Route path={`${adminAuth}/reset-password`} element={<ResetPasswordPage adminPath={adminAuth} />} /> : null}
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -119,6 +125,7 @@ export default function App() {
               <Route path="content/new" element={<ContentNewPage />} />
               <Route path="content/:id" element={<ContentEditPage />} />
               <Route path="content-types" element={<ContentTypesPage />} />
+              <Route path="taxonomies" element={<TaxonomiesPage />} />
               <Route path="media" element={<MediaPage />} />
               <Route path="plugins" element={<PluginsPage />} />
               <Route path="plugins/:id/settings" element={<PluginSettingsPage />} />

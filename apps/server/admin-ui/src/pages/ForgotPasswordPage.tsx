@@ -5,7 +5,10 @@ import { ensureCsrfCookie } from "../lib/csrf";
 import { useT } from "../i18n/I18nProvider";
 
 /**
- * "Forgot password" entry point for both the admin and the public user login.
+ * "Forgot password" page. With `adminPath` it is the staff page under the admin
+ * path, which names that path so the server mails staff accounts only (with a
+ * link back to the admin's reset page); without it, it is the members' fallback
+ * for a site whose themed /forgot-password page is missing.
  *
  * The server answers every request the same way, so this page always shows the
  * same confirmation once submitted — it never reveals whether the address is
@@ -13,7 +16,8 @@ import { useT } from "../i18n/I18nProvider";
  * has no working outgoing mail: recovery then goes through an administrator or
  * the documented CLI fallback.
  */
-export default function ForgotPasswordPage() {
+export default function ForgotPasswordPage({ adminPath }: { adminPath?: string } = {}) {
+  const loginPath = adminPath ? `${adminPath}/login` : "/login";
   const { t } = useT();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -30,7 +34,7 @@ export default function ForgotPasswordPage() {
       const res = await fetch("/api/auth/password/forgot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(adminPath ? { email, adminPath } : { email }),
       });
 
       if (res.status === 429) {
@@ -67,7 +71,7 @@ export default function ForgotPasswordPage() {
             <p className="jf-field__hint" style={{ margin: 0 }}>
               {t("auth.forgotPassword.noEmailHint")}
             </p>
-            <Link className="jf-btn jf-btn--primary jf-btn--block" to="/login">
+            <Link className="jf-btn jf-btn--primary jf-btn--block" to={loginPath}>
               {t("auth.forgotPassword.backToSignIn")}
             </Link>
           </div>
@@ -106,7 +110,7 @@ export default function ForgotPasswordPage() {
               {loading ? t("auth.forgotPassword.sending") : t("auth.forgotPassword.sendCta")}
             </button>
             <p className="jf-auth__footer">
-              {t("auth.forgotPassword.rememberedIt")} <Link to="/login">{t("auth.signInLink")}</Link>
+              {t("auth.forgotPassword.rememberedIt")} <Link to={loginPath}>{t("auth.signInLink")}</Link>
             </p>
           </form>
         )}

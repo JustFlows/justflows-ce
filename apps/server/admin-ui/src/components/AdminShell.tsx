@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { Link, Navigate, NavLink, useNavigate } from "../admin-router";
+import { Link, Navigate, NavLink } from "../admin-router";
+import { adminBasePath } from "../admin-path";
 import { ADMIN_UI_LOCALES, useT, type AdminUiLocale } from "../i18n/I18nProvider";
 import { ADMIN_DASHBOARD, canAccessPath, filterDomainsByRole, findDomainForPath, isDomainActive } from "../config/admin-nav";
 import DomainSubnav from "./DomainSubnav";
@@ -26,7 +27,6 @@ function AssistantButton() {
 }
 
 export default function AdminShell() {
-  const navigate = useNavigate();
   const { pathname } = useLocation();
   const { t, locale, setLocale } = useT();
   const [navOpen, setNavOpen] = useState(false);
@@ -71,7 +71,9 @@ export default function AdminShell() {
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
-    navigate("/login");
+    // A full load of the hidden staff sign-in page; the public /login is for
+    // members only once the admin path has been moved.
+    window.location.assign(`${adminBasePath()}/login`);
   }
 
   // Reached by a direct URL, a bookmark, or a link this role's own nav no
@@ -79,7 +81,11 @@ export default function AdminShell() {
   // would just fail its first fetch. Server-side authorization is what
   // actually protects the data either way.
   if (!canOpenCurrentPage) {
-    return <Navigate to="/admin" replace />;
+    const currentDomain = findDomainForPath(pathname, allDomains);
+    const securityLanding = currentDomain?.slug === "security"
+      ? domains.find((domain) => domain.slug === "security")?.items[0]?.to
+      : undefined;
+    return <Navigate to={securityLanding ?? "/admin"} replace />;
   }
 
   return (

@@ -13,7 +13,11 @@ interface DiagnosticsReport {
     themes: Array<{ id: string; name: string; version: string; source: "development" | "marketplace" | "database"; status: string; registered: boolean; onDisk: boolean; permissions: string[]; path: string | null }>;
   };
   hooks: { totals: { handlers: number; runs: number; errors: number; disabled: number }; handlers: Array<{ hook: string; pluginId: string | null; priority: number; runs: number; errors: number; totalMs: number; disabled: boolean }> };
-  jobs: { running: boolean; items: Array<{ name: string; schedule?: string; attempts: number; maxAttempts: number; status: "pending" | "running" | "failed" | "done"; lastResult?: { success: boolean; message?: string } }> };
+  jobs: {
+    running: boolean;
+    items: Array<{ name: string; owner: "core" | "plugin"; schedule?: string; attempts: number; maxAttempts: number; status: "pending" | "running" | "failed" | "done"; lastResult?: { success: boolean; message?: string } }>;
+    queue?: QueueReport;
+  };
   pluginChecks: Array<{ pluginId: string; id: string; label: string; result: { status: "ok" | "warning" | "error"; summary: string } }>;
   errors: Array<{ id: string; timestamp: string; requestId: string | null; context: string; message: string }>;
   traces: Array<{ requestId: string; timestamp: string; path: string; durationMs: number; pageCache: string; objectCache: string; databaseQueries: number; databaseMs: number; hookRuns: number; hookErrors: number; theme: string; template: string }>;
@@ -26,6 +30,17 @@ function formatUptime(seconds: number): string {
   const minutes = Math.floor((seconds % 3_600) / 60);
   return days > 0 ? `${days}d ${hours}h` : `${hours}h ${minutes}m`;
 }
+
+type QueueStatus = "queued" | "running" | "done" | "failed";
+
+type QueueReport =
+  | { available: false }
+  | {
+      available: true;
+      running: boolean;
+      counts: Record<QueueStatus, number>;
+      items: Array<{ id: string; jobName: string; siteId: string | null; status: QueueStatus; attempts: number; maxAttempts: number; runAt: string; lastError: string | null }>;
+    };
 
 export default function HealthPage() {
   const { t } = useT();
@@ -123,6 +138,13 @@ export default function HealthPage() {
       const actionLabel = `${action[0]!.toUpperCase()}${action.slice(1)}`;
       setTestResult(t("health.test.checkPassed", { action: actionLabel, latencyMs: data.latencyMs ?? 0 })); await load();
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setTestBusy(null); }
+  }
+
+  async function retryQueued(id: string) {
+    const res = await fetch(`/api/diagnostics/jobs/queue/${encodeURIComponent(id)}/retry`, { method: "POST" });
+    const data = await res.json() as { error?: string };
+    if (!res.ok) { setError(data.error ?? t("health.jobs.retryFailed")); return; }
+    await load();
   }
 
   async function retryJob(name: string) {
@@ -232,8 +254,39 @@ export default function HealthPage() {
 
         <section className="jf-card">
           <div className="jf-card__head"><div><h2 className="jf-card__title">{t("health.jobs.title")}</h2><p className="jf-field__hint">{t("health.jobs.hint")}</p></div><span className={`jf-badge jf-badge--${report.jobs.running ? "ok" : "warn"}`}>{report.jobs.running ? t("health.jobs.running") : t("health.jobs.stopped")}</span></div>
-          <div className="jf-card__body jf-card__body--flush">{report.jobs.items.length === 0 ? <div className="jf-empty"><p>{t("health.jobs.noJobs")}</p></div> : <div className="jf-tablewrap"><table className="jf-table"><thead><tr><th>{t("health.jobs.colJob")}</th><th>{t("health.jobs.colStatus")}</th><th>{t("health.jobs.colSchedule")}</th><th>{t("health.jobs.colAttempts")}</th><th>{t("health.jobs.colLastResult")}</th><th /></tr></thead><tbody>{report.jobs.items.map((job) => <tr key={job.name}><td className="jf-td--mono">{job.name}</td><td>{job.status}</td><td>{job.schedule ?? t("health.jobs.onDemand")}</td><td>{job.attempts}/{job.maxAttempts}</td><td>{job.lastResult?.message ?? (job.lastResult?.success ? t("health.jobs.completed") : "—")}</td><td>{job.status === "failed" && <button type="button" className="jf-btn jf-btn--ghost" onClick={() => void retryJob(job.name)}>{t("health.jobs.retry")}</button>}</td></tr>)}</tbody></table></div>}</div>
+          <div className="jf-card__body jf-card__body--flush">{report.jobs.items.length === 0 ? <div className="jf-empty"><p>{t("health.jobs.noJobs")}</p></div> : <div className="jf-tablewrap"><table className="jf-table"><thead><tr><th>{t("health.jobs.colJob")}</th><th>{t("health.jobs.colOwner")}</th><th>{t("health.jobs.colStatus")}</th><th>{t("health.jobs.colSchedule")}</th><th>{t("health.jobs.colAttempts")}</th><th>{t("health.jobs.colLastResult")}</th><th /></tr></thead><tbody>{report.jobs.items.map((job) => <tr key={`${job.owner}:${job.name}`}><td className="jf-td--mono">{job.name}</td><td>{t(`health.jobs.owner.${job.owner}`)}</td><td>{job.status}</td><td>{job.schedule ?? t("health.jobs.onDemand")}</td><td>{job.attempts}/{job.maxAttempts}</td><td>{job.lastResult?.message ?? (job.lastResult ? t(job.lastResult.success ? "health.jobs.completed" : "health.jobs.failedRun") : "—")}</td><td>{job.status === "failed" && <button type="button" className="jf-btn jf-btn--ghost" onClick={() => void retryJob(job.name)}>{t("health.jobs.retry")}</button>}</td></tr>)}</tbody></table></div>}</div>
         </section>
+
+        {report.jobs.queue && (
+          <section className="jf-card">
+            <div className="jf-card__head">
+              <div><h2 className="jf-card__title">{t("health.queue.title")}</h2><p className="jf-field__hint">{t("health.queue.hint")}</p></div>
+              {report.jobs.queue.available
+                ? <span className={`jf-badge jf-badge--${report.jobs.queue.counts.failed > 0 ? "warn" : "ok"}`}>{t("health.queue.counts", { queued: report.jobs.queue.counts.queued, running: report.jobs.queue.counts.running, failed: report.jobs.queue.counts.failed })}</span>
+                : <span className="jf-badge jf-badge--warn">{t("health.queue.unavailable")}</span>}
+            </div>
+            <div className="jf-card__body jf-card__body--flush">
+              {!report.jobs.queue.available
+                ? <div className="jf-empty"><p>{t("health.queue.unavailableHint")}</p></div>
+                : report.jobs.queue.items.length === 0
+                  ? <div className="jf-empty"><p>{t("health.queue.empty")}</p></div>
+                  : <div className="jf-tablewrap"><table className="jf-table">
+                    <thead><tr><th>{t("health.jobs.colJob")}</th><th>{t("health.queue.colSite")}</th><th>{t("health.jobs.colStatus")}</th><th>{t("health.jobs.colAttempts")}</th><th>{t("health.queue.colRunAt")}</th><th>{t("health.queue.colError")}</th><th /></tr></thead>
+                    <tbody>{report.jobs.queue.items.map((job) => (
+                      <tr key={job.id}>
+                        <td className="jf-td--mono">{job.jobName}</td>
+                        <td className="jf-td--mono">{job.siteId ?? t("health.queue.allSites")}</td>
+                        <td>{t(`health.queue.status.${job.status}`)}</td>
+                        <td>{job.attempts}/{job.maxAttempts}</td>
+                        <td>{new Date(job.runAt).toLocaleString()}</td>
+                        <td>{job.lastError ?? "—"}</td>
+                        <td>{job.status === "failed" && <button type="button" className="jf-btn jf-btn--ghost" onClick={() => void retryQueued(job.id)}>{t("health.jobs.retry")}</button>}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table></div>}
+            </div>
+          </section>
+        )}
 
         <section className="jf-card">
           <div className="jf-card__head"><div><h2 className="jf-card__title">{t("health.pluginChecks.title")}</h2><p className="jf-field__hint">{t("health.pluginChecks.hint")}</p></div><span className="jf-badge jf-badge--info">{t("health.pluginChecks.count", { count: report.pluginChecks.length })}</span></div>

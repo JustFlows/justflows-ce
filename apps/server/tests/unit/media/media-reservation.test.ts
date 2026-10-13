@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const MB = 1024 * 1024;
 const rows = vi.hoisted(() => new Map<string, { size: number; derivative: number }>());
 const release = vi.hoisted(() => ({ fn: () => {} }));
+const queued = vi.hoisted(() => ({ available: false, calls: [] as Array<[string, string]> }));
 
 vi.mock("../../../src/lib/database/db.js", () => ({
   getDb: async () => ({
@@ -34,6 +35,14 @@ vi.mock("../../../src/lib/database/db.js", () => ({
 vi.mock("../../../src/lib/media/upload-store.js", () => ({
   getUploadStore: () => ({ put: async () => undefined, delete: async () => undefined }),
   readUpload: async () => null,
+}));
+// Without the job table, variants are built inline (the path these tests hold open).
+vi.mock("../../../src/lib/media/media-variant-jobs.js", () => ({
+  queueMediaVariants: async (siteId: string, mediaId: string) => {
+    if (!queued.available) return false;
+    queued.calls.push([siteId, mediaId]);
+    return true;
+  },
 }));
 vi.mock("../../../src/lib/tenancy/quotas.js", () => ({ enforceQuota: async () => null }));
 vi.mock("../../../src/lib/media/media-responsive.js", async (importOriginal) => ({
@@ -71,12 +80,15 @@ const actor = { siteId: "00000000-0000-4000-8000-000000000001", userId: "u", rol
 
 afterEach(() => {
   rows.clear();
+  queued.available = false;
+  queued.calls.length = 0;
   vi.unstubAllEnvs();
 });
 
 describe("media quota reservations", () => {
   it("keeps the variant reservation while variants are still being generated", async () => {
-    vi.stubEnv("JF_MAX_LIBRARY_MB", "3");
+    // One upload reserves 1 MB + a 3 MB variant budget; two never fit.
+    vi.stubEnv("JF_MAX_LIBRARY_MB", "5");
     const upload = () =>
       storeMediaUpload({ originalname: "a.png", mimetype: "image/png", size: png.length, buffer: png }, actor);
     const first = upload();
@@ -88,6 +100,20 @@ describe("media quota reservations", () => {
     expect(statuses).toEqual([201, 413]);
     let total = 0;
     for (const row of rows.values()) total += row.size + row.derivative;
-    expect(total).toBeLessThanOrEqual(3 * MB);
+    expect(total).toBeLessThanOrEqual(5 * MB);
+  });
+
+  it("queues variants and keeps the reservation until the job records them", async () => {
+    queued.available = true;
+    const result = await storeMediaUpload(
+      { originalname: "a.png", mimetype: "image/png", size: png.length, buffer: png },
+      actor,
+    );
+    expect(result.status).toBe(201);
+    const body = result.body as { id: string; variantsPending?: boolean };
+    expect(body.variantsPending).toBe(true);
+    expect(queued.calls).toEqual([[actor.siteId, body.id]]);
+    // 1 MB original + a 3 MB reservation for the variants still to come.
+    expect(rows.get(body.id)).toEqual({ size: MB, derivative: 3 * MB });
   });
 });

@@ -3,12 +3,15 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createDbClient, getControlDb, type DbClient } from "../database/db.js";
+import { createDbClient, getControlDb, runWithDatabase, type DbClient } from "../database/db.js";
 import { getUploadStore } from "../media/upload-store.js";
 import { cacheStorageDir } from "../cache/jf-cache.js";
 import { getJfRoot, uploadsDir } from "../runtime/jf-root.js";
 import { decryptSecret } from "../security/secret-box.js";
 import { quoteDatabaseIdent } from "./choice.js";
+import { runWithTenant } from "./context.js";
+import { getStaticExportConfig } from "../static-export/config.js";
+import { resolvePathUnderBase } from "../security/safe-path.js";
 import { hostnameFromUrl } from "./host.js";
 
 export interface PurgeResult {
@@ -36,6 +39,7 @@ interface SiteRow {
 }
 
 interface DatabaseRow {
+  driver: string | null;
   host: string;
   port: number;
   database_name: string;
@@ -66,22 +70,24 @@ function installationDatabase(host: string, database: string): boolean {
 async function removeSiteFiles(siteId: string, hostnames: string[]): Promise<void> {
   if (!UUID.test(siteId)) return;
   const folders = [
-    path.join(uploadsDir(), siteId),
-    path.join(getJfRoot(), "packages-installed", "sites", siteId),
-    path.join(cacheStorageDir(), siteId.toLowerCase()),
+    resolvePathUnderBase(uploadsDir(), siteId),
+    resolvePathUnderBase(path.join(getJfRoot(), "packages-installed", "sites"), siteId),
+    resolvePathUnderBase(cacheStorageDir(), siteId.toLowerCase()),
   ];
   for (const hostname of hostnames) {
     if (/^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/.test(hostname) && !hostname.includes("..")) {
-      folders.push(path.join(getJfRoot(), "static-export-sites", hostname));
+      const outDir = runWithTenant({ tenantId: "", siteId, hostname, userMode: "isolated", databaseMode: "current", rootSite: false, activePluginIds: null }, () => getStaticExportConfig().outDir);
+      folders.push(resolvePathUnderBase(getJfRoot(), path.relative(getJfRoot(), outDir)));
     }
   }
   for (const folder of folders) {
+    if (!folder) throw new Error("Unsafe workspace storage path");
     await fs.rm(folder, { recursive: true, force: true });
   }
-  try {
-    await getUploadStore().deletePrefix(`${siteId}/`);
-  } catch (err) {
-    console.error("[justflows] Could not delete uploaded files for", siteId, err);
+  await getUploadStore().deletePrefix(`${siteId}/`);
+  const { clearDeployedStaticExport, staticExportDriver } = await import("../static-export/object-storage.js");
+  if (staticExportDriver() === "s3") {
+    await runWithTenant({ tenantId: "", siteId, hostname: hostnames[0] ?? "", userMode: "isolated", databaseMode: "current", rootSite: false, activePluginIds: null }, () => clearDeployedStaticExport(siteId));
   }
 }
 
@@ -90,7 +96,7 @@ function databaseErrorCode(error: unknown): string | undefined {
   return typeof error.code === "string" ? error.code : undefined;
 }
 
-async function deleteSiteRows(client: Pick<DbClient, "run">, siteIds: string[], tenantId: string, allowMissingTables = false): Promise<void> {
+async function deleteSiteRows(client: DbClient, siteIds: string[], tenantId: string, allowMissingTables = false, engine = driver()): Promise<void> {
   const remove = async (sql: string, id: string): Promise<void> => {
     try {
       await client.run(sql, [id]);
@@ -101,6 +107,19 @@ async function deleteSiteRows(client: Pick<DbClient, "run">, siteIds: string[], 
     }
   };
   for (const siteId of siteIds) {
+    // Plugin-owned tables have no site foreign key, including remote targets.
+    let plugins: { plugin_id: string }[];
+    try {
+      plugins = await client.query<{ plugin_id: string }>("SELECT plugin_id FROM plugins WHERE site_id = ?", [siteId]);
+    } catch (error) {
+      if (!allowMissingTables || !["ER_NO_SUCH_TABLE", "42P01"].includes(databaseErrorCode(error) ?? "")) throw error;
+      plugins = [];
+    }
+    for (const plugin of plugins) {
+      const { purgePluginStorage } = await import("../plugins/plugin-purge.js");
+      const result = await runWithDatabase(client, () => purgePluginStorage(siteId, plugin.plugin_id, { rowsOnly: true, strictRemote: true, driver: engine }));
+      if (!result.ok) throw new Error("Plugin data could not be removed; workspace removal will be retried.");
+    }
     await remove("DELETE FROM sites WHERE id = ?", siteId);
   }
   await remove("DELETE FROM tenants WHERE id = ?", tenantId);
@@ -122,6 +141,12 @@ export async function purgeDeletedTenant(tenantId: string, actorId: string | nul
     return { ok: false, status: 409, error: "Suspend the website before it can be removed." };
   }
 
+  // Claim permanent removal before external I/O; a concurrent reactivation cannot revive it.
+  const claimed = await db.execute("UPDATE tenants SET status = 'deleted' WHERE id = ? AND status IN ('suspended', 'deleted')", [tenantId]);
+  if (claimed === 0) return { ok: false, status: 409, error: "The workspace is no longer suspended or deleted." };
+  const { getRuntimeHooks } = await import("../plugins/plugin-runtime.js");
+  await getRuntimeHooks().dispatchGate("workspace.beforePurge", { tenantId }, { source: "system" });
+
   const sites = await db.query<SiteRow>("SELECT id, url, database_choice FROM sites WHERE tenant_id = ?", [tenantId]);
   const domains = await db.query<{ site_id: string; hostname: string }>("SELECT site_id, hostname FROM site_domains WHERE site_id IN (SELECT id FROM sites WHERE tenant_id = ?)", [tenantId]);
   const hostnamesBySite = new Map<string, string[]>();
@@ -141,7 +166,7 @@ export async function purgeDeletedTenant(tenantId: string, actorId: string | nul
   await releaseSitesAtProvider(sites.map((site) => String(site.id)));
 
   const databases = await db.query<DatabaseRow>(
-    `SELECT host, port, database_name, username, password_ciphertext FROM tenant_databases
+    `SELECT driver, host, port, database_name, username, password_ciphertext FROM tenant_databases
      WHERE tenant_id = ? AND mode = 'separate' AND database_name IS NOT NULL AND host IS NOT NULL`,
     [tenantId],
   );
@@ -157,7 +182,7 @@ export async function purgeDeletedTenant(tenantId: string, actorId: string | nul
     );
     const shared = Number(others[0]?.count ?? 0) > 0;
     const password = decryptSecret(row.password_ciphertext);
-    const engine = driver();
+    const engine = row.driver === "postgres" || row.driver === "mysql" || row.driver === "mariadb" ? row.driver : driver();
     let content: DbClient | undefined;
     try {
       content = await createDbClient({
@@ -168,7 +193,7 @@ export async function purgeDeletedTenant(tenantId: string, actorId: string | nul
         username: row.username,
         password,
       });
-      await deleteSiteRows(content, sites.map((site) => site.id), tenantId, true);
+      await deleteSiteRows(content, sites.map((site) => site.id), tenantId, true, engine);
     } catch (error) {
       // The separate database may already be gone. Do not hide authentication,
       // connection, or other SQL failures that could leave customer data behind.
@@ -192,23 +217,26 @@ export async function purgeDeletedTenant(tenantId: string, actorId: string | nul
           await admin.close();
         }
       } catch (err) {
-        console.error("[justflows] Separate database was emptied but could not be dropped:", row.database_name, err);
+        throw new Error("The workspace database could not be dropped; removal will be retried.", { cause: err });
       }
     }
   }
 
+  // The durable queue deliberately has no FK; remove payloads before sites vanish.
+  await db.run("DELETE FROM job_queue WHERE site_id IN (SELECT id FROM sites WHERE tenant_id = ?)", [tenantId]);
   await deleteSiteRows(db, sites.map((site) => site.id), tenantId);
   const actor = actorId && UUID.test(actorId) ? actorId : null;
   await db.run(
     "INSERT INTO platform_audit (id, actor_id, action, target, detail, created_at) VALUES (?, ?, 'tenant.purged', ?, ?, ?)",
     [randomUUID(), actor, tenantId, `removed ${sites.length} site(s)`, stamp()],
   );
+  await getRuntimeHooks().dispatchAction("workspace.purged", { tenantId }, { source: "system" });
   return { ok: true, tenantId };
 }
 
 export function deletedLongEnough(updatedAt: string | Date, days: number, nowMs = Date.now()): boolean {
   if (days < 1) return false;
-  const time = updatedAt instanceof Date ? updatedAt.getTime() : Date.parse(String(updatedAt).replace(" ", "T") + "Z");
+  const time = updatedAt instanceof Date ? updatedAt.getTime() : Date.parse(/[zZ]$|[+-]\d{2}:?\d{2}$/.test(String(updatedAt)) ? String(updatedAt) : String(updatedAt).replace(" ", "T") + "Z");
   if (!Number.isFinite(time)) return false;
   return nowMs - time >= days * 86_400_000;
 }

@@ -15,6 +15,7 @@ interface Overview {
   sites: Array<{ id: string; tenant_id: string; name: string; hostname: string | null; status: string; database_choice: string }>;
   databases: Array<{ id: string; tenant_id: string; mode: string; status: string; database_name: string | null; host: string | null }>;
   settings: {
+    signupEmailPolicy?: { blockDisposable: boolean; allowListedOnly: boolean; allow: string[]; block: string[] };
     signupEnabled?: boolean;
     signupDatabaseMode?: "current" | "separate";
     baseDomain?: string;
@@ -158,6 +159,12 @@ export default function PlatformPage() {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        signupEmailPolicy: {
+          blockDisposable: form.get("blockDisposable") === "on",
+          allowListedOnly: form.get("allowListedOnly") === "on",
+          allow: String(form.get("signupAllow") ?? "").split(/[\n,]+/).map((entry) => entry.trim()).filter(Boolean),
+          block: String(form.get("signupBlock") ?? "").split(/[\n,]+/).map((entry) => entry.trim()).filter(Boolean),
+        },
         signupEnabled: form.get("signupEnabled") === "on",
         signupDatabaseMode,
         baseDomain: form.get("baseDomain"),
@@ -381,12 +388,13 @@ export default function PlatformPage() {
 }
 
 function readSignupSettings(value: Overview["settings"] | string | null | undefined): {
+  signupEmailPolicy: NonNullable<Overview["settings"]>["signupEmailPolicy"];
   signupEnabled: boolean;
   signupDatabaseMode: "current" | "separate";
   baseDomain: string;
   signupDatabase: NonNullable<Overview["settings"]>["signupDatabase"];
 } {
-  const empty = { signupEnabled: false, signupDatabaseMode: "current" as const, baseDomain: "", signupDatabase: null };
+  const empty = { signupEmailPolicy: undefined, signupEnabled: false, signupDatabaseMode: "current" as const, baseDomain: "", signupDatabase: null };
   let raw: unknown = value;
   for (let depth = 0; depth < 2 && typeof raw === "string"; depth += 1) {
     try {
@@ -399,6 +407,7 @@ function readSignupSettings(value: Overview["settings"] | string | null | undefi
   const record = raw as NonNullable<Overview["settings"]>;
   const database = record.signupDatabase;
   return {
+    signupEmailPolicy: record.signupEmailPolicy,
     signupEnabled: record.signupEnabled === true,
     signupDatabaseMode: record.signupDatabaseMode === "separate" ? "separate" : "current",
     baseDomain: typeof record.baseDomain === "string" ? record.baseDomain : "",
@@ -483,7 +492,7 @@ function SignupSettingsForm({
   return (
     <form
       ref={formRef}
-      key={`${signup.signupEnabled}:${signup.signupDatabaseMode}:${signup.baseDomain}:${database?.host ?? ""}:${database?.port ?? ""}`}
+      key={`${JSON.stringify(signup.signupEmailPolicy)}:${signup.signupEnabled}:${signup.signupDatabaseMode}:${signup.baseDomain}:${database?.host ?? ""}:${database?.port ?? ""}`}
       className="jf-card__body jf-stack"
       onSubmit={(event) => {
         setTestError("");
@@ -501,6 +510,16 @@ function SignupSettingsForm({
           <input className="jf-input jf-input--mono" name="baseDomain" defaultValue={signup.baseDomain} placeholder="example.com" />
         </Field>
       </div>
+      <fieldset className="jf-choice">
+        <legend className="jf-field__label">{t("platform.signupEmailSecurity")}</legend>
+        <label className="jf-checkrow"><input type="checkbox" name="blockDisposable" defaultChecked={signup.signupEmailPolicy?.blockDisposable ?? false} /><span>{t("platform.signupBlockDisposable")}</span></label>
+        <label className="jf-checkrow"><input type="checkbox" name="allowListedOnly" defaultChecked={signup.signupEmailPolicy?.allowListedOnly ?? false} /><span>{t("platform.signupAllowListedOnly")}</span></label>
+        <p className="jf-field__hint">{t("platform.signupEmailPolicyHint")}</p>
+        <div className="jf-grid jf-grid--2">
+          <Field label={t("platform.signupAllowList")}><textarea className="jf-input jf-input--mono" name="signupAllow" rows={6} maxLength={321000} defaultValue={signup.signupEmailPolicy?.allow.join("\n") ?? ""} placeholder={t("platform.signupAllowListPlaceholder")} /></Field>
+          <Field label={t("platform.signupBlockList")}><textarea className="jf-input jf-input--mono" name="signupBlock" rows={6} maxLength={321000} defaultValue={signup.signupEmailPolicy?.block.join("\n") ?? ""} placeholder={t("platform.signupBlockListPlaceholder")} /></Field>
+        </div>
+      </fieldset>
       <fieldset className="jf-choice">
         <legend className="jf-field__label">{databaseLabel}</legend>
         <label className="jf-checkrow">

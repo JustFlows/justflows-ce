@@ -92,6 +92,7 @@ export default function OAuthConsentPage() {
           {needsLogin && (
             <>
               <p>{t("ai.consent.signInFirst")}</p>
+              <p className="jf-field__hint">{t("ai.consent.staffHint")}</p>
               <a className="jf-btn jf-btn--primary jf-btn--block" href={loginHref}>
                 {t("ai.consent.signIn")}
               </a>
