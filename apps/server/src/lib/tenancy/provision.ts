@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import { seedAccountPage } from "@justflows/content";
+import { seedAccountPage, seedAuthPages } from "@justflows/content";
 import { randomUUID } from "node:crypto";
 import { createDbClient, getControlDb, runWithDatabase, type DbClient } from "../database/db.js";
 import { runAllMigrations } from "../database/run-migrations.js";
@@ -329,6 +329,7 @@ async function seedSiteContents(
     [randomUUID(), input.siteId, true, true, input.stamp, input.stamp],
   );
   await seedAccountPage(db, input.siteId, "en");
+  await seedAuthPages(db, input.siteId, "en");
 }
 
 /** Check the login and the named database. Does not create a database. */

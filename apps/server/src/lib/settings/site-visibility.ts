@@ -24,3 +24,22 @@ export async function canViewUnpublishedSite(req: Request, res: Response): Promi
   const session = await resolveSession(req, res);
   return session !== null && BYPASS_ROLES.has(session.role);
 }
+
+/**
+ * Whether the site is closed to visitors: in maintenance mode, or not yet
+ * public. While it is, only the staff surface stays open — the admin and its
+ * own sign-in pages — so the site's member sign-in, registration, password and
+ * account pages, and the member side of the auth API, are closed as well.
+ * A read failure counts as open, as it does for the maintenance gate.
+ */
+export async function isSiteClosed(): Promise<boolean> {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) return false;
+    const { getErrorPageConfig } = await import("../rendering/error-pages.js");
+    if ((await getErrorPageConfig(siteId)).maintenance?.enabled) return true;
+    return !(await isSitePublic());
+  } catch {
+    return false;
+  }
+}

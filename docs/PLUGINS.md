@@ -119,7 +119,7 @@ in a non-default language (`/nl-NL/...`), the host prefixes internal
 `<a href>` and `<form action>` targets in the rendered HTML. It also loads a
 small script that does the same for links your client code adds later. The
 host leaves alone paths that already have a locale, app routes (`/api`,
-`/ext`, `/login`, the admin path), your registered HTTP routes, files (a dot
+`/ext`, `/login` and the other sign-in pages, the admin path), your registered HTTP routes, files (a dot
 in the last segment), and `hreflang` links. If a page has no translation in
 that language, `/nl-NL/<path>` shows the default-language entry with Dutch
 site chrome. Its canonical URL points at the original.

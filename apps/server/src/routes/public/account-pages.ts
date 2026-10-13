@@ -17,6 +17,10 @@ export const accountPagesRouter = Router();
 
 export async function serveAccountContent(req: Request, res: Response, content: ContentResponse, url: string, pageNumber = 1): Promise<void> {
   privateAccountResponse(res); res.locals.jfPrivateContent = true;
+  // Closed with the rest of the site while it is offline or in maintenance;
+  // signed-in administrators and editors can still view it, as everywhere else.
+  const { ensureSiteIsPublic } = await import("./public-site.js");
+  if (!(await ensureSiteIsPublic(req, res))) return;
   if (!req.session) { res.redirect("/login"); return; }
   const requestPath = req.originalUrl.split("?")[0] || req.path;
   const pagination = requestPath.match(/^(.*)\/page\/([1-9][0-9]*)\/?$/);

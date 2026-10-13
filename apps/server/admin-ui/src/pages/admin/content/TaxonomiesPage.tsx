@@ -48,8 +48,8 @@ export default function TaxonomiesPage() {
   const selected = taxonomies.find((taxonomy) => taxonomy.slug === selectedSlug) ?? taxonomies[0];
   const tree = useMemo(() => termTree(terms), [terms]);
   const typeLabels = useMemo(() => new Map(types.map((type) => [type.slug, type.label])), [types]);
-  // Private types (the account page) cannot carry terms.
-  const assignableTypes = types.filter((type) => type.slug !== "account");
+  // Private types (the account and sign-in pages) cannot carry terms.
+  const assignableTypes = types.filter((type) => type.slug !== "account" && type.slug !== "auth");
 
   useEffect(() => {
     Promise.all([

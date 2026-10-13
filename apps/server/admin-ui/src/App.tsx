@@ -68,7 +68,7 @@ import { SiteHead } from "@components/SiteIdentity";
 import { DocumentMeta } from "@components/DocumentMeta";
 import { canAccessPath } from "./config/admin-nav";
 import AdminPathPage from "./pages/admin/security/AdminPathPage";
-import { adminBasePath, currentPathname, isPreAuthPath, publicAdminPath } from "./admin-path";
+import { adminAuthPage, adminBasePath, currentPathname, isPreAuthPath, publicAdminPath } from "./admin-path";
 
 /**
  * Guards the couple of full-bleed editors that render outside AdminShell (and
@@ -91,6 +91,8 @@ export default function App() {
   // logo/favicon, and /api/site/identity 404s there for an anonymous caller
   // when Public API is off, so skip the fetch entirely rather than accept it.
   const isPreAuth = isPreAuthPath(currentPathname());
+  // Staff auth pages under the admin path; the bare paths are the members' fallbacks.
+  const adminAuth = adminAuthPage()?.base;
   return (
     <I18nProvider>
       <SessionProvider>
@@ -100,6 +102,9 @@ export default function App() {
           <Routes>
             <Route path="/install" element={<InstallPage />} />
             <Route path="/login" element={<LoginPage />} />
+            {adminAuth ? <Route path={`${adminAuth}/login`} element={<LoginPage adminPath={adminAuth} />} /> : null}
+            {adminAuth ? <Route path={`${adminAuth}/forgot-password`} element={<ForgotPasswordPage adminPath={adminAuth} />} /> : null}
+            {adminAuth ? <Route path={`${adminAuth}/reset-password`} element={<ResetPasswordPage adminPath={adminAuth} />} /> : null}
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />

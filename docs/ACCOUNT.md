@@ -7,6 +7,10 @@ header, footer, styles, and page/template settings. Theme template selection che
 `account-<slug>`, `account`, `page-<slug>`, and `page` before generic fallbacks,
 so the default uses the editable page canvas without a duplicate post title/date.
 
+The member sign-in, registration and password pages are a sibling built-in type,
+`auth`, with the same theme integration; see
+[Sign-in and password pages](AUTH.md).
+
 ## Customize the page
 
 Change headings and text, add normal layout blocks, adjust spacing and CSS,

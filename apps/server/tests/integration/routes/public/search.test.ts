@@ -38,6 +38,7 @@ vi.mock("../../../../src/lib/settings/site-settings.js", () => ({
 }));
 vi.mock("../../../../src/lib/settings/site-visibility.js", () => ({
   isSitePublic: async () => publicSite,
+  isSiteClosed: async () => !publicSite,
   canViewUnpublishedSite: async () => false,
 }));
 vi.mock("../../../../src/lib/i18n/languages-db.js", () => ({

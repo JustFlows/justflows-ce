@@ -423,7 +423,7 @@ up a change on the next export run.
 | **Comment submission** (`justflows.comments.thread`)  | native POST to `/justflows-comments/submit`; existing threads render at export time and are read-only otherwise |
 | **Pageview analytics**                                | beacon to `/justflows-analytics/collect` — needs the endpoint reachable (hybrid or origin URL)                  |
 | **Cookie consent records + disclosure**               | `/ext/justflows.consent/*` — banner/gating work offline; record log + cookie table need the endpoint reachable  |
-| **Login / register / password reset / language POST** | origin only — never route these to the static host                                                              |
+| **Login / register / password reset / language POST** | origin only — never route these to the static host (staff copies live under the admin path)                     |
 | **Search**                                            | needs the origin, or a client-side / third-party index                                                          |
 | **Plugin-excluded pages** (`staticExport.exclude`)    | never exported — served by the origin; see [Pages a plugin keeps live](#pages-a-plugin-keeps-live)              |
 

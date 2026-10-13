@@ -2141,7 +2141,9 @@
         "pathLabel": "Pad",
         "current": "Huidig adres:",
         "pathHelpPrefix": "Begin met",
-        "pathHelpSuffix": "en gebruik letters, cijfers, koppeltekens, underscores of geneste paden. Zet geen schuine streep aan het eind."
+        "pathHelpSuffix": "en gebruik letters, cijfers, koppeltekens, underscores of geneste paden. Zet geen schuine streep aan het eind.",
+        "signIn": "Inloggen voor medewerkers:",
+        "signInHint": "Medewerkers loggen in op dit adres. De openbare inlogpagina is voor leden van de site en accepteert geen medewerkersaccounts zolang er een eigen pad is ingesteld."
       },
       "oldAddress": {
         "title": "Oud beheeradres",
@@ -3833,7 +3835,8 @@
       "readOnly": "Alleen lezen",
       "ceiling": "De app kan nooit meer dan je eigen account, en je kunt de toegang altijd intrekken via je accountpagina.",
       "allow": "Toestaan",
-      "deny": "Weigeren"
+      "deny": "Weigeren",
+      "staffHint": "Medewerker van een site met een eigen beheeradres? Log daar eerst in en open deze link daarna opnieuw."
     },
     "providers": {
       "keyEnding": "Sleutel …{last4}",

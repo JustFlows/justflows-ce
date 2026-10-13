@@ -212,7 +212,7 @@ async function validContentTypes(siteId: string, slugs: string[]): Promise<strin
   const unique = [...new Set(slugs)];
   for (const slug of unique) {
     if (!known.has(slug)) throw new TaxonomyError(`Unknown content type: ${slug}`, 400);
-    if (contentTypePolicy(slug).requiresAuthentication)
+    if (!contentTypePolicy(slug).publiclyDiscoverable)
       throw new TaxonomyError(`Content type ${slug} cannot use taxonomies`, 400);
   }
   return unique;

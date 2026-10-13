@@ -86,6 +86,11 @@ vi.mock("../../../../src/lib/email/mail.js", () => ({
   sendTemplateMail: async () => ({ ok: true }),
   notifyAdmin: async () => ({ ok: true }),
 }));
+const siteState = vi.hoisted(() => ({ closed: false }));
+vi.mock("../../../../src/lib/settings/site-visibility.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../../src/lib/settings/site-visibility.js")>()),
+  isSiteClosed: async () => siteState.closed,
+}));
 vi.mock("../../../../src/lib/plugins/plugin-runtime.js", () => ({
   getRuntimeHooks: () => ({ dispatchAction: async () => {}, has: () => false }),
   ensurePluginRuntime: async () => {},
@@ -192,7 +197,8 @@ async function signIn(jar: Jar, extra: Record<string, unknown> = {}) {
   await get("/api/auth/csrf", jar);
   return post(
     "/api/auth/login",
-    { email: user.email, password: "correct-horse-battery", ...extra },
+    // Staff sign in through the admin sign-in page, which names the admin path.
+    { email: user.email, password: "correct-horse-battery", adminPath: "/admin", ...extra },
     jar,
   );
 }
@@ -435,7 +441,7 @@ describe("password change", () => {
       (
         await post(
           "/api/auth/login",
-          { email: user.email, password: "a-brand-new-passphrase" },
+          { email: user.email, password: "a-brand-new-passphrase", adminPath: "/admin" },
           fresh,
         )
       ).status,

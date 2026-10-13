@@ -20,9 +20,9 @@ describe("buildServiceWorkerScript", () => {
     expect(buildServiceWorkerScript(settings)).toContain(JSON.stringify(PWA_OFFLINE_URL));
   });
 
-  it("never intercepts admin, api, login, or install navigations", () => {
+  it("never intercepts admin, api, sign-in, password, or install navigations", () => {
     const script = buildServiceWorkerScript(settings);
-    expect(script).toContain("/^\\/(admin|api|login|install|account|platform-account|ext)(\\/|$)/");
+    expect(script).toContain("/^\\/(admin|api|login|register|forgot-password|reset-password|install|account|platform-account|ext)(\\/|$)/");
   });
 
   it("only calls skipWaiting on an explicit message, never on install", () => {

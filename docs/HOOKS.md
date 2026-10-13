@@ -847,7 +847,8 @@ core `account` content record; see [Frontend account pages](ACCOUNT.md). Core pr
 and root-site workspace management are its initial sections. `/platform-account`
 redirects to `/account`; the old workspace API remains a compatibility alias.
 Workspace owners and users without administration capabilities land on `/account`;
-other administrators keep their administration landing page.
+other administrators keep their administration landing page. Members sign in on the
+site's themed `/login`; staff sign in under the admin path (see [AUTH.md](AUTH.md)).
 
 The async **`account.sections`** filter receives `AccountSection[]` and
 `AccountSectionContext` (`siteId`, `userId`, `email`, `role`, `installationRoot`).

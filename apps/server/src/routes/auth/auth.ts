@@ -1,9 +1,9 @@
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getDb } from "../../lib/database/db.js";
-import { clearSessionCookie, getSession, setCsrfCookie, setSessionCookie } from "../../lib/auth/session.js";
+import { SIGNED_IN_HINT_COOKIE, clearSessionCookie, getSession, setCsrfCookie, setSessionCookie } from "../../lib/auth/session.js";
 import { clientIp, consumeRateLimit, rateLimitRetryAfter } from "../../lib/security/rate-limit.js";
 import { hashPassword, needsRehash, verifyPassword } from "../../lib/auth/password.js";
 import { getGeneralSettings } from "../../lib/settings/general-settings.js";
@@ -15,6 +15,7 @@ import { PasswordSchema } from "../../lib/auth/password-policy.js";
 import { revokeUserSessions } from "../../lib/auth/auth-session.js";
 import { createDeviceSession, listDeviceSessions, revokeDeviceSession, revokeOtherDeviceSessions } from "../../lib/auth/device-sessions.js";
 import { getAdminPathConfig } from "../../lib/admin/admin-path.js";
+import { accountSurface, knowsAdminPath, postAuthRedirect, requestSurface } from "../../lib/auth/auth-surface.js";
 import { param } from "../../lib/http/params.js";
 import {
   completePasswordReset,
@@ -67,6 +68,28 @@ router.get("/csrf", (req, res) => {
  * capability. It is a UX convenience, not a security boundary: every route it
  * informs is still enforced independently by `requireRole` on the server.
  */
+/**
+ * Who is signed in, for the public site's header (`/js/site-session.js`). The
+ * session is shared with the admin, so staff signed in there show as signed in
+ * here too. Deliberately minimal — no role, capabilities or admin address — and
+ * never 401, so an anonymous or expired visit is an ordinary answer.
+ */
+router.get("/status", async (req, res) => {
+  res.set({ "Cache-Control": "private, no-store", "CDN-Cache-Control": "no-store" });
+  res.vary("Cookie");
+  const { resolveSession } = await import("../../lib/auth/auth-session.js");
+  const { sessionMatchesRequestSite } = await import("../../lib/tenancy/access.js");
+  const session = await resolveSession(req, res).catch(() => null);
+  const siteId = await getSiteId();
+  if (!session || !siteId || !sessionMatchesRequestSite(session.siteId)) {
+    res.clearCookie(SIGNED_IN_HINT_COOKIE, { path: "/" });
+    res.json({ signedIn: false });
+    return;
+  }
+  const { accountHomeUrl } = await import("../../lib/account/pages.js");
+  res.json({ signedIn: true, email: session.email, accountUrl: await accountHomeUrl(siteId) });
+});
+
 router.get("/me", requireSession, async (req, res) => {
   const session = req.session!;
   const { getEffectiveAccess } = await import("../../lib/auth/access-policy.js");
@@ -86,39 +109,41 @@ router.get("/me", requireSession, async (req, res) => {
   });
 });
 
-/**
- * Where the browser should go once authenticated.
- *
- * A subscriber, or a plugin role such as Shop's customer, has nothing in the
- * admin app and lands on the site's frontend account page.
- * Everyone else lands on the admin app — at whatever path the administrator
- * moved it to (issue #51). The pre-session `/login` and `/register` pages have
- * no way to know that path on their own, and it should not be handed to anyone
- * who has not signed in, so it is resolved here and returned in the response.
- */
-async function postAuthRedirect(role: string, userId?: string, siteId?: string): Promise<string> {
-  if (userId && siteId) {
-    const { installationRootSiteId } = await import("../../lib/tenancy/registry.js");
-    if (await installationRootSiteId() === siteId) {
-      const { getControlDb } = await import("../../lib/database/db.js");
-      const owners = await (await getControlDb()).query("SELECT id FROM tenants WHERE owner_user_id = ? AND status <> 'deleted' LIMIT 1", [userId]);
-      if (owners.length) return (await import("../../lib/account/pages.js")).accountHomeUrl(siteId);
-    }
-    const { getEffectiveAccess } = await import("../../lib/auth/access-policy.js");
-    const access = await getEffectiveAccess(userId, siteId, role);
-    if (!access.capabilities.some((capability) => capability !== "content:read")) return (await import("../../lib/account/pages.js")).accountHomeUrl(siteId);
-  } else if (role === "subscriber" || role === "customer") return "/account";
-  return (await getAdminPathConfig()).path;
-}
-
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
   /** Six-digit authenticator code, or a recovery code, when 2FA is enrolled. */
   totp: z.string().max(64).optional(),
+  /**
+   * Sent only by the admin sign-in page, which is served under the configured
+   * admin path and reads it from its own URL. Knowing that path is what lets a
+   * staff account sign in once the administrator has moved it.
+   */
+  adminPath: z.string().max(128).optional(),
 });
 
-router.post("/login", loginRequestLimit, async (req, res) => {
+
+/**
+ * While the site is offline or in maintenance, only the staff surface may sign
+ * in, request or redeem a reset: a request that names the admin path passes,
+ * every member request gets the same 503 before any account is looked up, so
+ * the answer reveals nothing about who exists. Mirrors the page gate on the
+ * member auth pages (server.ts).
+ */
+async function closedToMembers(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const adminPath = (req.body as { adminPath?: unknown } | undefined)?.adminPath;
+    if ((await requestSurface(adminPath)) === "admin") { next(); return; }
+    const { canViewUnpublishedSite, isSiteClosed } = await import("../../lib/settings/site-visibility.js");
+    if (!(await isSiteClosed()) || (await canViewUnpublishedSite(req, res))) { next(); return; }
+    res.setHeader("Cache-Control", "private, no-store");
+    res.status(503).json({ error: "This site is not available right now. Please try again later." });
+  } catch (err) {
+    next(err);
+  }
+}
+
+router.post("/login", loginRequestLimit, closedToMembers, async (req, res) => {
   const ip = clientIp(req);
   if (!consumeRateLimit(`login:ip:${ip}`, 20, 15 * 60 * 1000)) {
     // The window grows with each exhausted one, so the caller cannot work it
@@ -183,6 +208,29 @@ router.post("/login", loginRequestLimit, async (req, res) => {
         });
       }
       await new Promise((r) => setTimeout(r, 300 + Math.random() * 200));
+      res.status(401).json({ error: "Invalid email or password" });
+      return;
+    }
+
+    // A staff account outside the hidden admin sign-in gets exactly the answer
+    // a wrong password gets, before the second-factor prompt, so neither the
+    // response nor its timing confirms the password or that the account is staff.
+    const adminPath = (await getAdminPathConfig()).path;
+    const redirectTo = await postAuthRedirect(user.role, user.id, user.site_id);
+    if (redirectTo === adminPath && !knowsAdminPath(body.data.adminPath, adminPath)) {
+      void auditLog({
+        siteId: user.site_id,
+        action: "auth.login_failed",
+        outcome: "failure",
+        actorId: user.id,
+        actorEmail: user.email,
+        target: normalizedEmail,
+        ...auditContext(req),
+        detail: "staff sign-in outside the admin path",
+      });
+      await new Promise((r) => setTimeout(r, 300 + Math.random() * 200));
+      // Never a hint, even on the default path: anything other than the
+      // wrong-password answer would confirm the password and the staff role.
       res.status(401).json({ error: "Invalid email or password" });
       return;
     }
@@ -263,7 +311,7 @@ router.post("/login", loginRequestLimit, async (req, res) => {
     // certain roles get the admin app; a subscriber belongs on the site itself.
     // `redirectTo` carries the configured admin path so the client does not have
     // to guess it from a page that was served before the session existed.
-    res.json({ ok: true, role: user.role, redirectTo: await postAuthRedirect(user.role, user.id, user.site_id) });
+    res.json({ ok: true, role: user.role, redirectTo });
   } catch (err) {
     console.error("Login error", err);
     res.status(500).json({ error: "Server error" });
@@ -324,7 +372,7 @@ router.get("/registration", async (_req, res) => {
   }
 });
 
-router.post("/register", registerRequestLimit, async (req, res) => {
+router.post("/register", registerRequestLimit, closedToMembers, async (req, res) => {
   if (!isInstalled()) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -432,10 +480,14 @@ router.post("/register", registerRequestLimit, async (req, res) => {
       })
       .catch((err) => console.error("Registration mail failed:", err));
 
+    // Public self-registration never learns a moved admin path, even when the
+    // default role is a staff role; that user signs in on the hidden page later.
+    const registeredRedirect = await postAuthRedirect(general.defaultRole, id, siteId);
+    const { path: adminPath } = await getAdminPathConfig();
     res.status(201).json({
       ok: true,
       role: general.defaultRole,
-      redirectTo: await postAuthRedirect(general.defaultRole, id, siteId),
+      redirectTo: adminPath !== "/admin" && registeredRedirect === adminPath ? "/" : registeredRedirect,
     });
   } catch (err) {
     console.error("Register error", err);
@@ -557,7 +609,26 @@ router.get("/password/forgot", async (_req, res) => {
   }
 });
 
-const ForgotPasswordSchema = z.object({ email: z.string().email() });
+/** `adminPath` is sent by the admin's own pages only; see lib/auth/auth-surface.ts. */
+const SurfaceField = { adminPath: z.string().max(128).optional() };
+
+const ForgotPasswordSchema = z.object({ email: z.string().email(), ...SurfaceField });
+
+/**
+ * A reset token only works on the surface whose page it was mailed for: a staff
+ * token on the admin's reset page, a member token on the site's. Anything else
+ * is answered as an invalid link, so a token cannot be used to tell which
+ * surface an account belongs to.
+ */
+async function resolveResetForSurface(token: string, adminPath: unknown) {
+  const reset = await resolveResetToken(token);
+  if (!reset) return null;
+  const db = await getDb();
+  const rows = await db.query<{ role: string }>("SELECT role FROM users WHERE id = ? AND site_id = ? LIMIT 1", [reset.userId, reset.siteId]);
+  if (!rows[0]) return null;
+  const [surface, own] = await Promise.all([requestSurface(adminPath), accountSurface(rows[0].role, reset.userId, reset.siteId)]);
+  return surface === own ? reset : null;
+}
 
 /**
  * Ask for a reset link.
@@ -569,7 +640,7 @@ const ForgotPasswordSchema = z.object({ email: z.string().email() });
  * rate-limit rejection looks different, and that is keyed on the submitted
  * address regardless of whether it exists.
  */
-router.post("/password/forgot", passwordForgotRequestLimit, async (req, res) => {
+router.post("/password/forgot", passwordForgotRequestLimit, closedToMembers, async (req, res) => {
   const ip = clientIp(req);
   const sameAnswer = () => res.json({ ok: true });
 
@@ -593,22 +664,24 @@ router.post("/password/forgot", passwordForgotRequestLimit, async (req, res) => 
     return;
   }
 
-  void processForgotPassword(email, {
-    ip,
-    userAgent: (req.get("user-agent") ?? "").slice(0, 255) || null,
-  }).catch((err) => console.error("Forgot-password dispatch failed:", err));
+  void requestSurface(body.data.adminPath)
+    .then((surface) => processForgotPassword(email, {
+      ip,
+      userAgent: (req.get("user-agent") ?? "").slice(0, 255) || null,
+    }, surface))
+    .catch((err) => console.error("Forgot-password dispatch failed:", err));
 
   sameAnswer();
 });
 
-const VerifyResetSchema = z.object({ token: z.string().min(16).max(512) });
+const VerifyResetSchema = z.object({ token: z.string().min(16).max(512), ...SurfaceField });
 
 /**
  * Whether a reset token is still good, for the reset page to show the form or an
  * "expired link" message. The token is a high-entropy secret the caller already
  * holds, so answering does not disclose anything they do not have.
  */
-router.post("/password/reset/verify", passwordResetRequestLimit, async (req, res) => {
+router.post("/password/reset/verify", passwordResetRequestLimit, closedToMembers, async (req, res) => {
   const ip = clientIp(req);
   if (!consumeRateLimit(`pwreset:verify:ip:${ip}`, 30, 15 * 60 * 1000)) {
     res.status(429).json({ error: "Too many requests. Try again later." });
@@ -620,7 +693,7 @@ router.post("/password/reset/verify", passwordResetRequestLimit, async (req, res
     return;
   }
   try {
-    const reset = await resolveResetToken(body.data.token);
+    const reset = await resolveResetForSurface(body.data.token, body.data.adminPath);
     res.json({ valid: reset !== null });
   } catch (err) {
     console.error("Reset verify error", err);
@@ -631,6 +704,7 @@ router.post("/password/reset/verify", passwordResetRequestLimit, async (req, res
 const ResetPasswordSchema = z.object({
   token: z.string().min(16).max(512),
   newPassword: PasswordSchema,
+  ...SurfaceField,
 });
 
 /**
@@ -641,7 +715,7 @@ const ResetPasswordSchema = z.object({
  * siblings — but never signs the caller in, so TOTP, lockout and the rest still
  * apply when they next sign in.
  */
-router.post("/password/reset", passwordResetRequestLimit, async (req, res) => {
+router.post("/password/reset", passwordResetRequestLimit, closedToMembers, async (req, res) => {
   const ip = clientIp(req);
   if (!consumeRateLimit(`pwreset:reset:ip:${ip}`, 10, 15 * 60 * 1000)) {
     res.setHeader("Retry-After", String(rateLimitRetryAfter(`pwreset:reset:ip:${ip}`)));
@@ -662,7 +736,7 @@ router.post("/password/reset", passwordResetRequestLimit, async (req, res) => {
   }
 
   try {
-    const reset = await resolveResetToken(body.data.token);
+    const reset = await resolveResetForSurface(body.data.token, body.data.adminPath);
     if (!reset) {
       await new Promise((r) => setTimeout(r, 200 + Math.random() * 150));
       res

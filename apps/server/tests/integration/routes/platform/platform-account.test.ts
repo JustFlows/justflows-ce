@@ -24,7 +24,9 @@ vi.mock("../../../../src/middleware/auth.js", () => ({
 vi.mock("../../../../src/lib/tenancy/access.js", () => ({ isInstallationRootRequest: () => mocks.root }));
 vi.mock("../../../../src/lib/tenancy/platform-account.js", () => ({ ownedWorkspace: mocks.owned, ownerAccount: mocks.account }));
 vi.mock("../../../../src/lib/database/db.js", () => ({ getControlDb: async () => ({ query: mocks.query, run: mocks.run, execute: mocks.execute }), getDb: async () => ({ run: mocks.run }) }));
-vi.mock("../../../../src/lib/tenancy/site-users.js", () => ({ withSiteUsers: async (_id: string, fn: (scope: { separateDatabase: boolean }) => Promise<void>) => { await fn({ separateDatabase: true }); return { ok: true }; } }));
+vi.mock("../../../../src/lib/tenancy/site-users.js", () => ({ withSiteUsers: async <T>(_id: string, fn: (scope: { separateDatabase: boolean }) => Promise<T>) => ({ ok: true, value: await fn({ separateDatabase: true }) }) }));
+const sitePath = vi.hoisted(() => ({ path: "/control-room" }));
+vi.mock("../../../../src/lib/admin/admin-path.js", () => ({ getAdminPathConfig: async () => ({ path: sitePath.path, oldPathBehavior: "not_found" }) }));
 vi.mock("../../../../src/lib/tenancy/provision.js", () => ({ createAdditionalSite: mocks.createSite }));
 vi.mock("../../../../src/lib/tenancy/saas-settings.js", () => ({ platformBaseDomain: async () => "example.com" }));
 vi.mock("../../../../src/lib/tenancy/quotas.js", () => ({ listQuotaMeters: mocks.meters }));
@@ -35,7 +37,7 @@ vi.mock("../../../../src/lib/content/content-types-db.js", () => ({ ensureBuilti
 vi.mock("../../../../src/lib/account/pages.js", () => ({ accountPages: async () => [{ url: "/account", aliases: [], content: { id: "account-page", siteId: "root-site", type: "account", slug: "account", locale: "en", status: "published" } }] }));
 vi.mock("../../../../src/lib/auth/auth-session.js", () => ({ isPreviewAllowed: async () => false }));
 vi.mock("../../../../src/middleware/security-headers.js", () => ({ securityHeaders: (_req: unknown, _res: unknown, next: () => void) => next() }));
-vi.mock("../../../../src/routes/public/public-site.js", () => ({ renderSinglePageHtml: async (req: express.Request) => {
+vi.mock("../../../../src/routes/public/public-site.js", () => ({ ensureSiteIsPublic: async () => true, renderSinglePageHtml: async (req: express.Request) => {
   const { renderAccountBlocks } = await import("../../../../src/lib/account/render.js");
   const body = await renderAccountBlocks('<div class="jf-account" data-jf-account="all" data-section-id="" data-show-titles="true">Your account details</div>', req.session!);
   return `<html><head></head><body>${body}</body></html>`;
@@ -83,6 +85,19 @@ describe("public workspace owner API", () => {
   it("refuses a site outside the owner's workspace", async () => {
     expect((await fetch(`${base}/workspaces/${WORKSPACE}/sites/${SITE}/limits`)).status).toBe(404);
     expect(mocks.meters).not.toHaveBeenCalled();
+  });
+  it("sends the owner to their site's own admin sign-in, resolving a hidden path", async () => {
+    mocks.query.mockResolvedValue([{ url: "https://shop.example.com/some/where" }]);
+    const res = await fetch(`${base}/workspaces/${WORKSPACE}/sites/${SITE}/admin-sign-in`, { redirect: "manual" });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://shop.example.com/control-room/login");
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+  });
+  it("never resolves another owner's admin path", async () => {
+    mocks.owned.mockResolvedValue(null);
+    const res = await fetch(`${base}/workspaces/${WORKSPACE}/sites/${SITE}/admin-sign-in`, { redirect: "manual" });
+    expect(res.status).toBe(404);
+    expect(res.headers.get("location")).toBeNull();
   });
   it("guards workspace name writes with owner identity", async () => {
     const res = await send(`/workspaces/${WORKSPACE}`, "PATCH", { name: "My workspace" });

@@ -12,13 +12,18 @@ describe("content-type cache settings", () => {
   beforeEach(() => {
     vi.clearAllMocks(); mocks.purge.mockResolvedValue(undefined); mocks.clear.mockResolvedValue(undefined);
     mocks.query.mockImplementation(async (sql: string, params: unknown[]) => {
-      if (sql.startsWith("SELECT slug")) return [{ slug: "page" }, { slug: "post" }, { slug: "account" }];
+      if (sql.includes("type = 'auth'")) return ["login", "register", "forgot-password", "reset-password"].map(slug => ({ slug }));
+      if (sql.startsWith("SELECT slug")) return [{ slug: "page" }, { slug: "post" }, { slug: "account" }, { slug: "auth" }];
       if (sql.startsWith("SELECT * FROM content_types")) return [{ id: "type", site_id: params[0], slug: params[1], fields: [], is_builtin: 1, cache_control: null }];
       return [{ id: "existing-account" }]; // seed is already present
     });
   });
   it.each([null, "public, max-age=60", "private, no-store"])("rejects every account override, including %s", async cacheControl => {
     await expect(updateContentType("site-a", "account", { cacheControl })).rejects.toThrow("locked");
+    expect(mocks.run).not.toHaveBeenCalled();
+  });
+  it("locks the sign-in page type's cache header too", async () => {
+    await expect(updateContentType("site-a", "auth", { cacheControl: "public, max-age=60" })).rejects.toThrow("locked");
     expect(mocks.run).not.toHaveBeenCalled();
   });
   it("persists validated headers in the selected site and forces invalidation", async () => {

@@ -2141,7 +2141,9 @@
         "pathLabel": "Chemin",
         "current": "Adresse actuelle :",
         "pathHelpPrefix": "Commencez par",
-        "pathHelpSuffix": "et utilisez des lettres, des chiffres, des tirets, des traits de soulignement ou des chemins imbriqués. N’ajoutez pas de barre oblique finale."
+        "pathHelpSuffix": "et utilisez des lettres, des chiffres, des tirets, des traits de soulignement ou des chemins imbriqués. N’ajoutez pas de barre oblique finale.",
+        "signIn": "Connexion de l’équipe :",
+        "signInHint": "L’équipe se connecte à cette adresse. La page de connexion publique est réservée aux membres du site et refuse les comptes de l’équipe tant qu’un chemin personnalisé est défini."
       },
       "oldAddress": {
         "title": "Ancienne adresse d’administration",
@@ -3833,7 +3835,8 @@
       "readOnly": "Lecture seule",
       "ceiling": "Elle ne peut jamais faire plus que votre propre compte, et vous pouvez révoquer l’accès à tout moment depuis la page de votre compte.",
       "allow": "Autoriser",
-      "deny": "Refuser"
+      "deny": "Refuser",
+      "staffHint": "Membre de l’équipe d’un site avec une adresse d’administration personnalisée : connectez-vous d’abord à cette adresse, puis rouvrez ce lien."
     },
     "providers": {
       "keyEnding": "Clé …{last4}",

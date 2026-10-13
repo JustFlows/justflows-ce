@@ -452,7 +452,8 @@ function bootFullApp() {
 function needsFullApp(pathname) {
   if (pathname === "/api/healthz") return false;
   if (pathname === "/api/bootstrap" || pathname === "/api/bootstrap/status") return false;
-  if (pathname === "/install" || pathname === "/login") return false;
+  // An installed site renders /login in its theme, which needs the full app.
+  if (pathname === "/install" || (pathname === "/login" && !isInstalled())) return false;
   if (pathname === "/") return isInstalled();
   if (pathname.startsWith("/assets/")) return false;
   return true;
@@ -578,7 +579,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if ((pathname === "/install" || pathname === "/login") && fs.existsSync(adminIndex)) {
+  if ((pathname === "/install" || (pathname === "/login" && !isInstalled())) && fs.existsSync(adminIndex)) {
     if (
       pathname === "/install" &&
       !isInstalled() &&
