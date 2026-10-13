@@ -2,6 +2,7 @@
 
 import { randomBytes, randomUUID } from "node:crypto";
 import { getControlDb } from "../database/db.js";
+import { registerCoreJob } from "../jobs/core-jobs.js";
 import { borrowSeparateDatabase, separateDatabaseForSite } from "../tenancy/connections.js";
 import type { DatabaseChoice, DatabaseMode } from "../tenancy/context.js";
 import {
@@ -1061,21 +1062,18 @@ export async function runDomainChecks(resolver: DnsResolver = systemResolver()):
   }
 }
 
-let timer: ReturnType<typeof setInterval> | null = null;
-let running = false;
-
 export function startDomainCheckJob(): void {
-  if (timer) return;
-  const tick = () => {
-    if (running) return;
-    running = true;
-    void runDomainChecks().finally(() => {
-      running = false;
-    });
-  };
-  timer = setInterval(tick, 5 * 60 * 1000);
-  timer.unref?.();
-  setTimeout(tick, 30_000).unref?.();
+  registerCoreJob(
+    {
+      name: "domains.check",
+      schedule: "*/5 * * * *",
+      handler: async () => {
+        await runDomainChecks();
+        return { success: true };
+      },
+    },
+    { runAfterMs: 30_000 },
+  );
 }
 
 /** Reverse proxy question: may a certificate be issued for this hostname? */

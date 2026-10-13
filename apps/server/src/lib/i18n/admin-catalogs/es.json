@@ -2035,6 +2035,7 @@
     "editAriaLabel": "Editar {filename}",
     "responsiveBadge": "Adaptable",
     "originalOnlyBadge": "Original únicamente",
+    "optimizingBadge": "Optimizando…",
     "editButton": "Editar",
     "trashButton": "Papelera",
     "saveFailed": "No se pudo guardar",
@@ -2923,18 +2924,24 @@
     "jobs": {
       "retryFailed": "No se pudo reintentar la tarea",
       "title": "Programador de tareas",
-      "hint": "Tareas de los plugins; los datos de las tareas nunca se muestran.",
+      "hint": "Tareas en segundo plano del núcleo y de los plugins; los datos de las tareas nunca se muestran.",
       "running": "En ejecución",
       "stopped": "Detenido",
-      "noJobs": "No hay tareas de plugins registradas.",
+      "noJobs": "No hay tareas registradas.",
       "colJob": "Tarea",
+      "colOwner": "Origen",
       "colStatus": "Estado",
       "colSchedule": "Programación",
       "colAttempts": "Intentos",
       "colLastResult": "Último resultado",
       "onDemand": "Bajo demanda",
       "completed": "Completado",
-      "retry": "Reintentar"
+      "failedRun": "Fallida",
+      "retry": "Reintentar",
+      "owner": {
+        "core": "Núcleo",
+        "plugin": "Plugin"
+      }
     },
     "queue": {
       "title": "Cola de tareas",
@@ -3301,6 +3308,8 @@
       "thumbnailSizeLabel": "Tamaño de la miniatura (px, 0 = desactivado)",
       "webpQualityLabel": "Calidad WebP",
       "avifQualityLabel": "Calidad AVIF",
+      "avifEffortLabel": "Esfuerzo AVIF (1–9)",
+      "avifEffortHint": "Un valor más alto da archivos más pequeños, pero es más lento: 4 tarda unas seis veces más que 2 para archivos un 8 % más pequeños.",
       "jpegQualityLabel": "Calidad JPEG",
       "keepOriginalLabel": "Conservar solo el original (patrones de nombre de archivo, separados por comas)",
       "keepOriginalHint": "Las subidas que coincidan se guardan sin modificar: logotipos, casos especiales de transparencia, pixel art.",

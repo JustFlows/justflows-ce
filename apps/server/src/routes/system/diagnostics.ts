@@ -13,6 +13,7 @@ import { debugMode, recentDiagnosticErrors, recentRequestTraces, redactDiagnosti
 import { getJfCache } from "../../lib/cache/jf-cache.js";
 import { getPluginLoader, getRuntimeHooks } from "../../lib/plugins/plugin-runtime.js";
 import { getDurableJobQueue, getPluginJobScheduler } from "../../lib/plugins/plugin-jobs.js";
+import { getCoreJobScheduler } from "../../lib/jobs/core-jobs.js";
 import { countJobs, listOpenJobs, retryFailedJob } from "../../lib/jobs/job-queue-db.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { MIGRATION_ORDER } from "../../lib/database/run-migrations.js";
@@ -285,7 +286,14 @@ async function buildReport(siteId: string) {
         disabled: hooks.filter((hook) => hook.disabled).length,
       },
     },
-    jobs: { running: getPluginJobScheduler().isRunning(), items: getPluginJobScheduler().listJobs(), queue: await queueReport() },
+    jobs: {
+      running: getCoreJobScheduler().isRunning() && getPluginJobScheduler().isRunning(),
+      items: [
+        ...getCoreJobScheduler().listJobs().map((job) => ({ ...job, owner: "core" as const })),
+        ...getPluginJobScheduler().listJobs().map((job) => ({ ...job, owner: "plugin" as const })),
+      ],
+      queue: await queueReport(),
+    },
     pluginChecks: redactDiagnosticValue(pluginChecks),
     errors: recentDiagnosticErrors(),
     traces: recentRequestTraces(),
@@ -317,7 +325,10 @@ router.post("/test", async (req, res) => {
       } finally {
         await store.delete(probeKey);
       }
-    } else getPluginJobScheduler().listJobs();
+    } else {
+      getCoreJobScheduler().listJobs();
+      getPluginJobScheduler().listJobs();
+    }
     auditFromRequest(req, "diagnostics.test_run", { detail: parsed.data.action });
     res.json({ ok: true, action: parsed.data.action, latencyMs: Math.round((performance.now() - started) * 100) / 100 });
   } catch (err) { sendServerError(res, `diagnostics ${parsed.data.action} test`, err); }
@@ -338,7 +349,7 @@ router.post("/jobs/queue/:id/retry", async (req, res) => {
 
 router.post("/jobs/:name/retry", (req, res) => {
   const name = req.params.name;
-  if (!getPluginJobScheduler().retry(name)) { res.status(409).json({ error: "Only failed jobs can be retried" }); return; }
+  if (!getCoreJobScheduler().retry(name) && !getPluginJobScheduler().retry(name)) { res.status(409).json({ error: "Only failed jobs can be retried" }); return; }
   auditFromRequest(req, "diagnostics.job_retried", { detail: name });
   res.json({ ok: true });
 });

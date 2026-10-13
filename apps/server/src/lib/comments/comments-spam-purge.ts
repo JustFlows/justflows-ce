@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-import { JobScheduler } from "@justflows/jobs";
 import { getDb } from "../database/db.js";
 import { getCommentSettings } from "./comments-settings.js";
 import { auditLog } from "../security/audit-log.js";
+import { registerCoreJob } from "../jobs/core-jobs.js";
 
 /** Hard-delete comments marked spam past each site's configured retention window. */
 export async function purgeExpiredSpam(): Promise<number> {
@@ -38,18 +38,13 @@ export async function purgeExpiredSpam(): Promise<number> {
   return purged;
 }
 
-let scheduler: JobScheduler | null = null;
 export function startCommentSpamPurgeJob(): void {
-  if (scheduler) return;
-  scheduler = new JobScheduler(console);
-  scheduler.register({
+  registerCoreJob({
     name: "comments.purge-expired-spam",
     schedule: "41 3 * * *",
-    maxAttempts: 3,
     handler: async () => ({
       success: true,
       message: `Purged ${await purgeExpiredSpam()} expired spam comments`,
     }),
   });
-  scheduler.start();
 }

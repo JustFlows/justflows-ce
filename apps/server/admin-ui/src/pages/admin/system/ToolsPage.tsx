@@ -1394,15 +1394,18 @@ export default function ToolsPage() {
 
           <hr className="jf-divider" />
 
+          {/* Setting state, not an action result: don't take focus or scroll on load. */}
           {sxSettings && !sxSettings.enabled && (
-            <p className="jf-status jf-status--error">
+            <p className="jf-status jf-status--error" data-notice-focus="false">
               {installationRoot
                 ? t("tools.staticExport.exportOff")
                 : t("tools.staticExport.exportOffSite")}
             </p>
           )}
           {sxSettings?.enabled && !installationRoot && !sxSiteEnabled && (
-            <p className="jf-status jf-status--error">{t("tools.staticExport.siteExportOff")}</p>
+            <p className="jf-status jf-status--error" data-notice-focus="false">
+              {t("tools.staticExport.siteExportOff")}
+            </p>
           )}
 
           <div className="jf-row">
@@ -1495,6 +1498,7 @@ interface MediaSettings {
   maxWidth: number;
   qualityWebp: number;
   qualityAvif: number;
+  avifEffort: number;
   qualityJpeg: number;
   stripMetadata: boolean;
   thumbnailSize: number;
@@ -1788,6 +1792,25 @@ function ResponsiveImagesCard() {
                   onChange={(e) => upd("qualityJpeg", Number(e.target.value) || 82)}
                   disabled={saving || !settings.enabled}
                 />
+              </div>
+            </div>
+
+            <div className="jf-grid jf-grid--3">
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-img-ae">
+                  {t("tools.responsiveImages.avifEffortLabel")}
+                </label>
+                <input
+                  id="jf-img-ae"
+                  className="jf-input"
+                  type="number"
+                  min={1}
+                  max={9}
+                  value={settings.avifEffort ?? 2}
+                  onChange={(e) => upd("avifEffort", Math.min(9, Math.max(1, Number(e.target.value) || 2)))}
+                  disabled={saving || !settings.enabled || !settings.avif}
+                />
+                <p className="jf-field__hint">{t("tools.responsiveImages.avifEffortHint")}</p>
               </div>
             </div>
 

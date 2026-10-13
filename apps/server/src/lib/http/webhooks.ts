@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { JobScheduler } from "@justflows/jobs";
+import { getCoreJobScheduler, registerCoreJob } from "../jobs/core-jobs.js";
 import type { HookContext } from "@justflows/core";
 import { getDb, type DbClient } from "../database/db.js";
 import { decryptSecret, encryptSecret } from "../security/secret-box.js";
@@ -31,7 +31,6 @@ export const CORE_WEBHOOK_EVENTS = [
 ] as const;
 export const MAX_WEBHOOK_PAYLOAD_BYTES = 256 * 1024;
 const MAX_ATTEMPTS = 5;
-const scheduler = new JobScheduler(console);
 let started = false;
 const registeredEvents = new Set<string>();
 
@@ -254,7 +253,7 @@ export async function enqueueWebhookEvent(
     );
     count++;
   }
-  if (count > 0 && !client) scheduler.enqueue("webhooks.deliver");
+  if (count > 0 && !client) getCoreJobScheduler().enqueue("webhooks.deliver");
   return count;
 }
 
@@ -430,7 +429,7 @@ export async function redeliverWebhook(siteId: string, id: string): Promise<bool
     "UPDATE webhook_deliveries SET status = 'pending', attempt_count = 0, response_status = NULL, response_body = NULL, error = NULL, next_attempt_at = ?, delivered_at = NULL, updated_at = ? WHERE id = ? AND site_id = ?",
     [sqlTime(), sqlTime(), id, siteId],
   );
-  scheduler.enqueue("webhooks.deliver");
+  getCoreJobScheduler().enqueue("webhooks.deliver");
   return true;
 }
 
@@ -445,15 +444,13 @@ export async function startWebhookJobs(): Promise<void> {
     "UPDATE webhook_deliveries SET status = 'pending', next_attempt_at = ?, updated_at = ? WHERE status = 'processing'",
     [sqlTime(), sqlTime()],
   );
-  scheduler.register({
+  registerCoreJob({
     name: "webhooks.deliver",
     schedule: "* * * * *",
-    maxAttempts: 1,
     async handler() {
       const count = await processDueWebhookDeliveries();
       return { success: true, message: `Processed ${count} deliveries` };
     },
   });
-  scheduler.start();
   await refreshWebhookEventHooks();
 }

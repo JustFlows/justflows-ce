@@ -2035,6 +2035,7 @@
     "editAriaLabel": "Modifier {filename}",
     "responsiveBadge": "Responsive",
     "originalOnlyBadge": "Original uniquement",
+    "optimizingBadge": "Optimisation…",
     "editButton": "Modifier",
     "trashButton": "Corbeille",
     "saveFailed": "Impossible d'enregistrer",
@@ -2923,18 +2924,24 @@
     "jobs": {
       "retryFailed": "La nouvelle tentative de la tâche a échoué",
       "title": "Planificateur de tâches",
-      "hint": "Tâches des extensions ; les données utiles ne sont jamais affichées.",
+      "hint": "Tâches de fond du cœur et des extensions ; les données utiles ne sont jamais affichées.",
       "running": "En cours",
       "stopped": "Arrêté",
-      "noJobs": "Aucune tâche d’extension n’est enregistrée.",
+      "noJobs": "Aucune tâche n’est enregistrée.",
       "colJob": "Tâche",
+      "colOwner": "Origine",
       "colStatus": "Statut",
       "colSchedule": "Planification",
       "colAttempts": "Tentatives",
       "colLastResult": "Dernier résultat",
       "onDemand": "Sur demande",
       "completed": "Terminé",
-      "retry": "Réessayer"
+      "failedRun": "Échec",
+      "retry": "Réessayer",
+      "owner": {
+        "core": "Cœur",
+        "plugin": "Extension"
+      }
     },
     "queue": {
       "title": "File des tâches",
@@ -3301,6 +3308,8 @@
       "thumbnailSizeLabel": "Taille des miniatures (px, 0 = désactivé)",
       "webpQualityLabel": "Qualité WebP",
       "avifQualityLabel": "Qualité AVIF",
+      "avifEffortLabel": "Effort AVIF (1–9)",
+      "avifEffortHint": "Plus élevé donne des fichiers plus petits mais plus lents à produire : 4 prend environ six fois plus de temps que 2 pour des fichiers d'environ 8 % plus petits.",
       "jpegQualityLabel": "Qualité JPEG",
       "keepOriginalLabel": "Conserver uniquement l’original (motifs de noms de fichiers, séparés par des virgules)",
       "keepOriginalHint": "Les fichiers correspondants sont conservés tels quels — logos, cas particuliers de transparence, pixel art.",

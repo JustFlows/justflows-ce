@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import { JobScheduler } from "@justflows/jobs";
+import { registerCoreJob } from "../jobs/core-jobs.js";
 import { getDb } from "../database/db.js";
 import {
   liveUploadKey,
@@ -247,18 +247,13 @@ export async function purgeExpiredTrash(): Promise<number> {
   return purged;
 }
 
-let scheduler: JobScheduler | null = null;
 export function startTrashPurgeJob(): void {
-  if (scheduler) return;
-  scheduler = new JobScheduler(console);
-  scheduler.register({
+  registerCoreJob({
     name: "trash.purge-expired",
     schedule: "17 3 * * *",
-    maxAttempts: 3,
     handler: async () => ({
       success: true,
       message: `Purged ${await purgeExpiredTrash()} expired items`,
     }),
   });
-  scheduler.start();
 }
