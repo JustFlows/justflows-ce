@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.7] [UNRELEASED]
+
+### Added
+
+- **Functional core blocks.** Adds nested lists/checklists, editable tables, Details and Accordions, image/video Covers and Media & Text, Buttons, Cards, Icons, dismissible notices, and keyboard-accessible Tabs. Adds live Site Logo/Title/Tagline, Navigation, Breadcrumbs, Social Links, Table of Contents, and published Content Query blocks with filters, sorting, pagination, and display controls. Includes structured editor controls, safe rendering, responsive styling, and public interactions. ([#27](https://github.com/JustFlows/justflows-ce/issues/27))
+
+- **Media blocks.** Adds Video, Audio, and File/download blocks with URL and caption settings, playback controls, video poster and sizing, safe public rendering, and builder previews. Same-page anchor URLs are now preserved for theme navigation. ([#27](https://github.com/JustFlows/justflows-ce/issues/27))
+
+
 ## [0.3.6]
 
 ### Added

@@ -1,3 +1,6 @@
+import SocialLinksEditor from "./SocialLinksEditor";
+import { FUNCTIONAL_TYPES } from "./FunctionalBlock";
+import TableEditor from "./TableEditor";
 import { useT } from "../../i18n/I18nProvider";
 import { useEffect, useRef, useState } from "react";
 import type { BlockNode, BlockCatalogEntry, BlockSchemaField } from "./types";
@@ -308,6 +311,19 @@ export default function BlockInspector({
         </label>
       </>;
       break;
+    case "core.video":
+    case "core.audio":
+    case "core.file":
+      fields = <>
+        {Object.entries(catalogEntry?.schema ?? {}).map(([name, field]) => name === "poster" ? (
+          <MediaImageField key={name} id={`block-${block.id}-poster`} label={t("builder.media.poster")} value={(p.poster as string) ?? ""} onChange={(url) => set("poster", url)} />
+        ) : (
+          <SchemaField key={name} name={name} field={{ ...field, label: t(`builder.media.${name}`) }} value={p[name]} onChange={(value) => set(name, value)} />
+        ))}
+        {block.type !== "core.file" && <p style={fieldHint}>{t("builder.media.autoplayHelp")}</p>}
+        {block.type === "core.file" && <p style={fieldHint}>{t("builder.media.downloadHelp")}</p>}
+      </>;
+      break;
     case "core.image":
       fields = <>
         <MediaImageField
@@ -530,6 +546,20 @@ export default function BlockInspector({
       </>;
       break;
     default: {
+      if (FUNCTIONAL_TYPES.has(block.type)) {
+        fields = <>
+          {Object.entries(catalogEntry?.schema ?? {}).map(([name, field]) => name === "rows" ? (
+            <TableEditor key={name} value={p.rows ?? field.default} onChange={(rows) => set("rows", rows)} />
+          ) : name === "links" ? (
+            <SocialLinksEditor key={name} value={p.links ?? field.default} onChange={(links) => set("links", links)} />
+          ) : name === "poster" ? (
+            <MediaImageField key={name} id={`block-${block.id}-poster`} label={t("builder.media.poster")} value={(p.poster as string) ?? ""} onChange={(url) => set("poster", url)} />
+          ) : (
+            <SchemaField key={name} name={name} field={{ ...field, label: t(`builder.functional.fields.${name}`), optionLabels: field.options ? Object.fromEntries(field.options.map(option => [option, t(`builder.functional.options.${option}`)])) : field.optionLabels }} value={p[name]} onChange={(value) => set(name, value)} />
+          ))}
+        </>;
+        break;
+      }
       const schema = catalogEntry?.schema ?? {};
       const keys = Object.keys(schema).filter((key) => schemaFieldVisible(schema[key]!, p, schema));
       fields = keys.length === 0 ? (

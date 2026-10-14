@@ -47,6 +47,17 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
       apply(res, config, ctx);
       if (config.removeServerHeader) res.removeHeader("Server");
       if (ctx.area === "public") {
+        const { getThemeMediaOriginsForCsp, withThemeMediaCsp } = await import("../lib/themes/theme-media-csp.js");
+        try {
+          const origins = await getThemeMediaOriginsForCsp();
+          if (origins.length) {
+            for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
+              const current = res.getHeader(name);
+              if (typeof current === "string") res.setHeader(name, withThemeMediaCsp(current, origins));
+            }
+          }
+        } catch { /* Retain the owner's original policy if theme discovery fails. */ }
+
         const { getConfiguredGoogleTagId } = await import("../lib/rendering/analytics-public.js");
         const { googleTagInlineHashes, withGoogleTagCsp } = await import("../lib/rendering/google-tag.js");
         const googleTagId = await getConfiguredGoogleTagId();

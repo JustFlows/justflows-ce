@@ -1,3 +1,4 @@
+import { renderSiteBuildingBlocks } from "../../lib/rendering/site-building-blocks.js";
 import { isAccountPath } from "../../middleware/account-cache.js";
 import { verifyContentPreview } from "../../lib/content/content-preview.js";
 import { serializeContentRow } from "../../lib/content/content-api.js";
@@ -550,6 +551,7 @@ async function buildCommentContext(
 /** True when this request must skip the shared page cache for comment state. */
 function pageCacheBypassReason(req: Request, preview: boolean): string | null {
   if (isAccountPath(req.path)) return "private account";
+  if (Object.keys(req.query).some(key => /^[a-z][a-z0-9-]{0,30}-page$/.test(key))) return "block pagination";
   if (preview) return "preview";
   if (isFormConfirmation(req)) return "form confirmation";
   if (getSession(req)) return "authenticated session";
@@ -837,6 +839,10 @@ async function sendPublicHtml(
   const hookErrorsBefore = hooksBefore.reduce((sum, hook) => sum + hook.errors, 0);
   const bypassReason = res.locals.jfContentCacheBypass ? "content-type" : pageCacheBypassReason(req, preview);
   const bypass = bypassReason !== null;
+  if (bypassReason === "block pagination") {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("CDN-Cache-Control", "no-store");
+  }
   if (bypass || !getJfCache().enabled) {
     res.locals.jfPageCache = "BYPASS";
   }
@@ -1220,7 +1226,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
           translations: rawTranslations,
         });
 
-  return ejs.renderFile(path.join(templateDir, "layout.ejs"), {
+  const documentHtml = await ejs.renderFile(path.join(templateDir, "layout.ejs"), {
     ...pageData,
     body,
     headExtra,
@@ -1229,6 +1235,17 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     pwaBody,
     hreflangLinks,
     title: documentTitle,
+  });
+  return renderSiteBuildingBlocks(documentHtml, {
+    siteId, locale: String(data.locale ?? "en"),
+    homePath: localePath(String(data.locale ?? "en"), "/", String(data.defaultLocale ?? "en")),
+    path: String(data.publicPath ?? data.restPath ?? "/"), query: String(data.blockQuery ?? ""),
+    title: String(content?.title ?? data.title ?? ""),
+    identity: identity ?? { siteTitle: "", tagline: "", logoUrl: "" },
+    renderNavigation: typeof data.renderBlockNavigation === "function" ? data.renderBlockNavigation as NonNullable<Parameters<typeof renderSiteBuildingBlocks>[1]["renderNavigation"]> : undefined,
+    loadNavigation: typeof data.loadBlockNavigation === "function" ? data.loadBlockNavigation as (slug: string) => Promise<RenderableNavItem[]> : undefined,
+    primary: Array.isArray(data.navItems) ? data.navItems as RenderableNavItem[] : [],
+    footer: Array.isArray(data.footerNavItems) ? data.footerNavItems as RenderableNavItem[] : [],
   });
 }
 
@@ -1628,6 +1645,18 @@ async function buildPageContext(req: Request, res: Response, reqPath: string, pr
     preview,
     discourageSearchEngines: res.locals.jfPrivateContent === true || discourageSearchEngines,
     privateAccount: res.locals.jfPrivateContent === true,
+    blockQuery: req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?") + 1) : "",
+    loadBlockNavigation: (menuSlug: string) => loadNavItems(req, res, menuSlug, locale, defaultLocale, preview),
+    renderBlockNavigation: (items: RenderableNavItem[], props: Record<string, unknown>, id: string) => ejs.renderFile(path.join(templateDir, "partials", "nav-menu.ejs"), {
+      items, menuId: id, currentPath: publicPath, collapseMenu: props.mobileCollapse,
+      menuDesign: {
+        ...(props.source === "footer" ? footerMenuDesign : menuDesign),
+        layout: props.menuLayout === "inherit" ? (props.source === "footer" ? footerMenuDesign?.layout : menuDesign?.layout) || "horizontal" : props.menuLayout,
+        activation: props.activation === "inherit" ? (props.source === "footer" ? footerMenuDesign?.activation : menuDesign?.activation) || "click" : props.activation,
+        breakpoint: props.breakpoint, mobilePattern: props.mobilePattern,
+      },
+      t: (key: string) => key === "menus.toggleMenu" ? String(props.menuLabel) : t(key),
+    }),
     cssProviderStylesheets: cssProviderAssets.stylesheets,
     header,
     headerBrand: headerBrandFlags(header, identity.logoUrl),

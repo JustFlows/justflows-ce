@@ -15,6 +15,9 @@ const HEADER_BLOCK_TYPES = new Set([
   "core.paragraph",
   "core.heading",
   "core.button",
+  "core.buttons",
+  "core.icon",
+  "core.social-links",
   "core.link-list",
   "core.image",
   "core.html",
@@ -55,6 +58,8 @@ export default function BlockLibrary({
     if (parentType) {
       list = list.filter((b) => {
         if (b.type === "core.column" && parentType !== "core.columns") return false;
+        if (b.type === "core.list-item" && parentType !== "core.list") return false;
+        if (b.type === "core.tab" && parentType !== "core.tabs") return false;
         if (allowedChildTypes?.length) return allowedChildTypes.includes(b.type);
         if (parentType === "core.columns") return b.type === "core.column";
         if (parentType === "core.column")
@@ -62,7 +67,7 @@ export default function BlockLibrary({
         return b.type !== "core.column";
       });
     } else {
-      list = list.filter((b) => b.type !== "core.column");
+      list = list.filter((b) => !["core.column", "core.list-item", "core.tab"].includes(b.type));
     }
 
     // Site-chrome widgets (theme toggle, language switcher, login/register links) belong in a
