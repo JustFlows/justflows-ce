@@ -34,6 +34,16 @@ export default defineConfig({
               priority: 25,
             },
             {
+              name: "blocks-core",
+              test: /packages[\\/]blocks[\\/](?:src|dist)[\\/]/,
+              priority: 24,
+            },
+            {
+              name: "validation-vendor",
+              test: /node_modules[\\/](?:zod|sanitize-html|htmlparser2|domhandler|domutils|entities|dom-serializer|domelementtype)[\\/]/,
+              priority: 23,
+            },
+            {
               name: "builder",
               test: /admin-ui[\\/]src[\\/]components[\\/]builder[\\/]/,
               priority: 20,

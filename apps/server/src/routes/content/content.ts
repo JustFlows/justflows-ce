@@ -118,15 +118,23 @@ router.get("/", requireSession, async (req, res) => {
       params.push(translationGroupId);
     }
     if (cursor) {
-      sql += " AND c.id > ?";
-      params.push(cursor);
+      if (status === "scheduled") {
+        sql += " AND c.id > ?";
+        params.push(cursor);
+      } else {
+        // The cursor must follow the same tuple as the newest-first sort.
+        // UUID order alone is unrelated to the content's update time.
+        sql += ` AND (c.updated_at < (SELECT updated_at FROM content WHERE site_id = ? AND id = ?)
+          OR (c.updated_at = (SELECT updated_at FROM content WHERE site_id = ? AND id = ?) AND c.id < ?))`;
+        params.push(session.siteId, cursor, session.siteId, cursor, cursor);
+      }
     }
     if (readScope?.ownership === "self") {
       sql += " AND c.author_id = ?";
       params.push(session.userId);
     }
 
-    sql += status === "scheduled" ? " ORDER BY c.id ASC LIMIT ?" : " ORDER BY c.updated_at DESC LIMIT ?";
+    sql += status === "scheduled" ? " ORDER BY c.id ASC LIMIT ?" : " ORDER BY c.updated_at DESC, c.id DESC LIMIT ?";
     params.push(limit + 1);
 
     const rows = await db.query<Record<string, unknown>>(sql, params);
