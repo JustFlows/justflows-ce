@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useT } from "../../../i18n/I18nProvider";
+import { useFeatureEnabled } from "../../../components/SessionProvider";
 import ConnectAgentCard from "../../../components/ai/ConnectAgentCard";
 import ConnectedAppsCard from "../../../components/ai/ConnectedAppsCard";
 import AiErrorBoundary from "../../../components/ai/AiErrorBoundary";
@@ -66,6 +67,7 @@ const csv = (value: string): string[] =>
 
 export default function ApiKeysPage() {
   const { t } = useT();
+  const mcpAllowed = useFeatureEnabled("feature" + ".mcp");
 
   async function json<T>(url: string, init?: RequestInit): Promise<T> {
     const response = await fetch(url, init);
@@ -282,9 +284,11 @@ export default function ApiKeysPage() {
         </form>
       </section>
 
-      <AiErrorBoundary>
-        <ConnectAgentCard manageApiEnabled={settings.enabled} grantable={capabilities} onKeyCreated={load} />
-      </AiErrorBoundary>
+      {mcpAllowed && (
+        <AiErrorBoundary>
+          <ConnectAgentCard manageApiEnabled={settings.enabled} grantable={capabilities} onKeyCreated={load} />
+        </AiErrorBoundary>
+      )}
 
       <section className="jf-card jf-card--overflow-visible">
         <div className="jf-card__head">
@@ -428,7 +432,7 @@ export default function ApiKeysPage() {
             </label>
           </div>
 
-          {form.capabilities.includes("users:manage") && (
+          {mcpAllowed && form.capabilities.includes("users:manage") && (
             <label className="jf-checkrow">
               <input
                 type="checkbox"
@@ -519,9 +523,11 @@ export default function ApiKeysPage() {
         </div>
       </section>
 
-      <AiErrorBoundary>
-        <ConnectedAppsCard all />
-      </AiErrorBoundary>
+      {mcpAllowed && (
+        <AiErrorBoundary>
+          <ConnectedAppsCard all />
+        </AiErrorBoundary>
+      )}
     </div>
   );
 }

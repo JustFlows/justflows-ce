@@ -9,6 +9,7 @@ import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { clientIp } from "../../lib/security/rate-limit.js";
 import { logSafe } from "../../lib/security/log-safe.js";
 import { sendServerError } from "../../lib/http/send-error.js";
+import { requireSiteFeature } from "../../lib/tenancy/site-features.js";
 import { AiSettingsError, getAiSettings, isAssistantEnabled, isPublicHttpsOrigin, mcpResourceUrl, publicOrigin, saveAiSettings } from "../../lib/ai/ai-settings.js";
 import {
   availableProviders,
@@ -109,6 +110,9 @@ router.put("/settings", requireCapability("settings:manage"), async (req, res) =
 });
 
 /* ------------------------------- providers ------------------------------- */
+
+// Settings above stay reachable so Settings → API can manage MCP when the AI agent is off.
+router.use(requireSiteFeature("feature.ai"));
 
 /**
  * `site` credentials need settings:manage; `personal` ones need ai:use and
