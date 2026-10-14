@@ -15,6 +15,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **Space Voyage theme.** Adds the complete editable Planet Jumping homepage: exact reference video assets, preloader and docking logo, canvas portal and pointer tilt, Mars → Earth → Venus video transitions with frozen backgrounds, planet facts, custom cursor, and responsive layouts. Adds bounded active-theme client scripts served through `/theme.js`; existing saved homepages can insert the updated landing pattern. No matching Public Roadmap issue currently exists.
 
+### Fixed
+
+- **Admin bundles and theme test ownership.** Splits block/validation code out of the builder chunk and separates self-contained SSR modules. Space Voyage behavior tests now live with the theme in the theme registry, so CE CI does not require external theme files. ([#27](https://github.com/JustFlows/justflows-ce/issues/27))
+
 ## [0.3.6]
 
 ### Added
