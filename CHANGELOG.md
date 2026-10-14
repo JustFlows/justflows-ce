@@ -13,6 +13,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **Media blocks.** Adds Video, Audio, and File/download blocks with URL and caption settings, playback controls, video poster and sizing, safe public rendering, and builder previews. Same-page anchor URLs are now preserved for theme navigation. ([#27](https://github.com/JustFlows/justflows-ce/issues/27))
 
+- **Space Voyage theme.** Adds the complete editable Planet Jumping homepage: exact reference video assets, preloader and docking logo, canvas portal and pointer tilt, Mars → Earth → Venus video transitions with frozen backgrounds, planet facts, custom cursor, and responsive layouts. Adds bounded active-theme client scripts served through `/theme.js`; existing saved homepages can insert the updated landing pattern. No matching Public Roadmap issue currently exists.
 
 ## [0.3.6]
 
@@ -32,6 +33,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **Plugin tables upgrade with the plugin.** `ctx.databases.ensureSchema()` now adds declared columns and indexes that existing plugin tables lack, on PostgreSQL, MySQL, and MariaDB, and reports them as `columnsAdded` and `indexesAdded`. Added columns are nullable and not unique; types are never changed and nothing is dropped. A unique index that existing rows break fails the call instead of being skipped. Before, only missing tables were created, so a column added in a plugin update never reached existing installations.
 
 ### Fixed
+
+- **Content list includes older pages.** Load all bounded catalog pages before applying admin filters, and align the content API cursor with its newest-first ordering so records are not skipped. No matching Public Roadmap issue currently exists.
 
 - **Rate-limit the install request.** `POST /api/install` checks the setup key, but had no request limit, so on a fresh site the key could be guessed without pause. It now allows 20 requests per 15 minutes per IP.
 - **Member sign-in closes with the site.** While the site is in maintenance mode or not yet public, `/login`, `/register`, `/forgot-password`, `/reset-password` and the account pages show the maintenance or under-construction page, and the member side of the auth API answers 503 before looking up any account. Before, all of them stayed reachable. The public content API now also answers 503 during maintenance (it already answered 404 while the site was not public). Only the staff pages under the admin path, the management API and MCP stay open. See docs/AUTH.md.

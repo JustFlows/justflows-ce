@@ -1,3 +1,4 @@
+import { loadContentCatalog } from "../../../lib/content-catalog";
 import ContentAgenda from "../../../components/ContentAgenda";
 import { useT } from "../../../i18n/I18nProvider";
 import { useEffect, useState } from "react";
@@ -58,20 +59,19 @@ export default function ContentPage() {
   const [blogPageId, setBlogPageId] = useState<string | null>(
     prefetchedSettings?.blog_page_id ?? null,
   );
+  const [catalogError, setCatalogError] = useState(false);
+  const [catalogBusy, setCatalogBusy] = useState(true);
   const [agenda, setAgenda] = useState(false);
   const [filter, setFilter] = useState("all");
   const [localeFilter, setLocaleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("all");
 
   useEffect(() => {
-    fetch("/api/content")
-      .then((r) => r.json())
-      .then((data: { items?: ContentItem[] }) => {
-        if (Array.isArray(data.items)) setItems(data.items);
-      })
-      .catch(() => {
-        /* keep prefetched or empty */
-      });
+    const controller = new AbortController();
+    void loadContentCatalog<ContentItem>(controller.signal)
+      .then((content) => { if (!controller.signal.aborted) setItems(content); })
+      .catch(() => { if (!controller.signal.aborted) setCatalogError(true); })
+      .finally(() => { if (!controller.signal.aborted) setCatalogBusy(false); });
     fetch("/api/languages")
       .then((r) => r.json())
       .then((data: { languages?: Array<{ code: string; isDefault?: boolean }> }) => {
@@ -91,6 +91,7 @@ export default function ContentPage() {
         if (Array.isArray(data.types)) setTypes(data.types);
       })
       .catch(() => {});
+    return () => controller.abort();
   }, []);
 
   const [query, setQuery] = useState("");
@@ -183,6 +184,8 @@ export default function ContentPage() {
           onChange={(e) => setQuery(e.target.value)}
         />
       </label>
+      {!query.trim() && catalogBusy && <p className="jf-meta" role="status">{t("search.loading")}</p>}
+      {!query.trim() && catalogError && <div className="jf-alert jf-alert--error" role="alert">{t("search.error")}</div>}
       {searchBusy && (
         <p className="jf-meta" role="status">
           {t("search.loading")}
