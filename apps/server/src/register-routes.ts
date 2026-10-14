@@ -120,7 +120,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: cacheRoutes },
     { default: performanceRoutes },
     { default: importRoutes },
-    { default: siteRoutes, serveThemeCss },
+    { default: siteRoutes, serveThemeCss, serveThemeScripts },
     { default: publicSiteRoutes, sendPublicNotFound, sendPublicRateLimited },
     { default: languagesRoutes },
     { default: menusRoutes },
@@ -287,6 +287,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/v1", publicApiRoutes);
   app.use("/api/site", siteRoutes);
   app.get("/theme.css", serveThemeCss);
+  app.get("/theme.js", rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: "draft-8", legacyHeaders: false }), serveThemeScripts);
 
   // A statically-exported page submits forms/comments by `fetch()` back to this
   // origin. Answer the CORS preflight for vouched-for origins so that works.

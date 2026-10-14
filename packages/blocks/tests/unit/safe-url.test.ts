@@ -88,3 +88,10 @@ describe("sanitizePlainText", () => {
     expect(text).toContain("Hello");
   });
 });
+
+// Same-page navigation is used by theme menus and destination buttons.
+it("preserves safe anchor links and escapes their HTML attributes", () => {
+  expect(sanitizeHref("#about")).toBe("#about");
+  expect(safeHref('#a"b')).toBe("#a&quot;b");
+  expect(sanitizeHref("#bad\nanchor")).toBe("#");
+});

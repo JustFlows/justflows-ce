@@ -26,6 +26,7 @@ export const RESERVED_PERMALINK_SEGMENTS = new Set([
   "assets",
   "css-providers",
   "theme.css",
+  "theme.js",
   "favicon.ico",
   "robots.txt",
   "sitemap.xml",

@@ -1,3 +1,5 @@
+import FunctionalBlock, { FUNCTIONAL_TYPES } from "./FunctionalBlock";
+import MediaBlock from "../MediaBlock";
 import { useT } from "../../i18n/I18nProvider";
 import { cloneElement, isValidElement, useEffect, type ReactElement } from "react";
 import type { BlockNode } from "./types";
@@ -115,6 +117,8 @@ export function BlockPreview({
       </div>
     );
   };
+
+  if (FUNCTIONAL_TYPES.has(block.type)) return wrap(<FunctionalBlock type={block.type} props={p}>{renderChildren?.(block.children ?? [], depth + 1)}</FunctionalBlock>);
 
   switch (block.type) {
     case "core.search": {
@@ -282,6 +286,11 @@ export function BlockPreview({
       const heading = text(p.text);
       return wrap(<Tag>{heading || <em style={{ color: "var(--jf-text-3)" }}>{t("builder.preview.heading")}</em>}</Tag>);
     }
+
+    case "core.video":
+    case "core.audio":
+    case "core.file":
+      return wrap(<MediaBlock type={block.type} props={p} preview />);
 
     case "core.image":
       return wrap(

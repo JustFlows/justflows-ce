@@ -100,3 +100,5 @@ export function createBlockRegistrySync(): BlockRegistry {
   for (const block of coreBlocks) registry.register(block);
   return registry;
 }
+
+export { functionalBlockCss } from "./functional-css.js";

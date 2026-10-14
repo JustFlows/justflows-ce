@@ -1,10 +1,20 @@
+import { createBlockRegistrySync } from "@justflows/blocks";
+import FunctionalBlock, { FUNCTIONAL_TYPES } from "./builder/FunctionalBlock";
+import MediaBlock from "./MediaBlock";
 import { translateEnglish, type Translate } from "../i18n/translate";
 import type { BlockDocument, BlockNode } from "@components/builder/types";
 import { sanitizeHtmlBlock, sanitizeRichText, safeHref, safeMediaSrc } from "@justflows/blocks";
 
+const functionalRegistry = createBlockRegistrySync();
+
 export function renderBlock(block: BlockNode, t: Translate = translateEnglish): React.ReactNode {
   const p = block.props;
   const children = block.children?.map((child) => renderBlock(child, t));
+
+  if (FUNCTIONAL_TYPES.has(block.type)) {
+    if (["core.site-logo", "core.site-title", "core.site-tagline", "core.navigation", "core.breadcrumbs", "core.content-query"].includes(block.type)) return <FunctionalBlock key={block.id} type={block.type} props={p} />;
+    return <div key={block.id} dangerouslySetInnerHTML={{ __html: functionalRegistry.renderNode(block) }} />;
+  }
 
   switch (block.type) {
     case "core.section":
@@ -75,6 +85,10 @@ export function renderBlock(block: BlockNode, t: Translate = translateEnglish): 
       const Tag = `h${level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
       return <Tag key={block.id}>{p.text as string}</Tag>;
     }
+    case "core.video":
+    case "core.audio":
+    case "core.file":
+      return <MediaBlock key={block.id} type={block.type} props={p} />;
     case "core.image":
       return (
         <figure key={block.id}>

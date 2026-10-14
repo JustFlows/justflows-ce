@@ -601,3 +601,21 @@ management API and MCP tools mirror them
 Place `core.post-content` in `templates/search.json` for the live form, filters,
 results, and pagination. `themes/default/templates/search.json` is the minimal
 example. [Search](SEARCH.md) documents CSS classes and the headless contract.
+
+### Theme client scripts
+
+Themes may declare a `scripts` array of package-relative `.js` or `.mjs` files
+in `justflows-theme.json` (for example, `["scripts/experience.js"]`). The public
+layout loads the active site’s scripts, in declaration order, through `/theme.js`.
+Scripts are classic deferred scripts, including `.mjs` files; do not use imports
+or exports. Wrap each file in an IIFE and scope enhancements to your theme’s DOM.
+The endpoint serves only declared files inside the active theme’s resolved root,
+limits individual scripts to 512 KiB and the bundle to 1 MiB, and uses no-store
+to prevent an old bundle running after a theme switch. Themes without scripts
+receive an empty bundle. Theme scripts do not run in the block editor.
+
+For remote video/audio dependencies, declare up to 20 exact HTTPS origins in
+`mediaOrigins`, e.g. `["https://media.example.com"]`. On public requests, the
+default CSP inherits its existing `default-src` sources and adds only these
+origins to `media-src`. Explicit `media-src` policies and `default-src 'none'`
+are never changed. No script, connection, frame, or other directives are widened.
