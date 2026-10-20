@@ -45,13 +45,47 @@ const NAMED_LOCK_TIMEOUT_SECONDS = 60;
 
 /** Split SQL into independently executable statements. */
 export function splitSqlStatements(ddl: string, _driver: DbDriver): string[] {
-  const withoutLineComments = ddl
-    .split("\n")
-    .filter((line) => !line.trim().startsWith("--"))
-    .join("\n");
+  const statements: string[] = [];
+  let statement = "";
+  let quote = "";
+  let commentDepth = 0;
+  for (let i = 0; i < ddl.length; i++) {
+    const char = ddl[i]!;
+    const next = ddl[i + 1];
+    if (commentDepth) {
+      if (char === "/" && next === "*") { commentDepth++; i++; }
+      else if (char === "*" && next === "/") { commentDepth--; i++; }
+      continue;
+    }
+    if (quote) {
+      statement += char;
+      if (char === quote) {
+        if (next === quote) { statement += next; i++; }
+        else quote = "";
+      }
+      continue;
+    }
+    if (char === "'" || char === '"' || char === "`") {
+      quote = char;
+      statement += char;
+    } else if (char === "/" && next === "*") {
+      commentDepth = 1;
+      statement += " ";
+      i++;
+    } else if (char === "-" && next === "-") {
+      while (i + 1 < ddl.length && ddl[i + 1] !== "\n") i++;
+      statement += "\n";
+    } else if (char === ";") {
+      statements.push(statement);
+      statement = "";
+    } else {
+      statement += char;
+    }
+  }
+  if (commentDepth) throw new Error("Unterminated SQL block comment in migration");
+  statements.push(statement);
 
-  return withoutLineComments
-    .split(";")
+  return statements
     .map((s) => s.trim())
     .filter((s) => {
       if (!s) return false;
