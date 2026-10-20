@@ -61,3 +61,5 @@ export { AUTH_PAGES, AUTH_PAGE_SLUGS, DEFAULT_AUTH_BLOCKS, defaultAuthBlocks, se
 export type { AuthPageSlug } from "./service/auth-page.js";
 
 export { ContentCacheFieldsSchema, validateContentCacheFields, effectiveContentCacheControl, ContentTypeCacheControlSchema, NEVER_CACHE_CONTROL, normalizeCacheControl, cacheControlPolicy } from "./service/cache-control.js";
+export { ContentTypeSettingsSchema, resolveContentTypeSettings } from "./service/content-type-settings.js";
+export type { ContentTypeSettings } from "./service/content-type-settings.js";

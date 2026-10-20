@@ -1,3 +1,5 @@
+import type { BlockInspectorSupports } from "@justflows/blocks";
+
 export interface BlockNode {
   id: string;
   type: string;
@@ -34,6 +36,8 @@ export interface BlockCatalogEntry {
   supportsChildren: boolean;
   allowedChildTypes?: string[];
   schema?: Record<string, BlockSchemaField>;
+  /** Generic settings sections this block offers in the inspector. */
+  inspector?: BlockInspectorSupports;
 }
 
 export type BlockPath = number[];

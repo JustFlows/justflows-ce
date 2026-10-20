@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { resolveContentTypeSettings } from "@justflows/content";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -74,6 +75,7 @@ describe("createPluginContentApi.deleteType", () => {
       description: "",
       builtin: false,
       fields: [],
+      settings: resolveContentTypeSettings("post"),
       cacheControl: null,
       cacheControlEditable: true,
       createdAt: "",
@@ -116,6 +118,7 @@ describe("createPluginContentApi.ensurePage", () => {
     description: "",
     builtin: false,
     fields: [],
+    settings: resolveContentTypeSettings("post"),
       cacheControl: null,
       cacheControlEditable: true,
     createdAt: "",

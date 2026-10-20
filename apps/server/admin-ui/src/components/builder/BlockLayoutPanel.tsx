@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useT } from "../../i18n/I18nProvider";
 import type { BlockNode } from "./types";
 import { readComputedBlockValues, type ComputedBlockValues } from "./computed-block-values";
+import type { InspectorSections } from "./inspector-sections";
 
 const EMPTY_COMPUTED: ComputedBlockValues = {
   background: "",
@@ -26,6 +27,8 @@ const EMPTY_COMPUTED: ComputedBlockValues = {
   radius: "",
   shadow: "",
 };
+
+const ALL_SECTIONS = { spacing: true, size: true, appearance: true, colors: true, field: () => true };
 
 const SPACE_LABELS: Record<string, string> = {
   "": "—",
@@ -46,13 +49,18 @@ const SPACE_LABELS: Record<string, string> = {
  * Every value is a step on the theme's scale rather than a raw length, so a
  * page keeps its rhythm and the whole site tightens up on a phone when the
  * scale does.
+ *
+ * `sections` hides the groups and fields a block does not offer; with none
+ * left the panel renders nothing.
  */
 export default function BlockLayoutPanel({
   block,
   onChange,
+  sections = ALL_SECTIONS,
 }: {
   block: BlockNode;
   onChange: (props: Record<string, unknown>) => void;
+  sections?: Pick<InspectorSections, "spacing" | "size" | "appearance" | "colors" | "field">;
 }) {
   const { t } = useT();
   const style = parseBlockStyle(block.props.style);
@@ -207,27 +215,29 @@ export default function BlockLayoutPanel({
     );
   };
 
+  if (!sections.spacing && !sections.size && !sections.appearance && !sections.colors) return null;
+
   return (
     <section className="jf-block-panel" aria-labelledby={`jf-layout-${block.id}`}>
       <h3 id={`jf-layout-${block.id}`}>{t("builder.layout.title")}</h3>
       <p className="jf-block-panel__hint">{t("builder.layout.hint")}</p>
       <p className="jf-block-panel__hint">{t("builder.layout.inheritedHint")}</p>
 
-      <div className="jf-block-panel__grid2">
-        {spaceField(t("builder.layout.padTop"), "padTop")}
-        {spaceField(t("builder.layout.padBottom"), "padBottom")}
-        {spaceField(t("builder.layout.padX"), "padX")}
-        {spaceField(t("builder.layout.marginTop"), "marginTop")}
-        {spaceField(t("builder.layout.marginBottom"), "marginBottom")}
-      </div>
+      {sections.spacing && <div className="jf-block-panel__grid2">
+        {sections.field("padTop") && spaceField(t("builder.layout.padTop"), "padTop")}
+        {sections.field("padBottom") && spaceField(t("builder.layout.padBottom"), "padBottom")}
+        {sections.field("padX") && spaceField(t("builder.layout.padX"), "padX")}
+        {sections.field("marginTop") && spaceField(t("builder.layout.marginTop"), "marginTop")}
+        {sections.field("marginBottom") && spaceField(t("builder.layout.marginBottom"), "marginBottom")}
+      </div>}
 
-      <div className="jf-block-panel__grid2">
-        {choiceField(t("builder.layout.widthPreset"), "width", WIDTH_PRESETS)}
-        {choiceField(t("builder.layout.alignSelf"), "alignSelf", ALIGN_SELF)}
-        {choiceField(t("builder.layout.textAlign"), "textAlign", TEXT_ALIGN, computed.textAlign)}
-        {choiceField(t("builder.layout.radius"), "radius", RADIUS_PRESETS, computed.radius)}
-        {choiceField(t("builder.layout.shadow"), "shadow", SHADOW_PRESETS, computed.shadow)}
-        <label className="jf-block-panel__field jf-block-panel__field--inline">
+      {(sections.size || sections.appearance) && <div className="jf-block-panel__grid2">
+        {sections.field("width") && choiceField(t("builder.layout.widthPreset"), "width", WIDTH_PRESETS)}
+        {sections.field("alignSelf") && choiceField(t("builder.layout.alignSelf"), "alignSelf", ALIGN_SELF)}
+        {sections.field("textAlign") && choiceField(t("builder.layout.textAlign"), "textAlign", TEXT_ALIGN, computed.textAlign)}
+        {sections.field("radius") && choiceField(t("builder.layout.radius"), "radius", RADIUS_PRESETS, computed.radius)}
+        {sections.field("shadow") && choiceField(t("builder.layout.shadow"), "shadow", SHADOW_PRESETS, computed.shadow)}
+        {sections.field("minHeight") && <label className="jf-block-panel__field jf-block-panel__field--inline">
           {t("builder.layout.minHeight")}
           <input
             type="number"
@@ -237,8 +247,8 @@ export default function BlockLayoutPanel({
             value={style.minHeight || ""}
             onChange={(e) => set({ minHeight: Number(e.target.value) || 0 })}
           />
-        </label>
-        <label className="jf-block-panel__field jf-block-panel__field--inline">
+        </label>}
+        {sections.field("maxWidth") && <label className="jf-block-panel__field jf-block-panel__field--inline">
           {t("builder.layout.maxWidth")}
           <input
             type="number"
@@ -248,8 +258,8 @@ export default function BlockLayoutPanel({
             value={style.maxWidth || ""}
             onChange={(e) => set({ maxWidth: Number(e.target.value) || 0 })}
           />
-        </label>
-        <label className="jf-block-panel__field jf-block-panel__field--inline">
+        </label>}
+        {sections.field("maxHeight") && <label className="jf-block-panel__field jf-block-panel__field--inline">
           {t("builder.layout.maxHeight")}
           <input
             type="number"
@@ -259,15 +269,15 @@ export default function BlockLayoutPanel({
             value={style.maxHeight || ""}
             onChange={(e) => set({ maxHeight: Number(e.target.value) || 0 })}
           />
-        </label>
-      </div>
+        </label>}
+      </div>}
 
-      <div style={{ marginTop: "0.25rem" }}>
-        {colorField(t("builder.layout.background"), "background")}
-        {colorField(t("builder.layout.textColor"), "textColor")}
-        {colorField(t("builder.layout.accent"), "accent")}
+      {sections.colors && <div style={{ marginTop: "0.25rem" }}>
+        {sections.field("background") && colorField(t("builder.layout.background"), "background")}
+        {sections.field("textColor") && colorField(t("builder.layout.textColor"), "textColor")}
+        {sections.field("accent") && colorField(t("builder.layout.accent"), "accent")}
 
-        <div className="jf-field" style={{ marginBottom: "0.6rem" }}>
+        {sections.field("opacity") && <div className="jf-field" style={{ marginBottom: "0.6rem" }}>
           <label className="jf-field__label" htmlFor={`${block.id}-opacity`}>
             {t("builder.layout.opacity")}:{" "}
             {style.opacity
@@ -298,8 +308,8 @@ export default function BlockLayoutPanel({
               </button>
             ) : null}
           </div>
-        </div>
-      </div>
+        </div>}
+      </div>}
     </section>
   );
 }

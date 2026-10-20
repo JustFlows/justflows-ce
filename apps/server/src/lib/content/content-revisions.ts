@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { getContentTypeSettings } from "./content-types-db.js";
 import { randomUUID } from "node:crypto";
 import {
   DEFAULT_REVISION_MAX_HISTORY,
@@ -352,8 +353,10 @@ export async function insertHistoricalSnapshot(
   liveRow: Record<string, unknown>,
   actorId: string | null,
   snapshot: ContentSnapshot = rowToSnapshot(liveRow),
-  client?: Pick<DbClient, "run">,
-): Promise<string> {
+  client?: Pick<DbClient, "run" | "query">,
+): Promise<string | null> {
+  const settings = await getContentTypeSettings(String(liveRow.site_id), String(liveRow.type), client);
+  if (!settings.revisions) return null;
   const db = client ?? await getDb();
   const id = randomUUID();
   const stamp = nowSql();
@@ -416,7 +419,7 @@ export async function insertHistoricalIfChanged(
   const latest = await latestHistorical(contentId, siteId);
   if (latest && snapshotsEqual(revisionToSnapshot(latest), snapshot)) return null;
   const id = await insertHistoricalSnapshot(liveRow, actorId, snapshot);
-  await pruneHistoricalForContent(contentId, siteId);
+  if (id) await pruneHistoricalForContent(contentId, siteId);
   return id;
 }
 

@@ -15,7 +15,15 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **Space Voyage theme.** Adds the complete editable Planet Jumping homepage: exact reference video assets, preloader and docking logo, canvas portal and pointer tilt, Mars → Earth → Venus video transitions with frozen backgrounds, planet facts, custom cursor, and responsive layouts. Adds bounded active-theme client scripts served through `/theme.js`; existing saved homepages can insert the updated landing pattern. No matching Public Roadmap issue currently exists.
 
+### Changed
+
+- **Content type configuration.** Adds a table overview and a dedicated two-column editor for labels, descriptions, cache policy, system fields, and custom fields, with expandable field settings, ordering controls, and unsaved-change protection. Per-type settings now control plural labels, dashboard shortcuts, editor selection, historical revision capture, previews, public search, SEO metadata/sitemap inclusion, and comments; existing types inherit their previous behavior. No matching Public Roadmap issue currently exists.
+
+- **Block settings show only what applies.** All 51 core blocks have explicit sidebar rules. Duplicate and ineffective generic controls are hidden; theme styling shows curated controls and existing overrides instead of the complete theme variable catalog. Block-specific fields follow their controlling choice: video-only Cover controls, numbered-list settings, checklist state, pagination, query layout, navigation, account links and colour-scheme variants. Captioned images retain text alignment and colour controls. Blocks with a schema-owned style variant hide generic styling controls that would overwrite it. Existing generic values stay accessible for clearing, and hiding controls never deletes saved content. Plugin blocks can declare their own `inspector` switches. ([#73](https://github.com/JustFlows/justflows-ce/issues/73))
+
 ### Fixed
+
+- **Page builder in light and dark.** The builder's side panels, block library, inspector controls and pattern previews no longer show white boxes in dark mode. The canvas now previews the site in a chosen scheme, with a Light/Dark switch in the canvas toolbar. Previously it mixed the theme's light colours with parts of its dark palette, and preview placeholders used admin colours instead of the site's. Selection highlights and hints on the canvas follow the previewed scheme so text stays readable. No matching Public Roadmap issue currently exists.
 
 - **Admin bundles and theme test ownership.** Splits block/validation code out of the builder chunk and separates self-contained SSR modules. Space Voyage behavior tests now live with the theme in the theme registry, so CE CI does not require external theme files. ([#27](https://github.com/JustFlows/justflows-ce/issues/27))
 

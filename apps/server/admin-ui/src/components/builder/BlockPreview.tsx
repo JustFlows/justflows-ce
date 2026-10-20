@@ -1,7 +1,7 @@
 import FunctionalBlock, { FUNCTIONAL_TYPES } from "./FunctionalBlock";
 import MediaBlock from "../MediaBlock";
 import { useT } from "../../i18n/I18nProvider";
-import { cloneElement, isValidElement, useEffect, type ReactElement } from "react";
+import { cloneElement, createContext, isValidElement, useContext, useEffect, type ReactElement } from "react";
 import type { BlockNode } from "./types";
 import { esc, parseBlockStyle, renderMath, sanitizeHtmlBlock, sanitizeRichText } from "@justflows/blocks";
 import MotionPreview from "./MotionPreview";
@@ -11,6 +11,20 @@ import { InlineEditable } from "./InlineEditable";
 /** Class the active theme's stylesheet is scoped to (see `serveThemeCss`). */
 export const THEME_PREVIEW_SCOPE = "jf-theme-surface";
 const THEME_PREVIEW_LINK_ID = "jf-theme-preview-css";
+
+export type PreviewScheme = "light" | "dark";
+
+/**
+ * Which of the site theme's colour schemes the canvas shows. Every theme
+ * surface carries it as `data-theme`, the attribute `/js/site-chrome.js`
+ * stamps on the live site, so the theme's own dark rules apply instead of a
+ * mix of its light tokens and the customizer's `prefers-color-scheme` ones.
+ */
+export const PreviewSchemeContext = createContext<PreviewScheme>("light");
+
+export function usePreviewScheme(): PreviewScheme {
+  return useContext(PreviewSchemeContext);
+}
 let themePreviewMounts = 0;
 
 /**
@@ -55,6 +69,7 @@ export function BlockPreview({
   onUpdateProps,
 }: BlockPreviewProps) {
   const { t, locale } = useT();
+  const scheme = usePreviewScheme();
   const p = block.props;
   const tags = useMergeTags();
   const text = (value: unknown) => applyMergeTags(String(value ?? ""), tags);
@@ -92,6 +107,7 @@ export function BlockPreview({
     return (
       <div
         className={depth === 0 ? THEME_PREVIEW_SCOPE : undefined}
+        data-theme={depth === 0 ? scheme : undefined}
         onClick={
           onSelect
             ? (e) => {
@@ -139,7 +155,7 @@ export function BlockPreview({
         >
           <div className="jf-section__inner">
             {renderChildren?.(block.children ?? [], depth + 1) ?? (
-              <div style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", padding: "0.5rem" }}>
+              <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem", padding: "0.5rem" }}>
                 {t("builder.preview.emptySectionAddBlocks")}
               </div>
             )}
@@ -152,7 +168,7 @@ export function BlockPreview({
       return wrap(
         <div className={`jf-container jf-container--${(p.width as string) || "default"}`}>
           {renderChildren?.(block.children ?? [], depth + 1) ?? (
-            <div style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", padding: "0.5rem" }}>
+            <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem", padding: "0.5rem" }}>
               {t("builder.preview.emptyContainer")}
             </div>
           )}
@@ -181,7 +197,7 @@ export function BlockPreview({
       return wrap(
         <div className="jf-column" style={{ minHeight: 72 }}>
           {renderChildren?.(block.children ?? [], depth + 1) ?? (
-            <div style={{ color: "var(--jf-text-3)", fontSize: "0.75rem" }}>{t("builder.preview.dropContentHere")}</div>
+            <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.75rem" }}>{t("builder.preview.dropContentHere")}</div>
           )}
         </div>,
       );
@@ -264,7 +280,7 @@ export function BlockPreview({
           dangerouslySetInnerHTML={{
             __html:
               renderMath(sanitizeRichText(text(p.text))) ||
-              `<em style='color:var(--jf-text-3)'>${esc(t("builder.preview.emptyParagraph"))}</em>`,
+              `<em style='color:var(--color-muted, var(--jf-text-3))'>${esc(t("builder.preview.emptyParagraph"))}</em>`,
           }}
         />,
       );
@@ -284,7 +300,7 @@ export function BlockPreview({
         );
       }
       const heading = text(p.text);
-      return wrap(<Tag>{heading || <em style={{ color: "var(--jf-text-3)" }}>{t("builder.preview.heading")}</em>}</Tag>);
+      return wrap(<Tag>{heading || <em style={{ color: "var(--color-muted, var(--jf-text-3))" }}>{t("builder.preview.heading")}</em>}</Tag>);
     }
 
     case "core.video":
@@ -313,7 +329,7 @@ export function BlockPreview({
             />
             {(p.caption as string) ? (
               <figcaption
-                style={{ fontSize: "0.8rem", color: "var(--jf-text-3)", marginTop: "0.25rem" }}
+                style={{ fontSize: "0.8rem", color: "var(--color-muted, var(--jf-text-3))", marginTop: "0.25rem" }}
               >
                 {p.caption as string}
               </figcaption>
@@ -322,11 +338,11 @@ export function BlockPreview({
         ) : (
           <div
             style={{
-              background: "var(--jf-surface-3)",
+              background: "var(--color-surface, var(--jf-surface-3))",
               padding: "1.5rem",
               borderRadius: 6,
               textAlign: "center",
-              color: "var(--jf-text-3)",
+              color: "var(--color-muted, var(--jf-text-3))",
             }}
           >
             {t("builder.preview.noImage")}</div>
@@ -355,7 +371,7 @@ export function BlockPreview({
             dangerouslySetInnerHTML={{
               __html:
                 renderMath(sanitizeRichText((p.text as string) || "")) ||
-                `<em style='color:var(--jf-text-3)'>${esc(t("builder.preview.quote"))}</em>`,
+                `<em style='color:var(--color-muted, var(--jf-text-3))'>${esc(t("builder.preview.quote"))}</em>`,
             }}
           />
           {(p.attribution as string) ? <cite>— {p.attribution as string}</cite> : null}
@@ -377,7 +393,7 @@ export function BlockPreview({
             <h3 className="jf-link-list__heading">{p.heading as string}</h3>
           )}
           {items.length === 0 ? (
-            <div style={{ color: "var(--jf-text-3)", fontSize: "0.8rem" }}>{t("builder.preview.noLinksYet")}</div>
+            <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{t("builder.preview.noLinksYet")}</div>
           ) : (
             <ul className="jf-link-list__items">
               {items.map((item, i) => (
@@ -400,7 +416,7 @@ export function BlockPreview({
           style={{
             height: `${(p.height as number) ?? 40}px`,
             background:
-              "repeating-linear-gradient(45deg, var(--jf-surface-2), var(--jf-surface-2) 5px, var(--jf-surface-3) 5px, var(--jf-surface-3) 10px)",
+              "repeating-linear-gradient(45deg, var(--color-bg, var(--jf-surface-2)), var(--color-bg, var(--jf-surface-2)) 5px, var(--color-surface, var(--jf-surface-3)) 5px, var(--color-surface, var(--jf-surface-3)) 10px)",
             borderRadius: 4,
           }}
         />,
@@ -412,8 +428,8 @@ export function BlockPreview({
           style={{
             margin: 0,
             padding: "0.75rem",
-            background: "var(--jf-text)",
-            color: "var(--jf-border)",
+            background: "var(--color-text, var(--jf-text))",
+            color: "var(--color-bg, var(--jf-surface))",
             borderRadius: 4,
             fontSize: "0.8rem",
             overflow: "auto",
@@ -427,11 +443,11 @@ export function BlockPreview({
       return wrap(
         <div
           style={{
-            background: "var(--jf-surface-3)",
+            background: "var(--color-surface, var(--jf-surface-3))",
             padding: "1rem",
             borderRadius: 6,
             textAlign: "center",
-            color: "var(--jf-text-3)",
+            color: "var(--color-muted, var(--jf-text-3))",
             fontSize: "0.875rem",
           }}
         >
@@ -463,11 +479,11 @@ export function BlockPreview({
         return wrap(
           <div
             style={{
-              background: "var(--jf-surface-3)",
+              background: "var(--color-surface, var(--jf-surface-3))",
               padding: "1.5rem",
               borderRadius: 6,
               textAlign: "center",
-              color: "var(--jf-text-3)",
+              color: "var(--color-muted, var(--jf-text-3))",
             }}
           >
             {t("builder.preview.emptyGallery")}</div>,
@@ -481,7 +497,7 @@ export function BlockPreview({
             <div
               style={{
                 fontSize: "0.7rem",
-                color: "var(--jf-text-3)",
+                color: "var(--color-muted, var(--jf-text-3))",
                 marginBottom: "0.35rem",
                 textTransform: "capitalize",
               }}
@@ -512,7 +528,7 @@ export function BlockPreview({
               ) : (
                 <div
                   key={i}
-                  style={{ height: 72, background: "var(--jf-border)", borderRadius: 4 }}
+                  style={{ height: 72, background: "var(--color-border, var(--jf-border))", borderRadius: 4 }}
                 />
               ),
             )}
@@ -574,7 +590,7 @@ export function BlockPreview({
                 width: 34,
                 height: 19,
                 borderRadius: 999,
-                background: "var(--jf-surface-4, #cbd5e1)",
+                background: "var(--color-border, var(--color-border, var(--jf-border-strong)))",
               }}
             >
               <span
@@ -585,7 +601,7 @@ export function BlockPreview({
                   width: 15,
                   height: 15,
                   borderRadius: "50%",
-                  background: "#fff",
+                  background: "var(--color-bg, #fff)",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
                 }}
               />
@@ -688,15 +704,15 @@ export function BlockPreview({
             <span
               style={{
                 ...widgetChip,
-                background: "#fff",
-                border: "1px solid var(--jf-border-strong)",
+                background: "var(--color-bg, var(--jf-surface))",
+                border: "1px solid var(--color-border, var(--jf-border-strong))",
               }}
             >
               {(p.loginLabel as string) || t("builder.preview.logIn")}
             </span>
           ) : null}
           {p.showRegister !== false ? (
-            <span style={{ ...widgetChip, background: "var(--jf-accent)", color: "#fff" }}>
+            <span style={{ ...widgetChip, background: "var(--color-primary, var(--jf-accent))", color: "var(--color-bg, #fff)" }}>
               {(p.registerLabel as string) || t("builder.preview.register")}
             </span>
           ) : null}
@@ -708,7 +724,7 @@ export function BlockPreview({
       const cols = layout === "grid" ? Math.min(4, Math.max(1, Number(p.columns) || 3)) : 1;
       return wrap(
         <div>
-          <div style={{ fontSize: "0.7rem", color: "var(--jf-text-3)", marginBottom: "0.5rem" }}>
+          <div style={{ fontSize: "0.7rem", color: "var(--color-muted, var(--jf-text-3))", marginBottom: "0.5rem" }}>
             {t("builder.preview.blogPostsNewest")}{(Number(p.postsPerPage) || undefined) ?? "N"} {t("builder.preview.shownPaginated")}</div>
           <div
             style={{
@@ -721,7 +737,7 @@ export function BlockPreview({
               <div
                 key={i}
                 style={{
-                  border: "1px solid var(--jf-border)",
+                  border: "1px solid var(--color-border, var(--jf-border))",
                   borderRadius: 6,
                   padding: "0.6rem",
                   display: "flex",
@@ -730,13 +746,13 @@ export function BlockPreview({
                 }}
               >
                 {p.showFeaturedImage !== false && (
-                  <div style={{ height: 60, background: "var(--jf-border)", borderRadius: 4 }} />
+                  <div style={{ height: 60, background: "var(--color-border, var(--jf-border))", borderRadius: 4 }} />
                 )}
                 <div
                   style={{
                     height: 10,
                     width: "70%",
-                    background: "var(--jf-text-3)",
+                    background: "var(--color-muted, var(--jf-text-3))",
                     opacity: 0.5,
                     borderRadius: 2,
                   }}
@@ -746,7 +762,7 @@ export function BlockPreview({
                     style={{
                       height: 8,
                       width: "40%",
-                      background: "var(--jf-border)",
+                      background: "var(--color-border, var(--jf-border))",
                       borderRadius: 2,
                     }}
                   />
@@ -756,7 +772,7 @@ export function BlockPreview({
                     style={{
                       height: 8,
                       width: "90%",
-                      background: "var(--jf-border)",
+                      background: "var(--color-border, var(--jf-border))",
                       borderRadius: 2,
                     }}
                   />
@@ -786,10 +802,10 @@ export function BlockPreview({
           className="post-featured-image"
           style={{
             aspectRatio: "16 / 9",
-            background: "var(--jf-surface-3)",
+            background: "var(--color-surface, var(--jf-surface-3))",
             display: "grid",
             placeItems: "center",
-            color: "var(--jf-text-3)",
+            color: "var(--color-muted, var(--jf-text-3))",
             fontSize: "0.8rem",
             borderRadius: 6,
           }}
@@ -801,10 +817,10 @@ export function BlockPreview({
       return wrap(
         <div
           style={{
-            border: "1px dashed var(--jf-border)",
+            border: "1px dashed var(--color-border, var(--jf-border))",
             borderRadius: 6,
             padding: "1.25rem",
-            color: "var(--jf-text-3)",
+            color: "var(--color-muted, var(--jf-text-3))",
             fontSize: "0.8rem",
           }}
         >
@@ -815,10 +831,10 @@ export function BlockPreview({
       return wrap(
         <div
           style={{
-            border: "1px dashed var(--jf-border)",
+            border: "1px dashed var(--color-border, var(--jf-border))",
             borderRadius: 6,
             padding: "0.75rem 1rem",
-            color: "var(--jf-text-3)",
+            color: "var(--color-muted, var(--jf-text-3))",
             fontSize: "0.8rem",
           }}
         >
@@ -828,7 +844,7 @@ export function BlockPreview({
 
     default:
       return wrap(
-        <div style={{ color: "var(--jf-text-3)", fontSize: "0.8rem" }}>{block.type}</div>,
+        <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{block.type}</div>,
       );
   }
 }
@@ -837,7 +853,7 @@ const widgetChip: React.CSSProperties = {
   display: "inline-block",
   padding: "0.35rem 0.7rem",
   borderRadius: 999,
-  background: "var(--jf-surface-3)",
+  background: "var(--color-surface, var(--jf-surface-3))",
   fontSize: "0.8rem",
   fontWeight: 600,
 };

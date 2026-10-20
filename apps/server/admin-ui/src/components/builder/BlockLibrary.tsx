@@ -191,12 +191,12 @@ export default function BlockLibrary({
                         padding: "0.5rem 0.6rem",
                         border: "1px solid transparent",
                         borderRadius: 6,
-                        background: "#fff",
+                        background: "var(--jf-surface)",
                         cursor: "grab",
                         textAlign: "left",
                         fontSize: "0.8rem",
                         fontWeight: 500,
-                        color: "#334155",
+                        color: "var(--jf-text-2)",
                         userSelect: "none",
                       }}
                       onMouseEnter={(e) => {
@@ -204,7 +204,7 @@ export default function BlockLibrary({
                         e.currentTarget.style.borderColor = "var(--jf-border)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "#fff";
+                        e.currentTarget.style.background = "var(--jf-surface)";
                         e.currentTarget.style.borderColor = "transparent";
                       }}
                     >

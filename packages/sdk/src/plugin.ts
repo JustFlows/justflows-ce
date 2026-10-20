@@ -999,6 +999,20 @@ export interface PluginBlockDefinition {
   schema: Record<string, PluginBlockField>;
   supportsChildren?: boolean;
   allowedChildTypes?: string[];
+  /**
+   * Turn the builder's generic settings sections on or off for this block.
+   * Unset keys keep the default: everything on except `themeVariables`.
+   * `hideFields` drops single layout fields, e.g. `["textAlign"]` when the
+   * block has its own alignment field.
+   */
+  inspector?: Partial<Record<"themeVariables" | "animation" | "spacing" | "size" | "appearance" | "colors" | "advanced", boolean>> & {
+    hideFields?: Array<
+      | "padTop" | "padBottom" | "padX" | "marginTop" | "marginBottom"
+      | "width" | "alignSelf" | "minHeight" | "maxWidth" | "maxHeight"
+      | "textAlign" | "radius" | "shadow"
+      | "background" | "textColor" | "accent" | "opacity"
+    >;
+  };
   render(props: Record<string, unknown>, children?: string): string;
   validateProps(raw: unknown): Record<string, unknown>;
 }

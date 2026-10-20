@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { withCoreInspectorConditions } from "./inspector-fields.js";
 import type { BlockDefinition, BlockSchema } from "../registry/block-registry.js";
 import { esc, sanitizeHref } from "../safe-url.js";
 const str = (value: unknown, fallback = "") => typeof value === "string" ? value.slice(0, 500) : fallback;
@@ -10,7 +11,7 @@ const txt = (value = ""): BlockSchema[string] => ({ type: "text", default: value
 const b = (value = false): BlockSchema[string] => ({ type: "boolean", default: value });
 const n = (value: number): BlockSchema[string] => ({ type: "number", default: value });
 function define(type: string, title: string, schema: BlockSchema, validate: (r: Record<string, unknown>) => Record<string, unknown>, render?: BlockDefinition["render"]): BlockDefinition {
-  return { type: `core.${type}`, title, category: ["social-links", "table-of-contents", "content-query"].includes(type) ? "content" : "site", icon: "◈", version: 1, schema,
+  return { type: `core.${type}`, title, category: ["social-links", "table-of-contents", "content-query"].includes(type) ? "content" : "site", icon: "◈", version: 1, schema: withCoreInspectorConditions(type, schema),
     validateProps: raw => validate(raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}),
     render: render ?? (props => `<div class="jf-site-block jf-${type}"><!--jf-site:core.${type}:${encodeURIComponent(JSON.stringify(props))}--></div>`),
   };

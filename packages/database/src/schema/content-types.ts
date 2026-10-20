@@ -10,6 +10,7 @@ export const contentTypes = pgTable("content_types", {
   label: varchar("label", { length: 255 }).notNull(),
   description: text("description").notNull().default(""),
   isBuiltin: boolean("is_builtin").notNull().default(false),
+  settings: jsonb("settings"),
   fields: jsonb("fields").notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

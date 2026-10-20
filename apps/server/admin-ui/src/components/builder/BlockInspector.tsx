@@ -15,6 +15,8 @@ import ReusablePanel, { type ReusableItem } from "./ReusablePanel";
 import { GRID_BLOCK_TYPE } from "./grid";
 import MediaImageField from "../MediaImageField";
 import { useMergeTags } from "../../lib/merge-tags";
+import { useThemeStyleTokens } from "../../lib/theme-style-tokens";
+import { inspectorSections } from "./inspector-sections";
 
 const GALLERY_LAYOUTS = ["grid", "masonry", "carousel", "slideshow", "list"] as const;
 type GalleryLayoutValue = (typeof GALLERY_LAYOUTS)[number];
@@ -137,6 +139,8 @@ interface BlockInspectorProps {
   onSyncBlock?: (block: BlockNode) => void;
   /** Type of the block this one sits in, so grid children can be placed. */
   parentType?: string | null;
+  /** The list parent determines whether the item has a visible checkbox. */
+  parentListStyle?: string;
   /** Column count of the grid parent, when there is one. */
   parentColumns?: number;
   reusable?: ReusableItem[];
@@ -152,6 +156,7 @@ export default function BlockInspector({
   onChange,
   onSyncBlock,
   parentType = null,
+  parentListStyle,
   parentColumns = 12,
   reusable = [],
   onReloadReusable,
@@ -160,7 +165,13 @@ export default function BlockInspector({
 }: BlockInspectorProps) {
   const { t } = useT();
   const mergeTags = useMergeTags();
+  const { blockControls } = useThemeStyleTokens();
   const p = block.props;
+  const schemeStyle = typeof p.style === "string" ? p.style : "buttons";
+  const schemeSingle = schemeStyle === "toggle" || schemeStyle === "switch";
+  const schemeIcons = schemeStyle !== "select" && schemeStyle !== "switch";
+
+  const sections = inspectorSections(block, catalogEntry, new Set(blockControls[block.type] ?? []));
   const set = (key: string, val: unknown) => {
     const next = { ...p, [key]: val };
     onChange(next);
@@ -408,26 +419,26 @@ export default function BlockInspector({
           { value: "rounded", label: t("builder.inspector.option.rounded") },
           { value: "square", label: t("builder.inspector.option.square") },
         ])}
-        <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+        {!schemeSingle && <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.showSystem === true} onChange={(e) => set("showSystem", e.target.checked)} />
           {t("builder.inspector.colorScheme.showAutoOption")}
-        </label>
+        </label>}
         <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <input type="checkbox" checked={p.animate !== false} onChange={(e) => set("animate", e.target.checked)} />
           {t("builder.inspector.colorScheme.animateIconChange")}
         </label>
-        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
+        {!schemeSingle && <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>
           {t("builder.inspector.colorScheme.autoHint")}
-        </p>
-        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0.25rem 0 0" }}>
+        </p>}
+        {schemeIcons && <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0.25rem 0 0" }}>
           {t("builder.inspector.colorScheme.iconsHint")}
-        </p>
-        {textInput("lightIcon", t("builder.inspector.colorScheme.lightIcon"), "☀")}
-        {textInput("lightLabel", t("builder.inspector.colorScheme.lightLabel"), t("builder.inspector.colorScheme.lightDefault"))}
-        {textInput("darkIcon", t("builder.inspector.colorScheme.darkIcon"), "☾")}
+        </p>}
+        {schemeIcons && textInput("lightIcon", t("builder.inspector.colorScheme.lightIcon"), "☀")}
+        {!schemeSingle && textInput("lightLabel", t("builder.inspector.colorScheme.lightLabel"), t("builder.inspector.colorScheme.lightDefault"))}
+        {schemeIcons && textInput("darkIcon", t("builder.inspector.colorScheme.darkIcon"), "☾")}
         {textInput("darkLabel", t("builder.inspector.colorScheme.darkLabel"), t("builder.inspector.colorScheme.darkDefault"))}
-        {p.showSystem === true ? textInput("autoIcon", t("builder.inspector.colorScheme.autoIcon"), "◐") : null}
-        {p.showSystem === true ? textInput("autoLabel", t("builder.inspector.colorScheme.autoLabel"), t("builder.inspector.colorScheme.autoDefault")) : null}
+        {!schemeSingle && schemeIcons && p.showSystem === true ? textInput("autoIcon", t("builder.inspector.colorScheme.autoIcon"), "◐") : null}
+        {!schemeSingle && p.showSystem === true ? textInput("autoLabel", t("builder.inspector.colorScheme.autoLabel"), t("builder.inspector.colorScheme.autoDefault")) : null}
         <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0.25rem 0 0" }}>
           {t("builder.inspector.colorScheme.hoverHint", { cssVar: "--jf-color-scheme-*" })}
         </p>
@@ -460,8 +471,8 @@ export default function BlockInspector({
           <input type="checkbox" checked={p.showRegister !== false} onChange={(e) => set("showRegister", e.target.checked)} />
           {t("builder.inspector.authLinks.showRegister")}
         </label>
-        {textInput("loginLabel", t("builder.inspector.authLinks.loginLabel"))}
-        {textInput("registerLabel", t("builder.inspector.authLinks.registerLabel"))}
+        {p.showLogin !== false && textInput("loginLabel", t("builder.inspector.authLinks.loginLabel"))}
+        {p.showRegister !== false && textInput("registerLabel", t("builder.inspector.authLinks.registerLabel"))}
         {select("style", t("builder.inspector.field.style"), [
           { value: "buttons", label: t("builder.inspector.option.buttons") },
           { value: "links", label: t("builder.inspector.option.links") },
@@ -548,7 +559,7 @@ export default function BlockInspector({
     default: {
       if (FUNCTIONAL_TYPES.has(block.type)) {
         fields = <>
-          {Object.entries(catalogEntry?.schema ?? {}).map(([name, field]) => name === "rows" ? (
+          {Object.entries(catalogEntry?.schema ?? {}).filter(([name, field]) => schemaFieldVisible(field, p, catalogEntry?.schema ?? {}) && !(block.type === "core.list-item" && name === "checked" && parentType === "core.list" && parentListStyle !== "checklist")).map(([name, field]) => name === "rows" ? (
             <TableEditor key={name} value={p.rows ?? field.default} onChange={(rows) => set("rows", rows)} />
           ) : name === "links" ? (
             <SocialLinksEditor key={name} value={p.links ?? field.default} onChange={(links) => set("links", links)} />
@@ -583,20 +594,24 @@ export default function BlockInspector({
         {catalogEntry?.icon} {catalogEntry?.title ?? block.type}
       </div>
       {fields}
-      <ThemeBlockControls block={block} onChange={onChange} />
-      <AnimationPanel
-        blockId={block.id}
-        value={p.animation}
-        onChange={(animation) => {
-          if (!animation) {
-            const next = { ...p };
-            delete next.animation;
-            onChange(next);
-            return;
-          }
-          onChange({ ...p, animation });
-        }}
-      />
+      {(!catalogEntry?.schema?.style || (p.style && typeof p.style === "object")) && (
+        <ThemeBlockControls block={block} onChange={onChange} showAll={sections.themeVariables} />
+      )}
+      {sections.animation && (
+        <AnimationPanel
+          blockId={block.id}
+          value={p.animation}
+          onChange={(animation) => {
+            if (!animation) {
+              const next = { ...p };
+              delete next.animation;
+              onChange(next);
+              return;
+            }
+            onChange({ ...p, animation });
+          }}
+        />
+      )}
       {parentType === GRID_BLOCK_TYPE && (
         <GridPlacementPanel block={block} columns={parentColumns} onChange={onChange} />
       )}
@@ -608,8 +623,8 @@ export default function BlockInspector({
           onConvert={onConvertToReusable}
         />
       )}
-      <BlockLayoutPanel block={block} onChange={onChange} />
-      <BlockStylePanel block={block} onChange={onChange} />
+      <BlockLayoutPanel block={block} onChange={onChange} sections={sections} />
+      {sections.advanced && <BlockStylePanel block={block} onChange={onChange} />}
       {onSyncBlock && <BlockJsonPanel key={block.id} block={block} onApply={onSyncBlock} />}
     </div>
   );
@@ -676,7 +691,7 @@ function FeaturesEditor({ items, heading, columns, onChange, p }: {
             )}
           </div>
         ))}
-        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
+        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "var(--jf-surface)", cursor: "pointer", fontSize: "0.8rem" }}>
           {t("builder.inspector.features.addFeature")}
         </button>
       </div>
@@ -772,7 +787,7 @@ function MultiChoice({ options, value, onChange }: {
           onChange={(e) => setQuery(e.target.value)}
         />
       )}
-      <div style={{ border: "1px solid var(--jf-border)", borderRadius: 6, maxHeight: 220, overflow: "auto", background: "#fff", padding: "0.25rem 0" }}>
+      <div style={{ border: "1px solid var(--jf-border)", borderRadius: 6, maxHeight: 220, overflow: "auto", background: "var(--jf-surface)", padding: "0.25rem 0" }}>
         {shown.map((option) => (
           <label
             key={option.value}
@@ -927,13 +942,13 @@ function InternalLinkField({ value, onChange, label, placeholder }: {
           onClick={togglePicker}
           title={t("builder.inspector.internalLink.pickPageOrPost")}
           aria-label={t("builder.inspector.internalLink.pickPageOrPost")}
-          style={{ padding: "0 0.6rem", border: "1px solid var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.9rem" }}
+          style={{ padding: "0 0.6rem", border: "1px solid var(--jf-border-strong)", borderRadius: 5, background: "var(--jf-surface)", cursor: "pointer", fontSize: "0.9rem" }}
         >
           {loading ? "…" : "📄"}
         </button>
       </div>
       {open && (
-        <div style={{ border: "1px solid var(--jf-border)", borderRadius: 6, maxHeight: 220, overflow: "auto", background: "#fff" }}>
+        <div style={{ border: "1px solid var(--jf-border)", borderRadius: 6, maxHeight: 220, overflow: "auto", background: "var(--jf-surface)" }}>
           {options.length === 0 ? (
             <div style={{ padding: "0.5rem 0.6rem", fontSize: "0.75rem", color: "var(--jf-text-3)" }}>{t("builder.inspector.internalLink.noPublishedYet")}</div>
           ) : (
@@ -1005,7 +1020,7 @@ function LinkListEditor({ items, heading, onChange, p }: {
             </div>
           </div>
         ))}
-        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
+        <button type="button" onClick={addItem} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "var(--jf-surface)", cursor: "pointer", fontSize: "0.8rem" }}>
           {t("builder.inspector.linkList.addLink")}
         </button>
       </div>
@@ -1144,7 +1159,7 @@ function GalleryEditor({
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={uploading}
-        style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: uploading ? "default" : "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}
+        style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "var(--jf-surface)", cursor: uploading ? "default" : "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}
       >
         {uploading ? t("builder.inspector.gallery.uploading") : t("builder.inspector.gallery.uploadFromDevice")}
       </button>
@@ -1159,10 +1174,10 @@ function GalleryEditor({
       {uploadError ? (
         <p style={{ color: "var(--jf-danger)", fontSize: "0.75rem", margin: "0 0 0.4rem" }}>{uploadError}</p>
       ) : null}
-      <button type="button" onClick={() => addUrl("")} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}>
+      <button type="button" onClick={() => addUrl("")} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "var(--jf-surface)", cursor: "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}>
         {t("builder.inspector.gallery.addImageUrl")}
       </button>
-      <button type="button" onClick={loadLibrary} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: "0.8rem" }}>
+      <button type="button" onClick={loadLibrary} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "var(--jf-surface)", cursor: "pointer", fontSize: "0.8rem" }}>
         {t("builder.inspector.gallery.addFromMediaLibrary")}
       </button>
       {showLibrary && (
@@ -1174,7 +1189,7 @@ function GalleryEditor({
               key={file.url}
               type="button"
               onClick={() => addUrl(file.url)}
-              style={{ padding: 0, border: "1px solid var(--jf-border)", borderRadius: 4, overflow: "hidden", cursor: "pointer", background: "#fff" }}
+              style={{ padding: 0, border: "1px solid var(--jf-border)", borderRadius: 4, overflow: "hidden", cursor: "pointer", background: "var(--jf-surface)" }}
               title={file.filename}
             >
               <img src={file.url} alt="" style={{ display: "block", width: "100%", height: 56, objectFit: "cover" }} />

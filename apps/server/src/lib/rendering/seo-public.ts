@@ -1,3 +1,4 @@
+import { getContentTypeSettingsMap } from "../content/content-types-db.js";
 import { isExcludedPath } from "../static-export/exclusions.js";
 import { accountPageExclusions } from "../account/pages.js";
 // SPDX-License-Identifier: MIT
@@ -196,7 +197,8 @@ export async function buildSitemapXml(siteId: string): Promise<string> {
   const settings = await getSeoSettings(siteId);
   const origin = siteOrigin();
   const defaultLocale = await getDefaultLocale(siteId);
-  const published = await listPublishedContent(siteId);
+  const typeSettings = await getContentTypeSettingsMap(siteId);
+  const published = (await listPublishedContent(siteId)).filter(item => typeSettings.get(item.type)?.seo !== false);
   const home = await getHomeContent(siteId, defaultLocale, false);
   const state = await getPermalinkState(siteId);
   const permalinks = state.settings;
@@ -204,7 +206,7 @@ export async function buildSitemapXml(siteId: string): Promise<string> {
   const resolvePermalink = await createContentPermalinkResolver(siteId, {
     state, defaultLocale, terms, homes: new Map([[defaultLocale, home]]),
   });
-  const paths = new Set<string>(["/", ...settings.extraSitemapPaths]);
+  const paths = new Set<string>([...(home && typeSettings.get(home.type)?.seo === false ? [] : ["/"]), ...settings.extraSitemapPaths]);
 
   for (const item of published) {
     const isHome =
