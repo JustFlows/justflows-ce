@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withBlockChrome } from "../block-chrome.js";
+import type { BlockInspectorSupports } from "../inspector.js";
 
 export type FieldType =
   | "text"
@@ -40,6 +41,8 @@ export interface BlockDefinition<P extends Record<string, unknown> = Record<stri
   /** Whether this block can contain child blocks */
   supportsChildren?: boolean;
   allowedChildTypes?: string[];
+  /** Which generic builder settings sections this block offers; see `INSPECTOR_SECTIONS`. */
+  inspector?: BlockInspectorSupports;
   /** Render block props to HTML string (server render) */
   render(props: P, children?: string): string;
   /** Validate and coerce props against the schema */

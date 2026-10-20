@@ -42,6 +42,19 @@ export type {
 } from "./animation.js";
 export { withBlockChrome } from "./block-chrome.js";
 export {
+  CORE_INSPECTOR_SUPPORTS,
+  DEFAULT_INSPECTOR_SUPPORTS,
+  INSPECTOR_FIELDS,
+  INSPECTOR_SECTIONS,
+  resolveInspectorSupports,
+} from "./inspector.js";
+export type {
+  BlockInspectorSupports,
+  InspectorField,
+  InspectorSection,
+  ResolvedInspectorSupports,
+} from "./inspector.js";
+export {
   BLOCK_VISIBILITY_CSS,
   DEVICE_BUCKETS,
   DEVICE_MAX_MOBILE,

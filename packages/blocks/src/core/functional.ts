@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { withCoreInspectorConditions } from "./inspector-fields.js";
 import type { BlockDefinition, BlockSchema } from "../registry/block-registry.js";
 import { esc, sanitizeMediaSrc, safeMediaSrc } from "../safe-url.js";
 import { sanitizeRichText, sanitizePlainText } from "../sanitize.js";
@@ -19,7 +20,7 @@ const txt = (value = ""): BlockSchema[string] => ({ type: "text", default: value
 function define(type: string, title: string, category: string, schema: BlockSchema,
   validate: (r: Record<string, unknown>) => Record<string, unknown>,
   render: BlockDefinition["render"], children?: string[] | true): BlockDefinition {
-  return { type: `core.${type}`, title, version: 1, category, icon: "▧", schema,
+  return { type: `core.${type}`, title, version: 1, category, icon: "▧", schema: withCoreInspectorConditions(type, schema),
     validateProps: raw => validate(record(raw)), render,
     ...(children ? { supportsChildren: true, ...(children === true ? {} : { allowedChildTypes: children }) } : {}),
   };

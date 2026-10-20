@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { loadContentCatalog } from "../../../lib/content-catalog";
 import ContentAgenda from "../../../components/ContentAgenda";
 import { useT } from "../../../i18n/I18nProvider";
@@ -62,7 +63,9 @@ export default function ContentPage() {
   const [catalogError, setCatalogError] = useState(false);
   const [catalogBusy, setCatalogBusy] = useState(true);
   const [agenda, setAgenda] = useState(false);
-  const [filter, setFilter] = useState("all");
+  const [searchParams] = useSearchParams();
+  const [filter, setFilter] = useState(searchParams.get("type") ?? "all");
+  useEffect(() => setFilter(searchParams.get("type") ?? "all"), [searchParams]);
   const [localeFilter, setLocaleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("all");
 

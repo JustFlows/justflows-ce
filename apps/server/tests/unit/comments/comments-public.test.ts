@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+import * as contentTypes from "../../../src/lib/content/content-types-db.js";
+import { resolveContentTypeSettings } from "@justflows/content";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const query = vi.fn();
@@ -120,6 +122,13 @@ function form(extra: Record<string, unknown> = {}) {
 }
 
 describe("acceptCommentSubmission", () => {
+  it("rejects comments when the content type disables them", async () => {
+    vi.spyOn(contentTypes, "getContentTypeSettings").mockResolvedValue(resolveContentTypeSettings("post", { comments: "disabled" }));
+    const res = await acceptCommentSubmission(form());
+    expect(res.status).toBe(403);
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("rejects a cross-origin submission but still bounces back to the post with a banner", async () => {
     const res = await acceptCommentSubmission({ ...form(), origin: "https://evil.example" });
     expect(res.status).toBe(403);

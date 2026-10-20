@@ -28,6 +28,20 @@ import {
   type PageHeaderConfig,
 } from "../../lib/page-header";
 import { MergeTagsContext } from "../../lib/merge-tags";
+import { PreviewSchemeContext, THEME_PREVIEW_SCOPE, type PreviewScheme } from "./BlockPreview";
+
+const PREVIEW_SCHEME_KEY = "jf-builder-preview-scheme";
+
+/** The editor's last choice, else the admin's own scheme (which follows the OS). */
+function initialPreviewScheme(): PreviewScheme {
+  try {
+    const saved = localStorage.getItem(PREVIEW_SCHEME_KEY);
+    if (saved === "light" || saved === "dark") return saved;
+  } catch {
+    /* storage blocked */
+  }
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 
 export type { BlockDocument, BlockNode } from "./types";
 
@@ -73,6 +87,15 @@ export default function PageBuilder({
 }: PageBuilderProps) {
   const { t } = useT();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [previewScheme, setPreviewSchemeState] = useState<PreviewScheme>(initialPreviewScheme);
+  const setPreviewScheme = (scheme: PreviewScheme) => {
+    setPreviewSchemeState(scheme);
+    try {
+      localStorage.setItem(PREVIEW_SCHEME_KEY, scheme);
+    } catch {
+      /* storage blocked */
+    }
+  };
   const [fullCatalog, setFullCatalog] = useState<BlockCatalogEntry[]>([]);
   const catalog = useMemo(
     () =>
@@ -301,6 +324,19 @@ export default function PageBuilder({
         title={t("ui.pageBuilder.redoZ")}
       >
         {t("ui.pageBuilder.redo")}</button>
+      <div className="jf-builder-toolbar__segmented" role="group" aria-label={t("builder.previewSchemeHint")} title={t("builder.previewSchemeHint")}>
+        {(["light", "dark"] as const).map((scheme) => (
+          <button
+            key={scheme}
+            type="button"
+            className="jf-builder-toolbar__btn"
+            aria-pressed={previewScheme === scheme}
+            onClick={() => setPreviewScheme(scheme)}
+          >
+            {scheme === "light" ? `☀ ${t("builder.previewLight")}` : `☾ ${t("builder.previewDark")}`}
+          </button>
+        ))}
+      </div>
       <span className="jf-builder-toolbar__count">
         {t((headerOnly ? headerBlocks.length : blocks.length) === 1 ? "builder.blockCountOne" : "builder.blockCountMany", { count: headerOnly ? headerBlocks.length : blocks.length })}
       </span>
@@ -308,7 +344,7 @@ export default function PageBuilder({
   );
 
   const canvas = (
-    <div>
+    <div className={`jf-admin-scheme-${previewScheme}`}>
       {enableHeader && onHeaderChange && (
         <HeaderChrome
           header={pageHeader}
@@ -355,6 +391,7 @@ export default function PageBuilder({
         onChange={handlePropsChange}
         onSyncBlock={handleSyncBlock}
         parentType={selectedParent?.type ?? null}
+        parentListStyle={selectedParent?.type === "core.list" ? String(selectedParent.props.listStyle ?? "bullet") : undefined}
         parentColumns={selectedParent?.type === GRID_BLOCK_TYPE ? gridColumns(selectedParent) : 12}
         reusable={reusable}
         onReloadReusable={reloadReusable}
@@ -371,6 +408,7 @@ export default function PageBuilder({
 
   return (
     <MergeTagsContext.Provider value={mergeTags}>
+      <PreviewSchemeContext.Provider value={previewScheme}>
       <BuilderDragProvider
         blocks={blocks}
         headerBlocks={headerBlocks}
@@ -412,7 +450,7 @@ export default function PageBuilder({
           >
             <aside
               style={{
-                background: "#fff",
+                background: "var(--jf-surface)",
                 borderRight: "1px solid var(--jf-border)",
                 overflow: "hidden",
                 display: "flex",
@@ -438,21 +476,33 @@ export default function PageBuilder({
               </div>
               <div
                 style={{
+                  position: "relative",
+                  isolation: "isolate",
                   maxWidth: 900,
                   margin: "0 auto",
-                  background: "#fff",
+                  background: "var(--jf-surface)",
                   borderRadius: 12,
-                  boxShadow: "0 1px 3px rgba(0,0,0,.06)",
+                  boxShadow: "var(--jf-shadow-sm)",
                   padding: "1rem",
                   minHeight: "100%",
                 }}
               >
+                {/**
+                 * The page's own background in the previewed scheme. A separate layer, so the
+                 * theme's scoped rules never reach the editor chrome around the blocks.
+                 */}
+                <div
+                  aria-hidden="true"
+                  className={THEME_PREVIEW_SCOPE}
+                  data-theme={previewScheme}
+                  style={{ position: "absolute", inset: 0, zIndex: -1, borderRadius: 12, margin: 0, padding: 0 }}
+                />
                 {canvas}
               </div>
             </main>
             <aside
               style={{
-                background: "#fff",
+                background: "var(--jf-surface)",
                 borderLeft: "1px solid var(--jf-border)",
                 overflow: "auto",
                 padding: "1rem",
@@ -463,6 +513,7 @@ export default function PageBuilder({
           </div>
         )}
       </BuilderDragProvider>
+      </PreviewSchemeContext.Provider>
     </MergeTagsContext.Provider>
   );
 }

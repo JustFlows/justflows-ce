@@ -1,3 +1,4 @@
+import { getContentTypeSettings } from "../../lib/content/content-types-db.js";
 import { createContentPreview } from "../../lib/content/content-preview.js";
 import { rateLimit } from "express-rate-limit";
 import { ContentScheduleSchema, ScheduleError, setContentSchedule } from "../../lib/content/content-scheduling-db.js";
@@ -517,6 +518,9 @@ router.post("/:id/preview-link", requireSession, scheduleRateLimit, async (req, 
     const resource = { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null };
     if (!(await userCan(session, "content:read", resource)) || !(await userCan(session, "content:update", resource))) {
       res.status(403).json({ error: "Forbidden" }); return;
+    }
+    if (!(await getContentTypeSettings(session.siteId, String(row.type))).preview) {
+      res.status(403).json({ error: "Previews are disabled for this content type" }); return;
     }
     const token = createContentPreview({ contentId: id, siteId: session.siteId, version: Number(row.version) });
     res.setHeader("Cache-Control", "private, no-store");

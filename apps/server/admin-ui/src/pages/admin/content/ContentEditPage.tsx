@@ -1,3 +1,4 @@
+import type { TypeSettings } from "../../../components/ContentTypeSettingsFields";
 import CacheControlField from "../../../components/CacheControlField";
 import ContentSchedule from "../../../components/ContentSchedule";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -130,6 +131,7 @@ export default function EditContentPage() {
   const [translations, setTranslations] = useState<TranslationSummary[]>([]);
   const [defaultLocale, setDefaultLocale] = useState("en-US");
   const [cacheControlEditable, setCacheControlEditable] = useState(false);
+  const [typeSettings, setTypeSettings] = useState<TypeSettings>({});
   const [typeFields, setTypeFields] = useState<ContentTypeField[]>([]);
   const [typeLabel, setTypeLabel] = useState("");
   const [homePageId, setHomePageId] = useState<string | null>(null);
@@ -236,8 +238,9 @@ export default function EditContentPage() {
         const groupId = data.translationGroupId ?? data.id;
         fetch(`/api/content-types/${encodeURIComponent(data.type)}`)
           .then((tr) => tr.json())
-          .then((body: { type?: { label?: string; fields?: ContentTypeField[]; editor?: string; cacheControlEditable?: boolean } }) => {
+          .then((body: { type?: { label?: string; fields?: ContentTypeField[]; editor?: string; settings?: TypeSettings; cacheControlEditable?: boolean } }) => {
             setTypeLabel(body.type?.label ?? data.type);
+            setTypeSettings(body.type?.settings ?? {});
             setTypeFields(body.type?.fields ?? []);
             setCacheControlEditable(body.type?.cacheControlEditable === true && data.type !== "account");
             setBlockEditor(body.type?.editor === "blocks" || data.type === "page");
@@ -612,7 +615,7 @@ export default function EditContentPage() {
     );
   }
 
-  const isPage = usesBlockEditor(item.type, blockEditor);
+  const isPage = typeSettings.editor === "fields" ? false : usesBlockEditor(item.type, blockEditor);
   const isCmsPage = item.type === "page";
   const isHomePage = homePageId === item.id;
   const isBlogPage = blogPageId === item.id;
@@ -753,7 +756,8 @@ export default function EditContentPage() {
                   advancedLabel: t("content.advancedHeading"),
                   pluginLabel: pluginEditor?.label,
                   pluginSections,
-                }).map((entry) => (
+                }).filter(entry => (entry.id !== "seo" || typeSettings.seo !== false) &&
+                  (entry.id !== "discussion" || typeSettings.comments !== "disabled")).map((entry) => (
                   <button
                     key={entry.id}
                     type="button"
@@ -876,7 +880,7 @@ export default function EditContentPage() {
                   </>
                 )}
 
-                {section === "seo" && (
+                {section === "seo" && typeSettings.seo !== false && (
                   <div className="jf-card">
                     <div className="jf-card__head">
                       <h2 className="jf-card__title">{t("content.seoHeading")}</h2>
@@ -978,7 +982,7 @@ export default function EditContentPage() {
                   </div>
                 )}
 
-                {section === "discussion" && (
+                {section === "discussion" && typeSettings.comments !== "disabled" && (
                   <div className="jf-card">
                     <div className="jf-card__head">
                       <h2 className="jf-card__title">{t("content.discussionHeading")}</h2>
@@ -1259,6 +1263,7 @@ export default function EditContentPage() {
                     {t("content.viewLive")} ↗
                   </a>
                 )}
+                {typeSettings.preview !== false && (
                 <a
                   className="jf-btn jf-btn--ghost jf-btn--block"
                   href={`${isHomePage ? "/" : publicHref}?preview=1`}
@@ -1267,6 +1272,7 @@ export default function EditContentPage() {
                 >
                   {t("content.previewDraft")} ↗
                 </a>
+                )}
 
                 {isCmsPage && canSetSitePages && (
                   <div className="jf-field">

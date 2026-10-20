@@ -679,7 +679,10 @@
         "desktop": "Escritorio",
         "tablet": "Tableta",
         "mobile": "Móvil"
-      }
+      },
+      "device.desktop": "desktop",
+      "device.tablet": "tablet",
+      "device.mobile": "mobile"
     },
     "json": {
       "title": "JSON del bloque",
@@ -1180,6 +1183,9 @@
     },
     "blockCountOne": "{count} bloque",
     "blockCountMany": "{count} bloques",
+    "previewLight": "Claro",
+    "previewDark": "Oscuro",
+    "previewSchemeHint": "Ver el sitio en modo claro u oscuro",
     "media": {
       "addUrl": "Add a media URL in the block settings.",
       "src": "Media URL",
@@ -1920,7 +1926,75 @@
     "removeFieldAria": "Quitar campo {label}",
     "addField": "+ Añadir campo",
     "saveFields": "Guardar campos",
-    "fieldsHeading": "Campos ({count})"
+    "fieldsHeading": "Campos ({count})",
+    "pluralLabel": "Plural label",
+    "pluralHint": "Used in content navigation. Leave empty to use the main label.",
+    "editorLabel": "Content editor",
+    "editorHint": "Choose the block builder or a form with custom fields. Existing content is preserved.",
+    "editors": {
+      "auto": "Automatic (type or plugin default)",
+      "blocks": "Block builder",
+      "fields": "Custom fields"
+    },
+    "features": "Features",
+    "newEntry": "New {label}",
+    "settingsLabels": {
+      "quickAction": "Dashboard quick action",
+      "revisions": "Revision history",
+      "preview": "Draft previews",
+      "search": "Public search",
+      "seo": "SEO metadata and sitemap",
+      "comments": "Comments"
+    },
+    "settingsHints": {
+      "quickAction": "Show a shortcut for creating an entry on the dashboard.",
+      "revisions": "Keep restore points when content changes. Disabling this stops new history; existing history, working drafts, autosave and conflict checks are preserved.",
+      "preview": "Allow staff previews and shareable preview links. Disabling this also invalidates access through existing preview links.",
+      "search": "Include or exclude this type from public search. Site default also respects plugin search settings. Admin search remains available.",
+      "seo": "Show SEO fields, use their values on public pages and include published entries in the sitemap. Disabling this is not a noindex or access restriction.",
+      "comments": "Set the type default for new comments. Disabled closes all entries, including entries explicitly set to open. Moderation and spam protection still apply."
+    },
+    "modes": {
+      "inherit": "Use site default",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "source": "Source",
+    "customFields": "Custom fields",
+    "actions": "Actions",
+    "customBadge": "Custom",
+    "settings": "Settings",
+    "systemFields": "System fields",
+    "systemBadge": "System",
+    "fieldsHint": "System fields are managed by Justflows. Add custom fields to define the rest of your content.",
+    "slugImmutable": "The slug is fixed after creation to keep URLs and API references stable.",
+    "saveChanges": "Save changes",
+    "saved": "Saved",
+    "discardConfirm": "Discard your unsaved changes?",
+    "removeFieldConfirm": "Remove field “{label}” from this content type? Existing content values are not deleted.",
+    "moveUp": "Move {label} up",
+    "moveDown": "Move {label} down",
+    "optionsHint": "Separate options with commas.",
+    "empty": "No content types yet. Create one to get started.",
+    "system": {
+      "id": "ID",
+      "title": "Title",
+      "slug": "Slug",
+      "status": "Status",
+      "createdAt": "Created at",
+      "updatedAt": "Updated at",
+      "publishedAt": "Published at"
+    },
+    "kinds": {
+      "text": "Text",
+      "textarea": "Long text",
+      "richtext": "Rich text",
+      "number": "Number",
+      "boolean": "Boolean",
+      "media": "Media",
+      "date": "Date",
+      "select": "Select"
+    }
   },
   "trash": {
     "loadFailed": "No se pudo cargar la papelera",

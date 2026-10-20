@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { resolveContentTypeSettings } from "@justflows/content";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { serializeContentRow, type ContentResponse } from "../../../src/lib/content/content-api.js";
 import { DEFAULT_PERMALINK_SETTINGS } from "../../../src/lib/navigation/permalinks.js";
@@ -9,6 +10,8 @@ const home = vi.fn();
 const state = vi.fn();
 const terms = vi.fn();
 const settings = vi.fn();
+const typeSettings = vi.fn();
+vi.mock("../../../src/lib/content/content-types-db.js", () => ({ getContentTypeSettingsMap: (...args: unknown[]) => typeSettings(...args) }));
 vi.mock("../../../src/lib/content/content-public.js", () => ({ listPublishedContent: () => published() }));
 vi.mock("../../../src/lib/content/home-page.js", () => ({ getHomeContent: (...args: unknown[]) => home(...args) }));
 vi.mock("../../../src/lib/i18n/languages-db.js", () => ({ getDefaultLocale: async () => "en-US" }));
@@ -23,10 +26,12 @@ import { buildSitemapXml } from "../../../src/lib/rendering/seo-public.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("DB_DRIVER", "");
   vi.stubEnv("APP_URL", "https://example.test");
   state.mockResolvedValue({ settings: { ...DEFAULT_PERMALINK_SETTINGS, structure: "/%category%/%postname%/" }, layoutScopes: [] });
   settings.mockResolvedValue({ extraSitemapPaths: "/extra\n/members" });
   home.mockResolvedValue(null);
+  typeSettings.mockResolvedValue(new Map());
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -46,9 +51,35 @@ describe("sitemap link batching", () => {
     expect(xml).not.toContain("https://example.test/members");
     expect(xml).toContain("https://example.test/category/news");
     expect(xml.indexOf("https://example.test/category/news")).toBeLessThan(xml.indexOf("https://example.test/nl-NL/category/news"));
+    expect(typeSettings.mock.calls).toEqual([["site-a"]]);
     expect(state).toHaveBeenCalledOnce();
     expect(terms).toHaveBeenCalledOnce();
     expect(settings).toHaveBeenCalledOnce();
     expect(home.mock.calls).toEqual([["site-a", "en-US", false], ["site-a", "nl-NL", false]]);
+  });
+
+  it("excludes SEO-disabled entries and the home page using one settings read", async () => {
+    const page = serializeContentRow({
+      id: "home", site_id: "site-a", type: "page", title: "Home", slug: "home",
+      locale: "en-US", status: "published",
+    });
+    const post = serializeContentRow({
+      id: "post", site_id: "site-a", type: "post", title: "Post", slug: "visible-post",
+      locale: "en-US", status: "published",
+    });
+    published.mockResolvedValue([page, post]);
+    home.mockResolvedValue(page);
+    terms.mockResolvedValue([]);
+    typeSettings.mockResolvedValue(new Map([
+      ["page", resolveContentTypeSettings("page", { seo: false })],
+      ["post", resolveContentTypeSettings("post")],
+    ]));
+
+    const xml = await buildSitemapXml("site-a");
+
+    expect(xml).toContain("<loc>https://example.test/uncategorized/visible-post</loc>");
+    expect(xml).not.toContain("<loc>https://example.test/</loc>");
+    expect(xml).not.toContain("<loc>https://example.test/home</loc>");
+    expect(typeSettings.mock.calls).toEqual([["site-a"]]);
   });
 });

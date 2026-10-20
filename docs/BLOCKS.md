@@ -351,6 +351,40 @@ value beats the theme's own `.jf-hero { background: … }`); `accent` writes
 /api/themes/style-tokens`), it lets one block override any theme variable the
 theme exposes, e.g. `{ "--brand-gradient": "linear-gradient(…)" }`.
 
+### Inspector visibility
+
+The page and theme builders share the same block inspector. Every core type has
+an explicit entry in `packages/blocks/src/inspector.ts`; adding a core block
+without reviewing its generic controls fails the coverage test. Plugins retain
+the defaults and can override them through their definition's `inspector`.
+
+| Core blocks (without `core.`) | Sidebar treatment |
+| --- | --- |
+| paragraph, heading, site-title, site-tagline | Text controls; hide box decoration, viewport sizing and unused accent. |
+| quote, link-list, html, group, column, cta, media-text, details, table-of-contents, content-query, search, account, auth-form | General box controls; hide unused accent. |
+| columns, grid, features, buttons, accordion, callout, tabs, navigation, breadcrumbs, social-links | Child layout controls; hide ineffective text alignment and accent. |
+| section, container, hero, cover, card | Hide generic fields duplicated by the block's own padding, width, alignment, height or decoration controls. |
+| image | Hide media-inapplicable fields; caption alignment and colour appear when there is a caption. |
+| video, audio, file | Keep figure/caption styling; hide misleading player sizing/decorations and unused accent. |
+| button, icon | Hide ineffective text alignment and viewport sizing; Icon uses its own size and colour. |
+| code, embed | Hide ineffective text alignment; Embed also hides inherited text colour. |
+| list, list-item | Numbered-list fields depend on list style; checkbox state depends on the list parent. Checklist accent belongs on the list. |
+| table, tab | Table uses its own cell alignment; Tab uses its parent's sizing and motion. |
+| site-logo | Logo width belongs to the image; hide text colour and viewport height controls on its wrapper. |
+| color-scheme, language-switcher, auth-links | Hide duplicate alignment and irrelevant height/accent; toggle variants and link visibility determine which labels/icons apply. |
+| divider, spacer, reusable | Minimal controls: Divider hides text/vertical-content styling, Spacer keeps Advanced, and Reusable has no generic presentation controls. |
+
+Theme controls show only variables curated for that block by the theme and
+existing overrides. A stored generic value remains editable even when its field
+would normally be hidden. Clearing it restores the clean panel. A saved theme
+variable does not reveal the entire token catalog. Conditional block fields use
+schema `showWhen` hints (for example, Cover playback controls require video).
+Switching a controlling choice never deletes the hidden values. Blocks whose
+schema owns `style` as a scalar value (such as the appearance widget variants)
+do not offer generic style or theme-variable controls: those would overwrite
+the variant. Their animation and Advanced controls remain available; existing
+object-shaped style overrides can still be cleared.
+
 A width also sets `margin-left/right: auto`, because a max-width says nothing
 about where the slack goes.
 

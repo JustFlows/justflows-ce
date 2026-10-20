@@ -1,5 +1,6 @@
 import { renderSiteBuildingBlocks } from "../../lib/rendering/site-building-blocks.js";
 import { isAccountPath } from "../../middleware/account-cache.js";
+import { getContentTypeSettings } from "../../lib/content/content-types-db.js";
 import { verifyContentPreview } from "../../lib/content/content-preview.js";
 import { serializeContentRow } from "../../lib/content/content-api.js";
 import { rateLimit } from "express-rate-limit";
@@ -186,7 +187,7 @@ router.get("/preview/:token", rateLimit({ windowMs: 60_000, limit: 60, standardH
       "SELECT * FROM content WHERE id = ? AND site_id = ? AND version = ? AND trashed_at IS NULL LIMIT 1",
       [preview.contentId, preview.siteId, preview.version],
     );
-    if (!row) { res.status(404).send("Preview unavailable"); return; }
+    if (!row || !(await getContentTypeSettings(preview.siteId, String(row.type))).preview) { res.status(404).send("Preview unavailable"); return; }
     const content = serializeContentRow(row);
     // Only this row is previewed; menus, templates and all other content stay public.
     const locale = await getDefaultLocale(content.siteId);
@@ -1100,9 +1101,10 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   const hooks = getRuntimeHooks();
   const siteId = (await getSiteId()) ?? "";
   const content = data.content as
-    { title?: string; excerpt?: string | null; fields?: Record<string, unknown> } | undefined;
+    { type?: string; title?: string; excerpt?: string | null; fields?: Record<string, unknown> } | undefined;
+  const typeSettings = siteId && content?.type ? await getContentTypeSettings(siteId, content.type) : null;
   const seoFromContent = content
-    ? seoTextFromContent(content)
+    ? seoTextFromContent(typeSettings?.seo === false ? { ...content, fields: {} } : content)
     : { title: "", description: "", canonical: "", image: "" };
   const pageTitle = seoFromContent.title || String(data.title ?? "");
   const pageDescription = seoFromContent.description || String(data.seoDescription ?? "");
@@ -1124,8 +1126,10 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
         (typeof data.canonicalPath === "string" ? `${siteOrigin()}${data.canonicalPath}` : undefined),
       image: (await shareImageFor(siteId, seoFromContent.image, identity?.logoUrl)) || undefined,
     };
-    documentTitle = resolveSeoTitle(page, settings);
-    headExtra = buildSeoHeadHtml(page, settings);
+    if (typeSettings?.seo !== false) {
+      documentTitle = resolveSeoTitle(page, settings);
+      headExtra = buildSeoHeadHtml(page, settings);
+    }
   }
   const faviconHead = buildFaviconHeadHtml(identity?.faviconUrl ?? "");
   if (faviconHead) {
