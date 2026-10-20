@@ -23,6 +23,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Failed core update recovery.** Installs dependencies and builds in staging before replacing live files. Backs up core files and dependencies, restores them when activation or migrations fail, and skips restart on failure. Keeps the previous release under `.updates/previous-release` for recovery. Applied database migrations are preserved. No matching Public Roadmap issue currently exists.
+
 - **Page builder in light and dark.** The builder's side panels, block library, inspector controls and pattern previews no longer show white boxes in dark mode. The canvas now previews the site in a chosen scheme, with a Light/Dark switch in the canvas toolbar. Previously it mixed the theme's light colours with parts of its dark palette, and preview placeholders used admin colours instead of the site's. Selection highlights and hints on the canvas follow the previewed scheme so text stays readable. No matching Public Roadmap issue currently exists.
 
 - **Admin bundles and theme test ownership.** Splits block/validation code out of the builder chunk and separates self-contained SSR modules. Space Voyage behavior tests now live with the theme in the theme registry, so CE CI does not require external theme files. ([#27](https://github.com/JustFlows/justflows-ce/issues/27))
