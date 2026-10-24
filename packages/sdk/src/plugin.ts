@@ -686,6 +686,13 @@ export interface PluginCallRequest {
   query?: Record<string, string>;
   body?: unknown;
   session?: PluginHttpSession | null;
+  /**
+   * Run the route as this site. The caller needs `platform:tenancy`. The host
+   * allows only another active site in the same workspace, and Shop (or
+   * whichever plugin is called) still checks the session. Absent means the
+   * current site. Older hosts ignore this field.
+   */
+  siteId?: string;
 }
 
 export interface PluginBridgeApi {
@@ -1424,6 +1431,7 @@ export type PluginTenancyResult =
 
 /**
  * Workspace and site placement. `current()` is available to every plugin.
+ * `siblingSites()` lists the current workspace from any of its sites.
  * Every other call requires `platform:tenancy`, runs only on the
  * installation's root site, and is refused while the plugin works on behalf
  * of an AI agent, an API key or a connected app (an MCP or assistant tool
@@ -1432,6 +1440,12 @@ export type PluginTenancyResult =
  */
 export interface PluginTenancyApi {
   current(): Promise<PluginWorkspaceContext | null>;
+  /**
+   * Active sites in the workspace handling this request. Requires
+   * `platform:tenancy`. It works from any site in that workspace and cannot
+   * see another workspace. Absent on older hosts.
+   */
+  siblingSites?(): Promise<PluginWorkspaceSite[]>;
   listWorkspaces(): Promise<PluginWorkspace[]>;
   listSites(tenantId: string): Promise<PluginWorkspaceSite[]>;
   createWorkspace(input: PluginCreateWorkspaceInput): Promise<PluginTenancyResult>;

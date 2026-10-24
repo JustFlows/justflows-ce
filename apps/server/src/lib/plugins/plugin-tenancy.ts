@@ -89,6 +89,40 @@ export function createPluginTenancyApi(
       }));
     },
 
+    async siblingSites(): Promise<PluginWorkspaceSite[]> {
+      if (!permissions.has("platform:tenancy")) {
+        throw new Error(`Plugin "${pluginId}" requires the "platform:tenancy" permission`);
+      }
+      refuseDelegated("Listing sites in this workspace");
+      const current = getTenantContext();
+      if (!current?.tenantId) return [];
+      const db = await getControlDb();
+      const rows = await db.query<{
+        id: string;
+        tenant_id: string;
+        name: string;
+        hostname: string | null;
+        status: string;
+        database_choice: PluginWorkspaceSite["databaseChoice"];
+      }>(
+        `SELECT s.id, s.tenant_id, s.name, s.status, s.database_choice, d.hostname
+         FROM sites s
+         LEFT JOIN site_domains d ON d.site_id = s.id AND d.is_primary = ?
+         WHERE s.tenant_id = ? AND s.status = 'active'
+         ORDER BY s.created_at ASC
+         LIMIT 50`,
+        [true, current.tenantId],
+      );
+      return rows.map((row) => ({
+        id: String(row.id),
+        tenantId: String(row.tenant_id),
+        name: String(row.name),
+        hostname: row.hostname ? String(row.hostname) : null,
+        status: String(row.status),
+        databaseChoice: row.database_choice,
+      }));
+    },
+
     async listSites(tenantId: string): Promise<PluginWorkspaceSite[]> {
       await requireTenancy(pluginId, permissions, "Listing workspace sites");
       const db = await getControlDb();

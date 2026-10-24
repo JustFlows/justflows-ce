@@ -130,6 +130,8 @@ Enqueued plugin job runs (`ctx.jobs.enqueue`) are stored once for the whole inst
 
 A plugin reads the workspace for the current request with `ctx.tenancy.current()`. That object has the workspace id, site id, hostname, user mode, database mode, and whether this is the main site. It never includes a database password.
 
+A plugin with `platform:tenancy` can list the active sites of that same workspace from any of them with `ctx.tenancy.siblingSites()`. It cannot see another workspace. `ctx.plugins.call` accepts `siteId` for one of those sites, and the called plugin still checks the session. Helpdesk uses this so a support site can show Shop orders that belong to another site in the workspace. The order stays on the site that took it. Signing in on one hostname does not sign the person in on another.
+
 Creating, listing, suspending, reactivating, and deleting workspaces requires the `platform:tenancy` manifest permission. The same operations are on the management API at `/api/manage/v1/tenants` for an API key whose user is a platform operator.
 
 Gates `workspace.beforeCreate`, `site.beforeCreate`, `workspace.beforeSuspend`, `workspace.beforeReactivate`, and `workspace.beforeDelete` run before the change. Cancel to refuse it. Actions `workspace.created`, `site.created`, `workspace.suspended`, `workspace.reactivated`, and `workspace.deleted` run after it succeeds. `tenancy.workspaceCreated` runs with `workspace.created` and adds the first administrator's email; only plugins with `platform:tenancy` may listen (Shop uses it to give a new workspace its default plan). See [Hooks](HOOKS.md).

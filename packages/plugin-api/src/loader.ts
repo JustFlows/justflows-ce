@@ -26,6 +26,7 @@ import {
   type PluginAiApi,
   type PluginCallRequest,
   type PluginHttpRequest,
+  type PluginHttpResponse,
   type HookRegisterOptions,
   type Unsubscribe,
   type CookieCategory,
@@ -286,6 +287,9 @@ export class PluginLoader {
   private readonly placeholderResolver: PluginPlaceholderResolver;
   private readonly eventPublisher: ((event: string, payload: unknown, siteId: string) => Promise<void>) | undefined;
   private readonly currentSiteId: (() => string | undefined) | undefined;
+  private readonly runForSite:
+    | ((siteId: string, fn: () => Promise<PluginHttpResponse>) => Promise<PluginHttpResponse>)
+    | undefined;
   private readonly captchaFactory: () => PluginCaptchaApi;
   private readonly aiFactory: () => PluginAiApi;
 
@@ -338,11 +342,18 @@ export class PluginLoader {
       currentSiteId?: () => string | undefined;
       /** Persist outbound events before actions (whose listener failures are isolated). */
       eventPublisher?: (event: string, payload: unknown, siteId: string) => Promise<void>;
+      /**
+       * Run a plugin call inside another site of the same workspace. The loader
+       * only invokes this after the caller declares `platform:tenancy` and the
+       * site id is well formed. The host refuses a site outside that workspace.
+       */
+      runForSite?: (siteId: string, fn: () => Promise<PluginHttpResponse>) => Promise<PluginHttpResponse>;
       captchaFactory?: () => PluginCaptchaApi;
       aiFactory?: () => PluginAiApi;
     },
   ) {
     this.currentSiteId = options?.currentSiteId;
+    this.runForSite = options?.runForSite;
     this.captchaFactory = options?.captchaFactory ?? (() => NULL_CAPTCHA);
     this.aiFactory = options?.aiFactory ?? (() => NULL_AI);
     this.eventPublisher = options?.eventPublisher;
@@ -872,7 +883,20 @@ export class PluginLoader {
       headers: {},
       session: request.session ?? null,
     };
-    return pluginCallDepth.run(depth + 1, () => matched.route.handler(httpRequest));
+    const invoke = () => Promise.resolve(pluginCallDepth.run(depth + 1, () => matched.route.handler(httpRequest)));
+    const siteId = request.siteId?.trim() ?? "";
+    if (!siteId) return invoke();
+    if (!/^[0-9a-f-]{8,80}$/i.test(siteId)) {
+      return { status: 400, body: { error: { code: "rejected", message: "That site is not available." } } };
+    }
+    const caller = this.plugins.get(callerId);
+    if (!caller?.manifest.permissions.includes("platform:tenancy")) {
+      return { status: 403, body: { error: { code: "forbidden", message: "This plugin cannot open another site." } } };
+    }
+    if (!this.runForSite) {
+      return { status: 501, body: { error: { code: "unavailable", message: "This host cannot open another site." } } };
+    }
+    return this.runForSite(siteId, invoke);
   }
 
   private scopedFiles(pluginId: string, siteId: string, permissions: Set<PluginPermission>): PluginFilesApi {

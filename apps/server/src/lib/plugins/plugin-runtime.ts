@@ -296,6 +296,10 @@ export async function ensurePluginRuntime(): Promise<void> {
         databasesFactory: (pluginId, siteId, permissions) =>
           createPluginDatabasesApi(pluginId, siteId, permissions),
         tenancyFactory: (pluginId, permissions) => createPluginTenancyApi(pluginId, permissions),
+        runForSite: async (siteId, fn) => {
+          const { runPluginCallForSite } = await import("./plugin-call-site.js");
+          return runPluginCallForSite(siteId, fn);
+        },
         quotasFactory: (pluginId, permissions, siteId) => createPluginQuotasApi(pluginId, permissions, siteId),
         quotasCleanup: unregisterPluginMeters,
         filesFactory: (pluginId, siteId) => createPluginFilesApi(pluginId, siteId),
