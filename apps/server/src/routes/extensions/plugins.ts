@@ -35,6 +35,27 @@ function noStore(res: { setHeader: (name: string, value: string) => void }): voi
   res.setHeader("Cache-Control", "private, no-store");
 }
 
+/** Other sites do not choose the admin Support button. That switch stays on the main site. */
+async function helpdeskSchemaForSite(
+  plugin: PluginRow,
+  siteId: string,
+): Promise<NonNullable<ReturnType<typeof pluginToDto>["settingsSchema"]> | Record<string, never>> {
+  const schema = { ...(pluginToDto(plugin).settingsSchema ?? {}) };
+  if (plugin.plugin_id !== "justflows.helpdesk") return schema;
+  const { isInstallationRootSite, loadHostRecords } = await import("../../lib/tenancy/registry.js");
+  const { supportSiteChoices } = await import("../../lib/admin/admin-support-popup.js");
+  if (!(await isInstallationRootSite(siteId))) {
+    delete schema.popupAdmin;
+    delete schema.supportSite;
+    return schema;
+  }
+  const loaded = await loadHostRecords().catch(() => null);
+  const choices = supportSiteChoices(loaded?.records ?? [], siteId);
+  if (!choices || !schema.supportSite) delete schema.supportSite;
+  else schema.supportSite = { ...schema.supportSite, options: choices };
+  return schema;
+}
+
 async function readPluginSettings(
   plugin: PluginRow,
   siteId: string,
@@ -48,7 +69,7 @@ async function readPluginSettings(
   const { getPluginSetting } = await import("../../lib/plugins/plugin-kv.js");
   const { listLanguages, getDefaultLocale } = await import("../../lib/i18n/languages-db.js");
   const { asLocaleMap } = await import("../../lib/rendering/seo-public.js");
-  const schema = pluginToDto(plugin).settingsSchema ?? {};
+  const schema = await helpdeskSchemaForSite(plugin, siteId);
   const languages = await listLanguages(siteId, true);
   const defaultLocale = await getDefaultLocale(siteId);
   const values: Record<string, unknown> = {};
@@ -357,8 +378,8 @@ router.put("/:id/settings", requireRole("administrator"), async (req, res) => {
     const { setPluginSetting } = await import("../../lib/plugins/plugin-kv.js");
     const { ensurePluginRuntime, getRuntimeHooks } = await import("../../lib/plugins/plugin-runtime.js");
     await ensurePluginRuntime();
-    const schema = pluginToDto(plugin).settingsSchema ?? {};
     const siteId = req.session!.siteId;
+    const schema = await helpdeskSchemaForSite(plugin, siteId);
     let next: Record<string, unknown> = {};
     for (const key of Object.keys(schema)) {
       if (!(key in body)) continue;

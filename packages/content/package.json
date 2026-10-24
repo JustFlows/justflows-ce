@@ -18,14 +18,14 @@
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit"
   },
   "dependencies": {
-    "@justflows/core": "file:../core",
     "@justflows/auth": "file:../auth",
-    "zod": "^4.4.3"
+    "@justflows/core": "file:../core",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.5"
   },
   "license": "MIT"
 }

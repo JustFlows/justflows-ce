@@ -19,6 +19,8 @@ import { createPluginDataApi } from "./plugin-data.js";
 import { createPluginJobsApi, getDurableJobQueue, getPluginJobScheduler } from "./plugin-jobs.js";
 import { createPluginSecretsApi } from "./plugin-secrets.js";
 import { createPluginDatabasesApi } from "./plugin-databases.js";
+import { createPluginCaptchaApi } from "./plugin-captcha.js";
+import { createPluginAiApi } from "./plugin-ai.js";
 import { createPluginTenancyApi } from "./plugin-tenancy.js";
 import { createPluginQuotasApi } from "./plugin-quotas.js";
 import { unregisterPluginMeters } from "../tenancy/quotas.js";
@@ -294,6 +296,10 @@ export async function ensurePluginRuntime(): Promise<void> {
         databasesFactory: (pluginId, siteId, permissions) =>
           createPluginDatabasesApi(pluginId, siteId, permissions),
         tenancyFactory: (pluginId, permissions) => createPluginTenancyApi(pluginId, permissions),
+        runForSite: async (siteId, fn) => {
+          const { runPluginCallForSite } = await import("./plugin-call-site.js");
+          return runPluginCallForSite(siteId, fn);
+        },
         quotasFactory: (pluginId, permissions, siteId) => createPluginQuotasApi(pluginId, permissions, siteId),
         quotasCleanup: unregisterPluginMeters,
         filesFactory: (pluginId, siteId) => createPluginFilesApi(pluginId, siteId),
@@ -399,6 +405,8 @@ export async function ensurePluginRuntime(): Promise<void> {
             await deletePluginSetting(pluginId, pluginCallSiteId(siteId), key);
           },
         },
+        captchaFactory: () => createPluginCaptchaApi(),
+        aiFactory: () => createPluginAiApi(),
       });
       setLivePluginSettingsSchemaLookup((pluginId) => {
         const schema = loader?.getPlugin(pluginId)?.manifest.settingsSchema;

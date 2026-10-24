@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { getDb } from "../database/db.js";
+import { isDuplicateKeyError } from "./plugin-row-sql.js";
 import { getJfRoot } from "../runtime/jf-root.js";
 import { runAllMigrations } from "../database/run-migrations.js";
 import { getSiteId } from "../themes/themes-db.js";
@@ -230,6 +231,13 @@ function readBundledManifest(pluginPath: string, folderName: string): Record<str
   return null;
 }
 
+/** Two plugin-list requests can both miss the row and insert the same plugin. */
+function isBundledPluginConflict(err: unknown): boolean {
+  if (isDuplicateKeyError(err)) return true;
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === "23505";
+}
+
 /** Register bundled plugins from the plugins/ directory when missing from the DB. */
 export async function syncBundledPlugins(siteId: string): Promise<void> {
   const dir = pluginsDir();
@@ -267,21 +275,25 @@ export async function syncBundledPlugins(siteId: string): Promise<void> {
       continue;
     }
 
-    await db.run(
-      `INSERT INTO plugins
-         (id, site_id, plugin_id, version, status, manifest, approved_permissions, safe_mode, installed_at, updated_at)
-       VALUES (?, ?, ?, ?, 'inactive', ?, ?, FALSE, ?, ?)`,
-      [
-        randomUUID(),
-        siteId,
-        pluginId,
-        String(manifest.version ?? "1.0.0"),
-        JSON.stringify(manifest),
-        JSON.stringify([]),
-        now(),
-        now(),
-      ],
-    );
+    try {
+      await db.run(
+        `INSERT INTO plugins
+           (id, site_id, plugin_id, version, status, manifest, approved_permissions, safe_mode, installed_at, updated_at)
+         VALUES (?, ?, ?, ?, 'inactive', ?, ?, FALSE, ?, ?)`,
+        [
+          randomUUID(),
+          siteId,
+          pluginId,
+          String(manifest.version ?? "1.0.0"),
+          JSON.stringify(manifest),
+          JSON.stringify([]),
+          now(),
+          now(),
+        ],
+      );
+    } catch (err) {
+      if (!isBundledPluginConflict(err)) throw err;
+    }
   }
 }
 

@@ -12,10 +12,14 @@ themes, blocks, testing, and SDK compatibility).
 ```
 plugins/
 ├── hello-world/     Official example — copy this
+├── helpdesk/        First-party Helpdesk (tickets, portal, handover)
 ├── demo/            Demo sign-in and scheduled plugin reset
 ├── consent/         First-party Cookie Consent (banner, consent API, script/embed gating)
 └── acme-seo/        Your plugin (folder name is yours)
 ```
+
+`helpdesk/` is the first-party support desk ([#184](https://github.com/JustFlows/justflows-ce/issues/184)).
+It uses only `@justflows/sdk` and ships its own admin app. See [plugins/helpdesk/README.md](helpdesk/README.md).
 
 `demo/` is a standalone sandbox: a Demo role and demo user, an administrator
 who is never edited, and a scheduled reset of whatever installed plugins

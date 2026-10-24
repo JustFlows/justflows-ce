@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
 import path from "node:path";
 
 /** Limits that protect against decompression bombs and path traversal */
@@ -95,4 +95,20 @@ export function verifyDigest(data: Buffer, expectedHex: string): void {
 /** Compute SHA-256 digest of a buffer */
 export function computeDigest(data: Buffer): string {
   return createHash("sha256").update(data).digest("hex");
+}
+
+/** Sign the archive bytes with an Ed25519 or other Node private key (PEM). */
+export function signPackage(data: Buffer, privateKeyPem: string): string {
+  return sign(null, data, createPrivateKey(privateKeyPem)).toString("base64");
+}
+
+/** True when `signature` was produced by `signPackage` for this archive and public key. */
+export function verifyPackageSignature(data: Buffer, signature: string, publicKeyPem: string): boolean {
+  try {
+    const bytes = Buffer.from(signature, "base64");
+    if (bytes.length < 32) return false;
+    return verify(null, data, createPublicKey(publicKeyPem), bytes);
+  } catch {
+    return false;
+  }
 }
