@@ -320,6 +320,14 @@ export interface EmailDeliveryContext {
 
 export interface EmailBeforeSendEvent extends EmailDeliveryContext {}
 
+/** A message accepted by the site's inbound mail address. Text only; no attachments. */
+export interface EmailReceivedEvent {
+  readonly from: string;
+  readonly to: string;
+  readonly subject: string;
+  readonly text: string;
+}
+
 export interface EmailDeliveryEvent extends EmailDeliveryContext {
   readonly status: "queued" | "sent" | "deferred" | "failed" | "bounced";
   readonly attempt: number;
@@ -791,6 +799,8 @@ export interface ActionEventMap {
   /** Deploy the generated directory to object storage / a CDN. */
   "staticExport.deploy": StaticExportDeployEvent;
 
+  /** An inbound message was accepted for this site. Listening requires `mail:hook`. */
+  "email.received": EmailReceivedEvent;
   /** Delivery has been accepted by the host and recorded, before transport I/O. */
   "email.queued": EmailDeliveryEvent;
   /** The transport accepted the message. */
@@ -971,6 +981,13 @@ export interface FilterValueMap {
     string,
     { siteId: string; path: string; locale: string; title: string; contentId?: string },
   ];
+  /**
+   * Extra HTML inserted before `</body>` on administration screens. Seeded with
+   * `""`. Handlers may be async. `rootSite` is true on the installation's own
+   * admin while other sites exist. A thrown handler is logged and the admin
+   * page still renders. Deactivating the plugin removes its markup.
+   */
+  "admin.body": [string, { siteId: string; rootSite?: boolean }];
   /**
    * The analytics `<head>` markup the host is about to emit (the Google Tag from
    * the first-party Analytics plugin, when one is configured). Seeded with that

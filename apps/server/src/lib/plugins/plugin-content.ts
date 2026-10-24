@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import type { PluginContentApi, PluginPublishedEntry, PluginPublishedPage } from "@justflows/sdk";
 import {
+  ContentTypeCacheControlSchema,
   ContentTypeFieldsSchema,
   ContentTypeSlugSchema,
   isBuiltinContentTypeSlug,
@@ -27,6 +28,48 @@ import {
 
 function now(): string {
   return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+}
+
+/** Cache policy stored on a new page. An empty value inherits the type default. */
+function pageFields(cacheControl: string | undefined): Record<string, string> {
+  if (cacheControl === undefined) return {};
+  const parsed = ContentTypeCacheControlSchema.parse(cacheControl);
+  return parsed ? { cacheControl: parsed } : {};
+}
+
+/**
+ * Trash another type that still occupies this slug. The account page can then
+ * take `/my-tickets` after it lived as a public page.
+ */
+async function retireSameSlug(
+  db: Awaited<ReturnType<typeof getDb>>,
+  siteId: string,
+  slug: string,
+  locale: string,
+  keepType: string,
+  retireTypes: string[] | undefined,
+): Promise<void> {
+  const types = [...new Set((retireTypes ?? [])
+    .map((value) => {
+      const parsed = ContentTypeSlugSchema.safeParse(normalizeContentTypeSlug(value));
+      return parsed.success ? parsed.data : "";
+    })
+    .filter((value) => value && value !== keepType && value !== "post"))];
+  if (types.length === 0) return;
+  const placeholders = types.map(() => "?").join(", ");
+  const rows = await db.query<{ id: string; type: string }>(
+    `SELECT id, type FROM content WHERE site_id = ? AND slug = ? AND locale = ? AND trashed_at IS NULL AND type IN (${placeholders})`,
+    [siteId, slug, locale, ...types],
+  );
+  if (rows.length === 0) return;
+  const timestamp = now();
+  for (const row of rows) {
+    await db.run(
+      "UPDATE content SET original_slug = slug, original_status = status, slug = ?, status = 'trashed', publish_on = NULL, unpublish_on = NULL, trashed_at = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+      [`${row.type}-trash-${row.id}`, timestamp, timestamp, row.id, siteId],
+    );
+  }
+  await invalidateContentCache();
 }
 
 function slugify(value: string): string {
@@ -293,9 +336,11 @@ export function createPluginContentApi(pluginId: string, activatedSiteId: string
             [input.title, input.excerpt ?? null, timestamp, existingId, siteId],
           );
           await invalidateContentCache();
+          await retireSameSlug(db, siteId, slug, locale, type, input.retireTypes);
           return { created: false, id: existingId, slug };
         }
         await invalidateContentCache();
+        await retireSameSlug(db, siteId, slug, locale, type, input.retireTypes);
         return { created: false, id: existingId, slug };
       }
 
@@ -323,8 +368,8 @@ export function createPluginContentApi(pluginId: string, activatedSiteId: string
             locale,
             id,
             input.excerpt ?? null,
-            JSON.stringify(sanitizeBlockDocument({ version: 1, blocks: [] })),
-            JSON.stringify({}),
+            JSON.stringify(sanitizeBlockDocument(input.blocks ?? { version: 1, blocks: [] })),
+            JSON.stringify(pageFields(input.cacheControl)),
             status,
             null,
             status === "published" ? timestamp : null,
@@ -339,17 +384,26 @@ export function createPluginContentApi(pluginId: string, activatedSiteId: string
             "SELECT id FROM content WHERE site_id = ? AND type = ? AND slug = ? AND locale = ? LIMIT 1",
             [siteId, type, slug, locale],
           );
-          if (raced[0]) return { created: false, id: raced[0].id, slug };
+          if (raced[0]) {
+            await retireSameSlug(db, siteId, slug, locale, type, input.retireTypes);
+            return { created: false, id: raced[0].id, slug };
+          }
         }
         throw err;
       }
       await invalidateContentCache();
+      await retireSameSlug(db, siteId, slug, locale, type, input.retireTypes);
       return { created: true, id, slug };
     },
 
     async deleteType(inputSlug) {
       const siteId = pluginCallSiteId(activatedSiteId);
       return deletePluginOwnedContentType(siteId, inputSlug);
+    },
+
+    async deletePages(input) {
+      const siteId = pluginCallSiteId(activatedSiteId);
+      return deleteContentPages(siteId, input.type, input.slug);
     },
 
     deleteCreatedBy(userId) {
@@ -414,4 +468,53 @@ export async function deletePluginOwnedContentType(
     await invalidateContentCache();
   }
   return { pages: rows.length, typeDeleted };
+}
+
+/**
+ * Permanently remove one slug, including trash and every translation.
+ * Built-in types are allowed: the type itself is not removed.
+ */
+export async function deleteContentPages(siteId: string, typeInput: string, slugInput: string): Promise<{ deleted: number }> {
+  const type = normalizeContentTypeSlug(ContentTypeSlugSchema.parse(typeInput));
+  const slug = slugify(slugInput);
+  if (!slug) return { deleted: 0 };
+  const db = await getDb();
+  const seeds = await db.query<{ id: string; type: string; translation_group_id: string | null }>(
+    "SELECT id, type, translation_group_id FROM content WHERE site_id = ? AND type = ? AND (slug = ? OR original_slug = ?)",
+    [siteId, type, slug, slug],
+  );
+  const ids = new Map<string, string>();
+  for (const row of seeds) ids.set(row.id, row.type);
+  const groups = [...new Set(seeds.map((row) => row.translation_group_id).filter((id): id is string => !!id))];
+  if (groups.length > 0) {
+    const placeholders = groups.map(() => "?").join(", ");
+    const siblings = await db.query<{ id: string; type: string }>(
+      `SELECT id, type FROM content WHERE site_id = ? AND translation_group_id IN (${placeholders})`,
+      [siteId, ...groups],
+    );
+    for (const row of siblings) ids.set(row.id, row.type);
+  }
+  const contentIds = [...ids.keys()];
+  if (contentIds.length === 0) return { deleted: 0 };
+  const idSet = new Set(contentIds);
+  await clearHomePagesIfMatch(siteId, idSet);
+  await clearBlogPagesIfMatch(siteId, idSet);
+  await clearErrorPagesIfMatch(siteId, idSet);
+  const placeholders = contentIds.map(() => "?").join(", ");
+  await db.run(
+    `DELETE FROM revisions WHERE site_id = ? AND content_id IN (${placeholders})`,
+    [siteId, ...contentIds],
+  );
+  await db.run(
+    `DELETE FROM content WHERE site_id = ? AND id IN (${placeholders})`,
+    [siteId, ...contentIds],
+  );
+  await invalidateContentCache();
+  const search = await import("../search/search-db.js");
+  if (typeof search.indexSearchContent === "function") {
+    for (const id of contentIds) {
+      await Promise.resolve(search.indexSearchContent(siteId, id)).catch(() => undefined);
+    }
+  }
+  return { deleted: contentIds.length };
 }

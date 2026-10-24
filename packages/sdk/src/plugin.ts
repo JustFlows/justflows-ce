@@ -84,6 +84,7 @@ export const ADMIN_MENU_DOMAINS = [
   "commerce",
   "appearance",
   "users",
+  "helpdesk",
   "extensions",
   "tools",
   "security",
@@ -651,10 +652,55 @@ export interface PluginHttpSession {
    */
   roles?: readonly string[];
   email: string;
+  /**
+   * The name shown for this account (`users.display_name`, or the username).
+   * Absent on older hosts and when the user record has no name.
+   */
+  displayName?: string;
   /** Effective grants after role, per-user additions, and explicit denies. */
   capabilities: readonly UserCapability[];
   /** Resource constraints the host enforces for scoped operations. */
   scopes: AccessPolicy["scopes"];
+}
+
+/** The Discussion CAPTCHA, without the secret. Null when no provider is configured. */
+export interface PluginCaptchaConfig {
+  provider: "turnstile" | "hcaptcha" | "recaptcha" | "recaptcha-v3";
+  siteKey: string;
+  field: string;
+  scriptSrc: string;
+  widgetClass: string;
+}
+
+/** Verify the site's Settings → Discussion CAPTCHA. The secret never leaves the host. */
+export interface PluginCaptchaApi {
+  config(): Promise<PluginCaptchaConfig | null>;
+  verify(token: string, action?: string, ip?: string): Promise<boolean>;
+}
+
+/** One in-process call to another active plugin's HTTP route, as the given session. */
+export interface PluginCallRequest {
+  method: PluginHttpMethod;
+  /** Path relative to that plugin, such as `orders` or `payments/attempts/:id/refund`. */
+  path: string;
+  query?: Record<string, string>;
+  body?: unknown;
+  session?: PluginHttpSession | null;
+}
+
+export interface PluginBridgeApi {
+  call(pluginId: string, request: PluginCallRequest): Promise<PluginHttpResponse>;
+}
+
+/** One short completion from the site's configured assistant. */
+export interface PluginAiResult {
+  ok: boolean;
+  text?: string;
+  error?: string;
+}
+
+export interface PluginAiApi {
+  complete(input: { instruction: string; text: string }): Promise<PluginAiResult>;
 }
 
 export type PluginHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -731,6 +777,20 @@ export interface PluginHttpResponse {
    * route); a plain `<img>`/beacon GET needs nothing.
    */
   cors?: boolean;
+  /**
+   * Send the browser to a same-site path. The host allows only a path that
+   * starts with one `/` (a query string is fine) and answers 303 when `status`
+   * is not already a redirect. Absolute URLs and protocol-relative paths are
+   * ignored, so a plugin cannot send a visitor off the site.
+   */
+  redirect?: string;
+  /**
+   * Render a published page of this site in the active theme, at the URL the
+   * visitor asked for. The slug is one path segment (`support-ticket`). The
+   * host follows `redirect` instead when that is set, refuses anything that is not a
+   * published public page, and does not cache the response.
+   */
+  renderPage?: string;
 }
 
 export type PluginHttpHandler = (
@@ -1178,8 +1238,10 @@ export interface PluginContentApi {
   }): Promise<PluginContentEnsureResult>;
 
   /** Create a content entry if this site does not already have that type+slug+locale.
-   * When the row already exists, title and excerpt are updated. `aliases` are
-   * previous slugs to rename. Pass `create: false` to only repair, never insert.
+   * When the row already exists, title and excerpt are updated. Blocks and
+   * cache policy are written only on insert, so a later edit of the canvas is
+   * kept. `aliases` are previous slugs to rename. Pass `create: false` to only
+   * repair, never insert.
    */
   ensurePage(input: {
     type: string;
@@ -1189,6 +1251,22 @@ export interface PluginContentApi {
     status?: "draft" | "published";
     aliases?: string[];
     create?: boolean;
+    /**
+     * Block document stored only when the row is inserted. A later activation
+     * leaves an edited canvas alone.
+     */
+    blocks?: { version?: 1; blocks: unknown[] };
+    /**
+     * Cache-Control stored only on insert. `private, no-store` keeps the page
+     * out of shared caches. Ignored when the row already exists.
+     */
+    cacheControl?: string;
+    /**
+     * Trash entries of these types that use the same slug. A signed-in page
+     * that moves from `page` to `account` passes `["page"]` so the public
+     * copy does not keep the address.
+     */
+    retireTypes?: string[];
   }): Promise<PluginContentEnsureResult>;
 
   /**
@@ -1196,6 +1274,13 @@ export interface PluginContentApi {
    * Built-in slugs `post` and `page` cannot be deleted.
    */
   deleteType(slug: string): Promise<PluginContentDeleteTypeResult>;
+
+  /**
+   * Permanently delete entries of this type and slug, in every locale,
+   * including copies in trash and their translations. The content type stays.
+   * Requires `content:delete`.
+   */
+  deletePages(input: { type: string; slug: string }): Promise<{ deleted: number }>;
 
   /**
    * Permanently delete records this user created: content they authored (any
@@ -1620,6 +1705,12 @@ export interface PluginDatabasesApi {
 
   /** Column names for a plugin-owned table, or `[]` when the table does not exist. */
   columns(table: string): Promise<string[]>;
+
+  /**
+   * This plugin's rows on another site in the installation. Requires
+   * `platform:tenancy` and the installation's main site. Absent on older hosts.
+   */
+  forSite?(siteId: string): PluginRowOps;
 }
 
 export interface PluginSecretsApi {
@@ -1820,6 +1911,22 @@ export interface PluginContext {
      */
     countries(locale?: string): Promise<Array<{ code: string; name: string }>>;
   };
+
+  /**
+   * The site's Discussion CAPTCHA. Absent on older hosts. `config()` never
+   * includes the secret.
+   */
+  captcha?: PluginCaptchaApi;
+
+  /**
+   * Call another active plugin's own HTTP route in-process. The session is the
+   * one you pass; this does not grant that plugin's capabilities. Absent on
+   * older hosts.
+   */
+  plugins?: PluginBridgeApi;
+
+  /** The site's configured assistant. Absent on older hosts. */
+  ai?: PluginAiApi;
 
   logger: {
     debug(message: string, context?: Record<string, unknown>): void;

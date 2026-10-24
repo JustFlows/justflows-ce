@@ -280,6 +280,7 @@ describe("plugin hook context", () => {
         ensurePage: vi.fn(),
         listPublished: vi.fn().mockResolvedValue([]),
         deleteType: vi.fn(),
+        deletePages: vi.fn(),
         deleteCreatedBy: vi.fn(),
       }),
     });
@@ -327,6 +328,7 @@ describe("plugin hook context", () => {
         ensurePage,
         listPublished: vi.fn().mockResolvedValue([]),
         deleteType: vi.fn(),
+        deletePages: vi.fn(),
         deleteCreatedBy: vi.fn(),
       }),
     });
@@ -370,6 +372,7 @@ describe("plugin hook context", () => {
         ensurePage: vi.fn(),
         listPublished: vi.fn().mockResolvedValue([]),
         deleteType,
+        deletePages: vi.fn(),
         deleteCreatedBy: vi.fn(),
       }),
     });
@@ -391,6 +394,7 @@ describe("plugin hook context", () => {
         ensurePage: vi.fn(),
         listPublished: vi.fn().mockResolvedValue([]),
         deleteType: vi.fn(),
+        deletePages: vi.fn(),
         deleteCreatedBy,
       }),
     });
@@ -412,6 +416,7 @@ describe("plugin hook context", () => {
         ensurePage: vi.fn(),
         listPublished: vi.fn().mockResolvedValue([]),
         deleteType: vi.fn(),
+        deletePages: vi.fn(),
         deleteCreatedBy,
       }),
     });
@@ -490,4 +495,34 @@ it("exposes neutral URLs through the host context and removes aliases on deactiv
   expect(loader.httpRouter.match("GET", url)?.route.pluginId).toBe(plugin.manifest.id);
   await loader.deactivate(plugin.manifest.id, "site-1");
   expect(loader.httpRouter.match("GET", url)).toBeUndefined();
+});
+
+it("calls another active plugin route with the caller's session", async () => {
+  const app = new App(CONFIG);
+  const loader = new PluginLoader(app);
+  let caller: PluginContext | undefined;
+  loader.register(makePlugin({ id: "justflows.caller" }, (ctx) => {
+    caller = ctx;
+  }));
+  loader.register(makePlugin({ id: "justflows.target" }, (ctx) => {
+    ctx.http.get("orders", async (req) => ({ status: 200, body: { email: req.session?.email ?? "" } }));
+  }));
+  await loader.activate("justflows.caller", "site-1");
+  await loader.activate("justflows.target", "site-1");
+  const result = await caller?.plugins?.call("justflows.target", {
+    method: "GET",
+    path: "orders",
+    session: {
+      userId: "user-1",
+      siteId: "site-1",
+      role: "admin",
+      email: "a@b.c",
+      capabilities: ["orders:read"],
+      scopes: {},
+    },
+  });
+  expect(result?.status).toBe(200);
+  expect(result?.body).toEqual({ email: "a@b.c" });
+  const missing = await caller?.plugins?.call("justflows.target", { method: "GET", path: "missing" });
+  expect(missing?.status).toBe(404);
 });

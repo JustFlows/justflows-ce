@@ -195,6 +195,25 @@ describe("buildNavDomains", () => {
     expect(isDomainActive(domains.find((d) => d.slug === "extensions")!, shopPath)).toBe(false);
   });
 
+  it("gives Helpdesk its own sidebar domain instead of an Extensions tab", () => {
+    const domains = buildNavDomains([
+      {
+        pluginId: "justflows.helpdesk",
+        id: "inbox",
+        label: "Helpdesk",
+        path: "/admin/plugins/justflows.helpdesk",
+        icon: "💬",
+        domain: "helpdesk",
+        end: true,
+      },
+    ]);
+    const helpdesk = domains.find((d) => d.slug === "helpdesk");
+    expect(helpdesk?.items.map((item) => item.to)).toEqual(["/admin/plugins/justflows.helpdesk"]);
+    expect(domains.find((d) => d.slug === "extensions")?.items.some((item) => item.to.includes("helpdesk"))).toBe(false);
+    expect(canAccessPath("support-agent", "/admin/plugins/justflows.helpdesk")).toBe(true);
+    expect(canAccessPath("author", "/admin/plugins/justflows.helpdesk")).toBe(false);
+  });
+
   it("keeps an unknown plugin domain out of a new sidebar group", () => {
     const domains = buildNavDomains([
       {

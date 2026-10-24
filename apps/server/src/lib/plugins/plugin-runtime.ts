@@ -19,6 +19,8 @@ import { createPluginDataApi } from "./plugin-data.js";
 import { createPluginJobsApi, getDurableJobQueue, getPluginJobScheduler } from "./plugin-jobs.js";
 import { createPluginSecretsApi } from "./plugin-secrets.js";
 import { createPluginDatabasesApi } from "./plugin-databases.js";
+import { createPluginCaptchaApi } from "./plugin-captcha.js";
+import { createPluginAiApi } from "./plugin-ai.js";
 import { createPluginTenancyApi } from "./plugin-tenancy.js";
 import { createPluginQuotasApi } from "./plugin-quotas.js";
 import { unregisterPluginMeters } from "../tenancy/quotas.js";
@@ -399,6 +401,8 @@ export async function ensurePluginRuntime(): Promise<void> {
             await deletePluginSetting(pluginId, pluginCallSiteId(siteId), key);
           },
         },
+        captchaFactory: () => createPluginCaptchaApi(),
+        aiFactory: () => createPluginAiApi(),
       });
       setLivePluginSettingsSchemaLookup((pluginId) => {
         const schema = loader?.getPlugin(pluginId)?.manifest.settingsSchema;

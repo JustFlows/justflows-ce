@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import {
+  ADMIN_MENU_DOMAINS,
   pluginAdminBasePath,
   RELATIVE_ADMIN_PATH_RE,
   resolvePluginAdminPath,
@@ -29,14 +30,7 @@ export interface AdminMenuEntry extends Omit<PluginAdminMenuItem, "path"> {
   adminCatalogs?: Record<string, string>;
 }
 
-const ADMIN_MENU_DOMAIN_SET = new Set([
-  "content",
-  "commerce",
-  "appearance",
-  "extensions",
-  "security",
-  "system",
-]);
+const ADMIN_MENU_DOMAIN_SET = new Set<string>(ADMIN_MENU_DOMAINS);
 
 /**
  * A plugin owns its admin pages, but only while active: an installed-but-never-
@@ -151,7 +145,9 @@ function manifestMenu(manifest: Record<string, unknown>, pluginId: string): Admi
  * The sidebar is built from this, so a deleted plugin's pages disappear with it.
  */
 export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntry[]> {
+  const { syncBundledPlugins } = await import("../plugins/plugins-db.js");
   const { syncSubsitePluginCopies } = await import("../plugins/plugin-multisite.js");
+  await syncBundledPlugins(siteId).catch(() => false);
   await syncSubsitePluginCopies(siteId).catch(() => false);
 
   const db = await getDb();

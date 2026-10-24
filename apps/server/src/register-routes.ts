@@ -215,6 +215,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   });
   app.use("/api/settings", requireInstalled, settingsRoutes);
   app.use("/api/emails", requireInstalled, requireSiteFeature("feature.emails"), emailsRoutes);
+  app.use("/api/mail", requireInstalled, (await import("./routes/public/inbound-mail.js")).default);
   app.use("/api/security", requireInstalled, securityRoutes);
   app.use("/api/themes", requireInstalled, themesRoutes);
   app.use("/api/css-providers", requireInstalled, requireSiteFeature("feature.design"), cssProvidersRoutes);

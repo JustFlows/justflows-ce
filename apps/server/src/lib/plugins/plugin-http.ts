@@ -80,6 +80,48 @@ export function isReservedPluginResponseHeader(name: string): boolean {
 }
 
 /**
+ * A plugin may send the browser to another path on this site.
+ * Anything that could leave the site, or break the header, is refused.
+ */
+export function safePluginRedirect(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const target = value.trim();
+  if (target.length < 1 || target.length > 500) return null;
+  if (!target.startsWith("/") || target.startsWith("//")) return null;
+  if (target.includes("\\") || target.includes("://") || /[\u0000-\u001F\u007F]/.test(target)) return null;
+  if (/%0d|%0a|%5c|%2f%2f/i.test(target)) return null;
+  return target;
+}
+
+/**
+ * Slug of a published page a plugin route may render in the theme.
+ * One path segment, so the value cannot point at another site or a file.
+ */
+export function safePluginPageSlug(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const slug = value.trim();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 200) return null;
+  return slug;
+}
+
+/** Name stored on the user row, for a form that should show who is signed in. */
+async function sessionDisplayName(userId: string, siteId: string): Promise<string> {
+  try {
+    const { getDb } = await import("../database/db.js");
+    const db = await getDb();
+    const rows = await db.query<{ display_name: string; username: string }>(
+      "SELECT display_name, username FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+      [userId, siteId],
+    );
+    const row = rows[0];
+    const name = String(row?.display_name || row?.username || "").replace(/\s+/g, " ").trim();
+    return name.slice(0, 120);
+  } catch {
+    return "";
+  }
+}
+
+/**
  * The visitor's language for a plugin route. Storefront scripts call
  * `/ext/<id>/...` from a page such as `/nl-NL/shop`; the same-origin Referer
  * carries that page's locale prefix. Anything else gets the site default.
@@ -224,6 +266,7 @@ export async function dispatchPluginHttp(
           getEffectiveAccess(cookieSession.userId, cookieSession.siteId, cookieSession.role),
         )
       : null;
+    const displayName = cookieSession ? await sessionDisplayName(cookieSession.userId, cookieSession.siteId) : "";
     const session = keyed.kind === "ok"
       ? keyed.session
       : cookieSession
@@ -233,6 +276,7 @@ export async function dispatchPluginHttp(
             role: cookieSession.role,
             roles: access?.roles ?? [cookieSession.role],
             email: cookieSession.email,
+            ...(displayName ? { displayName } : {}),
             capabilities: access?.capabilities ?? [],
             scopes: access?.policy.scopes ?? {},
           }
@@ -261,6 +305,26 @@ export async function dispatchPluginHttp(
     const result = keyed.kind === "ok"
       ? await runAsDelegate({ kind: "api-key", client: keyed.client }, () => match.handler(request))
       : await match.handler(request);
+
+    const redirect = safePluginRedirect(result.redirect);
+    if (redirect) {
+      const code = result.status ?? 303;
+      const status = code >= 300 && code < 400 ? code : 303;
+      res.setHeader("Cache-Control", "private, no-store");
+      res.redirect(status, redirect);
+      return;
+    }
+
+    const pageSlug = safePluginPageSlug(result.renderPage);
+    if (pageSlug) {
+      const { renderPluginThemedPage } = await import("../../routes/public/public-site.js");
+      const rendered = await renderPluginThemedPage(req, res, pageSlug);
+      if (!rendered && !res.headersSent) {
+        const { sendPublicNotFound } = await import("../../routes/public/public-site.js");
+        await sendPublicNotFound(req, res);
+      }
+      return;
+    }
 
     const status = result.status ?? 200;
     res.status(status);

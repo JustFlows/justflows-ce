@@ -949,6 +949,38 @@ function injectDebugToolbar(
     : `${html.slice(0, bodyEnd)}${toolbar}${html.slice(bodyEnd)}`;
 }
 
+/**
+ * Render one published page in the active theme, while the browser stays on
+ * the plugin route that asked for it. Used for a ticket address such as
+ * `/support/tickets/:id`, whose canvas is still an editable page.
+ */
+export async function renderPluginThemedPage(req: Request, res: Response, slug: string): Promise<boolean> {
+  if (!(await ensureSiteIsPublic(req, res))) return true;
+  const content = await getPublishedContentBySlug(slug);
+  if (!content || content.type !== "page") return false;
+  res.locals.jfContentCacheBypass = true;
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("CDN-Cache-Control", "no-store");
+  res.setHeader("X-Robots-Tag", "noindex");
+  await sendPublicHtml(req, res, `plugin-page:${slug}`, false, () =>
+    renderSinglePageHtml(
+      req,
+      res,
+      req.path,
+      String(content.slug),
+      content.locale,
+      false,
+      [],
+      1,
+      req.path,
+      content,
+      false,
+      req.path.split("?")[0],
+    ),
+  );
+  return true;
+}
+
 /** Render the site's normal themed 404 for routes intercepted before this router. */
 export async function sendPublicNotFound(req: Request, res: Response): Promise<void> {
   if (!(await ensureSiteIsPublic(req, res))) return;
@@ -1170,7 +1202,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     pwaBody = buildPwaBodyHtml(pwaSettings, pwaTranslate);
   }
   if (hooks.has("html.head")) {
-    headExtra = hooks.applyFilterSync(
+    headExtra = await hooks.applyFilter(
       "html.head",
       headExtra,
       {
@@ -1185,6 +1217,15 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       },
       { siteId, source: "http" },
     );
+  }
+  if (headExtra.includes("data-jf-helpdesk-popup")) {
+    const { getTenantContext } = await import("../../lib/tenancy/context.js");
+    const tenant = getTenantContext();
+    if (tenant?.rootSite && tenant.siteId) {
+      const { canonicalPublicSupportHref, pointHelpdeskPopupAt } = await import("../../lib/admin/admin-support-popup.js");
+      const href = await canonicalPublicSupportHref(tenant.siteId, tenant.devPort);
+      if (href) headExtra = pointHelpdeskPopupAt(headExtra, href);
+    }
   }
   const body = await ejs.renderFile(path.join(templateDir, `${view}.ejs`), pageData);
   let analyticsHead = "";
