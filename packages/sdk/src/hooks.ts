@@ -858,6 +858,14 @@ export interface GateEventMap {
  * next value; returning nothing keeps the previous value and logs a warning.
  */
 export interface FilterValueMap {
+  /**
+   * Ask the host to create a 32-byte operator key in the installation
+   * environment when it is missing. Call it with `hooks.apply`. The name must
+   * belong to this plugin (`justflows.example` may use `JUSTFLOWS_EXAMPLE_*`).
+   * An existing valid key is kept. The value is not returned and is not stored
+   * in the database. The host replaces `pluginId` with the plugin that called.
+   */
+  "operatorKey.ensure": [{ name: string }, { pluginId: string }];
   /** Signed-in account sections. Requires users:read; never share-cache returned data. */
   "account.sections": [AccountSection[], AccountSectionContext];
   /** Supply an external candidate engine; host authorization is never delegated. */

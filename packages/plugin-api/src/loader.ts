@@ -777,8 +777,10 @@ export class PluginLoader {
           await hooks.dispatchAction(hook, event, { siteId: callSiteId, source: "system", ...(options?.durable ? { webhookQueued: true } : {}) });
         },
         apply: async (hook, value, context) => {
-          assertMayEmit(hook);
-          return hooks.applyFilter(hook, value, context, { siteId: this.currentSiteId?.() || siteId, source: "system" });
+          if (hook !== "operatorKey.ensure") assertMayEmit(hook);
+          const caller = typeof context === "object" && context !== null ? context as Record<string, unknown> : {};
+          const filterContext = hook === "operatorKey.ensure" ? { ...caller, pluginId } : context;
+          return hooks.applyFilter(hook, value, filterContext, { siteId: this.currentSiteId?.() || siteId, source: "system" });
         },
         check: async (hook, event) => {
           assertMayEmit(hook);

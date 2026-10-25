@@ -9,6 +9,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Helpdesk database.** When Helpdesk is installed, the main site chooses the current Justflows database or a separate PostgreSQL, MySQL, or MariaDB database. Database can later move the records: Helpdesk backs them up, creates its tables in the new database, restores and checks every table, and switches only when that matches. The old copy stays, and a destination that already has different records is left unchanged. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
+
 - **Helpdesk shows Shop orders from the other sites in the workspace.** On a ticket, staff see that customer's orders from every active site in the same workspace, including a shop that lives on another hostname. The order stays on the site that took it, and the support site lists its number, status, total, and items. Opening the order in Shop still happens on the site that owns it. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
 
 - **Helpdesk operations.** The Helpdesk plugin now counts SLAs in business hours, pauses them while a ticket is pending, assigns by round-robin, load, or language, reminds quiet customers, raises untouched new tickets, and destroys expired sensitive data. The support popup can search public answers and send a request. A site can escalate a ticket to the platform desk, and the main site can write an internal note back. Shop order events are stored for guest order lookup, and a failed payment can open a ticket. Guests who later sign in with the same verified email keep their tickets. Public tickets accept a +1, staff can mask text before publishing, and reports include first-response time and satisfaction. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
@@ -22,6 +24,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **Space Voyage theme.** Adds the complete editable Planet Jumping homepage: exact reference video assets, preloader and docking logo, canvas portal and pointer tilt, Mars → Earth → Venus video transitions with frozen backgrounds, planet facts, custom cursor, and responsive layouts. Adds bounded active-theme client scripts served through `/theme.js`; existing saved homepages can insert the updated landing pattern. No matching Public Roadmap issue currently exists.
 
 ### Changed
+
+- **Operator keys.** A plugin asks the host, through the `operatorKey.ensure` hook, to create a 32-byte key in the installation `.env` when that key is missing. The name has to belong to the calling plugin. An existing valid key is left unchanged, the value is not returned, and it is not stored in the database. Helpdesk uses this for `JUSTFLOWS_HELPDESK_KEK`, so sensitive replies work without anyone editing `.env`. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
 
 - **React Router version stays off admin pages.** Technology scanners read `window.__reactRouterVersion` from the administration bundle and reported the exact React Router release. That value is no longer set, and the version token is removed from React Router's license banner. The copyright notice stays. No matching Public Roadmap issue currently exists.
 

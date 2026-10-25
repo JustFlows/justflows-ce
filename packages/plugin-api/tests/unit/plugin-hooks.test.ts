@@ -223,6 +223,21 @@ describe("plugin hook context", () => {
     await expect(ctx!.hooks.emit("justflows.test.scored", {} as never, { durable: true })).rejects.toThrow("not available");
   });
 
+  it("lets a plugin apply operatorKey.ensure and stamps the caller's id", async () => {
+    const app = new App(CONFIG);
+    const seen: string[] = [];
+    app.hooks.filter("operatorKey.ensure", (value, context) => {
+      seen.push(`${context.pluginId}:${value.name}`);
+      return value;
+    });
+    const loader = new PluginLoader(app);
+    loader.register(makePlugin({}, async (ctx) => {
+      await ctx.hooks.apply("operatorKey.ensure", { name: "JUSTFLOWS_TEST_KEK" }, { pluginId: "justflows.other" });
+    }));
+    await loader.activate("justflows.test", "site-1");
+    expect(seen).toEqual(["justflows.test:JUSTFLOWS_TEST_KEK"]);
+  });
+
   it("refuses to let a plugin emit a core hook", async () => {
     let error: unknown;
     await activate(

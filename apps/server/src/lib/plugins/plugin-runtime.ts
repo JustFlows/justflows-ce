@@ -26,6 +26,7 @@ import { createPluginQuotasApi } from "./plugin-quotas.js";
 import { unregisterPluginMeters } from "../tenancy/quotas.js";
 import { createPluginContentApi } from "./plugin-content.js";
 import { createPluginFilesApi } from "./plugin-files.js";
+import { registerOperatorKeyHook } from "./operator-keys.js";
 import { isInstalled } from "../../middleware/install-guard.js";
 import { getJustflowsVersion } from "../runtime/version.js";
 import { recordDiagnosticError } from "../runtime/diagnostics.js";
@@ -220,6 +221,7 @@ export async function ensurePluginRuntime(): Promise<void> {
 
     try {
       app = new App(loadConfig());
+      registerOperatorKeyHook(app.hooks);
       await app.start();
       app.hooks.setPluginSiteGate(
         (pluginId, siteId) => {
@@ -360,10 +362,18 @@ export async function ensurePluginRuntime(): Promise<void> {
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),
         placeholderResolver: (siteId, kind) => resolvePlaceholderSync(siteId, kind),
         i18nProvider: (siteId) => ({
-          defaultLocale: async () =>
-            (await import("../i18n/languages-db.js")).getDefaultLocale(siteId),
-          locales: async () =>
-            (await import("../i18n/languages-db.js")).getActiveLocaleCodes(siteId),
+          /**
+           * The request's site, not the site that first loaded the shared module:
+           * that site may be deleted, and listing its languages would insert a default row for it.
+           */
+          defaultLocale: async () => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            return (await import("../i18n/languages-db.js")).getDefaultLocale(pluginCallSiteId(siteId));
+          },
+          locales: async () => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            return (await import("../i18n/languages-db.js")).getActiveLocaleCodes(pluginCallSiteId(siteId));
+          },
           // The request's site, like other plugin facades, so another site gets its own zone.
           timeZone: async () => {
             const { pluginCallSiteId } = await import("./request-site.js");
