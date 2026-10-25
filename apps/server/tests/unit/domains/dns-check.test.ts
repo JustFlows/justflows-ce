@@ -5,6 +5,7 @@ import {
   checkNameserverDomain,
   checkNameservers,
   checkRecords,
+  mergeResolvers,
   type DnsResolver,
 } from "../../../src/lib/domains/dns-check.js";
 
@@ -94,6 +95,75 @@ describe("records check", () => {
       }),
     );
     expect(result.routing).toBe(true);
+  });
+
+  it("accepts a flattened apex when the target rotates through its address pool", async () => {
+    const targetAnswers = [["198.51.100.9"], ["198.51.100.7"], ["198.51.100.8"]];
+    let calls = 0;
+    const stable = resolver({
+      txt: { [challengeName("example.com")]: [[challengeValue("abc123")]] },
+      a: { "example.com": ["198.51.100.7"] },
+      aaaa: { "example.com": ["2001:db8::5"], "justflows.b-cdn.net": ["2001:db8::4"] },
+    });
+    const result = await checkRecords({ ...base, hostname: "example.com" }, {
+      ...stable,
+      resolve4: (name) => {
+        if (name !== "justflows.b-cdn.net") return Promise.resolve(["198.51.100.7"]);
+        const answer = targetAnswers[calls] ?? targetAnswers[targetAnswers.length - 1] ?? [];
+        calls += 1;
+        return Promise.resolve(answer);
+      },
+    });
+    expect(result).toEqual({ ownership: true, routing: true, problem: "" });
+    expect(calls).toBeGreaterThan(1);
+  });
+
+  it("accepts the authoritative address when a public resolver still has the previous one", async () => {
+    const asked: string[] = [];
+    const result = await checkRecords(
+      { ...base, hostname: "example.com" },
+      resolver({
+        txt: { [challengeName("example.com")]: [[challengeValue("abc123")]] },
+        ns: {
+          "example.com": ["ns1.example.net"],
+          "justflows.b-cdn.net": ["ns1.cdn.test"],
+        },
+        a: {
+          "example.com": ["192.0.2.1"],
+          "justflows.b-cdn.net": ["198.51.100.8"],
+          "ns1.example.net": ["192.0.2.53"],
+          "ns1.cdn.test": ["192.0.2.54", "127.0.0.1"],
+        },
+      }),
+      (server) => {
+        asked.push(server);
+        if (server === "192.0.2.53") return resolver({ a: { "example.com": ["198.51.100.7"] } });
+        const answers = [["198.51.100.9"], ["198.51.100.7"]];
+        let calls = 0;
+        return {
+          resolveTxt: () => Promise.reject(Object.assign(new Error("ENODATA"), { code: "ENODATA" })),
+          resolveCname: () => Promise.reject(Object.assign(new Error("ENODATA"), { code: "ENODATA" })),
+          resolveNs: () => Promise.reject(Object.assign(new Error("ENODATA"), { code: "ENODATA" })),
+          resolve6: () => Promise.resolve([]),
+          resolve4: () => {
+            const answer = answers[Math.min(calls, answers.length - 1)] ?? [];
+            calls += 1;
+            return Promise.resolve(answer);
+          },
+        };
+      },
+    );
+    expect(result).toEqual({ ownership: true, routing: true, problem: "" });
+    expect(asked).toContain("192.0.2.53");
+    expect(asked).not.toContain("127.0.0.1");
+  });
+
+  it("combines addresses from more than one resolver", async () => {
+    const merged = mergeResolvers([
+      resolver({ a: { "cdn.example.net": ["198.51.100.7"] } }),
+      resolver({ a: { "cdn.example.net": ["198.51.100.8"] } }),
+    ]);
+    await expect(merged.resolve4("cdn.example.net")).resolves.toEqual(["198.51.100.7", "198.51.100.8"]);
   });
 
   it("reports a domain that points elsewhere", async () => {

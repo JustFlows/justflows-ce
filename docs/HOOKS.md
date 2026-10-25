@@ -365,8 +365,10 @@ ctx.hooks.action("content.published", reindex, { id: "search-reindex" });
 ## Synchronous hooks
 
 Most hooks are async. A few run on render paths that cannot wait — currently
-`http.responseHeaders`, `html.head`, `analytics.head`, and
-`site.underConstruction.render` (see `SYNC_FILTERS` in the SDK).
+`http.responseHeaders`, `analytics.head`, and
+`site.underConstruction.render` (see `SYNC_FILTERS` in the SDK). Public pages
+await `html.head`, so that handler may read settings. `admin.body` is also
+awaited, at the end of an administration screen.
 
 **On a synchronous hook, your handler must be synchronous.** An `async` handler
 there gets skipped and logged, because there is no safe way to wait for it and
@@ -374,13 +376,13 @@ substituting a pending promise for the value would be worse.
 
 ```ts
 // ✅ on a sync filter
-ctx.hooks.filter("html.head", (html) => html);
+ctx.hooks.filter("analytics.head", (html) => html);
 
 // ❌ skipped with an error — this filter is applied synchronously
-ctx.hooks.filter("html.head", async (html) => await rewrite(html));
+ctx.hooks.filter("analytics.head", async (html) => await rewrite(html));
 ```
 
-`content.blocks` runs on the stored block tree before HTML render, and `content.render` runs on the public body HTML afterwards. Both **may be async**. A plugin fills `{{tags}}` here. If you need async work on a remaining sync filter, do it earlier — on `content.output`, or in a job — and [cache the result](./CACHE.md).
+`content.blocks` runs on the stored block tree before HTML render, and `content.render` runs on the public body HTML afterwards. Both **may be async**. A plugin fills `{{tags}}` here. `html.head` and `admin.body` are awaited too. If you need async work on a remaining sync filter, do it earlier — on `content.output`, or in a job — and [cache the result](./CACHE.md).
 
 ---
 
@@ -666,7 +668,9 @@ makes both correctness and performance attributable to a specific extension.
 | `plugin.settings`          | `Record<string, unknown>`               | `{ pluginId, siteId }` — overlay Admin → Plugins → Settings values. The host applies this on the plugin runtime registry.                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `plugin.settings.write`    | `Record<string, unknown>`               | `{ pluginId, siteId }` — intercept a settings save. Return only the keys that should be stored in plugin settings KV.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `http.responseHeaders`     | `Record<string, string>`                | `{ method, path }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `html.head`                | `string` (extra `<head>` HTML)          | `{ siteId, path, locale, title, contentId? }` — `locale` is the page's content locale (`""` outside a localized render). **Synchronous.**                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `security.cspSources`      | `CspSourceContribution`                 | `{ siteId, area }` — seeded with `{}`. Append the `https://` hosts your public pages load (`script-src`, `frame-src`, `connect-src`, `img-src`, and the other listed directives). The host ignores `'unsafe-inline'`, `*`, paths, and `http:`. `frame-ancestors` cannot be changed here. Deactivating the plugin removes the hosts. |
+| `html.head`                | `string` (extra `<head>` HTML)          | `{ siteId, path, locale, title, contentId? }` — `locale` is the page's content locale (`""` outside a localized render). Public pages await this filter, so a handler may be async.                                                                                                                                                                                                                                                                                                                                                                     |
+| `admin.body`               | `string` (HTML before `</body>`)        | `{ siteId, rootSite? }` — seeded with `""`. Inserted at the end of an administration screen. `rootSite` is true on the installation's own admin while other sites exist. Handlers may be async. A thrown handler is logged and the page still renders. Deactivating the plugin removes the markup.                                                                                                                                                                                     |
 | `analytics.head`           | `string` (analytics `<head>` markup)    | `{ siteId, path }` — the Google Tag markup the host is about to emit (or `""`). **Synchronous.** A consent plugin rewrites it — e.g. to `type="text/plain" data-jf-consent="analytics"` — so the tag does not run until the visitor grants the analytics category. Return it unchanged for a no-op.                                                                                                                                                                                                                                                    |
 | `theme.css`                | `string` (CSS appended to `/theme.css`) | `{ siteId, preview }` — seeded with `""`; append your plugin's stylesheet. Lands after the theme and Customizer tokens, before the site owner's Additional CSS. Runs once per stylesheet build (cached, not per page), so handlers **may be async** — read a file and minify once, then memoise. Deactivating the plugin drops the handler and the next build omits the CSS. `preview` is true while the Customizer previews an unpublished draft.                                                                                                     |
 | `account.sections` | `AccountSection[]` | `AccountSectionContext` — server-rendered sections for the authenticated site user; requires `users:read`. See [Frontend user account](#frontend-user-account). |

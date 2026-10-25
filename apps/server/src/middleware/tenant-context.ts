@@ -8,6 +8,7 @@ import { borrowSeparateDatabase, separateDatabaseForSite } from "../lib/tenancy/
 import { effectiveDatabaseMode } from "../lib/tenancy/choice.js";
 import { resolveHost } from "../lib/tenancy/registry.js";
 import { primaryRedirectHost, type HostRecord } from "../lib/tenancy/host.js";
+import { STATIC_EXPORT_HEADER } from "../lib/static-export/config.js";
 
 const SKIP = new Set(["/api/healthz", "/api/install", "/api/i18n", "/api/domains/tls-allowed"]);
 
@@ -114,7 +115,15 @@ async function redirectToPrimary(req: Request, res: Response, record: HostRecord
   if (!settings.enabled || !settings.redirectToPrimary) return false;
   const { getAdminPathConfig } = await import("../lib/admin/admin-path.js");
   const adminBase = (await getAdminPathConfig()).path;
-  const host = primaryRedirectHost({ record, viaLoopback, method: req.method, path: req.path, adminBase });
+  const host = primaryRedirectHost({
+    record,
+    viaLoopback,
+    method: req.method,
+    path: req.path,
+    adminBase,
+    staticExport: Boolean(req.get(STATIC_EXPORT_HEADER)),
+    preview: req.query.preview === "1",
+  });
   if (!host) return false;
   res.redirect(301, `https://${host}${req.originalUrl.startsWith("/") ? req.originalUrl : "/"}`);
   return true;

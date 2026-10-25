@@ -484,6 +484,30 @@ async function mailHooks() {
   }
 }
 
+/** Accept one inbound message and tell plugins that listen for `email.received`. */
+export async function acceptInboundMessage(message: {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+  siteId?: string;
+}): Promise<void> {
+  const hooks = await mailHooks();
+  if (!hooks) return;
+  const { getSiteId } = await import("../settings/site-settings.js");
+  const { getTenantContext } = await import("../tenancy/context.js");
+  const siteId = message.siteId || getTenantContext()?.siteId || (await getSiteId()) || "";
+  await hooks.dispatchAction("email.received", {
+    from: message.from,
+    to: message.to,
+    subject: message.subject,
+    text: message.text,
+  }, {
+    siteId,
+    source: "http",
+  });
+}
+
 async function dispatchMailAction(
   hook: "email.queued" | "email.sent" | "email.failed",
   event: EmailDeliveryEvent,

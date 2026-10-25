@@ -543,7 +543,6 @@ function validateAssignment(
   limits: Record<string, number | null>,
 ): { ok: true; limits: Record<string, number | null> } | { ok: false; status: number; error: string } {
   const keys = Object.keys(limits);
-  if (keys.length > 50) return { ok: false, status: 400, error: "Too many limits." };
   const normalized: Array<[string, number | null]> = [];
   for (const key of keys) {
     const meter = meterByKey(key);

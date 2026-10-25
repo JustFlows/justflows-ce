@@ -52,7 +52,7 @@ import {
 } from "./manifest.js";
 import { getAdminPathConfig } from "../admin/admin-path.js";
 import { getPerformanceConfig } from "../cache/performance-settings.js";
-import { normalizeUrlPath, urlPathToFile } from "./paths.js";
+import { isSamePathRedirect, normalizeUrlPath, urlPathToFile } from "./paths.js";
 import { isCurrentSiteStaticExportEnabled } from "./site-enabled.js";
 import { redirectStubHtml, writeExport, type OutputFile } from "./write-fs.js";
 
@@ -630,6 +630,13 @@ async function runStaticExportLocked(
   for (const { from, to } of crawl.redirects) {
     if (from === "/favicon.ico") {
       assetRefs.add(to);
+      continue;
+    }
+    if (isSamePathRedirect(from, to)) {
+      const message = `${from}: origin redirected to the same path; left on the live app so the export cannot refresh in a loop`;
+      warnings.push(message);
+      log(`⚠ ${message}`);
+      prunePaths.add(from);
       continue;
     }
     const file = urlPathToFile(from, "text/html");
