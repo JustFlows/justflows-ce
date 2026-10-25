@@ -449,3 +449,29 @@ describe("runMigrationStatements", () => {
     ]);
   });
 });
+
+
+describe("migration block comments", () => {
+  it.each(["postgres", "mysql", "mariadb"] as const)("executes the shipped content type migration on %s", async (driver) => {
+    const ddl = await readMigrationDdl("0050_content_type_settings", driver);
+    expect(ddl).not.toBeNull();
+    const statements: string[] = [];
+    await runMigrationStatements({ run: async (sql) => { statements.push(sql); } }, ddl!, driver);
+    expect(statements).toEqual([
+      `ALTER TABLE content_types ADD COLUMN settings ${driver === "postgres" ? "JSONB" : "JSON"} NULL`,
+    ]);
+  });
+
+  it("ignores comment delimiters in quoted values and semicolons in comments", () => {
+    expect(splitSqlStatements("/** settings; defaults */ SELECT '/* text; */', 'it''s; safe'; -- ignored;\nSELECT 2;", "postgres"))
+      .toEqual(["SELECT '/* text; */', 'it''s; safe'", "SELECT 2"]);
+  });
+
+  it("handles nested block comments without joining SQL tokens", () => {
+    expect(splitSqlStatements("SELECT/* outer; /* inner; */ end */1;", "postgres")).toEqual(["SELECT 1"]);
+  });
+
+  it("rejects incomplete block comments", () => {
+    expect(() => splitSqlStatements("SELECT 1; /* incomplete", "postgres")).toThrow("Unterminated SQL block comment");
+  });
+});

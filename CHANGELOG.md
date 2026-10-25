@@ -39,6 +39,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Failed core update recovery.** Installs dependencies and builds in staging before replacing live files. Backs up core files and dependencies, restores them when activation or migrations fail, and skips restart on failure. Keeps the previous release under `.updates/previous-release` for recovery. Applied database migrations are preserved. No matching Public Roadmap issue currently exists.
+
 - **Theme preview stays next to the admin.** With a custom domain set as the primary address, opening the theme builder sent its preview to that domain. The frame then left the address the admin was opened on, and the browser showed the preview as unreachable. A `?preview=1` request now stays on the address it was opened on, so the editor's session and the live preview stay together. No matching Public Roadmap issue currently exists.
 
 - **A plugin can add the hosts its pages load to the Content Security Policy.** The Stripe Buy Button adds `https://js.stripe.com` and Stripe's checkout frames and API, so the button script is no longer blocked on a site that uses the default policy. The host only accepts `https://` origins. No matching Public Roadmap issue currently exists.
