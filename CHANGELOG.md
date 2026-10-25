@@ -23,6 +23,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **React Router version stays off admin pages.** Technology scanners read `window.__reactRouterVersion` from the administration bundle and reported the exact React Router release. That value is no longer set, and the version token is removed from React Router's license banner. The copyright notice stays. No matching Public Roadmap issue currently exists.
+
 - **Dependency maintenance.** Update pnpm to 12.15.0, Turborepo to 2.11.10, and workspace dependencies to current stable releases, including Vitest 5, EJS 7, React 19.3, and Vite 8.3. Refresh transitive dependencies and the `ip-address` security override.
 
 - **Helpdesk reports.** Opening Helpdesk shows Reports. That screen is the statistics: ticket counts, open tickets, first-response time, and satisfaction. Inbox is the next tab. Reports also show the last two weeks, unassigned tickets, tickets past their target, and shop contact rate. The inbox applies saved views and can change several tickets at once. The Network tab can open a platform ticket, the main site can share its popup, and public answers can be searched. Account pages and blocks can start a ticket for an order or a product. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
@@ -36,6 +38,20 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **Block settings show only what applies.** All 51 core blocks have explicit sidebar rules. Duplicate and ineffective generic controls are hidden; theme styling shows curated controls and existing overrides instead of the complete theme variable catalog. Block-specific fields follow their controlling choice: video-only Cover controls, numbered-list settings, checklist state, pagination, query layout, navigation, account links and colour-scheme variants. Captioned images retain text alignment and colour controls. Blocks with a schema-owned style variant hide generic styling controls that would overwrite it. Existing generic values stay accessible for clearing, and hiding controls never deletes saved content. Plugin blocks can declare their own `inspector` switches. ([#73](https://github.com/JustFlows/justflows-ce/issues/73))
 
 ### Fixed
+
+- **Theme preview stays next to the admin.** With a custom domain set as the primary address, opening the theme builder sent its preview to that domain. The frame then left the address the admin was opened on, and the browser showed the preview as unreachable. A `?preview=1` request now stays on the address it was opened on, so the editor's session and the live preview stay together. No matching Public Roadmap issue currently exists.
+
+- **A plugin can add the hosts its pages load to the Content Security Policy.** The Stripe Buy Button adds `https://js.stripe.com` and Stripe's checkout frames and API, so the button script is no longer blocked on a site that uses the default policy. The host only accepts `https://` origins. No matching Public Roadmap issue currently exists.
+
+- **Security headers include a connected custom domain.** The admin stays on the platform address while the public site is served from the custom primary domain. Those are different sites to the browser, so `script-src 'self'`, `connect-src 'self'`, and `frame-ancestors 'self'` blocked the admin from loading that domain's scripts, calling its extension endpoints, and framing the public site. Connected addresses are now added to those policies. The public page then omits `X-Frame-Options: SAMEORIGIN`, which cannot name the platform address and was still refusing the theme preview. `Cross-Origin-Resource-Policy` is `cross-origin` when the site's addresses are not the same site, so the browser does not drop the response after the policy allows it. A domain that is still waiting for DNS is not added. No matching Public Roadmap issue currently exists.
+
+- **Static export no longer publishes a homepage that refreshes to itself.** After a custom domain is made primary, the platform address redirects visitors there. The exporter only kept the path of that redirect, so `/` was saved as a page that immediately refreshed to `/`. The crawl now stays on the host it fetched, and a redirect that does not change the path is left on the live app. No matching Public Roadmap issue currently exists.
+
+- **Own-DNS domains get a certificate without a perfect address match.** A domain connected with records at the customer's DNS provider is added to the pull zone once its TXT record is present, and Bunny's free HTTP certificate is requested then. The domain becomes connected when that certificate is issued. A single lookup of the CDN hostname no longer has to match the flattened ALIAS address first. No matching Public Roadmap issue currently exists.
+
+- **Custom domain check follows the nameservers.** A bare domain whose ALIAS already pointed at the platform stayed on "does not point at the target" while a public resolver still cached the previous address, or while one lookup of the CDN hostname returned a different address from the same pool. The check now asks the domain's own nameservers and keeps the CDN addresses from several answers. No matching Public Roadmap issue currently exists.
+
+- **Platform quota saves.** Saving website limits or defaults now accepts all displayed core, plugin, and content-type meters when the form contains more than 50 fields, including fields left unlimited. Each meter, scope, and value is still validated. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 
 - **Helpdesk menu.** Helpdesk is its own item in the left admin sidebar. It no longer sits in the Extensions top bar. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
 

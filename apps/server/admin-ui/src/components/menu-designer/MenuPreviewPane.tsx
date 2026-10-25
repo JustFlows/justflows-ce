@@ -14,6 +14,8 @@ const MenuPreviewPane = forwardRef<MenuPreviewHandle>(function MenuPreviewPane(_
   const { t } = useT();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [device, setDevice] = useState<PreviewDevice>("desktop");
+  /** Bust a browser-cached 301 that used to send `/?preview=1` to the custom domain. */
+  const [previewNonce] = useState(() => Date.now());
 
   const reload = useCallback(() => {
     const iframe = iframeRef.current;
@@ -43,7 +45,7 @@ const MenuPreviewPane = forwardRef<MenuPreviewHandle>(function MenuPreviewPane(_
       </div>
       <div className="jf-card__body">
         <div className={`jf-menu-preview jf-menu-preview--${device}`}>
-          <iframe ref={iframeRef} src="/?preview=1" title={t("menus.preview.title")} />
+          <iframe ref={iframeRef} src={`/?preview=1&_=${previewNonce}`} title={t("menus.preview.title")} />
         </div>
       </div>
     </div>

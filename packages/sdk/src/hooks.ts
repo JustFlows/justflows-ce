@@ -977,6 +977,14 @@ export interface FilterValueMap {
    */
   "mcp.tools": [McpToolDefinition[], { siteId: string }];
   "http.responseHeaders": [Record<string, string>, { method: string; path: string }];
+  /**
+   * Extra Content-Security-Policy hosts for this response. Seeded with `{}`.
+   * Append `https://` origins your plugin's public page actually loads — a
+   * script, frame, image, or API call. The host drops anything else
+   * (`'unsafe-inline'`, `*`, a path, `http:`). `frame-ancestors` is not
+   * available here. Deactivating the plugin removes the hosts.
+   */
+  "security.cspSources": [CspSourceContribution, { siteId: string; area: "public" | "admin" }];
   "html.head": [
     string,
     { siteId: string; path: string; locale: string; title: string; contentId?: string },
@@ -1079,6 +1087,23 @@ export interface FilterValueMap {
    * cannot raise a stored limit. Listening requires `platform:tenancy`.
    */
   "quota.effectiveLimit": [number | null, QuotaLimitContext];
+}
+
+/**
+ * Hosts a plugin needs added to the response Content-Security-Policy.
+ * Each value is a list of `https://` origins, or `https://*.example.com`.
+ */
+export interface CspSourceContribution {
+  "script-src"?: string[];
+  "script-src-elem"?: string[];
+  "style-src"?: string[];
+  "img-src"?: string[];
+  "font-src"?: string[];
+  "connect-src"?: string[];
+  "frame-src"?: string[];
+  "media-src"?: string[];
+  "worker-src"?: string[];
+  "form-action"?: string[];
 }
 
 /** One customizer layout target contributed by an active plugin. */

@@ -59,7 +59,7 @@ A website can connect a domain it owns under **Settings → Domains**. A platfor
 
 **Verification.** A background job checks pending domains every few minutes. **Check now** runs the check at once. Once DNS is right, the hostname is attached to the provider, a certificate is issued, and the domain starts routing. A domain that is never verified is released after the number of days the operator sets, so a name cannot be held by someone who does not own it. A connected domain is checked again every 6 hours. After the operator's number of failures in a row, it stops being served. If it was the primary address, the platform subdomain becomes primary again.
 
-**Primary address.** A connected domain can be made primary. That changes the site URL to `https://<domain>`. With **Send visitors to the custom primary domain** on, public pages on the site's other addresses redirect there with a 301. Admin, API, and upload paths stay on the address they were opened on, so the site can still be managed when its domain breaks.
+**Primary address.** A connected domain can be made primary. That changes the site URL to `https://<domain>`. With **Send visitors to the custom primary domain** on, public pages on the site's other addresses redirect there with a 301. Admin, API, and upload paths stay on the address they were opened on, so the site can still be managed when its domain breaks. An editor preview (`?preview=1`) stays as well, so the theme builder can frame the page it was opened next to.
 
 **Providers.**
 
