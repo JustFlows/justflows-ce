@@ -30,6 +30,7 @@ export type {
   Unsubscribe,
   ActionEventMap,
   GateEventMap,
+  CspSourceContribution,
   FilterValueMap,
   ActionName,
   GateName,

@@ -83,6 +83,14 @@ function decide(record: HostRecord, viaLoopback: boolean): HostDecision {
  * domain, when the visitor came in on another of its addresses. Admin, API,
  * and asset paths stay on the address they used, so a site can still be
  * managed while its domain is broken.
+ *
+ * A static-export crawl stays on the host it fetched. The exporter stores only
+ * the path of a redirect, so sending it to the primary domain would publish a
+ * page that refreshes to itself.
+ *
+ * An editor preview (`?preview=1`) stays too. The theme builder frames that
+ * URL from the address the admin was opened on. Sending it to the custom
+ * domain leaves the frame, and the editor's session does not travel with it.
  */
 export function primaryRedirectHost(input: {
   record: HostRecord;
@@ -90,8 +98,11 @@ export function primaryRedirectHost(input: {
   method: string;
   path: string;
   adminBase: string;
+  staticExport?: boolean;
+  preview?: boolean;
 }): string | null {
   const { record } = input;
+  if (input.staticExport || input.preview) return null;
   if (input.viaLoopback || !record.primaryCustom || !record.primaryHostname) return null;
   if (record.primaryHostname === record.hostname) return null;
   if (input.method !== "GET" && input.method !== "HEAD") return null;
