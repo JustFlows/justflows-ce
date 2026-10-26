@@ -62,25 +62,6 @@ function resolveAdminPath(raw: string | undefined, pluginId: string): string | n
   return RELATIVE_ADMIN_PATH_RE.test(value) ? resolvePluginAdminPath(pluginId, value) : null;
 }
 
-/**
- * Admin pages the host ships for first-party plugins packaged before manifests
- * could declare `adminMenu`. Keeps an already-installed 0.1.0 Analytics working
- * without a reinstall; newer packages declare their own and win.
- */
-const FIRST_PARTY_ADMIN_MENU: Record<string, PluginAdminMenuItem[]> = {
-  "justflows.analytics": [
-    {
-      id: "analytics",
-      label: "Analytics",
-      labelKey: "nav.analytics",
-      // Relative — the plugin's namespace root. `sanitizeItem` resolves it.
-      path: "",
-      icon: "📊",
-      domain: "extensions",
-    },
-  ],
-};
-
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -182,14 +163,7 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
       if (setupPath) setupByPlugin.set(row.plugin_id, setupPath);
     }
 
-    // A manifest that mentions adminMenu speaks for itself, even to say "none".
-    // Only a manifest predating the field falls back to what the host knows.
-    const items =
-      "adminMenu" in manifest
-        ? manifestMenu(manifest, row.plugin_id)
-        : (FIRST_PARTY_ADMIN_MENU[row.plugin_id] ?? [])
-            .map((entry) => sanitizeItem(entry, row.plugin_id))
-            .filter((entry): entry is AdminMenuEntry => entry !== null);
+    const items = "adminMenu" in manifest ? manifestMenu(manifest, row.plugin_id) : [];
 
     for (const item of items) {
       if (seenPaths.has(item.path)) continue;

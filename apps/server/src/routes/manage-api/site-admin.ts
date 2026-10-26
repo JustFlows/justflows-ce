@@ -30,7 +30,6 @@ import {
 } from "../../lib/email/email-templates.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { param } from "../../lib/http/params.js";
-import { getAnalyticsSummary } from "../../lib/rendering/analytics-public.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { getCookieOverrides, getResolvedCookieRegistry, setCookieOverrides } from "../../lib/security/cookie-registry.js";
 import { clientIp } from "../../lib/security/rate-limit.js";
@@ -38,7 +37,7 @@ import { badRequest, ensureKeyCan, sendJson } from "./envelope.js";
 
 /**
  * The rest of the administrator surface that is JSON in and JSON out:
- * trash, analytics, comment rules, cookies, and email templates.
+ * trash, comment rules, cookies, and email templates.
  * Zip installs, signing secrets, and replacing the running app stay on the
  * cookie API.
  */
@@ -167,17 +166,6 @@ router.delete("/trash", async (req, res) => {
     res.json({ ok: true, deleted: selected.length });
   } catch (err) {
     sendServerError(res, "manage.trash", err);
-  }
-});
-
-/* ------------------------------- analytics ------------------------------ */
-
-router.get("/analytics", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "analytics:read"))) return;
-  try {
-    sendJson(req, res, await getAnalyticsSummary(siteId(req)));
-  } catch (err) {
-    sendServerError(res, "manage.analytics", err);
   }
 });
 

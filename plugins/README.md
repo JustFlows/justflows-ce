@@ -66,10 +66,9 @@ under `adminMenu` and add the `admin:extend` permission:
   "permissions": ["admin:extend"],
   "adminMenu": [
     {
-      "id": "analytics",
-      "label": "Analytics",
-      "labelKey": "nav.analytics",
-      "path": "/admin/analytics",
+      "id": "reports",
+      "label": "Reports",
+      "path": "/admin/reports",
       "icon": "📊",
       "domain": "extensions"
     }
@@ -81,7 +80,7 @@ under `adminMenu` and add the `admin:extend` permission:
 | ---------- | ------------------------------------------------------------------------ |
 | `id`       | Lowercase kebab-case, unique within the plugin                           |
 | `label`    | Shown when `labelKey` has no catalog entry                               |
-| `labelKey` | Optional admin i18n key, e.g. `nav.analytics`                            |
+| `labelKey` | Optional admin i18n key, e.g. `nav.media`                                |
 | `path`     | Must be an `/admin/…` route                                              |
 | `icon`     | Single emoji; defaults to 🔌                                             |
 | `domain`   | `content`, `appearance`, `extensions` (default), `security`, or `system` |

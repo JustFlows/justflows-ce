@@ -900,9 +900,27 @@ async function sendPublicHtml(
     res.setHeader("Cache-Control", "private, no-store");
   }
   res.status(status).type("html").send(html);
-  if (!preview && status < 400) {
-    void import("../../lib/rendering/analytics-public.js")
-      .then(({ recordPublicPageview }) => recordPublicPageview(req))
+  /**
+   * Plugins that count visits listen here. The exporter's crawl is not a visit,
+   * and neither is a preview or an error page.
+   */
+  if (!preview && status < 400 && !req.headers["x-jf-static-export"]) {
+    void getSiteId()
+      .then((siteId) => {
+        if (!siteId) return;
+        const referrer = typeof req.headers.referer === "string" ? req.headers.referer : undefined;
+        return getRuntimeHooks().dispatchAction(
+          "page.viewed",
+          {
+            siteId,
+            path: req.path || "/",
+            userAgent: String(req.headers["user-agent"] ?? ""),
+            ...(referrer ? { referrer } : {}),
+            host: String(req.headers.host ?? ""),
+          },
+          { siteId, source: "http" },
+        );
+      })
       .catch(() => undefined);
   }
 }
@@ -1229,19 +1247,12 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   }
   const body = await ejs.renderFile(path.join(templateDir, `${view}.ejs`), pageData);
   let analyticsHead = "";
-  let analyticsBody = "";
-  if (!data.preview && !data.privateAccount && siteId) {
-    const { getConfiguredGoogleTagId } = await import("../../lib/rendering/analytics-public.js");
-    const { buildGoogleTagHead, buildGoogleTagBody } = await import("../../lib/rendering/google-tag.js");
-    const googleTagId = await getConfiguredGoogleTagId();
-    if (googleTagId) {
-      analyticsHead = buildGoogleTagHead(googleTagId);
-      analyticsBody = buildGoogleTagBody(googleTagId);
-    }
-  }
-  if (!data.privateAccount && hooks.has("analytics.head")) {
-    // A consent plugin can rewrite the analytics markup (e.g. defer it behind a
-    // consent category) before it reaches the page. Sync — this is a render path.
+  /**
+   * Tracking markup comes from plugins: a tag provider appends at a low
+   * priority and a consent plugin gates the result. Never on a preview or a
+   * private account page. Sync — this is a render path.
+   */
+  if (!data.preview && !data.privateAccount && siteId && hooks.has("analytics.head")) {
     analyticsHead = hooks.applyFilterSync(
       "analytics.head",
       analyticsHead,
@@ -1276,7 +1287,6 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     body,
     headExtra,
     analyticsHead,
-    analyticsBody,
     pwaBody,
     hreflangLinks,
     title: documentTitle,

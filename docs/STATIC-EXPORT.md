@@ -374,7 +374,7 @@ native round-trip.
 When the first-party **Analytics plugin is active at export time**, its
 `jf-analytics.js` beacon rides the shared `/jf-plugins.<hash>.js` bundle into
 the export (via `manifest.assets`, like the Forms script). On load it POSTs
-`{ path }` to `/justflows-analytics/collect` — the same trick Plausible / GA use
+the path to the plugin's `/api/analytics/collect` route — the same trick Plausible / GA use
 — so the counters still fill even though no server render happens (hybrid:
 same-origin; split-origin: to the origin URL, dropped into the page as
 `window.__JF_ORIGIN__`). The beacon self-suppresses on the live dynamic site
@@ -421,7 +421,7 @@ up a change on the next export run.
 | **Preview** (`?preview=1`)                            | never crawled or exported                                                                                       |
 | **Form submission** (`justflows.forms.form`)          | in-place via `fetch()` to `/justflows-forms/submit` — needs the endpoint reachable (hybrid or origin URL)       |
 | **Comment submission** (`justflows.comments.thread`)  | native POST to `/justflows-comments/submit`; existing threads render at export time and are read-only otherwise |
-| **Pageview analytics**                                | beacon to `/justflows-analytics/collect` — needs the endpoint reachable (hybrid or origin URL)                  |
+| **Pageview analytics**                                | beacon to `/api/analytics/collect` — needs the endpoint reachable (hybrid or origin URL)                        |
 | **Cookie consent records + disclosure**               | `/ext/justflows.consent/*` — banner/gating work offline; record log + cookie table need the endpoint reachable  |
 | **Login / register / password reset / language POST** | origin only — never route these to the static host (staff copies live under the admin path)                     |
 | **Search**                                            | needs the origin, or a client-side / third-party index                                                          |
@@ -469,7 +469,6 @@ location ^~ /reset-password     { proxy_pass http://127.0.0.1:3000; }
 location ^~ /set-locale         { proxy_pass http://127.0.0.1:3000; }
 location ^~ /justflows-forms/       { proxy_pass http://127.0.0.1:3000; }
 location ^~ /justflows-comments/    { proxy_pass http://127.0.0.1:3000; }
-location ^~ /justflows-analytics/   { proxy_pass http://127.0.0.1:3000; }
 
 # plugin assets are exported, but e.g. consent record/cookies are dynamic:
 # serve the file if it exists, else hand off to the origin
@@ -507,7 +506,6 @@ location ^~ /reset-password     { try_files /_pass @fallback; }
 location ^~ /set-locale         { try_files /_pass @fallback; }
 location ^~ /justflows-forms/       { try_files /_pass @fallback; }
 location ^~ /justflows-comments/    { try_files /_pass @fallback; }
-location ^~ /justflows-analytics/   { try_files /_pass @fallback; }
 
 # plugin assets are exported, but consent record/cookies are dynamic:
 # serve the file if it exists, else hand off to the app
@@ -566,7 +564,7 @@ PassengerBaseURI      /
 
     RewriteEngine On
     # dynamic surface: hand straight to Passenger, skip the static lookups
-    RewriteRule ^(admin|api|login|register|install|forgot-password|reset-password|set-locale|justflows-forms|justflows-comments|justflows-analytics)(/|$) - [L]
+    RewriteRule ^(admin|api|login|register|install|forgot-password|reset-password|set-locale|justflows-forms|justflows-comments)(/|$) - [L]
     # extensionless published route -> its index.html when that file exists
     RewriteCond %{DOCUMENT_ROOT}/$1/index.html -f
     RewriteRule ^(.+?)/?$ /$1/index.html [L]
@@ -595,7 +593,6 @@ ProxyPass  /reset-password     http://127.0.0.1:3000/reset-password
 ProxyPass  /set-locale         http://127.0.0.1:3000/set-locale
 ProxyPass  /justflows-forms/       http://127.0.0.1:3000/justflows-forms/
 ProxyPass  /justflows-comments/    http://127.0.0.1:3000/justflows-comments/
-ProxyPass  /justflows-analytics/   http://127.0.0.1:3000/justflows-analytics/
 
 <Directory /var/www/site/static-export>
     Require all granted
@@ -625,7 +622,7 @@ and never moves.
 Cloudflare / CloudFront: add proxy / cache-bypass behaviours for the same
 dynamic prefixes — `/admin*`, `/api/*`, `/login*`, `/register*`, `/install*`,
 `/forgot-password*`, `/reset-password*`, `/set-locale*`, `/justflows-forms/*`,
-`/justflows-comments/*`, `/justflows-analytics/*`, `/ext/*` — pointing at the
+`/justflows-comments/*`, `/ext/*` — pointing at the
 origin. Netlify `netlify.toml` / Vercel `vercel.json`: a `200`-status rewrite
 for the same paths.
 

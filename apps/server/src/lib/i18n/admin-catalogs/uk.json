@@ -17,7 +17,6 @@
     "contentTypes": "Типи вмісту",
     "media": "Медіафайли",
     "plugins": "Плагіни",
-    "analytics": "Аналітика",
     "forms": "Форми",
     "themes": "Теми",
     "design": "Дизайн",
@@ -3550,28 +3549,6 @@
       "confirm": "Delete this website? This cannot be undone.",
       "failed": "Could not delete this website."
     }
-  },
-  "analytics": {
-    "collectionPaused": "Збір призупинено в налаштуваннях плагіна.",
-    "devices": "Пристрої",
-    "last14Days": "Зафіксовані відвідування за останні 14 днів",
-    "noDeviceData": "Ще немає даних про пристрій. Відвідайте загальнодоступний сайт, а потім оновіть його.",
-    "noPagesYet": "Сторінок ще немає.",
-    "noReferrersYet": "Ще немає рефералів.",
-    "notCollectingBody": "Установіть Analytics із торгової площадки або активуйте її в розділі «Плагіни», якщо вона вимкнена.",
-    "notCollectingTitle": "Аналітика не збирає",
-    "nothingRecorded": "Ще нічого не записано.",
-    "openPlugins": "Відкрийте плагіни",
-    "pageViews": "Перегляди сторінок",
-    "path": "шлях",
-    "referrers": "Реферери",
-    "settings": "Налаштування",
-    "source": "Джерело",
-    "subtitle": "Перегляди сторінок, джерела переходу та пристрої, збережені на цьому сайті. Google бачить лише відвідування, якщо ви додали тег.",
-    "title": "Аналітика",
-    "topPages": "Топ сторінок",
-    "views": "Перегляди",
-    "viewsByDay": "Перегляди по днях"
   },
   "tools": {
     "manualRestartBody": "Перезапустіть Justflows на сервері, а потім оновіть цю сторінку.",

@@ -32,7 +32,6 @@
 </head>
 
 <body<% if (typeof bodyClass === 'string' && /^jf-layout-[a-z0-9-]+$/.test(bodyClass)) { %> class="<%= bodyClass %>"<% } %>>
-  <%- typeof analyticsBody !=='undefined' ? analyticsBody : '' %>
     <%- typeof pwaBody !=='undefined' ? pwaBody : '' %>
       <%- body %>
       <footer class="site-footer">

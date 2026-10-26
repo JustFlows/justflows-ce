@@ -40,6 +40,21 @@ describe("HooksRegistry — actions", () => {
     expect(calls).toEqual(["core"]);
   });
 
+  it("runs a network handler where the gate allows the plugin network-wide", async () => {
+    const { hooks } = makeRegistry();
+    const calls: string[] = [];
+    const scopes: string[] = [];
+    hooks.action("test.network", () => { calls.push("site"); }, { pluginId: "demo.plugin" });
+    hooks.action("test.network", () => { calls.push("network"); }, { pluginId: "demo.plugin", network: true });
+    hooks.setPluginSiteGate((_pluginId, _siteId, scope) => {
+      scopes.push(scope);
+      return scope === "network";
+    }, () => "site-b");
+    await hooks.dispatchAction("test.network", {});
+    expect(calls).toEqual(["network"]);
+    expect(scopes).toEqual(["site", "network"]);
+  });
+
   it("runs handlers in priority order, ties by registration order", async () => {
     const { hooks } = makeRegistry();
     const calls: number[] = [];

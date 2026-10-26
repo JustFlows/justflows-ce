@@ -49,6 +49,7 @@ export const PluginPermissionSchema = z.enum([
   "mail:hook",
   "auth:hook",
   "platform:tenancy",
+  "platform:network",
   "files:private",
 ]);
 
@@ -64,6 +65,7 @@ export const SENSITIVE_PERMISSIONS: PluginPermission[] = [
   "mail:templates",
   "mail:hook",
   "platform:tenancy",
+  "platform:network",
 ];
 
 /** Host/runtime versions exposed to an activated extension. */
@@ -158,7 +160,7 @@ export const AdminMenuItemSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Menu id must be lowercase kebab-case"),
   /** English label, shown when `labelKey` is absent or untranslated. */
   label: z.string().min(1).max(60),
-  /** Optional admin i18n catalog key, e.g. "nav.analytics". */
+  /** Optional admin i18n catalog key, e.g. "nav.media". */
   labelKey: z.string().max(120).optional(),
   /**
    * Where this page mounts, **relative to the plugin's own namespace**
@@ -739,6 +741,14 @@ export interface PluginHttpRequest {
    */
   session: PluginHttpSession | null;
   /**
+   * True when the browser's `Origin` is this site or an origin the host
+   * vouches for (the same allow-list `cors` uses). False for any other
+   * `Origin`, and absent when the request carried none, as a same-origin GET
+   * or a non-browser client does. Use it to ignore a beacon another site fires
+   * at this one. Absent on older hosts.
+   */
+  trustedOrigin?: boolean;
+  /**
    * The visitor's language: the locale of the site page that made the request
    * (`/nl-NL/shop` → `nl-NL`), otherwise the site default. Pass it to
    * `ctx.content.listPublished({ locale, fallback: true })` to answer in the
@@ -758,8 +768,12 @@ export interface PluginHttpResponse {
    * reflect — a setting the plugin injects via `html.head`, a block's stored
    * config — so page caches drop and, when static-export auto-rebuild is on,
    * the export regenerates. Ignored on GET and on a 4xx/5xx status.
+   *
+   * `"network"` does the same for every site in the installation. It needs
+   * `platform:network` and a request on the main site; otherwise it acts as
+   * `true`. Use it after saving something `{ network: true }` hooks inject.
    */
-  revalidate?: boolean;
+  revalidate?: boolean | "network";
   /**
    * Answer with one of this plugin's private files (`ctx.files`) instead of a
    * body. The host streams it from wherever the site stores private files,
@@ -779,7 +793,7 @@ export interface PluginHttpResponse {
    * response cross-origin. The host adds `Access-Control-Allow-Origin` for
    * vouched-for origins only — `APP_URL`, `STATIC_EXPORT_BASE_URL`, anything in
    * `STATIC_EXPORT_ALLOWED_ORIGINS`, plus any `localhost` port outside
-   * production — the same allow-list the Forms and Analytics endpoints use.
+   * production — the same allow-list the Forms endpoints use.
    * Set it on a public read the runtime `fetch()`es (a config or disclosure
    * route); a plain `<img>`/beacon GET needs nothing.
    */
@@ -1456,6 +1470,39 @@ export interface PluginTenancyApi {
   deleteWorkspace(tenantId: string, options?: { dropDatabase?: boolean }): Promise<PluginTenancyResult>;
 }
 
+/** One live site in the installation, as `ctx.network.sites()` lists it. */
+export interface PluginNetworkSite {
+  id: string;
+  name: string;
+  /** Primary hostname, or null when the site has none yet. */
+  hostname: string | null;
+  /** True for the site created with the installation. */
+  mainSite: boolean;
+}
+
+/**
+ * Behaviour the installation's main site applies to every site. Requires
+ * `platform:network`; absent without it and on older hosts.
+ *
+ * Pair it with hooks registered as `{ network: true }`: those handlers run on
+ * every site while this plugin is active on the main site, even where a site
+ * has not activated it. Inside them, `ctx.settings` and `ctx.data` still
+ * belong to the request's site; read the main site's choices through
+ * `mainSiteSettings`.
+ */
+export interface PluginNetworkApi {
+  /** This plugin's settings on the main site, read-only, from any site. */
+  mainSiteSettings: {
+    get<T = unknown>(key: string): Promise<T | undefined>;
+  };
+  /**
+   * Every live site in the installation, main site first. Only on the main
+   * site; on any other site it rejects. The plugin decides what each site
+   * gets, so another site's admins never see or change it.
+   */
+  sites(): Promise<PluginNetworkSite[]>;
+}
+
 export type QuotaScope = "workspace" | "site";
 export type QuotaUnit = "count" | "bytes" | "flag";
 
@@ -1865,6 +1912,12 @@ export interface PluginContext {
    * suspending, and deleting requires `platform:tenancy`.
    */
   tenancy: PluginTenancyApi;
+
+  /**
+   * Network-wide behaviour set on the main site. Requires `platform:network`.
+   * Absent without that permission and on older hosts. See `PluginNetworkApi`.
+   */
+  network?: PluginNetworkApi;
 
   /**
    * Workspace and site ceilings. Register a meter, then `check` it before

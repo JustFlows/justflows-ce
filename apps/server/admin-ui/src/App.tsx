@@ -16,7 +16,6 @@ import TaxonomiesPage from "./pages/admin/content/TaxonomiesPage";
 import MediaPage from "./pages/admin/media/MediaPage";
 import PluginsPage from "./pages/admin/extensions/PluginsPage";
 import PluginSettingsPage from "./pages/admin/extensions/PluginSettingsPage";
-import AnalyticsPage from "./pages/admin/system/AnalyticsPage";
 import ConsentPage from "./pages/admin/settings/ConsentPage";
 import ThemesPage from "./pages/admin/design/ThemesPage";
 import DesignPage from "./pages/admin/design/DesignPage";
@@ -135,14 +134,6 @@ export default function App() {
                   their own admin app (Forms) or only a settings schema (SEO) need
                   no route here — the `*` catch-all frames the former, and the
                   `plugins/:id/settings` route above serves the latter. */}
-              <Route
-                path="plugins/justflows.analytics"
-                element={
-                  <PluginRoute>
-                    <AnalyticsPage />
-                  </PluginRoute>
-                }
-              />
               <Route
                 path="plugins/justflows.consent"
                 element={

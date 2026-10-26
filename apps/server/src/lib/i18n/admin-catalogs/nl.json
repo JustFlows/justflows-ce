@@ -17,7 +17,6 @@
     "contentTypes": "Inhoudstypen",
     "media": "Media",
     "plugins": "Plugins",
-    "analytics": "Analytics",
     "forms": "Formulieren",
     "themes": "Thema's",
     "design": "Design",
@@ -3120,28 +3119,6 @@
       "sourceLearned": "geleerd",
       "removeButton": "Verwijderen"
     }
-  },
-  "analytics": {
-    "title": "Statistieken",
-    "subtitle": "Paginaweergaven, verwijzers en apparaten die op deze site worden opgeslagen. Google ziet alleen bezoeken als je een tag hebt toegevoegd.",
-    "settings": "Instellingen",
-    "notCollectingTitle": "Analytics verzamelt niet",
-    "notCollectingBody": "Installeer Analytics vanaf de marktplaats, of activeer het onder Plugins als het gedeactiveerd is.",
-    "openPlugins": "Plugins openen",
-    "collectionPaused": "Het verzamelen is gepauzeerd in de plugininstellingen.",
-    "pageViews": "Paginaweergaven",
-    "last14Days": "Laatste 14 dagen aan geregistreerde openbare bezoeken",
-    "devices": "Apparaten",
-    "noDeviceData": "Nog geen apparaatgegevens. Bezoek de openbare site en vernieuw daarna deze pagina.",
-    "viewsByDay": "Weergaven per dag",
-    "nothingRecorded": "Nog niets geregistreerd.",
-    "topPages": "Toppagina's",
-    "noPagesYet": "Nog geen pagina's.",
-    "path": "Pad",
-    "views": "Weergaven",
-    "referrers": "Verwijzers",
-    "noReferrersYet": "Nog geen verwijzers.",
-    "source": "Bron"
   },
   "health": {
     "clipboard": {

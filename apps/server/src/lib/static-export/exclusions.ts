@@ -33,7 +33,6 @@ export const CORE_DYNAMIC_PREFIXES = [
   "set-locale",
   "justflows-forms",
   "justflows-comments",
-  "justflows-analytics",
 ] as const;
 
 /**

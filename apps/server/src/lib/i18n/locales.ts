@@ -186,7 +186,6 @@ export const UNLOCALIZED_PATH_SEGMENTS = new Set([
   "vendor",
   ".well-known",
   "justflows-comments",
-  "justflows-analytics",
   "justflows-forms",
 ]);
 

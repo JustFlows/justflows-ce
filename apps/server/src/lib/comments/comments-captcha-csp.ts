@@ -25,7 +25,7 @@ export async function getCaptchaProviderForCsp(): Promise<CaptchaProvider> {
 
 /**
  * Widen the public Content-Security-Policy so a configured CAPTCHA widget can
- * load its script and iframe. Mirrors withGoogleTagCsp: parse the header,
+ * load its script and iframe. Parse the header,
  * merge host sources into the relevant directives, keep directive order.
  * The provider scripts are external `<script src>` (not inline), so no hashes
  * are needed.

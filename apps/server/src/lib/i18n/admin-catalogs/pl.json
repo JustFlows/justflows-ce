@@ -17,7 +17,6 @@
     "contentTypes": "Typy treści",
     "media": "Media",
     "plugins": "Wtyczki",
-    "analytics": "Analityka",
     "forms": "Formularze",
     "themes": "Motywy",
     "design": "Projekt",
@@ -3550,28 +3549,6 @@
       "confirm": "Delete this website? This cannot be undone.",
       "failed": "Could not delete this website."
     }
-  },
-  "analytics": {
-    "collectionPaused": "Kolekcja została wstrzymana w ustawieniach wtyczki.",
-    "devices": "Urządzenia",
-    "last14Days": "Ostatnie 14 dni zarejestrowanych wizyt publicznych",
-    "noDeviceData": "Brak danych urządzenia. Odwiedź witrynę publiczną, a następnie odśwież.",
-    "noPagesYet": "Nie ma jeszcze stron.",
-    "noReferrersYet": "Nie ma jeszcze żadnych polecających.",
-    "notCollectingBody": "Zainstaluj Analytics z rynku lub aktywuj go w sekcji Wtyczki, jeśli jest dezaktywowany.",
-    "notCollectingTitle": "Analityka nie zbiera",
-    "nothingRecorded": "Jeszcze nic nie zostało nagrane.",
-    "openPlugins": "Otwórz wtyczki",
-    "pageViews": "Wyświetlenia strony",
-    "path": "Ścieżka",
-    "referrers": "Polecające",
-    "settings": "Ustawienia",
-    "source": "Źródło",
-    "subtitle": "Wyświetlenia stron, strony odsyłające i urządzenia przechowywane w tej witrynie. Google widzi wizyty tylko wtedy, gdy dodałeś tag.",
-    "title": "Analityka",
-    "topPages": "Najlepsze strony",
-    "views": "Widoki",
-    "viewsByDay": "Wyświetlenia w dzień"
   },
   "tools": {
     "manualRestartBody": "Uruchom ponownie Justflows na serwerze, a następnie odśwież tę stronę.",

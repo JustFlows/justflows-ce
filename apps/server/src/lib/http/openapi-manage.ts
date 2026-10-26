@@ -297,7 +297,6 @@ export const MANAGE_API_OPENAPI = {
       delete: op("Permanently delete selected trash items", "site:admin"),
     },
     "/trash/restore": { post: op("Restore trash items", "content:delete") },
-    "/analytics": { get: op("Site analytics summary", "analytics:read") },
     "/comment-rules": {
       get: op("List comment block and allow rules", "comments:moderate"),
       post: op("Add a comment moderation rule", "settings:manage", { "201": { description: "Created" } }),
