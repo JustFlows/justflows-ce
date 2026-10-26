@@ -52,6 +52,13 @@ export interface PublicMailSettings {
   smtpSecure: SmtpSecure;
   smtpUser: string;
   smtpPassSet: boolean;
+  imapEnabled: boolean;
+  imapHost: string;
+  imapPort: number;
+  imapSecure: SmtpSecure;
+  imapUser: string;
+  imapPassSet: boolean;
+  imapMailbox: string;
   rateLimitPerMinute: number;
   concurrency: number;
   transports: Array<{ id: string; label: string }>;
@@ -237,6 +244,13 @@ function resolveStoredMailConfig(stored: Partial<MailConfig> | null): ResolvedMa
       : passwordFromEnv
         ? asString(env.smtpPass, DEFAULT_MAIL_CONFIG.smtpPass)
         : DEFAULT_MAIL_CONFIG.smtpPass,
+    imapEnabled: raw.imapEnabled === true,
+    imapHost: asString(raw.imapHost, ""),
+    imapPort: Math.max(1, asInt(raw.imapPort, DEFAULT_MAIL_CONFIG.imapPort ?? 993)),
+    imapSecure: isSmtpSecure(asString(raw.imapSecure, "ssl")) ? (asString(raw.imapSecure, "ssl") as MailConfig["imapSecure"]) : "ssl",
+    imapUser: asString(raw.imapUser, ""),
+    imapPass: raw.imapPass ? decryptSecret(raw.imapPass) : "",
+    imapMailbox: asString(raw.imapMailbox, "INBOX"),
     rateLimitPerMinute: Math.max(
       1,
       asInt(raw.rateLimitPerMinute, DEFAULT_MAIL_CONFIG.rateLimitPerMinute),
@@ -273,6 +287,7 @@ export async function deliveryMailConfig(siteId: string): Promise<ResolvedMailCo
   ]);
   const platform = resolveStoredMailConfig(rootStored);
   const general = await getGeneralSettings(siteId);
+  const inbox = platform.config.imapEnabled === true && Boolean(platform.config.imapHost?.trim()) && Boolean(platform.config.imapUser?.trim());
   return {
     ...platform,
     viaPlatform: true,
@@ -280,7 +295,9 @@ export async function deliveryMailConfig(siteId: string): Promise<ResolvedMailCo
       ...platform.config,
       fromName: own.config.fromName,
       fromAddress: platform.config.fromAddress.trim() || (typeof rootAdminEmail === "string" ? rootAdminEmail.trim() : ""),
-      replyTo: own.config.replyTo || general.adminEmail,
+      replyTo: inbox
+        ? platform.config.replyTo || platform.config.fromAddress || own.config.replyTo || general.adminEmail
+        : own.config.replyTo || general.adminEmail,
     },
   };
 }
@@ -332,6 +349,13 @@ export function toPublicMailSettings(config: MailConfig, scope?: SiteMailScope):
     smtpSecure: config.smtpSecure,
     smtpUser: config.smtpUser,
     smtpPassSet: Boolean(config.smtpPass),
+    imapEnabled: config.imapEnabled === true,
+    imapHost: config.imapHost ?? "",
+    imapPort: config.imapPort ?? 993,
+    imapSecure: config.imapSecure ?? "ssl",
+    imapUser: config.imapUser ?? "",
+    imapPassSet: Boolean(config.imapPass),
+    imapMailbox: config.imapMailbox || "INBOX",
     rateLimitPerMinute: config.rateLimitPerMinute,
     concurrency: config.concurrency,
     transports: [
@@ -359,11 +383,19 @@ export async function saveMailConfig(
     next.smtpUser.trim() === current.smtpUser.trim();
   const keepPassword = (patch.smtpPass === undefined || patch.smtpPass === "") && sameAccount;
   next.smtpPass = keepPassword ? (passwordFromEnv ? "" : current.smtpPass) : (patch.smtpPass ?? "");
+  const sameImap =
+    (next.imapHost ?? "").trim().toLowerCase() === (current.imapHost ?? "").trim().toLowerCase() &&
+    (next.imapPort ?? 993) === (current.imapPort ?? 993) &&
+    (next.imapUser ?? "").trim() === (current.imapUser ?? "").trim();
+  const keepImap = (patch.imapPass === undefined || patch.imapPass === "") && sameImap;
+  next.imapPass = keepImap ? (current.imapPass ?? "") : (patch.imapPass ?? "");
+  if (next.imapMailbox && !/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,79}$/.test(next.imapMailbox)) next.imapMailbox = "INBOX";
   // Keep an inherited relay account inherited rather than pinning it here.
   if (passwordFromEnv && keepPassword && next.smtpUser === current.smtpUser) next.smtpUser = "";
   await setSiteSetting(siteId, "mail", {
     ...next,
     smtpPass: next.smtpPass ? encryptSecret(next.smtpPass) : "",
+    imapPass: next.imapPass ? encryptSecret(next.imapPass) : "",
   });
 }
 

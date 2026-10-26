@@ -347,6 +347,20 @@ export interface EmailDeliveryContext {
 
 export interface EmailBeforeSendEvent extends EmailDeliveryContext {}
 
+/**
+ * Where an inbound message should be delivered.
+ * The value is the mailbox owner's site id. Return `siteId` to file it on the
+ * site whose database is open.
+ */
+export interface EmailRouteContext {
+  readonly from: string;
+  readonly to: string;
+  readonly subject: string;
+  readonly text: string;
+  /** The site whose database is open for this check. */
+  readonly siteId: string;
+}
+
 /** A message accepted by the site's inbound mail address. Text only; no attachments. */
 export interface EmailReceivedEvent {
   readonly from: string;
@@ -1118,6 +1132,12 @@ export interface FilterValueMap {
   "email.html": [string, EmailDeliveryContext];
   /** Adjust final plain text. Changed output is stripped to plain text. */
   "email.text": [string, EmailDeliveryContext];
+  /**
+   * The site that should receive an inbound message. Seeded with the mailbox
+   * owner's site id. Return `siteId` from the context when the open database
+   * owns the message. Listening requires `mail:hook`.
+   */
+  "email.route": [string, EmailRouteContext];
   /**
    * The limit that will be enforced. Seeded with the stored value (`null` means
    * unlimited). Return a lower number to tighten it. A higher number or `null`

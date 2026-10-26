@@ -15,6 +15,14 @@ export interface MailConfig {
   smtpSecure: SmtpSecure;
   smtpUser: string;
   smtpPass: string;
+  /** Read unseen mail from this mailbox and hand it to the site it belongs to. */
+  imapEnabled?: boolean;
+  imapHost?: string;
+  imapPort?: number;
+  imapSecure?: SmtpSecure;
+  imapUser?: string;
+  imapPass?: string;
+  imapMailbox?: string;
   rateLimitPerMinute: number;
   concurrency: number;
 }
@@ -30,6 +38,13 @@ export const DEFAULT_MAIL_CONFIG: MailConfig = {
   smtpSecure: "none",
   smtpUser: "",
   smtpPass: "",
+  imapEnabled: false,
+  imapHost: "",
+  imapPort: 993,
+  imapSecure: "ssl",
+  imapUser: "",
+  imapPass: "",
+  imapMailbox: "INBOX",
   rateLimitPerMinute: 60,
   concurrency: 5,
 };
