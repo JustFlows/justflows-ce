@@ -316,9 +316,10 @@ export async function getPluginBundle(
 }
 
 /**
- * Asset directory of a multisite plugin that is active on the main site.
- * Another site's admin can load `/ext/<id>/…` even when that site has not
- * activated the plugin itself.
+ * Asset directory of a multisite or `platform:network` plugin that is active
+ * on the main site. Another site can load `/ext/<id>/…` even when it has not
+ * activated the plugin itself: the admin frames of a multisite plugin, and the
+ * files a network hook's markup points at.
  */
 async function rootMultisiteAssetDir(pluginId: string): Promise<string | null> {
   const { getTenantContext } = await import("../tenancy/context.js");
@@ -351,7 +352,8 @@ async function rootMultisiteAssetDir(pluginId: string): Promise<string | null> {
       continue;
     }
   }
-  if (!manifest || manifest.allowMultisite !== true) return null;
+  const network = Array.isArray(manifest?.permissions) && manifest.permissions.includes("platform:network");
+  if (!manifest || (manifest.allowMultisite !== true && !network)) return null;
 
   const basePath =
     (typeof manifest.installedPath === "string" && manifest.installedPath) ||

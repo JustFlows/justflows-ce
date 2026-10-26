@@ -100,12 +100,6 @@ async function readPluginSettings(
     merged.defaultDescription = descriptions;
   }
 
-  if (plugin.plugin_id === "justflows.analytics") {
-    const { parseGoogleTagId } = await import("../../lib/rendering/google-tag.js");
-    const parsed = parseGoogleTagId(String(merged.googleTagId ?? ""));
-    merged.googleTagId = parsed ?? "";
-  }
-
   const { resolveSettingsSchema } = await import("../../lib/plugins/plugin-settings-options.js");
   return { schema: resolveSettingsSchema(schema, defaultLocale), values: merged, languages };
 }
@@ -383,23 +377,6 @@ router.put("/:id/settings", requireRole("administrator"), async (req, res) => {
     let next: Record<string, unknown> = {};
     for (const key of Object.keys(schema)) {
       if (!(key in body)) continue;
-      if (pluginId === "justflows.analytics" && key === "googleTagId") {
-        const { parseGoogleTagId } = await import("../../lib/rendering/google-tag.js");
-        const raw = String(body[key] ?? "").trim();
-        if (!raw) {
-          next[key] = "";
-          continue;
-        }
-        const parsed = parseGoogleTagId(raw);
-        if (!parsed) {
-          res
-            .status(400)
-            .json({ error: "Enter a Google tag ID such as G-XXXXXXXX or GTM-XXXXXXX." });
-          return;
-        }
-        next[key] = parsed;
-        continue;
-      }
       const { checkSettingValue } = await import("../../lib/plugins/plugin-settings-options.js");
       const checked = checkSettingValue(schema[key], body[key]);
       if (!checked.ok) {
@@ -418,8 +395,6 @@ router.put("/:id/settings", requireRole("administrator"), async (req, res) => {
       if (!(key in schema)) continue;
       await setPluginSetting(pluginId, siteId, key, value);
     }
-    const { clearGoogleTagIdCache } = await import("../../lib/rendering/analytics-public.js");
-    clearGoogleTagIdCache();
     const { revalidateOnUpdate } = await import("../../lib/cache/cache-revalidate.js");
     await revalidateOnUpdate("plugin");
     noStore(res);

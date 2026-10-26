@@ -9,6 +9,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **SDK: network-wide plugin hooks.** A plugin with the new `platform:network` permission can register a hook with `{ network: true }`. That handler then runs on every site while the plugin is active on the main site, also on sites that never activated it; the plugin's other hooks, routes, and jobs stay per site. `ctx.network.mainSiteSettings.get()` reads the plugin's main-site settings from any site, and `ctx.network.sites()` lists every site from the main site. Files those hooks load from `/ext/<plugin id>/` are served on every site. A route can return `revalidate: "network"` to drop every site's page cache. SDK 0.1.7. No matching Public Roadmap issue currently exists.
+
+- **SDK: `page.viewed` action and `req.trustedOrigin`.** `page.viewed` fires after a visitor receives a public page (not a preview, an error page, or the static exporter's crawl) with the path, user agent, referrer, and host. Plugin routes get `req.trustedOrigin`, which says whether the `Origin` header is the site or an origin the host's CORS allow-list vouches for. No matching Public Roadmap issue currently exists.
+
 - **Helpdesk sensitive replies.** On a ticket, staff can mark a reply or a file as sensitive. The text is encrypted, the customer email does not include it, and Reveal opens it for staff who are allowed. Each reveal is recorded. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
 
 - **Helpdesk database.** When Helpdesk is installed, the main site chooses the current Justflows database or a separate PostgreSQL, MySQL, or MariaDB database. Database can later move the records: Helpdesk backs them up, creates its tables in the new database, restores and checks every table, and switches only when that matches. The old copy stays, and a destination that already has different records is left unchanged. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
@@ -26,6 +30,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **Space Voyage theme.** Adds the complete editable Planet Jumping homepage: exact reference video assets, preloader and docking logo, canvas portal and pointer tilt, Mars → Earth → Venus video transitions with frozen backgrounds, planet facts, custom cursor, and responsive layouts. Adds bounded active-theme client scripts served through `/theme.js`; existing saved homepages can insert the updated landing pattern. No matching Public Roadmap issue currently exists.
 
 ### Changed
+
+- **Analytics lives entirely in its plugin.** Core no longer records page views, serves `/justflows-analytics/collect` or `/api/analytics`, renders the Analytics admin page or the Google tag, or ships the `analytics_summary` tool and the `analytics:read` capability. The Analytics plugin (0.2.0) now does all of that itself through the SDK, and adds a main-site network tag for every site's public pages and admin. Installs with Analytics need plugin 0.2.0 after this update. **SDK:** `analytics.head` is now seeded with `""`; a tag plugin appends at a priority below 100 and a consent plugin gates it at the default priority. `analytics:read` is no longer a core capability and `analytics` is no longer a reserved API namespace. No matching Public Roadmap issue currently exists.
 
 - **Operator keys.** A plugin asks the host, through the `operatorKey.ensure` hook, to create a 32-byte key in the installation `.env` when that key is missing. The name has to belong to the calling plugin. An existing valid key is left unchanged, the value is not returned, and it is not stored in the database. Helpdesk uses this for `JUSTFLOWS_HELPDESK_KEK`, so sensitive replies work without anyone editing `.env`. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
 

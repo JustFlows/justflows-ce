@@ -48,6 +48,15 @@ export interface HookRegisterOptions {
   once?: boolean;
   /** Stable label shown in hook diagnostics. */
   id?: string;
+  /**
+   * Run on every site in the installation, not only where this plugin is
+   * active, while the plugin is active on the main site. Requires the
+   * `platform:network` permission; registering without it throws. Use it for
+   * behaviour the main site applies network-wide, and read the main site's
+   * choices with `ctx.network.mainSiteSettings`. Other registrations stay
+   * limited to the sites that activated the plugin.
+   */
+  network?: true;
 }
 
 /** An authenticated account view. Identity comes from the verified site session. */
@@ -293,6 +302,24 @@ export interface RequestStartEvent {
 export interface RequestEndEvent extends RequestStartEvent {
   readonly statusCode: number;
   readonly durationMs: number;
+}
+
+/**
+ * A visitor received a public page from the server: status below 400, not a
+ * preview, and not the static-site exporter's crawl. Fired after the response
+ * is sent, so a handler never delays the page. A statically-exported page has
+ * no server render; a plugin that counts views there ships its own beacon.
+ */
+export interface PageViewedEvent {
+  readonly siteId: string;
+  /** Path as requested, without the query string. */
+  readonly path: string;
+  readonly locale?: string;
+  readonly contentId?: string;
+  readonly userAgent: string;
+  /** The `Referer` header, when the browser sent one. */
+  readonly referrer?: string;
+  readonly host: string;
 }
 
 export interface UnderConstructionContext {
@@ -788,6 +815,7 @@ export interface ActionEventMap {
 
   "request.before": RequestStartEvent;
   "request.after": RequestEndEvent;
+  "page.viewed": PageViewedEvent;
 
   "site.underConstruction.viewed": UnderConstructionViewedEvent;
 
@@ -1005,12 +1033,13 @@ export interface FilterValueMap {
    */
   "admin.body": [string, { siteId: string; rootSite?: boolean }];
   /**
-   * The analytics `<head>` markup the host is about to emit (the Google Tag from
-   * the first-party Analytics plugin, when one is configured). Seeded with that
-   * markup or `""`. A consent plugin rewrites it — e.g. to
-   * `type="text/plain" data-jf-consent="analytics"` — so the tag does not run
-   * until the visitor grants the analytics category. Runs on the sync render
-   * path, so handlers must be synchronous. Returning it unchanged is a no-op.
+   * Tracking markup for a public page's `<head>`, seeded with `""`. A plugin
+   * that adds a measurement tag appends it here with a low `priority` (below
+   * the default 100). A consent plugin filters at the default priority and
+   * rewrites what it finds, e.g. to `type="text/plain" data-jf-consent="analytics"`,
+   * so the tag does not run until the visitor grants that category. Use a
+   * same-origin script for any inline setup: the host adds no CSP hashes.
+   * Runs on the sync render path, so handlers must be synchronous.
    */
   "analytics.head": [string, { siteId: string; path: string }];
   /**

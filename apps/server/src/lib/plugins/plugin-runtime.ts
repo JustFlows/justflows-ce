@@ -22,6 +22,7 @@ import { createPluginDatabasesApi } from "./plugin-databases.js";
 import { createPluginCaptchaApi } from "./plugin-captcha.js";
 import { createPluginAiApi } from "./plugin-ai.js";
 import { createPluginTenancyApi } from "./plugin-tenancy.js";
+import { createPluginNetworkApi } from "./plugin-network.js";
 import { createPluginQuotasApi } from "./plugin-quotas.js";
 import { unregisterPluginMeters } from "../tenancy/quotas.js";
 import { createPluginContentApi } from "./plugin-content.js";
@@ -183,8 +184,8 @@ async function activateActivePlugins(): Promise<void> {
  * First-party plugins whose behaviour the host renders itself, so their module is
  * normally left inactive at runtime.
  *
- * - `justflows.analytics` / `justflows.gallery` stay skipped unconditionally —
- *   their modules would double-count page views or expose a public page.
+ * - `justflows.gallery` stays skipped unconditionally — its module would
+ *   expose a public page.
  * - `justflows.seo` is skipped **unless** its installed manifest declares
  *   `hostCooperative: true`. The SEO Toolkit package sets that flag from its
  *   `justflows.json`; it means the module only augments (feed routes,
@@ -193,7 +194,7 @@ async function activateActivePlugins(): Promise<void> {
  *   flag stays skipped.
  */
 function isRuntimeSkippedFirstParty(pluginId: string, manifest: unknown): boolean {
-  if (pluginId === "justflows.analytics" || pluginId === "justflows.gallery") return true;
+  if (pluginId === "justflows.gallery") return true;
   if (pluginId === "justflows.seo") return !manifestIsHostCooperative(manifest);
   return false;
 }
@@ -224,10 +225,11 @@ export async function ensurePluginRuntime(): Promise<void> {
       registerOperatorKeyHook(app.hooks);
       await app.start();
       app.hooks.setPluginSiteGate(
-        (pluginId, siteId) => {
+        (pluginId, siteId, scope) => {
           const current = getTenantContext();
           if (!current || current.siteId !== siteId || current.activePluginIds === null) return true;
-          return current.activePluginIds.has(pluginId);
+          if (current.activePluginIds.has(pluginId)) return true;
+          return scope === "network" && current.networkPluginIds?.has(pluginId) === true;
         },
         () => getTenantContext()?.siteId,
       );
@@ -298,6 +300,7 @@ export async function ensurePluginRuntime(): Promise<void> {
         databasesFactory: (pluginId, siteId, permissions) =>
           createPluginDatabasesApi(pluginId, siteId, permissions),
         tenancyFactory: (pluginId, permissions) => createPluginTenancyApi(pluginId, permissions),
+        networkFactory: (pluginId) => createPluginNetworkApi(pluginId),
         runForSite: async (siteId, fn) => {
           const { runPluginCallForSite } = await import("./plugin-call-site.js");
           return runPluginCallForSite(siteId, fn);
@@ -459,7 +462,7 @@ async function ensureRegistered(siteId: string, pluginId: string): Promise<void>
 }
 
 export async function runtimeActivatePlugin(siteId: string, pluginId: string): Promise<void> {
-  if (pluginId === "justflows.analytics" || pluginId === "justflows.gallery") return;
+  if (pluginId === "justflows.gallery") return;
   if (pluginId === "justflows.seo") {
     const db = await getDb();
     const rows = await db.query<{ manifest: unknown }>(

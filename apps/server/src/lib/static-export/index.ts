@@ -389,8 +389,8 @@ async function resolveExclusions(siteId: string, adminPath: string, rules: Conte
  * This is deliberately generic — the exporter has no per-plugin knowledge. Two
  * things read it:
  *   - its mere presence marks the page as export-served rather than
- *     server-rendered, so a plugin script that ships in both (e.g. the Analytics
- *     pageview beacon) can stay inert on the live site and only act here;
+ *     server-rendered, so a plugin script that ships in both (e.g. a pageview
+ *     beacon) can stay inert on the live site and only act here;
  *   - its value is the Node origin such a script should call back to
  *     (`STATIC_EXPORT_ORIGIN_URL`), or `""` for a same-origin / hybrid deploy
  *     where a relative URL already reaches the origin.
@@ -565,7 +565,7 @@ async function runStaticExportLocked(
   const files: OutputFile[] = [];
   const browserCache = getPerformanceConfig().browserCache;
   const prunePaths = new Set<string>();
-  // Client scripts a plugin ships in the export (the Analytics beacon, the Forms
+  // Client scripts a plugin ships in the export (a pageview beacon, a form
   // enhancement) ride along in the crawled `/jf-plugins.<hash>.js` bundle, so
   // there is nothing plugin-specific to seed here.
   const assetRefs = new Set<string>(["/favicon.ico"]);

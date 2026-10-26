@@ -64,22 +64,6 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
           }
         } catch { /* Retain the owner's original policy if theme discovery fails. */ }
 
-        const { getConfiguredGoogleTagId } = await import("../lib/rendering/analytics-public.js");
-        const { googleTagInlineHashes, withGoogleTagCsp } = await import("../lib/rendering/google-tag.js");
-        const googleTagId = await getConfiguredGoogleTagId();
-        if (googleTagId) {
-          const hashes = googleTagInlineHashes(googleTagId);
-          for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
-            const current = res.getHeader(name);
-            const value = Array.isArray(current)
-              ? current.join("; ")
-              : typeof current === "string"
-                ? current
-                : "";
-            if (value) res.setHeader(name, withGoogleTagCsp(value, hashes));
-          }
-        }
-
         const { getCaptchaProviderForCsp, withCaptchaCsp } =
           await import("../lib/comments/comments-captcha-csp.js");
         const captchaProvider = await getCaptchaProviderForCsp();

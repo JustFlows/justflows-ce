@@ -82,27 +82,6 @@ function parsePluginRow(row: PluginRow): PluginRow {
   };
 }
 
-// `justflows.seo` is intentionally absent: the first-party SEO Toolkit plugin
-// (published through the registry) ships its own `settingsSchema` (SEO fields +
-// the feed settings) and activates at runtime, so the schema resolves from the
-// installed manifest / live module — not a copy pinned here.
-const FIRST_PARTY_SETTINGS_SCHEMA: Record<string, NonNullable<PluginDto["settingsSchema"]>> = {
-  "justflows.analytics": {
-    googleTagId: {
-      type: "text",
-      label: "Google tag",
-      description: "Paste a GA4, Google Ads, or Tag Manager ID (G-XXXX, AW-XXXX, or GTM-XXXX). You can also paste the snippet — only the ID is stored.",
-      default: "",
-    },
-    enabled: {
-      type: "boolean",
-      label: "Collect first-party page views",
-      description: "Store public visits in Justflows. View them under Extensions → Analytics. Google still receives them if a tag is set.",
-      default: true,
-    },
-  },
-};
-
 function nonemptySettingsSchema(value: unknown): PluginDto["settingsSchema"] {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   if (Object.keys(value).length === 0) return undefined;
@@ -136,14 +115,13 @@ function readSettingsSchemaFromDisk(manifest: Record<string, unknown>): PluginDt
   }
 }
 
-/** first-party fallback, then the live module, then justflows.json, then the stored row. */
+/** The live module, then justflows.json, then the stored row. */
 export function pickSettingsSchema(
-  pluginId: string,
+  _pluginId: string,
   manifest: Record<string, unknown>,
   live?: PluginDto["settingsSchema"],
 ): PluginDto["settingsSchema"] {
   return (
-    nonemptySettingsSchema(FIRST_PARTY_SETTINGS_SCHEMA[pluginId]) ??
     nonemptySettingsSchema(live) ??
     nonemptySettingsSchema(readSettingsSchemaFromDisk(manifest)) ??
     nonemptySettingsSchema(manifest.settingsSchema)
@@ -409,12 +387,19 @@ export async function getPlugin(siteId: string, pluginId: string): Promise<Plugi
   return rows[0] ? parsePluginRow(rows[0]) : null;
 }
 
+/** Network handlers follow the main site's active plugins; drop the cached list on any change. */
+async function forgetMainSitePlugins(): Promise<void> {
+  const { clearMainSitePluginCache } = await import("./plugin-network.js");
+  clearMainSitePluginCache();
+}
+
 export async function activatePlugin(siteId: string, pluginId: string): Promise<void> {
   const db = await getDb();
   await db.run(
     "UPDATE plugins SET status = 'active', activated_at = ?, updated_at = ? WHERE site_id = ? AND plugin_id = ?",
     [now(), now(), siteId, pluginId],
   );
+  await forgetMainSitePlugins();
 }
 
 export async function deactivatePlugin(siteId: string, pluginId: string): Promise<void> {
@@ -423,6 +408,7 @@ export async function deactivatePlugin(siteId: string, pluginId: string): Promis
     "UPDATE plugins SET status = 'inactive', updated_at = ? WHERE site_id = ? AND plugin_id = ?",
     [now(), siteId, pluginId],
   );
+  await forgetMainSitePlugins();
 }
 
 /** Mark a plugin's runtime activation as failed so the admin surface can show why. */
@@ -432,11 +418,13 @@ export async function markPluginError(siteId: string, pluginId: string): Promise
     "UPDATE plugins SET status = 'error', updated_at = ? WHERE site_id = ? AND plugin_id = ?",
     [now(), siteId, pluginId],
   );
+  await forgetMainSitePlugins();
 }
 
 export async function deletePlugin(siteId: string, pluginId: string): Promise<void> {
   const db = await getDb();
   await db.run("DELETE FROM plugins WHERE site_id = ? AND plugin_id = ?", [siteId, pluginId]);
+  await forgetMainSitePlugins();
 }
 
 export async function getPluginsSiteId(): Promise<string | null> {

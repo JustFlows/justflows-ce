@@ -17,7 +17,6 @@
     "contentTypes": "Типы контента",
     "media": "Медиафайлы",
     "plugins": "Плагины",
-    "analytics": "Аналитика",
     "forms": "Формы",
     "themes": "Темы",
     "design": "Дизайн",
@@ -3550,28 +3549,6 @@
       "confirm": "Delete this website? This cannot be undone.",
       "failed": "Could not delete this website."
     }
-  },
-  "analytics": {
-    "collectionPaused": "Коллекция останавливается в настройках.",
-    "devices": "Приборы",
-    "last14Days": "Последние 14 дней зарегистрированных посещений",
-    "noDeviceData": "Пока нет данных о устройствах. Посетите открытый сайт, затем освежите.",
-    "noPagesYet": "Пока никаких страниц.",
-    "noReferrersYet": "Пока никаких рефереров.",
-    "notCollectingBody": "Установите анализы с рынка или активируете их под плугинами, если они отключены.",
-    "notCollectingTitle": "Анализы не собираются.",
-    "nothingRecorded": "Пока ничего не записано.",
-    "openPlugins": "Открытые проемы",
-    "pageViews": "Виды страниц",
-    "path": "Путь",
-    "referrers": "Референты",
-    "settings": "Настройки",
-    "source": "Источник",
-    "subtitle": "Вид на страницу, рефереры и устройства, хранящиеся на этом сайте. Google видит посещения только в том случае, если вы добавляете тег.",
-    "title": "Аналитика",
-    "topPages": "Верхние страницы",
-    "views": "Мнения",
-    "viewsByDay": "Дневные мнения"
   },
   "tools": {
     "manualRestartBody": "Перезапустите Justflows на сервере, затем обновите эту страницу.",

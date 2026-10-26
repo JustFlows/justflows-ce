@@ -137,6 +137,12 @@ async function loadPluginAllowlist(context: TenantRequestContext): Promise<boole
       [context.siteId],
     );
     context.activePluginIds = new Set(rows.map((row: { plugin_id: string }) => String(row.plugin_id)));
+    if (context.rootSite) {
+      context.networkPluginIds = context.activePluginIds;
+    } else {
+      const { activeMainSitePluginIds } = await import("../lib/plugins/plugin-network.js");
+      context.networkPluginIds = await activeMainSitePluginIds();
+    }
     return true;
   } catch {
     context.activePluginIds = null;

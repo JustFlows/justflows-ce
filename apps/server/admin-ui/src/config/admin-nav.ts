@@ -130,7 +130,7 @@ export const ADMIN_DASHBOARD: NavItem = {
 };
 
 /**
- * Pages the core always ships. Plugin pages (Analytics, Forms, …) are not
+ * Pages the core always ships. Plugin pages (Forms, Helpdesk, …) are not
  * listed here — they come from `/api/plugins/admin-menu` and only exist while
  * the plugin that owns them is installed.
  */
@@ -388,7 +388,6 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/settings/pwa": ["administrator"],
   "/admin/settings/placeholders": ["administrator"],
   "/admin/redirects": ["administrator"],
-  "/admin/plugins/justflows.analytics": ["administrator", "editor"],
   "/admin/plugins/justflows.helpdesk": ["administrator", "editor", "support-agent"],
   // Consent and Forms sat at their own top-level paths with no rule (visible to
   // every admin role); keep that now that they live under /admin/plugins/ and

@@ -17,7 +17,6 @@
     "contentTypes": "Tipos de contenido",
     "media": "Medios",
     "plugins": "Plugins",
-    "analytics": "Estadísticas",
     "forms": "Formularios",
     "themes": "Temas",
     "design": "Diseño",
@@ -3162,28 +3161,6 @@
       "confirm": "Delete this website? This cannot be undone.",
       "failed": "Could not delete this website."
     }
-  },
-  "analytics": {
-    "title": "Estadísticas",
-    "subtitle": "Páginas vistas, referentes y dispositivos almacenados en este sitio. Google solo ve las visitas si has añadido una etiqueta.",
-    "settings": "Ajustes",
-    "notCollectingTitle": "Analytics no está recopilando datos",
-    "notCollectingBody": "Instala Analytics desde el marketplace o actívalo en Plugins si está desactivado.",
-    "openPlugins": "Abrir Plugins",
-    "collectionPaused": "La recopilación está en pausa en los ajustes del plugin.",
-    "pageViews": "Páginas vistas",
-    "last14Days": "Últimos 14 días de visitas públicas registradas",
-    "devices": "Dispositivos",
-    "noDeviceData": "Aún no hay datos de dispositivos. Visita el sitio público y luego actualiza.",
-    "viewsByDay": "Vistas por día",
-    "nothingRecorded": "Todavía no hay nada registrado.",
-    "topPages": "Páginas más vistas",
-    "noPagesYet": "Aún no hay páginas.",
-    "path": "Ruta",
-    "views": "Vistas",
-    "referrers": "Referentes",
-    "noReferrersYet": "Aún no hay referentes.",
-    "source": "Fuente"
   },
   "health": {
     "clipboard": {

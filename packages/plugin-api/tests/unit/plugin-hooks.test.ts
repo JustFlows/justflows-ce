@@ -48,7 +48,50 @@ describe("plugin hook context", () => {
     await loader.activate(plugin.manifest.id, "site-1");
 
     expect(seen?.version).toBe("1.0.0");
-    expect(seen?.runtime).toEqual({ justflows: "0.1.8-dev.1", sdk: "0.1.6", sdkApi: 1 });
+    expect(seen?.runtime).toEqual({ justflows: "0.1.8-dev.1", sdk: "0.1.7", sdkApi: 1 });
+  });
+
+  it("refuses a network handler without platform:network", async () => {
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app);
+    const plugin = makePlugin({ permissions: ["admin:extend"] }, (ctx) => {
+      ctx.hooks.filter("admin.body", (html) => html, { network: true });
+    });
+    loader.register(plugin);
+    await expect(loader.activate(plugin.manifest.id, "site-1")).rejects.toThrow(/platform:network/);
+  });
+
+  it("registers a network handler and exposes ctx.network with platform:network", async () => {
+    const app = new App(CONFIG);
+    const network = {
+      mainSiteSettings: { get: vi.fn().mockResolvedValue("G-NET") },
+      sites: vi.fn().mockResolvedValue([]),
+    };
+    const loader = new PluginLoader(app, { networkFactory: () => network });
+    let seen: PluginContext | undefined;
+    const plugin = makePlugin({ permissions: ["admin:extend", "platform:network"] }, (ctx) => {
+      seen = ctx;
+      ctx.hooks.filter("admin.body", (html) => `${html}tag`, { network: true });
+    });
+    loader.register(plugin);
+    await loader.activate(plugin.manifest.id, "site-1");
+
+    expect(seen?.network).toBe(network);
+    const registration = app.hooks.inspect().find((hook) => hook.hook === "admin.body");
+    expect(registration?.pluginId).toBe("justflows.test");
+    expect(await app.hooks.applyFilter("admin.body", "", { siteId: "site-1" })).toBe("tag");
+  });
+
+  it("leaves ctx.network out without platform:network", async () => {
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, { networkFactory: () => ({ mainSiteSettings: { get: vi.fn() }, sites: vi.fn() }) });
+    let seen: PluginContext | undefined;
+    const plugin = makePlugin({}, (ctx) => {
+      seen = ctx;
+    });
+    loader.register(plugin);
+    await loader.activate(plugin.manifest.id, "site-1");
+    expect(seen?.network).toBeUndefined();
   });
 
   it("attributes a plugin's registrations to the plugin", async () => {

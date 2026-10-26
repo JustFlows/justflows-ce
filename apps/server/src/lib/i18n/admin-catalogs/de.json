@@ -17,7 +17,6 @@
     "contentTypes": "Inhaltstypen",
     "media": "Medien",
     "plugins": "Plugins",
-    "analytics": "Analytics",
     "forms": "Formulare",
     "themes": "Themes",
     "design": "Design",
@@ -3162,28 +3161,6 @@
       "confirm": "Delete this website? This cannot be undone.",
       "failed": "Could not delete this website."
     }
-  },
-  "analytics": {
-    "title": "Statistik",
-    "subtitle": "Seitenaufrufe, Referrer und Geräte, die auf dieser Website gespeichert sind. Google sieht Besuche nur, wenn Sie einen Tag hinzugefügt haben.",
-    "settings": "Einstellungen",
-    "notCollectingTitle": "Analytics erfasst keine Daten",
-    "notCollectingBody": "Installieren Sie Analytics vom Marktplatz oder aktivieren Sie es unter Plugins, wenn es deaktiviert ist.",
-    "openPlugins": "Plugins öffnen",
-    "collectionPaused": "Die Datenerfassung ist in den Plugin-Einstellungen pausiert.",
-    "pageViews": "Seitenaufrufe",
-    "last14Days": "Aufgezeichnete öffentliche Besuche der letzten 14 Tage",
-    "devices": "Geräte",
-    "noDeviceData": "Noch keine Gerätedaten. Besuchen Sie die öffentliche Website und aktualisieren Sie dann diese Seite.",
-    "viewsByDay": "Aufrufe pro Tag",
-    "nothingRecorded": "Noch nichts erfasst.",
-    "topPages": "Meistbesuchte Seiten",
-    "noPagesYet": "Noch keine Seiten.",
-    "path": "Pfad",
-    "views": "Aufrufe",
-    "referrers": "Referrer",
-    "noReferrersYet": "Noch keine Referrer.",
-    "source": "Quelle"
   },
   "health": {
     "clipboard": {

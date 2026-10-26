@@ -6,7 +6,7 @@ import type { PluginHttpMethod, PluginHttpRateLimit, PluginHttpRequest } from "@
 import { isProtectedHeaderName, SECURITY_HEADER_DEFS } from "../security/security-headers.js";
 import { resolveSession } from "../auth/auth-session.js";
 import { getTenantContext } from "../tenancy/context.js";
-import { sessionMatchesRequestSite } from "../tenancy/access.js";
+import { isInstallationRootRequest, sessionMatchesRequestSite } from "../tenancy/access.js";
 import { recordDiagnosticError } from "../runtime/diagnostics.js";
 import { runAsDelegate } from "../security/delegated-call.js";
 import { parseLocalePrefix } from "../i18n/locales.js";
@@ -163,6 +163,22 @@ export function pluginHttpErrorBody(structured: boolean | undefined, status: num
   return { error: { code: codes[status] ?? "request_failed", message, ...(requestId ? { requestId } : {}) } };
 }
 
+/**
+ * Drop cached public pages after a plugin write: one site, or with `"network"`
+ * every live site in the installation (a `{ network: true }` hook's markup).
+ */
+async function revalidateAfterPluginWrite(target: string | "network" | undefined): Promise<void> {
+  const { revalidateOnUpdate } = await import("../cache/cache-revalidate.js");
+  if (target !== "network") {
+    await revalidateOnUpdate("plugin", target ? { siteId: target } : undefined);
+    return;
+  }
+  const { getControlDb } = await import("../database/db.js");
+  const control = await getControlDb();
+  const rows = await control.query<{ id: string }>("SELECT id FROM sites WHERE status <> 'deleted'");
+  for (const row of rows) await revalidateOnUpdate("plugin", { siteId: String(row.id) });
+}
+
 export async function dispatchPluginHttp(
   req: Request,
   res: Response,
@@ -288,9 +304,19 @@ export async function dispatchPluginHttp(
       )
       .catch(() => undefined);
 
+    /** The beacon guard core routes used: this site, or an origin the CORS allow-list vouches for. */
+    const origin = req.get("origin");
+    let trustedOrigin: boolean | undefined;
+    if (origin) {
+      const { isAllowedFormOrigin } = await import("../static-export/cors.js");
+      const self = `${req.protocol}://${req.get("host") ?? ""}`.toLowerCase();
+      trustedOrigin = origin.toLowerCase() === self || isAllowedFormOrigin(origin);
+    }
+
     const request: PluginHttpRequest = {
       method,
       ...(locale ? { locale } : {}),
+      ...(trustedOrigin !== undefined ? { trustedOrigin } : {}),
       path: req.path,
       query,
       params,
@@ -368,11 +394,12 @@ export async function dispatchPluginHttp(
     // via `html.head`, a block's stored config) can ask for site-wide cache
     // revalidation — which is also what wakes the static-export auto-rebuild.
     // Fire-and-forget after the response so it never adds request latency.
-    if (result.revalidate === true && method !== "GET" && status < 400) {
-      void import("../cache/cache-revalidate.js")
-        .then((m) =>
-          m.revalidateOnUpdate("plugin", session?.siteId ? { siteId: session.siteId } : undefined),
-        )
+    if ((result.revalidate === true || result.revalidate === "network") && method !== "GET" && status < 400) {
+      const network =
+        result.revalidate === "network" &&
+        loader.getPlugin(match.pluginId)?.manifest.permissions.includes("platform:network") === true &&
+        isInstallationRootRequest();
+      void revalidateAfterPluginWrite(network ? "network" : session?.siteId)
         .catch(() => {
           // revalidation is best-effort; a failure must not surface to the plugin
         });

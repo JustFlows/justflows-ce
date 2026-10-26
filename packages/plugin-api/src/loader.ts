@@ -17,6 +17,7 @@ import {
   type PluginSecretsApi,
   type PluginDatabasesApi,
   type PluginTenancyApi,
+  type PluginNetworkApi,
   type PluginQuotasApi,
   type PluginUsersApi,
   type PluginBlockDefinition,
@@ -66,6 +67,8 @@ export type PluginTenancyFactory = (
   pluginId: string,
   permissions: ReadonlySet<PluginPermission>,
 ) => PluginTenancyApi;
+/** `ctx.network` for a plugin that holds `platform:network`. */
+export type PluginNetworkFactory = (pluginId: string) => PluginNetworkApi;
 export type PluginQuotasFactory = (
   pluginId: string,
   permissions: ReadonlySet<PluginPermission>,
@@ -262,6 +265,7 @@ export class PluginLoader {
   private readonly secretsFactory: PluginSecretsFactory;
   private readonly databasesFactory: PluginDatabasesFactory;
   private readonly tenancyFactory: PluginTenancyFactory;
+  private readonly networkFactory: PluginNetworkFactory | undefined;
   private readonly quotasFactory: PluginQuotasFactory;
   private readonly quotasCleanup: ((pluginId: string) => void) | undefined;
   private readonly contentFactory: PluginContentFactory;
@@ -303,6 +307,7 @@ export class PluginLoader {
       secretsFactory?: PluginSecretsFactory;
       databasesFactory?: PluginDatabasesFactory;
       tenancyFactory?: PluginTenancyFactory;
+      networkFactory?: PluginNetworkFactory;
       quotasFactory?: PluginQuotasFactory;
       quotasCleanup?: (pluginId: string) => void;
       contentFactory?: PluginContentFactory;
@@ -377,6 +382,7 @@ export class PluginLoader {
     this.databasesFactory =
       options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
     this.tenancyFactory = options?.tenancyFactory ?? (() => NULL_TENANCY);
+    this.networkFactory = options?.networkFactory;
     this.quotasFactory = options?.quotasFactory ?? (() => NULL_QUOTAS);
     this.quotasCleanup = options?.quotasCleanup;
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
@@ -664,7 +670,17 @@ export class PluginLoader {
       options: HookRegisterOptions | undefined,
     ): Unsubscribe => {
       assertMayListen(hook);
-      const opts = { ...options, pluginId };
+      /**
+       * A network handler runs on sites that never activated this plugin, so
+       * it needs the permission the site owner approved at install.
+       */
+      if (options?.network === true && !permissions.has("platform:network")) {
+        throw new Error(
+          `Plugin "${pluginId}" cannot register "${hook}" with { network: true } without the ` +
+            `"platform:network" permission. Add it to the plugin manifest.`,
+        );
+      }
+      const opts = { ...options, network: options?.network === true, pluginId };
       const wrapped = this.reportingHandler(pluginId, hook, handler);
       if (kind === "filter") {
         return hooks.filter(hook, wrapped as never, opts);
@@ -812,6 +828,9 @@ export class PluginLoader {
       secrets: this.secretsFactory(pluginId, siteId),
       databases: this.databasesFactory(pluginId, siteId, permissions),
       tenancy: this.tenancyFactory(pluginId, permissions),
+      ...(this.networkFactory && permissions.has("platform:network")
+        ? { network: this.networkFactory(pluginId) }
+        : {}),
       quotas: this.quotasFactory(pluginId, permissions, siteId),
       files: this.scopedFiles(pluginId, siteId, permissions),
       cookies: {

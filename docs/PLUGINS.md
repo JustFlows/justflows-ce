@@ -553,6 +553,12 @@ is on, regenerates the export — the same effect as a core settings change.
 Ignored on `GET` and on a 4xx/5xx response. Leave it off for high-frequency
 public routes (a form submission, a beacon) — it is for operator config writes.
 
+A setting that `{ network: true }` hooks inject on every site (see
+[Hooks](HOOKS.md#network-handlers)) needs every site's cache dropped. Return
+`revalidate: "network"` from the main site's save route. It needs the
+`platform:network` permission and a request on the main site; otherwise it
+acts as `revalidate: true`.
+
 A **public read** the runtime `fetch()`es from a statically-exported page runs
 cross-origin when the export is served from its own host. Return `cors: true`
 and the host adds `Access-Control-Allow-Origin` — but only for a vouched-for
@@ -560,6 +566,11 @@ origin (`APP_URL`, `STATIC_EXPORT_BASE_URL`, `STATIC_EXPORT_ALLOWED_ORIGINS`, or
 `localhost` off production); plugins cannot set `Access-Control-*` themselves. A
 plain `<img>` or `navigator.sendBeacon` GET is not CORS-checked and needs
 nothing.
+
+A beacon another site fires at yours is a simple cross-origin request, so CORS
+does not stop it. `req.trustedOrigin` is `true` when the `Origin` header is this
+site or one of those vouched-for origins, `false` for any other origin, and
+absent when the request carried no `Origin`. Drop the call when it is `false`.
 
 ### Keep a page out of the static export
 

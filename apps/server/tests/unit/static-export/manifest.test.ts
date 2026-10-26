@@ -162,7 +162,7 @@ describe("renderHtaccess", () => {
         { path: "/account.html", match: "exact" },
       ],
     });
-    expect(out).toContain("|justflows-analytics|shop/checkout)(/|$)");
+    expect(out).toContain("|justflows-comments|shop/checkout)(/|$)");
     expect(out).toMatch(/^\s*#\s*RewriteRule \^\(account\\\.html\)\/\?\$ /m);
     expect(renderHtaccess({ adminPath: "/admin" })).not.toContain(")/?$ http://127.0.0.1:3000");
   });

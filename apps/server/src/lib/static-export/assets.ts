@@ -22,7 +22,6 @@ const DENY_PREFIXES = [
   "/set-locale",
   "/justflows-forms",
   "/justflows-comments",
-  "/justflows-analytics",
 ];
 
 /** `<link rel>` values that point at a real sub-resource (not canonical/alternate/sitemap). */
