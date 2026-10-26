@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
+  PLUGIN_ID_RE,
   PluginManifestSchema,
   requiredPermissionForHook,
   isOwnedHookName,
@@ -876,7 +877,7 @@ export class PluginLoader {
   }
 
   private async callPlugin(callerId: string, targetId: string, request: PluginCallRequest) {
-    if (!/^[a-z0-9]+(?:\.[a-z0-9]+)+$/.test(targetId) || targetId === callerId) {
+    if (!PLUGIN_ID_RE.test(targetId) || targetId === callerId) {
       return { status: 404, body: { error: { code: "not_found", message: "That plugin is not available." } } };
     }
     const entry = this.plugins.get(targetId);
@@ -901,7 +902,11 @@ export class PluginLoader {
       query: request.query ?? {},
       params: matched.params,
       body: request.body,
-      headers: {},
+      /**
+       * Names the calling plugin. The host strips this header on HTTP, so a
+       * browser request cannot claim to be another plugin.
+       */
+      headers: { "x-jf-plugin-caller": callerId },
       session: request.session ?? null,
     };
     const invoke = () => Promise.resolve(pluginCallDepth.run(depth + 1, () => matched.route.handler(httpRequest)));

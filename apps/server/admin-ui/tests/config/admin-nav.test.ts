@@ -214,6 +214,24 @@ describe("buildNavDomains", () => {
     expect(canAccessPath("author", "/admin/plugins/justflows.helpdesk")).toBe(false);
   });
 
+  it("gives Shared files its own sidebar domain instead of a Plugins tab", () => {
+    const domains = buildNavDomains([
+      {
+        pluginId: "justflows.shared-files",
+        id: "files",
+        label: "Shared files",
+        path: "/admin/plugins/justflows.shared-files",
+        icon: "files",
+        domain: "files",
+        end: true,
+      },
+    ]);
+    const files = domains.find((d) => d.slug === "files");
+    expect(files?.items).toHaveLength(1);
+    expect(files?.items[0]?.to).toBe("/admin/plugins/justflows.shared-files");
+    expect(domains.find((d) => d.slug === "extensions")?.items.some((item) => item.to.includes("shared-files"))).toBe(false);
+  });
+
   it("keeps an unknown plugin domain out of a new sidebar group", () => {
     const domains = buildNavDomains([
       {

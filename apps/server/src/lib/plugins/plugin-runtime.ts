@@ -473,6 +473,10 @@ export async function runtimeActivatePlugin(siteId: string, pluginId: string): P
   }
   await ensureRegistered(siteId, pluginId);
   if (!loader) throw new Error("Plugin runtime is unavailable");
+  const { pluginRequirementError } = await import("./plugin-requirements.js");
+  const loadedManifest = loader.getPlugin(pluginId)?.manifest;
+  const requirement = await pluginRequirementError(siteId, loadedManifest, "activate");
+  if (requirement) throw new Error(requirement);
   await loader.activate(pluginId, siteId);
   const loaded = loader.getPlugin(pluginId);
   if (loaded) {

@@ -77,6 +77,14 @@ export const PackageManifestSchema = z
      * sites can activate it and change only their own rows.
      */
     allowMultisite: z.boolean().optional(),
+    /**
+     * Plugin ids that must already be installed on this site. The host refuses
+     * install while one is missing, and refuses activation until each is active.
+     */
+    requires: z
+      .array(z.string().regex(PLUGIN_ID_RE, "Required plugin id must be justflows.<name>"))
+      .max(10)
+      .optional(),
     dependencies: z.record(z.string(), z.string()).default({}),
     settingsSchema: z
       .record(
@@ -167,6 +175,13 @@ export const PackageManifestSchema = z
         code: "custom",
         path: ["license"],
         message: gplLicenseValidationMessage(manifest.license),
+      });
+    }
+    if (manifest.requires?.includes(manifest.id)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["requires"],
+        message: "A plugin cannot require itself",
       });
     }
     if (manifest.patterns && manifest.type !== "theme") {

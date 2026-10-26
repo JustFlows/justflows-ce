@@ -24,6 +24,7 @@ describe("per-post cache policy", () => {
     expect(effectiveContentCacheControl("post", {}, null)).toBeNull();
     expect(effectiveContentCacheControl("account", { cacheControl: "public, max-age=60" }, null)).toBe("private, no-store");
     expect(() => validateContentCacheFields("account", { cacheControl: "public, max-age=60" })).toThrow("locked");
+    expect(validateContentCacheFields("account", { title: "Quotes", cacheControl: "private, no-store" })).toEqual({ title: "Quotes", cacheControl: null });
   });
   it("validates metadata while preserving unrelated fields and fails closed on corrupt persisted values", () => {
     expect(ContentCacheFieldsSchema.parse({ title: "Untouched", cacheControl: "PUBLIC, max-age=60" })).toEqual({ title: "Untouched", cacheControl: "public, max-age=60" });

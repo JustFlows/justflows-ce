@@ -87,6 +87,7 @@ export const ADMIN_MENU_DOMAINS = [
   "appearance",
   "users",
   "helpdesk",
+  "files",
   "extensions",
   "tools",
   "security",
@@ -378,6 +379,15 @@ export const PluginManifestSchema = z
      * plugin on the main site.
      */
     allowMultisite: z.boolean().optional(),
+    /**
+     * Other plugins that must already be installed on this site. Install is
+     * refused while any of them is missing. Activation is refused until each
+     * one is active.
+     */
+    requires: z
+      .array(z.string().regex(PLUGIN_ID_RE, "Required plugin id must be justflows.<name>"))
+      .max(10)
+      .optional(),
     settingsSchema: z
       .record(
         z.string(),
@@ -479,6 +489,13 @@ export const PluginManifestSchema = z
         code: "custom",
         path: ["contentTypes"],
         message: 'Declaring contentTypes requires the "content:delete" permission',
+      });
+    }
+    if (manifest.requires?.includes(manifest.id)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["requires"],
+        message: "A plugin cannot require itself",
       });
     }
     if (!isGplCompatibleLicense(manifest.license)) {

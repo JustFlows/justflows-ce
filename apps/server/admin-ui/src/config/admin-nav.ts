@@ -187,6 +187,16 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     items: [],
   },
   {
+    /**
+     * Shared files' own sidebar entry. It stays empty until the plugin is
+     * active, and one listed page means the sidebar links straight there.
+     */
+    key: "nav.domains.files",
+    slug: "files",
+    icon: "📁",
+    items: [],
+  },
+  {
     key: "nav.domains.extensions",
     slug: "extensions",
     icon: "🔌",

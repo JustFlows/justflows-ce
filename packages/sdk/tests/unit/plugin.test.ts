@@ -10,6 +10,13 @@ const base = {
   license: "GPL-2.0-or-later",
 };
 
+describe("PluginManifestSchema — required plugins", () => {
+  it("keeps requires and refuses a plugin that requires itself", () => {
+    expect(PluginManifestSchema.parse({ ...base, requires: ["justflows.shop"] }).requires).toEqual(["justflows.shop"]);
+    expect(() => PluginManifestSchema.parse({ ...base, requires: ["justflows.widget"] })).toThrow(/itself/);
+  });
+});
+
 describe("PluginManifestSchema — multisite", () => {
   it("keeps allowMultisite and treats a missing flag as not set", () => {
     expect(PluginManifestSchema.parse({ ...base, allowMultisite: true }).allowMultisite).toBe(true);

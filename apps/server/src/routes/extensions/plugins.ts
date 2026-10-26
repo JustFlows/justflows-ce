@@ -146,6 +146,7 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
     // Both checks run inside the installer, while the package is still staged.
     // Run after the install they left a refused package sitting in its final
     // location with nothing to clean it up.
+    const siteId = req.session?.siteId;
     const result = await installer.installFromBuffer(file.buffer, {
       packagesDir,
       justflowsVersion: getJustflowsVersion(),
@@ -153,15 +154,17 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
       // Plugins run as code — install each build to its own directory so a
       // reinstall is imported fresh without a process restart.
       revisioned: true,
-      verify: (manifest, digest) => {
+      verify: async (manifest, digest) => {
         if (manifest.type !== "plugin") {
           throw new Error("Uploaded package is not a plugin (manifest.type must be 'plugin')");
         }
         assertPackageIsTrusted(manifest as unknown as Record<string, unknown>, digest);
+        if (!siteId) return;
+        const { pluginRequirementError } = await import("../../lib/plugins/plugin-requirements.js");
+        const requirement = await pluginRequirementError(siteId, manifest, "install");
+        if (requirement) throw new Error(requirement);
       },
     });
-
-    const siteId = req.session?.siteId;
     if (!siteId) {
       res.status(503).json({ error: "No site found — complete install first" });
       return;

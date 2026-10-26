@@ -33,8 +33,11 @@ const RESERVED_RESPONSE_HEADERS = new Set<string>([
   "set-cookie",
 ]);
 
-/** Request headers never forwarded to plugin code. */
-const STRIPPED_REQUEST_HEADERS = new Set(["cookie", "authorization", "proxy-authorization"]);
+/**
+ * Request headers never forwarded to plugin code.
+ * `x-jf-plugin-caller` is set only by an in-process plugin call.
+ */
+const STRIPPED_REQUEST_HEADERS = new Set(["cookie", "authorization", "proxy-authorization", "x-jf-plugin-caller"]);
 
 /** Never assign these as plain object keys sourced from request data. */
 const UNSAFE_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
