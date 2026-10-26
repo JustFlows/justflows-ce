@@ -9,7 +9,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Incoming mail routing.** A reply is filed on the one site whose ticket carries the reply token in the subject, `[SUP-9-replytoken]`. The ticket number alone is not enough, because another site can use the same number. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
+- **Incoming mail routing.** A reply is added to the existing ticket on the one site whose ticket carries the reply token in the subject, `[SUP-9-replytoken]`. The ticket number alone is not enough, because another site can use the same number. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
 
 - **Incoming mail.** Settings → General can read an IMAP mailbox. The main site, and a website whose plan allows its own mail settings, each use their own mailbox. A website without that permission is read from the main site's mailbox, and while that mailbox is on, its replies are sent there. A message is filed on the site that claims it, otherwise on the one site whose address it was sent to. The same message is not filed twice. `POST /api/mail/inbound` still accepts a pushed message. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
 

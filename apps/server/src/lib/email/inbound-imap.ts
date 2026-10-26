@@ -129,8 +129,7 @@ async function fileUnseen(
     recipients,
     sites,
   });
-  const { runWithSiteDatabase } = await import("../tenancy/provision.js");
-  await runWithSiteDatabase(siteId, () =>
+  await withPluginSite(siteId, () =>
     acceptInboundMessage({ from, to: recipients.join(", "), subject, text, siteId }),
   );
   await writeSeen(rootId, rememberMessage(seen, key));
@@ -161,7 +160,11 @@ async function claimSite(
   return claimed.length === 1 ? claimed[0]! : "";
 }
 
-/** Plugin rows and the route filter run as this site, including a subsite Helpdesk database. */
+/**
+ * Plugin rows, the route filter, and filing all run as this site.
+ * Helpdesk registers its mail handlers once, on the first site that activates it.
+ * Row calls follow the tenant site, so a reply is written into that site's tickets.
+ */
 async function withPluginSite<T>(siteId: string, fn: () => Promise<T>): Promise<T> {
   const { runWithSiteDatabase } = await import("../tenancy/provision.js");
   const { runWithTenant } = await import("../tenancy/context.js");
