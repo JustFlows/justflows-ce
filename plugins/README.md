@@ -15,8 +15,12 @@ plugins/
 ├── helpdesk/        First-party Helpdesk (tickets, portal, handover)
 ├── demo/            Demo sign-in and scheduled plugin reset
 ├── consent/         First-party Cookie Consent (banner, consent API, script/embed gating)
+├── quotes/          Shop quotes: a quote for this site's shop, which can become an order
+├── shared-files/    Private folders and upload requests for one user on this site
 └── acme-seo/        Your plugin (folder name is yours)
 ```
+
+`quotes/` is a Shop plugin. It cannot be installed until Shop is installed on this site. It is listed with the shop, adds a Shop quotes section to the core `/account` page, and asks Shop to open the order when a customer accepts. `shared-files/` is separate. Each one owns only its own rows and allows multisite. Payment links live in Shop, next to the payment gateway. See each plugin's README.
 
 `helpdesk/` is the first-party support desk ([#184](https://github.com/JustFlows/justflows-ce/issues/184)).
 It uses only `@justflows/sdk` and ships its own admin app. See [plugins/helpdesk/README.md](helpdesk/README.md).

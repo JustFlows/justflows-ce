@@ -497,8 +497,9 @@ generic plugin page for the menu item.
 ```
 
 `domain` is a left-sidebar group: `content`, `commerce`, `appearance`,
-`extensions` (default), `security`, or `system`. `commerce` stays hidden until
-a plugin contributes a page to it.
+`users`, `helpdesk`, `files`, `extensions` (default), `tools`, `security`, or
+`system`. A group with no pages stays hidden. `files` is the Shared files
+sidebar entry.
 
 **`path` is relative to your plugin's namespace `/admin/plugins/<your plugin
 id>`.** Omit it (or `""`) for the namespace root; otherwise a lowercase leaf
@@ -669,6 +670,8 @@ unique index that existing rows violate fails the call (`ok: false`) instead
 of being skipped. Backfills and other data changes are the plugin's own
 ordered migrations; Shop's `src/setup/migrations.ts` is an example that
 records each one in a plugin table and uses a unique row as its lock.
+
+Set `"requires": ["justflows.shop"]` when this plugin cannot stand alone. Install is refused until each listed plugin is already installed on this site. Activation is refused until each one is active. A plugin cannot list itself.
 
 Set `"allowMultisite": true` in `justflows.json` when every row is stored with
 `site_id` and another site can run the plugin without touching anyone else's

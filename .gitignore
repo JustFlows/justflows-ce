@@ -43,6 +43,7 @@ uploads/
 # Runtime copies of installed plugins. Source plugins in this repo stay tracked.
 plugins/*
 !plugins/README.md
+!plugins/hello-world
 themes/*
 !themes/README.md
 packages-installed/

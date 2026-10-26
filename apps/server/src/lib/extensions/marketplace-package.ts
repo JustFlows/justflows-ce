@@ -189,7 +189,7 @@ export async function installMarketplacePackage(options: {
     // Themes are shared between sites: a reinstall must never replace files
     // another site is using.
     immutable: type === "theme",
-    verify: (manifest, resultDigest) => {
+    verify: async (manifest, resultDigest) => {
       if (manifest.type !== type) {
         throw new Error(`Package type mismatch (expected ${type})`);
       }
@@ -199,6 +199,10 @@ export async function installMarketplacePackage(options: {
       assertPackageIsTrusted(manifest as unknown as Record<string, unknown>, resultDigest, {
         marketplaceSignature: signature || undefined,
       });
+      if (type !== "plugin" || !siteId) return;
+      const { pluginRequirementError } = await import("../plugins/plugin-requirements.js");
+      const requirement = await pluginRequirementError(siteId, manifest, "install");
+      if (requirement) throw new Error(requirement);
     },
   });
 }
