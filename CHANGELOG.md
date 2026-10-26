@@ -9,6 +9,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Helpdesk sensitive replies.** On a ticket, staff can mark a reply or a file as sensitive. The text is encrypted, the customer email does not include it, and Reveal opens it for staff who are allowed. Each reveal is recorded. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
+
 - **Helpdesk database.** When Helpdesk is installed, the main site chooses the current Justflows database or a separate PostgreSQL, MySQL, or MariaDB database. Database can later move the records: Helpdesk backs them up, creates its tables in the new database, restores and checks every table, and switches only when that matches. The old copy stays, and a destination that already has different records is left unchanged. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
 
 - **Helpdesk shows Shop orders from the other sites in the workspace.** On a ticket, staff see that customer's orders from every active site in the same workspace, including a shop that lives on another hostname. The order stays on the site that took it, and the support site lists its number, status, total, and items. Opening the order in Shop still happens on the site that owns it. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))

@@ -1,6 +1,6 @@
 {
   "name": "justflows",
-  "version": "0.3.6-prod.21",
+  "version": "0.3.6-prod.22",
   "private": false,
   "description": "The open-source platform for building the web",
   "license": "MIT",
@@ -23,6 +23,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "test": "turbo run test",
+    "test:security": "vitest run apps/server/tests/unit/security apps/server/tests/unit/auth apps/server/tests/unit/account/plugin-api-csrf apps/server/tests/unit/media/upload- apps/server/tests/unit/ai/safe-fetch apps/server/tests/integration/middleware/api-key-auth apps/server/tests/integration/routes/auth apps/server/tests/integration/routes/system/install-rate-limit packages/installer/tests/unit/archive-safety packages/blocks/tests/unit/sanitize-document packages/blocks/tests/unit/safe-url packages/sdk/tests/unit/capabilities packages/plugin-api/tests/unit/capability-registry",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
