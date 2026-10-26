@@ -25,6 +25,15 @@ describe("inbound mail routing", () => {
     })).toBe("support");
   });
 
+  it("files a reply on the mailbox owner when that site owns the token", () => {
+    expect(chooseInboundSite({
+      mailboxSiteId: "root",
+      claimedSiteId: "root",
+      recipients: ["support@example.test"],
+      sites,
+    })).toBe("root");
+  });
+
   it("files an unclaimed message on the one site whose address it was sent to", () => {
     expect(chooseInboundSite({
       mailboxSiteId: "root",

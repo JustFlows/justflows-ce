@@ -9,6 +9,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Incoming mail routing.** A reply is added to the existing ticket on the one site whose ticket carries the reply token in the subject, `[SUP-9-replytoken]`. The ticket number alone is not enough, because another site can use the same number. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
+
 - **Incoming mail.** Settings → General can read an IMAP mailbox. The main site, and a website whose plan allows its own mail settings, each use their own mailbox. A website without that permission is read from the main site's mailbox, and while that mailbox is on, its replies are sent there. A message is filed on the site that claims it, otherwise on the one site whose address it was sent to. The same message is not filed twice. `POST /api/mail/inbound` still accepts a pushed message. ([#184](https://github.com/JustFlows/justflows-ce/issues/184))
 
 - **SDK: network-wide plugin hooks.** A plugin with the new `platform:network` permission can register a hook with `{ network: true }`. That handler then runs on every site while the plugin is active on the main site, also on sites that never activated it; the plugin's other hooks, routes, and jobs stay per site. `ctx.network.mainSiteSettings.get()` reads the plugin's main-site settings from any site, and `ctx.network.sites()` lists every site from the main site. Files those hooks load from `/ext/<plugin id>/` are served on every site. A route can return `revalidate: "network"` to drop every site's page cache. SDK 0.1.7. No matching Public Roadmap issue currently exists.

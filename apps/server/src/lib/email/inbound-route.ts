@@ -12,8 +12,9 @@ export function normalizeMailAddress(value: string): string {
 
 /**
  * The site a polled message belongs to.
- * A claim from a plugin wins. Otherwise one other site's address in the
- * recipients wins. Two matches, or none, stay on the mailbox owner.
+ * One site claiming the reply token wins, including the mailbox owner.
+ * Otherwise one other site's address in the recipients wins. Two matches,
+ * or none, stay on the mailbox owner.
  */
 export function chooseInboundSite(input: {
   mailboxSiteId: string;
@@ -24,7 +25,7 @@ export function chooseInboundSite(input: {
   const known = new Set(input.sites.map((site) => site.id));
   known.add(input.mailboxSiteId);
   const claimed = (input.claimedSiteId ?? "").trim();
-  if (claimed && known.has(claimed) && claimed !== input.mailboxSiteId) return claimed;
+  if (claimed && known.has(claimed)) return claimed;
   const recipients = new Set(
     input.recipients.map(normalizeMailAddress).filter((value) => value.includes("@")),
   );

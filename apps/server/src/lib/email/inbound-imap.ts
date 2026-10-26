@@ -122,15 +122,14 @@ async function fileUnseen(
     await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true }).catch(() => undefined);
     return false;
   }
-  const claimed = await claimSite(mailboxSiteId, sites, { from, to: recipients[0] ?? "", subject, text });
+  const claimed = await claimSite(sites, { from, to: recipients[0] ?? "", subject, text });
   const siteId = chooseInboundSite({
     mailboxSiteId,
     claimedSiteId: claimed,
     recipients,
     sites,
   });
-  const { runWithSiteDatabase } = await import("../tenancy/provision.js");
-  await runWithSiteDatabase(siteId, () =>
+  await withPluginSite(siteId, () =>
     acceptInboundMessage({ from, to: recipients.join(", "), subject, text, siteId }),
   );
   await writeSeen(rootId, rememberMessage(seen, key));
@@ -139,20 +138,18 @@ async function fileUnseen(
 }
 
 async function claimSite(
-  mailboxSiteId: string,
   sites: InboundSiteAddress[],
   message: { from: string; to: string; subject: string; text: string },
 ): Promise<string> {
   const { getRuntimeHooks } = await import("../plugins/plugin-runtime.js");
-  const { runWithSiteDatabase } = await import("../tenancy/provision.js");
   const hooks = getRuntimeHooks();
+  const claimed: string[] = [];
   for (const site of sites) {
-    if (site.id === mailboxSiteId) continue;
     try {
-      const claimed = await runWithSiteDatabase(site.id, () =>
-        hooks.applyFilter("email.route", mailboxSiteId, { ...message, siteId: site.id }, { siteId: site.id, source: "job" }),
+      const siteId = await withPluginSite(site.id, () =>
+        hooks.applyFilter("email.route", "", { ...message, siteId: site.id }, { siteId: site.id, source: "job" }),
       );
-      if (claimed === site.id) return site.id;
+      if (siteId === site.id) claimed.push(site.id);
     } catch (error) {
       console.error(
         "Inbound mail route failed:",
@@ -160,7 +157,44 @@ async function claimSite(
       );
     }
   }
-  return mailboxSiteId;
+  return claimed.length === 1 ? claimed[0]! : "";
+}
+
+/**
+ * Plugin rows, the route filter, and filing all run as this site.
+ * Helpdesk registers its mail handlers once, on the first site that activates it.
+ * Row calls follow the tenant site, so a reply is written into that site's tickets.
+ */
+async function withPluginSite<T>(siteId: string, fn: () => Promise<T>): Promise<T> {
+  const { runWithSiteDatabase } = await import("../tenancy/provision.js");
+  const { runWithTenant } = await import("../tenancy/context.js");
+  const { getControlDb, getDb } = await import("../database/db.js");
+  const { installationRootSiteId } = await import("../tenancy/registry.js");
+  return runWithSiteDatabase(siteId, async () => {
+    const control = await getControlDb();
+    const rows = await control.query<{ tenant_id: string; user_mode: string; database_mode: string; hostname: string | null }>(
+      `SELECT s.tenant_id, t.user_mode, t.database_mode, d.hostname
+       FROM sites s JOIN tenants t ON t.id = s.tenant_id
+       LEFT JOIN site_domains d ON d.site_id = s.id AND d.is_primary = ?
+       WHERE s.id = ? LIMIT 1`,
+      [true, siteId],
+    ).catch(() => []);
+    const row = rows[0];
+    const plugins = await (await getDb()).query<{ plugin_id: string }>(
+      "SELECT plugin_id FROM plugins WHERE site_id = ? AND status = 'active'",
+      [siteId],
+    ).catch(() => null);
+    const root = await installationRootSiteId().catch(() => null);
+    return runWithTenant({
+      tenantId: row ? String(row.tenant_id) : "",
+      siteId,
+      hostname: row?.hostname ? String(row.hostname) : "",
+      userMode: row?.user_mode === "shared" ? "shared" : "isolated",
+      databaseMode: row?.database_mode === "separate" ? "separate" : "current",
+      rootSite: root === null || root === siteId,
+      activePluginIds: plugins ? new Set(plugins.map((plugin) => String(plugin.plugin_id))) : null,
+    }, fn);
+  });
 }
 
 function addressList(value: { value?: Array<{ address?: string }> } | { value?: Array<{ address?: string }> }[] | undefined): string[] {
