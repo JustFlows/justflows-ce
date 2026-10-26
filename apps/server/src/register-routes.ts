@@ -53,6 +53,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startExtensionAutoUpdateJob();
     const { startTrashPurgeJob } = await import("./lib/content/trash.js");
     startTrashPurgeJob();
+    const { startInboundMailJob } = await import("./lib/email/inbound-imap.js");
+    startInboundMailJob();
     const { startDeletedSitePurgeJob } = await import("./lib/tenancy/purge-deleted-job.js");
     startDeletedSitePurgeJob();
     const { startCommentSpamPurgeJob } = await import("./lib/comments/comments-spam-purge.js");

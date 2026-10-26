@@ -83,6 +83,21 @@ describe("sub-site mail delivery", () => {
     expect((await deliveryMailConfig("site-b")).config.fromAddress).toBe("admin@platform.test");
   });
 
+  it("sends replies to the platform mailbox once that mailbox is being read", async () => {
+    state.ownMail = false;
+    state.settings.set("root:mail", {
+      transport: "smtp",
+      smtpHost: "localhost",
+      smtpPort: 587,
+      fromAddress: "noreply@platform.test",
+      imapEnabled: true,
+      imapHost: "imap.platform.test",
+      imapUser: "noreply@platform.test",
+    });
+    const resolved = await deliveryMailConfig("site-b");
+    expect(resolved.config.replyTo).toBe("noreply@platform.test");
+  });
+
   it("leaves the root site on its own settings, sendmail included", async () => {
     state.settings.set("root:mail", { transport: "sendmail" });
     const resolved = await deliveryMailConfig("root");
