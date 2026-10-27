@@ -9,6 +9,7 @@ import {
   PackageRejectedError,
   resolveWithinDir,
   verifyDigest,
+  verifyPackageSignature,
 } from "./archive-safety.js";
 import { extractJfpkg } from "./extract-jfpkg.js";
 import semver from "semver";
@@ -20,6 +21,10 @@ export interface InstallOptions {
   packagesDir: string;
   /** If provided, verify the archive against this SHA-256 digest */
   expectedDigest?: string;
+  /** Detached signature from `signPackage`, checked against `publicKey` before extract. */
+  signature?: string;
+  /** PEM public key. With `signature`, an invalid signature is refused. */
+  publicKey?: string;
   source?: InstallSource;
   /** Skip signature verification in dev mode */
   skipVerification?: boolean;
@@ -96,6 +101,11 @@ export class PackageInstaller {
     }
 
     const digest = computeDigest(archiveBuffer);
+    if (options.publicKey && !options.skipVerification) {
+      if (!options.signature || !verifyPackageSignature(archiveBuffer, options.signature, options.publicKey)) {
+        throw new PackageRejectedError("Package signature is missing or does not match the trusted key");
+      }
+    }
     if (options.expectedDigest && !options.skipVerification) {
       verifyDigest(archiveBuffer, options.expectedDigest);
     }

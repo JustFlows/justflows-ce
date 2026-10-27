@@ -38,68 +38,11 @@ export const CORE_COOKIES: CookieDeclaration[] = [
 ];
 
 /**
- * Cookies the Google tag (gtag.js / GA4 / Google Ads) drops from its own
- * client-side script. The host injects that tag natively when a tag ID is
- * configured in the Analytics plugin — so the host, not the plugin, declares
- * the cookies it causes. The consent plugin gates the tag behind the analytics
- * category and expires these when it is withdrawn.
+ * Every cookie the host itself sets. Cookies a plugin's markup causes (a
+ * measurement tag, an embed) are declared by that plugin.
  */
-export function googleTagCookies(tagId: string): CookieDeclaration[] {
-  const id = tagId.toUpperCase();
-  const analytics: CookieDeclaration[] = [
-    {
-      name: "_ga",
-      category: "analytics",
-      provider: "Google",
-      purpose: "Google Analytics — distinguishes visitors.",
-      duration: "2 years",
-    },
-    {
-      name: "_ga_*",
-      category: "analytics",
-      provider: "Google",
-      purpose: "Google Analytics — persists session state.",
-      duration: "2 years",
-    },
-    {
-      name: "_gid",
-      category: "analytics",
-      provider: "Google",
-      purpose: "Google Analytics — distinguishes visitors.",
-      duration: "24 hours",
-    },
-    {
-      name: "_gat_*",
-      category: "analytics",
-      provider: "Google",
-      purpose: "Google Analytics — throttles the request rate.",
-      duration: "1 minute",
-    },
-  ];
-  // Google Ads / DoubleClick conversion linker.
-  if (id.startsWith("AW-") || id.startsWith("DC-") || id.startsWith("GTM-")) {
-    analytics.push({
-      name: "_gcl_au",
-      category: "marketing",
-      provider: "Google",
-      purpose: "Google Ads — stores and tracks ad-conversion attribution.",
-      duration: "3 months",
-    });
-  }
-  return analytics;
-}
-
-/** Every cookie the host itself is responsible for, given the live config. */
 export async function getCoreCookies(): Promise<CookieDeclaration[]> {
-  const cookies = [...CORE_COOKIES];
-  try {
-    const { getConfiguredGoogleTagId } = await import("../rendering/analytics-public.js");
-    const tagId = await getConfiguredGoogleTagId();
-    if (tagId) cookies.push(...googleTagCookies(tagId));
-  } catch {
-    /* analytics module unavailable — core cookies only */
-  }
-  return cookies;
+  return [...CORE_COOKIES];
 }
 
 export async function getCookieOverrides(siteId: string): Promise<Record<string, CookieCategory>> {

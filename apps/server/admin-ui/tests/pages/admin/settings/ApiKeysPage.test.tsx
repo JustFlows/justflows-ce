@@ -7,12 +7,18 @@ vi.mock("../../../../src/i18n/I18nProvider", () => ({
   useT: () => ({ t: (key: string) => key }),
 }));
 
+let disabledFeatures: string[] = [];
+vi.mock("../../../../src/components/SessionProvider", () => ({
+  useFeatureEnabled: (key: string) => !disabledFeatures.includes(key),
+}));
+
 const calls: { url: string; method: string; body: unknown }[] = [];
 let manageEnabled = false;
 
 beforeEach(() => {
   calls.length = 0;
   manageEnabled = false;
+  disabledFeatures = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -145,6 +151,15 @@ describe("ApiKeysPage", () => {
     // MCP needs the management API too: until it is on, no key can be made here.
     expect(screen.getByRole("button", { name: "ai.connect.createKey" })).toBeDisabled();
     expect(screen.getByText("ai.connect.needsManageApi")).toBeInTheDocument();
+  });
+
+  it("hides MCP setup and connected apps when the plan turns MCP off", async () => {
+    disabledFeatures = ["feature.mcp"];
+    render(<ApiKeysPage />);
+    await screen.findByRole("heading", { name: "apiKeys.title" });
+    expect(screen.queryByText("ai.connect.mcpTitle")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ai.apps.revoke" })).not.toBeInTheDocument();
+    expect(calls.some((call) => call.url.includes("/api/ai/settings"))).toBe(false);
   });
 
   it("creates a preset key for the chosen client once MCP and the management API are on", async () => {

@@ -29,6 +29,7 @@ export const SITE_FEATURES: readonly SiteFeature[] = [
   { key: "feature.webhooks", paths: ["/admin/webhooks"] },
   { key: "feature.api", paths: ["/admin/settings/api"] },
   { key: "feature.ai", paths: ["/admin/settings/ai"] },
+  { key: "feature.mcp", paths: [] },
   { key: "feature.cdn", paths: ["/admin/settings/cdn"] },
   { key: "feature.trash", paths: ["/admin/trash"] },
   { key: "feature.tools", paths: ["/admin/tools"] },

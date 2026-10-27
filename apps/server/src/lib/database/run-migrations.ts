@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { migrationsDir } from "../runtime/jf-root.js";
 
-export const MIGRATION_ORDER = ["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion"] as const;
+export const MIGRATION_ORDER = ["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings"] as const;
 
 export type DbDriver = "postgres" | "mysql" | "mariadb";
 
@@ -45,13 +45,47 @@ const NAMED_LOCK_TIMEOUT_SECONDS = 60;
 
 /** Split SQL into independently executable statements. */
 export function splitSqlStatements(ddl: string, _driver: DbDriver): string[] {
-  const withoutLineComments = ddl
-    .split("\n")
-    .filter((line) => !line.trim().startsWith("--"))
-    .join("\n");
+  const statements: string[] = [];
+  let statement = "";
+  let quote = "";
+  let commentDepth = 0;
+  for (let i = 0; i < ddl.length; i++) {
+    const char = ddl[i]!;
+    const next = ddl[i + 1];
+    if (commentDepth) {
+      if (char === "/" && next === "*") { commentDepth++; i++; }
+      else if (char === "*" && next === "/") { commentDepth--; i++; }
+      continue;
+    }
+    if (quote) {
+      statement += char;
+      if (char === quote) {
+        if (next === quote) { statement += next; i++; }
+        else quote = "";
+      }
+      continue;
+    }
+    if (char === "'" || char === '"' || char === "`") {
+      quote = char;
+      statement += char;
+    } else if (char === "/" && next === "*") {
+      commentDepth = 1;
+      statement += " ";
+      i++;
+    } else if (char === "-" && next === "-") {
+      while (i + 1 < ddl.length && ddl[i + 1] !== "\n") i++;
+      statement += "\n";
+    } else if (char === ";") {
+      statements.push(statement);
+      statement = "";
+    } else {
+      statement += char;
+    }
+  }
+  if (commentDepth) throw new Error("Unterminated SQL block comment in migration");
+  statements.push(statement);
 
-  return withoutLineComments
-    .split(";")
+  return statements
     .map((s) => s.trim())
     .filter((s) => {
       if (!s) return false;

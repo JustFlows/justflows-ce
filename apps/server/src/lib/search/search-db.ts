@@ -5,6 +5,7 @@ import { z } from "zod";
 import { extractPlainText } from "@justflows/blocks";
 import { searchTokens, searchHighlight, type SearchQuery } from "@justflows/content";
 import type { SearchBackend, SearchDocument } from "@justflows/sdk";
+import { getContentTypeSettingsMap } from "../content/content-types-db.js";
 import { getDb } from "../database/db.js";
 import { registerCoreJob } from "../jobs/core-jobs.js";
 import { getRuntimeHooks } from "../plugins/plugin-runtime.js";
@@ -35,7 +36,13 @@ export async function getSearchSettings(siteId: string) {
   const publicTypes = (Array.isArray(contributed) ? contributed : settings.publicTypes)
     .filter((slug): slug is string => typeof slug === "string" && /^[a-z0-9][a-z0-9-]*$/.test(slug))
     .slice(0, 100);
-  return { ...settings, publicTypes };
+  const types = await getContentTypeSettingsMap(siteId);
+  const selected = new Set(publicTypes);
+  for (const [slug, type] of types) {
+    if (type.search === true) selected.add(slug);
+    if (type.search === false) selected.delete(slug);
+  }
+  return { ...settings, publicTypes: [...selected].filter(slug => contentTypePolicy(slug).publiclyDiscoverable) };
 }
 export async function saveSearchSettings(siteId: string, value: unknown) {
   const settings = SearchSettingsSchema.parse(value);

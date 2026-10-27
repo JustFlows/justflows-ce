@@ -13,6 +13,7 @@ User-visible work must cite the matching [Public Roadmap](https://github.com/org
 
 ## Repository invariants
 
+- For new or modified comments, use JSDoc-style block comments (`/** ... */`) above the relevant declaration or code instead of inline or trailing `//` comments. Preserve required license headers and tool directives. This applies going forward; do not refactor existing comments solely to change their style.
 - This is a pnpm/Turborepo TypeScript monorepo. Use pnpm and workspace filters; do not introduce a second package-management path.
 - Keep `packages/core` independent of Express, React, and EJS. Framework integration belongs in `apps/server`.
 - Treat `packages/sdk` as a stable public contract. Coordinate compatible changes through the SDK, plugin runtime, example extension, and tests.

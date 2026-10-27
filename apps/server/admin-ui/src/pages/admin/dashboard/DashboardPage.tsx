@@ -1,3 +1,5 @@
+import { useContentTypeMenu } from "../../../components/PluginMenuProvider";
+import { contentTypeQuickActions } from "../../../lib/content-type-navigation";
 import { Link } from "../../../admin-router";
 import { canAccessPath } from "../../../config/admin-nav";
 import { useSessionRole } from "@components/SessionProvider";
@@ -15,6 +17,8 @@ const tiles = [
 
 export default function AdminDashboard() {
   const role = useSessionRole();
+  const contentTypes = useContentTypeMenu();
+  const quickActions = contentTypeQuickActions(contentTypes);
   const { t } = useT();
   const welcome = useDashboardWelcome();
   const visibleTiles = tiles.filter((tile) => role === null || canAccessPath(role, tile.href));
@@ -27,8 +31,7 @@ export default function AdminDashboard() {
           <p>{t("dashboard.subtitle")}</p>
         </div>
         <div className="jf-pagehead__actions">
-          <Link className="jf-btn jf-btn--ghost" to="/admin/content/new?type=page">{t("dashboard.newPage")}</Link>
-          <Link className="jf-btn jf-btn--primary" to="/admin/content/new?type=post">{t("dashboard.newPost")}</Link>
+          {quickActions.map(type => <Link key={type.slug} className="jf-btn jf-btn--primary" to={`/admin/content/new?type=${encodeURIComponent(type.slug)}`}>{t("contentTypes.newEntry", { label: type.label })}</Link>)}
         </div>
       </header>
 

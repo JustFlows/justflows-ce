@@ -8,9 +8,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 let allowBeta: boolean | null = null;
 let listingRegistry: Record<string, unknown> = {};
 const upstreamCalls: string[] = [];
+let disabledFeatures: string[] = [];
 
-// Site feature switches live in the control database; keep the feature on here.
-vi.mock("../../../../src/lib/tenancy/site-features.js", () => ({ siteFeatureEnabled: async () => true }));
+// Site feature switches live in the control database; stub them per test.
+vi.mock("../../../../src/lib/tenancy/site-features.js", () => ({
+  siteFeatureEnabled: async (key: string) => !disabledFeatures.includes(key),
+}));
 vi.mock("../../../../src/middleware/auth.js", () => ({
   requireRole: () => (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     (req as unknown as { session: { siteId: string } }).session = { siteId: "site-1" };
@@ -49,13 +52,14 @@ beforeEach(() => {
   allowBeta = null;
   listingRegistry = { listed: true, free: true, beta: true };
   upstreamCalls.length = 0;
+  disabledFeatures = [];
 });
 
-function install() {
+function install(type: "plugin" | "theme" = "plugin") {
   return realFetch(`${base}/api/marketplace/install`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ type: "plugin", id: "acme.beta", version: "0.1.0" }),
+    body: JSON.stringify({ type, id: "acme.beta", version: "0.1.0" }),
   });
 }
 
@@ -85,6 +89,16 @@ describe("POST /api/marketplace/install beta gate", () => {
   it("does not gate stable listings", async () => {
     listingRegistry = { listed: true, free: true };
     await install();
+    expect(downloaded()).toBe(true);
+  });
+});
+
+describe("POST /api/marketplace/install theme upload switch", () => {
+  it("still installs a marketplace theme when theme upload is turned off", async () => {
+    disabledFeatures = ["feature.themeUpload"];
+    listingRegistry = { listed: true, free: true };
+    const res = await install("theme");
+    expect(res.status).not.toBe(403);
     expect(downloaded()).toBe(true);
   });
 });

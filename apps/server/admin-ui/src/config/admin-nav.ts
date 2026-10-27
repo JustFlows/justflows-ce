@@ -130,7 +130,7 @@ export const ADMIN_DASHBOARD: NavItem = {
 };
 
 /**
- * Pages the core always ships. Plugin pages (Analytics, Forms, …) are not
+ * Pages the core always ships. Plugin pages (Forms, Helpdesk, …) are not
  * listed here — they come from `/api/plugins/admin-menu` and only exist while
  * the plugin that owns them is installed.
  */
@@ -175,6 +175,26 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     slug: "users",
     icon: "👤",
     items: [{ key: "nav.users", to: "/admin/users", icon: "👤" }],
+  },
+  {
+    /**
+     * Helpdesk's own sidebar entry. It stays empty until the plugin is active,
+     * and one listed page means the sidebar links straight there with no top bar.
+     */
+    key: "nav.domains.helpdesk",
+    slug: "helpdesk",
+    icon: "💬",
+    items: [],
+  },
+  {
+    /**
+     * Shared files' own sidebar entry. It stays empty until the plugin is
+     * active, and one listed page means the sidebar links straight there.
+     */
+    key: "nav.domains.files",
+    slug: "files",
+    icon: "📁",
+    items: [],
   },
   {
     key: "nav.domains.extensions",
@@ -378,7 +398,7 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/settings/pwa": ["administrator"],
   "/admin/settings/placeholders": ["administrator"],
   "/admin/redirects": ["administrator"],
-  "/admin/plugins/justflows.analytics": ["administrator", "editor"],
+  "/admin/plugins/justflows.helpdesk": ["administrator", "editor", "support-agent"],
   // Consent and Forms sat at their own top-level paths with no rule (visible to
   // every admin role); keep that now that they live under /admin/plugins/ and
   // would otherwise inherit its administrator/editor rule by prefix.

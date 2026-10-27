@@ -53,6 +53,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startExtensionAutoUpdateJob();
     const { startTrashPurgeJob } = await import("./lib/content/trash.js");
     startTrashPurgeJob();
+    const { startInboundMailJob } = await import("./lib/email/inbound-imap.js");
+    startInboundMailJob();
     const { startDeletedSitePurgeJob } = await import("./lib/tenancy/purge-deleted-job.js");
     startDeletedSitePurgeJob();
     const { startCommentSpamPurgeJob } = await import("./lib/comments/comments-spam-purge.js");
@@ -120,12 +122,11 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: cacheRoutes },
     { default: performanceRoutes },
     { default: importRoutes },
-    { default: siteRoutes, serveThemeCss },
+    { default: siteRoutes, serveThemeCss, serveThemeScripts },
     { default: publicSiteRoutes, sendPublicNotFound, sendPublicRateLimited },
     { default: languagesRoutes },
     { default: menusRoutes },
     { default: blocksRoutes },
-    { default: analyticsRoutes },
     { default: contentTypesRoutes },
     { default: reusableBlocksRoutes, templatePartsRouter },
     { default: siteHeaderRoutes },
@@ -167,7 +168,6 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/settings/languages.js"),
     import("./routes/design/menus.js"),
     import("./routes/content/blocks.js"),
-    import("./routes/system/analytics.js"),
     import("./routes/content/content-types.js"),
     import("./routes/content/reusable-blocks.js"),
     import("./routes/design/site-header.js"),
@@ -215,6 +215,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   });
   app.use("/api/settings", requireInstalled, settingsRoutes);
   app.use("/api/emails", requireInstalled, requireSiteFeature("feature.emails"), emailsRoutes);
+  app.use("/api/mail", requireInstalled, (await import("./routes/public/inbound-mail.js")).default);
   app.use("/api/security", requireInstalled, securityRoutes);
   app.use("/api/themes", requireInstalled, themesRoutes);
   app.use("/api/css-providers", requireInstalled, requireSiteFeature("feature.design"), cssProvidersRoutes);
@@ -238,7 +239,6 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/patterns", requireInstalled, patternsRoutes);
   app.use("/api/headers", requireInstalled, siteHeaderRoutes);
   app.use("/api/blocks", requireInstalled, blocksRoutes);
-  app.use("/api/analytics", requireInstalled, analyticsRoutes);
   app.use("/api/content-types", requireInstalled, contentTypesRoutes);
   app.use("/api/taxonomies", requireInstalled, (await import("./routes/content/taxonomies.js")).default);
   app.use("/api/audit", requireInstalled, auditRoutes);
@@ -272,7 +272,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // switch and rate limits), the cookie-authenticated assistant, provider and
   // consent APIs, and the OAuth 2.1 authorization server at the site root.
   app.use("/api/mcp", requireInstalled, (await import("./routes/ai/mcp.js")).default);
-  app.use("/api/ai", requireInstalled, requireSiteFeature("feature.ai"), (await import("./routes/ai/ai.js")).default);
+  app.use("/api/ai", requireInstalled, (await import("./routes/ai/ai.js")).default);
   app.use("/api/oauth", requireInstalled, (await import("./routes/ai/oauth-consent.js")).default);
   // Root-level paths (/.well-known/oauth-*, /oauth/*); every handler answers
   // 404 unless the site is installed and MCP is on (isMcpEnabled fails closed).
@@ -287,6 +287,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/v1", publicApiRoutes);
   app.use("/api/site", siteRoutes);
   app.get("/theme.css", serveThemeCss);
+  app.get("/theme.js", rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: "draft-8", legacyHeaders: false }), serveThemeScripts);
 
   // A statically-exported page submits forms/comments by `fetch()` back to this
   // origin. Answer the CORS preflight for vouched-for origins so that works.
@@ -365,62 +366,6 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       console.error("[justflows] comment submission failed:", err);
       res.status(500).type("text/plain").send("Internal server error");
     }
-  });
-
-  // Client pageview beacon — a statically-exported page fires this on load so
-  // the first-party analytics counter still works with no server render.
-  const SAFE_BEACON_PATH = /^\/[^\s?#]{0,512}$/;
-  app.options("/justflows-analytics/collect", submitPreflight);
-  app.post("/justflows-analytics/collect", requireInstalled, async (req, res) => {
-    applyFormCors(req.get("origin"), (n, v) => res.setHeader(n, v));
-    try {
-      // Only count a beacon from the site's own origin or a vouched-for export
-      // origin. A cross-origin `fetch` from an unrelated page still carries an
-      // `Origin` header; drop those so a third-party site cannot inflate this
-      // site's pageview / referrer counters. (A non-browser client that omits
-      // Origin is still rate-limited below.)
-      const beaconOrigin = req.get("origin");
-      if (beaconOrigin) {
-        const { isAllowedFormOrigin } = await import("./lib/static-export/cors.js");
-        const self = `${req.protocol}://${req.get("host") ?? ""}`.toLowerCase();
-        if (beaconOrigin.toLowerCase() !== self && !isAllowedFormOrigin(beaconOrigin)) {
-          res.status(204).end();
-          return;
-        }
-      }
-      const { clientIp, consumeRateLimit } = await import("./lib/security/rate-limit.js");
-      if (!consumeRateLimit(`beacon:ip:${clientIp(req)}`, 120, 60_000)) {
-        res.status(204).end();
-        return;
-      }
-      const body = (req.body ?? {}) as { path?: unknown; ref?: unknown };
-      let path = typeof body.path === "string" ? body.path : "";
-      if (!SAFE_BEACON_PATH.test(path) || path.includes("..")) {
-        try {
-          path = new URL(req.get("referer") ?? "").pathname;
-        } catch {
-          path = "";
-        }
-      }
-      if (SAFE_BEACON_PATH.test(path) && !path.includes("..")) {
-        // `ref` is the visitor's document.referrer sent by the beacon (the HTTP
-        // Referer header is just the page itself on a cross-origin fetch).
-        const ref =
-          typeof body.ref === "string" && body.ref.length <= 2048 && /^https?:\/\//i.test(body.ref)
-            ? body.ref
-            : undefined;
-        const { recordBeaconPageview } = await import("./lib/rendering/analytics-public.js");
-        await recordBeaconPageview({
-          path,
-          userAgent: String(req.headers["user-agent"] ?? ""),
-          referer: ref,
-          host: req.get("host") ?? undefined,
-        });
-      }
-    } catch (err) {
-      console.error("[justflows] analytics beacon failed:", err);
-    }
-    res.status(204).end();
   });
 
   app.get("/justflows-comments/unsubscribe", requireInstalled, async (req, res) => {

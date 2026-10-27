@@ -86,6 +86,14 @@ type GeneralState = {
   smtpUser: string;
   smtpPass: string;
   smtpPassSet: boolean;
+  imapEnabled: boolean;
+  imapHost: string;
+  imapPort: string;
+  imapSecure: "none" | "starttls" | "ssl";
+  imapUser: string;
+  imapPass: string;
+  imapPassSet: boolean;
+  imapMailbox: string;
   mailRateLimit: string;
   mailConcurrency: string;
   faviconUrl: string;
@@ -119,6 +127,14 @@ const EMPTY: GeneralState = {
   smtpUser: "",
   smtpPass: "",
   smtpPassSet: false,
+  imapEnabled: false,
+  imapHost: "",
+  imapPort: "993",
+  imapSecure: "ssl",
+  imapUser: "",
+  imapPass: "",
+  imapPassSet: false,
+  imapMailbox: "INBOX",
   mailRateLimit: "60",
   mailConcurrency: "5",
   faviconUrl: "",
@@ -165,6 +181,14 @@ function generalFromPayload(data: SettingsPayload, fallbackName: string): Genera
     smtpUser: typeof data.smtp_user === "string" ? data.smtp_user : "",
     smtpPass: "",
     smtpPassSet: data.smtp_pass_set === true,
+    imapEnabled: data.imap_enabled === true,
+    imapHost: typeof data.imap_host === "string" ? data.imap_host : "",
+    imapPort: String(data.imap_port ?? 993),
+    imapSecure: data.imap_secure === "starttls" || data.imap_secure === "none" ? data.imap_secure : "ssl",
+    imapUser: typeof data.imap_user === "string" ? data.imap_user : "",
+    imapPass: "",
+    imapPassSet: data.imap_pass_set === true,
+    imapMailbox: typeof data.imap_mailbox === "string" && data.imap_mailbox ? data.imap_mailbox : "INBOX",
     mailRateLimit: String(data.mail_rate_limit ?? 60),
     mailConcurrency: String(data.mail_concurrency ?? 5),
     faviconUrl: typeof data.favicon_url === "string" ? data.favicon_url : "",
@@ -360,6 +384,13 @@ export default function SettingsPage() {
                 smtp_secure: general.smtpSecure,
                 smtp_user: general.smtpUser,
                 ...(general.smtpPass ? { smtp_pass: general.smtpPass } : {}),
+                imap_enabled: general.imapEnabled,
+                imap_host: general.imapHost,
+                imap_port: Number(general.imapPort),
+                imap_secure: general.imapSecure,
+                imap_user: general.imapUser,
+                ...(general.imapPass ? { imap_pass: general.imapPass } : {}),
+                imap_mailbox: general.imapMailbox,
                 mail_rate_limit: Number(general.mailRateLimit),
                 mail_concurrency: Number(general.mailConcurrency),
               }),
@@ -374,7 +405,12 @@ export default function SettingsPage() {
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-      if (general.smtpPass) patch({ smtpPass: "", smtpPassSet: true });
+      if (general.smtpPass || general.imapPass) {
+        patch({
+          ...(general.smtpPass ? { smtpPass: "", smtpPassSet: true } : {}),
+          ...(general.imapPass ? { imapPass: "", imapPassSet: true } : {}),
+        });
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -709,6 +745,70 @@ export default function SettingsPage() {
                   placeholder={general.smtpPassSet ? t("settings.mail.passwordStoredPlaceholder") : ""}
                   onChange={(e) => patch({ smtpPass: e.target.value })}
                 />
+              </div>
+            </>
+          )}
+          <h3 className="jf-card__title" style={{ marginTop: "1rem" }}>{t("settings.mail.incomingTitle")}</h3>
+          <p className="jf-field__hint" style={{ marginTop: 0 }}>{t("settings.mail.incomingHint")}</p>
+          <label className="jf-checkrow">
+            <input
+              type="checkbox"
+              checked={general.imapEnabled}
+              onChange={(e) => patch({ imapEnabled: e.target.checked })}
+            />
+            <span>{t("settings.mail.incomingEnable")}</span>
+          </label>
+          {general.imapEnabled && (
+            <>
+              <div className="jf-grid jf-grid--2">
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-imap-host">{t("settings.mail.imapHostLabel")}</label>
+                  <input id="jf-imap-host" className="jf-input" value={general.imapHost} onChange={(e) => patch({ imapHost: e.target.value })} />
+                </div>
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-imap-port">{t("settings.mail.portLabel")}</label>
+                  <input id="jf-imap-port" className="jf-input" type="number" min={1} max={65535} value={general.imapPort} onChange={(e) => patch({ imapPort: e.target.value })} />
+                </div>
+              </div>
+              <div className="jf-grid jf-grid--2">
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-imap-secure">{t("settings.mail.encryptionLabel")}</label>
+                  <select
+                    id="jf-imap-secure"
+                    className="jf-input"
+                    value={general.imapSecure}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      patch({ imapSecure: value === "starttls" || value === "none" ? value : "ssl" });
+                    }}
+                  >
+                    <option value="ssl">{t("settings.mail.encryptionSsl")}</option>
+                    <option value="starttls">{t("settings.mail.encryptionStarttls")}</option>
+                    <option value="none">{t("settings.mail.encryptionNone")}</option>
+                  </select>
+                </div>
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-imap-mailbox">{t("settings.mail.imapMailboxLabel")}</label>
+                  <input id="jf-imap-mailbox" className="jf-input" value={general.imapMailbox} onChange={(e) => patch({ imapMailbox: e.target.value })} />
+                </div>
+              </div>
+              <div className="jf-grid jf-grid--2">
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-imap-user">{t("settings.mail.usernameLabel")}</label>
+                  <input id="jf-imap-user" className="jf-input" value={general.imapUser} autoComplete="off" onChange={(e) => patch({ imapUser: e.target.value })} />
+                </div>
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-imap-pass">{t("settings.mail.passwordLabel")}</label>
+                  <input
+                    id="jf-imap-pass"
+                    className="jf-input"
+                    type="password"
+                    value={general.imapPass}
+                    autoComplete="new-password"
+                    placeholder={general.imapPassSet ? t("settings.mail.passwordStoredPlaceholder") : ""}
+                    onChange={(e) => patch({ imapPass: e.target.value })}
+                  />
+                </div>
               </div>
             </>
           )}

@@ -351,6 +351,40 @@ value beats the theme's own `.jf-hero { background: … }`); `accent` writes
 /api/themes/style-tokens`), it lets one block override any theme variable the
 theme exposes, e.g. `{ "--brand-gradient": "linear-gradient(…)" }`.
 
+### Inspector visibility
+
+The page and theme builders share the same block inspector. Every core type has
+an explicit entry in `packages/blocks/src/inspector.ts`; adding a core block
+without reviewing its generic controls fails the coverage test. Plugins retain
+the defaults and can override them through their definition's `inspector`.
+
+| Core blocks (without `core.`) | Sidebar treatment |
+| --- | --- |
+| paragraph, heading, site-title, site-tagline | Text controls; hide box decoration, viewport sizing and unused accent. |
+| quote, link-list, html, group, column, cta, media-text, details, table-of-contents, content-query, search, account, auth-form | General box controls; hide unused accent. |
+| columns, grid, features, buttons, accordion, callout, tabs, navigation, breadcrumbs, social-links | Child layout controls; hide ineffective text alignment and accent. |
+| section, container, hero, cover, card | Hide generic fields duplicated by the block's own padding, width, alignment, height or decoration controls. |
+| image | Hide media-inapplicable fields; caption alignment and colour appear when there is a caption. |
+| video, audio, file | Keep figure/caption styling; hide misleading player sizing/decorations and unused accent. |
+| button, icon | Hide ineffective text alignment and viewport sizing; Icon uses its own size and colour. |
+| code, embed | Hide ineffective text alignment; Embed also hides inherited text colour. |
+| list, list-item | Numbered-list fields depend on list style; checkbox state depends on the list parent. Checklist accent belongs on the list. |
+| table, tab | Table uses its own cell alignment; Tab uses its parent's sizing and motion. |
+| site-logo | Logo width belongs to the image; hide text colour and viewport height controls on its wrapper. |
+| color-scheme, language-switcher, auth-links | Hide duplicate alignment and irrelevant height/accent; toggle variants and link visibility determine which labels/icons apply. |
+| divider, spacer, reusable | Minimal controls: Divider hides text/vertical-content styling, Spacer keeps Advanced, and Reusable has no generic presentation controls. |
+
+Theme controls show only variables curated for that block by the theme and
+existing overrides. A stored generic value remains editable even when its field
+would normally be hidden. Clearing it restores the clean panel. A saved theme
+variable does not reveal the entire token catalog. Conditional block fields use
+schema `showWhen` hints (for example, Cover playback controls require video).
+Switching a controlling choice never deletes the hidden values. Blocks whose
+schema owns `style` as a scalar value (such as the appearance widget variants)
+do not offer generic style or theme-variable controls: those would overwrite
+the variant. Their animation and Advanced controls remain available; existing
+object-shaped style overrides can still be cleared.
+
 A width also sets `margin-left/right: auto`, because a max-width says nothing
 about where the slack goes.
 
@@ -409,3 +443,72 @@ hides a pattern until its `requiresBlockTypes` are installed.
 `taxonomy`, `term`, `showFilters`, and `limit` props. It appears in the Site
 category and works in pages and site chrome. See [Search](SEARCH.md) for
 visibility, pagination, query behavior, and locale-aware rendering.
+
+### Video, Audio, and File
+
+The Media category includes `core.video`, `core.audio`, and `core.file`. Paste a
+site-relative or HTTPS media URL into the inspector and optionally add a caption.
+Video and Audio support controls (on by default), autoplay, muted playback, loop,
+and preload (`none`, `metadata`, or `auto`; default `metadata`). Browsers normally
+require muted playback for autoplay. Builder previews show controls and disable
+autoplay so media remains easy to inspect.
+
+Video also supports a poster image (with the image-library picker), inline
+playback, width and height (0 means automatic), and contain/cover/fill sizing.
+File supports a link label and a download toggle; when no label is supplied the
+filename is used. Browsers may open external files instead of downloading them.
+Unsafe media URLs are rejected during document sanitation and rendering.
+
+## Functional content and layout blocks
+
+These blocks have inspector controls and use the shared per-block spacing, size,
+colour, corners, shadow, custom CSS, and animation controls where supported by the
+platform. Container blocks hold ordinary editable child blocks.
+
+| Block | Configuration |
+| --- | --- |
+| `core.list` / `core.list-item` | Bullets, numbering, start number, reversed order, marker, gap, rich-text items, initial checklist state, nested lists. Checklist changes are local to the visitor and are not saved as submissions. |
+| `core.table` | Cell editor with row/column additions and removal, row ordering, caption, header/footer rows, stripes, borders, padding, alignment, equal column widths. Up to 100 rows and 20 columns. |
+| `core.details` | Summary, initial open state, marker, and child blocks. |
+| `core.accordion` | Details children, gap, and single-open or multiple-open behaviour. |
+| `core.cover` | Image/video URL, image alternative text, poster picker, focal point, minimum height, overlay colour/opacity, content position/alignment, video looping, play/pause labels, and child blocks. Videos have a pause control and pause for reduced motion. |
+| `core.media-text` | Image/video URL, alternative text, poster, media side/width, fit, gap, vertical alignment, mobile stacking, and child blocks. |
+| `core.buttons` | Button children, horizontal/vertical layout, alignment, gap, and wrapping. |
+| `core.card` | Child blocks, padding, gap, border, corners, shadow, and alignment. |
+| `core.icon` | Built-in icon, accessible label/decorative mode, size, colour, and stroke width. Arbitrary SVG is not accepted. |
+| `core.callout` | Notice type, title, icon, dismissal, dismissal label, and child blocks. Dismissal is local to the current page visit. |
+| `core.tabs` / `core.tab` | Editable panel titles/content, horizontal/vertical tabs, initial tab, accessible group label, and automatic/manual keyboard activation. |
+
+In the builder, Details and tab panels remain visible for editing. The public
+page applies the configured initial state. Without JavaScript, Details still
+work and tab content remains readable. Public interactions are shipped in
+`/js/block-interactions.js`; no external frontend library is required.
+
+## Site-building blocks
+
+- `core.site-logo`, `core.site-title`, `core.site-tagline`: live site identity,
+  with logo width/alternative text, title heading level, and optional home links.
+- `core.navigation`: existing header/footer menu or a custom menu slug, nested
+  menu visibility, gap, accessible label, mobile collapse/breakpoint,
+  activation, layout, and mobile menu style. Reuses the standard menu renderer
+  and its mega-menu, keyboard, and device-visibility behaviour. Uses
+  the request's existing menu visibility checks and locale.
+- `core.breadcrumbs`: localized home link and current page, editable labels and
+  separator. It does not invent parent links from URL segments.
+- `core.social-links`: profile row editor with labels, URLs, icons, ordering,
+  direction, gap, optional visible labels, and safe new-tab links.
+- `core.table-of-contents`: page-heading links, configurable heading-level range,
+  numbering, title, and empty-state visibility. Preserves existing unique
+  heading IDs and opens enclosing Details or tab panels when following a link.
+- `core.content-query`: published content by type, taxonomy/term, sort field and
+  direction, item limit/offset, grid/list layout, columns, title level, image,
+  excerpt and date visibility, empty text, and pagination labels. Its pagination
+  parameter must end in `-page` (default `content-page`); use different keys for
+  independent queries. Only publicly discoverable, published, non-trashed,
+  non-future content in the current site and exact locale is returned.
+
+Site identity, menus and query results resolve on the public server; the builder
+identifies these live-data blocks and exposes their settings. Query item layouts
+currently use configurable grid/list cards rather than arbitrary nested item
+templates. Query data, permalink resolution and date settings are batched or
+reused within a render. Paginated requests bypass shared HTML caching.

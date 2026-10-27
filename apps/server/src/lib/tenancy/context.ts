@@ -23,6 +23,11 @@ export interface TenantRequestContext {
   rootSite?: boolean;
   /** Plugin ids active for this site. Null means the allowlist could not be loaded. */
   activePluginIds: Set<string> | null;
+  /**
+   * Plugin ids active on the installation's main site. Their `{ network: true }`
+   * hook handlers run on this site too. Absent outside a site request.
+   */
+  networkPluginIds?: Set<string>;
 }
 
 const storage = new AsyncLocalStorage<TenantRequestContext>();

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useT } from "../../../i18n/I18nProvider";
 import { Link } from "../../../admin-router";
+import { useFeatureEnabled } from "../../../components/SessionProvider";
 import { aiJson, type AiSettings } from "../../../lib/ai-api";
 import ProviderCredentialsEditor from "../../../components/ai/ProviderCredentialsEditor";
 import AiErrorBoundary from "../../../components/ai/AiErrorBoundary";
@@ -12,6 +13,7 @@ import AiErrorBoundary from "../../../components/ai/AiErrorBoundary";
  */
 export default function AiSettingsPage() {
   const { t } = useT();
+  const mcpAllowed = useFeatureEnabled("feature" + ".mcp");
   const [settings, setSettings] = useState<AiSettings | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -128,9 +130,11 @@ export default function AiSettingsPage() {
         <ProviderCredentialsEditor scope="site" />
       </AiErrorBoundary>
 
-      <p className="jf-field__hint">
-        {t("ai.settings.mcpPointer")} <Link to="/admin/settings/api">{t("nav.apiKeys")}</Link>
-      </p>
+      {mcpAllowed && (
+        <p className="jf-field__hint">
+          {t("ai.settings.mcpPointer")} <Link to="/admin/settings/api">{t("nav.apiKeys")}</Link>
+        </p>
+      )}
     </div>
   );
 }

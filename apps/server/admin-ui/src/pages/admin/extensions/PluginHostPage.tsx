@@ -11,7 +11,7 @@ import { catalogRowsForDefaultLanguage } from "../../../lib/translation-groups";
 /**
  * Host shell for an admin path a plugin contributed (manifest `adminMenu` or
  * the `admin.menu` filter). Every plugin page lives under `/admin/plugins/{id}`.
- * Host-rendered pages (Analytics, Cookie Consent) keep their own App.tsx routes;
+ * Host-rendered pages (Cookie Consent) keep their own App.tsx routes;
  * everything else lands here so a plugin does not need a core entry to be
  * reachable.
  *

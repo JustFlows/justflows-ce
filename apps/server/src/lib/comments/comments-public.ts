@@ -1,6 +1,7 @@
 import { contentTypePolicy } from "@justflows/content";
 // SPDX-License-Identifier: MIT
 
+import { getContentTypeSettings } from "../content/content-types-db.js";
 import { randomUUID } from "node:crypto";
 import { esc, sanitizePlainText, sanitizeRichText } from "@justflows/blocks";
 import type { CommentsBlockRenderContext, PublicComment } from "@justflows/sdk";
@@ -362,6 +363,9 @@ async function renderCommentsBlockHtmlInner(
 ): Promise<string> {
   const props = parseCommentsBlockProps(rawProps);
   const settings = await getCommentSettings(ctx.siteId);
+  const typeSettings = await getContentTypeSettings(ctx.siteId, ctx.content.type);
+  if (typeSettings.comments === "disabled") return "";
+  if (typeSettings.comments === "enabled") settings.enabled = true;
   const state = commentsStateFor(
     { fields: ctx.content.fields, publishedAt: ctx.content.publishedAt },
     settings,
@@ -660,6 +664,9 @@ export async function acceptCommentSubmission(
     return fail(404, "Post not found");
   }
 
+  const typeSettings = await getContentTypeSettings(siteId, content.type);
+  if (typeSettings.comments === "disabled") return fail(403, "Comments are disabled for this content type");
+  if (typeSettings.comments === "enabled") settings.enabled = true;
   const fields = typeof content.fields === "string" ? safeParse(content.fields) : content.fields;
   const state = commentsStateFor({ fields, publishedAt: content.published_at }, settings);
   if (!state.visible || !state.accepting) {

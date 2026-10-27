@@ -87,6 +87,27 @@ and return provider response identifiers without secrets.
 SPF, DKIM, and DMARC are DNS/provider controls. Justflows surfaces guidance but
 does not enforce or alter DNS records.
 
+## Incoming mail
+
+**Settings → General → Outgoing mail** includes **Incoming mail**. Turn on
+**Read this mailbox** and set the IMAP host, port, encryption, mailbox,
+username, and password. The password is stored encrypted and is not returned
+by the settings API.
+
+A website whose plan does not allow its own mail settings does not open a
+mailbox. Justflows reads the main site's mailbox for it. While that mailbox
+is turned on, replies from that website are sent to the main site's reply-to
+address, or its From address, so they arrive in the mailbox that is read.
+
+Each unseen message is filed once. Helpdesk claims it when the reply token,
+or the ticket number, belongs to that site. Otherwise it is filed on the one
+website whose administration, reply-to, or from address is on the message.
+A subsite's IMAP server must be a public host on port 143 or 993, with
+STARTTLS or SSL.
+
+`POST /api/mail/inbound` remains available when `JUSTFLOWS_INBOUND_MAIL_SECRET`
+is set.
+
 ## Sending from plugins
 
 A plugin declaring the sensitive `mail:send` permission can send through the

@@ -27,6 +27,17 @@ export function normalizeUrlPath(input: string): string {
 }
 
 /**
+ * True when a redirect does not change the URL path.
+ *
+ * The exporter keeps only that path. A host-only bounce — the platform address
+ * sending `/` to `https://primary.example/` — would otherwise be published as a
+ * page that refreshes to itself.
+ */
+export function isSamePathRedirect(from: string, to: string): boolean {
+  return normalizeUrlPath(from) === normalizeUrlPath(to);
+}
+
+/**
  * Map a URL path to a POSIX-style relative file path inside the output dir.
  *
  *   `/`                     → `index.html`

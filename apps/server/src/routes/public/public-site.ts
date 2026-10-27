@@ -1,4 +1,6 @@
+import { renderSiteBuildingBlocks } from "../../lib/rendering/site-building-blocks.js";
 import { isAccountPath } from "../../middleware/account-cache.js";
+import { getContentTypeSettings } from "../../lib/content/content-types-db.js";
 import { verifyContentPreview } from "../../lib/content/content-preview.js";
 import { serializeContentRow } from "../../lib/content/content-api.js";
 import { rateLimit } from "express-rate-limit";
@@ -185,7 +187,7 @@ router.get("/preview/:token", rateLimit({ windowMs: 60_000, limit: 60, standardH
       "SELECT * FROM content WHERE id = ? AND site_id = ? AND version = ? AND trashed_at IS NULL LIMIT 1",
       [preview.contentId, preview.siteId, preview.version],
     );
-    if (!row) { res.status(404).send("Preview unavailable"); return; }
+    if (!row || !(await getContentTypeSettings(preview.siteId, String(row.type))).preview) { res.status(404).send("Preview unavailable"); return; }
     const content = serializeContentRow(row);
     // Only this row is previewed; menus, templates and all other content stay public.
     const locale = await getDefaultLocale(content.siteId);
@@ -550,6 +552,7 @@ async function buildCommentContext(
 /** True when this request must skip the shared page cache for comment state. */
 function pageCacheBypassReason(req: Request, preview: boolean): string | null {
   if (isAccountPath(req.path)) return "private account";
+  if (Object.keys(req.query).some(key => /^[a-z][a-z0-9-]{0,30}-page$/.test(key))) return "block pagination";
   if (preview) return "preview";
   if (isFormConfirmation(req)) return "form confirmation";
   if (getSession(req)) return "authenticated session";
@@ -837,6 +840,10 @@ async function sendPublicHtml(
   const hookErrorsBefore = hooksBefore.reduce((sum, hook) => sum + hook.errors, 0);
   const bypassReason = res.locals.jfContentCacheBypass ? "content-type" : pageCacheBypassReason(req, preview);
   const bypass = bypassReason !== null;
+  if (bypassReason === "block pagination") {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("CDN-Cache-Control", "no-store");
+  }
   if (bypass || !getJfCache().enabled) {
     res.locals.jfPageCache = "BYPASS";
   }
@@ -893,9 +900,27 @@ async function sendPublicHtml(
     res.setHeader("Cache-Control", "private, no-store");
   }
   res.status(status).type("html").send(html);
-  if (!preview && status < 400) {
-    void import("../../lib/rendering/analytics-public.js")
-      .then(({ recordPublicPageview }) => recordPublicPageview(req))
+  /**
+   * Plugins that count visits listen here. The exporter's crawl is not a visit,
+   * and neither is a preview or an error page.
+   */
+  if (!preview && status < 400 && !req.headers["x-jf-static-export"]) {
+    void getSiteId()
+      .then((siteId) => {
+        if (!siteId) return;
+        const referrer = typeof req.headers.referer === "string" ? req.headers.referer : undefined;
+        return getRuntimeHooks().dispatchAction(
+          "page.viewed",
+          {
+            siteId,
+            path: req.path || "/",
+            userAgent: String(req.headers["user-agent"] ?? ""),
+            ...(referrer ? { referrer } : {}),
+            host: String(req.headers.host ?? ""),
+          },
+          { siteId, source: "http" },
+        );
+      })
       .catch(() => undefined);
   }
 }
@@ -940,6 +965,38 @@ function injectDebugToolbar(
   return bodyEnd === -1
     ? `${html}${toolbar}`
     : `${html.slice(0, bodyEnd)}${toolbar}${html.slice(bodyEnd)}`;
+}
+
+/**
+ * Render one published page in the active theme, while the browser stays on
+ * the plugin route that asked for it. Used for a ticket address such as
+ * `/support/tickets/:id`, whose canvas is still an editable page.
+ */
+export async function renderPluginThemedPage(req: Request, res: Response, slug: string): Promise<boolean> {
+  if (!(await ensureSiteIsPublic(req, res))) return true;
+  const content = await getPublishedContentBySlug(slug);
+  if (!content || content.type !== "page") return false;
+  res.locals.jfContentCacheBypass = true;
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("CDN-Cache-Control", "no-store");
+  res.setHeader("X-Robots-Tag", "noindex");
+  await sendPublicHtml(req, res, `plugin-page:${slug}`, false, () =>
+    renderSinglePageHtml(
+      req,
+      res,
+      req.path,
+      String(content.slug),
+      content.locale,
+      false,
+      [],
+      1,
+      req.path,
+      content,
+      false,
+      req.path.split("?")[0],
+    ),
+  );
+  return true;
 }
 
 /** Render the site's normal themed 404 for routes intercepted before this router. */
@@ -1094,9 +1151,10 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   const hooks = getRuntimeHooks();
   const siteId = (await getSiteId()) ?? "";
   const content = data.content as
-    { title?: string; excerpt?: string | null; fields?: Record<string, unknown> } | undefined;
+    { type?: string; title?: string; excerpt?: string | null; fields?: Record<string, unknown> } | undefined;
+  const typeSettings = siteId && content?.type ? await getContentTypeSettings(siteId, content.type) : null;
   const seoFromContent = content
-    ? seoTextFromContent(content)
+    ? seoTextFromContent(typeSettings?.seo === false ? { ...content, fields: {} } : content)
     : { title: "", description: "", canonical: "", image: "" };
   const pageTitle = seoFromContent.title || String(data.title ?? "");
   const pageDescription = seoFromContent.description || String(data.seoDescription ?? "");
@@ -1118,8 +1176,10 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
         (typeof data.canonicalPath === "string" ? `${siteOrigin()}${data.canonicalPath}` : undefined),
       image: (await shareImageFor(siteId, seoFromContent.image, identity?.logoUrl)) || undefined,
     };
-    documentTitle = resolveSeoTitle(page, settings);
-    headExtra = buildSeoHeadHtml(page, settings);
+    if (typeSettings?.seo !== false) {
+      documentTitle = resolveSeoTitle(page, settings);
+      headExtra = buildSeoHeadHtml(page, settings);
+    }
   }
   const faviconHead = buildFaviconHeadHtml(identity?.faviconUrl ?? "");
   if (faviconHead) {
@@ -1160,7 +1220,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     pwaBody = buildPwaBodyHtml(pwaSettings, pwaTranslate);
   }
   if (hooks.has("html.head")) {
-    headExtra = hooks.applyFilterSync(
+    headExtra = await hooks.applyFilter(
       "html.head",
       headExtra,
       {
@@ -1176,21 +1236,23 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       { siteId, source: "http" },
     );
   }
-  const body = await ejs.renderFile(path.join(templateDir, `${view}.ejs`), pageData);
-  let analyticsHead = "";
-  let analyticsBody = "";
-  if (!data.preview && !data.privateAccount && siteId) {
-    const { getConfiguredGoogleTagId } = await import("../../lib/rendering/analytics-public.js");
-    const { buildGoogleTagHead, buildGoogleTagBody } = await import("../../lib/rendering/google-tag.js");
-    const googleTagId = await getConfiguredGoogleTagId();
-    if (googleTagId) {
-      analyticsHead = buildGoogleTagHead(googleTagId);
-      analyticsBody = buildGoogleTagBody(googleTagId);
+  if (headExtra.includes("data-jf-helpdesk-popup")) {
+    const { getTenantContext } = await import("../../lib/tenancy/context.js");
+    const tenant = getTenantContext();
+    if (tenant?.rootSite && tenant.siteId) {
+      const { canonicalPublicSupportHref, pointHelpdeskPopupAt } = await import("../../lib/admin/admin-support-popup.js");
+      const href = await canonicalPublicSupportHref(tenant.siteId, tenant.devPort);
+      if (href) headExtra = pointHelpdeskPopupAt(headExtra, href);
     }
   }
-  if (!data.privateAccount && hooks.has("analytics.head")) {
-    // A consent plugin can rewrite the analytics markup (e.g. defer it behind a
-    // consent category) before it reaches the page. Sync — this is a render path.
+  const body = await ejs.renderFile(path.join(templateDir, `${view}.ejs`), pageData);
+  let analyticsHead = "";
+  /**
+   * Tracking markup comes from plugins: a tag provider appends at a low
+   * priority and a consent plugin gates the result. Never on a preview or a
+   * private account page. Sync — this is a render path.
+   */
+  if (!data.preview && !data.privateAccount && siteId && hooks.has("analytics.head")) {
     analyticsHead = hooks.applyFilterSync(
       "analytics.head",
       analyticsHead,
@@ -1220,15 +1282,25 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
           translations: rawTranslations,
         });
 
-  return ejs.renderFile(path.join(templateDir, "layout.ejs"), {
+  const documentHtml = await ejs.renderFile(path.join(templateDir, "layout.ejs"), {
     ...pageData,
     body,
     headExtra,
     analyticsHead,
-    analyticsBody,
     pwaBody,
     hreflangLinks,
     title: documentTitle,
+  });
+  return renderSiteBuildingBlocks(documentHtml, {
+    siteId, locale: String(data.locale ?? "en"),
+    homePath: localePath(String(data.locale ?? "en"), "/", String(data.defaultLocale ?? "en")),
+    path: String(data.publicPath ?? data.restPath ?? "/"), query: String(data.blockQuery ?? ""),
+    title: String(content?.title ?? data.title ?? ""),
+    identity: identity ?? { siteTitle: "", tagline: "", logoUrl: "" },
+    renderNavigation: typeof data.renderBlockNavigation === "function" ? data.renderBlockNavigation as NonNullable<Parameters<typeof renderSiteBuildingBlocks>[1]["renderNavigation"]> : undefined,
+    loadNavigation: typeof data.loadBlockNavigation === "function" ? data.loadBlockNavigation as (slug: string) => Promise<RenderableNavItem[]> : undefined,
+    primary: Array.isArray(data.navItems) ? data.navItems as RenderableNavItem[] : [],
+    footer: Array.isArray(data.footerNavItems) ? data.footerNavItems as RenderableNavItem[] : [],
   });
 }
 
@@ -1628,6 +1700,18 @@ async function buildPageContext(req: Request, res: Response, reqPath: string, pr
     preview,
     discourageSearchEngines: res.locals.jfPrivateContent === true || discourageSearchEngines,
     privateAccount: res.locals.jfPrivateContent === true,
+    blockQuery: req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?") + 1) : "",
+    loadBlockNavigation: (menuSlug: string) => loadNavItems(req, res, menuSlug, locale, defaultLocale, preview),
+    renderBlockNavigation: (items: RenderableNavItem[], props: Record<string, unknown>, id: string) => ejs.renderFile(path.join(templateDir, "partials", "nav-menu.ejs"), {
+      items, menuId: id, currentPath: publicPath, collapseMenu: props.mobileCollapse,
+      menuDesign: {
+        ...(props.source === "footer" ? footerMenuDesign : menuDesign),
+        layout: props.menuLayout === "inherit" ? (props.source === "footer" ? footerMenuDesign?.layout : menuDesign?.layout) || "horizontal" : props.menuLayout,
+        activation: props.activation === "inherit" ? (props.source === "footer" ? footerMenuDesign?.activation : menuDesign?.activation) || "click" : props.activation,
+        breakpoint: props.breakpoint, mobilePattern: props.mobilePattern,
+      },
+      t: (key: string) => key === "menus.toggleMenu" ? String(props.menuLabel) : t(key),
+    }),
     cssProviderStylesheets: cssProviderAssets.stylesheets,
     header,
     headerBrand: headerBrandFlags(header, identity.logoUrl),

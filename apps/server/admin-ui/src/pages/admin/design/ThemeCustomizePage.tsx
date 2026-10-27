@@ -158,6 +158,8 @@ export default function CustomizeThemePage() {
   const stylesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [loading, setLoading] = useState(true);
+  /** Bust a browser-cached 301 that used to send `/?preview=1` to the custom domain. */
+  const [previewNonce] = useState(() => Date.now());
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState("");
@@ -654,7 +656,7 @@ export default function CustomizeThemePage() {
   const selectedHome = pages.find((page) => page.id === homePageId) ?? null;
   const selectedBlog = pages.find((page) => page.id === blogPageId) ?? null;
   const blogPreviewSrc = selectedBlog
-    ? `${localePath(selectedBlog.locale, selectedBlog.slug, defaultLocale)}?preview=1`
+    ? `${localePath(selectedBlog.locale, selectedBlog.slug, defaultLocale)}?preview=1&_=${previewNonce}`
     : null;
 
   return (
@@ -898,7 +900,7 @@ export default function CustomizeThemePage() {
           </aside>
           <div className="jf-customizer__preview">
             <div className="jf-card__title">{t("themeCustomize.livePreview")}</div>
-            <iframe ref={iframeRef} src="/?preview=1" title={t("themeCustomize.homePreviewTitle")} />
+            <iframe ref={iframeRef} src={`/?preview=1&_=${previewNonce}`} title={t("themeCustomize.homePreviewTitle")} />
           </div>
         </div>
       ) : tab === "blog" ? (
@@ -1195,7 +1197,7 @@ export default function CustomizeThemePage() {
 
           <div className="jf-customizer__preview">
             <div className="jf-card__title">{t("themeCustomize.livePreview")}</div>
-            <iframe ref={iframeRef} src="/?preview=1" title={t("themeCustomize.themePreviewTitle")} />
+            <iframe ref={iframeRef} src={`/?preview=1&_=${previewNonce}`} title={t("themeCustomize.themePreviewTitle")} />
           </div>
         </div>
       )}

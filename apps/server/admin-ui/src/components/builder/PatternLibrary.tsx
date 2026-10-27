@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "../../admin-router";
 import { useT } from "../../i18n/I18nProvider";
 import type { BlockCatalogEntry, BlockNode } from "./types";
-import { BlockPreview, THEME_PREVIEW_SCOPE, useThemePreviewStylesheet } from "./BlockPreview";
+import { BlockPreview, THEME_PREVIEW_SCOPE, usePreviewScheme, useThemePreviewStylesheet } from "./BlockPreview";
 import { patternReplacesCanvas } from "./pattern-insert";
 
 interface PatternMeta {
@@ -22,7 +22,8 @@ function PreviewTree({ blocks }: { blocks: BlockNode[] }) {
       <BlockPreview key={block.id} block={block} depth={depth} renderChildren={render} />
     ));
   useThemePreviewStylesheet();
-  return <div className={THEME_PREVIEW_SCOPE}>{render(blocks, 0)}</div>;
+  const scheme = usePreviewScheme();
+  return <div className={THEME_PREVIEW_SCOPE} data-theme={scheme}>{render(blocks, 0)}</div>;
 }
 
 export default function PatternLibrary({
@@ -388,7 +389,7 @@ export default function PatternLibrary({
                       width: 900,
                       maxWidth: "100%",
                       margin: "0 auto",
-                      background: "white",
+                      background: "var(--jf-surface)",
                       boxShadow: "0 1px 4px rgb(0 0 0 / .12)",
                     }}
                     aria-busy={busy}

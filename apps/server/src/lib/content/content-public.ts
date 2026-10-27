@@ -1,4 +1,5 @@
 import { contentTypePolicy, publicContentTypeSql } from "@justflows/content";
+import { getContentTypeSettings } from "./content-types-db.js";
 import { getDb } from "../database/db.js";
 import { getSiteId } from "../settings/site-settings.js";
 import { serializeContentRow, type ContentResponse } from "./content-api.js";
@@ -71,7 +72,8 @@ async function loadPublishedTranslation(
 async function serializePublished(
   row: Record<string, unknown>,
   preview: boolean,
-): Promise<ContentResponse> {
+): Promise<ContentResponse | null> {
+  if (preview && !(await getContentTypeSettings(String(row.site_id), String(row.type))).preview) return null;
   const overlaid = preview ? await overlayWorkingOnRow(row, true) : row;
   return serializeContentRow(overlaid);
 }

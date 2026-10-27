@@ -497,8 +497,9 @@ generic plugin page for the menu item.
 ```
 
 `domain` is a left-sidebar group: `content`, `commerce`, `appearance`,
-`extensions` (default), `security`, or `system`. `commerce` stays hidden until
-a plugin contributes a page to it.
+`users`, `helpdesk`, `files`, `extensions` (default), `tools`, `security`, or
+`system`. A group with no pages stays hidden. `files` is the Shared files
+sidebar entry.
 
 **`path` is relative to your plugin's namespace `/admin/plugins/<your plugin
 id>`.** Omit it (or `""`) for the namespace root; otherwise a lowercase leaf
@@ -553,6 +554,12 @@ is on, regenerates the export — the same effect as a core settings change.
 Ignored on `GET` and on a 4xx/5xx response. Leave it off for high-frequency
 public routes (a form submission, a beacon) — it is for operator config writes.
 
+A setting that `{ network: true }` hooks inject on every site (see
+[Hooks](HOOKS.md#network-handlers)) needs every site's cache dropped. Return
+`revalidate: "network"` from the main site's save route. It needs the
+`platform:network` permission and a request on the main site; otherwise it
+acts as `revalidate: true`.
+
 A **public read** the runtime `fetch()`es from a statically-exported page runs
 cross-origin when the export is served from its own host. Return `cors: true`
 and the host adds `Access-Control-Allow-Origin` — but only for a vouched-for
@@ -560,6 +567,11 @@ origin (`APP_URL`, `STATIC_EXPORT_BASE_URL`, `STATIC_EXPORT_ALLOWED_ORIGINS`, or
 `localhost` off production); plugins cannot set `Access-Control-*` themselves. A
 plain `<img>` or `navigator.sendBeacon` GET is not CORS-checked and needs
 nothing.
+
+A beacon another site fires at yours is a simple cross-origin request, so CORS
+does not stop it. `req.trustedOrigin` is `true` when the `Origin` header is this
+site or one of those vouched-for origins, `false` for any other origin, and
+absent when the request carried no `Origin`. Drop the call when it is `false`.
 
 ### Keep a page out of the static export
 
@@ -658,6 +670,8 @@ unique index that existing rows violate fails the call (`ok: false`) instead
 of being skipped. Backfills and other data changes are the plugin's own
 ordered migrations; Shop's `src/setup/migrations.ts` is an example that
 records each one in a plugin table and uses a unique row as its lock.
+
+Set `"requires": ["justflows.shop"]` when this plugin cannot stand alone. Install is refused until each listed plugin is already installed on this site. Activation is refused until each one is active. A plugin cannot list itself.
 
 Set `"allowMultisite": true` in `justflows.json` when every row is stored with
 `site_id` and another site can run the plugin without touching anyone else's

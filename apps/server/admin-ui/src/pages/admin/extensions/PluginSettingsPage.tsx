@@ -144,11 +144,11 @@ export default function PluginSettingsPage() {
 
   function renderField(key: string, field: SettingField, localized: boolean) {
     const value = localized ? localeValue(values[key], locale) : values[key];
-    return (
-      <label key={`${key}-${localized ? locale : "global"}`} className="jf-stack jf-stack--sm">
-        <span>{field.label}</span>
-        {field.description && <span className="jf-meta">{field.description}</span>}
-        {field.type === "boolean" ? (
+    const fieldKey = `${key}-${localized ? locale : "global"}`;
+    /** Same check row as the core settings pages: box first, label and hint beside it. */
+    if (field.type === "boolean") {
+      return (
+        <label key={fieldKey} className="jf-checkrow jf-checkrow--stacked">
           <input
             type="checkbox"
             checked={Boolean(value)}
@@ -158,7 +158,17 @@ export default function PluginSettingsPage() {
                 : setValues((v) => ({ ...v, [key]: e.target.checked }))
             }
           />
-        ) : field.type === "select" && !localized ? (
+          <span>
+            {field.label}
+            {field.description && <span className="jf-checkrow__meta">{field.description}</span>}
+          </span>
+        </label>
+      );
+    }
+    return (
+      <label key={fieldKey} className="jf-field">
+        <span className="jf-field__label">{field.label}</span>
+        {field.type === "select" && !localized ? (
           <select
             className="jf-input"
             value={String(value ?? "")}
@@ -201,6 +211,7 @@ export default function PluginSettingsPage() {
             }}
           />
         )}
+        {field.description && <span className="jf-field__hint">{field.description}</span>}
       </label>
     );
   }

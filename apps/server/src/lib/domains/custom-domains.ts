@@ -27,6 +27,7 @@ import {
   type ConnectMode,
   type StoredDomainSettings,
 } from "./domain-settings.js";
+import { invalidateSiteOriginCsp } from "../security/site-origin-csp.js";
 import { BUNNY_NAMESERVERS } from "./providers/bunny.js";
 import { DNS_RECORD_TYPES, type DnsRecordInput, type DnsRecordType } from "./providers/types.js";
 import {
@@ -584,6 +585,7 @@ async function saveCheck(
       String(row.id),
     ],
   );
+  invalidateSiteOriginCsp();
 }
 
 /**
@@ -602,8 +604,27 @@ export async function advanceDomain(
   const before = asStatus(row.status);
   const check = await dnsCheck(row, settings, resolver);
   const children = await childRows(String(row.id));
+  let routing = check.routing;
+  // Records mode proves the ALIAS by Bunny issuing the HTTP-01 certificate.
+  // One lookup of the CDN hostname often returns a different address from the
+  // same pool, which used to block the hostname from ever being added.
+  if (check.ownership && !routing && asMode(row.connect_mode) === "records" && provider.id === "bunny") {
+    const attempt = await activate(row, provider);
+    if (attempt.tls === "issued") routing = true;
+    else {
+      await saveCheck(row, {
+        status: "pending",
+        verified: true,
+        tls: attempt.tls,
+        error: attempt.error,
+        failures: 0,
+        verifiedNow: !asBool(row.verified),
+      });
+      return "pending";
+    }
+  }
 
-  if (!check.ownership || !check.routing) {
+  if (!check.ownership || !routing) {
     const failures = Number(row.check_failures ?? 0) + 1;
     const status: DomainStatus =
       before === "active" && failures < settings.failureThreshold
@@ -756,6 +777,7 @@ export async function removeCustomDomain(
       ]);
   });
   if (rows.some((item) => asBool(item.is_primary))) await fallBackPrimary(siteId);
+  invalidateSiteOriginCsp();
   await action("domain.removed", eventFor(row), siteId);
   return { ok: true, value: await listSiteDomains(siteId) };
 }

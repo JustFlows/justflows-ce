@@ -589,3 +589,47 @@ export function loadThemeDemoHeader(
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
   return data;
 }
+
+/** Only the active theme's declared, bounded JavaScript files are served. */
+export function loadThemeScripts(themeId: string, installedPath?: string): string {
+  const dir = resolveThemeDir(themeId, installedPath);
+  if (!dir) return "";
+  const manifest = readJsonFile<Record<string, unknown>>(dir, "justflows-theme.json")
+    ?? readJsonFile<Record<string, unknown>>(dir, "justflows.json");
+  const scripts = manifest?.["scripts"];
+  if (!Array.isArray(scripts) || scripts.length > 20) return "";
+  const output: string[] = [];
+  let total = 0;
+  for (const entry of scripts) {
+    if (typeof entry !== "string" || !/^[a-z0-9_./-]+\.(?:js|mjs)$/i.test(entry) || entry.startsWith("/")) continue;
+    const file = resolvePathUnderBase(dir, entry);
+    if (!file) continue;
+    try {
+      // Read from the same descriptor we inspect; do not follow a swapped symlink.
+      const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+      try {
+        const stat = fs.fstatSync(fd);
+        if (!stat.isFile() || stat.size > 512 * 1024 || total + stat.size > 1024 * 1024) continue;
+        const source = fs.readFileSync(fd, "utf8");
+        total += stat.size;
+        output.push(source);
+      } finally { fs.closeSync(fd); }
+    } catch { /* Missing scripts leave other theme assets usable. */ }
+  }
+  return output.join("\n;\n");
+}
+
+/** Exact HTTPS origins of a trusted theme's remote video/audio dependencies. */
+export function loadThemeMediaOrigins(themeId: string, installedPath?: string): string[] {
+  const dir = resolveThemeDir(themeId, installedPath);
+  if (!dir) return [];
+  const manifest = readJsonFile<Record<string, unknown>>(dir, "justflows-theme.json")
+    ?? readJsonFile<Record<string, unknown>>(dir, "justflows.json");
+  const origins = manifest?.["mediaOrigins"];
+  if (!Array.isArray(origins) || origins.length > 20) return [];
+  return [...new Set(origins.filter((origin): origin is string => {
+    if (typeof origin !== "string") return false;
+    try { const url = new URL(origin); return url.protocol === "https:" && url.origin === origin && !url.username && !url.password; }
+    catch { return false; }
+  }))];
+}
