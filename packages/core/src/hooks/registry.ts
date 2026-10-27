@@ -58,7 +58,18 @@ export interface HookRegisterOptions {
   once?: boolean;
   /** Stable label used in diagnostics and the admin hooks screen. */
   id?: string;
+  /**
+   * Run on every site, not only where the owning plugin is active. The
+   * runtime sets this only for plugins allowed to (see `PluginSiteGate`).
+   */
+  network?: boolean;
 }
+
+/**
+ * Decides whether a plugin handler runs for a site. `scope` is `"network"`
+ * for handlers registered to run on every site, `"site"` otherwise.
+ */
+export type PluginSiteGate = (pluginId: string, siteId: string, scope: "site" | "network") => boolean;
 
 export interface HooksRegistryOptions {
   logger?: Logger;
@@ -101,6 +112,7 @@ interface Registration {
   readonly pluginId: string | undefined;
   readonly id: string | undefined;
   readonly once: boolean;
+  readonly network: boolean;
   removed: boolean;
   disabled: boolean;
   failures: number;
@@ -153,7 +165,7 @@ export class HooksRegistry {
   private readonly maxDepth: number;
   private readonly freezeEvents: boolean;
   private readonly timing: boolean;
-  private pluginSiteGate: ((pluginId: string, siteId: string) => boolean) | null = null;
+  private pluginSiteGate: PluginSiteGate | null = null;
   private currentSiteId: (() => string | undefined) | null = null;
 
   private seq = 0;
@@ -172,7 +184,7 @@ export class HooksRegistry {
    * Core handlers have no plugin id and always run. With no current site, nothing is skipped.
    */
   setPluginSiteGate(
-    gate: ((pluginId: string, siteId: string) => boolean) | null,
+    gate: PluginSiteGate | null,
     currentSiteId?: () => string | undefined,
   ): void {
     this.pluginSiteGate = gate;
@@ -183,7 +195,7 @@ export class HooksRegistry {
     if (!reg.pluginId || !this.pluginSiteGate) return true;
     const siteId = context.siteId ?? this.currentSiteId?.();
     if (!siteId) return true;
-    return this.pluginSiteGate(reg.pluginId, siteId);
+    return this.pluginSiteGate(reg.pluginId, siteId, reg.network ? "network" : "site");
   }
 
   // ─── Registration ────────────────────────────────────────────────────────
@@ -238,6 +250,7 @@ export class HooksRegistry {
       pluginId: options.pluginId,
       id: options.id,
       once: options.once ?? false,
+      network: options.network === true,
       removed: false,
       disabled: false,
       failures: 0,

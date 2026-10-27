@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { resolveContentTypeSettings } from "@justflows/content";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -32,6 +33,14 @@ vi.mock("../../../src/lib/rendering/error-pages.js", () => ({
 
 vi.mock("../../../src/lib/content/content-public.js", () => ({
   invalidateContentCache: vi.fn(),
+}));
+
+vi.mock("../../../src/lib/search/search-db.js", () => ({
+  indexSearchContent: vi.fn(),
+}));
+
+vi.mock("../../../src/lib/tenancy/quotas.js", () => ({
+  enforceQuota: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("../../../src/lib/plugins/plugin-kv.js", () => ({
@@ -74,6 +83,7 @@ describe("createPluginContentApi.deleteType", () => {
       description: "",
       builtin: false,
       fields: [],
+      settings: resolveContentTypeSettings("post"),
       cacheControl: null,
       cacheControlEditable: true,
       createdAt: "",
@@ -100,6 +110,32 @@ describe("createPluginContentApi.deleteType", () => {
   });
 });
 
+describe("createPluginContentApi.deletePages", () => {
+  beforeEach(() => {
+    query.mockReset();
+    run.mockReset();
+    vi.mocked(invalidateContentCache).mockReset();
+  });
+
+  it("deletes the page, a trash copy, and its translations", async () => {
+    query
+      .mockResolvedValueOnce([
+        { id: "page-1", type: "page", translation_group_id: "group-1" },
+        { id: "trash-1", type: "page", translation_group_id: null },
+      ])
+      .mockResolvedValueOnce([
+        { id: "page-1", type: "page" },
+        { id: "nl-1", type: "page" },
+      ]);
+    const api = createPluginContentApi("justflows.helpdesk", "site-1");
+    await expect(api.deletePages({ type: "page", slug: "support" })).resolves.toEqual({ deleted: 3 });
+    expect(run).toHaveBeenCalledWith(
+      "DELETE FROM content WHERE site_id = ? AND id IN (?, ?, ?)",
+      ["site-1", "page-1", "trash-1", "nl-1"],
+    );
+  });
+});
+
 describe("createPluginContentApi.ensurePage", () => {
   beforeEach(() => {
     query.mockReset();
@@ -116,6 +152,7 @@ describe("createPluginContentApi.ensurePage", () => {
     description: "",
     builtin: false,
     fields: [],
+    settings: resolveContentTypeSettings("post"),
       cacheControl: null,
       cacheControlEditable: true,
     createdAt: "",
@@ -152,6 +189,50 @@ describe("createPluginContentApi.ensurePage", () => {
       "UPDATE content SET title = ?, slug = ?, excerpt = ?, updated_at = ? WHERE id = ? AND site_id = ?",
       ["Product detail page", "product-detail-page", null, expect.any(String), "c-typo", "site-1"],
     );
+  });
+
+  it("stores blocks and a private cache policy only when inserting", async () => {
+    vi.mocked(getContentTypeBySlug).mockResolvedValue({ ...shopType, slug: "page", builtin: true });
+    query.mockResolvedValue([]);
+    const api = createPluginContentApi("justflows.helpdesk", "site-1");
+    const blocks = { version: 1 as const, blocks: [{ id: "support-form", type: "justflows.helpdesk.new-ticket", version: 1, props: {} }] };
+    await api.ensurePage({
+      type: "page",
+      title: "Support",
+      slug: "support",
+      status: "published",
+      blocks,
+      cacheControl: "private, no-store",
+    });
+    const insert = run.mock.calls.find((call) => String(call[0]).startsWith("INSERT INTO content"));
+    expect(JSON.parse(String(insert?.[1]?.[8]))).toMatchObject({ blocks: [{ id: "support-form" }] });
+    expect(JSON.parse(String(insert?.[1]?.[9]))).toEqual({ cacheControl: "private, no-store" });
+
+    query.mockResolvedValueOnce([{ id: "c1" }]);
+    run.mockClear();
+    await api.ensurePage({
+      type: "page",
+      title: "Support",
+      slug: "support",
+      blocks,
+      cacheControl: "private, no-store",
+    });
+    expect(String(run.mock.calls[0]?.[0])).not.toContain("blocks");
+  });
+
+  it("trashes a public page when the same slug becomes an account page", async () => {
+    vi.mocked(getContentTypeBySlug).mockResolvedValue({ ...shopType, slug: "account", builtin: true });
+    query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "old-page", type: "page" }]);
+    const api = createPluginContentApi("justflows.helpdesk", "site-1");
+    await api.ensurePage({
+      type: "account",
+      title: "My tickets",
+      slug: "my-tickets",
+      status: "published",
+      retireTypes: ["page"],
+    });
+    const trash = run.mock.calls.find((call) => String(call[0]).includes("status = 'trashed'"));
+    expect(trash?.[1]?.[0]).toBe("page-trash-old-page");
   });
 
   it("does not insert when create is false and nothing matches", async () => {

@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { ContentTypeMenu } from "../lib/content-type-navigation";
 import { buildNavDomains, type NavDomain, type PluginMenuItem } from "../config/admin-nav";
 import { initialJson } from "../ssr-data";
 import { useSession } from "./SessionProvider";
@@ -14,6 +15,7 @@ import { useSession } from "./SessionProvider";
 interface PluginMenuValue {
   /** Admin pages owned by the plugins currently installed. */
   items: PluginMenuItem[];
+  contentTypes: ContentTypeMenu[];
   /** Core domains with the plugin pages merged in. */
   domains: NavDomain[];
   loading: boolean;
@@ -39,6 +41,7 @@ export function PluginMenuProvider({ children }: { children: ReactNode }) {
   const { session, loading: sessionLoading } = useSession();
   const initial = initialJson<{ items?: unknown }>("/api/plugins/admin-menu")?.items;
   const initialItems = Array.isArray(initial) ? initial.filter(isMenuItem) : [];
+  const [contentTypes, setContentTypes] = useState<ContentTypeMenu[]>(() => initialJson<{ types?: ContentTypeMenu[] }>("/api/content-types")?.types ?? []);
   const [items, setItems] = useState<PluginMenuItem[]>(initialItems);
   const [loading, setLoading] = useState(!Array.isArray(initial));
 
@@ -77,9 +80,25 @@ export function PluginMenuProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [sessionLoading, session, refresh]);
 
+  useEffect(() => {
+    if (!session || sessionLoading) return;
+    let cancelled = false;
+    async function refreshTypes() {
+      try {
+        const res = await fetch("/api/content-types");
+        if (!res.ok) return;
+        const data = await res.json() as { types?: ContentTypeMenu[] };
+        if (!cancelled && Array.isArray(data.types)) setContentTypes(data.types);
+      } catch {}
+    }
+    void refreshTypes();
+    window.addEventListener("jf-content-types-changed", refreshTypes);
+    return () => { cancelled = true; window.removeEventListener("jf-content-types-changed", refreshTypes); };
+  }, [session, sessionLoading]);
+
   const value = useMemo(
-    () => ({ items, domains: buildNavDomains(items), loading, refresh }),
-    [items, loading, refresh],
+    () => ({ items, contentTypes, domains: buildNavDomains(items), loading, refresh }),
+    [items, contentTypes, loading, refresh],
   );
 
   return <PluginMenuContext.Provider value={value}>{children}</PluginMenuContext.Provider>;
@@ -94,4 +113,9 @@ export function usePluginMenu(): PluginMenuValue {
   const ctx = useContext(PluginMenuContext);
   if (!ctx) throw new Error("usePluginMenu must be used within PluginMenuProvider");
   return ctx;
+}
+
+/** Shared catalog for navigation and dashboard shortcuts; empty outside the shell. */
+export function useContentTypeMenu(): ContentTypeMenu[] {
+  return useContext(PluginMenuContext)?.contentTypes ?? [];
 }

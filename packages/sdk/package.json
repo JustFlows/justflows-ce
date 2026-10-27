@@ -1,6 +1,6 @@
 {
   "name": "@justflows/sdk",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": false,
   "description": "Justflows SDK — stable public API for plugin and theme developers",
   "type": "module",
@@ -22,12 +22,12 @@
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.5"
   },
   "peerDependencies": {},
   "license": "MIT"

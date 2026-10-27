@@ -20,6 +20,13 @@ const menuItem = {
   domain: "extensions" as const,
 };
 
+describe("PackageManifestSchema requires", () => {
+  it("keeps required plugin ids and refuses a self-requirement", () => {
+    expect(PackageManifestSchema.parse({ ...base, requires: ["justflows.shop"] }).requires).toEqual(["justflows.shop"]);
+    expect(() => PackageManifestSchema.parse({ ...base, requires: [base.id] })).toThrow(/itself/);
+  });
+});
+
 describe("PackageManifestSchema adminMenu", () => {
   it("resolves a relative admin path against the plugin namespace on install", () => {
     const parsed = PackageManifestSchema.parse({

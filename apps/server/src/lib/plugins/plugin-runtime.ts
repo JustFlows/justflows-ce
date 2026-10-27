@@ -19,11 +19,15 @@ import { createPluginDataApi } from "./plugin-data.js";
 import { createPluginJobsApi, getDurableJobQueue, getPluginJobScheduler } from "./plugin-jobs.js";
 import { createPluginSecretsApi } from "./plugin-secrets.js";
 import { createPluginDatabasesApi } from "./plugin-databases.js";
+import { createPluginCaptchaApi } from "./plugin-captcha.js";
+import { createPluginAiApi } from "./plugin-ai.js";
 import { createPluginTenancyApi } from "./plugin-tenancy.js";
+import { createPluginNetworkApi } from "./plugin-network.js";
 import { createPluginQuotasApi } from "./plugin-quotas.js";
 import { unregisterPluginMeters } from "../tenancy/quotas.js";
 import { createPluginContentApi } from "./plugin-content.js";
 import { createPluginFilesApi } from "./plugin-files.js";
+import { registerOperatorKeyHook } from "./operator-keys.js";
 import { isInstalled } from "../../middleware/install-guard.js";
 import { getJustflowsVersion } from "../runtime/version.js";
 import { recordDiagnosticError } from "../runtime/diagnostics.js";
@@ -180,8 +184,8 @@ async function activateActivePlugins(): Promise<void> {
  * First-party plugins whose behaviour the host renders itself, so their module is
  * normally left inactive at runtime.
  *
- * - `justflows.analytics` / `justflows.gallery` stay skipped unconditionally —
- *   their modules would double-count page views or expose a public page.
+ * - `justflows.gallery` stays skipped unconditionally — its module would
+ *   expose a public page.
  * - `justflows.seo` is skipped **unless** its installed manifest declares
  *   `hostCooperative: true`. The SEO Toolkit package sets that flag from its
  *   `justflows.json`; it means the module only augments (feed routes,
@@ -190,7 +194,7 @@ async function activateActivePlugins(): Promise<void> {
  *   flag stays skipped.
  */
 function isRuntimeSkippedFirstParty(pluginId: string, manifest: unknown): boolean {
-  if (pluginId === "justflows.analytics" || pluginId === "justflows.gallery") return true;
+  if (pluginId === "justflows.gallery") return true;
   if (pluginId === "justflows.seo") return !manifestIsHostCooperative(manifest);
   return false;
 }
@@ -218,12 +222,14 @@ export async function ensurePluginRuntime(): Promise<void> {
 
     try {
       app = new App(loadConfig());
+      registerOperatorKeyHook(app.hooks);
       await app.start();
       app.hooks.setPluginSiteGate(
-        (pluginId, siteId) => {
+        (pluginId, siteId, scope) => {
           const current = getTenantContext();
           if (!current || current.siteId !== siteId || current.activePluginIds === null) return true;
-          return current.activePluginIds.has(pluginId);
+          if (current.activePluginIds.has(pluginId)) return true;
+          return scope === "network" && current.networkPluginIds?.has(pluginId) === true;
         },
         () => getTenantContext()?.siteId,
       );
@@ -294,6 +300,11 @@ export async function ensurePluginRuntime(): Promise<void> {
         databasesFactory: (pluginId, siteId, permissions) =>
           createPluginDatabasesApi(pluginId, siteId, permissions),
         tenancyFactory: (pluginId, permissions) => createPluginTenancyApi(pluginId, permissions),
+        networkFactory: (pluginId) => createPluginNetworkApi(pluginId),
+        runForSite: async (siteId, fn) => {
+          const { runPluginCallForSite } = await import("./plugin-call-site.js");
+          return runPluginCallForSite(siteId, fn);
+        },
         quotasFactory: (pluginId, permissions, siteId) => createPluginQuotasApi(pluginId, permissions, siteId),
         quotasCleanup: unregisterPluginMeters,
         filesFactory: (pluginId, siteId) => createPluginFilesApi(pluginId, siteId),
@@ -354,10 +365,18 @@ export async function ensurePluginRuntime(): Promise<void> {
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),
         placeholderResolver: (siteId, kind) => resolvePlaceholderSync(siteId, kind),
         i18nProvider: (siteId) => ({
-          defaultLocale: async () =>
-            (await import("../i18n/languages-db.js")).getDefaultLocale(siteId),
-          locales: async () =>
-            (await import("../i18n/languages-db.js")).getActiveLocaleCodes(siteId),
+          /**
+           * The request's site, not the site that first loaded the shared module:
+           * that site may be deleted, and listing its languages would insert a default row for it.
+           */
+          defaultLocale: async () => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            return (await import("../i18n/languages-db.js")).getDefaultLocale(pluginCallSiteId(siteId));
+          },
+          locales: async () => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            return (await import("../i18n/languages-db.js")).getActiveLocaleCodes(pluginCallSiteId(siteId));
+          },
           // The request's site, like other plugin facades, so another site gets its own zone.
           timeZone: async () => {
             const { pluginCallSiteId } = await import("./request-site.js");
@@ -399,6 +418,8 @@ export async function ensurePluginRuntime(): Promise<void> {
             await deletePluginSetting(pluginId, pluginCallSiteId(siteId), key);
           },
         },
+        captchaFactory: () => createPluginCaptchaApi(),
+        aiFactory: () => createPluginAiApi(),
       });
       setLivePluginSettingsSchemaLookup((pluginId) => {
         const schema = loader?.getPlugin(pluginId)?.manifest.settingsSchema;
@@ -441,7 +462,7 @@ async function ensureRegistered(siteId: string, pluginId: string): Promise<void>
 }
 
 export async function runtimeActivatePlugin(siteId: string, pluginId: string): Promise<void> {
-  if (pluginId === "justflows.analytics" || pluginId === "justflows.gallery") return;
+  if (pluginId === "justflows.gallery") return;
   if (pluginId === "justflows.seo") {
     const db = await getDb();
     const rows = await db.query<{ manifest: unknown }>(
@@ -452,6 +473,10 @@ export async function runtimeActivatePlugin(siteId: string, pluginId: string): P
   }
   await ensureRegistered(siteId, pluginId);
   if (!loader) throw new Error("Plugin runtime is unavailable");
+  const { pluginRequirementError } = await import("./plugin-requirements.js");
+  const loadedManifest = loader.getPlugin(pluginId)?.manifest;
+  const requirement = await pluginRequirementError(siteId, loadedManifest, "activate");
+  if (requirement) throw new Error(requirement);
   await loader.activate(pluginId, siteId);
   const loaded = loader.getPlugin(pluginId);
   if (loaded) {

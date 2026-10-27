@@ -392,6 +392,63 @@ export function createPluginDatabasesApi(
         }
       }
     },
+    forSite(targetSiteId: string): PluginRowOps {
+      if (!permissions.has("platform:tenancy")) {
+        throw new Error(`Plugin "${pluginId}" cannot open another site without the "platform:tenancy" permission.`);
+      }
+      if (!/^[0-9a-f-]{8,80}$/i.test(targetSiteId)) throw new Error("Unknown site.");
+      const sid = targetSiteId;
+      const onSite = async <T>(fn: () => Promise<T>): Promise<T> => {
+        const { getTenantContext } = await import("../tenancy/context.js");
+        const current = getTenantContext();
+        if (current && current.rootSite !== true) {
+          throw new Error("Another site can only be opened from the installation's main site.");
+        }
+        const { getControlDb } = await import("../database/db.js");
+        const found = await (await getControlDb()).query<{ id: string }>("SELECT id FROM sites WHERE id = ? LIMIT 1", [sid]);
+        if (!found[0]) throw new Error("Unknown site.");
+        const { runWithSiteDatabase } = await import("../tenancy/provision.js");
+        return runWithSiteDatabase(sid, fn);
+      };
+      const tableName = (table: string) => ownedTable(pluginId, table);
+      return {
+        findOne: (table, where = {}, options) => onSite(() => withRows(sid, async (handle) => {
+          const statement = selectRows(tableName(table), sid, where, { ...options, limit: 1 }, handle.driver);
+          const rows = await handle.db.query<Record<string, unknown>>(statement.sql, statement.params);
+          return rows[0];
+        })),
+        find: (table, where = {}, options) => onSite(() => withRows(sid, async (handle) => {
+          const statement = selectRows(tableName(table), sid, where, options, handle.driver);
+          return handle.db.query<Record<string, unknown>>(statement.sql, statement.params);
+        })),
+        insert: (table, row) => onSite(() => withRows(sid, async (handle) => {
+          const statement = insertRow(tableName(table), sid, row, handle.driver);
+          try {
+            return (await handle.db.execute(statement.sql, statement.params)) > 0;
+          } catch (err) {
+            if (isDuplicateKeyError(err)) return false;
+            throw err;
+          }
+        })),
+        upsert: async () => {
+          throw new Error("Upsert on another site is not available.");
+        },
+        update: (table, where, values) => onSite(() => withRows(sid, async (handle) => {
+          const statement = updateRows(tableName(table), sid, where, values, handle.driver);
+          if (!statement) return 0;
+          return handle.db.execute(statement.sql, statement.params);
+        })),
+        increment: (table, where, deltas, options) => onSite(() => withRows(sid, async (handle) => {
+          const statement = incrementRows(tableName(table), sid, where, deltas, options, handle.driver);
+          if (!statement) return 0;
+          return handle.db.execute(statement.sql, statement.params);
+        })),
+        delete: (table, where) => onSite(() => withRows(sid, async (handle) => {
+          const statement = deleteRows(tableName(table), sid, where, handle.driver);
+          return handle.db.execute(statement.sql, statement.params);
+        })),
+      };
+    },
     async columns(table) {
       const sid = pluginCallSiteId(siteId);
       const tableName = ownedTable(pluginId, table);

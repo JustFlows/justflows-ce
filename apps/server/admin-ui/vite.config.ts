@@ -2,11 +2,17 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { hideReactRouterVersion } from "./hide-react-router-version.ts";
 
 const adminUiRoot = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [hideReactRouterVersion(), react()],
+  optimizeDeps: {
+    rolldownOptions: {
+      plugins: [hideReactRouterVersion()],
+    },
+  },
   root: adminUiRoot,
   base: "/",
   build: {
@@ -32,6 +38,16 @@ export default defineConfig({
               name: "motion-vendor",
               test: /node_modules[\\/](?:framer-motion|motion-dom|motion-utils)[\\/]/,
               priority: 25,
+            },
+            {
+              name: "blocks-core",
+              test: /packages[\\/]blocks[\\/](?:src|dist)[\\/]/,
+              priority: 24,
+            },
+            {
+              name: "validation-vendor",
+              test: /node_modules[\\/](?:zod|sanitize-html|htmlparser2|domhandler|domutils|entities|dom-serializer|domelementtype)[\\/]/,
+              priority: 23,
             },
             {
               name: "builder",

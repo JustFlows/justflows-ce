@@ -8,6 +8,6 @@ describe("plugin API URLs", () => {
     expect(manifest.apiNamespace).toBe("shop");
     expect(pluginApiUrl("shop", "checkout?locale=nl")).toBe("/api/shop/checkout?locale=nl");
   });
-  it.each(["users", "auth", "account", "../shop", "SHOP", "shop/checkout", ""])("rejects namespace %s", namespace => expect(isValidPluginApiNamespace(namespace)).toBe(false));
+  it.each(["users", "auth", "account", "mail", "../shop", "SHOP", "shop/checkout", ""])("rejects namespace %s", namespace => expect(isValidPluginApiNamespace(namespace)).toBe(false));
   it.each(["/checkout", "../users", "%2e%2e/users", "foo/%2fusers", "foo\\bar"])("rejects ambiguous path %s", path => expect(() => pluginApiUrl("shop", path)).toThrow());
 });

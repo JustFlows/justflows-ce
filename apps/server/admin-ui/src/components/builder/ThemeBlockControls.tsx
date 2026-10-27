@@ -12,13 +12,19 @@ import type { BlockNode } from "./types";
  * (dropdown / slider / colour) and writes to `style.vars`, which lands on the
  * block's root element — so `var(--jf-rainbow)` etc. in the theme resolve to
  * the block's choice.
+ *
+ * `showAll` comes from the block's inspector sections. When it is off, only
+ * the curated controls show, plus any other variable the block already sets
+ * so it can still be cleared.
  */
 export default function ThemeBlockControls({
   block,
   onChange,
+  showAll = true,
 }: {
   block: BlockNode;
   onChange: (props: Record<string, unknown>) => void;
+  showAll?: boolean;
 }) {
   const { t } = useT();
   const { theme, tokens, blockControls } = useThemeStyleTokens();
@@ -48,8 +54,10 @@ export default function ThemeBlockControls({
     (tk) =>
       !curatedNames.has(tk.name) &&
       !tk.name.startsWith("--jf-block-") &&
-      (!tk.name.startsWith("--jf-color-scheme-") || block.type === "core.color-scheme"),
+      (!tk.name.startsWith("--jf-color-scheme-") || block.type === "core.color-scheme") &&
+      (showAll || vars[tk.name] !== undefined),
   );
+  if (curated.length === 0 && rest.length === 0) return null;
 
   const field = (c: ThemeStyleToken) => {
     const current = String(vars[c.name] ?? "");

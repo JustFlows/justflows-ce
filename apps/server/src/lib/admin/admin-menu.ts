@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import {
+  ADMIN_MENU_DOMAINS,
   pluginAdminBasePath,
   RELATIVE_ADMIN_PATH_RE,
   resolvePluginAdminPath,
@@ -29,14 +30,7 @@ export interface AdminMenuEntry extends Omit<PluginAdminMenuItem, "path"> {
   adminCatalogs?: Record<string, string>;
 }
 
-const ADMIN_MENU_DOMAIN_SET = new Set([
-  "content",
-  "commerce",
-  "appearance",
-  "extensions",
-  "security",
-  "system",
-]);
+const ADMIN_MENU_DOMAIN_SET = new Set<string>(ADMIN_MENU_DOMAINS);
 
 /**
  * A plugin owns its admin pages, but only while active: an installed-but-never-
@@ -67,25 +61,6 @@ function resolveAdminPath(raw: string | undefined, pluginId: string): string | n
   }
   return RELATIVE_ADMIN_PATH_RE.test(value) ? resolvePluginAdminPath(pluginId, value) : null;
 }
-
-/**
- * Admin pages the host ships for first-party plugins packaged before manifests
- * could declare `adminMenu`. Keeps an already-installed 0.1.0 Analytics working
- * without a reinstall; newer packages declare their own and win.
- */
-const FIRST_PARTY_ADMIN_MENU: Record<string, PluginAdminMenuItem[]> = {
-  "justflows.analytics": [
-    {
-      id: "analytics",
-      label: "Analytics",
-      labelKey: "nav.analytics",
-      // Relative — the plugin's namespace root. `sanitizeItem` resolves it.
-      path: "",
-      icon: "📊",
-      domain: "extensions",
-    },
-  ],
-};
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -151,7 +126,9 @@ function manifestMenu(manifest: Record<string, unknown>, pluginId: string): Admi
  * The sidebar is built from this, so a deleted plugin's pages disappear with it.
  */
 export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntry[]> {
+  const { syncBundledPlugins } = await import("../plugins/plugins-db.js");
   const { syncSubsitePluginCopies } = await import("../plugins/plugin-multisite.js");
+  await syncBundledPlugins(siteId).catch(() => false);
   await syncSubsitePluginCopies(siteId).catch(() => false);
 
   const db = await getDb();
@@ -186,14 +163,7 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
       if (setupPath) setupByPlugin.set(row.plugin_id, setupPath);
     }
 
-    // A manifest that mentions adminMenu speaks for itself, even to say "none".
-    // Only a manifest predating the field falls back to what the host knows.
-    const items =
-      "adminMenu" in manifest
-        ? manifestMenu(manifest, row.plugin_id)
-        : (FIRST_PARTY_ADMIN_MENU[row.plugin_id] ?? [])
-            .map((entry) => sanitizeItem(entry, row.plugin_id))
-            .filter((entry): entry is AdminMenuEntry => entry !== null);
+    const items = "adminMenu" in manifest ? manifestMenu(manifest, row.plugin_id) : [];
 
     for (const item of items) {
       if (seenPaths.has(item.path)) continue;

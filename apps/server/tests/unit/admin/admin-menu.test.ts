@@ -21,6 +21,44 @@ describe("finalizeAdminMenu", () => {
     ]);
   });
 
+  it("keeps Shared files on its own sidebar domain", () => {
+    const items = finalizeAdminMenu([
+      {
+        pluginId: "justflows.shared-files",
+        id: "files",
+        label: "Shared files",
+        icon: "files",
+        domain: "files",
+        end: true,
+      },
+    ]);
+    expect(items).toEqual([
+      expect.objectContaining({
+        path: "/admin/plugins/justflows.shared-files",
+        domain: "files",
+      }),
+    ]);
+  });
+
+  it("keeps Helpdesk on its own sidebar domain", () => {
+    const items = finalizeAdminMenu([
+      {
+        pluginId: "justflows.helpdesk",
+        id: "inbox",
+        label: "Helpdesk",
+        icon: "💬",
+        domain: "helpdesk",
+        end: true,
+      },
+    ]);
+    expect(items).toEqual([
+      expect.objectContaining({
+        path: "/admin/plugins/justflows.helpdesk",
+        domain: "helpdesk",
+      }),
+    ]);
+  });
+
   it("treats an omitted path as the plugin's namespace root", () => {
     const items = finalizeAdminMenu([
       {

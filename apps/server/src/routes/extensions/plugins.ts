@@ -35,6 +35,27 @@ function noStore(res: { setHeader: (name: string, value: string) => void }): voi
   res.setHeader("Cache-Control", "private, no-store");
 }
 
+/** Other sites do not choose the admin Support button. That switch stays on the main site. */
+async function helpdeskSchemaForSite(
+  plugin: PluginRow,
+  siteId: string,
+): Promise<NonNullable<ReturnType<typeof pluginToDto>["settingsSchema"]> | Record<string, never>> {
+  const schema = { ...(pluginToDto(plugin).settingsSchema ?? {}) };
+  if (plugin.plugin_id !== "justflows.helpdesk") return schema;
+  const { isInstallationRootSite, loadHostRecords } = await import("../../lib/tenancy/registry.js");
+  const { supportSiteChoices } = await import("../../lib/admin/admin-support-popup.js");
+  if (!(await isInstallationRootSite(siteId))) {
+    delete schema.popupAdmin;
+    delete schema.supportSite;
+    return schema;
+  }
+  const loaded = await loadHostRecords().catch(() => null);
+  const choices = supportSiteChoices(loaded?.records ?? [], siteId);
+  if (!choices || !schema.supportSite) delete schema.supportSite;
+  else schema.supportSite = { ...schema.supportSite, options: choices };
+  return schema;
+}
+
 async function readPluginSettings(
   plugin: PluginRow,
   siteId: string,
@@ -48,7 +69,7 @@ async function readPluginSettings(
   const { getPluginSetting } = await import("../../lib/plugins/plugin-kv.js");
   const { listLanguages, getDefaultLocale } = await import("../../lib/i18n/languages-db.js");
   const { asLocaleMap } = await import("../../lib/rendering/seo-public.js");
-  const schema = pluginToDto(plugin).settingsSchema ?? {};
+  const schema = await helpdeskSchemaForSite(plugin, siteId);
   const languages = await listLanguages(siteId, true);
   const defaultLocale = await getDefaultLocale(siteId);
   const values: Record<string, unknown> = {};
@@ -77,12 +98,6 @@ async function readPluginSettings(
       descriptions[defaultLocale] = site.description;
     merged.siteTitle = titles;
     merged.defaultDescription = descriptions;
-  }
-
-  if (plugin.plugin_id === "justflows.analytics") {
-    const { parseGoogleTagId } = await import("../../lib/rendering/google-tag.js");
-    const parsed = parseGoogleTagId(String(merged.googleTagId ?? ""));
-    merged.googleTagId = parsed ?? "";
   }
 
   const { resolveSettingsSchema } = await import("../../lib/plugins/plugin-settings-options.js");
@@ -131,6 +146,7 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
     // Both checks run inside the installer, while the package is still staged.
     // Run after the install they left a refused package sitting in its final
     // location with nothing to clean it up.
+    const siteId = req.session?.siteId;
     const result = await installer.installFromBuffer(file.buffer, {
       packagesDir,
       justflowsVersion: getJustflowsVersion(),
@@ -138,15 +154,17 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
       // Plugins run as code — install each build to its own directory so a
       // reinstall is imported fresh without a process restart.
       revisioned: true,
-      verify: (manifest, digest) => {
+      verify: async (manifest, digest) => {
         if (manifest.type !== "plugin") {
           throw new Error("Uploaded package is not a plugin (manifest.type must be 'plugin')");
         }
         assertPackageIsTrusted(manifest as unknown as Record<string, unknown>, digest);
+        if (!siteId) return;
+        const { pluginRequirementError } = await import("../../lib/plugins/plugin-requirements.js");
+        const requirement = await pluginRequirementError(siteId, manifest, "install");
+        if (requirement) throw new Error(requirement);
       },
     });
-
-    const siteId = req.session?.siteId;
     if (!siteId) {
       res.status(503).json({ error: "No site found — complete install first" });
       return;
@@ -357,28 +375,11 @@ router.put("/:id/settings", requireRole("administrator"), async (req, res) => {
     const { setPluginSetting } = await import("../../lib/plugins/plugin-kv.js");
     const { ensurePluginRuntime, getRuntimeHooks } = await import("../../lib/plugins/plugin-runtime.js");
     await ensurePluginRuntime();
-    const schema = pluginToDto(plugin).settingsSchema ?? {};
     const siteId = req.session!.siteId;
+    const schema = await helpdeskSchemaForSite(plugin, siteId);
     let next: Record<string, unknown> = {};
     for (const key of Object.keys(schema)) {
       if (!(key in body)) continue;
-      if (pluginId === "justflows.analytics" && key === "googleTagId") {
-        const { parseGoogleTagId } = await import("../../lib/rendering/google-tag.js");
-        const raw = String(body[key] ?? "").trim();
-        if (!raw) {
-          next[key] = "";
-          continue;
-        }
-        const parsed = parseGoogleTagId(raw);
-        if (!parsed) {
-          res
-            .status(400)
-            .json({ error: "Enter a Google tag ID such as G-XXXXXXXX or GTM-XXXXXXX." });
-          return;
-        }
-        next[key] = parsed;
-        continue;
-      }
       const { checkSettingValue } = await import("../../lib/plugins/plugin-settings-options.js");
       const checked = checkSettingValue(schema[key], body[key]);
       if (!checked.ok) {
@@ -397,8 +398,6 @@ router.put("/:id/settings", requireRole("administrator"), async (req, res) => {
       if (!(key in schema)) continue;
       await setPluginSetting(pluginId, siteId, key, value);
     }
-    const { clearGoogleTagIdCache } = await import("../../lib/rendering/analytics-public.js");
-    clearGoogleTagIdCache();
     const { revalidateOnUpdate } = await import("../../lib/cache/cache-revalidate.js");
     await revalidateOnUpdate("plugin");
     noStore(res);

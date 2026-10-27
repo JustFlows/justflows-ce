@@ -338,6 +338,41 @@ async function buildPayload(req: Request): Promise<AdminSsrPayload> {
   return payload;
 }
 
+/**
+ * Plugin markup for the end of an admin document. A failed filter leaves the
+ * page unchanged.
+ */
+async function appendAdminBody(html: string, req: Request): Promise<string> {
+  try {
+    const { ensurePluginRuntime, getRuntimeHooks } = await import("../plugins/plugin-runtime.js");
+    await ensurePluginRuntime();
+    const hooks = getRuntimeHooks();
+    const { getTenantContext } = await import("../tenancy/context.js");
+    const { adminSupportMarkup, rootAdminHidesSupportPopup } = await import("./admin-support-popup.js");
+    const siteId = getTenantContext()?.siteId ?? "";
+    const rootSite = await rootAdminHidesSupportPopup();
+    let extra = "";
+    if (hooks.has("admin.body")) {
+      const filtered = await hooks.applyFilter(
+        "admin.body",
+        "",
+        { siteId, ...(rootSite ? { rootSite: true } : {}) },
+        { siteId, source: "http" },
+      );
+      if (typeof filtered === "string") extra = filtered;
+    }
+    if (!extra.includes("data-jf-helpdesk-popup")) extra += await adminSupportMarkup();
+    if (!extra) return html;
+    const marker = "</body>";
+    const at = html.lastIndexOf(marker);
+    if (at < 0) return html;
+    return `${html.slice(0, at)}${extra}\n${html.slice(at)}`;
+  } catch (err) {
+    console.error("[justflows] admin body filter failed", JSON.stringify({ path: logSafe(req.path) }), err);
+    return html;
+  }
+}
+
 async function loadRenderer(): Promise<RenderAdmin> {
   const entry = adminServerEntry();
   const module = (await import(pathToFileURL(entry).href)) as { render?: RenderAdmin };
@@ -354,14 +389,17 @@ export async function renderAdminPage(req: Request, res: Response): Promise<void
     ]);
     const appHtml = render(payload.url, payload);
     const adminAssetBase = `${payload.adminBasePath}/assets`;
-    const html = template
-      .replaceAll('src="/assets/', `src="${adminAssetBase}/`)
-      .replaceAll('href="/assets/', `href="${adminAssetBase}/`)
-      .replace("<!--ssr-outlet-->", appHtml)
-      .replace(
-        "<!--ssr-data-->",
-        `<script id="jf-ssr-data" type="application/json">${serializeAdminSsrData(payload)}</script>`,
-      );
+    const html = await appendAdminBody(
+      template
+        .replaceAll('src="/assets/', `src="${adminAssetBase}/`)
+        .replaceAll('href="/assets/', `href="${adminAssetBase}/`)
+        .replace("<!--ssr-outlet-->", appHtml)
+        .replace(
+          "<!--ssr-data-->",
+          `<script id="jf-ssr-data" type="application/json">${serializeAdminSsrData(payload)}</script>`,
+        ),
+      req,
+    );
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
     res.setHeader("Vary", "Cookie, Accept-Language");

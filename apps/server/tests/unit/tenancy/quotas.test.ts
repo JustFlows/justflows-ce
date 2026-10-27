@@ -121,6 +121,50 @@ describe("enforceQuota", () => {
   });
 });
 
+describe("large quota assignments", () => {
+  beforeEach(() => {
+    control.query.mockReset();
+    control.run.mockReset();
+  });
+
+  it("saves and clears more than 50 displayed meters while validating every field", async () => {
+    const { listQuotaDefaultMeters, registerPluginMeter, replaceQuotaDefaults, replaceQuotaLimits, unregisterPluginMeters } = await import("../../../src/lib/tenancy/quotas.js");
+    const pluginId = "acme.large";
+    let defaults: unknown = null;
+    control.query.mockImplementation(async (sql: string) => {
+      if (sql.includes("platform_settings")) return defaults === null ? [] : [{ value: defaults }];
+      if (sql.includes("FROM sites WHERE id")) return [{ id: SITE }];
+      if (sql.includes("storage_quota_locks")) return [{ site_id: SITE }];
+      return [];
+    });
+    control.run.mockImplementation(async (sql: string, params?: readonly unknown[]) => {
+      if (sql.includes("platform_settings")) defaults = params?.[1];
+    });
+    try {
+      for (let index = 0; index < 60; index++) {
+        registerPluginMeter(pluginId, { key: `${pluginId}.meter${index}`, scope: "site", label: `Meter ${index}`, unit: "count" });
+      }
+      const displayed = await listQuotaDefaultMeters("site");
+      const limits = Object.fromEntries(displayed.map((meter) => [meter.key, null])) as Record<string, number | null>;
+      limits.users = 127;
+      limits[`${pluginId}.meter0`] = 0;
+      expect(Object.keys(limits).length).toBeGreaterThan(50);
+      expect((await replaceQuotaLimits("site", SITE, limits, null)).ok).toBe(true);
+      expect(control.run.mock.calls.some(([sql, params]) => sql.includes("INSERT INTO quota_limits") && params?.[2] === "users" && params?.[3] === 127)).toBe(true);
+      expect(control.run.mock.calls.some(([sql, params]) => sql.includes("INSERT INTO quota_limits") && params?.[2] === `${pluginId}.meter0` && params?.[3] === 0)).toBe(true);
+      const saved = await replaceQuotaDefaults("site", limits, null);
+      expect(saved.ok).toBe(true);
+      if (saved.ok) expect(saved.meters.find((meter) => meter.key === "users")?.limit).toBe(127);
+      expect((await replaceQuotaDefaults("site", { ...limits, users: null }, null)).ok).toBe(true);
+      expect((await replaceQuotaLimits("site", SITE, { ...limits, sites: 1 }, null))).toMatchObject({ ok: false, status: 400, error: 'Unknown quota meter "sites".' });
+      expect((await replaceQuotaLimits("site", SITE, { ...limits, unknown: null }, null))).toMatchObject({ ok: false, status: 400, error: 'Unknown quota meter "unknown".' });
+      expect((await replaceQuotaLimits("site", SITE, { ...limits, [`${pluginId}.meter59`]: -1 }, null))).toMatchObject({ ok: false, status: 400, error: "A quota limit must be a whole number, or empty for no limit." });
+    } finally {
+      unregisterPluginMeters(pluginId);
+    }
+  });
+});
+
 describe("quota defaults", () => {
   beforeEach(() => {
     control.query.mockReset();

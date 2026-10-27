@@ -12,10 +12,18 @@ themes, blocks, testing, and SDK compatibility).
 ```
 plugins/
 ├── hello-world/     Official example — copy this
+├── helpdesk/        First-party Helpdesk (tickets, portal, handover)
 ├── demo/            Demo sign-in and scheduled plugin reset
 ├── consent/         First-party Cookie Consent (banner, consent API, script/embed gating)
+├── quotes/          Shop quotes: a quote for this site's shop, which can become an order
+├── shared-files/    Private folders and upload requests for one user on this site
 └── acme-seo/        Your plugin (folder name is yours)
 ```
+
+`quotes/` is a Shop plugin. It cannot be installed until Shop is installed on this site. It is listed with the shop, adds a Shop quotes section to the core `/account` page, and asks Shop to open the order when a customer accepts. `shared-files/` is separate. Each one owns only its own rows and allows multisite. Payment links live in Shop, next to the payment gateway. See each plugin's README.
+
+`helpdesk/` is the first-party support desk ([#184](https://github.com/JustFlows/justflows-ce/issues/184)).
+It uses only `@justflows/sdk` and ships its own admin app. See [plugins/helpdesk/README.md](helpdesk/README.md).
 
 `demo/` is a standalone sandbox: a Demo role and demo user, an administrator
 who is never edited, and a scheduled reset of whatever installed plugins
@@ -62,10 +70,9 @@ under `adminMenu` and add the `admin:extend` permission:
   "permissions": ["admin:extend"],
   "adminMenu": [
     {
-      "id": "analytics",
-      "label": "Analytics",
-      "labelKey": "nav.analytics",
-      "path": "/admin/analytics",
+      "id": "reports",
+      "label": "Reports",
+      "path": "/admin/reports",
       "icon": "📊",
       "domain": "extensions"
     }
@@ -77,7 +84,7 @@ under `adminMenu` and add the `admin:extend` permission:
 | ---------- | ------------------------------------------------------------------------ |
 | `id`       | Lowercase kebab-case, unique within the plugin                           |
 | `label`    | Shown when `labelKey` has no catalog entry                               |
-| `labelKey` | Optional admin i18n key, e.g. `nav.analytics`                            |
+| `labelKey` | Optional admin i18n key, e.g. `nav.media`                                |
 | `path`     | Must be an `/admin/…` route                                              |
 | `icon`     | Single emoji; defaults to 🔌                                             |
 | `domain`   | `content`, `appearance`, `extensions` (default), `security`, or `system` |

@@ -1,3 +1,4 @@
+import { loadThemeScripts } from "../../lib/themes/theme-files.js";
 import { Router } from "express";
 import {
   defaultModsFromSchema,
@@ -7,7 +8,7 @@ import {
   getThemeMods,
   mergeMods,
 } from "../../lib/themes/theme-customize.js";
-import { ensureThemesTable, getActiveTheme, getSiteId } from "../../lib/themes/themes-db.js";
+import { ensureThemesTable, getActiveTheme, getSiteId, themeInstalledPath } from "../../lib/themes/themes-db.js";
 import { isPreviewAllowed } from "../../lib/auth/auth-session.js";
 import { getGeneralSettings } from "../../lib/settings/general-settings.js";
 import { isSafeScopeSelector, scopeThemeCss } from "../../lib/rendering/scope-css.js";
@@ -72,4 +73,18 @@ export async function serveThemeCss(
     res.setHeader("Content-Type", "text/css; charset=utf-8");
     res.send(":root {}\n");
   }
+}
+
+export async function serveThemeScripts(
+  _req: import("express").Request,
+  res: import("express").Response,
+): Promise<void> {
+  res.type("application/javascript");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  try {
+    const siteId = await getSiteId();
+    const theme = siteId ? await getActiveTheme(siteId) : null;
+    res.send(theme ? loadThemeScripts(theme.theme_id, themeInstalledPath(theme) ?? undefined) : "");
+  } catch { res.status(503).send("/* Theme scripts unavailable. */"); }
 }

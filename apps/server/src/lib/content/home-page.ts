@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { getContentTypeSettings } from "./content-types-db.js";
 import { getDb } from "../database/db.js";
 import { serializeContentRow, type ContentResponse } from "./content-api.js";
 import { overlayWorkingOnRow } from "./content-revisions.js";
@@ -86,6 +87,7 @@ export async function getHomeContent(
   locale: string,
   preview = false,
 ): Promise<ContentResponse | null> {
+  if (preview && !(await getContentTypeSettings(siteId, "page")).preview) return getHomeContent(siteId, locale, false);
   const homeId = await getHomePageId(siteId);
   if (!homeId) return null;
 

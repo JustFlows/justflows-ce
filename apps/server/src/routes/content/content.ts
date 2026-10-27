@@ -1,3 +1,4 @@
+import { getContentTypeSettings } from "../../lib/content/content-types-db.js";
 import { createContentPreview } from "../../lib/content/content-preview.js";
 import { rateLimit } from "express-rate-limit";
 import { ContentScheduleSchema, ScheduleError, setContentSchedule } from "../../lib/content/content-scheduling-db.js";
@@ -118,15 +119,23 @@ router.get("/", requireSession, async (req, res) => {
       params.push(translationGroupId);
     }
     if (cursor) {
-      sql += " AND c.id > ?";
-      params.push(cursor);
+      if (status === "scheduled") {
+        sql += " AND c.id > ?";
+        params.push(cursor);
+      } else {
+        // The cursor must follow the same tuple as the newest-first sort.
+        // UUID order alone is unrelated to the content's update time.
+        sql += ` AND (c.updated_at < (SELECT updated_at FROM content WHERE site_id = ? AND id = ?)
+          OR (c.updated_at = (SELECT updated_at FROM content WHERE site_id = ? AND id = ?) AND c.id < ?))`;
+        params.push(session.siteId, cursor, session.siteId, cursor, cursor);
+      }
     }
     if (readScope?.ownership === "self") {
       sql += " AND c.author_id = ?";
       params.push(session.userId);
     }
 
-    sql += status === "scheduled" ? " ORDER BY c.id ASC LIMIT ?" : " ORDER BY c.updated_at DESC LIMIT ?";
+    sql += status === "scheduled" ? " ORDER BY c.id ASC LIMIT ?" : " ORDER BY c.updated_at DESC, c.id DESC LIMIT ?";
     params.push(limit + 1);
 
     const rows = await db.query<Record<string, unknown>>(sql, params);
@@ -509,6 +518,9 @@ router.post("/:id/preview-link", requireSession, scheduleRateLimit, async (req, 
     const resource = { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null };
     if (!(await userCan(session, "content:read", resource)) || !(await userCan(session, "content:update", resource))) {
       res.status(403).json({ error: "Forbidden" }); return;
+    }
+    if (!(await getContentTypeSettings(session.siteId, String(row.type))).preview) {
+      res.status(403).json({ error: "Previews are disabled for this content type" }); return;
     }
     const token = createContentPreview({ contentId: id, siteId: session.siteId, version: Number(row.version) });
     res.setHeader("Cache-Control", "private, no-store");

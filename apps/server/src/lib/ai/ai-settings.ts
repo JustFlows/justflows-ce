@@ -5,6 +5,7 @@ import { getTenantContext } from "../tenancy/context.js";
 import { isInstallationRootRequest } from "../tenancy/access.js";
 import { getSiteId, getSiteSetting, setSiteSetting } from "../settings/site-settings.js";
 import { getManageApiRateLimit, isManageApiEnabled } from "../http/manage-api-settings.js";
+import { siteFeatureEnabled } from "../tenancy/site-features.js";
 
 /**
  * Site settings for bring-your-own-AI (#159). Every value is read per request,
@@ -57,10 +58,14 @@ async function readPositiveInt(key: string): Promise<number | null> {
   }
 }
 
-/** MCP is served only when both its own switch and the management API are on. */
+/** MCP is served only when the plan allows it and both its own switch and the management API are on. */
 export async function isMcpEnabled(): Promise<boolean> {
-  const [mcp, manage] = await Promise.all([readBoolean("mcp_enabled"), isManageApiEnabled()]);
-  return mcp && manage;
+  const [allowed, mcp, manage] = await Promise.all([
+    siteFeatureEnabled("feature.mcp").catch(() => false),
+    readBoolean("mcp_enabled"),
+    isManageApiEnabled(),
+  ]);
+  return allowed && mcp && manage;
 }
 
 export async function isAssistantEnabled(): Promise<boolean> {
@@ -97,6 +102,15 @@ export class AiSettingsError extends Error {}
 export async function saveAiSettings(patch: Partial<AiSettings>): Promise<AiSettings> {
   const siteId = await getSiteId();
   if (!siteId) throw new Error("Site is not installed");
+  if ((patch.mcpEnabled !== undefined || patch.mcpRateLimit !== undefined) && !(await siteFeatureEnabled("feature.mcp", siteId))) {
+    throw new AiSettingsError("MCP is not available on this website.");
+  }
+  if (
+    (patch.assistantEnabled !== undefined || patch.allowPrivateEndpoints !== undefined || patch.userDailyLimit !== undefined) &&
+    !(await siteFeatureEnabled("feature.ai", siteId))
+  ) {
+    throw new AiSettingsError("The AI agent is not available on this website.");
+  }
   if (patch.mcpEnabled !== undefined) await setSiteSetting(siteId, "mcp_enabled", patch.mcpEnabled === true);
   if (patch.assistantEnabled !== undefined) {
     await setSiteSetting(siteId, "ai_assistant_enabled", patch.assistantEnabled === true);

@@ -9,7 +9,7 @@ import { loadThemeStyles } from "./theme-files.js";
 import { getActiveTheme, themeInstalledPath } from "./themes-db.js";
 import { sanitizeCustomCss } from "../rendering/safe-css.js";
 import { sanitizeFaviconUrl } from "../media/favicon.js";
-import { blockAnimationCss, blockVisibilityCss } from "@justflows/blocks";
+import { functionalBlockCss, blockAnimationCss, blockVisibilityCss } from "@justflows/blocks";
 import { coreWidgetCss, widgetLayoutCss } from "../rendering/widget-layout-css.js";
 
 export type CustomizeControlType =
@@ -914,6 +914,7 @@ export function assembleThemeCss(
     `/* Widget areas */\n${widgetLayoutCss()}\n${coreWidgetCss()}`,
     themeStyles ? `/* Theme styles */\n${themeStyles}` : "",
     tokens,
+    `/* Functional blocks */\n${functionalBlockCss()}`,
     `/* Block animations */\n${blockAnimationCss()}`,
     `/* Device visibility */\n${blockVisibilityCss()}`,
     pluginCss.trim() ? `/* Plugin styles */\n${pluginCss.trim()}` : "",

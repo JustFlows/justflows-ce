@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: MIT
+import { siteBuildingBlocks } from "./site-building.js";
+import { functionalBlocks } from "./functional.js";
+import { mediaBlocks } from "./media.js";
 import { accountBlock } from "./account.js";
 import { authFormBlock } from "./auth-form.js";
 import { searchBlock } from "./search.js";
@@ -80,6 +83,9 @@ function sanitizeResponsiveProp(raw: unknown): SanitizedResponsive | null {
 }
 
 export const coreBlocks: BlockDefinition[] = [
+  ...mediaBlocks,
+  ...functionalBlocks,
+  ...siteBuildingBlocks,
   searchBlock,
   accountBlock,
   authFormBlock,

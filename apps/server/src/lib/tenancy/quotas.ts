@@ -62,7 +62,8 @@ defineCore("feature.emails", "site", "Emails", "flag");
 defineCore("feature.languages", "site", "Languages", "flag");
 defineCore("feature.webhooks", "site", "Webhooks", "flag");
 defineCore("feature.api", "site", "API keys", "flag");
-defineCore("feature.ai", "site", "AI", "flag");
+defineCore("feature.ai", "site", "AI agent", "flag");
+defineCore("feature.mcp", "site", "MCP", "flag");
 defineCore("feature.cdn", "site", "CDN", "flag");
 defineCore("feature.trash", "site", "Trash", "flag");
 defineCore("feature.tools", "site", "Tools", "flag");
@@ -542,7 +543,6 @@ function validateAssignment(
   limits: Record<string, number | null>,
 ): { ok: true; limits: Record<string, number | null> } | { ok: false; status: number; error: string } {
   const keys = Object.keys(limits);
-  if (keys.length > 50) return { ok: false, status: 400, error: "Too many limits." };
   const normalized: Array<[string, number | null]> = [];
   for (const key of keys) {
     const meter = meterByKey(key);

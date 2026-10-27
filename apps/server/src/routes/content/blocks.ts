@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireRole } from "../../middleware/auth.js";
 import { CONTENT_READ_ROLES } from "../../lib/auth/rbac.js";
+import { resolveInspectorSupports } from "@justflows/blocks";
 import { getRuntimeBlockRegistry } from "../../lib/rendering/runtime-blocks.js";
 import { isGalleryPluginEnabled, registerGalleryBlock, unregisterGalleryBlock } from "../../lib/media/gallery-public.js";
 
@@ -28,6 +29,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
     schema: def.schema,
     supportsChildren: def.supportsChildren ?? false,
     allowedChildTypes: def.allowedChildTypes,
+    inspector: resolveInspectorSupports(def),
   }));
   res.json({ blocks });
 });

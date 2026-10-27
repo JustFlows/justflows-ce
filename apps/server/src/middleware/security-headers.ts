@@ -7,6 +7,12 @@ import {
   resolveHeaders,
   type RequestArea,
 } from "../lib/security/security-headers.js";
+import {
+  crossOriginResourcePolicyForHosts,
+  frameAncestorsListsOrigins,
+  getSiteCspOrigins,
+  withSiteOriginCsp,
+} from "../lib/security/site-origin-csp.js";
 import { getAdminPathConfig, toInternalAdminPath } from "../lib/admin/admin-path.js";
 
 /**
@@ -47,21 +53,16 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
       apply(res, config, ctx);
       if (config.removeServerHeader) res.removeHeader("Server");
       if (ctx.area === "public") {
-        const { getConfiguredGoogleTagId } = await import("../lib/rendering/analytics-public.js");
-        const { googleTagInlineHashes, withGoogleTagCsp } = await import("../lib/rendering/google-tag.js");
-        const googleTagId = await getConfiguredGoogleTagId();
-        if (googleTagId) {
-          const hashes = googleTagInlineHashes(googleTagId);
-          for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
-            const current = res.getHeader(name);
-            const value = Array.isArray(current)
-              ? current.join("; ")
-              : typeof current === "string"
-                ? current
-                : "";
-            if (value) res.setHeader(name, withGoogleTagCsp(value, hashes));
+        const { getThemeMediaOriginsForCsp, withThemeMediaCsp } = await import("../lib/themes/theme-media-csp.js");
+        try {
+          const origins = await getThemeMediaOriginsForCsp();
+          if (origins.length) {
+            for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
+              const current = res.getHeader(name);
+              if (typeof current === "string") res.setHeader(name, withThemeMediaCsp(current, origins));
+            }
           }
-        }
+        } catch { /* Retain the owner's original policy if theme discovery fails. */ }
 
         const { getCaptchaProviderForCsp, withCaptchaCsp } =
           await import("../lib/comments/comments-captcha-csp.js");
@@ -97,6 +98,51 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
           // A broken export config must not cost the page its other CSP additions.
         }
       }
+      // Plugins name the third-party hosts their pages load (Stripe, and so on)
+      // before the site's own addresses are added to those same directives.
+      try {
+        const { getRuntimeHooks } = await import("../lib/plugins/plugin-runtime.js");
+        const hooks = getRuntimeHooks();
+        if (hooks.has("security.cspSources")) {
+          const { getSiteId } = await import("../lib/settings/site-settings.js");
+          const { applyCspSources } = await import("../lib/security/csp-sources.js");
+          const siteId = (await getSiteId()) ?? "";
+          const contribution = await hooks.applyFilter(
+            "security.cspSources",
+            {},
+            { siteId, area: ctx.area },
+            { siteId, source: "http" },
+          );
+          for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
+            const value = headerValue(res.getHeader(name));
+            if (value) res.setHeader(name, applyCspSources(value, contribution));
+          }
+        }
+      } catch {
+        // A plugin that throws keeps the policy already on the response.
+      }
+      // Run after the other CSP additions so their new directives pick up the
+      // site's own addresses too. A lookup failure keeps the owner's policy.
+      try {
+        const origins = await getSiteCspOrigins();
+        if (origins.length) {
+          for (const name of ["Content-Security-Policy", "Content-Security-Policy-Report-Only"]) {
+            const value = headerValue(res.getHeader(name));
+            if (value) {
+              res.setHeader(name, withSiteOriginCsp(value, origins, { frameAncestors: ctx.area === "public" }));
+            }
+          }
+          const corp = headerValue(res.getHeader("Cross-Origin-Resource-Policy"));
+          if (corp) res.setHeader("Cross-Origin-Resource-Policy", crossOriginResourcePolicyForHosts(corp, origins));
+          // SAMEORIGIN cannot name the platform address. frame-ancestors does.
+          const enforced = headerValue(res.getHeader("Content-Security-Policy"));
+          if (ctx.area === "public" && frameAncestorsListsOrigins(enforced)) {
+            res.removeHeader("X-Frame-Options");
+          }
+        }
+      } catch {
+        // The site can still be served with the policy the owner configured.
+      }
     })
     .catch(() => {
       // Never let a configuration problem cost the visitor their response —
@@ -104,6 +150,12 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
       apply(res, defaultConfig(), { area: requestArea(req.path), secure: isSecureRequest(req) });
     })
     .finally(next);
+}
+
+function headerValue(current: number | string | string[] | undefined): string {
+  if (Array.isArray(current)) return current.join("; ");
+  if (typeof current === "string") return current;
+  return "";
 }
 
 function apply(

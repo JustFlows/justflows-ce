@@ -111,7 +111,7 @@ describe("ContentListPage", () => {
     const contentCalls = fetchMock.mock.calls
       .map(([input]) => String(input))
       .filter((path) => path === "/api/content" || path.startsWith("/api/content?"));
-    expect(contentCalls.some((path) => path === "/api/content")).toBe(true);
+    expect(contentCalls.some((path) => path === "/api/content?limit=100")).toBe(true);
     expect(contentCalls.some((path) => path.includes("locale="))).toBe(false);
   });
 });

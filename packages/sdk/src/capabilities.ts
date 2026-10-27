@@ -34,7 +34,6 @@ export const USER_CAPABILITIES = [
   "email-templates:manage",
   "updates:manage",
   "site:admin",
-  "analytics:read",
   "ai:use",
 ] as const;
 
@@ -101,7 +100,6 @@ export const ROLE_CAPABILITIES: Record<string, UserCapability[]> = {
     "media:delete",
     "comments:moderate",
     "users:read",
-    "analytics:read",
     "ai:use",
   ],
   author: [
