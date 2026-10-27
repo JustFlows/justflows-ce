@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const query = vi.fn();
 const setting = vi.fn();
+const contentTypeSettings = vi.fn();
 const overlay = vi.fn(async (row: Record<string, unknown>) => ({ ...row, title: "Working" }));
 vi.mock("../../../src/lib/database/db.js", () => ({ getDb: async () => ({ query }) }));
 vi.mock("../../../src/lib/settings/site-settings.js", () => ({ getSiteSetting: () => setting() }));
+vi.mock("../../../src/lib/content/content-types-db.js", () => ({ getContentTypeSettings: (...args: unknown[]) => contentTypeSettings(...args) }));
 vi.mock("../../../src/lib/content/content-revisions.js", () => ({ overlayWorkingOnRow: (...args: [Record<string, unknown>]) => overlay(...args) }));
 import { getHomeContent } from "../../../src/lib/content/home-page.js";
 
@@ -14,6 +16,7 @@ const row = { id, site_id: "site-a", type: "page", title: "Home", slug: "home", 
 beforeEach(() => {
   vi.clearAllMocks();
   setting.mockResolvedValue(id);
+  contentTypeSettings.mockReset().mockResolvedValue({ preview: true });
   query.mockReset().mockResolvedValue([row]);
 });
 
@@ -38,5 +41,17 @@ describe("home-page resolution", () => {
     query.mockReset().mockResolvedValueOnce([{ ...row, status: "draft" }]).mockResolvedValueOnce([]);
     expect(await getHomeContent("site-a", "en", false)).toBeNull();
     expect(overlay).toHaveBeenCalledOnce();
+  });
+
+  it("serves published content without working overlays when page previews are disabled", async () => {
+    contentTypeSettings.mockResolvedValue({ preview: false });
+
+    expect((await getHomeContent("site-a", "en", true))?.title).toBe("Home");
+    expect(contentTypeSettings).toHaveBeenCalledExactlyOnceWith("site-a", "page");
+    expect(overlay).not.toHaveBeenCalled();
+
+    query.mockReset().mockResolvedValueOnce([{ ...row, status: "draft" }]).mockResolvedValueOnce([]);
+    expect(await getHomeContent("site-a", "en", true)).toBeNull();
+    expect(overlay).not.toHaveBeenCalled();
   });
 });

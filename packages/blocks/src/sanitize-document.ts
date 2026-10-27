@@ -63,9 +63,14 @@ function sanitizeProps(type: string, props: Record<string, unknown>): Record<str
       next["backgroundImage"] = sanitizeMediaSrc(next["backgroundImage"]);
     }
   }
-  if (type === "core.image" && typeof next["src"] === "string") {
+  if (["core.image", "core.video", "core.audio", "core.file", "core.cover", "core.media-text"].includes(type) && typeof next["src"] === "string") {
     next["src"] = sanitizeMediaSrc(next["src"]);
   }
+  if (["core.video", "core.cover", "core.media-text"].includes(type) && typeof next["poster"] === "string") {
+    next["poster"] = sanitizeMediaSrc(next["poster"]);
+  }
+  if (type === "core.list-item" && typeof next["text"] === "string") next["text"] = sanitizeRichText(next["text"]);
+  if (type === "core.social-links" && Array.isArray(next["links"])) next["links"] = next["links"].map(sanitizeLinkedItem);
   if (type === "core.link-list" && Array.isArray(next["items"])) {
     next["items"] = next["items"].map((item) =>
       item && typeof item === "object" && "url" in item && typeof (item as { url: unknown }).url === "string"

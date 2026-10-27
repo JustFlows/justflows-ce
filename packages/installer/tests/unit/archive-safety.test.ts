@@ -1,6 +1,7 @@
+import { generateKeyPairSync } from "node:crypto";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { ArchiveSafetyError, resolveWithinDir } from "../../src/archive-safety.js";
+import { ArchiveSafetyError, resolveWithinDir, signPackage, verifyPackageSignature } from "../../src/archive-safety.js";
 
 const base = path.resolve("/app/packages-installed");
 
@@ -46,5 +47,16 @@ describe("resolveWithinDir", () => {
     expect(() => resolveWithinDir(base, "..", "packages-installed-evil")).toThrow(
       ArchiveSafetyError,
     );
+  });
+});
+
+describe("signPackage", () => {
+  it("round-trips an Ed25519 signature and rejects a different archive", () => {
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    const data = Buffer.from("helpdesk-archive");
+    const signature = signPackage(data, privateKey.export({ type: "pkcs8", format: "pem" }).toString());
+    const pem = publicKey.export({ type: "spki", format: "pem" }).toString();
+    expect(verifyPackageSignature(data, signature, pem)).toBe(true);
+    expect(verifyPackageSignature(Buffer.from("other"), signature, pem)).toBe(false);
   });
 });

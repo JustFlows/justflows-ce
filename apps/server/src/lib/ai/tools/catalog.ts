@@ -1690,15 +1690,6 @@ export const CORE_TOOLS: AgentTool[] = [
     group: "site",
   }),
   manageTool({
-    name: "analytics_summary",
-    title: "Analytics summary",
-    description: "The site analytics summary.",
-    method: "GET",
-    path: "/analytics",
-    annotations: READ,
-    group: "site",
-  }),
-  manageTool({
     name: "comment_rules_list",
     title: "List comment rules",
     description: "Block and allow rules for comments.",

@@ -19,12 +19,12 @@
     "@justflows/core": "file:../core",
     "@justflows/database": "file:../database",
     "@justflows/sdk": "file:../sdk",
-    "iron-session": "^8.0.4"
+    "iron-session": "^9.0.1"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.5"
   },
   "license": "MIT"
 }

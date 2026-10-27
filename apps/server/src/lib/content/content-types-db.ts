@@ -3,6 +3,9 @@
 import { randomUUID } from "node:crypto";
 import {
   ContentTypeCacheControlSchema,
+  ContentTypeSettingsSchema,
+  resolveContentTypeSettings,
+  type ContentTypeSettings,
   NEVER_CACHE_CONTROL,
   contentTypePolicy,
   seedAccountPage,
@@ -12,7 +15,7 @@ import {
   isBuiltinContentTypeSlug,
   type ContentFieldDefinition,
 } from "@justflows/content";
-import { getDb } from "../database/db.js";
+import { getDb, type DbClient } from "../database/db.js";
 import { runAllMigrations } from "../database/run-migrations.js";
 import { getSiteId } from "../settings/site-settings.js";
 
@@ -24,6 +27,7 @@ export interface ContentTypeDefinition {
   description: string;
   builtin: boolean;
   fields: ContentFieldDefinition[];
+  settings: ContentTypeSettings;
   cacheControl: string | null;
   cacheControlEditable: boolean;
   createdAt: string;
@@ -38,6 +42,7 @@ interface ContentTypeRow {
   description: string;
   is_builtin: boolean | number | string;
   fields: unknown;
+  settings?: unknown;
   cache_control?: string | null;
   created_at: string;
   updated_at: string;
@@ -82,6 +87,7 @@ function serialize(row: ContentTypeRow): ContentTypeDefinition {
     description: String(row.description ?? ""),
     builtin: toBool(row.is_builtin),
     fields: parseFields(row.fields),
+    settings: resolveContentTypeSettings(row.slug, parseSettingsJson(row.settings)),
     cacheControl: contentTypePolicy(row.slug).cacheable ? row.cache_control ?? null : NEVER_CACHE_CONTROL,
     cacheControlEditable: contentTypePolicy(row.slug).cacheable,
     createdAt: String(row.created_at),
@@ -166,7 +172,7 @@ export async function getContentTypeBySlug(
 
 export async function createContentType(
   siteId: string,
-  input: { slug: string; label: string; description?: string; fields?: ContentFieldDefinition[]; cacheControl?: string | null },
+  input: { slug: string; label: string; description?: string; fields?: ContentFieldDefinition[]; cacheControl?: string | null; settings?: ContentTypeSettings },
 ): Promise<ContentTypeDefinition> {
   if (isBuiltinContentTypeSlug(input.slug)) {
     throw new Error("Cannot recreate a built-in content type");
@@ -179,8 +185,8 @@ export async function createContentType(
   const cacheControl = ContentTypeCacheControlSchema.parse(input.cacheControl ?? null);
 
   await db.run(
-    `INSERT INTO content_types (id, site_id, slug, label, description, is_builtin, fields, cache_control, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO content_types (id, site_id, slug, label, description, is_builtin, fields, cache_control, settings, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       siteId,
@@ -190,6 +196,7 @@ export async function createContentType(
       process.env.DB_DRIVER === "postgres" ? false : 0,
       JSON.stringify(fields),
       cacheControl,
+      JSON.stringify(resolveContentTypeSettings(input.slug, ContentTypeSettingsSchema.parse(input.settings ?? {}))),
       timestamp,
       timestamp,
     ],
@@ -203,7 +210,7 @@ export async function createContentType(
 export async function updateContentType(
   siteId: string,
   slug: string,
-  patch: { label?: string; description?: string; fields?: ContentFieldDefinition[]; cacheControl?: string | null },
+  patch: { label?: string; description?: string; fields?: ContentFieldDefinition[]; cacheControl?: string | null; settings?: ContentTypeSettings },
 ): Promise<ContentTypeDefinition> {
   const existing = await getContentTypeBySlug(slug, siteId);
   if (!existing) throw new Error("Content type not found");
@@ -231,6 +238,11 @@ export async function updateContentType(
     values.push(ContentTypeCacheControlSchema.parse(patch.cacheControl));
   }
 
+  if (patch.settings !== undefined) {
+    fields.push("settings = ?");
+    values.push(JSON.stringify(resolveContentTypeSettings(slug, ContentTypeSettingsSchema.parse(patch.settings))));
+  }
+
   if (fields.length === 0) return existing;
 
   fields.push("updated_at = ?");
@@ -240,7 +252,7 @@ export async function updateContentType(
     values,
   );
 
-  if (patch.cacheControl !== undefined && patch.cacheControl !== existing.cacheControl) {
+  if (patch.settings !== undefined || (patch.cacheControl !== undefined && patch.cacheControl !== existing.cacheControl)) {
     const { revalidateSelected } = await import("../cache/cache-revalidate.js");
     await revalidateSelected(["pages", "content"]);
     const { purgeCdnCache } = await import("../cdn/cdn-purge.js");
@@ -267,4 +279,31 @@ export async function deleteContentType(siteId: string, slug: string): Promise<v
   }
 
   await db.run("DELETE FROM content_types WHERE site_id = ? AND slug = ?", [siteId, slug]);
+}
+
+/** Drivers return JSON as objects, strings, or buffers. */
+function parseSettingsJson(raw: unknown): unknown {
+  if (Buffer.isBuffer(raw)) raw = raw.toString("utf8");
+  if (typeof raw === "string") {
+    try { return JSON.parse(raw); } catch { return {}; }
+  }
+  return raw;
+}
+
+/** One bounded read for all type settings used by a rendering/list operation. */
+export async function getContentTypeSettingsMap(siteId: string): Promise<Map<string, ContentTypeSettings>> {
+  const db = await getDb();
+  const rows = await db.query<{ slug: string; settings: unknown }>(
+    "SELECT slug, settings FROM content_types WHERE site_id = ?", [siteId],
+  );
+  return new Map(rows.map(row => [row.slug, resolveContentTypeSettings(row.slug, parseSettingsJson(row.settings))]));
+}
+
+/** Read a type's settings without builtin seeding or unrelated reference reads. */
+export async function getContentTypeSettings(siteId: string, slug: string, client?: Pick<DbClient, "query">): Promise<ContentTypeSettings> {
+  const db = client ?? await getDb();
+  const [row] = await db.query<{ settings: unknown }>(
+    "SELECT settings FROM content_types WHERE site_id = ? AND slug = ? LIMIT 1", [siteId, slug],
+  );
+  return resolveContentTypeSettings(slug, parseSettingsJson(row?.settings));
 }

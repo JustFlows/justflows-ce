@@ -53,7 +53,17 @@ export const ContentCacheFieldsSchema = z.record(z.string(), z.unknown()).transf
 });
 
 export function validateContentCacheFields(type: string, fields: Record<string, unknown>): Record<string, unknown> {
-  if (!contentTypePolicy(type).cacheable && fields["cacheControl"] != null) throw new Error("This content type must never be cached; Cache-Control is locked");
+  if (!contentTypePolicy(type).cacheable && fields["cacheControl"] != null) {
+    const parsed = ContentTypeCacheControlSchema.safeParse(fields["cacheControl"]);
+    /**
+     * Account pages already store the mandatory private policy. Saving the
+     * page echoes that value back; keep the lock and drop the redundant field.
+     */
+    if (parsed.success && parsed.data === NEVER_CACHE_CONTROL) {
+      return ContentCacheFieldsSchema.parse({ ...fields, cacheControl: null });
+    }
+    throw new Error("This content type must never be cached; Cache-Control is locked");
+  }
   return ContentCacheFieldsSchema.parse(fields);
 }
 

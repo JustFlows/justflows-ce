@@ -23,15 +23,15 @@
   },
   "dependencies": {
     "@justflows/core": "file:../core",
-    "drizzle-orm": "^0.45.2",
-    "mysql2": "^3.24.1",
+    "drizzle-orm": "^0.45.4",
+    "mysql2": "^3.24.6",
     "postgres": "^3.4.9"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
-    "drizzle-kit": "^0.31.10",
+    "@types/node": "^26.6.5",
+    "drizzle-kit": "^0.31.11",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.5"
   },
   "license": "MIT"
 }

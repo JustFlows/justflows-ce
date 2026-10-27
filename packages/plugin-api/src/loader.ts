@@ -1,4 +1,6 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
+  PLUGIN_ID_RE,
   PluginManifestSchema,
   requiredPermissionForHook,
   isOwnedHookName,
@@ -16,11 +18,17 @@ import {
   type PluginSecretsApi,
   type PluginDatabasesApi,
   type PluginTenancyApi,
+  type PluginNetworkApi,
   type PluginQuotasApi,
   type PluginUsersApi,
   type PluginBlockDefinition,
   type PluginContentApi,
   type PluginFilesApi,
+  type PluginCaptchaApi,
+  type PluginAiApi,
+  type PluginCallRequest,
+  type PluginHttpRequest,
+  type PluginHttpResponse,
   type HookRegisterOptions,
   type Unsubscribe,
   type CookieCategory,
@@ -60,6 +68,8 @@ export type PluginTenancyFactory = (
   pluginId: string,
   permissions: ReadonlySet<PluginPermission>,
 ) => PluginTenancyApi;
+/** `ctx.network` for a plugin that holds `platform:network`. */
+export type PluginNetworkFactory = (pluginId: string) => PluginNetworkApi;
 export type PluginQuotasFactory = (
   pluginId: string,
   permissions: ReadonlySet<PluginPermission>,
@@ -164,6 +174,17 @@ const NULL_DATABASES: PluginDatabasesApi = {
   columns: async () => [],
 };
 
+const NULL_CAPTCHA: PluginCaptchaApi = {
+  config: async () => null,
+  verify: async () => false,
+};
+
+const NULL_AI: PluginAiApi = {
+  complete: async () => ({ ok: false, error: "The assistant is not available in this runtime." }),
+};
+
+const pluginCallDepth = new AsyncLocalStorage<number>();
+
 const NULL_QUOTAS: PluginQuotasApi = {
   register: () => () => undefined,
   check: async () => ({ ok: true, limit: null, used: 0, remaining: null }),
@@ -228,6 +249,9 @@ const NULL_CONTENT: PluginContentApi = {
   deleteType: async () => {
     throw new Error("Content API is not available in this runtime");
   },
+  deletePages: async () => {
+    throw new Error("Content API is not available in this runtime");
+  },
   deleteCreatedBy: async () => {
     throw new Error("Content API is not available in this runtime");
   },
@@ -242,6 +266,7 @@ export class PluginLoader {
   private readonly secretsFactory: PluginSecretsFactory;
   private readonly databasesFactory: PluginDatabasesFactory;
   private readonly tenancyFactory: PluginTenancyFactory;
+  private readonly networkFactory: PluginNetworkFactory | undefined;
   private readonly quotasFactory: PluginQuotasFactory;
   private readonly quotasCleanup: ((pluginId: string) => void) | undefined;
   private readonly contentFactory: PluginContentFactory;
@@ -267,6 +292,11 @@ export class PluginLoader {
   private readonly placeholderResolver: PluginPlaceholderResolver;
   private readonly eventPublisher: ((event: string, payload: unknown, siteId: string) => Promise<void>) | undefined;
   private readonly currentSiteId: (() => string | undefined) | undefined;
+  private readonly runForSite:
+    | ((siteId: string, fn: () => Promise<PluginHttpResponse>) => Promise<PluginHttpResponse>)
+    | undefined;
+  private readonly captchaFactory: () => PluginCaptchaApi;
+  private readonly aiFactory: () => PluginAiApi;
 
   constructor(
     private readonly app: App,
@@ -278,6 +308,7 @@ export class PluginLoader {
       secretsFactory?: PluginSecretsFactory;
       databasesFactory?: PluginDatabasesFactory;
       tenancyFactory?: PluginTenancyFactory;
+      networkFactory?: PluginNetworkFactory;
       quotasFactory?: PluginQuotasFactory;
       quotasCleanup?: (pluginId: string) => void;
       contentFactory?: PluginContentFactory;
@@ -317,9 +348,20 @@ export class PluginLoader {
       currentSiteId?: () => string | undefined;
       /** Persist outbound events before actions (whose listener failures are isolated). */
       eventPublisher?: (event: string, payload: unknown, siteId: string) => Promise<void>;
+      /**
+       * Run a plugin call inside another site of the same workspace. The loader
+       * only invokes this after the caller declares `platform:tenancy` and the
+       * site id is well formed. The host refuses a site outside that workspace.
+       */
+      runForSite?: (siteId: string, fn: () => Promise<PluginHttpResponse>) => Promise<PluginHttpResponse>;
+      captchaFactory?: () => PluginCaptchaApi;
+      aiFactory?: () => PluginAiApi;
     },
   ) {
     this.currentSiteId = options?.currentSiteId;
+    this.runForSite = options?.runForSite;
+    this.captchaFactory = options?.captchaFactory ?? (() => NULL_CAPTCHA);
+    this.aiFactory = options?.aiFactory ?? (() => NULL_AI);
     this.eventPublisher = options?.eventPublisher;
     this.cacheFactory = options?.cacheFactory ?? (() => NULL_CACHE);
     this.dataFactory = options?.dataFactory ?? (() => NULL_DATA);
@@ -341,6 +383,7 @@ export class PluginLoader {
     this.databasesFactory =
       options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
     this.tenancyFactory = options?.tenancyFactory ?? (() => NULL_TENANCY);
+    this.networkFactory = options?.networkFactory;
     this.quotasFactory = options?.quotasFactory ?? (() => NULL_QUOTAS);
     this.quotasCleanup = options?.quotasCleanup;
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
@@ -628,7 +671,17 @@ export class PluginLoader {
       options: HookRegisterOptions | undefined,
     ): Unsubscribe => {
       assertMayListen(hook);
-      const opts = { ...options, pluginId };
+      /**
+       * A network handler runs on sites that never activated this plugin, so
+       * it needs the permission the site owner approved at install.
+       */
+      if (options?.network === true && !permissions.has("platform:network")) {
+        throw new Error(
+          `Plugin "${pluginId}" cannot register "${hook}" with { network: true } without the ` +
+            `"platform:network" permission. Add it to the plugin manifest.`,
+        );
+      }
+      const opts = { ...options, network: options?.network === true, pluginId };
       const wrapped = this.reportingHandler(pluginId, hook, handler);
       if (kind === "filter") {
         return hooks.filter(hook, wrapped as never, opts);
@@ -741,8 +794,10 @@ export class PluginLoader {
           await hooks.dispatchAction(hook, event, { siteId: callSiteId, source: "system", ...(options?.durable ? { webhookQueued: true } : {}) });
         },
         apply: async (hook, value, context) => {
-          assertMayEmit(hook);
-          return hooks.applyFilter(hook, value, context, { siteId: this.currentSiteId?.() || siteId, source: "system" });
+          if (hook !== "operatorKey.ensure") assertMayEmit(hook);
+          const caller = typeof context === "object" && context !== null ? context as Record<string, unknown> : {};
+          const filterContext = hook === "operatorKey.ensure" ? { ...caller, pluginId } : context;
+          return hooks.applyFilter(hook, value, filterContext, { siteId: this.currentSiteId?.() || siteId, source: "system" });
         },
         check: async (hook, event) => {
           assertMayEmit(hook);
@@ -763,12 +818,20 @@ export class PluginLoader {
         patch: (path, handler, options) => this.httpRouter.register(pluginId, "PATCH", path, handler, options),
         delete: (path, handler, options) => this.httpRouter.register(pluginId, "DELETE", path, handler, options),
       },
+      captcha: this.captchaFactory(),
+      plugins: {
+        call: (targetId, request) => this.callPlugin(pluginId, targetId, request),
+      },
+      ai: this.aiFactory(),
       jobs: this.scopedJobs(pluginId, permissions),
       mail: this.mailFactory(pluginId, permissions),
       data,
       secrets: this.secretsFactory(pluginId, siteId),
       databases: this.databasesFactory(pluginId, siteId, permissions),
       tenancy: this.tenancyFactory(pluginId, permissions),
+      ...(this.networkFactory && permissions.has("platform:network")
+        ? { network: this.networkFactory(pluginId) }
+        : {}),
       quotas: this.quotasFactory(pluginId, permissions, siteId),
       files: this.scopedFiles(pluginId, siteId, permissions),
       cookies: {
@@ -811,6 +874,55 @@ export class PluginLoader {
       },
       logger,
     };
+  }
+
+  private async callPlugin(callerId: string, targetId: string, request: PluginCallRequest) {
+    if (!PLUGIN_ID_RE.test(targetId) || targetId === callerId) {
+      return { status: 404, body: { error: { code: "not_found", message: "That plugin is not available." } } };
+    }
+    const entry = this.plugins.get(targetId);
+    if (!entry || entry.state !== "active") {
+      return { status: 404, body: { error: { code: "not_found", message: "That plugin is not available." } } };
+    }
+    const leaf = request.path.replace(/^\/+/, "");
+    if (!leaf || leaf.split("/").some((part: string) => !part || part === "." || part === "..")) {
+      return { status: 400, body: { error: { code: "rejected", message: "That path is not available." } } };
+    }
+    const depth = pluginCallDepth.getStore() ?? 0;
+    if (depth >= 4) {
+      return { status: 400, body: { error: { code: "rejected", message: "Too many plugin calls." } } };
+    }
+    const matched = this.httpRouter.match(request.method, `/ext/${targetId}/${leaf}`);
+    if (!matched || matched.route.pluginId !== targetId) {
+      return { status: 404, body: { error: { code: "not_found", message: "That action is not available." } } };
+    }
+    const httpRequest: PluginHttpRequest = {
+      method: request.method,
+      path: `/ext/${targetId}/${leaf}`,
+      query: request.query ?? {},
+      params: matched.params,
+      body: request.body,
+      /**
+       * Names the calling plugin. The host strips this header on HTTP, so a
+       * browser request cannot claim to be another plugin.
+       */
+      headers: { "x-jf-plugin-caller": callerId },
+      session: request.session ?? null,
+    };
+    const invoke = () => Promise.resolve(pluginCallDepth.run(depth + 1, () => matched.route.handler(httpRequest)));
+    const siteId = request.siteId?.trim() ?? "";
+    if (!siteId) return invoke();
+    if (!/^[0-9a-f-]{8,80}$/i.test(siteId)) {
+      return { status: 400, body: { error: { code: "rejected", message: "That site is not available." } } };
+    }
+    const caller = this.plugins.get(callerId);
+    if (!caller?.manifest.permissions.includes("platform:tenancy")) {
+      return { status: 403, body: { error: { code: "forbidden", message: "This plugin cannot open another site." } } };
+    }
+    if (!this.runForSite) {
+      return { status: 501, body: { error: { code: "unavailable", message: "This host cannot open another site." } } };
+    }
+    return this.runForSite(siteId, invoke);
   }
 
   private scopedFiles(pluginId: string, siteId: string, permissions: Set<PluginPermission>): PluginFilesApi {
@@ -888,6 +1000,10 @@ export class PluginLoader {
       deleteType: (slug) => {
         assertDelete();
         return inner.deleteType(slug);
+      },
+      deletePages: (input) => {
+        assertDelete();
+        return inner.deletePages(input);
       },
       deleteCreatedBy: (userId) => {
         assertDelete();

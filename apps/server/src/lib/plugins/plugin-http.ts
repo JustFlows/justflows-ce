@@ -6,7 +6,7 @@ import type { PluginHttpMethod, PluginHttpRateLimit, PluginHttpRequest } from "@
 import { isProtectedHeaderName, SECURITY_HEADER_DEFS } from "../security/security-headers.js";
 import { resolveSession } from "../auth/auth-session.js";
 import { getTenantContext } from "../tenancy/context.js";
-import { sessionMatchesRequestSite } from "../tenancy/access.js";
+import { isInstallationRootRequest, sessionMatchesRequestSite } from "../tenancy/access.js";
 import { recordDiagnosticError } from "../runtime/diagnostics.js";
 import { runAsDelegate } from "../security/delegated-call.js";
 import { parseLocalePrefix } from "../i18n/locales.js";
@@ -33,8 +33,11 @@ const RESERVED_RESPONSE_HEADERS = new Set<string>([
   "set-cookie",
 ]);
 
-/** Request headers never forwarded to plugin code. */
-const STRIPPED_REQUEST_HEADERS = new Set(["cookie", "authorization", "proxy-authorization"]);
+/**
+ * Request headers never forwarded to plugin code.
+ * `x-jf-plugin-caller` is set only by an in-process plugin call.
+ */
+const STRIPPED_REQUEST_HEADERS = new Set(["cookie", "authorization", "proxy-authorization", "x-jf-plugin-caller"]);
 
 /** Never assign these as plain object keys sourced from request data. */
 const UNSAFE_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -80,6 +83,48 @@ export function isReservedPluginResponseHeader(name: string): boolean {
 }
 
 /**
+ * A plugin may send the browser to another path on this site.
+ * Anything that could leave the site, or break the header, is refused.
+ */
+export function safePluginRedirect(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const target = value.trim();
+  if (target.length < 1 || target.length > 500) return null;
+  if (!target.startsWith("/") || target.startsWith("//")) return null;
+  if (target.includes("\\") || target.includes("://") || /[\u0000-\u001F\u007F]/.test(target)) return null;
+  if (/%0d|%0a|%5c|%2f%2f/i.test(target)) return null;
+  return target;
+}
+
+/**
+ * Slug of a published page a plugin route may render in the theme.
+ * One path segment, so the value cannot point at another site or a file.
+ */
+export function safePluginPageSlug(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const slug = value.trim();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 200) return null;
+  return slug;
+}
+
+/** Name stored on the user row, for a form that should show who is signed in. */
+async function sessionDisplayName(userId: string, siteId: string): Promise<string> {
+  try {
+    const { getDb } = await import("../database/db.js");
+    const db = await getDb();
+    const rows = await db.query<{ display_name: string; username: string }>(
+      "SELECT display_name, username FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+      [userId, siteId],
+    );
+    const row = rows[0];
+    const name = String(row?.display_name || row?.username || "").replace(/\s+/g, " ").trim();
+    return name.slice(0, 120);
+  } catch {
+    return "";
+  }
+}
+
+/**
  * The visitor's language for a plugin route. Storefront scripts call
  * `/ext/<id>/...` from a page such as `/nl-NL/shop`; the same-origin Referer
  * carries that page's locale prefix. Anything else gets the site default.
@@ -119,6 +164,22 @@ export function pluginHttpErrorBody(structured: boolean | undefined, status: num
   if (!structured) return { error: message, ...(requestId ? { requestId } : {}) };
   const codes: Record<number, string> = { 400: "invalid_request", 401: "unauthorized", 403: "forbidden", 404: "not_found", 429: "rate_limited", 500: "internal_error" };
   return { error: { code: codes[status] ?? "request_failed", message, ...(requestId ? { requestId } : {}) } };
+}
+
+/**
+ * Drop cached public pages after a plugin write: one site, or with `"network"`
+ * every live site in the installation (a `{ network: true }` hook's markup).
+ */
+async function revalidateAfterPluginWrite(target: string | "network" | undefined): Promise<void> {
+  const { revalidateOnUpdate } = await import("../cache/cache-revalidate.js");
+  if (target !== "network") {
+    await revalidateOnUpdate("plugin", target ? { siteId: target } : undefined);
+    return;
+  }
+  const { getControlDb } = await import("../database/db.js");
+  const control = await getControlDb();
+  const rows = await control.query<{ id: string }>("SELECT id FROM sites WHERE status <> 'deleted'");
+  for (const row of rows) await revalidateOnUpdate("plugin", { siteId: String(row.id) });
 }
 
 export async function dispatchPluginHttp(
@@ -224,6 +285,7 @@ export async function dispatchPluginHttp(
           getEffectiveAccess(cookieSession.userId, cookieSession.siteId, cookieSession.role),
         )
       : null;
+    const displayName = cookieSession ? await sessionDisplayName(cookieSession.userId, cookieSession.siteId) : "";
     const session = keyed.kind === "ok"
       ? keyed.session
       : cookieSession
@@ -233,6 +295,7 @@ export async function dispatchPluginHttp(
             role: cookieSession.role,
             roles: access?.roles ?? [cookieSession.role],
             email: cookieSession.email,
+            ...(displayName ? { displayName } : {}),
             capabilities: access?.capabilities ?? [],
             scopes: access?.policy.scopes ?? {},
           }
@@ -244,9 +307,19 @@ export async function dispatchPluginHttp(
       )
       .catch(() => undefined);
 
+    /** The beacon guard core routes used: this site, or an origin the CORS allow-list vouches for. */
+    const origin = req.get("origin");
+    let trustedOrigin: boolean | undefined;
+    if (origin) {
+      const { isAllowedFormOrigin } = await import("../static-export/cors.js");
+      const self = `${req.protocol}://${req.get("host") ?? ""}`.toLowerCase();
+      trustedOrigin = origin.toLowerCase() === self || isAllowedFormOrigin(origin);
+    }
+
     const request: PluginHttpRequest = {
       method,
       ...(locale ? { locale } : {}),
+      ...(trustedOrigin !== undefined ? { trustedOrigin } : {}),
       path: req.path,
       query,
       params,
@@ -261,6 +334,26 @@ export async function dispatchPluginHttp(
     const result = keyed.kind === "ok"
       ? await runAsDelegate({ kind: "api-key", client: keyed.client }, () => match.handler(request))
       : await match.handler(request);
+
+    const redirect = safePluginRedirect(result.redirect);
+    if (redirect) {
+      const code = result.status ?? 303;
+      const status = code >= 300 && code < 400 ? code : 303;
+      res.setHeader("Cache-Control", "private, no-store");
+      res.redirect(status, redirect);
+      return;
+    }
+
+    const pageSlug = safePluginPageSlug(result.renderPage);
+    if (pageSlug) {
+      const { renderPluginThemedPage } = await import("../../routes/public/public-site.js");
+      const rendered = await renderPluginThemedPage(req, res, pageSlug);
+      if (!rendered && !res.headersSent) {
+        const { sendPublicNotFound } = await import("../../routes/public/public-site.js");
+        await sendPublicNotFound(req, res);
+      }
+      return;
+    }
 
     const status = result.status ?? 200;
     res.status(status);
@@ -304,11 +397,12 @@ export async function dispatchPluginHttp(
     // via `html.head`, a block's stored config) can ask for site-wide cache
     // revalidation — which is also what wakes the static-export auto-rebuild.
     // Fire-and-forget after the response so it never adds request latency.
-    if (result.revalidate === true && method !== "GET" && status < 400) {
-      void import("../cache/cache-revalidate.js")
-        .then((m) =>
-          m.revalidateOnUpdate("plugin", session?.siteId ? { siteId: session.siteId } : undefined),
-        )
+    if ((result.revalidate === true || result.revalidate === "network") && method !== "GET" && status < 400) {
+      const network =
+        result.revalidate === "network" &&
+        loader.getPlugin(match.pluginId)?.manifest.permissions.includes("platform:network") === true &&
+        isInstallationRootRequest();
+      void revalidateAfterPluginWrite(network ? "network" : session?.siteId)
         .catch(() => {
           // revalidation is best-effort; a failure must not surface to the plugin
         });

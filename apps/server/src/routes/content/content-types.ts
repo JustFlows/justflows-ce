@@ -4,6 +4,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   ContentTypeCacheControlSchema,
+  ContentTypeSettingsSchema,
   ContentTypeFieldsSchema,
   ContentTypeSlugSchema,
   normalizeContentTypeSlug,
@@ -30,6 +31,7 @@ const CreateSchema = z.object({
   description: z.string().max(2000).optional(),
   fields: ContentTypeFieldsSchema.optional(),
   cacheControl: ContentTypeCacheControlSchema.optional(),
+  settings: ContentTypeSettingsSchema.optional(),
 });
 
 const PatchSchema = z.object({
@@ -37,6 +39,7 @@ const PatchSchema = z.object({
   description: z.string().max(2000).optional(),
   fields: ContentTypeFieldsSchema.optional(),
   cacheControl: ContentTypeCacheControlSchema.optional(),
+  settings: ContentTypeSettingsSchema.optional(),
 });
 
 router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
@@ -56,7 +59,7 @@ router.get("/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    const seeded = type.slug === "page" ? "blocks" : "fields";
+    const seeded = type.settings.editor === "auto" ? (type.slug === "page" ? "blocks" : "fields") : type.settings.editor;
     const editor = await getRuntimeHooks().applyFilter(
       "content.editor",
       seeded,

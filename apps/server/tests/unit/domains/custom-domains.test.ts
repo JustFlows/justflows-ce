@@ -158,4 +158,13 @@ describe("primary domain redirect", () => {
     expect(ask({ record: { ...record, hostname: "example.com" } })).toBeNull();
     expect(ask({ record: { ...record, primaryCustom: false } })).toBeNull();
   });
+
+  it("leaves a static-export crawl on the host it fetched", () => {
+    expect(ask({ staticExport: true, path: "/" })).toBeNull();
+  });
+
+  it("leaves an editor preview on the address the admin framed", () => {
+    expect(ask({ preview: true, path: "/" })).toBeNull();
+    expect(ask({ preview: true, path: "/theme.css" })).toBeNull();
+  });
 });

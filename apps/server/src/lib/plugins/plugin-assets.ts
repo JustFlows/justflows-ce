@@ -315,6 +315,74 @@ export async function getPluginBundle(
   };
 }
 
+/**
+ * Asset directory of a multisite or `platform:network` plugin that is active
+ * on the main site. Another site can load `/ext/<id>/…` even when it has not
+ * activated the plugin itself: the admin frames of a multisite plugin, and the
+ * files a network hook's markup points at.
+ */
+async function rootMultisiteAssetDir(pluginId: string): Promise<string | null> {
+  const { getTenantContext } = await import("../tenancy/context.js");
+  const tenant = getTenantContext();
+  if (!tenant || tenant.rootSite) return null;
+  const { installationRootSiteId } = await import("../tenancy/registry.js");
+  const rootId = await installationRootSiteId().catch(() => null);
+  if (!rootId || rootId === tenant.siteId) return null;
+
+  const { getControlDb } = await import("../database/db.js");
+  let manifest: Record<string, unknown> | null = null;
+  for (const load of [getDb, getControlDb]) {
+    try {
+      const db = await load();
+      const rows = await db.query<{ manifest: string | Record<string, unknown>; status: string }>(
+        "SELECT manifest, status FROM plugins WHERE site_id = ? AND plugin_id = ? LIMIT 1",
+        [rootId, pluginId],
+      );
+      const row = rows[0];
+      if (!row || row.status !== "active") continue;
+      const parsed =
+        typeof row.manifest === "string"
+          ? (JSON.parse(row.manifest) as Record<string, unknown>)
+          : row.manifest;
+      if (parsed && typeof parsed === "object") {
+        manifest = parsed;
+        break;
+      }
+    } catch {
+      continue;
+    }
+  }
+  const network = Array.isArray(manifest?.permissions) && manifest.permissions.includes("platform:network");
+  if (!manifest || (manifest.allowMultisite !== true && !network)) return null;
+
+  const basePath =
+    (typeof manifest.installedPath === "string" && manifest.installedPath) ||
+    (typeof manifest.bundledPath === "string" && manifest.bundledPath) ||
+    bundledBasePathFor(pluginId) ||
+    "";
+  if (!basePath) return null;
+
+  let assets = manifest.assets;
+  if (!assets || typeof assets !== "object") {
+    const diskManifest = resolvePathUnderBase(basePath, "justflows.json");
+    if (diskManifest && fs.existsSync(diskManifest)) {
+      try {
+        assets = (JSON.parse(fs.readFileSync(diskManifest, "utf8")) as Record<string, unknown>).assets;
+      } catch {
+        assets = undefined;
+      }
+    }
+  }
+  if (!assets || typeof assets !== "object") return null;
+  const dirName = typeof (assets as { dir?: unknown }).dir === "string" && (assets as { dir: string }).dir
+    ? (assets as { dir: string }).dir
+    : "public";
+  if (!DIR_RE.test(dirName) || dirName.split("/").includes("..")) return null;
+  const baseDir = resolvePathUnderBase(basePath, dirName);
+  if (!baseDir || !fs.existsSync(baseDir) || !fs.statSync(baseDir).isDirectory()) return null;
+  return baseDir;
+}
+
 /** Resolve a request for `/ext/<pluginId>/<relPath>` to a file to serve, or null. */
 export async function resolvePluginAssetFile(
   pluginId: string,
@@ -326,9 +394,10 @@ export async function resolvePluginAssetFile(
 
   const sets = await getPluginAssetSets();
   const set = sets.find((s) => s.pluginId === pluginId);
-  if (!set) return null;
+  const baseDir = set?.baseDir ?? (await rootMultisiteAssetDir(pluginId));
+  if (!baseDir) return null;
 
-  const abs = resolvePathUnderBase(set.baseDir, rel);
+  const abs = resolvePathUnderBase(baseDir, rel);
   if (!abs) return null;
   try {
     if (fs.lstatSync(abs).isSymbolicLink() || !fs.statSync(abs).isFile()) return null;

@@ -48,6 +48,15 @@ export interface HookRegisterOptions {
   once?: boolean;
   /** Stable label shown in hook diagnostics. */
   id?: string;
+  /**
+   * Run on every site in the installation, not only where this plugin is
+   * active, while the plugin is active on the main site. Requires the
+   * `platform:network` permission; registering without it throws. Use it for
+   * behaviour the main site applies network-wide, and read the main site's
+   * choices with `ctx.network.mainSiteSettings`. Other registrations stay
+   * limited to the sites that activated the plugin.
+   */
+  network?: true;
 }
 
 /** An authenticated account view. Identity comes from the verified site session. */
@@ -295,6 +304,24 @@ export interface RequestEndEvent extends RequestStartEvent {
   readonly durationMs: number;
 }
 
+/**
+ * A visitor received a public page from the server: status below 400, not a
+ * preview, and not the static-site exporter's crawl. Fired after the response
+ * is sent, so a handler never delays the page. A statically-exported page has
+ * no server render; a plugin that counts views there ships its own beacon.
+ */
+export interface PageViewedEvent {
+  readonly siteId: string;
+  /** Path as requested, without the query string. */
+  readonly path: string;
+  readonly locale?: string;
+  readonly contentId?: string;
+  readonly userAgent: string;
+  /** The `Referer` header, when the browser sent one. */
+  readonly referrer?: string;
+  readonly host: string;
+}
+
 export interface UnderConstructionContext {
   readonly siteId: string;
   readonly siteTitle: string;
@@ -319,6 +346,28 @@ export interface EmailDeliveryContext {
 }
 
 export interface EmailBeforeSendEvent extends EmailDeliveryContext {}
+
+/**
+ * Where an inbound message should be delivered.
+ * The value is the mailbox owner's site id. Return `siteId` to file it on the
+ * site whose database is open.
+ */
+export interface EmailRouteContext {
+  readonly from: string;
+  readonly to: string;
+  readonly subject: string;
+  readonly text: string;
+  /** The site whose database is open for this check. */
+  readonly siteId: string;
+}
+
+/** A message accepted by the site's inbound mail address. Text only; no attachments. */
+export interface EmailReceivedEvent {
+  readonly from: string;
+  readonly to: string;
+  readonly subject: string;
+  readonly text: string;
+}
 
 export interface EmailDeliveryEvent extends EmailDeliveryContext {
   readonly status: "queued" | "sent" | "deferred" | "failed" | "bounced";
@@ -780,6 +829,7 @@ export interface ActionEventMap {
 
   "request.before": RequestStartEvent;
   "request.after": RequestEndEvent;
+  "page.viewed": PageViewedEvent;
 
   "site.underConstruction.viewed": UnderConstructionViewedEvent;
 
@@ -791,6 +841,8 @@ export interface ActionEventMap {
   /** Deploy the generated directory to object storage / a CDN. */
   "staticExport.deploy": StaticExportDeployEvent;
 
+  /** An inbound message was accepted for this site. Listening requires `mail:hook`. */
+  "email.received": EmailReceivedEvent;
   /** Delivery has been accepted by the host and recorded, before transport I/O. */
   "email.queued": EmailDeliveryEvent;
   /** The transport accepted the message. */
@@ -848,6 +900,14 @@ export interface GateEventMap {
  * next value; returning nothing keeps the previous value and logs a warning.
  */
 export interface FilterValueMap {
+  /**
+   * Ask the host to create a 32-byte operator key in the installation
+   * environment when it is missing. Call it with `hooks.apply`. The name must
+   * belong to this plugin (`justflows.example` may use `JUSTFLOWS_EXAMPLE_*`).
+   * An existing valid key is kept. The value is not returned and is not stored
+   * in the database. The host replaces `pluginId` with the plugin that called.
+   */
+  "operatorKey.ensure": [{ name: string }, { pluginId: string }];
   /** Signed-in account sections. Requires users:read; never share-cache returned data. */
   "account.sections": [AccountSection[], AccountSectionContext];
   /** Supply an external candidate engine; host authorization is never delegated. */
@@ -967,17 +1027,33 @@ export interface FilterValueMap {
    */
   "mcp.tools": [McpToolDefinition[], { siteId: string }];
   "http.responseHeaders": [Record<string, string>, { method: string; path: string }];
+  /**
+   * Extra Content-Security-Policy hosts for this response. Seeded with `{}`.
+   * Append `https://` origins your plugin's public page actually loads — a
+   * script, frame, image, or API call. The host drops anything else
+   * (`'unsafe-inline'`, `*`, a path, `http:`). `frame-ancestors` is not
+   * available here. Deactivating the plugin removes the hosts.
+   */
+  "security.cspSources": [CspSourceContribution, { siteId: string; area: "public" | "admin" }];
   "html.head": [
     string,
     { siteId: string; path: string; locale: string; title: string; contentId?: string },
   ];
   /**
-   * The analytics `<head>` markup the host is about to emit (the Google Tag from
-   * the first-party Analytics plugin, when one is configured). Seeded with that
-   * markup or `""`. A consent plugin rewrites it — e.g. to
-   * `type="text/plain" data-jf-consent="analytics"` — so the tag does not run
-   * until the visitor grants the analytics category. Runs on the sync render
-   * path, so handlers must be synchronous. Returning it unchanged is a no-op.
+   * Extra HTML inserted before `</body>` on administration screens. Seeded with
+   * `""`. Handlers may be async. `rootSite` is true on the installation's own
+   * admin while other sites exist. A thrown handler is logged and the admin
+   * page still renders. Deactivating the plugin removes its markup.
+   */
+  "admin.body": [string, { siteId: string; rootSite?: boolean }];
+  /**
+   * Tracking markup for a public page's `<head>`, seeded with `""`. A plugin
+   * that adds a measurement tag appends it here with a low `priority` (below
+   * the default 100). A consent plugin filters at the default priority and
+   * rewrites what it finds, e.g. to `type="text/plain" data-jf-consent="analytics"`,
+   * so the tag does not run until the visitor grants that category. Use a
+   * same-origin script for any inline setup: the host adds no CSP hashes.
+   * Runs on the sync render path, so handlers must be synchronous.
    */
   "analytics.head": [string, { siteId: string; path: string }];
   /**
@@ -1057,11 +1133,34 @@ export interface FilterValueMap {
   /** Adjust final plain text. Changed output is stripped to plain text. */
   "email.text": [string, EmailDeliveryContext];
   /**
+   * The site that should receive an inbound message. Seeded with the mailbox
+   * owner's site id. Return `siteId` from the context when the open database
+   * owns the message. Listening requires `mail:hook`.
+   */
+  "email.route": [string, EmailRouteContext];
+  /**
    * The limit that will be enforced. Seeded with the stored value (`null` means
    * unlimited). Return a lower number to tighten it. A higher number or `null`
    * cannot raise a stored limit. Listening requires `platform:tenancy`.
    */
   "quota.effectiveLimit": [number | null, QuotaLimitContext];
+}
+
+/**
+ * Hosts a plugin needs added to the response Content-Security-Policy.
+ * Each value is a list of `https://` origins, or `https://*.example.com`.
+ */
+export interface CspSourceContribution {
+  "script-src"?: string[];
+  "script-src-elem"?: string[];
+  "style-src"?: string[];
+  "img-src"?: string[];
+  "font-src"?: string[];
+  "connect-src"?: string[];
+  "frame-src"?: string[];
+  "media-src"?: string[];
+  "worker-src"?: string[];
+  "form-action"?: string[];
 }
 
 /** One customizer layout target contributed by an active plugin. */

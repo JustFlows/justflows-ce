@@ -49,6 +49,7 @@ export const PluginPermissionSchema = z.enum([
   "mail:hook",
   "auth:hook",
   "platform:tenancy",
+  "platform:network",
   "files:private",
 ]);
 
@@ -64,6 +65,7 @@ export const SENSITIVE_PERMISSIONS: PluginPermission[] = [
   "mail:templates",
   "mail:hook",
   "platform:tenancy",
+  "platform:network",
 ];
 
 /** Host/runtime versions exposed to an activated extension. */
@@ -84,6 +86,8 @@ export const ADMIN_MENU_DOMAINS = [
   "commerce",
   "appearance",
   "users",
+  "helpdesk",
+  "files",
   "extensions",
   "tools",
   "security",
@@ -157,7 +161,7 @@ export const AdminMenuItemSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Menu id must be lowercase kebab-case"),
   /** English label, shown when `labelKey` is absent or untranslated. */
   label: z.string().min(1).max(60),
-  /** Optional admin i18n catalog key, e.g. "nav.analytics". */
+  /** Optional admin i18n catalog key, e.g. "nav.media". */
   labelKey: z.string().max(120).optional(),
   /**
    * Where this page mounts, **relative to the plugin's own namespace**
@@ -375,6 +379,15 @@ export const PluginManifestSchema = z
      * plugin on the main site.
      */
     allowMultisite: z.boolean().optional(),
+    /**
+     * Other plugins that must already be installed on this site. Install is
+     * refused while any of them is missing. Activation is refused until each
+     * one is active.
+     */
+    requires: z
+      .array(z.string().regex(PLUGIN_ID_RE, "Required plugin id must be justflows.<name>"))
+      .max(10)
+      .optional(),
     settingsSchema: z
       .record(
         z.string(),
@@ -476,6 +489,13 @@ export const PluginManifestSchema = z
         code: "custom",
         path: ["contentTypes"],
         message: 'Declaring contentTypes requires the "content:delete" permission',
+      });
+    }
+    if (manifest.requires?.includes(manifest.id)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["requires"],
+        message: "A plugin cannot require itself",
       });
     }
     if (!isGplCompatibleLicense(manifest.license)) {
@@ -651,10 +671,62 @@ export interface PluginHttpSession {
    */
   roles?: readonly string[];
   email: string;
+  /**
+   * The name shown for this account (`users.display_name`, or the username).
+   * Absent on older hosts and when the user record has no name.
+   */
+  displayName?: string;
   /** Effective grants after role, per-user additions, and explicit denies. */
   capabilities: readonly UserCapability[];
   /** Resource constraints the host enforces for scoped operations. */
   scopes: AccessPolicy["scopes"];
+}
+
+/** The Discussion CAPTCHA, without the secret. Null when no provider is configured. */
+export interface PluginCaptchaConfig {
+  provider: "turnstile" | "hcaptcha" | "recaptcha" | "recaptcha-v3";
+  siteKey: string;
+  field: string;
+  scriptSrc: string;
+  widgetClass: string;
+}
+
+/** Verify the site's Settings → Discussion CAPTCHA. The secret never leaves the host. */
+export interface PluginCaptchaApi {
+  config(): Promise<PluginCaptchaConfig | null>;
+  verify(token: string, action?: string, ip?: string): Promise<boolean>;
+}
+
+/** One in-process call to another active plugin's HTTP route, as the given session. */
+export interface PluginCallRequest {
+  method: PluginHttpMethod;
+  /** Path relative to that plugin, such as `orders` or `payments/attempts/:id/refund`. */
+  path: string;
+  query?: Record<string, string>;
+  body?: unknown;
+  session?: PluginHttpSession | null;
+  /**
+   * Run the route as this site. The caller needs `platform:tenancy`. The host
+   * allows only another active site in the same workspace, and Shop (or
+   * whichever plugin is called) still checks the session. Absent means the
+   * current site. Older hosts ignore this field.
+   */
+  siteId?: string;
+}
+
+export interface PluginBridgeApi {
+  call(pluginId: string, request: PluginCallRequest): Promise<PluginHttpResponse>;
+}
+
+/** One short completion from the site's configured assistant. */
+export interface PluginAiResult {
+  ok: boolean;
+  text?: string;
+  error?: string;
+}
+
+export interface PluginAiApi {
+  complete(input: { instruction: string; text: string }): Promise<PluginAiResult>;
 }
 
 export type PluginHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -686,6 +758,14 @@ export interface PluginHttpRequest {
    */
   session: PluginHttpSession | null;
   /**
+   * True when the browser's `Origin` is this site or an origin the host
+   * vouches for (the same allow-list `cors` uses). False for any other
+   * `Origin`, and absent when the request carried none, as a same-origin GET
+   * or a non-browser client does. Use it to ignore a beacon another site fires
+   * at this one. Absent on older hosts.
+   */
+  trustedOrigin?: boolean;
+  /**
    * The visitor's language: the locale of the site page that made the request
    * (`/nl-NL/shop` → `nl-NL`), otherwise the site default. Pass it to
    * `ctx.content.listPublished({ locale, fallback: true })` to answer in the
@@ -705,8 +785,12 @@ export interface PluginHttpResponse {
    * reflect — a setting the plugin injects via `html.head`, a block's stored
    * config — so page caches drop and, when static-export auto-rebuild is on,
    * the export regenerates. Ignored on GET and on a 4xx/5xx status.
+   *
+   * `"network"` does the same for every site in the installation. It needs
+   * `platform:network` and a request on the main site; otherwise it acts as
+   * `true`. Use it after saving something `{ network: true }` hooks inject.
    */
-  revalidate?: boolean;
+  revalidate?: boolean | "network";
   /**
    * Answer with one of this plugin's private files (`ctx.files`) instead of a
    * body. The host streams it from wherever the site stores private files,
@@ -726,11 +810,25 @@ export interface PluginHttpResponse {
    * response cross-origin. The host adds `Access-Control-Allow-Origin` for
    * vouched-for origins only — `APP_URL`, `STATIC_EXPORT_BASE_URL`, anything in
    * `STATIC_EXPORT_ALLOWED_ORIGINS`, plus any `localhost` port outside
-   * production — the same allow-list the Forms and Analytics endpoints use.
+   * production — the same allow-list the Forms endpoints use.
    * Set it on a public read the runtime `fetch()`es (a config or disclosure
    * route); a plain `<img>`/beacon GET needs nothing.
    */
   cors?: boolean;
+  /**
+   * Send the browser to a same-site path. The host allows only a path that
+   * starts with one `/` (a query string is fine) and answers 303 when `status`
+   * is not already a redirect. Absolute URLs and protocol-relative paths are
+   * ignored, so a plugin cannot send a visitor off the site.
+   */
+  redirect?: string;
+  /**
+   * Render a published page of this site in the active theme, at the URL the
+   * visitor asked for. The slug is one path segment (`support-ticket`). The
+   * host follows `redirect` instead when that is set, refuses anything that is not a
+   * published public page, and does not cache the response.
+   */
+  renderPage?: string;
 }
 
 export type PluginHttpHandler = (
@@ -999,6 +1097,20 @@ export interface PluginBlockDefinition {
   schema: Record<string, PluginBlockField>;
   supportsChildren?: boolean;
   allowedChildTypes?: string[];
+  /**
+   * Turn the builder's generic settings sections on or off for this block.
+   * Unset keys keep the default: everything on except `themeVariables`.
+   * `hideFields` drops single layout fields, e.g. `["textAlign"]` when the
+   * block has its own alignment field.
+   */
+  inspector?: Partial<Record<"themeVariables" | "animation" | "spacing" | "size" | "appearance" | "colors" | "advanced", boolean>> & {
+    hideFields?: Array<
+      | "padTop" | "padBottom" | "padX" | "marginTop" | "marginBottom"
+      | "width" | "alignSelf" | "minHeight" | "maxWidth" | "maxHeight"
+      | "textAlign" | "radius" | "shadow"
+      | "background" | "textColor" | "accent" | "opacity"
+    >;
+  };
   render(props: Record<string, unknown>, children?: string): string;
   validateProps(raw: unknown): Record<string, unknown>;
 }
@@ -1164,8 +1276,10 @@ export interface PluginContentApi {
   }): Promise<PluginContentEnsureResult>;
 
   /** Create a content entry if this site does not already have that type+slug+locale.
-   * When the row already exists, title and excerpt are updated. `aliases` are
-   * previous slugs to rename. Pass `create: false` to only repair, never insert.
+   * When the row already exists, title and excerpt are updated. Blocks and
+   * cache policy are written only on insert, so a later edit of the canvas is
+   * kept. `aliases` are previous slugs to rename. Pass `create: false` to only
+   * repair, never insert.
    */
   ensurePage(input: {
     type: string;
@@ -1175,6 +1289,22 @@ export interface PluginContentApi {
     status?: "draft" | "published";
     aliases?: string[];
     create?: boolean;
+    /**
+     * Block document stored only when the row is inserted. A later activation
+     * leaves an edited canvas alone.
+     */
+    blocks?: { version?: 1; blocks: unknown[] };
+    /**
+     * Cache-Control stored only on insert. `private, no-store` keeps the page
+     * out of shared caches. Ignored when the row already exists.
+     */
+    cacheControl?: string;
+    /**
+     * Trash entries of these types that use the same slug. A signed-in page
+     * that moves from `page` to `account` passes `["page"]` so the public
+     * copy does not keep the address.
+     */
+    retireTypes?: string[];
   }): Promise<PluginContentEnsureResult>;
 
   /**
@@ -1182,6 +1312,13 @@ export interface PluginContentApi {
    * Built-in slugs `post` and `page` cannot be deleted.
    */
   deleteType(slug: string): Promise<PluginContentDeleteTypeResult>;
+
+  /**
+   * Permanently delete entries of this type and slug, in every locale,
+   * including copies in trash and their translations. The content type stays.
+   * Requires `content:delete`.
+   */
+  deletePages(input: { type: string; slug: string }): Promise<{ deleted: number }>;
 
   /**
    * Permanently delete records this user created: content they authored (any
@@ -1325,6 +1462,7 @@ export type PluginTenancyResult =
 
 /**
  * Workspace and site placement. `current()` is available to every plugin.
+ * `siblingSites()` lists the current workspace from any of its sites.
  * Every other call requires `platform:tenancy`, runs only on the
  * installation's root site, and is refused while the plugin works on behalf
  * of an AI agent, an API key or a connected app (an MCP or assistant tool
@@ -1333,6 +1471,12 @@ export type PluginTenancyResult =
  */
 export interface PluginTenancyApi {
   current(): Promise<PluginWorkspaceContext | null>;
+  /**
+   * Active sites in the workspace handling this request. Requires
+   * `platform:tenancy`. It works from any site in that workspace and cannot
+   * see another workspace. Absent on older hosts.
+   */
+  siblingSites?(): Promise<PluginWorkspaceSite[]>;
   listWorkspaces(): Promise<PluginWorkspace[]>;
   listSites(tenantId: string): Promise<PluginWorkspaceSite[]>;
   createWorkspace(input: PluginCreateWorkspaceInput): Promise<PluginTenancyResult>;
@@ -1341,6 +1485,39 @@ export interface PluginTenancyApi {
   reactivate(tenantId: string): Promise<PluginTenancyResult>;
   /** Mark deleted for retention cleanup; dropDatabase requests full immediate purge. */
   deleteWorkspace(tenantId: string, options?: { dropDatabase?: boolean }): Promise<PluginTenancyResult>;
+}
+
+/** One live site in the installation, as `ctx.network.sites()` lists it. */
+export interface PluginNetworkSite {
+  id: string;
+  name: string;
+  /** Primary hostname, or null when the site has none yet. */
+  hostname: string | null;
+  /** True for the site created with the installation. */
+  mainSite: boolean;
+}
+
+/**
+ * Behaviour the installation's main site applies to every site. Requires
+ * `platform:network`; absent without it and on older hosts.
+ *
+ * Pair it with hooks registered as `{ network: true }`: those handlers run on
+ * every site while this plugin is active on the main site, even where a site
+ * has not activated it. Inside them, `ctx.settings` and `ctx.data` still
+ * belong to the request's site; read the main site's choices through
+ * `mainSiteSettings`.
+ */
+export interface PluginNetworkApi {
+  /** This plugin's settings on the main site, read-only, from any site. */
+  mainSiteSettings: {
+    get<T = unknown>(key: string): Promise<T | undefined>;
+  };
+  /**
+   * Every live site in the installation, main site first. Only on the main
+   * site; on any other site it rejects. The plugin decides what each site
+   * gets, so another site's admins never see or change it.
+   */
+  sites(): Promise<PluginNetworkSite[]>;
 }
 
 export type QuotaScope = "workspace" | "site";
@@ -1606,6 +1783,12 @@ export interface PluginDatabasesApi {
 
   /** Column names for a plugin-owned table, or `[]` when the table does not exist. */
   columns(table: string): Promise<string[]>;
+
+  /**
+   * This plugin's rows on another site in the installation. Requires
+   * `platform:tenancy` and the installation's main site. Absent on older hosts.
+   */
+  forSite?(siteId: string): PluginRowOps;
 }
 
 export interface PluginSecretsApi {
@@ -1748,6 +1931,12 @@ export interface PluginContext {
   tenancy: PluginTenancyApi;
 
   /**
+   * Network-wide behaviour set on the main site. Requires `platform:network`.
+   * Absent without that permission and on older hosts. See `PluginNetworkApi`.
+   */
+  network?: PluginNetworkApi;
+
+  /**
    * Workspace and site ceilings. Register a meter, then `check` it before
    * creating a record the host does not count itself. `set` requires
    * `platform:tenancy`.
@@ -1806,6 +1995,22 @@ export interface PluginContext {
      */
     countries(locale?: string): Promise<Array<{ code: string; name: string }>>;
   };
+
+  /**
+   * The site's Discussion CAPTCHA. Absent on older hosts. `config()` never
+   * includes the secret.
+   */
+  captcha?: PluginCaptchaApi;
+
+  /**
+   * Call another active plugin's own HTTP route in-process. The session is the
+   * one you pass; this does not grant that plugin's capabilities. Absent on
+   * older hosts.
+   */
+  plugins?: PluginBridgeApi;
+
+  /** The site's configured assistant. Absent on older hosts. */
+  ai?: PluginAiApi;
 
   logger: {
     debug(message: string, context?: Record<string, unknown>): void;

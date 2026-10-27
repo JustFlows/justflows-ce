@@ -182,6 +182,30 @@ function shouldPreserve(relativePath: string): boolean {
   return false;
 }
 
+/** Snapshot replaceable core entries and dependencies before any live mutation. */
+async function backupUpdateFiles(root: string, backup: string): Promise<void> {
+  await fsp.mkdir(backup, { recursive: true });
+  for (const entry of await fsp.readdir(root)) {
+    if (shouldPreserve(entry) && entry !== "node_modules") continue;
+    await fsp.cp(path.join(root, entry), path.join(backup, entry), {
+      recursive: true, verbatimSymlinks: true,
+    });
+  }
+}
+
+/** Restore the snapshot, including files pruned or dependencies changed by an update. */
+async function restoreUpdateFiles(root: string, backup: string): Promise<void> {
+  for (const entry of await fsp.readdir(root)) {
+    if (shouldPreserve(entry) && entry !== "node_modules") continue;
+    await fsp.rm(path.join(root, entry), { recursive: true, force: true });
+  }
+  for (const entry of await fsp.readdir(backup)) {
+    await fsp.cp(path.join(backup, entry), path.join(root, entry), {
+      recursive: true, verbatimSymlinks: true,
+    });
+  }
+}
+
 async function copyUpdateFiles(sourceRoot: string, destRoot: string): Promise<number> {
   const files = await walkFiles(sourceRoot);
   let copied = 0;
@@ -382,8 +406,8 @@ interface ApplyOptions {
 }
 
 /**
- * Copy a verified core archive into place, migrate, install dependencies,
- * (re)build if needed, and restart the running app. Every step is mirrored to
+ * Prepare a verified archive in staging, back up the running release, activate,
+ * migrate, and request restart. Restore the previous files on activation failure. Every step is mirrored to
  * `.updates/status.json` so the admin UI can follow along and recover after a
  * page reload or a dropped connection.
  */
@@ -399,11 +423,20 @@ export async function applyCoreUpdate(
   const source = options?.source ?? "upload";
   const ownsLock = !options?.assumeLocked;
 
+  /** Status storage failures must never prevent restoring the runnable release. */
+  function persistStatus(patch: Partial<UpdateStatus>): void {
+    try {
+      patchUpdateStatus(patch);
+    } catch {
+      console.error("[justflows] Could not persist core update status");
+    }
+  }
+
   function record(step: UpdateStep): void {
     steps.push(step);
     const icon = step.ok ? "✓" : "✗";
     log.push(`${icon} ${step.step}${step.detail ? `: ${step.detail}` : ""}`);
-    patchUpdateStatus({
+    persistStatus({
       phase: STEP_PHASE[step.step] ?? "copying",
       steps: [...steps],
       log: [...log],
@@ -411,7 +444,7 @@ export async function applyCoreUpdate(
   }
 
   function finish(result: UpdateResult, error?: string): UpdateResult {
-    patchUpdateStatus({
+    persistStatus({
       running: false,
       phase: result.ok ? "done" : "failed",
       ok: result.ok,
@@ -461,6 +494,10 @@ export async function applyCoreUpdate(
   const staging = updatesStagingDir();
   const extractDir = options?.preExtractedDir ?? path.join(staging, "extract");
   const zipPath = path.join(staging, "upload.zip");
+  let backup: string | null = null;
+  let liveFilesChanged = false;
+  let retainBackup = false;
+  let restoreFailed = false;
 
   try {
     if (!options?.preExtractedDir) {
@@ -542,6 +579,52 @@ export async function applyCoreUpdate(
     }
     record({ step: "signature", ok: true, detail: trust });
 
+    /** Hosting archives use npm manifests; prepare dependencies away from the running app. */
+    await fsp.rm(path.join(sourceRoot, "pnpm-lock.yaml"), { force: true });
+
+    const install = runDependencyInstall(sourceRoot);
+    record({
+      step: "npm install",
+      ok: install.ok,
+      detail: install.ok
+        ? install.output
+        : install.output.slice(-500) || "Dependency install failed",
+    });
+    if (!install.ok) throw new Error("Dependency installation failed; update aborted");
+
+    const hasBuiltServer =
+      fs.existsSync(path.join(sourceRoot, "apps/server/dist/server.js")) &&
+      fs.existsSync(path.join(sourceRoot, "apps/server/admin-ui/dist/client/index.html")) &&
+      fs.existsSync(path.join(sourceRoot, "apps/server/admin-ui/dist/server/entry-server.js"));
+
+    if (hasBuiltServer) {
+      record({ step: "build", ok: true, detail: "Using pre-built artifacts from update package" });
+    } else {
+      const build = runCommand(process.execPath, ["scripts/install-all.js", "--build-only"], sourceRoot);
+      record({
+        step: "build",
+        ok: build.ok,
+        detail: build.ok ? "Server rebuilt" : build.output.slice(-500) || "build:server failed",
+      });
+      if (!build.ok) throw new Error("Server build failed; update aborted");
+    }
+
+    backup = await fsp.mkdtemp(path.join(root, ".updates", "rollback-"));
+    await backupUpdateFiles(root, backup);
+    const previousRelease = path.join(root, ".updates", "previous-release");
+    await fsp.rm(previousRelease, { recursive: true, force: true });
+    await fsp.rename(backup, previousRelease);
+    backup = previousRelease;
+    retainBackup = true;
+    record({ step: "backup", ok: true, detail: "Previous core and dependencies saved in .updates/previous-release" });
+    liveFilesChanged = true;
+    /** Install/build ran in staging, so failures there never replace live dependencies. */
+    const preparedModules = path.join(sourceRoot, "node_modules");
+    if (fs.existsSync(preparedModules)) {
+      const liveModules = path.join(root, "node_modules");
+      if (fs.existsSync(liveModules)) await fsp.rename(liveModules, path.join(staging, "previous-node_modules"));
+      await fsp.rename(preparedModules, liveModules);
+    }
     const copied = await copyUpdateFiles(sourceRoot, root);
     const pruned = await pruneStaleFiles(sourceRoot, root);
     record({
@@ -558,64 +641,10 @@ export async function applyCoreUpdate(
       ok: migrate.ok,
       detail: migrate.ok
         ? "Database schema updated"
-        : migrate.output.slice(-500) || "Migration failed — will retry after restart",
+        : migrate.output.slice(-500) || "Migration failed — restoring previous release",
     });
 
-    // The manifests an update package ships are npm-only hosting copies —
-    // `prepare-hosting.js` rewrites workspace:* specs to file: paths and
-    // strips devDependencies before the archive is built. A pnpm-lock.yaml
-    // describing the pre-hosting monorepo no longer matches them, so
-    // `pnpm install --frozen-lockfile` fails deterministically wherever pnpm
-    // happens to be on PATH. Update packages never ship one, but an earlier
-    // release cycle can have left one on disk (copying files never deletes
-    // ones the new package doesn't include) — drop it so install always falls
-    // through to the npm + package-lock.json this package actually ships.
-    await fsp.rm(path.join(root, "pnpm-lock.yaml"), { force: true });
-
-    const install = runDependencyInstall(root);
-    record({
-      step: "npm install",
-      ok: install.ok,
-      detail: install.ok
-        ? install.output
-        : install.output.slice(-500) || "Dependency install failed",
-    });
-    if (!install.ok) {
-      return finish({
-        ok: false,
-        steps,
-        currentVersion,
-        newVersion,
-        restartRequired: false,
-        restarting: false,
-      });
-    }
-
-    const hasBuiltServer =
-      fs.existsSync(path.join(root, "apps/server/dist/server.js")) &&
-      fs.existsSync(path.join(root, "apps/server/admin-ui/dist/client/index.html")) &&
-      fs.existsSync(path.join(root, "apps/server/admin-ui/dist/server/entry-server.js"));
-
-    if (hasBuiltServer) {
-      record({ step: "build", ok: true, detail: "Using pre-built artifacts from update package" });
-    } else {
-      const build = runCommand(process.execPath, ["scripts/install-all.js", "--build-only"], root);
-      record({
-        step: "build",
-        ok: build.ok,
-        detail: build.ok ? "Server rebuilt" : build.output.slice(-500) || "build:server failed",
-      });
-      if (!build.ok) {
-        return finish({
-          ok: false,
-          steps,
-          currentVersion,
-          newVersion,
-          restartRequired: false,
-          restarting: false,
-        });
-      }
-    }
+    if (!migrate.ok) throw new Error("Database migration failed; update aborted");
 
     const restart = await requestAppRestart(root);
     record({
@@ -624,19 +653,13 @@ export async function applyCoreUpdate(
       detail: restart.ok ? restart.detail : (restart.error ?? "Could not trigger restart"),
     });
 
-    const ok = migrate.ok && restart.ok;
-    record({
-      step: "complete",
-      ok,
-      detail: ok
-        ? `Updated from v${currentVersion} to v${newVersion}`
-        : "Update copied; the site will finish remaining work after reload",
-    });
+    if (!restart.ok) throw new Error(restart.error ?? "Could not trigger restart; update aborted");
+    record({ step: "complete", ok: true, detail: `Updated from v${currentVersion} to v${newVersion}` });
 
-    if (ok) await emitCoreUpdated(options?.siteId, source, currentVersion, newVersion);
+    await emitCoreUpdated(options?.siteId, source, currentVersion, newVersion);
 
     return finish({
-      ok,
+      ok: true,
       steps,
       currentVersion,
       newVersion,
@@ -647,18 +670,29 @@ export async function applyCoreUpdate(
     });
   } catch (err) {
     record({ step: "error", ok: false, detail: err instanceof Error ? err.message : String(err) });
+    if (liveFilesChanged && backup) {
+      try {
+        await restoreUpdateFiles(root, backup);
+        record({ step: "rollback", ok: true, detail: "Previous core and dependencies restored; no restart requested. Applied database migrations were preserved." });
+      } catch (restoreError) {
+        restoreFailed = true;
+        retainBackup = true;
+        record({ step: "rollback", ok: false, detail: `Automatic restore failed; backup retained at ${backup}: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}` });
+      }
+    }
     return finish(
       {
         ok: false,
         steps,
         currentVersion,
-        newVersion: currentVersion,
-        restartRequired: false,
+        newVersion: restoreFailed ? readVersion(root) : currentVersion,
+        restartRequired: restoreFailed,
         restarting: false,
       },
       err instanceof Error ? err.message : String(err),
     );
   } finally {
+    if (backup && !retainBackup) await fsp.rm(backup, { recursive: true, force: true }).catch(() => {});
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
     clearUpdateJob();
     clearLock();

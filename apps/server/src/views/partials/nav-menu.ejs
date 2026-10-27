@@ -53,8 +53,8 @@
   // desktop. `footer`/`vertical` layouts never collapse; `drawer` is off-canvas
   // at every width (toggle always visible, never media-gated).
   const _bp = Math.max(320, Math.min(1400, Number(_design.breakpoint) || 768));
-  const _collapsible = ['horizontal', 'dropdown', 'multi-level-dropdown', 'mega'].indexOf(_design.layout) !== -1;
-  const _alwaysDrawer = _design.layout === 'drawer';
+  const _collapsible = (typeof collapseMenu === 'undefined' || collapseMenu !== false) && ['horizontal', 'dropdown', 'multi-level-dropdown', 'mega'].indexOf(_design.layout) !== -1;
+  const _alwaysDrawer = (typeof collapseMenu === 'undefined' || collapseMenu !== false) && _design.layout === 'drawer';
   const _hasToggle = _collapsible || _alwaysDrawer;
   const _pattern = _alwaysDrawer ? 'drawer-right' : (_design.mobilePattern || 'drawer-right');
   const _overlay = _pattern === 'drawer-right' || _pattern === 'drawer-left' || _pattern === 'fullscreen';

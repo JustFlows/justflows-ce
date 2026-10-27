@@ -1,3 +1,4 @@
+import { coreBlocks } from "@justflows/blocks";
 import { translateEnglish, type Translate } from "../../i18n/translate";
 import type { BlockNode } from "./types";
 import { uid } from "../../lib/uid";
@@ -40,6 +41,19 @@ return {
   "core.paragraph": { text: "" },
   "core.heading": { text: "", level: 2 },
   "core.image": { src: "", alt: "", caption: "", width: 0, height: 0, objectFit: "contain" },
+  "core.video": { src: "", caption: "", controls: true, autoplay: false, muted: false, loop: false, preload: "metadata", poster: "", playsInline: true, width: 0, height: 0, objectFit: "contain" },
+  "core.audio": { src: "", caption: "", controls: true, autoplay: false, muted: false, loop: false, preload: "metadata" },
+  "core.file": { src: "", label: "", caption: "", download: true },
+  "core.details": { summary: t("builder.functional.defaults.details") },
+  "core.tab": { title: t("builder.functional.defaults.tab") },
+  "core.tabs": { label: t("builder.functional.defaults.tabs") },
+  "core.cover": { playLabel: t("builder.functional.defaults.playVideo"), pauseLabel: t("builder.functional.defaults.pauseVideo") },
+  "core.navigation": { label: t("builder.functional.defaults.navigation"), menuLabel: t("builder.functional.defaults.menu") },
+  "core.breadcrumbs": { label: t("builder.functional.defaults.breadcrumbs"), homeLabel: t("builder.functional.defaults.home") },
+  "core.social-links": { label: t("builder.functional.defaults.social") },
+  "core.table-of-contents": { title: t("builder.functional.defaults.contents") },
+  "core.callout": { dismissLabel: t("builder.functional.defaults.dismiss") },
+  "core.content-query": { emptyLabel: t("builder.functional.defaults.empty"), previousLabel: t("builder.functional.defaults.previous"), nextLabel: t("builder.functional.defaults.next") },
   "core.quote": { text: "", attribution: "" },
   "core.button": { label: "", url: "", variant: "primary" },
   "core.link-list": {
@@ -100,11 +114,13 @@ function makeColumn(): BlockNode {
 }
 
 export function createBlock(type: string, t: Translate = translateEnglish): BlockNode {
+  const definition = coreBlocks.find(entry => entry.type === type);
+  const schemaDefaults = Object.fromEntries(Object.entries(definition?.schema ?? {}).filter(([, field]) => field.default !== undefined).map(([name, field]) => [name, structuredClone(field.default)]));
   const block: BlockNode = {
     id: newId(),
     type,
     version: 1,
-    props: { ...(defaultProps(t)[type] ?? {}) },
+    props: { ...schemaDefaults, ...(defaultProps(t)[type] ?? {}) },
   };
 
   if (type === "core.columns") {
@@ -116,6 +132,10 @@ export function createBlock(type: string, t: Translate = translateEnglish): Bloc
     block.children = [];
   }
 
+  if (definition?.supportsChildren) block.children ??= [];
+  if (type === "core.list") block.children = [createBlock("core.list-item", t)];
+  if (type === "core.accordion") block.children = [createBlock("core.details", t)];
+  if (type === "core.tabs") block.children = [createBlock("core.tab", t), createBlock("core.tab", t)];
   return block;
 }
 

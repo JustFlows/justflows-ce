@@ -70,7 +70,7 @@ describe("MIGRATION_ORDER", () => {
   });
 
   it("uses the consolidated schema through migration 0036", () => {
-    expect(MIGRATION_ORDER).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion"]);
+    expect(MIGRATION_ORDER).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings"]);
   });
 
   it("contains every legacy migration in order for each database dialect", () => {
@@ -281,7 +281,7 @@ describe("runAllMigrations bookkeeping", () => {
 
       const result = await runAllMigrations(db, driver);
 
-      expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion"]);
+      expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings"]);
       expect(db.statements.some((s) => /CREATE TABLE IF NOT EXISTS template_parts/i.test(s))).toBe(
         false,
       );
@@ -309,7 +309,7 @@ describe("runAllMigrations bookkeeping", () => {
 
     const result = await runAllMigrations(db, "mysql");
 
-    expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion"]);
+    expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings"]);
     const schemaChanges = db.statements.filter(
       (s) => /^(CREATE|ALTER|DROP|UPDATE|INSERT)\b/i.test(s.trim()) && !s.includes("_migrations"),
     );
@@ -447,5 +447,31 @@ describe("runMigrationStatements", () => {
       "ALTER TABLE content DROP INDEX IF EXISTS uq_content_slug",
       "ALTER TABLE content DROP INDEX uq_content_slug",
     ]);
+  });
+});
+
+
+describe("migration block comments", () => {
+  it.each(["postgres", "mysql", "mariadb"] as const)("executes the shipped content type migration on %s", async (driver) => {
+    const ddl = await readMigrationDdl("0050_content_type_settings", driver);
+    expect(ddl).not.toBeNull();
+    const statements: string[] = [];
+    await runMigrationStatements({ run: async (sql) => { statements.push(sql); } }, ddl!, driver);
+    expect(statements).toEqual([
+      `ALTER TABLE content_types ADD COLUMN settings ${driver === "postgres" ? "JSONB" : "JSON"} NULL`,
+    ]);
+  });
+
+  it("ignores comment delimiters in quoted values and semicolons in comments", () => {
+    expect(splitSqlStatements("/** settings; defaults */ SELECT '/* text; */', 'it''s; safe'; -- ignored;\nSELECT 2;", "postgres"))
+      .toEqual(["SELECT '/* text; */', 'it''s; safe'", "SELECT 2"]);
+  });
+
+  it("handles nested block comments without joining SQL tokens", () => {
+    expect(splitSqlStatements("SELECT/* outer; /* inner; */ end */1;", "postgres")).toEqual(["SELECT 1"]);
+  });
+
+  it("rejects incomplete block comments", () => {
+    expect(() => splitSqlStatements("SELECT 1; /* incomplete", "postgres")).toThrow("Unterminated SQL block comment");
   });
 });

@@ -30,6 +30,7 @@ export type {
   HookInspection,
   HookRegisterOptions,
   HooksRegistryOptions,
+  PluginSiteGate,
   Unsubscribe,
 } from "./hooks/registry.js";
 

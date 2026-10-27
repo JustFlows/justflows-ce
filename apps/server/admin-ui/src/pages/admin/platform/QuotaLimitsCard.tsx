@@ -44,6 +44,7 @@ function meterLabel(key: string, fallback: string, t: (key: string) => string): 
   if (key === "feature" + ".webhooks") return t("platform.featureWebhooks");
   if (key === "feature" + ".api") return t("platform.featureApi");
   if (key === "feature" + ".ai") return t("platform.featureAi");
+  if (key === "feature" + ".mcp") return t("platform.featureMcp");
   if (key === "feature" + ".cdn") return t("platform.featureCdn");
   if (key === "feature" + ".trash") return t("platform.featureTrash");
   if (key === "feature" + ".tools") return t("platform.featureTools");

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from "vitest";
-import { pluginActiveForRequest, pluginRouteRateBucket, requiresPluginCsrf } from "../../../src/lib/plugins/plugin-http.js";
+import { pluginActiveForRequest, pluginRouteRateBucket, requiresPluginCsrf, safePluginPageSlug, safePluginRedirect } from "../../../src/lib/plugins/plugin-http.js";
 import { runWithTenant } from "../../../src/lib/tenancy/context.js";
 
 describe("requiresPluginCsrf", () => {
@@ -23,6 +23,24 @@ describe("requiresPluginCsrf", () => {
     expect(requiresPluginCsrf("POST", "/ext/acme.pay/hooks/stripe/token", { csrf: false })).toBe(false);
     expect(requiresPluginCsrf("POST", "/ext/acme.pay/hooks/stripe/token")).toBe(true);
     expect(requiresPluginCsrf("GET", "/ext/acme.shop/checkout/return")).toBe(false);
+  });
+});
+
+describe("safePluginRedirect", () => {
+  it("allows a same-site path and refuses an address that leaves the site", () => {
+    expect(safePluginRedirect("/request-sent?number=SUP-1")).toBe("/request-sent?number=SUP-1");
+    expect(safePluginRedirect("https://evil.test/request-sent")).toBeNull();
+    expect(safePluginRedirect("//evil.test/request-sent")).toBeNull();
+    expect(safePluginRedirect("/request-sent\nSet-Cookie: a=b")).toBeNull();
+  });
+});
+
+describe("safePluginPageSlug", () => {
+  it("allows a page slug and refuses a path", () => {
+    expect(safePluginPageSlug("support-ticket")).toBe("support-ticket");
+    expect(safePluginPageSlug("/support/tickets")).toBeNull();
+    expect(safePluginPageSlug("../ticket")).toBeNull();
+    expect(safePluginPageSlug("Ticket")).toBeNull();
   });
 });
 

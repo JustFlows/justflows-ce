@@ -148,6 +148,12 @@ listings must use a **GPL-compatible license**. See `LICENSING.md` and
 - Security: see `SECURITY.md` or email `security@justflows.com`
 - Conduct: see `CODE_OF_CONDUCT.md`
 
+### Local security testing
+
+Run `pnpm test:security` for the focused security regression suite. See
+[local security testing](docs/SECURITY-TESTING.md) for coverage, limitations,
+and the local red-team review workflow.
+
 ### Scheduling integration tests
 
 The opt-in scheduling suite uses a fresh disposable `schedule_test` database

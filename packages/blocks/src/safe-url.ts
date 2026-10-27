@@ -20,6 +20,8 @@ const UNSAFE_PROTOCOL = /^(javascript|data|vbscript):/i;
 export function sanitizeHref(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return "#";
+  // Same-page fragments are navigation targets, never executable URL schemes.
+  if (trimmed.startsWith("#") && !/[\u0000-\u001f\u007f]/.test(trimmed)) return trimmed;
 
   if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
     return trimmed;

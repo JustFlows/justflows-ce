@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from "vitest";
-import { isSafeRelativeFile, normalizeUrlPath, urlPathToFile } from "../../../src/lib/static-export/paths.js";
+import { isSafeRelativeFile, isSamePathRedirect, normalizeUrlPath, urlPathToFile } from "../../../src/lib/static-export/paths.js";
 
 describe("normalizeUrlPath", () => {
   it("keeps the root path", () => {
@@ -19,6 +19,19 @@ describe("normalizeUrlPath", () => {
 
   it("adds a leading slash", () => {
     expect(normalizeUrlPath("about")).toBe("/about");
+  });
+});
+
+describe("isSamePathRedirect", () => {
+  it("treats a primary-domain bounce of the same path as a loop", () => {
+    expect(isSamePathRedirect("/", "/")).toBe(true);
+    expect(isSamePathRedirect("/", "https://noobbase.com/")).toBe(true);
+    expect(isSamePathRedirect("/about", "/about/")).toBe(true);
+  });
+
+  it("keeps a redirect that lands on a different path", () => {
+    expect(isSamePathRedirect("/en", "/")).toBe(false);
+    expect(isSamePathRedirect("/old", "/new")).toBe(false);
   });
 });
 
