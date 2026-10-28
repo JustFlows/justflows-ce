@@ -26,6 +26,18 @@ describe("renderRootHtaccess", () => {
     expect(out).toMatch(/Require all granted/);
   });
 
+  it("keeps sourcemaps and ES modules the app serves reachable", () => {
+    const denied = out.match(/<FilesMatch "([^"]*)">\n {2}Require all denied/)?.[1];
+    expect(denied).toBeDefined();
+    const re = new RegExp(denied ?? "");
+    for (const file of ["site-nav.js.map", "index.mjs", "app.js", "styles.css"]) {
+      expect(re.test(file), file).toBe(false);
+    }
+    for (const file of [".env", "server.ts", "backup.sql", "pnpm.lock"]) {
+      expect(re.test(file), file).toBe(true);
+    }
+  });
+
   it("sets baseline security headers and no directory listing", () => {
     expect(out).toContain('Header always set X-Content-Type-Options "nosniff"');
     expect(out).toContain('Header always set X-Frame-Options "SAMEORIGIN"');

@@ -60,7 +60,10 @@ Options -Indexes
 </IfModule>
 
 # Dotfiles (.env, .git, .htpasswd, …) and source / config / data / backup files.
-<FilesMatch "^\\.|\\.(?:bak|cjs|conf|config|cts|dist|env|ini|key|pem|crt|log|lock|map|mjs|mts|orig|save|sh|sql|sqlite|sqlite3|swp|swo|tmp|ts|tsx|yaml|yml)$|~$">
+# .map and .mjs stay public: the app serves script sourcemaps and plugin ES
+# modules, and a denial here is logged as AH01797, which Fail2Ban's apache-auth
+# filter counts as a failed login — opening DevTools would get visitors banned.
+<FilesMatch "^\\.|\\.(?:bak|cjs|conf|config|cts|dist|env|ini|key|pem|crt|log|lock|mts|orig|save|sh|sql|sqlite|sqlite3|swp|swo|tmp|ts|tsx|yaml|yml)$|~$">
   Require all denied
 </FilesMatch>
 # …but these must stay public.
