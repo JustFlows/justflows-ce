@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 ## [0.3.8]  [UNRELEASED]
 
+### Fixed
+
+- **Opening DevTools no longer gets visitors banned on Apache.** The site-root `.htaccess` denied every `.map` and `.mjs` file, so Chrome's sourcemap requests were refused and logged as `client denied by server configuration`, which Fail2Ban's `apache-auth` filter counts as failed logins. Sourcemaps and plugin ES modules are now reachable; dotfiles, source, config, and data files stay blocked. Existing installs pick this up on upgrade while the file's managed first line is intact. No matching Public Roadmap issue currently exists.
 
 ## [0.3.7] 
 
