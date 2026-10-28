@@ -35,7 +35,6 @@
     "updates": "Оновлення",
     "webhooks": "Веб-хуки",
     "apiKeys": "API",
-    "consent": "Згода на файли cookie",
     "securityOverview": "Огляд",
     "securityHeaders": "Заголовки",
     "securityAdvanced": "Розширені налаштування",
@@ -1817,150 +1816,6 @@
       "dashboardCta": "Перейдіть на панель адміністратора →"
     }
   },
-  "consent": {
-    "onlyAdmins": "Налаштування згоди на файли cookie доступні лише адміністраторам.",
-    "pageTitle": "Згода на файли cookie",
-    "pageDescription": "Банер згоди першої сторони, центр налаштувань і шлюзування сценарію/вбудовування. Необов’язкові сценарії та вставки залишаються заблокованими, доки їх категорію не буде прийнято.",
-    "exportRecordsCsv": "Експортувати записи (CSV)",
-    "settingsSaved": "Налаштування збережено.",
-    "behaviourTitle": "Поведінка",
-    "showBannerLabel": "Показати банер згоди на загальнодоступному сайті",
-    "displayModeLabel": "Режим відображення",
-    "displayModeAlways": "Завжди показувати",
-    "displayModeEu": "Лише для відвідувачів із ЄС/ЄЕЗ (найкращий варіант, залежно від часового поясу)",
-    "displayModeOff": "Вимкнено",
-    "geoHint": "Географічне виявлення є найкращим способом і працює у браузері відвідувача — без пошуку IP-адреси, без сторонніх розробників.",
-    "logConsentLabel": "Зберігайте аудиторський запис для кожного рішення щодо згоди",
-    "logConsentHint": "Вимкнено: банер усе ще виконує вибір, але жодні рядки не записуються в базу даних і не надсилаються маяки. Вимкніть, якщо вам не потрібен журнал аудиту.",
-    "policyVersionLabel": "Версія політики",
-    "policyVersionHint": "Відображається, коли політика змінюється — попередня згода стає недійсною, і банер з’являється знову. Редагування перекладів не робить.",
-    "privacyPolicyUrlLabel": "Політика конфіденційності URL",
-    "reopenSelectorLabel": "Знову відкрити селектор",
-    "reopenSelectorHint": "Натискання елементів, що відповідають цьому селектеру CSS, знову відкриває центр налаштувань.",
-    "categoriesTitle": "Категорії",
-    "categoriesIntro": "завжди ввімкнено. Виберіть, на які додаткові категорії відвідувачі можуть погодитися.",
-    "category": {
-      "necessary": "необхідно",
-      "preferences": "Уподобання",
-      "analytics": "Аналітика",
-      "marketing": "Маркетинг"
-    },
-    "textSectionTitle": "текст",
-    "textFieldLabel": {
-      "bannerTitle": "Назва банера",
-      "bannerBody": "Корпус банера",
-      "privacyPolicyLabel": "Мітка посилання на політику конфіденційності",
-      "acceptAllLabel": "Кнопка «Прийняти все».",
-      "rejectAllLabel": "Кнопка відмови",
-      "saveLabel": "Кнопка збереження",
-      "preferencesLabel": "Кнопка налаштувань",
-      "necessaryName": "Назва категорії «Необхідна».",
-      "necessaryDescription": "Опис категорії «Потрібно».",
-      "embedNote": "Заблоковано-вставити нотатку",
-      "embedUnlockLabel": "Вставити кнопку розблокування"
-    },
-    "categoryNameFieldLabel": "Назва {category}",
-    "categoryDescriptionFieldLabel": "Опис {category}",
-    "defaultText": {
-      "bannerTitle": "Ми цінуємо вашу конфіденційність",
-      "bannerBody": "Ми використовуємо файли cookie для роботи цього сайту та, за вашою згодою, вимірювання трафіку та персоналізації вмісту.",
-      "privacyPolicyLabel": "Політика конфіденційності",
-      "acceptAllLabel": "Прийняти все",
-      "rejectAllLabel": "Відмовтеся від несуттєвого",
-      "saveLabel": "Зберегти налаштування",
-      "preferencesLabel": "Керуйте налаштуваннями",
-      "necessaryName": "Строго необхідно",
-      "necessaryDescription": "Необхідний для роботи сайту. Завжди ввімкнено.",
-      "embedNote": "Цей вміст розміщується за межами сайту та блокується, доки ви не приймете маркетингові файли cookie.",
-      "embedUnlockLabel": "Завантажити вміст",
-      "categories": {
-        "preferences": {
-          "name": "Уподобання",
-          "description": "Запам'ятовує вибір мови чи регіону."
-        },
-        "analytics": {
-          "name": "Аналітика",
-          "description": "Допомагає нам зрозуміти, як відвідувачі використовують сайт."
-        },
-        "marketing": {
-          "name": "Маркетинг",
-          "description": "Використовується для вимірювання релевантного вмісту та кампаній."
-        }
-      }
-    },
-    "designTitle": "Дизайн і розміщення",
-    "layoutLabel": "Макет",
-    "layoutBar": "Бар (смуга на всю ширину)",
-    "layoutBox": "Коробка (плаваюча картка)",
-    "layoutModal": "Модальний (по центру, блокує сторінку)",
-    "layoutShort": {
-      "bar": "Бар",
-      "box": "Коробка",
-      "modal": "Модальний"
-    },
-    "positionLabel": "Позиція",
-    "position": {
-      "top": "Топ",
-      "bottom": "Дно",
-      "topLeft": "Вгорі ліворуч",
-      "topRight": "Вгорі справа",
-      "bottomLeft": "Внизу зліва",
-      "bottomRight": "Праворуч внизу",
-      "center": "центр"
-    },
-    "previewCaption": "Попередній перегляд — {layout} · {position}",
-    "panelRadiusLabel": "Радіус кута панелі",
-    "buttonRadiusLabel": "Радіус кута кнопки",
-    "panelWidthLabel": "Ширина панелі (коробка / модальний)",
-    "modalBackdropLabel": "Модальний фон",
-    "useThemeColorsLabel": "Використовуйте кольори активної теми (рекомендовано)",
-    "colorField": {
-      "background": "Фон",
-      "text": "текст",
-      "accent": "Акцент (кнопки, посилання)",
-      "accentText": "Акцентний текст",
-      "border": "Кордон"
-    },
-    "scriptEmbedGatingTitle": "Сценарій і вбудовування стробування",
-    "gateEmbedsLabel": "Замініть сторонні вставки у вміст сторінки заповнювачем, який можна розблокувати, доки маркетинг не буде прийнято",
-    "analyticsSnippetLabel": "Фрагмент заголовка Analytics",
-    "analyticsSnippetPlaceholder": "<script>…</script> — запускається лише після того, як відвідувач прийме Analytics",
-    "analyticsSnippetHint": "Тег Google, налаштований у плагіні Analytics, шлюзується автоматично.",
-    "marketingSnippetLabel": "Фрагмент маркетингової голови",
-    "marketingSnippetPlaceholder": "<script>…</script> — запускається лише після того, як відвідувач приймає Маркетинг",
-    "saveSettingsButton": "Зберегти налаштування",
-    "cookieDeclarationsTitle": "Декларації файлів cookie",
-    "cookieDeclarationsIntro1": "Кожен файл cookie платформи та кожен активний плагін, зареєстрований через",
-    "cookieDeclarationsIntro2": "гачок. Банер згоди розкриває їх для кожної категорії, і, коли відвідувач відкликає категорію, термін виконання файлів cookie закінчується. Перекласифікуйте файл cookie нижче, щоб замінити категорію, вибрану його розробником.",
-    "cookieDeclarationsIntro3": "файли cookie завжди дозволені та не можуть бути заблоковані.",
-    "noCookiesRegistered": "Файли cookie ще не зареєстровані. Основні файли cookie з’являються після запуску сайту; файли cookie плагіна з’являються, коли плагін активний.",
-    "tableHeader": {
-      "name": "Ім'я",
-      "setBy": "Встановити",
-      "purpose": "призначення",
-      "duration": "Тривалість",
-      "declared": "Заявлено",
-      "categoryOverride": "Категорія (перевизначення)"
-    },
-    "declaredSuffix": "заявлено",
-    "saveCategoryOverridesButton": "Зберегти перевизначення категорії",
-    "consentRecordsTitle": "Записи згоди",
-    "auditLoggingOff": "Журнал аудиту вимкнено — нові записи не записуються. Існуючі рядки нижче зберігаються до видалення.",
-    "recordsSummary": "{total} {recordWord} — аналітика прийнята {analytics}, маркетинг — {marketing}, уподобання — {preferences}. Кожен рядок пов’язано з версією політики та хешем, які діють на момент запису.",
-    "recordSingular": "запис",
-    "recordPlural": "записи",
-    "noRecordsYet": "Ще нічого не записано. Відвідайте публічний сайт у новій сесії та зробіть вибір.",
-    "recordsTableHeader": {
-      "recorded": "Записано",
-      "clientId": "ID клієнта",
-      "policy": "політика",
-      "choices": "Вибір",
-      "locale": "Локаль",
-      "device": "пристрій"
-    },
-    "eraseButton": "Стерти",
-    "eraseConfirm": "Стерти запис згоди для {cid}? Це неможливо скасувати."
-  },
   "emails": {
     "pageTitle": "Системні електронні листи",
     "pageDescription": "Брендуйте, налаштовуйте, локалізуйте, переглядайте та публікуйте транзакційну електронну пошту.",
@@ -2942,11 +2797,6 @@
     },
     "apiKeysPage": {
       "requestFailed": "Запит не виконано"
-    },
-    "consentPage": {
-      "default": "За замовчуванням",
-      "saveFailed": "Не вдалося зберегти",
-      "eraseFailed": "Помилка видалення"
     },
     "languagesPage": {
       "failedToAddLanguage": "Не вдалося додати мову",

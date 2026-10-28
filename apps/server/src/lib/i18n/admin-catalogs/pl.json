@@ -35,7 +35,6 @@
     "updates": "Aktualizacje",
     "webhooks": "Haki internetowe",
     "apiKeys": "API",
-    "consent": "Zgoda na pliki cookie",
     "securityOverview": "Przegląd",
     "securityHeaders": "Nagłówki",
     "securityAdvanced": "Zaawansowane",
@@ -1817,150 +1816,6 @@
       "dashboardCta": "Przejdź do Panelu administratora →"
     }
   },
-  "consent": {
-    "onlyAdmins": "Ustawienia zgody na pliki cookie są dostępne wyłącznie dla administratorów.",
-    "pageTitle": "Zgoda na pliki cookie",
-    "pageDescription": "Baner zgody pierwszej strony, centrum preferencji i bramkowanie skryptów/umieszczanie. Nieistotne skrypty i elementy osadzone pozostają zablokowane do czasu zaakceptowania ich kategorii.",
-    "exportRecordsCsv": "Eksportuj rekordy (CSV)",
-    "settingsSaved": "Ustawienia zostały zapisane.",
-    "behaviourTitle": "Zachowanie",
-    "showBannerLabel": "Pokaż baner zgody na stronie publicznej",
-    "displayModeLabel": "Tryb wyświetlania",
-    "displayModeAlways": "Zawsze pokazuj",
-    "displayModeEu": "Tylko goście z UE/EOG (dołożenie wszelkich starań, w oparciu o strefę czasową)",
-    "displayModeOff": "Wyłączone",
-    "geoHint": "Wykrywanie geograficzne odbywa się w trybie best-efektywnym i działa w przeglądarce odwiedzającego — bez wyszukiwania adresu IP i bez stron trzecich.",
-    "logConsentLabel": "Przechowuj zapis audytu dla każdej decyzji dotyczącej zgody",
-    "logConsentHint": "Wyłączone: baner nadal wymusza wybory, ale w bazie danych nie są zapisywane żadne wiersze i nie jest wysyłany sygnał nawigacyjny. Wyłącz, jeśli nie potrzebujesz dziennika audytu.",
-    "policyVersionLabel": "Wersja polityki",
-    "policyVersionHint": "Podbicie w przypadku zmiany zasad — wcześniejsza zgoda zostaje unieważniona, a baner pojawia się ponownie. Edycja tłumaczeń nie.",
-    "privacyPolicyUrlLabel": "Polityka prywatności URL",
-    "reopenSelectorLabel": "Otwórz ponownie selektor",
-    "reopenSelectorHint": "Kliknięcie elementów pasujących do tego selektora CSS powoduje ponowne otwarcie centrum preferencji.",
-    "categoriesTitle": "Kategorie",
-    "categoriesIntro": "jest zawsze włączony. Wybierz opcjonalne kategorie, na które odwiedzający mogą wyrazić zgodę.",
-    "category": {
-      "necessary": "Konieczne",
-      "preferences": "Preferencje",
-      "analytics": "Analityka",
-      "marketing": "Marketing"
-    },
-    "textSectionTitle": "Tekst",
-    "textFieldLabel": {
-      "bannerTitle": "Tytuł banera",
-      "bannerBody": "Treść banera",
-      "privacyPolicyLabel": "Etykieta linku do polityki prywatności",
-      "acceptAllLabel": "Przycisk Zaakceptuj wszystko",
-      "rejectAllLabel": "Przycisk odrzucenia",
-      "saveLabel": "Przycisk Zapisz",
-      "preferencesLabel": "Przycisk Preferencje",
-      "necessaryName": "Nazwa kategorii „Niezbędne”.",
-      "necessaryDescription": "Opis kategorii „Konieczne”.",
-      "embedNote": "Notatka z zablokowanym osadzeniem",
-      "embedUnlockLabel": "Osadź przycisk odblokowania"
-    },
-    "categoryNameFieldLabel": "Nazwa {category}",
-    "categoryDescriptionFieldLabel": "Opis {category}",
-    "defaultText": {
-      "bannerTitle": "Cenimy Twoją prywatność",
-      "bannerBody": "Używamy plików cookie do obsługi tej witryny oraz, za Twoją zgodą, do pomiaru ruchu i personalizacji treści.",
-      "privacyPolicyLabel": "Polityka prywatności",
-      "acceptAllLabel": "Zaakceptuj wszystko",
-      "rejectAllLabel": "Odrzuć niepotrzebne",
-      "saveLabel": "Zapisz preferencje",
-      "preferencesLabel": "Zarządzaj preferencjami",
-      "necessaryName": "Ściśle konieczne",
-      "necessaryDescription": "Wymagane do działania witryny. Zawsze włączone.",
-      "embedNote": "Ta treść jest hostowana poza witryną i jest blokowana, dopóki nie zaakceptujesz marketingowych plików cookie.",
-      "embedUnlockLabel": "Załaduj zawartość",
-      "categories": {
-        "preferences": {
-          "name": "Preferencje",
-          "description": "Zapamiętuje wybory takie jak język lub region."
-        },
-        "analytics": {
-          "name": "Analityka",
-          "description": "Pomaga nam zrozumieć, w jaki sposób odwiedzający korzystają z witryny."
-        },
-        "marketing": {
-          "name": "Marketing",
-          "description": "Służy do pomiaru odpowiednich treści i kampanii."
-        }
-      }
-    },
-    "designTitle": "Projekt i rozmieszczenie",
-    "layoutLabel": "Układ",
-    "layoutBar": "Pasek (pasek o pełnej szerokości)",
-    "layoutBox": "Pudełko (pływająca karta)",
-    "layoutModal": "Modalne (wyśrodkowane, blokuje stronę)",
-    "layoutShort": {
-      "bar": "Bar",
-      "box": "Pudełko",
-      "modal": "Modalne"
-    },
-    "positionLabel": "Pozycja",
-    "position": {
-      "top": "Góra",
-      "bottom": "Dół",
-      "topLeft": "U góry po lewej",
-      "topRight": "U góry po prawej",
-      "bottomLeft": "Na dole po lewej",
-      "bottomRight": "Prawy dolny róg",
-      "center": "Centrum"
-    },
-    "previewCaption": "Podgląd — {layout} · {position}",
-    "panelRadiusLabel": "Promień narożnika panelu",
-    "buttonRadiusLabel": "Promień narożnika przycisku",
-    "panelWidthLabel": "Szerokość panelu (skrzynka / modalna)",
-    "modalBackdropLabel": "Modalne tło",
-    "useThemeColorsLabel": "Użyj kolorów aktywnego motywu (zalecane)",
-    "colorField": {
-      "background": "Tło",
-      "text": "Tekst",
-      "accent": "Akcent (przyciski, linki)",
-      "accentText": "Tekst akcentowany",
-      "border": "Granica"
-    },
-    "scriptEmbedGatingTitle": "Bramkowanie skryptów i osadzanie",
-    "gateEmbedsLabel": "Zastąp elementy osadzone poza witryną w treści strony elementem zastępczym, który można odblokować, do czasu zaakceptowania funkcji Marketing",
-    "analyticsSnippetLabel": "Fragment nagłówka Analytics",
-    "analyticsSnippetPlaceholder": "<script>…</script> — uruchamia się dopiero po zaakceptowaniu przez odwiedzającego Analytics",
-    "analyticsSnippetHint": "Tag Google skonfigurowany we wtyczce Analytics jest bramkowany automatycznie.",
-    "marketingSnippetLabel": "Fragment głowy marketingowca",
-    "marketingSnippetPlaceholder": "<script>…</script> — uruchamia się dopiero po zaakceptowaniu przez odwiedzającego Marketingu",
-    "saveSettingsButton": "Zapisz ustawienia",
-    "cookieDeclarationsTitle": "Deklaracje dotyczące plików cookie",
-    "cookieDeclarationsIntro1": "Każdy plik cookie, który platforma i każda aktywna wtyczka zarejestrowała za pośrednictwem",
-    "cookieDeclarationsIntro2": "hak. Baner zgody ujawnia je według kategorii, a gdy odwiedzający wycofa kategorię, środowisko wykonawcze wygasa. Zmień klasyfikację pliku cookie poniżej, aby zastąpić kategorię wybraną przez jego twórcę.",
-    "cookieDeclarationsIntro3": "pliki cookie są zawsze dozwolone i nie można ich zablokować.",
-    "noCookiesRegistered": "Nie zarejestrowano jeszcze żadnych plików cookie. Podstawowe pliki cookie pojawiają się po uruchomieniu witryny; Pliki cookie wtyczki pojawiają się, gdy wtyczka jest aktywna.",
-    "tableHeader": {
-      "name": "Imię",
-      "setBy": "Ustaw przez",
-      "purpose": "Cel",
-      "duration": "Czas trwania",
-      "declared": "Zadeklarowane",
-      "categoryOverride": "Kategoria (nadpisanie)"
-    },
-    "declaredSuffix": "zadeklarowany",
-    "saveCategoryOverridesButton": "Zapisz nadpisania kategorii",
-    "consentRecordsTitle": "Zapisy zgód",
-    "auditLoggingOff": "Rejestrowanie inspekcji jest wyłączone — nie są zapisywane żadne nowe rekordy. Istniejące wiersze poniżej zostaną zachowane do momentu usunięcia.",
-    "recordsSummary": "{total} {recordWord} — analityka zaakceptowana przez {analytics}, marketing przez {marketing}, preferencje przez {preferences}. Każdy wiersz jest powiązany z wersją zasad i skrótem obowiązującym w momencie zarejestrowania.",
-    "recordSingular": "rekord",
-    "recordPlural": "zapisy",
-    "noRecordsYet": "Jeszcze nic nie zostało nagrane. Odwiedź witrynę publiczną w nowej sesji i dokonaj wyboru.",
-    "recordsTableHeader": {
-      "recorded": "Nagrano",
-      "clientId": "Identyfikator klienta",
-      "policy": "Polityka",
-      "choices": "Wybory",
-      "locale": "Lokalne",
-      "device": "Urządzenie"
-    },
-    "eraseButton": "Wymaż",
-    "eraseConfirm": "Usunąć zapis zgody dla {cid}? Tego nie można cofnąć."
-  },
   "emails": {
     "pageTitle": "E-maile systemowe",
     "pageDescription": "Oznaczaj, dostosowuj, lokalizuj, wyświetlaj podgląd i publikuj e-maile transakcyjne.",
@@ -2942,11 +2797,6 @@
     },
     "apiKeysPage": {
       "requestFailed": "Żądanie nie powiodło się"
-    },
-    "consentPage": {
-      "default": "Domyślne",
-      "saveFailed": "Zapisywanie nie powiodło się",
-      "eraseFailed": "Wymazanie nie powiodło się"
     },
     "languagesPage": {
       "failedToAddLanguage": "Nie można dodać języka",
