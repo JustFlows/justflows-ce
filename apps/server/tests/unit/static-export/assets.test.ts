@@ -68,7 +68,7 @@ describe("assetPathsFromHtml", () => {
       <script src="/api/v1/config.js"></script>
       <script src="/admin/assets/x.js"></script>
       <link rel="stylesheet" href="/login/style.css">
-      <img src="/justflows-forms/pixel.gif">
+      <img src="/justflows-comments/pixel.gif">
     `;
     expect(assetPathsFromHtml(html)).toEqual([]);
   });

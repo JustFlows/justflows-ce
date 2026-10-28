@@ -136,7 +136,7 @@ A plugin with `platform:tenancy` can list the active sites of that same workspac
 
 A plugin with the `platform:network` permission can let the main site apply something to every site, for example a tracking tag. Its hooks registered with `{ network: true }` run on every site while the plugin is active on the main site, also on sites that never activated it. All its other hooks, routes, and jobs stay on the sites that activated it. Files those network hooks load from `/ext/<plugin id>/` are served on every site.
 
-`ctx.network.mainSiteSettings.get(key)` reads the plugin's settings on the main site from any site, including one with its own database. `ctx.network.sites()` lists every live site, main site first, and works only on the main site. Writing stays on the main site, through its own `ctx.settings`, so another site's admins cannot change it. See [Hooks](HOOKS.md#network-handlers).
+`ctx.network.mainSiteSettings.get(key)` reads the plugin's settings on the main site from any site, including one with its own database. `ctx.network.sites()` lists every live site, main site first, and works only on the main site. `ctx.network.site(siteId?)` returns one live site with its public origin (`url`) from any site, the main site when `siteId` is omitted, so a network handler can link to it. Writing stays on the main site, through its own `ctx.settings`, so another site's admins cannot change it. See [Hooks](HOOKS.md#network-handlers).
 
 Creating, listing, suspending, reactivating, and deleting workspaces requires the `platform:tenancy` manifest permission. The same operations are on the management API at `/api/manage/v1/tenants` for an API key whose user is a platform operator.
 

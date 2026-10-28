@@ -17,6 +17,8 @@ import {
   contentEditorFor,
   contentEditorNav,
   contentListPath,
+  localizedLabel,
+  type LocalizedLabel,
   type PluginEditorSection,
 } from "../../../config/admin-nav";
 import PluginContentFrame, { type PluginContentFrameHandle } from "./PluginContentFrame";
@@ -98,7 +100,34 @@ interface RevisionSummary {
 
 const VISIBLE_REVISION_HISTORY = 5;
 
-type EditSection = "content" | "plugin" | "seo" | "discussion" | "revisions" | "advanced" | `plugin:${string}`;
+type EditSection = "content" | "plugin" | "discussion" | "revisions" | "advanced" | `plugin:${string}` | `panel:${string}`;
+
+/** One field of a plugin's editor panel, as `GET /api/plugins/editor-panels` returns it. */
+interface EditorPanelField {
+  key: string;
+  type: "text" | "textarea" | "url" | "image" | "checkbox";
+  label: LocalizedLabel;
+  hint?: LocalizedLabel;
+  placeholder?: LocalizedLabel;
+}
+
+/** A content editor section an active plugin declares in its manifest. */
+interface EditorPanel {
+  pluginId: string;
+  id: string;
+  title: LocalizedLabel;
+  indexableOnly?: boolean;
+  fields: EditorPanelField[];
+}
+
+function panelSectionId(panel: EditorPanel): `panel:${string}` {
+  return `panel:${panel.pluginId}:${panel.id}`;
+}
+
+/** Whether a stored checkbox value counts as ticked. */
+function checked(value: unknown): boolean {
+  return value === true || value === "true" || value === 1;
+}
 
 function localePath(locale: string, slug: string, defaultLocale: string): string {
   const path = `/${slug}`;
@@ -115,10 +144,23 @@ export default function EditContentPage() {
   const role = useSessionRole();
   const canSetSitePages = role === "administrator" || role === "editor";
 
-  // The bundled SEO Toolkit plugin owns syndication feeds; it only contributes an
-  // admin-menu entry while active, so its presence there is the "SEO active" signal.
   const { items: pluginMenuItems } = usePluginMenu();
-  const seoPluginActive = pluginMenuItems.some((entry) => entry.pluginId === "justflows.seo");
+  /** Editor sections active plugins declare (`editorPanels` in their manifest). */
+  const [editorPanels, setEditorPanels] = useState<EditorPanel[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/plugins/editor-panels")
+      .then((res) => (res.ok ? (res.json() as Promise<{ panels?: EditorPanel[] }>) : { panels: [] }))
+      .then((body) => {
+        if (!cancelled) setEditorPanels(Array.isArray(body.panels) ? body.panels : []);
+      })
+      .catch(() => {
+        if (!cancelled) setEditorPanels([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [item, setItem] = useState<ContentItem | null>(null);
   const [baseline, setBaseline] = useState<string>("");
@@ -622,6 +664,8 @@ export default function EditContentPage() {
   const label = typeLabel || (isCmsPage ? t("content.editPage") : t("content.editPost"));
   const itemLocale = item.locale ?? defaultLocale;
   const publicHref = localePath(itemLocale, item.slug ?? "", defaultLocale);
+  /** Panels for entries kept out of search engines skip `indexableOnly` ones (SEO fields, say). */
+  const visiblePanels = editorPanels.filter((panel) => !panel.indexableOnly || typeSettings.seo !== false);
   const currentLang = languages.find((l) => l.code === itemLocale);
 
   return (
@@ -750,14 +794,13 @@ export default function EditContentPage() {
               <nav className="jf-editnav" aria-label={t("content.settingsSectionsAriaLabel")}>
                 {contentEditorNav({
                   contentLabel: t("content.contentHeading"),
-                  seoLabel: t("content.seoHeading"),
                   discussionLabel: t("content.discussionHeading"),
                   revisionsLabel: t("content.revisions"),
                   advancedLabel: t("content.advancedHeading"),
                   pluginLabel: pluginEditor?.label,
                   pluginSections,
-                }).filter(entry => (entry.id !== "seo" || typeSettings.seo !== false) &&
-                  (entry.id !== "discussion" || typeSettings.comments !== "disabled")).map((entry) => (
+                  panels: visiblePanels.map((panel) => ({ id: panelSectionId(panel), label: localizedLabel(panel.title, locale) })),
+                }).filter(entry => entry.id !== "discussion" || typeSettings.comments !== "disabled").map((entry) => (
                   <button
                     key={entry.id}
                     type="button"
@@ -880,107 +923,83 @@ export default function EditContentPage() {
                   </>
                 )}
 
-                {section === "seo" && typeSettings.seo !== false && (
-                  <div className="jf-card">
+                {visiblePanels.filter((panel) => section === panelSectionId(panel)).map((panel) => (
+                  <div className="jf-card" key={panelSectionId(panel)}>
                     <div className="jf-card__head">
-                      <h2 className="jf-card__title">{t("content.seoHeading")}</h2>
+                      <h2 className="jf-card__title">{localizedLabel(panel.title, locale)}</h2>
                     </div>
                     <div
                       className="jf-card__body"
                       style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
                     >
-                      <div className="jf-field">
-                        <label className="jf-field__label" htmlFor="jf-seo-title">
-                          {t("content.seoTitleLabel")}
-                        </label>
-                        <input
-                          id="jf-seo-title"
-                          className="jf-input"
-                          value={
-                            typeof item.fields?.seoTitle === "string" ? item.fields.seoTitle : ""
-                          }
-                          onChange={(e) => patchField("seoTitle", e.target.value)}
-                          placeholder={item.title}
-                        />
-                        <span className="jf-field__hint">
-                          {t("content.seoTitleHint")}
-                        </span>
-                      </div>
-                      <div className="jf-field">
-                        <label className="jf-field__label" htmlFor="jf-seo-description">
-                          {t("content.metaDescriptionLabel")}
-                        </label>
-                        <textarea
-                          id="jf-seo-description"
-                          className="jf-input"
-                          rows={4}
-                          value={
-                            typeof item.fields?.seoDescription === "string"
-                              ? item.fields.seoDescription
-                              : ""
-                          }
-                          onChange={(e) => patchField("seoDescription", e.target.value)}
-                          placeholder={item.excerpt || t("content.metaDescriptionPlaceholder")}
-                        />
-                        <span className="jf-field__hint">
-                          {t("content.metaDescriptionHint")}
-                        </span>
-                      </div>
-                      <div className="jf-field">
-                        <label className="jf-field__label" htmlFor="jf-seo-canonical">
-                          {t("content.canonicalUrlLabel")}
-                        </label>
-                        <input
-                          id="jf-seo-canonical"
-                          className="jf-input"
-                          value={
-                            typeof item.fields?.seoCanonical === "string"
-                              ? item.fields.seoCanonical
-                              : ""
-                          }
-                          onChange={(e) => patchField("seoCanonical", e.target.value)}
-                          placeholder={publicHref}
-                        />
-                        <span className="jf-field__hint">
-                          {t("content.canonicalUrlHint")}
-                        </span>
-                      </div>
-                      <MediaImageField
-                        id="jf-seo-image"
-                        label={t("content.socialImageLabel")}
-                        description={t("content.socialImageDescription")}
-                        value={
-                          typeof item.fields?.seoImage === "string" ? item.fields.seoImage : ""
-                        }
-                        onChange={(url) => patchField("seoImage", url)}
-                      />
-                      {seoPluginActive && (
-                        <div className="jf-field">
-                          <label
-                            className="jf-row"
-                            style={{ gap: "0.5rem" }}
-                            htmlFor="jf-seo-feed-exclude"
-                          >
-                            <input
-                              id="jf-seo-feed-exclude"
-                              type="checkbox"
-                              checked={
-                                item.fields?.seoFeedExclude === true ||
-                                item.fields?.seoFeedExclude === "true" ||
-                                item.fields?.seoFeedExclude === 1
-                              }
-                              onChange={(e) => patchField("seoFeedExclude", e.target.checked)}
+                      {panel.fields.map((field) => {
+                        const id = `jf-panel-${panel.pluginId.replace(/\./g, "-")}-${field.key}`;
+                        const label = localizedLabel(field.label, locale);
+                        const hint = localizedLabel(field.hint, locale);
+                        const placeholder = localizedLabel(field.placeholder, locale)
+                          .replaceAll("{title}", item.title)
+                          .replaceAll("{excerpt}", item.excerpt ?? "")
+                          .replaceAll("{url}", publicHref);
+                        const value = item.fields?.[field.key];
+                        if (field.type === "image") {
+                          return (
+                            <MediaImageField
+                              key={field.key}
+                              id={id}
+                              label={label}
+                              description={hint}
+                              value={typeof value === "string" ? value : ""}
+                              onChange={(url) => patchField(field.key, url)}
                             />
-                            {t("content.excludeFeedsLabel")}
-                          </label>
-                          <span className="jf-field__hint">
-                            {t("content.excludeFeedsHint")}
-                          </span>
-                        </div>
-                      )}
+                          );
+                        }
+                        if (field.type === "checkbox") {
+                          return (
+                            <div className="jf-field" key={field.key}>
+                              <label className="jf-row" style={{ gap: "0.5rem" }} htmlFor={id}>
+                                <input
+                                  id={id}
+                                  type="checkbox"
+                                  checked={checked(value)}
+                                  onChange={(e) => patchField(field.key, e.target.checked)}
+                                />
+                                {label}
+                              </label>
+                              {hint && <span className="jf-field__hint">{hint}</span>}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="jf-field" key={field.key}>
+                            <label className="jf-field__label" htmlFor={id}>
+                              {label}
+                            </label>
+                            {field.type === "textarea" ? (
+                              <textarea
+                                id={id}
+                                className="jf-input"
+                                rows={4}
+                                value={typeof value === "string" ? value : ""}
+                                onChange={(e) => patchField(field.key, e.target.value)}
+                                placeholder={placeholder}
+                              />
+                            ) : (
+                              <input
+                                id={id}
+                                className="jf-input"
+                                type={field.type === "url" ? "url" : "text"}
+                                value={typeof value === "string" ? value : ""}
+                                onChange={(e) => patchField(field.key, e.target.value)}
+                                placeholder={placeholder}
+                              />
+                            )}
+                            {hint && <span className="jf-field__hint">{hint}</span>}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                )}
+                ))}
 
                 {section === "discussion" && typeSettings.comments !== "disabled" && (
                   <div className="jf-card">

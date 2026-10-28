@@ -21,7 +21,6 @@ const RESERVED_FIRST_SEGMENTS = new Set([
   "admin",
   "account",
   "platform-account",
-  "justflows-forms",
   "justflows-comments",
   ".well-known",
   "security.txt",

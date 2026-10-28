@@ -104,14 +104,9 @@ import {
   shouldDiscourageSearchEngines,
 } from "../../lib/settings/site-visibility.js";
 import { getPluginLoader, getRuntimeHooks } from "../../lib/plugins/plugin-runtime.js";
-import {
-  buildSeoHeadHtml,
-  buildSitemapXml,
-  getSeoSettings,
-  resolveSeoTitle,
-  seoTextFromContent,
-  siteOrigin,
-} from "../../lib/rendering/seo-public.js";
+import type { PublicPageContext } from "@justflows/sdk";
+import { buildSitemapXml } from "../../lib/rendering/sitemap.js";
+import { siteOrigin } from "../../lib/rendering/site-origin.js";
 import {
   CSS_PROVIDER_PREFIX,
   getCachedPageHtml,
@@ -125,11 +120,6 @@ import { getJfCache } from "../../lib/cache/jf-cache.js";
 import { getRuntimeBlockRegistry } from "../../lib/rendering/runtime-blocks.js";
 import type { BlockNode } from "../../lib/runtime/types.js";
 import { withBlockChrome } from "@justflows/blocks";
-import {
-  isGalleryPluginEnabled,
-  registerGalleryBlock,
-  unregisterGalleryBlock,
-} from "../../lib/media/gallery-public.js";
 import {
   BLOG_POST_LIST_BLOCK_TYPE,
   registerBlogPostListBlock,
@@ -270,20 +260,26 @@ async function loadThemeMods(preview = false): Promise<ReturnType<typeof mergeMo
 async function loadIdentity(
   preview = false,
   locale?: string,
-): Promise<{ siteTitle: string; tagline: string; logoUrl: string; faviconUrl: string;
-  seo?: { siteId: string; locale: string; settings: import("../../lib/rendering/seo-public.js").SeoSettings } }> {
+): Promise<{ siteTitle: string; tagline: string; logoUrl: string; faviconUrl: string }> {
   const mods = await loadThemeMods(preview);
   const identity = await getSiteIdentity(mods, { preview });
   const siteId = await getSiteId();
-  if (!siteId) return identity;
+  const hooks = getRuntimeHooks();
+  if (!siteId || !hooks.has("site.identity")) return identity;
 
-  const seo = await getSeoSettings(siteId, locale);
+  /** A plugin (an SEO plugin, say) may supply its own site title and tagline per locale. */
+  const named = await hooks
+    .applyFilter(
+      "site.identity",
+      { siteTitle: identity.siteTitle, tagline: identity.tagline },
+      { siteId, locale: locale ?? "" },
+      { siteId, source: "http" },
+    )
+    .catch(() => null);
   return {
-    siteTitle: seo.siteTitle || identity.siteTitle,
-    tagline: seo.defaultDescription || identity.tagline,
-    logoUrl: identity.logoUrl,
-    faviconUrl: identity.faviconUrl,
-    seo: { siteId, locale: locale ?? "", settings: seo },
+    ...identity,
+    siteTitle: typeof named?.siteTitle === "string" && named.siteTitle.trim() ? named.siteTitle : identity.siteTitle,
+    tagline: typeof named?.tagline === "string" ? named.tagline : identity.tagline,
   };
 }
 
@@ -424,8 +420,6 @@ async function renderBlocksHtml(
   commentCtx?: CommentsRenderContext,
   templateCtx?: TemplateBlockContext,
 ): Promise<string> {
-  if (await isGalleryPluginEnabled()) registerGalleryBlock();
-  else unregisterGalleryBlock();
   const siteId = await getSiteId();
   // Plugin block render() is sync; warm the settings its placeholder lookups read.
   await primePlaceholders(siteId);
@@ -1135,12 +1129,8 @@ export function hreflangAlternates(opts: {
  * `og:image` for a page: its own image, else the site logo (crawlers skip SVG),
  * else the `og` placeholder. `""` when placeholders are off and nothing else fits.
  */
-async function shareImageFor(
-  siteId: string,
-  pageImage: string,
-  logoUrl: string | undefined,
-): Promise<string> {
-  if (pageImage) return pageImage;
+/** The site's share image for pages without their own: the logo (not an SVG), else the `og` placeholder. */
+async function shareImageFor(siteId: string, logoUrl: string | undefined): Promise<string> {
   const logo = (logoUrl ?? "").trim();
   if (logo && !/\.svg(?:[?#]|$)/i.test(logo)) return logo;
   return (await resolvePlaceholder("og", siteId))?.src ?? "";
@@ -1151,35 +1141,42 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   const hooks = getRuntimeHooks();
   const siteId = (await getSiteId()) ?? "";
   const content = data.content as
-    { type?: string; title?: string; excerpt?: string | null; fields?: Record<string, unknown> } | undefined;
+    { id?: string; type?: string; title?: string; excerpt?: string | null; fields?: Record<string, unknown> } | undefined;
   const typeSettings = siteId && content?.type ? await getContentTypeSettings(siteId, content.type) : null;
-  const seoFromContent = content
-    ? seoTextFromContent(typeSettings?.seo === false ? { ...content, fields: {} } : content)
-    : { title: "", description: "", canonical: "", image: "" };
-  const pageTitle = seoFromContent.title || String(data.title ?? "");
-  const pageDescription = seoFromContent.description || String(data.seoDescription ?? "");
+  const indexable = typeSettings?.seo !== false;
+  const pageTitle = String(content?.title ?? "").trim() || String(data.title ?? "");
   let headExtra = "";
   let documentTitle = pageTitle;
   const identity = data.identity as Awaited<ReturnType<typeof loadIdentity>> | undefined;
-  if (siteId) {
-    const locale = String(data.locale ?? "");
-    const settings = identity?.seo?.siteId === siteId && identity.seo.locale === locale
-      ? identity.seo.settings
-      : await getSeoSettings(siteId, locale);
-    const page = {
-      title: pageTitle,
-      description: pageDescription,
-      excerpt: content?.excerpt,
-      path: String(data.publicPath ?? data.restPath ?? "/"),
-      canonical:
-        seoFromContent.canonical ||
-        (typeof data.canonicalPath === "string" ? `${siteOrigin()}${data.canonicalPath}` : undefined),
-      image: (await shareImageFor(siteId, seoFromContent.image, identity?.logoUrl)) || undefined,
-    };
-    if (typeSettings?.seo !== false) {
-      documentTitle = resolveSeoTitle(page, settings);
-      headExtra = buildSeoHeadHtml(page, settings);
+  const origin = siteOrigin();
+  const publicPath = String(data.publicPath ?? data.restPath ?? "/");
+  const canonicalPath = typeof data.canonicalPath === "string" ? data.canonicalPath : publicPath;
+  /** What plugins see of this page in `html.title`, `html.canonical`, and `html.head`. */
+  const page: PublicPageContext = {
+    siteId,
+    path: String(data.restPath ?? "/"),
+    locale: String(data.locale ?? ""),
+    title: pageTitle,
+    ...(content?.id ? { contentId: String(content.id) } : {}),
+    ...(content?.type ? { contentType: content.type } : {}),
+    ...(content?.fields ? { fields: content.fields } : {}),
+    description: String(content?.excerpt ?? "").trim() || String(data.seoDescription ?? ""),
+    canonical: `${origin}${canonicalPath.startsWith("/") ? canonicalPath : `/${canonicalPath}`}`,
+    origin,
+    indexable,
+  };
+  if (siteId && hooks.has("html.head")) page.image = await shareImageFor(siteId, identity?.logoUrl);
+  if (siteId && indexable) {
+    if (hooks.has("html.title")) {
+      const titled = await hooks.applyFilter("html.title", pageTitle, page, { siteId, source: "http" }).catch(() => pageTitle);
+      if (typeof titled === "string" && titled.trim()) documentTitle = titled;
     }
+    let canonical = page.canonical ?? "";
+    if (hooks.has("html.canonical")) {
+      const chosen = await hooks.applyFilter("html.canonical", canonical, page, { siteId, source: "http" }).catch(() => canonical);
+      canonical = typeof chosen === "string" ? chosen.trim() : canonical;
+    }
+    if (canonical) headExtra = `<link rel="canonical" href="${esc(canonical)}">`;
   }
   const faviconHead = buildFaviconHeadHtml(identity?.faviconUrl ?? "");
   if (faviconHead) {
@@ -1220,30 +1217,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     pwaBody = buildPwaBodyHtml(pwaSettings, pwaTranslate);
   }
   if (hooks.has("html.head")) {
-    headExtra = await hooks.applyFilter(
-      "html.head",
-      headExtra,
-      {
-        siteId,
-        path: String(data.restPath ?? "/"),
-        locale: String(data.locale ?? ""),
-        title: pageTitle,
-        contentId:
-          typeof data.content === "object" && data.content && "id" in (data.content as object)
-            ? String((data.content as { id?: string }).id ?? "")
-            : undefined,
-      },
-      { siteId, source: "http" },
-    );
-  }
-  if (headExtra.includes("data-jf-helpdesk-popup")) {
-    const { getTenantContext } = await import("../../lib/tenancy/context.js");
-    const tenant = getTenantContext();
-    if (tenant?.rootSite && tenant.siteId) {
-      const { canonicalPublicSupportHref, pointHelpdeskPopupAt } = await import("../../lib/admin/admin-support-popup.js");
-      const href = await canonicalPublicSupportHref(tenant.siteId, tenant.devPort);
-      if (href) headExtra = pointHelpdeskPopupAt(headExtra, href);
-    }
+    headExtra = await hooks.applyFilter("html.head", headExtra, page, { siteId, source: "http" });
   }
   const body = await ejs.renderFile(path.join(templateDir, `${view}.ejs`), pageData);
   let analyticsHead = "";

@@ -32,7 +32,6 @@ export const RESERVED_PERMALINK_SEGMENTS = new Set([
   "sitemap.xml",
   "security.txt",
   ".well-known",
-  "justflows-forms",
   "justflows-comments",
   "set-locale",
   "js",

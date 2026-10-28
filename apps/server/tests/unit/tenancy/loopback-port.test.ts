@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loopbackPort, runWithTenant, type TenantRequestContext } from "../../../src/lib/tenancy/context.js";
-import { siteOrigin } from "../../../src/lib/rendering/seo-public.js";
+import { siteOrigin } from "../../../src/lib/rendering/site-origin.js";
 
 function context(hostname: string, devPort?: string): TenantRequestContext {
   return {

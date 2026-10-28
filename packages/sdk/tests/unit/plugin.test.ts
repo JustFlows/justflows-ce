@@ -205,3 +205,52 @@ describe("PluginManifestSchema — plugin-relative admin paths", () => {
     }
   });
 });
+
+describe("PluginManifestSchema — admin menu labels", () => {
+  const withPerm = { ...base, permissions: ["admin:extend"] };
+
+  it("accepts per-locale menu labels", () => {
+    const parsed = PluginManifestSchema.parse({
+      ...withPerm,
+      adminMenu: [{ id: "home", label: "Widget", labels: { nl: "Widget NL", "de-DE": "Widget DE" } }],
+    });
+    expect(parsed.adminMenu?.[0]?.labels).toEqual({ nl: "Widget NL", "de-DE": "Widget DE" });
+  });
+
+  it("rejects a bad locale code or an empty label", () => {
+    for (const labels of [{ "../x": "Bad" }, { nl: "" }]) {
+      expect(() =>
+        PluginManifestSchema.parse({ ...withPerm, adminMenu: [{ id: "home", label: "Widget", labels }] }),
+      ).toThrow();
+    }
+  });
+});
+
+describe("PluginManifestSchema — editor panels", () => {
+  const withPerm = { ...base, permissions: ["admin:extend"] };
+
+  it("accepts a panel with localized labels", () => {
+    const parsed = PluginManifestSchema.parse({
+      ...withPerm,
+      editorPanels: [
+        {
+          id: "seo",
+          title: { en: "SEO", nl: "SEO" },
+          fields: [{ key: "seoImage", type: "image", label: "Social image" }],
+        },
+      ],
+    });
+    expect(parsed.editorPanels?.[0]?.fields[0]?.type).toBe("image");
+  });
+
+  it("rejects an unknown field type or a bad key", () => {
+    for (const field of [
+      { key: "x", type: "script", label: "X" },
+      { key: "../x", type: "text", label: "X" },
+    ]) {
+      expect(() =>
+        PluginManifestSchema.parse({ ...withPerm, editorPanels: [{ id: "p", title: "P", fields: [field] }] }),
+      ).toThrow();
+    }
+  });
+});

@@ -29,7 +29,7 @@ import { catalogRowsForDefaultLanguage } from "../../../lib/translation-groups";
  * in a URL.
  */
 export default function PluginHostPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { items, loading } = usePluginMenu();
   const { pathname } = useLocation();
 
@@ -44,7 +44,7 @@ export default function PluginHostPage() {
   const item = matchPluginMenuItem(items, pathname);
   if (!item) return <Navigate to="/admin" replace />;
 
-  const heading = pluginHeading(t, item);
+  const heading = pluginHeading(t, item, locale);
   const showSettings = !settingsInMenu(items, item.pluginId);
 
   // A plugin that ships its own admin app owns the whole screen: the host
@@ -282,13 +282,15 @@ function settingsInMenu(items: PluginMenuItem[], pluginId: string): boolean {
 function pluginHeading(
   t: (key: string, vars?: Record<string, string | number>) => string,
   item: PluginMenuItem,
+  locale?: string,
 ): string {
   return navLabel(t, {
     key: item.labelKey ?? `plugin.${item.pluginId}.${item.id}`,
     label: item.label,
+    labels: item.labels,
     to: item.path,
     icon: item.icon,
-  });
+  }, locale);
 }
 
 type ContentListItem = {
@@ -605,7 +607,7 @@ function PluginOverviewLanding({
   items: PluginMenuItem[];
   heading: string;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const pages = items.filter(
     (entry) => entry.pluginId === current.pluginId && entry.path !== current.path && entry.listed !== false,
   );
@@ -629,7 +631,7 @@ function PluginOverviewLanding({
             <span className="jf-tile__icon" aria-hidden="true">
               {page.icon}
             </span>
-            <div className="jf-tile__label">{pluginHeading(t, page)}</div>
+            <div className="jf-tile__label">{pluginHeading(t, page, locale)}</div>
           </Link>
         ))}
       </div>

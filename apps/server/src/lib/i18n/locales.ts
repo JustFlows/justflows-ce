@@ -186,7 +186,6 @@ export const UNLOCALIZED_PATH_SEGMENTS = new Set([
   "vendor",
   ".well-known",
   "justflows-comments",
-  "justflows-forms",
 ]);
 
 /** Build a public URL path with optional locale prefix (default locale has no prefix). */

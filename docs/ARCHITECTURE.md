@@ -46,24 +46,24 @@ See [naming and placement conventions](CONVENTIONS.md) for ownership rules and
 Public pages are rendered completely on the server by
 `apps/server/src/routes/public/public-site.ts` and the EJS views under
 `apps/server/src/views`. The first HTML response contains the published blocks,
-navigation, title, meta description, canonical URL, Open Graph tags, structured
-data, and language alternates. Search crawlers do not need to execute React or
-wait for an API request to discover page content.
+navigation, the page title, the canonical URL, and language alternates, plus
+whatever an SEO plugin adds through `html.title`, `html.canonical`, and
+`html.head` (meta description, Open Graph tags, structured data). Search
+crawlers do not need to execute React or wait for an API request to discover
+page content.
 
 The public renderer also owns localized URLs, redirects to canonical paths,
-`robots.txt`, `sitemap.xml`, syndication feeds, theme CSS, page caching, and
-preview authorization. Do not move public content or SEO metadata into the admin
-React bundle.
+`robots.txt`, a basic `sitemap.xml` (plugins add paths through
+`seo.sitemapPaths`), theme CSS, page caching, and preview authorization. Do not
+move public content or SEO metadata into the admin React bundle.
 
 ### Syndication feeds
 
-Unlike meta tags and `sitemap.xml`, RSS 2.0 / Atom 1.0 / JSON Feed 1.1 output is
-**not** host-rendered — it is owned by the first-party **SEO Toolkit** plugin
-(`justflows.seo`, published through the plugin registry, not bundled in this
-repo). Its manifest declares `hostCooperative: true`, so once installed the
-runtime activates it (see `apps/server/src/lib/plugins/plugin-runtime.ts` — `isRuntimeSkippedFirstParty`)
-instead of leaving it inert like the other first-party plugins the host renders
-itself. It then wires itself up through public SDK surfaces only:
+RSS 2.0 / Atom 1.0 / JSON Feed 1.1 output is not host-rendered. It is owned by
+the first-party **SEO Toolkit** plugin (`justflows.seo`, published through the
+plugin registry, not bundled in this repo), which is activated like any other
+plugin and also writes the SEO meta tags. It wires itself up through public SDK
+surfaces only:
 
 - `ctx.http.get("/feed.xml", …)` and the locale / type / author variants
   (`ctx.content.listPublished()` provides the entries; `ctx.i18n` the locales);
