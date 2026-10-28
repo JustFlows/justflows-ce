@@ -336,3 +336,14 @@ export type { SearchBackend, SearchDocument } from "./search.js";
 export type { SpamCheckBackend, SpamCheckInput, SpamCheckResult } from "./spam.js";
 
 export { pluginApiUrl, isValidPluginApiNamespace } from "./api-urls.js";
+
+export {
+  escapeHtml,
+  sanitizeMediaSrc,
+  safeMediaSrc,
+  sanitizeSizes,
+  sanitizeSrcset,
+  renderResponsiveImage,
+  applyResponsiveProp,
+} from "./media-html.js";
+export type { ResponsiveImageInput, ResponsiveImageProp, ResponsiveSource } from "./media-html.js";

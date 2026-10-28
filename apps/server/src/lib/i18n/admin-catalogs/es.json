@@ -851,7 +851,6 @@
         "corners": "Esquinas",
         "layout": "Disposición",
         "images": "Imágenes",
-        "lightbox": "Caja de luz",
         "title": "Título",
         "price": "Precio",
         "comparePrice": "Precio de referencia",
@@ -913,10 +912,7 @@
         "borderGrid": "Cuadrícula con bordes",
         "supportingText": "Texto de apoyo",
         "hoverCta": "Llamada a la acción al pasar el cursor",
-        "detailCards": "Tarjetas de detalle",
-        "masonry": "Mampostería (masonry)",
-        "carousel": "Carrusel",
-        "slideshowFade": "Presentación (fundido)"
+        "detailCards": "Tarjetas de detalle"
       },
       "placeholder": {
         "internalLink": "/sobre-nosotros o https://…",
@@ -1019,9 +1015,8 @@
         "headingPlaceholder": "p. ej., Producto",
         "addLink": "+ Añadir enlace"
       },
-      "gallery": {
+      "images": {
         "uploadFailed": "Error al subir",
-        "carouselHint": "Se muestra una imagen cada vez, con puntos para pasar de una a otra. Reordena las imágenes de abajo para cambiar el orden.",
         "uploading": "Subiendo…",
         "uploadFromDevice": "⇧ Subir desde el dispositivo",
         "addImageUrl": "+ Añadir URL de imagen",
@@ -1058,7 +1053,6 @@
       "details": "Detalles",
       "dropContentHere": "Suelta el contenido aquí",
       "embed": "Contenido incrustado: ",
-      "emptyGallery": "Galería vacía",
       "feature": "Característica",
       "featuredImage": "Imagen destacada",
       "heading": "Título",

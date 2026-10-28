@@ -126,11 +126,6 @@ import { getRuntimeBlockRegistry } from "../../lib/rendering/runtime-blocks.js";
 import type { BlockNode } from "../../lib/runtime/types.js";
 import { withBlockChrome } from "@justflows/blocks";
 import {
-  isGalleryPluginEnabled,
-  registerGalleryBlock,
-  unregisterGalleryBlock,
-} from "../../lib/media/gallery-public.js";
-import {
   BLOG_POST_LIST_BLOCK_TYPE,
   registerBlogPostListBlock,
   renderBlogPostListBlockHtml,
@@ -424,8 +419,6 @@ async function renderBlocksHtml(
   commentCtx?: CommentsRenderContext,
   templateCtx?: TemplateBlockContext,
 ): Promise<string> {
-  if (await isGalleryPluginEnabled()) registerGalleryBlock();
-  else unregisterGalleryBlock();
   const siteId = await getSiteId();
   // Plugin block render() is sync; warm the settings its placeholder lookups read.
   await primePlaceholders(siteId);

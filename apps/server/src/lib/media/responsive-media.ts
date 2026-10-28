@@ -6,6 +6,7 @@ import {
   type ResponsiveImageInput,
   type ResponsiveSource,
 } from "@justflows/blocks";
+import { applyResponsiveProp, type ResponsiveImageProp } from "@justflows/sdk";
 import { getDb } from "../database/db.js";
 import { getSiteId } from "../themes/themes-db.js";
 import type { MediaDerivatives, MediaVariantRecord } from "./media-responsive.js";
@@ -14,7 +15,7 @@ import type { MediaDerivatives, MediaVariantRecord } from "./media-responsive.js
  * Shared responsive-image plumbing (#103).
  *
  * One place every public image-rendering surface goes through — `core.image`,
- * the gallery block, blog-post-list thumbnails, the Featured Image template
+ * plugin blocks with image fields, blog-post-list thumbnails, the Featured Image template
  * block — so a page never ships the full-resolution original when sized
  * variants exist. Given a media URL it loads the stored `derivatives` and turns
  * them into the `<picture>` / `srcset` inputs `@justflows/blocks` renders and
@@ -28,15 +29,10 @@ import type { MediaDerivatives, MediaVariantRecord } from "./media-responsive.js
 
 const MODERN_FORMAT_ORDER = ["avif", "webp"] as const;
 
-export interface ResponsiveProp {
-  src: string;
-  width: number;
-  height: number;
-  sources: ResponsiveSource[];
-  fallbackSrcset: string;
-  focalX: number | null;
-  focalY: number | null;
-}
+/** One image's stored derivatives, as blocks receive it. Defined in the SDK so plugin blocks share it. */
+export type ResponsiveProp = ResponsiveImageProp;
+
+export { applyResponsiveProp };
 
 interface MediaRowLite {
   url: string;
@@ -159,22 +155,6 @@ export async function loadResponsiveProps(
     if (prop) out.set(row.url, prop);
   }
   return out;
-}
-
-/** Merge a resolved `ResponsiveProp` into `renderResponsiveImage` inputs. */
-export function applyResponsiveProp(
-  base: ResponsiveImageInput,
-  prop: ResponsiveProp | undefined,
-): ResponsiveImageInput {
-  if (!prop) return base;
-  const next: ResponsiveImageInput = { ...base, src: prop.src || base.src };
-  if (prop.width) next.width = prop.width;
-  if (prop.height) next.height = prop.height;
-  if (prop.sources.length) next.sources = prop.sources;
-  if (prop.fallbackSrcset) next.fallbackSrcset = prop.fallbackSrcset;
-  if (prop.focalX !== null) next.focalX = prop.focalX;
-  if (prop.focalY !== null) next.focalY = prop.focalY;
-  return next;
 }
 
 export interface RenderMediaImageOptions {

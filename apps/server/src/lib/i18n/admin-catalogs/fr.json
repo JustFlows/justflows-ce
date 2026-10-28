@@ -851,7 +851,6 @@
         "corners": "Coins",
         "layout": "Disposition",
         "images": "Images",
-        "lightbox": "Lightbox",
         "title": "Titre",
         "price": "Prix",
         "comparePrice": "Prix de référence",
@@ -913,10 +912,7 @@
         "borderGrid": "Grille avec bordures",
         "supportingText": "Texte d’accompagnement",
         "hoverCta": "Appel à l’action au survol",
-        "detailCards": "Cartes détaillées",
-        "masonry": "Maçonnerie (masonry)",
-        "carousel": "Carrousel",
-        "slideshowFade": "Diaporama (fondu)"
+        "detailCards": "Cartes détaillées"
       },
       "placeholder": {
         "internalLink": "/a-propos ou https://…",
@@ -1019,9 +1015,8 @@
         "headingPlaceholder": "p. ex. Produit",
         "addLink": "+ Ajouter un lien"
       },
-      "gallery": {
+      "images": {
         "uploadFailed": "Échec du téléversement",
-        "carouselHint": "Une image s’affiche à la fois, avec des points pour passer de l’une à l’autre. Réorganisez les images ci-dessous pour changer l’ordre.",
         "uploading": "Téléversement…",
         "uploadFromDevice": "⇧ Téléverser depuis l’appareil",
         "addImageUrl": "+ Ajouter une URL d’image",
@@ -1058,7 +1053,6 @@
       "details": "Détails",
       "dropContentHere": "Déposer le contenu ici",
       "embed": "Intégration : ",
-      "emptyGallery": "Galerie vide",
       "feature": "Caractéristique",
       "featuredImage": "Image mise en avant",
       "heading": "Titre",

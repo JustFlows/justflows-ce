@@ -58,6 +58,23 @@ permission-gated `comments.spamBackend` filter are additive. Existing plugins
 and themes continue to use the host's local heuristic scoring without
 implementing anything. See [Hooks: Comment spam backend filter](HOOKS.md#comment-spam-backend-filter).
 
+### In development — plugin pages, settings, and block images
+
+All additive; existing plugins are unaffected.
+
+- `adminMenu[].labels` (per-locale menu labels) and `adminMenu[].roles` (roles
+  that may open the page). `labelKey` is looked up in the plugin's own
+  `adminApp.locales` catalogs before core's.
+- The `plugin.settings.schema` filter narrows a plugin's settings form per site.
+- `ctx.network.site(siteId?)` returns one live site and its public URL from any site.
+- `ctx.captcha.verify` without an action expects the plugin's own name.
+- Block fields of type `images`; for `media` and `images` fields the host adds a
+  `responsive` prop. `escapeHtml`, `sanitizeMediaSrc`, `safeMediaSrc`,
+  `sanitizeSizes`, `sanitizeSrcset`, `renderResponsiveImage`,
+  `applyResponsiveProp`, and the `ResponsiveImageInput`, `ResponsiveImageProp`,
+  and `ResponsiveSource` types are exported.
+- `PluginSettingsField` and `PluginNetworkSiteAddress` types are exported.
+
 ### SDK `0.1.6` — additive
 
 - `ctx.content.listPublished(query?)` returns published entries (`type`, `slug`,

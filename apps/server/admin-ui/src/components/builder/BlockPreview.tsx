@@ -1,7 +1,7 @@
 import FunctionalBlock, { FUNCTIONAL_TYPES } from "./FunctionalBlock";
 import MediaBlock from "../MediaBlock";
 import { useT } from "../../i18n/I18nProvider";
-import { cloneElement, createContext, isValidElement, useContext, useEffect, type ReactElement } from "react";
+import { cloneElement, createContext, isValidElement, useContext, useEffect, useState, type ReactElement } from "react";
 import type { BlockNode } from "./types";
 import { esc, parseBlockStyle, renderMath, sanitizeHtmlBlock, sanitizeRichText } from "@justflows/blocks";
 import MotionPreview from "./MotionPreview";
@@ -465,78 +465,6 @@ export function BlockPreview({
         />,
       );
 
-    case "justflows.gallery.grid": {
-      const items = (Array.isArray(p.items) ? p.items : []) as Array<{
-        src?: string;
-        alt?: string;
-      }>;
-      const layout = (p.layout as string) || "grid";
-      const cols =
-        layout === "carousel" || layout === "slideshow" || layout === "list"
-          ? 1
-          : Math.min(6, Math.max(2, Number(p.columns) || 3));
-      if (items.length === 0) {
-        return wrap(
-          <div
-            style={{
-              background: "var(--color-surface, var(--jf-surface-3))",
-              padding: "1.5rem",
-              borderRadius: 6,
-              textAlign: "center",
-              color: "var(--color-muted, var(--jf-text-3))",
-            }}
-          >
-            {t("builder.preview.emptyGallery")}</div>,
-        );
-      }
-      const shown =
-        layout === "carousel" || layout === "slideshow" ? items.slice(0, 1) : items.slice(0, 12);
-      return wrap(
-        <div>
-          {layout !== "grid" && (
-            <div
-              style={{
-                fontSize: "0.7rem",
-                color: "var(--color-muted, var(--jf-text-3))",
-                marginBottom: "0.35rem",
-                textTransform: "capitalize",
-              }}
-            >
-              {layout}
-            </div>
-          )}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-              gap: "0.5rem",
-            }}
-          >
-            {shown.map((item, i) =>
-              item.src ? (
-                <img
-                  key={i}
-                  src={item.src}
-                  alt={item.alt ?? ""}
-                  style={{
-                    width: "100%",
-                    height: layout === "list" ? 140 : 72,
-                    objectFit: "cover",
-                    borderRadius: 4,
-                  }}
-                />
-              ) : (
-                <div
-                  key={i}
-                  style={{ height: 72, background: "var(--color-border, var(--jf-border))", borderRadius: 4 }}
-                />
-              ),
-            )}
-          </div>
-        </div>,
-      );
-    }
-
     case "core.grid":
       return wrap(
         renderChildren ? <>{renderChildren(block.children ?? [], depth + 1)}</> : <div />,
@@ -843,10 +771,46 @@ export function BlockPreview({
       );
 
     default:
+      if (!block.type.startsWith("core.")) return wrap(<PluginBlockPreview type={block.type} props={p} />);
       return wrap(
         <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{block.type}</div>,
       );
   }
+}
+
+/**
+ * A plugin block the builder has no preview for: show the block's own server
+ * render, sanitized like an HTML block. Re-asked after edits settle; falls back
+ * to the block type while loading or when the render fails.
+ */
+function PluginBlockPreview({ type, props }: { type: string; props: Record<string, unknown> }) {
+  const [html, setHtml] = useState<string | null>(null);
+  const key = JSON.stringify(props);
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetch("/api/blocks/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, props: JSON.parse(key) as unknown }),
+      })
+        .then((res) => (res.ok ? (res.json() as Promise<{ html?: string }>) : null))
+        .then((body) => {
+          if (!cancelled) setHtml(body && typeof body.html === "string" ? sanitizeHtmlBlock(body.html) : "");
+        })
+        .catch(() => {
+          if (!cancelled) setHtml("");
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [type, key]);
+  if (!html) {
+    return <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{type}</div>;
+  }
+  return <div data-jf-plugin-block={type} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 const widgetChip: React.CSSProperties = {

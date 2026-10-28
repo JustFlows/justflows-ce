@@ -78,7 +78,7 @@ the inspector: each key is one prop, and the field entry
 
 | Field | Effect in the inspector |
 | --- | --- |
-| `type` | `string`, `textarea`, `number`, `boolean`, or `select` |
+| `type` | `string`, `textarea`, `number`, `boolean`, `select`, `media` (one image URL), or `images` (a list of `{ src, alt, caption }` added by upload, from the media library, or by URL) |
 | `label`, `help` | Field label (defaults to the prop key) and one line of help |
 | `default` | Shown while the prop is unset. Blocks start with empty props, so `validateProps` must apply the same default |
 | `options`, `optionLabels` | Fixed choices and the text shown for each value |
@@ -110,6 +110,34 @@ The options route is an ordinary plugin HTTP route; check the session and a
 capability before answering. `render` is synchronous, so load live data in a
 `content.blocks` filter and write it into the block props before render (Shop's
 product list does this).
+
+The builder previews a plugin block with the block's own `render`, sanitized
+like an HTML block (no scripts or event handlers), and the active theme's
+styles.
+
+### Images
+
+For `media` and `images` fields the host adds a `responsive` prop before
+render: a map from each uploaded image URL to its stored derivatives
+(`ResponsiveImageProp`). Render images with the SDK helpers so they get the
+same `<picture>`, `srcset`, lazy loading, and URL filtering as `core.image`:
+
+```ts
+import { applyResponsiveProp, escapeHtml, renderResponsiveImage, type ResponsiveImageProp } from "@justflows/sdk";
+
+render: (props) => {
+  const responsive = (props.responsive ?? {}) as Record<string, ResponsiveImageProp>;
+  return (props.items as Array<{ src: string; alt: string; caption: string }>)
+    .map((item) => `<figure>${renderResponsiveImage(
+      applyResponsiveProp({ src: item.src, alt: item.alt, sizes: "(max-width: 700px) 100vw, 33vw" }, responsive[item.src]),
+    )}<figcaption>${escapeHtml(item.caption)}</figcaption></figure>`)
+    .join("");
+},
+```
+
+`renderResponsiveImage` drops an unsafe URL and returns an empty string for it,
+so pass the stored `src` as is. `validateProps` runs on the props after the
+host adds `responsive`, so return that map with the other props.
 
 ### Links and languages
 
