@@ -388,15 +388,6 @@ export const PluginManifestSchema = z
     permissions: z.array(PluginPermissionSchema).default([]),
     main: z.string().default("index.js"),
     /**
-     * First-party opt-in. A handful of bundled plugin ids (`justflows.seo`, …)
-     * are normally left inactive at runtime because the host renders their
-     * behaviour itself. Setting this to `true` tells the host the shipped module
-     * is host-cooperative — it only augments (e.g. adds feed routes and
-     * autodiscovery) and never re-registers what the host already owns — so the
-     * host may activate it. Ignored for third-party plugins.
-     */
-    hostCooperative: z.boolean().optional(),
-    /**
      * When true, the main site may offer this plugin to other sites. Those
      * sites can activate it and change only their own rows. They cannot
      * install the package or drop its tables. Omit or false to keep the

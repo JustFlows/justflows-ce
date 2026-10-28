@@ -369,7 +369,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   app.get("/sitemap.xml", requireInstalled, async (_req, res, next) => {
     try {
-      const { buildSitemapXml } = await import("./lib/rendering/seo-public.js");
+      const { buildSitemapXml } = await import("./lib/rendering/sitemap.js");
       const { getSiteId } = await import("./lib/themes/themes-db.js");
       const siteId = await getSiteId();
       if (!siteId) {

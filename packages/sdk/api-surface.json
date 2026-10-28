@@ -219,6 +219,7 @@
   "PluginWorkspaceContext",
   "PluginWorkspaceSite",
   "PublicComment",
+  "PublicPageContext",
   "QuotaDecision",
   "QuotaMeterRegistration",
   "QuotaMeterView",

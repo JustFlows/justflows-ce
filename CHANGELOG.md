@@ -15,6 +15,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **SDK: image fields, image helpers, and live previews for plugin blocks.** A plugin block field can be `images`, a list of images added by upload, from the media library, or by URL, with alt text and a caption. For `media` and `images` fields the host adds the media library's responsive derivatives as a `responsive` prop. The SDK now exports `renderResponsiveImage`, `applyResponsiveProp`, `escapeHtml`, and `safeMediaSrc`, so a plugin renders images the way `core.image` does. The page builder previews a plugin block with the block's own render, sanitized like an HTML block, instead of showing its type name. ([#190](https://github.com/JustFlows/justflows-ce/issues/190))
 
+- **SDK: plugins shape a public page's title, canonical link, and site identity.** New `html.title`, `html.canonical`, and `site.identity` filters, and `html.head` now receives the page's content type and fields, description, canonical URL, share image, origin, and whether it is indexable (`PublicPageContext`). ([#191](https://github.com/JustFlows/justflows-ce/issues/191))
+
 ### Removed
 
 - **The Cookie Consent screen left core.** Its page, route, nav rule, and strings (`nav.consent`, `consent.*`) are gone from the admin; Cookie Consent 1.1.0 ships the same screen as its own admin app in all 8 admin languages. Update Cookie Consent to 1.1.0 together with this release, because an older plugin has no screen on this core. ([#186](https://github.com/JustFlows/justflows-ce/issues/186))
@@ -24,6 +26,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **Helpdesk code left core.** Core no longer builds the admin Support button, points the public support popup at another site, changes Helpdesk's settings form, or gives the Support agent role access to Helpdesk pages. Helpdesk 0.2.0 does all of this itself with the SDK additions above. Update Helpdesk to 0.2.0 together with this release; until then other sites show no admin Support button and Support agents cannot open Helpdesk. ([#189](https://github.com/JustFlows/justflows-ce/issues/189))
 
 - **Gallery code left core.** Core no longer renders the Gallery block, skips the Gallery plugin's code, or ships a Gallery editor and preview in the page builder. Gallery 0.3.0 registers its block itself with the SDK additions above; existing galleries keep their images, captions, layout, columns, and lightbox. Update Gallery to 0.3.0 together with this release; until then galleries do not show on public pages. The builder's Gallery layout, columns, and lightbox labels are now the plugin's own English labels. ([#190](https://github.com/JustFlows/justflows-ce/issues/190))
+
+- **SEO output left core.** Core no longer reads the SEO plugin's settings to write meta descriptions, Open Graph and Twitter tags, JSON-LD, the title template, the site title and tagline override, or extra sitemap paths, and the SEO plugin is no longer a runtime special case (`hostCooperative` is gone). Without an SEO plugin a page still gets its plain `<title>`, a canonical link, and a basic `/sitemap.xml`. SEO Toolkit 0.2.0 adds the rest through the new filters; update it together with this release, because an older version leaves pages without those tags. ([#191](https://github.com/JustFlows/justflows-ce/issues/191))
 
 ### Fixed
 

@@ -74,6 +74,11 @@ All additive; existing plugins are unaffected.
   `applyResponsiveProp`, and the `ResponsiveImageInput`, `ResponsiveImageProp`,
   and `ResponsiveSource` types are exported.
 - `PluginSettingsField` and `PluginNetworkSiteAddress` types are exported.
+- The `html.title`, `html.canonical`, and `site.identity` filters, and a richer
+  `html.head` context (`PublicPageContext`: content type and fields,
+  description, canonical URL, share image, origin, and `indexable`).
+- `hostCooperative` is no longer part of the manifest schema. Manifests that
+  still declare it parse as before; the field is dropped.
 
 ### SDK `0.1.6` — additive
 
@@ -84,11 +89,9 @@ All additive; existing plugins are unaffected.
   configuration read-only (no permission).
 - The `html.head` filter context gains `locale` (the current page's content
   locale). Existing handlers that ignore it are unaffected.
-- A plugin manifest may declare `hostCooperative: true`. It is meaningful only
-  for the handful of first-party ids the host would otherwise leave
-  inactive (`justflows.seo`); it tells the runtime the shipped module only
-  augments host behavior and is safe to activate. Ignored for third-party
-  plugins.
+- A plugin manifest may declare `hostCooperative: true`. Since the release
+  that moved SEO output into the SEO plugin, the host activates every plugin
+  the same way and ignores this field.
 
 Authenticated plugin HTTP requests expose additive `session.capabilities` and
 `session.scopes` fields. They describe the user's effective access after custom
