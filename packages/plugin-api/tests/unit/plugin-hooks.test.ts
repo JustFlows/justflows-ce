@@ -269,7 +269,7 @@ describe("plugin hook context", () => {
   it("lets a plugin apply operatorKey.ensure and stamps the caller's id", async () => {
     const app = new App(CONFIG);
     const seen: string[] = [];
-    app.hooks.filter("operatorKey.ensure", (value, context) => {
+    app.hooks.filter<{ name: string }, { pluginId: string }>("operatorKey.ensure", (value, context) => {
       seen.push(`${context.pluginId}:${value.name}`);
       return value;
     });
