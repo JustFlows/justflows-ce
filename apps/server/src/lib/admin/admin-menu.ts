@@ -7,6 +7,7 @@ import {
   resolvePluginAdminPath,
   type PluginAdminMenuItem,
 } from "@justflows/sdk";
+import fs from "node:fs";
 import { getDb } from "../database/db.js";
 import type { PluginRow } from "../plugins/plugins-db.js";
 
@@ -40,6 +41,9 @@ const ADMIN_MENU_DOMAIN_SET = new Set<string>(ADMIN_MENU_DOMAINS);
 const MENU_VISIBLE_STATUSES = new Set<PluginRow["status"]>(["active"]);
 
 const MENU_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const LOCALE_RE = /^[a-z]{2,8}(?:-[A-Za-z0-9]{2,8}){0,2}$/;
+/** Catalogs bigger than this are skipped when resolving menu labels. */
+const MAX_CATALOG_BYTES = 512 * 1024;
 const CONTENT_TYPE_SLUG_RE = /^[a-z][a-z0-9-]{0,59}$/;
 
 /**
@@ -66,6 +70,17 @@ function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+/** Keep valid `locale → label` pairs (at most 20), trimmed to 60 characters. */
+function sanitizeLabels(raw: unknown): Record<string, string> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const labels: Record<string, string> = {};
+  for (const [code, value] of Object.entries(raw).slice(0, 20)) {
+    const label = asString(value);
+    if (LOCALE_RE.test(code) && label) labels[code] = label.slice(0, 60);
+  }
+  return Object.keys(labels).length ? labels : undefined;
+}
+
 /**
  * Manifests are stored JSON that may predate — or lie about — the current
  * schema, so every field is re-validated here rather than trusted.
@@ -90,12 +105,14 @@ function sanitizeItem(raw: unknown, pluginId: string): AdminMenuEntry | null {
   const rawSetupPath = typeof item.setupPath === "string" ? item.setupPath : undefined;
   const setupPath = rawSetupPath === undefined ? undefined : resolveAdminPath(rawSetupPath, pluginId);
   const contentType = asString(item.contentType);
+  const labels = sanitizeLabels(item.labels);
 
   return {
     pluginId,
     id,
     label: label.slice(0, 60),
     labelKey: asString(item.labelKey)?.slice(0, 120),
+    ...(labels ? { labels } : {}),
     path,
     icon: icon && icon.length <= 8 ? icon : "🔌",
     domain: (domain && ADMIN_MENU_DOMAIN_SET.has(domain)
@@ -181,7 +198,9 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
     { siteId, source: "http" },
   );
 
-  const { getPluginAdminRoutes } = await import("../plugins/plugin-admin-app.js");
+  const { getPluginAdminCatalogFiles, getPluginAdminRoutes } = await import(
+    "../plugins/plugin-admin-app.js"
+  );
   // Re-check against this site's active set. Sub-site deactivate does not unload
   // the shared module, so the adminApp memo can briefly keep another site's
   // screens; never synthesize nav for a plugin this site has turned off.
@@ -193,7 +212,60 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
     activePluginIds.has(item.pluginId),
   );
 
-  return stampAdminAppUrls(stampSetupPaths(menu, setupByPlugin), adminAppRoutes);
+  const catalogFiles = await getPluginAdminCatalogFiles(siteId).catch(
+    () => new Map<string, Record<string, string>>(),
+  );
+
+  return stampCatalogLabels(
+    stampAdminAppUrls(stampSetupPaths(menu, setupByPlugin), adminAppRoutes),
+    catalogFiles,
+  );
+}
+
+/**
+ * Read a catalog through one file descriptor, so the size check and the read
+ * see the same file even if the path is swapped in between.
+ */
+function readCatalog(file: string): Record<string, unknown> | null {
+  let fd: number | undefined;
+  try {
+    fd = fs.openSync(file, "r");
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.size > MAX_CATALOG_BYTES) return null;
+    const parsed: unknown = JSON.parse(fs.readFileSync(fd, "utf8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
+/**
+ * Translate each item's `labelKey` from its plugin's own `adminApp.locales`
+ * catalogs into `labels`, so the sidebar shows the plugin's translation without
+ * a key in core's catalogs. Labels the plugin declared itself win per locale.
+ */
+export function stampCatalogLabels(
+  items: AdminMenuEntry[],
+  catalogFiles: Map<string, Record<string, string>>,
+): AdminMenuEntry[] {
+  if (catalogFiles.size === 0) return items;
+  const catalogs = new Map<string, Record<string, unknown> | null>();
+  return items.map((item) => {
+    const files = item.labelKey ? catalogFiles.get(item.pluginId) : undefined;
+    if (!item.labelKey || !files) return item;
+    const labels: Record<string, string> = {};
+    for (const [code, file] of Object.entries(files)) {
+      if (!catalogs.has(file)) catalogs.set(file, readCatalog(file));
+      const label = asString(catalogs.get(file)?.[item.labelKey]);
+      if (label) labels[code] = label.slice(0, 60);
+    }
+    if (Object.keys(labels).length === 0) return item;
+    return { ...item, labels: { ...labels, ...item.labels } };
+  });
 }
 
 /**

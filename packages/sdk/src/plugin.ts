@@ -161,8 +161,23 @@ export const AdminMenuItemSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Menu id must be lowercase kebab-case"),
   /** English label, shown when `labelKey` is absent or untranslated. */
   label: z.string().min(1).max(60),
-  /** Optional admin i18n catalog key, e.g. "nav.media". */
+  /**
+   * Optional i18n key. The host looks it up in the plugin's own
+   * `adminApp.locales` catalogs first, then in core's admin catalogs.
+   */
   labelKey: z.string().max(120).optional(),
+  /**
+   * Per-locale labels, keyed by locale code (for example `{ "nl": "Formulieren" }`).
+   * They win over `labelKey`, so a plugin without an admin app can still
+   * translate its menu entry.
+   */
+  labels: z
+    .record(
+      z.string().regex(/^[a-z]{2,8}(?:-[A-Za-z0-9]{2,8}){0,2}$/, "Locale code must look like en or nl-NL"),
+      z.string().min(1).max(60),
+    )
+    .refine((value) => Object.keys(value).length <= 20, "At most 20 menu label locales")
+    .optional(),
   /**
    * Where this page mounts, **relative to the plugin's own namespace**
    * `/admin/plugins/<your plugin id>`. Omit (or `""`) for the namespace root;

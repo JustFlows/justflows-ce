@@ -3,6 +3,8 @@ export type NavItem = {
   key: string;
   /** Literal label used when `key` has no catalog entry (plugin-supplied items). */
   label?: string;
+  /** Locale code → label a plugin shipped; wins over `key` and `label`. */
+  labels?: Record<string, string>;
   to: string;
   icon: string;
   end?: boolean;
@@ -26,6 +28,8 @@ export type PluginMenuItem = {
   id: string;
   label: string;
   labelKey?: string;
+  /** Locale code → label, from the manifest or the plugin's own catalogs. */
+  labels?: Record<string, string>;
   path: string;
   icon: string;
   domain: string;
@@ -274,6 +278,7 @@ function toNavItem(item: PluginMenuItem): NavItem {
   return {
     key: item.labelKey ?? `plugin.${item.pluginId}.${item.id}`,
     label: item.label,
+    labels: item.labels,
     // Canonical `/admin/…` (the SDK manifest schema requires it), matching the
     // core nav items. `installAdminPathNavigation()` maps it to the configured
     // admin URL on navigation, and the path-comparison helpers below normalise
@@ -346,8 +351,15 @@ export function isDomainActive(domain: NavDomain, pathname: string): boolean {
   return domain.items.some((item) => matchesNavItem(pathname, item));
 }
 
-/** Prefer the catalog translation; fall back to the label the plugin shipped. */
-export function navLabel(t: (key: string) => string, item: NavItem): string {
+/**
+ * Prefer the plugin's own label for `locale` (exact, then the base language),
+ * then the core catalog translation, then the English label the plugin shipped.
+ */
+export function navLabel(t: (key: string) => string, item: NavItem, locale?: string): string {
+  if (locale && item.labels) {
+    const own = item.labels[locale] ?? item.labels[locale.split("-")[0]!];
+    if (own) return own;
+  }
   const translated = t(item.key);
   if (translated !== item.key) return translated;
   return item.label ?? item.key;

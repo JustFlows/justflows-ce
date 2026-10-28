@@ -205,3 +205,23 @@ describe("PluginManifestSchema — plugin-relative admin paths", () => {
     }
   });
 });
+
+describe("PluginManifestSchema — admin menu labels", () => {
+  const withPerm = { ...base, permissions: ["admin:extend"] };
+
+  it("accepts per-locale menu labels", () => {
+    const parsed = PluginManifestSchema.parse({
+      ...withPerm,
+      adminMenu: [{ id: "home", label: "Widget", labels: { nl: "Widget NL", "de-DE": "Widget DE" } }],
+    });
+    expect(parsed.adminMenu?.[0]?.labels).toEqual({ nl: "Widget NL", "de-DE": "Widget DE" });
+  });
+
+  it("rejects a bad locale code or an empty label", () => {
+    for (const labels of [{ "../x": "Bad" }, { nl: "" }]) {
+      expect(() =>
+        PluginManifestSchema.parse({ ...withPerm, adminMenu: [{ id: "home", label: "Widget", labels }] }),
+      ).toThrow();
+    }
+  });
+});

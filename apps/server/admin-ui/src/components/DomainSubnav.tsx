@@ -7,14 +7,14 @@ type Props = {
 };
 
 export default function DomainSubnav({ domain }: Props) {
-  const { t } = useT();
+  const { t, locale } = useT();
 
   return (
     <nav className="jf-domainnav" aria-label={t(domain.key)}>
       {domain.items.map((item) => (
         <NavLink key={item.to} to={item.to} end={item.end} className="jf-domainnav__link">
           <span className="jf-domainnav__icon" aria-hidden="true">{item.icon}</span>
-          {navLabel(t, item)}
+          {navLabel(t, item, locale)}
         </NavLink>
       ))}
     </nav>

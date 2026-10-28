@@ -32,12 +32,12 @@ function setMetaTag(name: string, content: string) {
  */
 export function DocumentMeta({ siteTitle }: { siteTitle?: string }) {
   const { pathname } = useLocation();
-  const { t } = useT();
+  const { t, locale } = useT();
   const { domains } = usePluginMenu();
 
   const preAuthKey = PRE_AUTH_TITLES[pathname];
   const item = preAuthKey ? null : findNavItemForPath(pathname, domains);
-  const page = preAuthKey ? t(preAuthKey) : item ? navLabel(t, item) : "";
+  const page = preAuthKey ? t(preAuthKey) : item ? navLabel(t, item, locale) : "";
   const title = [page, siteTitle].filter(Boolean).join(" ‹ ");
   const fullTitle = title ? `${title} — ${PRODUCT_NAME}` : PRODUCT_NAME;
   const description = t("meta.description");

@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: MIT
 
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { finalizeAdminMenu, stampSetupPaths } from "../../../src/lib/admin/admin-menu.js";
+import {
+  finalizeAdminMenu,
+  stampCatalogLabels,
+  stampSetupPaths,
+} from "../../../src/lib/admin/admin-menu.js";
 
 describe("finalizeAdminMenu", () => {
   it("resolves plugin-relative paths and drops the rest", () => {
@@ -144,5 +151,57 @@ describe("stampSetupPaths", () => {
       new Map([["justflows.shop", "/admin/plugins/justflows.shop"]]),
     );
     expect(stamped[0]?.setupPath).toBe("/admin/plugins/justflows.shop");
+  });
+});
+
+describe("menu labels", () => {
+  it("keeps valid per-locale labels and drops the rest", () => {
+    const [item] = finalizeAdminMenu([
+      {
+        pluginId: "justflows.forms",
+        id: "forms",
+        label: "Forms",
+        labels: { nl: " Formulieren ", "de-DE": "Formulare", "../x": "Bad", fr: "   ", es: 7 },
+      },
+    ]);
+    expect(item?.labels).toEqual({ nl: "Formulieren", "de-DE": "Formulare" });
+  });
+
+  it("translates labelKey from the plugin's own catalogs, keeping declared labels", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jf-menu-labels-"));
+    const nl = path.join(dir, "nl.json");
+    const de = path.join(dir, "de.json");
+    fs.writeFileSync(nl, JSON.stringify({ "menu.forms": "Formulieren" }));
+    fs.writeFileSync(de, JSON.stringify({ "menu.forms": "Formulare" }));
+    try {
+      const [forms, other] = stampCatalogLabels(
+        [
+          {
+            pluginId: "justflows.forms",
+            id: "forms",
+            label: "Forms",
+            labelKey: "menu.forms",
+            labels: { de: "Eigene Formulare" },
+            path: "/admin/plugins/justflows.forms",
+            icon: "✉",
+            domain: "extensions",
+          },
+          {
+            pluginId: "justflows.other",
+            id: "other",
+            label: "Other",
+            labelKey: "menu.forms",
+            path: "/admin/plugins/justflows.other",
+            icon: "🔌",
+            domain: "extensions",
+          },
+        ],
+        new Map([["justflows.forms", { nl, de, fr: path.join(dir, "missing.json") }]]),
+      );
+      expect(forms?.labels).toEqual({ nl: "Formulieren", de: "Eigene Formulare" });
+      expect(other?.labels).toBeUndefined();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
