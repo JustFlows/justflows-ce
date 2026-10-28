@@ -16,7 +16,6 @@ import TaxonomiesPage from "./pages/admin/content/TaxonomiesPage";
 import MediaPage from "./pages/admin/media/MediaPage";
 import PluginsPage from "./pages/admin/extensions/PluginsPage";
 import PluginSettingsPage from "./pages/admin/extensions/PluginSettingsPage";
-import ConsentPage from "./pages/admin/settings/ConsentPage";
 import ThemesPage from "./pages/admin/design/ThemesPage";
 import DesignPage from "./pages/admin/design/DesignPage";
 import ThemeCustomizePage from "./pages/admin/design/ThemeCustomizePage";
@@ -61,7 +60,6 @@ import OAuthConsentPage from "./pages/OAuthConsentPage";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { PluginMenuProvider } from "@components/PluginMenuProvider";
 import { SessionProvider, useSession } from "@components/SessionProvider";
-import PluginRoute from "@components/PluginRoute";
 import PluginHostPage from "./pages/admin/extensions/PluginHostPage";
 import { SiteHead } from "@components/SiteIdentity";
 import { DocumentMeta } from "@components/DocumentMeta";
@@ -128,20 +126,6 @@ export default function App() {
               <Route path="media" element={<MediaPage />} />
               <Route path="plugins" element={<PluginsPage />} />
               <Route path="plugins/:id/settings" element={<PluginSettingsPage />} />
-              {/* Plugin-owned pages the host renders natively. They live under
-                  /admin/plugins/<pluginId> like every other plugin page, and are
-                  unreachable once the owning plugin is deleted. Plugins that ship
-                  their own admin app (Forms) or only a settings schema (SEO) need
-                  no route here — the `*` catch-all frames the former, and the
-                  `plugins/:id/settings` route above serves the latter. */}
-              <Route
-                path="plugins/justflows.consent"
-                element={
-                  <PluginRoute>
-                    <ConsentPage />
-                  </PluginRoute>
-                }
-              />
               <Route path="themes" element={<ThemesPage />} />
               <Route path="design" element={<DesignPage />} />
               <Route path="widgets" element={<WidgetsPage />} />

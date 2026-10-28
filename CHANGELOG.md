@@ -7,6 +7,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.3.9] [UNRELEASED]
 
+### Removed
+
+- **The Cookie Consent screen left core.** Its page, route, nav rule, and strings (`nav.consent`, `consent.*`) are gone from the admin; Cookie Consent 1.1.0 ships the same screen as its own admin app in all 8 admin languages. Update Cookie Consent to 1.1.0 together with this release, because an older plugin has no screen on this core. ([#186](https://github.com/JustFlows/justflows-ce/issues/186))
+
 ### Added
 
 - **SDK: plugins translate their own admin menu labels.** An `adminMenu` entry's `labelKey` is now looked up in the plugin's own `adminApp.locales` catalogs before core's, and a new `labels` field takes per-locale labels straight from the manifest, for plugins without an admin app. The sidebar, page heading, and browser title use the label for the admin language, so a plugin no longer needs a key in core's catalogs. `nav.forms` and `nav.consent` stay in core until Forms and Cookie Consent use this. ([#192](https://github.com/JustFlows/justflows-ce/issues/192))

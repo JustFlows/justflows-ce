@@ -35,7 +35,6 @@
     "updates": "Updates",
     "webhooks": "Webhooks",
     "apiKeys": "API",
-    "consent": "Cookie Consent",
     "securityOverview": "Overview",
     "securityHeaders": "Headers",
     "securityAdvanced": "Advanced",
@@ -1817,150 +1816,6 @@
       "dashboardCta": "Go to Admin dashboard →"
     }
   },
-  "consent": {
-    "onlyAdmins": "Cookie Consent settings are available to administrators only.",
-    "pageTitle": "Cookie Consent",
-    "pageDescription": "First-party consent banner, preference center, and script/embed gating. Non-essential scripts and embeds stay blocked until their category is accepted.",
-    "exportRecordsCsv": "Export records (CSV)",
-    "settingsSaved": "Settings saved.",
-    "behaviourTitle": "Behaviour",
-    "showBannerLabel": "Show the consent banner on the public site",
-    "displayModeLabel": "Display mode",
-    "displayModeAlways": "Always show",
-    "displayModeEu": "EU / EEA visitors only (best-effort, timezone based)",
-    "displayModeOff": "Off",
-    "geoHint": "Geo detection is best-effort and runs in the visitor's browser — no IP lookup, no third party.",
-    "logConsentLabel": "Store an audit record for each consent decision",
-    "logConsentHint": "Off: the banner still enforces choices, but no rows are written to the database and no beacon is sent. Turn off if you don't need the audit log.",
-    "policyVersionLabel": "Policy version",
-    "policyVersionHint": "Bump when the policy changes — prior consent is invalidated and the banner re-appears. Editing translations does not.",
-    "privacyPolicyUrlLabel": "Privacy policy URL",
-    "reopenSelectorLabel": "Re-open selector",
-    "reopenSelectorHint": "Clicks on elements matching this CSS selector re-open the preference center.",
-    "categoriesTitle": "Categories",
-    "categoriesIntro": "is always on. Choose which optional categories visitors can consent to.",
-    "category": {
-      "necessary": "Necessary",
-      "preferences": "Preferences",
-      "analytics": "Analytics",
-      "marketing": "Marketing"
-    },
-    "textSectionTitle": "Text",
-    "textFieldLabel": {
-      "bannerTitle": "Banner title",
-      "bannerBody": "Banner body",
-      "privacyPolicyLabel": "Privacy-policy link label",
-      "acceptAllLabel": "Accept-all button",
-      "rejectAllLabel": "Reject button",
-      "saveLabel": "Save button",
-      "preferencesLabel": "Preferences button",
-      "necessaryName": "“Necessary” category name",
-      "necessaryDescription": "“Necessary” category description",
-      "embedNote": "Blocked-embed note",
-      "embedUnlockLabel": "Embed unlock button"
-    },
-    "categoryNameFieldLabel": "{category} name",
-    "categoryDescriptionFieldLabel": "{category} description",
-    "defaultText": {
-      "bannerTitle": "We value your privacy",
-      "bannerBody": "We use cookies to run this site and, with your consent, to measure traffic and personalise content.",
-      "privacyPolicyLabel": "Privacy policy",
-      "acceptAllLabel": "Accept all",
-      "rejectAllLabel": "Reject non-essential",
-      "saveLabel": "Save preferences",
-      "preferencesLabel": "Manage preferences",
-      "necessaryName": "Strictly necessary",
-      "necessaryDescription": "Required for the site to work. Always on.",
-      "embedNote": "This content is hosted off-site and is blocked until you accept marketing cookies.",
-      "embedUnlockLabel": "Load content",
-      "categories": {
-        "preferences": {
-          "name": "Preferences",
-          "description": "Remembers choices such as language or region."
-        },
-        "analytics": {
-          "name": "Analytics",
-          "description": "Helps us understand how visitors use the site."
-        },
-        "marketing": {
-          "name": "Marketing",
-          "description": "Used for relevant content and campaign measurement."
-        }
-      }
-    },
-    "designTitle": "Design & placement",
-    "layoutLabel": "Layout",
-    "layoutBar": "Bar (full-width strip)",
-    "layoutBox": "Box (floating card)",
-    "layoutModal": "Modal (centered, blocks the page)",
-    "layoutShort": {
-      "bar": "Bar",
-      "box": "Box",
-      "modal": "Modal"
-    },
-    "positionLabel": "Position",
-    "position": {
-      "top": "Top",
-      "bottom": "Bottom",
-      "topLeft": "Top left",
-      "topRight": "Top right",
-      "bottomLeft": "Bottom left",
-      "bottomRight": "Bottom right",
-      "center": "Center"
-    },
-    "previewCaption": "Preview — {layout} · {position}",
-    "panelRadiusLabel": "Panel corner radius",
-    "buttonRadiusLabel": "Button corner radius",
-    "panelWidthLabel": "Panel width (box / modal)",
-    "modalBackdropLabel": "Modal backdrop",
-    "useThemeColorsLabel": "Use the active theme's colours (recommended)",
-    "colorField": {
-      "background": "Background",
-      "text": "Text",
-      "accent": "Accent (buttons, links)",
-      "accentText": "Accent text",
-      "border": "Border"
-    },
-    "scriptEmbedGatingTitle": "Script & embed gating",
-    "gateEmbedsLabel": "Replace off-site embeds in page content with an unlockable placeholder until Marketing is accepted",
-    "analyticsSnippetLabel": "Analytics head snippet",
-    "analyticsSnippetPlaceholder": "<script>…</script> — runs only after the visitor accepts Analytics",
-    "analyticsSnippetHint": "The Google Tag configured in the Analytics plugin is gated automatically.",
-    "marketingSnippetLabel": "Marketing head snippet",
-    "marketingSnippetPlaceholder": "<script>…</script> — runs only after the visitor accepts Marketing",
-    "saveSettingsButton": "Save settings",
-    "cookieDeclarationsTitle": "Cookie declarations",
-    "cookieDeclarationsIntro1": "Every cookie the platform and each active plugin has registered via the",
-    "cookieDeclarationsIntro2": "hook. The consent banner discloses these per category and, when a visitor withdraws a category, the runtime expires its cookies. Re-classify a cookie below to override the category its developer chose.",
-    "cookieDeclarationsIntro3": "cookies are always allowed and cannot be blocked.",
-    "noCookiesRegistered": "No cookies registered yet. Core cookies appear once the site is running; plugin cookies appear when the plugin is active.",
-    "tableHeader": {
-      "name": "Name",
-      "setBy": "Set by",
-      "purpose": "Purpose",
-      "duration": "Duration",
-      "declared": "Declared",
-      "categoryOverride": "Category (override)"
-    },
-    "declaredSuffix": "declared",
-    "saveCategoryOverridesButton": "Save category overrides",
-    "consentRecordsTitle": "Consent records",
-    "auditLoggingOff": "Audit logging is off — no new records are written. Existing rows below are kept until erased.",
-    "recordsSummary": "{total} {recordWord} — analytics accepted by {analytics}, marketing by {marketing}, preferences by {preferences}. Each row is bound to the policy version and hash in effect when it was recorded.",
-    "recordSingular": "record",
-    "recordPlural": "records",
-    "noRecordsYet": "Nothing recorded yet. Visit the public site in a fresh session and make a choice.",
-    "recordsTableHeader": {
-      "recorded": "Recorded",
-      "clientId": "Client ID",
-      "policy": "Policy",
-      "choices": "Choices",
-      "locale": "Locale",
-      "device": "Device"
-    },
-    "eraseButton": "Erase",
-    "eraseConfirm": "Erase the consent record for {cid}? This cannot be undone."
-  },
   "emails": {
     "pageTitle": "System emails",
     "pageDescription": "Brand, customize, localize, preview, and publish transactional email.",
@@ -2903,11 +2758,6 @@
     },
     "apiKeysPage": {
       "requestFailed": "Request failed"
-    },
-    "consentPage": {
-      "default": "Default",
-      "saveFailed": "Save failed",
-      "eraseFailed": "Erase failed"
     },
     "languagesPage": {
       "failedToAddLanguage": "Could not add language",

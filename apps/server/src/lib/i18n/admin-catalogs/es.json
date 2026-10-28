@@ -33,7 +33,6 @@
     "health": "Estado",
     "updates": "Actualizaciones",
     "webhooks": "Webhooks",
-    "consent": "Consentimiento de cookies",
     "securityOverview": "Resumen",
     "securityHeaders": "Cabeceras",
     "securityAdvanced": "Avanzado",
@@ -2697,150 +2696,6 @@
       }
     }
   },
-  "consent": {
-    "eraseConfirm": "¿Borrar el registro de consentimiento de {cid}? Esta acción no se puede deshacer.",
-    "onlyAdmins": "Los ajustes de consentimiento de cookies solo están disponibles para administradores.",
-    "pageTitle": "Consentimiento de cookies",
-    "pageDescription": "Banner de consentimiento propio, centro de preferencias y bloqueo de scripts y contenido incrustado. Los scripts y el contenido incrustado no esenciales permanecen bloqueados hasta que se acepta su categoría.",
-    "exportRecordsCsv": "Exportar registros (CSV)",
-    "settingsSaved": "Ajustes guardados.",
-    "behaviourTitle": "Comportamiento",
-    "showBannerLabel": "Mostrar el banner de consentimiento en el sitio público",
-    "displayModeLabel": "Modo de visualización",
-    "displayModeAlways": "Mostrar siempre",
-    "displayModeEu": "Solo visitantes de la UE / EEE (aproximado, según la zona horaria)",
-    "displayModeOff": "Desactivado",
-    "geoHint": "La detección geográfica es aproximada y se ejecuta en el navegador del visitante: sin consultas de IP ni terceros.",
-    "logConsentLabel": "Guardar un registro de auditoría de cada decisión de consentimiento",
-    "logConsentHint": "Desactivado: el banner sigue aplicando las elecciones, pero no se escriben filas en la base de datos ni se envía ninguna baliza. Desactívalo si no necesitas el registro de auditoría.",
-    "policyVersionLabel": "Versión de política",
-    "policyVersionHint": "Increméntala cuando cambie la política: el consentimiento anterior deja de ser válido y el banner vuelve a aparecer. Editar las traducciones no tiene este efecto.",
-    "privacyPolicyUrlLabel": "URL de la política de privacidad",
-    "reopenSelectorLabel": "Selector para volver a abrir",
-    "reopenSelectorHint": "Al hacer clic en elementos que coincidan con este selector CSS se vuelve a abrir el centro de preferencias.",
-    "categoriesTitle": "Categorías",
-    "category": {
-      "necessary": "Necesarias",
-      "preferences": "Preferencias",
-      "analytics": "Estadísticas",
-      "marketing": "Marketing"
-    },
-    "categoriesIntro": "está siempre activada. Elige a qué categorías opcionales pueden dar su consentimiento los visitantes.",
-    "textSectionTitle": "Texto",
-    "designTitle": "Diseño y ubicación",
-    "layoutLabel": "Disposición",
-    "layoutBar": "Barra (franja a todo el ancho)",
-    "layoutBox": "Recuadro (tarjeta flotante)",
-    "layoutModal": "Ventana modal (centrada, bloquea la página)",
-    "positionLabel": "Posición",
-    "panelRadiusLabel": "Radio de las esquinas del panel",
-    "buttonRadiusLabel": "Radio de las esquinas de los botones",
-    "panelWidthLabel": "Ancho del panel (recuadro / ventana modal)",
-    "modalBackdropLabel": "Fondo de la ventana modal",
-    "useThemeColorsLabel": "Usar los colores del tema activo (recomendado)",
-    "scriptEmbedGatingTitle": "Bloqueo de scripts y contenido incrustado",
-    "gateEmbedsLabel": "Sustituir el contenido incrustado externo de las páginas por un marcador desbloqueable hasta que se acepte Marketing",
-    "analyticsSnippetLabel": "Fragmento de estadísticas en el head",
-    "analyticsSnippetPlaceholder": "<script>…</script> — solo se ejecuta después de que el visitante acepte Estadísticas",
-    "analyticsSnippetHint": "La etiqueta de Google configurada en el plugin Analytics se bloquea automáticamente hasta que haya consentimiento.",
-    "marketingSnippetLabel": "Fragmento de marketing en el head",
-    "marketingSnippetPlaceholder": "<script>…</script> — solo se ejecuta después de que el visitante acepte Marketing",
-    "saveSettingsButton": "Guardar ajustes",
-    "cookieDeclarationsTitle": "Declaraciones de cookies",
-    "cookieDeclarationsIntro1": "Todas las cookies que la plataforma y cada plugin activo han registrado mediante el hook",
-    "cookieDeclarationsIntro2": "— el banner de consentimiento las muestra por categoría y, cuando un visitante retira una categoría, el sistema hace caducar sus cookies. Reclasifica una cookie abajo para sustituir la categoría que eligió su desarrollador. Las cookies de la categoría",
-    "cookieDeclarationsIntro3": "siempre están permitidas y no se pueden bloquear.",
-    "noCookiesRegistered": "Aún no hay cookies registradas. Las cookies del núcleo aparecen cuando el sitio está en marcha; las de los plugins aparecen cuando el plugin está activo.",
-    "tableHeader": {
-      "name": "Nombre",
-      "setBy": "Establecido por",
-      "purpose": "Finalidad",
-      "duration": "Duración",
-      "declared": "Declarado",
-      "categoryOverride": "Categoría (sustitución)"
-    },
-    "saveCategoryOverridesButton": "Guardar cambios de categoría",
-    "consentRecordsTitle": "Registros de consentimiento",
-    "auditLoggingOff": "El registro de auditoría está desactivado: no se escriben registros nuevos. Las filas existentes se conservan hasta que se borren.",
-    "noRecordsYet": "Aún no hay nada registrado. Visita el sitio público en una sesión nueva y haz una elección.",
-    "recordsTableHeader": {
-      "recorded": "Registrado",
-      "clientId": "ID de cliente",
-      "policy": "Política",
-      "choices": "Elecciones",
-      "locale": "Idioma",
-      "device": "Dispositivo"
-    },
-    "eraseButton": "Borrar",
-    "defaultText": {
-      "bannerTitle": "Respetamos tu privacidad",
-      "bannerBody": "Usamos cookies para que este sitio funcione y, con tu consentimiento, para medir el tráfico y personalizar el contenido.",
-      "privacyPolicyLabel": "Política de privacidad",
-      "acceptAllLabel": "Aceptar todo",
-      "rejectAllLabel": "Rechazar las no esenciales",
-      "saveLabel": "Guardar preferencias",
-      "preferencesLabel": "Gestionar preferencias",
-      "necessaryName": "Estrictamente necesarias",
-      "necessaryDescription": "Necesarias para que el sitio funcione. Siempre activas.",
-      "embedNote": "Este contenido está alojado en otro sitio y está bloqueado hasta que aceptes las cookies de marketing.",
-      "embedUnlockLabel": "Cargar contenido",
-      "categories": {
-        "preferences": {
-          "name": "Preferencias",
-          "description": "Recuerdan elecciones como el idioma o la región."
-        },
-        "analytics": {
-          "name": "Estadísticas",
-          "description": "Nos ayudan a entender cómo usan el sitio los visitantes."
-        },
-        "marketing": {
-          "name": "Marketing",
-          "description": "Se usan para mostrar contenido relevante y medir campañas."
-        }
-      }
-    },
-    "textFieldLabel": {
-      "bannerTitle": "Título del banner",
-      "bannerBody": "Texto del banner",
-      "privacyPolicyLabel": "Texto del enlace a la política de privacidad",
-      "acceptAllLabel": "Botón «Aceptar todo»",
-      "rejectAllLabel": "Botón «Rechazar»",
-      "saveLabel": "Botón «Guardar»",
-      "preferencesLabel": "Botón «Preferencias»",
-      "necessaryName": "Nombre de la categoría «Necesarias»",
-      "necessaryDescription": "Descripción de la categoría «Necesarias»",
-      "embedNote": "Aviso de contenido incrustado bloqueado",
-      "embedUnlockLabel": "Botón para cargar el contenido incrustado"
-    },
-    "colorField": {
-      "background": "Fondo",
-      "text": "Texto",
-      "accent": "Acento (botones, enlaces)",
-      "accentText": "Texto sobre el acento",
-      "border": "Borde"
-    },
-    "layoutShort": {
-      "bar": "Barra",
-      "box": "Recuadro",
-      "modal": "Ventana modal"
-    },
-    "position": {
-      "top": "Arriba",
-      "bottom": "Abajo",
-      "topLeft": "Arriba a la izquierda",
-      "topRight": "Arriba a la derecha",
-      "bottomLeft": "Abajo a la izquierda",
-      "bottomRight": "Abajo a la derecha",
-      "center": "Centro"
-    },
-    "categoryNameFieldLabel": "Nombre de {category}",
-    "categoryDescriptionFieldLabel": "Descripción de {category}",
-    "previewCaption": "Vista previa — {layout} · {position}",
-    "declaredSuffix": "declarado",
-    "recordsSummary": "{total} {recordWord} — estadísticas aceptadas por {analytics}, marketing por {marketing}, preferencias por {preferences}. Cada fila está vinculada a la versión de la política y al hash vigentes cuando se registró.",
-    "recordSingular": "registro",
-    "recordPlural": "registros"
-  },
   "emails": {
     "couldNotLoadTranslation": "No se pudo cargar esta traducción",
     "templatePublished": "Plantilla publicada.",
@@ -3854,11 +3709,6 @@
     },
     "pluginsPage": {
       "by": "por "
-    },
-    "consentPage": {
-      "eraseFailed": "Error al borrar",
-      "default": "Predeterminado",
-      "saveFailed": "Error al guardar"
     },
     "settingsPage": {
       "freeCrypto": "cripto gratis",
