@@ -218,6 +218,48 @@ export const AdminMenuItemSchema = z.object({
 
 export type PluginAdminMenuItem = z.infer<typeof AdminMenuItemSchema>;
 
+const PANEL_LOCALE_RE = /^[a-z]{2,8}(?:-[A-Za-z0-9]{2,8}){0,2}$/;
+
+/**
+ * Text shown in the admin: one string, or `{ "<locale>": "<text>" }`. The editor
+ * uses the admin language, then its base language, then `en`, then any entry.
+ */
+export const LocalizedTextSchema = z.union([
+  z.string().min(1).max(500),
+  z
+    .record(z.string().regex(PANEL_LOCALE_RE, "Locale code must look like en or nl-NL"), z.string().min(1).max(500))
+    .refine((value) => Object.keys(value).length > 0 && Object.keys(value).length <= 20, "1 to 20 locales"),
+]);
+
+export type LocalizedText = z.infer<typeof LocalizedTextSchema>;
+
+/**
+ * One field of a content editor panel. The value is saved in the entry's
+ * `fields` under `key`. In `placeholder`, `{title}`, `{excerpt}`, and `{url}`
+ * become the entry's title, excerpt, and public address.
+ */
+export const EditorPanelFieldSchema = z.object({
+  key: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]{0,39}$/, "Field key must be letters, digits, or _"),
+  type: z.enum(["text", "textarea", "url", "image", "checkbox"]),
+  label: LocalizedTextSchema,
+  hint: LocalizedTextSchema.optional(),
+  placeholder: LocalizedTextSchema.optional(),
+});
+
+/**
+ * A section a plugin adds to the content editor, next to Content, Discussion,
+ * and Advanced. Shown while the plugin is active, for every content type.
+ */
+export const EditorPanelSchema = z.object({
+  id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Panel id must be lowercase kebab-case"),
+  title: LocalizedTextSchema,
+  /** Show only for entries whose type is included in search engines. */
+  indexableOnly: z.boolean().optional(),
+  fields: z.array(EditorPanelFieldSchema).min(1).max(20),
+});
+
+export type PluginEditorPanel = z.infer<typeof EditorPanelSchema>;
+
 /** A plugin asset path: relative, no traversal, `.js`/`.mjs`/`.css` only. */
 const PluginAssetFileSchema = z
   .string()
@@ -431,6 +473,8 @@ export const PluginManifestSchema = z
      * manifest also declares the "admin:extend" permission.
      */
     adminMenu: z.array(AdminMenuItemSchema).max(20).optional(),
+    /** Content editor sections this plugin adds. Honoured with `admin:extend`. */
+    editorPanels: z.array(EditorPanelSchema).max(5).optional(),
     /**
      * Page to open after activation when the plugin still needs a first-run
      * setup (database topology, credentials, store identity). Relative to the
