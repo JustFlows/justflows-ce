@@ -78,7 +78,7 @@ the inspector: each key is one prop, and the field entry
 
 | Field | Effect in the inspector |
 | --- | --- |
-| `type` | `string`, `textarea`, `number`, `boolean`, or `select` |
+| `type` | `string`, `textarea`, `number`, `boolean`, `select`, `media` (one image URL), or `images` (a list of `{ src, alt, caption }` added by upload, from the media library, or by URL) |
 | `label`, `help` | Field label (defaults to the prop key) and one line of help |
 | `default` | Shown while the prop is unset. Blocks start with empty props, so `validateProps` must apply the same default |
 | `options`, `optionLabels` | Fixed choices and the text shown for each value |
@@ -110,6 +110,34 @@ The options route is an ordinary plugin HTTP route; check the session and a
 capability before answering. `render` is synchronous, so load live data in a
 `content.blocks` filter and write it into the block props before render (Shop's
 product list does this).
+
+The builder previews a plugin block with the block's own `render`, sanitized
+like an HTML block (no scripts or event handlers), and the active theme's
+styles.
+
+### Images
+
+For `media` and `images` fields the host adds a `responsive` prop before
+render: a map from each uploaded image URL to its stored derivatives
+(`ResponsiveImageProp`). Render images with the SDK helpers so they get the
+same `<picture>`, `srcset`, lazy loading, and URL filtering as `core.image`:
+
+```ts
+import { applyResponsiveProp, escapeHtml, renderResponsiveImage, type ResponsiveImageProp } from "@justflows/sdk";
+
+render: (props) => {
+  const responsive = (props.responsive ?? {}) as Record<string, ResponsiveImageProp>;
+  return (props.items as Array<{ src: string; alt: string; caption: string }>)
+    .map((item) => `<figure>${renderResponsiveImage(
+      applyResponsiveProp({ src: item.src, alt: item.alt, sizes: "(max-width: 700px) 100vw, 33vw" }, responsive[item.src]),
+    )}<figcaption>${escapeHtml(item.caption)}</figcaption></figure>`)
+    .join("");
+},
+```
+
+`renderResponsiveImage` drops an unsafe URL and returns an empty string for it,
+so pass the stored `src` as is. `validateProps` runs on the props after the
+host adds `responsive`, so return that map with the other props.
 
 ### Links and languages
 
@@ -393,6 +421,36 @@ are relative to `dir`. Each file is a flat JSON object of string values, for
 example `{ "save": "Save" }`. A minimal English catalog may contain only the
 strings the screen shows. CI rejects a plugin manifest that ships `adminApp`
 without `locales.en`, and rejects a declared path whose JSON file is missing.
+
+## Content editor panels
+
+`editorPanels` in the manifest adds sections to the content editor, next to
+Content, Discussion, and Advanced, while the plugin is active. It needs
+`admin:extend`. Each field is saved in the entry's `fields` under its `key`, so
+your hooks read it from `PublicPageContext.fields` or the content API.
+
+```json
+"editorPanels": [
+  {
+    "id": "seo",
+    "title": { "en": "SEO", "nl": "SEO" },
+    "indexableOnly": true,
+    "fields": [
+      { "key": "seoTitle", "type": "text", "label": { "en": "SEO title" }, "placeholder": "{title}" },
+      { "key": "seoImage", "type": "image", "label": "Social image" }
+    ]
+  }
+]
+```
+
+| Field | Effect |
+| --- | --- |
+| `type` | `text`, `textarea`, `url`, `image` (media library picker), or `checkbox` |
+| `label`, `hint`, `placeholder` | One string, or `{ "<locale>": "<text>" }`; the editor picks the admin language, then its base language, then `en` |
+| `placeholder` tokens | `{title}`, `{excerpt}`, and `{url}` become the entry's title, excerpt, and public address |
+| `indexableOnly` | Show the panel only for content types included in search engines |
+
+At most 5 panels per plugin and 20 fields per panel.
 
 ## Ship your own stylesheet
 
@@ -889,8 +947,9 @@ does not delete the user. It refuses when that user is an administrator, and
 it does not remove anyone else's rows.
 
 Admin → Plugins → Settings reads `settingsSchema` from the loaded module, then
-`justflows.json`, then the stored row. `plugin.settings` / `plugin.settings.write`
-overlay values on the plugin runtime. Saving returns the same schema and values
+`justflows.json`, then the stored row. `plugin.settings.schema` can drop fields
+or fill `select` options for the current site, and `plugin.settings` /
+`plugin.settings.write` overlay values on the plugin runtime. Saving returns the same schema and values
 as loading, so the form does not go blank after Save.
 
 Field `type` is `string`, `text`, `number`, `boolean`, or `select`. A `select`

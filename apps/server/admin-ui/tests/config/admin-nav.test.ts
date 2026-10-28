@@ -6,7 +6,10 @@ import {
   contentEditorNav,
   filterDomainsByRole,
   isDomainActive,
+  localizedLabel,
+  navLabel,
   navRuleFor,
+  pluginPageRoles,
   parsePluginSections,
 } from "../../src/config/admin-nav";
 
@@ -119,7 +122,6 @@ describe("content editor plugin sections", () => {
   it("lists each published section instead of one plugin screen", () => {
     const nav = contentEditorNav({
       contentLabel: "Content",
-      seoLabel: "SEO",
       discussionLabel: "Discussion",
       revisionsLabel: "Revisions",
       advancedLabel: "Advanced",
@@ -128,6 +130,7 @@ describe("content editor plugin sections", () => {
         { id: "images", label: "Images" },
         { id: "pricing", label: "Pricing" },
       ],
+      panels: [{ id: "panel:justflows.seo:seo", label: "SEO" }],
     });
     expect(nav.map((item) => item.label)).toEqual([
       "Content",
@@ -144,13 +147,20 @@ describe("content editor plugin sections", () => {
   it("keeps the single plugin label when the frame has not published sections", () => {
     const nav = contentEditorNav({
       contentLabel: "Content",
-      seoLabel: "SEO",
       discussionLabel: "Discussion",
       revisionsLabel: "Revisions",
       advancedLabel: "Advanced",
       pluginLabel: "Product data",
     });
     expect(nav.map((item) => item.label)).toContain("Product data");
+  });
+
+  it("picks a panel label in the admin language", () => {
+    const label = { en: "SEO", nl: "Zoekmachines" };
+    expect(localizedLabel(label, "nl")).toBe("Zoekmachines");
+    expect(localizedLabel(label, "nl-BE")).toBe("Zoekmachines");
+    expect(localizedLabel(label, "de")).toBe("SEO");
+    expect(localizedLabel("Plain", "de")).toBe("Plain");
   });
 
   it("drops unsafe section ids and labels", () => {
@@ -210,8 +220,26 @@ describe("buildNavDomains", () => {
     const helpdesk = domains.find((d) => d.slug === "helpdesk");
     expect(helpdesk?.items.map((item) => item.to)).toEqual(["/admin/plugins/justflows.helpdesk"]);
     expect(domains.find((d) => d.slug === "extensions")?.items.some((item) => item.to.includes("helpdesk"))).toBe(false);
-    expect(canAccessPath("support-agent", "/admin/plugins/justflows.helpdesk")).toBe(true);
-    expect(canAccessPath("author", "/admin/plugins/justflows.helpdesk")).toBe(false);
+  });
+
+  it("lets a plugin page name the roles that may open it", () => {
+    const items = [
+      {
+        pluginId: "justflows.helpdesk",
+        id: "inbox",
+        label: "Helpdesk",
+        path: "/admin/plugins/justflows.helpdesk",
+        icon: "💬",
+        domain: "helpdesk",
+        roles: ["administrator", "editor", "support-agent"],
+      },
+    ];
+    const audience = { pluginPageRoles: pluginPageRoles(items) };
+    expect(canAccessPath("support-agent", "/admin/plugins/justflows.helpdesk/tickets/7", audience)).toBe(true);
+    expect(canAccessPath("author", "/admin/plugins/justflows.helpdesk", audience)).toBe(false);
+    /** Without declared roles the page keeps the plugin-page rule. */
+    expect(canAccessPath("support-agent", "/admin/plugins/justflows.helpdesk")).toBe(false);
+    expect(canAccessPath("editor", "/admin/plugins/justflows.forms", audience)).toBe(true);
   });
 
   it("gives Shared files its own sidebar domain instead of a Plugins tab", () => {
@@ -268,5 +296,26 @@ describe("security feature navigation", () => {
     expect(canAccessPath("administrator", "/admin/security", { disabledPaths: [] })).toBe(true);
     expect(filterDomainsByRole(ADMIN_NAV_DOMAINS, "administrator", { disabledPaths: [] })
       .find((domain) => domain.slug === "security")?.items[0]?.to).toBe("/admin/security");
+  });
+});
+
+describe("navLabel", () => {
+  const t = (key: string) => (key === "nav.forms" ? "Formulieren (core)" : key);
+  const item = {
+    key: "nav.forms",
+    label: "Forms",
+    labels: { nl: "Formulieren", "pt-BR": "Formulários" },
+    to: "/admin/plugins/justflows.forms",
+    icon: "✉",
+  };
+
+  it("prefers the plugin's own label for the admin locale", () => {
+    expect(navLabel(t, item, "nl")).toBe("Formulieren");
+    expect(navLabel(t, item, "nl-BE")).toBe("Formulieren");
+  });
+
+  it("falls back to the core catalog, then the English label", () => {
+    expect(navLabel(t, item, "de")).toBe("Formulieren (core)");
+    expect(navLabel((key) => key, { ...item, key: "plugin.justflows.forms.forms" }, "de")).toBe("Forms");
   });
 });

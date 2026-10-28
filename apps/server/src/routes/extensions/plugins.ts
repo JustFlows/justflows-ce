@@ -35,25 +35,28 @@ function noStore(res: { setHeader: (name: string, value: string) => void }): voi
   res.setHeader("Cache-Control", "private, no-store");
 }
 
-/** Other sites do not choose the admin Support button. That switch stays on the main site. */
-async function helpdeskSchemaForSite(
-  plugin: PluginRow,
-  siteId: string,
-): Promise<NonNullable<ReturnType<typeof pluginToDto>["settingsSchema"]> | Record<string, never>> {
-  const schema = { ...(pluginToDto(plugin).settingsSchema ?? {}) };
-  if (plugin.plugin_id !== "justflows.helpdesk") return schema;
-  const { isInstallationRootSite, loadHostRecords } = await import("../../lib/tenancy/registry.js");
-  const { supportSiteChoices } = await import("../../lib/admin/admin-support-popup.js");
-  if (!(await isInstallationRootSite(siteId))) {
-    delete schema.popupAdmin;
-    delete schema.supportSite;
-    return schema;
+type SettingsSchema = NonNullable<ReturnType<typeof pluginToDto>["settingsSchema"]>;
+
+/**
+ * The plugin's settings form for this site. The plugin may drop fields or fill
+ * select options through `plugin.settings.schema`; only fields it keeps are
+ * shown or saved. A failed or malformed filter result keeps the manifest form.
+ */
+async function settingsSchemaForSite(plugin: PluginRow, siteId: string): Promise<SettingsSchema> {
+  const schema: SettingsSchema = { ...(pluginToDto(plugin).settingsSchema ?? {}) };
+  const { getRuntimeHooks } = await import("../../lib/plugins/plugin-runtime.js");
+  const hooks = getRuntimeHooks();
+  if (!hooks.has("plugin.settings.schema")) return schema;
+  const filtered = await hooks
+    .applyFilter("plugin.settings.schema", schema, { pluginId: plugin.plugin_id, siteId }, { siteId, source: "http" })
+    .catch(() => schema);
+  if (!filtered || typeof filtered !== "object" || Array.isArray(filtered)) return schema;
+  /** A plugin can narrow its own form, never add fields the manifest did not declare. */
+  const out: SettingsSchema = {};
+  for (const [key, field] of Object.entries(filtered as Record<string, unknown>)) {
+    if (schema[key] && field && typeof field === "object") out[key] = { ...schema[key], ...(field as object), type: schema[key].type };
   }
-  const loaded = await loadHostRecords().catch(() => null);
-  const choices = supportSiteChoices(loaded?.records ?? [], siteId);
-  if (!choices || !schema.supportSite) delete schema.supportSite;
-  else schema.supportSite = { ...schema.supportSite, options: choices };
-  return schema;
+  return out;
 }
 
 async function readPluginSettings(
@@ -68,8 +71,8 @@ async function readPluginSettings(
   await ensurePluginRuntime();
   const { getPluginSetting } = await import("../../lib/plugins/plugin-kv.js");
   const { listLanguages, getDefaultLocale } = await import("../../lib/i18n/languages-db.js");
-  const { asLocaleMap } = await import("../../lib/rendering/seo-public.js");
-  const schema = await helpdeskSchemaForSite(plugin, siteId);
+  const { asLocaleMap } = await import("../../lib/i18n/locale-map.js");
+  const schema = await settingsSchemaForSite(plugin, siteId);
   const languages = await listLanguages(siteId, true);
   const defaultLocale = await getDefaultLocale(siteId);
   const values: Record<string, unknown> = {};
@@ -83,22 +86,6 @@ async function readPluginSettings(
     { pluginId: plugin.plugin_id, siteId },
     { siteId, source: "http" },
   )) as Record<string, unknown>;
-
-  if (plugin.plugin_id === "justflows.seo") {
-    const db = await import("../../lib/database/db.js").then((m) => m.getDb());
-    const siteRows = await db.query<{ name: string; description: string | null }>(
-      "SELECT name, description FROM sites WHERE id = ? LIMIT 1",
-      [siteId],
-    );
-    const site = siteRows[0];
-    const titles = (merged.siteTitle ?? {}) as Record<string, string>;
-    const descriptions = (merged.defaultDescription ?? {}) as Record<string, string>;
-    if (site?.name && !titles[defaultLocale]) titles[defaultLocale] = site.name;
-    if (site?.description && !descriptions[defaultLocale])
-      descriptions[defaultLocale] = site.description;
-    merged.siteTitle = titles;
-    merged.defaultDescription = descriptions;
-  }
 
   const { resolveSettingsSchema } = await import("../../lib/plugins/plugin-settings-options.js");
   return { schema: resolveSettingsSchema(schema, defaultLocale), values: merged, languages };
@@ -330,6 +317,15 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
 });
 
 // Registered ahead of "/:id" so the literal path is not swallowed by the param.
+router.get("/editor-panels", requireSession, async (req, res) => {
+  try {
+    const { listEditorPanels } = await import("../../lib/admin/editor-panels.js");
+    res.json({ panels: await listEditorPanels(req.session!.siteId) });
+  } catch (err) {
+    sendServerError(res, "plugins", err);
+  }
+});
+
 router.get("/admin-menu", requireSession, async (req, res) => {
   try {
     const { listPluginAdminMenu } = await import("../../lib/admin/admin-menu.js");
@@ -376,7 +372,7 @@ router.put("/:id/settings", requireRole("administrator"), async (req, res) => {
     const { ensurePluginRuntime, getRuntimeHooks } = await import("../../lib/plugins/plugin-runtime.js");
     await ensurePluginRuntime();
     const siteId = req.session!.siteId;
-    const schema = await helpdeskSchemaForSite(plugin, siteId);
+    const schema = await settingsSchemaForSite(plugin, siteId);
     let next: Record<string, unknown> = {};
     for (const key of Object.keys(schema)) {
       if (!(key in body)) continue;

@@ -11,7 +11,6 @@ vi.mock("../../../src/lib/plugins/plugin-data.js", () => ({
 }));
 import { getSiteSettings } from "../../../src/lib/settings/site-settings.js";
 import { getPluginSettings } from "../../../src/lib/plugins/plugin-kv.js";
-import { getSeoSettings } from "../../../src/lib/rendering/seo-public.js";
 vi.mock("../../../src/lib/i18n/languages-db.js", () => ({ getDefaultLocale: async () => "en" }));
 
 beforeEach(() => {
@@ -32,22 +31,6 @@ describe("related plugin settings", () => {
     expect(query).toHaveBeenCalledOnce();
     expect(query.mock.calls[0]![1]).toEqual(["site-a", "plugin.demo:old", "plugin.demo:missing"]);
     expect(query.mock.calls[0]![0]).toContain(driver === "postgres" ? "SELECT key AS" : "SELECT `key` AS");
-  });
-
-  it("loads all SEO values once and retains localized defaults", async () => {
-    list.mockResolvedValue([
-      { id: "siteTitle", data: { en: "English", nl: "Nederlands" } },
-      { id: "titleTemplate", data: { en: "%s | Site" } },
-      { id: "defaultDescription", data: "Shared" },
-      { id: "twitterHandle", data: "@site" },
-      { id: "extraSitemapPaths", data: " /extra\n\n /other " },
-    ]);
-    expect(await getSeoSettings("site-a", "nl")).toEqual({
-      siteTitle: "Nederlands", titleTemplate: "%s | Site", defaultDescription: "Shared",
-      twitterHandle: "@site", extraSitemapPaths: ["/extra", "/other"],
-    });
-    expect(list).toHaveBeenCalledOnce();
-    expect(query).not.toHaveBeenCalled();
   });
 
   it("deduplicates and bounds large groups of site settings", async () => {

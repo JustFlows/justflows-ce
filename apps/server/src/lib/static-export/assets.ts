@@ -20,7 +20,6 @@ const DENY_PREFIXES = [
   "/forgot-password",
   "/reset-password",
   "/set-locale",
-  "/justflows-forms",
   "/justflows-comments",
 ];
 

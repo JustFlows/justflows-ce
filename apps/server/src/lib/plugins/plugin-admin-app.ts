@@ -86,6 +86,8 @@ interface PluginAdminSet {
   /** Absolute path of the plugin's admin build directory. */
   baseDir: string;
   routes: PluginAdminRouteInfo[];
+  /** Locale code → absolute path of that `adminApp.locales` catalog. */
+  catalogFiles: Record<string, string>;
 }
 
 const caches = new Map<string, { at: number; sets: PluginAdminSet[] }>();
@@ -222,10 +224,12 @@ async function loadPluginAdminSets(siteId: string): Promise<PluginAdminSet[]> {
     if (!baseDir || !fs.existsSync(baseDir) || !fs.statSync(baseDir).isDirectory()) continue;
 
     const catalogs: Record<string, string> = {};
+    const catalogFiles: Record<string, string> = {};
     for (const [code, file] of Object.entries(spec.locales ?? {})) {
       const abs = resolvePathUnderBase(baseDir, file);
       if (!abs || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) continue;
       catalogs[code] = `/ext/${pluginId}/admin/${file}`;
+      catalogFiles[code] = abs;
     }
     const routes: PluginAdminRouteInfo[] = [];
     for (const route of spec.routes) {
@@ -239,7 +243,7 @@ async function loadPluginAdminSets(siteId: string): Promise<PluginAdminSet[]> {
         ...(Object.keys(catalogs).length ? { catalogs } : {}),
       });
     }
-    if (routes.length) out.push({ pluginId, baseDir, routes });
+    if (routes.length) out.push({ pluginId, baseDir, routes, catalogFiles });
   }
   return out;
 }
@@ -266,6 +270,22 @@ async function getAdminSets(siteId?: string): Promise<PluginAdminSet[]> {
 export async function getPluginAdminRoutes(siteId?: string): Promise<PluginAdminRouteInfo[]> {
   const sets = await getAdminSets(siteId);
   return sets.flatMap((set) => set.routes);
+}
+
+/**
+ * Plugin id → locale code → absolute catalog path, for plugins active on
+ * `siteId` that declare `adminApp.locales`. The admin menu reads menu labels
+ * from these files.
+ */
+export async function getPluginAdminCatalogFiles(
+  siteId?: string,
+): Promise<Map<string, Record<string, string>>> {
+  const sets = await getAdminSets(siteId);
+  return new Map(
+    sets
+      .filter((set) => Object.keys(set.catalogFiles).length > 0)
+      .map((set) => [set.pluginId, set.catalogFiles]),
+  );
 }
 
 /** Resolve `/ext/<pluginId>/admin/<relPath>` to a file to serve, or null. */

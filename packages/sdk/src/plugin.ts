@@ -161,8 +161,23 @@ export const AdminMenuItemSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Menu id must be lowercase kebab-case"),
   /** English label, shown when `labelKey` is absent or untranslated. */
   label: z.string().min(1).max(60),
-  /** Optional admin i18n catalog key, e.g. "nav.media". */
+  /**
+   * Optional i18n key. The host looks it up in the plugin's own
+   * `adminApp.locales` catalogs first, then in core's admin catalogs.
+   */
   labelKey: z.string().max(120).optional(),
+  /**
+   * Per-locale labels, keyed by locale code (for example `{ "nl": "Formulieren" }`).
+   * They win over `labelKey`, so a plugin without an admin app can still
+   * translate its menu entry.
+   */
+  labels: z
+    .record(
+      z.string().regex(/^[a-z]{2,8}(?:-[A-Za-z0-9]{2,8}){0,2}$/, "Locale code must look like en or nl-NL"),
+      z.string().min(1).max(60),
+    )
+    .refine((value) => Object.keys(value).length <= 20, "At most 20 menu label locales")
+    .optional(),
   /**
    * Where this page mounts, **relative to the plugin's own namespace**
    * `/admin/plugins/<your plugin id>`. Omit (or `""`) for the namespace root;
@@ -180,6 +195,15 @@ export const AdminMenuItemSchema = z.object({
    */
   listed: z.boolean().optional(),
   /**
+   * Roles that may open this page, such as a role this plugin registers.
+   * Omit for the default plugin-page rule (administrators and editors).
+   */
+  roles: z
+    .array(z.string().regex(/^[a-z][a-z0-9-]{0,39}$/, "Role ids are lowercase kebab-case"))
+    .min(1)
+    .max(10)
+    .optional(),
+  /**
    * CMS type slug. When set, the generic plugin host lists every content row
    * of that type on this page (for example Shop Products → `product`).
    */
@@ -193,6 +217,48 @@ export const AdminMenuItemSchema = z.object({
 });
 
 export type PluginAdminMenuItem = z.infer<typeof AdminMenuItemSchema>;
+
+const PANEL_LOCALE_RE = /^[a-z]{2,8}(?:-[A-Za-z0-9]{2,8}){0,2}$/;
+
+/**
+ * Text shown in the admin: one string, or `{ "<locale>": "<text>" }`. The editor
+ * uses the admin language, then its base language, then `en`, then any entry.
+ */
+export const LocalizedTextSchema = z.union([
+  z.string().min(1).max(500),
+  z
+    .record(z.string().regex(PANEL_LOCALE_RE, "Locale code must look like en or nl-NL"), z.string().min(1).max(500))
+    .refine((value) => Object.keys(value).length > 0 && Object.keys(value).length <= 20, "1 to 20 locales"),
+]);
+
+export type LocalizedText = z.infer<typeof LocalizedTextSchema>;
+
+/**
+ * One field of a content editor panel. The value is saved in the entry's
+ * `fields` under `key`. In `placeholder`, `{title}`, `{excerpt}`, and `{url}`
+ * become the entry's title, excerpt, and public address.
+ */
+export const EditorPanelFieldSchema = z.object({
+  key: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]{0,39}$/, "Field key must be letters, digits, or _"),
+  type: z.enum(["text", "textarea", "url", "image", "checkbox"]),
+  label: LocalizedTextSchema,
+  hint: LocalizedTextSchema.optional(),
+  placeholder: LocalizedTextSchema.optional(),
+});
+
+/**
+ * A section a plugin adds to the content editor, next to Content, Discussion,
+ * and Advanced. Shown while the plugin is active, for every content type.
+ */
+export const EditorPanelSchema = z.object({
+  id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Panel id must be lowercase kebab-case"),
+  title: LocalizedTextSchema,
+  /** Show only for entries whose type is included in search engines. */
+  indexableOnly: z.boolean().optional(),
+  fields: z.array(EditorPanelFieldSchema).min(1).max(20),
+});
+
+export type PluginEditorPanel = z.infer<typeof EditorPanelSchema>;
 
 /** A plugin asset path: relative, no traversal, `.js`/`.mjs`/`.css` only. */
 const PluginAssetFileSchema = z
@@ -364,15 +430,6 @@ export const PluginManifestSchema = z
     permissions: z.array(PluginPermissionSchema).default([]),
     main: z.string().default("index.js"),
     /**
-     * First-party opt-in. A handful of bundled plugin ids (`justflows.seo`, …)
-     * are normally left inactive at runtime because the host renders their
-     * behaviour itself. Setting this to `true` tells the host the shipped module
-     * is host-cooperative — it only augments (e.g. adds feed routes and
-     * autodiscovery) and never re-registers what the host already owns — so the
-     * host may activate it. Ignored for third-party plugins.
-     */
-    hostCooperative: z.boolean().optional(),
-    /**
      * When true, the main site may offer this plugin to other sites. Those
      * sites can activate it and change only their own rows. They cannot
      * install the package or drop its tables. Omit or false to keep the
@@ -416,6 +473,8 @@ export const PluginManifestSchema = z
      * manifest also declares the "admin:extend" permission.
      */
     adminMenu: z.array(AdminMenuItemSchema).max(20).optional(),
+    /** Content editor sections this plugin adds. Honoured with `admin:extend`. */
+    editorPanels: z.array(EditorPanelSchema).max(5).optional(),
     /**
      * Page to open after activation when the plugin still needs a first-run
      * setup (database topology, credentials, store identity). Relative to the
@@ -535,6 +594,9 @@ export const PluginManifestSchema = z
   });
 
 export type PluginManifest = z.infer<typeof PluginManifestSchema>;
+
+/** One field of a plugin's `settingsSchema`. */
+export type PluginSettingsField = NonNullable<PluginManifest["settingsSchema"]>[string];
 
 // ─── Plugin cache API ──────────────────────────────────────────────────────
 
@@ -1064,6 +1126,14 @@ export interface PluginDataApi {
 
 /** One editable prop of a plugin block, as the page-builder inspector shows it. */
 export interface PluginBlockField {
+  /**
+   * `text`, `textarea`, `richtext`, `number`, `boolean`, `select`, `url`,
+   * `media` (one image URL), or `images` (a list of `{ src, alt, caption }`
+   * with upload and the media library). For `media` and `images` the host adds
+   * a `responsive` prop when it renders the block: a map from image URL to its
+   * `ResponsiveImageProp`, ready for `applyResponsiveProp` and
+   * `renderResponsiveImage`.
+   */
   type: string;
   required?: boolean;
   default?: unknown;
@@ -1518,6 +1588,17 @@ export interface PluginNetworkApi {
    * gets, so another site's admins never see or change it.
    */
   sites(): Promise<PluginNetworkSite[]>;
+  /**
+   * One live site and its public address, from any site. Omit `siteId` for
+   * the main site. Null for an unknown or inactive site, and on an install
+   * without sites. Absent on older hosts.
+   */
+  site?(siteId?: string): Promise<PluginNetworkSiteAddress | null>;
+}
+
+/** A site with the origin its public pages are served from, such as `https://shop.example.com`. */
+export interface PluginNetworkSiteAddress extends PluginNetworkSite {
+  url: string;
 }
 
 export type QuotaScope = "workspace" | "site";

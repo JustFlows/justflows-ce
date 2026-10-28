@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import { siteOrigin } from "../rendering/seo-public.js";
+import { siteOrigin } from "../rendering/site-origin.js";
 
 /**
  * RFC 9116 security.txt.

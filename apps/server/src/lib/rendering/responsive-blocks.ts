@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { BlockNode } from "../runtime/types.js";
-import { GALLERY_BLOCK_TYPE } from "../media/gallery-public.js";
+import { getRuntimeBlockRegistry } from "./runtime-blocks.js";
 import {
   isUploadUrl,
   loadResponsiveProps,
@@ -16,31 +16,31 @@ import { resolvePlaceholderSync } from "../media/placeholders.js";
  *
  * The editor only stores an image's public URL. Here we batch-load the matching
  * `media` rows once per render and clone the tree with a `responsive` prop
- * injected into `core.image` (one prop) and `justflows.gallery.grid` (a URL →
- * prop map). `@justflows/blocks` and `gallery-public.ts` re-sanitize the
- * injected values, so a stale or hand-edited value can only degrade to a plain
- * `<img>`.
+ * injected into `core.image` (one prop) and into any other registered block
+ * whose schema has `media` or `images` fields (a URL → prop map). The block's
+ * own render re-sanitizes the injected values (the SDK's
+ * `renderResponsiveImage`), so a stale or hand-edited value can only degrade
+ * to a plain `<img>`.
  *
  * Runs on cache-miss renders only (public HTML is cached downstream); the Tools
  * regeneration job wipes that cache when it rebuilds variants. Skipped entirely
  * when `JF_IMAGE_RESPONSIVE_MARKUP=0`.
  */
 
-function galleryUrlsOf(props: Record<string, unknown> | undefined): string[] {
-  if (!props) return [];
+/** Uploaded image URLs in a registered block's `media` and `images` fields. Empty for unknown types. */
+function imageFieldUrlsOf(type: string, props: Record<string, unknown> | undefined): string[] {
+  if (!props || type === "core.image") return [];
+  const schema = getRuntimeBlockRegistry().get(type)?.schema;
+  if (!schema) return [];
   const out: string[] = [];
-  const items = props["items"];
-  if (Array.isArray(items)) {
-    for (const row of items) {
-      const item = (row ?? {}) as Record<string, unknown>;
-      const raw = item["src"] ?? item["url"];
-      if (isUploadUrl(raw)) out.push(raw);
-    }
-  }
-  const urls = props["urls"] ?? props["items"];
-  if (typeof urls === "string") {
-    for (const token of urls.split(/\s+/)) {
-      if (isUploadUrl(token)) out.push(token);
+  for (const [name, field] of Object.entries(schema)) {
+    const value = props[name];
+    if (field.type === "media" && isUploadUrl(value)) out.push(value);
+    if (field.type === "images" && Array.isArray(value)) {
+      for (const row of value) {
+        const raw = ((row ?? {}) as Record<string, unknown>)["src"];
+        if (isUploadUrl(raw)) out.push(raw);
+      }
     }
   }
   return out;
@@ -50,8 +50,8 @@ function collectUrls(blocks: BlockNode[], into: Set<string>): void {
   for (const block of blocks) {
     if (block.type === "core.image" && isUploadUrl(block.props?.["src"])) {
       into.add(block.props["src"] as string);
-    } else if (block.type === GALLERY_BLOCK_TYPE) {
-      for (const url of galleryUrlsOf(block.props)) into.add(url);
+    } else {
+      for (const url of imageFieldUrlsOf(block.type, block.props)) into.add(url);
     }
     if (block.children?.length) collectUrls(block.children, into);
   }
@@ -66,9 +66,9 @@ function mapTree(blocks: BlockNode[], byUrl: Map<string, ResponsiveProp>): Block
     if (block.type === "core.image" && isUploadUrl(block.props?.["src"])) {
       const prop = byUrl.get(block.props["src"] as string);
       if (prop) return withChildren({ ...block, props: { ...block.props, responsive: prop } });
-    } else if (block.type === GALLERY_BLOCK_TYPE) {
+    } else {
       const map: Record<string, ResponsiveProp> = {};
-      for (const url of galleryUrlsOf(block.props)) {
+      for (const url of imageFieldUrlsOf(block.type, block.props)) {
         const prop = byUrl.get(url);
         if (prop) map[url] = prop;
       }
@@ -82,7 +82,8 @@ function mapTree(blocks: BlockNode[], byUrl: Map<string, ResponsiveProp>): Block
 
 /**
  * Return the block tree with `responsive` data injected into every `core.image`
- * and gallery block that points at an uploaded file with generated derivatives.
+ * and every block with image fields that points at an uploaded file with
+ * generated derivatives.
  * The input is returned unchanged when there is nothing to resolve.
  */
 export async function withResponsiveImages(

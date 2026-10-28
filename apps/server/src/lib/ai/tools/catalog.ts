@@ -6,7 +6,6 @@ import { listTaxonomies } from "../../content/taxonomies-db.js";
 import { listLanguages } from "../../i18n/languages-db.js";
 import { getActiveTheme } from "../../themes/themes-db.js";
 import { getRuntimeBlockRegistry } from "../../rendering/runtime-blocks.js";
-import { isGalleryPluginEnabled, registerGalleryBlock, unregisterGalleryBlock } from "../../media/gallery-public.js";
 import { MEDIA_ALLOWED_TYPES } from "../../media/media-write.js";
 import { maxUploadBytes } from "../../media/media-quota.js";
 import { describeBlockCatalog, PLATFORM_PROPS, validateAgentBlockDocument } from "../agent-blocks.js";
@@ -44,9 +43,6 @@ import { principalCapabilities } from "./principal.js";
 /* ------------------------------ discovery -------------------------------- */
 
 async function syncedBlockRegistry() {
-  // Mirror GET /api/blocks: the gallery block exists only while its plugin is on.
-  if (await isGalleryPluginEnabled()) registerGalleryBlock();
-  else unregisterGalleryBlock();
   return getRuntimeBlockRegistry();
 }
 

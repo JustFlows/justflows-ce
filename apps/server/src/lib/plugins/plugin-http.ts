@@ -42,22 +42,10 @@ const STRIPPED_REQUEST_HEADERS = new Set(["cookie", "authorization", "proxy-auth
 /** Never assign these as plain object keys sourced from request data. */
 const UNSAFE_OBJECT_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
-/**
- * Public Forms submit is still CSRF-exempt here because that plugin lives
- * outside this repo and has not yet registered `csrf: false` on the route.
- * The host also rate-limits that path in `register-routes.ts`. Every other
- * exemption comes from the route the plugin registered.
- */
-const PUBLIC_PLUGIN_MUTATIONS = new Set(["POST /justflows-forms/submit"]);
-
-export function requiresPluginCsrf(
-  method: PluginHttpMethod,
-  path: string,
-  route?: { csrf?: false },
-): boolean {
+/** Every non-GET plugin route needs the session CSRF token unless it registered `csrf: false`. */
+export function requiresPluginCsrf(method: PluginHttpMethod, route?: { csrf?: false }): boolean {
   if (method === "GET") return false;
   if (route?.csrf === false) return false;
-  if (PUBLIC_PLUGIN_MUTATIONS.has(`${method} ${path}`)) return false;
   return true;
 }
 
@@ -245,7 +233,7 @@ export async function dispatchPluginHttp(
     return;
   }
 
-  if (keyed.kind === "none" && requiresPluginCsrf(method, req.path, match)) {
+  if (keyed.kind === "none" && requiresPluginCsrf(method, match)) {
     const { csrfProtection } = await import("../../middleware/csrf.js");
     // Synchronous: it either calls next() or answers 403 itself, so the flag
     // is settled by the time the call returns.

@@ -18,6 +18,7 @@ export {
   MEGA_MENU_SAFE_BLOCK_KINDS,
 } from "./hooks.js";
 export type {
+  PublicPageContext,
   AccountSection,
   AccountCard,
   AccountAction,
@@ -118,6 +119,9 @@ export {
   PluginPermissionSchema,
   SENSITIVE_PERMISSIONS,
   AdminMenuItemSchema,
+  EditorPanelSchema,
+  EditorPanelFieldSchema,
+  LocalizedTextSchema,
   ADMIN_MENU_DOMAINS,
   PLUGIN_ID_RE,
   RELATIVE_ADMIN_PATH_RE,
@@ -196,6 +200,10 @@ export type {
   PluginTenancyApi,
   PluginNetworkApi,
   PluginNetworkSite,
+  PluginNetworkSiteAddress,
+  PluginSettingsField,
+  PluginEditorPanel,
+  LocalizedText,
   PluginQuotasApi,
   PluginQuotaMeterInfo,
   PluginQuotaTarget,
@@ -334,3 +342,14 @@ export type { SearchBackend, SearchDocument } from "./search.js";
 export type { SpamCheckBackend, SpamCheckInput, SpamCheckResult } from "./spam.js";
 
 export { pluginApiUrl, isValidPluginApiNamespace } from "./api-urls.js";
+
+export {
+  escapeHtml,
+  sanitizeMediaSrc,
+  safeMediaSrc,
+  sanitizeSizes,
+  sanitizeSrcset,
+  renderResponsiveImage,
+  applyResponsiveProp,
+} from "./media-html.js";
+export type { ResponsiveImageInput, ResponsiveImageProp, ResponsiveSource } from "./media-html.js";

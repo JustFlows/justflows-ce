@@ -3,7 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Link, Navigate, NavLink } from "../admin-router";
 import { adminBasePath } from "../admin-path";
 import { ADMIN_UI_LOCALES, useT, type AdminUiLocale } from "../i18n/I18nProvider";
-import { ADMIN_DASHBOARD, canAccessPath, filterDomainsByRole, findDomainForPath, isDomainActive } from "../config/admin-nav";
+import { ADMIN_DASHBOARD, canAccessPath, filterDomainsByRole, findDomainForPath, isDomainActive, pluginPageRoles } from "../config/admin-nav";
 import DomainSubnav from "./DomainSubnav";
 import { usePluginMenu } from "./PluginMenuProvider";
 import { useSession, useSessionRole } from "./SessionProvider";
@@ -35,12 +35,17 @@ export default function AdminShell() {
   );
   const role = useSessionRole();
   const { session } = useSession();
-  const audience = session
-    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true, disabledPaths: session.disabledPaths }
-    : undefined;
   // Domains carry the pages of whichever plugins are installed right now, cut
   // down to the ones this role won't hit a 403 opening.
-  const { domains: allDomains } = usePluginMenu();
+  const { domains: allDomains, items: pluginItems } = usePluginMenu();
+  const audience = session
+    ? {
+        installationRoot: session.installationRoot === true,
+        platformOperator: session.platformOperator === true,
+        disabledPaths: session.disabledPaths,
+        pluginPageRoles: pluginPageRoles(pluginItems),
+      }
+    : undefined;
   const domains = useMemo(() => filterDomainsByRole(allDomains, role, audience), [allDomains, role, audience]);
   const activeDomain = findDomainForPath(pathname, domains);
   // A role's own capabilities can only be known once /api/auth/me resolves —

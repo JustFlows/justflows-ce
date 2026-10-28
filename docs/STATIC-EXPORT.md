@@ -200,7 +200,7 @@ Both carry the same three things:
   but commented — uncomment it once every hostname is HTTPS.
 - **The dynamic hand-off**, left for you to wire because it is host-specific:
   `_nginx.conf` routes the reserved prefixes (`/api`, the configured admin path,
-  `/justflows-forms`, …) to `@fallback`, which you define in the vhost —
+  `/justflows-comments`, …) to `@fallback`, which you define in the vhost —
   `proxy_pass` to a Node process, Passenger, a unix socket, whatever this host
   uses. `.htaccess` ships that rule commented (a module like Passenger that
   already serves non-file requests needs no rule; a reverse proxy needs
@@ -363,10 +363,12 @@ The Forms plugin ships `jf-forms.js` as a package asset (`manifest.assets`), so
 it lands in the shared `/jf-plugins.<hash>.js` bundle the exporter already
 downloads. It hydrates each `justflows.forms.form` block and, instead of a
 native `<form method="post">` navigation, submits by `fetch()` and swaps the
-form for the confirmation **without leaving the page**. The plugin's endpoint
-(`/justflows-forms/submit`, one of its own `ctx.http` routes) still has to be
-reachable — via the hybrid proxy or `STATIC_EXPORT_ORIGIN_URL` below. If
-`fetch` fails it falls back to the native POST. Comment posting still does a
+form for the confirmation **without leaving the page**. The plugin's endpoints
+(`/api/forms/config` and `/api/forms/submit`, its own `ctx.http` routes) still
+have to be reachable — via the hybrid proxy or `STATIC_EXPORT_ORIGIN_URL` below.
+The submit is a plain form-encoded `POST`, so a split-origin export needs no
+CORS preflight; both routes answer with `cors: true`. If `fetch` fails it falls
+back to the native POST. Comment posting still does a
 native round-trip.
 
 ### Pageview analytics keep counting
@@ -419,7 +421,7 @@ up a change on the next export run.
 | Feature                                               | On a static host                                                                                                |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Preview** (`?preview=1`)                            | never crawled or exported                                                                                       |
-| **Form submission** (`justflows.forms.form`)          | in-place via `fetch()` to `/justflows-forms/submit` — needs the endpoint reachable (hybrid or origin URL)       |
+| **Form submission** (`justflows.forms.form`)          | in-place via `fetch()` to `/api/forms/submit` — needs the endpoint reachable (hybrid or origin URL)             |
 | **Comment submission** (`justflows.comments.thread`)  | native POST to `/justflows-comments/submit`; existing threads render at export time and are read-only otherwise |
 | **Pageview analytics**                                | beacon to `/api/analytics/collect` — needs the endpoint reachable (hybrid or origin URL)                        |
 | **Cookie consent records + disclosure**               | `/ext/justflows.consent/*` — banner/gating work offline; record log + cookie table need the endpoint reachable  |
@@ -467,7 +469,6 @@ location ^~ /install            { proxy_pass http://127.0.0.1:3000; }
 location ^~ /forgot-password    { proxy_pass http://127.0.0.1:3000; }
 location ^~ /reset-password     { proxy_pass http://127.0.0.1:3000; }
 location ^~ /set-locale         { proxy_pass http://127.0.0.1:3000; }
-location ^~ /justflows-forms/       { proxy_pass http://127.0.0.1:3000; }
 location ^~ /justflows-comments/    { proxy_pass http://127.0.0.1:3000; }
 
 # plugin assets are exported, but e.g. consent record/cookies are dynamic:
@@ -504,7 +505,6 @@ location ^~ /install            { try_files /_pass @fallback; }
 location ^~ /forgot-password    { try_files /_pass @fallback; }
 location ^~ /reset-password     { try_files /_pass @fallback; }
 location ^~ /set-locale         { try_files /_pass @fallback; }
-location ^~ /justflows-forms/       { try_files /_pass @fallback; }
 location ^~ /justflows-comments/    { try_files /_pass @fallback; }
 
 # plugin assets are exported, but consent record/cookies are dynamic:
@@ -564,7 +564,7 @@ PassengerBaseURI      /
 
     RewriteEngine On
     # dynamic surface: hand straight to Passenger, skip the static lookups
-    RewriteRule ^(admin|api|login|register|install|forgot-password|reset-password|set-locale|justflows-forms|justflows-comments)(/|$) - [L]
+    RewriteRule ^(admin|api|login|register|install|forgot-password|reset-password|set-locale|justflows-comments)(/|$) - [L]
     # extensionless published route -> its index.html when that file exists
     RewriteCond %{DOCUMENT_ROOT}/$1/index.html -f
     RewriteRule ^(.+?)/?$ /$1/index.html [L]
@@ -591,7 +591,6 @@ ProxyPass  /install            http://127.0.0.1:3000/install
 ProxyPass  /forgot-password    http://127.0.0.1:3000/forgot-password
 ProxyPass  /reset-password     http://127.0.0.1:3000/reset-password
 ProxyPass  /set-locale         http://127.0.0.1:3000/set-locale
-ProxyPass  /justflows-forms/       http://127.0.0.1:3000/justflows-forms/
 ProxyPass  /justflows-comments/    http://127.0.0.1:3000/justflows-comments/
 
 <Directory /var/www/site/static-export>
@@ -621,7 +620,7 @@ and never moves.
 
 Cloudflare / CloudFront: add proxy / cache-bypass behaviours for the same
 dynamic prefixes — `/admin*`, `/api/*`, `/login*`, `/register*`, `/install*`,
-`/forgot-password*`, `/reset-password*`, `/set-locale*`, `/justflows-forms/*`,
+`/forgot-password*`, `/reset-password*`, `/set-locale*`,
 `/justflows-comments/*`, `/ext/*` — pointing at the
 origin. Netlify `netlify.toml` / Vercel `vercel.json`: a `200`-status rewrite
 for the same paths.
@@ -629,9 +628,10 @@ for the same paths.
 **2. Pure static + `STATIC_EXPORT_ORIGIN_URL`.** If the static host cannot proxy
 anything, set `STATIC_EXPORT_ORIGIN_URL` to a still-running Node origin (or a
 serverless function / third-party form endpoint via the `staticExport.formAction`
-filter). The exporter rewrites `action="/justflows-forms/submit"` →
-`action="<origin>/justflows-forms/submit"`, and `jf-forms.js` `fetch()`es it
-cross-origin. The origin returns JSON + CORS headers **only for allowed
+filter). The exporter rewrites the comment form's
+`action="/justflows-comments/submit"` → `action="<origin>/justflows-comments/submit"`,
+and `jf-forms.js` sends form submissions to `<origin>/api/forms/submit`
+(the origin is dropped into the page as `window.__JF_ORIGIN__`). The origin returns JSON + CORS headers **only for allowed
 origins**: `APP_URL`, `STATIC_EXPORT_BASE_URL`, anything in
 `STATIC_EXPORT_ALLOWED_ORIGINS`, and — outside production — any `localhost` port
 (so `npx serve` works while testing). In the Tools card, **Use this site** fills
@@ -684,7 +684,7 @@ return `cors: true` on those routes.
 | `staticExport.routes`     | filter `string[]`                | add/remove seed paths before the crawl (a removed seed is still crawled when linked; use `staticExport.exclude`)   |
 | `staticExport.exclude`    | filter `StaticExportExclusion[]` | paths left to the live app — never crawled, pruned, routed to the app, links rewritten to the origin               |
 | `staticExport.assets`     | filter `string[]`                | add same-origin asset URLs the scanner cannot discover (dynamic imports, workers, runtime-fetched JSON)            |
-| `staticExport.formAction` | filter `string`                  | override the `<form action>` written for a dynamic endpoint (`{ endpoint: "forms" \| "comments", defaultAction }`) |
+| `staticExport.formAction` | filter `string`                  | override the `<form action>` written for a dynamic endpoint (`{ endpoint: "comments", defaultAction }`) |
 | `staticExport.completed`  | action                           | observe a finished run (`{ ok, mode, pages, assets, bytes, pruned, errors, warnings, … }`)                                   |
 | `staticExport.deploy`     | action                           | push the directory to object storage / a CDN                                                                       |
 

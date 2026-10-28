@@ -10,7 +10,9 @@ export type FieldType =
   | "boolean"
   | "select"
   | "media"
-  | "url";
+  | "url"
+  /** A list of `{ src, alt, caption }` images, edited with upload and the media library. */
+  | "images";
 
 export interface BlockSchema {
   [field: string]: {
