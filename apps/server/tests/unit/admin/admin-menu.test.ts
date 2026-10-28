@@ -205,3 +205,17 @@ describe("menu labels", () => {
     }
   });
 });
+
+describe("menu roles", () => {
+  it("keeps valid, distinct role ids and drops the rest", () => {
+    const [item] = finalizeAdminMenu([
+      {
+        pluginId: "justflows.helpdesk",
+        id: "inbox",
+        label: "Helpdesk",
+        roles: ["administrator", "support-agent", "support-agent", "Bad Role", 7],
+      },
+    ]);
+    expect(item?.roles).toEqual(["administrator", "support-agent"]);
+  });
+});

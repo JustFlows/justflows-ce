@@ -35,25 +35,28 @@ function noStore(res: { setHeader: (name: string, value: string) => void }): voi
   res.setHeader("Cache-Control", "private, no-store");
 }
 
-/** Other sites do not choose the admin Support button. That switch stays on the main site. */
-async function helpdeskSchemaForSite(
-  plugin: PluginRow,
-  siteId: string,
-): Promise<NonNullable<ReturnType<typeof pluginToDto>["settingsSchema"]> | Record<string, never>> {
-  const schema = { ...(pluginToDto(plugin).settingsSchema ?? {}) };
-  if (plugin.plugin_id !== "justflows.helpdesk") return schema;
-  const { isInstallationRootSite, loadHostRecords } = await import("../../lib/tenancy/registry.js");
-  const { supportSiteChoices } = await import("../../lib/admin/admin-support-popup.js");
-  if (!(await isInstallationRootSite(siteId))) {
-    delete schema.popupAdmin;
-    delete schema.supportSite;
-    return schema;
+type SettingsSchema = NonNullable<ReturnType<typeof pluginToDto>["settingsSchema"]>;
+
+/**
+ * The plugin's settings form for this site. The plugin may drop fields or fill
+ * select options through `plugin.settings.schema`; only fields it keeps are
+ * shown or saved. A failed or malformed filter result keeps the manifest form.
+ */
+async function settingsSchemaForSite(plugin: PluginRow, siteId: string): Promise<SettingsSchema> {
+  const schema: SettingsSchema = { ...(pluginToDto(plugin).settingsSchema ?? {}) };
+  const { getRuntimeHooks } = await import("../../lib/plugins/plugin-runtime.js");
+  const hooks = getRuntimeHooks();
+  if (!hooks.has("plugin.settings.schema")) return schema;
+  const filtered = await hooks
+    .applyFilter("plugin.settings.schema", schema, { pluginId: plugin.plugin_id, siteId }, { siteId, source: "http" })
+    .catch(() => schema);
+  if (!filtered || typeof filtered !== "object" || Array.isArray(filtered)) return schema;
+  /** A plugin can narrow its own form, never add fields the manifest did not declare. */
+  const out: SettingsSchema = {};
+  for (const [key, field] of Object.entries(filtered as Record<string, unknown>)) {
+    if (schema[key] && field && typeof field === "object") out[key] = { ...schema[key], ...(field as object), type: schema[key].type };
   }
-  const loaded = await loadHostRecords().catch(() => null);
-  const choices = supportSiteChoices(loaded?.records ?? [], siteId);
-  if (!choices || !schema.supportSite) delete schema.supportSite;
-  else schema.supportSite = { ...schema.supportSite, options: choices };
-  return schema;
+  return out;
 }
 
 async function readPluginSettings(
@@ -69,7 +72,7 @@ async function readPluginSettings(
   const { getPluginSetting } = await import("../../lib/plugins/plugin-kv.js");
   const { listLanguages, getDefaultLocale } = await import("../../lib/i18n/languages-db.js");
   const { asLocaleMap } = await import("../../lib/rendering/seo-public.js");
-  const schema = await helpdeskSchemaForSite(plugin, siteId);
+  const schema = await settingsSchemaForSite(plugin, siteId);
   const languages = await listLanguages(siteId, true);
   const defaultLocale = await getDefaultLocale(siteId);
   const values: Record<string, unknown> = {};
@@ -376,7 +379,7 @@ router.put("/:id/settings", requireRole("administrator"), async (req, res) => {
     const { ensurePluginRuntime, getRuntimeHooks } = await import("../../lib/plugins/plugin-runtime.js");
     await ensurePluginRuntime();
     const siteId = req.session!.siteId;
-    const schema = await helpdeskSchemaForSite(plugin, siteId);
+    const schema = await settingsSchemaForSite(plugin, siteId);
     let next: Record<string, unknown> = {};
     for (const key of Object.keys(schema)) {
       if (!(key in body)) continue;

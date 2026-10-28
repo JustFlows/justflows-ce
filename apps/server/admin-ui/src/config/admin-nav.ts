@@ -30,6 +30,8 @@ export type PluginMenuItem = {
   labelKey?: string;
   /** Locale code → label, from the manifest or the plugin's own catalogs. */
   labels?: Record<string, string>;
+  /** Roles that may open this page. Omitted: the `/admin/plugins` rule. */
+  roles?: string[];
   path: string;
   icon: string;
   domain: string;
@@ -410,7 +412,6 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/settings/pwa": ["administrator"],
   "/admin/settings/placeholders": ["administrator"],
   "/admin/redirects": ["administrator"],
-  "/admin/plugins/justflows.helpdesk": ["administrator", "editor", "support-agent"],
 };
 
 /** Every rule path, longest first, so a nested route matches its owning page. */
@@ -435,6 +436,24 @@ export interface NavAudience {
   platformOperator?: boolean;
   /** Admin paths this website is not allowed to open. */
   disabledPaths?: readonly string[];
+  /** Plugin page path → roles that may open it, from each page's `roles`. */
+  pluginPageRoles?: Readonly<Record<string, readonly string[]>>;
+}
+
+/** Roles each plugin page declares, for `NavAudience.pluginPageRoles`. */
+export function pluginPageRoles(items: readonly PluginMenuItem[]): Record<string, readonly string[]> {
+  const out: Record<string, readonly string[]> = {};
+  for (const item of items) if (item.roles?.length) out[item.path] = item.roles;
+  return out;
+}
+
+/** The roles declared by the plugin page a path belongs to (longest match), if any. */
+function pluginRolesFor(pathname: string, pages: Readonly<Record<string, readonly string[]>>): readonly string[] | null {
+  let best: string | null = null;
+  for (const path of Object.keys(pages)) {
+    if ((pathname === path || pathname.startsWith(`${path}/`)) && (!best || path.length > best.length)) best = path;
+  }
+  return best ? pages[best] ?? null : null;
 }
 
 const INSTALLATION_ROOT_PREFIXES = ["/admin/health", "/admin/updates", "/admin/marketplace"];
@@ -458,6 +477,8 @@ export function canAccessPath(
   // Overview reads the security-headers API, so it shares that feature gate.
   // Keep this exact: account security remains available under the same parent.
   if (pathname === "/admin/security" && audience?.disabledPaths?.includes("/admin/security/headers")) return false;
+  const declared = audience?.pluginPageRoles ? pluginRolesFor(pathname, audience.pluginPageRoles) : null;
+  if (declared) return declared.includes(role);
   const rule = navRuleFor(pathname);
   if (!rule) return true;
   return (NAV_ACCESS[rule] ?? ALL_ADMIN_ROLES).includes(role);

@@ -1236,15 +1236,6 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       { siteId, source: "http" },
     );
   }
-  if (headExtra.includes("data-jf-helpdesk-popup")) {
-    const { getTenantContext } = await import("../../lib/tenancy/context.js");
-    const tenant = getTenantContext();
-    if (tenant?.rootSite && tenant.siteId) {
-      const { canonicalPublicSupportHref, pointHelpdeskPopupAt } = await import("../../lib/admin/admin-support-popup.js");
-      const href = await canonicalPublicSupportHref(tenant.siteId, tenant.devPort);
-      if (href) headExtra = pointHelpdeskPopupAt(headExtra, href);
-    }
-  }
   const body = await ejs.renderFile(path.join(templateDir, `${view}.ejs`), pageData);
   let analyticsHead = "";
   /**

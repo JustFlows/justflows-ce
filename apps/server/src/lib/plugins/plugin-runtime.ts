@@ -418,7 +418,7 @@ export async function ensurePluginRuntime(): Promise<void> {
             await deletePluginSetting(pluginId, pluginCallSiteId(siteId), key);
           },
         },
-        captchaFactory: () => createPluginCaptchaApi(),
+        captchaFactory: (pluginId) => createPluginCaptchaApi(pluginId),
         aiFactory: () => createPluginAiApi(),
       });
       setLivePluginSettingsSchemaLookup((pluginId) => {

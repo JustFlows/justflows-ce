@@ -889,8 +889,9 @@ does not delete the user. It refuses when that user is an administrator, and
 it does not remove anyone else's rows.
 
 Admin → Plugins → Settings reads `settingsSchema` from the loaded module, then
-`justflows.json`, then the stored row. `plugin.settings` / `plugin.settings.write`
-overlay values on the plugin runtime. Saving returns the same schema and values
+`justflows.json`, then the stored row. `plugin.settings.schema` can drop fields
+or fill `select` options for the current site, and `plugin.settings` /
+`plugin.settings.write` overlay values on the plugin runtime. Saving returns the same schema and values
 as loading, so the form does not go blank after Save.
 
 Field `type` is `string`, `text`, `number`, `boolean`, or `select`. A `select`

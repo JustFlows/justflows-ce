@@ -11,11 +11,15 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **SDK: plugins translate their own admin menu labels.** An `adminMenu` entry's `labelKey` is now looked up in the plugin's own `adminApp.locales` catalogs before core's, and a new `labels` field takes per-locale labels straight from the manifest, for plugins without an admin app. The sidebar, page heading, and browser title use the label for the admin language, so a plugin no longer needs a key in core's catalogs. Forms and Cookie Consent now use it, so core's catalogs hold no plugin menu labels. ([#192](https://github.com/JustFlows/justflows-ce/issues/192))
 
+- **SDK: plugin pages name their roles, plugins adjust their settings form, and network handlers can link to a site.** An `adminMenu` entry takes `roles`, the roles that may open that page (a role the plugin registers, for example); without it the page keeps the administrator and editor rule. The `plugin.settings.schema` filter lets a plugin drop fields or fill `select` options for the current site. `ctx.network.site(siteId?)` returns one live site and its public address from any site, the main site when no id is given. `ctx.captcha.verify` without an action now expects the plugin's own name (`helpdesk` for `justflows.helpdesk`). ([#189](https://github.com/JustFlows/justflows-ce/issues/189))
+
 ### Removed
 
 - **The Cookie Consent screen left core.** Its page, route, nav rule, and strings (`nav.consent`, `consent.*`) are gone from the admin; Cookie Consent 1.1.0 ships the same screen as its own admin app in all 8 admin languages. Update Cookie Consent to 1.1.0 together with this release, because an older plugin has no screen on this core. ([#186](https://github.com/JustFlows/justflows-ce/issues/186))
 
 - **Forms code left core.** Core no longer answers `/justflows-forms/*`: the CORS headers, preflight, CSRF exemption, and submit rate limit, the static-export pass-through and `.htaccess` / nginx rules, the reserved slugs, the admin nav rule, and `nav.forms` are gone. Forms 0.3.0 serves its endpoints as its own routes under `/api/forms/`, which static export already passes through, and registers its own CSRF opt-out and rate limit. Update Forms to 0.3.0 together with this release, and re-run the static export so exported pages use the new endpoints. ([#188](https://github.com/JustFlows/justflows-ce/issues/188))
+
+- **Helpdesk code left core.** Core no longer builds the admin Support button, points the public support popup at another site, changes Helpdesk's settings form, or gives the Support agent role access to Helpdesk pages. Helpdesk 0.2.0 does all of this itself with the SDK additions above. Update Helpdesk to 0.2.0 together with this release; until then other sites show no admin Support button and Support agents cannot open Helpdesk. ([#189](https://github.com/JustFlows/justflows-ce/issues/189))
 
 ### Fixed
 

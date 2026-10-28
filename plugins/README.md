@@ -89,6 +89,7 @@ under `adminMenu` and add the `admin:extend` permission:
 | `path`     | Must be an `/admin/…` route                                              |
 | `icon`     | Single emoji; defaults to 🔌                                             |
 | `domain`   | `content`, `appearance`, `extensions` (default), `security`, or `system` |
+| `roles`    | Optional role ids that may open the page, such as a role the plugin registers; default administrators and editors |
 
 To translate the menu label, either put `labelKey` in your admin app's own
 catalogs (`adminApp.locales`, e.g. `"menu.forms": "Formulieren"` in

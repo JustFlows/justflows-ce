@@ -42,6 +42,7 @@ const MENU_VISIBLE_STATUSES = new Set<PluginRow["status"]>(["active"]);
 
 const MENU_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const LOCALE_RE = /^[a-z]{2,8}(?:-[A-Za-z0-9]{2,8}){0,2}$/;
+const ROLE_RE = /^[a-z][a-z0-9-]{0,39}$/;
 /** Catalogs bigger than this are skipped when resolving menu labels. */
 const MAX_CATALOG_BYTES = 512 * 1024;
 const CONTENT_TYPE_SLUG_RE = /^[a-z][a-z0-9-]{0,59}$/;
@@ -81,6 +82,13 @@ function sanitizeLabels(raw: unknown): Record<string, string> | undefined {
   return Object.keys(labels).length ? labels : undefined;
 }
 
+/** Keep valid, distinct role ids (at most 10). */
+function sanitizeRoles(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const roles = [...new Set(raw.filter((role): role is string => typeof role === "string" && ROLE_RE.test(role)))];
+  return roles.length ? roles.slice(0, 10) : undefined;
+}
+
 /**
  * Manifests are stored JSON that may predate — or lie about — the current
  * schema, so every field is re-validated here rather than trusted.
@@ -106,6 +114,7 @@ function sanitizeItem(raw: unknown, pluginId: string): AdminMenuEntry | null {
   const setupPath = rawSetupPath === undefined ? undefined : resolveAdminPath(rawSetupPath, pluginId);
   const contentType = asString(item.contentType);
   const labels = sanitizeLabels(item.labels);
+  const roles = sanitizeRoles(item.roles);
 
   return {
     pluginId,
@@ -120,6 +129,7 @@ function sanitizeItem(raw: unknown, pluginId: string): AdminMenuEntry | null {
       : "extensions") as PluginAdminMenuItem["domain"],
     end: item.end === true ? true : undefined,
     listed: item.listed === false ? false : undefined,
+    ...(roles ? { roles } : {}),
     setupPath: setupPath ?? undefined,
     contentType: contentType && CONTENT_TYPE_SLUG_RE.test(contentType) ? contentType : undefined,
   };
