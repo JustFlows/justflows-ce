@@ -195,6 +195,15 @@ export const AdminMenuItemSchema = z.object({
    */
   listed: z.boolean().optional(),
   /**
+   * Roles that may open this page, such as a role this plugin registers.
+   * Omit for the default plugin-page rule (administrators and editors).
+   */
+  roles: z
+    .array(z.string().regex(/^[a-z][a-z0-9-]{0,39}$/, "Role ids are lowercase kebab-case"))
+    .min(1)
+    .max(10)
+    .optional(),
+  /**
    * CMS type slug. When set, the generic plugin host lists every content row
    * of that type on this page (for example Shop Products → `product`).
    */
@@ -550,6 +559,9 @@ export const PluginManifestSchema = z
   });
 
 export type PluginManifest = z.infer<typeof PluginManifestSchema>;
+
+/** One field of a plugin's `settingsSchema`. */
+export type PluginSettingsField = NonNullable<PluginManifest["settingsSchema"]>[string];
 
 // ─── Plugin cache API ──────────────────────────────────────────────────────
 
@@ -1533,6 +1545,17 @@ export interface PluginNetworkApi {
    * gets, so another site's admins never see or change it.
    */
   sites(): Promise<PluginNetworkSite[]>;
+  /**
+   * One live site and its public address, from any site. Omit `siteId` for
+   * the main site. Null for an unknown or inactive site, and on an install
+   * without sites. Absent on older hosts.
+   */
+  site?(siteId?: string): Promise<PluginNetworkSiteAddress | null>;
+}
+
+/** A site with the origin its public pages are served from, such as `https://shop.example.com`. */
+export interface PluginNetworkSiteAddress extends PluginNetworkSite {
+  url: string;
 }
 
 export type QuotaScope = "workspace" | "site";

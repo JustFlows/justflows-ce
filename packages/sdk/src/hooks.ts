@@ -8,6 +8,8 @@
  * it is the public surface that extensions depend on.
  */
 
+import type { PluginSettingsField } from "./plugin.js";
+
 // ─── Shared context ────────────────────────────────────────────────────────
 
 export type HookSource = "http" | "job" | "cli" | "system";
@@ -641,6 +643,8 @@ export interface AdminNavItem {
   contentType?: string;
   /** When false, the page is reachable but omitted from the admin nav. */
   listed?: boolean;
+  /** Roles that may open this page. Omitted: administrators and editors. */
+  roles?: string[];
 }
 
 /** OpenAPI 3.1 document plugins may extend through the `openapi.document` filter. */
@@ -1020,6 +1024,13 @@ export interface FilterValueMap {
   "admin.menu": [AdminNavItem[], { siteId: string }];
   /** Overlay plugin settings shown on Admin → Plugins → Settings. */
   "plugin.settings": [Record<string, unknown>, { pluginId: string; siteId: string }];
+  /**
+   * Adjust a plugin's settings form for this site before Admin → Plugins →
+   * Settings shows it and before a save is checked against it: drop fields,
+   * or fill `options` for a `select`. A key removed here is neither shown nor
+   * saved. Check `pluginId`; the filter runs for every plugin.
+   */
+  "plugin.settings.schema": [Record<string, PluginSettingsField>, { pluginId: string; siteId: string }];
   /** Intercept a settings save so a plugin can persist domain rows and drop keys. */
   "plugin.settings.write": [Record<string, unknown>, { pluginId: string; siteId: string }];
   "openapi.document": [OpenApiDocument, { version: string }];

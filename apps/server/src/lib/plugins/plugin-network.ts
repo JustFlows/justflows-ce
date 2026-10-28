@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-import type { PluginNetworkApi, PluginNetworkSite } from "@justflows/sdk";
+import type { PluginNetworkApi, PluginNetworkSite, PluginNetworkSiteAddress } from "@justflows/sdk";
 import { getControlDb, runWithDatabase } from "../database/db.js";
 import { isInstallationRootRequest } from "../tenancy/access.js";
+import { getTenantContext } from "../tenancy/context.js";
 import { installationRootSiteId } from "../tenancy/registry.js";
 import { getSiteId } from "../settings/site-settings.js";
 import { getPluginSetting } from "./plugin-kv.js";
@@ -49,7 +50,38 @@ export function createPluginNetworkApi(pluginId: string): PluginNetworkApi {
         mainSite: String(row.id) === rootId,
       }));
     },
+    async site(siteId?: string): Promise<PluginNetworkSiteAddress | null> {
+      const rootId = await installationRootSiteId().catch(() => null);
+      if (!rootId) return null;
+      const id = siteId?.trim() || rootId;
+      const control = await getControlDb();
+      const rows = await control.query<{ id: string; name: string | null; hostname: string | null }>(
+        `SELECT s.id, s.name, d.hostname
+         FROM sites s
+         LEFT JOIN site_domains d ON d.site_id = s.id AND d.is_primary = ? AND d.status = 'active'
+         WHERE s.id = ? AND s.status = 'active'
+         LIMIT 1`,
+        [true, id],
+      );
+      const row = rows[0];
+      if (!row?.hostname) return null;
+      return {
+        id: String(row.id),
+        name: String(row.name ?? ""),
+        hostname: String(row.hostname),
+        mainSite: String(row.id) === rootId,
+        url: siteOrigin(String(row.hostname), getTenantContext()?.devPort),
+      };
+    },
   };
+}
+
+/** Public origin for a site hostname. A loopback name keeps the dev port and plain HTTP. */
+export function siteOrigin(host: string, devPort: string | undefined): string {
+  const name = host.trim().toLowerCase();
+  const loopback = name === "localhost" || name.startsWith("127.0.0.1") || name.endsWith(".localhost");
+  const port = loopback && devPort ? `:${devPort}` : "";
+  return `${loopback ? "http" : "https"}://${name}${port}`;
 }
 
 const MAIN_SITE_PLUGINS_TTL_MS = 5000;

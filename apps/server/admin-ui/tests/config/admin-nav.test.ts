@@ -8,6 +8,7 @@ import {
   isDomainActive,
   navLabel,
   navRuleFor,
+  pluginPageRoles,
   parsePluginSections,
 } from "../../src/config/admin-nav";
 
@@ -211,8 +212,26 @@ describe("buildNavDomains", () => {
     const helpdesk = domains.find((d) => d.slug === "helpdesk");
     expect(helpdesk?.items.map((item) => item.to)).toEqual(["/admin/plugins/justflows.helpdesk"]);
     expect(domains.find((d) => d.slug === "extensions")?.items.some((item) => item.to.includes("helpdesk"))).toBe(false);
-    expect(canAccessPath("support-agent", "/admin/plugins/justflows.helpdesk")).toBe(true);
-    expect(canAccessPath("author", "/admin/plugins/justflows.helpdesk")).toBe(false);
+  });
+
+  it("lets a plugin page name the roles that may open it", () => {
+    const items = [
+      {
+        pluginId: "justflows.helpdesk",
+        id: "inbox",
+        label: "Helpdesk",
+        path: "/admin/plugins/justflows.helpdesk",
+        icon: "💬",
+        domain: "helpdesk",
+        roles: ["administrator", "editor", "support-agent"],
+      },
+    ];
+    const audience = { pluginPageRoles: pluginPageRoles(items) };
+    expect(canAccessPath("support-agent", "/admin/plugins/justflows.helpdesk/tickets/7", audience)).toBe(true);
+    expect(canAccessPath("author", "/admin/plugins/justflows.helpdesk", audience)).toBe(false);
+    /** Without declared roles the page keeps the plugin-page rule. */
+    expect(canAccessPath("support-agent", "/admin/plugins/justflows.helpdesk")).toBe(false);
+    expect(canAccessPath("editor", "/admin/plugins/justflows.forms", audience)).toBe(true);
   });
 
   it("gives Shared files its own sidebar domain instead of a Plugins tab", () => {

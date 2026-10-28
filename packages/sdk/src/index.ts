@@ -196,6 +196,8 @@ export type {
   PluginTenancyApi,
   PluginNetworkApi,
   PluginNetworkSite,
+  PluginNetworkSiteAddress,
+  PluginSettingsField,
   PluginQuotasApi,
   PluginQuotaMeterInfo,
   PluginQuotaTarget,
