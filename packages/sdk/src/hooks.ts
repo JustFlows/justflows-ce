@@ -624,6 +624,8 @@ export interface AdminNavItem {
   id: string;
   label: string;
   labelKey?: string;
+  /** Locale code → label. Wins over `labelKey` and `label` in that locale. */
+  labels?: Record<string, string>;
   /**
    * Relative to `/admin/plugins/<pluginId>` — `""` / omit for the namespace
    * root, else a lowercase leaf like `"orders"`. The host prepends the

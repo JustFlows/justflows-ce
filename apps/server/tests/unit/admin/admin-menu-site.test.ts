@@ -23,6 +23,7 @@ vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
 }));
 vi.mock("../../../src/lib/plugins/plugin-admin-app.js", () => ({
   getPluginAdminRoutes: async () => mocks.routes,
+  getPluginAdminCatalogFiles: async () => new Map(),
 }));
 
 const { listPluginAdminMenu } = await import("../../../src/lib/admin/admin-menu.js");

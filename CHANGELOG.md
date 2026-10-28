@@ -7,6 +7,14 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.3.9] [UNRELEASED]
 
+### Added
+
+- **SDK: plugins translate their own admin menu labels.** An `adminMenu` entry's `labelKey` is now looked up in the plugin's own `adminApp.locales` catalogs before core's, and a new `labels` field takes per-locale labels straight from the manifest, for plugins without an admin app. The sidebar, page heading, and browser title use the label for the admin language, so a plugin no longer needs a key in core's catalogs. `nav.forms` and `nav.consent` stay in core until Forms and Cookie Consent use this. ([#192](https://github.com/JustFlows/justflows-ce/issues/192))
+
+### Fixed
+
+- **The root `pnpm typecheck` passes again.** A `@justflows/plugin-api` test for `operatorKey.ensure` used untyped hook handler parameters, so the test typecheck failed although the tests passed. ([#194](https://github.com/JustFlows/justflows-ce/issues/194))
+
 ## [0.3.8]
 
 ### Fixed
