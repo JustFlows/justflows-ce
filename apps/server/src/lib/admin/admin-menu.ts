@@ -222,15 +222,24 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
   );
 }
 
+/**
+ * Read a catalog through one file descriptor, so the size check and the read
+ * see the same file even if the path is swapped in between.
+ */
 function readCatalog(file: string): Record<string, unknown> | null {
+  let fd: number | undefined;
   try {
-    if (fs.statSync(file).size > MAX_CATALOG_BYTES) return null;
-    const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+    fd = fs.openSync(file, "r");
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.size > MAX_CATALOG_BYTES) return null;
+    const parsed: unknown = JSON.parse(fs.readFileSync(fd, "utf8"));
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : null;
   } catch {
     return null;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
   }
 }
 
