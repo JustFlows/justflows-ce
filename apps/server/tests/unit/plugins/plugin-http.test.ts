@@ -5,24 +5,19 @@ import { pluginActiveForRequest, pluginRouteRateBucket, requiresPluginCsrf, safe
 import { runWithTenant } from "../../../src/lib/tenancy/context.js";
 
 describe("requiresPluginCsrf", () => {
-  it("allows the public Forms submission route without a session token", () => {
-    expect(requiresPluginCsrf("POST", "/justflows-forms/submit")).toBe(false);
-  });
-
-  it("keeps CSRF protection on other plugin mutations", () => {
-    expect(requiresPluginCsrf("POST", "/some-plugin/action")).toBe(true);
-    expect(requiresPluginCsrf("PUT", "/justflows-forms/admin/forms/contact")).toBe(true);
-    expect(requiresPluginCsrf("DELETE", "/justflows-forms/admin/submissions/1")).toBe(true);
+  it("keeps CSRF protection on plugin mutations", () => {
+    expect(requiresPluginCsrf("POST")).toBe(true);
+    expect(requiresPluginCsrf("PUT")).toBe(true);
+    expect(requiresPluginCsrf("DELETE")).toBe(true);
   });
 
   it("does not require CSRF for read-only plugin routes", () => {
-    expect(requiresPluginCsrf("GET", "/justflows-forms/config")).toBe(false);
+    expect(requiresPluginCsrf("GET")).toBe(false);
   });
 
   it("skips CSRF only when the registered route opts out", () => {
-    expect(requiresPluginCsrf("POST", "/ext/acme.pay/hooks/stripe/token", { csrf: false })).toBe(false);
-    expect(requiresPluginCsrf("POST", "/ext/acme.pay/hooks/stripe/token")).toBe(true);
-    expect(requiresPluginCsrf("GET", "/ext/acme.shop/checkout/return")).toBe(false);
+    expect(requiresPluginCsrf("POST", { csrf: false })).toBe(false);
+    expect(requiresPluginCsrf("POST", {})).toBe(true);
   });
 });
 

@@ -1252,7 +1252,7 @@ export default function ToolsPage() {
                   <code className="jf-code">
                     {suggestedOrigin || t("tools.staticExport.thisSitesOrigin")}
                   </code>
-                  . {t("tools.staticExport.originHint5")} <code className="jf-code">/justflows-forms/*</code>{" "}
+                  . {t("tools.staticExport.originHint5")} <code className="jf-code">/api/*</code>{" "}
                   {t("tools.staticExport.originHint6")}{" "}
                   <code className="jf-code">/justflows-comments/*</code>{" "}
                   {t("tools.staticExport.originHint7")}
@@ -1462,7 +1462,6 @@ export default function ToolsPage() {
               {t("tools.staticExport.dynamicFeaturesHint2")} <code className="jf-code">fetch()</code>{" "}
               {t("tools.staticExport.dynamicFeaturesHint3")} <strong>{t("tools.staticExport.hybrid")}</strong>{" "}
               {t("tools.staticExport.dynamicFeaturesHint4")}{" "}
-              <code className="jf-code">/justflows-forms/*</code>,{" "}
               <code className="jf-code">/justflows-comments/*</code>,{" "}
               <code className="jf-code">/api</code>, <code className="jf-code">/admin</code>{" "}
               {t("tools.staticExport.dynamicFeaturesHint5")}{" "}

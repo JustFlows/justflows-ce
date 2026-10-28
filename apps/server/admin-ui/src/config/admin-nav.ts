@@ -411,10 +411,6 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/settings/placeholders": ["administrator"],
   "/admin/redirects": ["administrator"],
   "/admin/plugins/justflows.helpdesk": ["administrator", "editor", "support-agent"],
-  // Forms sat at its own top-level path with no rule (visible to every admin
-  // role); keep that now that it lives under /admin/plugins/ and would
-  // otherwise inherit its administrator/editor rule by prefix.
-  "/admin/plugins/justflows.forms": ALL_ADMIN_ROLES,
 };
 
 /** Every rule path, longest first, so a nested route matches its owning page. */

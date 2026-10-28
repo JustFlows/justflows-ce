@@ -7,13 +7,15 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.3.9] [UNRELEASED]
 
+### Added
+
+- **SDK: plugins translate their own admin menu labels.** An `adminMenu` entry's `labelKey` is now looked up in the plugin's own `adminApp.locales` catalogs before core's, and a new `labels` field takes per-locale labels straight from the manifest, for plugins without an admin app. The sidebar, page heading, and browser title use the label for the admin language, so a plugin no longer needs a key in core's catalogs. Forms and Cookie Consent now use it, so core's catalogs hold no plugin menu labels. ([#192](https://github.com/JustFlows/justflows-ce/issues/192))
+
 ### Removed
 
 - **The Cookie Consent screen left core.** Its page, route, nav rule, and strings (`nav.consent`, `consent.*`) are gone from the admin; Cookie Consent 1.1.0 ships the same screen as its own admin app in all 8 admin languages. Update Cookie Consent to 1.1.0 together with this release, because an older plugin has no screen on this core. ([#186](https://github.com/JustFlows/justflows-ce/issues/186))
 
-### Added
-
-- **SDK: plugins translate their own admin menu labels.** An `adminMenu` entry's `labelKey` is now looked up in the plugin's own `adminApp.locales` catalogs before core's, and a new `labels` field takes per-locale labels straight from the manifest, for plugins without an admin app. The sidebar, page heading, and browser title use the label for the admin language, so a plugin no longer needs a key in core's catalogs. `nav.forms` and `nav.consent` stay in core until Forms and Cookie Consent use this. ([#192](https://github.com/JustFlows/justflows-ce/issues/192))
+- **Forms code left core.** Core no longer answers `/justflows-forms/*`: the CORS headers, preflight, CSRF exemption, and submit rate limit, the static-export pass-through and `.htaccess` / nginx rules, the reserved slugs, the admin nav rule, and `nav.forms` are gone. Forms 0.3.0 serves its endpoints as its own routes under `/api/forms/`, which static export already passes through, and registers its own CSRF opt-out and rate limit. Update Forms to 0.3.0 together with this release, and re-run the static export so exported pages use the new endpoints. ([#188](https://github.com/JustFlows/justflows-ce/issues/188))
 
 ### Fixed
 

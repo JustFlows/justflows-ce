@@ -1105,6 +1105,9 @@ export interface FilterValueMap {
    * static host cannot serve. Seeded with the origin-absolute URL when
    * `STATIC_EXPORT_ORIGIN_URL` is set, else the relative default. Return a
    * serverless function URL, a third-party form endpoint, etc.
+   *
+   * Core only emits `"comments"`. `"forms"` stays in the type for older
+   * plugins: the Forms plugin now submits to its own `/api/forms/` route.
    */
   "staticExport.formAction": [
     string,
