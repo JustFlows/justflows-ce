@@ -31,7 +31,6 @@ export const CORE_DYNAMIC_PREFIXES = [
   "forgot-password",
   "reset-password",
   "set-locale",
-  "justflows-forms",
   "justflows-comments",
 ] as const;
 

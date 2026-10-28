@@ -83,11 +83,19 @@ under `adminMenu` and add the `admin:extend` permission:
 | Field      | Notes                                                                    |
 | ---------- | ------------------------------------------------------------------------ |
 | `id`       | Lowercase kebab-case, unique within the plugin                           |
-| `label`    | Shown when `labelKey` has no catalog entry                               |
-| `labelKey` | Optional admin i18n key, e.g. `nav.media`                                |
+| `label`    | English label, shown when no translation applies                         |
+| `labelKey` | Optional i18n key, looked up in the plugin's `adminApp.locales` catalogs, then in core's |
+| `labels`   | Optional `{ "<locale>": "<label>" }`; wins over `labelKey` in that locale |
 | `path`     | Must be an `/admin/…` route                                              |
 | `icon`     | Single emoji; defaults to 🔌                                             |
 | `domain`   | `content`, `appearance`, `extensions` (default), `security`, or `system` |
+| `roles`    | Optional role ids that may open the page, such as a role the plugin registers; default administrators and editors |
+
+To translate the menu label, either put `labelKey` in your admin app's own
+catalogs (`adminApp.locales`, e.g. `"menu.forms": "Formulieren"` in
+`locales/nl.json`), or list `labels` per locale in the manifest. The sidebar
+uses the label for the admin language (`nl-NL` falls back to `nl`), then
+`label`. Core's catalogs hold no plugin labels, so do not rely on a core key.
 
 The entry appears in the sidebar while the plugin is active and disappears when
 it is deactivated or deleted — the admin reads the live list from

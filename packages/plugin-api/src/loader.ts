@@ -295,7 +295,7 @@ export class PluginLoader {
   private readonly runForSite:
     | ((siteId: string, fn: () => Promise<PluginHttpResponse>) => Promise<PluginHttpResponse>)
     | undefined;
-  private readonly captchaFactory: () => PluginCaptchaApi;
+  private readonly captchaFactory: (pluginId: string) => PluginCaptchaApi;
   private readonly aiFactory: () => PluginAiApi;
 
   constructor(
@@ -354,7 +354,8 @@ export class PluginLoader {
        * site id is well formed. The host refuses a site outside that workspace.
        */
       runForSite?: (siteId: string, fn: () => Promise<PluginHttpResponse>) => Promise<PluginHttpResponse>;
-      captchaFactory?: () => PluginCaptchaApi;
+      /** Builds `ctx.captcha` for one plugin, so its default action can follow the plugin id. */
+      captchaFactory?: (pluginId: string) => PluginCaptchaApi;
       aiFactory?: () => PluginAiApi;
     },
   ) {
@@ -818,7 +819,7 @@ export class PluginLoader {
         patch: (path, handler, options) => this.httpRouter.register(pluginId, "PATCH", path, handler, options),
         delete: (path, handler, options) => this.httpRouter.register(pluginId, "DELETE", path, handler, options),
       },
-      captcha: this.captchaFactory(),
+      captcha: this.captchaFactory(pluginId),
       plugins: {
         call: (targetId, request) => this.callPlugin(pluginId, targetId, request),
       },

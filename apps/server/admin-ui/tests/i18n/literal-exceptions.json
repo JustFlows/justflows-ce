@@ -67,7 +67,7 @@
   "APP_URL": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
   "&lt;form&gt;": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
   "fetch()": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
-  "/justflows-forms/*": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "/api/*": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
   "/justflows-comments/*": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
   "https://www.example.com, https://staging.example.com": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
   "STATIC_EXPORT_BASE_URL": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",

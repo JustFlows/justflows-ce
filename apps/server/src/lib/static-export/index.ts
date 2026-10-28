@@ -320,7 +320,6 @@ async function collectAssets(
 
 /** Endpoint paths a static host cannot serve — POST handlers on the Node origin. */
 const DYNAMIC_ENDPOINTS = [
-  { key: "forms" as const, path: "/justflows-forms/submit" },
   { key: "comments" as const, path: "/justflows-comments/submit" },
 ];
 

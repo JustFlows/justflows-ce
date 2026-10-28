@@ -18,7 +18,6 @@
     "contentTypes": "Inhoudstypen",
     "media": "Media",
     "plugins": "Plugins",
-    "forms": "Formulieren",
     "themes": "Thema's",
     "design": "Design",
     "widgets": "Widgets",
@@ -33,7 +32,6 @@
     "health": "Status",
     "updates": "Updates",
     "webhooks": "Webhooks",
-    "consent": "Cookietoestemming",
     "securityOverview": "Overzicht",
     "securityHeaders": "Headers",
     "securityAdvanced": "Geavanceerd",
@@ -298,7 +296,6 @@
     "notFoundFallback": "Niet gevonden",
     "settingsSectionsAriaLabel": "Instellingsonderdelen",
     "contentHeading": "Inhoud",
-    "seoHeading": "SEO",
     "discussionHeading": "Reacties",
     "advancedHeading": "Geavanceerd",
     "excerptHint": "Wordt getoond in overzichten. Wordt gebruikt als metabeschrijving als de SEO-beschrijving leeg is.",
@@ -307,16 +304,6 @@
     "openPageBuilder": "Paginabouwer openen",
     "pageBuilderHint": "De lay-out en blokken van deze inhoud bewerk je in de paginabouwer. Dit scherm is voor de instellingen: titel, slug, publicatie en SEO.",
     "seoTitleLabel": "SEO-titel",
-    "seoTitleHint": "Vervangt de paginatitel in zoekresultaten en bij delen op sociale media.",
-    "metaDescriptionLabel": "Metabeschrijving",
-    "metaDescriptionPlaceholder": "Een korte samenvatting voor zoekmachines",
-    "metaDescriptionHint": "Als dit leeg is, wordt de samenvatting of de titel gebruikt. Wordt getoond in Google en in Open Graph-voorbeelden.",
-    "canonicalUrlLabel": "Canonieke URL",
-    "canonicalUrlHint": "Laat leeg om de permalink van deze pagina te gebruiken.",
-    "socialImageLabel": "Afbeelding voor sociale media",
-    "socialImageDescription": "Wordt gebruikt voor Open Graph- en Twitter-kaarten. Als dit leeg is, wordt er geen afbeelding gebruikt.",
-    "excludeFeedsLabel": "Uitsluiten van RSS-, Atom- en JSON-feeds",
-    "excludeFeedsHint": "De pagina blijft openbaar en staat in de sitemap, maar wordt uit alle feeds weggelaten.",
     "commentsLabel": "Reacties",
     "commentsUseSiteDefault": "Standaardinstelling van de site gebruiken",
     "commentsOpen": "Open — reacties altijd toestaan",
@@ -850,7 +837,6 @@
         "corners": "Hoeken",
         "layout": "Lay-out",
         "images": "Afbeeldingen",
-        "lightbox": "Lightbox",
         "title": "Titel",
         "price": "Prijs",
         "comparePrice": "Vergelijkingsprijs",
@@ -912,10 +898,7 @@
         "borderGrid": "Randraster",
         "supportingText": "Ondersteunende tekst",
         "hoverCta": "Actieknop bij aanwijzen",
-        "detailCards": "Detailkaarten",
-        "masonry": "Masonry",
-        "carousel": "Carrousel",
-        "slideshowFade": "Diavoorstelling (overvloeien)"
+        "detailCards": "Detailkaarten"
       },
       "placeholder": {
         "internalLink": "/over-ons of https://…",
@@ -1018,9 +1001,8 @@
         "headingPlaceholder": "bijv. Product",
         "addLink": "+ Link toevoegen"
       },
-      "gallery": {
+      "images": {
         "uploadFailed": "Upload mislukt",
-        "carouselHint": "Er wordt één afbeelding tegelijk getoond, met puntjes om ertussen te wisselen. Verander de volgorde van de afbeeldingen hieronder om de volgorde aan te passen.",
         "uploading": "Uploaden…",
         "uploadFromDevice": "⇧ Uploaden vanaf apparaat",
         "addImageUrl": "+ Afbeeldings-URL toevoegen",
@@ -1057,7 +1039,6 @@
       "details": "Gegevens",
       "dropContentHere": "Zet hier inhoud neer",
       "embed": "Insluiting: ",
-      "emptyGallery": "Lege galerij",
       "feature": "Kenmerk",
       "featuredImage": "Uitgelichte afbeelding",
       "heading": "Kop",
@@ -2655,150 +2636,6 @@
       }
     }
   },
-  "consent": {
-    "eraseConfirm": "De toestemmingsregistratie voor {cid} wissen? Dit kan niet ongedaan worden gemaakt.",
-    "onlyAdmins": "Instellingen voor cookietoestemming zijn alleen beschikbaar voor beheerders.",
-    "pageTitle": "Cookietoestemming",
-    "pageDescription": "Eigen toestemmingsbanner, voorkeurencentrum en blokkering van scripts en embeds. Niet-essentiële scripts en embeds blijven geblokkeerd totdat hun categorie is geaccepteerd.",
-    "exportRecordsCsv": "Registraties exporteren (CSV)",
-    "settingsSaved": "Instellingen opgeslagen.",
-    "behaviourTitle": "Gedrag",
-    "showBannerLabel": "Toestemmingsbanner tonen op de openbare site",
-    "displayModeLabel": "Weergavemodus",
-    "displayModeAlways": "Altijd tonen",
-    "displayModeEu": "Alleen bezoekers uit de EU/EER (bij benadering, op basis van tijdzone)",
-    "displayModeOff": "Uit",
-    "geoHint": "Locatiebepaling is bij benadering en gebeurt in de browser van de bezoeker — geen IP-opzoeking, geen derde partij.",
-    "logConsentLabel": "Een auditregistratie bewaren voor elke toestemmingskeuze",
-    "logConsentHint": "Uit: de banner handhaaft de keuzes nog steeds, maar er worden geen rijen in de database geschreven en er wordt geen beacon verzonden. Zet dit uit als je het auditlogboek niet nodig hebt.",
-    "policyVersionLabel": "Beleidsversie",
-    "policyVersionHint": "Verhoog dit als het beleid verandert — eerdere toestemming vervalt en de banner verschijnt opnieuw. Vertalingen bewerken doet dat niet.",
-    "privacyPolicyUrlLabel": "URL van privacybeleid",
-    "reopenSelectorLabel": "Selector om opnieuw te openen",
-    "reopenSelectorHint": "Klikken op elementen die aan deze CSS-selector voldoen, opent het voorkeurencentrum opnieuw.",
-    "categoriesTitle": "Categorieën",
-    "category": {
-      "necessary": "Noodzakelijk",
-      "preferences": "Voorkeuren",
-      "analytics": "Statistieken",
-      "marketing": "Marketing"
-    },
-    "categoriesIntro": "staat altijd aan. Kies voor welke optionele categorieën bezoekers toestemming kunnen geven.",
-    "textSectionTitle": "Tekst",
-    "designTitle": "Vormgeving en plaatsing",
-    "layoutLabel": "Lay-out",
-    "layoutBar": "Balk (strook over de volle breedte)",
-    "layoutBox": "Kader (zwevende kaart)",
-    "layoutModal": "Dialoogvenster (gecentreerd, blokkeert de pagina)",
-    "positionLabel": "Positie",
-    "panelRadiusLabel": "Hoekradius van paneel",
-    "buttonRadiusLabel": "Hoekradius van knoppen",
-    "panelWidthLabel": "Paneelbreedte (kader / dialoogvenster)",
-    "modalBackdropLabel": "Achtergrond achter dialoogvenster",
-    "useThemeColorsLabel": "De kleuren van het actieve thema gebruiken (aanbevolen)",
-    "scriptEmbedGatingTitle": "Blokkering van scripts en embeds",
-    "gateEmbedsLabel": "Externe embeds in de pagina-inhoud vervangen door een ontgrendelbare plaatshouder totdat Marketing is geaccepteerd",
-    "analyticsSnippetLabel": "Statistiekscript in head",
-    "analyticsSnippetPlaceholder": "<script>…</script> — wordt pas uitgevoerd nadat de bezoeker Statistieken accepteert",
-    "analyticsSnippetHint": "De Google-tag die in de Analytics-plugin is ingesteld, wordt automatisch geblokkeerd totdat er toestemming is.",
-    "marketingSnippetLabel": "Marketingscript in head",
-    "marketingSnippetPlaceholder": "<script>…</script> — wordt pas uitgevoerd nadat de bezoeker Marketing accepteert",
-    "saveSettingsButton": "Instellingen opslaan",
-    "cookieDeclarationsTitle": "Cookieverklaringen",
-    "cookieDeclarationsIntro1": "Elke cookie die het platform en elke actieve plugin heeft geregistreerd via de",
-    "cookieDeclarationsIntro2": "hook. De toestemmingsbanner toont deze per categorie, en als een bezoeker een categorie intrekt, laat de runtime de bijbehorende cookies verlopen. Deel een cookie hieronder opnieuw in om de categorie die de ontwikkelaar koos te overschrijven.",
-    "cookieDeclarationsIntro3": "cookies zijn altijd toegestaan en kunnen niet worden geblokkeerd.",
-    "noCookiesRegistered": "Er zijn nog geen cookies geregistreerd. Kerncookies verschijnen zodra de site draait; plugincookies verschijnen als de plugin actief is.",
-    "tableHeader": {
-      "name": "Naam",
-      "setBy": "Geplaatst door",
-      "purpose": "Doel",
-      "duration": "Duur",
-      "declared": "Opgegeven",
-      "categoryOverride": "Categorie (overschrijven)"
-    },
-    "saveCategoryOverridesButton": "Categorie-aanpassingen opslaan",
-    "consentRecordsTitle": "Toestemmingsregistraties",
-    "auditLoggingOff": "Auditlogging staat uit — er worden geen nieuwe registraties geschreven. Bestaande rijen hieronder blijven bewaard totdat ze worden gewist.",
-    "noRecordsYet": "Nog niets geregistreerd. Bezoek de openbare site in een nieuwe sessie en maak een keuze.",
-    "recordsTableHeader": {
-      "recorded": "Geregistreerd",
-      "clientId": "Client-ID",
-      "policy": "Beleid",
-      "choices": "Keuzes",
-      "locale": "Taal",
-      "device": "Apparaat"
-    },
-    "eraseButton": "Wissen",
-    "defaultText": {
-      "bannerTitle": "Wij respecteren je privacy",
-      "bannerBody": "We gebruiken cookies om deze site te laten werken en, met je toestemming, om bezoek te meten en inhoud te personaliseren.",
-      "privacyPolicyLabel": "Privacybeleid",
-      "acceptAllLabel": "Alles accepteren",
-      "rejectAllLabel": "Niet-essentiële weigeren",
-      "saveLabel": "Voorkeuren opslaan",
-      "preferencesLabel": "Voorkeuren beheren",
-      "necessaryName": "Strikt noodzakelijk",
-      "necessaryDescription": "Nodig om de site te laten werken. Staat altijd aan.",
-      "embedNote": "Deze inhoud wordt elders gehost en is geblokkeerd totdat je marketingcookies accepteert.",
-      "embedUnlockLabel": "Inhoud laden",
-      "categories": {
-        "preferences": {
-          "name": "Voorkeuren",
-          "description": "Onthoudt keuzes zoals taal of regio."
-        },
-        "analytics": {
-          "name": "Statistieken",
-          "description": "Helpt ons te begrijpen hoe bezoekers de site gebruiken."
-        },
-        "marketing": {
-          "name": "Marketing",
-          "description": "Gebruikt voor relevante inhoud en het meten van campagnes."
-        }
-      }
-    },
-    "textFieldLabel": {
-      "bannerTitle": "Bannertitel",
-      "bannerBody": "Bannertekst",
-      "privacyPolicyLabel": "Linktekst voor privacybeleid",
-      "acceptAllLabel": "Knop ‘Alles accepteren’",
-      "rejectAllLabel": "Knop ‘Weigeren’",
-      "saveLabel": "Knop ‘Opslaan’",
-      "preferencesLabel": "Knop ‘Voorkeuren’",
-      "necessaryName": "Naam van categorie ‘Noodzakelijk’",
-      "necessaryDescription": "Beschrijving van categorie ‘Noodzakelijk’",
-      "embedNote": "Melding bij geblokkeerde embed",
-      "embedUnlockLabel": "Knop om embed te laden"
-    },
-    "colorField": {
-      "background": "Achtergrond",
-      "text": "Tekst",
-      "accent": "Accent (knoppen, links)",
-      "accentText": "Tekst op accentkleur",
-      "border": "Rand"
-    },
-    "layoutShort": {
-      "bar": "Balk",
-      "box": "Kader",
-      "modal": "Dialoogvenster"
-    },
-    "position": {
-      "top": "Boven",
-      "bottom": "Onder",
-      "topLeft": "Linksboven",
-      "topRight": "Rechtsboven",
-      "bottomLeft": "Linksonder",
-      "bottomRight": "Rechtsonder",
-      "center": "Midden"
-    },
-    "categoryNameFieldLabel": "Naam van {category}",
-    "categoryDescriptionFieldLabel": "Beschrijving van {category}",
-    "previewCaption": "Voorbeeld — {layout} · {position}",
-    "declaredSuffix": "opgegeven",
-    "recordsSummary": "{total} {recordWord} — statistieken geaccepteerd door {analytics}, marketing door {marketing}, voorkeuren door {preferences}. Elke rij is gekoppeld aan de beleidsversie en hash die golden op het moment van registratie.",
-    "recordSingular": "registratie",
-    "recordPlural": "registraties"
-  },
   "emails": {
     "couldNotLoadTranslation": "Deze vertaling kon niet worden geladen",
     "templatePublished": "Sjabloon gepubliceerd.",
@@ -3812,11 +3649,6 @@
     },
     "pluginsPage": {
       "by": "door "
-    },
-    "consentPage": {
-      "eraseFailed": "Wissen mislukt",
-      "default": "Standaard",
-      "saveFailed": "Opslaan is mislukt"
     },
     "settingsPage": {
       "freeCrypto": "gratis crypto",

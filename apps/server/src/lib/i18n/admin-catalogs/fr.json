@@ -18,7 +18,6 @@
     "contentTypes": "Types de contenu",
     "media": "Médias",
     "plugins": "Extensions",
-    "forms": "Formulaires",
     "themes": "Thèmes",
     "design": "Design",
     "widgets": "Widgets",
@@ -33,7 +32,6 @@
     "health": "État",
     "updates": "Mises à jour",
     "webhooks": "Webhooks",
-    "consent": "Consentement aux cookies",
     "securityOverview": "Aperçu",
     "securityHeaders": "En-têtes",
     "securityAdvanced": "Avancé",
@@ -298,7 +296,6 @@
     "notFoundFallback": "Introuvable",
     "settingsSectionsAriaLabel": "Sections des paramètres",
     "contentHeading": "Contenu",
-    "seoHeading": "SEO",
     "discussionHeading": "Commentaires",
     "advancedHeading": "Avancé",
     "excerptHint": "Affiché dans les listes. Utilisé comme méta-description si la description SEO est vide.",
@@ -307,16 +304,6 @@
     "openPageBuilder": "Ouvrir le constructeur de pages",
     "pageBuilderHint": "La mise en page et les blocs de ce contenu se modifient dans le constructeur de pages. Cet écran sert aux réglages : titre, slug, publication, SEO.",
     "seoTitleLabel": "Titre SEO",
-    "seoTitleHint": "Remplace le titre de la page dans les résultats de recherche et lors des partages sur les réseaux sociaux.",
-    "metaDescriptionLabel": "Méta-description",
-    "metaDescriptionPlaceholder": "Un bref résumé pour les moteurs de recherche",
-    "metaDescriptionHint": "Si ce champ est vide, l’extrait ou le titre est utilisé. Affiché dans Google et dans les aperçus Open Graph.",
-    "canonicalUrlLabel": "URL canonique",
-    "canonicalUrlHint": "Laissez vide pour utiliser le permalien de cette page.",
-    "socialImageLabel": "Image pour les réseaux sociaux",
-    "socialImageDescription": "Utilisée pour les cartes Open Graph et Twitter. Si ce champ est vide, aucune image n’est utilisée.",
-    "excludeFeedsLabel": "Exclure des flux RSS / Atom / JSON",
-    "excludeFeedsHint": "La page reste publique et présente dans le plan du site, mais elle est exclue de tous les flux de syndication.",
     "commentsLabel": "Commentaires",
     "commentsUseSiteDefault": "Utiliser le réglage par défaut du site",
     "commentsOpen": "Ouvert — toujours accepter les commentaires",
@@ -853,7 +840,6 @@
         "corners": "Coins",
         "layout": "Disposition",
         "images": "Images",
-        "lightbox": "Lightbox",
         "title": "Titre",
         "price": "Prix",
         "comparePrice": "Prix de référence",
@@ -915,10 +901,7 @@
         "borderGrid": "Grille avec bordures",
         "supportingText": "Texte d’accompagnement",
         "hoverCta": "Appel à l’action au survol",
-        "detailCards": "Cartes détaillées",
-        "masonry": "Maçonnerie (masonry)",
-        "carousel": "Carrousel",
-        "slideshowFade": "Diaporama (fondu)"
+        "detailCards": "Cartes détaillées"
       },
       "placeholder": {
         "internalLink": "/a-propos ou https://…",
@@ -1021,9 +1004,8 @@
         "headingPlaceholder": "p. ex. Produit",
         "addLink": "+ Ajouter un lien"
       },
-      "gallery": {
+      "images": {
         "uploadFailed": "Échec du téléversement",
-        "carouselHint": "Une image s’affiche à la fois, avec des points pour passer de l’une à l’autre. Réorganisez les images ci-dessous pour changer l’ordre.",
         "uploading": "Téléversement…",
         "uploadFromDevice": "⇧ Téléverser depuis l’appareil",
         "addImageUrl": "+ Ajouter une URL d’image",
@@ -1060,7 +1042,6 @@
       "details": "Détails",
       "dropContentHere": "Déposer le contenu ici",
       "embed": "Intégration : ",
-      "emptyGallery": "Galerie vide",
       "feature": "Caractéristique",
       "featuredImage": "Image mise en avant",
       "heading": "Titre",
@@ -2697,150 +2678,6 @@
       }
     }
   },
-  "consent": {
-    "eraseConfirm": "Effacer l’enregistrement de consentement de {cid} ? Cette action est irréversible.",
-    "onlyAdmins": "Les paramètres de consentement aux cookies sont réservés aux administrateurs.",
-    "pageTitle": "Consentement aux cookies",
-    "pageDescription": "Bannière de consentement propriétaire, centre de préférences et blocage des scripts et contenus intégrés. Les scripts et contenus intégrés non essentiels restent bloqués tant que leur catégorie n’a pas été acceptée.",
-    "exportRecordsCsv": "Exporter les enregistrements (CSV)",
-    "settingsSaved": "Paramètres enregistrés.",
-    "behaviourTitle": "Comportement",
-    "showBannerLabel": "Afficher la bannière de consentement sur le site public",
-    "displayModeLabel": "Mode d'affichage",
-    "displayModeAlways": "Toujours afficher",
-    "displayModeEu": "Visiteurs de l’UE / EEE uniquement (approximatif, selon le fuseau horaire)",
-    "displayModeOff": "Désactivé",
-    "geoHint": "La détection géographique est approximative et s’effectue dans le navigateur du visiteur — sans recherche d’IP, sans tiers.",
-    "logConsentLabel": "Conserver une trace d’audit pour chaque choix de consentement",
-    "logConsentHint": "Désactivé : la bannière applique toujours les choix, mais aucune ligne n’est écrite dans la base de données et aucune balise n’est envoyée. Désactivez cette option si vous n’avez pas besoin du journal d’audit.",
-    "policyVersionLabel": "Version de la politique",
-    "policyVersionHint": "Incrémentez-la lorsque la politique change — les consentements précédents sont invalidés et la bannière réapparaît. Modifier les traductions n’a pas cet effet.",
-    "privacyPolicyUrlLabel": "URL de la politique de confidentialité",
-    "reopenSelectorLabel": "Sélecteur de réouverture",
-    "reopenSelectorHint": "Un clic sur les éléments correspondant à ce sélecteur CSS rouvre le centre de préférences.",
-    "categoriesTitle": "Catégories",
-    "category": {
-      "necessary": "Nécessaires",
-      "preferences": "Préférences",
-      "analytics": "Statistiques",
-      "marketing": "Marketing"
-    },
-    "categoriesIntro": "est toujours actif. Choisissez les catégories facultatives auxquelles les visiteurs peuvent consentir.",
-    "textSectionTitle": "Texte",
-    "designTitle": "Design et emplacement",
-    "layoutLabel": "Disposition",
-    "layoutBar": "Barre (bande pleine largeur)",
-    "layoutBox": "Encadré (carte flottante)",
-    "layoutModal": "Fenêtre modale (centrée, bloque la page)",
-    "positionLabel": "Position",
-    "panelRadiusLabel": "Rayon des coins du panneau",
-    "buttonRadiusLabel": "Rayon des coins des boutons",
-    "panelWidthLabel": "Largeur du panneau (encadré / modale)",
-    "modalBackdropLabel": "Arrière-plan de la fenêtre modale",
-    "useThemeColorsLabel": "Utiliser les couleurs du thème actif (recommandé)",
-    "scriptEmbedGatingTitle": "Blocage des scripts et contenus intégrés",
-    "gateEmbedsLabel": "Remplacer les contenus intégrés externes de la page par un espace réservé déblocable tant que le Marketing n’est pas accepté",
-    "analyticsSnippetLabel": "Code statistiques dans le head",
-    "analyticsSnippetPlaceholder": "<script>…</script> — exécuté uniquement après que le visiteur a accepté les statistiques",
-    "analyticsSnippetHint": "La balise Google configurée dans l’extension Analytics est automatiquement bloquée jusqu’au consentement.",
-    "marketingSnippetLabel": "Code marketing dans le head",
-    "marketingSnippetPlaceholder": "<script>…</script> — exécuté uniquement après que le visiteur a accepté le marketing",
-    "saveSettingsButton": "Enregistrer les paramètres",
-    "cookieDeclarationsTitle": "Déclarations de cookies",
-    "cookieDeclarationsIntro1": "Tous les cookies déclarés par la plateforme et par chaque extension active via le hook",
-    "cookieDeclarationsIntro2": "— la bannière de consentement les présente par catégorie et, lorsqu’un visiteur retire une catégorie, l’environnement d’exécution fait expirer les cookies correspondants. Reclassez un cookie ci-dessous pour remplacer la catégorie choisie par son développeur. Les cookies de la catégorie",
-    "cookieDeclarationsIntro3": "sont toujours autorisés et ne peuvent pas être bloqués.",
-    "noCookiesRegistered": "Aucun cookie déclaré pour le moment. Les cookies du cœur apparaissent dès que le site fonctionne ; ceux des extensions apparaissent lorsque l’extension est active.",
-    "tableHeader": {
-      "name": "Nom",
-      "setBy": "Défini par",
-      "purpose": "Finalité",
-      "duration": "Durée",
-      "declared": "Déclaré",
-      "categoryOverride": "Catégorie (remplacement)"
-    },
-    "saveCategoryOverridesButton": "Enregistrer les changements de catégorie",
-    "consentRecordsTitle": "Registre des consentements",
-    "auditLoggingOff": "Le journal d’audit est désactivé — aucun nouvel enregistrement n’est créé. Les lignes existantes ci-dessous sont conservées jusqu’à leur suppression.",
-    "noRecordsYet": "Rien n'a encore été enregistré. Visitez le site public dans une nouvelle session et faites un choix.",
-    "recordsTableHeader": {
-      "recorded": "Enregistré le",
-      "clientId": "ID client",
-      "policy": "Politique",
-      "choices": "Choix",
-      "locale": "Langue",
-      "device": "Appareil"
-    },
-    "eraseButton": "Effacer",
-    "defaultText": {
-      "bannerTitle": "Nous respectons votre vie privée",
-      "bannerBody": "Nous utilisons des cookies pour faire fonctionner ce site et, avec votre consentement, pour mesurer l’audience et personnaliser le contenu.",
-      "privacyPolicyLabel": "Politique de confidentialité",
-      "acceptAllLabel": "Tout accepter",
-      "rejectAllLabel": "Refuser les cookies non essentiels",
-      "saveLabel": "Enregistrer les préférences",
-      "preferencesLabel": "Gérer les préférences",
-      "necessaryName": "Strictement nécessaire",
-      "necessaryDescription": "Indispensables au fonctionnement du site. Toujours actifs.",
-      "embedNote": "Ce contenu est hébergé hors site et est bloqué jusqu'à ce que vous acceptiez les cookies marketing.",
-      "embedUnlockLabel": "Charger le contenu",
-      "categories": {
-        "preferences": {
-          "name": "Préférences",
-          "description": "Mémorisent des choix comme la langue ou la région."
-        },
-        "analytics": {
-          "name": "Statistiques",
-          "description": "Nous aide à comprendre comment les visiteurs utilisent le site."
-        },
-        "marketing": {
-          "name": "Marketing",
-          "description": "Utilisés pour proposer du contenu pertinent et mesurer les campagnes."
-        }
-      }
-    },
-    "textFieldLabel": {
-      "bannerTitle": "Titre de la bannière",
-      "bannerBody": "Texte de la bannière",
-      "privacyPolicyLabel": "Libellé du lien vers la politique de confidentialité",
-      "acceptAllLabel": "Bouton « Tout accepter »",
-      "rejectAllLabel": "Bouton « Refuser »",
-      "saveLabel": "Bouton « Enregistrer »",
-      "preferencesLabel": "Bouton « Préférences »",
-      "necessaryName": "Nom de la catégorie « Nécessaires »",
-      "necessaryDescription": "Description de la catégorie « Nécessaires »",
-      "embedNote": "Message de contenu intégré bloqué",
-      "embedUnlockLabel": "Bouton de déblocage du contenu intégré"
-    },
-    "colorField": {
-      "background": "Arrière-plan",
-      "text": "Texte",
-      "accent": "Accent (boutons, liens)",
-      "accentText": "Texte sur l’accent",
-      "border": "Bordure"
-    },
-    "layoutShort": {
-      "bar": "Barre",
-      "box": "Encadré",
-      "modal": "Modale"
-    },
-    "position": {
-      "top": "Haut",
-      "bottom": "Bas",
-      "topLeft": "En haut à gauche",
-      "topRight": "En haut à droite",
-      "bottomLeft": "En bas à gauche",
-      "bottomRight": "En bas à droite",
-      "center": "Centre"
-    },
-    "categoryNameFieldLabel": "Nom de {category}",
-    "categoryDescriptionFieldLabel": "Description de {category}",
-    "previewCaption": "Aperçu — {layout} · {position}",
-    "declaredSuffix": "déclaré",
-    "recordsSummary": "{total} {recordWord} — statistiques acceptées par {analytics}, marketing par {marketing}, préférences par {preferences}. Chaque ligne est liée à la version de la politique et à l’empreinte en vigueur au moment de l’enregistrement.",
-    "recordSingular": "enregistrement",
-    "recordPlural": "enregistrements"
-  },
   "emails": {
     "couldNotLoadTranslation": "Impossible de charger cette traduction",
     "templatePublished": "Modèle publié.",
@@ -3854,11 +3691,6 @@
     },
     "pluginsPage": {
       "by": "par "
-    },
-    "consentPage": {
-      "eraseFailed": "Échec de l’effacement",
-      "default": "Par défaut",
-      "saveFailed": "Échec de l’enregistrement"
     },
     "settingsPage": {
       "freeCrypto": "crypto gratuite",

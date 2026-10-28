@@ -444,6 +444,9 @@ importers:
 
   packages/blocks:
     dependencies:
+      '@justflows/sdk':
+        specifier: file:../sdk
+        version: link:../sdk
       katex:
         specifier: ^0.19.0
         version: 0.19.0

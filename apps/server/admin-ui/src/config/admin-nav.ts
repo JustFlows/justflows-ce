@@ -3,6 +3,8 @@ export type NavItem = {
   key: string;
   /** Literal label used when `key` has no catalog entry (plugin-supplied items). */
   label?: string;
+  /** Locale code → label a plugin shipped; wins over `key` and `label`. */
+  labels?: Record<string, string>;
   to: string;
   icon: string;
   end?: boolean;
@@ -26,6 +28,10 @@ export type PluginMenuItem = {
   id: string;
   label: string;
   labelKey?: string;
+  /** Locale code → label, from the manifest or the plugin's own catalogs. */
+  labels?: Record<string, string>;
+  /** Roles that may open this page. Omitted: the `/admin/plugins` rule. */
+  roles?: string[];
   path: string;
   icon: string;
   domain: string;
@@ -87,15 +93,28 @@ export function parsePluginSections(value: unknown): PluginEditorSection[] {
 
 export type EditorNavEntry = { id: string; label: string };
 
-/** Content-editor menu. Plugin sections replace the single plugin screen label. */
+/** Admin text a plugin declared as one string or a `{ locale: text }` map. */
+export type LocalizedLabel = string | Record<string, string>;
+
+/** Pick the text for the admin language: exact, base language, `en`, then any entry. */
+export function localizedLabel(value: LocalizedLabel | undefined, locale: string): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return value[locale] ?? value[locale.split("-")[0]!] ?? value["en"] ?? Object.values(value)[0] ?? "";
+}
+
+/**
+ * Content-editor menu. Plugin sections replace the single plugin screen label;
+ * `panels` are the editor panels active plugins declare, as `panel:<plugin>:<id>`.
+ */
 export function contentEditorNav(input: {
   contentLabel: string;
-  seoLabel: string;
   discussionLabel: string;
   revisionsLabel: string;
   advancedLabel: string;
   pluginLabel?: string;
   pluginSections?: PluginEditorSection[];
+  panels?: EditorNavEntry[];
 }): EditorNavEntry[] {
   const plugin =
     input.pluginSections && input.pluginSections.length > 0
@@ -106,7 +125,7 @@ export function contentEditorNav(input: {
   return [
     { id: "content", label: input.contentLabel },
     ...plugin,
-    { id: "seo", label: input.seoLabel },
+    ...(input.panels ?? []),
     { id: "discussion", label: input.discussionLabel },
     { id: "revisions", label: input.revisionsLabel },
     { id: "advanced", label: input.advancedLabel },
@@ -274,6 +293,7 @@ function toNavItem(item: PluginMenuItem): NavItem {
   return {
     key: item.labelKey ?? `plugin.${item.pluginId}.${item.id}`,
     label: item.label,
+    labels: item.labels,
     // Canonical `/admin/…` (the SDK manifest schema requires it), matching the
     // core nav items. `installAdminPathNavigation()` maps it to the configured
     // admin URL on navigation, and the path-comparison helpers below normalise
@@ -346,8 +366,15 @@ export function isDomainActive(domain: NavDomain, pathname: string): boolean {
   return domain.items.some((item) => matchesNavItem(pathname, item));
 }
 
-/** Prefer the catalog translation; fall back to the label the plugin shipped. */
-export function navLabel(t: (key: string) => string, item: NavItem): string {
+/**
+ * Prefer the plugin's own label for `locale` (exact, then the base language),
+ * then the core catalog translation, then the English label the plugin shipped.
+ */
+export function navLabel(t: (key: string) => string, item: NavItem, locale?: string): string {
+  if (locale && item.labels) {
+    const own = item.labels[locale] ?? item.labels[locale.split("-")[0]!];
+    if (own) return own;
+  }
   const translated = t(item.key);
   if (translated !== item.key) return translated;
   return item.label ?? item.key;
@@ -398,12 +425,6 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/settings/pwa": ["administrator"],
   "/admin/settings/placeholders": ["administrator"],
   "/admin/redirects": ["administrator"],
-  "/admin/plugins/justflows.helpdesk": ["administrator", "editor", "support-agent"],
-  // Consent and Forms sat at their own top-level paths with no rule (visible to
-  // every admin role); keep that now that they live under /admin/plugins/ and
-  // would otherwise inherit its administrator/editor rule by prefix.
-  "/admin/plugins/justflows.consent": ALL_ADMIN_ROLES,
-  "/admin/plugins/justflows.forms": ALL_ADMIN_ROLES,
 };
 
 /** Every rule path, longest first, so a nested route matches its owning page. */
@@ -428,6 +449,24 @@ export interface NavAudience {
   platformOperator?: boolean;
   /** Admin paths this website is not allowed to open. */
   disabledPaths?: readonly string[];
+  /** Plugin page path → roles that may open it, from each page's `roles`. */
+  pluginPageRoles?: Readonly<Record<string, readonly string[]>>;
+}
+
+/** Roles each plugin page declares, for `NavAudience.pluginPageRoles`. */
+export function pluginPageRoles(items: readonly PluginMenuItem[]): Record<string, readonly string[]> {
+  const out: Record<string, readonly string[]> = {};
+  for (const item of items) if (item.roles?.length) out[item.path] = item.roles;
+  return out;
+}
+
+/** The roles declared by the plugin page a path belongs to (longest match), if any. */
+function pluginRolesFor(pathname: string, pages: Readonly<Record<string, readonly string[]>>): readonly string[] | null {
+  let best: string | null = null;
+  for (const path of Object.keys(pages)) {
+    if ((pathname === path || pathname.startsWith(`${path}/`)) && (!best || path.length > best.length)) best = path;
+  }
+  return best ? pages[best] ?? null : null;
 }
 
 const INSTALLATION_ROOT_PREFIXES = ["/admin/health", "/admin/updates", "/admin/marketplace"];
@@ -451,6 +490,8 @@ export function canAccessPath(
   // Overview reads the security-headers API, so it shares that feature gate.
   // Keep this exact: account security remains available under the same parent.
   if (pathname === "/admin/security" && audience?.disabledPaths?.includes("/admin/security/headers")) return false;
+  const declared = audience?.pluginPageRoles ? pluginRolesFor(pathname, audience.pluginPageRoles) : null;
+  if (declared) return declared.includes(role);
   const rule = navRuleFor(pathname);
   if (!rule) return true;
   return (NAV_ACCESS[rule] ?? ALL_ADMIN_ROLES).includes(role);

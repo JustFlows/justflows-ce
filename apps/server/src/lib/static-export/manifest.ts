@@ -327,7 +327,6 @@ location ^~ /install             { try_files /_pass @fallback; }
 location ^~ /forgot-password     { try_files /_pass @fallback; }
 location ^~ /reset-password      { try_files /_pass @fallback; }
 location ^~ /set-locale          { try_files /_pass @fallback; }
-location ^~ /justflows-forms/        { try_files /_pass @fallback; }
 location ^~ /justflows-comments/     { try_files /_pass @fallback; }
 # plugin assets are exported, but consent record/cookies are dynamic
 location ^~ /ext/                { try_files $uri @fallback; }

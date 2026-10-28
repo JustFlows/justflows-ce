@@ -68,7 +68,6 @@ return {
   "core.code": { code: "", language: "" },
   "core.embed": { url: "", caption: "" },
   "core.html": { html: "" },
-  "justflows.gallery.grid": { items: [], layout: "grid", columns: 3, lightbox: true },
   "justflows.blog.postList": {
     layout: "grid",
     columns: 3,

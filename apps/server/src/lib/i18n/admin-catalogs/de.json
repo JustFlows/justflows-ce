@@ -18,7 +18,6 @@
     "contentTypes": "Inhaltstypen",
     "media": "Medien",
     "plugins": "Plugins",
-    "forms": "Formulare",
     "themes": "Themes",
     "design": "Design",
     "widgets": "Widgets",
@@ -33,7 +32,6 @@
     "health": "Status",
     "updates": "Updates",
     "webhooks": "Webhooks",
-    "consent": "Cookie-Einwilligung",
     "securityOverview": "Übersicht",
     "securityHeaders": "Header",
     "securityAdvanced": "Erweitert",
@@ -298,7 +296,6 @@
     "notFoundFallback": "Nicht gefunden",
     "settingsSectionsAriaLabel": "Einstellungsabschnitte",
     "contentHeading": "Inhalt",
-    "seoHeading": "SEO",
     "discussionHeading": "Kommentare",
     "advancedHeading": "Erweitert",
     "excerptHint": "Wird in Listen angezeigt. Wird als Meta-Beschreibung verwendet, wenn die SEO-Beschreibung leer ist.",
@@ -307,16 +304,6 @@
     "openPageBuilder": "Page Builder öffnen",
     "pageBuilderHint": "Layout und Blöcke dieses Inhalts werden im Page Builder bearbeitet. Diese Ansicht ist für die Einstellungen – Titel, Slug, Veröffentlichung, SEO.",
     "seoTitleLabel": "SEO-Titel",
-    "seoTitleHint": "Ersetzt den Seitentitel in Suchergebnissen und beim Teilen in sozialen Netzwerken.",
-    "metaDescriptionLabel": "Meta-Beschreibung",
-    "metaDescriptionPlaceholder": "Eine kurze Zusammenfassung für Suchmaschinen",
-    "metaDescriptionHint": "Wenn leer, wird der Auszug oder der Titel verwendet. Wird in Google und in Open-Graph-Vorschauen angezeigt.",
-    "canonicalUrlLabel": "Kanonische URL",
-    "canonicalUrlHint": "Leer lassen, um den Permalink dieser Seite zu verwenden.",
-    "socialImageLabel": "Bild für soziale Medien",
-    "socialImageDescription": "Wird für Open-Graph- und Twitter-Karten verwendet. Wenn leer, wird kein Bild verwendet.",
-    "excludeFeedsLabel": "Aus RSS-, Atom- und JSON-Feeds ausschließen",
-    "excludeFeedsHint": "Die Seite bleibt öffentlich und in der Sitemap, wird aber in keinem Feed aufgeführt.",
     "commentsLabel": "Kommentare",
     "commentsUseSiteDefault": "Website-Standard verwenden",
     "commentsOpen": "Offen – Kommentare immer zulassen",
@@ -853,7 +840,6 @@
         "corners": "Ecken",
         "layout": "Layout",
         "images": "Bilder",
-        "lightbox": "Lightbox",
         "title": "Titel",
         "price": "Preis",
         "comparePrice": "Vergleichspreis",
@@ -915,10 +901,7 @@
         "borderGrid": "Raster mit Rahmen",
         "supportingText": "Unterstützender Text",
         "hoverCta": "CTA beim Hover",
-        "detailCards": "Detailkarten",
-        "masonry": "Masonry",
-        "carousel": "Karussell",
-        "slideshowFade": "Diashow (Überblenden)"
+        "detailCards": "Detailkarten"
       },
       "placeholder": {
         "internalLink": "/ueber-uns oder https://…",
@@ -1021,9 +1004,8 @@
         "headingPlaceholder": "z. B. Produkt",
         "addLink": "+ Link hinzufügen"
       },
-      "gallery": {
+      "images": {
         "uploadFailed": "Hochladen fehlgeschlagen",
-        "carouselHint": "Es wird jeweils ein Bild angezeigt, mit Punkten zum Wechseln. Ändern Sie unten die Reihenfolge der Bilder, um die Abfolge anzupassen.",
         "uploading": "Wird hochgeladen…",
         "uploadFromDevice": "⇧ Hochladen vom Gerät",
         "addImageUrl": "+ Bild-URL hinzufügen",
@@ -1060,7 +1042,6 @@
       "details": "Details",
       "dropContentHere": "Inhalt hier ablegen",
       "embed": "Einbettung: ",
-      "emptyGallery": "Leere Galerie",
       "feature": "Merkmal",
       "featuredImage": "Beitragsbild",
       "heading": "Überschrift",
@@ -2697,150 +2678,6 @@
       }
     }
   },
-  "consent": {
-    "eraseConfirm": "Den Einwilligungsnachweis für {cid} löschen? Dies kann nicht rückgängig gemacht werden.",
-    "onlyAdmins": "Die Einstellungen zur Cookie-Einwilligung sind nur für Administratoren verfügbar.",
-    "pageTitle": "Cookie-Einwilligung",
-    "pageDescription": "Eigenes Einwilligungsbanner, Präferenzcenter und Blockierung von Skripten und Einbettungen. Nicht notwendige Skripte und Einbettungen bleiben blockiert, bis ihrer Kategorie zugestimmt wurde.",
-    "exportRecordsCsv": "Einträge exportieren (CSV)",
-    "settingsSaved": "Einstellungen gespeichert.",
-    "behaviourTitle": "Verhalten",
-    "showBannerLabel": "Einwilligungsbanner auf der öffentlichen Website anzeigen",
-    "displayModeLabel": "Anzeigemodus",
-    "displayModeAlways": "Immer anzeigen",
-    "displayModeEu": "Nur Besucher aus der EU/dem EWR (näherungsweise, anhand der Zeitzone)",
-    "displayModeOff": "Aus",
-    "geoHint": "Die Standorterkennung ist nur näherungsweise und läuft im Browser des Besuchers – keine IP-Abfrage, keine Drittanbieter.",
-    "logConsentLabel": "Für jede Einwilligungsentscheidung einen Audit-Eintrag speichern",
-    "logConsentHint": "Aus: Das Banner setzt die Auswahl weiterhin durch, aber es werden keine Zeilen in die Datenbank geschrieben und kein Beacon gesendet. Deaktivieren Sie dies, wenn Sie das Audit-Protokoll nicht benötigen.",
-    "policyVersionLabel": "Richtlinienversion",
-    "policyVersionHint": "Erhöhen Sie diesen Wert, wenn sich die Richtlinie ändert – frühere Einwilligungen werden ungültig und das Banner erscheint erneut. Das Bearbeiten von Übersetzungen hat diese Wirkung nicht.",
-    "privacyPolicyUrlLabel": "URL der Datenschutzerklärung",
-    "reopenSelectorLabel": "Selektor zum erneuten Öffnen",
-    "reopenSelectorHint": "Klicks auf Elemente, die zu diesem CSS-Selektor passen, öffnen das Präferenzcenter erneut.",
-    "categoriesTitle": "Kategorien",
-    "category": {
-      "necessary": "Notwendig",
-      "preferences": "Präferenzen",
-      "analytics": "Statistik",
-      "marketing": "Marketing"
-    },
-    "categoriesIntro": "ist immer aktiv. Wählen Sie, welchen optionalen Kategorien Besucher zustimmen können.",
-    "textSectionTitle": "Text",
-    "designTitle": "Design & Platzierung",
-    "layoutLabel": "Layout",
-    "layoutBar": "Leiste (Streifen über die volle Breite)",
-    "layoutBox": "Box (schwebende Karte)",
-    "layoutModal": "Modal (zentriert, blockiert die Seite)",
-    "positionLabel": "Position",
-    "panelRadiusLabel": "Eckenradius des Panels",
-    "buttonRadiusLabel": "Eckenradius der Buttons",
-    "panelWidthLabel": "Panelbreite (Box / Modal)",
-    "modalBackdropLabel": "Hintergrund hinter dem Modal",
-    "useThemeColorsLabel": "Farben des aktiven Themes verwenden (empfohlen)",
-    "scriptEmbedGatingTitle": "Blockierung von Skripten und Einbettungen",
-    "gateEmbedsLabel": "Externe Einbettungen im Seiteninhalt durch einen freischaltbaren Platzhalter ersetzen, bis Marketing akzeptiert wurde",
-    "analyticsSnippetLabel": "Statistik-Snippet im Head",
-    "analyticsSnippetPlaceholder": "<script>…</script> – wird erst ausgeführt, wenn der Besucher Statistik akzeptiert",
-    "analyticsSnippetHint": "Das im Analytics-Plugin konfigurierte Google-Tag wird automatisch bis zur Einwilligung blockiert.",
-    "marketingSnippetLabel": "Marketing-Snippet im Head",
-    "marketingSnippetPlaceholder": "<script>…</script> – wird erst ausgeführt, wenn der Besucher Marketing akzeptiert",
-    "saveSettingsButton": "Einstellungen speichern",
-    "cookieDeclarationsTitle": "Cookie-Erklärungen",
-    "cookieDeclarationsIntro1": "Alle Cookies, die die Plattform und jedes aktive Plugin über den",
-    "cookieDeclarationsIntro2": "Hook registriert haben. Das Einwilligungsbanner legt sie je Kategorie offen, und wenn ein Besucher eine Kategorie widerruft, lässt die Laufzeitumgebung die zugehörigen Cookies ablaufen. Ordnen Sie ein Cookie unten neu zu, um die vom Entwickler gewählte Kategorie zu überschreiben.",
-    "cookieDeclarationsIntro3": "Cookies sind immer erlaubt und können nicht blockiert werden.",
-    "noCookiesRegistered": "Noch keine Cookies registriert. Kern-Cookies erscheinen, sobald die Website läuft; Plugin-Cookies erscheinen, wenn das Plugin aktiv ist.",
-    "tableHeader": {
-      "name": "Name",
-      "setBy": "Gesetzt von",
-      "purpose": "Zweck",
-      "duration": "Dauer",
-      "declared": "Deklariert",
-      "categoryOverride": "Kategorie (überschrieben)"
-    },
-    "saveCategoryOverridesButton": "Kategoriezuordnungen speichern",
-    "consentRecordsTitle": "Einwilligungsnachweise",
-    "auditLoggingOff": "Die Audit-Protokollierung ist deaktiviert – es werden keine neuen Einträge geschrieben. Bestehende Zeilen unten bleiben erhalten, bis sie gelöscht werden.",
-    "noRecordsYet": "Noch nichts erfasst. Besuchen Sie die öffentliche Website in einer neuen Sitzung und treffen Sie eine Auswahl.",
-    "recordsTableHeader": {
-      "recorded": "Erfasst",
-      "clientId": "Kunden-ID",
-      "policy": "Richtlinie",
-      "choices": "Auswahl",
-      "locale": "Sprache",
-      "device": "Gerät"
-    },
-    "eraseButton": "Löschen",
-    "defaultText": {
-      "bannerTitle": "Ihre Privatsphäre ist uns wichtig",
-      "bannerBody": "Wir verwenden Cookies, um diese Website zu betreiben und mit Ihrer Zustimmung den Traffic zu messen und Inhalte zu personalisieren.",
-      "privacyPolicyLabel": "Datenschutzerklärung",
-      "acceptAllLabel": "Alle akzeptieren",
-      "rejectAllLabel": "Nicht notwendige ablehnen",
-      "saveLabel": "Präferenzen speichern",
-      "preferencesLabel": "Präferenzen verwalten",
-      "necessaryName": "Streng notwendig",
-      "necessaryDescription": "Erforderlich, damit die Website funktioniert. Immer aktiv.",
-      "embedNote": "Dieser Inhalt wird extern gehostet und ist blockiert, bis Sie Marketing-Cookies akzeptieren.",
-      "embedUnlockLabel": "Inhalt laden",
-      "categories": {
-        "preferences": {
-          "name": "Präferenzen",
-          "description": "Speichert Einstellungen wie Sprache oder Region."
-        },
-        "analytics": {
-          "name": "Statistik",
-          "description": "Hilft uns zu verstehen, wie Besucher die Website nutzen."
-        },
-        "marketing": {
-          "name": "Marketing",
-          "description": "Wird für relevante Inhalte und Kampagnenmessungen verwendet."
-        }
-      }
-    },
-    "textFieldLabel": {
-      "bannerTitle": "Bannertitel",
-      "bannerBody": "Bannertext",
-      "privacyPolicyLabel": "Linktext zur Datenschutzerklärung",
-      "acceptAllLabel": "Button „Alle akzeptieren“",
-      "rejectAllLabel": "Button „Ablehnen“",
-      "saveLabel": "Button „Speichern“",
-      "preferencesLabel": "Button „Präferenzen“",
-      "necessaryName": "Name der Kategorie „Notwendig“",
-      "necessaryDescription": "Beschreibung der Kategorie „Notwendig“",
-      "embedNote": "Hinweis bei blockierter Einbettung",
-      "embedUnlockLabel": "Button zum Laden der Einbettung"
-    },
-    "colorField": {
-      "background": "Hintergrund",
-      "text": "Text",
-      "accent": "Akzent (Buttons, Links)",
-      "accentText": "Text auf Akzentfarbe",
-      "border": "Rahmen"
-    },
-    "layoutShort": {
-      "bar": "Leiste",
-      "box": "Box",
-      "modal": "Modal"
-    },
-    "position": {
-      "top": "Oben",
-      "bottom": "Unten",
-      "topLeft": "Oben links",
-      "topRight": "Oben rechts",
-      "bottomLeft": "Unten links",
-      "bottomRight": "Unten rechts",
-      "center": "Mitte"
-    },
-    "categoryNameFieldLabel": "Name für {category}",
-    "categoryDescriptionFieldLabel": "Beschreibung für {category}",
-    "previewCaption": "Vorschau – {layout} · {position}",
-    "declaredSuffix": "deklariert",
-    "recordsSummary": "{total} {recordWord} – Statistik akzeptiert von {analytics}, Marketing von {marketing}, Präferenzen von {preferences}. Jede Zeile ist an die Richtlinienversion und den Hash gebunden, die zum Zeitpunkt der Erfassung galten.",
-    "recordSingular": "Eintrag",
-    "recordPlural": "Einträge"
-  },
   "emails": {
     "couldNotLoadTranslation": "Diese Übersetzung konnte nicht geladen werden",
     "templatePublished": "Vorlage veröffentlicht.",
@@ -3854,11 +3691,6 @@
     },
     "pluginsPage": {
       "by": "von "
-    },
-    "consentPage": {
-      "eraseFailed": "Löschen fehlgeschlagen",
-      "default": "Standard",
-      "saveFailed": "Speichern fehlgeschlagen"
     },
     "settingsPage": {
       "freeCrypto": "kostenloses Crypto",

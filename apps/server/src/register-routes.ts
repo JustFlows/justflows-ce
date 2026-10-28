@@ -289,7 +289,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.get("/theme.css", serveThemeCss);
   app.get("/theme.js", rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: "draft-8", legacyHeaders: false }), serveThemeScripts);
 
-  // A statically-exported page submits forms/comments by `fetch()` back to this
+  // A statically-exported page submits comments back to this
   // origin. Answer the CORS preflight for vouched-for origins so that works.
   const { applyFormCors } = await import("./lib/static-export/cors.js");
   const submitPreflight = (req: express.Request, res: express.Response) => {
@@ -299,41 +299,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
       res.status(403).end();
     }
   };
-  // `/justflows-forms/*` is owned by the standalone Forms plugin (its own
-  // `ctx.http` routes), but CORS remains a host security policy: plugins cannot
-  // set Access-Control-* response headers. Apply it before plugin dispatch so a
-  // pure-static site can fetch config and submit back to the Node origin.
-  app.use(
-    ["/justflows-forms/config", "/justflows-forms/submit"],
-    (req: express.Request, res: express.Response, next: express.NextFunction) => {
-      applyFormCors(req.get("origin"), (n, v) => res.setHeader(n, v));
-      next();
-    },
-  );
-  app.options("/justflows-forms/submit", submitPreflight);
-  // `applyFormCors` advertises this endpoint too — it needs its own preflight
-  // responder or a JSON `Content-Type` fetch is blocked by the browser.
-  app.options("/justflows-forms/config", submitPreflight);
-
-  // `POST /justflows-forms/submit` is CSRF-exempt (public, cross-origin form
-  // posts from a static export) and dispatched into the out-of-tree Forms
-  // plugin. Keep a host-side per-IP ceiling here so an absent or lax
-  // plugin-side limiter cannot leave the endpoint an unbounded spam / SMTP sink.
-  {
-    const { clientIp, consumeRateLimit } = await import("./lib/security/rate-limit.js");
-    app.post(
-      "/justflows-forms/submit",
-      (req: express.Request, res: express.Response, next: express.NextFunction) => {
-        if (!consumeRateLimit(`form:ip:${clientIp(req)}`, 10, 10 * 60_000)) {
-          res.status(429).type("text/plain").send("Too many submissions — try again later.");
-          return;
-        }
-        next();
-      },
-    );
-  }
-
-  // Only comments keep a host-level submit endpoint.
+  // Comments are the only host-level submit endpoint.
   app.options("/justflows-comments/submit", submitPreflight);
 
   app.post("/justflows-comments/submit", requireInstalled, async (req, res) => {
@@ -403,7 +369,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   app.get("/sitemap.xml", requireInstalled, async (_req, res, next) => {
     try {
-      const { buildSitemapXml } = await import("./lib/rendering/seo-public.js");
+      const { buildSitemapXml } = await import("./lib/rendering/sitemap.js");
       const { getSiteId } = await import("./lib/themes/themes-db.js");
       const siteId = await getSiteId();
       if (!siteId) {

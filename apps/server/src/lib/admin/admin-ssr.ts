@@ -338,6 +338,17 @@ async function buildPayload(req: Request): Promise<AdminSsrPayload> {
   return payload;
 }
 
+/** True when the installation has sites besides the main one. A failed read counts as one site. */
+async function installationHasOtherSites(): Promise<boolean> {
+  try {
+    const { loadHostRecords } = await import("../tenancy/registry.js");
+    const loaded = await loadHostRecords();
+    return (loaded?.siteCount ?? 1) > 1;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Plugin markup for the end of an admin document. A failed filter leaves the
  * page unchanged.
@@ -347,21 +358,18 @@ async function appendAdminBody(html: string, req: Request): Promise<string> {
     const { ensurePluginRuntime, getRuntimeHooks } = await import("../plugins/plugin-runtime.js");
     await ensurePluginRuntime();
     const hooks = getRuntimeHooks();
+    if (!hooks.has("admin.body")) return html;
     const { getTenantContext } = await import("../tenancy/context.js");
-    const { adminSupportMarkup, rootAdminHidesSupportPopup } = await import("./admin-support-popup.js");
-    const siteId = getTenantContext()?.siteId ?? "";
-    const rootSite = await rootAdminHidesSupportPopup();
-    let extra = "";
-    if (hooks.has("admin.body")) {
-      const filtered = await hooks.applyFilter(
-        "admin.body",
-        "",
-        { siteId, ...(rootSite ? { rootSite: true } : {}) },
-        { siteId, source: "http" },
-      );
-      if (typeof filtered === "string") extra = filtered;
-    }
-    if (!extra.includes("data-jf-helpdesk-popup")) extra += await adminSupportMarkup();
+    const tenant = getTenantContext();
+    const siteId = tenant?.siteId ?? "";
+    const rootSite = tenant?.rootSite === true && (await installationHasOtherSites());
+    const filtered = await hooks.applyFilter(
+      "admin.body",
+      "",
+      { siteId, ...(rootSite ? { rootSite: true } : {}) },
+      { siteId, source: "http" },
+    );
+    const extra = typeof filtered === "string" ? filtered : "";
     if (!extra) return html;
     const marker = "</body>";
     const at = html.lastIndexOf(marker);
