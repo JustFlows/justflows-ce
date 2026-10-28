@@ -6,6 +6,7 @@ import {
   contentEditorNav,
   filterDomainsByRole,
   isDomainActive,
+  localizedLabel,
   navLabel,
   navRuleFor,
   pluginPageRoles,
@@ -121,7 +122,6 @@ describe("content editor plugin sections", () => {
   it("lists each published section instead of one plugin screen", () => {
     const nav = contentEditorNav({
       contentLabel: "Content",
-      seoLabel: "SEO",
       discussionLabel: "Discussion",
       revisionsLabel: "Revisions",
       advancedLabel: "Advanced",
@@ -130,6 +130,7 @@ describe("content editor plugin sections", () => {
         { id: "images", label: "Images" },
         { id: "pricing", label: "Pricing" },
       ],
+      panels: [{ id: "panel:justflows.seo:seo", label: "SEO" }],
     });
     expect(nav.map((item) => item.label)).toEqual([
       "Content",
@@ -146,13 +147,20 @@ describe("content editor plugin sections", () => {
   it("keeps the single plugin label when the frame has not published sections", () => {
     const nav = contentEditorNav({
       contentLabel: "Content",
-      seoLabel: "SEO",
       discussionLabel: "Discussion",
       revisionsLabel: "Revisions",
       advancedLabel: "Advanced",
       pluginLabel: "Product data",
     });
     expect(nav.map((item) => item.label)).toContain("Product data");
+  });
+
+  it("picks a panel label in the admin language", () => {
+    const label = { en: "SEO", nl: "Zoekmachines" };
+    expect(localizedLabel(label, "nl")).toBe("Zoekmachines");
+    expect(localizedLabel(label, "nl-BE")).toBe("Zoekmachines");
+    expect(localizedLabel(label, "de")).toBe("SEO");
+    expect(localizedLabel("Plain", "de")).toBe("Plain");
   });
 
   it("drops unsafe section ids and labels", () => {

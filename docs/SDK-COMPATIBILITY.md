@@ -77,6 +77,9 @@ All additive; existing plugins are unaffected.
 - The `html.title`, `html.canonical`, and `site.identity` filters, and a richer
   `html.head` context (`PublicPageContext`: content type and fields,
   description, canonical URL, share image, origin, and `indexable`).
+- `editorPanels` in the plugin manifest adds content editor sections
+  (`EditorPanelSchema`, `EditorPanelFieldSchema`, `LocalizedTextSchema`, and the
+  `PluginEditorPanel` and `LocalizedText` types are exported).
 - `hostCooperative` is no longer part of the manifest schema. Manifests that
   still declare it parse as before; the field is dropped.
 

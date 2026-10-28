@@ -93,15 +93,28 @@ export function parsePluginSections(value: unknown): PluginEditorSection[] {
 
 export type EditorNavEntry = { id: string; label: string };
 
-/** Content-editor menu. Plugin sections replace the single plugin screen label. */
+/** Admin text a plugin declared as one string or a `{ locale: text }` map. */
+export type LocalizedLabel = string | Record<string, string>;
+
+/** Pick the text for the admin language: exact, base language, `en`, then any entry. */
+export function localizedLabel(value: LocalizedLabel | undefined, locale: string): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return value[locale] ?? value[locale.split("-")[0]!] ?? value["en"] ?? Object.values(value)[0] ?? "";
+}
+
+/**
+ * Content-editor menu. Plugin sections replace the single plugin screen label;
+ * `panels` are the editor panels active plugins declare, as `panel:<plugin>:<id>`.
+ */
 export function contentEditorNav(input: {
   contentLabel: string;
-  seoLabel: string;
   discussionLabel: string;
   revisionsLabel: string;
   advancedLabel: string;
   pluginLabel?: string;
   pluginSections?: PluginEditorSection[];
+  panels?: EditorNavEntry[];
 }): EditorNavEntry[] {
   const plugin =
     input.pluginSections && input.pluginSections.length > 0
@@ -112,7 +125,7 @@ export function contentEditorNav(input: {
   return [
     { id: "content", label: input.contentLabel },
     ...plugin,
-    { id: "seo", label: input.seoLabel },
+    ...(input.panels ?? []),
     { id: "discussion", label: input.discussionLabel },
     { id: "revisions", label: input.revisionsLabel },
     { id: "advanced", label: input.advancedLabel },

@@ -422,6 +422,36 @@ example `{ "save": "Save" }`. A minimal English catalog may contain only the
 strings the screen shows. CI rejects a plugin manifest that ships `adminApp`
 without `locales.en`, and rejects a declared path whose JSON file is missing.
 
+## Content editor panels
+
+`editorPanels` in the manifest adds sections to the content editor, next to
+Content, Discussion, and Advanced, while the plugin is active. It needs
+`admin:extend`. Each field is saved in the entry's `fields` under its `key`, so
+your hooks read it from `PublicPageContext.fields` or the content API.
+
+```json
+"editorPanels": [
+  {
+    "id": "seo",
+    "title": { "en": "SEO", "nl": "SEO" },
+    "indexableOnly": true,
+    "fields": [
+      { "key": "seoTitle", "type": "text", "label": { "en": "SEO title" }, "placeholder": "{title}" },
+      { "key": "seoImage", "type": "image", "label": "Social image" }
+    ]
+  }
+]
+```
+
+| Field | Effect |
+| --- | --- |
+| `type` | `text`, `textarea`, `url`, `image` (media library picker), or `checkbox` |
+| `label`, `hint`, `placeholder` | One string, or `{ "<locale>": "<text>" }`; the editor picks the admin language, then its base language, then `en` |
+| `placeholder` tokens | `{title}`, `{excerpt}`, and `{url}` become the entry's title, excerpt, and public address |
+| `indexableOnly` | Show the panel only for content types included in search engines |
+
+At most 5 panels per plugin and 20 fields per panel.
+
 ## Ship your own stylesheet
 
 Plugins own the CSS for the public components they render. Keep the source in

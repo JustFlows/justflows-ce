@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   isValidPluginApiNamespace,
   AdminMenuItemSchema,
+  EditorPanelSchema,
   gplLicenseValidationMessage,
   isGplCompatibleLicense,
   PluginAssetsSchema,
@@ -108,6 +109,8 @@ export const PackageManifestSchema = z
      * declaration survives install and can be re-read from the stored manifest.
      */
     adminMenu: z.array(AdminMenuItemSchema).max(20).optional(),
+    /** Plugin-only: content editor sections, kept so they survive install. */
+    editorPanels: z.array(EditorPanelSchema).max(5).optional(),
     // Relative to `/admin/plugins/<id>` like `adminMenu` paths — see the SDK
     // `RELATIVE_ADMIN_PATH_RE` doc. `""` is the namespace root; omit for "no
     // setup wizard".
