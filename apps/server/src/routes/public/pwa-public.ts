@@ -8,7 +8,7 @@ import { getPwaSettings } from "../../lib/pwa/pwa-settings.js";
 import { buildManifestJson } from "../../lib/pwa/pwa-manifest.js";
 import { buildServiceWorkerScript, buildRetirementServiceWorkerScript } from "../../lib/pwa/pwa-service-worker.js";
 import { buildOfflinePageHtml } from "../../lib/pwa/pwa-offline-page.js";
-import { siteOrigin } from "../../lib/rendering/seo-public.js";
+import { siteOrigin } from "../../lib/rendering/site-origin.js";
 import { etagFor } from "../manage-api/envelope.js";
 
 /**

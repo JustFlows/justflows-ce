@@ -18,6 +18,7 @@ export {
   MEGA_MENU_SAFE_BLOCK_KINDS,
 } from "./hooks.js";
 export type {
+  PublicPageContext,
   AccountSection,
   AccountCard,
   AccountAction,

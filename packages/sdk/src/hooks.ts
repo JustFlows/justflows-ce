@@ -12,6 +12,31 @@ import type { PluginSettingsField } from "./plugin.js";
 
 // ─── Shared context ────────────────────────────────────────────────────────
 
+/** A public page being rendered, as `html.head`, `html.title`, and `html.canonical` see it. */
+export interface PublicPageContext {
+  siteId: string;
+  /** Path without a locale prefix. */
+  path: string;
+  locale: string;
+  /** The page or entry title, before any title template. */
+  title: string;
+  contentId?: string;
+  /** The entry's content type, when the page shows an entry. */
+  contentType?: string;
+  /** The entry's custom fields (for example `seoTitle`), when the page shows an entry. */
+  fields?: Record<string, unknown>;
+  /** The entry's excerpt, or the page's own description. May be empty. */
+  description?: string;
+  /** Absolute canonical URL the host would use. */
+  canonical?: string;
+  /** Absolute or site-root URL of a share image: the site logo or the `og` placeholder. May be empty. */
+  image?: string;
+  /** Public origin of the site, such as `https://example.com`. */
+  origin?: string;
+  /** False when the entry's type is kept out of search engines. */
+  indexable?: boolean;
+}
+
 export type HookSource = "http" | "job" | "cli" | "system";
 
 export interface HookActor {
@@ -1048,10 +1073,28 @@ export interface FilterValueMap {
    * available here. Deactivating the plugin removes the hosts.
    */
   "security.cspSources": [CspSourceContribution, { siteId: string; area: "public" | "admin" }];
-  "html.head": [
-    string,
-    { siteId: string; path: string; locale: string; title: string; contentId?: string },
-  ];
+  /**
+   * Extra markup for a public page's `<head>`. Seeded with what the host
+   * already adds (favicon, KaTeX, plugin assets, PWA). The context describes
+   * the page, so an SEO plugin can write meta tags from it.
+   */
+  "html.head": [string, PublicPageContext];
+  /**
+   * The page's `<title>`. Seeded with the page title. An SEO plugin applies a
+   * title template or a per-page title here.
+   */
+  "html.title": [string, PublicPageContext];
+  /**
+   * The absolute URL in the page's `<link rel="canonical">`, seeded with
+   * `context.canonical`. Return `""` to leave the link out. Not applied when
+   * `context.indexable` is false.
+   */
+  "html.canonical": [string, PublicPageContext];
+  /**
+   * The site title and tagline themes show and pages fall back to, seeded from
+   * the site's identity settings. An SEO plugin can supply its own per locale.
+   */
+  "site.identity": [{ siteTitle: string; tagline: string }, { siteId: string; locale: string }];
   /**
    * Extra HTML inserted before `</body>` on administration screens. Seeded with
    * `""`. Handlers may be async. `rootSite` is true on the installation's own

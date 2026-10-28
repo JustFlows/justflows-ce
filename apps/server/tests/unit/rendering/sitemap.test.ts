@@ -9,34 +9,37 @@ const published = vi.fn();
 const home = vi.fn();
 const state = vi.fn();
 const terms = vi.fn();
-const settings = vi.fn();
 const typeSettings = vi.fn();
 vi.mock("../../../src/lib/content/content-types-db.js", () => ({ getContentTypeSettingsMap: (...args: unknown[]) => typeSettings(...args) }));
 vi.mock("../../../src/lib/content/content-public.js", () => ({ listPublishedContent: () => published() }));
 vi.mock("../../../src/lib/content/home-page.js", () => ({ getHomeContent: (...args: unknown[]) => home(...args) }));
 vi.mock("../../../src/lib/i18n/languages-db.js", () => ({ getDefaultLocale: async () => "en-US" }));
-vi.mock("../../../src/lib/plugins/plugin-kv.js", () => ({ getPluginSettings: (...args: unknown[]) => settings(...args) }));
-vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({ getRuntimeHooks: () => ({ has: () => false }) }));
+/** An SEO plugin adds its extra paths through `seo.sitemapPaths`; private ones are still dropped. */
+vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
+  getRuntimeHooks: () => ({
+    has: (name: string) => name === "seo.sitemapPaths",
+    applyFilter: async (_name: string, paths: string[]) => [...paths, "/extra", "/members"],
+  }),
+}));
 vi.mock("../../../src/lib/navigation/permalinks-db.js", async (importOriginal) => ({
   ...await importOriginal<typeof import("../../../src/lib/navigation/permalinks-db.js")>(),
   getPermalinkState: () => state(),
   listPermalinkTerms: () => terms(),
 }));
-import { buildSitemapXml } from "../../../src/lib/rendering/seo-public.js";
+import { buildSitemapXml } from "../../../src/lib/rendering/sitemap.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("DB_DRIVER", "");
   vi.stubEnv("APP_URL", "https://example.test");
   state.mockResolvedValue({ settings: { ...DEFAULT_PERMALINK_SETTINGS, structure: "/%category%/%postname%/" }, layoutScopes: [] });
-  settings.mockResolvedValue({ extraSitemapPaths: "/extra\n/members" });
   home.mockResolvedValue(null);
   typeSettings.mockResolvedValue(new Map());
 });
 afterEach(() => vi.unstubAllEnvs());
 
 describe("sitemap link batching", () => {
-  it("reuses settings, relationships and home pages across 100 multilingual entries", async () => {
+  it("reuses relationships and home pages across 100 multilingual entries", async () => {
     const items: ContentResponse[] = Array.from({ length: 100 }, (_, i) => serializeContentRow({
       id: `p${i}`, site_id: "site-a", type: "post", title: `Post ${i}`, slug: `post-${i}`,
       locale: i % 2 ? "nl-NL" : "en-US", status: "published",
@@ -54,7 +57,6 @@ describe("sitemap link batching", () => {
     expect(typeSettings.mock.calls).toEqual([["site-a"]]);
     expect(state).toHaveBeenCalledOnce();
     expect(terms).toHaveBeenCalledOnce();
-    expect(settings).toHaveBeenCalledOnce();
     expect(home.mock.calls).toEqual([["site-a", "en-US", false], ["site-a", "nl-NL", false]]);
   });
 

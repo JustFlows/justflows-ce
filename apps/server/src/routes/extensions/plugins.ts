@@ -71,7 +71,7 @@ async function readPluginSettings(
   await ensurePluginRuntime();
   const { getPluginSetting } = await import("../../lib/plugins/plugin-kv.js");
   const { listLanguages, getDefaultLocale } = await import("../../lib/i18n/languages-db.js");
-  const { asLocaleMap } = await import("../../lib/rendering/seo-public.js");
+  const { asLocaleMap } = await import("../../lib/i18n/locale-map.js");
   const schema = await settingsSchemaForSite(plugin, siteId);
   const languages = await listLanguages(siteId, true);
   const defaultLocale = await getDefaultLocale(siteId);
@@ -86,22 +86,6 @@ async function readPluginSettings(
     { pluginId: plugin.plugin_id, siteId },
     { siteId, source: "http" },
   )) as Record<string, unknown>;
-
-  if (plugin.plugin_id === "justflows.seo") {
-    const db = await import("../../lib/database/db.js").then((m) => m.getDb());
-    const siteRows = await db.query<{ name: string; description: string | null }>(
-      "SELECT name, description FROM sites WHERE id = ? LIMIT 1",
-      [siteId],
-    );
-    const site = siteRows[0];
-    const titles = (merged.siteTitle ?? {}) as Record<string, string>;
-    const descriptions = (merged.defaultDescription ?? {}) as Record<string, string>;
-    if (site?.name && !titles[defaultLocale]) titles[defaultLocale] = site.name;
-    if (site?.description && !descriptions[defaultLocale])
-      descriptions[defaultLocale] = site.description;
-    merged.siteTitle = titles;
-    merged.defaultDescription = descriptions;
-  }
 
   const { resolveSettingsSchema } = await import("../../lib/plugins/plugin-settings-options.js");
   return { schema: resolveSettingsSchema(schema, defaultLocale), values: merged, languages };
