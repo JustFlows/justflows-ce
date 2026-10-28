@@ -184,8 +184,6 @@ async function activateActivePlugins(): Promise<void> {
  * First-party plugins whose behaviour the host renders itself, so their module is
  * normally left inactive at runtime.
  *
- * - `justflows.gallery` stays skipped unconditionally — its module would
- *   expose a public page.
  * - `justflows.seo` is skipped **unless** its installed manifest declares
  *   `hostCooperative: true`. The SEO Toolkit package sets that flag from its
  *   `justflows.json`; it means the module only augments (feed routes,
@@ -194,7 +192,6 @@ async function activateActivePlugins(): Promise<void> {
  *   flag stays skipped.
  */
 function isRuntimeSkippedFirstParty(pluginId: string, manifest: unknown): boolean {
-  if (pluginId === "justflows.gallery") return true;
   if (pluginId === "justflows.seo") return !manifestIsHostCooperative(manifest);
   return false;
 }
@@ -462,7 +459,6 @@ async function ensureRegistered(siteId: string, pluginId: string): Promise<void>
 }
 
 export async function runtimeActivatePlugin(siteId: string, pluginId: string): Promise<void> {
-  if (pluginId === "justflows.gallery") return;
   if (pluginId === "justflows.seo") {
     const db = await getDb();
     const rows = await db.query<{ manifest: unknown }>(

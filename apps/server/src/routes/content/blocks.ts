@@ -1,9 +1,9 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 import { requireRole } from "../../middleware/auth.js";
 import { CONTENT_READ_ROLES } from "../../lib/auth/rbac.js";
 import { resolveInspectorSupports } from "@justflows/blocks";
 import { getRuntimeBlockRegistry } from "../../lib/rendering/runtime-blocks.js";
-import { isGalleryPluginEnabled, registerGalleryBlock, unregisterGalleryBlock } from "../../lib/media/gallery-public.js";
 
 const router = Router();
 
@@ -13,12 +13,9 @@ const router = Router();
  * Guarded: the only caller is the builder, and the response enumerates every
  * plugin-contributed block type and version — a precise inventory of which
  * extensions a site runs, which is the first thing worth knowing before
- * choosing an exploit. Each call also runs two plugin-status queries, so
- * leaving it open made it a free amplification target as well.
+ * choosing an exploit.
  */
 router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
-  if (await isGalleryPluginEnabled()) registerGalleryBlock();
-  else unregisterGalleryBlock();
   const blocks = getRuntimeBlockRegistry().list().map((def) => ({
     type: def.type,
     version: def.version,
@@ -32,6 +29,30 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
     inspector: resolveInspectorSupports(def),
   }));
   res.json({ blocks });
+});
+
+/** Every builder keystroke can ask for a preview, so keep a ceiling per user. */
+const previewLimit = rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: "draft-8", legacyHeaders: false });
+
+/**
+ * A registered block's own render, for the builder preview of blocks the
+ * builder has no preview for (plugin blocks). The builder sanitizes the HTML
+ * before showing it. Children are not rendered.
+ */
+router.post("/preview", requireRole(...CONTENT_READ_ROLES), previewLimit, (req, res) => {
+  const body = (req.body ?? {}) as { type?: unknown; props?: unknown };
+  const type = typeof body.type === "string" ? body.type : "";
+  const definition = type ? getRuntimeBlockRegistry().get(type) : undefined;
+  if (!definition) {
+    res.status(404).json({ error: "Unknown block type" });
+    return;
+  }
+  try {
+    const props = definition.validateProps(body.props ?? {});
+    res.json({ html: String(definition.render(props as never, "") ?? "") });
+  } catch {
+    res.status(422).json({ error: "This block could not be previewed" });
+  }
 });
 
 export default router;

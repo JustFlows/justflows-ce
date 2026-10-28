@@ -851,7 +851,6 @@
         "corners": "Ecken",
         "layout": "Layout",
         "images": "Bilder",
-        "lightbox": "Lightbox",
         "title": "Titel",
         "price": "Preis",
         "comparePrice": "Vergleichspreis",
@@ -913,10 +912,7 @@
         "borderGrid": "Raster mit Rahmen",
         "supportingText": "Unterstützender Text",
         "hoverCta": "CTA beim Hover",
-        "detailCards": "Detailkarten",
-        "masonry": "Masonry",
-        "carousel": "Karussell",
-        "slideshowFade": "Diashow (Überblenden)"
+        "detailCards": "Detailkarten"
       },
       "placeholder": {
         "internalLink": "/ueber-uns oder https://…",
@@ -1019,9 +1015,8 @@
         "headingPlaceholder": "z. B. Produkt",
         "addLink": "+ Link hinzufügen"
       },
-      "gallery": {
+      "images": {
         "uploadFailed": "Hochladen fehlgeschlagen",
-        "carouselHint": "Es wird jeweils ein Bild angezeigt, mit Punkten zum Wechseln. Ändern Sie unten die Reihenfolge der Bilder, um die Abfolge anzupassen.",
         "uploading": "Wird hochgeladen…",
         "uploadFromDevice": "⇧ Hochladen vom Gerät",
         "addImageUrl": "+ Bild-URL hinzufügen",
@@ -1058,7 +1053,6 @@
       "details": "Details",
       "dropContentHere": "Inhalt hier ablegen",
       "embed": "Einbettung: ",
-      "emptyGallery": "Leere Galerie",
       "feature": "Merkmal",
       "featuredImage": "Beitragsbild",
       "heading": "Überschrift",

@@ -1091,6 +1091,14 @@ export interface PluginDataApi {
 
 /** One editable prop of a plugin block, as the page-builder inspector shows it. */
 export interface PluginBlockField {
+  /**
+   * `text`, `textarea`, `richtext`, `number`, `boolean`, `select`, `url`,
+   * `media` (one image URL), or `images` (a list of `{ src, alt, caption }`
+   * with upload and the media library). For `media` and `images` the host adds
+   * a `responsive` prop when it renders the block: a map from image URL to its
+   * `ResponsiveImageProp`, ready for `applyResponsiveProp` and
+   * `renderResponsiveImage`.
+   */
   type: string;
   required?: boolean;
   default?: unknown;

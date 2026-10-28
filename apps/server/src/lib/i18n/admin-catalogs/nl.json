@@ -848,7 +848,6 @@
         "corners": "Hoeken",
         "layout": "Lay-out",
         "images": "Afbeeldingen",
-        "lightbox": "Lightbox",
         "title": "Titel",
         "price": "Prijs",
         "comparePrice": "Vergelijkingsprijs",
@@ -910,10 +909,7 @@
         "borderGrid": "Randraster",
         "supportingText": "Ondersteunende tekst",
         "hoverCta": "Actieknop bij aanwijzen",
-        "detailCards": "Detailkaarten",
-        "masonry": "Masonry",
-        "carousel": "Carrousel",
-        "slideshowFade": "Diavoorstelling (overvloeien)"
+        "detailCards": "Detailkaarten"
       },
       "placeholder": {
         "internalLink": "/over-ons of https://…",
@@ -1016,9 +1012,8 @@
         "headingPlaceholder": "bijv. Product",
         "addLink": "+ Link toevoegen"
       },
-      "gallery": {
+      "images": {
         "uploadFailed": "Upload mislukt",
-        "carouselHint": "Er wordt één afbeelding tegelijk getoond, met puntjes om ertussen te wisselen. Verander de volgorde van de afbeeldingen hieronder om de volgorde aan te passen.",
         "uploading": "Uploaden…",
         "uploadFromDevice": "⇧ Uploaden vanaf apparaat",
         "addImageUrl": "+ Afbeeldings-URL toevoegen",
@@ -1055,7 +1050,6 @@
       "details": "Gegevens",
       "dropContentHere": "Zet hier inhoud neer",
       "embed": "Insluiting: ",
-      "emptyGallery": "Lege galerij",
       "feature": "Kenmerk",
       "featuredImage": "Uitgelichte afbeelding",
       "heading": "Kop",

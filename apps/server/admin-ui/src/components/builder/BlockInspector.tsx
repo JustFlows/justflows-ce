@@ -18,8 +18,6 @@ import { useMergeTags } from "../../lib/merge-tags";
 import { useThemeStyleTokens } from "../../lib/theme-style-tokens";
 import { inspectorSections } from "./inspector-sections";
 
-const GALLERY_LAYOUTS = ["grid", "masonry", "carousel", "slideshow", "list"] as const;
-type GalleryLayoutValue = (typeof GALLERY_LAYOUTS)[number];
 
 const fieldLabel: React.CSSProperties = {
   display: "flex",
@@ -501,18 +499,6 @@ export default function BlockInspector({
     case "core.column":
       fields = <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: 0 }}>{t("builder.inspector.addContentBlocksHint")}</p>;
       break;
-    case "justflows.gallery.grid":
-      fields = (
-        <GalleryEditor
-          items={(Array.isArray(p.items) ? p.items : []) as GalleryItem[]}
-          layout={GALLERY_LAYOUTS.includes(p.layout as GalleryLayoutValue) ? (p.layout as GalleryLayoutValue) : "grid"}
-          columns={Number(p.columns) || 3}
-          lightbox={p.lightbox !== false}
-          onChange={onChange}
-          p={p}
-        />
-      );
-      break;
     case "justflows.blog.postList":
       fields = <>
         {select("layout", t("builder.inspector.field.layout"), [
@@ -817,6 +803,10 @@ function SchemaField({ name, field, value, onChange }: {
   const hasChoices = Boolean(field.optionsUrl) || (Array.isArray(field.options) && field.options.length > 0);
   const { options, loading, failed } = useSchemaOptions(field);
 
+  if (kind === "images") {
+    return <ImagesField label={label} help={field.help} value={value} onChange={onChange} />;
+  }
+
   if (kind === "boolean") {
     return (
       <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
@@ -1028,32 +1018,42 @@ function LinkListEditor({ items, heading, onChange, p }: {
   );
 }
 
-interface GalleryItem { src: string; alt: string; caption: string }
+interface ImageItem { src: string; alt: string; caption: string }
 
-function GalleryEditor({
-  items,
-  layout,
-  columns,
-  lightbox,
+/** Read a stored `images` value, dropping rows that are not objects. */
+function imageItems(value: unknown): ImageItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
+    .map((row) => ({ src: String(row.src ?? ""), alt: String(row.alt ?? ""), caption: String(row.caption ?? "") }));
+}
+
+/**
+ * The `images` block field: a list of images, each added by upload, from the
+ * media library, or by URL, with alt text and a caption. Saved as
+ * `{ src, alt, caption }[]`.
+ */
+function ImagesField({
+  label,
+  help,
+  value,
   onChange,
-  p,
 }: {
-  items: GalleryItem[];
-  layout: GalleryLayoutValue;
-  columns: number;
-  lightbox: boolean;
-  onChange: (props: Record<string, unknown>) => void;
-  p: Record<string, unknown>;
+  label: string;
+  help?: string;
+  value: unknown;
+  onChange: (items: ImageItem[]) => void;
 }) {
   const { t } = useT();
+  const items = imageItems(value);
   const [library, setLibrary] = useState<Array<{ url: string; filename: string }>>([]);
   const [showLibrary, setShowLibrary] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
-  function emit(patch: Record<string, unknown>) {
-    onChange({ ...p, items, layout, columns, lightbox, ...patch });
+  function emit(next: ImageItem[]) {
+    onChange(next);
   }
 
   function loadLibrary() {
@@ -1071,28 +1071,27 @@ function GalleryEditor({
   }
 
   function addUrl(url: string) {
-    if (!url) return;
-    emit({ items: [...items, { src: url, alt: "", caption: "" }] });
+    emit([...items, { src: url, alt: "", caption: "" }]);
   }
 
   async function uploadFiles(files: FileList) {
     setUploading(true);
     setUploadError("");
-    const uploaded: GalleryItem[] = [];
+    const uploaded: ImageItem[] = [];
     try {
       for (const file of Array.from(files)) {
         const form = new FormData();
         form.append("file", file);
         const res = await fetch("/api/media", { method: "POST", body: form });
         const data = (await res.json()) as { url?: string; error?: string };
-        if (!res.ok || !data.url) throw new Error(data.error ?? t("builder.inspector.gallery.uploadFailed"));
+        if (!res.ok || !data.url) throw new Error(data.error ?? t("builder.inspector.images.uploadFailed"));
         uploaded.push({ src: data.url, alt: "", caption: "" });
         setLibrary((prev) => [{ url: data.url as string, filename: file.name }, ...prev]);
       }
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : String(e));
     } finally {
-      if (uploaded.length) emit({ items: [...items, ...uploaded] });
+      if (uploaded.length) emit([...items, ...uploaded]);
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
@@ -1100,32 +1099,8 @@ function GalleryEditor({
 
   return (
     <>
-      <label style={fieldLabel}>
-        {t("builder.inspector.field.layout")}
-        <select style={fieldInput} value={layout} onChange={(e) => emit({ layout: e.target.value })}>
-          <option value="grid">{t("builder.inspector.option.grid")}</option>
-          <option value="masonry">{t("builder.inspector.option.masonry")}</option>
-          <option value="carousel">{t("builder.inspector.option.carousel")}</option>
-          <option value="slideshow">{t("builder.inspector.option.slideshowFade")}</option>
-          <option value="list">{t("builder.inspector.option.list")}</option>
-        </select>
-      </label>
-      {(layout === "grid" || layout === "masonry") && (
-        <label style={fieldLabel}>
-          {t("builder.inspector.field.columns")}
-          <input type="number" min={2} max={6} style={fieldInput} value={columns} onChange={(e) => emit({ columns: Number(e.target.value) })} />
-        </label>
-      )}
-      {(layout === "carousel" || layout === "slideshow") && (
-        <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0 0 0.75rem" }}>
-          {t("builder.inspector.gallery.carouselHint")}
-        </p>
-      )}
-      <label style={{ ...fieldLabel, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
-        <input type="checkbox" checked={lightbox} onChange={(e) => emit({ lightbox: e.target.checked })} />
-        {t("builder.inspector.field.lightbox")}
-      </label>
-
+      <span style={fieldLabel}>{label}</span>
+      {help ? <p style={{ color: "var(--jf-text-3)", fontSize: "0.8rem", margin: "0 0 0.75rem" }}>{help}</p> : null}
       {items.map((item, index) => (
         <div key={`${item.src}-${index}`} style={{ border: "1px solid var(--jf-border)", borderRadius: 6, padding: "0.6rem", marginBottom: "0.5rem" }}>
           {item.src ? (
@@ -1135,21 +1110,21 @@ function GalleryEditor({
             style={{ ...fieldInput, marginBottom: "0.35rem" }}
             placeholder={t("builder.inspector.placeholder.imageUrl")}
             value={item.src}
-            onChange={(e) => emit({ items: items.map((row, i) => (i === index ? { ...row, src: e.target.value } : row)) })}
+            onChange={(e) => emit(items.map((row, i) => (i === index ? { ...row, src: e.target.value } : row)))}
           />
           <input
             style={{ ...fieldInput, marginBottom: "0.35rem" }}
             placeholder={t("builder.inspector.field.altText")}
             value={item.alt}
-            onChange={(e) => emit({ items: items.map((row, i) => (i === index ? { ...row, alt: e.target.value } : row)) })}
+            onChange={(e) => emit(items.map((row, i) => (i === index ? { ...row, alt: e.target.value } : row)))}
           />
           <input
             style={{ ...fieldInput, marginBottom: "0.35rem" }}
             placeholder={t("builder.inspector.field.caption")}
             value={item.caption}
-            onChange={(e) => emit({ items: items.map((row, i) => (i === index ? { ...row, caption: e.target.value } : row)) })}
+            onChange={(e) => emit(items.map((row, i) => (i === index ? { ...row, caption: e.target.value } : row)))}
           />
-          <button type="button" onClick={() => emit({ items: items.filter((_, i) => i !== index) })} style={{ color: "var(--jf-danger)", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>
+          <button type="button" onClick={() => emit(items.filter((_, i) => i !== index))} style={{ color: "var(--jf-danger)", background: "none", border: "none", fontSize: "0.75rem", cursor: "pointer" }}>
             {t("builder.inspector.remove")}
           </button>
         </div>
@@ -1161,7 +1136,7 @@ function GalleryEditor({
         disabled={uploading}
         style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "var(--jf-surface)", cursor: uploading ? "default" : "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}
       >
-        {uploading ? t("builder.inspector.gallery.uploading") : t("builder.inspector.gallery.uploadFromDevice")}
+        {uploading ? t("builder.inspector.images.uploading") : t("builder.inspector.images.uploadFromDevice")}
       </button>
       <input
         ref={fileRef}
@@ -1175,15 +1150,15 @@ function GalleryEditor({
         <p style={{ color: "var(--jf-danger)", fontSize: "0.75rem", margin: "0 0 0.4rem" }}>{uploadError}</p>
       ) : null}
       <button type="button" onClick={() => addUrl("")} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "var(--jf-surface)", cursor: "pointer", fontSize: "0.8rem", marginBottom: "0.4rem" }}>
-        {t("builder.inspector.gallery.addImageUrl")}
+        {t("builder.inspector.images.addImageUrl")}
       </button>
       <button type="button" onClick={loadLibrary} style={{ width: "100%", padding: "0.4rem", border: "1px dashed var(--jf-border-strong)", borderRadius: 5, background: "var(--jf-surface)", cursor: "pointer", fontSize: "0.8rem" }}>
-        {t("builder.inspector.gallery.addFromMediaLibrary")}
+        {t("builder.inspector.images.addFromMediaLibrary")}
       </button>
       {showLibrary && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem", marginTop: "0.5rem", maxHeight: 180, overflow: "auto" }}>
           {library.length === 0 ? (
-            <p style={{ color: "var(--jf-text-3)", fontSize: "0.75rem", gridColumn: "1 / -1" }}>{t("builder.inspector.gallery.noImagesYet")}</p>
+            <p style={{ color: "var(--jf-text-3)", fontSize: "0.75rem", gridColumn: "1 / -1" }}>{t("builder.inspector.images.noImagesYet")}</p>
           ) : library.map((file) => (
             <button
               key={file.url}
