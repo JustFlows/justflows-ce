@@ -161,6 +161,8 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add("/api/languages");
   } else if (pathname === "/admin/security") {
     paths.add("/api/security/center");
+  } else if (pathname === "/admin/security/web-server") {
+    paths.add("/api/security/web-server");
   } else if (
     pathname === "/admin/security/header-grade" ||
     pathname === "/admin/security/headers" ||

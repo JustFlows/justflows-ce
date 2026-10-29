@@ -222,6 +222,9 @@ proxy/cache rules you add there) instead.
 > case where the vhost `DocumentRoot` is the install directory. Same sentinel
 > rule: a hand-edited one (first line changed) is left alone. Neither file
 > configures how requests reach the Node app — that stays in the vhost.
+> **Admin → Security → Web server** shows the file to copy for the live host
+> (nginx, an Apache reverse proxy, Passenger, Docker). That file is not this
+> export `_nginx.conf`.
 
 ### Object storage / CDN
 

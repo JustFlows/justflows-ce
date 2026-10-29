@@ -41,6 +41,7 @@
     "securityAdminPath": "Adres URL administracji",
     "securityAccount": "Twoje konto",
     "securityAudit": "Dziennik audytu",
+    "securityWebServer": "Serwer WWW",
     "languages": "Języki",
     "shop": "Sklep",
     "shopProducts": "Produkty",
@@ -2794,6 +2795,53 @@
     }
   },
   "security": {
+    "webServer": {
+      "title": "Serwer WWW",
+      "subtitle": "Justflows sprawdza przesłane pliki w aplikacji. Serwer WWW, który serwuje je z dysku, pomija to sprawdzenie. Wybierz używany host i skopiuj jego plik. CDN przed witryną nie może buforować pliku prywatnego ani z kosza.",
+      "otherSite": "Pliki serwera WWW ustawia się w witrynie platformy.",
+      "loadError": "Nie udało się wczytać instrukcji serwera WWW",
+      "copy": "Kopiuj",
+      "copied": "Skopiowano",
+      "copyError": "Nie udało się skopiować",
+      "automatic": "Stosowane przez Justflows",
+      "manual": "Skopiuj to do hosta",
+      "centerLink": "Konfiguracja serwera WWW",
+      "centerHint": "Skopiuj plik dla nginx, Apache, Passenger, LiteSpeed lub Dockera. Aplikacja nie przepisuje tych hostów.",
+      "accelOn": "UPLOADS_ACCEL_REDIRECT jest ustawione. Musi pasować do lokalizacji wewnętrznej w tym pliku.",
+      "accelOff": "UPLOADS_ACCEL_REDIRECT nie jest ustawione, więc aplikacja wysyła plik. Dodaj lokalizację wewnętrzną i zmienną razem.",
+      "htaccess": {
+        "current": "Plik .htaccess w katalogu instalacji jest zgodny z tym plikiem. Jest odświeżany przy starcie, dopóki pierwsza linia jest nienaruszona.",
+        "pending": "Plik .htaccess w katalogu instalacji jest nadal zarządzany. Następny start zastąpi go tym plikiem.",
+        "custom": "Plik .htaccess w katalogu instalacji został zmieniony ręcznie, więc Justflows go zostawia. Scal ten plik albo przywróć pierwszą linię, aby Justflows znów nim zarządzał.",
+        "missing": "Nie ma jeszcze pliku .htaccess w katalogu instalacji. Jest zapisywany przy starcie. Możesz skopiować ten plik już teraz."
+      },
+      "environments": {
+        "application": {
+          "title": "Tylko aplikacja",
+          "body": "Użyj tego, gdy Node odpowiada na każde żądanie albo gdy serwer WWW przekazuje całą witrynę, łącznie z /uploads/, do aplikacji. Inny plik nie jest potrzebny."
+        },
+        "apache": {
+          "title": "Apache i LiteSpeed",
+          "body": "Użyj tego, gdy katalog główny dokumentów to instalacja Justflows. Apache i LiteSpeed czytają .htaccess, gdy vhost na to pozwala. Skopiuj ten plik, jeśli host nie może go zapisać. AllowOverride musi zezwalać na FileInfo i Limit."
+        },
+        "nginx": {
+          "title": "nginx",
+          "body": "nginx nie aktualizuje się sam. Jeśli /uploads/ to alias lub root wskazujący katalog przesyłania, zastąp tę lokalizację tym blokiem w serwerze, który przekazuje witrynę. Lokalizacja wewnętrzna jest opcjonalna."
+        },
+        "apacheProxy": {
+          "title": "Odwrotne proxy Apache",
+          "body": "Użyj tego, gdy Apache przekazuje do Node, a instalacja nie jest katalogiem głównym dokumentów, albo gdy Alias serwuje /uploads/ z dysku. Usuń ten Alias. Umieść te linie przed ProxyPass dla /."
+        },
+        "passenger": {
+          "title": "Passenger",
+          "body": "Passenger używa pliku Apache i LiteSpeed, gdy instalacja jest katalogiem głównym dokumentów. Nie dodawaj Alias dla /uploads/. Jeśli nginx stoi przed Passengerem, użyj także pliku nginx."
+        },
+        "docker": {
+          "title": "Docker",
+          "body": "Obraz Justflows nie instaluje nginx i go nie przeładowuje. Jeśli stawiasz nginx przed kontenerem, skopiuj ten plik do tego serwera. Ścieżka aliasu to katalog przesyłania tego procesu. Zmień ją, jeśli nginx widzi ten katalog gdzie indziej."
+        }
+      }
+    },
     "center": {
       "title": "Centrum zabezpieczeń",
       "subtitle": "Kontrole, na które ta instalacja potrafi odpowiedzieć. Zaliczony wiersz to tylko ta kontrola, nie ocena witryny.",

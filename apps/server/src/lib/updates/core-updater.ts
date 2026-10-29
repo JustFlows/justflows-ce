@@ -57,6 +57,7 @@ const PRESERVE_TOP_LEVEL = new Set([
   "data",
   "static-export",
   "static-export-sites",
+  "storage",
   ".hosting-backup",
   ".git",
 ]);
@@ -173,10 +174,28 @@ function runCopiedMigrations(root: string): { ok: boolean; output: string } {
   return runCommand(process.execPath, [entry], root, 5 * 60 * 1000);
 }
 
+/**
+ * Top-level names an update must not replace or prune.
+ *
+ * `storage/` holds private files. A relative `PRIVATE_STORAGE_PATH` or
+ * `STATIC_EXPORT_DIR` is added as well, so a custom folder inside the install
+ * survives consecutive updates. Absolute paths live outside the tree already.
+ */
+function preservedTopLevelNames(): Set<string> {
+  const names = new Set<string>(PRESERVE_TOP_LEVEL);
+  for (const envName of ["PRIVATE_STORAGE_PATH", "STATIC_EXPORT_DIR"]) {
+    const configured = process.env[envName]?.trim();
+    if (!configured || path.isAbsolute(configured)) continue;
+    const top = configured.split(/[\\/]/).filter(Boolean)[0];
+    if (top && top !== "." && top !== "..") names.add(top);
+  }
+  return names;
+}
+
 function shouldPreserve(relativePath: string): boolean {
   const segments = relativePath.split(path.sep);
   const top = segments[0] ?? relativePath;
-  if (PRESERVE_TOP_LEVEL.has(top)) return true;
+  if (preservedTopLevelNames().has(top)) return true;
   if (relativePath.startsWith(".updates" + path.sep)) return true;
   if (segments.length === 1 && PRESERVE_ROOT_FILE_PATTERNS.some((re) => re.test(top))) return true;
   return false;
@@ -265,7 +284,7 @@ async function pruneStaleFiles(sourceRoot: string, destRoot: string): Promise<nu
   const sourceFiles = new Set(await walkFiles(sourceRoot));
 
   for (const entry of await fsp.readdir(destRoot, { withFileTypes: true })) {
-    if (PRESERVE_TOP_LEVEL.has(entry.name)) continue;
+    if (preservedTopLevelNames().has(entry.name)) continue;
 
     if (entry.isDirectory()) {
       const destTop = path.join(destRoot, entry.name);
@@ -612,8 +631,27 @@ export async function applyCoreUpdate(
     backup = await fsp.mkdtemp(path.join(root, ".updates", "rollback-"));
     await backupUpdateFiles(root, backup);
     const previousRelease = path.join(root, ".updates", "previous-release");
-    await fsp.rm(previousRelease, { recursive: true, force: true });
-    await fsp.rename(backup, previousRelease);
+    const retiring = `${previousRelease}.retiring`;
+    /**
+     * Keep the last recoverable copy until the new snapshot is in place.
+     * A failed rename puts the retiring copy back. It is removed only after
+     * the new snapshot has the previous-release name.
+     */
+    if (fs.existsSync(previousRelease) && fs.existsSync(retiring)) {
+      await fsp.rm(retiring, { recursive: true, force: true });
+    } else if (!fs.existsSync(previousRelease) && fs.existsSync(retiring)) {
+      await fsp.rename(retiring, previousRelease);
+    }
+    if (fs.existsSync(previousRelease)) await fsp.rename(previousRelease, retiring);
+    try {
+      await fsp.rename(backup, previousRelease);
+    } catch (err) {
+      if (!fs.existsSync(previousRelease) && fs.existsSync(retiring)) {
+        await fsp.rename(retiring, previousRelease);
+      }
+      throw err;
+    }
+    await fsp.rm(retiring, { recursive: true, force: true });
     backup = previousRelease;
     retainBackup = true;
     record({ step: "backup", ok: true, detail: "Previous core and dependencies saved in .updates/previous-release" });

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireRole } from "../../middleware/auth.js";
 import { auditConfig } from "../../lib/security/security-audit.js";
 import { loadSecurityCenter } from "../../lib/security/security-center-load.js";
+import { loadWebServerGuide } from "../../lib/security/web-server-guide.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import {
   SECURITY_HEADER_DEFS,
@@ -42,6 +43,14 @@ router.use((req, res, next) => {
 router.get("/center", adminOnly, async (_req, res) => {
   try {
     res.json(await loadSecurityCenter());
+  } catch (e) {
+    sendServerError(res, "security", e);
+  }
+});
+
+router.get("/web-server", adminOnly, async (_req, res) => {
+  try {
+    res.json(await loadWebServerGuide());
   } catch (e) {
     sendServerError(res, "security", e);
   }

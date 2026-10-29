@@ -39,6 +39,7 @@
     "securityAdminPath": "Admin-URL",
     "securityAccount": "Ihr Konto",
     "securityAudit": "Audit-Protokoll",
+    "securityWebServer": "Webserver",
     "languages": "Sprachen",
     "shop": "Shop",
     "shopProducts": "Produkte",
@@ -2329,6 +2330,53 @@
     "originalDimensions": "Original {width}×{height}"
   },
   "security": {
+    "webServer": {
+      "title": "Webserver",
+      "subtitle": "Justflows prüft Uploads in der Anwendung. Ein Webserver, der diese Dateien von der Festplatte ausliefert, überspringt diese Prüfung. Wählen Sie den Host und kopieren Sie die Datei. Ein CDN vor der Website darf einen privaten oder im Papierkorb liegenden Upload nicht cachen.",
+      "otherSite": "Webserver-Dateien werden auf der Plattform-Website festgelegt.",
+      "loadError": "Die Webserver-Anleitung konnte nicht geladen werden",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "copyError": "Kopieren ist fehlgeschlagen",
+      "automatic": "Von Justflows angewendet",
+      "manual": "In den Host kopieren",
+      "centerLink": "Webserver einrichten",
+      "centerHint": "Kopieren Sie die Datei für nginx, Apache, Passenger, LiteSpeed oder Docker. Die Anwendung schreibt diese Hosts nicht um.",
+      "accelOn": "UPLOADS_ACCEL_REDIRECT ist gesetzt. Der Wert muss zur internen Location in dieser Datei passen.",
+      "accelOff": "UPLOADS_ACCEL_REDIRECT ist nicht gesetzt, die Anwendung sendet die Datei. Interne Location und Variable gehören zusammen.",
+      "htaccess": {
+        "current": "Die .htaccess im Installationsverzeichnis entspricht dieser Datei. Sie wird beim Start aktualisiert, solange die erste Zeile unverändert ist.",
+        "pending": "Die .htaccess im Installationsverzeichnis wird noch verwaltet. Der nächste Start ersetzt sie durch diese Datei.",
+        "custom": "Die .htaccess im Installationsverzeichnis wurde von Hand geändert, Justflows lässt sie stehen. Führen Sie diese Datei zusammen, oder stellen Sie die erste Zeile wieder her.",
+        "missing": "Es gibt noch keine .htaccess im Installationsverzeichnis. Sie wird beim Start geschrieben. Sie können diese Datei jetzt dorthin kopieren."
+      },
+      "environments": {
+        "application": {
+          "title": "Nur die Anwendung",
+          "body": "Verwenden Sie dies, wenn Node jede Anfrage beantwortet oder der Webserver die ganze Website einschließlich /uploads/ an die Anwendung weiterleitet. Es ist keine weitere Datei nötig."
+        },
+        "apache": {
+          "title": "Apache und LiteSpeed",
+          "body": "Verwenden Sie dies, wenn das Document Root die Justflows-Installation ist. Apache und LiteSpeed lesen die .htaccess, wenn der Vhost das erlaubt. Kopieren Sie diese Datei darüber, wenn der Host sie nicht schreiben kann. AllowOverride muss FileInfo und Limit erlauben."
+        },
+        "nginx": {
+          "title": "nginx",
+          "body": "nginx wird nicht für Sie aktualisiert. Wenn /uploads/ ein Alias oder Root auf den Upload-Ordner ist, ersetzen Sie diese Location durch diesen Block, im Server, der die Website weiterleitet. Die interne Location ist optional."
+        },
+        "apacheProxy": {
+          "title": "Apache Reverse Proxy",
+          "body": "Verwenden Sie dies, wenn Apache an Node weiterleitet und die Installation nicht das Document Root ist, oder wenn ein Alias /uploads/ von der Festplatte ausliefert. Entfernen Sie diesen Alias. Setzen Sie diese Zeilen vor ein ProxyPass für /."
+        },
+        "passenger": {
+          "title": "Passenger",
+          "body": "Passenger verwendet die Apache- und LiteSpeed-Datei, wenn die Installation das Document Root ist. Fügen Sie keinen Alias für /uploads/ hinzu. Steht nginx vor Passenger, verwenden Sie auch die nginx-Datei."
+        },
+        "docker": {
+          "title": "Docker",
+          "body": "Das Justflows-Image installiert oder lädt nginx nicht neu. Wenn Sie nginx vor den Container setzen, kopieren Sie diese Datei in diesen Server. Der Alias-Pfad ist das Upload-Verzeichnis dieses Prozesses. Ändern Sie ihn, wenn nginx den Ordner woanders sieht."
+        }
+      }
+    },
     "center": {
       "title": "Sicherheitscenter",
       "subtitle": "Prüfungen, die diese Installation beantworten kann. Eine bestandene Zeile ist nur diese Prüfung, keine Note für die Website.",

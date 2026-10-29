@@ -245,6 +245,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     icon: "🔒",
     items: [
       { key: "nav.securityCenter", to: "/admin/security", icon: "🛡", end: true },
+      { key: "nav.securityWebServer", to: "/admin/security/web-server", icon: "🌐" },
       { key: "nav.securityOverview", to: "/admin/security/header-grade", icon: "📊" },
       { key: "nav.securityHeaders", to: "/admin/security/headers", icon: "📑" },
       { key: "nav.securityAdvanced", to: "/admin/security/advanced", icon: "🧩" },
@@ -470,7 +471,7 @@ function pluginRolesFor(pathname: string, pages: Readonly<Record<string, readonl
   return best ? pages[best] ?? null : null;
 }
 
-const INSTALLATION_ROOT_PREFIXES = ["/admin/health", "/admin/updates", "/admin/marketplace"];
+const INSTALLATION_ROOT_PREFIXES = ["/admin/health", "/admin/updates", "/admin/marketplace", "/admin/security/web-server"];
 const OPERATOR_PREFIXES = ["/admin/platform"];
 
 function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {

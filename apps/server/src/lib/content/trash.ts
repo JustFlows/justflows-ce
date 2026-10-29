@@ -7,7 +7,7 @@ import {
   trashedUploadKey,
   trashedUploadKeyCandidates,
 } from "../media/upload-paths.js";
-import { getUploadStore } from "../media/upload-store.js";
+import { getUploadStore, isS3UploadStore, localUploadStore } from "../media/upload-store.js";
 import { getSiteSetting } from "../settings/site-settings.js";
 import { auditLog } from "../security/audit-log.js";
 import { moveVariantDir, removeVariantDir } from "../media/media-responsive.js";
@@ -25,6 +25,24 @@ export interface TrashItem {
   referenced?: boolean;
 }
 
+/**
+ * Move the same key on local disk when the live store is S3.
+ *
+ * Switching the driver does not move historical files. Trashing only the
+ * bucket would leave the public local copy in place.
+ */
+async function mirrorLocalMove(from: string, to: string): Promise<void> {
+  const store = getUploadStore();
+  if (!isS3UploadStore(store)) return;
+  await localUploadStore().move(from, to).catch(() => undefined);
+}
+
+function dropPublicUploadCache(siteId: string): void {
+  void import("../cdn/cdn-purge.js")
+    .then((cdn) => cdn.purgeCdnCache({ siteId }))
+    .catch(() => undefined);
+}
+
 export async function moveMediaStorage(storageKey: string, toTrash: boolean): Promise<void> {
   const live = liveUploadKey(storageKey);
   const trashed = trashedUploadKey(storageKey);
@@ -32,11 +50,15 @@ export async function moveMediaStorage(storageKey: string, toTrash: boolean): Pr
   const store = getUploadStore();
   if (toTrash) {
     await store.move(live, trashed);
+    await mirrorLocalMove(live, trashed);
     return;
   }
   // Restore from the site's own trash, then the legacy shared one.
   for (const candidate of trashedUploadKeyCandidates(storageKey)) {
-    if (await store.move(candidate, live)) return;
+    if (await store.move(candidate, live)) {
+      await mirrorLocalMove(candidate, live);
+      return;
+    }
   }
 }
 
@@ -181,6 +203,7 @@ export async function restoreTrashItem(siteId: string, type: TrashType, id: stri
     if (!rows[0]) throw new Error("Trash item not found");
     await moveMediaStorage(rows[0].storage_key, false);
     await moveVariantDir(siteId, id, false).catch(() => undefined);
+    dropPublicUploadCache(siteId);
     await db.run(
       `UPDATE ${table} SET trashed_at = NULL, trashed_by = NULL, updated_at = ? WHERE id = ? AND site_id = ?`,
       [nowSql(), id, siteId],
@@ -212,7 +235,13 @@ export async function purgeTrashItem(
       siteId,
     ]);
     const store = getUploadStore();
+    const live = liveUploadKey(row.storage_key);
     for (const key of trashedUploadKeyCandidates(row.storage_key)) await store.delete(key);
+    if (isS3UploadStore(store)) {
+      const local = localUploadStore();
+      if (live) await local.delete(live).catch(() => undefined);
+      for (const key of trashedUploadKeyCandidates(row.storage_key)) await local.delete(key).catch(() => undefined);
+    }
     await removeVariantDir(siteId, id).catch(() => undefined);
     return;
   }
