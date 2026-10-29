@@ -64,6 +64,9 @@ Also:
   The application refreshes the site-root `.htaccess` and does not rewrite
   nginx, a reverse proxy, Passenger, or Docker. See
   [docs/MEDIA.md](docs/MEDIA.md#storage-and-cdn).
+- Package and core-update archives are parsed with a time limit. A malformed
+  TAR or ZIP is rejected, and extracted files are copied into the live tree
+  only after the signature or digest check has passed.
 - Leave `DB_SSL` alone unless you have a reason: database TLS is on by default
   for any non-localhost `DB_HOST`.
 - Complete first-run setup using the setup key from `install-token/TOKEN.txt`
