@@ -219,10 +219,33 @@ export function securityCenterCopy(id: string, summary: string): { detail: strin
           };
       }
     case "extensions.integrity":
-      return {
-        detail: "security.center.checks.extensionsIntegrity.unavailable",
-        remediation: "security.center.checks.extensionsIntegrity.remediation",
-      };
+      switch (summary) {
+        case "clear":
+          return {
+            detail: "security.center.checks.extensionsIntegrity.clear",
+            remediation: "security.center.checks.extensionsIntegrity.remediationClear",
+          };
+        case "baselineMissing":
+          return {
+            detail: "security.center.checks.extensionsIntegrity.baselineMissing",
+            remediation: "security.center.checks.extensionsIntegrity.remediationBaseline",
+          };
+        case "failed":
+          return {
+            detail: "security.center.checks.extensionsIntegrity.failed",
+            remediation: "security.center.checks.extensionsIntegrity.remediationFailed",
+          };
+        case "otherSite":
+          return {
+            detail: "security.center.checks.extensionsIntegrity.otherSite",
+            remediation: "security.center.checks.extensionsIntegrity.remediationOtherSite",
+          };
+        default:
+          return {
+            detail: "security.center.checks.extensionsIntegrity.unavailable",
+            remediation: "security.center.checks.extensionsIntegrity.remediation",
+          };
+      }
     case "recovery.backup":
       return {
         detail: "security.center.checks.recoveryBackup.notVerified",

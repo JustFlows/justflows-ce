@@ -42,6 +42,7 @@
     "securityAccount": "Your account",
     "securityAudit": "Audit log",
     "securityWebServer": "Web server",
+    "securityIntegrity": "File integrity",
     "languages": "Languages",
     "shop": "Shop",
     "shopProducts": "Products",
@@ -2756,6 +2757,26 @@
     }
   },
   "security": {
+    "integrity": {
+      "title": "File integrity",
+      "subtitle": "Installed extensions are compared with the baseline recorded when they were installed from a trusted package. Core files are compared with the signed manifest for this release. Uploads, storage, and site data are not part of that manifest.",
+      "otherSite": "File integrity is checked on the platform site.",
+      "loadError": "Could not load the integrity report",
+      "rescan": "Scan again",
+      "scanning": "Scanning…",
+      "empty": "No installed extensions yet.",
+      "repair": "Reinstall the extension from a trusted package. Justflows does not treat the current files as the baseline.",
+      "coreVerified": "Core files match the signed release manifest.",
+      "coreLocal": "Core files match a local baseline. This is not an official signed release.",
+      "coreAbsent": "No core manifest is present. A development checkout is unverified, not a failed release.",
+      "coreFailed": "Core files do not match the manifest.",
+      "verified": "Verified",
+      "unverifiable": "No baseline",
+      "modified": "Modified",
+      "missing": "Missing",
+      "unexpected": "Unexpected file",
+      "limit": "Could not verify"
+    },
     "webServer": {
       "title": "Web server",
       "subtitle": "Justflows checks uploads in the application. A web server that serves those files from disk skips that check. Pick the host you use and copy its file. A CDN in front of the site must not cache a private or trashed upload.",
@@ -2935,8 +2956,16 @@
         },
         "extensionsIntegrity": {
           "title": "File integrity",
-          "unavailable": "Core and extension files are not compared with a trusted baseline. A successful install is not a scan of the files on disk.",
-          "remediation": "File integrity checks are not available yet. Reinstall from a trusted release if you suspect files were changed."
+          "unavailable": "The integrity scan could not be read.",
+          "remediation": "Open File integrity and scan again.",
+          "clear": "{verified} installed extensions match their trusted baselines, and the core manifest matches this release.",
+          "baselineMissing": "{unverifiable} installed extensions have no trusted baseline, or this checkout has no signed core manifest.",
+          "failed": "{failed} installed extensions or the core files do not match the trusted baseline.",
+          "otherSite": "File integrity is checked on the platform site.",
+          "remediationClear": "Scan again after you install or reinstall an extension.",
+          "remediationBaseline": "Reinstall the extension from a trusted package to record a baseline. A development checkout has no signed core manifest.",
+          "remediationFailed": "Reinstall the affected extension from a trusted package. The current files are not kept as a baseline.",
+          "remediationOtherSite": "Open File integrity on the platform site."
         },
         "recoveryBackup": {
           "title": "Backup readiness",

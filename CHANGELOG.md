@@ -9,7 +9,9 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Admin → Security opens on a Security Center.** The page lists checks this installation can answer: Node.js version, core updates, debug mode, the install wizard, administrator authenticators, device sessions, API key expiry, the session cookie, the public URL, trusted proxies, and the response-header policy. Each row is pass, warning, fail, not verified, or not applicable, and says whether it is configuration or a deployment check. File integrity and backups stay not verified. An update check that has not finished is not shown as up to date, and a header result stays on Header grade. It is not a grade for the site. ([#198](https://github.com/JustFlows/justflows-ce/issues/198))
+- **Admin → Security opens on a Security Center.** The page lists checks this installation can answer: Node.js version, core updates, debug mode, the install wizard, administrator authenticators, device sessions, API key expiry, the session cookie, the public URL, trusted proxies, and the response-header policy. Each row is pass, warning, fail, not verified, or not applicable, and says whether it is configuration or a deployment check. Backups stay not verified. An update check that has not finished is not shown as up to date, and a header result stays on Header grade. It is not a grade for the site. ([#198](https://github.com/JustFlows/justflows-ce/issues/198))
+
+- **Admin → Security → File integrity compares installed extensions with the baseline from their trusted install.** Changing, removing, or adding a file is reported, and that extension is not loaded. An older install with no baseline stays unverified and still runs. Reinstalling from a trusted package is how a modified extension is restored. Core files can be checked against a signed manifest that ignores uploads, storage, and installed extensions. A development checkout without that manifest stays unverified. ([#120](https://github.com/JustFlows/justflows-ce/issues/120))
 
 ### Fixed
 

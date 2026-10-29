@@ -40,6 +40,7 @@
     "securityAccount": "Ihr Konto",
     "securityAudit": "Audit-Protokoll",
     "securityWebServer": "Webserver",
+    "securityIntegrity": "Dateiintegrität",
     "languages": "Sprachen",
     "shop": "Shop",
     "shopProducts": "Produkte",
@@ -2330,6 +2331,26 @@
     "originalDimensions": "Original {width}×{height}"
   },
   "security": {
+    "integrity": {
+      "title": "Dateiintegrität",
+      "subtitle": "Installierte Erweiterungen werden mit der Basis aus der vertrauenswürdigen Installation verglichen. Core-Dateien werden mit dem signierten Manifest dieser Version verglichen. Uploads, Speicher und Websitedaten gehören nicht zu diesem Manifest.",
+      "otherSite": "Die Dateiintegrität wird auf der Plattform-Website geprüft.",
+      "loadError": "Der Integritätsbericht konnte nicht geladen werden",
+      "rescan": "Erneut prüfen",
+      "scanning": "Wird geprüft…",
+      "empty": "Noch keine installierten Erweiterungen.",
+      "repair": "Installieren Sie die Erweiterung erneut aus einem vertrauenswürdigen Paket. Justflows übernimmt die aktuellen Dateien nicht als Basis.",
+      "coreVerified": "Die Core-Dateien stimmen mit dem signierten Release-Manifest überein.",
+      "coreLocal": "Die Core-Dateien stimmen mit einer lokalen Basis überein. Das ist kein offiziell signiertes Release.",
+      "coreAbsent": "Es gibt kein Core-Manifest. Ein Entwicklungsstand ist ungeprüft, kein fehlgeschlagenes Release.",
+      "coreFailed": "Die Core-Dateien stimmen nicht mit dem Manifest überein.",
+      "verified": "Geprüft",
+      "unverifiable": "Keine Basis",
+      "modified": "Geändert",
+      "missing": "Fehlt",
+      "unexpected": "Unerwartete Datei",
+      "limit": "Konnte nicht geprüft werden"
+    },
     "webServer": {
       "title": "Webserver",
       "subtitle": "Justflows prüft Uploads in der Anwendung. Ein Webserver, der diese Dateien von der Festplatte ausliefert, überspringt diese Prüfung. Wählen Sie den Host und kopieren Sie die Datei. Ein CDN vor der Website darf einen privaten oder im Papierkorb liegenden Upload nicht cachen.",
@@ -2509,8 +2530,16 @@
         },
         "extensionsIntegrity": {
           "title": "Dateiintegrität",
-          "unavailable": "Core- und Erweiterungsdateien werden nicht mit einer vertrauenswürdigen Basis verglichen. Eine erfolgreiche Installation ist keine Prüfung der Dateien auf der Platte.",
-          "remediation": "Integritätsprüfungen sind noch nicht verfügbar. Installieren Sie neu aus einem vertrauenswürdigen Release, wenn Sie geänderte Dateien vermuten."
+          "unavailable": "Der Integritätsscan konnte nicht gelesen werden.",
+          "remediation": "Öffnen Sie Dateiintegrität und prüfen Sie erneut.",
+          "clear": "{verified} installierte Erweiterungen stimmen mit ihrer vertrauenswürdigen Basis überein, und das Core-Manifest stimmt mit dieser Version überein.",
+          "baselineMissing": "{unverifiable} installierte Erweiterungen haben keine vertrauenswürdige Basis, oder dieser Stand hat kein signiertes Core-Manifest.",
+          "failed": "{failed} installierte Erweiterungen oder die Core-Dateien stimmen nicht mit der vertrauenswürdigen Basis überein.",
+          "otherSite": "Die Dateiintegrität wird auf der Plattform-Website geprüft.",
+          "remediationClear": "Prüfen Sie erneut, nachdem Sie eine Erweiterung installiert oder neu installiert haben.",
+          "remediationBaseline": "Installieren Sie die Erweiterung erneut aus einem vertrauenswürdigen Paket, um eine Basis zu speichern. Ein Entwicklungsstand hat kein signiertes Core-Manifest.",
+          "remediationFailed": "Installieren Sie die betroffene Erweiterung erneut aus einem vertrauenswürdigen Paket. Die aktuellen Dateien werden nicht als Basis behalten.",
+          "remediationOtherSite": "Öffnen Sie Dateiintegrität auf der Plattform-Website."
         },
         "recoveryBackup": {
           "title": "Backup-Bereitschaft",

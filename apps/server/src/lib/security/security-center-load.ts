@@ -185,7 +185,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     siteId = null;
   }
 
-  const [mfa, sessions, apiKeys, headers, auditAvailable] = await Promise.all([
+  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity] = await Promise.all([
     siteId ? readAdminMfa(siteId) : Promise.resolve({ state: "unknown" } as const),
     siteId ? readSessions(siteId) : Promise.resolve({ state: "unknown" } as const),
     siteId ? readApiKeys(siteId) : Promise.resolve({ state: "unknown" } as const),
@@ -193,6 +193,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     siteId
       ? siteFeatureEnabled("feature.securityAudit", siteId).catch(() => false)
       : Promise.resolve(false),
+    installationRoot ? readIntegrity() : Promise.resolve({ state: "unknown" } as const),
   ]);
 
   const facts: SecurityCenterFacts = {
@@ -213,6 +214,23 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     proxy: installationRoot ? classifyProxy(process.env.TRUST_PROXY) : null,
     headers,
     auditAvailable,
+    integrity,
   };
   return securityCenterReport(facts);
+}
+
+async function readIntegrity(): Promise<SecurityCenterFacts["integrity"]> {
+  try {
+    const { loadIntegrityOverview } = await import("./extension-integrity.js");
+    const overview = await loadIntegrityOverview(false);
+    return {
+      state: "known",
+      verified: overview.verified,
+      unverifiable: overview.unverifiable,
+      failed: overview.failed,
+      core: overview.core,
+    };
+  } catch {
+    return { state: "unknown" };
+  }
 }

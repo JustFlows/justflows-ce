@@ -42,6 +42,7 @@
     "securityAccount": "Twoje konto",
     "securityAudit": "Dziennik audytu",
     "securityWebServer": "Serwer WWW",
+    "securityIntegrity": "Integralność plików",
     "languages": "Języki",
     "shop": "Sklep",
     "shopProducts": "Produkty",
@@ -2795,6 +2796,26 @@
     }
   },
   "security": {
+    "integrity": {
+      "title": "Integralność plików",
+      "subtitle": "Zainstalowane rozszerzenia są porównywane z bazą zapisaną przy instalacji z zaufanego pakietu. Pliki rdzenia są porównywane z podpisanym manifestem tego wydania. Przesłane pliki, magazyn i dane witryny nie należą do tego manifestu.",
+      "otherSite": "Integralność plików jest sprawdzana w witrynie platformy.",
+      "loadError": "Nie udało się wczytać raportu integralności",
+      "rescan": "Skanuj ponownie",
+      "scanning": "Skanowanie…",
+      "empty": "Nie ma jeszcze zainstalowanych rozszerzeń.",
+      "repair": "Zainstaluj rozszerzenie ponownie z zaufanego pakietu. Justflows nie przyjmuje bieżących plików jako bazy.",
+      "coreVerified": "Pliki rdzenia są zgodne z podpisanym manifestem wydania.",
+      "coreLocal": "Pliki rdzenia są zgodne z lokalną bazą. To nie jest oficjalne podpisane wydanie.",
+      "coreAbsent": "Brak manifestu rdzenia. Kopia deweloperska jest niezweryfikowana, to nie jest nieudane wydanie.",
+      "coreFailed": "Pliki rdzenia nie są zgodne z manifestem.",
+      "verified": "Zweryfikowano",
+      "unverifiable": "Brak bazy",
+      "modified": "Zmieniono",
+      "missing": "Brakuje",
+      "unexpected": "Nieoczekiwany plik",
+      "limit": "Nie można zweryfikować"
+    },
     "webServer": {
       "title": "Serwer WWW",
       "subtitle": "Justflows sprawdza przesłane pliki w aplikacji. Serwer WWW, który serwuje je z dysku, pomija to sprawdzenie. Wybierz używany host i skopiuj jego plik. CDN przed witryną nie może buforować pliku prywatnego ani z kosza.",
@@ -2974,8 +2995,16 @@
         },
         "extensionsIntegrity": {
           "title": "Integralność plików",
-          "unavailable": "Pliki rdzenia i rozszerzeń nie są porównywane z zaufaną bazą. Udana instalacja nie jest skanem plików na dysku.",
-          "remediation": "Kontrole integralności nie są jeszcze dostępne. Zainstaluj ponownie z zaufanego wydania, jeśli podejrzewasz zmianę plików."
+          "unavailable": "Nie udało się odczytać skanu integralności.",
+          "remediation": "Otwórz Integralność plików i zeskanuj ponownie.",
+          "clear": "{verified} zainstalowanych rozszerzeń jest zgodnych z zaufaną bazą, a manifest rdzenia jest zgodny z tym wydaniem.",
+          "baselineMissing": "{unverifiable} zainstalowanych rozszerzeń nie ma zaufanej bazy albo ta kopia nie ma podpisanego manifestu rdzenia.",
+          "failed": "{failed} zainstalowanych rozszerzeń albo pliki rdzenia nie są zgodne z zaufaną bazą.",
+          "otherSite": "Integralność plików jest sprawdzana w witrynie platformy.",
+          "remediationClear": "Zeskanuj ponownie po zainstalowaniu lub ponownej instalacji rozszerzenia.",
+          "remediationBaseline": "Zainstaluj rozszerzenie ponownie z zaufanego pakietu, aby zapisać bazę. Kopia deweloperska nie ma podpisanego manifestu rdzenia.",
+          "remediationFailed": "Zainstaluj ponownie dotknięte rozszerzenie z zaufanego pakietu. Bieżące pliki nie są zachowywane jako baza.",
+          "remediationOtherSite": "Otwórz Integralność plików w witrynie platformy."
         },
         "recoveryBackup": {
           "title": "Gotowość kopii zapasowej",

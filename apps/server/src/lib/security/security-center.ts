@@ -4,8 +4,9 @@
  * Security Center checks.
  *
  * Each row is one question this process can answer. A pass is that question
- * only. File integrity, backups, and a certificate this process did not open
- * stay unknown — never a pass, and never folded into a site-wide grade.
+ * only. Backups, and a certificate this process did not open, stay unknown.
+ * File integrity is a pass only when a signed core manifest matches and every
+ * baselined extension matches. Nothing here is folded into a site-wide grade.
  */
 
 export const SECURITY_CHECK_IDS = [
@@ -72,6 +73,15 @@ export interface SecurityCenterFacts {
     | { state: "killSwitch" }
     | { state: "known"; critical: number; warning: number };
   auditAvailable: boolean;
+  integrity:
+    | { state: "unknown" }
+    | {
+        state: "known";
+        verified: number;
+        unverifiable: number;
+        failed: number;
+        core: "verified" | "local" | "absent" | "failed";
+      };
 }
 
 export interface SecurityCenterReport {
@@ -544,15 +554,66 @@ function headersCheck(facts: SecurityCenterFacts): SecurityCheck {
   });
 }
 
+const INTEGRITY_HREF = "/admin/security/integrity";
+
 function integrityCheck(facts: SecurityCenterFacts): SecurityCheck {
+  if (!facts.installationRoot) {
+    return row(facts, {
+      id: "extensions.integrity",
+      status: "not_applicable",
+      severity: "info",
+      kind: "configuration",
+      scope: "installation",
+      summary: "otherSite",
+      href: null,
+    });
+  }
+  if (facts.integrity.state === "unknown") {
+    return row(facts, {
+      id: "extensions.integrity",
+      status: "unknown",
+      severity: "info",
+      kind: "configuration",
+      scope: "installation",
+      summary: "unavailable",
+      href: INTEGRITY_HREF,
+    });
+  }
+  const { verified, unverifiable, failed, core } = facts.integrity;
+  const evidence = { verified, unverifiable, failed };
+  if (failed > 0 || core === "failed") {
+    return row(facts, {
+      id: "extensions.integrity",
+      status: "fail",
+      severity: "high",
+      kind: "configuration",
+      scope: "installation",
+      summary: "failed",
+      href: INTEGRITY_HREF,
+      evidence,
+    });
+  }
+  if (unverifiable > 0 || core === "absent" || core === "local") {
+    return row(facts, {
+      id: "extensions.integrity",
+      status: "warn",
+      severity: "medium",
+      kind: "configuration",
+      scope: "installation",
+      summary: "baselineMissing",
+      href: INTEGRITY_HREF,
+      evidence,
+    });
+  }
   return row(facts, {
     id: "extensions.integrity",
-    status: "unknown",
+    status: "pass",
     severity: "info",
     kind: "configuration",
     scope: "installation",
-    summary: "unavailable",
-    href: null,
+    summary: "clear",
+    href: INTEGRITY_HREF,
+    evidence,
   });
 }
 
