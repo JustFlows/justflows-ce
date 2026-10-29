@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: MIT
 
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { requireRole } from "../../middleware/auth.js";
 import { auditConfig } from "../../lib/security/security-audit.js";
+import { loadSecurityCenter } from "../../lib/security/security-center-load.js";
+import { loadWebServerGuide } from "../../lib/security/web-server-guide.js";
+import { loadIntegrityOverview } from "../../lib/security/extension-integrity.js";
+import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import {
   SECURITY_HEADER_DEFS,
@@ -25,6 +30,15 @@ const router = Router();
 /** Security configuration is an administrator-only surface, read included. */
 const adminOnly = requireRole("administrator");
 
+/** Hashing installed trees is filesystem work, so the scan has its own budget. */
+const integrityRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  identifier: "integrity",
+});
+
 router.use((req, res, next) => {
   const feature = req.path === "/headers" || req.path.startsWith("/headers/")
     ? "feature.securityHeaders"
@@ -36,6 +50,62 @@ router.use((req, res, next) => {
     return;
   }
   requireSiteFeature(feature)(req, res, next);
+});
+
+router.get("/center", adminOnly, async (_req, res) => {
+  try {
+    res.json(await loadSecurityCenter());
+  } catch (e) {
+    sendServerError(res, "security", e);
+  }
+});
+
+router.get("/web-server", adminOnly, async (_req, res) => {
+  try {
+    res.json(await loadWebServerGuide());
+  } catch (e) {
+    sendServerError(res, "security", e);
+  }
+});
+
+router.get("/integrity", adminOnly, integrityRateLimit, async (_req, res) => {
+  if (!isInstallationRootRequest()) {
+    res.json({
+      installationRoot: false,
+      core: "absent",
+      verified: 0,
+      unverifiable: 0,
+      failed: 0,
+      packages: [],
+    });
+    return;
+  }
+  try {
+    res.json({ installationRoot: true, ...(await loadIntegrityOverview(false)) });
+  } catch (e) {
+    sendServerError(res, "security", e);
+  }
+});
+
+router.post("/integrity/scan", adminOnly, integrityRateLimit, async (req, res) => {
+  if (!isInstallationRootRequest()) {
+    res.status(403).json({ error: "File integrity is checked on the platform site." });
+    return;
+  }
+  try {
+    const overview = await loadIntegrityOverview(true);
+    const paths = overview.packages
+      .filter((item) => item.status !== "verified" && item.status !== "unverifiable")
+      .flatMap((item) => [item.packageId, ...item.modified, ...item.missing, ...item.unexpected])
+      .slice(0, 20);
+    auditFromRequest(req, "integrity.scanned", {
+      outcome: overview.failed > 0 || overview.core === "failed" ? "failure" : "success",
+      detail: `core ${overview.core}; failed ${overview.failed}; ${paths.join(", ")}`.replace(/[\r\n]/g, " ").slice(0, 500),
+    });
+    res.json({ installationRoot: true, ...overview });
+  } catch (e) {
+    sendServerError(res, "security", e);
+  }
 });
 
 router.get("/admin-path", adminOnly, async (_req, res) => {

@@ -9,6 +9,7 @@ import {
   installTokenFile,
   installTokenFileExists,
   installTokenRequired,
+  installTokenWaived,
   isLoopbackAddress,
   resetInstallTokenCache,
   tokenMatches,
@@ -97,6 +98,17 @@ describe("isLoopbackAddress", () => {
     for (const ip of ["203.0.113.9", "10.0.0.4", "::ffff:203.0.113.9", "", undefined]) {
       expect(isLoopbackAddress(ip), String(ip)).toBe(false);
     }
+  });
+});
+
+describe("installTokenWaived", () => {
+  it("still allows a local development request to skip the token", () => {
+    expect(installTokenWaived("127.0.0.1", { NODE_ENV: "development" })).toBe(true);
+  });
+
+  it("requires the token in production even for a loopback address", () => {
+    expect(installTokenWaived("127.0.0.1", { NODE_ENV: "production" })).toBe(false);
+    expect(installTokenWaived("::1", { NODE_ENV: "production" })).toBe(false);
   });
 });
 

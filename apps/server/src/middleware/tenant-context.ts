@@ -173,8 +173,10 @@ async function guardUploads(req: Request, res: Response, next: NextFunction): Pr
     return;
   }
   const relative = req.path.startsWith("/uploads/") ? req.path.slice("/uploads".length) : req.path;
+  const { isPrivateUploadPath } = await import("../lib/media/upload-serve.js");
   const siteId = relative.split("/").filter(Boolean)[0];
-  if (siteId !== decision.record.siteId) {
+  if (isPrivateUploadPath(relative) || siteId !== decision.record.siteId) {
+    res.setHeader("Cache-Control", "private, no-store");
     res.status(404).end();
     return;
   }

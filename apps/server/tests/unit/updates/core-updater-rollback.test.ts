@@ -32,6 +32,7 @@ beforeEach(async () => {
   await write(root, "node_modules/dependency/index.js", "old dependency");
   await write(root, ".env", "preserve environment");
   await write(root, "uploads/photo.txt", "preserve upload");
+  await write(root, "storage/private/site/file.txt", "private bytes");
   await write(source, "added.js", "new only");
   await write(source, "node_modules/dependency/index.js", "new dependency");
   await write(source, "apps/server/dist/lib/database/apply-pending-migrations-cli.js", "migration");
@@ -56,6 +57,7 @@ async function expectRestored() {
   expect(await fs.readFile(path.join(root, "node_modules/dependency/index.js"), "utf8")).toBe("old dependency");
   expect(await fs.readFile(path.join(root, ".env"), "utf8")).toBe("preserve environment");
   expect(await fs.readFile(path.join(root, "uploads/photo.txt"), "utf8")).toBe("preserve upload");
+  expect(await fs.readFile(path.join(root, "storage/private/site/file.txt"), "utf8")).toBe("private bytes");
   await expect(fs.stat(path.join(root, "added.js"))).rejects.toMatchObject({ code: "ENOENT" });
 }
 
@@ -133,5 +135,24 @@ describe("core update recovery", () => {
     expect(mocks.restart).toHaveBeenCalledOnce();
     expect(await fs.readFile(path.join(root, ".updates/previous-release/server.js"), "utf8")).toBe("old server");
     expect(await fs.readFile(path.join(root, "node_modules/dependency/index.js"), "utf8")).toBe("new dependency");
+    expect(await fs.readFile(path.join(root, "storage/private/site/file.txt"), "utf8")).toBe("private bytes");
+  });
+
+  it("keeps private storage and the last recoverable release across two updates", async () => {
+    vi.stubEnv("PRIVATE_STORAGE_PATH", "custom-runtime/files");
+    await write(root, "custom-runtime/keep.txt", "custom");
+    expect((await apply()).ok).toBe(true);
+    await write(source, "server.js", "newer server");
+    await write(source, "package.json", JSON.stringify({ name: "justflows", version: "1.2.0" }));
+    await write(source, "apps/server/dist/lib/database/apply-pending-migrations-cli.js", "migration");
+    await write(source, "apps/server/dist/server.js", "built server");
+    await write(source, "apps/server/admin-ui/dist/client/index.html", "client");
+    await write(source, "apps/server/admin-ui/dist/server/entry-server.js", "ssr");
+    expect((await apply()).ok).toBe(true);
+    expect(await fs.readFile(path.join(root, "server.js"), "utf8")).toBe("newer server");
+    expect(await fs.readFile(path.join(root, "storage/private/site/file.txt"), "utf8")).toBe("private bytes");
+    expect(await fs.readFile(path.join(root, "custom-runtime/keep.txt"), "utf8")).toBe("custom");
+    expect(await fs.readFile(path.join(root, "uploads/photo.txt"), "utf8")).toBe("preserve upload");
+    expect(await fs.readFile(path.join(root, ".updates/previous-release/server.js"), "utf8")).toBe("new server");
   });
 });

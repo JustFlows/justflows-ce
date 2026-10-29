@@ -199,6 +199,16 @@ trash moved into the site folder (the shared `uploads/.trash/<siteId>/`) still
 restore and purge. `.trash` is never served: `/uploads` returns 404 for it and the
 generated root `.htaccess` refuses it.
 
+That check runs in the application. A web server that serves `/uploads/` from
+disk, or a CDN that caches it as public, skips the check. Do not alias
+`/uploads/` to the uploads folder. **Admin → Security → Web server** (the
+platform site) shows the file to copy for Apache, LiteSpeed, nginx, an Apache
+reverse proxy, Passenger, and Docker, filled in with this install's port and
+uploads directory. Apache and LiteSpeed pick up the site-root `.htaccess` on
+startup while its first line is intact, when the install is the document root
+and the vhost allows it. nginx, a reverse proxy, Passenger, and Docker are not
+rewritten for you.
+
 `STORAGE_DRIVER` picks where the files go:
 
 - `local` (default) — the `uploads/` folder (`STORAGE_LOCAL_PATH`).
@@ -226,7 +236,11 @@ pnpm storage:sync --dry-run   # list what would be copied
 pnpm storage:sync             # copy; keys already in the bucket are skipped
 ```
 
-The command needs a compiled server and never deletes local files.
+The command needs a compiled server and never deletes local files. A file that
+is still only on disk stays available after the switch. It is not redirected to
+`STORAGE_S3_PUBLIC_URL`, it is sent with `Cache-Control: private, no-store`,
+and it is hidden once a trash copy exists. A public bucket is not used for
+private plugin files.
 The storage test on Admin → System → Health writes, reads, and deletes a probe
 file through the configured driver.
 

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 
 import express from "express";
+import rateLimit from "express-rate-limit";
+import fs from "node:fs/promises";
 import type { AddressInfo } from "node:net";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { moveMediaStorage } from "../../../src/lib/content/trash.js";
 import { uploadsHandler } from "../../../src/lib/media/upload-serve.js";
@@ -133,7 +137,11 @@ describe("S3 driver", () => {
 
   async function serve(path: string, headers: Record<string, string> = {}) {
     const app = express();
-    app.use("/uploads", uploadsHandler(60_000));
+    app.use(
+      "/uploads",
+      rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: "draft-8", legacyHeaders: false }),
+      uploadsHandler(60_000),
+    );
     const server = app.listen(0);
     try {
       const { port } = server.address() as AddressInfo;
@@ -155,7 +163,9 @@ describe("S3 driver", () => {
     expect(ok.headers.get("cache-control")).toBe("public, max-age=60");
     expect(await ok.text()).toBe("png");
 
-    expect((await serve(`/uploads/${SITE}/.trash/b.png`)).status).toBe(404);
+    const hidden = await serve(`/uploads/${SITE}/.trash/b.png`);
+    expect(hidden.status).toBe(404);
+    expect(hidden.headers.get("cache-control")).toBe("private, no-store");
     expect((await serve(`/uploads/${SITE}/missing.png`)).status).toBe(404);
   });
 
@@ -171,5 +181,27 @@ describe("S3 driver", () => {
 
     const inline = await serve(`/uploads/${SITE}/a.png`, { "x-jf-static-export": "1" });
     expect(inline.status).toBe(200);
+  });
+
+  it("serves a local file the bucket does not have yet, and hides it once trash holds a copy", async () => {
+    const s3 = fakeS3();
+    vi.stubGlobal("fetch", s3.fake);
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "jf-uploads-"));
+    process.env.STORAGE_LOCAL_PATH = dir;
+    process.env.STORAGE_S3_PUBLIC_URL = "https://cdn.example.com";
+    await fs.mkdir(path.join(dir, SITE), { recursive: true });
+    await fs.writeFile(path.join(dir, SITE, "old.png"), "local-bytes");
+
+    const kept = await serve(`/uploads/${SITE}/old.png`);
+    expect(kept.status).toBe(200);
+    expect(kept.headers.get("location")).toBeNull();
+    expect(kept.headers.get("cache-control")).toBe("private, no-store");
+    expect(await kept.text()).toBe("local-bytes");
+
+    s3.objects.set(`${SITE}/.trash/old.png`, Buffer.from("gone"));
+    const hidden = await serve(`/uploads/${SITE}/old.png`);
+    expect(hidden.status).toBe(404);
+    expect(hidden.headers.get("cache-control")).toBe("private, no-store");
+    await fs.rm(dir, { recursive: true, force: true });
   });
 });

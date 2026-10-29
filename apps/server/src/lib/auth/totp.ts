@@ -83,32 +83,38 @@ export function totpCode(secret: string, counter: number): string {
 }
 
 /**
- * Whether `token` is valid for `secret` right now.
+ * The time step `token` matches, or null.
  *
  * Every candidate is compared, and always with timingSafeEqual, rather than
  * returning on the first match — so the time taken does not reveal which step
- * matched, or whether any did.
+ * matched, or whether any did. The caller must claim the step before a
+ * session or another factor-protected action is allowed.
  */
-export function verifyTotp(secret: string, token: string, atMs = Date.now()): boolean {
+export function acceptedTotpStep(secret: string, token: string, atMs = Date.now()): number | null {
   const cleaned = token.replace(/\s/g, "");
-  if (!/^\d{6}$/.test(cleaned)) return false;
+  if (!/^\d{6}$/.test(cleaned)) return null;
 
   const counter = Math.floor(atMs / 1000 / TOTP_PERIOD_SECONDS);
   const supplied = Buffer.from(cleaned);
-  let matched = false;
+  let matched: number | null = null;
 
   for (let drift = -TOTP_WINDOW; drift <= TOTP_WINDOW; drift++) {
     let expected: Buffer;
     try {
       expected = Buffer.from(totpCode(secret, counter + drift));
     } catch {
-      return false;
+      return null;
     }
     if (expected.length === supplied.length && timingSafeEqual(expected, supplied)) {
-      matched = true;
+      matched = counter + drift;
     }
   }
   return matched;
+}
+
+/** Whether `token` is valid for `secret` right now. */
+export function verifyTotp(secret: string, token: string, atMs = Date.now()): boolean {
+  return acceptedTotpStep(secret, token, atMs) !== null;
 }
 
 /** otpauth:// URI for an authenticator app's QR code. */

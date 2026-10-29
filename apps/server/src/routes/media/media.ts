@@ -4,6 +4,8 @@ import { z } from "zod";
 import { requireInstallationRoot, requireRole } from "../../middleware/auth.js";
 import { requireSiteFeature } from "../../lib/tenancy/site-features.js";
 import { MEDIA_WRITE_ROLES, ROLES } from "../../lib/auth/rbac.js";
+import { userCan } from "../../lib/auth/access-policy.js";
+import type { UserCapability } from "@justflows/sdk";
 import { formatMb, maxUploadBytes } from "../../lib/media/media-quota.js";
 import multer, { MulterError } from "multer";
 import { sendServerError } from "../../lib/http/send-error.js";
@@ -35,6 +37,14 @@ const regenerateLimit = rateLimit({
   legacyHeaders: false,
 });
 const upload = multer({ storage: multer.memoryStorage(), limits: multipartLimits(maxUploadBytes()) });
+
+/** Role gates the route. The capability decides the operation, before any library read or write. */
+async function allowMedia(
+  session: { userId: string; siteId: string; role: string },
+  capability: UserCapability,
+): Promise<boolean> {
+  return userCan(session, capability, { siteId: session.siteId });
+}
 const admitMediaUpload = admitUpload({ name: "media", maxBytes: maxUploadBytes(), perSite: 4, global: 16 });
 
 /**
@@ -65,6 +75,10 @@ function uploadSingle(field: string) {
 
 router.get("/", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
   const session = req.session!;
+  if (!(await allowMedia(session, "media:read"))) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
   try {
     const items = await listMediaItems(session.siteId, Number(req.query.limit ?? "40"));
     res.json({ items });
@@ -81,6 +95,10 @@ router.post(
   uploadSingle("file"),
   async (req, res) => {
     const session = req.session!;
+    if (!(await allowMedia(session, "media:upload"))) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
     const file = req.file;
     if (!file) {
       res.status(400).json({ error: "No file provided" });
@@ -145,6 +163,10 @@ router.get("/regenerate/status", requireRole(ROLES.ADMIN), (_req, res) => {
 
 router.get("/:id", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
   const session = req.session!;
+  if (!(await allowMedia(session, "media:read"))) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
   try {
     const item = await getMediaItem(session.siteId, param(req.params.id));
     if (!item) {
@@ -159,6 +181,10 @@ router.get("/:id", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
 
 router.patch("/:id", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
   const session = req.session!;
+  if (!(await allowMedia(session, "media:upload"))) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
   const body = (req.body ?? {}) as Record<string, unknown>;
   try {
     const result = await updateMediaMetadata(
@@ -185,6 +211,10 @@ router.patch("/:id", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
 
 router.delete("/:id", requireRole(...MEDIA_WRITE_ROLES), async (req, res) => {
   const session = req.session!;
+  if (!(await allowMedia(session, "media:delete"))) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
   try {
     const result = await trashMediaItem(param(req.params.id), {
       siteId: session.siteId,

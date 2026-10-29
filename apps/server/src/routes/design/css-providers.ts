@@ -17,6 +17,7 @@ import { assertPackageIsTrusted } from "../../lib/extensions/package-trust.js";
 import { sendPackageInstallError } from "../../lib/extensions/package-install-error.js";
 import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
+import { recordInstalledPackageBaseline } from "../../lib/security/extension-integrity.js";
 import multer from "multer";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
@@ -87,6 +88,13 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
         }
         assertPackageIsTrusted(manifest as unknown as Record<string, unknown>, digest);
       },
+    });
+    await recordInstalledPackageBaseline({
+      packageDir: result.installedPath,
+      packageId: result.manifest.id,
+      packageType: "css-provider",
+      version: result.manifest.version,
+      archiveDigest: result.digest,
     });
 
     const siteId = await getCssProvidersSiteId();

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-import { Router, type Request } from "express";
+import { Router, type Request, type Response } from "express";
+import type { UserCapability } from "@justflows/sdk";
 import { z } from "zod";
 import { ContentScheduleSchema, ScheduleError, setContentSchedule } from "../../lib/content/content-scheduling-db.js";
 import { getDb } from "../../lib/database/db.js";
@@ -30,14 +31,56 @@ import {
   type ContentActor,
 } from "../../lib/content/content-write.js";
 import { getEffectiveAccess } from "../../lib/auth/access-policy.js";
+import { keyCan } from "../../lib/auth/api-keys.js";
+import {
+  canCreateHere,
+  capabilityReach,
+  draftReach,
+  editorialListFilter,
+  isPubliclyPublished,
+  narrowerReach,
+  type EditorialReach,
+} from "../../lib/content/content-visibility.js";
 import { sendServerError } from "../../lib/http/send-error.js";
-import { badRequest, ensureKeyCan, notFound, paginate, relay, sendJson } from "./envelope.js";
+import { badRequest, ensureKeyCan, forbidden, notFound, paginate, relay, sendJson } from "./envelope.js";
 
 const router = Router();
 
 function actorOf(req: Request): ContentActor {
   const owner = req.apiKeyOwner!;
   return { siteId: owner.siteId, userId: owner.userId, role: owner.role };
+}
+
+/**
+ * Unpublished rows stay hidden from a key that cannot edit them and did not
+ * create them. The response is 404 so the id is not confirmed.
+ */
+async function hideUnpublished(
+  req: Request,
+  res: Response,
+  row: Record<string, unknown>,
+  allow: UserCapability | null = null,
+): Promise<boolean> {
+  if (isPubliclyPublished(row)) return false;
+  const key = req.apiKey;
+  const owner = req.apiKeyOwner;
+  if (!key || !owner) {
+    notFound(res);
+    return true;
+  }
+  const resource = {
+    contentType: String(row.type ?? ""),
+    locale: String(row.locale ?? ""),
+    ownerId: (row.author_id as string | null) ?? null,
+  };
+  const canUpdate = await keyCan(key, owner, "content:update", resource);
+  const canCreateOwn =
+    String(row.author_id ?? "") === owner.userId &&
+    (await keyCan(key, owner, "content:create", { ...resource, ownerId: owner.userId }));
+  const canAllow = allow ? await keyCan(key, owner, allow, resource) : false;
+  if (canUpdate || canCreateOwn || canAllow) return false;
+  notFound(res);
+  return true;
 }
 
 /** Load a live (non-trashed) content row scoped to the key owner's site. */
@@ -64,13 +107,45 @@ router.get("/", async (req, res) => {
     const db = await getDb();
     const access = await getEffectiveAccess(owner.userId, owner.siteId, owner.role, db);
     const readScope = access.policy.scopes?.["content:read"];
+    const request = { siteId: owner.siteId, contentType: type, locale };
+    const key = req.apiKey!;
+    const keyCapabilities = key.capabilities ?? [];
+    const keyUpdate: EditorialReach = keyCapabilities.includes("content:update")
+      ? key.scope.ownership === "self"
+        ? "own"
+        : "all"
+      : "none";
+    const reach = draftReach(
+      narrowerReach(capabilityReach(access, "content:update", request), keyUpdate),
+      canCreateHere(access, request) && keyCapabilities.includes("content:create"),
+    );
+    const listed = editorialListFilter({ reach, status, actorId: owner.userId });
+    if ("error" in listed) return forbidden(res);
+    const keyRevisions: EditorialReach = keyCapabilities.includes("content:revisions:read")
+      ? key.scope.ownership === "self"
+        ? "own"
+        : "all"
+      : "none";
+    const revisionReach = narrowerReach(capabilityReach(access, "content:revisions:read", request), keyRevisions);
+    const revisionSelect =
+      revisionReach === "none"
+        ? "NULL AS working_revision_id"
+        : revisionReach === "own"
+          ? "CASE WHEN c.author_id = ? THEN w.id ELSE NULL END AS working_revision_id"
+          : "w.id AS working_revision_id";
+    const revisionJoin =
+      revisionReach === "none"
+        ? ""
+        : `LEFT JOIN revisions w ON w.content_id = c.id AND w.site_id = c.site_id AND w.${revisionColumn("kind")} = 'working'`;
     let sql = `SELECT c.id, c.type, c.title, c.slug, c.locale, c.translation_group_id, c.excerpt, c.status,
               c.author_id, c.publish_on, c.unpublish_on, c.published_at, c.created_at, c.updated_at, c.version,
-              w.id AS working_revision_id
+              ${revisionSelect}
        FROM content c
-       LEFT JOIN revisions w ON w.content_id = c.id AND w.site_id = c.site_id AND w.${revisionColumn("kind")} = 'working'
+       ${revisionJoin}
        WHERE c.site_id = ?`;
-    const params: (string | number | null)[] = [owner.siteId];
+    const params: (string | number | null)[] = [];
+    if (revisionReach === "own") params.push(owner.userId);
+    params.push(owner.siteId);
     if (type) {
       sql += " AND c.type = ?";
       params.push(type);
@@ -102,6 +177,8 @@ router.get("/", async (req, res) => {
       sql += " AND c.author_id = ?";
       params.push(owner.userId);
     }
+    sql += listed.sql;
+    params.push(...listed.params);
     sql += " ORDER BY c.updated_at DESC";
     const rows = await db.query<Record<string, unknown>>(sql, params);
     sendJson(req, res, paginate(rows.map(serializeContentRow), req));
@@ -114,6 +191,7 @@ router.get("/:id", async (req, res) => {
   try {
     const row = await loadRow(req.apiKeyOwner!.siteId, req.params.id);
     if (!row) return notFound(res);
+    if (await hideUnpublished(req, res, row)) return;
     if (
       !(await ensureKeyCan(req, res, "content:read", {
         contentType: String(row.type),
@@ -321,6 +399,7 @@ router.get("/:id/terms", async (req, res) => {
     const owner = req.apiKeyOwner!;
     const row = await loadRow(owner.siteId, req.params.id);
     if (!row) return notFound(res);
+    if (await hideUnpublished(req, res, row)) return;
     if (
       !(await ensureKeyCan(req, res, "content:read", {
         contentType: String(row.type),
@@ -366,6 +445,7 @@ router.get("/:id/revisions", async (req, res) => {
   try {
     const row = await loadRow(req.apiKeyOwner!.siteId, req.params.id);
     if (!row) return notFound(res);
+    if (await hideUnpublished(req, res, row, "content:revisions:read")) return;
     if (
       !(await ensureKeyCan(req, res, "content:revisions:read", {
         contentType: String(row.type),
@@ -385,6 +465,7 @@ router.get("/:id/revisions/:revisionId", async (req, res) => {
   try {
     const row = await loadRow(req.apiKeyOwner!.siteId, req.params.id);
     if (!row) return notFound(res);
+    if (await hideUnpublished(req, res, row, "content:revisions:read")) return;
     if (
       !(await ensureKeyCan(req, res, "content:revisions:read", {
         contentType: String(row.type),

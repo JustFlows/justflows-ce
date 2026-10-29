@@ -70,7 +70,7 @@ describe("MIGRATION_ORDER", () => {
   });
 
   it("uses the consolidated schema through migration 0036", () => {
-    expect(MIGRATION_ORDER).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings"]);
+    expect(MIGRATION_ORDER).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings", "0051_auth_claims"]);
   });
 
   it("contains every legacy migration in order for each database dialect", () => {
@@ -281,7 +281,7 @@ describe("runAllMigrations bookkeeping", () => {
 
       const result = await runAllMigrations(db, driver);
 
-      expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings"]);
+      expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings", "0051_auth_claims"]);
       expect(db.statements.some((s) => /CREATE TABLE IF NOT EXISTS template_parts/i.test(s))).toBe(
         false,
       );
@@ -309,7 +309,7 @@ describe("runAllMigrations bookkeeping", () => {
 
     const result = await runAllMigrations(db, "mysql");
 
-    expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings"]);
+    expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings", "0051_auth_claims"]);
     const schemaChanges = db.statements.filter(
       (s) => /^(CREATE|ALTER|DROP|UPDATE|INSERT)\b/i.test(s.trim()) && !s.includes("_migrations"),
     );

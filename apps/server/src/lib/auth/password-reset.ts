@@ -4,15 +4,13 @@ import { getDb } from "../database/db.js";
 import { getGeneralSettings } from "../settings/general-settings.js";
 import { getSiteId } from "../settings/site-settings.js";
 import { hashPassword } from "./password.js";
-import { revokeUserSessions } from "./auth-session.js";
 import { auditLog } from "../security/audit-log.js";
 import { sendTemplateMail } from "../email/mail.js";
 import { accountSurface, authPagePath, type AuthSurface } from "./auth-surface.js";
 import {
-  clearUserResets,
   createPasswordReset,
   findLiveReset,
-  markResetUsed,
+  redeemPasswordReset,
   resetTtlMinutes,
   type ResolvedReset,
 } from "./password-reset-db.js";
@@ -45,10 +43,6 @@ function appOrigin(): string {
 export async function resetLinkFor(token: string, surface: AuthSurface = "site"): Promise<string> {
   const query = `token=${encodeURIComponent(token)}`;
   return `${appOrigin()}${await authPagePath(surface, "reset-password")}?${query}`;
-}
-
-function nowSql(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
 }
 
 interface ForgotUserRow {
@@ -181,9 +175,9 @@ export async function resolveResetToken(token: string): Promise<ResolvedReset | 
 /**
  * Set a new password from a validated reset.
  *
- * Marks the token spent, writes the hash, revokes every session (there is no
- * session to keep — the caller is not signed in), clears any sibling reset rows,
- * audits the completion, and mails a confirmation. Never signs the user in.
+ * The claim, the password, the session version, device-session revocation, and
+ * sibling links commit together. A failed step leaves the previous password
+ * and sessions in place. This never signs the caller in.
  */
 export async function completePasswordReset(
   reset: ResolvedReset,
@@ -196,20 +190,8 @@ export async function completePasswordReset(
     [reset.userId, reset.siteId],
   );
   const user = rows[0];
-
-  // Spend the token before the write, so a crash mid-update cannot leave a
-  // redeemable link behind.
-  await markResetUsed(reset.id);
-
-  await db.run("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ? AND site_id = ?", [
-    await hashPassword(newPassword),
-    nowSql(),
-    reset.userId,
-    reset.siteId,
-  ]);
-
-  await revokeUserSessions(reset.userId, reset.siteId);
-  await clearUserResets(reset.userId, reset.siteId);
+  const passwordHash = await hashPassword(newPassword);
+  await redeemPasswordReset(reset, passwordHash);
 
   void auditLog({
     siteId: reset.siteId,
