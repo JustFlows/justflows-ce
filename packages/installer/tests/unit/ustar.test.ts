@@ -134,4 +134,15 @@ describe("extractTarGz", () => {
     await expect(extractJfpkg(gzipSync(bad), rejected)).rejects.toBeInstanceOf(ArchiveSafetyError);
     expect(fs.readdirSync(rejected)).toEqual([]);
   });
+
+  it("does not follow a symlink left in the destination", async () => {
+    const dest = tmp();
+    const outside = tmp();
+    fs.symlinkSync(path.join(outside, "pwned.txt"), path.join(dest, "justflows.json"));
+    const payload = randomBytes(80).toString("base64");
+    await expect(
+      extractTarGz(gzipSync(archive([{ name: "justflows.json", data: payload }])), dest, limits),
+    ).rejects.toThrow(UstarError);
+    expect(fs.existsSync(path.join(outside, "pwned.txt"))).toBe(false);
+  });
 });

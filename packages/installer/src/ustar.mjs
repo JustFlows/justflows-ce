@@ -168,9 +168,25 @@ export function parseUstar(tarBuf, limits = DEFAULT_LIMITS, startedAt = Date.now
   return entries;
 }
 
+function occupied(err) {
+  const code = err && typeof err === "object" ? err.code : "";
+  return code === "EEXIST" || code === "ELOOP" || code === "ENOTDIR" || code === "EISDIR";
+}
+
+/**
+ * Create each file with an exclusive open. A stat before the open would let
+ * the path change in between, which is the race CodeQL reports.
+ */
 async function writeEntries(dest, entries) {
+  const noFollow = fs.constants.O_NOFOLLOW;
+  const directory = fs.constants.O_DIRECTORY;
+  if (typeof noFollow !== "number" || typeof directory !== "number") {
+    throw new UstarError("This platform cannot contain archive writes");
+  }
   await fsp.mkdir(dest, { recursive: true });
   const root = await fsp.realpath(dest);
+  const fileFlags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | noFollow;
+  const dirFlags = fs.constants.O_RDONLY | directory | noFollow;
   for (const entry of entries) {
     const parts = entry.path.split("/");
     let parent = root;
@@ -182,20 +198,38 @@ async function writeEntries(dest, entries) {
       }
       const next = path.join(realParent, parts[i]);
       if (last && entry.kind === "file") {
-        const existing = await fsp.lstat(next).catch(() => null);
-        if (existing) throw new UstarError("Conflicting archive entry");
-        const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW ?? 0);
-        const handle = await fsp.open(next, flags);
+        let handle;
+        try {
+          handle = await fsp.open(next, fileFlags);
+        } catch (err) {
+          if (occupied(err)) throw new UstarError("Conflicting archive entry");
+          throw err;
+        }
         try {
           await handle.writeFile(entry.data);
         } finally {
           await handle.close();
         }
       } else {
-        const existing = await fsp.lstat(next).catch(() => null);
-        if (existing?.isSymbolicLink()) throw new UstarError("Unsupported archive entry");
-        if (existing && !existing.isDirectory()) throw new UstarError("Conflicting archive entry");
-        if (!existing) await fsp.mkdir(next);
+        let created = false;
+        try {
+          await fsp.mkdir(next);
+          created = true;
+        } catch (err) {
+          if (!occupied(err)) throw err;
+        }
+        if (!created) {
+          let handle;
+          try {
+            handle = await fsp.open(next, dirFlags);
+          } catch (err) {
+            if (occupied(err) || (err && err.code === "ENOENT")) {
+              throw new UstarError("Conflicting archive entry");
+            }
+            throw err;
+          }
+          await handle.close();
+        }
         parent = next;
       }
     }
