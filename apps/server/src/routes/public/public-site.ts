@@ -167,7 +167,7 @@ import { getAdminPathConfig, toPublicAdminPath } from "../../lib/admin/admin-pat
 const templateDir = viewsDir();
 const router = Router();
 
-router.get("/preview/:token", rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false }), async (req, res) => {
+router.get("/preview/:token", rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false, identifier: "preview" }), async (req, res) => {
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
   res.setHeader("Referrer-Policy", "no-referrer");
@@ -1929,6 +1929,7 @@ router.get(["/search", "/:locale/search"], rateLimit({
   limit: 60,
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  identifier: "search",
   handler: (req, res, next) => {
     void sendPublicRateLimited(req, res).catch(next);
   },
@@ -1958,7 +1959,6 @@ router.use(
   createPermalinkRouter({
     canView: ensureSiteIsPublic,
     previewAllowed: isPreviewAllowed,
-    rateLimited: sendPublicRateLimited,
     async renderContent(req, res, { content, path, basePath, pageNumber, alternates, canonicalPath }) {
       const preview = await isPreviewAllowed(req, res);
       await sendPublicHtml(req, res, path, preview, () =>
