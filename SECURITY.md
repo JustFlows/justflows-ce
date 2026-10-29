@@ -59,6 +59,11 @@ Also:
   your setup — the default (`loopback`) is right for nginx or Passenger on the
   same host. Getting this wrong makes per-IP rate limiting either useless or
   spoofable.
+- Do not serve `/uploads/`, `storage/`, update backups, or rollback data as
+  static files. Admin → Security → Web server shows the file for each host.
+  The application refreshes the site-root `.htaccess` and does not rewrite
+  nginx, a reverse proxy, Passenger, or Docker. See
+  [docs/MEDIA.md](docs/MEDIA.md#storage-and-cdn).
 - Leave `DB_SSL` alone unless you have a reason: database TLS is on by default
   for any non-localhost `DB_HOST`.
 - Complete first-run setup using the setup key from `install-token/TOKEN.txt`

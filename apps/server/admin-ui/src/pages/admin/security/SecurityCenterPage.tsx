@@ -152,6 +152,12 @@ export default function SecurityCenterPage() {
         </p>
       )}
 
+      <p>
+        <Link to="/admin/security/web-server">{t("security.webServer.centerLink")}</Link>
+        {" · "}
+        {t("security.webServer.centerHint")}
+      </p>
+
       {report && checks.length === 0 && <p>{t("security.center.empty")}</p>}
 
       {attention.length > 0 && (

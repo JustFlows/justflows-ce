@@ -15,7 +15,9 @@ describe("renderRootHtaccess", () => {
   });
 
   it("blocks the app's own directories and files", () => {
-    expect(out).toMatch(/RewriteRule \^\(\?:apps\|packages\|scripts\|node_modules\|data\|/);
+    expect(out).toMatch(/RewriteRule \^\(\?:apps\|packages\|packages-installed\|scripts\|node_modules\|data\|storage\|static-export\|/);
+    expect(out).toContain("\\.updates");
+    expect(out).toContain("\\.hosting-backup");
     expect(out).toContain("server\\.js");
     expect(out).toContain("package(?:-lock)?\\.json");
   });

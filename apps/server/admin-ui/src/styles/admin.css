@@ -4288,6 +4288,10 @@ input[type="range"] {
   white-space: pre;
 }
 
+.jf-code-snippet--file {
+  max-height: 24rem;
+}
+
 .jf-assistant {
   position: fixed;
   inset: 0 0 0 auto;

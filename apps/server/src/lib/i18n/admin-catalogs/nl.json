@@ -39,6 +39,7 @@
     "securityAdminPath": "Beheer-URL",
     "securityAccount": "Je account",
     "securityAudit": "Auditlogboek",
+    "securityWebServer": "Webserver",
     "languages": "Talen",
     "shop": "Winkel",
     "shopProducts": "Producten",
@@ -2287,6 +2288,53 @@
     "originalDimensions": "origineel {width}×{height}"
   },
   "security": {
+    "webServer": {
+      "title": "Webserver",
+      "subtitle": "Justflows controleert uploads in de applicatie. Een webserver die die bestanden van schijf serveert, slaat die controle over. Kies de host die je gebruikt en kopieer het bestand. Een CDN vóór de site mag een privé- of prullenbak-upload niet cachen.",
+      "otherSite": "Webserverbestanden stel je in op de platformsite.",
+      "loadError": "De webservergids kon niet worden geladen",
+      "copy": "Kopiëren",
+      "copied": "Gekopieerd",
+      "copyError": "Kopiëren is mislukt",
+      "automatic": "Toegepast door Justflows",
+      "manual": "Kopieer dit naar de host",
+      "centerLink": "Webserver instellen",
+      "centerHint": "Kopieer het bestand voor nginx, Apache, Passenger, LiteSpeed of Docker. De applicatie herschrijft die hosts niet.",
+      "accelOn": "UPLOADS_ACCEL_REDIRECT staat aan. Die moet overeenkomen met de interne locatie in dit bestand.",
+      "accelOff": "UPLOADS_ACCEL_REDIRECT staat niet aan, dus de applicatie stuurt het bestand. Voeg de interne locatie en de variabele samen toe.",
+      "htaccess": {
+        "current": "De .htaccess in de installatieroot komt overeen met dit bestand. Die wordt bij het opstarten ververst zolang de eerste regel intact is.",
+        "pending": "De .htaccess in de installatieroot wordt nog beheerd. De volgende start vervangt die door dit bestand.",
+        "custom": "De .htaccess in de installatieroot is met de hand aangepast, dus Justflows laat die staan. Voeg dit bestand samen, of herstel de eerste regel zodat Justflows die weer beheert.",
+        "missing": "Er is nog geen .htaccess in de installatieroot. Die wordt bij het opstarten geschreven. Je kunt dit bestand nu in de installatieroot zetten."
+      },
+      "environments": {
+        "application": {
+          "title": "Alleen de applicatie",
+          "body": "Gebruik dit wanneer Node elk verzoek beantwoordt, of wanneer de webserver de hele site, inclusief /uploads/, naar de applicatie proxy't. Er is geen extra bestand nodig."
+        },
+        "apache": {
+          "title": "Apache en LiteSpeed",
+          "body": "Gebruik dit wanneer de document root de Justflows-installatie is. Apache en LiteSpeed lezen de .htaccess in de installatieroot wanneer de vhost dat toestaat. Kopieer dit bestand over die .htaccess als de host die niet kan schrijven. AllowOverride moet FileInfo en Limit toestaan."
+        },
+        "nginx": {
+          "title": "nginx",
+          "body": "nginx wordt niet voor je bijgewerkt. Als /uploads/ een alias of root is die naar de uploadmap wijst, vervang die locatie door dit blok, in de server die de site proxy't. De interne locatie is optioneel."
+        },
+        "apacheProxy": {
+          "title": "Apache reverse proxy",
+          "body": "Gebruik dit wanneer Apache naar Node proxy't en de installatie niet de document root is, of wanneer een Alias /uploads/ van schijf serveert. Verwijder die Alias. Zet deze regels vóór een ProxyPass voor /."
+        },
+        "passenger": {
+          "title": "Passenger",
+          "body": "Passenger gebruikt het Apache- en LiteSpeed-bestand wanneer de installatie de document root is. Voeg geen Alias voor /uploads/ toe. Staat nginx vóór Passenger, gebruik dan ook het nginx-bestand."
+        },
+        "docker": {
+          "title": "Docker",
+          "body": "De Justflows-image installeert of herlaadt nginx niet. Zet je nginx vóór de container, kopieer dit bestand dan naar die server. Het alias-pad is de uploadmap van dit proces. Pas het aan als nginx die map ergens anders ziet."
+        }
+      }
+    },
     "center": {
       "title": "Beveiligingscentrum",
       "subtitle": "Controles die deze installatie kan beantwoorden. Een geslaagde rij is alleen die controle, geen cijfer voor de site.",

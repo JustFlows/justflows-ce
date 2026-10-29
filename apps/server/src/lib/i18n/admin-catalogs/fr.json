@@ -39,6 +39,7 @@
     "securityAdminPath": "URL d’administration",
     "securityAccount": "Votre compte",
     "securityAudit": "Journal d’audit",
+    "securityWebServer": "Serveur web",
     "languages": "Langues",
     "shop": "Boutique",
     "shopProducts": "Produits",
@@ -2329,6 +2330,53 @@
     "originalDimensions": "original {width}×{height}"
   },
   "security": {
+    "webServer": {
+      "title": "Serveur web",
+      "subtitle": "Justflows contrôle les fichiers envoyés dans l’application. Un serveur web qui les sert depuis le disque ignore ce contrôle. Choisissez l’hôte que vous utilisez et copiez son fichier. Un CDN devant le site ne doit pas mettre en cache un envoi privé ou à la corbeille.",
+      "otherSite": "Les fichiers du serveur web se règlent sur le site de la plateforme.",
+      "loadError": "Impossible de charger le guide du serveur web",
+      "copy": "Copier",
+      "copied": "Copié",
+      "copyError": "La copie a échoué",
+      "automatic": "Appliqué par Justflows",
+      "manual": "À copier dans l’hôte",
+      "centerLink": "Configurer le serveur web",
+      "centerHint": "Copiez le fichier pour nginx, Apache, Passenger, LiteSpeed ou Docker. L’application ne réécrit pas ces hôtes.",
+      "accelOn": "UPLOADS_ACCEL_REDIRECT est défini. Il doit correspondre à l’emplacement interne de ce fichier.",
+      "accelOff": "UPLOADS_ACCEL_REDIRECT n’est pas défini, l’application envoie donc le fichier. Ajoutez l’emplacement interne et la variable ensemble.",
+      "htaccess": {
+        "current": "Le .htaccess à la racine de l’installation correspond à ce fichier. Il est actualisé au démarrage tant que sa première ligne est intacte.",
+        "pending": "Le .htaccess à la racine de l’installation est encore géré. Le prochain démarrage le remplace par ce fichier.",
+        "custom": "Le .htaccess à la racine de l’installation a été modifié à la main, Justflows le laisse. Fusionnez ce fichier, ou rétablissez la première ligne pour que Justflows le gère à nouveau.",
+        "missing": "Il n’y a pas encore de .htaccess à la racine de l’installation. Il est écrit au démarrage. Vous pouvez copier ce fichier maintenant."
+      },
+      "environments": {
+        "application": {
+          "title": "Application seule",
+          "body": "Utilisez ceci lorsque Node répond à chaque requête, ou lorsque le serveur web transmet tout le site, y compris /uploads/, à l’application. Aucun autre fichier n’est nécessaire."
+        },
+        "apache": {
+          "title": "Apache et LiteSpeed",
+          "body": "Utilisez ceci lorsque la racine des documents est l’installation Justflows. Apache et LiteSpeed lisent le .htaccess lorsque le vhost l’autorise. Copiez ce fichier par-dessus si l’hôte ne peut pas l’écrire. AllowOverride doit autoriser FileInfo et Limit."
+        },
+        "nginx": {
+          "title": "nginx",
+          "body": "nginx n’est pas mis à jour pour vous. Si /uploads/ est un alias ou une racine vers le dossier d’envoi, remplacez cet emplacement par ce bloc, dans le serveur qui transmet le site. L’emplacement interne est facultatif."
+        },
+        "apacheProxy": {
+          "title": "Proxy inverse Apache",
+          "body": "Utilisez ceci lorsque Apache transmet à Node et que l’installation n’est pas la racine des documents, ou lorsqu’un Alias sert /uploads/ depuis le disque. Retirez cet Alias. Placez ces lignes avant un ProxyPass pour /."
+        },
+        "passenger": {
+          "title": "Passenger",
+          "body": "Passenger utilise le fichier Apache et LiteSpeed lorsque l’installation est la racine des documents. N’ajoutez pas d’Alias pour /uploads/. Si nginx est devant Passenger, utilisez aussi le fichier nginx."
+        },
+        "docker": {
+          "title": "Docker",
+          "body": "L’image Justflows n’installe pas nginx et ne le recharge pas. Si vous placez nginx devant le conteneur, copiez ce fichier dans ce serveur. Le chemin d’alias est le dossier d’envoi de ce processus. Changez-le si nginx voit ce dossier ailleurs."
+        }
+      }
+    },
     "center": {
       "title": "Centre de sécurité",
       "subtitle": "Contrôles que cette installation peut répondre. Une ligne réussie est ce contrôle seul, pas une note pour le site.",

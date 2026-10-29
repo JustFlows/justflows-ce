@@ -247,6 +247,9 @@ async function savePrivateStorageLocked(siteId: string, input: SavePrivateStorag
   const next = nextConnection(input, setting.current);
   const previous = setting.current ? [setting.current, ...setting.previous] : setting.previous;
   await setSiteSetting(siteId, PRIVATE_STORAGE_SETTING, { current: next, previous } satisfies StoredSetting);
+  void import("../cdn/cdn-purge.js")
+    .then((cdn) => cdn.purgeCdnCache({ siteId }))
+    .catch(() => undefined);
   return view(next);
 }
 
@@ -570,13 +573,31 @@ export async function getPrivateFile(siteId: string, owner: string, key: string)
   return row ? info(key, row) : null;
 }
 
+/**
+ * The recorded storage first, then every earlier place this site can read.
+ * A new S3 connection is not proof the bytes have been copied.
+ */
+async function backendsFor(siteId: string, storageId: string): Promise<PrivateBackend[]> {
+  const list = await candidates(siteId);
+  return [...list.filter((backend) => backend.id === storageId), ...list.filter((backend) => backend.id !== storageId)];
+}
+
 /** The file's bytes, from whichever storage holds it now. */
 export async function readPrivateFile(siteId: string, owner: string, key: string): Promise<Buffer | null> {
   const object = objectKey(siteId, owner, key);
   const row = await findRow(siteId, owner, key);
   if (!row) return null;
-  const backend = await privateBackendById(siteId, row.storage_id);
-  return backend ? backend.read(object) : null;
+  let recordedError: unknown;
+  for (const backend of await backendsFor(siteId, row.storage_id)) {
+    try {
+      const body = await backend.read(object);
+      if (body) return body;
+    } catch (err) {
+      if (backend.id === row.storage_id) recordedError = err;
+    }
+  }
+  if (recordedError) throw recordedError;
+  return null;
 }
 
 /** Open the file for streaming to a client, with an optional `Range` header. */
@@ -589,10 +610,17 @@ export async function openPrivateFile(
   const object = objectKey(siteId, owner, key);
   const row = await findRow(siteId, owner, key);
   if (!row) return null;
-  const backend = await privateBackendById(siteId, row.storage_id);
-  if (!backend) return null;
-  const opened = await backend.open(object, range);
-  return opened ? { ...opened, contentType: row.content_type } : null;
+  let recordedError: unknown;
+  for (const backend of await backendsFor(siteId, row.storage_id)) {
+    try {
+      const opened = await backend.open(object, range);
+      if (opened) return { ...opened, contentType: row.content_type };
+    } catch (err) {
+      if (backend.id === row.storage_id) recordedError = err;
+    }
+  }
+  if (recordedError) throw recordedError;
+  return null;
 }
 
 export async function deletePrivateFile(siteId: string, owner: string, key: string): Promise<boolean> {

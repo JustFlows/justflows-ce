@@ -90,6 +90,7 @@ describe("serving private files", () => {
     expect(isPrivateUploadPath("/static-export/sites/root/_deployment.json")).toBe(true);
     expect(isPrivateUploadPath("/%73tatic-export/sites/root/objects/a/index.html")).toBe(true);
     expect(isPrivateUploadPath(`/${SITE}/photo.jpg`)).toBe(false);
+    expect(isPrivateUploadPath(`/${SITE}/.trash/photo.jpg`)).toBe(true);
   });
 
   it("names the download safely", () => {

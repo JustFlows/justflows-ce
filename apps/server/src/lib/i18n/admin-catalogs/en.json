@@ -41,6 +41,7 @@
     "securityAdminPath": "Admin URL",
     "securityAccount": "Your account",
     "securityAudit": "Audit log",
+    "securityWebServer": "Web server",
     "languages": "Languages",
     "shop": "Shop",
     "shopProducts": "Products",
@@ -2755,6 +2756,53 @@
     }
   },
   "security": {
+    "webServer": {
+      "title": "Web server",
+      "subtitle": "Justflows checks uploads in the application. A web server that serves those files from disk skips that check. Pick the host you use and copy its file. A CDN in front of the site must not cache a private or trashed upload.",
+      "otherSite": "Web server files are set on the platform site.",
+      "loadError": "Could not load the web server guide",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyError": "Could not copy",
+      "automatic": "Applied by Justflows",
+      "manual": "Copy this into the host",
+      "centerLink": "Web server setup",
+      "centerHint": "Copy the file for nginx, Apache, Passenger, LiteSpeed, or Docker. The application does not rewrite those hosts.",
+      "accelOn": "UPLOADS_ACCEL_REDIRECT is set. It must match the internal location in this file.",
+      "accelOff": "UPLOADS_ACCEL_REDIRECT is not set, so the application sends the file. Add the internal location and the variable together.",
+      "htaccess": {
+        "current": "The site-root .htaccess matches this file. It is refreshed on startup while its first line is intact.",
+        "pending": "The site-root .htaccess is still managed. The next startup replaces it with this file.",
+        "custom": "The site-root .htaccess was edited by hand, so Justflows leaves it alone. Merge this file, or restore the first line to let Justflows manage it again.",
+        "missing": "There is no site-root .htaccess yet. It is written on startup. You can copy this file into the install root now."
+      },
+      "environments": {
+        "application": {
+          "title": "Application only",
+          "body": "Use this when Node answers every request, or when the web server proxies the whole site, including /uploads/, to the application. Nothing else needs a file."
+        },
+        "apache": {
+          "title": "Apache and LiteSpeed",
+          "body": "Use this when the document root is the Justflows install. Apache and LiteSpeed read the site-root .htaccess when the vhost allows it. Copy this file over that .htaccess if the host cannot write it. AllowOverride must permit FileInfo and Limit."
+        },
+        "nginx": {
+          "title": "nginx",
+          "body": "nginx is not updated for you. If /uploads/ is an alias or root pointing at the uploads folder, replace that location with this block, inside the server that proxies the site. The internal location is optional."
+        },
+        "apacheProxy": {
+          "title": "Apache reverse proxy",
+          "body": "Use this when Apache proxies to Node and the install is not the document root, or when an Alias serves /uploads/ from disk. Remove that Alias. Put these lines before a ProxyPass for /."
+        },
+        "passenger": {
+          "title": "Passenger",
+          "body": "Passenger uses the Apache and LiteSpeed file when the install is the document root. Do not add an Alias for /uploads/. If nginx sits in front of Passenger, use the nginx file as well."
+        },
+        "docker": {
+          "title": "Docker",
+          "body": "The Justflows image does not install or reload nginx. If you add nginx in front of the container, copy this file into that server. The alias path is this process's uploads directory. Change it if nginx sees that folder somewhere else."
+        }
+      }
+    },
     "center": {
       "title": "Security Center",
       "subtitle": "Checks this installation can answer. A passing row is that one check, not a grade for the site.",

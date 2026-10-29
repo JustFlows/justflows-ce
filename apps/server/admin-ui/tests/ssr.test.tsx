@@ -11,7 +11,7 @@ const ROUTES = [
   "/admin/plugins/acme.example", "/admin/themes", "/admin/themes/customize",
   "/admin/design", "/admin/menus", "/admin/users", "/admin/settings", "/admin/settings/api", "/admin/comments",
   "/admin/marketplace", "/admin/tools", "/admin/health", "/admin/updates", "/admin/languages",
-  "/admin/security", "/admin/security/header-grade", "/admin/security/headers", "/admin/security/advanced",
+  "/admin/security", "/admin/security/web-server", "/admin/security/header-grade", "/admin/security/headers", "/admin/security/advanced",
   "/admin/security/account", "/admin/security/audit", "/admin/reports",
   "/admin/plugins/justflows.shop", "/admin/plugins/justflows.shop/products",
 ];
@@ -107,5 +107,34 @@ describe("admin SSR routes", () => {
     expect(html).toContain("Review security events");
     expect(html).not.toContain("Grade");
     expect(html).not.toContain("out of 100");
+    expect(html).toContain("Web server setup");
+  });
+
+  it("renders the web server file for the host the administrator copies", () => {
+    const html = render("/admin/security/web-server", {
+      url: "/admin/security/web-server",
+      locale: "en",
+      responses: {
+        "/api/security/web-server": {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            installationRoot: true,
+            htaccess: "current",
+            accelConfigured: false,
+            environments: [
+              { id: "nginx", automatic: false, config: "location /uploads/ {\n    proxy_pass http://127.0.0.1:3000;\n}\n" },
+              { id: "application", automatic: true, config: null },
+            ],
+          }),
+        },
+      },
+    });
+    expect(html).toContain("Web server");
+    expect(html).toContain("nginx");
+    expect(html).toContain("proxy_pass http://127.0.0.1:3000;");
+    expect(html).toContain("Copy");
+    expect(html).toContain("Applied by Justflows");
   });
 });
