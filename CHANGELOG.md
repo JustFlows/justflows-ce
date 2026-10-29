@@ -15,6 +15,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **Content, media, and API keys follow the caller's own access.** A read-only role receives published content only. Drafts, archived items, scheduled items, and working revisions stay with people who can edit that content or who created it. Translating an entry checks the source and the new language before anything is saved. Changing, rotating, revoking, or deleting an API key requires that key's access to sit within the caller's own, including its scope. Deleting media requires the media delete capability. Site-wide preview requires permission to edit content on that site, and a session from another site is refused. ([#205](https://github.com/JustFlows/justflows-ce/issues/205))
 
+- **Sign-in, recovery, and first-run setup fail closed.** An authenticator record that cannot be read is not treated as turned off, and setup or disable will not replace it. Each authenticator step and recovery code can be used once, even when two requests overlap. A password reset changes the password and revokes sessions together, or leaves both as they were. A new sign-in is issued only after its device session is stored. In production the installation token is required even when the request address is loopback. ([#206](https://github.com/JustFlows/justflows-ce/issues/206))
+
 ## [0.3.9]
 
 ### Added
