@@ -32,12 +32,15 @@
     "health": "Status",
     "updates": "Updates",
     "webhooks": "Webhooks",
-    "securityOverview": "Übersicht",
+    "securityCenter": "Sicherheitscenter",
+    "securityOverview": "Header-Bewertung",
     "securityHeaders": "Header",
     "securityAdvanced": "Erweitert",
     "securityAdminPath": "Admin-URL",
     "securityAccount": "Ihr Konto",
     "securityAudit": "Audit-Protokoll",
+    "securityWebServer": "Webserver",
+    "securityIntegrity": "Dateiintegrität",
     "languages": "Sprachen",
     "shop": "Shop",
     "shopProducts": "Produkte",
@@ -2328,6 +2331,223 @@
     "originalDimensions": "Original {width}×{height}"
   },
   "security": {
+    "integrity": {
+      "title": "Dateiintegrität",
+      "subtitle": "Installierte Erweiterungen werden mit der Basis aus der vertrauenswürdigen Installation verglichen. Core-Dateien werden mit dem signierten Manifest dieser Version verglichen. Uploads, Speicher und Websitedaten gehören nicht zu diesem Manifest.",
+      "otherSite": "Die Dateiintegrität wird auf der Plattform-Website geprüft.",
+      "loadError": "Der Integritätsbericht konnte nicht geladen werden",
+      "rescan": "Erneut prüfen",
+      "scanning": "Wird geprüft…",
+      "empty": "Noch keine installierten Erweiterungen.",
+      "repair": "Installieren Sie die Erweiterung erneut aus einem vertrauenswürdigen Paket. Justflows übernimmt die aktuellen Dateien nicht als Basis.",
+      "coreVerified": "Die Core-Dateien stimmen mit dem signierten Release-Manifest überein.",
+      "coreLocal": "Die Core-Dateien stimmen mit einer lokalen Basis überein. Das ist kein offiziell signiertes Release.",
+      "coreAbsent": "Es gibt kein Core-Manifest. Ein Entwicklungsstand ist ungeprüft, kein fehlgeschlagenes Release.",
+      "coreFailed": "Die Core-Dateien stimmen nicht mit dem Manifest überein.",
+      "verified": "Geprüft",
+      "unverifiable": "Keine Basis",
+      "modified": "Geändert",
+      "missing": "Fehlt",
+      "unexpected": "Unerwartete Datei",
+      "limit": "Konnte nicht geprüft werden"
+    },
+    "webServer": {
+      "title": "Webserver",
+      "subtitle": "Justflows prüft Uploads in der Anwendung. Ein Webserver, der diese Dateien von der Festplatte ausliefert, überspringt diese Prüfung. Wählen Sie den Host und kopieren Sie die Datei. Ein CDN vor der Website darf einen privaten oder im Papierkorb liegenden Upload nicht cachen.",
+      "otherSite": "Webserver-Dateien werden auf der Plattform-Website festgelegt.",
+      "loadError": "Die Webserver-Anleitung konnte nicht geladen werden",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "copyError": "Kopieren ist fehlgeschlagen",
+      "automatic": "Von Justflows angewendet",
+      "manual": "In den Host kopieren",
+      "centerLink": "Webserver einrichten",
+      "centerHint": "Kopieren Sie die Datei für nginx, Apache, Passenger, LiteSpeed oder Docker. Die Anwendung schreibt diese Hosts nicht um.",
+      "accelOn": "UPLOADS_ACCEL_REDIRECT ist gesetzt. Der Wert muss zur internen Location in dieser Datei passen.",
+      "accelOff": "UPLOADS_ACCEL_REDIRECT ist nicht gesetzt, die Anwendung sendet die Datei. Interne Location und Variable gehören zusammen.",
+      "htaccess": {
+        "current": "Die .htaccess im Installationsverzeichnis entspricht dieser Datei. Sie wird beim Start aktualisiert, solange die erste Zeile unverändert ist.",
+        "pending": "Die .htaccess im Installationsverzeichnis wird noch verwaltet. Der nächste Start ersetzt sie durch diese Datei.",
+        "custom": "Die .htaccess im Installationsverzeichnis wurde von Hand geändert, Justflows lässt sie stehen. Führen Sie diese Datei zusammen, oder stellen Sie die erste Zeile wieder her.",
+        "missing": "Es gibt noch keine .htaccess im Installationsverzeichnis. Sie wird beim Start geschrieben. Sie können diese Datei jetzt dorthin kopieren."
+      },
+      "environments": {
+        "application": {
+          "title": "Nur die Anwendung",
+          "body": "Verwenden Sie dies, wenn Node jede Anfrage beantwortet oder der Webserver die ganze Website einschließlich /uploads/ an die Anwendung weiterleitet. Es ist keine weitere Datei nötig."
+        },
+        "apache": {
+          "title": "Apache und LiteSpeed",
+          "body": "Verwenden Sie dies, wenn das Document Root die Justflows-Installation ist. Apache und LiteSpeed lesen die .htaccess, wenn der Vhost das erlaubt. Kopieren Sie diese Datei darüber, wenn der Host sie nicht schreiben kann. AllowOverride muss FileInfo und Limit erlauben."
+        },
+        "nginx": {
+          "title": "nginx",
+          "body": "nginx wird nicht für Sie aktualisiert. Wenn /uploads/ ein Alias oder Root auf den Upload-Ordner ist, ersetzen Sie diese Location durch diesen Block, im Server, der die Website weiterleitet. Die interne Location ist optional."
+        },
+        "apacheProxy": {
+          "title": "Apache Reverse Proxy",
+          "body": "Verwenden Sie dies, wenn Apache an Node weiterleitet und die Installation nicht das Document Root ist, oder wenn ein Alias /uploads/ von der Festplatte ausliefert. Entfernen Sie diesen Alias. Setzen Sie diese Zeilen vor ein ProxyPass für /."
+        },
+        "passenger": {
+          "title": "Passenger",
+          "body": "Passenger verwendet die Apache- und LiteSpeed-Datei, wenn die Installation das Document Root ist. Fügen Sie keinen Alias für /uploads/ hinzu. Steht nginx vor Passenger, verwenden Sie auch die nginx-Datei."
+        },
+        "docker": {
+          "title": "Docker",
+          "body": "Das Justflows-Image installiert oder lädt nginx nicht neu. Wenn Sie nginx vor den Container setzen, kopieren Sie diese Datei in diesen Server. Der Alias-Pfad ist das Upload-Verzeichnis dieses Prozesses. Ändern Sie ihn, wenn nginx den Ordner woanders sieht."
+        }
+      }
+    },
+    "center": {
+      "title": "Sicherheitscenter",
+      "subtitle": "Prüfungen, die diese Installation beantworten kann. Eine bestandene Zeile ist nur diese Prüfung, keine Note für die Website.",
+      "banner": "{fail} brauchen Aufmerksamkeit, {warn} Warnungen, {unknown} nicht geprüft, {pass} in Ordnung.",
+      "checked": "Geprüft {time}",
+      "checkAgain": "Erneut prüfen",
+      "checking": "Wird geprüft…",
+      "events": "Sicherheitsereignisse ansehen",
+      "eventsHint": "Anmeldung, Sitzung, Schlüssel, Rolle, Erweiterung, Update und Konfiguration. Zugangsdaten und Anfrageinhalte werden nicht gespeichert.",
+      "open": "Ansehen",
+      "empty": "Es wurden keine Prüfungen zurückgegeben.",
+      "loadError": "Das Sicherheitscenter konnte nicht geladen werden",
+      "missing": "Diese Prüfung hat keine Beschreibung.",
+      "groups": {
+        "attention": "Braucht Aufmerksamkeit",
+        "unknown": "Nicht geprüft",
+        "pass": "In Ordnung",
+        "notApplicable": "Nicht zutreffend"
+      },
+      "kind": {
+        "configuration": "Konfiguration",
+        "deployment": "Bereitstellung"
+      },
+      "scope": {
+        "site": "Diese Website",
+        "installation": "Installation"
+      },
+      "status": {
+        "pass": "Bestanden",
+        "warn": "Warnung",
+        "fail": "Fehlgeschlagen",
+        "unknown": "Nicht geprüft",
+        "not_applicable": "Nicht zutreffend"
+      },
+      "checks": {
+        "runtimeNode": {
+          "title": "Node.js-Version",
+          "version": "Dieser Prozess läuft mit Node.js {version}. Justflows unterstützt Node.js {minimum} und neuer.",
+          "unknown": "Die Node.js-Version konnte nicht gelesen werden.",
+          "remediation": "Betreiben Sie Justflows mit Node.js {minimum} oder neuer und starten Sie neu."
+        },
+        "runtimeUpdate": {
+          "title": "Core-Update",
+          "current": "Installiert {current}. Die letzte Prüfung fand {latest}, das nicht neuer ist. Geprüft {checked}.",
+          "available": "Installiert {current}. {latest} ist verfügbar. Geprüft {checked}.",
+          "unknown": "Installiert {current}. Es liegt keine abgeschlossene Update-Prüfung vor, daher gilt dies nicht als aktuell.",
+          "otherSite": "Core-Updates werden auf der Plattform-Website geprüft.",
+          "remediationCurrent": "Es wartet kein Core-Update.",
+          "remediationAvailable": "Installieren Sie das Release unter Updates. Diese Seite installiert es nicht.",
+          "remediationUnknown": "Öffnen Sie Updates und prüfen Sie auf ein Release.",
+          "remediationOtherSite": "Eine Plattform-Administration prüft Core-Updates auf der Hauptwebsite."
+        },
+        "runtimeDebug": {
+          "title": "Debug-Modus",
+          "off": "Der Debug-Modus ist aus.",
+          "productionOn": "Der Debug-Modus ist an, während dieser Prozess in Produktion läuft.",
+          "developmentOn": "Der Debug-Modus ist an, und dieser Prozess ist nicht Produktion.",
+          "remediation": "Lassen Sie den Debug-Modus in Produktion aus."
+        },
+        "runtimeInstaller": {
+          "title": "Installationsassistent",
+          "closed": "Der Installationsassistent ist geschlossen.",
+          "open": "Der Installationsassistent ist noch offen.",
+          "remediation": "Schließen Sie die Installation ab, damit der Assistent die Website nicht übernehmen kann."
+        },
+        "accountsMfa": {
+          "title": "Authenticator der Administrierenden",
+          "all": "{enrolled} von {admins} Administrierenden haben einen Authenticator.",
+          "partial": "{enrolled} von {admins} Administrierenden haben einen Authenticator. Die Anmeldung verlangt keinen.",
+          "unknown": "Die Authenticator-Einrichtung der Administrierenden konnte nicht gelesen werden.",
+          "remediation": "Jede Administration kann unter Sicherheit → Ihr Konto einen Authenticator einschalten. Justflows verlangt das noch nicht."
+        },
+        "accountsSessions": {
+          "title": "Gerätesitzungen",
+          "known": "{active} Gerätesitzungen auf dieser Website sind noch gültig. Die Zahl bewertet diese Sitzungen nicht.",
+          "unknown": "Gerätesitzungen konnten nicht gelesen werden.",
+          "remediation": "Prüfen und widerrufen Sie Sitzungen unter Sicherheit → Ihr Konto."
+        },
+        "accountsApiKeys": {
+          "title": "API-Schlüssel",
+          "none": "Diese Website hat keine aktiven API-Schlüssel.",
+          "expiring": "{active} aktive API-Schlüssel, jeder mit Ablauf.",
+          "openEnded": "{active} aktive API-Schlüssel, {withoutExpiry} ohne Ablauf.",
+          "unknown": "API-Schlüssel konnten nicht gelesen werden.",
+          "unavailable": "API-Schlüssel sind für diese Website ausgeschaltet.",
+          "remediation": "Geben Sie jedem Schlüssel unter Einstellungen → API ein Ablaufdatum und widerrufen Sie ungenutzte Schlüssel.",
+          "remediationUnavailable": "Schalten Sie API-Schlüssel für diese Website ein, bevor sie geprüft werden können."
+        },
+        "transportCookies": {
+          "title": "Sitzungscookie",
+          "secure": "Das Sitzungscookie ist als Secure markiert.",
+          "insecureProduction": "Das Sitzungscookie ist in Produktion nicht als Secure markiert.",
+          "development": "Das Sitzungscookie ist nicht als Secure markiert. Dieser Prozess ist nicht Produktion.",
+          "remediation": "Stellen Sie die Website über HTTPS bereit. Produktion markiert das Sitzungscookie als Secure."
+        },
+        "transportTls": {
+          "title": "Öffentliche Adresse und TLS",
+          "notProbed": "Die öffentliche Adresse verwendet HTTPS. Dieser Prozess hat die Adresse nicht geöffnet, um das Zertifikat zu prüfen.",
+          "productionHttp": "Die öffentliche Adresse ist HTTP, während der Prozess in Produktion läuft.",
+          "developmentHttp": "Die öffentliche Adresse ist HTTP, und dieser Prozess ist nicht Produktion.",
+          "missing": "Es ist keine öffentliche Adresse konfiguriert.",
+          "remediationNotProbed": "Bestätigen Sie TLS am Proxy oder Host. Ein Header-Ergebnis beweist das Zertifikat nicht.",
+          "remediationProductionHttp": "Setzen Sie die öffentliche Adresse auf die HTTPS-Adresse. Sitzungscookies sind in Produktion Secure, Browser senden sie daher nicht an eine HTTP-Website.",
+          "remediationDevelopment": "Verwenden Sie HTTPS vor der Produktion.",
+          "remediationMissing": "Setzen Sie die öffentliche Adresse auf die HTTPS-Adresse dieser Website."
+        },
+        "transportProxy": {
+          "title": "Vertrauenswürdige Proxys",
+          "bounded": "Vertrauenswürdige Proxys sind auf {value} begrenzt.",
+          "wide": "Jeder verbindende Proxy wird vertraut ({value}). Ein Client kann seine Adresse fälschen.",
+          "disabledProduction": "Keinem Proxy wird vertraut. Besucheradressen und die HTTPS-Erkennung nutzen die direkte Verbindung.",
+          "disabledDevelopment": "Keinem Proxy wird vertraut, und dieser Prozess ist nicht Produktion.",
+          "otherSite": "Proxy-Vertrauen ist eine Installationseinstellung und wird auf der Plattform-Website geprüft.",
+          "remediationBounded": "Lassen Sie TRUST_PROXY auf loopback oder der genauen Hop-Zahl Ihres Proxys.",
+          "remediationWide": "Setzen Sie TRUST_PROXY auf loopback oder die Proxy-Hop-Zahl. Vertrauen Sie nicht jedem Proxy.",
+          "remediationDisabled": "Wenn ein Reverse-Proxy TLS beendet, setzen Sie TRUST_PROXY auf loopback oder die Hop-Zahl.",
+          "remediationDevelopment": "Setzen Sie TRUST_PROXY, bevor ein Reverse-Proxy vor der Produktion steht.",
+          "remediationOtherSite": "Eine Plattform-Administration prüft das Proxy-Vertrauen auf der Hauptwebsite."
+        },
+        "headersPolicy": {
+          "title": "Antwort-Header",
+          "findings": "{critical} kritische Header-Befunde und {warning} Warnungen. Diese Zeile ist nur die Header-Richtlinie.",
+          "killSwitch": "Eigene Header-Einstellungen sind in der Umgebung aus, die Website sendet die eingebauten Standards.",
+          "unavailable": "Sicherheits-Header sind für diese Website ausgeschaltet.",
+          "unknown": "Die Header-Richtlinie konnte nicht gelesen werden.",
+          "remediation": "Prüfen Sie die Header-Befunde in der Header-Bewertung.",
+          "remediationKillSwitch": "Entfernen Sie die Umgebungsüberschreibung und starten Sie neu, um die gespeicherte Header-Richtlinie zu nutzen.",
+          "remediationUnavailable": "Schalten Sie Sicherheits-Header für diese Website ein, um sie zu prüfen.",
+          "remediationUnknown": "Öffnen Sie die Header-Bewertung, sobald die Header-Einstellungen gelesen werden können."
+        },
+        "extensionsIntegrity": {
+          "title": "Dateiintegrität",
+          "unavailable": "Der Integritätsscan konnte nicht gelesen werden.",
+          "remediation": "Öffnen Sie Dateiintegrität und prüfen Sie erneut.",
+          "clear": "{verified} installierte Erweiterungen stimmen mit ihrer vertrauenswürdigen Basis überein, und das Core-Manifest stimmt mit dieser Version überein.",
+          "baselineMissing": "{unverifiable} installierte Erweiterungen haben keine vertrauenswürdige Basis, oder dieser Stand hat kein signiertes Core-Manifest.",
+          "failed": "{failed} installierte Erweiterungen oder die Core-Dateien stimmen nicht mit der vertrauenswürdigen Basis überein.",
+          "otherSite": "Die Dateiintegrität wird auf der Plattform-Website geprüft.",
+          "remediationClear": "Prüfen Sie erneut, nachdem Sie eine Erweiterung installiert oder neu installiert haben.",
+          "remediationBaseline": "Installieren Sie die Erweiterung erneut aus einem vertrauenswürdigen Paket, um eine Basis zu speichern. Ein Entwicklungsstand hat kein signiertes Core-Manifest.",
+          "remediationFailed": "Installieren Sie die betroffene Erweiterung erneut aus einem vertrauenswürdigen Paket. Die aktuellen Dateien werden nicht als Basis behalten.",
+          "remediationOtherSite": "Öffnen Sie Dateiintegrität auf der Plattform-Website."
+        },
+        "recoveryBackup": {
+          "title": "Backup-Bereitschaft",
+          "notVerified": "Für diese Website wurde kein Backup geprüft.",
+          "remediation": "Backup und Wiederherstellung sind in dieser Version nicht verfügbar. Bewahren Sie eine eigene Kopie der Datenbank und der Uploads auf."
+        }
+      }
+    },
     "account": {
       "title": "Ihr Konto",
       "subtitle": "Das Passwort und der zweite Faktor, die Ihre eigene Anmeldung schützen.",
@@ -2648,7 +2868,7 @@
     },
     "overview": {
       "title": "Sicherheit",
-      "subtitle": "Was Ihre Website den Browsern der Besucher vorschreibt – und was noch fehlt.",
+      "subtitle": "Was Browser erzwingen sollen. Diese Bewertung gilt nur für Antwort-Header.",
       "recommended": {
         "title": "Empfohlene Konfiguration",
         "alreadyApplied": "Bereits angewendet",

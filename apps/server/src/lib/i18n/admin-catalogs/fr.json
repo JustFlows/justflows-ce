@@ -32,12 +32,15 @@
     "health": "État",
     "updates": "Mises à jour",
     "webhooks": "Webhooks",
-    "securityOverview": "Aperçu",
+    "securityCenter": "Centre de sécurité",
+    "securityOverview": "Note des en-têtes",
     "securityHeaders": "En-têtes",
     "securityAdvanced": "Avancé",
     "securityAdminPath": "URL d’administration",
     "securityAccount": "Votre compte",
     "securityAudit": "Journal d’audit",
+    "securityWebServer": "Serveur web",
+    "securityIntegrity": "Intégrité des fichiers",
     "languages": "Langues",
     "shop": "Boutique",
     "shopProducts": "Produits",
@@ -2328,6 +2331,223 @@
     "originalDimensions": "original {width}×{height}"
   },
   "security": {
+    "integrity": {
+      "title": "Intégrité des fichiers",
+      "subtitle": "Les extensions installées sont comparées à la base enregistrée lors de leur installation depuis un paquet de confiance. Les fichiers du cœur sont comparés au manifeste signé de cette version. Les téléversements, le stockage et les données du site ne font pas partie de ce manifeste.",
+      "otherSite": "L’intégrité des fichiers est vérifiée sur le site de la plateforme.",
+      "loadError": "Impossible de charger le rapport d’intégrité",
+      "rescan": "Analyser à nouveau",
+      "scanning": "Analyse…",
+      "empty": "Aucune extension installée pour le moment.",
+      "repair": "Réinstallez l’extension depuis un paquet de confiance. Justflows ne prend pas les fichiers actuels comme base.",
+      "coreVerified": "Les fichiers du cœur correspondent au manifeste signé de la version.",
+      "coreLocal": "Les fichiers du cœur correspondent à une base locale. Ce n’est pas une version officielle signée.",
+      "coreAbsent": "Aucun manifeste du cœur n’est présent. Une copie de développement n’est pas vérifiée, ce n’est pas une version en échec.",
+      "coreFailed": "Les fichiers du cœur ne correspondent pas au manifeste.",
+      "verified": "Vérifié",
+      "unverifiable": "Aucune base",
+      "modified": "Modifié",
+      "missing": "Manquant",
+      "unexpected": "Fichier inattendu",
+      "limit": "Vérification impossible"
+    },
+    "webServer": {
+      "title": "Serveur web",
+      "subtitle": "Justflows contrôle les fichiers envoyés dans l’application. Un serveur web qui les sert depuis le disque ignore ce contrôle. Choisissez l’hôte que vous utilisez et copiez son fichier. Un CDN devant le site ne doit pas mettre en cache un envoi privé ou à la corbeille.",
+      "otherSite": "Les fichiers du serveur web se règlent sur le site de la plateforme.",
+      "loadError": "Impossible de charger le guide du serveur web",
+      "copy": "Copier",
+      "copied": "Copié",
+      "copyError": "La copie a échoué",
+      "automatic": "Appliqué par Justflows",
+      "manual": "À copier dans l’hôte",
+      "centerLink": "Configurer le serveur web",
+      "centerHint": "Copiez le fichier pour nginx, Apache, Passenger, LiteSpeed ou Docker. L’application ne réécrit pas ces hôtes.",
+      "accelOn": "UPLOADS_ACCEL_REDIRECT est défini. Il doit correspondre à l’emplacement interne de ce fichier.",
+      "accelOff": "UPLOADS_ACCEL_REDIRECT n’est pas défini, l’application envoie donc le fichier. Ajoutez l’emplacement interne et la variable ensemble.",
+      "htaccess": {
+        "current": "Le .htaccess à la racine de l’installation correspond à ce fichier. Il est actualisé au démarrage tant que sa première ligne est intacte.",
+        "pending": "Le .htaccess à la racine de l’installation est encore géré. Le prochain démarrage le remplace par ce fichier.",
+        "custom": "Le .htaccess à la racine de l’installation a été modifié à la main, Justflows le laisse. Fusionnez ce fichier, ou rétablissez la première ligne pour que Justflows le gère à nouveau.",
+        "missing": "Il n’y a pas encore de .htaccess à la racine de l’installation. Il est écrit au démarrage. Vous pouvez copier ce fichier maintenant."
+      },
+      "environments": {
+        "application": {
+          "title": "Application seule",
+          "body": "Utilisez ceci lorsque Node répond à chaque requête, ou lorsque le serveur web transmet tout le site, y compris /uploads/, à l’application. Aucun autre fichier n’est nécessaire."
+        },
+        "apache": {
+          "title": "Apache et LiteSpeed",
+          "body": "Utilisez ceci lorsque la racine des documents est l’installation Justflows. Apache et LiteSpeed lisent le .htaccess lorsque le vhost l’autorise. Copiez ce fichier par-dessus si l’hôte ne peut pas l’écrire. AllowOverride doit autoriser FileInfo et Limit."
+        },
+        "nginx": {
+          "title": "nginx",
+          "body": "nginx n’est pas mis à jour pour vous. Si /uploads/ est un alias ou une racine vers le dossier d’envoi, remplacez cet emplacement par ce bloc, dans le serveur qui transmet le site. L’emplacement interne est facultatif."
+        },
+        "apacheProxy": {
+          "title": "Proxy inverse Apache",
+          "body": "Utilisez ceci lorsque Apache transmet à Node et que l’installation n’est pas la racine des documents, ou lorsqu’un Alias sert /uploads/ depuis le disque. Retirez cet Alias. Placez ces lignes avant un ProxyPass pour /."
+        },
+        "passenger": {
+          "title": "Passenger",
+          "body": "Passenger utilise le fichier Apache et LiteSpeed lorsque l’installation est la racine des documents. N’ajoutez pas d’Alias pour /uploads/. Si nginx est devant Passenger, utilisez aussi le fichier nginx."
+        },
+        "docker": {
+          "title": "Docker",
+          "body": "L’image Justflows n’installe pas nginx et ne le recharge pas. Si vous placez nginx devant le conteneur, copiez ce fichier dans ce serveur. Le chemin d’alias est le dossier d’envoi de ce processus. Changez-le si nginx voit ce dossier ailleurs."
+        }
+      }
+    },
+    "center": {
+      "title": "Centre de sécurité",
+      "subtitle": "Contrôles que cette installation peut répondre. Une ligne réussie est ce contrôle seul, pas une note pour le site.",
+      "banner": "{fail} à traiter, {warn} avertissements, {unknown} non vérifiés, {pass} en place.",
+      "checked": "Vérifié {time}",
+      "checkAgain": "Vérifier à nouveau",
+      "checking": "Vérification…",
+      "events": "Voir les événements de sécurité",
+      "eventsHint": "Connexion, session, clé, rôle, extension, mise à jour et configuration. Les identifiants et les corps de requête ne sont pas enregistrés.",
+      "open": "Voir",
+      "empty": "Aucun contrôle n’a été renvoyé.",
+      "loadError": "Impossible de charger le centre de sécurité",
+      "missing": "Ce contrôle n’a pas de description.",
+      "groups": {
+        "attention": "À traiter",
+        "unknown": "Non vérifié",
+        "pass": "En place",
+        "notApplicable": "Sans objet"
+      },
+      "kind": {
+        "configuration": "Configuration",
+        "deployment": "Déploiement"
+      },
+      "scope": {
+        "site": "Ce site",
+        "installation": "Installation"
+      },
+      "status": {
+        "pass": "Réussi",
+        "warn": "Avertissement",
+        "fail": "Échec",
+        "unknown": "Non vérifié",
+        "not_applicable": "Sans objet"
+      },
+      "checks": {
+        "runtimeNode": {
+          "title": "Version de Node.js",
+          "version": "Ce processus utilise Node.js {version}. Justflows prend en charge Node.js {minimum} et les versions plus récentes.",
+          "unknown": "La version de Node.js n’a pas pu être lue.",
+          "remediation": "Exécutez Justflows avec Node.js {minimum} ou plus récent, puis redémarrez."
+        },
+        "runtimeUpdate": {
+          "title": "Mise à jour du cœur",
+          "current": "Installé {current}. Le dernier contrôle a trouvé {latest}, qui n’est pas plus récent. Vérifié {checked}.",
+          "available": "Installé {current}. {latest} est disponible. Vérifié {checked}.",
+          "unknown": "Installé {current}. Aucun contrôle de mise à jour terminé n’est disponible, ce n’est donc pas affiché comme à jour.",
+          "otherSite": "Les mises à jour du cœur sont contrôlées sur le site de la plateforme.",
+          "remediationCurrent": "Aucune mise à jour du cœur n’est en attente.",
+          "remediationAvailable": "Installez la version depuis Mises à jour. Cette page ne l’installe pas.",
+          "remediationUnknown": "Ouvrez Mises à jour et recherchez une version.",
+          "remediationOtherSite": "Une administration de la plateforme contrôle les mises à jour du cœur sur le site principal."
+        },
+        "runtimeDebug": {
+          "title": "Mode débogage",
+          "off": "Le mode débogage est désactivé.",
+          "productionOn": "Le mode débogage est activé alors que ce processus est en production.",
+          "developmentOn": "Le mode débogage est activé, et ce processus n’est pas en production.",
+          "remediation": "Laissez le mode débogage désactivé en production."
+        },
+        "runtimeInstaller": {
+          "title": "Assistant d’installation",
+          "closed": "L’assistant d’installation est fermé.",
+          "open": "L’assistant d’installation est encore ouvert.",
+          "remediation": "Terminez l’installation pour que l’assistant ne puisse pas prendre le contrôle du site."
+        },
+        "accountsMfa": {
+          "title": "Authentificateurs des administrateurs",
+          "all": "{enrolled} administrateurs sur {admins} ont un authentificateur.",
+          "partial": "{enrolled} administrateurs sur {admins} ont un authentificateur. La connexion n’en exige pas.",
+          "unknown": "L’enrôlement des authentificateurs des administrateurs n’a pas pu être lu.",
+          "remediation": "Chaque administrateur peut activer un authentificateur dans Sécurité → Votre compte. Justflows ne l’exige pas encore."
+        },
+        "accountsSessions": {
+          "title": "Sessions d’appareil",
+          "known": "{active} sessions d’appareil sont encore valides sur ce site. Le nombre ne juge pas ces sessions.",
+          "unknown": "Les sessions d’appareil n’ont pas pu être lues.",
+          "remediation": "Examinez et révoquez les sessions dans Sécurité → Votre compte."
+        },
+        "accountsApiKeys": {
+          "title": "Clés d’API",
+          "none": "Ce site n’a aucune clé d’API active.",
+          "expiring": "{active} clés d’API actives, chacune avec une expiration.",
+          "openEnded": "{active} clés d’API actives, {withoutExpiry} sans expiration.",
+          "unknown": "Les clés d’API n’ont pas pu être lues.",
+          "unavailable": "Les clés d’API sont désactivées pour ce site.",
+          "remediation": "Donnez une expiration à chaque clé dans Réglages → API, et révoquez les clés inutilisées.",
+          "remediationUnavailable": "Activez les clés d’API pour ce site avant de pouvoir les examiner."
+        },
+        "transportCookies": {
+          "title": "Cookie de session",
+          "secure": "Le cookie de session est marqué Secure.",
+          "insecureProduction": "Le cookie de session n’est pas marqué Secure en production.",
+          "development": "Le cookie de session n’est pas marqué Secure. Ce processus n’est pas en production.",
+          "remediation": "Servez le site en HTTPS. La production marque le cookie de session Secure."
+        },
+        "transportTls": {
+          "title": "Adresse publique et TLS",
+          "notProbed": "L’adresse publique utilise HTTPS. Ce processus n’a pas ouvert cette adresse pour vérifier le certificat.",
+          "productionHttp": "L’adresse publique est en HTTP alors que le processus est en production.",
+          "developmentHttp": "L’adresse publique est en HTTP, et ce processus n’est pas en production.",
+          "missing": "Aucune adresse publique n’est configurée.",
+          "remediationNotProbed": "Confirmez le TLS sur le proxy ou l’hôte. Un résultat d’en-têtes ne prouve pas le certificat.",
+          "remediationProductionHttp": "Réglez l’adresse publique sur l’adresse HTTPS. Les cookies de session sont Secure en production, les navigateurs ne les envoient donc pas à un site HTTP.",
+          "remediationDevelopment": "Utilisez HTTPS avant la production.",
+          "remediationMissing": "Réglez l’adresse publique sur l’adresse HTTPS de ce site."
+        },
+        "transportProxy": {
+          "title": "Proxys de confiance",
+          "bounded": "Les proxys de confiance sont limités à {value}.",
+          "wide": "Chaque proxy qui se connecte est de confiance ({value}). Un client peut falsifier son adresse.",
+          "disabledProduction": "Aucun proxy n’est de confiance. Les adresses des visiteurs et la détection HTTPS utilisent la connexion directe.",
+          "disabledDevelopment": "Aucun proxy n’est de confiance, et ce processus n’est pas en production.",
+          "otherSite": "La confiance envers le proxy est un réglage d’installation, examiné sur le site de la plateforme.",
+          "remediationBounded": "Laissez TRUST_PROXY sur loopback ou le nombre exact de sauts de votre proxy.",
+          "remediationWide": "Réglez TRUST_PROXY sur loopback ou le nombre de sauts du proxy. Ne faites pas confiance à chaque proxy.",
+          "remediationDisabled": "Si un proxy inverse termine le TLS, réglez TRUST_PROXY sur loopback ou le nombre de sauts.",
+          "remediationDevelopment": "Réglez TRUST_PROXY avant de placer un proxy inverse devant la production.",
+          "remediationOtherSite": "Une administration de la plateforme examine la confiance du proxy sur le site principal."
+        },
+        "headersPolicy": {
+          "title": "En-têtes de réponse",
+          "findings": "{critical} constats critiques d’en-têtes et {warning} avertissements. Cette ligne est seulement la politique d’en-têtes.",
+          "killSwitch": "Les réglages d’en-têtes personnalisés sont désactivés dans l’environnement, le site envoie donc les valeurs intégrées.",
+          "unavailable": "Les en-têtes de sécurité sont désactivés pour ce site.",
+          "unknown": "La politique d’en-têtes n’a pas pu être lue.",
+          "remediation": "Examinez les constats d’en-têtes dans Note des en-têtes.",
+          "remediationKillSwitch": "Retirez le forçage d’environnement et redémarrez pour utiliser la politique d’en-têtes enregistrée.",
+          "remediationUnavailable": "Activez les en-têtes de sécurité pour ce site afin de les examiner.",
+          "remediationUnknown": "Ouvrez Note des en-têtes une fois que les réglages d’en-têtes peuvent être lus."
+        },
+        "extensionsIntegrity": {
+          "title": "Intégrité des fichiers",
+          "unavailable": "L’analyse d’intégrité n’a pas pu être lue.",
+          "remediation": "Ouvrez Intégrité des fichiers et analysez à nouveau.",
+          "clear": "{verified} extensions installées correspondent à leur base de confiance, et le manifeste du cœur correspond à cette version.",
+          "baselineMissing": "{unverifiable} extensions installées n’ont pas de base de confiance, ou cette copie n’a pas de manifeste du cœur signé.",
+          "failed": "{failed} extensions installées ou les fichiers du cœur ne correspondent pas à la base de confiance.",
+          "otherSite": "L’intégrité des fichiers est vérifiée sur le site de la plateforme.",
+          "remediationClear": "Analysez à nouveau après avoir installé ou réinstallé une extension.",
+          "remediationBaseline": "Réinstallez l’extension depuis un paquet de confiance pour enregistrer une base. Une copie de développement n’a pas de manifeste du cœur signé.",
+          "remediationFailed": "Réinstallez l’extension concernée depuis un paquet de confiance. Les fichiers actuels ne sont pas conservés comme base.",
+          "remediationOtherSite": "Ouvrez Intégrité des fichiers sur le site de la plateforme."
+        },
+        "recoveryBackup": {
+          "title": "Préparation des sauvegardes",
+          "notVerified": "Aucune sauvegarde n’a été vérifiée pour ce site.",
+          "remediation": "La sauvegarde et la restauration ne sont pas disponibles dans cette version. Conservez votre propre copie de la base et des fichiers envoyés."
+        }
+      }
+    },
     "account": {
       "title": "Votre compte",
       "subtitle": "Le mot de passe et le second facteur qui protègent votre propre connexion.",
@@ -2648,7 +2868,7 @@
     },
     "overview": {
       "title": "Sécurité",
-      "subtitle": "Ce que votre site demande aux navigateurs des visiteurs d’appliquer, et ce qui manque encore.",
+      "subtitle": "Ce que les navigateurs doivent appliquer. Cette note ne couvre que les en-têtes de réponse.",
       "recommended": {
         "title": "Configuration recommandée",
         "alreadyApplied": "Déjà appliquée",

@@ -98,6 +98,8 @@ import { viewsDir } from "../../lib/runtime/jf-root.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { parseLocalePrefix, setLocaleCookie, LOCALE_COOKIE } from "../../middleware/locale.js";
 import { isPreviewAllowed, resolveSession } from "../../lib/auth/auth-session.js";
+import { userCan } from "../../lib/auth/access-policy.js";
+import { sessionMatchesRequestSite } from "../../lib/tenancy/access.js";
 import {
   canViewUnpublishedSite,
   isSitePublic,
@@ -165,7 +167,7 @@ import { getAdminPathConfig, toPublicAdminPath } from "../../lib/admin/admin-pat
 const templateDir = viewsDir();
 const router = Router();
 
-router.get("/preview/:token", rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false }), async (req, res) => {
+router.get("/preview/:token", rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false, identifier: "preview" }), async (req, res) => {
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
   res.setHeader("Referrer-Policy", "no-referrer");
@@ -1927,6 +1929,7 @@ router.get(["/search", "/:locale/search"], rateLimit({
   limit: 60,
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  identifier: "search",
   handler: (req, res, next) => {
     void sendPublicRateLimited(req, res).catch(next);
   },
@@ -1956,7 +1959,6 @@ router.use(
   createPermalinkRouter({
     canView: ensureSiteIsPublic,
     previewAllowed: isPreviewAllowed,
-    rateLimited: sendPublicRateLimited,
     async renderContent(req, res, { content, path, basePath, pageNumber, alternates, canonicalPath }) {
       const preview = await isPreviewAllowed(req, res);
       await sendPublicHtml(req, res, path, preview, () =>
@@ -2040,8 +2042,19 @@ export async function renderSinglePageHtml(
       `SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL AND ${preview || scopedPreview ? "status IN ('published', 'draft', 'scheduled')" : "status = 'published'"}`,
       [resolvedContent.id, resolvedContent.siteId],
     );
+    const session = rows[0] && (preview || scopedPreview) ? await resolveSession(req, res) : null;
+    const showWorking = Boolean(
+      session &&
+      sessionMatchesRequestSite(session.siteId) &&
+      rows[0] &&
+      (await userCan(session, "content:revisions:read", {
+        contentType: String(rows[0].type),
+        locale: String(rows[0].locale),
+        ownerId: rows[0].author_id as string | null,
+      })),
+    );
     pageContent = rows[0]
-      ? serializeContentRow(preview || scopedPreview ? await overlayWorkingOnRow(rows[0], true) : rows[0])
+      ? serializeContentRow(showWorking ? await overlayWorkingOnRow(rows[0], true) : rows[0])
       : null;
   }
   if (!pageContent) {

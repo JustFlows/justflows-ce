@@ -46,9 +46,41 @@ function unregisterPluginMail(pluginId: string): void {
   pluginEmailTemplateCleanup.delete(pluginId);
 }
 
+/**
+ * An installed package that does not match its baseline is not imported.
+ * No baseline means an older install: it still loads and stays unverified.
+ */
+async function refuseUnverifiedPlugin(manifest: Record<string, unknown>): Promise<boolean> {
+  const installedPath = typeof manifest.installedPath === "string" ? manifest.installedPath : null;
+  if (!installedPath) return false;
+  const { verifyInstalledDirectory } = await import("../security/extension-integrity.js");
+  const report = await verifyInstalledDirectory(installedPath);
+  if (report && (report.status === "verified" || report.status === "unverifiable")) return false;
+  console.error("[plugins] integrity check refused load", JSON.stringify({
+    id: report?.packageId ?? "",
+    status: report?.status ?? "refused",
+  }));
+  const siteId = await runtimeSiteId();
+  if (siteId) {
+    const { auditLog } = await import("../security/audit-log.js");
+    const paths = report
+      ? [...report.modified, ...report.missing, ...report.unexpected].slice(0, 20)
+      : [];
+    void auditLog({
+      siteId,
+      action: "integrity.failed",
+      outcome: "failure",
+      target: report?.packageId ?? null,
+      detail: `${report?.status ?? "refused"} ${paths.join(", ")}`.slice(0, 500),
+    });
+  }
+  return true;
+}
+
 async function resolvePluginModule(
   manifest: Record<string, unknown>,
 ): Promise<PluginModule | null> {
+  if (await refuseUnverifiedPlugin(manifest)) return null;
   const bundledPath = typeof manifest.bundledPath === "string" ? manifest.bundledPath : null;
   const installedPath = typeof manifest.installedPath === "string" ? manifest.installedPath : null;
   const basePath = installedPath ?? bundledPath;
@@ -172,9 +204,13 @@ async function activateActivePlugins(): Promise<void> {
 
   for (const row of rows) {
     try {
+      const manifest = typeof row.manifest === "string"
+        ? JSON.parse(row.manifest) as Record<string, unknown>
+        : (row.manifest ?? {}) as Record<string, unknown>;
+      if (await refuseUnverifiedPlugin(manifest)) continue;
       await loader.activate(row.plugin_id, siteId);
     } catch (err) {
-      console.error(`[plugins] activation failed for ${row.plugin_id}:`, err);
+      console.error("[plugins] activation failed", JSON.stringify(row.plugin_id), err);
     }
   }
 }

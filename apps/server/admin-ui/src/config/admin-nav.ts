@@ -244,7 +244,10 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     slug: "security",
     icon: "🔒",
     items: [
-      { key: "nav.securityOverview", to: "/admin/security", icon: "🛡", end: true },
+      { key: "nav.securityCenter", to: "/admin/security", icon: "🛡", end: true },
+      { key: "nav.securityWebServer", to: "/admin/security/web-server", icon: "🌐" },
+      { key: "nav.securityIntegrity", to: "/admin/security/integrity", icon: "🔍" },
+      { key: "nav.securityOverview", to: "/admin/security/header-grade", icon: "📊" },
       { key: "nav.securityHeaders", to: "/admin/security/headers", icon: "📑" },
       { key: "nav.securityAdvanced", to: "/admin/security/advanced", icon: "🧩" },
       { key: "nav.securityAdminPath", to: "/admin/security/admin-path", icon: "🛣" },
@@ -469,7 +472,7 @@ function pluginRolesFor(pathname: string, pages: Readonly<Record<string, readonl
   return best ? pages[best] ?? null : null;
 }
 
-const INSTALLATION_ROOT_PREFIXES = ["/admin/health", "/admin/updates", "/admin/marketplace"];
+const INSTALLATION_ROOT_PREFIXES = ["/admin/health", "/admin/updates", "/admin/marketplace", "/admin/security/web-server", "/admin/security/integrity"];
 const OPERATOR_PREFIXES = ["/admin/platform"];
 
 function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {
@@ -487,9 +490,6 @@ export function canAccessPath(
   if (audience?.installationRoot === false && matchesPrefix(pathname, INSTALLATION_ROOT_PREFIXES)) return false;
   if (audience?.platformOperator === false && matchesPrefix(pathname, OPERATOR_PREFIXES)) return false;
   if (audience?.disabledPaths && matchesPrefix(pathname, audience.disabledPaths)) return false;
-  // Overview reads the security-headers API, so it shares that feature gate.
-  // Keep this exact: account security remains available under the same parent.
-  if (pathname === "/admin/security" && audience?.disabledPaths?.includes("/admin/security/headers")) return false;
   const declared = audience?.pluginPageRoles ? pluginRolesFor(pathname, audience.pluginPageRoles) : null;
   if (declared) return declared.includes(role);
   const rule = navRuleFor(pathname);

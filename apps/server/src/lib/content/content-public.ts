@@ -44,7 +44,7 @@ async function loadPublishedRow(
   const db = await getDb();
   const statusClause = preview
     ? "AND status IN ('published', 'draft', 'scheduled')"
-    : "AND status = 'published'";
+    : "AND status = 'published' AND (published_at IS NULL OR published_at <= CURRENT_TIMESTAMP)";
   const rows = await db.query<Record<string, unknown>>(
     `SELECT * FROM content WHERE site_id = ? AND slug = ? AND locale = ? AND ${publicContentTypeSql()} ${statusClause} LIMIT 1`,
     [siteId, slug, locale],
@@ -61,7 +61,7 @@ async function loadPublishedTranslation(
   const db = await getDb();
   const statusClause = preview
     ? "AND status IN ('published', 'draft', 'scheduled')"
-    : "AND status = 'published'";
+    : "AND status = 'published' AND (published_at IS NULL OR published_at <= CURRENT_TIMESTAMP)";
   const rows = await db.query<Record<string, unknown>>(
     `SELECT * FROM content WHERE site_id = ? AND translation_group_id = ? AND locale = ? AND ${publicContentTypeSql()} ${statusClause} LIMIT 1`,
     [siteId, translationGroupId, locale],

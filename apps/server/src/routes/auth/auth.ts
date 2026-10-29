@@ -239,8 +239,17 @@ router.post("/login", loginRequestLimit, closedToMembers, async (req, res) => {
     // wrong password and a wrong code are indistinguishable to someone who has
     // neither — this must not become an oracle for "that address exists and has
     // 2FA". The rate limits above already counted this attempt.
-    const { getTotpState, consumeRecoveryCode } = await import("../../lib/auth/totp-db.js");
-    const totpState = await getTotpState(user.id, user.home_site_id);
+    const { TotpUnavailableError, claimTotpStep, consumeRecoveryCode, getTotpState } = await import("../../lib/auth/totp-db.js");
+    let totpState;
+    try {
+      totpState = await getTotpState(user.id, user.home_site_id);
+    } catch (err) {
+      if (err instanceof TotpUnavailableError) {
+        res.status(401).json({ error: "Sign-in could not be completed. Try again." });
+        return;
+      }
+      throw err;
+    }
     if (totpState.enabled) {
       const supplied = body.data.totp?.trim() ?? "";
       if (!supplied) {
@@ -250,10 +259,11 @@ router.post("/login", loginRequestLimit, closedToMembers, async (req, res) => {
         return;
       }
 
-      const { verifyTotp } = await import("../../lib/auth/totp.js");
-      const codeOk =
-        verifyTotp(totpState.secret ?? "", supplied) ||
-        (await consumeRecoveryCode(user.id, user.home_site_id, supplied));
+      const { acceptedTotpStep } = await import("../../lib/auth/totp.js");
+      const step = acceptedTotpStep(totpState.secret ?? "", supplied);
+      const codeOk = step !== null
+        ? await claimTotpStep(user.id, user.home_site_id, step)
+        : await consumeRecoveryCode(user.id, user.home_site_id, supplied);
 
       if (!codeOk) {
         void auditLog({
@@ -291,6 +301,10 @@ router.post("/login", loginRequestLimit, closedToMembers, async (req, res) => {
       userAgent: req.get("user-agent"),
       ip: clientIp(req),
     });
+    if (!sid) {
+      res.status(503).json({ error: "Sign-in could not be completed. Try again." });
+      return;
+    }
     setSessionCookie(res, {
       sid,
       userId: user.id,
@@ -454,6 +468,10 @@ router.post("/register", registerRequestLimit, closedToMembers, async (req, res)
       userAgent: req.get("user-agent"),
       ip: clientIp(req),
     });
+    if (!sid) {
+      res.status(503).json({ error: "Registration could not be completed. Try again." });
+      return;
+    }
     setSessionCookie(res, {
       sid,
       userId: id,
@@ -736,6 +754,7 @@ router.post("/password/reset", passwordResetRequestLimit, closedToMembers, async
   }
 
   try {
+    const { ResetNotClaimedError } = await import("../../lib/auth/password-reset-db.js");
     const reset = await resolveResetForSurface(body.data.token, body.data.adminPath);
     if (!reset) {
       await new Promise((r) => setTimeout(r, 200 + Math.random() * 150));
@@ -745,10 +764,20 @@ router.post("/password/reset", passwordResetRequestLimit, closedToMembers, async
       return;
     }
 
-    await completePasswordReset(reset, body.data.newPassword, {
-      ip,
-      userAgent: (req.get("user-agent") ?? "").slice(0, 255) || null,
-    });
+    try {
+      await completePasswordReset(reset, body.data.newPassword, {
+        ip,
+        userAgent: (req.get("user-agent") ?? "").slice(0, 255) || null,
+      });
+    } catch (err) {
+      if (err instanceof ResetNotClaimedError) {
+        res
+          .status(400)
+          .json({ error: "This reset link is invalid or has expired. Request a new one." });
+        return;
+      }
+      throw err;
+    }
 
     res.json({ ok: true });
   } catch (err) {
@@ -769,8 +798,17 @@ router.post("/password/reset", passwordResetRequestLimit, closedToMembers, async
 router.get("/2fa", requireSession, async (req, res) => {
   const session = req.session!;
   try {
-    const { getTotpState } = await import("../../lib/auth/totp-db.js");
-    const state = await getTotpState(session.userId, session.siteId);
+    const { TotpUnavailableError, getTotpState } = await import("../../lib/auth/totp-db.js");
+    let state;
+    try {
+      state = await getTotpState(session.userId, session.siteId);
+    } catch (err) {
+      if (err instanceof TotpUnavailableError) {
+        res.status(503).json({ error: "Two-factor state cannot be read" });
+        return;
+      }
+      throw err;
+    }
     res.json({
       enabled: state.enabled,
       pending: state.pending,
@@ -785,8 +823,17 @@ router.get("/2fa", requireSession, async (req, res) => {
 router.post("/2fa/setup", totpSetupRequestLimit, requireSession, async (req, res) => {
   const session = req.session!;
   try {
-    const { getTotpState, startTotpEnrolment } = await import("../../lib/auth/totp-db.js");
-    const existing = await getTotpState(session.userId, session.siteId);
+    const { TotpUnavailableError, getTotpState, startTotpEnrolment } = await import("../../lib/auth/totp-db.js");
+    let existing;
+    try {
+      existing = await getTotpState(session.userId, session.siteId);
+    } catch (err) {
+      if (err instanceof TotpUnavailableError) {
+        res.status(503).json({ error: "Two-factor state cannot be read" });
+        return;
+      }
+      throw err;
+    }
     if (existing.enabled) {
       res.status(409).json({ error: "Two-factor authentication is already on" });
       return;
@@ -794,7 +841,11 @@ router.post("/2fa/setup", totpSetupRequestLimit, requireSession, async (req, res
 
     const { generateTotpSecret, totpUri } = await import("../../lib/auth/totp.js");
     const secret = generateTotpSecret();
-    await startTotpEnrolment(session.userId, session.siteId, secret);
+    const started = await startTotpEnrolment(session.userId, session.siteId, secret);
+    if (!started) {
+      res.status(409).json({ error: "Two-factor authentication is already on" });
+      return;
+    }
 
     const { getDb: db2 } = await import("../../lib/database/db.js");
     const db = await db2();
@@ -828,8 +879,17 @@ router.post("/2fa/enable", totpEnableRequestLimit, requireSession, async (req, r
   }
 
   try {
-    const { getTotpState, confirmTotp } = await import("../../lib/auth/totp-db.js");
-    const state = await getTotpState(session.userId, session.siteId);
+    const { TotpUnavailableError, confirmTotp, getTotpState } = await import("../../lib/auth/totp-db.js");
+    let state;
+    try {
+      state = await getTotpState(session.userId, session.siteId);
+    } catch (err) {
+      if (err instanceof TotpUnavailableError) {
+        res.status(503).json({ error: "Two-factor state cannot be read" });
+        return;
+      }
+      throw err;
+    }
     if (state.enabled) {
       res.status(409).json({ error: "Two-factor authentication is already on" });
       return;
@@ -839,8 +899,9 @@ router.post("/2fa/enable", totpEnableRequestLimit, requireSession, async (req, r
       return;
     }
 
-    const { verifyTotp, generateRecoveryCodes } = await import("../../lib/auth/totp.js");
-    if (!verifyTotp(state.secret, body.data.code)) {
+    const { acceptedTotpStep, generateRecoveryCodes } = await import("../../lib/auth/totp.js");
+    const step = acceptedTotpStep(state.secret, body.data.code);
+    if (step === null) {
       res
         .status(400)
         .json({ error: "That code is not valid. Check your device's clock and try again." });
@@ -848,7 +909,11 @@ router.post("/2fa/enable", totpEnableRequestLimit, requireSession, async (req, r
     }
 
     const recoveryCodes = generateRecoveryCodes();
-    await confirmTotp(session.userId, session.siteId, recoveryCodes, now());
+    const confirmed = await confirmTotp(session.userId, session.siteId, recoveryCodes, now(), step);
+    if (!confirmed) {
+      res.status(409).json({ error: "Two-factor authentication is already on" });
+      return;
+    }
     auditFromRequest(req, "auth.2fa_enabled");
 
     void import("../../lib/email/mail.js")
@@ -905,22 +970,35 @@ router.post("/2fa/disable", totpDisableRequestLimit, requireSession, async (req,
       return;
     }
 
-    const { getTotpState, disableTotp, consumeRecoveryCode } = await import("../../lib/auth/totp-db.js");
-    const state = await getTotpState(session.userId, session.siteId);
+    const { TotpUnavailableError, claimTotpStep, consumeRecoveryCode, disableTotp, getTotpState } = await import("../../lib/auth/totp-db.js");
+    let state;
+    try {
+      state = await getTotpState(session.userId, session.siteId);
+    } catch (err) {
+      if (err instanceof TotpUnavailableError) {
+        res.status(503).json({ error: "Two-factor state cannot be read" });
+        return;
+      }
+      throw err;
+    }
     if (state.enabled) {
       const supplied = body.data.code?.trim() ?? "";
-      const { verifyTotp } = await import("../../lib/auth/totp.js");
-      const codeOk =
-        Boolean(supplied) &&
-        (verifyTotp(state.secret ?? "", supplied) ||
-          (await consumeRecoveryCode(session.userId, session.siteId, supplied)));
+      const { acceptedTotpStep } = await import("../../lib/auth/totp.js");
+      const step = supplied ? acceptedTotpStep(state.secret ?? "", supplied) : null;
+      const codeOk = step !== null
+        ? await claimTotpStep(session.userId, session.siteId, step)
+        : Boolean(supplied) && (await consumeRecoveryCode(session.userId, session.siteId, supplied));
       if (!codeOk) {
         res.status(401).json({ error: "Enter a current authentication code to turn this off" });
         return;
       }
     }
 
-    await disableTotp(session.userId, session.siteId);
+    const disabled = await disableTotp(session.userId, session.siteId, state.enabled);
+    if (!disabled) {
+      res.status(409).json({ error: "Two-factor authentication could not be changed" });
+      return;
+    }
     auditFromRequest(req, "auth.2fa_disabled");
 
     void import("../../lib/email/mail.js")

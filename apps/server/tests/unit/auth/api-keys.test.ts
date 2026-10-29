@@ -90,12 +90,13 @@ let ownerCapabilities: string[] = [
   "content:update",
   "media:read",
 ];
+let ownerScopes: Record<string, { ownership?: "self" | "any" }> = {};
 vi.mock("../../../src/lib/auth/access-policy.js", () => ({
   availableCapabilityDefinitions: async () => [],
   getEffectiveAccess: async () => ({
     roleId: ownerRole,
     capabilities: ownerCapabilities,
-    policy: { grants: [], denies: [], scopes: {} },
+    policy: { grants: [], denies: [], scopes: ownerScopes },
   }),
 }));
 
@@ -108,6 +109,7 @@ const {
   keyCan,
   rotateApiKey,
   revokeApiKey,
+  updateApiKey,
   verifyApiKey,
 } = await import("../../../src/lib/auth/api-keys.js");
 
@@ -117,6 +119,7 @@ beforeEach(() => {
   keyRows.clear();
   ownerRole = "administrator";
   ownerCapabilities = ["content:read", "content:create", "content:update", "media:read"];
+  ownerScopes = {};
 });
 
 describe("secret generation", () => {
@@ -181,7 +184,7 @@ describe("verifyApiKey", () => {
       owner,
       capabilities: ["content:read"],
     });
-    await revokeApiKey("s1", record.id);
+    await revokeApiKey("s1", record.id, owner);
     const verified = await verifyApiKey(secret);
     expect(verified?.rejection).toBe("revoked");
     expect(verified?.record.id).toBe(record.id);
@@ -265,9 +268,47 @@ describe("rotate and revoke take effect immediately", () => {
       owner,
       capabilities: ["content:read"],
     });
-    const rotated = await rotateApiKey("s1", record.id);
+    const rotated = await rotateApiKey("s1", record.id, owner);
     expect(rotated?.secret).not.toBe(secret);
     expect(await verifyApiKey(secret)).toBeNull();
     expect((await verifyApiKey(rotated!.secret))?.rejection).toBeNull();
+  });
+
+  it("does not rotate, rename, or revoke a key that can do more than the caller", async () => {
+    ownerCapabilities = ["content:read", "users:manage"];
+    const { record, secret } = await createApiKey({
+      siteId: "s1",
+      name: "admin",
+      owner,
+      capabilities: ["users:manage"],
+    });
+    ownerCapabilities = ["content:read"];
+    await expect(rotateApiKey("s1", record.id, owner)).rejects.toMatchObject({ status: 403 });
+    await expect(updateApiKey("s1", record.id, { name: "renamed" }, owner)).rejects.toMatchObject({ status: 403 });
+    await expect(revokeApiKey("s1", record.id, owner)).rejects.toMatchObject({ status: 403 });
+    const still = await verifyApiKey(secret);
+    expect(still?.rejection).toBeNull();
+    expect(still?.record.name).toBe("admin");
+  });
+
+  it("rejects a key whose scope is wider than the caller's", async () => {
+    ownerCapabilities = ["content:update"];
+    ownerScopes = { "content:update": { ownership: "self" } };
+    await expect(
+      createApiKey({
+        siteId: "s1",
+        name: "wide",
+        owner,
+        capabilities: ["content:update"],
+      }),
+    ).rejects.toBeInstanceOf(ApiKeyError);
+    const { record } = await createApiKey({
+      siteId: "s1",
+      name: "own",
+      owner,
+      capabilities: ["content:update"],
+      scope: { ownership: "self" },
+    });
+    expect(record.scope.ownership).toBe("self");
   });
 });

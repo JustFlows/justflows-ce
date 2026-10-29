@@ -3,7 +3,7 @@ import { createContentPreview } from "../../lib/content/content-preview.js";
 import { rateLimit } from "express-rate-limit";
 import { ContentScheduleSchema, ScheduleError, setContentSchedule } from "../../lib/content/content-scheduling-db.js";
 import { uniquePermalinkSlug, PermalinkConflictError } from "../../lib/navigation/permalinks-db.js";
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getDb } from "../../lib/database/db.js";
@@ -32,6 +32,13 @@ import { isHookAbortError } from "@justflows/core";
 import { sanitizeBlockDocument } from "@justflows/blocks";
 import { requireCapability, requireSession } from "../../middleware/auth.js";
 import { userCan, getEffectiveAccess } from "../../lib/auth/access-policy.js";
+import {
+  canCreateHere,
+  capabilityReach,
+  draftReach,
+  editorialListFilter,
+  isPubliclyPublished,
+} from "../../lib/content/content-visibility.js";
 import { param } from "../../lib/http/params.js";
 import { auditLog } from "../../lib/security/audit-log.js";
 import { sendServerError } from "../../lib/http/send-error.js";
@@ -52,6 +59,62 @@ import {
 } from "../../lib/content/content-write.js";
 
 const router = Router();
+
+function contentResource(row: { type?: unknown; locale?: unknown; author_id?: unknown }) {
+  return {
+    contentType: String(row.type ?? ""),
+    locale: String(row.locale ?? ""),
+    ownerId: (row.author_id as string | null) ?? null,
+  };
+}
+
+/**
+ * Published rows need content:read. Unpublished rows need content:update, or
+ * content:create when the caller wrote the row. Anything else is hidden so a
+ * read-only caller does not learn that the id exists.
+ */
+async function openContent(
+  session: { userId: string; siteId: string; role: string },
+  row: Record<string, unknown>,
+): Promise<"open" | "hidden" | "forbidden"> {
+  const resource = contentResource(row);
+  if (!isPubliclyPublished(row)) {
+    const canUpdate = await userCan(session, "content:update", resource);
+    const canCreateOwn =
+      String(row.author_id ?? "") === session.userId &&
+      (await userCan(session, "content:create", { ...resource, ownerId: session.userId }));
+    if (!canUpdate && !canCreateOwn) return "hidden";
+  }
+  if (!(await userCan(session, "content:read", resource))) return "forbidden";
+  return "open";
+}
+
+function sendClosed(res: Response, decision: "hidden" | "forbidden"): void {
+  res.status(decision === "hidden" ? 404 : 403).json({
+    error: decision === "hidden" ? "Not found" : "Forbidden",
+  });
+}
+
+/**
+ * Revision reads are explicit access. An unpublished row stays hidden until
+ * the caller can edit it or is allowed to read its revisions.
+ */
+async function openRevision(
+  session: { userId: string; siteId: string; role: string },
+  row: Record<string, unknown>,
+): Promise<"open" | "hidden" | "forbidden"> {
+  const resource = contentResource(row);
+  if (!isPubliclyPublished(row)) {
+    const canUpdate = await userCan(session, "content:update", resource);
+    const canCreateOwn =
+      String(row.author_id ?? "") === session.userId &&
+      (await userCan(session, "content:create", { ...resource, ownerId: session.userId }));
+    const canRevisions = await userCan(session, "content:revisions:read", resource);
+    if (!canUpdate && !canCreateOwn && !canRevisions) return "hidden";
+  }
+  if (!(await userCan(session, "content:revisions:read", resource))) return "forbidden";
+  return "open";
+}
 
 const TranslateSchema = z.object({
   locale: z.string().min(2).max(20),
@@ -88,13 +151,36 @@ router.get("/", requireSession, async (req, res) => {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
+    const visibilityRequest = { siteId: session.siteId, contentType: type, locale };
+    const reach = draftReach(
+      capabilityReach(access, "content:update", visibilityRequest),
+      canCreateHere(access, visibilityRequest),
+    );
+    const listed = editorialListFilter({ reach, status, actorId: session.userId });
+    if ("error" in listed) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const revisionReach = capabilityReach(access, "content:revisions:read", visibilityRequest);
+    const revisionSelect =
+      revisionReach === "none"
+        ? "NULL AS working_revision_id"
+        : revisionReach === "own"
+          ? "CASE WHEN c.author_id = ? THEN w.id ELSE NULL END AS working_revision_id"
+          : "w.id AS working_revision_id";
+    const revisionJoin =
+      revisionReach === "none"
+        ? ""
+        : `LEFT JOIN revisions w ON w.content_id = c.id AND w.site_id = c.site_id AND w.${revisionColumn("kind")} = 'working'`;
     let sql = `SELECT c.id, c.type, c.title, c.slug, c.locale, c.translation_group_id, c.excerpt, c.status,
               c.author_id, c.publish_on, c.unpublish_on, c.published_at, c.created_at, c.updated_at, c.version,
-              w.id AS working_revision_id
+              ${revisionSelect}
        FROM content c
-       LEFT JOIN revisions w ON w.content_id = c.id AND w.site_id = c.site_id AND w.${revisionColumn("kind")} = 'working'
+       ${revisionJoin}
        WHERE c.site_id = ?`;
-    const params: (string | number | boolean | null)[] = [session.siteId];
+    const params: (string | number | boolean | null)[] = [];
+    if (revisionReach === "own") params.push(session.userId);
+    params.push(session.siteId);
 
     if (type) {
       sql += " AND c.type = ?";
@@ -134,6 +220,8 @@ router.get("/", requireSession, async (req, res) => {
       sql += " AND c.author_id = ?";
       params.push(session.userId);
     }
+    sql += listed.sql;
+    params.push(...listed.params);
 
     sql += status === "scheduled" ? " ORDER BY c.id ASC LIMIT ?" : " ORDER BY c.updated_at DESC, c.id DESC LIMIT ?";
     params.push(limit + 1);
@@ -205,17 +293,35 @@ router.post(
       }
 
       const locale = await resolveContentLocale(body.data.locale, session.siteId);
+      const sourceDecision = await openContent(session, source);
+      if (sourceDecision !== "open") {
+        sendClosed(res, sourceDecision);
+        return;
+      }
+      const sourceResource = contentResource(source);
+      if (
+        !(await userCan(session, "content:create", {
+          contentType: sourceResource.contentType,
+          locale,
+          ownerId: session.userId,
+        }))
+      ) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+      /**
+       * Stamping a group id writes the source row. That stays forbidden until
+       * the caller can update the source, and it happens only after the
+       * destination check above.
+       */
+      if (!source.translation_group_id && !(await userCan(session, "content:update", sourceResource))) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+
       const groupId = source.translation_group_id
         ? String(source.translation_group_id)
         : String(source.id);
-
-      if (!source.translation_group_id) {
-        await db.run(
-          "UPDATE content SET translation_group_id = ?, updated_at = ? WHERE id = ? AND site_id = ?",
-          [groupId, now(), id, session.siteId],
-        );
-      }
-
       const existing = await db.query<{ id: string }>(
         "SELECT id FROM content WHERE site_id = ? AND translation_group_id = ? AND locale = ? LIMIT 1",
         [session.siteId, groupId, locale],
@@ -226,6 +332,13 @@ router.post(
           contentId: existing[0].id,
         });
         return;
+      }
+
+      if (!source.translation_group_id) {
+        await db.run(
+          "UPDATE content SET translation_group_id = ?, updated_at = ? WHERE id = ? AND site_id = ?",
+          [groupId, now(), id, session.siteId],
+        );
       }
 
       const newId = randomUUID();
@@ -351,12 +464,17 @@ router.get("/:id/merge-tags", requireSession, async (req, res) => {
   const id = param(req.params.id);
   const db = await getDb();
   const rows = await db.query<Record<string, unknown>>(
-    "SELECT id, type, title, excerpt, translation_group_id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+    "SELECT id, type, title, excerpt, translation_group_id, locale, author_id, status, trashed_at, published_at FROM content WHERE id = ? AND site_id = ? LIMIT 1",
     [id, session.siteId],
   );
   const row = rows[0];
   if (!row) {
     res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const decision = await openContent(session, row);
+  if (decision !== "open") {
+    sendClosed(res, decision);
     return;
   }
   const hooks = getRuntimeHooks();
@@ -398,17 +516,14 @@ router.get("/:id", requireSession, async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  if (
-    !(await userCan(session, "content:read", {
-      contentType: String(row.type),
-      locale: String(row.locale),
-      ownerId: row.author_id as string | null,
-    }))
-  ) {
-    res.status(403).json({ error: "Forbidden" });
+  const decision = await openContent(session, row);
+  if (decision !== "open") {
+    sendClosed(res, decision);
     return;
   }
-  const working = await getWorkingRevision(id, session.siteId);
+  const working = (await userCan(session, "content:revisions:read", contentResource(row)))
+    ? await getWorkingRevision(id, session.siteId)
+    : null;
   res.json(serializeEditorContent(row, working));
 });
 
@@ -622,7 +737,7 @@ router.put("/:id/header-ref", requireSession, async (req, res) => {
 async function loadTermsRow(id: string, siteId: string): Promise<Record<string, unknown> | undefined> {
   const db = await getDb();
   const rows = await db.query<Record<string, unknown>>(
-    "SELECT id, type, author_id, locale FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
+    "SELECT id, type, author_id, locale, status, trashed_at, published_at FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL LIMIT 1",
     [id, siteId],
   );
   return rows[0];
@@ -636,9 +751,9 @@ router.get("/:id/terms", requireSession, async (req, res) => {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    const resource = { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null };
-    if (!(await userCan(session, "content:read", resource))) {
-      res.status(403).json({ error: "Forbidden" });
+    const decision = await openContent(session, row);
+    if (decision !== "open") {
+      sendClosed(res, decision);
       return;
     }
     res.json({ terms: await getContentTerms(session.siteId, String(row.id)) });
@@ -660,8 +775,12 @@ router.put("/:id/terms", requireSession, async (req, res) => {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    const resource = { contentType: String(row.type), locale: String(row.locale), ownerId: row.author_id as string | null };
+    const resource = contentResource(row);
     if (!(await userCan(session, "content:update", resource))) {
+      if (!isPubliclyPublished(row)) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -682,28 +801,18 @@ router.get("/:id/revisions", requireSession, async (req, res) => {
   const id = param(req.params.id);
   try {
     const db = await getDb();
-    const existing = await db.query<{
-      id: string;
-      type: string;
-      locale: string;
-      author_id: string | null;
-    }>("SELECT id, type, locale, author_id FROM content WHERE id = ? AND site_id = ? LIMIT 1", [
-      id,
-      session.siteId,
-    ]);
+    const existing = await db.query<Record<string, unknown>>(
+      "SELECT id, type, locale, author_id, status, trashed_at, published_at FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+      [id, session.siteId],
+    );
     const row = existing[0];
     if (!row) {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (
-      !(await userCan(session, "content:revisions:read", {
-        contentType: row.type,
-        locale: row.locale,
-        ownerId: row.author_id,
-      }))
-    ) {
-      res.status(403).json({ error: "Forbidden" });
+    const decision = await openRevision(session, row);
+    if (decision !== "open") {
+      sendClosed(res, decision);
       return;
     }
     const revisions = await listRevisions(id, session.siteId);
@@ -730,14 +839,9 @@ router.get("/:id/revisions/compare", requireSession, async (req, res) => {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (
-      !(await userCan(session, "content:revisions:read", {
-        contentType: String(row.type),
-        locale: String(row.locale),
-        ownerId: row.author_id as string | null,
-      }))
-    ) {
-      res.status(403).json({ error: "Forbidden" });
+    const decision = await openRevision(session, row);
+    if (decision !== "open") {
+      sendClosed(res, decision);
       return;
     }
     const working = await getWorkingRevision(id, session.siteId);
@@ -757,8 +861,8 @@ router.get("/:id/revisions/:revisionId", requireSession, async (req, res) => {
   const revisionId = param(req.params.revisionId);
   try {
     const db = await getDb();
-    const existing = await db.query<{ type: string; locale: string; author_id: string | null }>(
-      "SELECT type, locale, author_id FROM content WHERE id = ? AND site_id = ? LIMIT 1",
+    const existing = await db.query<Record<string, unknown>>(
+      "SELECT type, locale, author_id, status, trashed_at, published_at FROM content WHERE id = ? AND site_id = ? LIMIT 1",
       [id, session.siteId],
     );
     const contentRow = existing[0];
@@ -766,14 +870,9 @@ router.get("/:id/revisions/:revisionId", requireSession, async (req, res) => {
       res.status(404).json({ error: "Revision not found" });
       return;
     }
-    if (
-      !(await userCan(session, "content:revisions:read", {
-        contentType: contentRow.type,
-        locale: contentRow.locale,
-        ownerId: contentRow.author_id,
-      }))
-    ) {
-      res.status(403).json({ error: "Forbidden" });
+    const decision = await openRevision(session, contentRow);
+    if (decision !== "open") {
+      sendClosed(res, decision);
       return;
     }
     const revision = await getRevisionById(id, session.siteId, revisionId);
@@ -804,13 +903,11 @@ router.post("/:id/revisions/:revisionId/restore", requireSession, async (req, re
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (
-      !(await userCan(session, "content:revisions:restore", {
-        contentType: String(row.type),
-        locale: String(row.locale),
-        ownerId: row.author_id as string | null,
-      }))
-    ) {
+    if (!(await userCan(session, "content:revisions:restore", contentResource(row)))) {
+      if (!isPubliclyPublished(row)) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -904,13 +1001,11 @@ router.post("/:id/discard-draft", requireSession, async (req, res) => {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (
-      !(await userCan(session, "content:revisions:discard", {
-        contentType: String(row.type),
-        locale: String(row.locale),
-        ownerId: row.author_id as string | null,
-      }))
-    ) {
+    if (!(await userCan(session, "content:revisions:discard", contentResource(row)))) {
+      if (!isPubliclyPublished(row)) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
       res.status(403).json({ error: "Forbidden" });
       return;
     }

@@ -105,6 +105,49 @@ export async function findLiveReset(token: string): Promise<ResolvedReset | null
   }
 }
 
+/** The reset could not be claimed. Nothing about the account was changed. */
+export class ResetNotClaimedError extends Error {
+  constructor() {
+    super("Reset link was not claimed");
+    this.name = "ResetNotClaimedError";
+  }
+}
+
+/**
+ * Claim the reset, set the password, bump the session version, revoke device
+ * sessions, and drop sibling links in one transaction. A failed step rolls
+ * the whole claim back.
+ */
+export async function redeemPasswordReset(
+  reset: ResolvedReset,
+  passwordHash: string,
+): Promise<void> {
+  const db = await getDb();
+  const now = sqlTime(new Date());
+  await db.transaction(async (tx) => {
+    const claimed = await tx.execute(
+      "UPDATE password_resets SET used_at = ? WHERE id = ? AND used_at IS NULL AND expires_at > ?",
+      [now, reset.id, now],
+    );
+    if (claimed !== 1) throw new ResetNotClaimedError();
+    const updated = await tx.execute(
+      `UPDATE users
+          SET password_hash = ?, token_version = COALESCE(token_version, 0) + 1, updated_at = ?
+        WHERE id = ? AND site_id = ?`,
+      [passwordHash, now, reset.userId, reset.siteId],
+    );
+    if (updated !== 1) throw new Error("Password was not updated");
+    await tx.execute(
+      "UPDATE user_sessions SET revoked_at = ? WHERE user_id = ? AND site_id = ? AND revoked_at IS NULL",
+      [now, reset.userId, reset.siteId],
+    );
+    await tx.execute("DELETE FROM password_resets WHERE user_id = ? AND site_id = ?", [
+      reset.userId,
+      reset.siteId,
+    ]);
+  });
+}
+
 /** Stamp a row spent. Belt-and-braces before {@link clearUserResets}. */
 export async function markResetUsed(id: string): Promise<void> {
   try {

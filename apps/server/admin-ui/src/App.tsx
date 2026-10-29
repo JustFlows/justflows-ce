@@ -37,6 +37,9 @@ import ToolsPage from "./pages/admin/system/ToolsPage";
 import HealthPage from "./pages/admin/system/HealthPage";
 import UpdatesPage from "./pages/admin/system/UpdatesPage";
 import LanguagesPage from "./pages/admin/settings/LanguagesPage";
+import SecurityCenterPage from "./pages/admin/security/SecurityCenterPage";
+import WebServerPage from "./pages/admin/security/WebServerPage";
+import IntegrityPage from "./pages/admin/security/IntegrityPage";
 import SecurityOverviewPage from "./pages/admin/security/SecurityOverviewPage";
 import SecurityHeadersPage from "./pages/admin/security/SecurityHeadersPage";
 import SecurityAdvancedPage from "./pages/admin/security/SecurityAdvancedPage";
@@ -159,7 +162,10 @@ export default function App() {
               <Route path="platform/domains" element={<PlatformDomainsPage />} />
               <Route path="platform" element={<Navigate to="/admin/platform/workspaces" replace />} />
               <Route path="languages" element={<LanguagesPage />} />
-              <Route path="security" element={<SecurityOverviewPage />} />
+              <Route path="security" element={<SecurityCenterPage />} />
+              <Route path="security/web-server" element={<WebServerPage />} />
+              <Route path="security/integrity" element={<IntegrityPage />} />
+              <Route path="security/header-grade" element={<SecurityOverviewPage />} />
               <Route path="security/headers" element={<SecurityHeadersPage />} />
               <Route path="security/advanced" element={<SecurityAdvancedPage />} />
               <Route path="security/admin-path" element={<AdminPathPage />} />

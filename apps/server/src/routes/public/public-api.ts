@@ -20,6 +20,9 @@ import {
 } from "../../lib/navigation/menus-db.js";
 import { getRuntimeHooks } from "../../lib/plugins/plugin-runtime.js";
 import { requireRole } from "../../middleware/auth.js";
+import { resolveSession } from "../../lib/auth/auth-session.js";
+import { userCan } from "../../lib/auth/access-policy.js";
+import { sessionMatchesRequestSite } from "../../lib/tenancy/access.js";
 import { getSiteId } from "../../lib/settings/site-settings.js";
 import { canViewUnpublishedSite, isSiteClosed, isSitePublic } from "../../lib/settings/site-visibility.js";
 import type { Request, Response } from "express";
@@ -51,8 +54,18 @@ function wantsPreview(req: Request): boolean {
   return value === "1" || value === "true";
 }
 
-async function allowPreview(req: Request, res: Response): Promise<boolean> {
-  return wantsPreview(req) && (await canViewUnpublishedSite(req, res));
+/**
+ * Unpublished rows and working copies are separate. content:update opens
+ * drafts. content:revisions:read opens the working copy. A session for
+ * another site never qualifies.
+ */
+async function previewAccess(req: Request, res: Response): Promise<{ unpublished: boolean; working: boolean }> {
+  const off = { unpublished: false, working: false };
+  if (!wantsPreview(req)) return off;
+  const session = await resolveSession(req, res);
+  if (!session || !sessionMatchesRequestSite(session.siteId)) return off;
+  if (!(await userCan(session, "content:update"))) return off;
+  return { unpublished: true, working: await userCan(session, "content:revisions:read") };
 }
 
 async function serializePublicContent(
@@ -159,7 +172,7 @@ router.get("/menus", async (req, res) => {
     }
     const locale = await resolveContentLocale(req.query.locale as string | undefined, siteId);
     const defaultLocale = await getDefaultLocale(siteId);
-    const preview = await allowPreview(req, res);
+    const preview = (await previewAccess(req, res)).unpublished;
     const menus = await listMenus(siteId);
     const items = await Promise.all(
       menus.map(async (menu) => ({
@@ -195,7 +208,7 @@ router.get("/menus/:slug", async (req, res) => {
     }
     const locale = await resolveContentLocale(req.query.locale as string | undefined, siteId);
     const defaultLocale = await getDefaultLocale(siteId);
-    const preview = await allowPreview(req, res);
+    const preview = (await previewAccess(req, res)).unpublished;
     res.json({
       menu: {
         slug: menu.slug,
@@ -220,7 +233,7 @@ router.get("/content", async (req, res) => {
   const localeParam = req.query.locale as string | undefined;
   const limit = Math.min(Number(req.query.limit ?? "20"), 100);
   const cursor = req.query.cursor as string | undefined;
-  const preview = await allowPreview(req, res);
+  const preview = await previewAccess(req, res);
 
   try {
     const db = await getDb();
@@ -237,8 +250,8 @@ router.get("/content", async (req, res) => {
     sql += ` AND ${publicContentTypeSql()}`;
     const params: (string | number | boolean | null)[] = [siteId, locale];
 
-    if (!preview) {
-      sql += " AND status = 'published'";
+    if (!preview.unpublished) {
+      sql += " AND status = 'published' AND (published_at IS NULL OR published_at <= CURRENT_TIMESTAMP)";
     }
     if (type) {
       sql += " AND type = ?";
@@ -253,7 +266,7 @@ router.get("/content", async (req, res) => {
       params.push(cursor);
     }
 
-    sql += preview ? " ORDER BY updated_at DESC LIMIT ?" : " ORDER BY published_at DESC LIMIT ?";
+    sql += preview.unpublished ? " ORDER BY updated_at DESC LIMIT ?" : " ORDER BY published_at DESC LIMIT ?";
     params.push(limit + 1);
 
     const rows = await db.query<Record<string, unknown>>(sql, params);
@@ -261,7 +274,7 @@ router.get("/content", async (req, res) => {
     const items = hasMore ? rows.slice(0, limit) : rows;
 
     res.json({
-      items: await Promise.all(items.map((row) => serializePublicContent(row, siteId, preview))),
+      items: await Promise.all(items.map((row) => serializePublicContent(row, siteId, preview.working))),
       nextCursor: hasMore ? items[items.length - 1]?.id : null,
       total: items.length,
       locale,
@@ -273,7 +286,7 @@ router.get("/content", async (req, res) => {
 
 router.get("/content/:slug", async (req, res) => {
   if (!(await ensurePublicApiAccess(req, res))) return;
-  const preview = await allowPreview(req, res);
+  const preview = await previewAccess(req, res);
 
   try {
     const db = await getDb();
@@ -284,9 +297,9 @@ router.get("/content/:slug", async (req, res) => {
     }
 
     const locale = await resolveContentLocale(req.query.locale as string | undefined, siteId);
-    const sql = preview
+    const sql = preview.unpublished
       ? "SELECT * FROM content WHERE site_id = ? AND slug = ? AND locale = ? AND trashed_at IS NULL LIMIT 1"
-      : "SELECT * FROM content WHERE site_id = ? AND slug = ? AND locale = ? AND status = 'published' AND trashed_at IS NULL LIMIT 1";
+      : "SELECT * FROM content WHERE site_id = ? AND slug = ? AND locale = ? AND status = 'published' AND trashed_at IS NULL AND (published_at IS NULL OR published_at <= CURRENT_TIMESTAMP) LIMIT 1";
 
     const rows = await db.query<Record<string, unknown>>(sql.replace(" LIMIT 1", ` AND ${publicContentTypeSql()} LIMIT 1`), [siteId, req.params.slug, locale]);
     if (!rows[0]) {
@@ -294,7 +307,7 @@ router.get("/content/:slug", async (req, res) => {
       return;
     }
 
-    res.json(await serializePublicContent(rows[0], siteId, preview));
+    res.json(await serializePublicContent(rows[0], siteId, preview.working));
   } catch (err) {
     sendServerError(res, "public-api", err);
   }

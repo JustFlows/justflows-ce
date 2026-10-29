@@ -143,8 +143,19 @@ export function createApp(): express.Application {
   app.use("/api", pluginApiCsrf);
 
   const staticMaxAge = staticMaxAgeMs();
+  /**
+   * Uploads read files off disk. CodeQL's js/missing-rate-limiting only models
+   * express-rate-limit on this same chain.
+   */
+  const uploadsRateLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 600,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: "Too many requests",
+  });
   // Local folder or S3 bucket, per STORAGE_DRIVER (see lib/media/upload-serve.ts).
-  app.use("/uploads", uploadsSiteGuard, uploadsHandler(staticMaxAge));
+  app.use("/uploads", uploadsRateLimit, uploadsSiteGuard, uploadsHandler(staticMaxAge));
   const servePublicFiles = express.static(path.join(getJfRoot(), "public"), {
       maxAge: staticMaxAge,
       setHeaders: (res, filePath) => {

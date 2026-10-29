@@ -126,6 +126,8 @@ export const AUDIT_ACTIONS = [
   "diagnostics.bundle_generated",
   "diagnostics.test_run",
   "diagnostics.job_retried",
+  "integrity.failed",
+  "integrity.scanned",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.0]
+
+### Added
+
+- **Admin → Security opens on a Security Center.** The page lists checks this installation can answer: Node.js version, core updates, debug mode, the install wizard, administrator authenticators, device sessions, API key expiry, the session cookie, the public URL, trusted proxies, and the response-header policy. Each row is pass, warning, fail, not verified, or not applicable, and says whether it is configuration or a deployment check. Backups stay not verified. An update check that has not finished is not shown as up to date, and a header result stays on Header grade. It is not a grade for the site. ([#198](https://github.com/JustFlows/justflows-ce/issues/198))
+
+- **Admin → Security → File integrity compares installed extensions with the baseline from their trusted install.** Changing, removing, or adding a file is reported, and that extension is not loaded. An older install with no baseline stays unverified and still runs. Reinstalling from a trusted package is how a modified extension is restored. Core files can be checked against a signed manifest that ignores uploads, storage, and installed extensions. A development checkout without that manifest stays unverified. ([#120](https://github.com/JustFlows/justflows-ce/issues/120))
+
+### Fixed
+
+- **Content, media, and API keys follow the caller's own access.** A read-only role receives published content only. Drafts, archived items, scheduled items, and working revisions stay with people who can edit that content or who created it. Translating an entry checks the source and the new language before anything is saved. Changing, rotating, revoking, or deleting an API key requires that key's access to sit within the caller's own, including its scope. Deleting media requires the media delete capability. Site-wide preview requires permission to edit content on that site, and a session from another site is refused. ([#205](https://github.com/JustFlows/justflows-ce/issues/205))
+
+- **Sign-in, recovery, and first-run setup fail closed.** An authenticator record that cannot be read is not treated as turned off, and setup or disable will not replace it. Each authenticator step and recovery code can be used once, even when two requests overlap. A password reset changes the password and revokes sessions together, or leaves both as they were. A new sign-in is issued only after its device session is stored. In production the installation token is required even when the request address is loopback. ([#206](https://github.com/JustFlows/justflows-ce/issues/206))
+
+- **Private files, trash, and runtime data stay out of public delivery.** Direct requests for private storage, update backups, rollback data, and trashed uploads are refused, including on an existing install whose document root is the application. Uploads are no longer served by a public filesystem alias; a web server may hand off a file only after the app has checked the host and the site. Public upload reads are limited to 600 a minute per address. Files still on disk remain available after switching to object storage, and a public bucket is not used for private files. Trashing media, restoring it, or changing private storage drops the site's CDN cache. A core update keeps `storage/` and a configured private or export folder, and it does not discard the last recoverable release until the new snapshot is in place. Admin → Security → Web server shows the file to copy for each host. The application refreshes the site-root `.htaccess` and does not rewrite nginx, a reverse proxy, Passenger, or Docker. ([#207](https://github.com/JustFlows/justflows-ce/issues/207))
+
+- **Package and core archives are checked before they can change the installation.** A plugin package is inflated and parsed in a separate worker that can be stopped, and a malformed TAR is rejected before any file is written. A core update reads the signed version from the ZIP, checks the signature, and only then extracts. Absolute paths, links, special files, duplicate names, and an incomplete listing are refused. The production image uses Info-ZIP `unzip`. ([#208](https://github.com/JustFlows/justflows-ce/issues/208))
+
+- **A public page reports one rate-limit policy.** Redirects, static export, and permalinks share a single allowance of 600 requests a minute, so the response carries that policy once. Search and preview links keep their own tighter allowance under a separate name. ([#209](https://github.com/JustFlows/justflows-ce/issues/209))
+
 ## [0.3.9]
 
 ### Added
@@ -43,7 +63,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **Opening DevTools no longer gets visitors banned on Apache.** The site-root `.htaccess` denied every `.map` and `.mjs` file, so Chrome's sourcemap requests were refused and logged as `client denied by server configuration`, which Fail2Ban's `apache-auth` filter counts as failed logins. Sourcemaps and plugin ES modules are now reachable; dotfiles, source, config, and data files stay blocked. Existing installs pick this up on upgrade while the file's managed first line is intact. No matching Public Roadmap issue currently exists.
 
-## [0.3.7] 
+## [0.3.7]
 
 ### Added
 

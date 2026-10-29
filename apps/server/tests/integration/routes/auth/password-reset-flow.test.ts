@@ -134,6 +134,33 @@ const fakeDb = {
     }
     // audit_log inserts and anything else: no-op.
   },
+  async execute(sql: string, params: unknown[] = []): Promise<number> {
+    if (/UPDATE password_resets SET used_at/i.test(sql)) {
+      const [usedAt, id, expiresAfter] = params as [string, string, string];
+      const row = resets.find((reset) => reset.id === id && !reset.used_at && reset.expires_at > expiresAfter);
+      if (!row) return 0;
+      row.used_at = usedAt;
+      return 1;
+    }
+    if (/UPDATE users\s+SET password_hash/i.test(sql)) {
+      const [hash, , id, siteId] = params as [string, string, string, string];
+      const row = users.find((account) => account.id === id && account.site_id === siteId);
+      if (!row) return 0;
+      row.password_hash = hash;
+      row.token_version += 1;
+      return 1;
+    }
+    if (/^DELETE FROM password_resets/i.test(sql)) {
+      const [userId, siteId] = params as string[];
+      const before = resets.length;
+      resets = resets.filter((reset) => !(reset.user_id === userId && reset.site_id === siteId));
+      return before - resets.length;
+    }
+    return 0;
+  },
+  async transaction<T>(fn: (tx: { execute: (sql: string, params?: unknown[]) => Promise<number> }) => Promise<T>): Promise<T> {
+    return fn(fakeDb);
+  },
   async close(): Promise<void> {},
 };
 

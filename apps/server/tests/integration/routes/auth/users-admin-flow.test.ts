@@ -27,6 +27,7 @@ interface UserRow {
 const SITE_ID = "22222222-2222-4222-8222-222222222222";
 let users: UserRow[];
 let extraRoles: Array<{ user_id: string; site_id: string; role: string }>;
+let deviceSessions: Array<{ id: string; user_id: string; site_id: string; expires_at: string; revoked_at: string | null }>;
 
 function findById(id: unknown): UserRow | undefined {
   return users.find((u) => u.id === id);
@@ -77,9 +78,31 @@ const fakeDb = {
       const row = findById(id);
       return row ? ([{ ...row }] as unknown as T[]) : [];
     }
+    if (/FROM user_sessions/i.test(sql)) {
+      const [id, userId, siteId, now] = params as string[];
+      return deviceSessions.filter(
+        (session) =>
+          session.id === id &&
+          session.user_id === userId &&
+          session.site_id === siteId &&
+          !session.revoked_at &&
+          (now === undefined || session.expires_at > now),
+      ) as unknown as T[];
+    }
     return [] as T[];
   },
   async run(sql: string, params: unknown[] = []): Promise<void> {
+    if (/^INSERT INTO user_sessions/i.test(sql)) {
+      const [id, userId, siteId, , , , , expiresAt] = params as string[];
+      deviceSessions.push({
+        id: id!,
+        user_id: userId!,
+        site_id: siteId!,
+        expires_at: expiresAt!,
+        revoked_at: null,
+      });
+      return;
+    }
     if (/DELETE FROM user_additional_roles/i.test(sql)) {
       const [userId, siteId] = params;
       extraRoles = extraRoles.filter((r) => !(r.user_id === userId && r.site_id === siteId));
@@ -101,6 +124,18 @@ const fakeDb = {
       const row = findById(id);
       if (row) applySet(row, setClause, params);
     }
+  },
+  async execute(sql: string, params: unknown[] = []): Promise<number> {
+    if (/UPDATE user_sessions SET revoked_at/i.test(sql)) {
+      const [revokedAt, id, userId, siteId] = params as string[];
+      const session = deviceSessions.find(
+        (row) => row.id === id && row.user_id === userId && row.site_id === siteId && !row.revoked_at,
+      );
+      if (!session) return 0;
+      session.revoked_at = revokedAt!;
+      return 1;
+    }
+    return 0;
   },
   async transaction<T>(fn: (tx: unknown) => Promise<T>): Promise<T> {
     return fn(fakeDb);
@@ -231,6 +266,7 @@ beforeEach(async () => {
   admin1 = await makeUser({ id: "admin-1", email: "admin1@example.com", role: "administrator", display_name: "Admin One" });
   users = [admin1];
   extraRoles = [];
+  deviceSessions = [];
 });
 
 async function signIn(email: string, jar: Jar) {

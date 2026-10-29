@@ -5,6 +5,7 @@ import {
   generateRecoveryCodes,
   generateTotpSecret,
   matchRecoveryCode,
+  acceptedTotpStep,
   totpCode,
   totpUri,
   TOTP_PERIOD_SECONDS,
@@ -51,9 +52,10 @@ describe("verifyTotp", () => {
   const secret = generateTotpSecret();
   const now = 1_700_000_000_000;
 
-  it("accepts the current code", () => {
+  it("accepts the current code and names the step to claim", () => {
     const counter = Math.floor(now / 1000 / TOTP_PERIOD_SECONDS);
     expect(verifyTotp(secret, totpCode(secret, counter), now)).toBe(true);
+    expect(acceptedTotpStep(secret, totpCode(secret, counter), now)).toBe(counter);
   });
 
   it("absorbs one step of clock drift in both directions", () => {

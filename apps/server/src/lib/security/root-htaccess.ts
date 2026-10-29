@@ -44,7 +44,7 @@ Options -Indexes
   RewriteCond %{REQUEST_FILENAME} -d
 
   # Internal directories — never reachable over HTTP.
-  RewriteRule ^(?:apps|packages|scripts|node_modules|data|prisma|migrations|src|dist|build|coverage|test|tests|__tests__|\\.git|\\.github|\\.cache|\\.next|tmp|log|logs|backup|backups|install-token)(?:/|$) - [F,L]
+  RewriteRule ^(?:apps|packages|packages-installed|scripts|node_modules|data|storage|static-export|static-export-sites|prisma|migrations|src|dist|build|coverage|test|tests|__tests__|\\.git|\\.github|\\.updates|\\.hosting-backup|\\.cache|\\.next|tmp|log|logs|backup|backups|install-token)(?:/|$) - [F,L]
 
   # Trashed uploads (uploads/<siteId>/.trash/) — kept for restore, never public.
   RewriteRule (?:^|/)\\.trash(?:/|$) - [F,L]

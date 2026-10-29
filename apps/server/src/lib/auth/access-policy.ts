@@ -57,9 +57,15 @@ export async function availableCapabilityDefinitions() {
 }
 
 const OWN_CONTENT_ROLES = new Set(["author", "contributor"]);
+/**
+ * Author and contributor grants that follow the author of the content.
+ * Reading working revisions is included so those roles cannot open another
+ * author's unpublished copy.
+ */
 const OWN_CONTENT_CAPABILITIES = [
   "content:update",
   "content:publish",
+  "content:revisions:read",
   "content:revisions:restore",
   "content:revisions:discard",
 ];

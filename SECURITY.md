@@ -59,6 +59,21 @@ Also:
   your setup — the default (`loopback`) is right for nginx or Passenger on the
   same host. Getting this wrong makes per-IP rate limiting either useless or
   spoofable.
+- Do not serve `/uploads/`, `storage/`, update backups, or rollback data as
+  static files. Admin → Security → Web server shows the file for each host.
+  The application refreshes the site-root `.htaccess` and does not rewrite
+  nginx, a reverse proxy, Passenger, or Docker. See
+  [docs/MEDIA.md](docs/MEDIA.md#storage-and-cdn).
+- Package and core-update archives are parsed with a time limit. A malformed
+  TAR or ZIP is rejected, and extracted files are copied into the live tree
+  only after the signature or digest check has passed.
+- After a trusted install, Justflows stores a per-file baseline outside the
+  package directory. A plugin that no longer matches is not loaded. Reinstall
+  from a trusted package to restore it. There is no control that adopts the
+  current files as a new baseline. Core files can be checked with
+  `node scripts/verify-core-integrity.mjs`. Uploads, storage, secrets, and
+  installed extensions are not part of that manifest. A checkout with no
+  manifest is unverified, not a failed release.
 - Leave `DB_SSL` alone unless you have a reason: database TLS is on by default
   for any non-localhost `DB_HOST`.
 - Complete first-run setup using the setup key from `install-token/TOKEN.txt`

@@ -34,12 +34,15 @@
     "updates": "Aktualizacje",
     "webhooks": "Haki internetowe",
     "apiKeys": "API",
-    "securityOverview": "Przegląd",
+    "securityCenter": "Centrum zabezpieczeń",
+    "securityOverview": "Ocena nagłówków",
     "securityHeaders": "Nagłówki",
     "securityAdvanced": "Zaawansowane",
     "securityAdminPath": "Adres URL administracji",
     "securityAccount": "Twoje konto",
     "securityAudit": "Dziennik audytu",
+    "securityWebServer": "Serwer WWW",
+    "securityIntegrity": "Integralność plików",
     "languages": "Języki",
     "shop": "Sklep",
     "shopProducts": "Produkty",
@@ -2793,6 +2796,223 @@
     }
   },
   "security": {
+    "integrity": {
+      "title": "Integralność plików",
+      "subtitle": "Zainstalowane rozszerzenia są porównywane z bazą zapisaną przy instalacji z zaufanego pakietu. Pliki rdzenia są porównywane z podpisanym manifestem tego wydania. Przesłane pliki, magazyn i dane witryny nie należą do tego manifestu.",
+      "otherSite": "Integralność plików jest sprawdzana w witrynie platformy.",
+      "loadError": "Nie udało się wczytać raportu integralności",
+      "rescan": "Skanuj ponownie",
+      "scanning": "Skanowanie…",
+      "empty": "Nie ma jeszcze zainstalowanych rozszerzeń.",
+      "repair": "Zainstaluj rozszerzenie ponownie z zaufanego pakietu. Justflows nie przyjmuje bieżących plików jako bazy.",
+      "coreVerified": "Pliki rdzenia są zgodne z podpisanym manifestem wydania.",
+      "coreLocal": "Pliki rdzenia są zgodne z lokalną bazą. To nie jest oficjalne podpisane wydanie.",
+      "coreAbsent": "Brak manifestu rdzenia. Kopia deweloperska jest niezweryfikowana, to nie jest nieudane wydanie.",
+      "coreFailed": "Pliki rdzenia nie są zgodne z manifestem.",
+      "verified": "Zweryfikowano",
+      "unverifiable": "Brak bazy",
+      "modified": "Zmieniono",
+      "missing": "Brakuje",
+      "unexpected": "Nieoczekiwany plik",
+      "limit": "Nie można zweryfikować"
+    },
+    "webServer": {
+      "title": "Serwer WWW",
+      "subtitle": "Justflows sprawdza przesłane pliki w aplikacji. Serwer WWW, który serwuje je z dysku, pomija to sprawdzenie. Wybierz używany host i skopiuj jego plik. CDN przed witryną nie może buforować pliku prywatnego ani z kosza.",
+      "otherSite": "Pliki serwera WWW ustawia się w witrynie platformy.",
+      "loadError": "Nie udało się wczytać instrukcji serwera WWW",
+      "copy": "Kopiuj",
+      "copied": "Skopiowano",
+      "copyError": "Nie udało się skopiować",
+      "automatic": "Stosowane przez Justflows",
+      "manual": "Skopiuj to do hosta",
+      "centerLink": "Konfiguracja serwera WWW",
+      "centerHint": "Skopiuj plik dla nginx, Apache, Passenger, LiteSpeed lub Dockera. Aplikacja nie przepisuje tych hostów.",
+      "accelOn": "UPLOADS_ACCEL_REDIRECT jest ustawione. Musi pasować do lokalizacji wewnętrznej w tym pliku.",
+      "accelOff": "UPLOADS_ACCEL_REDIRECT nie jest ustawione, więc aplikacja wysyła plik. Dodaj lokalizację wewnętrzną i zmienną razem.",
+      "htaccess": {
+        "current": "Plik .htaccess w katalogu instalacji jest zgodny z tym plikiem. Jest odświeżany przy starcie, dopóki pierwsza linia jest nienaruszona.",
+        "pending": "Plik .htaccess w katalogu instalacji jest nadal zarządzany. Następny start zastąpi go tym plikiem.",
+        "custom": "Plik .htaccess w katalogu instalacji został zmieniony ręcznie, więc Justflows go zostawia. Scal ten plik albo przywróć pierwszą linię, aby Justflows znów nim zarządzał.",
+        "missing": "Nie ma jeszcze pliku .htaccess w katalogu instalacji. Jest zapisywany przy starcie. Możesz skopiować ten plik już teraz."
+      },
+      "environments": {
+        "application": {
+          "title": "Tylko aplikacja",
+          "body": "Użyj tego, gdy Node odpowiada na każde żądanie albo gdy serwer WWW przekazuje całą witrynę, łącznie z /uploads/, do aplikacji. Inny plik nie jest potrzebny."
+        },
+        "apache": {
+          "title": "Apache i LiteSpeed",
+          "body": "Użyj tego, gdy katalog główny dokumentów to instalacja Justflows. Apache i LiteSpeed czytają .htaccess, gdy vhost na to pozwala. Skopiuj ten plik, jeśli host nie może go zapisać. AllowOverride musi zezwalać na FileInfo i Limit."
+        },
+        "nginx": {
+          "title": "nginx",
+          "body": "nginx nie aktualizuje się sam. Jeśli /uploads/ to alias lub root wskazujący katalog przesyłania, zastąp tę lokalizację tym blokiem w serwerze, który przekazuje witrynę. Lokalizacja wewnętrzna jest opcjonalna."
+        },
+        "apacheProxy": {
+          "title": "Odwrotne proxy Apache",
+          "body": "Użyj tego, gdy Apache przekazuje do Node, a instalacja nie jest katalogiem głównym dokumentów, albo gdy Alias serwuje /uploads/ z dysku. Usuń ten Alias. Umieść te linie przed ProxyPass dla /."
+        },
+        "passenger": {
+          "title": "Passenger",
+          "body": "Passenger używa pliku Apache i LiteSpeed, gdy instalacja jest katalogiem głównym dokumentów. Nie dodawaj Alias dla /uploads/. Jeśli nginx stoi przed Passengerem, użyj także pliku nginx."
+        },
+        "docker": {
+          "title": "Docker",
+          "body": "Obraz Justflows nie instaluje nginx i go nie przeładowuje. Jeśli stawiasz nginx przed kontenerem, skopiuj ten plik do tego serwera. Ścieżka aliasu to katalog przesyłania tego procesu. Zmień ją, jeśli nginx widzi ten katalog gdzie indziej."
+        }
+      }
+    },
+    "center": {
+      "title": "Centrum zabezpieczeń",
+      "subtitle": "Kontrole, na które ta instalacja potrafi odpowiedzieć. Zaliczony wiersz to tylko ta kontrola, nie ocena witryny.",
+      "banner": "{fail} wymaga uwagi, {warn} ostrzeżeń, {unknown} niezweryfikowanych, {pass} w porządku.",
+      "checked": "Sprawdzono {time}",
+      "checkAgain": "Sprawdź ponownie",
+      "checking": "Sprawdzanie…",
+      "events": "Zobacz zdarzenia zabezpieczeń",
+      "eventsHint": "Logowanie, sesja, klucz, rola, rozszerzenie, aktualizacja i konfiguracja. Poświadczenia i treść żądań nie są zapisywane.",
+      "open": "Zobacz",
+      "empty": "Nie zwrócono żadnych kontroli.",
+      "loadError": "Nie udało się wczytać centrum zabezpieczeń",
+      "missing": "Ta kontrola nie ma opisu.",
+      "groups": {
+        "attention": "Wymaga uwagi",
+        "unknown": "Niezweryfikowane",
+        "pass": "W porządku",
+        "notApplicable": "Nie dotyczy"
+      },
+      "kind": {
+        "configuration": "Konfiguracja",
+        "deployment": "Wdrożenie"
+      },
+      "scope": {
+        "site": "Ta witryna",
+        "installation": "Instalacja"
+      },
+      "status": {
+        "pass": "Zaliczone",
+        "warn": "Ostrzeżenie",
+        "fail": "Niepowodzenie",
+        "unknown": "Niezweryfikowane",
+        "not_applicable": "Nie dotyczy"
+      },
+      "checks": {
+        "runtimeNode": {
+          "title": "Wersja Node.js",
+          "version": "Ten proces działa na Node.js {version}. Justflows obsługuje Node.js {minimum} i nowsze.",
+          "unknown": "Nie udało się odczytać wersji Node.js.",
+          "remediation": "Uruchom Justflows na Node.js {minimum} lub nowszym i uruchom ponownie."
+        },
+        "runtimeUpdate": {
+          "title": "Aktualizacja rdzenia",
+          "current": "Zainstalowano {current}. Ostatnie sprawdzenie znalazło {latest}, które nie jest nowsze. Sprawdzono {checked}.",
+          "available": "Zainstalowano {current}. Dostępne jest {latest}. Sprawdzono {checked}.",
+          "unknown": "Zainstalowano {current}. Nie ma ukończonego sprawdzenia aktualizacji, więc nie jest to pokazane jako aktualne.",
+          "otherSite": "Aktualizacje rdzenia są sprawdzane w witrynie platformy.",
+          "remediationCurrent": "Nie czeka żadna aktualizacja rdzenia.",
+          "remediationAvailable": "Zainstaluj wydanie w Aktualizacjach. Ta strona go nie instaluje.",
+          "remediationUnknown": "Otwórz Aktualizacje i sprawdź wydanie.",
+          "remediationOtherSite": "Administrator platformy sprawdza aktualizacje rdzenia w witrynie głównej."
+        },
+        "runtimeDebug": {
+          "title": "Tryb debugowania",
+          "off": "Tryb debugowania jest wyłączony.",
+          "productionOn": "Tryb debugowania jest włączony, gdy ten proces działa produkcyjnie.",
+          "developmentOn": "Tryb debugowania jest włączony, a ten proces nie jest produkcyjny.",
+          "remediation": "Zostaw tryb debugowania wyłączony na produkcji."
+        },
+        "runtimeInstaller": {
+          "title": "Kreator instalacji",
+          "closed": "Kreator instalacji jest zamknięty.",
+          "open": "Kreator instalacji jest nadal otwarty.",
+          "remediation": "Dokończ instalację, aby kreator nie mógł przejąć witryny."
+        },
+        "accountsMfa": {
+          "title": "Uwierzytelniacze administratorów",
+          "all": "{enrolled} z {admins} administratorów ma uwierzytelniacz.",
+          "partial": "{enrolled} z {admins} administratorów ma uwierzytelniacz. Logowanie go nie wymaga.",
+          "unknown": "Nie udało się odczytać rejestracji uwierzytelniaczy administratorów.",
+          "remediation": "Każdy administrator może włączyć uwierzytelniacz w Zabezpieczenia → Twoje konto. Justflows jeszcze tego nie wymaga."
+        },
+        "accountsSessions": {
+          "title": "Sesje urządzeń",
+          "known": "{active} sesji urządzeń w tej witrynie jest nadal ważnych. Liczba nie ocenia tych sesji.",
+          "unknown": "Nie udało się odczytać sesji urządzeń.",
+          "remediation": "Przejrzyj i unieważnij sesje w Zabezpieczenia → Twoje konto."
+        },
+        "accountsApiKeys": {
+          "title": "Klucze API",
+          "none": "Ta witryna nie ma aktywnych kluczy API.",
+          "expiring": "{active} aktywnych kluczy API, każdy z terminem wygaśnięcia.",
+          "openEnded": "{active} aktywnych kluczy API, {withoutExpiry} bez terminu wygaśnięcia.",
+          "unknown": "Nie udało się odczytać kluczy API.",
+          "unavailable": "Klucze API są wyłączone dla tej witryny.",
+          "remediation": "Ustaw termin wygaśnięcia każdego klucza w Ustawienia → API i unieważnij nieużywane klucze.",
+          "remediationUnavailable": "Włącz klucze API dla tej witryny, zanim będzie można je przejrzeć."
+        },
+        "transportCookies": {
+          "title": "Ciasteczko sesji",
+          "secure": "Ciasteczko sesji ma znacznik Secure.",
+          "insecureProduction": "Ciasteczko sesji nie ma znacznika Secure na produkcji.",
+          "development": "Ciasteczko sesji nie ma znacznika Secure. Ten proces nie jest produkcyjny.",
+          "remediation": "Serwuj witrynę przez HTTPS. Produkcja oznacza ciasteczko sesji jako Secure."
+        },
+        "transportTls": {
+          "title": "Adres publiczny i TLS",
+          "notProbed": "Adres publiczny używa HTTPS. Ten proces nie otworzył tego adresu, aby sprawdzić certyfikat.",
+          "productionHttp": "Adres publiczny to HTTP, gdy proces działa produkcyjnie.",
+          "developmentHttp": "Adres publiczny to HTTP, a ten proces nie jest produkcyjny.",
+          "missing": "Nie skonfigurowano adresu publicznego.",
+          "remediationNotProbed": "Potwierdź TLS na proxy lub hoście. Wynik nagłówków nie dowodzi certyfikatu.",
+          "remediationProductionHttp": "Ustaw adres publiczny na adres HTTPS. Ciasteczka sesji są Secure na produkcji, więc przeglądarki nie wyślą ich do witryny HTTP.",
+          "remediationDevelopment": "Użyj HTTPS przed produkcją.",
+          "remediationMissing": "Ustaw adres publiczny na adres HTTPS tej witryny."
+        },
+        "transportProxy": {
+          "title": "Zaufane proxy",
+          "bounded": "Zaufane proxy jest ograniczone do {value}.",
+          "wide": "Każde łączące się proxy jest zaufane ({value}). Klient może podrobić swój adres.",
+          "disabledProduction": "Żadne proxy nie jest zaufane. Adresy odwiedzających i wykrywanie HTTPS używają połączenia bezpośredniego.",
+          "disabledDevelopment": "Żadne proxy nie jest zaufane, a ten proces nie jest produkcyjny.",
+          "otherSite": "Zaufanie do proxy to ustawienie instalacji, sprawdzane w witrynie platformy.",
+          "remediationBounded": "Zostaw TRUST_PROXY jako loopback albo dokładną liczbę przeskoków proxy.",
+          "remediationWide": "Ustaw TRUST_PROXY na loopback albo liczbę przeskoków proxy. Nie ufaj każdemu proxy.",
+          "remediationDisabled": "Jeśli reverse proxy kończy TLS, ustaw TRUST_PROXY na loopback albo liczbę przeskoków.",
+          "remediationDevelopment": "Ustaw TRUST_PROXY, zanim postawisz reverse proxy przed produkcją.",
+          "remediationOtherSite": "Administrator platformy sprawdza zaufanie proxy w witrynie głównej."
+        },
+        "headersPolicy": {
+          "title": "Nagłówki odpowiedzi",
+          "findings": "{critical} krytycznych ustaleń nagłówków i {warning} ostrzeżeń. Ten wiersz to tylko polityka nagłówków.",
+          "killSwitch": "Własne ustawienia nagłówków są wyłączone w środowisku, więc witryna wysyła wbudowane wartości domyślne.",
+          "unavailable": "Nagłówki zabezpieczeń są wyłączone dla tej witryny.",
+          "unknown": "Nie udało się odczytać polityki nagłówków.",
+          "remediation": "Przejrzyj ustalenia nagłówków w Ocenie nagłówków.",
+          "remediationKillSwitch": "Usuń nadpisanie środowiska i uruchom ponownie, aby użyć zapisanej polityki nagłówków.",
+          "remediationUnavailable": "Włącz nagłówki zabezpieczeń dla tej witryny, aby je przejrzeć.",
+          "remediationUnknown": "Otwórz Ocenę nagłówków, gdy ustawienia nagłówków da się odczytać."
+        },
+        "extensionsIntegrity": {
+          "title": "Integralność plików",
+          "unavailable": "Nie udało się odczytać skanu integralności.",
+          "remediation": "Otwórz Integralność plików i zeskanuj ponownie.",
+          "clear": "{verified} zainstalowanych rozszerzeń jest zgodnych z zaufaną bazą, a manifest rdzenia jest zgodny z tym wydaniem.",
+          "baselineMissing": "{unverifiable} zainstalowanych rozszerzeń nie ma zaufanej bazy albo ta kopia nie ma podpisanego manifestu rdzenia.",
+          "failed": "{failed} zainstalowanych rozszerzeń albo pliki rdzenia nie są zgodne z zaufaną bazą.",
+          "otherSite": "Integralność plików jest sprawdzana w witrynie platformy.",
+          "remediationClear": "Zeskanuj ponownie po zainstalowaniu lub ponownej instalacji rozszerzenia.",
+          "remediationBaseline": "Zainstaluj rozszerzenie ponownie z zaufanego pakietu, aby zapisać bazę. Kopia deweloperska nie ma podpisanego manifestu rdzenia.",
+          "remediationFailed": "Zainstaluj ponownie dotknięte rozszerzenie z zaufanego pakietu. Bieżące pliki nie są zachowywane jako baza.",
+          "remediationOtherSite": "Otwórz Integralność plików w witrynie platformy."
+        },
+        "recoveryBackup": {
+          "title": "Gotowość kopii zapasowej",
+          "notVerified": "Nie zweryfikowano kopii zapasowej tej witryny.",
+          "remediation": "Kopia zapasowa i przywracanie nie są dostępne w tej wersji. Zachowaj własną kopię bazy i przesłanych plików."
+        }
+      }
+    },
     "account": {
       "password": {
         "changeError": "Nie można zmienić hasła.",
@@ -3085,13 +3305,13 @@
         "editHeaders": "Edytuj każdy nagłówek",
         "title": "Zalecana konfiguracja"
       },
-      "subtitle": "Co Twoja witryna nakazuje przeglądarkom użytkowników egzekwować, a czego wciąż brakuje.",
+      "subtitle": "Co przeglądarki mają wymuszać. Ta ocena dotyczy wyłącznie nagłówków odpowiedzi.",
       "tabs": {
         "admin": "Administrator i API",
         "publicInsecure": "Witryna publiczna (HTTP)",
         "publicSecure": "Witryna publiczna (HTTPS)"
       },
-      "title": "Bezpieczeństwo"
+      "title": "Ocena nagłówków"
     },
     "shared": {
       "findingLevel": {

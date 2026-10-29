@@ -103,8 +103,12 @@ moved, or removed without touching another:
 | Static export | the main site: `static-export/`; every other site: `static-export-sites/<hostname>/` |
 | "Save as new theme" forks | `packages-installed/sites/<siteId>/themes/` |
 
-`/uploads` only serves a site's own folder on its own host. A static export run
-from a site crawls that site's hostname and publishes under it; the
+`/uploads` only serves a site's own folder on its own host, and only when the
+request reaches the application. A public filesystem alias for `/uploads/`
+would serve another site's files. The file to paste is on **Admin → Security →
+Web server**. See [Media](MEDIA.md#storage-and-cdn).
+
+A static export run from a site crawls that site's hostname and publishes under it; the
 `STATIC_EXPORT_*` settings in `.env` describe the main site and can only be
 changed there. A customer site can turn static export off for itself under
 Tools. That does not change the installation, and it leaves files already
