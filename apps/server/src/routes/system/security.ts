@@ -4,6 +4,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireRole } from "../../middleware/auth.js";
 import { auditConfig } from "../../lib/security/security-audit.js";
+import { loadSecurityCenter } from "../../lib/security/security-center-load.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import {
   SECURITY_HEADER_DEFS,
@@ -36,6 +37,14 @@ router.use((req, res, next) => {
     return;
   }
   requireSiteFeature(feature)(req, res, next);
+});
+
+router.get("/center", adminOnly, async (_req, res) => {
+  try {
+    res.json(await loadSecurityCenter());
+  } catch (e) {
+    sendServerError(res, "security", e);
+  }
 });
 
 router.get("/admin-path", adminOnly, async (_req, res) => {

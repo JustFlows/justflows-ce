@@ -32,7 +32,8 @@
     "health": "Status",
     "updates": "Updates",
     "webhooks": "Webhooks",
-    "securityOverview": "Overzicht",
+    "securityCenter": "Beveiligingscentrum",
+    "securityOverview": "Headerbeoordeling",
     "securityHeaders": "Headers",
     "securityAdvanced": "Geavanceerd",
     "securityAdminPath": "Beheer-URL",
@@ -2286,6 +2287,148 @@
     "originalDimensions": "origineel {width}×{height}"
   },
   "security": {
+    "center": {
+      "title": "Beveiligingscentrum",
+      "subtitle": "Controles die deze installatie kan beantwoorden. Een geslaagde rij is alleen die controle, geen cijfer voor de site.",
+      "banner": "{fail} vragen aandacht, {warn} waarschuwingen, {unknown} niet geverifieerd, {pass} in orde.",
+      "checked": "Gecontroleerd {time}",
+      "checkAgain": "Opnieuw controleren",
+      "checking": "Controleren…",
+      "events": "Beveiligingsgebeurtenissen bekijken",
+      "eventsHint": "Aanmelding, sessie, sleutel, rol, extensie, update en configuratie. Inloggegevens en requestbodies worden niet bewaard.",
+      "open": "Bekijken",
+      "empty": "Er zijn geen controles teruggegeven.",
+      "loadError": "Het beveiligingscentrum kon niet worden geladen",
+      "missing": "Deze controle heeft geen beschrijving.",
+      "groups": {
+        "attention": "Vraagt aandacht",
+        "unknown": "Niet geverifieerd",
+        "pass": "In orde",
+        "notApplicable": "Niet van toepassing"
+      },
+      "kind": {
+        "configuration": "Configuratie",
+        "deployment": "Deployment"
+      },
+      "scope": {
+        "site": "Deze site",
+        "installation": "Installatie"
+      },
+      "status": {
+        "pass": "Geslaagd",
+        "warn": "Waarschuwing",
+        "fail": "Mislukt",
+        "unknown": "Niet geverifieerd",
+        "not_applicable": "Niet van toepassing"
+      },
+      "checks": {
+        "runtimeNode": {
+          "title": "Node.js-versie",
+          "version": "Dit proces draait op Node.js {version}. Justflows ondersteunt Node.js {minimum} en nieuwer.",
+          "unknown": "De Node.js-versie kon niet worden gelezen.",
+          "remediation": "Draai Justflows op Node.js {minimum} of nieuwer en start opnieuw."
+        },
+        "runtimeUpdate": {
+          "title": "Core-update",
+          "current": "Geïnstalleerd {current}. De laatste controle vond {latest}, dat niet nieuwer is. Gecontroleerd {checked}.",
+          "available": "Geïnstalleerd {current}. {latest} is beschikbaar. Gecontroleerd {checked}.",
+          "unknown": "Geïnstalleerd {current}. Er is geen afgeronde updatecontrole, dus dit wordt niet als bijgewerkt getoond.",
+          "otherSite": "Core-updates worden gecontroleerd op de platformsite.",
+          "remediationCurrent": "Er wacht geen core-update.",
+          "remediationAvailable": "Installeer de release via Updates. Deze pagina installeert niets.",
+          "remediationUnknown": "Open Updates en controleer op een release.",
+          "remediationOtherSite": "Een platformbeheerder controleert core-updates op de hoofdsite."
+        },
+        "runtimeDebug": {
+          "title": "Debugmodus",
+          "off": "Debugmodus staat uit.",
+          "productionOn": "Debugmodus staat aan terwijl dit proces in productie draait.",
+          "developmentOn": "Debugmodus staat aan, en dit proces is geen productie.",
+          "remediation": "Laat debugmodus uit in productie."
+        },
+        "runtimeInstaller": {
+          "title": "Installatiewizard",
+          "closed": "De installatiewizard is gesloten.",
+          "open": "De installatiewizard staat nog open.",
+          "remediation": "Rond de installatie af zodat de wizard de site niet kan overnemen."
+        },
+        "accountsMfa": {
+          "title": "Authenticators van beheerders",
+          "all": "{enrolled} van {admins} beheerders hebben een authenticator.",
+          "partial": "{enrolled} van {admins} beheerders hebben een authenticator. Aanmelden vereist er geen.",
+          "unknown": "De authenticatorregistratie van beheerders kon niet worden gelezen.",
+          "remediation": "Elke beheerder kan een authenticator aanzetten onder Beveiliging → Je account. Justflows verplicht dat nog niet."
+        },
+        "accountsSessions": {
+          "title": "Apparaatsessies",
+          "known": "{active} apparaatsessies op deze site zijn nog geldig. Het aantal is geen oordeel over die sessies.",
+          "unknown": "Apparaatsessies konden niet worden gelezen.",
+          "remediation": "Bekijk en trek sessies in onder Beveiliging → Je account."
+        },
+        "accountsApiKeys": {
+          "title": "API-sleutels",
+          "none": "Deze site heeft geen actieve API-sleutels.",
+          "expiring": "{active} actieve API-sleutels, elk met een vervaldatum.",
+          "openEnded": "{active} actieve API-sleutels, {withoutExpiry} zonder vervaldatum.",
+          "unknown": "API-sleutels konden niet worden gelezen.",
+          "unavailable": "API-sleutels staan uit voor deze site.",
+          "remediation": "Geef elke sleutel een vervaldatum onder Instellingen → API, en trek sleutels in die je niet meer gebruikt.",
+          "remediationUnavailable": "Zet API-sleutels aan voor deze site voordat ze beoordeeld kunnen worden."
+        },
+        "transportCookies": {
+          "title": "Sessiecookie",
+          "secure": "De sessiecookie is gemarkeerd als Secure.",
+          "insecureProduction": "De sessiecookie is in productie niet gemarkeerd als Secure.",
+          "development": "De sessiecookie is niet gemarkeerd als Secure. Dit proces is geen productie.",
+          "remediation": "Bedien de site via HTTPS. Productie markeert de sessiecookie als Secure."
+        },
+        "transportTls": {
+          "title": "Publiek adres en TLS",
+          "notProbed": "Het publieke adres gebruikt HTTPS. Dit proces heeft dat adres niet geopend om het certificaat te controleren.",
+          "productionHttp": "Het publieke adres is HTTP terwijl het proces in productie draait.",
+          "developmentHttp": "Het publieke adres is HTTP, en dit proces is geen productie.",
+          "missing": "Er is geen publiek adres ingesteld.",
+          "remediationNotProbed": "Bevestig TLS bij de proxy of de host. Een headerresultaat bewijst het certificaat niet.",
+          "remediationProductionHttp": "Zet het publieke adres op het HTTPS-adres. Sessiecookies zijn in productie Secure, dus browsers sturen ze niet naar een HTTP-site.",
+          "remediationDevelopment": "Gebruik HTTPS vóór productie.",
+          "remediationMissing": "Zet het publieke adres op het HTTPS-adres van deze site."
+        },
+        "transportProxy": {
+          "title": "Vertrouwde proxy’s",
+          "bounded": "Vertrouwde proxy’s zijn beperkt tot {value}.",
+          "wide": "Elke verbindende proxy wordt vertrouwd ({value}). Een client kan zijn adres vervalsen.",
+          "disabledProduction": "Er wordt geen proxy vertrouwd. Bezoekeradressen en HTTPS-detectie gebruiken de directe verbinding.",
+          "disabledDevelopment": "Er wordt geen proxy vertrouwd, en dit proces is geen productie.",
+          "otherSite": "Proxyvertrouwen is een installatie-instelling en wordt beoordeeld op de platformsite.",
+          "remediationBounded": "Houd TRUST_PROXY op loopback of het exacte aantal hops van je proxy.",
+          "remediationWide": "Zet TRUST_PROXY op loopback of het aantal proxyhops. Vertrouw niet elke proxy.",
+          "remediationDisabled": "Als een reverse proxy TLS afhandelt, zet TRUST_PROXY op loopback of het aantal hops.",
+          "remediationDevelopment": "Zet TRUST_PROXY voordat je een reverse proxy voor productie plaatst.",
+          "remediationOtherSite": "Een platformbeheerder beoordeelt proxyvertrouwen op de hoofdsite."
+        },
+        "headersPolicy": {
+          "title": "Responseheaders",
+          "findings": "{critical} kritieke headerbevindingen en {warning} waarschuwingen. Deze rij is alleen het headerbeleid.",
+          "killSwitch": "Aangepaste headerinstellingen staan uit in de omgeving, dus de site stuurt de ingebouwde standaardwaarden.",
+          "unavailable": "Beveiligingsheaders staan uit voor deze site.",
+          "unknown": "Het headerbeleid kon niet worden gelezen.",
+          "remediation": "Bekijk de headerbevindingen op Headerbeoordeling.",
+          "remediationKillSwitch": "Verwijder de omgevingsoverride en start opnieuw om het opgeslagen headerbeleid te gebruiken.",
+          "remediationUnavailable": "Zet beveiligingsheaders aan voor deze site om ze te beoordelen.",
+          "remediationUnknown": "Open Headerbeoordeling zodra de headerinstellingen gelezen kunnen worden."
+        },
+        "extensionsIntegrity": {
+          "title": "Bestandsintegriteit",
+          "unavailable": "Core- en extensiebestanden worden niet vergeleken met een vertrouwde basislijn. Een geslaagde installatie is geen scan van de bestanden op schijf.",
+          "remediation": "Integriteitscontroles zijn nog niet beschikbaar. Installeer opnieuw vanaf een vertrouwde release als je vermoedt dat bestanden zijn gewijzigd."
+        },
+        "recoveryBackup": {
+          "title": "Back-upgereedheid",
+          "notVerified": "Er is geen back-up geverifieerd voor deze site.",
+          "remediation": "Back-up en herstel zijn niet beschikbaar in deze versie. Bewaar zelf een kopie van de database en uploads."
+        }
+      }
+    },
     "account": {
       "title": "Je account",
       "subtitle": "Het wachtwoord en de tweede factor die je eigen inlog beschermen.",
@@ -2606,7 +2749,7 @@
     },
     "overview": {
       "title": "Beveiliging",
-      "subtitle": "Wat je site de browsers van bezoekers laat afdwingen, en wat er nog ontbreekt.",
+      "subtitle": "Wat browsers moeten afdwingen. Deze beoordeling gaat alleen over responseheaders.",
       "recommended": {
         "title": "Aanbevolen configuratie",
         "alreadyApplied": "Al toegepast",

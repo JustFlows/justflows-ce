@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## ## [0.4.0] [Unreleased]
+
+### Added
+
+- **Admin → Security opens on a Security Center.** The page lists checks this installation can answer: Node.js version, core updates, debug mode, the install wizard, administrator authenticators, device sessions, API key expiry, the session cookie, the public URL, trusted proxies, and the response-header policy. Each row is pass, warning, fail, not verified, or not applicable, and says whether it is configuration or a deployment check. File integrity and backups stay not verified. An update check that has not finished is not shown as up to date, and a header result stays on Header grade. It is not a grade for the site. ([#198](https://github.com/JustFlows/justflows-ce/issues/198))
+
 ## [0.3.9]
 
 ### Added
@@ -43,7 +49,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **Opening DevTools no longer gets visitors banned on Apache.** The site-root `.htaccess` denied every `.map` and `.mjs` file, so Chrome's sourcemap requests were refused and logged as `client denied by server configuration`, which Fail2Ban's `apache-auth` filter counts as failed logins. Sourcemaps and plugin ES modules are now reachable; dotfiles, source, config, and data files stay blocked. Existing installs pick this up on upgrade while the file's managed first line is intact. No matching Public Roadmap issue currently exists.
 
-## [0.3.7] 
+## [0.3.7]
 
 ### Added
 

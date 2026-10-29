@@ -34,7 +34,8 @@
     "updates": "Aktualizacje",
     "webhooks": "Haki internetowe",
     "apiKeys": "API",
-    "securityOverview": "Przegląd",
+    "securityCenter": "Centrum zabezpieczeń",
+    "securityOverview": "Ocena nagłówków",
     "securityHeaders": "Nagłówki",
     "securityAdvanced": "Zaawansowane",
     "securityAdminPath": "Adres URL administracji",
@@ -2793,6 +2794,148 @@
     }
   },
   "security": {
+    "center": {
+      "title": "Centrum zabezpieczeń",
+      "subtitle": "Kontrole, na które ta instalacja potrafi odpowiedzieć. Zaliczony wiersz to tylko ta kontrola, nie ocena witryny.",
+      "banner": "{fail} wymaga uwagi, {warn} ostrzeżeń, {unknown} niezweryfikowanych, {pass} w porządku.",
+      "checked": "Sprawdzono {time}",
+      "checkAgain": "Sprawdź ponownie",
+      "checking": "Sprawdzanie…",
+      "events": "Zobacz zdarzenia zabezpieczeń",
+      "eventsHint": "Logowanie, sesja, klucz, rola, rozszerzenie, aktualizacja i konfiguracja. Poświadczenia i treść żądań nie są zapisywane.",
+      "open": "Zobacz",
+      "empty": "Nie zwrócono żadnych kontroli.",
+      "loadError": "Nie udało się wczytać centrum zabezpieczeń",
+      "missing": "Ta kontrola nie ma opisu.",
+      "groups": {
+        "attention": "Wymaga uwagi",
+        "unknown": "Niezweryfikowane",
+        "pass": "W porządku",
+        "notApplicable": "Nie dotyczy"
+      },
+      "kind": {
+        "configuration": "Konfiguracja",
+        "deployment": "Wdrożenie"
+      },
+      "scope": {
+        "site": "Ta witryna",
+        "installation": "Instalacja"
+      },
+      "status": {
+        "pass": "Zaliczone",
+        "warn": "Ostrzeżenie",
+        "fail": "Niepowodzenie",
+        "unknown": "Niezweryfikowane",
+        "not_applicable": "Nie dotyczy"
+      },
+      "checks": {
+        "runtimeNode": {
+          "title": "Wersja Node.js",
+          "version": "Ten proces działa na Node.js {version}. Justflows obsługuje Node.js {minimum} i nowsze.",
+          "unknown": "Nie udało się odczytać wersji Node.js.",
+          "remediation": "Uruchom Justflows na Node.js {minimum} lub nowszym i uruchom ponownie."
+        },
+        "runtimeUpdate": {
+          "title": "Aktualizacja rdzenia",
+          "current": "Zainstalowano {current}. Ostatnie sprawdzenie znalazło {latest}, które nie jest nowsze. Sprawdzono {checked}.",
+          "available": "Zainstalowano {current}. Dostępne jest {latest}. Sprawdzono {checked}.",
+          "unknown": "Zainstalowano {current}. Nie ma ukończonego sprawdzenia aktualizacji, więc nie jest to pokazane jako aktualne.",
+          "otherSite": "Aktualizacje rdzenia są sprawdzane w witrynie platformy.",
+          "remediationCurrent": "Nie czeka żadna aktualizacja rdzenia.",
+          "remediationAvailable": "Zainstaluj wydanie w Aktualizacjach. Ta strona go nie instaluje.",
+          "remediationUnknown": "Otwórz Aktualizacje i sprawdź wydanie.",
+          "remediationOtherSite": "Administrator platformy sprawdza aktualizacje rdzenia w witrynie głównej."
+        },
+        "runtimeDebug": {
+          "title": "Tryb debugowania",
+          "off": "Tryb debugowania jest wyłączony.",
+          "productionOn": "Tryb debugowania jest włączony, gdy ten proces działa produkcyjnie.",
+          "developmentOn": "Tryb debugowania jest włączony, a ten proces nie jest produkcyjny.",
+          "remediation": "Zostaw tryb debugowania wyłączony na produkcji."
+        },
+        "runtimeInstaller": {
+          "title": "Kreator instalacji",
+          "closed": "Kreator instalacji jest zamknięty.",
+          "open": "Kreator instalacji jest nadal otwarty.",
+          "remediation": "Dokończ instalację, aby kreator nie mógł przejąć witryny."
+        },
+        "accountsMfa": {
+          "title": "Uwierzytelniacze administratorów",
+          "all": "{enrolled} z {admins} administratorów ma uwierzytelniacz.",
+          "partial": "{enrolled} z {admins} administratorów ma uwierzytelniacz. Logowanie go nie wymaga.",
+          "unknown": "Nie udało się odczytać rejestracji uwierzytelniaczy administratorów.",
+          "remediation": "Każdy administrator może włączyć uwierzytelniacz w Zabezpieczenia → Twoje konto. Justflows jeszcze tego nie wymaga."
+        },
+        "accountsSessions": {
+          "title": "Sesje urządzeń",
+          "known": "{active} sesji urządzeń w tej witrynie jest nadal ważnych. Liczba nie ocenia tych sesji.",
+          "unknown": "Nie udało się odczytać sesji urządzeń.",
+          "remediation": "Przejrzyj i unieważnij sesje w Zabezpieczenia → Twoje konto."
+        },
+        "accountsApiKeys": {
+          "title": "Klucze API",
+          "none": "Ta witryna nie ma aktywnych kluczy API.",
+          "expiring": "{active} aktywnych kluczy API, każdy z terminem wygaśnięcia.",
+          "openEnded": "{active} aktywnych kluczy API, {withoutExpiry} bez terminu wygaśnięcia.",
+          "unknown": "Nie udało się odczytać kluczy API.",
+          "unavailable": "Klucze API są wyłączone dla tej witryny.",
+          "remediation": "Ustaw termin wygaśnięcia każdego klucza w Ustawienia → API i unieważnij nieużywane klucze.",
+          "remediationUnavailable": "Włącz klucze API dla tej witryny, zanim będzie można je przejrzeć."
+        },
+        "transportCookies": {
+          "title": "Ciasteczko sesji",
+          "secure": "Ciasteczko sesji ma znacznik Secure.",
+          "insecureProduction": "Ciasteczko sesji nie ma znacznika Secure na produkcji.",
+          "development": "Ciasteczko sesji nie ma znacznika Secure. Ten proces nie jest produkcyjny.",
+          "remediation": "Serwuj witrynę przez HTTPS. Produkcja oznacza ciasteczko sesji jako Secure."
+        },
+        "transportTls": {
+          "title": "Adres publiczny i TLS",
+          "notProbed": "Adres publiczny używa HTTPS. Ten proces nie otworzył tego adresu, aby sprawdzić certyfikat.",
+          "productionHttp": "Adres publiczny to HTTP, gdy proces działa produkcyjnie.",
+          "developmentHttp": "Adres publiczny to HTTP, a ten proces nie jest produkcyjny.",
+          "missing": "Nie skonfigurowano adresu publicznego.",
+          "remediationNotProbed": "Potwierdź TLS na proxy lub hoście. Wynik nagłówków nie dowodzi certyfikatu.",
+          "remediationProductionHttp": "Ustaw adres publiczny na adres HTTPS. Ciasteczka sesji są Secure na produkcji, więc przeglądarki nie wyślą ich do witryny HTTP.",
+          "remediationDevelopment": "Użyj HTTPS przed produkcją.",
+          "remediationMissing": "Ustaw adres publiczny na adres HTTPS tej witryny."
+        },
+        "transportProxy": {
+          "title": "Zaufane proxy",
+          "bounded": "Zaufane proxy jest ograniczone do {value}.",
+          "wide": "Każde łączące się proxy jest zaufane ({value}). Klient może podrobić swój adres.",
+          "disabledProduction": "Żadne proxy nie jest zaufane. Adresy odwiedzających i wykrywanie HTTPS używają połączenia bezpośredniego.",
+          "disabledDevelopment": "Żadne proxy nie jest zaufane, a ten proces nie jest produkcyjny.",
+          "otherSite": "Zaufanie do proxy to ustawienie instalacji, sprawdzane w witrynie platformy.",
+          "remediationBounded": "Zostaw TRUST_PROXY jako loopback albo dokładną liczbę przeskoków proxy.",
+          "remediationWide": "Ustaw TRUST_PROXY na loopback albo liczbę przeskoków proxy. Nie ufaj każdemu proxy.",
+          "remediationDisabled": "Jeśli reverse proxy kończy TLS, ustaw TRUST_PROXY na loopback albo liczbę przeskoków.",
+          "remediationDevelopment": "Ustaw TRUST_PROXY, zanim postawisz reverse proxy przed produkcją.",
+          "remediationOtherSite": "Administrator platformy sprawdza zaufanie proxy w witrynie głównej."
+        },
+        "headersPolicy": {
+          "title": "Nagłówki odpowiedzi",
+          "findings": "{critical} krytycznych ustaleń nagłówków i {warning} ostrzeżeń. Ten wiersz to tylko polityka nagłówków.",
+          "killSwitch": "Własne ustawienia nagłówków są wyłączone w środowisku, więc witryna wysyła wbudowane wartości domyślne.",
+          "unavailable": "Nagłówki zabezpieczeń są wyłączone dla tej witryny.",
+          "unknown": "Nie udało się odczytać polityki nagłówków.",
+          "remediation": "Przejrzyj ustalenia nagłówków w Ocenie nagłówków.",
+          "remediationKillSwitch": "Usuń nadpisanie środowiska i uruchom ponownie, aby użyć zapisanej polityki nagłówków.",
+          "remediationUnavailable": "Włącz nagłówki zabezpieczeń dla tej witryny, aby je przejrzeć.",
+          "remediationUnknown": "Otwórz Ocenę nagłówków, gdy ustawienia nagłówków da się odczytać."
+        },
+        "extensionsIntegrity": {
+          "title": "Integralność plików",
+          "unavailable": "Pliki rdzenia i rozszerzeń nie są porównywane z zaufaną bazą. Udana instalacja nie jest skanem plików na dysku.",
+          "remediation": "Kontrole integralności nie są jeszcze dostępne. Zainstaluj ponownie z zaufanego wydania, jeśli podejrzewasz zmianę plików."
+        },
+        "recoveryBackup": {
+          "title": "Gotowość kopii zapasowej",
+          "notVerified": "Nie zweryfikowano kopii zapasowej tej witryny.",
+          "remediation": "Kopia zapasowa i przywracanie nie są dostępne w tej wersji. Zachowaj własną kopię bazy i przesłanych plików."
+        }
+      }
+    },
     "account": {
       "password": {
         "changeError": "Nie można zmienić hasła.",
@@ -3085,13 +3228,13 @@
         "editHeaders": "Edytuj każdy nagłówek",
         "title": "Zalecana konfiguracja"
       },
-      "subtitle": "Co Twoja witryna nakazuje przeglądarkom użytkowników egzekwować, a czego wciąż brakuje.",
+      "subtitle": "Co przeglądarki mają wymuszać. Ta ocena dotyczy wyłącznie nagłówków odpowiedzi.",
       "tabs": {
         "admin": "Administrator i API",
         "publicInsecure": "Witryna publiczna (HTTP)",
         "publicSecure": "Witryna publiczna (HTTPS)"
       },
-      "title": "Bezpieczeństwo"
+      "title": "Ocena nagłówków"
     },
     "shared": {
       "findingLevel": {

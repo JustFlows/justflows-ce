@@ -32,7 +32,8 @@
     "health": "Status",
     "updates": "Updates",
     "webhooks": "Webhooks",
-    "securityOverview": "Übersicht",
+    "securityCenter": "Sicherheitscenter",
+    "securityOverview": "Header-Bewertung",
     "securityHeaders": "Header",
     "securityAdvanced": "Erweitert",
     "securityAdminPath": "Admin-URL",
@@ -2328,6 +2329,148 @@
     "originalDimensions": "Original {width}×{height}"
   },
   "security": {
+    "center": {
+      "title": "Sicherheitscenter",
+      "subtitle": "Prüfungen, die diese Installation beantworten kann. Eine bestandene Zeile ist nur diese Prüfung, keine Note für die Website.",
+      "banner": "{fail} brauchen Aufmerksamkeit, {warn} Warnungen, {unknown} nicht geprüft, {pass} in Ordnung.",
+      "checked": "Geprüft {time}",
+      "checkAgain": "Erneut prüfen",
+      "checking": "Wird geprüft…",
+      "events": "Sicherheitsereignisse ansehen",
+      "eventsHint": "Anmeldung, Sitzung, Schlüssel, Rolle, Erweiterung, Update und Konfiguration. Zugangsdaten und Anfrageinhalte werden nicht gespeichert.",
+      "open": "Ansehen",
+      "empty": "Es wurden keine Prüfungen zurückgegeben.",
+      "loadError": "Das Sicherheitscenter konnte nicht geladen werden",
+      "missing": "Diese Prüfung hat keine Beschreibung.",
+      "groups": {
+        "attention": "Braucht Aufmerksamkeit",
+        "unknown": "Nicht geprüft",
+        "pass": "In Ordnung",
+        "notApplicable": "Nicht zutreffend"
+      },
+      "kind": {
+        "configuration": "Konfiguration",
+        "deployment": "Bereitstellung"
+      },
+      "scope": {
+        "site": "Diese Website",
+        "installation": "Installation"
+      },
+      "status": {
+        "pass": "Bestanden",
+        "warn": "Warnung",
+        "fail": "Fehlgeschlagen",
+        "unknown": "Nicht geprüft",
+        "not_applicable": "Nicht zutreffend"
+      },
+      "checks": {
+        "runtimeNode": {
+          "title": "Node.js-Version",
+          "version": "Dieser Prozess läuft mit Node.js {version}. Justflows unterstützt Node.js {minimum} und neuer.",
+          "unknown": "Die Node.js-Version konnte nicht gelesen werden.",
+          "remediation": "Betreiben Sie Justflows mit Node.js {minimum} oder neuer und starten Sie neu."
+        },
+        "runtimeUpdate": {
+          "title": "Core-Update",
+          "current": "Installiert {current}. Die letzte Prüfung fand {latest}, das nicht neuer ist. Geprüft {checked}.",
+          "available": "Installiert {current}. {latest} ist verfügbar. Geprüft {checked}.",
+          "unknown": "Installiert {current}. Es liegt keine abgeschlossene Update-Prüfung vor, daher gilt dies nicht als aktuell.",
+          "otherSite": "Core-Updates werden auf der Plattform-Website geprüft.",
+          "remediationCurrent": "Es wartet kein Core-Update.",
+          "remediationAvailable": "Installieren Sie das Release unter Updates. Diese Seite installiert es nicht.",
+          "remediationUnknown": "Öffnen Sie Updates und prüfen Sie auf ein Release.",
+          "remediationOtherSite": "Eine Plattform-Administration prüft Core-Updates auf der Hauptwebsite."
+        },
+        "runtimeDebug": {
+          "title": "Debug-Modus",
+          "off": "Der Debug-Modus ist aus.",
+          "productionOn": "Der Debug-Modus ist an, während dieser Prozess in Produktion läuft.",
+          "developmentOn": "Der Debug-Modus ist an, und dieser Prozess ist nicht Produktion.",
+          "remediation": "Lassen Sie den Debug-Modus in Produktion aus."
+        },
+        "runtimeInstaller": {
+          "title": "Installationsassistent",
+          "closed": "Der Installationsassistent ist geschlossen.",
+          "open": "Der Installationsassistent ist noch offen.",
+          "remediation": "Schließen Sie die Installation ab, damit der Assistent die Website nicht übernehmen kann."
+        },
+        "accountsMfa": {
+          "title": "Authenticator der Administrierenden",
+          "all": "{enrolled} von {admins} Administrierenden haben einen Authenticator.",
+          "partial": "{enrolled} von {admins} Administrierenden haben einen Authenticator. Die Anmeldung verlangt keinen.",
+          "unknown": "Die Authenticator-Einrichtung der Administrierenden konnte nicht gelesen werden.",
+          "remediation": "Jede Administration kann unter Sicherheit → Ihr Konto einen Authenticator einschalten. Justflows verlangt das noch nicht."
+        },
+        "accountsSessions": {
+          "title": "Gerätesitzungen",
+          "known": "{active} Gerätesitzungen auf dieser Website sind noch gültig. Die Zahl bewertet diese Sitzungen nicht.",
+          "unknown": "Gerätesitzungen konnten nicht gelesen werden.",
+          "remediation": "Prüfen und widerrufen Sie Sitzungen unter Sicherheit → Ihr Konto."
+        },
+        "accountsApiKeys": {
+          "title": "API-Schlüssel",
+          "none": "Diese Website hat keine aktiven API-Schlüssel.",
+          "expiring": "{active} aktive API-Schlüssel, jeder mit Ablauf.",
+          "openEnded": "{active} aktive API-Schlüssel, {withoutExpiry} ohne Ablauf.",
+          "unknown": "API-Schlüssel konnten nicht gelesen werden.",
+          "unavailable": "API-Schlüssel sind für diese Website ausgeschaltet.",
+          "remediation": "Geben Sie jedem Schlüssel unter Einstellungen → API ein Ablaufdatum und widerrufen Sie ungenutzte Schlüssel.",
+          "remediationUnavailable": "Schalten Sie API-Schlüssel für diese Website ein, bevor sie geprüft werden können."
+        },
+        "transportCookies": {
+          "title": "Sitzungscookie",
+          "secure": "Das Sitzungscookie ist als Secure markiert.",
+          "insecureProduction": "Das Sitzungscookie ist in Produktion nicht als Secure markiert.",
+          "development": "Das Sitzungscookie ist nicht als Secure markiert. Dieser Prozess ist nicht Produktion.",
+          "remediation": "Stellen Sie die Website über HTTPS bereit. Produktion markiert das Sitzungscookie als Secure."
+        },
+        "transportTls": {
+          "title": "Öffentliche Adresse und TLS",
+          "notProbed": "Die öffentliche Adresse verwendet HTTPS. Dieser Prozess hat die Adresse nicht geöffnet, um das Zertifikat zu prüfen.",
+          "productionHttp": "Die öffentliche Adresse ist HTTP, während der Prozess in Produktion läuft.",
+          "developmentHttp": "Die öffentliche Adresse ist HTTP, und dieser Prozess ist nicht Produktion.",
+          "missing": "Es ist keine öffentliche Adresse konfiguriert.",
+          "remediationNotProbed": "Bestätigen Sie TLS am Proxy oder Host. Ein Header-Ergebnis beweist das Zertifikat nicht.",
+          "remediationProductionHttp": "Setzen Sie die öffentliche Adresse auf die HTTPS-Adresse. Sitzungscookies sind in Produktion Secure, Browser senden sie daher nicht an eine HTTP-Website.",
+          "remediationDevelopment": "Verwenden Sie HTTPS vor der Produktion.",
+          "remediationMissing": "Setzen Sie die öffentliche Adresse auf die HTTPS-Adresse dieser Website."
+        },
+        "transportProxy": {
+          "title": "Vertrauenswürdige Proxys",
+          "bounded": "Vertrauenswürdige Proxys sind auf {value} begrenzt.",
+          "wide": "Jeder verbindende Proxy wird vertraut ({value}). Ein Client kann seine Adresse fälschen.",
+          "disabledProduction": "Keinem Proxy wird vertraut. Besucheradressen und die HTTPS-Erkennung nutzen die direkte Verbindung.",
+          "disabledDevelopment": "Keinem Proxy wird vertraut, und dieser Prozess ist nicht Produktion.",
+          "otherSite": "Proxy-Vertrauen ist eine Installationseinstellung und wird auf der Plattform-Website geprüft.",
+          "remediationBounded": "Lassen Sie TRUST_PROXY auf loopback oder der genauen Hop-Zahl Ihres Proxys.",
+          "remediationWide": "Setzen Sie TRUST_PROXY auf loopback oder die Proxy-Hop-Zahl. Vertrauen Sie nicht jedem Proxy.",
+          "remediationDisabled": "Wenn ein Reverse-Proxy TLS beendet, setzen Sie TRUST_PROXY auf loopback oder die Hop-Zahl.",
+          "remediationDevelopment": "Setzen Sie TRUST_PROXY, bevor ein Reverse-Proxy vor der Produktion steht.",
+          "remediationOtherSite": "Eine Plattform-Administration prüft das Proxy-Vertrauen auf der Hauptwebsite."
+        },
+        "headersPolicy": {
+          "title": "Antwort-Header",
+          "findings": "{critical} kritische Header-Befunde und {warning} Warnungen. Diese Zeile ist nur die Header-Richtlinie.",
+          "killSwitch": "Eigene Header-Einstellungen sind in der Umgebung aus, die Website sendet die eingebauten Standards.",
+          "unavailable": "Sicherheits-Header sind für diese Website ausgeschaltet.",
+          "unknown": "Die Header-Richtlinie konnte nicht gelesen werden.",
+          "remediation": "Prüfen Sie die Header-Befunde in der Header-Bewertung.",
+          "remediationKillSwitch": "Entfernen Sie die Umgebungsüberschreibung und starten Sie neu, um die gespeicherte Header-Richtlinie zu nutzen.",
+          "remediationUnavailable": "Schalten Sie Sicherheits-Header für diese Website ein, um sie zu prüfen.",
+          "remediationUnknown": "Öffnen Sie die Header-Bewertung, sobald die Header-Einstellungen gelesen werden können."
+        },
+        "extensionsIntegrity": {
+          "title": "Dateiintegrität",
+          "unavailable": "Core- und Erweiterungsdateien werden nicht mit einer vertrauenswürdigen Basis verglichen. Eine erfolgreiche Installation ist keine Prüfung der Dateien auf der Platte.",
+          "remediation": "Integritätsprüfungen sind noch nicht verfügbar. Installieren Sie neu aus einem vertrauenswürdigen Release, wenn Sie geänderte Dateien vermuten."
+        },
+        "recoveryBackup": {
+          "title": "Backup-Bereitschaft",
+          "notVerified": "Für diese Website wurde kein Backup geprüft.",
+          "remediation": "Backup und Wiederherstellung sind in dieser Version nicht verfügbar. Bewahren Sie eine eigene Kopie der Datenbank und der Uploads auf."
+        }
+      }
+    },
     "account": {
       "title": "Ihr Konto",
       "subtitle": "Das Passwort und der zweite Faktor, die Ihre eigene Anmeldung schützen.",
@@ -2648,7 +2791,7 @@
     },
     "overview": {
       "title": "Sicherheit",
-      "subtitle": "Was Ihre Website den Browsern der Besucher vorschreibt – und was noch fehlt.",
+      "subtitle": "Was Browser erzwingen sollen. Diese Bewertung gilt nur für Antwort-Header.",
       "recommended": {
         "title": "Empfohlene Konfiguration",
         "alreadyApplied": "Bereits angewendet",
