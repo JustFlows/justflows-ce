@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { Router, type Request, type Response } from "express";
-import { rateLimit } from "express-rate-limit";
+import { publicPageRateLimit } from "../../middleware/public-page-rate-limit.js";
 import {
   getPermalinkState,
   permalinkContent,
@@ -19,8 +19,6 @@ import type { ContentResponse } from "../../lib/content/content-api.js";
 interface PermalinkHandlers {
   canView(req: Request, res: Response): Promise<boolean>;
   previewAllowed?(req: Request, res: Response): Promise<boolean>;
-  /** Themed 429 response (justflows-ce#92). Falls back to a plain JSON 429 when not given. */
-  rateLimited?(req: Request, res: Response, retryAfterSeconds?: number): Promise<void>;
   renderContent(
     req: Request,
     res: Response,
@@ -49,19 +47,7 @@ interface PermalinkHandlers {
 export function createPermalinkRouter(handlers: PermalinkHandlers): Router {
   const router = Router();
   router.use(
-    rateLimit({
-      windowMs: 60_000,
-      limit: 600,
-      standardHeaders: "draft-8",
-      legacyHeaders: false,
-      handler: (req, res, next) => {
-        if (!handlers.rateLimited) {
-          res.status(429).json({ error: "Too many requests" });
-          return;
-        }
-        void handlers.rateLimited(req, res).catch(next);
-      },
-    }),
+    publicPageRateLimit,
     async (req, res, next) => {
       if (req.method !== "GET" && req.method !== "HEAD") {
         next();

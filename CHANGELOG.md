@@ -21,6 +21,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **Package and core archives are checked before they can change the installation.** A plugin package is inflated and parsed in a separate worker that can be stopped, and a malformed TAR is rejected before any file is written. A core update reads the signed version from the ZIP, checks the signature, and only then extracts. Absolute paths, links, special files, duplicate names, and an incomplete listing are refused. The production image uses Info-ZIP `unzip`. ([#208](https://github.com/JustFlows/justflows-ce/issues/208))
 
+- **A public page reports one rate-limit policy.** Redirects, static export, and permalinks share a single allowance of 600 requests a minute, so the response carries that policy once. Search and preview links keep their own tighter allowance under a separate name. ([#209](https://github.com/JustFlows/justflows-ce/issues/209))
+
 ## [0.3.9]
 
 ### Added
