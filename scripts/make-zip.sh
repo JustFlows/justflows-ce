@@ -10,10 +10,11 @@ NAME="$(basename "$ROOT")"
 
 echo "==> Building production artifacts…"
 cd "$ROOT"
+# The SDK first: @justflows/blocks and the packages after it import its build.
+pnpm --filter @justflows/sdk build
 pnpm --filter @justflows/blocks build
 pnpm --filter @justflows/core build
 pnpm --filter @justflows/cache build
-pnpm --filter @justflows/sdk build
 pnpm --filter @justflows/database build
 pnpm --filter @justflows/auth build
 pnpm --filter @justflows/installer build

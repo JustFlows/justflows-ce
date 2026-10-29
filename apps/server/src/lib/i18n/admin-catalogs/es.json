@@ -32,12 +32,15 @@
     "health": "Estado",
     "updates": "Actualizaciones",
     "webhooks": "Webhooks",
-    "securityOverview": "Resumen",
+    "securityCenter": "Centro de seguridad",
+    "securityOverview": "Nota de cabeceras",
     "securityHeaders": "Cabeceras",
     "securityAdvanced": "Avanzado",
     "securityAdminPath": "URL de administración",
     "securityAccount": "Tu cuenta",
     "securityAudit": "Registro de auditoría",
+    "securityWebServer": "Servidor web",
+    "securityIntegrity": "Integridad de archivos",
     "languages": "Idiomas",
     "shop": "Tienda",
     "shopProducts": "Productos",
@@ -2328,6 +2331,223 @@
     "originalDimensions": "original {width}×{height}"
   },
   "security": {
+    "integrity": {
+      "title": "Integridad de archivos",
+      "subtitle": "Las extensiones instaladas se comparan con la línea base registrada al instalarlas desde un paquete de confianza. Los archivos del núcleo se comparan con el manifiesto firmado de esta versión. Las subidas, el almacenamiento y los datos del sitio no forman parte de ese manifiesto.",
+      "otherSite": "La integridad de archivos se comprueba en el sitio de la plataforma.",
+      "loadError": "No se pudo cargar el informe de integridad",
+      "rescan": "Volver a analizar",
+      "scanning": "Analizando…",
+      "empty": "Todavía no hay extensiones instaladas.",
+      "repair": "Reinstala la extensión desde un paquete de confianza. Justflows no adopta los archivos actuales como línea base.",
+      "coreVerified": "Los archivos del núcleo coinciden con el manifiesto firmado de la versión.",
+      "coreLocal": "Los archivos del núcleo coinciden con una línea base local. No es una versión oficial firmada.",
+      "coreAbsent": "No hay un manifiesto del núcleo. Una copia de desarrollo queda sin verificar, no es una versión fallida.",
+      "coreFailed": "Los archivos del núcleo no coinciden con el manifiesto.",
+      "verified": "Verificado",
+      "unverifiable": "Sin línea base",
+      "modified": "Modificado",
+      "missing": "Falta",
+      "unexpected": "Archivo inesperado",
+      "limit": "No se pudo verificar"
+    },
+    "webServer": {
+      "title": "Servidor web",
+      "subtitle": "Justflows comprueba las subidas en la aplicación. Un servidor web que sirve esos archivos desde el disco se salta esa comprobación. Elija el host que usa y copie su archivo. Un CDN delante del sitio no debe cachear una subida privada o en la papelera.",
+      "otherSite": "Los archivos del servidor web se configuran en el sitio de la plataforma.",
+      "loadError": "No se pudo cargar la guía del servidor web",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "copyError": "No se pudo copiar",
+      "automatic": "Aplicado por Justflows",
+      "manual": "Copiar esto en el host",
+      "centerLink": "Configurar el servidor web",
+      "centerHint": "Copie el archivo para nginx, Apache, Passenger, LiteSpeed o Docker. La aplicación no reescribe esos hosts.",
+      "accelOn": "UPLOADS_ACCEL_REDIRECT está definido. Debe coincidir con la ubicación interna de este archivo.",
+      "accelOff": "UPLOADS_ACCEL_REDIRECT no está definido, así que la aplicación envía el archivo. Añada la ubicación interna y la variable juntas.",
+      "htaccess": {
+        "current": "El .htaccess de la raíz de la instalación coincide con este archivo. Se actualiza al arrancar mientras su primera línea esté intacta.",
+        "pending": "El .htaccess de la raíz de la instalación sigue gestionado. El próximo arranque lo sustituye por este archivo.",
+        "custom": "El .htaccess de la raíz de la instalación se editó a mano, así que Justflows lo deja. Fusione este archivo, o restaure la primera línea para que Justflows vuelva a gestionarlo.",
+        "missing": "Todavía no hay un .htaccess en la raíz de la instalación. Se escribe al arrancar. Puede copiar este archivo ahora."
+      },
+      "environments": {
+        "application": {
+          "title": "Solo la aplicación",
+          "body": "Use esto cuando Node responde a cada petición, o cuando el servidor web envía todo el sitio, incluido /uploads/, a la aplicación. No hace falta otro archivo."
+        },
+        "apache": {
+          "title": "Apache y LiteSpeed",
+          "body": "Use esto cuando la raíz de documentos es la instalación de Justflows. Apache y LiteSpeed leen el .htaccess cuando el vhost lo permite. Copie este archivo encima si el host no puede escribirlo. AllowOverride debe permitir FileInfo y Limit."
+        },
+        "nginx": {
+          "title": "nginx",
+          "body": "nginx no se actualiza solo. Si /uploads/ es un alias o una raíz hacia la carpeta de subidas, sustituya esa ubicación por este bloque, dentro del servidor que envía el sitio. La ubicación interna es opcional."
+        },
+        "apacheProxy": {
+          "title": "Proxy inverso de Apache",
+          "body": "Use esto cuando Apache envía a Node y la instalación no es la raíz de documentos, o cuando un Alias sirve /uploads/ desde el disco. Quite ese Alias. Ponga estas líneas antes de un ProxyPass para /."
+        },
+        "passenger": {
+          "title": "Passenger",
+          "body": "Passenger usa el archivo de Apache y LiteSpeed cuando la instalación es la raíz de documentos. No añada un Alias para /uploads/. Si nginx está delante de Passenger, use también el archivo de nginx."
+        },
+        "docker": {
+          "title": "Docker",
+          "body": "La imagen de Justflows no instala ni recarga nginx. Si pone nginx delante del contenedor, copie este archivo en ese servidor. La ruta del alias es el directorio de subidas de este proceso. Cámbiela si nginx ve esa carpeta en otro sitio."
+        }
+      }
+    },
+    "center": {
+      "title": "Centro de seguridad",
+      "subtitle": "Comprobaciones que esta instalación puede responder. Una fila superada es solo esa comprobación, no una nota del sitio.",
+      "banner": "{fail} requieren atención, {warn} avisos, {unknown} sin verificar, {pass} en orden.",
+      "checked": "Comprobado {time}",
+      "checkAgain": "Comprobar de nuevo",
+      "checking": "Comprobando…",
+      "events": "Ver eventos de seguridad",
+      "eventsHint": "Inicio de sesión, sesión, clave, rol, extensión, actualización y configuración. No se guardan credenciales ni cuerpos de petición.",
+      "open": "Revisar",
+      "empty": "No se devolvió ninguna comprobación.",
+      "loadError": "No se pudo cargar el centro de seguridad",
+      "missing": "Esta comprobación no tiene descripción.",
+      "groups": {
+        "attention": "Requiere atención",
+        "unknown": "Sin verificar",
+        "pass": "En orden",
+        "notApplicable": "No aplica"
+      },
+      "kind": {
+        "configuration": "Configuración",
+        "deployment": "Despliegue"
+      },
+      "scope": {
+        "site": "Este sitio",
+        "installation": "Instalación"
+      },
+      "status": {
+        "pass": "Correcto",
+        "warn": "Aviso",
+        "fail": "Fallo",
+        "unknown": "Sin verificar",
+        "not_applicable": "No aplica"
+      },
+      "checks": {
+        "runtimeNode": {
+          "title": "Versión de Node.js",
+          "version": "Este proceso ejecuta Node.js {version}. Justflows admite Node.js {minimum} y posteriores.",
+          "unknown": "No se pudo leer la versión de Node.js.",
+          "remediation": "Ejecuta Justflows con Node.js {minimum} o posterior y reinicia."
+        },
+        "runtimeUpdate": {
+          "title": "Actualización del núcleo",
+          "current": "Instalado {current}. La última comprobación encontró {latest}, que no es más reciente. Comprobado {checked}.",
+          "available": "Instalado {current}. {latest} está disponible. Comprobado {checked}.",
+          "unknown": "Instalado {current}. No hay una comprobación de actualización terminada, así que esto no se muestra como al día.",
+          "otherSite": "Las actualizaciones del núcleo se comprueban en el sitio de la plataforma.",
+          "remediationCurrent": "No hay ninguna actualización del núcleo pendiente.",
+          "remediationAvailable": "Instala la versión desde Actualizaciones. Esta página no la instala.",
+          "remediationUnknown": "Abre Actualizaciones y busca una versión.",
+          "remediationOtherSite": "Una administración de la plataforma comprueba las actualizaciones del núcleo en el sitio principal."
+        },
+        "runtimeDebug": {
+          "title": "Modo de depuración",
+          "off": "El modo de depuración está apagado.",
+          "productionOn": "El modo de depuración está encendido mientras este proceso está en producción.",
+          "developmentOn": "El modo de depuración está encendido y este proceso no es de producción.",
+          "remediation": "Deja el modo de depuración apagado en producción."
+        },
+        "runtimeInstaller": {
+          "title": "Asistente de instalación",
+          "closed": "El asistente de instalación está cerrado.",
+          "open": "El asistente de instalación sigue abierto.",
+          "remediation": "Termina la instalación para que el asistente no pueda tomar el sitio."
+        },
+        "accountsMfa": {
+          "title": "Autenticadores de administración",
+          "all": "{enrolled} de {admins} administradores tienen un autenticador.",
+          "partial": "{enrolled} de {admins} administradores tienen un autenticador. El inicio de sesión no lo exige.",
+          "unknown": "No se pudo leer el alta de autenticadores de la administración.",
+          "remediation": "Cada administrador puede activar un autenticador en Seguridad → Tu cuenta. Justflows todavía no lo exige."
+        },
+        "accountsSessions": {
+          "title": "Sesiones de dispositivo",
+          "known": "{active} sesiones de dispositivo de este sitio siguen siendo válidas. El recuento no juzga esas sesiones.",
+          "unknown": "No se pudieron leer las sesiones de dispositivo.",
+          "remediation": "Revisa y revoca sesiones en Seguridad → Tu cuenta."
+        },
+        "accountsApiKeys": {
+          "title": "Claves de API",
+          "none": "Este sitio no tiene claves de API activas.",
+          "expiring": "{active} claves de API activas, cada una con caducidad.",
+          "openEnded": "{active} claves de API activas, {withoutExpiry} sin caducidad.",
+          "unknown": "No se pudieron leer las claves de API.",
+          "unavailable": "Las claves de API están desactivadas para este sitio.",
+          "remediation": "Pon una caducidad a cada clave en Ajustes → API y revoca las que ya no uses.",
+          "remediationUnavailable": "Activa las claves de API de este sitio antes de poder revisarlas."
+        },
+        "transportCookies": {
+          "title": "Cookie de sesión",
+          "secure": "La cookie de sesión está marcada como Secure.",
+          "insecureProduction": "La cookie de sesión no está marcada como Secure en producción.",
+          "development": "La cookie de sesión no está marcada como Secure. Este proceso no es de producción.",
+          "remediation": "Sirve el sitio por HTTPS. Producción marca la cookie de sesión como Secure."
+        },
+        "transportTls": {
+          "title": "Dirección pública y TLS",
+          "notProbed": "La dirección pública usa HTTPS. Este proceso no abrió esa dirección para comprobar el certificado.",
+          "productionHttp": "La dirección pública es HTTP mientras el proceso está en producción.",
+          "developmentHttp": "La dirección pública es HTTP y este proceso no es de producción.",
+          "missing": "No hay una dirección pública configurada.",
+          "remediationNotProbed": "Confirma el TLS en el proxy o el servidor. Un resultado de cabeceras no demuestra el certificado.",
+          "remediationProductionHttp": "Pon la dirección pública en la dirección HTTPS. Las cookies de sesión son Secure en producción, así que los navegadores no las envían a un sitio HTTP.",
+          "remediationDevelopment": "Usa HTTPS antes de producción.",
+          "remediationMissing": "Pon la dirección pública en la dirección HTTPS de este sitio."
+        },
+        "transportProxy": {
+          "title": "Proxies de confianza",
+          "bounded": "Los proxies de confianza se limitan a {value}.",
+          "wide": "Se confía en cada proxy que se conecta ({value}). Un cliente puede falsificar su dirección.",
+          "disabledProduction": "No se confía en ningún proxy. Las direcciones de visita y la detección de HTTPS usan la conexión directa.",
+          "disabledDevelopment": "No se confía en ningún proxy y este proceso no es de producción.",
+          "otherSite": "La confianza en el proxy es un ajuste de la instalación y se revisa en el sitio de la plataforma.",
+          "remediationBounded": "Deja TRUST_PROXY en loopback o en el número exacto de saltos de tu proxy.",
+          "remediationWide": "Pon TRUST_PROXY en loopback o en el número de saltos del proxy. No confíes en todos los proxies.",
+          "remediationDisabled": "Si un proxy inverso termina TLS, pon TRUST_PROXY en loopback o en el número de saltos.",
+          "remediationDevelopment": "Configura TRUST_PROXY antes de poner un proxy inverso delante de producción.",
+          "remediationOtherSite": "Una administración de la plataforma revisa la confianza del proxy en el sitio principal."
+        },
+        "headersPolicy": {
+          "title": "Cabeceras de respuesta",
+          "findings": "{critical} hallazgos críticos de cabeceras y {warning} avisos. Esta fila es solo la política de cabeceras.",
+          "killSwitch": "Los ajustes de cabeceras personalizadas están apagados en el entorno, así que el sitio envía los valores integrados.",
+          "unavailable": "Las cabeceras de seguridad están desactivadas para este sitio.",
+          "unknown": "No se pudo leer la política de cabeceras.",
+          "remediation": "Revisa los hallazgos de cabeceras en Nota de cabeceras.",
+          "remediationKillSwitch": "Quita la anulación del entorno y reinicia para usar la política de cabeceras guardada.",
+          "remediationUnavailable": "Activa las cabeceras de seguridad de este sitio para revisarlas.",
+          "remediationUnknown": "Abre Nota de cabeceras cuando se puedan leer los ajustes de cabeceras."
+        },
+        "extensionsIntegrity": {
+          "title": "Integridad de archivos",
+          "unavailable": "No se pudo leer el análisis de integridad.",
+          "remediation": "Abre Integridad de archivos y analiza de nuevo.",
+          "clear": "{verified} extensiones instaladas coinciden con su línea base de confianza, y el manifiesto del núcleo coincide con esta versión.",
+          "baselineMissing": "{unverifiable} extensiones instaladas no tienen una línea base de confianza, o esta copia no tiene un manifiesto del núcleo firmado.",
+          "failed": "{failed} extensiones instaladas o los archivos del núcleo no coinciden con la línea base de confianza.",
+          "otherSite": "La integridad de archivos se comprueba en el sitio de la plataforma.",
+          "remediationClear": "Analiza de nuevo después de instalar o reinstalar una extensión.",
+          "remediationBaseline": "Reinstala la extensión desde un paquete de confianza para registrar una línea base. Una copia de desarrollo no tiene un manifiesto del núcleo firmado.",
+          "remediationFailed": "Reinstala la extensión afectada desde un paquete de confianza. Los archivos actuales no se conservan como línea base.",
+          "remediationOtherSite": "Abre Integridad de archivos en el sitio de la plataforma."
+        },
+        "recoveryBackup": {
+          "title": "Preparación de copias",
+          "notVerified": "No se ha verificado ninguna copia de seguridad de este sitio.",
+          "remediation": "La copia y la restauración no están disponibles en esta versión. Conserva tu propia copia de la base de datos y de las subidas."
+        }
+      }
+    },
     "account": {
       "title": "Tu cuenta",
       "subtitle": "La contraseña y el segundo factor que protegen tu propio inicio de sesión.",
@@ -2648,7 +2868,7 @@
     },
     "overview": {
       "title": "Seguridad",
-      "subtitle": "Lo que tu sitio indica a los navegadores de los visitantes que apliquen, y lo que todavía falta.",
+      "subtitle": "Lo que los navegadores deben aplicar. Esta nota cubre solo las cabeceras de respuesta.",
       "recommended": {
         "title": "Configuración recomendada",
         "alreadyApplied": "Ya aplicado",

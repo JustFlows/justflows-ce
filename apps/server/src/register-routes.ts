@@ -4,6 +4,7 @@ import { isInstalled, requireInstalled, blockIfInstalled } from "./middleware/in
 import { publicApiGuard } from "./middleware/public-api.js";
 import { publicApiCors } from "./middleware/public-api-cors.js";
 import { publicApiRateLimit } from "./middleware/public-api-rate-limit.js";
+import { publicPageRateLimit } from "./middleware/public-page-rate-limit.js";
 import { logSafe } from "./lib/security/log-safe.js";
 import { detectStaticErrorLocale, renderStaticErrorPage } from "./lib/rendering/static-error-page.js";
 import { adminClientDir, adminClientIndex, renderAdminPage } from "./lib/admin/admin-ssr.js";
@@ -123,7 +124,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: performanceRoutes },
     { default: importRoutes },
     { default: siteRoutes, serveThemeCss, serveThemeScripts },
-    { default: publicSiteRoutes, sendPublicNotFound, sendPublicRateLimited },
+    { default: publicSiteRoutes, sendPublicNotFound },
     { default: languagesRoutes },
     { default: menusRoutes },
     { default: blocksRoutes },
@@ -610,20 +611,12 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   // Managed rules override public content, but never platform or plugin routes.
   app.use(
     requireInstalled,
-    rateLimit({
-      windowMs: 60_000,
-      limit: 600,
-      standardHeaders: "draft-8",
-      legacyHeaders: false,
-      handler: (req, res, next) => {
-        void sendPublicRateLimited(req, res).catch(next);
-      },
-    }),
+    publicPageRateLimit,
     (await import("./middleware/redirects.js")).managedRedirects,
   );
   app.use(
     requireInstalled,
-    rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: "draft-8", legacyHeaders: false }),
+    publicPageRateLimit,
     (await import("./lib/static-export/serve-object-storage.js"))
       .serveStaticExportFromObjectStorage,
   );

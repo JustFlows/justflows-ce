@@ -25,6 +25,7 @@ interface UserRow {
 }
 
 let user: UserRow;
+let deviceSessions: Array<{ id: string; user_id: string; site_id: string; expires_at: string; revoked_at: string | null }>;
 
 /**
  * Apply a SET clause.
@@ -61,9 +62,31 @@ const fakeDb = {
       return match ? ([{ ...user }] as unknown as T[]) : [];
     }
     if (/FROM sites/i.test(sql)) return [{ id: user.site_id, name: "Test Site" }] as unknown as T[];
+    if (/FROM user_sessions/i.test(sql)) {
+      const [id, userId, siteId, now] = params as string[];
+      return deviceSessions.filter(
+        (session) =>
+          session.id === id &&
+          session.user_id === userId &&
+          session.site_id === siteId &&
+          !session.revoked_at &&
+          (now === undefined || session.expires_at > now),
+      ) as unknown as T[];
+    }
     return [] as T[];
   },
   async run(sql: string, params: unknown[] = []): Promise<void> {
+    if (/^INSERT INTO user_sessions/i.test(sql)) {
+      const [id, userId, siteId, , , , , expiresAt] = params as string[];
+      deviceSessions.push({
+        id: id!,
+        user_id: userId!,
+        site_id: siteId!,
+        expires_at: expiresAt!,
+        revoked_at: null,
+      });
+      return;
+    }
     if (/UPDATE users SET token_version/i.test(sql)) {
       user.token_version += 1;
       return;
@@ -71,6 +94,18 @@ const fakeDb = {
     const setClause = /UPDATE users SET (.+?) WHERE/i.exec(sql)?.[1];
     if (!setClause) return;
     applySet(user, setClause, params);
+  },
+  async execute(sql: string, params: unknown[] = []): Promise<number> {
+    if (/UPDATE user_sessions SET revoked_at/i.test(sql)) {
+      const [revokedAt, id, userId, siteId] = params as string[];
+      const session = deviceSessions.find(
+        (row) => row.id === id && row.user_id === userId && row.site_id === siteId && !row.revoked_at,
+      );
+      if (!session) return 0;
+      session.revoked_at = revokedAt!;
+      return 1;
+    }
+    return 0;
   },
   async close(): Promise<void> {},
 };
@@ -196,6 +231,7 @@ beforeEach(async () => {
     totp_confirmed_at: null,
     totp_recovery_codes: null,
   };
+  deviceSessions = [];
 });
 
 /** Sign in far enough to hold a session cookie. */

@@ -34,12 +34,15 @@
     "updates": "Updates",
     "webhooks": "Webhooks",
     "apiKeys": "API",
-    "securityOverview": "Overview",
+    "securityCenter": "Security Center",
+    "securityOverview": "Header grade",
     "securityHeaders": "Headers",
     "securityAdvanced": "Advanced",
     "securityAdminPath": "Admin URL",
     "securityAccount": "Your account",
     "securityAudit": "Audit log",
+    "securityWebServer": "Web server",
+    "securityIntegrity": "File integrity",
     "languages": "Languages",
     "shop": "Shop",
     "shopProducts": "Products",
@@ -2754,6 +2757,223 @@
     }
   },
   "security": {
+    "integrity": {
+      "title": "File integrity",
+      "subtitle": "Installed extensions are compared with the baseline recorded when they were installed from a trusted package. Core files are compared with the signed manifest for this release. Uploads, storage, and site data are not part of that manifest.",
+      "otherSite": "File integrity is checked on the platform site.",
+      "loadError": "Could not load the integrity report",
+      "rescan": "Scan again",
+      "scanning": "Scanning…",
+      "empty": "No installed extensions yet.",
+      "repair": "Reinstall the extension from a trusted package. Justflows does not treat the current files as the baseline.",
+      "coreVerified": "Core files match the signed release manifest.",
+      "coreLocal": "Core files match a local baseline. This is not an official signed release.",
+      "coreAbsent": "No core manifest is present. A development checkout is unverified, not a failed release.",
+      "coreFailed": "Core files do not match the manifest.",
+      "verified": "Verified",
+      "unverifiable": "No baseline",
+      "modified": "Modified",
+      "missing": "Missing",
+      "unexpected": "Unexpected file",
+      "limit": "Could not verify"
+    },
+    "webServer": {
+      "title": "Web server",
+      "subtitle": "Justflows checks uploads in the application. A web server that serves those files from disk skips that check. Pick the host you use and copy its file. A CDN in front of the site must not cache a private or trashed upload.",
+      "otherSite": "Web server files are set on the platform site.",
+      "loadError": "Could not load the web server guide",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyError": "Could not copy",
+      "automatic": "Applied by Justflows",
+      "manual": "Copy this into the host",
+      "centerLink": "Web server setup",
+      "centerHint": "Copy the file for nginx, Apache, Passenger, LiteSpeed, or Docker. The application does not rewrite those hosts.",
+      "accelOn": "UPLOADS_ACCEL_REDIRECT is set. It must match the internal location in this file.",
+      "accelOff": "UPLOADS_ACCEL_REDIRECT is not set, so the application sends the file. Add the internal location and the variable together.",
+      "htaccess": {
+        "current": "The site-root .htaccess matches this file. It is refreshed on startup while its first line is intact.",
+        "pending": "The site-root .htaccess is still managed. The next startup replaces it with this file.",
+        "custom": "The site-root .htaccess was edited by hand, so Justflows leaves it alone. Merge this file, or restore the first line to let Justflows manage it again.",
+        "missing": "There is no site-root .htaccess yet. It is written on startup. You can copy this file into the install root now."
+      },
+      "environments": {
+        "application": {
+          "title": "Application only",
+          "body": "Use this when Node answers every request, or when the web server proxies the whole site, including /uploads/, to the application. Nothing else needs a file."
+        },
+        "apache": {
+          "title": "Apache and LiteSpeed",
+          "body": "Use this when the document root is the Justflows install. Apache and LiteSpeed read the site-root .htaccess when the vhost allows it. Copy this file over that .htaccess if the host cannot write it. AllowOverride must permit FileInfo and Limit."
+        },
+        "nginx": {
+          "title": "nginx",
+          "body": "nginx is not updated for you. If /uploads/ is an alias or root pointing at the uploads folder, replace that location with this block, inside the server that proxies the site. The internal location is optional."
+        },
+        "apacheProxy": {
+          "title": "Apache reverse proxy",
+          "body": "Use this when Apache proxies to Node and the install is not the document root, or when an Alias serves /uploads/ from disk. Remove that Alias. Put these lines before a ProxyPass for /."
+        },
+        "passenger": {
+          "title": "Passenger",
+          "body": "Passenger uses the Apache and LiteSpeed file when the install is the document root. Do not add an Alias for /uploads/. If nginx sits in front of Passenger, use the nginx file as well."
+        },
+        "docker": {
+          "title": "Docker",
+          "body": "The Justflows image does not install or reload nginx. If you add nginx in front of the container, copy this file into that server. The alias path is this process's uploads directory. Change it if nginx sees that folder somewhere else."
+        }
+      }
+    },
+    "center": {
+      "title": "Security Center",
+      "subtitle": "Checks this installation can answer. A passing row is that one check, not a grade for the site.",
+      "banner": "{fail} need attention, {warn} warnings, {unknown} not verified, {pass} in place.",
+      "checked": "Checked {time}",
+      "checkAgain": "Check again",
+      "checking": "Checking…",
+      "events": "Review security events",
+      "eventsHint": "Sign-in, session, key, role, extension, update, and configuration events. Credentials and request bodies are not stored.",
+      "open": "Review",
+      "empty": "No checks were returned.",
+      "loadError": "Could not load the Security Center",
+      "missing": "This check has no description.",
+      "groups": {
+        "attention": "Needs attention",
+        "unknown": "Not verified",
+        "pass": "In place",
+        "notApplicable": "Not applicable"
+      },
+      "kind": {
+        "configuration": "Configuration",
+        "deployment": "Deployment"
+      },
+      "scope": {
+        "site": "This site",
+        "installation": "Installation"
+      },
+      "status": {
+        "pass": "Pass",
+        "warn": "Warning",
+        "fail": "Fail",
+        "unknown": "Not verified",
+        "not_applicable": "Not applicable"
+      },
+      "checks": {
+        "runtimeNode": {
+          "title": "Node.js version",
+          "version": "This process runs Node.js {version}. Justflows supports Node.js {minimum} and newer.",
+          "unknown": "The Node.js version could not be read.",
+          "remediation": "Run Justflows on Node.js {minimum} or newer, then restart."
+        },
+        "runtimeUpdate": {
+          "title": "Core update",
+          "current": "Installed {current}. The last check found {latest}, which is not newer. Checked {checked}.",
+          "available": "Installed {current}. {latest} is available. Checked {checked}.",
+          "unknown": "Installed {current}. No completed update check is available, so this is not shown as up to date.",
+          "otherSite": "Core updates are checked on the platform site.",
+          "remediationCurrent": "No core update is waiting.",
+          "remediationAvailable": "Install the release from Updates. This page does not install it.",
+          "remediationUnknown": "Open Updates and check for a release.",
+          "remediationOtherSite": "A platform administrator checks core updates on the main site."
+        },
+        "runtimeDebug": {
+          "title": "Debug mode",
+          "off": "Debug mode is off.",
+          "productionOn": "Debug mode is on while this process is in production.",
+          "developmentOn": "Debug mode is on, and this process is not production.",
+          "remediation": "Leave debug mode off in production."
+        },
+        "runtimeInstaller": {
+          "title": "Install wizard",
+          "closed": "The install wizard is closed.",
+          "open": "The install wizard is still open.",
+          "remediation": "Finish installation so the wizard cannot be used to take over the site."
+        },
+        "accountsMfa": {
+          "title": "Administrator authenticators",
+          "all": "{enrolled} of {admins} administrators have an authenticator.",
+          "partial": "{enrolled} of {admins} administrators have an authenticator. Sign-in does not require one.",
+          "unknown": "Administrator authenticator enrolment could not be read.",
+          "remediation": "Each administrator can turn on an authenticator under Security → Your account. Justflows does not yet require it."
+        },
+        "accountsSessions": {
+          "title": "Device sessions",
+          "known": "{active} device sessions on this site are still valid. The count is not a judgement of those sessions.",
+          "unknown": "Device sessions could not be read.",
+          "remediation": "Review and revoke sessions under Security → Your account."
+        },
+        "accountsApiKeys": {
+          "title": "API keys",
+          "none": "This site has no active API keys.",
+          "expiring": "{active} active API keys, each with an expiry.",
+          "openEnded": "{active} active API keys, {withoutExpiry} with no expiry.",
+          "unknown": "API keys could not be read.",
+          "unavailable": "API keys are turned off for this site.",
+          "remediation": "Give each key an expiry under Settings → API, and revoke keys that are no longer used.",
+          "remediationUnavailable": "Turn API keys on for this site before they can be reviewed."
+        },
+        "transportCookies": {
+          "title": "Session cookie",
+          "secure": "The session cookie is marked Secure.",
+          "insecureProduction": "The session cookie is not marked Secure in production.",
+          "development": "The session cookie is not marked Secure. This process is not production.",
+          "remediation": "Serve the site over HTTPS. Production marks the session cookie Secure."
+        },
+        "transportTls": {
+          "title": "Public URL and TLS",
+          "notProbed": "The public URL uses HTTPS. This process did not open that address to check the certificate.",
+          "productionHttp": "The public URL is HTTP while the process is in production.",
+          "developmentHttp": "The public URL is HTTP, and this process is not production.",
+          "missing": "No public URL is configured.",
+          "remediationNotProbed": "Confirm TLS at the proxy or host. A header result does not prove the certificate.",
+          "remediationProductionHttp": "Set the public URL to the HTTPS address. Session cookies are marked Secure in production, so browsers will not send them to an HTTP site.",
+          "remediationDevelopment": "Use HTTPS before production.",
+          "remediationMissing": "Set the public URL to the HTTPS address of this site."
+        },
+        "transportProxy": {
+          "title": "Trusted proxies",
+          "bounded": "Trusted proxies are limited to {value}.",
+          "wide": "Every connecting proxy is trusted ({value}). A client can spoof its address.",
+          "disabledProduction": "No proxy is trusted. Visitor addresses and HTTPS detection use the direct connection.",
+          "disabledDevelopment": "No proxy is trusted, and this process is not production.",
+          "otherSite": "Proxy trust is an installation setting, reviewed on the platform site.",
+          "remediationBounded": "Keep TRUST_PROXY at loopback or the exact hop count for your proxy.",
+          "remediationWide": "Set TRUST_PROXY to loopback or the proxy hop count. Do not trust every proxy.",
+          "remediationDisabled": "If a reverse proxy terminates TLS, set TRUST_PROXY to loopback or the hop count.",
+          "remediationDevelopment": "Set TRUST_PROXY before you put a reverse proxy in front of production.",
+          "remediationOtherSite": "A platform administrator reviews proxy trust on the main site."
+        },
+        "headersPolicy": {
+          "title": "Response headers",
+          "findings": "{critical} critical header findings and {warning} warnings. This row is the header policy only.",
+          "killSwitch": "Custom header settings are turned off in the environment, so the site sends the built-in defaults.",
+          "unavailable": "Security headers are turned off for this site.",
+          "unknown": "The header policy could not be read.",
+          "remediation": "Review the header findings on Header grade.",
+          "remediationKillSwitch": "Remove the environment override and restart to use the saved header policy.",
+          "remediationUnavailable": "Turn security headers on for this site to review them.",
+          "remediationUnknown": "Open Header grade after the header settings can be read."
+        },
+        "extensionsIntegrity": {
+          "title": "File integrity",
+          "unavailable": "The integrity scan could not be read.",
+          "remediation": "Open File integrity and scan again.",
+          "clear": "{verified} installed extensions match their trusted baselines, and the core manifest matches this release.",
+          "baselineMissing": "{unverifiable} installed extensions have no trusted baseline, or this checkout has no signed core manifest.",
+          "failed": "{failed} installed extensions or the core files do not match the trusted baseline.",
+          "otherSite": "File integrity is checked on the platform site.",
+          "remediationClear": "Scan again after you install or reinstall an extension.",
+          "remediationBaseline": "Reinstall the extension from a trusted package to record a baseline. A development checkout has no signed core manifest.",
+          "remediationFailed": "Reinstall the affected extension from a trusted package. The current files are not kept as a baseline.",
+          "remediationOtherSite": "Open File integrity on the platform site."
+        },
+        "recoveryBackup": {
+          "title": "Backup readiness",
+          "notVerified": "No backup has been verified for this site.",
+          "remediation": "Backup and restore are not available in this version. Keep your own copy of the database and uploads."
+        }
+      }
+    },
     "account": {
       "password": {
         "changeError": "Could not change the password.",
@@ -3046,13 +3266,13 @@
         "editHeaders": "Edit each header",
         "title": "Recommended configuration"
       },
-      "subtitle": "What your site tells visitors' browsers to enforce, and what is still missing.",
+      "subtitle": "What browsers are told to enforce. This grade covers response headers only.",
       "tabs": {
         "admin": "Admin & API",
         "publicInsecure": "Public site (HTTP)",
         "publicSecure": "Public site (HTTPS)"
       },
-      "title": "Security"
+      "title": "Header grade"
     },
     "shared": {
       "findingLevel": {

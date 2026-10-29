@@ -553,6 +553,9 @@ export async function trashMediaItem(id: string, actor: MediaActor): Promise<Med
   if (!rows[0]) return { status: 404, body: { error: "Media not found" } };
   await moveMediaStorage(rows[0].storage_key, true);
   await moveVariantDir(actor.siteId, id, true).catch(() => undefined);
+  void import("../cdn/cdn-purge.js")
+    .then((cdn) => cdn.purgeCdnCache({ siteId: actor.siteId }))
+    .catch(() => undefined);
   await db.run(
     "UPDATE media SET trashed_at = ?, trashed_by = ?, updated_at = ? WHERE id = ? AND site_id = ?",
     [now(), actor.userId, now(), id, actor.siteId],

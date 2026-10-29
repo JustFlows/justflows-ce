@@ -23,7 +23,10 @@ interface UserRow {
   totp_secret: string | null;
   totp_confirmed_at: string | null;
   totp_recovery_codes: string | null;
+  totp_last_step: number | null;
 }
+
+let deviceSessions: Array<{ id: string; user_id: string; site_id: string; expires_at: string; revoked_at: string | null }>;
 
 let user: UserRow;
 
@@ -62,9 +65,79 @@ const fakeDb = {
       return match ? ([{ ...user }] as unknown as T[]) : [];
     }
     if (/FROM sites/i.test(sql)) return [{ id: user.site_id, name: "Test Site" }] as unknown as T[];
+    if (/FROM user_sessions/i.test(sql)) {
+      const [id, userId, siteId, now] = params as string[];
+      return deviceSessions.filter(
+        (session) =>
+          session.id === id &&
+          session.user_id === userId &&
+          session.site_id === siteId &&
+          !session.revoked_at &&
+          (now === undefined || session.expires_at > now),
+      ) as unknown as T[];
+    }
     return [] as T[];
   },
+  async execute(sql: string, params: unknown[] = []): Promise<number> {
+    if (/SET totp_secret = \?/i.test(sql) && /totp_confirmed_at IS NULL/i.test(sql)) {
+      if (user.totp_confirmed_at) return 0;
+      user.totp_secret = String(params[0]);
+      user.totp_confirmed_at = null;
+      user.totp_recovery_codes = null;
+      return 1;
+    }
+    if (/SET totp_confirmed_at = \?/i.test(sql)) {
+      if (user.totp_confirmed_at || !user.totp_secret) return 0;
+      user.totp_confirmed_at = String(params[0]);
+      user.totp_recovery_codes = params[1] == null ? null : String(params[1]);
+      user.totp_last_step = Number(params[2]);
+      return 1;
+    }
+    if (/SET totp_secret = NULL/i.test(sql)) {
+      const enabled = /totp_confirmed_at IS NOT NULL/i.test(sql);
+      if (Boolean(user.totp_confirmed_at) !== enabled) return 0;
+      user.totp_secret = null;
+      user.totp_confirmed_at = null;
+      user.totp_recovery_codes = null;
+      user.totp_last_step = null;
+      return 1;
+    }
+    if (/SET totp_last_step = \?/i.test(sql)) {
+      const step = Number(params[0]);
+      if (!user.totp_confirmed_at) return 0;
+      if (user.totp_last_step != null && user.totp_last_step >= step) return 0;
+      user.totp_last_step = step;
+      return 1;
+    }
+    if (/SET totp_recovery_codes = \?/i.test(sql)) {
+      const [next, , , previous] = params;
+      if (user.totp_recovery_codes !== previous) return 0;
+      user.totp_recovery_codes = String(next);
+      return 1;
+    }
+    if (/UPDATE user_sessions SET revoked_at/i.test(sql)) {
+      const [revokedAt, id, userId, siteId] = params as string[];
+      const session = deviceSessions.find(
+        (row) => row.id === id && row.user_id === userId && row.site_id === siteId && !row.revoked_at,
+      );
+      if (!session) return 0;
+      session.revoked_at = revokedAt!;
+      return 1;
+    }
+    return 0;
+  },
   async run(sql: string, params: unknown[] = []): Promise<void> {
+    if (/^INSERT INTO user_sessions/i.test(sql)) {
+      const [id, userId, siteId, , , , , expiresAt] = params as string[];
+      deviceSessions.push({
+        id: id!,
+        user_id: userId!,
+        site_id: siteId!,
+        expires_at: expiresAt!,
+        revoked_at: null,
+      });
+      return;
+    }
     if (/UPDATE users SET token_version/i.test(sql)) {
       user.token_version += 1;
       return;
@@ -189,8 +262,20 @@ beforeEach(async () => {
     totp_secret: null,
     totp_confirmed_at: null,
     totp_recovery_codes: null,
+    totp_last_step: null,
   };
+  deviceSessions = [];
 });
+
+/** A code for a step that has not already been claimed in this window. */
+function unusedTotp(secret: string): string {
+  const nowStep = Math.floor(Date.now() / 1000 / 30);
+  const last = user.totp_last_step ?? -1;
+  for (const step of [nowStep, nowStep + 1, nowStep - 1]) {
+    if (step > last) return totpCode(secret, step);
+  }
+  throw new Error("no unused authenticator step in the current window");
+}
 
 /** Sign in far enough to hold a session cookie. */
 async function signIn(jar: Jar, extra: Record<string, unknown> = {}) {
@@ -307,8 +392,7 @@ describe("sign-in with a second factor enrolled", () => {
 
   it("completes with a valid code", async () => {
     const jar = new Jar();
-    const counter = Math.floor(Date.now() / 1000 / 30);
-    const res = await signIn(jar, { totp: totpCode(secret, counter) });
+    const res = await signIn(jar, { totp: unusedTotp(secret) });
     expect(res.status).toBe(200);
     expect(jar.get("jf_session")).toBeTruthy();
   });
@@ -338,7 +422,7 @@ describe("sign-in with a second factor enrolled", () => {
   it("will not turn off without a current code", async () => {
     const jar = new Jar();
     const counter = Math.floor(Date.now() / 1000 / 30);
-    await signIn(jar, { totp: totpCode(secret, counter) });
+    await signIn(jar, { totp: unusedTotp(secret) });
 
     const noCode = await post("/api/auth/2fa/disable", { password: "correct-horse-battery" }, jar);
     expect(noCode.status).toBe(401);
@@ -355,12 +439,11 @@ describe("sign-in with a second factor enrolled", () => {
 
   it("turns off with both the password and a code", async () => {
     const jar = new Jar();
-    const counter = Math.floor(Date.now() / 1000 / 30);
-    await signIn(jar, { totp: totpCode(secret, counter) });
+    await signIn(jar, { totp: recoveryCodes[0] });
 
     const res = await post(
       "/api/auth/2fa/disable",
-      { password: "correct-horse-battery", code: totpCode(secret, counter) },
+      { password: "correct-horse-battery", code: unusedTotp(secret) },
       jar,
     );
     expect(res.status).toBe(200);

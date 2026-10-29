@@ -304,7 +304,13 @@ export async function moveVariantDir(
   const store = getUploadStore();
   for (const from of sources) {
     // move() is false when nothing was generated there.
-    if (from && (await store.move(from, to))) return;
+    if (from && (await store.move(from, to))) {
+      if (store.driver === "s3") {
+        const { localUploadStore } = await import("./upload-store.js");
+        await localUploadStore().move(from, to).catch(() => undefined);
+      }
+      return;
+    }
   }
 }
 
@@ -317,6 +323,11 @@ export async function removeVariantDir(siteId: string, mediaId: string): Promise
   ];
   const store = getUploadStore();
   for (const dir of dirs) {
-    if (dir) await store.deletePrefix(dir).catch(() => undefined);
+    if (!dir) continue;
+    await store.deletePrefix(dir).catch(() => undefined);
+    if (store.driver === "s3") {
+      const { localUploadStore } = await import("./upload-store.js");
+      await localUploadStore().deletePrefix(dir).catch(() => undefined);
+    }
   }
 }

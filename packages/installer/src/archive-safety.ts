@@ -7,6 +7,8 @@ export const ARCHIVE_LIMITS = {
   maxExpandedBytes: 200 * 1024 * 1024,    // 200 MB
   maxFileCount: 2_000,
   maxDecompressionRatio: 20,
+  /** Stop a non-progressing or hostile archive before it occupies the request. */
+  maxParseMs: 10_000,
 } as const;
 
 export class ArchiveSafetyError extends Error {

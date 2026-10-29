@@ -124,6 +124,15 @@ export function isAutoUpdateEligible(currentVersion: string, targetVersion: stri
 let cache: { at: number; value: RemoteCoreRelease | null } | null = null;
 let inflight: Promise<RemoteCoreRelease | null> | null = null;
 
+/**
+ * The last gateway answer kept in this process.
+ * Does not start a request. A missing cache is "not checked", not "up to date".
+ */
+export function cachedCoreRelease(): { checkedAt: string; release: RemoteCoreRelease | null } | null {
+  if (!cache) return null;
+  return { checkedAt: new Date(cache.at).toISOString(), release: cache.value };
+}
+
 async function requestLatest(): Promise<RemoteCoreRelease | null> {
   const res = await fetch(`${JUSTFLOWS_API_BASE}/v1/core/latest`, {
     headers: { accept: "application/json" },

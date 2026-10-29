@@ -34,6 +34,7 @@ describe("getEffectiveAccess ownership defaults", () => {
   it("gives an author with no per-user row an implicit self-ownership scope", async () => {
     const access = await getEffectiveAccess("user-1", "site-1", "author", fakeDb([]));
     expect(access.policy.scopes?.["content:update"]).toEqual({ ownership: "self" });
+    expect(access.policy.scopes?.["content:revisions:read"]).toEqual({ ownership: "self" });
   });
 
   it("keeps the implicit self-ownership default when a row exists only for grants/denies (no custom role)", async () => {

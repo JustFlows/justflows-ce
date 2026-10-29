@@ -7,14 +7,18 @@ import { matchRecoveryCode } from "./totp.js";
 /**
  * Storage for two-factor enrolment.
  *
- * Secrets and recovery codes are encrypted at rest with secret-box — the same
- * reasoning as mail credentials: this does not defend against a compromised
- * server, which already holds APP_SECRET, but a database backup, a read-only
- * injection or a support export should not hand over working seeds.
- *
- * Every read is written so a pre-0007 schema behaves as "not enrolled" rather
- * than throwing, so a site whose migration has not run yet still signs in.
+ * Secrets and recovery codes are encrypted at rest with secret-box. A row that
+ * cannot be read — a database error, a wrong encryption key, or a corrupt
+ * blob — is not "not enrolled". Callers must refuse the sign-in and must not
+ * overwrite that factor.
  */
+
+export class TotpUnavailableError extends Error {
+  constructor() {
+    super("Two-factor state cannot be read");
+    this.name = "TotpUnavailableError";
+  }
+}
 
 export interface TotpState {
   /** Enrolment started but not yet proven. */
@@ -33,103 +37,150 @@ interface TotpRow {
 
 const NOT_ENROLLED: TotpState = { pending: false, enabled: false, secret: null, recoveryCodes: [] };
 
-function parseCodes(raw: string | null): string[] {
-  if (!raw) return [];
+function parseCodes(raw: string | null): string[] | null {
+  if (raw == null || raw === "") return [];
+  const decrypted = decryptSecret(raw);
+  if (!decrypted) return null;
   try {
-    const decrypted = decryptSecret(raw);
-    const parsed = JSON.parse(decrypted || "[]");
-    return Array.isArray(parsed) ? parsed.filter((c): c is string => typeof c === "string") : [];
+    const parsed = JSON.parse(decrypted);
+    if (!Array.isArray(parsed) || parsed.some((code) => typeof code !== "string")) return null;
+    return parsed;
   } catch {
-    return [];
+    return null;
   }
 }
 
-/** Current enrolment for a user, or NOT_ENROLLED when the columns are absent. */
+/** Current enrolment. Throws when the factor exists but cannot be trusted. */
 export async function getTotpState(userId: string, siteId: string): Promise<TotpState> {
+  let rows: TotpRow[];
   try {
     const db = await getDb();
-    const rows = await db.query<TotpRow>(
+    rows = await db.query<TotpRow>(
       "SELECT totp_secret, totp_confirmed_at, totp_recovery_codes FROM users WHERE id = ? AND site_id = ? LIMIT 1",
       [userId, siteId],
     );
-    const row = rows[0];
-    if (!row?.totp_secret) return NOT_ENROLLED;
-
-    const secret = decryptSecret(row.totp_secret);
-    if (!secret) return NOT_ENROLLED;
-
-    return {
-      pending: !row.totp_confirmed_at,
-      enabled: Boolean(row.totp_confirmed_at),
-      secret,
-      recoveryCodes: parseCodes(row.totp_recovery_codes),
-    };
   } catch {
-    // 0007_totp has not been applied. Two-factor is unavailable until it is;
-    // failing closed here would lock every user out of a working site.
-    return NOT_ENROLLED;
+    throw new TotpUnavailableError();
   }
+  const row = rows[0];
+  if (!row) throw new TotpUnavailableError();
+
+  const storedSecret = row.totp_secret == null ? "" : String(row.totp_secret);
+  const confirmed = Boolean(row.totp_confirmed_at);
+  if (!storedSecret && confirmed) throw new TotpUnavailableError();
+  if (!storedSecret) return NOT_ENROLLED;
+
+  const secret = decryptSecret(storedSecret);
+  if (!secret) throw new TotpUnavailableError();
+  const recoveryCodes = parseCodes(row.totp_recovery_codes);
+  if (!recoveryCodes) throw new TotpUnavailableError();
+
+  return {
+    pending: !confirmed,
+    enabled: confirmed,
+    secret,
+    recoveryCodes,
+  };
 }
 
-/** Begin enrolment. Not in force until confirmTotp. */
+/**
+ * Begin enrolment. Refuses to replace a factor that is already confirmed.
+ * Returns false when no row changed.
+ */
 export async function startTotpEnrolment(
   userId: string,
   siteId: string,
   secret: string,
-): Promise<void> {
+): Promise<boolean> {
   const db = await getDb();
-  await db.run(
-    "UPDATE users SET totp_secret = ?, totp_confirmed_at = NULL, totp_recovery_codes = NULL WHERE id = ? AND site_id = ?",
+  const updated = await db.execute(
+    `UPDATE users SET totp_secret = ?, totp_confirmed_at = NULL, totp_recovery_codes = NULL
+      WHERE id = ? AND site_id = ? AND totp_confirmed_at IS NULL`,
     [encryptSecret(secret), userId, siteId],
   );
+  return updated === 1;
 }
 
-/** Mark enrolment proven and store the recovery codes. */
+/**
+ * Mark enrolment proven, store the recovery codes, and claim the step that
+ * proved it. Returns false when the pending factor was no longer writable.
+ */
 export async function confirmTotp(
   userId: string,
   siteId: string,
   recoveryCodes: string[],
   confirmedAt: string,
-): Promise<void> {
+  step: number,
+): Promise<boolean> {
   const db = await getDb();
-  await db.run(
-    "UPDATE users SET totp_confirmed_at = ?, totp_recovery_codes = ? WHERE id = ? AND site_id = ?",
-    [confirmedAt, encryptSecret(JSON.stringify(recoveryCodes)), userId, siteId],
+  const updated = await db.execute(
+    `UPDATE users
+        SET totp_confirmed_at = ?, totp_recovery_codes = ?, totp_last_step = ?
+      WHERE id = ? AND site_id = ? AND totp_confirmed_at IS NULL AND totp_secret IS NOT NULL`,
+    [confirmedAt, encryptSecret(JSON.stringify(recoveryCodes)), step, userId, siteId],
   );
+  return updated === 1;
 }
 
-export async function disableTotp(userId: string, siteId: string): Promise<void> {
+/** Clear a factor that is still in the state the caller just authorized. */
+export async function disableTotp(userId: string, siteId: string, enabled: boolean): Promise<boolean> {
   const db = await getDb();
-  await db.run(
-    "UPDATE users SET totp_secret = NULL, totp_confirmed_at = NULL, totp_recovery_codes = NULL WHERE id = ? AND site_id = ?",
+  const updated = await db.execute(
+    `UPDATE users
+        SET totp_secret = NULL, totp_confirmed_at = NULL, totp_recovery_codes = NULL, totp_last_step = NULL
+      WHERE id = ? AND site_id = ? AND totp_confirmed_at IS ${enabled ? "NOT NULL" : "NULL"}`,
     [userId, siteId],
   );
+  return updated === 1;
 }
 
 /**
- * Spend a recovery code.
+ * Claim one authenticator step. A second worker that presents the same step
+ * updates zero rows and must not receive a session.
+ */
+export async function claimTotpStep(userId: string, siteId: string, step: number): Promise<boolean> {
+  const db = await getDb();
+  const updated = await db.execute(
+    `UPDATE users SET totp_last_step = ?
+      WHERE id = ? AND site_id = ? AND totp_confirmed_at IS NOT NULL
+        AND (totp_last_step IS NULL OR totp_last_step < ?)`,
+    [step, userId, siteId, step],
+  );
+  return updated === 1;
+}
+
+/**
+ * Spend one recovery code without restoring a code another worker just spent.
  *
- * Returns true when the code was valid; the code is removed in the same call,
- * so each is good exactly once. A code that could be replayed is a password
- * with extra steps.
+ * The write matches the ciphertext that was read. A lost race reads again and
+ * removes only the code that is still present.
  */
 export async function consumeRecoveryCode(
   userId: string,
   siteId: string,
   supplied: string,
 ): Promise<boolean> {
-  const state = await getTotpState(userId, siteId);
-  if (!state.enabled || state.recoveryCodes.length === 0) return false;
-
-  const index = matchRecoveryCode(state.recoveryCodes, supplied);
-  if (index === -1) return false;
-
-  const remaining = state.recoveryCodes.filter((_, i) => i !== index);
   const db = await getDb();
-  await db.run("UPDATE users SET totp_recovery_codes = ? WHERE id = ? AND site_id = ?", [
-    encryptSecret(JSON.stringify(remaining)),
-    userId,
-    siteId,
-  ]);
-  return true;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const rows = await db.query<TotpRow>(
+      "SELECT totp_secret, totp_confirmed_at, totp_recovery_codes FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+      [userId, siteId],
+    );
+    const row = rows[0];
+    if (!row?.totp_confirmed_at) return false;
+    const codes = parseCodes(row.totp_recovery_codes);
+    if (!codes) throw new TotpUnavailableError();
+    const index = matchRecoveryCode(codes, supplied);
+    if (index === -1) return false;
+
+    const remaining = codes.filter((_, i) => i !== index);
+    const next = encryptSecret(JSON.stringify(remaining));
+    const previous = row.totp_recovery_codes ?? "";
+    const updated = await db.execute(
+      "UPDATE users SET totp_recovery_codes = ? WHERE id = ? AND site_id = ? AND totp_recovery_codes = ?",
+      [next, userId, siteId, previous],
+    );
+    if (updated === 1) return true;
+  }
+  return false;
 }
