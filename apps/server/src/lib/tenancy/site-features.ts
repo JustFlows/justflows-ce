@@ -17,7 +17,7 @@ export const SITE_FEATURES: readonly SiteFeature[] = [
   { key: "feature.roles", paths: [] },
   { key: "feature.responsiveImages", paths: [] },
   { key: "feature.securityAdvanced", paths: ["/admin/security/advanced"] },
-  { key: "feature.securityHeaders", paths: ["/admin/security/headers"] },
+  { key: "feature.securityHeaders", paths: ["/admin/security/headers", "/admin/security/header-grade"] },
   { key: "feature.securityAdminPath", paths: ["/admin/security/admin-path"] },
   { key: "feature.securityAudit", paths: ["/admin/security/audit"] },
   { key: "feature.pwa", paths: ["/admin/settings/pwa"] },

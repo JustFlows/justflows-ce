@@ -159,8 +159,10 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add(`/api/platform/sites/${encodeURIComponent(id)}`);
   } else if (pathname === "/admin/languages") {
     paths.add("/api/languages");
+  } else if (pathname === "/admin/security") {
+    paths.add("/api/security/center");
   } else if (
-    pathname === "/admin/security" ||
+    pathname === "/admin/security/header-grade" ||
     pathname === "/admin/security/headers" ||
     pathname === "/admin/security/advanced"
   ) {

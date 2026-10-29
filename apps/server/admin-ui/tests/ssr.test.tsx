@@ -11,7 +11,7 @@ const ROUTES = [
   "/admin/plugins/acme.example", "/admin/themes", "/admin/themes/customize",
   "/admin/design", "/admin/menus", "/admin/users", "/admin/settings", "/admin/settings/api", "/admin/comments",
   "/admin/marketplace", "/admin/tools", "/admin/health", "/admin/updates", "/admin/languages",
-  "/admin/security", "/admin/security/headers", "/admin/security/advanced",
+  "/admin/security", "/admin/security/header-grade", "/admin/security/headers", "/admin/security/advanced",
   "/admin/security/account", "/admin/security/audit", "/admin/reports",
   "/admin/plugins/justflows.shop", "/admin/plugins/justflows.shop/products",
 ];
@@ -46,5 +46,66 @@ describe("admin SSR routes", () => {
       },
     });
     expect(html).toContain("SSR post");
+  });
+
+  it("renders the Security Center from prefetched checks without a site grade", () => {
+    const html = render("/admin/security", {
+      url: "/admin/security",
+      locale: "en",
+      responses: {
+        "/api/security/center": {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            checkedAt: "2026-10-29T09:00:00.000Z",
+            installationRoot: true,
+            auditAvailable: true,
+            checks: [
+              {
+                id: "runtime.debug",
+                status: "fail",
+                severity: "critical",
+                kind: "configuration",
+                scope: "installation",
+                summary: "productionOn",
+                checkedAt: "2026-10-29T09:00:00.000Z",
+                href: null,
+                evidence: {},
+              },
+              {
+                id: "extensions.integrity",
+                status: "unknown",
+                severity: "info",
+                kind: "configuration",
+                scope: "installation",
+                summary: "unavailable",
+                checkedAt: "2026-10-29T09:00:00.000Z",
+                href: null,
+                evidence: {},
+              },
+              {
+                id: "recovery.backup",
+                status: "unknown",
+                severity: "info",
+                kind: "configuration",
+                scope: "site",
+                summary: "notVerified",
+                checkedAt: "2026-10-29T09:00:00.000Z",
+                href: null,
+                evidence: {},
+              },
+            ],
+          }),
+        },
+      },
+    });
+    expect(html).toContain("Security Center");
+    expect(html).toContain("Debug mode is on while this process is in production.");
+    expect(html).toContain("File integrity");
+    expect(html).toContain("No backup has been verified");
+    expect(html).toContain("Review security events");
+    expect(html).not.toContain("Grade");
+    expect(html).not.toContain("out of 100");
   });
 });

@@ -32,7 +32,8 @@
     "health": "État",
     "updates": "Mises à jour",
     "webhooks": "Webhooks",
-    "securityOverview": "Aperçu",
+    "securityCenter": "Centre de sécurité",
+    "securityOverview": "Note des en-têtes",
     "securityHeaders": "En-têtes",
     "securityAdvanced": "Avancé",
     "securityAdminPath": "URL d’administration",
@@ -2328,6 +2329,148 @@
     "originalDimensions": "original {width}×{height}"
   },
   "security": {
+    "center": {
+      "title": "Centre de sécurité",
+      "subtitle": "Contrôles que cette installation peut répondre. Une ligne réussie est ce contrôle seul, pas une note pour le site.",
+      "banner": "{fail} à traiter, {warn} avertissements, {unknown} non vérifiés, {pass} en place.",
+      "checked": "Vérifié {time}",
+      "checkAgain": "Vérifier à nouveau",
+      "checking": "Vérification…",
+      "events": "Voir les événements de sécurité",
+      "eventsHint": "Connexion, session, clé, rôle, extension, mise à jour et configuration. Les identifiants et les corps de requête ne sont pas enregistrés.",
+      "open": "Voir",
+      "empty": "Aucun contrôle n’a été renvoyé.",
+      "loadError": "Impossible de charger le centre de sécurité",
+      "missing": "Ce contrôle n’a pas de description.",
+      "groups": {
+        "attention": "À traiter",
+        "unknown": "Non vérifié",
+        "pass": "En place",
+        "notApplicable": "Sans objet"
+      },
+      "kind": {
+        "configuration": "Configuration",
+        "deployment": "Déploiement"
+      },
+      "scope": {
+        "site": "Ce site",
+        "installation": "Installation"
+      },
+      "status": {
+        "pass": "Réussi",
+        "warn": "Avertissement",
+        "fail": "Échec",
+        "unknown": "Non vérifié",
+        "not_applicable": "Sans objet"
+      },
+      "checks": {
+        "runtimeNode": {
+          "title": "Version de Node.js",
+          "version": "Ce processus utilise Node.js {version}. Justflows prend en charge Node.js {minimum} et les versions plus récentes.",
+          "unknown": "La version de Node.js n’a pas pu être lue.",
+          "remediation": "Exécutez Justflows avec Node.js {minimum} ou plus récent, puis redémarrez."
+        },
+        "runtimeUpdate": {
+          "title": "Mise à jour du cœur",
+          "current": "Installé {current}. Le dernier contrôle a trouvé {latest}, qui n’est pas plus récent. Vérifié {checked}.",
+          "available": "Installé {current}. {latest} est disponible. Vérifié {checked}.",
+          "unknown": "Installé {current}. Aucun contrôle de mise à jour terminé n’est disponible, ce n’est donc pas affiché comme à jour.",
+          "otherSite": "Les mises à jour du cœur sont contrôlées sur le site de la plateforme.",
+          "remediationCurrent": "Aucune mise à jour du cœur n’est en attente.",
+          "remediationAvailable": "Installez la version depuis Mises à jour. Cette page ne l’installe pas.",
+          "remediationUnknown": "Ouvrez Mises à jour et recherchez une version.",
+          "remediationOtherSite": "Une administration de la plateforme contrôle les mises à jour du cœur sur le site principal."
+        },
+        "runtimeDebug": {
+          "title": "Mode débogage",
+          "off": "Le mode débogage est désactivé.",
+          "productionOn": "Le mode débogage est activé alors que ce processus est en production.",
+          "developmentOn": "Le mode débogage est activé, et ce processus n’est pas en production.",
+          "remediation": "Laissez le mode débogage désactivé en production."
+        },
+        "runtimeInstaller": {
+          "title": "Assistant d’installation",
+          "closed": "L’assistant d’installation est fermé.",
+          "open": "L’assistant d’installation est encore ouvert.",
+          "remediation": "Terminez l’installation pour que l’assistant ne puisse pas prendre le contrôle du site."
+        },
+        "accountsMfa": {
+          "title": "Authentificateurs des administrateurs",
+          "all": "{enrolled} administrateurs sur {admins} ont un authentificateur.",
+          "partial": "{enrolled} administrateurs sur {admins} ont un authentificateur. La connexion n’en exige pas.",
+          "unknown": "L’enrôlement des authentificateurs des administrateurs n’a pas pu être lu.",
+          "remediation": "Chaque administrateur peut activer un authentificateur dans Sécurité → Votre compte. Justflows ne l’exige pas encore."
+        },
+        "accountsSessions": {
+          "title": "Sessions d’appareil",
+          "known": "{active} sessions d’appareil sont encore valides sur ce site. Le nombre ne juge pas ces sessions.",
+          "unknown": "Les sessions d’appareil n’ont pas pu être lues.",
+          "remediation": "Examinez et révoquez les sessions dans Sécurité → Votre compte."
+        },
+        "accountsApiKeys": {
+          "title": "Clés d’API",
+          "none": "Ce site n’a aucune clé d’API active.",
+          "expiring": "{active} clés d’API actives, chacune avec une expiration.",
+          "openEnded": "{active} clés d’API actives, {withoutExpiry} sans expiration.",
+          "unknown": "Les clés d’API n’ont pas pu être lues.",
+          "unavailable": "Les clés d’API sont désactivées pour ce site.",
+          "remediation": "Donnez une expiration à chaque clé dans Réglages → API, et révoquez les clés inutilisées.",
+          "remediationUnavailable": "Activez les clés d’API pour ce site avant de pouvoir les examiner."
+        },
+        "transportCookies": {
+          "title": "Cookie de session",
+          "secure": "Le cookie de session est marqué Secure.",
+          "insecureProduction": "Le cookie de session n’est pas marqué Secure en production.",
+          "development": "Le cookie de session n’est pas marqué Secure. Ce processus n’est pas en production.",
+          "remediation": "Servez le site en HTTPS. La production marque le cookie de session Secure."
+        },
+        "transportTls": {
+          "title": "Adresse publique et TLS",
+          "notProbed": "L’adresse publique utilise HTTPS. Ce processus n’a pas ouvert cette adresse pour vérifier le certificat.",
+          "productionHttp": "L’adresse publique est en HTTP alors que le processus est en production.",
+          "developmentHttp": "L’adresse publique est en HTTP, et ce processus n’est pas en production.",
+          "missing": "Aucune adresse publique n’est configurée.",
+          "remediationNotProbed": "Confirmez le TLS sur le proxy ou l’hôte. Un résultat d’en-têtes ne prouve pas le certificat.",
+          "remediationProductionHttp": "Réglez l’adresse publique sur l’adresse HTTPS. Les cookies de session sont Secure en production, les navigateurs ne les envoient donc pas à un site HTTP.",
+          "remediationDevelopment": "Utilisez HTTPS avant la production.",
+          "remediationMissing": "Réglez l’adresse publique sur l’adresse HTTPS de ce site."
+        },
+        "transportProxy": {
+          "title": "Proxys de confiance",
+          "bounded": "Les proxys de confiance sont limités à {value}.",
+          "wide": "Chaque proxy qui se connecte est de confiance ({value}). Un client peut falsifier son adresse.",
+          "disabledProduction": "Aucun proxy n’est de confiance. Les adresses des visiteurs et la détection HTTPS utilisent la connexion directe.",
+          "disabledDevelopment": "Aucun proxy n’est de confiance, et ce processus n’est pas en production.",
+          "otherSite": "La confiance envers le proxy est un réglage d’installation, examiné sur le site de la plateforme.",
+          "remediationBounded": "Laissez TRUST_PROXY sur loopback ou le nombre exact de sauts de votre proxy.",
+          "remediationWide": "Réglez TRUST_PROXY sur loopback ou le nombre de sauts du proxy. Ne faites pas confiance à chaque proxy.",
+          "remediationDisabled": "Si un proxy inverse termine le TLS, réglez TRUST_PROXY sur loopback ou le nombre de sauts.",
+          "remediationDevelopment": "Réglez TRUST_PROXY avant de placer un proxy inverse devant la production.",
+          "remediationOtherSite": "Une administration de la plateforme examine la confiance du proxy sur le site principal."
+        },
+        "headersPolicy": {
+          "title": "En-têtes de réponse",
+          "findings": "{critical} constats critiques d’en-têtes et {warning} avertissements. Cette ligne est seulement la politique d’en-têtes.",
+          "killSwitch": "Les réglages d’en-têtes personnalisés sont désactivés dans l’environnement, le site envoie donc les valeurs intégrées.",
+          "unavailable": "Les en-têtes de sécurité sont désactivés pour ce site.",
+          "unknown": "La politique d’en-têtes n’a pas pu être lue.",
+          "remediation": "Examinez les constats d’en-têtes dans Note des en-têtes.",
+          "remediationKillSwitch": "Retirez le forçage d’environnement et redémarrez pour utiliser la politique d’en-têtes enregistrée.",
+          "remediationUnavailable": "Activez les en-têtes de sécurité pour ce site afin de les examiner.",
+          "remediationUnknown": "Ouvrez Note des en-têtes une fois que les réglages d’en-têtes peuvent être lus."
+        },
+        "extensionsIntegrity": {
+          "title": "Intégrité des fichiers",
+          "unavailable": "Les fichiers du cœur et des extensions ne sont pas comparés à une base de confiance. Une installation réussie n’est pas une analyse des fichiers sur le disque.",
+          "remediation": "Les contrôles d’intégrité ne sont pas encore disponibles. Réinstallez depuis une version de confiance si vous soupçonnez une modification des fichiers."
+        },
+        "recoveryBackup": {
+          "title": "Préparation des sauvegardes",
+          "notVerified": "Aucune sauvegarde n’a été vérifiée pour ce site.",
+          "remediation": "La sauvegarde et la restauration ne sont pas disponibles dans cette version. Conservez votre propre copie de la base et des fichiers envoyés."
+        }
+      }
+    },
     "account": {
       "title": "Votre compte",
       "subtitle": "Le mot de passe et le second facteur qui protègent votre propre connexion.",
@@ -2648,7 +2791,7 @@
     },
     "overview": {
       "title": "Sécurité",
-      "subtitle": "Ce que votre site demande aux navigateurs des visiteurs d’appliquer, et ce qui manque encore.",
+      "subtitle": "Ce que les navigateurs doivent appliquer. Cette note ne couvre que les en-têtes de réponse.",
       "recommended": {
         "title": "Configuration recommandée",
         "alreadyApplied": "Déjà appliquée",
