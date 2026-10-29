@@ -7,7 +7,7 @@ import { getJfRoot } from "../runtime/jf-root.js";
 import { resolveNpmBin } from "../runtime/node-bin.js";
 import { requestAppRestart } from "../runtime/app-restart.js";
 import { assertCoreUpdateIsTrusted } from "../extensions/package-trust.js";
-import { extractZipSafely, resolvePathUnderRoot } from "../security/safe-zip.js";
+import { extractZipSafely, readZipPackageVersion, resolvePathUnderRoot } from "../security/safe-zip.js";
 import {
   acquireLock,
   appendUpdateLog,
@@ -532,71 +532,95 @@ export async function applyCoreUpdate(
       detail: `${(uploadBuffer.byteLength / 1024 / 1024).toFixed(1)} MB (sha256: ${digest.slice(0, 12)}…)`,
     });
 
-    if (!options?.preExtractedDir) {
-      extractZipSafely(zipPath, extractDir);
-    }
-    record({ step: "extract", ok: true, detail: "Archive extracted" });
+    /**
+     * The release signature binds the version inside the zip. Read that
+     * version without extracting, and refuse the archive before any file is
+     * written when the signature or digest is missing. A caller that already
+     * unpacked a trusted archive (rollback tests, a worker bootstrap) checks
+     * the directory it was given.
+     */
+    const refused = (): UpdateResult => finish({
+      ok: false,
+      steps,
+      currentVersion,
+      newVersion: currentVersion,
+      restartRequired: false,
+      restarting: false,
+    });
+    const acceptTrust = (version: string): string | UpdateResult => {
+      if (options?.expectedVersion && options.expectedVersion !== version) {
+        record({
+          step: "signature",
+          ok: false,
+          detail: `Downloaded archive is v${version}, expected v${options.expectedVersion}`,
+        });
+        return refused();
+      }
+      try {
+        const trust = assertCoreUpdateIsTrusted({
+          buffer: uploadBuffer,
+          digest,
+          version,
+          releaseSignature: options?.releaseSignature,
+          signature: options?.signature,
+        });
+        record({ step: "signature", ok: true, detail: trust });
+        return trust;
+      } catch (err) {
+        record({
+          step: "signature",
+          ok: false,
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        return refused();
+      }
+    };
 
-    const sourceRoot = findExtractedRoot(extractDir);
-    const validated = validateUpdatePackage(sourceRoot);
-    if (!validated.ok) {
-      record({ step: "validate", ok: false, detail: validated.detail });
-      return finish({
-        ok: false,
-        steps,
-        currentVersion,
-        newVersion: currentVersion,
-        restartRequired: false,
-        restarting: false,
-      });
+    let sourceRoot: string;
+    let newVersion: string;
+    if (options?.preExtractedDir) {
+      record({ step: "extract", ok: true, detail: "Archive extracted" });
+      sourceRoot = findExtractedRoot(extractDir);
+      const validated = validateUpdatePackage(sourceRoot);
+      if (!validated.ok) {
+        record({ step: "validate", ok: false, detail: validated.detail });
+        return refused();
+      }
+      newVersion = validated.version;
+      patchUpdateStatus({ targetVersion: newVersion });
+      record({ step: "validate", ok: true, detail: `Package verified (v${newVersion})` });
+      const trust = acceptTrust(newVersion);
+      if (typeof trust !== "string") return trust;
+    } else {
+      let signedVersion: string;
+      try {
+        signedVersion = await readZipPackageVersion(zipPath);
+      } catch (err) {
+        record({
+          step: "validate",
+          ok: false,
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        return refused();
+      }
+      const trust = acceptTrust(signedVersion);
+      if (typeof trust !== "string") return trust;
+      await extractZipSafely(zipPath, extractDir);
+      record({ step: "extract", ok: true, detail: "Archive extracted" });
+      sourceRoot = findExtractedRoot(extractDir);
+      const validated = validateUpdatePackage(sourceRoot);
+      if (!validated.ok) {
+        record({ step: "validate", ok: false, detail: validated.detail });
+        return refused();
+      }
+      if (validated.version !== signedVersion) {
+        record({ step: "validate", ok: false, detail: "Archive contents do not match the signed package" });
+        return refused();
+      }
+      newVersion = validated.version;
+      patchUpdateStatus({ targetVersion: newVersion });
+      record({ step: "validate", ok: true, detail: `Package verified (v${newVersion})` });
     }
-    const newVersion = validated.version;
-    patchUpdateStatus({ targetVersion: newVersion });
-    record({ step: "validate", ok: true, detail: `Package verified (v${newVersion})` });
-
-    if (options?.expectedVersion && options.expectedVersion !== newVersion) {
-      record({
-        step: "signature",
-        ok: false,
-        detail: `Downloaded archive is v${newVersion}, expected v${options.expectedVersion}`,
-      });
-      return finish({
-        ok: false,
-        steps,
-        currentVersion,
-        newVersion: currentVersion,
-        restartRequired: false,
-        restarting: false,
-      });
-    }
-
-    // Verified after extraction because the release signature binds the
-    // archive's own version. Nothing has been written outside staging yet.
-    let trust: string;
-    try {
-      trust = assertCoreUpdateIsTrusted({
-        buffer: uploadBuffer,
-        digest,
-        version: newVersion,
-        releaseSignature: options?.releaseSignature,
-        signature: options?.signature,
-      });
-    } catch (err) {
-      record({
-        step: "signature",
-        ok: false,
-        detail: err instanceof Error ? err.message : String(err),
-      });
-      return finish({
-        ok: false,
-        steps,
-        currentVersion,
-        newVersion: currentVersion,
-        restartRequired: false,
-        restarting: false,
-      });
-    }
-    record({ step: "signature", ok: true, detail: trust });
 
     /** Hosting archives use npm manifests; prepare dependencies away from the running app. */
     await fsp.rm(path.join(sourceRoot, "pnpm-lock.yaml"), { force: true });
@@ -935,10 +959,19 @@ export async function startCoreUpdate(opts: {
       : null;
     let preExtractedDir: string | null = null;
 
-    if (!workerPath && zipPath) {
+    if (!workerPath && zipPath && opts.buffer) {
       try {
+        const version = await readZipPackageVersion(zipPath);
+        const digest = createHash("sha256").update(opts.buffer).digest("hex");
+        assertCoreUpdateIsTrusted({
+          buffer: opts.buffer,
+          digest,
+          version,
+          releaseSignature: opts.releaseSignature,
+          signature: opts.signature,
+        });
         const extractDir = path.join(staging, "extract");
-        extractZipSafely(zipPath, extractDir);
+        await extractZipSafely(zipPath, extractDir);
         const srcRoot = findExtractedRoot(extractDir);
         const shipped = path.join(srcRoot, "apps/server/dist/lib/updates/core-update-worker.js");
         if (fs.existsSync(shipped)) {
@@ -946,7 +979,7 @@ export async function startCoreUpdate(opts: {
           preExtractedDir = extractDir;
         }
       } catch {
-        /* fall back to foreground */
+        /* fall back to foreground; the archive has not been unpacked */
       }
     }
 

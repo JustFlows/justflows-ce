@@ -19,6 +19,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **Private files, trash, and runtime data stay out of public delivery.** Direct requests for private storage, update backups, rollback data, and trashed uploads are refused, including on an existing install whose document root is the application. Uploads are no longer served by a public filesystem alias; a web server may hand off a file only after the app has checked the host and the site. Public upload reads are limited to 600 a minute per address. Files still on disk remain available after switching to object storage, and a public bucket is not used for private files. Trashing media, restoring it, or changing private storage drops the site's CDN cache. A core update keeps `storage/` and a configured private or export folder, and it does not discard the last recoverable release until the new snapshot is in place. Admin → Security → Web server shows the file to copy for each host. The application refreshes the site-root `.htaccess` and does not rewrite nginx, a reverse proxy, Passenger, or Docker. ([#207](https://github.com/JustFlows/justflows-ce/issues/207))
 
+- **Package and core archives are checked before they can change the installation.** A plugin package is inflated and parsed in a separate worker that can be stopped, and a malformed TAR is rejected before any file is written. A core update reads the signed version from the ZIP, checks the signature, and only then extracts. Absolute paths, links, special files, duplicate names, and an incomplete listing are refused. The production image uses Info-ZIP `unzip`. ([#208](https://github.com/JustFlows/justflows-ce/issues/208))
+
 ## [0.3.9]
 
 ### Added
