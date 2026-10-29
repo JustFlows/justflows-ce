@@ -60,9 +60,11 @@ export interface VerifiedApiKey {
 
 /** Thrown for caller mistakes (bad capability set, unknown key). Mapped to 400. */
 export class ApiKeyError extends Error {
-  constructor(message: string) {
+  readonly status: number;
+  constructor(message: string, status = 400) {
     super(message);
     this.name = "ApiKeyError";
+    this.status = status;
   }
 }
 
@@ -163,13 +165,56 @@ export async function creatorCapabilityCeiling(actor: ApiKeyOwner): Promise<User
   return [...access.capabilities];
 }
 
-function assertWithinCeiling(requested: readonly UserCapability[], ceiling: readonly UserCapability[]): void {
-  const allowed = new Set(ceiling);
-  const over = requested.filter((capability) => !allowed.has(capability));
+/**
+ * A key is wider than the actor when its scope allows a site, type, locale,
+ * or owner the actor's own scope for that capability does not.
+ */
+function scopeFits(keyScope: AccessScope, actorScope: AccessScope | undefined): boolean {
+  if (!actorScope) return true;
+  if (actorScope.ownership === "self" && keyScope.ownership !== "self") return false;
+  if (actorScope.siteIds?.length) {
+    if (!keyScope.siteIds?.length || keyScope.siteIds.some((id) => !actorScope.siteIds!.includes(id))) return false;
+  }
+  if (actorScope.contentTypes?.length) {
+    if (!keyScope.contentTypes?.length || keyScope.contentTypes.some((id) => !actorScope.contentTypes!.includes(id))) {
+      return false;
+    }
+  }
+  if (actorScope.locales?.length) {
+    if (!keyScope.locales?.length || keyScope.locales.some((id) => !actorScope.locales!.includes(id))) return false;
+  }
+  return true;
+}
+
+/**
+ * Reject a key the actor could not create themselves. A 403 names no
+ * capability, so a weaker caller does not learn what the key can do.
+ */
+function assertKeyWithinActor(
+  capabilities: readonly UserCapability[],
+  keyScope: AccessScope,
+  access: { capabilities: readonly UserCapability[]; policy: { scopes?: Partial<Record<UserCapability, AccessScope>> } },
+  status = 400,
+): void {
+  const allowed = new Set(access.capabilities);
+  const over = capabilities.filter((capability) => !allowed.has(capability));
   if (over.length > 0) {
     throw new ApiKeyError(
-      `A key cannot be granted capabilities its creator lacks: ${over.join(", ")}`,
+      status === 403
+        ? "You cannot change a key that can do more than you can."
+        : `A key cannot be granted capabilities its creator lacks: ${over.join(", ")}`,
+      status,
     );
+  }
+  for (const capability of capabilities) {
+    if (!scopeFits(keyScope, access.policy.scopes?.[capability])) {
+      throw new ApiKeyError(
+        status === 403
+          ? "You cannot change a key that can do more than you can."
+          : "A key cannot be wider than your own access.",
+        status,
+      );
+    }
   }
 }
 
@@ -218,7 +263,8 @@ export async function createApiKey(
   input: CreateApiKeyInput,
 ): Promise<{ record: ApiKeyRecord; secret: string }> {
   const capabilities = [...new Set(input.capabilities)];
-  assertWithinCeiling(capabilities, await creatorCapabilityCeiling(input.owner));
+  const scope = normalizeScope(input.scope);
+  assertKeyWithinActor(capabilities, scope, await getEffectiveAccess(input.owner.userId, input.owner.siteId, input.owner.role));
 
   const { secret, keyPrefix, keyHash } = generateApiKeySecret();
   const id = randomUUID();
@@ -243,7 +289,7 @@ export async function createApiKey(
       input.owner.userId,
       input.owner.userId,
       JSON.stringify(capabilities),
-      JSON.stringify(normalizeScope(input.scope)),
+      JSON.stringify(scope),
       JSON.stringify(sanitizeStringList(input.allowedIps, 50)),
       JSON.stringify(sanitizeStringList(input.allowedOrigins, 50)),
       input.rateLimitPerMin ?? null,
@@ -279,6 +325,9 @@ export async function updateApiKey(
   const existing = await getApiKey(siteId, id);
   if (!existing) return null;
 
+  const access = await getEffectiveAccess(editor.userId, editor.siteId, editor.role);
+  assertKeyWithinActor(existing.capabilities, existing.scope, access, 403);
+
   const sets: string[] = [];
   const params: (string | number | boolean | null)[] = [];
 
@@ -288,7 +337,6 @@ export async function updateApiKey(
   }
   if (patch.capabilities !== undefined) {
     const capabilities = [...new Set(patch.capabilities)];
-    assertWithinCeiling(capabilities, await creatorCapabilityCeiling(editor));
     sets.push("capabilities_json = ?");
     params.push(JSON.stringify(capabilities));
   }
@@ -319,6 +367,12 @@ export async function updateApiKey(
 
   if (sets.length === 0) return existing;
 
+  const nextCapabilities = patch.capabilities !== undefined ? [...new Set(patch.capabilities)] : existing.capabilities;
+  const nextScope = patch.scope !== undefined ? normalizeScope(patch.scope) : existing.scope;
+  if (patch.capabilities !== undefined || patch.scope !== undefined) {
+    assertKeyWithinActor(nextCapabilities, nextScope, access);
+  }
+
   sets.push("updated_at = ?");
   params.push(sqlTime());
   params.push(id, siteId);
@@ -330,9 +384,16 @@ export async function updateApiKey(
 export async function rotateApiKey(
   siteId: string,
   id: string,
+  actor: ApiKeyOwner,
 ): Promise<{ record: ApiKeyRecord; secret: string } | null> {
   const existing = await getApiKey(siteId, id);
   if (!existing) return null;
+  assertKeyWithinActor(
+    existing.capabilities,
+    existing.scope,
+    await getEffectiveAccess(actor.userId, actor.siteId, actor.role),
+    403,
+  );
   const { secret, keyPrefix, keyHash } = generateApiKeySecret();
   await (
     await getDb()
@@ -344,9 +405,15 @@ export async function rotateApiKey(
   return record ? { record, secret } : null;
 }
 
-export async function revokeApiKey(siteId: string, id: string): Promise<boolean> {
+export async function revokeApiKey(siteId: string, id: string, actor: ApiKeyOwner): Promise<boolean> {
   const existing = await getApiKey(siteId, id);
   if (!existing) return false;
+  assertKeyWithinActor(
+    existing.capabilities,
+    existing.scope,
+    await getEffectiveAccess(actor.userId, actor.siteId, actor.role),
+    403,
+  );
   if (existing.revokedAt) return true;
   await (
     await getDb()
@@ -359,9 +426,15 @@ export async function revokeApiKey(siteId: string, id: string): Promise<boolean>
   return true;
 }
 
-export async function deleteApiKey(siteId: string, id: string): Promise<boolean> {
+export async function deleteApiKey(siteId: string, id: string, actor: ApiKeyOwner): Promise<boolean> {
   const existing = await getApiKey(siteId, id);
   if (!existing) return false;
+  assertKeyWithinActor(
+    existing.capabilities,
+    existing.scope,
+    await getEffectiveAccess(actor.userId, actor.siteId, actor.role),
+    403,
+  );
   const db = await getDb();
   // Detach any webhook endpoints the key registered so they are not orphaned by
   // the delete; an administrator can adopt or remove them afterwards.

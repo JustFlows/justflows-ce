@@ -21,7 +21,10 @@ const fakeDb = {
   async run() {}, async close() {},
 };
 vi.mock("../../../../src/lib/auth/access-policy.js", () => ({
-  getEffectiveAccess: async () => ({ capabilities: ["content:read"], policy: { scopes: {} } }),
+  getEffectiveAccess: async () => ({
+    capabilities: ["content:read", "content:update"],
+    policy: { scopes: {} },
+  }),
   userCan: async () => true,
 }));
 vi.mock("../../../../src/lib/database/db.js", () => ({ getDb: async () => fakeDb, resetDb: () => {} }));

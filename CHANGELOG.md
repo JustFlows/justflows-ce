@@ -5,11 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
-## ## [0.4.0] [Unreleased]
+## [0.4.0] [Unreleased]
 
 ### Added
 
 - **Admin → Security opens on a Security Center.** The page lists checks this installation can answer: Node.js version, core updates, debug mode, the install wizard, administrator authenticators, device sessions, API key expiry, the session cookie, the public URL, trusted proxies, and the response-header policy. Each row is pass, warning, fail, not verified, or not applicable, and says whether it is configuration or a deployment check. File integrity and backups stay not verified. An update check that has not finished is not shown as up to date, and a header result stays on Header grade. It is not a grade for the site. ([#198](https://github.com/JustFlows/justflows-ce/issues/198))
+
+### Fixed
+
+- **Content, media, and API keys follow the caller's own access.** A read-only role receives published content only. Drafts, archived items, scheduled items, and working revisions stay with people who can edit that content or who created it. Translating an entry checks the source and the new language before anything is saved. Changing, rotating, revoking, or deleting an API key requires that key's access to sit within the caller's own, including its scope. Deleting media requires the media delete capability. Site-wide preview requires permission to edit content on that site, and a session from another site is refused. ([#205](https://github.com/JustFlows/justflows-ce/issues/205))
 
 ## [0.3.9]
 
