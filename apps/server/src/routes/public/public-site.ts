@@ -98,6 +98,8 @@ import { viewsDir } from "../../lib/runtime/jf-root.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { parseLocalePrefix, setLocaleCookie, LOCALE_COOKIE } from "../../middleware/locale.js";
 import { isPreviewAllowed, resolveSession } from "../../lib/auth/auth-session.js";
+import { userCan } from "../../lib/auth/access-policy.js";
+import { sessionMatchesRequestSite } from "../../lib/tenancy/access.js";
 import {
   canViewUnpublishedSite,
   isSitePublic,
@@ -2040,8 +2042,19 @@ export async function renderSinglePageHtml(
       `SELECT * FROM content WHERE id = ? AND site_id = ? AND trashed_at IS NULL AND ${preview || scopedPreview ? "status IN ('published', 'draft', 'scheduled')" : "status = 'published'"}`,
       [resolvedContent.id, resolvedContent.siteId],
     );
+    const session = rows[0] && (preview || scopedPreview) ? await resolveSession(req, res) : null;
+    const showWorking = Boolean(
+      session &&
+      sessionMatchesRequestSite(session.siteId) &&
+      rows[0] &&
+      (await userCan(session, "content:revisions:read", {
+        contentType: String(rows[0].type),
+        locale: String(rows[0].locale),
+        ownerId: rows[0].author_id as string | null,
+      })),
+    );
     pageContent = rows[0]
-      ? serializeContentRow(preview || scopedPreview ? await overlayWorkingOnRow(rows[0], true) : rows[0])
+      ? serializeContentRow(showWorking ? await overlayWorkingOnRow(rows[0], true) : rows[0])
       : null;
   }
   if (!pageContent) {

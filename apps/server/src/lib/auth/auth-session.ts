@@ -4,6 +4,8 @@ import { getDb } from "../database/db.js";
 import { logSafe } from "../security/log-safe.js";
 import { getSession, setSessionCookie, type SessionPayload } from "./session.js";
 import { isDeviceSessionActive } from "./device-sessions.js";
+import { userCan } from "./access-policy.js";
+import { sessionMatchesRequestSite } from "../tenancy/access.js";
 
 /**
  * Invalidate every session token already issued for a user.
@@ -84,11 +86,14 @@ export async function resolveSession(req: Request, res: Response): Promise<Sessi
   }
 }
 
-const PREVIEW_ROLES = new Set(["administrator", "editor", "author"]);
-
-/** Whether ?preview=1 is allowed for the current request (authenticated editor+). */
+/**
+ * Whether ?preview=1 may show unpublished content. The session has to belong
+ * to this site, and the caller needs content:update on the site as a whole.
+ * An author, who can edit only their own content, uses a signed preview link.
+ */
 export async function isPreviewAllowed(req: Request, res: Response): Promise<boolean> {
   if (req.query.preview !== "1") return false;
   const session = await resolveSession(req, res);
-  return session !== null && PREVIEW_ROLES.has(session.role);
+  if (!session || !sessionMatchesRequestSite(session.siteId)) return false;
+  return userCan(session, "content:update");
 }

@@ -170,7 +170,7 @@ router.post("/", async (req, res) => {
     res.status(201).json({ key: secret, record: toDto(record) });
   } catch (err) {
     if (err instanceof ApiKeyError) {
-      res.status(400).json({ error: err.message });
+      res.status(err.status).json({ error: err.message });
       return;
     }
     sendServerError(res, "api-keys", err);
@@ -207,7 +207,7 @@ router.patch("/:id", async (req, res) => {
     res.json({ record: toDto(updated) });
   } catch (err) {
     if (err instanceof ApiKeyError) {
-      res.status(400).json({ error: err.message });
+      res.status(err.status).json({ error: err.message });
       return;
     }
     sendServerError(res, "api-keys", err);
@@ -216,7 +216,7 @@ router.patch("/:id", async (req, res) => {
 
 router.post("/:id/rotate", async (req, res) => {
   try {
-    const rotated = await rotateApiKey(req.session!.siteId, req.params.id);
+    const rotated = await rotateApiKey(req.session!.siteId, req.params.id, ownerOf(req));
     if (!rotated) {
       res.status(404).json({ error: "Key not found" });
       return;
@@ -224,6 +224,10 @@ router.post("/:id/rotate", async (req, res) => {
     auditFromRequest(req, "apikey.rotated", { target: rotated.record.id });
     res.json({ key: rotated.secret, record: toDto(rotated.record) });
   } catch (err) {
+    if (err instanceof ApiKeyError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     sendServerError(res, "api-keys", err);
   }
 });
@@ -235,17 +239,21 @@ router.post("/:id/revoke", async (req, res) => {
       res.status(404).json({ error: "Key not found" });
       return;
     }
-    await revokeApiKey(req.session!.siteId, req.params.id);
+    await revokeApiKey(req.session!.siteId, req.params.id, ownerOf(req));
     auditFromRequest(req, "apikey.revoked", { target: req.params.id });
     res.json({ ok: true });
   } catch (err) {
+    if (err instanceof ApiKeyError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     sendServerError(res, "api-keys", err);
   }
 });
 
 router.delete("/:id", async (req, res) => {
   try {
-    const removed = await deleteApiKey(req.session!.siteId, req.params.id);
+    const removed = await deleteApiKey(req.session!.siteId, req.params.id, ownerOf(req));
     if (!removed) {
       res.status(404).json({ error: "Key not found" });
       return;
@@ -253,6 +261,10 @@ router.delete("/:id", async (req, res) => {
     auditFromRequest(req, "apikey.deleted", { target: req.params.id });
     res.status(204).end();
   } catch (err) {
+    if (err instanceof ApiKeyError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     sendServerError(res, "api-keys", err);
   }
 });
