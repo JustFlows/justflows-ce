@@ -15,6 +15,7 @@ import { assertPackageIsTrusted } from "../../lib/extensions/package-trust.js";
 import { sendPackageInstallError } from "../../lib/extensions/package-install-error.js";
 import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
+import { recordInstalledPackageBaseline } from "../../lib/security/extension-integrity.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import rateLimit from "express-rate-limit";
@@ -151,6 +152,13 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
         const requirement = await pluginRequirementError(siteId, manifest, "install");
         if (requirement) throw new Error(requirement);
       },
+    });
+    await recordInstalledPackageBaseline({
+      packageDir: result.installedPath,
+      packageId: result.manifest.id,
+      packageType: "plugin",
+      version: result.manifest.version,
+      archiveDigest: result.digest,
     });
     if (!siteId) {
       res.status(503).json({ error: "No site found — complete install first" });

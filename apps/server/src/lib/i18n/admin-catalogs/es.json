@@ -40,6 +40,7 @@
     "securityAccount": "Tu cuenta",
     "securityAudit": "Registro de auditoría",
     "securityWebServer": "Servidor web",
+    "securityIntegrity": "Integridad de archivos",
     "languages": "Idiomas",
     "shop": "Tienda",
     "shopProducts": "Productos",
@@ -2330,6 +2331,26 @@
     "originalDimensions": "original {width}×{height}"
   },
   "security": {
+    "integrity": {
+      "title": "Integridad de archivos",
+      "subtitle": "Las extensiones instaladas se comparan con la línea base registrada al instalarlas desde un paquete de confianza. Los archivos del núcleo se comparan con el manifiesto firmado de esta versión. Las subidas, el almacenamiento y los datos del sitio no forman parte de ese manifiesto.",
+      "otherSite": "La integridad de archivos se comprueba en el sitio de la plataforma.",
+      "loadError": "No se pudo cargar el informe de integridad",
+      "rescan": "Volver a analizar",
+      "scanning": "Analizando…",
+      "empty": "Todavía no hay extensiones instaladas.",
+      "repair": "Reinstala la extensión desde un paquete de confianza. Justflows no adopta los archivos actuales como línea base.",
+      "coreVerified": "Los archivos del núcleo coinciden con el manifiesto firmado de la versión.",
+      "coreLocal": "Los archivos del núcleo coinciden con una línea base local. No es una versión oficial firmada.",
+      "coreAbsent": "No hay un manifiesto del núcleo. Una copia de desarrollo queda sin verificar, no es una versión fallida.",
+      "coreFailed": "Los archivos del núcleo no coinciden con el manifiesto.",
+      "verified": "Verificado",
+      "unverifiable": "Sin línea base",
+      "modified": "Modificado",
+      "missing": "Falta",
+      "unexpected": "Archivo inesperado",
+      "limit": "No se pudo verificar"
+    },
     "webServer": {
       "title": "Servidor web",
       "subtitle": "Justflows comprueba las subidas en la aplicación. Un servidor web que sirve esos archivos desde el disco se salta esa comprobación. Elija el host que usa y copie su archivo. Un CDN delante del sitio no debe cachear una subida privada o en la papelera.",
@@ -2509,8 +2530,16 @@
         },
         "extensionsIntegrity": {
           "title": "Integridad de archivos",
-          "unavailable": "Los archivos del núcleo y de las extensiones no se comparan con una línea base de confianza. Una instalación correcta no es un análisis de los archivos en disco.",
-          "remediation": "Las comprobaciones de integridad aún no están disponibles. Reinstala desde una versión de confianza si sospechas que los archivos cambiaron."
+          "unavailable": "No se pudo leer el análisis de integridad.",
+          "remediation": "Abre Integridad de archivos y analiza de nuevo.",
+          "clear": "{verified} extensiones instaladas coinciden con su línea base de confianza, y el manifiesto del núcleo coincide con esta versión.",
+          "baselineMissing": "{unverifiable} extensiones instaladas no tienen una línea base de confianza, o esta copia no tiene un manifiesto del núcleo firmado.",
+          "failed": "{failed} extensiones instaladas o los archivos del núcleo no coinciden con la línea base de confianza.",
+          "otherSite": "La integridad de archivos se comprueba en el sitio de la plataforma.",
+          "remediationClear": "Analiza de nuevo después de instalar o reinstalar una extensión.",
+          "remediationBaseline": "Reinstala la extensión desde un paquete de confianza para registrar una línea base. Una copia de desarrollo no tiene un manifiesto del núcleo firmado.",
+          "remediationFailed": "Reinstala la extensión afectada desde un paquete de confianza. Los archivos actuales no se conservan como línea base.",
+          "remediationOtherSite": "Abre Integridad de archivos en el sitio de la plataforma."
         },
         "recoveryBackup": {
           "title": "Preparación de copias",

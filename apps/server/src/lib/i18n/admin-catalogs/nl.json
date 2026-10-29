@@ -40,6 +40,7 @@
     "securityAccount": "Je account",
     "securityAudit": "Auditlogboek",
     "securityWebServer": "Webserver",
+    "securityIntegrity": "Bestandsintegriteit",
     "languages": "Talen",
     "shop": "Winkel",
     "shopProducts": "Producten",
@@ -2288,6 +2289,26 @@
     "originalDimensions": "origineel {width}×{height}"
   },
   "security": {
+    "integrity": {
+      "title": "Bestandsintegriteit",
+      "subtitle": "Geïnstalleerde extensies worden vergeleken met de basislijn van de vertrouwde installatie. Corebestanden worden vergeleken met het ondertekende manifest van deze release. Uploads, opslag en sitegegevens horen niet bij dat manifest.",
+      "otherSite": "Bestandsintegriteit wordt gecontroleerd op de platformsite.",
+      "loadError": "Het integriteitsrapport kon niet worden geladen",
+      "rescan": "Opnieuw scannen",
+      "scanning": "Scannen…",
+      "empty": "Nog geen geïnstalleerde extensies.",
+      "repair": "Installeer de extensie opnieuw vanaf een vertrouwd pakket. Justflows neemt de huidige bestanden niet als basislijn.",
+      "coreVerified": "Corebestanden komen overeen met het ondertekende releasemanifest.",
+      "coreLocal": "Corebestanden komen overeen met een lokale basislijn. Dit is geen officiële ondertekende release.",
+      "coreAbsent": "Er is geen coremanifest. Een ontwikkelcheckout is niet geverifieerd, geen mislukte release.",
+      "coreFailed": "Corebestanden komen niet overeen met het manifest.",
+      "verified": "Geverifieerd",
+      "unverifiable": "Geen basislijn",
+      "modified": "Gewijzigd",
+      "missing": "Ontbreekt",
+      "unexpected": "Onverwacht bestand",
+      "limit": "Kon niet verifiëren"
+    },
     "webServer": {
       "title": "Webserver",
       "subtitle": "Justflows controleert uploads in de applicatie. Een webserver die die bestanden van schijf serveert, slaat die controle over. Kies de host die je gebruikt en kopieer het bestand. Een CDN vóór de site mag een privé- of prullenbak-upload niet cachen.",
@@ -2467,8 +2488,16 @@
         },
         "extensionsIntegrity": {
           "title": "Bestandsintegriteit",
-          "unavailable": "Core- en extensiebestanden worden niet vergeleken met een vertrouwde basislijn. Een geslaagde installatie is geen scan van de bestanden op schijf.",
-          "remediation": "Integriteitscontroles zijn nog niet beschikbaar. Installeer opnieuw vanaf een vertrouwde release als je vermoedt dat bestanden zijn gewijzigd."
+          "unavailable": "De integriteitsscan kon niet worden gelezen.",
+          "remediation": "Open Bestandsintegriteit en scan opnieuw.",
+          "clear": "{verified} geïnstalleerde extensies komen overeen met hun vertrouwde basislijn, en het coremanifest komt overeen met deze release.",
+          "baselineMissing": "{unverifiable} geïnstalleerde extensies hebben geen vertrouwde basislijn, of deze checkout heeft geen ondertekend coremanifest.",
+          "failed": "{failed} geïnstalleerde extensies of de corebestanden komen niet overeen met de vertrouwde basislijn.",
+          "otherSite": "Bestandsintegriteit wordt gecontroleerd op de platformsite.",
+          "remediationClear": "Scan opnieuw nadat je een extensie installeert of opnieuw installeert.",
+          "remediationBaseline": "Installeer de extensie opnieuw vanaf een vertrouwd pakket om een basislijn vast te leggen. Een ontwikkelcheckout heeft geen ondertekend coremanifest.",
+          "remediationFailed": "Installeer de betreffende extensie opnieuw vanaf een vertrouwd pakket. De huidige bestanden worden niet als basislijn bewaard.",
+          "remediationOtherSite": "Open Bestandsintegriteit op de platformsite."
         },
         "recoveryBackup": {
           "title": "Back-upgereedheid",

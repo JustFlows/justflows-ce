@@ -9,6 +9,7 @@
 import { ARCHIVE_LIMITS, type InstallResult } from "@justflows/installer";
 import { assertPackageIsTrusted } from "./package-trust.js";
 import { packagesInstalledDir } from "./packages-dir.js";
+import { recordInstalledPackageBaseline } from "../security/extension-integrity.js";
 import {
   MARKETPLACE_ALLOW_BETA_SETTING,
   marketplaceListingIsBeta,
@@ -178,7 +179,7 @@ export async function installMarketplacePackage(options: {
   const installer = new PackageInstaller();
   // Verified inside the installer, while the package is still staged — see
   // the note on InstallOptions.verify.
-  return installer.installFromBuffer(buffer, {
+  const result = await installer.installFromBuffer(buffer, {
     packagesDir: packagesInstalledDir(),
     justflowsVersion: getJustflowsVersion(),
     source: "marketplace",
@@ -205,4 +206,12 @@ export async function installMarketplacePackage(options: {
       if (requirement) throw new Error(requirement);
     },
   });
+  await recordInstalledPackageBaseline({
+    packageDir: result.installedPath,
+    packageId: result.manifest.id,
+    packageType: result.manifest.type,
+    version: result.manifest.version,
+    archiveDigest: result.digest,
+  });
+  return result;
 }

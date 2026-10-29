@@ -70,6 +70,7 @@ import multer from "multer";
 import { assertPackageIsTrusted } from "../../lib/extensions/package-trust.js";
 import { sendPackageInstallError } from "../../lib/extensions/package-install-error.js";
 import { packagesInstalledDir, siteThemesDir } from "../../lib/extensions/packages-dir.js";
+import { recordInstalledPackageBaseline } from "../../lib/security/extension-integrity.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { sendServerError } from "../../lib/http/send-error.js";
@@ -149,6 +150,13 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
         }
         assertPackageIsTrusted(manifest as unknown as Record<string, unknown>, digest);
       },
+    });
+    await recordInstalledPackageBaseline({
+      packageDir: result.installedPath,
+      packageId: result.manifest.id,
+      packageType: "theme",
+      version: result.manifest.version,
+      archiveDigest: result.digest,
     });
 
     await ensureThemesTable();

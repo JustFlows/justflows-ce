@@ -13,6 +13,7 @@ const HREFS = new Set([
   "/admin/security/account",
   "/admin/settings/api",
   "/admin/security/headers",
+  "/admin/security/integrity",
 ]);
 
 function facts(overrides: Partial<SecurityCenterFacts> = {}): SecurityCenterFacts {
@@ -34,6 +35,7 @@ function facts(overrides: Partial<SecurityCenterFacts> = {}): SecurityCenterFact
     proxy: { mode: "bounded", value: "loopback" },
     headers: { state: "known", critical: 0, warning: 0 },
     auditAvailable: true,
+    integrity: { state: "unknown" },
     ...overrides,
   };
 }
@@ -119,5 +121,29 @@ describe("security center checks", () => {
       proxy: { mode: "bounded", value: "loopback\nadmin" },
     }));
     expect(byId(rows, "transport.proxy").evidence.value).toBe("loopbackadmin");
+  });
+
+  it("passes file integrity only when the signed core and every baseline match", () => {
+    const pass = evaluateSecurityCenter(facts({
+      integrity: { state: "known", verified: 2, unverifiable: 0, failed: 0, core: "verified" },
+    }));
+    expect(byId(pass, "extensions.integrity")).toMatchObject({
+      status: "pass",
+      summary: "clear",
+      href: "/admin/security/integrity",
+    });
+
+    const local = evaluateSecurityCenter(facts({
+      integrity: { state: "known", verified: 0, unverifiable: 1, failed: 0, core: "absent" },
+    }));
+    expect(byId(local, "extensions.integrity")).toMatchObject({ status: "warn", summary: "baselineMissing" });
+
+    const failed = evaluateSecurityCenter(facts({
+      integrity: { state: "known", verified: 1, unverifiable: 0, failed: 1, core: "verified" },
+    }));
+    expect(byId(failed, "extensions.integrity")).toMatchObject({ status: "fail", summary: "failed", severity: "high" });
+
+    const other = evaluateSecurityCenter(facts({ installationRoot: false }));
+    expect(byId(other, "extensions.integrity")).toMatchObject({ status: "not_applicable", summary: "otherSite", href: null });
   });
 });

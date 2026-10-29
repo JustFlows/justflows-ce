@@ -88,6 +88,7 @@ describe("canAccessPath", () => {
     expect(paths).not.toContain("/admin/updates");
     expect(paths).not.toContain("/admin/health");
     expect(paths).not.toContain("/admin/security/web-server");
+    expect(paths).not.toContain("/admin/security/integrity");
     expect(paths).not.toContain("/admin/marketplace");
     expect(paths).not.toContain("/admin/platform/workspaces");
     expect(paths).not.toContain("/admin/platform/sites");

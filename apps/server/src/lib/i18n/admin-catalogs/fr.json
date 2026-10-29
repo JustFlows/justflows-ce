@@ -40,6 +40,7 @@
     "securityAccount": "Votre compte",
     "securityAudit": "Journal d’audit",
     "securityWebServer": "Serveur web",
+    "securityIntegrity": "Intégrité des fichiers",
     "languages": "Langues",
     "shop": "Boutique",
     "shopProducts": "Produits",
@@ -2330,6 +2331,26 @@
     "originalDimensions": "original {width}×{height}"
   },
   "security": {
+    "integrity": {
+      "title": "Intégrité des fichiers",
+      "subtitle": "Les extensions installées sont comparées à la base enregistrée lors de leur installation depuis un paquet de confiance. Les fichiers du cœur sont comparés au manifeste signé de cette version. Les téléversements, le stockage et les données du site ne font pas partie de ce manifeste.",
+      "otherSite": "L’intégrité des fichiers est vérifiée sur le site de la plateforme.",
+      "loadError": "Impossible de charger le rapport d’intégrité",
+      "rescan": "Analyser à nouveau",
+      "scanning": "Analyse…",
+      "empty": "Aucune extension installée pour le moment.",
+      "repair": "Réinstallez l’extension depuis un paquet de confiance. Justflows ne prend pas les fichiers actuels comme base.",
+      "coreVerified": "Les fichiers du cœur correspondent au manifeste signé de la version.",
+      "coreLocal": "Les fichiers du cœur correspondent à une base locale. Ce n’est pas une version officielle signée.",
+      "coreAbsent": "Aucun manifeste du cœur n’est présent. Une copie de développement n’est pas vérifiée, ce n’est pas une version en échec.",
+      "coreFailed": "Les fichiers du cœur ne correspondent pas au manifeste.",
+      "verified": "Vérifié",
+      "unverifiable": "Aucune base",
+      "modified": "Modifié",
+      "missing": "Manquant",
+      "unexpected": "Fichier inattendu",
+      "limit": "Vérification impossible"
+    },
     "webServer": {
       "title": "Serveur web",
       "subtitle": "Justflows contrôle les fichiers envoyés dans l’application. Un serveur web qui les sert depuis le disque ignore ce contrôle. Choisissez l’hôte que vous utilisez et copiez son fichier. Un CDN devant le site ne doit pas mettre en cache un envoi privé ou à la corbeille.",
@@ -2509,8 +2530,16 @@
         },
         "extensionsIntegrity": {
           "title": "Intégrité des fichiers",
-          "unavailable": "Les fichiers du cœur et des extensions ne sont pas comparés à une base de confiance. Une installation réussie n’est pas une analyse des fichiers sur le disque.",
-          "remediation": "Les contrôles d’intégrité ne sont pas encore disponibles. Réinstallez depuis une version de confiance si vous soupçonnez une modification des fichiers."
+          "unavailable": "L’analyse d’intégrité n’a pas pu être lue.",
+          "remediation": "Ouvrez Intégrité des fichiers et analysez à nouveau.",
+          "clear": "{verified} extensions installées correspondent à leur base de confiance, et le manifeste du cœur correspond à cette version.",
+          "baselineMissing": "{unverifiable} extensions installées n’ont pas de base de confiance, ou cette copie n’a pas de manifeste du cœur signé.",
+          "failed": "{failed} extensions installées ou les fichiers du cœur ne correspondent pas à la base de confiance.",
+          "otherSite": "L’intégrité des fichiers est vérifiée sur le site de la plateforme.",
+          "remediationClear": "Analysez à nouveau après avoir installé ou réinstallé une extension.",
+          "remediationBaseline": "Réinstallez l’extension depuis un paquet de confiance pour enregistrer une base. Une copie de développement n’a pas de manifeste du cœur signé.",
+          "remediationFailed": "Réinstallez l’extension concernée depuis un paquet de confiance. Les fichiers actuels ne sont pas conservés comme base.",
+          "remediationOtherSite": "Ouvrez Intégrité des fichiers sur le site de la plateforme."
         },
         "recoveryBackup": {
           "title": "Préparation des sauvegardes",
