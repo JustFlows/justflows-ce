@@ -56,16 +56,24 @@ export function installTokenRequired(): boolean {
 }
 
 /**
- * Loopback callers are exempt.
+ * Loopback callers are exempt outside production.
  *
- * Reaching the port from the machine itself already implies local access, so
- * demanding the token would be friction with no security benefit — and this is
- * the normal case for `npm run dev`.
+ * `req.ip` is Express's trusted-proxy address (`TRUST_PROXY`, default
+ * `loopback`). Rate limits and audit logs use that same address. Reaching the
+ * port from the machine itself is the normal case for `npm run dev`.
+ * Production never treats a loopback address as permission to skip the token,
+ * including when a proxy forwarded one.
  */
 export function isLoopbackAddress(ip: string | undefined): boolean {
   if (!ip) return false;
   const addr = ip.replace(/^::ffff:/, "");
   return addr === "127.0.0.1" || addr === "::1" || addr.startsWith("127.");
+}
+
+/** Whether this request may install without the bootstrap token. */
+export function installTokenWaived(ip: string | undefined, env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.NODE_ENV === "production") return false;
+  return isLoopbackAddress(ip);
 }
 
 export function tokenMatches(supplied: string | undefined, root = getJfRoot()): boolean {

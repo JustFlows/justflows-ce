@@ -12,7 +12,7 @@ import {
   installToken,
   installTokenFileExists,
   installTokenRequired,
-  isLoopbackAddress,
+  installTokenWaived,
   tokenMatches,
 } from "../../lib/installation/install-token.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
@@ -127,7 +127,7 @@ router.get("/status", (req, res) => {
   // needed and where to find it, so the wizard can show the right instructions.
   res.json({
     installed,
-    tokenRequired: !installed && installTokenRequired() && !isLoopbackAddress(req.ip),
+    tokenRequired: !installed && installTokenRequired() && !installTokenWaived(req.ip),
     tokenFile: installTokenFileExists() ? "install-token/TOKEN.txt" : null,
   });
 });
@@ -172,7 +172,7 @@ router.post("/", installRequestLimit, async (req, res) => {
     return;
   }
 
-  if (installTokenRequired() && !isLoopbackAddress(req.ip)) {
+  if (installTokenRequired() && !installTokenWaived(req.ip)) {
     if (!tokenMatches(body.data.token)) {
       emit0(
         res,
