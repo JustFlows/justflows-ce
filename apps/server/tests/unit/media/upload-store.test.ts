@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import express from "express";
+import rateLimit from "express-rate-limit";
 import fs from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -136,7 +137,11 @@ describe("S3 driver", () => {
 
   async function serve(path: string, headers: Record<string, string> = {}) {
     const app = express();
-    app.use("/uploads", uploadsHandler(60_000));
+    app.use(
+      "/uploads",
+      rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: "draft-8", legacyHeaders: false }),
+      uploadsHandler(60_000),
+    );
     const server = app.listen(0);
     try {
       const { port } = server.address() as AddressInfo;
