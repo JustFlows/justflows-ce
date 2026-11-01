@@ -4,7 +4,7 @@ import { pluginApiUrl, isValidPluginApiNamespace } from "../../src/api-urls.js";
 import { PluginManifestSchema } from "../../src/plugin.js";
 describe("plugin API URLs", () => {
   it("validates and retains an explicit namespace", () => {
-    const manifest = PluginManifestSchema.parse({ id: "justflows.shop", name: "Shop", version: "1.0.0", license: "MIT", main: "index.js", permissions: [], apiNamespace: "shop" });
+    const manifest = PluginManifestSchema.parse({ id: "justflows.store", name: "Shop", version: "1.0.0", license: "MIT", main: "index.js", permissions: [], apiNamespace: "shop" });
     expect(manifest.apiNamespace).toBe("shop");
     expect(pluginApiUrl("shop", "checkout?locale=nl")).toBe("/api/shop/checkout?locale=nl");
   });

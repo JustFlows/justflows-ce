@@ -21,7 +21,7 @@ import { z } from "zod";
 export const CORE_PLACEHOLDER_KINDS = ["generic", "featured", "thumbnail", "avatar", "og"] as const;
 export type CorePlaceholderKind = (typeof CORE_PLACEHOLDER_KINDS)[number];
 
-/** A core kind, or a plugin kind namespaced under its plugin id (`justflows.shop.product`). */
+/** A core kind, or a plugin kind namespaced under its plugin id (`acme.store.product`). */
 export type PlaceholderKind = CorePlaceholderKind | (string & {});
 
 export const PLACEHOLDER_KIND_RE = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
@@ -82,7 +82,7 @@ export interface PluginMediaApi {
 
   /**
    * Ship a default image for a kind this plugin owns. `kind` must start with
-   * the plugin id (`justflows.shop.product`). Site owners can still replace
+   * the plugin id (`acme.store.product`). Site owners can still replace
    * it. Removed on deactivate.
    */
   registerPlaceholder(kind: string, definition: PlaceholderDefinition): () => void;

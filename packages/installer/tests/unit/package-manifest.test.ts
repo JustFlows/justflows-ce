@@ -22,7 +22,7 @@ const menuItem = {
 
 describe("PackageManifestSchema requires", () => {
   it("keeps required plugin ids and refuses a self-requirement", () => {
-    expect(PackageManifestSchema.parse({ ...base, requires: ["justflows.shop"] }).requires).toEqual(["justflows.shop"]);
+    expect(PackageManifestSchema.parse({ ...base, requires: ["justflows.store"] }).requires).toEqual(["justflows.store"]);
     expect(() => PackageManifestSchema.parse({ ...base, requires: [base.id] })).toThrow(/itself/);
   });
 });

@@ -98,7 +98,7 @@ files are not exposed. Older themes without a `patterns` manifest key retain
 directory discovery for compatibility.
 
 Set `requiresBlockTypes` to the plugin block types a pattern uses (e.g.
-`["justflows.forms.form"]`); the Patterns panel shows an install notice
+`["justflows.acme.form"]`); the Patterns panel shows an install notice
 instead of importing silently when one isn't in the active block catalog. The
 schema also verifies that every non-core block used anywhere in the tree is
 declared. Optional `locales` entries can override `title`, `description`, and
@@ -585,7 +585,7 @@ editable. Core ships `core.widget-content` (title and rich text),
 the host attaches each widget's data (menu items, posts, the localized search
 URL) to its props as `__data` just before an area renders; outside an area a
 data widget renders nothing. Plugins add widgets by registering blocks in the
-`widgets` category, the way Shop's Product filters does.
+`widgets` category.
 
 Admin: `GET /api/widgets` (areas, layout, content types), `POST /api/widgets/areas`
 (`{ key, label, description? }`), `GET/PUT/DELETE /api/widgets/areas/:key`

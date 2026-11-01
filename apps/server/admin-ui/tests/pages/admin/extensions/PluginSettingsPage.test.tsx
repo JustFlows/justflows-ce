@@ -22,7 +22,7 @@ function jsonResponse(body: unknown, status = 200): Promise<Response> {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={["/admin/plugins/justflows.shop/settings"]}>
+    <MemoryRouter initialEntries={["/admin/plugins/justflows.store/settings"]}>
       <I18nProvider>
         <SessionProvider>
           <Routes>
@@ -48,13 +48,13 @@ describe("PluginSettingsPage", () => {
         if (path === "/api/plugins/admin-menu") {
           return jsonResponse({
             items: [
-              { pluginId: "justflows.shop", id: "backups", label: "Backups", path: "/admin/plugins/justflows.shop/settings/backups", icon: "💾", domain: "commerce", listed: false },
-              { pluginId: "justflows.shop", id: "reports", label: "Reports", path: "/admin/plugins/justflows.shop/reports", icon: "📈", domain: "commerce" },
+              { pluginId: "justflows.store", id: "backups", label: "Backups", path: "/admin/plugins/justflows.store/settings/backups", icon: "💾", domain: "commerce", listed: false },
+              { pluginId: "justflows.store", id: "reports", label: "Reports", path: "/admin/plugins/justflows.store/reports", icon: "📈", domain: "commerce" },
               { pluginId: "acme.forms", id: "more", label: "Other plugin", path: "/admin/plugins/acme.forms/settings/more", icon: "✉", domain: "extensions" },
             ],
           });
         }
-        if (path === "/api/plugins/justflows.shop/settings") {
+        if (path === "/api/plugins/justflows.store/settings") {
           return jsonResponse({ schema: SCHEMA, values: {}, languages: [] });
         }
         return jsonResponse({});
@@ -62,7 +62,7 @@ describe("PluginSettingsPage", () => {
     );
 
     render(
-      <MemoryRouter initialEntries={["/admin/plugins/justflows.shop/settings"]}>
+      <MemoryRouter initialEntries={["/admin/plugins/justflows.store/settings"]}>
         <I18nProvider>
           <SessionProvider>
             <PluginMenuProvider>
@@ -75,7 +75,7 @@ describe("PluginSettingsPage", () => {
       </MemoryRouter>,
     );
     const link = await screen.findByRole("link", { name: /Backups/ });
-    expect(link).toHaveAttribute("href", "/admin/plugins/justflows.shop/settings/backups");
+    expect(link).toHaveAttribute("href", "/admin/plugins/justflows.store/settings/backups");
     expect(screen.queryByRole("link", { name: /Reports/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /Other plugin/ })).toBeNull();
   });
@@ -88,7 +88,7 @@ describe("PluginSettingsPage", () => {
         if (path === "/api/auth/me") {
           return jsonResponse({ id: "self", email: "self@example.com", role: "administrator" });
         }
-        if (path === "/api/plugins/justflows.shop/settings") {
+        if (path === "/api/plugins/justflows.store/settings") {
           return jsonResponse({
             schema: SCHEMA,
             values: { storeName: { "en-US": "Demo" }, sandbox: false },
@@ -112,7 +112,7 @@ describe("PluginSettingsPage", () => {
         if (path === "/api/auth/me") {
           return jsonResponse({ id: "self", email: "self@example.com", role: "administrator" });
         }
-        if (path === "/api/plugins/justflows.shop/settings") {
+        if (path === "/api/plugins/justflows.store/settings") {
           return jsonResponse({ ok: true });
         }
         return jsonResponse({});
@@ -131,14 +131,14 @@ describe("PluginSettingsPage", () => {
       if (path === "/api/auth/me") {
         return jsonResponse({ id: "self", email: "self@example.com", role: "administrator" });
       }
-      if (path === "/api/plugins/justflows.shop/settings" && method === "PUT") {
+      if (path === "/api/plugins/justflows.store/settings" && method === "PUT") {
         return jsonResponse({
           schema: SCHEMA,
           values: { storeName: { "en-US": "Saved" }, sandbox: true },
           languages: [{ code: "en-US", nativeName: "English", isDefault: true }],
         });
       }
-      if (path === "/api/plugins/justflows.shop/settings") {
+      if (path === "/api/plugins/justflows.store/settings") {
         return jsonResponse({
           schema: SCHEMA,
           values: { storeName: { "en-US": "Demo" }, sandbox: false },

@@ -13,7 +13,7 @@ const ROUTES = [
   "/admin/marketplace", "/admin/tools", "/admin/health", "/admin/updates", "/admin/languages",
   "/admin/security", "/admin/security/web-server", "/admin/security/integrity", "/admin/security/header-grade", "/admin/security/headers", "/admin/security/advanced",
   "/admin/security/account", "/admin/security/audit", "/admin/reports",
-  "/admin/plugins/justflows.shop", "/admin/plugins/justflows.shop/products",
+  "/admin/plugins/justflows.store", "/admin/plugins/justflows.store/products",
 ];
 
 describe("admin SSR routes", () => {

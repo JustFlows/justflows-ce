@@ -7,8 +7,8 @@ import type { CaptchaProvider } from "../comments/comments-settings.js";
 //
 // One provider configuration (dropdown + site key + secret + score threshold)
 // lives in the site `comments` settings, surfaced under Settings → Discussion.
-// Both the public comments form and the Forms plugin reuse it from here so the
-// keys are entered once.
+// The public comments form and plugins (through the SDK) reuse it from here so
+// the keys are entered once.
 
 export interface CaptchaMeta {
   verifyUrl: string;
@@ -130,7 +130,7 @@ export interface CaptchaWidgetHtml {
 
 /**
  * Build the client-side markup for a configured CAPTCHA provider. Shared by the
- * comments form and the Forms plugin so both render an identical widget.
+ * comments form and plugins so they all render an identical widget.
  */
 export function renderCaptchaWidget(
   provider: Exclude<CaptchaProvider, "none">,

@@ -23,6 +23,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Core no longer names any plugin.** The Helpdesk and Shared files sidebar groups are gone; a plugin gets its own section with the `plugin` menu domain and `adminSection`. A menu domain the host does not know falls back to Extensions instead of stopping activation. Core's catalogs no longer carry Shop menu labels or product block strings, the menu editor labels plugin content types with their own names, and the default theme's contact page uses an email button instead of a plugin form. `ctx.ai.complete` takes the plugin's own `system` role; core keeps only the rule that the text is data. ([#146](https://github.com/JustFlows/justflows-ce/issues/146))
 - **A signed release archive includes a core file manifest.** The archive lists the files an update replaces, and an update can check those files after it copies them. Uploads, storage, themes, plugins, and installed extensions stay out of that manifest. An installation without the manifest stays unverified. ([#120](https://github.com/JustFlows/justflows-ce/issues/120))
 
 ## [0.4.0]

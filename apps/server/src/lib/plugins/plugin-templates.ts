@@ -10,8 +10,8 @@ import type { BlockNode } from "../runtime/types.js";
 
 /**
  * Page templates a plugin ships in its own package (`manifest.templates`), so
- * templates for plugin-owned content types (the Shop's `single-product`,
- * `single-shop-cart`, …) live with the plugin instead of in every theme.
+ * templates for plugin-owned content types (`single-product`, `single-cart`,
+ * …) live with the plugin instead of in every theme.
  *
  * Resolution (see `resolveEffectiveTemplate`) checks them per candidate slug
  * after the site override and the active theme's own file: a theme can still

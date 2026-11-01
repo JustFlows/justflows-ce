@@ -23,7 +23,7 @@ const enabled =
 describe.skipIf(!enabled)("plugin row transactions", () => {
   const siteId = randomUUID();
   const otherSite = randomUUID();
-  const shop = createPluginDatabasesApi("justflows.shop", siteId, new Set());
+  const shop = createPluginDatabasesApi("justflows.store", siteId, new Set());
   const pg = process.env.DB_DRIVER === "postgres";
 
   beforeAll(async () => {
@@ -120,7 +120,7 @@ describe.skipIf(!enabled)("plugin row transactions", () => {
   });
 
   it("keeps sites apart", async () => {
-    const other = createPluginDatabasesApi("justflows.shop", otherSite, new Set());
+    const other = createPluginDatabasesApi("justflows.store", otherSite, new Set());
     const id = randomUUID();
     await shop.insert("inventory", { id, available: 4, reserved: 0 });
     expect(await other.findOne("inventory", { id })).toBeUndefined();

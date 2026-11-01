@@ -6,7 +6,7 @@ import { pickSettingsSchema } from "../../../src/lib/plugins/plugins-db.js";
 describe("pickSettingsSchema", () => {
   it("prefers a live module schema over an empty stored row", () => {
     expect(
-      pickSettingsSchema("justflows.shop", {}, {
+      pickSettingsSchema("justflows.store", {}, {
         storeName: { type: "string", label: "Store name" },
       }),
     ).toEqual({ storeName: { type: "string", label: "Store name" } });
@@ -15,7 +15,7 @@ describe("pickSettingsSchema", () => {
   it("ignores an empty object so a later source can win", () => {
     expect(
       pickSettingsSchema(
-        "justflows.shop",
+        "justflows.store",
         { settingsSchema: {} },
         { sandbox: { type: "boolean", label: "Sandbox" } },
       ),

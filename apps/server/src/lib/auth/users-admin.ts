@@ -76,7 +76,7 @@ function audit(
   void auditLog({
     siteId: actor.siteId,
     action,
-    // Empty when a visitor creates their own account through a plugin (Shop checkout): no actor.
+    // Empty when a visitor creates their own account through a plugin (a checkout, say): no actor.
     actorId: actor.userId || null,
     actorRole: actor.role,
     ip: actor.ip ?? null,
@@ -519,12 +519,12 @@ export type AddRoleResult =
 
 /**
  * Give an existing user one more role, keeping their primary role and sign-in.
- * Behind `ctx.users.addRole()`: Shop uses it to make an existing subscriber a
- * customer. The plugin loader has already checked the plugin owns the role.
+ * Behind `ctx.users.addRole()`: a plugin uses it to give an existing subscriber
+ * a role it owns, such as a customer role. The plugin loader has already checked the plugin owns the role.
  *
  * Sessions are not revoked: capabilities are resolved on every request, and
- * adding a role only ever adds them — signing a shopper out mid-checkout for
- * gaining the customer role would be the wrong trade.
+ * adding a role only ever adds them — signing a visitor out mid-checkout for
+ * gaining a role would be the wrong trade.
  */
 export async function addAdditionalRole(
   siteId: string,
@@ -570,8 +570,8 @@ export async function addAdditionalRole(
 }
 
 /**
- * Take back one additional role, behind `ctx.users.removeRole()`: Shop uses it
- * when a membership subscription ends. The primary role is never changed. The
+ * Take back one additional role, behind `ctx.users.removeRole()`: a plugin uses
+ * it when, for example, a membership subscription ends. The primary role is never changed. The
  * plugin loader has already checked the plugin owns the role. Capabilities are
  * resolved on every request, so the user loses the role's access at once.
  */

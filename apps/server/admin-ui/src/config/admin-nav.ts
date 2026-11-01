@@ -156,7 +156,7 @@ export const ADMIN_DASHBOARD: NavItem = {
 };
 
 /**
- * Pages the core always ships. Plugin pages (Forms, Helpdesk, …) are not
+ * Pages the core always ships. Plugin pages are not
  * listed here — they come from `/api/plugins/admin-menu` and only exist while
  * the plugin that owns them is installed.
  */
@@ -201,26 +201,6 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     slug: "users",
     icon: "👤",
     items: [{ key: "nav.users", to: "/admin/users", icon: "👤" }],
-  },
-  {
-    /**
-     * Helpdesk's own sidebar entry. It stays empty until the plugin is active,
-     * and one listed page means the sidebar links straight there with no top bar.
-     */
-    key: "nav.domains.helpdesk",
-    slug: "helpdesk",
-    icon: "💬",
-    items: [],
-  },
-  {
-    /**
-     * Shared files' own sidebar entry. It stays empty until the plugin is
-     * active, and one listed page means the sidebar links straight there.
-     */
-    key: "nav.domains.files",
-    slug: "files",
-    icon: "📁",
-    items: [],
   },
   {
     key: "nav.domains.extensions",

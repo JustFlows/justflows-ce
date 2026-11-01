@@ -59,37 +59,15 @@ move public content or SEO metadata into the admin React bundle.
 
 ### Syndication feeds
 
-RSS 2.0 / Atom 1.0 / JSON Feed 1.1 output is not host-rendered. It is owned by
-the first-party **SEO Toolkit** plugin (`justflows.seo`, published through the
-plugin registry, not bundled in this repo), which is activated like any other
-plugin and also writes the SEO meta tags. It wires itself up through public SDK
-surfaces only:
+Core does not render RSS, Atom, or JSON feeds. A plugin serves them through
+public SDK surfaces only:
 
-- `ctx.http.get("/feed.xml", …)` and the locale / type / author variants
+- `ctx.http.get("/feed.xml", …)` and its own variants
   (`ctx.content.listPublished()` provides the entries; `ctx.i18n` the locales);
 - `html.head` filter for the `<link rel="alternate">` autodiscovery tags;
-- `content.published|updated|unpublished|deleted` actions to drop its cached
-  feed bodies (`ctx.cache`, `feed:` prefix);
+- `content.published|updated|unpublished|deleted` actions to drop cached feed
+  bodies (`ctx.cache`);
 - `staticExport.routes` filter to seed the exporter with the feed URLs.
-
-| URL                           | Feed                                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------------------- |
-| `/feed.xml`                   | Site-wide — the content types in the SEO setting `feedTypes` (posts by default)       |
-| `/<type>/feed.xml`            | One content type                                                                      |
-| `/author/<username>/feed.xml` | One author                                                                            |
-| `/<locale>/…/feed.xml`        | Any of the above, for a non-default locale (`.atom` / `.json` alongside every `.xml`) |
-
-Feeds are locale-aware, list the newest `feedItemCount` entries (default 20),
-exclude scheduled (`publishedAt` in the future), expired, and per-entry
-opted-out (`fields.seoFeedExclude`, the "Exclude from feeds" checkbox on any
-item's SEO tab) items, carry plain-text summaries (or none, per
-`feedContentDepth`), optionally an author (`feedIncludeAuthor`, default off) and
-featured image (`feedIncludeImage`), and advertise a `rel="self"` link plus an
-optional WebSub hub (`feedWebSubHub`). Settings live on the `justflows.seo`
-plugin (Admin → Extensions → SEO). Per-taxonomy feeds from
-issue [#102](https://github.com/JustFlows/justflows-ce/issues/102) are not built
-yet — the `taxonomies` / `terms` tables have no term-assignment UI or public
-archive to feed from.
 
 The site can still be **crawled to static files** for object-storage / CDN
 hosting: `apps/server/src/lib/static-export/` fetches every published route over

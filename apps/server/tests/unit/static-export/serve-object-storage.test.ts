@@ -108,7 +108,7 @@ describe("private object storage origin gateway", () => {
       request("/login"),
       request("/account"),
       request("/account/details"),
-      request("/ext/justflows.shop/account"),
+      request("/ext/justflows.store/account"),
       request("/about?preview=1"),
       request("/about", "POST"),
       request("/about", "GET", { "x-jf-static-export": "1" }),

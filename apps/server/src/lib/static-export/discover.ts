@@ -37,7 +37,7 @@ function extractSitemapLocs(xml: string): string[] {
 
 /**
  * Seed the crawl. The site's own `sitemap.xml` already resolves locale prefixes,
- * `seo.sitemapPaths` plugin additions and the SEO plugin's extra paths, so it is
+ * and the paths plugins add through `seo.sitemapPaths`, so it is
  * the primary source; the database pass fills the dependency map and covers the
  * (unusual) case of a disabled sitemap.
  */
