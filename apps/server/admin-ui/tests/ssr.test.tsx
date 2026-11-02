@@ -48,6 +48,39 @@ describe("admin SSR routes", () => {
     expect(html).toContain("SSR post");
   });
 
+  it("renders one limits panel on a workspace", () => {
+    const id = "workspace-1";
+    const html = render(`/admin/platform/workspaces/${id}`, {
+      url: `/admin/platform/workspaces/${id}`,
+      locale: "en",
+      responses: {
+        [`/api/platform/tenants/${id}`]: {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            workspace: {
+              id,
+              name: "Example workspace",
+              slug: "example",
+              status: "active",
+              userMode: "shared",
+              databaseMode: "current",
+              createdAt: "2026-10-29T09:00:00.000Z",
+              updatedAt: "2026-10-29T09:00:00.000Z",
+            },
+            sites: [],
+            database: null,
+            quotas: {
+              meters: [{ key: "sites", scope: "workspace", label: "Sites", unit: "count", limit: null, used: 3 }],
+            },
+          }),
+        },
+      },
+    });
+    expect(html.match(/>Limits<\/h2>/g)).toHaveLength(1);
+  });
+
   it("renders the Security Center from prefetched checks without a site grade", () => {
     const html = render("/admin/security", {
       url: "/admin/security",
@@ -108,6 +141,29 @@ describe("admin SSR routes", () => {
     expect(html).not.toContain("Grade");
     expect(html).not.toContain("out of 100");
     expect(html).toContain("Web server setup");
+  });
+
+  it("hides installation setup from a subsite Security Center", () => {
+    const html = render("/admin/security", {
+      url: "/admin/security",
+      locale: "en",
+      responses: {
+        "/api/security/center": {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            checkedAt: "2026-10-29T09:00:00.000Z",
+            installationRoot: false,
+            auditAvailable: false,
+            checks: [],
+          }),
+        },
+      },
+    });
+    expect(html).toContain("Security Center");
+    expect(html).not.toContain("Web server setup");
+    expect(html).not.toContain("Copy the file for nginx");
   });
 
   it("renders the web server file for the host the administrator copies", () => {

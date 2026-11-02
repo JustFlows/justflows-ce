@@ -7,6 +7,7 @@ import { registerCoreJob, unregisterCoreJob } from "../jobs/core-jobs.js";
 import { sanitizeBlockDocument } from "@justflows/blocks";
 import { getDb } from "../database/db.js";
 import { serializeContentRow, toIsoTimestamp } from "./content-api.js";
+import { translationGroupDates } from "./translation-dates.js";
 import {
   getWorkingRevision,
   insertHistoricalSnapshot,
@@ -163,12 +164,19 @@ export async function transitionScheduledContent(
     const snapshot = working ? revisionToSnapshot(working) : rowToSnapshot(row);
     snapshot.blocks = sanitizeBlockDocument(snapshot.blocks) as typeof snapshot.blocks;
     const before = serializeContentRow(row);
+    /** A translation published for the first time takes its group's publish date. */
+    const groupPublishedAt =
+      transition === "publish" && !before.publishedAt
+        ? (await translationGroupDates(siteId, String(row.translation_group_id ?? id), id, tx)).publishedAt
+        : null;
     const after = {
       ...before,
       ...snapshot,
       status: transition === "publish" ? "published" : "draft",
       publishedAt:
-        transition === "publish" ? (before.publishedAt ?? time.toISOString()) : before.publishedAt,
+        transition === "publish"
+          ? (before.publishedAt ?? groupPublishedAt ?? time.toISOString())
+          : before.publishedAt,
     };
     if (transition === "publish") {
       const hooks = getRuntimeHooks();
