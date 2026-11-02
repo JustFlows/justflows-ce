@@ -19,6 +19,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Plugin installs and updates work on a release install.** A release runs the server as one bundled file, and the installer looked for its archive worker next to that file, where it was missing, so every `.jfpkg` install or update stopped with "Archive processing failed". The bundle now ships the worker files beside it, a hosting build copies them into the installer too, and the server log records why a worker fails. ([#208](https://github.com/JustFlows/justflows-ce/issues/208))
 - **A subsite's Security Center shows only checks that belong to that site.** Installation details such as the Node.js version, core updates, debug mode, the install wizard, session-cookie policy, public URL, trusted proxy, and file integrity stay on the main site. ([#198](https://github.com/JustFlows/justflows-ce/issues/198))
 
 ### Changed
