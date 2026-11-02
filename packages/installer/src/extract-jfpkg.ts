@@ -31,7 +31,11 @@ export function extractJfpkg(archive: Buffer, dest: string): Promise<void> {
       if (msg.ok) finish();
       else finish(new ArchiveSafetyError(msg.message || "Archive rejected"));
     });
-    worker.on("error", () => finish(new ArchiveSafetyError("Archive processing failed")));
+    worker.on("error", (err) => {
+      /** The admin sees the generic message; the server log keeps the cause, such as a missing worker file. */
+      console.error("[installer] archive worker failed:", JSON.stringify(err instanceof Error ? err.message : String(err)));
+      finish(new ArchiveSafetyError("Archive processing failed"));
+    });
     worker.on("exit", (code) => {
       if (!settled && code !== 0) finish(new ArchiveSafetyError("Archive processing failed"));
     });

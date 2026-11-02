@@ -104,7 +104,34 @@ function buildPackage(relDir) {
   const code = runTsc(tsconfig);
   if (code !== 0) {
     console.warn(`    (skipped ${relDir} — build failed, may be optional)`);
+    return;
   }
+  copyRuntimeModules(relDir);
+}
+
+/**
+ * Copy plain `.mjs` modules from `src/` to `dist/`. `tsc` does not emit them,
+ * and a package loads them at runtime (the installer's archive worker). Each
+ * package's own `build` script copies them too; this keeps hosting builds the same.
+ */
+function copyRuntimeModules(relDir) {
+  const src = path.join(ROOT, relDir, "src");
+  const dist = path.join(ROOT, relDir, "dist");
+  if (!fs.existsSync(src) || !fs.existsSync(dist)) return;
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const from = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(from);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".mjs") || entry.name.includes(".test.")) continue;
+      const to = path.join(dist, path.relative(src, from));
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.copyFileSync(from, to);
+    }
+  };
+  walk(src);
 }
 
 function buildServer() {

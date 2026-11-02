@@ -19,6 +19,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Plugin installs and updates work after a hosting build.** The core updater and the hosting install build packages with `tsc` only, which left out the installer's archive worker, so every `.jfpkg` install or update stopped with "Archive processing failed". That build now copies the worker files too, and the server log records why a worker fails. ([#208](https://github.com/JustFlows/justflows-ce/issues/208))
 - **A subsite's Security Center shows only checks that belong to that site.** Installation details such as the Node.js version, core updates, debug mode, the install wizard, session-cookie policy, public URL, trusted proxy, and file integrity stay on the main site. ([#198](https://github.com/JustFlows/justflows-ce/issues/198))
 
 ### Changed
