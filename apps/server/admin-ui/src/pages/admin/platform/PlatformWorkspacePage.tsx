@@ -309,11 +309,11 @@ export default function PlatformWorkspacePage() {
           </aside>
         </form>
         <QuotaLimitsCard
-          key={id}
+          key={`quota-limits:${id ?? ""}`}
           endpoint={`/api/platform/tenants/${encodeURIComponent(id ?? "")}/quotas`}
           meters={record.quotas?.meters ?? []}
         />
-        {id ? <PluginWorkspacePanels key={id} workspaceId={id} /> : null}
+        {id ? <PluginWorkspacePanels key={`plugin-panels:${id}`} workspaceId={id} /> : null}
       </div>
     </>
   );
