@@ -12,13 +12,13 @@ const panel = {
 
 describe("panelsFromManifest", () => {
   it("keeps valid panels from a plugin with admin:extend", () => {
-    expect(panelsFromManifest({ permissions: ["admin:extend"], editorPanels: [panel] }, "justflows.seo")).toEqual([
-      { ...panel, pluginId: "justflows.seo" },
+    expect(panelsFromManifest({ permissions: ["admin:extend"], editorPanels: [panel] }, "justflows.meta")).toEqual([
+      { ...panel, pluginId: "justflows.meta" },
     ]);
   });
 
   it("adds nothing without admin:extend", () => {
-    expect(panelsFromManifest({ permissions: [], editorPanels: [panel] }, "justflows.seo")).toEqual([]);
+    expect(panelsFromManifest({ permissions: [], editorPanels: [panel] }, "justflows.meta")).toEqual([]);
   });
 
   it("keeps a panel that embeds an admin screen", () => {
@@ -32,6 +32,6 @@ describe("panelsFromManifest", () => {
 
   it("drops a panel that no longer matches the schema", () => {
     const bad = { ...panel, fields: [{ key: "../x", type: "script", label: "" }] };
-    expect(panelsFromManifest({ permissions: ["admin:extend"], editorPanels: [bad, panel] }, "justflows.seo")).toHaveLength(1);
+    expect(panelsFromManifest({ permissions: ["admin:extend"], editorPanels: [bad, panel] }, "justflows.meta")).toHaveLength(1);
   });
 });

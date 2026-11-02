@@ -29,10 +29,10 @@ function store(initial: Record<string, string> = {}): OperatorKeyStore & { file:
 
 describe("operator key names", () => {
   it("allows a key under the calling plugin and rejects another plugin's name", () => {
-    expect(operatorKeyAllowed("justflows.helpdesk", "JUSTFLOWS_HELPDESK_KEK")).toBe(true);
+    expect(operatorKeyAllowed("justflows.desk", "JUSTFLOWS_DESK_KEK")).toBe(true);
     expect(operatorKeyAllowed("justflows.example-shop", "JUSTFLOWS_EXAMPLE_SHOP_KEK")).toBe(true);
-    expect(operatorKeyAllowed("justflows.helpdesk", "JUSTFLOWS_SHOP_KEK")).toBe(false);
-    expect(operatorKeyAllowed("justflows.helpdesk", "APP_SECRET")).toBe(false);
+    expect(operatorKeyAllowed("justflows.desk", "JUSTFLOWS_STORE_KEK")).toBe(false);
+    expect(operatorKeyAllowed("justflows.desk", "APP_SECRET")).toBe(false);
   });
 });
 
@@ -53,21 +53,21 @@ describe("canonicalOperatorKey", () => {
 describe("ensureOperatorKey", () => {
   it("writes a new key and keeps it on the next call", async () => {
     const saved = store();
-    await ensureOperatorKey("justflows.helpdesk", "JUSTFLOWS_HELPDESK_KEK", saved);
-    const key = saved.file.get("JUSTFLOWS_HELPDESK_KEK");
+    await ensureOperatorKey("justflows.desk", "JUSTFLOWS_DESK_KEK", saved);
+    const key = saved.file.get("JUSTFLOWS_DESK_KEK");
     expect(key).toMatch(/^[0-9a-f]{64}$/);
-    expect(saved.env["JUSTFLOWS_HELPDESK_KEK"]).toBe(key);
+    expect(saved.env["JUSTFLOWS_DESK_KEK"]).toBe(key);
     expect(saved.writes).toBe(1);
 
-    const again = store({ JUSTFLOWS_HELPDESK_KEK: key! });
-    await ensureOperatorKey("justflows.helpdesk", "JUSTFLOWS_HELPDESK_KEK", again);
+    const again = store({ JUSTFLOWS_DESK_KEK: key! });
+    await ensureOperatorKey("justflows.desk", "JUSTFLOWS_DESK_KEK", again);
     expect(again.writes).toBe(0);
-    expect(again.env["JUSTFLOWS_HELPDESK_KEK"]).toBe(key);
+    expect(again.env["JUSTFLOWS_DESK_KEK"]).toBe(key);
   });
 
   it("refuses a name that belongs to another plugin", async () => {
     const saved = store();
-    await expect(ensureOperatorKey("justflows.helpdesk", "APP_SECRET", saved)).rejects.toThrow(/outside this plugin/);
+    await expect(ensureOperatorKey("justflows.desk", "APP_SECRET", saved)).rejects.toThrow(/outside this plugin/);
     expect(saved.writes).toBe(0);
   });
 });

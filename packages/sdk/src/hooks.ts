@@ -1170,12 +1170,11 @@ export interface FilterValueMap {
    * `STATIC_EXPORT_ORIGIN_URL` is set, else the relative default. Return a
    * serverless function URL, a third-party form endpoint, etc.
    *
-   * Core only emits `"comments"`. `"forms"` stays in the type for older
-   * plugins: the Forms plugin now submits to its own `/api/forms/` route.
+   * Core only emits `"comments"`. A plugin may pass its own endpoint name.
    */
   "staticExport.formAction": [
     string,
-    { siteId: string; endpoint: "forms" | "comments"; defaultAction: string },
+    { siteId: string; endpoint: "comments" | (string & {}); defaultAction: string },
   ];
   /**
    * Same-origin asset URLs the static-site exporter should download, seeded with

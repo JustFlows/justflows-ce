@@ -68,7 +68,7 @@ describe("createPluginContentApi.deleteType", () => {
   });
 
   it("refuses built-in types", async () => {
-    const api = createPluginContentApi("justflows.shop", "site-1");
+    const api = createPluginContentApi("justflows.store", "site-1");
     await expect(api.deleteType("page")).rejects.toThrow(/built-in/);
     expect(run).not.toHaveBeenCalled();
   });
@@ -89,7 +89,7 @@ describe("createPluginContentApi.deleteType", () => {
       createdAt: "",
       updatedAt: "",
     });
-    const api = createPluginContentApi("justflows.shop", "site-1");
+    const api = createPluginContentApi("justflows.store", "site-1");
     await expect(api.deleteType("shop")).resolves.toEqual({ pages: 2, typeDeleted: true });
     expect(clearHomePagesIfMatch).toHaveBeenCalledWith("site-1", new Set(["c1", "c2"]));
     expect(clearBlogPagesIfMatch).toHaveBeenCalledWith("site-1", new Set(["c1", "c2"]));
@@ -127,7 +127,7 @@ describe("createPluginContentApi.deletePages", () => {
         { id: "page-1", type: "page" },
         { id: "nl-1", type: "page" },
       ]);
-    const api = createPluginContentApi("justflows.helpdesk", "site-1");
+    const api = createPluginContentApi("justflows.desk", "site-1");
     await expect(api.deletePages({ type: "page", slug: "support" })).resolves.toEqual({ deleted: 3 });
     expect(run).toHaveBeenCalledWith(
       "DELETE FROM content WHERE site_id = ? AND id IN (?, ?, ?)",
@@ -162,7 +162,7 @@ describe("createPluginContentApi.ensurePage", () => {
   it("updates title when the page already exists", async () => {
     vi.mocked(getContentTypeBySlug).mockResolvedValue(shopType);
     query.mockResolvedValueOnce([{ id: "c1" }]);
-    const api = createPluginContentApi("justflows.shop", "site-1");
+    const api = createPluginContentApi("justflows.store", "site-1");
     await expect(
       api.ensurePage({ type: "shop", title: "Product detail", slug: "product" }),
     ).resolves.toEqual({ created: false, id: "c1", slug: "product" });
@@ -175,7 +175,7 @@ describe("createPluginContentApi.ensurePage", () => {
   it("renames a misspelled alias without inserting", async () => {
     vi.mocked(getContentTypeBySlug).mockResolvedValue({ ...shopType, slug: "page", builtin: true });
     query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "c-typo" }]);
-    const api = createPluginContentApi("justflows.shop", "site-1");
+    const api = createPluginContentApi("justflows.store", "site-1");
     await expect(
       api.ensurePage({
         type: "page",
@@ -194,8 +194,8 @@ describe("createPluginContentApi.ensurePage", () => {
   it("stores blocks and a private cache policy only when inserting", async () => {
     vi.mocked(getContentTypeBySlug).mockResolvedValue({ ...shopType, slug: "page", builtin: true });
     query.mockResolvedValue([]);
-    const api = createPluginContentApi("justflows.helpdesk", "site-1");
-    const blocks = { version: 1 as const, blocks: [{ id: "support-form", type: "justflows.helpdesk.new-ticket", version: 1, props: {} }] };
+    const api = createPluginContentApi("justflows.desk", "site-1");
+    const blocks = { version: 1 as const, blocks: [{ id: "support-form", type: "justflows.desk.new-ticket", version: 1, props: {} }] };
     await api.ensurePage({
       type: "page",
       title: "Support",
@@ -223,7 +223,7 @@ describe("createPluginContentApi.ensurePage", () => {
   it("trashes a public page when the same slug becomes an account page", async () => {
     vi.mocked(getContentTypeBySlug).mockResolvedValue({ ...shopType, slug: "account", builtin: true });
     query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "old-page", type: "page" }]);
-    const api = createPluginContentApi("justflows.helpdesk", "site-1");
+    const api = createPluginContentApi("justflows.desk", "site-1");
     await api.ensurePage({
       type: "account",
       title: "My tickets",
@@ -238,7 +238,7 @@ describe("createPluginContentApi.ensurePage", () => {
   it("does not insert when create is false and nothing matches", async () => {
     vi.mocked(getContentTypeBySlug).mockResolvedValue({ ...shopType, slug: "page", builtin: true });
     query.mockResolvedValue([]);
-    const api = createPluginContentApi("justflows.shop", "site-1");
+    const api = createPluginContentApi("justflows.store", "site-1");
     await expect(
       api.ensurePage({
         type: "page",
@@ -276,7 +276,7 @@ describe("createPluginContentApi.getPublished", () => {
 
   it("returns the published entry with its blocks", async () => {
     query.mockResolvedValueOnce([layout("p1", "en-US")]);
-    const api = createPluginContentApi("justflows.shop", "site-1");
+    const api = createPluginContentApi("justflows.store", "site-1");
     const page = await api.getPublished!({ type: "shop", slug: "product" });
     expect(page).toMatchObject({ id: "p1", type: "shop", slug: "product", blocks: [{ id: "b-en-US" }] });
     expect(query.mock.calls[0]?.[1]).toEqual(["site-1", "shop", "product", "en-US"]);
@@ -284,7 +284,7 @@ describe("createPluginContentApi.getPublished", () => {
 
   it("prefers the visitor's published translation and falls back to the original", async () => {
     query.mockResolvedValueOnce([layout("p1", "en-US")]).mockResolvedValueOnce([layout("p2", "nl-NL", { slug: "product-nl" })]);
-    const api = createPluginContentApi("justflows.shop", "site-1");
+    const api = createPluginContentApi("justflows.store", "site-1");
     expect(await api.getPublished!({ type: "shop", slug: "product", locale: "nl-NL" })).toMatchObject({ id: "p2", blocks: [{ id: "b-nl-NL" }] });
     query.mockResolvedValueOnce([layout("p1", "en-US")]).mockResolvedValueOnce([]);
     expect(await api.getPublished!({ type: "shop", slug: "product", locale: "de-DE" })).toMatchObject({ id: "p1" });
@@ -292,7 +292,7 @@ describe("createPluginContentApi.getPublished", () => {
 
   it("returns null when nothing is published, or it is scheduled for later", async () => {
     query.mockResolvedValueOnce([]);
-    const api = createPluginContentApi("justflows.shop", "site-1");
+    const api = createPluginContentApi("justflows.store", "site-1");
     expect(await api.getPublished!({ type: "shop", slug: "product" })).toBeNull();
     query.mockResolvedValueOnce([layout("p1", "en-US", { published_at: "2999-01-01 00:00:00" })]);
     expect(await api.getPublished!({ type: "shop", slug: "product" })).toBeNull();

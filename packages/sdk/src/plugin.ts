@@ -86,8 +86,6 @@ export const ADMIN_MENU_DOMAINS = [
   "commerce",
   "appearance",
   "users",
-  "helpdesk",
-  "files",
   "plugin",
   "extensions",
   "tools",
@@ -187,7 +185,12 @@ export const AdminMenuItemSchema = z.object({
    */
   path: RelativeAdminPathSchema.optional(),
   icon: z.string().min(1).max(8).default("🔌"),
-  domain: z.enum(ADMIN_MENU_DOMAINS).default("extensions"),
+  /**
+   * Sidebar group. `plugin` gives the plugin its own section (see
+   * `adminSection`). A group this host does not know falls back to
+   * `extensions`, so a manifest written for another host still activates.
+   */
+  domain: z.enum(ADMIN_MENU_DOMAINS).default("extensions").catch("extensions"),
   /** Match the path exactly instead of as a prefix. */
   end: z.boolean().optional(),
   /**
@@ -206,7 +209,7 @@ export const AdminMenuItemSchema = z.object({
     .optional(),
   /**
    * CMS type slug. When set, the generic plugin host lists every content row
-   * of that type on this page (for example Shop Products → `product`).
+   * of that type on this page (for example a Products page → `product`).
    */
   contentType: z
     .string()
@@ -421,7 +424,7 @@ export const PluginAdminAppSchema = z.object({
     .optional(),
   /**
    * One per admin screen. Bounded because manifests come from third-party
-   * packages; 40 leaves room for a large plugin such as Shop.
+   * packages; 40 leaves room for a large plugin such as a store.
    */
   routes: z.array(PluginAdminRouteSchema).min(1).max(40),
   /**
@@ -455,7 +458,7 @@ export const PluginAdminAppSchema = z.object({
 });
 
 /**
- * Every extension id is `justflows.<name>` — first-party only (`justflows.seo`,
+ * Every extension id is `justflows.<name>` — first-party only (`justflows.acme`,
  * `justflows.theme.dark`). The `justflows.` namespace is what the admin URL
  * (`/admin/plugins/justflows.<name>`) and the asset mount
  * (`/ext/justflows.<name>/…`) are built from.
@@ -466,7 +469,7 @@ export const PluginManifestSchema = z
   .object({
     id: z
       .string()
-      .regex(PLUGIN_ID_RE, "Plugin ID must be justflows.<name> (lowercase, e.g. justflows.seo)"),
+      .regex(PLUGIN_ID_RE, "Plugin ID must be justflows.<name> (lowercase, e.g. justflows.acme)"),
     apiNamespace: z.string().refine(isValidPluginApiNamespace, "Invalid or reserved plugin API namespace").optional(),
     name: z.string().min(1).max(100),
     // Anchored at both ends: `.regex()` runs RegExp.test(), which honours only
@@ -697,7 +700,7 @@ export interface PluginCapabilitiesApi {
 
 /**
  * A user role this plugin contributes while it is active. The id is stored on
- * `users.role` (for example Shop's `customer`). It must not replace a core role.
+ * `users.role` (for example a `customer` role). It must not replace a core role.
  */
 export interface PluginRoleDefinition {
   /** Lowercase id, 2–32 characters: letters, digits, and hyphens. */
@@ -836,8 +839,8 @@ export interface PluginCallRequest {
   session?: PluginHttpSession | null;
   /**
    * Run the route as this site. The caller needs `platform:tenancy`. The host
-   * allows only another active site in the same workspace, and Shop (or
-   * whichever plugin is called) still checks the session. Absent means the
+   * allows only another active site in the same workspace, and the plugin
+   * that is called still checks the session. Absent means the
    * current site. Older hosts ignore this field.
    */
   siteId?: string;
@@ -855,7 +858,12 @@ export interface PluginAiResult {
 }
 
 export interface PluginAiApi {
-  complete(input: { instruction: string; text: string }): Promise<PluginAiResult>;
+  /**
+   * `system` is the plugin's own role for the assistant, such as drafting a
+   * support reply. The host always adds that `text` is data written by someone
+   * else and must not be followed as instructions.
+   */
+  complete(input: { instruction: string; text: string; system?: string }): Promise<PluginAiResult>;
 }
 
 export type PluginHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -939,7 +947,7 @@ export interface PluginHttpResponse {
    * response cross-origin. The host adds `Access-Control-Allow-Origin` for
    * vouched-for origins only — `APP_URL`, `STATIC_EXPORT_BASE_URL`, anything in
    * `STATIC_EXPORT_ALLOWED_ORIGINS`, plus any `localhost` port outside
-   * production — the same allow-list the Forms endpoints use.
+   * production — the same allow-list core's comment endpoints use.
    * Set it on a public read the runtime `fetch()`es (a config or disclosure
    * route); a plain `<img>`/beacon GET needs nothing.
    */

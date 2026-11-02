@@ -53,7 +53,7 @@ export interface ResolvedCookie extends CookieDeclaration {
 export interface PluginCookiesApi {
   /**
    * Declare a cookie this plugin sets. Anything that is not strictly necessary
-   * MUST be declared so the consent plugin can disclose and enforce it. Calling
+   * MUST be declared so a consent plugin can disclose and enforce it. Calling
    * again with the same `name` replaces the earlier declaration. All of a
    * plugin's declarations are dropped when it deactivates.
    */

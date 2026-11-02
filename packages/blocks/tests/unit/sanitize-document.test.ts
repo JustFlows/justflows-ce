@@ -57,7 +57,7 @@ describe("sanitizeBlockDocument", () => {
       blocks: [
         {
           id: "1",
-          type: "justflows.shop.gallery",
+          type: "justflows.store.gallery",
           version: 1,
           props: {
             layout: "thumbs",
@@ -82,7 +82,7 @@ describe("sanitizeBlockDocument", () => {
       blocks: [
         {
           id: "1",
-          type: "justflows.shop.product-list",
+          type: "justflows.store.product-list",
           version: 1,
           props: {
             layout: "swatches",
@@ -180,7 +180,7 @@ describe("sanitizeBlockDocument grid placement vs. a block's own `layout` prop",
 
   it("leaves a plugin block's own `layout` value alone (regression: masonry reverting to grid)", () => {
     expect(
-      propsOf("justflows.gallery.grid", { items: [], layout: "masonry", columns: 3, lightbox: true }),
+      propsOf("justflows.album.grid", { items: [], layout: "masonry", columns: 3, lightbox: true }),
     ).toMatchObject({ layout: "masonry" });
   });
 

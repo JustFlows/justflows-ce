@@ -23,8 +23,8 @@ describe("plugin multisite", () => {
   });
 
   it("treats a same-version reinstall on the main site as a stale copy", () => {
-    const old = { version: "0.1.2", manifest: { id: "justflows.shop", installedPath: "/p/0.1.2/aaaa" } };
-    const reinstalled = { version: "0.1.2", manifest: { id: "justflows.shop", installedPath: "/p/0.1.2/bbbb" } };
+    const old = { version: "0.1.2", manifest: { id: "justflows.store", installedPath: "/p/0.1.2/aaaa" } };
+    const reinstalled = { version: "0.1.2", manifest: { id: "justflows.store", installedPath: "/p/0.1.2/bbbb" } };
     expect(subsitePluginCopyIsStale(old, reinstalled)).toBe(true);
     expect(subsitePluginCopyIsStale(old, { ...old, version: "0.1.3" })).toBe(true);
     expect(subsitePluginCopyIsStale(old, { ...old })).toBe(false);

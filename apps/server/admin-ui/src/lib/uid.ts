@@ -4,8 +4,8 @@
  * `crypto.randomUUID()` is only defined when the page is a "secure context"
  * (HTTPS, or a localhost-family host). Serving the admin UI from a bare host
  * such as http://0.0.0.0:3000 leaves it `undefined`, which crashed any page
- * that mints ids during render — most visibly the Forms builder, which
- * rendered a blank screen with `crypto.randomUUID is not a function`.
+ * that mints ids during render — a form builder, for example, rendered a
+ * blank screen with `crypto.randomUUID is not a function`.
  *
  * `crypto.getRandomValues()` is not gated on secure context, so the fallback
  * stays cryptographically strong; the last resort only runs when there is no

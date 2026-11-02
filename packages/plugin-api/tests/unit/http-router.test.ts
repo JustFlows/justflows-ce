@@ -4,7 +4,7 @@ import { PluginHttpRouter } from "../../src/http-router.js";
 describe("PluginHttpRouter", () => {
   it("rejects well-known path conflicts", () => {
     const router = new PluginHttpRouter();
-    router.register("justflows.seo", "GET", "/sitemap.xml", async () => ({ body: "a" }));
+    router.register("justflows.meta", "GET", "/sitemap.xml", async () => ({ body: "a" }));
     expect(() =>
       router.register("justflows.other", "GET", "/sitemap.xml", async () => ({ body: "b" })),
     ).toThrow(/already claimed/);
@@ -31,13 +31,13 @@ describe("PluginHttpRouter", () => {
       rateLimit: { limit: 60, windowMs: 60_000, key: "payment-hook" },
     });
 
-    const matched = router.match("POST", "/ext/acme.shop/payments/hooks/stripe/token");
+    const matched = router.match("POST", "/ext/acme.shop/payments/hooks/provider/token");
     expect(matched?.route.csrf).toBe(false);
     expect(matched?.route.rawBody).toBe(true);
     expect(matched?.route.rateLimit).toEqual({ limit: 60, windowMs: 60_000, key: "payment-hook" });
 
     router.removePlugin("acme.shop");
-    expect(router.match("POST", "/ext/acme.shop/payments/hooks/stripe/token")).toBeUndefined();
+    expect(router.match("POST", "/ext/acme.shop/payments/hooks/provider/token")).toBeUndefined();
   });
 
   it("keeps a binary body limit for uploads and refuses one out of range", () => {
@@ -70,25 +70,25 @@ describe("PluginHttpRouter", () => {
 
 describe("neutral plugin API namespaces", () => {
   it("shares handlers, parameters and policies with legacy aliases", () => {
-    const router = new PluginHttpRouter(); router.setApiNamespace("justflows.shop", "shop");
+    const router = new PluginHttpRouter(); router.setApiNamespace("justflows.store", "shop");
     const handler = async () => ({ body: "ok" });
-    router.register("justflows.shop", "POST", "checkout/:id", handler, { csrf: false, rawBody: true, rateLimit: { limit: 20, windowMs: 60000 } });
+    router.register("justflows.store", "POST", "checkout/:id", handler, { csrf: false, rawBody: true, rateLimit: { limit: 20, windowMs: 60000 } });
     const alias = router.match("POST", "/api/shop/checkout/123");
-    const legacy = router.match("POST", "/ext/justflows.shop/checkout/123");
+    const legacy = router.match("POST", "/ext/justflows.store/checkout/123");
     expect(alias).toEqual(legacy); expect(alias?.route.handler).toBe(handler);
-    expect(router.url("justflows.shop", "checkout")).toBe("/api/shop/checkout");
+    expect(router.url("justflows.store", "checkout")).toBe("/api/shop/checkout");
     expect(alias?.route.rawBody).toBe(true); expect(alias?.route.csrf).toBe(false);
-    router.removePlugin("justflows.shop"); expect(router.match("POST", "/api/shop/checkout/123")).toBeUndefined();
+    router.removePlugin("justflows.store"); expect(router.match("POST", "/api/shop/checkout/123")).toBeUndefined();
     router.setApiNamespace("justflows.other", "shop");
   });
   it("rejects reserved namespaces, duplicate owners and overlapping explicit routes", () => {
     const router = new PluginHttpRouter();
-    expect(() => router.setApiNamespace("justflows.shop", "users")).toThrow(/reserved/);
-    router.setApiNamespace("justflows.shop", "shop");
+    expect(() => router.setApiNamespace("justflows.store", "users")).toThrow(/reserved/);
+    router.setApiNamespace("justflows.store", "shop");
     expect(() => router.setApiNamespace("justflows.other", "shop")).toThrow(/claimed/);
     expect(() => router.register("justflows.other", "GET", "/api/shop/checkout", async () => ({}))).toThrow(/claimed/);
-    router.register("justflows.shop", "GET", "checkout", async () => ({}));
-    expect(() => router.register("justflows.shop", "GET", "/api/shop/checkout", async () => ({}))).toThrow(/claimed/);
+    router.register("justflows.store", "GET", "checkout", async () => ({}));
+    expect(() => router.register("justflows.store", "GET", "/api/shop/checkout", async () => ({}))).toThrow(/claimed/);
   });
   it("preserves legacy defaults for plugins without a namespace", () => {
     const router = new PluginHttpRouter();

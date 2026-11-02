@@ -14,7 +14,7 @@ cp -R plugins/hello-world plugins/my-seo
 pnpm --filter justflows.my-seo build
 ```
 
-Every plugin id is **`justflows.<name>`** (lowercase, e.g. `justflows.seo`) —
+Every plugin id is **`justflows.<name>`** (lowercase, e.g. `justflows.acme`) —
 first-party only. The `justflows.` namespace is what the admin URL
 (`/admin/plugins/justflows.<name>`) and the asset mount
 (`/ext/justflows.<name>/…`) are built from; the manifest validator rejects any
@@ -34,8 +34,8 @@ import type { PluginModule } from "@justflows/sdk";
 
 const plugin: PluginModule = {
   manifest: {
-    id: "justflows.seo",
-    name: "SEO Toolkit",
+    id: "justflows.acme",
+    name: "Acme",
     version: "1.0.0",
     license: "GPL-2.0-or-later",
     engines: { justflows: ">=0.1.8 <0.2.0" },
@@ -108,8 +108,7 @@ ctx.blocks.register({
 
 The options route is an ordinary plugin HTTP route; check the session and a
 capability before answering. `render` is synchronous, so load live data in a
-`content.blocks` filter and write it into the block props before render (Shop's
-product list does this).
+`content.blocks` filter and write it into the block props before render.
 
 The builder previews a plugin block with the block's own `render`, sanitized
 like an HTML block (no scripts or event handlers), and the active theme's
@@ -271,8 +270,8 @@ activate(ctx) {
 Declarations are removed automatically on deactivate. `ctx.cookies.list()`
 returns the whole site registry — the host's own cookies plus every active
 plugin's — with the operator's category overrides applied
-(`Admin → Extensions → Cookie Consent → Cookie declarations`, backed by
-`GET`/`PUT /api/cookies`). Before setting a non-essential cookie from your own
+(saved through `GET`/`PUT /api/cookies`, which a consent plugin's admin
+screen uses). Before setting a non-essential cookie from your own
 client code, check `window.justflowsConsent?.allowed("<name>")`.
 
 ## Page templates
@@ -287,10 +286,10 @@ same shape as a theme's `templates/*.json`) in that folder:
 ```
 
 ```text
-plugins/ecommerce/templates/
+plugins/acme/templates/
   single-product.json
-  single-shop-cart.json
-  single-shop-checkout.json
+  single-cart.json
+  single-checkout.json
 ```
 
 While the plugin is active, the host checks each template-hierarchy slug in this
@@ -515,10 +514,7 @@ Deactivation automatically disposes the filter; cache revalidation rebuilds
 512 KiB of CSS. Plugin CSS is trusted extension code and is not passed through
 the editor's Custom CSS sanitizer, so never concatenate site or request data
 into it. The stylesheet must be present below `dist/` when packaging a
-`.jfpkg`. See the working implementations in `plugins/hello-world` and
-the registry's
-[`plugins/ecommerce`](https://github.com/JustFlows/plugin-registry-service/tree/main/plugins/ecommerce),
-and the complete [`theme.css` hook contract](HOOKS.md#shipping-a-plugin-stylesheet).
+`.jfpkg`. See the working implementation in `plugins/hello-world` and the complete [`theme.css` hook contract](HOOKS.md#shipping-a-plugin-stylesheet).
 
 Every plugin implements `deleteData`. The host calls it on Admin → Plugins →
 Delete, before deactivation. Drop tables with `ctx.databases.dropSchema()` and
@@ -530,8 +526,7 @@ JSON rows with `ctx.data.clear()`. Remove CMS types the plugin created with
   `deleteContentOnUninstall` fields to `settingsSchema` (SDK constants
   `PLUGIN_DELETE_DATA_SETTING` and `PLUGIN_DELETE_CONTENT_SETTING`) and honour
   them with `pluginShouldDeleteData(ctx)` / `pluginShouldDeleteContent(ctx)`.
-  Shop does this — default is to drop `shop_*` tables and to delete Shop and
-  Product pages and posts. Declare `contentTypes` on `justflows.json` so the
+  Declare `contentTypes` on `justflows.json` so the
   host can delete those CMS types on uninstall even if the plugin hook fails.
 
 ## Admin pages
@@ -571,9 +566,9 @@ generic plugin page for the menu item.
 ```
 
 `domain` is a left-sidebar group: `content`, `commerce`, `appearance`,
-`users`, `helpdesk`, `files`, `plugin`, `extensions` (default), `tools`, `security`, or
-`system`. A group with no pages stays hidden. `files` is the Shared files
-sidebar entry.
+`users`, `plugin`, `extensions` (default), `tools`, `security`, or `system`.
+A group with no pages stays hidden. A group this host does not know falls back
+to `extensions`, so the manifest still activates.
 
 `plugin` gives your plugin its own sidebar section, above Extensions. Name it
 with `adminSection` in the manifest; without it the section uses the plugin
@@ -758,10 +753,10 @@ for it: handle `NULL` for older rows and declare a unique index instead. The
 host never changes a column's type and never drops columns or indexes. A
 unique index that existing rows violate fails the call (`ok: false`) instead
 of being skipped. Backfills and other data changes are the plugin's own
-ordered migrations; Shop's `src/setup/migrations.ts` is an example that
-records each one in a plugin table and uses a unique row as its lock.
+ordered migrations. A common approach records each one in a plugin table and
+uses a unique row as its lock.
 
-Set `"requires": ["justflows.shop"]` when this plugin cannot stand alone. Install is refused until each listed plugin is already installed on this site. Activation is refused until each one is active. A plugin cannot list itself.
+Set `"requires": ["justflows.acme"]` when this plugin cannot stand alone. Install is refused until each listed plugin is already installed on this site. Activation is refused until each one is active. A plugin cannot list itself.
 
 Set `"allowMultisite": true` in `justflows.json` when every row is stored with
 `site_id` and another site can run the plugin without touching anyone else's
@@ -955,17 +950,15 @@ await ctx.content.ensurePage({
 Built-in slugs `post` and `page` cannot be recreated.
 
 `deleteType` requires `content:delete`. It removes every CMS entry of that type
-(all locales) and then the type. Built-in slugs cannot be deleted. Shop exposes
-**Delete shop pages and posts when this plugin is removed** so uninstall can
-clear storefront pages and product posts as well as `shop_*` tables.
+(all locales) and then the type. Built-in slugs cannot be deleted. Offer a `deleteContentOnUninstall` setting so
+an operator decides whether uninstall also clears those entries.
 
 `getPublished({ type, slug, locale })` returns one published entry with its
 blocks, or `null` when none is published (or it is scheduled or expired). Look
 it up by the default-locale slug; with `locale`, the published translation in
 that language is returned when there is one. It requires `content:read`, and
-older hosts do not have it, so call it as `ctx.content.getPublished?.(…)`. Shop
-uses it to render every product in the shared layout kept on its Product detail
-page:
+older hosts do not have it, so call it as `ctx.content.getPublished?.(…)`. A plugin can use it to render each of its
+entries in a shared layout kept on one page:
 
 ```ts
 const page = await ctx.content.getPublished?.({ type: "shop", slug: "product", locale: context.locale });
@@ -1050,8 +1043,8 @@ to expose relative HTTP routes without `/ext/<plugin-id>/` in frontend API URLs:
 
 ```ts
 manifest: {
-  id: "justflows.shop",
-  apiNamespace: "shop",
+  id: "justflows.acme",
+  apiNamespace: "acme",
   // ...the other manifest fields
 }
 
@@ -1060,11 +1053,11 @@ ctx.http.get("checkout", async (request) => {
   // Apply your usual session/ownership checks here.
   return { body: await ownCheckout(request.session) };
 });
-const checkoutUrl = ctx.http.url("checkout"); // /api/shop/checkout
+const checkoutUrl = ctx.http.url("checkout"); // /api/acme/checkout
 ```
 
-Browser bundles can import `pluginApiUrl("shop", "checkout")` from the SDK.
-A plain browser script may use the same stable `/api/shop` base. Paths passed to
+Browser bundles can import `pluginApiUrl("acme", "checkout")` from the SDK.
+A plain browser script may use the same stable `/api/acme` base. Paths passed to
 the helper are relative; query strings are preserved and traversal is refused.
 The namespace is a lowercase slug of at most 40 characters. Core API namespaces
 are reserved, and two plugins cannot claim the same namespace. Keep it stable
@@ -1084,7 +1077,7 @@ webhooks keep their explicit exemption. Neutral plugin account routes at
 `/api/<namespace>/account` and below also receive the host's mandatory private,
 no-store policy. Sensitive handlers must still validate ownership on every call.
 
-Shop demonstrates the migration in `plugins/ecommerce`; Hello World's `status`
+Hello World's `status`
 route is available at `/api/hello-world/status`. Updating source requires building
 and installing the updated plugin package before an installed site uses its
 new manifest and browser assets.

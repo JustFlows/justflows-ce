@@ -85,14 +85,14 @@ describe("permanent workspace deletion", () => {
     expect(m.create).not.toHaveBeenCalled();
   });
   it("cleans recorded plugin tables without dropping shared tables", async () => {
-    m.contentQuery.mockResolvedValue([{ plugin_id: "justflows.shop" }]);
+    m.contentQuery.mockResolvedValue([{ plugin_id: "justflows.store" }]);
     expect(await purgeDeletedTenant(id, null)).toEqual({ ok: true, tenantId: id });
-    expect(m.storage).toHaveBeenCalledWith("invalid-file-id", "justflows.shop", { rowsOnly: true, strictRemote: true, driver: "mariadb" });
+    expect(m.storage).toHaveBeenCalledWith("invalid-file-id", "justflows.store", { rowsOnly: true, strictRemote: true, driver: "mariadb" });
     expect(m.run).toHaveBeenCalledWith(expect.stringContaining("DELETE FROM job_queue"), [id]);
     expect(m.action).toHaveBeenCalledWith("workspace.purged", { tenantId: id }, { source: "system" });
   });
   it("preserves records when plugin data cannot be removed", async () => {
-    m.contentQuery.mockResolvedValue([{ plugin_id: "justflows.shop" }]);
+    m.contentQuery.mockResolvedValue([{ plugin_id: "justflows.store" }]);
     m.storage.mockResolvedValue({ ok: false });
     await expect(purgeDeletedTenant(id, null)).rejects.toThrow("Plugin data could not be removed");
     expect(m.run).not.toHaveBeenCalled();

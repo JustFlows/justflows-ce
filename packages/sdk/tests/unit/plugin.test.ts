@@ -12,7 +12,7 @@ const base = {
 
 describe("PluginManifestSchema — required plugins", () => {
   it("keeps requires and refuses a plugin that requires itself", () => {
-    expect(PluginManifestSchema.parse({ ...base, requires: ["justflows.shop"] }).requires).toEqual(["justflows.shop"]);
+    expect(PluginManifestSchema.parse({ ...base, requires: ["justflows.store"] }).requires).toEqual(["justflows.store"]);
     expect(() => PluginManifestSchema.parse({ ...base, requires: ["justflows.widget"] })).toThrow(/itself/);
   });
 });

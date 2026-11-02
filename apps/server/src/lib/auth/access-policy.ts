@@ -91,8 +91,8 @@ export async function capabilitiesOfRoles(roles: readonly string[]): Promise<str
 }
 
 /**
- * Roles a user holds next to `users.role`, such as Shop's `customer` on a
- * subscriber. They only add capabilities: `requireRole()`, the session's
+ * Roles a user holds next to `users.role`, such as a plugin's `customer` role on
+ * a subscriber. They only add capabilities: `requireRole()`, the session's
  * `role`, and the last-administrator guard all read the primary role, which
  * is why administrator can never be an additional role.
  */

@@ -1201,8 +1201,8 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     const style = `<style>${layoutCss}</style>`;
     headExtra = headExtra ? `${headExtra}\n${style}` : style;
   }
-  // The Forms plugin ships its own enhancement script via `manifest.assets`,
-  // so it is already in `pluginAssetHead` above — nothing forms-specific here.
+  // Plugins ship their own enhancement scripts via `manifest.assets`, so they
+  // are already in `pluginAssetHead` above.
   let pwaBody = "";
   if (siteId && !data.preview) {
     const { getPwaSettings } = await import("../../lib/pwa/pwa-settings.js");

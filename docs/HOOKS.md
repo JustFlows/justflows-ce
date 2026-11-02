@@ -483,7 +483,7 @@ export function registerHeaders(ctx: PluginContext) {
     ...list,
     {
       id: "acme.shop:mega-menu", // must be "<yourPluginId>:<slug>"
-      name: "Shop mega menu",
+      name: "Catalog mega menu",
       description: "Header driven by your catalog categories",
       async build({ siteId }) {
         const categories = await loadCategories(siteId);
@@ -497,7 +497,7 @@ export function registerHeaders(ctx: PluginContext) {
 }
 ```
 
-The site owner then picks **Shop mega menu** from the page's Header dropdown
+The site owner then picks **Catalog mega menu** from the page's Header dropdown
 (under _From plugins_). Selecting it stores the ref `"acme.shop:mega-menu"` on
 the page. The host re-sanitises every `HeaderConfig` you return — blocks are
 capped at 40, `background` must be a safe CSS colour, enum fields are clamped —
@@ -683,7 +683,7 @@ makes both correctness and performance attributable to a specific extension.
 | `content.input`            | `Record<string, unknown>`               | `{ siteId }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `content.output`           | `Record<string, unknown>`               | `{ siteId }`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `content.blocks`           | block tree                              | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on stored blocks before HTML render. Handlers may be async so a plugin can fill `{{tags}}` before `esc()`.                                                                                                                                                                                                                                                                                                                              |
-| `content.render`           | `string` (HTML)                         | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on public body HTML after blocks render. Handlers may be async (Shop uses this to fill `{{price}}` and other product tags).                                                                                                                                                                                                                                                                                                                                            |
+| `content.render`           | `string` (HTML)                         | `{ siteId, contentId, type?, title?, excerpt?, translationGroupId? }` — applied on public body HTML after blocks render. Handlers may be async (a store plugin can fill `{{price}}` and other product tags).                                                                                                                                                                                                                                                                                                                                            |
 | `comments.render`          | `string` (HTML)                         | `CommentsBlockRenderContext` — the rendered `justflows.comments.thread` block. Return replacement HTML for full markup control (the context carries the threaded `PublicComment[]`, counts, form/policy state, `basePath`, `locale`, `currentUser`, `captchaProvider`), or the value unchanged to keep the default. Handlers may be async. Deactivating the plugin restores the default markup. The submission endpoint (`POST /justflows-comments/submit`), `comments` table, and moderation API are unchanged — only the rendering is yours.         |
 | `comments.spamBackend`     | `SpamCheckBackend \| null`              | `{ siteId }` — seeded with `null`. Return an Akismet-style backend implementing `check(input)`, or the incoming value unchanged. Requires `network:outbound`. The host always applies its own configured thresholds on top of the verdict and never requires a handler to be registered — see [Comment spam backend filter](#comment-spam-backend-filter).                                                                                                                                                                                             |
 | `content.revision`         | proposed snapshot                       | `{ siteId, contentId }` — filters the working revision before it is stored. Committed history is immutable.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -918,8 +918,8 @@ sends the session cookie and CSRF header, then reloads the account after success
 Each endpoint must independently validate authentication, ownership and allowed
 state transitions. Never authorize by an unverified email, request query, or
 previously rendered card. Other forms and detailed plugin screens can be linked
-from a card. See `registerAccountExample` in `plugins/hello-world/src/index.ts` and Shop's
-`src/customers/account.ts` for working examples.
+from a card. See `registerAccountExample` in `plugins/hello-world/src/index.ts` for a working
+example.
 
 Account data is request-scoped and **must never enter a shared cache**. Hook
 handlers should use bounded local reads and avoid slow external provider calls.
@@ -965,6 +965,6 @@ The host removes recorded plugin table rows (including remote targets), site rec
 cascading related data, durable site job payloads, files, domains and unshared databases.
 `workspace.purged` receives `{ tenantId }` after permanent removal; it is a notification,
 not a place for required cleanup. Shared root accounts and unrelated workspaces remain.
-Shop cancels linked subscriptions and retains them, their events, renewal links and existing
-orders/payments in the root shop's transaction history. Workspace lifecycle hooks must not
+A subscription plugin should cancel linked subscriptions and keep them, their events, and
+existing orders and payments in its own transaction history. Workspace lifecycle hooks must not
 delete financial records; financial retention is independent of workspace cleanup.
