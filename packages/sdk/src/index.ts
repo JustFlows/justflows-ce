@@ -115,6 +115,8 @@ export {
   PluginManifestSchema,
   PluginAssetsSchema,
   PluginBlockAssetsSchema,
+  PluginMarkupAssetsSchema,
+  AssetMarkupSelectorSchema,
   PluginTemplatesSchema,
   PluginAdminAppSchema,
   PluginPermissionSchema,

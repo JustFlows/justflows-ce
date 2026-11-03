@@ -1283,7 +1283,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   /** Scripts are picked from the finished page, header and footer included. */
   const [pluginAssets, themeAssets] = await Promise.all([pluginBlockAssetTags(html), themeBlockAssetTags(html)]);
   return applyPageScripts(html, {
-    head: [...pluginAssets.head, ...themeAssets.head],
+    styles: [...pluginAssets.styles, ...themeAssets.styles],
     body: [
       ...pluginAssets.body,
       ...themeAssets.body,

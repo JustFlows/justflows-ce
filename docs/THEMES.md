@@ -632,8 +632,8 @@ core or plugin:
 ```
 
 The host adds those files only to pages that render that block, whether from
-content, a template, the header or footer, or a widget area: stylesheets in the
-head, scripts deferred at the end of the body, each file once. They are served
+content, a template, the header or footer, or a widget area: stylesheets before
+`/theme.css`, scripts deferred at the end of the body, each file once. They are served
 from `/theme-assets/<path>?v=<content hash>` and cached for good. Only the
 files declared here are served from that path; nothing else in the theme folder
 is reachable.
@@ -644,6 +644,18 @@ per file. To find the blocks, the host marks each rendered block of a declared
 type with a `<!--jf-block:<type>-->` comment (plugin blocks always carry one).
 A change to the declaration takes effect within about 15 seconds, or at once
 when the theme is activated.
+
+For markup that is not one block, add `assets.markup` rules with the same
+selector syntax as plugins (`#id`, `.class`, `.class-prefix*`, `[attribute]`):
+
+```json
+"assets": {
+  "markup": [{ "match": [".hero-slider"], "scripts": ["assets/slider.js"] }]
+}
+```
+
+Per-page stylesheets are linked before `/theme.css`, so the theme's own styles
+and the site's Additional CSS still win over them.
 
 For remote video/audio dependencies, declare up to 20 exact HTTPS origins in
 `mediaOrigins`, e.g. `["https://media.example.com"]`. On public requests, the

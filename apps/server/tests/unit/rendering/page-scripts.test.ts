@@ -13,13 +13,14 @@ const {
   BODY_SCRIPTS_SLOT,
   HASHED_PUBLIC_SCRIPT,
   HEAD_SCRIPTS_SLOT,
+  HEAD_STYLES_SLOT,
   pageScriptNames,
   publicScriptUrl,
   resetPublicScriptManifest,
 } = await import("../../../src/lib/rendering/page-scripts.js");
 
 const page = (body: string) =>
-  `<html><head>${HEAD_SCRIPTS_SLOT}</head><body>${body}${BODY_SCRIPTS_SLOT}</body></html>`;
+  `<html><head>${HEAD_STYLES_SLOT}<link rel="stylesheet" href="/theme.css">${HEAD_SCRIPTS_SLOT}</head><body>${body}${BODY_SCRIPTS_SLOT}</body></html>`;
 
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
@@ -51,13 +52,13 @@ describe("applyPageScripts", () => {
 
   it("fills the slots: site-chrome blocking, everything else deferred, extras last", () => {
     const html = applyPageScripts(page('<nav data-jf-nav></nav><div data-jf-anim="in-view"></div>'), {
-      head: ['<link rel="stylesheet" href="/ext/acme.x/x.css">'],
+      head: ['<meta name="x">'],
       body: ['<script src="/theme.js?v=abc" defer></script>'],
     });
     expect(html).not.toContain(HEAD_SCRIPTS_SLOT);
     expect(html).not.toContain(BODY_SCRIPTS_SLOT);
     const head = html.slice(0, html.indexOf("</head>"));
-    expect(head).toContain('<script src="/js/site-chrome.js"></script>\n<script src="/js/site-nav.js" defer></script>\n<link rel="stylesheet" href="/ext/acme.x/x.css">');
+    expect(head).toContain('<script src="/js/site-chrome.js"></script>\n<script src="/js/site-nav.js" defer></script>\n<meta name="x">');
     const body = html.slice(html.indexOf("<body>"));
     expect(body).toContain('<script src="/js/block-animations.js" defer></script>\n<script src="/theme.js?v=abc" defer></script>');
     expect(html).not.toContain("block-interactions");
@@ -78,7 +79,8 @@ describe("applyPageScripts", () => {
 describe("page stylesheets", () => {
   it("links the KaTeX stylesheet only on a page with a formula", () => {
     const math = applyPageScripts(page('<p>Area: <span class="jf-math" data-formula="\\pi r^2" contenteditable="false"><span class="katex">…</span></span></p>'));
-    expect(math.slice(0, math.indexOf("</head>"))).toContain('<link rel="stylesheet" href="/vendor/katex/katex.min.css">');
+    /** Before the theme stylesheet, so the theme can override it. */
+    expect(math).toContain('<link rel="stylesheet" href="/vendor/katex/katex.min.css"><link rel="stylesheet" href="/theme.css">');
     expect(applyPageScripts(page("<p>No formulas here, not even jf-math as text.</p>"))).not.toContain("katex.min.css");
   });
 });

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { markBlockTypes, withBlockChrome } from "@justflows/blocks";
-import { blockAssetTags } from "../../../src/lib/rendering/block-assets.js";
+import { pageAssetTags } from "../../../src/lib/rendering/block-assets.js";
 import { readThemeBlockAssets, themeAssetHref } from "../../../src/lib/themes/theme-block-assets.js";
 
 describe("theme per-block assets", () => {
@@ -43,10 +43,10 @@ describe("theme per-block assets", () => {
     markBlockTypes(assets.blocks.map((block) => block.type));
     const entries = assets.blocks.map((block) => ({ ...block, href: (rel: string) => themeAssetHref(assets, rel) }));
     const page = `<main>${withBlockChrome("<figure>g</figure>", { type: "core.gallery", props: {} })}${withBlockChrome("<div>p</div>", { type: "acme.shop.product", props: {} })}</main>`;
-    const tags = blockAssetTags(entries, page);
-    expect(tags.head).toHaveLength(1);
+    const tags = pageAssetTags(entries, page);
+    expect(tags.styles).toHaveLength(1);
     /** Shared by both blocks, linked once. */
     expect(tags.body).toHaveLength(1);
-    expect(blockAssetTags(entries, "<main><p>plain</p></main>")).toEqual({ head: [], body: [] });
+    expect(pageAssetTags(entries, "<main><p>plain</p></main>")).toEqual({ styles: [], body: [] });
   });
 });

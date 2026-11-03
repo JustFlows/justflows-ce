@@ -161,8 +161,45 @@ describe("per-block assets", () => {
     ];
     const page = "<main><div>a</div><!--jf-block:acme.widgets.slider--><div>b</div><!--jf-block:acme.widgets.carousel--></main>";
     const tags = blockAssetTagsFor(sets, page);
-    expect(tags.head).toEqual([expect.stringMatching(/^<link rel="stylesheet" href="\/ext\/acme\.widgets\/slider\.css\?v=[0-9a-f]{12}">$/)]);
+    expect(tags.styles).toEqual([expect.stringMatching(/^<link rel="stylesheet" href="\/ext\/acme\.widgets\/slider\.css\?v=[0-9a-f]{12}">$/)]);
     expect(tags.body).toEqual([expect.stringMatching(/^<script src="\/ext\/acme\.widgets\/slider\.js\?v=[0-9a-f]{12}" defer><\/script>$/)]);
-    expect(blockAssetTagsFor(sets, "<main>no plugin blocks</main>")).toEqual({ head: [], body: [] });
+    expect(blockAssetTagsFor(sets, "<main>no plugin blocks</main>")).toEqual({ styles: [], body: [] });
+  });
+});
+
+describe("markup assets", () => {
+  let dir: string;
+  beforeAll(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "jf-markup-assets-"));
+    writeFileSync(path.join(dir, "shop.js"), "window.__shop = 1;");
+    writeFileSync(path.join(dir, "shop.css"), ".jf-shop{}");
+    writeFileSync(path.join(dir, "forms.js"), "window.__forms = 1;");
+  });
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("keeps rules with valid selectors and existing files", () => {
+    const { markup } = readBlockAssets("acme.shop", dir, undefined, [
+      { match: ["#jf-cart-page", "[data-jf-purchase]", ".jf-product-*", "div > p", "#1bad"], scripts: ["shop.js"], styles: ["shop.css", "missing.css"] },
+      { match: ["nonsense selector"], scripts: ["shop.js"] },
+      { match: [".jf-x"], scripts: ["../escape.js"] },
+    ]);
+    expect(markup).toEqual([{ match: ["#jf-cart-page", "[data-jf-purchase]", ".jf-product-*"], scripts: ["shop.js"], styles: ["shop.css"] }]);
+  });
+
+  it("links a rule's files only on pages that contain one of its selectors", () => {
+    const sets = [
+      { pluginId: "acme.shop", ...readBlockAssets("acme.shop", dir, undefined, [
+        { match: ["#jf-cart-page", "[data-jf-purchase]", ".jf-product-*"], scripts: ["shop.js"], styles: ["shop.css"] },
+      ]) },
+      { pluginId: "acme.forms", ...readBlockAssets("acme.forms", dir, undefined, [{ match: ["[data-jf-form]"], scripts: ["forms.js"] }]) },
+    ];
+    const pageWith = (html: string) => blockAssetTagsFor(sets, `<main>${html}</main>`);
+    expect(pageWith('<div id="jf-cart-page" class="jf-cart-page"></div>').body).toHaveLength(1);
+    expect(pageWith('<div class="card jf-product-gallery__thumbs"></div>').styles).toHaveLength(1);
+    expect(pageWith('<div class="jf-form" data-jf-form="contact"></div>').body).toEqual([
+      expect.stringMatching(/^<script src="\/ext\/acme\.forms\/forms\.js\?v=[0-9a-f]{12}" defer><\/script>$/),
+    ]);
+    /** Text that only mentions the markup, or a look-alike, is not a match. */
+    expect(pageWith('<p>Add data-jf-form or #jf-cart-page to a page.</p><div class="not-jf-product-x" id="jf-cart-page-2"></div>')).toEqual({ styles: [], body: [] });
   });
 });

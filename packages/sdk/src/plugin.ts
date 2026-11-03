@@ -341,7 +341,29 @@ const PluginAssetFileSchema = z
 export const PluginBlockAssetsSchema = z.object({
   /** `.js` / `.mjs` files added as `<script defer>` at the end of the page. */
   scripts: z.array(PluginAssetFileSchema).max(10).optional(),
-  /** `.css` files added as `<link rel="stylesheet">` in the head. */
+  /** `.css` files added as `<link rel="stylesheet">` before the theme stylesheet. */
+  styles: z.array(PluginAssetFileSchema).max(10).optional(),
+});
+
+/**
+ * A selector a page must contain for an `assets.markup` rule to apply:
+ * `#id`, `.class`, `.class-prefix*` (any class starting with the prefix), or
+ * `[attribute]`. Matched against the finished HTML, so it finds markup from
+ * any source: content, templates, plugin routes, header and footer.
+ */
+export const AssetMarkupSelectorSchema = z
+  .string()
+  .regex(
+    /^(?:#[A-Za-z][A-Za-z0-9_-]{0,63}|\.[A-Za-z_][A-Za-z0-9_-]{0,63}\*?|\[[a-z][a-z0-9-]{0,63}\])$/,
+    "Use #id, .class, .class-prefix*, or [attribute]",
+  );
+
+/** Assets a page loads when it contains any of `match`. Paths are relative to the assets `dir`. */
+export const PluginMarkupAssetsSchema = z.object({
+  match: z.array(AssetMarkupSelectorSchema).min(1).max(20),
+  /** `.js` / `.mjs` files added as `<script defer>` at the end of the page. */
+  scripts: z.array(PluginAssetFileSchema).max(10).optional(),
+  /** `.css` files added as `<link rel="stylesheet">` before the theme stylesheet. */
   styles: z.array(PluginAssetFileSchema).max(10).optional(),
 });
 
@@ -349,9 +371,11 @@ export const PluginBlockAssetsSchema = z.object({
  * Client-side assets a plugin ships in its package. On activation the host
  * serves `<dir>/**` at `/ext/<pluginId>/**` and auto-enqueues `scripts` /
  * `styles` on every public page — no `ctx.http` route or `html.head` filter.
- * `blocks` maps one of the plugin's own block types to assets the host adds
- * only to pages that render that block, from content, header, footer, or a
- * widget area, with a content-hashed URL that browsers cache for good.
+ * `blocks` maps one of the plugin's own block types, and `markup` a list of
+ * selectors, to assets the host adds only to pages that render that block or
+ * contain that markup (from content, templates, header, footer, widget areas,
+ * or plugin routes), with a content-hashed URL that browsers cache for good.
+ * Prefer them to `scripts` / `styles` for anything not every page needs.
  * The static exporter downloads them like any other same-origin asset.
  */
 export const PluginAssetsSchema = z.object({
@@ -380,6 +404,8 @@ export const PluginAssetsSchema = z.object({
     )
     .refine((value) => Object.keys(value).length <= 50, "At most 50 block types may declare assets")
     .optional(),
+  /** Assets for pages that contain markup the plugin's script or styles act on. */
+  markup: z.array(PluginMarkupAssetsSchema).max(20).optional(),
 });
 
 /**

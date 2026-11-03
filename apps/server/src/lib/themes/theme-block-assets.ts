@@ -4,16 +4,17 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { isMarkableBlockType, markBlockTypes } from "@justflows/blocks";
 import { safeAssetRel } from "../plugins/plugin-assets.js";
-import { blockAssetTags } from "../rendering/block-assets.js";
+import { pageAssetTags, readMarkupAssets } from "../rendering/block-assets.js";
 import { resolvePathUnderBase } from "../security/safe-path.js";
 import { readThemeBlockAssetsSpec, resolveThemeDir } from "./theme-files.js";
 import { getActiveTheme, getSiteId, themeInstalledPath } from "./themes-db.js";
 
 /**
- * Per-block assets of the active theme: `assets.blocks` in
- * `justflows-theme.json` maps any block type, core or plugin, to scripts and
- * stylesheets (relative to the theme folder) that only pages rendering that
- * block load, from `/theme-assets/<path>?v=<content hash>`. Only declared
+ * Per-page assets of the active theme: `assets.blocks` in
+ * `justflows-theme.json` maps any block type, core or plugin, and
+ * `assets.markup` lists selectors, to scripts and stylesheets (relative to the
+ * theme folder) that only pages rendering that block or containing that
+ * markup load, from `/theme-assets/<path>?v=<content hash>`. Only declared
  * files are served there; everything else in the theme folder stays private.
  */
 
@@ -31,6 +32,7 @@ const CONTENT_TYPES: Record<string, string> = {
 export interface ThemeBlockAssets {
   dir: string;
   blocks: Array<{ type: string; scripts: string[]; styles: string[] }>;
+  markup: Array<{ match: string[]; scripts: string[]; styles: string[] }>;
   /** Content version of each declared file, by path relative to `dir`. */
   versions: Map<string, string>;
 }
@@ -53,29 +55,31 @@ function fileVersion(dir: string, rel: string): string | null {
   }
 }
 
-/** Validate a theme's `assets.blocks`: known-safe block ids and existing, safe files only. */
-export function readThemeBlockAssets(dir: string, spec: unknown): ThemeBlockAssets {
-  const result: ThemeBlockAssets = { dir, blocks: [], versions: new Map() };
-  if (!spec || typeof spec !== "object" || Array.isArray(spec)) return result;
-  for (const [type, raw] of Object.entries(spec as Record<string, unknown>).slice(0, MAX_TYPES)) {
-    if (!isMarkableBlockType(type) || !raw || typeof raw !== "object") continue;
-    const pick = (list: unknown): string[] => {
-      if (!Array.isArray(list)) return [];
-      const out: string[] = [];
-      for (const value of list.slice(0, MAX_FILES)) {
-        const rel = safeAssetRel(value);
-        if (!rel || out.includes(rel)) continue;
-        const version = result.versions.get(rel) ?? fileVersion(dir, rel);
-        if (!version) continue;
-        result.versions.set(rel, version);
-        out.push(rel);
-      }
-      return out;
-    };
-    const entry = raw as { scripts?: unknown; styles?: unknown };
-    const block = { type, scripts: pick(entry.scripts), styles: pick(entry.styles) };
-    if (block.scripts.length || block.styles.length) result.blocks.push(block);
+/** Validate a theme's `assets.blocks` and `assets.markup`: safe block ids and selectors, existing safe files only. */
+export function readThemeBlockAssets(dir: string, spec: unknown, markupSpec?: unknown): ThemeBlockAssets {
+  const result: ThemeBlockAssets = { dir, blocks: [], markup: [], versions: new Map() };
+  const pick = (list: unknown): string[] => {
+    if (!Array.isArray(list)) return [];
+    const out: string[] = [];
+    for (const value of list.slice(0, MAX_FILES)) {
+      const rel = safeAssetRel(value);
+      if (!rel || out.includes(rel)) continue;
+      const version = result.versions.get(rel) ?? fileVersion(dir, rel);
+      if (!version) continue;
+      result.versions.set(rel, version);
+      out.push(rel);
+    }
+    return out;
+  };
+  if (spec && typeof spec === "object" && !Array.isArray(spec)) {
+    for (const [type, raw] of Object.entries(spec as Record<string, unknown>).slice(0, MAX_TYPES)) {
+      if (!isMarkableBlockType(type) || !raw || typeof raw !== "object") continue;
+      const entry = raw as { scripts?: unknown; styles?: unknown };
+      const block = { type, scripts: pick(entry.scripts), styles: pick(entry.styles) };
+      if (block.scripts.length || block.styles.length) result.blocks.push(block);
+    }
   }
+  result.markup = readMarkupAssets(markupSpec, pick);
   return result;
 }
 
@@ -94,8 +98,9 @@ export async function activeThemeBlockAssets(): Promise<ThemeBlockAssets | null>
   if (cached && Date.now() - cached.at < TTL_MS) return cached.value;
   const theme = await getActiveTheme(siteId);
   const dir = theme ? resolveThemeDir(theme.theme_id, themeInstalledPath(theme)) : null;
-  const assets = dir ? readThemeBlockAssets(dir, readThemeBlockAssetsSpec(dir)) : null;
-  const value = assets && assets.blocks.length ? assets : null;
+  const spec = dir ? readThemeBlockAssetsSpec(dir) : null;
+  const assets = dir && spec ? readThemeBlockAssets(dir, spec.blocks, spec.markup) : null;
+  const value = assets && (assets.blocks.length || assets.markup.length) ? assets : null;
   if (value) markBlockTypes(value.blocks.map((block) => block.type));
   memo.set(siteId, { at: Date.now(), value });
   return value;
@@ -112,12 +117,12 @@ export function themeAssetHref(assets: Pick<ThemeBlockAssets, "versions">, rel: 
   return `/theme-assets/${rel.split("/").map(encodeURIComponent).join("/")}${version ? `?v=${version}` : ""}`;
 }
 
-/** Tags for the active theme's assets of the block types `html` renders. */
-export async function themeBlockAssetTags(html: string): Promise<{ head: string[]; body: string[] }> {
-  if (!html.includes("<!--jf-block:")) return { head: [], body: [] };
+/** Tags for the active theme's assets the finished page `html` needs. */
+export async function themeBlockAssetTags(html: string): Promise<{ styles: string[]; body: string[] }> {
   const assets = await activeThemeBlockAssets();
-  if (!assets) return { head: [], body: [] };
-  return blockAssetTags(assets.blocks.map((block) => ({ ...block, href: (rel: string) => themeAssetHref(assets, rel) })), html);
+  if (!assets) return { styles: [], body: [] };
+  const href = (rel: string) => themeAssetHref(assets, rel);
+  return pageAssetTags([...assets.blocks.map((block) => ({ ...block, href })), ...assets.markup.map((rule) => ({ ...rule, href }))], html);
 }
 
 /** Resolve `/theme-assets/<rel>` to a file the active theme declared, or null. */

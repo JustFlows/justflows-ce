@@ -67,7 +67,12 @@ export function resetPublicScriptManifest(): void {
   manifest = null;
 }
 
-/** Where `layout.ejs` puts the scripts this module picks for the page. */
+/**
+ * Where `layout.ejs` puts what this module picks for the page. Stylesheets go
+ * before the theme stylesheet, so the theme and the site's Additional CSS
+ * still override them.
+ */
+export const HEAD_STYLES_SLOT = "<!--jf:head-styles-->";
 export const HEAD_SCRIPTS_SLOT = "<!--jf:head-scripts-->";
 export const BODY_SCRIPTS_SLOT = "<!--jf:body-scripts-->";
 
@@ -130,18 +135,23 @@ function scriptTag(script: PageScript): string {
 }
 
 /**
- * Fill the layout's script slots with the core stylesheets and scripts the
- * finished page needs, followed by `extra` tags (theme and per-block plugin
- * assets) in each slot.
+ * Fill the layout's slots with the core stylesheets and scripts the finished
+ * page needs, followed by `extra` tags (per-page plugin and theme assets, the
+ * theme script) in each slot.
  */
-export function applyPageScripts(html: string, extra: { head?: string[]; body?: string[] } = {}): string {
+export function applyPageScripts(html: string, extra: { styles?: string[]; head?: string[]; body?: string[] } = {}): string {
   const needed = new Set(pageScriptNames(html));
   const tags = (slot: "head" | "body") => [
-    ...(slot === "head" ? pageStylesheetHrefs(html).map((href) => `<link rel="stylesheet" href="${href}">`) : []),
     ...PAGE_SCRIPTS.filter((script) => script.slot === slot && needed.has(script.name)).map(scriptTag),
     ...(extra[slot] ?? []),
   ].join("\n");
+  const styles = [
+    ...pageStylesheetHrefs(html).map((href) => `<link rel="stylesheet" href="${href}">`),
+    ...(extra.styles ?? []),
+  ].join("\n");
   let out = html;
+  const styleSlot = out.indexOf(HEAD_STYLES_SLOT);
+  if (styleSlot !== -1) out = `${out.slice(0, styleSlot)}${styles}${out.slice(styleSlot + HEAD_STYLES_SLOT.length)}`;
   const head = out.indexOf(HEAD_SCRIPTS_SLOT);
   if (head !== -1) out = `${out.slice(0, head)}${tags("head")}${out.slice(head + HEAD_SCRIPTS_SLOT.length)}`;
   const body = out.lastIndexOf(BODY_SCRIPTS_SLOT);

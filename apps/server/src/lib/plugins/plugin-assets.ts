@@ -7,7 +7,7 @@ import { parseEnvBool } from "@justflows/core";
 import { PLUGIN_ID_RE } from "@justflows/sdk";
 import { blockAssetMarker } from "@justflows/blocks";
 import { getDb } from "../database/db.js";
-import { blockAssetTags } from "../rendering/block-assets.js";
+import { pageAssetTags, readMarkupAssets } from "../rendering/block-assets.js";
 import { getSiteId } from "../themes/themes-db.js";
 import { pluginsDir } from "./plugins-db.js";
 import { resolvePathUnderBase } from "../security/safe-path.js";
@@ -21,9 +21,10 @@ import { resolvePathUnderBase } from "../security/safe-path.js";
  * plugin count. The static exporter downloads the bundle like any other asset.
  * Set `PLUGIN_ASSETS_BUNDLE=0` to emit a `<script>` per plugin file instead.
  *
- * `manifest.assets.blocks` assets are never bundled or enqueued everywhere:
- * they are linked one file at a time, with a `?v=<content hash>` the
- * `/ext` route caches as immutable, only on pages that render that block.
+ * `manifest.assets.blocks` and `assets.markup` assets are never bundled or
+ * enqueued everywhere: they are linked one file at a time, with a
+ * `?v=<content hash>` the `/ext` route caches as immutable, only on pages that
+ * render that block or contain that markup.
  */
 
 interface AssetBundle {
@@ -42,7 +43,9 @@ interface PluginAssetSet {
   styles: string[];
   /** Per-block assets of the plugin's own block types, in manifest order. */
   blocks: Array<{ type: string; scripts: string[]; styles: string[] }>;
-  /** Content version of each per-block asset file, by relative path. */
+  /** Assets for pages containing given markup (`assets.markup`). */
+  markup: Array<{ match: string[]; scripts: string[]; styles: string[] }>;
+  /** Content version of each per-block or markup asset file, by relative path. */
   versions: Map<string, string>;
 }
 
@@ -163,25 +166,32 @@ function pickAssetFiles(baseDir: string, list: unknown, max = 20): string[] {
 }
 
 /**
- * `manifest.assets.blocks`: the files each of the plugin's own block types
- * needs (the namespace `ctx.blocks.register` enforces; other types are
- * ignored), and a content version per file for its immutable URL.
+ * `manifest.assets.blocks` and `assets.markup`: the files each of the plugin's
+ * own block types needs (the namespace `ctx.blocks.register` enforces; other
+ * types are ignored), the markup rules, and a content version per file for
+ * its immutable URL.
  */
 export function readBlockAssets(
   pluginId: string,
   baseDir: string,
   spec: unknown,
-): Pick<PluginAssetSet, "blocks" | "versions"> {
+  markupSpec?: unknown,
+): Pick<PluginAssetSet, "blocks" | "markup" | "versions"> {
   const blocks: PluginAssetSet["blocks"] = [];
   const versions = new Map<string, string>();
-  if (!spec || typeof spec !== "object" || Array.isArray(spec)) return { blocks, versions };
-  for (const [type, raw] of Object.entries(spec as Record<string, unknown>).slice(0, 50)) {
-    if (!blockAssetMarker(type) || (type !== pluginId && !type.startsWith(`${pluginId}.`))) continue;
-    if (!raw || typeof raw !== "object") continue;
-    const entry = raw as { scripts?: unknown; styles?: unknown };
-    const block = { type, scripts: pickAssetFiles(baseDir, entry.scripts, 10), styles: pickAssetFiles(baseDir, entry.styles, 10) };
-    if (!block.scripts.length && !block.styles.length) continue;
-    for (const rel of [...block.scripts, ...block.styles]) {
+  const pick = (list: unknown) => pickAssetFiles(baseDir, list, 10);
+  if (spec && typeof spec === "object" && !Array.isArray(spec)) {
+    for (const [type, raw] of Object.entries(spec as Record<string, unknown>).slice(0, 50)) {
+      if (!blockAssetMarker(type) || (type !== pluginId && !type.startsWith(`${pluginId}.`))) continue;
+      if (!raw || typeof raw !== "object") continue;
+      const entry = raw as { scripts?: unknown; styles?: unknown };
+      const block = { type, scripts: pick(entry.scripts), styles: pick(entry.styles) };
+      if (block.scripts.length || block.styles.length) blocks.push(block);
+    }
+  }
+  const markup = readMarkupAssets(markupSpec, pick);
+  for (const entry of [...blocks, ...markup]) {
+    for (const rel of [...entry.scripts, ...entry.styles]) {
       if (versions.has(rel)) continue;
       const abs = resolvePathUnderBase(baseDir, rel);
       try {
@@ -190,9 +200,8 @@ export function readBlockAssets(
         /** Unreadable now: linked without a version, so never cached for good. */
       }
     }
-    blocks.push(block);
   }
-  return { blocks, versions };
+  return { blocks, markup, versions };
 }
 
 async function loadPluginAssetSets(): Promise<PluginAssetSet[]> {
@@ -245,7 +254,7 @@ async function loadPluginAssetSets(): Promise<PluginAssetSet[]> {
       }
     }
     if (!assets || typeof assets !== "object") continue;
-    const spec = assets as { dir?: unknown; scripts?: unknown; styles?: unknown; blocks?: unknown };
+    const spec = assets as { dir?: unknown; scripts?: unknown; styles?: unknown; blocks?: unknown; markup?: unknown };
 
     const dirName = typeof spec.dir === "string" && spec.dir ? spec.dir : "public";
     if (!DIR_RE.test(dirName) || dirName.split("/").includes("..")) continue;
@@ -260,7 +269,7 @@ async function loadPluginAssetSets(): Promise<PluginAssetSet[]> {
       baseDir,
       scripts: pickAssetFiles(baseDir, spec.scripts),
       styles: pickAssetFiles(baseDir, spec.styles),
-      ...readBlockAssets(pluginId, baseDir, spec.blocks),
+      ...readBlockAssets(pluginId, baseDir, spec.blocks, spec.markup),
     });
   }
   return out;
@@ -348,30 +357,27 @@ export async function renderPluginAssetHeadHtml(): Promise<string> {
 }
 
 /**
- * Tags for the per-block assets (`manifest.assets.blocks`) of every block type
- * the finished page `html` renders: stylesheets for the head, deferred scripts
- * for the end of the body. A file shared by several blocks is linked once.
+ * Tags for the per-block and markup assets (`manifest.assets.blocks` /
+ * `assets.markup`) the finished page `html` needs: stylesheets to link before
+ * the theme stylesheet, deferred scripts for the end of the body.
  */
-export async function pluginBlockAssetTags(html: string): Promise<{ head: string[]; body: string[] }> {
-  if (!html.includes("<!--jf-block:")) return { head: [], body: [] };
+export async function pluginBlockAssetTags(html: string): Promise<{ styles: string[]; body: string[] }> {
   return blockAssetTagsFor((await getState()).sets, html);
 }
 
 /** {@link pluginBlockAssetTags} for given asset sets (pure, no I/O). */
 export function blockAssetTagsFor(
-  sets: ReadonlyArray<Pick<PluginAssetSet, "pluginId" | "blocks" | "versions">>,
+  sets: ReadonlyArray<Pick<PluginAssetSet, "pluginId" | "blocks" | "versions"> & { markup?: PluginAssetSet["markup"] }>,
   html: string,
-): { head: string[]; body: string[] } {
-  return blockAssetTags(
-    sets.flatMap((set) =>
-      set.blocks.map((block) => ({
-        ...block,
-        href: (rel: string) => {
-          const version = set.versions.get(rel);
-          return `/ext/${esc(set.pluginId)}/${esc(rel)}${version ? `?v=${version}` : ""}`;
-        },
-      })),
-    ),
+): { styles: string[]; body: string[] } {
+  return pageAssetTags(
+    sets.flatMap((set) => {
+      const href = (rel: string) => {
+        const version = set.versions.get(rel);
+        return `/ext/${esc(set.pluginId)}/${esc(rel)}${version ? `?v=${version}` : ""}`;
+      };
+      return [...set.blocks.map((block) => ({ ...block, href })), ...(set.markup ?? []).map((rule) => ({ ...rule, href }))];
+    }),
     html,
   );
 }
