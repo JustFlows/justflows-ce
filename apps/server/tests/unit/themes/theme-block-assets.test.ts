@@ -16,8 +16,10 @@ describe("theme per-block assets", () => {
     writeFileSync(path.join(dir, "assets", "lightbox.js"), "window.__lightbox = 1;");
     writeFileSync(path.join(dir, "assets", "gallery.css"), ".gallery{}");
     writeFileSync(path.join(dir, "assets", "big.js"), "x".repeat(600 * 1024));
-    writeFileSync(path.join(tmpdir(), "jf-outside.js"), "secret");
-    symlinkSync(path.join(tmpdir(), "jf-outside.js"), path.join(dir, "assets", "link.js"));
+    /** A file outside the theme folder, reached only through a symlink inside it. */
+    mkdirSync(path.join(dir, "outside"));
+    writeFileSync(path.join(dir, "outside", "secret.js"), "secret");
+    symlinkSync(path.join(dir, "outside", "secret.js"), path.join(dir, "assets", "link.js"));
   });
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import express from "express";
+import { rateLimit } from "express-rate-limit";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,7 +29,7 @@ const { serveThemeBlockAsset, serveThemeScripts } = await import("../../../../sr
 const { contentVersion } = await import("../../../../src/lib/themes/theme-asset-versions.js");
 let server: Server, base: string;
 beforeAll(async () => {
-  const app = express(); app.get('/theme.js', serveThemeScripts); app.get(/^\/theme-assets\/(.+)$/, serveThemeBlockAsset); server = app.listen(0);
+  const app = express(); app.get('/theme.js', serveThemeScripts); app.get(/^\/theme-assets\/(.+)$/, rateLimit({ windowMs: 60_000, limit: 600 }), serveThemeBlockAsset); server = app.listen(0);
   await new Promise<void>(resolve => server.once('listening', resolve));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });

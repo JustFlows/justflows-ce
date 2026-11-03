@@ -23,14 +23,18 @@ export const MARKUP_SELECTOR = /^(?:#[A-Za-z][A-Za-z0-9_-]{0,63}|\.[A-Za-z_][A-Z
 
 const compiled = new Map<string, RegExp | null>();
 
+/** `text` as a literal inside a regular expression. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[\\^$.*+?()[\]{}|/-]/g, "\\$&");
+}
+
 /** The regex that finds `selector` in serialized HTML, or null for one outside the grammar. */
 function selectorRegex(selector: string): RegExp | null {
   if (compiled.has(selector)) return compiled.get(selector)!;
   let re: RegExp | null = null;
   if (MARKUP_SELECTOR.test(selector)) {
     const prefix = selector.endsWith("*");
-    const name = (prefix ? selector.slice(1, -1) : selector.slice(1, selector.startsWith("[") ? -1 : undefined))
-      .replace(/[-]/g, "\\-");
+    const name = escapeRegExp(prefix ? selector.slice(1, -1) : selector.slice(1, selector.startsWith("[") ? -1 : undefined));
     if (selector.startsWith("#")) {
       re = new RegExp(`\\sid=(["'])${name}\\1`);
     } else if (selector.startsWith(".")) {
