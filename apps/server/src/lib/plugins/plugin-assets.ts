@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseEnvBool } from "@justflows/core";
 import { PLUGIN_ID_RE } from "@justflows/sdk";
+import { blockAssetMarker } from "@justflows/blocks";
 import { getDb } from "../database/db.js";
 import { getSiteId } from "../themes/themes-db.js";
 import { pluginsDir } from "./plugins-db.js";
@@ -18,6 +19,10 @@ import { resolvePathUnderBase } from "../security/safe-path.js";
  * loads at most one plugin script and one plugin stylesheet, whatever the
  * plugin count. The static exporter downloads the bundle like any other asset.
  * Set `PLUGIN_ASSETS_BUNDLE=0` to emit a `<script>` per plugin file instead.
+ *
+ * `manifest.assets.blocks` assets are never bundled or enqueued everywhere:
+ * they are linked one file at a time, with a `?v=<content hash>` the
+ * `/ext` route caches as immutable, only on pages that render that block.
  */
 
 interface AssetBundle {
@@ -34,6 +39,10 @@ interface PluginAssetSet {
   scripts: string[];
   /** Declared stylesheet paths, relative to `baseDir`, that exist on disk. */
   styles: string[];
+  /** Per-block assets of the plugin's own block types, in manifest order. */
+  blocks: Array<{ type: string; scripts: string[]; styles: string[] }>;
+  /** Content version of each per-block asset file, by relative path. */
+  versions: Map<string, string>;
 }
 
 const DIR_RE = /^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/;
@@ -137,6 +146,54 @@ export function assetTags(
   return tags.join("\n");
 }
 
+/** The declared files under `baseDir` that are safe and exist, de-duplicated. */
+function pickAssetFiles(baseDir: string, list: unknown, max = 20): string[] {
+  if (!Array.isArray(list)) return [];
+  const seen: string[] = [];
+  for (const raw of list.slice(0, max)) {
+    const rel = safeAssetRel(raw);
+    if (!rel) continue;
+    const abs = resolvePathUnderBase(baseDir, rel);
+    if (abs && fs.existsSync(abs) && fs.statSync(abs).isFile() && !seen.includes(rel)) {
+      seen.push(rel);
+    }
+  }
+  return seen;
+}
+
+/**
+ * `manifest.assets.blocks`: the files each of the plugin's own block types
+ * needs (the namespace `ctx.blocks.register` enforces; other types are
+ * ignored), and a content version per file for its immutable URL.
+ */
+export function readBlockAssets(
+  pluginId: string,
+  baseDir: string,
+  spec: unknown,
+): Pick<PluginAssetSet, "blocks" | "versions"> {
+  const blocks: PluginAssetSet["blocks"] = [];
+  const versions = new Map<string, string>();
+  if (!spec || typeof spec !== "object" || Array.isArray(spec)) return { blocks, versions };
+  for (const [type, raw] of Object.entries(spec as Record<string, unknown>).slice(0, 50)) {
+    if (!blockAssetMarker(type) || (type !== pluginId && !type.startsWith(`${pluginId}.`))) continue;
+    if (!raw || typeof raw !== "object") continue;
+    const entry = raw as { scripts?: unknown; styles?: unknown };
+    const block = { type, scripts: pickAssetFiles(baseDir, entry.scripts, 10), styles: pickAssetFiles(baseDir, entry.styles, 10) };
+    if (!block.scripts.length && !block.styles.length) continue;
+    for (const rel of [...block.scripts, ...block.styles]) {
+      if (versions.has(rel)) continue;
+      const abs = resolvePathUnderBase(baseDir, rel);
+      try {
+        if (abs) versions.set(rel, createHash("sha256").update(fs.readFileSync(abs)).digest("hex").slice(0, 12));
+      } catch {
+        /** Unreadable now: linked without a version, so never cached for good. */
+      }
+    }
+    blocks.push(block);
+  }
+  return { blocks, versions };
+}
+
 async function loadPluginAssetSets(): Promise<PluginAssetSet[]> {
   const siteId = await getSiteId();
   if (!siteId) return [];
@@ -187,7 +244,7 @@ async function loadPluginAssetSets(): Promise<PluginAssetSet[]> {
       }
     }
     if (!assets || typeof assets !== "object") continue;
-    const spec = assets as { dir?: unknown; scripts?: unknown; styles?: unknown };
+    const spec = assets as { dir?: unknown; scripts?: unknown; styles?: unknown; blocks?: unknown };
 
     const dirName = typeof spec.dir === "string" && spec.dir ? spec.dir : "public";
     if (!DIR_RE.test(dirName) || dirName.split("/").includes("..")) continue;
@@ -195,23 +252,15 @@ async function loadPluginAssetSets(): Promise<PluginAssetSet[]> {
     const baseDir = resolvePathUnderBase(basePath, dirName);
     if (!baseDir || !fs.existsSync(baseDir) || !fs.statSync(baseDir).isDirectory()) continue;
 
-    const pick = (list: unknown): string[] => {
-      if (!Array.isArray(list)) return [];
-      const seen: string[] = [];
-      for (const raw of list.slice(0, 20)) {
-        const rel = safeAssetRel(raw);
-        if (!rel) continue;
-        const abs = resolvePathUnderBase(baseDir, rel);
-        if (abs && fs.existsSync(abs) && fs.statSync(abs).isFile() && !seen.includes(rel)) {
-          seen.push(rel);
-        }
-      }
-      return seen;
-    };
-
     // `baseDir` is a valid directory here — serve its files at /ext/<id>/**
     // even if nothing is auto-enqueued.
-    out.push({ pluginId, baseDir, scripts: pick(spec.scripts), styles: pick(spec.styles) });
+    out.push({
+      pluginId,
+      baseDir,
+      scripts: pickAssetFiles(baseDir, spec.scripts),
+      styles: pickAssetFiles(baseDir, spec.styles),
+      ...readBlockAssets(pluginId, baseDir, spec.blocks),
+    });
   }
   return out;
 }
@@ -295,6 +344,46 @@ export async function renderPluginAssetHeadHtml(): Promise<string> {
   if (state.css) tags.push(`<link rel="stylesheet" href="/jf-plugins.${state.css.hash}.css">`);
   if (state.js) tags.push(`<script src="/jf-plugins.${state.js.hash}.js" defer></script>`);
   return tags.join("\n");
+}
+
+/**
+ * Tags for the per-block assets (`manifest.assets.blocks`) of every block type
+ * the finished page `html` renders: stylesheets for the head, deferred scripts
+ * for the end of the body. A file shared by several blocks is linked once.
+ */
+export async function pluginBlockAssetTags(html: string): Promise<{ head: string[]; body: string[] }> {
+  if (!html.includes("<!--jf-block:")) return { head: [], body: [] };
+  return blockAssetTagsFor((await getState()).sets, html);
+}
+
+/** {@link pluginBlockAssetTags} for given asset sets (pure, no I/O). */
+export function blockAssetTagsFor(
+  sets: ReadonlyArray<Pick<PluginAssetSet, "pluginId" | "blocks" | "versions">>,
+  html: string,
+): { head: string[]; body: string[] } {
+  const head: string[] = [];
+  const body: string[] = [];
+  const seen = new Set<string>();
+  const href = (set: (typeof sets)[number], rel: string) => {
+    const version = set.versions.get(rel);
+    return `/ext/${esc(set.pluginId)}/${esc(rel)}${version ? `?v=${version}` : ""}`;
+  };
+  for (const set of sets) {
+    for (const block of set.blocks) {
+      if (!html.includes(blockAssetMarker(block.type))) continue;
+      for (const rel of block.styles) {
+        if (seen.has(`${set.pluginId}/${rel}`)) continue;
+        seen.add(`${set.pluginId}/${rel}`);
+        head.push(`<link rel="stylesheet" href="${href(set, rel)}">`);
+      }
+      for (const rel of block.scripts) {
+        if (seen.has(`${set.pluginId}/${rel}`)) continue;
+        seen.add(`${set.pluginId}/${rel}`);
+        body.push(`<script src="${href(set, rel)}" defer></script>`);
+      }
+    }
+  }
+  return { head, body };
 }
 
 /**
@@ -387,7 +476,7 @@ async function rootMultisiteAssetDir(pluginId: string): Promise<string | null> {
 export async function resolvePluginAssetFile(
   pluginId: string,
   relPath: string,
-): Promise<{ absPath: string; contentType: string } | null> {
+): Promise<{ absPath: string; contentType: string; version?: string } | null> {
   if (!PLUGIN_ID_RE.test(pluginId)) return null;
   const rel = servableAssetRel(relPath);
   if (!rel) return null;
@@ -407,5 +496,6 @@ export async function resolvePluginAssetFile(
   const ext = rel.slice(rel.lastIndexOf(".")).toLowerCase();
   const contentType = CONTENT_TYPES[ext] ?? IMAGE_CONTENT_TYPES[ext];
   if (!contentType) return null;
-  return { absPath: abs, contentType };
+  const version = set?.versions.get(rel);
+  return { absPath: abs, contentType, ...(version ? { version } : {}) };
 }

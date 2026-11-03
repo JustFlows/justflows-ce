@@ -114,6 +114,7 @@ export type {
 export {
   PluginManifestSchema,
   PluginAssetsSchema,
+  PluginBlockAssetsSchema,
   PluginTemplatesSchema,
   PluginAdminAppSchema,
   PluginPermissionSchema,

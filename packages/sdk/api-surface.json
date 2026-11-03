@@ -125,6 +125,7 @@
   "PluginAiApi",
   "PluginAiResult",
   "PluginAssetsSchema",
+  "PluginBlockAssetsSchema",
   "PluginBlockDefinition",
   "PluginBlockField",
   "PluginBlocksApi",

@@ -565,7 +565,11 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
           return;
         }
         res.type(file.contentType);
-        res.setHeader("Cache-Control", "public, max-age=300");
+        /** A per-block asset linked with its content version never changes under that URL. */
+        res.setHeader(
+          "Cache-Control",
+          file.version && req.query.v === file.version ? "public, max-age=31536000, immutable" : "public, max-age=300",
+        );
         if (file.contentType.startsWith("image/svg")) {
           // An SVG opened directly runs as a document on this origin; keep it inert.
           res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");

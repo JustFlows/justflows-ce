@@ -337,10 +337,21 @@ const PluginAssetFileSchema = z
   )
   .refine((value) => !value.split("/").includes(".."), "Asset path must not contain '..'");
 
+/** Assets one block type needs, relative to the assets `dir`. */
+export const PluginBlockAssetsSchema = z.object({
+  /** `.js` / `.mjs` files added as `<script defer>` at the end of the page. */
+  scripts: z.array(PluginAssetFileSchema).max(10).optional(),
+  /** `.css` files added as `<link rel="stylesheet">` in the head. */
+  styles: z.array(PluginAssetFileSchema).max(10).optional(),
+});
+
 /**
  * Client-side assets a plugin ships in its package. On activation the host
  * serves `<dir>/**` at `/ext/<pluginId>/**` and auto-enqueues `scripts` /
  * `styles` on every public page — no `ctx.http` route or `html.head` filter.
+ * `blocks` maps one of the plugin's own block types to assets the host adds
+ * only to pages that render that block, from content, header, footer, or a
+ * widget area, with a content-hashed URL that browsers cache for good.
  * The static exporter downloads them like any other same-origin asset.
  */
 export const PluginAssetsSchema = z.object({
@@ -358,6 +369,17 @@ export const PluginAssetsSchema = z.object({
   scripts: z.array(PluginAssetFileSchema).max(20).optional(),
   /** `.css` files (relative to `dir`) added as `<link rel="stylesheet">`. */
   styles: z.array(PluginAssetFileSchema).max(20).optional(),
+  /**
+   * Per-block assets, keyed by a block type the plugin registers with
+   * `ctx.blocks.register` (its own namespace, e.g. `acme.slider`).
+   */
+  blocks: z
+    .record(
+      z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/, "Block type must be a block id such as 'acme.slider'"),
+      PluginBlockAssetsSchema,
+    )
+    .refine((value) => Object.keys(value).length <= 50, "At most 50 block types may declare assets")
+    .optional(),
 });
 
 /**
@@ -580,6 +602,7 @@ export const PluginManifestSchema = z
      * `html.head` filter needed. The static exporter downloads them like any
      * other same-origin asset. `scripts` / `styles` are paths **relative to
      * `dir`**; both must be `.js`/`.mjs` or `.css` and contain no `..`.
+     * `blocks` loads assets only on pages that render one of those blocks.
      */
     assets: PluginAssetsSchema.optional(),
     /** Page templates shipped inside the plugin package (see PluginTemplatesSchema). */

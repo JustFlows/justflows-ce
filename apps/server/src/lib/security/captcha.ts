@@ -2,6 +2,7 @@
 
 import { esc } from "@justflows/blocks";
 import type { CaptchaProvider } from "../comments/comments-settings.js";
+import { publicScriptUrl } from "../rendering/page-scripts.js";
 
 // ─── CAPTCHA providers ──────────────────────────────────────────────────────
 //
@@ -142,7 +143,7 @@ export function renderCaptchaWidget(
     return {
       widget: `<input type="hidden" name="${meta.field}" value="">
     <script src="${esc(meta.scriptSrc)}?render=${encodeURIComponent(siteKey)}" async defer></script>
-    <script src="/js/recaptcha-v3.js" defer></script>`,
+    <script src="${publicScriptUrl("recaptcha-v3")}" defer></script>`,
       formAttributes: ` data-jf-recaptcha-v3 data-sitekey="${esc(siteKey)}" data-action="${esc(
         opts.recaptchaV3Action,
       )}"`,

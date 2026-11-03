@@ -40,7 +40,7 @@ export type {
   MotionVariant,
   TapEffect,
 } from "./animation.js";
-export { withBlockChrome } from "./block-chrome.js";
+export { blockAssetMarker, withBlockChrome } from "./block-chrome.js";
 export {
   CORE_INSPECTOR_SUPPORTS,
   DEFAULT_INSPECTOR_SUPPORTS,

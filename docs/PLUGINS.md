@@ -350,6 +350,32 @@ secrets) cannot run in a page and is never bundled.
 Working example: `plugins/hello-world` (`public/hello-world.js` +
 `assets` in `justflows.json`).
 
+### Per-block assets
+
+A script or stylesheet only one of your blocks needs belongs in
+`assets.blocks`, keyed by a block type you register with `ctx.blocks.register`:
+
+```jsonc
+"assets": {
+  "dir": "public",
+  "blocks": {
+    "acme.widgets.slider": { "scripts": ["slider.js"], "styles": ["slider.css"] }
+  }
+}
+```
+
+These files are not bundled and not added to every page. The host adds them
+only to a page that renders that block, whether from content, the header or
+footer, or a widget area: the stylesheet in the head, the script deferred at
+the end of the body, each file once. Each URL carries a content version
+(`/ext/<pluginId>/slider.js?v=<hash>`) that browsers cache for good, and a new
+plugin version links a new URL.
+
+The host finds the block through a `<!--jf-block:<type>-->` comment that it adds
+after every rendered plugin block, so keep the block's `render` output as is.
+Only your own namespace counts (a key for another plugin's or a core block is
+ignored); at most 50 block types with 10 scripts and 10 styles each.
+
 ## Ship your own admin app
 
 A plugin's admin screens are **its own app**, not React pages compiled into the

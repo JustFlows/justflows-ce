@@ -89,8 +89,13 @@ singular when there's only one entry.
   (`site-nav.ts` → `/js/site-nav.js`). Each file is fully independent — no
   imports between them — since each ships as its own standalone IIFE.
 - `apps/server/public-scripts/build.mjs` compiles them with esbuild into
-  `public/js/*.js` (repo root) at the same stable, non-content-hashed
-  filenames the served URLs have always used; `public-scripts/tsconfig.json`
+  `public/js` (repo root): a content-hashed `<name>-<hash>.js` that pages link
+  through `public/js/manifest.json` (`publicScriptUrl` in
+  `apps/server/src/lib/rendering/page-scripts.ts`, served `immutable`), plus
+  the stable `<name>.js` (`no-cache`) for older links. Never hard-code
+  `/js/<name>.js` in a renderer. Layout scripts are added per page from the
+  markup that needs them (`PAGE_SCRIPTS` in the same file): a new script that
+  every page should not load declares its marker there. `public-scripts/tsconfig.json`
   exists only for `tsc --noEmit` type-checking (esbuild does not type-check).
   Both run as part of `pnpm --filter @justflows/server build`/`typecheck`.
 - `public/js/*.js` is generated and gitignored (see `.gitignore`) — same

@@ -28,7 +28,7 @@ describe("buildPwaBodyHtml", () => {
   it("registers the service worker as an external script but skips the install script when installUi is disabled", () => {
     const settings = { ...enabled, installUi: { ...enabled.installUi, enabled: false } };
     const html = buildPwaBodyHtml(settings, t);
-    expect(html).toContain('<script src="/js/pwa-register.js" defer');
+    expect(html).toMatch(/<script src="\/js\/pwa-register(?:-[A-Z0-9]{8})?\.js" defer/);
     expect(html).not.toContain("pwa-install.js");
   });
 
@@ -52,7 +52,7 @@ describe("buildPwaBodyHtml", () => {
       installUi: { enabled: true, label: "Get the app", description: "Fast and offline-ready", showLogo: false },
     };
     const html = buildPwaBodyHtml(settings, t);
-    expect(html).toContain('<script src="/js/pwa-install.js" defer');
+    expect(html).toMatch(/<script src="\/js\/pwa-install(?:-[A-Z0-9]{8})?\.js" defer/);
     expect(html).toContain('data-label="Get the app"');
     expect(html).toContain('data-description="Fast and offline-ready"');
     expect(html).toContain('data-show-logo="0"');

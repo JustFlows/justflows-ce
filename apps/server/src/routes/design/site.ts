@@ -1,4 +1,3 @@
-import { loadThemeScripts } from "../../lib/themes/theme-files.js";
 import { Router } from "express";
 import {
   defaultModsFromSchema,
@@ -8,10 +7,11 @@ import {
   getThemeMods,
   mergeMods,
 } from "../../lib/themes/theme-customize.js";
-import { ensureThemesTable, getActiveTheme, getSiteId, themeInstalledPath } from "../../lib/themes/themes-db.js";
+import { ensureThemesTable, getActiveTheme, getSiteId } from "../../lib/themes/themes-db.js";
 import { isPreviewAllowed } from "../../lib/auth/auth-session.js";
 import { getGeneralSettings } from "../../lib/settings/general-settings.js";
 import { isSafeScopeSelector, scopeThemeCss } from "../../lib/rendering/scope-css.js";
+import { activeThemeScripts, contentVersion, IMMUTABLE_CACHE_CONTROL } from "../../lib/themes/theme-asset-versions.js";
 
 const router = Router();
 
@@ -66,7 +66,11 @@ export async function serveThemeCss(
     res.setHeader("Content-Type", "text/css; charset=utf-8");
     res.setHeader(
       "Cache-Control",
-      preview ? "no-store" : "public, max-age=60, stale-while-revalidate=300",
+      preview
+        ? "no-store"
+        : !scope && req.query.v === contentVersion(css)
+          ? IMMUTABLE_CACHE_CONTROL
+          : "public, max-age=60, stale-while-revalidate=300",
     );
     res.send(css);
   } catch {
@@ -76,15 +80,18 @@ export async function serveThemeCss(
 }
 
 export async function serveThemeScripts(
-  _req: import("express").Request,
+  req: import("express").Request,
   res: import("express").Response,
 ): Promise<void> {
   res.type("application/javascript");
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   try {
-    const siteId = await getSiteId();
-    const theme = siteId ? await getActiveTheme(siteId) : null;
-    res.send(theme ? loadThemeScripts(theme.theme_id, themeInstalledPath(theme) ?? undefined) : "");
+    const scripts = await activeThemeScripts();
+    /** Pages link `?v=<hash>`; only that exact content may be cached for good. */
+    if (typeof req.query.v === "string") {
+      res.setHeader("Cache-Control", scripts && req.query.v === contentVersion(scripts) ? IMMUTABLE_CACHE_CONTROL : "no-cache");
+    }
+    res.send(scripts);
   } catch { res.status(503).send("/* Theme scripts unavailable. */"); }
 }
