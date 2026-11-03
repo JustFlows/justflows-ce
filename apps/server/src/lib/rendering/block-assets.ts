@@ -105,3 +105,33 @@ export function readMarkupAssets(
   }
   return out;
 }
+
+/**
+ * Point the relative `url()`s of a stylesheet served from `baseUrl` (a path
+ * ending in `/`) at the same files once its text is inlined elsewhere.
+ */
+export function rebaseCssUrls(css: string, baseUrl: string): string {
+  return css.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g, (match, quote: string, ref: string) => {
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/|#)/i.test(ref.trim())) return match;
+    return `url(${quote}${baseUrl}${ref.trim()}${quote})`;
+  });
+}
+
+/** Per-page stylesheet files of one plugin or theme, for the page builder canvas. */
+export function readPerPageStyles(
+  entries: ReadonlyArray<{ styles: readonly string[] }>,
+  read: (rel: string) => string | null,
+  baseUrl: (rel: string) => string,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of entries) {
+    for (const rel of entry.styles) {
+      if (seen.has(rel)) continue;
+      seen.add(rel);
+      const css = read(rel);
+      if (css) out.push(rebaseCssUrls(css, baseUrl(rel)));
+    }
+  }
+  return out;
+}

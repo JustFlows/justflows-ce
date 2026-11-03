@@ -7,7 +7,7 @@ import { parseEnvBool } from "@justflows/core";
 import { PLUGIN_ID_RE } from "@justflows/sdk";
 import { blockAssetMarker } from "@justflows/blocks";
 import { getDb } from "../database/db.js";
-import { pageAssetTags, readMarkupAssets } from "../rendering/block-assets.js";
+import { pageAssetTags, readMarkupAssets, readPerPageStyles } from "../rendering/block-assets.js";
 import { getSiteId } from "../themes/themes-db.js";
 import { pluginsDir } from "./plugins-db.js";
 import { resolvePathUnderBase } from "../security/safe-path.js";
@@ -380,6 +380,40 @@ export function blockAssetTagsFor(
     }),
     html,
   );
+}
+
+/** Read a declared asset file under `baseDir` (no symlinks, at most 512 KiB), or null. */
+function readAssetText(baseDir: string, rel: string): string | null {
+  const abs = resolvePathUnderBase(baseDir, rel);
+  if (!abs) return null;
+  try {
+    const fd = fs.openSync(abs, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try {
+      const stat = fs.fstatSync(fd);
+      return stat.isFile() && stat.size <= 512 * 1024 ? fs.readFileSync(fd, "utf8") : null;
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every active plugin's per-block and markup stylesheets as text, for the page
+ * builder canvas: it previews any block, so it needs them all, scoped into the
+ * canvas with the theme stylesheet.
+ */
+export async function pluginPerPageStylesText(): Promise<string> {
+  return (await getState()).sets
+    .flatMap((set) =>
+      readPerPageStyles(
+        [...set.blocks, ...set.markup],
+        (rel) => readAssetText(set.baseDir, rel),
+        (rel) => `/ext/${set.pluginId}/${rel.includes("/") ? `${rel.slice(0, rel.lastIndexOf("/"))}/` : ""}`,
+      ).map((css) => `/* ${set.pluginId} */\n${css}`),
+    )
+    .join("\n");
 }
 
 /**

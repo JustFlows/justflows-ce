@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { isMarkableBlockType, markBlockTypes } from "@justflows/blocks";
 import { safeAssetRel } from "../plugins/plugin-assets.js";
-import { pageAssetTags, readMarkupAssets } from "../rendering/block-assets.js";
+import { pageAssetTags, readMarkupAssets, readPerPageStyles } from "../rendering/block-assets.js";
 import { resolvePathUnderBase } from "../security/safe-path.js";
 import { readThemeBlockAssetsSpec, resolveThemeDir } from "./theme-files.js";
 import { getActiveTheme, getSiteId, themeInstalledPath } from "./themes-db.js";
@@ -143,4 +143,22 @@ export async function resolveThemeAssetFile(
   }
   const contentType = CONTENT_TYPES[safe.slice(safe.lastIndexOf(".")).toLowerCase()];
   return contentType ? { absPath, contentType, version } : null;
+}
+
+/** The active theme's per-page stylesheets as text, for the page builder canvas. */
+export async function themePerPageStylesText(): Promise<string> {
+  const assets = await activeThemeBlockAssets();
+  if (!assets) return "";
+  return readPerPageStyles(
+    [...assets.blocks, ...assets.markup],
+    (rel) => {
+      const file = fileVersion(assets.dir, rel) ? resolvePathUnderBase(assets.dir, rel) : null;
+      try {
+        return file ? fs.readFileSync(file, "utf8") : null;
+      } catch {
+        return null;
+      }
+    },
+    (rel) => `/theme-assets/${rel.includes("/") ? `${rel.slice(0, rel.lastIndexOf("/"))}/` : ""}`,
+  ).join("\n");
 }

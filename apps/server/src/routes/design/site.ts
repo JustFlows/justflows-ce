@@ -12,7 +12,7 @@ import { isPreviewAllowed } from "../../lib/auth/auth-session.js";
 import { getGeneralSettings } from "../../lib/settings/general-settings.js";
 import { isSafeScopeSelector, scopeThemeCss } from "../../lib/rendering/scope-css.js";
 import { activeThemeScripts, contentVersion, IMMUTABLE_CACHE_CONTROL } from "../../lib/themes/theme-asset-versions.js";
-import { resolveThemeAssetFile } from "../../lib/themes/theme-block-assets.js";
+import { resolveThemeAssetFile, themePerPageStylesText } from "../../lib/themes/theme-block-assets.js";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 
@@ -65,7 +65,16 @@ export async function serveThemeCss(
   const scope = isSafeScopeSelector(scopeParam) ? scopeParam : "";
   try {
     let css = await getEffectiveThemeCss(preview);
-    if (scope) css = scopeThemeCss(css, scope);
+    /**
+     * The page builder canvas (the only `scope` caller) previews any block, so
+     * it also gets every per-page plugin and theme stylesheet, ahead of the
+     * theme as on a page.
+     */
+    if (scope) {
+      const { pluginPerPageStylesText } = await import("../../lib/plugins/plugin-assets.js");
+      const perPage = [await pluginPerPageStylesText(), await themePerPageStylesText()].filter(Boolean).join("\n");
+      css = scopeThemeCss(perPage ? `${perPage}\n${css}` : css, scope);
+    }
     res.setHeader("Content-Type", "text/css; charset=utf-8");
     res.setHeader(
       "Cache-Control",
