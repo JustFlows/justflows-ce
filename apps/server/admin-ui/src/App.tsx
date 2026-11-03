@@ -1,74 +1,79 @@
+import { Suspense } from "react";
 import NoticeFocus from "./components/NoticeFocus";
 import { Outlet, Route, Routes } from "react-router-dom";
 import { Navigate } from "./admin-router";
 import AdminShell from "@components/AdminShell";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import InstallPage from "./pages/InstallPage";
-import DashboardPage from "./pages/admin/dashboard/DashboardPage";
-import ContentListPage from "./pages/admin/content/ContentListPage";
-import ContentNewPage from "./pages/admin/content/ContentNewPage";
-import ContentEditPage from "./pages/admin/content/ContentEditPage";
-import ContentTypesPage from "./pages/admin/content/ContentTypesPage";
-import TaxonomiesPage from "./pages/admin/content/TaxonomiesPage";
-import MediaPage from "./pages/admin/media/MediaPage";
-import PluginsPage from "./pages/admin/extensions/PluginsPage";
-import PluginSettingsPage from "./pages/admin/extensions/PluginSettingsPage";
-import ThemesPage from "./pages/admin/design/ThemesPage";
-import DesignPage from "./pages/admin/design/DesignPage";
-import ThemeCustomizePage from "./pages/admin/design/ThemeCustomizePage";
-import WidgetsPage from "./pages/admin/design/WidgetsPage";
-import PageBuilderPage from "./pages/admin/design/PageBuilderPage";
-import MenusPage from "./pages/admin/design/MenusPage";
-import UsersPage from "./pages/admin/users/UsersPage";
-import EditUserPage from "./pages/admin/users/EditUserPage";
-import RedirectsPage from "./pages/admin/settings/RedirectsPage";
-import PermalinksPage from "./pages/admin/settings/PermalinksPage";
-import PwaSettingsPage from "./pages/admin/settings/PwaSettingsPage";
-import PlaceholdersPage from "./pages/admin/settings/PlaceholdersPage";
-import SettingsPage from "./pages/admin/settings/SettingsPage";
-import EmailsPage from "./pages/admin/settings/EmailsPage";
-import CommentsPage from "./pages/admin/comments/CommentsPage";
-import TrashPage from "./pages/admin/content/TrashPage";
-import MarketplacePage from "./pages/admin/extensions/MarketplacePage";
-import ToolsPage from "./pages/admin/system/ToolsPage";
-import HealthPage from "./pages/admin/system/HealthPage";
-import UpdatesPage from "./pages/admin/system/UpdatesPage";
-import LanguagesPage from "./pages/admin/settings/LanguagesPage";
-import SecurityCenterPage from "./pages/admin/security/SecurityCenterPage";
-import WebServerPage from "./pages/admin/security/WebServerPage";
-import IntegrityPage from "./pages/admin/security/IntegrityPage";
-import SecurityOverviewPage from "./pages/admin/security/SecurityOverviewPage";
-import SecurityHeadersPage from "./pages/admin/security/SecurityHeadersPage";
-import SecurityAdvancedPage from "./pages/admin/security/SecurityAdvancedPage";
-import AccountSecurityPage from "./pages/admin/security/AccountSecurityPage";
-import AuditLogPage from "./pages/admin/security/AuditLogPage";
-import WebhooksPage from "./pages/admin/settings/WebhooksPage";
-import ApiKeysPage from "./pages/admin/settings/ApiKeysPage";
-import AiSettingsPage from "./pages/admin/settings/AiSettingsPage";
-import CdnSettingsPage from "./pages/admin/settings/CdnSettingsPage";
-import StorageSettingsPage from "./pages/admin/settings/StorageSettingsPage";
-import DomainsPage from "./pages/admin/settings/DomainsPage";
-import PlatformPage from "./pages/admin/platform/PlatformPage";
-import PlatformSitesPage from "./pages/admin/platform/PlatformSitesPage";
-import PlatformDefaultsPage from "./pages/admin/platform/PlatformDefaultsPage";
-import PlatformDomainsPage from "./pages/admin/platform/PlatformDomainsPage";
-import PlatformSitePage from "./pages/admin/platform/PlatformSitePage";
-import PlatformSiteUsersPage from "./pages/admin/platform/PlatformSiteUsersPage";
-import PlatformWorkspacePage from "./pages/admin/platform/PlatformWorkspacePage";
-import SignupPage from "./pages/SignupPage";
-import OAuthConsentPage from "./pages/OAuthConsentPage";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { PluginMenuProvider } from "@components/PluginMenuProvider";
 import { SessionProvider, useSession } from "@components/SessionProvider";
-import PluginHostPage from "./pages/admin/extensions/PluginHostPage";
 import { SiteHead } from "@components/SiteIdentity";
 import { DocumentMeta } from "@components/DocumentMeta";
 import { canAccessPath } from "./config/admin-nav";
-import AdminPathPage from "./pages/admin/security/AdminPathPage";
 import { adminAuthPage, adminBasePath, currentPathname, isPreAuthPath, publicAdminPath } from "./admin-path";
+import { lazyPage } from "./lazy-page";
+import { RouteFallback } from "@components/RouteFallback";
+
+/** Every route page loads in its own chunk, on first visit to that route. */
+const LoginPage = lazyPage(() => import("./pages/LoginPage"));
+const RegisterPage = lazyPage(() => import("./pages/RegisterPage"));
+const ForgotPasswordPage = lazyPage(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazyPage(() => import("./pages/ResetPasswordPage"));
+const InstallPage = lazyPage(() => import("./pages/InstallPage"));
+const DashboardPage = lazyPage(() => import("./pages/admin/dashboard/DashboardPage"));
+const ContentListPage = lazyPage(() => import("./pages/admin/content/ContentListPage"));
+const ContentNewPage = lazyPage(() => import("./pages/admin/content/ContentNewPage"));
+const ContentEditPage = lazyPage(() => import("./pages/admin/content/ContentEditPage"));
+const ContentTypesPage = lazyPage(() => import("./pages/admin/content/ContentTypesPage"));
+const TaxonomiesPage = lazyPage(() => import("./pages/admin/content/TaxonomiesPage"));
+const MediaPage = lazyPage(() => import("./pages/admin/media/MediaPage"));
+const PluginsPage = lazyPage(() => import("./pages/admin/extensions/PluginsPage"));
+const PluginSettingsPage = lazyPage(() => import("./pages/admin/extensions/PluginSettingsPage"));
+const ThemesPage = lazyPage(() => import("./pages/admin/design/ThemesPage"));
+const DesignPage = lazyPage(() => import("./pages/admin/design/DesignPage"));
+const ThemeCustomizePage = lazyPage(() => import("./pages/admin/design/ThemeCustomizePage"));
+const WidgetsPage = lazyPage(() => import("./pages/admin/design/WidgetsPage"));
+const PageBuilderPage = lazyPage(() => import("./pages/admin/design/PageBuilderPage"));
+const MenusPage = lazyPage(() => import("./pages/admin/design/MenusPage"));
+const UsersPage = lazyPage(() => import("./pages/admin/users/UsersPage"));
+const EditUserPage = lazyPage(() => import("./pages/admin/users/EditUserPage"));
+const RedirectsPage = lazyPage(() => import("./pages/admin/settings/RedirectsPage"));
+const PermalinksPage = lazyPage(() => import("./pages/admin/settings/PermalinksPage"));
+const PwaSettingsPage = lazyPage(() => import("./pages/admin/settings/PwaSettingsPage"));
+const PlaceholdersPage = lazyPage(() => import("./pages/admin/settings/PlaceholdersPage"));
+const SettingsPage = lazyPage(() => import("./pages/admin/settings/SettingsPage"));
+const EmailsPage = lazyPage(() => import("./pages/admin/settings/EmailsPage"));
+const CommentsPage = lazyPage(() => import("./pages/admin/comments/CommentsPage"));
+const TrashPage = lazyPage(() => import("./pages/admin/content/TrashPage"));
+const MarketplacePage = lazyPage(() => import("./pages/admin/extensions/MarketplacePage"));
+const ToolsPage = lazyPage(() => import("./pages/admin/system/ToolsPage"));
+const HealthPage = lazyPage(() => import("./pages/admin/system/HealthPage"));
+const UpdatesPage = lazyPage(() => import("./pages/admin/system/UpdatesPage"));
+const LanguagesPage = lazyPage(() => import("./pages/admin/settings/LanguagesPage"));
+const SecurityCenterPage = lazyPage(() => import("./pages/admin/security/SecurityCenterPage"));
+const WebServerPage = lazyPage(() => import("./pages/admin/security/WebServerPage"));
+const IntegrityPage = lazyPage(() => import("./pages/admin/security/IntegrityPage"));
+const SecurityOverviewPage = lazyPage(() => import("./pages/admin/security/SecurityOverviewPage"));
+const SecurityHeadersPage = lazyPage(() => import("./pages/admin/security/SecurityHeadersPage"));
+const SecurityAdvancedPage = lazyPage(() => import("./pages/admin/security/SecurityAdvancedPage"));
+const AccountSecurityPage = lazyPage(() => import("./pages/admin/security/AccountSecurityPage"));
+const AuditLogPage = lazyPage(() => import("./pages/admin/security/AuditLogPage"));
+const WebhooksPage = lazyPage(() => import("./pages/admin/settings/WebhooksPage"));
+const ApiKeysPage = lazyPage(() => import("./pages/admin/settings/ApiKeysPage"));
+const AiSettingsPage = lazyPage(() => import("./pages/admin/settings/AiSettingsPage"));
+const CdnSettingsPage = lazyPage(() => import("./pages/admin/settings/CdnSettingsPage"));
+const StorageSettingsPage = lazyPage(() => import("./pages/admin/settings/StorageSettingsPage"));
+const DomainsPage = lazyPage(() => import("./pages/admin/settings/DomainsPage"));
+const PlatformPage = lazyPage(() => import("./pages/admin/platform/PlatformPage"));
+const PlatformSitesPage = lazyPage(() => import("./pages/admin/platform/PlatformSitesPage"));
+const PlatformDefaultsPage = lazyPage(() => import("./pages/admin/platform/PlatformDefaultsPage"));
+const PlatformDomainsPage = lazyPage(() => import("./pages/admin/platform/PlatformDomainsPage"));
+const PlatformSitePage = lazyPage(() => import("./pages/admin/platform/PlatformSitePage"));
+const PlatformSiteUsersPage = lazyPage(() => import("./pages/admin/platform/PlatformSiteUsersPage"));
+const PlatformWorkspacePage = lazyPage(() => import("./pages/admin/platform/PlatformWorkspacePage"));
+const SignupPage = lazyPage(() => import("./pages/SignupPage"));
+const OAuthConsentPage = lazyPage(() => import("./pages/OAuthConsentPage"));
+const PluginHostPage = lazyPage(() => import("./pages/admin/extensions/PluginHostPage"));
+const AdminPathPage = lazyPage(() => import("./pages/admin/security/AdminPathPage"));
 
 /**
  * Guards the couple of full-bleed editors that render outside AdminShell (and
@@ -99,6 +104,7 @@ export default function App() {
         <NoticeFocus />
         <PluginMenuProvider>
           {isPreAuth ? <DocumentMeta /> : <SiteHead />}
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/install" element={<InstallPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -175,6 +181,7 @@ export default function App() {
             </Route>
             <Route path="*" element={<Navigate to={publicAdminPath("/admin")} replace />} />
           </Routes>
+          </Suspense>
         </PluginMenuProvider>
       </SessionProvider>
     </I18nProvider>

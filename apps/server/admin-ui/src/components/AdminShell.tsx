@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Link, Navigate, NavLink } from "../admin-router";
 import { adminBasePath } from "../admin-path";
@@ -10,6 +10,7 @@ import { useSession, useSessionRole } from "./SessionProvider";
 import { JustflowsLogo } from "./JustflowsLogo";
 import { initialJson } from "../ssr-data";
 import { AssistantProvider, useAssistant } from "./ai/AssistantProvider";
+import { RouteFallback } from "./RouteFallback";
 
 /** Emoji, or a same-origin image path such as a plugin logo. */
 function NavGlyph({ icon }: { icon: string }) {
@@ -199,7 +200,10 @@ export default function AdminShell() {
 
         {/* One page is already the sidebar item — don't repeat it as a top bar. */}
         {activeDomain && activeDomain.items.length > 1 && <DomainSubnav domain={activeDomain} />}
-        <Outlet />
+        {/* The shell stays on screen while the next page's chunk loads. */}
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
     </AssistantProvider>

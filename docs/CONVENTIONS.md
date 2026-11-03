@@ -143,6 +143,12 @@ singular when there's only one entry.
 - Group admin pages under `pages/admin/<domain>/` (for example `content/`,
   `design/`, `extensions/`, `settings/`, and `security/`). Feature-specific
   panels belong with their pages; shared components remain in `components/`.
+- Register a route page in `App.tsx` with `lazyPage(() => import(...))`, never
+  a static import, so it ships in its own chunk. Do not add a `codeSplitting`
+  group for admin source in `vite.config.ts`: a group also captures the shared
+  modules it imports and drags itself into every first load. `pnpm
+  assets:check` (run in CI) fails when the admin first load or a public page's
+  core scripts grow past their budgets.
 - Tests live in `apps/server/admin-ui/tests/`, mirroring `pages/`,
   `components/`, `lib/`, and `config/`. Shared setup and accessibility helpers
   live in `tests/helpers/`. The browser suite has its own jsdom Vitest project.

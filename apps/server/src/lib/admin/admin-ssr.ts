@@ -389,8 +389,10 @@ async function appendAdminBody(html: string, req: Request): Promise<string> {
 
 async function loadRenderer(): Promise<RenderAdmin> {
   const entry = adminServerEntry();
-  const module = (await import(pathToFileURL(entry).href)) as { render?: RenderAdmin };
+  const module = (await import(pathToFileURL(entry).href)) as { render?: RenderAdmin; preloadPages?: () => Promise<void> };
   if (typeof module.render !== "function") throw new Error("Admin SSR bundle has no render export");
+  /** Route pages are split into chunks; load them all so `render` stays synchronous. */
+  if (typeof module.preloadPages === "function") await module.preloadPages();
   return module.render;
 }
 
