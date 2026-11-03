@@ -1187,12 +1187,6 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   if (faviconHead) {
     headExtra = headExtra ? `${faviconHead}\n${headExtra}` : faviconHead;
   }
-  // Self-hosted KaTeX CSS for inline math formulas (see renderMath in
-  // @justflows/blocks) — a stylesheet, so cheap to include unconditionally
-  // rather than threading a "does this page have a formula" flag through.
-  headExtra = headExtra
-    ? `${headExtra}\n<link rel="stylesheet" href="/vendor/katex/katex.min.css">`
-    : '<link rel="stylesheet" href="/vendor/katex/katex.min.css">';
   // Auto-enqueued client assets declared by active plugins (`manifest.assets`).
   const { renderPluginAssetHeadHtml, pluginBlockAssetTags } = await import("../../lib/plugins/plugin-assets.js");
   const pluginAssetHead = await renderPluginAssetHeadHtml();

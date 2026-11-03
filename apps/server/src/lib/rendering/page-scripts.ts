@@ -104,6 +104,22 @@ const PAGE_SCRIPTS: readonly PageScript[] = [
   },
 ];
 
+interface PageStylesheet {
+  href: string;
+  needs: RegExp;
+}
+
+/** Core stylesheets only some pages need, matched against the finished page like the scripts. */
+const PAGE_STYLESHEETS: readonly PageStylesheet[] = [
+  /** KaTeX's styles and fonts, for the `jf-math` formulas `renderMath` in @justflows/blocks renders. */
+  { href: "/vendor/katex/katex.min.css", needs: /\bclass=["']jf-math\b/ },
+];
+
+/** Core stylesheet URLs `html` needs. */
+export function pageStylesheetHrefs(html: string): string[] {
+  return PAGE_STYLESHEETS.filter((sheet) => sheet.needs.test(html)).map((sheet) => sheet.href);
+}
+
 /** Core script names `html` needs, in load order. */
 export function pageScriptNames(html: string): string[] {
   return PAGE_SCRIPTS.filter((script) => !script.needs || script.needs.test(html)).map((script) => script.name);
@@ -114,12 +130,14 @@ function scriptTag(script: PageScript): string {
 }
 
 /**
- * Fill the layout's script slots with the core scripts the finished page needs,
- * followed by `extra` tags (theme and per-block plugin assets) in each slot.
+ * Fill the layout's script slots with the core stylesheets and scripts the
+ * finished page needs, followed by `extra` tags (theme and per-block plugin
+ * assets) in each slot.
  */
 export function applyPageScripts(html: string, extra: { head?: string[]; body?: string[] } = {}): string {
   const needed = new Set(pageScriptNames(html));
   const tags = (slot: "head" | "body") => [
+    ...(slot === "head" ? pageStylesheetHrefs(html).map((href) => `<link rel="stylesheet" href="${href}">`) : []),
     ...PAGE_SCRIPTS.filter((script) => script.slot === slot && needed.has(script.name)).map(scriptTag),
     ...(extra[slot] ?? []),
   ].join("\n");

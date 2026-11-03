@@ -75,6 +75,14 @@ describe("applyPageScripts", () => {
   });
 });
 
+describe("page stylesheets", () => {
+  it("links the KaTeX stylesheet only on a page with a formula", () => {
+    const math = applyPageScripts(page('<p>Area: <span class="jf-math" data-formula="\\pi r^2" contenteditable="false"><span class="katex">…</span></span></p>'));
+    expect(math.slice(0, math.indexOf("</head>"))).toContain('<link rel="stylesheet" href="/vendor/katex/katex.min.css">');
+    expect(applyPageScripts(page("<p>No formulas here, not even jf-math as text.</p>"))).not.toContain("katex.min.css");
+  });
+});
+
 describe("HASHED_PUBLIC_SCRIPT", () => {
   it("matches build output names and their maps only", () => {
     expect(HASHED_PUBLIC_SCRIPT.exec("/js/site-nav-LQ4PGNP5.js")?.[1]).toBe("site-nav");
