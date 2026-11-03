@@ -39,7 +39,9 @@
     "storage:sync": "node scripts/storage-sync.js",
     "sdk:api:check": "node scripts/check-sdk-api.mjs",
     "sdk:api:update": "node scripts/check-sdk-api.mjs --update",
-    "typecheck:tests": "pnpm -r --if-present typecheck:tests"
+    "typecheck:tests": "pnpm -r --if-present typecheck:tests",
+    "assets:report": "node scripts/check-asset-budgets.mjs",
+    "assets:check": "node scripts/check-asset-budgets.mjs --check"
   },
   "dependencies": {
     "@justflows/blocks": "file:./packages/blocks",

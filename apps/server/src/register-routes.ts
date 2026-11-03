@@ -123,7 +123,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: cacheRoutes },
     { default: performanceRoutes },
     { default: importRoutes },
-    { default: siteRoutes, serveThemeCss, serveThemeScripts },
+    { default: siteRoutes, serveThemeBlockAsset, serveThemeCss, serveThemeScripts },
     { default: publicSiteRoutes, sendPublicNotFound },
     { default: languagesRoutes },
     { default: menusRoutes },
@@ -289,6 +289,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/site", siteRoutes);
   app.get("/theme.css", serveThemeCss);
   app.get("/theme.js", rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: "draft-8", legacyHeaders: false }), serveThemeScripts);
+  app.get(/^\/theme-assets\/(.+)$/, rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: "draft-8", legacyHeaders: false }), serveThemeBlockAsset);
 
   // A statically-exported page submits comments back to this
   // origin. Answer the CORS preflight for vouched-for origins so that works.
@@ -565,7 +566,11 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
           return;
         }
         res.type(file.contentType);
-        res.setHeader("Cache-Control", "public, max-age=300");
+        /** A per-block asset linked with its content version never changes under that URL. */
+        res.setHeader(
+          "Cache-Control",
+          file.version && req.query.v === file.version ? "public, max-age=31536000, immutable" : "public, max-age=300",
+        );
         if (file.contentType.startsWith("image/svg")) {
           // An SVG opened directly runs as a document on this origin; keep it inert.
           res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");

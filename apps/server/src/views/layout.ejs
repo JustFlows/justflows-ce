@@ -18,17 +18,15 @@
           <link rel="alternate" hreflang="<%= alt.locale %>" href="<%= alt.href %>">
           <% }); %>
           <% } %>
+                  <!--jf:head-styles-->
                   <link rel="stylesheet"
-                    href="/theme.css<%= typeof preview !== 'undefined' && preview ? '?preview=1' : '' %>">
+                    href="<%= typeof themeCssHref === 'string' && themeCssHref ? themeCssHref : '/theme.css' %>">
                   <% if (typeof cssProviderStylesheets !=='undefined' && cssProviderStylesheets.length) { %>
                     <% cssProviderStylesheets.forEach(function(sheet) { %>
                       <link rel="stylesheet" href="<%= sheet.href %>">
                       <% }); %>
                         <% } %>
-                          <script src="/js/site-chrome.js"></script>
-                          <script src="/js/site-nav.js"></script>
-                          <script src="/js/site-toast.js"></script>
-                          <script src="/js/site-session.js" defer></script>
+                          <!--jf:head-scripts-->
 </head>
 
 <body<% if (typeof bodyClass === 'string' && /^jf-layout-[a-z0-9-]+$/.test(bodyClass)) { %> class="<%= bodyClass %>"<% } %>>
@@ -55,9 +53,7 @@
                 </p>
                 <% } %>
       </footer>
-      <script src="/js/block-animations.js" defer></script>
-      <script src="/js/block-interactions.js" defer></script>
-      <script src="/theme.js" defer></script>
+      <!--jf:body-scripts-->
 </body>
 
 </html>

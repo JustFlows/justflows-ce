@@ -407,7 +407,7 @@ describe("renderCommentsBlockHtml", () => {
     expect(html).toContain('data-action="justflows_comment_submit"');
     expect(html).toContain('name="g-recaptcha-response"');
     expect(html).toContain("https://www.google.com/recaptcha/api.js?render=public-v3-key");
-    expect(html).toContain('src="/js/recaptcha-v3.js"');
+    expect(html).toMatch(/src="\/js\/recaptcha-v3(?:-[A-Z0-9]{8})?\.js"/);
     expect(html).not.toContain('class="g-recaptcha jf-comments__captcha"');
   });
 

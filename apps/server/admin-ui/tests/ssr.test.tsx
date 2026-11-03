@@ -1,7 +1,7 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
-import { render } from "../src/entry-server";
+import { beforeAll, describe, expect, it } from "vitest";
+import { preloadPages, render } from "../src/entry-server";
 
 const ROUTES = [
   "/install", "/login", "/register", "/forgot-password", "/reset-password",
@@ -17,10 +17,14 @@ const ROUTES = [
 ];
 
 describe("admin SSR routes", () => {
+  /** The server awaits this once before rendering; route pages are lazily split. */
+  beforeAll(() => preloadPages());
+
   for (const url of ROUTES) {
     it(`renders ${url} without browser globals`, () => {
       const html = render(url, { url, locale: "en", responses: {} });
       expect(html.length).toBeGreaterThan(20);
+      expect(html).not.toContain("jf-route-loading");
     });
   }
 

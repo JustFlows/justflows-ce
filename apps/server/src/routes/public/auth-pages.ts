@@ -10,6 +10,7 @@ import { privateAccountResponse } from "../../middleware/account-cache.js";
 import { securityHeaders } from "../../middleware/security-headers.js";
 import { withoutSharedCache } from "../../lib/cache/jf-cache.js";
 import { isPreviewAllowed } from "../../lib/auth/auth-session.js";
+import { publicScriptUrl } from "../../lib/rendering/page-scripts.js";
 
 /**
  * The member auth pages (`/login`, `/register`, `/forgot-password`,
@@ -52,6 +53,6 @@ export async function serveAuthPage(slug: AuthPageSlug, req: Request, res: Respo
     const { renderSinglePageHtml } = await import("./public-site.js");
     return renderSinglePageHtml(req, res, path, content.slug, content.locale, preview, [], 1, path, content, false, path);
   });
-  const assets = '<link rel="stylesheet" href="/css/auth.css"><script src="/js/auth.js" defer></script>';
+  const assets = `<link rel="stylesheet" href="/css/auth.css"><script src="${publicScriptUrl("auth")}" defer></script>`;
   res.type("html").send(html.includes('class="jf-auth-form"') ? html.replace("</head>", assets + "</head>") : html);
 }

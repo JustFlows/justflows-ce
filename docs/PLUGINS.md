@@ -350,6 +350,64 @@ secrets) cannot run in a page and is never bundled.
 Working example: `plugins/hello-world` (`public/hello-world.js` +
 `assets` in `justflows.json`).
 
+### Per-block assets
+
+A script or stylesheet only one of your blocks needs belongs in
+`assets.blocks`, keyed by a block type you register with `ctx.blocks.register`:
+
+```jsonc
+"assets": {
+  "dir": "public",
+  "blocks": {
+    "acme.widgets.slider": { "scripts": ["slider.js"], "styles": ["slider.css"] }
+  }
+}
+```
+
+These files are not bundled and not added to every page. The host adds them
+only to a page that renders that block, whether from content, the header or
+footer, or a widget area: the stylesheet before `/theme.css`, the script deferred at
+the end of the body, each file once. Each URL carries a content version
+(`/ext/<pluginId>/slider.js?v=<hash>`) that browsers cache for good, and a new
+plugin version links a new URL.
+
+The host finds the block through a `<!--jf-block:<type>-->` comment that it adds
+after every rendered plugin block, so keep the block's `render` output as is.
+Only your own namespace counts (a key for another plugin's or a core block is
+ignored); at most 50 block types with 10 scripts and 10 styles each.
+
+### Assets for markup
+
+When the markup a file works on does not come from one of your blocks (a page
+your plugin fills through a `core.html` container, a template, or an element
+other content can contain), list selectors in `assets.markup`:
+
+```jsonc
+"assets": {
+  "dir": "public",
+  "markup": [
+    { "match": ["#acme-cart-page", "[data-acme-buy]"], "scripts": ["cart.js"] },
+    { "match": [".acme-store*"], "styles": ["store.css"] }
+  ]
+}
+```
+
+A rule applies when the finished page contains an element matching any of its
+`match` selectors: `#id`, `.class`, `.class-prefix*` (any class that starts
+with the prefix), or `[attribute]`. Only real markup counts, not text that
+mentions it. Files load like per-block assets: stylesheets before the theme
+stylesheet, scripts deferred at the end of the body, versioned URLs, each file
+once. At most 20 rules, with 20 selectors and 10 scripts and 10 styles each.
+
+**Choosing where an asset goes.** `scripts` / `styles` reach every public page,
+so keep them for code every page needs, such as a consent banner or analytics.
+Anything that works on one block belongs in `assets.blocks`; anything that works
+on known markup belongs in `assets.markup`. The same goes for the `theme.css`
+filter: CSS folded into `/theme.css` is downloaded with every page, so ship a
+component's stylesheet as a per-block or markup asset instead. Per-page
+stylesheets are linked before `/theme.css`, so the theme and the site's
+Additional CSS still override them.
+
 ## Ship your own admin app
 
 A plugin's admin screens are **its own app**, not React pages compiled into the
