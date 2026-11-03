@@ -12,6 +12,9 @@ import { isPreviewAllowed } from "../../lib/auth/auth-session.js";
 import { getGeneralSettings } from "../../lib/settings/general-settings.js";
 import { isSafeScopeSelector, scopeThemeCss } from "../../lib/rendering/scope-css.js";
 import { activeThemeScripts, contentVersion, IMMUTABLE_CACHE_CONTROL } from "../../lib/themes/theme-asset-versions.js";
+import { resolveThemeAssetFile } from "../../lib/themes/theme-block-assets.js";
+import fs from "node:fs";
+import fsp from "node:fs/promises";
 
 const router = Router();
 
@@ -94,4 +97,34 @@ export async function serveThemeScripts(
     }
     res.send(scripts);
   } catch { res.status(503).send("/* Theme scripts unavailable. */"); }
+}
+
+/**
+ * `/theme-assets/<path>`: a script or stylesheet the active theme declared in
+ * `assets.blocks`, and nothing else from its folder. Cached for good only when
+ * `?v=` is the hash of the bytes being sent.
+ */
+export async function serveThemeBlockAsset(
+  req: import("express").Request,
+  res: import("express").Response,
+  next: import("express").NextFunction,
+): Promise<void> {
+  try {
+    const params = req.params as unknown as string[];
+    const file = await resolveThemeAssetFile(params[0] ?? "");
+    if (!file) { next(); return; }
+    const fd = await fsp.open(file.absPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    let body: Buffer;
+    try {
+      body = await fd.readFile();
+    } finally {
+      await fd.close();
+    }
+    res.type(file.contentType);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", req.query.v === contentVersion(body) ? IMMUTABLE_CACHE_CONTROL : "no-cache");
+    res.send(body);
+  } catch {
+    next();
+  }
 }

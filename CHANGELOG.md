@@ -17,6 +17,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **A hosted site can read its plugin's main-site secrets.** `ctx.network.mainSiteSecrets` reads them, so a subsite can use a connection the main site saved. It cannot write them. ([#146](https://github.com/JustFlows/justflows-ce/issues/146))
 - **A plugin admin screen can use the whole content area.** `bridge.setLayout("fill")` keeps the sidebar and section tabs and gives the frame the rest. A sidebar section icon can be an image. ([#146](https://github.com/JustFlows/justflows-ce/issues/146))
 - **SDK: plugin blocks load their own scripts and styles only where they are used.** `assets.blocks` in a plugin manifest maps one of the plugin's block types to scripts and stylesheets. The host adds them only to pages that render that block, including in the header, footer, or a widget area, with content-hashed URLs that browsers cache for good. ([#195](https://github.com/JustFlows/justflows-ce/issues/195))
+- **Themes load block-specific code only where it is used.** `assets.blocks` in `justflows-theme.json` maps any block type, core or plugin, to scripts and stylesheets that load only on pages rendering that block. They are served with content-hashed URLs that browsers cache for good, and only declared files are reachable. ([#195](https://github.com/JustFlows/justflows-ce/issues/195))
 
 ### Fixed
 

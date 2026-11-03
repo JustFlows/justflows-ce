@@ -7,6 +7,7 @@ import { parseEnvBool } from "@justflows/core";
 import { PLUGIN_ID_RE } from "@justflows/sdk";
 import { blockAssetMarker } from "@justflows/blocks";
 import { getDb } from "../database/db.js";
+import { blockAssetTags } from "../rendering/block-assets.js";
 import { getSiteId } from "../themes/themes-db.js";
 import { pluginsDir } from "./plugins-db.js";
 import { resolvePathUnderBase } from "../security/safe-path.js";
@@ -361,29 +362,18 @@ export function blockAssetTagsFor(
   sets: ReadonlyArray<Pick<PluginAssetSet, "pluginId" | "blocks" | "versions">>,
   html: string,
 ): { head: string[]; body: string[] } {
-  const head: string[] = [];
-  const body: string[] = [];
-  const seen = new Set<string>();
-  const href = (set: (typeof sets)[number], rel: string) => {
-    const version = set.versions.get(rel);
-    return `/ext/${esc(set.pluginId)}/${esc(rel)}${version ? `?v=${version}` : ""}`;
-  };
-  for (const set of sets) {
-    for (const block of set.blocks) {
-      if (!html.includes(blockAssetMarker(block.type))) continue;
-      for (const rel of block.styles) {
-        if (seen.has(`${set.pluginId}/${rel}`)) continue;
-        seen.add(`${set.pluginId}/${rel}`);
-        head.push(`<link rel="stylesheet" href="${href(set, rel)}">`);
-      }
-      for (const rel of block.scripts) {
-        if (seen.has(`${set.pluginId}/${rel}`)) continue;
-        seen.add(`${set.pluginId}/${rel}`);
-        body.push(`<script src="${href(set, rel)}" defer></script>`);
-      }
-    }
-  }
-  return { head, body };
+  return blockAssetTags(
+    sets.flatMap((set) =>
+      set.blocks.map((block) => ({
+        ...block,
+        href: (rel: string) => {
+          const version = set.versions.get(rel);
+          return `/ext/${esc(set.pluginId)}/${esc(rel)}${version ? `?v=${version}` : ""}`;
+        },
+      })),
+    ),
+    html,
+  );
 }
 
 /**

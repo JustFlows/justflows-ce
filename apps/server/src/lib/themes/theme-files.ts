@@ -619,6 +619,17 @@ export function loadThemeScripts(themeId: string, installedPath?: string): strin
   return output.join("\n;\n");
 }
 
+/**
+ * The theme's `assets.blocks` declaration (`justflows-theme.json`, else
+ * `justflows.json`), unvalidated; see `theme-block-assets.ts`.
+ */
+export function readThemeBlockAssetsSpec(dir: string): unknown {
+  const manifest = readJsonFile<Record<string, unknown>>(dir, "justflows-theme.json")
+    ?? readJsonFile<Record<string, unknown>>(dir, "justflows.json");
+  const assets = manifest?.["assets"];
+  return assets && typeof assets === "object" ? (assets as Record<string, unknown>)["blocks"] : undefined;
+}
+
 /** Exact HTTPS origins of a trusted theme's remote video/audio dependencies. */
 export function loadThemeMediaOrigins(themeId: string, installedPath?: string): string[] {
   const dir = resolveThemeDir(themeId, installedPath);

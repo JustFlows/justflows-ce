@@ -165,6 +165,7 @@ import { formatCacheSummary, getRequestCacheEvents, pageCacheStatus } from "../.
 import { getAdminPathConfig, toPublicAdminPath } from "../../lib/admin/admin-path.js";
 import { applyPageScripts, publicScriptUrl } from "../../lib/rendering/page-scripts.js";
 import { themeCssVersion, themeScriptsVersion } from "../../lib/themes/theme-asset-versions.js";
+import { activeThemeBlockAssets, themeBlockAssetTags } from "../../lib/themes/theme-block-assets.js";
 
 const templateDir = viewsDir();
 const router = Router();
@@ -1286,10 +1287,14 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     footer: Array.isArray(data.footerNavItems) ? data.footerNavItems as RenderableNavItem[] : [],
   });
   /** Scripts are picked from the finished page, header and footer included. */
-  const blockAssets = await pluginBlockAssetTags(html);
+  const [pluginAssets, themeAssets] = await Promise.all([pluginBlockAssetTags(html), themeBlockAssetTags(html)]);
   return applyPageScripts(html, {
-    head: blockAssets.head,
-    body: [...blockAssets.body, ...(themeJsVersion ? [`<script src="/theme.js?v=${themeJsVersion}" defer></script>`] : [])],
+    head: [...pluginAssets.head, ...themeAssets.head],
+    body: [
+      ...pluginAssets.body,
+      ...themeAssets.body,
+      ...(themeJsVersion ? [`<script src="/theme.js?v=${themeJsVersion}" defer></script>`] : []),
+    ],
   });
 }
 
@@ -1575,6 +1580,8 @@ function languageLinksFor(
 }
 
 async function buildPageContext(req: Request, res: Response, reqPath: string, preview = false) {
+  /** Before any block renders, so the theme's per-block asset types are marked. */
+  await activeThemeBlockAssets();
   const activeLocales = await getActiveLocaleCodes();
   const defaultLocale = await getDefaultLocale();
   const languages = await listLanguages(undefined, true);

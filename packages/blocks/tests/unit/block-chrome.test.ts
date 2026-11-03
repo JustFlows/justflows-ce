@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockAssetMarker, withBlockChrome } from "../../src/block-chrome.js";
+import { blockAssetMarker, markBlockTypes, withBlockChrome } from "../../src/block-chrome.js";
 import { createBlockRegistrySync } from "../../src/index.js";
 
 describe("withBlockChrome", () => {
@@ -153,6 +153,13 @@ describe("blockAssetMarker", () => {
 
   it("does not mark a block that rendered nothing", () => {
     expect(withBlockChrome("  ", { type: "acme.slider", props: {} })).toBe("  ");
+  });
+
+  it("marks a core block once the host asks for it", () => {
+    expect(blockAssetMarker("core.gallery")).toBe("");
+    markBlockTypes(["core.gallery", "core.--x"]);
+    expect(withBlockChrome("<figure>g</figure>", { type: "core.gallery", props: {} })).toBe("<figure>g</figure><!--jf-block:core.gallery-->");
+    expect(blockAssetMarker("core.--x")).toBe("");
   });
 
   it("refuses a type that could break out of the comment", () => {

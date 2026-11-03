@@ -16,14 +16,35 @@ export interface BlockChromeNode {
 
 const MARKED_BLOCK_TYPE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
 
+/** Core block types the host asked to mark (see {@link markBlockTypes}). */
+const markedCoreTypes = new Set<string>();
+
+/** Whether `type` is a plain block id a marker comment can carry. */
+export function isMarkableBlockType(type: unknown): type is string {
+  return typeof type === "string" && MARKED_BLOCK_TYPE.test(type) && !type.includes("--");
+}
+
 /**
- * The comment a rendered plugin block carries so the host can tell which block
- * types a finished page contains, including blocks in cached fragments, and
- * load their per-block assets only there. Core blocks are not marked; "" for
- * them and for a type that is not a plain block id.
+ * Also mark these core block types, because something (the active theme) has
+ * assets for them. Process-wide and only ever growing: an extra marker is an
+ * inert comment, and which assets a page gets is still decided per site.
+ */
+export function markBlockTypes(types: Iterable<string>): void {
+  for (const type of types) {
+    if (isMarkableBlockType(type) && type.startsWith("core.")) markedCoreTypes.add(type);
+  }
+}
+
+/**
+ * The comment a rendered block carries so the host can tell which block types
+ * a finished page contains, including blocks in cached fragments, and load
+ * their per-block assets only there. Every plugin block is marked; a core
+ * block only once {@link markBlockTypes} named it. "" when unmarked, and for a
+ * type that is not a plain block id.
  */
 export function blockAssetMarker(type: unknown): string {
-  if (typeof type !== "string" || type.startsWith("core.") || !MARKED_BLOCK_TYPE.test(type) || type.includes("--")) return "";
+  if (!isMarkableBlockType(type)) return "";
+  if (type.startsWith("core.") && !markedCoreTypes.has(type)) return "";
   return `<!--jf-block:${type}-->`;
 }
 

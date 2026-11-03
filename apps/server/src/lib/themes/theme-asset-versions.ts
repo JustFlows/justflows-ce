@@ -19,7 +19,7 @@ import { getActiveTheme, getSiteId, themeInstalledPath } from "./themes-db.js";
 export const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 /** Short content hash used as a cache-busting version. */
-export function contentVersion(text: string): string {
+export function contentVersion(text: string | Buffer): string {
   return createHash("sha256").update(text).digest("hex").slice(0, 12);
 }
 
