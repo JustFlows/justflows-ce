@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { build, context } from "esbuild";
-import { copyFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -42,6 +42,8 @@ const names = new Set(entryPoints.map((entryPath) => path.basename(entryPath, ".
  * that is gone are answered with the current file by the server.
  */
 const owned = /^(.+?)(?:-[A-Z0-9]{8})?\.js(?:\.map)?$/;
+/** A fresh checkout has no public/js yet. */
+mkdirSync(outdir, { recursive: true });
 for (const file of readdirSync(outdir, { withFileTypes: true })) {
   const match = file.isFile() ? owned.exec(file.name) : null;
   if (match && names.has(match[1])) rmSync(path.join(outdir, file.name), { force: true });
