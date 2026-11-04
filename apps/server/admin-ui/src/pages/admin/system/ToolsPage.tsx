@@ -13,6 +13,17 @@ interface ImportResult {
   error?: string;
 }
 
+interface BackupValidation {
+  manifest: {
+    version: number;
+    createdAt: string;
+    source: { siteId: string; siteName: string; databaseDriver: string; coreVersion?: string };
+    integrity: { algorithm: string; data: string };
+  };
+  counts: { tables: Record<string, number>; plugins: number; themes: number; mediaFiles: number; mediaBytes: number };
+  restoreAvailable: boolean;
+}
+
 interface CacheSettings {
   enabled: boolean;
   driver: "memory" | "filesystem";
@@ -156,8 +167,21 @@ export default function ToolsPage() {
   const { t } = useT();
   const installationRoot = useSession().session?.installationRoot === true;
   const fileRef = useRef<HTMLInputElement>(null);
+  const backupFileRef = useRef<HTMLInputElement>(null);
+  const backupCancelRef = useRef(false);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [backupCreating, setBackupCreating] = useState(false);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [backupValidating, setBackupValidating] = useState(false);
+  const [backupValidation, setBackupValidation] = useState<BackupValidation | null>(null);
+  const [backupFile, setBackupFile] = useState<File | null>(null);
+  const [restoreConfirmation, setRestoreConfirmation] = useState("");
+  const [backupRestoring, setBackupRestoring] = useState(false);
+  const [backupRestored, setBackupRestored] = useState(false);
+  const [backupJobId, setBackupJobId] = useState<string | null>(null);
+  const [backupProgress, setBackupProgress] = useState(0);
+  const [backupMessage, setBackupMessage] = useState("");
 
   const [perfLoading, setPerfLoading] = useState(true);
   const [cache, setCache] = useState<CacheSettings>({
@@ -218,6 +242,7 @@ export default function ToolsPage() {
   const [sxSiteEnabled, setSxSiteEnabled] = useState(true);
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const suggestedOrigin = sxRuntimeInfo?.appUrl || browserOrigin;
+  const restorePhrase = t("tools.backup.confirmationPhrase");
 
   async function loadPerfStats() {
     setStatsLoading(true);
@@ -433,6 +458,106 @@ export default function ToolsPage() {
       setResult({ ok: false, error: String(e) });
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function downloadBackup() {
+    setBackupCreating(true);
+    setBackupError(null);
+    setBackupProgress(0);
+    backupCancelRef.current = false;
+    try {
+      const start = await fetch("/api/backups/jobs", { method: "POST" });
+      const started = (await start.json()) as { jobId?: string; error?: string };
+      if (!start.ok || !started.jobId) throw new Error(started.error ?? t("tools.backup.createFailed"));
+      const jobId = started.jobId;
+      setBackupJobId(jobId);
+      while (!backupCancelRef.current) {
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+        const statusResponse = await fetch(`/api/backups/jobs/${jobId}`);
+        const status = (await statusResponse.json()) as {
+          status?: "running" | "ready" | "failed" | "cancelled";
+          progress?: number;
+          message?: string;
+          error?: string;
+        };
+        if (!statusResponse.ok) throw new Error(status.error ?? t("tools.backup.createFailed"));
+        setBackupProgress(status.progress ?? 0);
+        setBackupMessage(status.message ?? "");
+        if (status.status === "failed") throw new Error(status.error ?? t("tools.backup.createFailed"));
+        if (status.status === "cancelled") throw new Error(t("tools.backup.cancelled"));
+        if (status.status === "ready") break;
+      }
+      if (backupCancelRef.current) return;
+      const res = await fetch(`/api/backups/jobs/${jobId}/download`);
+      if (!res.ok) throw new Error(t("tools.backup.createFailed"));
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition") ?? "";
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "justflows-backup.jfbackup";
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBackupCreating(false);
+      setBackupJobId(null);
+    }
+  }
+
+  async function cancelBackup() {
+    backupCancelRef.current = true;
+    if (backupJobId) await fetch(`/api/backups/jobs/${backupJobId}`, { method: "DELETE" });
+    setBackupCreating(false);
+    setBackupJobId(null);
+    setBackupMessage(t("tools.backup.cancelled"));
+  }
+
+  async function validateBackup(file: File) {
+    setBackupValidating(true);
+    setBackupError(null);
+    setBackupValidation(null);
+    setBackupFile(null);
+    setBackupRestored(false);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/backups/validate", { method: "POST", body: form });
+      const body = (await res.json()) as BackupValidation & { error?: string };
+      if (!res.ok) throw new Error(body.error ?? t("tools.backup.validateFailed"));
+      setBackupValidation(body);
+      setBackupFile(file);
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBackupValidating(false);
+      if (backupFileRef.current) backupFileRef.current.value = "";
+    }
+  }
+
+  async function restoreBackup() {
+    if (!backupFile) return;
+    setBackupRestoring(true);
+    setBackupError(null);
+    setBackupRestored(false);
+    try {
+      const form = new FormData();
+      form.append("file", backupFile);
+      form.append("confirmation", restoreConfirmation);
+      const res = await fetch("/api/backups/restore", { method: "POST", body: form });
+      const body = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !body.ok) throw new Error(body.error ?? t("tools.backup.restoreFailed"));
+      setBackupRestored(true);
+      setBackupValidation(null);
+      setBackupFile(null);
+      setRestoreConfirmation("");
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBackupRestoring(false);
     }
   }
 
@@ -1478,6 +1603,90 @@ export default function ToolsPage() {
                   {line}
                 </p>
               ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="jf-card">
+        <div className="jf-card__head">
+          <h2 className="jf-card__title">{t("tools.backup.title")}</h2>
+        </div>
+        <div className="jf-card__body jf-stack">
+          <p className="jf-prose">{t("tools.backup.description")}</p>
+          <p className="jf-field__hint">{t("tools.backup.scopeHint")}</p>
+          {backupError && <div className="jf-alert jf-alert--error" role="alert">{backupError}</div>}
+          {backupRestored && <div className="jf-alert jf-alert--success" role="status">{t("tools.backup.restoreComplete")}</div>}
+          <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+            <button type="button" className="jf-btn jf-btn--primary" onClick={downloadBackup} disabled={backupCreating}>
+              {backupCreating ? t("tools.backup.creating") : t("tools.backup.download")}
+            </button>
+            {backupCreating && (
+              <button type="button" className="jf-btn jf-btn--ghost" onClick={cancelBackup}>
+                {t("tools.backup.cancel")}
+              </button>
+            )}
+            <input
+              ref={backupFileRef}
+              type="file"
+              accept=".jfbackup,application/vnd.justflows.backup"
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void validateBackup(file);
+              }}
+            />
+            <button
+              type="button"
+              className="jf-btn jf-btn--secondary"
+              onClick={() => backupFileRef.current?.click()}
+              disabled={backupValidating}
+            >
+              {backupValidating ? t("tools.backup.validating") : t("tools.backup.validate")}
+            </button>
+          </div>
+          {backupCreating && (
+            <div role="status" aria-live="polite">
+              <progress max={100} value={backupProgress} style={{ width: "100%" }} />
+              <p className="jf-field__hint">{backupMessage}</p>
+            </div>
+          )}
+          {backupValidation && (
+            <div className="jf-alert jf-alert--success" role="status">
+              <strong>{t("tools.backup.validTitle")}</strong>{" "}
+              {t("tools.backup.validSummary", {
+                site: backupValidation.manifest.source.siteName,
+                date: new Date(backupValidation.manifest.createdAt).toLocaleString(),
+                records: Object.values(backupValidation.counts.tables).reduce((sum, count) => sum + count, 0),
+              })}
+              <div className="jf-field__hint">
+                {t("tools.backup.mediaSummary", {
+                  count: backupValidation.counts.mediaFiles,
+                  size: formatBytes(backupValidation.counts.mediaBytes),
+                })}
+              </div>
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="backup-restore-confirmation">
+                  {t("tools.backup.confirmLabel", { phrase: restorePhrase })}
+                </label>
+                <input
+                  id="backup-restore-confirmation"
+                  className="jf-input"
+                  value={restoreConfirmation}
+                  onChange={(event) => setRestoreConfirmation(event.target.value)}
+                  placeholder={restorePhrase}
+                  autoComplete="off"
+                />
+                <p className="jf-field__hint">{t("tools.backup.cleanOnly")}</p>
+              </div>
+              <button
+                type="button"
+                className="jf-btn jf-btn--danger"
+                disabled={backupRestoring || restoreConfirmation !== restorePhrase}
+                onClick={restoreBackup}
+              >
+                {backupRestoring ? t("tools.backup.restoring") : t("tools.backup.restore")}
+              </button>
             </div>
           )}
         </div>

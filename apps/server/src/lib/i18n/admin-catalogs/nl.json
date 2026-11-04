@@ -3376,6 +3376,9 @@
     }
   },
   "tools": {
+    "backup": {
+      "cancel": "Annuleren", "cancelled": "Back-up geannuleerd", "cleanOnly": "Herstellen kan alleen als de doelsite geen inhoud, media, reacties of menu's bevat. Het huidige beheerdersaccount blijft behouden.", "confirmLabel": "Typ {phrase} om te bevestigen", "confirmationPhrase": "RESTORE CLEAN SITE", "createFailed": "De back-up kon niet worden gemaakt", "creating": "Back-up maken…", "description": "Download een draagbare, gecontroleerde momentopname van deze site.", "download": "Siteback-up downloaden", "mediaSummary": "{count} originele mediabestanden · {size}", "restore": "Herstellen op lege site", "restoreComplete": "Back-up is hersteld. Herlaad de beheeromgeving.", "restoreFailed": "De back-up kon niet worden hersteld", "restoring": "Herstellen…", "scopeHint": "Originele mediabestanden zijn inbegrepen; responsieve varianten kunnen opnieuw worden gegenereerd. Bewaar ook je normale serverback-up.", "title": "Back-up en herstel", "validSummary": "{site} · {date} · {records} gegevensrecords", "validTitle": "Integriteit van back-up bevestigd.", "validate": "Back-up controleren", "validateFailed": "De back-up kon niet worden gecontroleerd", "validating": "Controleren…"
+    },
     "performance": {
       "loadFailed": "Prestatie-instellingen konden niet worden geladen",
       "saveFailed": "Prestatie-instellingen konden niet worden opgeslagen",

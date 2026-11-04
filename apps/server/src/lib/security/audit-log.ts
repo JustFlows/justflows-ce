@@ -130,6 +130,9 @@ export const AUDIT_ACTIONS = [
   "integrity.failed",
   "integrity.scanned",
   "audit.security_events_deleted",
+  "backup.downloaded",
+  "backup.validated",
+  "backup.restored",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

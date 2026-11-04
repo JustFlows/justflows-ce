@@ -3418,6 +3418,9 @@
     }
   },
   "tools": {
+    "backup": {
+      "cancel": "Annuler", "cancelled": "Sauvegarde annulée", "cleanOnly": "La restauration est autorisée uniquement si la cible ne contient aucun contenu, média, commentaire ou menu. Le compte administrateur actuel est conservé.", "confirmLabel": "Saisissez {phrase} pour confirmer", "confirmationPhrase": "RESTORE CLEAN SITE", "createFailed": "Impossible de créer la sauvegarde", "creating": "Création de la sauvegarde…", "description": "Téléchargez une copie portable et vérifiée de ce site.", "download": "Télécharger la sauvegarde", "mediaSummary": "{count} fichiers média originaux · {size}", "restore": "Restaurer sur un site vide", "restoreComplete": "Sauvegarde restaurée. Rechargez l’administration.", "restoreFailed": "Impossible de restaurer la sauvegarde", "restoring": "Restauration…", "scopeHint": "Les médias originaux sont inclus ; les variantes responsives peuvent être régénérées. Conservez votre sauvegarde serveur habituelle.", "title": "Sauvegarde et restauration", "validSummary": "{site} · {date} · {records} enregistrements", "validTitle": "Intégrité de la sauvegarde vérifiée.", "validate": "Vérifier la sauvegarde", "validateFailed": "Impossible de vérifier la sauvegarde", "validating": "Vérification…"
+    },
     "performance": {
       "loadFailed": "Impossible de charger les paramètres de performance",
       "saveFailed": "Impossible d'enregistrer les paramètres de performance",

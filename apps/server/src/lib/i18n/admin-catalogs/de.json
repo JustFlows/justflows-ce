@@ -3418,6 +3418,9 @@
     }
   },
   "tools": {
+    "backup": {
+      "cancel": "Abbrechen", "cancelled": "Sicherung abgebrochen", "cleanOnly": "Die Wiederherstellung ist nur möglich, wenn das Ziel keine Inhalte, Medien, Kommentare oder Menüs enthält. Das aktuelle Administratorkonto bleibt erhalten.", "confirmLabel": "Geben Sie zur Bestätigung {phrase} ein", "confirmationPhrase": "RESTORE CLEAN SITE", "createFailed": "Sicherung konnte nicht erstellt werden", "creating": "Sicherung wird erstellt…", "description": "Laden Sie eine portable, geprüfte Momentaufnahme der Website herunter.", "download": "Website-Sicherung herunterladen", "mediaSummary": "{count} Original-Mediendateien · {size}", "restore": "Auf sauberer Website wiederherstellen", "restoreComplete": "Sicherung erfolgreich wiederhergestellt. Laden Sie den Adminbereich neu.", "restoreFailed": "Sicherung konnte nicht wiederhergestellt werden", "restoring": "Wiederherstellung…", "scopeHint": "Originalmedien sind enthalten; responsive Varianten können neu erzeugt werden. Bewahren Sie Ihre reguläre Serversicherung auf.", "title": "Sicherung und Wiederherstellung", "validSummary": "{site} · {date} · {records} Datensätze", "validTitle": "Integrität der Sicherung bestätigt.", "validate": "Sicherung prüfen", "validateFailed": "Sicherung konnte nicht geprüft werden", "validating": "Prüfung…"
+    },
     "performance": {
       "loadFailed": "Die Leistungseinstellungen konnten nicht geladen werden",
       "saveFailed": "Leistungseinstellungen konnten nicht gespeichert werden",
