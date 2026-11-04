@@ -60,6 +60,9 @@ path, including an edge followed by an origin proxy.
 
 ## Edge CDN, WAF, and origin access
 
+For cache exclusions, WAF rollout, bot treatment, failure modes, and synthetic
+checks, use the [edge protection integration guide](EDGE-PROTECTION.md).
+
 An edge service does not protect an origin that remains directly reachable.
 When using a CDN or WAF:
 
