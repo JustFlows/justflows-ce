@@ -12,7 +12,7 @@ const ROUTES = [
   "/admin/design", "/admin/menus", "/admin/users", "/admin/settings", "/admin/settings/api", "/admin/comments",
   "/admin/marketplace", "/admin/tools", "/admin/health", "/admin/updates", "/admin/languages",
   "/admin/security", "/admin/security/web-server", "/admin/security/integrity", "/admin/security/header-grade", "/admin/security/headers", "/admin/security/advanced",
-  "/admin/security/account", "/admin/security/audit", "/admin/reports",
+  "/admin/security/account", "/admin/security/audit", "/admin/security/audit/settings", "/admin/reports",
   "/admin/plugins/justflows.store", "/admin/plugins/justflows.store/products",
 ];
 
@@ -156,7 +156,19 @@ describe("admin SSR routes", () => {
     });
     expect(html).toContain("Security events");
     expect(html).toContain("All audit events");
+    expect(html).toContain("Settings");
+    expect(html).not.toContain("Email notifications");
+  });
+
+  it("renders audit controls on the dedicated settings page", () => {
+    const html = render("/admin/security/audit/settings", {
+      url: "/admin/security/audit/settings",
+      locale: "en",
+      responses: {},
+    });
+    expect(html).toContain("Audit settings");
     expect(html).toContain("Email notifications");
+    expect(html).toContain("Retention");
   });
 
   it("hides installation setup from a subsite Security Center", () => {

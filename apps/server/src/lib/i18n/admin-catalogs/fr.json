@@ -2671,6 +2671,11 @@
       "allActions": "Toutes les actions",
       "allEvents": "Tous les événements d’audit",
       "confirmPhrase": "DELETE SECURITY EVENTS",
+      "backToEvents": "Retour aux événements",
+      "settingsButton": "Paramètres",
+      "settingsLoadError": "Impossible de charger les paramètres d’audit",
+      "settingsSubtitle": "Notifications, conservation, exportation et suppression.",
+      "settingsTitle": "Paramètres d’audit",
       "lifecycle": { "bound": "Le stockage est limité à {count} lignes d’audit par site ; les plus anciennes sont supprimées en premier.", "confirmLabel": "Saisissez DELETE SECURITY EVENTS pour supprimer définitivement les événements de sécurité de ce site.", "deleteButton": "Supprimer les événements de sécurité", "deleted": "{count} événements supprimés. Un marqueur contenant uniquement le nombre a été conservé.", "exportButton": "Exporter les événements de sécurité expurgés", "localWarning": "Les journaux locaux facilitent les enquêtes, mais ne résistent pas à la falsification si l’hôte est compromis. Cette fonction ne configure aucun collecteur externe.", "writeFailed": "Les écritures d’audit ont échoué à {time}. Des actions récentes peuvent manquer.", "writeOk": "Les écritures d’audit sont disponibles dans ce processus." },
       "notifications": {
         "description": "Envoyez à l’adresse d’administration du site un message court et expurgé lors d’un événement de sécurité important. Le journal d’audit reste disponible sans e-mail.",

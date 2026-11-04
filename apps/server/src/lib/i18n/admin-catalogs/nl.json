@@ -2629,6 +2629,11 @@
       "allActions": "Alle acties",
       "allEvents": "Alle auditgebeurtenissen",
       "confirmPhrase": "DELETE SECURITY EVENTS",
+      "backToEvents": "Terug naar gebeurtenissen",
+      "settingsButton": "Instellingen",
+      "settingsLoadError": "Auditinstellingen konden niet worden geladen",
+      "settingsSubtitle": "E-mailmeldingen, bewaring, export en verwijdering.",
+      "settingsTitle": "Auditinstellingen",
       "lifecycle": { "bound": "Opslag is begrensd op {count} auditregels per site; de oudste worden eerst verwijderd.", "confirmLabel": "Typ DELETE SECURITY EVENTS om de beveiligingsgebeurtenissen van deze site permanent te verwijderen.", "deleteButton": "Beveiligingsgebeurtenissen verwijderen", "deleted": "{count} beveiligingsgebeurtenissen verwijderd. Een marker met alleen het aantal is bewaard.", "exportButton": "Geredigeerde beveiligingsgebeurtenissen exporteren", "localWarning": "Lokale logboeken helpen bij onderzoek, maar zijn niet manipulatiebestendig als de host is gecompromitteerd. Deze functie configureert geen externe logbestemming.", "writeFailed": "Auditschrijfbewerkingen meldden een fout om {time}. Recente acties kunnen ontbreken.", "writeOk": "Auditschrijfbewerkingen zijn beschikbaar in dit proces." },
       "notifications": {
         "description": "Stuur het beheeradres van de site een kort, geredigeerd bericht bij een belangrijke beveiligingsgebeurtenis. Het auditlogboek blijft beschikbaar als e-mail uitstaat of niet beschikbaar is.",
