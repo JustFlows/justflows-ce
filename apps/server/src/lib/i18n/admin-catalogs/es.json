@@ -2670,6 +2670,13 @@
       "filterLabel": "Filtrar por acción",
       "allActions": "Todas las acciones",
       "allEvents": "Todos los eventos de auditoría",
+      "confirmPhrase": "DELETE SECURITY EVENTS",
+      "backToEvents": "Volver a eventos",
+      "settingsButton": "Ajustes",
+      "settingsLoadError": "No se pudieron cargar los ajustes de auditoría",
+      "settingsSubtitle": "Notificaciones, retención, exportación y eliminación.",
+      "settingsTitle": "Ajustes de auditoría",
+      "lifecycle": { "bound": "El almacenamiento está limitado a {count} filas de auditoría por sitio; primero se eliminan las más antiguas.", "confirmLabel": "Escribe DELETE SECURITY EVENTS para eliminar permanentemente los eventos de seguridad de este sitio.", "deleteButton": "Eliminar eventos de seguridad", "deleted": "Se eliminaron {count} eventos. Se conservó un marcador que solo contiene la cantidad.", "exportButton": "Exportar eventos de seguridad censurados", "localWarning": "Los registros locales ayudan a investigar, pero pueden alterarse si el servidor está comprometido. Esta función no configura un destino externo.", "writeFailed": "Las escrituras de auditoría fallaron a las {time}. Pueden faltar acciones recientes.", "writeOk": "Las escrituras de auditoría están disponibles en este proceso." },
       "notifications": {
         "description": "Envía a la dirección de administración del sitio un mensaje breve y censurado cuando ocurra un evento de seguridad importante. El registro de auditoría sigue disponible sin correo.",
         "enable": "Enviar eventos de seguridad importantes",

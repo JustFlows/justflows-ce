@@ -2670,6 +2670,13 @@
       "filterLabel": "Nach Aktion filtern",
       "allActions": "Alle Aktionen",
       "allEvents": "Alle Audit-Ereignisse",
+      "confirmPhrase": "DELETE SECURITY EVENTS",
+      "backToEvents": "Zurück zu Ereignissen",
+      "settingsButton": "Einstellungen",
+      "settingsLoadError": "Audit-Einstellungen konnten nicht geladen werden",
+      "settingsSubtitle": "E-Mail-Benachrichtigungen, Aufbewahrung, Export und Löschung.",
+      "settingsTitle": "Audit-Einstellungen",
+      "lifecycle": { "bound": "Der Speicher ist auf {count} Audit-Zeilen pro Website begrenzt; die ältesten werden zuerst entfernt.", "confirmLabel": "Geben Sie DELETE SECURITY EVENTS ein, um die Sicherheitsereignisse dieser Website dauerhaft zu löschen.", "deleteButton": "Sicherheitsereignisse löschen", "deleted": "{count} Sicherheitsereignisse gelöscht. Eine Markierung nur mit der Anzahl wurde behalten.", "exportButton": "Redigierte Sicherheitsereignisse exportieren", "localWarning": "Lokale Protokolle helfen bei Untersuchungen, sind bei einem kompromittierten Host aber nicht manipulationssicher. Diese Funktion richtet keine externe Protokollsenke ein.", "writeFailed": "Audit-Schreibvorgänge meldeten um {time} einen Fehler. Neuere Aktionen können fehlen.", "writeOk": "Audit-Schreibvorgänge sind in diesem Prozess verfügbar." },
       "notifications": {
         "description": "Sendet bei wichtigen Sicherheitsereignissen eine kurze, redigierte Nachricht an die Administrationsadresse der Website. Das Audit-Protokoll bleibt auch ohne E-Mail verfügbar.",
         "enable": "Wichtige Sicherheitsereignisse per E-Mail senden",

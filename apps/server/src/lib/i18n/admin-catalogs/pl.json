@@ -3127,6 +3127,13 @@
     "audit": {
       "allActions": "Wszystkie działania",
       "allEvents": "Wszystkie zdarzenia audytu",
+      "confirmPhrase": "DELETE SECURITY EVENTS",
+      "backToEvents": "Wróć do zdarzeń",
+      "settingsButton": "Ustawienia",
+      "settingsLoadError": "Nie udało się wczytać ustawień audytu",
+      "settingsSubtitle": "Powiadomienia, retencja, eksport i usuwanie.",
+      "settingsTitle": "Ustawienia audytu",
+      "lifecycle": { "bound": "Pamięć jest ograniczona do {count} wierszy audytu na witrynę; najstarsze są usuwane jako pierwsze.", "confirmLabel": "Wpisz DELETE SECURITY EVENTS, aby trwale usunąć zdarzenia bezpieczeństwa tej witryny.", "deleteButton": "Usuń zdarzenia bezpieczeństwa", "deleted": "Usunięto {count} zdarzeń. Zachowano znacznik zawierający tylko liczbę.", "exportButton": "Eksportuj zredagowane zdarzenia bezpieczeństwa", "localWarning": "Lokalne dzienniki pomagają w dochodzeniu, ale host po przejęciu może je zmienić. Ta funkcja nie konfiguruje zewnętrznego odbiornika.", "writeFailed": "Zapisy audytu zgłosiły błąd o {time}. Może brakować ostatnich działań.", "writeOk": "Zapisy audytu są dostępne w tym procesie." },
       "notifications": {
         "description": "Wyślij krótki, zredagowany komunikat na adres administracyjny witryny po ważnym zdarzeniu bezpieczeństwa. Dziennik audytu pozostaje dostępny bez poczty.",
         "enable": "Wysyłaj ważne zdarzenia bezpieczeństwa",

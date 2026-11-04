@@ -129,6 +129,7 @@ export const AUDIT_ACTIONS = [
   "diagnostics.job_retried",
   "integrity.failed",
   "integrity.scanned",
+  "audit.security_events_deleted",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -146,6 +147,7 @@ export const SECURITY_AUDIT_ACTIONS = AUDIT_ACTIONS.filter((action) =>
   || action.startsWith("core.")
   || action.startsWith("security.")
   || action.startsWith("integrity.")
+  || action.startsWith("audit.")
   || action.startsWith("oauth.")
   || action.startsWith("cdn.")
   || action.startsWith("storage.")
@@ -197,6 +199,48 @@ function field(value: string | null | undefined, max: number): string | null {
 }
 
 let unavailableLogged = false;
+let lastWriteFailureAt: string | null = null;
+let lastWriteSuccessAt: string | null = null;
+
+export interface AuditWriteStatus {
+  available: boolean;
+  lastFailureAt: string | null;
+  lastSuccessAt: string | null;
+  maxRowsPerSite: number;
+}
+
+export const DEFAULT_AUDIT_MAX_ROWS = 100_000;
+
+export function auditMaxRowsPerSite(): number {
+  const raw = Number(process.env.JF_AUDIT_MAX_ROWS_PER_SITE);
+  if (Number.isFinite(raw) && raw >= 1_000 && raw <= 1_000_000) return Math.floor(raw);
+  return DEFAULT_AUDIT_MAX_ROWS;
+}
+
+export function auditWriteStatus(): AuditWriteStatus {
+  return {
+    available: lastWriteFailureAt === null || (lastWriteSuccessAt !== null && lastWriteSuccessAt > lastWriteFailureAt),
+    lastFailureAt: lastWriteFailureAt,
+    lastSuccessAt: lastWriteSuccessAt,
+    maxRowsPerSite: auditMaxRowsPerSite(),
+  };
+}
+
+async function enforceAuditStorageBound(siteId: string): Promise<void> {
+  const max = auditMaxRowsPerSite();
+  const db = await getDb();
+  for (;;) {
+    const overflow = await db.query<{ id: string }>(
+      "SELECT id FROM audit_log WHERE site_id = ? ORDER BY occurred_at DESC LIMIT 500 OFFSET ?",
+      [siteId, max],
+    );
+    if (!overflow.length) return;
+    await db.run(
+      `DELETE FROM audit_log WHERE site_id = ? AND id IN (${overflow.map(() => "?").join(", ")})`,
+      [siteId, ...overflow.map((row) => row.id)],
+    );
+  }
+}
 
 /**
  * Append one entry.
@@ -228,6 +272,8 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
         field(entry.detail, 2000),
       ],
     );
+    lastWriteSuccessAt = new Date().toISOString();
+    await enforceAuditStorageBound(entry.siteId);
     void import("./security-notifications.js")
       .then(({ notifySecurityEvent }) => notifySecurityEvent({
         id,
@@ -237,6 +283,7 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
       }))
       .catch(() => undefined);
   } catch (err) {
+    lastWriteFailureAt = new Date().toISOString();
     // 0008_audit_log may not have been applied yet. Say so once rather than on
     // every action, so the log is a signal instead of a flood.
     if (!unavailableLogged) {
@@ -364,4 +411,55 @@ export async function pruneAuditLog(siteId: string, days = auditRetentionDays())
   if (stale.length === 0) return 0;
   await db.run("DELETE FROM audit_log WHERE site_id = ? AND occurred_at < ?", [siteId, cutoff]);
   return stale.length;
+}
+
+export const MAX_AUDIT_EXPORT_ROWS = 5_000;
+
+function maskedEmail(value: string | null): string | null {
+  if (!value) return null;
+  const [local, domain] = value.split("@");
+  return local && domain ? `${local.slice(0, 1)}***@${domain}` : null;
+}
+
+function maskedIp(value: string | null): string | null {
+  if (!value) return null;
+  if (value.includes(":")) return `${value.split(":").slice(0, 3).join(":")}:…`;
+  const parts = value.split(".");
+  return parts.length === 4 ? `${parts.slice(0, 3).join(".")}.0` : null;
+}
+
+/** Portable, bounded export without targets, details, user agents, or raw identifiers. */
+export async function exportSecurityAuditLog(siteId: string): Promise<Array<Omit<AuditRow, "target" | "detail">>> {
+  const placeholders = SECURITY_AUDIT_ACTIONS.map(() => "?").join(", ");
+  const rows = await (await getDb()).query<Record<string, unknown>>(
+    `SELECT occurred_at, action, outcome, actor_email, actor_role, ip
+     FROM audit_log WHERE site_id = ? AND action IN (${placeholders})
+     ORDER BY occurred_at DESC LIMIT ?`,
+    [siteId, ...SECURITY_AUDIT_ACTIONS, MAX_AUDIT_EXPORT_ROWS],
+  );
+  return rows.map((row) => ({
+    id: "",
+    occurredAt: String(row.occurred_at ?? ""),
+    action: String(row.action ?? ""),
+    outcome: String(row.outcome ?? "success"),
+    actorEmail: maskedEmail(row.actor_email == null ? null : String(row.actor_email)),
+    actorRole: row.actor_role == null ? null : String(row.actor_role),
+    ip: maskedIp(row.ip == null ? null : String(row.ip)),
+  }));
+}
+
+/** Delete security-category rows only; the caller records a count-only marker afterward. */
+export async function deleteSecurityAuditLog(siteId: string): Promise<number> {
+  const placeholders = SECURITY_AUDIT_ACTIONS.map(() => "?").join(", ");
+  const db = await getDb();
+  const rows = await db.query<{ id: string }>(
+    `SELECT id FROM audit_log WHERE site_id = ? AND action IN (${placeholders})`,
+    [siteId, ...SECURITY_AUDIT_ACTIONS],
+  );
+  if (!rows.length) return 0;
+  await db.run(
+    `DELETE FROM audit_log WHERE site_id = ? AND action IN (${placeholders})`,
+    [siteId, ...SECURITY_AUDIT_ACTIONS],
+  );
+  return rows.length;
 }

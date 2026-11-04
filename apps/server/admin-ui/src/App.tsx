@@ -57,6 +57,7 @@ const SecurityHeadersPage = lazyPage(() => import("./pages/admin/security/Securi
 const SecurityAdvancedPage = lazyPage(() => import("./pages/admin/security/SecurityAdvancedPage"));
 const AccountSecurityPage = lazyPage(() => import("./pages/admin/security/AccountSecurityPage"));
 const AuditLogPage = lazyPage(() => import("./pages/admin/security/AuditLogPage"));
+const AuditSettingsPage = lazyPage(() => import("./pages/admin/security/AuditSettingsPage"));
 const WebhooksPage = lazyPage(() => import("./pages/admin/settings/WebhooksPage"));
 const ApiKeysPage = lazyPage(() => import("./pages/admin/settings/ApiKeysPage"));
 const AiSettingsPage = lazyPage(() => import("./pages/admin/settings/AiSettingsPage"));
@@ -177,6 +178,7 @@ export default function App() {
               <Route path="security/admin-path" element={<AdminPathPage />} />
               <Route path="security/account" element={<AccountSecurityPage />} />
               <Route path="security/audit" element={<AuditLogPage />} />
+              <Route path="security/audit/settings" element={<AuditSettingsPage />} />
               <Route path="*" element={<PluginHostPage />} />
             </Route>
             <Route path="*" element={<Navigate to={publicAdminPath("/admin")} replace />} />
