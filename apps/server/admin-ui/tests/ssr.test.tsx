@@ -142,9 +142,20 @@ describe("admin SSR routes", () => {
     expect(html).toContain("File integrity");
     expect(html).toContain("No backup has been verified");
     expect(html).toContain("Review security events");
+    expect(html).toContain('href="/admin/security/audit?view=security"');
     expect(html).not.toContain("Grade");
     expect(html).not.toContain("out of 100");
     expect(html).toContain("Web server setup");
+  });
+
+  it("renders the focused security event category from the Security Center link", () => {
+    const html = render("/admin/security/audit?view=security", {
+      url: "/admin/security/audit?view=security",
+      locale: "en",
+      responses: {},
+    });
+    expect(html).toContain("Security events");
+    expect(html).toContain("All audit events");
   });
 
   it("hides installation setup from a subsite Security Center", () => {

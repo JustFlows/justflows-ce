@@ -42,7 +42,7 @@ const fakeDb = {
 
 vi.mock("../../../src/lib/database/db.js", () => ({ getDb: async () => fakeDb, resetDb: () => {} }));
 
-const { auditLog, listAuditLog, pruneAuditLog, AUDIT_ACTIONS } = await import("../../../src/lib/security/audit-log.js");
+const { auditLog, listAuditLog, pruneAuditLog, AUDIT_ACTIONS, SECURITY_AUDIT_ACTIONS } = await import("../../../src/lib/security/audit-log.js");
 
 beforeEach(() => {
   statements = [];
@@ -119,6 +119,18 @@ describe("the recorded action set", () => {
       expect(AUDIT_ACTIONS).toContain(action);
     }
   });
+
+  it("keeps security events focused on identity, privilege, executable code, and configuration", () => {
+    expect(SECURITY_AUDIT_ACTIONS).toContain("auth.login_failed");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("auth.2fa_enabled");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("apikey.revoked");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("user.role_changed");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("plugin.activated");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("integrity.failed");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("storage.saved");
+    expect(SECURITY_AUDIT_ACTIONS).not.toContain("content.published");
+    expect(SECURITY_AUDIT_ACTIONS).not.toContain("trash.emptied");
+  });
 });
 
 describe("reading the trail", () => {
@@ -134,6 +146,16 @@ describe("reading the trail", () => {
     await listAuditLog({ siteId: "site-1", limit: 100_000 });
     const read = statements.find((s) => /SELECT \* FROM audit_log/i.test(s.sql))!;
     expect(read.params[read.params.length - 1]).toBe(500);
+  });
+
+  it("filters the security view in the site-scoped query", async () => {
+    await listAuditLog({ siteId: "site-1", view: "security" });
+    const read = statements.find((s) => /SELECT \* FROM audit_log/i.test(s.sql))!;
+    expect(read.sql).toContain("site_id = ?");
+    expect(read.sql).toContain("action IN");
+    expect(read.params).toContain("auth.login");
+    expect(read.params).toContain("integrity.failed");
+    expect(read.params).not.toContain("content.published");
   });
 
   it("maps rows to camelCase for the API", async () => {

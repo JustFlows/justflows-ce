@@ -133,6 +133,37 @@ export const AUDIT_ACTIONS = [
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export type AuditOutcome = "success" | "failure";
 
+/** Events relevant to account, privilege, code, update, and security investigations. */
+export const SECURITY_AUDIT_ACTIONS = AUDIT_ACTIONS.filter((action) =>
+  action.startsWith("auth.")
+  || action.startsWith("user.")
+  || action.startsWith("access.")
+  || action.startsWith("apikey.")
+  || action.startsWith("plugin.")
+  || action.startsWith("theme.")
+  || action.startsWith("extension.")
+  || action.startsWith("core.")
+  || action.startsWith("security.")
+  || action.startsWith("integrity.")
+  || action.startsWith("oauth.")
+  || action.startsWith("cdn.")
+  || action.startsWith("storage.")
+  || action.startsWith("domain.")
+  || action === "workspace.owner_updated"
+  || action === "site.owner_updated"
+  || action === "public_api.toggled"
+  || action === "manage_api.toggled"
+  || action === "mcp.auth_failed"
+  || action === "settings.changed"
+  || action === "ai.settings_changed"
+  || action === "ai.provider_saved"
+  || action === "ai.provider_removed"
+  || action === "css_provider.installed"
+  || action === "css_provider.activated"
+  || action === "diagnostics.debug_enabled"
+  || action === "diagnostics.debug_disabled",
+);
+
 export interface AuditEntry {
   siteId: string;
   action: AuditAction;
@@ -241,6 +272,7 @@ export function auditFromRequest(
 export interface AuditQuery {
   siteId: string;
   action?: string;
+  view?: "all" | "security";
   limit?: number;
   before?: string;
 }
@@ -263,6 +295,10 @@ export async function listAuditLog(query: AuditQuery): Promise<AuditRow[]> {
   const params: (string | number)[] = [query.siteId];
   let sql = "SELECT * FROM audit_log WHERE site_id = ?";
 
+  if (query.view === "security") {
+    sql += ` AND action IN (${SECURITY_AUDIT_ACTIONS.map(() => "?").join(", ")})`;
+    params.push(...SECURITY_AUDIT_ACTIONS);
+  }
   if (query.action) {
     sql += " AND action = ?";
     params.push(query.action);

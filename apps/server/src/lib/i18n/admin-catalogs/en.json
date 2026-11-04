@@ -3087,6 +3087,9 @@
     },
     "audit": {
       "allActions": "All actions",
+      "allEvents": "All audit events",
+      "securityEvents": "Security events",
+      "viewLabel": "Event category",
       "empty": "Nothing recorded yet for this filter.",
       "filterLabel": "Filter by action",
       "recent": {

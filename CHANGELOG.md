@@ -36,6 +36,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - **A translation keeps the dates of the entry it translates.** A new translation takes its group's creation date, and when it is published for the first time it takes the group's publish date, so every language shows the same date in lists, feeds, and on the page. Migration `0052_translation_group_dates` gives existing translations their group's dates and leaves `updated_at` alone.
 - **A workspace page shows its limits panel once.** The limits editor and plugin workspace panels now keep distinct identities while navigating between workspaces. ([#23](https://github.com/JustFlows/justflows-ce/issues/23))
 - **A subsite's Security Center shows only checks that belong to that site.** Installation details such as the Node.js version, core updates, debug mode, the install wizard, session-cookie policy, public URL, trusted proxy, file integrity, and web-server setup stay on the main site. ([#198](https://github.com/JustFlows/justflows-ce/issues/198))
+- **The Security Center opens a focused security event view.** Administrators can review site-scoped authentication, MFA, session, API key, privilege, extension, update, integrity, and security-configuration events without unrelated content activity. The server enforces the event category and keeps the complete audit trail available separately. ([#251](https://github.com/JustFlows/justflows-ce/issues/251))
 
 ### Changed
 

@@ -2669,6 +2669,9 @@
       },
       "filterLabel": "Filtrer par action",
       "allActions": "Toutes les actions",
+      "allEvents": "Tous les événements d’audit",
+      "securityEvents": "Événements de sécurité",
+      "viewLabel": "Catégorie d’événement",
       "empty": "Rien n'a été enregistré pour ce filtre.",
       "table": {
         "when": "Quand",

@@ -2627,6 +2627,9 @@
       },
       "filterLabel": "Filteren op actie",
       "allActions": "Alle acties",
+      "allEvents": "Alle auditgebeurtenissen",
+      "securityEvents": "Beveiligingsgebeurtenissen",
+      "viewLabel": "Gebeurteniscategorie",
       "empty": "Nog niets vastgelegd voor dit filter.",
       "table": {
         "when": "Wanneer",

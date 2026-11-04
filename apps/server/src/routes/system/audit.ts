@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireRole } from "../../middleware/auth.js";
 import {
   AUDIT_ACTIONS,
+  SECURITY_AUDIT_ACTIONS,
   auditRetentionDays,
   listAuditLog,
   pruneAuditLog,
@@ -15,6 +16,7 @@ const router = Router();
 
 const QuerySchema = z.object({
   action: z.enum(AUDIT_ACTIONS).optional(),
+  view: z.enum(["all", "security"]).optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
   before: z.string().max(40).optional(),
 });
@@ -33,10 +35,16 @@ router.get("/", requireRole("administrator"), async (req, res) => {
   }
 
   try {
+    const view = parsed.data.view ?? "all";
+    if (view === "security" && parsed.data.action && !SECURITY_AUDIT_ACTIONS.includes(parsed.data.action)) {
+      res.status(400).json({ error: "Action is not available in the security event view" });
+      return;
+    }
     const entries = await listAuditLog({ siteId: req.session!.siteId, ...parsed.data });
     res.json({
       entries,
-      actions: AUDIT_ACTIONS,
+      actions: view === "security" ? SECURITY_AUDIT_ACTIONS : AUDIT_ACTIONS,
+      view,
       retentionDays: auditRetentionDays(),
     });
   } catch (err) {

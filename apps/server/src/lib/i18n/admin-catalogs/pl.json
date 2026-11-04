@@ -3126,6 +3126,9 @@
     },
     "audit": {
       "allActions": "Wszystkie działania",
+      "allEvents": "Wszystkie zdarzenia audytu",
+      "securityEvents": "Zdarzenia bezpieczeństwa",
+      "viewLabel": "Kategoria zdarzenia",
       "empty": "Nic nie zostało jeszcze zarejestrowane dla tego filtra.",
       "filterLabel": "Filtruj według działania",
       "recent": {

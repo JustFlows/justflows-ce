@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Section } from "./components";
 import { useT } from "../../../i18n/I18nProvider";
 
@@ -14,7 +15,8 @@ type Entry = {
   detail: string | null;
 };
 
-type Payload = { entries: Entry[]; actions: string[]; retentionDays: number };
+type AuditView = "all" | "security";
+type Payload = { entries: Entry[]; actions: string[]; retentionDays: number; view: AuditView };
 
 /**
  * The administrative audit trail.
@@ -24,15 +26,18 @@ type Payload = { entries: Entry[]; actions: string[]; retentionDays: number };
  */
 export default function AuditLogPage() {
   const { t } = useT();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(false);
+  const view: AuditView = searchParams.get("view") === "security" ? "security" : "all";
 
-  const load = useCallback(async (action: string) => {
+  const load = useCallback(async (selectedView: AuditView, action: string) => {
     try {
-      const qs = action ? `?action=${encodeURIComponent(action)}` : "";
-      const res = await fetch(`/api/audit${qs}`);
+      const params = new URLSearchParams({ view: selectedView });
+      if (action) params.set("action", action);
+      const res = await fetch(`/api/audit?${params.toString()}`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
       setData((await res.json()) as Payload);
       setError(null);
@@ -42,14 +47,19 @@ export default function AuditLogPage() {
   }, []);
 
   useEffect(() => {
-    void load(filter);
-  }, [load, filter]);
+    void load(view, filter);
+  }, [load, filter, view]);
+
+  const changeView = (next: AuditView) => {
+    setFilter("");
+    setSearchParams(next === "security" ? { view: "security" } : {});
+  };
 
   const prune = async () => {
     setBusy(true);
     await fetch("/api/audit/prune", { method: "POST" }).catch(() => null);
     setBusy(false);
-    void load(filter);
+    void load(view, filter);
   };
 
   return (
@@ -64,19 +74,30 @@ export default function AuditLogPage() {
       <Section
         title={t("security.audit.recent.title")}
         action={
-          <select
-            className="jf-input"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            aria-label={t("security.audit.filterLabel")}
-          >
-            <option value="">{t("security.audit.allActions")}</option>
-            {(data?.actions ?? []).map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
+          <div className="jf-row">
+            <select
+              className="jf-input"
+              value={view}
+              onChange={(e) => changeView(e.target.value as AuditView)}
+              aria-label={t("security.audit.viewLabel")}
+            >
+              <option value="security">{t("security.audit.securityEvents")}</option>
+              <option value="all">{t("security.audit.allEvents")}</option>
+            </select>
+            <select
+              className="jf-input"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              aria-label={t("security.audit.filterLabel")}
+            >
+              <option value="">{t("security.audit.allActions")}</option>
+              {(data?.actions ?? []).map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
         }
       >
         {error ? <p className="jf-status jf-status--error">{error}</p> : null}
