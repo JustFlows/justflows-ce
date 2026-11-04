@@ -2670,6 +2670,16 @@
       "filterLabel": "Filtrer par action",
       "allActions": "Toutes les actions",
       "allEvents": "Tous les événements d’audit",
+      "notifications": {
+        "description": "Envoyez à l’adresse d’administration du site un message court et expurgé lors d’un événement de sécurité important. Le journal d’audit reste disponible sans e-mail.",
+        "enable": "Envoyer les événements de sécurité importants",
+        "limit": "Justflows envoie au maximum 10 notifications de sécurité par site et par heure. Les tentatives et échecs figurent dans le journal d’envoi.",
+        "networkEnable": "Envoyer les événements de tous les sites de cette installation",
+        "networkHint": "Utilise l’adresse d’administration du site d’installation comme destinataire réseau.",
+        "recipient": "Destinataire : {email}",
+        "title": "Notifications par e-mail",
+        "unavailable": "Définissez une adresse d’administration valide avant d’activer les notifications."
+      },
       "securityEvents": "Événements de sécurité",
       "viewLabel": "Catégorie d’événement",
       "empty": "Rien n'a été enregistré pour ce filtre.",

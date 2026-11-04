@@ -17,6 +17,13 @@ type Entry = {
 
 type AuditView = "all" | "security";
 type Payload = { entries: Entry[]; actions: string[]; retentionDays: number; view: AuditView };
+type NotificationStatus = {
+  enabled: boolean;
+  available: boolean;
+  recipient: string;
+  canManageNetwork: boolean;
+  networkEnabled: boolean;
+};
 
 /**
  * The administrative audit trail.
@@ -31,6 +38,9 @@ export default function AuditLogPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationStatus | null>(null);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [notificationBusy, setNotificationBusy] = useState(false);
   const view: AuditView = searchParams.get("view") === "security" ? "security" : "all";
 
   const load = useCallback(async (selectedView: AuditView, action: string) => {
@@ -50,6 +60,15 @@ export default function AuditLogPage() {
     void load(view, filter);
   }, [load, filter, view]);
 
+  useEffect(() => {
+    fetch("/api/audit/notifications")
+      .then(async (res) => {
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+        setNotifications(await res.json() as NotificationStatus);
+      })
+      .catch((err) => setNotificationError(err instanceof Error ? err.message : String(err)));
+  }, []);
+
   const changeView = (next: AuditView) => {
     setFilter("");
     setSearchParams(next === "security" ? { view: "security" } : {});
@@ -60,6 +79,28 @@ export default function AuditLogPage() {
     await fetch("/api/audit/prune", { method: "POST" }).catch(() => null);
     setBusy(false);
     void load(view, filter);
+  };
+
+  const saveNotifications = async (patch: Partial<Pick<NotificationStatus, "enabled" | "networkEnabled">>) => {
+    setNotificationBusy(true);
+    setNotificationError(null);
+    try {
+      const res = await fetch("/api/audit/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: notifications?.enabled ?? false,
+          networkEnabled: notifications?.networkEnabled ?? false,
+          ...patch,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+      setNotifications(await res.json() as NotificationStatus);
+    } catch (err) {
+      setNotificationError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setNotificationBusy(false);
+    }
   };
 
   return (
@@ -141,6 +182,46 @@ export default function AuditLogPage() {
             </table>
           </div>
         )}
+      </Section>
+
+      <Section title={t("security.audit.notifications.title")}>
+        <p>{t("security.audit.notifications.description")}</p>
+        {notificationError ? <p className="jf-status jf-status--error">{notificationError}</p> : null}
+        {!notifications ? (
+          <p className="jf-skeleton" />
+        ) : (
+          <label className="jf-toggle">
+            <input
+              type="checkbox"
+              checked={notifications.enabled}
+              disabled={!notifications.available || notificationBusy}
+              onChange={(event) => void saveNotifications({ enabled: event.target.checked })}
+            />
+            <span>
+              {t("security.audit.notifications.enable")}
+              <small>
+                {notifications.available
+                  ? t("security.audit.notifications.recipient", { email: notifications.recipient })
+                  : t("security.audit.notifications.unavailable")}
+              </small>
+            </span>
+          </label>
+        )}
+        {notifications?.canManageNetwork ? (
+          <label className="jf-toggle">
+            <input
+              type="checkbox"
+              checked={notifications.networkEnabled}
+              disabled={!notifications.available || notificationBusy}
+              onChange={(event) => void saveNotifications({ networkEnabled: event.target.checked })}
+            />
+            <span>
+              {t("security.audit.notifications.networkEnable")}
+              <small>{t("security.audit.notifications.networkHint")}</small>
+            </span>
+          </label>
+        ) : null}
+        <p className="jf-field__hint">{t("security.audit.notifications.limit")}</p>
       </Section>
 
       <Section title={t("security.audit.retention.title")}>

@@ -3127,6 +3127,16 @@
     "audit": {
       "allActions": "Wszystkie działania",
       "allEvents": "Wszystkie zdarzenia audytu",
+      "notifications": {
+        "description": "Wyślij krótki, zredagowany komunikat na adres administracyjny witryny po ważnym zdarzeniu bezpieczeństwa. Dziennik audytu pozostaje dostępny bez poczty.",
+        "enable": "Wysyłaj ważne zdarzenia bezpieczeństwa",
+        "limit": "Justflows wysyła maksymalnie 10 powiadomień bezpieczeństwa na witrynę na godzinę. Próby i błędy są widoczne w dzienniku dostaw.",
+        "networkEnable": "Wysyłaj zdarzenia ze wszystkich witryn tej instalacji",
+        "networkHint": "Używa adresu administracyjnego witryny instalacyjnej jako odbiorcy sieciowego.",
+        "recipient": "Odbiorca: {email}",
+        "title": "Powiadomienia e-mail",
+        "unavailable": "Ustaw prawidłowy adres administracyjny przed włączeniem powiadomień."
+      },
       "securityEvents": "Zdarzenia bezpieczeństwa",
       "viewLabel": "Kategoria zdarzenia",
       "empty": "Nic nie zostało jeszcze zarejestrowane dla tego filtra.",

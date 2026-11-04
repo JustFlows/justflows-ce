@@ -66,6 +66,7 @@ export const AUDIT_ACTIONS = [
   // Configuration that weakens or strengthens the site
   "security.headers_changed",
   "security.admin_path_changed",
+  "security.notifications_changed",
   "settings.changed",
   "redirect.created",
   "redirect.updated",
@@ -206,14 +207,16 @@ let unavailableLogged = false;
 export async function auditLog(entry: AuditEntry): Promise<void> {
   try {
     const db = await getDb();
+    const id = randomUUID();
+    const occurredAt = nowSql();
     await db.run(
       `INSERT INTO audit_log
          (id, site_id, occurred_at, action, outcome, actor_id, actor_email, actor_role, target, ip, user_agent, detail, metadata)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}')`,
       [
-        randomUUID(),
+        id,
         entry.siteId,
-        nowSql(),
+        occurredAt,
         entry.action,
         entry.outcome ?? "success",
         entry.actorId ?? null,
@@ -225,6 +228,14 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
         field(entry.detail, 2000),
       ],
     );
+    void import("./security-notifications.js")
+      .then(({ notifySecurityEvent }) => notifySecurityEvent({
+        id,
+        siteId: entry.siteId,
+        action: entry.action,
+        occurredAt,
+      }))
+      .catch(() => undefined);
   } catch (err) {
     // 0008_audit_log may not have been applied yet. Say so once rather than on
     // every action, so the log is a signal instead of a flood.

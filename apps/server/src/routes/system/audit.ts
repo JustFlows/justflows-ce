@@ -9,7 +9,12 @@ import {
   auditRetentionDays,
   listAuditLog,
   pruneAuditLog,
+  auditFromRequest,
 } from "../../lib/security/audit-log.js";
+import {
+  getSecurityNotificationStatus,
+  setSecurityNotificationSettings,
+} from "../../lib/security/security-notifications.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 
 const router = Router();
@@ -20,6 +25,11 @@ const QuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
   before: z.string().max(40).optional(),
 });
+
+const NotificationSettingsSchema = z.object({
+  enabled: z.boolean(),
+  networkEnabled: z.boolean().optional(),
+}).strict();
 
 /**
  * Administrator only.
@@ -49,6 +59,33 @@ router.get("/", requireRole("administrator"), async (req, res) => {
     });
   } catch (err) {
     sendServerError(res, "audit", err);
+  }
+});
+
+/** Read the site-specific, opt-in security notification policy. */
+router.get("/notifications", requireRole("administrator"), async (req, res) => {
+  try {
+    res.json(await getSecurityNotificationStatus(req.session!.siteId));
+  } catch (err) {
+    sendServerError(res, "security notifications", err);
+  }
+});
+
+/** Change only this site's notification policy; the recipient stays the administration address. */
+router.put("/notifications", requireRole("administrator"), async (req, res) => {
+  const parsed = NotificationSettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid settings" });
+    return;
+  }
+  try {
+    const status = await setSecurityNotificationSettings(req.session!.siteId, parsed.data);
+    auditFromRequest(req, "security.notifications_changed", {
+      detail: parsed.data.enabled ? "enabled" : "disabled",
+    });
+    res.json(status);
+  } catch (err) {
+    sendServerError(res, "security notifications", err);
   }
 });
 

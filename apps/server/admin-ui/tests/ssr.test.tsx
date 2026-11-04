@@ -156,6 +156,7 @@ describe("admin SSR routes", () => {
     });
     expect(html).toContain("Security events");
     expect(html).toContain("All audit events");
+    expect(html).toContain("Email notifications");
   });
 
   it("hides installation setup from a subsite Security Center", () => {
