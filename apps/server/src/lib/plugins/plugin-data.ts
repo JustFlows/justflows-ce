@@ -78,28 +78,25 @@ function pluginDataOps(db: DataClient, pluginId: string, siteId: string): Plugin
     },
 
     async put<T = unknown>(collection: string, id: string, data: T): Promise<void> {
-      const existing = await db.query<{ id: string }>(
-        `SELECT id FROM plugin_data
-          WHERE site_id = ? AND plugin_id = ? AND collection = ? AND item_id = ?
-          LIMIT 1`,
-        [siteId, pluginId, collection, id],
-      );
       const payload = JSON.stringify(data);
       const ts = now();
-      if (existing[0]) {
-        await db.run(
-          `UPDATE plugin_data SET payload = ?, updated_at = ?
-            WHERE site_id = ? AND plugin_id = ? AND collection = ? AND item_id = ?`,
-          [payload, ts, siteId, pluginId, collection, id],
-        );
-        return;
-      }
-      await db.run(
-        `INSERT INTO plugin_data
-           (id, site_id, plugin_id, collection, item_id, payload, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [randomUUID(), siteId, pluginId, collection, id, payload, ts, ts],
+      const update = () => db.execute(
+        `UPDATE plugin_data SET payload = ?, updated_at = ?
+          WHERE site_id = ? AND plugin_id = ? AND collection = ? AND item_id = ?`,
+        [payload, ts, siteId, pluginId, collection, id],
       );
+      if (await update() > 0) return;
+      try {
+        await db.run(
+          `INSERT INTO plugin_data
+             (id, site_id, plugin_id, collection, item_id, payload, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [randomUUID(), siteId, pluginId, collection, id, payload, ts, ts],
+        );
+      } catch (error) {
+        if (await update() > 0) return;
+        throw error;
+      }
     },
 
     async delete(collection: string, id: string): Promise<void> {
@@ -131,13 +128,24 @@ function pluginDataOps(db: DataClient, pluginId: string, siteId: string): Plugin
         [siteId, pluginId, collection, id],
       );
       if (existing[0]) return false;
-      await db.run(
-        `INSERT INTO plugin_data
-           (id, site_id, plugin_id, collection, item_id, payload, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [randomUUID(), siteId, pluginId, collection, id, payload, ts, ts],
-      );
-      return true;
+      try {
+        await db.run(
+          `INSERT INTO plugin_data
+             (id, site_id, plugin_id, collection, item_id, payload, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [randomUUID(), siteId, pluginId, collection, id, payload, ts, ts],
+        );
+        return true;
+      } catch (error) {
+        const raced = await db.query<{ id: string }>(
+          `SELECT id FROM plugin_data
+            WHERE site_id = ? AND plugin_id = ? AND collection = ? AND item_id = ?
+            LIMIT 1`,
+          [siteId, pluginId, collection, id],
+        );
+        if (raced[0]) return false;
+        throw error;
+      }
     },
 
     async transaction<T>(fn: (tx: PluginDataApi) => Promise<T>): Promise<T> {
