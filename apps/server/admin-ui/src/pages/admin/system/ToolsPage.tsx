@@ -20,8 +20,40 @@ interface BackupValidation {
     source: { siteId: string; siteName: string; databaseDriver: string; coreVersion?: string };
     integrity: { algorithm: string; data: string };
   };
-  counts: { tables: Record<string, number>; plugins: number; themes: number; mediaFiles: number; mediaBytes: number };
+  counts: {
+    tables: Record<string, number>;
+    plugins: number;
+    themes: number;
+    mediaFiles: number;
+    mediaBytes: number;
+  };
   restoreAvailable: boolean;
+}
+
+interface BackupDestinations {
+  ftp: {
+    enabled: boolean;
+    host: string;
+    port: number;
+    username: string;
+    password?: string;
+    passwordSet?: boolean;
+    remotePath: string;
+    secure: boolean;
+  };
+  email: { enabled: boolean; to: string };
+  s3: {
+    enabled: boolean;
+    bucket: string;
+    region: string;
+    endpoint: string;
+    accessKeyId?: string;
+    secretAccessKey?: string;
+    accessKeySet?: boolean;
+    secretKeySet?: boolean;
+    prefix: string;
+    forcePathStyle: boolean;
+  };
 }
 
 interface CacheSettings {
@@ -182,6 +214,12 @@ export default function ToolsPage() {
   const [backupJobId, setBackupJobId] = useState<string | null>(null);
   const [backupProgress, setBackupProgress] = useState(0);
   const [backupMessage, setBackupMessage] = useState("");
+  const [backupDestination, setBackupDestination] = useState<"local" | "ftp" | "email" | "s3">(
+    "local",
+  );
+  const [backupDestinations, setBackupDestinations] = useState<BackupDestinations | null>(null);
+  const [backupDestinationsSaving, setBackupDestinationsSaving] = useState(false);
+  const [backupDelivered, setBackupDelivered] = useState<string | null>(null);
 
   const [perfLoading, setPerfLoading] = useState(true);
   const [cache, setCache] = useState<CacheSettings>({
@@ -372,13 +410,23 @@ export default function ToolsPage() {
       const responseError = t("tools.staticExport.responseUnavailable", { status: res.status });
       let data = await readStaticExportJson<StaticExportRunResponse>(res, responseError);
       if (res.status === 202 && data.jobId) {
-        const job = await pollStaticExportJob(data.jobId, async () => {
-          const status = await fetch("/api/static-export/status", { cache: "no-store" });
-          const message = t("tools.staticExport.responseUnavailable", { status: status.status });
-          if (!status.ok) throw new Error(message);
-          return readStaticExportJson(status, message);
-        }, (job) => setSxLog(job.log), t("tools.staticExport.pollingUnavailable"));
-        data = { ok: job.state === "completed", summary: job.summary, error: job.error, log: job.log };
+        const job = await pollStaticExportJob(
+          data.jobId,
+          async () => {
+            const status = await fetch("/api/static-export/status", { cache: "no-store" });
+            const message = t("tools.staticExport.responseUnavailable", { status: status.status });
+            if (!status.ok) throw new Error(message);
+            return readStaticExportJson(status, message);
+          },
+          (job) => setSxLog(job.log),
+          t("tools.staticExport.pollingUnavailable"),
+        );
+        data = {
+          ok: job.state === "completed",
+          summary: job.summary,
+          error: job.error,
+          log: job.log,
+        };
       }
       setSxLog(data.log ?? []);
       if (!res.ok || !data.ok) {
@@ -431,6 +479,9 @@ export default function ToolsPage() {
 
   useEffect(() => {
     void loadSxStatus();
+    void fetch("/api/backups/destinations").then(async (response) => {
+      if (response.ok) setBackupDestinations((await response.json()) as BackupDestinations);
+    });
   }, []);
 
   useEffect(() => {
@@ -465,11 +516,13 @@ export default function ToolsPage() {
     setBackupCreating(true);
     setBackupError(null);
     setBackupProgress(0);
+    setBackupDelivered(null);
     backupCancelRef.current = false;
     try {
       const start = await fetch("/api/backups/jobs", { method: "POST" });
       const started = (await start.json()) as { jobId?: string; error?: string };
-      if (!start.ok || !started.jobId) throw new Error(started.error ?? t("tools.backup.createFailed"));
+      if (!start.ok || !started.jobId)
+        throw new Error(started.error ?? t("tools.backup.createFailed"));
       const jobId = started.jobId;
       setBackupJobId(jobId);
       while (!backupCancelRef.current) {
@@ -484,11 +537,29 @@ export default function ToolsPage() {
         if (!statusResponse.ok) throw new Error(status.error ?? t("tools.backup.createFailed"));
         setBackupProgress(status.progress ?? 0);
         setBackupMessage(status.message ?? "");
-        if (status.status === "failed") throw new Error(status.error ?? t("tools.backup.createFailed"));
+        if (status.status === "failed")
+          throw new Error(status.error ?? t("tools.backup.createFailed"));
         if (status.status === "cancelled") throw new Error(t("tools.backup.cancelled"));
         if (status.status === "ready") break;
       }
       if (backupCancelRef.current) return;
+      if (backupDestination !== "local") {
+        const deliveredResponse = await fetch(`/api/backups/jobs/${jobId}/deliver`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ destination: backupDestination }),
+        });
+        const delivered = (await deliveredResponse.json()) as {
+          ok?: boolean;
+          location?: string;
+          error?: string;
+        };
+        if (!deliveredResponse.ok || !delivered.ok)
+          throw new Error(delivered.error ?? t("tools.backup.deliveryFailed"));
+        setBackupDelivered(delivered.location ?? backupDestination);
+        await fetch(`/api/backups/jobs/${jobId}`, { method: "DELETE" });
+        return;
+      }
       const res = await fetch(`/api/backups/jobs/${jobId}/download`);
       if (!res.ok) throw new Error(t("tools.backup.createFailed"));
       const blob = await res.blob();
@@ -505,6 +576,28 @@ export default function ToolsPage() {
     } finally {
       setBackupCreating(false);
       setBackupJobId(null);
+    }
+  }
+
+  async function saveBackupDestinations() {
+    if (!backupDestinations) return;
+    setBackupDestinationsSaving(true);
+    setBackupError(null);
+    try {
+      const response = await fetch("/api/backups/destinations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(backupDestinations),
+      });
+      const body = (await response.json()) as { settings?: BackupDestinations; error?: string };
+      if (!response.ok || !body.settings)
+        throw new Error(body.error ?? t("tools.backup.settingsFailed"));
+      setBackupDestinations(body.settings);
+      setBackupMessage(t("tools.backup.settingsSaved"));
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBackupDestinationsSaving(false);
     }
   }
 
@@ -638,7 +731,9 @@ export default function ToolsPage() {
         setRestartMethod(data.restartMethod);
         setRestartTarget(data.restartTarget);
         setRestartFailed(true);
-        addLog(`⚠ ${t(manualRestartKey("tools", "log", data.restartMethod), { unit: serviceUnitName(data.restartTarget) })}`);
+        addLog(
+          `⚠ ${t(manualRestartKey("tools", "log", data.restartMethod), { unit: serviceUnitName(data.restartTarget) })}`,
+        );
       }
     } catch (e) {
       setPerfError(e instanceof Error ? e.message : String(e));
@@ -687,420 +782,425 @@ export default function ToolsPage() {
       </header>
 
       {installationRoot ? (
-      <div className="jf-card">
-        <div className="jf-card__head">
-          <h2 className="jf-card__title">{t("tools.performance.title")}</h2>
-        </div>
-        <div className="jf-card__body jf-stack">
-          <p className="jf-prose">
-            {t("tools.performance.description")}{" "}
-            <code className="jf-code">X-Jf-Cache</code>,{" "}
-            <code className="jf-code">X-Jf-Page-Cache</code>,{" "}
-            <code className="jf-code">Content-Encoding</code>, {t("tools.performance.descriptionAnd")}{" "}
-            <code className="jf-code">Cache-Control</code> {t("tools.performance.descriptionSuffix")}
-          </p>
+        <div className="jf-card">
+          <div className="jf-card__head">
+            <h2 className="jf-card__title">{t("tools.performance.title")}</h2>
+          </div>
+          <div className="jf-card__body jf-stack">
+            <p className="jf-prose">
+              {t("tools.performance.description")} <code className="jf-code">X-Jf-Cache</code>,{" "}
+              <code className="jf-code">X-Jf-Page-Cache</code>,{" "}
+              <code className="jf-code">Content-Encoding</code>,{" "}
+              {t("tools.performance.descriptionAnd")} <code className="jf-code">Cache-Control</code>{" "}
+              {t("tools.performance.descriptionSuffix")}
+            </p>
 
-          {!perfLoading && perfStats && (
-            <div className="jf-stack" style={{ gap: "0.75rem" }}>
-              <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
-                <span className={`jf-badge jf-badge--${perfStats.enabled ? "ok" : "warn"}`}>
-                  {perfStats.enabled
-                    ? t("tools.performance.objectCacheOn")
-                    : t("tools.performance.objectCacheOff")}
-                </span>
-                <span className={`jf-badge jf-badge--${perfStats.gzip.enabled ? "ok" : "warn"}`}>
-                  {perfStats.gzip.enabled
-                    ? t("tools.performance.gzipOn")
-                    : t("tools.performance.gzipOff")}
-                </span>
-                <span
-                  className={`jf-badge jf-badge--${perfStats.browserCache.enabled ? "ok" : "warn"}`}
-                >
-                  {perfStats.browserCache.enabled
-                    ? t("tools.performance.browserCacheOn")
-                    : t("tools.performance.browserCacheOff")}
-                </span>
-                {perfStats.revalidate && (
-                  <span
-                    className={`jf-badge jf-badge--${perfStats.revalidate.enabled ? "ok" : "warn"}`}
-                  >
-                    {perfStats.revalidate.enabled
-                      ? t("tools.performance.revalidateOn")
-                      : t("tools.performance.revalidateOff")}
+            {!perfLoading && perfStats && (
+              <div className="jf-stack" style={{ gap: "0.75rem" }}>
+                <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+                  <span className={`jf-badge jf-badge--${perfStats.enabled ? "ok" : "warn"}`}>
+                    {perfStats.enabled
+                      ? t("tools.performance.objectCacheOn")
+                      : t("tools.performance.objectCacheOff")}
                   </span>
-                )}
-                <span className="jf-badge jf-badge--info">
-                  {t("tools.performance.hitsMisses", {
-                    hits: perfStats.stats.hits,
-                    misses: perfStats.stats.misses,
-                  })}
-                  {perfStats.stats.hitRate !== null
-                    ? t("tools.performance.hitRateSuffix", { rate: perfStats.stats.hitRate })
-                    : ""}
-                </span>
-                <span className="jf-badge jf-badge--info">
-                  {t("tools.performance.keysStorage", {
-                    count: perfStats.storage.keyCount,
-                    size: formatBytes(perfStats.storage.totalBytes),
-                  })}
-                </span>
-                <button
-                  type="button"
-                  className="jf-btn jf-btn--ghost"
-                  onClick={() => loadPerfStats()}
-                  disabled={statsLoading}
-                >
-                  {statsLoading
-                    ? t("tools.performance.refreshing")
-                    : `↻ ${t("tools.performance.refreshStats")}`}
-                </button>
-              </div>
-              {perfStats.storage.sampleKeys.length > 0 && (
-                <details>
-                  <summary className="jf-field__hint" style={{ cursor: "pointer" }}>
-                    {t("tools.performance.sampleCacheFiles", {
-                      count: perfStats.storage.sampleKeys.length,
+                  <span className={`jf-badge jf-badge--${perfStats.gzip.enabled ? "ok" : "warn"}`}>
+                    {perfStats.gzip.enabled
+                      ? t("tools.performance.gzipOn")
+                      : t("tools.performance.gzipOff")}
+                  </span>
+                  <span
+                    className={`jf-badge jf-badge--${perfStats.browserCache.enabled ? "ok" : "warn"}`}
+                  >
+                    {perfStats.browserCache.enabled
+                      ? t("tools.performance.browserCacheOn")
+                      : t("tools.performance.browserCacheOff")}
+                  </span>
+                  {perfStats.revalidate && (
+                    <span
+                      className={`jf-badge jf-badge--${perfStats.revalidate.enabled ? "ok" : "warn"}`}
+                    >
+                      {perfStats.revalidate.enabled
+                        ? t("tools.performance.revalidateOn")
+                        : t("tools.performance.revalidateOff")}
+                    </span>
+                  )}
+                  <span className="jf-badge jf-badge--info">
+                    {t("tools.performance.hitsMisses", {
+                      hits: perfStats.stats.hits,
+                      misses: perfStats.stats.misses,
                     })}
-                  </summary>
-                  <ul
-                    style={{
-                      margin: "0.4rem 0 0",
-                      paddingInlineStart: "1.1rem",
-                      fontSize: "0.85rem",
-                    }}
+                    {perfStats.stats.hitRate !== null
+                      ? t("tools.performance.hitRateSuffix", { rate: perfStats.stats.hitRate })
+                      : ""}
+                  </span>
+                  <span className="jf-badge jf-badge--info">
+                    {t("tools.performance.keysStorage", {
+                      count: perfStats.storage.keyCount,
+                      size: formatBytes(perfStats.storage.totalBytes),
+                    })}
+                  </span>
+                  <button
+                    type="button"
+                    className="jf-btn jf-btn--ghost"
+                    onClick={() => loadPerfStats()}
+                    disabled={statsLoading}
                   >
-                    {perfStats.storage.sampleKeys.map((key) => (
-                      <li key={key}>
-                        <code>{key}</code>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </div>
-          )}
-
-          {perfLoading ? (
-            <div className="jf-skeleton" style={{ height: 420 }} />
-          ) : (
-            <>
-              <hr className="jf-divider" />
-
-              <h3 className="jf-card__subtitle">{t("tools.performance.objectCacheHeading")}</h3>
-              <p className="jf-field__hint">
-                {t("tools.performance.objectCacheHint")}
-              </p>
-
-              <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
-                <span className={`jf-badge jf-badge--${cache.enabled ? "ok" : "warn"}`}>
-                  {cache.enabled ? t("tools.status.enabled") : t("tools.status.disabled")}
-                </span>
-                <span className="jf-badge jf-badge--info">{cache.driver}</span>
-                {runtime !== null && runtime.active !== cache.enabled && (
-                  <span className="jf-badge jf-badge--warn">{t("tools.performance.restartRequiredBadge")}</span>
+                    {statsLoading
+                      ? t("tools.performance.refreshing")
+                      : `↻ ${t("tools.performance.refreshStats")}`}
+                  </button>
+                </div>
+                {perfStats.storage.sampleKeys.length > 0 && (
+                  <details>
+                    <summary className="jf-field__hint" style={{ cursor: "pointer" }}>
+                      {t("tools.performance.sampleCacheFiles", {
+                        count: perfStats.storage.sampleKeys.length,
+                      })}
+                    </summary>
+                    <ul
+                      style={{
+                        margin: "0.4rem 0 0",
+                        paddingInlineStart: "1.1rem",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      {perfStats.storage.sampleKeys.map((key) => (
+                        <li key={key}>
+                          <code>{key}</code>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 )}
               </div>
+            )}
 
-              <label className="jf-checkrow">
-                <input
-                  type="checkbox"
-                  checked={cache.enabled}
-                  onChange={(e) => setCache((s) => ({ ...s, enabled: e.target.checked }))}
-                  disabled={perfBusy}
-                />
-                <span>{t("tools.performance.enableObjectCache")}</span>
-              </label>
+            {perfLoading ? (
+              <div className="jf-skeleton" style={{ height: 420 }} />
+            ) : (
+              <>
+                <hr className="jf-divider" />
 
-              <div className="jf-grid jf-grid--2">
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-cache-driver">
-                    {t("tools.performance.driverLabel")}
-                  </label>
-                  <select
-                    id="jf-cache-driver"
-                    className="jf-input"
-                    value={cache.driver}
-                    onChange={(e) =>
-                      setCache((s) => ({
-                        ...s,
-                        driver: e.target.value as "memory" | "filesystem",
-                      }))
-                    }
-                    disabled={perfBusy}
-                  >
-                    <option value="filesystem">{t("tools.performance.driverFilesystem")}</option>
-                    <option value="memory">{t("tools.performance.driverMemory")}</option>
-                  </select>
+                <h3 className="jf-card__subtitle">{t("tools.performance.objectCacheHeading")}</h3>
+                <p className="jf-field__hint">{t("tools.performance.objectCacheHint")}</p>
+
+                <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+                  <span className={`jf-badge jf-badge--${cache.enabled ? "ok" : "warn"}`}>
+                    {cache.enabled ? t("tools.status.enabled") : t("tools.status.disabled")}
+                  </span>
+                  <span className="jf-badge jf-badge--info">{cache.driver}</span>
+                  {runtime !== null && runtime.active !== cache.enabled && (
+                    <span className="jf-badge jf-badge--warn">
+                      {t("tools.performance.restartRequiredBadge")}
+                    </span>
+                  )}
                 </div>
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-cache-ttl">
-                    {t("tools.performance.ttlLabel")}
-                  </label>
+
+                <label className="jf-checkrow">
                   <input
-                    id="jf-cache-ttl"
-                    className="jf-input"
-                    type="number"
-                    min={0}
-                    max={86400}
-                    value={cache.ttlSeconds}
-                    onChange={(e) =>
-                      setCache((s) => ({ ...s, ttlSeconds: Number(e.target.value) || 0 }))
-                    }
+                    type="checkbox"
+                    checked={cache.enabled}
+                    onChange={(e) => setCache((s) => ({ ...s, enabled: e.target.checked }))}
                     disabled={perfBusy}
                   />
-                </div>
-              </div>
+                  <span>{t("tools.performance.enableObjectCache")}</span>
+                </label>
 
-              {cache.driver === "filesystem" && (
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-cache-dir">
-                    {t("tools.performance.cacheDirLabel")}
-                  </label>
-                  <input
-                    id="jf-cache-dir"
-                    className="jf-input"
-                    value={cache.dir || cache.defaultDir}
-                    placeholder={cache.defaultDir}
-                    onChange={(e) => setCache((s) => ({ ...s, dir: e.target.value }))}
-                    disabled={perfBusy}
-                  />
-                </div>
-              )}
-
-              <hr className="jf-divider" />
-
-              <h3 className="jf-card__subtitle">{t("tools.performance.revalidateHeading")}</h3>
-              <p className="jf-field__hint">
-                {t("tools.performance.revalidateHint1")}{" "}
-                <code className="jf-code">cache.revalidated</code>{" "}
-                {t("tools.performance.revalidateHint2")}
-              </p>
-
-              <label className="jf-checkrow">
-                <input
-                  type="checkbox"
-                  checked={revalidate.enabled}
-                  onChange={(e) => setRevalidate((s) => ({ ...s, enabled: e.target.checked }))}
-                  disabled={perfBusy}
-                />
-                <span>{t("tools.performance.revalidateCheckbox")}</span>
-              </label>
-
-              <div
-                className="jf-grid jf-grid--2"
-                style={{ opacity: revalidate.enabled ? 1 : 0.55 }}
-              >
-                {(
-                  [
-                    ["pages", t("tools.performance.revalidateObjects.pages")],
-                    ["content", t("tools.performance.revalidateObjects.content")],
-                    ["menus", t("tools.performance.revalidateObjects.menus")],
-                    ["theme", t("tools.performance.revalidateObjects.theme")],
-                    ["cssProviders", t("tools.performance.revalidateObjects.cssProviders")],
-                    ["site", t("tools.performance.revalidateObjects.site")],
-                  ] as const
-                ).map(([key, label]) => (
-                  <label key={key} className="jf-checkrow">
-                    <input
-                      type="checkbox"
-                      checked={revalidate.objects[key]}
+                <div className="jf-grid jf-grid--2">
+                  <div className="jf-field">
+                    <label className="jf-field__label" htmlFor="jf-cache-driver">
+                      {t("tools.performance.driverLabel")}
+                    </label>
+                    <select
+                      id="jf-cache-driver"
+                      className="jf-input"
+                      value={cache.driver}
                       onChange={(e) =>
-                        setRevalidate((s) => ({
+                        setCache((s) => ({
                           ...s,
-                          objects: { ...s.objects, [key]: e.target.checked },
+                          driver: e.target.value as "memory" | "filesystem",
                         }))
                       }
-                      disabled={perfBusy || !revalidate.enabled}
+                      disabled={perfBusy}
+                    >
+                      <option value="filesystem">{t("tools.performance.driverFilesystem")}</option>
+                      <option value="memory">{t("tools.performance.driverMemory")}</option>
+                    </select>
+                  </div>
+                  <div className="jf-field">
+                    <label className="jf-field__label" htmlFor="jf-cache-ttl">
+                      {t("tools.performance.ttlLabel")}
+                    </label>
+                    <input
+                      id="jf-cache-ttl"
+                      className="jf-input"
+                      type="number"
+                      min={0}
+                      max={86400}
+                      value={cache.ttlSeconds}
+                      onChange={(e) =>
+                        setCache((s) => ({ ...s, ttlSeconds: Number(e.target.value) || 0 }))
+                      }
+                      disabled={perfBusy}
                     />
-                    <span>{label}</span>
-                  </label>
-                ))}
-              </div>
-
-              <hr className="jf-divider" />
-
-              <h3 className="jf-card__subtitle">{t("tools.performance.gzipHeading")}</h3>
-              <p className="jf-field__hint">
-                {t("tools.performance.gzipHint")}
-              </p>
-
-              <label className="jf-checkrow">
-                <input
-                  type="checkbox"
-                  checked={gzip.enabled}
-                  onChange={(e) => setGzip((s) => ({ ...s, enabled: e.target.checked }))}
-                  disabled={perfBusy}
-                />
-                <span>{t("tools.performance.enableGzip")}</span>
-              </label>
-
-              <div className="jf-grid jf-grid--2">
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-gzip-level">
-                    {t("tools.performance.compressionLevelLabel")}
-                  </label>
-                  <input
-                    id="jf-gzip-level"
-                    className="jf-input"
-                    type="number"
-                    min={1}
-                    max={9}
-                    value={gzip.level}
-                    onChange={(e) => setGzip((s) => ({ ...s, level: Number(e.target.value) || 6 }))}
-                    disabled={perfBusy || !gzip.enabled}
-                  />
-                  <p className="jf-field__hint">{t("tools.performance.compressionLevelHint")}</p>
-                </div>
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-gzip-min">
-                    {t("tools.performance.minSizeLabel")}
-                  </label>
-                  <input
-                    id="jf-gzip-min"
-                    className="jf-input"
-                    type="number"
-                    min={256}
-                    max={65536}
-                    value={gzip.minBytes}
-                    onChange={(e) =>
-                      setGzip((s) => ({ ...s, minBytes: Number(e.target.value) || 1024 }))
-                    }
-                    disabled={perfBusy || !gzip.enabled}
-                  />
-                  <p className="jf-field__hint">{t("tools.performance.minSizeHint")}</p>
-                </div>
-              </div>
-
-              <hr className="jf-divider" />
-
-              <h3 className="jf-card__subtitle">{t("tools.performance.browserCacheHeading")}</h3>
-              <p className="jf-field__hint">
-                {t("tools.performance.browserCacheHint1")} <code className="jf-code">Cache-Control</code>{" "}
-                {t("tools.performance.browserCacheHint2")} <code className="jf-code">no-store</code>.
-              </p>
-
-              <label className="jf-checkrow">
-                <input
-                  type="checkbox"
-                  checked={browserCache.enabled}
-                  onChange={(e) => setBrowserCache((s) => ({ ...s, enabled: e.target.checked }))}
-                  disabled={perfBusy}
-                />
-                <span>{t("tools.performance.enableBrowserCache")}</span>
-              </label>
-
-              <div className="jf-grid jf-grid--3">
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-bc-html">
-                    {t("tools.performance.htmlMaxAgeLabel")}
-                  </label>
-                  <input
-                    id="jf-bc-html"
-                    className="jf-input"
-                    type="number"
-                    min={0}
-                    max={86400}
-                    value={browserCache.htmlMaxAge}
-                    onChange={(e) =>
-                      setBrowserCache((s) => ({
-                        ...s,
-                        htmlMaxAge: Number(e.target.value) || 0,
-                      }))
-                    }
-                    disabled={perfBusy || !browserCache.enabled}
-                  />
-                </div>
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-bc-static">
-                    {t("tools.performance.staticMaxAgeLabel")}
-                  </label>
-                  <input
-                    id="jf-bc-static"
-                    className="jf-input"
-                    type="number"
-                    min={0}
-                    max={31536000}
-                    value={browserCache.staticMaxAge}
-                    onChange={(e) =>
-                      setBrowserCache((s) => ({
-                        ...s,
-                        staticMaxAge: Number(e.target.value) || 0,
-                      }))
-                    }
-                    disabled={perfBusy || !browserCache.enabled}
-                  />
-                </div>
-                <div className="jf-field">
-                  <label className="jf-field__label" htmlFor="jf-bc-swr">
-                    {t("tools.performance.swrLabel")}
-                  </label>
-                  <input
-                    id="jf-bc-swr"
-                    className="jf-input"
-                    type="number"
-                    min={0}
-                    max={86400}
-                    value={browserCache.staleWhileRevalidate}
-                    onChange={(e) =>
-                      setBrowserCache((s) => ({
-                        ...s,
-                        staleWhileRevalidate: Number(e.target.value) || 0,
-                      }))
-                    }
-                    disabled={perfBusy || !browserCache.enabled}
-                  />
-                </div>
-              </div>
-
-              {envPath && (
-                <p className="jf-field__hint">
-                  {t("tools.performance.configFile")}{" "}
-                  <code className="jf-code">{envPath}</code>
-                </p>
-              )}
-
-              <div className="jf-row">
-                <button
-                  className="jf-btn jf-btn--primary"
-                  onClick={savePerformanceSettings}
-                  disabled={perfBusy || cacheClearing}
-                >
-                  {perfSaving
-                    ? t("common.saving")
-                    : restarting
-                      ? t("tools.performance.restartingLabel")
-                      : t("tools.performance.saveAndRestart")}
-                </button>
-                <button
-                  className="jf-btn jf-btn--ghost"
-                  onClick={clearCache}
-                  disabled={perfBusy || cacheClearing}
-                >
-                  {cacheClearing ? t("tools.performance.clearing") : t("tools.performance.clearObjectCache")}
-                </button>
-                {perfSaved && !perfBusy && (
-                  <span className="jf-status jf-status--saved">✓ {t("common.saved")}</span>
-                )}
-                {perfError && <span className="jf-status jf-status--error">{perfError}</span>}
-              </div>
-
-              {restartFailed && (
-                <div className="jf-banner jf-banner--warn">
-                  <span className="jf-banner__icon" aria-hidden="true">
-                    ⚠️
-                  </span>
-                  <div>
-                    <div className="jf-banner__title">{t("tools.manualRestartTitle")}</div>
-                    <div className="jf-banner__sub">
-                      {t(manualRestartKey("tools", "body", restartMethod), { unit: serviceUnitName(restartTarget) })}
-                    </div>
                   </div>
                 </div>
-              )}
-            </>
-          )}
+
+                {cache.driver === "filesystem" && (
+                  <div className="jf-field">
+                    <label className="jf-field__label" htmlFor="jf-cache-dir">
+                      {t("tools.performance.cacheDirLabel")}
+                    </label>
+                    <input
+                      id="jf-cache-dir"
+                      className="jf-input"
+                      value={cache.dir || cache.defaultDir}
+                      placeholder={cache.defaultDir}
+                      onChange={(e) => setCache((s) => ({ ...s, dir: e.target.value }))}
+                      disabled={perfBusy}
+                    />
+                  </div>
+                )}
+
+                <hr className="jf-divider" />
+
+                <h3 className="jf-card__subtitle">{t("tools.performance.revalidateHeading")}</h3>
+                <p className="jf-field__hint">
+                  {t("tools.performance.revalidateHint1")}{" "}
+                  <code className="jf-code">cache.revalidated</code>{" "}
+                  {t("tools.performance.revalidateHint2")}
+                </p>
+
+                <label className="jf-checkrow">
+                  <input
+                    type="checkbox"
+                    checked={revalidate.enabled}
+                    onChange={(e) => setRevalidate((s) => ({ ...s, enabled: e.target.checked }))}
+                    disabled={perfBusy}
+                  />
+                  <span>{t("tools.performance.revalidateCheckbox")}</span>
+                </label>
+
+                <div
+                  className="jf-grid jf-grid--2"
+                  style={{ opacity: revalidate.enabled ? 1 : 0.55 }}
+                >
+                  {(
+                    [
+                      ["pages", t("tools.performance.revalidateObjects.pages")],
+                      ["content", t("tools.performance.revalidateObjects.content")],
+                      ["menus", t("tools.performance.revalidateObjects.menus")],
+                      ["theme", t("tools.performance.revalidateObjects.theme")],
+                      ["cssProviders", t("tools.performance.revalidateObjects.cssProviders")],
+                      ["site", t("tools.performance.revalidateObjects.site")],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <label key={key} className="jf-checkrow">
+                      <input
+                        type="checkbox"
+                        checked={revalidate.objects[key]}
+                        onChange={(e) =>
+                          setRevalidate((s) => ({
+                            ...s,
+                            objects: { ...s.objects, [key]: e.target.checked },
+                          }))
+                        }
+                        disabled={perfBusy || !revalidate.enabled}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <hr className="jf-divider" />
+
+                <h3 className="jf-card__subtitle">{t("tools.performance.gzipHeading")}</h3>
+                <p className="jf-field__hint">{t("tools.performance.gzipHint")}</p>
+
+                <label className="jf-checkrow">
+                  <input
+                    type="checkbox"
+                    checked={gzip.enabled}
+                    onChange={(e) => setGzip((s) => ({ ...s, enabled: e.target.checked }))}
+                    disabled={perfBusy}
+                  />
+                  <span>{t("tools.performance.enableGzip")}</span>
+                </label>
+
+                <div className="jf-grid jf-grid--2">
+                  <div className="jf-field">
+                    <label className="jf-field__label" htmlFor="jf-gzip-level">
+                      {t("tools.performance.compressionLevelLabel")}
+                    </label>
+                    <input
+                      id="jf-gzip-level"
+                      className="jf-input"
+                      type="number"
+                      min={1}
+                      max={9}
+                      value={gzip.level}
+                      onChange={(e) =>
+                        setGzip((s) => ({ ...s, level: Number(e.target.value) || 6 }))
+                      }
+                      disabled={perfBusy || !gzip.enabled}
+                    />
+                    <p className="jf-field__hint">{t("tools.performance.compressionLevelHint")}</p>
+                  </div>
+                  <div className="jf-field">
+                    <label className="jf-field__label" htmlFor="jf-gzip-min">
+                      {t("tools.performance.minSizeLabel")}
+                    </label>
+                    <input
+                      id="jf-gzip-min"
+                      className="jf-input"
+                      type="number"
+                      min={256}
+                      max={65536}
+                      value={gzip.minBytes}
+                      onChange={(e) =>
+                        setGzip((s) => ({ ...s, minBytes: Number(e.target.value) || 1024 }))
+                      }
+                      disabled={perfBusy || !gzip.enabled}
+                    />
+                    <p className="jf-field__hint">{t("tools.performance.minSizeHint")}</p>
+                  </div>
+                </div>
+
+                <hr className="jf-divider" />
+
+                <h3 className="jf-card__subtitle">{t("tools.performance.browserCacheHeading")}</h3>
+                <p className="jf-field__hint">
+                  {t("tools.performance.browserCacheHint1")}{" "}
+                  <code className="jf-code">Cache-Control</code>{" "}
+                  {t("tools.performance.browserCacheHint2")}{" "}
+                  <code className="jf-code">no-store</code>.
+                </p>
+
+                <label className="jf-checkrow">
+                  <input
+                    type="checkbox"
+                    checked={browserCache.enabled}
+                    onChange={(e) => setBrowserCache((s) => ({ ...s, enabled: e.target.checked }))}
+                    disabled={perfBusy}
+                  />
+                  <span>{t("tools.performance.enableBrowserCache")}</span>
+                </label>
+
+                <div className="jf-grid jf-grid--3">
+                  <div className="jf-field">
+                    <label className="jf-field__label" htmlFor="jf-bc-html">
+                      {t("tools.performance.htmlMaxAgeLabel")}
+                    </label>
+                    <input
+                      id="jf-bc-html"
+                      className="jf-input"
+                      type="number"
+                      min={0}
+                      max={86400}
+                      value={browserCache.htmlMaxAge}
+                      onChange={(e) =>
+                        setBrowserCache((s) => ({
+                          ...s,
+                          htmlMaxAge: Number(e.target.value) || 0,
+                        }))
+                      }
+                      disabled={perfBusy || !browserCache.enabled}
+                    />
+                  </div>
+                  <div className="jf-field">
+                    <label className="jf-field__label" htmlFor="jf-bc-static">
+                      {t("tools.performance.staticMaxAgeLabel")}
+                    </label>
+                    <input
+                      id="jf-bc-static"
+                      className="jf-input"
+                      type="number"
+                      min={0}
+                      max={31536000}
+                      value={browserCache.staticMaxAge}
+                      onChange={(e) =>
+                        setBrowserCache((s) => ({
+                          ...s,
+                          staticMaxAge: Number(e.target.value) || 0,
+                        }))
+                      }
+                      disabled={perfBusy || !browserCache.enabled}
+                    />
+                  </div>
+                  <div className="jf-field">
+                    <label className="jf-field__label" htmlFor="jf-bc-swr">
+                      {t("tools.performance.swrLabel")}
+                    </label>
+                    <input
+                      id="jf-bc-swr"
+                      className="jf-input"
+                      type="number"
+                      min={0}
+                      max={86400}
+                      value={browserCache.staleWhileRevalidate}
+                      onChange={(e) =>
+                        setBrowserCache((s) => ({
+                          ...s,
+                          staleWhileRevalidate: Number(e.target.value) || 0,
+                        }))
+                      }
+                      disabled={perfBusy || !browserCache.enabled}
+                    />
+                  </div>
+                </div>
+
+                {envPath && (
+                  <p className="jf-field__hint">
+                    {t("tools.performance.configFile")} <code className="jf-code">{envPath}</code>
+                  </p>
+                )}
+
+                <div className="jf-row">
+                  <button
+                    className="jf-btn jf-btn--primary"
+                    onClick={savePerformanceSettings}
+                    disabled={perfBusy || cacheClearing}
+                  >
+                    {perfSaving
+                      ? t("common.saving")
+                      : restarting
+                        ? t("tools.performance.restartingLabel")
+                        : t("tools.performance.saveAndRestart")}
+                  </button>
+                  <button
+                    className="jf-btn jf-btn--ghost"
+                    onClick={clearCache}
+                    disabled={perfBusy || cacheClearing}
+                  >
+                    {cacheClearing
+                      ? t("tools.performance.clearing")
+                      : t("tools.performance.clearObjectCache")}
+                  </button>
+                  {perfSaved && !perfBusy && (
+                    <span className="jf-status jf-status--saved">✓ {t("common.saved")}</span>
+                  )}
+                  {perfError && <span className="jf-status jf-status--error">{perfError}</span>}
+                </div>
+
+                {restartFailed && (
+                  <div className="jf-banner jf-banner--warn">
+                    <span className="jf-banner__icon" aria-hidden="true">
+                      ⚠️
+                    </span>
+                    <div>
+                      <div className="jf-banner__title">{t("tools.manualRestartTitle")}</div>
+                      <div className="jf-banner__sub">
+                        {t(manualRestartKey("tools", "body", restartMethod), {
+                          unit: serviceUnitName(restartTarget),
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
       ) : null}
 
       {installationRoot && log.length > 0 && (
@@ -1119,9 +1219,7 @@ export default function ToolsPage() {
           <h2 className="jf-card__title">{t("tools.wordpress.title")}</h2>
         </div>
         <div className="jf-card__body jf-stack">
-          <p className="jf-prose">
-            {t("tools.wordpress.description")}
-          </p>
+          <p className="jf-prose">{t("tools.wordpress.description")}</p>
 
           <input
             ref={fileRef}
@@ -1150,9 +1248,15 @@ export default function ToolsPage() {
                 <div>
                   <strong>✓ {t("tools.wordpress.importComplete")}</strong>
                   <ul style={{ margin: "0.4rem 0 0", paddingInlineStart: "1.1rem" }}>
-                    <li>{t("tools.wordpress.postsImported", { count: result.imported?.posts ?? 0 })}</li>
-                    <li>{t("tools.wordpress.pagesImported", { count: result.imported?.pages ?? 0 })}</li>
-                    <li>{t("tools.wordpress.skipped", { count: result.imported?.skipped ?? 0 })}</li>
+                    <li>
+                      {t("tools.wordpress.postsImported", { count: result.imported?.posts ?? 0 })}
+                    </li>
+                    <li>
+                      {t("tools.wordpress.pagesImported", { count: result.imported?.pages ?? 0 })}
+                    </li>
+                    <li>
+                      {t("tools.wordpress.skipped", { count: result.imported?.skipped ?? 0 })}
+                    </li>
                   </ul>
                   {result.errors && result.errors.length > 0 && (
                     <p style={{ margin: "0.4rem 0 0" }}>
@@ -1175,12 +1279,17 @@ export default function ToolsPage() {
         </div>
         <div className="jf-card__body jf-stack">
           <p className="jf-prose">
-            {sxSettings?.storageDriver === "s3" ? t("tools.staticExport.descriptionHtmlOnly") : <>
-            {t("tools.staticExport.description1")} <code className="jf-code">sitemap.xml</code>
-            , <code className="jf-code">robots.txt</code> {t("tools.staticExport.description2")}{" "}
-            <code className="jf-code">theme.css</code> {t("tools.staticExport.description3")}{" "}
-            <code className="jf-code">docs/STATIC-EXPORT.md</code> {t("tools.staticExport.description4")}
-            </>}
+            {sxSettings?.storageDriver === "s3" ? (
+              t("tools.staticExport.descriptionHtmlOnly")
+            ) : (
+              <>
+                {t("tools.staticExport.description1")} <code className="jf-code">sitemap.xml</code>,{" "}
+                <code className="jf-code">robots.txt</code> {t("tools.staticExport.description2")}{" "}
+                <code className="jf-code">theme.css</code> {t("tools.staticExport.description3")}{" "}
+                <code className="jf-code">docs/STATIC-EXPORT.md</code>{" "}
+                {t("tools.staticExport.description4")}
+              </>
+            )}
           </p>
 
           <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
@@ -1192,7 +1301,9 @@ export default function ToolsPage() {
                   : t("tools.staticExport.autoRebuildOff")}
             </span>
             {sxSettings?.auto && sxRuntimeInfo && !sxRuntimeInfo.revalidateEnabled && (
-              <span className="jf-badge jf-badge--warn">{t("tools.staticExport.needsRevalidateEnv")}</span>
+              <span className="jf-badge jf-badge--warn">
+                {t("tools.staticExport.needsRevalidateEnv")}
+              </span>
             )}
             {sxStatus?.lastRun ? (
               <>
@@ -1290,7 +1401,8 @@ export default function ToolsPage() {
                   disabled={sxSaving || sxRunning}
                 />
                 <p className="jf-field__hint">
-                  {t("tools.staticExport.baseUrlHint1")} <code className="jf-code">sitemap.xml</code>{" "}
+                  {t("tools.staticExport.baseUrlHint1")}{" "}
+                  <code className="jf-code">sitemap.xml</code>{" "}
                   {t("tools.staticExport.baseUrlHint2")} <code className="jf-code">APP_URL</code>{" "}
                   {t("tools.staticExport.baseUrlHint3")}
                 </p>
@@ -1369,7 +1481,8 @@ export default function ToolsPage() {
                   )}
                 </div>
                 <p className="jf-field__hint">
-                  {t("tools.staticExport.originHint1")} <code className="jf-code">&lt;form&gt;</code>{" "}
+                  {t("tools.staticExport.originHint1")}{" "}
+                  <code className="jf-code">&lt;form&gt;</code>{" "}
                   {t("tools.staticExport.originHint2")} <code className="jf-code">fetch()</code>{" "}
                   {t("tools.staticExport.originHint3")}{" "}
                   <strong>{t("tools.staticExport.useThisSite")}</strong>{" "}
@@ -1401,8 +1514,8 @@ export default function ToolsPage() {
                   {t("tools.staticExport.corsHint2")} <em>{t("tools.staticExport.originLabel")}</em>{" "}
                   {t("tools.staticExport.corsHint3")} <code className="jf-code">APP_URL</code> /{" "}
                   <code className="jf-code">STATIC_EXPORT_BASE_URL</code>{" "}
-                  {t("tools.staticExport.corsHint4")}{" "}
-                  <code className="jf-code">localhost</code> {t("tools.staticExport.corsHint5")}
+                  {t("tools.staticExport.corsHint4")} <code className="jf-code">localhost</code>{" "}
+                  {t("tools.staticExport.corsHint5")}
                 </p>
               </div>
 
@@ -1467,9 +1580,7 @@ export default function ToolsPage() {
                   onChange={(e) => setSxSettings({ ...sxSettings, auto: e.target.checked })}
                   disabled={sxSaving || sxRunning}
                 />
-                <span>
-                  {t("tools.staticExport.autoRebuildCheckbox")}
-                </span>
+                <span>{t("tools.staticExport.autoRebuildCheckbox")}</span>
               </label>
 
               <div className="jf-row">
@@ -1537,9 +1648,16 @@ export default function ToolsPage() {
             <button
               className="jf-btn jf-btn--primary"
               onClick={() => runStaticExport("full")}
-              disabled={sxRunning || sxSaving || sxSettings?.enabled === false || (!installationRoot && !sxSiteEnabled)}
+              disabled={
+                sxRunning ||
+                sxSaving ||
+                sxSettings?.enabled === false ||
+                (!installationRoot && !sxSiteEnabled)
+              }
             >
-              {sxRunning ? t("tools.staticExport.exporting") : t("tools.staticExport.runFullExport")}
+              {sxRunning
+                ? t("tools.staticExport.exporting")
+                : t("tools.staticExport.runFullExport")}
             </button>
             <button
               className="jf-btn jf-btn--ghost"
@@ -1584,8 +1702,10 @@ export default function ToolsPage() {
             <p className="jf-prose" style={{ marginTop: "0.5rem" }}>
               {t("tools.staticExport.dynamicFeaturesHint1")}{" "}
               <strong>{t("tools.staticExport.formsSubmitInPlace")}</strong>{" "}
-              {t("tools.staticExport.dynamicFeaturesHint2")} <code className="jf-code">fetch()</code>{" "}
-              {t("tools.staticExport.dynamicFeaturesHint3")} <strong>{t("tools.staticExport.hybrid")}</strong>{" "}
+              {t("tools.staticExport.dynamicFeaturesHint2")}{" "}
+              <code className="jf-code">fetch()</code>{" "}
+              {t("tools.staticExport.dynamicFeaturesHint3")}{" "}
+              <strong>{t("tools.staticExport.hybrid")}</strong>{" "}
               {t("tools.staticExport.dynamicFeaturesHint4")}{" "}
               <code className="jf-code">/justflows-comments/*</code>,{" "}
               <code className="jf-code">/api</code>, <code className="jf-code">/admin</code>{" "}
@@ -1615,10 +1735,46 @@ export default function ToolsPage() {
         <div className="jf-card__body jf-stack">
           <p className="jf-prose">{t("tools.backup.description")}</p>
           <p className="jf-field__hint">{t("tools.backup.scopeHint")}</p>
-          {backupError && <div className="jf-alert jf-alert--error" role="alert">{backupError}</div>}
-          {backupRestored && <div className="jf-alert jf-alert--success" role="status">{t("tools.backup.restoreComplete")}</div>}
+          {backupError && (
+            <div className="jf-alert jf-alert--error" role="alert">
+              {backupError}
+            </div>
+          )}
+          {backupRestored && (
+            <div className="jf-alert jf-alert--success" role="status">
+              {t("tools.backup.restoreComplete")}
+            </div>
+          )}
+          {backupDelivered && (
+            <div className="jf-alert jf-alert--success" role="status">
+              {t("tools.backup.delivered", { location: backupDelivered })}
+            </div>
+          )}
+          <div className="jf-field">
+            <label className="jf-field__label" htmlFor="backup-destination">
+              {t("tools.backup.destination")}
+            </label>
+            <select
+              id="backup-destination"
+              className="jf-input"
+              value={backupDestination}
+              onChange={(event) =>
+                setBackupDestination(event.target.value as typeof backupDestination)
+              }
+            >
+              <option value="local">{t("tools.backup.destinationLocal")}</option>
+              <option value="ftp">{t("tools.backup.destinationFtp")}</option>
+              <option value="email">{t("tools.backup.destinationEmail")}</option>
+              <option value="s3">{t("tools.backup.destinationS3")}</option>
+            </select>
+          </div>
           <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
-            <button type="button" className="jf-btn jf-btn--primary" onClick={downloadBackup} disabled={backupCreating}>
+            <button
+              type="button"
+              className="jf-btn jf-btn--primary"
+              onClick={downloadBackup}
+              disabled={backupCreating}
+            >
               {backupCreating ? t("tools.backup.creating") : t("tools.backup.download")}
             </button>
             {backupCreating && (
@@ -1651,13 +1807,266 @@ export default function ToolsPage() {
               <p className="jf-field__hint">{backupMessage}</p>
             </div>
           )}
+          {backupDestinations && (
+            <details>
+              <summary className="jf-field__label" style={{ cursor: "pointer" }}>
+                {t("tools.backup.destinationSettings")}
+              </summary>
+              <div className="jf-stack" style={{ marginTop: "0.75rem" }}>
+                <label className="jf-checkrow">
+                  <input
+                    type="checkbox"
+                    checked={backupDestinations.ftp.enabled}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        ftp: { ...backupDestinations.ftp, enabled: event.target.checked },
+                      })
+                    }
+                  />
+                  <span>{t("tools.backup.enableFtp")}</span>
+                </label>
+                <div className="jf-grid jf-grid--2">
+                  <input
+                    className="jf-input"
+                    aria-label={t("tools.backup.ftpHost")}
+                    placeholder={t("tools.backup.ftpHost")}
+                    value={backupDestinations.ftp.host}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        ftp: { ...backupDestinations.ftp, host: event.target.value },
+                      })
+                    }
+                  />
+                  <input
+                    className="jf-input"
+                    type="number"
+                    min={1}
+                    max={65535}
+                    aria-label={t("tools.backup.ftpPort")}
+                    placeholder={t("tools.backup.ftpPort")}
+                    value={backupDestinations.ftp.port}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        ftp: { ...backupDestinations.ftp, port: Number(event.target.value) },
+                      })
+                    }
+                  />
+                  <input
+                    className="jf-input"
+                    aria-label={t("tools.backup.ftpUser")}
+                    placeholder={t("tools.backup.ftpUser")}
+                    value={backupDestinations.ftp.username}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        ftp: { ...backupDestinations.ftp, username: event.target.value },
+                      })
+                    }
+                  />
+                  <input
+                    className="jf-input"
+                    type="password"
+                    aria-label={t("tools.backup.password")}
+                    placeholder={
+                      backupDestinations.ftp.passwordSet
+                        ? t("tools.backup.secretSaved")
+                        : t("tools.backup.password")
+                    }
+                    value={backupDestinations.ftp.password ?? ""}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        ftp: { ...backupDestinations.ftp, password: event.target.value },
+                      })
+                    }
+                  />
+                  <input
+                    className="jf-input"
+                    aria-label={t("tools.backup.remotePath")}
+                    placeholder={t("tools.backup.remotePath")}
+                    value={backupDestinations.ftp.remotePath}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        ftp: { ...backupDestinations.ftp, remotePath: event.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <label className="jf-checkrow">
+                  <input
+                    type="checkbox"
+                    checked={backupDestinations.ftp.secure}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        ftp: { ...backupDestinations.ftp, secure: event.target.checked },
+                      })
+                    }
+                  />
+                  <span>{t("tools.backup.secureFtp")}</span>
+                </label>
+                <label className="jf-checkrow">
+                  <input
+                    type="checkbox"
+                    checked={backupDestinations.email.enabled}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        email: { ...backupDestinations.email, enabled: event.target.checked },
+                      })
+                    }
+                  />
+                  <span>{t("tools.backup.enableEmail")}</span>
+                </label>
+                <input
+                  className="jf-input"
+                  type="email"
+                  aria-label={t("tools.backup.emailAddress")}
+                  placeholder={t("tools.backup.emailAddress")}
+                  value={backupDestinations.email.to}
+                  onChange={(event) =>
+                    setBackupDestinations({
+                      ...backupDestinations,
+                      email: { ...backupDestinations.email, to: event.target.value },
+                    })
+                  }
+                />
+                <label className="jf-checkrow">
+                  <input
+                    type="checkbox"
+                    checked={backupDestinations.s3.enabled}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        s3: { ...backupDestinations.s3, enabled: event.target.checked },
+                      })
+                    }
+                  />
+                  <span>{t("tools.backup.enableS3")}</span>
+                </label>
+                <div className="jf-grid jf-grid--2">
+                  <input
+                    className="jf-input"
+                    aria-label={t("tools.backup.s3Bucket")}
+                    placeholder={t("tools.backup.s3Bucket")}
+                    value={backupDestinations.s3.bucket}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        s3: { ...backupDestinations.s3, bucket: event.target.value },
+                      })
+                    }
+                  />
+                  <input
+                    className="jf-input"
+                    aria-label={t("tools.backup.s3Region")}
+                    placeholder={t("tools.backup.s3Region")}
+                    value={backupDestinations.s3.region}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        s3: { ...backupDestinations.s3, region: event.target.value },
+                      })
+                    }
+                  />
+                  <input
+                    className="jf-input"
+                    aria-label={t("tools.backup.s3Endpoint")}
+                    placeholder={t("tools.backup.s3Endpoint")}
+                    value={backupDestinations.s3.endpoint}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        s3: { ...backupDestinations.s3, endpoint: event.target.value },
+                      })
+                    }
+                  />
+                  <input
+                    className="jf-input"
+                    aria-label={t("tools.backup.s3Prefix")}
+                    placeholder={t("tools.backup.s3Prefix")}
+                    value={backupDestinations.s3.prefix}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        s3: { ...backupDestinations.s3, prefix: event.target.value },
+                      })
+                    }
+                  />
+                  <input
+                    className="jf-input"
+                    aria-label={t("tools.backup.accessKey")}
+                    placeholder={
+                      backupDestinations.s3.accessKeySet
+                        ? t("tools.backup.secretSaved")
+                        : t("tools.backup.accessKey")
+                    }
+                    value={backupDestinations.s3.accessKeyId ?? ""}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        s3: { ...backupDestinations.s3, accessKeyId: event.target.value },
+                      })
+                    }
+                  />
+                  <input
+                    className="jf-input"
+                    type="password"
+                    aria-label={t("tools.backup.secretKey")}
+                    placeholder={
+                      backupDestinations.s3.secretKeySet
+                        ? t("tools.backup.secretSaved")
+                        : t("tools.backup.secretKey")
+                    }
+                    value={backupDestinations.s3.secretAccessKey ?? ""}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        s3: { ...backupDestinations.s3, secretAccessKey: event.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <label className="jf-checkrow">
+                  <input
+                    type="checkbox"
+                    checked={backupDestinations.s3.forcePathStyle}
+                    onChange={(event) =>
+                      setBackupDestinations({
+                        ...backupDestinations,
+                        s3: { ...backupDestinations.s3, forcePathStyle: event.target.checked },
+                      })
+                    }
+                  />
+                  <span>{t("tools.backup.s3PathStyle")}</span>
+                </label>
+                <button
+                  type="button"
+                  className="jf-btn jf-btn--secondary"
+                  disabled={backupDestinationsSaving}
+                  onClick={saveBackupDestinations}
+                >
+                  {backupDestinationsSaving
+                    ? t("tools.backup.savingSettings")
+                    : t("tools.backup.saveSettings")}
+                </button>
+              </div>
+            </details>
+          )}
           {backupValidation && (
             <div className="jf-alert jf-alert--success" role="status">
               <strong>{t("tools.backup.validTitle")}</strong>{" "}
               {t("tools.backup.validSummary", {
                 site: backupValidation.manifest.source.siteName,
                 date: new Date(backupValidation.manifest.createdAt).toLocaleString(),
-                records: Object.values(backupValidation.counts.tables).reduce((sum, count) => sum + count, 0),
+                records: Object.values(backupValidation.counts.tables).reduce(
+                  (sum, count) => sum + count,
+                  0,
+                ),
               })}
               <div className="jf-field__hint">
                 {t("tools.backup.mediaSummary", {
@@ -1809,7 +2218,8 @@ function ResponsiveImagesCard() {
         error?: string;
         settings?: MediaSettings;
       };
-      if (!res.ok || !data.ok) throw new Error(data.error ?? t("tools.responsiveImages.saveFailed"));
+      if (!res.ok || !data.ok)
+        throw new Error(data.error ?? t("tools.responsiveImages.saveFailed"));
       if (data.settings) {
         setSettings(data.settings);
         setWidthsText(data.settings.widths.join(", "));
@@ -1852,11 +2262,10 @@ function ResponsiveImagesCard() {
       <div className="jf-card__body jf-stack">
         <p className="jf-prose">
           {t("tools.responsiveImages.description1")}{" "}
-          <code className="jf-code">&lt;picture&gt;</code> /{" "}
-          <code className="jf-code">srcset</code> {t("tools.responsiveImages.description2")}{" "}
-          <code className="jf-code">width</code>/<code className="jf-code">height</code>
-          {t("tools.responsiveImages.description3")}{" "}
-          <code className="jf-code">docs/MEDIA.md</code>.
+          <code className="jf-code">&lt;picture&gt;</code> / <code className="jf-code">srcset</code>{" "}
+          {t("tools.responsiveImages.description2")} <code className="jf-code">width</code>/
+          <code className="jf-code">height</code>
+          {t("tools.responsiveImages.description3")} <code className="jf-code">docs/MEDIA.md</code>.
         </p>
 
         {error && <div className="jf-alert jf-alert--error">{error}</div>}
@@ -1881,7 +2290,8 @@ function ResponsiveImagesCard() {
                 disabled={saving}
               />
               <span>
-                {t("tools.responsiveImages.emitMarkup1")} <code className="jf-code">&lt;picture&gt;</code> /{" "}
+                {t("tools.responsiveImages.emitMarkup1")}{" "}
+                <code className="jf-code">&lt;picture&gt;</code> /{" "}
                 <code className="jf-code">srcset</code> {t("tools.responsiveImages.emitMarkup2")}
               </span>
             </label>
@@ -1893,9 +2303,7 @@ function ResponsiveImagesCard() {
                 onChange={(e) => upd("avif", e.target.checked)}
                 disabled={saving || !settings.enabled}
               />
-              <span>
-                {t("tools.responsiveImages.generateAvif")}
-              </span>
+              <span>{t("tools.responsiveImages.generateAvif")}</span>
             </label>
 
             <label className="jf-checkrow">
@@ -2015,7 +2423,9 @@ function ResponsiveImagesCard() {
                   min={1}
                   max={9}
                   value={settings.avifEffort ?? 2}
-                  onChange={(e) => upd("avifEffort", Math.min(9, Math.max(1, Number(e.target.value) || 2)))}
+                  onChange={(e) =>
+                    upd("avifEffort", Math.min(9, Math.max(1, Number(e.target.value) || 2)))
+                  }
                   disabled={saving || !settings.enabled || !settings.avif}
                 />
                 <p className="jf-field__hint">{t("tools.responsiveImages.avifEffortHint")}</p>
@@ -2034,15 +2444,15 @@ function ResponsiveImagesCard() {
                 placeholder="logo*, *.png"
                 disabled={saving || !settings.enabled}
               />
-              <p className="jf-field__hint">
-                {t("tools.responsiveImages.keepOriginalHint")}
-              </p>
+              <p className="jf-field__hint">{t("tools.responsiveImages.keepOriginalHint")}</p>
             </div>
 
             {envPath && (
               <p className="jf-field__hint">
-                {t("tools.responsiveImages.savedToPrefix")} <code className="jf-code">{envPath}</code>{" "}
-                {t("tools.responsiveImages.savedToSuffix")} <code className="jf-code">JF_IMAGE_*</code>{" "}
+                {t("tools.responsiveImages.savedToPrefix")}{" "}
+                <code className="jf-code">{envPath}</code>{" "}
+                {t("tools.responsiveImages.savedToSuffix")}{" "}
+                <code className="jf-code">JF_IMAGE_*</code>{" "}
                 {t("tools.responsiveImages.savedToTail")}
               </p>
             )}
@@ -2055,7 +2465,9 @@ function ResponsiveImagesCard() {
               >
                 {saving ? t("common.saving") : t("tools.staticExport.saveSettings")}
               </button>
-              {saved && !saving && <span className="jf-status jf-status--saved">✓ {t("common.saved")}</span>}
+              {saved && !saving && (
+                <span className="jf-status jf-status--saved">✓ {t("common.saved")}</span>
+              )}
             </div>
           </>
         )}
@@ -2063,9 +2475,7 @@ function ResponsiveImagesCard() {
         <hr className="jf-divider" />
 
         <h3 className="jf-card__subtitle">{t("tools.responsiveImages.regenerateHeading")}</h3>
-        <p className="jf-field__hint">
-          {t("tools.responsiveImages.regenerateHint")}
-        </p>
+        <p className="jf-field__hint">{t("tools.responsiveImages.regenerateHint")}</p>
 
         {status && (status.running || status.finishedAt) && (
           <div
@@ -2081,7 +2491,8 @@ function ResponsiveImagesCard() {
               </span>
             ) : (
               <span>
-                ✓ {t("tools.responsiveImages.finished", {
+                ✓{" "}
+                {t("tools.responsiveImages.finished", {
                   rebuilt: status.processed,
                   skipped: status.skipped,
                   failed: status.failed,
@@ -2106,7 +2517,9 @@ function ResponsiveImagesCard() {
             onClick={() => void regenerate()}
             disabled={busy || settings?.enabled === false}
           >
-            {busy ? t("tools.responsiveImages.regenerating") : t("tools.responsiveImages.regenerateAll")}
+            {busy
+              ? t("tools.responsiveImages.regenerating")
+              : t("tools.responsiveImages.regenerateAll")}
           </button>
         </div>
       </div>

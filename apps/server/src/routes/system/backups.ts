@@ -15,12 +15,30 @@ import {
 import { exportSiteData } from "../../lib/backup/site-export.js";
 import { restoreSiteBackup } from "../../lib/backup/site-restore.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
-import { admitUpload, multipartLimits, withMultipartErrors } from "../../lib/security/upload-admission.js";
+import {
+  admitUpload,
+  multipartLimits,
+  withMultipartErrors,
+} from "../../lib/security/upload-admission.js";
 import { param } from "../../lib/http/params.js";
+import { z } from "zod";
+import {
+  backupDestinationSettings,
+  deliverBackup,
+  saveBackupDestinationSettings,
+} from "../../lib/backup/destinations.js";
 
 const router = Router();
-const createLimit = rateLimit({ windowMs: 60_000, limit: 3, standardHeaders: "draft-8", legacyHeaders: false });
-const upload = multer({ storage: multer.memoryStorage(), limits: multipartLimits(MAX_PORTABLE_BACKUP_BYTES) });
+const createLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 3,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: multipartLimits(MAX_PORTABLE_BACKUP_BYTES),
+});
 
 interface BackupJob {
   id: string;
@@ -36,6 +54,28 @@ interface BackupJob {
 }
 
 const backupJobs = new Map<string, BackupJob>();
+const destinationSchema = z.object({
+  ftp: z.object({
+    enabled: z.boolean(),
+    host: z.string().max(255),
+    port: z.number().int().min(1).max(65535),
+    username: z.string().max(255),
+    password: z.string().max(1024).optional(),
+    remotePath: z.string().max(1024),
+    secure: z.boolean(),
+  }),
+  email: z.object({ enabled: z.boolean(), to: z.string().email().or(z.literal("")) }),
+  s3: z.object({
+    enabled: z.boolean(),
+    bucket: z.string().max(255),
+    region: z.string().max(100),
+    endpoint: z.string().url().or(z.literal("")),
+    accessKeyId: z.string().max(1024).optional(),
+    secretAccessKey: z.string().max(1024).optional(),
+    prefix: z.string().max(1024),
+    forcePathStyle: z.boolean(),
+  }),
+});
 
 function cleanupBackupJobs(): void {
   const cutoff = Date.now() - 15 * 60_000;
@@ -70,7 +110,9 @@ async function buildArchive(
 router.post("/jobs", createLimit, requireRole("administrator"), (req, res) => {
   cleanupBackupJobs();
   const siteId = req.session!.siteId;
-  const existing = [...backupJobs.values()].find((job) => job.siteId === siteId && job.status === "running");
+  const existing = [...backupJobs.values()].find(
+    (job) => job.siteId === siteId && job.status === "running",
+  );
   if (existing) {
     res.status(409).json({ error: "A backup is already running", jobId: existing.id });
     return;
@@ -88,22 +130,24 @@ router.post("/jobs", createLimit, requireRole("administrator"), (req, res) => {
   void buildArchive(siteId, job.controller.signal, (completed, total) => {
     job.message = total > 0 ? `Reading media ${completed}/${total}` : "Creating archive";
     job.progress = total > 0 ? 10 + Math.round((completed / total) * 75) : 85;
-  }).then(({ archive, filename }) => {
-    if (job.controller.signal.aborted) {
-      job.status = "cancelled";
-      job.message = "Backup cancelled";
-      return;
-    }
-    job.archive = archive;
-    job.filename = filename;
-    job.progress = 100;
-    job.status = "ready";
-    job.message = "Backup ready";
-  }).catch((error) => {
-    job.status = job.controller.signal.aborted ? "cancelled" : "failed";
-    job.error = error instanceof Error ? error.message : "Backup failed";
-    job.message = job.error;
-  });
+  })
+    .then(({ archive, filename }) => {
+      if (job.controller.signal.aborted) {
+        job.status = "cancelled";
+        job.message = "Backup cancelled";
+        return;
+      }
+      job.archive = archive;
+      job.filename = filename;
+      job.progress = 100;
+      job.status = "ready";
+      job.message = "Backup ready";
+    })
+    .catch((error) => {
+      job.status = job.controller.signal.aborted ? "cancelled" : "failed";
+      job.error = error instanceof Error ? error.message : "Backup failed";
+      job.message = job.error;
+    });
   res.status(202).json({ jobId: job.id });
 });
 
@@ -132,11 +176,20 @@ router.delete("/jobs/:id", requireRole("administrator"), (req, res) => {
 
 router.get("/jobs/:id/download", requireRole("administrator"), (req, res) => {
   const job = backupJobs.get(param(req.params.id));
-  if (!job || job.siteId !== req.session!.siteId || job.status !== "ready" || !job.archive || !job.filename) {
+  if (
+    !job ||
+    job.siteId !== req.session!.siteId ||
+    job.status !== "ready" ||
+    !job.archive ||
+    !job.filename
+  ) {
     res.status(404).json({ error: "Backup download is not ready" });
     return;
   }
-  auditFromRequest(req, "backup.downloaded", { target: job.siteId, detail: `format=portable; bytes=${job.archive.byteLength}` });
+  auditFromRequest(req, "backup.downloaded", {
+    target: job.siteId,
+    detail: `format=portable; bytes=${job.archive.byteLength}`,
+  });
   res.set({
     "Content-Type": "application/vnd.justflows.backup",
     "Content-Disposition": `attachment; filename="${job.filename}"`,
@@ -145,6 +198,51 @@ router.get("/jobs/:id/download", requireRole("administrator"), (req, res) => {
   });
   res.send(job.archive);
   backupJobs.delete(job.id);
+});
+
+router.get("/destinations", requireRole("administrator"), async (req, res) => {
+  res.json(await backupDestinationSettings(req.session!.siteId));
+});
+
+router.put("/destinations", requireRole("administrator"), async (req, res) => {
+  const parsed = destinationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res
+      .status(400)
+      .json({ error: parsed.error.issues[0]?.message ?? "Invalid destination settings" });
+    return;
+  }
+  await saveBackupDestinationSettings(req.session!.siteId, parsed.data);
+  auditFromRequest(req, "backup.destinations_changed", { target: req.session!.siteId });
+  res.json({ ok: true, settings: await backupDestinationSettings(req.session!.siteId) });
+});
+
+router.post("/jobs/:id/deliver", createLimit, requireRole("administrator"), async (req, res) => {
+  const destination = z.enum(["ftp", "email", "s3"]).safeParse(req.body?.destination);
+  const job = backupJobs.get(param(req.params.id));
+  if (
+    !destination.success ||
+    !job ||
+    job.siteId !== req.session!.siteId ||
+    job.status !== "ready" ||
+    !job.archive ||
+    !job.filename
+  ) {
+    res.status(400).json({ error: "Backup job or destination is not ready" });
+    return;
+  }
+  try {
+    const location = await deliverBackup(job.siteId, destination.data, job.filename, job.archive);
+    auditFromRequest(req, "backup.delivered", {
+      target: job.siteId,
+      detail: `destination=${destination.data}`,
+    });
+    res.json({ ok: true, location });
+  } catch (error) {
+    res
+      .status(502)
+      .json({ error: error instanceof Error ? error.message : "Backup delivery failed" });
+  }
 });
 
 router.post("/download", createLimit, requireRole("administrator"), async (req, res) => {
@@ -167,7 +265,10 @@ router.post("/download", createLimit, requireRole("administrator"), async (req, 
     },
     data,
   });
-  auditFromRequest(req, "backup.downloaded", { target: siteId, detail: `format=portable; bytes=${archive.byteLength}` });
+  auditFromRequest(req, "backup.downloaded", {
+    target: siteId,
+    detail: `format=portable; bytes=${archive.byteLength}`,
+  });
   res.set({
     "Content-Type": "application/vnd.justflows.backup",
     "Content-Disposition": `attachment; filename="justflows-backup-${createdAt.slice(0, 10)}.jfbackup"`,
@@ -215,7 +316,9 @@ router.post(
         restoreAvailable: true,
       });
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : "Backup validation failed" });
+      res
+        .status(400)
+        .json({ error: error instanceof Error ? error.message : "Backup validation failed" });
     }
   },
 );
@@ -224,7 +327,12 @@ router.post(
   "/restore",
   createLimit,
   requireRole("administrator"),
-  admitUpload({ name: "backup-restore", maxBytes: MAX_PORTABLE_BACKUP_BYTES, perSite: 1, global: 1 }),
+  admitUpload({
+    name: "backup-restore",
+    maxBytes: MAX_PORTABLE_BACKUP_BYTES,
+    perSite: 1,
+    global: 1,
+  }),
   withMultipartErrors(upload.single("file")),
   async (req, res) => {
     if (req.body?.confirmation !== "RESTORE CLEAN SITE") {
@@ -238,7 +346,10 @@ router.post(
     try {
       const backup = readPortableBackup(req.file.buffer);
       await restoreSiteBackup(await getDb(), req.session!.siteId, backup);
-      auditFromRequest(req, "backup.restored", { target: req.session!.siteId, detail: `source=${backup.source.siteId}` });
+      auditFromRequest(req, "backup.restored", {
+        target: req.session!.siteId,
+        detail: `source=${backup.source.siteId}`,
+      });
       res.json({ ok: true });
     } catch (error) {
       res.status(409).json({ error: error instanceof Error ? error.message : "Restore failed" });
