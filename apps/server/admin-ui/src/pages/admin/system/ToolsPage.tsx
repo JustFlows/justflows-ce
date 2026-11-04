@@ -56,6 +56,19 @@ interface BackupDestinations {
   };
 }
 
+interface BackupSchedule {
+  enabled: boolean;
+  frequency: "daily" | "weekly" | "monthly";
+  timeUtc: string;
+  weekday: number;
+  dayOfMonth: number;
+  scope: "root" | "subsites" | "all";
+  destination: "ftp" | "email" | "s3";
+  nextRunAt: string | null;
+  lastStatus: string | null;
+  lastError: string | null;
+}
+
 interface CacheSettings {
   enabled: boolean;
   driver: "memory" | "filesystem";
@@ -220,6 +233,17 @@ export default function ToolsPage() {
   const [backupDestinations, setBackupDestinations] = useState<BackupDestinations | null>(null);
   const [backupDestinationsSaving, setBackupDestinationsSaving] = useState(false);
   const [backupDelivered, setBackupDelivered] = useState<string | null>(null);
+  const [backupScope, setBackupScope] = useState<"site" | "subsites">("site");
+  const [restoreTargets, setRestoreTargets] = useState<
+    Array<{ id: string; name: string; root: boolean }>
+  >([]);
+  const [restoreTargetId, setRestoreTargetId] = useState("");
+  const [backupReadyFiles, setBackupReadyFiles] = useState<{
+    jobId: string;
+    files: Array<{ index: number; siteId: string; siteName: string; filename: string }>;
+  } | null>(null);
+  const [backupSchedule, setBackupSchedule] = useState<BackupSchedule | null>(null);
+  const [backupScheduleSaving, setBackupScheduleSaving] = useState(false);
 
   const [perfLoading, setPerfLoading] = useState(true);
   const [cache, setCache] = useState<CacheSettings>({
@@ -482,7 +506,20 @@ export default function ToolsPage() {
     void fetch("/api/backups/destinations").then(async (response) => {
       if (response.ok) setBackupDestinations((await response.json()) as BackupDestinations);
     });
-  }, []);
+    void fetch("/api/backups/restore-targets").then(async (response) => {
+      if (!response.ok) return;
+      const body = (await response.json()) as {
+        sites: Array<{ id: string; name: string; root: boolean }>;
+      };
+      setRestoreTargets(body.sites);
+      setRestoreTargetId(body.sites[0]?.id ?? "");
+    });
+    if (installationRoot) {
+      void fetch("/api/backups/schedule").then(async (response) => {
+        if (response.ok) setBackupSchedule((await response.json()) as BackupSchedule);
+      });
+    }
+  }, [installationRoot]);
 
   useEffect(() => {
     if (!installationRoot) {
@@ -517,9 +554,16 @@ export default function ToolsPage() {
     setBackupError(null);
     setBackupProgress(0);
     setBackupDelivered(null);
+    setBackupReadyFiles(null);
     backupCancelRef.current = false;
+    let readyFiles: Array<{ index: number; siteId: string; siteName: string; filename: string }> =
+      [];
     try {
-      const start = await fetch("/api/backups/jobs", { method: "POST" });
+      const start = await fetch("/api/backups/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: backupScope }),
+      });
       const started = (await start.json()) as { jobId?: string; error?: string };
       if (!start.ok || !started.jobId)
         throw new Error(started.error ?? t("tools.backup.createFailed"));
@@ -533,6 +577,7 @@ export default function ToolsPage() {
           progress?: number;
           message?: string;
           error?: string;
+          files?: Array<{ index: number; siteId: string; siteName: string; filename: string }>;
         };
         if (!statusResponse.ok) throw new Error(status.error ?? t("tools.backup.createFailed"));
         setBackupProgress(status.progress ?? 0);
@@ -540,7 +585,10 @@ export default function ToolsPage() {
         if (status.status === "failed")
           throw new Error(status.error ?? t("tools.backup.createFailed"));
         if (status.status === "cancelled") throw new Error(t("tools.backup.cancelled"));
-        if (status.status === "ready") break;
+        if (status.status === "ready") {
+          readyFiles = status.files ?? [];
+          break;
+        }
       }
       if (backupCancelRef.current) return;
       if (backupDestination !== "local") {
@@ -560,23 +608,32 @@ export default function ToolsPage() {
         await fetch(`/api/backups/jobs/${jobId}`, { method: "DELETE" });
         return;
       }
-      const res = await fetch(`/api/backups/jobs/${jobId}/download`);
-      if (!res.ok) throw new Error(t("tools.backup.createFailed"));
-      const blob = await res.blob();
-      const disposition = res.headers.get("content-disposition") ?? "";
-      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "justflows-backup.jfbackup";
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = filename;
-      anchor.click();
-      URL.revokeObjectURL(url);
+      if (readyFiles.length > 1) {
+        setBackupReadyFiles({ jobId, files: readyFiles });
+        return;
+      }
+      const file = readyFiles[0];
+      if (!file) throw new Error(t("tools.backup.createFailed"));
+      await downloadBackupFile(jobId, file);
+      await fetch(`/api/backups/jobs/${jobId}`, { method: "DELETE" });
     } catch (error) {
       setBackupError(error instanceof Error ? error.message : String(error));
     } finally {
       setBackupCreating(false);
       setBackupJobId(null);
     }
+  }
+
+  async function downloadBackupFile(jobId: string, file: { index: number; filename: string }) {
+    const res = await fetch(`/api/backups/jobs/${jobId}/download/${file.index}`);
+    if (!res.ok) throw new Error(t("tools.backup.createFailed"));
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = file.filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   async function saveBackupDestinations() {
@@ -598,6 +655,43 @@ export default function ToolsPage() {
       setBackupError(error instanceof Error ? error.message : String(error));
     } finally {
       setBackupDestinationsSaving(false);
+    }
+  }
+
+  async function saveBackupSchedule() {
+    if (!backupSchedule) return;
+    setBackupScheduleSaving(true);
+    setBackupError(null);
+    try {
+      const response = await fetch("/api/backups/schedule", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(backupSchedule),
+      });
+      const body = (await response.json()) as BackupSchedule & { error?: string };
+      if (!response.ok) throw new Error(body.error ?? t("tools.backup.scheduleSaveFailed"));
+      setBackupSchedule(body);
+      setBackupMessage(t("tools.backup.scheduleSaved"));
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBackupScheduleSaving(false);
+    }
+  }
+
+  async function runBackupScheduleNow() {
+    setBackupScheduleSaving(true);
+    setBackupError(null);
+    try {
+      const response = await fetch("/api/backups/schedule/run-now", { method: "POST" });
+      const body = (await response.json()) as { ok?: boolean; jobId?: string; error?: string };
+      if (!response.ok || !body.ok)
+        throw new Error(body.error ?? t("tools.backup.scheduleRunFailed"));
+      setBackupMessage(t("tools.backup.scheduleQueued", { job: body.jobId ?? "" }));
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBackupScheduleSaving(false);
     }
   }
 
@@ -640,6 +734,7 @@ export default function ToolsPage() {
       const form = new FormData();
       form.append("file", backupFile);
       form.append("confirmation", restoreConfirmation);
+      if (restoreTargetId) form.append("targetSiteId", restoreTargetId);
       const res = await fetch("/api/backups/restore", { method: "POST", body: form });
       const body = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !body.ok) throw new Error(body.error ?? t("tools.backup.restoreFailed"));
@@ -1735,6 +1830,27 @@ export default function ToolsPage() {
         <div className="jf-card__body jf-stack">
           <p className="jf-prose">{t("tools.backup.description")}</p>
           <p className="jf-field__hint">{t("tools.backup.scopeHint")}</p>
+          {installationRoot && (
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="backup-scope">
+                {t("tools.backup.scope")}
+              </label>
+              <select
+                id="backup-scope"
+                className="jf-input"
+                value={backupScope}
+                onChange={(event) => setBackupScope(event.target.value as "site" | "subsites")}
+              >
+                <option value="site">
+                  {installationRoot ? t("tools.backup.scopeRoot") : t("tools.backup.scopeSite")}
+                </option>
+                <option value="subsites">{t("tools.backup.scopeSubsites")}</option>
+              </select>
+              {backupScope === "subsites" && (
+                <p className="jf-field__hint">{t("tools.backup.scopeSubsitesHint")}</p>
+              )}
+            </div>
+          )}
           {backupError && (
             <div className="jf-alert jf-alert--error" role="alert">
               {backupError}
@@ -1748,6 +1864,30 @@ export default function ToolsPage() {
           {backupDelivered && (
             <div className="jf-alert jf-alert--success" role="status">
               {t("tools.backup.delivered", { location: backupDelivered })}
+            </div>
+          )}
+          {backupReadyFiles && (
+            <div className="jf-alert jf-alert--success" role="status">
+              <strong>{t("tools.backup.filesReady")}</strong>
+              <div
+                className="jf-row"
+                style={{ flexWrap: "wrap", gap: "0.5rem", marginTop: "0.5rem" }}
+              >
+                {backupReadyFiles.files.map((file) => (
+                  <button
+                    key={file.siteId}
+                    type="button"
+                    className="jf-btn jf-btn--secondary"
+                    onClick={() =>
+                      void downloadBackupFile(backupReadyFiles.jobId, file).catch((error) =>
+                        setBackupError(error instanceof Error ? error.message : String(error)),
+                      )
+                    }
+                  >
+                    {t("tools.backup.downloadFile", { site: file.siteName })}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           <div className="jf-field">
@@ -2057,6 +2197,78 @@ export default function ToolsPage() {
               </div>
             </details>
           )}
+          {installationRoot && backupSchedule && (
+            <details open={backupSchedule.enabled}>
+              <summary className="jf-field__label" style={{ cursor: "pointer" }}>
+                {t("tools.backup.scheduleTitle")}
+              </summary>
+              <div className="jf-stack" style={{ marginTop: "0.75rem" }}>
+                <label className="jf-checkrow">
+                  <input
+                    type="checkbox"
+                    checked={backupSchedule.enabled}
+                    onChange={(event) =>
+                      setBackupSchedule({ ...backupSchedule, enabled: event.target.checked })
+                    }
+                  />
+                  <span>{t("tools.backup.scheduleEnable")}</span>
+                </label>
+                <div className="jf-grid jf-grid--2">
+                  <label className="jf-field">
+                    <span className="jf-field__label">{t("tools.backup.scheduleFrequency")}</span>
+                    <select className="jf-input" value={backupSchedule.frequency} onChange={(event) => setBackupSchedule({ ...backupSchedule, frequency: event.target.value as BackupSchedule["frequency"] })}>
+                      <option value="daily">{t("tools.backup.scheduleDaily")}</option>
+                      <option value="weekly">{t("tools.backup.scheduleWeekly")}</option>
+                      <option value="monthly">{t("tools.backup.scheduleMonthly")}</option>
+                    </select>
+                  </label>
+                  <label className="jf-field">
+                    <span className="jf-field__label">{t("tools.backup.scheduleTimeUtc")}</span>
+                    <input className="jf-input" type="time" value={backupSchedule.timeUtc} onChange={(event) => setBackupSchedule({ ...backupSchedule, timeUtc: event.target.value })} />
+                  </label>
+                  {backupSchedule.frequency === "weekly" && (
+                    <label className="jf-field">
+                      <span className="jf-field__label">{t("tools.backup.scheduleWeekday")}</span>
+                      <select className="jf-input" value={backupSchedule.weekday} onChange={(event) => setBackupSchedule({ ...backupSchedule, weekday: Number(event.target.value) })}>
+                        {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => <option key={day} value={index}>{day}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {backupSchedule.frequency === "monthly" && (
+                    <label className="jf-field">
+                      <span className="jf-field__label">{t("tools.backup.scheduleDayOfMonth")}</span>
+                      <input className="jf-input" type="number" min={1} max={31} value={backupSchedule.dayOfMonth} onChange={(event) => setBackupSchedule({ ...backupSchedule, dayOfMonth: Number(event.target.value) })} />
+                    </label>
+                  )}
+                  <label className="jf-field">
+                    <span className="jf-field__label">{t("tools.backup.scheduleScope")}</span>
+                    <select className="jf-input" value={backupSchedule.scope} onChange={(event) => setBackupSchedule({ ...backupSchedule, scope: event.target.value as BackupSchedule["scope"] })}>
+                      <option value="root">{t("tools.backup.scopeRoot")}</option>
+                      <option value="subsites">{t("tools.backup.scopeSubsites")}</option>
+                      <option value="all">{t("tools.backup.scheduleAllSites")}</option>
+                    </select>
+                  </label>
+                  <label className="jf-field">
+                    <span className="jf-field__label">{t("tools.backup.destination")}</span>
+                    <select className="jf-input" value={backupSchedule.destination} onChange={(event) => setBackupSchedule({ ...backupSchedule, destination: event.target.value as BackupSchedule["destination"] })}>
+                      <option value="ftp">{t("tools.backup.destinationFtp")}</option>
+                      <option value="email">{t("tools.backup.destinationEmail")}</option>
+                      <option value="s3">{t("tools.backup.destinationS3")}</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="jf-field__hint">
+                  {backupSchedule.nextRunAt ? t("tools.backup.scheduleNext", { date: new Date(backupSchedule.nextRunAt).toLocaleString() }) : t("tools.backup.scheduleNoNext")}
+                  {backupSchedule.lastStatus ? ` · ${t("tools.backup.scheduleLast", { status: backupSchedule.lastStatus })}` : ""}
+                </p>
+                {backupSchedule.lastError && <div className="jf-alert jf-alert--error" role="alert">{backupSchedule.lastError}</div>}
+                <div className="jf-row">
+                  <button type="button" className="jf-btn jf-btn--primary" disabled={backupScheduleSaving} onClick={() => void saveBackupSchedule()}>{t("tools.backup.scheduleSave")}</button>
+                  <button type="button" className="jf-btn jf-btn--secondary" disabled={backupScheduleSaving} onClick={() => void runBackupScheduleNow()}>{t("tools.backup.scheduleRunNow")}</button>
+                </div>
+              </div>
+            </details>
+          )}
           {backupValidation && (
             <div className="jf-alert jf-alert--success" role="status">
               <strong>{t("tools.backup.validTitle")}</strong>{" "}
@@ -2075,6 +2287,27 @@ export default function ToolsPage() {
                 })}
               </div>
               <div className="jf-field">
+                <label className="jf-field__label" htmlFor="backup-restore-target">
+                  {t("tools.backup.restoreTarget")}
+                </label>
+                <select
+                  id="backup-restore-target"
+                  className="jf-input"
+                  value={restoreTargetId}
+                  onChange={(event) => setRestoreTargetId(event.target.value)}
+                >
+                  {restoreTargets.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name}{" "}
+                      {site.root
+                        ? `(${t("tools.backup.rootSite")})`
+                        : `(${t("tools.backup.subsite")})`}
+                    </option>
+                  ))}
+                </select>
+                <p className="jf-field__hint">{t("tools.backup.restoreReplacesTarget")}</p>
+              </div>
+              <div className="jf-field">
                 <label className="jf-field__label" htmlFor="backup-restore-confirmation">
                   {t("tools.backup.confirmLabel", { phrase: restorePhrase })}
                 </label>
@@ -2086,7 +2319,7 @@ export default function ToolsPage() {
                   placeholder={restorePhrase}
                   autoComplete="off"
                 />
-                <p className="jf-field__hint">{t("tools.backup.cleanOnly")}</p>
+                <p className="jf-field__hint">{t("tools.backup.restoreRollbackHint")}</p>
               </div>
               <button
                 type="button"

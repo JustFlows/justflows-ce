@@ -53,7 +53,9 @@ function digest(payload: IntegrityPayload): string {
 }
 
 /** Create a compressed archive after its caller has removed authentication secrets. */
-export function createPortableBackup(input: Omit<PortableBackupEnvelope, "format" | "version" | "integrity">): Buffer {
+export function createPortableBackup(
+  input: Omit<PortableBackupEnvelope, "format" | "version" | "integrity">,
+): Buffer {
   const envelope: PortableBackupEnvelope = {
     format: PORTABLE_BACKUP_FORMAT,
     version: PORTABLE_BACKUP_VERSION,
@@ -61,16 +63,20 @@ export function createPortableBackup(input: Omit<PortableBackupEnvelope, "format
     integrity: { algorithm: "sha256", data: digest(input) },
   };
   const serialized = Buffer.from(JSON.stringify(envelope));
-  if (serialized.byteLength > MAX_PORTABLE_BACKUP_BYTES) throw new Error("Backup contents exceed the size limit");
+  if (serialized.byteLength > MAX_PORTABLE_BACKUP_BYTES)
+    throw new Error("Backup contents exceed the size limit");
   return gzipSync(serialized, { level: 9 });
 }
 
 /** Decode and authenticate an archive before any restore code can consume it. */
 export function readPortableBackup(archive: Buffer): PortableBackupEnvelope {
-  if (archive.byteLength > MAX_PORTABLE_BACKUP_BYTES) throw new Error("Backup archive exceeds the size limit");
+  if (archive.byteLength > MAX_PORTABLE_BACKUP_BYTES)
+    throw new Error("Backup archive exceeds the size limit");
   let parsed: unknown;
   try {
-    parsed = JSON.parse(gunzipSync(archive, { maxOutputLength: MAX_PORTABLE_BACKUP_BYTES }).toString("utf8"));
+    parsed = JSON.parse(
+      gunzipSync(archive, { maxOutputLength: MAX_PORTABLE_BACKUP_BYTES }).toString("utf8"),
+    );
   } catch {
     throw new Error("Backup archive is not valid compressed JSON");
   }
@@ -80,11 +86,12 @@ export function readPortableBackup(archive: Buffer): PortableBackupEnvelope {
     throw new Error("Backup archive format is not supported");
   }
   if (
-    !envelope.createdAt
-    || !envelope.source
-    || !envelope.data
-    || envelope.integrity?.algorithm !== "sha256"
-    || envelope.integrity.data !== digest({ createdAt: envelope.createdAt, source: envelope.source, data: envelope.data })
+    !envelope.createdAt ||
+    !envelope.source ||
+    !envelope.data ||
+    envelope.integrity?.algorithm !== "sha256" ||
+    envelope.integrity.data !==
+      digest({ createdAt: envelope.createdAt, source: envelope.source, data: envelope.data })
   ) {
     throw new Error("Backup archive integrity check failed");
   }
@@ -96,9 +103,9 @@ export function readPortableBackup(archive: Buffer): PortableBackupEnvelope {
     const bytes = Buffer.from(file.data, "base64");
     mediaBytes += bytes.byteLength;
     if (
-      bytes.byteLength !== file.size
-      || createHash("sha256").update(bytes).digest("hex") !== file.sha256
-      || mediaBytes > MAX_PORTABLE_MEDIA_BYTES
+      bytes.byteLength !== file.size ||
+      createHash("sha256").update(bytes).digest("hex") !== file.sha256 ||
+      mediaBytes > MAX_PORTABLE_MEDIA_BYTES
     ) {
       throw new Error("Backup archive media integrity check failed");
     }
