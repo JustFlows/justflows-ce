@@ -10,6 +10,10 @@ import {
   listAuditLog,
   pruneAuditLog,
   auditFromRequest,
+  auditWriteStatus,
+  deleteSecurityAuditLog,
+  exportSecurityAuditLog,
+  MAX_AUDIT_EXPORT_ROWS,
 } from "../../lib/security/audit-log.js";
 import {
   getSecurityNotificationStatus,
@@ -29,6 +33,10 @@ const QuerySchema = z.object({
 const NotificationSettingsSchema = z.object({
   enabled: z.boolean(),
   networkEnabled: z.boolean().optional(),
+}).strict();
+
+const DeleteSecurityEventsSchema = z.object({
+  confirmation: z.literal("DELETE SECURITY EVENTS"),
 }).strict();
 
 /**
@@ -56,9 +64,42 @@ router.get("/", requireRole("administrator"), async (req, res) => {
       actions: view === "security" ? SECURITY_AUDIT_ACTIONS : AUDIT_ACTIONS,
       view,
       retentionDays: auditRetentionDays(),
+      writeStatus: auditWriteStatus(),
     });
   } catch (err) {
     sendServerError(res, "audit", err);
+  }
+});
+
+/** Export redacted security events only; raw identifiers and free-form detail stay local. */
+router.get("/security-export", requireRole("administrator"), async (req, res) => {
+  try {
+    const entries = await exportSecurityAuditLog(req.session!.siteId);
+    res.setHeader("Content-Disposition", 'attachment; filename="justflows-security-events.json"');
+    res.json({
+      exportedAt: new Date().toISOString(),
+      redacted: true,
+      truncated: entries.length === MAX_AUDIT_EXPORT_ROWS,
+      entries,
+    });
+  } catch (err) {
+    sendServerError(res, "audit export", err);
+  }
+});
+
+/** Destructive security-event deletion requires an exact confirmation phrase. */
+router.delete("/security-events", requireRole("administrator"), async (req, res) => {
+  const parsed = DeleteSecurityEventsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Type DELETE SECURITY EVENTS to confirm" });
+    return;
+  }
+  try {
+    const removed = await deleteSecurityAuditLog(req.session!.siteId);
+    auditFromRequest(req, "audit.security_events_deleted", { detail: `count=${removed}` });
+    res.json({ ok: true, removed });
+  } catch (err) {
+    sendServerError(res, "audit deletion", err);
   }
 });
 

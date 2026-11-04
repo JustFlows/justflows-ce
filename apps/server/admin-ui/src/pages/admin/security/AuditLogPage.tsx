@@ -16,7 +16,13 @@ type Entry = {
 };
 
 type AuditView = "all" | "security";
-type Payload = { entries: Entry[]; actions: string[]; retentionDays: number; view: AuditView };
+type Payload = {
+  entries: Entry[];
+  actions: string[];
+  retentionDays: number;
+  view: AuditView;
+  writeStatus: { available: boolean; lastFailureAt: string | null; maxRowsPerSite: number };
+};
 type NotificationStatus = {
   enabled: boolean;
   available: boolean;
@@ -41,6 +47,8 @@ export default function AuditLogPage() {
   const [notifications, setNotifications] = useState<NotificationStatus | null>(null);
   const [notificationError, setNotificationError] = useState<string | null>(null);
   const [notificationBusy, setNotificationBusy] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [lifecycleMessage, setLifecycleMessage] = useState<string | null>(null);
   const view: AuditView = searchParams.get("view") === "security" ? "security" : "all";
 
   const load = useCallback(async (selectedView: AuditView, action: string) => {
@@ -100,6 +108,44 @@ export default function AuditLogPage() {
       setNotificationError(err instanceof Error ? err.message : String(err));
     } finally {
       setNotificationBusy(false);
+    }
+  };
+
+  const exportSecurityEvents = async () => {
+    setLifecycleMessage(null);
+    try {
+      const res = await fetch("/api/audit/security-export");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "justflows-security-events.json";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setLifecycleMessage(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const deleteSecurityEvents = async () => {
+    setBusy(true);
+    setLifecycleMessage(null);
+    try {
+      const res = await fetch("/api/audit/security-events", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation }),
+      });
+      const body = await res.json().catch(() => ({})) as { error?: string; removed?: number };
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setConfirmation("");
+      setLifecycleMessage(t("security.audit.lifecycle.deleted", { count: body.removed ?? 0 }));
+      void load(view, filter);
+    } catch (err) {
+      setLifecycleMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -225,6 +271,11 @@ export default function AuditLogPage() {
       </Section>
 
       <Section title={t("security.audit.retention.title")}>
+        <p className={`jf-status ${data?.writeStatus.available === false ? "jf-status--error" : ""}`}>
+          {data?.writeStatus.available === false
+            ? t("security.audit.lifecycle.writeFailed", { time: data.writeStatus.lastFailureAt ?? "—" })
+            : t("security.audit.lifecycle.writeOk")}
+        </p>
         <p>
           {t("security.audit.retention.windowPrefix", { days: data?.retentionDays ?? 365 })}{" "}
           <code className="jf-code">JF_AUDIT_RETENTION_DAYS</code>{" "}
@@ -239,6 +290,31 @@ export default function AuditLogPage() {
             {busy ? t("security.audit.retention.removing") : t("security.audit.retention.applyButtonLabel")}
           </button>
         </div>
+        <p>{t("security.audit.lifecycle.bound", { count: data?.writeStatus.maxRowsPerSite ?? 100000 })}</p>
+        <p>{t("security.audit.lifecycle.localWarning")}</p>
+        {lifecycleMessage ? <p className="jf-status">{lifecycleMessage}</p> : null}
+        <div className="jf-row">
+          <button className="jf-btn" type="button" onClick={() => void exportSecurityEvents()}>
+            {t("security.audit.lifecycle.exportButton")}
+          </button>
+        </div>
+        <label className="jf-field">
+          <span>{t("security.audit.lifecycle.confirmLabel")}</span>
+          <input
+            className="jf-input"
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+            placeholder={t("security.audit.confirmPhrase")}
+          />
+        </label>
+        <button
+          className="jf-btn jf-btn--danger"
+          type="button"
+          disabled={busy || confirmation !== "DELETE SECURITY EVENTS"}
+          onClick={() => void deleteSecurityEvents()}
+        >
+          {t("security.audit.lifecycle.deleteButton")}
+        </button>
       </Section>
     </div>
   );

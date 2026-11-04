@@ -3088,6 +3088,8 @@
     "audit": {
       "allActions": "All actions",
       "allEvents": "All audit events",
+      "confirmPhrase": "DELETE SECURITY EVENTS",
+      "lifecycle": { "bound": "Storage is capped at {count} audit rows per site; the oldest rows are removed first.", "confirmLabel": "Type DELETE SECURITY EVENTS to permanently delete this site's security events.", "deleteButton": "Delete security events", "deleted": "Deleted {count} security events. A count-only deletion marker was retained.", "exportButton": "Export redacted security events", "localWarning": "Local logs help investigations but are not tamper-proof if the host is compromised. No external log sink is configured by this feature.", "writeFailed": "Audit writes reported a failure at {time}. Recent actions may be missing.", "writeOk": "Audit writes are available in this process." },
       "notifications": {
         "description": "Send the site administration address a short, redacted message when a high-value security event occurs. The audit log remains available when email is off or unavailable.",
         "enable": "Email high-value security events",
