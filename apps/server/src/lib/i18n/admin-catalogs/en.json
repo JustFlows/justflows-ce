@@ -3529,6 +3529,28 @@
     }
   },
   "tools": {
+    "backup": {
+      "createFailed": "Could not create the backup",
+      "cancel": "Cancel",
+      "cancelled": "Backup cancelled",
+      "cleanOnly": "Restore is allowed only when the target has no content, media, comments, or menus. The current administrator account is preserved.",
+      "confirmLabel": "Type RESTORE CLEAN SITE to confirm",
+      "creating": "Creating backup…",
+      "description": "Download a portable, checksummed snapshot of this site's content, non-secret settings, users, media records, and extension inventory.",
+      "download": "Download site backup",
+      "mediaSummary": "{count} original media files · {size}",
+      "restore": "Restore onto clean site",
+      "restoreComplete": "Backup restored successfully. Reload the admin to see the restored site.",
+      "restoreFailed": "Could not restore the backup",
+      "restoring": "Restoring…",
+      "scopeHint": "Original media files are included; responsive variants can be regenerated. Restore controls are not available yet, so keep your regular server backup.",
+      "title": "Backup and restore",
+      "validSummary": "{site} · {date} · {records} data records",
+      "validTitle": "Backup integrity verified.",
+      "validate": "Validate backup",
+      "validateFailed": "Could not validate the backup",
+      "validating": "Validating…"
+    },
     "manualRestartBody": "Restart Justflows on the server, then refresh this page.",
     "manualRestartBodyContainer": "Restart the Justflows container, then refresh this page.",
     "manualRestartBodyPassenger": "Go to Plesk → Node.js → Restart App, then refresh this page.",
