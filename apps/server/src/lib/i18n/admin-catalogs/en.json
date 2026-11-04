@@ -3087,6 +3087,19 @@
     },
     "audit": {
       "allActions": "All actions",
+      "allEvents": "All audit events",
+      "notifications": {
+        "description": "Send the site administration address a short, redacted message when a high-value security event occurs. The audit log remains available when email is off or unavailable.",
+        "enable": "Email high-value security events",
+        "limit": "Justflows sends at most 10 security notifications per site per hour. Delivery attempts and failures appear in the email delivery log.",
+        "networkEnable": "Email events from every site in this installation",
+        "networkHint": "Uses this installation site's administration address as the network recipient.",
+        "recipient": "Recipient: {email}",
+        "title": "Email notifications",
+        "unavailable": "Set a valid administration email address before enabling notifications."
+      },
+      "securityEvents": "Security events",
+      "viewLabel": "Event category",
       "empty": "Nothing recorded yet for this filter.",
       "filterLabel": "Filter by action",
       "recent": {

@@ -2669,6 +2669,19 @@
       },
       "filterLabel": "Filtrar por acción",
       "allActions": "Todas las acciones",
+      "allEvents": "Todos los eventos de auditoría",
+      "notifications": {
+        "description": "Envía a la dirección de administración del sitio un mensaje breve y censurado cuando ocurra un evento de seguridad importante. El registro de auditoría sigue disponible sin correo.",
+        "enable": "Enviar eventos de seguridad importantes",
+        "limit": "Justflows envía como máximo 10 notificaciones de seguridad por sitio y hora. Los intentos y fallos aparecen en el registro de entrega.",
+        "networkEnable": "Enviar eventos de todos los sitios de esta instalación",
+        "networkHint": "Usa la dirección de administración del sitio de instalación como destinatario de red.",
+        "recipient": "Destinatario: {email}",
+        "title": "Notificaciones por correo",
+        "unavailable": "Configura una dirección de administración válida antes de activar las notificaciones."
+      },
+      "securityEvents": "Eventos de seguridad",
+      "viewLabel": "Categoría del evento",
       "empty": "Aún no hay nada registrado para este filtro.",
       "table": {
         "when": "Cuándo",

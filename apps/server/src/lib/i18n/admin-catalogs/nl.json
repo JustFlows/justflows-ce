@@ -2627,6 +2627,19 @@
       },
       "filterLabel": "Filteren op actie",
       "allActions": "Alle acties",
+      "allEvents": "Alle auditgebeurtenissen",
+      "notifications": {
+        "description": "Stuur het beheeradres van de site een kort, geredigeerd bericht bij een belangrijke beveiligingsgebeurtenis. Het auditlogboek blijft beschikbaar als e-mail uitstaat of niet beschikbaar is.",
+        "enable": "Belangrijke beveiligingsgebeurtenissen e-mailen",
+        "limit": "Justflows verstuurt maximaal 10 beveiligingsmeldingen per site per uur. Pogingen en fouten staan in het e-mailbezorglogboek.",
+        "networkEnable": "Gebeurtenissen van elke site in deze installatie e-mailen",
+        "networkHint": "Gebruikt het beheeradres van deze installatiesite als netwerkontvanger.",
+        "recipient": "Ontvanger: {email}",
+        "title": "E-mailmeldingen",
+        "unavailable": "Stel een geldig beheer-e-mailadres in voordat je meldingen inschakelt."
+      },
+      "securityEvents": "Beveiligingsgebeurtenissen",
+      "viewLabel": "Gebeurteniscategorie",
       "empty": "Nog niets vastgelegd voor dit filter.",
       "table": {
         "when": "Wanneer",

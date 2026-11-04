@@ -2669,6 +2669,19 @@
       },
       "filterLabel": "Nach Aktion filtern",
       "allActions": "Alle Aktionen",
+      "allEvents": "Alle Audit-Ereignisse",
+      "notifications": {
+        "description": "Sendet bei wichtigen Sicherheitsereignissen eine kurze, redigierte Nachricht an die Administrationsadresse der Website. Das Audit-Protokoll bleibt auch ohne E-Mail verfügbar.",
+        "enable": "Wichtige Sicherheitsereignisse per E-Mail senden",
+        "limit": "Justflows sendet höchstens 10 Sicherheitsmeldungen pro Website und Stunde. Versuche und Fehler erscheinen im E-Mail-Zustellprotokoll.",
+        "networkEnable": "Ereignisse aller Websites dieser Installation senden",
+        "networkHint": "Verwendet die Administrationsadresse dieser Installationswebsite als Netzwerkempfänger.",
+        "recipient": "Empfänger: {email}",
+        "title": "E-Mail-Benachrichtigungen",
+        "unavailable": "Legen Sie eine gültige Administrationsadresse fest, bevor Sie Benachrichtigungen aktivieren."
+      },
+      "securityEvents": "Sicherheitsereignisse",
+      "viewLabel": "Ereigniskategorie",
       "empty": "Für diesen Filter ist noch nichts aufgezeichnet.",
       "table": {
         "when": "Wann",

@@ -146,7 +146,7 @@ export default function SecurityCenterPage() {
 
       {report?.auditAvailable && (
         <p>
-          <Link to="/admin/security/audit">{t("security.center.events")}</Link>
+          <Link to="/admin/security/audit?view=security">{t("security.center.events")}</Link>
           {" · "}
           {t("security.center.eventsHint")}
         </p>
