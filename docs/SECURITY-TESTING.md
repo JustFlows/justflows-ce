@@ -10,6 +10,9 @@ This selects existing Vitest suites through the root workspace configuration.
 It does not start a deployed Justflows instance or scan a remote host. HTTP
 integration tests start their own local servers and use test doubles where
 specified in each suite; they do not certify a production database or deployment.
+Use the [secure self-hosting guide](SELF-HOSTING-SECURITY.md) for the TLS,
+proxy, firewall, privilege, secret, and writable-path controls that local source
+tests cannot establish.
 
 | Boundary                         | Selected tests                                                                                                         |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |

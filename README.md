@@ -13,6 +13,10 @@ TypeScript developer gets a stable, typed SDK and plugin API.
 installs include Node for you. Developers also need pnpm 11+ and PostgreSQL,
 MySQL 8+, or MariaDB 10.6+.
 
+Before exposing an installation publicly, follow the
+[secure self-hosting guide](docs/SELF-HOSTING-SECURITY.md) for TLS, proxy trust,
+origin restrictions, least privilege, secret rotation, and writable paths.
+
 ---
 
 ## How to install
