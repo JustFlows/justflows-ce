@@ -3568,6 +3568,9 @@
     }
   },
   "tools": {
+    "backup": {
+      "cancel": "Anuluj", "cancelled": "Anulowano kopię zapasową", "cleanOnly": "Przywracanie jest możliwe tylko, gdy witryna docelowa nie ma treści, mediów, komentarzy ani menu. Bieżące konto administratora zostanie zachowane.", "confirmLabel": "Wpisz {phrase}, aby potwierdzić", "confirmationPhrase": "RESTORE CLEAN SITE", "createFailed": "Nie udało się utworzyć kopii", "creating": "Tworzenie kopii…", "description": "Pobierz przenośną, zweryfikowaną kopię tej witryny.", "download": "Pobierz kopię witryny", "mediaSummary": "{count} oryginalnych plików multimedialnych · {size}", "restore": "Przywróć do czystej witryny", "restoreComplete": "Kopia została przywrócona. Odśwież panel administratora.", "restoreFailed": "Nie udało się przywrócić kopii", "restoring": "Przywracanie…", "scopeHint": "Oryginalne media są dołączone; warianty responsywne można wygenerować ponownie. Zachowaj zwykłą kopię serwera.", "title": "Kopia i przywracanie", "validSummary": "{site} · {date} · {records} rekordów", "validTitle": "Integralność kopii potwierdzona.", "validate": "Sprawdź kopię", "validateFailed": "Nie udało się sprawdzić kopii", "validating": "Sprawdzanie…"
+    },
     "manualRestartBody": "Uruchom ponownie Justflows na serwerze, a następnie odśwież tę stronę.",
     "manualRestartBodyContainer": "Uruchom ponownie kontener Justflows, a następnie odśwież tę stronę.",
     "manualRestartBodyPassenger": "Przejdź do Plesk → Node.js → Uruchom ponownie aplikację, a następnie odśwież tę stronę.",

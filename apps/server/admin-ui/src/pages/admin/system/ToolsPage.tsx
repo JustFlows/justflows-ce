@@ -242,6 +242,7 @@ export default function ToolsPage() {
   const [sxSiteEnabled, setSxSiteEnabled] = useState(true);
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const suggestedOrigin = sxRuntimeInfo?.appUrl || browserOrigin;
+  const restorePhrase = t("tools.backup.confirmationPhrase");
 
   async function loadPerfStats() {
     setStatsLoading(true);
@@ -1666,14 +1667,14 @@ export default function ToolsPage() {
               </div>
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="backup-restore-confirmation">
-                  {t("tools.backup.confirmLabel")}
+                  {t("tools.backup.confirmLabel", { phrase: restorePhrase })}
                 </label>
                 <input
                   id="backup-restore-confirmation"
                   className="jf-input"
                   value={restoreConfirmation}
                   onChange={(event) => setRestoreConfirmation(event.target.value)}
-                  placeholder="RESTORE CLEAN SITE"
+                  placeholder={restorePhrase}
                   autoComplete="off"
                 />
                 <p className="jf-field__hint">{t("tools.backup.cleanOnly")}</p>
@@ -1681,7 +1682,7 @@ export default function ToolsPage() {
               <button
                 type="button"
                 className="jf-btn jf-btn--danger"
-                disabled={backupRestoring || restoreConfirmation !== "RESTORE CLEAN SITE"}
+                disabled={backupRestoring || restoreConfirmation !== restorePhrase}
                 onClick={restoreBackup}
               >
                 {backupRestoring ? t("tools.backup.restoring") : t("tools.backup.restore")}
