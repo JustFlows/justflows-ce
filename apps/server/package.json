@@ -28,6 +28,7 @@
     "@justflows/media": "workspace:*",
     "@justflows/plugin-api": "file:../../packages/plugin-api",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "basic-ftp": "^5.0.5",
     "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "ejs": "^7.0.2",

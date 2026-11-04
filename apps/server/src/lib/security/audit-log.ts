@@ -133,6 +133,8 @@ export const AUDIT_ACTIONS = [
   "backup.downloaded",
   "backup.validated",
   "backup.restored",
+  "backup.destinations_changed",
+  "backup.delivered",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
