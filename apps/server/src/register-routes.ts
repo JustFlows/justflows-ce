@@ -64,6 +64,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startDomainCheckJob();
     const { startPrivateFilesCopyJob } = await import("./lib/files/private-files-job.js");
     startPrivateFilesCopyJob();
+    const { startScheduledBackupJobs } = await import("./lib/backup/scheduled-backups.js");
+    startScheduledBackupJobs();
     const { startMediaVariantJobs } = await import("./lib/media/media-variant-jobs.js");
     await startMediaVariantJobs();
     try {
