@@ -18,7 +18,8 @@ const { createPluginDatabasesApi } = await import("../../../src/lib/plugins/plug
  *   DB_HOST=… DB_USER=… DB_PASSWORD=… pnpm vitest run tests/integration/database/plugin-rows-db.integration.test.ts
  */
 const enabled =
-  process.env.PLUGIN_ROWS_TEST_DATABASE === "1" && process.env.DB_NAME === "plugin_rows_test";
+  (process.env.PLUGIN_ROWS_TEST_DATABASE === "1" && process.env.DB_NAME === "plugin_rows_test") ||
+  (process.env.SECURITY_TEST_DATABASE === "1" && process.env.DB_NAME === "security_test");
 
 describe.skipIf(!enabled)("plugin row transactions", () => {
   const siteId = randomUUID();
@@ -29,27 +30,27 @@ describe.skipIf(!enabled)("plugin row transactions", () => {
   beforeAll(async () => {
     const db = await getDb();
     const uuid = pg ? "UUID" : "CHAR(36)";
-    await db.run("DROP TABLE IF EXISTS shop_inventory");
-    await db.run("DROP TABLE IF EXISTS shop_claims");
+    await db.run("DROP TABLE IF EXISTS store_inventory");
+    await db.run("DROP TABLE IF EXISTS store_claims");
     await db.run(
-      `CREATE TABLE shop_inventory (id ${uuid} PRIMARY KEY, site_id ${uuid} NOT NULL, available INT NOT NULL, reserved INT NOT NULL, variation_id ${uuid} NULL)`,
+      `CREATE TABLE store_inventory (id ${uuid} PRIMARY KEY, site_id ${uuid} NOT NULL, available INT NOT NULL, reserved INT NOT NULL, variation_id ${uuid} NULL)`,
     );
     await db.run(
-      `CREATE TABLE shop_claims (id ${uuid} PRIMARY KEY, site_id ${uuid} NOT NULL, claim_key VARCHAR(64) NOT NULL, UNIQUE (site_id, claim_key))`,
+      `CREATE TABLE store_claims (id ${uuid} PRIMARY KEY, site_id ${uuid} NOT NULL, claim_key VARCHAR(64) NOT NULL, UNIQUE (site_id, claim_key))`,
     );
   });
 
   afterAll(async () => {
     const db = await getDb();
-    await db.run("DROP TABLE IF EXISTS shop_inventory");
-    await db.run("DROP TABLE IF EXISTS shop_claims");
+    await db.run("DROP TABLE IF EXISTS store_inventory");
+    await db.run("DROP TABLE IF EXISTS store_claims");
     await db.close();
   });
 
   beforeEach(async () => {
     const db = await getDb();
-    await db.run("DELETE FROM shop_inventory");
-    await db.run("DELETE FROM shop_claims");
+    await db.run("DELETE FROM store_inventory");
+    await db.run("DELETE FROM store_claims");
   });
 
   it("sells scarce stock exactly once under concurrent transactions", async () => {

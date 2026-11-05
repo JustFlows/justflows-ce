@@ -69,6 +69,71 @@ jobs:
         if: always()
         run: pnpm audit --audit-level low || true
 
+  security-database:
+    if: github.base_ref == 'develop' || github.base_ref == 'developers'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - driver: postgres
+            port: 5432
+          - driver: mysql
+            port: 3306
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: security_test
+          POSTGRES_USER: justflows
+          POSTGRES_PASSWORD: test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U justflows -d security_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mysql:
+        image: mysql:9.5
+        env:
+          MYSQL_DATABASE: security_test
+          MYSQL_USER: justflows
+          MYSQL_PASSWORD: test-password
+          MYSQL_ROOT_PASSWORD: root-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -proot-password"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SECURITY_TEST_DATABASE: "1"
+      DB_DRIVER: ${{ matrix.driver }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: ${{ matrix.port }}
+      DB_NAME: security_test
+      DB_USER: justflows
+      DB_PASSWORD: test-password
+      DB_SSL: "false"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Fresh install and upgrade migrations
+        run: pnpm --filter @justflows/server exec vitest run tests/integration/database/security-migrations-db.integration.test.ts
+      - name: Shared job claims
+        run: pnpm --filter @justflows/server exec vitest run tests/integration/database/job-queue-db.integration.test.ts
+      - name: Transactional concurrency
+        run: pnpm --filter @justflows/server exec vitest run tests/integration/database/plugin-rows-db.integration.test.ts
+      - name: Plugin schema upgrades
+        run: pnpm --filter @justflows/server exec vitest run tests/integration/database/plugin-schema-upgrade-db.integration.test.ts
+
   codeql:
     if: github.base_ref == 'develop' || github.base_ref == 'developers'
     runs-on: ubuntu-latest
