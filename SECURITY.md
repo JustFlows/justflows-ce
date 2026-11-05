@@ -34,6 +34,9 @@ pull requests.
 3. We publish the fix in a release, and then publish an advisory with the
    affected versions, the fixed version, and any action operators need to take.
 
+Maintainers follow the [security release runbook](docs/SECURITY-RELEASES.md). The
+[threat model](docs/THREAT-MODEL.md) describes what Justflows defends against.
+
 ## Trust boundary
 
 Justflows runs uploaded plugins, themes, CSS providers, and core-update archives **in the same Node.js process** as the site. An administrator who can upload a `.jfpkg` or core `.zip` can execute arbitrary code on the server. Treat those admin actions as equivalent to shell access.

@@ -27,6 +27,9 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Incident response](INCIDENT-RESPONSE.md)             | Contain, reinstall, rotate, restore, and notify                       |
 | [Diagnostics](DIAGNOSTICS.md)                         | Debug mode, CLI checks, traces, and plugin health checks              |
 | [Packaging](PACKAGING.md)                             | Building a `.jfpkg` for Admin → Plugins                               |
+| [Extension review](EXTENSION-REVIEW.md)               | Marketplace requirements, automated checks, and human review          |
+| [Threat model](THREAT-MODEL.md)                       | Actors, assets, trust boundaries, and accepted risks                  |
+| [Security releases](SECURITY-RELEASES.md)             | Maintainer runbook from private report to advisory                    |
 | [Themes](THEMES.md)                                   | Styles, patterns, demo home/blog layouts, resolution order            |
 | [Blocks](BLOCKS.md)                                   | Plugin blocks, page/post builders, blog lists, layout and styling     |
 | [Media and responsive images](MEDIA.md)               | Derivative generation, formats, focal point, regeneration, and the web server file for `/uploads` |
