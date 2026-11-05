@@ -2957,7 +2957,12 @@
         "recoveryBackup": {
           "title": "Backup readiness",
           "notVerified": "No backup has been verified for this site.",
-          "remediation": "Backup and restore are not available in this version. Keep your own copy of the database and uploads."
+          "notScheduled": "Automatic backups are not scheduled, and no restore has been verified.",
+          "neverRun": "Automatic backups are scheduled to {destination}, but none has finished yet.",
+          "createdNotRestored": "The last automatic backup to {destination} finished at {lastFinishedAt}. A finished backup does not prove that a restore works.",
+          "lastFailed": "The last automatic backup to {destination} failed.",
+          "overdue": "Automatic backups to {destination} have stopped running on schedule.",
+          "remediation": "Schedule backups to an off-host destination in Tools, and rehearse a restore on an isolated installation."
         }
       }
     },

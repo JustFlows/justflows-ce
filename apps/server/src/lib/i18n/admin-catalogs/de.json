@@ -2497,7 +2497,12 @@
         "recoveryBackup": {
           "title": "Backup-Bereitschaft",
           "notVerified": "Für diese Website wurde kein Backup geprüft.",
-          "remediation": "Backup und Wiederherstellung sind in dieser Version nicht verfügbar. Bewahren Sie eine eigene Kopie der Datenbank und der Uploads auf."
+          "notScheduled": "Automatische Backups sind nicht geplant, und es wurde keine Wiederherstellung geprüft.",
+          "neverRun": "Automatische Backups nach {destination} sind geplant, aber noch keines wurde abgeschlossen.",
+          "createdNotRestored": "Das letzte automatische Backup nach {destination} wurde um {lastFinishedAt} abgeschlossen. Ein abgeschlossenes Backup beweist nicht, dass eine Wiederherstellung funktioniert.",
+          "lastFailed": "Das letzte automatische Backup nach {destination} ist fehlgeschlagen.",
+          "overdue": "Automatische Backups nach {destination} laufen nicht mehr nach Plan.",
+          "remediation": "Planen Sie unter Tools Backups an ein externes Ziel, und üben Sie eine Wiederherstellung auf einer isolierten Installation."
         }
       }
     },

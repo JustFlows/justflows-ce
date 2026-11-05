@@ -33,6 +33,7 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Media and responsive images](MEDIA.md)               | Derivative generation, formats, focal point, regeneration, and the web server file for `/uploads` |
 | [Local testing and extensions](TESTING-EXTENSIONS.md) | Workspace commands, database suites, and extension testing            |
 | [Cache](CACHE.md)                                     | `ctx.cache` and revalidation                                          |
+| [Backup and recovery](BACKUP-RECOVERY.md)             | Archive protection, recovery objectives, and restore drills           |
 | [Static / edge export](STATIC-EXPORT.md)              | Export published pages to files for object storage or a CDN           |
 | [Progressive Web App](PWA.md)                         | Installable public-site PWA: manifest, icons, offline, updates        |
 | [Trash and retention](TRASH.md)                       | Recoverable deletion, restore, purge, and media warnings              |
