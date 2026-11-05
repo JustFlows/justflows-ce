@@ -2958,6 +2958,18 @@
           "remediationFailed": "Zainstaluj ponownie dotknięte rozszerzenie z zaufanego pakietu. Bieżące pliki nie są zachowywane jako baza.",
           "remediationOtherSite": "Otwórz Integralność plików w witrynie platformy."
         },
+        "runtimeAdvisories": {
+          "title": "Biuletyny bezpieczeństwa",
+          "clear": "Żaden opublikowany biuletyn nie dotyczy tej instalacji. Kanał wydany: {issuedAt}.",
+          "affected": "Liczba opublikowanych biuletynów dotyczących tej instalacji: {count}. Identyfikatory: {ids}.",
+          "revoked": "Wydawca wycofał co najmniej jedną zainstalowaną wersję. Liczba biuletynów: {count}. Identyfikatory: {ids}.",
+          "unavailable": "Brak zweryfikowanego kanału biuletynów, więc tej instalacji nie sprawdzono.",
+          "stale": "Kanał biuletynów wygasł: {expiresAt}, więc może brakować najnowszych biuletynów.",
+          "otherSite": "Biuletyny są sprawdzane w witrynie platformy.",
+          "affectedRemediation": "Otwórz każdy biuletyn i zaktualizuj do poprawionej wersji.",
+          "revokedRemediation": "Zaktualizuj do poprawionej wersji albo dezaktywuj rozszerzenie, dopóki taka wersja nie powstanie. Dezaktywacja zachowuje dane witryny.",
+          "unavailableRemediation": "Sprawdź, czy ten serwer może połączyć się z api.justflows.com. Nie traktuj tego jako czystego wyniku."
+        },
         "recoveryBackup": {
           "title": "Gotowość kopii zapasowej",
           "notVerified": "Nie zweryfikowano kopii zapasowej tej witryny.",

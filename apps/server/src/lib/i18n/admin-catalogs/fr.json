@@ -2494,6 +2494,18 @@
           "remediationFailed": "Réinstallez l’extension concernée depuis un paquet de confiance. Les fichiers actuels ne sont pas conservés comme base.",
           "remediationOtherSite": "Ouvrez Intégrité des fichiers sur le site de la plateforme."
         },
+        "runtimeAdvisories": {
+          "title": "Avis de sécurité",
+          "clear": "Aucun avis publié ne concerne cette installation. Flux émis le {issuedAt}.",
+          "affected": "{count} avis publiés concernent cette installation : {ids}.",
+          "revoked": "L’éditeur a retiré au moins une version installée. {count} avis s’appliquent : {ids}.",
+          "unavailable": "Aucun flux d’avis vérifié n’est disponible : cette installation n’a donc pas été contrôlée.",
+          "stale": "Le flux d’avis a expiré le {expiresAt} : des avis récents peuvent manquer.",
+          "otherSite": "Les avis sont contrôlés sur le site de la plateforme.",
+          "affectedRemediation": "Ouvrez chaque avis et passez à une version corrigée.",
+          "revokedRemediation": "Passez à une version corrigée, ou désactivez l’extension en attendant. La désactivation conserve les données du site.",
+          "unavailableRemediation": "Vérifiez que ce serveur peut joindre api.justflows.com. Ne considérez pas ce résultat comme sain."
+        },
         "recoveryBackup": {
           "title": "Préparation des sauvegardes",
           "notVerified": "Aucune sauvegarde n’a été vérifiée pour ce site.",

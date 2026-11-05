@@ -35,6 +35,7 @@ function facts(overrides: Partial<SecurityCenterFacts> = {}): SecurityCenterFact
     cookieSecure: true,
     proxy: { mode: "bounded", value: "loopback" },
     headers: { state: "known", critical: 0, warning: 0 },
+    advisories: { state: "unavailable" },
     auditAvailable: true,
     integrity: { state: "unknown" },
     backup: { state: "unknown" },
@@ -87,6 +88,63 @@ describe("security center checks", () => {
     expect(byId(rows, "accounts.mfa")).toMatchObject({ status: "warn", evidence: { enrolled: 1, admins: 2 } });
     expect(byId(rows, "accounts.apiKeys")).toMatchObject({ status: "warn", summary: "openEnded" });
     expect(byId(rows, "runtime.update").status).toBe("warn");
+  });
+
+  describe("security advisories", () => {
+    const current = {
+      state: "current",
+      issuedAt: "2026-11-01T00:00:00.000Z",
+      affected: 0,
+      revoked: 0,
+      highest: null,
+      ids: "",
+    } as const;
+    const check = (advisories: SecurityCenterFacts["advisories"]) =>
+      byId(evaluateSecurityCenter(facts({ advisories })), "runtime.advisories");
+
+    it("never reads a missing feed as clear", () => {
+      expect(check({ state: "unavailable" })).toMatchObject({ status: "unknown", summary: "unavailable" });
+    });
+
+    it("never reads an expired feed as clear", () => {
+      expect(check({ state: "expired", expiresAt: "2026-10-01T00:00:00.000Z" })).toMatchObject({
+        status: "unknown",
+        summary: "stale",
+      });
+    });
+
+    it("passes only on a current feed with no match", () => {
+      expect(check(current)).toMatchObject({ status: "pass", summary: "clear" });
+    });
+
+    it("fails on a high severity match and names it", () => {
+      expect(check({ ...current, affected: 2, highest: "high", ids: "JF-1, JF-2" })).toMatchObject({
+        status: "fail",
+        severity: "high",
+        summary: "affected",
+        evidence: { count: 2, ids: "JF-1, JF-2" },
+      });
+    });
+
+    it("warns on a lower severity match", () => {
+      expect(check({ ...current, affected: 1, highest: "low", ids: "JF-1" })).toMatchObject({
+        status: "warn",
+        summary: "affected",
+      });
+    });
+
+    it("treats a revoked version as critical", () => {
+      expect(check({ ...current, affected: 1, revoked: 1, highest: "low", ids: "JF-1" })).toMatchObject({
+        status: "fail",
+        severity: "critical",
+        summary: "revoked",
+      });
+    });
+
+    it("does not show advisories to another site", () => {
+      const report = securityCenterReport(facts({ installationRoot: false, proxy: null, advisories: current }));
+      expect(report.checks.map((item) => item.id)).not.toContain("runtime.advisories");
+    });
   });
 
   it("omits every installation-scoped check from another site's report", () => {

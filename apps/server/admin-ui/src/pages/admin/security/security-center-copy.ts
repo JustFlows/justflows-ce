@@ -246,6 +246,13 @@ export function securityCenterCopy(id: string, summary: string): { detail: strin
             remediation: "security.center.checks.extensionsIntegrity.remediation",
           };
       }
+    case "runtime.advisories":
+      return {
+        detail: `security.center.checks.runtimeAdvisories.${summary}`,
+        remediation: `security.center.checks.runtimeAdvisories.${
+          summary === "affected" || summary === "revoked" ? summary : "unavailable"
+        }Remediation`,
+      };
     case "recovery.backup":
       return {
         detail: `security.center.checks.recoveryBackup.${summary}`,

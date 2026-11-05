@@ -2491,6 +2491,18 @@
           "remediationFailed": "Installeer de betreffende extensie opnieuw vanaf een vertrouwd pakket. De huidige bestanden worden niet als basislijn bewaard.",
           "remediationOtherSite": "Open Bestandsintegriteit op de platformsite."
         },
+        "runtimeAdvisories": {
+          "title": "Beveiligingsadviezen",
+          "clear": "Geen enkel gepubliceerd advies raakt deze installatie. Feed uitgegeven op {issuedAt}.",
+          "affected": "{count} gepubliceerde adviezen raken deze installatie: {ids}.",
+          "revoked": "De uitgever heeft minstens één geïnstalleerde versie ingetrokken. {count} adviezen zijn van toepassing: {ids}.",
+          "unavailable": "Er is geen geverifieerde adviesfeed beschikbaar, dus deze installatie is niet gecontroleerd.",
+          "stale": "De adviesfeed is verlopen op {expiresAt}, dus recente adviezen kunnen ontbreken.",
+          "otherSite": "Adviezen worden gecontroleerd op de platformsite.",
+          "affectedRemediation": "Open elk advies en werk bij naar een versie met de oplossing.",
+          "revokedRemediation": "Werk bij naar een versie met de oplossing, of deactiveer de extensie tot die er is. Deactiveren laat de sitegegevens staan.",
+          "unavailableRemediation": "Controleer of deze server api.justflows.com kan bereiken. Lees dit niet als een schoon resultaat."
+        },
         "recoveryBackup": {
           "title": "Back-upgereedheid",
           "notVerified": "Er is geen back-up geverifieerd voor deze site.",

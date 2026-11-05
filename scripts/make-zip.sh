@@ -188,6 +188,7 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/scripts/verify-sbom.mjs" \
     -x "$NAME/scripts/sign-core-release.mjs" \
     -x "$NAME/scripts/check-sdk-api.mjs" \
+    -x "$NAME/scripts/sign-advisories.mjs" \
     -x "$NAME/scripts/scan-secrets.mjs" \
     -x "$NAME/scripts/restore-hosting.js"
 else
@@ -286,6 +287,7 @@ else
     -x "scripts/verify-sbom.mjs" \
     -x "scripts/sign-core-release.mjs" \
     -x "scripts/check-sdk-api.mjs" \
+    -x "scripts/sign-advisories.mjs" \
     -x "scripts/scan-secrets.mjs" \
     -x "scripts/restore-hosting.js"
 fi

@@ -225,6 +225,8 @@ function checkTitle(id: string): string {
       return "security.center.checks.runtimeNode.title";
     case "runtime.update":
       return "security.center.checks.runtimeUpdate.title";
+    case "runtime.advisories":
+      return "security.center.checks.runtimeAdvisories.title";
     case "runtime.debug":
       return "security.center.checks.runtimeDebug.title";
     case "runtime.installer":
