@@ -18,6 +18,19 @@ interface DiagnosticsReport {
     items: Array<{ name: string; owner: "core" | "plugin"; schedule?: string; attempts: number; maxAttempts: number; status: "pending" | "running" | "failed" | "done"; lastResult?: { success: boolean; message?: string } }>;
     queue?: QueueReport;
   };
+  automaticBackups: {
+    siteId: string | null;
+    enabled: boolean;
+    frequency: "daily" | "weekly" | "monthly";
+    timeUtc: string;
+    scope: "root" | "subsites" | "all";
+    destination: "ftp" | "email" | "s3";
+    nextRunAt: string | null;
+    lastStartedAt: string | null;
+    lastFinishedAt: string | null;
+    lastStatus: string | null;
+    lastError: string | null;
+  };
   pluginChecks: Array<{ pluginId: string; id: string; label: string; result: { status: "ok" | "warning" | "error"; summary: string } }>;
   errors: Array<{ id: string; timestamp: string; requestId: string | null; context: string; message: string }>;
   traces: Array<{ requestId: string; timestamp: string; path: string; durationMs: number; pageCache: string; objectCache: string; databaseQueries: number; databaseMs: number; hookRuns: number; hookErrors: number; theme: string; template: string }>;
@@ -250,6 +263,23 @@ export default function HealthPage() {
         <section className="jf-card">
           <div className="jf-card__head"><div><h2 className="jf-card__title">{t("health.test.title")}</h2><p className="jf-field__hint">{t("health.test.hint")}</p></div></div>
           <div className="jf-card__body jf-stack"><div className="jf-row">{(["database", "cache", "jobs", "email", "storage"] as const).map((action) => <button key={action} type="button" className="jf-btn jf-btn--ghost" disabled={testBusy !== null} onClick={() => void runTest(action)}>{testBusy === action ? t("health.test.testing") : t("health.test.testButton", { action })}</button>)}</div>{testResult && <div className="jf-alert jf-alert--success" role="status">{testResult}</div>}</div>
+        </section>
+
+        <section className="jf-card">
+          <div className="jf-card__head">
+            <div><h2 className="jf-card__title">{t("health.backups.title")}</h2><p className="jf-field__hint">{t("health.backups.hint")}</p></div>
+            <span className={`jf-badge jf-badge--${report.automaticBackups.enabled && report.automaticBackups.lastStatus !== "failed" ? "ok" : "warn"}`}>
+              {report.automaticBackups.enabled ? t("health.backups.enabled") : t("health.backups.disabled")}
+            </span>
+          </div>
+          <div className="jf-card__body"><dl className="jf-diagnostics-list">
+            <div><dt>{t("health.backups.schedule")}</dt><dd>{report.automaticBackups.frequency} · {report.automaticBackups.timeUtc} UTC</dd></div>
+            <div><dt>{t("health.backups.scope")}</dt><dd>{report.automaticBackups.scope}</dd></div>
+            <div><dt>{t("health.backups.destination")}</dt><dd>{report.automaticBackups.destination.toUpperCase()}</dd></div>
+            <div><dt>{t("health.backups.nextRun")}</dt><dd>{report.automaticBackups.nextRunAt ? new Date(report.automaticBackups.nextRunAt).toLocaleString() : "—"}</dd></div>
+            <div><dt>{t("health.backups.lastRun")}</dt><dd>{report.automaticBackups.lastFinishedAt ? `${new Date(report.automaticBackups.lastFinishedAt).toLocaleString()} · ${report.automaticBackups.lastStatus ?? "—"}` : "—"}</dd></div>
+            {report.automaticBackups.lastError && <div><dt>{t("health.backups.lastError")}</dt><dd className="jf-td--muted">{report.automaticBackups.lastError}</dd></div>}
+          </dl></div>
         </section>
 
         <section className="jf-card">

@@ -64,6 +64,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startDomainCheckJob();
     const { startPrivateFilesCopyJob } = await import("./lib/files/private-files-job.js");
     startPrivateFilesCopyJob();
+    const { startScheduledBackupJobs } = await import("./lib/backup/scheduled-backups.js");
+    startScheduledBackupJobs();
     const { startMediaVariantJobs } = await import("./lib/media/media-variant-jobs.js");
     await startMediaVariantJobs();
     try {
@@ -135,6 +137,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: webhooksRoutes },
     { default: preferencesRoutes },
     { default: diagnosticsRoutes },
+    { default: backupRoutes },
     { default: cookiesRoutes },
     { default: rolesRoutes },
     { default: trashRoutes },
@@ -176,6 +179,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/settings/webhooks.js"),
     import("./routes/auth/preferences.js"),
     import("./routes/system/diagnostics.js"),
+    import("./routes/system/backups.js"),
     import("./routes/settings/cookies.js"),
     import("./routes/auth/roles.js"),
     import("./routes/content/trash.js"),
@@ -247,6 +251,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/webhooks", requireInstalled, requireSiteFeature("feature.webhooks"), webhooksRoutes);
   app.use("/api/preferences", requireInstalled, preferencesRoutes);
   app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
+  app.use("/api/backups", requireInstalled, backupRoutes);
   app.use("/api/cookies", requireInstalled, cookiesRoutes);
   app.use("/api/roles", requireInstalled, rolesRoutes);
   app.use("/api/cdn", requireInstalled, requireSiteFeature("feature.cdn"), (await import("./routes/settings/cdn.js")).default);
