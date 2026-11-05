@@ -37,6 +37,7 @@ export const NOTIFIABLE_SECURITY_ACTIONS = new Set<AuditAction>([
   "plugin.installed",
   "plugin.activated",
   "plugin.updated",
+  "plugin.permissions_approved",
   "theme.installed",
   "theme.activated",
   "theme.updated",

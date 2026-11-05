@@ -193,6 +193,7 @@
     "probeFail": "Échec de la connexion"
   },
   "plugins": {
+    "permissionApprovalConfirm": "« {name} » demande de nouvelles autorisations :\n\n{permissions}\n\nLes extensions s’exécutent comme du code serveur de confiance. Approuver ces autorisations et continuer ?",
     "deleteConfirm": "Supprimer « {name} » ? Cette action est irréversible.\n\nL’extension exécutera son hook de suppression des données. Selon ses réglages, cela peut supprimer des tables de la base de données et toutes les lignes qu’elle a enregistrées.",
     "deleteFailed": "L’extension n’a pas pu être supprimée.",
     "uploadInvalidFile": "Veuillez téléverser un fichier .jfpkg",
