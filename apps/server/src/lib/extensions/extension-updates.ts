@@ -24,6 +24,8 @@ import {
   marketplaceListingIsVisible,
 } from "./marketplace-catalog.js";
 import { compareCoreVersions, parseCoreVersion } from "../updates/core-release-check.js";
+import { PackageRejectedError } from "@justflows/installer";
+import { PluginPermissionApprovalError } from "../plugins/plugin-permission-approval.js";
 import { isAutoUpdateKillSwitchOn } from "../updates/core-auto-update.js";
 import { getJustflowsVersion } from "../runtime/version.js";
 import { auditLog } from "../security/audit-log.js";
@@ -242,7 +244,12 @@ export async function updateExtension(
   siteId: string,
   type: MarketplacePackageType,
   id: string,
-  options: { version?: string; actor?: ExtensionUpdateActor; source?: "manual" | "auto" } = {},
+  options: {
+    version?: string;
+    actor?: ExtensionUpdateActor;
+    source?: "manual" | "auto";
+    approvedPermissions?: readonly string[];
+  } = {},
 ): Promise<ExtensionUpdateResult> {
   const actor = options.actor ?? {};
   if (type === "plugin") {
@@ -254,7 +261,13 @@ export async function updateExtension(
     const existing = await getPlugin(siteId, id);
     if (!existing) throw new MarketplaceRequestError(404, { error: "Plugin not found" });
 
-    const result = await installMarketplacePackage({ type, id, version: options.version, siteId });
+    const result = await installMarketplacePackage({
+      type,
+      id,
+      version: options.version,
+      siteId,
+      approvedPermissions: options.approvedPermissions,
+    });
 
     const {
       runtimeActivatePlugin,
@@ -281,6 +294,19 @@ export async function updateExtension(
       }
     }
 
+    if (result.approvedPermissions.length > 0) {
+      const { approvedPermissionsDetail } = await import("../plugins/plugin-permission-approval.js");
+      void auditLog({
+        siteId,
+        action: "plugin.permissions_approved",
+        actorId: actor.userId ?? null,
+        actorRole: actor.role ?? null,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+        target: id,
+        detail: approvedPermissionsDetail(result.approvedPermissions),
+      });
+    }
     void auditLog({
       siteId,
       action: "plugin.updated",
@@ -381,6 +407,16 @@ export async function runExtensionAutoUpdate(): Promise<{ success: false; messag
           source: "auto",
         });
       } catch (err) {
+        /** Nobody is present to approve, so this waits for a manual update. */
+        if (err instanceof PackageRejectedError && err.cause instanceof PluginPermissionApprovalError) {
+          void auditLog({
+            siteId,
+            action: "extension.auto_update_skipped",
+            target: `${update.type}:${update.id}`,
+            detail: `${update.installedVersion} -> ${update.availableVersion} (new permissions need manual approval)`,
+          });
+          continue;
+        }
         const message = err instanceof Error ? err.message : String(err);
         void auditLog({
           siteId,
