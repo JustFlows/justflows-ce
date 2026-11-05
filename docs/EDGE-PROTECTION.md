@@ -50,9 +50,9 @@ must accept that header only from provider addresses, remove any client-supplied
 copy, and construct a normal `X-Forwarded-For` chain for Justflows. It must also
 set `X-Forwarded-Proto=https` and preserve the public `Host`.
 
-Set `TRUST_PROXY` to the actual trusted proxy addresses/subnets. Do not set it
-to `true`. A numeric hop count is safe only when all requests use exactly the
-same path. See [Secure self-hosting](SELF-HOSTING-SECURITY.md#proxy-trust-and-client-addresses)
+Set `TRUST_PROXY` to the actual trusted proxy addresses/subnets. Hop counts and
+`true` are refused because they do not identify a trusted machine. See
+[Secure self-hosting](SELF-HOSTING-SECURITY.md#proxy-trust-and-client-addresses)
 and the comments in [`docker/nginx.conf`](../docker/nginx.conf).
 
 Test the chain with a synthetic request containing forged `X-Forwarded-For` and

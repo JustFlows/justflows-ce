@@ -49,14 +49,16 @@ trusting an attacker-controlled hop lets the attacker choose that address.
 | Direct Node, no proxy | `TRUST_PROXY=false` |
 | Same-host proxy | omit it or use `TRUST_PROXY=loopback` |
 | Fixed proxy address/subnet | use the exact address or CIDR accepted by Express |
-| Fixed number of hops | use a number only when every request follows that exact path |
-| Multiple variable paths | prefer explicit proxy subnets; do not use a hop count or `true` |
+| Multiple proxies | list their explicit addresses/subnets; do not use a hop count or `true` |
 
 The last trusted proxy must overwrite or safely append forwarded headers. The
 nginx example uses `$proxy_add_x_forwarded_for` and sets
 `X-Forwarded-Proto`; do not replace it with a raw client-supplied header.
 Verify an audit event records the expected client address through every public
 path, including an edge followed by an origin proxy.
+
+For the boundary of database-shared and process-local admission controls, see
+[resource limits and multiple workers](RESOURCE-LIMITS.md).
 
 ## Edge CDN, WAF, and origin access
 

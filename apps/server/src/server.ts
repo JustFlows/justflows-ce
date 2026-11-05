@@ -26,6 +26,7 @@ import { adminClientDir, adminClientIndex } from "./lib/admin/admin-ssr.js";
 import { requestContext } from "./middleware/request-context.js";
 import { rejectForeignSiteId, tenantContext, uploadsSiteGuard } from "./middleware/tenant-context.js";
 import { getPluginLoader } from "./lib/plugins/plugin-runtime.js";
+import { trustedProxyValue } from "./lib/security/trusted-proxy.js";
 
 let corePromise: Promise<void> | null = null;
 let deferredLoaded = false;
@@ -61,15 +62,9 @@ function loadDeferredRoutes(app: express.Application): Promise<void> {
 export function createApp(): express.Application {
   const app = express();
 
-  // Justflows is normally deployed behind nginx, Passenger, or a Docker proxy.
-  // Without this, req.ip is the proxy's address for every request, which
-  // collapses per-IP rate limiting into one shared bucket and makes req.secure
-  // always false. Defaults to "loopback" — the reverse proxy on the same host —
-  // and TRUST_PROXY accepts anything Express does ("1", a subnet, "false").
-  const trustProxy = process.env.TRUST_PROXY ?? "loopback";
-  if (trustProxy !== "false") {
-    app.set("trust proxy", /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
-  }
+  /** Only named ranges and explicit proxy addresses/subnets may supply client IPs. */
+  const trustProxy = trustedProxyValue(process.env.TRUST_PROXY);
+  app.set("trust proxy", trustProxy);
 
   app.disable("x-powered-by");
   app.use(requestContext);

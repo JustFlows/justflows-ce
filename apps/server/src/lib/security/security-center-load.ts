@@ -22,6 +22,7 @@ import {
   compareCoreVersions,
   parseCoreVersion,
 } from "../updates/core-release-check.js";
+import { classifyTrustedProxy } from "./trusted-proxy.js";
 
 function sqlNow(): string {
   return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
@@ -39,6 +40,11 @@ function appUrlScheme(url: string | undefined): SecurityCenterFacts["appUrl"] {
   return "missing";
 }
 
+function securityCenterProxy(raw: string | undefined): NonNullable<SecurityCenterFacts["proxy"]> {
+  const proxy = classifyTrustedProxy(raw);
+  return { ...proxy, value: proxy.value.slice(0, 80) };
+}
+
 /** Same decision as `setSessionCookie` in session.ts. */
 function cookieWouldBeSecure(production: boolean, appUrl: string | undefined): boolean {
   return production || (appUrl ?? "").startsWith("https://");
@@ -54,15 +60,6 @@ function readMinimumNodeMajor(): number | null {
   } catch {
     return null;
   }
-}
-
-function classifyProxy(raw: string | undefined): NonNullable<SecurityCenterFacts["proxy"]> {
-  const value = (raw ?? "loopback").trim();
-  if (value === "" || value === "false" || value === "0") {
-    return { mode: "disabled", value: value || "false" };
-  }
-  if (value === "true") return { mode: "wide", value };
-  return { mode: "bounded", value: value.slice(0, 80) };
 }
 
 function classifyUpdate(currentVersion: string): SecurityCenterFacts["update"] {
@@ -250,7 +247,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     apiKeys,
     appUrl: appUrlScheme(appUrl),
     cookieSecure: cookieWouldBeSecure(production, appUrl),
-    proxy: installationRoot ? classifyProxy(process.env.TRUST_PROXY) : null,
+    proxy: installationRoot ? securityCenterProxy(process.env.TRUST_PROXY) : null,
     headers,
     auditAvailable,
     integrity,

@@ -2928,9 +2928,9 @@
           "disabledProduction": "Żadne proxy nie jest zaufane. Adresy odwiedzających i wykrywanie HTTPS używają połączenia bezpośredniego.",
           "disabledDevelopment": "Żadne proxy nie jest zaufane, a ten proces nie jest produkcyjny.",
           "otherSite": "Zaufanie do proxy to ustawienie instalacji, sprawdzane w witrynie platformy.",
-          "remediationBounded": "Zostaw TRUST_PROXY jako loopback albo dokładną liczbę przeskoków proxy.",
-          "remediationWide": "Ustaw TRUST_PROXY na loopback albo liczbę przeskoków proxy. Nie ufaj każdemu proxy.",
-          "remediationDisabled": "Jeśli reverse proxy kończy TLS, ustaw TRUST_PROXY na loopback albo liczbę przeskoków.",
+          "remediationBounded": "Zostaw TRUST_PROXY jako loopback albo jawne adresy/podsieci swoich serwerów proxy.",
+          "remediationWide": "Ustaw TRUST_PROXY na loopback albo jawne adresy/podsieci proxy. Liczby przeskoków i true są odrzucane.",
+          "remediationDisabled": "Jeśli reverse proxy kończy TLS, ustaw TRUST_PROXY na loopback albo jego jawny adres/podsieć.",
           "remediationDevelopment": "Ustaw TRUST_PROXY, zanim postawisz reverse proxy przed produkcją.",
           "remediationOtherSite": "Administrator platformy sprawdza zaufanie proxy w witrynie głównej."
         },

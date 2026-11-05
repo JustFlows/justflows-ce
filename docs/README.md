@@ -27,6 +27,7 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Extension trust](EXTENSION-TRUST.md)                 | What extension permissions and signatures do not constrain            |
 | [Incident response](INCIDENT-RESPONSE.md)             | Contain, reinstall, rotate, restore, and notify                       |
 | [Diagnostics](DIAGNOSTICS.md)                         | Debug mode, CLI checks, traces, and plugin health checks              |
+| [Resource limits](RESOURCE-LIMITS.md)                 | Shared and per-process limits in multi-worker deployments             |
 | [Packaging](PACKAGING.md)                             | Building a `.jfpkg` for Admin → Plugins                               |
 | [Extension review](EXTENSION-REVIEW.md)               | Marketplace requirements, automated checks, and human review          |
 | [Threat model](THREAT-MODEL.md)                       | Actors, assets, trust boundaries, and accepted risks                  |
