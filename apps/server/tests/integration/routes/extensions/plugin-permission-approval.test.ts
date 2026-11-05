@@ -54,11 +54,11 @@ vi.mock("../../../../src/lib/extensions/marketplace-package.js", async (importOr
   installMarketplacePackage,
 }));
 
-const { PluginPermissionApprovalError } = await import(
-  "../../../../src/lib/plugins/plugin-permission-approval.js"
-);
+const { PluginPermissionApprovalError } =
+  await import("../../../../src/lib/plugins/plugin-permission-approval.js");
 const { updateExtension } = await import("../../../../src/lib/extensions/extension-updates.js");
-const { default: marketplaceRoutes } = await import("../../../../src/routes/extensions/marketplace.js");
+const { default: marketplaceRoutes } =
+  await import("../../../../src/routes/extensions/marketplace.js");
 
 function refusal() {
   const cause = new PluginPermissionApprovalError("acme.forms", "Forms", ["files:private"]);
@@ -81,7 +81,12 @@ async function update(approvedPermissions?: string[]) {
   return fetch(`${base}/api/marketplace/update`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ type: "plugin", id: "acme.forms", version: "1.1.0", approvedPermissions }),
+    body: JSON.stringify({
+      type: "plugin",
+      id: "acme.forms",
+      version: "1.1.0",
+      approvedPermissions,
+    }),
   });
 }
 
@@ -118,10 +123,16 @@ describe("plugin update permission approval", () => {
     const res = await update(["files:private"]);
     expect(res.status).toBe(200);
     expect(installMarketplacePackage).toHaveBeenCalledWith(
-      expect.objectContaining({ approvedPermissions: ["files:private"] }),
+      expect.objectContaining({
+        approvedPermissions: ["files:private"],
+        expectedNewerThan: "1.0.0",
+      }),
     );
     expect(audited).toContainEqual(
-      expect.objectContaining({ action: "plugin.permissions_approved", detail: "added: files:private" }),
+      expect.objectContaining({
+        action: "plugin.permissions_approved",
+        detail: "added: files:private",
+      }),
     );
   });
 
@@ -135,7 +146,11 @@ describe("plugin update permission approval", () => {
     const res = await fetch(`${base}/api/marketplace/update`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ type: "plugin", id: "acme.forms", approvedPermissions: "files:private" }),
+      body: JSON.stringify({
+        type: "plugin",
+        id: "acme.forms",
+        approvedPermissions: "files:private",
+      }),
     });
     expect(res.status).toBe(400);
     expect(installMarketplacePackage).not.toHaveBeenCalled();
