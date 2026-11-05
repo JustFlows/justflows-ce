@@ -12,6 +12,7 @@
 export const SECURITY_CHECK_IDS = [
   "runtime.node",
   "runtime.update",
+  "runtime.advisories",
   "runtime.debug",
   "runtime.installer",
   "accounts.mfa",
@@ -53,6 +54,17 @@ export interface SecurityCenterFacts {
     | { state: "unknown" }
     | { state: "current"; latest: string; checkedAt: string }
     | { state: "available"; latest: string; checkedAt: string };
+  advisories:
+    | { state: "unavailable" }
+    | { state: "expired"; expiresAt: string }
+    | {
+        state: "current";
+        issuedAt: string;
+        affected: number;
+        revoked: number;
+        highest: "critical" | "high" | "medium" | "low" | null;
+        ids: string;
+      };
   debugEnabled: boolean;
   production: boolean;
   installerClosed: boolean;
@@ -617,6 +629,46 @@ function integrityCheck(facts: SecurityCenterFacts): SecurityCheck {
   });
 }
 
+function advisoriesCheck(facts: SecurityCenterFacts): SecurityCheck {
+  const base = { id: "runtime.advisories", kind: "configuration", scope: "installation" } as const;
+  const advisories = facts.advisories;
+  if (!facts.installationRoot) {
+    return row(facts, { ...base, status: "not_applicable", severity: "info", summary: "otherSite", href: null });
+  }
+  if (advisories.state === "unavailable") {
+    return row(facts, { ...base, status: "unknown", severity: "info", summary: "unavailable", href: null });
+  }
+  if (advisories.state === "expired") {
+    return row(facts, {
+      ...base,
+      status: "unknown",
+      severity: "medium",
+      summary: "stale",
+      href: null,
+      evidence: { expiresAt: advisories.expiresAt },
+    });
+  }
+  if (advisories.affected === 0) {
+    return row(facts, {
+      ...base,
+      status: "pass",
+      severity: "info",
+      summary: "clear",
+      href: null,
+      evidence: { issuedAt: advisories.issuedAt },
+    });
+  }
+  const serious = advisories.revoked > 0 || advisories.highest === "critical" || advisories.highest === "high";
+  return row(facts, {
+    ...base,
+    status: serious ? "fail" : "warn",
+    severity: advisories.revoked > 0 ? "critical" : (advisories.highest ?? "medium"),
+    summary: advisories.revoked > 0 ? "revoked" : "affected",
+    href: UPDATES_HREF,
+    evidence: { count: advisories.affected, ids: advisories.ids, issuedAt: advisories.issuedAt },
+  });
+}
+
 function backupCheck(facts: SecurityCenterFacts): SecurityCheck {
   return row(facts, {
     id: "recovery.backup",
@@ -634,6 +686,7 @@ export function evaluateSecurityCenter(facts: SecurityCenterFacts): SecurityChec
   return [
     nodeCheck(facts),
     updateCheck(facts),
+    advisoriesCheck(facts),
     debugCheck(facts),
     installerCheck(facts),
     mfaCheck(facts),

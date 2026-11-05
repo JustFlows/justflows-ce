@@ -2953,6 +2953,18 @@
           "remediationFailed": "Reinstall the affected extension from a trusted package. The current files are not kept as a baseline.",
           "remediationOtherSite": "Open File integrity on the platform site."
         },
+        "runtimeAdvisories": {
+          "title": "Security advisories",
+          "clear": "No published advisory affects this installation. Feed issued {issuedAt}.",
+          "affected": "{count} published advisories affect this installation: {ids}.",
+          "revoked": "The publisher withdrew at least one installed version. {count} advisories apply: {ids}.",
+          "unavailable": "No verified advisory feed is available, so this installation has not been checked.",
+          "stale": "The advisory feed expired on {expiresAt}, so recent advisories may be missing.",
+          "otherSite": "Advisories are checked on the platform site.",
+          "affectedRemediation": "Open each advisory and update to a fixed version.",
+          "revokedRemediation": "Update to a fixed version, or deactivate the extension until one exists. Deactivating leaves site data in place.",
+          "unavailableRemediation": "Confirm that this server can reach api.justflows.com. Do not read this as a clean result."
+        },
         "recoveryBackup": {
           "title": "Backup readiness",
           "notVerified": "No backup has been verified for this site.",

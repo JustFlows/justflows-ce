@@ -29,6 +29,7 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Packaging](PACKAGING.md)                             | Building a `.jfpkg` for Admin → Plugins                               |
 | [Themes](THEMES.md)                                   | Styles, patterns, demo home/blog layouts, resolution order            |
 | [Blocks](BLOCKS.md)                                   | Plugin blocks, page/post builders, blog lists, layout and styling     |
+| [Security advisories](SECURITY-ADVISORIES.md)         | Signed advisory feed, check results, and publishing                   |
 | [Media and responsive images](MEDIA.md)               | Derivative generation, formats, focal point, regeneration, and the web server file for `/uploads` |
 | [Local testing and extensions](TESTING-EXTENSIONS.md) | Workspace commands, database suites, and extension testing            |
 | [Cache](CACHE.md)                                     | `ctx.cache` and revalidation                                          |

@@ -2493,6 +2493,18 @@
           "remediationFailed": "Installieren Sie die betroffene Erweiterung erneut aus einem vertrauenswürdigen Paket. Die aktuellen Dateien werden nicht als Basis behalten.",
           "remediationOtherSite": "Öffnen Sie Dateiintegrität auf der Plattform-Website."
         },
+        "runtimeAdvisories": {
+          "title": "Sicherheitshinweise",
+          "clear": "Kein veröffentlichter Hinweis betrifft diese Installation. Feed vom {issuedAt}.",
+          "affected": "{count} veröffentlichte Hinweise betreffen diese Installation: {ids}.",
+          "revoked": "Der Herausgeber hat mindestens eine installierte Version zurückgezogen. {count} Hinweise gelten: {ids}.",
+          "unavailable": "Es ist kein geprüfter Hinweis-Feed verfügbar, daher wurde diese Installation nicht überprüft.",
+          "stale": "Der Hinweis-Feed ist am {expiresAt} abgelaufen, daher können aktuelle Hinweise fehlen.",
+          "otherSite": "Hinweise werden auf der Plattform-Website geprüft.",
+          "affectedRemediation": "Öffnen Sie jeden Hinweis und aktualisieren Sie auf eine korrigierte Version.",
+          "revokedRemediation": "Aktualisieren Sie auf eine korrigierte Version, oder deaktivieren Sie die Erweiterung, bis es eine gibt. Beim Deaktivieren bleiben die Website-Daten erhalten.",
+          "unavailableRemediation": "Prüfen Sie, ob dieser Server api.justflows.com erreicht. Werten Sie dies nicht als unbedenkliches Ergebnis."
+        },
         "recoveryBackup": {
           "title": "Backup-Bereitschaft",
           "notVerified": "Für diese Website wurde kein Backup geprüft.",

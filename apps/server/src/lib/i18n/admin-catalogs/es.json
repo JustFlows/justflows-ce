@@ -2493,6 +2493,18 @@
           "remediationFailed": "Reinstala la extensión afectada desde un paquete de confianza. Los archivos actuales no se conservan como línea base.",
           "remediationOtherSite": "Abre Integridad de archivos en el sitio de la plataforma."
         },
+        "runtimeAdvisories": {
+          "title": "Avisos de seguridad",
+          "clear": "Ningún aviso publicado afecta a esta instalación. Fuente emitida el {issuedAt}.",
+          "affected": "{count} avisos publicados afectan a esta instalación: {ids}.",
+          "revoked": "El editor retiró al menos una versión instalada. Se aplican {count} avisos: {ids}.",
+          "unavailable": "No hay una fuente de avisos verificada, así que esta instalación no se ha comprobado.",
+          "stale": "La fuente de avisos caducó el {expiresAt}, así que pueden faltar avisos recientes.",
+          "otherSite": "Los avisos se comprueban en el sitio de la plataforma.",
+          "affectedRemediation": "Abre cada aviso y actualiza a una versión corregida.",
+          "revokedRemediation": "Actualiza a una versión corregida o desactiva la extensión hasta que exista una. Al desactivarla, los datos del sitio se conservan.",
+          "unavailableRemediation": "Confirma que este servidor puede acceder a api.justflows.com. No lo interpretes como un resultado limpio."
+        },
         "recoveryBackup": {
           "title": "Preparación de copias",
           "notVerified": "No se ha verificado ninguna copia de seguridad de este sitio.",

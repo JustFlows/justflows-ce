@@ -183,6 +183,7 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/SECURITY.md" \
     -x "$NAME/scripts/make-zip.sh" \
     -x "$NAME/scripts/generate-sbom.mjs" \
+    -x "$NAME/scripts/sign-advisories.mjs" \
     -x "$NAME/scripts/sign-core-release.mjs" \
     -x "$NAME/scripts/check-sdk-api.mjs" \
     -x "$NAME/scripts/scan-secrets.mjs" \
@@ -280,6 +281,7 @@ else
     -x "SECURITY.md" \
     -x "scripts/make-zip.sh" \
     -x "scripts/generate-sbom.mjs" \
+    -x "scripts/sign-advisories.mjs" \
     -x "scripts/sign-core-release.mjs" \
     -x "scripts/check-sdk-api.mjs" \
     -x "scripts/scan-secrets.mjs" \

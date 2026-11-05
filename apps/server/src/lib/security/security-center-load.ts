@@ -185,7 +185,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     siteId = null;
   }
 
-  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity] = await Promise.all([
+  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity, advisories] = await Promise.all([
     siteId ? readAdminMfa(siteId) : Promise.resolve({ state: "unknown" } as const),
     siteId ? readSessions(siteId) : Promise.resolve({ state: "unknown" } as const),
     siteId ? readApiKeys(siteId) : Promise.resolve({ state: "unknown" } as const),
@@ -194,6 +194,9 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
       ? siteFeatureEnabled("feature.securityAudit", siteId).catch(() => false)
       : Promise.resolve(false),
     installationRoot ? readIntegrity() : Promise.resolve({ state: "unknown" } as const),
+    installationRoot && siteId
+      ? readAdvisories(siteId, coreVersion)
+      : Promise.resolve({ state: "unavailable" } as const),
   ]);
 
   const facts: SecurityCenterFacts = {
@@ -203,6 +206,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     minimumNodeMajor: readMinimumNodeMajor(),
     coreVersion,
     update: classifyUpdate(coreVersion),
+    advisories,
     debugEnabled: debug.enabled,
     production,
     installerClosed: isInstalled(),
@@ -217,6 +221,40 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     integrity,
   };
   return securityCenterReport(facts);
+}
+
+/** Ids shown in one row. The rest are counted, not listed. */
+const MAX_LISTED_ADVISORIES = 5;
+
+async function readAdvisories(siteId: string, coreVersion: string): Promise<SecurityCenterFacts["advisories"]> {
+  try {
+    const { loadAdvisoryFeed, matchAdvisories } = await import("./security-advisories.js");
+    const stored = await loadAdvisoryFeed(siteId);
+    if (stored.state === "unavailable") return { state: "unavailable" };
+    if (stored.state === "expired") return { state: "expired", expiresAt: stored.feed.expiresAt };
+
+    const { listPlugins } = await import("../plugins/plugins-db.js");
+    const { listThemes } = await import("../themes/themes-db.js");
+    const [plugins, themes] = await Promise.all([listPlugins(siteId), listThemes(siteId)]);
+    const matches = matchAdvisories(stored.feed, [
+      { type: "core", id: "justflows", version: coreVersion },
+      ...plugins.map((p) => ({ type: "plugin" as const, id: p.id, version: p.version })),
+      ...themes.map((t) => ({ type: "theme" as const, id: t.theme_id, version: t.version })),
+    ]);
+    return {
+      state: "current",
+      issuedAt: stored.feed.issuedAt,
+      affected: matches.length,
+      revoked: matches.filter((match) => match.advisory.revoked).length,
+      highest: matches[0]?.advisory.severity ?? null,
+      ids: matches
+        .slice(0, MAX_LISTED_ADVISORIES)
+        .map((match) => match.advisory.id)
+        .join(", "),
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
 }
 
 async function readIntegrity(): Promise<SecurityCenterFacts["integrity"]> {
