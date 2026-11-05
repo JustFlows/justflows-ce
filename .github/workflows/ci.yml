@@ -55,6 +55,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      - name: Secret scan
+        run: pnpm scan:secrets
+
       # Fails the build on a high or critical advisory. Moderates are reported
       # but not blocking: the one currently outstanding (GHSA-67mh-4wv8-2f99)
       # is esbuild reached only through drizzle-kit's deprecated
