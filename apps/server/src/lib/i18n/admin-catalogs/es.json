@@ -2460,12 +2460,12 @@
         "transportProxy": {
           "title": "Proxies de confianza",
           "bounded": "Los proxies de confianza se limitan a {value}.",
-          "wide": "Se confía en cada proxy que se conecta ({value}). Un cliente puede falsificar su dirección.",
+          "wide": "Justflows ignora el ajuste de proxy antiguo ({value}) y solo confía en los proxies de este servidor. No tienes que hacer nada.",
           "disabledProduction": "No se confía en ningún proxy. Las direcciones de visita y la detección de HTTPS usan la conexión directa.",
           "disabledDevelopment": "No se confía en ningún proxy y este proceso no es de producción.",
           "otherSite": "La confianza en el proxy es un ajuste de la instalación y se revisa en el sitio de la plataforma.",
           "remediationBounded": "Deja TRUST_PROXY en loopback o en las direcciones/subredes explícitas de tus proxies.",
-          "remediationWide": "Pon TRUST_PROXY en loopback o en direcciones/subredes explícitas. Se rechazan los saltos y true.",
+          "remediationWide": "Solo si tu proxy se ejecuta en otra máquina: pide a tu proveedor de alojamiento que ponga su dirección en TRUST_PROXY.",
           "remediationDisabled": "Si un proxy inverso termina TLS, pon TRUST_PROXY en loopback o en su dirección/subred explícita.",
           "remediationDevelopment": "Configura TRUST_PROXY antes de poner un proxy inverso delante de producción.",
           "remediationOtherSite": "Una administración de la plataforma revisa la confianza del proxy en el sitio principal."

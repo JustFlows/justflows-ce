@@ -2920,12 +2920,12 @@
         "transportProxy": {
           "title": "Trusted proxies",
           "bounded": "Trusted proxies are limited to {value}.",
-          "wide": "Every connecting proxy is trusted ({value}). A client can spoof its address.",
+          "wide": "Justflows ignores the old proxy setting ({value}) and only trusts proxies on this server. No action is needed.",
           "disabledProduction": "No proxy is trusted. Visitor addresses and HTTPS detection use the direct connection.",
           "disabledDevelopment": "No proxy is trusted, and this process is not production.",
           "otherSite": "Proxy trust is an installation setting, reviewed on the platform site.",
           "remediationBounded": "Keep TRUST_PROXY at loopback or the explicit addresses/subnets of your proxies.",
-          "remediationWide": "Set TRUST_PROXY to loopback or explicit proxy addresses/subnets. Hop counts and true are refused.",
+          "remediationWide": "Only if your proxy runs on another machine: ask your host to set TRUST_PROXY to its address.",
           "remediationDisabled": "If a reverse proxy terminates TLS, set TRUST_PROXY to loopback or its explicit address/subnet.",
           "remediationDevelopment": "Set TRUST_PROXY before you put a reverse proxy in front of production.",
           "remediationOtherSite": "A platform administrator reviews proxy trust on the main site."

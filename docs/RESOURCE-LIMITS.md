@@ -30,7 +30,8 @@ explicit proxy IP addresses/CIDRs. `true` and numeric hop counts are ignored:
 they trust a position in the request path, and a shorter path can let a visitor
 occupy that position and choose the address used by rate limits and audit logs.
 A site with one of those values still boots, using `loopback`, and logs a
-warning; Security Center reports it until the value is replaced.
+warning. Security Center passes the check and says the value is ignored, since
+nothing is exposed; only a proxy on another machine needs a new value.
 Every trusted proxy must overwrite or safely append forwarding headers, and the
 origin must be inaccessible except through that boundary.
 
