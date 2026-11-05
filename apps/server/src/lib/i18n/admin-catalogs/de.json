@@ -2464,9 +2464,9 @@
           "disabledProduction": "Keinem Proxy wird vertraut. Besucheradressen und die HTTPS-Erkennung nutzen die direkte Verbindung.",
           "disabledDevelopment": "Keinem Proxy wird vertraut, und dieser Prozess ist nicht Produktion.",
           "otherSite": "Proxy-Vertrauen ist eine Installationseinstellung und wird auf der Plattform-Website geprüft.",
-          "remediationBounded": "Lassen Sie TRUST_PROXY auf loopback oder der genauen Hop-Zahl Ihres Proxys.",
-          "remediationWide": "Setzen Sie TRUST_PROXY auf loopback oder die Proxy-Hop-Zahl. Vertrauen Sie nicht jedem Proxy.",
-          "remediationDisabled": "Wenn ein Reverse-Proxy TLS beendet, setzen Sie TRUST_PROXY auf loopback oder die Hop-Zahl.",
+          "remediationBounded": "Lassen Sie TRUST_PROXY auf loopback oder den expliziten Adressen/Subnetzen Ihrer Proxys.",
+          "remediationWide": "Setzen Sie TRUST_PROXY auf loopback oder explizite Proxy-Adressen/Subnetze. Hop-Zahlen und true werden abgelehnt.",
+          "remediationDisabled": "Wenn ein Reverse-Proxy TLS beendet, setzen Sie TRUST_PROXY auf loopback oder seine explizite Adresse/Subnetz.",
           "remediationDevelopment": "Setzen Sie TRUST_PROXY, bevor ein Reverse-Proxy vor der Produktion steht.",
           "remediationOtherSite": "Eine Plattform-Administration prüft das Proxy-Vertrauen auf der Hauptwebsite."
         },

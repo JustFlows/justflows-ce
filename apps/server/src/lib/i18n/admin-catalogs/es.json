@@ -2464,9 +2464,9 @@
           "disabledProduction": "No se confía en ningún proxy. Las direcciones de visita y la detección de HTTPS usan la conexión directa.",
           "disabledDevelopment": "No se confía en ningún proxy y este proceso no es de producción.",
           "otherSite": "La confianza en el proxy es un ajuste de la instalación y se revisa en el sitio de la plataforma.",
-          "remediationBounded": "Deja TRUST_PROXY en loopback o en el número exacto de saltos de tu proxy.",
-          "remediationWide": "Pon TRUST_PROXY en loopback o en el número de saltos del proxy. No confíes en todos los proxies.",
-          "remediationDisabled": "Si un proxy inverso termina TLS, pon TRUST_PROXY en loopback o en el número de saltos.",
+          "remediationBounded": "Deja TRUST_PROXY en loopback o en las direcciones/subredes explícitas de tus proxies.",
+          "remediationWide": "Pon TRUST_PROXY en loopback o en direcciones/subredes explícitas. Se rechazan los saltos y true.",
+          "remediationDisabled": "Si un proxy inverso termina TLS, pon TRUST_PROXY en loopback o en su dirección/subred explícita.",
           "remediationDevelopment": "Configura TRUST_PROXY antes de poner un proxy inverso delante de producción.",
           "remediationOtherSite": "Una administración de la plataforma revisa la confianza del proxy en el sitio principal."
         },

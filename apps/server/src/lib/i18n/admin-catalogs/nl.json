@@ -2461,9 +2461,9 @@
           "disabledProduction": "Er wordt geen proxy vertrouwd. Bezoekeradressen en HTTPS-detectie gebruiken de directe verbinding.",
           "disabledDevelopment": "Er wordt geen proxy vertrouwd, en dit proces is geen productie.",
           "otherSite": "Proxyvertrouwen is een installatie-instelling en wordt beoordeeld op de platformsite.",
-          "remediationBounded": "Houd TRUST_PROXY op loopback of het exacte aantal hops van je proxy.",
-          "remediationWide": "Zet TRUST_PROXY op loopback of het aantal proxyhops. Vertrouw niet elke proxy.",
-          "remediationDisabled": "Als een reverse proxy TLS afhandelt, zet TRUST_PROXY op loopback of het aantal hops.",
+          "remediationBounded": "Houd TRUST_PROXY op loopback of de expliciete adressen/subnetten van je proxy's.",
+          "remediationWide": "Zet TRUST_PROXY op loopback of expliciete proxyadressen/subnetten. Hopaantallen en true worden geweigerd.",
+          "remediationDisabled": "Als een reverse proxy TLS afhandelt, zet TRUST_PROXY op loopback of het expliciete adres/subnet.",
           "remediationDevelopment": "Zet TRUST_PROXY voordat je een reverse proxy voor productie plaatst.",
           "remediationOtherSite": "Een platformbeheerder beoordeelt proxyvertrouwen op de hoofdsite."
         },
