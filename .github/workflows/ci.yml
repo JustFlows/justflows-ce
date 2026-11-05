@@ -125,6 +125,7 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter "@justflows/server..." build
       - name: Fresh install and upgrade migrations
         run: pnpm --filter @justflows/server exec vitest run tests/integration/database/security-migrations-db.integration.test.ts
       - name: Shared job claims
