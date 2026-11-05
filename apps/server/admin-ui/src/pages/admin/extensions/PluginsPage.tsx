@@ -76,7 +76,7 @@ export default function PluginsPage() {
         (approved, signal) => {
           const form = new FormData();
           form.append("file", file);
-          if (approved.length > 0) form.append("approvedPermissions", JSON.stringify(approved));
+          if (approved) form.append("approvedPermissions", JSON.stringify(approved));
           return fetch("/api/plugins", { method: "POST", body: form, signal });
         },
         (name, permissions) =>

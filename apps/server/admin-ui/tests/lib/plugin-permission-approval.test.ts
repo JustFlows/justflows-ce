@@ -26,11 +26,12 @@ describe("sendWithPermissionApproval", () => {
   });
 
   it("retries with exactly the permissions the administrator approved", async () => {
-    const send = vi.fn<(approved: string[], signal: AbortSignal) => Promise<Response>>();
+    const send = vi.fn<(approved: string[] | undefined, signal: AbortSignal) => Promise<Response>>();
     send.mockResolvedValueOnce(refusal()).mockResolvedValueOnce(new Response("{}", { status: 200 }));
     const ask = vi.fn(() => true);
     const res = await sendWithPermissionApproval(send, ask, 1000);
     expect(ask).toHaveBeenCalledWith("Forms", ["files:private"]);
+    expect(send.mock.calls[0]?.[0]).toBeUndefined();
     expect(send.mock.calls[1]?.[0]).toEqual(["files:private"]);
     expect(res.status).toBe(200);
   });

@@ -6,7 +6,7 @@ interface ApprovalRequest {
   permissions?: unknown;
 }
 
-type Send = (approvedPermissions: string[], signal: AbortSignal) => Promise<Response>;
+type Send = (approvedPermissions: string[] | undefined, signal: AbortSignal) => Promise<Response>;
 type Confirm = (name: string, permissions: string[]) => boolean;
 
 async function requestedPermissions(res: Response): Promise<{ name: string; permissions: string[] } | null> {
@@ -28,7 +28,7 @@ export async function sendWithPermissionApproval(
   confirmApproval: Confirm,
   timeoutMs: number,
 ): Promise<Response> {
-  const attempt = async (approved: string[]): Promise<Response> => {
+  const attempt = async (approved?: string[]): Promise<Response> => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -38,7 +38,7 @@ export async function sendWithPermissionApproval(
     }
   };
 
-  const first = await attempt([]);
+  const first = await attempt();
   const request = await requestedPermissions(first);
   if (!request || !confirmApproval(request.name, request.permissions)) return first;
   return attempt(request.permissions);
