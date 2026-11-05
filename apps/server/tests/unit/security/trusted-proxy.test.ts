@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MIT
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   classifyTrustedProxy,
   trustedProxyValue,
 } from "../../../src/lib/security/trusted-proxy.js";
 
 describe("trusted proxy configuration", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("defaults to a bounded same-host proxy", () => {
     expect(classifyTrustedProxy(undefined)).toEqual({ mode: "bounded", value: "loopback" });
     expect(trustedProxyValue(undefined)).toBe("loopback");
@@ -21,8 +25,10 @@ describe("trusted proxy configuration", () => {
     expect(trustedProxyValue(value)).toBe(false);
   });
 
-  it.each(["true", "1", "2"])("rejects spoofable proxy trust setting %s", (value) => {
+  it.each(["true", "1", "2"])("ignores spoofable proxy trust setting %s without failing boot", (value) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(classifyTrustedProxy(value).mode).toBe("wide");
-    expect(() => trustedProxyValue(value)).toThrow(/explicit proxy addresses\/subnets/);
+    expect(trustedProxyValue(value)).toBe("loopback");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(`TRUST_PROXY=${value}`));
   });
 });
