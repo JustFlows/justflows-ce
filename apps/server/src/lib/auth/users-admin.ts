@@ -337,6 +337,14 @@ export async function updateUser(
     if (invalid) return { status: 400, body: { error: invalid } };
   }
 
+  const target = (
+    await db.query<{ role: string }>("SELECT role FROM users WHERE id = ? AND site_id = ? LIMIT 1", [
+      targetUserId,
+      actor.siteId,
+    ])
+  )[0];
+  if (!target) return { status: 404, body: { error: "User not found" } };
+
   let customRoleId: string | null = null;
   const assignable = new Set((await listAssignableRoles()).map((entry) => entry.id));
   if (roleId && !assignable.has(roleId)) {
@@ -350,16 +358,8 @@ export async function updateUser(
 
   const storedRole = role ?? (roleId && assignable.has(roleId) ? roleId : undefined);
 
-  let targetRole: string | undefined;
+  const targetRole = target.role;
   if (storedRole || accessChanged) {
-    const target = (
-      await db.query<{ role: string }>("SELECT role FROM users WHERE id = ? AND site_id = ? LIMIT 1", [
-        targetUserId,
-        actor.siteId,
-      ])
-    )[0];
-    if (!target) return { status: 404, body: { error: "User not found" } };
-    targetRole = target.role;
     if (
       storedRole &&
       target.role === "administrator" &&
