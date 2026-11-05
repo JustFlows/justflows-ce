@@ -111,7 +111,8 @@ export function buildSaasSettings(
   previous: unknown,
   input: {
     signupEnabled: boolean;
-    signupDatabaseMode: "current" | "separate";
+    /** Left out, the stored mode stays. */
+    signupDatabaseMode?: "current" | "separate" | undefined;
     baseDomain: string;
     database?: SignupDatabaseInput | null;
     signupEmailPolicy?: SignupEmailPolicy;
@@ -119,7 +120,8 @@ export function buildSaasSettings(
 ): { ok: true; stored: StoredSaasSettings } | { ok: false; error: string } {
   const prior = parseStored(previous);
   const priorDatabase = prior?.signupDatabase;
-  if (input.signupDatabaseMode === "current") {
+  const signupDatabaseMode = input.signupDatabaseMode ?? prior?.signupDatabaseMode ?? "current";
+  if (signupDatabaseMode === "current") {
     return {
       ok: true,
       stored: {

@@ -362,6 +362,7 @@ export default function PlatformPage() {
           <h2 className="jf-card__title">{t("platform.signup")}</h2>
         </div>
         <SignupSettingsForm
+          key={signupFormKey(overview?.settings)}
           settings={overview?.settings}
           hint={t("platform.signupHint")}
           databaseHint={t("platform.signupDatabaseHint")}
@@ -413,6 +414,17 @@ function readSignupSettings(value: Overview["settings"] | string | null | undefi
     baseDomain: typeof record.baseDomain === "string" ? record.baseDomain : "",
     signupDatabase: database && typeof database.host === "string" ? database : null,
   };
+}
+
+/**
+ * Remounts the whole form when the saved settings change. The database choice
+ * is component state, so settings that arrive after the first render must
+ * replace it, or Save writes the empty default over them.
+ */
+function signupFormKey(settings: Overview["settings"] | undefined): string {
+  const signup = readSignupSettings(settings);
+  const database = signup.signupDatabase;
+  return `${JSON.stringify(signup.signupEmailPolicy)}:${signup.signupEnabled}:${signup.signupDatabaseMode}:${signup.baseDomain}:${database?.host ?? ""}:${database?.port ?? ""}`;
 }
 
 function SignupSettingsForm({
@@ -492,7 +504,6 @@ function SignupSettingsForm({
   return (
     <form
       ref={formRef}
-      key={`${JSON.stringify(signup.signupEmailPolicy)}:${signup.signupEnabled}:${signup.signupDatabaseMode}:${signup.baseDomain}:${database?.host ?? ""}:${database?.port ?? ""}`}
       className="jf-card__body jf-stack"
       onSubmit={(event) => {
         setTestError("");
