@@ -193,6 +193,7 @@
     "probeFail": "Połączenie nie powiodło się"
   },
   "plugins": {
+    "permissionApprovalConfirm": "„{name}” prosi o nowe uprawnienia:\n\n{permissions}\n\nWtyczki działają jako zaufany kod serwera. Zatwierdzić te uprawnienia i kontynuować?",
     "deleteConfirm": "Usunąć „{name}”? Tej operacji nie można cofnąć.\n\nWtyczka uruchomi funkcję usuwania danych. W zależności od ustawień może to spowodować usunięcie tabel bazy danych i każdego zapisanego w nich wiersza.",
     "deleteFailed": "Nie można usunąć wtyczki.",
     "uploadInvalidFile": "Prześlij plik .jfpkg",

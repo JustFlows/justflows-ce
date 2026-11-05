@@ -12,6 +12,11 @@ import {
 import { activatePluginAdmin, deactivatePluginAdmin } from "../../lib/plugins/plugins-admin.js";
 import multer from "multer";
 import { assertPackageIsTrusted } from "../../lib/extensions/package-trust.js";
+import {
+  approvedPermissionsDetail,
+  assertPluginPermissionsApproved,
+  MAX_APPROVED_PERMISSIONS,
+} from "../../lib/plugins/plugin-permission-approval.js";
 import { sendPackageInstallError } from "../../lib/extensions/package-install-error.js";
 import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
@@ -107,6 +112,19 @@ router.get("/", requireRole("administrator", "editor"), async (req, res) => {
   }
 });
 
+/** The multipart approval field: absent, or a JSON array of permission names. */
+function parseApprovedPermissions(raw: unknown): string[] | null {
+  if (raw === undefined || raw === "") return [];
+  if (typeof raw !== "string") return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length > MAX_APPROVED_PERMISSIONS) return null;
+    return parsed.every((item) => typeof item === "string") ? (parsed as string[]) : null;
+  } catch {
+    return null;
+  }
+}
+
 router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitPackageUpload("plugin"), withMultipartErrors(upload.single("file")), async (req, res) => {
   if (!isInstallationRootRequest()) {
     res.status(403).json({ error: "Plugins are installed on the main site." });
@@ -135,6 +153,12 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
     // Run after the install they left a refused package sitting in its final
     // location with nothing to clean it up.
     const siteId = req.session?.siteId;
+    const approved = parseApprovedPermissions(req.body?.approvedPermissions);
+    if (!approved) {
+      res.status(400).json({ error: "approvedPermissions must be a JSON array of permission names" });
+      return;
+    }
+    let approvedPermissions: string[] = [];
     const result = await installer.installFromBuffer(file.buffer, {
       packagesDir,
       justflowsVersion: getJustflowsVersion(),
@@ -151,6 +175,7 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
         const { pluginRequirementError } = await import("../../lib/plugins/plugin-requirements.js");
         const requirement = await pluginRequirementError(siteId, manifest, "install");
         if (requirement) throw new Error(requirement);
+        approvedPermissions = await assertPluginPermissionsApproved(siteId, manifest, approved);
       },
     });
     await recordInstalledPackageBaseline({
@@ -179,6 +204,12 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
       target: result.manifest.id,
       detail: `version=${result.manifest.version} digest=${result.digest.slice(0, 16)}`,
     });
+    if (approvedPermissions.length > 0) {
+      auditFromRequest(req, "plugin.permissions_approved", {
+        target: result.manifest.id,
+        detail: approvedPermissionsDetail(approvedPermissions),
+      });
+    }
     // Drop any previously imported module so the next activate picks up this
     // build without a process restart.
     const { getRuntimeHooks, runtimeUnloadPlugin } = await import("../../lib/plugins/plugin-runtime.js");

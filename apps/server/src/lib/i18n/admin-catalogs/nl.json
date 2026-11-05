@@ -193,6 +193,7 @@
     "probeFail": "Verbinding mislukt"
   },
   "plugins": {
+    "permissionApprovalConfirm": "“{name}” vraagt om nieuwe rechten:\n\n{permissions}\n\nPlug-ins draaien als vertrouwde servercode. Wil je deze rechten goedkeuren en doorgaan?",
     "deleteConfirm": "“{name}” verwijderen? Dit kan niet ongedaan worden gemaakt.\n\nDe plugin voert zijn opruimactie voor gegevens uit. Afhankelijk van de instellingen kan dat databasetabellen en alle opgeslagen rijen verwijderen.",
     "deleteFailed": "De plugin kon niet worden verwijderd.",
     "uploadInvalidFile": "Upload een .jfpkg-bestand",

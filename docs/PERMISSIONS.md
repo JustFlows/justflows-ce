@@ -85,6 +85,18 @@ Plugin HTTP handlers receive `session.roles` (primary first),
 read-only preview of the host-resolved policy. Plugins must still declare their
 own manifest permissions; user access never expands a plugin's sandbox.
 
+## Permission changes on update
+
+An update that declares a permission the installed version did not needs an
+administrator's approval. Upload, Marketplace install, and manual updates answer
+`409` with `code: "permission_approval_required"` and the added `permissions`,
+before the installed version is touched. Send the same list as
+`approvedPermissions` to continue. Approval must cover every added permission,
+and it is recorded as `plugin.permissions_approved`.
+
+Automatic updates never approve permissions. They skip that update and record
+`extension.auto_update_skipped`. Removing a permission needs no approval.
+
 ## Plugin-defined user capabilities
 
 Core contains only platform capabilities. A plugin registers its own domains

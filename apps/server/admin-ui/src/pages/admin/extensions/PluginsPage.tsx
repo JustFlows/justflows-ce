@@ -10,6 +10,7 @@ import {
   ExtensionUpdatesBar,
   useExtensionUpdates,
 } from "@components/ExtensionUpdates";
+import { sendWithPermissionApproval } from "../../../lib/plugin-permission-approval";
 
 interface Plugin {
   id: string;
@@ -70,13 +71,18 @@ export default function PluginsPage() {
     setUploadError("");
     setUploadSuccess("");
 
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 45_000);
-
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/plugins", { method: "POST", body: form, signal: controller.signal });
+      const res = await sendWithPermissionApproval(
+        (approved, signal) => {
+          const form = new FormData();
+          form.append("file", file);
+          if (approved.length > 0) form.append("approvedPermissions", JSON.stringify(approved));
+          return fetch("/api/plugins", { method: "POST", body: form, signal });
+        },
+        (name, permissions) =>
+          confirm(t("plugins.permissionApprovalConfirm", { name, permissions: permissions.join("\n") })),
+        45_000,
+      );
       const raw = await res.text();
       let data: { plugin?: Plugin; error?: string } = {};
       try {
@@ -98,7 +104,6 @@ export default function PluginsPage() {
         setUploadError(e instanceof Error ? e.message : String(e));
       }
     } finally {
-      window.clearTimeout(timer);
       setUploading(false);
     }
   }
