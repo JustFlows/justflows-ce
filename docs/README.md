@@ -12,6 +12,8 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Permalinks](PERMALINKS.md)                           | URL structures, locale prefixes, taxonomy bases, and redirects        |
 | [Architecture](ARCHITECTURE.md)                       | Source/test layout, public rendering, admin SSR, builds, and hosting  |
 | [Secure self-hosting](SELF-HOSTING-SECURITY.md)       | TLS, proxies, edge origins, least privilege, secrets, and writable paths |
+| [Incident response](INCIDENT-RESPONSE.md)             | Preserve evidence, contain access, reinstall, rotate, restore, notify |
+| [Extension trust](EXTENSION-TRUST.md)                 | What SDK permissions and signatures constrain, and what they do not   |
 | [Multi-site and tenancy](MULTISITE.md)                | Workspaces, host routing, current or separate databases, and signup   |
 | [Naming and structure conventions](CONVENTIONS.md)    | Adding a folder or file: what to name it and where it goes            |
 | [Plugin author guide](PLUGINS.md)                     | First plugin: lifecycle, context, admin pages                         |
