@@ -51,7 +51,8 @@ copy, and construct a normal `X-Forwarded-For` chain for Justflows. It must also
 set `X-Forwarded-Proto=https` and preserve the public `Host`.
 
 Set `TRUST_PROXY` to the actual trusted proxy addresses/subnets. Hop counts and
-`true` are refused because they do not identify a trusted machine. See
+`true` are ignored, with `loopback` used instead, because they do not identify a
+trusted machine. See
 [Secure self-hosting](SELF-HOSTING-SECURITY.md#proxy-trust-and-client-addresses)
 and the comments in [`docker/nginx.conf`](../docker/nginx.conf).
 

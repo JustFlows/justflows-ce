@@ -24,9 +24,15 @@ export function trustedProxyValue(raw: string | undefined): false | string {
   const config = classifyTrustedProxy(raw);
   if (config.mode === "disabled") return false;
   if (config.mode === "wide") {
-    throw new Error(
-      "TRUST_PROXY must be false or explicit proxy addresses/subnets; true and hop counts are not accepted.",
+    /**
+     * Older releases accepted these values, and the updater cannot edit a
+     * service unit, so refusing to boot would take an updated site offline.
+     * The value is still not honoured, and Security Center reports it.
+     */
+    console.warn(
+      `[security] Ignoring TRUST_PROXY=${config.value}: true and hop counts are not accepted. Using loopback; set false or explicit proxy addresses/subnets.`,
     );
+    return "loopback";
   }
   return config.value;
 }
