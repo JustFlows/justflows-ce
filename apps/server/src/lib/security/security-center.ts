@@ -515,11 +515,12 @@ function proxyCheck(facts: SecurityCenterFacts): SecurityCheck {
     });
   }
   const value = facts.proxy.value.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 80);
+  /** `trustedProxyValue` ignores these values and uses loopback, so nothing is exposed. */
   if (facts.proxy.mode === "wide") {
     return row(facts, {
       id: "transport.proxy",
-      status: "fail",
-      severity: "high",
+      status: "pass",
+      severity: "info",
       kind: "configuration",
       scope: "installation",
       summary: "wide",

@@ -65,17 +65,20 @@ describe("security center checks", () => {
     for (const check of report.checks) expect(HREFS.has(check.href)).toBe(true);
   });
 
-  it("fails closed on an old runtime, production debug, a wide proxy, and critical headers", () => {
+  it("fails closed on an old runtime, production debug, and critical headers", () => {
     const rows = evaluateSecurityCenter(facts({
       nodeVersion: "v18.20.0",
       debugEnabled: true,
-      proxy: { mode: "wide", value: "true" },
       headers: { state: "known", critical: 2, warning: 1 },
     }));
     expect(byId(rows, "runtime.node")).toMatchObject({ status: "fail", severity: "high" });
     expect(byId(rows, "runtime.debug")).toMatchObject({ status: "fail", severity: "critical" });
-    expect(byId(rows, "transport.proxy")).toMatchObject({ status: "fail", summary: "wide" });
     expect(byId(rows, "headers.policy")).toMatchObject({ status: "fail", summary: "critical" });
+  });
+
+  it("asks nothing of an operator whose ignored proxy setting is already safe", () => {
+    const rows = evaluateSecurityCenter(facts({ proxy: { mode: "wide", value: "true" } }));
+    expect(byId(rows, "transport.proxy")).toMatchObject({ status: "pass", severity: "info", summary: "wide" });
     expect(byId(rows, "transport.proxy").evidence.value).toBe("true");
   });
 
