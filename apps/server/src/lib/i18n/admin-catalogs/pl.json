@@ -2960,7 +2960,12 @@
         "recoveryBackup": {
           "title": "Gotowość kopii zapasowej",
           "notVerified": "Nie zweryfikowano kopii zapasowej tej witryny.",
-          "remediation": "Kopia zapasowa i przywracanie nie są dostępne w tej wersji. Zachowaj własną kopię bazy i przesłanych plików."
+          "notScheduled": "Automatyczne kopie zapasowe nie są zaplanowane i nie zweryfikowano żadnego przywracania.",
+          "neverRun": "Automatyczne kopie zapasowe do {destination} są zaplanowane, ale żadna jeszcze się nie zakończyła.",
+          "createdNotRestored": "Ostatnia automatyczna kopia zapasowa do {destination} zakończyła się: {lastFinishedAt}. Ukończona kopia nie dowodzi, że przywracanie działa.",
+          "lastFailed": "Ostatnia automatyczna kopia zapasowa do {destination} nie powiodła się.",
+          "overdue": "Automatyczne kopie zapasowe do {destination} przestały działać zgodnie z harmonogramem.",
+          "remediation": "Zaplanuj kopie zapasowe do zewnętrznego miejsca w Narzędziach i przećwicz przywracanie na odizolowanej instalacji."
         }
       }
     },

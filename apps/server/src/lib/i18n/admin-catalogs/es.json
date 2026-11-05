@@ -2496,7 +2496,12 @@
         "recoveryBackup": {
           "title": "Preparación de copias",
           "notVerified": "No se ha verificado ninguna copia de seguridad de este sitio.",
-          "remediation": "La copia y la restauración no están disponibles en esta versión. Conserva tu propia copia de la base de datos y de las subidas."
+          "notScheduled": "Las copias automáticas no están programadas y no se ha verificado ninguna restauración.",
+          "neverRun": "Hay copias automáticas programadas a {destination}, pero ninguna ha terminado todavía.",
+          "createdNotRestored": "La última copia automática a {destination} terminó el {lastFinishedAt}. Una copia terminada no demuestra que la restauración funcione.",
+          "lastFailed": "La última copia automática a {destination} ha fallado.",
+          "overdue": "Las copias automáticas a {destination} han dejado de ejecutarse según lo programado.",
+          "remediation": "Programa copias a un destino externo en Herramientas y ensaya una restauración en una instalación aislada."
         }
       }
     },
