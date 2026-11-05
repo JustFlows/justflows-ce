@@ -193,6 +193,7 @@
     "probeFail": "Falló la conexión"
   },
   "plugins": {
+    "permissionApprovalConfirm": "«{name}» solicita nuevos permisos:\n\n{permissions}\n\nLos plugins se ejecutan como código de servidor de confianza. ¿Quieres aprobar estos permisos y continuar?",
     "deleteConfirm": "¿Eliminar «{name}»? Esta acción no se puede deshacer.\n\nEl plugin ejecutará su hook de borrado de datos. Según su configuración, puede eliminar tablas de la base de datos y todos los registros que guardó.",
     "deleteFailed": "No se pudo eliminar el plugin.",
     "uploadInvalidFile": "Sube un archivo .jfpkg",

@@ -193,6 +193,7 @@
     "probeFail": "Verbindung fehlgeschlagen"
   },
   "plugins": {
+    "permissionApprovalConfirm": "„{name}“ fordert neue Berechtigungen an:\n\n{permissions}\n\nPlugins laufen als vertrauenswürdiger Servercode. Möchten Sie diese Berechtigungen genehmigen und fortfahren?",
     "deleteConfirm": "„{name}“ löschen? Das kann nicht rückgängig gemacht werden.\n\nDas Plugin führt seinen Hook zum Löschen der Daten aus. Je nach Einstellungen können dabei Datenbanktabellen und alle gespeicherten Zeilen entfernt werden.",
     "deleteFailed": "Das Plugin konnte nicht gelöscht werden.",
     "uploadInvalidFile": "Bitte eine .jfpkg-Datei hochladen",
