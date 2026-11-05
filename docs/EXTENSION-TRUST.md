@@ -73,3 +73,28 @@ and trusted code. It does not offer or advertise a sandbox.
 
 If you suspect a compromised extension, follow
 [incident response](INCIDENT-RESPONSE.md).
+
+## Update trust policy
+
+Marketplace installs and updates fail closed. Justflows downloads packages only
+through the configured Marketplace API, bounds the request and archive size, and
+requires the archive digest to match a signature from a Marketplace key trusted
+by this core release. A missing, unreachable, or invalid trust service never
+falls back to an unsigned update. Operators can explicitly pin a package digest;
+the development-only `JUSTFLOWS_ALLOW_UNSIGNED_PACKAGES=1` escape hatch is not a
+production trust policy.
+
+Marketplace signing keys rotate through a core release. During a planned
+rotation, a release can trust both the retiring and replacement public keys;
+after publishers and operators have upgraded, a later release removes the old
+key. An emergency revocation removes the affected key from a security release.
+Already installed code remains subject to the signed advisory feed and file
+integrity checks, because removing a key cannot prove that existing files are
+safe.
+
+The update action accepts only a SemVer version newer than the installed one.
+Reinstalling the same version or downgrading through the update API is refused.
+Recovery from a withdrawn or broken release uses a deliberate trusted reinstall
+or backup restore, with the administrator choosing the exact signed package or
+pinned digest; it is not an automatic downgrade. Automatic updates also stop at
+a major-version boundary and wait for a person when a plugin adds permissions.
