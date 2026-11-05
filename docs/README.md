@@ -24,6 +24,8 @@ Justflows Community Edition is extended with plugins, themes, and CSS providers.
 | [Manifest](MANIFEST.md)                               | `justflows.json` / `justflows-theme.json` fields                      |
 | [SDK compatibility](SDK-COMPATIBILITY.md)             | Version ranges, runtime versions, deprecation, and API stability      |
 | [Permissions](PERMISSIONS.md)                         | Plugin permissions vs user capabilities                               |
+| [Extension trust](EXTENSION-TRUST.md)                 | What extension permissions and signatures do not constrain            |
+| [Incident response](INCIDENT-RESPONSE.md)             | Contain, reinstall, rotate, restore, and notify                       |
 | [Diagnostics](DIAGNOSTICS.md)                         | Debug mode, CLI checks, traces, and plugin health checks              |
 | [Packaging](PACKAGING.md)                             | Building a `.jfpkg` for Admin → Plugins                               |
 | [Themes](THEMES.md)                                   | Styles, patterns, demo home/blog layouts, resolution order            |
