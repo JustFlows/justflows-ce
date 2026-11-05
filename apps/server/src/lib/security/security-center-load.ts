@@ -166,63 +166,6 @@ async function readHeaders(siteId: string | null): Promise<SecurityCenterFacts["
   }
 }
 
-/**
- * Evidence for the Security Center.
- * Update discovery uses the process cache only, so opening the page does not
- * call the release service. A cache miss stays unknown.
- */
-export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
-  const checkedAt = new Date().toISOString();
-  const production = process.env.NODE_ENV === "production";
-  const appUrl = process.env.APP_URL;
-  const installationRoot = isInstallationRootRequest();
-  const debug = debugMode();
-  const coreVersion = getJustflowsVersion();
-  let siteId: string | null = null;
-  try {
-    siteId = await getSiteId();
-  } catch {
-    siteId = null;
-  }
-
-  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity, advisories] = await Promise.all([
-    siteId ? readAdminMfa(siteId) : Promise.resolve({ state: "unknown" } as const),
-    siteId ? readSessions(siteId) : Promise.resolve({ state: "unknown" } as const),
-    siteId ? readApiKeys(siteId) : Promise.resolve({ state: "unknown" } as const),
-    readHeaders(siteId),
-    siteId
-      ? siteFeatureEnabled("feature.securityAudit", siteId).catch(() => false)
-      : Promise.resolve(false),
-    installationRoot ? readIntegrity() : Promise.resolve({ state: "unknown" } as const),
-    installationRoot && siteId
-      ? readAdvisories(siteId, coreVersion)
-      : Promise.resolve({ state: "unavailable" } as const),
-  ]);
-
-  const facts: SecurityCenterFacts = {
-    checkedAt,
-    installationRoot,
-    nodeVersion: process.versions.node,
-    minimumNodeMajor: readMinimumNodeMajor(),
-    coreVersion,
-    update: classifyUpdate(coreVersion),
-    advisories,
-    debugEnabled: debug.enabled,
-    production,
-    installerClosed: isInstalled(),
-    mfa,
-    sessions,
-    apiKeys,
-    appUrl: appUrlScheme(appUrl),
-    cookieSecure: cookieWouldBeSecure(production, appUrl),
-    proxy: installationRoot ? classifyProxy(process.env.TRUST_PROXY) : null,
-    headers,
-    auditAvailable,
-    integrity,
-  };
-  return securityCenterReport(facts);
-}
-
 /** Ids shown in one row. The rest are counted, not listed. */
 const MAX_LISTED_ADVISORIES = 5;
 
@@ -255,6 +198,63 @@ async function readAdvisories(siteId: string, coreVersion: string): Promise<Secu
   } catch {
     return { state: "unavailable" };
   }
+}
+
+/**
+ * Evidence for the Security Center.
+ * Update discovery uses the process cache only, so opening the page does not
+ * call the release service. A cache miss stays unknown.
+ */
+export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
+  const checkedAt = new Date().toISOString();
+  const production = process.env.NODE_ENV === "production";
+  const appUrl = process.env.APP_URL;
+  const installationRoot = isInstallationRootRequest();
+  const debug = debugMode();
+  const coreVersion = getJustflowsVersion();
+  let siteId: string | null = null;
+  try {
+    siteId = await getSiteId();
+  } catch {
+    siteId = null;
+  }
+
+  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity] = await Promise.all([
+    siteId ? readAdminMfa(siteId) : Promise.resolve({ state: "unknown" } as const),
+    siteId ? readSessions(siteId) : Promise.resolve({ state: "unknown" } as const),
+    siteId ? readApiKeys(siteId) : Promise.resolve({ state: "unknown" } as const),
+    readHeaders(siteId),
+    siteId
+      ? siteFeatureEnabled("feature.securityAudit", siteId).catch(() => false)
+      : Promise.resolve(false),
+    installationRoot ? readIntegrity() : Promise.resolve({ state: "unknown" } as const),
+  ]);
+
+  const advisories: SecurityCenterFacts["advisories"] =
+    installationRoot && siteId ? await readAdvisories(siteId, coreVersion) : { state: "unavailable" };
+
+  const facts: SecurityCenterFacts = {
+    checkedAt,
+    installationRoot,
+    nodeVersion: process.versions.node,
+    minimumNodeMajor: readMinimumNodeMajor(),
+    coreVersion,
+    update: classifyUpdate(coreVersion),
+    advisories,
+    debugEnabled: debug.enabled,
+    production,
+    installerClosed: isInstalled(),
+    mfa,
+    sessions,
+    apiKeys,
+    appUrl: appUrlScheme(appUrl),
+    cookieSecure: cookieWouldBeSecure(production, appUrl),
+    proxy: installationRoot ? classifyProxy(process.env.TRUST_PROXY) : null,
+    headers,
+    auditAvailable,
+    integrity,
+  };
+  return securityCenterReport(facts);
 }
 
 async function readIntegrity(): Promise<SecurityCenterFacts["integrity"]> {

@@ -209,6 +209,46 @@ function updateCheck(facts: SecurityCenterFacts): SecurityCheck {
   });
 }
 
+function advisoriesCheck(facts: SecurityCenterFacts): SecurityCheck {
+  const base = { id: "runtime.advisories", kind: "configuration", scope: "installation" } as const;
+  const advisories = facts.advisories;
+  if (!facts.installationRoot) {
+    return row(facts, { ...base, status: "not_applicable", severity: "info", summary: "otherSite", href: null });
+  }
+  if (advisories.state === "unavailable") {
+    return row(facts, { ...base, status: "unknown", severity: "info", summary: "unavailable", href: null });
+  }
+  if (advisories.state === "expired") {
+    return row(facts, {
+      ...base,
+      status: "unknown",
+      severity: "medium",
+      summary: "stale",
+      href: null,
+      evidence: { expiresAt: advisories.expiresAt },
+    });
+  }
+  if (advisories.affected === 0) {
+    return row(facts, {
+      ...base,
+      status: "pass",
+      severity: "info",
+      summary: "clear",
+      href: null,
+      evidence: { issuedAt: advisories.issuedAt },
+    });
+  }
+  const serious = advisories.revoked > 0 || advisories.highest === "critical" || advisories.highest === "high";
+  return row(facts, {
+    ...base,
+    status: serious ? "fail" : "warn",
+    severity: advisories.revoked > 0 ? "critical" : (advisories.highest ?? "medium"),
+    summary: advisories.revoked > 0 ? "revoked" : "affected",
+    href: UPDATES_HREF,
+    evidence: { count: advisories.affected, ids: advisories.ids, issuedAt: advisories.issuedAt },
+  });
+}
+
 function debugCheck(facts: SecurityCenterFacts): SecurityCheck {
   if (!facts.debugEnabled) {
     return row(facts, {
@@ -626,46 +666,6 @@ function integrityCheck(facts: SecurityCenterFacts): SecurityCheck {
     summary: "clear",
     href: INTEGRITY_HREF,
     evidence,
-  });
-}
-
-function advisoriesCheck(facts: SecurityCenterFacts): SecurityCheck {
-  const base = { id: "runtime.advisories", kind: "configuration", scope: "installation" } as const;
-  const advisories = facts.advisories;
-  if (!facts.installationRoot) {
-    return row(facts, { ...base, status: "not_applicable", severity: "info", summary: "otherSite", href: null });
-  }
-  if (advisories.state === "unavailable") {
-    return row(facts, { ...base, status: "unknown", severity: "info", summary: "unavailable", href: null });
-  }
-  if (advisories.state === "expired") {
-    return row(facts, {
-      ...base,
-      status: "unknown",
-      severity: "medium",
-      summary: "stale",
-      href: null,
-      evidence: { expiresAt: advisories.expiresAt },
-    });
-  }
-  if (advisories.affected === 0) {
-    return row(facts, {
-      ...base,
-      status: "pass",
-      severity: "info",
-      summary: "clear",
-      href: null,
-      evidence: { issuedAt: advisories.issuedAt },
-    });
-  }
-  const serious = advisories.revoked > 0 || advisories.highest === "critical" || advisories.highest === "high";
-  return row(facts, {
-    ...base,
-    status: serious ? "fail" : "warn",
-    severity: advisories.revoked > 0 ? "critical" : (advisories.highest ?? "medium"),
-    summary: advisories.revoked > 0 ? "revoked" : "affected",
-    href: UPDATES_HREF,
-    evidence: { count: advisories.affected, ids: advisories.ids, issuedAt: advisories.issuedAt },
   });
 }
 
