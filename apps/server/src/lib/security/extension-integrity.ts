@@ -414,8 +414,23 @@ export async function extensionAllowsLoad(packageDir: string): Promise<boolean> 
 }
 
 /** Scan installed packages and the core manifest. Uses the process cache unless forced. */
+let scanInFlight: Promise<IntegrityOverview> | null = null;
+
+/**
+ * The cached overview, or a fresh scan.
+ *
+ * Callers that arrive during a scan share it. Hashing every installed tree is
+ * the expensive part, so concurrent requests in this process cost one run.
+ */
 export async function loadIntegrityOverview(force = false): Promise<IntegrityOverview> {
   if (!force && cached) return cached;
+  scanInFlight ??= scanIntegrity().finally(() => {
+    scanInFlight = null;
+  });
+  return scanInFlight;
+}
+
+async function scanIntegrity(): Promise<IntegrityOverview> {
   const packages: ExtensionIntegrityReport[] = [];
   const seen = new Set<string>();
   for (const row of await readInventories()) {
