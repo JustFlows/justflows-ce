@@ -151,8 +151,11 @@ export async function installMarketplacePackage(options: {
   id: string;
   version?: string;
   siteId: string | undefined;
-}): Promise<InstallResult> {
+  /** Permissions an administrator approved for this update. */
+  approvedPermissions?: readonly string[];
+}): Promise<InstallResult & { approvedPermissions: string[] }> {
   const { type, id, version, siteId } = options;
+  let approvedPermissions: string[] = [];
   const listing = await fetchMarketplaceListing(type, id, version);
   await assertListingInstallable(listing, id, siteId);
 
@@ -204,6 +207,12 @@ export async function installMarketplacePackage(options: {
       const { pluginRequirementError } = await import("../plugins/plugin-requirements.js");
       const requirement = await pluginRequirementError(siteId, manifest, "install");
       if (requirement) throw new Error(requirement);
+      const { assertPluginPermissionsApproved } = await import("../plugins/plugin-permission-approval.js");
+      approvedPermissions = await assertPluginPermissionsApproved(
+        siteId,
+        manifest,
+        options.approvedPermissions,
+      );
     },
   });
   await recordInstalledPackageBaseline({
@@ -213,5 +222,5 @@ export async function installMarketplacePackage(options: {
     version: result.manifest.version,
     archiveDigest: result.digest,
   });
-  return result;
+  return { ...result, approvedPermissions };
 }

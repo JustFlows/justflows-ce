@@ -2,6 +2,7 @@
 
 import type { Response } from "express";
 import { ArchiveSafetyError, PackageRejectedError } from "@justflows/installer";
+import { PluginPermissionApprovalError } from "../plugins/plugin-permission-approval.js";
 import { QuotaRefusalError } from "../tenancy/quotas.js";
 
 /**
@@ -17,6 +18,11 @@ import { QuotaRefusalError } from "../tenancy/quotas.js";
 export function sendPackageInstallError(res: Response, err: unknown): void {
   if (err instanceof QuotaRefusalError) {
     res.status(err.status).json({ error: err.message, code: err.code, meter: err.meter });
+    return;
+  }
+  if (err instanceof PackageRejectedError && err.cause instanceof PluginPermissionApprovalError) {
+    const { message, code, pluginName, permissions } = err.cause;
+    res.status(409).json({ error: message, code, name: pluginName, permissions });
     return;
   }
   if (err instanceof PackageRejectedError || err instanceof ArchiveSafetyError) {

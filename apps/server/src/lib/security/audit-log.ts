@@ -48,6 +48,7 @@ export const AUDIT_ACTIONS = [
   "plugin.deactivated",
   "plugin.deleted",
   "plugin.updated",
+  "plugin.permissions_approved",
   "theme.installed",
   "theme.activated",
   "theme.deleted",

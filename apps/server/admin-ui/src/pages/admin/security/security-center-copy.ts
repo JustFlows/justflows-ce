@@ -248,7 +248,7 @@ export function securityCenterCopy(id: string, summary: string): { detail: strin
       }
     case "recovery.backup":
       return {
-        detail: "security.center.checks.recoveryBackup.notVerified",
+        detail: `security.center.checks.recoveryBackup.${summary}`,
         remediation: "security.center.checks.recoveryBackup.remediation",
       };
     default:

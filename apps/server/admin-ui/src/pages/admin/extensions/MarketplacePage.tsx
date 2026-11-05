@@ -11,6 +11,7 @@ import {
   ExtensionUpdatesBar,
   useExtensionUpdates,
 } from "@components/ExtensionUpdates";
+import { sendWithPermissionApproval } from "../../../lib/plugin-permission-approval";
 
 interface RegistryPrice {
   amount: number;
@@ -169,15 +170,19 @@ export default function MarketplacePage() {
     }
     setInstalling(item.id);
     setError("");
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 45_000);
     try {
-      const res = await fetch("/api/marketplace/install", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ type: item.type, id: item.id, version: item.version }),
-        signal: controller.signal,
-      });
+      const res = await sendWithPermissionApproval(
+        (approvedPermissions, signal) =>
+          fetch("/api/marketplace/install", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ type: item.type, id: item.id, version: item.version, approvedPermissions }),
+            signal,
+          }),
+        (name, permissions) =>
+          window.confirm(t("plugins.permissionApprovalConfirm", { name, permissions: permissions.join("\n") })),
+        45_000,
+      );
       const data = await res.json() as { error?: string; checkoutUrl?: string };
       if (res.status === 403) {
         throw new Error(data.error ?? t("marketplace.comingSoonInstallError"));
@@ -197,7 +202,6 @@ export default function MarketplacePage() {
         setError(err instanceof Error ? err.message : String(err));
       }
     } finally {
-      window.clearTimeout(timer);
       setInstalling(null);
     }
   }
