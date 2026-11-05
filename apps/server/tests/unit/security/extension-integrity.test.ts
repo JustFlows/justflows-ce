@@ -7,6 +7,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { verifyCoreIntegrity, writeCoreManifest } from "../../../src/lib/security/core-integrity.js";
 import {
+  loadIntegrityOverview,
   extensionAllowsLoad,
   invalidateIntegrityCache,
   recordInstalledPackageBaseline,
@@ -129,5 +130,18 @@ describe("core integrity", () => {
     const failed = await verifyCoreIntegrity({ root, publicKeys: [publicPem] });
     expect(failed.status).toBe("failed");
     expect(failed.mismatched).toContain("server.js");
+  });
+});
+
+describe("loadIntegrityOverview", () => {
+  it("shares one scan between concurrent requests", async () => {
+    const [first, second] = await Promise.all([loadIntegrityOverview(true), loadIntegrityOverview(true)]);
+    expect(second).toBe(first);
+  });
+
+  it("starts a new scan once the last one has finished", async () => {
+    const first = await loadIntegrityOverview(true);
+    const second = await loadIntegrityOverview(true);
+    expect(second).not.toBe(first);
   });
 });

@@ -193,6 +193,7 @@
     "probeFail": "Falló la conexión"
   },
   "plugins": {
+    "permissionApprovalConfirm": "«{name}» solicita nuevos permisos:\n\n{permissions}\n\nLos plugins se ejecutan como código de servidor de confianza. ¿Quieres aprobar estos permisos y continuar?",
     "deleteConfirm": "¿Eliminar «{name}»? Esta acción no se puede deshacer.\n\nEl plugin ejecutará su hook de borrado de datos. Según su configuración, puede eliminar tablas de la base de datos y todos los registros que guardó.",
     "deleteFailed": "No se pudo eliminar el plugin.",
     "uploadInvalidFile": "Sube un archivo .jfpkg",
@@ -2508,7 +2509,12 @@
         "recoveryBackup": {
           "title": "Preparación de copias",
           "notVerified": "No se ha verificado ninguna copia de seguridad de este sitio.",
-          "remediation": "La copia y la restauración no están disponibles en esta versión. Conserva tu propia copia de la base de datos y de las subidas."
+          "notScheduled": "Las copias automáticas no están programadas y no se ha verificado ninguna restauración.",
+          "neverRun": "Hay copias automáticas programadas a {destination}, pero ninguna ha terminado todavía.",
+          "createdNotRestored": "La última copia automática a {destination} terminó el {lastFinishedAt}. Una copia terminada no demuestra que la restauración funcione.",
+          "lastFailed": "La última copia automática a {destination} ha fallado.",
+          "overdue": "Las copias automáticas a {destination} han dejado de ejecutarse según lo programado.",
+          "remediation": "Programa copias a un destino externo en Herramientas y ensaya una restauración en una instalación aislada."
         }
       }
     },

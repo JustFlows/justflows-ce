@@ -4,7 +4,9 @@
  * Security Center checks.
  *
  * Each row is one question this process can answer. A pass is that question
- * only. Backups, and a certificate this process did not open, stay unknown.
+ * only. A certificate this process did not open stays unknown. So does backup
+ * readiness: creating a backup does not prove a restore works, so that check can
+ * warn but never passes.
  * File integrity is a pass only when a signed core manifest matches and every
  * baselined extension matches. Nothing here is folded into a site-wide grade.
  */
@@ -94,6 +96,16 @@ export interface SecurityCenterFacts {
         failed: number;
         core: "verified" | "local" | "absent" | "failed";
       };
+  backup:
+    | { state: "unknown" }
+    | {
+        state: "known";
+        enabled: boolean;
+        lastStatus: string | null;
+        lastFinishedAt: string | null;
+        nextRunAt: string | null;
+        destination: string;
+      };
 }
 
 export interface SecurityCenterReport {
@@ -107,6 +119,10 @@ const UPDATES_HREF = "/admin/updates";
 const ACCOUNT_HREF = "/admin/security/account";
 const API_KEYS_HREF = "/admin/settings/api";
 const HEADERS_HREF = "/admin/security/headers";
+const BACKUP_HREF = "/admin/tools";
+
+/** A schedule this far past its run time has stopped running. */
+const BACKUP_OVERDUE_MS = 24 * 60 * 60 * 1000;
 
 function row(
   facts: SecurityCenterFacts,
@@ -670,14 +686,32 @@ function integrityCheck(facts: SecurityCenterFacts): SecurityCheck {
 }
 
 function backupCheck(facts: SecurityCenterFacts): SecurityCheck {
+  const base = { id: "recovery.backup", kind: "configuration", scope: "site", href: BACKUP_HREF } as const;
+  const backup = facts.backup;
+  if (backup.state === "unknown") {
+    return row(facts, { ...base, status: "unknown", severity: "info", summary: "notVerified" });
+  }
+  if (!backup.enabled) {
+    return row(facts, { ...base, status: "unknown", severity: "info", summary: "notScheduled" });
+  }
+
+  const evidence = {
+    destination: backup.destination,
+    ...(backup.lastFinishedAt ? { lastFinishedAt: backup.lastFinishedAt } : {}),
+  };
+  if (backup.lastStatus === "failed") {
+    return row(facts, { ...base, status: "warn", severity: "medium", summary: "lastFailed", evidence });
+  }
+  const nextRun = backup.nextRunAt ? Date.parse(backup.nextRunAt) : Number.NaN;
+  if (Date.parse(facts.checkedAt) - nextRun > BACKUP_OVERDUE_MS) {
+    return row(facts, { ...base, status: "warn", severity: "medium", summary: "overdue", evidence });
+  }
   return row(facts, {
-    id: "recovery.backup",
+    ...base,
     status: "unknown",
     severity: "info",
-    kind: "configuration",
-    scope: "site",
-    summary: "notVerified",
-    href: null,
+    summary: backup.lastStatus === "done" ? "createdNotRestored" : "neverRun",
+    evidence,
   });
 }
 

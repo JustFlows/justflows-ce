@@ -193,6 +193,7 @@
     "probeFail": "Échec de la connexion"
   },
   "plugins": {
+    "permissionApprovalConfirm": "« {name} » demande de nouvelles autorisations :\n\n{permissions}\n\nLes extensions s’exécutent comme du code serveur de confiance. Approuver ces autorisations et continuer ?",
     "deleteConfirm": "Supprimer « {name} » ? Cette action est irréversible.\n\nL’extension exécutera son hook de suppression des données. Selon ses réglages, cela peut supprimer des tables de la base de données et toutes les lignes qu’elle a enregistrées.",
     "deleteFailed": "L’extension n’a pas pu être supprimée.",
     "uploadInvalidFile": "Veuillez téléverser un fichier .jfpkg",
@@ -2508,7 +2509,12 @@
         "recoveryBackup": {
           "title": "Préparation des sauvegardes",
           "notVerified": "Aucune sauvegarde n’a été vérifiée pour ce site.",
-          "remediation": "La sauvegarde et la restauration ne sont pas disponibles dans cette version. Conservez votre propre copie de la base et des fichiers envoyés."
+          "notScheduled": "Les sauvegardes automatiques ne sont pas planifiées et aucune restauration n’a été vérifiée.",
+          "neverRun": "Des sauvegardes automatiques vers {destination} sont planifiées, mais aucune n’est encore terminée.",
+          "createdNotRestored": "La dernière sauvegarde automatique vers {destination} s’est terminée le {lastFinishedAt}. Une sauvegarde terminée ne prouve pas qu’une restauration fonctionne.",
+          "lastFailed": "La dernière sauvegarde automatique vers {destination} a échoué.",
+          "overdue": "Les sauvegardes automatiques vers {destination} ne s’exécutent plus comme prévu.",
+          "remediation": "Planifiez des sauvegardes vers une destination externe dans Outils, et entraînez-vous à restaurer sur une installation isolée."
         }
       }
     },

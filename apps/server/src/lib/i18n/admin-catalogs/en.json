@@ -193,6 +193,7 @@
     "probeFail": "Connection failed"
   },
   "plugins": {
+    "permissionApprovalConfirm": "“{name}” asks for new permissions:\n\n{permissions}\n\nPlugins run as trusted server code. Approve these permissions and continue?",
     "deleteConfirm": "Delete “{name}”? This cannot be undone.\n\nThe plugin will run its delete-data hook. Depending on its settings, that may drop database tables and every row it stored.",
     "deleteFailed": "The plugin could not be deleted.",
     "uploadInvalidFile": "Please upload a .jfpkg file",
@@ -2968,7 +2969,12 @@
         "recoveryBackup": {
           "title": "Backup readiness",
           "notVerified": "No backup has been verified for this site.",
-          "remediation": "Backup and restore are not available in this version. Keep your own copy of the database and uploads."
+          "notScheduled": "Automatic backups are not scheduled, and no restore has been verified.",
+          "neverRun": "Automatic backups are scheduled to {destination}, but none has finished yet.",
+          "createdNotRestored": "The last automatic backup to {destination} finished at {lastFinishedAt}. A finished backup does not prove that a restore works.",
+          "lastFailed": "The last automatic backup to {destination} failed.",
+          "overdue": "Automatic backups to {destination} have stopped running on schedule.",
+          "remediation": "Schedule backups to an off-host destination in Tools, and rehearse a restore on an isolated installation."
         }
       }
     },

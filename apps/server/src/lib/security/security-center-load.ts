@@ -219,7 +219,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     siteId = null;
   }
 
-  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity] = await Promise.all([
+  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity, backup] = await Promise.all([
     siteId ? readAdminMfa(siteId) : Promise.resolve({ state: "unknown" } as const),
     siteId ? readSessions(siteId) : Promise.resolve({ state: "unknown" } as const),
     siteId ? readApiKeys(siteId) : Promise.resolve({ state: "unknown" } as const),
@@ -228,6 +228,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
       ? siteFeatureEnabled("feature.securityAudit", siteId).catch(() => false)
       : Promise.resolve(false),
     installationRoot ? readIntegrity() : Promise.resolve({ state: "unknown" } as const),
+    installationRoot ? readBackup() : Promise.resolve({ state: "unknown" } as const),
   ]);
 
   const advisories: SecurityCenterFacts["advisories"] =
@@ -253,8 +254,28 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     headers,
     auditAvailable,
     integrity,
+    backup,
   };
   return securityCenterReport(facts);
+}
+
+/** Backups are scheduled on the installation root, so a subsite has no evidence to read. */
+async function readBackup(): Promise<SecurityCenterFacts["backup"]> {
+  try {
+    const { automaticBackupHealth } = await import("../backup/scheduled-backups.js");
+    const schedule = await automaticBackupHealth();
+    if (!schedule.siteId) return { state: "unknown" };
+    return {
+      state: "known",
+      enabled: schedule.enabled,
+      lastStatus: schedule.lastStatus,
+      lastFinishedAt: schedule.lastFinishedAt,
+      nextRunAt: schedule.nextRunAt,
+      destination: schedule.destination,
+    };
+  } catch {
+    return { state: "unknown" };
+  }
 }
 
 async function readIntegrity(): Promise<SecurityCenterFacts["integrity"]> {

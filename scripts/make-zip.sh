@@ -66,8 +66,10 @@ restore_pnpm_node_modules
 echo "==> Generating SBOM…"
 if [ -f "$ROOT/package-lock.json" ]; then
   node "$ROOT/scripts/generate-sbom.mjs" "$ROOT/sbom.cdx.json"
+  node "$ROOT/scripts/verify-sbom.mjs" "$ROOT/sbom.cdx.json"
 else
-  echo "    (skipping — no package-lock.json)"
+  echo "ERROR: no package-lock.json, so this archive cannot carry an SBOM." >&2
+  exit 1
 fi
 
 # The signed per-file manifest has to be inside the zip. An update copies it
@@ -183,6 +185,7 @@ if [ "${NESTED:-0}" = "1" ]; then
     -x "$NAME/SECURITY.md" \
     -x "$NAME/scripts/make-zip.sh" \
     -x "$NAME/scripts/generate-sbom.mjs" \
+    -x "$NAME/scripts/verify-sbom.mjs" \
     -x "$NAME/scripts/sign-core-release.mjs" \
     -x "$NAME/scripts/check-sdk-api.mjs" \
     -x "$NAME/scripts/sign-advisories.mjs" \
@@ -281,6 +284,7 @@ else
     -x "SECURITY.md" \
     -x "scripts/make-zip.sh" \
     -x "scripts/generate-sbom.mjs" \
+    -x "scripts/verify-sbom.mjs" \
     -x "scripts/sign-core-release.mjs" \
     -x "scripts/check-sdk-api.mjs" \
     -x "scripts/sign-advisories.mjs" \

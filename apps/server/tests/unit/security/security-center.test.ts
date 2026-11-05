@@ -14,6 +14,7 @@ const HREFS = new Set([
   "/admin/settings/api",
   "/admin/security/headers",
   "/admin/security/integrity",
+  "/admin/tools",
 ]);
 
 function facts(overrides: Partial<SecurityCenterFacts> = {}): SecurityCenterFacts {
@@ -37,6 +38,7 @@ function facts(overrides: Partial<SecurityCenterFacts> = {}): SecurityCenterFact
     advisories: { state: "unavailable" },
     auditAvailable: true,
     integrity: { state: "unknown" },
+    backup: { state: "unknown" },
     ...overrides,
   };
 }
@@ -209,5 +211,59 @@ describe("security center checks", () => {
 
     const other = evaluateSecurityCenter(facts({ installationRoot: false }));
     expect(byId(other, "extensions.integrity")).toMatchObject({ status: "not_applicable", summary: "otherSite", href: null });
+  });
+
+  describe("backup readiness", () => {
+    const schedule = {
+      state: "known",
+      enabled: true,
+      lastStatus: "done",
+      lastFinishedAt: "2026-11-04T02:01:00.000Z",
+      nextRunAt: "2026-11-05T02:00:00.000Z",
+      destination: "s3",
+    } as const;
+    const check = (backup: SecurityCenterFacts["backup"], checkedAt = "2026-11-05T01:00:00.000Z") =>
+      byId(evaluateSecurityCenter(facts({ backup, checkedAt })), "recovery.backup");
+
+    it("stays unknown without evidence", () => {
+      expect(check({ state: "unknown" })).toMatchObject({ status: "unknown", summary: "notVerified" });
+    });
+
+    it("stays unknown when nothing is scheduled", () => {
+      expect(check({ ...schedule, enabled: false })).toMatchObject({
+        status: "unknown",
+        summary: "notScheduled",
+      });
+    });
+
+    it("never passes on a created backup alone", () => {
+      expect(check(schedule)).toMatchObject({
+        status: "unknown",
+        summary: "createdNotRestored",
+        evidence: { destination: "s3", lastFinishedAt: schedule.lastFinishedAt },
+      });
+    });
+
+    it("reports a schedule that has not run yet", () => {
+      expect(check({ ...schedule, lastStatus: null, lastFinishedAt: null })).toMatchObject({
+        status: "unknown",
+        summary: "neverRun",
+      });
+    });
+
+    it("warns when the last backup failed", () => {
+      expect(check({ ...schedule, lastStatus: "failed" })).toMatchObject({
+        status: "warn",
+        severity: "medium",
+        summary: "lastFailed",
+      });
+    });
+
+    it("warns when a schedule has stopped running", () => {
+      expect(check(schedule, "2026-11-06T03:00:00.000Z")).toMatchObject({
+        status: "warn",
+        summary: "overdue",
+      });
+    });
   });
 });

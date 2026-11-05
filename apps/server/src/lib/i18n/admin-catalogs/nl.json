@@ -193,6 +193,7 @@
     "probeFail": "Verbinding mislukt"
   },
   "plugins": {
+    "permissionApprovalConfirm": "“{name}” vraagt om nieuwe rechten:\n\n{permissions}\n\nPlug-ins draaien als vertrouwde servercode. Wil je deze rechten goedkeuren en doorgaan?",
     "deleteConfirm": "“{name}” verwijderen? Dit kan niet ongedaan worden gemaakt.\n\nDe plugin voert zijn opruimactie voor gegevens uit. Afhankelijk van de instellingen kan dat databasetabellen en alle opgeslagen rijen verwijderen.",
     "deleteFailed": "De plugin kon niet worden verwijderd.",
     "uploadInvalidFile": "Upload een .jfpkg-bestand",
@@ -2505,7 +2506,12 @@
         "recoveryBackup": {
           "title": "Back-upgereedheid",
           "notVerified": "Er is geen back-up geverifieerd voor deze site.",
-          "remediation": "Back-up en herstel zijn niet beschikbaar in deze versie. Bewaar zelf een kopie van de database en uploads."
+          "notScheduled": "Automatische back-ups zijn niet ingepland en er is geen herstel geverifieerd.",
+          "neverRun": "Automatische back-ups naar {destination} zijn ingepland, maar er is er nog geen voltooid.",
+          "createdNotRestored": "De laatste automatische back-up naar {destination} is voltooid op {lastFinishedAt}. Een voltooide back-up bewijst niet dat herstellen werkt.",
+          "lastFailed": "De laatste automatische back-up naar {destination} is mislukt.",
+          "overdue": "Automatische back-ups naar {destination} draaien niet meer volgens schema.",
+          "remediation": "Plan back-ups naar een externe bestemming in Gereedschap en oefen een herstel op een geïsoleerde installatie."
         }
       }
     },
