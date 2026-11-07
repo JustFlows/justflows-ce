@@ -110,91 +110,117 @@ export default function ContentVisibilityPanel({ contentId, disabled }: { conten
       : knownReason;
 
   return (
-    <div className="jf-card">
-      <h3 className="jf-card__title">{t("visibility.itemTitle")}</h3>
-      <p className="jf-field__hint">{t("visibility.itemHint")}</p>
-      {error && <p className="jf-field__error" role="alert">{error}</p>}
+    <>
+      <div className="jf-card">
+        <div className="jf-card__head">
+          <h2 className="jf-card__title">{t("visibility.itemTitle")}</h2>
+        </div>
+        <div className="jf-card__body jf-stack">
+          <p className="jf-field__hint" style={{ margin: 0 }}>{t("visibility.itemHint")}</p>
+          {error && <p className="jf-alert jf-alert--error" role="alert">{error}</p>}
+          {loaded && (
+            <>
+              <div className="jf-field" role="radiogroup" aria-label={t("visibility.itemTitle")}>
+                <label className="jf-checkrow">
+                  <input type="radio" name="jf-visibility-mode" checked={override === null} disabled={disabled || busy} onChange={() => setOverride(null)} />
+                  {t("visibility.modeInherit")}
+                </label>
+                <label className="jf-checkrow">
+                  <input type="radio" name="jf-visibility-mode" checked={override !== null} disabled={disabled || busy} onChange={() => setOverride(typeDefault ?? BLANK)} />
+                  {t("visibility.modeCustom")}
+                </label>
+                {override === null && (
+                  <span className="jf-field__hint">{t(typeDefault ? "visibility.inheritedRestricted" : "visibility.inheritedPublic")}</span>
+                )}
+              </div>
+              {override !== null && <ContentVisibilityFields idPrefix="item-visibility" policy={override} onChange={(next) => setOverride(next ?? BLANK)} />}
+              {message && <p className="jf-alert jf-alert--success" role="status">{message}</p>}
+              <button type="button" className="jf-btn jf-btn--primary jf-btn--block" disabled={disabled || busy} onClick={() => void save()}>
+                {t("visibility.save")}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       {loaded && (
-        <>
-          <div className="jf-field">
-            <label className="jf-ct-setting">
-              <input type="radio" name="jf-visibility-mode" checked={override === null} disabled={disabled || busy} onChange={() => setOverride(null)} />
-              <span>{t("visibility.modeInherit")}</span>
-            </label>
-            <label className="jf-ct-setting">
-              <input type="radio" name="jf-visibility-mode" checked={override !== null} disabled={disabled || busy} onChange={() => setOverride(typeDefault ?? BLANK)} />
-              <span>{t("visibility.modeCustom")}</span>
-            </label>
-            {override === null && (
-              <span className="jf-field__hint">{t(typeDefault ? "visibility.inheritedRestricted" : "visibility.inheritedPublic")}</span>
+        <div className="jf-card">
+          <div className="jf-card__head">
+            <h2 className="jf-card__title">{t("visibility.explainTitle")}</h2>
+          </div>
+          <div className="jf-card__body jf-stack">
+            <div className="jf-field">
+              <label className="jf-field__label" htmlFor="item-visibility-explain">
+                {t("visibility.explainAs")}
+              </label>
+              <select
+                id="item-visibility-explain"
+                className="jf-input"
+                value={kind}
+                onChange={(e) => {
+                  setKind(e.target.value as typeof kind);
+                  setSubject("");
+                  setDecision(null);
+                }}
+              >
+                {(["anonymous", "role", "user"] as const).map((value) => (
+                  <option key={value} value={value}>
+                    {t(`visibility.explainKinds.${value}`)}
+                  </option>
+                ))}
+              </select>
+              <span className="jf-field__hint">{t("visibility.explainSaved")}</span>
+            </div>
+            {kind !== "anonymous" && (
+              <div className="jf-field">
+                {kind === "role" || people ? (
+                  <select
+                    className="jf-input"
+                    aria-label={t(`visibility.explainKinds.${kind}`)}
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                  >
+                    <option value="" />
+                    {(kind === "role" ? roles : (people ?? [])).map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        {entry.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className="jf-input"
+                    aria-label={t(`visibility.explainKinds.${kind}`)}
+                    placeholder={t("visibility.userIdPlaceholder")}
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                  />
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              className="jf-btn jf-btn--ghost jf-btn--block"
+              disabled={busy || (kind !== "anonymous" && !subject.trim())}
+              onClick={() => void explain()}
+            >
+              {t("visibility.explainRun")}
+            </button>
+            {decision && (
+              <div className="jf-field" role="status">
+                <span>
+                  <span className={`jf-badge ${decision.allowed ? "jf-badge--ok" : "jf-badge--error"}`}>
+                    {t(decision.allowed ? "visibility.allowed" : "visibility.denied")}
+                  </span>
+                </span>
+                <span className="jf-field__hint">
+                  {reason} {t(`visibility.sources.${decision.source}`)}
+                </span>
+              </div>
             )}
           </div>
-          {override !== null && <ContentVisibilityFields idPrefix="item-visibility" policy={override} onChange={(next) => setOverride(next ?? BLANK)} />}
-          <button type="button" className="jf-btn jf-btn--primary jf-btn--sm" disabled={disabled || busy} onClick={() => void save()}>
-            {t("visibility.save")}
-          </button>
-          {message && <p className="jf-field__hint" role="status">{message}</p>}
-
-          <h4 className="jf-card__title">{t("visibility.explainTitle")}</h4>
-          <div className="jf-field">
-            <label className="jf-field__label" htmlFor="item-visibility-explain">
-              {t("visibility.explainAs")}
-            </label>
-            <select
-              id="item-visibility-explain"
-              className="jf-input"
-              value={kind}
-              onChange={(e) => {
-                setKind(e.target.value as typeof kind);
-                setSubject("");
-                setDecision(null);
-              }}
-            >
-              {(["anonymous", "role", "user"] as const).map((value) => (
-                <option key={value} value={value}>
-                  {t(`visibility.explainKinds.${value}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-          {kind !== "anonymous" && (
-            <div className="jf-field">
-              {kind === "role" || people ? (
-                <select
-                  className="jf-input"
-                  aria-label={t(`visibility.explainKinds.${kind}`)}
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                >
-                  <option value="" />
-                  {(kind === "role" ? roles : (people ?? [])).map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  className="jf-input"
-                  aria-label={t(`visibility.explainKinds.${kind}`)}
-                  placeholder={t("visibility.userIdPlaceholder")}
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                />
-              )}
-            </div>
-          )}
-          <button type="button" className="jf-btn jf-btn--sm" disabled={busy || (kind !== "anonymous" && !subject.trim())} onClick={() => void explain()}>
-            {t("visibility.explainRun")}
-          </button>
-          <span className="jf-field__hint">{t("visibility.explainSaved")}</span>
-          {decision && (
-            <p role="status">
-              <strong>{t(decision.allowed ? "visibility.allowed" : "visibility.denied")}</strong> {reason} {t(`visibility.sources.${decision.source}`)}
-            </p>
-          )}
-        </>
+        </div>
       )}
-    </div>
+    </>
   );
 }

@@ -69,11 +69,13 @@ export function useVisibilityDirectory() {
 }
 
 function RoleChecks({
+  id,
   legend,
   roles,
   selected,
   onChange,
 }: {
+  id: string;
   legend: string;
   roles: Role[];
   selected: string[];
@@ -82,19 +84,21 @@ function RoleChecks({
   const known = new Set(roles.map((role) => role.id));
   const shown = [...roles, ...selected.filter((id) => !known.has(id)).map((id) => ({ id, label: id }))];
   return (
-    <fieldset className="jf-field">
-      <legend className="jf-field__label">{legend}</legend>
+    <div className="jf-field" role="group" aria-labelledby={id}>
+      <span className="jf-field__label" id={id}>
+        {legend}
+      </span>
       {shown.map((role) => (
-        <label key={role.id} className="jf-ct-setting">
+        <label key={role.id} className="jf-checkrow">
           <input
             type="checkbox"
             checked={selected.includes(role.id)}
             onChange={(e) => onChange(e.target.checked ? [...selected, role.id] : selected.filter((value) => value !== role.id))}
           />
-          <span>{role.label}</span>
+          {role.label}
         </label>
       ))}
-    </fieldset>
+    </div>
   );
 }
 
@@ -124,22 +128,27 @@ function UserPicker({
       <label className="jf-field__label" htmlFor={id}>
         {legend}
       </label>
-      {selected.map((userId) => {
-        const name = names.get(userId) ?? userId;
-        return (
-          <div key={userId} className="jf-ct-setting">
-            <span>{name}</span>
-            <button
-              type="button"
-              className="jf-btn jf-btn--ghost jf-btn--sm"
-              aria-label={t("visibility.remove", { name })}
-              onClick={() => onChange(selected.filter((value) => value !== userId))}
-            >
-              ×
-            </button>
-          </div>
-        );
-      })}
+      {selected.length > 0 && (
+        <div className="jf-row" style={{ flexWrap: "wrap", gap: "0.35rem" }}>
+          {selected.map((userId) => {
+            const name = names.get(userId) ?? userId;
+            return (
+              <span key={userId} className="jf-badge" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                {name}
+                <button
+                  type="button"
+                  className="jf-btn jf-btn--ghost jf-btn--sm"
+                  style={{ padding: "0 0.25rem", minHeight: 0 }}
+                  aria-label={t("visibility.remove", { name })}
+                  onClick={() => onChange(selected.filter((value) => value !== userId))}
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
       {people ? (
         <select id={id} className="jf-input" value="" onChange={(e) => add(e.target.value)}>
           <option value="">{t("visibility.userSearch")}</option>
@@ -187,13 +196,18 @@ function RuleEditor({
     onChange({ ...rule, params: { ...rule.params, [key]: value } });
   return (
     <div className="jf-card">
-      <div className="jf-ct-setting">
-        <strong>{name}</strong>
+      <div className="jf-card__head">
+        <h3 className="jf-card__title">{name}</h3>
         <button type="button" className="jf-btn jf-btn--ghost jf-btn--sm" aria-label={t("visibility.remove", { name })} onClick={onRemove}>
           ×
         </button>
       </div>
-      {type ? type.description && <p className="jf-field__hint">{type.description}</p> : <p className="jf-field__hint">{t("visibility.ruleMissing")}</p>}
+      <div className="jf-card__body jf-stack">
+      {type ? (
+        type.description && <p className="jf-field__hint" style={{ margin: 0 }}>{type.description}</p>
+      ) : (
+        <p className="jf-field__hint" style={{ margin: 0 }}>{t("visibility.ruleMissing")}</p>
+      )}
       <div className="jf-field">
         <label className="jf-field__label" htmlFor={`${idPrefix}-mode`}>
           {t("visibility.ruleMode")}
@@ -216,9 +230,9 @@ function RuleEditor({
         const value = rule.params[field.name];
         if (field.type === "boolean") {
           return (
-            <label key={field.name} className="jf-ct-setting">
+            <label key={field.name} className="jf-checkrow">
               <input type="checkbox" checked={value === true} onChange={(e) => setParam(field.name, e.target.checked)} />
-              <span>{field.label}</span>
+              {field.label}
             </label>
           );
         }
@@ -249,6 +263,7 @@ function RuleEditor({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
@@ -269,7 +284,7 @@ export default function ContentVisibilityFields({
   const update = (patch: Partial<ContentVisibilityPolicy>) => onChange({ ...value, ...patch });
   const unused = ruleTypes.filter((type) => !value.rules.some((rule) => rule.id === type.id));
   return (
-    <>
+    <div className="jf-stack">
       <div className="jf-field">
         <label className="jf-field__label" htmlFor={`${idPrefix}-audience`}>
           {t("visibility.audience")}
@@ -288,11 +303,11 @@ export default function ContentVisibilityFields({
         </select>
         <span className="jf-field__hint">{t("visibility.precedence")}</span>
       </div>
-      <RoleChecks legend={t("visibility.allowRoles")} roles={roles} selected={value.allowRoles} onChange={(allowRoles) => update({ allowRoles })} />
-      <RoleChecks legend={t("visibility.denyRoles")} roles={roles} selected={value.denyRoles} onChange={(denyRoles) => update({ denyRoles })} />
+      <RoleChecks id={`${idPrefix}-allow-roles`} legend={t("visibility.allowRoles")} roles={roles} selected={value.allowRoles} onChange={(allowRoles) => update({ allowRoles })} />
+      <RoleChecks id={`${idPrefix}-deny-roles`} legend={t("visibility.denyRoles")} roles={roles} selected={value.denyRoles} onChange={(denyRoles) => update({ denyRoles })} />
       <UserPicker id={`${idPrefix}-allow-users`} legend={t("visibility.allowUsers")} people={people} selected={value.allowUsers} onChange={(allowUsers) => update({ allowUsers })} />
       <UserPicker id={`${idPrefix}-deny-users`} legend={t("visibility.denyUsers")} people={people} selected={value.denyUsers} onChange={(denyUsers) => update({ denyUsers })} />
-      <div className="jf-field">
+      <div className="jf-stack jf-stack--sm">
         <span className="jf-field__label">{t("visibility.rules")}</span>
         {value.rules.map((rule, index) => (
           <RuleEditor
@@ -324,6 +339,6 @@ export default function ContentVisibilityFields({
           </select>
         ) : null}
       </div>
-    </>
+    </div>
   );
 }
