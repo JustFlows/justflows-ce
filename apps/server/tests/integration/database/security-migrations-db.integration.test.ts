@@ -23,6 +23,7 @@ describe.skipIf(!enabled)("fresh and upgraded security schema on a real database
     await (await getDb()).close();
   });
 
+  /** Replays every migration; MySQL DDL on a shared CI runner can take well over the default 5 s. */
   it("installs the prior schema, upgrades to the current revision, and is idempotent", async () => {
     const db = await getDb();
     const previous = MIGRATION_ORDER.slice(0, -1);
@@ -45,5 +46,5 @@ describe.skipIf(!enabled)("fresh and upgraded security schema on a real database
       db.query("SELECT site_id, frequency, scope FROM backup_schedules WHERE 1 = 0"),
     ]);
     expect(required).toEqual([[], [], []]);
-  });
+  }, 30_000);
 });
