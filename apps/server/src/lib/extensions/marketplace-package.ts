@@ -19,6 +19,7 @@ import {
 } from "./marketplace-catalog.js";
 import { getJustflowsVersion } from "../runtime/version.js";
 import { getSiteSetting } from "../settings/site-settings.js";
+import { compareCoreVersions, parseCoreVersion } from "../updates/core-release-check.js";
 
 export const JUSTFLOWS_API_BASE = "https://api.justflows.com";
 
@@ -57,6 +58,24 @@ export class MarketplaceRequestError extends Error {
   ) {
     super(typeof body.error === "string" ? body.error : `Marketplace request failed (${status})`);
     this.name = "MarketplaceRequestError";
+  }
+}
+
+/** Enforce that the update route cannot be used to reinstall or downgrade code. */
+export function assertMarketplaceUpgrade(installedVersion: string, incomingVersion: string): void {
+  const installed = parseCoreVersion(installedVersion);
+  const incoming = parseCoreVersion(incomingVersion);
+  if (!installed || !incoming) {
+    throw new MarketplaceRequestError(409, {
+      error: "The installed and requested versions must use semantic versioning.",
+      code: "invalid_update_version",
+    });
+  }
+  if (compareCoreVersions(incoming, installed) <= 0) {
+    throw new MarketplaceRequestError(409, {
+      error: `Updates must be newer than the installed version (${installedVersion}).`,
+      code: "extension_downgrade_blocked",
+    });
   }
 }
 
@@ -151,14 +170,23 @@ export async function installMarketplacePackage(options: {
   id: string;
   version?: string;
   siteId: string | undefined;
-}): Promise<InstallResult> {
+  /** When set, refuse an equal version or downgrade before downloading the archive. */
+  expectedNewerThan?: string;
+  /** Permissions an administrator approved for this update. */
+  approvedPermissions?: readonly string[];
+}): Promise<InstallResult & { approvedPermissions: string[] }> {
   const { type, id, version, siteId } = options;
+  let approvedPermissions: string[] = [];
   const listing = await fetchMarketplaceListing(type, id, version);
   await assertListingInstallable(listing, id, siteId);
 
   const resolvedVersion = version ?? listing.version;
   if (!resolvedVersion) {
     throw new MarketplaceRequestError(400, { error: "Version is required" });
+  }
+
+  if (options.expectedNewerThan) {
+    assertMarketplaceUpgrade(options.expectedNewerThan, resolvedVersion);
   }
 
   // Always download via the public API. Registry downloadUrl is an internal
@@ -204,6 +232,13 @@ export async function installMarketplacePackage(options: {
       const { pluginRequirementError } = await import("../plugins/plugin-requirements.js");
       const requirement = await pluginRequirementError(siteId, manifest, "install");
       if (requirement) throw new Error(requirement);
+      const { assertPluginPermissionsApproved } =
+        await import("../plugins/plugin-permission-approval.js");
+      approvedPermissions = await assertPluginPermissionsApproved(
+        siteId,
+        manifest,
+        options.approvedPermissions,
+      );
     },
   });
   await recordInstalledPackageBaseline({
@@ -213,5 +248,5 @@ export async function installMarketplacePackage(options: {
     version: result.manifest.version,
     archiveDigest: result.digest,
   });
-  return result;
+  return { ...result, approvedPermissions };
 }

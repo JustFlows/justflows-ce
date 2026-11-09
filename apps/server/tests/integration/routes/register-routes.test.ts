@@ -17,10 +17,10 @@ describe("admin SPA route matching", () => {
   });
 
   it("serves the shop namespace root even though the plugin id contains a dot", () => {
-    expect(isAdminSpaDocument("/admin/plugins/justflows.shop")).toBe(true);
-    expect(isAdminSpaDocument("/admin/plugins/justflows.shop/attributes")).toBe(true);
+    expect(isAdminSpaDocument("/admin/plugins/justflows.store")).toBe(true);
+    expect(isAdminSpaDocument("/admin/plugins/justflows.store/attributes")).toBe(true);
     expect(isAdminSpaDocument("/admin/assets/index-abc123.js")).toBe(false);
-    expect(isAdminSpaDocument("/admin/plugins/justflows.shop/admin/attributes.css")).toBe(false);
+    expect(isAdminSpaDocument("/admin/plugins/justflows.store/admin/attributes.css")).toBe(false);
   });
 });
 

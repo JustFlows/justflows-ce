@@ -4,7 +4,9 @@
  * Security Center checks.
  *
  * Each row is one question this process can answer. A pass is that question
- * only. Backups, and a certificate this process did not open, stay unknown.
+ * only. A certificate this process did not open stays unknown. So does backup
+ * readiness: creating a backup does not prove a restore works, so that check can
+ * warn but never passes.
  * File integrity is a pass only when a signed core manifest matches and every
  * baselined extension matches. Nothing here is folded into a site-wide grade.
  */
@@ -12,6 +14,7 @@
 export const SECURITY_CHECK_IDS = [
   "runtime.node",
   "runtime.update",
+  "runtime.advisories",
   "runtime.debug",
   "runtime.installer",
   "accounts.mfa",
@@ -53,6 +56,17 @@ export interface SecurityCenterFacts {
     | { state: "unknown" }
     | { state: "current"; latest: string; checkedAt: string }
     | { state: "available"; latest: string; checkedAt: string };
+  advisories:
+    | { state: "unavailable" }
+    | { state: "expired"; expiresAt: string }
+    | {
+        state: "current";
+        issuedAt: string;
+        affected: number;
+        revoked: number;
+        highest: "critical" | "high" | "medium" | "low" | null;
+        ids: string;
+      };
   debugEnabled: boolean;
   production: boolean;
   installerClosed: boolean;
@@ -82,6 +96,16 @@ export interface SecurityCenterFacts {
         failed: number;
         core: "verified" | "local" | "absent" | "failed";
       };
+  backup:
+    | { state: "unknown" }
+    | {
+        state: "known";
+        enabled: boolean;
+        lastStatus: string | null;
+        lastFinishedAt: string | null;
+        nextRunAt: string | null;
+        destination: string;
+      };
 }
 
 export interface SecurityCenterReport {
@@ -95,6 +119,10 @@ const UPDATES_HREF = "/admin/updates";
 const ACCOUNT_HREF = "/admin/security/account";
 const API_KEYS_HREF = "/admin/settings/api";
 const HEADERS_HREF = "/admin/security/headers";
+const BACKUP_HREF = "/admin/tools";
+
+/** A schedule this far past its run time has stopped running. */
+const BACKUP_OVERDUE_MS = 24 * 60 * 60 * 1000;
 
 function row(
   facts: SecurityCenterFacts,
@@ -194,6 +222,46 @@ function updateCheck(facts: SecurityCenterFacts): SecurityCheck {
     summary: facts.update.state,
     href: UPDATES_HREF,
     evidence: { current, latest: facts.update.latest, checked: facts.update.checkedAt },
+  });
+}
+
+function advisoriesCheck(facts: SecurityCenterFacts): SecurityCheck {
+  const base = { id: "runtime.advisories", kind: "configuration", scope: "installation" } as const;
+  const advisories = facts.advisories;
+  if (!facts.installationRoot) {
+    return row(facts, { ...base, status: "not_applicable", severity: "info", summary: "otherSite", href: null });
+  }
+  if (advisories.state === "unavailable") {
+    return row(facts, { ...base, status: "unknown", severity: "info", summary: "unavailable", href: null });
+  }
+  if (advisories.state === "expired") {
+    return row(facts, {
+      ...base,
+      status: "unknown",
+      severity: "medium",
+      summary: "stale",
+      href: null,
+      evidence: { expiresAt: advisories.expiresAt },
+    });
+  }
+  if (advisories.affected === 0) {
+    return row(facts, {
+      ...base,
+      status: "pass",
+      severity: "info",
+      summary: "clear",
+      href: null,
+      evidence: { issuedAt: advisories.issuedAt },
+    });
+  }
+  const serious = advisories.revoked > 0 || advisories.highest === "critical" || advisories.highest === "high";
+  return row(facts, {
+    ...base,
+    status: serious ? "fail" : "warn",
+    severity: advisories.revoked > 0 ? "critical" : (advisories.highest ?? "medium"),
+    summary: advisories.revoked > 0 ? "revoked" : "affected",
+    href: UPDATES_HREF,
+    evidence: { count: advisories.affected, ids: advisories.ids, issuedAt: advisories.issuedAt },
   });
 }
 
@@ -447,11 +515,12 @@ function proxyCheck(facts: SecurityCenterFacts): SecurityCheck {
     });
   }
   const value = facts.proxy.value.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 80);
+  /** `trustedProxyValue` ignores these values and uses loopback, so nothing is exposed. */
   if (facts.proxy.mode === "wide") {
     return row(facts, {
       id: "transport.proxy",
-      status: "fail",
-      severity: "high",
+      status: "pass",
+      severity: "info",
       kind: "configuration",
       scope: "installation",
       summary: "wide",
@@ -618,14 +687,32 @@ function integrityCheck(facts: SecurityCenterFacts): SecurityCheck {
 }
 
 function backupCheck(facts: SecurityCenterFacts): SecurityCheck {
+  const base = { id: "recovery.backup", kind: "configuration", scope: "site", href: BACKUP_HREF } as const;
+  const backup = facts.backup;
+  if (backup.state === "unknown") {
+    return row(facts, { ...base, status: "unknown", severity: "info", summary: "notVerified" });
+  }
+  if (!backup.enabled) {
+    return row(facts, { ...base, status: "unknown", severity: "info", summary: "notScheduled" });
+  }
+
+  const evidence = {
+    destination: backup.destination,
+    ...(backup.lastFinishedAt ? { lastFinishedAt: backup.lastFinishedAt } : {}),
+  };
+  if (backup.lastStatus === "failed") {
+    return row(facts, { ...base, status: "warn", severity: "medium", summary: "lastFailed", evidence });
+  }
+  const nextRun = backup.nextRunAt ? Date.parse(backup.nextRunAt) : Number.NaN;
+  if (Date.parse(facts.checkedAt) - nextRun > BACKUP_OVERDUE_MS) {
+    return row(facts, { ...base, status: "warn", severity: "medium", summary: "overdue", evidence });
+  }
   return row(facts, {
-    id: "recovery.backup",
+    ...base,
     status: "unknown",
     severity: "info",
-    kind: "configuration",
-    scope: "site",
-    summary: "notVerified",
-    href: null,
+    summary: backup.lastStatus === "done" ? "createdNotRestored" : "neverRun",
+    evidence,
   });
 }
 
@@ -634,6 +721,7 @@ export function evaluateSecurityCenter(facts: SecurityCenterFacts): SecurityChec
   return [
     nodeCheck(facts),
     updateCheck(facts),
+    advisoriesCheck(facts),
     debugCheck(facts),
     installerCheck(facts),
     mfaCheck(facts),
@@ -649,10 +737,11 @@ export function evaluateSecurityCenter(facts: SecurityCenterFacts): SecurityChec
 }
 
 export function securityCenterReport(facts: SecurityCenterFacts): SecurityCenterReport {
+  const checks = evaluateSecurityCenter(facts);
   return {
     checkedAt: facts.checkedAt,
     installationRoot: facts.installationRoot,
     auditAvailable: facts.auditAvailable,
-    checks: evaluateSecurityCenter(facts),
+    checks: facts.installationRoot ? checks : checks.filter((check) => check.scope === "site"),
   };
 }

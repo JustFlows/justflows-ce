@@ -157,7 +157,7 @@ describe("EditUserPage additional roles", () => {
           roles: [
             { id: "administrator", name: "Administrator", builtIn: true },
             { id: "subscriber", name: "Subscriber", builtIn: true },
-            { id: "customer", name: "Customer", builtIn: false, pluginId: "justflows.shop" },
+            { id: "customer", name: "Customer", builtIn: false, pluginId: "justflows.store" },
             { id: "custom-1", name: "Custom", builtIn: false, pluginId: null },
           ],
           capabilities: [],

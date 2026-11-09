@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "../i18n/I18nProvider";
+import { sendWithPermissionApproval } from "../lib/plugin-permission-approval";
 
 export type ExtensionType = "plugin" | "theme";
 
@@ -90,15 +91,24 @@ export function useExtensionUpdates(enabled: boolean) {
     setUpdating(`${update.type}:${update.id}`);
     setError("");
     setNotice("");
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 120_000);
     try {
-      const res = await fetch("/api/marketplace/update", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ type: update.type, id: update.id, version: update.availableVersion }),
-        signal: controller.signal,
-      });
+      const res = await sendWithPermissionApproval(
+        (approvedPermissions, signal) =>
+          fetch("/api/marketplace/update", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              type: update.type,
+              id: update.id,
+              version: update.availableVersion,
+              approvedPermissions,
+            }),
+            signal,
+          }),
+        (name, permissions) =>
+          window.confirm(t("plugins.permissionApprovalConfirm", { name, permissions: permissions.join("\n") })),
+        120_000,
+      );
       const data = (await res.json().catch(() => ({}))) as Partial<UpdatedExtension> & { error?: string };
       if (!res.ok) throw new Error(data.error ?? t("extensionUpdates.updateFailed"));
       const result = data as UpdatedExtension;
@@ -121,7 +131,6 @@ export function useExtensionUpdates(enabled: boolean) {
       }
       return null;
     } finally {
-      window.clearTimeout(timer);
       setUpdating(null);
     }
   }

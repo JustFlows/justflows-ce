@@ -25,6 +25,7 @@ interface UserRow {
 }
 
 const SITE_ID = "22222222-2222-4222-8222-222222222222";
+const OTHER_SITE_ID = "33333333-3333-4333-8333-333333333333";
 let users: UserRow[];
 let extraRoles: Array<{ user_id: string; site_id: string; role: string }>;
 let deviceSessions: Array<{ id: string; user_id: string; site_id: string; expires_at: string; revoked_at: string | null }>;
@@ -71,6 +72,11 @@ const fakeDb = {
     if (/FROM users WHERE email = \?/i.test(sql)) {
       const [email] = params;
       const row = users.find((u) => u.email === email);
+      return row ? ([{ ...row }] as unknown as T[]) : [];
+    }
+    if (/FROM users WHERE id = \? AND site_id = \?/i.test(sql)) {
+      const [id, siteId] = params;
+      const row = users.find((user) => user.id === id && user.site_id === siteId);
       return row ? ([{ ...row }] as unknown as T[]) : [];
     }
     if (/FROM users WHERE id = \?/i.test(sql)) {
@@ -121,7 +127,8 @@ const fakeDb = {
     const setClause = /UPDATE users SET (.+?) WHERE/i.exec(sql)?.[1];
     if (setClause) {
       const id = params[params.length - 2];
-      const row = findById(id);
+      const siteId = params[params.length - 1];
+      const row = users.find((user) => user.id === id && user.site_id === siteId);
       if (row) applySet(row, setClause, params);
     }
   },
@@ -369,6 +376,15 @@ describe("GET /api/users/:id", () => {
     const res = await get("/api/users/does-not-exist", jar);
     expect(res.status).toBe(404);
   });
+
+  it("does not expose a user from another site", async () => {
+    const foreign = await makeUser({ id: "foreign-1", site_id: OTHER_SITE_ID, email: "foreign@example.com" });
+    users.push(foreign);
+    const jar = new Jar();
+    await signIn(admin1.email, jar);
+
+    expect((await get(`/api/users/${foreign.id}`, jar)).status).toBe(404);
+  });
 });
 
 describe("PATCH /api/users/:id", () => {
@@ -409,6 +425,23 @@ describe("PATCH /api/users/:id", () => {
     await signIn(admin1.email, jar);
     const res = await patch("/api/users/does-not-exist", { role: "editor" }, jar);
     expect(res.status).toBe(404);
+  });
+
+  it("does not update or report success for a user from another site", async () => {
+    const foreign = await makeUser({
+      id: "foreign-1",
+      site_id: OTHER_SITE_ID,
+      email: "foreign@example.com",
+      display_name: "Foreign User",
+    });
+    users.push(foreign);
+    const jar = new Jar();
+    await signIn(admin1.email, jar);
+
+    const res = await patch(`/api/users/${foreign.id}`, { displayName: "Cross-site update" }, jar);
+
+    expect(res.status).toBe(404);
+    expect(findById(foreign.id)?.display_name).toBe("Foreign User");
   });
 });
 
@@ -523,5 +556,15 @@ describe("DELETE /api/users/:id", () => {
     await signIn(admin1.email, jar);
     const res = await del("/api/users/does-not-exist", jar);
     expect(res.status).toBe(404);
+  });
+
+  it("does not delete a user from another site", async () => {
+    const foreign = await makeUser({ id: "foreign-1", site_id: OTHER_SITE_ID, email: "foreign@example.com" });
+    users.push(foreign);
+    const jar = new Jar();
+    await signIn(admin1.email, jar);
+
+    expect((await del(`/api/users/${foreign.id}`, jar)).status).toBe(404);
+    expect(findById(foreign.id)).toEqual(foreign);
   });
 });

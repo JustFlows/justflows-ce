@@ -11,6 +11,7 @@ import { securityHeaders } from "../../middleware/security-headers.js";
 import { withoutSharedCache } from "../../lib/cache/jf-cache.js";
 import { isPreviewAllowed } from "../../lib/auth/auth-session.js";
 import type { ContentResponse } from "../../lib/content/content-api.js";
+import { publicScriptUrl } from "../../lib/rendering/page-scripts.js";
 
 const reads = rateLimit({ windowMs: 60000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
 export const accountPagesRouter = Router();
@@ -37,7 +38,7 @@ export async function serveAccountContent(req: Request, res: Response, content: 
     const { renderSinglePageHtml } = await import("./public-site.js");
     return renderSinglePageHtml(req, res, requestPath, content.slug, content.locale, preview, [], pageNumber, url, content, false, url);
   });
-  const assets = '<link rel="stylesheet" href="/css/account.css"><script src="/js/account.js" defer></script>';
+  const assets = `<link rel="stylesheet" href="/css/account.css"><script src="${publicScriptUrl("account")}" defer></script>`;
   res.type("html").send(html.includes('id="initial-account"') ? html.replace("</head>", assets + "</head>") : html);
 }
 

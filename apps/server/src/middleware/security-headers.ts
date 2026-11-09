@@ -98,7 +98,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
           // A broken export config must not cost the page its other CSP additions.
         }
       }
-      // Plugins name the third-party hosts their pages load (Stripe, and so on)
+      // Plugins name the third-party hosts their pages load (a payment provider, and so on)
       // before the site's own addresses are added to those same directives.
       try {
         const { getRuntimeHooks } = await import("../lib/plugins/plugin-runtime.js");

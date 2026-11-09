@@ -77,9 +77,22 @@ All additive; existing plugins are unaffected.
 - The `html.title`, `html.canonical`, and `site.identity` filters, and a richer
   `html.head` context (`PublicPageContext`: content type and fields,
   description, canonical URL, share image, origin, and `indexable`).
-- `editorPanels` in the plugin manifest adds content editor sections
+- `editorPanels` in the plugin manifest adds content editor sections. A panel is either saved fields or an embedded admin screen for the entry being edited.
   (`EditorPanelSchema`, `EditorPanelFieldSchema`, `LocalizedTextSchema`, and the
   `PluginEditorPanel` and `LocalizedText` types are exported).
+- `workspacePanels` in the plugin manifest adds Platform → Workspace cards
+  (`WorkspacePanelSchema`, `PluginWorkspacePanel`). The admin bridge context
+  carries `workspaceId` for them.
+- The `plugin` menu domain gives a plugin its own sidebar section, named by
+  `adminSection` (`AdminSectionSchema`, `PluginAdminSection`).
+- `adminMenu[].domain` no longer lists `helpdesk` or `files`. A domain the host
+  does not know parses as `extensions` instead of failing, so a manifest that
+  still names one activates with its pages under Extensions. Move those pages
+  to the `plugin` domain.
+- `ctx.ai.complete` takes an optional `system`: the plugin's own role for the
+  assistant. The host always adds that the text is data, not instructions.
+- The `staticExport.formAction` context `endpoint` is `"comments"` or any
+  string a plugin passes.
 - `hostCooperative` is no longer part of the manifest schema. Manifests that
   still declare it parse as before; the field is dropped.
 

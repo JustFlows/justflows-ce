@@ -1,9 +1,8 @@
 {
   "id": "contact",
   "title": "Contact page",
-  "description": "Hero, contact details, and a message form. The form needs the Forms extension installed.",
+  "description": "Hero, contact details, and a button that opens an email.",
   "category": "pages",
-  "requiresBlockTypes": ["justflows.forms.form"],
   "blocks": [
     {
       "id": "contact-hero",
@@ -53,7 +52,7 @@
                       "type": "core.paragraph",
                       "version": 1,
                       "props": {
-                        "text": "Reach us directly, or use the form and we'll reply by email — usually within a business day."
+                        "text": "Reach us directly and we'll reply by email — usually within a business day."
                       }
                     },
                     {
@@ -67,16 +66,28 @@
                   ]
                 },
                 {
-                  "id": "contact-col-form",
+                  "id": "contact-col-email",
                   "type": "core.column",
                   "version": 1,
                   "props": {},
                   "children": [
                     {
-                      "id": "contact-form",
-                      "type": "justflows.forms.form",
+                      "id": "contact-email-heading",
+                      "type": "core.heading",
                       "version": 1,
-                      "props": { "formId": "contact" }
+                      "props": { "text": "Send us a message", "level": 2 }
+                    },
+                    {
+                      "id": "contact-email-text",
+                      "type": "core.paragraph",
+                      "version": 1,
+                      "props": { "text": "Write to us with your question and we'll get back to you." }
+                    },
+                    {
+                      "id": "contact-email-button",
+                      "type": "core.button",
+                      "version": 1,
+                      "props": { "label": "Email us", "url": "mailto:hello@example.com", "variant": "primary" }
                     }
                   ]
                 }

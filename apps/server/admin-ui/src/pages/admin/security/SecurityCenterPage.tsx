@@ -146,17 +146,19 @@ export default function SecurityCenterPage() {
 
       {report?.auditAvailable && (
         <p>
-          <Link to="/admin/security/audit">{t("security.center.events")}</Link>
+          <Link to="/admin/security/audit?view=security">{t("security.center.events")}</Link>
           {" · "}
           {t("security.center.eventsHint")}
         </p>
       )}
 
-      <p>
-        <Link to="/admin/security/web-server">{t("security.webServer.centerLink")}</Link>
-        {" · "}
-        {t("security.webServer.centerHint")}
-      </p>
+      {report?.installationRoot && (
+        <p>
+          <Link to="/admin/security/web-server">{t("security.webServer.centerLink")}</Link>
+          {" · "}
+          {t("security.webServer.centerHint")}
+        </p>
+      )}
 
       {report && checks.length === 0 && <p>{t("security.center.empty")}</p>}
 
@@ -223,6 +225,8 @@ function checkTitle(id: string): string {
       return "security.center.checks.runtimeNode.title";
     case "runtime.update":
       return "security.center.checks.runtimeUpdate.title";
+    case "runtime.advisories":
+      return "security.center.checks.runtimeAdvisories.title";
     case "runtime.debug":
       return "security.center.checks.runtimeDebug.title";
     case "runtime.installer":

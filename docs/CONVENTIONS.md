@@ -89,8 +89,13 @@ singular when there's only one entry.
   (`site-nav.ts` → `/js/site-nav.js`). Each file is fully independent — no
   imports between them — since each ships as its own standalone IIFE.
 - `apps/server/public-scripts/build.mjs` compiles them with esbuild into
-  `public/js/*.js` (repo root) at the same stable, non-content-hashed
-  filenames the served URLs have always used; `public-scripts/tsconfig.json`
+  `public/js` (repo root): a content-hashed `<name>-<hash>.js` that pages link
+  through `public/js/manifest.json` (`publicScriptUrl` in
+  `apps/server/src/lib/rendering/page-scripts.ts`, served `immutable`), plus
+  the stable `<name>.js` (`no-cache`) for older links. Never hard-code
+  `/js/<name>.js` in a renderer. Layout scripts are added per page from the
+  markup that needs them (`PAGE_SCRIPTS` in the same file): a new script that
+  every page should not load declares its marker there. `public-scripts/tsconfig.json`
   exists only for `tsc --noEmit` type-checking (esbuild does not type-check).
   Both run as part of `pnpm --filter @justflows/server build`/`typecheck`.
 - `public/js/*.js` is generated and gitignored (see `.gitignore`) — same
@@ -138,6 +143,12 @@ singular when there's only one entry.
 - Group admin pages under `pages/admin/<domain>/` (for example `content/`,
   `design/`, `extensions/`, `settings/`, and `security/`). Feature-specific
   panels belong with their pages; shared components remain in `components/`.
+- Register a route page in `App.tsx` with `lazyPage(() => import(...))`, never
+  a static import, so it ships in its own chunk. Do not add a `codeSplitting`
+  group for admin source in `vite.config.ts`: a group also captures the shared
+  modules it imports and drags itself into every first load. `pnpm
+  assets:check` (run in CI) fails when the admin first load or a public page's
+  core scripts grow past their budgets.
 - Tests live in `apps/server/admin-ui/tests/`, mirroring `pages/`,
   `components/`, `lib/`, and `config/`. Shared setup and accessibility helpers
   live in `tests/helpers/`. The browser suite has its own jsdom Vitest project.

@@ -16,7 +16,7 @@ vi.mock("../../../src/lib/tenancy/connections.js", () => ({ eachActiveSite: asyn
 vi.mock("../../../src/lib/security/pinned-fetch.js", () => ({ pinnedFetch: env.fetch }));
 vi.mock("../../../src/lib/security/webhook-url.js", () => ({ validateWebhookUrl: async (url: string) => new URL(url) }));
 vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({ getRuntimeHooks: () => ({
-  applyFilter: async (hook: string, value: unknown) => hook === "webhook.eventTypes" ? [...value as string[], "justflows.shop.order.paid"] : value,
+  applyFilter: async (hook: string, value: unknown) => hook === "webhook.eventTypes" ? [...value as string[], "justflows.store.order.paid"] : value,
   dispatchAction: env.dispatch,
   action: (event: string, handler: (payload: unknown, context: Record<string, unknown>) => Promise<void>) => env.actions.set(event, handler),
 }) }));
@@ -24,19 +24,19 @@ vi.mock("@justflows/jobs", () => ({ JobScheduler: class { enqueue = env.enqueue;
 
 import { enqueueWebhookEvent, processDueWebhookDeliveries, refreshWebhookEventHooks, startWebhookJobs } from "../../../src/lib/http/webhooks.js";
 
-const payload = JSON.stringify({ id: "outer-id", event: "justflows.shop.order.paid", createdAt: "2026-10-11T10:00:00Z", data: { version: 1, eventKey: "order.paid:order-1", totalMinor: 1000 } });
+const payload = JSON.stringify({ id: "outer-id", event: "justflows.store.order.paid", createdAt: "2026-10-11T10:00:00Z", data: { version: 1, eventKey: "order.paid:order-1", totalMinor: 1000 } });
 const row = { id: "delivery-1", endpoint_id: "endpoint-1", site_id: "site-1", payload, attempt_count: 0, url: "https://receiver.example/events", secret_ciphertext: "test-webhook-secret" };
 
 beforeEach(() => { env.active = true; vi.clearAllMocks(); env.query.mockResolvedValue([]); env.fetch.mockResolvedValue(new Response(null, { status: 204 })); });
 
 describe("commerce webhook delivery contract", () => {
   it("queues only the site's subscriptions and retains the versioned Shop envelope", async () => {
-    env.query.mockResolvedValue([{ id: "endpoint-1", site_id: "site-1", events: '["justflows.shop.order.paid"]' }, { id: "endpoint-2", site_id: "site-1", events: '["content.created"]' }]);
-    expect(await enqueueWebhookEvent("justflows.shop.order.paid", { version: 1, eventKey: "order.paid:order-1" }, { siteId: "site-1" })).toBe(1);
+    env.query.mockResolvedValue([{ id: "endpoint-1", site_id: "site-1", events: '["justflows.store.order.paid"]' }, { id: "endpoint-2", site_id: "site-1", events: '["content.created"]' }]);
+    expect(await enqueueWebhookEvent("justflows.store.order.paid", { version: 1, eventKey: "order.paid:order-1" }, { siteId: "site-1" })).toBe(1);
     expect(env.query.mock.calls[0]).toEqual([expect.stringContaining("WHERE site_id = ?"), ["site-1", true]]);
     const params = env.run.mock.calls[0]![1] as unknown as unknown[];
     expect(params[2]).toBe("site-1");
-    expect(JSON.parse(String(params[4]))).toMatchObject({ event: "justflows.shop.order.paid", data: { version: 1, eventKey: "order.paid:order-1" } });
+    expect(JSON.parse(String(params[4]))).toMatchObject({ event: "justflows.store.order.paid", data: { version: 1, eventKey: "order.paid:order-1" } });
   });
 
   it("does not deliver suspended workspace webhooks", async () => {
@@ -75,7 +75,7 @@ describe("commerce webhook delivery contract", () => {
     expect(env.run.mock.calls.some(([sql]) => String(sql).includes("WHERE status = 'processing'"))).toBe(true);
     await refreshWebhookEventHooks();
     env.query.mockClear();
-    await env.actions.get("justflows.shop.order.paid")!({ version: 1 }, { siteId: "site-1", webhookQueued: true });
+    await env.actions.get("justflows.store.order.paid")!({ version: 1 }, { siteId: "site-1", webhookQueued: true });
     expect(env.query).not.toHaveBeenCalled();
   });
 });

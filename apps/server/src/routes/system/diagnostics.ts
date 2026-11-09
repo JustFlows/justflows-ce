@@ -15,6 +15,7 @@ import { getPluginLoader, getRuntimeHooks } from "../../lib/plugins/plugin-runti
 import { getDurableJobQueue, getPluginJobScheduler } from "../../lib/plugins/plugin-jobs.js";
 import { getCoreJobScheduler } from "../../lib/jobs/core-jobs.js";
 import { countJobs, listOpenJobs, retryFailedJob } from "../../lib/jobs/job-queue-db.js";
+import { automaticBackupHealth } from "../../lib/backup/scheduled-backups.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { MIGRATION_ORDER } from "../../lib/database/run-migrations.js";
 import { requireInstallationRoot, requireRole } from "../../middleware/auth.js";
@@ -294,6 +295,7 @@ async function buildReport(siteId: string) {
       ],
       queue: await queueReport(),
     },
+    automaticBackups: await automaticBackupHealth(),
     pluginChecks: redactDiagnosticValue(pluginChecks),
     errors: recentDiagnosticErrors(),
     traces: recentRequestTraces(),

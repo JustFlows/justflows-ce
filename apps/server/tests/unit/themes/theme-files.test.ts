@@ -91,8 +91,8 @@ describe("listThemePatterns", () => {
       JSON.stringify({
         id: "contact",
         title: "Contact page",
-        requiresBlockTypes: ["justflows.forms.form"],
-        blocks: [{ id: "form", type: "justflows.forms.form", version: 1, props: {} }],
+        requiresBlockTypes: ["justflows.contact.form"],
+        blocks: [{ id: "form", type: "justflows.contact.form", version: 1, props: {} }],
       }),
     );
     fs.writeFileSync(
@@ -106,7 +106,7 @@ describe("listThemePatterns", () => {
 
     const patterns = listThemePatterns("justflows.default");
     expect(patterns.find((p) => p.id === "contact")?.requiresBlockTypes).toEqual([
-      "justflows.forms.form",
+      "justflows.contact.form",
     ]);
     expect(patterns.find((p) => p.id === "about")?.requiresBlockTypes).toBeUndefined();
   });

@@ -49,26 +49,13 @@ export default defineConfig({
               test: /node_modules[\\/](?:zod|sanitize-html|htmlparser2|domhandler|domutils|entities|dom-serializer|domelementtype)[\\/]/,
               priority: 23,
             },
-            {
-              name: "builder",
-              test: /admin-ui[\\/]src[\\/]components[\\/]builder[\\/]/,
-              priority: 20,
-            },
-            {
-              name: "admin-settings",
-              test: /admin-ui[\\/]src[\\/]pages[\\/]admin[\\/]settings[\\/]/,
-              priority: 11,
-            },
-            {
-              name: "admin-design",
-              test: /admin-ui[\\/]src[\\/]pages[\\/]admin[\\/]design[\\/]/,
-              priority: 11,
-            },
-            {
-              name: "admin-pages",
-              test: /admin-ui[\\/]src[\\/]pages[\\/]admin[\\/]/,
-              priority: 10,
-            },
+            /**
+             * Admin source is not grouped: each lazy route in App.tsx gets its
+             * own chunk, and builder code splits with the pages that use it.
+             * A group here would also capture the shared modules it imports
+             * (i18n, router helpers), which the entry needs, and so turn the
+             * whole group into part of every first load.
+             */
           ],
         },
       },

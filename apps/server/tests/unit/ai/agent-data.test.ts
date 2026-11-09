@@ -31,7 +31,7 @@ describe("agent data security boundary", () => {
     "DATABASE_URL=postgres://user:password@example.test/db",
     "export SMTP_PASSWORD=private",
     "Read /app/.env.production: contents here",
-    "-----BEGIN RSA PRIVATE KEY-----\nprivate",
+    "-----BEGIN RSA PRIVATE KEY-----\nprivate", // scan-secrets:allow
     "Authorization: Bearer private-token",
     "mysql://user:password@example.test/db",
   ])("blocks sensitive text: %s", (text) => {

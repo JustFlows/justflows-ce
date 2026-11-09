@@ -7,6 +7,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { verifyCoreIntegrity, writeCoreManifest } from "../../../src/lib/security/core-integrity.js";
 import {
+  loadIntegrityOverview,
   extensionAllowsLoad,
   invalidateIntegrityCache,
   recordInstalledPackageBaseline,
@@ -108,6 +109,8 @@ describe("core integrity", () => {
   it("distinguishes a signed manifest, a local baseline, and a missing manifest", async () => {
     await fs.writeFile(path.join(root, "package.json"), JSON.stringify({ version: "1.2.3" }));
     await fs.writeFile(path.join(root, "server.js"), "console.log('ok');\n");
+    await fs.mkdir(path.join(root, "plugins", "demo"), { recursive: true });
+    await fs.writeFile(path.join(root, "plugins", "demo", "index.js"), "plugin");
     expect((await verifyCoreIntegrity({ root })).status).toBe("absent");
 
     await writeCoreManifest({ root, kind: "local", version: "1.2.3" });
@@ -117,11 +120,28 @@ describe("core integrity", () => {
     const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
     const publicPem = publicKey.export({ type: "spki", format: "pem" }).toString();
     await writeCoreManifest({ root, kind: "official", privateKeyPem, version: "1.2.3" });
+    const manifest = JSON.parse(await fs.readFile(path.join(root, "core-integrity.json"), "utf8")) as {
+      files: Array<{ path: string }>;
+    };
+    expect(manifest.files.some((file) => file.path.startsWith("plugins/"))).toBe(false);
     expect((await verifyCoreIntegrity({ root, publicKeys: [publicPem] })).status).toBe("verified");
 
     await fs.writeFile(path.join(root, "server.js"), "console.log('tampered');\n");
     const failed = await verifyCoreIntegrity({ root, publicKeys: [publicPem] });
     expect(failed.status).toBe("failed");
     expect(failed.mismatched).toContain("server.js");
+  });
+});
+
+describe("loadIntegrityOverview", () => {
+  it("shares one scan between concurrent requests", async () => {
+    const [first, second] = await Promise.all([loadIntegrityOverview(true), loadIntegrityOverview(true)]);
+    expect(second).toBe(first);
+  });
+
+  it("starts a new scan once the last one has finished", async () => {
+    const first = await loadIntegrityOverview(true);
+    const second = await loadIntegrityOverview(true);
+    expect(second).not.toBe(first);
   });
 });

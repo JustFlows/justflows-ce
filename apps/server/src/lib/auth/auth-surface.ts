@@ -28,7 +28,7 @@ export async function requestSurface(suppliedAdminPath: unknown): Promise<AuthSu
 /**
  * Where the browser should go once authenticated.
  *
- * A subscriber, or a plugin role such as Shop's customer, has nothing in the
+ * A subscriber, or a role a plugin adds such as a customer, has nothing in the
  * admin app and lands on the site's frontend account page.
  * Everyone else lands on the admin app — at whatever path the administrator
  * moved it to (issue #51). The pre-session pages have no way to know that path

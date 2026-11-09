@@ -19,7 +19,7 @@ and move, remove or add **Account section** blocks. Each account block can show:
 - **Account controls:** sign out and action feedback.
 - **Profile:** the current user's profile section.
 - **Plugin sections:** all active contributions, or one stable section ID such
-  as `justflows.shop.orders`.
+  as `acme.store.orders`.
 - **Workspaces:** owned workspaces on the installation's root site.
 - **All account sections:** the complete set together.
 

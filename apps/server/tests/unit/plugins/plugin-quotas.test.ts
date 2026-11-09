@@ -35,7 +35,7 @@ describe("plugin quotas for another workspace", () => {
   });
 
   it("sets a site meter on the target site and a workspace meter on that site's workspace", async () => {
-    const api = createPluginQuotasApi("justflows.shop", new Set(["platform:tenancy"]), "root-site");
+    const api = createPluginQuotasApi("justflows.store", new Set(["platform:tenancy"]), "root-site");
     await api.set("users", 10, { siteId: "tenant-site" });
     await api.set("sites", 3, { siteId: "tenant-site" });
     await api.set("sites", 4, { tenantId: "tenant-1" });
@@ -50,18 +50,18 @@ describe("plugin quotas for another workspace", () => {
 
   it("refuses a target from a site that is not the root site", async () => {
     root = "root-site";
-    const api = createPluginQuotasApi("justflows.shop", new Set(["platform:tenancy"]), "hosted-site");
+    const api = createPluginQuotasApi("justflows.store", new Set(["platform:tenancy"]), "hosted-site");
     await expect(api.set("users", 1000, { siteId: "hosted-site" })).rejects.toThrow(/root site/);
     expect(setQuotaLimit).not.toHaveBeenCalled();
   });
 
   it("needs platform:tenancy", async () => {
-    const api = createPluginQuotasApi("justflows.shop", new Set(), "root-site");
+    const api = createPluginQuotasApi("justflows.store", new Set(), "root-site");
     await expect(api.set("users", 1, { siteId: "tenant-site" })).rejects.toThrow(/platform:tenancy/);
   });
 
   it("lists every meter with its owner", async () => {
-    const api = createPluginQuotasApi("justflows.shop", new Set(), "root-site");
+    const api = createPluginQuotasApi("justflows.store", new Set(), "root-site");
     await expect(api.meters!()).resolves.toEqual([
       { key: "sites", scope: "workspace", label: "Sites", unit: "count", owner: "core" },
       { key: "users", scope: "site", label: "Users", unit: "count", owner: "core" },

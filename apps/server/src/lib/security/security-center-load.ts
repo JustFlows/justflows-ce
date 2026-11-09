@@ -22,6 +22,7 @@ import {
   compareCoreVersions,
   parseCoreVersion,
 } from "../updates/core-release-check.js";
+import { classifyTrustedProxy } from "./trusted-proxy.js";
 
 function sqlNow(): string {
   return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
@@ -39,6 +40,11 @@ function appUrlScheme(url: string | undefined): SecurityCenterFacts["appUrl"] {
   return "missing";
 }
 
+function securityCenterProxy(raw: string | undefined): NonNullable<SecurityCenterFacts["proxy"]> {
+  const proxy = classifyTrustedProxy(raw);
+  return { ...proxy, value: proxy.value.slice(0, 80) };
+}
+
 /** Same decision as `setSessionCookie` in session.ts. */
 function cookieWouldBeSecure(production: boolean, appUrl: string | undefined): boolean {
   return production || (appUrl ?? "").startsWith("https://");
@@ -54,15 +60,6 @@ function readMinimumNodeMajor(): number | null {
   } catch {
     return null;
   }
-}
-
-function classifyProxy(raw: string | undefined): NonNullable<SecurityCenterFacts["proxy"]> {
-  const value = (raw ?? "loopback").trim();
-  if (value === "" || value === "false" || value === "0") {
-    return { mode: "disabled", value: value || "false" };
-  }
-  if (value === "true") return { mode: "wide", value };
-  return { mode: "bounded", value: value.slice(0, 80) };
 }
 
 function classifyUpdate(currentVersion: string): SecurityCenterFacts["update"] {
@@ -166,6 +163,40 @@ async function readHeaders(siteId: string | null): Promise<SecurityCenterFacts["
   }
 }
 
+/** Ids shown in one row. The rest are counted, not listed. */
+const MAX_LISTED_ADVISORIES = 5;
+
+async function readAdvisories(siteId: string, coreVersion: string): Promise<SecurityCenterFacts["advisories"]> {
+  try {
+    const { loadAdvisoryFeed, matchAdvisories } = await import("./security-advisories.js");
+    const stored = await loadAdvisoryFeed(siteId);
+    if (stored.state === "unavailable") return { state: "unavailable" };
+    if (stored.state === "expired") return { state: "expired", expiresAt: stored.feed.expiresAt };
+
+    const { listPlugins } = await import("../plugins/plugins-db.js");
+    const { listThemes } = await import("../themes/themes-db.js");
+    const [plugins, themes] = await Promise.all([listPlugins(siteId), listThemes(siteId)]);
+    const matches = matchAdvisories(stored.feed, [
+      { type: "core", id: "justflows", version: coreVersion },
+      ...plugins.map((p) => ({ type: "plugin" as const, id: p.id, version: p.version })),
+      ...themes.map((t) => ({ type: "theme" as const, id: t.theme_id, version: t.version })),
+    ]);
+    return {
+      state: "current",
+      issuedAt: stored.feed.issuedAt,
+      affected: matches.length,
+      revoked: matches.filter((match) => match.advisory.revoked).length,
+      highest: matches[0]?.advisory.severity ?? null,
+      ids: matches
+        .slice(0, MAX_LISTED_ADVISORIES)
+        .map((match) => match.advisory.id)
+        .join(", "),
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
 /**
  * Evidence for the Security Center.
  * Update discovery uses the process cache only, so opening the page does not
@@ -185,7 +216,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     siteId = null;
   }
 
-  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity] = await Promise.all([
+  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity, backup] = await Promise.all([
     siteId ? readAdminMfa(siteId) : Promise.resolve({ state: "unknown" } as const),
     siteId ? readSessions(siteId) : Promise.resolve({ state: "unknown" } as const),
     siteId ? readApiKeys(siteId) : Promise.resolve({ state: "unknown" } as const),
@@ -194,7 +225,11 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
       ? siteFeatureEnabled("feature.securityAudit", siteId).catch(() => false)
       : Promise.resolve(false),
     installationRoot ? readIntegrity() : Promise.resolve({ state: "unknown" } as const),
+    installationRoot ? readBackup() : Promise.resolve({ state: "unknown" } as const),
   ]);
+
+  const advisories: SecurityCenterFacts["advisories"] =
+    installationRoot && siteId ? await readAdvisories(siteId, coreVersion) : { state: "unavailable" };
 
   const facts: SecurityCenterFacts = {
     checkedAt,
@@ -203,6 +238,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     minimumNodeMajor: readMinimumNodeMajor(),
     coreVersion,
     update: classifyUpdate(coreVersion),
+    advisories,
     debugEnabled: debug.enabled,
     production,
     installerClosed: isInstalled(),
@@ -211,12 +247,32 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     apiKeys,
     appUrl: appUrlScheme(appUrl),
     cookieSecure: cookieWouldBeSecure(production, appUrl),
-    proxy: installationRoot ? classifyProxy(process.env.TRUST_PROXY) : null,
+    proxy: installationRoot ? securityCenterProxy(process.env.TRUST_PROXY) : null,
     headers,
     auditAvailable,
     integrity,
+    backup,
   };
   return securityCenterReport(facts);
+}
+
+/** Backups are scheduled on the installation root, so a subsite has no evidence to read. */
+async function readBackup(): Promise<SecurityCenterFacts["backup"]> {
+  try {
+    const { automaticBackupHealth } = await import("../backup/scheduled-backups.js");
+    const schedule = await automaticBackupHealth();
+    if (!schedule.siteId) return { state: "unknown" };
+    return {
+      state: "known",
+      enabled: schedule.enabled,
+      lastStatus: schedule.lastStatus,
+      lastFinishedAt: schedule.lastFinishedAt,
+      nextRunAt: schedule.nextRunAt,
+      destination: schedule.destination,
+    };
+  } catch {
+    return { state: "unknown" };
+  }
 }
 
 async function readIntegrity(): Promise<SecurityCenterFacts["integrity"]> {

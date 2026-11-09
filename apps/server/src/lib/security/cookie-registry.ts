@@ -14,7 +14,7 @@ const OVERRIDES_KEY = "cookies.overrides";
 
 /**
  * Cookies the platform itself sets. Plugins declare their own through
- * `ctx.cookies.declare`; the consent plugin discloses and enforces the union.
+ * `ctx.cookies.declare`; a consent plugin discloses and enforces the union.
  */
 export const CORE_COOKIES: CookieDeclaration[] = [
   {

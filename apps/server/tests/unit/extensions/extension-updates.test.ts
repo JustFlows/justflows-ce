@@ -2,6 +2,10 @@
 
 import { describe, expect, it } from "vitest";
 import { findExtensionUpdates } from "../../../src/lib/extensions/extension-updates.js";
+import {
+  assertMarketplaceUpgrade,
+  MarketplaceRequestError,
+} from "../../../src/lib/extensions/marketplace-package.js";
 
 type Item = Record<string, unknown>;
 
@@ -95,7 +99,9 @@ describe("findExtensionUpdates", () => {
   });
 
   it("only offers beta builds when the site allows beta installs", () => {
-    const installed = [{ type: "plugin" as const, id: "acme.beta", name: "Beta", version: "0.1.0" }];
+    const installed = [
+      { type: "plugin" as const, id: "acme.beta", name: "Beta", version: "0.1.0" },
+    ];
     const items = catalog({
       type: "plugin",
       id: "acme.beta",
@@ -106,5 +112,30 @@ describe("findExtensionUpdates", () => {
     expect(findExtensionUpdates(installed, items, noAuto, true)).toEqual([
       expect.objectContaining({ id: "acme.beta", beta: true }),
     ]);
+  });
+});
+
+describe("assertMarketplaceUpgrade", () => {
+  it("accepts only a newer semantic version", () => {
+    expect(() => assertMarketplaceUpgrade("1.2.3", "1.2.4")).not.toThrow();
+    expect(() => assertMarketplaceUpgrade("1.2.3", "2.0.0")).not.toThrow();
+  });
+
+  it.each(["1.2.3", "1.2.2", "0.9.0"])("blocks equal or older version %s", (incoming) => {
+    expect(() => assertMarketplaceUpgrade("1.2.3", incoming)).toThrow(
+      expect.objectContaining<Partial<MarketplaceRequestError>>({
+        status: 409,
+        body: expect.objectContaining({ code: "extension_downgrade_blocked" }),
+      }),
+    );
+  });
+
+  it("fails closed when either version is not semantic", () => {
+    expect(() => assertMarketplaceUpgrade("development", "1.2.3")).toThrow(
+      expect.objectContaining<Partial<MarketplaceRequestError>>({
+        status: 409,
+        body: expect.objectContaining({ code: "invalid_update_version" }),
+      }),
+    );
   });
 });

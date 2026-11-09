@@ -34,9 +34,11 @@ export function allowUnsignedPackages(): boolean {
  * Justflows marketplace Ed25519 public key (SPKI PEM).
  * Packages from api.justflows.com are signed with the matching private key.
  */
-const JUSTFLOWS_MARKETPLACE_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+export const MARKETPLACE_PUBLIC_KEYS: readonly string[] = [
+  `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEA2XeYyQg1/VM9A+y2Xh7Yw9+XYHBK6y7gUuOC6NVLZrw=
------END PUBLIC KEY-----`;
+-----END PUBLIC KEY-----`,
+];
 
 export function marketplaceSignPayload(
   id: string,
@@ -51,19 +53,22 @@ export function verifyMarketplaceSignature(
   digestHex: string,
   signatureB64: string,
   bind?: { id: string; version: string; publisher: string },
+  publicKeys: readonly string[] = MARKETPLACE_PUBLIC_KEYS,
 ): boolean {
   if (!digestHex || !signatureB64) return false;
 
-  try {
-    const payload = bind
-      ? marketplaceSignPayload(bind.id, bind.version, bind.publisher, digestHex)
-      : Buffer.from(digestHex.toLowerCase(), "hex");
-    const signature = Buffer.from(signatureB64, "base64");
-    const key = createPublicKey(JUSTFLOWS_MARKETPLACE_PUBLIC_KEY);
-    return verifySignature(null, payload, key, signature);
-  } catch {
-    return false;
+  const payload = bind
+    ? marketplaceSignPayload(bind.id, bind.version, bind.publisher, digestHex)
+    : Buffer.from(digestHex.toLowerCase(), "hex");
+  const signature = Buffer.from(signatureB64, "base64");
+  for (const pem of publicKeys) {
+    try {
+      if (verifySignature(null, payload, createPublicKey(pem), signature)) return true;
+    } catch {
+      /** Ignore an invalid or retired key and try the remaining trusted keys. */
+    }
   }
+  return false;
 }
 
 export interface PackageTrustOptions {

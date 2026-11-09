@@ -35,11 +35,11 @@ const ABOUT = {
   type: "page",
   locale: "en-US",
 };
-const MUG = {
-  id: "product-mug",
-  title: "Ceramic mug",
-  slug: "ceramic-mug",
-  type: "product",
+const FAIR = {
+  id: "event-fair",
+  title: "Summer fair",
+  slug: "summer-fair",
+  type: "event",
   locale: "en-US",
 };
 
@@ -62,8 +62,8 @@ function mockFetch(): ReturnType<typeof vi.fn> {
         types: [
           { slug: "page", label: "Page" },
           { slug: "post", label: "Post" },
-          { slug: "product", label: "Product" },
-          { slug: "shop", label: "Shop" },
+          { slug: "event", label: "Events" },
+          { slug: "venue", label: "Venues" },
         ],
       });
     }
@@ -80,10 +80,10 @@ function mockFetch(): ReturnType<typeof vi.fn> {
     if (path.startsWith("/api/content?type=post")) {
       return jsonResponse({ items: [] });
     }
-    if (path.startsWith("/api/content?type=product")) {
-      return jsonResponse({ items: [MUG] });
+    if (path.startsWith("/api/content?type=event")) {
+      return jsonResponse({ items: [FAIR] });
     }
-    if (path.startsWith("/api/content?type=shop")) {
+    if (path.startsWith("/api/content?type=venue")) {
       return jsonResponse({ items: [] });
     }
     return jsonResponse({});
@@ -122,25 +122,25 @@ describe("MenusPage content picker", () => {
     expect(pageCalls.some((path) => path.includes("locale="))).toBe(false);
   });
 
-  it("lists other content types such as products in the picker", async () => {
+  it("lists other content types under their own label in the picker", async () => {
     const user = userEvent.setup();
     const fetchMock = mockFetch();
     renderPage();
 
-    expect(await screen.findByRole("button", { name: "Products" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Shop" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Events" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Venues" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Products" }));
-    expect(await screen.findByText("Ceramic mug")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Events" }));
+    expect(await screen.findByText("Summer fair")).toBeInTheDocument();
 
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Add to menu" }));
-    expect(screen.getByDisplayValue("Ceramic mug")).toBeInTheDocument();
-    expect(screen.getByText("Product")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Summer fair")).toBeInTheDocument();
+    expect(screen.getAllByText("Events").length).toBeGreaterThan(1);
 
-    const productCalls = fetchMock.mock.calls
+    const eventCalls = fetchMock.mock.calls
       .map(([input]) => String(input))
-      .filter((path) => path.startsWith("/api/content?type=product"));
-    expect(productCalls.some((path) => path.includes("locale="))).toBe(false);
+      .filter((path) => path.startsWith("/api/content?type=event"));
+    expect(eventCalls.some((path) => path.includes("locale="))).toBe(false);
   });
 });

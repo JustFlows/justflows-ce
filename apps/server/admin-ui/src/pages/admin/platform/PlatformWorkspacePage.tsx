@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Link, useNavigate } from "../../../admin-router";
 import { useT } from "../../../i18n/I18nProvider";
 import { initialJson } from "../../../ssr-data";
+import PluginWorkspacePanels from "./PluginWorkspacePanels";
 import QuotaLimitsCard, { type QuotaMeter } from "./QuotaLimitsCard";
 
 interface PlatformWorkspace {
@@ -308,10 +309,11 @@ export default function PlatformWorkspacePage() {
           </aside>
         </form>
         <QuotaLimitsCard
-          key={id}
+          key={`quota-limits:${id ?? ""}`}
           endpoint={`/api/platform/tenants/${encodeURIComponent(id ?? "")}/quotas`}
           meters={record.quotas?.meters ?? []}
         />
+        {id ? <PluginWorkspacePanels key={`plugin-panels:${id}`} workspaceId={id} /> : null}
       </div>
     </>
   );
