@@ -157,6 +157,37 @@ describe("PluginHostPage", () => {
     expect(await screen.findByText("This plugin is active")).toBeInTheDocument();
   });
 
+  it("does not link to an empty Settings page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        withSession((path) => {
+          if (path.includes("/api/plugins/admin-menu")) {
+            return jsonResponse({
+              items: [
+                {
+                  pluginId: "acme.reports",
+                  id: "reports",
+                  label: "Reports",
+                  path: "/admin/reports",
+                  icon: "🛍",
+                  domain: "extensions",
+                  hasSettings: false,
+                },
+              ],
+            });
+          }
+          return jsonResponse({});
+        }),
+      ),
+    );
+
+    renderHost("/admin/reports");
+
+    expect(await screen.findByRole("heading", { name: "Reports" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Settings" })).not.toBeInTheDocument();
+  });
+
   it("renders a first-run setup wizard from GET /ext/{id}/setup", async () => {
     const fetchMock = vi.fn(
       withSession((path) => {

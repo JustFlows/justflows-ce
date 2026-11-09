@@ -115,6 +115,14 @@ function readSettingsSchemaFromDisk(manifest: Record<string, unknown>): PluginDt
   }
 }
 
+/** A plugin's settings schema as the settings page resolves it, or undefined when it has none. */
+export function resolvePluginSettingsSchema(
+  pluginId: string,
+  manifest: Record<string, unknown>,
+): PluginDto["settingsSchema"] {
+  return pickSettingsSchema(pluginId, manifest, liveSettingsSchemaLookup?.(pluginId));
+}
+
 /** The live module, then justflows.json, then the stored row. */
 export function pickSettingsSchema(
   _pluginId: string,

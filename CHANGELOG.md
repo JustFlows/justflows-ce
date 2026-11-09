@@ -11,6 +11,10 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 - **A plugin can back the object cache with a shared store.** `ctx.cache.registerStore` (new `cache:store` permission, SDK 0.1.9) offers a store that Admin → Tools lists as a cache driver (`CACHE_DRIVER=plugin:<pluginId>.<storeId>`), so several application processes share cache entries and invalidations. It is honoured only from the main site and is built only when selected. Until it is ready, and during an outage, the cache is bypassed rather than failing requests: a failed read is a miss, a failed write is skipped, and after a lost invalidation the cache stays bypassed until the store is cleared. Tools and Site Health show the store's status. ([#18](https://github.com/JustFlows/justflows-ce/issues/18))
 
+### Fixed
+
+- **A plugin page no longer shows a Settings button that leads to an empty page.** The admin menu now says whether a plugin's Settings page has a settings form or sub-pages, and the plugin page header only links to it when it does.
+
 ### Changed
 
 - **The unimplemented `redis` cache driver and `CACHE_REDIS_URL` are gone from core.** An unknown `CACHE_DRIVER` now falls back to `filesystem` instead of failing at startup, and Tools no longer rewrites `CACHE_REDIS_URL`. ([#18](https://github.com/JustFlows/justflows-ce/issues/18))
