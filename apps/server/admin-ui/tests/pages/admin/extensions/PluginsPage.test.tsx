@@ -113,8 +113,8 @@ describe("PluginsPage as an administrator", () => {
           return jsonResponse({
             plugins: [
               {
-                id: "justflows.shop",
-                name: "Shop",
+                id: "justflows.store",
+                name: "Store",
                 version: "0.1.0",
                 status: "inactive",
                 publisher: "Justflows",
@@ -122,8 +122,8 @@ describe("PluginsPage as an administrator", () => {
             ],
           });
         }
-        if (path === "/api/plugins/justflows.shop/activate" && method === "POST") {
-          return jsonResponse({ ok: true, setupPath: "/admin/plugins/justflows.shop" });
+        if (path === "/api/plugins/justflows.store/activate" && method === "POST") {
+          return jsonResponse({ ok: true, setupPath: "/admin/plugins/justflows.store" });
         }
         return jsonResponse({});
       }),
@@ -136,7 +136,7 @@ describe("PluginsPage as an administrator", () => {
             <PluginMenuProvider>
               <Routes>
                 <Route path="/admin/plugins" element={<PluginsPage />} />
-                <Route path="/admin/plugins/justflows.shop" element={<div>Shop setup host</div>} />
+                <Route path="/admin/plugins/justflows.store" element={<div>Store setup host</div>} />
               </Routes>
             </PluginMenuProvider>
           </SessionProvider>
@@ -145,9 +145,9 @@ describe("PluginsPage as an administrator", () => {
     );
 
     const user = userEvent.setup();
-    expect(await screen.findByText("Shop")).toBeInTheDocument();
+    expect(await screen.findByText("Store")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Activate" }));
-    expect(await screen.findByText("Shop setup host")).toBeInTheDocument();
+    expect(await screen.findByText("Store setup host")).toBeInTheDocument();
   });
 });
 

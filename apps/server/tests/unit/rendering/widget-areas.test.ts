@@ -125,13 +125,13 @@ describe("listWidgetAreas", () => {
   it("keeps a plugin area's default blocks", async () => {
     const filters = {
       id: "shop-sidebar-filters",
-      type: "justflows.shop.product-filters",
+      type: "justflows.store.product-filters",
       version: 1,
       props: { search: true, filterStyle: "dropdown" },
     };
     pluginFilter = (areas) => [...areas, { key: "shop-sidebar", label: "Shop sidebar", defaultBlocks: [filters] }];
     const shop = (await listWidgetAreas(SITE)).find((row) => row.key === "shop-sidebar");
-    expect(shop?.defaultBlocks).toEqual([expect.objectContaining({ type: "justflows.shop.product-filters" })]);
+    expect(shop?.defaultBlocks).toEqual([expect.objectContaining({ type: "justflows.store.product-filters" })]);
     const found = await readWidgetAreaForEditor(SITE, "shop-sidebar");
     expect(found?.doc.blocks).toHaveLength(1);
   });

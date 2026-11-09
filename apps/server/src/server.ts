@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { contentTypeCacheMiddleware } from "./middleware/content-type-cache.js";
+import { visibilityRequestContext } from "./lib/content/visibility-viewer.js";
 import { accountPagesRouter } from "./routes/public/account-pages.js";
 import express from "express";
 import cookieParser from "cookie-parser";
@@ -9,6 +10,8 @@ import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 
 import { getJfRoot, viewsDir } from "./lib/runtime/jf-root.js";
+import { HASHED_PUBLIC_SCRIPT } from "./lib/rendering/page-scripts.js";
+import { resolvePathUnderBase } from "./lib/security/safe-path.js";
 import { uploadsHandler } from "./lib/media/upload-serve.js";
 import { isInstalled } from "./middleware/install-guard.js";
 import { installToken, installTokenRequired } from "./lib/installation/install-token.js";
@@ -24,6 +27,7 @@ import { adminClientDir, adminClientIndex } from "./lib/admin/admin-ssr.js";
 import { requestContext } from "./middleware/request-context.js";
 import { rejectForeignSiteId, tenantContext, uploadsSiteGuard } from "./middleware/tenant-context.js";
 import { getPluginLoader } from "./lib/plugins/plugin-runtime.js";
+import { trustedProxyValue } from "./lib/security/trusted-proxy.js";
 
 let corePromise: Promise<void> | null = null;
 let deferredLoaded = false;
@@ -59,15 +63,9 @@ function loadDeferredRoutes(app: express.Application): Promise<void> {
 export function createApp(): express.Application {
   const app = express();
 
-  // Justflows is normally deployed behind nginx, Passenger, or a Docker proxy.
-  // Without this, req.ip is the proxy's address for every request, which
-  // collapses per-IP rate limiting into one shared bucket and makes req.secure
-  // always false. Defaults to "loopback" — the reverse proxy on the same host —
-  // and TRUST_PROXY accepts anything Express does ("1", a subnet, "false").
-  const trustProxy = process.env.TRUST_PROXY ?? "loopback";
-  if (trustProxy !== "false") {
-    app.set("trust proxy", /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
-  }
+  /** Only named ranges and explicit proxy addresses/subnets may supply client IPs. */
+  const trustProxy = trustedProxyValue(process.env.TRUST_PROXY);
+  app.set("trust proxy", trustProxy);
 
   app.disable("x-powered-by");
   app.use(requestContext);
@@ -136,6 +134,7 @@ export function createApp(): express.Application {
   // headers, so its own 403 keeps the policy.
   app.use(tenantContext);
   app.use(rejectForeignSiteId);
+  app.use(visibilityRequestContext);
   app.use(securityHeaders);
 
   app.use((req, res, next) => { if (!isInstalled()) { next(); return; } accountPagesRouter(req, res, next); });
@@ -156,21 +155,23 @@ export function createApp(): express.Application {
   });
   // Local folder or S3 bucket, per STORAGE_DRIVER (see lib/media/upload-serve.ts).
   app.use("/uploads", uploadsRateLimit, uploadsSiteGuard, uploadsHandler(staticMaxAge));
-  const servePublicFiles = express.static(path.join(getJfRoot(), "public"), {
+  const publicDir = path.join(getJfRoot(), "public");
+  const servePublicFiles = express.static(publicDir, {
       maxAge: staticMaxAge,
       setHeaders: (res, filePath) => {
-        // Every script under `public/js` is compiled from
-        // apps/server/public-scripts/src/*.ts (see docs/CONVENTIONS.md) and
-        // any hand-written CSS lives alongside it — all served at a stable,
-        // unversioned URL (site-nav.js, site-chrome.js, …). A long max-age
-        // would pin stale copies until it expires (the "my edit isn't
-        // showing up" trap), and none of these files are content-hashed, so the
-        // blanket downgrade to `no-cache` is correct for the whole set, not just
-        // today's list. `no-cache` still keeps the file cached and revalidates
-        // with the ETag — the server answers 304 until the bytes change.
-        // Content-hashed bundles live under the admin app's own asset path, not
-        // here, and keep their long max-age.
-        if (/\.(?:js|mjs|css|map)$/i.test(filePath)) {
+        /**
+         * Scripts under `public/js` are compiled from
+         * apps/server/public-scripts/src/*.ts (see docs/CONVENTIONS.md). Pages
+         * link the content-hashed `<name>-<hash>.js` from the build manifest,
+         * which never changes under its URL, so it is cached for good. Every
+         * other script, stylesheet, or map here has a stable URL (the
+         * `<name>.js` copy, hand-written CSS) and gets `no-cache`: kept, but
+         * revalidated with the ETag, so an edit is never pinned behind a long
+         * max-age.
+         */
+        if (HASHED_PUBLIC_SCRIPT.test(`/js/${path.basename(filePath)}`) && path.dirname(filePath) === path.join(publicDir, "js")) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        } else if (/\.(?:js|mjs|css|map)$/i.test(filePath)) {
           res.setHeader("Cache-Control", "no-cache");
         }
       },
@@ -178,6 +179,28 @@ export function createApp(): express.Application {
   app.use((req, res, next) => {
     if (res.locals.jfBypassStatic) { next(); return; }
     servePublicFiles(req, res, next);
+  });
+  /**
+   * A page cached before a deploy or core update still links the previous
+   * build's hashed script. That file is gone, so answer with the current
+   * build's `<name>.js` (revalidated, never immutable) instead of a 404.
+   */
+  const previousBuildLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 600,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: "Too many requests",
+  });
+  app.get(HASHED_PUBLIC_SCRIPT, previousBuildLimit, (req, res, next) => {
+    if (res.locals.jfBypassStatic) { next(); return; }
+    const match = HASHED_PUBLIC_SCRIPT.exec(req.path);
+    const file = match ? resolvePathUnderBase(path.join(publicDir, "js"), `${match[1]}.js${match[2] ?? ""}`) : null;
+    if (!file) { next(); return; }
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(file, (err) => {
+      if (err && !res.headersSent) next();
+    });
   });
 
   app.set("view engine", "ejs");

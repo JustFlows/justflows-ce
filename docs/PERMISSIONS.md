@@ -62,8 +62,8 @@ access is resolved in this order:
 ### Additional roles
 
 A user has one primary role (`users.role`) and can hold additional built-in or
-plugin roles next to it. For example, a subscriber can also be a Shop
-`customer`. Set them under **Admin → Users → (user) → Additional roles**, or
+plugin roles next to it. For example, a subscriber can also hold a plugin's
+`customer` role. Set them under **Admin → Users → (user) → Additional roles**, or
 with `additionalRoles` on `PATCH /api/users/:id`. They are stored in
 `user_additional_roles`.
 
@@ -84,6 +84,18 @@ Plugin HTTP handlers receive `session.roles` (primary first),
 `session.capabilities`, and `session.scopes` as a
 read-only preview of the host-resolved policy. Plugins must still declare their
 own manifest permissions; user access never expands a plugin's sandbox.
+
+## Permission changes on update
+
+An update that declares a permission the installed version did not needs an
+administrator's approval. Upload, Marketplace install, and manual updates answer
+`409` with `code: "permission_approval_required"` and the added `permissions`,
+before the installed version is touched. Send the same list as
+`approvedPermissions` to continue. Approval must cover every added permission,
+and it is recorded as `plugin.permissions_approved`.
+
+Automatic updates never approve permissions. They skip that update and record
+`extension.auto_update_skipped`. Removing a permission needs no approval.
 
 ## Plugin-defined user capabilities
 
@@ -116,8 +128,9 @@ plugin UI looks like it could.
 ## Plugin-defined user roles
 
 A plugin can add a role while it is active. The id is stored on `users.role`
-and shows up in New User Default Role, invites, and the user editor. Shop
-registers `customer` (no administration capabilities) on activation.
+and shows up in New User Default Role, invites, and the user editor. The
+example below registers `customer` (no administration capabilities) on
+activation.
 Deactivation removes the role from those lists; accounts that already have it
 keep the stored id and lose the plugin's capabilities until it is active again.
 
@@ -126,7 +139,7 @@ async activate(ctx) {
   ctx.roles.register({
     id: "customer",
     label: "Customer",
-    description: "Registered shop customer. No administration access.",
+    description: "Registered customer. No administration access.",
     capabilities: [],
   });
 }
@@ -137,10 +150,10 @@ a core role (`subscriber`, `contributor`, `author`, `editor`, `administrator`)
 or another plugin's registration.
 
 `ctx.users.create` needs the `users:manage` manifest permission. It can only
-assign a role that same plugin registered, so Shop can create a `customer`
-and cannot create an administrator. The host still enforces password policy,
+assign a role that same plugin registered, so the plugin above can create a
+`customer` and cannot create an administrator. The host still enforces password policy,
 uniqueness, and the audit log. The `actor` is the signed-in staff member; for
-an account a visitor creates for themselves (Shop checkout) it has an empty
+an account a visitor creates for themselves (at a checkout, say) it has an empty
 `userId`, and the audit log records no actor.
 
 `ctx.users.addRole(target, role, actor)` gives an existing user, found by
@@ -148,19 +161,19 @@ an account a visitor creates for themselves (Shop checkout) it has an empty
 role. Their primary role and sign-in stay as they are. It needs the same
 `users:manage` permission and the same ownership rule. It succeeds without a
 change when the user already holds the role, and returns status 404 when there
-is no such user. Shop uses it when a customer is added under an email that
-already signs in, and when a signed-in user places their first order. The
+is no such user. Use it, for example, when a customer is added under an email
+that already signs in. The
 method is optional on the SDK type, so check `ctx.users.addRole` before calling
 it on older hosts.
 
 `ctx.users.removeRole(target, role, actor)` takes one of the plugin's own
 additional roles away again, with the same permission and ownership rule. The
 primary role is never changed, and a user who does not hold the role is a
-success. The user loses the role's capabilities on their next request. Shop
-uses it when a membership subscription ends. Optional on older hosts.
+success. The user loses the role's capabilities on their next request. Use it,
+for example, when a membership subscription ends. Optional on older hosts.
 
 `ctx.users.get(userId)` returns one user with all their roles (`roles`, main
 role first), or `null`. It needs `users:manage` and is optional on older
 hosts. Call it from a `user.created` or `user.updated` action to react to
-role changes. Shop uses it to create a customer record for anyone who gains
-the `customer` role, including a role ticked under Admin → Users.
+role changes, for example to create your own record for anyone who gains your
+role, including a role ticked under Admin → Users.

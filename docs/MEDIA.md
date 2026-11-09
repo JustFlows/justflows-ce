@@ -134,8 +134,8 @@ Every public surface that renders an uploaded image goes through the same
 resolver ([`responsive-media.ts`](../apps/server/src/lib/media/responsive-media.ts)):
 
 - **`core.image`** blocks;
-- the **Gallery** block (`justflows.gallery.grid`) — grid, masonry, carousel,
-  slideshow, list, and the lightbox, each with a layout-aware `sizes`;
+- plugin blocks with a `media` or `images` field, which receive a `responsive`
+  prop for `renderResponsiveImage` (see `PluginBlockField` in the SDK);
 - **blog-post-list** featured-image thumbnails;
 - the **Featured Image** theme-template block (`core.featured-image`).
 

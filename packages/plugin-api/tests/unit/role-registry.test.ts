@@ -4,7 +4,7 @@ import { PluginRoleRegistry } from "../../src/role-registry.js";
 describe("PluginRoleRegistry", () => {
   it("registers a role and removes it with its plugin", () => {
     const registry = new PluginRoleRegistry();
-    registry.register("justflows.shop", {
+    registry.register("justflows.store", {
       id: "customer",
       label: "Customer",
       description: "Registered shop customer.",
@@ -12,11 +12,11 @@ describe("PluginRoleRegistry", () => {
     });
     expect(registry.get("customer")).toMatchObject({
       id: "customer",
-      pluginId: "justflows.shop",
+      pluginId: "justflows.store",
       label: "Customer",
       capabilities: [],
     });
-    registry.removePlugin("justflows.shop");
+    registry.removePlugin("justflows.store");
     expect(registry.all()).toEqual([]);
   });
 

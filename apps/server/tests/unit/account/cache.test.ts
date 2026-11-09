@@ -6,7 +6,7 @@ import { isAccountPath } from "../../../src/middleware/account-cache.js";
 import { browserCacheMiddleware } from "../../../src/middleware/browser-cache.js";
 
 describe("account caching", () => {
-  it.each(["/account", "/account/", "/account/details", "/ACCOUNT", "/%61ccount", "/api/account", "/api/account/workspaces/id/limits", "/platform-account", "/api/platform-account", "/api/shop/account", "/api/shop/account/orders/1", "/ext/justflows.shop/account", "/ext/example/account/orders/1"])("always bypasses caching for %s, including mutations", (path) => {
+  it.each(["/account", "/account/", "/account/details", "/ACCOUNT", "/%61ccount", "/api/account", "/api/account/workspaces/id/limits", "/platform-account", "/api/platform-account", "/api/shop/account", "/api/shop/account/orders/1", "/ext/justflows.store/account", "/ext/example/account/orders/1"])("always bypasses caching for %s, including mutations", (path) => {
     expect(isAccountPath(path)).toBe(true);
     const headers = new Map<string, string>(); const next = vi.fn();
     const res = { set: (values: Record<string, string>) => Object.entries(values).forEach(([key, value]) => headers.set(key, value)), vary: vi.fn() } as unknown as Response;

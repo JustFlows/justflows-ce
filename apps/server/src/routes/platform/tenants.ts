@@ -433,7 +433,7 @@ router.put("/settings", async (req, res) => {
   const existing = await db.query<{ value: unknown }>("SELECT value FROM platform_settings WHERE setting_key = 'saas' LIMIT 1");
   const built = buildSaasSettings(existing[0]?.value, {
     signupEnabled: body.data.signupEnabled,
-    signupDatabaseMode: body.data.signupDatabaseMode ?? "current",
+    signupDatabaseMode: body.data.signupDatabaseMode,
     baseDomain,
     database: body.data.database,
     signupEmailPolicy: body.data.signupEmailPolicy,

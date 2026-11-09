@@ -98,7 +98,7 @@ files are not exposed. Older themes without a `patterns` manifest key retain
 directory discovery for compatibility.
 
 Set `requiresBlockTypes` to the plugin block types a pattern uses (e.g.
-`["justflows.forms.form"]`); the Patterns panel shows an install notice
+`["justflows.acme.form"]`); the Patterns panel shows an install notice
 instead of importing silently when one isn't in the active block catalog. The
 schema also verifies that every non-core block used anywhere in the tree is
 declared. Optional `locales` entries can override `title`, `description`, and
@@ -585,7 +585,7 @@ editable. Core ships `core.widget-content` (title and rich text),
 the host attaches each widget's data (menu items, posts, the localized search
 URL) to its props as `__data` just before an area renders; outside an area a
 data widget renders nothing. Plugins add widgets by registering blocks in the
-`widgets` category, the way Shop's Product filters does.
+`widgets` category.
 
 Admin: `GET /api/widgets` (areas, layout, content types), `POST /api/widgets/areas`
 (`{ key, label, description? }`), `GET/PUT/DELETE /api/widgets/areas/:key`
@@ -610,9 +610,52 @@ layout loads the active site’s scripts, in declaration order, through `/theme.
 Scripts are classic deferred scripts, including `.mjs` files; do not use imports
 or exports. Wrap each file in an IIFE and scope enhancements to your theme’s DOM.
 The endpoint serves only declared files inside the active theme’s resolved root,
-limits individual scripts to 512 KiB and the bundle to 1 MiB, and uses no-store
-to prevent an old bundle running after a theme switch. Themes without scripts
-receive an empty bundle. Theme scripts do not run in the block editor.
+limits individual scripts to 512 KiB and the bundle to 1 MiB. Pages link
+`/theme.js?v=<content hash>`, which browsers cache for good; a request with
+another version, or none, is not cached that way, so an old bundle never runs
+after a theme switch. A theme without scripts gets no `/theme.js` tag at all.
+Theme scripts do not run in the block editor.
+
+### Per-block assets
+
+Code that only some blocks need does not belong in `scripts`, which every page
+loads. Declare it per block type in `assets.blocks`, keyed by any block type,
+core or plugin:
+
+```json
+"assets": {
+  "blocks": {
+    "core.gallery": { "scripts": ["assets/lightbox.js"], "styles": ["assets/gallery.css"] },
+    "acme.shop.product": { "styles": ["assets/product.css"] }
+  }
+}
+```
+
+The host adds those files only to pages that render that block, whether from
+content, a template, the header or footer, or a widget area: stylesheets before
+`/theme.css`, scripts deferred at the end of the body, each file once. They are served
+from `/theme-assets/<path>?v=<content hash>` and cached for good. Only the
+files declared here are served from that path; nothing else in the theme folder
+is reachable.
+
+Paths are relative to the theme folder and must be `.js`, `.mjs`, or `.css`
+without `..`; at most 50 block types with 10 scripts and 10 styles each, 512 KiB
+per file. To find the blocks, the host marks each rendered block of a declared
+type with a `<!--jf-block:<type>-->` comment (plugin blocks always carry one).
+A change to the declaration takes effect within about 15 seconds, or at once
+when the theme is activated.
+
+For markup that is not one block, add `assets.markup` rules with the same
+selector syntax as plugins (`#id`, `.class`, `.class-prefix*`, `[attribute]`):
+
+```json
+"assets": {
+  "markup": [{ "match": [".hero-slider"], "scripts": ["assets/slider.js"] }]
+}
+```
+
+Per-page stylesheets are linked before `/theme.css`, so the theme's own styles
+and the site's Additional CSS still win over them.
 
 For remote video/audio dependencies, declare up to 20 exact HTTPS origins in
 `mediaOrigins`, e.g. `["https://media.example.com"]`. On public requests, the

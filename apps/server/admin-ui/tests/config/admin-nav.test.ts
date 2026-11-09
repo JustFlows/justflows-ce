@@ -10,6 +10,7 @@ import {
   navLabel,
   navRuleFor,
   pluginPageRoles,
+  pluginSectionSlug,
   parsePluginSections,
 } from "../../src/config/admin-nav";
 
@@ -132,7 +133,7 @@ describe("content editor plugin sections", () => {
         { id: "images", label: "Images" },
         { id: "pricing", label: "Pricing" },
       ],
-      panels: [{ id: "panel:justflows.seo:seo", label: "SEO" }],
+      panels: [{ id: "panel:justflows.meta:seo", label: "SEO" }],
     });
     expect(nav.map((item) => item.label)).toEqual([
       "Content",
@@ -181,85 +182,104 @@ describe("buildNavDomains", () => {
   it("places a commerce plugin page in the commerce sidebar domain", () => {
     const domains = buildNavDomains([
       {
-        pluginId: "justflows.shop",
-        id: "shop",
-        label: "Shop",
-        path: "/admin/plugins/justflows.shop",
+        pluginId: "justflows.store",
+        id: "store",
+        label: "Store",
+        path: "/admin/plugins/justflows.store",
         icon: "🛍",
         domain: "commerce",
         end: true,
       },
       {
-        pluginId: "justflows.shop",
+        pluginId: "justflows.store",
         id: "products",
         label: "Products",
-        path: "/admin/plugins/justflows.shop/products",
+        path: "/admin/plugins/justflows.store/products",
         icon: "📦",
         domain: "commerce",
       },
     ]);
     const commerce = domains.find((d) => d.slug === "commerce");
-    expect(commerce?.items.map((item) => item.to)).toEqual(["/admin/plugins/justflows.shop", "/admin/plugins/justflows.shop/products"]);
+    expect(commerce?.items.map((item) => item.to)).toEqual(["/admin/plugins/justflows.store", "/admin/plugins/justflows.store/products"]);
     expect(commerce?.items[0]?.end).toBe(true);
     expect(filterDomainsByRole(domains, "administrator").map((d) => d.slug)).toContain("commerce");
-    const shopPath = "/admin/plugins/justflows.shop";
-    expect(isDomainActive(commerce!, shopPath)).toBe(true);
-    expect(isDomainActive(domains.find((d) => d.slug === "extensions")!, shopPath)).toBe(false);
-  });
-
-  it("gives Helpdesk its own sidebar domain instead of an Extensions tab", () => {
-    const domains = buildNavDomains([
-      {
-        pluginId: "justflows.helpdesk",
-        id: "inbox",
-        label: "Helpdesk",
-        path: "/admin/plugins/justflows.helpdesk",
-        icon: "💬",
-        domain: "helpdesk",
-        end: true,
-      },
-    ]);
-    const helpdesk = domains.find((d) => d.slug === "helpdesk");
-    expect(helpdesk?.items.map((item) => item.to)).toEqual(["/admin/plugins/justflows.helpdesk"]);
-    expect(domains.find((d) => d.slug === "extensions")?.items.some((item) => item.to.includes("helpdesk"))).toBe(false);
+    const storePath = "/admin/plugins/justflows.store";
+    expect(isDomainActive(commerce!, storePath)).toBe(true);
+    expect(isDomainActive(domains.find((d) => d.slug === "extensions")!, storePath)).toBe(false);
   });
 
   it("lets a plugin page name the roles that may open it", () => {
     const items = [
       {
-        pluginId: "justflows.helpdesk",
+        pluginId: "justflows.desk",
         id: "inbox",
-        label: "Helpdesk",
-        path: "/admin/plugins/justflows.helpdesk",
+        label: "Desk",
+        path: "/admin/plugins/justflows.desk",
         icon: "💬",
-        domain: "helpdesk",
-        roles: ["administrator", "editor", "support-agent"],
+        domain: "extensions",
+        roles: ["administrator", "editor", "desk-agent"],
       },
     ];
     const audience = { pluginPageRoles: pluginPageRoles(items) };
-    expect(canAccessPath("support-agent", "/admin/plugins/justflows.helpdesk/tickets/7", audience)).toBe(true);
-    expect(canAccessPath("author", "/admin/plugins/justflows.helpdesk", audience)).toBe(false);
+    expect(canAccessPath("desk-agent", "/admin/plugins/justflows.desk/tickets/7", audience)).toBe(true);
+    expect(canAccessPath("author", "/admin/plugins/justflows.desk", audience)).toBe(false);
     /** Without declared roles the page keeps the plugin-page rule. */
-    expect(canAccessPath("support-agent", "/admin/plugins/justflows.helpdesk")).toBe(false);
-    expect(canAccessPath("editor", "/admin/plugins/justflows.forms", audience)).toBe(true);
+    expect(canAccessPath("desk-agent", "/admin/plugins/justflows.desk")).toBe(false);
+    expect(canAccessPath("editor", "/admin/plugins/justflows.contact", audience)).toBe(true);
   });
 
-  it("gives Shared files its own sidebar domain instead of a Plugins tab", () => {
+  it("gives a plugin in the plugin domain its own section above Extensions", () => {
+    const section = { label: "Acme", labels: { nl: "Acme NL" }, icon: "/ext/justflows.acme/admin/logo.png" };
     const domains = buildNavDomains([
       {
-        pluginId: "justflows.shared-files",
-        id: "files",
-        label: "Shared files",
-        path: "/admin/plugins/justflows.shared-files",
-        icon: "files",
-        domain: "files",
+        pluginId: "justflows.acme",
+        id: "overview",
+        label: "Acme",
+        path: "/admin/plugins/justflows.acme",
+        icon: "⚡",
+        domain: "plugin",
         end: true,
+        section,
+      },
+      {
+        pluginId: "justflows.acme",
+        id: "connect",
+        label: "Connection",
+        path: "/admin/plugins/justflows.acme/connect",
+        icon: "🔗",
+        domain: "plugin",
+        section,
+      },
+      {
+        pluginId: "justflows.contact",
+        id: "forms",
+        label: "Forms",
+        path: "/admin/plugins/justflows.contact",
+        icon: "forms",
+        domain: "extensions",
       },
     ]);
-    const files = domains.find((d) => d.slug === "files");
-    expect(files?.items).toHaveLength(1);
-    expect(files?.items[0]?.to).toBe("/admin/plugins/justflows.shared-files");
-    expect(domains.find((d) => d.slug === "extensions")?.items.some((item) => item.to.includes("shared-files"))).toBe(false);
+    const slugs = domains.map((d) => d.slug);
+    expect(slugs.indexOf(pluginSectionSlug("justflows.acme"))).toBe(slugs.indexOf("extensions") - 1);
+    const acme = domains.find((d) => d.slug === pluginSectionSlug("justflows.acme"));
+    expect(acme?.icon).toBe("/ext/justflows.acme/admin/logo.png");
+    expect(acme ? navLabel((key) => key, acme, "nl") : "").toBe("Acme NL");
+    expect(acme ? navLabel((key) => key, acme, "en") : "").toBe("Acme");
+    expect(acme?.items.map((item) => item.to)).toEqual([
+      "/admin/plugins/justflows.acme",
+      "/admin/plugins/justflows.acme/connect",
+    ]);
+    const extensions = domains.find((d) => d.slug === "extensions")?.items.map((item) => item.to) ?? [];
+    expect(extensions.some((path) => path.includes("justflows.acme"))).toBe(false);
+    expect(extensions).toContain("/admin/plugins/justflows.contact");
+  });
+
+  it("puts a plugin domain page without a section under Extensions", () => {
+    const domains = buildNavDomains([
+      { pluginId: "justflows.acme", id: "overview", label: "Acme", path: "/admin/plugins/justflows.acme", icon: "⚡", domain: "plugin" },
+    ]);
+    expect(domains.find((d) => d.slug === "extensions")?.items.map((item) => item.to)).toContain("/admin/plugins/justflows.acme");
+    expect(domains.some((d) => d.slug.startsWith("plugin:"))).toBe(false);
   });
 
   it("keeps an unknown plugin domain out of a new sidebar group", () => {
@@ -308,7 +328,7 @@ describe("navLabel", () => {
     key: "nav.forms",
     label: "Forms",
     labels: { nl: "Formulieren", "pt-BR": "Formulários" },
-    to: "/admin/plugins/justflows.forms",
+    to: "/admin/plugins/justflows.contact",
     icon: "✉",
   };
 
@@ -319,6 +339,6 @@ describe("navLabel", () => {
 
   it("falls back to the core catalog, then the English label", () => {
     expect(navLabel(t, item, "de")).toBe("Formulieren (core)");
-    expect(navLabel((key) => key, { ...item, key: "plugin.justflows.forms.forms" }, "de")).toBe("Forms");
+    expect(navLabel((key) => key, { ...item, key: "plugin.justflows.contact.forms" }, "de")).toBe("Forms");
   });
 });

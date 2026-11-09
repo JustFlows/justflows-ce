@@ -148,5 +148,5 @@ await ctx.mail.send({
 - The delivery log keeps only each file's name, type, and size. Automatic
   retries of a deferred message still send the files; a delivery retried by
   hand from the admin goes out without them. Plugins that must not lose an
-  attachment keep their own outbox (as Shop does) and send again.
+  attachment keep their own outbox and send again.
 - Hosts without this feature ignore `attachments` and send the text alone.

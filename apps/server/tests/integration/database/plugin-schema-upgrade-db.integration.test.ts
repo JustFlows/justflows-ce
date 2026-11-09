@@ -13,7 +13,8 @@ import { applyPluginSchema } from "../../../src/lib/plugins/plugin-schema.js";
  *   pnpm vitest run tests/integration/database/plugin-schema-upgrade-db.integration.test.ts
  */
 const enabled =
-  process.env.PLUGIN_SCHEMA_TEST_DATABASE === "1" && process.env.DB_NAME === "plugin_schema_test";
+  (process.env.PLUGIN_SCHEMA_TEST_DATABASE === "1" && process.env.DB_NAME === "plugin_schema_test") ||
+  (process.env.SECURITY_TEST_DATABASE === "1" && process.env.DB_NAME === "security_test");
 
 const v1: PluginSchemaTable[] = [
   {

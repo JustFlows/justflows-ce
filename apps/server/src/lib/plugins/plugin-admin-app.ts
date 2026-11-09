@@ -265,7 +265,7 @@ async function getAdminSets(siteId?: string): Promise<PluginAdminSet[]> {
 /**
  * Admin screens of plugins active on `siteId`. Omit `siteId` to use the
  * request site. One site's active plugin must not supply another's menu:
- * the main site can keep Shop on while another site has it off.
+ * the main site can keep a plugin on while another site has it off.
  */
 export async function getPluginAdminRoutes(siteId?: string): Promise<PluginAdminRouteInfo[]> {
   const sets = await getAdminSets(siteId);

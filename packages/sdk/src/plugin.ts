@@ -86,8 +86,7 @@ export const ADMIN_MENU_DOMAINS = [
   "commerce",
   "appearance",
   "users",
-  "helpdesk",
-  "files",
+  "plugin",
   "extensions",
   "tools",
   "security",
@@ -186,7 +185,12 @@ export const AdminMenuItemSchema = z.object({
    */
   path: RelativeAdminPathSchema.optional(),
   icon: z.string().min(1).max(8).default("🔌"),
-  domain: z.enum(ADMIN_MENU_DOMAINS).default("extensions"),
+  /**
+   * Sidebar group. `plugin` gives the plugin its own section (see
+   * `adminSection`). A group this host does not know falls back to
+   * `extensions`, so a manifest written for another host still activates.
+   */
+  domain: z.enum(ADMIN_MENU_DOMAINS).default("extensions").catch("extensions"),
   /** Match the path exactly instead of as a prefix. */
   end: z.boolean().optional(),
   /**
@@ -205,7 +209,7 @@ export const AdminMenuItemSchema = z.object({
     .optional(),
   /**
    * CMS type slug. When set, the generic plugin host lists every content row
-   * of that type on this page (for example Shop Products → `product`).
+   * of that type on this page (for example a Products page → `product`).
    */
   contentType: z
     .string()
@@ -250,15 +254,77 @@ export const EditorPanelFieldSchema = z.object({
  * A section a plugin adds to the content editor, next to Content, Discussion,
  * and Advanced. Shown while the plugin is active, for every content type.
  */
-export const EditorPanelSchema = z.object({
-  id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Panel id must be lowercase kebab-case"),
-  title: LocalizedTextSchema,
-  /** Show only for entries whose type is included in search engines. */
-  indexableOnly: z.boolean().optional(),
-  fields: z.array(EditorPanelFieldSchema).min(1).max(20),
-});
+export const EditorPanelSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Panel id must be lowercase kebab-case"),
+    title: LocalizedTextSchema,
+    /** Show only for entries whose type is included in search engines. */
+    indexableOnly: z.boolean().optional(),
+    fields: z.array(EditorPanelFieldSchema).max(20).optional(),
+    /**
+     * Relative admin-app path embedded in this section. The host passes the
+     * content id being edited. A panel has fields or this path.
+     */
+    app: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .max(40)
+      .optional(),
+  })
+  .superRefine((panel, ctx) => {
+    const hasFields = Array.isArray(panel.fields) && panel.fields.length > 0;
+    const hasApp = typeof panel.app === "string" && panel.app.length > 0;
+    if (hasFields === hasApp) {
+      ctx.addIssue({
+        code: "custom",
+        message: "An editor panel declares fields or an app route.",
+      });
+    }
+  });
 
 export type PluginEditorPanel = z.infer<typeof EditorPanelSchema>;
+
+/**
+ * The plugin's own sidebar section. Menu items with `domain: "plugin"` are
+ * listed there instead of in a shared section.
+ */
+export const AdminSectionSchema = z.object({
+  /** English label, shown when `labelKey` and `labels` have no translation. */
+  label: z.string().min(1).max(60),
+  /** Key in the plugin's own `adminApp.locales` catalogs. */
+  labelKey: z.string().max(120).optional(),
+  labels: z
+    .record(z.string().regex(PANEL_LOCALE_RE, "Locale code must look like en or nl-NL"), z.string().min(1).max(60))
+    .refine((value) => Object.keys(value).length <= 20, "At most 20 section label locales")
+    .optional(),
+  /** An emoji, or an image file in the plugin's admin app folder such as `logo.png`. */
+  icon: z
+    .string()
+    .min(1)
+    .max(120)
+    .refine(
+      (value) => value.length <= 8 || /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,110}\.(png|svg|webp)$/.test(value),
+      "Icon must be an emoji or a .png, .svg, or .webp file in the admin app folder",
+    )
+    .optional(),
+});
+
+export type PluginAdminSection = z.infer<typeof AdminSectionSchema>;
+
+/**
+ * A card a plugin adds to Platform → Workspace. The host embeds the relative
+ * admin-app path and passes the workspace id being viewed.
+ */
+export const WorkspacePanelSchema = z.object({
+  id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Panel id must be lowercase kebab-case"),
+  title: LocalizedTextSchema,
+  app: z
+    .string()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .max(40),
+});
+
+export type PluginWorkspacePanel = z.infer<typeof WorkspacePanelSchema>;
 
 /** A plugin asset path: relative, no traversal, `.js`/`.mjs`/`.css` only. */
 const PluginAssetFileSchema = z
@@ -271,10 +337,45 @@ const PluginAssetFileSchema = z
   )
   .refine((value) => !value.split("/").includes(".."), "Asset path must not contain '..'");
 
+/** Assets one block type needs, relative to the assets `dir`. */
+export const PluginBlockAssetsSchema = z.object({
+  /** `.js` / `.mjs` files added as `<script defer>` at the end of the page. */
+  scripts: z.array(PluginAssetFileSchema).max(10).optional(),
+  /** `.css` files added as `<link rel="stylesheet">` before the theme stylesheet. */
+  styles: z.array(PluginAssetFileSchema).max(10).optional(),
+});
+
+/**
+ * A selector a page must contain for an `assets.markup` rule to apply:
+ * `#id`, `.class`, `.class-prefix*` (any class starting with the prefix), or
+ * `[attribute]`. Matched against the finished HTML, so it finds markup from
+ * any source: content, templates, plugin routes, header and footer.
+ */
+export const AssetMarkupSelectorSchema = z
+  .string()
+  .regex(
+    /^(?:#[A-Za-z][A-Za-z0-9_-]{0,63}|\.[A-Za-z_][A-Za-z0-9_-]{0,63}\*?|\[[a-z][a-z0-9-]{0,63}\])$/,
+    "Use #id, .class, .class-prefix*, or [attribute]",
+  );
+
+/** Assets a page loads when it contains any of `match`. Paths are relative to the assets `dir`. */
+export const PluginMarkupAssetsSchema = z.object({
+  match: z.array(AssetMarkupSelectorSchema).min(1).max(20),
+  /** `.js` / `.mjs` files added as `<script defer>` at the end of the page. */
+  scripts: z.array(PluginAssetFileSchema).max(10).optional(),
+  /** `.css` files added as `<link rel="stylesheet">` before the theme stylesheet. */
+  styles: z.array(PluginAssetFileSchema).max(10).optional(),
+});
+
 /**
  * Client-side assets a plugin ships in its package. On activation the host
  * serves `<dir>/**` at `/ext/<pluginId>/**` and auto-enqueues `scripts` /
  * `styles` on every public page — no `ctx.http` route or `html.head` filter.
+ * `blocks` maps one of the plugin's own block types, and `markup` a list of
+ * selectors, to assets the host adds only to pages that render that block or
+ * contain that markup (from content, templates, header, footer, widget areas,
+ * or plugin routes), with a content-hashed URL that browsers cache for good.
+ * Prefer them to `scripts` / `styles` for anything not every page needs.
  * The static exporter downloads them like any other same-origin asset.
  */
 export const PluginAssetsSchema = z.object({
@@ -292,6 +393,19 @@ export const PluginAssetsSchema = z.object({
   scripts: z.array(PluginAssetFileSchema).max(20).optional(),
   /** `.css` files (relative to `dir`) added as `<link rel="stylesheet">`. */
   styles: z.array(PluginAssetFileSchema).max(20).optional(),
+  /**
+   * Per-block assets, keyed by a block type the plugin registers with
+   * `ctx.blocks.register` (its own namespace, e.g. `acme.slider`).
+   */
+  blocks: z
+    .record(
+      z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/, "Block type must be a block id such as 'acme.slider'"),
+      PluginBlockAssetsSchema,
+    )
+    .refine((value) => Object.keys(value).length <= 50, "At most 50 block types may declare assets")
+    .optional(),
+  /** Assets for pages that contain markup the plugin's script or styles act on. */
+  markup: z.array(PluginMarkupAssetsSchema).max(20).optional(),
 });
 
 /**
@@ -358,7 +472,7 @@ export const PluginAdminAppSchema = z.object({
     .optional(),
   /**
    * One per admin screen. Bounded because manifests come from third-party
-   * packages; 40 leaves room for a large plugin such as Shop.
+   * packages; 40 leaves room for a large plugin such as a store.
    */
   routes: z.array(PluginAdminRouteSchema).min(1).max(40),
   /**
@@ -392,7 +506,7 @@ export const PluginAdminAppSchema = z.object({
 });
 
 /**
- * Every extension id is `justflows.<name>` — first-party only (`justflows.seo`,
+ * Every extension id is `justflows.<name>` — first-party only (`justflows.acme`,
  * `justflows.theme.dark`). The `justflows.` namespace is what the admin URL
  * (`/admin/plugins/justflows.<name>`) and the asset mount
  * (`/ext/justflows.<name>/…`) are built from.
@@ -403,7 +517,7 @@ export const PluginManifestSchema = z
   .object({
     id: z
       .string()
-      .regex(PLUGIN_ID_RE, "Plugin ID must be justflows.<name> (lowercase, e.g. justflows.seo)"),
+      .regex(PLUGIN_ID_RE, "Plugin ID must be justflows.<name> (lowercase, e.g. justflows.acme)"),
     apiNamespace: z.string().refine(isValidPluginApiNamespace, "Invalid or reserved plugin API namespace").optional(),
     name: z.string().min(1).max(100),
     // Anchored at both ends: `.regex()` runs RegExp.test(), which honours only
@@ -475,6 +589,10 @@ export const PluginManifestSchema = z
     adminMenu: z.array(AdminMenuItemSchema).max(20).optional(),
     /** Content editor sections this plugin adds. Honoured with `admin:extend`. */
     editorPanels: z.array(EditorPanelSchema).max(5).optional(),
+    /** Sidebar section for menu items with `domain: "plugin"`. Honoured with `admin:extend`. */
+    adminSection: AdminSectionSchema.optional(),
+    /** Platform → Workspace cards this plugin adds. Honoured with `admin:extend`. */
+    workspacePanels: z.array(WorkspacePanelSchema).max(5).optional(),
     /**
      * Page to open after activation when the plugin still needs a first-run
      * setup (database topology, credentials, store identity). Relative to the
@@ -510,6 +628,7 @@ export const PluginManifestSchema = z
      * `html.head` filter needed. The static exporter downloads them like any
      * other same-origin asset. `scripts` / `styles` are paths **relative to
      * `dir`**; both must be `.js`/`.mjs` or `.css` and contain no `..`.
+     * `blocks` loads assets only on pages that render one of those blocks.
      */
     assets: PluginAssetsSchema.optional(),
     /** Page templates shipped inside the plugin package (see PluginTemplatesSchema). */
@@ -630,7 +749,7 @@ export interface PluginCapabilitiesApi {
 
 /**
  * A user role this plugin contributes while it is active. The id is stored on
- * `users.role` (for example Shop's `customer`). It must not replace a core role.
+ * `users.role` (for example a `customer` role). It must not replace a core role.
  */
 export interface PluginRoleDefinition {
   /** Lowercase id, 2–32 characters: letters, digits, and hyphens. */
@@ -769,8 +888,8 @@ export interface PluginCallRequest {
   session?: PluginHttpSession | null;
   /**
    * Run the route as this site. The caller needs `platform:tenancy`. The host
-   * allows only another active site in the same workspace, and Shop (or
-   * whichever plugin is called) still checks the session. Absent means the
+   * allows only another active site in the same workspace, and the plugin
+   * that is called still checks the session. Absent means the
    * current site. Older hosts ignore this field.
    */
   siteId?: string;
@@ -788,7 +907,12 @@ export interface PluginAiResult {
 }
 
 export interface PluginAiApi {
-  complete(input: { instruction: string; text: string }): Promise<PluginAiResult>;
+  /**
+   * `system` is the plugin's own role for the assistant, such as drafting a
+   * support reply. The host always adds that `text` is data written by someone
+   * else and must not be followed as instructions.
+   */
+  complete(input: { instruction: string; text: string; system?: string }): Promise<PluginAiResult>;
 }
 
 export type PluginHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -872,7 +996,7 @@ export interface PluginHttpResponse {
    * response cross-origin. The host adds `Access-Control-Allow-Origin` for
    * vouched-for origins only — `APP_URL`, `STATIC_EXPORT_BASE_URL`, anything in
    * `STATIC_EXPORT_ALLOWED_ORIGINS`, plus any `localhost` port outside
-   * production — the same allow-list the Forms endpoints use.
+   * production — the same allow-list core's comment endpoints use.
    * Set it on a public read the runtime `fetch()`es (a config or disclosure
    * route); a plain `<img>`/beacon GET needs nothing.
    */
@@ -1332,6 +1456,8 @@ export interface PluginContentApi {
 
   /**
    * List published content, newest first. Requires the `content:read` permission.
+   * Like `getPublished`, this always answers as an anonymous visitor: an entry
+   * with visibility rules that exclude anonymous visitors is left out.
    * Scheduled (future `publishedAt`) and expired entries are excluded unless
    * `includeScheduled` is set.
    */
@@ -1583,6 +1709,15 @@ export interface PluginNetworkApi {
     get<T = unknown>(key: string): Promise<T | undefined>;
   };
   /**
+   * This plugin's secrets on the main site, read-only, from any site.
+   * Absent on older hosts. The same key rules as `ctx.secrets` apply.
+   * A hosted site cannot write them; the main site saves through `ctx.secrets`.
+   */
+  mainSiteSecrets?: {
+    get(key: string): Promise<string | undefined>;
+    has(key: string): Promise<boolean>;
+  };
+  /**
    * Every live site in the installation, main site first. Only on the main
    * site; on any other site it rejects. The plugin decides what each site
    * gets, so another site's admins never see or change it.
@@ -1611,6 +1746,12 @@ export interface QuotaMeterRegistration {
   label: string;
   unit: QuotaUnit;
   /**
+   * Flags are on until a stored limit of 0 turns them off. `"off"` means a
+   * missing limit stays off, and only a limit above 0 turns the flag on.
+   * Use that for a feature a plan or an operator turns on.
+   */
+  whenUnset?: "on" | "off";
+  /**
    * Current usage for one workspace or site. The platform limits page calls
    * this. Omit it when the plugin only passes `used` to `check`.
    */
@@ -1633,6 +1774,8 @@ export interface QuotaMeterView {
   unit: QuotaUnit;
   limit: number | null;
   used: number | null;
+  /** Present when a missing flag limit means off. */
+  whenUnset?: "off";
 }
 
 /**
@@ -2046,6 +2189,12 @@ export interface PluginContext {
 
   /** Register sanitized block patterns for the editor. Removed on deactivate. */
   patterns: PluginPatternsApi;
+
+  /**
+   * Add content visibility rule types. Requires `content:read`. Removed on
+   * deactivate. See `docs/CONTENT_VISIBILITY.md`.
+   */
+  visibility: import("./visibility.js").PluginVisibilityApi;
 
   /**
    * Placeholder images for empty image slots. Use `placeholder()` instead of

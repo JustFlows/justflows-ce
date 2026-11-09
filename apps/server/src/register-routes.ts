@@ -52,6 +52,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startCoreAutoUpdateJob();
     const { startExtensionAutoUpdateJob } = await import("./lib/extensions/extension-updates.js");
     startExtensionAutoUpdateJob();
+    const { startAdvisoryRefreshJob } = await import("./lib/security/security-advisories.js");
+    await startAdvisoryRefreshJob();
     const { startTrashPurgeJob } = await import("./lib/content/trash.js");
     startTrashPurgeJob();
     const { startInboundMailJob } = await import("./lib/email/inbound-imap.js");
@@ -64,6 +66,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startDomainCheckJob();
     const { startPrivateFilesCopyJob } = await import("./lib/files/private-files-job.js");
     startPrivateFilesCopyJob();
+    const { startScheduledBackupJobs } = await import("./lib/backup/scheduled-backups.js");
+    startScheduledBackupJobs();
     const { startMediaVariantJobs } = await import("./lib/media/media-variant-jobs.js");
     await startMediaVariantJobs();
     try {
@@ -123,7 +127,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: cacheRoutes },
     { default: performanceRoutes },
     { default: importRoutes },
-    { default: siteRoutes, serveThemeCss, serveThemeScripts },
+    { default: siteRoutes, serveThemeBlockAsset, serveThemeCss, serveThemeScripts },
     { default: publicSiteRoutes, sendPublicNotFound },
     { default: languagesRoutes },
     { default: menusRoutes },
@@ -135,6 +139,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: webhooksRoutes },
     { default: preferencesRoutes },
     { default: diagnosticsRoutes },
+    { default: backupRoutes },
     { default: cookiesRoutes },
     { default: rolesRoutes },
     { default: trashRoutes },
@@ -176,6 +181,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/settings/webhooks.js"),
     import("./routes/auth/preferences.js"),
     import("./routes/system/diagnostics.js"),
+    import("./routes/system/backups.js"),
     import("./routes/settings/cookies.js"),
     import("./routes/auth/roles.js"),
     import("./routes/content/trash.js"),
@@ -197,6 +203,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
 
   app.use("/api/search", requireInstalled, (await import("./routes/public/search.js")).default);
   app.use("/api/content", requireInstalled, contentRoutes);
+  app.use("/api/content-visibility", requireInstalled, (await import("./routes/content/visibility.js")).default);
   app.use("/api/trash", requireInstalled, requireSiteFeature("feature.trash"), trashRoutes);
   app.use("/api/media", requireInstalled, mediaRoutes);
   app.use("/api/comments", requireInstalled, requireSiteFeature("feature.comments"), commentsRoutes);
@@ -247,6 +254,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/webhooks", requireInstalled, requireSiteFeature("feature.webhooks"), webhooksRoutes);
   app.use("/api/preferences", requireInstalled, preferencesRoutes);
   app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
+  app.use("/api/backups", requireInstalled, backupRoutes);
   app.use("/api/cookies", requireInstalled, cookiesRoutes);
   app.use("/api/roles", requireInstalled, rolesRoutes);
   app.use("/api/cdn", requireInstalled, requireSiteFeature("feature.cdn"), (await import("./routes/settings/cdn.js")).default);
@@ -289,6 +297,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/site", siteRoutes);
   app.get("/theme.css", serveThemeCss);
   app.get("/theme.js", rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: "draft-8", legacyHeaders: false }), serveThemeScripts);
+  app.get(/^\/theme-assets\/(.+)$/, rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: "draft-8", legacyHeaders: false }), serveThemeBlockAsset);
 
   // A statically-exported page submits comments back to this
   // origin. Answer the CORS preflight for vouched-for origins so that works.
@@ -565,7 +574,11 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
           return;
         }
         res.type(file.contentType);
-        res.setHeader("Cache-Control", "public, max-age=300");
+        /** A per-block asset linked with its content version never changes under that URL. */
+        res.setHeader(
+          "Cache-Control",
+          file.version && req.query.v === file.version ? "public, max-age=31536000, immutable" : "public, max-age=300",
+        );
         if (file.contentType.startsWith("image/svg")) {
           // An SVG opened directly runs as a document on this origin; keep it inert.
           res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");

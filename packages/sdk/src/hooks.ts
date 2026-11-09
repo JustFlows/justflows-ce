@@ -159,6 +159,15 @@ export interface ContentRevisionRef extends ContentRef {
   readonly actorId?: string;
 }
 
+/** A comment was stored. No email, address, or comment text. */
+export interface CommentCreatedEvent {
+  readonly siteId: string;
+  readonly contentId: string;
+  readonly commentId: string;
+  readonly parentId: string;
+  readonly status: "pending" | "approved";
+}
+
 export interface ContentUpdateGateEvent extends ContentRef {
   readonly revision?: ContentRevisionSnapshot;
   readonly revisionId?: string;
@@ -822,6 +831,7 @@ export interface ActionEventMap {
   "content.revisionSaved": ContentRevisionRef;
   "content.revisionDiscarded": ContentRevisionRef;
   "content.revisionRestored": ContentRevisionRef;
+  "comments.created": CommentCreatedEvent;
 
   "media.uploaded": MediaUploadedEvent;
   "media.deleted": MediaRef;
@@ -1160,12 +1170,11 @@ export interface FilterValueMap {
    * `STATIC_EXPORT_ORIGIN_URL` is set, else the relative default. Return a
    * serverless function URL, a third-party form endpoint, etc.
    *
-   * Core only emits `"comments"`. `"forms"` stays in the type for older
-   * plugins: the Forms plugin now submits to its own `/api/forms/` route.
+   * Core only emits `"comments"`. A plugin may pass its own endpoint name.
    */
   "staticExport.formAction": [
     string,
-    { siteId: string; endpoint: "forms" | "comments"; defaultAction: string },
+    { siteId: string; endpoint: "comments" | (string & {}); defaultAction: string },
   ];
   /**
    * Same-origin asset URLs the static-site exporter should download, seeded with

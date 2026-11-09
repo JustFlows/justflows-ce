@@ -24,6 +24,8 @@ import {
   marketplaceListingIsVisible,
 } from "./marketplace-catalog.js";
 import { compareCoreVersions, parseCoreVersion } from "../updates/core-release-check.js";
+import { PackageRejectedError } from "@justflows/installer";
+import { PluginPermissionApprovalError } from "../plugins/plugin-permission-approval.js";
 import { isAutoUpdateKillSwitchOn } from "../updates/core-auto-update.js";
 import { getJustflowsVersion } from "../runtime/version.js";
 import { auditLog } from "../security/audit-log.js";
@@ -114,19 +116,33 @@ async function listInstalledExtensions(siteId: string): Promise<InstalledExtensi
   const { listThemes } = await import("../themes/themes-db.js");
   const [plugins, themes] = await Promise.all([listPlugins(siteId), listThemes(siteId)]);
   return [
-    ...plugins.map((p) => ({ type: "plugin" as const, id: p.id, name: p.name, version: p.version })),
-    ...themes.map((t) => ({ type: "theme" as const, id: t.theme_id, name: t.name, version: t.version })),
+    ...plugins.map((p) => ({
+      type: "plugin" as const,
+      id: p.id,
+      name: p.name,
+      version: p.version,
+    })),
+    ...themes.map((t) => ({
+      type: "theme" as const,
+      id: t.theme_id,
+      name: t.name,
+      version: t.version,
+    })),
   ];
 }
 
-async function fetchCompatibleCatalog(): Promise<Map<string, CatalogItem & Record<string, unknown>>> {
+async function fetchCompatibleCatalog(): Promise<
+  Map<string, CatalogItem & Record<string, unknown>>
+> {
   const params = new URLSearchParams({ compatibleWith: getJustflowsVersion() });
   const res = await fetch(`${JUSTFLOWS_API_BASE}/v1/marketplace?${params}`, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Marketplace API returned ${res.status}`);
   const body = (await res.json()) as { items?: unknown };
-  const items = Array.isArray(body.items) ? (body.items as (CatalogItem & Record<string, unknown>)[]) : [];
+  const items = Array.isArray(body.items)
+    ? (body.items as (CatalogItem & Record<string, unknown>)[])
+    : [];
   const byKey = new Map<string, CatalogItem & Record<string, unknown>>();
   for (const item of items) {
     if (typeof item.id !== "string" || (item.type !== "plugin" && item.type !== "theme")) continue;
@@ -242,7 +258,12 @@ export async function updateExtension(
   siteId: string,
   type: MarketplacePackageType,
   id: string,
-  options: { version?: string; actor?: ExtensionUpdateActor; source?: "manual" | "auto" } = {},
+  options: {
+    version?: string;
+    actor?: ExtensionUpdateActor;
+    source?: "manual" | "auto";
+    approvedPermissions?: readonly string[];
+  } = {},
 ): Promise<ExtensionUpdateResult> {
   const actor = options.actor ?? {};
   if (type === "plugin") {
@@ -254,13 +275,17 @@ export async function updateExtension(
     const existing = await getPlugin(siteId, id);
     if (!existing) throw new MarketplaceRequestError(404, { error: "Plugin not found" });
 
-    const result = await installMarketplacePackage({ type, id, version: options.version, siteId });
+    const result = await installMarketplacePackage({
+      type,
+      id,
+      version: options.version,
+      siteId,
+      expectedNewerThan: existing.version,
+      approvedPermissions: options.approvedPermissions,
+    });
 
-    const {
-      runtimeActivatePlugin,
-      runtimeDeactivatePlugin,
-      runtimeUnloadPlugin,
-    } = await import("../plugins/plugin-runtime.js");
+    const { runtimeActivatePlugin, runtimeDeactivatePlugin, runtimeUnloadPlugin } =
+      await import("../plugins/plugin-runtime.js");
     const wasActive = existing.status === "active";
     if (wasActive) await runtimeDeactivatePlugin(siteId, id).catch(() => null);
     await insertPlugin(siteId, {
@@ -281,6 +306,20 @@ export async function updateExtension(
       }
     }
 
+    if (result.approvedPermissions.length > 0) {
+      const { approvedPermissionsDetail } =
+        await import("../plugins/plugin-permission-approval.js");
+      void auditLog({
+        siteId,
+        action: "plugin.permissions_approved",
+        actorId: actor.userId ?? null,
+        actorRole: actor.role ?? null,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+        target: id,
+        detail: approvedPermissionsDetail(result.approvedPermissions),
+      });
+    }
     void auditLog({
       siteId,
       action: "plugin.updated",
@@ -308,7 +347,13 @@ export async function updateExtension(
   const existing = await getTheme(siteId, id);
   if (!existing) throw new MarketplaceRequestError(404, { error: "Theme not found" });
 
-  const result = await installMarketplacePackage({ type, id, version: options.version, siteId });
+  const result = await installMarketplacePackage({
+    type,
+    id,
+    version: options.version,
+    siteId,
+    expectedNewerThan: existing.version,
+  });
   const { mergeInstalledThemeRecord } = await import("../themes/theme-files.js");
   const installed = mergeInstalledThemeRecord({
     themeId: result.manifest.id,
@@ -352,7 +397,10 @@ const AUTO_UPDATE_JOB = "extensions.auto-update";
 let running = false;
 
 /** One pass over opted-in extensions. Exported for tests. */
-export async function runExtensionAutoUpdate(): Promise<{ success: false; message: string } | void> {
+export async function runExtensionAutoUpdate(): Promise<{
+  success: false;
+  message: string;
+} | void> {
   if (running) return;
   running = true;
   try {
@@ -381,6 +429,19 @@ export async function runExtensionAutoUpdate(): Promise<{ success: false; messag
           source: "auto",
         });
       } catch (err) {
+        /** Nobody is present to approve, so this waits for a manual update. */
+        if (
+          err instanceof PackageRejectedError &&
+          err.cause instanceof PluginPermissionApprovalError
+        ) {
+          void auditLog({
+            siteId,
+            action: "extension.auto_update_skipped",
+            target: `${update.type}:${update.id}`,
+            detail: `${update.installedVersion} -> ${update.availableVersion} (new permissions need manual approval)`,
+          });
+          continue;
+        }
         const message = err instanceof Error ? err.message : String(err);
         void auditLog({
           siteId,

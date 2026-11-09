@@ -22,7 +22,9 @@ import {
   type PluginEditorSection,
 } from "../../../config/admin-nav";
 import PluginContentFrame, { type PluginContentFrameHandle } from "./PluginContentFrame";
+import PluginPanelFrame from "@components/PluginPanelFrame";
 import ContentTermsPanel, { type ContentTermsPanelHandle } from "@components/ContentTermsPanel";
+import ContentVisibilityPanel from "@components/ContentVisibilityPanel";
 import {
   fetchTypePattern,
   isEmptyBlockDocument,
@@ -117,7 +119,9 @@ interface EditorPanel {
   id: string;
   title: LocalizedLabel;
   indexableOnly?: boolean;
-  fields: EditorPanelField[];
+  fields?: EditorPanelField[];
+  app?: string;
+  catalogs?: Record<string, string>;
 }
 
 function panelSectionId(panel: EditorPanel): `panel:${string}` {
@@ -932,7 +936,15 @@ export default function EditContentPage() {
                       className="jf-card__body"
                       style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
                     >
-                      {panel.fields.map((field) => {
+                      {panel.app ? (
+                        <PluginPanelFrame
+                          pluginId={panel.pluginId}
+                          app={panel.app}
+                          target={{ contentId: item.id }}
+                          catalogs={panel.catalogs}
+                          title={localizedLabel(panel.title, locale)}
+                        />
+                      ) : (panel.fields ?? []).map((field) => {
                         const id = `jf-panel-${panel.pluginId.replace(/\./g, "-")}-${field.key}`;
                         const label = localizedLabel(field.label, locale);
                         const hint = localizedLabel(field.hint, locale);
@@ -1352,6 +1364,10 @@ export default function EditContentPage() {
                 )}
               </div>
             </div>
+
+            {item.type !== "account" && item.type !== "auth" && (
+              <ContentVisibilityPanel contentId={item.id} disabled={saving} />
+            )}
 
             <ContentTermsPanel
               ref={termsRef}

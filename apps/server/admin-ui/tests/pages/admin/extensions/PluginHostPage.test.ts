@@ -5,18 +5,18 @@ import type { PluginMenuItem } from "../../../../src/config/admin-nav";
 
 const items: PluginMenuItem[] = [
   {
-    pluginId: "justflows.consent",
+    pluginId: "justflows.privacy",
     id: "consent",
-    label: "Cookie Consent",
-    path: "/admin/plugins/justflows.consent",
+    label: "Privacy",
+    path: "/admin/plugins/justflows.privacy",
     icon: "🍪",
     domain: "security",
   },
   {
-    pluginId: "justflows.shop",
+    pluginId: "justflows.store",
     id: "products",
     label: "Products",
-    path: "/admin/plugins/justflows.shop/products",
+    path: "/admin/plugins/justflows.store/products",
     icon: "📦",
     domain: "commerce",
   },
@@ -26,24 +26,24 @@ afterEach(() => setAdminSsrPayload(null));
 
 describe("matchPluginMenuItem", () => {
   it("matches canonical /admin paths when the admin URL is the default", () => {
-    expect(matchPluginMenuItem(items, "/admin/plugins/justflows.consent")?.pluginId).toBe(
-      "justflows.consent",
+    expect(matchPluginMenuItem(items, "/admin/plugins/justflows.privacy")?.pluginId).toBe(
+      "justflows.privacy",
     );
-    expect(matchPluginMenuItem(items, "/admin/plugins/justflows.shop/products/42")?.id).toBe(
+    expect(matchPluginMenuItem(items, "/admin/plugins/justflows.store/products/42")?.id).toBe(
       "products",
     );
   });
 
   it("matches when the admin URL has been moved", () => {
     setAdminSsrPayload({ url: "/", locale: "en-US", adminBasePath: "/admin-test", responses: {} });
-    expect(matchPluginMenuItem(items, "/admin-test/plugins/justflows.consent")?.pluginId).toBe(
-      "justflows.consent",
+    expect(matchPluginMenuItem(items, "/admin-test/plugins/justflows.privacy")?.pluginId).toBe(
+      "justflows.privacy",
     );
-    expect(matchPluginMenuItem(items, "/admin-test/plugins/justflows.shop/products/42")?.id).toBe(
+    expect(matchPluginMenuItem(items, "/admin-test/plugins/justflows.store/products/42")?.id).toBe(
       "products",
     );
-    expect(matchPluginMenuItem(items, "/admin/plugins/justflows.consent")?.pluginId).toBe(
-      "justflows.consent",
+    expect(matchPluginMenuItem(items, "/admin/plugins/justflows.privacy")?.pluginId).toBe(
+      "justflows.privacy",
     );
   });
 

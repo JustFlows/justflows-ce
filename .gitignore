@@ -24,6 +24,7 @@ vite.config.*.timestamp-*
 # Compiled from apps/server/public-scripts/src/*.ts (see docs/CONVENTIONS.md)
 /public/js/*.js
 /public/js/*.js.map
+/public/js/manifest.json
 
 # Copied from node_modules by apps/server/public-scripts/copy-vendor.mjs
 /public/vendor/

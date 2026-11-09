@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withBlockChrome } from "../../src/block-chrome.js";
+import { blockAssetMarker, markBlockTypes, withBlockChrome } from "../../src/block-chrome.js";
 import { createBlockRegistrySync } from "../../src/index.js";
 
 describe("withBlockChrome", () => {
@@ -142,5 +142,29 @@ describe("grid placement", () => {
     expect(out).toContain("--jf-col:3");
     expect(out).toContain("lead");
     expect(out).toContain("jf-anim-e-fade");
+  });
+});
+
+describe("blockAssetMarker", () => {
+  it("marks a rendered plugin block after its markup, but not a core block", () => {
+    expect(withBlockChrome("<div>Slides</div>", { type: "acme.slider", props: {} })).toBe("<div>Slides</div><!--jf-block:acme.slider-->");
+    expect(withBlockChrome("<p>Hi</p>", { type: "core.paragraph", props: {} })).toBe("<p>Hi</p>");
+  });
+
+  it("does not mark a block that rendered nothing", () => {
+    expect(withBlockChrome("  ", { type: "acme.slider", props: {} })).toBe("  ");
+  });
+
+  it("marks a core block once the host asks for it", () => {
+    expect(blockAssetMarker("core.gallery")).toBe("");
+    markBlockTypes(["core.gallery", "core.--x"]);
+    expect(withBlockChrome("<figure>g</figure>", { type: "core.gallery", props: {} })).toBe("<figure>g</figure><!--jf-block:core.gallery-->");
+    expect(blockAssetMarker("core.--x")).toBe("");
+  });
+
+  it("refuses a type that could break out of the comment", () => {
+    expect(blockAssetMarker("acme.x-->")).toBe("");
+    expect(blockAssetMarker("acme--x")).toBe("");
+    expect(blockAssetMarker(42)).toBe("");
   });
 });

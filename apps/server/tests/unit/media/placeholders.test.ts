@@ -38,7 +38,7 @@ const disposers: Array<() => void> = [];
 beforeEach(() => {
   stored.clear();
   invalidatePlaceholders();
-  placeholderRegistry.removePlugin("justflows.shop");
+  placeholderRegistry.removePlugin("justflows.store");
   while (disposers.length) disposers.pop()!();
 });
 
@@ -60,13 +60,13 @@ describe("resolvePlaceholder", () => {
   });
 
   it("uses a plugin-registered image for the plugin's kind", async () => {
-    placeholderRegistry.register("justflows.shop", "justflows.shop.product", {
-      src: "/ext/justflows.shop/product.svg",
+    placeholderRegistry.register("justflows.store", "justflows.store.product", {
+      src: "/ext/justflows.store/product.svg",
       width: 800,
       height: 800,
     });
-    expect(await resolvePlaceholder("justflows.shop.product", "site-1")).toMatchObject({
-      src: "/ext/justflows.shop/product.svg",
+    expect(await resolvePlaceholder("justflows.store.product", "site-1")).toMatchObject({
+      src: "/ext/justflows.store/product.svg",
       source: "plugin",
     });
   });
@@ -175,8 +175,8 @@ describe("placeholder settings", () => {
   });
 
   it("lists core and plugin kinds for the admin page", async () => {
-    placeholderRegistry.register("justflows.shop", "justflows.shop.product", {
-      src: "/ext/justflows.shop/product.svg",
+    placeholderRegistry.register("justflows.store", "justflows.store.product", {
+      src: "/ext/justflows.store/product.svg",
       width: 800,
       height: 800,
       label: "Product",
@@ -189,8 +189,8 @@ describe("placeholder settings", () => {
       "thumbnail",
       "avatar",
       "og",
-      "justflows.shop.product",
+      "justflows.store.product",
     ]);
-    expect(state.kinds.at(-1)).toMatchObject({ owner: "justflows.shop", label: "Product" });
+    expect(state.kinds.at(-1)).toMatchObject({ owner: "justflows.store", label: "Product" });
   });
 });

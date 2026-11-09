@@ -13,6 +13,7 @@ let failNext = false;
 const fakeDb = {
   async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
     statements.push({ sql, params });
+    if (/OFFSET \?/i.test(sql)) return [] as T[];
     if (/FROM audit_log/i.test(sql)) {
       return [
         {
@@ -42,7 +43,16 @@ const fakeDb = {
 
 vi.mock("../../../src/lib/database/db.js", () => ({ getDb: async () => fakeDb, resetDb: () => {} }));
 
-const { auditLog, listAuditLog, pruneAuditLog, AUDIT_ACTIONS } = await import("../../../src/lib/security/audit-log.js");
+const {
+  auditLog,
+  listAuditLog,
+  pruneAuditLog,
+  exportSecurityAuditLog,
+  deleteSecurityAuditLog,
+  auditMaxRowsPerSite,
+  AUDIT_ACTIONS,
+  SECURITY_AUDIT_ACTIONS,
+} = await import("../../../src/lib/security/audit-log.js");
 
 beforeEach(() => {
   statements = [];
@@ -119,6 +129,18 @@ describe("the recorded action set", () => {
       expect(AUDIT_ACTIONS).toContain(action);
     }
   });
+
+  it("keeps security events focused on identity, privilege, executable code, and configuration", () => {
+    expect(SECURITY_AUDIT_ACTIONS).toContain("auth.login_failed");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("auth.2fa_enabled");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("apikey.revoked");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("user.role_changed");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("plugin.activated");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("integrity.failed");
+    expect(SECURITY_AUDIT_ACTIONS).toContain("storage.saved");
+    expect(SECURITY_AUDIT_ACTIONS).not.toContain("content.published");
+    expect(SECURITY_AUDIT_ACTIONS).not.toContain("trash.emptied");
+  });
 });
 
 describe("reading the trail", () => {
@@ -134,6 +156,16 @@ describe("reading the trail", () => {
     await listAuditLog({ siteId: "site-1", limit: 100_000 });
     const read = statements.find((s) => /SELECT \* FROM audit_log/i.test(s.sql))!;
     expect(read.params[read.params.length - 1]).toBe(500);
+  });
+
+  it("filters the security view in the site-scoped query", async () => {
+    await listAuditLog({ siteId: "site-1", view: "security" });
+    const read = statements.find((s) => /SELECT \* FROM audit_log/i.test(s.sql))!;
+    expect(read.sql).toContain("site_id = ?");
+    expect(read.sql).toContain("action IN");
+    expect(read.params).toContain("auth.login");
+    expect(read.params).toContain("integrity.failed");
+    expect(read.params).not.toContain("content.published");
   });
 
   it("maps rows to camelCase for the API", async () => {
@@ -190,5 +222,38 @@ describe("retention", () => {
     expect(auditRetentionDays()).toBe(7);
     if (prev === undefined) delete process.env.JF_AUDIT_RETENTION_DAYS;
     else process.env.JF_AUDIT_RETENTION_DAYS = prev;
+  });
+});
+
+describe("security event lifecycle", () => {
+  it("exports a bounded site-scoped security query with masked identifiers", async () => {
+    const rows = await exportSecurityAuditLog("site-1");
+    const read = statements.find((statement) => /SELECT occurred_at, action/i.test(statement.sql))!;
+    expect(read.sql).toContain("site_id = ?");
+    expect(read.sql).toContain("action IN");
+    expect(read.params.at(-1)).toBe(5000);
+    expect(rows[0]).toMatchObject({ actorEmail: "a***@example.com", ip: "203.0.113.0" });
+    expect(rows[0]).not.toHaveProperty("detail");
+    expect(rows[0]).not.toHaveProperty("target");
+  });
+
+  it("deletes only security-category rows inside the selected site", async () => {
+    const removed = await deleteSecurityAuditLog("site-1");
+    expect(removed).toBe(1);
+    const deletion = statements.find((statement) => /DELETE FROM audit_log/i.test(statement.sql))!;
+    expect(deletion.sql).toContain("site_id = ?");
+    expect(deletion.sql).toContain("action IN");
+    expect(deletion.params[0]).toBe("site-1");
+    expect(deletion.params).toContain("integrity.failed");
+  });
+
+  it("bounds the configured row ceiling", () => {
+    const previous = process.env.JF_AUDIT_MAX_ROWS_PER_SITE;
+    process.env.JF_AUDIT_MAX_ROWS_PER_SITE = "2500";
+    expect(auditMaxRowsPerSite()).toBe(2500);
+    process.env.JF_AUDIT_MAX_ROWS_PER_SITE = "12";
+    expect(auditMaxRowsPerSite()).toBe(100000);
+    if (previous === undefined) delete process.env.JF_AUDIT_MAX_ROWS_PER_SITE;
+    else process.env.JF_AUDIT_MAX_ROWS_PER_SITE = previous;
   });
 });

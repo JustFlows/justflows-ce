@@ -33,14 +33,14 @@ async function load(options?: {
   const app = new App(CONFIG);
   const loader = new PluginLoader(app, options?.runForSite ? { runForSite: options.runForSite } : {});
   let bridge: PluginBridgeApi | undefined;
-  loader.register(plugin("justflows.shop", [], (ctx) => {
+  loader.register(plugin("justflows.store", [], (ctx) => {
     ctx.http.get("orders", async () => ({ status: 200, body: { orders: [{ id: "1" }] } }));
   }));
-  loader.register(plugin("justflows.helpdesk", options?.callerPermissions ?? ["platform:tenancy"], (ctx) => {
+  loader.register(plugin("justflows.desk", options?.callerPermissions ?? ["platform:tenancy"], (ctx) => {
     bridge = ctx.plugins;
   }));
-  await loader.activate("justflows.shop", "site-1");
-  await loader.activate("justflows.helpdesk", "site-1");
+  await loader.activate("justflows.store", "site-1");
+  await loader.activate("justflows.desk", "site-1");
   if (!bridge) throw new Error("missing bridge");
   return bridge;
 }
@@ -48,7 +48,7 @@ async function load(options?: {
 describe("plugin calls on another site", () => {
   it("refuses a caller that cannot open another site", async () => {
     const bridge = await load({ callerPermissions: [] });
-    const result = await bridge.call("justflows.shop", { method: "GET", path: "orders", siteId: SITE });
+    const result = await bridge.call("justflows.store", { method: "GET", path: "orders", siteId: SITE });
     expect(result.status).toBe(403);
   });
 
@@ -60,20 +60,20 @@ describe("plugin calls on another site", () => {
         return fn();
       },
     });
-    const result = await bridge.call("justflows.shop", { method: "GET", path: "orders", siteId: SITE });
+    const result = await bridge.call("justflows.store", { method: "GET", path: "orders", siteId: SITE });
     expect(seen).toEqual([SITE]);
     expect(result.status).toBe(200);
   });
 
   it("rejects a site id that is not an id", async () => {
     const bridge = await load();
-    const result = await bridge.call("justflows.shop", { method: "GET", path: "orders", siteId: "../other" });
+    const result = await bridge.call("justflows.store", { method: "GET", path: "orders", siteId: "../other" });
     expect(result.status).toBe(400);
   });
 
   it("reports when this host cannot switch sites", async () => {
     const bridge = await load();
-    const result = await bridge.call("justflows.shop", { method: "GET", path: "orders", siteId: SITE });
+    const result = await bridge.call("justflows.store", { method: "GET", path: "orders", siteId: SITE });
     expect(result.status).toBe(501);
   });
 });

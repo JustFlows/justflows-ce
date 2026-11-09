@@ -31,6 +31,7 @@ import { sanitizeBlockDocument } from "@justflows/blocks";
 import { defaultBlocksForContentType, isEmptyBlockDocument } from "./default-content-blocks.js";
 import { getContentTypeBySlug } from "./content-types-db.js";
 import { auditLog } from "../security/audit-log.js";
+import { contentTimestamp, translationGroupDates } from "./translation-dates.js";
 import { ContentCacheFieldsSchema, validateContentCacheFields, ContentTypeSlugSchema } from "@justflows/content";
 
 /**
@@ -268,7 +269,13 @@ export async function publishRow(
   }
 
   if (!validateCacheFieldsForWrite(String(row.type), proposed.fields, res)) return;
-  const publishedAt = serializeContentRow(row).publishedAt ?? now();
+  const current = serializeContentRow(row);
+  /** A translation published for the first time takes its group's publish date. */
+  const groupPublishedAt = current.publishedAt
+    ? null
+    : (await translationGroupDates(siteId, String(row.translation_group_id ?? id), id)).publishedAt;
+  const publishedAt =
+    current.publishedAt ?? (groupPublishedAt ? contentTimestamp(groupPublishedAt) : now());
   const nextContent = { ...serializeContentRow(row), ...proposed, status: "published", publishedAt };
   try {
     proposed.slug = await uniquePermalinkSlug(nextContent);
@@ -470,6 +477,11 @@ export async function createContentEntry(
   let slug = input.slug ? slugify(input.slug) : slugify(title);
   const id = randomUUID();
   const locale = await resolveContentLocale(input.locale, actor.siteId);
+  /** A translation shares its group's creation date. */
+  const groupCreatedAt = input.translationGroupId
+    ? (await translationGroupDates(actor.siteId, input.translationGroupId, id)).createdAt
+    : null;
+  const createdAt = groupCreatedAt ? contentTimestamp(groupCreatedAt) : now();
   try {
     slug = await uniquePermalinkSlug(
       serializeContentRow({
@@ -480,7 +492,7 @@ export async function createContentEntry(
         slug,
         locale,
         status: "draft",
-        created_at: now(),
+        created_at: createdAt,
         author_id: actor.userId,
         fields: fields ?? {},
       }),
@@ -538,7 +550,7 @@ export async function createContentEntry(
       JSON.stringify(sanitizeBlockDocument(blockDoc)),
       JSON.stringify(fields ?? {}),
       actor.userId,
-      now(),
+      createdAt,
       now(),
     ],
   );

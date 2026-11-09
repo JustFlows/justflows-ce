@@ -44,10 +44,9 @@ plugin block gets them for free and must not define them itself:
 | `gridPlacement` | object | Where the block sits when its parent is a grid                                                                                                      |
 | `style`         | object | Spacing, size, alignment, corners, shadow, per-instance colours / opacity, and theme-variable overrides — see [Spacing and size](#spacing-and-size) |
 
-`layout` is available for a block's own schema (the bundled Gallery and Post
-List blocks both use it). Grid positioning used that name in an early build,
-which collided with Gallery's grid/masonry choice and caused the sanitizer to
-drop it on save. Platform positioning now lives exclusively in
+`layout` is available for a block's own schema (the Post List block uses it).
+Grid positioning used that name in an early build, which collided with a
+block's own grid/masonry choice and caused the sanitizer to drop it on save. Platform positioning now lives exclusively in
 `gridPlacement`, leaving `layout` to block definitions.
 
 `withBlockChrome` in `@justflows/blocks` applies all five to the HTML a block

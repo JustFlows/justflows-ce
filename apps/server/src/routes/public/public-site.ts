@@ -64,7 +64,7 @@ import {
   type ResolvedNavItem,
 } from "../../lib/navigation/menus-db.js";
 import { getEffectiveHomeBlocks } from "../../lib/themes/theme-home-blocks.js";
-import { getHomeContent, isHomeContentSlug } from "../../lib/content/home-page.js";
+import { getHomeContent, getVisibleHomeContent, isHomeContentSlug } from "../../lib/content/home-page.js";
 import {
   getErrorPageConfig,
   getErrorPageSource,
@@ -144,6 +144,7 @@ import {
 import { resolvePublicTemplate, resolveThemePartBlocks } from "../../lib/rendering/template-render.js";
 import { registerCoreWidgets, withCoreWidgetData, type WidgetMenuItem } from "../../lib/rendering/core-widgets.js";
 import { listPublishedPostsPage } from "../../lib/content/content-public.js";
+import { getVisibilityScope } from "../../lib/content/visibility-scope.js";
 import { contentPermalinks } from "../../lib/navigation/permalinks-db.js";
 import {
   blocksPlaceWidgetArea,
@@ -163,6 +164,9 @@ import { buildFaviconHeadHtml } from "../../lib/media/favicon.js";
 import { currentRequestTrace, debugMode, recordCompletedRequestTrace } from "../../lib/runtime/diagnostics.js";
 import { formatCacheSummary, getRequestCacheEvents, pageCacheStatus } from "../../lib/cache/cache-trace.js";
 import { getAdminPathConfig, toPublicAdminPath } from "../../lib/admin/admin-path.js";
+import { applyPageScripts, publicScriptUrl } from "../../lib/rendering/page-scripts.js";
+import { themeCssVersion, themeScriptsVersion } from "../../lib/themes/theme-asset-versions.js";
+import { activeThemeBlockAssets, themeBlockAssetTags } from "../../lib/themes/theme-block-assets.js";
 
 const templateDir = viewsDir();
 const router = Router();
@@ -754,7 +758,9 @@ async function loadNavItems(
 ): Promise<RenderableNavItem[]> {
   const siteId = await getSiteId();
   let resolved: ResolvedNavItem[];
-  if (!preview && siteId && !(await menuIsCacheable(siteId, menuSlug))) {
+  /** A menu links content, so with rules on the site its items can differ per visitor. */
+  const perVisitor = siteId ? (await getVisibilityScope(siteId)).restricted : false;
+  if (!preview && siteId && (perVisitor || !(await menuIsCacheable(siteId, menuSlug)))) {
     const visibility = await resolvePublicMenuVisibility(req, res);
     resolved = await getNavItemsForMenuSlug(menuSlug, locale, defaultLocale, preview, visibility);
   } else {
@@ -816,7 +822,7 @@ async function localizePageLinks(reqPath: string, html: string): Promise<string>
   }).replace(/</g, "\\u003c");
   const tail =
     `<script type="application/json" id="jf-locale-links">${config}</script>` +
-    `<script src="/js/locale-links.js" defer></script>`;
+    `<script src="${publicScriptUrl("locale-links")}" defer></script>`;
   const bodyEnd = localized.lastIndexOf("</body>");
   return bodyEnd === -1
     ? localized
@@ -956,7 +962,7 @@ function injectDebugToolbar(
   const payload = escapeDebugText(JSON.stringify(data));
   const toolbar =
     `<jf-debug-toolbar data-payload="${payload}"></jf-debug-toolbar>` +
-    `<script src="/js/debug-toolbar.js" defer></script>`;
+    `<script src="${publicScriptUrl("debug-toolbar")}" defer></script>`;
   const bodyEnd = html.lastIndexOf("</body>");
   return bodyEnd === -1
     ? `${html}${toolbar}`
@@ -1184,14 +1190,8 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   if (faviconHead) {
     headExtra = headExtra ? `${faviconHead}\n${headExtra}` : faviconHead;
   }
-  // Self-hosted KaTeX CSS for inline math formulas (see renderMath in
-  // @justflows/blocks) — a stylesheet, so cheap to include unconditionally
-  // rather than threading a "does this page have a formula" flag through.
-  headExtra = headExtra
-    ? `${headExtra}\n<link rel="stylesheet" href="/vendor/katex/katex.min.css">`
-    : '<link rel="stylesheet" href="/vendor/katex/katex.min.css">';
   // Auto-enqueued client assets declared by active plugins (`manifest.assets`).
-  const { renderPluginAssetHeadHtml } = await import("../../lib/plugins/plugin-assets.js");
+  const { renderPluginAssetHeadHtml, pluginBlockAssetTags } = await import("../../lib/plugins/plugin-assets.js");
   const pluginAssetHead = await renderPluginAssetHeadHtml();
   if (pluginAssetHead) {
     headExtra = headExtra ? `${headExtra}\n${pluginAssetHead}` : pluginAssetHead;
@@ -1201,8 +1201,8 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     const style = `<style>${layoutCss}</style>`;
     headExtra = headExtra ? `${headExtra}\n${style}` : style;
   }
-  // The Forms plugin ships its own enhancement script via `manifest.assets`,
-  // so it is already in `pluginAssetHead` above — nothing forms-specific here.
+  // Plugins ship their own enhancement scripts via `manifest.assets`, so they
+  // are already in `pluginAssetHead` above.
   let pwaBody = "";
   if (siteId && !data.preview) {
     const { getPwaSettings } = await import("../../lib/pwa/pwa-settings.js");
@@ -1258,6 +1258,10 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
           translations: rawTranslations,
         });
 
+  const [themeCssHref, themeJsVersion] = await Promise.all([
+    data.preview ? "/theme.css?preview=1" : themeCssVersion().then((v) => `/theme.css?v=${v}`, () => "/theme.css"),
+    themeScriptsVersion().catch(() => ""),
+  ]);
   const documentHtml = await ejs.renderFile(path.join(templateDir, "layout.ejs"), {
     ...pageData,
     body,
@@ -1266,8 +1270,9 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     pwaBody,
     hreflangLinks,
     title: documentTitle,
+    themeCssHref,
   });
-  return renderSiteBuildingBlocks(documentHtml, {
+  const html = await renderSiteBuildingBlocks(documentHtml, {
     siteId, locale: String(data.locale ?? "en"),
     homePath: localePath(String(data.locale ?? "en"), "/", String(data.defaultLocale ?? "en")),
     path: String(data.publicPath ?? data.restPath ?? "/"), query: String(data.blockQuery ?? ""),
@@ -1277,6 +1282,16 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
     loadNavigation: typeof data.loadBlockNavigation === "function" ? data.loadBlockNavigation as (slug: string) => Promise<RenderableNavItem[]> : undefined,
     primary: Array.isArray(data.navItems) ? data.navItems as RenderableNavItem[] : [],
     footer: Array.isArray(data.footerNavItems) ? data.footerNavItems as RenderableNavItem[] : [],
+  });
+  /** Scripts are picked from the finished page, header and footer included. */
+  const [pluginAssets, themeAssets] = await Promise.all([pluginBlockAssetTags(html), themeBlockAssetTags(html)]);
+  return applyPageScripts(html, {
+    styles: [...pluginAssets.styles, ...themeAssets.styles],
+    body: [
+      ...pluginAssets.body,
+      ...themeAssets.body,
+      ...(themeJsVersion ? [`<script src="/theme.js?v=${themeJsVersion}" defer></script>`] : []),
+    ],
   });
 }
 
@@ -1562,6 +1577,8 @@ function languageLinksFor(
 }
 
 async function buildPageContext(req: Request, res: Response, reqPath: string, preview = false) {
+  /** Before any block renders, so the theme's per-block asset types are marked. */
+  await activeThemeBlockAssets();
   const activeLocales = await getActiveLocaleCodes();
   const defaultLocale = await getDefaultLocale();
   const languages = await listLanguages(undefined, true);
@@ -1783,7 +1800,7 @@ async function renderHomeHtml(
 ): Promise<string> {
   const ctx = await buildPageContext(req, res, reqPath, preview);
   const siteId = await getSiteId();
-  const home = siteId ? await getHomeContent(siteId, ctx.locale, preview) : null;
+  const home = siteId ? await getVisibleHomeContent(siteId, ctx.locale, preview) : null;
   const withHeader = await applyPageHeader(
     req,
     res,
@@ -2056,6 +2073,10 @@ export async function renderSinglePageHtml(
     pageContent = rows[0]
       ? serializeContentRow(showWorking ? await overlayWorkingOnRow(rows[0], true) : rows[0])
       : null;
+  }
+  /** An editor's preview and a signed preview link are editorial views. Everyone else is checked. */
+  if (pageContent && !preview && !scopedPreview && !(await getVisibilityScope(pageContent.siteId)).allows(pageContent)) {
+    pageContent = null;
   }
   if (!pageContent) {
     return renderNotFoundHtml(pageCtx, req, res, reqPath);

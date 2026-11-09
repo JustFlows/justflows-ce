@@ -7,8 +7,8 @@ import {
 } from "../../../../src/pages/admin/extensions/MarketplacePage";
 
 const shop = {
-  id: "justflows.shop",
-  name: "Shop",
+  id: "justflows.store",
+  name: "Store",
   description: "Catalog, cart, checkout, and orders.",
   version: "0.1.0",
   downloads: 3400,

@@ -3,6 +3,7 @@
 import { getDb } from "../database/db.js";
 import { getSiteId } from "../settings/site-settings.js";
 import { activateTheme } from "./themes-db.js";
+import { clearThemeBlockAssetsCache } from "./theme-block-assets.js";
 import { revalidateOnUpdate } from "../cache/cache-revalidate.js";
 import { auditLog } from "../security/audit-log.js";
 
@@ -31,6 +32,7 @@ export async function activateThemeAdmin(
   if (!siteId) return { status: 503, body: { error: "No site found" } };
 
   await activateTheme(siteId, themeId);
+  clearThemeBlockAssetsCache();
   void auditLog({
     siteId,
     action: "theme.activated",

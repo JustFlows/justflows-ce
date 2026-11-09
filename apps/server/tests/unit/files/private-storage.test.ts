@@ -26,10 +26,10 @@ afterEach(async () => {
 
 describe("private file keys", () => {
   it("keeps every file in its site and owner folder", () => {
-    expect(objectKey(SITE, "justflows.shop", "downloads/p1/manual.pdf")).toBe(`${SITE}/justflows.shop/downloads/p1/manual.pdf`);
-    expect(() => objectKey(SITE, "justflows.shop", "../other/secret")).toThrow(/Invalid file key/);
-    expect(() => objectKey(SITE, "justflows.shop", "/etc/passwd")).toThrow(/Invalid file key/);
-    expect(() => objectKey(SITE, "justflows.shop", "folder/")).toThrow(/Invalid file key/);
+    expect(objectKey(SITE, "justflows.store", "downloads/p1/manual.pdf")).toBe(`${SITE}/justflows.store/downloads/p1/manual.pdf`);
+    expect(() => objectKey(SITE, "justflows.store", "../other/secret")).toThrow(/Invalid file key/);
+    expect(() => objectKey(SITE, "justflows.store", "/etc/passwd")).toThrow(/Invalid file key/);
+    expect(() => objectKey(SITE, "justflows.store", "folder/")).toThrow(/Invalid file key/);
     expect(() => objectKey(SITE, "Bad Owner", "a.txt")).toThrow(/Invalid file owner/);
   });
 });
@@ -54,7 +54,7 @@ describe("local private storage", () => {
   it("stores, reads, and streams part of a file", async () => {
     const root = await tempRoot();
     const backend = localPrivateBackend(root);
-    const key = objectKey(SITE, "justflows.shop", "downloads/p1/book.txt");
+    const key = objectKey(SITE, "justflows.store", "downloads/p1/book.txt");
     await backend.put(key, Buffer.from("0123456789"), "text/plain");
     expect((await backend.read(key))?.toString()).toBe("0123456789");
     const whole = await backend.open(key);
@@ -84,7 +84,7 @@ describe("local private storage", () => {
 
 describe("serving private files", () => {
   it("never serves the private folder of the uploads bucket", () => {
-    expect(isPrivateUploadPath("/.private/site/justflows.shop/a.pdf")).toBe(true);
+    expect(isPrivateUploadPath("/.private/site/justflows.store/a.pdf")).toBe(true);
     expect(isPrivateUploadPath("/%2Eprivate/site/a.pdf")).toBe(true);
     expect(isPrivateUploadPath("/.PRIVATE/a.pdf")).toBe(true);
     expect(isPrivateUploadPath("/static-export/sites/root/_deployment.json")).toBe(true);

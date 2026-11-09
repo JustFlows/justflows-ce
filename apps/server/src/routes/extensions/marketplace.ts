@@ -19,6 +19,10 @@ import {
   setExtensionAutoUpdate,
   updateExtension,
 } from "../../lib/extensions/extension-updates.js";
+import {
+  approvedPermissionsDetail,
+  MAX_APPROVED_PERMISSIONS,
+} from "../../lib/plugins/plugin-permission-approval.js";
 
 const router = Router();
 
@@ -53,15 +57,18 @@ router.get("/", requireRole("administrator"), async (req, res) => {
   }
 });
 
+const ApprovedPermissions = z.array(z.string().min(1)).max(MAX_APPROVED_PERMISSIONS).optional();
+
 const InstallSchema = z.object({
   type: z.enum(["plugin", "theme"]),
   id: z.string().min(1),
   version: z.string().optional(),
+  approvedPermissions: ApprovedPermissions,
 });
 
 router.post("/install", requireRole("administrator"), async (req, res) => {
   try {
-    const { type, id, version } = InstallSchema.parse(req.body);
+    const { type, id, version, approvedPermissions } = InstallSchema.parse(req.body);
     const { siteFeatureEnabled } = await import("../../lib/tenancy/site-features.js");
     /** feature.themeUpload only covers uploading a .jfpkg; marketplace themes stay installable. */
     if (type === "plugin" && !(await siteFeatureEnabled("feature.plugins", req.session?.siteId))) {
@@ -77,6 +84,7 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
       id,
       version,
       siteId: req.session?.siteId,
+      approvedPermissions,
     });
 
     if (type === "plugin") {
@@ -92,6 +100,12 @@ router.post("/install", requireRole("administrator"), async (req, res) => {
         manifest: { ...result.manifest, installedPath: result.installedPath },
         status: "installed",
       });
+      if (result.approvedPermissions.length > 0) {
+        auditFromRequest(req, "plugin.permissions_approved", {
+          target: result.manifest.id,
+          detail: approvedPermissionsDetail(result.approvedPermissions),
+        });
+      }
       // Forget any previously imported module so the next activate runs this
       // build without a process restart.
       const { runtimeUnloadPlugin } = await import("../../lib/plugins/plugin-runtime.js");
@@ -159,6 +173,7 @@ const UpdateSchema = z.object({
   type: z.enum(["plugin", "theme"]),
   id: z.string().min(1),
   version: z.string().optional(),
+  approvedPermissions: ApprovedPermissions,
 });
 
 router.post("/update", updateRateLimit, requireRole("administrator"), async (req, res) => {
@@ -172,11 +187,12 @@ router.post("/update", updateRateLimit, requireRole("administrator"), async (req
     res.status(503).json({ error: "No site found — complete install first" });
     return;
   }
-  const { type, id, version } = parsed.data;
+  const { type, id, version, approvedPermissions } = parsed.data;
   try {
     const result = await updateExtension(siteId, type, id, {
       version,
       source: "manual",
+      approvedPermissions,
       actor: {
         userId: req.session?.userId ?? null,
         role: req.session?.role ?? null,
