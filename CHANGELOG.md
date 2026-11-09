@@ -13,6 +13,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Saving Tools → Performance suite no longer leaves the site down when Node was started with flags.** The restart started the server again without Node's own flags, such as a TypeScript loader, `--env-file`, or a heap size, so the new process could crash at once or run without its settings. It now keeps them, except debugger and watch flags.
 - **A plugin page no longer shows a Settings button that leads to an empty page.** The admin menu now says whether a plugin's Settings page has a settings form or sub-pages, and the plugin page header only links to it when it does.
 
 ### Changed
