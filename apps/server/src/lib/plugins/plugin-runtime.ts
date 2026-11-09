@@ -32,6 +32,7 @@ import { isInstalled } from "../../middleware/install-guard.js";
 import { getJustflowsVersion } from "../runtime/version.js";
 import { recordDiagnosticError } from "../runtime/diagnostics.js";
 import { registerMailTransport, unregisterMailTransports } from "../email/mail-transports.js";
+import { unregisterCacheStores } from "../cache/cache-stores.js";
 import { registerEmailTemplate } from "../email/email-templates.js";
 import { resolvePlaceholderSync } from "../media/placeholders.js";
 
@@ -236,14 +237,20 @@ export async function ensurePluginRuntime(): Promise<void> {
         () => getTenantContext()?.siteId,
       );
       const { getJfCache } = await import("../cache/jf-cache.js");
-      const { createPluginCacheApi } = await import("./plugin-cache.js");
+      const { createPluginCacheApi, pluginCacheStoreRegistrar } = await import("./plugin-cache.js");
       loader = new PluginLoader(app, {
         justflowsVersion: getJustflowsVersion(),
         // Mandatory for every plugin: logged errors and failing hook handlers
         // land in Admin → System → Diagnostics under the plugin's id.
         errorReporter: (pluginId, context, error) =>
           recordDiagnosticError(`plugin:${pluginId} ${context}`, error),
-        cacheFactory: (pluginId) => createPluginCacheApi(pluginId, getJfCache()),
+        cacheFactory: (pluginId, permissions, siteId) =>
+          createPluginCacheApi(
+            pluginId,
+            getJfCache(),
+            pluginCacheStoreRegistrar(pluginId, permissions, siteId),
+          ),
+        cacheCleanup: unregisterCacheStores,
         dataFactory: (pluginId, siteId) => createPluginDataApi(pluginId, siteId),
         jobsFactory: (pluginId) => createPluginJobsApi(pluginId),
         // Emitted hooks follow the request's or per-site job's site, like row calls (`pluginCallSiteId`).

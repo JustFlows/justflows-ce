@@ -5,36 +5,34 @@ import { NullCache } from "./null.js";
 import { JfCache } from "./jf-cache.js";
 
 export interface CacheOptions {
-  driver: "memory" | "filesystem" | "redis";
+  /** Built-in backend. Ignored when `adapter` is given. */
+  driver?: "memory" | "filesystem";
   ttlSeconds?: number;
   /** When false, reads always miss and writes are no-ops. Default: true. */
   enabled?: boolean;
   /** Required for filesystem driver */
   dir?: string;
-  /** Required for redis driver */
-  redisUrl?: string;
+  /**
+   * A backend supplied by the caller, such as a store an extension provides
+   * (see `DelegatingCache` and `GuardedCache`). Wins over `driver`.
+   */
+  adapter?: CacheAdapter;
 }
 
 export function createCache(opts: CacheOptions): CacheAdapter {
   if (opts.enabled === false) return new NullCache();
+  if (opts.adapter) return opts.adapter;
 
-  switch (opts.driver) {
+  const driver = opts.driver ?? "filesystem";
+  switch (driver) {
     case "memory":
       return new MemoryCache(opts.ttlSeconds ?? 300);
 
     case "filesystem":
       return new FilesystemCache(opts.dir ?? "./.cache", opts.ttlSeconds ?? 300);
 
-    case "redis":
-      // Redis is optional — only available if the redis package is installed.
-      // We load it lazily so basic installs don't need redis as a dependency.
-      throw new Error(
-        "Redis cache adapter: install the 'redis' package and use RedisCache directly. " +
-        "Redis is never required for basic Justflows installations.",
-      );
-
     default:
-      throw new Error(`Unknown cache driver: ${(opts as CacheOptions).driver}`);
+      throw new Error(`Unknown cache driver: ${String(driver)}`);
   }
 }
 

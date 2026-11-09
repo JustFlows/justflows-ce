@@ -17,6 +17,7 @@ import {
   type RevalidateSettings,
 } from "./cache-revalidate.js";
 import fs from "node:fs/promises";
+import { isCacheStoreDriver } from "./cache-stores.js";
 
 export const GzipSettingsSchema = z.object({
   enabled: z.boolean(),
@@ -55,7 +56,7 @@ export type BrowserCacheSettings = z.infer<typeof BrowserCacheSettingsSchema>;
 export type PerformanceSettings = z.infer<typeof PerformanceSettingsBodySchema>;
 
 export interface PerformanceRuntimeConfig {
-  cache: CacheSettings & { redisUrl: string; defaultDir: string };
+  cache: CacheSettings & { defaultDir: string };
   gzip: GzipSettings;
   browserCache: BrowserCacheSettings;
   revalidate: RevalidateSettings;
@@ -76,10 +77,12 @@ export function getPerformanceConfig(): PerformanceRuntimeConfig {
   return {
     cache: {
       enabled: parseEnvBool(process.env.CACHE_ENABLED, false),
-      driver: process.env.CACHE_DRIVER === "memory" ? "memory" : "filesystem",
+      driver:
+        process.env.CACHE_DRIVER === "memory" || isCacheStoreDriver(process.env.CACHE_DRIVER)
+          ? process.env.CACHE_DRIVER
+          : "filesystem",
       ttlSeconds: intEnv(process.env.CACHE_TTL_SECONDS, 300),
       dir: process.env.CACHE_DIR ?? path.join(getJfRoot(), ".cache"),
-      redisUrl: process.env.CACHE_REDIS_URL ?? "",
       defaultDir: path.join(getJfRoot(), ".cache"),
     },
     gzip: {
@@ -104,6 +107,8 @@ export async function readPerformanceSettings(): Promise<{
     browserCache: boolean;
     revalidate: boolean;
   };
+  /** Cache stores active plugins offer, selectable as the driver. */
+  stores: Awaited<ReturnType<typeof readCacheSettings>>["stores"];
   envPath: string;
 }> {
   const map = await readEnvMap();
@@ -154,6 +159,7 @@ export async function readPerformanceSettings(): Promise<{
       browserCache: getPerformanceConfig().browserCache.enabled,
       revalidate: revalidate.enabled,
     },
+    stores: cacheSnapshot.stores,
     envPath: path.join(getJfRoot(), ".env"),
   };
 }
@@ -167,7 +173,6 @@ function performanceToEnvUpdates(body: PerformanceSettings): Record<string, stri
       body.cache.driver === "filesystem"
         ? body.cache.dir?.trim() || path.join(getJfRoot(), ".cache")
         : null,
-    CACHE_REDIS_URL: body.cache.redisUrl?.trim() ? body.cache.redisUrl.trim() : null,
   };
 
   return {

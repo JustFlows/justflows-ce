@@ -8,6 +8,7 @@ import { scopeCacheKey } from "./site-cache-key.js";
 import { getJfRoot } from "../runtime/jf-root.js";
 import { logCacheEventIfDebug, recordCacheEvent } from "./cache-trace.js";
 import { resolvePathUnderBase } from "../security/safe-path.js";
+import { cacheStoreAdapter, isCacheStoreDriver, selectCacheStore } from "./cache-stores.js";
 
 const privateScope = new AsyncLocalStorage<boolean>();
 let scopedInstance: JfCache | null = null;
@@ -45,12 +46,11 @@ function resolveCacheOptions() {
       driver: config.cache.driver,
       ttlSeconds: config.cache.ttlSeconds,
       dir: config.cache.dir ?? cacheStorageDir(),
-      redisUrl: config.cache.redisUrl,
     };
   } catch {
     // Pre-install or incomplete .env — read CACHE_* from process.env directly.
-    const driver: "memory" | "filesystem" =
-      process.env.CACHE_DRIVER === "memory" ? "memory" : "filesystem";
+    const raw = process.env.CACHE_DRIVER;
+    const driver: string = raw === "memory" || isCacheStoreDriver(raw) ? raw : "filesystem";
     const ttl = parseInt(process.env.CACHE_TTL_SECONDS ?? "300", 10);
     return {
       // Unset (install wizard, missing key) is off — never start writing
@@ -59,7 +59,6 @@ function resolveCacheOptions() {
       driver,
       ttlSeconds: Number.isFinite(ttl) ? ttl : 300,
       dir: process.env.CACHE_DIR ?? cacheStorageDir(),
-      redisUrl: process.env.CACHE_REDIS_URL,
     };
   }
 }
@@ -79,7 +78,16 @@ export function getJfCache(): JfCache {
   // which on a fresh install is before `.env` exists. Recreate when the
   // enabled flag changes so CACHE_ENABLED=0 actually takes effect.
   if (!instance || instanceEnabled !== opts.enabled) {
-    instance = attachObserver(createJfCache(opts));
+    /** A plugin store is attached later, when its plugin registers it; until then the cache is bypassed. */
+    const pluginStore = isCacheStoreDriver(opts.driver);
+    selectCacheStore(pluginStore ? opts.driver : null, opts.ttlSeconds);
+    instance = attachObserver(
+      createJfCache(
+        pluginStore
+          ? { enabled: opts.enabled, ttlSeconds: opts.ttlSeconds, adapter: cacheStoreAdapter() }
+          : { ...opts, driver: opts.driver === "memory" ? "memory" : "filesystem" },
+      ),
+    );
     instance.setKeyScope(scopeCacheKey);
     instanceEnabled = opts.enabled;
     const base = instance;
