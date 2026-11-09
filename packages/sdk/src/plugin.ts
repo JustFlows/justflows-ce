@@ -51,6 +51,7 @@ export const PluginPermissionSchema = z.enum([
   "platform:tenancy",
   "platform:network",
   "files:private",
+  "cache:store",
 ]);
 
 export type PluginPermission = z.infer<typeof PluginPermissionSchema>;
@@ -66,6 +67,7 @@ export const SENSITIVE_PERMISSIONS: PluginPermission[] = [
   "mail:hook",
   "platform:tenancy",
   "platform:network",
+  "cache:store",
 ];
 
 /** Host/runtime versions exposed to an activated extension. */
@@ -740,6 +742,16 @@ export interface PluginCacheApi {
    * Pass a relative prefix (e.g. `"products:"`) or omit to clear the whole plugin tree.
    */
   invalidate(prefix?: string): Promise<void>;
+
+  /**
+   * Offer a store that can back the whole installation's jf-cache, such as an
+   * external key-value service shared by several application processes. The
+   * operator picks it as the cache driver in Admin → Tools (its id there is
+   * `plugin:<pluginId>.<id>`). Requires `cache:store` and is honoured only
+   * while the plugin is active on the main site. Removed on deactivate.
+   * Absent on older hosts. Available from SDK 0.1.9.
+   */
+  registerStore?(definition: import("./cache.js").CacheStoreDefinition): void;
 }
 
 export interface PluginCapabilitiesApi {

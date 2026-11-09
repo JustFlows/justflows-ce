@@ -32,6 +32,12 @@ export interface AdminMenuEntry extends Omit<PluginAdminMenuItem, "path"> {
   adminCatalogs?: Record<string, string>;
   /** The plugin's own sidebar section, on items with `domain: "plugin"`. */
   section?: AdminMenuSection;
+  /**
+   * Whether the plugin's Settings page (`/admin/plugins/<id>/settings`) has
+   * anything on it: a `settingsSchema` or `settings/…` sub-pages. The admin
+   * links to that page only when this is not `false`.
+   */
+  hasSettings?: boolean;
 }
 
 /** A plugin's own sidebar section as the admin receives it. */
@@ -183,6 +189,9 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
   /** Plugins active on this site — used to drop stale adminApp / filter leftovers. */
   const activePluginIds = new Set<string>();
   const sections = new Map<string, AdminMenuSection>();
+  /** Plugins whose Settings page shows a settings form. */
+  const withSchema = new Set<string>();
+  const { resolvePluginSettingsSchema } = await import("../plugins/plugins-db.js");
 
   for (const row of rows) {
     if (!MENU_VISIBLE_STATUSES.has(row.status)) continue;
@@ -202,6 +211,8 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
       const setupPath = resolveAdminPath(manifest.setupPath, row.plugin_id);
       if (setupPath) setupByPlugin.set(row.plugin_id, setupPath);
     }
+
+    if (resolvePluginSettingsSchema(row.plugin_id, manifest)) withSchema.add(row.plugin_id);
 
     const section = manifestSection(manifest, row.plugin_id);
     if (section) sections.set(row.plugin_id, section);
@@ -242,14 +253,33 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
     () => new Map<string, Record<string, string>>(),
   );
 
-  return stampSections(
-    stampCatalogLabels(
-      stampAdminAppUrls(stampSetupPaths(menu, setupByPlugin), adminAppRoutes),
+  return stampHasSettings(
+    stampSections(
+      stampCatalogLabels(
+        stampAdminAppUrls(stampSetupPaths(menu, setupByPlugin), adminAppRoutes),
+        catalogFiles,
+      ),
+      sections,
       catalogFiles,
     ),
-    sections,
-    catalogFiles,
+    withSchema,
   );
+}
+
+/**
+ * Mark whether each plugin's Settings page has content: a settings schema, or
+ * a menu page under `settings/` that the page lists.
+ */
+export function stampHasSettings(items: AdminMenuEntry[], withSchema: ReadonlySet<string>): AdminMenuEntry[] {
+  const withSubPages = new Set(
+    items
+      .filter((item) => item.path.startsWith(`${pluginAdminBasePath(item.pluginId)}/settings/`))
+      .map((item) => item.pluginId),
+  );
+  return items.map((item) => ({
+    ...item,
+    hasSettings: withSchema.has(item.pluginId) || withSubPages.has(item.pluginId),
+  }));
 }
 
 /**

@@ -1,3 +1,3 @@
 export { loadConfig } from "./loader.js";
-export { AppConfigSchema, DatabaseConfigSchema, StorageConfigSchema, CacheConfigSchema } from "./schema.js";
+export { AppConfigSchema, DatabaseConfigSchema, StorageConfigSchema, CacheConfigSchema, CACHE_STORE_DRIVER_RE } from "./schema.js";
 export type { AppConfig, DatabaseConfig, StorageConfig, CacheConfig } from "./schema.js";

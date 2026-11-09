@@ -44,7 +44,8 @@ export default function PluginHostPage() {
   if (!item) return <Navigate to="/admin" replace />;
 
   const heading = pluginHeading(t, item, locale);
-  const showSettings = !settingsInMenu(items, item.pluginId);
+  /** No link to a Settings page that has nothing on it. */
+  const showSettings = item.hasSettings !== false && !settingsInMenu(items, item.pluginId);
 
   // A plugin that ships its own admin app owns the whole screen: the host
   // frames the plugin's HTML and only relays navigation / height over

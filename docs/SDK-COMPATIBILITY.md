@@ -51,6 +51,14 @@ plugin's own version.
 filter are additive. Existing plugins and themes continue to use database
 search without implementing anything. See [Search](SEARCH.md).
 
+### SDK 0.1.9 — cache stores
+
+`CacheStore`, `CacheStoreDefinition`, `CacheStoreStatus`,
+`cacheKeyMatchesPrefix`, `isSiteScopedCacheKey`, the `cache:store` permission,
+and the optional `ctx.cache.registerStore` are additive. Existing plugins are
+unaffected; feature-detect `registerStore` before calling it. See
+[Cache — Plugin cache stores](CACHE.md#plugin-cache-stores).
+
 ### In development — comment spam
 
 `SpamCheckBackend`, `SpamCheckInput`, `SpamCheckResult`, and the

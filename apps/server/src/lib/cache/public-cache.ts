@@ -80,6 +80,11 @@ export async function inspectCacheStorage(): Promise<{
   totalBytes: number;
   sampleKeys: string[];
 }> {
+  /** A plugin store reports its own figures; there is nothing on disk. */
+  const { inspectSelectedCacheStore } = await import("./cache-stores.js");
+  const remote = await inspectSelectedCacheStore();
+  if (remote) return remote;
+
   const cacheDir = cacheStorageDir();
   let keyCount = 0;
   let totalBytes = 0;

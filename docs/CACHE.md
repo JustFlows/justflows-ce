@@ -5,8 +5,10 @@ avoid hitting the database on every request. The idea is similar to Next.js data
 caching: store the result of an expensive read, reuse it for a while, and throw
 it away when the underlying data changes.
 
-No Redis is required for a basic install. Memory or filesystem is enough for
-single-node hosting (Plesk, cPanel, one VPS).
+No external service is required for a basic install. Memory or filesystem is
+enough for single-node hosting (Plesk, cPanel, one VPS). Running several
+application processes or machines? Let a plugin back the cache with a shared
+store provided by a plugin (see [Plugin cache stores](#plugin-cache-stores)).
 
 ---
 
@@ -20,10 +22,9 @@ Or add these to `.env` manually (see also `.env.example`):
 | Variable            | Default                                     | Purpose                                                         |
 | ------------------- | ------------------------------------------- | --------------------------------------------------------------- |
 | `CACHE_ENABLED`     | Fresh install: `0`. Fallback if unset: off. | Global kill switch. Use `0`, `false`, or `off` to disable.      |
-| `CACHE_DRIVER`      | `filesystem`                                | `memory`, `filesystem`, or `redis` (redis not implemented yet). |
+| `CACHE_DRIVER`      | `filesystem`                                | `memory`, `filesystem`, or a plugin store (`plugin:<pluginId>.<storeId>`). Anything else falls back to `filesystem`. |
 | `CACHE_TTL_SECONDS` | `300`                                       | Default TTL for cached entries (seconds).                       |
 | `CACHE_DIR`         | `./.cache` under JF_ROOT                    | Directory for the filesystem driver.                            |
-| `CACHE_REDIS_URL`   | —                                           | Reserved for a future Redis driver.                             |
 
 When caching is **disabled**, every read goes straight to the source — same
 behaviour as a cold cache, but without storing anything. Useful while debugging
@@ -271,12 +272,67 @@ Choose TTL based on how stale the data can be:
 - Not shared across multiple Node processes or machines — use only when you run
   a single instance.
 
-### Redis (planned)
+### Plugin cache stores
 
-- For multi-instance deployments where every node must see the same cache and
-  invalidation.
-- Not required for basic installs; selecting `redis` today throws a clear error
-  at startup.
+For multi-instance deployments where every process must see the same cache
+entries and invalidations, a plugin can provide the backend, for example one
+backed by Redis. Core ships no external driver and holds no store settings; the
+plugin reads its own configuration (see that plugin's README).
+
+1. Activate the plugin **on the main site**. Its store then appears in
+   **Tools → Performance suite → Driver**.
+2. Pick it and save, or set `CACHE_DRIVER=plugin:<pluginId>.<storeId>` in
+   every process's `.env`.
+3. Every process must use the same driver and the same store settings.
+
+How the host treats the store:
+
+| Situation                                               | Behaviour                                                                                         |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Before the plugin registers the store (startup)         | Bypass: reads miss, writes are skipped. Nothing is served from a local copy.                      |
+| Plugin inactive, or active only on another site         | Bypass, shown as **Unavailable** in Tools and as a warning in Site Health.                        |
+| Store cannot be configured (`create()` throws)          | Bypass, with the plugin's message in Tools and Diagnostics.                                       |
+| A read fails or takes longer than 2 s                   | That read is a miss.                                                                              |
+| A write fails                                           | That write is skipped.                                                                            |
+| A `delete`, `invalidate`, or `clear` fails (or a bulk call exceeds 30 s) | Bypass until a full `clear()` of the store succeeds (retried at most every 5 s), so no process keeps serving an entry whose invalidation was lost. |
+
+Failures are reported in **System → Diagnostics** at most once a minute per
+operation. Pages keep rendering throughout; they are just not cached.
+
+A process that cannot reach the store while others can (a network partition)
+cannot stop the others from reading an entry it failed to invalidate. Its
+recovery `clear()` fixes that as soon as it reconnects; until then the entry's
+TTL is the upper bound.
+
+Switching away from a plugin store and back can leave entries the other driver
+never invalidated. Use **Clear cache now** after switching back.
+
+#### Writing a store
+
+Declare `cache:store` in the manifest and register during `activate`. The host
+builds the store only when it is selected, and closes it on deactivate.
+
+```ts
+import type { CacheStore, PluginContext } from "@justflows/sdk";
+import { cacheKeyMatchesPrefix } from "@justflows/sdk";
+
+export function activate(ctx: PluginContext) {
+  ctx.cache.registerStore?.({
+    id: "shared",
+    label: "My shared store",
+    create: ({ defaultTtlSeconds }): CacheStore => connectToMyService(defaultTtlSeconds),
+  });
+}
+```
+
+`CacheStore` methods take host keys (already prefixed `s:<siteId>:` for site
+data) and JSON-serializable values. `set` always receives a TTL; 0 means no
+expiry. `invalidate(prefix)` must remove exactly the keys
+`cacheKeyMatchesPrefix(key, prefix)` accepts: a logical prefix (`page:html:`)
+also covers that tail inside every site. `clear()` removes only this
+installation's keys. `status()` is shown in Tools; never include credentials in
+its `detail`. Optional `stats()` feeds the key count, and `close()` releases
+connections. Reject on failure; the host applies the behaviour above.
 
 ---
 
@@ -311,6 +367,7 @@ export async function activate(ctx: PluginContext) {
 | `remember(key, ttl, fn)` | Read-through with in-flight dedupe   |
 | `get` / `set` / `delete` | Direct access                        |
 | `invalidate(prefix?)`    | Wipe plugin keys (omit prefix = all) |
+| `registerStore(def)`     | Offer a backend for the whole cache (`cache:store`, main site only; see [Plugin cache stores](#plugin-cache-stores)) |
 
 When global caching is disabled, `remember` still runs `fn` and writes are no-ops.
 
@@ -416,7 +473,8 @@ Verify in browser DevTools → Network: look for `Content-Encoding: gzip` and
 
 | Path                                    | Role                                                        |
 | --------------------------------------- | ----------------------------------------------------------- |
-| `packages/cache/`                       | `@justflows/cache` — adapters, `JfCache`, `createJfCache()` |
+| `packages/cache/`                       | `@justflows/cache` — adapters, `JfCache`, `createJfCache()`, `DelegatingCache`, `GuardedCache` |
+| `apps/server/src/lib/cache/cache-stores.ts` | Plugin cache store registry and selection               |
 | `apps/server/src/lib/cache/jf-cache.ts` | Server singleton wired from `.env`                          |
 | `packages/core/src/config/`             | `CacheConfigSchema`, env loading                            |
 

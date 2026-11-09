@@ -57,6 +57,8 @@ export type PluginMenuItem = {
   adminCatalogs?: Record<string, string>;
   /** The plugin's own sidebar section, on items with `domain: "plugin"`. */
   section?: { label: string; labels?: Record<string, string>; icon: string };
+  /** `false` when the plugin's Settings page would be empty. Absent on older servers. */
+  hasSettings?: boolean;
 };
 
 /**
