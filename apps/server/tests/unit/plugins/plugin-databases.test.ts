@@ -60,7 +60,7 @@ describe("plugin database transactions", () => {
     else process.env.DB_DRIVER = savedDriver;
   });
 
-  const api = () => createPluginDatabasesApi("justflows.shop", "site-1", new Set());
+  const api = () => createPluginDatabasesApi("justflows.store", "site-1", new Set());
 
   it("runs row calls made inside the callback on the transaction", async () => {
     const databases = api();
@@ -72,7 +72,7 @@ describe("plugin database transactions", () => {
     expect(calls.length).toBeGreaterThan(2);
     expect(calls.every((call) => call.tx)).toBe(true);
     expect(calls[0]?.sql).toContain("FOR UPDATE");
-    expect(calls[0]?.sql).toContain(`"shop_inventory"`);
+    expect(calls[0]?.sql).toContain(`"store_inventory"`);
   });
 
   it("joins a nested transaction instead of opening another", async () => {

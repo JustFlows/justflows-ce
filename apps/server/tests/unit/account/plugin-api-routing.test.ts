@@ -16,9 +16,9 @@ import { pluginApiCsrf } from "../../../src/middleware/plugin-api-csrf.js";
 import { dispatchPluginHttp } from "../../../src/lib/plugins/plugin-http.js";
 let server: Server; let base: string;
 beforeAll(async () => {
-  const router = new PluginHttpRouter(); router.setApiNamespace("justflows.shop", "shop"); mocks.router = router;
-  router.register("justflows.shop", "POST", "payments/hooks/:token", async req => ({ body: { token: req.params.token, raw: req.rawBody } }), { csrf: false, rawBody: true });
-  router.register("justflows.shop", "POST", "checkout", mocks.protected);
+  const router = new PluginHttpRouter(); router.setApiNamespace("justflows.store", "shop"); mocks.router = router;
+  router.register("justflows.store", "POST", "payments/hooks/:token", async req => ({ body: { token: req.params.token, raw: req.rawBody } }), { csrf: false, rawBody: true });
+  router.register("justflows.store", "POST", "checkout", mocks.protected);
   const app = express();
   app.use(express.json({ verify: (req, _res, bytes) => { Object.assign(req, { rawBody: bytes.toString("utf8") }); } }));
   app.use("/api", pluginApiCsrf); app.use(dispatchPluginHttp);
@@ -31,14 +31,14 @@ describe("neutral API dispatch", () => {
   it("accepts signed-webhook aliases on the first request and preserves raw JSON bytes", async () => {
     mocks.loaded = false;
     const alias = await post("/api/shop/payments/hooks/token"); expect(alias.status).toBe(200);
-    const legacy = await post("/ext/justflows.shop/payments/hooks/token"); expect(legacy.status).toBe(200);
+    const legacy = await post("/ext/justflows.store/payments/hooks/token"); expect(legacy.status).toBe(200);
     expect(await alias.json()).toEqual(await legacy.json());
   });
   it("keeps ordinary plugin mutations and core APIs CSRF protected", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     try {
       expect((await post("/api/shop/checkout")).status).toBe(403);
-      expect((await post("/ext/justflows.shop/checkout")).status).toBe(403);
+      expect((await post("/ext/justflows.store/checkout")).status).toBe(403);
       expect((await post("/api/users")).status).toBe(403);
       expect(mocks.protected).not.toHaveBeenCalled();
     } finally { warn.mockRestore(); }

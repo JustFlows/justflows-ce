@@ -30,7 +30,7 @@ export const PackageManifestSchema = z
     type: z.enum(["plugin", "theme", "css-provider"]),
     id: z
       .string()
-      .regex(PLUGIN_ID_RE, "ID must be justflows.<name> (lowercase, e.g. justflows.seo)"),
+      .regex(PLUGIN_ID_RE, "ID must be justflows.<name> (lowercase, e.g. justflows.acme)"),
     apiNamespace: z.string().refine(isValidPluginApiNamespace, "Invalid or reserved plugin API namespace").optional(),
     name: z.string().min(1).max(100),
     /**

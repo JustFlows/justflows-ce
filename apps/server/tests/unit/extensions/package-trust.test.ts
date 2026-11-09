@@ -1,10 +1,26 @@
-import { createHmac } from "node:crypto";
+import { createHmac, generateKeyPairSync, sign } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { assertPackageIsTrusted } from "../../../src/lib/extensions/package-trust.js";
+import {
+  assertPackageIsTrusted,
+  marketplaceSignPayload,
+  verifyMarketplaceSignature,
+} from "../../../src/lib/extensions/package-trust.js";
 
 const manifest = { id: "acme.theme", version: "1.0.1", publisher: "acme" };
 const digest = "a".repeat(64);
 const pinned = "b".repeat(64);
+const signing = generateKeyPairSync("ed25519");
+const replacement = generateKeyPairSync("ed25519");
+const publicPem = signing.publicKey.export({ type: "spki", format: "pem" }).toString();
+const replacementPem = replacement.publicKey.export({ type: "spki", format: "pem" }).toString();
+
+function marketplaceSignature(): string {
+  return sign(
+    null,
+    marketplaceSignPayload(manifest.id, manifest.version, manifest.publisher, digest),
+    signing.privateKey,
+  ).toString("base64");
+}
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -34,7 +50,26 @@ describe("assertPackageIsTrusted", () => {
     const canonical = JSON.stringify(manifest, Object.keys(manifest).sort());
     const packageSignature = createHmac("sha256", "test-secret").update(canonical).digest("hex");
     for (const archiveDigest of [digest, pinned]) {
-      expect(() => assertPackageIsTrusted({ ...manifest, packageSignature }, archiveDigest)).toThrow(/could not be verified/);
+      expect(() =>
+        assertPackageIsTrusted({ ...manifest, packageSignature }, archiveDigest),
+      ).toThrow(/could not be verified/);
     }
+  });
+});
+
+describe("verifyMarketplaceSignature", () => {
+  it("accepts a retiring key during an overlap with its replacement", () => {
+    expect(
+      verifyMarketplaceSignature(digest, marketplaceSignature(), manifest, [
+        replacementPem,
+        publicPem,
+      ]),
+    ).toBe(true);
+  });
+
+  it("rejects the retired key after it is removed", () => {
+    expect(
+      verifyMarketplaceSignature(digest, marketplaceSignature(), manifest, [replacementPem]),
+    ).toBe(false);
   });
 });

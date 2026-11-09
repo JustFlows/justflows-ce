@@ -17,7 +17,7 @@ admin path.
 
 "Staff" means any account that lands in the admin after signing in: a role
 with any capability beyond reading content. Subscribers, plugin roles such as
-Shop's customer, and workspace owners on the installation's root site are
+a customer role, and workspace owners on the installation's root site are
 members.
 
 ## The server enforces the split

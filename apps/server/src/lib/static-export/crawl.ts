@@ -47,6 +47,7 @@ const RESERVED_PREFIXES = [
   "/assets",
   "/css-providers",
   "/js",
+  "/theme-assets",
 ];
 
 /** Reserved exact paths (files, not namespaces) — only the literal path is blocked. */

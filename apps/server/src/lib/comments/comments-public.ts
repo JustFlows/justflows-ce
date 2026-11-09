@@ -663,6 +663,9 @@ export async function acceptCommentSubmission(
   if (!content || !contentTypePolicy(content.type).publiclyDiscoverable || content.status !== "published") {
     return fail(404, "Post not found");
   }
+  const { getVisibilityScope } = await import("../content/visibility-scope.js");
+  const visibilityRef = { id: content.id, type: content.type, translationGroupId: content.translation_group_id };
+  if (!(await getVisibilityScope(siteId)).allows(visibilityRef)) return fail(404, "Post not found");
 
   const typeSettings = await getContentTypeSettings(siteId, content.type);
   if (typeSettings.comments === "disabled") return fail(403, "Comments are disabled for this content type");
@@ -821,6 +824,15 @@ export async function acceptCommentSubmission(
       nowIso,
     ],
   );
+  if (status === "pending" || status === "approved") {
+    await publishCommentCreated({
+      siteId,
+      contentId,
+      commentId: id,
+      parentId: parentId ?? "",
+      status,
+    });
+  }
 
   if (status === "pending" && settings.notifyModerator) {
     void notifyModerator(siteId, authorName, cleanBody).catch(() => undefined);
@@ -837,6 +849,24 @@ export async function acceptCommentSubmission(
     status: 303,
     location: returnLocation(returnTo, input.referer, status === "approved" ? "posted" : "pending"),
   };
+}
+
+/** Tell plugins a comment was stored. Failures stay off the visitor's response. */
+export async function publishCommentCreated(event: {
+  siteId: string;
+  contentId: string;
+  commentId: string;
+  parentId: string;
+  status: "pending" | "approved";
+}): Promise<void> {
+  try {
+    await getRuntimeHooks().dispatchAction("comments.created", event, {
+      siteId: event.siteId,
+      source: "http",
+    });
+  } catch {
+    /* The comment is already stored. */
+  }
 }
 
 function safeParse(value: string): unknown {

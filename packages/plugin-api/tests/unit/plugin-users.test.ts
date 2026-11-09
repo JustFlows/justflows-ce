@@ -49,7 +49,7 @@ describe("plugin user creation", () => {
     let shop: PluginContext | undefined;
     let other: PluginContext | undefined;
     loader.register(
-      plugin("justflows.shop", ["users:manage"], (ctx) => {
+      plugin("justflows.store", ["users:manage"], (ctx) => {
         shop = ctx;
         ctx.roles.register({ id: "customer", label: "Customer", capabilities: [] });
       }),
@@ -59,7 +59,7 @@ describe("plugin user creation", () => {
         other = ctx;
       }),
     );
-    await loader.activate("justflows.shop", "site-1");
+    await loader.activate("justflows.store", "site-1");
     await loader.activate("justflows.other", "site-1");
 
     const input = {
@@ -93,12 +93,12 @@ describe("plugin user creation", () => {
     });
     let ctx: PluginContext | undefined;
     loader.register(
-      plugin("justflows.shop", [], (context) => {
+      plugin("justflows.store", [], (context) => {
         ctx = context;
         context.roles.register({ id: "customer", label: "Customer", capabilities: [] });
       }),
     );
-    await loader.activate("justflows.shop", "site-1");
+    await loader.activate("justflows.store", "site-1");
     await expect(
       ctx!.users.create(
         {
@@ -126,14 +126,14 @@ describe("plugin user creation", () => {
     let other: PluginContext | undefined;
     let unprivileged: PluginContext | undefined;
     loader.register(
-      plugin("justflows.shop", ["users:manage"], (ctx) => {
+      plugin("justflows.store", ["users:manage"], (ctx) => {
         shop = ctx;
         ctx.roles.register({ id: "customer", label: "Customer", capabilities: [] });
       }),
     );
     loader.register(plugin("justflows.other", ["users:manage"], (ctx) => { other = ctx; }));
     loader.register(plugin("justflows.plain", [], (ctx) => { unprivileged = ctx; }));
-    await loader.activate("justflows.shop", "site-1");
+    await loader.activate("justflows.store", "site-1");
     await loader.activate("justflows.other", "site-1");
     await loader.activate("justflows.plain", "site-1");
     const actor = { userId: "admin", role: "administrator" };
@@ -156,9 +156,9 @@ describe("plugin user creation", () => {
     const loader = new PluginLoader(app, { usersFactory: () => ({ create: vi.fn(), get: async () => user }) });
     let shop: PluginContext | undefined;
     let plain: PluginContext | undefined;
-    loader.register(plugin("justflows.shop", ["users:manage"], (ctx) => { shop = ctx; }));
+    loader.register(plugin("justflows.store", ["users:manage"], (ctx) => { shop = ctx; }));
     loader.register(plugin("justflows.plain", [], (ctx) => { plain = ctx; }));
-    await loader.activate("justflows.shop", "site-1");
+    await loader.activate("justflows.store", "site-1");
     await loader.activate("justflows.plain", "site-1");
 
     await expect(shop!.users.get!("u1")).resolves.toEqual(user);
@@ -178,14 +178,14 @@ describe("plugin user creation", () => {
     let other: PluginContext | undefined;
     let unprivileged: PluginContext | undefined;
     loader.register(
-      plugin("justflows.shop", ["users:manage"], (ctx) => {
+      plugin("justflows.store", ["users:manage"], (ctx) => {
         shop = ctx;
         ctx.roles.register({ id: "member", label: "Member", capabilities: [] });
       }),
     );
     loader.register(plugin("justflows.other", ["users:manage"], (ctx) => { other = ctx; }));
     loader.register(plugin("justflows.plain", [], (ctx) => { unprivileged = ctx; }));
-    await loader.activate("justflows.shop", "site-1");
+    await loader.activate("justflows.store", "site-1");
     await loader.activate("justflows.other", "site-1");
     await loader.activate("justflows.plain", "site-1");
     const actor = { userId: "", role: "member" };

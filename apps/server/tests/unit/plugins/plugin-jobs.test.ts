@@ -68,15 +68,15 @@ const { getTenantContext, runWithTenant } = await import("../../../src/lib/tenan
 describe("per-site plugin jobs", () => {
   beforeEach(() => {
     sites.list = [
-      { id: "site-a", active: ["justflows.shop"], db: "control" },
+      { id: "site-a", active: ["justflows.store"], db: "control" },
       { id: "site-b", active: ["other.plugin"], db: "control" },
-      { id: "site-c", active: ["justflows.shop"], db: "separate-c" },
+      { id: "site-c", active: ["justflows.store"], db: "separate-c" },
     ];
   });
 
   it("runs once per site where the plugin is active, inside that site's context", async () => {
     const seen: Array<{ siteId: string; context: string | undefined; db: string; root: boolean | undefined }> = [];
-    const result = await runPerSite("justflows.shop", async (siteId) => {
+    const result = await runPerSite("justflows.store", async (siteId) => {
       const context = getTenantContext();
       seen.push({ siteId, context: context?.siteId, db: current.db, root: context?.rootSite });
       return { success: true };
@@ -90,7 +90,7 @@ describe("per-site plugin jobs", () => {
 
   it("keeps going after one site fails and reports it", async () => {
     const ran: string[] = [];
-    const result = await runPerSite("justflows.shop", async (siteId) => {
+    const result = await runPerSite("justflows.store", async (siteId) => {
       ran.push(siteId);
       if (siteId === "site-a") throw new Error("boom");
       return { success: true };
@@ -113,7 +113,7 @@ describe("durable plugin job runs", () => {
 
   const tenant = (siteId: string) => ({
     tenantId: "tenant", siteId, hostname: "", userMode: "isolated" as const, databaseMode: "current" as const,
-    rootSite: false, activePluginIds: new Set(["justflows.shop"]),
+    rootSite: false, activePluginIds: new Set(["justflows.store"]),
   });
 
   it("runs a per-site job only on the site that enqueued it", async () => {

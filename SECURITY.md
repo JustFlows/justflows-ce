@@ -2,9 +2,13 @@
 
 ## Supported versions
 
-| Version | Supported |
-| ------- | --------- |
-| 0.1.x   | Yes       |
+Security fixes ship in the next Justflows release. Older releases do not receive
+backported fixes, so stay on the latest release.
+
+| Version        | Supported |
+| -------------- | --------- |
+| Latest release | Yes       |
+| Older releases | No        |
 
 ## Reporting a vulnerability
 
@@ -18,11 +22,30 @@ Email **security@justflows.com** with:
 
 You should receive an acknowledgement within a few days. Please give us a reasonable window to investigate and ship a fix before any public disclosure.
 
+Keep exploit details, customer data, and credentials out of public issues and
+pull requests.
+
+## How we handle reports
+
+1. We confirm the report privately and assess its severity against the current
+   code and the latest release.
+2. We fix confirmed issues in private and add a regression test. A critical or
+   high severity issue blocks the affected release until it is fixed.
+3. We publish the fix in a release, and then publish an advisory with the
+   affected versions, the fixed version, and any action operators need to take.
+
+Maintainers follow the [security release runbook](docs/SECURITY-RELEASES.md). The
+[threat model](docs/THREAT-MODEL.md) describes what Justflows defends against.
+
 ## Trust boundary
 
 Justflows runs uploaded plugins, themes, CSS providers, and core-update archives **in the same Node.js process** as the site. An administrator who can upload a `.jfpkg` or core `.zip` can execute arbitrary code on the server. Treat those admin actions as equivalent to shell access.
 
 This is by design for a self-hosted CMS. Production sites should restrict who is an administrator.
+
+See [extension trust](docs/EXTENSION-TRUST.md) for what SDK permissions and
+signatures do and do not constrain. If you suspect a compromise, follow
+[incident response](docs/INCIDENT-RESPONSE.md).
 
 Since 0.1.2, package authenticity is checked by default: a `.jfpkg` is refused unless
 it carries a valid marketplace signature or its SHA-256 digest is pinned in
@@ -70,10 +93,13 @@ Also:
 - After a trusted install, Justflows stores a per-file baseline outside the
   package directory. A plugin that no longer matches is not loaded. Reinstall
   from a trusted package to restore it. There is no control that adopts the
-  current files as a new baseline. Core files can be checked with
-  `node scripts/verify-core-integrity.mjs`. Uploads, storage, secrets, and
-  installed extensions are not part of that manifest. A checkout with no
-  manifest is unverified, not a failed release.
+  current files as a new baseline. When the release key is set,
+  `scripts/make-zip.sh` writes `core-integrity.json` into the archive before
+  it signs the zip, so an update can check the core files it just copied.
+  Uploads, storage, secrets, themes, plugins, and installed extensions are
+  not part of that manifest. An installation with no manifest is unverified,
+  not a failed release. Check a tree with
+  `node scripts/verify-core-integrity.mjs`.
 - Leave `DB_SSL` alone unless you have a reason: database TLS is on by default
   for any non-localhost `DB_HOST`.
 - Complete first-run setup using the setup key from `install-token/TOKEN.txt`

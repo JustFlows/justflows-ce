@@ -296,6 +296,24 @@ describe("saas settings", () => {
     expect(timed.purgeAfterDays).toBe(14);
     expect(readSignupDatabaseTarget(timed)?.password).toBe("secret-db-password");
   });
+
+  it("keeps the stored signup database mode when a save leaves it out", () => {
+    process.env.APP_SECRET = "test-secret-that-is-at-least-32-characters-long";
+    const first = buildSaasSettings(null, {
+      signupEnabled: true,
+      signupDatabaseMode: "separate",
+      baseDomain: "justflows.com",
+      database: { host: "db.internal", port: 5432, database: "customers", username: "justflows", password: "secret-db-password" },
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const kept = buildSaasSettings(first.stored, { signupEnabled: true, baseDomain: "justflows.com" });
+    expect(kept.ok && kept.stored.signupDatabaseMode).toBe("separate");
+    expect(kept.ok && readSignupDatabaseTarget(kept.stored)?.password).toBe("secret-db-password");
+
+    const fresh = buildSaasSettings(null, { signupEnabled: false, baseDomain: "" });
+    expect(fresh.ok && fresh.stored.signupDatabaseMode).toBe("current");
+  });
 });
 
 describe("deleted website cleanup", () => {

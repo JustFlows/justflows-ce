@@ -11,8 +11,7 @@ import { catalogRowsForDefaultLanguage } from "../../../lib/translation-groups";
 /**
  * Host shell for an admin path a plugin contributed (manifest `adminMenu` or
  * the `admin.menu` filter). Every plugin page lives under `/admin/plugins/{id}`.
- * Host-rendered pages (Cookie Consent) keep their own App.tsx routes;
- * everything else lands here so a plugin does not need a core entry to be
+ * Every plugin page lands here so a plugin does not need a core entry to be
  * reachable.
  *
  * `GET /ext/{id}/setup` is only mounted on that plugin's `setupPath`, and only
@@ -149,6 +148,7 @@ function PluginFrame({
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const [height, setHeight] = useState(FRAME_MIN_HEIGHT);
   const [loaded, setLoaded] = useState(false);
+  const [fill, setFill] = useState(false);
 
   const routePath = internalAdminPath(pathname);
 
@@ -198,6 +198,9 @@ function PluginFrame({
           }
           break;
         }
+        case "layout":
+          setFill(data.mode === "fill");
+          break;
         default:
           break;
       }
@@ -220,7 +223,7 @@ function PluginFrame({
   }, [routePath, loaded, post]);
 
   return (
-    <div className="jf-page jf-page--flush">
+    <div className={fill ? "jf-page jf-page--flush jf-page--fill" : "jf-page jf-page--flush"}>
       <header className="jf-pagehead">
         <div className="jf-pagehead__text">
           <h1>{heading}</h1>
@@ -269,7 +272,7 @@ export function matchPluginMenuItem(
 
 /**
  * A plugin that lists its own `/admin/plugins/{id}/settings` page as a menu tab
- * (Shop does) reaches settings from the subnav, so the header button would be a
+ * reaches settings from the subnav, so the header button would be a
  * second, confusing way in.
  */
 function settingsInMenu(items: PluginMenuItem[], pluginId: string): boolean {

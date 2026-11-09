@@ -10,15 +10,19 @@ This selects existing Vitest suites through the root workspace configuration.
 It does not start a deployed Justflows instance or scan a remote host. HTTP
 integration tests start their own local servers and use test doubles where
 specified in each suite; they do not certify a production database or deployment.
+Use the [secure self-hosting guide](SELF-HOSTING-SECURITY.md) for the TLS,
+proxy, firewall, privilege, secret, and writable-path controls that local source
+tests cannot establish.
 
-| Boundary                         | Selected tests                                                                                                         |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Authentication and authorization | Server auth unit tests, auth route integration tests, API-key middleware, SDK capabilities, plugin capability registry |
-| CSRF and sessions                | Auth session tests and plugin API CSRF tests                                                                           |
-| Uploads and filesystem access    | Upload admission, multipart limits, upload paths/store, safe ZIP extraction, installer archive safety                  |
-| SSRF and outbound requests       | Pinned fetch, webhook URL validation, AI safe fetch                                                                    |
-| XSS and browser protections      | Block document sanitization, safe URLs, security headers, CSP and cookie tests                                         |
-| Other security controls          | Rate-limit backoff, installer throttling, secret box, audit/log handling and the remaining server security unit tests  |
+| Boundary                         | Selected tests                                                                                                            |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Authentication and authorization | Server auth unit tests, auth route integration tests, API-key middleware, SDK capabilities, plugin capability registry    |
+| CSRF and sessions                | Auth session tests and plugin API CSRF tests                                                                              |
+| Uploads and filesystem access    | Upload admission, multipart limits, upload paths/store, safe ZIP extraction, installer archive safety                     |
+| SSRF and outbound requests       | Pinned fetch, webhook URL validation, AI safe fetch                                                                       |
+| XSS and browser protections      | Block document sanitization, safe URLs, security headers, CSP and cookie tests                                            |
+| Quotas and background work       | Storage/media reservations, image jobs, durable job leases and bounded failure handling                                   |
+| Other security controls          | Trusted proxy parsing, rate-limit backoff, installer throttling, secret box, audit/log handling and server security tests |
 
 A passing run means these regressions passed. It does not prove that the
 platform is secure, and it does not cover every route, plugin, database dialect,
@@ -28,6 +32,22 @@ advisories are a separate check:
 ```sh
 pnpm audit --audit-level high
 ```
+
+## Real database matrix
+
+The `security-database` CI job runs against disposable PostgreSQL and MySQL
+services. It installs the schema through the previous revision and upgrades to
+the current one, then verifies idempotence and required security tables. Separate
+processes exercise conditional durable-job claims, transactional scarce-resource
+updates, tenant isolation, and plugin schema upgrades against the same shared
+database. MySQL covers the SQL path shared with MariaDB; dialect-specific changes
+must add a MariaDB job or be verified separately.
+
+Set `SECURITY_TEST_DATABASE=1` only with a database named `security_test`. The
+integration suites refuse other names so a local command cannot accidentally use
+an installation database. CI is the required evidence for pull requests that
+change migrations, database claims/leases, quota reservations, or plugin schema
+upgrades.
 
 ## Local red-team reviews
 

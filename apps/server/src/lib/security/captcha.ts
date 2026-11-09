@@ -2,13 +2,14 @@
 
 import { esc } from "@justflows/blocks";
 import type { CaptchaProvider } from "../comments/comments-settings.js";
+import { publicScriptUrl } from "../rendering/page-scripts.js";
 
 // ─── CAPTCHA providers ──────────────────────────────────────────────────────
 //
 // One provider configuration (dropdown + site key + secret + score threshold)
 // lives in the site `comments` settings, surfaced under Settings → Discussion.
-// Both the public comments form and the Forms plugin reuse it from here so the
-// keys are entered once.
+// The public comments form and plugins (through the SDK) reuse it from here so
+// the keys are entered once.
 
 export interface CaptchaMeta {
   verifyUrl: string;
@@ -130,7 +131,7 @@ export interface CaptchaWidgetHtml {
 
 /**
  * Build the client-side markup for a configured CAPTCHA provider. Shared by the
- * comments form and the Forms plugin so both render an identical widget.
+ * comments form and plugins so they all render an identical widget.
  */
 export function renderCaptchaWidget(
   provider: Exclude<CaptchaProvider, "none">,
@@ -142,7 +143,7 @@ export function renderCaptchaWidget(
     return {
       widget: `<input type="hidden" name="${meta.field}" value="">
     <script src="${esc(meta.scriptSrc)}?render=${encodeURIComponent(siteKey)}" async defer></script>
-    <script src="/js/recaptcha-v3.js" defer></script>`,
+    <script src="${publicScriptUrl("recaptcha-v3")}" defer></script>`,
       formAttributes: ` data-jf-recaptcha-v3 data-sitekey="${esc(siteKey)}" data-action="${esc(
         opts.recaptchaV3Action,
       )}"`,

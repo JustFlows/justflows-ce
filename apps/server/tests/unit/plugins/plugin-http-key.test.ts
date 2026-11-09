@@ -44,7 +44,7 @@ vi.mock("../../../src/lib/auth/access-policy.js", () => ({
   availableCapabilityDefinitions: async () => [
     { id: "content:read", pluginId: null },
     { id: "users:manage", pluginId: null },
-    { id: "products:update", pluginId: "justflows.shop" },
+    { id: "products:update", pluginId: "justflows.store" },
   ],
   getEffectiveAccess: async (userId: string) => ({
     roleId: "administrator",
@@ -88,8 +88,8 @@ beforeAll(async () => {
     mocks.delegates.push(currentDelegate()?.kind);
     return { body: { ok: true, authorization: req.headers["authorization"] ?? null } };
   };
-  router.register("justflows.shop", "GET", "catalog", handler);
-  router.register("justflows.shop", "PUT", "catalog/:id", handler);
+  router.register("justflows.store", "GET", "catalog", handler);
+  router.register("justflows.store", "PUT", "catalog/:id", handler);
   const app = express();
   app.use(express.json());
   app.use(dispatchPluginHttp);
@@ -112,7 +112,7 @@ beforeEach(() => {
 });
 
 const put = (token: string | null) =>
-  fetch(`${base}/ext/justflows.shop/catalog/abc`, {
+  fetch(`${base}/ext/justflows.store/catalog/abc`, {
     method: "PUT",
     headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
     body: "{}",
@@ -168,14 +168,14 @@ describe("management API keys on plugin routes", () => {
 
   it("marks a key request as delegated for the handler, and a cookie request not", async () => {
     await put("jfk_good");
-    await fetch(`${base}/ext/justflows.shop/catalog`);
+    await fetch(`${base}/ext/justflows.store/catalog`);
     expect(mocks.delegates).toEqual(["api-key", undefined]);
   });
 
   it("keeps CSRF on cookie requests", async () => {
     expect((await put(null)).status).toBe(403);
     expect(mocks.seen).toHaveLength(0);
-    const read = await fetch(`${base}/ext/justflows.shop/catalog`);
+    const read = await fetch(`${base}/ext/justflows.store/catalog`);
     expect(read.status).toBe(200);
     expect(mocks.seen[0]).toMatchObject({ userId: "cookie-user", role: "editor" });
   });

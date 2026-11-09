@@ -28,7 +28,9 @@ import { DurableJobQueue } from "../../../src/lib/jobs/job-queue.js";
  *   DB_HOST=… DB_PORT=… DB_USER=… DB_PASSWORD=… TZ=Europe/Amsterdam \
  *   pnpm vitest run tests/integration/database/job-queue-db.integration.test.ts
  */
-const enabled = process.env.JOB_QUEUE_TEST_DATABASE === "1" && process.env.DB_NAME === "job_queue_test";
+const enabled =
+  (process.env.JOB_QUEUE_TEST_DATABASE === "1" && process.env.DB_NAME === "job_queue_test") ||
+  (process.env.SECURITY_TEST_DATABASE === "1" && process.env.DB_NAME === "security_test");
 
 const MIGRATION = fileURLToPath(new URL(
   `../../../../../migrations/0048_job_queue${process.env.DB_DRIVER === "postgres" ? "" : ".mysql"}.sql`,

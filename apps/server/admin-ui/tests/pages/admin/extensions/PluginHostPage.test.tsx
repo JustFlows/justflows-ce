@@ -29,36 +29,36 @@ function withSession(
 
 const shopMenu = [
   {
-    pluginId: "justflows.shop",
+    pluginId: "justflows.store",
     id: "shop",
-    label: "Shop",
+    label: "Store",
     labelKey: "nav.shop",
-    path: "/admin/plugins/justflows.shop",
+    path: "/admin/plugins/justflows.store",
     icon: "🛍",
     domain: "commerce",
     end: true,
-    setupPath: "/admin/plugins/justflows.shop",
+    setupPath: "/admin/plugins/justflows.store",
   },
   {
-    pluginId: "justflows.shop",
+    pluginId: "justflows.store",
     id: "products",
     label: "Products",
     labelKey: "nav.shopProducts",
-    path: "/admin/plugins/justflows.shop/products",
+    path: "/admin/plugins/justflows.store/products",
     icon: "📦",
     domain: "commerce",
-    setupPath: "/admin/plugins/justflows.shop",
+    setupPath: "/admin/plugins/justflows.store",
     contentType: "product",
   },
   {
-    pluginId: "justflows.shop",
+    pluginId: "justflows.store",
     id: "orders",
     label: "Orders",
     labelKey: "nav.shopOrders",
-    path: "/admin/plugins/justflows.shop/orders",
+    path: "/admin/plugins/justflows.store/orders",
     icon: "🧾",
     domain: "commerce",
-    setupPath: "/admin/plugins/justflows.shop",
+    setupPath: "/admin/plugins/justflows.store",
   },
 ];
 
@@ -95,11 +95,11 @@ describe("PluginHostPage", () => {
   it.each(["payments", "payments/settings", "payments/settings/mollie", "shipping"])(
     "delivers context to an already-loaded SSR frame on %s without ready or load events",
     async (page) => {
-      const path = `/admin/plugins/justflows.shop/${page}`;
+      const path = `/admin/plugins/justflows.store/${page}`;
       const section = page.split("/")[0];
-      const catalogs = { en: "/ext/justflows.shop/admin/locales/en.json", nl: "/ext/justflows.shop/admin/locales/nl.json" };
-      const items = [{ ...shopMenu[2], id: section, path: `/admin/plugins/justflows.shop/${section}`,
-        adminAppUrl: `/ext/justflows.shop/admin/${section}.html`, adminCatalogs: catalogs }];
+      const catalogs = { en: "/ext/justflows.store/admin/locales/en.json", nl: "/ext/justflows.store/admin/locales/nl.json" };
+      const items = [{ ...shopMenu[2], id: section, path: `/admin/plugins/justflows.store/${section}`,
+        adminAppUrl: `/ext/justflows.store/admin/${section}.html`, adminCatalogs: catalogs }];
       setAdminSsrPayload({ url: path, locale: "nl", adminBasePath: "/admin", responses: {
         "/api/plugins/admin-menu": { status: 200, statusText: "OK", headers: {}, body: JSON.stringify({ items }) },
         "/api/auth/me": { status: 200, statusText: "OK", headers: {}, body: JSON.stringify({ id: "u1", email: "admin@example.com", role: "administrator" }) },
@@ -163,7 +163,7 @@ describe("PluginHostPage", () => {
         if (path.includes("/api/plugins/admin-menu")) {
           return jsonResponse({ items: shopMenu });
         }
-        if (path.includes("/ext/justflows.shop/setup")) {
+        if (path.includes("/ext/justflows.store/setup")) {
           return jsonResponse({
             kind: "setup",
             complete: false,
@@ -199,7 +199,7 @@ describe("PluginHostPage", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    renderHost("/admin/plugins/justflows.shop");
+    renderHost("/admin/plugins/justflows.store");
 
     expect(await screen.findByRole("heading", { name: "Commerce database" })).toBeInTheDocument();
     expect(screen.getByLabelText("Storage topology")).toBeInTheDocument();
@@ -246,7 +246,7 @@ describe("PluginHostPage", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    renderHost("/admin/plugins/justflows.shop/products");
+    renderHost("/admin/plugins/justflows.store/products");
 
     expect(await screen.findByRole("heading", { name: "Products" })).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "Canvas tote" })).toHaveAttribute(
@@ -327,7 +327,7 @@ describe("PluginHostPage", () => {
       ),
     );
 
-    renderHost("/admin/plugins/justflows.shop/products");
+    renderHost("/admin/plugins/justflows.store/products");
 
     expect(await screen.findByRole("link", { name: "Kids raincoat" })).toHaveAttribute(
       "href",
@@ -351,14 +351,14 @@ describe("PluginHostPage", () => {
               items: [
                 ...shopMenu,
                 {
-                  pluginId: "justflows.shop",
+                  pluginId: "justflows.store",
                   id: "import",
                   label: "Import",
-                  path: "/admin/plugins/justflows.shop/products/import",
+                  path: "/admin/plugins/justflows.store/products/import",
                   icon: "📥",
                   domain: "commerce",
                   listed: false,
-                  adminAppUrl: "/ext/justflows.shop/admin/products.html",
+                  adminAppUrl: "/ext/justflows.store/admin/products.html",
                 },
               ],
             });
@@ -372,11 +372,11 @@ describe("PluginHostPage", () => {
       ),
     );
 
-    renderHost("/admin/plugins/justflows.shop/products");
+    renderHost("/admin/plugins/justflows.store/products");
 
     expect(await screen.findByRole("link", { name: "Import" })).toHaveAttribute(
       "href",
-      "/admin/plugins/justflows.shop/products/import",
+      "/admin/plugins/justflows.store/products/import",
     );
     expect(screen.queryByTitle("Import products")).not.toBeInTheDocument();
     expect(await screen.findByText("No Products yet")).toBeInTheDocument();
@@ -422,7 +422,7 @@ describe("PluginHostPage", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    renderHost("/admin/plugins/justflows.shop/products");
+    renderHost("/admin/plugins/justflows.store/products");
 
     fireEvent.click(await screen.findByRole("checkbox", { name: "Select all" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
@@ -447,14 +447,14 @@ describe("PluginHostPage", () => {
               items: [
                 ...shopMenu,
                 {
-                  pluginId: "justflows.shop",
+                  pluginId: "justflows.store",
                   id: "plugins-justflows-shop-products-bulk-edit",
                   label: "Bulk edit products",
-                  path: "/admin/plugins/justflows.shop/products/bulk-edit",
+                  path: "/admin/plugins/justflows.store/products/bulk-edit",
                   icon: "📦",
                   domain: "commerce",
                   listed: false,
-                  adminAppUrl: "/ext/justflows.shop/admin/bulk-edit.html",
+                  adminAppUrl: "/ext/justflows.store/admin/bulk-edit.html",
                 },
               ],
             });
@@ -483,7 +483,7 @@ describe("PluginHostPage", () => {
       ),
     );
 
-    renderHost("/admin/plugins/justflows.shop/products");
+    renderHost("/admin/plugins/justflows.store/products");
 
     expect(screen.queryByRole("button", { name: "Bulk edit 1" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("checkbox", { name: "Canvas tote" }));
@@ -495,7 +495,7 @@ describe("PluginHostPage", () => {
     });
     expect(await screen.findByTitle("Bulk edit products")).toHaveAttribute(
       "src",
-      "/ext/justflows.shop/admin/bulk-edit.html",
+      "/ext/justflows.store/admin/bulk-edit.html",
     );
   });
 
@@ -544,7 +544,7 @@ describe("PluginHostPage", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    renderHost("/admin/plugins/justflows.shop/products");
+    renderHost("/admin/plugins/justflows.store/products");
 
     expect(await screen.findByRole("link", { name: "First product" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Second product" })).toBeInTheDocument();
@@ -570,7 +570,7 @@ describe("PluginHostPage", () => {
       ),
     );
 
-    renderHost("/admin/plugins/justflows.shop/products");
+    renderHost("/admin/plugins/justflows.store/products");
 
     expect(await screen.findByText("No Products yet")).toBeInTheDocument();
     expect(screen.getByText("Create the first product to get started.")).toBeInTheDocument();
@@ -593,7 +593,7 @@ describe("PluginHostPage", () => {
       ),
     );
 
-    renderHost("/admin/plugins/justflows.shop/orders");
+    renderHost("/admin/plugins/justflows.store/orders");
 
     expect(await screen.findByRole("heading", { name: "Orders" })).toBeInTheDocument();
     expect(screen.getByText(/Orders will appear here/)).toBeInTheDocument();
@@ -607,7 +607,7 @@ describe("PluginHostPage", () => {
           if (path.includes("/api/plugins/admin-menu")) {
             return jsonResponse({ items: shopMenu });
           }
-          if (path.includes("/ext/justflows.shop/setup")) {
+          if (path.includes("/ext/justflows.store/setup")) {
             return jsonResponse({
               kind: "setup",
               complete: true,
@@ -636,16 +636,16 @@ describe("PluginHostPage", () => {
       ),
     );
 
-    renderHost("/admin/plugins/justflows.shop");
+    renderHost("/admin/plugins/justflows.store");
 
     expect(await screen.findByRole("link", { name: "Products" })).toHaveAttribute(
       "href",
-      "/admin/plugins/justflows.shop/products",
+      "/admin/plugins/justflows.store/products",
     );
-    expect(screen.getByRole("heading", { name: "Shop" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Store" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
       "href",
-      "/admin/plugins/justflows.shop/settings",
+      "/admin/plugins/justflows.store/settings",
     );
     expect(screen.queryByRole("heading", { name: "Store settings" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Store name")).not.toBeInTheDocument();

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { PwaSettings } from "./pwa-settings.js";
+import { publicScriptUrl } from "../rendering/page-scripts.js";
 
 function escAttr(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
@@ -32,10 +33,10 @@ export function buildPwaHeadHtml(settings: PwaSettings): string {
  */
 export function buildPwaBodyHtml(settings: PwaSettings, t: (key: string) => string): string {
   if (!settings.enabled) return "";
-  const parts: string[] = [`<script src="/js/pwa-register.js" defer data-update-available="${escAttr(t("pwa.updateAvailable"))}" data-reload="${escAttr(t("pwa.reload"))}"></script>`];
+  const parts: string[] = [`<script src="${publicScriptUrl("pwa-register")}" defer data-update-available="${escAttr(t("pwa.updateAvailable"))}" data-reload="${escAttr(t("pwa.reload"))}"></script>`];
   if (settings.installUi.enabled) {
     parts.push(
-      `<script src="/js/pwa-install.js" defer` +
+      `<script src="${publicScriptUrl("pwa-install")}" defer` +
         ` data-label="${escAttr(settings.installUi.label || t("pwa.install"))}"` +
         ` data-description="${escAttr(settings.installUi.description || t("pwa.description"))}"` +
         ` data-install-aria="${escAttr(t("pwa.installAria"))}"` +

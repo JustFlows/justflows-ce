@@ -55,22 +55,25 @@ const LEGACY_MIGRATIONS = [
 ];
 
 describe("MIGRATION_ORDER", () => {
-  it("uses the sites charset and collation for the storage lock foreign key on MySQL and MariaDB", async () => {
-    for (const driver of ["mysql", "mariadb"] as const) {
-      const baseline = await readMigrationDdl("0036_baseline", driver);
-      const locks = await readMigrationDdl("0043_storage_quota_locks", driver);
-      if (baseline === null || locks === null) {
-        throw new Error(`Missing baseline or storage lock migration for ${driver}`);
+  it.each(["0043_storage_quota_locks", "0053_backup_schedules"])(
+    "uses the sites charset and collation for the %s foreign key on MySQL and MariaDB",
+    async (name) => {
+      for (const driver of ["mysql", "mariadb"] as const) {
+        const baseline = await readMigrationDdl("0036_baseline", driver);
+        const migration = await readMigrationDdl(name, driver);
+        if (baseline === null || migration === null) {
+          throw new Error(`Missing baseline or ${name} migration for ${driver}`);
+        }
+        const sites = baseline.match(/CREATE TABLE IF NOT EXISTS sites \([\s\S]*?;/)?.[0];
+        const charset = sites?.match(/DEFAULT CHARSET=\w+ COLLATE=\w+/)?.[0];
+        expect(charset).toBe("DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        expect(migration).toContain(charset!);
       }
-      const sites = baseline.match(/CREATE TABLE IF NOT EXISTS sites \([\s\S]*?;/)?.[0];
-      const charset = sites?.match(/DEFAULT CHARSET=\w+ COLLATE=\w+/)?.[0];
-      expect(charset).toBe("DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-      expect(locks).toContain(charset!);
-    }
-  });
+    },
+  );
 
   it("uses the consolidated schema through migration 0036", () => {
-    expect(MIGRATION_ORDER).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings", "0051_auth_claims"]);
+    expect(MIGRATION_ORDER).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings", "0051_auth_claims", "0052_translation_group_dates", "0053_backup_schedules", "0054_content_visibility"]);
   });
 
   it("contains every legacy migration in order for each database dialect", () => {
@@ -281,7 +284,7 @@ describe("runAllMigrations bookkeeping", () => {
 
       const result = await runAllMigrations(db, driver);
 
-      expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings", "0051_auth_claims"]);
+      expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings", "0051_auth_claims", "0052_translation_group_dates", "0053_backup_schedules", "0054_content_visibility"]);
       expect(db.statements.some((s) => /CREATE TABLE IF NOT EXISTS template_parts/i.test(s))).toBe(
         false,
       );
@@ -309,7 +312,7 @@ describe("runAllMigrations bookkeeping", () => {
 
     const result = await runAllMigrations(db, "mysql");
 
-    expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings", "0051_auth_claims"]);
+    expect(result.applied).toEqual(["0036_baseline", "0037_tenancy", "0038_quota_limits", "0039_custom_domains", "0040_security_hardening", "0041_domain_provider_attachment", "0042_private_files", "0043_storage_quota_locks", "0044_workspace_owner", "0045_account_pages", "0046_content_type_cache_control", "0047_taxonomy_content_types", "0048_job_queue", "0049_workspace_deletion", "0050_content_type_settings", "0051_auth_claims", "0052_translation_group_dates", "0053_backup_schedules", "0054_content_visibility"]);
     const schemaChanges = db.statements.filter(
       (s) => /^(CREATE|ALTER|DROP|UPDATE|INSERT)\b/i.test(s.trim()) && !s.includes("_migrations"),
     );

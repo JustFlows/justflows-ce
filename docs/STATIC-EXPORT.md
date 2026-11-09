@@ -22,7 +22,7 @@ A run produces:
 | `index.html`, `<slug>/index.html`                                          | every published page/post, default locale                                                                                                  |
 | `<locale>/…/index.html`                                                    | each non-default active locale (from `localePath()`)                                                                                       |
 | `sitemap.xml`, `robots.txt`                                                | fetched from the origin verbatim (always exported)                                                                                         |
-| `feed.xml`, `feed.atom`, `feed.json`, `<locale>/feed.*`                    | syndication feeds — seeded by the SEO Toolkit plugin's `staticExport.routes` filter, one set per active locale, when feeds are enabled     |
+| `feed.xml`, `feed.atom`, `feed.json`, `<locale>/feed.*`                    | syndication feeds or other plugin routes — seeded by a plugin's `staticExport.routes` filter                                                |
 | `favicon.ico`                                                              | the configured favicon, redirect followed (only if one is set)                                                                             |
 | `404.html`                                                                 | the themed not-found page                                                                                                                  |
 | `theme.css`, `/js/*`, `/uploads/*`, `/assets/*`, `/css-providers/*`, fonts | every same-origin sub-resource referenced by an exported page                                                                              |
@@ -360,50 +360,28 @@ Next.js `output: export`: the client bundle ships; anything that needs a server
 calls it over the network (it is **not** "compiled into" the export — server
 code always needs a server, see below).
 
-### Forms submit in place
+### Plugin scripts keep working
 
-The Forms plugin ships `jf-forms.js` as a package asset (`manifest.assets`), so
-it lands in the shared `/jf-plugins.<hash>.js` bundle the exporter already
-downloads. It hydrates each `justflows.forms.form` block and, instead of a
-native `<form method="post">` navigation, submits by `fetch()` and swaps the
-form for the confirmation **without leaving the page**. The plugin's endpoints
-(`/api/forms/config` and `/api/forms/submit`, its own `ctx.http` routes) still
-have to be reachable — via the hybrid proxy or `STATIC_EXPORT_ORIGIN_URL` below.
-The submit is a plain form-encoded `POST`, so a split-origin export needs no
-CORS preflight; both routes answer with `cors: true`. If `fetch` fails it falls
-back to the native POST. Comment posting still does a
-native round-trip.
+A plugin's browser scripts ship as package assets (`manifest.assets`), so they
+land in the shared `/jf-plugins.<hash>.js` bundle the exporter already
+downloads. They run on the static host with no origin. A script that calls the
+plugin's own routes (`ctx.http`) resolves them against `window.__JF_ORIGIN__`,
+which the exporter sets on a split-origin export and leaves unset on the live
+site. Those routes still have to be reachable — via the hybrid proxy or
+`STATIC_EXPORT_ORIGIN_URL` below.
 
-### Pageview analytics keep counting
+- A route a static page reads cross-origin returns `cors: true`. The host then
+  answers with `Access-Control-Allow-Origin` for a vouched-for export origin
+  (`APP_URL`, `STATIC_EXPORT_BASE_URL`, `STATIC_EXPORT_ALLOWED_ORIGINS`, or any
+  `localhost` port off production).
+- A plain form-encoded `POST` needs no CORS preflight, so a form a plugin
+  submits that way works on a split-origin export.
+- A plugin that bakes its settings into every page returns `revalidate: true`
+  from its config route. With auto-rebuild on, the export regenerates on save —
+  no manual **Run full export** needed. See
+  [PLUGINS.md](PLUGINS.md#revalidate-after-a-config-write).
 
-When the first-party **Analytics plugin is active at export time**, its
-`jf-analytics.js` beacon rides the shared `/jf-plugins.<hash>.js` bundle into
-the export (via `manifest.assets`, like the Forms script). On load it POSTs
-the path to the plugin's `/api/analytics/collect` route — the same trick Plausible / GA use
-— so the counters still fill even though no server render happens (hybrid:
-same-origin; split-origin: to the origin URL, dropped into the page as
-`window.__JF_ORIGIN__`). The beacon self-suppresses on the live dynamic site
-(no `window.__JF_ORIGIN__` there), which counts server-side.
-
-### Cookie consent keeps working
-
-The **Cookie Consent plugin**'s runtime also ships in the shared bundle. The
-config island, gated snippets, and gated embeds are all baked into the HTML at
-export time, so the banner, preference center, and script/embed gating work with
-no origin at all. Its two network calls — the consent-record beacon
-(`/ext/justflows.consent/record`, a fire-and-forget image GET) and the
-cookie-disclosure fetch (`/ext/justflows.consent/cookies`) — resolve against
-`window.__JF_ORIGIN__`, so a split-origin export still reaches them. The
-disclosure route returns `cors: true`, so the host answers it with
-`Access-Control-Allow-Origin` for a vouched-for export origin (`APP_URL`,
-`STATIC_EXPORT_BASE_URL`, `STATIC_EXPORT_ALLOWED_ORIGINS`, or any `localhost`
-port off production) — otherwise the table just stays hidden.
-
-Because the banner is baked in, saving new consent settings has to re-crawl
-every page. Its admin route returns `revalidate: true`, so with auto-rebuild on
-the export regenerates on save — no manual **Run full export** needed. (This is
-the generic `PluginHttpResponse.revalidate` path; any plugin with a bespoke
-config route can use it — see [PLUGINS.md](PLUGINS.md#revalidate-after-a-config-write).)
+Comment posting does a native round-trip.
 
 ### PWA (installable app) exports statically
 
@@ -415,7 +393,8 @@ into the export like any other file. All three are static once generated, so
 the exported site stays fully installable and offline-capable with **no
 origin at all**. Saving a PWA setting calls the same `settings` cache-revalidate
 trigger every other settings write does, so with auto-rebuild on, the export
-regenerates the same way it does after a Cookie Consent config change.
+regenerates the same way it does after a plugin config write that returns
+`revalidate: true`.
 Because the export is a snapshot, `manifest.webmanifest` and `sw.js` only pick
 up a change on the next export run.
 
@@ -424,10 +403,8 @@ up a change on the next export run.
 | Feature                                               | On a static host                                                                                                |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Preview** (`?preview=1`)                            | never crawled or exported                                                                                       |
-| **Form submission** (`justflows.forms.form`)          | in-place via `fetch()` to `/api/forms/submit` — needs the endpoint reachable (hybrid or origin URL)             |
 | **Comment submission** (`justflows.comments.thread`)  | native POST to `/justflows-comments/submit`; existing threads render at export time and are read-only otherwise |
-| **Pageview analytics**                                | beacon to `/api/analytics/collect` — needs the endpoint reachable (hybrid or origin URL)                        |
-| **Cookie consent records + disclosure**               | `/ext/justflows.consent/*` — banner/gating work offline; record log + cookie table need the endpoint reachable  |
+| **Plugin routes** (`/ext/<id>/*`, `/api/<namespace>/*`) | the plugin's scripts run offline; their calls need the routes reachable (hybrid or origin URL)                 |
 | **Login / register / password reset / language POST** | origin only — never route these to the static host (staff copies live under the admin path)                     |
 | **Search**                                            | needs the origin, or a client-side / third-party index                                                          |
 | **Plugin-excluded pages** (`staticExport.exclude`)    | never exported — served by the origin; see [Pages a plugin keeps live](#pages-a-plugin-keeps-live)              |
@@ -672,8 +649,8 @@ localized copies (`/nl-NL/shop/checkout`) too; `ctx.i18n.locales()` gives the
 active locales. Paths may only use letters, digits, `.`, `_`, `~`, `-` and
 `/`. Invalid entries, `/`, and paths core already routes to the app (the admin
 path, `/api`, the auth pages, `/ext`) are ignored. A filter that throws counts
-as no exclusions; the export still runs. The Shop plugin uses this for its
-cart, checkout, order confirmation, customer account, and order tracking pages.
+as no exclusions; the export still runs. Use it for pages that only work
+against the origin, such as a cart, checkout, or customer account.
 
 Exclusion keeps a page out of the export. It does not make a script on an
 exported page talk to a different origin: in a split-origin setup, a plugin

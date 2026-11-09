@@ -5,19 +5,39 @@ import { z } from "zod";
 import { requireRole } from "../../middleware/auth.js";
 import {
   AUDIT_ACTIONS,
+  SECURITY_AUDIT_ACTIONS,
   auditRetentionDays,
   listAuditLog,
   pruneAuditLog,
+  auditFromRequest,
+  auditWriteStatus,
+  deleteSecurityAuditLog,
+  exportSecurityAuditLog,
+  MAX_AUDIT_EXPORT_ROWS,
 } from "../../lib/security/audit-log.js";
+import {
+  getSecurityNotificationStatus,
+  setSecurityNotificationSettings,
+} from "../../lib/security/security-notifications.js";
 import { sendServerError } from "../../lib/http/send-error.js";
 
 const router = Router();
 
 const QuerySchema = z.object({
   action: z.enum(AUDIT_ACTIONS).optional(),
+  view: z.enum(["all", "security"]).optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
   before: z.string().max(40).optional(),
 });
+
+const NotificationSettingsSchema = z.object({
+  enabled: z.boolean(),
+  networkEnabled: z.boolean().optional(),
+}).strict();
+
+const DeleteSecurityEventsSchema = z.object({
+  confirmation: z.literal("DELETE SECURITY EVENTS"),
+}).strict();
 
 /**
  * Administrator only.
@@ -33,14 +53,80 @@ router.get("/", requireRole("administrator"), async (req, res) => {
   }
 
   try {
+    const view = parsed.data.view ?? "all";
+    if (view === "security" && parsed.data.action && !SECURITY_AUDIT_ACTIONS.includes(parsed.data.action)) {
+      res.status(400).json({ error: "Action is not available in the security event view" });
+      return;
+    }
     const entries = await listAuditLog({ siteId: req.session!.siteId, ...parsed.data });
     res.json({
       entries,
-      actions: AUDIT_ACTIONS,
+      actions: view === "security" ? SECURITY_AUDIT_ACTIONS : AUDIT_ACTIONS,
+      view,
       retentionDays: auditRetentionDays(),
+      writeStatus: auditWriteStatus(),
     });
   } catch (err) {
     sendServerError(res, "audit", err);
+  }
+});
+
+/** Export redacted security events only; raw identifiers and free-form detail stay local. */
+router.get("/security-export", requireRole("administrator"), async (req, res) => {
+  try {
+    const entries = await exportSecurityAuditLog(req.session!.siteId);
+    res.setHeader("Content-Disposition", 'attachment; filename="justflows-security-events.json"');
+    res.json({
+      exportedAt: new Date().toISOString(),
+      redacted: true,
+      truncated: entries.length === MAX_AUDIT_EXPORT_ROWS,
+      entries,
+    });
+  } catch (err) {
+    sendServerError(res, "audit export", err);
+  }
+});
+
+/** Destructive security-event deletion requires an exact confirmation phrase. */
+router.delete("/security-events", requireRole("administrator"), async (req, res) => {
+  const parsed = DeleteSecurityEventsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Type DELETE SECURITY EVENTS to confirm" });
+    return;
+  }
+  try {
+    const removed = await deleteSecurityAuditLog(req.session!.siteId);
+    auditFromRequest(req, "audit.security_events_deleted", { detail: `count=${removed}` });
+    res.json({ ok: true, removed });
+  } catch (err) {
+    sendServerError(res, "audit deletion", err);
+  }
+});
+
+/** Read the site-specific, opt-in security notification policy. */
+router.get("/notifications", requireRole("administrator"), async (req, res) => {
+  try {
+    res.json(await getSecurityNotificationStatus(req.session!.siteId));
+  } catch (err) {
+    sendServerError(res, "security notifications", err);
+  }
+});
+
+/** Change only this site's notification policy; the recipient stays the administration address. */
+router.put("/notifications", requireRole("administrator"), async (req, res) => {
+  const parsed = NotificationSettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid settings" });
+    return;
+  }
+  try {
+    const status = await setSecurityNotificationSettings(req.session!.siteId, parsed.data);
+    auditFromRequest(req, "security.notifications_changed", {
+      detail: parsed.data.enabled ? "enabled" : "disabled",
+    });
+    res.json(status);
+  } catch (err) {
+    sendServerError(res, "security notifications", err);
   }
 });
 

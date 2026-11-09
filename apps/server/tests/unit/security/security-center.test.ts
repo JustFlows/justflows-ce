@@ -14,6 +14,7 @@ const HREFS = new Set([
   "/admin/settings/api",
   "/admin/security/headers",
   "/admin/security/integrity",
+  "/admin/tools",
 ]);
 
 function facts(overrides: Partial<SecurityCenterFacts> = {}): SecurityCenterFacts {
@@ -34,8 +35,10 @@ function facts(overrides: Partial<SecurityCenterFacts> = {}): SecurityCenterFact
     cookieSecure: true,
     proxy: { mode: "bounded", value: "loopback" },
     headers: { state: "known", critical: 0, warning: 0 },
+    advisories: { state: "unavailable" },
     auditAvailable: true,
     integrity: { state: "unknown" },
+    backup: { state: "unknown" },
     ...overrides,
   };
 }
@@ -62,17 +65,20 @@ describe("security center checks", () => {
     for (const check of report.checks) expect(HREFS.has(check.href)).toBe(true);
   });
 
-  it("fails closed on an old runtime, production debug, a wide proxy, and critical headers", () => {
+  it("fails closed on an old runtime, production debug, and critical headers", () => {
     const rows = evaluateSecurityCenter(facts({
       nodeVersion: "v18.20.0",
       debugEnabled: true,
-      proxy: { mode: "wide", value: "true" },
       headers: { state: "known", critical: 2, warning: 1 },
     }));
     expect(byId(rows, "runtime.node")).toMatchObject({ status: "fail", severity: "high" });
     expect(byId(rows, "runtime.debug")).toMatchObject({ status: "fail", severity: "critical" });
-    expect(byId(rows, "transport.proxy")).toMatchObject({ status: "fail", summary: "wide" });
     expect(byId(rows, "headers.policy")).toMatchObject({ status: "fail", summary: "critical" });
+  });
+
+  it("asks nothing of an operator whose ignored proxy setting is already safe", () => {
+    const rows = evaluateSecurityCenter(facts({ proxy: { mode: "wide", value: "true" } }));
+    expect(byId(rows, "transport.proxy")).toMatchObject({ status: "pass", severity: "info", summary: "wide" });
     expect(byId(rows, "transport.proxy").evidence.value).toBe("true");
   });
 
@@ -87,15 +93,78 @@ describe("security center checks", () => {
     expect(byId(rows, "runtime.update").status).toBe("warn");
   });
 
-  it("hides installation proxy and update details from another site", () => {
-    const rows = evaluateSecurityCenter(facts({
+  describe("security advisories", () => {
+    const current = {
+      state: "current",
+      issuedAt: "2026-11-01T00:00:00.000Z",
+      affected: 0,
+      revoked: 0,
+      highest: null,
+      ids: "",
+    } as const;
+    const check = (advisories: SecurityCenterFacts["advisories"]) =>
+      byId(evaluateSecurityCenter(facts({ advisories })), "runtime.advisories");
+
+    it("never reads a missing feed as clear", () => {
+      expect(check({ state: "unavailable" })).toMatchObject({ status: "unknown", summary: "unavailable" });
+    });
+
+    it("never reads an expired feed as clear", () => {
+      expect(check({ state: "expired", expiresAt: "2026-10-01T00:00:00.000Z" })).toMatchObject({
+        status: "unknown",
+        summary: "stale",
+      });
+    });
+
+    it("passes only on a current feed with no match", () => {
+      expect(check(current)).toMatchObject({ status: "pass", summary: "clear" });
+    });
+
+    it("fails on a high severity match and names it", () => {
+      expect(check({ ...current, affected: 2, highest: "high", ids: "JF-1, JF-2" })).toMatchObject({
+        status: "fail",
+        severity: "high",
+        summary: "affected",
+        evidence: { count: 2, ids: "JF-1, JF-2" },
+      });
+    });
+
+    it("warns on a lower severity match", () => {
+      expect(check({ ...current, affected: 1, highest: "low", ids: "JF-1" })).toMatchObject({
+        status: "warn",
+        summary: "affected",
+      });
+    });
+
+    it("treats a revoked version as critical", () => {
+      expect(check({ ...current, affected: 1, revoked: 1, highest: "low", ids: "JF-1" })).toMatchObject({
+        status: "fail",
+        severity: "critical",
+        summary: "revoked",
+      });
+    });
+
+    it("does not show advisories to another site", () => {
+      const report = securityCenterReport(facts({ installationRoot: false, proxy: null, advisories: current }));
+      expect(report.checks.map((item) => item.id)).not.toContain("runtime.advisories");
+    });
+  });
+
+  it("omits every installation-scoped check from another site's report", () => {
+    const report = securityCenterReport(facts({
       installationRoot: false,
       proxy: null,
       update: { state: "available", latest: "9.9.9", checkedAt: "2026-10-29T08:00:00.000Z" },
     }));
-    expect(byId(rows, "transport.proxy")).toMatchObject({ status: "not_applicable", summary: "otherSite", evidence: {} });
-    expect(byId(rows, "runtime.update")).toMatchObject({ status: "not_applicable", summary: "otherSite", href: null });
-    expect(byId(rows, "runtime.update").evidence).not.toHaveProperty("latest");
+    expect(report.checks.map((check) => check.id)).toEqual([
+      "accounts.mfa",
+      "accounts.sessions",
+      "accounts.apiKeys",
+      "headers.policy",
+      "recovery.backup",
+    ]);
+    expect(report.checks.every((check) => check.scope === "site")).toBe(true);
+    expect(JSON.stringify(report)).not.toContain("9.9.9");
   });
 
   it("treats production HTTP as a failed configuration and does not call an unread certificate a pass", () => {
@@ -145,5 +214,59 @@ describe("security center checks", () => {
 
     const other = evaluateSecurityCenter(facts({ installationRoot: false }));
     expect(byId(other, "extensions.integrity")).toMatchObject({ status: "not_applicable", summary: "otherSite", href: null });
+  });
+
+  describe("backup readiness", () => {
+    const schedule = {
+      state: "known",
+      enabled: true,
+      lastStatus: "done",
+      lastFinishedAt: "2026-11-04T02:01:00.000Z",
+      nextRunAt: "2026-11-05T02:00:00.000Z",
+      destination: "s3",
+    } as const;
+    const check = (backup: SecurityCenterFacts["backup"], checkedAt = "2026-11-05T01:00:00.000Z") =>
+      byId(evaluateSecurityCenter(facts({ backup, checkedAt })), "recovery.backup");
+
+    it("stays unknown without evidence", () => {
+      expect(check({ state: "unknown" })).toMatchObject({ status: "unknown", summary: "notVerified" });
+    });
+
+    it("stays unknown when nothing is scheduled", () => {
+      expect(check({ ...schedule, enabled: false })).toMatchObject({
+        status: "unknown",
+        summary: "notScheduled",
+      });
+    });
+
+    it("never passes on a created backup alone", () => {
+      expect(check(schedule)).toMatchObject({
+        status: "unknown",
+        summary: "createdNotRestored",
+        evidence: { destination: "s3", lastFinishedAt: schedule.lastFinishedAt },
+      });
+    });
+
+    it("reports a schedule that has not run yet", () => {
+      expect(check({ ...schedule, lastStatus: null, lastFinishedAt: null })).toMatchObject({
+        status: "unknown",
+        summary: "neverRun",
+      });
+    });
+
+    it("warns when the last backup failed", () => {
+      expect(check({ ...schedule, lastStatus: "failed" })).toMatchObject({
+        status: "warn",
+        severity: "medium",
+        summary: "lastFailed",
+      });
+    });
+
+    it("warns when a schedule has stopped running", () => {
+      expect(check(schedule, "2026-11-06T03:00:00.000Z")).toMatchObject({
+        status: "warn",
+        summary: "overdue",
+      });
+    });
   });
 });

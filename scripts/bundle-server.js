@@ -58,4 +58,27 @@ if (/(?:from|import)\s*\(?\s*["']@justflows\//.test(out)) {
   process.exit(1);
 }
 
+/**
+ * A package that starts a worker finds its file with
+ * `new URL("./x.mjs", import.meta.url)`. Inside the bundle that URL points
+ * next to `server.bundle.mjs`, so those plain `.mjs` modules (the installer's
+ * archive worker) are copied there. Two packages may not ship the same name.
+ */
+const outDir = path.dirname(outfile);
+const copied = new Map();
+for (const pkg of fs.readdirSync(path.join(root, "packages"))) {
+  const src = path.join(root, "packages", pkg, "src");
+  if (!fs.existsSync(src)) continue;
+  for (const name of fs.readdirSync(src)) {
+    if (!name.endsWith(".mjs") || name.includes(".test.")) continue;
+    if (copied.has(name)) {
+      console.error(`[bundle-server] ${name} is shipped by both ${copied.get(name)} and ${pkg}.`);
+      process.exit(1);
+    }
+    fs.copyFileSync(path.join(src, name), path.join(outDir, name));
+    copied.set(name, pkg);
+  }
+}
+
 console.log("[bundle-server] Wrote", path.relative(root, outfile));
+if (copied.size) console.log("[bundle-server] Copied", [...copied.keys()].join(", "));

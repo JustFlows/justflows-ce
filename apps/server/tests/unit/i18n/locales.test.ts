@@ -176,7 +176,7 @@ describe("localizeHtmlLinks", () => {
       '<a href="https://example.com/shop">b</a>',
       '<a href="//cdn.example.com/x">c</a>',
       '<a href="/login">d</a>',
-      '<a href="/ext/justflows.shop/cart">e</a>',
+      '<a href="/ext/justflows.store/cart">e</a>',
       '<a href="/uploads/a/b.png">f</a>',
       '<a href="/sitemap.xml">g</a>',
       '<a href="/" hreflang="en-US" lang="en-US">EN</a>',

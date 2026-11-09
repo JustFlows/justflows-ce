@@ -1,7 +1,7 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
-import { render } from "../src/entry-server";
+import { beforeAll, describe, expect, it } from "vitest";
+import { preloadPages, render } from "../src/entry-server";
 
 const ROUTES = [
   "/install", "/login", "/register", "/forgot-password", "/reset-password",
@@ -12,15 +12,19 @@ const ROUTES = [
   "/admin/design", "/admin/menus", "/admin/users", "/admin/settings", "/admin/settings/api", "/admin/comments",
   "/admin/marketplace", "/admin/tools", "/admin/health", "/admin/updates", "/admin/languages",
   "/admin/security", "/admin/security/web-server", "/admin/security/integrity", "/admin/security/header-grade", "/admin/security/headers", "/admin/security/advanced",
-  "/admin/security/account", "/admin/security/audit", "/admin/reports",
-  "/admin/plugins/justflows.shop", "/admin/plugins/justflows.shop/products",
+  "/admin/security/account", "/admin/security/audit", "/admin/security/audit/settings", "/admin/reports",
+  "/admin/plugins/justflows.store", "/admin/plugins/justflows.store/products",
 ];
 
 describe("admin SSR routes", () => {
+  /** The server awaits this once before rendering; route pages are lazily split. */
+  beforeAll(() => preloadPages());
+
   for (const url of ROUTES) {
     it(`renders ${url} without browser globals`, () => {
       const html = render(url, { url, locale: "en", responses: {} });
       expect(html.length).toBeGreaterThan(20);
+      expect(html).not.toContain("jf-route-loading");
     });
   }
 
@@ -46,6 +50,39 @@ describe("admin SSR routes", () => {
       },
     });
     expect(html).toContain("SSR post");
+  });
+
+  it("renders one limits panel on a workspace", () => {
+    const id = "workspace-1";
+    const html = render(`/admin/platform/workspaces/${id}`, {
+      url: `/admin/platform/workspaces/${id}`,
+      locale: "en",
+      responses: {
+        [`/api/platform/tenants/${id}`]: {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            workspace: {
+              id,
+              name: "Example workspace",
+              slug: "example",
+              status: "active",
+              userMode: "shared",
+              databaseMode: "current",
+              createdAt: "2026-10-29T09:00:00.000Z",
+              updatedAt: "2026-10-29T09:00:00.000Z",
+            },
+            sites: [],
+            database: null,
+            quotas: {
+              meters: [{ key: "sites", scope: "workspace", label: "Sites", unit: "count", limit: null, used: 3 }],
+            },
+          }),
+        },
+      },
+    });
+    expect(html.match(/>Limits<\/h2>/g)).toHaveLength(1);
   });
 
   it("renders the Security Center from prefetched checks without a site grade", () => {
@@ -105,9 +142,56 @@ describe("admin SSR routes", () => {
     expect(html).toContain("File integrity");
     expect(html).toContain("No backup has been verified");
     expect(html).toContain("Review security events");
+    expect(html).toContain('href="/admin/security/audit?view=security"');
     expect(html).not.toContain("Grade");
     expect(html).not.toContain("out of 100");
     expect(html).toContain("Web server setup");
+  });
+
+  it("renders the focused security event category from the Security Center link", () => {
+    const html = render("/admin/security/audit?view=security", {
+      url: "/admin/security/audit?view=security",
+      locale: "en",
+      responses: {},
+    });
+    expect(html).toContain("Security events");
+    expect(html).toContain("All audit events");
+    expect(html).toContain("Settings");
+    expect(html).not.toContain("Email notifications");
+  });
+
+  it("renders audit controls on the dedicated settings page", () => {
+    const html = render("/admin/security/audit/settings", {
+      url: "/admin/security/audit/settings",
+      locale: "en",
+      responses: {},
+    });
+    expect(html).toContain("Audit settings");
+    expect(html).toContain("Email notifications");
+    expect(html).toContain("Retention");
+  });
+
+  it("hides installation setup from a subsite Security Center", () => {
+    const html = render("/admin/security", {
+      url: "/admin/security",
+      locale: "en",
+      responses: {
+        "/api/security/center": {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            checkedAt: "2026-10-29T09:00:00.000Z",
+            installationRoot: false,
+            auditAvailable: false,
+            checks: [],
+          }),
+        },
+      },
+    });
+    expect(html).toContain("Security Center");
+    expect(html).not.toContain("Web server setup");
+    expect(html).not.toContain("Copy the file for nginx");
   });
 
   it("renders the web server file for the host the administrator copies", () => {
@@ -169,6 +253,6 @@ describe("admin SSR routes", () => {
     expect(html).toContain("acme.demo");
     expect(html).toContain("index.js");
     expect(html).toContain("Scan again");
-    expect(html).toContain("No core manifest is present");
+    expect(html).toContain("This installation has no signed core file manifest");
   });
 });

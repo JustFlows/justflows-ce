@@ -11,13 +11,13 @@ vi.mock("../../../src/lib/database/db.js", () => ({
   getDb: async () => ({ query: async () => mocks.rows }),
 }));
 // The shared module stays loaded for the main site, so its admin.menu filter
-// keeps adding Shop items on every site.
+// keeps adding its items on every site.
 vi.mock("../../../src/lib/plugins/plugin-runtime.js", () => ({
   ensurePluginRuntime: async () => {},
   getRuntimeHooks: () => ({
     applyFilter: async (_name: string, items: unknown[]) => [
       ...items,
-      { pluginId: "justflows.shop", id: "products", label: "Products", path: "products", domain: "commerce" },
+      { pluginId: "justflows.store", id: "products", label: "Products", path: "products", domain: "commerce" },
     ],
   }),
 }));
@@ -32,15 +32,15 @@ beforeEach(() => {
   mocks.rows = [];
   mocks.routes = [
     {
-      pluginId: "justflows.shop",
-      path: "/admin/plugins/justflows.shop/products/import",
-      entryUrl: "/ext/justflows.shop/admin/products.html",
+      pluginId: "justflows.store",
+      path: "/admin/plugins/justflows.store/products/import",
+      entryUrl: "/ext/justflows.store/admin/products.html",
       title: "Import products",
     },
     {
-      pluginId: "justflows.shop",
-      path: "/admin/plugins/justflows.shop/tax",
-      entryUrl: "/ext/justflows.shop/admin/tax.html",
+      pluginId: "justflows.store",
+      path: "/admin/plugins/justflows.store/tax",
+      entryUrl: "/ext/justflows.store/admin/tax.html",
       title: "Tax",
     },
   ];
@@ -50,7 +50,7 @@ describe("listPluginAdminMenu", () => {
   it("shows no screens for a plugin this site has turned off", async () => {
     mocks.rows = [
       {
-        plugin_id: "justflows.shop",
+        plugin_id: "justflows.store",
         status: "inactive",
         manifest: { adminMenu: [], permissions: ["admin:extend"] },
       },
@@ -61,16 +61,16 @@ describe("listPluginAdminMenu", () => {
   it("keeps the screens while the plugin is active on this site", async () => {
     mocks.rows = [
       {
-        plugin_id: "justflows.shop",
+        plugin_id: "justflows.store",
         status: "active",
         manifest: { adminMenu: [], permissions: ["admin:extend"] },
       },
     ];
     const paths = (await listPluginAdminMenu("site-sub")).map((item) => item.path);
     expect(paths).toEqual([
-      "/admin/plugins/justflows.shop/products",
-      "/admin/plugins/justflows.shop/products/import",
-      "/admin/plugins/justflows.shop/tax",
+      "/admin/plugins/justflows.store/products",
+      "/admin/plugins/justflows.store/products/import",
+      "/admin/plugins/justflows.store/tax",
     ]);
   });
 });

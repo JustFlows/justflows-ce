@@ -6,7 +6,7 @@ export const accountBlock: BlockDefinition = {
   description: "Signed-in account data. Only rendered on private account pages.",
   schema: {
     section: { type: "select", default: "all", options: SECTIONS, optionLabels: { all: "All account sections", controls: "Account controls", profile: "Profile", plugins: "Plugin sections", workspaces: "Workspaces" } },
-    sectionId: { type: "text", default: "", label: "Plugin section ID", help: "Optional: show one plugin section, such as justflows.shop.orders.", showWhen: { field: "section", equals: "plugins" } },
+    sectionId: { type: "text", default: "", label: "Plugin section ID", help: "Optional: show one plugin section, such as acme.store.orders.", showWhen: { field: "section", equals: "plugins" } },
     showTitles: { type: "boolean", default: true, label: "Show section titles" },
   },
   validateProps: raw => {

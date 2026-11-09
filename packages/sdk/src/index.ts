@@ -4,6 +4,19 @@ export { SDK_VERSION, SDK_API_VERSION } from "./version.js";
 export { ExtensionEnginesSchema } from "./compatibility.js";
 export type { ExtensionEngines } from "./compatibility.js";
 
+export type {
+  ContentVisibilityParams,
+  ContentVisibilityRuleDecision,
+  ContentVisibilityRuleDefinition,
+  ContentVisibilityRuleField,
+  ContentVisibilityRuleInput,
+  ContentVisibilityRuleOption,
+  ContentVisibilitySubject,
+  ContentVisibilitySurface,
+  ContentVisibilityViewerInfo,
+  PluginVisibilityApi,
+} from "./visibility.js";
+
 // Hooks — typed action/gate/filter contracts
 export {
   SYNC_FILTERS,
@@ -114,6 +127,9 @@ export type {
 export {
   PluginManifestSchema,
   PluginAssetsSchema,
+  PluginBlockAssetsSchema,
+  PluginMarkupAssetsSchema,
+  AssetMarkupSelectorSchema,
   PluginTemplatesSchema,
   PluginAdminAppSchema,
   PluginPermissionSchema,
@@ -121,6 +137,8 @@ export {
   AdminMenuItemSchema,
   EditorPanelSchema,
   EditorPanelFieldSchema,
+  AdminSectionSchema,
+  WorkspacePanelSchema,
   LocalizedTextSchema,
   ADMIN_MENU_DOMAINS,
   PLUGIN_ID_RE,
@@ -203,6 +221,8 @@ export type {
   PluginNetworkSiteAddress,
   PluginSettingsField,
   PluginEditorPanel,
+  PluginAdminSection,
+  PluginWorkspacePanel,
   LocalizedText,
   PluginQuotasApi,
   PluginQuotaMeterInfo,
