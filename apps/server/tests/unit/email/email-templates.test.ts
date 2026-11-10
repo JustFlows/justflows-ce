@@ -23,4 +23,14 @@ describe("system email templates", () => {
     expect(output.errors).toContain("Unknown variable: unknown");
     expect(output.errors).toContain("Missing required variable: site_name");
   });
+
+  it("keeps the owned-sites list on separate lines and escapes site names", () => {
+    const definition = listEmailTemplateDefinitions().find((item) => item.key === "core.owned-sites")!;
+    expect(definition.platformOnly).toBe(true);
+    const site_list = "Shop <b>: https://shop.example.com\nBlog: https://blog.example.com";
+    const output = renderEmailSource({ key: definition.key, values: { ...previewValues(definition), site_list }, source: definition.defaults, design: DEFAULT_EMAIL_DESIGN });
+    expect(output.errors).toEqual([]);
+    expect(output.html).toContain("Shop &lt;b&gt;: https://shop.example.com<br>Blog: https://blog.example.com");
+    expect(output.text).toContain(site_list);
+  });
 });

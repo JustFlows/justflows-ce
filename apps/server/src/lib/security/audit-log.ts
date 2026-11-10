@@ -38,6 +38,7 @@ export const AUDIT_ACTIONS = [
   "user.access_changed",
   "user.deleted",
   "workspace.owner_updated",
+  "workspace.sites_requested",
   "site.owner_updated",
   "access.role_created",
   "access.role_updated",
