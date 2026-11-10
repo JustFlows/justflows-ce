@@ -33,14 +33,12 @@ const guardedLookup: LookupFunction = (hostname, options, callback) => {
 
 const publicAgent = new Agent({ connect: { lookup: guardedLookup } });
 
-export interface PinnedRequestInit extends RequestInit {
-  /** Skip the address policy (trusted, operator-approved private endpoints only). */
-  allowPrivate?: boolean;
-}
-
-export async function pinnedFetch(url: URL | string, init: PinnedRequestInit = {}): Promise<Response> {
-  const { allowPrivate = false, ...rest } = init;
-  if (allowPrivate) return fetch(url, rest);
+/**
+ * Fetch that always applies the address policy. There is deliberately no way
+ * to opt out here, so a URL a visitor supplied can never reach a private
+ * network through this function.
+ */
+export async function pinnedFetch(url: URL | string, init: RequestInit = {}): Promise<Response> {
   // Sockets skip DNS lookup for an IP literal, so the agent's check never runs
   // for one; apply the same policy here.
   const host = new URL(url).hostname.replace(/^\[|\]$/g, "");
@@ -50,8 +48,17 @@ export async function pinnedFetch(url: URL | string, init: PinnedRequestInit = {
     });
   }
   const response = await undiciFetch(url, {
-    ...(rest as Parameters<typeof undiciFetch>[1]),
+    ...(init as Parameters<typeof undiciFetch>[1]),
     dispatcher: publicAgent,
   });
   return response as unknown as Response;
+}
+
+/**
+ * Plain fetch without the address policy, for an endpoint an administrator
+ * configured on purpose, such as a local AI provider (Ollama, LM Studio).
+ * Never pass a URL that came from a visitor or from another site.
+ */
+export function unpinnedFetch(url: URL | string, init: RequestInit = {}): Promise<Response> {
+  return fetch(url, init);
 }
