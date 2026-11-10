@@ -28,6 +28,7 @@ import { requestContext } from "./middleware/request-context.js";
 import { rejectForeignSiteId, tenantContext, uploadsSiteGuard } from "./middleware/tenant-context.js";
 import { getPluginLoader } from "./lib/plugins/plugin-runtime.js";
 import { trustedProxyValue } from "./lib/security/trusted-proxy.js";
+import { mcpHub } from "./routes/ai/hub.js";
 
 let corePromise: Promise<void> | null = null;
 let deferredLoaded = false;
@@ -126,6 +127,12 @@ export function createApp(): express.Application {
     });
     next();
   });
+  /**
+   * The MCP connection hub answers its OAuth and MCP paths on its own
+   * hostname (MCP_HUB_HOST) before compression, so streamed MCP responses
+   * pass through unbuffered. It is a no-op on every other hostname.
+   */
+  app.use(mcpHub);
   app.use(createGzipMiddleware());
   app.use(cacheTraceMiddleware);
   app.use(browserCacheMiddleware);
