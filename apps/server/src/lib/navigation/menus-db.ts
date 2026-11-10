@@ -446,6 +446,37 @@ export interface UpdateMenuInput {
   draft?: boolean;
 }
 
+/** Every string `contentId` in an item tree, tolerating malformed input from the API. */
+function linkedContentIds(items: unknown, depth = 0, out = new Set<string>()): Set<string> {
+  if (!Array.isArray(items) || depth > 32) return out;
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    const { contentId, children } = item as { contentId?: unknown; children?: unknown };
+    if (typeof contentId === "string" && contentId) out.add(contentId);
+    linkedContentIds(children, depth + 1, out);
+  }
+  return out;
+}
+
+/**
+ * Refuse menu items that link to another site's content. Ids that exist
+ * nowhere are allowed: a linked page may have been purged since, and the
+ * resolver already falls back to the item's URL.
+ */
+export async function assertMenuContentBelongsToSite(siteId: string, items: unknown): Promise<void> {
+  const ids = [...linkedContentIds(items)];
+  if (ids.length === 0) return;
+  const db = await getDb();
+  for (let offset = 0; offset < ids.length; offset += 200) {
+    const batch = ids.slice(offset, offset + 200);
+    const foreign = await db.query<{ id: string }>(
+      `SELECT id FROM content WHERE site_id <> ? AND id IN (${batch.map(() => "?").join(", ")}) LIMIT 1`,
+      [siteId, ...batch],
+    );
+    if (foreign[0]) throw new MenuTreeShapeError("Invalid menu item: linked content was not found on this site.");
+  }
+}
+
 export async function updateMenu(
   siteId: string,
   slug: string,
@@ -453,6 +484,7 @@ export async function updateMenu(
 ): Promise<MenuRow | null> {
   const menu = await getMenuBySlug(siteId, slug);
   if (!menu) return null;
+  if (data.items !== undefined) await assertMenuContentBelongsToSite(siteId, data.items);
 
   const db = await getDb();
   const name = data.name ?? menu.name;
@@ -582,7 +614,13 @@ function composeRel(item: Pick<MenuItem, "target" | "rel">): string | undefined 
 
 type MenuContentRef = ContentResponse;
 
+/**
+ * Content a menu links to, from this site only. A stored item can name any
+ * id, so without the site predicate a menu could surface another site's
+ * title and URL (drafts too, in preview).
+ */
 async function loadContentByIds(
+  siteId: string,
   ids: string[],
   preview = false,
 ): Promise<Map<string, MenuContentRef>> {
@@ -593,8 +631,8 @@ async function loadContentByIds(
   const placeholders = ids.map(() => "?").join(", ");
   const statusClause = preview ? "status IN ('published', 'draft')" : "status = 'published'";
   const rows = await db.query<Record<string, unknown>>(
-    `SELECT * FROM content WHERE id IN (${placeholders}) AND ${statusClause}`,
-    ids,
+    `SELECT * FROM content WHERE site_id = ? AND id IN (${placeholders}) AND ${statusClause}`,
+    [siteId, ...ids],
   );
 
   for (const row of rows) {
@@ -603,7 +641,9 @@ async function loadContentByIds(
   return map;
 }
 
+/** Translations of the linked content, from this site only. */
 async function loadTranslationsByGroup(
+  siteId: string,
   groupIds: string[],
   locale: string,
   preview = false,
@@ -617,8 +657,8 @@ async function loadTranslationsByGroup(
   const statusClause = preview ? "status IN ('published', 'draft')" : "status = 'published'";
   const rows = await db.query<Record<string, unknown>>(
     `SELECT * FROM content
-     WHERE translation_group_id IN (${placeholders}) AND locale = ? AND ${statusClause}`,
-    [...ids, locale],
+     WHERE site_id = ? AND translation_group_id IN (${placeholders}) AND locale = ? AND ${statusClause}`,
+    [siteId, ...ids, locale],
   );
 
   for (const row of rows) {
@@ -704,15 +744,21 @@ export async function resolveMenuItems(
   options: ResolveMenuItemsOptions = {},
 ): Promise<ResolvedNavItem[]> {
   const visibilityContext: MenuVisibilityContext = options.visibility ?? { authState: "guest" };
-  const contentIds = collectContentIds(items);
-  const contentMap = await loadContentByIds(contentIds, preview);
-  const translationMap = await loadTranslationsByGroup(
-    [...contentMap.values()].map((item) => item.translationGroupId ?? ""),
-    locale,
-    preview,
-  );
-  const activeLocales = await getActiveLocaleCodes();
   const visibilitySiteId = options.siteId ?? (await getSiteId());
+  const contentIds = collectContentIds(items);
+  /** Without a known site no linked content resolves: fail closed rather than read across sites. */
+  const contentMap = visibilitySiteId
+    ? await loadContentByIds(visibilitySiteId, contentIds, preview)
+    : new Map<string, MenuContentRef>();
+  const translationMap = visibilitySiteId
+    ? await loadTranslationsByGroup(
+        visibilitySiteId,
+        [...contentMap.values()].map((item) => item.translationGroupId ?? ""),
+        locale,
+        preview,
+      )
+    : new Map<string, MenuContentRef>();
+  const activeLocales = await getActiveLocaleCodes();
   const contentVisibility = !preview && visibilitySiteId ? await getVisibilityScope(visibilitySiteId) : null;
 
   const permalinkResolvers = new Map<string, ReturnType<typeof createContentPermalinkResolver>>();

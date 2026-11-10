@@ -9,6 +9,7 @@ import {
   getEffectiveMenuItems,
   getMenuBySlug,
   listMenus,
+  MenuTreeShapeError,
   updateMenu,
 } from "../../lib/navigation/menus-db.js";
 import {
@@ -116,7 +117,7 @@ router.put("/menus/:slug", async (req, res) => {
     auditSettings(req, `menu.updated:${req.params.slug}`);
     res.json({ menu });
   } catch (err) {
-    if (err instanceof Error && /invalid|exceeds|depth/i.test(err.message)) {
+    if (err instanceof MenuTreeShapeError || (err instanceof Error && /invalid|exceeds|depth/i.test(err.message))) {
       return badRequest(res, err.message);
     }
     sendServerError(res, "manage.menus", err);
