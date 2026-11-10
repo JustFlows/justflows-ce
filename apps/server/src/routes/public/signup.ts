@@ -153,11 +153,9 @@ router.post("/find-sites", findSitesLimit, async (req, res) => {
       return;
     }
   }
-  /** The mailed link never comes from the request's Host header. */
   void processFindSites(email, {
     ip,
     userAgent: (req.get("user-agent") ?? "").slice(0, 255) || null,
-    appUrl: process.env.APP_URL ?? "",
   });
   res.status(202).json({ ok: true });
 });

@@ -32,5 +32,7 @@ describe("system email templates", () => {
     expect(output.errors).toEqual([]);
     expect(output.html).toContain("Shop &lt;b&gt;: https://shop.example.com<br>Blog: https://blog.example.com");
     expect(output.text).toContain(site_list);
+    expect(definition.variables.map((item) => item.key)).not.toContain("action_url");
+    expect(`${output.html}${output.text}`).not.toMatch(/\/account|manage your sites|href=/i);
   });
 });

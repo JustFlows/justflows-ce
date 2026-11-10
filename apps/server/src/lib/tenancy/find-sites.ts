@@ -4,43 +4,45 @@ import { getControlDb } from "../database/db.js";
 import { sendTemplateMail } from "../email/mail.js";
 import { auditLog } from "../security/audit-log.js";
 import { ownerAccount } from "./platform-account.js";
+import { withSiteUsers } from "./site-users.js";
 
-/** The origin of an http(s) URL without credentials, or null. */
-function publicOrigin(value: string): string | null {
-  try {
-    const url = new URL(value.trim());
-    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password ? url.origin : null;
-  } catch {
-    return null;
-  }
-}
-
-/** An owner with more sites than this gets the first ones and the account link for the rest. */
+/** An owner with more sites than this gets the first ones. */
 const MAX_LISTED_SITES = 100;
 
 export interface FindSitesContext {
   ip: string | null;
   userAgent: string | null;
-  /**
-   * The installation's public origin (`APP_URL`). When it is empty, the root site's
-   * stored URL is used. The mailed link is never built from request headers.
-   */
-  appUrl: string;
+}
+
+/**
+ * The site's admin sign-in page under its own admin path, which may be a custom one.
+ * Null when the path cannot be read, so no wrong address is mailed.
+ */
+async function adminSignInUrl(siteId: string, origin: string): Promise<string | null> {
+  try {
+    const { getAdminPathConfig } = await import("../admin/admin-path.js");
+    const result = await withSiteUsers(siteId, async () => (await getAdminPathConfig()).path);
+    return result.ok ? `${origin}${result.value}/login` : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Mail an owner the sites of every workspace they own on the installation.
  *
- * Resolves without disclosing whether `email` belongs to an owner, so the route
- * can answer the same way for every address. Only the address itself receives
- * the list. Nothing is mailed when the address owns no live site.
+ * Each site is listed with its own address (its primary domain, custom or not) and
+ * its admin sign-in address under that site's admin path. The installation's own
+ * address is never part of the mail. Resolves without disclosing whether `email`
+ * belongs to an owner, so the route can answer the same way for every address.
+ * Nothing is mailed when the address owns no live site.
  */
 export async function processFindSites(email: string, ctx: FindSitesContext): Promise<void> {
   const normalized = email.trim().toLowerCase();
   try {
     const db = await getControlDb();
-    const roots = await db.query<{ id: string; url: string | null }>(
-      "SELECT id, url FROM sites WHERE status <> 'deleted' ORDER BY created_at ASC, id ASC LIMIT 1",
+    const roots = await db.query<{ id: string }>(
+      "SELECT id FROM sites WHERE status <> 'deleted' ORDER BY created_at ASC, id ASC LIMIT 1",
     );
     const root = roots[0];
     if (!root) return;
@@ -50,27 +52,29 @@ export async function processFindSites(email: string, ctx: FindSitesContext): Pr
     );
     const user = rows[0];
     if (!user) return;
-    const origin = publicOrigin(ctx.appUrl) ?? publicOrigin(root.url ?? "");
-    if (!origin) {
-      console.error("Find-sites: set APP_URL or the root site URL so the account link can be mailed.");
-      return;
-    }
 
     const sites = (await ownerAccount(user.id))
       .flatMap((workspace) => workspace.sites)
-      .filter((site): site is typeof site & { url: string } => site.url !== null);
+      .filter((site): site is typeof site & { url: string } => site.url !== null)
+      .slice(0, MAX_LISTED_SITES);
     if (sites.length === 0) return;
 
-    const lines = sites.slice(0, MAX_LISTED_SITES).map((site) =>
-      `${site.name.replace(/[\r\n]+/g, " ").trim() || site.url}: ${site.url}${site.status === "active" ? "" : ` (${site.status})`}`,
-    );
+    const entries: string[] = [];
+    for (const site of sites) {
+      const name = site.name.replace(/[\r\n]+/g, " ").trim() || site.url;
+      const admin = await adminSignInUrl(site.id, site.url);
+      entries.push([
+        `${name}${site.status === "active" ? "" : ` (${site.status})`}`,
+        `Site: ${site.url}`,
+        ...(admin ? [`Admin: ${admin}`] : []),
+      ].join("\n"));
+    }
     const result = await sendTemplateMail({
       to: user.email,
       key: "core.owned-sites",
       values: {
         display_name: user.display_name || user.email,
-        site_list: lines.join("\n"),
-        action_url: `${origin}/account`,
+        site_list: entries.join("\n\n"),
       },
     });
 
@@ -83,7 +87,7 @@ export async function processFindSites(email: string, ctx: FindSitesContext): Pr
       target: user.id,
       ip: ctx.ip,
       userAgent: ctx.userAgent,
-      detail: result.ok ? `site list sent (${lines.length})` : `site list could not be mailed: ${result.error}`,
+      detail: result.ok ? `site list sent (${entries.length})` : `site list could not be mailed: ${result.error}`,
     });
   } catch (err) {
     console.error("Find-sites processing failed:", err);

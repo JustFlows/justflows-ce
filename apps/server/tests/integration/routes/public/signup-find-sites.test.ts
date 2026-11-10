@@ -36,7 +36,7 @@ it("answers 202 without any site data and hands a normalized address to the mail
   const response = await find(" Owner@Example.COM ");
   expect(response.status).toBe(202);
   expect(await response.json()).toEqual({ ok: true });
-  expect(mocks.find).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({ appUrl: expect.any(String) }));
+  expect(mocks.find).toHaveBeenCalledWith("owner@example.com", expect.objectContaining({ ip: "test" }));
 });
 it("rejects malformed addresses without looking anything up", async () => {
   expect((await find("not-an-email")).status).toBe(400);
