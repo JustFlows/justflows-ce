@@ -10,6 +10,8 @@ import { readSaasSettings, readSignupDatabaseTarget } from "../../lib/tenancy/sa
 import { clientIp, consumeRateLimit, rateLimitRetryAfter } from "../../lib/security/rate-limit.js";
 
 import { signupEmailAllowed } from "../../lib/security/signup-email-policy.js";
+import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
+import { processFindSites } from "../../lib/tenancy/find-sites.js";
 
 const router = Router();
 
@@ -105,6 +107,59 @@ router.post("/", signupLimit, async (req, res) => {
     url: origin,
     adminUrl: `${origin}/admin`,
   });
+});
+
+const FIND_SITES_WINDOW_MS = 15 * 60 * 1000;
+const findSitesLimit = rateLimit({
+  windowMs: FIND_SITES_WINDOW_MS,
+  limit: 60,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
+
+/**
+ * Mail an owner the sites they own, for someone who forgot their site address.
+ *
+ * The answer is the same 202 whether or not the address owns sites, and the work
+ * is not awaited, so the response neither lists nor confirms anything. Only the
+ * address receives the list. The per-address limit applies to every address, so
+ * a rate-limit answer does not disclose an account either.
+ */
+router.post("/find-sites", findSitesLimit, async (req, res) => {
+  if (!isInstallationRootRequest()) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const ip = clientIp(req);
+  if (!consumeRateLimit(`findsites:ip:${ip}`, 60, FIND_SITES_WINDOW_MS)) {
+    res.setHeader("Retry-After", String(rateLimitRetryAfter(`findsites:ip:${ip}`)));
+    res.status(429).json({ error: "Too many requests. Try again later." });
+    return;
+  }
+  const body = z.object({ email: z.string().trim().toLowerCase().max(320).email() }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Enter a valid email address" });
+    return;
+  }
+  const email = body.data.email;
+  /** Three an hour and five a day, so nobody can flood an owner's inbox. */
+  for (const [key, max, windowMs] of [
+    [`findsites:email:${email}`, 3, 60 * 60 * 1000],
+    [`findsites:email-day:${email}`, 5, 24 * 60 * 60 * 1000],
+  ] as const) {
+    if (!consumeRateLimit(key, max, windowMs)) {
+      res.setHeader("Retry-After", String(rateLimitRetryAfter(key)));
+      res.status(429).json({ error: "Too many requests. Try again later." });
+      return;
+    }
+  }
+  /** The mailed link never comes from the request's Host header. */
+  void processFindSites(email, {
+    ip,
+    userAgent: (req.get("user-agent") ?? "").slice(0, 255) || null,
+    appUrl: process.env.APP_URL ?? "",
+  });
+  res.status(202).json({ ok: true });
 });
 
 export default router;
