@@ -5,7 +5,7 @@ import { getControlDb } from "../../database/db.js";
 import { pinnedFetch } from "../../security/pinned-fetch.js";
 import { isLocalHostName } from "../../security/webhook-url.js";
 import { normalizeHostname } from "../../tenancy/host.js";
-import { allowLocalSites, hubCallbackUrl, hubHost, hubOrigin } from "./hub-config.js";
+import { hubCallbackUrl, hubHost, hubOrigin } from "./hub-config.js";
 
 /**
  * Connected sites: discovery, validation and the hub's OAuth client on each.
@@ -37,11 +37,10 @@ type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
 
 /**
  * Outbound requests refuse private and loopback addresses at connect time and
- * never follow redirects. Local testing (`allowLocalSites`) lifts the address
- * check only.
+ * never follow redirects. There is no bypass: a site address typed by a user
+ * can never reach a private network.
  */
-const defaultFetcher: Fetcher = (url, init) =>
-  pinnedFetch(url, { ...init, redirect: "manual", allowPrivate: allowLocalSites() });
+const defaultFetcher: Fetcher = (url, init) => pinnedFetch(url, { ...init, redirect: "manual" });
 
 let fetcher: Fetcher = defaultFetcher;
 
@@ -72,11 +71,6 @@ export function siteOriginFromInput(input: unknown): string {
   }
   if (url.username || url.password) throw new HubSiteError("Remove the user name and password from the address.");
   const host = normalizeHostname(url.hostname);
-  if (allowLocalSites() && (url.protocol === "http:" || url.protocol === "https:")) {
-    if (!host) throw new HubSiteError("Enter your site address, for example mysite.justflows.com.");
-    if (host === hubHost()) throw new HubSiteError("Enter the address of your own site, not this connection service.");
-    return url.origin;
-  }
   if (url.protocol !== "https:") throw new HubSiteError("Your site must use HTTPS.");
   if (url.port && url.port !== "443") throw new HubSiteError("Your site must use the standard HTTPS port.");
   if (!host || !host.includes(".") || isIP(host) || isLocalHostName(host)) {

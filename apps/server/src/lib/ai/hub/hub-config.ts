@@ -49,14 +49,6 @@ export function hubOrigin(): string {
   return `https://${host}`;
 }
 
-/**
- * Local testing only: let the hub connect sites on `http://`, `localhost`,
- * private addresses and non-standard ports (`MCP_HUB_ALLOW_LOCAL_SITES=true`).
- * Always false in production.
- */
-export function allowLocalSites(): boolean {
-  return isDevelopment() && process.env.MCP_HUB_ALLOW_LOCAL_SITES?.trim().toLowerCase() === "true";
-}
 
 /** The redirect URI the hub registers on every connected site. */
 export function hubCallbackUrl(): string {

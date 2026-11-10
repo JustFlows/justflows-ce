@@ -352,18 +352,3 @@ describe("site address input", () => {
   });
 });
 
-describe("local testing settings", () => {
-  it("accept http and localhost sites only when explicitly allowed outside production", () => {
-    const env = { ...process.env };
-    try {
-      process.env.MCP_HUB_ALLOW_LOCAL_SITES = "true";
-      process.env.NODE_ENV = "development";
-      expect(siteOriginFromInput("http://localhost:3000/admin")).toBe("http://localhost:3000");
-      expect(() => siteOriginFromInput("http://127.0.0.1:3000")).toThrow(HubSiteError);
-      process.env.NODE_ENV = "production";
-      expect(() => siteOriginFromInput("http://localhost:3000")).toThrow(HubSiteError);
-    } finally {
-      process.env = env;
-    }
-  });
-});
