@@ -17,6 +17,7 @@ import {
 import type { DatabaseChoice, DatabaseMode, UserMode } from "./context.js";
 import { hostnameFromUrl, isValidHostname, normalizeHostname, siteDomainKind, slugify } from "./host.js";
 import { platformBaseDomain } from "./saas-settings.js";
+import type { CopiedAdministrator } from "./site-users.js";
 import { ensureWorkspaceOwnerAccount, rootAccountExists, WorkspaceOwnerTakenError } from "./workspace-owner.js";
 
 type Sql = Pick<DbClient, "run" | "query">;
@@ -54,6 +55,9 @@ export interface WorkspaceAdmin {
   displayName: string;
   password: string;
 }
+
+/** A new account, or a copy of an existing workspace administrator with that account's password hash. */
+type SiteAdministrator = WorkspaceAdmin | CopiedAdministrator;
 
 export interface CreateWorkspaceInput {
   name: string;
@@ -284,7 +288,7 @@ async function seedSiteContents(
     hostname: string;
     userMode: UserMode;
     databaseMode: DatabaseMode;
-    admin: WorkspaceAdmin;
+    admin: SiteAdministrator;
     stamp: string;
     tenantName?: string;
     tenantSlug?: string;
@@ -307,7 +311,7 @@ async function seedSiteContents(
     );
   }
   const userId = randomUUID();
-  const passwordHash = await hashPassword(input.admin.password);
+  const passwordHash = "passwordHash" in input.admin ? input.admin.passwordHash : await hashPassword(input.admin.password);
   await db.run(
     `INSERT INTO users (id, site_id, email, username, display_name, password_hash, role, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, 'administrator', ?, ?)`,
@@ -579,6 +583,8 @@ export async function createAdditionalSite(input: {
   databaseChoice: DatabaseChoice;
   database?: DatabaseTarget;
   admin?: WorkspaceAdmin;
+  /** Copy this administrator of another site in the workspace instead of creating a new one. */
+  adminFrom?: { siteId: string; userId: string };
   actorId: string;
 }): Promise<ProvisionResult> {
   const db = await getControlDb();
@@ -600,13 +606,23 @@ export async function createAdditionalSite(input: {
   const hostname = input.hostname.trim().toLowerCase();
   if (!isValidHostname(hostname)) return { ok: false, status: 400, error: "Hostname is not valid." };
   if (await hostnameTaken(hostname)) return { ok: false, status: 409, error: "That hostname is already in use." };
-  if (userMode === "isolated" && !input.admin) {
+  if (input.admin && input.adminFrom) {
+    return { ok: false, status: 400, error: "Choose an existing administrator or a new one, not both." };
+  }
+  let admin: SiteAdministrator | undefined = input.admin;
+  if (input.adminFrom && userMode === "isolated") {
+    const { readWorkspaceAdministrator } = await import("./site-users.js");
+    const copied = await readWorkspaceAdministrator(input.tenantId, input.adminFrom.siteId, input.adminFrom.userId);
+    if (!copied.ok) return { ok: false, status: copied.status, error: copied.error };
+    admin = copied.admin;
+  }
+  if (userMode === "isolated" && !admin) {
     return { ok: false, status: 400, error: "An isolated site needs its own administrator account." };
   }
   if (choice.mode === "separate" && input.databaseChoice === "separate") {
     const problem = validateDatabaseTarget(input.database);
     if (problem) return { ok: false, status: 400, error: problem };
-    if (!input.admin) return { ok: false, status: 400, error: "A separate database needs an administrator account." };
+    if (!admin) return { ok: false, status: 400, error: "A separate database needs an administrator account." };
   }
   const blocked = await workspaceGate("site.beforeCreate", {
     tenantId: input.tenantId,
@@ -638,7 +654,7 @@ export async function createAdditionalSite(input: {
   const dataMode = choice.mode;
   if (dataMode === "current") {
     if (userMode === "shared") await grantWorkspaceAdmins(db, input.tenantId, siteId, stamp);
-    else if (input.admin) {
+    else if (admin) {
       await seedSiteContents(db, {
         tenantId: input.tenantId,
         siteId,
@@ -646,12 +662,12 @@ export async function createAdditionalSite(input: {
         hostname,
         userMode,
         databaseMode: "current",
-        admin: input.admin,
+        admin,
         stamp,
       });
     }
     await runWithDatabase(db, () => ensureSiteTheme(siteId));
-  } else if (input.databaseChoice === "separate" && input.database && input.admin) {
+  } else if (input.databaseChoice === "separate" && input.database && admin) {
     const databaseId = randomUUID();
     await db.run(
       `INSERT INTO tenant_databases (id, tenant_id, site_id, mode, status, driver, host, port, database_name, username, password_ciphertext, created_at, updated_at)
@@ -673,7 +689,7 @@ export async function createAdditionalSite(input: {
         hostname,
         userMode: "isolated",
         databaseMode: "separate",
-        admin: input.admin,
+        admin,
         stamp,
         tenantName: tenant.name,
         tenantSlug: tenant.slug,
@@ -704,7 +720,7 @@ export async function createAdditionalSite(input: {
         [randomUUID(), siteId, hostname, domainKind, true, true, stamp],
       );
       if (userMode === "shared") await grantWorkspaceAdmins(data, input.tenantId, siteId, stamp);
-      else if (input.admin) {
+      else if (admin) {
         await seedSiteContents(data, {
           tenantId: input.tenantId,
           siteId,
@@ -712,7 +728,7 @@ export async function createAdditionalSite(input: {
           hostname,
           userMode,
           databaseMode: "current",
-          admin: input.admin,
+          admin,
           stamp,
         });
       }

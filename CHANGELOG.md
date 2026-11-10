@@ -10,6 +10,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **A plugin can back the object cache with a shared store.** `ctx.cache.registerStore` (new `cache:store` permission, SDK 0.1.9) offers a store that Admin → Tools lists as a cache driver (`CACHE_DRIVER=plugin:<pluginId>.<storeId>`), so several application processes share cache entries and invalidations. It is honoured only from the main site and is built only when selected. Until it is ready, and during an outage, the cache is bypassed rather than failing requests: a failed read is a miss, a failed write is skipped, and after a lost invalidation the cache stays bypassed until the store is cleared. Tools and Site Health show the store's status. ([#18](https://github.com/JustFlows/justflows-ce/issues/18))
+- **Adding a site to an isolated workspace can reuse an existing administrator.** Admin → Platform → Add a site offers the administrators of the workspace's sites, including sites on a separate database. The account is copied onto the new site with its password, so it is not typed in again. After that the accounts are separate. The management API takes `adminFrom: { siteId, userId }` in place of `admin`; plugins cannot copy accounts.
 
 ### Fixed
 

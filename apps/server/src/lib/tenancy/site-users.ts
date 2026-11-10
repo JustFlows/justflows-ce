@@ -248,3 +248,103 @@ export async function deleteSiteUser(siteId: string, userId: string, operator: P
   if (result.ok && result.value.status === 200) await platformAudit(operator, "site.user.deleted", siteId, userId);
   return fromScope(result, (_scope, value) => value);
 }
+
+export interface WorkspaceAdministratorOption {
+  siteId: string;
+  siteName: string;
+  userId: string;
+  email: string;
+  username: string;
+  displayName: string;
+}
+
+export interface CopiedAdministrator {
+  email: string;
+  username: string;
+  displayName: string;
+  passwordHash: string;
+}
+
+/**
+ * Administrators on the websites of one workspace, for the "existing
+ * administrator" choice when a platform operator adds a site to an isolated
+ * workspace. Each site's own database is read. A site whose database is not
+ * reachable is skipped. The same email on several sites is listed once, from
+ * the oldest site.
+ */
+export async function listWorkspaceAdministrators(tenantId: string): Promise<WorkspaceAdministratorOption[]> {
+  const control = await getControlDb();
+  const sites = await control.query<{ id: string }>(
+    "SELECT id FROM sites WHERE tenant_id = ? AND status IN ('active', 'suspended') ORDER BY created_at ASC",
+    [tenantId],
+  );
+  const options: WorkspaceAdministratorOption[] = [];
+  const seen = new Set<string>();
+  for (const site of sites) {
+    const siteId = String(site.id);
+    let result: ScopeResult<Array<{ id: string; email: string; username: string; display_name: string }>>;
+    try {
+      result = await withSiteUsers(siteId, async () => (await getDb()).query(
+        "SELECT id, email, username, display_name FROM users WHERE site_id = ? AND role = 'administrator' ORDER BY created_at ASC",
+        [siteId],
+      ));
+    } catch {
+      continue;
+    }
+    if (!result.ok) continue;
+    for (const row of result.value) {
+      const email = String(row.email).toLowerCase();
+      if (seen.has(email)) continue;
+      seen.add(email);
+      options.push({
+        siteId,
+        siteName: result.scope.siteName,
+        userId: String(row.id),
+        email,
+        username: String(row.username),
+        displayName: String(row.display_name),
+      });
+    }
+  }
+  return options;
+}
+
+/**
+ * Reads an administrator of another site in the same workspace so a new
+ * isolated site can start with a copy of that account, including the password
+ * hash. The copy is a separate account afterwards.
+ */
+export async function readWorkspaceAdministrator(
+  tenantId: string,
+  siteId: string,
+  userId: string,
+): Promise<{ ok: true; admin: CopiedAdministrator } | { ok: false; status: number; error: string }> {
+  const control = await getControlDb();
+  const owned = await control.query<{ id: string }>(
+    "SELECT id FROM sites WHERE id = ? AND tenant_id = ? LIMIT 1",
+    [siteId, tenantId],
+  );
+  if (!owned[0]) return { ok: false, status: 400, error: "That administrator is not part of this workspace." };
+  const result = await withSiteUsers(siteId, async () => (await getDb()).query<{
+    email: string;
+    username: string;
+    display_name: string;
+    password_hash: string | null;
+  }>(
+    "SELECT email, username, display_name, password_hash FROM users WHERE id = ? AND site_id = ? AND role = 'administrator' LIMIT 1",
+    [userId, siteId],
+  ));
+  if (!result.ok) return { ok: false, status: result.status, error: result.error };
+  const row = result.value[0];
+  if (!row) return { ok: false, status: 400, error: "That administrator is not part of this workspace." };
+  if (!row.password_hash) return { ok: false, status: 400, error: "That administrator has no password to copy. Add a new administrator instead." };
+  return {
+    ok: true,
+    admin: {
+      email: String(row.email).toLowerCase(),
+      username: String(row.username),
+      displayName: String(row.display_name),
+      passwordHash: String(row.password_hash),
+    },
+  };
+}
