@@ -160,11 +160,18 @@ describe("/api/mcp", () => {
     expect(init.body?.result).toMatchObject({ serverInfo: { name: "justflows" }, capabilities: { tools: {} } });
 
     const { body } = await rpc("tools/list");
-    const names = (body?.result?.tools as { name: string; annotations: { readOnlyHint: boolean } }[]).map((t) => t.name);
+    const tools = body?.result?.tools as {
+      name: string;
+      annotations: { readOnlyHint: boolean; destructiveHint: boolean; openWorldHint: boolean };
+    }[];
+    const names = tools.map((tool) => tool.name);
     expect(names).toContain("content_list");
     expect(names).toContain("site_describe");
     expect(names).not.toContain("content_create");
     expect(names).not.toContain("content_delete");
+    expect(tools.every((tool) => typeof tool.annotations.readOnlyHint === "boolean")).toBe(true);
+    expect(tools.every((tool) => typeof tool.annotations.destructiveHint === "boolean")).toBe(true);
+    expect(tools.every((tool) => typeof tool.annotations.openWorldHint === "boolean")).toBe(true);
   });
 
   it("refuses a direct call to a tool missing from tools/list", async () => {
