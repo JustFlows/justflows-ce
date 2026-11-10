@@ -16,7 +16,7 @@ export interface ToolAnnotations {
   readOnlyHint: boolean;
   destructiveHint: boolean;
   idempotentHint: boolean;
-  openWorldHint?: boolean;
+  openWorldHint: boolean;
 }
 
 export type ToolGroup =
@@ -65,10 +65,10 @@ export interface JsonSchemaObject {
   [key: string]: unknown;
 }
 
-export const READ: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true };
-export const WRITE: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: false };
-export const IDEMPOTENT_WRITE: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: true };
-export const DESTRUCTIVE: ToolAnnotations = { readOnlyHint: false, destructiveHint: true, idempotentHint: true };
+export const READ: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+export const WRITE: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+export const IDEMPOTENT_WRITE: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+export const DESTRUCTIVE: ToolAnnotations = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false };
 
 type OpenApiOperation = { "x-required-capability"?: string };
 

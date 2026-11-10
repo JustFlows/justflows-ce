@@ -156,3 +156,67 @@ describe("core update recovery", () => {
     expect(await fs.readFile(path.join(root, ".updates/previous-release/server.js"), "utf8")).toBe("new server");
   });
 });
+
+describe("core update scope", () => {
+  /** An install with a manifest: the release owns server.js, package.json, obsolete.js and apps/. */
+  async function withManifest() {
+    await write(
+      root,
+      "core-integrity.json",
+      JSON.stringify({ format: 1, files: [{ path: "server.js" }, { path: "package.json" }, { path: "obsolete.js" }, { path: "apps/old.js" }] }),
+    );
+    await write(root, "apps/old.js", "stale core file");
+    await write(root, ".deploy-backups/manage-tool.js", "operator backup");
+  }
+
+  it("never touches an operator folder that is not part of any release", async () => {
+    await withManifest();
+    const originalRm = fs.rm.bind(fs);
+    vi.spyOn(fs, "rm").mockImplementation(async (target, options) => {
+      if (String(target).includes(".deploy-backups")) {
+        throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+      }
+      return originalRm(target, options);
+    });
+    const result = await apply();
+    expect(result.ok).toBe(true);
+    expect(await fs.readFile(path.join(root, ".deploy-backups/manage-tool.js"), "utf8")).toBe("operator backup");
+    await expect(fs.stat(path.join(root, "obsolete.js"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(fs.stat(path.join(root, "apps/old.js"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(fs.stat(path.join(root, ".updates/previous-release/.deploy-backups"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("rolls back without touching an operator folder", async () => {
+    await withManifest();
+    const originalRm = fs.rm.bind(fs);
+    vi.spyOn(fs, "rm").mockImplementation(async (target, options) => {
+      if (String(target).includes(".deploy-backups")) {
+        throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+      }
+      return originalRm(target, options);
+    });
+    mocks.command.mockImplementation((_cmd, args) => ({ status: args[0] === "install" ? 0 : 1, stderr: "migration failed" }));
+    const result = await apply();
+    expect(result.ok).toBe(false);
+    expect(result.steps).toContainEqual(expect.objectContaining({ step: "rollback", ok: true }));
+    await expectRestored();
+    expect(await fs.readFile(path.join(root, ".deploy-backups/manage-tool.js"), "utf8")).toBe("operator backup");
+  });
+
+  it("finishes the update when a stale core file cannot be deleted", async () => {
+    await withManifest();
+    const originalRm = fs.rm.bind(fs);
+    vi.spyOn(fs, "rm").mockImplementation(async (target, options) => {
+      if (String(target).endsWith(path.join("apps", "old.js"))) {
+        throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+      }
+      return originalRm(target, options);
+    });
+    const result = await apply();
+    expect(result.ok).toBe(true);
+    expect(result.steps).toContainEqual(
+      expect.objectContaining({ step: "copy", ok: true, detail: expect.stringContaining("1 stale file could not be removed") }),
+    );
+    expect(await fs.readFile(path.join(root, "server.js"), "utf8")).toBe("new server");
+  });
+});

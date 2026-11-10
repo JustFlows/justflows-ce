@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { BlockedAddressError, pinnedFetch } from "../../../src/lib/security/pinned-fetch.js";
+import { BlockedAddressError, pinnedFetch, unpinnedFetch } from "../../../src/lib/security/pinned-fetch.js";
 
 describe("pinned outbound fetch", () => {
   const server = createServer((_req, res) => res.end("internal"));
@@ -25,8 +25,8 @@ describe("pinned outbound fetch", () => {
     }
   });
 
-  it("connects to private addresses only when explicitly allowed", async () => {
-    const response = await pinnedFetch(`http://localhost:${port}/`, { allowPrivate: true });
+  it("connects to private addresses only through the explicit unpinned fetch", async () => {
+    const response = await unpinnedFetch(`http://localhost:${port}/`);
     expect(await response.text()).toBe("internal");
   });
 });

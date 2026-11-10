@@ -103,6 +103,7 @@ export function routeTool(route: RegisteredPluginRoute): AgentTool | null {
           readOnlyHint: false,
           destructiveHint: tool.annotations?.destructiveHint ?? route.method === "DELETE",
           idempotentHint: tool.annotations?.idempotentHint ?? (route.method === "PUT" || route.method === "DELETE"),
+          openWorldHint: false,
         },
     group: "plugin",
     capabilities: [tool.capability],
