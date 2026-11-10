@@ -262,6 +262,12 @@ const CreateSite = z.object({
   databaseChoice: z.enum(["inherit", "current", "separate"]),
   database: DatabaseSchema.optional(),
   admin: CreateTenant.shape.admin.optional(),
+  adminFrom: z.object({ siteId: z.string().uuid(), userId: z.string().uuid() }).optional(),
+});
+
+router.get("/tenants/:id/administrators", rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false }), async (req, res) => {
+  const { listWorkspaceAdministrators } = await import("../../lib/tenancy/site-users.js");
+  res.json({ administrators: await listWorkspaceAdministrators(String(req.params.id)) });
 });
 
 router.get("/tenants/:id", async (req, res) => {

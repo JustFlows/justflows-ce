@@ -106,6 +106,7 @@ router.post("/:id/sites", async (req, res) => {
     databaseChoice: z.enum(["inherit", "current", "separate"]),
     database: DatabaseSchema.optional(),
     admin: AdminSchema.optional(),
+    adminFrom: z.object({ siteId: z.string().uuid(), userId: z.string().uuid() }).optional(),
   }).safeParse(req.body);
   if (!body.success) {
     sendError(res, 400, body.error.issues[0]?.message ?? "Invalid site");
