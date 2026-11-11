@@ -1,4 +1,4 @@
-import { Router, type NextFunction, type Request, type Response } from "express";
+import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import { getSiteId } from "../../lib/settings/site-settings.js";
 import { isInstalled } from "../../middleware/install-guard.js";
 import { auditContext, auditFromRequest, auditLog } from "../../lib/security/audit-log.js";
 import { requireSession } from "../../middleware/auth.js";
+import { closedToMembers } from "../../middleware/closed-to-members.js";
 import { PasswordSchema } from "../../lib/auth/password-policy.js";
 import { revokeUserSessions } from "../../lib/auth/auth-session.js";
 import { createDeviceSession, listDeviceSessions, revokeDeviceSession, revokeOtherDeviceSessions } from "../../lib/auth/device-sessions.js";
@@ -23,6 +24,9 @@ import {
   resolveResetToken,
 } from "../../lib/auth/password-reset.js";
 import { clearUserResets, hashResetToken } from "../../lib/auth/password-reset-db.js";
+import { finishSignIn } from "../../lib/auth/sign-in.js";
+import { PasskeyAnswerSchema, requestOptions, usablePasskeys, verifyPasskeyForAccount } from "../../lib/auth/webauthn/ceremonies.js";
+import passkeyRoutes from "./passkeys.js";
 
 const router = Router();
 const loginRequestLimit = rateLimit({
@@ -96,7 +100,21 @@ router.get("/me", requireSession, async (req, res) => {
   const access = await getEffectiveAccess(session.userId, session.siteId, session.role);
   const tenancy = await import("../../lib/tenancy/access.js");
   const operator = await tenancy.isPlatformOperator(session.userId);
+  /** Lets the admin shell send an account that must enrol a passkey to do so. */
+  let passkeyEnrollmentRequired = false;
+  try {
+    const { getPasskeyPolicy, modeForRole } = await import("../../lib/auth/webauthn/passkey-policy.js");
+    if (session.siteId && modeForRole(await getPasskeyPolicy(session.siteId), session.role) === "require") {
+      const { countPasskeys } = await import("../../lib/auth/webauthn/passkeys-db.js");
+      const { homeSiteOf } = await import("../../lib/auth/webauthn/ceremonies.js");
+      const home = await homeSiteOf(session.userId);
+      passkeyEnrollmentRequired = Boolean(home) && (await countPasskeys(session.userId, home!)) === 0;
+    }
+  } catch {
+    passkeyEnrollmentRequired = false;
+  }
   res.json({
+    passkeyEnrollmentRequired,
     id: session.userId,
     email: session.email,
     role: session.role,
@@ -114,6 +132,8 @@ const LoginSchema = z.object({
   password: z.string().min(1),
   /** Six-digit authenticator code, or a recovery code, when 2FA is enrolled. */
   totp: z.string().max(64).optional(),
+  /** A passkey's answer to the second-factor challenge this route issued. */
+  passkey: PasskeyAnswerSchema.optional(),
   /**
    * Sent only by the admin sign-in page, which is served under the configured
    * admin path and reads it from its own URL. Knowing that path is what lets a
@@ -123,24 +143,11 @@ const LoginSchema = z.object({
 });
 
 
-/**
- * While the site is offline or in maintenance, only the staff surface may sign
- * in, request or redeem a reset: a request that names the admin path passes,
- * every member request gets the same 503 before any account is looked up, so
- * the answer reveals nothing about who exists. Mirrors the page gate on the
- * member auth pages (server.ts).
- */
-async function closedToMembers(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const adminPath = (req.body as { adminPath?: unknown } | undefined)?.adminPath;
-    if ((await requestSurface(adminPath)) === "admin") { next(); return; }
-    const { canViewUnpublishedSite, isSiteClosed } = await import("../../lib/settings/site-visibility.js");
-    if (!(await isSiteClosed()) || (await canViewUnpublishedSite(req, res))) { next(); return; }
-    res.setHeader("Cache-Control", "private, no-store");
-    res.status(503).json({ error: "This site is not available right now. Please try again later." });
-  } catch (err) {
-    next(err);
-  }
+/** Where an account that must enrol a passkey is sent after signing in. */
+async function passkeyEnrolmentPath(staff: boolean, adminPath: string, siteId: string): Promise<string> {
+  if (staff) return `${adminPath}/security/account?enrol=passkey`;
+  const { accountHomeUrl } = await import("../../lib/account/pages.js");
+  return `${await accountHomeUrl(siteId).catch(() => "/account")}?enrol=passkey`;
 }
 
 router.post("/login", loginRequestLimit, closedToMembers, async (req, res) => {
@@ -241,6 +248,7 @@ router.post("/login", loginRequestLimit, closedToMembers, async (req, res) => {
     // 2FA". The rate limits above already counted this attempt.
     const { TotpUnavailableError, claimTotpStep, consumeRecoveryCode, getTotpState } = await import("../../lib/auth/totp-db.js");
     let totpState;
+    let factors;
     try {
       totpState = await getTotpState(user.id, user.home_site_id);
     } catch (err) {
@@ -250,20 +258,70 @@ router.post("/login", loginRequestLimit, closedToMembers, async (req, res) => {
       }
       throw err;
     }
-    if (totpState.enabled) {
+    try {
+      factors = await usablePasskeys(user.site_id, user.home_site_id, user.id, user.role);
+    } catch (err) {
+      /** Unknown passkey state fails closed, like an unreadable TOTP secret. */
+      console.error("Passkey state unavailable", err);
+      res.status(401).json({ error: "Sign-in could not be completed. Try again." });
+      return;
+    }
+    /**
+     * Which second factors this account can use. Under a `require` policy an
+     * account that has a passkey must use it; an authenticator code is no longer
+     * enough. A recovery code is accepted either way, so a lost passkey is not a
+     * locked account.
+     */
+    const passkeyAccepted = factors.passkeys.length > 0;
+    const totpAccepted = totpState.enabled && !(factors.mode === "require" && passkeyAccepted);
+    if (totpState.enabled || passkeyAccepted) {
       const supplied = body.data.totp?.trim() ?? "";
-      if (!supplied) {
+      const answer = body.data.passkey;
+      const challengeFactors = async (error: string) => {
+        const passkeyOptions = passkeyAccepted
+          ? await requestOptions(req, factors.policy, {
+              siteId: user.site_id,
+              userId: user.id,
+              purpose: "second",
+              passkeys: factors.passkeys,
+              userVerification: factors.policy.userVerification,
+            })
+          : undefined;
+        res.status(401).json({
+          error,
+          totpRequired: true,
+          totpAccepted,
+          ...(passkeyOptions ? { passkeyRequired: true, passkeyOptions } : {}),
+        });
+      };
+      if (!supplied && !answer) {
         // Only reached by someone who already proved the password, so it
         // discloses nothing they do not know.
-        res.status(401).json({ error: "Enter your authentication code", totpRequired: true });
+        await challengeFactors(passkeyAccepted && !totpAccepted ? "Confirm with your passkey, or enter a recovery code" : passkeyAccepted ? "Confirm with your passkey, or enter your authentication code" : "Enter your authentication code");
         return;
       }
 
-      const { acceptedTotpStep } = await import("../../lib/auth/totp.js");
-      const step = acceptedTotpStep(totpState.secret ?? "", supplied);
-      const codeOk = step !== null
-        ? await claimTotpStep(user.id, user.home_site_id, step)
-        : await consumeRecoveryCode(user.id, user.home_site_id, supplied);
+      let codeOk = false;
+      let detail = "wrong second factor";
+      if (answer && passkeyAccepted) {
+        const check = await verifyPasskeyForAccount(req, {
+          requestSiteId: user.site_id,
+          homeSiteId: user.home_site_id,
+          userId: user.id,
+          role: user.role,
+          answer,
+          purpose: "second",
+          requireUserVerification: false,
+        });
+        codeOk = check.ok;
+        if (!check.ok) detail = `passkey refused (${check.reason})`.slice(0, 200);
+      } else if (supplied) {
+        const { acceptedTotpStep } = await import("../../lib/auth/totp.js");
+        const step = totpAccepted ? acceptedTotpStep(totpState.secret ?? "", supplied) : null;
+        codeOk = step !== null
+          ? await claimTotpStep(user.id, user.home_site_id, step)
+          : await consumeRecoveryCode(user.id, user.home_site_id, supplied);
+      }
 
       if (!codeOk) {
         void auditLog({
@@ -273,10 +331,10 @@ router.post("/login", loginRequestLimit, closedToMembers, async (req, res) => {
           actorId: user.id,
           actorEmail: user.email,
           ...auditContext(req),
-          detail: "wrong second factor",
+          detail,
         });
         await new Promise((r) => setTimeout(r, 300 + Math.random() * 200));
-        res.status(401).json({ error: "That code is not valid", totpRequired: true });
+        await challengeFactors(answer ? "That passkey could not be verified" : "That code is not valid");
         return;
       }
     }
@@ -295,36 +353,20 @@ router.post("/login", loginRequestLimit, closedToMembers, async (req, res) => {
       }
     }
 
-    const sid = await createDeviceSession({
-      userId: user.id,
-      siteId: user.site_id,
-      userAgent: req.get("user-agent"),
-      ip: clientIp(req),
-    });
-    if (!sid) {
+    if (!(await finishSignIn(req, res, user, "password"))) {
       res.status(503).json({ error: "Sign-in could not be completed. Try again." });
       return;
     }
-    setSessionCookie(res, {
-      sid,
-      userId: user.id,
-      siteId: user.site_id,
-      role: user.role,
-      email: user.email,
-      tv: Number(user.token_version ?? 0),
-    });
-    void auditLog({
-      siteId: user.site_id,
-      action: "auth.login",
-      actorId: user.id,
-      actorEmail: user.email,
-      actorRole: user.role,
-      ...auditContext(req),
-    });
     // The client needs this to decide where to send the browser next — only
     // certain roles get the admin app; a subscriber belongs on the site itself.
     // `redirectTo` carries the configured admin path so the client does not have
     // to guess it from a page that was served before the session existed.
+    /** A role that requires passkeys, on an account without one, goes to enrol first. */
+    if (factors.mode === "require" && !passkeyAccepted) {
+      const enrolTo = await passkeyEnrolmentPath(redirectTo === adminPath, adminPath, user.site_id);
+      res.json({ ok: true, role: user.role, redirectTo: enrolTo, passkeyEnrollmentRequired: true });
+      return;
+    }
     res.json({ ok: true, role: user.role, redirectTo });
   } catch (err) {
     console.error("Login error", err);
@@ -994,7 +1036,10 @@ router.post("/2fa/disable", totpDisableRequestLimit, requireSession, async (req,
       }
     }
 
-    const disabled = await disableTotp(session.userId, session.siteId, state.enabled);
+    /** Recovery codes stay while passkeys remain: they back those up too. */
+    const { countPasskeys } = await import("../../lib/auth/webauthn/passkeys-db.js");
+    const keepCodes = (await countPasskeys(session.userId, session.siteId).catch(() => 1)) > 0;
+    const disabled = await disableTotp(session.userId, session.siteId, state.enabled, keepCodes);
     if (!disabled) {
       res.status(409).json({ error: "Two-factor authentication could not be changed" });
       return;
@@ -1017,6 +1062,8 @@ router.post("/2fa/disable", totpDisableRequestLimit, requireSession, async (req,
     res.status(500).json({ error: "Server error" });
   }
 });
+
+router.use(passkeyRoutes);
 
 router.get("/sessions", requireSession, async (req, res) => {
   const session = req.session!;

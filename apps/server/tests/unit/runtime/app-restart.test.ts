@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   launchArgs,
   planAppRestart,
+  relaunchExecArgv,
   requestAppRestart,
   restartHelperSource,
   type RestartMethod,
@@ -192,6 +193,47 @@ describe("planAppRestart", () => {
       "/usr/bin/node",
       "/opt/justflows/server.js",
     ]);
+  });
+
+  it("keeps Node's own flags when it starts the server again", () => {
+    const tsx = "/repo/node_modules/tsx/dist";
+    const plan = planAppRestart(
+      "/repo/apps/server",
+      probe({
+        cwd: "/repo/apps/server",
+        argv: ["/usr/bin/node", "/repo/apps/server/src/server.ts"],
+        execArgv: ["--require", `${tsx}/preflight.cjs`, "--import", `file://${tsx}/loader.mjs`, "--env-file=../../.env"],
+      }),
+    );
+    expect(plan.method).toBe("reexec");
+    expect(launchArgs(plan.launch!)).toEqual([
+      "reexec",
+      "/repo/apps/server",
+      "200",
+      "/usr/bin/node",
+      "--require",
+      `${tsx}/preflight.cjs`,
+      "--import",
+      `file://${tsx}/loader.mjs`,
+      "--env-file=../../.env",
+      "/repo/apps/server/src/server.ts",
+    ]);
+  });
+
+  it("drops debugger and watch flags from the relaunch", () => {
+    expect(
+      relaunchExecArgv([
+        "--inspect=9229",
+        "--max-old-space-size=2048",
+        "--inspect-port",
+        "9230",
+        "--watch",
+        "--watch-path",
+        "src",
+        "--env-file=.env",
+        "--test-reporter=spec",
+      ]),
+    ).toEqual(["--max-old-space-size=2048", "--env-file=.env"]);
   });
 
   it("restarts the server from the update worker, not the worker script", () => {

@@ -6,6 +6,7 @@ const contentRows = [
     slug: "contact",
     locale: "en",
     title: "Contact",
+    site_id: "site-1",
     translation_group_id: "group-contact",
   },
   {
@@ -13,6 +14,7 @@ const contentRows = [
     slug: "contact",
     locale: "nl",
     title: "Contact",
+    site_id: "site-1",
     translation_group_id: "group-contact",
   },
   {
@@ -20,6 +22,7 @@ const contentRows = [
     slug: "about-us",
     locale: "en",
     title: "About us",
+    site_id: "site-1",
     translation_group_id: "group-about",
   },
   {
@@ -27,6 +30,7 @@ const contentRows = [
     slug: "ceramic-mug",
     locale: "en",
     title: "Mug",
+    site_id: "site-1",
     translation_group_id: "group-mug",
   },
   {
@@ -34,22 +38,29 @@ const contentRows = [
     slug: "keramische-mok",
     locale: "nl",
     title: "Mok",
+    site_id: "site-1",
     translation_group_id: "group-mug",
   },
 ];
 
 vi.mock("../../../src/lib/database/db.js", () => ({
   getDb: async () => ({
-    query: async (sql: string, params: unknown[] = []) => {
+    query: async (sql: string, allParams: unknown[] = []) => {
+      /** A single-site install: `getSiteId()` falls back to the only site. */
+      if (/FROM sites/i.test(sql)) return [{ id: "site-1" }];
+      const scoped = /site_id = \?/i.test(sql);
+      const site = scoped ? allParams[0] : undefined;
+      const params = scoped ? allParams.slice(1) : allParams;
+      const rows = scoped ? contentRows.filter((row) => row.site_id === site) : contentRows;
       if (/translation_group_id IN/i.test(sql)) {
         const locale = params[params.length - 1];
         const groups = params.slice(0, -1);
-        return contentRows.filter(
+        return rows.filter(
           (row) => groups.includes(row.translation_group_id) && row.locale === locale,
         );
       }
       if (/id IN/i.test(sql)) {
-        return contentRows.filter((row) => params.includes(row.id));
+        return rows.filter((row) => params.includes(row.id));
       }
       return [];
     },

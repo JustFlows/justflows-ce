@@ -55,7 +55,8 @@
     "siteDomains": "Domains",
     "customDomains": "Custom domains",
     "storage": "Storage",
-    "taxonomies": "Categories & Tags"
+    "taxonomies": "Categories & Tags",
+    "securityPasskeys": "Passkeys"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -1626,7 +1627,15 @@
       "loginFailed": "Login failed",
       "signingIn": "Signing in…",
       "noAccount": "Don't have an account?",
-      "createAccount": "Create one"
+      "createAccount": "Create one",
+      "passkeySignIn": "Sign in with a passkey",
+      "passkeyFailed": "The passkey could not be used. Try again, or sign in with your password.",
+      "passkeyConfirm": "Use your passkey",
+      "passkeyConfirmHint": "Confirm with the passkey on this device or your phone, or enter a code below.",
+      "recoveryLabel": "Recovery code",
+      "recoveryHint": "Your role signs in with a passkey. If you lost it, enter one of your recovery codes.",
+      "or": "or",
+      "passkeyHint": "Use your fingerprint, face, screen lock or a security key."
     },
     "register": {
       "checking": "Checking…",
@@ -2882,10 +2891,10 @@
         },
         "accountsMfa": {
           "title": "Administrator authenticators",
-          "all": "{enrolled} of {admins} administrators have an authenticator.",
-          "partial": "{enrolled} of {admins} administrators have an authenticator. Sign-in does not require one.",
+          "all": "{enrolled} of {admins} administrators have a passkey or an authenticator app.",
+          "partial": "{enrolled} of {admins} administrators have a passkey or an authenticator app. Sign-in does not require one.",
           "unknown": "Administrator authenticator enrolment could not be read.",
-          "remediation": "Each administrator can turn on an authenticator under Security → Your account. Justflows does not yet require it."
+          "remediation": "Each administrator can add a passkey or an authenticator app under Security → Your account. To require passkeys, set the administrator role to Require under Security → Passkeys."
         },
         "accountsSessions": {
           "title": "Device sessions",
@@ -3048,6 +3057,53 @@
         "turnOff": "Turn off two-factor",
         "turnOn": "Turn on two-factor",
         "turningOff": "Turning off…"
+      },
+      "passkeys": {
+        "title": "Passkeys",
+        "intro": "Sign in with your fingerprint, face, screen lock or a security key instead of a password. A passkey only works on this site, so it cannot be phished.",
+        "requiredTitle": "Add a passkey",
+        "required": "Your role must use a passkey on this site. Add one to keep signing in.",
+        "disallowed": "Passkeys are turned off for your role on this site.",
+        "unsupported": "This browser cannot use passkeys.",
+        "none": "No passkeys yet.",
+        "add": "Add a passkey",
+        "adding": "Waiting for your device…",
+        "nameLabel": "Name",
+        "namePlaceholder": "For example: Work laptop",
+        "passwordLabel": "Current password",
+        "passwordHint": "Adding or removing a passkey asks for your password, so a borrowed session cannot change how you sign in.",
+        "added": "Passkey added.",
+        "addError": "Could not add the passkey.",
+        "created": "added {date}",
+        "lastUsed": "last used {date}",
+        "neverUsed": "never used",
+        "synced": "Synced",
+        "deviceBound": "This device or key only",
+        "rename": "Rename",
+        "save": "Save",
+        "renamed": "Passkey renamed.",
+        "renameError": "Could not rename the passkey.",
+        "remove": "Remove",
+        "removeTitle": "Remove {name}",
+        "removeConfirm": "Remove passkey",
+        "signOutOthers": "Also sign out every other device",
+        "removed": "Passkey removed.",
+        "removedSignedOut": "Passkey removed. {count} other sessions were signed out.",
+        "removeError": "Could not remove the passkey.",
+        "loadError": "Could not load passkeys: {message}",
+        "recoveryBody": "Each code works once. Keep them somewhere you can reach without this device: with your password, a code signs you in if you lose your passkeys.",
+        "lostTitle": "Lost a passkey?",
+        "lostBody": "Remove it here and sign out your other devices. If you cannot sign in at all, use your password with a recovery code. Forgot the password too? Reset it by email, then use a recovery code. An administrator can also remove your passkeys for you.",
+        "recovery": {
+          "title": "Recovery codes",
+          "remaining": "{count} unused recovery codes left.",
+          "none": "No recovery codes yet. They are created with your first passkey or when you turn on two-factor authentication.",
+          "unknown": "Recovery codes could not be read.",
+          "regenerate": "Create new recovery codes",
+          "regenerating": "Creating…",
+          "regenerateHint": "New codes replace every unused one.",
+          "error": "Could not create new recovery codes."
+        }
       }
     },
     "adminPath": {
@@ -3359,6 +3415,59 @@
         "label": "Applies to"
       },
       "unknownError": "Unknown error"
+    },
+    "passkeys": {
+      "title": "Passkeys",
+      "subtitle": "Who may or must sign in with a passkey, and how strictly passkeys are checked on this site.",
+      "errors": {
+        "loadFailed": "Could not load the passkey policy.",
+        "saveFailed": "Could not save the passkey policy."
+      },
+      "modes": {
+        "allow": "Allow",
+        "require": "Require",
+        "disallow": "Disallow"
+      },
+      "roles": {
+        "title": "Roles",
+        "hint": "Choose per role. Roles without their own choice use the default.",
+        "default": "Default",
+        "useDefault": "Default ({mode})",
+        "allowExplain": "Allow: people can add passkeys and sign in with them, with or without a password.",
+        "requireExplain": "Require: people must add a passkey. Once they have one, a password and an authenticator code are no longer enough; a recovery code still works.",
+        "disallowExplain": "Disallow: people cannot add passkeys, and passkeys they already have are not accepted.",
+        "requireWarnTitle": "Make sure recovery is in place",
+        "requireWarn": "People in a required role are asked to add a passkey at their next sign-in. Each gets recovery codes; if someone loses both, an administrator can remove their passkeys under Users."
+      },
+      "verification": {
+        "title": "User verification",
+        "legend": "Ask the authenticator to verify the person",
+        "preferred": "Preferred",
+        "preferredMeta": "Use a PIN or biometric when the authenticator has one. Security keys without a PIN still work as a second factor.",
+        "required": "Required",
+        "requiredMeta": "Every passkey must check a PIN or biometric. Passwordless sign-in always requires this."
+      },
+      "attestation": {
+        "title": "Attestation",
+        "legend": "What to ask the authenticator about itself",
+        "none": "None",
+        "noneMeta": "Do not ask which device made the passkey. Works with every passkey, including synced ones.",
+        "direct": "Direct",
+        "directMeta": "Ask for the device's attestation and check its signature where the format allows (packed, FIDO U2F). Certificates are not checked against the FIDO Metadata Service.",
+        "aaguidsLabel": "Allowed authenticator models (AAGUIDs)",
+        "aaguidsHint": "One per line. Leave empty to allow any model. When set, only security keys with a verified attestation for a listed model can be added, so synced passkeys cannot. This filters models; it is not cryptographic proof of one."
+      },
+      "relyingParty": {
+        "title": "Relying party",
+        "current": "Passkeys are created for:",
+        "origins": "Accepted from:",
+        "rpIdLabel": "RP ID",
+        "rpIdHint": "Leave empty to use this site's own hostname. Set a parent domain, such as example.com, to let passkeys work on its subdomains too. It must contain the address this site is served on.",
+        "extraOriginsLabel": "Extra origins",
+        "extraOriginsHint": "One https origin per line, such as https://www.example.com. Each must be within the RP ID.",
+        "warnTitle": "Changing the RP ID orphans existing passkeys",
+        "warn": "A passkey belongs to the RP ID it was made for. After a change, people sign in with their password and a recovery code, then add a new passkey."
+      }
     }
   },
   "settings": {
@@ -3728,6 +3837,11 @@
       "driverFilesystem": "Filesystem (default, survives restarts)",
       "driverLabel": "Driver",
       "driverMemory": "Memory (per process, fastest)",
+      "driverPluginInactive": "{label} (not active)",
+      "storeReady": "Ready",
+      "storeConnecting": "Connecting",
+      "storeUnavailable": "Unavailable",
+      "storeHint": "This driver comes from a plugin. While it is connecting or unavailable, pages are served without the object cache.",
       "enableBrowserCache": "Enable browser cache headers",
       "enableGzip": "Enable GZIP compression",
       "enableObjectCache": "Enable object cache",
@@ -4095,7 +4209,15 @@
       "activityTarget": "Target",
       "activityIp": "IP address",
       "additionalRoles": "Additional roles",
-      "additionalRolesHint": "The user keeps their main role and also gets everything these roles allow. Administrator can only be a main role."
+      "additionalRolesHint": "The user keeps their main role and also gets everything these roles allow. Administrator can only be a main role.",
+      "passkeys": "Passkeys",
+      "signInFactors": "Sign-in factors",
+      "resetFactors": "Remove passkeys and two-factor",
+      "resettingFactors": "Removing…",
+      "resetFactorsHint": "For someone who lost their passkey and their recovery codes. Removes their passkeys, authenticator app and recovery codes, and signs them out everywhere. They sign in with their password alone until they set these up again.",
+      "resetFactorsConfirm": "Remove every passkey, the authenticator app and the recovery codes from {name}, and sign them out everywhere?",
+      "resetFactorsFailed": "Could not remove the sign-in factors.",
+      "resetFactorsNotice": "Passkeys, authenticator app and recovery codes removed. The account has been signed out everywhere."
     },
     "roles": {
       "title": "Roles and capabilities",
@@ -4380,6 +4502,10 @@
     "emptyHint": "Create a workspace above to give a tenant its own sites and users.",
     "workspace": "Workspace",
     "administrator": "First administrator",
+    "administratorSource": "Administrator",
+    "administratorExisting": "Existing administrator",
+    "administratorNew": "New administrator",
+    "administratorCopyHint": "Copies this account, including its password, onto the new site. After that it is a separate account: password and role changes on one site do not reach the other.",
     "status": "Status",
     "sites": "Sites",
     "sitesEmpty": "No websites yet.",

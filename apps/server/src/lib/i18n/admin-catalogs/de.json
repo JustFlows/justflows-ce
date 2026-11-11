@@ -55,7 +55,8 @@
     "siteDomains": "Domains",
     "customDomains": "Eigene Domains",
     "storage": "Speicher",
-    "taxonomies": "Kategorien & Schlagwörter"
+    "taxonomies": "Kategorien & Schlagwörter",
+    "securityPasskeys": "Passkeys"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -1655,7 +1656,15 @@
       "totpHint": "Von Ihrer Authenticator-App oder einem Ihrer Wiederherstellungscodes.",
       "signingIn": "Anmeldung läuft…",
       "noAccount": "Noch kein Konto?",
-      "createAccount": "Jetzt erstellen"
+      "createAccount": "Jetzt erstellen",
+      "passkeySignIn": "Mit einem Passkey anmelden",
+      "passkeyFailed": "Der Passkey konnte nicht verwendet werden. Versuchen Sie es erneut oder melden Sie sich mit Ihrem Passwort an.",
+      "passkeyConfirm": "Passkey verwenden",
+      "passkeyConfirmHint": "Bestätigen Sie mit dem Passkey auf diesem Gerät oder Ihrem Smartphone, oder geben Sie unten einen Code ein.",
+      "recoveryLabel": "Wiederherstellungscode",
+      "recoveryHint": "Ihre Rolle meldet sich mit einem Passkey an. Falls Sie ihn verloren haben, geben Sie einen Ihrer Wiederherstellungscodes ein.",
+      "or": "oder",
+      "passkeyHint": "Mit Fingerabdruck, Gesicht, Bildschirmsperre oder einem Sicherheitsschlüssel."
     },
     "passwordLabel": "Passwort",
     "signInCta": "Anmelden →",
@@ -2418,10 +2427,10 @@
         },
         "accountsMfa": {
           "title": "Authenticator der Administrierenden",
-          "all": "{enrolled} von {admins} Administrierenden haben einen Authenticator.",
-          "partial": "{enrolled} von {admins} Administrierenden haben einen Authenticator. Die Anmeldung verlangt keinen.",
+          "all": "{enrolled} von {admins} Administrationen haben einen Passkey oder eine Authenticator-App.",
+          "partial": "{enrolled} von {admins} Administrationen haben einen Passkey oder eine Authenticator-App. Die Anmeldung verlangt das nicht.",
           "unknown": "Die Authenticator-Einrichtung der Administrierenden konnte nicht gelesen werden.",
-          "remediation": "Jede Administration kann unter Sicherheit → Ihr Konto einen Authenticator einschalten. Justflows verlangt das noch nicht."
+          "remediation": "Jede Administration kann unter Sicherheit → Ihr Konto einen Passkey oder eine Authenticator-App hinzufügen. Um Passkeys zu verlangen, stellen Sie die Administrationsrolle unter Sicherheit → Passkeys auf Verlangen."
         },
         "accountsSessions": {
           "title": "Gerätesitzungen",
@@ -2584,6 +2593,53 @@
         "confirm": "Neues Passwort bestätigen",
         "changing": "Wird geändert…",
         "submit": "Passwort ändern"
+      },
+      "passkeys": {
+        "title": "Passkeys",
+        "intro": "Melden Sie sich mit Fingerabdruck, Gesicht, Bildschirmsperre oder einem Sicherheitsschlüssel an statt mit einem Passwort. Ein Passkey funktioniert nur auf dieser Website und lässt sich deshalb nicht abphishen.",
+        "requiredTitle": "Passkey hinzufügen",
+        "required": "Ihre Rolle muss auf dieser Website einen Passkey verwenden. Fügen Sie einen hinzu, um sich weiterhin anmelden zu können.",
+        "disallowed": "Passkeys sind für Ihre Rolle auf dieser Website deaktiviert.",
+        "unsupported": "Dieser Browser unterstützt keine Passkeys.",
+        "none": "Noch keine Passkeys.",
+        "add": "Passkey hinzufügen",
+        "adding": "Warten auf Ihr Gerät…",
+        "nameLabel": "Name",
+        "namePlaceholder": "Zum Beispiel: Arbeitslaptop",
+        "passwordLabel": "Aktuelles Passwort",
+        "passwordHint": "Zum Hinzufügen oder Entfernen eines Passkeys wird Ihr Passwort abgefragt, damit eine übernommene Sitzung nicht ändern kann, wie Sie sich anmelden.",
+        "added": "Passkey hinzugefügt.",
+        "addError": "Der Passkey konnte nicht hinzugefügt werden.",
+        "created": "hinzugefügt am {date}",
+        "lastUsed": "zuletzt verwendet am {date}",
+        "neverUsed": "nie verwendet",
+        "synced": "Synchronisiert",
+        "deviceBound": "Nur dieses Gerät oder dieser Schlüssel",
+        "rename": "Umbenennen",
+        "save": "Speichern",
+        "renamed": "Passkey umbenannt.",
+        "renameError": "Der Passkey konnte nicht umbenannt werden.",
+        "remove": "Entfernen",
+        "removeTitle": "{name} entfernen",
+        "removeConfirm": "Passkey entfernen",
+        "signOutOthers": "Auch alle anderen Geräte abmelden",
+        "removed": "Passkey entfernt.",
+        "removedSignedOut": "Passkey entfernt. {count} andere Sitzungen wurden abgemeldet.",
+        "removeError": "Der Passkey konnte nicht entfernt werden.",
+        "loadError": "Passkeys konnten nicht geladen werden: {message}",
+        "recoveryBody": "Jeder Code funktioniert einmal. Bewahren Sie sie an einem Ort auf, den Sie ohne dieses Gerät erreichen: Zusammen mit Ihrem Passwort meldet ein Code Sie an, wenn Sie Ihre Passkeys verlieren.",
+        "lostTitle": "Passkey verloren?",
+        "lostBody": "Entfernen Sie ihn hier und melden Sie Ihre anderen Geräte ab. Wenn Sie sich gar nicht mehr anmelden können, verwenden Sie Ihr Passwort mit einem Wiederherstellungscode. Passwort auch vergessen? Setzen Sie es per E-Mail zurück und verwenden Sie dann einen Wiederherstellungscode. Eine Administration kann Ihre Passkeys auch für Sie entfernen.",
+        "recovery": {
+          "title": "Wiederherstellungscodes",
+          "remaining": "Noch {count} unbenutzte Wiederherstellungscodes.",
+          "none": "Noch keine Wiederherstellungscodes. Sie werden mit Ihrem ersten Passkey erstellt oder wenn Sie die Zwei-Faktor-Authentifizierung einschalten.",
+          "unknown": "Die Wiederherstellungscodes konnten nicht gelesen werden.",
+          "regenerate": "Neue Wiederherstellungscodes erstellen",
+          "regenerating": "Wird erstellt…",
+          "regenerateHint": "Neue Codes ersetzen alle unbenutzten.",
+          "error": "Es konnten keine neuen Wiederherstellungscodes erstellt werden."
+        }
       }
     },
     "adminPath": {
@@ -2894,6 +2950,59 @@
         "publicSecure": "Öffentliche Website (HTTPS)",
         "publicInsecure": "Öffentliche Website (HTTP)",
         "admin": "Verwaltung & API"
+      }
+    },
+    "passkeys": {
+      "title": "Passkeys",
+      "subtitle": "Wer sich mit einem Passkey anmelden darf oder muss und wie streng Passkeys auf dieser Website geprüft werden.",
+      "errors": {
+        "loadFailed": "Die Passkey-Richtlinie konnte nicht geladen werden.",
+        "saveFailed": "Die Passkey-Richtlinie konnte nicht gespeichert werden."
+      },
+      "modes": {
+        "allow": "Erlauben",
+        "require": "Verlangen",
+        "disallow": "Nicht erlauben"
+      },
+      "roles": {
+        "title": "Rollen",
+        "hint": "Wählen Sie pro Rolle. Rollen ohne eigene Auswahl verwenden die Standardeinstellung.",
+        "default": "Standard",
+        "useDefault": "Standard ({mode})",
+        "allowExplain": "Erlauben: Personen können Passkeys hinzufügen und sich damit anmelden, mit oder ohne Passwort.",
+        "requireExplain": "Verlangen: Personen müssen einen Passkey hinzufügen. Sobald sie einen haben, reichen Passwort und Authenticator-Code nicht mehr; ein Wiederherstellungscode funktioniert weiterhin.",
+        "disallowExplain": "Nicht erlauben: Personen können keine Passkeys hinzufügen, und vorhandene Passkeys werden nicht akzeptiert.",
+        "requireWarnTitle": "Stellen Sie sicher, dass die Wiederherstellung geregelt ist",
+        "requireWarn": "Personen in einer Rolle mit Pflicht werden bei der nächsten Anmeldung gebeten, einen Passkey hinzuzufügen. Alle erhalten Wiederherstellungscodes; verliert jemand beides, kann eine Administration die Passkeys unter Benutzer entfernen."
+      },
+      "verification": {
+        "title": "Benutzerüberprüfung",
+        "legend": "Den Authenticator die Person prüfen lassen",
+        "preferred": "Bevorzugt",
+        "preferredMeta": "PIN oder Biometrie verwenden, wenn der Authenticator sie hat. Sicherheitsschlüssel ohne PIN funktionieren weiterhin als zweiter Faktor.",
+        "required": "Erforderlich",
+        "requiredMeta": "Jeder Passkey muss eine PIN oder Biometrie prüfen. Die passwortlose Anmeldung verlangt das immer."
+      },
+      "attestation": {
+        "title": "Attestierung",
+        "legend": "Was der Authenticator über sich selbst angeben soll",
+        "none": "Keine",
+        "noneMeta": "Nicht fragen, welches Gerät den Passkey erstellt hat. Funktioniert mit jedem Passkey, auch mit synchronisierten.",
+        "direct": "Direkt",
+        "directMeta": "Die Attestierung des Geräts anfordern und ihre Signatur prüfen, wo das Format es erlaubt (packed, FIDO U2F). Zertifikate werden nicht gegen den FIDO Metadata Service geprüft.",
+        "aaguidsLabel": "Erlaubte Authenticator-Modelle (AAGUIDs)",
+        "aaguidsHint": "Eine pro Zeile. Leer lassen, um jedes Modell zu erlauben. Wenn gesetzt, können nur Sicherheitsschlüssel mit einer geprüften Attestierung für ein aufgeführtes Modell hinzugefügt werden, synchronisierte Passkeys also nicht. Das filtert nach Modell, ist aber kein kryptografischer Nachweis."
+      },
+      "relyingParty": {
+        "title": "Relying Party",
+        "current": "Passkeys werden erstellt für:",
+        "origins": "Akzeptiert von:",
+        "rpIdLabel": "RP-ID",
+        "rpIdHint": "Leer lassen, um den eigenen Hostnamen dieser Website zu verwenden. Geben Sie eine übergeordnete Domain wie example.com an, damit Passkeys auch auf deren Subdomains funktionieren. Die Adresse, unter der diese Website läuft, muss darin enthalten sein.",
+        "extraOriginsLabel": "Zusätzliche Origins",
+        "extraOriginsHint": "Ein https-Origin pro Zeile, etwa https://www.example.com. Jeder muss innerhalb der RP-ID liegen.",
+        "warnTitle": "Eine geänderte RP-ID macht vorhandene Passkeys unbrauchbar",
+        "warn": "Ein Passkey gehört zu der RP-ID, für die er erstellt wurde. Nach einer Änderung melden sich Personen mit Passwort und Wiederherstellungscode an und fügen dann einen neuen Passkey hinzu."
       }
     }
   },
@@ -3573,6 +3682,11 @@
       "driverLabel": "Treiber",
       "driverFilesystem": "Dateisystem (Standard, bleibt bei Neustarts erhalten)",
       "driverMemory": "Speicher (pro Prozess, am schnellsten)",
+      "driverPluginInactive": "{label} (nicht aktiv)",
+      "storeReady": "Bereit",
+      "storeConnecting": "Verbindet",
+      "storeUnavailable": "Nicht verfügbar",
+      "storeHint": "Dieser Treiber stammt aus einem Plugin. Solange er verbindet oder nicht verfügbar ist, werden Seiten ohne Objekt-Cache ausgeliefert.",
       "ttlLabel": "TTL (Sekunden)",
       "cacheDirLabel": "Cacheverzeichnis",
       "revalidateHeading": "Bei Änderungen neu validieren",
@@ -3922,7 +4036,15 @@
       "activityTarget": "Ziel",
       "activityIp": "IP-Adresse",
       "additionalRoles": "Zusätzliche Rollen",
-      "additionalRolesHint": "Der Benutzer behält seine Hauptrolle und erhält zusätzlich alles, was diese Rollen erlauben. Administrator kann nur eine Hauptrolle sein."
+      "additionalRolesHint": "Der Benutzer behält seine Hauptrolle und erhält zusätzlich alles, was diese Rollen erlauben. Administrator kann nur eine Hauptrolle sein.",
+      "passkeys": "Passkeys",
+      "signInFactors": "Anmeldefaktoren",
+      "resetFactors": "Passkeys und Zwei-Faktor entfernen",
+      "resettingFactors": "Wird entfernt…",
+      "resetFactorsHint": "Für Personen, die ihren Passkey und ihre Wiederherstellungscodes verloren haben. Entfernt Passkeys, Authenticator-App und Wiederherstellungscodes und meldet das Konto überall ab. Danach erfolgt die Anmeldung nur mit dem Passwort, bis diese Faktoren neu eingerichtet sind.",
+      "resetFactorsConfirm": "Alle Passkeys, die Authenticator-App und die Wiederherstellungscodes von {name} entfernen und das Konto überall abmelden?",
+      "resetFactorsFailed": "Die Anmeldefaktoren konnten nicht entfernt werden.",
+      "resetFactorsNotice": "Passkeys, Authenticator-App und Wiederherstellungscodes entfernt. Das Konto wurde überall abgemeldet."
     },
     "roles": {
       "failedToLoadRoles": "Rollen konnten nicht geladen werden",
@@ -4385,6 +4507,10 @@
     "emptyHint": "Erstellen Sie oben einen Arbeitsbereich, um einem Mandanten eigene Websites und Benutzer zu geben.",
     "workspace": "Arbeitsbereich",
     "administrator": "Erster Administrator",
+    "administratorSource": "Administrator",
+    "administratorExisting": "Vorhandener Administrator",
+    "administratorNew": "Neuer Administrator",
+    "administratorCopyHint": "Kopiert dieses Konto samt Passwort auf die neue Website. Danach ist es ein eigenes Konto: Passwort- und Rollenänderungen auf einer Website gelten nicht für die andere.",
     "status": "Status",
     "sites": "Websites",
     "sitesEmpty": "Noch keine Websites.",

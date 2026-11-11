@@ -105,6 +105,21 @@ export type SecurityHeaderDef = {
  * render a proper editor for it. This is the single source of truth — the API
  * ships it to the browser so the UI never hardcodes a second copy.
  */
+/**
+ * Passkeys (#105) call `navigator.credentials.get` on this site's own pages, so
+ * the default allows it for `self`. Before passkeys it was switched off.
+ */
+const PERMISSIONS_POLICY_DEFAULT =
+  "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(self), screen-wake-lock=(), usb=(), xr-spatial-tracking=()";
+
+/**
+ * The value shipped before passkeys. A saved policy that is still exactly this
+ * was never edited, so it is read as the current default; an edited policy is
+ * left as the administrator wrote it.
+ */
+const LEGACY_PERMISSIONS_POLICY_DEFAULT =
+  "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), usb=(), xr-spatial-tracking=()";
+
 export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
   {
     id: "content_security_policy",
@@ -242,8 +257,7 @@ export const SECURITY_HEADER_DEFS: SecurityHeaderDef[] = [
     description:
       "Switches off browser features your site does not use — camera, microphone, geolocation and so on — so that injected code cannot reach them either.",
     editor: "permissions",
-    defaultValue:
-      "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), usb=(), xr-spatial-tracking=()",
+    defaultValue: PERMISSIONS_POLICY_DEFAULT,
     defaultScope: "all",
     recommended: true,
     docs: "https://developer.mozilla.org/docs/Web/HTTP/Headers/Permissions-Policy",
@@ -660,6 +674,9 @@ export function normalizeConfig(raw: unknown): SecurityHeadersConfig {
         : fallback.scope,
       value: typeof stored.value === "string" ? stored.value : fallback.value,
     };
+    if (def.id === "permissions_policy" && entry.value === LEGACY_PERMISSIONS_POLICY_DEFAULT) {
+      entry.value = PERMISSIONS_POLICY_DEFAULT;
+    }
     if (isCspId(def.id)) {
       entry.mode = stored.mode === "report-only" ? "report-only" : "enforce";
     }

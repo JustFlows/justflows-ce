@@ -8,6 +8,7 @@ import {
   finalizeAdminMenu,
   stampCatalogLabels,
   stampSections,
+  stampHasSettings,
   stampSetupPaths,
 } from "../../../src/lib/admin/admin-menu.js";
 
@@ -216,5 +217,21 @@ describe("menu roles", () => {
       },
     ]);
     expect(item?.roles).toEqual(["administrator", "desk-agent"]);
+  });
+});
+
+describe("stampHasSettings", () => {
+  it("marks plugins whose Settings page has a schema or sub-pages", () => {
+    const items = finalizeAdminMenu([
+      { pluginId: "acme.form", id: "home", label: "Form", path: "", icon: "📋", domain: "extensions" },
+      { pluginId: "acme.subs", id: "home", label: "Subs", path: "", icon: "📋", domain: "extensions" },
+      { pluginId: "acme.subs", id: "mail", label: "Mail", path: "settings/mail", icon: "✉", domain: "extensions", listed: false },
+      { pluginId: "acme.app", id: "home", label: "App", path: "", icon: "🧱", domain: "tools" },
+    ]);
+    const stamped = stampHasSettings(items, new Set(["acme.form"]));
+    const flag = (pluginId: string) => stamped.filter((item) => item.pluginId === pluginId).map((item) => item.hasSettings);
+    expect(flag("acme.form")).toEqual([true]);
+    expect(flag("acme.subs")).toEqual([true, true]);
+    expect(flag("acme.app")).toEqual([false]);
   });
 });

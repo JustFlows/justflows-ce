@@ -6,24 +6,32 @@ import { getJfRoot } from "../runtime/jf-root.js";
 import { applyEnvToProcess, readEnvMap, updateEnvKeys } from "../settings/env-file.js";
 import { resetJfCache, wipeCacheStorage } from "./jf-cache.js";
 import { requestAppRestart } from "../runtime/app-restart.js";
+import { isCacheStoreDriver, listCacheStores, selectedCacheStoreStatus } from "./cache-stores.js";
 
 export const CacheSettingsBodySchema = z.object({
   enabled: z.boolean(),
-  driver: z.enum(["memory", "filesystem"]),
+  /** `memory`, `filesystem`, or a plugin store id (`plugin:<pluginId>.<storeId>`). */
+  driver: z.union([
+    z.enum(["memory", "filesystem"]),
+    z.string().refine(isCacheStoreDriver, "Unknown cache driver"),
+  ]),
   ttlSeconds: z.coerce.number().int().min(0).max(86400),
   dir: z.string().min(1).optional(),
-  redisUrl: z.string().optional(),
 });
 
 export type CacheSettings = z.infer<typeof CacheSettingsBodySchema>;
 
 export interface CacheSettingsResponse {
-  settings: CacheSettings & { redisUrl: string; defaultDir: string };
+  settings: CacheSettings & { defaultDir: string };
   runtime: {
     active: boolean;
     driver: string;
     ttlSeconds: number;
+    /** Status of the selected plugin store; absent for a built-in driver. */
+    store?: NonNullable<ReturnType<typeof selectedCacheStoreStatus>>;
   };
+  /** Cache stores active plugins offer, selectable as the driver. */
+  stores: Array<{ id: string; label: string }>;
   envPath: string;
 }
 
@@ -39,18 +47,16 @@ function envGet(map: Map<string, string>, key: string): string | undefined {
 export async function readCacheSettings(): Promise<CacheSettingsResponse> {
   const map = await readEnvMap();
   const driverRaw = envGet(map, "CACHE_DRIVER") ?? "filesystem";
-  const driver = driverRaw === "memory" ? "memory" : "filesystem";
+  const driver = driverRaw === "memory" || isCacheStoreDriver(driverRaw) ? driverRaw : "filesystem";
   const ttlRaw = envGet(map, "CACHE_TTL_SECONDS");
   const ttlSeconds = ttlRaw !== undefined ? Math.max(0, parseInt(ttlRaw, 10) || 0) : 300;
   const dir = envGet(map, "CACHE_DIR") ?? defaultCacheDir();
-  const redisUrl = envGet(map, "CACHE_REDIS_URL") ?? "";
 
   const settings: CacheSettingsResponse["settings"] = {
     enabled: parseEnvBool(envGet(map, "CACHE_ENABLED"), false),
     driver,
     ttlSeconds,
     dir,
-    redisUrl,
     defaultDir: defaultCacheDir(),
   };
 
@@ -67,13 +73,16 @@ export async function readCacheSettings(): Promise<CacheSettingsResponse> {
     // cache not initialized yet
   }
 
+  const store = selectedCacheStoreStatus();
   return {
     settings,
     runtime: {
       active: runtimeActive,
       driver: runtimeDriver,
       ttlSeconds: runtimeTtl,
+      ...(store ? { store } : {}),
     },
+    stores: listCacheStores(),
     envPath: path.join(getJfRoot(), ".env"),
   };
 }
@@ -85,7 +94,6 @@ function toEnvUpdates(body: CacheSettings): Record<string, string | null> {
     CACHE_DRIVER: body.driver,
     CACHE_TTL_SECONDS: String(body.ttlSeconds),
     CACHE_DIR: body.driver === "filesystem" ? dir : null,
-    CACHE_REDIS_URL: body.redisUrl?.trim() ? body.redisUrl.trim() : null,
   };
 }
 

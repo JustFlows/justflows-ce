@@ -158,7 +158,8 @@ export function createPluginTenancyApi(
 
     async addSite(tenantId: string, input: PluginAddSiteInput): Promise<PluginTenancyResult> {
       await requireTenancy(pluginId, permissions, "Adding a site");
-      return asResult(await createAdditionalSite({ tenantId, ...input, actorId: `plugin:${pluginId}` }));
+      /** Plugins never copy another account's password hash, so `adminFrom` is dropped. */
+      return asResult(await createAdditionalSite({ tenantId, ...input, adminFrom: undefined, actorId: `plugin:${pluginId}` }));
     },
 
     async suspend(tenantId: string): Promise<PluginTenancyResult> {

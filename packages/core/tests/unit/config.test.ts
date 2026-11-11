@@ -37,6 +37,16 @@ describe("loadConfig", () => {
     expect(config.cache.dir).toBe("./tmp/cache");
   });
 
+  it("accepts a plugin cache store as the driver", () => {
+    const config = loadConfig({ ...base, CACHE_DRIVER: "plugin:justflows.kv.shared" });
+    expect(config.cache.driver).toBe("plugin:justflows.kv.shared");
+  });
+
+  it("falls back to filesystem for an unknown cache driver", () => {
+    expect(loadConfig({ ...base, CACHE_DRIVER: "redis" }).cache.driver).toBe("filesystem");
+    expect(loadConfig({ ...base, CACHE_DRIVER: "plugin:../x" }).cache.driver).toBe("filesystem");
+  });
+
   it("parses mysql when DATABASE_DRIVER=mysql", () => {
     const config = loadConfig({
       ...base,
