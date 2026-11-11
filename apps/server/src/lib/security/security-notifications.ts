@@ -26,6 +26,7 @@ export const NOTIFIABLE_SECURITY_ACTIONS = new Set<AuditAction>([
   "auth.login_failed",
   "auth.password_reset_failed",
   "auth.2fa_disabled",
+  "auth.sign_in_factors_reset",
   "user.role_changed",
   "user.access_changed",
   "access.role_created",
@@ -45,6 +46,7 @@ export const NOTIFIABLE_SECURITY_ACTIONS = new Set<AuditAction>([
   "core.auto_update_failed",
   "security.headers_changed",
   "security.admin_path_changed",
+  "security.passkey_policy_changed",
   "security.notifications_changed",
   "integrity.failed",
 ]);

@@ -24,6 +24,14 @@ import {
 import { sendServerError } from "../../lib/http/send-error.js";
 import { getAdminPathConfig, saveAdminPathConfig, validateAdminPath } from "../../lib/admin/admin-path.js";
 import { requireSiteFeature } from "../../lib/tenancy/site-features.js";
+import { getSiteId } from "../../lib/settings/site-settings.js";
+import {
+  PasskeyPolicySchema,
+  getPasskeyPolicy,
+  hostWithinRpId,
+  savePasskeyPolicy,
+} from "../../lib/auth/webauthn/passkey-policy.js";
+import { relyingPartyFor } from "../../lib/auth/webauthn/ceremonies.js";
 
 const router = Router();
 
@@ -148,6 +156,69 @@ router.put("/admin-path", adminOnly, async (req, res) => {
       res.status(400).json({ error: message });
       return;
     }
+    sendServerError(res, "security", e);
+  }
+});
+
+/** Policy writes are rare; the budget only stops a script hammering them. */
+const passkeyPolicyRateLimit = rateLimit({
+  windowMs: 15 * 60_000,
+  limit: 60,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  identifier: "passkey-policy",
+});
+
+/** Roles the policy can name: built-in and plugin roles, which is what `users.role` holds. */
+async function passkeyRoles(siteId: string) {
+  const { listRoles } = await import("../../lib/auth/roles-admin.js");
+  const { roles } = await listRoles(siteId);
+  return (roles as Array<{ id: string; name: string; builtIn?: boolean; pluginId?: string }>)
+    .filter((role) => role.builtIn || role.pluginId)
+    .map((role) => ({ id: role.id, name: role.name, builtIn: Boolean(role.builtIn) }));
+}
+
+router.get("/passkeys", adminOnly, passkeyPolicyRateLimit, async (req, res) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) { res.status(404).json({ error: "Site is not installed." }); return; }
+    const policy = await getPasskeyPolicy(siteId);
+    const rp = relyingPartyFor(req, policy);
+    res.json({ policy, roles: await passkeyRoles(siteId), relyingParty: { rpId: rp.rpId, origins: rp.origins, hostname: req.hostname } });
+  } catch (e) {
+    sendServerError(res, "security", e);
+  }
+});
+
+router.put("/passkeys", adminOnly, passkeyPolicyRateLimit, async (req, res) => {
+  try {
+    const siteId = await getSiteId();
+    if (!siteId) { res.status(404).json({ error: "Site is not installed." }); return; }
+    const parsed = PasskeyPolicySchema.safeParse(req.body?.policy);
+    if (!parsed.success) {
+      res.status(400).json({ error: zodMessage(parsed.error) ?? "Invalid passkey policy." });
+      return;
+    }
+    /**
+     * An RP ID the current address is not within would be ignored at sign-in;
+     * refusing it here tells the administrator now instead of leaving a setting
+     * that silently does nothing.
+     */
+    if (parsed.data.rpId && !hostWithinRpId(req.hostname.toLowerCase(), parsed.data.rpId)) {
+      res.status(400).json({ error: `This site is served at ${req.hostname}, which is not within ${parsed.data.rpId}.` });
+      return;
+    }
+    const previous = await getPasskeyPolicy(siteId);
+    const policy = await savePasskeyPolicy(siteId, parsed.data);
+    const changed = (Object.keys(policy) as Array<keyof typeof policy>)
+      .filter((key) => JSON.stringify(policy[key]) !== JSON.stringify(previous[key]));
+    auditFromRequest(req, "security.passkey_policy_changed", {
+      target: "security.passkeys",
+      detail: (changed.length ? `changed: ${changed.join(", ")}` : "no change") + `; roles: ${JSON.stringify(policy.roles)}`.slice(0, 300),
+    });
+    const rp = relyingPartyFor(req, policy);
+    res.json({ ok: true, policy, relyingParty: { rpId: rp.rpId, origins: rp.origins, hostname: req.hostname } });
+  } catch (e) {
     sendServerError(res, "security", e);
   }
 });

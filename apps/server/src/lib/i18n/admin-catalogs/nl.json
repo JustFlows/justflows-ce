@@ -55,7 +55,8 @@
     "siteDomains": "Domeinen",
     "customDomains": "Eigen domeinen",
     "storage": "Opslag",
-    "taxonomies": "Categorieën & tags"
+    "taxonomies": "Categorieën & tags",
+    "securityPasskeys": "Passkeys"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -1652,7 +1653,15 @@
       "totpHint": "Uit je authenticator-app, of een van je herstelcodes.",
       "signingIn": "Bezig met inloggen…",
       "noAccount": "Heb je nog geen account?",
-      "createAccount": "Maak er een aan"
+      "createAccount": "Maak er een aan",
+      "passkeySignIn": "Inloggen met een passkey",
+      "passkeyFailed": "De passkey kon niet worden gebruikt. Probeer het opnieuw of log in met je wachtwoord.",
+      "passkeyConfirm": "Gebruik je passkey",
+      "passkeyConfirmHint": "Bevestig met de passkey op dit apparaat of je telefoon, of vul hieronder een code in.",
+      "recoveryLabel": "Herstelcode",
+      "recoveryHint": "Je rol logt in met een passkey. Ben je die kwijt? Vul dan een van je herstelcodes in.",
+      "or": "of",
+      "passkeyHint": "Gebruik je vingerafdruk, gezicht, schermvergrendeling of een beveiligingssleutel."
     },
     "passwordLabel": "Wachtwoord",
     "signInCta": "Inloggen →",
@@ -2415,10 +2424,10 @@
         },
         "accountsMfa": {
           "title": "Authenticators van beheerders",
-          "all": "{enrolled} van {admins} beheerders hebben een authenticator.",
-          "partial": "{enrolled} van {admins} beheerders hebben een authenticator. Aanmelden vereist er geen.",
+          "all": "{enrolled} van de {admins} beheerders hebben een passkey of een authenticator-app.",
+          "partial": "{enrolled} van de {admins} beheerders hebben een passkey of een authenticator-app. Inloggen vereist dat niet.",
           "unknown": "De authenticatorregistratie van beheerders kon niet worden gelezen.",
-          "remediation": "Elke beheerder kan een authenticator aanzetten onder Beveiliging → Je account. Justflows verplicht dat nog niet."
+          "remediation": "Elke beheerder kan een passkey of een authenticator-app toevoegen onder Beveiliging → Je account. Wil je passkeys verplichten, zet de beheerdersrol dan op Verplichten onder Beveiliging → Passkeys."
         },
         "accountsSessions": {
           "title": "Apparaatsessies",
@@ -2581,6 +2590,53 @@
         "confirm": "Nieuw wachtwoord bevestigen",
         "changing": "Wijzigen…",
         "submit": "Wachtwoord wijzigen"
+      },
+      "passkeys": {
+        "title": "Passkeys",
+        "intro": "Log in met je vingerafdruk, gezicht, schermvergrendeling of een beveiligingssleutel in plaats van een wachtwoord. Een passkey werkt alleen op deze site, dus phishing heeft geen kans.",
+        "requiredTitle": "Voeg een passkey toe",
+        "required": "Je rol moet op deze site een passkey gebruiken. Voeg er een toe om te kunnen blijven inloggen.",
+        "disallowed": "Passkeys staan uit voor je rol op deze site.",
+        "unsupported": "Deze browser ondersteunt geen passkeys.",
+        "none": "Nog geen passkeys.",
+        "add": "Passkey toevoegen",
+        "adding": "Wachten op je apparaat…",
+        "nameLabel": "Naam",
+        "namePlaceholder": "Bijvoorbeeld: werklaptop",
+        "passwordLabel": "Huidig wachtwoord",
+        "passwordHint": "Voor het toevoegen of verwijderen van een passkey is je wachtwoord nodig, zodat iemand met een overgenomen sessie niet kan wijzigen hoe je inlogt.",
+        "added": "Passkey toegevoegd.",
+        "addError": "De passkey kon niet worden toegevoegd.",
+        "created": "toegevoegd {date}",
+        "lastUsed": "laatst gebruikt {date}",
+        "neverUsed": "nooit gebruikt",
+        "synced": "Gesynchroniseerd",
+        "deviceBound": "Alleen dit apparaat of deze sleutel",
+        "rename": "Naam wijzigen",
+        "save": "Opslaan",
+        "renamed": "Naam van de passkey gewijzigd.",
+        "renameError": "De naam van de passkey kon niet worden gewijzigd.",
+        "remove": "Verwijderen",
+        "removeTitle": "{name} verwijderen",
+        "removeConfirm": "Passkey verwijderen",
+        "signOutOthers": "Ook alle andere apparaten uitloggen",
+        "removed": "Passkey verwijderd.",
+        "removedSignedOut": "Passkey verwijderd. {count} andere sessies zijn uitgelogd.",
+        "removeError": "De passkey kon niet worden verwijderd.",
+        "loadError": "Passkeys konden niet worden geladen: {message}",
+        "recoveryBody": "Elke code werkt één keer. Bewaar ze ergens waar je zonder dit apparaat bij kunt: samen met je wachtwoord log je met een code in als je je passkeys kwijt bent.",
+        "lostTitle": "Passkey kwijt?",
+        "lostBody": "Verwijder hem hier en log je andere apparaten uit. Kun je helemaal niet meer inloggen? Gebruik dan je wachtwoord met een herstelcode. Ook je wachtwoord vergeten? Stel het opnieuw in via e-mail en gebruik daarna een herstelcode. Een beheerder kan je passkeys ook voor je verwijderen.",
+        "recovery": {
+          "title": "Herstelcodes",
+          "remaining": "Nog {count} ongebruikte herstelcodes.",
+          "none": "Nog geen herstelcodes. Ze worden aangemaakt bij je eerste passkey of wanneer je tweestapsverificatie aanzet.",
+          "unknown": "Herstelcodes konden niet worden gelezen.",
+          "regenerate": "Nieuwe herstelcodes maken",
+          "regenerating": "Bezig met maken…",
+          "regenerateHint": "Nieuwe codes vervangen alle ongebruikte codes.",
+          "error": "Er konden geen nieuwe herstelcodes worden gemaakt."
+        }
       }
     },
     "adminPath": {
@@ -2891,6 +2947,59 @@
         "publicSecure": "Openbare site (HTTPS)",
         "publicInsecure": "Openbare site (HTTP)",
         "admin": "Beheer en API"
+      }
+    },
+    "passkeys": {
+      "title": "Passkeys",
+      "subtitle": "Wie met een passkey mag of moet inloggen, en hoe streng passkeys op deze site worden gecontroleerd.",
+      "errors": {
+        "loadFailed": "Het passkeybeleid kon niet worden geladen.",
+        "saveFailed": "Het passkeybeleid kon niet worden opgeslagen."
+      },
+      "modes": {
+        "allow": "Toestaan",
+        "require": "Verplichten",
+        "disallow": "Niet toestaan"
+      },
+      "roles": {
+        "title": "Rollen",
+        "hint": "Kies per rol. Rollen zonder eigen keuze volgen de standaard.",
+        "default": "Standaard",
+        "useDefault": "Standaard ({mode})",
+        "allowExplain": "Toestaan: mensen kunnen passkeys toevoegen en ermee inloggen, met of zonder wachtwoord.",
+        "requireExplain": "Verplichten: mensen moeten een passkey toevoegen. Zodra ze er een hebben, zijn een wachtwoord en een authenticatorcode niet meer genoeg; een herstelcode werkt nog wel.",
+        "disallowExplain": "Niet toestaan: mensen kunnen geen passkeys toevoegen, en passkeys die ze al hebben worden niet geaccepteerd.",
+        "requireWarnTitle": "Zorg dat herstel geregeld is",
+        "requireWarn": "Mensen met een verplichte rol wordt bij hun volgende login gevraagd een passkey toe te voegen. Iedereen krijgt herstelcodes; is iemand beide kwijt, dan kan een beheerder diens passkeys verwijderen onder Gebruikers."
+      },
+      "verification": {
+        "title": "Gebruikersverificatie",
+        "legend": "Laat de authenticator de persoon controleren",
+        "preferred": "Bij voorkeur",
+        "preferredMeta": "Gebruik een pincode of biometrie als de authenticator die heeft. Beveiligingssleutels zonder pincode werken nog als tweede factor.",
+        "required": "Verplicht",
+        "requiredMeta": "Elke passkey moet een pincode of biometrie controleren. Inloggen zonder wachtwoord vraagt hier altijd om."
+      },
+      "attestation": {
+        "title": "Attestatie",
+        "legend": "Wat de authenticator over zichzelf moet vertellen",
+        "none": "Geen",
+        "noneMeta": "Vraag niet welk apparaat de passkey heeft gemaakt. Werkt met elke passkey, ook gesynchroniseerde.",
+        "direct": "Direct",
+        "directMeta": "Vraag de attestatie van het apparaat op en controleer de handtekening waar het formaat dat toelaat (packed, FIDO U2F). Certificaten worden niet gecontroleerd tegen de FIDO Metadata Service.",
+        "aaguidsLabel": "Toegestane authenticatormodellen (AAGUID's)",
+        "aaguidsHint": "Eén per regel. Laat leeg om elk model toe te staan. Als je dit invult, kunnen alleen beveiligingssleutels met een geverifieerde attestatie voor een vermeld model worden toegevoegd, dus geen gesynchroniseerde passkeys. Dit filtert op model; het is geen cryptografisch bewijs ervan."
+      },
+      "relyingParty": {
+        "title": "Relying party",
+        "current": "Passkeys worden gemaakt voor:",
+        "origins": "Geaccepteerd vanaf:",
+        "rpIdLabel": "RP-ID",
+        "rpIdHint": "Laat leeg om de eigen hostnaam van deze site te gebruiken. Vul een bovenliggend domein in, zoals example.com, zodat passkeys ook op de subdomeinen werken. Het adres waarop deze site draait moet erbinnen vallen.",
+        "extraOriginsLabel": "Extra origins",
+        "extraOriginsHint": "Eén https-origin per regel, zoals https://www.example.com. Elke origin moet binnen de RP-ID vallen.",
+        "warnTitle": "Een andere RP-ID maakt bestaande passkeys onbruikbaar",
+        "warn": "Een passkey hoort bij de RP-ID waarvoor hij is gemaakt. Na een wijziging loggen mensen in met hun wachtwoord en een herstelcode en voegen ze daarna een nieuwe passkey toe."
       }
     }
   },
@@ -3924,7 +4033,15 @@
       "activityTarget": "Doel",
       "activityIp": "IP-adres",
       "additionalRoles": "Extra rollen",
-      "additionalRolesHint": "De gebruiker houdt de hoofdrol en krijgt daarnaast alles wat deze rollen toestaan. Beheerder kan alleen een hoofdrol zijn."
+      "additionalRolesHint": "De gebruiker houdt de hoofdrol en krijgt daarnaast alles wat deze rollen toestaan. Beheerder kan alleen een hoofdrol zijn.",
+      "passkeys": "Passkeys",
+      "signInFactors": "Inlogfactoren",
+      "resetFactors": "Passkeys en tweestapsverificatie verwijderen",
+      "resettingFactors": "Bezig met verwijderen…",
+      "resetFactorsHint": "Voor iemand die zowel de passkey als de herstelcodes kwijt is. Verwijdert de passkeys, de authenticator-app en de herstelcodes, en logt het account overal uit. Daarna logt de gebruiker alleen met het wachtwoord in tot deze factoren opnieuw zijn ingesteld.",
+      "resetFactorsConfirm": "Alle passkeys, de authenticator-app en de herstelcodes van {name} verwijderen en het account overal uitloggen?",
+      "resetFactorsFailed": "De inlogfactoren konden niet worden verwijderd.",
+      "resetFactorsNotice": "Passkeys, authenticator-app en herstelcodes verwijderd. Het account is overal uitgelogd."
     },
     "roles": {
       "failedToLoadRoles": "Rollen konden niet worden geladen",

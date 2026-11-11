@@ -55,6 +55,8 @@ export async function accountSections(context: AccountSectionContext): Promise<A
     ...(profile ? [{ label: "Name", value: profile.display_name }, { label: "Username", value: profile.username }] : []),
     { label: "Role", value: claims.role },
   ] }] }];
+  /** Filled in by /js/account.js from /api/auth/passkeys; the server renders only its frame. */
+  core.push({ id: "passkeys", title: "Passkeys", description: "Sign in with your fingerprint, face, screen lock or a security key instead of a password. A passkey only works on this site, so it cannot be phished.", cards: [] });
   if (claims.installationRoot) core.push({ id: "workspaces", title: "Your workspaces", cards: [] });
   const raw = await getRuntimeHooks().applyFilter("account.sections", core, claims, Object.freeze({
     siteId: claims.siteId, source: "http", actor: Object.freeze({ userId: claims.userId, role: claims.role }),

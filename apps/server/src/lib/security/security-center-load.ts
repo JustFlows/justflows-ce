@@ -93,7 +93,9 @@ async function readAdminMfa(siteId: string): Promise<SecurityCenterFacts["mfa"]>
     const rows = shared
       ? await db.query<{ admins: unknown; enrolled: unknown }>(
           `SELECT COUNT(*) AS admins,
-                  SUM(CASE WHEN u.totp_confirmed_at IS NOT NULL THEN 1 ELSE 0 END) AS enrolled
+                  SUM(CASE WHEN u.totp_confirmed_at IS NOT NULL
+                           OR EXISTS (SELECT 1 FROM webauthn_credentials w WHERE w.user_id = u.id AND w.site_id = u.site_id)
+                      THEN 1 ELSE 0 END) AS enrolled
            FROM users u
            JOIN sites home ON home.id = u.site_id
            LEFT JOIN site_memberships m ON m.user_id = u.id AND m.site_id = ?
@@ -103,7 +105,9 @@ async function readAdminMfa(siteId: string): Promise<SecurityCenterFacts["mfa"]>
         )
       : await db.query<{ admins: unknown; enrolled: unknown }>(
           `SELECT COUNT(*) AS admins,
-                  SUM(CASE WHEN totp_confirmed_at IS NOT NULL THEN 1 ELSE 0 END) AS enrolled
+                  SUM(CASE WHEN totp_confirmed_at IS NOT NULL
+                           OR EXISTS (SELECT 1 FROM webauthn_credentials w WHERE w.user_id = users.id AND w.site_id = users.site_id)
+                      THEN 1 ELSE 0 END) AS enrolled
            FROM users
            WHERE site_id = ? AND role = 'administrator'`,
           [siteId],

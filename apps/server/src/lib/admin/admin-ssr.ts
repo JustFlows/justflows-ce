@@ -173,8 +173,11 @@ export function adminPrefetchPaths(originalUrl: string): string[] {
     paths.add("/api/security/headers");
   } else if (pathname === "/admin/security/admin-path") {
     paths.add("/api/security/admin-path");
+  } else if (pathname === "/admin/security/passkeys") {
+    paths.add("/api/security/passkeys");
   } else if (pathname === "/admin/security/account") {
     paths.add("/api/auth/2fa");
+    paths.add("/api/auth/passkeys");
   } else if (pathname === "/admin/security/audit") {
     paths.add("/api/audit");
   }

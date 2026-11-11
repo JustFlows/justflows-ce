@@ -159,6 +159,59 @@ each owned site goes through
 checks ownership, looks up that site's own admin path, and redirects, so the
 path is never written into the page.
 
+## Passkeys
+
+Staff add passkeys under **Security → Your account**, and members add them on the
+account page. A passkey can be a synced passkey (iCloud Keychain, Google Password
+Manager, a password manager), a device-bound one (Windows Hello, Touch ID), or a
+hardware security key. Adding or removing a passkey asks for the current
+password, so a borrowed session cannot add a way in that outlasts a password
+change. The account's first passkey creates ten recovery codes, which are shown
+once.
+
+There are two ways to sign in with one:
+
+- **Passwordless.** "Sign in with a passkey" on either sign-in page, or the
+  passkey offered in the email field's autofill. The passkey names the account,
+  and it must verify a PIN or biometric. A staff passkey used outside the admin
+  path gets the same refusal as an unknown passkey.
+- **As a second factor.** Once an account has a passkey, signing in with a
+  password also asks for the passkey, an authenticator code, or a recovery code.
+
+**Security → Passkeys** sets the policy for each site:
+
+| Setting | Effect |
+| --- | --- |
+| Allow (default) | The role may add passkeys and sign in with them. |
+| Require | The role must add a passkey. An account without one is sent to add it straight after signing in. Once it has one, a password and an authenticator code are no longer enough. A recovery code still works. The last passkey cannot be removed. |
+| Disallow | The role cannot add passkeys, and existing ones are not accepted. |
+| User verification | `Preferred` (default) or `Required`. Passwordless sign-in always requires it. |
+| Attestation | `None` (default) does not ask which device made the passkey. `Direct` verifies `packed` and `fido-u2f` statements and enables an AAGUID allow-list. Certificates are not checked against the FIDO Metadata Service, so the list filters by model but does not prove the model. Synced passkeys carry no attestation, so they cannot pass the list. |
+| RP ID and extra origins | By default the RP ID is the hostname the site is served on, and only that origin is accepted. A parent domain lets passkeys work across its subdomains. A passkey only works for the RP ID it was created for, so changing it orphans existing passkeys. |
+
+Behind a reverse proxy, the RP ID and origin come from `X-Forwarded-Host` and
+`X-Forwarded-Proto`, which are only trusted from addresses in `TRUST_PROXY`. If
+these are wrong, passkey ceremonies fail with an origin or RP error.
+
+Every passkey is verified on the server with Node's built-in crypto. ES256,
+EdDSA and RS256 are accepted. Each challenge is stored, expires after five
+minutes, and is accepted once. A signature counter that goes backwards is
+refused. Registration, sign-in, rename, removal, recovery-code regeneration and
+policy changes are all written to the audit log. Every passkey endpoint is rate
+limited.
+
+**A lost passkey.** Remove it from the account page. By default that signs out
+every other device. To sign in without it, use the password with a recovery
+code. If the password is lost too, reset it by email first, because a reset
+never signs anyone in. If the recovery codes are gone as well, an administrator
+can remove the account's passkeys, authenticator app and recovery codes from
+**Users → Edit user → Sign-in factors**. That also signs the account out
+everywhere.
+
+The default `Permissions-Policy` allows `publickey-credentials-get` for the site
+itself. A policy saved with the old shipped value, which blocked it, is read as
+the new default. An edited policy that still blocks it stops passkey sign-in.
+
 ## Connecting AI apps
 
 The OAuth consent screen (`/oauth/consent`) sends people who are not signed in

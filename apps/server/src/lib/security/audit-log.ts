@@ -32,6 +32,11 @@ export const AUDIT_ACTIONS = [
   "auth.password_reset_failed",
   "auth.2fa_enabled",
   "auth.2fa_disabled",
+  "auth.passkey_registered",
+  "auth.passkey_renamed",
+  "auth.passkey_revoked",
+  "auth.recovery_codes_regenerated",
+  "auth.sign_in_factors_reset",
   // Accounts and privilege
   "user.created",
   "user.role_changed",
@@ -68,6 +73,7 @@ export const AUDIT_ACTIONS = [
   // Configuration that weakens or strengthens the site
   "security.headers_changed",
   "security.admin_path_changed",
+  "security.passkey_policy_changed",
   "security.notifications_changed",
   "settings.changed",
   "redirect.created",

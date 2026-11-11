@@ -55,7 +55,8 @@
     "siteDomains": "Dominios",
     "customDomains": "Dominios propios",
     "storage": "Almacenamiento",
-    "taxonomies": "Categorías y etiquetas"
+    "taxonomies": "Categorías y etiquetas",
+    "securityPasskeys": "Llaves de acceso"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -1655,7 +1656,15 @@
       "totpHint": "De tu aplicación de autenticación o uno de tus códigos de recuperación.",
       "signingIn": "Iniciando sesión…",
       "noAccount": "¿No tienes una cuenta?",
-      "createAccount": "Crea una"
+      "createAccount": "Crea una",
+      "passkeySignIn": "Iniciar sesión con una llave de acceso",
+      "passkeyFailed": "No se pudo usar la llave de acceso. Inténtalo de nuevo o inicia sesión con tu contraseña.",
+      "passkeyConfirm": "Usar tu llave de acceso",
+      "passkeyConfirmHint": "Confirma con la llave de acceso de este dispositivo o de tu teléfono, o escribe un código abajo.",
+      "recoveryLabel": "Código de recuperación",
+      "recoveryHint": "Tu rol inicia sesión con una llave de acceso. Si la perdiste, escribe uno de tus códigos de recuperación.",
+      "or": "o",
+      "passkeyHint": "Con tu huella, tu cara, el bloqueo de pantalla o una llave de seguridad."
     },
     "passwordLabel": "Contraseña",
     "signInCta": "Iniciar sesión →",
@@ -2418,10 +2427,10 @@
         },
         "accountsMfa": {
           "title": "Autenticadores de administración",
-          "all": "{enrolled} de {admins} administradores tienen un autenticador.",
-          "partial": "{enrolled} de {admins} administradores tienen un autenticador. El inicio de sesión no lo exige.",
+          "all": "{enrolled} de {admins} administradores tienen una llave de acceso o una aplicación de autenticación.",
+          "partial": "{enrolled} de {admins} administradores tienen una llave de acceso o una aplicación de autenticación. El inicio de sesión no lo exige.",
           "unknown": "No se pudo leer el alta de autenticadores de la administración.",
-          "remediation": "Cada administrador puede activar un autenticador en Seguridad → Tu cuenta. Justflows todavía no lo exige."
+          "remediation": "Cada administrador puede añadir una llave de acceso o una aplicación de autenticación en Seguridad → Tu cuenta. Para exigir llaves de acceso, pon el rol de administrador en Exigir en Seguridad → Llaves de acceso."
         },
         "accountsSessions": {
           "title": "Sesiones de dispositivo",
@@ -2584,6 +2593,53 @@
         "confirm": "Confirma la nueva contraseña",
         "changing": "Cambiando…",
         "submit": "Cambiar contraseña"
+      },
+      "passkeys": {
+        "title": "Llaves de acceso",
+        "intro": "Inicia sesión con tu huella, tu cara, el bloqueo de pantalla o una llave de seguridad en lugar de una contraseña. Una llave de acceso solo funciona en este sitio, así que no se puede robar con phishing.",
+        "requiredTitle": "Añade una llave de acceso",
+        "required": "Tu rol debe usar una llave de acceso en este sitio. Añade una para seguir iniciando sesión.",
+        "disallowed": "Las llaves de acceso están desactivadas para tu rol en este sitio.",
+        "unsupported": "Este navegador no admite llaves de acceso.",
+        "none": "Todavía no hay llaves de acceso.",
+        "add": "Añadir una llave de acceso",
+        "adding": "Esperando a tu dispositivo…",
+        "nameLabel": "Nombre",
+        "namePlaceholder": "Por ejemplo: portátil del trabajo",
+        "passwordLabel": "Contraseña actual",
+        "passwordHint": "Para añadir o quitar una llave de acceso se pide tu contraseña, de modo que una sesión robada no pueda cambiar cómo inicias sesión.",
+        "added": "Llave de acceso añadida.",
+        "addError": "No se pudo añadir la llave de acceso.",
+        "created": "añadida el {date}",
+        "lastUsed": "usada por última vez el {date}",
+        "neverUsed": "nunca usada",
+        "synced": "Sincronizada",
+        "deviceBound": "Solo este dispositivo o llave",
+        "rename": "Cambiar nombre",
+        "save": "Guardar",
+        "renamed": "Nombre de la llave de acceso cambiado.",
+        "renameError": "No se pudo cambiar el nombre de la llave de acceso.",
+        "remove": "Quitar",
+        "removeTitle": "Quitar {name}",
+        "removeConfirm": "Quitar llave de acceso",
+        "signOutOthers": "Cerrar también la sesión en todos los demás dispositivos",
+        "removed": "Llave de acceso quitada.",
+        "removedSignedOut": "Llave de acceso quitada. Se cerraron {count} sesiones más.",
+        "removeError": "No se pudo quitar la llave de acceso.",
+        "loadError": "No se pudieron cargar las llaves de acceso: {message}",
+        "recoveryBody": "Cada código sirve una vez. Guárdalos donde puedas consultarlos sin este dispositivo: junto con tu contraseña, un código te permite entrar si pierdes tus llaves de acceso.",
+        "lostTitle": "¿Perdiste una llave de acceso?",
+        "lostBody": "Quítala aquí y cierra la sesión en tus otros dispositivos. Si no puedes iniciar sesión de ninguna forma, usa tu contraseña con un código de recuperación. ¿También olvidaste la contraseña? Restablécela por correo y luego usa un código de recuperación. Un administrador también puede quitar tus llaves de acceso.",
+        "recovery": {
+          "title": "Códigos de recuperación",
+          "remaining": "Quedan {count} códigos de recuperación sin usar.",
+          "none": "Todavía no hay códigos de recuperación. Se crean con tu primera llave de acceso o al activar la autenticación en dos pasos.",
+          "unknown": "No se pudieron leer los códigos de recuperación.",
+          "regenerate": "Crear nuevos códigos de recuperación",
+          "regenerating": "Creando…",
+          "regenerateHint": "Los códigos nuevos sustituyen a todos los que no se han usado.",
+          "error": "No se pudieron crear nuevos códigos de recuperación."
+        }
       }
     },
     "adminPath": {
@@ -2894,6 +2950,59 @@
         "publicSecure": "Sitio público (HTTPS)",
         "publicInsecure": "Sitio público (HTTP)",
         "admin": "Administración y API"
+      }
+    },
+    "passkeys": {
+      "title": "Llaves de acceso",
+      "subtitle": "Quién puede o debe iniciar sesión con una llave de acceso y con qué rigor se comprueban en este sitio.",
+      "errors": {
+        "loadFailed": "No se pudo cargar la política de llaves de acceso.",
+        "saveFailed": "No se pudo guardar la política de llaves de acceso."
+      },
+      "modes": {
+        "allow": "Permitir",
+        "require": "Exigir",
+        "disallow": "No permitir"
+      },
+      "roles": {
+        "title": "Roles",
+        "hint": "Elige por rol. Los roles sin una elección propia usan el valor predeterminado.",
+        "default": "Predeterminado",
+        "useDefault": "Predeterminado ({mode})",
+        "allowExplain": "Permitir: se pueden añadir llaves de acceso e iniciar sesión con ellas, con o sin contraseña.",
+        "requireExplain": "Exigir: hay que añadir una llave de acceso. En cuanto se tiene una, la contraseña y un código de autenticación ya no bastan; un código de recuperación sigue funcionando.",
+        "disallowExplain": "No permitir: no se pueden añadir llaves de acceso, y las que ya existen no se aceptan.",
+        "requireWarnTitle": "Asegúrate de que la recuperación esté resuelta",
+        "requireWarn": "A quien tenga un rol con obligación se le pedirá que añada una llave de acceso en su próximo inicio de sesión. Todos reciben códigos de recuperación; si alguien pierde ambos, un administrador puede quitar sus llaves de acceso en Usuarios."
+      },
+      "verification": {
+        "title": "Verificación del usuario",
+        "legend": "Pedir al autenticador que verifique a la persona",
+        "preferred": "Preferida",
+        "preferredMeta": "Usar un PIN o datos biométricos si el autenticador los tiene. Las llaves de seguridad sin PIN siguen funcionando como segundo factor.",
+        "required": "Obligatoria",
+        "requiredMeta": "Cada llave de acceso debe comprobar un PIN o datos biométricos. El inicio de sesión sin contraseña siempre lo exige."
+      },
+      "attestation": {
+        "title": "Certificación",
+        "legend": "Qué debe indicar el autenticador sobre sí mismo",
+        "none": "Ninguna",
+        "noneMeta": "No preguntar qué dispositivo creó la llave de acceso. Funciona con todas las llaves de acceso, también las sincronizadas.",
+        "direct": "Directa",
+        "directMeta": "Pedir la certificación del dispositivo y comprobar su firma cuando el formato lo permita (packed, FIDO U2F). Los certificados no se comprueban con el FIDO Metadata Service.",
+        "aaguidsLabel": "Modelos de autenticador permitidos (AAGUID)",
+        "aaguidsHint": "Uno por línea. Déjalo vacío para permitir cualquier modelo. Si lo rellenas, solo se pueden añadir llaves de seguridad con una certificación verificada de un modelo de la lista, así que las llaves de acceso sincronizadas no. Filtra por modelo, pero no es una prueba criptográfica."
+      },
+      "relyingParty": {
+        "title": "Parte de confianza",
+        "current": "Las llaves de acceso se crean para:",
+        "origins": "Se aceptan desde:",
+        "rpIdLabel": "RP ID",
+        "rpIdHint": "Déjalo vacío para usar el nombre de host de este sitio. Indica un dominio superior, como example.com, para que las llaves de acceso funcionen también en sus subdominios. Debe incluir la dirección donde se sirve este sitio.",
+        "extraOriginsLabel": "Orígenes adicionales",
+        "extraOriginsHint": "Un origen https por línea, como https://www.example.com. Cada uno debe estar dentro del RP ID.",
+        "warnTitle": "Cambiar el RP ID deja inservibles las llaves de acceso existentes",
+        "warn": "Una llave de acceso pertenece al RP ID para el que se creó. Tras un cambio, hay que iniciar sesión con la contraseña y un código de recuperación y después añadir una nueva llave de acceso."
       }
     }
   },
@@ -3927,7 +4036,15 @@
       "activityTarget": "Objetivo",
       "activityIp": "Dirección IP",
       "additionalRoles": "Roles adicionales",
-      "additionalRolesHint": "El usuario conserva su rol principal y además obtiene todo lo que permiten estos roles. Administrador solo puede ser un rol principal."
+      "additionalRolesHint": "El usuario conserva su rol principal y además obtiene todo lo que permiten estos roles. Administrador solo puede ser un rol principal.",
+      "passkeys": "Llaves de acceso",
+      "signInFactors": "Factores de inicio de sesión",
+      "resetFactors": "Quitar llaves de acceso y verificación en dos pasos",
+      "resettingFactors": "Quitando…",
+      "resetFactorsHint": "Para quien haya perdido su llave de acceso y sus códigos de recuperación. Quita sus llaves de acceso, su aplicación de autenticación y sus códigos de recuperación, y cierra su sesión en todas partes. Después inicia sesión solo con la contraseña hasta que vuelva a configurarlos.",
+      "resetFactorsConfirm": "¿Quitar todas las llaves de acceso, la aplicación de autenticación y los códigos de recuperación de {name} y cerrar su sesión en todas partes?",
+      "resetFactorsFailed": "No se pudieron quitar los factores de inicio de sesión.",
+      "resetFactorsNotice": "Llaves de acceso, aplicación de autenticación y códigos de recuperación quitados. Se ha cerrado la sesión de la cuenta en todas partes."
     },
     "roles": {
       "failedToLoadRoles": "No se pudieron cargar los roles",

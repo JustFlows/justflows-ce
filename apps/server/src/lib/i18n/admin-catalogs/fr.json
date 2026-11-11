@@ -55,7 +55,8 @@
     "siteDomains": "Domaines",
     "customDomains": "Domaines personnalisés",
     "storage": "Stockage",
-    "taxonomies": "Catégories et étiquettes"
+    "taxonomies": "Catégories et étiquettes",
+    "securityPasskeys": "Clés d’accès"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -1655,7 +1656,15 @@
       "totpHint": "Depuis votre application d’authentification, ou l’un de vos codes de récupération.",
       "signingIn": "Connexion…",
       "noAccount": "Vous n'avez pas de compte ?",
-      "createAccount": "Créer un compte"
+      "createAccount": "Créer un compte",
+      "passkeySignIn": "Se connecter avec une clé d’accès",
+      "passkeyFailed": "La clé d’accès n’a pas pu être utilisée. Réessayez, ou connectez-vous avec votre mot de passe.",
+      "passkeyConfirm": "Utiliser votre clé d’accès",
+      "passkeyConfirmHint": "Confirmez avec la clé d’accès de cet appareil ou de votre téléphone, ou saisissez un code ci-dessous.",
+      "recoveryLabel": "Code de récupération",
+      "recoveryHint": "Votre rôle se connecte avec une clé d’accès. Si vous l’avez perdue, saisissez l’un de vos codes de récupération.",
+      "or": "ou",
+      "passkeyHint": "Avec votre empreinte, votre visage, le verrouillage de l’écran ou une clé de sécurité."
     },
     "passwordLabel": "Mot de passe",
     "signInCta": "Connexion →",
@@ -2418,10 +2427,10 @@
         },
         "accountsMfa": {
           "title": "Authentificateurs des administrateurs",
-          "all": "{enrolled} administrateurs sur {admins} ont un authentificateur.",
-          "partial": "{enrolled} administrateurs sur {admins} ont un authentificateur. La connexion n’en exige pas.",
+          "all": "{enrolled} administrateurs sur {admins} ont une clé d’accès ou une application d’authentification.",
+          "partial": "{enrolled} administrateurs sur {admins} ont une clé d’accès ou une application d’authentification. La connexion ne l’exige pas.",
           "unknown": "L’enrôlement des authentificateurs des administrateurs n’a pas pu être lu.",
-          "remediation": "Chaque administrateur peut activer un authentificateur dans Sécurité → Votre compte. Justflows ne l’exige pas encore."
+          "remediation": "Chaque administrateur peut ajouter une clé d’accès ou une application d’authentification dans Sécurité → Votre compte. Pour exiger les clés d’accès, réglez le rôle administrateur sur Exiger dans Sécurité → Clés d’accès."
         },
         "accountsSessions": {
           "title": "Sessions d’appareil",
@@ -2584,6 +2593,53 @@
         "confirm": "Confirmer le nouveau mot de passe",
         "changing": "Modification…",
         "submit": "Modifier le mot de passe"
+      },
+      "passkeys": {
+        "title": "Clés d’accès",
+        "intro": "Connectez-vous avec votre empreinte, votre visage, le verrouillage de l’écran ou une clé de sécurité plutôt qu’avec un mot de passe. Une clé d’accès ne fonctionne que sur ce site : elle ne peut pas être hameçonnée.",
+        "requiredTitle": "Ajoutez une clé d’accès",
+        "required": "Votre rôle doit utiliser une clé d’accès sur ce site. Ajoutez-en une pour continuer à vous connecter.",
+        "disallowed": "Les clés d’accès sont désactivées pour votre rôle sur ce site.",
+        "unsupported": "Ce navigateur ne prend pas en charge les clés d’accès.",
+        "none": "Aucune clé d’accès pour l’instant.",
+        "add": "Ajouter une clé d’accès",
+        "adding": "En attente de votre appareil…",
+        "nameLabel": "Nom",
+        "namePlaceholder": "Par exemple : ordinateur du bureau",
+        "passwordLabel": "Mot de passe actuel",
+        "passwordHint": "Ajouter ou supprimer une clé d’accès demande votre mot de passe, afin qu’une session détournée ne puisse pas changer votre façon de vous connecter.",
+        "added": "Clé d’accès ajoutée.",
+        "addError": "Impossible d’ajouter la clé d’accès.",
+        "created": "ajoutée le {date}",
+        "lastUsed": "utilisée le {date}",
+        "neverUsed": "jamais utilisée",
+        "synced": "Synchronisée",
+        "deviceBound": "Cet appareil ou cette clé uniquement",
+        "rename": "Renommer",
+        "save": "Enregistrer",
+        "renamed": "Clé d’accès renommée.",
+        "renameError": "Impossible de renommer la clé d’accès.",
+        "remove": "Supprimer",
+        "removeTitle": "Supprimer {name}",
+        "removeConfirm": "Supprimer la clé d’accès",
+        "signOutOthers": "Déconnecter aussi tous les autres appareils",
+        "removed": "Clé d’accès supprimée.",
+        "removedSignedOut": "Clé d’accès supprimée. {count} autres sessions ont été déconnectées.",
+        "removeError": "Impossible de supprimer la clé d’accès.",
+        "loadError": "Impossible de charger les clés d’accès : {message}",
+        "recoveryBody": "Chaque code ne sert qu’une fois. Gardez-les dans un endroit accessible sans cet appareil : avec votre mot de passe, un code vous connecte si vous perdez vos clés d’accès.",
+        "lostTitle": "Clé d’accès perdue ?",
+        "lostBody": "Supprimez-la ici et déconnectez vos autres appareils. Si vous ne pouvez plus du tout vous connecter, utilisez votre mot de passe avec un code de récupération. Mot de passe oublié aussi ? Réinitialisez-le par e-mail, puis utilisez un code de récupération. Un administrateur peut aussi supprimer vos clés d’accès pour vous.",
+        "recovery": {
+          "title": "Codes de récupération",
+          "remaining": "Il reste {count} codes de récupération inutilisés.",
+          "none": "Aucun code de récupération pour l’instant. Ils sont créés avec votre première clé d’accès ou lorsque vous activez l’authentification à deux facteurs.",
+          "unknown": "Les codes de récupération n’ont pas pu être lus.",
+          "regenerate": "Créer de nouveaux codes de récupération",
+          "regenerating": "Création…",
+          "regenerateHint": "Les nouveaux codes remplacent tous ceux qui n’ont pas servi.",
+          "error": "Impossible de créer de nouveaux codes de récupération."
+        }
       }
     },
     "adminPath": {
@@ -2894,6 +2950,59 @@
         "publicSecure": "Site public (HTTPS)",
         "publicInsecure": "Site public (HTTP)",
         "admin": "Administration et API"
+      }
+    },
+    "passkeys": {
+      "title": "Clés d’accès",
+      "subtitle": "Qui peut ou doit se connecter avec une clé d’accès, et avec quelle rigueur les clés d’accès sont vérifiées sur ce site.",
+      "errors": {
+        "loadFailed": "Impossible de charger la politique des clés d’accès.",
+        "saveFailed": "Impossible d’enregistrer la politique des clés d’accès."
+      },
+      "modes": {
+        "allow": "Autoriser",
+        "require": "Exiger",
+        "disallow": "Interdire"
+      },
+      "roles": {
+        "title": "Rôles",
+        "hint": "Choisissez par rôle. Les rôles sans choix propre suivent la valeur par défaut.",
+        "default": "Par défaut",
+        "useDefault": "Par défaut ({mode})",
+        "allowExplain": "Autoriser : les personnes peuvent ajouter des clés d’accès et se connecter avec, avec ou sans mot de passe.",
+        "requireExplain": "Exiger : les personnes doivent ajouter une clé d’accès. Dès qu’elles en ont une, le mot de passe et un code d’authentification ne suffisent plus ; un code de récupération fonctionne toujours.",
+        "disallowExplain": "Interdire : les personnes ne peuvent pas ajouter de clés d’accès, et celles qu’elles ont déjà ne sont pas acceptées.",
+        "requireWarnTitle": "Vérifiez que la récupération est prévue",
+        "requireWarn": "Les personnes d’un rôle soumis à l’obligation devront ajouter une clé d’accès à leur prochaine connexion. Chacune reçoit des codes de récupération ; si quelqu’un perd les deux, un administrateur peut supprimer ses clés d’accès dans Utilisateurs."
+      },
+      "verification": {
+        "title": "Vérification de l’utilisateur",
+        "legend": "Demander à l’authentificateur de vérifier la personne",
+        "preferred": "De préférence",
+        "preferredMeta": "Utiliser un code PIN ou la biométrie si l’authentificateur en dispose. Les clés de sécurité sans code PIN restent utilisables comme second facteur.",
+        "required": "Obligatoire",
+        "requiredMeta": "Chaque clé d’accès doit vérifier un code PIN ou la biométrie. La connexion sans mot de passe l’exige toujours."
+      },
+      "attestation": {
+        "title": "Attestation",
+        "legend": "Ce que l’authentificateur doit dire de lui-même",
+        "none": "Aucune",
+        "noneMeta": "Ne pas demander quel appareil a créé la clé d’accès. Fonctionne avec toutes les clés d’accès, y compris les clés synchronisées.",
+        "direct": "Directe",
+        "directMeta": "Demander l’attestation de l’appareil et vérifier sa signature lorsque le format le permet (packed, FIDO U2F). Les certificats ne sont pas vérifiés auprès du FIDO Metadata Service.",
+        "aaguidsLabel": "Modèles d’authentificateur autorisés (AAGUID)",
+        "aaguidsHint": "Un par ligne. Laissez vide pour autoriser tous les modèles. Une fois renseigné, seules les clés de sécurité dont l’attestation est vérifiée pour un modèle listé peuvent être ajoutées ; les clés d’accès synchronisées ne le peuvent pas. C’est un filtre par modèle, pas une preuve cryptographique."
+      },
+      "relyingParty": {
+        "title": "Partie de confiance",
+        "current": "Les clés d’accès sont créées pour :",
+        "origins": "Acceptées depuis :",
+        "rpIdLabel": "RP ID",
+        "rpIdHint": "Laissez vide pour utiliser le nom d’hôte de ce site. Indiquez un domaine parent, comme example.com, pour que les clés d’accès fonctionnent aussi sur ses sous-domaines. Il doit contenir l’adresse de ce site.",
+        "extraOriginsLabel": "Origines supplémentaires",
+        "extraOriginsHint": "Une origine https par ligne, comme https://www.example.com. Chacune doit se trouver dans le RP ID.",
+        "warnTitle": "Changer le RP ID rend les clés d’accès existantes inutilisables",
+        "warn": "Une clé d’accès appartient au RP ID pour lequel elle a été créée. Après un changement, les personnes se connectent avec leur mot de passe et un code de récupération, puis ajoutent une nouvelle clé d’accès."
       }
     }
   },
@@ -3927,7 +4036,15 @@
       "activityTarget": "Cible",
       "activityIp": "Adresse IP",
       "additionalRoles": "Rôles supplémentaires",
-      "additionalRolesHint": "L'utilisateur conserve son rôle principal et reçoit en plus tout ce que ces rôles autorisent. Administrateur ne peut être qu'un rôle principal."
+      "additionalRolesHint": "L'utilisateur conserve son rôle principal et reçoit en plus tout ce que ces rôles autorisent. Administrateur ne peut être qu'un rôle principal.",
+      "passkeys": "Clés d’accès",
+      "signInFactors": "Facteurs de connexion",
+      "resetFactors": "Supprimer les clés d’accès et la double authentification",
+      "resettingFactors": "Suppression…",
+      "resetFactorsHint": "Pour une personne qui a perdu sa clé d’accès et ses codes de récupération. Supprime ses clés d’accès, son application d’authentification et ses codes de récupération, et la déconnecte partout. Elle se connecte ensuite avec son seul mot de passe jusqu’à ce qu’elle les reconfigure.",
+      "resetFactorsConfirm": "Supprimer toutes les clés d’accès, l’application d’authentification et les codes de récupération de {name}, et déconnecter ce compte partout ?",
+      "resetFactorsFailed": "Impossible de supprimer les facteurs de connexion.",
+      "resetFactorsNotice": "Clés d’accès, application d’authentification et codes de récupération supprimés. Le compte a été déconnecté partout."
     },
     "roles": {
       "failedToLoadRoles": "Impossible de charger les rôles",
