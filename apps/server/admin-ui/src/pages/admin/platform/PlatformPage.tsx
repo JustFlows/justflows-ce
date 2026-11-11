@@ -608,6 +608,14 @@ function AdminFields() {
   );
 }
 
+interface AdministratorOption {
+  siteId: string;
+  siteName: string;
+  userId: string;
+  email: string;
+  displayName: string;
+}
+
 function AddSiteForm({
   defaultPort,
   tenant,
@@ -628,6 +636,30 @@ function AddSiteForm({
     shared || workspaceSeparate ? "inherit" : "current",
   );
   const [busy, setBusy] = useState(false);
+  const [administrators, setAdministrators] = useState<AdministratorOption[] | null>(shared ? [] : null);
+  const [adminChoice, setAdminChoice] = useState<"existing" | "new">("existing");
+  const [existingAdmin, setExistingAdmin] = useState("");
+
+  /** Isolated workspaces offer a copy of an administrator from one of their sites instead of retyping one. */
+  useEffect(() => {
+    if (shared) return;
+    let cancelled = false;
+    void fetch(`/api/platform/tenants/${tenant.id}/administrators`)
+      .then((res) => (res.ok ? res.json() as Promise<{ administrators: AdministratorOption[] }> : { administrators: [] }))
+      .catch(() => ({ administrators: [] as AdministratorOption[] }))
+      .then((body) => {
+        if (cancelled) return;
+        setAdministrators(body.administrators);
+        const first = body.administrators[0];
+        if (first) setExistingAdmin(`${first.siteId}:${first.userId}`);
+        else setAdminChoice("new");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shared, tenant.id]);
+
+  const useExisting = !shared && adminChoice === "existing" && Boolean(administrators?.length);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -644,7 +676,9 @@ function AddSiteForm({
           password: String(form.get("dbPassword") ?? ""),
         }
       : undefined;
-    const admin = shared
+    const [fromSiteId, fromUserId] = existingAdmin.split(":");
+    const adminFrom = useExisting && fromSiteId && fromUserId ? { siteId: fromSiteId, userId: fromUserId } : undefined;
+    const admin = shared || useExisting
       ? undefined
       : {
           email: form.get("email"),
@@ -661,6 +695,7 @@ function AddSiteForm({
         databaseChoice,
         database,
         admin,
+        adminFrom,
       }),
     });
     const body = await res.json() as { error?: string };
@@ -699,11 +734,36 @@ function AddSiteForm({
       {shared ? null : (
         <>
           <h3 className="jf-section-title">{t("platform.administrator")}</h3>
-          <AdminFields />
+          {administrators === null ? <p className="jf-field__hint">{t("common.loading")}</p> : null}
+          {administrators?.length ? (
+            <fieldset className="jf-choice">
+              <legend className="jf-field__label">{t("platform.administratorSource")}</legend>
+              <label className="jf-checkrow">
+                <input type="radio" name="adminChoice" checked={adminChoice === "existing"} onChange={() => setAdminChoice("existing")} /><span>{t("platform.administratorExisting")}</span>
+              </label>
+              <label className="jf-checkrow">
+                <input type="radio" name="adminChoice" checked={adminChoice === "new"} onChange={() => setAdminChoice("new")} /><span>{t("platform.administratorNew")}</span>
+              </label>
+            </fieldset>
+          ) : null}
+          {useExisting ? (
+            <>
+            <Field label={t("platform.administratorExisting")}>
+              <select className="jf-input" value={existingAdmin} onChange={(event) => setExistingAdmin(event.target.value)} required>
+                {administrators!.map((option) => (
+                  <option key={`${option.siteId}:${option.userId}`} value={`${option.siteId}:${option.userId}`}>
+                    {option.displayName} ({option.email}) · {option.siteName}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <p className="jf-field__hint">{t("platform.administratorCopyHint")}</p>
+            </>
+          ) : administrators !== null ? <AdminFields /> : null}
         </>
       )}
       <div className="jf-row">
-        <button className="jf-btn jf-btn--primary" type="submit" disabled={busy}>
+        <button className="jf-btn jf-btn--primary" type="submit" disabled={busy || administrators === null}>
           {busy ? t("common.saving") : t("platform.addSite")}
         </button>
         <button className="jf-btn jf-btn--quiet" type="button" onClick={onCancel} disabled={busy}>{t("common.cancel")}</button>

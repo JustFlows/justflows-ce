@@ -71,11 +71,18 @@ interface BackupSchedule {
 
 interface CacheSettings {
   enabled: boolean;
-  driver: "memory" | "filesystem";
+  /** `memory`, `filesystem`, or a plugin store id (`plugin:<pluginId>.<storeId>`). */
+  driver: string;
   ttlSeconds: number;
   dir: string;
-  redisUrl: string;
   defaultDir: string;
+}
+
+interface CacheStoreStatus {
+  id: string;
+  label: string | null;
+  state: "ready" | "connecting" | "unavailable";
+  detail?: string;
 }
 
 interface GzipSettings {
@@ -117,7 +124,11 @@ interface PerformanceSettingsResponse {
     gzip: boolean;
     browserCache: boolean;
     revalidate: boolean;
+    /** Status of the selected plugin cache store; absent for a built-in driver. */
+    store?: CacheStoreStatus;
   };
+  /** Cache stores that active plugins offer. Absent on older servers. */
+  stores?: Array<{ id: string; label: string }>;
   envPath: string;
 }
 
@@ -251,9 +262,9 @@ export default function ToolsPage() {
     driver: "filesystem",
     ttlSeconds: 300,
     dir: "",
-    redisUrl: "",
     defaultDir: "./.cache",
   });
+  const [cacheStores, setCacheStores] = useState<Array<{ id: string; label: string }>>([]);
   const [gzip, setGzip] = useState<GzipSettings>({
     enabled: false,
     level: 6,
@@ -336,6 +347,7 @@ export default function ToolsPage() {
         if (data.settings.revalidate) setRevalidate(data.settings.revalidate);
         setEnvPath(data.envPath);
         setRuntime(data.runtime);
+        setCacheStores(data.stores ?? []);
         return;
       } catch {
         // try next endpoint
@@ -762,7 +774,6 @@ export default function ToolsPage() {
         driver: cache.driver,
         ttlSeconds: Number(cache.ttlSeconds),
         dir: cache.driver === "filesystem" ? cache.dir || cache.defaultDir : undefined,
-        redisUrl: cache.redisUrl || undefined,
       },
       gzip: {
         enabled: gzip.enabled,
@@ -983,7 +994,23 @@ export default function ToolsPage() {
                   <span className={`jf-badge jf-badge--${cache.enabled ? "ok" : "warn"}`}>
                     {cache.enabled ? t("tools.status.enabled") : t("tools.status.disabled")}
                   </span>
-                  <span className="jf-badge jf-badge--info">{cache.driver}</span>
+                  <span className="jf-badge jf-badge--info">
+                    {cacheStores.find((store) => store.id === cache.driver)?.label ?? cache.driver}
+                  </span>
+                  {runtime?.store && runtime.store.id === cache.driver && (
+                    <span
+                      className={`jf-badge jf-badge--${runtime.store.state === "ready" ? "ok" : "warn"}`}
+                      title={runtime.store.detail}
+                    >
+                      {t(
+                        runtime.store.state === "ready"
+                          ? "tools.performance.storeReady"
+                          : runtime.store.state === "connecting"
+                            ? "tools.performance.storeConnecting"
+                            : "tools.performance.storeUnavailable",
+                      )}
+                    </span>
+                  )}
                   {runtime !== null && runtime.active !== cache.enabled && (
                     <span className="jf-badge jf-badge--warn">
                       {t("tools.performance.restartRequiredBadge")}
@@ -1013,14 +1040,36 @@ export default function ToolsPage() {
                       onChange={(e) =>
                         setCache((s) => ({
                           ...s,
-                          driver: e.target.value as "memory" | "filesystem",
+                          driver: e.target.value,
                         }))
                       }
                       disabled={perfBusy}
                     >
                       <option value="filesystem">{t("tools.performance.driverFilesystem")}</option>
                       <option value="memory">{t("tools.performance.driverMemory")}</option>
+                      {cacheStores.map((store) => (
+                        <option key={store.id} value={store.id}>
+                          {store.label}
+                        </option>
+                      ))}
+                      {cache.driver !== "filesystem" &&
+                        cache.driver !== "memory" &&
+                        !cacheStores.some((store) => store.id === cache.driver) && (
+                          <option value={cache.driver}>
+                            {t("tools.performance.driverPluginInactive", {
+                              label: runtime?.store?.label ?? cache.driver,
+                            })}
+                          </option>
+                        )}
                     </select>
+                    {cache.driver !== "filesystem" && cache.driver !== "memory" && (
+                      <p className="jf-field__hint">
+                        {t("tools.performance.storeHint")}
+                        {runtime?.store?.id === cache.driver && runtime.store.detail
+                          ? ` ${runtime.store.detail}`
+                          : ""}
+                      </p>
+                    )}
                   </div>
                   <div className="jf-field">
                     <label className="jf-field__label" htmlFor="jf-cache-ttl">

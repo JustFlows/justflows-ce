@@ -201,11 +201,53 @@ function shouldPreserve(relativePath: string): boolean {
   return false;
 }
 
+/** Top-level names listed in the installed release's `core-integrity.json`, or null without one. */
+function installedReleaseTopLevel(root: string): Set<string> | null {
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "core-integrity.json"), "utf8")) as {
+      files?: Array<{ path?: unknown }>;
+    };
+    if (!Array.isArray(manifest.files)) return null;
+    const names = new Set<string>(["core-integrity.json"]);
+    for (const file of manifest.files) {
+      const top = typeof file.path === "string" ? file.path.split(/[\\/]/)[0] : "";
+      if (top) names.add(top);
+    }
+    return names;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The top-level entries a core update may back up, replace, prune and restore:
+ * whatever the new package ships plus whatever the installed release shipped
+ * (from its `core-integrity.json`). Anything else in the install root, such as
+ * an operator's own backups or tooling, is not part of Justflows and is never
+ * touched, so a file the app user cannot delete there can't break an update.
+ * An install without a manifest (pre-manifest releases) keeps the old
+ * behaviour of treating every unpreserved entry as core.
+ */
+async function ownedTopLevel(sourceRoot: string, root: string): Promise<Set<string> | null> {
+  const installed = installedReleaseTopLevel(root);
+  if (!installed) return null;
+  const owned = new Set<string>(installed);
+  for (const entry of await fsp.readdir(sourceRoot)) owned.add(entry);
+  for (const name of [...owned]) {
+    if (shouldPreserve(name)) owned.delete(name);
+  }
+  return owned;
+}
+
+function isOwned(owned: Set<string> | null, entry: string): boolean {
+  return owned ? owned.has(entry) : !shouldPreserve(entry);
+}
+
 /** Snapshot replaceable core entries and dependencies before any live mutation. */
-async function backupUpdateFiles(root: string, backup: string): Promise<void> {
+async function backupUpdateFiles(root: string, backup: string, owned: Set<string> | null): Promise<void> {
   await fsp.mkdir(backup, { recursive: true });
   for (const entry of await fsp.readdir(root)) {
-    if (shouldPreserve(entry) && entry !== "node_modules") continue;
+    if (entry !== "node_modules" && !isOwned(owned, entry)) continue;
     await fsp.cp(path.join(root, entry), path.join(backup, entry), {
       recursive: true, verbatimSymlinks: true,
     });
@@ -213,9 +255,9 @@ async function backupUpdateFiles(root: string, backup: string): Promise<void> {
 }
 
 /** Restore the snapshot, including files pruned or dependencies changed by an update. */
-async function restoreUpdateFiles(root: string, backup: string): Promise<void> {
+async function restoreUpdateFiles(root: string, backup: string, owned: Set<string> | null): Promise<void> {
   for (const entry of await fsp.readdir(root)) {
-    if (shouldPreserve(entry) && entry !== "node_modules") continue;
+    if (entry !== "node_modules" && !isOwned(owned, entry)) continue;
     await fsp.rm(path.join(root, entry), { recursive: true, force: true });
   }
   for (const entry of await fsp.readdir(backup)) {
@@ -279,12 +321,34 @@ async function removeIfEmpty(dir: string): Promise<void> {
  * uploads/) that would otherwise be walked in full just to be filtered back
  * out file by file.
  */
-async function pruneStaleFiles(sourceRoot: string, destRoot: string): Promise<number> {
+async function pruneStaleFiles(
+  sourceRoot: string,
+  destRoot: string,
+  owned: Set<string> | null,
+): Promise<{ removed: number; skipped: number }> {
   let removed = 0;
+  let skipped = 0;
   const sourceFiles = new Set(await walkFiles(sourceRoot));
+
+  /**
+   * A stale file is a leftover, not part of the new release, so one that
+   * cannot be deleted (wrong owner, read-only mount) is skipped and reported
+   * instead of failing an update whose new files are already in place.
+   */
+  const removeStale = async (abs: string): Promise<void> => {
+    try {
+      await fsp.rm(abs, { force: true });
+      removed++;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== "EACCES" && code !== "EPERM" && code !== "EBUSY" && code !== "EROFS") throw err;
+      skipped++;
+    }
+  };
 
   for (const entry of await fsp.readdir(destRoot, { withFileTypes: true })) {
     if (preservedTopLevelNames().has(entry.name)) continue;
+    if (!isOwned(owned, entry.name)) continue;
 
     if (entry.isDirectory()) {
       const destTop = path.join(destRoot, entry.name);
@@ -292,8 +356,7 @@ async function pruneStaleFiles(sourceRoot: string, destRoot: string): Promise<nu
         if (sourceFiles.has(rel)) continue;
         const abs = resolvePathUnderRoot(destRoot, rel);
         if (!abs) continue;
-        await fsp.rm(abs, { force: true });
-        removed++;
+        await removeStale(abs);
       }
       await removeIfEmpty(destTop);
     } else {
@@ -301,12 +364,11 @@ async function pruneStaleFiles(sourceRoot: string, destRoot: string): Promise<nu
       if (sourceFiles.has(entry.name)) continue;
       const abs = resolvePathUnderRoot(destRoot, entry.name);
       if (!abs) continue;
-      await fsp.rm(abs, { force: true });
-      removed++;
+      await removeStale(abs);
     }
   }
 
-  return removed;
+  return { removed, skipped };
 }
 
 function findExtractedRoot(extractDir: string): string {
@@ -514,6 +576,8 @@ export async function applyCoreUpdate(
   const extractDir = options?.preExtractedDir ?? path.join(staging, "extract");
   const zipPath = path.join(staging, "upload.zip");
   let backup: string | null = null;
+  /** Top-level entries this update may replace; null on a pre-manifest install. */
+  let owned: Set<string> | null = null;
   let liveFilesChanged = false;
   let retainBackup = false;
   let restoreFailed = false;
@@ -652,8 +716,9 @@ export async function applyCoreUpdate(
       if (!build.ok) throw new Error("Server build failed; update aborted");
     }
 
+    owned = await ownedTopLevel(sourceRoot, root);
     backup = await fsp.mkdtemp(path.join(root, ".updates", "rollback-"));
-    await backupUpdateFiles(root, backup);
+    await backupUpdateFiles(root, backup, owned);
     const previousRelease = path.join(root, ".updates", "previous-release");
     const retiring = `${previousRelease}.retiring`;
     /**
@@ -688,13 +753,16 @@ export async function applyCoreUpdate(
       await fsp.rename(preparedModules, liveModules);
     }
     const copied = await copyUpdateFiles(sourceRoot, root);
-    const pruned = await pruneStaleFiles(sourceRoot, root);
+    const pruned = await pruneStaleFiles(sourceRoot, root, owned);
     record({
       step: "copy",
       ok: true,
       detail:
         `Updated ${copied} files (.env and uploads preserved)` +
-        (pruned > 0 ? `, removed ${pruned} stale file${pruned === 1 ? "" : "s"}` : ""),
+        (pruned.removed > 0 ? `, removed ${pruned.removed} stale file${pruned.removed === 1 ? "" : "s"}` : "") +
+        (pruned.skipped > 0
+          ? `; ${pruned.skipped} stale file${pruned.skipped === 1 ? "" : "s"} could not be removed and ${pruned.skipped === 1 ? "was" : "were"} left in place`
+          : ""),
     });
 
     const migrate = runCopiedMigrations(root);
@@ -734,7 +802,7 @@ export async function applyCoreUpdate(
     record({ step: "error", ok: false, detail: err instanceof Error ? err.message : String(err) });
     if (liveFilesChanged && backup) {
       try {
-        await restoreUpdateFiles(root, backup);
+        await restoreUpdateFiles(root, backup, owned);
         record({ step: "rollback", ok: true, detail: "Previous core and dependencies restored; no restart requested. Applied database migrations were preserved." });
       } catch (restoreError) {
         restoreFailed = true;

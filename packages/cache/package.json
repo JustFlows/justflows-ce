@@ -1,7 +1,7 @@
 {
   "name": "@justflows/cache",
   "version": "0.1.5",
-  "description": "Justflows cache layer — memory, filesystem, and Redis adapters",
+  "description": "Justflows cache layer — memory and filesystem adapters, plus guards for extension-provided stores",
   "type": "module",
   "exports": {
     ".": {

@@ -242,6 +242,61 @@ router.post("/:id/password", requireRole("administrator"), async (req, res) => {
 });
 
 /**
+ * Remove every second factor from an account: its passkeys, its authenticator
+ * app and its recovery codes. The way back in for someone who lost a passkey
+ * and their recovery codes (#105). Administrator only, like the password reset
+ * above; every session the account holds is ended, the user is told by email,
+ * and the account signs in with its password alone until it enrols again.
+ */
+router.post("/:id/sign-in-factors/reset", requireRole("administrator"), async (req, res) => {
+  const session = req.session!;
+  const userId = param(req.params.id);
+  if (userId === session.userId) {
+    res.status(400).json({ error: "Manage your own passkeys and authenticator from Account security" });
+    return;
+  }
+  try {
+    const db = await getDb();
+    const rows = await db.query<{ email: string }>(
+      "SELECT email FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+      [userId, session.siteId],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const { deleteAllPasskeys } = await import("../../lib/auth/webauthn/passkeys-db.js");
+    const removed = await deleteAllPasskeys(userId, session.siteId);
+    await db.run(
+      `UPDATE users SET totp_secret = NULL, totp_confirmed_at = NULL, totp_recovery_codes = NULL, totp_last_step = NULL, updated_at = ?
+        WHERE id = ? AND site_id = ?`,
+      [now(), userId, session.siteId],
+    );
+    await revokeUserSessions(userId, session.siteId);
+    auditFromRequest(req, "auth.sign_in_factors_reset", { target: userId, detail: `passkeys removed: ${removed}` });
+    await emitUserEvent("user.updated", userId, session.siteId);
+
+    void import("../../lib/email/mail.js")
+      .then((mail) =>
+        mail.sendTemplateMail({
+          to: rows[0]!.email,
+          key: "core.security-alert",
+          values: {
+            display_name: rows[0]!.email,
+            alert: "An administrator removed the passkeys, authenticator app and recovery codes from your account, and signed it out everywhere. Sign in with your password and set them up again.",
+          },
+        }),
+      )
+      .catch((err) => console.error("Factor-reset notice failed:", err));
+
+    res.json({ ok: true, passkeysRemoved: removed });
+  } catch (err) {
+    console.error("Factor reset error", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
  * Everything held about one account (GDPR Art. 15).
  *
  * Administrator only, and the export is generated on request rather than

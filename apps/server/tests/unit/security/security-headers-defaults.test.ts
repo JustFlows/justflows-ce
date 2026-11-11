@@ -82,3 +82,25 @@ describe("shipped security header defaults", () => {
     expect(header(resolveHeaders(merged, publicCtx), "Content-Security-Policy")).toBeUndefined();
   });
 });
+
+describe("Permissions-Policy and passkeys (#105)", () => {
+  const legacy =
+    "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), usb=(), xr-spatial-tracking=()";
+
+  it("lets this site's own pages ask for a passkey", () => {
+    const config = recommendedConfig();
+    config.headers.permissions_policy.enabled = true;
+    const value = header(resolveHeaders(config, publicCtx), "Permissions-Policy");
+    expect(value).toContain("publickey-credentials-get=(self)");
+  });
+
+  it("upgrades a saved policy that is still the old shipped default, and leaves an edited one alone", () => {
+    const stored = defaultConfig();
+    stored.headers.permissions_policy = { enabled: true, scope: "all", value: legacy };
+    expect(normalizeConfig(JSON.parse(JSON.stringify(stored))).headers.permissions_policy.value).toContain("publickey-credentials-get=(self)");
+
+    const edited = `${legacy}, bluetooth=()`;
+    stored.headers.permissions_policy = { enabled: true, scope: "all", value: edited };
+    expect(normalizeConfig(JSON.parse(JSON.stringify(stored))).headers.permissions_policy.value).toBe(edited);
+  });
+});

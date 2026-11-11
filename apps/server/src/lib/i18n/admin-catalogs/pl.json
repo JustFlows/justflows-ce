@@ -55,7 +55,8 @@
     "siteDomains": "Domeny",
     "customDomains": "Własne domeny",
     "storage": "Magazyn",
-    "taxonomies": "Kategorie i tagi"
+    "taxonomies": "Kategorie i tagi",
+    "securityPasskeys": "Klucze dostępu"
   },
   "webhooks": {
     "title": "Haki internetowe",
@@ -1626,7 +1627,15 @@
       "loginFailed": "Logowanie nie powiodło się",
       "signingIn": "Logowanie…",
       "noAccount": "Nie masz konta?",
-      "createAccount": "Utwórz jeden"
+      "createAccount": "Utwórz jeden",
+      "passkeySignIn": "Zaloguj się kluczem dostępu",
+      "passkeyFailed": "Nie udało się użyć klucza dostępu. Spróbuj ponownie lub zaloguj się hasłem.",
+      "passkeyConfirm": "Użyj klucza dostępu",
+      "passkeyConfirmHint": "Potwierdź kluczem dostępu na tym urządzeniu lub telefonie albo wpisz kod poniżej.",
+      "recoveryLabel": "Kod odzyskiwania",
+      "recoveryHint": "Twoja rola loguje się kluczem dostępu. Jeśli go zgubiono, wpisz jeden z kodów odzyskiwania.",
+      "or": "lub",
+      "passkeyHint": "Odciskiem palca, twarzą, blokadą ekranu lub kluczem bezpieczeństwa."
     },
     "register": {
       "checking": "Sprawdzam…",
@@ -2882,10 +2891,10 @@
         },
         "accountsMfa": {
           "title": "Uwierzytelniacze administratorów",
-          "all": "{enrolled} z {admins} administratorów ma uwierzytelniacz.",
-          "partial": "{enrolled} z {admins} administratorów ma uwierzytelniacz. Logowanie go nie wymaga.",
+          "all": "Administratorzy z kluczem dostępu lub aplikacją uwierzytelniającą: {enrolled} z {admins}.",
+          "partial": "Administratorzy z kluczem dostępu lub aplikacją uwierzytelniającą: {enrolled} z {admins}. Logowanie tego nie wymaga.",
           "unknown": "Nie udało się odczytać rejestracji uwierzytelniaczy administratorów.",
-          "remediation": "Każdy administrator może włączyć uwierzytelniacz w Zabezpieczenia → Twoje konto. Justflows jeszcze tego nie wymaga."
+          "remediation": "Każdy administrator może dodać klucz dostępu lub aplikację uwierzytelniającą w Zabezpieczenia → Twoje konto. Aby wymagać kluczy dostępu, ustaw rolę administratora na Wymagaj w Zabezpieczenia → Klucze dostępu."
         },
         "accountsSessions": {
           "title": "Sesje urządzeń",
@@ -3048,6 +3057,53 @@
         "turnOff": "Wyłącz dwuczynnik",
         "turnOn": "Włącz dwuczynnikowy",
         "turningOff": "Wyłączam…"
+      },
+      "passkeys": {
+        "title": "Klucze dostępu",
+        "intro": "Loguj się odciskiem palca, twarzą, blokadą ekranu lub kluczem bezpieczeństwa zamiast hasłem. Klucz dostępu działa tylko w tej witrynie, więc nie da się go wyłudzić phishingiem.",
+        "requiredTitle": "Dodaj klucz dostępu",
+        "required": "Twoja rola musi używać klucza dostępu w tej witrynie. Dodaj go, aby nadal móc się logować.",
+        "disallowed": "Klucze dostępu są wyłączone dla Twojej roli w tej witrynie.",
+        "unsupported": "Ta przeglądarka nie obsługuje kluczy dostępu.",
+        "none": "Brak kluczy dostępu.",
+        "add": "Dodaj klucz dostępu",
+        "adding": "Czekam na urządzenie…",
+        "nameLabel": "Nazwa",
+        "namePlaceholder": "Na przykład: laptop służbowy",
+        "passwordLabel": "Obecne hasło",
+        "passwordHint": "Dodanie lub usunięcie klucza dostępu wymaga hasła, więc przejęta sesja nie może zmienić sposobu logowania.",
+        "added": "Klucz dostępu dodany.",
+        "addError": "Nie udało się dodać klucza dostępu.",
+        "created": "dodano {date}",
+        "lastUsed": "ostatnio użyto {date}",
+        "neverUsed": "nigdy nieużywany",
+        "synced": "Synchronizowany",
+        "deviceBound": "Tylko to urządzenie lub klucz",
+        "rename": "Zmień nazwę",
+        "save": "Zapisz",
+        "renamed": "Nazwa klucza dostępu zmieniona.",
+        "renameError": "Nie udało się zmienić nazwy klucza dostępu.",
+        "remove": "Usuń",
+        "removeTitle": "Usuń {name}",
+        "removeConfirm": "Usuń klucz dostępu",
+        "signOutOthers": "Wyloguj też wszystkie inne urządzenia",
+        "removed": "Klucz dostępu usunięty.",
+        "removedSignedOut": "Klucz dostępu usunięty. Wylogowano inne sesje: {count}.",
+        "removeError": "Nie udało się usunąć klucza dostępu.",
+        "loadError": "Nie udało się wczytać kluczy dostępu: {message}",
+        "recoveryBody": "Każdy kod działa raz. Przechowuj je tam, gdzie masz do nich dostęp bez tego urządzenia: razem z hasłem kod pozwala się zalogować, jeśli stracisz klucze dostępu.",
+        "lostTitle": "Zgubiony klucz dostępu?",
+        "lostBody": "Usuń go tutaj i wyloguj pozostałe urządzenia. Jeśli w ogóle nie możesz się zalogować, użyj hasła z kodem odzyskiwania. Nie pamiętasz też hasła? Zresetuj je przez e-mail, a potem użyj kodu odzyskiwania. Klucze dostępu może też usunąć administrator.",
+        "recovery": {
+          "title": "Kody odzyskiwania",
+          "remaining": "Pozostałe niewykorzystane kody odzyskiwania: {count}.",
+          "none": "Brak kodów odzyskiwania. Powstają przy pierwszym kluczu dostępu lub po włączeniu uwierzytelniania dwuskładnikowego.",
+          "unknown": "Nie udało się odczytać kodów odzyskiwania.",
+          "regenerate": "Utwórz nowe kody odzyskiwania",
+          "regenerating": "Tworzenie…",
+          "regenerateHint": "Nowe kody zastępują wszystkie niewykorzystane.",
+          "error": "Nie udało się utworzyć nowych kodów odzyskiwania."
+        }
       }
     },
     "adminPath": {
@@ -3359,6 +3415,59 @@
         "label": "Dotyczy"
       },
       "unknownError": "Nieznany błąd"
+    },
+    "passkeys": {
+      "title": "Klucze dostępu",
+      "subtitle": "Kto może lub musi logować się kluczem dostępu i jak dokładnie klucze dostępu są sprawdzane w tej witrynie.",
+      "errors": {
+        "loadFailed": "Nie udało się wczytać zasad kluczy dostępu.",
+        "saveFailed": "Nie udało się zapisać zasad kluczy dostępu."
+      },
+      "modes": {
+        "allow": "Zezwalaj",
+        "require": "Wymagaj",
+        "disallow": "Nie zezwalaj"
+      },
+      "roles": {
+        "title": "Role",
+        "hint": "Wybierz dla każdej roli. Role bez własnego wyboru używają ustawienia domyślnego.",
+        "default": "Domyślnie",
+        "useDefault": "Domyślnie ({mode})",
+        "allowExplain": "Zezwalaj: można dodawać klucze dostępu i logować się nimi, z hasłem lub bez.",
+        "requireExplain": "Wymagaj: trzeba dodać klucz dostępu. Gdy już jest, hasło i kod uwierzytelniający nie wystarczą; kod odzyskiwania nadal działa.",
+        "disallowExplain": "Nie zezwalaj: nie można dodawać kluczy dostępu, a istniejące nie są akceptowane.",
+        "requireWarnTitle": "Upewnij się, że odzyskiwanie jest zapewnione",
+        "requireWarn": "Osoby w roli z wymogiem zostaną poproszone o dodanie klucza dostępu przy następnym logowaniu. Każda dostaje kody odzyskiwania; jeśli ktoś straci jedno i drugie, administrator może usunąć jego klucze dostępu w Użytkownicy."
+      },
+      "verification": {
+        "title": "Weryfikacja użytkownika",
+        "legend": "Poproś uwierzytelniacz o sprawdzenie osoby",
+        "preferred": "Preferowana",
+        "preferredMeta": "Użyj kodu PIN lub biometrii, jeśli uwierzytelniacz je ma. Klucze bezpieczeństwa bez PIN-u nadal działają jako drugi składnik.",
+        "required": "Wymagana",
+        "requiredMeta": "Każdy klucz dostępu musi sprawdzić PIN lub biometrię. Logowanie bez hasła zawsze tego wymaga."
+      },
+      "attestation": {
+        "title": "Atestacja",
+        "legend": "Co uwierzytelniacz ma podać o sobie",
+        "none": "Brak",
+        "noneMeta": "Nie pytaj, które urządzenie utworzyło klucz dostępu. Działa z każdym kluczem dostępu, także synchronizowanym.",
+        "direct": "Bezpośrednia",
+        "directMeta": "Poproś o atestację urządzenia i sprawdź jej podpis, jeśli format na to pozwala (packed, FIDO U2F). Certyfikaty nie są sprawdzane w FIDO Metadata Service.",
+        "aaguidsLabel": "Dozwolone modele uwierzytelniaczy (AAGUID)",
+        "aaguidsHint": "Jeden w wierszu. Zostaw puste, aby zezwolić na każdy model. Po wypełnieniu można dodać tylko klucze bezpieczeństwa ze zweryfikowaną atestacją dla modelu z listy, więc nie klucze synchronizowane. To filtr modeli, a nie kryptograficzny dowód."
+      },
+      "relyingParty": {
+        "title": "Strona ufająca",
+        "current": "Klucze dostępu są tworzone dla:",
+        "origins": "Akceptowane z:",
+        "rpIdLabel": "RP ID",
+        "rpIdHint": "Zostaw puste, aby użyć nazwy hosta tej witryny. Podaj domenę nadrzędną, np. example.com, aby klucze dostępu działały też w jej subdomenach. Musi obejmować adres, pod którym działa ta witryna.",
+        "extraOriginsLabel": "Dodatkowe źródła",
+        "extraOriginsHint": "Jedno źródło https w wierszu, np. https://www.example.com. Każde musi mieścić się w RP ID.",
+        "warnTitle": "Zmiana RP ID unieważnia istniejące klucze dostępu",
+        "warn": "Klucz dostępu należy do RP ID, dla którego go utworzono. Po zmianie trzeba zalogować się hasłem i kodem odzyskiwania, a potem dodać nowy klucz dostępu."
+      }
     }
   },
   "settings": {
@@ -3728,6 +3837,11 @@
       "driverFilesystem": "System plików (domyślny, przetrwa ponowne uruchomienie)",
       "driverLabel": "Kierowca",
       "driverMemory": "Pamięć (na proces, najszybsza)",
+      "driverPluginInactive": "{label} (nieaktywny)",
+      "storeReady": "Gotowy",
+      "storeConnecting": "Łączenie",
+      "storeUnavailable": "Niedostępny",
+      "storeHint": "Ten sterownik pochodzi z wtyczki. Gdy się łączy lub jest niedostępny, strony są serwowane bez pamięci podręcznej obiektów.",
       "enableBrowserCache": "Włącz nagłówki pamięci podręcznej przeglądarki",
       "enableGzip": "Włącz kompresję GZIP",
       "enableObjectCache": "Włącz pamięć podręczną obiektów",
@@ -4095,7 +4209,15 @@
       "activityTarget": "Cel",
       "activityIp": "Adres IP",
       "additionalRoles": "Dodatkowe role",
-      "additionalRolesHint": "Użytkownik zachowuje swoją główną rolę, a także otrzymuje wszystko, na co pozwalają te role. Administrator może pełnić jedynie rolę główną."
+      "additionalRolesHint": "Użytkownik zachowuje swoją główną rolę, a także otrzymuje wszystko, na co pozwalają te role. Administrator może pełnić jedynie rolę główną.",
+      "passkeys": "Klucze dostępu",
+      "signInFactors": "Składniki logowania",
+      "resetFactors": "Usuń klucze dostępu i weryfikację dwuetapową",
+      "resettingFactors": "Usuwanie…",
+      "resetFactorsHint": "Dla osoby, która straciła klucz dostępu i kody odzyskiwania. Usuwa jej klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania oraz wylogowuje ją wszędzie. Do czasu ponownej konfiguracji loguje się samym hasłem.",
+      "resetFactorsConfirm": "Usunąć wszystkie klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania użytkownika {name} oraz wylogować go wszędzie?",
+      "resetFactorsFailed": "Nie udało się usunąć składników logowania.",
+      "resetFactorsNotice": "Usunięto klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania. Konto zostało wylogowane wszędzie."
     },
     "roles": {
       "title": "Role i możliwości",
@@ -4380,6 +4502,10 @@
     "emptyHint": "Utwórz powyżej przestrzeń roboczą, aby dać klientowi własne witryny i użytkowników.",
     "workspace": "Przestrzeń robocza",
     "administrator": "Pierwszy administrator",
+    "administratorSource": "Administrator",
+    "administratorExisting": "Istniejący administrator",
+    "administratorNew": "Nowy administrator",
+    "administratorCopyHint": "Kopiuje to konto wraz z hasłem do nowej witryny. Potem jest to osobne konto: zmiany hasła i roli w jednej witrynie nie dotyczą drugiej.",
     "status": "Status",
     "sites": "Witryny",
     "sitesEmpty": "Nie ma jeszcze witryn.",

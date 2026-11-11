@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { App, type AppConfig } from "@justflows/core";
-import type { PluginModule, PluginContext } from "@justflows/sdk";
+import { SDK_VERSION, type PluginModule, type PluginContext } from "@justflows/sdk";
 import { PluginLoader } from "../../src/loader.js";
 
 const CONFIG = {
@@ -48,7 +48,7 @@ describe("plugin hook context", () => {
     await loader.activate(plugin.manifest.id, "site-1");
 
     expect(seen?.version).toBe("1.0.0");
-    expect(seen?.runtime).toEqual({ justflows: "0.1.8-dev.1", sdk: "0.1.8", sdkApi: 1 });
+    expect(seen?.runtime).toEqual({ justflows: "0.1.8-dev.1", sdk: SDK_VERSION, sdkApi: 1 });
   });
 
   it("refuses a network handler without platform:network", async () => {

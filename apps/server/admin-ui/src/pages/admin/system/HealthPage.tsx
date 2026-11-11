@@ -36,6 +36,16 @@ interface DiagnosticsReport {
   traces: Array<{ requestId: string; timestamp: string; path: string; durationMs: number; pageCache: string; objectCache: string; databaseQueries: number; databaseMs: number; hookRuns: number; hookErrors: number; theme: string; template: string }>;
 }
 
+/**
+ * Captured errors stay listed until the process restarts. Only errors newer
+ * than this window count as a current issue, so an old one-off (for example
+ * during a restart) does not keep the page in a warning state.
+ */
+const ACTIVE_ERROR_WINDOW_MS = 60 * 60 * 1000;
+
+/** True when a captured error is recent enough to count as a current issue. */
+const isActiveError = (entry: { timestamp: string }) => Date.now() - Date.parse(entry.timestamp) < ACTIVE_ERROR_WINDOW_MS;
+
 const formatBytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 function formatUptime(seconds: number): string {
   const days = Math.floor(seconds / 86_400);
@@ -200,7 +210,8 @@ export default function HealthPage() {
           const heapPercent = Math.round((report.runtime.memory.heapUsedBytes / Math.max(1, report.runtime.memory.heapTotalBytes)) * 100);
           const systemPercent = Math.round((report.runtime.memory.systemUsedBytes / Math.max(1, report.runtime.memory.systemTotalBytes)) * 100);
           const pluginErrors = report.pluginChecks.filter((check) => check.result.status === "error");
-          const hasIssues = !report.database.connected || !report.database.migrations.current || report.hooks.totals.errors > 0 || report.errors.length > 0 || pluginErrors.length > 0;
+          const activeErrorCount = report.errors.filter(isActiveError).length;
+          const hasIssues = !report.database.connected || !report.database.migrations.current || report.hooks.totals.errors > 0 || activeErrorCount > 0 || pluginErrors.length > 0;
           const dbStatus = report.database.connected ? t("health.overview.connected") : t("health.overview.unavailable");
           const migrationsStatus = report.database.migrations.current ? t("health.overview.migrationsCurrent") : t("health.overview.migrationsPending");
           return <>
@@ -208,7 +219,7 @@ export default function HealthPage() {
               <span className="jf-banner__icon" aria-hidden="true">{hasIssues ? "⚠" : "✓"}</span>
               <div>
                 <div className="jf-banner__title">{hasIssues ? t("health.overview.issuesFound") : t("health.overview.allHealthy")}</div>
-                <div className="jf-banner__sub">{t("health.overview.statusLine", { dbStatus, migrationsStatus, errorCount: report.errors.length })}</div>
+                <div className="jf-banner__sub">{t("health.overview.statusLine", { dbStatus, migrationsStatus, errorCount: activeErrorCount })}</div>
                 {pluginErrors.map((check) => (
                   <div className="jf-banner__sub" key={`${check.pluginId}/${check.id}`}>{check.label}: {check.result.summary}</div>
                 ))}
@@ -357,9 +368,9 @@ export default function HealthPage() {
         </section>
 
         <section className="jf-card">
-          <div className="jf-card__head"><div><h2 className="jf-card__title">{t("health.recentErrors.title")}</h2><p className="jf-field__hint">{t("health.recentErrors.hint")}</p></div><span className={`jf-badge jf-badge--${report.errors.length ? "warn" : "ok"}`}>{t("health.recentErrors.capturedCount", { count: report.errors.length })}</span></div>
+          <div className="jf-card__head"><div><h2 className="jf-card__title">{t("health.recentErrors.title")}</h2><p className="jf-field__hint">{t("health.recentErrors.hint")}</p></div><span className={`jf-badge jf-badge--${report.errors.some(isActiveError) ? "warn" : report.errors.length ? "info" : "ok"}`}>{t("health.recentErrors.capturedCount", { count: report.errors.length })}</span></div>
           <div className="jf-card__body jf-card__body--flush">
-            {report.errors.length === 0 ? <div className="jf-empty"><p>{t("health.recentErrors.none")}</p></div> : <div className="jf-tablewrap"><table className="jf-table"><thead><tr><th>{t("health.recentErrors.colTime")}</th><th>{t("health.recentErrors.colContext")}</th><th>{t("health.recentErrors.colMessage")}</th><th>{t("health.recentErrors.colRequestId")}</th></tr></thead><tbody>{report.errors.map((entry) => <tr key={entry.id}><td>{new Date(entry.timestamp).toLocaleTimeString()}</td><td className="jf-td--strong">{entry.context}</td><td>{entry.message}</td><td className="jf-td--mono">{entry.requestId ?? t("health.recentErrors.backgroundTask")}</td></tr>)}</tbody></table></div>}
+            {report.errors.length === 0 ? <div className="jf-empty"><p>{t("health.recentErrors.none")}</p></div> : <div className="jf-tablewrap"><table className="jf-table"><thead><tr><th>{t("health.recentErrors.colTime")}</th><th>{t("health.recentErrors.colContext")}</th><th>{t("health.recentErrors.colMessage")}</th><th>{t("health.recentErrors.colRequestId")}</th></tr></thead><tbody>{report.errors.map((entry) => <tr key={entry.id}><td>{new Date(entry.timestamp).toLocaleString()}</td><td className="jf-td--strong">{entry.context}</td><td>{entry.message}</td><td className="jf-td--mono">{entry.requestId ?? t("health.recentErrors.backgroundTask")}</td></tr>)}</tbody></table></div>}
           </div>
         </section>
 

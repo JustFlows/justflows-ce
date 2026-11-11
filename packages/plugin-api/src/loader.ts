@@ -52,7 +52,15 @@ export interface LoadedPlugin {
   error?: Error;
 }
 
-export type PluginCacheFactory = (pluginId: string) => PluginCacheApi;
+/**
+ * `ctx.cache` for one plugin. `permissions` and `siteId` (the site the plugin
+ * is activated for) let the host gate `registerStore`.
+ */
+export type PluginCacheFactory = (
+  pluginId: string,
+  permissions: ReadonlySet<PluginPermission>,
+  siteId: string,
+) => PluginCacheApi;
 export type PluginDataFactory = (pluginId: string, siteId: string) => PluginDataApi;
 export type PluginJobsFactory = (pluginId: string) => PluginJobsApi;
 export type PluginMailFactory = (
@@ -276,6 +284,7 @@ export class PluginLoader {
   private readonly i18nProvider: PluginI18nProvider;
   private readonly jobsCleanup: ((pluginId: string) => void) | undefined;
   private readonly mailCleanup: ((pluginId: string) => void) | undefined;
+  private readonly cacheCleanup: ((pluginId: string) => void) | undefined;
   private readonly settingsAdapter: PluginSettingsAdapter;
   private readonly blockRegistry: PluginBlockRegistry | undefined;
   private readonly justflowsVersion: string;
@@ -319,6 +328,8 @@ export class PluginLoader {
       i18nProvider?: PluginI18nProvider;
       jobsCleanup?: (pluginId: string) => void;
       mailCleanup?: (pluginId: string) => void;
+      /** Drop cache stores the plugin registered through `ctx.cache.registerStore`. */
+      cacheCleanup?: (pluginId: string) => void;
       settingsAdapter?: PluginSettingsAdapter;
       httpRouter?: PluginHttpRouter;
       blockRegistry?: PluginBlockRegistry;
@@ -403,6 +414,7 @@ export class PluginLoader {
       }));
     this.jobsCleanup = options?.jobsCleanup;
     this.mailCleanup = options?.mailCleanup;
+    this.cacheCleanup = options?.cacheCleanup;
     this.settingsAdapter = options?.settingsAdapter ?? {
       get: (siteId, pluginId, key) => this.app.settings.get(siteId, `${pluginId}:${key}`),
       set: (siteId, pluginId, key, value) =>
@@ -617,6 +629,7 @@ export class PluginLoader {
     this.placeholderRegistry.removePlugin(pluginId);
     this.jobsCleanup?.(pluginId);
     this.mailCleanup?.(pluginId);
+    this.cacheCleanup?.(pluginId);
     this.quotasCleanup?.(pluginId);
     const types = this.registeredBlocks.get(pluginId) ?? [];
     for (const type of types) this.blockRegistry?.unregister(type);
@@ -643,7 +656,7 @@ export class PluginLoader {
     };
     const settings = this.settingsAdapter;
     const hooks = this.app.hooks;
-    const cache = this.cacheFactory(pluginId);
+    const cache = this.cacheFactory(pluginId, permissions, siteId);
     const data = this.dataFactory(pluginId, siteId);
 
     /**

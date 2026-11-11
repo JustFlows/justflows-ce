@@ -182,6 +182,11 @@ export async function getUserWithAccess(
     "SELECT id, type, title, status, updated_at FROM content WHERE site_id = ? AND author_id = ? AND trashed_at IS NULL ORDER BY updated_at DESC LIMIT 10",
     [siteId, row.id],
   );
+  const passkeyCount = await optionalQuery<{ count: number | string }>(
+    db,
+    "SELECT COUNT(*) AS count FROM webauthn_credentials WHERE user_id = ? AND site_id = ?",
+    [row.id, siteId],
+  );
   const recentActivity = options.includeActivity
     ? await optionalQuery<Record<string, unknown>>(
         db,
@@ -204,6 +209,7 @@ export async function getUserWithAccess(
         created_at: row.created_at,
         updated_at: row.updated_at ?? null,
         twoFactorEnabled: row.totp_confirmed_at != null,
+        passkeys: Number(passkeyCount[0]?.count ?? 0),
         roleId: access.roleId,
         additionalRoles: access.additionalRoles,
         accessPolicy: access.policy,

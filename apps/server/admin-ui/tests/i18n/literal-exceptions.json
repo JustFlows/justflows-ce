@@ -102,5 +102,7 @@
   "TTL": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
   "https://": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
   "example.b-cdn.net": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
-  "ns1.example.com ns2.example.com": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose."
+  "ns1.example.com ns2.example.com": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "https://www.example.com": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose.",
+  "cb69481e-8ff7-4039-93ec-0a2729a154a8": "Protocol/identifier, brand, unit, formatting icon, or example input; not interface prose."
 }

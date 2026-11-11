@@ -8,6 +8,7 @@ export {
   DatabaseConfigSchema,
   StorageConfigSchema,
   CacheConfigSchema,
+  CACHE_STORE_DRIVER_RE,
 } from "./config/schema.js";
 export type { AppConfig, DatabaseConfig, StorageConfig, CacheConfig } from "./config/schema.js";
 

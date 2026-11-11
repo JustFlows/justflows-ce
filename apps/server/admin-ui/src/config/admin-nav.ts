@@ -57,6 +57,8 @@ export type PluginMenuItem = {
   adminCatalogs?: Record<string, string>;
   /** The plugin's own sidebar section, on items with `domain: "plugin"`. */
   section?: { label: string; labels?: Record<string, string>; icon: string };
+  /** `false` when the plugin's Settings page would be empty. Absent on older servers. */
+  hasSettings?: boolean;
 };
 
 /**
@@ -238,6 +240,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.securityHeaders", to: "/admin/security/headers", icon: "📑" },
       { key: "nav.securityAdvanced", to: "/admin/security/advanced", icon: "🧩" },
       { key: "nav.securityAdminPath", to: "/admin/security/admin-path", icon: "🛣" },
+      { key: "nav.securityPasskeys", to: "/admin/security/passkeys", icon: "🗝" },
       { key: "nav.securityAccount", to: "/admin/security/account", icon: "🔑" },
       { key: "nav.securityAudit", to: "/admin/security/audit", icon: "📜" },
     ],
@@ -428,6 +431,7 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/security/headers": ["administrator"],
   "/admin/security/advanced": ["administrator"],
   "/admin/security/admin-path": ["administrator"],
+  "/admin/security/passkeys": ["administrator"],
   // Everyone's own 2FA — unlike the rest of Security, this is requireSession
   // only server-side, not admin-only. Listed explicitly so it doesn't inherit
   // /admin/security's rule by prefix.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { isIP } from "node:net";
-import { BlockedAddressError, pinnedFetch } from "../security/pinned-fetch.js";
+import { BlockedAddressError, pinnedFetch, unpinnedFetch } from "../security/pinned-fetch.js";
 import { isBlockedWebhookAddress, isLocalHostName, validateWebhookUrl } from "../security/webhook-url.js";
 
 /**
@@ -70,7 +70,8 @@ export async function guardedFetch(value: string, options: GuardedFetchOptions =
     const url = await assertOutboundUrl(current, allowPrivate);
     let response: Response;
     try {
-      response = await pinnedFetch(url, { ...init, allowPrivate, redirect: "manual", signal: combined });
+      const request = { ...init, redirect: "manual" as const, signal: combined };
+      response = allowPrivate ? await unpinnedFetch(url, request) : await pinnedFetch(url, request);
     } catch (err) {
       if (err instanceof Error && err.cause instanceof BlockedAddressError) {
         throw new OutboundUrlError(err.cause.message);
