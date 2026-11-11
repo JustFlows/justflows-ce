@@ -14,6 +14,8 @@ export interface SessionInfo {
   disabledPaths?: string[];
   /** Feature keys stored as off, so a control inside a page can be removed. */
   disabledFeatures?: string[];
+  /** The role must use a passkey and this account has none yet. */
+  passkeyEnrollmentRequired?: boolean;
 }
 
 interface SessionValue {

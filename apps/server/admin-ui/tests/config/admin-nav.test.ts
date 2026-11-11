@@ -312,7 +312,7 @@ describe("security feature navigation", () => {
     expect(canAccessPath("administrator", "/admin/security/account", audience)).toBe(true);
     const security = filterDomainsByRole(ADMIN_NAV_DOMAINS, "administrator", audience)
       .find((domain) => domain.slug === "security");
-    expect(security?.items.map((item) => item.to)).toEqual(["/admin/security", "/admin/security/account"]);
+    expect(security?.items.map((item) => item.to)).toEqual(["/admin/security", "/admin/security/passkeys", "/admin/security/account"]);
   });
 
   it("keeps overview when headers are allowed", () => {

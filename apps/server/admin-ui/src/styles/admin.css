@@ -2594,6 +2594,41 @@ select.jf-input {
   text-decoration: underline;
 }
 
+/* Passkey sign-in: an "or" rule, an outlined button with the passkey mark, and a hint. */
+.jf-auth__or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.15rem 0 -0.25rem;
+  color: var(--jf-text-3);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.jf-auth__or::before,
+.jf-auth__or::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--jf-border);
+}
+.jf-auth__passkey {
+  gap: 0.55rem;
+  padding-block: 0.65rem;
+  font-size: 0.88rem;
+  color: var(--jf-text);
+}
+.jf-auth__passkey svg {
+  flex: none;
+  color: var(--jf-accent);
+}
+.jf-auth__hint {
+  margin-top: -0.55rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--jf-text-3);
+}
+
 .jf-choice {
   margin: 0;
   padding: 0;

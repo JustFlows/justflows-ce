@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Link, useNavigate } from "../../../admin-router";
-import { useCapability } from "@components/SessionProvider";
+import { useCapability, useSession } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
 
 interface User {
@@ -19,6 +19,7 @@ interface User {
   scopes: Record<string, { contentTypes?: string[]; locales?: string[]; ownership?: "any" | "self" }>;
   updatedAt: string | null;
   twoFactorEnabled: boolean;
+  passkeys: number;
   content: {
     total: number;
     byStatus: Record<string, number>;
@@ -57,6 +58,7 @@ function fromApi(user: Record<string, any>): User {
     scopes: user.accessPolicy?.scopes ?? {},
     updatedAt: user.updated_at ?? null,
     twoFactorEnabled: Boolean(user.twoFactorEnabled),
+    passkeys: Number(user.passkeys ?? 0),
     content: {
       total: Number(user.content?.total ?? 0),
       byStatus: user.content?.byStatus ?? {},
@@ -74,6 +76,9 @@ export default function EditUserPage() {
   // the server; an editor can reach this page (they can read the list) but
   // gets a read-only profile rather than controls that would 403.
   const canManage = useCapability("users:manage");
+  const { session } = useSession();
+  const isAdministrator = session?.role === "administrator";
+  const [resettingFactors, setResettingFactors] = useState(false);
 
   const [user, setUser] = useState<User | null>(null);
   const [displayName, setDisplayName] = useState("");
@@ -240,6 +245,26 @@ export default function EditUserPage() {
     }
   }
 
+  /** Remove passkeys, authenticator and recovery codes: the way back in after a lost passkey. */
+  async function resetSignInFactors() {
+    if (!user) return;
+    if (!window.confirm(t("users.edit.resetFactorsConfirm", { name: user.displayName || user.email }))) return;
+    setResettingFactors(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch(`/api/users/${encodeURIComponent(user.id)}/sign-in-factors/reset`, { method: "POST" });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? t("users.edit.resetFactorsFailed"));
+      setUser({ ...user, twoFactorEnabled: false, passkeys: 0 });
+      setNotice(t("users.edit.resetFactorsNotice"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setResettingFactors(false);
+    }
+  }
+
   async function removeUser() {
     if (!user) return;
     if (!window.confirm(t("users.edit.removeUserConfirm", { name: user.displayName || user.email }))) return;
@@ -389,6 +414,10 @@ export default function EditUserPage() {
               <div className="jf-meta__row">
                 <dt>{t("users.edit.twoFactor")}</dt>
                 <dd>{user.twoFactorEnabled ? t("users.edit.twoFactorEnabled") : t("users.edit.twoFactorDisabled")}</dd>
+              </div>
+              <div className="jf-meta__row">
+                <dt>{t("users.edit.passkeys")}</dt>
+                <dd>{user.passkeys}</dd>
               </div>
               <div className="jf-meta__row"><dt>{t("users.edit.contentAuthored")}</dt><dd>{user.content.total}</dd></div>
             </dl>
@@ -582,6 +611,22 @@ export default function EditUserPage() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+        )}
+
+        {isAdministrator && session?.id !== user.id && (user.passkeys > 0 || user.twoFactorEnabled) && (
+        <div className="jf-card">
+          <div className="jf-card__head">
+            <h2 className="jf-card__title">{t("users.edit.signInFactors")}</h2>
+          </div>
+          <div className="jf-card__body jf-stack">
+            <p className="jf-field__hint">{t("users.edit.resetFactorsHint")}</p>
+            <div className="jf-row">
+              <button type="button" className="jf-btn jf-btn--ghost" disabled={resettingFactors} onClick={() => void resetSignInFactors()}>
+                {resettingFactors ? t("users.edit.resettingFactors") : t("users.edit.resetFactors")}
+              </button>
+            </div>
           </div>
         </div>
         )}
