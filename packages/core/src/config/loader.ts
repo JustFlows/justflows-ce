@@ -32,7 +32,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       enabled: parseEnvBool(env["CACHE_ENABLED"], false),
       driver: env["CACHE_DRIVER"],
       dir: env["CACHE_DIR"],
-      redisUrl: env["CACHE_REDIS_URL"],
       ttlSeconds: env["CACHE_TTL_SECONDS"],
     },
   };

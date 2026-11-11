@@ -93,8 +93,9 @@ export async function startTotpEnrolment(
   secret: string,
 ): Promise<boolean> {
   const db = await getDb();
+  /** Recovery codes are left alone: an account with passkeys may already hold a set. */
   const updated = await db.execute(
-    `UPDATE users SET totp_secret = ?, totp_confirmed_at = NULL, totp_recovery_codes = NULL
+    `UPDATE users SET totp_secret = ?, totp_confirmed_at = NULL
       WHERE id = ? AND site_id = ? AND totp_confirmed_at IS NULL`,
     [encryptSecret(secret), userId, siteId],
   );
@@ -122,16 +123,58 @@ export async function confirmTotp(
   return updated === 1;
 }
 
-/** Clear a factor that is still in the state the caller just authorized. */
-export async function disableTotp(userId: string, siteId: string, enabled: boolean): Promise<boolean> {
+/**
+ * Clear a factor that is still in the state the caller just authorized.
+ * `keepRecoveryCodes` is set when the account still has passkeys, which the
+ * codes also back up.
+ */
+export async function disableTotp(userId: string, siteId: string, enabled: boolean, keepRecoveryCodes = false): Promise<boolean> {
   const db = await getDb();
   const updated = await db.execute(
     `UPDATE users
-        SET totp_secret = NULL, totp_confirmed_at = NULL, totp_recovery_codes = NULL, totp_last_step = NULL
+        SET totp_secret = NULL, totp_confirmed_at = NULL, totp_last_step = NULL${keepRecoveryCodes ? "" : ", totp_recovery_codes = NULL"}
       WHERE id = ? AND site_id = ? AND totp_confirmed_at IS ${enabled ? "NOT NULL" : "NULL"}`,
     [userId, siteId],
   );
   return updated === 1;
+}
+
+/**
+ * Recovery codes back up every second factor: an authenticator app and
+ * passkeys alike. They are stored in `totp_recovery_codes`, the column they
+ * started in. Throws TotpUnavailableError when the stored set cannot be read.
+ */
+export async function countRecoveryCodes(userId: string, siteId: string): Promise<number> {
+  let rows: Array<{ totp_recovery_codes: string | null }>;
+  try {
+    const db = await getDb();
+    rows = await db.query<{ totp_recovery_codes: string | null }>(
+      "SELECT totp_recovery_codes FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+      [userId, siteId],
+    );
+  } catch {
+    throw new TotpUnavailableError();
+  }
+  if (!rows[0]) throw new TotpUnavailableError();
+  const codes = parseCodes(rows[0].totp_recovery_codes);
+  if (!codes) throw new TotpUnavailableError();
+  return codes.length;
+}
+
+/** Replace the account's recovery codes with a new set. */
+export async function setRecoveryCodes(userId: string, siteId: string, codes: string[]): Promise<boolean> {
+  const db = await getDb();
+  const updated = await db.execute(
+    "UPDATE users SET totp_recovery_codes = ? WHERE id = ? AND site_id = ?",
+    [encryptSecret(JSON.stringify(codes)), userId, siteId],
+  );
+  return updated === 1;
+}
+
+/** Drop the recovery codes, once no second factor is left for them to back up. */
+export async function clearRecoveryCodes(userId: string, siteId: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("UPDATE users SET totp_recovery_codes = NULL WHERE id = ? AND site_id = ?", [userId, siteId]);
 }
 
 /**
@@ -167,7 +210,8 @@ export async function consumeRecoveryCode(
       [userId, siteId],
     );
     const row = rows[0];
-    if (!row?.totp_confirmed_at) return false;
+    /** Codes exist only once a factor is confirmed: TOTP or a first passkey. */
+    if (!row?.totp_recovery_codes) return false;
     const codes = parseCodes(row.totp_recovery_codes);
     if (!codes) throw new TotpUnavailableError();
     const index = matchRecoveryCode(codes, supplied);

@@ -20,8 +20,10 @@ export async function renderAccountBlocks(html: string, session: SessionPayload)
     (_whole, attributes: string, kind: string) => {
       const id = /data-section-id="([a-z0-9._-]*)"/.exec(attributes)?.[1] ?? "";
       const titles = /data-show-titles="(true|false)"/.exec(attributes)?.[1] ?? "true";
+      /** Passkeys are part of the account itself, so they follow the profile rather than the plugin sections. */
       const keys = kind === "all" ? ["controls", ...fragments.keys()] : kind === "plugins"
-        ? [...fragments.keys()].filter(key => key !== "profile" && key !== "workspaces" && (!id || key === id)) : [kind];
+        ? [...fragments.keys()].filter(key => key !== "profile" && key !== "workspaces" && key !== "passkeys" && (!id || key === id))
+        : kind === "profile" ? ["profile", "passkeys"] : [kind];
       let inner = "";
       for (const key of keys) {
         if (seen.has(key)) continue;

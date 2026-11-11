@@ -57,6 +57,12 @@ export type RestartProbe = {
   pid: number;
   ppid: number;
   argv: readonly string[];
+  /**
+   * Node's own flags (`process.execArgv`), such as a TypeScript loader,
+   * `--env-file`, or a heap size. `argv` never includes them, so a relaunch
+   * without them can start a different program or crash on its first import.
+   */
+  execArgv?: readonly string[];
   execPath: string;
   cwd: string;
   cgroup: string | null;
@@ -403,6 +409,7 @@ export async function loadRestartProbe(): Promise<RestartProbe> {
     pid: process.pid,
     ppid,
     argv: process.argv,
+    execArgv: process.execArgv,
     execPath: process.execPath,
     cwd: process.cwd(),
     cgroup,
@@ -638,9 +645,31 @@ function reexecPlan(probe: RestartProbe): RestartPlan {
   };
 }
 
+/**
+ * Flags a relaunched server must not reuse: a debugger would find its port
+ * still held by the old process, and watch/test modes belong to the parent
+ * that started them.
+ */
+const NOT_RELAUNCHED = /^--(?:inspect|inspect-brk|inspect-wait|inspect-port|debug-port|watch|watch-path|watch-preserve-output|test|test-[a-z-]+)(?:=|$)/;
+
+/** Node flags to start the relaunched server with, in their original order. */
+export function relaunchExecArgv(execArgv: readonly string[]): string[] {
+  const kept: string[] = [];
+  for (let i = 0; i < execArgv.length; i++) {
+    const flag = execArgv[i]!;
+    if (NOT_RELAUNCHED.test(flag)) {
+      /** `--inspect-port 9230` and `--watch-path dir` take the next item as their value. */
+      if (!flag.includes("=") && /^--(?:inspect-port|debug-port|watch-path)$/.test(flag)) i++;
+      continue;
+    }
+    kept.push(flag);
+  }
+  return kept;
+}
+
 function serverCommand(probe: RestartProbe): { file: string; args: string[] } | null {
   if (!probe.worker) {
-    const args = probe.argv.slice(1);
+    const args = [...relaunchExecArgv(probe.execArgv ?? []), ...probe.argv.slice(1)];
     if (!isSafeCommand(probe.execPath, args)) return null;
     return { file: probe.execPath, args: [...args] };
   }

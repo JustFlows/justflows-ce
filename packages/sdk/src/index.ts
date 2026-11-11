@@ -359,6 +359,8 @@ export type {
 } from "./patterns.js";
 
 export type { SearchBackend, SearchDocument } from "./search.js";
+export { cacheKeyMatchesPrefix, isSiteScopedCacheKey } from "./cache.js";
+export type { CacheStore, CacheStoreDefinition, CacheStoreStatus } from "./cache.js";
 export type { SpamCheckBackend, SpamCheckInput, SpamCheckResult } from "./spam.js";
 
 export { pluginApiUrl, isValidPluginApiNamespace } from "./api-urls.js";

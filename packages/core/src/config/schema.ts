@@ -30,11 +30,22 @@ export const StorageConfigSchema = z.object({
   s3Endpoint: z.string().optional(),
 });
 
+/** A plugin cache store driver id: `plugin:<pluginId>.<storeId>`. */
+export const CACHE_STORE_DRIVER_RE = /^plugin:[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+$/;
+
 export const CacheConfigSchema = z.object({
   enabled: z.boolean().default(false),
-  driver: z.enum(["memory", "filesystem", "redis"]).default("filesystem"),
+  /**
+   * `memory`, `filesystem`, or a store an active plugin registers with
+   * `ctx.cache.registerStore`, written `plugin:<pluginId>.<storeId>`.
+   * Anything else (such as the retired `redis` value) falls back to
+   * `filesystem` rather than failing the whole configuration.
+   */
+  driver: z
+    .union([z.enum(["memory", "filesystem"]), z.string().regex(CACHE_STORE_DRIVER_RE)])
+    .default("filesystem")
+    .catch("filesystem"),
   dir: z.string().optional(),
-  redisUrl: z.string().optional(),
   ttlSeconds: z.coerce.number().int().min(0).default(300),
 });
 

@@ -75,6 +75,7 @@ const SignupPage = lazyPage(() => import("./pages/SignupPage"));
 const OAuthConsentPage = lazyPage(() => import("./pages/OAuthConsentPage"));
 const PluginHostPage = lazyPage(() => import("./pages/admin/extensions/PluginHostPage"));
 const AdminPathPage = lazyPage(() => import("./pages/admin/security/AdminPathPage"));
+const PasskeyPolicyPage = lazyPage(() => import("./pages/admin/security/PasskeyPolicyPage"));
 
 /**
  * Guards the couple of full-bleed editors that render outside AdminShell (and
@@ -176,6 +177,7 @@ export default function App() {
               <Route path="security/headers" element={<SecurityHeadersPage />} />
               <Route path="security/advanced" element={<SecurityAdvancedPage />} />
               <Route path="security/admin-path" element={<AdminPathPage />} />
+              <Route path="security/passkeys" element={<PasskeyPolicyPage />} />
               <Route path="security/account" element={<AccountSecurityPage />} />
               <Route path="security/audit" element={<AuditLogPage />} />
               <Route path="security/audit/settings" element={<AuditSettingsPage />} />

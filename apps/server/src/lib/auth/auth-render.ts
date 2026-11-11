@@ -11,22 +11,36 @@ const field = (id: string, label: string, input: string) =>
   `<label for="jf-auth-${id}">${label}</label><input id="jf-auth-${id}" ${input}>`;
 const password = (id: string, label: string, autocomplete: string) =>
   field(id, label, `name="${id === "password-confirm" ? "confirm" : "password"}" type="password" autocomplete="${autocomplete}" minlength="${autocomplete === "current-password" ? 1 : MIN_PASSWORD_LENGTH}" required`);
+/** The passkey mark: a person with a key, as browsers and password managers show it. */
+const PASSKEY_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<circle cx="9" cy="7.5" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5 1.3 0 2.5.4 3.5 1"/><circle cx="18" cy="11.5" r="2.5"/><path d="M18 14v6.5M18 17.5h2M18 19.5h1.5"/></svg>';
 const notice = (text: string) => `<p class="jf-auth-form__notice">${text}</p>`;
-const form = (kind: string, inner: string, submit: string) =>
+const form = (kind: string, inner: string, submit: string, after = "") =>
   `<form class="jf-auth-form__form" data-jf-auth="${kind}" novalidate>`
   + '<p class="jf-auth-form__message" role="alert" hidden></p>'
-  + inner + `<button type="submit">${submit}</button></form>`;
+  + inner + `<button type="submit">${submit}</button>${after}</form>`;
 
 function body(kind: string, flags: Flags): string {
   switch (kind) {
     case "login":
+      /**
+       * Passkey controls stay hidden until /js/auth.js confirms the browser
+       * supports passkeys, so a page without script shows only the password form.
+       */
       return form("login",
-        field("email", "Email", 'name="email" type="email" autocomplete="email" required')
+        field("email", "Email", 'name="email" type="email" autocomplete="username webauthn" required')
         + password("password", "Password", "current-password")
+        + '<div class="jf-auth-form__passkey" hidden>'
+        + '<button type="button" data-jf-passkey="second">Use your passkey</button>'
+        + "<small>Confirm with the passkey on this device or your phone, or enter a code below.</small></div>"
         + '<div class="jf-auth-form__totp" hidden>'
         + field("totp", "Authentication code", 'name="totp" inputmode="numeric" autocomplete="one-time-code"')
         + "<small>Enter the code from your authenticator app, or a recovery code.</small></div>",
-        "Sign in");
+        "Sign in",
+        '<div class="jf-auth-form__passkey-signin" hidden>'
+        + '<p class="jf-auth-form__or" role="separator"><span>or</span></p>'
+        + `<button type="button" class="jf-auth-form__alt" data-jf-passkey="signin" aria-describedby="jf-auth-passkey-hint">${PASSKEY_ICON}Sign in with a passkey</button>`
+        + '<small id="jf-auth-passkey-hint">Use your fingerprint, face, screen lock or a security key.</small></div>');
     case "register":
       if (!flags.registration) return notice("Registration is closed on this site.");
       return form("register",

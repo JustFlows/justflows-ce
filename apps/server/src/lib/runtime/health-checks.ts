@@ -89,6 +89,15 @@ async function checkCache(): Promise<CheckResult> {
     const total = stats.hits + stats.misses;
     const hitRate =
       total > 0 ? `${Math.round((stats.hits / total) * 100)}% hit rate` : "no requests yet";
+    const { selectedCacheStoreStatus } = await import("../cache/cache-stores.js");
+    const store = cache.enabled ? selectedCacheStoreStatus() : null;
+    if (store && store.state !== "ready") {
+      return {
+        name: "Object cache",
+        status: "warn",
+        message: `${store.label ?? store.id}: ${store.state}${store.detail ? ` (${store.detail})` : ""}. Requests bypass the cache.`,
+      };
+    }
     return {
       name: "Object cache",
       status: cache.enabled ? "ok" : "warn",
