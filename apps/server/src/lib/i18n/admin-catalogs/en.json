@@ -1699,6 +1699,8 @@
       "needLanguage": "The default language for the public site",
       "needEmail": "An email address for your admin account",
       "outro": "Everything else is handled automatically.",
+      "databaseProvided": "Your host has already set up a {driver} database for this site. You do not need to enter database details.",
+      "useOwnDatabase": "Use a different database",
       "cta": "Let's go →"
     },
     "database": {
