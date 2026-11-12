@@ -15,6 +15,7 @@ import {
   installTokenWaived,
   tokenMatches,
 } from "../../lib/installation/install-token.js";
+import { readProvisionedDatabase } from "../../lib/installation/provisioned-database.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { SiteUrlSchema } from "../../lib/settings/site-url.js";
 import { freshInstallSiteSettings, parseInstallLocale, siteSettingsInsertSql } from "../../lib/installation/install-defaults.js";
@@ -24,14 +25,20 @@ const router = Router();
 
 
 const Schema = z.object({
-  db: z.object({
-    driver: z.enum(["postgres", "mysql", "mariadb"]),
-    host: z.string().min(1),
-    port: z.coerce.number().int().min(1).max(65535),
-    database: z.string().min(1),
-    username: z.string().min(1),
-    password: z.string(),
-  }),
+  /**
+   * Optional when the host provisioned the database (`DB_PROVISIONED=true`
+   * in `.env`); the server then reads the connection itself.
+   */
+  db: z
+    .object({
+      driver: z.enum(["postgres", "mysql", "mariadb"]),
+      host: z.string().min(1),
+      port: z.coerce.number().int().min(1).max(65535),
+      database: z.string().min(1),
+      username: z.string().min(1),
+      password: z.string(),
+    })
+    .optional(),
   token: z.string().optional(),
   site: z.object({
     name: z.string().min(1),
@@ -116,8 +123,13 @@ async function connectDb(driver: "postgres" | "mysql" | "mariadb", url: string):
   };
 }
 
-router.get("/status", (req, res) => {
+router.get("/status", async (req, res) => {
   const installed = isInstalled();
+  /**
+   * Anonymous callers learn only that the host provided a database and its
+   * driver — never the host, name, user, or password.
+   */
+  const provisioned = installed ? null : await readProvisionedDatabase();
   // Mint on this request so `pnpm dev` (no root server.js) still writes the
   // file before the owner is asked to paste it.
   if (!installed && installTokenRequired()) {
@@ -129,6 +141,8 @@ router.get("/status", (req, res) => {
     installed,
     tokenRequired: !installed && installTokenRequired() && !installTokenWaived(req.ip),
     tokenFile: installTokenFileExists() ? "install-token/TOKEN.txt" : null,
+    databaseProvisioned: provisioned !== null,
+    databaseDriver: provisioned?.driver ?? null,
   });
 });
 
@@ -186,7 +200,20 @@ router.post("/", installRequestLimit, async (req, res) => {
     }
   }
 
-  const { db, site, account } = body.data;
+  const { site, account } = body.data;
+  const provisioned = body.data.db ? null : await readProvisionedDatabase();
+  const db = body.data.db ?? (provisioned && {
+    driver: provisioned.driver,
+    host: provisioned.host,
+    port: provisioned.port,
+    database: provisioned.database,
+    username: provisioned.username,
+    password: provisioned.password,
+  });
+  if (!db) {
+    emit0(res, "Enter the database details.");
+    return;
+  }
   const localeParsed = parseInstallLocale(site.locale);
   if (!localeParsed.ok) {
     emit0(res, localeParsed.error);
@@ -225,7 +252,9 @@ router.post("/", installRequestLimit, async (req, res) => {
       console.error("[justflows] install: database connection failed:", e);
       emit(
         "error",
-        `Cannot connect to the ${db.driver} database. Check the hostname, port, database name, username and password.`,
+        provisioned
+          ? `Cannot connect to the ${db.driver} database your host set up. Enter the database details yourself, or ask your host to check it.`
+          : `Cannot connect to the ${db.driver} database. Check the hostname, port, database name, username and password.`,
       );
       res.end();
       return;

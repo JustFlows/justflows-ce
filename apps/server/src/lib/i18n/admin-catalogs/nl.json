@@ -1718,6 +1718,8 @@
       "needLanguage": "De standaardtaal voor de openbare site",
       "needEmail": "Een e-mailadres voor je beheerdersaccount",
       "outro": "Al het andere wordt automatisch afgehandeld.",
+      "databaseProvided": "Je host heeft al een {driver}-database voor deze site aangemaakt. Je hoeft geen databasegegevens in te vullen.",
+      "useOwnDatabase": "Andere database gebruiken",
       "cta": "Aan de slag →"
     },
     "database": {
