@@ -51,6 +51,12 @@ interface InstallLog {
 
 const OTHER_LOCALE = "__other__";
 
+const DRIVER_LABELS: Record<DbForm["driver"], string> = {
+  postgres: "PostgreSQL",
+  mysql: "MySQL",
+  mariadb: "MariaDB",
+};
+
 function localeOptionLabel(code: string): string {
   const meta = metaForCode(code);
   if (meta.name === meta.nativeName) return `${meta.name} — ${code}`;
@@ -87,6 +93,12 @@ export default function InstallPage() {
   const [tokenRequired, setTokenRequired] = useState(false);
   const [tokenFile, setTokenFile] = useState<string | null>(null);
   const [bootstrapLog, setBootstrapLog] = useState("");
+  /**
+   * Set when the host already created the database (`DB_PROVISIONED=true`).
+   * The server keeps the credentials; the wizard only knows the driver.
+   */
+  const [dbProvisioned, setDbProvisioned] = useState<DbForm["driver"] | null>(null);
+  const [provisionChecked, setProvisionChecked] = useState(false);
 
   // First-run zip installs download npm packages before the site wizard. Do not
   // collect database details — and never POST /api/install — until that finishes.
@@ -126,6 +138,32 @@ export default function InstallPage() {
       window.clearTimeout(timer);
     };
   }, []);
+
+  /**
+   * Asked once the dependency check has finished, so it never boots the app
+   * any earlier than the welcome step already does.
+   */
+  useEffect(() => {
+    if (step !== "welcome" || provisionChecked) return;
+    setProvisionChecked(true);
+    fetch("/api/install/status")
+      .then((r) => r.json())
+      .then((data: { databaseProvisioned?: boolean; databaseDriver?: string | null }) => {
+        const driver = data.databaseDriver;
+        if (data.databaseProvisioned && (driver === "postgres" || driver === "mysql" || driver === "mariadb")) {
+          setDbProvisioned(driver);
+        }
+      })
+      .catch(() => {
+        /** Without the answer the wizard simply asks for the database. */
+      });
+  }, [step, provisionChecked]);
+
+  /** Switches from the host's database to entering details by hand. */
+  function switchToOwnDatabase() {
+    setDbProvisioned(null);
+    setStep("database");
+  }
 
   // Token check belongs on the last form step so visiting Database / Site does
   // not boot the full app or generate TOKEN.txt.
@@ -218,14 +256,16 @@ export default function InstallPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token: installTokenValue.trim(),
-          db: {
-            driver: db.driver,
-            host: db.host,
-            port: Number(db.port),
-            database: db.database,
-            username: db.username,
-            password: db.password,
-          },
+          db: dbProvisioned
+            ? undefined
+            : {
+                driver: db.driver,
+                host: db.host,
+                port: Number(db.port),
+                database: db.database,
+                username: db.username,
+                password: db.password,
+              },
           site: {
             name: site.name,
             description: site.description,
@@ -322,7 +362,10 @@ export default function InstallPage() {
         {/* Progress dots */}
         {step !== "preparing" && step !== "installing" && step !== "done" && (
           <ol className="jf-steps" aria-label={t("install.stepsAriaLabel")}>
-            {(["welcome", "database", "site", "account"] as const).map((s) => (
+            {(dbProvisioned
+              ? (["welcome", "site", "account"] as const)
+              : (["welcome", "database", "site", "account"] as const)
+            ).map((s) => (
               <li
                 key={s}
                 className="jf-steps__dot"
@@ -357,13 +400,27 @@ export default function InstallPage() {
               <h2 className="jf-section-title">{t("install.welcome.heading")}</h2>
               <p className="jf-prose">{t("install.welcome.intro")}</p>
               <ul className="jf-prose" style={{ paddingInlineStart: "1.25rem", lineHeight: 2 }}>
-                <li>{t("install.welcome.needDatabase")}</li>
-                <li>{t("install.welcome.needDbDetails")}</li>
+                {dbProvisioned ? null : (
+                  <>
+                    <li>{t("install.welcome.needDatabase")}</li>
+                    <li>{t("install.welcome.needDbDetails")}</li>
+                  </>
+                )}
                 <li>{t("install.welcome.needLanguage")}</li>
                 <li>{t("install.welcome.needEmail")}</li>
               </ul>
+              {dbProvisioned ? (
+                <div className="jf-callout" role="note">
+                  <p className="jf-callout__title">
+                    {t("install.welcome.databaseProvided", { driver: DRIVER_LABELS[dbProvisioned] })}
+                  </p>
+                  <button className="jf-btn jf-btn--ghost" onClick={switchToOwnDatabase}>
+                    {t("install.welcome.useOwnDatabase")}
+                  </button>
+                </div>
+              ) : null}
               <p className="jf-prose">{t("install.welcome.outro")}</p>
-              <button className="jf-btn jf-btn--primary" onClick={() => setStep("database")}>
+              <button className="jf-btn jf-btn--primary" onClick={() => setStep(dbProvisioned ? "site" : "database")}>
                 {t("install.welcome.cta")}
               </button>
             </div>
@@ -523,7 +580,7 @@ export default function InstallPage() {
                 {t("install.site.urlDetectedLabel")} <strong>{siteUrl || "…"}</strong>
               </p>
               <Row>
-                <button className="jf-btn jf-btn--ghost" onClick={() => setStep("database")}>{t("install.back")}</button>
+                <button className="jf-btn jf-btn--ghost" onClick={() => setStep(dbProvisioned ? "welcome" : "database")}>{t("install.back")}</button>
                 <button
                   className="jf-btn jf-btn--primary"
                   disabled={!canContinueSite}
@@ -677,7 +734,7 @@ export default function InstallPage() {
               )}
 
               {fatalError && (
-                <button className="jf-btn jf-btn--ghost" onClick={() => setStep("database")}>
+                <button className="jf-btn jf-btn--ghost" onClick={switchToOwnDatabase}>
                   {t("install.installing.fixSettings")}
                 </button>
               )}

@@ -1699,6 +1699,8 @@
       "needLanguage": "Domyślny język witryny publicznej",
       "needEmail": "Adres e-mail Twojego konta administratora",
       "outro": "Cała reszta jest obsługiwana automatycznie.",
+      "databaseProvided": "Twój dostawca hostingu utworzył już bazę danych {driver} dla tej witryny. Nie musisz podawać danych bazy.",
+      "useOwnDatabase": "Użyj innej bazy danych",
       "cta": "Chodźmy →"
     },
     "database": {

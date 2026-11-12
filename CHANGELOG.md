@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.3]
+
+### Added
+
+- **The setup wizard skips the database step when the host already created the database.** A hosting integration, such as the Plesk extension, writes `DB_PROVISIONED=true` next to complete `DB_*` settings in `.env`. The wizard then says the host set up the database and goes straight to the site details. The server reads the connection from `.env`, so the database password never reaches the browser. The setup key is still required, and the status endpoint only reveals that a database is provided and its driver. **Use a different database** switches back to the form, and so does a failed connection. Without the marker, `DB_*` lines (for example from a copied `.env.example`) are ignored as before. ([#288](https://github.com/JustFlows/justflows-ce/issues/288))
+
 ## [0.4.2]
 
 ### Added
