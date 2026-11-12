@@ -1721,6 +1721,8 @@
       "needLanguage": "Die Standardsprache für die öffentliche Website",
       "needEmail": "Eine E-Mail-Adresse für Ihr Admin-Konto",
       "outro": "Alles andere wird automatisch erledigt.",
+      "databaseProvided": "Ihr Webhoster hat für diese Website bereits eine {driver}-Datenbank eingerichtet. Sie müssen keine Datenbankdaten eingeben.",
+      "useOwnDatabase": "Andere Datenbank verwenden",
       "cta": "Los geht’s →"
     },
     "database": {

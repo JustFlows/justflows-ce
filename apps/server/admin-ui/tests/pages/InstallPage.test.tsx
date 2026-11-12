@@ -124,4 +124,79 @@ describe("InstallPage", () => {
     expect(payload.site.locale).toBe("nl-NL");
     expect(payload.account.emailDetails).toBe(true);
   });
+
+  describe("when the host provisioned the database", () => {
+    function stubProvisioned(onInstall?: (init: RequestInit) => void) {
+      const encoder = new TextEncoder();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+          const path = String(input);
+          if (path.includes("/api/bootstrap/status")) return jsonResponse({ ready: true });
+          if (path.includes("/api/install/status")) {
+            return jsonResponse({ tokenRequired: false, tokenFile: null, databaseProvisioned: true, databaseDriver: "mariadb" });
+          }
+          if (path.includes("/api/install/complete")) return jsonResponse({ ok: true });
+          if (path.includes("/api/install") && init?.method === "POST") {
+            onInstall?.(init);
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              headers: { get: (name: string) => (name === "content-type" ? "text/event-stream" : null) },
+              body: new ReadableStream({
+                start(controller) {
+                  controller.enqueue(encoder.encode('data: {"type":"done","message":"ok"}\n\n'));
+                  controller.close();
+                },
+              }),
+            } as Response);
+          }
+          return jsonResponse({});
+        }),
+      );
+    }
+
+    it("skips the database step and never sends database details", async () => {
+      let body: { db?: unknown } | null = null;
+      stubProvisioned((init) => {
+        body = JSON.parse(String(init.body));
+      });
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <InstallPage />
+        </MemoryRouter>,
+      );
+
+      expect(await screen.findByText(/already set up a MariaDB database/i)).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /let's go/i }));
+      expect(await screen.findByRole("heading", { name: "Your site" })).toBeInTheDocument();
+      expect(screen.queryByLabelText("Database username")).not.toBeInTheDocument();
+
+      await user.type(screen.getByLabelText("Site name"), "Acme");
+      await user.click(screen.getByRole("button", { name: /next/i }));
+      await user.type(screen.getByLabelText("Your email"), "admin@example.com");
+      await user.type(screen.getByLabelText("Display name"), "Site Admin");
+      await user.type(screen.getByLabelText("Password"), "super-secret-password");
+      await user.type(screen.getByLabelText("Confirm password"), "super-secret-password");
+      await user.click(screen.getByRole("button", { name: /install justflows/i }));
+      await screen.findByRole("heading", { name: /is ready/i });
+
+      expect(body).not.toBeNull();
+      expect(body!.db).toBeUndefined();
+    });
+
+    it("lets the installer use a different database instead", async () => {
+      stubProvisioned();
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <InstallPage />
+        </MemoryRouter>,
+      );
+
+      await user.click(await screen.findByRole("button", { name: /use a different database/i }));
+      expect(await screen.findByLabelText("Database username")).toBeInTheDocument();
+    });
+  });
 });

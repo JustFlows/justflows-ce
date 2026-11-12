@@ -1721,6 +1721,8 @@
       "needLanguage": "La langue par défaut pour le site public",
       "needEmail": "Une adresse e-mail pour votre compte administrateur",
       "outro": "Tout le reste est géré automatiquement.",
+      "databaseProvided": "Votre hébergeur a déjà créé une base de données {driver} pour ce site. Vous n’avez pas besoin de saisir les informations de connexion.",
+      "useOwnDatabase": "Utiliser une autre base de données",
       "cta": "C’est parti →"
     },
     "database": {
