@@ -1,11 +1,10 @@
 import FunctionalBlock, { FUNCTIONAL_TYPES } from "./FunctionalBlock";
-import ServerBlock, { SERVER_RENDERED_TYPES } from "./ServerBlock";
+import ServerBlock, { SERVER_RENDERED_TYPES, type InlineEditorTag } from "./ServerBlock";
 import MediaBlock from "../MediaBlock";
 import { useT } from "../../i18n/I18nProvider";
 import { Component, Fragment, cloneElement, createContext, isValidElement, useContext, useEffect, useRef, useState, type ErrorInfo, type ReactElement, type ReactNode } from "react";
 import type { BlockNode } from "./types";
-import { blockStyleDeclarations, coreBlocks, esc, isBlockLocked, presetRefOf, stylePresetClass, styleWithTemplateDefault, normalizeInlineValue, parseBlockStyle, sanitizeHtmlBlock, sanitizePluginPreviewHtml, sanitizeRichText, INLINE_FIELD_ATTRIBUTE } from "@justflows/blocks";
-import { renderMathOnDemand, useMathReady } from "../../lib/math-loader";
+import { blockStyleDeclarations, coreBlocks, isBlockLocked, presetRefOf, stylePresetClass, styleWithTemplateDefault, normalizeInlineValue, parseBlockStyle, sanitizeHtmlBlock, sanitizePluginPreviewHtml, INLINE_FIELD_ATTRIBUTE } from "@justflows/blocks";
 import { isExtendClick, useBuilderSelectionActions } from "./selection-context";
 import { useTemplateContext } from "./template-defaults-context";
 import { useCatalogEntry } from "./catalog-context";
@@ -155,8 +154,6 @@ function BlockPreviewContent({
 }: BlockPreviewProps) {
   const { t, locale } = useT();
   const scheme = usePreviewScheme();
-  /** Formulas show their source until KaTeX has loaded, then redraw (justflows-ce#318). */
-  useMathReady();
   const p = canvasProps(block);
   const tags = useMergeTags();
   const text = (value: unknown) => applyMergeTags(String(value ?? ""), tags);
@@ -260,22 +257,24 @@ function BlockPreviewContent({
     );
   };
 
-  if (block.type === "core.list-item" && active) {
-    return wrap(
-      <li className="jf-list-item">
-        <div className="jf-list-item-content">
-          <InlineField block={block} field="text" active={active} as="div" placeholder={t("builder.inline.listItem")} onCommit={commitProps}>
-            {null}
-          </InlineField>
-          {renderChildren?.(block.children ?? [], depth + 1)}
-        </div>
-      </li>,
-    );
-  }
   /** Drawn by the public renderer itself (justflows-ce#311). */
   if (SERVER_RENDERED_TYPES.has(block.type)) {
-    const serverProps = block.type === "core.html" ? { ...p, html: text(p.html) } : p;
+    const fieldsHere = INLINE_FIELD_TEXT[block.type];
+    const serverProps = fieldsHere ? inlineServerProps(block.type, p, active, t, text) : block.type === "core.html" ? { ...p, html: text(p.html) } : p;
+    const inlineEditor =
+      fieldsHere && active
+        ? (field: string, as: InlineEditorTag) => {
+            const copy = fieldsHere[field];
+            if (!copy) return null;
+            return (
+              <InlineField block={block} field={field} active={active} as={as} placeholder={t(copy.placeholder)} label={copy.label ? t(copy.label) : undefined} onCommit={commitProps}>
+                {null}
+              </InlineField>
+            );
+          }
+        : undefined;
     return wrap(
+      <>
       <ServerBlock
         type={block.type}
         props={serverProps}
@@ -283,9 +282,14 @@ function BlockPreviewContent({
         blockId={block.id}
         rootClass={presetClass || undefined}
         rootDeclarations={[blockStyleDeclarations(blockStyle), block.type === "core.grid" && onUpdateProps ? "display:block" : ""].filter(Boolean).join(";") || undefined}
+        inline={inlineEditor}
       >
         {renderChildren?.(block.children ?? [], depth + 1) ?? emptyContainerHint(block.type, t)}
-      </ServerBlock>,
+      </ServerBlock>
+      {block.type === "core.button" && active && (
+        <InlineLinkField value={typeof p.url === "string" ? p.url : ""} label={t("builder.inline.buttonLink")} onCommit={(url) => commitProps({ ...p, url })} />
+      )}
+      </>,
       undefined,
       true,
     );
@@ -300,81 +304,6 @@ function BlockPreviewContent({
         {p.showFilters === true && <span>{t("search.filters")}: {t("search.type")}, {t("search.taxonomy")}, {t("search.after")}</span>}
         <button type="button" disabled>{label}</button>
       </div>);
-    }
-    case "core.hero": {
-      const align = (p.align as string) === "center" ? "center" : "left";
-      const bgImage = p.backgroundImage as string;
-      return wrap(
-        <section
-          className={`jf-hero jf-hero--align-${align}`}
-          style={bgImage ? { backgroundImage: `url(${bgImage})` } : undefined}
-        >
-          <div className="jf-hero__inner">
-            <InlineField block={block} field="heading" active={active} as="h1" className="jf-hero__heading" placeholder={t("builder.preview.heroHeading")} onCommit={commitProps}>
-              <h1 className="jf-hero__heading">{(p.heading as string) || t("builder.preview.heroHeading")}</h1>
-            </InlineField>
-            {(active || (p.subheading as string)) && (
-              <InlineField block={block} field="subheading" active={active} as="p" className="jf-hero__sub" placeholder={t("builder.inline.supportingText")} onCommit={commitProps}>
-                <p className="jf-hero__sub">{p.subheading as string}</p>
-              </InlineField>
-            )}
-            {(active || (p.buttonLabel as string)) && (
-              <span className="btn btn--primary jf-hero__btn">
-                <InlineField block={block} field="buttonLabel" active={active} as="span" placeholder={t("builder.preview.button")} label={t("builder.inline.buttonLabel")} onCommit={commitProps}>
-                  {p.buttonLabel as string}
-                </InlineField>
-              </span>
-            )}
-          </div>
-        </section>,
-      );
-    }
-    case "core.cta": {
-      const variant = (p.variant as string) || "default";
-      return wrap(
-        <section className={`jf-cta jf-cta--${variant}`}>
-          <div className="jf-container jf-container--default">
-            <InlineField block={block} field="heading" active={active} as="h2" className="jf-cta__heading" placeholder={t("builder.preview.callToAction")} onCommit={commitProps}>
-              <h2 className="jf-cta__heading">{(p.heading as string) || t("builder.preview.callToAction")}</h2>
-            </InlineField>
-            {(active || (p.text as string)) && (
-              <InlineField block={block} field="text" active={active} as="p" className="jf-cta__text" placeholder={t("builder.inline.supportingText")} onCommit={commitProps}>
-                <p className="jf-cta__text">{p.text as string}</p>
-              </InlineField>
-            )}
-            {(active || (p.buttonLabel as string)) && (
-              <span className="btn btn--primary jf-cta__btn">
-                <InlineField block={block} field="buttonLabel" active={active} as="span" placeholder={t("builder.preview.button")} label={t("builder.inline.buttonLabel")} onCommit={commitProps}>
-                  {p.buttonLabel as string}
-                </InlineField>
-              </span>
-            )}
-          </div>
-        </section>,
-      );
-    }
-    case "core.paragraph":
-      return wrap(
-        <InlineField block={block} field="text" active={active} as="div" className="jf-paragraph" placeholder={t("builder.preview.typeAParagraph")} onCommit={commitProps}>
-          <div
-            className="jf-paragraph"
-            dangerouslySetInnerHTML={{
-              __html:
-                renderMathOnDemand(sanitizeRichText(text(p.text))) ||
-                `<em style='color:var(--color-muted, var(--jf-text-3))'>${esc(t("builder.preview.emptyParagraph"))}</em>`,
-            }}
-          />
-        </InlineField>,
-      );
-
-    case "core.heading": {
-      const Tag = `h${Math.min(6, Math.max(1, (p.level as number) ?? 2))}` as
-        "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
-      return wrap(
-        <InlineField block={block} field="text" active={active} as={Tag} placeholder={t("builder.preview.heading")} onCommit={commitProps}>
-          <Tag>{text(p.text) || t("builder.preview.heading")}</Tag>
-        </InlineField>,
-      );
     }
     case "core.video":
     case "core.audio":
@@ -537,43 +466,6 @@ function BlockPreviewContent({
         </>,
       );
     }
-    case "core.quote":
-      return wrap(
-        <blockquote>
-          <InlineField block={block} field="text" active={active} as="div" className="jf-quote__text" placeholder={t("builder.preview.quote")} onCommit={commitProps}>
-            <div
-              className="jf-quote__text"
-              dangerouslySetInnerHTML={{
-                __html:
-                  renderMathOnDemand(sanitizeRichText((p.text as string) || "")) ||
-                  `<em style='color:var(--color-muted, var(--jf-text-3))'>${esc(t("builder.preview.quote"))}</em>`,
-              }}
-            />
-          </InlineField>
-          {(active || (p.attribution as string)) && (
-            <InlineField block={block} field="attribution" active={active} as="cite" placeholder={t("builder.inline.attribution")} onCommit={commitProps}>
-              <cite>— {p.attribution as string}</cite>
-            </InlineField>
-          )}
-        </blockquote>,
-      );
-    case "core.button":
-      return wrap(
-        <>
-          <span className={`btn btn--${(p.variant as string) || "primary"}`}>
-            <InlineField block={block} field="label" active={active} as="span" placeholder={t("builder.preview.button")} label={t("builder.inline.buttonLabel")} onCommit={commitProps}>
-              {(p.label as string) || t("builder.preview.button")}
-            </InlineField>
-          </span>
-          {active && (
-            <InlineLinkField
-              value={typeof p.url === "string" ? p.url : ""}
-              label={t("builder.inline.buttonLink")}
-              onCommit={(url) => commitProps({ ...p, url })}
-            />
-          )}
-        </>,
-      );
     case "core.embed":
       return wrap(
         <div
@@ -901,6 +793,43 @@ function BlockPreviewContent({
         <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{block.type}</div>,
       );
   }
+}
+
+/**
+ * In-place fields of the server-rendered blocks, with the canvas copy for each:
+ * the placeholder an empty field shows and, where it differs, the editor's label.
+ */
+const INLINE_FIELD_TEXT: Record<string, Record<string, { placeholder: string; label?: string; shownWhenEmpty?: boolean }>> = {
+  "core.heading": { text: { placeholder: "builder.preview.heading", shownWhenEmpty: true } },
+  "core.paragraph": { text: { placeholder: "builder.preview.typeAParagraph", shownWhenEmpty: true } },
+  "core.quote": { text: { placeholder: "builder.preview.quote", shownWhenEmpty: true }, attribution: { placeholder: "builder.inline.attribution" } },
+  "core.button": { label: { placeholder: "builder.preview.button", label: "builder.inline.buttonLabel", shownWhenEmpty: true } },
+  "core.hero": { heading: { placeholder: "builder.preview.heroHeading", shownWhenEmpty: true }, subheading: { placeholder: "builder.inline.supportingText" }, buttonLabel: { placeholder: "builder.preview.button", label: "builder.inline.buttonLabel" } },
+  "core.cta": { heading: { placeholder: "builder.preview.callToAction", shownWhenEmpty: true }, text: { placeholder: "builder.inline.supportingText" }, buttonLabel: { placeholder: "builder.preview.button", label: "builder.inline.buttonLabel" } },
+  "core.list-item": { text: { placeholder: "builder.inline.listItem" } },
+};
+
+/** Stands in for a field while its editor is open, so the element exists and the markup does not change under the editor. */
+const EDITING_STAND_IN = "\u200b";
+
+/**
+ * The props a block with in-place fields is rendered with on the canvas
+ * (justflows-ce#311). While it is selected, every field is a stand-in, so the
+ * renderer draws each element (also empty optional ones, and a button with no
+ * link yet) and a commit does not redraw the markup under an editor. When it
+ * is not selected, a required field that is empty shows its placeholder, so
+ * the block can still be found; merge tags are filled in as before.
+ */
+function inlineServerProps(type: string, p: Record<string, unknown>, active: boolean, t: (key: string) => string, fill: (value: unknown) => string): Record<string, unknown> {
+  const fields = INLINE_FIELD_TEXT[type] ?? {};
+  const out: Record<string, unknown> = { ...p };
+  for (const [field, copy] of Object.entries(fields)) {
+    if (active) out[field] = EDITING_STAND_IN;
+    else if (typeof p[field] === "string" && p[field]) out[field] = fill(p[field]);
+    else if (copy.shownWhenEmpty) out[field] = t(copy.placeholder);
+  }
+  if (active && (type === "core.hero" || type === "core.cta") && !p.buttonUrl) out.buttonUrl = "#";
+  return out;
 }
 
 /** Shown inside a layout container drawn without its child rows (a read-only preview). */

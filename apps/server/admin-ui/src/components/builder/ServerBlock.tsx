@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { coreBlocks } from "@justflows/blocks";
+import { coreBlocks, hasMath, INLINE_FIELD_ATTRIBUTE } from "@justflows/blocks";
+import { loadMathRenderer, useMathReady } from "../../lib/math-loader";
 
 /**
  * Core blocks drawn by the public renderer itself (justflows-ce#311).
@@ -29,6 +30,13 @@ import { coreBlocks } from "@justflows/blocks";
  * - an empty Code, Custom HTML or Link list block shows a short hint
  *   (`hint`), so it can still be found and selected.
  * Links and buttons stay inert, as for every block on the canvas.
+ *
+ * In-place editing works on the elements the renderer marks with
+ * `data-jf-inline="<field>"`, as for plugin blocks: while the block is
+ * selected, the canvas empties each marked element and mounts its editor
+ * there (`inline`). The caller renders the block with stand-in values for
+ * those fields while it is selected, so committing one field does not
+ * redraw the markup under an editor that is still open.
  */
 
 /** Moved in batches, simplest first; blocks with inline fields and media replacement come last. */
@@ -59,7 +67,18 @@ export const SERVER_RENDERED_TYPES = new Set([
   "core.columns",
   "core.column",
   "core.grid",
+  "core.heading",
+  "core.paragraph",
+  "core.quote",
+  "core.button",
+  "core.hero",
+  "core.cta",
 ]);
+
+
+/** How the in-place editor for one field is drawn: a block or an inline element, matching where it sits. */
+export type InlineEditorTag = "div" | "span";
+const BLOCK_HOSTS = new Set(["DIV", "BLOCKQUOTE", "SECTION", "LI", "FIGURE", "ASIDE", "ARTICLE"]);
 
 const SLOT_ATTRIBUTE = "data-jf-children-slot";
 const SLOT_HTML = `<div ${SLOT_ATTRIBUTE}=""></div>`;
@@ -122,6 +141,7 @@ export default function ServerBlock({
   blockId,
   rootClass,
   rootDeclarations,
+  inline,
 }: {
   type: string;
   props: Record<string, unknown>;
@@ -135,10 +155,16 @@ export default function ServerBlock({
   rootClass?: string;
   /** The block's style declarations (`blockStyleDeclarations`) for the rendered root. */
   rootDeclarations?: string;
+  /** In-place editors by field, mounted into the elements marked with that field. */
+  inline?: (field: string, as: InlineEditorTag) => ReactNode;
 }) {
   const definition = definitions.get(type);
   const withChildren = Boolean(definition?.supportsChildren);
-  const html = useMemo(() => serverBlockHtml(type, props, withChildren), [type, props, withChildren]);
+  /** Formulas show their source until KaTeX has loaded; the block redraws once it has (justflows-ce#318). */
+  const mathReady = useMathReady();
+  const html = useMemo(() => serverBlockHtml(type, props, withChildren), [type, props, withChildren, mathReady]);
+  const [editors, setEditors] = useState<Array<{ field: string; host: HTMLElement; as: InlineEditorTag }>>([]);
+  const editing = Boolean(inline);
   const root = useRef<HTMLDivElement | null>(null);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
@@ -148,8 +174,18 @@ export default function ServerBlock({
     const element = root.current;
     if (!element || showHint) return;
     element.innerHTML = html;
+    if (hasMath(html) && html.includes("jf-math--pending")) void loadMathRenderer();
     prepareForEditing(element);
     applyChrome(element.firstElementChild, blockId, rootClass, rootDeclarations);
+    /** Marked fields of this block only: child blocks are not in the markup yet. */
+    const hosts = editing ? [...element.querySelectorAll<HTMLElement>(`[${INLINE_FIELD_ATTRIBUTE}]`)] : [];
+    setEditors(
+      hosts.map((host) => {
+        const as: InlineEditorTag = BLOCK_HOSTS.has(host.tagName) ? "div" : "span";
+        host.replaceChildren();
+        return { field: host.getAttribute(INLINE_FIELD_ATTRIBUTE) ?? "", host, as };
+      }),
+    );
     if (!withChildren) return;
     const placeholder = element.querySelector(`[${SLOT_ATTRIBUTE}]`);
     if (!slotRef.current) {
@@ -160,7 +196,7 @@ export default function ServerBlock({
     }
     if (placeholder) placeholder.replaceWith(slotRef.current);
     setSlot(slotRef.current);
-  }, [html, withChildren, showHint, blockId, rootClass, rootDeclarations]);
+  }, [html, withChildren, showHint, blockId, rootClass, rootDeclarations, editing]);
 
   if (showHint) {
     return (
@@ -173,6 +209,7 @@ export default function ServerBlock({
     <>
       <div ref={root} data-jf-server-block={type} />
       {slot && withChildren ? createPortal(children, slot) : null}
+      {inline ? editors.map(({ field, host, as }) => createPortal(inline(field, as), host, field)) : null}
     </>
   );
 }

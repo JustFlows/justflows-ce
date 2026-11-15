@@ -27,11 +27,11 @@ const child: BlockNode = { id: "kid", type: "core.paragraph", version: 1, props:
 
 describe("server-rendered core blocks", () => {
   it("covers the blocks moved so far", () => {
-    expect([...SERVER_RENDERED_TYPES].sort()).toEqual([
-      "core.accordion", "core.buttons", "core.callout", "core.card", "core.code", "core.column", "core.columns", "core.container", "core.cover",
-      "core.details", "core.divider", "core.features", "core.grid", "core.group", "core.html", "core.icon", "core.link-list", "core.list", "core.list-item",
-      "core.media-text", "core.section", "core.social-links", "core.spacer", "core.tab", "core.table", "core.tabs",
-    ]);
+    expect([...SERVER_RENDERED_TYPES].sort()).toEqual(([
+      "core.accordion", "core.button", "core.buttons", "core.callout", "core.card", "core.code", "core.cta", "core.column", "core.columns", "core.container", "core.cover",
+      "core.details", "core.divider", "core.features", "core.grid", "core.group", "core.heading", "core.hero", "core.html", "core.icon", "core.link-list", "core.list", "core.list-item",
+      "core.media-text", "core.paragraph", "core.quote", "core.section", "core.social-links", "core.spacer", "core.tab", "core.table", "core.tabs",
+    ] as string[]).sort());
   });
 
   it("shows a hint for an empty Code, Custom HTML or Link list block, and the block once it has content", () => {
@@ -125,5 +125,34 @@ describe("checklists on the canvas", () => {
     const li = (id: string) => container.querySelector(`[data-jf-block-preview="${id}"]`)!;
     expect(li("top").matches(rule)).toBe(true);
     expect(li("deep").matches(rule)).toBe(false);
+  });
+});
+
+describe("in-place editing on server-rendered blocks", () => {
+  const drawEditable = (block: BlockNode, onUpdate = vi.fn()) => {
+    const view = render(<BlockPreview block={block} selectedId={block.id} onUpdateProps={onUpdate} />);
+    return { ...view, onUpdate };
+  };
+
+  it("mounts an editor in each marked element, empty optional fields included", () => {
+    const { container } = drawEditable({ id: "h", type: "core.hero", version: 1, props: { heading: "Big", subheading: "", buttonLabel: "" } });
+    const editors = [...container.querySelectorAll('[contenteditable="true"]')];
+    expect(editors.map((el) => el.parentElement?.getAttribute("data-jf-inline")).sort()).toEqual(["buttonLabel", "heading", "subheading"]);
+    expect(container.querySelector(".jf-hero__heading [contenteditable]")?.textContent).toBe("Big");
+  });
+
+  it("does not redraw the markup under an open editor when another field commits", () => {
+    const block: BlockNode = { id: "c", type: "core.cta", version: 1, props: { heading: "Join", text: "Now" } };
+    const view = drawEditable(block);
+    const textEditor = view.container.querySelector('.jf-cta__text [contenteditable="true"]');
+    view.rerender(<BlockPreview block={{ ...block, props: { heading: "Join us", text: "Now" } }} selectedId="c" onUpdateProps={view.onUpdate} />);
+    expect(view.container.querySelector('.jf-cta__text [contenteditable="true"]')).toBe(textEditor);
+  });
+
+  it("shows the page's markup with a placeholder for an empty required field when not selected", () => {
+    const { container } = draw({ id: "e", type: "core.heading", version: 1, props: { text: "", level: 3 } });
+    const heading = container.querySelector("h3[data-jf-inline='text']")!;
+    expect(heading.textContent).toBe("builder.preview.heading");
+    expect(container.querySelector("[contenteditable]")).toBeNull();
   });
 });

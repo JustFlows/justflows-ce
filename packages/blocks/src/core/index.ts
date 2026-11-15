@@ -100,7 +100,7 @@ export const coreBlocks: BlockDefinition[] = [
     schema: { text: { type: "richtext", required: true } },
     validateProps: (raw) => ({ text: str((raw as Record<string, unknown>)["text"]) }),
     render: (props) =>
-      `<div class="jf-paragraph">${renderMath(sanitizeRichText((props as { text: string }).text))}</div>`,
+      `<div class="jf-paragraph" data-jf-inline="text">${renderMath(sanitizeRichText((props as { text: string }).text))}</div>`,
   },
   {
     type: "core.heading",
@@ -119,7 +119,7 @@ export const coreBlocks: BlockDefinition[] = [
     },
     render: (props) => {
       const { text, level } = props as { text: string; level: number };
-      return `<h${level}>${esc(text)}</h${level}>`;
+      return `<h${level} data-jf-inline="text">${esc(text)}</h${level}>`;
     },
   },
   {
@@ -210,8 +210,8 @@ export const coreBlocks: BlockDefinition[] = [
       const { text, attribution } = props as { text: string; attribution: string };
       const body = renderMath(sanitizeRichText(text));
       return attribution
-        ? `<blockquote><div class="jf-quote__text">${body}</div><cite>${esc(attribution)}</cite></blockquote>`
-        : `<blockquote><div class="jf-quote__text">${body}</div></blockquote>`;
+        ? `<blockquote><div class="jf-quote__text" data-jf-inline="text">${body}</div><cite data-jf-inline="attribution">${esc(attribution)}</cite></blockquote>`
+        : `<blockquote><div class="jf-quote__text" data-jf-inline="text">${body}</div></blockquote>`;
     },
   },
   {
@@ -238,7 +238,7 @@ export const coreBlocks: BlockDefinition[] = [
     },
     render: (props) => {
       const { label, url, variant } = props as { label: string; url: string; variant: string };
-      return `<a href="${safeHref(url)}" class="btn btn--${variant}">${esc(label)}</a>`;
+      return `<a href="${safeHref(url)}" class="btn btn--${variant}" data-jf-inline="label">${esc(label)}</a>`;
     },
   },
   {
@@ -538,9 +538,9 @@ export const coreBlocks: BlockDefinition[] = [
         : "";
       const btn =
         buttonLabel && buttonUrl
-          ? `<a href="${safeHref(buttonUrl)}" class="btn btn--primary jf-hero__btn">${esc(buttonLabel)}</a>`
+          ? `<a href="${safeHref(buttonUrl)}" class="btn btn--primary jf-hero__btn" data-jf-inline="buttonLabel">${esc(buttonLabel)}</a>`
           : "";
-      return `<section class="jf-hero jf-hero--align-${align}"${bgStyle}><div class="jf-hero__inner"><h1 class="jf-hero__heading">${esc(heading)}</h1>${subheading ? `<p class="jf-hero__sub">${esc(subheading)}</p>` : ""}${btn}</div></section>`;
+      return `<section class="jf-hero jf-hero--align-${align}"${bgStyle}><div class="jf-hero__inner"><h1 class="jf-hero__heading" data-jf-inline="heading">${esc(heading)}</h1>${subheading ? `<p class="jf-hero__sub" data-jf-inline="subheading">${esc(subheading)}</p>` : ""}${btn}</div></section>`;
     },
   },
   {
@@ -617,9 +617,9 @@ export const coreBlocks: BlockDefinition[] = [
       };
       const btn =
         buttonLabel && buttonUrl
-          ? `<a href="${safeHref(buttonUrl)}" class="btn btn--primary jf-cta__btn">${esc(buttonLabel)}</a>`
+          ? `<a href="${safeHref(buttonUrl)}" class="btn btn--primary jf-cta__btn" data-jf-inline="buttonLabel">${esc(buttonLabel)}</a>`
           : "";
-      return `<section class="jf-cta jf-cta--${variant}"><div class="jf-container jf-container--default"><h2 class="jf-cta__heading">${esc(heading)}</h2>${text ? `<p class="jf-cta__text">${esc(text)}</p>` : ""}${btn}</div></section>`;
+      return `<section class="jf-cta jf-cta--${variant}"><div class="jf-container jf-container--default"><h2 class="jf-cta__heading" data-jf-inline="heading">${esc(heading)}</h2>${text ? `<p class="jf-cta__text" data-jf-inline="text">${esc(text)}</p>` : ""}${btn}</div></section>`;
     },
   },
   ...siteWidgetBlocks,

@@ -40,13 +40,18 @@ a slot in the block's markup, so they can be selected, edited and dropped on,
 and changing the parent's settings does not redraw them. A Column keeps a
 minimum height on the canvas so there is room to drop into it.
 
-Moved so far: Divider, Spacer, Notice / Callout, Details, Cover, Media &
-Text, Features, Link list, Code, Custom HTML, List, List item, Accordion,
-Buttons, Card, Icon, Table, Tabs, Tab panel, Social links, Section,
-Container, Group, Columns, Column and Grid. The block's style, preset class and
-canvas id go on the root element of its markup, as `withBlockChrome` puts
-them on the page. A Grid you are editing is a plain box with the grid editor inside. Blocks with inline editing and media replacement move last; until then
-they keep their React copy, checked by the parity test.
+Moved so far: every core block except Image, Video, Audio and File, which
+move with media replacement, and the labelled stand-ins below.
+
+Blocks you edit in place (Heading, Paragraph, Quote, Button, Hero, Call to
+action, List item) are marked by the renderer: each field's element carries
+`data-jf-inline="<field>"`, as plugin blocks do. While the block is selected,
+the canvas mounts the in-place editor inside that element, with the same
+toolbar, formulas, input-method handling and Escape as before. While it is
+selected the renderer draws its fields with stand-ins, so every field
+(also an empty optional one, or a button with no link yet) can be edited and
+a commit does not redraw the markup under another open editor. An empty
+required field that is not selected shows its placeholder.
 
 ## Where the canvas deliberately differs
 

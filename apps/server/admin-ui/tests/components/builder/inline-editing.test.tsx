@@ -234,7 +234,8 @@ describe("inline fields on the canvas", () => {
       blocks: [{ id: "q1", type: "core.quote", version: 1, props: { text: "To be", attribution: "" } }],
     });
     await user.click(await screen.findByText("To be"));
-    const cite = await waitFor(() => container.querySelector('cite[contenteditable="true"]') as HTMLElement);
+    /** The editor sits inside the page's own cite element (justflows-ce#311). */
+    const cite = await waitFor(() => container.querySelector('cite [contenteditable="true"]') as HTMLElement);
     cite.focus();
     cite.textContent = "<b>Shakespeare</b>";
     fireEvent.blur(cite);
