@@ -24,6 +24,8 @@ import { coreBlocks } from "@justflows/blocks";
  * - a Details block is always open, so its content can be reached;
  * - background videos do not autoplay;
  * - a Spacer gets a striped fill (builder CSS), because the page draws it empty;
+ * - a Grid being edited is a plain box, because the grid editor inside it
+ *   lays the items out on its own tracks with placement handles;
  * - an empty Code, Custom HTML or Link list block shows a short hint
  *   (`hint`), so it can still be found and selected.
  * Links and buttons stay inert, as for every block on the canvas.
@@ -56,6 +58,7 @@ export const SERVER_RENDERED_TYPES = new Set([
   "core.group",
   "core.columns",
   "core.column",
+  "core.grid",
 ]);
 
 const SLOT_ATTRIBUTE = "data-jf-children-slot";

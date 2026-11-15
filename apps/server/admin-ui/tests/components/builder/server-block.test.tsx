@@ -29,7 +29,7 @@ describe("server-rendered core blocks", () => {
   it("covers the blocks moved so far", () => {
     expect([...SERVER_RENDERED_TYPES].sort()).toEqual([
       "core.accordion", "core.buttons", "core.callout", "core.card", "core.code", "core.column", "core.columns", "core.container", "core.cover",
-      "core.details", "core.divider", "core.features", "core.group", "core.html", "core.icon", "core.link-list", "core.list", "core.list-item",
+      "core.details", "core.divider", "core.features", "core.grid", "core.group", "core.html", "core.icon", "core.link-list", "core.list", "core.list-item",
       "core.media-text", "core.section", "core.social-links", "core.spacer", "core.tab", "core.table", "core.tabs",
     ]);
   });

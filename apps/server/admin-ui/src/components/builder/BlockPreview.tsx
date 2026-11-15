@@ -282,7 +282,7 @@ function BlockPreviewContent({
         hint={serverBlockHint(block.type, serverProps, t)}
         blockId={block.id}
         rootClass={presetClass || undefined}
-        rootDeclarations={blockStyleDeclarations(blockStyle) || undefined}
+        rootDeclarations={[blockStyleDeclarations(blockStyle), block.type === "core.grid" && onUpdateProps ? "display:block" : ""].filter(Boolean).join(";") || undefined}
       >
         {renderChildren?.(block.children ?? [], depth + 1) ?? emptyContainerHint(block.type, t)}
       </ServerBlock>,
@@ -589,24 +589,6 @@ function BlockPreviewContent({
           {t("builder.preview.embed")}{(p.url as string) || t("builder.preview.noURL")}
         </div>,
       );
-
-    case "core.grid": {
-      /**
-       * The page's grid element and classes, so theme grid rules apply. While
-       * editing, the grid editor inside lays the items out on its own tracks
-       * (with placement handles), so this element is a plain box there.
-       */
-      const gap = typeof p.gap === "string" ? p.gap : "md";
-      const rowHeight = typeof p.rowHeight === "string" ? p.rowHeight : "auto";
-      return wrap(
-        <div
-          className={`jf-grid jf-grid--gap-${gap} jf-grid--rows-${rowHeight}`}
-          style={{ "--jf-grid-cols": Number(p.columns) || 12, ...(onUpdateProps ? { display: "block" } : {}) } as React.CSSProperties}
-        >
-          {renderChildren?.(block.children ?? [], depth + 1)}
-        </div>,
-      );
-    }
 
     case "core.color-scheme": {
       const schemeStyle = (p.style as string) || "buttons";

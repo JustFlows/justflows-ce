@@ -43,9 +43,9 @@ minimum height on the canvas so there is room to drop into it.
 Moved so far: Divider, Spacer, Notice / Callout, Details, Cover, Media &
 Text, Features, Link list, Code, Custom HTML, List, List item, Accordion,
 Buttons, Card, Icon, Table, Tabs, Tab panel, Social links, Section,
-Container, Group, Columns and Column. The block's style, preset class and
+Container, Group, Columns, Column and Grid. The block's style, preset class and
 canvas id go on the root element of its markup, as `withBlockChrome` puts
-them on the page. Grid, which carries the grid editor, and blocks with inline editing and media replacement move last; until then
+them on the page. A Grid you are editing is a plain box with the grid editor inside. Blocks with inline editing and media replacement move last; until then
 they keep their React copy, checked by the parity test.
 
 ## Where the canvas deliberately differs
