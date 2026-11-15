@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 
 import { Router } from "express";
+import { sendInputOrServerError } from "../../lib/http/send-error.js";
 import { z } from "zod";
+import { auditLog } from "../../lib/security/audit-log.js";
+import { DocumentRevisionConflictError, documentConflictBody } from "../../lib/database/document-revision.js";
 import { getSiteId } from "../../lib/themes/themes-db.js";
 import { revalidateOnUpdate } from "../../lib/cache/cache-revalidate.js";
-import { requireRole } from "../../middleware/auth.js";
-import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
+import { requireCapability } from "../../middleware/auth.js";
 import { getActiveLocaleCodes, getDefaultLocale } from "../../lib/i18n/languages-db.js";
 import { listHeaderTemplates } from "../../lib/rendering/header-templates.js";
 import {
@@ -14,8 +16,8 @@ import {
   hasSiteHeaderLibraryDraft,
   listSiteHeaderOptions,
   parseSiteHeaderLibrary,
-  publishSiteHeaderLibrary,
-  saveSiteHeaderLibrary,
+  getSiteHeaderLibraryRevision,
+  writeSiteHeaderLibrary,
   type SiteHeaderLibrary,
 } from "../../lib/rendering/site-header.js";
 
@@ -24,6 +26,8 @@ const router = Router();
 const LibrarySchema = z.object({
   library: z.record(z.string(), z.unknown()),
   draft: z.boolean().default(false),
+  /** Revision the editor loaded; `0` = never saved. A mismatch is a 409, not an overwrite. */
+  expectedRevision: z.number().int().min(0).optional(),
 });
 
 /** Drop overrides for locales the site no longer serves, then re-normalise. */
@@ -39,7 +43,7 @@ async function sanitizeLibrary(input: unknown): Promise<SiteHeaderLibrary> {
 }
 
 // Full library (published + draft) for the theme customizer.
-router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+router.get("/", requireCapability("design:read"), async (_req, res) => {
   const siteId = await getSiteId();
   if (!siteId) {
     res.json({ library: emptyLibrary(), draft: null });
@@ -50,12 +54,13 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
     draft: (await hasSiteHeaderLibraryDraft(siteId))
       ? await getSiteHeaderLibrary(siteId, true)
       : null,
+    revision: await getSiteHeaderLibraryRevision(siteId),
   });
 });
 
 // Lightweight options for the per-page header dropdown: the site owner's own
 // library entries plus any header designs contributed by plugins/themes.
-router.get("/options", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/options", requireCapability("design:read"), async (req, res) => {
   const siteId = await getSiteId();
   if (!siteId) {
     res.json({ defaultId: null, items: [], templates: [] });
@@ -69,7 +74,7 @@ router.get("/options", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
   res.json({ ...own, templates });
 });
 
-router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.put("/", requireCapability("design:manage"), async (req, res) => {
   try {
     const body = LibrarySchema.parse(req.body);
     const siteId = await getSiteId();
@@ -78,13 +83,30 @@ router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
       return;
     }
     const lib = await sanitizeLibrary(body.library);
-    const library = body.draft
-      ? await saveSiteHeaderLibrary(siteId, lib, true)
-      : await publishSiteHeaderLibrary(siteId, lib);
+    const { library, revision } = await writeSiteHeaderLibrary(siteId, lib, {
+      draft: body.draft,
+      expectedRevision: body.expectedRevision,
+      actorId: req.session?.userId ?? null,
+    });
+    if (!body.draft) {
+      /** Publishing a site-wide part changes every page that shows it. */
+      void auditLog({
+        siteId: siteId,
+        action: "design.part_published",
+        actorId: req.session?.userId ?? null,
+        actorRole: req.session?.role ?? null,
+        target: "header",
+        detail: `revision ${revision}`,
+      });
+    }
     if (!body.draft) await revalidateOnUpdate("theme");
-    res.json({ library });
+    res.json({ library, revision });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    if (err instanceof DocumentRevisionConflictError) {
+      res.status(409).json(documentConflictBody(err));
+      return;
+    }
+    sendInputOrServerError(res, "site-header", err);
   }
 });
 

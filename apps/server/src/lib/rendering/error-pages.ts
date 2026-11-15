@@ -21,6 +21,7 @@ import { serializeContentRow, type ContentResponse } from "../content/content-ap
 import { getSiteSetting, setSiteSetting } from "../settings/site-settings.js";
 import { revalidateOnUpdate } from "../cache/cache-revalidate.js";
 import { getDefaultLocale } from "../i18n/languages-db.js";
+import { InvalidInputError } from "../http/invalid-input-error.js";
 
 export const ERROR_PAGE_SETTING_KEY = "error_pages";
 
@@ -95,9 +96,9 @@ async function validatePageSource(siteId: string, pageId: string): Promise<void>
     [pageId, siteId],
   );
   const row = rows[0];
-  if (!row) throw new Error("Page not found");
-  if (row.type !== "page") throw new Error("Error page source must be a page");
-  if (row.status !== "published") throw new Error("Error page source must be published");
+  if (!row) throw new InvalidInputError("Page not found");
+  if (row.type !== "page") throw new InvalidInputError("Error page source must be a page");
+  if (row.status !== "published") throw new InvalidInputError("Error page source must be published");
 }
 
 /**

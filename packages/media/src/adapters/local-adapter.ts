@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import fs from "node:fs/promises";
+import syncFs from "node:fs";
 import path from "node:path";
 import type { StorageAdapter, StoredObject } from "./storage-adapter.js";
 
@@ -15,16 +16,42 @@ function isMissing(err: unknown): boolean {
   return (err as NodeJS.ErrnoException)?.code === "ENOENT";
 }
 
+/** Resolve an object key under the storage root, including existing symlinks. */
+function resolvePathUnderBase(baseDir: string, key: string): string | null {
+  if (!/^[A-Za-z0-9_./@+=,-]+$/.test(key)) return null;
+  if (key.startsWith("/") || key.split("/").some((segment) => segment === "." || segment === "..")) return null;
+  const base = path.resolve(baseDir);
+  const candidate = path.resolve(base, key);
+  if (candidate !== base && !candidate.startsWith(base + path.sep)) return null;
+
+  let realBase = base;
+  try {
+    realBase = syncFs.realpathSync(base);
+  } catch {
+    /** The storage root may not exist before the first upload. */
+  }
+
+  try {
+    let existingAncestor = candidate;
+    while (!syncFs.existsSync(existingAncestor)) {
+      const parent = path.dirname(existingAncestor);
+      if (parent === existingAncestor) return null;
+      existingAncestor = parent;
+    }
+    const realAncestor = syncFs.realpathSync(existingAncestor);
+    return realAncestor === realBase || realAncestor.startsWith(realBase + path.sep) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
 export class LocalStorageAdapter implements StorageAdapter {
   constructor(private readonly opts: LocalAdapterOptions) {}
 
   /** Absolute path for a key; refuses a key that resolves outside rootPath. */
   resolve(key: string): string {
-    const root = path.resolve(this.opts.rootPath);
-    const target = path.resolve(root, key);
-    if (target !== root && !target.startsWith(root + path.sep)) {
-      throw new Error(`Storage key escapes the storage root: ${key}`);
-    }
+    const target = resolvePathUnderBase(this.opts.rootPath, key);
+    if (!target) throw new Error(`Storage key escapes the storage root: ${key}`);
     return target;
   }
 

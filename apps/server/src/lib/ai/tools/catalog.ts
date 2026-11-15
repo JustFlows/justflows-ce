@@ -28,6 +28,7 @@ import {
   type ToolOutcome,
 } from "./manage-tool.js";
 import { principalCapabilities } from "./principal.js";
+import { accessibilityReport } from "../../content/accessibility-report.js";
 
 /**
  * The agent tool registry, shared by the MCP server and the in-admin assistant.
@@ -133,6 +134,32 @@ async function checkBlocks(blocks: unknown): Promise<{ document?: unknown; error
   return { document: result.document };
 }
 
+/** At most this many accessibility issues ride along with a save; content_accessibility_check lists them all. */
+const SAVE_ACCESSIBILITY_ISSUES = 20;
+
+/**
+ * Add the builder's accessibility checks for the blocks just written to a
+ * successful save (justflows-ce#313), so the assistant sees the same
+ * feedback as an editor without another call.
+ */
+async function withAccessibility(outcome: ToolOutcome, document: unknown): Promise<ToolOutcome> {
+  if (!outcome.ok || !document || typeof document !== "object") return outcome;
+  const report = await accessibilityReport((document as { blocks?: unknown }).blocks);
+  const data = outcome.data && typeof outcome.data === "object" ? (outcome.data as Record<string, unknown>) : { result: outcome.data };
+  return {
+    ...outcome,
+    data: {
+      ...data,
+      accessibility: {
+        counts: report.counts,
+        issues: report.issues.slice(0, SAVE_ACCESSIBILITY_ISSUES),
+        truncated: report.issues.length > SAVE_ACCESSIBILITY_ISSUES,
+        note: report.note,
+      },
+    },
+  };
+}
+
 async function contentCreate(args: Record<string, unknown>, ctx: ToolCallContext): Promise<ToolOutcome> {
   const { publish, blocks, ...rest } = args;
   const checked = await checkBlocks(blocks);
@@ -140,7 +167,7 @@ async function contentCreate(args: Record<string, unknown>, ctx: ToolCallContext
   const created = await callManage(ctx, "POST", "/content", {}, {
     body: { ...rest, ...(checked.document ? { blocks: checked.document } : {}) },
   });
-  if (!created.ok || publish !== true) return created;
+  if (!created.ok || publish !== true) return withAccessibility(created, checked.document);
   const entry = created.data as { id?: string; version?: number };
   if (!entry?.id) return created;
   const published = await callManage(ctx, "POST", "/content/{id}/publish", { id: entry.id }, {
@@ -152,16 +179,17 @@ async function contentCreate(args: Record<string, unknown>, ctx: ToolCallContext
       error: `The draft was created (id ${entry.id}) but could not be published: ${published.error}`,
     };
   }
-  return published;
+  return withAccessibility(published, checked.document);
 }
 
 async function contentUpdate(args: Record<string, unknown>, ctx: ToolCallContext): Promise<ToolOutcome> {
   const { id, blocks, ...rest } = args;
   const checked = await checkBlocks(blocks);
   if (checked.error) return { ok: false, error: checked.error };
-  return callManage(ctx, "PATCH", "/content/{id}", { id }, {
+  const updated = await callManage(ctx, "PATCH", "/content/{id}", { id }, {
     body: { ...rest, ...(checked.document ? { blocks: checked.document } : {}), source: "api" },
   });
+  return withAccessibility(updated, checked.document);
 }
 
 /* --------------------------------- media --------------------------------- */
@@ -425,6 +453,20 @@ export const CORE_TOOLS: AgentTool[] = [
     method: "GET",
     path: "/content/{id}",
     input: object({ id: str("Entry id.") }, ["id"]),
+    annotations: READ,
+    group: "content",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "content_accessibility_check",
+    title: "Check an entry's accessibility",
+    description:
+      "Run the page builder's accessibility checks on an entry's blocks: missing alt text, empty links and buttons, skipped heading levels, low contrast, content hidden on phones, reading order and more. " +
+      "Each issue has a code, severity (error, warning, or unavailable for plugin and theme blocks the checks cannot look inside), block id and type, the field to fix, and a message. " +
+      "The checks help; they do not prove a page is accessible. content_create and content_update also return these issues for the blocks they save.",
+    method: "GET",
+    path: "/content/{id}/accessibility",
+    input: object({ id: str("Entry id."), lang: str("Language of the messages: en, nl, de, fr, es, pl, uk or ru. Default en.", { enum: ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"] }) }, ["id"]),
     annotations: READ,
     group: "content",
     targetArg: "id",
@@ -1210,6 +1252,18 @@ export const CORE_TOOLS: AgentTool[] = [
     group: "design",
     targetArg: "part",
   }),
+  manageTool({
+    name: "template_parts_accessibility_check",
+    title: "Check a template part's accessibility",
+    description:
+      'Run the page builder\'s accessibility checks on a template part (the footer is part "footer"), as content_accessibility_check does for an entry. The checks help; they do not prove a page is accessible.',
+    method: "GET",
+    path: "/template-parts/{part}/accessibility",
+    input: object({ part: str('Template part. Use "footer".', { enum: ["footer"] }), version: str("draft or published. Default: the draft when there is one, else what is published.", { enum: ["draft", "published"] }), lang: str("Language of the messages: en, nl, de, fr, es, pl, uk or ru. Default en.", { enum: ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"] }) }, ["part"]),
+    annotations: READ,
+    group: "design",
+    targetArg: "part",
+  }),
   custom({
     name: "template_parts_update",
     title: "Save a template part",
@@ -1369,6 +1423,18 @@ export const CORE_TOOLS: AgentTool[] = [
     group: "design",
     targetArg: "slug",
   }),
+  manageTool({
+    name: "templates_accessibility_check",
+    title: "Check a page template's accessibility",
+    description:
+      "Run the page builder's accessibility checks on a page template, as content_accessibility_check does for an entry. Without a saved copy the theme's own template is checked. The checks help; they do not prove a page is accessible.",
+    method: "GET",
+    path: "/templates/{slug}/accessibility",
+    input: object({ slug: str("Template slug, such as index, single, or archive."), version: str("draft or published. Default: the draft when there is one, else what is published.", { enum: ["draft", "published"] }), lang: str("Language of the messages: en, nl, de, fr, es, pl, uk or ru. Default en.", { enum: ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"] }) }, ["slug"]),
+    annotations: READ,
+    group: "design",
+    targetArg: "slug",
+  }),
   custom({
     name: "templates_update",
     title: "Save a page template",
@@ -1481,12 +1547,15 @@ export const CORE_TOOLS: AgentTool[] = [
   custom({
     name: "reusable_blocks_save",
     title: "Save a reusable block",
-    description: "Create or replace a reusable block. Pass the existing id to replace one.",
+    description:
+      "Create or replace a reusable block. Pass the existing id to replace one. Replacing publishes at once and changes every page that uses it; pass draft true to stage the change and publish it later with reusable_blocks_publish. Check reusable_blocks_usage first.",
     inputSchema: object(
       {
         id: str("Existing id to replace. Omitted when creating."),
         name: str("Display name."),
         blocks: { type: "array", items: { type: "object" }, description: "The saved block tree." },
+        draft: bool("Save as a draft of an existing reusable block instead of publishing."),
+        expectedRevision: int("The revision you read; a newer one is refused instead of overwritten."),
       },
       ["blocks"],
     ),
@@ -1497,15 +1566,117 @@ export const CORE_TOOLS: AgentTool[] = [
     run: reusableBlocksSave,
   }),
   manageTool({
-    name: "reusable_blocks_delete",
-    title: "Delete a reusable block",
-    description: "Delete a reusable block.",
-    method: "DELETE",
-    path: "/reusable-blocks/{id}",
+    name: "reusable_blocks_usage",
+    title: "Where a reusable block is used",
+    description: "Counts and lists the content, template parts, templates, menus, reusable blocks and patterns that use this reusable block.",
+    method: "GET",
+    path: "/reusable-blocks/{id}/usage",
+    input: object({ id: str("Reusable block id.") }, ["id"]),
+    annotations: READ,
+    group: "design",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "reusable_blocks_publish",
+    title: "Publish a reusable block draft",
+    description: "Publish the staged draft of a reusable block. Every page that uses it changes.",
+    method: "POST",
+    path: "/reusable-blocks/{id}/publish",
+    input: object({ id: str("Reusable block id."), expectedRevision: int("The revision you read.") }, ["id"]),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "reusable_blocks_discard",
+    title: "Discard a reusable block draft",
+    description: "Drop the staged draft of a reusable block; pages keep the published version.",
+    method: "POST",
+    path: "/reusable-blocks/{id}/discard",
     input: object({ id: str("Reusable block id.") }, ["id"]),
     annotations: DESTRUCTIVE,
     group: "design",
     targetArg: "id",
+  }),
+  manageTool({
+    name: "reusable_blocks_delete",
+    title: "Delete a reusable block",
+    description: "Delete a reusable block. When it is still used the call is refused with the usage; pass confirm \"1\" to delete it anyway, which empties it on every page that uses it.",
+    method: "DELETE",
+    path: "/reusable-blocks/{id}",
+    input: object({ id: str("Reusable block id."), confirm: str("\"1\" to delete a block that is still used.", { enum: ["1"] }) }, ["id"]),
+    annotations: DESTRUCTIVE,
+    group: "design",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "style_presets_list",
+    title: "List style presets",
+    description:
+      "Named style presets blocks reference through props.styleRef. items is the draft when there is one, published is what visitors get.",
+    method: "GET",
+    path: "/style-presets",
+    annotations: READ,
+    group: "design",
+  }),
+  manageTool({
+    name: "style_presets_save",
+    title: "Save a style preset",
+    description:
+      "Create or replace a style preset in the draft. style holds block style values (padTop, padX, radius, shadow, background, …) as in a block's props.style. Publish with style_presets_publish.",
+    method: "PUT",
+    path: "/style-presets",
+    input: object(
+      {
+        id: str("Preset id: lowercase letters, digits and hyphens, starting with a letter."),
+        name: str("Display name."),
+        style: { type: "object", description: "Block style values, the same shape as props.style." },
+      },
+      ["id", "name", "style"],
+    ),
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "style_presets_delete",
+    title: "Delete a style preset",
+    description: "Remove a style preset from the draft. Blocks that reference it render without it once published. Check style_presets_usage first.",
+    method: "DELETE",
+    path: "/style-presets/{id}",
+    input: object({ id: str("Preset id.") }, ["id"]),
+    annotations: DESTRUCTIVE,
+    group: "design",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "style_presets_usage",
+    title: "Where a style preset is used",
+    description: "Content counts by type, template parts, templates, reusable blocks and patterns that reference the preset.",
+    method: "GET",
+    path: "/style-presets/{id}/usage",
+    input: object({ id: str("Preset id.") }, ["id"]),
+    annotations: READ,
+    group: "design",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "style_presets_publish",
+    title: "Publish style presets",
+    description: "Make the style preset draft live for visitors.",
+    method: "POST",
+    path: "/style-presets/publish",
+    annotations: IDEMPOTENT_WRITE,
+    group: "design",
+  }),
+  manageTool({
+    name: "style_presets_discard",
+    title: "Discard the style preset draft",
+    description: "Drop unpublished style preset changes and go back to the published list.",
+    method: "POST",
+    path: "/style-presets/discard",
+    annotations: DESTRUCTIVE,
+    group: "design",
   }),
   manageTool({
     name: "patterns_list",

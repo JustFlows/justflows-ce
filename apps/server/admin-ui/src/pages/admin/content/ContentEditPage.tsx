@@ -8,7 +8,7 @@ import { useParams } from "react-router-dom";
 import { useNavigate } from "../../../admin-router";
 import { type BlockDocument } from "@components/BlockEditor";
 import MediaImageField from "@components/MediaImageField";
-import { useSessionRole } from "@components/SessionProvider";
+import { useCapability, useSessionRole } from "@components/SessionProvider";
 import { usePluginMenu } from "@components/PluginMenuProvider";
 import { useT } from "../../../i18n/I18nProvider";
 import HeaderRefField from "@components/builder/HeaderRefField";
@@ -143,10 +143,10 @@ export default function EditContentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, locale } = useT();
-  // Setting the home/blog page is administrator/editor-only on the server;
+  // Setting the home/blog page needs design:manage on the server (justflows-ce#314);
   // an author or contributor can still edit and publish this content.
   const role = useSessionRole();
-  const canSetSitePages = role === "administrator" || role === "editor";
+  const canSetSitePages = useCapability("design:manage");
 
   const { items: pluginMenuItems } = usePluginMenu();
   /** Editor sections active plugins declare (`editorPanels` in their manifest). */

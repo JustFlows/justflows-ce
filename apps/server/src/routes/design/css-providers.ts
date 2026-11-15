@@ -19,7 +19,7 @@ import { packagesInstalledDir } from "../../lib/extensions/packages-dir.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { recordInstalledPackageBaseline } from "../../lib/security/extension-integrity.js";
 import multer from "multer";
-import { sendServerError } from "../../lib/http/send-error.js";
+import { sendInputOrServerError, sendServerError } from "../../lib/http/send-error.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { admitPackageUpload, multipartLimits, PACKAGE_UPLOAD_BYTES, withMultipartErrors } from "../../lib/security/upload-admission.js";
 
@@ -149,7 +149,7 @@ router.delete("/:id", requireRole("administrator"), async (req, res) => {
     await revalidateOnUpdate("cssProviders");
     res.json({ ok: true });
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    sendInputOrServerError(res, "css-providers", err);
   }
 });
 

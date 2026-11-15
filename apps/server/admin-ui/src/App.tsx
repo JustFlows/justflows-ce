@@ -33,6 +33,7 @@ const DesignPage = lazyPage(() => import("./pages/admin/design/DesignPage"));
 const ThemeCustomizePage = lazyPage(() => import("./pages/admin/design/ThemeCustomizePage"));
 const WidgetsPage = lazyPage(() => import("./pages/admin/design/WidgetsPage"));
 const PageBuilderPage = lazyPage(() => import("./pages/admin/design/PageBuilderPage"));
+const ReusableBuilderPage = lazyPage(() => import("./pages/admin/design/ReusableBuilderPage"));
 const MenusPage = lazyPage(() => import("./pages/admin/design/MenusPage"));
 const UsersPage = lazyPage(() => import("./pages/admin/users/UsersPage"));
 const EditUserPage = lazyPage(() => import("./pages/admin/users/EditUserPage"));
@@ -85,7 +86,7 @@ function RequireNavAccess({ path, children }: { path: string; children: React.Re
   const { session } = useSession();
   const role = session?.role ?? null;
   const audience = session
-    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true, disabledPaths: session.disabledPaths }
+    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true, disabledPaths: session.disabledPaths, capabilities: session.capabilities }
     : undefined;
   if (role !== null && !canAccessPath(role, path, audience)) return <Navigate to="/admin" replace />;
   return <>{children}</>;
@@ -127,6 +128,7 @@ export default function App() {
               }
             />
             <Route path={`${admin}/content/:id/builder`} element={<PageBuilderPage />} />
+            <Route path={`${admin}/reusable/:id`} element={<ReusableBuilderPage />} />
             <Route path={admin} element={<AdminShell />}>
               <Route index element={<DashboardPage />} />
               <Route path="content" element={<ContentListPage />} />

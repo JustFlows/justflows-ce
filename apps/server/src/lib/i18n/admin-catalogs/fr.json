@@ -67,7 +67,10 @@
     "url": "URL de destination",
     "events": "Événements",
     "chooseEvents": "Choisir les événements…",
-    "selectedEvents": "{count} événements sélectionnés",
+    "selectedEvents": {
+      "one": "{count} événement sélectionné",
+      "other": "{count} événements sélectionnés"
+    },
     "selectAll": "Tout sélectionner",
     "clear": "Effacer",
     "removeEvent": "Retirer {event}",
@@ -103,7 +106,10 @@
     "name": "Nom",
     "capabilities": "Autorisations",
     "chooseCapabilities": "Choisir les autorisations…",
-    "selectedCapabilities": "{count} autorisations sélectionnées",
+    "selectedCapabilities": {
+      "one": "{count} autorisation sélectionnée",
+      "other": "{count} autorisations sélectionnées"
+    },
     "selectAll": "Tout sélectionner",
     "clear": "Effacer",
     "removeCapability": "Retirer {capability}",
@@ -172,7 +178,10 @@
     "selectAll": "Tout sélectionner",
     "deleteSelected": "Supprimer {count}",
     "bulkEdit": "Modifier {count}",
-    "trashConfirm": "Déplacer {count} entrées vers la corbeille ? Vous pouvez les restaurer pendant la période de conservation.",
+    "trashConfirm": {
+      "one": "Déplacer {count} entrée vers la corbeille ? Vous pouvez la restaurer pendant la période de conservation.",
+      "other": "Déplacer {count} entrées vers la corbeille ? Vous pouvez les restaurer pendant la période de conservation."
+    },
     "listEmptyTitle": "Aucun élément ({section}) pour le moment",
     "listEmptyBody": "Créez le premier élément ({type}) pour commencer.",
     "listError": "Impossible de charger {section}.",
@@ -379,7 +388,10 @@
     "menuName": "Nom du menu",
     "menuSlug": "Slug du menu (p. ex. footer)",
     "createMenuButton": "Créer le menu",
-    "itemCount": "{count} éléments",
+    "itemCount": {
+      "one": "{count} élément",
+      "other": "{count} éléments"
+    },
     "empty": "Aucun élément de menu pour le moment.",
     "emptyHint": "Ajoutez du contenu publié ou des liens personnalisés depuis le panneau à gauche.",
     "type": {
@@ -394,7 +406,10 @@
     "outdent": "Désindenter",
     "expand": "Développer",
     "collapse": "Réduire",
-    "collapsedCount": "{count} masqués",
+    "collapsedCount": {
+      "one": "{count} masqué",
+      "other": "{count} masqués"
+    },
     "duplicate": "Dupliquer",
     "addSubItem": "Ajouter un sous-élément",
     "newSubItem": "Sous-élément",
@@ -479,7 +494,10 @@
       "linkUrl": "URL",
       "addLink": "+ Ajouter un lien",
       "useAdvanced": "Besoin d'autre chose ? Passez à l'éditeur de blocs avancé",
-      "summaryLinks": "{count} liens",
+      "summaryLinks": {
+        "one": "{count} lien",
+        "other": "{count} liens"
+      },
       "summaryPromo": "Panneau de mise en avant",
       "summaryCustom": "Contenu personnalisé",
       "promoBackground": "Arrière-plan",
@@ -662,7 +680,10 @@
     "pageJson": {
       "title": "JSON de la page",
       "hint": "Rien n'est sélectionné : voici la page entière. Sélectionnez un bloc sur le canevas pour le modifier seul.",
-      "count": "{count} blocs",
+      "count": {
+        "one": "{count} bloc",
+        "other": "{count} blocs"
+      },
       "apply": "Appliquer",
       "reload": "Abandonner",
       "applied": "Appliqué",
@@ -730,7 +751,60 @@
       "saveCopy": "Enregistrer une copie",
       "showing": "Affiche",
       "referenceHint": "Ceci est une référence. Les modifications du bloc enregistré apparaissent sur chaque page qui l'utilise.",
-      "missing": "Ce bloc enregistré n'existe plus."
+      "missing": "Ce bloc enregistré n'existe plus.",
+      "linkedTitle": "Bloc réutilisable lié",
+      "usageLoading": "Vérification de l’utilisation…",
+      "usageNone": "Utilisé nulle part ailleurs pour l’instant.",
+      "usage": {
+        "one": "Utilisé à {count} endroit. Publier une modification le met à jour.",
+        "other": "Utilisé à {count} endroits. Publier une modification les met tous à jour."
+      },
+      "usageHidden": {
+        "one": "Utilisé à {count} endroit, dont {hidden} que vous ne pouvez pas ouvrir. Publier une modification le met à jour.",
+        "other": "Utilisé à {count} endroits, dont {hidden} que vous ne pouvez pas ouvrir. Publier une modification les met tous à jour."
+      },
+      "hasDraft": "La source a des modifications non publiées. Le canevas les montre ; les visiteurs ne les voient qu’après publication.",
+      "editSource": "Modifier la source…",
+      "detach": "Détacher (créer une copie locale)",
+      "detachConfirm": "Remplacer ce lien vers « {name} » par une copie locale ? La copie ne suit plus les modifications de la source.",
+      "detached": "Détaché : c’est maintenant une copie locale.",
+      "missingRecover": "Le bloc réutilisable visé n’existe plus. Choisissez-en un autre ci-dessus ou supprimez ce bloc.",
+      "notChosen": "Aucun bloc réutilisable choisi.",
+      "nestingStopped": "« {name} » n’est pas affiché à nouveau ici : un bloc réutilisable ne peut pas se contenir lui-même ni être imbriqué sur plus de 4 niveaux.",
+      "linkedChip": "Lié : {name}",
+      "draftChip": "modifications non publiées",
+      "notFound": "Ce bloc réutilisable n’existe pas.",
+      "usageTitle": "Où il est utilisé",
+      "open": "Ouvrir",
+      "inPart": "partie « {part} »",
+      "inTemplate": "modèle « {slug} »",
+      "inMenu": "menu « {slug} »",
+      "inReusable": {
+        "one": "{count} autre bloc réutilisable",
+        "other": "{count} autres blocs réutilisables"
+      },
+      "inPatterns": {
+        "one": "{count} composition",
+        "other": "{count} compositions"
+      },
+      "usageTruncated": "Seuls les premiers résultats sont affichés ; il peut y en avoir d’autres.",
+      "stateDraft": "modifications non publiées",
+      "statePublished": "publié, version {revision}",
+      "publishConfirm": {
+        "one": "Publier ces modifications ? Elles apparaîtront à l’endroit ({count}) qui utilise ce bloc réutilisable.",
+        "other": "Publier ces modifications ? Elles apparaîtront aux {count} endroits qui utilisent ce bloc réutilisable."
+      },
+      "publishConfirmUnused": "Publier ces modifications ?",
+      "discard": "Abandonner les modifications",
+      "discardConfirm": "Abandonner les modifications non publiées ? La version publiée reste.",
+      "rename": "Renommer",
+      "deleteConfirm": "Supprimer le bloc réutilisable « {name} » ?",
+      "deleteUsedConfirm": {
+        "one": "« {name} » est utilisé à {count} endroit. Le supprimer l’en retire. Supprimer quand même ?",
+        "other": "« {name} » est utilisé à {count} endroits. Le supprimer le retire partout. Supprimer quand même ?"
+      },
+      "deleteFailed": "Impossible de supprimer le bloc réutilisable",
+      "restoreHint": "Charge cette version dans l’éditeur. Enregistrez le brouillon et publiez pour l’utiliser."
     },
     "themeControls": {
       "title": "Style du thème",
@@ -751,7 +825,10 @@
       "search": "Rechercher des modèles…",
       "category": "Catégorie",
       "manage": "Gérer",
-      "results": "{count} modèles",
+      "results": {
+        "one": "{count} modèle",
+        "other": "{count} modèles"
+      },
       "noResults": "Aucun modèle ne correspond à ces filtres.",
       "loadDirectory": "Charger le catalogue",
       "choose": "Choisissez un modèle pour le prévisualiser en pleine largeur.",
@@ -768,7 +845,10 @@
       "manageExtensions": "Gérer les extensions",
       "requires": "Nécessite {types}.",
       "all": "tous",
-      "synced": "synchronisé"
+      "synced": "synchronisé",
+      "insertLinked": "Insérer lié",
+      "insertLinkedHint": "Composition synchronisée : insère un lien. Les modifications futures de la composition apparaîtront aussi ici.",
+      "insertCopyHint": "Insère une copie que vous pouvez modifier librement. Les modifications futures de la composition ne l’atteignent pas."
     },
     "canvas": {
       "dragSectionHere": "Faites glisser une section ou un bandeau hero ici",
@@ -795,7 +875,6 @@
         "subheading": "Sous-titre",
         "buttonLabel": "Texte du bouton",
         "buttonUrl": "URL du bouton",
-        "backgroundImageUrl": "URL de l’image d’arrière-plan",
         "text": "Texte",
         "style": "Style",
         "headingText": "Texte du titre",
@@ -830,7 +909,8 @@
         "sections": "Sections",
         "policies": "Politiques",
         "intro": "Intro",
-        "icon": "Icône"
+        "icon": "Icône",
+        "backgroundImage": "Image d’arrière-plan"
       },
       "option": {
         "backgroundMuted": "Atténué",
@@ -986,7 +1066,10 @@
         "noOptions": "Rien à choisir pour le moment.",
         "none": "— Aucun —",
         "search": "Rechercher…",
-        "selected": "{count} sélectionné(s)"
+        "selected": {
+          "one": "{count} sélectionné",
+          "other": "{count} sélectionnés"
+        }
       }
     },
     "blockLibrary": {
@@ -1028,7 +1111,14 @@
       "typeAParagraph": "Tapez un paragraphe…",
       "youMayAlsoLike": "Vous aimerez peut-être aussi",
       "html": "HTML",
-      "emptyParagraph": "Paragraphe vide"
+      "emptyParagraph": "Paragraphe vide",
+      "standIn": {
+        "label": "Aperçu",
+        "site": "Affiche le logo, le titre, les menus ou le fil d’Ariane de votre site lorsque la page est servie.",
+        "query": "Liste le contenu ou les titres trouvés lorsque la page est servie.",
+        "visitor": "Dépend du visiteur (connecté, langue, thème de couleurs ou recherche) : le constructeur en montre une version neutre.",
+        "external": "Charge un contenu tiers sur la page publiée ; le constructeur ne l’exécute pas."
+      }
     },
     "grid": {
       "dragBlockOntoGrid": "Faites glisser un bloc sur la grille",
@@ -1118,10 +1208,49 @@
         "mathLatex": "Mathématiques (LaTeX)",
         "subscript": "Indice",
         "superscript": "Exposant"
-      }
+      },
+      "linkRejected": "Ce lien n’est pas autorisé. Utilisez une adresse web (https://…), un chemin (/page) ou mailto:.",
+      "linkPlaceholder": "https://exemple.fr ou /page",
+      "attribution": "Source",
+      "buttonLabel": "Texte du bouton",
+      "buttonLink": "Lien du bouton",
+      "supportingText": "Texte d’accompagnement",
+      "caption": "Légende",
+      "altText": "Texte alternatif",
+      "altPlaceholder": "Décrivez l’image pour les personnes qui ne la voient pas",
+      "replaceImage": "Remplacer l’image",
+      "replaceImageHint": "Double-cliquez pour remplacer l’image",
+      "chooseImage": "Double-cliquez pour choisir une image",
+      "listItem": "Élément de liste",
+      "pluginField": "Modifier {field}",
+      "mediaUrlRejected": "Cette adresse ne peut pas être utilisée. Utilisez un lien https:// ou un fichier de la médiathèque.",
+      "mediaUrl": "Adresse du média",
+      "mediaUrlPlaceholder": "https://… ou /uploads/…",
+      "libraryEmpty": "Rien de ce type dans la médiathèque pour l’instant.",
+      "pick": {
+        "image": "Choisir une image",
+        "video": "Choisir une vidéo",
+        "audio": "Choisir un audio",
+        "file": "Choisir un fichier"
+      },
+      "upload": {
+        "image": "Téléverser une image",
+        "video": "Téléverser une vidéo",
+        "audio": "Téléverser un audio",
+        "file": "Téléverser un fichier"
+      },
+      "replace": {
+        "video": "Remplacer la vidéo",
+        "audio": "Remplacer l’audio",
+        "file": "Remplacer le fichier"
+      },
+      "replaceMediaHint": "Double-cliquez pour remplacer",
+      "choosePoster": "Choisir l’image d’aperçu",
+      "changePoster": "Changer l’image d’aperçu",
+      "removePoster": "Retirer l’image d’aperçu",
+      "linkText": "Texte du lien",
+      "linkTextPlaceholder": "Par défaut, le nom du fichier"
     },
-    "blockCountOne": "{count} bloc",
-    "blockCountMany": "{count} blocs",
     "previewLight": "Clair",
     "previewDark": "Sombre",
     "previewSchemeHint": "Afficher le site en mode clair ou sombre",
@@ -1142,7 +1271,8 @@
       "label": "Link label",
       "download": "Download file",
       "autoplayHelp": "Browsers usually require muted playback for autoplay. The editor preview always shows controls and does not autoplay.",
-      "downloadHelp": "Download links work best for files hosted on this site. External files may open in the browser."
+      "downloadHelp": "Download links work best for files hosted on this site. External files may open in the browser.",
+      "source": "Fichier média"
     },
     "functional": {
       "fields": {
@@ -1344,6 +1474,600 @@
         "click": "Click"
       },
       "checklistItem": "Checklist item"
+    },
+    "shell": {
+      "toolbar": "Outils du constructeur",
+      "library": "Blocs",
+      "inspector": "Réglages",
+      "canvas": "Canevas",
+      "breadcrumbs": "Emplacement du bloc sélectionné",
+      "history": "Historique",
+      "breakpoint": "Largeur d’aperçu",
+      "zoom": "Zoom",
+      "unsaved": "Modifications non enregistrées",
+      "saveFailed": "Échec de l’enregistrement",
+      "retry": "Réessayer",
+      "leaveUnsaved": "Des modifications ne sont pas enregistrées. Quitter le constructeur quand même ?",
+      "breakpointLabel": {
+        "desktop": "Ordinateur",
+        "tablet": "Tablette",
+        "mobile": "Mobile"
+      },
+      "context": {
+        "page": "Page",
+        "post": "Article",
+        "header": "En-tête global",
+        "footer": "Pied de page global",
+        "template": "Modèle",
+        "reusable": "Bloc réutilisable",
+        "pattern": "Composition",
+        "fragment": "Contenu"
+      },
+      "impact": {
+        "header": "Les modifications apparaissent sur chaque page qui utilise cet en-tête.",
+        "footer": "Les modifications apparaissent sur toutes les pages.",
+        "template": "Les modifications s’appliquent à chaque page affichée avec ce modèle.",
+        "reusable": "Les modifications apparaissent partout où ce bloc est utilisé."
+      },
+      "tab": {
+        "content": "Contenu",
+        "style": "Style",
+        "layout": "Mise en page",
+        "responsive": "Adaptatif",
+        "interactions": "Interactions",
+        "advanced": "Avancé"
+      },
+      "site": "Site",
+      "siteParts": "Parties du site",
+      "autosaving": "Enregistrement automatique…",
+      "conflict": "Non enregistré : une version plus récente existe",
+      "conflictDraft": "Quelqu’un d’autre a modifié le brouillon de cette page après son ouverture. Vos modifications sont toujours là et n’ont pas été enregistrées.",
+      "conflictDraftBy": "{name} a modifié le brouillon de cette page après son ouverture. Vos modifications sont toujours là et n’ont pas été enregistrées.",
+      "conflictLive": "Cette page a été modifiée ou publiée ailleurs après son ouverture. Vos modifications sont toujours là et n’ont pas été enregistrées.",
+      "loadLatest": "Charger la dernière version",
+      "overwrite": "Enregistrer ma version par-dessus",
+      "overwriteConfirm": "Remplacer la version plus récente par la vôtre ? Les autres modifications restent dans les révisions de la page.",
+      "recoveryFound": "Ce navigateur a conservé des modifications non enregistrées du {time}.",
+      "restore": "Les restaurer",
+      "discard": "Ignorer",
+      "sessionExpired": "Votre session a expiré. Reconnectez-vous dans un autre onglet, puis enregistrez. Vos modifications sont conservées dans ce navigateur.",
+      "conflictPart": "Quelqu’un d’autre a enregistré ceci après son ouverture. Vos modifications sont toujours là et n’ont pas été enregistrées.",
+      "overwritePartConfirm": "Remplacer la version plus récente par la vôtre ? Les modifications de l’autre personne seront perdues.",
+      "revisions": "Révisions",
+      "revisionsLoading": "Chargement des versions…",
+      "revisionsEmpty": "Aucune version antérieure pour l’instant. Chaque enregistrement en ajoute une.",
+      "revisionsPick": "Choisissez une version pour voir ce que sa restauration changerait.",
+      "revisionsSame": "Cette version contient les mêmes blocs que ce que vous modifiez.",
+      "revisionsCompare": "Par rapport à ce que vous modifiez, restaurer cette version :",
+      "revisionsAdded": {
+        "one": "Ajouterait {count} bloc",
+        "other": "Ajouterait {count} blocs"
+      },
+      "revisionsRemoved": {
+        "one": "Supprimerait {count} bloc",
+        "other": "Supprimerait {count} blocs"
+      },
+      "revisionsChanged": {
+        "one": "Modifierait {count} bloc",
+        "other": "Modifierait {count} blocs"
+      },
+      "revisionsMoved": {
+        "one": "Déplacerait {count} bloc",
+        "other": "Déplacerait {count} blocs"
+      },
+      "revisionsRestore": "Restaurer cette version",
+      "restoreHintPage": "La restauration enregistre cette version comme brouillon de la page. La page publiée ne change pas avant la publication.",
+      "restoreHintPart": "La restauration charge cette version dans l’éditeur. Enregistrez un brouillon ou publiez pour la conserver.",
+      "restoreUnsavedConfirm": "La restauration remplace vos modifications non enregistrées. Elles restent dans ce navigateur et peuvent être restaurées ensuite. Continuer ?",
+      "stateDraft": "Brouillon",
+      "statePublished": "Publié",
+      "layers": "Calques",
+      "previewWidth": "Largeur d’aperçu en pixels",
+      "canvasWidth": "{width} px · {breakpoint}",
+      "styles": "Styles",
+      "checks": "Vérifications"
+    },
+    "drop": {
+      "rejectNesting": "{child} ne peut pas aller dans {parent}.",
+      "rejectNestingRoot": "{child} ne peut pas aller à ce niveau. Placez-le dans un conteneur adapté.",
+      "reject": {
+        "nesting": "Ce bloc ne peut pas aller ici.",
+        "self": "Un bloc ne peut pas être déposé sur lui-même.",
+        "descendant": "Un bloc ne peut pas être déplacé dans son propre contenu.",
+        "region": "Les blocs ne peuvent pas être déplacés vers cette zone ici.",
+        "missing": "Ce bloc n’existe plus.",
+        "locked": "Ce bloc est verrouillé à sa place."
+      },
+      "noTarget": "Non déplacé : relâchez au-dessus d’une zone de dépôt.",
+      "moved": "{block} déplacé.",
+      "inserted": "{block} ajouté.",
+      "cancelled": "Déplacement annulé. Rien n’a changé.",
+      "releaseToMove": "Relâchez pour déplacer {block} ici",
+      "releaseToInsert": "Relâchez pour ajouter {block} ici"
+    },
+    "navigator": {
+      "title": "Calques",
+      "search": "Trouver un bloc",
+      "keysHint": "Flèches pour parcourir, Entrée pour sélectionner, Maj+flèches pour étendre la sélection, Alt+flèches pour déplacer, F2 pour renommer, Maj+F10 pour les actions.",
+      "empty": "Aucun bloc pour l’instant.",
+      "noMatches": "Aucun bloc ne correspond.",
+      "root": "Niveau supérieur",
+      "moved": "{block} déplacé en position {position} dans {parent}.",
+      "movedInto": "{block} déplacé dans {parent}.",
+      "cannotMove": "Impossible d’aller plus loin dans ce sens.",
+      "moveTo": "Déplacer « {block} » vers…",
+      "chooseDestination": "Choisir un conteneur",
+      "noDestinations": "Aucun autre emplacement n’accepte ce bloc",
+      "rename": "Nom dans cet éditeur uniquement",
+      "badge": {
+        "reusable": "Bloc réutilisable : les modifications s’appliquent à chaque page qui l’utilise",
+        "hidden": "Masqué sur certains appareils",
+        "locked": "Verrouillé",
+        "unavailable": "Type de bloc indisponible : son extension est peut-être désactivée",
+        "dynamic": "Affiche du contenu de la page ou du site"
+      }
+    },
+    "actions": {
+      "menu": "Actions du bloc",
+      "blocks": {
+        "one": "{count} bloc",
+        "other": "{count} blocs"
+      },
+      "more": "Plus d’actions pour {block}",
+      "duplicate": "Dupliquer",
+      "copy": "Copier",
+      "cut": "Couper",
+      "paste": "Coller",
+      "delete": "Supprimer",
+      "group": "Grouper",
+      "ungroup": "Dissocier",
+      "resetStyle": "Réinitialiser le style",
+      "saveReusable": "Enregistrer comme bloc réutilisable…",
+      "savePattern": "Enregistrer comme modèle…",
+      "locks": "Verrous",
+      "lock": {
+        "move": "Empêcher le déplacement",
+        "remove": "Empêcher la suppression",
+        "edit": "Empêcher la modification"
+      },
+      "lockedByPolicy": "Seules les personnes autorisées à gérer les verrous peuvent les modifier.",
+      "blocked": {
+        "empty": "Sélectionnez d’abord un bloc.",
+        "mixedParents": "Sélectionnez des blocs côte à côte dans le même conteneur.",
+        "lockedRemove": "Un bloc sélectionné, ou un élément qu’il contient, est protégé contre la suppression.",
+        "lockedMove": "Un bloc sélectionné est verrouillé à sa place.",
+        "lockedEdit": "Un bloc sélectionné est protégé contre la modification.",
+        "nesting": "Le résultat ne serait pas autorisé dans ce conteneur.",
+        "notGroup": "Seul un Groupe ou un Conteneur peut être dissocié.",
+        "noStyle": "Aucun style personnalisé à réinitialiser.",
+        "clipboardEmpty": "Rien n’a encore été copié.",
+        "permission": "Seuls les administrateurs et les éditeurs peuvent enregistrer dans la bibliothèque.",
+        "unsupported": "Non disponible dans cet éditeur."
+      },
+      "done": {
+        "duplicate": "{what} dupliqué.",
+        "copy": "{what} copié.",
+        "cut": "{what} coupé.",
+        "paste": "{what} collé.",
+        "delete": "{what} supprimé. Annuler le rétablit.",
+        "group": "{what} groupé.",
+        "ungroup": "{what} dissocié.",
+        "resetStyle": "Style de {what} réinitialisé.",
+        "saveReusable": "{what} enregistré comme bloc réutilisable et lié ici.",
+        "savePattern": "Modèle {what} enregistré.",
+        "locked": "{what} verrouillé.",
+        "unlocked": "{what} déverrouillé."
+      },
+      "pasteFailed": {
+        "empty": "Rien à coller.",
+        "too-large": "C’est trop volumineux pour être collé en une fois.",
+        "nesting": "Ces blocs ne peuvent pas aller ici. Sélectionnez un conteneur adapté et collez à nouveau."
+      },
+      "selectRefused": {
+        "parent": "La sélection multiple ne fonctionne que pour des blocs du même conteneur.",
+        "context": "Les blocs de l’en-tête et de la page ne peuvent pas être sélectionnés ensemble."
+      },
+      "editLocked": "Ce bloc est protégé contre la modification. Demandez à une personne autorisée à gérer les verrous de le déverrouiller.",
+      "editLockedManage": "Ce bloc est protégé contre la modification. Déverrouillez-le depuis le menu du bloc pour le modifier.",
+      "multi": {
+        "title": {
+          "one": "{count} bloc sélectionné",
+          "other": "{count} blocs sélectionnés"
+        },
+        "menuHint": "Clic droit ou Maj+F10 pour toutes les actions.",
+        "sharedStyle": "Style commun",
+        "styleSubset": "Les changements de style s’appliquent à {count} blocs sur {total}. Les blocs verrouillés et ceux qui ont leur propre réglage de style sont ignorés.",
+        "noSharedStyle": "Ces blocs n’ont aucun réglage de style en commun."
+      },
+      "save": {
+        "reusableTitle": "Enregistrer comme bloc réutilisable",
+        "reusableHint": "La sélection est enregistrée dans la bibliothèque et remplacée ici par une copie liée. Modifiez le bloc enregistré et toutes les pages suivent.",
+        "patternTitle": "Enregistrer comme modèle",
+        "patternHint": "Une copie de la sélection est ajoutée à la bibliothèque de modèles. Cette page ne change pas.",
+        "nameRequired": "Donnez un nom au modèle.",
+        "cancel": "Annuler",
+        "savePattern": "Enregistrer le modèle"
+      },
+      "blockActions": "Actions du bloc",
+      "blockActionDone": "Appliqué : {action}."
+    },
+    "container": {
+      "title": "Disposition",
+      "mode": "Disposer le contenu",
+      "modes": {
+        "stack": "Pile",
+        "row": "Ligne",
+        "column": "Colonne",
+        "grid": "Grille"
+      },
+      "modeHint": {
+        "stack": "Les blocs s’empilent, avec l’espacement du thème.",
+        "row": "Les blocs se placent côte à côte et passent à la ligne quand la place manque.",
+        "column": "Les blocs s’empilent, avec votre espacement et votre alignement.",
+        "grid": "Les blocs remplissent des colonnes égales, ligne par ligne."
+      },
+      "columns": "Colonnes",
+      "wrap": "Retour à la ligne",
+      "wrapValue": {
+        "wrap": "Passer à la ligne",
+        "nowrap": "Garder sur une ligne"
+      },
+      "justify": "Horizontal",
+      "justifyColumn": "Vertical",
+      "justifyValue": {
+        "start": "Début",
+        "center": "Centre",
+        "end": "Fin",
+        "between": "Espace entre",
+        "around": "Espace autour",
+        "evenly": "Espacement égal"
+      },
+      "align": "Vertical",
+      "alignColumn": "Horizontal",
+      "alignValue": {
+        "start": "Début",
+        "center": "Centre",
+        "end": "Fin",
+        "stretch": "Étirer",
+        "baseline": "Ligne de base du texte"
+      },
+      "gap": "Espacement",
+      "stackOnPhones": "Empiler en une colonne sur téléphone",
+      "orderHint": "Les blocs gardent toujours leur ordre, à l’écran et pour les lecteurs d’écran. Pour changer l’ordre, déplacez-les dans le panneau Calques.",
+      "element": "Élément HTML",
+      "elements": {
+        "div": "Simple (div)",
+        "section": "Section",
+        "article": "Article",
+        "aside": "Encart",
+        "header": "En-tête",
+        "footer": "Pied",
+        "nav": "Navigation"
+      },
+      "elementNotHere": "non autorisé ici",
+      "elementHint": "Indique aux lecteurs d’écran et aux moteurs de recherche ce qu’est cette partie. L’apparence ne change pas.",
+      "item": {
+        "title": "Dans cette ligne",
+        "overflowTitle": "Débordement",
+        "basis": "Part de la ligne",
+        "basisValue": {
+          "auto": "Selon le contenu",
+          "25": "Un quart",
+          "33": "Un tiers",
+          "50": "La moitié",
+          "66": "Deux tiers",
+          "75": "Trois quarts",
+          "100": "Toute la ligne"
+        },
+        "grow": "Remplir l’espace libre",
+        "overflow": "Contenu qui ne tient pas",
+        "overflowValue": {
+          "visible": "Afficher",
+          "hidden": "Couper",
+          "auto": "Faire défiler"
+        }
+      },
+      "handle": {
+        "padTop": "Marge intérieure haute",
+        "padBottom": "Marge intérieure basse",
+        "minHeight": "Hauteur minimale"
+      },
+      "readingOrder": "Les blocs sont placés dans un autre ordre que l’ordre de lecture. Les personnes qui utilisent le clavier ou un lecteur d’écran suivent l’ordre du panneau Calques.",
+      "matchReadingOrder": "Aligner l’ordre de lecture sur la disposition"
+    },
+    "responsive": {
+      "title": "Réglages par taille d’écran",
+      "editing": "Taille d’écran à modifier",
+      "hint": "Le bureau utilise les réglages normaux du bloc. La tablette hérite du bureau et le mobile de la tablette, tant que vous ne définissez pas de valeur ici.",
+      "previewMismatch": "Vous modifiez {breakpoint} mais l’aperçu est en {previewing}.",
+      "previewAt": "Aperçu en {breakpoint}",
+      "warningsTitle": "À vérifier avant de publier",
+      "warning": {
+        "hidden": "Ce bloc est masqué à cette largeur.",
+        "order": "Un ordre personnalisé affiche ce bloc ailleurs que là où il est lu. Les personnes au clavier ou avec un lecteur d’écran suivent toujours le panneau Calques.",
+        "tinyText": "Un texte très petit peut être difficile à lire sur téléphone.",
+        "tooWide": "La largeur maximale dépasse cet écran ; le contenu risque de défiler horizontalement.",
+        "nowrap": "Une ligne sans retour peut déborder à cette largeur.",
+        "tall": "Cette hauteur minimale dépasse un écran de téléphone.",
+        "bigSpacing": "Un très grand espacement occupe une grande partie d’un petit écran."
+      },
+      "spacing": "Espacement",
+      "size": "Taille",
+      "text": "Texte",
+      "item": "Dans la disposition",
+      "fontSize": "Taille du texte",
+      "fontSizeValue": {
+        "xs": "XS",
+        "sm": "S",
+        "base": "M",
+        "lg": "L",
+        "xl": "XL",
+        "2xl": "2XL",
+        "3xl": "3XL",
+        "4xl": "4XL"
+      },
+      "span": "Colonnes occupées",
+      "col": "Colonne de départ",
+      "order": "Ordre",
+      "direction": "Direction",
+      "setHere": "Défini pour cette taille",
+      "inherited": "{value} · depuis {from}",
+      "notSet": "Non défini",
+      "inherit": "Hériter ({value})",
+      "reset": "Réinitialiser",
+      "resetField": "Réinitialiser {field} pour {breakpoint}"
+    },
+    "sources": {
+      "themeDefault": "Valeur du thème",
+      "siteToken": "Modifié pour ce site",
+      "theme": "Depuis le thème",
+      "local": "Défini sur ce bloc",
+      "localOverPreset": "Défini sur ce bloc, par-dessus le préréglage « {name} »",
+      "preset": "Depuis le préréglage « {name} »",
+      "breakpoint": "Défini pour {breakpoint}",
+      "resetField": "Réinitialiser {field} au niveau inférieur",
+      "resetToTheme": "Réinitialiser {field} à la valeur du thème",
+      "template": "Depuis le modèle « {name} ». Modifiez le modèle pour le changer."
+    },
+    "presets": {
+      "title": "Préréglage de style",
+      "use": "Préréglage",
+      "none": "Aucun",
+      "missing": "Préréglage manquant : {id}",
+      "missingHint": "Ce bloc renvoie à un préréglage qui n’existe plus. Il s’affiche sans.",
+      "using": "Utilise le préréglage « {name} ». Modifiez-le dans Styles pour changer tous les blocs qui l’utilisent.",
+      "usingWithLocal": "Utilise le préréglage « {name} », avec les valeurs propres de ce bloc par-dessus.",
+      "detach": "Détacher (garder les valeurs)",
+      "updateFromBlock": "Reporter les valeurs de ce bloc dans « {name} »",
+      "saveAs": "Enregistrer le style comme préréglage…",
+      "name": "Nom du préréglage",
+      "create": "Créer le préréglage",
+      "library": "Préréglages de style",
+      "libraryHint": "Des ensembles nommés d’espacement, de taille, de coins, d’ombres et de couleurs. En modifier un change chaque bloc qui l’utilise, sur chaque page.",
+      "empty": "Aucun préréglage pour l’instant. Stylisez un bloc, puis choisissez « Enregistrer le style comme préréglage » dans son onglet Style.",
+      "edit": "Modifier",
+      "done": "Terminé",
+      "usageLoading": "Vérification de l’utilisation…",
+      "usageNone": "Pas encore utilisé.",
+      "usage": "Utilisé par {count} : {where}",
+      "usageTemplates": {
+        "one": "{count} modèle",
+        "other": "{count} modèles"
+      },
+      "usageReusable": {
+        "one": "{count} bloc réutilisable",
+        "other": "{count} blocs réutilisables"
+      },
+      "usagePatterns": {
+        "one": "{count} composition",
+        "other": "{count} compositions"
+      },
+      "deleteConfirm": "Supprimer le préréglage « {name} » ?",
+      "deleteUsedConfirm": {
+        "one": "Supprimer le préréglage « {name} » ? {count} élément l’utilise et perdra sa mise en forme.",
+        "other": "Supprimer le préréglage « {name} » ? {count} éléments l’utilisent et perdront sa mise en forme."
+      }
+    },
+    "globalStyles": {
+      "title": "Styles globaux",
+      "impact": "Ils s’appliquent à chaque page, à l’en-tête, au pied de page, aux modèles et aux blocs réutilisables. Les changements s’affichent ici et sont publiés quand vous publiez.",
+      "draftState": "Modifications non publiées",
+      "publishedState": "Tout est publié",
+      "revert": "Revenir à la version publiée",
+      "unpublished": "non publié",
+      "changedCount": {
+        "one": "{count} modifié",
+        "other": "{count} modifiés"
+      },
+      "saveError": "Impossible d’enregistrer les styles",
+      "readOnly": "Seuls les administrateurs et les éditeurs peuvent modifier les styles globaux."
+    },
+    "templateDefaults": {
+      "title": "Valeurs par défaut du contenu",
+      "hint": "Styles de départ pour le contenu que le modèle {template} entoure, par type de bloc. Les valeurs propres d’un bloc l’emportent toujours.",
+      "empty": "Aucune valeur par défaut pour l’instant. Choisissez un type de bloc ci-dessous.",
+      "add": "Ajouter un type de bloc",
+      "addPlaceholder": "Choisir un type de bloc…",
+      "remove": "Retirer les valeurs par défaut pour {type}"
+    },
+    "siteContext": {
+      "previewNote": "Aperçu de l’environnement de cette page. Son titre et sa date sont réels ; les menus et autres contenus liés à la requête sont des substituts. Les visiteurs voient la page publiée.",
+      "region": {
+        "header": "En-tête du site",
+        "footer": "Pied de page du site",
+        "template": "Modèle"
+      },
+      "templateNamed": "Modèle « {slug} »",
+      "source": {
+        "override-draft": "votre version, brouillon",
+        "override": "votre version",
+        "theme": "du thème",
+        "plugin": "d’une extension",
+        "library": "de la bibliothèque d’en-têtes",
+        "none": "non défini"
+      },
+      "siteWide": "tout le site",
+      "edit": {
+        "header": "Modifier l’en-tête",
+        "footer": "Modifier le pied de page",
+        "template": "Modifier ce modèle"
+      },
+      "hierarchy": "Ordre des modèles",
+      "hierarchyHint": "Du plus précis au plus général. Le premier qui existe est utilisé.",
+      "menu": "Menu",
+      "notPublished": "Pas encore publié",
+      "headerHidden": "L’en-tête est masqué pour cette page.",
+      "footerEmpty": "Pas encore de pied de page.",
+      "noTemplate": "Aucun modèle : la vue de page intégrée du thème est utilisée.",
+      "panelTitle": "Environnement de cette page",
+      "panelHint": "L’en-tête, le modèle et le pied de page sont partagés par tout le site. Les modifier est un choix délibéré.",
+      "loading": "Chargement…"
+    },
+    "pluginPreview": {
+      "retry": "Réessayer",
+      "loading": "Chargement de {title}…",
+      "placeholder": "Affiche du contenu en direct sur la page publiée.",
+      "empty": "{title} n’affiche rien avec ses réglages actuels.",
+      "unavailable": "Bloc indisponible : {type}",
+      "unavailableHint": "Son extension ou son thème est peut-être désactivé. Le contenu est conservé et réapparaîtra à son retour.",
+      "timeout": "L’aperçu de {title} a pris trop de temps.",
+      "failed": "Impossible d’afficher l’aperçu de {title}."
+    },
+    "blockFailure": {
+      "title": "{type} ne peut pas être affiché dans le constructeur.",
+      "kept": "Son contenu est conservé et la page l’affiche tel qu’enregistré."
+    },
+    "blockStatus": {
+      "deprecated": "Ce bloc est obsolète. Il fonctionne toujours, mais n’est plus proposé pour de nouveaux contenus.",
+      "deprecatedReplaced": "Ce bloc est obsolète. Utilisez {type} pour les nouveaux contenus.",
+      "migrationFailed": "Ce bloc n’a pas pu être mis à jour depuis la version {version} ; il affiche donc ses réglages enregistrés."
+    },
+    "recovery": {
+      "unavailableTitle": "L’extension ou le thème de ce bloc n’est pas actif",
+      "deprecatedTitle": "Ce bloc est obsolète",
+      "unavailableText": "Il ne peut pas être modifié ni affiché pour l’instant. Son contenu est conservé, et la page l’affiche de nouveau dès que l’extension est réactivée.",
+      "deprecatedText": "Il continue de fonctionner, mais n’est plus proposé pour de nouveaux contenus.",
+      "deprecatedReplaced": "Il continue de fonctionner. Son remplaçant est {type}.",
+      "type": "Type",
+      "providedBy": "Fourni par",
+      "version": "Version",
+      "deprecatedSince": "obsolète depuis {since}",
+      "id": "Identifiant du bloc",
+      "stored": "Enregistré",
+      "copy": "Copier les données",
+      "download": "Télécharger les données",
+      "copied": "Données du bloc copiées.",
+      "copyFailed": "Le navigateur n’a pas autorisé la copie. Utilisez plutôt Télécharger les données.",
+      "manageExtensions": "Gérer les extensions",
+      "replaceWith": "Remplacer par",
+      "chooseBlock": "Choisir un bloc…",
+      "replace": "Remplacer",
+      "remove": "Supprimer le bloc",
+      "replaceConfirm": "Remplacer ce bloc par {title} ? Il garde son identifiant et chaque réglage que {title} possède aussi.",
+      "replaceDrops": {
+        "one": "{count} réglage enregistré que le nouveau bloc n’a pas sera supprimé.",
+        "other": "{count} réglages enregistrés que le nouveau bloc n’a pas seront supprimés."
+      },
+      "replaceDropsChildren": {
+        "one": "{count} bloc à l’intérieur sera supprimé, car le nouveau bloc ne peut pas contenir d’autres blocs.",
+        "other": "{count} blocs à l’intérieur seront supprimés, car le nouveau bloc ne peut pas contenir d’autres blocs."
+      },
+      "downloadFirst": "Téléchargez d’abord les données si vous pourriez en avoir besoin plus tard.",
+      "removeConfirm": "Supprimer ce bloc de la page ? Téléchargez d’abord ses données si vous pourriez en avoir besoin plus tard.",
+      "removeConfirmChildren": {
+        "one": "Supprimer ce bloc et le {count} bloc qu’il contient ? Téléchargez d’abord ses données si vous pourriez en avoir besoin plus tard.",
+        "other": "Supprimer ce bloc et les {count} blocs qu’il contient ? Téléchargez d’abord ses données si vous pourriez en avoir besoin plus tard."
+      },
+      "keptHint": "L’enregistrement de la page conserve ce bloc exactement tel qu’il est stocké.",
+      "storedSettings": {
+        "one": "{count} réglage",
+        "other": "{count} réglages"
+      },
+      "storedBlocks": {
+        "one": "{count} bloc à l’intérieur",
+        "other": "{count} blocs à l’intérieur"
+      }
+    },
+    "blockCount": {
+      "one": "{count} bloc",
+      "other": "{count} blocs"
+    },
+    "checks": {
+      "title": "Vérifications d’accessibilité",
+      "disclaimer": "Ces vérifications repèrent des problèmes courants dans ce que vous réglez ici. Elles ne voient pas tout ce qu’un thème, une extension ou un visiteur modifie : elles ne prouvent donc pas qu’une page est accessible.",
+      "none": "Aucun problème trouvé dans ce que ces vérifications examinent.",
+      "errors": {
+        "one": "{count} problème",
+        "other": "{count} problèmes"
+      },
+      "warnings": {
+        "one": "{count} à revoir",
+        "other": "{count} à revoir"
+      },
+      "unavailable": {
+        "one": "{count} non vérifié",
+        "other": "{count} non vérifiés"
+      },
+      "problemCount": {
+        "one": "{count} problème",
+        "other": "{count} problèmes"
+      },
+      "imageAlt": "Pas de texte alternatif. Décrivez l’image, ou laissez-le vide seulement si elle est décorative.",
+      "linkText": "Ce lien ou ce bouton n’a pas de texte : les lecteurs d’écran ne peuvent pas dire où il mène.",
+      "linkTextItem": "Le lien {item} n’a pas de texte : les lecteurs d’écran ne peuvent pas dire où il mène.",
+      "linkTarget": "Ce bouton a un texte mais pas de lien : il ne fait rien.",
+      "headingEmpty": "Ce titre est vide.",
+      "headingSkip": "Le niveau de titre passe de {from} à {to}. Les niveaux sautés rendent le plan de la page difficile à suivre.",
+      "headingLevelOne": "Le niveau 1 est généralement le titre de la page. Utilisez le niveau 2 pour les sections.",
+      "contrast": "Le contraste du texte est de {ratio}:1. Un texte normal demande au moins 4,5:1.",
+      "contrastUnknown": "Le contraste ne peut pas être vérifié ici, car l’une des couleurs vient du thème.",
+      "hiddenOnMobile": "Ce titre ou ce bouton est masqué sur les téléphones.",
+      "readingOrder": "L’ordre à l’écran diffère de l’ordre de lecture. Les lecteurs d’écran et le clavier suivent l’ordre des Calques.",
+      "iconLabel": "Cette icône n’est pas décorative mais n’a pas de libellé : elle est annoncée par son nom d’icône.",
+      "tableHeader": "Ce tableau n’a pas de ligne d’en-tête. Les tableaux de données en ont besoin pour que leurs colonnes soient comprises.",
+      "contentUnchecked": "Le contenu de ce bloc ne peut pas être vérifié ici."
+    },
+    "keyboard": {
+      "open": "Raccourcis",
+      "title": "Raccourcis clavier",
+      "close": "Fermer",
+      "or": "ou",
+      "intro": "Tout ce qui se fait à la souris ou au toucher se fait aussi au clavier. Ctrl correspond à ⌘ sur Mac.",
+      "area": {
+        "canvas": "Canevas",
+        "layers": "Calques",
+        "library": "Blocs",
+        "text": "Texte et médias",
+        "layout": "Mise en page",
+        "general": "Général"
+      },
+      "path": {
+        "selectBlock": "Sélectionner un bloc (Tab jusqu’à son nom)",
+        "actionsMenu": "Ouvrir le menu d’actions du bloc",
+        "duplicate": "Dupliquer",
+        "group": "Grouper",
+        "ungroup": "Dégrouper",
+        "remove": "Supprimer",
+        "copyPaste": "Copier, couper et coller",
+        "undoRedo": "Annuler et rétablir",
+        "clearSelection": "Ne garder qu’un bloc sélectionné",
+        "moveBlock": "Monter ou descendre",
+        "nestBlock": "Placer dans le bloc au-dessus, ou sortir du conteneur",
+        "extendSelection": "Ajouter des blocs à la sélection",
+        "renameBlock": "Renommer",
+        "moveTo": "Déplacer vers un autre conteneur",
+        "addBlock": "Ajouter le bloc ciblé",
+        "editText": "Terminer ou annuler la modification du texte",
+        "replaceMedia": "Remplacer une image ou un fichier sélectionné",
+        "resizeSpacing": "Modifier l’espacement et la hauteur avec une poignée ciblée",
+        "gridPlacement": "Placer et dimensionner un élément dans une grille",
+        "cancelDrag": "Annuler un glisser",
+        "shortcuts": "Afficher cette liste"
+      },
+      "how": {
+        "moveTo": "« Déplacer vers… » dans Calques",
+        "gridPlacement": "Champs de placement dans la grille, onglet Mise en page"
+      }
     }
   },
   "dashboard": {
@@ -1396,7 +2120,10 @@
     "description": "Choisissez les structures d'URL publiques pour votre contenu et les archives de taxonomies.",
     "failed": "Impossible de charger ou d'enregistrer les paramètres de permaliens.",
     "retry": "Réessayer",
-    "saved": "Permaliens enregistrés. {count} anciennes URL de contenu ont été mémorisées pour des redirections 301.",
+    "saved": {
+      "one": "Permaliens enregistrés. {count} ancienne URL de contenu a été mémorisée pour une redirection 301.",
+      "other": "Permaliens enregistrés. {count} anciennes URL de contenu ont été mémorisées pour des redirections 301."
+    },
     "warning": "Modifier les URL peut affecter le référencement et les liens externes. Les URL publiées connues sont redirigées automatiquement. Les URL importées, les URL ambiguës partagées par plusieurs éléments, les contenus supprimés, les liens saisis manuellement et les anciennes URL non mémorisées ne peuvent pas être associées automatiquement. Vérifiez les redirections après l’enregistrement.",
     "preset": "Préréglage d'URL des articles",
     "plain": "Simple (requête par ID de contenu)",
@@ -1586,7 +2313,10 @@
     "save": "Enregistrer les paramètres",
     "saved": "Paramètres de recherche enregistrés.",
     "rebuild": "Reconstruire l’index de recherche",
-    "rebuilt": "{count} contenus indexés.",
+    "rebuilt": {
+      "one": "{count} contenu indexé.",
+      "other": "{count} contenus indexés."
+    },
     "working": "Traitement…",
     "label": "Libellé de recherche",
     "scope": "Types de contenu recherchés",
@@ -1632,7 +2362,10 @@
     "remove": "Supprimer",
     "mediaLibraryAriaLabel": "Médiathèque",
     "noImagesYet": "Pas encore d’images. Téléversez-en une, ou ajoutez des fichiers dans Médias.",
-    "pasteUrl": "Coller une URL"
+    "pasteUrl": "Coller une URL",
+    "selectFile": "Choisir un fichier",
+    "noFileSelected": "Aucun fichier sélectionné",
+    "noFilesYet": "Aucun fichier de ce type pour l’instant. Téléversez-en un ou ajoutez des fichiers dans Médias."
   },
   "auth": {
     "forgotPassword": {
@@ -1791,15 +2524,24 @@
     }
   },
   "comments": {
-    "reasonLinks": "{count} lien{plural} dans le commentaire",
-    "reasonKeywords": "{count} mot{plural}-clé{plural} de spam détecté{plural}",
+    "reasonLinks": {
+      "one": "{count} lien dans le commentaire",
+      "other": "{count} liens dans le commentaire"
+    },
+    "reasonKeywords": {
+      "one": "{count} mot-clé de spam détecté",
+      "other": "{count} mots-clés de spam détectés"
+    },
     "reasonDisposableEmail": "domaine d’e-mail jetable",
     "reasonRepetitive": "texte répétitif",
     "reasonNoToken": "aucun jeton de délai d’envoi (comportement de robot)",
     "reasonTooFast": "envoyé trop rapidement après le chargement de la page",
     "reasonTrained": "contient des termes appris lors de précédents « marquer comme spam » : {detail}",
     "reasonRule": "correspond à une règle de blocage de l’administrateur ({field})",
-    "deleteConfirm": "Supprimer définitivement {count} commentaire(s) ?",
+    "deleteConfirm": {
+      "one": "Supprimer définitivement {count} commentaire ?",
+      "other": "Supprimer définitivement {count} commentaires ?"
+    },
     "editCommentPrompt": "Modifier le commentaire",
     "replyToPrompt": "Répondre à {name}",
     "blockConfirm": "Bloquer tous les futurs commentaires correspondant à ce {field} ?\n\n{pattern}",
@@ -1818,7 +2560,10 @@
     "blockEmail": "Bloquer l’e-mail",
     "blockDomain": "Bloquer le domaine",
     "blockIp": "Bloquer l’IP",
-    "selectedCount": "{count} sélectionné(s)",
+    "selectedCount": {
+      "one": "{count} sélectionné",
+      "other": "{count} sélectionnés"
+    },
     "onContent": "sur : {title}",
     "spamScore": "Score de spam {score}/100",
     "pageOf": "Page {page} sur {totalPages}",
@@ -1966,8 +2711,14 @@
     "referencedByContent": "Utilisé dans du contenu",
     "restore": "Restaurer",
     "deletePermanently": "Supprimer définitivement",
-    "emptyConfirm": "Supprimer définitivement les {count} éléments ?",
-    "emptyConfirmReferencedSuffix": " {count} fichier(s) média encore utilisé(s) seront également supprimé(s)."
+    "emptyConfirm": {
+      "one": "Supprimer définitivement {count} élément ?",
+      "other": "Supprimer définitivement les {count} éléments ?"
+    },
+    "emptyConfirmReferencedSuffix": {
+      "one": " {count} fichier média encore utilisé sera également supprimé.",
+      "other": " {count} fichiers média encore utilisés seront également supprimés."
+    }
   },
   "headerLibrary": {
     "renamePrompt": "Nom de l'en-tête",
@@ -2113,7 +2864,11 @@
     "slotErrorLabel": "Erreur (générique)",
     "slotErrorHint": "Modèle de secours commun aux erreurs 403, 410 et 429 lorsqu’aucun modèle spécifique n’existe",
     "slotIndexLabel": "Modèle général (index)",
-    "slotIndexHint": "Utilisé uniquement lorsqu’aucun modèle plus spécifique n’existe"
+    "slotIndexHint": "Utilisé uniquement lorsqu’aucun modèle plus spécifique n’existe",
+    "compareTheme": "Comparer avec la version du thème",
+    "themeVersion": "Version du thème",
+    "copyThemeHint": "Copie la version du thème dans l’éditeur. Rien n’est enregistré tant que vous n’enregistrez ou ne publiez pas.",
+    "fromTheme": "thème"
   },
   "widgets": {
     "loading": "Chargement des widgets…",
@@ -2210,7 +2965,10 @@
     "install": "Installer",
     "installOnMainSite": "Installer sur le site principal",
     "versionBy": "v{version} · par {publisher}",
-    "resultsCount": "{count} résultats",
+    "resultsCount": {
+      "one": "{count} résultat",
+      "other": "{count} résultats"
+    },
     "categories": {
       "all": "Tous",
       "plugins": "Extensions",
@@ -2232,7 +2990,10 @@
     "checking": "Recherche de mises à jour…",
     "checkNow": "Rechercher des mises à jour",
     "checkFailed": "Impossible de vérifier les mises à jour sur la Marketplace.",
-    "availableCount": "{count} mise(s) à jour disponible(s)",
+    "availableCount": {
+      "one": "{count} mise à jour disponible",
+      "other": "{count} mises à jour disponibles"
+    },
     "upToDate": "Tout est à jour.",
     "badge": "Mise à jour disponible : v{version}",
     "updateTo": "Mettre à jour vers v{version}",
@@ -2293,7 +3054,10 @@
     "captionLabel": "Légende",
     "regenerateFinished": "✓ Régénération terminée : {processed} recréées, {skipped} ignorées, {failed} en échec.",
     "focalPointHintAfter": "incluses) gardent ce point visible. Enregistrer un nouveau point focal recrée les variantes de cette image.",
-    "fileCount": "{count} fichiers",
+    "fileCount": {
+      "one": "{count} fichier",
+      "other": "{count} fichiers"
+    },
     "regeneratingProgress": "Régénération… {done}/{total}",
     "focalPointLabel": "Point focal : {x} % / {y} %",
     "originalDimensions": "original {width}×{height}"
@@ -2512,8 +3276,14 @@
         "runtimeAdvisories": {
           "title": "Avis de sécurité",
           "clear": "Aucun avis publié ne concerne cette installation. Flux émis le {issuedAt}.",
-          "affected": "{count} avis publiés concernent cette installation : {ids}.",
-          "revoked": "L’éditeur a retiré au moins une version installée. {count} avis s’appliquent : {ids}.",
+          "affected": {
+            "one": "{count} avis publié concerne cette installation : {ids}.",
+            "other": "{count} avis publiés concernent cette installation : {ids}."
+          },
+          "revoked": {
+            "one": "L’éditeur a retiré au moins une version installée. {count} avis s’applique : {ids}.",
+            "other": "L’éditeur a retiré au moins une version installée. {count} avis s’appliquent : {ids}."
+          },
           "unavailable": "Aucun flux d’avis vérifié n’est disponible : cette installation n’a donc pas été contrôlée.",
           "stale": "Le flux d’avis a expiré le {expiresAt} : des avis récents peuvent manquer.",
           "otherSite": "Les avis sont contrôlés sur le site de la plateforme.",
@@ -2571,7 +3341,10 @@
         "starting": "Démarrage…",
         "setUp": "Configurer la double authentification",
         "loadError": "Impossible de charger l'état : {message}",
-        "recoveryCodesLeft": "Il reste {count} codes de récupération inutilisés."
+        "recoveryCodesLeft": {
+          "one": "Il reste {count} code de récupération inutilisé.",
+          "other": "Il reste {count} codes de récupération inutilisés."
+        }
       },
       "sessions": {
         "loadError": "Impossible de charger les sessions.",
@@ -2583,7 +3356,10 @@
         "thisDevice": "Cet appareil",
         "unknownDevice": "Appareil inconnu",
         "unknownIp": "IP inconnue",
-        "othersRevoked": "{count} autres sessions révoquées.",
+        "othersRevoked": {
+          "one": "{count} autre session révoquée.",
+          "other": "{count} autres sessions révoquées."
+        },
         "lastActive": "dernière activité {date}",
         "revoke": "Révoquer",
         "revokeAllOthers": "Révoquer toutes les autres sessions"
@@ -2630,7 +3406,10 @@
         "removeConfirm": "Supprimer la clé d’accès",
         "signOutOthers": "Déconnecter aussi tous les autres appareils",
         "removed": "Clé d’accès supprimée.",
-        "removedSignedOut": "Clé d’accès supprimée. {count} autres sessions ont été déconnectées.",
+        "removedSignedOut": {
+          "one": "Clé d’accès supprimée. {count} autre session a été déconnectée.",
+          "other": "Clé d’accès supprimée. {count} autres sessions ont été déconnectées."
+        },
         "removeError": "Impossible de supprimer la clé d’accès.",
         "loadError": "Impossible de charger les clés d’accès : {message}",
         "recoveryBody": "Chaque code ne sert qu’une fois. Gardez-les dans un endroit accessible sans cet appareil : avec votre mot de passe, un code vous connecte si vous perdez vos clés d’accès.",
@@ -2638,7 +3417,10 @@
         "lostBody": "Supprimez-la ici et déconnectez vos autres appareils. Si vous ne pouvez plus du tout vous connecter, utilisez votre mot de passe avec un code de récupération. Mot de passe oublié aussi ? Réinitialisez-le par e-mail, puis utilisez un code de récupération. Un administrateur peut aussi supprimer vos clés d’accès pour vous.",
         "recovery": {
           "title": "Codes de récupération",
-          "remaining": "Il reste {count} codes de récupération inutilisés.",
+          "remaining": {
+            "one": "Il reste {count} code de récupération inutilisé.",
+            "other": "Il reste {count} codes de récupération inutilisés."
+          },
           "none": "Aucun code de récupération pour l’instant. Ils sont créés avec votre première clé d’accès ou lorsque vous activez l’authentification à deux facteurs.",
           "unknown": "Les codes de récupération n’ont pas pu être lus.",
           "regenerate": "Créer de nouveaux codes de récupération",
@@ -2757,10 +3539,16 @@
       "settingsSubtitle": "Notifications, conservation, exportation et suppression.",
       "settingsTitle": "Paramètres d’audit",
       "lifecycle": {
-        "bound": "Le stockage est limité à {count} lignes d’audit par site ; les plus anciennes sont supprimées en premier.",
+        "bound": {
+          "one": "Le stockage est limité à {count} ligne d’audit par site ; les plus anciennes sont supprimées en premier.",
+          "other": "Le stockage est limité à {count} lignes d’audit par site ; les plus anciennes sont supprimées en premier."
+        },
         "confirmLabel": "Saisissez DELETE SECURITY EVENTS pour supprimer définitivement les événements de sécurité de ce site.",
         "deleteButton": "Supprimer les événements de sécurité",
-        "deleted": "{count} événements supprimés. Un marqueur contenant uniquement le nombre a été conservé.",
+        "deleted": {
+          "one": "{count} événement supprimé. Un marqueur contenant uniquement le nombre a été conservé.",
+          "other": "{count} événements supprimés. Un marqueur contenant uniquement le nombre a été conservé."
+        },
         "exportButton": "Exporter les événements de sécurité expurgés",
         "localWarning": "Les journaux locaux facilitent les enquêtes, mais ne résistent pas à la falsification si l’hôte est compromis. Cette fonction ne configure aucun collecteur externe.",
         "writeFailed": "Les écritures d’audit ont échoué à {time}. Des actions récentes peuvent manquer.",
@@ -2939,7 +3727,10 @@
         "customHeaders": "En-têtes personnalisés & importation"
       },
       "findings": {
-        "title": "Constats ({count} ouverts)",
+        "title": {
+          "one": "Constats ({count} ouvert)",
+          "other": "Constats ({count} ouverts)"
+        },
         "review": "Examiner",
         "fix": "Correction"
       },
@@ -3040,8 +3831,10 @@
     "brandLayoutHint": "Présentation commune à tous les e-mails système.",
     "designField": {
       "companyName": "Nom de la société / du site",
-      "logoUrl": "URL du logo",
-      "darkLogoUrl": "URL du logo pour fond sombre",
+      "logoUrl": "Logo",
+      "darkLogoUrl": "Logo pour le mode sombre",
+      "logoHint": "Une image de la médiathèque, ou une image à téléverser. Les e-mails envoyés la chargent depuis l'adresse du site. Les formats PNG et JPG s'affichent dans la plupart des messageries.",
+      "darkLogoHint": "Facultatif. Les messageries qui suivent le mode sombre affichent ce logo à la place ; les autres affichent le logo habituel.",
       "supportContact": "Contact du support",
       "address": "Adresse de l'entreprise",
       "fontFamily": "Famille de polices sûre",
@@ -3446,7 +4239,10 @@
       "slow": "Lent",
       "responsive": "Réactif",
       "percentOf": "{percent}% de {total}",
-      "requestsObserved": "{count} demandes observées",
+      "requestsObserved": {
+        "one": "{count} requête observée",
+        "other": "{count} requêtes observées"
+      },
       "driverConnected": "{driver} · connecté",
       "connected": "connecté",
       "unavailable": "non disponible",
@@ -3469,7 +4265,10 @@
       "latency": "Latence",
       "migrations": "Migrations",
       "current": "À jour",
-      "pendingCount": "{count} en attente",
+      "pendingCount": {
+        "one": "{count} en attente",
+        "other": "{count} en attente"
+      },
       "objectCache": "Cache d’objets",
       "enabled": "Activée",
       "disabled": "Désactivé",
@@ -3485,7 +4284,10 @@
       "colCheck": "Vérification",
       "colStatus": "Statut",
       "colSummary": "Résumé",
-      "count": "{count} vérifications"
+      "count": {
+        "one": "{count} vérification",
+        "other": "{count} vérifications"
+      }
     },
     "cli": {
       "title": "Reproduire depuis le serveur",
@@ -3504,10 +4306,22 @@
       "colDatabase": "Base de données",
       "colHooks": "Hooks",
       "colResolution": "Traitement",
-      "retained": "{count} conservées",
-      "errorsCount": "{count} erreurs",
-      "opsCount": "{count} opérations",
-      "runsCount": "{count} exécutions"
+      "retained": {
+        "one": "{count} conservée",
+        "other": "{count} conservées"
+      },
+      "errorsCount": {
+        "one": "{count} erreur",
+        "other": "{count} erreurs"
+      },
+      "opsCount": {
+        "one": "{count} opération",
+        "other": "{count} opérations"
+      },
+      "runsCount": {
+        "one": "{count} exécution",
+        "other": "{count} exécutions"
+      }
     },
     "hooks": {
       "title": "Inspecteur de hooks",
@@ -3521,9 +4335,32 @@
       "colStatus": "Statut",
       "core": "Cœur",
       "disabled": "Désactivé",
-      "errorsCount": "{count} erreurs",
+      "errorsCount": {
+        "one": "{count} erreur",
+        "other": "{count} erreurs"
+      },
       "healthy": "Opérationnel",
-      "handlersCount": "{count} gestionnaires"
+      "handlersCount": {
+        "one": "{count} gestionnaire",
+        "other": "{count} gestionnaires"
+      }
+    },
+    "blockRenders": {
+      "title": "Blocs lents",
+      "hint": "Blocs d'extensions dont l'affichage a pris {slow} ms ou plus. Un bloc qui dépasse {limit} ms est interrompu et mis en pause pendant un moment ; les pages publiques l'omettent et le constructeur affiche une erreur à sa place.",
+      "none": "Aucun bloc d'extension n'a été lent depuis le démarrage du serveur.",
+      "colType": "Type de bloc",
+      "colRenders": "Affichages",
+      "colSlow": "Lents",
+      "colTimeouts": "Interrompus",
+      "colMax": "Le plus lent",
+      "colStatus": "État",
+      "paused": "En pause jusqu'à {time}",
+      "running": "Actif",
+      "slowTypes": {
+        "one": "{count} type de bloc lent",
+        "other": "{count} types de blocs lents"
+      }
     },
     "plugins": {
       "title": "Extensions",
@@ -3539,7 +4376,10 @@
       "notRegistered": "Non enregistré",
       "present": "Présent",
       "missing": "Manquant",
-      "foundCount": "{count} trouvée(s)"
+      "foundCount": {
+        "one": "{count} trouvée",
+        "other": "{count} trouvées"
+      }
     },
     "themes": {
       "title": "Thèmes",
@@ -3550,7 +4390,10 @@
       "colVersion": "Version",
       "colDatabase": "Base de données",
       "colFiles": "Fichiers",
-      "foundCount": "{count} trouvé(s)"
+      "foundCount": {
+        "one": "{count} trouvé",
+        "other": "{count} trouvés"
+      }
     },
     "recentErrors": {
       "title": "Erreurs récentes",
@@ -3561,7 +4404,10 @@
       "colMessage": "Message",
       "colRequestId": "ID de requête",
       "backgroundTask": "Tâche en arrière-plan",
-      "capturedCount": "{count} capturée(s)"
+      "capturedCount": {
+        "one": "{count} capturée",
+        "other": "{count} capturées"
+      }
     },
     "footer": {
       "safeTitle": "Peut être partagé sans risque avec le support",
@@ -3582,7 +4428,10 @@
       "creating": "Création de la sauvegarde…",
       "description": "Téléchargez une copie portable et vérifiée de ce site.",
       "download": "Télécharger la sauvegarde",
-      "mediaSummary": "{count} fichiers média originaux · {size}",
+      "mediaSummary": {
+        "one": "{count} fichier média original · {size}",
+        "other": "{count} fichiers média originaux · {size}"
+      },
       "restore": "Restaurer sur un site vide",
       "restoreComplete": "Sauvegarde restaurée. Rechargez l’administration.",
       "restoreFailed": "Impossible de restaurer la sauvegarde",
@@ -3723,7 +4572,10 @@
       "clearing": "Vidage…",
       "clearObjectCache": "Vider le cache d’objets",
       "logLabel": "Journal des performances",
-      "keysStorage": "{count} clés · {size}",
+      "keysStorage": {
+        "one": "{count} clé · {size}",
+        "other": "{count} clés · {size}"
+      },
       "sampleCacheFiles": "Exemples de fichiers de cache ({count})",
       "revalidateHint2": "pour les extensions.",
       "browserCacheHint1": "Définit",
@@ -3845,7 +4697,10 @@
       "importing": "Importation…",
       "uploadButton": "Téléverser le .xml WordPress",
       "importFailed": "L'importation a échoué :",
-      "itemsHadErrors": "{count} élément(s) comportaient des erreurs. Consultez les journaux du serveur.",
+      "itemsHadErrors": {
+        "one": "{count} élément comportait des erreurs. Consultez les journaux du serveur.",
+        "other": "{count} éléments comportaient des erreurs. Consultez les journaux du serveur."
+      },
       "importComplete": "Importation terminée",
       "postsImported": "Articles importés : {count}",
       "pagesImported": "Pages importées : {count}",
@@ -3893,7 +4748,10 @@
   },
   "updates": {
     "log": {
-      "foundUpdates": "{count} mise(s) à jour trouvée(s)",
+      "foundUpdates": {
+        "one": "{count} mise à jour trouvée",
+        "other": "{count} mises à jour trouvées"
+      },
       "upToDate": "Tout est à jour",
       "alreadyRunning": "Une mise à jour est déjà en cours",
       "updateFailed": "La mise à jour a échoué",
@@ -4072,9 +4930,26 @@
       "description": "Description",
       "descriptionPlaceholder": "À quoi sert ce rôle ?",
       "saveRole": "Enregistrer le rôle",
-      "capabilitiesCount": "{count} autorisations",
-      "selectedCount": "{count} sélectionnée(s)",
-      "createRole": "Créer un rôle"
+      "capabilitiesCount": {
+        "one": "{count} autorisation",
+        "other": "{count} autorisations"
+      },
+      "selectedCount": {
+        "one": "{count} sélectionnée",
+        "other": "{count} sélectionnées"
+      },
+      "createRole": "Créer un rôle",
+      "capabilityGroup": {
+        "design": "Design"
+      },
+      "capabilityLabel": {
+        "design:read": "Voir le design du site",
+        "design:manage": "Modifier le design du site"
+      },
+      "capabilityHint": {
+        "design:read": "Ouvrir les modèles, l'en-tête et le pied de page, les zones de widgets, les menus, les compositions, les blocs réutilisables, les préréglages de style et les styles globaux.",
+        "design:manage": "Modifier et publier les modèles, l'en-tête et le pied de page, les zones de widgets, les menus, les compositions, les blocs réutilisables, les préréglages de style et les styles globaux. Les changements s'appliquent à chaque page qui les utilise."
+      }
     },
     "failedToLoadUsers": "Impossible de charger les utilisateurs",
     "failedToInviteUser": "Impossible d'inviter l'utilisateur",
@@ -4300,7 +5175,10 @@
       "lastUsed": "Dernière utilisation",
       "never": "Jamais",
       "empty": "Aucune application d’IA n’est connectée.",
-      "permissionCount": "{count} autorisations",
+      "permissionCount": {
+        "one": "{count} autorisation",
+        "other": "{count} autorisations"
+      },
       "userTools": "Outils utilisateurs et rôles",
       "revoke": "Révoquer",
       "revokeConfirm": "Révoquer l’accès de {name} ? Il cessera de fonctionner immédiatement."
@@ -4406,7 +5284,10 @@
       "enabled": "Activé",
       "test": "Tester la connexion",
       "testing": "Test en cours…",
-      "testOk": "La connexion fonctionne. {count} modèles disponibles.",
+      "testOk": {
+        "one": "La connexion fonctionne. {count} modèle disponible.",
+        "other": "La connexion fonctionne. {count} modèles disponibles."
+      },
       "saved": "Enregistré.",
       "remove": "Supprimer",
       "removeConfirm": "Supprimer la clé {provider} ?"
@@ -4775,7 +5656,10 @@
       "local": "Le disque du serveur, dans un dossier privé hors des fichiers publics."
     },
     "publicBucket": "Le bucket S3 de l’installation est public (STORAGE_S3_PUBLIC_URL est défini) : les fichiers privés sont donc gardés sur le disque du serveur. Ajoutez un bucket privé ci-dessous pour utiliser S3.",
-    "copying": "Copie de {count} fichiers vers le stockage actuel. Elle se fait en arrière-plan ; les téléchargements continuent de fonctionner.",
+    "copying": {
+      "one": "Copie de {count} fichier vers le stockage actuel. Elle se fait en arrière-plan ; les téléchargements continuent de fonctionner.",
+      "other": "Copie de {count} fichiers vers le stockage actuel. Elle se fait en arrière-plan ; les téléchargements continuent de fonctionner."
+    },
     "filesUsage": "Fichiers privés",
     "bytesUsage": "Stockage des fichiers privés",
     "usageUnlimited": "{used} (sans limite)",

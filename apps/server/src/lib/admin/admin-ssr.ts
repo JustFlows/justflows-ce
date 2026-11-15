@@ -375,7 +375,7 @@ async function appendAdminBody(html: string, req: Request): Promise<string> {
     const filtered = await hooks.applyFilter(
       "admin.body",
       "",
-      { siteId, ...(rootSite ? { rootSite: true } : {}) },
+      { siteId, locale: preferredLocale(req), ...(rootSite ? { rootSite: true } : {}) },
       { siteId, source: "http" },
     );
     const extra = typeof filtered === "string" ? filtered : "";
