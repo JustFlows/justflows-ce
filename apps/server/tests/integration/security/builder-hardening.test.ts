@@ -20,6 +20,18 @@ vi.mock("../../../src/lib/auth/auth-session.js", () => ({
   resolveSession: async () => ({ siteId: "s1", userId: "u1", role: "administrator", email: "u@example.test" }),
   isPreviewAllowed: async () => false,
 }));
+/**
+ * Design routes check capabilities (justflows-ce#314). The administrator's
+ * built-in capabilities stand in for the access-policy lookup, which needs a
+ * database this suite does not have.
+ */
+vi.mock("../../../src/lib/auth/access-policy.js", async (original) => {
+  const { ROLE_CAPABILITIES } = await import("@justflows/sdk");
+  return {
+    ...(await original<typeof import("../../../src/lib/auth/access-policy.js")>()),
+    userCan: async (actor: { role: string }, capability: string) => ROLE_CAPABILITIES[actor.role]?.includes(capability) ?? false,
+  };
+});
 vi.mock("../../../src/lib/auth/session.js", async (original) => ({
   ...(await original<typeof import("../../../src/lib/auth/session.js")>()),
   syncCsrfCookie: vi.fn(),
