@@ -191,7 +191,7 @@ export const coreBlocks: BlockDefinition[] = [
       }
 
       const img = renderResponsiveImage(input);
-      return caption ? `<figure>${img}<figcaption>${esc(caption)}</figcaption></figure>` : img;
+      return caption ? `<figure>${img}<figcaption data-jf-inline="caption">${esc(caption)}</figcaption></figure>` : img;
     },
   },
   {

@@ -1,6 +1,5 @@
 import FunctionalBlock, { FUNCTIONAL_TYPES } from "./FunctionalBlock";
 import ServerBlock, { SERVER_RENDERED_TYPES, type InlineEditorTag } from "./ServerBlock";
-import MediaBlock from "../MediaBlock";
 import { useT } from "../../i18n/I18nProvider";
 import { Component, Fragment, cloneElement, createContext, isValidElement, useContext, useEffect, useRef, useState, type ErrorInfo, type ReactElement, type ReactNode } from "react";
 import type { BlockNode } from "./types";
@@ -13,7 +12,7 @@ import { reusablePreviewBlocks, useReusableStore } from "../../lib/reusable-bloc
 import MotionPreview from "./MotionPreview";
 import { applyMergeTags, useMergeTags } from "../../lib/merge-tags";
 import { requestBlockPreview } from "../../lib/block-preview-batch";
-import { ImagePickerPopover, MediaPickerPopover, readEditableText } from "./InlineEditable";
+import { MediaPickerPopover, readEditableText } from "./InlineEditable";
 import { InlineField, InlineFieldsContext, InlineLinkField } from "./inline-field";
 /** Builder-only styles load with the builder, not on every admin page (justflows-ce#310). */
 import "../../styles/builder.css";
@@ -273,12 +272,41 @@ function BlockPreviewContent({
             );
           }
         : undefined;
-    return wrap(
-      <>
+    /**
+     * Media replacement (justflows-ce#297) around the page's markup: double-click
+     * the media, or use the Replace button, which is the keyboard control.
+     */
+    const mediaKind = MEDIA_KIND[block.type];
+    const hasSrc = typeof p.src === "string" && p.src !== "";
+    const openMedia = (el: HTMLElement, prop: "src" | "poster" = "src") => {
+      const rect = el.getBoundingClientRect();
+      setMediaPicker({ top: rect.bottom + 4, left: rect.left, kind: prop === "poster" ? "image" : mediaKind, prop });
+    };
+    const mediaHint =
+      !mediaKind || hasSrc ? undefined
+      : mediaKind !== "image" ? <div className="jf-media-placeholder">{t("builder.media.addUrl")}</div>
+      : active ? (
+          <div
+            role="button"
+            tabIndex={0}
+            className="jf-media-placeholder"
+            onClick={(e) => openMedia(e.currentTarget)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openMedia(e.currentTarget);
+              }
+            }}
+          >
+            {t("builder.inline.chooseImage")}
+          </div>
+        )
+      : <div className="jf-media-placeholder">{t("builder.preview.noImage")}</div>;
+    const server = (
       <ServerBlock
         type={block.type}
         props={serverProps}
-        hint={serverBlockHint(block.type, serverProps, t)}
+        hint={mediaHint ?? serverBlockHint(block.type, serverProps, t)}
         blockId={block.id}
         rootClass={presetClass || undefined}
         rootDeclarations={[blockStyleDeclarations(blockStyle), block.type === "core.grid" && onUpdateProps ? "display:block" : ""].filter(Boolean).join(";") || undefined}
@@ -286,6 +314,57 @@ function BlockPreviewContent({
       >
         {renderChildren?.(block.children ?? [], depth + 1) ?? emptyContainerHint(block.type, t)}
       </ServerBlock>
+    );
+    return wrap(
+      <>
+      {mediaKind && active ? (
+        <div title={hasSrc ? t("builder.inline.replaceMediaHint") : undefined} onDoubleClick={hasSrc ? (e) => openMedia(e.currentTarget) : undefined}>
+          {server}
+        </div>
+      ) : (
+        server
+      )}
+      {mediaKind && active && (
+        <>
+          {mediaPicker?.prop && (
+            <MediaPickerPopover
+              kind={mediaPicker.kind ?? mediaKind}
+              top={mediaPicker.top}
+              left={mediaPicker.left}
+              onInsert={(url) => {
+                const prop = mediaPicker.prop!;
+                setMediaPicker(null);
+                commitProps({ ...p, [prop]: url });
+              }}
+              onClose={() => setMediaPicker(null)}
+            />
+          )}
+          <div className="jf-inline-media-bar" data-builder-chrome="true">
+            <button type="button" className="jf-btn jf-btn--sm" onClick={(e) => openMedia(e.currentTarget)}>
+              {mediaKind === "image" ? t("builder.inline.replaceImage") : t(`builder.inline.replace.${mediaKind}`)}
+            </button>
+            {mediaKind === "video" && (
+              <button type="button" className="jf-btn jf-btn--sm" onClick={(e) => openMedia(e.currentTarget, "poster")}>
+                {(p.poster as string) ? t("builder.inline.changePoster") : t("builder.inline.choosePoster")}
+              </button>
+            )}
+            {mediaKind === "video" && (p.poster as string) && (
+              <button type="button" className="jf-btn jf-btn--sm" onClick={() => commitProps({ ...p, poster: "" })}>
+                {t("builder.inline.removePoster")}
+              </button>
+            )}
+          </div>
+          {/** Alt text is not shown on the page, so it is edited beside the image. */}
+          {mediaKind === "image" && hasSrc && (
+            <div className="jf-inline-alt" data-builder-chrome="true">
+              <span aria-hidden="true">{t("builder.inline.altText")}:</span>
+              <InlineField block={block} field="alt" active={active} as="span" placeholder={t("builder.inline.altPlaceholder")} label={t("builder.inline.altText")} onCommit={commitProps}>
+                {null}
+              </InlineField>
+            </div>
+          )}
+        </>
+      )}
       {block.type === "core.button" && active && (
         <InlineLinkField value={typeof p.url === "string" ? p.url : ""} label={t("builder.inline.buttonLink")} onCommit={(url) => commitProps({ ...p, url })} />
       )}
@@ -304,167 +383,6 @@ function BlockPreviewContent({
         {p.showFilters === true && <span>{t("search.filters")}: {t("search.type")}, {t("search.taxonomy")}, {t("search.after")}</span>}
         <button type="button" disabled>{label}</button>
       </div>);
-    }
-    case "core.video":
-    case "core.audio":
-    case "core.file": {
-      if (!active) return wrap(<MediaBlock type={block.type} props={p} preview />);
-      const kind = block.type === "core.video" ? "video" : block.type === "core.audio" ? "audio" : "file";
-      /** Replace the media (or choose a video poster) from the library, a URL, or an upload. */
-      const open = (el: HTMLElement, prop: "src" | "poster") => {
-        const rect = el.getBoundingClientRect();
-        setMediaPicker({ top: rect.bottom + 4, left: rect.left, kind: prop === "poster" ? "image" : kind, prop });
-      };
-      return wrap(
-        <>
-          {mediaPicker?.prop && (
-            <MediaPickerPopover
-              kind={mediaPicker.kind ?? kind}
-              top={mediaPicker.top}
-              left={mediaPicker.left}
-              onInsert={(url) => {
-                const prop = mediaPicker.prop!;
-                setMediaPicker(null);
-                commitProps({ ...p, [prop]: url });
-              }}
-              onClose={() => setMediaPicker(null)}
-            />
-          )}
-          {/** Double-click is a mouse shortcut; the Replace button below is the accessible control. */}
-          <div title={t("builder.inline.replaceMediaHint")} onDoubleClick={(e) => open(e.currentTarget, "src")}>
-            {/** The caption (and file link text) are edited below, so the preview leaves them out. */}
-            <MediaBlock type={block.type} props={{ ...p, caption: "" }} preview />
-          </div>
-          <div className="jf-inline-media-bar" data-builder-chrome="true">
-            <button type="button" className="jf-btn jf-btn--sm" onClick={(e) => open(e.currentTarget, "src")}>
-              {t(`builder.inline.replace.${kind}`)}
-            </button>
-            {kind === "video" && (
-              <button type="button" className="jf-btn jf-btn--sm" onClick={(e) => open(e.currentTarget, "poster")}>
-                {(p.poster as string) ? t("builder.inline.changePoster") : t("builder.inline.choosePoster")}
-              </button>
-            )}
-            {kind === "video" && (p.poster as string) && (
-              <button type="button" className="jf-btn jf-btn--sm" onClick={() => commitProps({ ...p, poster: "" })}>
-                {t("builder.inline.removePoster")}
-              </button>
-            )}
-          </div>
-          {kind === "file" && (
-            <div className="jf-inline-alt" data-builder-chrome="true">
-              <span aria-hidden="true">{t("builder.inline.linkText")}:</span>
-              <InlineField block={block} field="label" active={active} as="span" placeholder={t("builder.inline.linkTextPlaceholder")} label={t("builder.inline.linkText")} onCommit={commitProps}>
-                {null}
-              </InlineField>
-            </div>
-          )}
-          <InlineField block={block} field="caption" active={active} as="p" className="jf-media-caption" placeholder={t("builder.inline.caption")} onCommit={commitProps}>
-            {null}
-          </InlineField>
-        </>,
-      );
-    }
-
-    case "core.image": {
-      /** Double-click (or Enter on the selected image) opens the media library to replace it. */
-      const openPicker = (el: HTMLElement) => {
-        const rect = el.getBoundingClientRect();
-        setMediaPicker({ top: rect.top + 8, left: rect.left + 8 });
-      };
-      const picker =
-        active && mediaPicker && !mediaPicker.prop ? (
-          <ImagePickerPopover
-            top={mediaPicker.top}
-            left={mediaPicker.left}
-            onInsert={(url) => {
-              setMediaPicker(null);
-              commitProps({ ...p, src: url });
-            }}
-            onClose={() => setMediaPicker(null)}
-          />
-        ) : null;
-      return wrap(
-        <>
-          {picker}
-          {(p.src as string) ? (
-            <figure style={{ margin: 0 }}>
-              <img
-                src={p.src as string}
-                alt={(p.alt as string) ?? ""}
-                title={active ? t("builder.inline.replaceImageHint") : undefined}
-                tabIndex={active ? 0 : undefined}
-                role={active ? "button" : undefined}
-                aria-label={active ? t("builder.inline.replaceImage") : undefined}
-                onDoubleClick={active ? (e) => openPicker(e.currentTarget) : undefined}
-                onKeyDown={
-                  active
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          openPicker(e.currentTarget);
-                        }
-                      }
-                    : undefined
-                }
-                style={{
-                  display: "block",
-                  width: Number(p.width) > 0 ? Number(p.width) : undefined,
-                  height: Number(p.height) > 0 ? Number(p.height) : undefined,
-                  maxWidth: "100%",
-                  objectFit:
-                    Number(p.height) > 0
-                      ? (p.objectFit as "contain" | "cover" | "fill") || "contain"
-                      : undefined,
-                  borderRadius: 6,
-                  cursor: active ? "zoom-in" : undefined,
-                }}
-              />
-              {(active || (p.caption as string)) && (
-                <InlineField block={block} field="caption" active={active} as="figcaption" placeholder={t("builder.inline.caption")} onCommit={commitProps}>
-                  <figcaption
-                    style={{ fontSize: "0.8rem", color: "var(--color-muted, var(--jf-text-3))", marginTop: "0.25rem" }}
-                  >
-                    {p.caption as string}
-                  </figcaption>
-                </InlineField>
-              )}
-              {active && (
-                <div className="jf-inline-alt" data-builder-chrome="true">
-                  <span aria-hidden="true">{t("builder.inline.altText")}:</span>
-                  <InlineField block={block} field="alt" active={active} as="span" placeholder={t("builder.inline.altPlaceholder")} label={t("builder.inline.altText")} onCommit={commitProps}>
-                    {null}
-                  </InlineField>
-                </div>
-              )}
-            </figure>
-          ) : (
-            <div
-              role={active ? "button" : undefined}
-              tabIndex={active ? 0 : undefined}
-              onDoubleClick={active ? (e) => openPicker(e.currentTarget) : undefined}
-              onKeyDown={
-                active
-                  ? (e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        openPicker(e.currentTarget);
-                      }
-                    }
-                  : undefined
-              }
-              style={{
-                background: "var(--color-surface, var(--jf-surface-3))",
-                padding: "1.5rem",
-                borderRadius: 6,
-                textAlign: "center",
-                color: "var(--color-muted, var(--jf-text-3))",
-              }}
-            >
-              {active ? t("builder.inline.chooseImage") : t("builder.preview.noImage")}
-            </div>
-          )}
-        </>,
-      );
     }
     case "core.embed":
       return wrap(
@@ -807,6 +725,18 @@ const INLINE_FIELD_TEXT: Record<string, Record<string, { placeholder: string; la
   "core.hero": { heading: { placeholder: "builder.preview.heroHeading", shownWhenEmpty: true }, subheading: { placeholder: "builder.inline.supportingText" }, buttonLabel: { placeholder: "builder.preview.button", label: "builder.inline.buttonLabel" } },
   "core.cta": { heading: { placeholder: "builder.preview.callToAction", shownWhenEmpty: true }, text: { placeholder: "builder.inline.supportingText" }, buttonLabel: { placeholder: "builder.preview.button", label: "builder.inline.buttonLabel" } },
   "core.list-item": { text: { placeholder: "builder.inline.listItem" } },
+  "core.image": { caption: { placeholder: "builder.inline.caption" } },
+  "core.video": { caption: { placeholder: "builder.inline.caption" } },
+  "core.audio": { caption: { placeholder: "builder.inline.caption" } },
+  "core.file": { label: { placeholder: "builder.inline.linkTextPlaceholder", label: "builder.inline.linkText" }, caption: { placeholder: "builder.inline.caption" } },
+};
+
+/** Media blocks and what their Replace button picks from the library. */
+const MEDIA_KIND: Record<string, "image" | "video" | "audio" | "file"> = {
+  "core.image": "image",
+  "core.video": "video",
+  "core.audio": "audio",
+  "core.file": "file",
 };
 
 /** Stands in for a field while its editor is open, so the element exists and the markup does not change under the editor. */

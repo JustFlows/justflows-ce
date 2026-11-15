@@ -42,7 +42,7 @@ describe("media blocks", () => {
 
   it("renders audio and optional file downloads with escaped labels", () => {
     expect(render("core.audio", { src: "/sound.mp3", loop: true, muted: true })).toContain('controls muted loop');
-    expect(render("core.file", { src: "/report.pdf", label: '<Report>' })).toContain('<a href="/report.pdf" download>&lt;Report&gt;</a>');
+    expect(render("core.file", { src: "/report.pdf", label: '<Report>' })).toContain('<a href="/report.pdf" download data-jf-inline="label">&lt;Report&gt;</a>');
     expect(render("core.file", { src: "/report.pdf?token=abc", download: false })).toContain('>report.pdf</a>');
     expect(render("core.file", { src: "/report.pdf", download: false })).not.toContain(' download');
   });

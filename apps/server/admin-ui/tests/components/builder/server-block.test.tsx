@@ -28,7 +28,7 @@ const child: BlockNode = { id: "kid", type: "core.paragraph", version: 1, props:
 describe("server-rendered core blocks", () => {
   it("covers the blocks moved so far", () => {
     expect([...SERVER_RENDERED_TYPES].sort()).toEqual(([
-      "core.accordion", "core.button", "core.buttons", "core.callout", "core.card", "core.code", "core.cta", "core.column", "core.columns", "core.container", "core.cover",
+      "core.accordion", "core.audio", "core.button", "core.buttons", "core.file", "core.image", "core.video", "core.callout", "core.card", "core.code", "core.cta", "core.column", "core.columns", "core.container", "core.cover",
       "core.details", "core.divider", "core.features", "core.grid", "core.group", "core.heading", "core.hero", "core.html", "core.icon", "core.link-list", "core.list", "core.list-item",
       "core.media-text", "core.paragraph", "core.quote", "core.section", "core.social-links", "core.spacer", "core.tab", "core.table", "core.tabs",
     ] as string[]).sort());

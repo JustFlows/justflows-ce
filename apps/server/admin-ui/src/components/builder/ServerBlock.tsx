@@ -73,6 +73,10 @@ export const SERVER_RENDERED_TYPES = new Set([
   "core.button",
   "core.hero",
   "core.cta",
+  "core.image",
+  "core.video",
+  "core.audio",
+  "core.file",
 ]);
 
 

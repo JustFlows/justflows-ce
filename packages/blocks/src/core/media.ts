@@ -62,7 +62,7 @@ function playbackBlock(kind: "video" | "audio"): BlockDefinition {
       const style = kind === "video"
         ? `display:block;max-width:100%;${props["width"] ? "" : "width:100%;"}${props["height"] ? "" : "height:auto;"}object-fit:${props["objectFit"]}`
         : "display:block;width:100%;max-width:100%";
-      return `<figure class="jf-${kind}" style="margin:0"><${kind} ${attrs.filter(Boolean).join(" ")} style="${style}"></${kind}>${props["caption"] ? `<figcaption>${esc(text(props["caption"]))}</figcaption>` : ""}</figure>`;
+      return `<figure class="jf-${kind}" style="margin:0"><${kind} ${attrs.filter(Boolean).join(" ")} style="${style}"></${kind}>${props["caption"] ? `<figcaption data-jf-inline="caption">${esc(text(props["caption"]))}</figcaption>` : ""}</figure>`;
     },
   };
 }
@@ -85,7 +85,7 @@ export const mediaBlocks: BlockDefinition[] = [
     render: (props) => {
       const src = safeMediaSrc(text(props["src"]));
       const label = text(props["label"]) || text(props["src"]).split("/").pop()?.split(/[?#]/)[0] || "File";
-      return `<figure class="jf-file" style="margin:0">${src ? `<a href="${src}"${props["download"] === true ? " download" : ""}>${esc(label)}</a>` : `<span>${esc(label)}</span>`}${props["caption"] ? `<figcaption>${esc(text(props["caption"]))}</figcaption>` : ""}</figure>`;
+      return `<figure class="jf-file" style="margin:0">${src ? `<a href="${src}"${props["download"] === true ? " download" : ""} data-jf-inline="label">${esc(label)}</a>` : `<span data-jf-inline="label">${esc(label)}</span>`}${props["caption"] ? `<figcaption data-jf-inline="caption">${esc(text(props["caption"]))}</figcaption>` : ""}</figure>`;
     },
   },
 ];

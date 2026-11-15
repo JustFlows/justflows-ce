@@ -40,8 +40,10 @@ a slot in the block's markup, so they can be selected, edited and dropped on,
 and changing the parent's settings does not redraw them. A Column keeps a
 minimum height on the canvas so there is room to drop into it.
 
-Moved so far: every core block except Image, Video, Audio and File, which
-move with media replacement, and the labelled stand-ins below.
+Every core block is drawn this way, except the labelled stand-ins listed
+below. Template blocks (Post title, meta, excerpt, featured image and
+content) are not core blocks: the page fills them in per request, so the
+builder shows the entry's own title and date or the content itself.
 
 Blocks you edit in place (Heading, Paragraph, Quote, Button, Hero, Call to
 action, List item) are marked by the renderer: each field's element carries
@@ -52,6 +54,12 @@ selected the renderer draws its fields with stand-ins, so every field
 (also an empty optional one, or a button with no link yet) can be edited and
 a commit does not redraw the markup under another open editor. An empty
 required field that is not selected shows its placeholder.
+
+Image, Video, Audio and File keep media replacement around the page's
+markup: double-click the media or use the Replace button under it (the
+keyboard control), and a video's poster has its own buttons. Their caption
+and a file's link text are edited in place; an image's alt text, which the
+page does not show, is edited beside it.
 
 ## Where the canvas deliberately differs
 
