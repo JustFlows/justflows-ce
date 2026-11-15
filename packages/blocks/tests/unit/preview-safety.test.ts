@@ -60,8 +60,8 @@ describe("failed upgrades", () => {
       version: 2,
       title: "Card",
       schema: {},
-      validateProps: (raw) => raw as Record<string, unknown>,
-      render: (props) => `<p>${String(props.title ?? props.heading)}</p>`,
+      validateProps: (raw: unknown) => raw as Record<string, unknown>,
+      render: (props: Record<string, unknown>) => `<p>${String(props['title'] ?? props['heading'])}</p>`,
       migrations: [{ from: 1, to: 2, migrate: () => { throw new Error("bad data"); } }],
     } as never);
     const stored = { id: "c", type: "acme.card", version: 1, props: { heading: "Old" }, children: [] };

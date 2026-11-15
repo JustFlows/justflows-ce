@@ -126,8 +126,8 @@ describe("flex item style", () => {
       ],
     });
     const group = doc.blocks[0] as { props: Record<string, unknown>; children: { props: Record<string, unknown> }[] };
-    expect(group.props.containerLayout).toEqual({ display: "flex", element: "nav" });
-    expect(group.children[0]!.props.style).toEqual({ grow: "1" });
+    expect(group.props['containerLayout']).toEqual({ display: "flex", element: "nav" });
+    expect(group.children[0]!.props['style']).toEqual({ grow: "1" });
   });
 });
 
@@ -182,7 +182,7 @@ describe("representative layouts without custom CSS", () => {
   });
 
   it("splits content in two equal halves that stack on phones", () => {
-    const html = registry.renderNode(sanitizeBlockDocument({ blocks: [layouts.split] }).blocks[0] as Parameters<typeof registry.renderNode>[0]);
+    const html = registry.renderNode(sanitizeBlockDocument({ blocks: [layouts['split']] }).blocks[0] as Parameters<typeof registry.renderNode>[0]);
     expect(html).toContain("jf-cl-row jf-cl-stack");
     expect(html.match(/--jf-basis:calc\(50% - var\(--jf-cl-gap, 0px\) \* 0\.5\)/g)).toHaveLength(2);
   });

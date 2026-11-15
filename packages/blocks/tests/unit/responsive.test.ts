@@ -88,7 +88,7 @@ describe("breakpointCss", () => {
     });
     const html = registry.renderNode(doc.blocks[0] as Parameters<typeof registry.renderNode>[0]);
     expect(html).not.toMatch(/body\{|999px|url\(|order:99/);
-    expect((doc.blocks[0] as { props: Record<string, unknown> }).props.breakpoints).toBeUndefined();
+    expect((doc.blocks[0] as { props: Record<string, unknown> }).props['breakpoints']).toBeUndefined();
   });
 });
 
@@ -110,16 +110,16 @@ describe("inheritance and reset", () => {
 
   it("resets only the selected override and prunes what becomes empty", () => {
     const reset = setBreakpointValue(props, "tablet", "style", "padTop", undefined);
-    expect(reset.breakpoints).toEqual({ mobile: { containerLayout: { gap: "1" } } });
+    expect(reset['breakpoints']).toEqual({ mobile: { containerLayout: { gap: "1" } } });
     expect(resolveResponsiveValue(reset, "mobile", "style", "padTop")).toEqual({ value: "6", source: "desktop" });
     const empty = setBreakpointValue(reset, "mobile", "containerLayout", "gap", "");
-    expect(empty.breakpoints).toBeUndefined();
-    expect(empty.style).toEqual({ padTop: "6" });
+    expect(empty['breakpoints']).toBeUndefined();
+    expect(empty['style']).toEqual({ padTop: "6" });
   });
 
   it("refuses values outside the allowlist when setting", () => {
-    expect(setBreakpointValue({}, "mobile", "style", "padTop", "huge").breakpoints).toBeUndefined();
-    expect(setBreakpointValue({}, "mobile", "order", undefined, 3).breakpoints).toEqual({ mobile: { order: 3 } });
+    expect(setBreakpointValue({}, "mobile", "style", "padTop", "huge")['breakpoints']).toBeUndefined();
+    expect(setBreakpointValue({}, "mobile", "order", undefined, 3)['breakpoints']).toEqual({ mobile: { order: 3 } });
   });
 
   it("maps widths to breakpoints at the contract's edges", () => {

@@ -57,7 +57,7 @@ describe("style presets", () => {
 
   it("survives the storage sanitizer", () => {
     const doc = sanitizeBlockDocument({ blocks: [{ id: "a", type: "core.group", props: { styleRef: "card" } }] });
-    expect((doc.blocks[0] as { props: Record<string, unknown> }).props.styleRef).toBe("card");
+    expect((doc.blocks[0] as { props: Record<string, unknown> }).props['styleRef']).toBe("card");
   });
 
   it("resolves which layer supplies a value", () => {
