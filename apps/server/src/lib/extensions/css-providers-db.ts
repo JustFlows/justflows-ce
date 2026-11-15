@@ -6,6 +6,7 @@ import { getJfRoot } from "../runtime/jf-root.js";
 import { runAllMigrations } from "../database/run-migrations.js";
 import { ensureCssProviderBuild } from "./css-provider-install.js";
 import { getSiteId } from "../themes/themes-db.js";
+import { InvalidInputError } from "../http/invalid-input-error.js";
 
 export interface CssProviderRow {
   id: string;
@@ -316,7 +317,7 @@ export async function activateCssProvider(siteId: string, providerId: string): P
 
 export async function deleteCssProvider(siteId: string, providerId: string): Promise<void> {
   if (providerId === "justflows.none") {
-    throw new Error("The default CSS provider cannot be deleted");
+    throw new InvalidInputError("The default CSS provider cannot be deleted");
   }
 
   const active = await getActiveCssProvider(siteId);

@@ -51,7 +51,13 @@ draft previews never use them (see [Builder performance](BUILDER-PERFORMANCE.md#
   management API have their own limits.
 - **Errors:** validation problems are named; unexpected failures are logged
   and answered with a generic message, so database or stack details do not
-  reach the browser.
+  reach the browser. Every design route, in the admin API and the management
+  API, answers through `sendInputOrServerError`: a Zod refusal becomes one
+  sentence naming each field (`patterns.0.title: …`), an `InvalidInputError`
+  keeps its message, and anything else is a logged 500.
+  `apps/server/tests/integration/security/design-route-errors.test.ts` makes
+  the database fail on each save and checks that the driver text never
+  appears.
 
 ## Content
 
@@ -97,7 +103,7 @@ person, the site and the part changed. The entries never contain the content.
 
 `apps/server/tests/integration/security/builder-hardening.test.ts` checks
 the new entries, the size limits, CSRF and error handling, and `pnpm
-test:security` runs both files.
+test:security` runs these files.
 
 ## Known limits
 
@@ -107,6 +113,3 @@ test:security` runs both files.
 - **Plugin code is trusted.** A plugin block's `render`, migrations and hooks
   run with the server's rights. Previews are limited in number and rate, but
   a slow `render` is not interrupted.
-- **Error messages for editors.** Some design routes show the message of a
-  failed save to administrators and editors; it may include a database
-  driver's wording.

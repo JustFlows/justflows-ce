@@ -22,7 +22,7 @@ import { listContentTypes } from "../../lib/content/content-types-db.js";
 import { getBlogPageId, setBlogPageId } from "../../lib/content/blog-page.js";
 import { getHomePageId, setHomePageId } from "../../lib/content/home-page.js";
 import { normalizeBlocks } from "../../lib/content/content-api.js";
-import { sendServerError } from "../../lib/http/send-error.js";
+import { describeZodError, sendInputOrServerError, sendServerError } from "../../lib/http/send-error.js";
 import { param } from "../../lib/http/params.js";
 import { getActiveLocaleCodes, getDefaultLocale } from "../../lib/i18n/languages-db.js";
 import {
@@ -300,7 +300,7 @@ router.put("/headers", async (req, res) => {
     if (!body.data.draft) await revalidateOnUpdate("theme");
     res.json({ library });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "manage.design", err);
   }
 });
 
@@ -349,7 +349,7 @@ router.put("/template-parts/:part", async (req, res) => {
     if (!body.data.draft) await revalidateOnUpdate("theme");
     res.json({ blocks });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "manage.design", err);
   }
 });
 
@@ -584,7 +584,7 @@ router.put("/templates/:slug", async (req, res) => {
     const { unknownBlockTypes } = validateTemplateBlocks(blocks);
     res.json({ blocks, unknownBlockTypes, templateDefaults: templateDefaults ?? {} });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "manage.design", err);
   }
 });
 
@@ -732,8 +732,7 @@ router.patch("/themes/customize", async (req, res) => {
     await revalidateOnUpdate("theme");
     res.json({ ok: true, published: false, mods, blocks, homePageId, blogBlocks, blogPageId });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Could not save";
-    res.status(message.includes("Custom CSS") ? 400 : 500).json({ error: message });
+    sendInputOrServerError(res, "manage.themes.customize", err);
   }
 });
 
@@ -850,7 +849,7 @@ function sendReusableError(res: import("express").Response, err: unknown): void 
     res.status(status).json({ error: err.message, code: err.code });
     return;
   }
-  res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+  sendInputOrServerError(res, "manage.reusable-blocks", err);
 }
 
 /* ----------------------------- style presets ----------------------------- */
@@ -877,7 +876,7 @@ router.put("/style-presets", async (req, res) => {
   try {
     res.json({ item: await saveStylePreset(siteId(req), body.data) });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "manage.design", err);
   }
 });
 
@@ -970,11 +969,11 @@ router.get("/patterns/export", async (req, res) => {
 router.post("/patterns/import", async (req, res) => {
   if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
   const body = PatternSetSchema.safeParse(req.body);
-  if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid pattern set");
+  if (!body.success) return badRequest(res, describeZodError(body.error));
   try {
     res.json({ patterns: await importPatternSet(siteId(req), body.data) });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Invalid pattern set" });
+    sendInputOrServerError(res, "manage.patterns.import", err);
   }
 });
 
@@ -985,7 +984,7 @@ router.put("/patterns", async (req, res) => {
   try {
     res.json({ pattern: await saveSitePattern(siteId(req), body.data) });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save pattern" });
+    sendInputOrServerError(res, "manage.patterns", err);
   }
 });
 
@@ -1073,7 +1072,7 @@ router.put("/error-pages", async (req, res) => {
     const config = await setErrorPageConfig(siteId(req), body.data);
     res.json({ ok: true, config });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "manage.design", err);
   }
 });
 

@@ -6,7 +6,7 @@ import { STYLE_PRESET_NAME_MAX } from "@justflows/blocks";
 import { revalidateOnUpdate } from "../../lib/cache/cache-revalidate.js";
 import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
 import { param } from "../../lib/http/params.js";
-import { sendServerError } from "../../lib/http/send-error.js";
+import { sendInputOrServerError, sendServerError } from "../../lib/http/send-error.js";
 import { auditLog } from "../../lib/security/audit-log.js";
 import {
   deleteStylePreset,
@@ -68,7 +68,7 @@ router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
     /** The draft only shows in previews, which are not cached. */
     res.json({ item });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "style-presets", err);
   }
 });
 

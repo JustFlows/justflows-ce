@@ -18,6 +18,7 @@ import {
   saveSitePattern,
 } from "../../lib/rendering/site-patterns.js";
 import { param } from "../../lib/http/params.js";
+import { sendInputOrServerError } from "../../lib/http/send-error.js";
 import { getPluginLoader } from "../../lib/plugins/plugin-runtime.js";
 
 const router = Router();
@@ -161,7 +162,7 @@ router.post(
       auditFromRequest(req, "design.patterns_changed", { siteId, target: "import", detail: `count=${Array.isArray(patterns) ? patterns.length : 0}` });
       res.json({ patterns });
     } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : "Invalid pattern set" });
+      sendInputOrServerError(res, "patterns.import", err);
     }
   },
 );
@@ -175,7 +176,7 @@ router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), patternsExpensiveLimit, a
     auditFromRequest(req, "design.patterns_changed", { siteId, target: String((pattern as { id?: unknown })?.id ?? ""), detail: "save" });
     res.json({ pattern });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save pattern" });
+    sendInputOrServerError(res, "patterns", err);
   }
 });
 

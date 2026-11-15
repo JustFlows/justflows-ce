@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { Router } from "express";
+import { sendInputOrServerError } from "../../lib/http/send-error.js";
 import { z } from "zod";
 import { auditLog } from "../../lib/security/audit-log.js";
 import { DocumentRevisionConflictError, documentConflictBody } from "../../lib/database/document-revision.js";
@@ -106,7 +107,7 @@ router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
       res.status(409).json(documentConflictBody(err));
       return;
     }
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "site-header", err);
   }
 });
 

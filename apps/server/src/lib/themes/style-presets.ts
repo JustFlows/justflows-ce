@@ -2,6 +2,7 @@
 
 import { STYLE_PRESETS_MAX, sanitizeStylePreset, sanitizeStylePresets, type StylePreset } from "@justflows/blocks";
 import { findBlockReferences } from "../rendering/block-references.js";
+import { InvalidInputError } from "../http/invalid-input-error.js";
 import { getSiteSetting, updateSiteSettingAtomically } from "../settings/site-settings.js";
 
 /**
@@ -42,10 +43,10 @@ async function mutateDraft(siteId: string, change: (list: StylePreset[]) => Styl
 /** Add or replace one preset in the draft. */
 export async function saveStylePreset(siteId: string, input: unknown): Promise<StylePreset> {
   const preset = sanitizeStylePreset({ ...(input as Record<string, unknown>), updatedAt: new Date().toISOString() });
-  if (!preset) throw new Error("Invalid style preset");
+  if (!preset) throw new InvalidInputError("Invalid style preset");
   await mutateDraft(siteId, (list) => {
     const without = list.filter((item) => item.id !== preset.id);
-    if (without.length >= STYLE_PRESETS_MAX) throw new Error(`A site may hold at most ${STYLE_PRESETS_MAX} style presets`);
+    if (without.length >= STYLE_PRESETS_MAX) throw new InvalidInputError(`A site may hold at most ${STYLE_PRESETS_MAX} style presets`);
     return [...without, preset];
   });
   return preset;

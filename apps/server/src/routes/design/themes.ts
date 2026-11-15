@@ -73,7 +73,7 @@ import { packagesInstalledDir, siteThemesDir } from "../../lib/extensions/packag
 import { recordInstalledPackageBaseline } from "../../lib/security/extension-integrity.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
-import { sendServerError } from "../../lib/http/send-error.js";
+import { sendInputOrServerError, sendServerError } from "../../lib/http/send-error.js";
 import { resolvePathUnderBase } from "../../lib/security/safe-path.js";
 import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import { admitPackageUpload, multipartLimits, PACKAGE_UPLOAD_BYTES, withMultipartErrors } from "../../lib/security/upload-admission.js";
@@ -733,9 +733,7 @@ router.patch("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, re
     if (!body.draft) auditFromRequest(req, "design.styles_published", { siteId, target: theme.theme_id, detail: "save" });
     res.json({ ok: true, published: false, mods, blocks, homePageId, blogBlocks, blogPageId });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const status = message.includes("Custom CSS") ? 400 : 500;
-    res.status(status).json({ error: message });
+    sendInputOrServerError(res, "themes.customize", err);
   }
 });
 
@@ -809,8 +807,7 @@ router.post("/customize/promote-home", requireRole(...THEME_CUSTOMIZE_ROLES), as
     );
     res.status(201).json({ ok: true, homePageId: id, page: serializeContentRow(created[0]!) });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    sendServerError(res, "themes.pages", err);
   }
 });
 
@@ -884,8 +881,7 @@ router.post("/customize/promote-blog", requireRole(...THEME_CUSTOMIZE_ROLES), as
     );
     res.status(201).json({ ok: true, blogPageId: id, page: serializeContentRow(created[0]!) });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    sendServerError(res, "themes.pages", err);
   }
 });
 

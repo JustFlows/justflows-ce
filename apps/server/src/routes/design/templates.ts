@@ -8,6 +8,7 @@ import { sanitizeBlockDocument } from "@justflows/blocks";
 import { requireRole } from "../../middleware/auth.js";
 import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
 import { param } from "../../lib/http/params.js";
+import { sendInputOrServerError } from "../../lib/http/send-error.js";
 import { revalidateOnUpdate } from "../../lib/cache/cache-revalidate.js";
 import { getActiveTheme, getSiteId, themeInstalledPath } from "../../lib/themes/themes-db.js";
 import { loadThemeTemplateDoc } from "../../lib/themes/theme-files.js";
@@ -224,7 +225,7 @@ router.put("/:slug", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => 
       res.status(409).json(documentConflictBody(err));
       return;
     }
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "templates", err);
   }
 });
 

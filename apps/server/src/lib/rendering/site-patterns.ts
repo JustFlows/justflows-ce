@@ -9,6 +9,7 @@ import {
   type PatternSet,
 } from "@justflows/sdk";
 import { getSiteSetting, updateSiteSettingAtomically } from "../settings/site-settings.js";
+import { InvalidInputError } from "../http/invalid-input-error.js";
 import { saveReusableBlock } from "./reusable-blocks.js";
 
 const KEY = "block_patterns";
@@ -63,12 +64,12 @@ export async function saveSitePattern(
     synced: input.synced === true,
     updatedAt: new Date().toISOString(),
   });
-  if (!entry) throw new Error("Invalid pattern");
+  if (!entry) throw new InvalidInputError("Invalid pattern");
   /** Atomic so two editors saving different patterns at once never drop each other's (justflows-ce#302). */
   await updateSiteSettingAtomically<unknown[]>(siteId, KEY, (stored) => {
     const existing = Array.isArray(stored) ? stored.map(normalize).filter((item): item is SitePattern => item !== null) : [];
     const without = existing.filter((item) => item.id !== entry.id);
-    if (without.length >= MAX_ITEMS) throw new Error(`A site may hold at most ${MAX_ITEMS} patterns`);
+    if (without.length >= MAX_ITEMS) throw new InvalidInputError(`A site may hold at most ${MAX_ITEMS} patterns`);
     return [entry, ...without];
   });
   if (entry.synced) {

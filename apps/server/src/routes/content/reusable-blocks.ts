@@ -18,7 +18,7 @@ import {
 } from "../../lib/rendering/reusable-blocks.js";
 import { reusableUsageFor } from "../../lib/rendering/reusable-usage.js";
 import { getEffectiveAccess } from "../../lib/auth/access-policy.js";
-import { sendServerError } from "../../lib/http/send-error.js";
+import { sendInputOrServerError, sendServerError } from "../../lib/http/send-error.js";
 import { getActiveTheme, getSiteId, themeInstalledPath } from "../../lib/themes/themes-db.js";
 import { loadThemeDemoFooter } from "../../lib/themes/theme-files.js";
 import { sanitizeBlockDocument } from "@justflows/blocks";
@@ -51,7 +51,7 @@ function sendSaveError(res: import("express").Response, err: unknown): void {
     res.status(status).json({ error: err.message, code: err.code });
     return;
   }
-  res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+  sendInputOrServerError(res, "reusable-blocks", err);
 }
 
 router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
@@ -301,6 +301,6 @@ templatePartsRouter.put("/:part", requireRole(...THEME_CUSTOMIZE_ROLES), async (
       res.status(409).json(documentConflictBody(err));
       return;
     }
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "template-parts", err);
   }
 });
