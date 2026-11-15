@@ -9,6 +9,11 @@ const title = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 export default function RolesPanel() {
   const { t } = useT();
+  /** A catalog entry when there is one (the design capabilities, justflows-ce#314), else the fallback. */
+  const translated = (key: string, fallback: string) => {
+    const value = t(key);
+    return value === key ? fallback : value;
+  };
   const canCreateRoles = useFeatureEnabled("feature" + ".roles");
   const [roles, setRoles] = useState<Role[]>([]);
   const [all, setAll] = useState<Capability[]>([]);
@@ -99,8 +104,8 @@ export default function RolesPanel() {
             <label className="jf-field"><span className="jf-field__label">{t("users.roles.description")}</span><input className="jf-input" placeholder={t("users.roles.descriptionPlaceholder")} value={editing.description ?? ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></label>
           </div>
           <div className="jf-roles__capabilities">{groups.map(([domain, capabilities]) => (
-            <fieldset className="jf-roles__group" key={domain}><legend>{title(domain)}</legend>{capabilities.map((capability) => (
-              <label key={capability.id} title={capability.description}><input type="checkbox" checked={editing.capabilities.includes(capability.id)} onChange={(e) => toggleCapability(capability.id, e.target.checked)} /><span>{capability.label || capability.id.slice(capability.id.indexOf(":") + 1).replaceAll(":", " · ")}</span></label>
+            <fieldset className="jf-roles__group" key={domain}><legend>{translated(`users.roles.capabilityGroup.${domain}`, title(domain))}</legend>{capabilities.map((capability) => (
+              <label key={capability.id} title={capability.description || translated(`users.roles.capabilityHint.${capability.id}`, "") || undefined}><input type="checkbox" checked={editing.capabilities.includes(capability.id)} onChange={(e) => toggleCapability(capability.id, e.target.checked)} /><span>{capability.label || translated(`users.roles.capabilityLabel.${capability.id}`, capability.id.slice(capability.id.indexOf(":") + 1).replaceAll(":", " · "))}</span></label>
             ))}</fieldset>
           ))}</div>
           <div className="jf-roles__editor-actions"><span>{t("users.roles.selectedCount", { count: editing.capabilities.length })}</span><button className="jf-btn jf-btn--quiet" type="button" disabled={saving} onClick={() => setEditing(null)}>{t("common.cancel")}</button><button className="jf-btn jf-btn--primary" type="button" disabled={saving || !editing.name.trim()} onClick={() => void save()}>{saving ? t("common.saving") : t("users.roles.saveRole")}</button></div>

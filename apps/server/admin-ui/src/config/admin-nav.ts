@@ -478,7 +478,18 @@ export interface NavAudience {
   disabledPaths?: readonly string[];
   /** Plugin page path → roles that may open it, from each page's `roles`. */
   pluginPageRoles?: Readonly<Record<string, readonly string[]>>;
+  /** The session's capabilities, so a custom role with a page's capability sees it. */
+  capabilities?: readonly string[];
 }
+
+/**
+ * Pages a capability also opens, for custom roles that are not in the role
+ * list above (justflows-ce#314). Built-in roles keep the role rule.
+ */
+const NAV_CAPABILITY: Record<string, string> = {
+  "/admin/themes": "design:manage",
+  "/admin/widgets": "design:manage",
+};
 
 /** Roles each plugin page declares, for `NavAudience.pluginPageRoles`. */
 export function pluginPageRoles(items: readonly PluginMenuItem[]): Record<string, readonly string[]> {
@@ -518,6 +529,8 @@ export function canAccessPath(
   if (declared) return declared.includes(role);
   const rule = navRuleFor(pathname);
   if (!rule) return true;
+  const capability = NAV_CAPABILITY[rule];
+  if (capability && audience?.capabilities?.includes(capability)) return true;
   return (NAV_ACCESS[rule] ?? ALL_ADMIN_ROLES).includes(role);
 }
 

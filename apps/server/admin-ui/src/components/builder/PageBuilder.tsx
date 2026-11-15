@@ -38,7 +38,7 @@ import { PreviewSchemeContext, THEME_PREVIEW_SCOPE, type PreviewScheme } from ".
 import BuilderShell, { type BuilderContext, type BuilderShellBar } from "./shell/BuilderShell";
 import { useBuilderPrefs } from "./shell/builder-prefs";
 import { selectionCrumbs } from "./shell/breadcrumbs";
-import { useOptionalCapability, useOptionalSessionRole, useOptionalSessionUserId } from "../SessionProvider";
+import { useOptionalCapability, useOptionalSessionUserId } from "../SessionProvider";
 import { uid } from "../../lib/uid";
 import {
   actionStates,
@@ -194,8 +194,8 @@ export default function PageBuilder({
   const [saveDialog, setSaveDialog] = useState<SaveKind | null>(null);
   const announceRef = useRef<(status: DropStatus) => void>(() => {});
   const canManageLocks = useOptionalCapability("content:locks:manage");
-  const role = useOptionalSessionRole();
-  const canSaveLibrary = role === "administrator" || role === "editor";
+  /** Saving to the reusable and pattern libraries needs design:manage on the server (justflows-ce#314). */
+  const canSaveLibrary = useOptionalCapability("design:manage");
   const [previewScheme, setPreviewSchemeState] = useState<PreviewScheme>(initialPreviewScheme);
   const setPreviewScheme = (scheme: PreviewScheme) => {
     setPreviewSchemeState(scheme);

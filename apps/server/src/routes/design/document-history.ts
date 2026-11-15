@@ -2,8 +2,7 @@
 
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { requireRole } from "../../middleware/auth.js";
-import { THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
+import { requireCapability } from "../../middleware/auth.js";
 import { param } from "../../lib/http/params.js";
 import { getActiveTheme, getSiteId } from "../../lib/themes/themes-db.js";
 import { isTemplateSlug } from "../../lib/themes/theme-templates-store.js";
@@ -45,7 +44,7 @@ async function resolveTarget(
   return { siteId, kind, key: themeTemplateHistoryKey(theme?.theme_id ?? "justflows.default", key) };
 }
 
-router.get("/", historyLimit, requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.get("/", historyLimit, requireCapability("design:manage"), async (req, res) => {
   const target = await resolveTarget(req.query);
   if (!target) {
     res.status(400).json({ error: "Unknown document" });
@@ -54,7 +53,7 @@ router.get("/", historyLimit, requireRole(...THEME_CUSTOMIZE_ROLES), async (req,
   res.json({ items: await listDocumentHistory(target.siteId, target.kind, target.key) });
 });
 
-router.get("/:id", historyLimit, requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.get("/:id", historyLimit, requireCapability("design:manage"), async (req, res) => {
   const target = await resolveTarget(req.query);
   if (!target) {
     res.status(400).json({ error: "Unknown document" });

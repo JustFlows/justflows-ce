@@ -86,7 +86,7 @@ function RequireNavAccess({ path, children }: { path: string; children: React.Re
   const { session } = useSession();
   const role = session?.role ?? null;
   const audience = session
-    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true, disabledPaths: session.disabledPaths }
+    ? { installationRoot: session.installationRoot === true, platformOperator: session.platformOperator === true, disabledPaths: session.disabledPaths, capabilities: session.capabilities }
     : undefined;
   if (role !== null && !canAccessPath(role, path, audience)) return <Navigate to="/admin" replace />;
   return <>{children}</>;

@@ -34,6 +34,14 @@ export const USER_CAPABILITIES = [
   "mail:manage",
   "email-templates:read",
   "email-templates:manage",
+  /**
+   * Read site design: templates, template parts, the header library, widget
+   * areas, menus, patterns, reusable blocks, style presets and global styles
+   * (justflows-ce#314).
+   */
+  "design:read",
+  /** Change and publish site design (justflows-ce#314). */
+  "design:manage",
   "updates:manage",
   "site:admin",
   "ai:use",
@@ -103,6 +111,8 @@ export const ROLE_CAPABILITIES: Record<string, UserCapability[]> = {
     "media:delete",
     "comments:moderate",
     "users:read",
+    "design:read",
+    "design:manage",
     "ai:use",
   ],
   author: [
@@ -114,8 +124,9 @@ export const ROLE_CAPABILITIES: Record<string, UserCapability[]> = {
     "content:revisions:discard",
     "media:read",
     "media:upload",
+    "design:read",
   ],
-  contributor: ["content:read", "content:create", "content:revisions:read"],
+  contributor: ["content:read", "content:create", "content:revisions:read", "design:read"],
   subscriber: ["content:read"],
 };
 

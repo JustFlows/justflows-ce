@@ -4780,7 +4780,18 @@
       "saveRole": "Enregistrer le rôle",
       "capabilitiesCount": "{count} autorisations",
       "selectedCount": "{count} sélectionnée(s)",
-      "createRole": "Créer un rôle"
+      "createRole": "Créer un rôle",
+      "capabilityGroup": {
+        "design": "Design"
+      },
+      "capabilityLabel": {
+        "design:read": "Voir le design du site",
+        "design:manage": "Modifier le design du site"
+      },
+      "capabilityHint": {
+        "design:read": "Ouvrir les modèles, l'en-tête et le pied de page, les zones de widgets, les menus, les compositions, les blocs réutilisables, les préréglages de style et les styles globaux.",
+        "design:manage": "Modifier et publier les modèles, l'en-tête et le pied de page, les zones de widgets, les menus, les compositions, les blocs réutilisables, les préréglages de style et les styles globaux. Les changements s'appliquent à chaque page qui les utilise."
+      }
     },
     "failedToLoadUsers": "Impossible de charger les utilisateurs",
     "failedToInviteUser": "Impossible d'inviter l'utilisateur",

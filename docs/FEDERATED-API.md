@@ -66,23 +66,25 @@ credential). Cookie auth on these routes still requires it.
 | Content | `GET/POST /content`, `GET/PATCH/DELETE /content/{id}`, `POST /content/{id}/publish` · `/unpublish`, `PUT /content/{id}/schedule`, `GET /content/{id}/revisions[/{revisionId}]` | `content:read` / `create` / `update` / `publish` / `delete` / `revisions:read` |
 | Media | `GET /media`, `GET /media/{id}`, `POST /media` (multipart, field `file`), `DELETE /media/{id}` | `media:read` / `upload` / `delete` |
 | Comments | `GET /comments`, `PATCH /comments` (bulk), `PATCH /comments/{id}`, `POST /comments/{id}/reply`, `DELETE /comments` | `comments:moderate` |
-| Menus | `GET/POST /menus`, `GET/PUT/DELETE /menus/{slug}` | `content:read` / `settings:manage` |
+| Menus | `GET/POST /menus`, `GET/PUT/DELETE /menus/{slug}` | `design:read` / `design:manage` |
 | Content types | `GET/POST /content-types`, `GET/PATCH/DELETE /content-types/{slug}` | `content:read` / `settings:manage` |
 | Taxonomies | `GET/POST /taxonomies`, `PATCH/DELETE /taxonomies/{slug}` | `content:read` / `settings:manage` |
-| Accessibility checks | `GET /content/{id}/accessibility`, `GET /template-parts/{part}/accessibility`, `GET /templates/{slug}/accessibility` (optional `version=draft\|published`, `lang`) | `content:read`, with the same scope check as reading the document |
+| Accessibility checks | `GET /content/{id}/accessibility`, `GET /template-parts/{part}/accessibility`, `GET /templates/{slug}/accessibility` (optional `version=draft\|published`, `lang`) | `content:read` for entries (with the entry's scope check), `design:read` for template parts and templates |
 | Terms | `GET/POST /taxonomies/{slug}/terms`, `PATCH/DELETE /taxonomies/{slug}/terms/{id}`, `GET/PUT /content/{id}/terms` | `content:read` / `content:publish` / `content:update` (entry terms) |
 | Users & roles | `GET/POST /users`, `GET/PATCH/DELETE /users/{id}`, `GET/POST /roles`, `PATCH/DELETE /roles/{id}` | `users:read` / `users:manage` |
 | Settings | `GET/PATCH /settings` | `settings:read` / `settings:manage` |
 | Languages | `GET/POST /languages`, `PATCH/DELETE /languages/{id}` | `settings:read` / `settings:manage` |
 | Redirects | `GET/POST /redirects`, `PUT /redirects/{id}` | `settings:read` / `settings:manage` |
 | Plugins | `GET /plugins`, `POST /plugins/{id}/activate` · `/deactivate` | `plugins:read` / `plugins:activate` |
-| Themes | `GET /themes`, `POST /themes/{id}/activate`, `GET/PATCH/DELETE /themes/customize` | `themes:read` / `themes:activate` / `content:read` / `settings:manage` |
-| Header and footer | `GET/PUT /headers`, `GET /headers/options`, `GET/PUT /template-parts/{part}`, `PUT /content/{id}/header-ref` | `content:read` / `settings:manage` / `content:update` |
-| Templates and patterns | `GET/PUT/DELETE /templates/{slug}`, `GET/PUT /reusable-blocks`, `GET/PUT/DELETE /patterns` | `content:read` / `settings:manage` |
+| Themes | `GET /themes`, `POST /themes/{id}/activate`, `GET/PATCH/DELETE /themes/customize` | `themes:read` / `themes:activate` / `design:read` / `design:manage` |
+| Header and footer | `GET/PUT /headers`, `GET /headers/options`, `GET/PUT /template-parts/{part}`, `PUT /content/{id}/header-ref` | `design:read` / `design:manage` / `content:update` |
+| Templates and patterns | `GET/PUT/DELETE /templates/{slug}`, `GET/PUT /reusable-blocks`, `GET/PUT/DELETE /patterns` | `design:read` / `design:manage` |
 | Permalinks, cookies, trash, email | `GET/PUT /permalinks`, `GET/PUT /cookies`, `GET /trash`, `POST /trash/restore`, `DELETE /trash`, `GET/PUT /email-templates` | `settings:read` / `settings:manage` / `content:delete` / `site:admin` / `email-templates:read` / `email-templates:manage` |
 | Cache | `GET /cache/stats`, `POST /cache/clear` | `settings:read` / `settings:manage` |
 | Static export | `GET /static-export`, `POST /static-export/run` · `/clear` | `settings:read` / `settings:manage` |
 | Diagnostics / health | `GET /diagnostics`, `GET /health` | `site:admin` / (any key) |
+
+Design routes (headers, template parts, templates, widgets, menus, reusable blocks, patterns, style presets and global styles) need `design:read` or `design:manage`. Keys created before those capabilities existed keep working: `content:read` on a key counts as `design:read` and `settings:manage` as `design:manage`, as long as the key's owner holds the design capability.
 
 Each operation reuses the existing service layer and the same capability check
 as its cookie-authenticated counterpart — no parallel business logic, no

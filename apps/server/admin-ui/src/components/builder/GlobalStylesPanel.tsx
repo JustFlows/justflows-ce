@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { StylePreset } from "@justflows/blocks";
 import { useT } from "../../i18n/I18nProvider";
-import { useOptionalSessionRole } from "../SessionProvider";
 import {
   deleteStylePreset,
   discardStylePresetDraft,
@@ -15,7 +14,7 @@ import {
 import BlockLayoutPanel from "./BlockLayoutPanel";
 import ThemeBlockControls from "./ThemeBlockControls";
 import { THEME_PREVIEW_SCOPE, reloadThemePreviewStylesheet } from "./BlockPreview";
-import { canManageStylePresets } from "./StylePresetPanel";
+import { useCanManageDesign } from "./StylePresetPanel";
 import type { BlockNode } from "./types";
 /** Builder-only styles load with the builder, not on every admin page (justflows-ce#310). */
 import "../../styles/builder.css";
@@ -87,8 +86,7 @@ function clearPreviewTokens(): void {
 export default function GlobalStylesPanel() {
   const { t } = useT();
   const id = useId();
-  const role = useOptionalSessionRole();
-  const canManage = canManageStylePresets(role);
+  const canManage = useCanManageDesign();
   const [schema, setSchema] = useState<Record<string, Section>>({});
   const [mods, setMods] = useState<Mods>({});
   const [published, setPublished] = useState<Mods>({});

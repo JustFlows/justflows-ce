@@ -4,8 +4,7 @@ import { auditFromRequest } from "../../lib/security/audit-log.js";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import { requireRole } from "../../middleware/auth.js";
-import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
+import { requireCapability } from "../../middleware/auth.js";
 import { param } from "../../lib/http/params.js";
 import { revalidateOnUpdate } from "../../lib/cache/cache-revalidate.js";
 import { clientIp } from "../../lib/security/rate-limit.js";
@@ -66,7 +65,7 @@ const LayoutSaveSchema = z.object({
 });
 
 /** Everything the Widgets screen needs to start: areas, layout, types, locales. */
-router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+router.get("/", requireCapability("design:read"), async (_req, res) => {
   const siteId = await getSiteId();
   if (!siteId) {
     res.json({ areas: [], layout: {}, contentTypes: [], locales: [], defaultLocale: "en", positions: WIDGET_AREA_POSITIONS });
@@ -89,7 +88,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
   });
 });
 
-router.put("/layout", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.put("/layout", requireCapability("design:manage"), async (req, res) => {
   const body = LayoutSaveSchema.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid layout" });
@@ -113,7 +112,7 @@ const AreaCreateSchema = z.object({
 });
 
 /** Add a widget area of the site's own. */
-router.post("/areas", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.post("/areas", requireCapability("design:manage"), async (req, res) => {
   const body = AreaCreateSchema.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid widget area" });
@@ -136,7 +135,7 @@ router.post("/areas", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) =>
 });
 
 /** Delete a widget area the site added, with its blocks and layout rules. */
-router.delete("/areas/:key", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.delete("/areas/:key", requireCapability("design:manage"), async (req, res) => {
   const siteId = await getSiteId();
   if (!siteId) {
     res.status(503).json({ error: "No site found" });
@@ -156,13 +155,13 @@ router.delete("/areas/:key", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, 
 });
 
 /** Choices for the Menu widget's menu field (`optionsUrl`). */
-router.get("/options/menus", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+router.get("/options/menus", requireCapability("design:read"), async (_req, res) => {
   const siteId = await getSiteId();
   const menus = siteId ? await listMenus(siteId) : [];
   res.json({ options: menus.map((menu) => ({ value: menu.slug, label: menu.name || menu.slug })) });
 });
 
-router.get("/areas/:key", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/areas/:key", requireCapability("design:read"), async (req, res) => {
   const siteId = await getSiteId();
   const found = siteId ? await readWidgetAreaForEditor(siteId, param(req.params.key)) : null;
   if (!found) {
@@ -172,7 +171,7 @@ router.get("/areas/:key", requireRole(...CONTENT_READ_ROLES), async (req, res) =
   res.json(found);
 });
 
-router.put("/areas/:key", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.put("/areas/:key", requireCapability("design:manage"), async (req, res) => {
   const key = param(req.params.key);
   const body = AreaSaveSchema.safeParse(req.body);
   if (!body.success) {
@@ -193,7 +192,7 @@ router.put("/areas/:key", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res
   res.json({ doc: saved });
 });
 
-router.delete("/areas/:key/draft", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.delete("/areas/:key/draft", requireCapability("design:manage"), async (req, res) => {
   const key = param(req.params.key);
   const siteId = await getSiteId();
   if (!siteId || !(await widgetAreaExists(siteId, key))) {

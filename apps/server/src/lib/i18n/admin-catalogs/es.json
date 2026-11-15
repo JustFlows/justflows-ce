@@ -4780,7 +4780,18 @@
       "saveRole": "Guardar rol",
       "capabilitiesCount": "{count} permisos",
       "selectedCount": "{count} seleccionado(s)",
-      "createRole": "Crear rol"
+      "createRole": "Crear rol",
+      "capabilityGroup": {
+        "design": "Diseño"
+      },
+      "capabilityLabel": {
+        "design:read": "Ver el diseño del sitio",
+        "design:manage": "Cambiar el diseño del sitio"
+      },
+      "capabilityHint": {
+        "design:read": "Abrir plantillas, cabecera y pie de página, áreas de widgets, menús, patrones, bloques reutilizables, ajustes de estilo y estilos globales.",
+        "design:manage": "Cambiar y publicar plantillas, cabecera y pie de página, áreas de widgets, menús, patrones, bloques reutilizables, ajustes de estilo y estilos globales. Los cambios llegan a todas las páginas que los usan."
+      }
     },
     "failedToLoadUsers": "No se pudieron cargar los usuarios",
     "failedToInviteUser": "No se pudo invitar al usuario",

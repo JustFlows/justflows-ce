@@ -14,8 +14,9 @@ const revalidated: string[] = [];
 let used = 0;
 let role = "editor";
 
-vi.mock("../../../../src/middleware/auth.js", () => ({
-  requireRole:
+vi.mock("../../../../src/middleware/auth.js", async () => {
+  const { ROLE_CAPABILITIES } = await import("@justflows/sdk");
+  const requireRole =
     (...roles: string[]) =>
     (req: express.Request, res: express.Response, next: express.NextFunction) => {
       req.session = { siteId: "s1", userId: "u1", role } as never;
@@ -24,8 +25,12 @@ vi.mock("../../../../src/middleware/auth.js", () => ({
         return;
       }
       next();
-    },
-}));
+    };
+  /** Design routes check capabilities (justflows-ce#314); the built-in roles holding one stand in for it. */
+  const requireCapability = (capability: string) =>
+    requireRole(...Object.keys(ROLE_CAPABILITIES).filter((r) => ROLE_CAPABILITIES[r]!.includes(capability)));
+  return { requireRole, requireCapability };
+});
 vi.mock("../../../../src/lib/themes/themes-db.js", () => ({
   getSiteId: async () => "s1",
   getActiveTheme: async () => null,

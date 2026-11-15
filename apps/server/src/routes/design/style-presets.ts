@@ -4,7 +4,6 @@ import { Router } from "express";
 import { z } from "zod";
 import { STYLE_PRESET_NAME_MAX } from "@justflows/blocks";
 import { revalidateOnUpdate } from "../../lib/cache/cache-revalidate.js";
-import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
 import { param } from "../../lib/http/params.js";
 import { sendInputOrServerError, sendServerError } from "../../lib/http/send-error.js";
 import { auditLog } from "../../lib/security/audit-log.js";
@@ -18,7 +17,7 @@ import {
   stylePresetsHaveDraft,
 } from "../../lib/themes/style-presets.js";
 import { getSiteId } from "../../lib/themes/themes-db.js";
-import { requireRole } from "../../middleware/auth.js";
+import { requireCapability } from "../../middleware/auth.js";
 
 /**
  * Site style presets (justflows-ce#301). Reading is open to everyone who can
@@ -34,7 +33,7 @@ const SaveSchema = z.object({
   style: z.record(z.string(), z.unknown()),
 });
 
-router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+router.get("/", requireCapability("design:read"), async (_req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {
@@ -52,7 +51,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
   }
 });
 
-router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.put("/", requireCapability("design:manage"), async (req, res) => {
   const body = SaveSchema.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid preset" });
@@ -72,7 +71,7 @@ router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
   }
 });
 
-router.delete("/:id", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.delete("/:id", requireCapability("design:manage"), async (req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {
@@ -86,7 +85,7 @@ router.delete("/:id", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) =>
   }
 });
 
-router.get("/:id/usage", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:id/usage", requireCapability("design:read"), async (req, res) => {
   try {
     const siteId = await getSiteId();
     const id = param(req.params.id);
@@ -100,7 +99,7 @@ router.get("/:id/usage", requireRole(...CONTENT_READ_ROLES), async (req, res) =>
   }
 });
 
-router.post("/publish", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.post("/publish", requireCapability("design:manage"), async (req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {
@@ -123,7 +122,7 @@ router.post("/publish", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) 
   }
 });
 
-router.post("/discard", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
+router.post("/discard", requireCapability("design:manage"), async (_req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {

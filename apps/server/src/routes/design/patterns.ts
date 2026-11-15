@@ -6,8 +6,7 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { BlockPatternSchema, PatternSetSchema, type BlockPattern } from "@justflows/sdk";
 import { sanitizeBlockDocument } from "@justflows/blocks";
-import { requireRole } from "../../middleware/auth.js";
-import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
+import { requireCapability } from "../../middleware/auth.js";
 import { getActiveTheme, getSiteId, themeInstalledPath } from "../../lib/themes/themes-db.js";
 import { listThemePatterns, loadThemePattern } from "../../lib/themes/theme-files.js";
 import {
@@ -111,7 +110,7 @@ function localizePattern<T extends BlockPattern>(pattern: T, locale?: string): T
   return localized ? ({ ...pattern, ...localized } as T) : pattern;
 }
 
-router.get("/", requireRole(...CONTENT_READ_ROLES), directoryLimit, async (req, res) => {
+router.get("/", requireCapability("design:read"), directoryLimit, async (req, res) => {
   const locale = localeQuery(req.query.locale);
   const { siteId, theme, themeId } = await activeTheme();
   const themePatterns = listThemePatterns(themeId, themeInstalledPath(theme), locale);
@@ -142,7 +141,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), directoryLimit, async (req, 
   });
 });
 
-router.get("/export", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
+router.get("/export", requireCapability("design:manage"), async (_req, res) => {
   const siteId = await getSiteId();
   if (!siteId) return void res.status(503).json({ error: "No site found" });
   res.setHeader("Content-Disposition", 'attachment; filename="justflows-patterns.json"');
@@ -151,7 +150,7 @@ router.get("/export", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) =
 
 router.post(
   "/import",
-  requireRole(...THEME_CUSTOMIZE_ROLES),
+  requireCapability("design:manage"),
   patternsExpensiveLimit,
   async (req, res) => {
     try {
@@ -167,7 +166,7 @@ router.post(
   },
 );
 
-router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), patternsExpensiveLimit, async (req, res) => {
+router.put("/", requireCapability("design:manage"), patternsExpensiveLimit, async (req, res) => {
   try {
     const body = SaveSchema.parse(req.body);
     const siteId = await getSiteId();
@@ -180,7 +179,7 @@ router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), patternsExpensiveLimit, a
   }
 });
 
-router.get("/:source/:id", requireRole(...CONTENT_READ_ROLES), directoryLimit, async (req, res) => {
+router.get("/:source/:id", requireCapability("design:read"), directoryLimit, async (req, res) => {
   const source = param(req.params.source);
   const id = param(req.params.id);
   const locale = localeQuery(req.query.locale);
@@ -219,7 +218,7 @@ router.get("/:source/:id", requireRole(...CONTENT_READ_ROLES), directoryLimit, a
   res.status(404).json({ error: "Pattern not found" });
 });
 
-router.delete("/:id", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.delete("/:id", requireCapability("design:manage"), async (req, res) => {
   const siteId = await getSiteId();
   if (!siteId) return void res.status(503).json({ error: "No site found" });
   await deleteSitePattern(siteId, param(req.params.id));

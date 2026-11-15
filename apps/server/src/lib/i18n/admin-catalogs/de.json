@@ -4780,7 +4780,18 @@
       "saveRole": "Rolle speichern",
       "capabilitiesCount": "{count} Berechtigungen",
       "selectedCount": "{count} ausgewählt",
-      "createRole": "Rolle erstellen"
+      "createRole": "Rolle erstellen",
+      "capabilityGroup": {
+        "design": "Design"
+      },
+      "capabilityLabel": {
+        "design:read": "Website-Design ansehen",
+        "design:manage": "Website-Design ändern"
+      },
+      "capabilityHint": {
+        "design:read": "Vorlagen, Kopf- und Fußzeile, Widget-Bereiche, Menüs, Muster, wiederverwendbare Blöcke, Stilvorlagen und globale Stile öffnen.",
+        "design:manage": "Vorlagen, Kopf- und Fußzeile, Widget-Bereiche, Menüs, Muster, wiederverwendbare Blöcke, Stilvorlagen und globale Stile ändern und veröffentlichen. Änderungen gelten auf jeder Seite, die sie verwendet."
+      }
     },
     "failedToLoadUsers": "Benutzer konnten nicht geladen werden",
     "failedToInviteUser": "Benutzer konnte nicht eingeladen werden",

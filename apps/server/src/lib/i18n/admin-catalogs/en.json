@@ -4953,7 +4953,18 @@
       "deleteRoleConfirm": "Delete role {name}?",
       "failedToLoadRoles": "Failed to load roles",
       "failedToSaveRole": "Failed to save role",
-      "failedToDeleteRole": "Failed to delete role"
+      "failedToDeleteRole": "Failed to delete role",
+      "capabilityGroup": {
+        "design": "Design"
+      },
+      "capabilityLabel": {
+        "design:read": "Read site design",
+        "design:manage": "Change site design"
+      },
+      "capabilityHint": {
+        "design:read": "Open templates, the header and footer, widget areas, menus, patterns, reusable blocks, style presets and global styles.",
+        "design:manage": "Change and publish templates, the header and footer, widget areas, menus, patterns, reusable blocks, style presets and global styles. Changes reach every page that uses them."
+      }
     }
   },
   "meta": {

@@ -5,8 +5,7 @@ import { z } from "zod";
 import { auditLog } from "../../lib/security/audit-log.js";
 import { DocumentRevisionConflictError, documentConflictBody } from "../../lib/database/document-revision.js";
 import { sanitizeBlockDocument } from "@justflows/blocks";
-import { requireRole } from "../../middleware/auth.js";
-import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
+import { requireCapability } from "../../middleware/auth.js";
 import { param } from "../../lib/http/params.js";
 import { sendInputOrServerError } from "../../lib/http/send-error.js";
 import { revalidateOnUpdate } from "../../lib/cache/cache-revalidate.js";
@@ -61,7 +60,7 @@ async function activeTheme(): Promise<{
 const CREATABLE_SLOTS = [...TEMPLATE_SLOTS];
 
 /** All templates for the active theme: which are shipped, customised, drafted. */
-router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+router.get("/", requireCapability("design:read"), async (_req, res) => {
   const ctx = await activeTheme();
   if (!ctx) {
     res.json({ slots: [], creatable: CREATABLE_SLOTS });
@@ -81,7 +80,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
  * so the builder can show them beneath the content's own values
  * (justflows-ce#301). Drafts count, as the builder previews drafts.
  */
-router.get("/resolve", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/resolve", requireCapability("design:read"), async (req, res) => {
   const contentType = typeof req.query.contentType === "string" ? req.query.contentType : "";
   const slug = typeof req.query.slug === "string" ? req.query.slug : "";
   if (!/^[a-z][a-z0-9_-]{0,63}$/i.test(contentType)) {
@@ -137,7 +136,7 @@ router.get("/resolve", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
 });
 
 /** One template's editable blocks: the site override, else the theme file as a seed. */
-router.get("/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:slug", requireCapability("design:read"), async (req, res) => {
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -184,7 +183,7 @@ router.get("/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
   res.json({ blocks: [], draft: [], fromThemeDefault: true, revision, templateDefaults: {}, publishedTemplateDefaults: {} });
 });
 
-router.put("/:slug", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.put("/:slug", requireCapability("design:manage"), async (req, res) => {
   try {
     const slug = param(req.params.slug);
     if (!isTemplateSlug(slug)) {
@@ -230,7 +229,7 @@ router.put("/:slug", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => 
 });
 
 /** Discard the working draft, keeping the published override. */
-router.post("/:slug/discard-draft", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.post("/:slug/discard-draft", requireCapability("design:manage"), async (req, res) => {
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -246,7 +245,7 @@ router.post("/:slug/discard-draft", requireRole(...THEME_CUSTOMIZE_ROLES), async
 });
 
 /** Reset the template to the theme's own file (drops the override entirely). */
-router.delete("/:slug", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.delete("/:slug", requireCapability("design:manage"), async (req, res) => {
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });

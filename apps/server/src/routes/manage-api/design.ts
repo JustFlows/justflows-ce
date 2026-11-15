@@ -260,7 +260,7 @@ function localeQuery(value: unknown): string | undefined {
 /* -------------------------------- headers ------------------------------- */
 
 router.get("/headers", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     sendJson(req, res, {
@@ -273,7 +273,7 @@ router.get("/headers", async (req, res) => {
 });
 
 router.get("/headers/options", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     const preview = req.query.preview === "1" || req.query.preview === "true";
@@ -289,7 +289,7 @@ router.get("/headers/options", async (req, res) => {
 });
 
 router.put("/headers", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = LibrarySchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid header library");
   try {
@@ -308,7 +308,7 @@ router.put("/headers", async (req, res) => {
 /* ----------------------------- template parts --------------------------- */
 
 router.get("/template-parts/:part", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   const part = param(req.params.part);
   if (!isTemplatePart(part)) {
     res.status(404).json({ error: "Unknown template part" });
@@ -346,7 +346,7 @@ function reportLang(req: import("express").Request): string {
 
 /** The builder's accessibility checks for a template part (justflows-ce#313). */
 router.get("/template-parts/:part/accessibility", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   const part = param(req.params.part);
   if (!isTemplatePart(part)) {
     res.status(404).json({ error: "Unknown template part" });
@@ -362,7 +362,7 @@ router.get("/template-parts/:part/accessibility", fileLimit, async (req, res) =>
 });
 
 router.put("/template-parts/:part", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const part = param(req.params.part);
   if (!isTemplatePart(part)) {
     res.status(404).json({ error: "Unknown template part" });
@@ -404,7 +404,7 @@ const WidgetLayoutSchema = z.object({
 });
 
 router.get("/widgets", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     const [areas, layout, types] = await Promise.all([
@@ -424,7 +424,7 @@ router.get("/widgets", fileLimit, async (req, res) => {
 });
 
 router.put("/widgets/layout", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = WidgetLayoutSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid widget layout");
   try {
@@ -443,7 +443,7 @@ const WidgetAreaCreateSchema = z.object({
 });
 
 router.post("/widgets/areas", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = WidgetAreaCreateSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid widget area");
   try {
@@ -458,7 +458,7 @@ router.post("/widgets/areas", fileLimit, async (req, res) => {
 });
 
 router.delete("/widgets/areas/:key", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     await deleteSiteWidgetArea(siteId(req), param(req.params.key));
     await revalidateOnUpdate("theme");
@@ -473,7 +473,7 @@ router.delete("/widgets/areas/:key", fileLimit, async (req, res) => {
 });
 
 router.get("/widgets/areas/:key", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const found = await readWidgetAreaForEditor(siteId(req), param(req.params.key));
     if (!found) {
@@ -487,7 +487,7 @@ router.get("/widgets/areas/:key", fileLimit, async (req, res) => {
 });
 
 router.put("/widgets/areas/:key", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = WidgetAreaSaveSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid widget area");
   try {
@@ -507,7 +507,7 @@ router.put("/widgets/areas/:key", fileLimit, async (req, res) => {
 });
 
 router.post("/widgets/areas/:key/discard-draft", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     const id = siteId(req);
     const key = param(req.params.key);
@@ -525,7 +525,7 @@ router.post("/widgets/areas/:key/discard-draft", fileLimit, async (req, res) => 
 /* ------------------------------- templates ------------------------------ */
 
 router.get("/templates", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     const theme = await activeTheme(id);
@@ -547,7 +547,7 @@ router.get("/templates", fileLimit, async (req, res) => {
 
 /** The builder's accessibility checks for a page template (justflows-ce#313). */
 router.get("/templates/:slug/accessibility", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -566,7 +566,7 @@ router.get("/templates/:slug/accessibility", fileLimit, async (req, res) => {
 });
 
 router.get("/templates/:slug", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -608,7 +608,7 @@ router.get("/templates/:slug", fileLimit, async (req, res) => {
 });
 
 router.put("/templates/:slug", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -638,7 +638,7 @@ router.put("/templates/:slug", async (req, res) => {
 });
 
 router.post("/templates/:slug/discard-draft", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -659,7 +659,7 @@ router.post("/templates/:slug/discard-draft", async (req, res) => {
 });
 
 router.delete("/templates/:slug", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -683,7 +683,7 @@ router.delete("/templates/:slug", async (req, res) => {
 /* ---------------------------- theme customize --------------------------- */
 
 router.get("/themes/customize", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     await ensureThemesTable();
     const id = siteId(req);
@@ -740,7 +740,7 @@ router.get("/themes/customize", fileLimit, async (req, res) => {
 });
 
 router.patch("/themes/customize", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = CustomizePatchSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid theme settings");
   try {
@@ -786,7 +786,7 @@ router.patch("/themes/customize", async (req, res) => {
 });
 
 router.delete("/themes/customize", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     const id = siteId(req);
     const theme = await getActiveTheme(id);
@@ -806,7 +806,7 @@ router.delete("/themes/customize", async (req, res) => {
 /* ---------------------------- reusable blocks --------------------------- */
 
 router.get("/reusable-blocks", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     sendJson(req, res, { items: await listReusableBlocks(siteId(req)) });
   } catch (err) {
@@ -815,7 +815,7 @@ router.get("/reusable-blocks", async (req, res) => {
 });
 
 router.put("/reusable-blocks", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = ReusableSaveSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid reusable block");
   try {
@@ -832,7 +832,7 @@ router.put("/reusable-blocks", async (req, res) => {
 });
 
 router.get("/reusable-blocks/:id/usage", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   const id = asReusableId(param(req.params.id));
   if (!id) return notFound(res);
   try {
@@ -845,7 +845,7 @@ router.get("/reusable-blocks/:id/usage", async (req, res) => {
 });
 
 router.post("/reusable-blocks/:id/publish", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     const expectedRevision = typeof req.body?.expectedRevision === "number" ? req.body.expectedRevision : undefined;
     const item = await publishReusableDraft(siteId(req), param(req.params.id), { expectedRevision, actorId: req.apiKeyOwner?.userId ?? null });
@@ -861,7 +861,7 @@ router.post("/reusable-blocks/:id/publish", async (req, res) => {
 });
 
 router.post("/reusable-blocks/:id/discard", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     await discardReusableDraft(siteId(req), param(req.params.id));
     res.json({ item: await getReusableBlock(siteId(req), param(req.params.id)) });
@@ -872,7 +872,7 @@ router.post("/reusable-blocks/:id/discard", async (req, res) => {
 
 /** A block still in use needs `?confirm=1`, since deleting it empties it on every page that uses it. */
 router.delete("/reusable-blocks/:id", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     const id = param(req.params.id);
     if (req.query.confirm !== "1" && (req.body as { confirm?: unknown } | undefined)?.confirm !== "1") {
@@ -904,7 +904,7 @@ function sendReusableError(res: import("express").Response, err: unknown): void 
 /* ----------------------------- style presets ----------------------------- */
 
 router.get("/style-presets", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     const [items, published, hasDraft] = await Promise.all([
@@ -919,7 +919,7 @@ router.get("/style-presets", async (req, res) => {
 });
 
 router.put("/style-presets", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = StylePresetSaveSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid style preset");
   try {
@@ -930,7 +930,7 @@ router.put("/style-presets", async (req, res) => {
 });
 
 router.delete("/style-presets/:id", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     await deleteStylePreset(siteId(req), param(req.params.id));
     res.json({ ok: true });
@@ -940,7 +940,7 @@ router.delete("/style-presets/:id", async (req, res) => {
 });
 
 router.get("/style-presets/:id/usage", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   const id = param(req.params.id);
   if (!/^[a-z][a-z0-9-]{0,63}$/.test(id)) return notFound(res);
   try {
@@ -951,7 +951,7 @@ router.get("/style-presets/:id/usage", async (req, res) => {
 });
 
 router.post("/style-presets/publish", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     const items = await publishStylePresets(siteId(req));
     await revalidateOnUpdate("theme");
@@ -970,7 +970,7 @@ router.post("/style-presets/publish", async (req, res) => {
 });
 
 router.post("/style-presets/discard", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     await discardStylePresetDraft(siteId(req));
     const items = await listStylePresets(siteId(req));
@@ -983,7 +983,7 @@ router.post("/style-presets/discard", async (req, res) => {
 /* -------------------------------- patterns ------------------------------ */
 
 router.get("/patterns", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     const locale = localeQuery(req.query.locale);
@@ -1007,7 +1007,7 @@ router.get("/patterns", fileLimit, async (req, res) => {
 });
 
 router.get("/patterns/export", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     sendJson(req, res, await exportPatternSet(siteId(req)));
   } catch (err) {
@@ -1016,7 +1016,7 @@ router.get("/patterns/export", async (req, res) => {
 });
 
 router.post("/patterns/import", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = PatternSetSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, describeZodError(body.error));
   try {
@@ -1027,7 +1027,7 @@ router.post("/patterns/import", async (req, res) => {
 });
 
 router.put("/patterns", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = PatternSaveSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Could not save pattern");
   try {
@@ -1038,7 +1038,7 @@ router.put("/patterns", async (req, res) => {
 });
 
 router.get("/patterns/:source/:id", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   const source = param(req.params.source);
   const patternId = param(req.params.id);
   const locale = localeQuery(req.query.locale);
@@ -1086,7 +1086,7 @@ router.get("/patterns/:source/:id", fileLimit, async (req, res) => {
 });
 
 router.delete("/patterns/:id", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     await deleteSitePattern(siteId(req), param(req.params.id));
     res.json({ ok: true });

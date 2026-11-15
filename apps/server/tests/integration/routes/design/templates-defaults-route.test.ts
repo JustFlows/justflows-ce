@@ -15,12 +15,17 @@ let stored: { published: unknown[]; draft: unknown[]; publishedDefaults?: Record
   publishedDefaults: { "core.heading": { textAlign: "center" } },
 };
 
-vi.mock("../../../../src/middleware/auth.js", () => ({
-  requireRole: () => (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+vi.mock("../../../../src/middleware/auth.js", async () => {
+  const { ROLE_CAPABILITIES } = await import("@justflows/sdk");
+  const requireRole = (..._roles: string[]) => (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     req.session = { siteId: "s1", userId: "u1", role: "editor" } as never;
     next();
-  },
-}));
+  };
+  /** Design routes check capabilities (justflows-ce#314); the built-in roles holding one stand in for it. */
+  const requireCapability = (capability: string) =>
+    requireRole(...Object.keys(ROLE_CAPABILITIES).filter((r) => ROLE_CAPABILITIES[r]!.includes(capability)));
+  return { requireRole, requireCapability };
+});
 vi.mock("../../../../src/lib/themes/themes-db.js", () => ({
   getSiteId: async () => "s1",
   getActiveTheme: async () => ({ theme_id: "justflows.default", name: "Default" }),

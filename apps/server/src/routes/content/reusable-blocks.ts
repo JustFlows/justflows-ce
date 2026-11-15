@@ -23,8 +23,7 @@ import { getActiveTheme, getSiteId, themeInstalledPath } from "../../lib/themes/
 import { loadThemeDemoFooter } from "../../lib/themes/theme-files.js";
 import { sanitizeBlockDocument } from "@justflows/blocks";
 import { revalidateOnUpdate } from "../../lib/cache/cache-revalidate.js";
-import { requireRole } from "../../middleware/auth.js";
-import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
+import { requireCapability } from "../../middleware/auth.js";
 import { param } from "../../lib/http/params.js";
 import {
   getTemplatePart,
@@ -54,7 +53,7 @@ function sendSaveError(res: import("express").Response, err: unknown): void {
   sendInputOrServerError(res, "reusable-blocks", err);
 }
 
-router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+router.get("/", requireCapability("design:read"), async (_req, res) => {
   const siteId = await getSiteId();
   if (!siteId) {
     res.json({ items: [] });
@@ -63,7 +62,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
   res.json({ items: await listReusableBlocks(siteId) });
 });
 
-router.get("/:id", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:id", requireCapability("design:read"), async (req, res) => {
   const siteId = await getSiteId();
   const item = siteId ? await getReusableBlock(siteId, param(req.params.id)) : null;
   if (!item) {
@@ -74,7 +73,7 @@ router.get("/:id", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
 });
 
 /** Where the block is used, filtered to what this user may open (justflows-ce#304). */
-router.get("/:id/usage", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:id/usage", requireCapability("design:read"), async (req, res) => {
   try {
     const siteId = await getSiteId();
     const id = asReusableId(param(req.params.id));
@@ -90,7 +89,7 @@ router.get("/:id/usage", requireRole(...CONTENT_READ_ROLES), async (req, res) =>
   }
 });
 
-router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.put("/", requireCapability("design:manage"), async (req, res) => {
   try {
     const body = SaveSchema.parse(req.body);
     const siteId = await getSiteId();
@@ -114,7 +113,7 @@ router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
   }
 });
 
-router.post("/:id/publish", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.post("/:id/publish", requireCapability("design:manage"), async (req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {
@@ -135,7 +134,7 @@ router.post("/:id/publish", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, r
   }
 });
 
-router.post("/:id/discard", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.post("/:id/discard", requireCapability("design:manage"), async (req, res) => {
   const siteId = await getSiteId();
   if (!siteId) {
     res.status(503).json({ error: "No site found" });
@@ -145,7 +144,7 @@ router.post("/:id/discard", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, r
   res.json({ item: await getReusableBlock(siteId, param(req.params.id)) });
 });
 
-router.patch("/:id", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.patch("/:id", requireCapability("design:manage"), async (req, res) => {
   try {
     const name = z.object({ name: z.string().min(1).max(120) }).parse(req.body).name;
     const siteId = await getSiteId();
@@ -159,7 +158,7 @@ router.patch("/:id", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => 
   }
 });
 
-router.post("/:id/duplicate", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.post("/:id/duplicate", requireCapability("design:manage"), async (req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {
@@ -177,7 +176,7 @@ router.post("/:id/duplicate", requireRole(...THEME_CUSTOMIZE_ROLES), async (req,
  * Deleting a block that is still used empties it on every page that uses it,
  * so that needs `?confirm=1`; without it the answer is 409 with the counts.
  */
-router.delete("/:id", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.delete("/:id", requireCapability("design:manage"), async (req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {
@@ -232,7 +231,7 @@ const PartSchema = z.object({
   expectedRevision: z.number().int().min(0).optional(),
 });
 
-templatePartsRouter.get("/:part", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+templatePartsRouter.get("/:part", requireCapability("design:read"), async (req, res) => {
   const part = param(req.params.part);
   if (!isTemplatePart(part)) {
     res.status(404).json({ error: "Unknown template part" });
@@ -265,7 +264,7 @@ templatePartsRouter.get("/:part", requireRole(...CONTENT_READ_ROLES), async (req
   res.json({ blocks, draft, revision });
 });
 
-templatePartsRouter.put("/:part", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+templatePartsRouter.put("/:part", requireCapability("design:manage"), async (req, res) => {
   try {
     const part = param(req.params.part);
     if (!isTemplatePart(part)) {

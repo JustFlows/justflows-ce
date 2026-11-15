@@ -2,14 +2,14 @@
 import { useId, useState } from "react";
 import { compactBlockStyle, parseBlockStyle, presetRefOf, sanitizeStyleRef } from "@justflows/blocks";
 import { useT } from "../../i18n/I18nProvider";
-import { useOptionalSessionRole } from "../SessionProvider";
+import { useOptionalCapability } from "../SessionProvider";
 import { presetIdFromName, saveStylePreset, useStylePresets } from "../../lib/style-presets";
 import { reloadThemePreviewStylesheet } from "./BlockPreview";
 import type { BlockNode } from "./types";
 
-/** Whether the role may change the preset library; the server enforces the same roles. */
-export function canManageStylePresets(role: string | null): boolean {
-  return role === "administrator" || role === "editor";
+/** Whether the session may change the preset library; the server checks the same capability (justflows-ce#314). */
+export function useCanManageDesign(): boolean {
+  return useOptionalCapability("design:manage");
 }
 
 /**
@@ -21,8 +21,7 @@ export function canManageStylePresets(role: string | null): boolean {
 export default function StylePresetPanel({ block, onChange }: { block: BlockNode; onChange: (props: Record<string, unknown>) => void }) {
   const { t } = useT();
   const id = useId();
-  const role = useOptionalSessionRole();
-  const canManage = canManageStylePresets(role);
+  const canManage = useCanManageDesign();
   const { presets, loaded } = useStylePresets();
   const ref = presetRefOf(block.props);
   const current = presets.find((p) => p.id === ref) ?? null;

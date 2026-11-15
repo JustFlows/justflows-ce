@@ -29,6 +29,13 @@ describe("navRuleFor", () => {
 });
 
 describe("canAccessPath", () => {
+  it("opens design pages to a custom role with design:manage (justflows-ce#314)", () => {
+    expect(canAccessPath("site-designer", "/admin/widgets")).toBe(false);
+    expect(canAccessPath("site-designer", "/admin/widgets", { capabilities: ["design:manage"] })).toBe(true);
+    expect(canAccessPath("site-designer", "/admin/themes", { capabilities: ["design:read"] })).toBe(false);
+    expect(canAccessPath("author", "/admin/widgets", { capabilities: ["design:read"] })).toBe(false);
+  });
+
   it("denies everything without a role", () => {
     expect(canAccessPath(null, "/admin/content")).toBe(false);
     expect(canAccessPath(undefined, "/admin")).toBe(false);

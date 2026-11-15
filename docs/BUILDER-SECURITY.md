@@ -10,9 +10,10 @@ which changes are recorded. See [Access control](ACCESS-CONTROL.md) and
 Pages, posts and their revisions use capabilities (`content:update`,
 `content:publish`, `content:revisions:restore`, `content:locks:manage` and
 others), scoped by site, content type, locale and owner. Site-wide design
-documents use roles:
+documents use `design:read` and `design:manage` (see
+[Permissions](PERMISSIONS.md)). By default:
 
-| Document | Read | Change, publish, delete |
+| Document | Read (`design:read`) | Change, publish, delete (`design:manage`) |
 | --- | --- | --- |
 | Templates, template parts (footer), header library | Administrator, editor, author, contributor | Administrator, editor |
 | Widget areas and layout | Administrator, editor, author, contributor | Administrator, editor |
@@ -20,17 +21,18 @@ documents use roles:
 | Patterns | Administrator, editor, author, contributor | Administrator, editor (export too) |
 | Reusable blocks | Administrator, editor, author, contributor | Administrator, editor |
 | Style presets and global styles | Administrator, editor, author, contributor | Administrator, editor |
-| Version history of design documents | Administrator, editor | — |
+| Version history of design documents | Administrator, editor (`design:manage`) | — |
 | Block catalog and block previews | Administrator, editor, author, contributor | — |
 
 Authors and contributors can read design documents, including unpublished
 drafts of the header, footer and templates, because the builder shows a page
-inside them. Subscribers and custom roles cannot use these routes; there is
-no capability for site design yet.
+inside them. Subscribers cannot use these routes. A custom role can, once an
+administrator gives it `design:read` or `design:manage` under Users → Roles.
 
 `apps/server/tests/integration/security/builder-authorization.test.ts` calls
-every design write route, and the history reads, as each role, and checks
-that refused requests never reach storage.
+every design write route, and the history reads, as each role and as custom
+roles with and without the design capabilities, and checks that refused
+requests never reach storage.
 
 Every route checks that the session belongs to the site the request is for,
 and every query is limited to that site. Revisions are looked up by revision,
@@ -107,9 +109,6 @@ test:security` runs these files.
 
 ## Known limits
 
-- **Custom roles and design.** There is no capability for site design, so
-  custom roles cannot change templates, menus, widgets, patterns, reusable
-  blocks or styles.
 - **Plugin code is trusted.** A plugin block's `render`, migrations and hooks
   run with the server's rights. Previews are limited in number and rate, but
   a slow `render` is not interrupted.

@@ -5,9 +5,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const listed: unknown[][] = [];
 
-vi.mock("../../../../src/middleware/auth.js", () => ({
-  requireRole: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
-}));
+vi.mock("../../../../src/middleware/auth.js", async () => {
+  const { ROLE_CAPABILITIES } = await import("@justflows/sdk");
+  const requireRole = (..._roles: string[]) => (_req: express.Request, _res: express.Response, next: express.NextFunction) => next();
+  /** Design routes check capabilities (justflows-ce#314); the built-in roles holding one stand in for it. */
+  const requireCapability = (capability: string) =>
+    requireRole(...Object.keys(ROLE_CAPABILITIES).filter((r) => ROLE_CAPABILITIES[r]!.includes(capability)));
+  return { requireRole, requireCapability };
+});
 vi.mock("../../../../src/lib/themes/themes-db.js", () => ({
   getSiteId: async () => "site-1",
   getActiveTheme: async () => ({ theme_id: "acme.theme" }),

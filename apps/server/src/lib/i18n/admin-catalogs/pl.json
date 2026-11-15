@@ -5007,7 +5007,18 @@
       "deleteRoleConfirm": "Usunąć rolę {name}?",
       "failedToLoadRoles": "Nie udało się wczytać ról",
       "failedToSaveRole": "Nie udało się zapisać roli",
-      "failedToDeleteRole": "Nie udało się usunąć roli"
+      "failedToDeleteRole": "Nie udało się usunąć roli",
+      "capabilityGroup": {
+        "design": "Wygląd"
+      },
+      "capabilityLabel": {
+        "design:read": "Podgląd wyglądu witryny",
+        "design:manage": "Zmiana wyglądu witryny"
+      },
+      "capabilityHint": {
+        "design:read": "Otwieranie szablonów, nagłówka i stopki, obszarów widżetów, menu, wzorców, bloków wielokrotnego użytku, ustawień stylów i stylów globalnych.",
+        "design:manage": "Zmiana i publikowanie szablonów, nagłówka i stopki, obszarów widżetów, menu, wzorców, bloków wielokrotnego użytku, ustawień stylów i stylów globalnych. Zmiany obejmują każdą stronę, która ich używa."
+      }
     }
   },
   "meta": {

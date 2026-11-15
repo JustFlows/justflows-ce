@@ -28,8 +28,8 @@ import {
 } from "../../lib/navigation/menus-db.js";
 import type { BlockNode } from "../../lib/runtime/types.js";
 import { listMenuDesignPresets } from "../../lib/navigation/menu-design-presets.js";
-import { requireRole } from "../../middleware/auth.js";
-import { CONTENT_READ_ROLES, MENU_WRITE_ROLES, STORED_ROLE_ID } from "../../lib/auth/rbac.js";
+import { requireCapability } from "../../middleware/auth.js";
+import { STORED_ROLE_ID } from "../../lib/auth/rbac.js";
 import { param } from "../../lib/http/params.js";
 import { assertAllowedNavUrl } from "../../lib/navigation/nav-url.js";
 import { isSafeAssetUrl } from "../../lib/media/favicon.js";
@@ -191,7 +191,7 @@ function validateMenuItems(items: MenuItem[]): void {
   }
 }
 
-router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/", requireCapability("design:read"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     const menus = await listMenus(siteId);
@@ -201,7 +201,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
   }
 });
 
-router.get("/design-presets", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/design-presets", requireCapability("design:read"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     const presets = await listMenuDesignPresets(siteId);
@@ -211,7 +211,7 @@ router.get("/design-presets", requireRole(...CONTENT_READ_ROLES), async (req, re
   }
 });
 
-router.get("/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:slug", requireCapability("design:read"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     const preview = req.query.preview === "1";
@@ -233,7 +233,7 @@ router.get("/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
   }
 });
 
-router.put("/:slug", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
+router.put("/:slug", requireCapability("design:manage"), async (req, res) => {
   try {
     const body = UpdateMenuSchema.parse(req.body);
     if (body.items) validateMenuItems(body.items);
@@ -277,7 +277,7 @@ router.put("/:slug", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
   }
 });
 
-router.post("/", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
+router.post("/", requireCapability("design:manage"), async (req, res) => {
   try {
     const body = CreateMenuSchema.parse(req.body);
     const siteId = req.session!.siteId;
@@ -297,7 +297,7 @@ router.post("/", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
   }
 });
 
-router.delete("/:slug", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
+router.delete("/:slug", requireCapability("design:manage"), async (req, res) => {
   try {
     const slug = param(req.params.slug);
     if (slug === PRIMARY_MENU_SLUG) {

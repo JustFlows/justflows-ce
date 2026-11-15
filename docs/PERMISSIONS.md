@@ -49,6 +49,20 @@ user through **Admin → Users → Individual access** (or a custom role) withou
 also exposing the mail log. These are user capabilities, not plugin manifest
 permissions.
 
+`design:read` allows opening site design: templates, the header and footer,
+widget areas, menus, patterns, reusable blocks, style presets and global
+styles, including their unpublished drafts. `design:manage` allows changing,
+publishing, resetting and deleting them, choosing the home and blog pages,
+and reading their version history. Administrators and editors hold both;
+authors and contributors hold `design:read`, because the builder shows a page
+inside its header, footer and template. Give a custom role these
+capabilities to let it work on site design without making it an editor. The
+admin API, the management API and the assistant's tools check the same
+capabilities. API keys created before these capabilities existed keep their
+access: a key holding `content:read` counts as holding `design:read`, and
+one holding `settings:manage` as holding `design:manage`; the key's owner
+must still hold the design capability.
+
 Administrators, editors, authors, and so on get capabilities from
 `packages/sdk/src/capabilities.ts`. Check capabilities in server code; do not
 hard-code role names.

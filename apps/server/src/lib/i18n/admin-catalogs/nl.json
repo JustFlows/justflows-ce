@@ -4777,7 +4777,18 @@
       "saveRole": "Rol opslaan",
       "capabilitiesCount": "{count} rechten",
       "selectedCount": "{count} geselecteerd",
-      "createRole": "Rol aanmaken"
+      "createRole": "Rol aanmaken",
+      "capabilityGroup": {
+        "design": "Ontwerp"
+      },
+      "capabilityLabel": {
+        "design:read": "Siteontwerp bekijken",
+        "design:manage": "Siteontwerp wijzigen"
+      },
+      "capabilityHint": {
+        "design:read": "Sjablonen, header en footer, widgetgebieden, menu's, patronen, herbruikbare blokken, stijlvoorinstellingen en globale stijlen openen.",
+        "design:manage": "Sjablonen, header en footer, widgetgebieden, menu's, patronen, herbruikbare blokken, stijlvoorinstellingen en globale stijlen wijzigen en publiceren. Wijzigingen gelden voor elke pagina die ze gebruikt."
+      }
     },
     "failedToLoadUsers": "Gebruikers konden niet worden geladen",
     "failedToInviteUser": "Gebruiker kon niet worden uitgenodigd",

@@ -207,7 +207,8 @@ describe("capability filtering", () => {
       "analytics:read",
       "site:admin",
     ];
-    access.capabilities = all;
+    /** The owner is an administrator, who holds the design capabilities; the key predates them (justflows-ce#314). */
+    access.capabilities = [...all, "design:read", "design:manage"];
     const names = (await toolsForPrincipal(principal(all, true))).map((tool) => tool.name);
     expect(names).toContain("headers_get");
     expect(names).toContain("headers_update");

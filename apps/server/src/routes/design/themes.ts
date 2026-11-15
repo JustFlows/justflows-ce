@@ -63,8 +63,7 @@ import {
   themeInstalledPath,
 } from "../../lib/themes/themes-db.js";
 import { activateThemeAdmin } from "../../lib/themes/themes-admin.js";
-import { requireRole } from "../../middleware/auth.js";
-import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
+import { requireRole, requireCapability } from "../../middleware/auth.js";
 import { param } from "../../lib/http/params.js";
 import multer from "multer";
 import { assertPackageIsTrusted } from "../../lib/extensions/package-trust.js";
@@ -95,7 +94,7 @@ const themeDeleteRequestLimit = rateLimit({
   legacyHeaders: false,
 });
 
-router.get("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
+router.get("/", requireCapability("design:manage"), async (_req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -197,7 +196,7 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
   }
 });
 
-router.get("/patterns", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+router.get("/patterns", requireCapability("design:read"), async (_req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -209,7 +208,7 @@ router.get("/patterns", requireRole(...CONTENT_READ_ROLES), async (_req, res) =>
   }
 });
 
-router.get("/patterns/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/patterns/:slug", requireCapability("design:read"), async (req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -325,7 +324,7 @@ const BLOCK_LEVEL_TOKENS: StyleTokenDto[] = [
   },
 ];
 
-router.get("/style-tokens", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+router.get("/style-tokens", requireCapability("design:read"), async (_req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -485,7 +484,12 @@ async function themeFilesStillUsed(themeId: string, version: string, folder: str
   }
 }
 
-router.delete("/:id", requireRole("administrator"), themeDeleteRequestLimit, async (req, res) => {
+/**
+ * `DELETE /customize` is declared further down; without this, it matched
+ * `/:id` first, so editors could not discard customizer drafts and an
+ * administrator's request looked for a theme named "customize".
+ */
+router.delete("/:id", (req, _res, next) => next(req.params.id === "customize" ? "route" : undefined), requireRole("administrator"), themeDeleteRequestLimit, async (req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -591,7 +595,7 @@ const PatchSchema = z.object({
   publish: z.boolean().default(false),
 });
 
-router.get("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
+router.get("/customize", requireCapability("design:manage"), async (_req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -676,7 +680,7 @@ router.get("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res
   }
 });
 
-router.patch("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.patch("/customize", requireCapability("design:manage"), async (req, res) => {
   try {
     const body = PatchSchema.parse(req.body);
     await ensureThemesTable();
@@ -737,7 +741,7 @@ router.patch("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, re
   }
 });
 
-router.post("/customize/promote-home", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.post("/customize/promote-home", requireCapability("design:manage"), async (req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -811,7 +815,7 @@ router.post("/customize/promote-home", requireRole(...THEME_CUSTOMIZE_ROLES), as
   }
 });
 
-router.post("/customize/promote-blog", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.post("/customize/promote-blog", requireCapability("design:manage"), async (req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -885,7 +889,7 @@ router.post("/customize/promote-blog", requireRole(...THEME_CUSTOMIZE_ROLES), as
   }
 });
 
-router.delete("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
+router.delete("/customize", requireCapability("design:manage"), async (_req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {

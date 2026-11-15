@@ -31,7 +31,7 @@ const calls: { url: string; method: string; body?: unknown }[] = [];
 let presets = PRESETS;
 let mods: Record<string, Record<string, unknown>> = { colors: { "--color-primary": "#ff0000" }, spacing: { "--block-gap": 1.5 } };
 
-function mockFetch(session = { role: "editor", capabilities: ["content:update"] }) {
+function mockFetch(session = { role: "editor", capabilities: ["content:update", "design:read", "design:manage"] }) {
   vi.stubGlobal(
     "fetch",
     vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -122,7 +122,7 @@ describe("StylePresetPanel", () => {
   });
 
   it("hides library actions from authors", async () => {
-    mockFetch({ role: "author", capabilities: ["content:update"] });
+    mockFetch({ role: "author", capabilities: ["content:update", "design:read"] });
     wrap(<Harness initial={{ id: "b", type: "core.group", version: 1, props: { style: { padTop: "3" } } }} />);
     await screen.findByLabelText("Preset");
     expect(screen.queryByRole("button", { name: "Save style as preset…" })).not.toBeInTheDocument();

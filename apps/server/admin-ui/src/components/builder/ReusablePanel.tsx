@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useT } from "../../i18n/I18nProvider";
-import { useSessionRole } from "@components/SessionProvider";
+import { useCapability } from "@components/SessionProvider";
 import { fetchReusableUsage, loadReusableBlocks, reusablePreviewBlocks, useReusableStore, type ReusableItem, type ReusableUsage } from "../../lib/reusable-blocks";
 import type { BlockNode } from "./types";
 /** Builder-only styles load with the builder, not on every admin page (justflows-ce#310). */
@@ -55,8 +55,7 @@ export default function ReusablePanel({
    * server; switching a reference between already-saved blocks isn't a write
    * to that library, so it stays open to any content-write role.
    */
-  const role = useSessionRole();
-  const canSaveReusable = role === "administrator" || role === "editor";
+  const canSaveReusable = useCapability("design:manage");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

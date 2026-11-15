@@ -55,6 +55,7 @@ export default function AdminShell() {
         platformOperator: session.platformOperator === true,
         disabledPaths: session.disabledPaths,
         pluginPageRoles: pluginPageRoles(pluginItems),
+        capabilities: session.capabilities,
       }
     : undefined;
   const domains = useMemo(() => filterDomainsByRole(allDomains, role, audience), [allDomains, role, audience]);

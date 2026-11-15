@@ -2,7 +2,7 @@ import { translateEnglish, type Translate } from "../../../i18n/translate";
 import { useEffect, useState } from "react";
 import { Link } from "../../../admin-router";
 import { useT } from "../../../i18n/I18nProvider";
-import { useSessionRole } from "@components/SessionProvider";
+import { useCapability } from "@components/SessionProvider";
 import MenuEditor, {
   type ContentOption,
   type ContentTypeOption,
@@ -36,8 +36,7 @@ export default function MenusPage({ embedded = false }: { embedded?: boolean } =
   // Saving a menu (and creating one) is administrator/editor-only on the
   // server; an author or contributor (who can also reach this page) can
   // still look at a menu's structure, just not persist changes to it.
-  const role = useSessionRole();
-  const canManage = role === "administrator" || role === "editor";
+  const canManage = useCapability("design:manage");
   const [menus, setMenus] = useState<EditableMenu[]>([]);
   const [selectedSlug, setSelectedSlug] = useState("primary");
   const [designPresets, setDesignPresets] = useState<MenuDesignPreset[]>([]);

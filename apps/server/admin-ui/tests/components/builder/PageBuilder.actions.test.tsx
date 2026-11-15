@@ -65,7 +65,7 @@ function mockFetch(session: { role: string; capabilities: string[] }) {
   );
 }
 
-const EDITOR = { role: "editor", capabilities: ["content:update", "content:locks:manage"] };
+const EDITOR = { role: "editor", capabilities: ["content:update", "content:locks:manage", "design:read", "design:manage"] };
 const AUTHOR = { role: "author", capabilities: ["content:update"] };
 
 async function renderBuilder(blocks: BlockNode[], session = EDITOR, compact = true) {
