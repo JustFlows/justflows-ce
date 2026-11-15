@@ -193,14 +193,16 @@ function BlockPreviewContent({
 
   /** A deliberate stand-in for what the page fills in when served is labelled as one (justflows-ce#306). */
   const substitution = previewSubstitution(block.type);
-  const wrap = (content: React.ReactNode, label?: string) => {
+  /** `ownChrome`: the content puts the chrome on its own root (ServerBlock), so no box is added. */
+  const wrap = (content: React.ReactNode, label?: string, ownChrome = false) => {
     /**
      * A DOM element takes the chrome directly. A component root (an inline
      * field) cannot forward it, so it gets a box of its own; otherwise its
      * spacing and colours would silently not show.
      */
-    const inner =
-      isValidElement(content) && typeof content.type === "string"
+    const inner = ownChrome
+      ? content
+      : isValidElement(content) && typeof content.type === "string"
         ? cloneElement(
             content as ReactElement<{
               style?: React.CSSProperties;
@@ -274,9 +276,18 @@ function BlockPreviewContent({
   if (SERVER_RENDERED_TYPES.has(block.type)) {
     const serverProps = block.type === "core.html" ? { ...p, html: text(p.html) } : p;
     return wrap(
-      <ServerBlock type={block.type} props={serverProps} hint={serverBlockHint(block.type, serverProps, t)}>
-        {renderChildren?.(block.children ?? [], depth + 1)}
+      <ServerBlock
+        type={block.type}
+        props={serverProps}
+        hint={serverBlockHint(block.type, serverProps, t)}
+        blockId={block.id}
+        rootClass={presetClass || undefined}
+        rootDeclarations={blockStyleDeclarations(blockStyle) || undefined}
+      >
+        {renderChildren?.(block.children ?? [], depth + 1) ?? emptyContainerHint(block.type, t)}
       </ServerBlock>,
+      undefined,
+      true,
     );
   }
   if (FUNCTIONAL_TYPES.has(block.type)) return wrap(<FunctionalBlock type={block.type} props={p}>{renderChildren?.(block.children ?? [], depth + 1)}</FunctionalBlock>);
@@ -290,63 +301,6 @@ function BlockPreviewContent({
         <button type="button" disabled>{label}</button>
       </div>);
     }
-    case "core.section": {
-      const bg = (p.background as string) || "default";
-      const pad = (p.padding as string) || "lg";
-      const align = (p.align as string) === "center" ? "center" : "left";
-      return wrap(
-        <section
-          className={`jf-section jf-section--bg-${bg} jf-section--pad-${pad} jf-section--align-${align}`}
-        >
-          <div className="jf-section__inner">
-            {renderChildren?.(block.children ?? [], depth + 1) ?? (
-              <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem", padding: "0.5rem" }}>
-                {t("builder.preview.emptySectionAddBlocks")}
-              </div>
-            )}
-          </div>
-        </section>,
-      );
-    }
-
-    case "core.container":
-      return wrap(
-        <div className={`jf-container jf-container--${(p.width as string) || "default"}`}>
-          {renderChildren?.(block.children ?? [], depth + 1) ?? (
-            <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem", padding: "0.5rem" }}>
-              {t("builder.preview.emptyContainer")}
-            </div>
-          )}
-        </div>,
-      );
-
-    case "core.group":
-      return wrap(
-        <div className="jf-group">{renderChildren?.(block.children ?? [], depth + 1)}</div>,
-      );
-
-    case "core.columns": {
-      const cols = (p.columns as number) ?? 2;
-      const gap = (p.gap as string) || "md";
-      return wrap(
-        <div
-          className={`jf-columns jf-columns--${cols} jf-columns--gap-${gap}`}
-          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, alignItems: "start" }}
-        >
-          {renderChildren?.(block.children ?? [], depth + 1)}
-        </div>,
-      );
-    }
-
-    case "core.column":
-      return wrap(
-        <div className="jf-column" style={{ minHeight: 72 }}>
-          {renderChildren?.(block.children ?? [], depth + 1) ?? (
-            <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.75rem" }}>{t("builder.preview.dropContentHere")}</div>
-          )}
-        </div>,
-      );
-
     case "core.hero": {
       const align = (p.align as string) === "center" ? "center" : "left";
       const bgImage = p.backgroundImage as string;
@@ -965,6 +919,12 @@ function BlockPreviewContent({
         <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{block.type}</div>,
       );
   }
+}
+
+/** Shown inside a layout container drawn without its child rows (a read-only preview). */
+function emptyContainerHint(type: string, t: (key: string) => string): React.ReactNode {
+  const key = type === "core.section" ? "builder.preview.emptySectionAddBlocks" : type === "core.container" ? "builder.preview.emptyContainer" : type === "core.column" ? "builder.preview.dropContentHere" : null;
+  return key ? <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem", padding: "0.5rem" }}>{t(key)}</div> : null;
 }
 
 /**

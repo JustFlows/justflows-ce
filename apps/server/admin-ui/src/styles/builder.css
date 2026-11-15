@@ -2389,3 +2389,8 @@
   background: repeating-linear-gradient(45deg, var(--color-bg, var(--jf-surface-2)), var(--color-bg, var(--jf-surface-2)) 5px, var(--color-surface, var(--jf-surface-3)) 5px, var(--color-surface, var(--jf-surface-3)) 10px);
   border-radius: 4px;
 }
+
+/* A column keeps room to drop into on the canvas (justflows-ce#311). */
+[data-jf-server-block="core.column"] > .jf-column {
+  min-height: 72px;
+}

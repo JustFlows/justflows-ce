@@ -37,12 +37,15 @@ function the server calls for the page, run in the browser without a request
 (`ServerBlock.tsx`). Selection, the toolbar, drop zones and resize handles
 stay around it. Its child blocks are still drawn by the canvas, mounted into
 a slot in the block's markup, so they can be selected, edited and dropped on,
-and changing the parent's settings does not redraw them.
+and changing the parent's settings does not redraw them. A Column keeps a
+minimum height on the canvas so there is room to drop into it.
 
 Moved so far: Divider, Spacer, Notice / Callout, Details, Cover, Media &
 Text, Features, Link list, Code, Custom HTML, List, List item, Accordion,
-Buttons, Card, Icon, Table, Tabs, Tab panel and Social links. Layout
-containers (Section, Container, Group, Columns, Grid) move next. Blocks with inline editing and media replacement move last; until then
+Buttons, Card, Icon, Table, Tabs, Tab panel, Social links, Section,
+Container, Group, Columns and Column. The block's style, preset class and
+canvas id go on the root element of its markup, as `withBlockChrome` puts
+them on the page. Grid, which carries the grid editor, and blocks with inline editing and media replacement move last; until then
 they keep their React copy, checked by the parity test.
 
 ## Where the canvas deliberately differs

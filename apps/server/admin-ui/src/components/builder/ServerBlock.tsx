@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { coreBlocks } from "@justflows/blocks";
 
@@ -51,6 +51,11 @@ export const SERVER_RENDERED_TYPES = new Set([
   "core.tabs",
   "core.tab",
   "core.social-links",
+  "core.section",
+  "core.container",
+  "core.group",
+  "core.columns",
+  "core.column",
 ]);
 
 const SLOT_ATTRIBUTE = "data-jf-children-slot";
@@ -62,6 +67,24 @@ export function serverBlockHtml(type: string, props: Record<string, unknown>, wi
   const definition = definitions.get(type);
   if (!definition) return "";
   return String(definition.render(definition.validateProps(props) as never, withChildren ? SLOT_HTML : "") ?? "");
+}
+
+/**
+ * The block's chrome on its own root element, as `withBlockChrome` puts it on
+ * the page: the canvas id, the preset class and the style declarations,
+ * appended to the root's own inline style.
+ */
+function applyChrome(root: Element | null, blockId: string | undefined, rootClass: string | undefined, declarations: string | undefined): void {
+  if (!(root instanceof HTMLElement)) return;
+  if (blockId) root.setAttribute("data-jf-block-preview", blockId);
+  for (const name of (rootClass ?? "").split(/\s+/).filter(Boolean)) root.classList.add(name);
+  for (const part of (declarations ?? "").split(";")) {
+    const at = part.indexOf(":");
+    if (at <= 0) continue;
+    const name = part.slice(0, at).trim();
+    const value = part.slice(at + 1).trim();
+    if (name && value) root.style.setProperty(name, value);
+  }
 }
 
 /** Editor adjustments listed above, applied after each render. */
@@ -76,11 +99,26 @@ function prepareForEditing(root: HTMLElement): void {
   });
 }
 
+function declarationStyle(declarations: string): CSSProperties {
+  const out: Record<string, string> = {};
+  for (const part of declarations.split(";")) {
+    const at = part.indexOf(":");
+    if (at <= 0) continue;
+    const key = part.slice(0, at).trim();
+    const value = part.slice(at + 1).trim();
+    if (key && value) out[key.startsWith("--") ? key : key.replace(/-([a-z])/g, (_m, c: string) => c.toUpperCase())] = value;
+  }
+  return out as CSSProperties;
+}
+
 export default function ServerBlock({
   type,
   props,
   children,
   hint,
+  blockId,
+  rootClass,
+  rootDeclarations,
 }: {
   type: string;
   props: Record<string, unknown>;
@@ -88,6 +126,12 @@ export default function ServerBlock({
   children?: ReactNode;
   /** Shown instead of the block while it has nothing to show. */
   hint?: ReactNode;
+  /** Canvas id, put on the rendered root so selection and resize find it. */
+  blockId?: string;
+  /** Style preset class for the rendered root. */
+  rootClass?: string;
+  /** The block's style declarations (`blockStyleDeclarations`) for the rendered root. */
+  rootDeclarations?: string;
 }) {
   const definition = definitions.get(type);
   const withChildren = Boolean(definition?.supportsChildren);
@@ -102,6 +146,7 @@ export default function ServerBlock({
     if (!element || showHint) return;
     element.innerHTML = html;
     prepareForEditing(element);
+    applyChrome(element.firstElementChild, blockId, rootClass, rootDeclarations);
     if (!withChildren) return;
     const placeholder = element.querySelector(`[${SLOT_ATTRIBUTE}]`);
     if (!slotRef.current) {
@@ -112,9 +157,15 @@ export default function ServerBlock({
     }
     if (placeholder) placeholder.replaceWith(slotRef.current);
     setSlot(slotRef.current);
-  }, [html, withChildren, showHint]);
+  }, [html, withChildren, showHint, blockId, rootClass, rootDeclarations]);
 
-  if (showHint) return <>{hint}</>;
+  if (showHint) {
+    return (
+      <div data-jf-block-preview={blockId} className={rootClass || undefined} style={rootDeclarations ? declarationStyle(rootDeclarations) : undefined}>
+        {hint}
+      </div>
+    );
+  }
   return (
     <>
       <div ref={root} data-jf-server-block={type} />

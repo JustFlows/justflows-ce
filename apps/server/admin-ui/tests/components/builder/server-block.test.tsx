@@ -28,9 +28,9 @@ const child: BlockNode = { id: "kid", type: "core.paragraph", version: 1, props:
 describe("server-rendered core blocks", () => {
   it("covers the blocks moved so far", () => {
     expect([...SERVER_RENDERED_TYPES].sort()).toEqual([
-      "core.accordion", "core.buttons", "core.callout", "core.card", "core.code", "core.cover", "core.details", "core.divider", "core.features",
-      "core.html", "core.icon", "core.link-list", "core.list", "core.list-item", "core.media-text", "core.social-links", "core.spacer", "core.tab",
-      "core.table", "core.tabs",
+      "core.accordion", "core.buttons", "core.callout", "core.card", "core.code", "core.column", "core.columns", "core.container", "core.cover",
+      "core.details", "core.divider", "core.features", "core.group", "core.html", "core.icon", "core.link-list", "core.list", "core.list-item",
+      "core.media-text", "core.section", "core.social-links", "core.spacer", "core.tab", "core.table", "core.tabs",
     ]);
   });
 
@@ -57,9 +57,18 @@ describe("server-rendered core blocks", () => {
     const { container } = draw({ id: "d1", type: "core.divider", version: 1, props: {} });
     const root = container.querySelector('[data-jf-server-block="core.divider"]')!;
     /** The block's own render, without the page's per-block wrapper, which the canvas draws itself. */
-    expect(root.innerHTML).toBe("<hr>");
+    expect(root.innerHTML).toBe('<hr data-jf-block-preview="d1">');
     expect(registry.renderNode({ type: "core.divider", props: {} })).toContain("<hr");
     expect(container.querySelector('[data-jf-server-block="core.spacer"]')).toBeNull();
+  });
+
+  it("puts the block's style and preset on its own root, as the page does", () => {
+    const { container } = draw({ id: "g1", type: "core.section", version: 1, props: { style: { padTop: "6" }, styleRef: "card" }, children: [child] });
+    const root = container.querySelector('[data-jf-server-block="core.section"] > section.jf-section') as HTMLElement;
+    expect(root.getAttribute("data-jf-block-preview")).toBe("g1");
+    expect(root.classList.contains("jf-sp-card")).toBe(true);
+    expect(root.style.paddingTop).not.toBe("");
+    expect(root.querySelector('.jf-section__inner [data-jf-block-preview="kid"]')).not.toBeNull();
   });
 
   it("keeps child blocks as canvas blocks inside the parent's own markup", () => {
