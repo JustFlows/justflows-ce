@@ -123,13 +123,14 @@ function templateSlotHint(t: TFunc, slug: string): string | undefined {
 }
 
 type ErrorPageClass = "404" | "403" | "410" | "429";
+type ErrorPageSetting = ErrorPageClass | "websiteNotFound";
 const ERROR_PAGE_CLASSES: ErrorPageClass[] = ["404", "403", "410", "429"];
 
 interface ErrorPageSourceConfig {
   source: "theme" | "builtin" | "page";
   pageId?: string;
 }
-type ErrorPageConfig = Partial<Record<ErrorPageClass, ErrorPageSourceConfig>>;
+type ErrorPageConfig = Partial<Record<ErrorPageSetting, ErrorPageSourceConfig>>;
 
 /** One entry per translation group — picking it covers every locale that page has a published translation in. */
 interface ErrorPagePickerOption {
@@ -291,7 +292,8 @@ export default function CustomizeThemePage() {
   const [errorThemeSlots, setErrorThemeSlots] = useState<string[]>([]);
   const [errorPagePickerOptions, setErrorPagePickerOptions] = useState<ErrorPagePickerOption[]>([]);
   const [errorPagesLoaded, setErrorPagesLoaded] = useState(false);
-  const [errorPageSaving, setErrorPageSaving] = useState<ErrorPageClass | null>(null);
+  const [errorPageSaving, setErrorPageSaving] = useState<ErrorPageSetting | null>(null);
+  const [websiteNotFoundAvailable, setWebsiteNotFoundAvailable] = useState(false);
 
   const loadErrorPages = useCallback(async () => {
     try {
@@ -300,10 +302,12 @@ export default function CustomizeThemePage() {
         config?: ErrorPageConfig;
         themeSlots?: string[];
         pages?: ErrorPagePickerOption[];
+        websiteNotFoundAvailable?: boolean;
       };
       setErrorPages(data.config ?? {});
       setErrorThemeSlots(data.themeSlots ?? []);
       setErrorPagePickerOptions(data.pages ?? []);
+      setWebsiteNotFoundAvailable(data.websiteNotFoundAvailable === true);
     } catch {
       /* leave as-is */
     } finally {
@@ -316,7 +320,7 @@ export default function CustomizeThemePage() {
   }, [tab, errorPagesLoaded, loadErrorPages]);
 
   async function updateErrorPageSource(
-    errorClass: ErrorPageClass,
+    errorClass: ErrorPageSetting,
     source: ErrorPageSourceConfig["source"],
     pageId?: string,
   ) {
@@ -344,6 +348,11 @@ export default function CustomizeThemePage() {
     if (!entry || entry.source === "theme") return "theme";
     if (entry.source === "builtin") return "builtin";
     return entry.pageId ? `page:${entry.pageId}` : "theme";
+  }
+
+  function websiteNotFoundSelectValue(): string {
+    const entry = errorPages.websiteNotFound;
+    return entry?.source === "page" && entry.pageId ? `page:${entry.pageId}` : "builtin";
   }
 
   function onErrorPageSelectChange(errorClass: ErrorPageClass, value: string) {
@@ -1314,6 +1323,34 @@ export default function CustomizeThemePage() {
                   </select>
                 </div>
               ))}
+              {websiteNotFoundAvailable && (
+                <div className="jf-field">
+                  <label className="jf-field__label" htmlFor="jf-error-page-website-not-found">
+                    {t("themeCustomize.websiteNotFoundLabel")}
+                  </label>
+                  <p className="jf-field__hint" style={{ marginTop: 0 }}>
+                    {t("themeCustomize.websiteNotFoundHint")}
+                  </p>
+                  <select
+                    id="jf-error-page-website-not-found"
+                    className="jf-input"
+                    value={websiteNotFoundSelectValue()}
+                    disabled={errorPageSaving === "websiteNotFound"}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "builtin") void updateErrorPageSource("websiteNotFound", "builtin");
+                      else if (value.startsWith("page:")) void updateErrorPageSource("websiteNotFound", "page", value.slice(5));
+                    }}
+                  >
+                    <option value="builtin">{t("themeCustomize.websiteNotFoundDefaultOption")}</option>
+                    {errorPagePickerOptions.map((page) => (
+                      <option key={page.id} value={`page:${page.id}`}>
+                        {page.title || page.slug}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1107,7 +1107,14 @@ router.get("/error-pages", fileLimit, async (req, res) => {
     const themeSlots = slots
       .filter((slot) => (PICKER_ERROR_CLASSES as readonly string[]).includes(slot.slug) || slot.slug === "error")
       .map((slot) => slot.slug);
-    sendJson(req, res, { config, themeSlots, pages: await listErrorPagePickerOptions(id) });
+    const { isInstallationRootSite } = await import("../../lib/tenancy/registry.js");
+    const { multisiteEnabled } = await import("../../lib/tenancy/multisite.js");
+    sendJson(req, res, {
+      config,
+      themeSlots,
+      pages: await listErrorPagePickerOptions(id),
+      websiteNotFoundAvailable: multisiteEnabled() && await isInstallationRootSite(id),
+    });
   } catch (err) {
     sendServerError(res, "manage.error-pages", err);
   }

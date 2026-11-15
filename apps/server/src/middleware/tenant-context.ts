@@ -3,12 +3,13 @@
 import type { NextFunction, Request, Response } from "express";
 import { getDb, runWithDatabase } from "../lib/database/db.js";
 import { isInstalled } from "./install-guard.js";
-import { loopbackPort, runWithTenant, type TenantRequestContext } from "../lib/tenancy/context.js";
+import { getTenantContext, loopbackPort, runWithTenant, type TenantRequestContext } from "../lib/tenancy/context.js";
 import { borrowSeparateDatabase, separateDatabaseForSite } from "../lib/tenancy/connections.js";
 import { effectiveDatabaseMode } from "../lib/tenancy/choice.js";
-import { resolveHost } from "../lib/tenancy/registry.js";
+import { installationRootHostRecord, resolveHost } from "../lib/tenancy/registry.js";
 import { primaryRedirectHost, type HostRecord } from "../lib/tenancy/host.js";
 import { STATIC_EXPORT_HEADER } from "../lib/static-export/config.js";
+import { multisiteEnabled } from "../lib/tenancy/multisite.js";
 
 const SKIP = new Set(["/api/healthz", "/api/install", "/api/i18n", "/api/domains/tls-allowed"]);
 
@@ -40,6 +41,22 @@ async function bindTenant(req: Request, res: Response, next: NextFunction): Prom
     return;
   }
   if (decision.kind === "unknown") {
+    if (multisiteEnabled() && (req.method === "GET" || req.method === "HEAD")) {
+      const root = await installationRootHostRecord();
+      if (root) {
+        if (isUnknownHostPublicAsset(req.path)) {
+          await withUnknownHostRoot(req, res, root, () => next());
+          return;
+        }
+        if (req.accepts("html")) {
+          await withUnknownHostRoot(req, res, root, async () => {
+            const { renderMultisiteNotFoundPage } = await import("../routes/public/public-site.js");
+            await renderMultisiteNotFoundPage(req, res);
+          });
+          return;
+        }
+      }
+    }
     res.status(404).type("text/plain").send("Site not found");
     return;
   }
@@ -107,6 +124,58 @@ async function bindTenant(req: Request, res: Response, next: NextFunction): Prom
   start();
 }
 
+/** Public files needed by a selected themed fallback page; admin, API, auth, and extension routes stay unreachable. */
+export function isUnknownHostPublicAsset(pathname: string): boolean {
+  if (pathname === "/theme.css" || pathname === "/theme.js" || pathname === "/favicon.ico") return true;
+  if (/^\/jf-plugins\.[0-9a-f]{6,40}\.(?:js|css)$/.test(pathname)) return true;
+  return /^\/(?:js|assets|css-providers|theme-assets|uploads|public)(?:\/|$)/.test(pathname);
+}
+
+async function withUnknownHostRoot(
+  req: Request,
+  res: Response,
+  record: HostRecord,
+  action: () => void | Promise<void>,
+): Promise<void> {
+  const hostname = record.primaryHostname ?? record.hostname;
+  const context: TenantRequestContext = {
+    tenantId: record.tenantId,
+    siteId: record.siteId,
+    hostname,
+    devPort: loopbackPort(hostname, req.headers.host),
+    userMode: record.userMode,
+    databaseMode: record.databaseMode,
+    rootSite: true,
+    activePluginIds: null,
+  };
+  const needsSeparate = effectiveDatabaseMode(record.databaseMode, record.databaseChoice) === "separate";
+  let client = null;
+  try {
+    const separate = await separateDatabaseForSite(
+      record.tenantId,
+      record.siteId,
+      record.databaseChoice,
+      record.databaseMode,
+    );
+    client = separate ? await borrowSeparateDatabase(separate) : null;
+  } catch {
+    client = null;
+  }
+  if (needsSeparate && !client) {
+    sendUnavailable(res);
+    return;
+  }
+  const run = async () => {
+    if (!(await loadPluginAllowlist(context))) {
+      sendUnavailable(res);
+      return;
+    }
+    await runWithTenant(context, action);
+  };
+  if (client) await runWithDatabase(client, run);
+  else await run();
+}
+
 /** A site whose primary address is a custom domain is served there. */
 async function redirectToPrimary(req: Request, res: Response, record: HostRecord, viaLoopback: boolean): Promise<boolean> {
   if (!record.primaryCustom || !record.primaryHostname || record.primaryHostname === record.hostname) return false;
@@ -159,23 +228,28 @@ async function guardUploads(req: Request, res: Response, next: NextFunction): Pr
     next();
     return;
   }
-  const decision = await resolveHost(req.hostname);
-  if (decision.kind === "unavailable") {
-    res.status(503).end();
-    return;
-  }
-  if (decision.kind === "unconfigured") {
-    next();
-    return;
-  }
-  if (decision.kind !== "ready") {
-    res.status(404).end();
-    return;
+  const current = getTenantContext();
+  let requestSiteId = current?.siteId;
+  if (!requestSiteId) {
+    const decision = await resolveHost(req.hostname);
+    if (decision.kind === "unavailable") {
+      res.status(503).end();
+      return;
+    }
+    if (decision.kind === "unconfigured") {
+      next();
+      return;
+    }
+    if (decision.kind !== "ready") {
+      res.status(404).end();
+      return;
+    }
+    requestSiteId = decision.record.siteId;
   }
   const relative = req.path.startsWith("/uploads/") ? req.path.slice("/uploads".length) : req.path;
   const { isPrivateUploadPath } = await import("../lib/media/upload-serve.js");
   const siteId = relative.split("/").filter(Boolean)[0];
-  if (isPrivateUploadPath(relative) || siteId !== decision.record.siteId) {
+  if (isPrivateUploadPath(relative) || siteId !== requestSiteId) {
     res.setHeader("Cache-Control", "private, no-store");
     res.status(404).end();
     return;

@@ -148,6 +148,12 @@ export async function installationRootSiteId(db?: DbClient): Promise<string | nu
   }
 }
 
+/** A routable record for the installation root, used only for platform-owned fallback pages. */
+export async function installationRootHostRecord(db?: DbClient): Promise<HostRecord | null> {
+  const loaded = await loadHostRecords(db);
+  return loaded?.records.find((record) => record.rootSite === true) ?? null;
+}
+
 /** A missing tenancy table is a single-site install, which is the root site. */
 export async function isInstallationRootSite(siteId: string): Promise<boolean> {
   const root = await installationRootSiteId();

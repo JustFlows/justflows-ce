@@ -22,6 +22,8 @@ import { getSiteSetting, setSiteSetting } from "../settings/site-settings.js";
 import { revalidateOnUpdate } from "../cache/cache-revalidate.js";
 import { getDefaultLocale } from "../i18n/languages-db.js";
 import { InvalidInputError } from "../http/invalid-input-error.js";
+import { isInstallationRootSite } from "../tenancy/registry.js";
+import { multisiteEnabled } from "../tenancy/multisite.js";
 
 export const ERROR_PAGE_SETTING_KEY = "error_pages";
 
@@ -38,6 +40,17 @@ const ErrorPageSourceConfigSchema = z
   });
 
 export type ErrorPageSourceConfig = z.infer<typeof ErrorPageSourceConfigSchema>;
+
+const WebsiteNotFoundSourceConfigSchema = z
+  .object({
+    source: z.enum(["builtin", "page"]),
+    pageId: z.string().uuid().optional(),
+  })
+  .refine((v) => v.source !== "page" || !!v.pageId, {
+    message: "pageId is required when source is \"page\"",
+  });
+
+export type WebsiteNotFoundSourceConfig = z.infer<typeof WebsiteNotFoundSourceConfigSchema>;
 
 const StaticErrorCopySchema = z.object({
   heading: z.string().max(200).optional(),
@@ -58,6 +71,7 @@ export const ErrorPageConfigSchema = z
     "403": ErrorPageSourceConfigSchema,
     "410": ErrorPageSourceConfigSchema,
     "429": ErrorPageSourceConfigSchema,
+    websiteNotFound: WebsiteNotFoundSourceConfigSchema,
     "500": StaticErrorCopySchema,
     maintenance: MaintenanceConfigSchema,
   })
@@ -112,11 +126,21 @@ export async function setErrorPageConfig(
 ): Promise<ErrorPageConfig> {
   const parsedPatch = ErrorPageConfigSchema.parse(patch);
 
+  if (
+    parsedPatch.websiteNotFound &&
+    (!multisiteEnabled() || !(await isInstallationRootSite(siteId)))
+  ) {
+    throw new InvalidInputError("The website-not-found page is available only on the root site while multisite is enabled");
+  }
+
   for (const errorClass of PICKER_ERROR_CLASSES) {
     const entry = parsedPatch[errorClass];
     if (entry?.source === "page" && entry.pageId) {
       await validatePageSource(siteId, entry.pageId);
     }
+  }
+  if (parsedPatch.websiteNotFound?.source === "page" && parsedPatch.websiteNotFound.pageId) {
+    await validatePageSource(siteId, parsedPatch.websiteNotFound.pageId);
   }
 
   const current = await getErrorPageConfig(siteId);
@@ -150,6 +174,11 @@ export async function clearErrorPagesIfMatch(siteId: string, contentIds: Readonl
       next[errorClass] = DEFAULT_PICKER_ENTRY;
       changed = true;
     }
+  }
+  const websiteNotFound = next.websiteNotFound;
+  if (websiteNotFound?.source === "page" && websiteNotFound.pageId && contentIds.has(websiteNotFound.pageId)) {
+    next.websiteNotFound = { source: "builtin" };
+    changed = true;
   }
   if (changed) {
     await setSiteSetting(siteId, ERROR_PAGE_SETTING_KEY, next);
