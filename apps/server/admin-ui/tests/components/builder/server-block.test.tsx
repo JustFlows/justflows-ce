@@ -110,3 +110,20 @@ describe("server-rendered core blocks", () => {
     expect((root.firstElementChild as HTMLElement).style.height).toBe("64px");
   });
 });
+
+describe("checklists on the canvas", () => {
+  it("reach their items through the canvas wrappers, but not a plain list nested inside", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    /** The suite runs from apps/server or from admin-ui. */
+    const file = ["admin-ui/src/styles/builder.css", "src/styles/builder.css"].map((p) => path.resolve(process.cwd(), p)).find((p) => fs.existsSync(p))!;
+    const css = fs.readFileSync(file, "utf8");
+    const rule = css.match(/(\.jf-list--checklist > \[data-jf-children-slot\] \.jf-list-item:not\([^)]*\)[^)]*\)) \{/)![1]!;
+    const item = (id: string, children: BlockNode[] = []): BlockNode => ({ id, type: "core.list-item", version: 1, props: { text: id }, children });
+    const nested: BlockNode = { id: "inner", type: "core.list", version: 1, props: { listStyle: "bullet" }, children: [item("deep")] };
+    const { container } = draw({ id: "cl", type: "core.list", version: 1, props: { listStyle: "checklist" }, children: [item("top", [nested])] });
+    const li = (id: string) => container.querySelector(`[data-jf-block-preview="${id}"]`)!;
+    expect(li("top").matches(rule)).toBe(true);
+    expect(li("deep").matches(rule)).toBe(false);
+  });
+});

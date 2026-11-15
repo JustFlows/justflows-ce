@@ -2394,3 +2394,17 @@
 [data-jf-server-block="core.column"] > .jf-column {
   min-height: 72px;
 }
+
+/*
+ * Checklists (justflows-ce#311). The page styles `.jf-list--checklist > .jf-list-item`;
+ * on the canvas each item sits inside the children slot and its row wrappers, so the
+ * same rule is written through them. Items of a plain list nested in a checklist stay plain.
+ */
+.jf-list--checklist > [data-jf-children-slot] .jf-list-item:not(.jf-list--checklist .jf-list:not(.jf-list--checklist) .jf-list-item) {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+}
+.jf-list--checklist > [data-jf-children-slot] .jf-list-item:not(.jf-list--checklist .jf-list:not(.jf-list--checklist) .jf-list-item) > .jf-list-check {
+  display: inline-block;
+}
