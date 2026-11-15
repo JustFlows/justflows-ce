@@ -2,7 +2,7 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { useT } from "../../i18n/I18nProvider";
 import type { ContextSource, SiteContextData, SiteRegion, TemplateCandidate } from "../../lib/site-context";
-import { BlockPreview } from "./BlockPreview";
+import { BlockPreview, THEME_PREVIEW_SCOPE, usePreviewScheme } from "./BlockPreview";
 import type { BlockNode } from "./types";
 
 /**
@@ -20,6 +20,35 @@ import type { BlockNode } from "./types";
 export interface SiteContextMeta {
   title: string;
   publishedAt?: string | null;
+  /** The entry's content type, for the page wrapper classes when no template places the content. */
+  contentType?: string;
+}
+
+/** Types `single.ejs` renders as pages: their content gets `block-content--page`. */
+const PAGE_LIKE_TYPES = new Set(["page", "account", "auth"]);
+
+/**
+ * The classes the page puts around the content, so theme rules scoped to them
+ * apply on the canvas too: `.block-content--page` removes a section's side
+ * padding and width limit, `.block-content` styles post text. The template's
+ * Post content block chooses with its `wrap` setting; without one, pages get
+ * both classes and other types `block-content`, as `single.ejs` renders them.
+ */
+export function contentWrapperClass(template: { blocks: BlockNode[] } | null | undefined, contentType: string | undefined): string {
+  const find = (blocks: BlockNode[]): BlockNode | null => {
+    for (const block of blocks) {
+      if (block.type === "core.post-content") return block;
+      const nested = find(block.children ?? []);
+      if (nested) return nested;
+    }
+    return null;
+  };
+  const slot = template ? find(template.blocks) : null;
+  if (slot) {
+    const wrap = slot.props.wrap;
+    return wrap === "page" ? "block-content block-content--page" : wrap === "post" ? "block-content" : "";
+  }
+  return PAGE_LIKE_TYPES.has(contentType ?? "page") ? "block-content block-content--page" : "block-content";
 }
 
 interface SiteContextFrameProps {
@@ -38,6 +67,7 @@ export function sourceKey(source: ContextSource): string {
 
 export default function SiteContextFrame({ context, meta, children, onEnter }: SiteContextFrameProps) {
   const { t } = useT();
+  const scheme = usePreviewScheme();
   const [identity, setIdentity] = useState<{ siteTitle: string; logoUrl: string } | null>(null);
   useEffect(() => {
     let alive = true;
@@ -54,6 +84,19 @@ export default function SiteContextFrame({ context, meta, children, onEnter }: S
 
   const date = meta.publishedAt ? new Date(meta.publishedAt).toLocaleDateString() : t("builder.siteContext.notPublished");
   let contentPlaced = false;
+  const wrapperClass = contentWrapperClass(context.template, meta.contentType);
+  /**
+   * The builder scopes theme rules as `.jf-theme-surface <rule>`, so the
+   * wrapper sits inside a scope element; otherwise a rule such as
+   * `.block-content--page .jf-section__inner` could never match.
+   */
+  const content = wrapperClass ? (
+    <div className={THEME_PREVIEW_SCOPE} data-theme={scheme}>
+      <div className={wrapperClass}>{children}</div>
+    </div>
+  ) : (
+    children
+  );
 
   /** Read-only preview of context blocks; the page's own slots get real values. */
   const renderContext = (blocks: BlockNode[], depth: number): ReactNode =>
@@ -64,7 +107,7 @@ export default function SiteContextFrame({ context, meta, children, onEnter }: S
           contentPlaced = true;
           return (
             <div key={block.id} data-site-context="content" className="jf-site-context__content">
-              {children}
+              {content}
             </div>
           );
         case "core.post-title": {
@@ -116,13 +159,13 @@ export default function SiteContextFrame({ context, meta, children, onEnter }: S
           {body}
           {!contentPlaced && (
             <div data-site-context="content" className="jf-site-context__content">
-              {children}
+              {content}
             </div>
           )}
         </Region>
       ) : (
         <div data-site-context="content" className="jf-site-context__content">
-          {children}
+          {content}
         </div>
       )}
       {!hasFooterPart && (

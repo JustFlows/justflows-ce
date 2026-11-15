@@ -156,3 +156,33 @@ describe("entering and returning", () => {
     expect(document.querySelector('[data-block-id="a"]')).not.toHaveAttribute("data-selected");
   });
 });
+
+/** The canvas wraps the content in the page's own classes, so theme rules scoped to them apply in the builder too. */
+describe("content wrapper classes", () => {
+  const template = (wrap?: string) => ({ blocks: [{ id: "s", type: "core.section", version: 1, props: {}, children: [{ id: "pc", type: "core.post-content", version: 1, props: wrap ? { wrap } : {} }] }] });
+
+  it("follow the template's Post content block", async () => {
+    const { contentWrapperClass } = await import("../../../src/components/builder/SiteContextFrame");
+    expect(contentWrapperClass(template("page"), "post")).toBe("block-content block-content--page");
+    expect(contentWrapperClass(template("post"), "page")).toBe("block-content");
+    expect(contentWrapperClass(template(), "page")).toBe("");
+  });
+
+  it("fall back to what single.ejs renders when no template places the content", async () => {
+    const { contentWrapperClass } = await import("../../../src/components/builder/SiteContextFrame");
+    expect(contentWrapperClass(null, "page")).toBe("block-content block-content--page");
+    expect(contentWrapperClass(null, "auth")).toBe("block-content block-content--page");
+    expect(contentWrapperClass({ blocks: [] }, "post")).toBe("block-content");
+  });
+
+  it("sit inside the theme scope, so scoped page rules reach blocks on the canvas", () => {
+    const { container } = wrap(
+      <SiteContextFrame context={{ header: { source: null, config: DEFAULT_PAGE_HEADER, blocks: [] }, footer: { source: null, blocks: [] }, template: null } as never} meta={{ title: "T", contentType: "page" }} onEnter={() => {}}>
+        <section className="jf-section"><div className="jf-section__inner"><p>Hi</p></div></section>
+      </SiteContextFrame>,
+    );
+    const inner = container.querySelector(".jf-section__inner")!;
+    /** What `.block-content--page .jf-section__inner` becomes after scope-css. */
+    expect(inner.matches(".jf-theme-surface .block-content--page .jf-section__inner")).toBe(true);
+  });
+});

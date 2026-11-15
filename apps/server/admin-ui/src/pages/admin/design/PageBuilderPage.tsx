@@ -508,7 +508,7 @@ export default function PageBuilderPage() {
       stylesPanel={<GlobalStylesPanel />}
       templateContext={templateContext}
       siteContext={siteContext}
-      siteContextMeta={{ title: item.title, publishedAt: item.publishedAt ?? null }}
+      siteContextMeta={{ title: item.title, publishedAt: item.publishedAt ?? null, contentType: item.type }}
       onEnterSiteContext={enterSiteContext}
       onEditReusable={(reusableId, selectedId) => {
         if (dirty && !window.confirm(t("builder.shell.leaveUnsaved"))) return;
