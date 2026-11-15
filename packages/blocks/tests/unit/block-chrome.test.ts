@@ -69,6 +69,15 @@ describe("withBlockChrome", () => {
     expect(out).toBe("<section>Hi</section>");
   });
 
+  it("cannot terminate the generated style element", () => {
+    const out = withBlockChrome("<section>Hi</section>", {
+      id: "abc",
+      props: { breakpoints: { desktop: { background: '"</style><script>alert(1)</script>' } } },
+    });
+    expect(out).not.toContain("</style><script>");
+    expect(out).not.toContain("<script>");
+  });
+
   it("wraps a fragment that has no single root element", () => {
     const out = withBlockChrome("one<br>two", { id: "abc", props: { className: "featured" } });
     expect(out).toBe('<div class="featured">one<br>two</div>');

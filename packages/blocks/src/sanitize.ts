@@ -109,6 +109,15 @@ export function sanitizeHtmlBlock(html: string): string {
   return sanitizeHtmlLib(html, HTML_BLOCK_OPTIONS);
 }
 
+/** Wrap already-validated CSS without allowing it to terminate its style element. */
+export function sanitizeStyleElement(css: string): string {
+  const escapedCss = css.replace(/</g, "\\3c ");
+  return sanitizeHtmlLib(`<style>${escapedCss}</style>`, {
+    allowedTags: ["style"],
+    allowedAttributes: {},
+  });
+}
+
 /** Extract text for indexing, keeping adjacent markup fragments separated. */
 export function extractPlainText(html: string): string {
   const parts: string[] = [];

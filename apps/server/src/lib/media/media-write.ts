@@ -382,7 +382,11 @@ export async function storeMediaUpload(file: UploadInput, actor: MediaActor): Pr
   } finally {
     // Slow uploads log where the time went (lock wait, quota, storage, encode).
     if (timer.totalMs() > 5000) {
-      console.warn(`[justflows] slow media upload (${file.size} bytes, ${file.mimetype}): ${timer.summary()}`);
+      console.warn("[justflows] slow media upload:", {
+        size: file.size,
+        mimetype: JSON.stringify(file.mimetype.replace(/\n/g, "").replace(/\r/g, "")),
+        timing: timer.summary(),
+      });
     }
   }
 }

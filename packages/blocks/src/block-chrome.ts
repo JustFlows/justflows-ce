@@ -8,6 +8,7 @@ import { blockScopeClass, sanitizeBlockClassName, scopeBlockCss } from "./safe-c
 import { isDefaultPlacement, isPlacementShaped, parseBlockPlacement, placementStyleVars } from "./layout.js";
 import { blockStyleDeclarations, parseBlockStyle } from "./block-style.js";
 import { deviceVisibilityAttr } from "./visibility.js";
+import { sanitizeStyleElement } from "./sanitize.js";
 
 /** The parts of a stored block that presentation reads. */
 export interface BlockChromeNode {
@@ -120,5 +121,5 @@ export function withBlockChrome(html: string, node: BlockChromeNode): string {
   }
 
   out += blockAssetMarker(node.type);
-  return css ? `<style>${css}</style>\n${out}` : out;
+  return css ? `${sanitizeStyleElement(css)}\n${out}` : out;
 }

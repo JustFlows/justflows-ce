@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { parseBlockPlacement } from "./layout.js";
+import { sanitizePlainText } from "./sanitize.js";
 import { normalizeDeviceList } from "./visibility.js";
 
 /**
@@ -67,7 +68,7 @@ export interface AccessibilityCheckOptions {
 const MAX_NODES = 5_000;
 
 function text(value: unknown): string {
-  return typeof value === "string" ? value.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim() : "";
+  return typeof value === "string" ? sanitizePlainText(value).replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim() : "";
 }
 
 function props(node: Node): Record<string, unknown> {
