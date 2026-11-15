@@ -89,6 +89,11 @@ describe("containerLayout rendering", () => {
     expect(registry.renderNode(node)).not.toContain("jf-cl");
   });
 
+  it("lets row items take their own width over a theme's width: 100%", () => {
+    /** `.jf-section { width: 100% }` turned a row of sections into a stack on the page while the builder showed it side by side. */
+    expect(containerLayoutCss()).toContain(".jf-cl-flex.jf-cl-row > * { width: auto; max-width: 100%; }");
+  });
+
   it("stacks rows and grids on phones only when allowed", () => {
     expect(containerLayoutAttrs({ display: "flex", direction: "column" })!.classes).not.toContain("jf-cl-stack");
     expect(containerLayoutAttrs({ display: "grid", stack: "never" })!.classes).not.toContain("jf-cl-stack");

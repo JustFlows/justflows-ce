@@ -191,12 +191,18 @@ export function containerElementAllowed(element: string, ancestors: readonly str
  * `assembleThemeCss`), so they work on every theme and inside the builder's
  * scoped preview. Rows and grids stack on phones unless the author said
  * never; stacking keeps source order.
+ *
+ * Items of a row take their own width: a theme's `width: 100%` on a block
+ * (`.jf-section` has one) would otherwise make every item a full line and
+ * the row wrap into a stack on the page, while the builder showed it side
+ * by side. Two classes outrank the theme's one-class rule.
  */
 export const CONTAINER_LAYOUT_CSS = `/* Container layout (props.containerLayout) */
 .jf-cl-flex { display: flex; }
 .jf-cl-row { flex-direction: row; }
 .jf-cl-col { flex-direction: column; }
 .jf-cl-flex > * { flex-grow: var(--jf-grow, 0); flex-basis: var(--jf-basis, auto); min-width: 0; }
+.jf-cl-flex.jf-cl-row > * { width: auto; max-width: 100%; }
 .jf-cl-grid { display: grid; grid-template-columns: repeat(var(--jf-cl-cols, 2), minmax(0, 1fr)); }
 .jf-cl > * + * { margin-top: 0; }
 @media (max-width: ${DEVICE_MAX_MOBILE}px) {
