@@ -39,8 +39,10 @@ stay around it. Its child blocks are still drawn by the canvas, mounted into
 a slot in the block's markup, so they can be selected, edited and dropped on,
 and changing the parent's settings does not redraw them.
 
-Moved so far: Divider, Spacer, Notice / Callout, Details, Cover and Media &
-Text. Blocks with inline editing and media replacement move last; until then
+Moved so far: Divider, Spacer, Notice / Callout, Details, Cover, Media &
+Text, Features, Link list, Code, Custom HTML, List, List item, Accordion,
+Buttons, Card, Icon, Table, Tabs, Tab panel and Social links. Layout
+containers (Section, Container, Group, Columns, Grid) move next. Blocks with inline editing and media replacement move last; until then
 they keep their React copy, checked by the parity test.
 
 ## Where the canvas deliberately differs

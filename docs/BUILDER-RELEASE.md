@@ -115,6 +115,6 @@ are ignored by the previous version.
 
 | Limitation | Ticket |
 | --- | --- |
-| Most core blocks are still drawn by the builder's own copy, not the public renderer (Divider, Spacer, Callout, Details, Cover and Media & Text have moved); parity is checked by test | #311 |
+| Most core blocks are still drawn by the builder's own copy, not the public renderer (20 have moved; layout containers and blocks with inline editing remain); parity is checked by test | #311 |
 | Content scheduling and search database suites need updated fixtures | #319 |
 | Browser-based journeys, visual parity, browser timings and the manual accessibility matrix | #310 (carried-over items) |

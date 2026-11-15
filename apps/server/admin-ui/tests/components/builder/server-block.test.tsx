@@ -26,8 +26,31 @@ function draw(block: BlockNode) {
 const child: BlockNode = { id: "kid", type: "core.paragraph", version: 1, props: { text: "Inside" } };
 
 describe("server-rendered core blocks", () => {
-  it("covers the first batch", () => {
-    expect([...SERVER_RENDERED_TYPES].sort()).toEqual(["core.callout", "core.cover", "core.details", "core.divider", "core.media-text", "core.spacer"]);
+  it("covers the blocks moved so far", () => {
+    expect([...SERVER_RENDERED_TYPES].sort()).toEqual([
+      "core.accordion", "core.buttons", "core.callout", "core.card", "core.code", "core.cover", "core.details", "core.divider", "core.features",
+      "core.html", "core.icon", "core.link-list", "core.list", "core.list-item", "core.media-text", "core.social-links", "core.spacer", "core.tab",
+      "core.table", "core.tabs",
+    ]);
+  });
+
+  it("shows a hint for an empty Code, Custom HTML or Link list block, and the block once it has content", () => {
+    const view = draw({ id: "k1", type: "core.code", version: 1, props: { code: "" } });
+    expect(view.container.textContent).toContain("// code");
+    expect(view.container.querySelector('[data-jf-server-block="core.code"]')).toBeNull();
+    const renderChildren = (children: BlockNode[], depth: number) =>
+      children.map((c) => <BlockPreview key={c.id} block={c} depth={depth} renderChildren={renderChildren} />);
+    view.rerender(<BlockPreview block={{ id: "k1", type: "core.code", version: 1, props: { code: "let a = 1;", language: "js" } }} renderChildren={renderChildren} />);
+    expect(view.container.querySelector('[data-jf-server-block="core.code"] pre code')?.textContent).toBe("let a = 1;");
+    expect(draw({ id: "h1", type: "core.html", version: 1, props: { html: "<script>x</script>" } }).container.textContent).toContain("builder.preview.html");
+    expect(draw({ id: "l1", type: "core.link-list", version: 1, props: { items: [] } }).container.textContent).toContain("builder.preview.noLinksYet");
+  });
+
+  it("keeps Custom HTML sanitized, as on the page", () => {
+    const { container } = draw({ id: "h2", type: "core.html", version: 1, props: { html: '<p onclick="x()">Hi</p><img src=x onerror="alert(1)"><script>alert(2)</script>' } });
+    const html = container.querySelector('[data-jf-server-block="core.html"]')!.innerHTML;
+    expect(html).toContain("Hi");
+    expect(html).not.toMatch(/onclick|onerror|<script/);
   });
 
   it("draws the public HTML of a block without children", () => {

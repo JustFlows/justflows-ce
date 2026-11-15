@@ -4,7 +4,7 @@ import MediaBlock from "../MediaBlock";
 import { useT } from "../../i18n/I18nProvider";
 import { Component, Fragment, cloneElement, createContext, isValidElement, useContext, useEffect, useRef, useState, type ErrorInfo, type ReactElement, type ReactNode } from "react";
 import type { BlockNode } from "./types";
-import { blockStyleDeclarations, codeLanguageClass, coreBlocks, esc, isBlockLocked, presetRefOf, stylePresetClass, styleWithTemplateDefault, normalizeInlineValue, parseBlockStyle, sanitizeHtmlBlock, sanitizePluginPreviewHtml, sanitizeRichText, INLINE_FIELD_ATTRIBUTE } from "@justflows/blocks";
+import { blockStyleDeclarations, coreBlocks, esc, isBlockLocked, presetRefOf, stylePresetClass, styleWithTemplateDefault, normalizeInlineValue, parseBlockStyle, sanitizeHtmlBlock, sanitizePluginPreviewHtml, sanitizeRichText, INLINE_FIELD_ATTRIBUTE } from "@justflows/blocks";
 import { renderMathOnDemand, useMathReady } from "../../lib/math-loader";
 import { isExtendClick, useBuilderSelectionActions } from "./selection-context";
 import { useTemplateContext } from "./template-defaults-context";
@@ -271,7 +271,14 @@ function BlockPreviewContent({
     );
   }
   /** Drawn by the public renderer itself (justflows-ce#311). */
-  if (SERVER_RENDERED_TYPES.has(block.type)) return wrap(<ServerBlock type={block.type} props={p}>{renderChildren?.(block.children ?? [], depth + 1)}</ServerBlock>);
+  if (SERVER_RENDERED_TYPES.has(block.type)) {
+    const serverProps = block.type === "core.html" ? { ...p, html: text(p.html) } : p;
+    return wrap(
+      <ServerBlock type={block.type} props={serverProps} hint={serverBlockHint(block.type, serverProps, t)}>
+        {renderChildren?.(block.children ?? [], depth + 1)}
+      </ServerBlock>,
+    );
+  }
   if (FUNCTIONAL_TYPES.has(block.type)) return wrap(<FunctionalBlock type={block.type} props={p}>{renderChildren?.(block.children ?? [], depth + 1)}</FunctionalBlock>);
 
   switch (block.type) {
@@ -368,32 +375,6 @@ function BlockPreviewContent({
         </section>,
       );
     }
-    case "core.features": {
-      const items = (p.items as Array<{ icon: string; title: string; description: string }>) ?? [];
-      const cols = (p.columns as number) ?? 3;
-      return wrap(
-        <section className="jf-features">
-          <div className="jf-container jf-container--wide">
-            {(p.heading as string) && (
-              <h2 className="jf-features__heading">{p.heading as string}</h2>
-            )}
-            <div
-              className={`jf-features__grid jf-features__grid--${cols}`}
-              style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-            >
-              {items.map((item, i) => (
-                <div key={i} className="jf-feature">
-                  <span className="jf-feature__icon">{item.icon}</span>
-                  <h3 className="jf-feature__title">{item.title || t("builder.preview.feature")}</h3>
-                  <p className="jf-feature__desc">{item.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>,
-      );
-    }
-
     case "core.cta": {
       const variant = (p.variant as string) || "default";
       return wrap(
@@ -639,36 +620,6 @@ function BlockPreviewContent({
           )}
         </>,
       );
-    case "core.link-list": {
-      const items = (p.items as Array<{ label: string; url: string }>) ?? [];
-      return wrap(
-        <div className="jf-link-list">
-          {(p.heading as string) && (
-            <h3 className="jf-link-list__heading">{p.heading as string}</h3>
-          )}
-          {items.length === 0 ? (
-            <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{t("builder.preview.noLinksYet")}</div>
-          ) : (
-            <ul className="jf-link-list__items">
-              {items.map((item, i) => (
-                <li key={i}>
-                  <span className="jf-link-list__link">{item.label || item.url || t("builder.preview.link")}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>,
-      );
-    }
-
-    case "core.code":
-      return wrap(
-        /** The theme styles code blocks, as on the page (justflows-ce#306). */
-        <pre>
-          <code className={codeLanguageClass(p.language)}>{(p.code as string) || "// code"}</code>
-        </pre>,
-      );
-
     case "core.embed":
       return wrap(
         <div
@@ -683,16 +634,6 @@ function BlockPreviewContent({
         >
           {t("builder.preview.embed")}{(p.url as string) || t("builder.preview.noURL")}
         </div>,
-      );
-
-    case "core.html":
-      return wrap(
-        <div
-          className="jf-html"
-          dangerouslySetInnerHTML={{
-            __html: sanitizeHtmlBlock(text(p.html)) || `<p>${esc(t("builder.preview.html"))}</p>`,
-          }}
-        />,
       );
 
     case "core.grid": {
@@ -1024,6 +965,18 @@ function BlockPreviewContent({
         <div style={{ color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" }}>{block.type}</div>,
       );
   }
+}
+
+/**
+ * What an empty server-rendered block shows on the canvas, so it can still be
+ * found and selected (justflows-ce#311). Undefined when it has content.
+ */
+function serverBlockHint(type: string, p: Record<string, unknown>, t: (key: string) => string): React.ReactNode {
+  const muted = { color: "var(--color-muted, var(--jf-text-3))", fontSize: "0.8rem" };
+  if (type === "core.code" && !String(p.code ?? "").trim()) return <pre><code>{"// code"}</code></pre>;
+  if (type === "core.html" && !sanitizeHtmlBlock(String(p.html ?? "")).trim()) return <div className="jf-html"><p>{t("builder.preview.html")}</p></div>;
+  if (type === "core.link-list" && !(Array.isArray(p.items) && p.items.length)) return <div className="jf-link-list" style={muted}>{t("builder.preview.noLinksYet")}</div>;
+  return undefined;
 }
 
 const CORE_DEFINITIONS = new Map(coreBlocks.map((definition) => [definition.type, definition]));

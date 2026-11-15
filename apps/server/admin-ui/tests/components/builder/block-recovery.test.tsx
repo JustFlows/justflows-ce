@@ -38,10 +38,10 @@ const gone: BlockNode = {
 
 let catalog: BlockCatalogEntry[] = [];
 
-/** Makes the canvas renderer for a card with padding 13 throw, like a bug in one block's preview would. Callout is drawn by the public renderer since justflows-ce#311, so a card stands in. */
+/** Makes the canvas renderer for a card with padding 13 throw, like a bug in one block's preview would; cards are drawn through ServerBlock (justflows-ce#311). */
 let drawFails = false;
-vi.mock("../../../src/components/builder/FunctionalBlock", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../src/components/builder/FunctionalBlock")>();
+vi.mock("../../../src/components/builder/ServerBlock", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../src/components/builder/ServerBlock")>();
   return {
     ...actual,
     default: (props: Parameters<typeof actual.default>[0]) => {

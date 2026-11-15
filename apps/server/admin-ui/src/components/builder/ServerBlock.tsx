@@ -23,7 +23,9 @@ import { coreBlocks } from "@justflows/blocks";
  * What the canvas changes on purpose, so the block can be edited:
  * - a Details block is always open, so its content can be reached;
  * - background videos do not autoplay;
- * - a Spacer gets a striped fill (builder CSS), because the page draws it empty.
+ * - a Spacer gets a striped fill (builder CSS), because the page draws it empty;
+ * - an empty Code, Custom HTML or Link list block shows a short hint
+ *   (`hint`), so it can still be found and selected.
  * Links and buttons stay inert, as for every block on the canvas.
  */
 
@@ -35,6 +37,20 @@ export const SERVER_RENDERED_TYPES = new Set([
   "core.details",
   "core.cover",
   "core.media-text",
+  "core.features",
+  "core.link-list",
+  "core.code",
+  "core.html",
+  "core.list",
+  "core.list-item",
+  "core.accordion",
+  "core.buttons",
+  "core.card",
+  "core.icon",
+  "core.table",
+  "core.tabs",
+  "core.tab",
+  "core.social-links",
 ]);
 
 const SLOT_ATTRIBUTE = "data-jf-children-slot";
@@ -64,11 +80,14 @@ export default function ServerBlock({
   type,
   props,
   children,
+  hint,
 }: {
   type: string;
   props: Record<string, unknown>;
   /** Child blocks, rendered by the canvas. */
   children?: ReactNode;
+  /** Shown instead of the block while it has nothing to show. */
+  hint?: ReactNode;
 }) {
   const definition = definitions.get(type);
   const withChildren = Boolean(definition?.supportsChildren);
@@ -76,10 +95,11 @@ export default function ServerBlock({
   const root = useRef<HTMLDivElement | null>(null);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
+  const showHint = Boolean(hint);
 
   useLayoutEffect(() => {
     const element = root.current;
-    if (!element) return;
+    if (!element || showHint) return;
     element.innerHTML = html;
     prepareForEditing(element);
     if (!withChildren) return;
@@ -92,8 +112,9 @@ export default function ServerBlock({
     }
     if (placeholder) placeholder.replaceWith(slotRef.current);
     setSlot(slotRef.current);
-  }, [html, withChildren]);
+  }, [html, withChildren, showHint]);
 
+  if (showHint) return <>{hint}</>;
   return (
     <>
       <div ref={root} data-jf-server-block={type} />
