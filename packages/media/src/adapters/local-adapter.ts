@@ -18,6 +18,8 @@ function isMissing(err: unknown): boolean {
 
 /** Resolve an object key under the storage root, including existing symlinks. */
 function resolvePathUnderBase(baseDir: string, key: string): string | null {
+  if (!/^[A-Za-z0-9_./@+=,-]+$/.test(key)) return null;
+  if (key.startsWith("/") || key.split("/").some((segment) => segment === "." || segment === "..")) return null;
   const base = path.resolve(baseDir);
   const candidate = path.resolve(base, key);
   if (candidate !== base && !candidate.startsWith(base + path.sep)) return null;

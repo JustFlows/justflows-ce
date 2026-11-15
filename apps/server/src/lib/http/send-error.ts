@@ -25,7 +25,11 @@ export function sendServerError(res: Response, context: string, err: unknown): v
     return;
   }
   const diagnostic = recordDiagnosticError(context, err);
-  console.error("[justflows] request failed:", JSON.stringify(logSafe(context)), err);
+  console.error(
+    "[justflows] request failed:",
+    JSON.stringify(logSafe(context)),
+    JSON.stringify(logSafe(err instanceof Error ? err.message : String(err))),
+  );
   if (res.headersSent) return;
   res.status(500).json({ error: "Internal server error", requestId: diagnostic.requestId });
 }
