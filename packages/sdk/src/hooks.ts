@@ -1107,11 +1107,12 @@ export interface FilterValueMap {
   "site.identity": [{ siteTitle: string; tagline: string }, { siteId: string; locale: string }];
   /**
    * Extra HTML inserted before `</body>` on administration screens. Seeded with
-   * `""`. Handlers may be async. `rootSite` is true on the installation's own
-   * admin while other sites exist. A thrown handler is logged and the admin
-   * page still renders. Deactivating the plugin removes its markup.
+   * `""`. Handlers may be async. `locale` is the current admin UI locale;
+   * `rootSite` is true on the installation's own admin while other sites exist.
+   * A thrown handler is logged and the admin page still renders. Deactivating
+   * the plugin removes its markup.
    */
-  "admin.body": [string, { siteId: string; rootSite?: boolean }];
+  "admin.body": [string, { siteId: string; locale: string; rootSite?: boolean }];
   /**
    * Tracking markup for a public page's `<head>`, seeded with `""`. A plugin
    * that adds a measurement tag appends it here with a low `priority` (below

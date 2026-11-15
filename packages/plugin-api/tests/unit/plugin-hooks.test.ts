@@ -79,7 +79,7 @@ describe("plugin hook context", () => {
     expect(seen?.network).toBe(network);
     const registration = app.hooks.inspect().find((hook) => hook.hook === "admin.body");
     expect(registration?.pluginId).toBe("justflows.test");
-    expect(await app.hooks.applyFilter("admin.body", "", { siteId: "site-1" })).toBe("tag");
+    expect(await app.hooks.applyFilter("admin.body", "", { siteId: "site-1", locale: "en" })).toBe("tag");
   });
 
   it("leaves ctx.network out without platform:network", async () => {
