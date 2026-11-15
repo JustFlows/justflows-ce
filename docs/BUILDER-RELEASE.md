@@ -117,7 +117,6 @@ are ignored by the previous version.
 | --- | --- |
 | Core blocks are drawn by the builder, not the server renderer; parity is checked by test | #311 |
 | Some admin messages with counts have one plural form | #312 |
-| Accessibility checks are not yet available in the management API or to the assistant | #313 |
 | Custom roles cannot change site design | #314 |
 | A slow plugin block render is not interrupted | #316 |
 | Content scheduling and search database suites need updated fixtures | #319 |

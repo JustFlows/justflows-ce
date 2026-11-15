@@ -106,8 +106,12 @@ read the stored document, so they cannot see:
 - the content of images and media
 
 Where a check cannot decide, it says so ("Not checked") instead of guessing.
-The checks are in `@justflows/blocks` (`checkAccessibility`), so the
-management API and the assistant can use the same rules.
+The checks are in `@justflows/blocks` (`checkAccessibility`). The
+management API (`GET /content/{id}/accessibility`, and the same for template
+parts and templates) and the assistant (`content_accessibility_check`, and
+the issues returned by `content_create` and `content_update`) run the same
+checks with the builder's own messages, behind the same read permission as
+the document.
 
 ## Language and direction
 

@@ -111,6 +111,12 @@ export const MANAGE_API_OPENAPI = {
     "/content/{id}/header-ref": {
       put: op("Choose which header library entry a page renders (__default__, __none__, or an entry id)", "content:update"),
     },
+    "/content/{id}/accessibility": {
+      get: op(
+        "Run the builder's accessibility checks on a content entry's blocks. Returns issues with code, severity (error, warning or unavailable), block id and type, field and message. The checks help; they do not prove a page is accessible. Plugin and theme blocks are reported as not checked. `lang` picks the admin language of the messages.",
+        "content:read",
+      ),
+    },
     "/content/{id}/terms": {
       get: op("List the taxonomy terms assigned to a content entry", "content:read"),
       put: op("Replace a content entry's terms for each taxonomy named in the body", "content:update"),
@@ -250,6 +256,9 @@ export const MANAGE_API_OPENAPI = {
       get: op("Read a template part (footer) including its draft", "content:read"),
       put: op("Save or publish a template part", "settings:manage"),
     },
+    "/template-parts/{part}/accessibility": {
+      get: op("Run the builder's accessibility checks on a template part: its draft when there is one, else what is published (`version=published` or `draft` to choose)", "content:read"),
+    },
     "/widgets": { get: op("List widget areas, the per-content-type widget layout, and content types", "content:read") },
     "/widgets/layout": { put: op("Save which widget area each content type shows, and where", "settings:manage") },
     "/widgets/areas": { post: op("Add a widget area of the site's own", "settings:manage") },
@@ -264,6 +273,9 @@ export const MANAGE_API_OPENAPI = {
       get: op("Read one page template", "content:read"),
       put: op("Save or publish a page template", "settings:manage"),
       delete: op("Reset a page template to the theme file", "settings:manage"),
+    },
+    "/templates/{slug}/accessibility": {
+      get: op("Run the builder's accessibility checks on a page template: its draft when there is one, else what is published or the theme's file (`version=published` or `draft` to choose)", "content:read"),
     },
     "/templates/{slug}/discard-draft": { post: op("Discard a page template draft", "settings:manage") },
     "/themes/customize": {

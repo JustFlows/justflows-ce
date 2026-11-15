@@ -69,6 +69,7 @@ credential). Cookie auth on these routes still requires it.
 | Menus | `GET/POST /menus`, `GET/PUT/DELETE /menus/{slug}` | `content:read` / `settings:manage` |
 | Content types | `GET/POST /content-types`, `GET/PATCH/DELETE /content-types/{slug}` | `content:read` / `settings:manage` |
 | Taxonomies | `GET/POST /taxonomies`, `PATCH/DELETE /taxonomies/{slug}` | `content:read` / `settings:manage` |
+| Accessibility checks | `GET /content/{id}/accessibility`, `GET /template-parts/{part}/accessibility`, `GET /templates/{slug}/accessibility` (optional `version=draft\|published`, `lang`) | `content:read`, with the same scope check as reading the document |
 | Terms | `GET/POST /taxonomies/{slug}/terms`, `PATCH/DELETE /taxonomies/{slug}/terms/{id}`, `GET/PUT /content/{id}/terms` | `content:read` / `content:publish` / `content:update` (entry terms) |
 | Users & roles | `GET/POST /users`, `GET/PATCH/DELETE /users/{id}`, `GET/POST /roles`, `PATCH/DELETE /roles/{id}` | `users:read` / `users:manage` |
 | Settings | `GET/PATCH /settings` | `settings:read` / `settings:manage` |

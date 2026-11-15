@@ -5,7 +5,8 @@ import type { UserCapability } from "@justflows/sdk";
 import { z } from "zod";
 import { ContentScheduleSchema, ScheduleError, setContentSchedule } from "../../lib/content/content-scheduling-db.js";
 import { getDb } from "../../lib/database/db.js";
-import { normalizeFields, serializeContentRow } from "../../lib/content/content-api.js";
+import { normalizeBlocks, normalizeFields, serializeContentRow } from "../../lib/content/content-api.js";
+import { accessibilityReport } from "../../lib/content/accessibility-report.js";
 import {
   getRevisionById,
   getWorkingRevision,
@@ -401,6 +402,30 @@ router.put("/:id/header-ref", async (req, res) => {
     await invalidateContentCache();
     await revalidateOnUpdate("content");
     res.json({ ok: true, ref: ref || SITE_DEFAULT_HEADER_REF });
+  } catch (err) {
+    sendServerError(res, "manage.content", err);
+  }
+});
+
+/**
+ * The builder's accessibility checks for one entry (justflows-ce#313), with
+ * the same read check as the entry itself.
+ */
+router.get("/:id/accessibility", async (req, res) => {
+  try {
+    const row = await loadRow(req.apiKeyOwner!.siteId, req.params.id);
+    if (!row) return notFound(res);
+    if (await hideUnpublished(req, res, row)) return;
+    if (
+      !(await ensureKeyCan(req, res, "content:read", {
+        contentType: String(row.type),
+        locale: String(row.locale),
+        ownerId: row.author_id as string | null,
+      }))
+    )
+      return;
+    const lang = typeof req.query.lang === "string" ? req.query.lang : "en";
+    sendJson(req, res, { id: String(row.id), ...(await accessibilityReport(normalizeBlocks(row.blocks).blocks, lang)) });
   } catch (err) {
     sendServerError(res, "manage.content", err);
   }

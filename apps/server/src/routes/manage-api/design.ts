@@ -137,6 +137,7 @@ import { validateTemplateBlocks } from "../../lib/rendering/template-validate.js
 import { auditFromRequest, auditLog } from "../../lib/security/audit-log.js";
 import { clientIp } from "../../lib/security/rate-limit.js";
 import { badRequest, ensureKeyCan, sendJson, notFound } from "./envelope.js";
+import { accessibilityReport } from "../../lib/content/accessibility-report.js";
 
 /**
  * Site chrome the admin edits outside a content entry: the header library,
@@ -332,6 +333,34 @@ router.get("/template-parts/:part", fileLimit, async (req, res) => {
   }
 });
 
+/** Which copy of a site-wide document the checks read: the draft when there is one, unless the caller asks. */
+function pickVersion(req: import("express").Request, draft: unknown[] | null | undefined, published: unknown[] | null | undefined): { version: "draft" | "published"; blocks: unknown[] } {
+  const asked = req.query.version === "draft" || req.query.version === "published" ? req.query.version : null;
+  if (asked === "draft" || (!asked && draft?.length)) return { version: "draft", blocks: draft ?? [] };
+  return { version: "published", blocks: published ?? [] };
+}
+
+function reportLang(req: import("express").Request): string {
+  return typeof req.query.lang === "string" ? req.query.lang : "en";
+}
+
+/** The builder's accessibility checks for a template part (justflows-ce#313). */
+router.get("/template-parts/:part/accessibility", fileLimit, async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  const part = param(req.params.part);
+  if (!isTemplatePart(part)) {
+    res.status(404).json({ error: "Unknown template part" });
+    return;
+  }
+  try {
+    const id = siteId(req);
+    const picked = pickVersion(req, await getTemplatePart(id, part, true), await getTemplatePart(id, part, false));
+    sendJson(req, res, { part, version: picked.version, ...(await accessibilityReport(picked.blocks, reportLang(req))) });
+  } catch (err) {
+    sendServerError(res, "manage.template-parts", err);
+  }
+});
+
 router.put("/template-parts/:part", async (req, res) => {
   if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
   const part = param(req.params.part);
@@ -511,6 +540,26 @@ router.get("/templates", fileLimit, async (req, res) => {
       slots,
       creatable: TEMPLATE_SLOTS.filter((slug) => !known.has(slug)),
     });
+  } catch (err) {
+    sendServerError(res, "manage.templates", err);
+  }
+});
+
+/** The builder's accessibility checks for a page template (justflows-ce#313). */
+router.get("/templates/:slug/accessibility", fileLimit, async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  const slug = param(req.params.slug);
+  if (!isTemplateSlug(slug)) {
+    res.status(404).json({ error: "Unknown template slug" });
+    return;
+  }
+  try {
+    const id = siteId(req);
+    const theme = await activeTheme(id);
+    const stored = theme ? await getStoredTemplateDocs(id, theme.themeId, slug) : null;
+    const themeFile = theme && !stored?.published?.length ? loadThemeTemplateDoc(theme.themeId, slug, theme.installedPath)?.blocks : undefined;
+    const picked = pickVersion(req, stored?.draft, stored?.published?.length ? stored.published : themeFile);
+    sendJson(req, res, { slug, version: picked.version, ...(await accessibilityReport(picked.blocks, reportLang(req))) });
   } catch (err) {
     sendServerError(res, "manage.templates", err);
   }

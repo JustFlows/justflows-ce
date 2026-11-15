@@ -28,6 +28,7 @@ import {
   type ToolOutcome,
 } from "./manage-tool.js";
 import { principalCapabilities } from "./principal.js";
+import { accessibilityReport } from "../../content/accessibility-report.js";
 
 /**
  * The agent tool registry, shared by the MCP server and the in-admin assistant.
@@ -133,6 +134,32 @@ async function checkBlocks(blocks: unknown): Promise<{ document?: unknown; error
   return { document: result.document };
 }
 
+/** At most this many accessibility issues ride along with a save; content_accessibility_check lists them all. */
+const SAVE_ACCESSIBILITY_ISSUES = 20;
+
+/**
+ * Add the builder's accessibility checks for the blocks just written to a
+ * successful save (justflows-ce#313), so the assistant sees the same
+ * feedback as an editor without another call.
+ */
+async function withAccessibility(outcome: ToolOutcome, document: unknown): Promise<ToolOutcome> {
+  if (!outcome.ok || !document || typeof document !== "object") return outcome;
+  const report = await accessibilityReport((document as { blocks?: unknown }).blocks);
+  const data = outcome.data && typeof outcome.data === "object" ? (outcome.data as Record<string, unknown>) : { result: outcome.data };
+  return {
+    ...outcome,
+    data: {
+      ...data,
+      accessibility: {
+        counts: report.counts,
+        issues: report.issues.slice(0, SAVE_ACCESSIBILITY_ISSUES),
+        truncated: report.issues.length > SAVE_ACCESSIBILITY_ISSUES,
+        note: report.note,
+      },
+    },
+  };
+}
+
 async function contentCreate(args: Record<string, unknown>, ctx: ToolCallContext): Promise<ToolOutcome> {
   const { publish, blocks, ...rest } = args;
   const checked = await checkBlocks(blocks);
@@ -140,7 +167,7 @@ async function contentCreate(args: Record<string, unknown>, ctx: ToolCallContext
   const created = await callManage(ctx, "POST", "/content", {}, {
     body: { ...rest, ...(checked.document ? { blocks: checked.document } : {}) },
   });
-  if (!created.ok || publish !== true) return created;
+  if (!created.ok || publish !== true) return withAccessibility(created, checked.document);
   const entry = created.data as { id?: string; version?: number };
   if (!entry?.id) return created;
   const published = await callManage(ctx, "POST", "/content/{id}/publish", { id: entry.id }, {
@@ -152,16 +179,17 @@ async function contentCreate(args: Record<string, unknown>, ctx: ToolCallContext
       error: `The draft was created (id ${entry.id}) but could not be published: ${published.error}`,
     };
   }
-  return published;
+  return withAccessibility(published, checked.document);
 }
 
 async function contentUpdate(args: Record<string, unknown>, ctx: ToolCallContext): Promise<ToolOutcome> {
   const { id, blocks, ...rest } = args;
   const checked = await checkBlocks(blocks);
   if (checked.error) return { ok: false, error: checked.error };
-  return callManage(ctx, "PATCH", "/content/{id}", { id }, {
+  const updated = await callManage(ctx, "PATCH", "/content/{id}", { id }, {
     body: { ...rest, ...(checked.document ? { blocks: checked.document } : {}), source: "api" },
   });
+  return withAccessibility(updated, checked.document);
 }
 
 /* --------------------------------- media --------------------------------- */
@@ -425,6 +453,20 @@ export const CORE_TOOLS: AgentTool[] = [
     method: "GET",
     path: "/content/{id}",
     input: object({ id: str("Entry id.") }, ["id"]),
+    annotations: READ,
+    group: "content",
+    targetArg: "id",
+  }),
+  manageTool({
+    name: "content_accessibility_check",
+    title: "Check an entry's accessibility",
+    description:
+      "Run the page builder's accessibility checks on an entry's blocks: missing alt text, empty links and buttons, skipped heading levels, low contrast, content hidden on phones, reading order and more. " +
+      "Each issue has a code, severity (error, warning, or unavailable for plugin and theme blocks the checks cannot look inside), block id and type, the field to fix, and a message. " +
+      "The checks help; they do not prove a page is accessible. content_create and content_update also return these issues for the blocks they save.",
+    method: "GET",
+    path: "/content/{id}/accessibility",
+    input: object({ id: str("Entry id."), lang: str("Language of the messages: en, nl, de, fr, es, pl, uk or ru. Default en.", { enum: ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"] }) }, ["id"]),
     annotations: READ,
     group: "content",
     targetArg: "id",
@@ -1210,6 +1252,18 @@ export const CORE_TOOLS: AgentTool[] = [
     group: "design",
     targetArg: "part",
   }),
+  manageTool({
+    name: "template_parts_accessibility_check",
+    title: "Check a template part's accessibility",
+    description:
+      'Run the page builder\'s accessibility checks on a template part (the footer is part "footer"), as content_accessibility_check does for an entry. The checks help; they do not prove a page is accessible.',
+    method: "GET",
+    path: "/template-parts/{part}/accessibility",
+    input: object({ part: str('Template part. Use "footer".', { enum: ["footer"] }), version: str("draft or published. Default: the draft when there is one, else what is published.", { enum: ["draft", "published"] }), lang: str("Language of the messages: en, nl, de, fr, es, pl, uk or ru. Default en.", { enum: ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"] }) }, ["part"]),
+    annotations: READ,
+    group: "design",
+    targetArg: "part",
+  }),
   custom({
     name: "template_parts_update",
     title: "Save a template part",
@@ -1365,6 +1419,18 @@ export const CORE_TOOLS: AgentTool[] = [
     method: "GET",
     path: "/templates/{slug}",
     input: object({ slug: str("Template slug, such as index, single, or archive.") }, ["slug"]),
+    annotations: READ,
+    group: "design",
+    targetArg: "slug",
+  }),
+  manageTool({
+    name: "templates_accessibility_check",
+    title: "Check a page template's accessibility",
+    description:
+      "Run the page builder's accessibility checks on a page template, as content_accessibility_check does for an entry. Without a saved copy the theme's own template is checked. The checks help; they do not prove a page is accessible.",
+    method: "GET",
+    path: "/templates/{slug}/accessibility",
+    input: object({ slug: str("Template slug, such as index, single, or archive."), version: str("draft or published. Default: the draft when there is one, else what is published.", { enum: ["draft", "published"] }), lang: str("Language of the messages: en, nl, de, fr, es, pl, uk or ru. Default en.", { enum: ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"] }) }, ["slug"]),
     annotations: READ,
     group: "design",
     targetArg: "slug",
