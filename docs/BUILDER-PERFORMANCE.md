@@ -69,7 +69,13 @@ longer for both. The ratio is what carries over.
   seconds on its own, and a failed or cancelled one never blocks the others.
 - **Heavy parts load when used.** The animation library loads only when a
   block on the canvas has an active animation and reduced motion is off. The
-  keyboard shortcuts and "Save as" dialogs load when first opened.
+  keyboard shortcuts and "Save as" dialogs load when first opened. KaTeX
+  (about 259 KB of script, plus its stylesheet and fonts) loads only when the
+  document has a formula or one is inserted; until then each formula shows
+  its LaTeX source. The browser entry of `@justflows/blocks` does not import
+  KaTeX; its Node entry does, so the server and public pages typeset formulas
+  from the first render. The admin build keeps `math-katex` out of the
+  `blocks-core` chunk, which every builder loads.
 - **A block that fails to draw only breaks itself** (see
   [Builder preview and recovery](BUILDER-PREVIEW.md)).
 

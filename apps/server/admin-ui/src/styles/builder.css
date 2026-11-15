@@ -674,6 +674,8 @@
   white-space: normal;
 }
 .jf-math { display: inline-block; }
+/* A formula waiting for KaTeX shows its LaTeX source (justflows-ce#318). */
+.jf-math--pending { font-family: var(--jf-font-mono, ui-monospace, monospace); opacity: 0.75; }
 
 /* ── Block inspector panels: custom CSS and JSON ── */
 .jf-block-panel {

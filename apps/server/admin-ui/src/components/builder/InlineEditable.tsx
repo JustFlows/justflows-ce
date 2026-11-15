@@ -1,9 +1,9 @@
 import { useT } from "../../i18n/I18nProvider";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState, type HTMLAttributes } from "react";
-import { esc, renderMath, safeMediaSrc, sanitizeHref, sanitizeMediaSrc, sanitizeRichText, type InlineFormat } from "@justflows/blocks";
+import { esc, safeMediaSrc, sanitizeHref, sanitizeMediaSrc, sanitizeRichText, type InlineFormat } from "@justflows/blocks";
 import { loadMediaLibrary, MEDIA_ACCEPT, uploadMedia, type MediaKind, type MediaLibraryItem } from "../../lib/media-library";
-import "katex/dist/katex.min.css";
+import { loadMathRenderer, renderMathOnDemand, useMathReady } from "../../lib/math-loader";
 
 type InlineEditableTag = "div" | "p" | "span" | "cite" | "figcaption" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 
@@ -68,6 +68,7 @@ export function InlineEditable({
   /** Set by Escape: the next blur restores the stored value instead of committing. */
   const cancelRef = useRef(false);
   const { t } = useT();
+  const mathReady = useMathReady();
   const elRef = useRef<HTMLElement | null>(null);
   const [focused, setFocused] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<{ top: number; left: number } | null>(null);
@@ -85,10 +86,10 @@ export function InlineEditable({
     } else {
       // Stored value keeps math as a bare `data-formula` placeholder; the
       // canvas shows it rendered, so the live DOM gets the expanded form.
-      const displayHtml = renderMath(value);
+      const displayHtml = renderMathOnDemand(value);
       if (el.innerHTML !== displayHtml) el.innerHTML = displayHtml;
     }
-  }, [value, mode]);
+  }, [value, mode, mathReady]);
 
   /**
    * The length limit listens to the native `beforeinput` event, which every
@@ -144,7 +145,7 @@ export function InlineEditable({
       node.innerHTML = "";
     });
     const clean = sanitizeRichText(clone.innerHTML);
-    const displayHtml = renderMath(clean);
+    const displayHtml = renderMathOnDemand(clean);
     if (el.innerHTML !== displayHtml) el.innerHTML = displayHtml;
     if (clean !== value) onCommit(clean);
   }, [mode, multiline, onCommit, value]);
@@ -245,12 +246,20 @@ export function InlineEditable({
     if (!el.contains(range.commonAncestorContainer)) return;
     const formula = window.prompt(t("builder.inline.latexFormulaPrompt"));
     if (!formula?.trim()) return;
+    const placeholder = `<span class="jf-math" data-formula="${esc(formula.trim())}"></span>`;
     const wrapper = document.createElement("div");
-    wrapper.innerHTML = renderMath(
-      `<span class="jf-math" data-formula="${esc(formula.trim())}"></span>`,
-    );
+    wrapper.innerHTML = renderMathOnDemand(placeholder);
     const marker = wrapper.firstElementChild;
     if (!marker) return;
+    if (marker.classList.contains("jf-math--pending")) {
+      /** The first formula on the page: typeset it in place once KaTeX has loaded (justflows-ce#318). */
+      void loadMathRenderer().then(() => {
+        if (!marker.isConnected) return;
+        const typeset = document.createElement("div");
+        typeset.innerHTML = renderMathOnDemand(placeholder);
+        if (typeset.firstElementChild && !typeset.firstElementChild.classList.contains("jf-math--pending")) marker.replaceWith(typeset.firstElementChild);
+      });
+    }
     range.collapse(false);
     range.insertNode(marker);
     range.setStartAfter(marker);
@@ -513,7 +522,7 @@ export function InlineEditable({
             cancelRef.current = false;
             const el = e.currentTarget;
             if (mode === "plain") writeEditableText(el, value, multiline);
-            else el.innerHTML = renderMath(value);
+            else el.innerHTML = renderMathOnDemand(value);
             return;
           }
           // Committing here would reset innerHTML and invalidate the caret

@@ -3,7 +3,8 @@ import MediaBlock from "../MediaBlock";
 import { useT } from "../../i18n/I18nProvider";
 import { Component, Fragment, cloneElement, createContext, isValidElement, useContext, useEffect, useRef, useState, type ErrorInfo, type ReactElement, type ReactNode } from "react";
 import type { BlockNode } from "./types";
-import { blockStyleDeclarations, codeLanguageClass, coreBlocks, esc, isBlockLocked, presetRefOf, stylePresetClass, styleWithTemplateDefault, normalizeInlineValue, parseBlockStyle, renderMath, sanitizeHtmlBlock, sanitizePluginPreviewHtml, sanitizeRichText, INLINE_FIELD_ATTRIBUTE } from "@justflows/blocks";
+import { blockStyleDeclarations, codeLanguageClass, coreBlocks, esc, isBlockLocked, presetRefOf, stylePresetClass, styleWithTemplateDefault, normalizeInlineValue, parseBlockStyle, sanitizeHtmlBlock, sanitizePluginPreviewHtml, sanitizeRichText, INLINE_FIELD_ATTRIBUTE } from "@justflows/blocks";
+import { renderMathOnDemand, useMathReady } from "../../lib/math-loader";
 import { isExtendClick, useBuilderSelectionActions } from "./selection-context";
 import { useTemplateContext } from "./template-defaults-context";
 import { useCatalogEntry } from "./catalog-context";
@@ -153,6 +154,8 @@ function BlockPreviewContent({
 }: BlockPreviewProps) {
   const { t, locale } = useT();
   const scheme = usePreviewScheme();
+  /** Formulas show their source until KaTeX has loaded, then redraw (justflows-ce#318). */
+  useMathReady();
   const p = canvasProps(block);
   const tags = useMergeTags();
   const text = (value: unknown) => applyMergeTags(String(value ?? ""), tags);
@@ -419,7 +422,7 @@ function BlockPreviewContent({
             className="jf-paragraph"
             dangerouslySetInnerHTML={{
               __html:
-                renderMath(sanitizeRichText(text(p.text))) ||
+                renderMathOnDemand(sanitizeRichText(text(p.text))) ||
                 `<em style='color:var(--color-muted, var(--jf-text-3))'>${esc(t("builder.preview.emptyParagraph"))}</em>`,
             }}
           />
@@ -604,7 +607,7 @@ function BlockPreviewContent({
               className="jf-quote__text"
               dangerouslySetInnerHTML={{
                 __html:
-                  renderMath(sanitizeRichText((p.text as string) || "")) ||
+                  renderMathOnDemand(sanitizeRichText((p.text as string) || "")) ||
                   `<em style='color:var(--color-muted, var(--jf-text-3))'>${esc(t("builder.preview.quote"))}</em>`,
               }}
             />

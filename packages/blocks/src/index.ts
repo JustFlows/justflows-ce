@@ -12,7 +12,7 @@ export { sanitizeRichText, sanitizeHtmlBlock, sanitizePlainText, extractPlainTex
 export { codeLanguageClass } from "./code-language.js";
 export { textDirection, type TextDirection } from "./text-direction.js";
 export { checkAccessibility, contrastRatio, parseColor, type AccessibilityCheckCode, type AccessibilityCheckOptions, type AccessibilityFixTab, type AccessibilityIssue, type AccessibilitySeverity } from "./accessibility-checks.js";
-export { renderMath } from "./math.js";
+export { hasMath, isMathRendererReady, renderMath, setMathRenderer, type MathRenderer } from "./math.js";
 export { BLOCK_DOCUMENT_MAX_DEPTH, BLOCK_DOCUMENT_MAX_NODES, measureBlockDocument, sanitizeBlockDocument, withinBlockDocumentLimits } from "./sanitize-document.js";
 export { esc, safeHref, safeMediaSrc, sanitizeHref, sanitizeMediaSrc } from "./safe-url.js";
 export { renderResponsiveImage, sanitizeSizes, sanitizeSrcset } from "./responsive-image.js";

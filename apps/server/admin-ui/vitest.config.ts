@@ -9,6 +9,11 @@ export default defineConfig({
   plugins: [react()],
   root: adminUiRoot,
   resolve: {
+    /**
+     * Resolve packages as the admin bundle does, so `@justflows/blocks` is
+     * its browser entry, without KaTeX (justflows-ce#318).
+     */
+    conditions: ["browser"],
     alias: {
       "@components": path.resolve(adminUiRoot, "src/components"),
       "@lib": path.resolve(adminUiRoot, "../src/lib"),
