@@ -28,8 +28,20 @@ It also compares style declarations, preset classes and breakpoint rules, and
 checks that plugin markup keeps its structure. A change to one renderer that
 the other does not follow fails this test.
 
-Rendering every core block on the canvas with the server renderer, so there is
-only one, is tracked in [#311](https://github.com/JustFlows/justflows-ce/issues/311).
+### One renderer for core blocks
+
+Core blocks are moving from the canvas's own React copies to the public
+renderer ([#311](https://github.com/JustFlows/justflows-ce/issues/311)). A
+moved block is drawn with its own `render` from `@justflows/blocks`, the
+function the server calls for the page, run in the browser without a request
+(`ServerBlock.tsx`). Selection, the toolbar, drop zones and resize handles
+stay around it. Its child blocks are still drawn by the canvas, mounted into
+a slot in the block's markup, so they can be selected, edited and dropped on,
+and changing the parent's settings does not redraw them.
+
+Moved so far: Divider, Spacer, Notice / Callout, Details, Cover and Media &
+Text. Blocks with inline editing and media replacement move last; until then
+they keep their React copy, checked by the parity test.
 
 ## Where the canvas deliberately differs
 
@@ -38,6 +50,9 @@ only one, is tracked in [#311](https://github.com/JustFlows/justflows-ce/issues/
 | Links and buttons | Shown, but not followed | Clicking in the builder selects; use Preview to follow links. |
 | Forms inside blocks | Not submitted | Same reason. |
 | Empty blocks | A short hint in place of the missing text, image or media | So an empty block can still be found and selected. |
+| Details | Always open | So its content can be reached and edited. |
+| Cover background video | Does not autoplay | So the canvas stays still while you edit. |
+| Spacer | A striped fill at its height | The page draws it empty. |
 | Site logo, title, tagline, navigation, breadcrumbs | A labelled stand-in | They show site data that the page fills in when it is served. |
 | Content query, table of contents | A labelled stand-in | They list content or headings found when the page is served. |
 | Search, account, login and register forms, login links, language switcher, colour scheme | A labelled stand-in or neutral state | They depend on the visitor. |

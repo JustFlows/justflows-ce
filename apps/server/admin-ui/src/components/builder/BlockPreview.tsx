@@ -1,4 +1,5 @@
 import FunctionalBlock, { FUNCTIONAL_TYPES } from "./FunctionalBlock";
+import ServerBlock, { SERVER_RENDERED_TYPES } from "./ServerBlock";
 import MediaBlock from "../MediaBlock";
 import { useT } from "../../i18n/I18nProvider";
 import { Component, Fragment, cloneElement, createContext, isValidElement, useContext, useEffect, useRef, useState, type ErrorInfo, type ReactElement, type ReactNode } from "react";
@@ -269,6 +270,8 @@ function BlockPreviewContent({
       </li>,
     );
   }
+  /** Drawn by the public renderer itself (justflows-ce#311). */
+  if (SERVER_RENDERED_TYPES.has(block.type)) return wrap(<ServerBlock type={block.type} props={p}>{renderChildren?.(block.children ?? [], depth + 1)}</ServerBlock>);
   if (FUNCTIONAL_TYPES.has(block.type)) return wrap(<FunctionalBlock type={block.type} props={p}>{renderChildren?.(block.children ?? [], depth + 1)}</FunctionalBlock>);
 
   switch (block.type) {
@@ -657,21 +660,6 @@ function BlockPreviewContent({
         </div>,
       );
     }
-
-    case "core.divider":
-      return wrap(<hr />);
-
-    case "core.spacer":
-      return wrap(
-        <div
-          style={{
-            height: `${(p.height as number) ?? 40}px`,
-            background:
-              "repeating-linear-gradient(45deg, var(--color-bg, var(--jf-surface-2)), var(--color-bg, var(--jf-surface-2)) 5px, var(--color-surface, var(--jf-surface-3)) 5px, var(--color-surface, var(--jf-surface-3)) 10px)",
-            borderRadius: 4,
-          }}
-        />,
-      );
 
     case "core.code":
       return wrap(

@@ -38,14 +38,14 @@ const gone: BlockNode = {
 
 let catalog: BlockCatalogEntry[] = [];
 
-/** Makes the canvas renderer for a callout titled "boom" throw, like a bug in one block's preview would. */
+/** Makes the canvas renderer for a card with padding 13 throw, like a bug in one block's preview would. Callout is drawn by the public renderer since justflows-ce#311, so a card stands in. */
 let drawFails = false;
 vi.mock("../../../src/components/builder/FunctionalBlock", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../src/components/builder/FunctionalBlock")>();
   return {
     ...actual,
     default: (props: Parameters<typeof actual.default>[0]) => {
-      if (drawFails && props.type === "core.callout" && props.props.title === "boom") throw new Error("boom");
+      if (drawFails && props.type === "core.card" && props.props.padding === 13) throw new Error("boom");
       return actual.default(props);
     },
   };
@@ -198,21 +198,21 @@ describe("deprecated blocks and failed upgrades", () => {
 
 describe("a block that fails to draw", () => {
   it("only breaks itself, can be tried again, and the document is not changed", async () => {
-    catalog = [PARAGRAPH, SECTION, { type: "core.callout", version: 1, title: "Callout", category: "content", supportsChildren: true }];
+    catalog = [PARAGRAPH, SECTION, { type: "core.card", version: 1, title: "Card", category: "layout", supportsChildren: true }];
     vi.spyOn(console, "error").mockImplementation(() => {});
     drawFails = true;
-    const broken: BlockNode = { id: "c1", type: "core.callout", version: 1, props: { title: "boom" }, children: [] };
+    const broken: BlockNode = { id: "c1", type: "core.card", version: 1, props: { padding: 13 }, children: [] };
     const blocks = [broken, { id: "p1", type: "core.paragraph", version: 1, props: { text: "Still here" } }];
     await open(blocks);
     expect(await screen.findByText("Still here")).toBeInTheDocument();
-    const notice = document.querySelector('[data-jf-block-failed="core.callout"]') as HTMLElement;
-    expect(notice).toHaveTextContent("core.callout could not be shown in the builder.");
+    const notice = document.querySelector('[data-jf-block-failed="core.card"]') as HTMLElement;
+    expect(notice).toHaveTextContent("core.card could not be shown in the builder.");
     expect(latest.blocks).toEqual(blocks);
 
     drawFails = false;
     fireEvent.click(within(notice).getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(document.querySelector('[data-jf-block-failed]')).toBeNull());
-    expect(document.querySelector(".jf-callout")).not.toBeNull();
+    expect(document.querySelector(".jf-card")).not.toBeNull();
   });
 });
 

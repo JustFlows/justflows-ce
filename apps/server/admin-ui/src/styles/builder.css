@@ -2383,3 +2383,9 @@
 .jf-canvas-block--root:has([aria-expanded="true"], [role="dialog"], [role="listbox"], [role="menu"]) {
   content-visibility: visible;
 }
+
+/* A Spacer draws nothing on the page; the canvas shows its height (justflows-ce#311). */
+[data-jf-server-block="core.spacer"] > div {
+  background: repeating-linear-gradient(45deg, var(--color-bg, var(--jf-surface-2)), var(--color-bg, var(--jf-surface-2)) 5px, var(--color-surface, var(--jf-surface-3)) 5px, var(--color-surface, var(--jf-surface-3)) 10px);
+  border-radius: 4px;
+}
