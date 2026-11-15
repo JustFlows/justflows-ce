@@ -72,6 +72,7 @@ import {
   resolveErrorPageContent,
   type MaintenanceConfig,
 } from "../../lib/rendering/error-pages.js";
+import { getSiteSetting } from "../../lib/settings/site-settings.js";
 import { detectStaticErrorLocale, renderStaticErrorPage } from "../../lib/rendering/static-error-page.js";
 import {
   headerBrandFlags,
@@ -160,7 +161,6 @@ import {
 } from "../../lib/rendering/widget-areas.js";
 import type { TemplateQuery } from "../../lib/rendering/template-hierarchy.js";
 import { getSession } from "../../lib/auth/session.js";
-import { getSiteSetting } from "../../lib/settings/site-settings.js";
 import { buildFaviconHeadHtml } from "../../lib/media/favicon.js";
 import { currentRequestTrace, debugMode, recordCompletedRequestTrace } from "../../lib/runtime/diagnostics.js";
 import { formatCacheSummary, getRequestCacheEvents, pageCacheStatus } from "../../lib/cache/cache-trace.js";
@@ -1566,6 +1566,41 @@ async function renderNotFoundHtml(
   reqPath: string,
 ): Promise<string> {
   return renderConfiguredErrorHtml("404", ctx, req, res, reqPath);
+}
+
+/** Render the root site's editable system page for an unknown multisite hostname. */
+export async function renderMultisiteNotFoundPage(req: Request, res: Response): Promise<void> {
+  const siteId = await getSiteId();
+  const config = siteId ? await getErrorPageConfig(siteId) : {};
+  const pageId = config.websiteNotFound?.source === "page"
+    ? config.websiteNotFound.pageId
+    : null;
+  const page = pageId && siteId
+    ? await resolveErrorPageContent(siteId, await getDefaultLocale(siteId), pageId)
+    : null;
+  let html: string;
+  if (page) {
+    html = await renderSinglePageHtml(req, res, req.path || "/", page.slug, page.locale, false, [], 1, "/", page);
+    html = rootSiteNavigationUrls(html, siteOrigin());
+  } else {
+    html = await ejs.renderFile(path.join(templateDir, "multisite-not-found.ejs"), {
+      locale: "en",
+      title: "Website not found",
+      bodyHtml: "<h1>Website not found</h1><p>This website does not exist, is no longer available, or the address was entered incorrectly.</p>",
+    });
+  }
+  res
+    .status(404)
+    .set("Cache-Control", "public, max-age=60")
+    .set("X-Robots-Tag", "noindex, nofollow, noarchive")
+    .type("html")
+    .send(html);
+}
+
+/** Assets stay same-origin through the fallback asset proxy; navigation and forms leave the unknown host for the root site. */
+function rootSiteNavigationUrls(html: string, origin: string): string {
+  const escapedOrigin = origin.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  return html.replace(/(<(?:a|form)\b[^>]*?\b(?:href|action))=(['"])\/(?!\/)/gi, `$1=$2${escapedOrigin}/`);
 }
 
 function languageLinksFor(

@@ -6,6 +6,16 @@ One Justflows installation can serve many sites. A **workspace** (tenant) owns o
 
 Multisite is off unless `.env` has `JF_MULTISITE=true` (restart after changing it). Unset, `false`, or any other value means off.
 
+Requests for a hostname that is not attached to a site return HTTP 404 with a
+self-contained Justflows **Website not found** page. On the root site, Design →
+Error pages can select any published page instead; that page renders with its
+normal theme design. A strict public-asset allowlist serves its CSS, scripts,
+plugin bundles and public media through the unknown hostname so browser
+same-origin protections still hold; API, admin, authentication and extension
+routes remain unavailable. Navigation and forms point to the root site's real
+origin. The selector exists only while multisite is enabled and is never shown
+on another site.
+
 Off never deletes data. A single-site install runs exactly as before; it is one workspace with one site underneath. Everything else is disabled:
 
 - Only the root site (the one created at install) is served. Other sites' hostnames answer "Site not found" until multisite is back on.
