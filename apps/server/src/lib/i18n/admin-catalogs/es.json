@@ -4231,6 +4231,23 @@
       "healthy": "Correcto",
       "handlersCount": "{count} manejadores"
     },
+    "blockRenders": {
+      "title": "Bloques lentos",
+      "hint": "Bloques de plugins que tardaron {slow} ms o más en dibujarse. Un bloque que tarda más de {limit} ms se detiene y queda en pausa un tiempo; las páginas públicas lo omiten y el editor muestra un error en su lugar.",
+      "none": "Ningún bloque de plugin ha sido lento desde que se inició el servidor.",
+      "colType": "Tipo de bloque",
+      "colRenders": "Dibujados",
+      "colSlow": "Lentos",
+      "colTimeouts": "Detenidos",
+      "colMax": "Más lento",
+      "colStatus": "Estado",
+      "paused": "En pausa hasta las {time}",
+      "running": "Activo",
+      "slowTypes": {
+        "one": "{count} tipo de bloque lento",
+        "other": "{count} tipos de bloque lentos"
+      }
+    },
     "plugins": {
       "title": "Plugins",
       "hint": "Plugins de desarrollo y paquetes del marketplace, combinados con su estado en la base de datos.",

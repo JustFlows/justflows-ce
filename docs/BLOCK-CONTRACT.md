@@ -110,6 +110,26 @@ with a Try again button, and "Unavailable block" when the plugin is switched off
 In that last case the block's content is kept and shows again once the plugin
 is back. A `render` that throws only breaks its own preview.
 
+### Render time limit
+
+`render` is synchronous and runs on the server, for public pages and for
+previews. Every plugin block's `render` runs under a time limit: 1,000 ms by
+default, set with `JF_PLUGIN_RENDER_LIMIT_MS` (50 to 30,000). A render that
+runs longer is stopped, even inside an endless loop, and its block type is
+paused: its renders are skipped for a minute, then it gets one try, and each
+further timeout doubles the pause up to 15 minutes. A render within the limit
+ends the pause.
+
+While a block is stopped or paused, public pages leave it out (its place is
+empty, the rest of the page renders) and the builder shows "This block took
+too long to draw" in its box with Try again. Renders that take 250 ms or more
+are counted, and Admin → Health lists slow and paused block types under
+**Slow blocks**, as do the diagnostics in the management API.
+
+Stopping a render part-way can leave state your plugin keeps in memory
+half-updated. Keep `render` fast and free of side effects: compute expensive
+data in a job or a hook and read the result in `render`.
+
 ## Changing a block over time
 
 `version` is the version of the block's props, not of the plugin. Raise it only

@@ -4231,6 +4231,23 @@
       "healthy": "Opérationnel",
       "handlersCount": "{count} gestionnaires"
     },
+    "blockRenders": {
+      "title": "Blocs lents",
+      "hint": "Blocs d'extensions dont l'affichage a pris {slow} ms ou plus. Un bloc qui dépasse {limit} ms est interrompu et mis en pause pendant un moment ; les pages publiques l'omettent et le constructeur affiche une erreur à sa place.",
+      "none": "Aucun bloc d'extension n'a été lent depuis le démarrage du serveur.",
+      "colType": "Type de bloc",
+      "colRenders": "Affichages",
+      "colSlow": "Lents",
+      "colTimeouts": "Interrompus",
+      "colMax": "Le plus lent",
+      "colStatus": "État",
+      "paused": "En pause jusqu'à {time}",
+      "running": "Actif",
+      "slowTypes": {
+        "one": "{count} type de bloc lent",
+        "other": "{count} types de blocs lents"
+      }
+    },
     "plugins": {
       "title": "Extensions",
       "hint": "Extensions de développement et paquets de la place de marché, associés à leur état dans la base de données.",

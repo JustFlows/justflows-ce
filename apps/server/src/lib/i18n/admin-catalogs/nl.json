@@ -4228,6 +4228,23 @@
       "healthy": "In orde",
       "handlersCount": "{count} handlers"
     },
+    "blockRenders": {
+      "title": "Trage blokken",
+      "hint": "Pluginblokken die {slow} ms of langer nodig hadden om te tekenen. Een blok dat langer dan {limit} ms nodig heeft, wordt gestopt en een tijdje gepauzeerd; publieke pagina's laten het weg en de builder toont op die plek een fout.",
+      "none": "Sinds de server is gestart, is geen pluginblok traag geweest.",
+      "colType": "Bloktype",
+      "colRenders": "Weergaven",
+      "colSlow": "Traag",
+      "colTimeouts": "Gestopt",
+      "colMax": "Traagste",
+      "colStatus": "Status",
+      "paused": "Gepauzeerd tot {time}",
+      "running": "Actief",
+      "slowTypes": {
+        "one": "{count} traag bloktype",
+        "other": "{count} trage bloktypen"
+      }
+    },
     "plugins": {
       "title": "Plugins",
       "hint": "Ontwikkelplugins en marktplaatspakketten, gecombineerd met hun status in de database.",

@@ -67,6 +67,12 @@ longer for both. The ratio is what carries over.
   request), identical ones share one answer, and successful answers are kept
   until the block catalog reloads. Each preview still times out after 8
   seconds on its own, and a failed or cancelled one never blocks the others.
+- **A slow plugin block cannot hold the server.** Every plugin block render
+  stops at a time limit (1,000 ms by default, `JF_PLUGIN_RENDER_LIMIT_MS`),
+  and a block type that ran out of time is skipped for a growing pause, so the
+  rest of a preview batch and of a public page render without waiting for it.
+  Admin → Health lists slow and paused block types. See
+  [Block contract](BLOCK-CONTRACT.md#render-time-limit).
 - **Heavy parts load when used.** The animation library loads only when a
   block on the canvas has an active animation and reduced motion is off. The
   keyboard shortcuts and "Save as" dialogs load when first opened. KaTeX

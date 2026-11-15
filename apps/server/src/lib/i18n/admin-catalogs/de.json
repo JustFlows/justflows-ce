@@ -4231,6 +4231,23 @@
       "healthy": "In Ordnung",
       "handlersCount": "{count} Handler"
     },
+    "blockRenders": {
+      "title": "Langsame Blöcke",
+      "hint": "Plugin-Blöcke, deren Darstellung {slow} ms oder länger gedauert hat. Ein Block, der länger als {limit} ms braucht, wird abgebrochen und eine Weile pausiert; öffentliche Seiten lassen ihn weg, der Builder zeigt an seiner Stelle einen Fehler.",
+      "none": "Seit dem Serverstart war kein Plugin-Block langsam.",
+      "colType": "Blocktyp",
+      "colRenders": "Darstellungen",
+      "colSlow": "Langsam",
+      "colTimeouts": "Abgebrochen",
+      "colMax": "Langsamste",
+      "colStatus": "Status",
+      "paused": "Pausiert bis {time}",
+      "running": "Aktiv",
+      "slowTypes": {
+        "one": "{count} langsamer Blocktyp",
+        "other": "{count} langsame Blocktypen"
+      }
+    },
     "plugins": {
       "title": "Plugins",
       "hint": "Entwicklungs-Plugins und Marktplatz-Pakete, zusammengeführt mit ihrem Status in der Datenbank.",

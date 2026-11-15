@@ -4,6 +4,7 @@ import { requireRole } from "../../middleware/auth.js";
 import { CONTENT_READ_ROLES } from "../../lib/auth/rbac.js";
 import { coreBlocks, resolveInlineFields, resolveInspectorSupports, type BlockContract, type BlockDefinition } from "@justflows/blocks";
 import { getRuntimeBlockRegistry } from "../../lib/rendering/runtime-blocks.js";
+import { takeRenderOutcome } from "../../lib/rendering/plugin-render-guard.js";
 
 const router = Router();
 
@@ -121,8 +122,14 @@ function renderPreview(input: unknown): PreviewResult {
     const version = typeof body.version === "number" ? body.version : definition.version;
     const { node: migrated, failed } = getRuntimeBlockRegistry().migrateNodeResult({ type, version, props: raw });
     const props = definition.validateProps({ ...(contract?.preview.sampleProps ?? {}), ...stripEmpty(migrated.props as Record<string, unknown>) });
+    const html = String(definition.render(props as never, "") ?? "");
+    /** A plugin block that ran out of time, or is paused after doing so, gets a block-level error instead of an empty preview (justflows-ce#316). */
+    const outcome = takeRenderOutcome(type);
+    if (outcome === "timeout" || outcome === "paused") {
+      return { status: 503, body: { error: outcome === "timeout" ? "This block took too long to draw" : "This block is paused because it took too long to draw" } };
+    }
     /** A failed upgrade renders the stored props as the page does, and says so (justflows-ce#306). */
-    return { status: 200, body: { html: String(definition.render(props as never, "") ?? ""), ...(failed ? { migrationFailed: true as const } : {}) } };
+    return { status: 200, body: { html, ...(failed ? { migrationFailed: true as const } : {}) } };
   } catch {
     return { status: 422, body: { error: "This block could not be previewed" } };
   }

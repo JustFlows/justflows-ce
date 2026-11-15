@@ -3321,6 +3321,25 @@
       "disabled": "Wyłączone",
       "healthy": "Zdrowy"
     },
+    "blockRenders": {
+      "title": "Wolne bloki",
+      "hint": "Bloki wtyczek, których wyświetlenie trwało {slow} ms lub dłużej. Blok, który potrzebuje więcej niż {limit} ms, zostaje przerwany i na jakiś czas wstrzymany; strony publiczne go pomijają, a kreator pokazuje w jego miejscu błąd.",
+      "none": "Od uruchomienia serwera żaden blok wtyczki nie był wolny.",
+      "colType": "Typ bloku",
+      "colRenders": "Wyświetlenia",
+      "colSlow": "Wolne",
+      "colTimeouts": "Przerwane",
+      "colMax": "Najwolniej",
+      "colStatus": "Stan",
+      "paused": "Wstrzymany do {time}",
+      "running": "Działa",
+      "slowTypes": {
+        "one": "{count} wolny typ bloku",
+        "few": "{count} wolne typy bloków",
+        "many": "{count} wolnych typów bloków",
+        "other": "{count} wolnego typu bloku"
+      }
+    },
     "plugins": {
       "title": "Wtyczki",
       "hint": "Wtyczki programistyczne i pakiety Marketplace połączone ze stanem ich bazy danych.",

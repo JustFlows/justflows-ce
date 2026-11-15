@@ -3267,6 +3267,23 @@
       "disabled": "Disabled",
       "healthy": "Healthy"
     },
+    "blockRenders": {
+      "title": "Slow blocks",
+      "hint": "Plugin blocks that took {slow} ms or more to draw. A block that takes longer than {limit} ms is stopped and paused for a while; public pages leave it out and the builder shows an error in its place.",
+      "none": "No plugin block has been slow since the server started.",
+      "colType": "Block type",
+      "colRenders": "Renders",
+      "colSlow": "Slow",
+      "colTimeouts": "Stopped",
+      "colMax": "Slowest",
+      "colStatus": "Status",
+      "paused": "Paused until {time}",
+      "running": "Running",
+      "slowTypes": {
+        "one": "{count} slow block type",
+        "other": "{count} slow block types"
+      }
+    },
     "plugins": {
       "title": "Plugins",
       "hint": "Development plugins and Marketplace packages, joined with their database state.",

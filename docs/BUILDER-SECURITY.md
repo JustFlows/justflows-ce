@@ -110,5 +110,5 @@ test:security` runs these files.
 ## Known limits
 
 - **Plugin code is trusted.** A plugin block's `render`, migrations and hooks
-  run with the server's rights. Previews are limited in number and rate, but
-  a slow `render` is not interrupted.
+  run with the server's rights. A `render` is stopped at its time limit, but
+  migrations and hooks are not.
