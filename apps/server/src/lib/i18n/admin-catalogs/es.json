@@ -3744,8 +3744,10 @@
     "brandLayoutHint": "Presentación común para todos los correos del sistema.",
     "designField": {
       "companyName": "Nombre de la empresa / del sitio",
-      "logoUrl": "URL del logotipo",
-      "darkLogoUrl": "URL del logotipo para fondos oscuros",
+      "logoUrl": "Logotipo",
+      "darkLogoUrl": "Logotipo para el modo oscuro",
+      "logoHint": "Una imagen de la biblioteca de medios, o sube una nueva. Los correos enviados la cargan desde la dirección del sitio. PNG y JPG se muestran en la mayoría de los programas de correo.",
+      "darkLogoHint": "Opcional. Los programas de correo que siguen el modo oscuro muestran este logotipo; los demás muestran el logotipo normal.",
       "supportContact": "Contacto de soporte",
       "address": "Dirección de la empresa",
       "fontFamily": "Familia de fuentes segura",

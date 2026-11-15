@@ -3744,8 +3744,10 @@
     "brandLayoutHint": "Présentation commune à tous les e-mails système.",
     "designField": {
       "companyName": "Nom de la société / du site",
-      "logoUrl": "URL du logo",
-      "darkLogoUrl": "URL du logo pour fond sombre",
+      "logoUrl": "Logo",
+      "darkLogoUrl": "Logo pour le mode sombre",
+      "logoHint": "Une image de la médiathèque, ou une image à téléverser. Les e-mails envoyés la chargent depuis l'adresse du site. Les formats PNG et JPG s'affichent dans la plupart des messageries.",
+      "darkLogoHint": "Facultatif. Les messageries qui suivent le mode sombre affichent ce logo à la place ; les autres affichent le logo habituel.",
       "supportContact": "Contact du support",
       "address": "Adresse de l'entreprise",
       "fontFamily": "Famille de polices sûre",

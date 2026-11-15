@@ -3744,8 +3744,10 @@
     "brandLayoutHint": "Gemeinsame Gestaltung für alle System-E-Mails.",
     "designField": {
       "companyName": "Name des Unternehmens/der Website",
-      "logoUrl": "Logo-URL",
-      "darkLogoUrl": "Logo-URL für dunklen Hintergrund",
+      "logoUrl": "Logo",
+      "darkLogoUrl": "Logo für den Dunkelmodus",
+      "logoHint": "Ein Bild aus der Mediathek oder ein neu hochgeladenes. Versendete E-Mails laden es von der Adresse der Website. PNG und JPG zeigen die meisten E-Mail-Programme an.",
+      "darkLogoHint": "Optional. E-Mail-Programme, die dem Dunkelmodus folgen, zeigen stattdessen dieses Logo; andere zeigen das normale Logo.",
       "supportContact": "Support-Kontakt",
       "address": "Anschrift des Unternehmens",
       "fontFamily": "Websichere Schriftfamilie",

@@ -2541,8 +2541,10 @@
     "brandLayoutHint": "Udostępniona prezentacja dla każdego e-maila systemowego.",
     "designField": {
       "companyName": "Nazwa firmy/strony",
-      "logoUrl": "Logo URL",
-      "darkLogoUrl": "Logo na ciemnym tle URL",
+      "logoUrl": "Logo",
+      "darkLogoUrl": "Logo w trybie ciemnym",
+      "logoHint": "Obraz z biblioteki mediów lub nowo przesłany. Wysłane e-maile wczytują go z adresu witryny. PNG i JPG wyświetla większość programów pocztowych.",
+      "darkLogoHint": "Opcjonalne. Programy pocztowe, które stosują tryb ciemny, pokazują to logo; pozostałe pokazują zwykłe logo.",
       "supportContact": "Kontakt wsparcia",
       "address": "Adres firmy",
       "fontFamily": "Bezpieczny stos czcionek",

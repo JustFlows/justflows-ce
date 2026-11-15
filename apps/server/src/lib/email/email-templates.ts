@@ -6,6 +6,7 @@ import { getDb } from "../database/db.js";
 import { getDefaultLocale } from "../i18n/languages-db.js";
 import { getSiteId } from "../settings/site-settings.js";
 import { isInstallationRootRequest } from "../tenancy/access.js";
+import { emailSiteOrigin, withAbsoluteLogos } from "./email-asset-url.js";
 
 /** `YYYY-MM-DD HH:MM:SS` — the shape MySQL DATETIME accepts and SQLite sorts correctly. */
 function now(): string {
@@ -180,11 +181,20 @@ function validateTemplate(definition: EmailTemplateDefinition, source: { subject
 }
 
 function wrapHtml(content: string, preheader: string, design: EmailDesign): string {
-  const logo = design.logoUrl ? `<img src="${safeUrl(design.logoUrl)}" alt="${htmlEscape(design.companyName || "Site logo")}" style="max-width:180px;max-height:56px">` : "";
+  const image = design.logoUrl ? `<img src="${safeUrl(design.logoUrl)}" alt="${htmlEscape(design.companyName || "Site logo")}" style="max-width:180px;max-height:56px">` : "";
+  /** Mail apps that follow the reader's dark mode and support `<picture>` show the dark logo; the rest show the light one (justflows-ce#317). */
+  const darkSrc = image && design.darkLogoUrl ? safeUrl(design.darkLogoUrl).replaceAll(",", "%2C") : "#";
+  const logo = darkSrc !== "#" ? `<picture><source srcset="${darkSrc}" media="(prefers-color-scheme: dark)">${image}</picture>` : image;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title></title></head><body style="margin:0;background:${design.pageBackground};color:${design.textColor};font-family:${design.fontFamily}"><div style="display:none;max-height:0;overflow:hidden">${htmlEscape(preheader)}</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${design.pageBackground}"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:${design.contentWidth}px;background:${design.contentBackground};border-radius:${design.radius}px"><tr><td style="padding:32px;text-align:${design.alignment}">${logo}<div style="line-height:1.6">${content}</div><hr style="border:0;border-top:1px solid #d8dce5;margin:28px 0"><div style="font-size:12px;line-height:1.5;color:#667085">${htmlEscape(design.footerText)}${design.address ? `<br>${htmlEscape(design.address)}` : ""}</div></td></tr></table></td></tr></table></body></html>`;
 }
 
-export async function renderEmailTemplate(input: { siteId?: string; key: string; locale?: string; values: Record<string, string>; mode?: "draft" | "published" }): Promise<{ subject: string; preheader: string; html: string; text: string; version: number; locale: string; fallback: boolean; enabled: boolean; senderName: string; replyToPolicy: string; errors: string[] }> {
+/**
+ * `absoluteAssets` turns library logos (`/uploads/…`) into full addresses on
+ * the site's primary domain, for mail that leaves the site; the admin preview
+ * leaves them relative so they load from the admin's own origin
+ * (justflows-ce#317).
+ */
+export async function renderEmailTemplate(input: { siteId?: string; key: string; locale?: string; values: Record<string, string>; mode?: "draft" | "published"; absoluteAssets?: boolean }): Promise<{ subject: string; preheader: string; html: string; text: string; version: number; locale: string; fallback: boolean; enabled: boolean; senderName: string; replyToPolicy: string; errors: string[] }> {
   const definition = definitions.get(input.key);
   if (!definition) throw new Error("Unknown email template");
   const siteId = input.siteId ?? await getSiteId();
@@ -196,7 +206,8 @@ export async function renderEmailTemplate(input: { siteId?: string; key: string;
   const fallbackRow = row ?? (locale !== defaultLocale ? await getTemplateRow(siteId, input.key, defaultLocale, mode) : null);
   const builtIn = defaultEmailTemplateContent(definition, locale);
   const source = fallbackRow ? { subject: fallbackRow.subject, preheader: fallbackRow.preheader, html: fallbackRow.html_content, text: fallbackRow.text_content } : builtIn;
-  const design = (await getEmailDesign(siteId, mode)).design;
+  const storedDesign = (await getEmailDesign(siteId, mode)).design;
+  const design = input.absoluteAssets ? withAbsoluteLogos(storedDesign, await emailSiteOrigin(siteId)) : storedDesign;
   const rendered = renderEmailSource({ key: input.key, values: input.values, source, design });
   const errors = rendered.errors;
   const fallback = !fallbackRow || errors.length > 0;

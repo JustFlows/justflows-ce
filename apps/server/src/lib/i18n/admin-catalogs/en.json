@@ -2487,8 +2487,10 @@
     "brandLayoutHint": "Shared presentation for every system email.",
     "designField": {
       "companyName": "Company / site name",
-      "logoUrl": "Logo URL",
-      "darkLogoUrl": "Dark-background logo URL",
+      "logoUrl": "Logo",
+      "darkLogoUrl": "Logo for dark mode",
+      "logoHint": "An image from the media library, or upload one. Sent emails load it from the site's address. PNG and JPG show in the most email apps.",
+      "darkLogoHint": "Optional. Email apps that follow dark mode show this logo instead; other apps show the regular logo.",
       "supportContact": "Support contact",
       "address": "Company address",
       "fontFamily": "Safe font stack",

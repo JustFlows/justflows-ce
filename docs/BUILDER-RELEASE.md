@@ -120,6 +120,5 @@ are ignored by the previous version.
 | Accessibility checks are not yet available in the management API or to the assistant | #313 |
 | Custom roles cannot change site design | #314 |
 | A slow plugin block render is not interrupted | #316 |
-| Email logos are typed as addresses, not picked from the media library | #317 |
 | Content scheduling and search database suites need updated fixtures | #319 |
 | Browser-based journeys, visual parity, browser timings and the manual accessibility matrix | #310 (carried-over items) |

@@ -426,7 +426,8 @@ router.post("/email-templates/:key/preview", async (req, res) => {
     sendJson(
       req,
       res,
-      await renderEmailTemplate({ siteId: id, key, locale: body.data.locale, values, mode: body.data.mode }),
+      /** Read outside the site, so library logos come back as full addresses (justflows-ce#317). */
+      await renderEmailTemplate({ siteId: id, key, locale: body.data.locale, values, mode: body.data.mode, absoluteAssets: true }),
     );
   } catch (err) {
     sendServerError(res, "manage.emails", err);

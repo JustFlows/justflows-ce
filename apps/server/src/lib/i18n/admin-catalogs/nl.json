@@ -3741,8 +3741,10 @@
     "brandLayoutHint": "Gedeelde opmaak voor elke systeem-e-mail.",
     "designField": {
       "companyName": "Bedrijfsnaam / naam van de site",
-      "logoUrl": "Logo-URL",
-      "darkLogoUrl": "Logo-URL voor donkere achtergrond",
+      "logoUrl": "Logo",
+      "darkLogoUrl": "Logo voor donkere modus",
+      "logoHint": "Een afbeelding uit de mediabibliotheek, of upload er een. Verzonden e-mails laden het logo vanaf het adres van de site. PNG en JPG worden door de meeste e-mailapps getoond.",
+      "darkLogoHint": "Optioneel. E-mailapps die de donkere modus volgen tonen dit logo; andere apps tonen het gewone logo.",
       "supportContact": "Contact voor ondersteuning",
       "address": "Bedrijfsadres",
       "fontFamily": "Veilige lettertypereeks",
