@@ -67,7 +67,10 @@
     "url": "Eindpunt-URL",
     "events": "Gebeurtenissen",
     "chooseEvents": "Gebeurtenissen kiezen…",
-    "selectedEvents": "{count} gebeurtenissen geselecteerd",
+    "selectedEvents": {
+      "one": "{count} gebeurtenis geselecteerd",
+      "other": "{count} gebeurtenissen geselecteerd"
+    },
     "selectAll": "Alles selecteren",
     "clear": "Wissen",
     "removeEvent": "{event} verwijderen",
@@ -103,7 +106,10 @@
     "name": "Naam",
     "capabilities": "Rechten",
     "chooseCapabilities": "Rechten kiezen…",
-    "selectedCapabilities": "{count} rechten geselecteerd",
+    "selectedCapabilities": {
+      "one": "{count} recht geselecteerd",
+      "other": "{count} rechten geselecteerd"
+    },
     "selectAll": "Alles selecteren",
     "clear": "Wissen",
     "removeCapability": "{capability} verwijderen",
@@ -172,7 +178,10 @@
     "selectAll": "Alles selecteren",
     "deleteSelected": "{count} verwijderen",
     "bulkEdit": "{count} bewerken",
-    "trashConfirm": "{count} items naar de prullenbak verplaatsen? Je kunt ze binnen de bewaartermijn terugzetten.",
+    "trashConfirm": {
+      "one": "{count} item naar de prullenbak verplaatsen? Je kunt het binnen de bewaartermijn terugzetten.",
+      "other": "{count} items naar de prullenbak verplaatsen? Je kunt ze binnen de bewaartermijn terugzetten."
+    },
     "listEmptyTitle": "Nog geen {section}",
     "listEmptyBody": "Maak de eerste {type} aan om te beginnen.",
     "listError": "{section} kon niet worden geladen.",
@@ -379,7 +388,10 @@
     "menuName": "Menunaam",
     "menuSlug": "Menu-slug (bijv. footer)",
     "createMenuButton": "Menu aanmaken",
-    "itemCount": "{count} items",
+    "itemCount": {
+      "one": "{count} item",
+      "other": "{count} items"
+    },
     "empty": "Nog geen menu-items.",
     "emptyHint": "Voeg gepubliceerde inhoud of aangepaste links toe via het paneel links.",
     "type": {
@@ -397,7 +409,10 @@
     "outdent": "Inspringen verkleinen",
     "expand": "Uitklappen",
     "collapse": "Inklappen",
-    "collapsedCount": "{count} verborgen",
+    "collapsedCount": {
+      "one": "{count} verborgen",
+      "other": "{count} verborgen"
+    },
     "duplicate": "Dupliceren",
     "untitled": "Naamloos item",
     "dragToReorder": "Sleep om te herschikken",
@@ -479,7 +494,10 @@
       "linkUrl": "URL",
       "addLink": "+ Link toevoegen",
       "useAdvanced": "Iets anders nodig? Schakel over naar de geavanceerde blokeditor",
-      "summaryLinks": "{count} links",
+      "summaryLinks": {
+        "one": "{count} link",
+        "other": "{count} links"
+      },
       "summaryPromo": "Uitgelicht paneel",
       "summaryCustom": "Aangepaste inhoud",
       "promoBackground": "Achtergrond",
@@ -1045,7 +1063,10 @@
         "noOptions": "Nog niets om uit te kiezen.",
         "none": "— Geen —",
         "search": "Zoeken…",
-        "selected": "{count} geselecteerd"
+        "selected": {
+          "one": "{count} geselecteerd",
+          "other": "{count} geselecteerd"
+        }
       }
     },
     "blockLibrary": {
@@ -1646,7 +1667,10 @@
       "editLocked": "Dit blok is vergrendeld tegen bewerken. Vraag iemand die vergrendelingen beheert om het te ontgrendelen.",
       "editLockedManage": "Dit blok is vergrendeld tegen bewerken. Ontgrendel het via het blokmenu om het te wijzigen.",
       "multi": {
-        "title": "{count} blokken geselecteerd",
+        "title": {
+          "one": "{count} blok geselecteerd",
+          "other": "{count} blokken geselecteerd"
+        },
         "menuHint": "Klik met rechts of druk op Shift+F10 voor alle acties.",
         "sharedStyle": "Gedeelde stijl",
         "styleSubset": "Stijlwijzigingen gelden voor {count} van {total} blokken. Vergrendelde blokken en blokken met een eigen stijlinstelling worden overgeslagen.",
@@ -1848,7 +1872,10 @@
       "publishedState": "Alles is gepubliceerd",
       "revert": "Terug naar gepubliceerd",
       "unpublished": "niet gepubliceerd",
-      "changedCount": "{count} gewijzigd",
+      "changedCount": {
+        "one": "{count} gewijzigd",
+        "other": "{count} gewijzigd"
+      },
       "saveError": "Stijlen konden niet worden opgeslagen",
       "readOnly": "Alleen beheerders en redacteuren kunnen globale stijlen wijzigen."
     },
@@ -2090,7 +2117,10 @@
     "description": "Kies de openbare URL-structuur voor je inhoud en taxonomiearchieven.",
     "failed": "Permalinkinstellingen konden niet worden geladen of opgeslagen.",
     "retry": "Opnieuw proberen",
-    "saved": "Permalinks opgeslagen. {count} eerdere inhouds-URL's vastgelegd voor 301-omleidingen.",
+    "saved": {
+      "one": "Permalinks opgeslagen. {count} eerdere inhouds-URL vastgelegd voor 301-omleidingen.",
+      "other": "Permalinks opgeslagen. {count} eerdere inhouds-URL's vastgelegd voor 301-omleidingen."
+    },
     "warning": "Het wijzigen van URL's kan invloed hebben op je positie in zoekmachines en op externe links. Bekende gepubliceerde URL's worden automatisch omgeleid. Geïmporteerde URL's, dubbelzinnige URL's die door meerdere items worden gedeeld, verwijderde inhoud, handmatig geschreven links en niet-vastgelegde oude URL's kunnen niet automatisch worden gekoppeld. Controleer de omleidingen na het opslaan.",
     "preset": "URL-voorinstelling voor berichten",
     "plain": "Eenvoudig (query met inhouds-ID)",
@@ -2280,7 +2310,10 @@
     "save": "Instellingen opslaan",
     "saved": "Zoekinstellingen opgeslagen.",
     "rebuild": "Zoekindex opnieuw opbouwen",
-    "rebuilt": "{count} items geïndexeerd.",
+    "rebuilt": {
+      "one": "{count} item geïndexeerd.",
+      "other": "{count} items geïndexeerd."
+    },
     "working": "Bezig…",
     "label": "Zoeklabel",
     "scope": "Inhoudstypen om te doorzoeken",
@@ -2488,15 +2521,24 @@
     }
   },
   "comments": {
-    "reasonLinks": "{count} link{plural} in de reactie",
-    "reasonKeywords": "{count} spamtrigger{plural} gevonden",
+    "reasonLinks": {
+      "one": "{count} link in de reactie",
+      "other": "{count} links in de reactie"
+    },
+    "reasonKeywords": {
+      "one": "{count} spamtrigger gevonden",
+      "other": "{count} spamtriggers gevonden"
+    },
     "reasonDisposableEmail": "domein voor wegwerp-e-mail",
     "reasonRepetitive": "herhalende tekst",
     "reasonNoToken": "geen token voor verzendtiming (lijkt op een bot)",
     "reasonTooFast": "te snel verzonden nadat de pagina was geladen",
     "reasonTrained": "komt overeen met termen die zijn geleerd van eerdere ‘markeren als spam’-acties: {detail}",
     "reasonRule": "voldeed aan een blokkeerregel van de beheerder ({field})",
-    "deleteConfirm": "{count} reactie(s) definitief verwijderen?",
+    "deleteConfirm": {
+      "one": "{count} reactie definitief verwijderen?",
+      "other": "{count} reacties definitief verwijderen?"
+    },
     "editCommentPrompt": "Reactie bewerken",
     "replyToPrompt": "Reageren op {name}",
     "blockConfirm": "Alle toekomstige reacties met dit {field} blokkeren?\n\n{pattern}",
@@ -2515,7 +2557,10 @@
     "blockEmail": "E-mailadres blokkeren",
     "blockDomain": "Domein blokkeren",
     "blockIp": "IP blokkeren",
-    "selectedCount": "{count} geselecteerd",
+    "selectedCount": {
+      "one": "{count} geselecteerd",
+      "other": "{count} geselecteerd"
+    },
     "onContent": "op: {title}",
     "spamScore": "Spamscore {score}/100",
     "pageOf": "Pagina {page} van {totalPages}",
@@ -2663,8 +2708,14 @@
     "referencedByContent": "Er wordt naar verwezen vanuit inhoud",
     "restore": "Terugzetten",
     "deletePermanently": "Definitief verwijderen",
-    "emptyConfirm": "Alle {count} items definitief verwijderen?",
-    "emptyConfirmReferencedSuffix": " Er worden ook {count} mediabestand(en) verwijderd waarnaar nog wordt verwezen."
+    "emptyConfirm": {
+      "one": "{count} item definitief verwijderen?",
+      "other": "Alle {count} items definitief verwijderen?"
+    },
+    "emptyConfirmReferencedSuffix": {
+      "one": " Er wordt ook {count} mediabestand verwijderd waarnaar nog wordt verwezen.",
+      "other": " Er worden ook {count} mediabestanden verwijderd waarnaar nog wordt verwezen."
+    }
   },
   "headerLibrary": {
     "renamePrompt": "Naam van de header",
@@ -2911,7 +2962,10 @@
     "install": "Installeren",
     "installOnMainSite": "Installeren op de hoofdsite",
     "versionBy": "v{version} · door {publisher}",
-    "resultsCount": "{count} resultaten",
+    "resultsCount": {
+      "one": "{count} resultaat",
+      "other": "{count} resultaten"
+    },
     "categories": {
       "all": "Alles",
       "plugins": "Plugins",
@@ -2933,7 +2987,10 @@
     "checking": "Controleren op updates…",
     "checkNow": "Controleren op updates",
     "checkFailed": "Kon de Marketplace niet controleren op updates.",
-    "availableCount": "{count} update(s) beschikbaar",
+    "availableCount": {
+      "one": "{count} update beschikbaar",
+      "other": "{count} updates beschikbaar"
+    },
     "upToDate": "Alles is up-to-date.",
     "badge": "Update beschikbaar: v{version}",
     "updateTo": "Bijwerken naar v{version}",
@@ -2994,7 +3051,10 @@
     "captionLabel": "Bijschrift",
     "regenerateFinished": "✓ Opnieuw genereren voltooid: {processed} opnieuw gemaakt, {skipped} overgeslagen, {failed} mislukt.",
     "focalPointHintAfter": "vakken) houden dit punt in beeld. Als je een nieuw focuspunt opslaat, worden de varianten van deze afbeelding opnieuw gemaakt.",
-    "fileCount": "{count} bestanden",
+    "fileCount": {
+      "one": "{count} bestand",
+      "other": "{count} bestanden"
+    },
     "regeneratingProgress": "Opnieuw genereren… {done}/{total}",
     "focalPointLabel": "Focuspunt: {x}% / {y}%",
     "originalDimensions": "origineel {width}×{height}"
@@ -3213,8 +3273,14 @@
         "runtimeAdvisories": {
           "title": "Beveiligingsadviezen",
           "clear": "Geen enkel gepubliceerd advies raakt deze installatie. Feed uitgegeven op {issuedAt}.",
-          "affected": "{count} gepubliceerde adviezen raken deze installatie: {ids}.",
-          "revoked": "De uitgever heeft minstens één geïnstalleerde versie ingetrokken. {count} adviezen zijn van toepassing: {ids}.",
+          "affected": {
+            "one": "{count} gepubliceerd advies raakt deze installatie: {ids}.",
+            "other": "{count} gepubliceerde adviezen raken deze installatie: {ids}."
+          },
+          "revoked": {
+            "one": "De uitgever heeft minstens één geïnstalleerde versie ingetrokken. {count} advies is van toepassing: {ids}.",
+            "other": "De uitgever heeft minstens één geïnstalleerde versie ingetrokken. {count} adviezen zijn van toepassing: {ids}."
+          },
           "unavailable": "Er is geen geverifieerde adviesfeed beschikbaar, dus deze installatie is niet gecontroleerd.",
           "stale": "De adviesfeed is verlopen op {expiresAt}, dus recente adviezen kunnen ontbreken.",
           "otherSite": "Adviezen worden gecontroleerd op de platformsite.",
@@ -3272,7 +3338,10 @@
         "starting": "Starten…",
         "setUp": "Tweestapsverificatie instellen",
         "loadError": "Status kon niet worden geladen: {message}",
-        "recoveryCodesLeft": "Nog {count} ongebruikte herstelcodes over."
+        "recoveryCodesLeft": {
+          "one": "Nog {count} ongebruikte herstelcode over.",
+          "other": "Nog {count} ongebruikte herstelcodes over."
+        }
       },
       "sessions": {
         "loadError": "Sessies konden niet worden geladen.",
@@ -3284,7 +3353,10 @@
         "thisDevice": "Dit apparaat",
         "unknownDevice": "Onbekend apparaat",
         "unknownIp": "Onbekend IP",
-        "othersRevoked": "{count} andere sessies beëindigd.",
+        "othersRevoked": {
+          "one": "{count} andere sessie beëindigd.",
+          "other": "{count} andere sessies beëindigd."
+        },
         "lastActive": "laatst actief {date}",
         "revoke": "Beëindigen",
         "revokeAllOthers": "Alle andere sessies beëindigen"
@@ -3331,7 +3403,10 @@
         "removeConfirm": "Passkey verwijderen",
         "signOutOthers": "Ook alle andere apparaten uitloggen",
         "removed": "Passkey verwijderd.",
-        "removedSignedOut": "Passkey verwijderd. {count} andere sessies zijn uitgelogd.",
+        "removedSignedOut": {
+          "one": "Passkey verwijderd. {count} andere sessie is uitgelogd.",
+          "other": "Passkey verwijderd. {count} andere sessies zijn uitgelogd."
+        },
         "removeError": "De passkey kon niet worden verwijderd.",
         "loadError": "Passkeys konden niet worden geladen: {message}",
         "recoveryBody": "Elke code werkt één keer. Bewaar ze ergens waar je zonder dit apparaat bij kunt: samen met je wachtwoord log je met een code in als je je passkeys kwijt bent.",
@@ -3339,7 +3414,10 @@
         "lostBody": "Verwijder hem hier en log je andere apparaten uit. Kun je helemaal niet meer inloggen? Gebruik dan je wachtwoord met een herstelcode. Ook je wachtwoord vergeten? Stel het opnieuw in via e-mail en gebruik daarna een herstelcode. Een beheerder kan je passkeys ook voor je verwijderen.",
         "recovery": {
           "title": "Herstelcodes",
-          "remaining": "Nog {count} ongebruikte herstelcodes.",
+          "remaining": {
+            "one": "Nog {count} ongebruikte herstelcode over.",
+            "other": "Nog {count} ongebruikte herstelcodes over."
+          },
           "none": "Nog geen herstelcodes. Ze worden aangemaakt bij je eerste passkey of wanneer je tweestapsverificatie aanzet.",
           "unknown": "Herstelcodes konden niet worden gelezen.",
           "regenerate": "Nieuwe herstelcodes maken",
@@ -3458,10 +3536,16 @@
       "settingsSubtitle": "E-mailmeldingen, bewaring, export en verwijdering.",
       "settingsTitle": "Auditinstellingen",
       "lifecycle": {
-        "bound": "Opslag is begrensd op {count} auditregels per site; de oudste worden eerst verwijderd.",
+        "bound": {
+          "one": "Opslag is begrensd op {count} auditregel per site; de oudste worden eerst verwijderd.",
+          "other": "Opslag is begrensd op {count} auditregels per site; de oudste worden eerst verwijderd."
+        },
         "confirmLabel": "Typ DELETE SECURITY EVENTS om de beveiligingsgebeurtenissen van deze site permanent te verwijderen.",
         "deleteButton": "Beveiligingsgebeurtenissen verwijderen",
-        "deleted": "{count} beveiligingsgebeurtenissen verwijderd. Een marker met alleen het aantal is bewaard.",
+        "deleted": {
+          "one": "{count} beveiligingsgebeurtenis verwijderd. Een marker met alleen het aantal is bewaard.",
+          "other": "{count} beveiligingsgebeurtenissen verwijderd. Een marker met alleen het aantal is bewaard."
+        },
         "exportButton": "Geredigeerde beveiligingsgebeurtenissen exporteren",
         "localWarning": "Lokale logboeken helpen bij onderzoek, maar zijn niet manipulatiebestendig als de host is gecompromitteerd. Deze functie configureert geen externe logbestemming.",
         "writeFailed": "Auditschrijfbewerkingen meldden een fout om {time}. Recente acties kunnen ontbreken.",
@@ -3640,7 +3724,10 @@
         "customHeaders": "Eigen headers en importeren"
       },
       "findings": {
-        "title": "Bevindingen ({count} open)",
+        "title": {
+          "one": "Bevindingen ({count} open)",
+          "other": "Bevindingen ({count} open)"
+        },
         "review": "Bekijken",
         "fix": "Oplossen"
       },
@@ -4149,7 +4236,10 @@
       "slow": "Langzaam",
       "responsive": "Snel",
       "percentOf": "{percent}% van {total}",
-      "requestsObserved": "{count} verzoeken waargenomen",
+      "requestsObserved": {
+        "one": "{count} verzoek waargenomen",
+        "other": "{count} verzoeken waargenomen"
+      },
       "driverConnected": "{driver} · verbonden",
       "connected": "verbonden",
       "unavailable": "niet beschikbaar",
@@ -4172,7 +4262,10 @@
       "latency": "Latentie",
       "migrations": "Migraties",
       "current": "Actueel",
-      "pendingCount": "{count} in afwachting",
+      "pendingCount": {
+        "one": "{count} in afwachting",
+        "other": "{count} in afwachting"
+      },
       "objectCache": "Objectcache",
       "enabled": "Ingeschakeld",
       "disabled": "Uitgeschakeld",
@@ -4188,7 +4281,10 @@
       "colCheck": "Controle",
       "colStatus": "Status",
       "colSummary": "Samenvatting",
-      "count": "{count} controles"
+      "count": {
+        "one": "{count} controle",
+        "other": "{count} controles"
+      }
     },
     "cli": {
       "title": "Reproduceren vanaf de serverhost",
@@ -4207,10 +4303,22 @@
       "colDatabase": "Database",
       "colHooks": "Hooks",
       "colResolution": "Afhandeling",
-      "retained": "{count} bewaard",
-      "errorsCount": "{count} fouten",
-      "opsCount": "{count} bewerkingen",
-      "runsCount": "{count} uitvoeringen"
+      "retained": {
+        "one": "{count} bewaard",
+        "other": "{count} bewaard"
+      },
+      "errorsCount": {
+        "one": "{count} fout",
+        "other": "{count} fouten"
+      },
+      "opsCount": {
+        "one": "{count} bewerking",
+        "other": "{count} bewerkingen"
+      },
+      "runsCount": {
+        "one": "{count} uitvoering",
+        "other": "{count} uitvoeringen"
+      }
     },
     "hooks": {
       "title": "Hook-inspector",
@@ -4224,9 +4332,15 @@
       "colStatus": "Status",
       "core": "Kern",
       "disabled": "Uitgeschakeld",
-      "errorsCount": "{count} fouten",
+      "errorsCount": {
+        "one": "{count} fout",
+        "other": "{count} fouten"
+      },
       "healthy": "In orde",
-      "handlersCount": "{count} handlers"
+      "handlersCount": {
+        "one": "{count} handler",
+        "other": "{count} handlers"
+      }
     },
     "blockRenders": {
       "title": "Trage blokken",
@@ -4259,7 +4373,10 @@
       "notRegistered": "Niet geregistreerd",
       "present": "Aanwezig",
       "missing": "Ontbrekend",
-      "foundCount": "{count} gevonden"
+      "foundCount": {
+        "one": "{count} gevonden",
+        "other": "{count} gevonden"
+      }
     },
     "themes": {
       "title": "Thema's",
@@ -4270,7 +4387,10 @@
       "colVersion": "Versie",
       "colDatabase": "Database",
       "colFiles": "Bestanden",
-      "foundCount": "{count} gevonden"
+      "foundCount": {
+        "one": "{count} gevonden",
+        "other": "{count} gevonden"
+      }
     },
     "recentErrors": {
       "title": "Recente fouten",
@@ -4281,7 +4401,10 @@
       "colMessage": "Bericht",
       "colRequestId": "Verzoek-ID",
       "backgroundTask": "Achtergrondtaak",
-      "capturedCount": "{count} vastgelegd"
+      "capturedCount": {
+        "one": "{count} vastgelegd",
+        "other": "{count} vastgelegd"
+      }
     },
     "footer": {
       "safeTitle": "Veilig om met support te delen",
@@ -4302,7 +4425,10 @@
       "creating": "Back-up maken…",
       "description": "Download een draagbare, gecontroleerde momentopname van deze site.",
       "download": "Siteback-up downloaden",
-      "mediaSummary": "{count} originele mediabestanden · {size}",
+      "mediaSummary": {
+        "one": "{count} origineel mediabestand · {size}",
+        "other": "{count} originele mediabestanden · {size}"
+      },
       "restore": "Herstellen op lege site",
       "restoreComplete": "Back-up is hersteld. Herlaad de beheeromgeving.",
       "restoreFailed": "De back-up kon niet worden hersteld",
@@ -4443,7 +4569,10 @@
       "clearing": "Wissen…",
       "clearObjectCache": "Objectcache wissen",
       "logLabel": "Prestatielogboek",
-      "keysStorage": "{count} sleutels · {size}",
+      "keysStorage": {
+        "one": "{count} sleutel · {size}",
+        "other": "{count} sleutels · {size}"
+      },
       "sampleCacheFiles": "Voorbeelden van cachebestanden ({count})",
       "revalidateHint2": "hook voor plugins.",
       "browserCacheHint1": "Stelt",
@@ -4565,7 +4694,10 @@
       "importing": "Importeren…",
       "uploadButton": "WordPress-XML uploaden",
       "importFailed": "Importeren mislukt:",
-      "itemsHadErrors": "Bij {count} item(s) zijn fouten opgetreden. Bekijk de serverlogs.",
+      "itemsHadErrors": {
+        "one": "Bij {count} item zijn fouten opgetreden. Bekijk de serverlogs.",
+        "other": "Bij {count} items zijn fouten opgetreden. Bekijk de serverlogs."
+      },
       "importComplete": "Importeren voltooid",
       "postsImported": "Berichten geïmporteerd: {count}",
       "pagesImported": "Pagina's geïmporteerd: {count}",
@@ -4613,7 +4745,10 @@
   },
   "updates": {
     "log": {
-      "foundUpdates": "{count} update(s) gevonden",
+      "foundUpdates": {
+        "one": "{count} update gevonden",
+        "other": "{count} updates gevonden"
+      },
       "upToDate": "Alles is up to date",
       "alreadyRunning": "Er is al een update actief",
       "updateFailed": "Bijwerken mislukt",
@@ -4792,8 +4927,14 @@
       "description": "Beschrijving",
       "descriptionPlaceholder": "Waarvoor is deze rol bedoeld?",
       "saveRole": "Rol opslaan",
-      "capabilitiesCount": "{count} rechten",
-      "selectedCount": "{count} geselecteerd",
+      "capabilitiesCount": {
+        "one": "{count} recht",
+        "other": "{count} rechten"
+      },
+      "selectedCount": {
+        "one": "{count} geselecteerd",
+        "other": "{count} geselecteerd"
+      },
       "createRole": "Rol aanmaken",
       "capabilityGroup": {
         "design": "Ontwerp"
@@ -5031,7 +5172,10 @@
       "lastUsed": "Laatst gebruikt",
       "never": "Nooit",
       "empty": "Er zijn geen AI-apps gekoppeld.",
-      "permissionCount": "{count} rechten",
+      "permissionCount": {
+        "one": "{count} recht",
+        "other": "{count} rechten"
+      },
       "userTools": "Gebruikers- en roltools",
       "revoke": "Intrekken",
       "revokeConfirm": "Toegang voor {name} intrekken? Het werkt direct niet meer."
@@ -5137,7 +5281,10 @@
       "enabled": "Ingeschakeld",
       "test": "Verbinding testen",
       "testing": "Testen…",
-      "testOk": "Verbinding werkt. {count} modellen beschikbaar.",
+      "testOk": {
+        "one": "Verbinding werkt. {count} model beschikbaar.",
+        "other": "Verbinding werkt. {count} modellen beschikbaar."
+      },
       "saved": "Opgeslagen.",
       "remove": "Verwijderen",
       "removeConfirm": "De sleutel voor {provider} verwijderen?"
@@ -5506,7 +5653,10 @@
       "local": "De schijf van de server, in een privémap buiten de openbare uploads."
     },
     "publicBucket": "De S3-bucket van de installatie is openbaar (STORAGE_S3_PUBLIC_URL is ingesteld), dus privébestanden staan op de schijf van de server. Voeg hieronder een privébucket toe om S3 te gebruiken.",
-    "copying": "{count} bestanden worden naar de huidige opslag gekopieerd. Dit gebeurt op de achtergrond; downloads blijven werken.",
+    "copying": {
+      "one": "{count} bestand wordt naar de huidige opslag gekopieerd. Dit gebeurt op de achtergrond; downloads blijven werken.",
+      "other": "{count} bestanden worden naar de huidige opslag gekopieerd. Dit gebeurt op de achtergrond; downloads blijven werken."
+    },
     "filesUsage": "Privébestanden",
     "bytesUsage": "Opslag voor privébestanden",
     "usageUnlimited": "{used} (geen limiet)",

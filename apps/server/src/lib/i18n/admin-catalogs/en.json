@@ -67,7 +67,10 @@
     "url": "Endpoint URL",
     "events": "Events",
     "chooseEvents": "Choose events…",
-    "selectedEvents": "{count} events selected",
+    "selectedEvents": {
+      "one": "{count} event selected",
+      "other": "{count} events selected"
+    },
     "selectAll": "Select all",
     "clear": "Clear",
     "removeEvent": "Remove {event}",
@@ -103,7 +106,10 @@
     "name": "Name",
     "capabilities": "Capabilities",
     "chooseCapabilities": "Choose capabilities…",
-    "selectedCapabilities": "{count} capabilities selected",
+    "selectedCapabilities": {
+      "one": "{count} capability selected",
+      "other": "{count} capabilities selected"
+    },
     "selectAll": "Select all",
     "clear": "Clear",
     "removeCapability": "Remove {capability}",
@@ -172,7 +178,10 @@
     "selectAll": "Select all",
     "deleteSelected": "Delete {count}",
     "bulkEdit": "Bulk edit {count}",
-    "trashConfirm": "Move {count} entries to trash? You can restore them during the retention period.",
+    "trashConfirm": {
+      "one": "Move {count} entry to trash? You can restore it during the retention period.",
+      "other": "Move {count} entries to trash? You can restore them during the retention period."
+    },
     "listEmptyTitle": "No {section} yet",
     "listEmptyBody": "Create the first {type} to get started.",
     "listError": "Could not load {section}.",
@@ -379,7 +388,10 @@
     "menuName": "Menu name",
     "menuSlug": "Menu slug (e.g. footer)",
     "createMenuButton": "Create menu",
-    "itemCount": "{count} items",
+    "itemCount": {
+      "one": "{count} item",
+      "other": "{count} items"
+    },
     "empty": "No menu items yet.",
     "emptyHint": "Add published content or custom links from the panel on the left.",
     "type": {
@@ -394,7 +406,10 @@
     "outdent": "Outdent",
     "expand": "Expand",
     "collapse": "Collapse",
-    "collapsedCount": "{count} hidden",
+    "collapsedCount": {
+      "one": "{count} hidden",
+      "other": "{count} hidden"
+    },
     "duplicate": "Duplicate",
     "addSubItem": "Add sub-item",
     "newSubItem": "Sub-item",
@@ -479,7 +494,10 @@
       "linkUrl": "URL",
       "addLink": "+ Add link",
       "useAdvanced": "Need something else? Switch to the advanced block editor",
-      "summaryLinks": "{count} links",
+      "summaryLinks": {
+        "one": "{count} link",
+        "other": "{count} links"
+      },
       "summaryPromo": "Highlight panel",
       "summaryCustom": "Custom content",
       "promoBackground": "Background",
@@ -1180,7 +1198,10 @@
         "noOptions": "Nothing to choose from yet.",
         "none": "— None —",
         "search": "Search…",
-        "selected": "{count} selected"
+        "selected": {
+          "one": "{count} selected",
+          "other": "{count} selected"
+        }
       }
     },
     "preview": {
@@ -1644,7 +1665,10 @@
       "editLocked": "This block is locked against editing. Ask someone who can manage locks to unlock it.",
       "editLockedManage": "This block is locked against editing. Unlock it from the block menu to change it.",
       "multi": {
-        "title": "{count} blocks selected",
+        "title": {
+          "one": "{count} block selected",
+          "other": "{count} blocks selected"
+        },
         "menuHint": "Right-click or press Shift+F10 for all actions.",
         "sharedStyle": "Shared style",
         "styleSubset": "Style changes apply to {count} of {total} blocks. Locked blocks and blocks with their own style setting are skipped.",
@@ -1846,7 +1870,10 @@
       "publishedState": "Everything published",
       "revert": "Revert to published",
       "unpublished": "unpublished",
-      "changedCount": "{count} changed",
+      "changedCount": {
+        "one": "{count} changed",
+        "other": "{count} changed"
+      },
       "saveError": "Could not save styles",
       "readOnly": "Only administrators and editors can change global styles."
     },
@@ -2088,7 +2115,10 @@
     "description": "Choose public URL structures for your content and taxonomy archives.",
     "failed": "Could not load or save permalink settings.",
     "retry": "Retry",
-    "saved": "Permalinks saved. {count} previous content URLs recorded for 301 redirects.",
+    "saved": {
+      "one": "Permalinks saved. {count} previous content URL recorded for 301 redirects.",
+      "other": "Permalinks saved. {count} previous content URLs recorded for 301 redirects."
+    },
     "warning": "Changing URLs can affect search rankings and external links. Known published URLs are redirected automatically. Imported URLs, ambiguous URLs shared by multiple items, deleted content, handwritten links, and unrecorded historical URLs cannot be mapped automatically. Review redirects after saving.",
     "preset": "Post URL preset",
     "plain": "Plain (content ID query)",
@@ -2278,7 +2308,10 @@
     "save": "Save settings",
     "saved": "Search settings saved.",
     "rebuild": "Rebuild search index",
-    "rebuilt": "Indexed {count} entries.",
+    "rebuilt": {
+      "one": "Indexed {count} entry.",
+      "other": "Indexed {count} entries."
+    },
     "working": "Working…",
     "label": "Search label",
     "scope": "Content type scope",
@@ -2664,8 +2697,14 @@
     "referencedWarning": "This media file is still referenced by content. Delete it permanently anyway?",
     "deleteConfirm": "Permanently delete “{label}”? This cannot be undone.",
     "deleteFailed": "Could not delete item",
-    "emptyConfirm": "Permanently delete all {count} items?",
-    "emptyConfirmReferencedSuffix": " {count} referenced media file(s) will also be deleted.",
+    "emptyConfirm": {
+      "one": "Permanently delete {count} item?",
+      "other": "Permanently delete all {count} items?"
+    },
+    "emptyConfirmReferencedSuffix": {
+      "one": " {count} referenced media file will also be deleted.",
+      "other": " {count} referenced media files will also be deleted."
+    },
     "emptyFailed": "Could not empty trash",
     "heading": "Trash",
     "subtitle": "Recoverable content, media, comments and menus",
@@ -2686,8 +2725,14 @@
       "moderation": "held because moderation is required for all comments",
       "firstTime": "held as this commenter's first comment"
     },
-    "reasonLinks": "{count} link{plural} in the comment",
-    "reasonKeywords": "{count} spam keyword{plural} matched",
+    "reasonLinks": {
+      "one": "{count} link in the comment",
+      "other": "{count} links in the comment"
+    },
+    "reasonKeywords": {
+      "one": "{count} spam keyword matched",
+      "other": "{count} spam keywords matched"
+    },
     "reasonDisposableEmail": "disposable email domain",
     "reasonRepetitive": "repetitive text",
     "reasonNoToken": "no submission-timing token (bot-like)",
@@ -2702,7 +2747,10 @@
     "tabTrash": "trash",
     "heading": "Comments",
     "subtitle": "Moderate discussion across your site",
-    "selectedCount": "{count} selected",
+    "selectedCount": {
+      "one": "{count} selected",
+      "other": "{count} selected"
+    },
     "approve": "Approve",
     "unapprove": "Unapprove",
     "markSpam": "Mark spam",
@@ -2711,7 +2759,10 @@
     "noComments": "No {tab} comments",
     "emptyHint": "Nothing needs your attention here right now.",
     "selectAll": "Select all",
-    "deleteConfirm": "Permanently delete {count} comment(s)?",
+    "deleteConfirm": {
+      "one": "Permanently delete {count} comment?",
+      "other": "Permanently delete {count} comments?"
+    },
     "editCommentPrompt": "Edit comment",
     "replyToPrompt": "Reply to {name}",
     "blockConfirm": "Block all future comments matching this {field}?\n\n{pattern}",
@@ -2988,7 +3039,10 @@
       "media": "Media",
       "ecommerce": "E-commerce"
     },
-    "resultsCount": "{count} results",
+    "resultsCount": {
+      "one": "{count} result",
+      "other": "{count} results"
+    },
     "loadingCatalogue": "Loading catalogue",
     "loadingListings": "Fetching listings from the Justflows API.",
     "emptyTitle": "Nothing matches that search",
@@ -3015,7 +3069,10 @@
     "checking": "Checking for updates…",
     "checkNow": "Check for updates",
     "checkFailed": "Could not check the Marketplace for updates.",
-    "availableCount": "{count} update(s) available",
+    "availableCount": {
+      "one": "{count} update available",
+      "other": "{count} updates available"
+    },
     "upToDate": "Everything is up to date.",
     "badge": "Update available: v{version}",
     "updateTo": "Update to v{version}",
@@ -3052,7 +3109,10 @@
     "regenerateForbidden": "Only administrators can regenerate the library",
     "regenerateFailed": "Could not start regeneration",
     "title": "Media Library",
-    "fileCount": "{count} files",
+    "fileCount": {
+      "one": "{count} file",
+      "other": "{count} files"
+    },
     "uploadButton": "Upload files",
     "regenerateTooltip": "Rebuild resized variants and WebP/AVIF for every image with the current settings",
     "regenerating": "Regenerating…",
@@ -3189,7 +3249,10 @@
       "cacheHitRate": "Cache hit rate",
       "databaseLatency": "Database latency",
       "percentOf": "{percent}% of {total}",
-      "requestsObserved": "{count} requests observed",
+      "requestsObserved": {
+        "one": "{count} request observed",
+        "other": "{count} requests observed"
+      },
       "driverConnected": "{driver} · connected",
       "slow": "Slow",
       "responsive": "Responsive",
@@ -3211,7 +3274,10 @@
       "latency": "Latency",
       "migrations": "Migrations",
       "current": "Current",
-      "pendingCount": "{count} pending",
+      "pendingCount": {
+        "one": "{count} pending",
+        "other": "{count} pending"
+      },
       "objectCache": "Object cache",
       "enabled": "Enabled",
       "disabled": "Disabled",
@@ -3222,7 +3288,10 @@
     "pluginChecks": {
       "title": "Plugin health checks",
       "hint": "Namespaced checks published by active plugins with diagnostics permission.",
-      "count": "{count} checks",
+      "count": {
+        "one": "{count} check",
+        "other": "{count} checks"
+      },
       "none": "No plugin diagnostics are registered.",
       "colPlugin": "Plugin",
       "colCheck": "Check",
@@ -3238,7 +3307,10 @@
     "traces": {
       "title": "Request traces",
       "hint": "Recent administrator debug requests from the public site.",
-      "retained": "{count} retained",
+      "retained": {
+        "one": "{count} retained",
+        "other": "{count} retained"
+      },
       "none": "Open a public page while debug mode is active to capture a trace.",
       "colRequest": "Request",
       "colPage": "Page",
@@ -3247,15 +3319,30 @@
       "colDatabase": "Database",
       "colHooks": "Hooks",
       "colResolution": "Resolution",
-      "opsCount": "{count} ops",
-      "runsCount": "{count} runs",
-      "errorsCount": "{count} errors"
+      "opsCount": {
+        "one": "{count} operation",
+        "other": "{count} operations"
+      },
+      "runsCount": {
+        "one": "{count} run",
+        "other": "{count} runs"
+      },
+      "errorsCount": {
+        "one": "{count} error",
+        "other": "{count} errors"
+      }
     },
     "hooks": {
       "title": "Hook inspector",
       "hint": "Typed handlers registered by core and active plugins.",
-      "handlersCount": "{count} handlers",
-      "errorsCount": "{count} errors",
+      "handlersCount": {
+        "one": "{count} handler",
+        "other": "{count} handlers"
+      },
+      "errorsCount": {
+        "one": "{count} error",
+        "other": "{count} errors"
+      },
       "none": "No hook handlers are registered.",
       "colHook": "Hook",
       "colOwner": "Owner",
@@ -3287,7 +3374,10 @@
     "plugins": {
       "title": "Plugins",
       "hint": "Development plugins and Marketplace packages, joined with their database state.",
-      "foundCount": "{count} found",
+      "foundCount": {
+        "one": "{count} found",
+        "other": "{count} found"
+      },
       "none": "No plugins were found.",
       "colPlugin": "Plugin",
       "colSource": "Source",
@@ -3303,7 +3393,10 @@
     "themes": {
       "title": "Themes",
       "hint": "Development themes and Marketplace packages, joined with their database activation state.",
-      "foundCount": "{count} found",
+      "foundCount": {
+        "one": "{count} found",
+        "other": "{count} found"
+      },
       "none": "No themes were found.",
       "colTheme": "Theme",
       "colSource": "Source",
@@ -3314,7 +3407,10 @@
     "recentErrors": {
       "title": "Recent errors",
       "hint": "Sanitized messages grouped by request ID. Stack traces, request bodies, and credentials are excluded.",
-      "capturedCount": "{count} captured",
+      "capturedCount": {
+        "one": "{count} captured",
+        "other": "{count} captured"
+      },
       "none": "No application errors have been captured during this process.",
       "colTime": "Time",
       "colContext": "Context",
@@ -3699,8 +3795,14 @@
         "runtimeAdvisories": {
           "title": "Security advisories",
           "clear": "No published advisory affects this installation. Feed issued {issuedAt}.",
-          "affected": "{count} published advisories affect this installation: {ids}.",
-          "revoked": "The publisher withdrew at least one installed version. {count} advisories apply: {ids}.",
+          "affected": {
+            "one": "{count} published advisory affects this installation: {ids}.",
+            "other": "{count} published advisories affect this installation: {ids}."
+          },
+          "revoked": {
+            "one": "The publisher withdrew at least one installed version. {count} advisory applies: {ids}.",
+            "other": "The publisher withdrew at least one installed version. {count} advisories apply: {ids}."
+          },
           "unavailable": "No verified advisory feed is available, so this installation has not been checked.",
           "stale": "The advisory feed expired on {expiresAt}, so recent advisories may be missing.",
           "otherSite": "Advisories are checked on the platform site.",
@@ -3737,7 +3839,10 @@
         "hint": "Devices currently signed in to your account.",
         "lastActive": "last active {date}",
         "loadError": "Could not load sessions.",
-        "othersRevoked": "{count} other sessions revoked.",
+        "othersRevoked": {
+          "one": "{count} other session revoked.",
+          "other": "{count} other sessions revoked."
+        },
         "revoke": "Revoke",
         "revokeAllOthers": "Revoke all other sessions",
         "revokeError": "Could not revoke session.",
@@ -3770,7 +3875,10 @@
           "saved": "I have saved them",
           "title": "Save your recovery codes"
         },
-        "recoveryCodesLeft": "{count} unused recovery codes left.",
+        "recoveryCodesLeft": {
+          "one": "{count} unused recovery code left.",
+          "other": "{count} unused recovery codes left."
+        },
         "setUp": "Set up two-factor",
         "setup": {
           "body": "Add this key to an authenticator app, then enter the code it shows. On a phone, the link below opens the app directly.",
@@ -3817,7 +3925,10 @@
         "removeConfirm": "Remove passkey",
         "signOutOthers": "Also sign out every other device",
         "removed": "Passkey removed.",
-        "removedSignedOut": "Passkey removed. {count} other sessions were signed out.",
+        "removedSignedOut": {
+          "one": "Passkey removed. {count} other session was signed out.",
+          "other": "Passkey removed. {count} other sessions were signed out."
+        },
         "removeError": "Could not remove the passkey.",
         "loadError": "Could not load passkeys: {message}",
         "recoveryBody": "Each code works once. Keep them somewhere you can reach without this device: with your password, a code signs you in if you lose your passkeys.",
@@ -3825,7 +3936,10 @@
         "lostBody": "Remove it here and sign out your other devices. If you cannot sign in at all, use your password with a recovery code. Forgot the password too? Reset it by email, then use a recovery code. An administrator can also remove your passkeys for you.",
         "recovery": {
           "title": "Recovery codes",
-          "remaining": "{count} unused recovery codes left.",
+          "remaining": {
+            "one": "{count} unused recovery code left.",
+            "other": "{count} unused recovery codes left."
+          },
           "none": "No recovery codes yet. They are created with your first passkey or when you turn on two-factor authentication.",
           "unknown": "Recovery codes could not be read.",
           "regenerate": "Create new recovery codes",
@@ -3949,10 +4063,16 @@
       "settingsSubtitle": "Email notifications, retention, export, and deletion controls.",
       "settingsTitle": "Audit settings",
       "lifecycle": {
-        "bound": "Storage is capped at {count} audit rows per site; the oldest rows are removed first.",
+        "bound": {
+          "one": "Storage is capped at {count} audit row per site; the oldest rows are removed first.",
+          "other": "Storage is capped at {count} audit rows per site; the oldest rows are removed first."
+        },
         "confirmLabel": "Type DELETE SECURITY EVENTS to permanently delete this site's security events.",
         "deleteButton": "Delete security events",
-        "deleted": "Deleted {count} security events. A count-only deletion marker was retained.",
+        "deleted": {
+          "one": "Deleted {count} security event. A count-only deletion marker was retained.",
+          "other": "Deleted {count} security events. A count-only deletion marker was retained."
+        },
         "exportButton": "Export redacted security events",
         "localWarning": "Local logs help investigations but are not tamper-proof if the host is compromised. No external log sink is configured by this feature.",
         "writeFailed": "Audit writes reported a failure at {time}. Recent actions may be missing.",
@@ -4074,7 +4194,10 @@
       "findings": {
         "fix": "Fix",
         "review": "Review",
-        "title": "Findings ({count} open)"
+        "title": {
+          "one": "Findings ({count} open)",
+          "other": "Findings ({count} open)"
+        }
       },
       "headersSent": {
         "hint": "Exactly what a browser receives, worked out from the configuration currently on screen.",
@@ -4455,7 +4578,10 @@
       "creating": "Creating backup…",
       "description": "Download a portable, checksummed snapshot of this site's content, non-secret settings, users, media records, and extension inventory.",
       "download": "Download site backup",
-      "mediaSummary": "{count} original media files · {size}",
+      "mediaSummary": {
+        "one": "{count} original media file · {size}",
+        "other": "{count} original media files · {size}"
+      },
       "restore": "Restore selected site",
       "restoreComplete": "Backup restored successfully. Reload the admin to see the restored site.",
       "restoreFailed": "Could not restore the backup",
@@ -4581,7 +4707,10 @@
       "hitRateSuffix": " ({rate}%)",
       "hitsMisses": "{hits} hits / {misses} misses",
       "htmlMaxAgeLabel": "HTML max-age (s)",
-      "keysStorage": "{count} keys · {size}",
+      "keysStorage": {
+        "one": "{count} key · {size}",
+        "other": "{count} keys · {size}"
+      },
       "loadFailed": "Could not load performance settings",
       "logLabel": "Performance log",
       "minSizeHint": "Skip compression for tiny responses.",
@@ -4756,7 +4885,10 @@
       "importComplete": "Import complete",
       "importFailed": "Import failed:",
       "importing": "Importing…",
-      "itemsHadErrors": "{count} item(s) had errors. Check the server logs.",
+      "itemsHadErrors": {
+        "one": "{count} item had errors. Check the server logs.",
+        "other": "{count} items had errors. Check the server logs."
+      },
       "pagesImported": "Pages imported: {count}",
       "postsImported": "Posts imported: {count}",
       "skipped": "Skipped: {count}",
@@ -4791,7 +4923,10 @@
       "appRestarting": "App is restarting — waiting for site to come back…",
       "checkingStatus": "{message} — checking update status…",
       "forceReinstalling": "Force reinstalling Justflows v{version}…",
-      "foundUpdates": "Found {count} update(s)",
+      "foundUpdates": {
+        "one": "Found {count} update",
+        "other": "Found {count} updates"
+      },
       "lostContact": "Lost contact with the server — refresh this page to check the result",
       "manualRestartNeeded": "Could not auto-restart — restart Justflows on the server",
       "manualRestartNeededContainer": "Could not auto-restart — restart the Justflows container",
@@ -4954,7 +5089,10 @@
       "createRole": "Create role",
       "loading": "Loading roles…",
       "builtIn": "Built-in",
-      "capabilitiesCount": "{count} capabilities",
+      "capabilitiesCount": {
+        "one": "{count} capability",
+        "other": "{count} capabilities"
+      },
       "managedByJustflows": "Managed by Justflows",
       "customAccessRole": "Custom access role",
       "editRole": "Edit",
@@ -4965,7 +5103,10 @@
       "roleName": "Role name",
       "description": "Description",
       "descriptionPlaceholder": "What is this role for?",
-      "selectedCount": "{count} selected",
+      "selectedCount": {
+        "one": "{count} selected",
+        "other": "{count} selected"
+      },
       "saveRole": "Save role",
       "deleteRoleConfirm": "Delete role {name}?",
       "failedToLoadRoles": "Failed to load roles",
@@ -5029,7 +5170,10 @@
       "lastUsed": "Last used",
       "never": "Never",
       "empty": "No AI apps are connected.",
-      "permissionCount": "{count} permissions",
+      "permissionCount": {
+        "one": "{count} permission",
+        "other": "{count} permissions"
+      },
       "userTools": "Users & roles tools",
       "revoke": "Revoke",
       "revokeConfirm": "Revoke access for {name}? It stops working immediately."
@@ -5135,7 +5279,10 @@
       "enabled": "Enabled",
       "test": "Test connection",
       "testing": "Testing…",
-      "testOk": "Connection works. {count} models available.",
+      "testOk": {
+        "one": "Connection works. {count} model available.",
+        "other": "Connection works. {count} models available."
+      },
       "saved": "Saved.",
       "remove": "Remove",
       "removeConfirm": "Remove the {provider} key?"
@@ -5504,7 +5651,10 @@
       "local": "The server's disk, in a private folder outside the public uploads."
     },
     "publicBucket": "The installation's S3 bucket is public (STORAGE_S3_PUBLIC_URL is set), so private files are kept on the server's disk instead. Add a private bucket below to use S3.",
-    "copying": "Copying {count} files to the current storage. This runs in the background; downloads keep working meanwhile.",
+    "copying": {
+      "one": "Copying {count} file to the current storage. This runs in the background; downloads keep working meanwhile.",
+      "other": "Copying {count} files to the current storage. This runs in the background; downloads keep working meanwhile."
+    },
     "filesUsage": "Private files",
     "bytesUsage": "Private file storage",
     "usageUnlimited": "{used} (no limit)",

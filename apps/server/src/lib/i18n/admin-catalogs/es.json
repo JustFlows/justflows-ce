@@ -67,7 +67,10 @@
     "url": "URL de destino",
     "events": "Eventos",
     "chooseEvents": "Elegir eventos…",
-    "selectedEvents": "{count} eventos seleccionados",
+    "selectedEvents": {
+      "one": "{count} evento seleccionado",
+      "other": "{count} eventos seleccionados"
+    },
     "selectAll": "Seleccionar todo",
     "clear": "Limpiar",
     "removeEvent": "Quitar {event}",
@@ -103,7 +106,10 @@
     "name": "Nombre",
     "capabilities": "Permisos",
     "chooseCapabilities": "Elegir permisos…",
-    "selectedCapabilities": "{count} permisos seleccionados",
+    "selectedCapabilities": {
+      "one": "{count} permiso seleccionado",
+      "other": "{count} permisos seleccionados"
+    },
     "selectAll": "Seleccionar todo",
     "clear": "Limpiar",
     "removeCapability": "Quitar {capability}",
@@ -172,7 +178,10 @@
     "selectAll": "Seleccionar todo",
     "deleteSelected": "Eliminar {count}",
     "bulkEdit": "Editar {count}",
-    "trashConfirm": "¿Mover {count} entradas a la papelera? Puedes restaurarlas durante el período de retención.",
+    "trashConfirm": {
+      "one": "¿Mover {count} entrada a la papelera? Puedes restaurarla durante el período de retención.",
+      "other": "¿Mover {count} entradas a la papelera? Puedes restaurarlas durante el período de retención."
+    },
     "listEmptyTitle": "Aún no hay elementos ({section})",
     "listEmptyBody": "Crea el primer elemento ({type}) para empezar.",
     "listError": "No se pudo cargar {section}.",
@@ -379,7 +388,10 @@
     "menuName": "Nombre del menú",
     "menuSlug": "Slug del menú (p. ej. footer)",
     "createMenuButton": "Crear menú",
-    "itemCount": "{count} elementos",
+    "itemCount": {
+      "one": "{count} elemento",
+      "other": "{count} elementos"
+    },
     "empty": "Aún no hay elementos en el menú.",
     "emptyHint": "Añade contenido publicado o enlaces personalizados desde el panel de la izquierda.",
     "type": {
@@ -394,7 +406,10 @@
     "outdent": "Quitar sangría",
     "expand": "Expandir",
     "collapse": "Contraer",
-    "collapsedCount": "{count} ocultos",
+    "collapsedCount": {
+      "one": "{count} oculto",
+      "other": "{count} ocultos"
+    },
     "duplicate": "Duplicar",
     "addSubItem": "Añadir subelemento",
     "newSubItem": "Subelemento",
@@ -479,7 +494,10 @@
       "linkUrl": "URL",
       "addLink": "+ Añadir enlace",
       "useAdvanced": "¿Necesitas algo distinto? Cambia al editor de bloques avanzado",
-      "summaryLinks": "{count} enlaces",
+      "summaryLinks": {
+        "one": "{count} enlace",
+        "other": "{count} enlaces"
+      },
       "summaryPromo": "Panel destacado",
       "summaryCustom": "Contenido personalizado",
       "promoBackground": "Fondo",
@@ -1048,7 +1066,10 @@
         "noOptions": "Todavía no hay nada que elegir.",
         "none": "— Ninguno —",
         "search": "Buscar…",
-        "selected": "{count} seleccionados"
+        "selected": {
+          "one": "{count} seleccionado",
+          "other": "{count} seleccionados"
+        }
       }
     },
     "blockLibrary": {
@@ -1649,7 +1670,10 @@
       "editLocked": "Este bloque está protegido contra la edición. Pide a alguien que pueda gestionar bloqueos que lo desbloquee.",
       "editLockedManage": "Este bloque está protegido contra la edición. Desbloquéalo desde el menú del bloque para cambiarlo.",
       "multi": {
-        "title": "{count} bloques seleccionados",
+        "title": {
+          "one": "{count} bloque seleccionado",
+          "other": "{count} bloques seleccionados"
+        },
         "menuHint": "Haz clic derecho o pulsa Mayús+F10 para ver todas las acciones.",
         "sharedStyle": "Estilo compartido",
         "styleSubset": "Los cambios de estilo se aplican a {count} de {total} bloques. Se omiten los bloques bloqueados y los que tienen su propio ajuste de estilo.",
@@ -1851,7 +1875,10 @@
       "publishedState": "Todo publicado",
       "revert": "Volver a lo publicado",
       "unpublished": "sin publicar",
-      "changedCount": "{count} cambiados",
+      "changedCount": {
+        "one": "{count} cambiado",
+        "other": "{count} cambiados"
+      },
       "saveError": "No se pudieron guardar los estilos",
       "readOnly": "Solo administradores y editores pueden cambiar los estilos globales."
     },
@@ -2093,7 +2120,10 @@
     "description": "Elige las estructuras de URL públicas para tu contenido y los archivos de taxonomía.",
     "failed": "No se pudieron cargar ni guardar los ajustes de enlaces permanentes.",
     "retry": "Reintentar",
-    "saved": "Enlaces permanentes guardados. Se registraron {count} URLs de contenido anteriores para redirecciones 301.",
+    "saved": {
+      "one": "Enlaces permanentes guardados. Se registró {count} URL de contenido anterior para redirecciones 301.",
+      "other": "Enlaces permanentes guardados. Se registraron {count} URL de contenido anteriores para redirecciones 301."
+    },
     "warning": "Cambiar las URLs puede afectar al posicionamiento en buscadores y a los enlaces externos. Las URLs publicadas conocidas se redirigen automáticamente. Las URLs importadas, las URLs ambiguas compartidas por varios elementos, el contenido eliminado, los enlaces escritos a mano y las URLs históricas no registradas no se pueden asignar automáticamente. Revisa las redirecciones después de guardar.",
     "preset": "Preajuste de URL de entradas",
     "plain": "Simple (consulta por ID de contenido)",
@@ -2283,7 +2313,10 @@
     "save": "Guardar ajustes",
     "saved": "Ajustes de búsqueda guardados.",
     "rebuild": "Reconstruir índice de búsqueda",
-    "rebuilt": "{count} entradas indexadas.",
+    "rebuilt": {
+      "one": "{count} entrada indexada.",
+      "other": "{count} entradas indexadas."
+    },
     "working": "Procesando…",
     "label": "Etiqueta de búsqueda",
     "scope": "Tipos de contenido en los que buscar",
@@ -2491,15 +2524,24 @@
     }
   },
   "comments": {
-    "reasonLinks": "{count} enlace{plural} en el comentario",
-    "reasonKeywords": "{count} palabra{plural} clave de spam detectada{plural}",
+    "reasonLinks": {
+      "one": "{count} enlace en el comentario",
+      "other": "{count} enlaces en el comentario"
+    },
+    "reasonKeywords": {
+      "one": "{count} palabra clave de spam detectada",
+      "other": "{count} palabras clave de spam detectadas"
+    },
     "reasonDisposableEmail": "dominio de correo electrónico desechable",
     "reasonRepetitive": "texto repetitivo",
     "reasonNoToken": "sin token de tiempo de envío (parece un bot)",
     "reasonTooFast": "enviado demasiado rápido tras cargar la página",
     "reasonTrained": "coincide con términos aprendidos de acciones anteriores de «marcar como spam»: {detail}",
     "reasonRule": "coincidió con una regla de bloqueo del administrador ({field})",
-    "deleteConfirm": "¿Eliminar permanentemente {count} comentario(s)?",
+    "deleteConfirm": {
+      "one": "¿Eliminar permanentemente {count} comentario?",
+      "other": "¿Eliminar permanentemente {count} comentarios?"
+    },
     "editCommentPrompt": "Editar comentario",
     "replyToPrompt": "Responder a {name}",
     "blockConfirm": "¿Bloquear todos los comentarios futuros que coincidan con este {field}?\n\n{pattern}",
@@ -2518,7 +2560,10 @@
     "blockEmail": "Bloquear correo electrónico",
     "blockDomain": "Bloquear dominio",
     "blockIp": "Bloquear IP",
-    "selectedCount": "{count} seleccionado(s)",
+    "selectedCount": {
+      "one": "{count} seleccionado",
+      "other": "{count} seleccionados"
+    },
     "onContent": "en: {title}",
     "spamScore": "Puntuación de spam {score}/100",
     "pageOf": "Página {page} de {totalPages}",
@@ -2666,8 +2711,14 @@
     "referencedByContent": "Usado en contenido",
     "restore": "Restaurar",
     "deletePermanently": "Eliminar permanentemente",
-    "emptyConfirm": "¿Eliminar permanentemente los {count} elementos?",
-    "emptyConfirmReferencedSuffix": " También se eliminarán {count} archivo(s) multimedia que todavía se usan."
+    "emptyConfirm": {
+      "one": "¿Eliminar permanentemente {count} elemento?",
+      "other": "¿Eliminar permanentemente los {count} elementos?"
+    },
+    "emptyConfirmReferencedSuffix": {
+      "one": " También se eliminará {count} archivo multimedia que todavía se usa.",
+      "other": " También se eliminarán {count} archivos multimedia que todavía se usan."
+    }
   },
   "headerLibrary": {
     "renamePrompt": "Nombre de la cabecera",
@@ -2914,7 +2965,10 @@
     "install": "Instalar",
     "installOnMainSite": "Instalar en el sitio principal",
     "versionBy": "v{version} · por {publisher}",
-    "resultsCount": "{count} resultados",
+    "resultsCount": {
+      "one": "{count} resultado",
+      "other": "{count} resultados"
+    },
     "categories": {
       "all": "Todos",
       "plugins": "Plugins",
@@ -2936,7 +2990,10 @@
     "checking": "Buscando actualizaciones…",
     "checkNow": "Buscar actualizaciones",
     "checkFailed": "No se pudieron buscar actualizaciones en el Marketplace.",
-    "availableCount": "{count} actualización(es) disponible(s)",
+    "availableCount": {
+      "one": "{count} actualización disponible",
+      "other": "{count} actualizaciones disponibles"
+    },
     "upToDate": "Todo está actualizado.",
     "badge": "Actualización disponible: v{version}",
     "updateTo": "Actualizar a v{version}",
@@ -2997,7 +3054,10 @@
     "captionLabel": "Leyenda",
     "regenerateFinished": "✓ Regeneración terminada: {processed} regeneradas, {skipped} omitidas, {failed} con error.",
     "focalPointHintAfter": "incluidos) mantienen este punto a la vista. Al guardar un nuevo punto focal se regeneran las variantes de esta imagen.",
-    "fileCount": "{count} archivos",
+    "fileCount": {
+      "one": "{count} archivo",
+      "other": "{count} archivos"
+    },
     "regeneratingProgress": "Regenerando… {done}/{total}",
     "focalPointLabel": "Punto focal: {x}% / {y}%",
     "originalDimensions": "original {width}×{height}"
@@ -3216,8 +3276,14 @@
         "runtimeAdvisories": {
           "title": "Avisos de seguridad",
           "clear": "Ningún aviso publicado afecta a esta instalación. Fuente emitida el {issuedAt}.",
-          "affected": "{count} avisos publicados afectan a esta instalación: {ids}.",
-          "revoked": "El editor retiró al menos una versión instalada. Se aplican {count} avisos: {ids}.",
+          "affected": {
+            "one": "{count} aviso publicado afecta a esta instalación: {ids}.",
+            "other": "{count} avisos publicados afectan a esta instalación: {ids}."
+          },
+          "revoked": {
+            "one": "El editor retiró al menos una versión instalada. Se aplica {count} aviso: {ids}.",
+            "other": "El editor retiró al menos una versión instalada. Se aplican {count} avisos: {ids}."
+          },
           "unavailable": "No hay una fuente de avisos verificada, así que esta instalación no se ha comprobado.",
           "stale": "La fuente de avisos caducó el {expiresAt}, así que pueden faltar avisos recientes.",
           "otherSite": "Los avisos se comprueban en el sitio de la plataforma.",
@@ -3275,7 +3341,10 @@
         "starting": "Iniciando…",
         "setUp": "Configurar la verificación en dos pasos",
         "loadError": "No se pudo cargar el estado: {message}",
-        "recoveryCodesLeft": "Quedan {count} códigos de recuperación sin usar."
+        "recoveryCodesLeft": {
+          "one": "Queda {count} código de recuperación sin usar.",
+          "other": "Quedan {count} códigos de recuperación sin usar."
+        }
       },
       "sessions": {
         "loadError": "No se pudieron cargar las sesiones.",
@@ -3287,7 +3356,10 @@
         "thisDevice": "Este dispositivo",
         "unknownDevice": "Dispositivo desconocido",
         "unknownIp": "IP desconocida",
-        "othersRevoked": "Se cerraron {count} sesiones más.",
+        "othersRevoked": {
+          "one": "Se cerró {count} sesión más.",
+          "other": "Se cerraron {count} sesiones más."
+        },
         "lastActive": "última actividad {date}",
         "revoke": "Cerrar",
         "revokeAllOthers": "Cerrar todas las demás sesiones"
@@ -3334,7 +3406,10 @@
         "removeConfirm": "Quitar llave de acceso",
         "signOutOthers": "Cerrar también la sesión en todos los demás dispositivos",
         "removed": "Llave de acceso quitada.",
-        "removedSignedOut": "Llave de acceso quitada. Se cerraron {count} sesiones más.",
+        "removedSignedOut": {
+          "one": "Llave de acceso quitada. Se cerró {count} sesión más.",
+          "other": "Llave de acceso quitada. Se cerraron {count} sesiones más."
+        },
         "removeError": "No se pudo quitar la llave de acceso.",
         "loadError": "No se pudieron cargar las llaves de acceso: {message}",
         "recoveryBody": "Cada código sirve una vez. Guárdalos donde puedas consultarlos sin este dispositivo: junto con tu contraseña, un código te permite entrar si pierdes tus llaves de acceso.",
@@ -3342,7 +3417,10 @@
         "lostBody": "Quítala aquí y cierra la sesión en tus otros dispositivos. Si no puedes iniciar sesión de ninguna forma, usa tu contraseña con un código de recuperación. ¿También olvidaste la contraseña? Restablécela por correo y luego usa un código de recuperación. Un administrador también puede quitar tus llaves de acceso.",
         "recovery": {
           "title": "Códigos de recuperación",
-          "remaining": "Quedan {count} códigos de recuperación sin usar.",
+          "remaining": {
+            "one": "Queda {count} código de recuperación sin usar.",
+            "other": "Quedan {count} códigos de recuperación sin usar."
+          },
           "none": "Todavía no hay códigos de recuperación. Se crean con tu primera llave de acceso o al activar la autenticación en dos pasos.",
           "unknown": "No se pudieron leer los códigos de recuperación.",
           "regenerate": "Crear nuevos códigos de recuperación",
@@ -3461,10 +3539,16 @@
       "settingsSubtitle": "Notificaciones, retención, exportación y eliminación.",
       "settingsTitle": "Ajustes de auditoría",
       "lifecycle": {
-        "bound": "El almacenamiento está limitado a {count} filas de auditoría por sitio; primero se eliminan las más antiguas.",
+        "bound": {
+          "one": "El almacenamiento está limitado a {count} fila de auditoría por sitio; primero se eliminan las más antiguas.",
+          "other": "El almacenamiento está limitado a {count} filas de auditoría por sitio; primero se eliminan las más antiguas."
+        },
         "confirmLabel": "Escribe DELETE SECURITY EVENTS para eliminar permanentemente los eventos de seguridad de este sitio.",
         "deleteButton": "Eliminar eventos de seguridad",
-        "deleted": "Se eliminaron {count} eventos. Se conservó un marcador que solo contiene la cantidad.",
+        "deleted": {
+          "one": "Se eliminó {count} evento. Se conservó un marcador que solo contiene la cantidad.",
+          "other": "Se eliminaron {count} eventos. Se conservó un marcador que solo contiene la cantidad."
+        },
         "exportButton": "Exportar eventos de seguridad censurados",
         "localWarning": "Los registros locales ayudan a investigar, pero pueden alterarse si el servidor está comprometido. Esta función no configura un destino externo.",
         "writeFailed": "Las escrituras de auditoría fallaron a las {time}. Pueden faltar acciones recientes.",
@@ -3643,7 +3727,10 @@
         "customHeaders": "Cabeceras personalizadas e importación"
       },
       "findings": {
-        "title": "Hallazgos ({count} abiertos)",
+        "title": {
+          "one": "Hallazgos ({count} abierto)",
+          "other": "Hallazgos ({count} abiertos)"
+        },
         "review": "Revisar",
         "fix": "Corregir"
       },
@@ -4152,7 +4239,10 @@
       "slow": "Lenta",
       "responsive": "Rápida",
       "percentOf": "{percent}% de {total}",
-      "requestsObserved": "{count} solicitudes observadas",
+      "requestsObserved": {
+        "one": "{count} solicitud observada",
+        "other": "{count} solicitudes observadas"
+      },
       "driverConnected": "{driver} · conectado",
       "connected": "conectado",
       "unavailable": "no disponible",
@@ -4175,7 +4265,10 @@
       "latency": "Latencia",
       "migrations": "Migraciones",
       "current": "Al día",
-      "pendingCount": "{count} pendientes",
+      "pendingCount": {
+        "one": "{count} pendiente",
+        "other": "{count} pendientes"
+      },
       "objectCache": "Caché de objetos",
       "enabled": "Activada",
       "disabled": "Desactivada",
@@ -4191,7 +4284,10 @@
       "colCheck": "Comprobación",
       "colStatus": "Estado",
       "colSummary": "Resumen",
-      "count": "{count} comprobaciones"
+      "count": {
+        "one": "{count} comprobación",
+        "other": "{count} comprobaciones"
+      }
     },
     "cli": {
       "title": "Reproducir desde el servidor",
@@ -4210,10 +4306,22 @@
       "colDatabase": "Base de datos",
       "colHooks": "Hooks",
       "colResolution": "Resolución",
-      "retained": "{count} conservadas",
-      "errorsCount": "{count} errores",
-      "opsCount": "{count} operaciones",
-      "runsCount": "{count} ejecuciones"
+      "retained": {
+        "one": "{count} conservada",
+        "other": "{count} conservadas"
+      },
+      "errorsCount": {
+        "one": "{count} error",
+        "other": "{count} errores"
+      },
+      "opsCount": {
+        "one": "{count} operación",
+        "other": "{count} operaciones"
+      },
+      "runsCount": {
+        "one": "{count} ejecución",
+        "other": "{count} ejecuciones"
+      }
     },
     "hooks": {
       "title": "Inspector de hooks",
@@ -4227,9 +4335,15 @@
       "colStatus": "Estado",
       "core": "Núcleo",
       "disabled": "Desactivado",
-      "errorsCount": "{count} errores",
+      "errorsCount": {
+        "one": "{count} error",
+        "other": "{count} errores"
+      },
       "healthy": "Correcto",
-      "handlersCount": "{count} manejadores"
+      "handlersCount": {
+        "one": "{count} manejador",
+        "other": "{count} manejadores"
+      }
     },
     "blockRenders": {
       "title": "Bloques lentos",
@@ -4262,7 +4376,10 @@
       "notRegistered": "No está registrado",
       "present": "Presente",
       "missing": "Falta",
-      "foundCount": "{count} encontrado(s)"
+      "foundCount": {
+        "one": "{count} encontrado",
+        "other": "{count} encontrados"
+      }
     },
     "themes": {
       "title": "Temas",
@@ -4273,7 +4390,10 @@
       "colVersion": "Versión",
       "colDatabase": "Base de datos",
       "colFiles": "Archivos",
-      "foundCount": "{count} encontrado(s)"
+      "foundCount": {
+        "one": "{count} encontrado",
+        "other": "{count} encontrados"
+      }
     },
     "recentErrors": {
       "title": "Errores recientes",
@@ -4284,7 +4404,10 @@
       "colMessage": "Mensaje",
       "colRequestId": "ID de solicitud",
       "backgroundTask": "Tarea en segundo plano",
-      "capturedCount": "{count} capturadas"
+      "capturedCount": {
+        "one": "{count} capturado",
+        "other": "{count} capturados"
+      }
     },
     "footer": {
       "safeTitle": "Se puede compartir con el soporte sin riesgo",
@@ -4305,7 +4428,10 @@
       "creating": "Creando copia…",
       "description": "Descarga una copia portátil y verificada de este sitio.",
       "download": "Descargar copia del sitio",
-      "mediaSummary": "{count} archivos multimedia originales · {size}",
+      "mediaSummary": {
+        "one": "{count} archivo multimedia original · {size}",
+        "other": "{count} archivos multimedia originales · {size}"
+      },
       "restore": "Restaurar en un sitio limpio",
       "restoreComplete": "Copia restaurada correctamente. Recarga la administración.",
       "restoreFailed": "No se pudo restaurar la copia",
@@ -4446,7 +4572,10 @@
       "clearing": "Vaciando…",
       "clearObjectCache": "Vaciar caché de objetos",
       "logLabel": "Registro de rendimiento",
-      "keysStorage": "{count} claves · {size}",
+      "keysStorage": {
+        "one": "{count} clave · {size}",
+        "other": "{count} claves · {size}"
+      },
       "sampleCacheFiles": "Archivos de caché de muestra ({count})",
       "revalidateHint2": "para los plugins.",
       "browserCacheHint1": "Establece",
@@ -4568,7 +4697,10 @@
       "importing": "Importando…",
       "uploadButton": "Subir WordPress .xml",
       "importFailed": "La importación falló:",
-      "itemsHadErrors": "{count} elemento(s) tuvieron errores. Revisa los registros del servidor.",
+      "itemsHadErrors": {
+        "one": "{count} elemento tuvo errores. Revisa los registros del servidor.",
+        "other": "{count} elementos tuvieron errores. Revisa los registros del servidor."
+      },
       "importComplete": "Importación completa",
       "postsImported": "Entradas importadas: {count}",
       "pagesImported": "Páginas importadas: {count}",
@@ -4616,7 +4748,10 @@
   },
   "updates": {
     "log": {
-      "foundUpdates": "Se encontraron {count} actualización(es)",
+      "foundUpdates": {
+        "one": "Se encontró {count} actualización",
+        "other": "Se encontraron {count} actualizaciones"
+      },
       "upToDate": "Todo está actualizado",
       "alreadyRunning": "Ya hay una actualización en curso",
       "updateFailed": "Error en la actualización",
@@ -4795,8 +4930,14 @@
       "description": "Descripción",
       "descriptionPlaceholder": "¿Para qué sirve este rol?",
       "saveRole": "Guardar rol",
-      "capabilitiesCount": "{count} permisos",
-      "selectedCount": "{count} seleccionado(s)",
+      "capabilitiesCount": {
+        "one": "{count} permiso",
+        "other": "{count} permisos"
+      },
+      "selectedCount": {
+        "one": "{count} seleccionado",
+        "other": "{count} seleccionados"
+      },
       "createRole": "Crear rol",
       "capabilityGroup": {
         "design": "Diseño"
@@ -5034,7 +5175,10 @@
       "lastUsed": "Último uso",
       "never": "Nunca",
       "empty": "No hay apps de IA conectadas.",
-      "permissionCount": "{count} permisos",
+      "permissionCount": {
+        "one": "{count} permiso",
+        "other": "{count} permisos"
+      },
       "userTools": "Herramientas de usuarios y roles",
       "revoke": "Revocar",
       "revokeConfirm": "¿Revocar el acceso de {name}? Dejará de funcionar de inmediato."
@@ -5140,7 +5284,10 @@
       "enabled": "Activado",
       "test": "Probar conexión",
       "testing": "Probando…",
-      "testOk": "La conexión funciona. {count} modelos disponibles.",
+      "testOk": {
+        "one": "La conexión funciona. {count} modelo disponible.",
+        "other": "La conexión funciona. {count} modelos disponibles."
+      },
       "saved": "Guardado.",
       "remove": "Quitar",
       "removeConfirm": "¿Quitar la clave de {provider}?"
@@ -5509,7 +5656,10 @@
       "local": "El disco del servidor, en una carpeta privada fuera de los archivos públicos."
     },
     "publicBucket": "El bucket S3 de la instalación es público (STORAGE_S3_PUBLIC_URL está definido), así que los archivos privados se guardan en el disco del servidor. Añade un bucket privado abajo para usar S3.",
-    "copying": "Copiando {count} archivos al almacenamiento actual. Se hace en segundo plano; las descargas siguen funcionando.",
+    "copying": {
+      "one": "Copiando {count} archivo al almacenamiento actual. Se hace en segundo plano; las descargas siguen funcionando.",
+      "other": "Copiando {count} archivos al almacenamiento actual. Se hace en segundo plano; las descargas siguen funcionando."
+    },
     "filesUsage": "Archivos privados",
     "bytesUsage": "Almacenamiento de archivos privados",
     "usageUnlimited": "{used} (sin límite)",

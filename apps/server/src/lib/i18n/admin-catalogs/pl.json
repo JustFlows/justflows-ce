@@ -67,7 +67,12 @@
     "url": "Adres URL punktu końcowego",
     "events": "Wydarzenia",
     "chooseEvents": "Wybierz wydarzenia…",
-    "selectedEvents": "Wybrano zdarzenia {count}",
+    "selectedEvents": {
+      "one": "Wybrano {count} zdarzenie",
+      "few": "Wybrano {count} zdarzenia",
+      "many": "Wybrano {count} zdarzeń",
+      "other": "Wybrano {count} zdarzenia"
+    },
     "selectAll": "Zaznacz wszystko",
     "clear": "Wyczyść",
     "removeEvent": "Usuń {event}",
@@ -103,7 +108,12 @@
     "name": "Imię",
     "capabilities": "Możliwości",
     "chooseCapabilities": "Wybierz możliwości…",
-    "selectedCapabilities": "Wybrane możliwości {count}",
+    "selectedCapabilities": {
+      "one": "Wybrano {count} uprawnienie",
+      "few": "Wybrano {count} uprawnienia",
+      "many": "Wybrano {count} uprawnień",
+      "other": "Wybrano {count} uprawnienia"
+    },
     "selectAll": "Zaznacz wszystko",
     "clear": "Wyczyść",
     "removeCapability": "Usuń {capability}",
@@ -172,7 +182,12 @@
     "selectAll": "Zaznacz wszystko",
     "deleteSelected": "Usuń {count}",
     "bulkEdit": "Edytuj {count}",
-    "trashConfirm": "Przenieść wpisy ({count}) do kosza? Możesz je przywrócić w okresie przechowywania.",
+    "trashConfirm": {
+      "one": "Przenieść {count} wpis do kosza? Możesz go przywrócić w okresie przechowywania.",
+      "few": "Przenieść {count} wpisy do kosza? Możesz je przywrócić w okresie przechowywania.",
+      "many": "Przenieść {count} wpisów do kosza? Możesz je przywrócić w okresie przechowywania.",
+      "other": "Przenieść {count} wpisy do kosza? Możesz je przywrócić w okresie przechowywania."
+    },
     "listEmptyTitle": "Nie ma jeszcze {section}",
     "listEmptyBody": "Aby rozpocząć, utwórz pierwszy {type}.",
     "listError": "Nie można załadować {section}.",
@@ -320,7 +335,7 @@
       "statusScheduled": "Zaplanowane",
       "allTypes": "Wszystko",
       "allLanguages": "Wszystkie języki",
-      "filteredCount": "{count} lub {total}",
+      "filteredCount": "{count} z {total}",
       "emptyTitle": "Jeszcze nic tu nie ma",
       "emptyCreateFirst": "Aby rozpocząć, utwórz swój pierwszy post lub stronę.",
       "emptyNoMatches": "Żadna treść nie pasuje do bieżących filtrów.",
@@ -379,7 +394,12 @@
     "menuName": "Nazwa menu",
     "menuSlug": "Slug menu (np. stopka)",
     "createMenuButton": "Utwórz menu",
-    "itemCount": "Elementy {count}",
+    "itemCount": {
+      "one": "{count} element",
+      "few": "{count} elementy",
+      "many": "{count} elementów",
+      "other": "{count} elementy"
+    },
     "empty": "Nie ma jeszcze żadnych pozycji menu.",
     "emptyHint": "Dodaj opublikowaną treść lub niestandardowe linki z panelu po lewej stronie.",
     "type": {
@@ -394,7 +414,12 @@
     "outdent": "Wybity",
     "expand": "Rozwiń",
     "collapse": "Zwiń",
-    "collapsedCount": "{count} ukryty",
+    "collapsedCount": {
+      "one": "Ukryte: {count}",
+      "few": "Ukryte: {count}",
+      "many": "Ukryte: {count}",
+      "other": "Ukryte: {count}"
+    },
     "duplicate": "Duplikat",
     "addSubItem": "Dodaj podelement",
     "newSubItem": "Podpunkt",
@@ -479,7 +504,12 @@
       "linkUrl": "URL",
       "addLink": "+ Dodaj link",
       "useAdvanced": "Potrzebujesz czegoś innego? Przejdź do zaawansowanego edytora bloków",
-      "summaryLinks": "Łącza {count}",
+      "summaryLinks": {
+        "one": "{count} link",
+        "few": "{count} linki",
+        "many": "{count} linków",
+        "other": "{count} linki"
+      },
       "summaryPromo": "Podświetl panel",
       "summaryCustom": "Treść niestandardowa",
       "promoBackground": "Tło",
@@ -1196,7 +1226,12 @@
         "noOptions": "Nie ma jeszcze nic do wyboru.",
         "none": "— Brak —",
         "search": "Szukaj…",
-        "selected": "Wybrano {count}"
+        "selected": {
+          "one": "Wybrano: {count}",
+          "few": "Wybrano: {count}",
+          "many": "Wybrano: {count}",
+          "other": "Wybrano: {count}"
+        }
       }
     },
     "preview": {
@@ -1670,7 +1705,12 @@
       "editLocked": "Ten blok jest zablokowany przed edycją. Poproś osobę zarządzającą blokadami o odblokowanie.",
       "editLockedManage": "Ten blok jest zablokowany przed edycją. Odblokuj go w menu bloku, aby go zmienić.",
       "multi": {
-        "title": "Zaznaczone bloki: {count}",
+        "title": {
+          "one": "Zaznaczono {count} blok",
+          "few": "Zaznaczono {count} bloki",
+          "many": "Zaznaczono {count} bloków",
+          "other": "Zaznaczono {count} bloki"
+        },
         "menuHint": "Kliknij prawym przyciskiem lub naciśnij Shift+F10, aby zobaczyć wszystkie akcje.",
         "sharedStyle": "Wspólny styl",
         "styleSubset": "Zmiany stylu dotyczą {count} z {total} bloków. Zablokowane bloki i bloki z własnym ustawieniem stylu są pomijane.",
@@ -1880,7 +1920,12 @@
       "publishedState": "Wszystko opublikowane",
       "revert": "Wróć do opublikowanego",
       "unpublished": "nieopublikowane",
-      "changedCount": "Zmieniono: {count}",
+      "changedCount": {
+        "one": "Zmieniono: {count}",
+        "few": "Zmieniono: {count}",
+        "many": "Zmieniono: {count}",
+        "other": "Zmieniono: {count}"
+      },
       "saveError": "Nie udało się zapisać stylów",
       "readOnly": "Tylko administratorzy i redaktorzy mogą zmieniać style globalne."
     },
@@ -2142,7 +2187,12 @@
     "description": "Wybierz publiczne struktury URL dla swoich archiwów treści i taksonomii.",
     "failed": "Nie można załadować lub zapisać ustawień łącza bezpośredniego.",
     "retry": "Spróbuj ponownie",
-    "saved": "Zapisano linki stałe. {count} poprzednia treść URLs zarejestrowana dla 301 przekierowań.",
+    "saved": {
+      "one": "Linki stałe zapisane. Zapamiętano {count} poprzedni adres URL treści dla przekierowań 301.",
+      "few": "Linki stałe zapisane. Zapamiętano {count} poprzednie adresy URL treści dla przekierowań 301.",
+      "many": "Linki stałe zapisane. Zapamiętano {count} poprzednich adresów URL treści dla przekierowań 301.",
+      "other": "Linki stałe zapisane. Zapamiętano {count} poprzednie adresy URL treści dla przekierowań 301."
+    },
     "warning": "Zmiana URLs może mieć wpływ na rankingi wyszukiwania i linki zewnętrzne. Znane opublikowane URLs są przekierowywane automatycznie. Zaimportowany URLs, niejednoznaczny URLs współdzielony przez wiele elementów, usunięta treść, odręczne linki i niezapisane historyczne URLs nie mogą być mapowane automatycznie. Przejrzyj przekierowania po zapisaniu.",
     "preset": "Opublikuj ustawienie wstępne URL",
     "plain": "Zwykły (zapytanie dotyczące identyfikatora treści)",
@@ -2163,7 +2213,7 @@
     "localeHelp": "Przedrostki ustawień regionalnych pojawiają się przed strukturą. Domyślne ustawienia regionalne nie mają przedrostka; inne włączone ustawienia regionalne zachowują pełny znacznik ustawień regionalnych. Strona główna pozostaje w katalogu głównym ustawień regionalnych.",
     "save": "Zapisz linki bezpośrednie",
     "saving": "Zapisuję…",
-    "history": "Treść historyczna URLs ({count})"
+    "history": "Poprzednie adresy URL treści ({count})"
   },
   "placeholders": {
     "title": "Elementy zastępcze",
@@ -2332,7 +2382,12 @@
     "save": "Zapisz ustawienia",
     "saved": "Ustawienia wyszukiwania zostały zapisane.",
     "rebuild": "Odbuduj indeks wyszukiwania",
-    "rebuilt": "Indeksowane wpisy {count}.",
+    "rebuilt": {
+      "one": "Zaindeksowano {count} wpis.",
+      "few": "Zaindeksowano {count} wpisy.",
+      "many": "Zaindeksowano {count} wpisów.",
+      "other": "Zaindeksowano {count} wpisy."
+    },
     "working": "Pracuję…",
     "label": "Szukaj etykiety",
     "scope": "Zakres typu zawartości",
@@ -2718,8 +2773,18 @@
     "referencedWarning": "Treść nadal odwołuje się do tego pliku multimedialnego. Mimo to usunąć go trwale?",
     "deleteConfirm": "Trwale usunąć „{label}”? Tego nie można cofnąć.",
     "deleteFailed": "Nie można usunąć elementu",
-    "emptyConfirm": "Trwale usunąć wszystkie elementy {count}?",
-    "emptyConfirmReferencedSuffix": "Pliki multimedialne, do których odnosi się {count}, również zostaną usunięte.",
+    "emptyConfirm": {
+      "one": "Trwale usunąć {count} element?",
+      "few": "Trwale usunąć wszystkie {count} elementy?",
+      "many": "Trwale usunąć wszystkie {count} elementów?",
+      "other": "Trwale usunąć wszystkie {count} elementy?"
+    },
+    "emptyConfirmReferencedSuffix": {
+      "one": " Usunięty zostanie też {count} plik multimedialny, do którego są odwołania.",
+      "few": " Usunięte zostaną też {count} pliki multimedialne, do których są odwołania.",
+      "many": " Usuniętych zostanie też {count} plików multimedialnych, do których są odwołania.",
+      "other": " Usunięte zostaną też {count} pliki multimedialne, do których są odwołania."
+    },
     "emptyFailed": "Nie udało się opróżnić kosza",
     "heading": "Kosz",
     "subtitle": "Możliwość odzyskania treści, multimediów, komentarzy i menu",
@@ -2740,8 +2805,18 @@
       "moderation": "wstrzymane, ponieważ wszystkie komentarze wymagają moderacji",
       "firstTime": "uznano za pierwszy komentarz tego komentatora"
     },
-    "reasonLinks": "{count} link{plural} w komentarzu",
-    "reasonKeywords": "Dopasowane słowo kluczowe spamu {count}{plural}",
+    "reasonLinks": {
+      "one": "{count} link w komentarzu",
+      "few": "{count} linki w komentarzu",
+      "many": "{count} linków w komentarzu",
+      "other": "{count} linki w komentarzu"
+    },
+    "reasonKeywords": {
+      "one": "Pasuje {count} słowo kluczowe spamu",
+      "few": "Pasują {count} słowa kluczowe spamu",
+      "many": "Pasuje {count} słów kluczowych spamu",
+      "other": "Pasują {count} słowa kluczowe spamu"
+    },
     "reasonDisposableEmail": "jednorazowa domena e-mail",
     "reasonRepetitive": "powtarzający się tekst",
     "reasonNoToken": "brak tokena czasu przesłania (podobny do bota)",
@@ -2756,7 +2831,12 @@
     "tabTrash": "śmieci",
     "heading": "Komentarze",
     "subtitle": "Umiarkuj dyskusję w całej witrynie",
-    "selectedCount": "Wybrano {count}",
+    "selectedCount": {
+      "one": "Wybrano: {count}",
+      "few": "Wybrano: {count}",
+      "many": "Wybrano: {count}",
+      "other": "Wybrano: {count}"
+    },
     "approve": "Zatwierdź",
     "unapprove": "Cofnij zatwierdzenie",
     "markSpam": "Oznacz jako spam",
@@ -2765,7 +2845,12 @@
     "noComments": "Brak komentarzy do {tab}",
     "emptyHint": "Nic nie wymaga tu teraz twojej uwagi.",
     "selectAll": "Zaznacz wszystko",
-    "deleteConfirm": "Trwale usunąć komentarze {count}?",
+    "deleteConfirm": {
+      "one": "Trwale usunąć {count} komentarz?",
+      "few": "Trwale usunąć {count} komentarze?",
+      "many": "Trwale usunąć {count} komentarzy?",
+      "other": "Trwale usunąć {count} komentarze?"
+    },
     "editCommentPrompt": "Edytuj komentarz",
     "replyToPrompt": "Odpowiedz na {name}",
     "blockConfirm": "Zablokuj wszystkie przyszłe komentarze pasujące do tego {field}?\n\n{pattern}",
@@ -3042,7 +3127,12 @@
       "media": "Media",
       "ecommerce": "Handel elektroniczny"
     },
-    "resultsCount": "Wyniki {count}",
+    "resultsCount": {
+      "one": "{count} wynik",
+      "few": "{count} wyniki",
+      "many": "{count} wyników",
+      "other": "{count} wyniki"
+    },
     "loadingCatalogue": "Ładowanie katalogu",
     "loadingListings": "Pobieranie list z Justflows API.",
     "emptyTitle": "Nic nie pasuje do tego wyszukiwania",
@@ -3069,7 +3159,12 @@
     "checking": "Sprawdzanie aktualizacji…",
     "checkNow": "Sprawdź aktualizacje",
     "checkFailed": "Nie udało się sprawdzić aktualizacji w Marketplace.",
-    "availableCount": "Dostępne aktualizacje: {count}",
+    "availableCount": {
+      "one": "Dostępna {count} aktualizacja",
+      "few": "Dostępne {count} aktualizacje",
+      "many": "Dostępnych {count} aktualizacji",
+      "other": "Dostępne {count} aktualizacje"
+    },
     "upToDate": "Wszystko jest aktualne.",
     "badge": "Dostępna aktualizacja: v{version}",
     "updateTo": "Aktualizuj do v{version}",
@@ -3106,7 +3201,12 @@
     "regenerateForbidden": "Tylko administratorzy mogą ponownie wygenerować bibliotekę",
     "regenerateFailed": "Nie można rozpocząć regeneracji",
     "title": "Biblioteka multimediów",
-    "fileCount": "Pliki {count}",
+    "fileCount": {
+      "one": "{count} plik",
+      "few": "{count} pliki",
+      "many": "{count} plików",
+      "other": "{count} pliki"
+    },
     "uploadButton": "Prześlij pliki",
     "regenerateTooltip": "Przebuduj warianty o zmienionym rozmiarze i WebP/AVIF dla każdego obrazu z bieżącymi ustawieniami",
     "regenerating": "Regenerujący…",
@@ -3243,7 +3343,12 @@
       "cacheHitRate": "Współczynnik trafień w pamięci podręcznej",
       "databaseLatency": "Opóźnienie bazy danych",
       "percentOf": "{percent}% {total}",
-      "requestsObserved": "Zaobserwowano żądania {count}",
+      "requestsObserved": {
+        "one": "Zaobserwowano {count} żądanie",
+        "few": "Zaobserwowano {count} żądania",
+        "many": "Zaobserwowano {count} żądań",
+        "other": "Zaobserwowano {count} żądania"
+      },
       "driverConnected": "{driver} · podłączony",
       "slow": "Powolny",
       "responsive": "Responsywny",
@@ -3265,7 +3370,12 @@
       "latency": "Opóźnienie",
       "migrations": "Migracje",
       "current": "Aktualny",
-      "pendingCount": "{count} w oczekiwaniu",
+      "pendingCount": {
+        "one": "Oczekujące: {count}",
+        "few": "Oczekujące: {count}",
+        "many": "Oczekujące: {count}",
+        "other": "Oczekujące: {count}"
+      },
       "objectCache": "Pamięć podręczna obiektów",
       "enabled": "Włączone",
       "disabled": "Wyłączone",
@@ -3276,7 +3386,12 @@
     "pluginChecks": {
       "title": "Kontrola stanu wtyczki",
       "hint": "Sprawdzanie przestrzeni nazw publikowane przez aktywne wtyczki z uprawnieniami diagnostycznymi.",
-      "count": "Sprawdza {count}",
+      "count": {
+        "one": "{count} kontrola",
+        "few": "{count} kontrole",
+        "many": "{count} kontroli",
+        "other": "{count} kontrole"
+      },
       "none": "Nie zarejestrowano żadnej diagnostyki wtyczek.",
       "colPlugin": "Wtyczka",
       "colCheck": "Sprawdź",
@@ -3292,7 +3407,12 @@
     "traces": {
       "title": "Poproś o ślady",
       "hint": "Ostatnie żądania debugowania administratora z witryny publicznej.",
-      "retained": "{count} zachowane",
+      "retained": {
+        "one": "Zachowano: {count}",
+        "few": "Zachowano: {count}",
+        "many": "Zachowano: {count}",
+        "other": "Zachowano: {count}"
+      },
       "none": "Otwórz stronę publiczną, gdy tryb debugowania jest aktywny, aby przechwycić ślad.",
       "colRequest": "Żądanie",
       "colPage": "Strona",
@@ -3301,15 +3421,40 @@
       "colDatabase": "Baza danych",
       "colHooks": "Haczyki",
       "colResolution": "Rozdzielczość",
-      "opsCount": "{count} op",
-      "runsCount": "{count} działa",
-      "errorsCount": "Błędy {count}"
+      "opsCount": {
+        "one": "{count} operacja",
+        "few": "{count} operacje",
+        "many": "{count} operacji",
+        "other": "{count} operacje"
+      },
+      "runsCount": {
+        "one": "{count} wywołanie",
+        "few": "{count} wywołania",
+        "many": "{count} wywołań",
+        "other": "{count} wywołania"
+      },
+      "errorsCount": {
+        "one": "{count} błąd",
+        "few": "{count} błędy",
+        "many": "{count} błędów",
+        "other": "{count} błędy"
+      }
     },
     "hooks": {
       "title": "Inspektor haków",
       "hint": "Wpisane procedury obsługi zarejestrowane przez rdzeń i aktywne wtyczki.",
-      "handlersCount": "Podnośniki {count}",
-      "errorsCount": "Błędy {count}",
+      "handlersCount": {
+        "one": "{count} procedura obsługi",
+        "few": "{count} procedury obsługi",
+        "many": "{count} procedur obsługi",
+        "other": "{count} procedury obsługi"
+      },
+      "errorsCount": {
+        "one": "{count} błąd",
+        "few": "{count} błędy",
+        "many": "{count} błędów",
+        "other": "{count} błędy"
+      },
       "none": "Nie zarejestrowano żadnych osób zajmujących się obsługą haków.",
       "colHook": "Hak",
       "colOwner": "Właściciel",
@@ -3343,7 +3488,12 @@
     "plugins": {
       "title": "Wtyczki",
       "hint": "Wtyczki programistyczne i pakiety Marketplace połączone ze stanem ich bazy danych.",
-      "foundCount": "Znaleziono {count}",
+      "foundCount": {
+        "one": "Znaleziono: {count}",
+        "few": "Znaleziono: {count}",
+        "many": "Znaleziono: {count}",
+        "other": "Znaleziono: {count}"
+      },
       "none": "Nie znaleziono żadnych wtyczek.",
       "colPlugin": "Wtyczka",
       "colSource": "Źródło",
@@ -3359,7 +3509,12 @@
     "themes": {
       "title": "Motywy",
       "hint": "Motywy programistyczne i pakiety Marketplace połączone ze stanem aktywacji bazy danych.",
-      "foundCount": "Znaleziono {count}",
+      "foundCount": {
+        "one": "Znaleziono: {count}",
+        "few": "Znaleziono: {count}",
+        "many": "Znaleziono: {count}",
+        "other": "Znaleziono: {count}"
+      },
       "none": "Nie znaleziono żadnych tematów.",
       "colTheme": "Motyw",
       "colSource": "Źródło",
@@ -3370,7 +3525,12 @@
     "recentErrors": {
       "title": "Ostatnie błędy",
       "hint": "Oczyszczone wiadomości pogrupowane według identyfikatora żądania. Ślady stosu, treści żądań i poświadczenia są wykluczone.",
-      "capturedCount": "{count} przechwycony",
+      "capturedCount": {
+        "one": "Przechwycono: {count}",
+        "few": "Przechwycono: {count}",
+        "many": "Przechwycono: {count}",
+        "other": "Przechwycono: {count}"
+      },
       "none": "Podczas tego procesu nie wykryto żadnych błędów aplikacji.",
       "colTime": "Czas",
       "colContext": "Kontekst",
@@ -3755,8 +3915,18 @@
         "runtimeAdvisories": {
           "title": "Biuletyny bezpieczeństwa",
           "clear": "Żaden opublikowany biuletyn nie dotyczy tej instalacji. Kanał wydany: {issuedAt}.",
-          "affected": "Liczba opublikowanych biuletynów dotyczących tej instalacji: {count}. Identyfikatory: {ids}.",
-          "revoked": "Wydawca wycofał co najmniej jedną zainstalowaną wersję. Liczba biuletynów: {count}. Identyfikatory: {ids}.",
+          "affected": {
+            "one": "Tej instalacji dotyczy {count} opublikowany biuletyn: {ids}.",
+            "few": "Tej instalacji dotyczą {count} opublikowane biuletyny: {ids}.",
+            "many": "Tej instalacji dotyczy {count} opublikowanych biuletynów: {ids}.",
+            "other": "Tej instalacji dotyczą {count} opublikowane biuletyny: {ids}."
+          },
+          "revoked": {
+            "one": "Wydawca wycofał co najmniej jedną zainstalowaną wersję. Dotyczy {count} biuletyn: {ids}.",
+            "few": "Wydawca wycofał co najmniej jedną zainstalowaną wersję. Dotyczą {count} biuletyny: {ids}.",
+            "many": "Wydawca wycofał co najmniej jedną zainstalowaną wersję. Dotyczy {count} biuletynów: {ids}.",
+            "other": "Wydawca wycofał co najmniej jedną zainstalowaną wersję. Dotyczą {count} biuletyny: {ids}."
+          },
           "unavailable": "Brak zweryfikowanego kanału biuletynów, więc tej instalacji nie sprawdzono.",
           "stale": "Kanał biuletynów wygasł: {expiresAt}, więc może brakować najnowszych biuletynów.",
           "otherSite": "Biuletyny są sprawdzane w witrynie platformy.",
@@ -3793,7 +3963,12 @@
         "hint": "Urządzenia aktualnie zalogowane na Twoje konto.",
         "lastActive": "ostatni aktywny {date}",
         "loadError": "Nie udało się wczytać sesji.",
-        "othersRevoked": "{count} inne sesje odwołane.",
+        "othersRevoked": {
+          "one": "Zakończono {count} inną sesję.",
+          "few": "Zakończono {count} inne sesje.",
+          "many": "Zakończono {count} innych sesji.",
+          "other": "Zakończono {count} inne sesje."
+        },
         "revoke": "Odwołaj",
         "revokeAllOthers": "Odwołaj wszystkie pozostałe sesje",
         "revokeError": "Nie można odwołać sesji.",
@@ -3826,7 +4001,12 @@
           "saved": "Uratowałem ich",
           "title": "Zapisz swoje kody odzyskiwania"
         },
-        "recoveryCodesLeft": "Pozostały niewykorzystane kody odzyskiwania {count}.",
+        "recoveryCodesLeft": {
+          "one": "Pozostał {count} niewykorzystany kod odzyskiwania.",
+          "few": "Pozostały {count} niewykorzystane kody odzyskiwania.",
+          "many": "Pozostało {count} niewykorzystanych kodów odzyskiwania.",
+          "other": "Pozostały {count} niewykorzystane kody odzyskiwania."
+        },
         "setUp": "Skonfiguruj dwuczynnikowy",
         "setup": {
           "body": "Dodaj ten klucz do aplikacji uwierzytelniającej, a następnie wprowadź wyświetlany kod. Na telefonie poniższy link otwiera bezpośrednio aplikację.",
@@ -3873,7 +4053,12 @@
         "removeConfirm": "Usuń klucz dostępu",
         "signOutOthers": "Wyloguj też wszystkie inne urządzenia",
         "removed": "Klucz dostępu usunięty.",
-        "removedSignedOut": "Klucz dostępu usunięty. Wylogowano inne sesje: {count}.",
+        "removedSignedOut": {
+          "one": "Klucz dostępu usunięty. Wylogowano {count} inną sesję.",
+          "few": "Klucz dostępu usunięty. Wylogowano {count} inne sesje.",
+          "many": "Klucz dostępu usunięty. Wylogowano {count} innych sesji.",
+          "other": "Klucz dostępu usunięty. Wylogowano {count} inne sesje."
+        },
         "removeError": "Nie udało się usunąć klucza dostępu.",
         "loadError": "Nie udało się wczytać kluczy dostępu: {message}",
         "recoveryBody": "Każdy kod działa raz. Przechowuj je tam, gdzie masz do nich dostęp bez tego urządzenia: razem z hasłem kod pozwala się zalogować, jeśli stracisz klucze dostępu.",
@@ -3881,7 +4066,12 @@
         "lostBody": "Usuń go tutaj i wyloguj pozostałe urządzenia. Jeśli w ogóle nie możesz się zalogować, użyj hasła z kodem odzyskiwania. Nie pamiętasz też hasła? Zresetuj je przez e-mail, a potem użyj kodu odzyskiwania. Klucze dostępu może też usunąć administrator.",
         "recovery": {
           "title": "Kody odzyskiwania",
-          "remaining": "Pozostałe niewykorzystane kody odzyskiwania: {count}.",
+          "remaining": {
+            "one": "Pozostał {count} niewykorzystany kod odzyskiwania.",
+            "few": "Pozostały {count} niewykorzystane kody odzyskiwania.",
+            "many": "Pozostało {count} niewykorzystanych kodów odzyskiwania.",
+            "other": "Pozostały {count} niewykorzystane kody odzyskiwania."
+          },
           "none": "Brak kodów odzyskiwania. Powstają przy pierwszym kluczu dostępu lub po włączeniu uwierzytelniania dwuskładnikowego.",
           "unknown": "Nie udało się odczytać kodów odzyskiwania.",
           "regenerate": "Utwórz nowe kody odzyskiwania",
@@ -4005,10 +4195,20 @@
       "settingsSubtitle": "Powiadomienia, retencja, eksport i usuwanie.",
       "settingsTitle": "Ustawienia audytu",
       "lifecycle": {
-        "bound": "Pamięć jest ograniczona do {count} wierszy audytu na witrynę; najstarsze są usuwane jako pierwsze.",
+        "bound": {
+          "one": "Pamięć jest ograniczona do {count} wiersza audytu na witrynę; najstarsze są usuwane jako pierwsze.",
+          "few": "Pamięć jest ograniczona do {count} wierszy audytu na witrynę; najstarsze są usuwane jako pierwsze.",
+          "many": "Pamięć jest ograniczona do {count} wierszy audytu na witrynę; najstarsze są usuwane jako pierwsze.",
+          "other": "Pamięć jest ograniczona do {count} wierszy audytu na witrynę; najstarsze są usuwane jako pierwsze."
+        },
         "confirmLabel": "Wpisz DELETE SECURITY EVENTS, aby trwale usunąć zdarzenia bezpieczeństwa tej witryny.",
         "deleteButton": "Usuń zdarzenia bezpieczeństwa",
-        "deleted": "Usunięto {count} zdarzeń. Zachowano znacznik zawierający tylko liczbę.",
+        "deleted": {
+          "one": "Usunięto {count} zdarzenie. Zachowano znacznik zawierający tylko liczbę.",
+          "few": "Usunięto {count} zdarzenia. Zachowano znacznik zawierający tylko liczbę.",
+          "many": "Usunięto {count} zdarzeń. Zachowano znacznik zawierający tylko liczbę.",
+          "other": "Usunięto {count} zdarzenia. Zachowano znacznik zawierający tylko liczbę."
+        },
         "exportButton": "Eksportuj zredagowane zdarzenia bezpieczeństwa",
         "localWarning": "Lokalne dzienniki pomagają w dochodzeniu, ale host po przejęciu może je zmienić. Ta funkcja nie konfiguruje zewnętrznego odbiornika.",
         "writeFailed": "Zapisy audytu zgłosiły błąd o {time}. Może brakować ostatnich działań.",
@@ -4130,7 +4330,12 @@
       "findings": {
         "fix": "Napraw",
         "review": "Recenzja",
-        "title": "Wyniki ({count} otwarte)"
+        "title": {
+          "one": "Wyniki (otwarte: {count})",
+          "few": "Wyniki (otwarte: {count})",
+          "many": "Wyniki (otwarte: {count})",
+          "other": "Wyniki (otwarte: {count})"
+        }
       },
       "headersSent": {
         "hint": "Dokładnie to, co otrzymuje przeglądarka, obliczone na podstawie konfiguracji aktualnie wyświetlanej na ekranie.",
@@ -4511,7 +4716,12 @@
       "creating": "Tworzenie kopii…",
       "description": "Pobierz przenośną, zweryfikowaną kopię tej witryny.",
       "download": "Pobierz kopię witryny",
-      "mediaSummary": "{count} oryginalnych plików multimedialnych · {size}",
+      "mediaSummary": {
+        "one": "{count} oryginalny plik multimedialny · {size}",
+        "few": "{count} oryginalne pliki multimedialne · {size}",
+        "many": "{count} oryginalnych plików multimedialnych · {size}",
+        "other": "{count} oryginalne pliki multimedialne · {size}"
+      },
       "restore": "Przywróć do czystej witryny",
       "restoreComplete": "Kopia została przywrócona. Odśwież panel administratora.",
       "restoreFailed": "Nie udało się przywrócić kopii",
@@ -4637,7 +4847,12 @@
       "hitRateSuffix": "({rate}%)",
       "hitsMisses": "{hits} trafia / {misses} chybia",
       "htmlMaxAgeLabel": "Maksymalny wiek HTML (s)",
-      "keysStorage": "Klucze {count} · {size}",
+      "keysStorage": {
+        "one": "{count} klucz · {size}",
+        "few": "{count} klucze · {size}",
+        "many": "{count} kluczy · {size}",
+        "other": "{count} klucze · {size}"
+      },
       "loadFailed": "Nie udało się wczytać ustawień wydajności",
       "logLabel": "Dziennik wydajności",
       "minSizeHint": "Pomiń kompresję w przypadku drobnych odpowiedzi.",
@@ -4812,7 +5027,12 @@
       "importComplete": "Import zakończony",
       "importFailed": "Import nie powiódł się:",
       "importing": "Importuję…",
-      "itemsHadErrors": "Elementy {count} zawierały błędy. Sprawdź logi serwera.",
+      "itemsHadErrors": {
+        "one": "{count} element zawierał błędy. Sprawdź logi serwera.",
+        "few": "{count} elementy zawierały błędy. Sprawdź logi serwera.",
+        "many": "{count} elementów zawierało błędy. Sprawdź logi serwera.",
+        "other": "{count} elementy zawierały błędy. Sprawdź logi serwera."
+      },
       "pagesImported": "Zaimportowane strony: {count}",
       "postsImported": "Zaimportowane posty: {count}",
       "skipped": "Pominięte: {count}",
@@ -4847,7 +5067,12 @@
       "appRestarting": "Aplikacja uruchamia się ponownie — czeka na powrót witryny…",
       "checkingStatus": "{message} — sprawdzanie statusu aktualizacji…",
       "forceReinstalling": "Wymuś ponowną instalację Justflows v{version}…",
-      "foundUpdates": "Znaleziono aktualizacje {count}",
+      "foundUpdates": {
+        "one": "Znaleziono {count} aktualizację",
+        "few": "Znaleziono {count} aktualizacje",
+        "many": "Znaleziono {count} aktualizacji",
+        "other": "Znaleziono {count} aktualizacje"
+      },
       "lostContact": "Utracono kontakt z serwerem — odśwież tę stronę, aby sprawdzić wynik",
       "manualRestartNeeded": "Nie można automatycznie uruchomić ponownie — uruchom ponownie Justflows na serwerze",
       "manualRestartNeededContainer": "Nie można automatycznie uruchomić ponownie — uruchom ponownie kontener Justflows",
@@ -5010,7 +5235,12 @@
       "createRole": "Utwórz rolę",
       "loading": "Ładowanie ról…",
       "builtIn": "Wbudowany",
-      "capabilitiesCount": "Możliwości {count}",
+      "capabilitiesCount": {
+        "one": "{count} uprawnienie",
+        "few": "{count} uprawnienia",
+        "many": "{count} uprawnień",
+        "other": "{count} uprawnienia"
+      },
       "managedByJustflows": "Zarządzane przez Justflows",
       "customAccessRole": "Niestandardowa rola dostępu",
       "editRole": "Edytuj",
@@ -5021,7 +5251,12 @@
       "roleName": "Nazwa roli",
       "description": "Opis",
       "descriptionPlaceholder": "Do czego służy ta rola?",
-      "selectedCount": "Wybrano {count}",
+      "selectedCount": {
+        "one": "Wybrano: {count}",
+        "few": "Wybrano: {count}",
+        "many": "Wybrano: {count}",
+        "other": "Wybrano: {count}"
+      },
       "saveRole": "Zapisz rolę",
       "deleteRoleConfirm": "Usunąć rolę {name}?",
       "failedToLoadRoles": "Nie udało się wczytać ról",
@@ -5085,7 +5320,12 @@
       "lastUsed": "Ostatnie użycie",
       "never": "Nigdy",
       "empty": "Brak połączonych aplikacji AI.",
-      "permissionCount": "Uprawnienia: {count}",
+      "permissionCount": {
+        "one": "{count} uprawnienie",
+        "few": "{count} uprawnienia",
+        "many": "{count} uprawnień",
+        "other": "{count} uprawnienia"
+      },
       "userTools": "Narzędzia użytkowników i ról",
       "revoke": "Cofnij dostęp",
       "revokeConfirm": "Cofnąć dostęp dla {name}? Przestanie działać natychmiast."
@@ -5191,7 +5431,12 @@
       "enabled": "Włączony",
       "test": "Testuj połączenie",
       "testing": "Testowanie…",
-      "testOk": "Połączenie działa. Dostępne modele: {count}.",
+      "testOk": {
+        "one": "Połączenie działa. Dostępny jest {count} model.",
+        "few": "Połączenie działa. Dostępne są {count} modele.",
+        "many": "Połączenie działa. Dostępnych jest {count} modeli.",
+        "other": "Połączenie działa. Dostępne są {count} modele."
+      },
       "saved": "Zapisano.",
       "remove": "Usuń",
       "removeConfirm": "Usunąć klucz {provider}?"
@@ -5560,7 +5805,12 @@
       "local": "Dysk serwera, w prywatnym folderze poza publicznymi plikami."
     },
     "publicBucket": "Bucket S3 instalacji jest publiczny (ustawiono STORAGE_S3_PUBLIC_URL), więc pliki prywatne są przechowywane na dysku serwera. Dodaj poniżej prywatny bucket, aby używać S3.",
-    "copying": "Kopiowanie {count} plików do bieżącego magazynu. Odbywa się w tle; pobieranie nadal działa.",
+    "copying": {
+      "one": "Kopiowanie {count} pliku do bieżącego magazynu. Odbywa się w tle; pobieranie nadal działa.",
+      "few": "Kopiowanie {count} plików do bieżącego magazynu. Odbywa się w tle; pobieranie nadal działa.",
+      "many": "Kopiowanie {count} plików do bieżącego magazynu. Odbywa się w tle; pobieranie nadal działa.",
+      "other": "Kopiowanie {count} plików do bieżącego magazynu. Odbywa się w tle; pobieranie nadal działa."
+    },
     "filesUsage": "Pliki prywatne",
     "bytesUsage": "Miejsce na pliki prywatne",
     "usageUnlimited": "{used} (bez limitu)",

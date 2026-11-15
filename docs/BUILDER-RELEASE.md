@@ -116,6 +116,5 @@ are ignored by the previous version.
 | Limitation | Ticket |
 | --- | --- |
 | Core blocks are drawn by the builder, not the server renderer; parity is checked by test | #311 |
-| Some admin messages with counts have one plural form | #312 |
 | Content scheduling and search database suites need updated fixtures | #319 |
 | Browser-based journeys, visual parity, browser timings and the manual accessibility matrix | #310 (carried-over items) |

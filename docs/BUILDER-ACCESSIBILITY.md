@@ -127,7 +127,10 @@ the document.
 - Messages that include a number use the plural forms of each language.
   Polish, Russian and Ukrainian get their own forms for 1, 2–4 and 5 or more.
   The catalog test requires every language to have exactly the forms its
-  plural rules use.
+  plural rules use. This covers the whole admin, not only the builder: no
+  message shows "1 files" or "(s)", which `i18n/plurals.test.ts` checks in
+  every admin language, with spot checks for 1, 2, 5 and 22 in Polish,
+  Russian and Ukrainian.
 
 ## Touch, zoom and contrast
 

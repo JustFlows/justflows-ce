@@ -67,7 +67,10 @@
     "url": "Endpunkt-URL",
     "events": "Ereignisse",
     "chooseEvents": "Ereignisse wählen…",
-    "selectedEvents": "{count} Ereignisse ausgewählt",
+    "selectedEvents": {
+      "one": "{count} Ereignis ausgewählt",
+      "other": "{count} Ereignisse ausgewählt"
+    },
     "selectAll": "Alle auswählen",
     "clear": "Leeren",
     "removeEvent": "{event} entfernen",
@@ -103,7 +106,10 @@
     "name": "Name",
     "capabilities": "Berechtigungen",
     "chooseCapabilities": "Berechtigungen wählen…",
-    "selectedCapabilities": "{count} Berechtigungen ausgewählt",
+    "selectedCapabilities": {
+      "one": "{count} Berechtigung ausgewählt",
+      "other": "{count} Berechtigungen ausgewählt"
+    },
     "selectAll": "Alle auswählen",
     "clear": "Leeren",
     "removeCapability": "{capability} entfernen",
@@ -172,7 +178,10 @@
     "selectAll": "Alle auswählen",
     "deleteSelected": "{count} löschen",
     "bulkEdit": "{count} bearbeiten",
-    "trashConfirm": "{count} Einträge in den Papierkorb verschieben? Sie können sie innerhalb der Aufbewahrungsfrist wiederherstellen.",
+    "trashConfirm": {
+      "one": "{count} Eintrag in den Papierkorb verschieben? Sie können ihn innerhalb der Aufbewahrungsfrist wiederherstellen.",
+      "other": "{count} Einträge in den Papierkorb verschieben? Sie können sie innerhalb der Aufbewahrungsfrist wiederherstellen."
+    },
     "listEmptyTitle": "Noch keine {section}",
     "listEmptyBody": "Legen Sie das erste Element vom Typ {type} an, um zu beginnen.",
     "listError": "{section} konnte nicht geladen werden.",
@@ -379,7 +388,10 @@
     "menuName": "Menüname",
     "menuSlug": "Menü-Slug (z. B. footer)",
     "createMenuButton": "Menü erstellen",
-    "itemCount": "{count} Elemente",
+    "itemCount": {
+      "one": "{count} Element",
+      "other": "{count} Elemente"
+    },
     "empty": "Noch keine Menüpunkte.",
     "emptyHint": "Fügen Sie veröffentlichte Inhalte oder eigene Links über das Panel links hinzu.",
     "type": {
@@ -394,7 +406,10 @@
     "outdent": "Ausrücken",
     "expand": "Ausklappen",
     "collapse": "Einklappen",
-    "collapsedCount": "{count} ausgeblendet",
+    "collapsedCount": {
+      "one": "{count} ausgeblendet",
+      "other": "{count} ausgeblendet"
+    },
     "duplicate": "Duplizieren",
     "addSubItem": "Unterpunkt hinzufügen",
     "newSubItem": "Unterpunkt",
@@ -479,7 +494,10 @@
       "linkUrl": "URL",
       "addLink": "+ Link hinzufügen",
       "useAdvanced": "Etwas anderes nötig? Wechseln Sie zum erweiterten Block-Editor",
-      "summaryLinks": "{count} Links",
+      "summaryLinks": {
+        "one": "{count} Link",
+        "other": "{count} Links"
+      },
       "summaryPromo": "Hervorhebungspanel",
       "summaryCustom": "Eigener Inhalt",
       "promoBackground": "Hintergrund",
@@ -1048,7 +1066,10 @@
         "noOptions": "Noch nichts zur Auswahl.",
         "none": "— Keine —",
         "search": "Suchen…",
-        "selected": "{count} ausgewählt"
+        "selected": {
+          "one": "{count} ausgewählt",
+          "other": "{count} ausgewählt"
+        }
       }
     },
     "blockLibrary": {
@@ -1649,7 +1670,10 @@
       "editLocked": "Dieser Block ist gegen Bearbeiten gesperrt. Bitte jemanden, der Sperren verwalten darf, ihn zu entsperren.",
       "editLockedManage": "Dieser Block ist gegen Bearbeiten gesperrt. Entsperre ihn über das Blockmenü, um ihn zu ändern.",
       "multi": {
-        "title": "{count} Blöcke ausgewählt",
+        "title": {
+          "one": "{count} Block ausgewählt",
+          "other": "{count} Blöcke ausgewählt"
+        },
         "menuHint": "Rechtsklick oder Umschalt+F10 für alle Aktionen.",
         "sharedStyle": "Gemeinsamer Stil",
         "styleSubset": "Stiländerungen gelten für {count} von {total} Blöcken. Gesperrte Blöcke und Blöcke mit eigener Stileinstellung werden übersprungen.",
@@ -1851,7 +1875,10 @@
       "publishedState": "Alles veröffentlicht",
       "revert": "Auf Veröffentlichtes zurücksetzen",
       "unpublished": "unveröffentlicht",
-      "changedCount": "{count} geändert",
+      "changedCount": {
+        "one": "{count} geändert",
+        "other": "{count} geändert"
+      },
       "saveError": "Stile konnten nicht gespeichert werden",
       "readOnly": "Nur Administratoren und Redakteure können globale Stile ändern."
     },
@@ -2093,7 +2120,10 @@
     "description": "Wählen Sie öffentliche URL-Strukturen für Ihre Inhalte und Taxonomie-Archive.",
     "failed": "Permalink-Einstellungen konnten nicht geladen oder gespeichert werden.",
     "retry": "Erneut versuchen",
-    "saved": "Permalinks gespeichert. {count} bisherige Inhalts-URLs für 301-Weiterleitungen erfasst.",
+    "saved": {
+      "one": "Permalinks gespeichert. {count} bisherige Inhalts-URL für 301-Weiterleitungen erfasst.",
+      "other": "Permalinks gespeichert. {count} bisherige Inhalts-URLs für 301-Weiterleitungen erfasst."
+    },
     "warning": "Das Ändern von URLs kann Suchrankings und externe Links beeinträchtigen. Bekannte veröffentlichte URLs werden automatisch weitergeleitet. Importierte URLs, mehrdeutige URLs mehrerer Elemente, gelöschte Inhalte, manuell gesetzte Links und nicht erfasste frühere URLs können nicht automatisch zugeordnet werden. Überprüfen Sie die Weiterleitungen nach dem Speichern.",
     "preset": "Beitrags-URL-Voreinstellung",
     "plain": "Einfach (Inhalts-ID-Abfrage)",
@@ -2283,7 +2313,10 @@
     "save": "Einstellungen speichern",
     "saved": "Sucheinstellungen gespeichert.",
     "rebuild": "Suchindex neu aufbauen",
-    "rebuilt": "{count} Einträge indexiert.",
+    "rebuilt": {
+      "one": "{count} Eintrag indexiert.",
+      "other": "{count} Einträge indexiert."
+    },
     "working": "In Bearbeitung…",
     "label": "Suchbeschriftung",
     "scope": "Zu durchsuchende Inhaltstypen",
@@ -2491,15 +2524,24 @@
     }
   },
   "comments": {
-    "reasonLinks": "{count} Link{plural} im Kommentar",
-    "reasonKeywords": "{count} Spam-Keyword{plural} gefunden",
+    "reasonLinks": {
+      "one": "{count} Link im Kommentar",
+      "other": "{count} Links im Kommentar"
+    },
+    "reasonKeywords": {
+      "one": "{count} Spam-Stichwort gefunden",
+      "other": "{count} Spam-Stichwörter gefunden"
+    },
     "reasonDisposableEmail": "Einweg-E-Mail-Domain",
     "reasonRepetitive": "sich wiederholender Text",
     "reasonNoToken": "kein Token für die Absendezeit (wirkt wie ein Bot)",
     "reasonTooFast": "zu schnell nach dem Laden der Seite abgeschickt",
     "reasonTrained": "enthält Begriffe, die aus früheren „Als Spam markieren“-Aktionen gelernt wurden: {detail}",
     "reasonRule": "entsprach einer Sperrregel der Verwaltung ({field})",
-    "deleteConfirm": "{count} Kommentar(e) dauerhaft löschen?",
+    "deleteConfirm": {
+      "one": "{count} Kommentar dauerhaft löschen?",
+      "other": "{count} Kommentare dauerhaft löschen?"
+    },
     "editCommentPrompt": "Kommentar bearbeiten",
     "replyToPrompt": "Antwort auf {name}",
     "blockConfirm": "Alle künftigen Kommentare mit diesem Wert für {field} blockieren?\n\n{pattern}",
@@ -2518,7 +2560,10 @@
     "blockEmail": "E-Mail-Adresse sperren",
     "blockDomain": "Domain sperren",
     "blockIp": "IP-Adresse sperren",
-    "selectedCount": "{count} ausgewählt",
+    "selectedCount": {
+      "one": "{count} ausgewählt",
+      "other": "{count} ausgewählt"
+    },
     "onContent": "zu: {title}",
     "spamScore": "Spam-Score {score}/100",
     "pageOf": "Seite {page} von {totalPages}",
@@ -2666,8 +2711,14 @@
     "referencedByContent": "In Inhalten verwendet",
     "restore": "Wiederherstellen",
     "deletePermanently": "Dauerhaft löschen",
-    "emptyConfirm": "Alle {count} Elemente dauerhaft löschen?",
-    "emptyConfirmReferencedSuffix": " Dabei werden auch {count} Mediendatei(en) gelöscht, auf die noch verwiesen wird."
+    "emptyConfirm": {
+      "one": "{count} Element dauerhaft löschen?",
+      "other": "Alle {count} Elemente dauerhaft löschen?"
+    },
+    "emptyConfirmReferencedSuffix": {
+      "one": " Dabei wird auch {count} Mediendatei gelöscht, auf die noch verwiesen wird.",
+      "other": " Dabei werden auch {count} Mediendateien gelöscht, auf die noch verwiesen wird."
+    }
   },
   "headerLibrary": {
     "renamePrompt": "Name des Headers",
@@ -2914,7 +2965,10 @@
     "install": "Installieren",
     "installOnMainSite": "Auf der Hauptwebsite installieren",
     "versionBy": "v{version} · von {publisher}",
-    "resultsCount": "{count} Ergebnisse",
+    "resultsCount": {
+      "one": "{count} Ergebnis",
+      "other": "{count} Ergebnisse"
+    },
     "categories": {
       "all": "Alle",
       "plugins": "Plugins",
@@ -2936,7 +2990,10 @@
     "checking": "Suche nach Updates…",
     "checkNow": "Nach Updates suchen",
     "checkFailed": "Der Marketplace konnte nicht auf Updates geprüft werden.",
-    "availableCount": "{count} Update(s) verfügbar",
+    "availableCount": {
+      "one": "{count} Update verfügbar",
+      "other": "{count} Updates verfügbar"
+    },
     "upToDate": "Alles ist auf dem neuesten Stand.",
     "badge": "Update verfügbar: v{version}",
     "updateTo": "Auf v{version} aktualisieren",
@@ -2997,7 +3054,10 @@
     "captionLabel": "Bildunterschrift",
     "regenerateFinished": "✓ Neugenerierung abgeschlossen: {processed} neu erzeugt, {skipped} übersprungen, {failed} fehlgeschlagen.",
     "focalPointHintAfter": "Boxen) behalten diesen Punkt im Blick. Wenn Sie einen neuen Fokuspunkt speichern, werden die Varianten dieses Bildes neu erzeugt.",
-    "fileCount": "{count} Dateien",
+    "fileCount": {
+      "one": "{count} Datei",
+      "other": "{count} Dateien"
+    },
     "regeneratingProgress": "Wird neu generiert… {done}/{total}",
     "focalPointLabel": "Fokuspunkt: {x}% / {y}%",
     "originalDimensions": "Original {width}×{height}"
@@ -3216,8 +3276,14 @@
         "runtimeAdvisories": {
           "title": "Sicherheitshinweise",
           "clear": "Kein veröffentlichter Hinweis betrifft diese Installation. Feed vom {issuedAt}.",
-          "affected": "{count} veröffentlichte Hinweise betreffen diese Installation: {ids}.",
-          "revoked": "Der Herausgeber hat mindestens eine installierte Version zurückgezogen. {count} Hinweise gelten: {ids}.",
+          "affected": {
+            "one": "{count} veröffentlichter Hinweis betrifft diese Installation: {ids}.",
+            "other": "{count} veröffentlichte Hinweise betreffen diese Installation: {ids}."
+          },
+          "revoked": {
+            "one": "Der Herausgeber hat mindestens eine installierte Version zurückgezogen. {count} Hinweis gilt: {ids}.",
+            "other": "Der Herausgeber hat mindestens eine installierte Version zurückgezogen. {count} Hinweise gelten: {ids}."
+          },
           "unavailable": "Es ist kein geprüfter Hinweis-Feed verfügbar, daher wurde diese Installation nicht überprüft.",
           "stale": "Der Hinweis-Feed ist am {expiresAt} abgelaufen, daher können aktuelle Hinweise fehlen.",
           "otherSite": "Hinweise werden auf der Plattform-Website geprüft.",
@@ -3275,7 +3341,10 @@
         "starting": "Wird gestartet…",
         "setUp": "Zwei-Faktor-Authentifizierung einrichten",
         "loadError": "Status konnte nicht geladen werden: {message}",
-        "recoveryCodesLeft": "Noch {count} unbenutzte Wiederherstellungscodes."
+        "recoveryCodesLeft": {
+          "one": "Noch {count} unbenutzter Wiederherstellungscode.",
+          "other": "Noch {count} unbenutzte Wiederherstellungscodes."
+        }
       },
       "sessions": {
         "loadError": "Sitzungen konnten nicht geladen werden.",
@@ -3287,7 +3356,10 @@
         "thisDevice": "Dieses Gerät",
         "unknownDevice": "Unbekanntes Gerät",
         "unknownIp": "Unbekannte IP",
-        "othersRevoked": "{count} andere Sitzungen beendet.",
+        "othersRevoked": {
+          "one": "{count} andere Sitzung beendet.",
+          "other": "{count} andere Sitzungen beendet."
+        },
         "lastActive": "zuletzt aktiv {date}",
         "revoke": "Beenden",
         "revokeAllOthers": "Alle anderen Sitzungen beenden"
@@ -3334,7 +3406,10 @@
         "removeConfirm": "Passkey entfernen",
         "signOutOthers": "Auch alle anderen Geräte abmelden",
         "removed": "Passkey entfernt.",
-        "removedSignedOut": "Passkey entfernt. {count} andere Sitzungen wurden abgemeldet.",
+        "removedSignedOut": {
+          "one": "Passkey entfernt. {count} andere Sitzung wurde abgemeldet.",
+          "other": "Passkey entfernt. {count} andere Sitzungen wurden abgemeldet."
+        },
         "removeError": "Der Passkey konnte nicht entfernt werden.",
         "loadError": "Passkeys konnten nicht geladen werden: {message}",
         "recoveryBody": "Jeder Code funktioniert einmal. Bewahren Sie sie an einem Ort auf, den Sie ohne dieses Gerät erreichen: Zusammen mit Ihrem Passwort meldet ein Code Sie an, wenn Sie Ihre Passkeys verlieren.",
@@ -3342,7 +3417,10 @@
         "lostBody": "Entfernen Sie ihn hier und melden Sie Ihre anderen Geräte ab. Wenn Sie sich gar nicht mehr anmelden können, verwenden Sie Ihr Passwort mit einem Wiederherstellungscode. Passwort auch vergessen? Setzen Sie es per E-Mail zurück und verwenden Sie dann einen Wiederherstellungscode. Eine Administration kann Ihre Passkeys auch für Sie entfernen.",
         "recovery": {
           "title": "Wiederherstellungscodes",
-          "remaining": "Noch {count} unbenutzte Wiederherstellungscodes.",
+          "remaining": {
+            "one": "Noch {count} unbenutzter Wiederherstellungscode.",
+            "other": "Noch {count} unbenutzte Wiederherstellungscodes."
+          },
           "none": "Noch keine Wiederherstellungscodes. Sie werden mit Ihrem ersten Passkey erstellt oder wenn Sie die Zwei-Faktor-Authentifizierung einschalten.",
           "unknown": "Die Wiederherstellungscodes konnten nicht gelesen werden.",
           "regenerate": "Neue Wiederherstellungscodes erstellen",
@@ -3461,10 +3539,16 @@
       "settingsSubtitle": "E-Mail-Benachrichtigungen, Aufbewahrung, Export und Löschung.",
       "settingsTitle": "Audit-Einstellungen",
       "lifecycle": {
-        "bound": "Der Speicher ist auf {count} Audit-Zeilen pro Website begrenzt; die ältesten werden zuerst entfernt.",
+        "bound": {
+          "one": "Der Speicher ist auf {count} Audit-Zeile pro Website begrenzt; die ältesten werden zuerst entfernt.",
+          "other": "Der Speicher ist auf {count} Audit-Zeilen pro Website begrenzt; die ältesten werden zuerst entfernt."
+        },
         "confirmLabel": "Geben Sie DELETE SECURITY EVENTS ein, um die Sicherheitsereignisse dieser Website dauerhaft zu löschen.",
         "deleteButton": "Sicherheitsereignisse löschen",
-        "deleted": "{count} Sicherheitsereignisse gelöscht. Eine Markierung nur mit der Anzahl wurde behalten.",
+        "deleted": {
+          "one": "{count} Sicherheitsereignis gelöscht. Eine Markierung nur mit der Anzahl wurde behalten.",
+          "other": "{count} Sicherheitsereignisse gelöscht. Eine Markierung nur mit der Anzahl wurde behalten."
+        },
         "exportButton": "Redigierte Sicherheitsereignisse exportieren",
         "localWarning": "Lokale Protokolle helfen bei Untersuchungen, sind bei einem kompromittierten Host aber nicht manipulationssicher. Diese Funktion richtet keine externe Protokollsenke ein.",
         "writeFailed": "Audit-Schreibvorgänge meldeten um {time} einen Fehler. Neuere Aktionen können fehlen.",
@@ -3643,7 +3727,10 @@
         "customHeaders": "Eigene Header & Import"
       },
       "findings": {
-        "title": "Befunde ({count} offen)",
+        "title": {
+          "one": "Befunde ({count} offen)",
+          "other": "Befunde ({count} offen)"
+        },
         "review": "Prüfen",
         "fix": "Beheben"
       },
@@ -4152,7 +4239,10 @@
       "slow": "Langsam",
       "responsive": "Reagiert schnell",
       "percentOf": "{percent}% von {total}",
-      "requestsObserved": "{count} Anfragen beobachtet",
+      "requestsObserved": {
+        "one": "{count} Anfrage beobachtet",
+        "other": "{count} Anfragen beobachtet"
+      },
       "driverConnected": "{driver} · verbunden",
       "connected": "verbunden",
       "unavailable": "nicht verfügbar",
@@ -4175,7 +4265,10 @@
       "latency": "Latenz",
       "migrations": "Migrationen",
       "current": "Aktuell",
-      "pendingCount": "{count} ausstehend",
+      "pendingCount": {
+        "one": "{count} ausstehend",
+        "other": "{count} ausstehend"
+      },
       "objectCache": "Objekt-Cache",
       "enabled": "Aktiviert",
       "disabled": "Deaktiviert",
@@ -4191,7 +4284,10 @@
       "colCheck": "Prüfung",
       "colStatus": "Status",
       "colSummary": "Zusammenfassung",
-      "count": "{count} Prüfungen"
+      "count": {
+        "one": "{count} Prüfung",
+        "other": "{count} Prüfungen"
+      }
     },
     "cli": {
       "title": "Auf dem Server nachvollziehen",
@@ -4210,10 +4306,22 @@
       "colDatabase": "Datenbank",
       "colHooks": "Hooks",
       "colResolution": "Verarbeitung",
-      "retained": "{count} gespeichert",
-      "errorsCount": "{count} Fehler",
-      "opsCount": "{count} Operationen",
-      "runsCount": "{count} Ausführungen"
+      "retained": {
+        "one": "{count} gespeichert",
+        "other": "{count} gespeichert"
+      },
+      "errorsCount": {
+        "one": "{count} Fehler",
+        "other": "{count} Fehler"
+      },
+      "opsCount": {
+        "one": "{count} Operation",
+        "other": "{count} Operationen"
+      },
+      "runsCount": {
+        "one": "{count} Ausführung",
+        "other": "{count} Ausführungen"
+      }
     },
     "hooks": {
       "title": "Hook-Inspektor",
@@ -4227,9 +4335,15 @@
       "colStatus": "Status",
       "core": "Kern",
       "disabled": "Deaktiviert",
-      "errorsCount": "{count} Fehler",
+      "errorsCount": {
+        "one": "{count} Fehler",
+        "other": "{count} Fehler"
+      },
       "healthy": "In Ordnung",
-      "handlersCount": "{count} Handler"
+      "handlersCount": {
+        "one": "{count} Handler",
+        "other": "{count} Handler"
+      }
     },
     "blockRenders": {
       "title": "Langsame Blöcke",
@@ -4262,7 +4376,10 @@
       "notRegistered": "Nicht registriert",
       "present": "Vorhanden",
       "missing": "Fehlend",
-      "foundCount": "{count} gefunden"
+      "foundCount": {
+        "one": "{count} gefunden",
+        "other": "{count} gefunden"
+      }
     },
     "themes": {
       "title": "Themes",
@@ -4273,7 +4390,10 @@
       "colVersion": "Version",
       "colDatabase": "Datenbank",
       "colFiles": "Dateien",
-      "foundCount": "{count} gefunden"
+      "foundCount": {
+        "one": "{count} gefunden",
+        "other": "{count} gefunden"
+      }
     },
     "recentErrors": {
       "title": "Letzte Fehler",
@@ -4284,7 +4404,10 @@
       "colMessage": "Nachricht",
       "colRequestId": "Anfrage-ID",
       "backgroundTask": "Hintergrundaufgabe",
-      "capturedCount": "{count} erfasst"
+      "capturedCount": {
+        "one": "{count} erfasst",
+        "other": "{count} erfasst"
+      }
     },
     "footer": {
       "safeTitle": "Kann bedenkenlos mit dem Support geteilt werden",
@@ -4305,7 +4428,10 @@
       "creating": "Sicherung wird erstellt…",
       "description": "Laden Sie eine portable, geprüfte Momentaufnahme der Website herunter.",
       "download": "Website-Sicherung herunterladen",
-      "mediaSummary": "{count} Original-Mediendateien · {size}",
+      "mediaSummary": {
+        "one": "{count} Original-Mediendatei · {size}",
+        "other": "{count} Original-Mediendateien · {size}"
+      },
       "restore": "Auf sauberer Website wiederherstellen",
       "restoreComplete": "Sicherung erfolgreich wiederhergestellt. Laden Sie den Adminbereich neu.",
       "restoreFailed": "Sicherung konnte nicht wiederhergestellt werden",
@@ -4446,7 +4572,10 @@
       "clearing": "Wird geleert…",
       "clearObjectCache": "Objekt-Cache leeren",
       "logLabel": "Leistungsprotokoll",
-      "keysStorage": "{count} Schlüssel · {size}",
+      "keysStorage": {
+        "one": "{count} Schlüssel · {size}",
+        "other": "{count} Schlüssel · {size}"
+      },
       "sampleCacheFiles": "Beispiel-Cache-Dateien ({count})",
       "revalidateHint2": "Hook für Plugins aus.",
       "browserCacheHint1": "Setzt",
@@ -4568,7 +4697,10 @@
       "importing": "Wird importiert…",
       "uploadButton": "WordPress-.xml hochladen",
       "importFailed": "Import fehlgeschlagen:",
-      "itemsHadErrors": "Bei {count} Element(en) sind Fehler aufgetreten. Prüfen Sie die Serverprotokolle.",
+      "itemsHadErrors": {
+        "one": "Bei {count} Element sind Fehler aufgetreten. Prüfen Sie die Serverprotokolle.",
+        "other": "Bei {count} Elementen sind Fehler aufgetreten. Prüfen Sie die Serverprotokolle."
+      },
       "importComplete": "Import abgeschlossen",
       "postsImported": "Importierte Beiträge: {count}",
       "pagesImported": "Importierte Seiten: {count}",
@@ -4616,7 +4748,10 @@
   },
   "updates": {
     "log": {
-      "foundUpdates": "{count} Update(s) gefunden",
+      "foundUpdates": {
+        "one": "{count} Update gefunden",
+        "other": "{count} Updates gefunden"
+      },
       "upToDate": "Alles ist auf dem neuesten Stand",
       "alreadyRunning": "Ein Update läuft bereits",
       "updateFailed": "Update fehlgeschlagen",
@@ -4795,8 +4930,14 @@
       "description": "Beschreibung",
       "descriptionPlaceholder": "Wozu dient diese Rolle?",
       "saveRole": "Rolle speichern",
-      "capabilitiesCount": "{count} Berechtigungen",
-      "selectedCount": "{count} ausgewählt",
+      "capabilitiesCount": {
+        "one": "{count} Berechtigung",
+        "other": "{count} Berechtigungen"
+      },
+      "selectedCount": {
+        "one": "{count} ausgewählt",
+        "other": "{count} ausgewählt"
+      },
       "createRole": "Rolle erstellen",
       "capabilityGroup": {
         "design": "Design"
@@ -5034,7 +5175,10 @@
       "lastUsed": "Zuletzt verwendet",
       "never": "Nie",
       "empty": "Es sind keine KI-Apps verbunden.",
-      "permissionCount": "{count} Berechtigungen",
+      "permissionCount": {
+        "one": "{count} Berechtigung",
+        "other": "{count} Berechtigungen"
+      },
       "userTools": "Werkzeuge für Benutzer und Rollen",
       "revoke": "Widerrufen",
       "revokeConfirm": "Zugriff für {name} widerrufen? Er endet sofort."
@@ -5140,7 +5284,10 @@
       "enabled": "Aktiviert",
       "test": "Verbindung testen",
       "testing": "Wird getestet…",
-      "testOk": "Verbindung funktioniert. {count} Modelle verfügbar.",
+      "testOk": {
+        "one": "Verbindung funktioniert. {count} Modell verfügbar.",
+        "other": "Verbindung funktioniert. {count} Modelle verfügbar."
+      },
       "saved": "Gespeichert.",
       "remove": "Entfernen",
       "removeConfirm": "Den Schlüssel für {provider} entfernen?"
@@ -5509,7 +5656,10 @@
       "local": "Die Festplatte des Servers, in einem privaten Ordner außerhalb der öffentlichen Uploads."
     },
     "publicBucket": "Der S3-Bucket der Installation ist öffentlich (STORAGE_S3_PUBLIC_URL ist gesetzt), daher liegen private Dateien auf der Festplatte des Servers. Füge unten einen privaten Bucket hinzu, um S3 zu nutzen.",
-    "copying": "{count} Dateien werden in den aktuellen Speicher kopiert. Das läuft im Hintergrund; Downloads funktionieren weiter.",
+    "copying": {
+      "one": "{count} Datei wird in den aktuellen Speicher kopiert. Das läuft im Hintergrund; Downloads funktionieren weiter.",
+      "other": "{count} Dateien werden in den aktuellen Speicher kopiert. Das läuft im Hintergrund; Downloads funktionieren weiter."
+    },
     "filesUsage": "Private Dateien",
     "bytesUsage": "Speicher für private Dateien",
     "usageUnlimited": "{used} (kein Limit)",
