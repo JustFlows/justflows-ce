@@ -373,6 +373,17 @@ export async function ensurePluginRuntime(): Promise<void> {
             const { getUserRoles } = await import("../auth/users-admin.js");
             return getUserRoles(siteId, userId);
           },
+          /** The request's site, like the i18n facade: a shared plugin module may have been loaded by another site. */
+          find: async (target) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { findUserRoles } = await import("../auth/users-admin.js");
+            return findUserRoles(pluginCallSiteId(siteId), target);
+          },
+          search: async (input) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { searchUsers } = await import("../auth/users-admin.js");
+            return searchUsers(pluginCallSiteId(siteId), input.query, input.limit);
+          },
         }),
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),
         placeholderResolver: (siteId, kind) => resolvePlaceholderSync(siteId, kind),

@@ -516,6 +516,47 @@ export async function getUserRoles(
 
 export type AdditionalRoleTarget = { userId: string } | { email: string };
 
+/** Site users matching `query` in email, username, or display name, case-insensitively. */
+export async function searchUsers(
+  siteId: string,
+  query: string,
+  limit = 20,
+): Promise<Array<{ id: string; email: string; username: string; displayName: string; role: string }>> {
+  const db = await getDb();
+  const take = Math.max(1, Math.min(50, Math.trunc(limit) || 20));
+  const needle = query.trim().toLowerCase().slice(0, 100).replace(/[\\%_]/g, (char) => `\\${char}`);
+  const pattern = `%${needle}%`;
+  const rows = await db.query<Record<string, unknown>>(
+    "SELECT id, email, username, display_name, role FROM users WHERE site_id = ? AND (LOWER(email) LIKE ? OR LOWER(username) LIKE ? OR LOWER(display_name) LIKE ?) ORDER BY display_name, email LIMIT " + take,
+    [siteId, pattern, pattern, pattern],
+  );
+  return rows.map((row) => ({
+    id: String(row.id),
+    email: String(row.email),
+    username: String(row.username),
+    displayName: String(row.display_name ?? ""),
+    role: String(row.role),
+  }));
+}
+
+/** One site user by id or sign-in email, with every role; null when there is none. */
+export async function findUserRoles(
+  siteId: string,
+  target: AdditionalRoleTarget,
+): Promise<{ id: string; email: string; username: string; displayName: string; role: string; roles: string[] } | null> {
+  if ("userId" in target) return getUserRoles(siteId, target.userId);
+  const email = target.email.trim().toLowerCase();
+  if (!email) return null;
+  const db = await getDb();
+  const row = (
+    await db.query<Record<string, unknown>>(
+      "SELECT id FROM users WHERE email = ? AND site_id = ? LIMIT 1",
+      [email, siteId],
+    )
+  )[0];
+  return row ? getUserRoles(siteId, String(row.id)) : null;
+}
+
 export type AddRoleResult =
   | {
       ok: true;

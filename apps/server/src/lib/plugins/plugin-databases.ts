@@ -43,7 +43,17 @@ import {
 } from "./plugin-row-sql.js";
 
 const IDENT = /^[a-z][a-z0-9_]{0,47}$/;
-const TRANSACTION_ATTEMPTS = 3;
+const TRANSACTION_ATTEMPTS = 5;
+
+/**
+ * Wait before retrying a deadlocked transaction. Retrying at once makes the
+ * same transactions meet again in the same order; a short, growing, random
+ * pause lets one finish first.
+ */
+function retryPause(attempt: number): Promise<void> {
+  const ms = Math.round((10 + Math.random() * 40) * attempt);
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 type Scalar = string | number | boolean | null;
 type Executor = Pick<DbClient, "run" | "query" | "execute">;
@@ -390,6 +400,7 @@ export function createPluginDatabasesApi(
         } finally {
           if (handle.close) await handle.db.close();
         }
+        await retryPause(attempt);
       }
     },
     forSite(targetSiteId: string): PluginRowOps {

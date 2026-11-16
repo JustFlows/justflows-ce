@@ -165,6 +165,26 @@ describe("plugin user creation", () => {
     await expect(plain!.users.get!("u1")).rejects.toThrow(/users:manage/);
   });
 
+  it("finds and searches users with users:read, and refuses without it", async () => {
+    const user = { id: "u1", email: "ada@example.com", username: "ada", displayName: "Ada", role: "subscriber", roles: ["subscriber"] };
+    const find = vi.fn(async () => user);
+    const search = vi.fn(async () => [user]);
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, { usersFactory: () => ({ create: vi.fn(), find, search }) });
+    let reader: PluginContext | undefined;
+    let plain: PluginContext | undefined;
+    loader.register(plugin("justflows.reader", ["users:read"], (ctx) => { reader = ctx; }));
+    loader.register(plugin("justflows.plain", [], (ctx) => { plain = ctx; }));
+    await loader.activate("justflows.reader", "site-1");
+    await loader.activate("justflows.plain", "site-1");
+
+    await expect(reader!.users.find!({ email: "ada@example.com" })).resolves.toEqual(user);
+    await expect(reader!.users.search!({ query: "ada" })).resolves.toEqual([user]);
+    expect(search).toHaveBeenCalledWith({ query: "ada" });
+    await expect(plain!.users.find!({ email: "ada@example.com" })).rejects.toThrow(/users:read/);
+    await expect(plain!.users.search!({ query: "ada" })).rejects.toThrow(/users:read/);
+  });
+
   it("removes only a role the plugin registered, and only with users:manage", async () => {
     const removeRole = vi.fn(async () => ({
       ok: true as const,

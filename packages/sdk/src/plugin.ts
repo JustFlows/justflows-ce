@@ -844,6 +844,22 @@ export interface PluginUsersApi {
    */
   get?(userId: string): Promise<PluginRoleUser | null>;
   /**
+   * Find one site user by id or by sign-in email (case-insensitive), with all
+   * their roles, or null when there is none. For attaching something a
+   * customer bought or was given to their existing account.
+   * Requires the `users:read` manifest permission.
+   * Optional: older hosts do not provide it.
+   */
+  find?(target: PluginUserTarget): Promise<PluginRoleUser | null>;
+  /**
+   * Site users whose email, username, or display name contains `query`
+   * (case-insensitive), at most `limit` (default 20, at most 50), ordered by
+   * display name. For letting staff pick an existing account. An empty query
+   * lists the first users. Requires the `users:read` manifest permission.
+   * Optional: older hosts do not provide it.
+   */
+  search?(input: { query: string; limit?: number }): Promise<PluginCreatedUser[]>;
+  /**
    * Take back an additional role this plugin registered, such as a membership
    * that ended. The user's primary role is never changed. Doing nothing when
    * the user does not hold the role is a success.

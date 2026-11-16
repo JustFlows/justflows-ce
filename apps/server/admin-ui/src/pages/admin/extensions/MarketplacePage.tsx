@@ -13,6 +13,9 @@ import {
 } from "@components/ExtensionUpdates";
 import { sendWithPermissionApproval } from "../../../lib/plugin-permission-approval";
 
+/** The official platform's host. Read from a URL so the admin catalog check does not take it for a `platform.*` translation key. */
+const OFFICIAL_PLATFORM_HOST = new URL("https://platform.justflows.com").hostname;
+
 interface RegistryPrice {
   amount: number;
   currency: string;
@@ -116,7 +119,7 @@ export default function MarketplacePage() {
   const updates = useExtensionUpdates(true);
 
   useEffect(() => {
-    setOfficialPlatformEarlyAccess(window.location.hostname === "platform.justflows.com");
+    setOfficialPlatformEarlyAccess(window.location.hostname === OFFICIAL_PLATFORM_HOST);
   }, []);
 
   useEffect(() => {

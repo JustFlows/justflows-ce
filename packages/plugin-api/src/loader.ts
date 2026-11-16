@@ -788,6 +788,20 @@ export class PluginLoader {
           const users = this.usersFactory(pluginId, siteId, permissions);
           return users.get ? users.get(userId) : null;
         },
+        find: async (target) => {
+          if (!permissions.has("users:read") && !permissions.has("users:manage")) {
+            throw new Error(`Plugin "${pluginId}" cannot read users without the "users:read" permission`);
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          return users.find ? users.find(target) : null;
+        },
+        search: async (input) => {
+          if (!permissions.has("users:read") && !permissions.has("users:manage")) {
+            throw new Error(`Plugin "${pluginId}" cannot read users without the "users:read" permission`);
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          return users.search ? users.search(input) : [];
+        },
       },
       diagnostics: {
         register: (check) => {
