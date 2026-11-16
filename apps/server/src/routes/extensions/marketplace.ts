@@ -12,6 +12,7 @@ import {
   FETCH_TIMEOUT_MS,
   installMarketplacePackage,
   JUSTFLOWS_API_BASE,
+  marketplaceRequestHeaders,
   MarketplaceRequestError,
 } from "../../lib/extensions/marketplace-package.js";
 import {
@@ -44,7 +45,10 @@ router.get("/", requireRole("administrator"), async (req, res) => {
     }
     const qs = params.toString();
     const url = `${JUSTFLOWS_API_BASE}/v1/marketplace${qs ? `?${qs}` : ""}`;
-    const upstream = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    const upstream = await fetch(url, {
+      headers: marketplaceRequestHeaders(),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     const body = await upstream.text();
     // Always JSON. Echoing the upstream Content-Type would let a compromised or
     // misconfigured registry serve text/html from this site's origin.

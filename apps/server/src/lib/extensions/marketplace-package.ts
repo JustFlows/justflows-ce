@@ -23,6 +23,19 @@ import { compareCoreVersions, parseCoreVersion } from "../updates/core-release-c
 
 export const JUSTFLOWS_API_BASE = "https://api.justflows.com";
 
+export function marketplaceRequestHeaders(): Record<string, string> {
+  const token = process.env.JUSTFLOWS_PLATFORM_INSTALL_TOKEN?.trim();
+  if (!token) return {};
+  return {
+    "x-justflows-site-domain": "justflows.com",
+    "x-justflows-platform-token": token,
+  };
+}
+
+function hasOfficialPlatformEarlyAccess(): boolean {
+  return Boolean(process.env.JUSTFLOWS_PLATFORM_INSTALL_TOKEN?.trim());
+}
+
 /**
  * A registry that hangs or answers forever is still a dependency failure.
  * Without a deadline the request thread stalled indefinitely, and
@@ -113,7 +126,10 @@ export async function fetchMarketplaceListing(
 ): Promise<MarketplaceListing> {
   const versionSegment = version ? `/versions/${encodeURIComponent(version)}` : "/versions/latest";
   const metaUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kindSegment(type)}/${encodeURIComponent(id)}${versionSegment}`;
-  const metaRes = await fetch(metaUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  const metaRes = await fetch(metaUrl, {
+    headers: marketplaceRequestHeaders(),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
   if (!metaRes.ok) {
     throw new MarketplaceRequestError(metaRes.status, { error: `Listing not found (${id})` });
   }
@@ -133,7 +149,8 @@ export async function assertListingInstallable(
     throw new MarketplaceRequestError(404, { error: `Listing not found (${id})` });
   }
 
-  if (marketplaceListingIsComingSoon(listing)) {
+  const officialEarlyAccess = hasOfficialPlatformEarlyAccess();
+  if (marketplaceListingIsComingSoon(listing) && !officialEarlyAccess) {
     throw new MarketplaceRequestError(403, {
       error: "This listing is coming soon and cannot be installed yet.",
     });
@@ -141,7 +158,7 @@ export async function assertListingInstallable(
 
   // Beta builds stay uninstallable until an administrator opts the site in
   // under Settings.
-  if (marketplaceListingIsBeta(listing)) {
+  if (marketplaceListingIsBeta(listing) && !officialEarlyAccess) {
     const allowBeta = siteId
       ? (await getSiteSetting<boolean>(siteId, MARKETPLACE_ALLOW_BETA_SETTING)) === true
       : false;
@@ -193,6 +210,7 @@ export async function installMarketplacePackage(options: {
   // path (e.g. /v1/plugins/...) which Node fetch cannot resolve.
   const downloadUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kindSegment(type)}/${encodeURIComponent(id)}/versions/${encodeURIComponent(resolvedVersion)}/download`;
   const download = await fetch(downloadUrl, {
+    headers: marketplaceRequestHeaders(),
     signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
   });
   if (!download.ok) {

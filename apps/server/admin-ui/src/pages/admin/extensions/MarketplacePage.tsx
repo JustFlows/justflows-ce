@@ -102,6 +102,8 @@ const CATEGORY_LABEL_KEYS: Record<string, string> = {
 export default function MarketplacePage() {
   const { t } = useT();
   const installationRoot = useSession().session?.installationRoot !== false;
+  /** UI convenience only; the registry still authenticates the platform token server-side. */
+  const officialPlatformEarlyAccess = window.location.hostname === "platform.justflows.com";
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -262,7 +264,7 @@ export default function MarketplacePage() {
             // Beta listings stay visible so admins know they exist, but only
             // install once the site has opted in.
             const pluginElsewhere = !installationRoot && item.type === "plugin";
-            const blocked = comingSoon || (beta && !allowBeta) || pluginElsewhere;
+            const blocked = (!officialPlatformEarlyAccess && (comingSoon || (beta && !allowBeta))) || pluginElsewhere;
             const priceLabel = listingPriceLabel(item, t);
 
             return (
@@ -285,7 +287,7 @@ export default function MarketplacePage() {
                   <p className="jf-list__desc" style={{ flex: 1 }}>{item.description}</p>
                   {beta && (
                     <p className="jf-field__hint">
-                      {allowBeta ? (
+                      {allowBeta || officialPlatformEarlyAccess ? (
                         t("marketplace.betaWarning")
                       ) : (
                         <>
@@ -319,7 +321,7 @@ export default function MarketplacePage() {
                         ? t("marketplace.installedLabel")
                         : isInstalling
                           ? t("marketplace.installing")
-                          : comingSoon
+                          : comingSoon && !officialPlatformEarlyAccess
                             ? t("marketplace.comingSoon")
                               : pluginElsewhere
                                 ? t("marketplace.installOnMainSite")
