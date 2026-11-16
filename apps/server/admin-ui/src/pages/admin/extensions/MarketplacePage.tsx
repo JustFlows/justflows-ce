@@ -103,7 +103,7 @@ export default function MarketplacePage() {
   const { t } = useT();
   const installationRoot = useSession().session?.installationRoot !== false;
   /** UI convenience only; the registry still authenticates the platform token server-side. */
-  const officialPlatformEarlyAccess = window.location.hostname === "platform.justflows.com";
+  const [officialPlatformEarlyAccess, setOfficialPlatformEarlyAccess] = useState(false);
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -114,6 +114,10 @@ export default function MarketplacePage() {
   const [loading, setLoading] = useState(true);
   const [allowBeta, setAllowBeta] = useState(false);
   const updates = useExtensionUpdates(true);
+
+  useEffect(() => {
+    setOfficialPlatformEarlyAccess(window.location.hostname === "platform.justflows.com");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
