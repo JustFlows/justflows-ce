@@ -4,6 +4,7 @@ import {
   buildNavDomains,
   canAccessPath,
   contentEditorNav,
+  contentEditorsFor,
   filterDomainsByRole,
   isDomainActive,
   localizedLabel,
@@ -163,6 +164,40 @@ describe("content editor plugin sections", () => {
       pluginLabel: "Product data",
     });
     expect(nav.map((item) => item.label)).toContain("Product data");
+  });
+
+  it("lists the sections of several plugins that extend one content type", () => {
+    const nav = contentEditorNav({
+      contentLabel: "Content",
+      discussionLabel: "Discussion",
+      revisionsLabel: "Revisions",
+      advancedLabel: "Advanced",
+      plugins: [
+        { label: "Product data", sections: [{ id: "pricing", label: "Pricing" }, { id: "inventory", label: "Inventory" }] },
+        { label: "Booking", sections: [] },
+      ],
+    });
+    expect(nav.map((item) => [item.id, item.label])).toEqual([
+      ["content", "Content"],
+      ["plugin:0:pricing", "Pricing"],
+      ["plugin:0:inventory", "Inventory"],
+      ["plugin:1", "Booking"],
+      ["discussion", "Discussion"],
+      ["revisions", "Revisions"],
+      ["advanced", "Advanced"],
+    ]);
+  });
+
+  it("finds every plugin page embedded for a content type, in menu order", () => {
+    const base = { label: "x", path: "p", icon: "", domain: "commerce" };
+    const items = [
+      { ...base, pluginId: "justflows.shop", id: "catalog", contentType: "product", adminAppUrl: "/a" },
+      { ...base, pluginId: "justflows.shop", id: "products", contentType: "product" },
+      { ...base, pluginId: "justflows.bookings", id: "service", contentType: "product", adminAppUrl: "/b" },
+      { ...base, pluginId: "acme.other", id: "x", contentType: "post", adminAppUrl: "/c" },
+    ];
+    expect(contentEditorsFor(items, "product").map((item) => item.pluginId)).toEqual(["justflows.shop", "justflows.bookings"]);
+    expect(contentEditorsFor(items, undefined)).toEqual([]);
   });
 
   it("picks a panel label in the admin language", () => {

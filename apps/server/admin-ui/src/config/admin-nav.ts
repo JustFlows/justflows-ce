@@ -73,6 +73,19 @@ export function contentEditorFor(
   return items.find((item) => item.contentType === contentType && Boolean(item.adminAppUrl));
 }
 
+/**
+ * Every plugin page embedded in the editor for a content type, in menu order.
+ * Several plugins may extend one type, such as a store's product data and an
+ * add-on's own section on the same products.
+ */
+export function contentEditorsFor(
+  items: PluginMenuItem[],
+  contentType: string | undefined,
+): PluginMenuItem[] {
+  if (!contentType) return [];
+  return items.filter((item) => item.contentType === contentType && Boolean(item.adminAppUrl));
+}
+
 const PLUGIN_SECTION_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export type PluginEditorSection = { id: string; label: string };
@@ -123,10 +136,21 @@ export function contentEditorNav(input: {
   advancedLabel: string;
   pluginLabel?: string;
   pluginSections?: PluginEditorSection[];
+  /**
+   * Several embedded plugin pages. Entry ids are `plugin:<index>:<section>`,
+   * or `plugin:<index>` for a page that published no sections. Takes the
+   * place of `pluginLabel` / `pluginSections` when given.
+   */
+  plugins?: Array<{ label: string; sections: PluginEditorSection[] }>;
   panels?: EditorNavEntry[];
 }): EditorNavEntry[] {
-  const plugin =
-    input.pluginSections && input.pluginSections.length > 0
+  const plugin = input.plugins
+    ? input.plugins.flatMap((entry, index) =>
+        entry.sections.length > 0
+          ? entry.sections.map((section) => ({ id: `plugin:${index}:${section.id}`, label: section.label }))
+          : [{ id: `plugin:${index}`, label: entry.label }],
+      )
+    : input.pluginSections && input.pluginSections.length > 0
       ? input.pluginSections.map((section) => ({ id: `plugin:${section.id}`, label: section.label }))
       : input.pluginLabel
         ? [{ id: "plugin", label: input.pluginLabel }]

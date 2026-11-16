@@ -43,6 +43,11 @@ const router = Router();
 const STYLE_PRESET_RE = /^[a-z][a-z0-9-]{0,39}$/;
 const REL_TOKEN_RE = /^[a-z][a-z0-9-]{0,39}$/;
 
+/** Database UUID columns accept canonical UUID text regardless of version or variant bits. */
+export const MenuContentIdSchema = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID");
+
 const MenuItemVisibilitySchema = z.object({
   auth: z.enum(["any", "guest", "authenticated"]).optional(),
   roles: z.array(z.string().regex(STORED_ROLE_ID)).max(10).optional(),
@@ -108,7 +113,7 @@ const MenuItemSchema: z.ZodType<MenuItem> = z.lazy(() =>
     label: z.string(),
     type: ContentTypeSlugSchema,
     url: z.string().optional(),
-    contentId: z.string().uuid().optional(),
+    contentId: MenuContentIdSchema.optional(),
     target: z.enum(["_blank"]).optional(),
     rel: z
       .string()
