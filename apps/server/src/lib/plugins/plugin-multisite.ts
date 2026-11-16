@@ -12,8 +12,13 @@ import {
 
 /** A platform-owned plugin switch is absent/on by default and authoritative when off. */
 async function pluginEnabledForSite(pluginId: string, siteId: string): Promise<boolean> {
+  const featureKey = `${pluginId}.enabled`;
+  const { listMeterDefinitions } = await import("../tenancy/quotas.js");
+  if (!listMeterDefinitions("site").some((meter) => meter.key === featureKey && meter.unit === "flag")) {
+    return true;
+  }
   const { siteFeatureEnabled } = await import("../tenancy/site-features.js");
-  return siteFeatureEnabled(`${pluginId}.enabled`, siteId);
+  return siteFeatureEnabled(featureKey, siteId);
 }
 
 export function manifestAllowsMultisite(manifest: Record<string, unknown> | null | undefined): boolean {

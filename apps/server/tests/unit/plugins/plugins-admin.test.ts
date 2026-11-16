@@ -49,7 +49,10 @@ vi.mock("../../../src/lib/plugins/plugin-assets.js", () => ({
 }));
 vi.mock("../../../src/lib/security/audit-log.js", () => ({ auditLog: mocks.audit }));
 vi.mock("../../../src/lib/cache/cache-revalidate.js", () => ({ revalidateOnUpdate: mocks.revalidate }));
-vi.mock("../../../src/lib/tenancy/quotas.js", () => ({ enforceQuota: mocks.enforceQuota }));
+vi.mock("../../../src/lib/tenancy/quotas.js", () => ({
+  enforceQuota: mocks.enforceQuota,
+  listMeterDefinitions: () => [{ key: "shop.enabled", unit: "flag" }, { key: "justflows.bookings.enabled", unit: "flag" }],
+}));
 const actor = { siteId: "site-1", userId: "admin-1", role: "administrator" };
 
 beforeEach(() => {

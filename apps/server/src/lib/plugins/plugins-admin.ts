@@ -27,8 +27,12 @@ export async function activatePluginAdmin(
   pluginId: string,
   actor: PluginAdminActor,
 ): Promise<PluginAdminResult> {
-  const { enforceQuota } = await import("../tenancy/quotas.js");
-  const feature = await enforceQuota(`${pluginId}.enabled`, actor.siteId, 0);
+  const { enforceQuota, listMeterDefinitions } = await import("../tenancy/quotas.js");
+  const featureKey = `${pluginId}.enabled`;
+  const hasFeatureSwitch = listMeterDefinitions("site").some(
+    (meter) => meter.key === featureKey && meter.unit === "flag",
+  );
+  const feature = hasFeatureSwitch ? await enforceQuota(featureKey, actor.siteId, 0) : null;
   if (feature) {
     return {
       status: feature.status,
