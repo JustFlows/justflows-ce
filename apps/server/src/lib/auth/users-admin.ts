@@ -206,6 +206,7 @@ export async function getUserWithAccess(
         email: row.email,
         username: row.username,
         display_name: row.display_name,
+        birth_date: row.birth_date ? String(row.birth_date) : null,
         role: row.role,
         created_at: row.created_at,
         updated_at: row.updated_at ?? null,
