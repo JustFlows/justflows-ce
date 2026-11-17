@@ -59,6 +59,12 @@ export type PluginMenuItem = {
   section?: { label: string; labels?: Record<string, string>; icon: string };
   /** `false` when the plugin's Settings page would be empty. Absent on older servers. */
   hasSettings?: boolean;
+  /**
+   * Capabilities the owning plugin declares. A role that holds any of them
+   * sees the plugin's pages even when its role name is not in `roles`.
+   * Absent on older servers.
+   */
+  capabilities?: string[];
 };
 
 /**
@@ -508,15 +514,19 @@ export interface NavAudience {
   pluginPageRoles?: Readonly<Record<string, readonly string[]>>;
   /** The session's capabilities, so a custom role with a page's capability sees it. */
   capabilities?: readonly string[];
+  /** Plugin id → capabilities that plugin declares, from `pluginCapabilities`. */
+  pluginCapabilities?: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
  * Pages a capability also opens, for custom roles that are not in the role
- * list above (justflows-ce#314). Built-in roles keep the role rule.
+ * list above (justflows-ce#314). Only pages whose server route checks that
+ * capability belong here; a page behind `requireRole` would answer 403.
  */
 const NAV_CAPABILITY: Record<string, string> = {
   "/admin/themes": "design:manage",
   "/admin/widgets": "design:manage",
+  "/admin/users": "users:read",
 };
 
 /** Roles each plugin page declares, for `NavAudience.pluginPageRoles`. */
@@ -524,6 +534,30 @@ export function pluginPageRoles(items: readonly PluginMenuItem[]): Record<string
   const out: Record<string, readonly string[]> = {};
   for (const item of items) if (item.roles?.length) out[item.path] = item.roles;
   return out;
+}
+
+/** Capabilities each plugin declares, for `NavAudience.pluginCapabilities`. */
+export function pluginCapabilities(items: readonly PluginMenuItem[]): Record<string, readonly string[]> {
+  const out: Record<string, readonly string[]> = {};
+  for (const item of items) if (item.capabilities?.length && !out[item.pluginId]) out[item.pluginId] = item.capabilities;
+  return out;
+}
+
+const PLUGIN_PAGE_RE = /^\/admin\/plugins\/([^/]+)/;
+
+/**
+ * Whether the viewer holds a capability that opens this page without its role:
+ * one the owning plugin declares for a plugin page, or the page's entry in
+ * `NAV_CAPABILITY`. The plugin's own routes still check each request.
+ */
+function capabilityOpens(pathname: string, rule: string | null, audience: NavAudience | undefined): boolean {
+  const held = audience?.capabilities;
+  if (!held?.length) return false;
+  const pluginId = PLUGIN_PAGE_RE.exec(pathname)?.[1];
+  const declared = pluginId ? audience?.pluginCapabilities?.[pluginId] : undefined;
+  if (declared?.some((capability) => held.includes(capability))) return true;
+  const capability = rule ? NAV_CAPABILITY[rule] : undefined;
+  return Boolean(capability && held.includes(capability));
 }
 
 /** The roles declared by the plugin page a path belongs to (longest match), if any. */
@@ -554,12 +588,10 @@ export function canAccessPath(
   if (audience?.platformOperator === false && matchesPrefix(pathname, OPERATOR_PREFIXES)) return false;
   if (audience?.disabledPaths && matchesPrefix(pathname, audience.disabledPaths)) return false;
   const declared = audience?.pluginPageRoles ? pluginRolesFor(pathname, audience.pluginPageRoles) : null;
-  if (declared) return declared.includes(role);
   const rule = navRuleFor(pathname);
+  if (declared) return declared.includes(role) || capabilityOpens(pathname, rule, audience);
   if (!rule) return true;
-  const capability = NAV_CAPABILITY[rule];
-  if (capability && audience?.capabilities?.includes(capability)) return true;
-  return (NAV_ACCESS[rule] ?? ALL_ADMIN_ROLES).includes(role);
+  return (NAV_ACCESS[rule] ?? ALL_ADMIN_ROLES).includes(role) || capabilityOpens(pathname, rule, audience);
 }
 
 /** Drop nav items — and domains left with none — the role can't open. */

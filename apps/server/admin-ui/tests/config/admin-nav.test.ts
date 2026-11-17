@@ -10,6 +10,7 @@ import {
   localizedLabel,
   navLabel,
   navRuleFor,
+  pluginCapabilities,
   pluginPageRoles,
   pluginSectionSlug,
   parsePluginSections,
@@ -35,6 +36,26 @@ describe("canAccessPath", () => {
     expect(canAccessPath("site-designer", "/admin/widgets", { capabilities: ["design:manage"] })).toBe(true);
     expect(canAccessPath("site-designer", "/admin/themes", { capabilities: ["design:read"] })).toBe(false);
     expect(canAccessPath("author", "/admin/widgets", { capabilities: ["design:read"] })).toBe(false);
+  });
+
+  it("opens a plugin's pages to a custom role holding one of its capabilities", () => {
+    const items = [
+      { pluginId: "acme.shop", id: "home", label: "Shop", path: "/admin/plugins/acme.shop", icon: "🛍", domain: "extensions", capabilities: ["orders:read", "orders:update"] },
+      { pluginId: "acme.desk", id: "home", label: "Desk", path: "/admin/plugins/acme.desk", icon: "💬", domain: "extensions", roles: ["administrator", "editor"], capabilities: ["tickets:read"] },
+    ];
+    const audience = { pluginPageRoles: pluginPageRoles(items), pluginCapabilities: pluginCapabilities(items) };
+    expect(canAccessPath("viewer", "/admin/plugins/acme.shop/orders", { ...audience, capabilities: ["orders:read"] })).toBe(true);
+    expect(canAccessPath("viewer", "/admin/plugins/acme.desk", { ...audience, capabilities: ["tickets:read"] })).toBe(true);
+    /** Another plugin's capability, or none, keeps the role rule. */
+    expect(canAccessPath("viewer", "/admin/plugins/acme.shop", { ...audience, capabilities: ["tickets:read"] })).toBe(false);
+    expect(canAccessPath("viewer", "/admin/plugins/acme.shop", audience)).toBe(false);
+    expect(canAccessPath("editor", "/admin/plugins/acme.shop", audience)).toBe(true);
+  });
+
+  it("opens Users to a custom role with users:read, not role-gated pages", () => {
+    expect(canAccessPath("viewer", "/admin/users", { capabilities: ["users:read"] })).toBe(true);
+    expect(canAccessPath("viewer", "/admin/media", { capabilities: ["media:read"] })).toBe(false);
+    expect(canAccessPath("viewer", "/admin/plugins", { capabilities: ["plugins:read"] })).toBe(false);
   });
 
   it("denies everything without a role", () => {

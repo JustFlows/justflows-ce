@@ -3,7 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Link, Navigate, NavLink } from "../admin-router";
 import { adminBasePath } from "../admin-path";
 import { ADMIN_UI_LOCALES, useT, type AdminUiLocale } from "../i18n/I18nProvider";
-import { ADMIN_DASHBOARD, canAccessPath, filterDomainsByRole, findDomainForPath, isDomainActive, navLabel, pluginPageRoles } from "../config/admin-nav";
+import { ADMIN_DASHBOARD, canAccessPath, filterDomainsByRole, findDomainForPath, isDomainActive, navLabel, pluginCapabilities, pluginPageRoles } from "../config/admin-nav";
 import DomainSubnav from "./DomainSubnav";
 import { usePluginMenu } from "./PluginMenuProvider";
 import { useSession, useSessionRole } from "./SessionProvider";
@@ -55,6 +55,7 @@ export default function AdminShell() {
         platformOperator: session.platformOperator === true,
         disabledPaths: session.disabledPaths,
         pluginPageRoles: pluginPageRoles(pluginItems),
+        pluginCapabilities: pluginCapabilities(pluginItems),
         capabilities: session.capabilities,
       }
     : undefined;
