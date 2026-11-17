@@ -24,6 +24,7 @@ import { createPluginCaptchaApi } from "./plugin-captcha.js";
 import { createPluginAiApi } from "./plugin-ai.js";
 import { createPluginTenancyApi } from "./plugin-tenancy.js";
 import { createPluginNetworkApi } from "./plugin-network.js";
+import { createPluginOutboundApi } from "./plugin-outbound.js";
 import { createPluginQuotasApi } from "./plugin-quotas.js";
 import { unregisterPluginMeters } from "../tenancy/quotas.js";
 import { createPluginContentApi } from "./plugin-content.js";
@@ -313,6 +314,7 @@ export async function ensurePluginRuntime(): Promise<void> {
           createPluginDatabasesApi(pluginId, siteId, permissions),
         tenancyFactory: (pluginId, permissions) => createPluginTenancyApi(pluginId, permissions),
         networkFactory: (pluginId) => createPluginNetworkApi(pluginId),
+        outboundFactory: (pluginId) => createPluginOutboundApi(pluginId),
         runForSite: async (siteId, fn) => {
           const { runPluginCallForSite } = await import("./plugin-call-site.js");
           return runPluginCallForSite(siteId, fn);

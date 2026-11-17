@@ -19,6 +19,7 @@ import {
   type PluginDatabasesApi,
   type PluginTenancyApi,
   type PluginNetworkApi,
+  type PluginOutboundApi,
   type PluginQuotasApi,
   type PluginUsersApi,
   type PluginBlockDefinition,
@@ -79,6 +80,8 @@ export type PluginTenancyFactory = (
 ) => PluginTenancyApi;
 /** `ctx.network` for a plugin that holds `platform:network`. */
 export type PluginNetworkFactory = (pluginId: string) => PluginNetworkApi;
+/** `ctx.outbound` for a plugin holding `network:outbound`. */
+export type PluginOutboundFactory = (pluginId: string) => PluginOutboundApi;
 export type PluginQuotasFactory = (
   pluginId: string,
   permissions: ReadonlySet<PluginPermission>,
@@ -276,6 +279,7 @@ export class PluginLoader {
   private readonly databasesFactory: PluginDatabasesFactory;
   private readonly tenancyFactory: PluginTenancyFactory;
   private readonly networkFactory: PluginNetworkFactory | undefined;
+  private readonly outboundFactory: PluginOutboundFactory | undefined;
   private readonly quotasFactory: PluginQuotasFactory;
   private readonly quotasCleanup: ((pluginId: string) => void) | undefined;
   private readonly contentFactory: PluginContentFactory;
@@ -320,6 +324,7 @@ export class PluginLoader {
       databasesFactory?: PluginDatabasesFactory;
       tenancyFactory?: PluginTenancyFactory;
       networkFactory?: PluginNetworkFactory;
+      outboundFactory?: PluginOutboundFactory;
       quotasFactory?: PluginQuotasFactory;
       quotasCleanup?: (pluginId: string) => void;
       contentFactory?: PluginContentFactory;
@@ -399,6 +404,7 @@ export class PluginLoader {
       options?.databasesFactory ?? ((_pluginId, _siteId, _permissions) => NULL_DATABASES);
     this.tenancyFactory = options?.tenancyFactory ?? (() => NULL_TENANCY);
     this.networkFactory = options?.networkFactory;
+    this.outboundFactory = options?.outboundFactory;
     this.quotasFactory = options?.quotasFactory ?? (() => NULL_QUOTAS);
     this.quotasCleanup = options?.quotasCleanup;
     this.contentFactory = options?.contentFactory ?? (() => NULL_CONTENT);
@@ -864,6 +870,9 @@ export class PluginLoader {
       tenancy: this.tenancyFactory(pluginId, permissions),
       ...(this.networkFactory && permissions.has("platform:network")
         ? { network: this.networkFactory(pluginId) }
+        : {}),
+      ...(this.outboundFactory && permissions.has("network:outbound")
+        ? { outbound: this.outboundFactory(pluginId) }
         : {}),
       quotas: this.quotasFactory(pluginId, permissions, siteId),
       files: this.scopedFiles(pluginId, siteId, permissions),

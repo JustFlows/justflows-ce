@@ -1794,6 +1794,35 @@ export interface PluginNetworkApi {
   site?(siteId?: string): Promise<PluginNetworkSiteAddress | null>;
 }
 
+/** One outbound request. Bodies are text; the response body is read as UTF-8 text. */
+export interface PluginOutboundRequest {
+  method?: "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE";
+  headers?: Record<string, string>;
+  body?: string;
+  /** Default 15 000, at most 30 000. */
+  timeoutMs?: number;
+  /** Largest response body accepted. Default 1 MB, at most 10 MB. */
+  maxBytes?: number;
+}
+
+/**
+ * A finished request, or why none was made or read. `blocked` means the URL
+ * (or a redirect hop) points at a private, loopback, or otherwise refused
+ * address, a port other than 80/443, or carries credentials.
+ */
+export type PluginOutboundResponse =
+  | { ok: true; status: number; headers: Record<string, string>; body: string; url: string }
+  | { ok: false; code: "blocked" | "too_large" | "timeout" | "failed"; error: string };
+
+/**
+ * HTTP to addresses on the public internet, with the host's SSRF guard on the
+ * first URL and every redirect hop, DNS pinned to the checked address, a
+ * timeout, and a size limit. Requires `network:outbound`.
+ */
+export interface PluginOutboundApi {
+  fetch(url: string, request?: PluginOutboundRequest): Promise<PluginOutboundResponse>;
+}
+
 /** A site with the origin its public pages are served from, such as `https://shop.example.com`. */
 export interface PluginNetworkSiteAddress extends PluginNetworkSite {
   url: string;
@@ -2222,6 +2251,12 @@ export interface PluginContext {
    * Absent without that permission and on older hosts. See `PluginNetworkApi`.
    */
   network?: PluginNetworkApi;
+
+  /**
+   * Guarded outbound HTTP. Requires `network:outbound`; absent without it and
+   * on older hosts. See `PluginOutboundApi`.
+   */
+  outbound?: PluginOutboundApi;
 
   /**
    * Workspace and site ceilings. Register a meter, then `check` it before
