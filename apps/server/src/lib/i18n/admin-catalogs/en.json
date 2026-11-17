@@ -56,7 +56,8 @@
     "customDomains": "Custom domains",
     "storage": "Storage",
     "taxonomies": "Categories & Tags",
-    "securityPasskeys": "Passkeys"
+    "securityPasskeys": "Passkeys",
+    "dataRequests": "Data requests"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -5819,5 +5820,38 @@
       "rule_invalid": "A plugin rule returned an invalid answer."
     },
     "pluginReason": "Plugin rule {rule} answered: {reason}"
+  },
+  "privacy": {
+    "title": "Personal data",
+    "requestsTitle": "Data requests",
+    "requestsIntro": "Look someone up by the email address they used, also when they have no account: guests who booked, ordered, or filled in a form. The download and erasure cover the site and every active plugin.",
+    "email": "Email address",
+    "lookUp": "Look up",
+    "intro": "Everything the site and its plugins keep about this person. Download it for a data request, or erase it. Erasing removes or anonymises personal details; records other things depend on, such as bookings and orders, stay without them.",
+    "download": "Download all data",
+    "erase": "Erase personal data",
+    "confirmErase": "Erase the personal data of {who} in the site and every plugin? This cannot be undone.",
+    "failed": "The request failed. Try again.",
+    "foundTitle": "Included in the download",
+    "core": "Site: content items {content}, comments {comments}, audit entries {audit}",
+    "pluginFound": {
+      "one": "{name}: {count} record",
+      "other": "{name}: {count} records"
+    },
+    "pluginFailed": "{name}: failed ({error})",
+    "erasedTitle": "Erased",
+    "coreErased": "Site: content items reassigned {content}, comments anonymised {comments}, audit entries anonymised {audit}",
+    "pluginErased": {
+      "one": "{name}: {count} record removed or anonymised",
+      "other": "{name}: {count} records removed or anonymised"
+    },
+    "retry": "Some plugins did not finish. Erase again to retry them; what is already done stays done.",
+    "adminOnly": "Only administrators handle data requests.",
+    "kept": "Kept by law until {until}: {kind} ({count}). {reason}",
+    "retentionTitle": "Records kept by law",
+    "retentionHint": "Financial records (orders, invoices, payments, refunds) must be kept for a number of years by law. During a data request, plugins keep only what such a record legally needs, such as amounts, tax, and the billing name and address on an invoice, remove everything else at once, and remove the rest when the period ends. Check the period that applies to you.",
+    "retentionYears": "Keep financial records for (years)",
+    "save": "Save",
+    "retentionSaved": "Saved."
   }
 }

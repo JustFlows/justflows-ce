@@ -882,6 +882,33 @@ by `eventId`. Existing action failure isolation still applies. See
 [Scheduled publishing](SCHEDULING.md).
 
 
+## Personal data requests
+
+Data requests (GDPR Art. 15 access and Art. 17 erasure) are handled in one place: Admin → Users → a user's **Personal data**, or **Users → Data requests** for an email address without an account. Core gathers its own data (content, comments, audit trail) and asks every plugin active on the site through the `privacy.providers` filter. A plugin never builds its own data-request page.
+
+```ts
+ctx.hooks.filter("privacy.providers", (providers) => [...providers, {
+  id: "acme.crm",
+  label: "CRM",
+  async export(subject, context) {
+    // subject: { userId: string | null, email: string }; match on both.
+    return { count: 1, records: { contacts: [/* plain JSON */] } };
+  },
+  async erase(subject, context) {
+    // Remove every personal detail the law does not require. Keep financial
+    // records for context.retention.financialRecordsYears (set by the owner on
+    // Users → Data requests), reduced to what they legally need, and remove
+    // them once that period has passed.
+    return { counts: { contacts: 1 }, kept: [{ kind: "invoices", count: 2, until: "2034-01-01T00:00:00.000Z", reason: "Kept for bookkeeping." }] };
+  },
+}]);
+```
+
+- Listening needs `users:read`. Only plugins active on the site are asked; each call has 30 seconds.
+- `export` returns plain JSON; core puts every part into one download for the administrator.
+- `erase` must be safe to repeat and must not break records other things still need: anonymise instead. Report kept records in `kept` with their removal date. A plugin that throws is reported and the others still run; erasing again retries it.
+- Core audits every request as `privacy.exported` or `privacy.erased`, with the account id or a hash of a guest's address, never the address.
+
 ## Frontend user account
 
 `/account` is the default signed-in account page on each site. Its layout is an editable

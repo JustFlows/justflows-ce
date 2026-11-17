@@ -43,6 +43,8 @@ export const AUDIT_ACTIONS = [
   "user.role_changed",
   "user.access_changed",
   "user.deleted",
+  "privacy.exported",
+  "privacy.erased",
   "workspace.owner_updated",
   "workspace.created_mail",
   "workspace.sites_requested",
@@ -166,6 +168,7 @@ export type AuditOutcome = "success" | "failure";
 export const SECURITY_AUDIT_ACTIONS = AUDIT_ACTIONS.filter((action) =>
   action.startsWith("auth.")
   || action.startsWith("user.")
+  || action.startsWith("privacy.")
   || action.startsWith("access.")
   || action.startsWith("apikey.")
   || action.startsWith("plugin.")

@@ -56,7 +56,8 @@
     "customDomains": "Domaines personnalisés",
     "storage": "Stockage",
     "taxonomies": "Catégories et étiquettes",
-    "securityPasskeys": "Clés d’accès"
+    "securityPasskeys": "Clés d’accès",
+    "dataRequests": "Demandes de données"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -5824,5 +5825,38 @@
       "rule_invalid": "Une règle d'extension a renvoyé une réponse non valide."
     },
     "pluginReason": "La règle d'extension {rule} a répondu : {reason}"
+  },
+  "privacy": {
+    "title": "Données personnelles",
+    "requestsTitle": "Demandes de données",
+    "requestsIntro": "Recherchez une personne par l'adresse e-mail qu'elle a utilisée, même sans compte : invités ayant réservé, commandé ou rempli un formulaire. Le téléchargement et l'effacement couvrent le site et tous les plugins actifs.",
+    "email": "Adresse e-mail",
+    "lookUp": "Rechercher",
+    "intro": "Tout ce que le site et ses plugins conservent sur cette personne. Téléchargez-le pour une demande d'accès ou effacez-le. L'effacement supprime ou anonymise les données personnelles ; les enregistrements dont d'autres éléments dépendent, comme les réservations et les commandes, restent sans elles.",
+    "download": "Télécharger toutes les données",
+    "erase": "Effacer les données personnelles",
+    "confirmErase": "Effacer les données personnelles de {who} dans le site et tous les plugins ? Cette action est irréversible.",
+    "failed": "La demande a échoué. Réessayez.",
+    "foundTitle": "Inclus dans le téléchargement",
+    "core": "Site : contenus {content}, commentaires {comments}, entrées du journal {audit}",
+    "pluginFound": {
+      "one": "{name} : {count} enregistrement",
+      "other": "{name} : {count} enregistrements"
+    },
+    "pluginFailed": "{name} : échec ({error})",
+    "erasedTitle": "Effacé",
+    "coreErased": "Site : contenus réattribués {content}, commentaires anonymisés {comments}, entrées du journal anonymisées {audit}",
+    "pluginErased": {
+      "one": "{name} : {count} enregistrement supprimé ou anonymisé",
+      "other": "{name} : {count} enregistrements supprimés ou anonymisés"
+    },
+    "retry": "Certains plugins n'ont pas terminé. Effacez à nouveau pour réessayer ; ce qui est fait reste fait.",
+    "adminOnly": "Seuls les administrateurs traitent les demandes de données.",
+    "kept": "Conservé par obligation légale jusqu'au {until} : {kind} ({count}). {reason}",
+    "retentionTitle": "Données conservées par obligation légale",
+    "retentionHint": "Les pièces comptables (commandes, factures, paiements, remboursements) doivent être conservées plusieurs années. Lors d'une demande, les plugins ne gardent que ce qu'une telle pièce exige légalement, comme les montants, la TVA, et le nom et l'adresse de facturation, suppriment tout le reste immédiatement, et le reste à la fin de la période. Vérifiez la durée qui s'applique à vous.",
+    "retentionYears": "Conserver les pièces comptables (années)",
+    "save": "Enregistrer",
+    "retentionSaved": "Enregistré."
   }
 }

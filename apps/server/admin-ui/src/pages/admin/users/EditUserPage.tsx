@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Link, useNavigate } from "../../../admin-router";
 import { useCapability, useSession } from "@components/SessionProvider";
 import { useT } from "../../../i18n/I18nProvider";
+import PersonalDataPanel from "./PersonalDataPanel";
 
 interface User {
   id: string;
@@ -421,15 +422,19 @@ export default function EditUserPage() {
               </div>
               <div className="jf-meta__row"><dt>{t("users.edit.contentAuthored")}</dt><dd>{user.content.total}</dd></div>
             </dl>
-            {user.recentActivity && (
-              <div className="jf-row">
-                <a className="jf-btn jf-btn--ghost" href={`/api/users/${encodeURIComponent(user.id)}/personal-data`} download>
-                  {t("users.edit.downloadPersonalData")}
-                </a>
-              </div>
-            )}
           </div>
         </div>
+
+        {isAdministrator && (
+          <div className="jf-card">
+            <div className="jf-card__head">
+              <h2 className="jf-card__title">{t("privacy.title")}</h2>
+            </div>
+            <div className="jf-card__body">
+              <PersonalDataPanel subject={{ userId: user.id }} label={user.email} />
+            </div>
+          </div>
+        )}
 
         <div className="jf-card">
           <div className="jf-card__head">

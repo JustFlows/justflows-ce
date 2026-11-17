@@ -112,6 +112,82 @@ export interface AccountCard {
 }
 
 /** Server-rendered, request-scoped contributions to the default /account page. */
+// ─── Personal data requests ────────────────────────────────────────────────
+
+/**
+ * Whose data a request is about: a site account (with its sign-in email), or
+ * a guest known only by an email address (`userId` null). Match on both when
+ * you store either.
+ */
+export interface PrivacySubject {
+  readonly userId: string | null;
+  readonly email: string;
+}
+
+export interface PrivacyRequestContext {
+  readonly siteId: string;
+  /** The administrator handling the request. */
+  readonly actor: { readonly userId: string; readonly role: string };
+  /** When the request was made (ISO 8601). */
+  readonly requestedAt: string;
+  /**
+   * What the site must keep by law, set by the site owner in core. Financial
+   * records (orders, invoices, payments, refunds, credit notes) are kept for
+   * `financialRecordsYears` after the end of the year they belong to; keep
+   * only what the record legally needs (amounts, tax, the billing name and
+   * address on the invoice) and remove the rest now. Remove what is kept
+   * once its period has passed.
+   */
+  readonly retention: { readonly financialRecordsYears: number };
+}
+
+/** What a plugin holds about the subject, as plain JSON for the download. */
+export interface PrivacyExportPart {
+  /** Number of records found; 0 when there is nothing. */
+  count: number;
+  /** The records, grouped as the plugin likes, such as `{ bookings: [...] }`. */
+  records: Record<string, unknown>;
+  /** Short notes for the person handling the request. */
+  notes?: string[];
+}
+
+/** What a plugin removed or anonymised, and what it must keep for now. */
+export interface PrivacyErasePart {
+  /** Per kind of record, how many were removed or anonymised. */
+  counts: Record<string, number>;
+  /**
+   * Records kept because the law requires them, per kind, with the date they
+   * will be removed (ISO 8601). Shown to the person handling the request and
+   * recorded in the audit trail.
+   */
+  kept?: Array<{ kind: string; count: number; until: string; reason: string }>;
+  /** Anything else the person handling the request should know. */
+  notes?: string[];
+}
+
+/**
+ * A plugin's part in data requests (GDPR Art. 15 and 17). Return it from the
+ * `privacy.providers` filter. Core calls every active plugin's provider from
+ * the user page and Users → Data requests, puts the parts into one download,
+ * runs erasure across all of them, and audits the request. A plugin never
+ * offers its own data-request page.
+ *
+ * Erasure removes every personal detail the site is not legally required to
+ * keep. Records the law requires (financial records for
+ * `context.retention.financialRecordsYears`) are reduced to what they legally
+ * need, reported in `kept` with their removal date, and removed by the plugin
+ * once that date passes. Erasure must be safe to repeat, and must not delete
+ * what other records still need: anonymise instead.
+ */
+export interface PrivacyProvider {
+  /** The plugin id. */
+  id: string;
+  /** What people know this data as, such as "Bookings". */
+  label: string;
+  export(subject: PrivacySubject, context: PrivacyRequestContext): Promise<PrivacyExportPart>;
+  erase(subject: PrivacySubject, context: PrivacyRequestContext): Promise<PrivacyErasePart>;
+}
+
 export interface AccountSection {
   /** Stable anchor, preferably namespaced: acme.memberships. */
   id: string;
@@ -951,6 +1027,11 @@ export interface FilterValueMap {
   "operatorKey.ensure": [{ name: string }, { pluginId: string }];
   /** Signed-in account sections. Requires users:read; never share-cache returned data. */
   "account.sections": [AccountSection[], AccountSectionContext];
+  /**
+   * Add this plugin's part in personal data requests. Requires users:read.
+   * Append one `PrivacyProvider` and return the list.
+   */
+  "privacy.providers": [PrivacyProvider[], PrivacyRequestContext];
   /** Supply an external candidate engine; host authorization is never delegated. */
   "search.backend": [import("./search.js").SearchBackend | null, { siteId: string }];
   /**
@@ -1317,6 +1398,7 @@ export const HOOK_PERMISSION_PREFIXES: ReadonlyArray<{
   { prefix: "auth.", permission: "auth:hook" },
   { prefix: "user.", permission: "users:read" },
   { prefix: "account.", permission: "users:read" },
+  { prefix: "privacy.", permission: "users:read" },
   { prefix: "admin.", permission: "admin:extend" },
   { prefix: "email.", permission: "mail:hook" },
   { prefix: "quota.", permission: "platform:tenancy" },

@@ -56,7 +56,8 @@
     "customDomains": "Dominios propios",
     "storage": "Almacenamiento",
     "taxonomies": "Categorías y etiquetas",
-    "securityPasskeys": "Llaves de acceso"
+    "securityPasskeys": "Llaves de acceso",
+    "dataRequests": "Solicitudes de datos"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -5824,5 +5825,38 @@
       "rule_invalid": "Una regla de plugin devolvió una respuesta no válida."
     },
     "pluginReason": "La regla de plugin {rule} respondió: {reason}"
+  },
+  "privacy": {
+    "title": "Datos personales",
+    "requestsTitle": "Solicitudes de datos",
+    "requestsIntro": "Busca a una persona por el correo electrónico que usó, también sin cuenta: invitados que reservaron, compraron o rellenaron un formulario. La descarga y el borrado abarcan el sitio y todos los plugins activos.",
+    "email": "Correo electrónico",
+    "lookUp": "Buscar",
+    "intro": "Todo lo que el sitio y sus plugins guardan sobre esta persona. Descárgalo para una solicitud de acceso o bórralo. Al borrar se eliminan o anonimizan los datos personales; los registros de los que dependen otras cosas, como reservas y pedidos, se conservan sin ellos.",
+    "download": "Descargar todos los datos",
+    "erase": "Borrar datos personales",
+    "confirmErase": "¿Borrar los datos personales de {who} en el sitio y en todos los plugins? No se puede deshacer.",
+    "failed": "La solicitud ha fallado. Inténtalo de nuevo.",
+    "foundTitle": "Incluido en la descarga",
+    "core": "Sitio: contenidos {content}, comentarios {comments}, entradas de auditoría {audit}",
+    "pluginFound": {
+      "one": "{name}: {count} registro",
+      "other": "{name}: {count} registros"
+    },
+    "pluginFailed": "{name}: error ({error})",
+    "erasedTitle": "Borrado",
+    "coreErased": "Sitio: contenidos reasignados {content}, comentarios anonimizados {comments}, entradas de auditoría anonimizadas {audit}",
+    "pluginErased": {
+      "one": "{name}: {count} registro eliminado o anonimizado",
+      "other": "{name}: {count} registros eliminados o anonimizados"
+    },
+    "retry": "Algunos plugins no terminaron. Vuelve a borrar para reintentarlo; lo ya hecho se mantiene.",
+    "adminOnly": "Solo los administradores gestionan las solicitudes de datos.",
+    "kept": "Conservado por ley hasta el {until}: {kind} ({count}). {reason}",
+    "retentionTitle": "Datos que la ley obliga a conservar",
+    "retentionHint": "Los registros financieros (pedidos, facturas, pagos, reembolsos) deben conservarse varios años por ley. Ante una solicitud, los plugins solo guardan lo que ese registro exige legalmente, como importes, impuestos y el nombre y la dirección de facturación, eliminan todo lo demás de inmediato y el resto al terminar el plazo. Comprueba el plazo que te aplica.",
+    "retentionYears": "Conservar registros financieros (años)",
+    "save": "Guardar",
+    "retentionSaved": "Guardado."
   }
 }

@@ -221,12 +221,15 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
   },
   {
     // People-management is its own concern, not a System setting — WordPress
-    // gives it a top-level menu too. A single item, so the sidebar links
-    // straight to it and no sub-bar renders.
+    // gives it a top-level menu too. Data requests sit beside it: everything
+    // the site and its plugins keep about one person, by account or email.
     key: "nav.domains.users",
     slug: "users",
     icon: "👤",
-    items: [{ key: "nav.users", to: "/admin/users", icon: "👤" }],
+    items: [
+      { key: "nav.users", to: "/admin/users", icon: "👤" },
+      { key: "nav.dataRequests", to: "/admin/data-requests", icon: "🔒" },
+    ],
   },
   {
     key: "nav.domains.extensions",
@@ -462,6 +465,7 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/security/account": ALL_ADMIN_ROLES,
   "/admin/security/audit": ["administrator"],
   "/admin/users": ["administrator", "editor"],
+  "/admin/data-requests": ["administrator"],
   "/admin/tools": ["administrator"],
   "/admin/health": ["administrator"],
   "/admin/updates": ["administrator"],

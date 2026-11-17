@@ -56,7 +56,8 @@
     "customDomains": "Własne domeny",
     "storage": "Magazyn",
     "taxonomies": "Kategorie i tagi",
-    "securityPasskeys": "Klucze dostępu"
+    "securityPasskeys": "Klucze dostępu",
+    "dataRequests": "Wnioski o dane"
   },
   "webhooks": {
     "title": "Haki internetowe",
@@ -5975,5 +5976,42 @@
       "rule_invalid": "Reguła wtyczki zwróciła nieprawidłową odpowiedź."
     },
     "pluginReason": "Reguła wtyczki {rule} odpowiedziała: {reason}"
+  },
+  "privacy": {
+    "title": "Dane osobowe",
+    "requestsTitle": "Wnioski o dane",
+    "requestsIntro": "Wyszukaj osobę po adresie e-mail, którego użyła, także bez konta: gości, którzy rezerwowali, zamawiali lub wypełnili formularz. Pobranie i usunięcie obejmują stronę i wszystkie aktywne wtyczki.",
+    "email": "Adres e-mail",
+    "lookUp": "Wyszukaj",
+    "intro": "Wszystko, co strona i jej wtyczki przechowują o tej osobie. Pobierz to na potrzeby wniosku o dostęp albo usuń. Usunięcie kasuje lub anonimizuje dane osobowe; zapisy, od których zależą inne rzeczy, takie jak rezerwacje i zamówienia, pozostają bez nich.",
+    "download": "Pobierz wszystkie dane",
+    "erase": "Usuń dane osobowe",
+    "confirmErase": "Usunąć dane osobowe {who} na stronie i we wszystkich wtyczkach? Tego nie można cofnąć.",
+    "failed": "Żądanie nie powiodło się. Spróbuj ponownie.",
+    "foundTitle": "W pobranym pliku",
+    "core": "Strona: treści: {content}, komentarze: {comments}, wpisy audytu: {audit}",
+    "pluginFound": {
+      "one": "{name}: {count} rekord",
+      "few": "{name}: {count} rekordy",
+      "many": "{name}: {count} rekordów",
+      "other": "{name}: {count} rekordu"
+    },
+    "pluginFailed": "{name}: błąd ({error})",
+    "erasedTitle": "Usunięto",
+    "coreErased": "Strona: przypisano ponownie treści: {content}, zanonimizowano komentarze: {comments} i wpisy audytu: {audit}",
+    "pluginErased": {
+      "one": "{name}: usunięto lub zanonimizowano {count} rekord",
+      "few": "{name}: usunięto lub zanonimizowano {count} rekordy",
+      "many": "{name}: usunięto lub zanonimizowano {count} rekordów",
+      "other": "{name}: usunięto lub zanonimizowano {count} rekordu"
+    },
+    "retry": "Niektóre wtyczki nie zakończyły pracy. Usuń ponownie, aby spróbować jeszcze raz; to, co już zrobione, pozostaje zrobione.",
+    "adminOnly": "Wnioski o dane obsługują tylko administratorzy.",
+    "kept": "Przechowywane zgodnie z prawem do {until}: {kind} ({count}). {reason}",
+    "retentionTitle": "Dane przechowywane zgodnie z prawem",
+    "retentionHint": "Dokumenty finansowe (zamówienia, faktury, płatności, zwroty) trzeba przechowywać przez kilka lat. Przy wniosku o dane wtyczki zostawiają tylko to, czego taki dokument wymaga prawnie, np. kwoty, podatek oraz nazwę i adres na fakturze, resztę usuwają od razu, a pozostałe dane po upływie okresu. Sprawdź okres, który cię obowiązuje.",
+    "retentionYears": "Przechowuj dokumenty finansowe (lata)",
+    "save": "Zapisz",
+    "retentionSaved": "Zapisano."
   }
 }
