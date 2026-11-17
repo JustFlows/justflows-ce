@@ -805,6 +805,21 @@ export class PluginLoader {
           }
           return users.sendPasswordSetup({ userId: user.id }, actor);
         },
+        delete: async (target, actor) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(`Plugin "${pluginId}" cannot delete users without the "users:manage" permission`);
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          if (!users.delete || !users.find) {
+            return { ok: false, status: 501, error: "Deleting users is not available in this runtime." };
+          }
+          /** Only accounts wholly this plugin's: every role they hold is one it registered. */
+          const user = await users.find(target);
+          if (!user) return { ok: false, status: 404, error: "User not found." };
+          const own = user.roles.length > 0 && user.roles.every((role) => this.roleRegistry.get(role)?.pluginId === pluginId);
+          if (!own) return { ok: false, status: 403, error: "Plugins can only delete users whose every role they registered." };
+          return users.delete({ userId: user.id }, actor);
+        },
         get: async (userId) => {
           if (!permissions.has("users:manage")) {
             throw new Error(`Plugin "${pluginId}" cannot read users without the "users:manage" permission`);

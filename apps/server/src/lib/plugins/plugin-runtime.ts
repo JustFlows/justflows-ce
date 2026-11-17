@@ -380,6 +380,16 @@ export async function ensurePluginRuntime(): Promise<void> {
             if (!user) return { ok: false, status: 404, error: "User not found." };
             return sendPasswordSetup(site, user.id, actor);
           },
+          /** The loader has already checked that every role of the user is the calling plugin's. */
+          delete: async (target, actor) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { deleteUser, findUserRoles } = await import("../auth/users-admin.js");
+            const site = pluginCallSiteId(siteId);
+            const user = await findUserRoles(site, target);
+            if (!user) return { ok: false, status: 404, error: "User not found." };
+            const result = await deleteUser(user.id, { siteId: site, userId: actor.userId, role: actor.role });
+            return result.status < 400 ? { ok: true } : { ok: false, status: result.status, error: String((result.body as { error?: string }).error ?? "Could not delete the user.") };
+          },
           get: async (userId) => {
             const { getUserRoles } = await import("../auth/users-admin.js");
             return getUserRoles(siteId, userId);

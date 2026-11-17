@@ -252,3 +252,40 @@ describe("plugin password setup links", () => {
     expect(sendPasswordSetup).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("plugin user deletion", () => {
+  it("deletes only users whose every role the plugin registered, and needs users:manage", async () => {
+    const people: Record<string, { roles: string[] }> = {
+      "u-demo": { roles: ["demo-customer"] },
+      "u-mixed": { roles: ["subscriber", "demo-customer"] },
+      "u-admin": { roles: ["administrator"] },
+    };
+    const remove = vi.fn(async () => ({ ok: true as const }));
+    const find = vi.fn(async (target: { userId?: string; email?: string }) => {
+      const id = target.userId ?? "";
+      return people[id] ? { id, email: `${id}@example.com`, username: id, displayName: id, role: people[id]!.roles[0]!, roles: people[id]!.roles } : null;
+    });
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, { usersFactory: () => ({ create: vi.fn(), find, delete: remove }) as never });
+    let owner: PluginContext | undefined;
+    let reader: PluginContext | undefined;
+    loader.register(
+      plugin("justflows.demo", ["users:manage"], (ctx) => {
+        owner = ctx;
+        ctx.roles.register({ id: "demo-customer", label: "Demo customer", capabilities: [] });
+      }),
+    );
+    loader.register(plugin("justflows.reader", ["users:read"], (ctx) => { reader = ctx; }));
+    await loader.activate("justflows.demo", "site-1");
+    await loader.activate("justflows.reader", "site-1");
+    const actor = { userId: "admin", role: "administrator" };
+
+    await expect(owner!.users.delete!({ userId: "u-demo" }, actor)).resolves.toEqual({ ok: true });
+    /** Someone who also holds a role the plugin did not register, or a core role, is not the plugin's to delete. */
+    await expect(owner!.users.delete!({ userId: "u-mixed" }, actor)).resolves.toMatchObject({ ok: false, status: 403 });
+    await expect(owner!.users.delete!({ userId: "u-admin" }, actor)).resolves.toMatchObject({ ok: false, status: 403 });
+    await expect(owner!.users.delete!({ userId: "nobody" }, actor)).resolves.toMatchObject({ ok: false, status: 404 });
+    await expect(reader!.users.delete!({ userId: "u-demo" }, actor)).rejects.toThrow(/users:manage/);
+    expect(remove).toHaveBeenCalledTimes(1);
+  });
+});

@@ -883,6 +883,15 @@ export interface PluginUsersApi {
    * Optional: older hosts do not provide it.
    */
   sendPasswordSetup?(target: PluginUserTarget, actor: PluginUserActor): Promise<PluginPasswordSetupResult>;
+  /**
+   * Delete an account this plugin is wholly responsible for: every role the
+   * user holds is one this plugin registered (so never an administrator,
+   * a member who signed up themselves, or someone another plugin manages).
+   * For removing accounts the plugin made, such as demo data. Fires
+   * `user.deleted` like any deletion. Requires the `users:manage` manifest
+   * permission. Optional: older hosts do not provide it.
+   */
+  delete?(target: PluginUserTarget, actor: PluginUserActor): Promise<{ ok: true } | { ok: false; status: number; error: string }>;
 }
 
 export type PluginPasswordSetupResult = { ok: true; expiresAt: string } | { ok: false; status: number; error: string };

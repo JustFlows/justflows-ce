@@ -114,6 +114,9 @@ All additive; existing plugins are unaffected.
 - `ctx.network.site(siteId?)` returns one live site and its public URL from any site.
 - `ctx.users.sendPasswordSetup(target, actor)` (permission `users:manage`; only users
   holding a role the plugin registered) emails a three-day set-password link.
+- `ctx.users.delete(target, actor)` (permission `users:manage`; only users whose every role the
+  plugin registered) deletes an account the plugin is wholly responsible for, such as demo data.
+- `ctx.users.find` / `get` return `birthDate` (`YYYY-MM-DD` or null) when the member gave one.
 - `ctx.outbound.fetch(url, request?)` (permission `network:outbound`; absent without it
   and on older hosts) makes SSRF-guarded HTTP requests and returns failures as values.
 - `ctx.captcha.verify` without an action expects the plugin's own name.
