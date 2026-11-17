@@ -231,16 +231,25 @@ import { createPasskey, isCancelled, passkeysSupported, type CreationOptionsJson
     summary: { content: number; comments: number; plugins: Array<{ id: string; label: string; ok: boolean; count: number }> } | null;
   };
   const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  async function renderData(host: HTMLElement): Promise<void> {
+  /** A polite live region next to the buttons it reports on, so the answer shows where the member clicked. */
+  const statusLine = (text = "") => {
+    const line = make("p", text, "jf-data-status"); line.setAttribute("role", "status"); line.setAttribute("aria-live", "polite");
+    return line;
+  };
+  const failure = (error: unknown) => (error instanceof Error ? error.message : "Please try again.");
+  /**
+   * Draws the "Your data" block. `flash` carries the answer to the action that
+   * caused the redraw: `page` above the panels, `removal` inside the removal panel.
+   */
+  async function renderData(host: HTMLElement, flash: { page?: string; removal?: string } = {}): Promise<void> {
     const wants = (key: string) => host.dataset[key] !== "false";
     let state: DataState;
     try { state = await request<DataState>(`/api/account/data${wants("summary") ? "?summary=1" : ""}`); } catch (error) {
       host.replaceChildren(make("p", error instanceof Error ? error.message : "Your data could not be loaded.", "muted"));
       return;
     }
-    const status = make("p", "", "jf-data-status"); status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
-    const say = (text: string) => { status.textContent = text; };
     host.replaceChildren();
+    if (flash.page) host.append(statusLine(flash.page));
 
     /** Records are also found by address, so the member first shows they read its mailbox. */
     if (!state.confirmed && (wants("summary") || (wants("download") && state.download) || (wants("removal") && state.erasure))) {
@@ -248,12 +257,13 @@ import { createPasskey, isCancelled, passkeysSupported, type CreationOptionsJson
       panel.append(make("h2", "Confirm your email address"),
         make("p", `Some of your data, such as bookings or orders you placed before you had an account, is found by your email address. To keep it private, we first send a link to ${state.email}. Open it while you are signed in.`, "muted"));
       const send = make("button", "Send the link"); send.type = "button";
+      const said = statusLine();
       send.onclick = async () => {
-        send.disabled = true;
-        try { await request("/api/account/data/confirm-address", "POST", {}); say(`We sent a link to ${state.email}. It works for 24 hours.`); }
-        catch (error) { say(error instanceof Error ? error.message : "Please try again."); send.disabled = false; }
+        send.disabled = true; said.textContent = "Sending the link…";
+        try { await request("/api/account/data/confirm-address", "POST", {}); said.textContent = `We sent a link to ${state.email}. It works for 24 hours.`; }
+        catch (error) { said.textContent = failure(error); send.disabled = false; }
       };
-      panel.append(send); host.append(panel, status);
+      panel.append(send, said); host.append(panel);
       return;
     }
 
@@ -272,6 +282,8 @@ import { createPasskey, isCancelled, passkeysSupported, type CreationOptionsJson
       const panel = make("section", "", "panel");
       panel.append(make("h2", "Download your data"), make("p", "A file with everything this site and its features keep about you, in a format other services can read.", "muted"));
       const download = make("button", "Download your data"); download.type = "button";
+      const said = statusLine();
+      const say = (text: string) => { said.textContent = text; };
       download.onclick = async () => {
         download.disabled = true; say("Preparing your file…");
         try {
@@ -283,23 +295,25 @@ import { createPasskey, isCancelled, passkeysSupported, type CreationOptionsJson
           const link = make("a"); link.href = url; link.download = name; document.body.append(link); link.click(); link.remove();
           setTimeout(() => URL.revokeObjectURL(url), 10_000);
           say("Your file is downloaded.");
-        } catch (error) { say(error instanceof Error ? error.message : "Please try again."); }
+        } catch (error) { say(failure(error)); }
         finally { download.disabled = false; }
       };
-      panel.append(download); host.append(panel);
+      panel.append(download, said); host.append(panel);
     }
 
     if (wants("removal") && (state.erasure || state.request)) {
       const panel = make("section", "", "panel"); panel.append(make("h2", "Remove your data"));
+      const said = statusLine(flash.removal);
+      const say = (text: string) => { said.textContent = text; };
       if (state.request) {
         panel.append(make("p", `You asked us to remove your data on ${day(state.request.requestedAt)}. We will answer by ${day(state.request.dueAt)}. Until then you can keep using your account.`));
         const withdraw = make("button", "Withdraw my request", "secondary"); withdraw.type = "button";
         withdraw.onclick = async () => {
-          withdraw.disabled = true;
-          try { await request("/api/account/data/erasure-request", "DELETE"); await renderData(host); }
-          catch (error) { say(error instanceof Error ? error.message : "Please try again."); withdraw.disabled = false; }
+          withdraw.disabled = true; say("Withdrawing your request…");
+          try { await request("/api/account/data/erasure-request", "DELETE"); await renderData(host, { removal: "Your request is withdrawn. Your account stays as it is." }); }
+          catch (error) { say(failure(error)); withdraw.disabled = false; }
         };
-        panel.append(withdraw);
+        panel.append(withdraw, said);
       } else {
         panel.append(make("p", "We remove your data and delete your account. Records the law requires us to keep, such as invoices, are kept for as long as the law says and then removed. We answer within 30 days.", "muted"));
         const open = make("button", "Request removal", "secondary"); open.type = "button";
@@ -312,20 +326,27 @@ import { createPasskey, isCancelled, passkeysSupported, type CreationOptionsJson
         const cancel = make("button", "Cancel", "secondary"); cancel.type = "button";
         cancel.onclick = () => { form.hidden = true; open.hidden = false; form.reset(); };
         open.onclick = () => { form.hidden = false; open.hidden = true; password.focus(); };
-        form.append(note, password, understoodLabel, submit, cancel);
+        cancel.addEventListener("click", () => say(""));
+        const actions = make("div", "", "jf-data-actions"); actions.append(submit, cancel);
+        form.append(note, password, understoodLabel, actions);
         form.onsubmit = (event) => {
           event.preventDefault();
           void saving(form, async () => {
-            try { await request("/api/account/data/erasure-request", "POST", { password: password.value, ...(note.value.trim() ? { note: note.value.trim() } : {}) }); await renderData(host); }
-            catch (error) { say(error instanceof Error ? error.message : "Please try again."); }
+            say("Sending your request…");
+            try {
+              await request("/api/account/data/erasure-request", "POST", { password: password.value, ...(note.value.trim() ? { note: note.value.trim() } : {}) });
+              await renderData(host, { removal: `We received your request and sent a confirmation to ${state.email}.` });
+            } catch (error) {
+              say(failure(error));
+              password.value = ""; password.focus();
+            }
           });
         };
-        panel.append(open, form);
+        panel.append(open, form, said);
       }
       host.append(panel);
     }
-    if (!host.children.length) host.append(make("p", "Contact the site to ask about your data.", "muted"));
-    host.append(status);
+    if (!host.querySelector("section")) host.append(make("p", "Contact the site to ask about your data.", "muted"));
   }
   const dataHosts = Array.from(document.querySelectorAll<HTMLElement>("[data-jf-account-data]"));
   if (dataHosts.length) {
@@ -340,11 +361,7 @@ import { createPasskey, isCancelled, passkeysSupported, type CreationOptionsJson
         try { await request("/api/account/data/confirm-address/verify", "POST", { token }); confirmedNotice = "Your email address is confirmed."; }
         catch (error) { confirmedNotice = error instanceof Error ? error.message : "The link did not work. Send a new one."; }
       }
-      for (const host of dataHosts) {
-        await renderData(host);
-        const status = host.querySelector<HTMLElement>(".jf-data-status");
-        if (status && confirmedNotice) status.textContent = confirmedNotice;
-      }
+      for (const host of dataHosts) await renderData(host, { page: confirmedNotice });
     })();
   }
 
