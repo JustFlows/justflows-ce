@@ -10,6 +10,17 @@ import {
   setPluginHostItem,
 } from "./plugin-kv.js";
 
+/** A platform-owned plugin switch is absent/on by default and authoritative when off. */
+async function pluginEnabledForSite(pluginId: string, siteId: string): Promise<boolean> {
+  const featureKey = `${pluginId}.enabled`;
+  const { listMeterDefinitions } = await import("../tenancy/quotas.js");
+  if (!listMeterDefinitions("site").some((meter) => meter.key === featureKey && meter.unit === "flag")) {
+    return true;
+  }
+  const { siteFeatureEnabled } = await import("../tenancy/site-features.js");
+  return siteFeatureEnabled(featureKey, siteId);
+}
+
 export function manifestAllowsMultisite(manifest: Record<string, unknown> | null | undefined): boolean {
   return manifest?.allowMultisite === true;
 }
@@ -198,7 +209,13 @@ async function concealUnofferedPlugins(siteId: string, offeredIds: ReadonlySet<s
 export async function listVisiblePlugins(siteId: string): Promise<PluginDto[]> {
   const rootId = await installationRootSiteId();
   if (!rootId || rootId === siteId) {
-    const plugins = await listPlugins(siteId);
+    const installed = await listPlugins(siteId);
+    const plugins = (
+      await Promise.all(installed.map(async (plugin) => ({
+        plugin,
+        enabled: await pluginEnabledForSite(plugin.id, siteId),
+      })))
+    ).filter((item) => item.enabled).map((item) => item.plugin);
     const offered = await Promise.all(
       plugins.map((plugin) => isPluginOfferedToOtherSites(plugin.id, siteId)),
     );
@@ -220,6 +237,7 @@ export async function listVisiblePlugins(siteId: string): Promise<PluginDto[]> {
   const visible: PluginDto[] = [];
   for (const raw of rootRows) {
     const row = parseRow(raw);
+    if (!(await pluginEnabledForSite(row.plugin_id, siteId))) continue;
     if (!(await isPluginOfferedToOtherSites(row.plugin_id, rootId))) continue;
     offeredIds.add(row.plugin_id);
     const local = await getPlugin(siteId, row.plugin_id);
@@ -260,6 +278,9 @@ export async function prepareSubsitedActivation(
   siteId: string,
   pluginId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await pluginEnabledForSite(pluginId, siteId))) {
+    return { ok: false, error: "This plugin is turned off for this website." };
+  }
   const rootId = await installationRootSiteId();
   if (!rootId || rootId === siteId) {
     return { ok: false, error: "Plugin is not installed on this site." };

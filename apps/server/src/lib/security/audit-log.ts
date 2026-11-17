@@ -29,6 +29,7 @@ export const AUDIT_ACTIONS = [
   "auth.password_changed",
   "auth.password_reset",
   "auth.password_reset_requested",
+  "auth.password_setup_sent",
   "auth.password_reset_failed",
   "auth.2fa_enabled",
   "auth.2fa_disabled",
@@ -42,6 +43,14 @@ export const AUDIT_ACTIONS = [
   "user.role_changed",
   "user.access_changed",
   "user.deleted",
+  "privacy.exported",
+  "privacy.erased",
+  "privacy.request_created",
+  "privacy.request_cancelled",
+  "privacy.request_completed",
+  "privacy.request_declined",
+  "privacy.address_confirmed",
+  "user.birth_date_changed",
   "workspace.owner_updated",
   "workspace.created_mail",
   "workspace.sites_requested",
@@ -165,6 +174,7 @@ export type AuditOutcome = "success" | "failure";
 export const SECURITY_AUDIT_ACTIONS = AUDIT_ACTIONS.filter((action) =>
   action.startsWith("auth.")
   || action.startsWith("user.")
+  || action.startsWith("privacy.")
   || action.startsWith("access.")
   || action.startsWith("apikey.")
   || action.startsWith("plugin.")

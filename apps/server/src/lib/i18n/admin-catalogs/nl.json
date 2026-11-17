@@ -56,7 +56,8 @@
     "customDomains": "Eigen domeinen",
     "storage": "Opslag",
     "taxonomies": "Categorieën & tags",
-    "securityPasskeys": "Passkeys"
+    "securityPasskeys": "Passkeys",
+    "dataRequests": "Gegevensverzoeken"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -4908,7 +4909,9 @@
       "resetFactorsHint": "Voor iemand die zowel de passkey als de herstelcodes kwijt is. Verwijdert de passkeys, de authenticator-app en de herstelcodes, en logt het account overal uit. Daarna logt de gebruiker alleen met het wachtwoord in tot deze factoren opnieuw zijn ingesteld.",
       "resetFactorsConfirm": "Alle passkeys, de authenticator-app en de herstelcodes van {name} verwijderen en het account overal uitloggen?",
       "resetFactorsFailed": "De inlogfactoren konden niet worden verwijderd.",
-      "resetFactorsNotice": "Passkeys, authenticator-app en herstelcodes verwijderd. Het account is overal uitgelogd."
+      "resetFactorsNotice": "Passkeys, authenticator-app en herstelcodes verwijderd. Het account is overal uitgelogd.",
+      "birthDate": "Geboortedatum",
+      "birthDateHint": "Optioneel. Plug-ins gebruiken haar om leeftijdsgrenzen te controleren. Alleen beheerders en het lid zien haar."
     },
     "roles": {
       "failedToLoadRoles": "Rollen konden niet worden geladen",
@@ -5821,5 +5824,69 @@
       "rule_invalid": "Een pluginregel gaf een ongeldig antwoord."
     },
     "pluginReason": "Pluginregel {rule} antwoordde: {reason}"
+  },
+  "privacy": {
+    "title": "Persoonsgegevens",
+    "requestsTitle": "Gegevensverzoeken",
+    "requestsIntro": "Zoek iemand op met het e-mailadres dat diegene gebruikte, ook zonder account: gasten die boekten, bestelden of een formulier invulden. Downloaden en wissen gelden voor de site en alle actieve plugins.",
+    "email": "E-mailadres",
+    "lookUp": "Opzoeken",
+    "intro": "Alles wat de site en haar plugins over deze persoon bewaren. Download het voor een inzageverzoek, of wis het. Wissen verwijdert of anonimiseert persoonsgegevens; gegevens waar andere dingen van afhangen, zoals boekingen en bestellingen, blijven zonder die gegevens bestaan.",
+    "download": "Alle gegevens downloaden",
+    "erase": "Persoonsgegevens wissen",
+    "confirmErase": "De persoonsgegevens van {who} wissen in de site en alle plugins? Dit kan niet ongedaan worden gemaakt.",
+    "failed": "Het verzoek is mislukt. Probeer het opnieuw.",
+    "foundTitle": "In de download",
+    "core": "Site: inhoudsitems {content}, reacties {comments}, auditregels {audit}",
+    "pluginFound": {
+      "one": "{name}: {count} gegeven",
+      "other": "{name}: {count} gegevens"
+    },
+    "pluginFailed": "{name}: mislukt ({error})",
+    "erasedTitle": "Gewist",
+    "coreErased": "Site: inhoudsitems overgedragen {content}, reacties geanonimiseerd {comments}, auditregels geanonimiseerd {audit}",
+    "pluginErased": {
+      "one": "{name}: {count} gegeven verwijderd of geanonimiseerd",
+      "other": "{name}: {count} gegevens verwijderd of geanonimiseerd"
+    },
+    "retry": "Sommige plugins zijn niet klaar. Wis opnieuw om het nog eens te proberen; wat al gedaan is, blijft gedaan.",
+    "adminOnly": "Alleen beheerders handelen gegevensverzoeken af.",
+    "kept": "Wettelijk bewaard tot {until}: {kind} ({count}). {reason}",
+    "retentionTitle": "Wettelijk te bewaren gegevens",
+    "retentionHint": "Financiële administratie (bestellingen, facturen, betalingen, terugbetalingen) moet wettelijk een aantal jaren bewaard blijven. Bij een gegevensverzoek houden plugins alleen wat zo'n stuk wettelijk nodig heeft, zoals bedragen, btw en de factuurnaam en het factuuradres, verwijderen ze al het andere meteen en verwijderen ze de rest als de termijn voorbij is. Controleer welke termijn voor jou geldt.",
+    "retentionYears": "Financiële administratie bewaren (jaren)",
+    "save": "Opslaan",
+    "retentionSaved": "Opgeslagen.",
+    "lookUpTitle": "Iemand opzoeken",
+    "openTitle": "Verwijderverzoeken",
+    "handledTitle": "Afgehandelde verzoeken",
+    "showHandled": "Afgehandelde verzoeken tonen",
+    "showOpen": "Open verzoeken tonen",
+    "openIntro": "Leden vragen om verwijdering op hun pagina Jouw gegevens. Als je een verzoek afrondt, worden hun gegevens gewist in de site en alle plugins, blijft alleen bewaard wat de wet vereist, wordt het account verwijderd en krijgt het lid een e-mail. Reageer binnen 30 dagen.",
+    "noneOpen": "Geen open verzoeken.",
+    "noneHandled": "Nog geen afgehandelde verzoeken.",
+    "requestedOn": "Gevraagd op {date}",
+    "dueBy": "reageren vóór {date}",
+    "overdue": "te laat sinds {date}",
+    "memberNote": "Hun toelichting: {note}",
+    "unfinished": "Vorige keer niet afgerond: {outcome}",
+    "complete": "Afronden",
+    "confirmComplete": "De gegevens van {who} wissen in de site en alle plugins, en het account verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "completed": "Klaar. De gegevens van {who} zijn gewist, het account is verwijderd en het lid heeft een e-mail gekregen.",
+    "decline": "Weigeren",
+    "declineReason": "Reden, wordt naar het lid gestuurd",
+    "sendDecline": "Weigeren en versturen",
+    "cancel": "Annuleren",
+    "declined": "Geweigerd. Het lid heeft de reden per e-mail gekregen.",
+    "deletedAccount": "Verwijderd account",
+    "status": {
+      "completed": "Afgerond",
+      "declined": "Geweigerd",
+      "cancelled": "Ingetrokken door het lid"
+    },
+    "selfServiceTitle": "Pagina Jouw gegevens",
+    "selfServiceHint": "Ingelogde leden beheren hun eigen gegevens op de accountpagina Jouw gegevens. Kies wat die pagina aanbiedt. Staan beide uit, dan vraagt de pagina leden contact met je op te nemen.",
+    "selfDownload": "Leden kunnen hun gegevens downloaden",
+    "selfErasure": "Leden kunnen vragen hun gegevens te verwijderen"
   }
 }

@@ -1,7 +1,8 @@
 import { clearBlockPreviewCache } from "../../lib/block-preview-batch";
 import type { BlockCatalogEntry } from "./types";
 import { coreBlocks } from "@justflows/blocks";
-import { translateEnglish, type Translate } from "../../i18n/translate";
+import { type Translate } from "../../i18n/translate";
+import { translateEnglish } from "../../i18n/translate-english";
 import type { BlockNode } from "./types";
 import { uid } from "../../lib/uid";
 

@@ -1,4 +1,5 @@
-import { translateEnglish, type Translate } from "../../i18n/translate";
+import { type Translate } from "../../i18n/translate";
+import { translateEnglish } from "../../i18n/translate-english";
 import type { BlockDocument, BlockNode } from "./types";
 import { reassignBlockIds, cloneBlocks } from "./block-tree";
 import { uid } from "../../lib/uid";

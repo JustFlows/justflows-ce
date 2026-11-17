@@ -24,6 +24,7 @@ import { createPluginCaptchaApi } from "./plugin-captcha.js";
 import { createPluginAiApi } from "./plugin-ai.js";
 import { createPluginTenancyApi } from "./plugin-tenancy.js";
 import { createPluginNetworkApi } from "./plugin-network.js";
+import { createPluginOutboundApi } from "./plugin-outbound.js";
 import { createPluginQuotasApi } from "./plugin-quotas.js";
 import { unregisterPluginMeters } from "../tenancy/quotas.js";
 import { createPluginContentApi } from "./plugin-content.js";
@@ -313,6 +314,7 @@ export async function ensurePluginRuntime(): Promise<void> {
           createPluginDatabasesApi(pluginId, siteId, permissions),
         tenancyFactory: (pluginId, permissions) => createPluginTenancyApi(pluginId, permissions),
         networkFactory: (pluginId) => createPluginNetworkApi(pluginId),
+        outboundFactory: (pluginId) => createPluginOutboundApi(pluginId),
         runForSite: async (siteId, fn) => {
           const { runPluginCallForSite } = await import("./plugin-call-site.js");
           return runPluginCallForSite(siteId, fn);
@@ -320,7 +322,7 @@ export async function ensurePluginRuntime(): Promise<void> {
         quotasFactory: (pluginId, permissions, siteId) => createPluginQuotasApi(pluginId, permissions, siteId),
         quotasCleanup: unregisterPluginMeters,
         filesFactory: (pluginId, siteId) => createPluginFilesApi(pluginId, siteId),
-        usersFactory: (_pluginId, siteId) => ({
+        usersFactory: (pluginId, siteId) => ({
           create: async (input, actor) => {
             const { createUser, CreateUserSchema } = await import("../auth/users-admin.js");
             const parsed = CreateUserSchema.safeParse(input);
@@ -369,9 +371,59 @@ export async function ensurePluginRuntime(): Promise<void> {
             const { removeAdditionalRole } = await import("../auth/users-admin.js");
             return removeAdditionalRole(siteId, target, role, actor);
           },
+          sendPasswordSetup: async (target, actor) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { findUserRoles } = await import("../auth/users-admin.js");
+            const { sendPasswordSetup } = await import("../auth/password-reset.js");
+            const site = pluginCallSiteId(siteId);
+            const user = await findUserRoles(site, target);
+            if (!user) return { ok: false, status: 404, error: "User not found." };
+            return sendPasswordSetup(site, user.id, actor);
+          },
+          /** The loader has already checked that the actor is the member, or that the account is wholly the plugin's. */
+          updateProfile: async (target, fields, actor) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { emitUserEvent, findUserRoles } = await import("../auth/users-admin.js");
+            const { validBirthDate } = await import("../account/personal.js");
+            const { auditLog } = await import("../security/audit-log.js");
+            const { getDb } = await import("../database/db.js");
+            const site = pluginCallSiteId(siteId);
+            const user = await findUserRoles(site, target);
+            if (!user) return { ok: false, status: 404, error: "User not found." };
+            if (fields.birthDate === undefined) return { ok: true };
+            const birthDate = validBirthDate(fields.birthDate);
+            if (birthDate === undefined) return { ok: false, status: 400, error: "Enter a date of birth as a real date, not in the future." };
+            if ((user.birthDate ?? null) === birthDate) return { ok: true };
+            const db = await getDb();
+            await db.run("UPDATE users SET birth_date = ?, updated_at = ? WHERE id = ? AND site_id = ?", [birthDate, new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, ""), user.id, site]);
+            await auditLog({ siteId: site, action: "user.birth_date_changed", actorId: actor.userId, actorRole: actor.role, target: user.id, detail: `${birthDate ? "set" : "cleared"} by plugin ${pluginId}` });
+            await emitUserEvent("user.updated", user.id, site);
+            return { ok: true };
+          },
+          /** The loader has already checked that every role of the user is the calling plugin's. */
+          delete: async (target, actor) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { deleteUser, findUserRoles } = await import("../auth/users-admin.js");
+            const site = pluginCallSiteId(siteId);
+            const user = await findUserRoles(site, target);
+            if (!user) return { ok: false, status: 404, error: "User not found." };
+            const result = await deleteUser(user.id, { siteId: site, userId: actor.userId, role: actor.role });
+            return result.status < 400 ? { ok: true } : { ok: false, status: result.status, error: String((result.body as { error?: string }).error ?? "Could not delete the user.") };
+          },
           get: async (userId) => {
             const { getUserRoles } = await import("../auth/users-admin.js");
             return getUserRoles(siteId, userId);
+          },
+          /** The request's site, like the i18n facade: a shared plugin module may have been loaded by another site. */
+          find: async (target) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { findUserRoles } = await import("../auth/users-admin.js");
+            return findUserRoles(pluginCallSiteId(siteId), target);
+          },
+          search: async (input) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { searchUsers } = await import("../auth/users-admin.js");
+            return searchUsers(pluginCallSiteId(siteId), input.query, input.limit);
           },
         }),
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),

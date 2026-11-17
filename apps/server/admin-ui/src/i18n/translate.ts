@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-import { EMBEDDED_EN } from "./embedded-en";
 
 export type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -43,7 +42,3 @@ export function lookupMessage(messages: Record<string, string>, key: string, loc
   const form = typeof count === "number" ? pluralForm(locale, count) : "other";
   return messages[`${key}.${form}`] ?? messages[`${key}.other`];
 }
-
-/** English default for pure helpers; UI callers pass their active translator. */
-export const translateEnglish: Translate = (key, vars) =>
-  interpolate(lookupMessage(EMBEDDED_EN, key, "en", vars) ?? key, vars);

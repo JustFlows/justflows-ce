@@ -1,7 +1,8 @@
 import { createBlockRegistrySync } from "@justflows/blocks";
 import FunctionalBlock, { FUNCTIONAL_TYPES } from "./builder/FunctionalBlock";
 import MediaBlock from "./MediaBlock";
-import { translateEnglish, type Translate } from "../i18n/translate";
+import { type Translate } from "../i18n/translate";
+import { translateEnglish } from "../i18n/translate-english";
 import type { BlockDocument, BlockNode } from "@components/builder/types";
 import { sanitizeHtmlBlock, sanitizeRichText, safeHref, safeMediaSrc } from "@justflows/blocks";
 

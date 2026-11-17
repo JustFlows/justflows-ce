@@ -56,7 +56,8 @@
     "customDomains": "Własne domeny",
     "storage": "Magazyn",
     "taxonomies": "Kategorie i tagi",
-    "securityPasskeys": "Klucze dostępu"
+    "securityPasskeys": "Klucze dostępu",
+    "dataRequests": "Wnioski o dane"
   },
   "webhooks": {
     "title": "Haki internetowe",
@@ -5230,7 +5231,9 @@
       "resetFactorsHint": "Dla osoby, która straciła klucz dostępu i kody odzyskiwania. Usuwa jej klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania oraz wylogowuje ją wszędzie. Do czasu ponownej konfiguracji loguje się samym hasłem.",
       "resetFactorsConfirm": "Usunąć wszystkie klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania użytkownika {name} oraz wylogować go wszędzie?",
       "resetFactorsFailed": "Nie udało się usunąć składników logowania.",
-      "resetFactorsNotice": "Usunięto klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania. Konto zostało wylogowane wszędzie."
+      "resetFactorsNotice": "Usunięto klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania. Konto zostało wylogowane wszędzie.",
+      "birthDate": "Data urodzenia",
+      "birthDateHint": "Opcjonalnie. Wtyczki używają jej do sprawdzania limitów wieku. Widzą ją tylko administratorzy i członek."
     },
     "roles": {
       "title": "Role i możliwości",
@@ -5975,5 +5978,73 @@
       "rule_invalid": "Reguła wtyczki zwróciła nieprawidłową odpowiedź."
     },
     "pluginReason": "Reguła wtyczki {rule} odpowiedziała: {reason}"
+  },
+  "privacy": {
+    "title": "Dane osobowe",
+    "requestsTitle": "Wnioski o dane",
+    "requestsIntro": "Wyszukaj osobę po adresie e-mail, którego użyła, także bez konta: gości, którzy rezerwowali, zamawiali lub wypełnili formularz. Pobranie i usunięcie obejmują stronę i wszystkie aktywne wtyczki.",
+    "email": "Adres e-mail",
+    "lookUp": "Wyszukaj",
+    "intro": "Wszystko, co strona i jej wtyczki przechowują o tej osobie. Pobierz to na potrzeby wniosku o dostęp albo usuń. Usunięcie kasuje lub anonimizuje dane osobowe; zapisy, od których zależą inne rzeczy, takie jak rezerwacje i zamówienia, pozostają bez nich.",
+    "download": "Pobierz wszystkie dane",
+    "erase": "Usuń dane osobowe",
+    "confirmErase": "Usunąć dane osobowe {who} na stronie i we wszystkich wtyczkach? Tego nie można cofnąć.",
+    "failed": "Żądanie nie powiodło się. Spróbuj ponownie.",
+    "foundTitle": "W pobranym pliku",
+    "core": "Strona: treści: {content}, komentarze: {comments}, wpisy audytu: {audit}",
+    "pluginFound": {
+      "one": "{name}: {count} rekord",
+      "few": "{name}: {count} rekordy",
+      "many": "{name}: {count} rekordów",
+      "other": "{name}: {count} rekordu"
+    },
+    "pluginFailed": "{name}: błąd ({error})",
+    "erasedTitle": "Usunięto",
+    "coreErased": "Strona: przypisano ponownie treści: {content}, zanonimizowano komentarze: {comments} i wpisy audytu: {audit}",
+    "pluginErased": {
+      "one": "{name}: usunięto lub zanonimizowano {count} rekord",
+      "few": "{name}: usunięto lub zanonimizowano {count} rekordy",
+      "many": "{name}: usunięto lub zanonimizowano {count} rekordów",
+      "other": "{name}: usunięto lub zanonimizowano {count} rekordu"
+    },
+    "retry": "Niektóre wtyczki nie zakończyły pracy. Usuń ponownie, aby spróbować jeszcze raz; to, co już zrobione, pozostaje zrobione.",
+    "adminOnly": "Wnioski o dane obsługują tylko administratorzy.",
+    "kept": "Przechowywane zgodnie z prawem do {until}: {kind} ({count}). {reason}",
+    "retentionTitle": "Dane przechowywane zgodnie z prawem",
+    "retentionHint": "Dokumenty finansowe (zamówienia, faktury, płatności, zwroty) trzeba przechowywać przez kilka lat. Przy wniosku o dane wtyczki zostawiają tylko to, czego taki dokument wymaga prawnie, np. kwoty, podatek oraz nazwę i adres na fakturze, resztę usuwają od razu, a pozostałe dane po upływie okresu. Sprawdź okres, który cię obowiązuje.",
+    "retentionYears": "Przechowuj dokumenty finansowe (lata)",
+    "save": "Zapisz",
+    "retentionSaved": "Zapisano.",
+    "lookUpTitle": "Wyszukaj osobę",
+    "openTitle": "Prośby o usunięcie",
+    "handledTitle": "Załatwione prośby",
+    "showHandled": "Pokaż załatwione prośby",
+    "showOpen": "Pokaż otwarte prośby",
+    "openIntro": "Członkowie proszą o usunięcie na swojej stronie Twoje dane. Zrealizowanie prośby usuwa ich dane w witrynie i we wszystkich wtyczkach, zachowuje tylko to, czego wymaga prawo, usuwa konto i powiadamia członka e-mailem. Odpowiedz w ciągu 30 dni.",
+    "noneOpen": "Brak otwartych próśb.",
+    "noneHandled": "Brak załatwionych próśb.",
+    "requestedOn": "Zgłoszono {date}",
+    "dueBy": "odpowiedź do {date}",
+    "overdue": "po terminie od {date}",
+    "memberNote": "Uwaga członka: {note}",
+    "unfinished": "Ostatnio nie dokończono: {outcome}",
+    "complete": "Zrealizuj",
+    "confirmComplete": "Usunąć dane {who} w witrynie i we wszystkich wtyczkach oraz usunąć konto? Tego nie można cofnąć.",
+    "completed": "Gotowe. Dane {who} zostały usunięte, konto skasowane, a członek powiadomiony e-mailem.",
+    "decline": "Odrzuć",
+    "declineReason": "Powód, wysyłany do członka",
+    "sendDecline": "Odrzuć i wyślij",
+    "cancel": "Anuluj",
+    "declined": "Odrzucono. Członek otrzymał powód e-mailem.",
+    "deletedAccount": "Usunięte konto",
+    "status": {
+      "completed": "Zrealizowana",
+      "declined": "Odrzucona",
+      "cancelled": "Wycofana przez członka"
+    },
+    "selfServiceTitle": "Strona Twoje dane",
+    "selfServiceHint": "Zalogowani członkowie zarządzają swoimi danymi na stronie konta Twoje dane. Wybierz, co ona oferuje. Gdy obie opcje są wyłączone, strona prosi członków o kontakt z Tobą.",
+    "selfDownload": "Członkowie mogą pobrać swoje dane",
+    "selfErasure": "Członkowie mogą poprosić o usunięcie swoich danych"
   }
 }

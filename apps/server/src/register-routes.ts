@@ -124,6 +124,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     { default: commentRulesRoutes },
     { default: commentSpamTermsRoutes },
     { default: usersRoutes },
+    { default: privacyRequestRoutes },
     { default: settingsRoutes },
     { default: securityRoutes },
     { default: themesRoutes },
@@ -166,6 +167,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     import("./routes/comments/comment-rules.js"),
     import("./routes/comments/comment-spam-terms.js"),
     import("./routes/auth/users.js"),
+    import("./routes/auth/privacy-requests.js"),
     import("./routes/settings/settings.js"),
     import("./routes/system/security.js"),
     import("./routes/design/themes.js"),
@@ -218,6 +220,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/comment-rules", requireInstalled, requireSiteFeature("feature.comments"), commentRulesRoutes);
   app.use("/api/comment-spam-terms", requireInstalled, requireSiteFeature("feature.comments"), commentSpamTermsRoutes);
   app.use("/api/users", requireInstalled, usersRoutes);
+  app.use("/api/privacy-requests", requireInstalled, privacyRequestRoutes);
   app.use("/api/platform/custom-domains", requireInstalled, requireMultisite, (await import("./routes/platform/custom-domains.js")).default);
   app.use("/api/platform", requireInstalled, requireMultisite, (await import("./routes/platform/tenants.js")).default);
   app.use("/api/signup", requireInstalled, requireMultisite, (await import("./routes/public/signup.js")).default);

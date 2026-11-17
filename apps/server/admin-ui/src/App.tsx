@@ -37,6 +37,7 @@ const ReusableBuilderPage = lazyPage(() => import("./pages/admin/design/Reusable
 const MenusPage = lazyPage(() => import("./pages/admin/design/MenusPage"));
 const UsersPage = lazyPage(() => import("./pages/admin/users/UsersPage"));
 const EditUserPage = lazyPage(() => import("./pages/admin/users/EditUserPage"));
+const DataRequestsPage = lazyPage(() => import("./pages/admin/users/DataRequestsPage"));
 const RedirectsPage = lazyPage(() => import("./pages/admin/settings/RedirectsPage"));
 const PermalinksPage = lazyPage(() => import("./pages/admin/settings/PermalinksPage"));
 const PwaSettingsPage = lazyPage(() => import("./pages/admin/settings/PwaSettingsPage"));
@@ -144,6 +145,7 @@ export default function App() {
               <Route path="widgets" element={<WidgetsPage />} />
               <Route path="menus" element={<MenusPage />} />
               <Route path="users" element={<UsersPage />} />
+              <Route path="data-requests" element={<DataRequestsPage />} />
               <Route path="users/:id" element={<EditUserPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="settings/permalinks" element={<PermalinksPage />} />

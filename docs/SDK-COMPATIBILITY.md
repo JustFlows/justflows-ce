@@ -112,6 +112,16 @@ All additive; existing plugins are unaffected.
   `adminApp.locales` catalogs before core's.
 - The `plugin.settings.schema` filter narrows a plugin's settings form per site.
 - `ctx.network.site(siteId?)` returns one live site and its public URL from any site.
+- `ctx.users.sendPasswordSetup(target, actor)` (permission `users:manage`; only users
+  holding a role the plugin registered) emails a three-day set-password link.
+- `ctx.users.delete(target, actor)` (permission `users:manage`; only users whose every role the
+  plugin registered) deletes an account the plugin is wholly responsible for, such as demo data.
+- `ctx.users.find` / `get` return `birthDate` (`YYYY-MM-DD` or null) when the member gave one.
+- `ctx.users.updateProfile(target, { birthDate }, actor)` (permission `users:manage`; only the acting
+  member's own account, or an account whose every role the plugin registered) keeps a value on the
+  account instead of in the plugin; audited without the value, fires `user.updated`.
+- `ctx.outbound.fetch(url, request?)` (permission `network:outbound`; absent without it
+  and on older hosts) makes SSRF-guarded HTTP requests and returns failures as values.
 - `ctx.captcha.verify` without an action expects the plugin's own name.
 - Block fields of type `images`; for `media` and `images` fields the host adds a
   `responsive` prop. `escapeHtml`, `sanitizeMediaSrc`, `safeMediaSrc`,

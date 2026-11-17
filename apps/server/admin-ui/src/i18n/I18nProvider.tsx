@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import { interpolate, lookupMessage } from "./translate";
-import { EMBEDDED_EN } from "./embedded-en";
 import { getAdminSsrPayload, initialJson } from "../ssr-data";
 
 export const ADMIN_UI_LOCALES = ["en", "nl", "de", "fr", "es", "pl", "uk", "ru"] as const;
@@ -43,14 +42,36 @@ function detectInitialLocale(): AdminUiLocale {
   return "en";
 }
 
+/**
+ * The bundled English catalog, loaded only when the server cannot answer.
+ * Kept out of the initial admin bundle: every page normally gets its
+ * catalogs from the server-rendered payload or `/api/i18n`.
+ */
+let embedded: Messages | null = null;
+
+async function embeddedEnglish(): Promise<Messages> {
+  embedded ??= (await import("./embedded-en")).EMBEDDED_EN;
+  return embedded;
+}
+
+/**
+ * Load the English fallback ahead of rendering where size does not matter:
+ * the server before its first render, and the tests. Browsers fetch it only
+ * when the server's catalogs do not arrive.
+ */
+export async function preloadEnglishFallback(): Promise<void> {
+  await embeddedEnglish();
+}
+
 async function fetchCatalog(locale: string): Promise<Messages> {
+  const fallback = async () => (locale === "en" ? embeddedEnglish() : {});
   try {
     const res = await fetch(`/api/i18n/${locale}`, { cache: "no-store" });
-    if (!res.ok) return locale === "en" ? EMBEDDED_EN : {};
+    if (!res.ok) return fallback();
     const data = (await res.json()) as { messages?: Messages };
-    return data.messages ?? (locale === "en" ? EMBEDDED_EN : {});
+    return data.messages ?? fallback();
   } catch {
-    return locale === "en" ? EMBEDDED_EN : {};
+    return fallback();
   }
 }
 
@@ -62,21 +83,20 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const initialFallback = initialJson<{ messages?: Messages }>("/api/i18n/en")?.messages;
   const [locale, setLocaleState] = useState<AdminUiLocale>(initialLocale);
   const [messages, setMessages] = useState<Messages>(initialPrimary ?? {});
-  const [fallback, setFallback] = useState<Messages>(initialFallback ?? EMBEDDED_EN);
+  const [fallback, setFallback] = useState<Messages>(initialFallback ?? embedded ?? {});
   const [loading, setLoading] = useState(!initialPrimary);
 
   useEffect(() => {
     let cancelled = false;
     if (!initialJson(`/api/i18n/${locale}`)) setLoading(true);
 
-    Promise.all([
-      fetchCatalog(locale),
-      locale === "en" ? Promise.resolve(EMBEDDED_EN) : fetchCatalog("en"),
-    ])
+    /** English is its own fallback; another language falls back to the server's English catalog. */
+    const english = locale === "en" ? null : fetchCatalog("en");
+    Promise.all([fetchCatalog(locale), english])
       .then(([primary, en]) => {
         if (cancelled) return;
         setMessages(primary);
-        setFallback(en);
+        setFallback(en ?? primary);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -102,7 +122,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       const msg =
         lookupMessage(messages, key, locale, vars) ??
         lookupMessage(fallback, key, "en", vars) ??
-        lookupMessage(EMBEDDED_EN, key, "en", vars) ??
+        (embedded ? lookupMessage(embedded, key, "en", vars) : undefined) ??
         key;
       return interpolate(msg, vars);
     },

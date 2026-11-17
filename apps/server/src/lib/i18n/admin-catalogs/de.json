@@ -56,7 +56,8 @@
     "customDomains": "Eigene Domains",
     "storage": "Speicher",
     "taxonomies": "Kategorien & Schlagwörter",
-    "securityPasskeys": "Passkeys"
+    "securityPasskeys": "Passkeys",
+    "dataRequests": "Datenanfragen"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -4911,7 +4912,9 @@
       "resetFactorsHint": "Für Personen, die ihren Passkey und ihre Wiederherstellungscodes verloren haben. Entfernt Passkeys, Authenticator-App und Wiederherstellungscodes und meldet das Konto überall ab. Danach erfolgt die Anmeldung nur mit dem Passwort, bis diese Faktoren neu eingerichtet sind.",
       "resetFactorsConfirm": "Alle Passkeys, die Authenticator-App und die Wiederherstellungscodes von {name} entfernen und das Konto überall abmelden?",
       "resetFactorsFailed": "Die Anmeldefaktoren konnten nicht entfernt werden.",
-      "resetFactorsNotice": "Passkeys, Authenticator-App und Wiederherstellungscodes entfernt. Das Konto wurde überall abgemeldet."
+      "resetFactorsNotice": "Passkeys, Authenticator-App und Wiederherstellungscodes entfernt. Das Konto wurde überall abgemeldet.",
+      "birthDate": "Geburtsdatum",
+      "birthDateHint": "Optional. Plugins prüfen damit Altersgrenzen. Nur Administratoren und das Mitglied sehen es."
     },
     "roles": {
       "failedToLoadRoles": "Rollen konnten nicht geladen werden",
@@ -5824,5 +5827,69 @@
       "rule_invalid": "Eine Plugin-Regel hat eine ungültige Antwort geliefert."
     },
     "pluginReason": "Plugin-Regel {rule} antwortete: {reason}"
+  },
+  "privacy": {
+    "title": "Personenbezogene Daten",
+    "requestsTitle": "Datenanfragen",
+    "requestsIntro": "Suche eine Person über die E-Mail-Adresse, die sie verwendet hat, auch ohne Konto: Gäste, die gebucht, bestellt oder ein Formular ausgefüllt haben. Download und Löschung umfassen die Website und alle aktiven Plugins.",
+    "email": "E-Mail-Adresse",
+    "lookUp": "Suchen",
+    "intro": "Alles, was die Website und ihre Plugins über diese Person speichern. Lade es für eine Auskunftsanfrage herunter oder lösche es. Beim Löschen werden personenbezogene Angaben entfernt oder anonymisiert; Datensätze, von denen anderes abhängt, wie Buchungen und Bestellungen, bleiben ohne sie erhalten.",
+    "download": "Alle Daten herunterladen",
+    "erase": "Personenbezogene Daten löschen",
+    "confirmErase": "Die personenbezogenen Daten von {who} in der Website und allen Plugins löschen? Das lässt sich nicht rückgängig machen.",
+    "failed": "Die Anfrage ist fehlgeschlagen. Versuche es erneut.",
+    "foundTitle": "Im Download enthalten",
+    "core": "Website: Inhalte {content}, Kommentare {comments}, Protokolleinträge {audit}",
+    "pluginFound": {
+      "one": "{name}: {count} Datensatz",
+      "other": "{name}: {count} Datensätze"
+    },
+    "pluginFailed": "{name}: fehlgeschlagen ({error})",
+    "erasedTitle": "Gelöscht",
+    "coreErased": "Website: Inhalte übertragen {content}, Kommentare anonymisiert {comments}, Protokolleinträge anonymisiert {audit}",
+    "pluginErased": {
+      "one": "{name}: {count} Datensatz entfernt oder anonymisiert",
+      "other": "{name}: {count} Datensätze entfernt oder anonymisiert"
+    },
+    "retry": "Einige Plugins sind nicht fertig geworden. Lösche erneut, um sie noch einmal zu versuchen; Erledigtes bleibt erledigt.",
+    "adminOnly": "Nur Administratoren bearbeiten Datenanfragen.",
+    "kept": "Gesetzlich aufbewahrt bis {until}: {kind} ({count}). {reason}",
+    "retentionTitle": "Gesetzlich aufzubewahrende Daten",
+    "retentionHint": "Finanzunterlagen (Bestellungen, Rechnungen, Zahlungen, Erstattungen) müssen gesetzlich mehrere Jahre aufbewahrt werden. Bei einer Datenanfrage behalten Plugins nur, was ein solcher Beleg gesetzlich braucht, etwa Beträge, Steuern sowie Rechnungsname und -adresse, entfernen alles andere sofort und den Rest nach Ablauf der Frist. Prüfe, welche Frist für dich gilt.",
+    "retentionYears": "Finanzunterlagen aufbewahren (Jahre)",
+    "save": "Speichern",
+    "retentionSaved": "Gespeichert.",
+    "lookUpTitle": "Person suchen",
+    "openTitle": "Löschanfragen",
+    "handledTitle": "Bearbeitete Anfragen",
+    "showHandled": "Bearbeitete Anfragen anzeigen",
+    "showOpen": "Offene Anfragen anzeigen",
+    "openIntro": "Mitglieder beantragen die Löschung auf ihrer Seite „Deine Daten“. Wenn du eine Anfrage abschließt, werden ihre Daten in der Website und allen Plugins gelöscht, nur gesetzlich Vorgeschriebenes bleibt erhalten, das Konto wird gelöscht und das Mitglied per E-Mail informiert. Antworte innerhalb von 30 Tagen.",
+    "noneOpen": "Keine offenen Anfragen.",
+    "noneHandled": "Noch keine bearbeiteten Anfragen.",
+    "requestedOn": "Angefragt am {date}",
+    "dueBy": "Antwort bis {date}",
+    "overdue": "überfällig seit {date}",
+    "memberNote": "Ihre Notiz: {note}",
+    "unfinished": "Beim letzten Mal nicht abgeschlossen: {outcome}",
+    "complete": "Abschließen",
+    "confirmComplete": "Die Daten von {who} in der Website und allen Plugins löschen und das Konto löschen? Das kann nicht rückgängig gemacht werden.",
+    "completed": "Erledigt. Die Daten von {who} wurden gelöscht, das Konto entfernt und das Mitglied per E-Mail informiert.",
+    "decline": "Ablehnen",
+    "declineReason": "Begründung, wird an das Mitglied gesendet",
+    "sendDecline": "Ablehnen und senden",
+    "cancel": "Abbrechen",
+    "declined": "Abgelehnt. Das Mitglied hat die Begründung per E-Mail erhalten.",
+    "deletedAccount": "Gelöschtes Konto",
+    "status": {
+      "completed": "Abgeschlossen",
+      "declined": "Abgelehnt",
+      "cancelled": "Vom Mitglied zurückgezogen"
+    },
+    "selfServiceTitle": "Seite „Deine Daten“",
+    "selfServiceHint": "Angemeldete Mitglieder verwalten ihre eigenen Daten auf der Kontoseite „Deine Daten“. Wähle, was sie anbietet. Ist beides aus, bittet die Seite Mitglieder, dich zu kontaktieren.",
+    "selfDownload": "Mitglieder können ihre Daten herunterladen",
+    "selfErasure": "Mitglieder können die Löschung ihrer Daten beantragen"
   }
 }

@@ -38,6 +38,48 @@ primary page determines login links; renaming its slug updates those links.
 redirect, and recorded prior permalinks redirect privately to the new URL.
 Draft pages require the normal authorized preview flow.
 
+## Personal details
+
+The profile on the account page has a **Personal details** panel where a member adds, changes, or removes their date of birth (`GET`/`PUT /api/account/personal`, `{ birthDate: "YYYY-MM-DD" | null }`). Administrators set it on the user's page under Users. The date is checked to be a real date between 1900 and today.
+
+It is optional and private: only the member and administrators see it, it is part of the member's data download, and it goes when the account is deleted. Plugins with `users:read` read it as `birthDate` from `ctx.users.find` / `ctx.users.get` to check an age; every change fires `user.updated` and writes the audit event `user.birth_date_changed` without the date itself.
+
+## Your data
+
+A second account page, **Your data** (`/account-data`), lets a signed-in member
+handle their own data (GDPR Art. 15 and 17). Core seeds it next to **Your
+account**, and the profile section links to it. It holds a **Your data** block
+(`core.account-data`) that you can also place on any other account page. The block
+offers three things, each one a switch in the block's settings:
+
+- **Show what is stored:** how many records the site and each active plugin hold
+  about the member, counted through the `privacy.providers` filter.
+- **Offer a download:** the same JSON export an administrator gets, for the
+  member's own account only.
+- **Offer a removal request:** the member confirms with their password. The
+  request appears under **Users → Data requests**, with an answer due in 30 days.
+  The member can withdraw it until it is handled. Completing it erases the data in
+  core and every plugin (financial records are kept for the period the law
+  requires), deletes the account, and emails the member what was kept. Declining
+  it sends the member the administrator's reason.
+
+Before showing or handing over anything, the page asks the member to confirm
+their email address once, through a signed link valid for 24 hours, opened while
+signed in. Accounts are made without verifying the address, and plugins also find
+guest records by address (a booking or an order placed before the account
+existed). Without this step, anyone who signed up with somebody else's address
+could see, download, or have removed that person's guest records. A changed
+address needs a new confirmation.
+
+Whether members can download or request removal at all is set under **Users →
+Data requests → Your data page**. Both are on by default. The server enforces
+these settings, so the block's switches can only hide what the site offers. With
+both off, the block tells members to contact the site.
+
+The seed never replaces an edited, draft or trashed page, and is skipped when
+something else on the site already uses the `account-data` address. To hide the
+page, unpublish it.
+
 ## Privacy is part of the content type
 
 The `account` type always requires an authenticated site session. Publishing a

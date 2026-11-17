@@ -53,7 +53,7 @@ export default function PluginsPage() {
   const updates = useExtensionUpdates(canManage);
 
   useEffect(() => {
-    fetch("/api/plugins")
+    fetch("/api/plugins?site-features=1", { cache: "no-store" })
       .then((r) => r.json())
       .then((data: { plugins?: Plugin[] }) => {
         if (Array.isArray(data.plugins)) setPlugins(data.plugins);

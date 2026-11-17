@@ -1,4 +1,5 @@
-import { translateEnglish, type Translate } from "../../../i18n/translate";
+import { type Translate } from "../../../i18n/translate";
+import { translateEnglish } from "../../../i18n/translate-english";
 import { useEffect, useState } from "react";
 import { Link } from "../../../admin-router";
 import { useT } from "../../../i18n/I18nProvider";

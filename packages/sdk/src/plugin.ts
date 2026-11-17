@@ -802,6 +802,13 @@ export interface PluginCreatedUser {
   username: string;
   displayName: string;
   role: string;
+  /**
+   * The member's date of birth (`YYYY-MM-DD`) when they gave one, for
+   * checking an age. Returned by `find` and `get` only; absent on older
+   * hosts and from `create` and `search`. Personal data: do not show it to
+   * other members or copy it further than the check needs.
+   */
+  birthDate?: string | null;
 }
 
 export type PluginUserCreateResult =
@@ -844,6 +851,22 @@ export interface PluginUsersApi {
    */
   get?(userId: string): Promise<PluginRoleUser | null>;
   /**
+   * Find one site user by id or by sign-in email (case-insensitive), with all
+   * their roles, or null when there is none. For attaching something a
+   * customer bought or was given to their existing account.
+   * Requires the `users:read` manifest permission.
+   * Optional: older hosts do not provide it.
+   */
+  find?(target: PluginUserTarget): Promise<PluginRoleUser | null>;
+  /**
+   * Site users whose email, username, or display name contains `query`
+   * (case-insensitive), at most `limit` (default 20, at most 50), ordered by
+   * display name. For letting staff pick an existing account. An empty query
+   * lists the first users. Requires the `users:read` manifest permission.
+   * Optional: older hosts do not provide it.
+   */
+  search?(input: { query: string; limit?: number }): Promise<PluginCreatedUser[]>;
+  /**
    * Take back an additional role this plugin registered, such as a membership
    * that ended. The user's primary role is never changed. Doing nothing when
    * the user does not hold the role is a success.
@@ -851,7 +874,37 @@ export interface PluginUsersApi {
    * Optional: older hosts do not provide it.
    */
   removeRole?(target: PluginUserTarget, role: string, actor: PluginUserActor): Promise<PluginUserRoleResult>;
+  /**
+   * Email a user a single-use link (valid three days) to choose their
+   * password, on the sign-in pages their account belongs to. For accounts a
+   * plugin made for someone with `create`, who never typed a password. Only
+   * users holding a role this plugin registered. Nothing changes until the
+   * person uses the link. Requires the `users:manage` manifest permission.
+   * Optional: older hosts do not provide it.
+   */
+  sendPasswordSetup?(target: PluginUserTarget, actor: PluginUserActor): Promise<PluginPasswordSetupResult>;
+  /**
+   * Delete an account this plugin is wholly responsible for: every role the
+   * user holds is one this plugin registered (so never an administrator,
+   * a member who signed up themselves, or someone another plugin manages).
+   * For removing accounts the plugin made, such as demo data. Fires
+   * `user.deleted` like any deletion. Requires the `users:manage` manifest
+   * permission. Optional: older hosts do not provide it.
+   */
+  delete?(target: PluginUserTarget, actor: PluginUserActor): Promise<{ ok: true } | { ok: false; status: number; error: string }>;
+  /**
+   * Set profile fields on an account, so a value is kept in one place (the
+   * account) instead of in the plugin. Allowed for the signed-in member's
+   * own account when they act (`actor.userId` is the target), or for an
+   * account whose every role this plugin registered. `birthDate` is
+   * `YYYY-MM-DD` or null; the host checks it, audits the change without the
+   * value, and fires `user.updated`. Requires the `users:manage` manifest
+   * permission. Optional: older hosts do not provide it.
+   */
+  updateProfile?(target: PluginUserTarget, fields: { birthDate?: string | null }, actor: PluginUserActor): Promise<{ ok: true } | { ok: false; status: number; error: string }>;
 }
+
+export type PluginPasswordSetupResult = { ok: true; expiresAt: string } | { ok: false; status: number; error: string };
 
 /** The signed-in user behind a plugin request, when there is one. */
 export interface PluginHttpSession {
@@ -1778,6 +1831,35 @@ export interface PluginNetworkApi {
   site?(siteId?: string): Promise<PluginNetworkSiteAddress | null>;
 }
 
+/** One outbound request. Bodies are text; the response body is read as UTF-8 text. */
+export interface PluginOutboundRequest {
+  method?: "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE";
+  headers?: Record<string, string>;
+  body?: string;
+  /** Default 15 000, at most 30 000. */
+  timeoutMs?: number;
+  /** Largest response body accepted. Default 1 MB, at most 10 MB. */
+  maxBytes?: number;
+}
+
+/**
+ * A finished request, or why none was made or read. `blocked` means the URL
+ * (or a redirect hop) points at a private, loopback, or otherwise refused
+ * address, a port other than 80/443, or carries credentials.
+ */
+export type PluginOutboundResponse =
+  | { ok: true; status: number; headers: Record<string, string>; body: string; url: string }
+  | { ok: false; code: "blocked" | "too_large" | "timeout" | "failed"; error: string };
+
+/**
+ * HTTP to addresses on the public internet, with the host's SSRF guard on the
+ * first URL and every redirect hop, DNS pinned to the checked address, a
+ * timeout, and a size limit. Requires `network:outbound`.
+ */
+export interface PluginOutboundApi {
+  fetch(url: string, request?: PluginOutboundRequest): Promise<PluginOutboundResponse>;
+}
+
 /** A site with the origin its public pages are served from, such as `https://shop.example.com`. */
 export interface PluginNetworkSiteAddress extends PluginNetworkSite {
   url: string;
@@ -2206,6 +2288,12 @@ export interface PluginContext {
    * Absent without that permission and on older hosts. See `PluginNetworkApi`.
    */
   network?: PluginNetworkApi;
+
+  /**
+   * Guarded outbound HTTP. Requires `network:outbound`; absent without it and
+   * on older hosts. See `PluginOutboundApi`.
+   */
+  outbound?: PluginOutboundApi;
 
   /**
    * Workspace and site ceilings. Register a meter, then `check` it before

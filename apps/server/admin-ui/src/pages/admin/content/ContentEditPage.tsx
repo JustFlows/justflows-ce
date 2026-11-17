@@ -14,7 +14,7 @@ import { useT } from "../../../i18n/I18nProvider";
 import HeaderRefField from "@components/builder/HeaderRefField";
 import { fieldsWithHeaderRef, headerRefFromFields } from "../../../lib/page-header";
 import {
-  contentEditorFor,
+  contentEditorsFor,
   contentEditorNav,
   contentListPath,
   localizedLabel,
@@ -195,35 +195,56 @@ export default function EditContentPage() {
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [expandedRevisionId, setExpandedRevisionId] = useState<string | null>(null);
   const [section, setSection] = useState<EditSection>("content");
-  const [pluginSections, setPluginSections] = useState<PluginEditorSection[]>([]);
-  const [pluginDirty, setPluginDirty] = useState(false);
+  /** Sections each embedded plugin page published, by its index in `pluginEditors`. */
+  const [pluginSections, setPluginSections] = useState<Record<number, PluginEditorSection[]>>({});
+  const [pluginDirtyByIndex, setPluginDirtyByIndex] = useState<Record<number, boolean>>({});
   const [blockEditor, setBlockEditor] = useState(false);
-  const pluginFrameRef = useRef<PluginContentFrameHandle | null>(null);
-  const onPluginDirty = useCallback((next: boolean) => setPluginDirty(next), []);
+  const pluginFrameRefs = useRef<Array<PluginContentFrameHandle | null>>([]);
+  const pluginDirty = Object.values(pluginDirtyByIndex).some(Boolean);
   const [termsDirty, setTermsDirty] = useState(false);
   const termsRef = useRef<ContentTermsPanelHandle | null>(null);
   const onTermsDirty = useCallback((next: boolean) => setTermsDirty(next), []);
   const onTermsError = useCallback((message: string) => setError(message), []);
-  const onPluginSections = useCallback((next: PluginEditorSection[]) => {
-    setPluginSections((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
-  }, []);
-  const pluginEditor = contentEditorFor(pluginMenuItems, item?.type);
+  const pluginEditors = useMemo(() => contentEditorsFor(pluginMenuItems, item?.type), [pluginMenuItems, item?.type]);
+  const editorKeys = pluginEditors.map((editor) => `${editor.pluginId}/${editor.id}`).join("|");
+  /** One stable callback pair per embedded page, so frames do not re-subscribe on every render. */
+  const pluginCallbacks = useMemo(
+    () =>
+      pluginEditors.map((_, index) => ({
+        onSections: (next: PluginEditorSection[]) =>
+          setPluginSections((prev) => (JSON.stringify(prev[index] ?? []) === JSON.stringify(next) ? prev : { ...prev, [index]: next })),
+        onDirty: (next: boolean) => setPluginDirtyByIndex((prev) => (Boolean(prev[index]) === next ? prev : { ...prev, [index]: next })),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editorKeys],
+  );
 
   useEffect(() => {
-    if (!pluginEditor) setPluginSections([]);
-  }, [pluginEditor]);
-  const pluginSectionActive = section === "plugin" || section.startsWith("plugin:");
-  const activePluginSection = section.startsWith("plugin:")
-    ? section.slice("plugin:".length)
-    : pluginSections[0]?.id;
+    setPluginSections({});
+    setPluginDirtyByIndex({});
+    pluginFrameRefs.current = [];
+  }, [editorKeys]);
+
+  /** `plugin:<index>:<section>` or `plugin:<index>`; anything else means no plugin page is showing. */
+  const activePlugin = (() => {
+    const match = /^plugin:(\d+)(?::(.+))?$/.exec(section);
+    if (!match) return null;
+    const index = Number(match[1]);
+    return { index, sectionId: match[2] ?? pluginSections[index]?.[0]?.id };
+  })();
 
   useEffect(() => {
-    if (pluginSections.length === 0) return;
-    const known = pluginSections.some((entry) => section === `plugin:${entry.id}`);
-    if (section === "plugin" || (section.startsWith("plugin:") && !known)) {
-      setSection(`plugin:${pluginSections[0]!.id}`);
+    if (section === "plugin" && pluginEditors.length > 0) {
+      setSection(pluginSections[0]?.length ? `plugin:0:${pluginSections[0][0]!.id}` : "plugin:0");
+      return;
     }
-  }, [pluginSections, section]);
+    const match = /^plugin:(\d+)(?::(.+))?$/.exec(section);
+    if (!match) return;
+    const index = Number(match[1]);
+    const sections = pluginSections[index] ?? [];
+    if (sections.length === 0) return;
+    if (!match[2] || !sections.some((entry) => entry.id === match[2])) setSection(`plugin:${index}:${sections[0]!.id}`);
+  }, [pluginSections, section, pluginEditors.length]);
 
   useEffect(() => {
     fetch("/api/languages/active")
@@ -602,10 +623,17 @@ export default function EditContentPage() {
 
   async function saveCatalogData(): Promise<boolean> {
     if (termsRef.current && !(await termsRef.current.save())) return false;
-    if (!pluginEditor || !pluginFrameRef.current) return true;
-    const result = await pluginFrameRef.current.save();
-    if (!result.ok) setError(result.error || t("content.pluginDataSaveFailed"));
-    return result.ok;
+    /** Each embedded plugin page saves its own data; the first refusal stops the save. */
+    for (let index = 0; index < pluginEditors.length; index += 1) {
+      const frame = pluginFrameRefs.current[index];
+      if (!frame) continue;
+      const result = await frame.save();
+      if (!result.ok) {
+        setError(result.error || t("content.pluginDataSaveFailed"));
+        return false;
+      }
+    }
+    return true;
   }
 
   async function setAsHomePage(enabled: boolean) {
@@ -801,8 +829,7 @@ export default function EditContentPage() {
                   discussionLabel: t("content.discussionHeading"),
                   revisionsLabel: t("content.revisions"),
                   advancedLabel: t("content.advancedHeading"),
-                  pluginLabel: pluginEditor?.label,
-                  pluginSections,
+                  plugins: pluginEditors.map((editor, index) => ({ label: editor.label, sections: pluginSections[index] ?? [] })),
                   panels: visiblePanels.map((panel) => ({ id: panelSectionId(panel), label: localizedLabel(panel.title, locale) })),
                 }).filter(entry => entry.id !== "discussion" || typeSettings.comments !== "disabled").map((entry) => (
                   <button
@@ -817,18 +844,21 @@ export default function EditContentPage() {
               </nav>
 
               <div className="jf-editsection">
-                {pluginEditor && (
+                {pluginEditors.map((editor, index) => (
                   <PluginContentFrame
-                    ref={pluginFrameRef}
-                    item={pluginEditor}
+                    key={`${editor.pluginId}/${editor.id}`}
+                    ref={(handle) => {
+                      pluginFrameRefs.current[index] = handle;
+                    }}
+                    item={editor}
                     contentId={item.id}
                     translationGroupId={item.translationGroupId ?? item.id}
-                    hidden={!pluginSectionActive}
-                    sectionId={pluginSectionActive ? activePluginSection : undefined}
-                    onDirty={onPluginDirty}
-                    onSections={onPluginSections}
+                    hidden={activePlugin?.index !== index}
+                    sectionId={activePlugin?.index === index ? activePlugin.sectionId : undefined}
+                    onDirty={pluginCallbacks[index]!.onDirty}
+                    onSections={pluginCallbacks[index]!.onSections}
                   />
-                )}
+                ))}
                 {section === "content" && (
                   <>
                     <div className="jf-card">

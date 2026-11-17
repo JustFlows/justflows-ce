@@ -110,6 +110,7 @@ function withoutVersionOffRoot<T extends { version?: string }>(plugin: T): T | O
 // The installed extension set and its versions fingerprint the site.
 router.get("/", requireRole("administrator", "editor"), async (req, res) => {
   const session = req.session!;
+  noStore(res);
 
   try {
     const { ensurePluginRuntime } = await import("../../lib/plugins/plugin-runtime.js");

@@ -47,13 +47,15 @@ export async function createPasswordReset(
   userId: string,
   siteId: string,
   requestedIp: string | null,
+  /** Longer than a reset only for a first-password invitation; see `sendPasswordSetup`. */
+  ttlMinutes: number = resetTtlMinutes(),
 ): Promise<CreatedReset> {
   const db = await getDb();
   await db.run("DELETE FROM password_resets WHERE user_id = ? AND site_id = ?", [userId, siteId]);
 
   const token = randomBytes(32).toString("base64url");
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + resetTtlMinutes() * 60_000);
+  const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000);
 
   await db.run(
     `INSERT INTO password_resets (id, user_id, site_id, token_hash, requested_ip, created_at, expires_at)
