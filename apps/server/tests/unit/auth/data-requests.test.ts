@@ -44,6 +44,8 @@ vi.mock("../../../src/lib/settings/site-settings.js", () => ({
 }));
 vi.mock("../../../src/lib/settings/general-settings.js", () => ({ getGeneralSettings: async () => ({ adminEmail: "owner@example.com" }) }));
 vi.mock("../../../src/lib/email/mail.js", () => ({ sendTemplateMail: mail }));
+vi.mock("../../../src/lib/email/email-asset-url.js", () => ({ emailSiteOrigin: async () => "https://site.example" }));
+vi.mock("../../../src/lib/admin/admin-path.js", () => ({ getAdminPathConfig: async () => ({ path: "/admin-x" }) }));
 vi.mock("../../../src/lib/security/audit-log.js", () => ({ auditLog }));
 vi.mock("../../../src/lib/auth/personal-data.js", () => ({ addressReference: (email: string) => `ref-${email.trim().toLowerCase()}`, erasePersonalData: erase }));
 vi.mock("../../../src/lib/auth/users-admin.js", () => ({ deleteUser }));
@@ -108,7 +110,7 @@ describe("members' own data requests", () => {
     const request = (first as { request: { requestedAt: string; dueAt: string } }).request;
     expect(Date.parse(request.dueAt) - Date.parse(request.requestedAt)).toBe(30 * 24 * 60 * 60 * 1000);
     expect(mail).toHaveBeenCalledWith(expect.objectContaining({ to: member.email, key: "core.data-request-received" }));
-    expect(mail).toHaveBeenCalledWith(expect.objectContaining({ to: "owner@example.com", key: "core.admin-notification" }));
+    expect(mail).toHaveBeenCalledWith(expect.objectContaining({ to: "owner@example.com", key: "core.data-request-admin", values: { member_name: "Ada", due_date: request.dueAt.slice(0, 10), note: "Please hurry", action_url: "https://site.example/admin-x/data-requests" } }));
     /** Asking again returns the same request. */
     expect(await requests.createErasureRequest("site-1", member, null)).toMatchObject({ ok: true, created: false });
     expect(table).toHaveLength(1);

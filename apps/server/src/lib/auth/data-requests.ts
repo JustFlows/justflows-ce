@@ -100,7 +100,7 @@ export async function sendAddressConfirmation(siteId: string, member: { userId: 
   const link = `${origin}${pageUrl}?confirm=${encodeURIComponent(addressConfirmationToken(siteId, member.userId, member.email))}`;
   if (process.env.NODE_ENV === "development") console.log(`\n[dev] data address confirmation for ${member.email}:\n      ${link}\n`);
   const { sendTemplateMail } = await import("../email/mail.js");
-  const result = await sendTemplateMail({ to: member.email, key: "core.email-verification", values: { display_name: member.displayName || member.email, action_url: link, expiration: "24 hours" } });
+  const result = await sendTemplateMail({ to: member.email, key: "core.data-address-confirmation", values: { display_name: member.displayName || member.email, action_url: link, expiration: "24 hours" } });
   return result.ok;
 }
 
@@ -188,11 +188,16 @@ async function mailMember(to: string, key: string, values: Record<string, string
   }
 }
 
-async function mailAdministrators(siteId: string, title: string, message: string): Promise<void> {
+/** Tell the site's administrator about a new request, with a link to Data requests. */
+async function mailAdministrators(siteId: string, values: { member_name: string; due_date: string; note: string }): Promise<void> {
   try {
-    const [{ getGeneralSettings }, { sendTemplateMail }] = await Promise.all([import("../settings/general-settings.js"), import("../email/mail.js")]);
+    const [{ getGeneralSettings }, { sendTemplateMail }, { emailSiteOrigin }, { getAdminPathConfig }] = await Promise.all([
+      import("../settings/general-settings.js"), import("../email/mail.js"), import("../email/email-asset-url.js"), import("../admin/admin-path.js"),
+    ]);
     const to = (await getGeneralSettings(siteId)).adminEmail;
-    if (to) await sendTemplateMail({ to, key: "core.admin-notification", values: { title, message } });
+    if (!to) return;
+    const action_url = `${(await emailSiteOrigin(siteId)) ?? ""}${(await getAdminPathConfig()).path}/data-requests`;
+    await sendTemplateMail({ to, key: "core.data-request-admin", values: { ...values, action_url } });
   } catch (err) {
     console.error("Data request notice failed:", err);
   }
@@ -222,7 +227,7 @@ export async function createErasureRequest(siteId: string, member: { userId: str
   const request = (await openErasureRequest(siteId, member.userId))!;
   void auditLog({ siteId, action: "privacy.request_created", actorId: member.userId, actorRole: null, target: member.userId, detail: `erasure request ${id}, due ${dateOf(request.dueAt)}` });
   await mailMember(member.email, "core.data-request-received", { display_name: member.displayName || member.email, due_date: dateOf(request.dueAt) });
-  await mailAdministrators(siteId, "New data removal request", `${member.displayName || "A member"} asked for their data to be removed. Handle it under Users → Data requests by ${dateOf(request.dueAt)}.`);
+  await mailAdministrators(siteId, { member_name: member.displayName || "A member", due_date: dateOf(request.dueAt), note: note ?? "" });
   return { ok: true, request, created: true };
 }
 
