@@ -3,7 +3,8 @@
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { interpolate, lookupMessage, translateEnglish } from "../../src/i18n/translate";
+import { interpolate, lookupMessage } from "../../src/i18n/translate";
+import { translateEnglish } from "../../src/i18n/translate-english";
 
 /** Plural forms in the admin catalogs (justflows-ce#307). */
 

@@ -1,5 +1,6 @@
 import { publicAdminPath } from "../../../admin-path";
-import { translateEnglish, type Translate } from "../../../i18n/translate";
+import { type Translate } from "../../../i18n/translate";
+import { translateEnglish } from "../../../i18n/translate-english";
 import { useEffect, useState } from "react";
 import { usePluginMenu } from "@components/PluginMenuProvider";
 import { useSession } from "@components/SessionProvider";
