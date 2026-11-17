@@ -10,6 +10,7 @@ interface User {
   email: string;
   username: string;
   displayName: string;
+  birthDate: string;
   role: string;
   createdAt: string;
   roleId: string;
@@ -49,6 +50,7 @@ function fromApi(user: Record<string, any>): User {
     email: user.email,
     username: user.username,
     displayName: user.display_name,
+    birthDate: user.birth_date ?? "",
     role: user.role,
     createdAt: user.created_at,
     roleId: user.roleId ?? user.role,
@@ -83,6 +85,7 @@ export default function EditUserPage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [role, setRole] = useState("subscriber");
   const [additionalRoles, setAdditionalRoles] = useState<string[]>([]);
   const [roles, setRoles] = useState<Array<{ id: string; name: string; builtIn: boolean; pluginId?: string | null }>>([]);
@@ -110,6 +113,7 @@ export default function EditUserPage() {
         const loaded = fromApi(data.user);
         setUser(loaded);
         setDisplayName(loaded.displayName);
+        setBirthDate(loaded.birthDate);
         setRole(loaded.roleId);
         setAdditionalRoles(loaded.additionalRoles);
         setGrants(loaded.grants);
@@ -174,6 +178,7 @@ export default function EditUserPage() {
         ownOnly !== (baselineScope.ownership === "self");
 
       const body: Record<string, unknown> = { displayName };
+      if (birthDate !== user.birthDate) body.birthDate = birthDate || null;
       if (roleChanged) {
         const selected = roles.find((entry) => entry.id === role);
         const assignsUserRole = !selected || selected.builtIn || Boolean(selected.pluginId);
@@ -358,6 +363,20 @@ export default function EditUserPage() {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                 />
+              </div>
+              <div className="jf-field">
+                <label className="jf-field__label" htmlFor="jf-edit-birthdate">{t("users.edit.birthDate")}</label>
+                <input
+                  id="jf-edit-birthdate"
+                  className="jf-input"
+                  type="date"
+                  min="1900-01-01"
+                  max={new Date().toISOString().slice(0, 10)}
+                  disabled={!canManage}
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                />
+                <span className="jf-field__hint">{t("users.edit.birthDateHint")}</span>
               </div>
               <div className="jf-field">
                 <label className="jf-field__label" htmlFor="jf-edit-role">{t("users.edit.role")}</label>

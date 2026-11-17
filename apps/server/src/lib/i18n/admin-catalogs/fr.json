@@ -4912,7 +4912,9 @@
       "resetFactorsHint": "Pour une personne qui a perdu sa clé d’accès et ses codes de récupération. Supprime ses clés d’accès, son application d’authentification et ses codes de récupération, et la déconnecte partout. Elle se connecte ensuite avec son seul mot de passe jusqu’à ce qu’elle les reconfigure.",
       "resetFactorsConfirm": "Supprimer toutes les clés d’accès, l’application d’authentification et les codes de récupération de {name}, et déconnecter ce compte partout ?",
       "resetFactorsFailed": "Impossible de supprimer les facteurs de connexion.",
-      "resetFactorsNotice": "Clés d’accès, application d’authentification et codes de récupération supprimés. Le compte a été déconnecté partout."
+      "resetFactorsNotice": "Clés d’accès, application d’authentification et codes de récupération supprimés. Le compte a été déconnecté partout.",
+      "birthDate": "Date de naissance",
+      "birthDateHint": "Facultatif. Les extensions l’utilisent pour vérifier les limites d’âge. Seuls les administrateurs et le membre la voient."
     },
     "roles": {
       "failedToLoadRoles": "Impossible de charger les rôles",

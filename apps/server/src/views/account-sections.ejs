@@ -1,5 +1,7 @@
     <% for (const section of sections) { %>
-      <% if (section.id === "workspaces") { if (workspaces.length) { %><section id="workspaces"><h2>Your workspaces</h2><%- include("account-workspaces") %></section><% } } else if (section.id === "passkeys") { %>
+      <% if (section.id === "workspaces") { if (workspaces.length) { %><section id="workspaces"><h2>Your workspaces</h2><%- include("account-workspaces") %></section><% } } else if (section.id === "personal") { %>
+      <section id="personal" class="panel"><div class="section-head"><div><h2><%= section.title %></h2><% if (section.description) { %><p class="muted"><%= section.description %></p><% } %></div></div><div data-jf-personal><p class="muted">Loading…</p></div></section>
+      <% } else if (section.id === "passkeys") { %>
       <section id="passkeys" class="panel"><div class="section-head"><div><h2><%= section.title %></h2><% if (section.description) { %><p class="muted"><%= section.description %></p><% } %></div></div><div data-jf-passkeys><p class="muted">Loading passkeys…</p></div></section>
       <% } else { %>
       <section id="<%= section.id %>" class="panel"><div class="section-head"><div><h2><%= section.title %></h2><% if (section.description) { %><p class="muted"><%= section.description %></p><% } %></div></div>

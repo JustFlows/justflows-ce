@@ -38,6 +38,12 @@ primary page determines login links; renaming its slug updates those links.
 redirect, and recorded prior permalinks redirect privately to the new URL.
 Draft pages require the normal authorized preview flow.
 
+## Personal details
+
+The profile on the account page has a **Personal details** panel where a member adds, changes, or removes their date of birth (`GET`/`PUT /api/account/personal`, `{ birthDate: "YYYY-MM-DD" | null }`). Administrators set it on the user's page under Users. The date is checked to be a real date between 1900 and today.
+
+It is optional and private: only the member and administrators see it, it is part of the member's data download, and it goes when the account is deleted. Plugins with `users:read` read it as `birthDate` from `ctx.users.find` / `ctx.users.get` to check an age; every change fires `user.updated` and writes the audit event `user.birth_date_changed` without the date itself.
+
 ## Your data
 
 A second account page, **Your data** (`/account-data`), lets a signed-in member

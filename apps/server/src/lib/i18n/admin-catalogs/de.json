@@ -4912,7 +4912,9 @@
       "resetFactorsHint": "Für Personen, die ihren Passkey und ihre Wiederherstellungscodes verloren haben. Entfernt Passkeys, Authenticator-App und Wiederherstellungscodes und meldet das Konto überall ab. Danach erfolgt die Anmeldung nur mit dem Passwort, bis diese Faktoren neu eingerichtet sind.",
       "resetFactorsConfirm": "Alle Passkeys, die Authenticator-App und die Wiederherstellungscodes von {name} entfernen und das Konto überall abmelden?",
       "resetFactorsFailed": "Die Anmeldefaktoren konnten nicht entfernt werden.",
-      "resetFactorsNotice": "Passkeys, Authenticator-App und Wiederherstellungscodes entfernt. Das Konto wurde überall abgemeldet."
+      "resetFactorsNotice": "Passkeys, Authenticator-App und Wiederherstellungscodes entfernt. Das Konto wurde überall abgemeldet.",
+      "birthDate": "Geburtsdatum",
+      "birthDateHint": "Optional. Plugins prüfen damit Altersgrenzen. Nur Administratoren und das Mitglied sehen es."
     },
     "roles": {
       "failedToLoadRoles": "Rollen konnten nicht geladen werden",

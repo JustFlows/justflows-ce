@@ -5231,7 +5231,9 @@
       "resetFactorsHint": "Dla osoby, która straciła klucz dostępu i kody odzyskiwania. Usuwa jej klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania oraz wylogowuje ją wszędzie. Do czasu ponownej konfiguracji loguje się samym hasłem.",
       "resetFactorsConfirm": "Usunąć wszystkie klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania użytkownika {name} oraz wylogować go wszędzie?",
       "resetFactorsFailed": "Nie udało się usunąć składników logowania.",
-      "resetFactorsNotice": "Usunięto klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania. Konto zostało wylogowane wszędzie."
+      "resetFactorsNotice": "Usunięto klucze dostępu, aplikację uwierzytelniającą i kody odzyskiwania. Konto zostało wylogowane wszędzie.",
+      "birthDate": "Data urodzenia",
+      "birthDateHint": "Opcjonalnie. Wtyczki używają jej do sprawdzania limitów wieku. Widzą ją tylko administratorzy i członek."
     },
     "roles": {
       "title": "Role i możliwości",

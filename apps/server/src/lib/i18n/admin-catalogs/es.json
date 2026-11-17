@@ -4912,7 +4912,9 @@
       "resetFactorsHint": "Para quien haya perdido su llave de acceso y sus códigos de recuperación. Quita sus llaves de acceso, su aplicación de autenticación y sus códigos de recuperación, y cierra su sesión en todas partes. Después inicia sesión solo con la contraseña hasta que vuelva a configurarlos.",
       "resetFactorsConfirm": "¿Quitar todas las llaves de acceso, la aplicación de autenticación y los códigos de recuperación de {name} y cerrar su sesión en todas partes?",
       "resetFactorsFailed": "No se pudieron quitar los factores de inicio de sesión.",
-      "resetFactorsNotice": "Llaves de acceso, aplicación de autenticación y códigos de recuperación quitados. Se ha cerrado la sesión de la cuenta en todas partes."
+      "resetFactorsNotice": "Llaves de acceso, aplicación de autenticación y códigos de recuperación quitados. Se ha cerrado la sesión de la cuenta en todas partes.",
+      "birthDate": "Fecha de nacimiento",
+      "birthDateHint": "Opcional. Los complementos la usan para comprobar límites de edad. Solo la ven los administradores y el miembro."
     },
     "roles": {
       "failedToLoadRoles": "No se pudieron cargar los roles",

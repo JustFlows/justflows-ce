@@ -5085,7 +5085,9 @@
       "resetFactorsHint": "For someone who lost their passkey and their recovery codes. Removes their passkeys, authenticator app and recovery codes, and signs them out everywhere. They sign in with their password alone until they set these up again.",
       "resetFactorsConfirm": "Remove every passkey, the authenticator app and the recovery codes from {name}, and sign them out everywhere?",
       "resetFactorsFailed": "Could not remove the sign-in factors.",
-      "resetFactorsNotice": "Passkeys, authenticator app and recovery codes removed. The account has been signed out everywhere."
+      "resetFactorsNotice": "Passkeys, authenticator app and recovery codes removed. The account has been signed out everywhere.",
+      "birthDate": "Date of birth",
+      "birthDateHint": "Optional. Plugins use it to check age limits. Only administrators and the member see it."
     },
     "roles": {
       "title": "Roles and capabilities",

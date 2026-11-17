@@ -50,6 +50,7 @@ export const AUDIT_ACTIONS = [
   "privacy.request_completed",
   "privacy.request_declined",
   "privacy.address_confirmed",
+  "user.birth_date_changed",
   "workspace.owner_updated",
   "workspace.created_mail",
   "workspace.sites_requested",

@@ -57,6 +57,8 @@ export async function accountSections(context: AccountSectionContext): Promise<A
     ...(profile ? [{ label: "Name", value: profile.display_name }, { label: "Username", value: profile.username }] : []),
     { label: "Role", value: claims.role },
   ] }] }];
+  /** Filled in by /js/account.js from /api/account/personal; the server renders only its frame. */
+  core.push({ id: "personal", title: "Personal details", description: "Optional. Your date of birth lets this site check age limits, such as for classes, without asking each time. Only you and the site's administrators see it.", cards: [] });
   /** Filled in by /js/account.js from /api/auth/passkeys; the server renders only its frame. */
   core.push({ id: "passkeys", title: "Passkeys", description: "Sign in with your fingerprint, face, screen lock or a security key instead of a password. A passkey only works on this site, so it cannot be phished.", cards: [] });
   if (claims.installationRoot) core.push({ id: "workspaces", title: "Your workspaces", cards: [] });

@@ -802,6 +802,13 @@ export interface PluginCreatedUser {
   username: string;
   displayName: string;
   role: string;
+  /**
+   * The member's date of birth (`YYYY-MM-DD`) when they gave one, for
+   * checking an age. Returned by `find` and `get` only; absent on older
+   * hosts and from `create` and `search`. Personal data: do not show it to
+   * other members or copy it further than the check needs.
+   */
+  birthDate?: string | null;
 }
 
 export type PluginUserCreateResult =

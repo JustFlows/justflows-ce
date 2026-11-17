@@ -351,6 +351,42 @@ import { createPasskey, isCancelled, passkeysSupported, type CreationOptionsJson
     }
     if (!host.querySelector("section")) host.append(make("p", "Contact the site to ask about your data.", "muted"));
   }
+  /** Personal details on the account itself: the member's date of birth, optional. */
+  async function renderPersonal(host: HTMLElement): Promise<void> {
+    let details: { birthDate: string | null };
+    try { details = await request<{ birthDate: string | null }>("/api/account/personal"); } catch (error) {
+      host.replaceChildren(make("p", error instanceof Error ? error.message : "Your details could not be loaded.", "muted"));
+      return;
+    }
+    const form = make("form", "", "jf-data-form");
+    const label = make("label", "Date of birth");
+    label.style.display = "grid";
+    const input = make("input"); input.type = "date"; input.setAttribute("autocomplete", "bday"); input.value = details.birthDate ?? ""; input.max = new Date().toISOString().slice(0, 10); input.min = "1900-01-01";
+    label.append(input);
+    const actions = make("div", "", "jf-data-actions");
+    const save = make("button", "Save"); save.type = "submit";
+    actions.append(save);
+    if (details.birthDate) {
+      const clear = make("button", "Remove", "secondary"); clear.type = "button";
+      clear.onclick = () => { input.value = ""; form.requestSubmit(); };
+      actions.append(clear);
+    }
+    const said = make("p", "", "jf-data-status"); said.setAttribute("role", "status"); said.setAttribute("aria-live", "polite");
+    form.append(label, actions, said);
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      save.disabled = true; said.textContent = "Saving…";
+      try {
+        await request("/api/account/personal", "PUT", { birthDate: input.value || null });
+        await renderPersonal(host);
+        const status = host.querySelector<HTMLElement>(".jf-data-status");
+        if (status) status.textContent = input.value ? "Saved." : "Removed.";
+      } catch (error) { said.textContent = error instanceof Error ? error.message : "Please try again."; save.disabled = false; }
+    };
+    host.replaceChildren(form);
+  }
+  for (const host of document.querySelectorAll<HTMLElement>("[data-jf-personal]")) void renderPersonal(host);
+
   const dataHosts = Array.from(document.querySelectorAll<HTMLElement>("[data-jf-account-data]"));
   if (dataHosts.length) {
     void (async () => {

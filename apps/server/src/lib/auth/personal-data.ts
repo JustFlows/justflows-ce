@@ -68,14 +68,14 @@ async function safeQuery<T>(sql: string, params: (string | number)[]): Promise<T
 export async function resolveSubject(siteId: string, target: PersonalDataTarget): Promise<ResolvedSubject | null> {
   const db = await getDb();
   const rows = "userId" in target
-    ? await db.query<Record<string, unknown>>("SELECT id, email, username, display_name, role FROM users WHERE id = ? AND site_id = ? LIMIT 1", [target.userId, siteId])
-    : await db.query<Record<string, unknown>>("SELECT id, email, username, display_name, role FROM users WHERE LOWER(email) = ? AND site_id = ? LIMIT 1", [target.email.trim().toLowerCase(), siteId]);
+    ? await db.query<Record<string, unknown>>("SELECT id, email, username, display_name, birth_date, role FROM users WHERE id = ? AND site_id = ? LIMIT 1", [target.userId, siteId])
+    : await db.query<Record<string, unknown>>("SELECT id, email, username, display_name, birth_date, role FROM users WHERE LOWER(email) = ? AND site_id = ? LIMIT 1", [target.email.trim().toLowerCase(), siteId]);
   const user = rows[0];
   if (!user) {
     if ("userId" in target) return null;
     return { userId: null, email: target.email.trim().toLowerCase(), account: null };
   }
-  const account = { id: String(user.id), email: String(user.email), username: String(user.username), displayName: String(user.display_name), role: String(user.role) };
+  const account = { id: String(user.id), email: String(user.email), username: String(user.username), displayName: String(user.display_name), birthDate: user.birth_date ? String(user.birth_date) : null, role: String(user.role) };
   return { userId: account.id, email: account.email.toLowerCase(), account };
 }
 

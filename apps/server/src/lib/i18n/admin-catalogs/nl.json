@@ -4909,7 +4909,9 @@
       "resetFactorsHint": "Voor iemand die zowel de passkey als de herstelcodes kwijt is. Verwijdert de passkeys, de authenticator-app en de herstelcodes, en logt het account overal uit. Daarna logt de gebruiker alleen met het wachtwoord in tot deze factoren opnieuw zijn ingesteld.",
       "resetFactorsConfirm": "Alle passkeys, de authenticator-app en de herstelcodes van {name} verwijderen en het account overal uitloggen?",
       "resetFactorsFailed": "De inlogfactoren konden niet worden verwijderd.",
-      "resetFactorsNotice": "Passkeys, authenticator-app en herstelcodes verwijderd. Het account is overal uitgelogd."
+      "resetFactorsNotice": "Passkeys, authenticator-app en herstelcodes verwijderd. Het account is overal uitgelogd.",
+      "birthDate": "Geboortedatum",
+      "birthDateHint": "Optioneel. Plug-ins gebruiken haar om leeftijdsgrenzen te controleren. Alleen beheerders en het lid zien haar."
     },
     "roles": {
       "failedToLoadRoles": "Rollen konden niet worden geladen",

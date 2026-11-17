@@ -16,6 +16,10 @@ import { listQuotaMeters } from "../../lib/tenancy/quotas.js";
 import { auditLog } from "../../lib/security/audit-log.js";
 import { requireMultisite } from "../../lib/tenancy/multisite.js";
 import { accountDataRouter } from "./account-data.js";
+import { readPersonal, savePersonal, validBirthDate } from "../../lib/account/personal.js";
+import { consumeRateLimit } from "../../lib/security/rate-limit.js";
+import { sendServerError } from "../../lib/http/send-error.js";
+import { emitUserEvent } from "../../lib/auth/users-admin.js";
 
 export const pageRouter = Router();
 export const apiRouter = Router();
@@ -42,6 +46,49 @@ pageRouter.get("/", reads, optionalSession, async (req, res) => {
 apiRouter.use(privateResponse, reads, requireSession);
 /** Writes there carry their own, tighter budgets. */
 apiRouter.use("/data", accountDataRouter);
+
+/** The member's own personal details (date of birth), on the account page. */
+apiRouter.get("/personal", async (req, res) => {
+  try {
+    const details = await readPersonal(req.session!.siteId, req.session!.userId);
+    if (!details) {
+      res.status(404).json({ error: "Your account was not found." });
+      return;
+    }
+    res.json(details);
+  } catch (err) {
+    sendServerError(res, "account-personal", err);
+  }
+});
+
+apiRouter.put("/personal", async (req, res) => {
+  const session = req.session!;
+  const birthDate = validBirthDate(req.body?.birthDate);
+  if (birthDate === undefined) {
+    res.status(400).json({ error: "Enter a date of birth as a real date, not in the future." });
+    return;
+  }
+  if (!consumeRateLimit(`account-personal:${session.userId}`, 20, 15 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many changes. Try again later." });
+    return;
+  }
+  try {
+    const result = await savePersonal(session.siteId, session.userId, { birthDate });
+    if (!result.found) {
+      res.status(404).json({ error: "Your account was not found." });
+      return;
+    }
+    if (result.changed) {
+      /** The date itself stays out of the audit trail. */
+      await auditLog({ siteId: session.siteId, action: "user.birth_date_changed", actorId: session.userId, actorRole: session.role, target: session.userId, detail: birthDate ? "set" : "cleared" });
+      /** Plugins that keep an age (Bookings participants) pick up the change. */
+      await emitUserEvent("user.updated", session.userId, session.siteId);
+    }
+    res.json({ birthDate });
+  } catch (err) {
+    sendServerError(res, "account-personal", err);
+  }
+});
 apiRouter.use("/workspaces", requireMultisite, requireInstallationRoot);
 apiRouter.get("/workspaces", async (req, res) => {
   const [workspaces, siteDomain] = await Promise.all([
