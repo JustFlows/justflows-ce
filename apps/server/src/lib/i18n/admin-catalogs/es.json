@@ -5857,6 +5857,37 @@
     "retentionHint": "Los registros financieros (pedidos, facturas, pagos, reembolsos) deben conservarse varios años por ley. Ante una solicitud, los plugins solo guardan lo que ese registro exige legalmente, como importes, impuestos y el nombre y la dirección de facturación, eliminan todo lo demás de inmediato y el resto al terminar el plazo. Comprueba el plazo que te aplica.",
     "retentionYears": "Conservar registros financieros (años)",
     "save": "Guardar",
-    "retentionSaved": "Guardado."
+    "retentionSaved": "Guardado.",
+    "lookUpTitle": "Buscar a una persona",
+    "openTitle": "Solicitudes de eliminación",
+    "handledTitle": "Solicitudes atendidas",
+    "showHandled": "Mostrar solicitudes atendidas",
+    "showOpen": "Mostrar solicitudes abiertas",
+    "openIntro": "Los miembros piden la eliminación en su página Tus datos. Al completar una solicitud se borran sus datos en el sitio y en cada plugin, se conserva solo lo que exige la ley, se elimina la cuenta y se avisa al miembro por correo. Responde en un plazo de 30 días.",
+    "noneOpen": "No hay solicitudes abiertas.",
+    "noneHandled": "Todavía no hay solicitudes atendidas.",
+    "requestedOn": "Solicitado el {date}",
+    "dueBy": "responder antes del {date}",
+    "overdue": "vencida desde el {date}",
+    "memberNote": "Su nota: {note}",
+    "unfinished": "No se terminó la última vez: {outcome}",
+    "complete": "Completar",
+    "confirmComplete": "¿Borrar los datos de {who} en el sitio y en cada plugin, y eliminar la cuenta? No se puede deshacer.",
+    "completed": "Hecho. Se borraron los datos de {who}, se eliminó la cuenta y se avisó al miembro por correo.",
+    "decline": "Rechazar",
+    "declineReason": "Motivo, se envía al miembro",
+    "sendDecline": "Rechazar y enviar",
+    "cancel": "Cancelar",
+    "declined": "Rechazada. El miembro recibió el motivo por correo.",
+    "deletedAccount": "Cuenta eliminada",
+    "status": {
+      "completed": "Completada",
+      "declined": "Rechazada",
+      "cancelled": "Retirada por el miembro"
+    },
+    "selfServiceTitle": "Página Tus datos",
+    "selfServiceHint": "Los miembros con sesión iniciada gestionan sus propios datos en la página de cuenta Tus datos. Elige qué ofrece. Si ambas opciones están desactivadas, la página pide a los miembros que te contacten.",
+    "selfDownload": "Los miembros pueden descargar sus datos",
+    "selfErasure": "Los miembros pueden pedir que se eliminen sus datos"
   }
 }

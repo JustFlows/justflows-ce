@@ -147,6 +147,40 @@ export async function exportPersonalData(
   target: PersonalDataTarget,
   actor: { userId: string; role: string },
 ): Promise<PersonalDataExport | null> {
+  const data = await collectPersonalData(siteId, target, actor);
+  if (!data) return null;
+  void auditLog({
+    siteId,
+    action: "privacy.exported",
+    actorId: actor.userId,
+    actorRole: actor.role,
+    target: data.subject.userId ?? `guest:${addressReference(data.subject.email)}`,
+    detail: `export: content=${data.content.length} comments=${data.comments.length} audit=${data.auditEntries.length} ${data.plugins.map((part) => `${part.id}=${part.ok ? part.count : "failed"}`).join(" ")}`.slice(0, 500),
+  });
+  return data;
+}
+
+export interface PersonalDataSummary {
+  content: number;
+  comments: number;
+  plugins: Array<{ id: string; label: string; ok: boolean; count: number }>;
+}
+
+/**
+ * How much is held about a member, for their own "Your data" page: counts
+ * only, so showing the page is not an export and is not audited as one.
+ */
+export async function summarizePersonalData(siteId: string, userId: string, actor: { userId: string; role: string }): Promise<PersonalDataSummary | null> {
+  const data = await collectPersonalData(siteId, { userId }, actor);
+  if (!data) return null;
+  return { content: data.content.length, comments: data.comments.length, plugins: data.plugins.map(({ id, label, ok, count }) => ({ id, label, ok, count })) };
+}
+
+async function collectPersonalData(
+  siteId: string,
+  target: PersonalDataTarget,
+  actor: { userId: string; role: string },
+): Promise<PersonalDataExport | null> {
   const subject = await resolveSubject(siteId, target);
   if (!subject) return null;
   const content = subject.userId
@@ -171,15 +205,6 @@ export async function exportPersonalData(
       plugins.push({ id: provider.id, label: provider.label, ok: true, count: Number.isFinite(value.count) ? Math.max(0, Math.floor(value.count)) : 0, records, notes: notesOf(value.notes) });
     } else plugins.push({ id: provider.id, label: provider.label, ok: false, count: 0, records: {}, notes: [], error: part.error });
   }
-
-  void auditLog({
-    siteId,
-    action: "privacy.exported",
-    actorId: actor.userId,
-    actorRole: actor.role,
-    target: subject.userId ?? `guest:${addressReference(subject.email)}`,
-    detail: `export: content=${content.length} comments=${comments.length} audit=${auditEntries.length} ${plugins.map((part) => `${part.id}=${part.ok ? part.count : "failed"}`).join(" ")}`.slice(0, 500),
-  });
 
   return {
     exportedAt: new Date().toISOString(),

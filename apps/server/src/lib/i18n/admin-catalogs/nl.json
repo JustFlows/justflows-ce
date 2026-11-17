@@ -5854,6 +5854,37 @@
     "retentionHint": "Financiële administratie (bestellingen, facturen, betalingen, terugbetalingen) moet wettelijk een aantal jaren bewaard blijven. Bij een gegevensverzoek houden plugins alleen wat zo'n stuk wettelijk nodig heeft, zoals bedragen, btw en de factuurnaam en het factuuradres, verwijderen ze al het andere meteen en verwijderen ze de rest als de termijn voorbij is. Controleer welke termijn voor jou geldt.",
     "retentionYears": "Financiële administratie bewaren (jaren)",
     "save": "Opslaan",
-    "retentionSaved": "Opgeslagen."
+    "retentionSaved": "Opgeslagen.",
+    "lookUpTitle": "Iemand opzoeken",
+    "openTitle": "Verwijderverzoeken",
+    "handledTitle": "Afgehandelde verzoeken",
+    "showHandled": "Afgehandelde verzoeken tonen",
+    "showOpen": "Open verzoeken tonen",
+    "openIntro": "Leden vragen om verwijdering op hun pagina Jouw gegevens. Als je een verzoek afrondt, worden hun gegevens gewist in de site en alle plugins, blijft alleen bewaard wat de wet vereist, wordt het account verwijderd en krijgt het lid een e-mail. Reageer binnen 30 dagen.",
+    "noneOpen": "Geen open verzoeken.",
+    "noneHandled": "Nog geen afgehandelde verzoeken.",
+    "requestedOn": "Gevraagd op {date}",
+    "dueBy": "reageren vóór {date}",
+    "overdue": "te laat sinds {date}",
+    "memberNote": "Hun toelichting: {note}",
+    "unfinished": "Vorige keer niet afgerond: {outcome}",
+    "complete": "Afronden",
+    "confirmComplete": "De gegevens van {who} wissen in de site en alle plugins, en het account verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "completed": "Klaar. De gegevens van {who} zijn gewist, het account is verwijderd en het lid heeft een e-mail gekregen.",
+    "decline": "Weigeren",
+    "declineReason": "Reden, wordt naar het lid gestuurd",
+    "sendDecline": "Weigeren en versturen",
+    "cancel": "Annuleren",
+    "declined": "Geweigerd. Het lid heeft de reden per e-mail gekregen.",
+    "deletedAccount": "Verwijderd account",
+    "status": {
+      "completed": "Afgerond",
+      "declined": "Geweigerd",
+      "cancelled": "Ingetrokken door het lid"
+    },
+    "selfServiceTitle": "Pagina Jouw gegevens",
+    "selfServiceHint": "Ingelogde leden beheren hun eigen gegevens op de accountpagina Jouw gegevens. Kies wat die pagina aanbiedt. Staan beide uit, dan vraagt de pagina leden contact met je op te nemen.",
+    "selfDownload": "Leden kunnen hun gegevens downloaden",
+    "selfErasure": "Leden kunnen vragen hun gegevens te verwijderen"
   }
 }

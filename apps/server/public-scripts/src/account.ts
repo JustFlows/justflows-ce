@@ -219,6 +219,135 @@ import { createPasskey, isCancelled, passkeysSupported, type CreationOptionsJson
   }
   void renderPasskeys();
 
+  /**
+   * Your data (GDPR Art. 15 and 17). What the site holds about the member, a
+   * download of all of it, and a removal request an administrator handles.
+   * The server decides what is offered; the block's switches can only hide it.
+   */
+  type DataState = {
+    confirmed: boolean; email: string;
+    download: boolean; erasure: boolean;
+    request: { id: string; requestedAt: string; dueAt: string } | null;
+    summary: { content: number; comments: number; plugins: Array<{ id: string; label: string; ok: boolean; count: number }> } | null;
+  };
+  const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  async function renderData(host: HTMLElement): Promise<void> {
+    const wants = (key: string) => host.dataset[key] !== "false";
+    let state: DataState;
+    try { state = await request<DataState>(`/api/account/data${wants("summary") ? "?summary=1" : ""}`); } catch (error) {
+      host.replaceChildren(make("p", error instanceof Error ? error.message : "Your data could not be loaded.", "muted"));
+      return;
+    }
+    const status = make("p", "", "jf-data-status"); status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
+    const say = (text: string) => { status.textContent = text; };
+    host.replaceChildren();
+
+    /** Records are also found by address, so the member first shows they read its mailbox. */
+    if (!state.confirmed && (wants("summary") || (wants("download") && state.download) || (wants("removal") && state.erasure))) {
+      const panel = make("section", "", "panel");
+      panel.append(make("h2", "Confirm your email address"),
+        make("p", `Some of your data, such as bookings or orders you placed before you had an account, is found by your email address. To keep it private, we first send a link to ${state.email}. Open it while you are signed in.`, "muted"));
+      const send = make("button", "Send the link"); send.type = "button";
+      send.onclick = async () => {
+        send.disabled = true;
+        try { await request("/api/account/data/confirm-address", "POST", {}); say(`We sent a link to ${state.email}. It works for 24 hours.`); }
+        catch (error) { say(error instanceof Error ? error.message : "Please try again."); send.disabled = false; }
+      };
+      panel.append(send); host.append(panel, status);
+      return;
+    }
+
+    if (wants("summary") && state.summary) {
+      const panel = make("section", "", "panel"); panel.append(make("h2", "What we keep about you"));
+      const list = make("dl", "", "jf-data-list");
+      const row = (label: string, value: string) => list.append(make("dt", label), make("dd", value));
+      row("Your profile", "Name, email address, and sign-in details");
+      if (state.summary.content) row("Pages and posts you wrote", String(state.summary.content));
+      row("Comments", String(state.summary.comments));
+      for (const part of state.summary.plugins) row(part.label, part.ok ? (part.count ? `${part.count} records` : "Nothing") : "Could not be checked right now");
+      panel.append(list); host.append(panel);
+    }
+
+    if (wants("download") && state.download) {
+      const panel = make("section", "", "panel");
+      panel.append(make("h2", "Download your data"), make("p", "A file with everything this site and its features keep about you, in a format other services can read.", "muted"));
+      const download = make("button", "Download your data"); download.type = "button";
+      download.onclick = async () => {
+        download.disabled = true; say("Preparing your file…");
+        try {
+          const res = await fetch("/api/account/data/export", { credentials: "same-origin" });
+          if (res.status === 401) { window.location.assign("/login"); return; }
+          if (!res.ok) { const body = await res.json().catch(() => ({})) as { error?: string }; throw new Error(body.error || "The download could not be prepared."); }
+          const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "your-data.json";
+          const url = URL.createObjectURL(await res.blob());
+          const link = make("a"); link.href = url; link.download = name; document.body.append(link); link.click(); link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 10_000);
+          say("Your file is downloaded.");
+        } catch (error) { say(error instanceof Error ? error.message : "Please try again."); }
+        finally { download.disabled = false; }
+      };
+      panel.append(download); host.append(panel);
+    }
+
+    if (wants("removal") && (state.erasure || state.request)) {
+      const panel = make("section", "", "panel"); panel.append(make("h2", "Remove your data"));
+      if (state.request) {
+        panel.append(make("p", `You asked us to remove your data on ${day(state.request.requestedAt)}. We will answer by ${day(state.request.dueAt)}. Until then you can keep using your account.`));
+        const withdraw = make("button", "Withdraw my request", "secondary"); withdraw.type = "button";
+        withdraw.onclick = async () => {
+          withdraw.disabled = true;
+          try { await request("/api/account/data/erasure-request", "DELETE"); await renderData(host); }
+          catch (error) { say(error instanceof Error ? error.message : "Please try again."); withdraw.disabled = false; }
+        };
+        panel.append(withdraw);
+      } else {
+        panel.append(make("p", "We remove your data and delete your account. Records the law requires us to keep, such as invoices, are kept for as long as the law says and then removed. We answer within 30 days.", "muted"));
+        const open = make("button", "Request removal", "secondary"); open.type = "button";
+        const form = make("form", "", "jf-data-form"); form.hidden = true;
+        const note = make("textarea"); note.maxLength = 2000; note.rows = 3; note.setAttribute("aria-label", "Anything we should know (optional)"); note.placeholder = "Anything we should know (optional)";
+        const password = make("input"); password.type = "password"; password.autocomplete = "current-password"; password.required = true; password.placeholder = "Your password"; password.setAttribute("aria-label", "Your password");
+        const understood = make("input"); understood.type = "checkbox"; understood.required = true;
+        const understoodLabel = make("label", " I understand my account will be deleted and this cannot be undone."); understoodLabel.prepend(understood);
+        const submit = make("button", "Send request"); submit.type = "submit";
+        const cancel = make("button", "Cancel", "secondary"); cancel.type = "button";
+        cancel.onclick = () => { form.hidden = true; open.hidden = false; form.reset(); };
+        open.onclick = () => { form.hidden = false; open.hidden = true; password.focus(); };
+        form.append(note, password, understoodLabel, submit, cancel);
+        form.onsubmit = (event) => {
+          event.preventDefault();
+          void saving(form, async () => {
+            try { await request("/api/account/data/erasure-request", "POST", { password: password.value, ...(note.value.trim() ? { note: note.value.trim() } : {}) }); await renderData(host); }
+            catch (error) { say(error instanceof Error ? error.message : "Please try again."); }
+          });
+        };
+        panel.append(open, form);
+      }
+      host.append(panel);
+    }
+    if (!host.children.length) host.append(make("p", "Contact the site to ask about your data.", "muted"));
+    host.append(status);
+  }
+  const dataHosts = Array.from(document.querySelectorAll<HTMLElement>("[data-jf-account-data]"));
+  if (dataHosts.length) {
+    void (async () => {
+      /** The confirmation link lands here; the token leaves the address bar before anything else. */
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("confirm");
+      let confirmedNotice = "";
+      if (token) {
+        params.delete("confirm");
+        window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}${window.location.hash}`);
+        try { await request("/api/account/data/confirm-address/verify", "POST", { token }); confirmedNotice = "Your email address is confirmed."; }
+        catch (error) { confirmedNotice = error instanceof Error ? error.message : "The link did not work. Send a new one."; }
+      }
+      for (const host of dataHosts) {
+        await renderData(host);
+        const status = host.querySelector<HTMLElement>(".jf-data-status");
+        if (status && confirmedNotice) status.textContent = confirmedNotice;
+      }
+    })();
+  }
+
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-account-action]")) {
     button.onclick = async () => {
       if (button.dataset.confirm && !window.confirm(button.dataset.confirm)) return;

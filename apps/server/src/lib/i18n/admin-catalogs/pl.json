@@ -6012,6 +6012,37 @@
     "retentionHint": "Dokumenty finansowe (zamówienia, faktury, płatności, zwroty) trzeba przechowywać przez kilka lat. Przy wniosku o dane wtyczki zostawiają tylko to, czego taki dokument wymaga prawnie, np. kwoty, podatek oraz nazwę i adres na fakturze, resztę usuwają od razu, a pozostałe dane po upływie okresu. Sprawdź okres, który cię obowiązuje.",
     "retentionYears": "Przechowuj dokumenty finansowe (lata)",
     "save": "Zapisz",
-    "retentionSaved": "Zapisano."
+    "retentionSaved": "Zapisano.",
+    "lookUpTitle": "Wyszukaj osobę",
+    "openTitle": "Prośby o usunięcie",
+    "handledTitle": "Załatwione prośby",
+    "showHandled": "Pokaż załatwione prośby",
+    "showOpen": "Pokaż otwarte prośby",
+    "openIntro": "Członkowie proszą o usunięcie na swojej stronie Twoje dane. Zrealizowanie prośby usuwa ich dane w witrynie i we wszystkich wtyczkach, zachowuje tylko to, czego wymaga prawo, usuwa konto i powiadamia członka e-mailem. Odpowiedz w ciągu 30 dni.",
+    "noneOpen": "Brak otwartych próśb.",
+    "noneHandled": "Brak załatwionych próśb.",
+    "requestedOn": "Zgłoszono {date}",
+    "dueBy": "odpowiedź do {date}",
+    "overdue": "po terminie od {date}",
+    "memberNote": "Uwaga członka: {note}",
+    "unfinished": "Ostatnio nie dokończono: {outcome}",
+    "complete": "Zrealizuj",
+    "confirmComplete": "Usunąć dane {who} w witrynie i we wszystkich wtyczkach oraz usunąć konto? Tego nie można cofnąć.",
+    "completed": "Gotowe. Dane {who} zostały usunięte, konto skasowane, a członek powiadomiony e-mailem.",
+    "decline": "Odrzuć",
+    "declineReason": "Powód, wysyłany do członka",
+    "sendDecline": "Odrzuć i wyślij",
+    "cancel": "Anuluj",
+    "declined": "Odrzucono. Członek otrzymał powód e-mailem.",
+    "deletedAccount": "Usunięte konto",
+    "status": {
+      "completed": "Zrealizowana",
+      "declined": "Odrzucona",
+      "cancelled": "Wycofana przez członka"
+    },
+    "selfServiceTitle": "Strona Twoje dane",
+    "selfServiceHint": "Zalogowani członkowie zarządzają swoimi danymi na stronie konta Twoje dane. Wybierz, co ona oferuje. Gdy obie opcje są wyłączone, strona prosi członków o kontakt z Tobą.",
+    "selfDownload": "Członkowie mogą pobrać swoje dane",
+    "selfErasure": "Członkowie mogą poprosić o usunięcie swoich danych"
   }
 }

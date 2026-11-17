@@ -5857,6 +5857,37 @@
     "retentionHint": "Les pièces comptables (commandes, factures, paiements, remboursements) doivent être conservées plusieurs années. Lors d'une demande, les plugins ne gardent que ce qu'une telle pièce exige légalement, comme les montants, la TVA, et le nom et l'adresse de facturation, suppriment tout le reste immédiatement, et le reste à la fin de la période. Vérifiez la durée qui s'applique à vous.",
     "retentionYears": "Conserver les pièces comptables (années)",
     "save": "Enregistrer",
-    "retentionSaved": "Enregistré."
+    "retentionSaved": "Enregistré.",
+    "lookUpTitle": "Rechercher une personne",
+    "openTitle": "Demandes de suppression",
+    "handledTitle": "Demandes traitées",
+    "showHandled": "Afficher les demandes traitées",
+    "showOpen": "Afficher les demandes ouvertes",
+    "openIntro": "Les membres demandent la suppression depuis leur page Vos données. Traiter une demande efface leurs données dans le site et dans chaque plugin, ne garde que ce que la loi exige, supprime le compte et prévient le membre par e-mail. Répondez sous 30 jours.",
+    "noneOpen": "Aucune demande ouverte.",
+    "noneHandled": "Aucune demande traitée pour l’instant.",
+    "requestedOn": "Demandé le {date}",
+    "dueBy": "réponse avant le {date}",
+    "overdue": "en retard depuis le {date}",
+    "memberNote": "Sa note : {note}",
+    "unfinished": "Non terminé la dernière fois : {outcome}",
+    "complete": "Traiter",
+    "confirmComplete": "Effacer les données de {who} dans le site et dans chaque plugin, et supprimer le compte ? Cette action est irréversible.",
+    "completed": "Terminé. Les données de {who} ont été effacées, le compte supprimé et le membre prévenu par e-mail.",
+    "decline": "Refuser",
+    "declineReason": "Motif, envoyé au membre",
+    "sendDecline": "Refuser et envoyer",
+    "cancel": "Annuler",
+    "declined": "Refusé. Le motif a été envoyé au membre par e-mail.",
+    "deletedAccount": "Compte supprimé",
+    "status": {
+      "completed": "Traitée",
+      "declined": "Refusée",
+      "cancelled": "Retirée par le membre"
+    },
+    "selfServiceTitle": "Page Vos données",
+    "selfServiceHint": "Les membres connectés gèrent leurs propres données sur la page de compte Vos données. Choisissez ce qu’elle propose. Si les deux sont désactivés, la page invite les membres à vous contacter.",
+    "selfDownload": "Les membres peuvent télécharger leurs données",
+    "selfErasure": "Les membres peuvent demander la suppression de leurs données"
   }
 }

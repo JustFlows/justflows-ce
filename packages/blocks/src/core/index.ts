@@ -3,6 +3,7 @@ import { siteBuildingBlocks } from "./site-building.js";
 import { functionalBlocks } from "./functional.js";
 import { mediaBlocks } from "./media.js";
 import { accountBlock } from "./account.js";
+import { accountDataBlock } from "./account-data.js";
 import { authFormBlock } from "./auth-form.js";
 import { searchBlock } from "./search.js";
 import type { BlockDefinition } from "../registry/block-registry.js";
@@ -89,6 +90,7 @@ export const coreBlocks: BlockDefinition[] = [
   ...siteBuildingBlocks,
   searchBlock,
   accountBlock,
+  accountDataBlock,
   authFormBlock,
   {
     type: "core.paragraph",

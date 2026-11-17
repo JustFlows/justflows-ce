@@ -5857,6 +5857,37 @@
     "retentionHint": "Finanzunterlagen (Bestellungen, Rechnungen, Zahlungen, Erstattungen) müssen gesetzlich mehrere Jahre aufbewahrt werden. Bei einer Datenanfrage behalten Plugins nur, was ein solcher Beleg gesetzlich braucht, etwa Beträge, Steuern sowie Rechnungsname und -adresse, entfernen alles andere sofort und den Rest nach Ablauf der Frist. Prüfe, welche Frist für dich gilt.",
     "retentionYears": "Finanzunterlagen aufbewahren (Jahre)",
     "save": "Speichern",
-    "retentionSaved": "Gespeichert."
+    "retentionSaved": "Gespeichert.",
+    "lookUpTitle": "Person suchen",
+    "openTitle": "Löschanfragen",
+    "handledTitle": "Bearbeitete Anfragen",
+    "showHandled": "Bearbeitete Anfragen anzeigen",
+    "showOpen": "Offene Anfragen anzeigen",
+    "openIntro": "Mitglieder beantragen die Löschung auf ihrer Seite „Deine Daten“. Wenn du eine Anfrage abschließt, werden ihre Daten in der Website und allen Plugins gelöscht, nur gesetzlich Vorgeschriebenes bleibt erhalten, das Konto wird gelöscht und das Mitglied per E-Mail informiert. Antworte innerhalb von 30 Tagen.",
+    "noneOpen": "Keine offenen Anfragen.",
+    "noneHandled": "Noch keine bearbeiteten Anfragen.",
+    "requestedOn": "Angefragt am {date}",
+    "dueBy": "Antwort bis {date}",
+    "overdue": "überfällig seit {date}",
+    "memberNote": "Ihre Notiz: {note}",
+    "unfinished": "Beim letzten Mal nicht abgeschlossen: {outcome}",
+    "complete": "Abschließen",
+    "confirmComplete": "Die Daten von {who} in der Website und allen Plugins löschen und das Konto löschen? Das kann nicht rückgängig gemacht werden.",
+    "completed": "Erledigt. Die Daten von {who} wurden gelöscht, das Konto entfernt und das Mitglied per E-Mail informiert.",
+    "decline": "Ablehnen",
+    "declineReason": "Begründung, wird an das Mitglied gesendet",
+    "sendDecline": "Ablehnen und senden",
+    "cancel": "Abbrechen",
+    "declined": "Abgelehnt. Das Mitglied hat die Begründung per E-Mail erhalten.",
+    "deletedAccount": "Gelöschtes Konto",
+    "status": {
+      "completed": "Abgeschlossen",
+      "declined": "Abgelehnt",
+      "cancelled": "Vom Mitglied zurückgezogen"
+    },
+    "selfServiceTitle": "Seite „Deine Daten“",
+    "selfServiceHint": "Angemeldete Mitglieder verwalten ihre eigenen Daten auf der Kontoseite „Deine Daten“. Wähle, was sie anbietet. Ist beides aus, bittet die Seite Mitglieder, dich zu kontaktieren.",
+    "selfDownload": "Mitglieder können ihre Daten herunterladen",
+    "selfErasure": "Mitglieder können die Löschung ihrer Daten beantragen"
   }
 }

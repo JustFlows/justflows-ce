@@ -7,6 +7,8 @@ import { addressReference, erasePersonalData, exportPersonalData, FINANCIAL_RETE
 import { setSiteSetting } from "../../lib/settings/site-settings.js";
 import { auditLog } from "../../lib/security/audit-log.js";
 import { sendServerError } from "../../lib/http/send-error.js";
+import { completeErasureRequest, declineErasureRequest, listDataRequests, saveSelfServiceSettings, selfServiceSettings } from "../../lib/auth/data-requests.js";
+import type { Request } from "express";
 
 /**
  * Data requests by email address (GDPR Art. 15 and 17), for people who may
@@ -71,13 +73,23 @@ router.post("/erase", requireRole("administrator"), async (req, res) => {
  */
 router.get("/settings", requireRole("administrator"), async (req, res) => {
   try {
-    res.json({ financialRecordsYears: await financialRetentionYears(req.session!.siteId) });
+    const siteId = req.session!.siteId;
+    const [years, selfService] = await Promise.all([financialRetentionYears(siteId), selfServiceSettings(siteId)]);
+    res.json({ financialRecordsYears: years, selfServiceDownload: selfService.download, selfServiceErasure: selfService.erasure });
   } catch (err) {
     sendServerError(res, "privacy", err);
   }
 });
 
-const SettingsSchema = z.object({ financialRecordsYears: z.number().int().min(0).max(30) });
+/**
+ * Any of: the retention years, and whether members may download their data
+ * or ask for its removal from their own "Your data" page.
+ */
+const SettingsSchema = z.object({
+  financialRecordsYears: z.number().int().min(0).max(30).optional(),
+  selfServiceDownload: z.boolean().optional(),
+  selfServiceErasure: z.boolean().optional(),
+}).refine((value) => Object.values(value).some((field) => field !== undefined));
 
 router.put("/settings", requireRole("administrator"), async (req, res) => {
   const session = req.session!;
@@ -87,10 +99,74 @@ router.put("/settings", requireRole("administrator"), async (req, res) => {
     return;
   }
   try {
-    const previous = await financialRetentionYears(session.siteId);
-    await setSiteSetting(session.siteId, FINANCIAL_RETENTION_SETTING, body.data.financialRecordsYears);
-    void auditLog({ siteId: session.siteId, action: "settings.changed", actorId: session.userId, actorRole: session.role, target: FINANCIAL_RETENTION_SETTING, detail: `${previous} → ${body.data.financialRecordsYears} years` });
-    res.json({ financialRecordsYears: body.data.financialRecordsYears });
+    const audit = (target: string, detail: string) => void auditLog({ siteId: session.siteId, action: "settings.changed", actorId: session.userId, actorRole: session.role, target, detail });
+    if (body.data.financialRecordsYears !== undefined) {
+      const previous = await financialRetentionYears(session.siteId);
+      await setSiteSetting(session.siteId, FINANCIAL_RETENTION_SETTING, body.data.financialRecordsYears);
+      audit(FINANCIAL_RETENTION_SETTING, `${previous} → ${body.data.financialRecordsYears} years`);
+    }
+    const before = await selfServiceSettings(session.siteId);
+    const after = await saveSelfServiceSettings(session.siteId, { download: body.data.selfServiceDownload, erasure: body.data.selfServiceErasure });
+    if (before.download !== after.download) audit("privacy_self_download", `${before.download} → ${after.download}`);
+    if (before.erasure !== after.erasure) audit("privacy_self_erasure", `${before.erasure} → ${after.erasure}`);
+    res.json({ financialRecordsYears: await financialRetentionYears(session.siteId), selfServiceDownload: after.download, selfServiceErasure: after.erasure });
+  } catch (err) {
+    sendServerError(res, "privacy", err);
+  }
+});
+
+/** Members' removal requests: open ones by due date, or the 100 most recently handled. */
+router.get("/requests", requireRole("administrator"), async (req, res) => {
+  try {
+    res.json({ requests: await listDataRequests(req.session!.siteId, req.query.scope === "handled" ? "handled" : "open") });
+  } catch (err) {
+    sendServerError(res, "privacy", err);
+  }
+});
+
+function actorOf(req: Request) {
+  const session = req.session!;
+  return { siteId: session.siteId, userId: session.userId, role: session.role, ip: req.ip ?? null, userAgent: req.get("user-agent") ?? null };
+}
+
+const IdSchema = z.string().uuid();
+
+/** Carry it out: erase everywhere, keep what the law requires, delete the account, tell the member. */
+router.post("/requests/:id/complete", requireRole("administrator"), async (req, res) => {
+  const id = IdSchema.safeParse(req.params.id);
+  if (!id.success || req.body?.confirm !== true) {
+    res.status(400).json({ error: "Erasing cannot be undone. Confirm it first." });
+    return;
+  }
+  try {
+    const result = await completeErasureRequest(req.session!.siteId, id.data, actorOf(req));
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+    res.json({ request: result.request, erasure: result.erasure });
+  } catch (err) {
+    sendServerError(res, "privacy", err);
+  }
+});
+
+const DeclineSchema = z.object({ reason: z.string().trim().min(1).max(2000) });
+
+/** Decline it, with the reason the member is sent. */
+router.post("/requests/:id/decline", requireRole("administrator"), async (req, res) => {
+  const id = IdSchema.safeParse(req.params.id);
+  const body = DeclineSchema.safeParse(req.body ?? {});
+  if (!id.success || !body.success) {
+    res.status(400).json({ error: "Write the reason the member will be sent." });
+    return;
+  }
+  try {
+    const result = await declineErasureRequest(req.session!.siteId, id.data, actorOf(req), body.data.reason);
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+    res.json({ request: result.request });
   } catch (err) {
     sendServerError(res, "privacy", err);
   }

@@ -3,6 +3,7 @@
 import { accountProfile } from "./profile.js";
 import type { AccountSection, AccountSectionContext } from "@justflows/sdk";
 import { ensurePluginRuntime, getRuntimeHooks } from "../plugins/plugin-runtime.js";
+import { accountDataPageUrl } from "./pages.js";
 
 const text = (value: unknown, max = 2000): string => typeof value === "string" ? value.slice(0, max) : "";
 const record = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -50,7 +51,8 @@ export function sanitizeAccountSections(raw: unknown): AccountSection[] {
 export async function accountSections(context: AccountSectionContext): Promise<AccountSection[]> {
   const claims = Object.freeze({ ...context });
   const [profile] = await Promise.all([accountProfile(claims.siteId, claims.userId), ensurePluginRuntime()]);
-  const core: AccountSection[] = [{ id: "profile", title: "Your profile", cards: [{ title: "Account details", fields: [
+  const dataPage = await accountDataPageUrl(claims.siteId);
+  const core: AccountSection[] = [{ id: "profile", title: "Your profile", cards: [{ title: "Account details", links: dataPage ? [{ href: dataPage, label: "Your data" }] : [], fields: [
     { label: "Email", value: claims.email },
     ...(profile ? [{ label: "Name", value: profile.display_name }, { label: "Username", value: profile.username }] : []),
     { label: "Role", value: claims.role },

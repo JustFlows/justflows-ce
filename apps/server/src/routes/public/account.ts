@@ -15,6 +15,7 @@ import { signupBaseDomain } from "../../lib/tenancy/host.js";
 import { listQuotaMeters } from "../../lib/tenancy/quotas.js";
 import { auditLog } from "../../lib/security/audit-log.js";
 import { requireMultisite } from "../../lib/tenancy/multisite.js";
+import { accountDataRouter } from "./account-data.js";
 
 export const pageRouter = Router();
 export const apiRouter = Router();
@@ -39,6 +40,8 @@ pageRouter.get("/", reads, optionalSession, async (req, res) => {
   await serveAccountContent(req, res, page.content, page.url);
 });
 apiRouter.use(privateResponse, reads, requireSession);
+/** Writes there carry their own, tighter budgets. */
+apiRouter.use("/data", accountDataRouter);
 apiRouter.use("/workspaces", requireMultisite, requireInstallationRoot);
 apiRouter.get("/workspaces", async (req, res) => {
   const [workspaces, siteDomain] = await Promise.all([

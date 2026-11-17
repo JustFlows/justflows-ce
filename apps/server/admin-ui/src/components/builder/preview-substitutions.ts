@@ -23,6 +23,7 @@ export const PREVIEW_SUBSTITUTES: Readonly<Record<string, PreviewSubstitution>> 
   "core.table-of-contents": "query",
   "core.search": "visitor",
   "core.account": "visitor",
+  "core.account-data": "visitor",
   "core.auth-form": "visitor",
   "core.auth-links": "visitor",
   "core.language-switcher": "visitor",

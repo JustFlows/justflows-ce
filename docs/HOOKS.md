@@ -908,6 +908,7 @@ ctx.hooks.filter("privacy.providers", (providers) => [...providers, {
 - `export` returns plain JSON; core puts every part into one download for the administrator.
 - `erase` must be safe to repeat and must not break records other things still need: anonymise instead. Report kept records in `kept` with their removal date. A plugin that throws is reported and the others still run; erasing again retries it.
 - Core audits every request as `privacy.exported` or `privacy.erased`, with the account id or a hash of a guest's address, never the address.
+- Members reach the same providers from their own **Your data** account page: a summary of each provider's `count`, a download of their own export, and a removal request an administrator completes (see [Frontend account pages](ACCOUNT.md#your-data)). The `context.actor` is then the member, not an administrator. Return only the member's own records; never another person's, even when they share a booking or an order.
 
 ## Frontend user account
 

@@ -8,7 +8,8 @@ import { accountView } from "./view.js";
 
 /** Hydrate only on an authenticated account-type page, never in public block previews. */
 export async function renderAccountBlocks(html: string, session: SessionPayload): Promise<string> {
-  if (!html.includes("data-jf-account=")) return html;
+  const hasData = html.includes("data-jf-account-data=");
+  if (!html.includes("data-jf-account=") && !hasData) return html;
   const view = await accountView(session);
   const seen = new Set<string>();
   const fragments = new Map<string, string>();
@@ -34,5 +35,8 @@ export async function renderAccountBlocks(html: string, session: SessionPayload)
       if (titles === "false") inner = inner.replace(/<h2>[^<]*<\/h2>/g, "");
       return `<div${attributes}>${inner}</div>`;
     });
-  return rendered + `<script id="initial-account" type="application/json">${view.initialAccount}</script>`;
+  /** "Your data" is filled in by /js/account.js from /api/account/data; the server renders only its frame. */
+  const withData = hasData ? rendered.replace(/(<div\b[^>]*\bdata-jf-account-data="1"[^>]*>)[^<]*(<\/div>)/g,
+    '$1<p class="muted">Loading your data…</p>$2') : rendered;
+  return withData + `<script id="initial-account" type="application/json">${view.initialAccount}</script>`;
 }
