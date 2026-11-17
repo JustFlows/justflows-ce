@@ -9,6 +9,7 @@ import {
   stampCatalogLabels,
   stampSections,
   stampHasSettings,
+  stampPluginCapabilities,
   stampSetupPaths,
 } from "../../../src/lib/admin/admin-menu.js";
 
@@ -233,5 +234,21 @@ describe("stampHasSettings", () => {
     expect(flag("acme.form")).toEqual([true]);
     expect(flag("acme.subs")).toEqual([true, true]);
     expect(flag("acme.app")).toEqual([false]);
+  });
+});
+
+describe("stampPluginCapabilities", () => {
+  it("attaches each plugin's declared capabilities to its pages only", () => {
+    const items = finalizeAdminMenu([
+      { pluginId: "acme.shop", id: "home", label: "Shop", path: "", icon: "🛍", domain: "extensions" },
+      { pluginId: "acme.shop", id: "orders", label: "Orders", path: "orders", icon: "🧾", domain: "extensions" },
+      { pluginId: "acme.form", id: "home", label: "Form", path: "", icon: "📋", domain: "extensions" },
+    ]);
+    const stamped = stampPluginCapabilities(items, new Map([["acme.shop", ["orders:read", "orders:update"]]]));
+    expect(stamped.filter((item) => item.pluginId === "acme.shop").map((item) => item.capabilities)).toEqual([
+      ["orders:read", "orders:update"],
+      ["orders:read", "orders:update"],
+    ]);
+    expect(stamped.find((item) => item.pluginId === "acme.form")?.capabilities).toBeUndefined();
   });
 });
