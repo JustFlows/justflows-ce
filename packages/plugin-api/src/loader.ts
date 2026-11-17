@@ -820,6 +820,22 @@ export class PluginLoader {
           if (!own) return { ok: false, status: 403, error: "Plugins can only delete users whose every role they registered." };
           return users.delete({ userId: user.id }, actor);
         },
+        updateProfile: async (target, fields, actor) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(`Plugin "${pluginId}" cannot update users without the "users:manage" permission`);
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          if (!users.updateProfile || !users.find) {
+            return { ok: false, status: 501, error: "Updating profiles is not available in this runtime." };
+          }
+          const user = await users.find(target);
+          if (!user) return { ok: false, status: 404, error: "User not found." };
+          /** The member acting on their own account, or an account wholly this plugin's. */
+          const self = actor.userId === user.id;
+          const own = user.roles.length > 0 && user.roles.every((role) => this.roleRegistry.get(role)?.pluginId === pluginId);
+          if (!self && !own) return { ok: false, status: 403, error: "Plugins can only update the acting member's own account, or accounts whose every role they registered." };
+          return users.updateProfile({ userId: user.id }, fields, actor);
+        },
         get: async (userId) => {
           if (!permissions.has("users:manage")) {
             throw new Error(`Plugin "${pluginId}" cannot read users without the "users:manage" permission`);

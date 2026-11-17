@@ -289,3 +289,30 @@ describe("plugin user deletion", () => {
     expect(remove).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("plugin profile updates", () => {
+  it("updates only the acting member's own account or an account wholly the plugin's, and needs users:manage", async () => {
+    const people: Record<string, { roles: string[] }> = { "u-demo": { roles: ["demo-customer"] }, "u-member": { roles: ["subscriber"] }, "u-admin": { roles: ["administrator"] } };
+    const updateProfile = vi.fn(async () => ({ ok: true as const }));
+    const find = vi.fn(async (target: { userId?: string; email?: string }) => {
+      const id = target.userId ?? "";
+      return people[id] ? { id, email: `${id}@example.com`, username: id, displayName: id, role: people[id]!.roles[0]!, roles: people[id]!.roles } : null;
+    });
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, { usersFactory: () => ({ create: vi.fn(), find, updateProfile }) as never });
+    let owner: PluginContext | undefined;
+    let reader: PluginContext | undefined;
+    loader.register(plugin("justflows.demo", ["users:manage"], (ctx) => { owner = ctx; ctx.roles.register({ id: "demo-customer", label: "Demo customer", capabilities: [] }); }));
+    loader.register(plugin("justflows.reader", ["users:read"], (ctx) => { reader = ctx; }));
+    await loader.activate("justflows.demo", "site-1");
+    await loader.activate("justflows.reader", "site-1");
+    const admin = { userId: "u-admin", role: "administrator" };
+    await expect(owner!.users.updateProfile!({ userId: "u-demo" }, { birthDate: "2014-08-12" }, admin)).resolves.toEqual({ ok: true });
+    /** A member's own account, when they are the one acting. */
+    await expect(owner!.users.updateProfile!({ userId: "u-member" }, { birthDate: "2014-08-12" }, { userId: "u-member", role: "subscriber" })).resolves.toEqual({ ok: true });
+    await expect(owner!.users.updateProfile!({ userId: "u-member" }, { birthDate: "2014-08-12" }, admin)).resolves.toMatchObject({ ok: false, status: 403 });
+    await expect(owner!.users.updateProfile!({ userId: "u-admin" }, { birthDate: null }, { userId: "u-member", role: "subscriber" })).resolves.toMatchObject({ ok: false, status: 403 });
+    await expect(reader!.users.updateProfile!({ userId: "u-demo" }, { birthDate: null }, admin)).rejects.toThrow(/users:manage/);
+    expect(updateProfile).toHaveBeenCalledTimes(2);
+  });
+});

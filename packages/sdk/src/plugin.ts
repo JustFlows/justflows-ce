@@ -892,6 +892,16 @@ export interface PluginUsersApi {
    * permission. Optional: older hosts do not provide it.
    */
   delete?(target: PluginUserTarget, actor: PluginUserActor): Promise<{ ok: true } | { ok: false; status: number; error: string }>;
+  /**
+   * Set profile fields on an account, so a value is kept in one place (the
+   * account) instead of in the plugin. Allowed for the signed-in member's
+   * own account when they act (`actor.userId` is the target), or for an
+   * account whose every role this plugin registered. `birthDate` is
+   * `YYYY-MM-DD` or null; the host checks it, audits the change without the
+   * value, and fires `user.updated`. Requires the `users:manage` manifest
+   * permission. Optional: older hosts do not provide it.
+   */
+  updateProfile?(target: PluginUserTarget, fields: { birthDate?: string | null }, actor: PluginUserActor): Promise<{ ok: true } | { ok: false; status: number; error: string }>;
 }
 
 export type PluginPasswordSetupResult = { ok: true; expiresAt: string } | { ok: false; status: number; error: string };

@@ -322,7 +322,7 @@ export async function ensurePluginRuntime(): Promise<void> {
         quotasFactory: (pluginId, permissions, siteId) => createPluginQuotasApi(pluginId, permissions, siteId),
         quotasCleanup: unregisterPluginMeters,
         filesFactory: (pluginId, siteId) => createPluginFilesApi(pluginId, siteId),
-        usersFactory: (_pluginId, siteId) => ({
+        usersFactory: (pluginId, siteId) => ({
           create: async (input, actor) => {
             const { createUser, CreateUserSchema } = await import("../auth/users-admin.js");
             const parsed = CreateUserSchema.safeParse(input);
@@ -379,6 +379,26 @@ export async function ensurePluginRuntime(): Promise<void> {
             const user = await findUserRoles(site, target);
             if (!user) return { ok: false, status: 404, error: "User not found." };
             return sendPasswordSetup(site, user.id, actor);
+          },
+          /** The loader has already checked that the actor is the member, or that the account is wholly the plugin's. */
+          updateProfile: async (target, fields, actor) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { emitUserEvent, findUserRoles } = await import("../auth/users-admin.js");
+            const { validBirthDate } = await import("../account/personal.js");
+            const { auditLog } = await import("../security/audit-log.js");
+            const { getDb } = await import("../database/db.js");
+            const site = pluginCallSiteId(siteId);
+            const user = await findUserRoles(site, target);
+            if (!user) return { ok: false, status: 404, error: "User not found." };
+            if (fields.birthDate === undefined) return { ok: true };
+            const birthDate = validBirthDate(fields.birthDate);
+            if (birthDate === undefined) return { ok: false, status: 400, error: "Enter a date of birth as a real date, not in the future." };
+            if ((user.birthDate ?? null) === birthDate) return { ok: true };
+            const db = await getDb();
+            await db.run("UPDATE users SET birth_date = ?, updated_at = ? WHERE id = ? AND site_id = ?", [birthDate, new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, ""), user.id, site]);
+            await auditLog({ siteId: site, action: "user.birth_date_changed", actorId: actor.userId, actorRole: actor.role, target: user.id, detail: `${birthDate ? "set" : "cleared"} by plugin ${pluginId}` });
+            await emitUserEvent("user.updated", user.id, site);
+            return { ok: true };
           },
           /** The loader has already checked that every role of the user is the calling plugin's. */
           delete: async (target, actor) => {

@@ -117,6 +117,9 @@ All additive; existing plugins are unaffected.
 - `ctx.users.delete(target, actor)` (permission `users:manage`; only users whose every role the
   plugin registered) deletes an account the plugin is wholly responsible for, such as demo data.
 - `ctx.users.find` / `get` return `birthDate` (`YYYY-MM-DD` or null) when the member gave one.
+- `ctx.users.updateProfile(target, { birthDate }, actor)` (permission `users:manage`; only the acting
+  member's own account, or an account whose every role the plugin registered) keeps a value on the
+  account instead of in the plugin; audited without the value, fires `user.updated`.
 - `ctx.outbound.fetch(url, request?)` (permission `network:outbound`; absent without it
   and on older hosts) makes SSRF-guarded HTTP requests and returns failures as values.
 - `ctx.captcha.verify` without an action expects the plugin's own name.
