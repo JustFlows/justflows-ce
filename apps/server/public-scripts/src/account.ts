@@ -328,7 +328,10 @@ import { createPasskey, isCancelled, passkeysSupported, type CreationOptionsJson
         open.onclick = () => { form.hidden = false; open.hidden = true; password.focus(); };
         cancel.addEventListener("click", () => say(""));
         const actions = make("div", "", "jf-data-actions"); actions.append(submit, cancel);
-        form.append(note, password, understoodLabel, actions);
+        /** Password managers fill the field before a password box with the username; give them one so the note stays empty. */
+        const username = make("input"); username.type = "email"; username.autocomplete = "username"; username.value = state.email; username.hidden = true; username.tabIndex = -1;
+        note.autocomplete = "off";
+        form.append(username, note, password, understoodLabel, actions);
         form.onsubmit = (event) => {
           event.preventDefault();
           void saving(form, async () => {
