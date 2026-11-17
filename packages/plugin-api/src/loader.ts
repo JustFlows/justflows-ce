@@ -787,6 +787,24 @@ export class PluginLoader {
           }
           return users.removeRole(target, role, actor);
         },
+        sendPasswordSetup: async (target, actor) => {
+          if (!permissions.has("users:manage")) {
+            throw new Error(
+              `Plugin "${pluginId}" cannot invite users without the "users:manage" permission`,
+            );
+          }
+          const users = this.usersFactory(pluginId, siteId, permissions);
+          if (!users.sendPasswordSetup || !users.find) {
+            return { ok: false, status: 501, error: "Password setup links are not available in this runtime." };
+          }
+          /** Only people this plugin is responsible for: never an administrator it does not manage. */
+          const user = await users.find(target);
+          const own = user?.roles.some((role) => this.roleRegistry.get(role)?.pluginId === pluginId) ?? false;
+          if (!user || !own) {
+            return { ok: false, status: 403, error: "Plugins can only invite users who hold a role they registered." };
+          }
+          return users.sendPasswordSetup({ userId: user.id }, actor);
+        },
         get: async (userId) => {
           if (!permissions.has("users:manage")) {
             throw new Error(`Plugin "${pluginId}" cannot read users without the "users:manage" permission`);

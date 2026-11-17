@@ -220,6 +220,7 @@ export type {
   PluginNetworkApi,
   PluginNetworkSite,
   PluginOutboundApi,
+  PluginPasswordSetupResult,
   PluginOutboundRequest,
   PluginOutboundResponse,
   PluginNetworkSiteAddress,

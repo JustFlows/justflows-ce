@@ -221,3 +221,34 @@ describe("plugin user creation", () => {
     expect(removeRole).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("plugin password setup links", () => {
+  it("invites only users holding a role the plugin registered, and needs users:manage", async () => {
+    const people: Record<string, { roles: string[] }> = { "u-staff": { roles: ["staff-member"] }, "u-admin": { roles: ["administrator"] } };
+    const sendPasswordSetup = vi.fn(async () => ({ ok: true as const, expiresAt: "2026-11-20T00:00:00.000Z" }));
+    const find = vi.fn(async (target: { userId?: string; email?: string }) => {
+      const id = target.userId ?? "";
+      return people[id] ? { id, email: `${id}@example.com`, username: id, displayName: id, role: people[id]!.roles[0]!, roles: people[id]!.roles } : null;
+    });
+    const app = new App(CONFIG);
+    const loader = new PluginLoader(app, { usersFactory: () => ({ create: vi.fn(), find, sendPasswordSetup }) as never });
+    let owner: PluginContext | undefined;
+    let reader: PluginContext | undefined;
+    loader.register(
+      plugin("justflows.team", ["users:manage"], (ctx) => {
+        owner = ctx;
+        ctx.roles.register({ id: "staff-member", label: "Staff member", capabilities: [] });
+      }),
+    );
+    loader.register(plugin("justflows.reader", ["users:read"], (ctx) => { reader = ctx; }));
+    await loader.activate("justflows.team", "site-1");
+    await loader.activate("justflows.reader", "site-1");
+    const actor = { userId: "admin", role: "administrator" };
+
+    await expect(owner!.users.sendPasswordSetup!({ userId: "u-staff" }, actor)).resolves.toEqual({ ok: true, expiresAt: "2026-11-20T00:00:00.000Z" });
+    await expect(owner!.users.sendPasswordSetup!({ userId: "u-admin" }, actor)).resolves.toMatchObject({ ok: false, status: 403 });
+    await expect(owner!.users.sendPasswordSetup!({ userId: "nobody" }, actor)).resolves.toMatchObject({ ok: false, status: 403 });
+    await expect(reader!.users.sendPasswordSetup!({ userId: "u-staff" }, actor)).rejects.toThrow(/users:manage/);
+    expect(sendPasswordSetup).toHaveBeenCalledTimes(1);
+  });
+});

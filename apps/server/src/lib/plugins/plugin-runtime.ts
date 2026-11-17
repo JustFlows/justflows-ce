@@ -371,6 +371,15 @@ export async function ensurePluginRuntime(): Promise<void> {
             const { removeAdditionalRole } = await import("../auth/users-admin.js");
             return removeAdditionalRole(siteId, target, role, actor);
           },
+          sendPasswordSetup: async (target, actor) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { findUserRoles } = await import("../auth/users-admin.js");
+            const { sendPasswordSetup } = await import("../auth/password-reset.js");
+            const site = pluginCallSiteId(siteId);
+            const user = await findUserRoles(site, target);
+            if (!user) return { ok: false, status: 404, error: "User not found." };
+            return sendPasswordSetup(site, user.id, actor);
+          },
           get: async (userId) => {
             const { getUserRoles } = await import("../auth/users-admin.js");
             return getUserRoles(siteId, userId);

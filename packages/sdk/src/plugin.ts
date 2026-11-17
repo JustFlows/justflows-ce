@@ -867,7 +867,18 @@ export interface PluginUsersApi {
    * Optional: older hosts do not provide it.
    */
   removeRole?(target: PluginUserTarget, role: string, actor: PluginUserActor): Promise<PluginUserRoleResult>;
+  /**
+   * Email a user a single-use link (valid three days) to choose their
+   * password, on the sign-in pages their account belongs to. For accounts a
+   * plugin made for someone with `create`, who never typed a password. Only
+   * users holding a role this plugin registered. Nothing changes until the
+   * person uses the link. Requires the `users:manage` manifest permission.
+   * Optional: older hosts do not provide it.
+   */
+  sendPasswordSetup?(target: PluginUserTarget, actor: PluginUserActor): Promise<PluginPasswordSetupResult>;
 }
+
+export type PluginPasswordSetupResult = { ok: true; expiresAt: string } | { ok: false; status: number; error: string };
 
 /** The signed-in user behind a plugin request, when there is one. */
 export interface PluginHttpSession {

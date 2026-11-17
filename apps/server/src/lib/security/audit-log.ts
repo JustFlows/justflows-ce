@@ -29,6 +29,7 @@ export const AUDIT_ACTIONS = [
   "auth.password_changed",
   "auth.password_reset",
   "auth.password_reset_requested",
+  "auth.password_setup_sent",
   "auth.password_reset_failed",
   "auth.2fa_enabled",
   "auth.2fa_disabled",

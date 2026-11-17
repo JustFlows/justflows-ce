@@ -112,6 +112,8 @@ All additive; existing plugins are unaffected.
   `adminApp.locales` catalogs before core's.
 - The `plugin.settings.schema` filter narrows a plugin's settings form per site.
 - `ctx.network.site(siteId?)` returns one live site and its public URL from any site.
+- `ctx.users.sendPasswordSetup(target, actor)` (permission `users:manage`; only users
+  holding a role the plugin registered) emails a three-day set-password link.
 - `ctx.outbound.fetch(url, request?)` (permission `network:outbound`; absent without it
   and on older hosts) makes SSRF-guarded HTTP requests and returns failures as values.
 - `ctx.captcha.verify` without an action expects the plugin's own name.
