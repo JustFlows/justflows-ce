@@ -78,6 +78,8 @@ interface BackupValidation {
     packages: Array<{ type: string; id: string; version: string; source: string; signed: boolean }>;
   };
   target: { clean: boolean; existingSubsites: number; multisite: boolean } | null;
+  /** Per site, bundled extensions this server does not ship; they restore turned off. */
+  unavailable?: Record<string, string[]>;
   restoreAvailable: boolean;
   restoreBlockedReason: "notRoot" | "notClean" | "multisiteOff" | "notOperator" | null;
 }
@@ -1029,6 +1031,11 @@ export function BackupCard({ installationRoot }: { installationRoot: boolean }) 
                     {t("tools.backup.mediaSummary", { count: site.mediaFiles, size: formatBytes(site.mediaBytes) })}
                     {site.pluginRows > 0 ? ` · ${t("tools.backup.pluginRowsSummary", { count: site.pluginRows })}` : ""}
                   </p>
+                  {(validation.unavailable?.[site.siteId]?.length ?? 0) > 0 && (
+                    <p className="jf-field__hint">
+                      {t("tools.backup.unavailableExtensions", { list: validation.unavailable![site.siteId]!.join(", ") })}
+                    </p>
+                  )}
                   {site.undecryptableSecrets > 0 && (
                     <p className="jf-field__hint">{t("tools.backup.undecryptableSecrets", { count: site.undecryptableSecrets })}</p>
                   )}

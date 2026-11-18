@@ -26,6 +26,7 @@ import {
   restoreSingleSite,
   restoreTargetState,
   summarizeBackup,
+  unavailableExtensions,
   type RestorePlan,
 } from "../../lib/backup/restore-backup.js";
 import {
@@ -376,7 +377,15 @@ router.post(
         target: summary.source.siteId,
         detail: `kind=${summary.kind}; legacy=${legacy}; sites=${summary.sites.length}; bytes=${req.file!.size}`,
       });
-      res.json({ ok: true, legacy, summary, target, restoreAvailable: restoreBlockedReason === null, restoreBlockedReason });
+      res.json({
+        ok: true,
+        legacy,
+        summary,
+        target,
+        unavailable: await unavailableExtensions(reader),
+        restoreAvailable: restoreBlockedReason === null,
+        restoreBlockedReason,
+      });
     } catch (error) {
       res.status(error instanceof BackupPassphraseError ? 422 : 400).json({ error: errorMessage(error, "Backup validation failed") });
     }

@@ -4573,7 +4573,8 @@
       "dbPort": "Port",
       "dbName": "Datenbankname",
       "dbUser": "Benutzername",
-      "networkBlockedNotRoot": "Stellen Sie eine Netzwerksicherung von der Hauptwebsite der Installation aus wieder her."
+      "networkBlockedNotRoot": "Stellen Sie eine Netzwerksicherung von der Hauptwebsite der Installation aus wieder her.",
+      "unavailableExtensions": "Auf diesem Server nicht installiert, daher deaktiviert wiederhergestellt: {list}. Installieren Sie sie und aktivieren Sie sie dann."
     },
     "performance": {
       "loadFailed": "Die Leistungseinstellungen konnten nicht geladen werden",

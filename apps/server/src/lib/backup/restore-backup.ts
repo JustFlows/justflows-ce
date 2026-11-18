@@ -142,6 +142,17 @@ export function summarizeBackup(reader: BackupReader, signal?: AbortSignal): Bac
   };
 }
 
+/** Per backed-up site, bundled extensions this installation does not ship. They restore turned off. */
+export async function unavailableExtensions(reader: BackupReader): Promise<Record<string, string[]>> {
+  const { unavailableBundledExtensions } = await import("./site-restore.js");
+  const result: Record<string, string[]> = {};
+  for (const entry of reader.manifest.sites) {
+    const missing = await unavailableBundledExtensions(reader.readSite(entry));
+    if (missing.length > 0) result[entry.siteId] = missing;
+  }
+  return result;
+}
+
 export interface RestoreTargetState {
   clean: boolean;
   existingSubsites: number;
@@ -168,7 +179,13 @@ async function snapshotSite(siteId: string, installationRoot: boolean): Promise<
   };
 }
 
-async function putBack(siteId: string, snapshot: PortableBackupEnvelope, actorId: string | null, started: string[], installationRoot: boolean): Promise<boolean> {
+async function putBack(
+  siteId: string,
+  snapshot: PortableBackupEnvelope,
+  actorId: string | null,
+  started: string[],
+  installationRoot: boolean,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
     await withBackupSiteDatabase(siteId, async () => {
       await restoreSiteBackup({
@@ -184,9 +201,9 @@ async function putBack(siteId: string, snapshot: PortableBackupEnvelope, actorId
       });
       await stopPluginsAfterRollback(siteId, started, snapshot);
     });
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -259,8 +276,13 @@ export async function restoreSingleSite(input: {
   } catch (error) {
     input.progress?.(3, 4, "Putting the site back");
     const restored = await putBack(input.targetSiteId, snapshot, input.actorId, started, input.installationRoot);
-    const reason = error instanceof Error ? error.message : "Restore failed";
-    throw new Error(restored ? `${reason}. The site was put back as it was.` : `${reason}. Putting the site back also failed; restore a recent backup.`, { cause: error });
+    const reason = (error instanceof Error ? error.message : "Restore failed").replace(/\.$/, "");
+    throw new Error(
+      restored.ok
+        ? `${reason}. The site was put back as it was.`
+        : `${reason}. Putting the site back also failed (${restored.reason}); restore a recent backup.`,
+      { cause: error },
+    );
   }
   input.progress?.(4, 4, "Site restored");
   return { siteId: input.targetSiteId };
@@ -487,14 +509,24 @@ export async function restoreNetwork(input: {
 
   const rollback = async (cause: unknown): Promise<never> => {
     let complete = true;
-    for (const site of created) if (!(await discardCreatedSite(site.siteId))) complete = false;
+    const problems: string[] = [];
+    for (const site of created) {
+      if (!(await discardCreatedSite(site.siteId))) {
+        complete = false;
+        problems.push(`subsite ${site.entry.siteName}`);
+      }
+    }
     const extra = [...(hostnames.get(rootEntry.siteId) ?? [])].map((host) => host.hostname);
     if (extra.length > 0) {
       await control.run(`DELETE FROM site_domains WHERE hostname IN (${extra.map(() => "?").join(", ")})`, extra).catch(() => {
         complete = false;
       });
     }
-    if (!(await putBack(rootSiteId, rootSnapshot, input.actorId, rootStarted, true))) complete = false;
+    const putBackResult = await putBack(rootSiteId, rootSnapshot, input.actorId, rootStarted, true);
+    if (!putBackResult.ok) {
+      complete = false;
+      problems.push(`the root site (${putBackResult.reason})`);
+    }
     if (installationBefore.tenant) {
       await writeInstallation(
         tenantId,
@@ -506,11 +538,11 @@ export async function restoreNetwork(input: {
         complete = false;
       });
     }
-    const reason = cause instanceof Error ? cause.message : "Network restore failed";
+    const reason = (cause instanceof Error ? cause.message : "Network restore failed").replace(/\.$/, "");
     throw new Error(
       complete
         ? `${reason}. The new subsites were removed and the root site was put back as it was.`
-        : `${reason}. Rolling back was incomplete; check Platform for offline subsites and restore a recent backup of the root site.`,
+        : `${reason}. Rolling back was incomplete for ${problems.join(", ") || "the installation settings"}; check Platform for offline subsites and restore a recent backup of the root site.`,
       { cause },
     );
   };
@@ -616,5 +648,5 @@ export async function discardInterruptedSites(siteIds: string[]): Promise<boolea
 /** Put a site back from a stored pre-restore snapshot, after the worker running the restore stopped. */
 export async function restoreRollbackSnapshot(siteId: string, snapshot: PortableBackupEnvelope): Promise<boolean> {
   const { isInstallationRootSite } = await import("../tenancy/registry.js");
-  return putBack(siteId, snapshot, null, [], await isInstallationRootSite(siteId));
+  return (await putBack(siteId, snapshot, null, [], await isInstallationRootSite(siteId))).ok;
 }

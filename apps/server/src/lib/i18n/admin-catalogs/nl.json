@@ -4570,7 +4570,8 @@
       "dbPort": "Poort",
       "dbName": "Databasenaam",
       "dbUser": "Gebruikersnaam",
-      "networkBlockedNotRoot": "Zet een netwerkback-up terug vanaf de hoofdsite van de installatie."
+      "networkBlockedNotRoot": "Zet een netwerkback-up terug vanaf de hoofdsite van de installatie.",
+      "unavailableExtensions": "Niet op deze server geïnstalleerd, dus uitgeschakeld teruggezet: {list}. Installeer ze en zet ze daarna aan."
     },
     "performance": {
       "loadFailed": "Prestatie-instellingen konden niet worden geladen",

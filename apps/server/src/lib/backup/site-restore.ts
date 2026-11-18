@@ -53,6 +53,8 @@ export interface SiteRestoreInput {
   progress?: (message: string) => void;
   /** Receives each plugin as it is started, so a failed restore can stop them again. */
   activated?: string[];
+  /** Receives bundled extensions this installation does not ship; they are restored turned off. */
+  unavailable?: string[];
 }
 
 export interface SiteRestoreResult {
@@ -84,7 +86,8 @@ function checkCancelled(signal?: AbortSignal): void {
   if (signal?.aborted) throw new Error("Restore cancelled");
 }
 
-async function bundledFolder(table: "plugins" | "themes" | "css_providers", folder: string): Promise<string> {
+/** The bundled folder on this installation, or null when it does not ship here. */
+export async function bundledFolder(table: "plugins" | "themes" | "css_providers", folder: string): Promise<string | null> {
   const base =
     table === "plugins"
       ? (await import("../plugins/plugins-db.js")).pluginsDir()
@@ -92,10 +95,25 @@ async function bundledFolder(table: "plugins" | "themes" | "css_providers", fold
         ? (await import("../themes/theme-files.js")).themesDir()
         : (await import("../extensions/css-providers-db.js")).cssProvidersDir();
   const dir = resolvePathUnderBase(base, folder);
-  if (!dir || !(await fsp.stat(dir).then((stat) => stat.isDirectory(), () => false))) {
-    throw new Error(`This installation does not include the bundled extension "${folder}". Restore on the same or a newer Justflows version.`);
-  }
+  if (!dir || !(await fsp.stat(dir).then((stat) => stat.isDirectory(), () => false))) return null;
   return dir;
+}
+
+const ID_COLUMN = { plugins: "plugin_id", themes: "theme_id", css_providers: "provider_id" } as const;
+
+/**
+ * Bundled extensions a backup refers to that this installation does not ship.
+ * Their rows and data are restored, but they stay turned off.
+ */
+export async function unavailableBundledExtensions(envelope: PortableBackupEnvelope): Promise<string[]> {
+  const missing: string[] = [];
+  for (const item of envelope.data.packages) {
+    if (item.ref.kind !== "bundled") continue;
+    if (await bundledFolder(item.table, item.ref.folder)) continue;
+    const row = (envelope.data.tables[item.table] ?? []).find((candidate) => String(candidate.id) === item.rowId);
+    missing.push(String(row?.[ID_COLUMN[item.table]] ?? item.ref.folder));
+  }
+  return missing;
 }
 
 /**
@@ -133,7 +151,13 @@ async function resolveExtensionRows(input: SiteRestoreInput, tables: Record<stri
         if (!dir) throw new Error("A restored theme has an unsafe folder");
         manifest.installedPath = dir;
       } else {
-        manifest.bundledPath = await bundledFolder(table, ref.folder);
+        const dir = await bundledFolder(table, ref.folder);
+        if (dir) manifest.bundledPath = dir;
+        else {
+          /** The code is not on this server: keep the row and its data, but leave it off. */
+          if (table === "plugins" && row.status === "active") row.status = "inactive";
+          input.unavailable?.push(String(row[ID_COLUMN[table]] ?? ref.folder));
+        }
       }
       row.manifest = JSON.stringify(manifest);
     }
@@ -343,7 +367,16 @@ async function activatePlugins(input: SiteRestoreInput, tables: Record<string, R
     const pluginId = String(row.plugin_id);
     input.progress?.(`Starting plugin ${pluginId}`);
     if (!input.rollback) await runtimeUnloadPlugin(pluginId);
-    await runtimeActivatePlugin(input.targetSiteId, pluginId);
+    if (input.rollback) {
+      /** A plugin that could not start before the restore must not block putting the site back. */
+      try {
+        await runtimeActivatePlugin(input.targetSiteId, pluginId);
+      } catch {
+        continue;
+      }
+    } else {
+      await runtimeActivatePlugin(input.targetSiteId, pluginId);
+    }
     activated.push(pluginId);
     input.activated?.push(pluginId);
   }
@@ -367,6 +400,14 @@ async function pluginTableDatabase(input: SiteRestoreInput, table: PortablePlugi
 async function replacePluginTables(input: SiteRestoreInput): Promise<void> {
   for (const table of input.envelope.data.pluginTables) {
     if (!table.siteScoped && !input.installationRoot) continue;
+    if (input.unavailable?.includes(table.pluginId)) {
+      const probe = await pluginTableDatabase(input, table);
+      const exists = await tableColumns(probe.db, table.table, probe.engine).finally(async () => {
+        if (probe.close) await probe.db.close();
+      });
+      /** A plugin whose code is missing cannot create its tables; its rows wait in plugin data. */
+      if (!exists) continue;
+    }
     checkCancelled(input.signal);
     const handle = await pluginTableDatabase(input, table);
     try {

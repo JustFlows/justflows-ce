@@ -4573,7 +4573,8 @@
       "dbPort": "Puerto",
       "dbName": "Nombre de la base de datos",
       "dbUser": "Usuario",
-      "networkBlockedNotRoot": "Restaura una copia de red desde el sitio raíz de la instalación."
+      "networkBlockedNotRoot": "Restaura una copia de red desde el sitio raíz de la instalación.",
+      "unavailableExtensions": "No están instaladas en este servidor, así que se restauran desactivadas: {list}. Instálalas y luego actívalas."
     },
     "performance": {
       "loadFailed": "No se pudieron cargar los ajustes de rendimiento",

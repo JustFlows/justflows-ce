@@ -4723,7 +4723,8 @@
       "dbPort": "Port",
       "dbName": "Database name",
       "dbUser": "Username",
-      "networkBlockedNotRoot": "Restore a network backup from the installation root site."
+      "networkBlockedNotRoot": "Restore a network backup from the installation root site.",
+      "unavailableExtensions": "Not installed on this server, so restored turned off: {list}. Install them, then turn them on."
     },
     "manualRestartBody": "Restart Justflows on the server, then refresh this page.",
     "manualRestartBodyContainer": "Restart the Justflows container, then refresh this page.",

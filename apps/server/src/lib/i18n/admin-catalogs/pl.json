@@ -4875,7 +4875,8 @@
       "dbPort": "Port",
       "dbName": "Nazwa bazy danych",
       "dbUser": "Nazwa użytkownika",
-      "networkBlockedNotRoot": "Przywróć kopię sieci z witryny głównej instalacji."
+      "networkBlockedNotRoot": "Przywróć kopię sieci z witryny głównej instalacji.",
+      "unavailableExtensions": "Nie są zainstalowane na tym serwerze, więc zostaną przywrócone jako wyłączone: {list}. Zainstaluj je, a potem włącz."
     },
     "manualRestartBody": "Uruchom ponownie Justflows na serwerze, a następnie odśwież tę stronę.",
     "manualRestartBodyContainer": "Uruchom ponownie kontener Justflows, a następnie odśwież tę stronę.",

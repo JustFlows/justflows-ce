@@ -4573,7 +4573,8 @@
       "dbPort": "Port",
       "dbName": "Nom de la base",
       "dbUser": "Nom d'utilisateur",
-      "networkBlockedNotRoot": "Restaurez une sauvegarde réseau depuis le site racine de l'installation."
+      "networkBlockedNotRoot": "Restaurez une sauvegarde réseau depuis le site racine de l'installation.",
+      "unavailableExtensions": "Non installées sur ce serveur, donc restaurées désactivées : {list}. Installez-les, puis activez-les."
     },
     "performance": {
       "loadFailed": "Impossible de charger les paramètres de performance",

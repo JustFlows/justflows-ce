@@ -78,6 +78,10 @@ describe.skipIf(!enabled)("site backup and restore on a real database", () => {
       [randomUUID(), source],
     );
     await db.run(
+      "INSERT INTO plugins (id, site_id, plugin_id, version, status, manifest, approved_permissions) VALUES (?, ?, 'acme.gone', '1.0.0', 'active', ?, '[]')",
+      [randomUUID(), source, JSON.stringify({ bundledPath: path.join(scratch, "no-such-plugins", "gone") })],
+    );
+    await db.run(
       driver === "postgres"
         ? 'CREATE TABLE IF NOT EXISTS testplug_items (id UUID PRIMARY KEY, site_id UUID NOT NULL, label TEXT, enabled BOOLEAN NOT NULL, created_at TIMESTAMPTZ NOT NULL)'
         : "CREATE TABLE IF NOT EXISTS testplug_items (id CHAR(36) PRIMARY KEY, site_id CHAR(36) NOT NULL, label TEXT, enabled TINYINT(1) NOT NULL, created_at DATETIME(3) NOT NULL)",
@@ -153,6 +157,9 @@ describe.skipIf(!enabled)("site backup and restore on a real database", () => {
     expect(items[0]!.label).toBe(`refers to ${pages[0]!.id}`);
     expect(items[0]!.enabled === true || Number(items[0]!.enabled) === 1).toBe(true);
     expect(new Date(items[0]!.created_at as string).toISOString()).toBe("2026-11-18T10:20:30.123Z");
+
+    const gone = await db.query<{ status: string }>("SELECT status FROM plugins WHERE site_id = ? AND plugin_id = 'acme.gone'", [target]);
+    expect(gone[0]!.status).toBe("inactive");
 
     const { readPrivateFile } = await import("../../../src/lib/files/private-storage.js");
     expect((await readPrivateFile(target, "acme.testplug", "downloads/guide.pdf"))?.toString()).toBe("pdf-bytes");
