@@ -264,7 +264,7 @@ importers:
         version: link:../../packages/cache
       '@justflows/check':
         specifier: file:../../packages/check
-        version: link:../../packages/check
+        version: file:packages/check
       '@justflows/content':
         specifier: file:../../packages/content
         version: link:../../packages/content
@@ -494,10 +494,10 @@ importers:
   packages/check:
     dependencies:
       '@justflows/installer':
-        specifier: file:../installer
+        specifier: workspace:*
         version: link:../installer
       '@justflows/sdk':
-        specifier: file:../sdk
+        specifier: workspace:*
         version: link:../sdk
       semver:
         specifier: ^7.8.5
@@ -520,7 +520,7 @@ importers:
     dependencies:
       '@justflows/check':
         specifier: file:../check
-        version: link:../check
+        version: file:packages/check
       mysql2:
         specifier: ^3.24.6
         version: 3.24.6(@types/node@26.6.5)
@@ -1376,6 +1376,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@justflows/check@file:packages/check':
+    resolution: {directory: packages/check, type: directory}
 
   '@keyv/bigmap@1.3.1':
     resolution: {integrity: sha512-WbzE9sdmQtKy8vrNPa9BRnwZh5UF4s1KTmSK0KUVLo3eff5BlQNNWDnFOouNpKfPKDnms9xynJjsMYjMaT/aFQ==}
@@ -3818,6 +3821,12 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  '@justflows/check@file:packages/check':
+    dependencies:
+      '@justflows/installer': link:packages/installer
+      '@justflows/sdk': link:packages/sdk
+      semver: 7.8.5
 
   '@keyv/bigmap@1.3.1(keyv@5.6.0)':
     dependencies:
