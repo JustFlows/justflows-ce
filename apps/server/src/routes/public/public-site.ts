@@ -1232,6 +1232,19 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
   if (hooks.has("html.head")) {
     headExtra = await hooks.applyFilter("html.head", headExtra, page, { siteId, source: "http" });
   }
+  /** Custom code (justflows-ce#94), after plugins so a plugin cannot rewrite it. */
+  let customBodyEnd = "";
+  if (siteId) {
+    const { renderCustomCode } = await import("../../lib/custom-code/custom-code.js");
+    const custom = await renderCustomCode(siteId, {
+      contentId: content?.id ? String(content.id) : undefined,
+      preview: Boolean(data.preview),
+      privateAccount: Boolean(data.privateAccount),
+    }).catch(() => ({ head: "", bodyStart: "", bodyEnd: "" }));
+    if (custom.head) headExtra = headExtra ? `${headExtra}\n${custom.head}` : custom.head;
+    if (custom.bodyStart) pwaBody = `${custom.bodyStart}${pwaBody}`;
+    customBodyEnd = custom.bodyEnd;
+  }
   const body = await ejs.renderFile(path.join(templateDir, `${view}.ejs`), pageData);
   let analyticsHead = "";
   /**
@@ -1304,6 +1317,7 @@ async function renderPage(view: string, data: Record<string, unknown>): Promise<
       ...pluginAssets.body,
       ...themeAssets.body,
       ...(themeJsVersion ? [`<script src="/theme.js?v=${themeJsVersion}" defer></script>`] : []),
+      ...(customBodyEnd ? [customBodyEnd] : []),
     ],
   });
 }

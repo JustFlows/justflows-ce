@@ -95,6 +95,32 @@ const HTML_BLOCK_OPTIONS: sanitizeHtmlLib.IOptions = {
 };
 
 /** Sanitize rich text (paragraphs, quotes) for public rendering. */
+/**
+ * Non-script markup an administrator adds to a page's head or body as custom
+ * code (justflows-ce#94): verification meta tags, tracking pixels, embed
+ * frames. Scripts, styles, event handlers, and non-https URLs are removed.
+ */
+const CUSTOM_MARKUP_OPTIONS: sanitizeHtmlLib.IOptions = {
+  allowedTags: ["meta", "link", "noscript", "img", "iframe", "div", "span", "a", "p"],
+  allowedAttributes: {
+    meta: ["name", "content", "property"],
+    link: ["rel", "href", "type", "sizes", "crossorigin"],
+    img: ["src", "alt", "width", "height", "loading"],
+    iframe: ["src", "width", "height", "title", "loading", "allow", "allowfullscreen", "referrerpolicy"],
+    div: ["id", "class", "data-*"],
+    span: ["id", "class"],
+    a: ["href", "title", "rel", "target"],
+    p: ["class"],
+  },
+  allowedSchemes: ["https"],
+  allowProtocolRelative: false,
+  nonTextTags: ["script", "style", "textarea", "option"],
+};
+
+export function sanitizeCustomMarkup(html: string): string {
+  return sanitizeHtmlLib(html, CUSTOM_MARKUP_OPTIONS);
+}
+
 export function sanitizeRichText(html: string): string {
   return sanitizeHtmlLib(html, RICHTEXT_OPTIONS);
 }

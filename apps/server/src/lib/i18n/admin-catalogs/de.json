@@ -57,7 +57,8 @@
     "storage": "Speicher",
     "taxonomies": "Kategorien & Schlagwörter",
     "securityPasskeys": "Passkeys",
-    "dataRequests": "Datenanfragen"
+    "dataRequests": "Datenanfragen",
+    "securityCustomCode": "Eigener Code"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -3805,6 +3806,78 @@
         "warnTitle": "Eine geänderte RP-ID macht vorhandene Passkeys unbrauchbar",
         "warn": "Ein Passkey gehört zu der RP-ID, für die er erstellt wurde. Nach einer Änderung melden sich Personen mit Passwort und Wiederherstellungscode an und fügen dann einen neuen Passkey hinzu."
       }
+    },
+    "customCode": {
+      "title": "Eigener Code",
+      "subtitle": "Fügen Sie Analytics, Widgets und andere Skripte zu Ihren öffentlichen Seiten hinzu, website-weit oder auf ausgewählten Seiten. Nur wer eigenen Code verwalten darf, kann diese Seite öffnen.",
+      "loadFailed": "Eigener Code konnte nicht geladen werden",
+      "saveFailed": "Eigener Code konnte nicht gespeichert werden",
+      "disabledByEnvironment": "Eigener Code ist auf dieser Installation ausgeschaltet (JF_CUSTOM_CODE=off). Nichts hier läuft, bis diese Einstellung entfernt ist.",
+      "safeModeConfirm": "Jetzt allen eigenen Code auf allen Seiten ausschalten?",
+      "safeMode": {
+        "title": "Sicherer Modus",
+        "on": "Sicheren Modus einschalten",
+        "off": "Sicheren Modus ausschalten",
+        "active": "Der sichere Modus ist an: auf keiner Seite läuft eigener Code. Ihre Snippets bleiben erhalten.",
+        "hint": "Wenn ein Snippet die Website beschädigt, schaltet der sichere Modus alle Snippets auf einmal aus, ohne sie zu löschen."
+      },
+      "snippets": {
+        "title": "Snippets",
+        "add": "Snippet hinzufügen",
+        "hint": "Diese Installation läuft als \"{environment}\". Ein auf andere Umgebungen beschränktes Snippet läuft hier nicht.",
+        "empty": "Noch kein eigener Code."
+      },
+      "snippet": {
+        "enabled": "An",
+        "untitled": "Unbenanntes Snippet",
+        "close": "Schließen",
+        "edit": "Bearbeiten",
+        "name": "Name",
+        "kind": "Art",
+        "placement": "Position auf der Seite",
+        "consent": "Einwilligung",
+        "consentHint": "Ein Snippet, das eine Einwilligung braucht, wartet, bis der Besucher im Cookie-Banner zustimmt. Ohne installiertes Einwilligungstool läuft es nie.",
+        "library": "Dienst",
+        "optional": "optional",
+        "src": "Skript-URL",
+        "script": "JavaScript",
+        "markup": "Markup",
+        "scriptHint": "Nur JavaScript, ohne <script>-Tags. Es wird über seinen genauen Hash in der Content Security Policy erlaubt.",
+        "markupHint": "Meta-Tags, Pixel und Frames. Skripte, Stile und Event-Handler werden entfernt.",
+        "scope": "Seiten",
+        "scopeSite": "Jede Seite",
+        "scopePages": "Nur diese Seiten",
+        "environments": "Umgebungen",
+        "environmentsHint": "Leer lassen, um überall zu laufen, oder Umgebungen wie production angeben."
+      },
+      "kinds": {
+        "library": "Aus der Bibliothek",
+        "inline": "Inline-Skript",
+        "external": "Externes Skript",
+        "markup": "Markup"
+      },
+      "placements": {
+        "head": "Head",
+        "bodyStart": "Anfang des Body",
+        "bodyEnd": "Ende des Body"
+      },
+      "consent": {
+        "necessary": "Immer (keine Einwilligung nötig)",
+        "preferences": "Einwilligung Präferenzen",
+        "analytics": "Einwilligung Analytics",
+        "marketing": "Einwilligung Marketing"
+      },
+      "origins": {
+        "title": "Erlaubte Origins",
+        "hint": "Externe Skripte, Pixel und Frames dürfen nur von diesen https-Origins laden, eine pro Zeile (https://cdn.example.com oder https://*.example.com). Sie stehen nur in der Content Security Policy, solange ein Snippet an ist."
+      },
+      "warnings": "Prüfen Sie dies vor dem Speichern:",
+      "history": {
+        "title": "Verlauf",
+        "empty": "Noch keine Änderungen gespeichert.",
+        "entry": "Version {version} · {date}",
+        "hint": "Jede Änderung wird auch im Audit-Log festgehalten, mit dem, was sich geändert hat, und wer sie gemacht hat."
+      }
     }
   },
   "emails": {
@@ -5533,7 +5606,8 @@
     "featureCustomDomains": "Eigene Domains",
     "featureManagedDns": "DNS-Hosting",
     "featureOwnMail": "Eigene E-Mail-Einstellungen",
-    "meterCustomDomains": "Verbundene Domains"
+    "meterCustomDomains": "Verbundene Domains",
+    "featureCustomCode": "Eigener Code"
   },
   "signup": {
     "title": "Erstellen Sie Ihre Website",

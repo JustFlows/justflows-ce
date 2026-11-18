@@ -21,6 +21,7 @@ export const SITE_FEATURES: readonly SiteFeature[] = [
   { key: "feature.securityHeaders", paths: ["/admin/security/headers", "/admin/security/header-grade"] },
   { key: "feature.securityAdminPath", paths: ["/admin/security/admin-path"] },
   { key: "feature.securityAudit", paths: ["/admin/security/audit"] },
+  { key: "feature.customCode", paths: ["/admin/security/custom-code"] },
   { key: "feature.pwa", paths: ["/admin/settings/pwa"] },
   { key: "feature.redirects", paths: ["/admin/redirects"] },
   { key: "feature.permalinks", paths: ["/admin/settings/permalinks"] },

@@ -37,6 +37,7 @@ function meterLabel(key: string, fallback: string, t: (key: string) => string): 
   if (key === "feature" + ".securityHeaders") return t("platform.featureSecurityHeaders");
   if (key === "feature" + ".securityAdminPath") return t("platform.featureSecurityAdminPath");
   if (key === "feature" + ".securityAudit") return t("platform.featureSecurityAudit");
+  if (key === "feature" + ".customCode") return t("platform.featureCustomCode");
   if (key === "feature" + ".pwa") return t("platform.featurePwa");
   if (key === "feature" + ".redirects") return t("platform.featureRedirects");
   if (key === "feature" + ".permalinks") return t("platform.featurePermalinks");

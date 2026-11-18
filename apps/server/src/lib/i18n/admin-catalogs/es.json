@@ -57,7 +57,8 @@
     "storage": "Almacenamiento",
     "taxonomies": "Categorías y etiquetas",
     "securityPasskeys": "Llaves de acceso",
-    "dataRequests": "Solicitudes de datos"
+    "dataRequests": "Solicitudes de datos",
+    "securityCustomCode": "Código personalizado"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -3805,6 +3806,78 @@
         "warnTitle": "Cambiar el RP ID deja inservibles las llaves de acceso existentes",
         "warn": "Una llave de acceso pertenece al RP ID para el que se creó. Tras un cambio, hay que iniciar sesión con la contraseña y un código de recuperación y después añadir una nueva llave de acceso."
       }
+    },
+    "customCode": {
+      "title": "Código personalizado",
+      "subtitle": "Añade analítica, widgets y otros scripts a tus páginas públicas, en todo el sitio o en páginas elegidas. Solo quien puede gestionar código personalizado abre esta página.",
+      "loadFailed": "No se pudo cargar el código personalizado",
+      "saveFailed": "No se pudo guardar el código personalizado",
+      "disabledByEnvironment": "El código personalizado está desactivado en esta instalación (JF_CUSTOM_CODE=off). Nada de esto se ejecuta hasta que se quite ese ajuste.",
+      "safeModeConfirm": "¿Desactivar ahora todo el código personalizado en todas las páginas?",
+      "safeMode": {
+        "title": "Modo seguro",
+        "on": "Activar el modo seguro",
+        "off": "Desactivar el modo seguro",
+        "active": "El modo seguro está activado: no se ejecuta código personalizado en ninguna página. Tus fragmentos se conservan.",
+        "hint": "Si un fragmento rompe el sitio, el modo seguro desactiva todos a la vez sin borrarlos."
+      },
+      "snippets": {
+        "title": "Fragmentos",
+        "add": "Añadir fragmento",
+        "hint": "Esta instalación funciona como «{environment}». Un fragmento limitado a otros entornos no se ejecuta aquí.",
+        "empty": "Todavía no hay código personalizado."
+      },
+      "snippet": {
+        "enabled": "Activado",
+        "untitled": "Fragmento sin nombre",
+        "close": "Cerrar",
+        "edit": "Editar",
+        "name": "Nombre",
+        "kind": "Tipo",
+        "placement": "Lugar en la página",
+        "consent": "Consentimiento",
+        "consentHint": "Un fragmento que necesita consentimiento espera a que el visitante acepte en tu banner. Sin una herramienta de consentimiento instalada, nunca se ejecuta.",
+        "library": "Servicio",
+        "optional": "opcional",
+        "src": "URL del script",
+        "script": "JavaScript",
+        "markup": "Marcado",
+        "scriptHint": "Solo JavaScript, sin etiquetas <script>. Se permite por su hash exacto en la Content Security Policy.",
+        "markupHint": "Etiquetas meta, píxeles y marcos. Se eliminan scripts, estilos y manejadores de eventos.",
+        "scope": "Páginas",
+        "scopeSite": "Todas las páginas",
+        "scopePages": "Solo estas páginas",
+        "environments": "Entornos",
+        "environmentsHint": "Déjalo vacío para ejecutarlo en todas partes, o indica entornos como production."
+      },
+      "kinds": {
+        "library": "De la biblioteca",
+        "inline": "Script en línea",
+        "external": "Script externo",
+        "markup": "Marcado"
+      },
+      "placements": {
+        "head": "Head",
+        "bodyStart": "Inicio del body",
+        "bodyEnd": "Final del body"
+      },
+      "consent": {
+        "necessary": "Siempre (sin consentimiento)",
+        "preferences": "Consentimiento de preferencias",
+        "analytics": "Consentimiento de analítica",
+        "marketing": "Consentimiento de marketing"
+      },
+      "origins": {
+        "title": "Orígenes permitidos",
+        "hint": "Los scripts, píxeles y marcos externos solo pueden cargarse desde estos orígenes https, uno por línea (https://cdn.example.com o https://*.example.com). Solo se añaden a la Content Security Policy mientras haya un fragmento activado."
+      },
+      "warnings": "Revisa esto antes de guardar:",
+      "history": {
+        "title": "Historial",
+        "empty": "Todavía no hay cambios guardados.",
+        "entry": "Versión {version} · {date}",
+        "hint": "Cada cambio también queda en el registro de auditoría, con qué cambió y quién lo hizo."
+      }
     }
   },
   "emails": {
@@ -5533,7 +5606,8 @@
     "featureCustomDomains": "Dominios propios",
     "featureManagedDns": "Alojamiento DNS",
     "featureOwnMail": "Ajustes de correo propios",
-    "meterCustomDomains": "Dominios conectados"
+    "meterCustomDomains": "Dominios conectados",
+    "featureCustomCode": "Código personalizado"
   },
   "signup": {
     "title": "Crea tu sitio",

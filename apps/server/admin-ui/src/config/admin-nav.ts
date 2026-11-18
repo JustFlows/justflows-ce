@@ -274,6 +274,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.securityAdvanced", to: "/admin/security/advanced", icon: "🧩" },
       { key: "nav.securityAdminPath", to: "/admin/security/admin-path", icon: "🛣" },
       { key: "nav.securityPasskeys", to: "/admin/security/passkeys", icon: "🗝" },
+      { key: "nav.securityCustomCode", to: "/admin/security/custom-code", icon: "⌨" },
       { key: "nav.securityAccount", to: "/admin/security/account", icon: "🔑" },
       { key: "nav.securityAudit", to: "/admin/security/audit", icon: "📜" },
     ],
@@ -465,6 +466,7 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/security/advanced": ["administrator"],
   "/admin/security/admin-path": ["administrator"],
   "/admin/security/passkeys": ["administrator"],
+  "/admin/security/custom-code": ["administrator"],
   // Everyone's own 2FA — unlike the rest of Security, this is requireSession
   // only server-side, not admin-only. Listed explicitly so it doesn't inherit
   // /admin/security's rule by prefix.
@@ -527,6 +529,7 @@ const NAV_CAPABILITY: Record<string, string> = {
   "/admin/themes": "design:manage",
   "/admin/widgets": "design:manage",
   "/admin/users": "users:read",
+  "/admin/security/custom-code": "code:manage",
 };
 
 /** Roles each plugin page declares, for `NavAudience.pluginPageRoles`. */
