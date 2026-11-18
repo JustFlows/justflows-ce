@@ -57,7 +57,8 @@
     "storage": "Opslag",
     "taxonomies": "Categorieën & tags",
     "securityPasskeys": "Passkeys",
-    "dataRequests": "Gegevensverzoeken"
+    "dataRequests": "Gegevensverzoeken",
+    "securityCustomCode": "Eigen code"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -3809,6 +3810,78 @@
         "warnTitle": "Een andere RP-ID maakt bestaande passkeys onbruikbaar",
         "warn": "Een passkey hoort bij de RP-ID waarvoor hij is gemaakt. Na een wijziging loggen mensen in met hun wachtwoord en een herstelcode en voegen ze daarna een nieuwe passkey toe."
       }
+    },
+    "customCode": {
+      "title": "Eigen code",
+      "subtitle": "Voeg analytics, widgets en andere scripts toe aan je openbare pagina's, op de hele site of op gekozen pagina's. Alleen wie eigen code mag beheren, kan deze pagina openen.",
+      "loadFailed": "Eigen code kon niet worden geladen",
+      "saveFailed": "Eigen code kon niet worden opgeslagen",
+      "disabledByEnvironment": "Eigen code staat uit op deze installatie (JF_CUSTOM_CODE=off). Niets hier wordt uitgevoerd tot die instelling weg is.",
+      "safeModeConfirm": "Alle eigen code nu op elke pagina uitzetten?",
+      "safeMode": {
+        "title": "Veilige modus",
+        "on": "Veilige modus aanzetten",
+        "off": "Veilige modus uitzetten",
+        "active": "Veilige modus staat aan: er draait geen eigen code op welke pagina dan ook. Je snippets blijven bewaard.",
+        "hint": "Breekt een snippet de site, dan zet de veilige modus alle snippets tegelijk uit zonder ze te verwijderen."
+      },
+      "snippets": {
+        "title": "Snippets",
+        "add": "Snippet toevoegen",
+        "hint": "Deze installatie draait als \"{environment}\". Een snippet die tot andere omgevingen beperkt is, draait hier niet.",
+        "empty": "Nog geen eigen code."
+      },
+      "snippet": {
+        "enabled": "Aan",
+        "untitled": "Naamloze snippet",
+        "close": "Sluiten",
+        "edit": "Bewerken",
+        "name": "Naam",
+        "kind": "Soort",
+        "placement": "Plek op de pagina",
+        "consent": "Toestemming",
+        "consentHint": "Een snippet die toestemming nodig heeft, wacht tot de bezoeker akkoord geeft in je cookiebanner. Zonder geïnstalleerde toestemmingstool draait hij nooit.",
+        "library": "Dienst",
+        "optional": "optioneel",
+        "src": "Script-URL",
+        "script": "JavaScript",
+        "markup": "Opmaak",
+        "scriptHint": "Alleen JavaScript, zonder <script>-tags. Het wordt toegestaan via de exacte hash in de Content Security Policy.",
+        "markupHint": "Metatags, pixels en frames. Scripts, stijlen en event handlers worden verwijderd.",
+        "scope": "Pagina's",
+        "scopeSite": "Elke pagina",
+        "scopePages": "Alleen deze pagina's",
+        "environments": "Omgevingen",
+        "environmentsHint": "Laat leeg om overal te draaien, of noem omgevingen zoals production."
+      },
+      "kinds": {
+        "library": "Uit de bibliotheek",
+        "inline": "Inline script",
+        "external": "Extern script",
+        "markup": "Opmaak"
+      },
+      "placements": {
+        "head": "Head",
+        "bodyStart": "Begin van de body",
+        "bodyEnd": "Einde van de body"
+      },
+      "consent": {
+        "necessary": "Altijd (geen toestemming nodig)",
+        "preferences": "Toestemming voorkeuren",
+        "analytics": "Toestemming analytics",
+        "marketing": "Toestemming marketing"
+      },
+      "origins": {
+        "title": "Toegestane origins",
+        "hint": "Externe scripts, pixels en frames mogen alleen laden van deze https-origins, één per regel (https://cdn.example.com of https://*.example.com). Ze komen alleen in de Content Security Policy zolang er een snippet aan staat."
+      },
+      "warnings": "Controleer dit voor je opslaat:",
+      "history": {
+        "title": "Geschiedenis",
+        "empty": "Nog geen wijzigingen opgeslagen.",
+        "entry": "Versie {version} · {date}",
+        "hint": "Elke wijziging komt ook in het auditlog, met wat er veranderde en wie het deed."
+      }
     }
   },
   "emails": {
@@ -5597,7 +5670,8 @@
     "featureCustomDomains": "Eigen domeinen",
     "featureManagedDns": "DNS-hosting",
     "featureOwnMail": "Eigen e-mailinstellingen",
-    "meterCustomDomains": "Gekoppelde domeinen"
+    "meterCustomDomains": "Gekoppelde domeinen",
+    "featureCustomCode": "Eigen code"
   },
   "signup": {
     "title": "Maak je site aan",

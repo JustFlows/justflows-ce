@@ -57,7 +57,8 @@
     "storage": "Storage",
     "taxonomies": "Categories & Tags",
     "securityPasskeys": "Passkeys",
-    "dataRequests": "Data requests"
+    "dataRequests": "Data requests",
+    "securityCustomCode": "Custom code"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -4331,6 +4332,78 @@
         "warnTitle": "Changing the RP ID orphans existing passkeys",
         "warn": "A passkey belongs to the RP ID it was made for. After a change, people sign in with their password and a recovery code, then add a new passkey."
       }
+    },
+    "customCode": {
+      "title": "Custom code",
+      "subtitle": "Add analytics, widgets, and other scripts to your public pages, site-wide or on chosen pages. Only people allowed to manage custom code can open this page.",
+      "loadFailed": "Could not load custom code",
+      "saveFailed": "Could not save custom code",
+      "disabledByEnvironment": "Custom code is turned off on this installation (JF_CUSTOM_CODE=off). Nothing here runs until that setting is removed.",
+      "safeModeConfirm": "Turn off all custom code on every page now?",
+      "safeMode": {
+        "title": "Safe mode",
+        "on": "Turn on safe mode",
+        "off": "Turn off safe mode",
+        "active": "Safe mode is on: no custom code runs on any page. Your snippets are kept.",
+        "hint": "If a snippet breaks the site, safe mode turns every snippet off at once without deleting them."
+      },
+      "snippets": {
+        "title": "Snippets",
+        "add": "Add snippet",
+        "hint": "This installation runs as \"{environment}\". A snippet limited to other environments does not run here.",
+        "empty": "No custom code yet."
+      },
+      "snippet": {
+        "enabled": "On",
+        "untitled": "Untitled snippet",
+        "close": "Close",
+        "edit": "Edit",
+        "name": "Name",
+        "kind": "Type",
+        "placement": "Where on the page",
+        "consent": "Consent",
+        "consentHint": "A snippet that needs consent waits until the visitor agrees in your consent banner. Without a consent tool installed it never runs.",
+        "library": "Service",
+        "optional": "optional",
+        "src": "Script URL",
+        "script": "JavaScript",
+        "markup": "Markup",
+        "scriptHint": "JavaScript only, without <script> tags. It is allowed by its exact hash in the Content Security Policy.",
+        "markupHint": "Meta tags, pixels, and frames. Scripts, styles, and event handlers are removed.",
+        "scope": "Pages",
+        "scopeSite": "Every page",
+        "scopePages": "Only these pages",
+        "environments": "Environments",
+        "environmentsHint": "Leave empty to run everywhere, or list environments such as production."
+      },
+      "kinds": {
+        "library": "From the library",
+        "inline": "Inline script",
+        "external": "External script",
+        "markup": "Markup"
+      },
+      "placements": {
+        "head": "Head",
+        "bodyStart": "Start of body",
+        "bodyEnd": "End of body"
+      },
+      "consent": {
+        "necessary": "Always (no consent needed)",
+        "preferences": "Preferences consent",
+        "analytics": "Analytics consent",
+        "marketing": "Marketing consent"
+      },
+      "origins": {
+        "title": "Allowed origins",
+        "hint": "External scripts, pixels, and frames may only load from these https origins, one per line (https://cdn.example.com or https://*.example.com). They are added to the Content Security Policy only while a snippet is on."
+      },
+      "warnings": "Check these before saving:",
+      "history": {
+        "title": "History",
+        "empty": "No changes saved yet.",
+        "entry": "Version {version} · {date}",
+        "hint": "Every change is also recorded in the audit log with what changed and who changed it."
+      }
     }
   },
   "settings": {
@@ -5595,7 +5668,8 @@
     "featureCustomDomains": "Custom domains",
     "featureManagedDns": "DNS hosting",
     "featureOwnMail": "Own email settings",
-    "meterCustomDomains": "Connected domains"
+    "meterCustomDomains": "Connected domains",
+    "featureCustomCode": "Custom code"
   },
   "signup": {
     "title": "Create your site",

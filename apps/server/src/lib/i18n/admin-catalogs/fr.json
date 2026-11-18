@@ -57,7 +57,8 @@
     "storage": "Stockage",
     "taxonomies": "Catégories et étiquettes",
     "securityPasskeys": "Clés d’accès",
-    "dataRequests": "Demandes de données"
+    "dataRequests": "Demandes de données",
+    "securityCustomCode": "Code personnalisé"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -3812,6 +3813,78 @@
         "warnTitle": "Changer le RP ID rend les clés d’accès existantes inutilisables",
         "warn": "Une clé d’accès appartient au RP ID pour lequel elle a été créée. Après un changement, les personnes se connectent avec leur mot de passe et un code de récupération, puis ajoutent une nouvelle clé d’accès."
       }
+    },
+    "customCode": {
+      "title": "Code personnalisé",
+      "subtitle": "Ajoutez des outils d'analyse, des widgets et d'autres scripts à vos pages publiques, sur tout le site ou sur des pages choisies. Seules les personnes autorisées à gérer le code personnalisé peuvent ouvrir cette page.",
+      "loadFailed": "Impossible de charger le code personnalisé",
+      "saveFailed": "Impossible d'enregistrer le code personnalisé",
+      "disabledByEnvironment": "Le code personnalisé est désactivé sur cette installation (JF_CUSTOM_CODE=off). Rien ici ne s'exécute tant que ce réglage reste en place.",
+      "safeModeConfirm": "Désactiver maintenant tout le code personnalisé sur toutes les pages ?",
+      "safeMode": {
+        "title": "Mode sans échec",
+        "on": "Activer le mode sans échec",
+        "off": "Désactiver le mode sans échec",
+        "active": "Le mode sans échec est activé : aucun code personnalisé ne s'exécute. Vos extraits sont conservés.",
+        "hint": "Si un extrait casse le site, le mode sans échec désactive tous les extraits d'un coup sans les supprimer."
+      },
+      "snippets": {
+        "title": "Extraits",
+        "add": "Ajouter un extrait",
+        "hint": "Cette installation fonctionne en tant que « {environment} ». Un extrait limité à d'autres environnements ne s'exécute pas ici.",
+        "empty": "Pas encore de code personnalisé."
+      },
+      "snippet": {
+        "enabled": "Activé",
+        "untitled": "Extrait sans nom",
+        "close": "Fermer",
+        "edit": "Modifier",
+        "name": "Nom",
+        "kind": "Type",
+        "placement": "Emplacement dans la page",
+        "consent": "Consentement",
+        "consentHint": "Un extrait qui demande un consentement attend que le visiteur accepte dans votre bannière. Sans outil de consentement installé, il ne s'exécute jamais.",
+        "library": "Service",
+        "optional": "facultatif",
+        "src": "URL du script",
+        "script": "JavaScript",
+        "markup": "Balisage",
+        "scriptHint": "Uniquement du JavaScript, sans balises <script>. Il est autorisé par son empreinte exacte dans la Content Security Policy.",
+        "markupHint": "Balises meta, pixels et cadres. Les scripts, styles et gestionnaires d'événements sont retirés.",
+        "scope": "Pages",
+        "scopeSite": "Toutes les pages",
+        "scopePages": "Seulement ces pages",
+        "environments": "Environnements",
+        "environmentsHint": "Laissez vide pour s'exécuter partout, ou indiquez des environnements comme production."
+      },
+      "kinds": {
+        "library": "Depuis la bibliothèque",
+        "inline": "Script en ligne",
+        "external": "Script externe",
+        "markup": "Balisage"
+      },
+      "placements": {
+        "head": "En-tête (head)",
+        "bodyStart": "Début du body",
+        "bodyEnd": "Fin du body"
+      },
+      "consent": {
+        "necessary": "Toujours (sans consentement)",
+        "preferences": "Consentement préférences",
+        "analytics": "Consentement statistiques",
+        "marketing": "Consentement marketing"
+      },
+      "origins": {
+        "title": "Origines autorisées",
+        "hint": "Les scripts, pixels et cadres externes ne peuvent se charger que depuis ces origines https, une par ligne (https://cdn.example.com ou https://*.example.com). Elles ne figurent dans la Content Security Policy que tant qu'un extrait est activé."
+      },
+      "warnings": "Vérifiez ceci avant d'enregistrer :",
+      "history": {
+        "title": "Historique",
+        "empty": "Aucune modification enregistrée.",
+        "entry": "Version {version} · {date}",
+        "hint": "Chaque modification est aussi inscrite au journal d'audit, avec ce qui a changé et qui l'a fait."
+      }
     }
   },
   "emails": {
@@ -5600,7 +5673,8 @@
     "featureCustomDomains": "Domaines personnalisés",
     "featureManagedDns": "Hébergement DNS",
     "featureOwnMail": "Paramètres e-mail personnels",
-    "meterCustomDomains": "Domaines connectés"
+    "meterCustomDomains": "Domaines connectés",
+    "featureCustomCode": "Code personnalisé"
   },
   "signup": {
     "title": "Créez votre site",

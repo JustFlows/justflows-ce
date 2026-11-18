@@ -41,3 +41,9 @@ all previously issued cookies.
 Legacy cookies without a device-session id remain supported until they expire;
 logging out such a cookie uses account-wide revocation because it cannot be
 identified individually.
+
+## Custom code
+
+`code:manage` opens **Security → Custom code**, which adds scripts that run in
+every visitor's browser. Only administrators hold it by default; grant it to a
+custom role deliberately. See [Custom code](CUSTOM-CODE.md).

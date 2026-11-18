@@ -166,6 +166,8 @@ export const AUDIT_ACTIONS = [
   "backup.schedule_changed",
   "backup.schedule_started",
   "backup.network_restored",
+  "custom_code.changed",
+  "custom_code.safe_mode",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -189,6 +191,7 @@ export const SECURITY_AUDIT_ACTIONS = AUDIT_ACTIONS.filter((action) =>
   || action.startsWith("cdn.")
   || action.startsWith("storage.")
   || action.startsWith("domain.")
+  || action.startsWith("custom_code.")
   || action === "workspace.owner_updated"
   || action === "site.owner_updated"
   || action === "public_api.toggled"

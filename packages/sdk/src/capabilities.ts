@@ -43,6 +43,12 @@ export const USER_CAPABILITIES = [
   /** Change and publish site design (justflows-ce#314). */
   "design:manage",
   "updates:manage",
+  /**
+   * Add, change, and switch off custom JavaScript and markup on public pages
+   * (justflows-ce#94). Administrators only by default; not part of any other
+   * built-in role, because custom code runs in every visitor's browser.
+   */
+  "code:manage",
   "site:admin",
   "ai:use",
 ] as const;
