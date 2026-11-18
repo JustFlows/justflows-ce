@@ -234,6 +234,7 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
     icon: "👤",
     items: [
       { key: "nav.users", to: "/admin/users", icon: "👤" },
+      { key: "nav.usersAccount", to: "/admin/users/me", icon: "🔑" },
       { key: "nav.dataRequests", to: "/admin/data-requests", icon: "🔒" },
     ],
   },
@@ -274,7 +275,8 @@ export const ADMIN_NAV_DOMAINS: NavDomain[] = [
       { key: "nav.securityAdvanced", to: "/admin/security/advanced", icon: "🧩" },
       { key: "nav.securityAdminPath", to: "/admin/security/admin-path", icon: "🛣" },
       { key: "nav.securityPasskeys", to: "/admin/security/passkeys", icon: "🗝" },
-      { key: "nav.securityAccount", to: "/admin/security/account", icon: "🔑" },
+      { key: "nav.securityCustomCode", to: "/admin/security/custom-code", icon: "⌨" },
+      { key: "nav.securitySignIn", to: "/admin/security/sign-in", icon: "🚪" },
       { key: "nav.securityAudit", to: "/admin/security/audit", icon: "📜" },
     ],
   },
@@ -465,12 +467,16 @@ const NAV_ACCESS: Record<string, string[]> = {
   "/admin/security/advanced": ["administrator"],
   "/admin/security/admin-path": ["administrator"],
   "/admin/security/passkeys": ["administrator"],
+  "/admin/security/custom-code": ["administrator"],
+  "/admin/security/sign-in": ["administrator"],
   // Everyone's own 2FA — unlike the rest of Security, this is requireSession
   // only server-side, not admin-only. Listed explicitly so it doesn't inherit
   // /admin/security's rule by prefix.
   "/admin/security/account": ALL_ADMIN_ROLES,
   "/admin/security/audit": ["administrator"],
   "/admin/users": ["administrator", "editor"],
+  /** Everyone's own account security, so it does not inherit the /admin/users rule. */
+  "/admin/users/me": ALL_ADMIN_ROLES,
   "/admin/data-requests": ["administrator"],
   "/admin/tools": ["administrator"],
   "/admin/health": ["administrator"],
@@ -527,6 +533,7 @@ const NAV_CAPABILITY: Record<string, string> = {
   "/admin/themes": "design:manage",
   "/admin/widgets": "design:manage",
   "/admin/users": "users:read",
+  "/admin/security/custom-code": "code:manage",
 };
 
 /** Roles each plugin page declares, for `NavAudience.pluginPageRoles`. */

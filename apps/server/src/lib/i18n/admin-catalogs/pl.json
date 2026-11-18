@@ -21,6 +21,7 @@
     "widgets": "Widżety",
     "menus": "Menu",
     "users": "Użytkownicy",
+    "usersAccount": "Twoje konto",
     "settings": "Ustawienia",
     "emails": "Wiadomości e-mail",
     "comments": "Komentarze",
@@ -57,7 +58,9 @@
     "storage": "Magazyn",
     "taxonomies": "Kategorie i tagi",
     "securityPasskeys": "Klucze dostępu",
-    "dataRequests": "Wnioski o dane"
+    "dataRequests": "Wnioski o dane",
+    "securityCustomCode": "Własny kod",
+    "securitySignIn": "Logowanie"
   },
   "webhooks": {
     "title": "Haki internetowe",
@@ -240,7 +243,42 @@
     "activate": "Aktywuj",
     "deactivateSiteConfirm": "Wyłączyć „{name}” na tej witrynie? Jeśli ustawienia usuwania są włączone, dane, strony i wpisy wtyczki tej witryny zostaną usunięte. Tabele pozostaną dla innych witryn.",
     "deactivateFailed": "Nie udało się wyłączyć wtyczki.",
-    "activateFailed": "Nie udało się włączyć wtyczki."
+    "activateFailed": "Nie udało się włączyć wtyczki.",
+    "check": "Sprawdź",
+    "checking": "Sprawdzanie…",
+    "checkHint": "Uruchom kontrolę rozszerzeń na zainstalowanych plikach tej wtyczki",
+    "checkClean": "Kontrola rozszerzeń nie znalazła problemów.",
+    "checkSummary": "Kontrola rozszerzeń: błędy {errors}, ostrzeżenia {warnings}, uwagi {notes}",
+    "checkFailed": "Nie udało się sprawdzić wtyczki",
+    "checkHelp": "Szczegóły",
+    "trust": {
+      "states": {
+        "verified": "Zweryfikowana przez Justflows",
+        "operator": "Zaufana przez Ciebie",
+        "legacy": "Zaufanie przejściowe",
+        "unverified": "Niezweryfikowana"
+      },
+      "reasons": {
+        "attested": "Dokładnie ta wersja przeszła przegląd Justflows. Nie jest to gwarancja bezpieczeństwa.",
+        "operatorTrusted": "Ta konkretna kompilacja została przez Ciebie oznaczona jako zaufana w tej witrynie.",
+        "legacy": "Zainstalowana przed wprowadzeniem poziomów zaufania. Do {date} działa tak jak dotąd.",
+        "revoked": "Justflows wycofało tę wersję. Zaktualizuj ją lub usuń.",
+        "noDigest": "Zainstalowana z kodu źródłowego, więc nie ma pakietu do weryfikacji.",
+        "noAttestation": "Justflows nie zweryfikowało tej wersji.",
+        "attestationsUnavailable": "Nie udało się sprawdzić listy weryfikacji, więc nic nie jest uznawane za zweryfikowane.",
+        "legacyExpired": "Zaufanie przejściowe wygasło {date}, a Justflows nie zweryfikowało tej wersji."
+      },
+      "trust": "Zaufaj tej kompilacji",
+      "untrust": "Przestań ufać tej kompilacji",
+      "trustHint": "Tylko dla kodu, który napisałeś lub sprawdziłeś samodzielnie. Zaufanie obejmuje dokładnie poniższy pakiet, a nie późniejsze aktualizacje. Gdy piaskownica wtyczek będzie dostępna, zaufana kompilacja będzie działać poza nią.",
+      "untrustHint": "Wtyczka wraca do stanu niezweryfikowanej.",
+      "password": "Twoje hasło",
+      "trustConfirm": "Zaufaj tej kompilacji",
+      "untrustConfirm": "Przestań ufać",
+      "failed": "Nie udało się zmienić ustawienia zaufania.",
+      "sandboxed": "Działa w piaskownicy wtyczek, z ograniczonym dostępem do witryny.",
+      "notLoaded": "Nie załadowano: wersja Node.js na tym serwerze nie obsługuje piaskownicy wtyczek."
+    }
   },
   "content": {
     "accountNotice": "Strony konta wymagają logowania. Justflows wyklucza je z pamięci podręcznej, eksportów, wyszukiwania publicznego i map witryny.",
@@ -2442,7 +2480,10 @@
       "recoveryLabel": "Kod odzyskiwania",
       "recoveryHint": "Twoja rola loguje się kluczem dostępu. Jeśli go zgubiono, wpisz jeden z kodów odzyskiwania.",
       "or": "lub",
-      "passkeyHint": "Odciskiem palca, twarzą, blokadą ekranu lub kluczem bezpieczeństwa."
+      "passkeyHint": "Odciskiem palca, twarzą, blokadą ekranu lub kluczem bezpieczeństwa.",
+      "continueWith": "Kontynuuj przez {name}",
+      "federatedFailed": "Logowanie jednokrotne nie powiodło się. Spróbuj ponownie lub zaloguj się hasłem.",
+      "federatedStepUp": "Dostawca logowania potwierdził Twoją tożsamość. Dokończ, używając własnego drugiego składnika."
     },
     "register": {
       "checking": "Sprawdzam…",
@@ -3947,6 +3988,17 @@
           "lastFailed": "Ostatnia automatyczna kopia zapasowa do {destination} nie powiodła się.",
           "overdue": "Automatyczne kopie zapasowe do {destination} przestały działać zgodnie z harmonogramem.",
           "remediation": "Zaplanuj kopie zapasowe do zewnętrznego miejsca w Narzędziach i przećwicz przywracanie na odizolowanej instalacji."
+        },
+        "extensionsTrust": {
+          "title": "Weryfikacja wtyczek",
+          "unavailable": "Nie udało się odczytać poziomów zaufania wtyczek.",
+          "clear": "Każda wtyczka w tej witrynie jest zweryfikowana przez Justflows lub zaufana przez Ciebie. „Zweryfikowana” to wynik przeglądu, a nie gwarancja bezpieczeństwa.",
+          "unverified": "Wtyczki niezweryfikowane przez Justflows i niezaufane przez Ciebie: {unverified}.",
+          "legacy": "Wtyczki z zaufaniem przejściowym: {legacy}, do {legacyUntil}.",
+          "remediationUnavailable": "Otwórz Wtyczki i sprawdź ponownie.",
+          "remediationClear": "Sprawdź ponownie po zainstalowaniu lub zaktualizowaniu wtyczki.",
+          "remediationUnverified": "Zastąp je zweryfikowanymi wersjami, usuń je albo zaufaj własnej kompilacji w pojedynczej witrynie na własnym serwerze. Obecnie każda wtyczka nadal ma pełny dostęp do witryny.",
+          "remediationLegacy": "Przed tą datą zaktualizuj do zweryfikowanej wersji albo zaufaj własnej kompilacji. Obecnie każda wtyczka nadal ma pełny dostęp do witryny."
         }
       }
     },
@@ -4083,6 +4135,20 @@
           "regenerateHint": "Nowe kody zastępują wszystkie niewykorzystane.",
           "error": "Nie udało się utworzyć nowych kodów odzyskiwania."
         }
+      },
+      "mfaRequired": {
+        "title": "Włącz uwierzytelnianie dwuskładnikowe",
+        "body": "Twoja rola musi używać w tej witrynie aplikacji uwierzytelniającej lub klucza dostępu. Dopóki go nie dodasz, reszta panelu jest niedostępna.",
+        "action": "Skonfiguruj teraz"
+      },
+      "identities": {
+        "title": "Logowanie jednokrotne",
+        "intro": "Dostawcy logowania powiązani z Twoim kontem. Odłączenie usuwa powiązanie; przy następnym logowaniu przez tego dostawcę zostanie utworzone ponownie, jeśli Twój zweryfikowany adres nadal się zgadza.",
+        "linked": "powiązano {date}",
+        "lastUsed": "ostatnio użyto {date}",
+        "unlink": "Odłącz",
+        "unlinked": "Odłączono.",
+        "unlinkError": "Nie udało się odłączyć."
       }
     },
     "adminPath": {
@@ -4462,6 +4528,118 @@
         "warnTitle": "Zmiana RP ID unieważnia istniejące klucze dostępu",
         "warn": "Klucz dostępu należy do RP ID, dla którego go utworzono. Po zmianie trzeba zalogować się hasłem i kodem odzyskiwania, a potem dodać nowy klucz dostępu."
       }
+    },
+    "customCode": {
+      "title": "Własny kod",
+      "subtitle": "Dodaj analitykę, widżety i inne skrypty do publicznych stron, w całej witrynie lub na wybranych stronach. Tę stronę otwierają tylko osoby uprawnione do zarządzania własnym kodem.",
+      "loadFailed": "Nie udało się wczytać własnego kodu",
+      "saveFailed": "Nie udało się zapisać własnego kodu",
+      "disabledByEnvironment": "Własny kod jest wyłączony w tej instalacji (JF_CUSTOM_CODE=off). Nic stąd nie zadziała, dopóki to ustawienie nie zostanie usunięte.",
+      "safeModeConfirm": "Wyłączyć teraz cały własny kod na wszystkich stronach?",
+      "safeMode": {
+        "title": "Tryb awaryjny",
+        "on": "Włącz tryb awaryjny",
+        "off": "Wyłącz tryb awaryjny",
+        "active": "Tryb awaryjny jest włączony: na żadnej stronie nie działa własny kod. Fragmenty zostają zachowane.",
+        "hint": "Jeśli fragment psuje witrynę, tryb awaryjny wyłącza wszystkie fragmenty naraz, bez ich usuwania."
+      },
+      "snippets": {
+        "title": "Fragmenty",
+        "add": "Dodaj fragment",
+        "hint": "Ta instalacja działa jako „{environment}”. Fragment ograniczony do innych środowisk tu nie działa.",
+        "empty": "Brak własnego kodu."
+      },
+      "snippet": {
+        "enabled": "Włączony",
+        "untitled": "Fragment bez nazwy",
+        "close": "Zamknij",
+        "edit": "Edytuj",
+        "name": "Nazwa",
+        "kind": "Rodzaj",
+        "placement": "Miejsce na stronie",
+        "consent": "Zgoda",
+        "consentHint": "Fragment wymagający zgody czeka, aż odwiedzający zaakceptuje ją w banerze. Bez zainstalowanego narzędzia zgód nigdy się nie uruchomi.",
+        "library": "Usługa",
+        "optional": "opcjonalne",
+        "src": "Adres URL skryptu",
+        "script": "JavaScript",
+        "markup": "Znaczniki",
+        "scriptHint": "Tylko JavaScript, bez znaczników <script>. Jest dozwolony przez dokładny skrót w Content Security Policy.",
+        "markupHint": "Znaczniki meta, piksele i ramki. Skrypty, style i procedury obsługi zdarzeń są usuwane.",
+        "scope": "Strony",
+        "scopeSite": "Każda strona",
+        "scopePages": "Tylko te strony",
+        "environments": "Środowiska",
+        "environmentsHint": "Zostaw puste, aby działał wszędzie, albo podaj środowiska, np. production."
+      },
+      "kinds": {
+        "library": "Z biblioteki",
+        "inline": "Skrypt w treści",
+        "external": "Skrypt zewnętrzny",
+        "markup": "Znaczniki"
+      },
+      "placements": {
+        "head": "Head",
+        "bodyStart": "Początek body",
+        "bodyEnd": "Koniec body"
+      },
+      "consent": {
+        "necessary": "Zawsze (bez zgody)",
+        "preferences": "Zgoda na preferencje",
+        "analytics": "Zgoda na analitykę",
+        "marketing": "Zgoda na marketing"
+      },
+      "origins": {
+        "title": "Dozwolone źródła",
+        "hint": "Zewnętrzne skrypty, piksele i ramki mogą się wczytywać tylko z tych źródeł https, po jednym w wierszu (https://cdn.example.com lub https://*.example.com). Trafiają do Content Security Policy tylko wtedy, gdy jakiś fragment jest włączony."
+      },
+      "warnings": "Sprawdź to przed zapisaniem:",
+      "history": {
+        "title": "Historia",
+        "empty": "Nie zapisano jeszcze zmian.",
+        "entry": "Wersja {version} · {date}",
+        "hint": "Każda zmiana trafia też do dziennika audytu: co się zmieniło i kto to zrobił."
+      }
+    },
+    "signIn": {
+      "title": "Logowanie",
+      "subtitle": "Kto musi używać drugiego składnika i z których dostawców logowania jednokrotnego może korzystać zespół.",
+      "errors": {
+        "loadFailed": "Nie udało się wczytać ustawień logowania.",
+        "saveFailed": "Nie udało się zapisać ustawień logowania."
+      },
+      "mfa": {
+        "title": "Wymagany drugi składnik",
+        "hint": "Osoby z tymi rolami muszą używać aplikacji uwierzytelniającej lub klucza dostępu. Dopóki go nie dodadzą, mogą jedynie go skonfigurować, zmienić hasło lub się wylogować.",
+        "legend": "Wymagaj drugiego składnika dla",
+        "warnTitle": "Najpierw sprawdź własne konto",
+        "warn": "Konta z tymi rolami bez drugiego składnika tracą dostęp do panelu, dopóki go nie dodadzą, a ich ostatniego składnika nie można usunąć, dopóki obowiązuje ta reguła."
+      },
+      "providers": {
+        "title": "Logowanie jednokrotne (OpenID Connect)",
+        "hint": "Zespół może logować się przez Twojego dostawcę tożsamości. Logowane są tylko istniejące konta: po powiązaniu według identyfikatora konta u dostawcy, a za pierwszym razem według zweryfikowanego adresu e-mail. Nikt nie jest tworzony, a logowanie hasłem nadal działa.",
+        "none": "Brak dostawców.",
+        "newProvider": "Nowy dostawca",
+        "enabled": "Pokazuj na stronie logowania zespołu",
+        "name": "Etykieta przycisku",
+        "nameHint": "Wyświetlana jako „Kontynuuj przez …”.",
+        "id": "Identyfikator",
+        "callback": "Adres przekierowania (redirect URI) do zarejestrowania u dostawcy:",
+        "issuer": "Adres URL wystawcy",
+        "issuerHint": "Wystawca (issuer) dostawcy; stąd odczytywana jest jego /.well-known/openid-configuration. Musi używać https.",
+        "clientId": "Identyfikator klienta",
+        "clientSecret": "Sekret klienta",
+        "secretStored": "Zapisany — zostaw puste, aby go zachować",
+        "clientSecretHint": "Przechowywany w postaci zaszyfrowanej. Zostaw puste dla klienta publicznego.",
+        "scopes": "Zakresy (scopes)",
+        "allowedDomains": "Dozwolone domeny e-mail",
+        "allowedDomainsHint": "Jedna w wierszu. Puste pole dopuszcza każdy zweryfikowany adres pasujący do istniejącego konta.",
+        "mfaAmr": "Wartości amr uznawane za MFA",
+        "mfaAcr": "Wartości acr uznawane za MFA",
+        "mfaHint": "Jeśli token ID dostawcy potwierdza jedną z tych wartości, logowanie liczy się jako dwuskładnikowe. W przeciwnym razie osoby, które mają tutaj własny drugi składnik, również zostaną o niego poproszone.",
+        "remove": "Usuń dostawcę",
+        "add": "Dodaj dostawcę"
+      }
     }
   },
   "settings": {
@@ -4734,12 +4912,8 @@
       "scope": "Zakres kopii",
       "scopeSite": "Tylko bieżąca witryna",
       "scopeRoot": "Witryna główna",
-      "scopeNetwork": "Witryna główna i wszystkie podwitryny",
-      "scopeNetworkHint": "Tworzy jedno archiwum wszystkich zarejestrowanych witryn, także z oddzielną bazą danych.",
-      "networkSites": "Archiwum sieci: {{count}} witryn",
-      "networkContent": "elementy treści",
-      "networkMedia": "pliki multimedialne",
-      "networkRestoreWarning": "Przywrócenie sieci wymaga czystej instalacji zawierającej tylko witrynę główną. Sprawdź adresy przed przywróceniem.",
+      "scopeNetwork": "Witryna główna i wszystkie podwitryny (jeden plik)",
+      "scopeNetworkHint": "Tworzy jedno archiwum z witryną główną i każdą podwitryną jej obszaru roboczego, także z oddzielną bazą danych. Przywróć je na czystej instalacji, aby odtworzyć całą sieć.",
       "scopeSubsites": "Podwitryny (osobne pliki)",
       "scopeSubsitesHint": "Tworzy osobny plik .jfbackup dla każdej podwitryny. Przywróć każdy plik do właściwej podwitryny.",
       "restoreTarget": "Przywróć do",
@@ -4804,7 +4978,87 @@
       "secureFtp": "Wymagaj bezpiecznego FTP (FTPS)",
       "s3Endpoint": "Endpoint S3 (opcjonalnie)",
       "s3Prefix": "Prefiks folderu S3",
-      "s3PathStyle": "Użyj adresowania S3 według ścieżki"
+      "s3PathStyle": "Użyj adresowania S3 według ścieżki",
+      "networkValidTitle": "Integralność kopii sieci sprawdzona.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} witryna",
+        "few": "{site} · {date} · {count} witryny",
+        "many": "{site} · {date} · {count} witryn",
+        "other": "{site} · {date} · {count} witryny"
+      },
+      "networkRecords": "Rekordy danych: {count}",
+      "networkHostname": "Adres dla {site}",
+      "networkRootHostnameHint": "Witryna główna zachowuje adres tej instalacji.",
+      "networkBlockedNotClean": {
+        "one": "Przywrócenie sieci wymaga czystej instalacji. Ten obszar roboczy ma już {count} podwitrynę.",
+        "few": "Przywrócenie sieci wymaga czystej instalacji. Ten obszar roboczy ma już {count} podwitryny.",
+        "many": "Przywrócenie sieci wymaga czystej instalacji. Ten obszar roboczy ma już {count} podwitryn.",
+        "other": "Przywrócenie sieci wymaga czystej instalacji. Ten obszar roboczy ma już {count} podwitryny."
+      },
+      "networkBlockedMultisite": "Włącz multisite (JF_MULTISITE=true) i uruchom ponownie przed przywróceniem podwitryn.",
+      "networkBlockedOperator": "Tylko operator platformy może przywrócić sieć z podwitrynami.",
+      "networkRestoreHint": "Najpierw przywracana jest witryna główna. Nowe podwitryny pozostają offline, dopóki nie zostaną przywrócone wszystkie witryny. Jeśli krok się nie powiedzie lub anulujesz, nowe podwitryny zostaną usunięte, a witryna główna wróci do poprzedniego stanu.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Przywróć sieć",
+      "networkRestoring": "Przywracanie sieci…",
+      "networkRestoreComplete": {
+        "one": "Sieć przywrócona: {count} witryna. Odśwież panel, aby ją zobaczyć.",
+        "few": "Sieć przywrócona: {count} witryny. Odśwież panel, aby je zobaczyć.",
+        "many": "Sieć przywrócona: {count} witryn. Odśwież panel, aby je zobaczyć.",
+        "other": "Sieć przywrócona: {count} witryny. Odśwież panel, aby je zobaczyć."
+      },
+      "passphrase": "Hasło kopii zapasowej",
+      "passphraseRepeat": "Powtórz hasło",
+      "passphraseHint": "Kopia jest szyfrowana tym hasłem, bo zawiera hasła, klucze i wszystkie dane witryn. Przechowuj je w menedżerze haseł: bez niego kopii nie da się przywrócić.",
+      "passphraseTooShort": "Użyj co najmniej {count} znaków.",
+      "passphraseMismatch": "Hasła nie są zgodne.",
+      "cancelling": "Anulowanie…",
+      "restoreTitle": "Przywróć kopię zapasową",
+      "restorePassphrase": "Hasło pliku kopii",
+      "restorePassphraseHint": "Wpisz je przed wybraniem pliku. Kopie z Justflows 0.4 nie mają hasła.",
+      "schedulePassphrase": "Hasło automatycznych kopii",
+      "schedulePassphraseHint": "Przechowywane w postaci zaszyfrowanej na tym serwerze. Pozostaw puste, aby zachować zapisane hasło.",
+      "legacyHint": "Ta kopia pochodzi z Justflows 0.4. Przywraca treści, ustawienia i multimedia, ale nie konta, dane wtyczek ani pakiety.",
+      "packagesSummary": "Pakiety w kopii, ponownie sprawdzane przed instalacją: {list}",
+      "unsigned": "bez podpisu",
+      "usersSummary": {
+        "one": "{count} konto",
+        "few": "{count} konta",
+        "many": "{count} kont",
+        "other": "{count} konta"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} rekord wtyczki",
+        "few": "{count} rekordy wtyczek",
+        "many": "{count} rekordów wtyczek",
+        "other": "{count} rekordu wtyczek"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} zapisany sekret nie dał się odczytać podczas tworzenia kopii; zostanie przywrócony pusty.",
+        "few": "{count} zapisanych sekretów nie udało się odczytać podczas tworzenia kopii; zostaną przywrócone puste.",
+        "many": "{count} zapisanych sekretów nie udało się odczytać podczas tworzenia kopii; zostaną przywrócone puste.",
+        "other": "{count} zapisanego sekretu nie udało się odczytać podczas tworzenia kopii; zostaną przywrócone puste."
+      },
+      "primaryAddress": "Adres",
+      "extraAddress": "Przywróć także ten adres",
+      "addAddress": "Dodaj ten adres do witryny głównej",
+      "siteDatabase": "Baza danych",
+      "dbWorkspace": "Baza danych obszaru roboczego",
+      "dbFromBackup": "Jak w kopii: {target}",
+      "dbCustom": "Inna baza danych",
+      "dbSite": "Baza danych witryny",
+      "pluginDatabase": "Baza danych wtyczki {plugin}",
+      "dbDriver": "Typ bazy danych",
+      "dbHost": "Host",
+      "dbPort": "Port",
+      "dbName": "Nazwa bazy danych",
+      "dbUser": "Nazwa użytkownika",
+      "networkBlockedNotRoot": "Przywróć kopię sieci z witryny głównej instalacji.",
+      "unavailableExtensions": "Nie są zainstalowane na tym serwerze, więc zostaną przywrócone jako wyłączone: {list}. Zainstaluj je, a potem włącz.",
+      "networkSites": "Archiwum sieci: {{count}} witryn",
+      "networkContent": "elementy treści",
+      "networkMedia": "pliki multimedialne",
+      "networkRestoreWarning": "Przywrócenie sieci wymaga czystej instalacji zawierającej tylko witrynę główną. Sprawdź adresy przed przywróceniem."
     },
     "manualRestartBody": "Uruchom ponownie Justflows na serwerze, a następnie odśwież tę stronę.",
     "manualRestartBodyContainer": "Uruchom ponownie kontener Justflows, a następnie odśwież tę stronę.",
@@ -5682,7 +5936,8 @@
     "featureCustomDomains": "Własne domeny",
     "featureManagedDns": "Hosting DNS",
     "featureOwnMail": "Własne ustawienia e-mail",
-    "meterCustomDomains": "Podłączone domeny"
+    "meterCustomDomains": "Podłączone domeny",
+    "featureCustomCode": "Własny kod"
   },
   "signup": {
     "title": "Utwórz swoją witrynę",

@@ -1,0 +1,32 @@
+{
+  "name": "@justflows/check",
+  "version": "0.1.0",
+  "description": "Quality, compatibility, and security checks for Justflows plugins, themes, and CSS providers",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit && pnpm typecheck:tests",
+    "clean": "rm -rf dist",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit"
+  },
+  "dependencies": {
+    "@justflows/installer": "workspace:*",
+    "@justflows/sdk": "workspace:*",
+    "semver": "^7.8.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/semver": "^7.8.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "license": "MIT"
+}

@@ -21,6 +21,7 @@
     "widgets": "Widgets",
     "menus": "Menus",
     "users": "Users",
+    "usersAccount": "Your account",
     "settings": "Settings",
     "emails": "Emails",
     "comments": "Comments",
@@ -57,7 +58,9 @@
     "storage": "Storage",
     "taxonomies": "Categories & Tags",
     "securityPasskeys": "Passkeys",
-    "dataRequests": "Data requests"
+    "dataRequests": "Data requests",
+    "securityCustomCode": "Custom code",
+    "securitySignIn": "Sign-in"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -234,7 +237,42 @@
     "activate": "Activate",
     "deactivateSiteConfirm": "Turn off “{name}” on this site? If its delete settings are on, this site's plugin data, pages, and posts are removed. Tables stay for other sites.",
     "deactivateFailed": "The plugin could not be turned off.",
-    "activateFailed": "The plugin could not be turned on."
+    "activateFailed": "The plugin could not be turned on.",
+    "check": "Check",
+    "checking": "Checking…",
+    "checkHint": "Run the extension checker on this plugin's installed files",
+    "checkClean": "The extension checker found no problems.",
+    "checkSummary": "Extension checker: {errors} errors, {warnings} warnings, {notes} notes",
+    "checkFailed": "Could not check the plugin",
+    "checkHelp": "Details",
+    "trust": {
+      "states": {
+        "verified": "Verified by Justflows",
+        "operator": "Trusted by you",
+        "legacy": "Legacy trust",
+        "unverified": "Unverified"
+      },
+      "reasons": {
+        "attested": "This exact release passed the Justflows review. That is not a guarantee of safety.",
+        "operatorTrusted": "You trusted this exact build on this site.",
+        "legacy": "Installed before trust states existed. It keeps running as before until {date}.",
+        "revoked": "Justflows revoked this release. Update or remove it.",
+        "noDigest": "Installed from source, so there is no package to verify.",
+        "noAttestation": "Justflows has not verified this release.",
+        "attestationsUnavailable": "The verification list could not be checked, so nothing is treated as verified.",
+        "legacyExpired": "Legacy trust ended on {date}, and Justflows has not verified this release."
+      },
+      "trust": "Trust this build",
+      "untrust": "Stop trusting this build",
+      "trustHint": "Only for code you wrote or checked yourself. This trusts the exact package below, not later updates. Once the plugin sandbox is available, a trusted build runs outside it.",
+      "untrustHint": "The plugin goes back to unverified.",
+      "password": "Your password",
+      "trustConfirm": "Trust this build",
+      "untrustConfirm": "Stop trusting",
+      "failed": "Could not change the trust setting.",
+      "sandboxed": "Runs in the plugin sandbox, with limited access to the site.",
+      "notLoaded": "Not loaded: this server's Node.js version cannot run the plugin sandbox."
+    }
   },
   "content": {
     "accountNotice": "Account pages require sign-in. Justflows excludes them from caches, exports, public search and sitemaps.",
@@ -2366,7 +2404,10 @@
       "recoveryLabel": "Recovery code",
       "recoveryHint": "Your role signs in with a passkey. If you lost it, enter one of your recovery codes.",
       "or": "or",
-      "passkeyHint": "Use your fingerprint, face, screen lock or a security key."
+      "passkeyHint": "Use your fingerprint, face, screen lock or a security key.",
+      "continueWith": "Continue with {name}",
+      "federatedFailed": "Single sign-on did not work. Try again, or sign in with your password.",
+      "federatedStepUp": "Your sign-in provider confirmed who you are. Finish with your own second factor."
     },
     "register": {
       "checking": "Checking…",
@@ -3823,6 +3864,17 @@
           "lastFailed": "The last automatic backup to {destination} failed.",
           "overdue": "Automatic backups to {destination} have stopped running on schedule.",
           "remediation": "Schedule backups to an off-host destination in Tools, and rehearse a restore on an isolated installation."
+        },
+        "extensionsTrust": {
+          "title": "Plugin verification",
+          "unavailable": "Plugin trust states could not be read.",
+          "clear": "Every plugin on this site is verified by Justflows or trusted by you. Verified is a review outcome, not a guarantee of safety.",
+          "unverified": "Plugins not verified by Justflows or trusted by you: {unverified}.",
+          "legacy": "Plugins with legacy trust: {legacy}, until {legacyUntil}.",
+          "remediationUnavailable": "Open Plugins and check again.",
+          "remediationClear": "Check again after you install or update a plugin.",
+          "remediationUnverified": "Replace them with verified releases, remove them, or trust your own build on a single self-hosted site. Today every plugin still runs with full access to the site.",
+          "remediationLegacy": "Update to a verified release before that date, or trust your own build. Today every plugin still runs with full access to the site."
         }
       }
     },
@@ -3951,6 +4003,20 @@
           "regenerateHint": "New codes replace every unused one.",
           "error": "Could not create new recovery codes."
         }
+      },
+      "mfaRequired": {
+        "title": "Turn on two-factor authentication",
+        "body": "Your role must use an authenticator app or a passkey on this site. Until you add one, the rest of the admin is unavailable.",
+        "action": "Set it up now"
+      },
+      "identities": {
+        "title": "Single sign-on",
+        "intro": "Sign-in providers linked to your account. Unlinking removes the link; the next sign-in through that provider links it again if your verified address still matches.",
+        "linked": "linked {date}",
+        "lastUsed": "last used {date}",
+        "unlink": "Unlink",
+        "unlinked": "Unlinked.",
+        "unlinkError": "Could not unlink."
       }
     },
     "adminPath": {
@@ -4324,6 +4390,118 @@
         "warnTitle": "Changing the RP ID orphans existing passkeys",
         "warn": "A passkey belongs to the RP ID it was made for. After a change, people sign in with their password and a recovery code, then add a new passkey."
       }
+    },
+    "customCode": {
+      "title": "Custom code",
+      "subtitle": "Add analytics, widgets, and other scripts to your public pages, site-wide or on chosen pages. Only people allowed to manage custom code can open this page.",
+      "loadFailed": "Could not load custom code",
+      "saveFailed": "Could not save custom code",
+      "disabledByEnvironment": "Custom code is turned off on this installation (JF_CUSTOM_CODE=off). Nothing here runs until that setting is removed.",
+      "safeModeConfirm": "Turn off all custom code on every page now?",
+      "safeMode": {
+        "title": "Safe mode",
+        "on": "Turn on safe mode",
+        "off": "Turn off safe mode",
+        "active": "Safe mode is on: no custom code runs on any page. Your snippets are kept.",
+        "hint": "If a snippet breaks the site, safe mode turns every snippet off at once without deleting them."
+      },
+      "snippets": {
+        "title": "Snippets",
+        "add": "Add snippet",
+        "hint": "This installation runs as \"{environment}\". A snippet limited to other environments does not run here.",
+        "empty": "No custom code yet."
+      },
+      "snippet": {
+        "enabled": "On",
+        "untitled": "Untitled snippet",
+        "close": "Close",
+        "edit": "Edit",
+        "name": "Name",
+        "kind": "Type",
+        "placement": "Where on the page",
+        "consent": "Consent",
+        "consentHint": "A snippet that needs consent waits until the visitor agrees in your consent banner. Without a consent tool installed it never runs.",
+        "library": "Service",
+        "optional": "optional",
+        "src": "Script URL",
+        "script": "JavaScript",
+        "markup": "Markup",
+        "scriptHint": "JavaScript only, without <script> tags. It is allowed by its exact hash in the Content Security Policy.",
+        "markupHint": "Meta tags, pixels, and frames. Scripts, styles, and event handlers are removed.",
+        "scope": "Pages",
+        "scopeSite": "Every page",
+        "scopePages": "Only these pages",
+        "environments": "Environments",
+        "environmentsHint": "Leave empty to run everywhere, or list environments such as production."
+      },
+      "kinds": {
+        "library": "From the library",
+        "inline": "Inline script",
+        "external": "External script",
+        "markup": "Markup"
+      },
+      "placements": {
+        "head": "Head",
+        "bodyStart": "Start of body",
+        "bodyEnd": "End of body"
+      },
+      "consent": {
+        "necessary": "Always (no consent needed)",
+        "preferences": "Preferences consent",
+        "analytics": "Analytics consent",
+        "marketing": "Marketing consent"
+      },
+      "origins": {
+        "title": "Allowed origins",
+        "hint": "External scripts, pixels, and frames may only load from these https origins, one per line (https://cdn.example.com or https://*.example.com). They are added to the Content Security Policy only while a snippet is on."
+      },
+      "warnings": "Check these before saving:",
+      "history": {
+        "title": "History",
+        "empty": "No changes saved yet.",
+        "entry": "Version {version} · {date}",
+        "hint": "Every change is also recorded in the audit log with what changed and who changed it."
+      }
+    },
+    "signIn": {
+      "title": "Sign-in",
+      "subtitle": "Who must use a second factor, and which single sign-on providers staff can use.",
+      "errors": {
+        "loadFailed": "Could not load the sign-in settings.",
+        "saveFailed": "Could not save the sign-in settings."
+      },
+      "mfa": {
+        "title": "Required second factor",
+        "hint": "People in these roles must use an authenticator app or a passkey. Until they add one, they can only set one up, change their password, or sign out.",
+        "legend": "Require a second factor for",
+        "warnTitle": "Check your own account first",
+        "warn": "Accounts in these roles without a second factor lose access to the admin until they add one, and their last factor cannot be removed while this applies."
+      },
+      "providers": {
+        "title": "Single sign-on (OpenID Connect)",
+        "hint": "Staff can sign in through your identity provider. Only existing accounts are signed in: by the provider's account ID once linked, or the first time by a verified email address. Nobody is created, and password sign-in keeps working.",
+        "none": "No providers yet.",
+        "newProvider": "New provider",
+        "enabled": "Show on the staff sign-in page",
+        "name": "Button label",
+        "nameHint": "Shown as “Continue with …”.",
+        "id": "ID",
+        "callback": "Redirect URI to register with the provider:",
+        "issuer": "Issuer URL",
+        "issuerHint": "The provider's issuer; its /.well-known/openid-configuration is read from here. Must use https.",
+        "clientId": "Client ID",
+        "clientSecret": "Client secret",
+        "secretStored": "Stored — leave empty to keep it",
+        "clientSecretHint": "Stored encrypted. Leave empty for a public client.",
+        "scopes": "Scopes",
+        "allowedDomains": "Allowed email domains",
+        "allowedDomainsHint": "One per line. Empty allows any verified address that matches an existing account.",
+        "mfaAmr": "amr values that count as MFA",
+        "mfaAcr": "acr values that count as MFA",
+        "mfaHint": "When the provider's ID token proves one of these, its sign-in counts as two-factor. Otherwise, people who have their own second factor here are also asked for it.",
+        "remove": "Remove provider",
+        "add": "Add provider"
+      }
     }
   },
   "settings": {
@@ -4594,12 +4772,8 @@
       "scope": "Backup scope",
       "scopeSite": "Current site only",
       "scopeRoot": "Root site",
-      "scopeNetwork": "Root site and all subsites",
-      "scopeNetworkHint": "Creates one archive containing the root site and every subsite in its workspace, including sites using a separate database.",
-      "networkSites": "Network archive: {{count}} sites",
-      "networkContent": "content items",
-      "networkMedia": "media files",
-      "networkRestoreWarning": "Network restore requires a clean installation containing only its root site. Review these site addresses before restoring.",
+      "scopeNetwork": "Root site and all subsites (one file)",
+      "scopeNetworkHint": "Creates one archive with the root site and every subsite in its workspace, including sites that use a separate database. Restore it on a clean installation to rebuild the whole network.",
       "scopeSubsites": "Subsites (separate files)",
       "scopeSubsitesHint": "Creates one independent .jfbackup file for every subsite in this workspace. Restore each file to the matching subsite.",
       "restoreTarget": "Restore into",
@@ -4664,7 +4838,75 @@
       "secretSaved": "Saved — leave blank to keep",
       "secureFtp": "Require secure FTP (FTPS)",
       "settingsFailed": "Could not save destination settings",
-      "settingsSaved": "Destination settings saved"
+      "settingsSaved": "Destination settings saved",
+      "networkValidTitle": "Network backup integrity verified.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} site",
+        "other": "{site} · {date} · {count} sites"
+      },
+      "networkRecords": "Data records: {count}",
+      "networkHostname": "Address for {site}",
+      "networkRootHostnameHint": "The root site keeps this installation's address.",
+      "networkBlockedNotClean": {
+        "one": "Network restore needs a clean installation. This workspace already has {count} subsite.",
+        "other": "Network restore needs a clean installation. This workspace already has {count} subsites."
+      },
+      "networkBlockedMultisite": "Turn on multisite (JF_MULTISITE=true) and restart before restoring subsites.",
+      "networkBlockedOperator": "Only a platform operator can restore a network with subsites.",
+      "networkRestoreHint": "The root site is restored first. New subsites stay offline until every site is restored. If a step fails or you cancel, the new subsites are removed and the root site is put back as it was.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Restore network",
+      "networkRestoring": "Restoring network…",
+      "networkRestoreComplete": {
+        "one": "Network restored: {count} site. Reload the admin to see it.",
+        "other": "Network restored: {count} sites. Reload the admin to see them."
+      },
+      "passphrase": "Backup passphrase",
+      "passphraseRepeat": "Repeat passphrase",
+      "passphraseHint": "The backup is encrypted with this passphrase, because it holds passwords, keys, and every site's data. Keep it in a password manager: without it the backup cannot be restored.",
+      "passphraseTooShort": "Use at least {count} characters.",
+      "passphraseMismatch": "The passphrases do not match.",
+      "cancelling": "Cancelling…",
+      "restoreTitle": "Restore a backup",
+      "restorePassphrase": "Passphrase of the backup file",
+      "restorePassphraseHint": "Enter it before choosing the file. Backups from Justflows 0.4 have no passphrase.",
+      "schedulePassphrase": "Passphrase for automatic backups",
+      "schedulePassphraseHint": "Stored encrypted on this server. Leave blank to keep the saved passphrase.",
+      "legacyHint": "This backup comes from Justflows 0.4. It restores content, settings and media, but not accounts, plugin data, or packages.",
+      "packagesSummary": "Packages in the backup, verified again before they are installed: {list}",
+      "unsigned": "not signed",
+      "usersSummary": {
+        "one": "{count} account",
+        "other": "{count} accounts"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} plugin record",
+        "other": "{count} plugin records"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} stored secret could not be read when the backup was made and is restored empty.",
+        "other": "{count} stored secrets could not be read when the backup was made and are restored empty."
+      },
+      "primaryAddress": "Address",
+      "extraAddress": "Also restore this address",
+      "addAddress": "Add this address to the root site",
+      "siteDatabase": "Database",
+      "dbWorkspace": "Workspace database",
+      "dbFromBackup": "As in the backup: {target}",
+      "dbCustom": "Another database",
+      "dbSite": "The site database",
+      "pluginDatabase": "Database of plugin {plugin}",
+      "dbDriver": "Database type",
+      "dbHost": "Host",
+      "dbPort": "Port",
+      "dbName": "Database name",
+      "dbUser": "Username",
+      "networkBlockedNotRoot": "Restore a network backup from the installation root site.",
+      "unavailableExtensions": "Not installed on this server, so restored turned off: {list}. Install them, then turn them on.",
+      "networkSites": "Network archive: {{count}} sites",
+      "networkContent": "content items",
+      "networkMedia": "media files",
+      "networkRestoreWarning": "Network restore requires a clean installation containing only its root site. Review these site addresses before restoring."
     },
     "manualRestartBody": "Restart Justflows on the server, then refresh this page.",
     "manualRestartBodyContainer": "Restart the Justflows container, then refresh this page.",
@@ -5528,7 +5770,8 @@
     "featureCustomDomains": "Custom domains",
     "featureManagedDns": "DNS hosting",
     "featureOwnMail": "Own email settings",
-    "meterCustomDomains": "Connected domains"
+    "meterCustomDomains": "Connected domains",
+    "featureCustomCode": "Custom code"
   },
   "signup": {
     "title": "Create your site",

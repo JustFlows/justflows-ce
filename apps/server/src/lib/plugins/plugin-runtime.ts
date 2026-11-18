@@ -80,6 +80,53 @@ async function refuseUnverifiedPlugin(manifest: Record<string, unknown>): Promis
   return true;
 }
 
+/**
+ * With `JF_PLUGIN_SANDBOX=on`, a plugin that Justflows has not verified, that
+ * the operator has not trusted, and that has no legacy grace runs in the
+ * sandbox. Its code is not imported here. Where Node cannot sandbox, it is not
+ * loaded at all: an unverified plugin never falls back to full access.
+ */
+async function sandboxedPluginModule(
+  manifest: Record<string, unknown>,
+  basePath: string,
+  relativeCandidates: string[],
+): Promise<PluginModule | null | "in-process"> {
+  const trust = await import("../extensions/plugin-trust.js");
+  if (trust.pluginSandboxMode() !== "on") return "in-process";
+  const manifestPath = resolvePathUnderBase(basePath, "justflows.json");
+  let fileManifest: Record<string, unknown> | null = null;
+  try {
+    fileManifest = manifestPath ? (JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Record<string, unknown>) : null;
+  } catch {
+    fileManifest = null;
+  }
+  const pluginId = String(fileManifest?.id ?? manifest.id ?? "");
+  const version = String(fileManifest?.version ?? manifest.version ?? "");
+  if (!pluginId || !version) return "in-process";
+  const hasRow = typeof manifest.installedPath === "string" || "id" in manifest;
+  const state = await trust.trustForInstalledManifest(pluginId, version, manifest, hasRow).catch(() => null);
+  if (state && state.state !== "unverified") return "in-process";
+  const { sandboxSupported } = await import("./sandbox/sandbox-host.js");
+  if (!sandboxSupported()) {
+    console.error("[plugins] unverified plugin not loaded: this Node.js cannot sandbox it", JSON.stringify(pluginId));
+    return null;
+  }
+  const entry = relativeCandidates
+    .map((relative) => resolvePathUnderBase(basePath, relative))
+    .find((candidate): candidate is string => !!candidate && fs.existsSync(candidate) && isSafePluginEntry(candidate) && !fs.lstatSync(candidate).isSymbolicLink());
+  if (!entry || !fileManifest) return null;
+  const { createSandboxedPluginModule } = await import("./sandbox/sandboxed-plugin.js");
+  const { getTenantContext } = await import("../tenancy/context.js");
+  return createSandboxedPluginModule({
+    manifest: fileManifest as unknown as PluginModule["manifest"],
+    pluginDir: basePath,
+    entry,
+    currentSiteId: () => getTenantContext()?.siteId ?? null,
+    defaultSiteId: runtimeSiteId,
+    report: (context, error) => recordDiagnosticError(`plugin:${pluginId} ${context}`, error),
+  });
+}
+
 async function resolvePluginModule(
   manifest: Record<string, unknown>,
 ): Promise<PluginModule | null> {
@@ -99,6 +146,10 @@ async function resolvePluginModule(
   const relativeCandidates = [serverEntry, "dist/index.js", "index.js"].filter(
     (value): value is string => typeof value === "string" && value.length > 0,
   );
+
+  /** An unverified plugin runs in the sandbox, or not at all, when sandboxing is on (justflows-ce#270). */
+  const sandboxed = await sandboxedPluginModule(manifest, basePath, relativeCandidates);
+  if (sandboxed !== "in-process") return sandboxed;
 
   for (const relative of relativeCandidates) {
     const entry = resolvePathUnderBase(basePath, relative);

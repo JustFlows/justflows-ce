@@ -10,6 +10,7 @@ import { ARCHIVE_LIMITS, type InstallResult } from "@justflows/installer";
 import { assertPackageIsTrusted } from "./package-trust.js";
 import { packagesInstalledDir } from "./packages-dir.js";
 import { recordInstalledPackageBaseline } from "../security/extension-integrity.js";
+import { retainPackageArchive } from "../backup/package-archives.js";
 import {
   MARKETPLACE_ALLOW_BETA_SETTING,
   marketplaceListingIsBeta,
@@ -182,6 +183,32 @@ export async function assertListingInstallable(
  * Resolve, gate, download, verify, and extract a Marketplace package into
  * `packages-installed/`. Registering it in the database is the caller's job.
  */
+/**
+ * Download one exact marketplace release with its published digest and
+ * signature. Callers still verify both before using the bytes.
+ */
+export async function downloadMarketplacePackage(
+  type: MarketplacePackageType,
+  id: string,
+  version: string,
+): Promise<{ buffer: Buffer; digest: string; signature: string }> {
+  /** Always download via the public API; the registry downloadUrl is an internal path. */
+  const downloadUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kindSegment(type)}/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}/download`;
+  const download = await fetch(downloadUrl, {
+    headers: marketplaceRequestHeaders(),
+    signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+  });
+  if (!download.ok) {
+    throw new MarketplaceRequestError(download.status, { error: "Download failed" });
+  }
+  const buffer = await readBounded(download, ARCHIVE_LIMITS.maxCompressedBytes);
+  return {
+    buffer,
+    digest: download.headers.get("x-justflows-digest") ?? "",
+    signature: download.headers.get("x-justflows-signature") ?? "",
+  };
+}
+
 export async function installMarketplacePackage(options: {
   type: MarketplacePackageType;
   id: string;
@@ -206,20 +233,7 @@ export async function installMarketplacePackage(options: {
     assertMarketplaceUpgrade(options.expectedNewerThan, resolvedVersion);
   }
 
-  // Always download via the public API. Registry downloadUrl is an internal
-  // path (e.g. /v1/plugins/...) which Node fetch cannot resolve.
-  const downloadUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kindSegment(type)}/${encodeURIComponent(id)}/versions/${encodeURIComponent(resolvedVersion)}/download`;
-  const download = await fetch(downloadUrl, {
-    headers: marketplaceRequestHeaders(),
-    signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
-  });
-  if (!download.ok) {
-    throw new MarketplaceRequestError(download.status, { error: "Download failed" });
-  }
-
-  const buffer = await readBounded(download, ARCHIVE_LIMITS.maxCompressedBytes);
-  const digest = download.headers.get("x-justflows-digest") ?? "";
-  const signature = download.headers.get("x-justflows-signature") ?? "";
+  const { buffer, digest, signature } = await downloadMarketplacePackage(type, id, resolvedVersion);
 
   const { PackageInstaller } = await import("@justflows/installer");
   const installer = new PackageInstaller();
@@ -265,6 +279,14 @@ export async function installMarketplacePackage(options: {
     packageType: result.manifest.type,
     version: result.manifest.version,
     archiveDigest: result.digest,
+  });
+  await retainPackageArchive(buffer, {
+    digest: result.digest,
+    type: result.manifest.type,
+    id: result.manifest.id,
+    version: result.manifest.version,
+    source: "marketplace",
+    signature: signature || undefined,
   });
   return { ...result, approvedPermissions };
 }

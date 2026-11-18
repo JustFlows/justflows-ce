@@ -21,6 +21,7 @@
     "widgets": "Widgets",
     "menus": "Menu's",
     "users": "Gebruikers",
+    "usersAccount": "Je account",
     "settings": "Instellingen",
     "emails": "E-mails",
     "comments": "Reacties",
@@ -57,7 +58,9 @@
     "storage": "Opslag",
     "taxonomies": "Categorieën & tags",
     "securityPasskeys": "Passkeys",
-    "dataRequests": "Gegevensverzoeken"
+    "dataRequests": "Gegevensverzoeken",
+    "securityCustomCode": "Eigen code",
+    "securitySignIn": "Inloggen"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -234,7 +237,42 @@
     "installedHeading": "Geïnstalleerde plugins ({count})",
     "deactivateSiteConfirm": "“{name}” uitzetten op deze site? Als de verwijderinstellingen aan staan, worden de plugingegevens, pagina’s en berichten van deze site verwijderd. Tabellen blijven voor andere sites.",
     "deactivateFailed": "De plugin kon niet worden uitgezet.",
-    "activateFailed": "De plugin kon niet worden aangezet."
+    "activateFailed": "De plugin kon niet worden aangezet.",
+    "check": "Controleren",
+    "checking": "Controleren…",
+    "checkHint": "Voer de extensiecontrole uit op de geïnstalleerde bestanden van deze plugin",
+    "checkClean": "De extensiecontrole vond geen problemen.",
+    "checkSummary": "Extensiecontrole: {errors} fouten, {warnings} waarschuwingen, {notes} opmerkingen",
+    "checkFailed": "De plugin kon niet worden gecontroleerd",
+    "checkHelp": "Details",
+    "trust": {
+      "states": {
+        "verified": "Geverifieerd door Justflows",
+        "operator": "Door jou vertrouwd",
+        "legacy": "Overgangsvertrouwen",
+        "unverified": "Niet geverifieerd"
+      },
+      "reasons": {
+        "attested": "Precies deze release heeft de beoordeling van Justflows doorstaan. Dat is geen garantie voor veiligheid.",
+        "operatorTrusted": "Je hebt precies deze build op deze site vertrouwd.",
+        "legacy": "Geïnstalleerd voordat er vertrouwensniveaus waren. Werkt tot {date} zoals voorheen.",
+        "revoked": "Justflows heeft deze release ingetrokken. Werk hem bij of verwijder hem.",
+        "noDigest": "Geïnstalleerd vanuit de broncode, dus er is geen pakket om te verifiëren.",
+        "noAttestation": "Justflows heeft deze release niet geverifieerd.",
+        "attestationsUnavailable": "De verificatielijst kon niet worden gecontroleerd, dus niets geldt als geverifieerd.",
+        "legacyExpired": "Het overgangsvertrouwen is op {date} afgelopen, en Justflows heeft deze release niet geverifieerd."
+      },
+      "trust": "Deze build vertrouwen",
+      "untrust": "Deze build niet meer vertrouwen",
+      "trustHint": "Alleen voor code die je zelf hebt geschreven of gecontroleerd. Je vertrouwt precies het pakket hieronder, geen latere updates. Zodra de plugin-sandbox beschikbaar is, draait een vertrouwde build daarbuiten.",
+      "untrustHint": "De plugin is weer niet geverifieerd.",
+      "password": "Je wachtwoord",
+      "trustConfirm": "Deze build vertrouwen",
+      "untrustConfirm": "Niet meer vertrouwen",
+      "failed": "De vertrouwensinstelling kon niet worden gewijzigd.",
+      "sandboxed": "Draait in de plugin-sandbox, met beperkte toegang tot de site.",
+      "notLoaded": "Niet geladen: de Node.js-versie van deze server kan de plugin-sandbox niet draaien."
+    }
   },
   "content": {
     "accountNotice": "Accountpagina’s vereisen aanmelden. Justflows sluit ze uit van caches, exports, openbare zoekresultaten en sitemaps.",
@@ -2395,7 +2433,10 @@
       "recoveryLabel": "Herstelcode",
       "recoveryHint": "Je rol logt in met een passkey. Ben je die kwijt? Vul dan een van je herstelcodes in.",
       "or": "of",
-      "passkeyHint": "Gebruik je vingerafdruk, gezicht, schermvergrendeling of een beveiligingssleutel."
+      "passkeyHint": "Gebruik je vingerafdruk, gezicht, schermvergrendeling of een beveiligingssleutel.",
+      "continueWith": "Doorgaan met {name}",
+      "federatedFailed": "Single sign-on is niet gelukt. Probeer het opnieuw of log in met je wachtwoord.",
+      "federatedStepUp": "Je inlogprovider heeft bevestigd wie je bent. Rond af met je eigen tweede factor."
     },
     "passwordLabel": "Wachtwoord",
     "signInCta": "Inloggen →",
@@ -3301,6 +3342,17 @@
           "lastFailed": "De laatste automatische back-up naar {destination} is mislukt.",
           "overdue": "Automatische back-ups naar {destination} draaien niet meer volgens schema.",
           "remediation": "Plan back-ups naar een externe bestemming in Gereedschap en oefen een herstel op een geïsoleerde installatie."
+        },
+        "extensionsTrust": {
+          "title": "Pluginverificatie",
+          "unavailable": "De vertrouwensniveaus van plugins konden niet worden gelezen.",
+          "clear": "Elke plugin op deze site is geverifieerd door Justflows of door jou vertrouwd. Geverifieerd is een beoordelingsresultaat, geen garantie voor veiligheid.",
+          "unverified": "Plugins die niet door Justflows geverifieerd of door jou vertrouwd zijn: {unverified}.",
+          "legacy": "Plugins met overgangsvertrouwen: {legacy}, tot {legacyUntil}.",
+          "remediationUnavailable": "Open Plugins en controleer opnieuw.",
+          "remediationClear": "Controleer opnieuw nadat je een plugin installeert of bijwerkt.",
+          "remediationUnverified": "Vervang ze door geverifieerde releases, verwijder ze of vertrouw je eigen build op één zelfgehoste site. Op dit moment heeft elke plugin nog volledige toegang tot de site.",
+          "remediationLegacy": "Werk vóór die datum bij naar een geverifieerde release of vertrouw je eigen build. Op dit moment heeft elke plugin nog volledige toegang tot de site."
         }
       }
     },
@@ -3429,6 +3481,20 @@
           "regenerateHint": "Nieuwe codes vervangen alle ongebruikte codes.",
           "error": "Er konden geen nieuwe herstelcodes worden gemaakt."
         }
+      },
+      "mfaRequired": {
+        "title": "Zet tweestapsverificatie aan",
+        "body": "Jouw rol moet op deze site een authenticator-app of een passkey gebruiken. Tot je er een toevoegt, is de rest van het beheer niet beschikbaar.",
+        "action": "Nu instellen"
+      },
+      "identities": {
+        "title": "Single sign-on",
+        "intro": "Inlogproviders die aan je account gekoppeld zijn. Ontkoppelen verwijdert de koppeling; bij de volgende keer inloggen via die provider wordt die opnieuw gemaakt als je geverifieerde adres nog overeenkomt.",
+        "linked": "gekoppeld op {date}",
+        "lastUsed": "laatst gebruikt op {date}",
+        "unlink": "Ontkoppelen",
+        "unlinked": "Ontkoppeld.",
+        "unlinkError": "Ontkoppelen is niet gelukt."
       }
     },
     "adminPath": {
@@ -3801,6 +3867,118 @@
         "extraOriginsHint": "Eén https-origin per regel, zoals https://www.example.com. Elke origin moet binnen de RP-ID vallen.",
         "warnTitle": "Een andere RP-ID maakt bestaande passkeys onbruikbaar",
         "warn": "Een passkey hoort bij de RP-ID waarvoor hij is gemaakt. Na een wijziging loggen mensen in met hun wachtwoord en een herstelcode en voegen ze daarna een nieuwe passkey toe."
+      }
+    },
+    "customCode": {
+      "title": "Eigen code",
+      "subtitle": "Voeg analytics, widgets en andere scripts toe aan je openbare pagina's, op de hele site of op gekozen pagina's. Alleen wie eigen code mag beheren, kan deze pagina openen.",
+      "loadFailed": "Eigen code kon niet worden geladen",
+      "saveFailed": "Eigen code kon niet worden opgeslagen",
+      "disabledByEnvironment": "Eigen code staat uit op deze installatie (JF_CUSTOM_CODE=off). Niets hier wordt uitgevoerd tot die instelling weg is.",
+      "safeModeConfirm": "Alle eigen code nu op elke pagina uitzetten?",
+      "safeMode": {
+        "title": "Veilige modus",
+        "on": "Veilige modus aanzetten",
+        "off": "Veilige modus uitzetten",
+        "active": "Veilige modus staat aan: er draait geen eigen code op welke pagina dan ook. Je snippets blijven bewaard.",
+        "hint": "Breekt een snippet de site, dan zet de veilige modus alle snippets tegelijk uit zonder ze te verwijderen."
+      },
+      "snippets": {
+        "title": "Snippets",
+        "add": "Snippet toevoegen",
+        "hint": "Deze installatie draait als \"{environment}\". Een snippet die tot andere omgevingen beperkt is, draait hier niet.",
+        "empty": "Nog geen eigen code."
+      },
+      "snippet": {
+        "enabled": "Aan",
+        "untitled": "Naamloze snippet",
+        "close": "Sluiten",
+        "edit": "Bewerken",
+        "name": "Naam",
+        "kind": "Soort",
+        "placement": "Plek op de pagina",
+        "consent": "Toestemming",
+        "consentHint": "Een snippet die toestemming nodig heeft, wacht tot de bezoeker akkoord geeft in je cookiebanner. Zonder geïnstalleerde toestemmingstool draait hij nooit.",
+        "library": "Dienst",
+        "optional": "optioneel",
+        "src": "Script-URL",
+        "script": "JavaScript",
+        "markup": "Opmaak",
+        "scriptHint": "Alleen JavaScript, zonder <script>-tags. Het wordt toegestaan via de exacte hash in de Content Security Policy.",
+        "markupHint": "Metatags, pixels en frames. Scripts, stijlen en event handlers worden verwijderd.",
+        "scope": "Pagina's",
+        "scopeSite": "Elke pagina",
+        "scopePages": "Alleen deze pagina's",
+        "environments": "Omgevingen",
+        "environmentsHint": "Laat leeg om overal te draaien, of noem omgevingen zoals production."
+      },
+      "kinds": {
+        "library": "Uit de bibliotheek",
+        "inline": "Inline script",
+        "external": "Extern script",
+        "markup": "Opmaak"
+      },
+      "placements": {
+        "head": "Head",
+        "bodyStart": "Begin van de body",
+        "bodyEnd": "Einde van de body"
+      },
+      "consent": {
+        "necessary": "Altijd (geen toestemming nodig)",
+        "preferences": "Toestemming voorkeuren",
+        "analytics": "Toestemming analytics",
+        "marketing": "Toestemming marketing"
+      },
+      "origins": {
+        "title": "Toegestane origins",
+        "hint": "Externe scripts, pixels en frames mogen alleen laden van deze https-origins, één per regel (https://cdn.example.com of https://*.example.com). Ze komen alleen in de Content Security Policy zolang er een snippet aan staat."
+      },
+      "warnings": "Controleer dit voor je opslaat:",
+      "history": {
+        "title": "Geschiedenis",
+        "empty": "Nog geen wijzigingen opgeslagen.",
+        "entry": "Versie {version} · {date}",
+        "hint": "Elke wijziging komt ook in het auditlog, met wat er veranderde en wie het deed."
+      }
+    },
+    "signIn": {
+      "title": "Inloggen",
+      "subtitle": "Wie een tweede factor moet gebruiken, en via welke single sign-on-providers medewerkers kunnen inloggen.",
+      "errors": {
+        "loadFailed": "De inloginstellingen konden niet worden geladen.",
+        "saveFailed": "De inloginstellingen konden niet worden opgeslagen."
+      },
+      "mfa": {
+        "title": "Verplichte tweede factor",
+        "hint": "Mensen met deze rollen moeten een authenticator-app of een passkey gebruiken. Tot ze er een toevoegen, kunnen ze alleen er een instellen, hun wachtwoord wijzigen of uitloggen.",
+        "legend": "Tweede factor verplicht voor",
+        "warnTitle": "Controleer eerst je eigen account",
+        "warn": "Accounts met deze rollen zonder tweede factor verliezen de toegang tot het beheer tot ze er een toevoegen, en hun laatste factor kan niet worden verwijderd zolang dit geldt."
+      },
+      "providers": {
+        "title": "Single sign-on (OpenID Connect)",
+        "hint": "Medewerkers kunnen inloggen via je identiteitsprovider. Alleen bestaande accounts worden ingelogd: na koppeling via het account-ID van de provider, de eerste keer via een geverifieerd e-mailadres. Er wordt niemand aangemaakt en inloggen met wachtwoord blijft werken.",
+        "none": "Nog geen providers.",
+        "newProvider": "Nieuwe provider",
+        "enabled": "Tonen op de inlogpagina voor medewerkers",
+        "name": "Knoptekst",
+        "nameHint": "Wordt getoond als ‘Doorgaan met …’.",
+        "id": "ID",
+        "callback": "Redirect-URI om bij de provider te registreren:",
+        "issuer": "Issuer-URL",
+        "issuerHint": "De issuer van de provider; de /.well-known/openid-configuration wordt hier gelezen. Moet https gebruiken.",
+        "clientId": "Client-ID",
+        "clientSecret": "Clientgeheim",
+        "secretStored": "Opgeslagen — laat leeg om te behouden",
+        "clientSecretHint": "Wordt versleuteld opgeslagen. Laat leeg voor een publieke client.",
+        "scopes": "Scopes",
+        "allowedDomains": "Toegestane e-maildomeinen",
+        "allowedDomainsHint": "Eén per regel. Leeg staat elk geverifieerd adres toe dat bij een bestaand account hoort.",
+        "mfaAmr": "amr-waarden die als MFA tellen",
+        "mfaAcr": "acr-waarden die als MFA tellen",
+        "mfaHint": "Bewijst het ID-token van de provider een van deze waarden, dan telt de login als tweestapsverificatie. Anders wordt mensen die hier een eigen tweede factor hebben daar ook om gevraagd.",
+        "remove": "Provider verwijderen",
+        "add": "Provider toevoegen"
       }
     }
   },
@@ -4441,12 +4619,8 @@
       "scope": "Back-upbereik",
       "scopeSite": "Alleen huidige site",
       "scopeRoot": "Hoofdsite",
-      "scopeNetwork": "Hoofdsite en alle subsites",
-      "scopeNetworkHint": "Maakt één archief met de hoofdsite en iedere subsite in de werkruimte, inclusief sites met een aparte database.",
-      "networkSites": "Netwerkarchief: {{count}} sites",
-      "networkContent": "inhoudsitems",
-      "networkMedia": "mediabestanden",
-      "networkRestoreWarning": "Netwerkherstel vereist een schone installatie met alleen de hoofdsite. Controleer deze siteadressen vóór herstel.",
+      "scopeNetwork": "Hoofdsite en alle subsites (één bestand)",
+      "scopeNetworkHint": "Maakt één archief met de hoofdsite en iedere subsite in de werkruimte, ook sites met een aparte database. Zet het terug op een schone installatie om het hele netwerk opnieuw op te bouwen.",
       "scopeSubsites": "Subsites (aparte bestanden)",
       "scopeSubsitesHint": "Maakt voor iedere subsite een apart .jfbackup-bestand. Herstel elk bestand naar de bijbehorende subsite.",
       "restoreTarget": "Herstellen naar",
@@ -4511,7 +4685,75 @@
       "secureFtp": "Veilige FTP (FTPS) vereisen",
       "s3Endpoint": "S3-endpoint (optioneel)",
       "s3Prefix": "S3-mapprefix",
-      "s3PathStyle": "S3-padadressering gebruiken"
+      "s3PathStyle": "S3-padadressering gebruiken",
+      "networkValidTitle": "Integriteit van de netwerkback-up gecontroleerd.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} site",
+        "other": "{site} · {date} · {count} sites"
+      },
+      "networkRecords": "Gegevensrecords: {count}",
+      "networkHostname": "Adres voor {site}",
+      "networkRootHostnameHint": "De hoofdsite houdt het adres van deze installatie.",
+      "networkBlockedNotClean": {
+        "one": "Een netwerkherstel heeft een schone installatie nodig. Deze werkruimte heeft al {count} subsite.",
+        "other": "Een netwerkherstel heeft een schone installatie nodig. Deze werkruimte heeft al {count} subsites."
+      },
+      "networkBlockedMultisite": "Zet multisite aan (JF_MULTISITE=true) en herstart voordat je subsites terugzet.",
+      "networkBlockedOperator": "Alleen een platformbeheerder kan een netwerk met subsites terugzetten.",
+      "networkRestoreHint": "De hoofdsite wordt eerst teruggezet. Nieuwe subsites blijven offline tot alle sites zijn teruggezet. Mislukt een stap of annuleer je, dan worden de nieuwe subsites verwijderd en wordt de hoofdsite teruggezet zoals hij was.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Netwerk terugzetten",
+      "networkRestoring": "Netwerk terugzetten…",
+      "networkRestoreComplete": {
+        "one": "Netwerk teruggezet: {count} site. Laad de beheeromgeving opnieuw om hem te zien.",
+        "other": "Netwerk teruggezet: {count} sites. Laad de beheeromgeving opnieuw om ze te zien."
+      },
+      "passphrase": "Wachtwoordzin voor de back-up",
+      "passphraseRepeat": "Herhaal de wachtwoordzin",
+      "passphraseHint": "De back-up wordt met deze wachtwoordzin versleuteld, omdat hij wachtwoorden, sleutels en alle sitegegevens bevat. Bewaar hem in een wachtwoordbeheerder: zonder kun je de back-up niet terugzetten.",
+      "passphraseTooShort": "Gebruik minstens {count} tekens.",
+      "passphraseMismatch": "De wachtwoordzinnen komen niet overeen.",
+      "cancelling": "Annuleren…",
+      "restoreTitle": "Een back-up terugzetten",
+      "restorePassphrase": "Wachtwoordzin van het back-upbestand",
+      "restorePassphraseHint": "Vul hem in voordat je het bestand kiest. Back-ups uit Justflows 0.4 hebben geen wachtwoordzin.",
+      "schedulePassphrase": "Wachtwoordzin voor automatische back-ups",
+      "schedulePassphraseHint": "Wordt versleuteld op deze server bewaard. Laat leeg om de opgeslagen wachtwoordzin te houden.",
+      "legacyHint": "Deze back-up komt uit Justflows 0.4. Inhoud, instellingen en media worden teruggezet, maar geen accounts, plugingegevens of pakketten.",
+      "packagesSummary": "Pakketten in de back-up, die opnieuw worden gecontroleerd voordat ze worden geïnstalleerd: {list}",
+      "unsigned": "niet ondertekend",
+      "usersSummary": {
+        "one": "{count} account",
+        "other": "{count} accounts"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} pluginrecord",
+        "other": "{count} pluginrecords"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} opgeslagen geheim kon bij het maken van de back-up niet worden gelezen en wordt leeg teruggezet.",
+        "other": "{count} opgeslagen geheimen konden bij het maken van de back-up niet worden gelezen en worden leeg teruggezet."
+      },
+      "primaryAddress": "Adres",
+      "extraAddress": "Dit adres ook terugzetten",
+      "addAddress": "Dit adres aan de hoofdsite toevoegen",
+      "siteDatabase": "Database",
+      "dbWorkspace": "Database van de werkruimte",
+      "dbFromBackup": "Zoals in de back-up: {target}",
+      "dbCustom": "Een andere database",
+      "dbSite": "De database van de site",
+      "pluginDatabase": "Database van plugin {plugin}",
+      "dbDriver": "Type database",
+      "dbHost": "Host",
+      "dbPort": "Poort",
+      "dbName": "Databasenaam",
+      "dbUser": "Gebruikersnaam",
+      "networkBlockedNotRoot": "Zet een netwerkback-up terug vanaf de hoofdsite van de installatie.",
+      "unavailableExtensions": "Niet op deze server geïnstalleerd, dus uitgeschakeld teruggezet: {list}. Installeer ze en zet ze daarna aan.",
+      "networkSites": "Netwerkarchief: {{count}} sites",
+      "networkContent": "inhoudsitems",
+      "networkMedia": "mediabestanden",
+      "networkRestoreWarning": "Netwerkherstel vereist een schone installatie met alleen de hoofdsite. Controleer deze siteadressen vóór herstel."
     },
     "performance": {
       "loadFailed": "Prestatie-instellingen konden niet worden geladen",
@@ -5530,7 +5772,8 @@
     "featureCustomDomains": "Eigen domeinen",
     "featureManagedDns": "DNS-hosting",
     "featureOwnMail": "Eigen e-mailinstellingen",
-    "meterCustomDomains": "Gekoppelde domeinen"
+    "meterCustomDomains": "Gekoppelde domeinen",
+    "featureCustomCode": "Eigen code"
   },
   "signup": {
     "title": "Maak je site aan",

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "ignore": [
+    {
+      "rule": "JF-P001",
+      "file": "src/index.ts",
+      "reason": "registerAccountExample is an opt-in example; activate() does not call it. Add users:read before using it."
+    },
+    {
+      "rule": "JF-P001",
+      "file": "src/search-backend-example.ts",
+      "reason": "Opt-in example; activate() does not register it. Add content:read before using it."
+    },
+    {
+      "rule": "JF-P001",
+      "file": "src/visibility-rule-example.ts",
+      "reason": "Opt-in example; activate() does not register it. Add content:read before using it."
+    },
+    {
+      "rule": "JF-S002",
+      "file": "src/styles.ts",
+      "reason": "Reads the plugin's own stylesheet from its package folder."
+    }
+  ]
+}

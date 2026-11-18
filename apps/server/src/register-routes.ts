@@ -59,6 +59,8 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
     startExtensionAutoUpdateJob();
     const { startAdvisoryRefreshJob } = await import("./lib/security/security-advisories.js");
     await startAdvisoryRefreshJob();
+    const { startPluginTrustJobs } = await import("./lib/extensions/plugin-trust.js");
+    await startPluginTrustJobs();
     const { startTrashPurgeJob } = await import("./lib/content/trash.js");
     startTrashPurgeJob();
     const { startInboundMailJob } = await import("./lib/email/inbound-imap.js");
@@ -269,6 +271,7 @@ export async function registerDeferredRoutes(app: express.Application): Promise<
   app.use("/api/diagnostics", requireInstalled, diagnosticsRoutes);
   app.use("/api/backups", requireInstalled, backupRoutes);
   app.use("/api/cookies", requireInstalled, cookiesRoutes);
+  app.use("/api/custom-code", requireInstalled, requireSiteFeature("feature.customCode"), (await import("./routes/settings/custom-code.js")).default);
   app.use("/api/roles", requireInstalled, rolesRoutes);
   app.use("/api/cdn", requireInstalled, requireSiteFeature("feature.cdn"), (await import("./routes/settings/cdn.js")).default);
   app.use("/api/storage", requireInstalled, (await import("./routes/settings/storage.js")).default);

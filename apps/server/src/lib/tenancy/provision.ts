@@ -594,6 +594,8 @@ export async function createAdditionalSite(input: {
   /** Copy this administrator of another site in the workspace instead of creating a new one. */
   adminFrom?: { siteId: string; userId: string };
   actorId: string;
+  /** Create the site offline ("provisioning"), so it never serves until the caller activates it. */
+  initialStatus?: "active" | "provisioning";
 }): Promise<ProvisionResult> {
   const db = await getControlDb();
   const tenants = await db.query<{ id: string; user_mode: string; database_mode: string; status: string; name: string; slug: string }>(
@@ -649,10 +651,11 @@ export async function createAdditionalSite(input: {
   const stamp = now();
   const siteUrl = `https://${hostname}`;
   const domainKind = siteDomainKind(hostname, await platformBaseDomain());
+  const offline = input.initialStatus === "provisioning";
   await db.run(
     `INSERT INTO sites (id, name, url, description, active, installed_at, created_at, updated_at, tenant_id, status, database_choice)
-     VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, 'active', ?)`,
-    [siteId, input.name, siteUrl, true, stamp, stamp, stamp, input.tenantId, input.databaseChoice],
+     VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+    [siteId, input.name, siteUrl, !offline, stamp, stamp, stamp, input.tenantId, offline ? "provisioning" : "active", input.databaseChoice],
   );
   await db.run(
     `INSERT INTO site_domains (id, site_id, hostname, kind, verified, is_primary, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,

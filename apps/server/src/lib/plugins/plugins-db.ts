@@ -6,6 +6,7 @@ import { isDuplicateKeyError } from "./plugin-row-sql.js";
 import { getJfRoot } from "../runtime/jf-root.js";
 import { runAllMigrations } from "../database/run-migrations.js";
 import { getSiteId } from "../themes/themes-db.js";
+import { PACKAGE_RECORDED_AT_KEY } from "../extensions/plugin-trust.js";
 
 export interface PluginRow {
   id: string;
@@ -254,6 +255,12 @@ export async function syncBundledPlugins(siteId: string): Promise<void> {
       }
       // package.json stubs have no settingsSchema; only refresh from justflows.json.
       if (!fs.existsSync(path.join(pluginPath, "justflows.json"))) continue;
+      /** A changed version is a new package; otherwise keep what the row had, not what the disk says. */
+      const nextVersion = String(manifest.version ?? existing.version);
+      const recorded = existing.manifest[PACKAGE_RECORDED_AT_KEY];
+      if (nextVersion !== existing.version) manifest[PACKAGE_RECORDED_AT_KEY] = now();
+      else if (typeof recorded === "string") manifest[PACKAGE_RECORDED_AT_KEY] = recorded;
+      else delete manifest[PACKAGE_RECORDED_AT_KEY];
       await db.run(
         `UPDATE plugins SET version = ?, manifest = ?, updated_at = ? WHERE site_id = ? AND plugin_id = ?`,
         [String(manifest.version ?? existing.version), JSON.stringify(manifest), now(), siteId, pluginId],
@@ -271,7 +278,7 @@ export async function syncBundledPlugins(siteId: string): Promise<void> {
           siteId,
           pluginId,
           String(manifest.version ?? "1.0.0"),
-          JSON.stringify(manifest),
+          JSON.stringify({ ...manifest, [PACKAGE_RECORDED_AT_KEY]: now() }),
           JSON.stringify([]),
           now(),
           now(),
@@ -300,6 +307,11 @@ export async function insertPlugin(
     version: string;
     manifest: Record<string, unknown>;
     status?: PluginRow["status"];
+    /**
+     * A subsite copy of the main site's row keeps that row's trust marker,
+     * present or absent, so the copy has the same legacy state as its source.
+     */
+    copyOfInstalledRow?: boolean;
   },
 ): Promise<PluginDto> {
   const db = await getDb();
@@ -311,6 +323,8 @@ export async function insertPlugin(
   }
   const status = existing?.status ?? plugin.status ?? "installed";
   const stamp = now();
+  /** Every package written from now on is outside legacy trust (justflows-ce#270). */
+  if (!plugin.copyOfInstalledRow) plugin = { ...plugin, manifest: { ...plugin.manifest, [PACKAGE_RECORDED_AT_KEY]: stamp } };
 
   if (existing) {
     await db.run(
@@ -380,6 +394,9 @@ export async function mergeLoadedPluginManifest(
   if (typeof existing.manifest.bundledPath === "string") {
     manifest.bundledPath = existing.manifest.bundledPath;
   }
+  /** The loaded module cannot set or clear the trust marker. */
+  if (typeof existing.manifest[PACKAGE_RECORDED_AT_KEY] === "string") manifest[PACKAGE_RECORDED_AT_KEY] = existing.manifest[PACKAGE_RECORDED_AT_KEY];
+  else delete manifest[PACKAGE_RECORDED_AT_KEY];
   const version = typeof loaded.version === "string" ? loaded.version : existing.version;
   const db = await getDb();
   await db.run(

@@ -34,6 +34,10 @@ export const AUDIT_ACTIONS = [
   "auth.2fa_enabled",
   "auth.2fa_disabled",
   "auth.passkey_registered",
+  "auth.identity_linked",
+  "auth.identity_unlinked",
+  "security.mfa_policy_changed",
+  "security.oidc_providers_changed",
   "auth.passkey_renamed",
   "auth.passkey_revoked",
   "auth.recovery_codes_regenerated",
@@ -72,6 +76,9 @@ export const AUDIT_ACTIONS = [
   "extension.auto_update_toggled",
   "extension.auto_update_skipped",
   "extension.auto_update_failed",
+  "extension.trust_changed",
+  "extension.operator_trusted",
+  "extension.operator_untrusted",
   "css_provider.installed",
   "css_provider.activated",
   "core.updated",
@@ -165,6 +172,9 @@ export const AUDIT_ACTIONS = [
   "backup.delivered",
   "backup.schedule_changed",
   "backup.schedule_started",
+  "backup.network_restored",
+  "custom_code.changed",
+  "custom_code.safe_mode",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -188,6 +198,7 @@ export const SECURITY_AUDIT_ACTIONS = AUDIT_ACTIONS.filter((action) =>
   || action.startsWith("cdn.")
   || action.startsWith("storage.")
   || action.startsWith("domain.")
+  || action.startsWith("custom_code.")
   || action === "workspace.owner_updated"
   || action === "site.owner_updated"
   || action === "public_api.toggled"

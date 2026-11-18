@@ -24,6 +24,7 @@ COPY packages/content/package.json     ./packages/content/
 COPY packages/blocks/package.json      ./packages/blocks/
 COPY packages/media/package.json       ./packages/media/
 COPY packages/installer/package.json   ./packages/installer/
+COPY packages/check/package.json       ./packages/check/
 COPY packages/updater/package.json     ./packages/updater/
 COPY packages/plugin-api/package.json  ./packages/plugin-api/
 COPY packages/jobs/package.json        ./packages/jobs/
@@ -40,6 +41,7 @@ COPY migrations/ ./migrations/
 
 RUN pnpm --filter @justflows/blocks build && \
     pnpm --filter @justflows/installer build && \
+    pnpm --filter @justflows/check build && \
     pnpm --filter @justflows/server build
 
 # ── Production image ──────────────────────────────────────────────────────────

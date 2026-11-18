@@ -12,7 +12,7 @@ const ROUTES = [
   "/admin/design", "/admin/menus", "/admin/users", "/admin/settings", "/admin/settings/api", "/admin/comments",
   "/admin/marketplace", "/admin/tools", "/admin/health", "/admin/updates", "/admin/languages",
   "/admin/security", "/admin/security/web-server", "/admin/security/integrity", "/admin/security/header-grade", "/admin/security/headers", "/admin/security/advanced",
-  "/admin/security/account", "/admin/security/audit", "/admin/security/audit/settings", "/admin/reports",
+  "/admin/users/me", "/admin/security/audit", "/admin/security/audit/settings", "/admin/reports",
   "/admin/plugins/justflows.store", "/admin/plugins/justflows.store/products",
 ];
 

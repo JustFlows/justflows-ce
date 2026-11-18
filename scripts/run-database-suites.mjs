@@ -33,7 +33,11 @@ const BUILDER_FILES = [
   "tests/integration/database/builder-journeys-db.integration.test.ts",
 ];
 
-/** [name, flag, database, test file]. Database names are fixed by each suite's own guard. */
+/**
+ * [name, flag, database, test file, extra databases]. Database names are fixed
+ * by each suite's own guard. Extra databases are created next to the main one
+ * and passed to the suite as `<flag>_EXTRA` (comma-separated).
+ */
 export const SUITES = [
   ["security-migrations", "SECURITY_TEST_DATABASE", "security_test", "tests/integration/database/security-migrations-db.integration.test.ts"],
   ["job-queue", "JOB_QUEUE_TEST_DATABASE", "job_queue_test", "tests/integration/database/job-queue-db.integration.test.ts"],
@@ -46,6 +50,7 @@ export const SUITES = [
   ["search", "SEARCH_TEST_DATABASE", "search_test", "tests/integration/database/search-db.integration.test.ts"],
   ["agent-isolation", "AGENT_ISOLATION_TEST_DATABASE", "isolation_test", "tests/integration/database/agent-isolation-db.integration.test.ts"],
   ["ai-byok", "AI_TEST_DATABASE", "ai_test", "tests/integration/database/ai-byok-migration.integration.test.ts"],
+  ["backup", "BACKUP_TEST_DATABASE", "backup_test", "tests/integration/database/backup-restore-db.integration.test.ts", ["backup_test_site_a", "backup_test_site_b"]],
 ];
 
 const env = process.env;
@@ -85,16 +90,22 @@ async function createDatabases(names) {
   await conn.end();
 }
 
-await createDatabases([...new Set(suites.map(([, , db]) => db))]);
+await createDatabases([...new Set(suites.flatMap(([, , db, , extra]) => [db, ...(extra ?? [])]))]);
 
 const failures = [];
-for (const [name, flag, database, file] of suites) {
+for (const [name, flag, database, file, extra] of suites) {
   /** The builder suites share one flag and database. */
   const files = name === "builder" ? BUILDER_FILES.filter((f) => existsSync(path.join(root, "apps/server", f))) : [file];
   console.log(`\n▶ ${name} on ${driver} (${database})`);
   const run = spawnSync("pnpm", ["--filter", "@justflows/server", "exec", "vitest", "run", ...files], {
     cwd: root,
-    env: { ...env, [flag]: "1", DB_NAME: database, DB_DRIVER: driver === "mariadb" ? "mariadb" : driver },
+    env: {
+      ...env,
+      [flag]: "1",
+      ...(extra?.length ? { [`${flag}_EXTRA`]: extra.join(",") } : {}),
+      DB_NAME: database,
+      DB_DRIVER: driver === "mariadb" ? "mariadb" : driver,
+    },
     encoding: "utf8",
   });
   /** CI prints colours; the counts are read from the plain text. */

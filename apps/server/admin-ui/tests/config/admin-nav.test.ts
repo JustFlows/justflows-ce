@@ -91,14 +91,23 @@ describe("canAccessPath", () => {
 
   it("hides an admin path when the website turned that feature off", () => {
     expect(canAccessPath("administrator", "/admin/comments", { disabledPaths: ["/admin/comments"] })).toBe(false);
-    expect(canAccessPath("administrator", "/admin/security/account", { disabledPaths: ["/admin/security/headers"] })).toBe(true);
+    expect(canAccessPath("administrator", "/admin/users/me", { disabledPaths: ["/admin/security/headers"] })).toBe(true);
     expect(canAccessPath("administrator", "/admin/security/headers", { disabledPaths: ["/admin/security/headers"] })).toBe(false);
   });
 
-  it("leaves the Security > Account page open to every admin-eligible role", () => {
+  it("leaves Users > Your account open to every admin-eligible role, and the old address too", () => {
     for (const role of ["administrator", "editor", "author", "contributor"]) {
+      expect(canAccessPath(role, "/admin/users/me")).toBe(true);
       expect(canAccessPath(role, "/admin/security/account")).toBe(true);
     }
+    expect(canAccessPath("author", "/admin/users")).toBe(false);
+    expect(canAccessPath("author", "/admin/users/some-other-user")).toBe(false);
+  });
+
+  it("puts Your account in the Users menu, alone for roles that cannot list users", () => {
+    const users = (role: string) => filterDomainsByRole(ADMIN_NAV_DOMAINS, role).find((domain) => domain.slug === "users");
+    expect(users("administrator")?.items.map((item) => item.to)).toEqual(["/admin/users", "/admin/users/me", "/admin/data-requests"]);
+    expect(users("author")?.items.map((item) => item.to)).toEqual(["/admin/users/me"]);
   });
 
   it("hides installation pages from a site that is not the main site", () => {
@@ -112,7 +121,7 @@ describe("canAccessPath", () => {
     expect(canAccessPath("administrator", "/admin/platform/sites/site-a", { installationRoot: true, platformOperator: true })).toBe(true);
     expect(canAccessPath("administrator", "/admin/settings", site)).toBe(true);
     expect(canAccessPath("administrator", "/admin/tools", site)).toBe(true);
-    expect(canAccessPath("administrator", "/admin/security/account", site)).toBe(true);
+    expect(canAccessPath("administrator", "/admin/users/me", site)).toBe(true);
     const filtered = filterDomainsByRole(ADMIN_NAV_DOMAINS, "administrator", site);
     const paths = filtered.flatMap((domain) => domain.items.map((item) => item.to));
     expect(paths).not.toContain("/admin/updates");
@@ -372,10 +381,10 @@ describe("security feature navigation", () => {
     ] };
     expect(canAccessPath("administrator", "/admin/security", audience)).toBe(true);
     expect(canAccessPath("administrator", "/admin/security/header-grade", audience)).toBe(false);
-    expect(canAccessPath("administrator", "/admin/security/account", audience)).toBe(true);
+    expect(canAccessPath("administrator", "/admin/users/me", audience)).toBe(true);
     const security = filterDomainsByRole(ADMIN_NAV_DOMAINS, "administrator", audience)
       .find((domain) => domain.slug === "security");
-    expect(security?.items.map((item) => item.to)).toEqual(["/admin/security", "/admin/security/passkeys", "/admin/security/account"]);
+    expect(security?.items.map((item) => item.to)).toEqual(["/admin/security", "/admin/security/passkeys", "/admin/security/custom-code", "/admin/security/sign-in"]);
   });
 
   it("keeps overview when headers are allowed", () => {

@@ -220,7 +220,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     siteId = null;
   }
 
-  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity, backup] = await Promise.all([
+  const [mfa, sessions, apiKeys, headers, auditAvailable, integrity, backup, pluginTrust] = await Promise.all([
     siteId ? readAdminMfa(siteId) : Promise.resolve({ state: "unknown" } as const),
     siteId ? readSessions(siteId) : Promise.resolve({ state: "unknown" } as const),
     siteId ? readApiKeys(siteId) : Promise.resolve({ state: "unknown" } as const),
@@ -230,6 +230,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
       : Promise.resolve(false),
     installationRoot ? readIntegrity() : Promise.resolve({ state: "unknown" } as const),
     installationRoot ? readBackup() : Promise.resolve({ state: "unknown" } as const),
+    siteId ? readPluginTrust(siteId) : Promise.resolve({ state: "unknown" } as const),
   ]);
 
   const advisories: SecurityCenterFacts["advisories"] =
@@ -255,6 +256,7 @@ export async function loadSecurityCenter(): Promise<SecurityCenterReport> {
     headers,
     auditAvailable,
     integrity,
+    pluginTrust,
     backup,
   };
   return securityCenterReport(facts);
@@ -273,6 +275,25 @@ async function readBackup(): Promise<SecurityCenterFacts["backup"]> {
       lastFinishedAt: schedule.lastFinishedAt,
       nextRunAt: schedule.nextRunAt,
       destination: schedule.destination,
+    };
+  } catch {
+    return { state: "unknown" };
+  }
+}
+
+async function readPluginTrust(siteId: string): Promise<SecurityCenterFacts["pluginTrust"]> {
+  try {
+    const { getPluginTrustPolicy, legacyDeadline, listPluginTrust, loadAttestationFeed, pluginSandboxMode } = await import("../extensions/plugin-trust.js");
+    const [rows, policy, feed] = await Promise.all([listPluginTrust(siteId), getPluginTrustPolicy(), loadAttestationFeed()]);
+    const count = (state: string) => rows.filter((item) => item.state === state).length;
+    return {
+      state: "known",
+      verified: count("verified"),
+      operator: count("operator"),
+      legacy: count("legacy"),
+      unverified: count("unverified"),
+      legacyUntil: legacyDeadline(policy),
+      live: feed.state !== "unavailable" || pluginSandboxMode() === "on",
     };
   } catch {
     return { state: "unknown" };

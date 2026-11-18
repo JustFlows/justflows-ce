@@ -21,6 +21,7 @@
     "widgets": "Widgets",
     "menus": "Menüs",
     "users": "Benutzer",
+    "usersAccount": "Ihr Konto",
     "settings": "Einstellungen",
     "emails": "E-Mails",
     "comments": "Kommentare",
@@ -57,7 +58,9 @@
     "storage": "Speicher",
     "taxonomies": "Kategorien & Schlagwörter",
     "securityPasskeys": "Passkeys",
-    "dataRequests": "Datenanfragen"
+    "dataRequests": "Datenanfragen",
+    "securityCustomCode": "Eigener Code",
+    "securitySignIn": "Anmeldung"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -234,7 +237,42 @@
     "installedHeading": "Installierte Plugins ({count})",
     "deactivateSiteConfirm": "„{name}“ auf dieser Website ausschalten? Wenn die Löscheinstellungen aktiv sind, werden die Plugin-Daten, Seiten und Beiträge dieser Website entfernt. Tabellen bleiben für andere Websites erhalten.",
     "deactivateFailed": "Das Plugin konnte nicht ausgeschaltet werden.",
-    "activateFailed": "Das Plugin konnte nicht eingeschaltet werden."
+    "activateFailed": "Das Plugin konnte nicht eingeschaltet werden.",
+    "check": "Prüfen",
+    "checking": "Wird geprüft…",
+    "checkHint": "Die Erweiterungsprüfung auf die installierten Dateien dieses Plugins anwenden",
+    "checkClean": "Die Erweiterungsprüfung hat keine Probleme gefunden.",
+    "checkSummary": "Erweiterungsprüfung: {errors} Fehler, {warnings} Warnungen, {notes} Hinweise",
+    "checkFailed": "Das Plugin konnte nicht geprüft werden",
+    "checkHelp": "Details",
+    "trust": {
+      "states": {
+        "verified": "Von Justflows verifiziert",
+        "operator": "Von Ihnen vertraut",
+        "legacy": "Übergangsvertrauen",
+        "unverified": "Nicht verifiziert"
+      },
+      "reasons": {
+        "attested": "Genau diese Version hat die Prüfung durch Justflows bestanden. Das ist keine Garantie für Sicherheit.",
+        "operatorTrusted": "Sie haben genau diesem Build auf dieser Website vertraut.",
+        "legacy": "Installiert, bevor es Vertrauensstufen gab. Es läuft bis {date} wie bisher weiter.",
+        "revoked": "Justflows hat diese Version zurückgezogen. Aktualisieren oder entfernen Sie sie.",
+        "noDigest": "Aus dem Quellcode installiert, daher gibt es kein Paket zum Verifizieren.",
+        "noAttestation": "Justflows hat diese Version nicht verifiziert.",
+        "attestationsUnavailable": "Die Verifizierungsliste konnte nicht geprüft werden, daher gilt nichts als verifiziert.",
+        "legacyExpired": "Das Übergangsvertrauen endete am {date}, und Justflows hat diese Version nicht verifiziert."
+      },
+      "trust": "Diesem Build vertrauen",
+      "untrust": "Diesem Build nicht mehr vertrauen",
+      "trustHint": "Nur für Code, den Sie selbst geschrieben oder geprüft haben. Vertraut wird genau dem Paket unten, nicht späteren Updates. Sobald die Plugin-Sandbox verfügbar ist, läuft ein vertrauter Build außerhalb davon.",
+      "untrustHint": "Das Plugin gilt wieder als nicht verifiziert.",
+      "password": "Ihr Passwort",
+      "trustConfirm": "Diesem Build vertrauen",
+      "untrustConfirm": "Nicht mehr vertrauen",
+      "failed": "Die Vertrauenseinstellung konnte nicht geändert werden.",
+      "sandboxed": "Läuft in der Plugin-Sandbox, mit eingeschränktem Zugriff auf die Website.",
+      "notLoaded": "Nicht geladen: Die Node.js-Version dieses Servers kann die Plugin-Sandbox nicht ausführen."
+    }
   },
   "content": {
     "accountNotice": "Kontoseiten erfordern eine Anmeldung. Justflows schließt sie von Caches, Exporten, öffentlichen Suchergebnissen und Sitemaps aus.",
@@ -2398,7 +2436,10 @@
       "recoveryLabel": "Wiederherstellungscode",
       "recoveryHint": "Ihre Rolle meldet sich mit einem Passkey an. Falls Sie ihn verloren haben, geben Sie einen Ihrer Wiederherstellungscodes ein.",
       "or": "oder",
-      "passkeyHint": "Mit Fingerabdruck, Gesicht, Bildschirmsperre oder einem Sicherheitsschlüssel."
+      "passkeyHint": "Mit Fingerabdruck, Gesicht, Bildschirmsperre oder einem Sicherheitsschlüssel.",
+      "continueWith": "Weiter mit {name}",
+      "federatedFailed": "Die Single Sign-on-Anmeldung hat nicht funktioniert. Versuchen Sie es erneut oder melden Sie sich mit Ihrem Passwort an.",
+      "federatedStepUp": "Ihr Anmeldeanbieter hat Ihre Identität bestätigt. Schließen Sie die Anmeldung mit Ihrem eigenen zweiten Faktor ab."
     },
     "passwordLabel": "Passwort",
     "signInCta": "Anmelden →",
@@ -3304,6 +3345,17 @@
           "lastFailed": "Das letzte automatische Backup nach {destination} ist fehlgeschlagen.",
           "overdue": "Automatische Backups nach {destination} laufen nicht mehr nach Plan.",
           "remediation": "Planen Sie unter Tools Backups an ein externes Ziel, und üben Sie eine Wiederherstellung auf einer isolierten Installation."
+        },
+        "extensionsTrust": {
+          "title": "Plugin-Verifizierung",
+          "unavailable": "Die Vertrauensstufen der Plugins konnten nicht gelesen werden.",
+          "clear": "Jedes Plugin auf dieser Website ist von Justflows verifiziert oder von Ihnen vertraut. Verifiziert ist ein Prüfergebnis, keine Garantie für Sicherheit.",
+          "unverified": "Plugins, die weder von Justflows verifiziert noch von Ihnen vertraut sind: {unverified}.",
+          "legacy": "Plugins mit Übergangsvertrauen: {legacy}, bis {legacyUntil}.",
+          "remediationUnavailable": "Öffnen Sie Plugins und prüfen Sie erneut.",
+          "remediationClear": "Prüfen Sie erneut, nachdem Sie ein Plugin installiert oder aktualisiert haben.",
+          "remediationUnverified": "Ersetzen Sie sie durch verifizierte Versionen, entfernen Sie sie oder vertrauen Sie Ihrem eigenen Build auf einer einzelnen selbst gehosteten Website. Derzeit läuft jedes Plugin noch mit vollem Zugriff auf die Website.",
+          "remediationLegacy": "Aktualisieren Sie vor diesem Datum auf eine verifizierte Version oder vertrauen Sie Ihrem eigenen Build. Derzeit läuft jedes Plugin noch mit vollem Zugriff auf die Website."
         }
       }
     },
@@ -3432,6 +3484,20 @@
           "regenerateHint": "Neue Codes ersetzen alle unbenutzten.",
           "error": "Es konnten keine neuen Wiederherstellungscodes erstellt werden."
         }
+      },
+      "mfaRequired": {
+        "title": "Zwei-Faktor-Authentifizierung einschalten",
+        "body": "Ihre Rolle muss auf dieser Website eine Authenticator-App oder einen Passkey verwenden. Bis Sie einen hinzufügen, ist der Rest der Verwaltung nicht verfügbar.",
+        "action": "Jetzt einrichten"
+      },
+      "identities": {
+        "title": "Single Sign-on",
+        "intro": "Mit Ihrem Konto verknüpfte Anmeldeanbieter. Das Trennen entfernt die Verknüpfung; bei der nächsten Anmeldung über diesen Anbieter wird sie erneut angelegt, wenn Ihre bestätigte Adresse noch übereinstimmt.",
+        "linked": "verknüpft {date}",
+        "lastUsed": "zuletzt verwendet {date}",
+        "unlink": "Trennen",
+        "unlinked": "Getrennt.",
+        "unlinkError": "Die Verknüpfung konnte nicht getrennt werden."
       }
     },
     "adminPath": {
@@ -3804,6 +3870,118 @@
         "extraOriginsHint": "Ein https-Origin pro Zeile, etwa https://www.example.com. Jeder muss innerhalb der RP-ID liegen.",
         "warnTitle": "Eine geänderte RP-ID macht vorhandene Passkeys unbrauchbar",
         "warn": "Ein Passkey gehört zu der RP-ID, für die er erstellt wurde. Nach einer Änderung melden sich Personen mit Passwort und Wiederherstellungscode an und fügen dann einen neuen Passkey hinzu."
+      }
+    },
+    "customCode": {
+      "title": "Eigener Code",
+      "subtitle": "Fügen Sie Analytics, Widgets und andere Skripte zu Ihren öffentlichen Seiten hinzu, website-weit oder auf ausgewählten Seiten. Nur wer eigenen Code verwalten darf, kann diese Seite öffnen.",
+      "loadFailed": "Eigener Code konnte nicht geladen werden",
+      "saveFailed": "Eigener Code konnte nicht gespeichert werden",
+      "disabledByEnvironment": "Eigener Code ist auf dieser Installation ausgeschaltet (JF_CUSTOM_CODE=off). Nichts hier läuft, bis diese Einstellung entfernt ist.",
+      "safeModeConfirm": "Jetzt allen eigenen Code auf allen Seiten ausschalten?",
+      "safeMode": {
+        "title": "Sicherer Modus",
+        "on": "Sicheren Modus einschalten",
+        "off": "Sicheren Modus ausschalten",
+        "active": "Der sichere Modus ist an: auf keiner Seite läuft eigener Code. Ihre Snippets bleiben erhalten.",
+        "hint": "Wenn ein Snippet die Website beschädigt, schaltet der sichere Modus alle Snippets auf einmal aus, ohne sie zu löschen."
+      },
+      "snippets": {
+        "title": "Snippets",
+        "add": "Snippet hinzufügen",
+        "hint": "Diese Installation läuft als \"{environment}\". Ein auf andere Umgebungen beschränktes Snippet läuft hier nicht.",
+        "empty": "Noch kein eigener Code."
+      },
+      "snippet": {
+        "enabled": "An",
+        "untitled": "Unbenanntes Snippet",
+        "close": "Schließen",
+        "edit": "Bearbeiten",
+        "name": "Name",
+        "kind": "Art",
+        "placement": "Position auf der Seite",
+        "consent": "Einwilligung",
+        "consentHint": "Ein Snippet, das eine Einwilligung braucht, wartet, bis der Besucher im Cookie-Banner zustimmt. Ohne installiertes Einwilligungstool läuft es nie.",
+        "library": "Dienst",
+        "optional": "optional",
+        "src": "Skript-URL",
+        "script": "JavaScript",
+        "markup": "Markup",
+        "scriptHint": "Nur JavaScript, ohne <script>-Tags. Es wird über seinen genauen Hash in der Content Security Policy erlaubt.",
+        "markupHint": "Meta-Tags, Pixel und Frames. Skripte, Stile und Event-Handler werden entfernt.",
+        "scope": "Seiten",
+        "scopeSite": "Jede Seite",
+        "scopePages": "Nur diese Seiten",
+        "environments": "Umgebungen",
+        "environmentsHint": "Leer lassen, um überall zu laufen, oder Umgebungen wie production angeben."
+      },
+      "kinds": {
+        "library": "Aus der Bibliothek",
+        "inline": "Inline-Skript",
+        "external": "Externes Skript",
+        "markup": "Markup"
+      },
+      "placements": {
+        "head": "Head",
+        "bodyStart": "Anfang des Body",
+        "bodyEnd": "Ende des Body"
+      },
+      "consent": {
+        "necessary": "Immer (keine Einwilligung nötig)",
+        "preferences": "Einwilligung Präferenzen",
+        "analytics": "Einwilligung Analytics",
+        "marketing": "Einwilligung Marketing"
+      },
+      "origins": {
+        "title": "Erlaubte Origins",
+        "hint": "Externe Skripte, Pixel und Frames dürfen nur von diesen https-Origins laden, eine pro Zeile (https://cdn.example.com oder https://*.example.com). Sie stehen nur in der Content Security Policy, solange ein Snippet an ist."
+      },
+      "warnings": "Prüfen Sie dies vor dem Speichern:",
+      "history": {
+        "title": "Verlauf",
+        "empty": "Noch keine Änderungen gespeichert.",
+        "entry": "Version {version} · {date}",
+        "hint": "Jede Änderung wird auch im Audit-Log festgehalten, mit dem, was sich geändert hat, und wer sie gemacht hat."
+      }
+    },
+    "signIn": {
+      "title": "Anmeldung",
+      "subtitle": "Wer einen zweiten Faktor verwenden muss und welche Single Sign-on-Anbieter Mitarbeitende nutzen können.",
+      "errors": {
+        "loadFailed": "Die Anmeldeeinstellungen konnten nicht geladen werden.",
+        "saveFailed": "Die Anmeldeeinstellungen konnten nicht gespeichert werden."
+      },
+      "mfa": {
+        "title": "Pflicht zum zweiten Faktor",
+        "hint": "Personen in diesen Rollen müssen eine Authenticator-App oder einen Passkey verwenden. Bis sie einen hinzufügen, können sie nur einen einrichten, ihr Passwort ändern oder sich abmelden.",
+        "legend": "Zweiten Faktor verlangen für",
+        "warnTitle": "Prüfen Sie zuerst Ihr eigenes Konto",
+        "warn": "Konten in diesen Rollen ohne zweiten Faktor verlieren den Zugang zur Verwaltung, bis sie einen hinzufügen. Ihr letzter Faktor kann nicht entfernt werden, solange diese Regel gilt."
+      },
+      "providers": {
+        "title": "Single Sign-on (OpenID Connect)",
+        "hint": "Mitarbeitende können sich über Ihren Identitätsanbieter anmelden. Angemeldet werden nur bestehende Konten: nach der Verknüpfung über die Konto-ID des Anbieters, beim ersten Mal über eine bestätigte E-Mail-Adresse. Es wird niemand angelegt, und die Anmeldung mit Passwort funktioniert weiterhin.",
+        "none": "Noch keine Anbieter.",
+        "newProvider": "Neuer Anbieter",
+        "enabled": "Auf der Anmeldeseite für Mitarbeitende anzeigen",
+        "name": "Beschriftung der Schaltfläche",
+        "nameHint": "Wird als „Weiter mit …“ angezeigt.",
+        "id": "ID",
+        "callback": "Weiterleitungs-URI, die Sie beim Anbieter registrieren:",
+        "issuer": "Issuer-URL",
+        "issuerHint": "Der Issuer des Anbieters; seine /.well-known/openid-configuration wird von hier gelesen. Muss https verwenden.",
+        "clientId": "Client-ID",
+        "clientSecret": "Client-Secret",
+        "secretStored": "Gespeichert – leer lassen, um es zu behalten",
+        "clientSecretHint": "Wird verschlüsselt gespeichert. Für einen öffentlichen Client leer lassen.",
+        "scopes": "Scopes",
+        "allowedDomains": "Zulässige E-Mail-Domains",
+        "allowedDomainsHint": "Eine pro Zeile. Leer erlaubt jede bestätigte Adresse, die zu einem bestehenden Konto passt.",
+        "mfaAmr": "amr-Werte, die als MFA gelten",
+        "mfaAcr": "acr-Werte, die als MFA gelten",
+        "mfaHint": "Belegt das ID-Token des Anbieters einen dieser Werte, gilt die Anmeldung als Zwei-Faktor-Anmeldung. Andernfalls werden Personen, die hier einen eigenen zweiten Faktor haben, zusätzlich danach gefragt.",
+        "remove": "Anbieter entfernen",
+        "add": "Anbieter hinzufügen"
       }
     }
   },
@@ -4444,12 +4622,8 @@
       "scope": "Sicherungsumfang",
       "scopeSite": "Nur aktuelle Website",
       "scopeRoot": "Hauptwebsite",
-      "scopeNetwork": "Hauptwebsite und alle Unterseiten",
-      "scopeNetworkHint": "Erstellt ein Archiv mit allen registrierten Websites, einschließlich Websites mit eigener Datenbank.",
-      "networkSites": "Netzwerkarchiv: {{count}} Websites",
-      "networkContent": "Inhaltselemente",
-      "networkMedia": "Mediendateien",
-      "networkRestoreWarning": "Die Netzwerkwiederherstellung erfordert eine leere Installation nur mit der Hauptwebsite. Prüfen Sie die Adressen vor der Wiederherstellung.",
+      "scopeNetwork": "Hauptwebsite und alle Unterseiten (eine Datei)",
+      "scopeNetworkHint": "Erstellt ein Archiv mit der Hauptwebsite und allen Unterseiten ihres Arbeitsbereichs, auch Websites mit eigener Datenbank. Auf einer leeren Installation wiederhergestellt, entsteht das ganze Netzwerk neu.",
       "scopeSubsites": "Unterseiten (separate Dateien)",
       "scopeSubsitesHint": "Erstellt für jede Unterseite eine eigene .jfbackup-Datei. Stellen Sie jede Datei auf der passenden Unterseite wieder her.",
       "restoreTarget": "Wiederherstellen in",
@@ -4514,7 +4688,75 @@
       "secureFtp": "Sicheres FTP (FTPS) verlangen",
       "s3Endpoint": "S3-Endpunkt (optional)",
       "s3Prefix": "S3-Ordnerpräfix",
-      "s3PathStyle": "S3-Pfadadressierung verwenden"
+      "s3PathStyle": "S3-Pfadadressierung verwenden",
+      "networkValidTitle": "Integrität der Netzwerksicherung geprüft.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} Website",
+        "other": "{site} · {date} · {count} Websites"
+      },
+      "networkRecords": "Datensätze: {count}",
+      "networkHostname": "Adresse für {site}",
+      "networkRootHostnameHint": "Die Hauptwebsite behält die Adresse dieser Installation.",
+      "networkBlockedNotClean": {
+        "one": "Die Netzwerkwiederherstellung braucht eine leere Installation. Dieser Arbeitsbereich hat bereits {count} Unterseite.",
+        "other": "Die Netzwerkwiederherstellung braucht eine leere Installation. Dieser Arbeitsbereich hat bereits {count} Unterseiten."
+      },
+      "networkBlockedMultisite": "Aktivieren Sie Multisite (JF_MULTISITE=true) und starten Sie neu, bevor Sie Unterseiten wiederherstellen.",
+      "networkBlockedOperator": "Nur ein Plattformbetreiber kann ein Netzwerk mit Unterseiten wiederherstellen.",
+      "networkRestoreHint": "Die Hauptwebsite wird zuerst wiederhergestellt. Neue Unterseiten bleiben offline, bis alle Websites wiederhergestellt sind. Schlägt ein Schritt fehl oder brechen Sie ab, werden die neuen Unterseiten entfernt und die Hauptwebsite in ihren vorherigen Zustand zurückversetzt.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Netzwerk wiederherstellen",
+      "networkRestoring": "Netzwerk wird wiederhergestellt…",
+      "networkRestoreComplete": {
+        "one": "Netzwerk wiederhergestellt: {count} Website. Laden Sie die Verwaltung neu, um sie zu sehen.",
+        "other": "Netzwerk wiederhergestellt: {count} Websites. Laden Sie die Verwaltung neu, um sie zu sehen."
+      },
+      "passphrase": "Passphrase der Sicherung",
+      "passphraseRepeat": "Passphrase wiederholen",
+      "passphraseHint": "Die Sicherung wird mit dieser Passphrase verschlüsselt, weil sie Passwörter, Schlüssel und alle Website-Daten enthält. Bewahren Sie sie in einem Passwortmanager auf: Ohne sie lässt sich die Sicherung nicht wiederherstellen.",
+      "passphraseTooShort": "Verwenden Sie mindestens {count} Zeichen.",
+      "passphraseMismatch": "Die Passphrasen stimmen nicht überein.",
+      "cancelling": "Wird abgebrochen…",
+      "restoreTitle": "Sicherung wiederherstellen",
+      "restorePassphrase": "Passphrase der Sicherungsdatei",
+      "restorePassphraseHint": "Geben Sie sie ein, bevor Sie die Datei wählen. Sicherungen aus Justflows 0.4 haben keine Passphrase.",
+      "schedulePassphrase": "Passphrase für automatische Sicherungen",
+      "schedulePassphraseHint": "Wird verschlüsselt auf diesem Server gespeichert. Leer lassen, um die gespeicherte Passphrase zu behalten.",
+      "legacyHint": "Diese Sicherung stammt aus Justflows 0.4. Inhalte, Einstellungen und Medien werden wiederhergestellt, aber keine Konten, Plugin-Daten oder Pakete.",
+      "packagesSummary": "Pakete in der Sicherung, die vor der Installation erneut geprüft werden: {list}",
+      "unsigned": "nicht signiert",
+      "usersSummary": {
+        "one": "{count} Konto",
+        "other": "{count} Konten"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} Plugin-Datensatz",
+        "other": "{count} Plugin-Datensätze"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} gespeichertes Geheimnis konnte beim Erstellen der Sicherung nicht gelesen werden und wird leer wiederhergestellt.",
+        "other": "{count} gespeicherte Geheimnisse konnten beim Erstellen der Sicherung nicht gelesen werden und werden leer wiederhergestellt."
+      },
+      "primaryAddress": "Adresse",
+      "extraAddress": "Diese Adresse ebenfalls wiederherstellen",
+      "addAddress": "Diese Adresse zur Hauptwebsite hinzufügen",
+      "siteDatabase": "Datenbank",
+      "dbWorkspace": "Datenbank des Arbeitsbereichs",
+      "dbFromBackup": "Wie in der Sicherung: {target}",
+      "dbCustom": "Eine andere Datenbank",
+      "dbSite": "Die Datenbank der Website",
+      "pluginDatabase": "Datenbank von Plugin {plugin}",
+      "dbDriver": "Datenbanktyp",
+      "dbHost": "Host",
+      "dbPort": "Port",
+      "dbName": "Datenbankname",
+      "dbUser": "Benutzername",
+      "networkBlockedNotRoot": "Stellen Sie eine Netzwerksicherung von der Hauptwebsite der Installation aus wieder her.",
+      "unavailableExtensions": "Auf diesem Server nicht installiert, daher deaktiviert wiederhergestellt: {list}. Installieren Sie sie und aktivieren Sie sie dann.",
+      "networkSites": "Netzwerkarchiv: {{count}} Websites",
+      "networkContent": "Inhaltselemente",
+      "networkMedia": "Mediendateien",
+      "networkRestoreWarning": "Die Netzwerkwiederherstellung erfordert eine leere Installation nur mit der Hauptwebsite. Prüfen Sie die Adressen vor der Wiederherstellung."
     },
     "performance": {
       "loadFailed": "Die Leistungseinstellungen konnten nicht geladen werden",
@@ -5533,7 +5775,8 @@
     "featureCustomDomains": "Eigene Domains",
     "featureManagedDns": "DNS-Hosting",
     "featureOwnMail": "Eigene E-Mail-Einstellungen",
-    "meterCustomDomains": "Verbundene Domains"
+    "meterCustomDomains": "Verbundene Domains",
+    "featureCustomCode": "Eigener Code"
   },
   "signup": {
     "title": "Erstellen Sie Ihre Website",

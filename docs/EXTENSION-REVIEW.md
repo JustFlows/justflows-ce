@@ -7,8 +7,9 @@ guarantee of safety**. See [extension trust](EXTENSION-TRUST.md).
 ## Automated checks
 
 The registry's quality check runs these on every submission. A failure blocks the
-listing. The planned [plugin and theme quality checker](https://github.com/JustFlows/justflows-ce/issues/97)
-will let authors run the same rules themselves.
+listing. Authors can run the [extension checker](EXTENSION-CHECKER.md) themselves
+with `justflows check`, locally or in CI; its rules are the automated baseline for
+review.
 
 | Requirement            | Checked by                                            |
 | ---------------------- | ----------------------------------------------------- |
