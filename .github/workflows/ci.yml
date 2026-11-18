@@ -152,7 +152,7 @@ jobs:
         run: >-
           node scripts/run-database-suites.mjs
           security-migrations job-queue plugin-rows plugin-schema builder
-          builder-upgrade content-visibility agent-isolation ai-byok
+          builder-upgrade content-visibility agent-isolation ai-byok backup
 
   codeql:
     if: github.base_ref == 'develop' || github.base_ref == 'developers'

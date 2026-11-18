@@ -4444,12 +4444,8 @@
       "scope": "Sicherungsumfang",
       "scopeSite": "Nur aktuelle Website",
       "scopeRoot": "Hauptwebsite",
-      "scopeNetwork": "Hauptwebsite und alle Unterseiten",
-      "scopeNetworkHint": "Erstellt ein Archiv mit allen registrierten Websites, einschließlich Websites mit eigener Datenbank.",
-      "networkSites": "Netzwerkarchiv: {{count}} Websites",
-      "networkContent": "Inhaltselemente",
-      "networkMedia": "Mediendateien",
-      "networkRestoreWarning": "Die Netzwerkwiederherstellung erfordert eine leere Installation nur mit der Hauptwebsite. Prüfen Sie die Adressen vor der Wiederherstellung.",
+      "scopeNetwork": "Hauptwebsite und alle Unterseiten (eine Datei)",
+      "scopeNetworkHint": "Erstellt ein Archiv mit der Hauptwebsite und allen Unterseiten ihres Arbeitsbereichs, auch Websites mit eigener Datenbank. Auf einer leeren Installation wiederhergestellt, entsteht das ganze Netzwerk neu.",
       "scopeSubsites": "Unterseiten (separate Dateien)",
       "scopeSubsitesHint": "Erstellt für jede Unterseite eine eigene .jfbackup-Datei. Stellen Sie jede Datei auf der passenden Unterseite wieder her.",
       "restoreTarget": "Wiederherstellen in",
@@ -4514,7 +4510,71 @@
       "secureFtp": "Sicheres FTP (FTPS) verlangen",
       "s3Endpoint": "S3-Endpunkt (optional)",
       "s3Prefix": "S3-Ordnerpräfix",
-      "s3PathStyle": "S3-Pfadadressierung verwenden"
+      "s3PathStyle": "S3-Pfadadressierung verwenden",
+      "networkValidTitle": "Integrität der Netzwerksicherung geprüft.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} Website",
+        "other": "{site} · {date} · {count} Websites"
+      },
+      "networkRecords": "Datensätze: {count}",
+      "networkHostname": "Adresse für {site}",
+      "networkRootHostnameHint": "Die Hauptwebsite behält die Adresse dieser Installation.",
+      "networkBlockedNotClean": {
+        "one": "Die Netzwerkwiederherstellung braucht eine leere Installation. Dieser Arbeitsbereich hat bereits {count} Unterseite.",
+        "other": "Die Netzwerkwiederherstellung braucht eine leere Installation. Dieser Arbeitsbereich hat bereits {count} Unterseiten."
+      },
+      "networkBlockedMultisite": "Aktivieren Sie Multisite (JF_MULTISITE=true) und starten Sie neu, bevor Sie Unterseiten wiederherstellen.",
+      "networkBlockedOperator": "Nur ein Plattformbetreiber kann ein Netzwerk mit Unterseiten wiederherstellen.",
+      "networkRestoreHint": "Die Hauptwebsite wird zuerst wiederhergestellt. Neue Unterseiten bleiben offline, bis alle Websites wiederhergestellt sind. Schlägt ein Schritt fehl oder brechen Sie ab, werden die neuen Unterseiten entfernt und die Hauptwebsite in ihren vorherigen Zustand zurückversetzt.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Netzwerk wiederherstellen",
+      "networkRestoring": "Netzwerk wird wiederhergestellt…",
+      "networkRestoreComplete": {
+        "one": "Netzwerk wiederhergestellt: {count} Website. Laden Sie die Verwaltung neu, um sie zu sehen.",
+        "other": "Netzwerk wiederhergestellt: {count} Websites. Laden Sie die Verwaltung neu, um sie zu sehen."
+      },
+      "passphrase": "Passphrase der Sicherung",
+      "passphraseRepeat": "Passphrase wiederholen",
+      "passphraseHint": "Die Sicherung wird mit dieser Passphrase verschlüsselt, weil sie Passwörter, Schlüssel und alle Website-Daten enthält. Bewahren Sie sie in einem Passwortmanager auf: Ohne sie lässt sich die Sicherung nicht wiederherstellen.",
+      "passphraseTooShort": "Verwenden Sie mindestens {count} Zeichen.",
+      "passphraseMismatch": "Die Passphrasen stimmen nicht überein.",
+      "cancelling": "Wird abgebrochen…",
+      "restoreTitle": "Sicherung wiederherstellen",
+      "restorePassphrase": "Passphrase der Sicherungsdatei",
+      "restorePassphraseHint": "Geben Sie sie ein, bevor Sie die Datei wählen. Sicherungen aus Justflows 0.4 haben keine Passphrase.",
+      "schedulePassphrase": "Passphrase für automatische Sicherungen",
+      "schedulePassphraseHint": "Wird verschlüsselt auf diesem Server gespeichert. Leer lassen, um die gespeicherte Passphrase zu behalten.",
+      "legacyHint": "Diese Sicherung stammt aus Justflows 0.4. Inhalte, Einstellungen und Medien werden wiederhergestellt, aber keine Konten, Plugin-Daten oder Pakete.",
+      "packagesSummary": "Pakete in der Sicherung, die vor der Installation erneut geprüft werden: {list}",
+      "unsigned": "nicht signiert",
+      "usersSummary": {
+        "one": "{count} Konto",
+        "other": "{count} Konten"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} Plugin-Datensatz",
+        "other": "{count} Plugin-Datensätze"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} gespeichertes Geheimnis konnte beim Erstellen der Sicherung nicht gelesen werden und wird leer wiederhergestellt.",
+        "other": "{count} gespeicherte Geheimnisse konnten beim Erstellen der Sicherung nicht gelesen werden und werden leer wiederhergestellt."
+      },
+      "primaryAddress": "Adresse",
+      "extraAddress": "Diese Adresse ebenfalls wiederherstellen",
+      "addAddress": "Diese Adresse zur Hauptwebsite hinzufügen",
+      "siteDatabase": "Datenbank",
+      "dbWorkspace": "Datenbank des Arbeitsbereichs",
+      "dbFromBackup": "Wie in der Sicherung: {target}",
+      "dbCustom": "Eine andere Datenbank",
+      "dbSite": "Die Datenbank der Website",
+      "pluginDatabase": "Datenbank von Plugin {plugin}",
+      "dbDriver": "Datenbanktyp",
+      "dbHost": "Host",
+      "dbPort": "Port",
+      "dbName": "Datenbankname",
+      "dbUser": "Benutzername",
+      "networkBlockedNotRoot": "Stellen Sie eine Netzwerksicherung von der Hauptwebsite der Installation aus wieder her.",
+      "unavailableExtensions": "Auf diesem Server nicht installiert, daher deaktiviert wiederhergestellt: {list}. Installieren Sie sie und aktivieren Sie sie dann."
     },
     "performance": {
       "loadFailed": "Die Leistungseinstellungen konnten nicht geladen werden",

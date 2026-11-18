@@ -4441,12 +4441,8 @@
       "scope": "Back-upbereik",
       "scopeSite": "Alleen huidige site",
       "scopeRoot": "Hoofdsite",
-      "scopeNetwork": "Hoofdsite en alle subsites",
-      "scopeNetworkHint": "Maakt één archief met de hoofdsite en iedere subsite in de werkruimte, inclusief sites met een aparte database.",
-      "networkSites": "Netwerkarchief: {{count}} sites",
-      "networkContent": "inhoudsitems",
-      "networkMedia": "mediabestanden",
-      "networkRestoreWarning": "Netwerkherstel vereist een schone installatie met alleen de hoofdsite. Controleer deze siteadressen vóór herstel.",
+      "scopeNetwork": "Hoofdsite en alle subsites (één bestand)",
+      "scopeNetworkHint": "Maakt één archief met de hoofdsite en iedere subsite in de werkruimte, ook sites met een aparte database. Zet het terug op een schone installatie om het hele netwerk opnieuw op te bouwen.",
       "scopeSubsites": "Subsites (aparte bestanden)",
       "scopeSubsitesHint": "Maakt voor iedere subsite een apart .jfbackup-bestand. Herstel elk bestand naar de bijbehorende subsite.",
       "restoreTarget": "Herstellen naar",
@@ -4511,7 +4507,71 @@
       "secureFtp": "Veilige FTP (FTPS) vereisen",
       "s3Endpoint": "S3-endpoint (optioneel)",
       "s3Prefix": "S3-mapprefix",
-      "s3PathStyle": "S3-padadressering gebruiken"
+      "s3PathStyle": "S3-padadressering gebruiken",
+      "networkValidTitle": "Integriteit van de netwerkback-up gecontroleerd.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} site",
+        "other": "{site} · {date} · {count} sites"
+      },
+      "networkRecords": "Gegevensrecords: {count}",
+      "networkHostname": "Adres voor {site}",
+      "networkRootHostnameHint": "De hoofdsite houdt het adres van deze installatie.",
+      "networkBlockedNotClean": {
+        "one": "Een netwerkherstel heeft een schone installatie nodig. Deze werkruimte heeft al {count} subsite.",
+        "other": "Een netwerkherstel heeft een schone installatie nodig. Deze werkruimte heeft al {count} subsites."
+      },
+      "networkBlockedMultisite": "Zet multisite aan (JF_MULTISITE=true) en herstart voordat je subsites terugzet.",
+      "networkBlockedOperator": "Alleen een platformbeheerder kan een netwerk met subsites terugzetten.",
+      "networkRestoreHint": "De hoofdsite wordt eerst teruggezet. Nieuwe subsites blijven offline tot alle sites zijn teruggezet. Mislukt een stap of annuleer je, dan worden de nieuwe subsites verwijderd en wordt de hoofdsite teruggezet zoals hij was.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Netwerk terugzetten",
+      "networkRestoring": "Netwerk terugzetten…",
+      "networkRestoreComplete": {
+        "one": "Netwerk teruggezet: {count} site. Laad de beheeromgeving opnieuw om hem te zien.",
+        "other": "Netwerk teruggezet: {count} sites. Laad de beheeromgeving opnieuw om ze te zien."
+      },
+      "passphrase": "Wachtwoordzin voor de back-up",
+      "passphraseRepeat": "Herhaal de wachtwoordzin",
+      "passphraseHint": "De back-up wordt met deze wachtwoordzin versleuteld, omdat hij wachtwoorden, sleutels en alle sitegegevens bevat. Bewaar hem in een wachtwoordbeheerder: zonder kun je de back-up niet terugzetten.",
+      "passphraseTooShort": "Gebruik minstens {count} tekens.",
+      "passphraseMismatch": "De wachtwoordzinnen komen niet overeen.",
+      "cancelling": "Annuleren…",
+      "restoreTitle": "Een back-up terugzetten",
+      "restorePassphrase": "Wachtwoordzin van het back-upbestand",
+      "restorePassphraseHint": "Vul hem in voordat je het bestand kiest. Back-ups uit Justflows 0.4 hebben geen wachtwoordzin.",
+      "schedulePassphrase": "Wachtwoordzin voor automatische back-ups",
+      "schedulePassphraseHint": "Wordt versleuteld op deze server bewaard. Laat leeg om de opgeslagen wachtwoordzin te houden.",
+      "legacyHint": "Deze back-up komt uit Justflows 0.4. Inhoud, instellingen en media worden teruggezet, maar geen accounts, plugingegevens of pakketten.",
+      "packagesSummary": "Pakketten in de back-up, die opnieuw worden gecontroleerd voordat ze worden geïnstalleerd: {list}",
+      "unsigned": "niet ondertekend",
+      "usersSummary": {
+        "one": "{count} account",
+        "other": "{count} accounts"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} pluginrecord",
+        "other": "{count} pluginrecords"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} opgeslagen geheim kon bij het maken van de back-up niet worden gelezen en wordt leeg teruggezet.",
+        "other": "{count} opgeslagen geheimen konden bij het maken van de back-up niet worden gelezen en worden leeg teruggezet."
+      },
+      "primaryAddress": "Adres",
+      "extraAddress": "Dit adres ook terugzetten",
+      "addAddress": "Dit adres aan de hoofdsite toevoegen",
+      "siteDatabase": "Database",
+      "dbWorkspace": "Database van de werkruimte",
+      "dbFromBackup": "Zoals in de back-up: {target}",
+      "dbCustom": "Een andere database",
+      "dbSite": "De database van de site",
+      "pluginDatabase": "Database van plugin {plugin}",
+      "dbDriver": "Type database",
+      "dbHost": "Host",
+      "dbPort": "Poort",
+      "dbName": "Databasenaam",
+      "dbUser": "Gebruikersnaam",
+      "networkBlockedNotRoot": "Zet een netwerkback-up terug vanaf de hoofdsite van de installatie.",
+      "unavailableExtensions": "Niet op deze server geïnstalleerd, dus uitgeschakeld teruggezet: {list}. Installeer ze en zet ze daarna aan."
     },
     "performance": {
       "loadFailed": "Prestatie-instellingen konden niet worden geladen",

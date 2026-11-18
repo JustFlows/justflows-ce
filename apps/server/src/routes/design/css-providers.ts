@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { retainPackageArchive } from "../../lib/backup/package-archives.js";
 import rateLimit from "express-rate-limit";
 import fs from "node:fs";
 import path from "node:path";
@@ -95,6 +96,13 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
       packageType: "css-provider",
       version: result.manifest.version,
       archiveDigest: result.digest,
+    });
+    await retainPackageArchive(file.buffer, {
+      digest: result.digest,
+      type: "css-provider",
+      id: result.manifest.id,
+      version: result.manifest.version,
+      source: "upload",
     });
 
     const siteId = await getCssProvidersSiteId();

@@ -1,4 +1,5 @@
 import { DEFAULT_ACCOUNT_BLOCKS, DEFAULT_AUTH_BLOCKS } from "@justflows/content";
+import { retainPackageArchive } from "../../lib/backup/package-archives.js";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
@@ -156,6 +157,13 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
       packageType: "theme",
       version: result.manifest.version,
       archiveDigest: result.digest,
+    });
+    await retainPackageArchive(file.buffer, {
+      digest: result.digest,
+      type: "theme",
+      id: result.manifest.id,
+      version: result.manifest.version,
+      source: "upload",
     });
 
     await ensureThemesTable();
