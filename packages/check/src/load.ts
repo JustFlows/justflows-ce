@@ -84,27 +84,40 @@ export async function loadTarget(
   } = {},
 ): Promise<LoadedTarget> {
   const absolute = path.resolve(input);
-  const stat = await fsp.stat(absolute).catch(() => null);
-  if (!stat) throw new Error(`${input} does not exist`);
   let root = absolute;
   let mode: CheckTarget["mode"] = options.asPackage ? "package" : "source";
   let cleanup: string | null = null;
-  if (stat.isFile()) {
-    if (!/\.(jfpkg|zip)$/i.test(absolute)) throw new Error("Check a package folder or a .jfpkg file");
-    const { ARCHIVE_LIMITS, extractJfpkg } = await import("@justflows/installer");
-    /** Check and read the same open file, so it cannot be swapped between the two. */
-    const handle = await fsp.open(absolute, "r");
-    let archive: Buffer;
-    try {
-      const opened = await handle.stat();
-      if (!opened.isFile()) throw new Error("Check a package folder or a .jfpkg file");
+  /**
+   * Open the path once and decide everything from that open file, so nothing
+   * can be swapped between a check and the read. A folder is walked as it is.
+   */
+  let handle: fsp.FileHandle | null = null;
+  let isFolder = false;
+  try {
+    handle = await fsp.open(absolute, "r");
+  } catch (error) {
+    /** Windows cannot open a folder this way; that answer is itself the check. */
+    if ((error as NodeJS.ErrnoException).code === "EISDIR") isFolder = true;
+    else throw new Error(`${input} does not exist`, { cause: error });
+  }
+  let archive: Buffer | null = null;
+  if (handle) try {
+    const opened = await handle.stat();
+    if (opened.isFile()) {
+      if (!/\.(jfpkg|zip)$/i.test(absolute)) throw new Error("Check a package folder or a .jfpkg file");
+      const { ARCHIVE_LIMITS } = await import("@justflows/installer");
       if (opened.size > ARCHIVE_LIMITS.maxCompressedBytes) {
         throw new Error(`The archive exceeds the ${ARCHIVE_LIMITS.maxCompressedBytes / 1024 / 1024} MB install limit`);
       }
       archive = await handle.readFile();
-    } finally {
-      await handle.close();
+    } else if (!opened.isDirectory()) {
+      throw new Error("Check a package folder or a .jfpkg file");
     }
+  } finally {
+    await handle.close();
+  }
+  if (archive) {
+    const { extractJfpkg } = await import("@justflows/installer");
     cleanup = await fsp.mkdtemp(path.join(os.tmpdir(), "justflows-check-"));
     try {
       await extractJfpkg(archive, cleanup);

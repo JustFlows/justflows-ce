@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 import { createHash, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
-import cookieParser from "cookie-parser";
 import express from "express";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -166,7 +165,16 @@ beforeAll(async () => {
 
   const site = express();
   site.use(express.json());
-  site.use(cookieParser());
+  /** Fill `req.cookies` as the app's cookie parser does; the real CSRF guard then runs as in the app. */
+  site.use((req, _res, next) => {
+    const cookies: Record<string, string> = {};
+    for (const part of String(req.headers.cookie ?? "").split(";")) {
+      const at = part.indexOf("=");
+      if (at > 0) cookies[part.slice(0, at).trim()] = decodeURIComponent(part.slice(at + 1).trim());
+    }
+    (req as unknown as { cookies: Record<string, string> }).cookies = cookies;
+    next();
+  });
   site.use("/api", csrfProtection);
   site.use("/api/auth/oidc", oidcRoutes);
   app = site.listen(0);

@@ -230,3 +230,12 @@ function jfpkg(files: Record<string, string>): string {
   fs.writeFileSync(file, gzipSync(Buffer.concat(blocks)));
   return file;
 }
+
+describe("what can be checked", () => {
+  it("checks a folder, refuses a missing path and a file that is not a package", async () => {
+    const dir = pkg(clean);
+    await expect(checkPackage(dir, { coreVersion: "0.4.4" })).resolves.toMatchObject({ target: { mode: "source" } });
+    await expect(checkPackage(path.join(dir, "missing"), { coreVersion: "0.4.4" })).rejects.toThrow("does not exist");
+    await expect(checkPackage(path.join(dir, "justflows.json"), { coreVersion: "0.4.4" })).rejects.toThrow("package folder or a .jfpkg");
+  });
+});
