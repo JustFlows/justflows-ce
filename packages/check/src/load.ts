@@ -92,9 +92,18 @@ export async function loadTarget(
   if (stat.isFile()) {
     if (!/\.(jfpkg|zip)$/i.test(absolute)) throw new Error("Check a package folder or a .jfpkg file");
     const { ARCHIVE_LIMITS, extractJfpkg } = await import("@justflows/installer");
-    const archive = await fsp.readFile(absolute);
-    if (archive.byteLength > ARCHIVE_LIMITS.maxCompressedBytes) {
-      throw new Error(`The archive exceeds the ${ARCHIVE_LIMITS.maxCompressedBytes / 1024 / 1024} MB install limit`);
+    /** Check and read the same open file, so it cannot be swapped between the two. */
+    const handle = await fsp.open(absolute, "r");
+    let archive: Buffer;
+    try {
+      const opened = await handle.stat();
+      if (!opened.isFile()) throw new Error("Check a package folder or a .jfpkg file");
+      if (opened.size > ARCHIVE_LIMITS.maxCompressedBytes) {
+        throw new Error(`The archive exceeds the ${ARCHIVE_LIMITS.maxCompressedBytes / 1024 / 1024} MB install limit`);
+      }
+      archive = await handle.readFile();
+    } finally {
+      await handle.close();
     }
     cleanup = await fsp.mkdtemp(path.join(os.tmpdir(), "justflows-check-"));
     try {

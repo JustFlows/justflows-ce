@@ -69,7 +69,7 @@ describe("custom code in the response CSP", () => {
     });
     const hash = `'sha256-${createHash("sha256").update("window.a=1;", "utf8").digest("base64")}'`;
     const publicCsp = await cspFor("/about");
-    expect(publicCsp).toMatch(new RegExp(`script-src 'self'[^;]*https://cdn\\.example\\.com[^;]*${hash.replace(/[+/]/g, "\\$&")}`));
+    expect(publicCsp).toMatch(new RegExp(`script-src 'self'[^;]*https://cdn\\.example\\.com[^;]*${hash.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}`));
     expect(publicCsp).not.toContain("unsafe-inline' 'sha256");
     expect(publicCsp).not.toMatch(/script-src[^;]*'unsafe-inline'/);
     const adminCsp = await cspFor("/admin/security");

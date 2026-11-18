@@ -83,6 +83,11 @@ vi.mock("../../../../src/lib/database/db.js", () => ({
 
 const { encryptSecret } = await import("../../../../src/lib/security/secret-box.js");
 const { default: oidcRoutes } = await import("../../../../src/routes/auth/oidc.js");
+const { csrfProtection } = await import("../../../../src/middleware/csrf.js");
+
+/** Before a session exists, CSRF compares this cookie with the header, as the admin's sign-in page sends them. */
+const CSRF = "oidc-test-csrf-token";
+const csrfHeaders = { "content-type": "application/json", "x-csrf-token": CSRF, cookie: `jf_csrf=${CSRF}` };
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const jwk = { ...publicKey.export({ format: "jwk" }), kid: "k1", use: "sig", alg: "RS256" };
@@ -117,10 +122,18 @@ beforeAll(async () => {
   );
   provider.get("/jwks", (_req, res) => res.json({ keys: [jwk] }));
   provider.get("/authorize", (req, res) => {
+    /** Like a real provider, answer only to the registered redirect URI. */
+    const registered = new URL("/api/auth/oidc/corp/callback", state.base);
+    if (String(req.query.redirect_uri) !== registered.href) {
+      res.status(400).json({ error: "invalid_redirect_uri" });
+      return;
+    }
     const code = randomBytes(12).toString("hex");
-    codes.set(code, { challenge: String(req.query.code_challenge), nonce: String(req.query.nonce), redirect: String(req.query.redirect_uri) });
+    codes.set(code, { challenge: String(req.query.code_challenge), nonce: String(req.query.nonce), redirect: registered.href });
     expect(req.query.code_challenge_method).toBe("S256");
-    res.redirect(`${String(req.query.redirect_uri)}?code=${code}&state=${String(req.query.state)}`);
+    registered.searchParams.set("code", code);
+    registered.searchParams.set("state", String(req.query.state));
+    res.redirect(registered.href);
   });
   provider.post("/token", (req, res) => {
     const grant = codes.get(String(req.body.code));
@@ -154,6 +167,7 @@ beforeAll(async () => {
   const site = express();
   site.use(express.json());
   site.use(cookieParser());
+  site.use("/api", csrfProtection);
   site.use("/api/auth/oidc", oidcRoutes);
   app = site.listen(0);
   await new Promise((resolve) => app.once("listening", resolve));
@@ -189,7 +203,7 @@ beforeEach(() => {
 
 /** Start, follow the provider's redirect, and call back with the flow cookie, like a browser. */
 async function signIn(tamper?: (callback: URL) => void) {
-  const start = await fetch(`${state.base}/api/auth/oidc/corp/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ adminPath: "/admin" }) });
+  const start = await fetch(`${state.base}/api/auth/oidc/corp/start`, { method: "POST", headers: csrfHeaders, body: JSON.stringify({ adminPath: "/admin" }) });
   expect(start.status).toBe(200);
   const cookie = start.headers.get("set-cookie")!.split(";")[0]!;
   const { url } = (await start.json()) as { url: string };
@@ -202,8 +216,10 @@ async function signIn(tamper?: (callback: URL) => void) {
 describe("OpenID Connect sign-in", () => {
   it("lists providers and starts only from the staff sign-in page", async () => {
     expect(await (await fetch(`${state.base}/api/auth/oidc/providers`)).json()).toEqual({ providers: [{ id: "corp", name: "Corp SSO" }] });
-    const blind = await fetch(`${state.base}/api/auth/oidc/corp/start`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    const blind = await fetch(`${state.base}/api/auth/oidc/corp/start`, { method: "POST", headers: csrfHeaders, body: "{}" });
     expect(blind.status).toBe(404);
+    const forged = await fetch(`${state.base}/api/auth/oidc/corp/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ adminPath: "/admin" }) });
+    expect(forged.status).toBe(403);
   });
 
   it("signs in an existing account with PKCE, links it by subject, and uses the link next time", async () => {
@@ -261,7 +277,7 @@ describe("OpenID Connect sign-in", () => {
   });
 
   it("does not finish a step-up without a valid pending sign-in", async () => {
-    const res = await fetch(`${state.base}/api/auth/oidc/complete`, { method: "POST", headers: { "content-type": "application/json", cookie: "jf_oidc_pending=forged.value" }, body: JSON.stringify({ totp: "123456" }) });
+    const res = await fetch(`${state.base}/api/auth/oidc/complete`, { method: "POST", headers: { ...csrfHeaders, cookie: `jf_csrf=${CSRF}; jf_oidc_pending=forged.value` }, body: JSON.stringify({ totp: "123456" }) });
     expect(res.status).toBe(401);
     expect(state.signIns).toEqual([]);
   });

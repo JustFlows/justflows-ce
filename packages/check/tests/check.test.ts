@@ -128,8 +128,8 @@ describe("justflows check", () => {
       pkg({
         ...clean,
         ".env": "SECRET=1",
-        "src/config.ts": "export const key = 'AKIAABCDEFGHIJKLMNOP';",
-        "admin/index.html": '<button onclick="go()">Go</button><script>alert(1)</script><script type="application/ld+json">{}</script><script src="https://cdn.example/x.js"></script>',
+        "src/config.ts": "export const key = 'AKIAABCDEFGHIJKLMNOP';", // scan-secrets:allow (fake key: the checker must find it)
+        "admin/index.html": '<button onclick="go()">Go</button><script>alert(1)</script ><script type="application/ld+json">{}</script><script src="https://cdn.example/x.js"></script>',
       }),
       { coreVersion: "0.4.4" },
     );

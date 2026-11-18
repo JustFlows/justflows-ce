@@ -119,7 +119,8 @@ export const securityRules: Rule[] = [
       filesMatching(target, /\.html?$/).flatMap((file) => {
         const text = withoutComments(file.text()).replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, " "));
         const out: FindingInput[] = [];
-        for (const match of text.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+        /** `</script >` and `</script foo>` also end a script in HTML. */
+        for (const match of text.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
           const attrs = match[1] ?? "";
           const body = (match[2] ?? "").trim();
           const isData = /type\s*=\s*["']?(application\/(?:ld\+)?json|importmap)/i.test(attrs);

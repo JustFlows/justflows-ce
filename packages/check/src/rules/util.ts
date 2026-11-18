@@ -3,7 +3,13 @@
 import type { CheckTarget, FindingInput, PackageFile } from "../types.js";
 
 const CODE_FILE = /\.(?:[cm]?js|jsx|tsx?)$/;
-const TEST_FILE = /(?:^|\/)(?:tests?|__tests__)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/;
+/** A file under a tests folder, or named *.test.* / *.spec.*. */
+const TEST_DIR = /(?:^|\/)(?:tests?|__tests__)\//;
+const TEST_SUFFIX = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
+function isTestFile(filePath: string): boolean {
+  return TEST_DIR.test(filePath) || TEST_SUFFIX.test(filePath);
+}
+
 /** Build tooling in an author's folder: it runs on their machine, not in the host. */
 const TOOLING_FILE = /^(?:scripts|tools|bin|\.github)\/|(?:^|\/)[^/]*\.config\.[cm]?[jt]s$|(?:^|\/)(?:vite|rollup|webpack|esbuild|eslint|vitest|tsup)\.[^/]*$/;
 
@@ -13,7 +19,7 @@ function files_(target: CheckTarget): PackageFile[] {
 }
 
 export function codeFiles(target: CheckTarget): PackageFile[] {
-  return files_(target).filter((file) => CODE_FILE.test(file.path) && !file.path.endsWith(".d.ts") && !TEST_FILE.test(file.path));
+  return files_(target).filter((file) => CODE_FILE.test(file.path) && !file.path.endsWith(".d.ts") && !isTestFile(file.path));
 }
 
 /** In source mode, `dist/` is a build of `src/`; scan both only when there is no source. */
