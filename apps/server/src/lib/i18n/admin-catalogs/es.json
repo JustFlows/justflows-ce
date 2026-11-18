@@ -4518,10 +4518,7 @@
       },
       "networkRecords": "Registros de datos: {count}",
       "networkHostname": "Dirección para {site}",
-      "networkHostnameHint": "Dirección en la copia: {hostname}",
       "networkRootHostnameHint": "El sitio raíz conserva la dirección de esta instalación.",
-      "networkMissingPlugins": "Instala primero estos plugins desde paquetes de confianza: {list}",
-      "networkMissingThemes": "Instala primero estos temas desde paquetes de confianza: {list}",
       "networkBlockedNotClean": {
         "one": "La restauración de red necesita una instalación limpia. Este espacio de trabajo ya tiene {count} subsitio.",
         "other": "La restauración de red necesita una instalación limpia. Este espacio de trabajo ya tiene {count} subsitios."
@@ -4536,7 +4533,47 @@
         "one": "Red restaurada: {count} sitio. Recarga la administración para verlo.",
         "other": "Red restaurada: {count} sitios. Recarga la administración para verlos."
       },
-      "networkRestoreFailed": "No se pudo restaurar la red"
+      "passphrase": "Frase de contraseña de la copia",
+      "passphraseRepeat": "Repite la frase de contraseña",
+      "passphraseHint": "La copia se cifra con esta frase, porque contiene contraseñas, claves y todos los datos de los sitios. Guárdala en un gestor de contraseñas: sin ella no se puede restaurar la copia.",
+      "passphraseTooShort": "Usa al menos {count} caracteres.",
+      "passphraseMismatch": "Las frases no coinciden.",
+      "cancelling": "Cancelando…",
+      "restoreTitle": "Restaurar una copia",
+      "restorePassphrase": "Frase de contraseña del archivo de copia",
+      "restorePassphraseHint": "Escríbela antes de elegir el archivo. Las copias de Justflows 0.4 no tienen frase de contraseña.",
+      "schedulePassphrase": "Frase de contraseña de las copias automáticas",
+      "schedulePassphraseHint": "Se guarda cifrada en este servidor. Déjala en blanco para conservar la guardada.",
+      "legacyHint": "Esta copia es de Justflows 0.4. Se restauran el contenido, los ajustes y los archivos multimedia, pero no las cuentas, los datos de los plugins ni los paquetes.",
+      "packagesSummary": "Paquetes de la copia, que se verifican de nuevo antes de instalarlos: {list}",
+      "unsigned": "sin firmar",
+      "usersSummary": {
+        "one": "{count} cuenta",
+        "other": "{count} cuentas"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} registro de plugin",
+        "other": "{count} registros de plugins"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} secreto guardado no se pudo leer al crear la copia y se restaura vacío.",
+        "other": "{count} secretos guardados no se pudieron leer al crear la copia y se restauran vacíos."
+      },
+      "primaryAddress": "Dirección",
+      "extraAddress": "Restaurar también esta dirección",
+      "addAddress": "Añadir esta dirección al sitio raíz",
+      "siteDatabase": "Base de datos",
+      "dbWorkspace": "Base de datos del espacio de trabajo",
+      "dbFromBackup": "Como en la copia: {target}",
+      "dbCustom": "Otra base de datos",
+      "dbSite": "La base de datos del sitio",
+      "pluginDatabase": "Base de datos del plugin {plugin}",
+      "dbDriver": "Tipo de base de datos",
+      "dbHost": "Host",
+      "dbPort": "Puerto",
+      "dbName": "Nombre de la base de datos",
+      "dbUser": "Usuario",
+      "networkBlockedNotRoot": "Restaura una copia de red desde el sitio raíz de la instalación."
     },
     "performance": {
       "loadFailed": "No se pudieron cargar los ajustes de rendimiento",

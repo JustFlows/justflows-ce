@@ -4515,10 +4515,7 @@
       },
       "networkRecords": "Gegevensrecords: {count}",
       "networkHostname": "Adres voor {site}",
-      "networkHostnameHint": "Adres in de back-up: {hostname}",
       "networkRootHostnameHint": "De hoofdsite houdt het adres van deze installatie.",
-      "networkMissingPlugins": "Installeer eerst deze plugins uit vertrouwde pakketten: {list}",
-      "networkMissingThemes": "Installeer eerst deze thema's uit vertrouwde pakketten: {list}",
       "networkBlockedNotClean": {
         "one": "Een netwerkherstel heeft een schone installatie nodig. Deze werkruimte heeft al {count} subsite.",
         "other": "Een netwerkherstel heeft een schone installatie nodig. Deze werkruimte heeft al {count} subsites."
@@ -4533,7 +4530,47 @@
         "one": "Netwerk teruggezet: {count} site. Laad de beheeromgeving opnieuw om hem te zien.",
         "other": "Netwerk teruggezet: {count} sites. Laad de beheeromgeving opnieuw om ze te zien."
       },
-      "networkRestoreFailed": "Het netwerk kon niet worden teruggezet"
+      "passphrase": "Wachtwoordzin voor de back-up",
+      "passphraseRepeat": "Herhaal de wachtwoordzin",
+      "passphraseHint": "De back-up wordt met deze wachtwoordzin versleuteld, omdat hij wachtwoorden, sleutels en alle sitegegevens bevat. Bewaar hem in een wachtwoordbeheerder: zonder kun je de back-up niet terugzetten.",
+      "passphraseTooShort": "Gebruik minstens {count} tekens.",
+      "passphraseMismatch": "De wachtwoordzinnen komen niet overeen.",
+      "cancelling": "Annuleren…",
+      "restoreTitle": "Een back-up terugzetten",
+      "restorePassphrase": "Wachtwoordzin van het back-upbestand",
+      "restorePassphraseHint": "Vul hem in voordat je het bestand kiest. Back-ups uit Justflows 0.4 hebben geen wachtwoordzin.",
+      "schedulePassphrase": "Wachtwoordzin voor automatische back-ups",
+      "schedulePassphraseHint": "Wordt versleuteld op deze server bewaard. Laat leeg om de opgeslagen wachtwoordzin te houden.",
+      "legacyHint": "Deze back-up komt uit Justflows 0.4. Inhoud, instellingen en media worden teruggezet, maar geen accounts, plugingegevens of pakketten.",
+      "packagesSummary": "Pakketten in de back-up, die opnieuw worden gecontroleerd voordat ze worden geïnstalleerd: {list}",
+      "unsigned": "niet ondertekend",
+      "usersSummary": {
+        "one": "{count} account",
+        "other": "{count} accounts"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} pluginrecord",
+        "other": "{count} pluginrecords"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} opgeslagen geheim kon bij het maken van de back-up niet worden gelezen en wordt leeg teruggezet.",
+        "other": "{count} opgeslagen geheimen konden bij het maken van de back-up niet worden gelezen en worden leeg teruggezet."
+      },
+      "primaryAddress": "Adres",
+      "extraAddress": "Dit adres ook terugzetten",
+      "addAddress": "Dit adres aan de hoofdsite toevoegen",
+      "siteDatabase": "Database",
+      "dbWorkspace": "Database van de werkruimte",
+      "dbFromBackup": "Zoals in de back-up: {target}",
+      "dbCustom": "Een andere database",
+      "dbSite": "De database van de site",
+      "pluginDatabase": "Database van plugin {plugin}",
+      "dbDriver": "Type database",
+      "dbHost": "Host",
+      "dbPort": "Poort",
+      "dbName": "Databasenaam",
+      "dbUser": "Gebruikersnaam",
+      "networkBlockedNotRoot": "Zet een netwerkback-up terug vanaf de hoofdsite van de installatie."
     },
     "performance": {
       "loadFailed": "Prestatie-instellingen konden niet worden geladen",

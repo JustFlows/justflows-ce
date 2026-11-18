@@ -46,6 +46,7 @@ export const SUITES = [
   ["search", "SEARCH_TEST_DATABASE", "search_test", "tests/integration/database/search-db.integration.test.ts"],
   ["agent-isolation", "AGENT_ISOLATION_TEST_DATABASE", "isolation_test", "tests/integration/database/agent-isolation-db.integration.test.ts"],
   ["ai-byok", "AI_TEST_DATABASE", "ai_test", "tests/integration/database/ai-byok-migration.integration.test.ts"],
+  ["backup", "BACKUP_TEST_DATABASE", "backup_test", "tests/integration/database/backup-restore-db.integration.test.ts"],
 ];
 
 const env = process.env;

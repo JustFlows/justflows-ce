@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { retainPackageArchive } from "../../lib/backup/package-archives.js";
 import { requireRole, requireSession } from "../../middleware/auth.js";
 import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import { param } from "../../lib/http/params.js";
@@ -195,6 +196,13 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
       packageType: "plugin",
       version: result.manifest.version,
       archiveDigest: result.digest,
+    });
+    await retainPackageArchive(file.buffer, {
+      digest: result.digest,
+      type: "plugin",
+      id: result.manifest.id,
+      version: result.manifest.version,
+      source: "upload",
     });
     if (!siteId) {
       res.status(503).json({ error: "No site found — complete install first" });

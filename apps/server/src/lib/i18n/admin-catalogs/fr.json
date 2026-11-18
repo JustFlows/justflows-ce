@@ -4518,10 +4518,7 @@
       },
       "networkRecords": "Enregistrements : {count}",
       "networkHostname": "Adresse pour {site}",
-      "networkHostnameHint": "Adresse dans la sauvegarde : {hostname}",
       "networkRootHostnameHint": "Le site racine garde l'adresse de cette installation.",
-      "networkMissingPlugins": "Installez d'abord ces extensions depuis des paquets de confiance : {list}",
-      "networkMissingThemes": "Installez d'abord ces thèmes depuis des paquets de confiance : {list}",
       "networkBlockedNotClean": {
         "one": "La restauration réseau nécessite une installation vierge. Cet espace de travail a déjà {count} sous-site.",
         "other": "La restauration réseau nécessite une installation vierge. Cet espace de travail a déjà {count} sous-sites."
@@ -4536,7 +4533,47 @@
         "one": "Réseau restauré : {count} site. Rechargez l'administration pour le voir.",
         "other": "Réseau restauré : {count} sites. Rechargez l'administration pour les voir."
       },
-      "networkRestoreFailed": "Impossible de restaurer le réseau"
+      "passphrase": "Phrase secrète de la sauvegarde",
+      "passphraseRepeat": "Répétez la phrase secrète",
+      "passphraseHint": "La sauvegarde est chiffrée avec cette phrase secrète, car elle contient des mots de passe, des clés et toutes les données des sites. Conservez-la dans un gestionnaire de mots de passe : sans elle, la sauvegarde ne peut pas être restaurée.",
+      "passphraseTooShort": "Utilisez au moins {count} caractères.",
+      "passphraseMismatch": "Les phrases secrètes ne correspondent pas.",
+      "cancelling": "Annulation…",
+      "restoreTitle": "Restaurer une sauvegarde",
+      "restorePassphrase": "Phrase secrète du fichier de sauvegarde",
+      "restorePassphraseHint": "Saisissez-la avant de choisir le fichier. Les sauvegardes de Justflows 0.4 n'ont pas de phrase secrète.",
+      "schedulePassphrase": "Phrase secrète des sauvegardes automatiques",
+      "schedulePassphraseHint": "Conservée chiffrée sur ce serveur. Laissez vide pour garder la phrase enregistrée.",
+      "legacyHint": "Cette sauvegarde vient de Justflows 0.4. Le contenu, les réglages et les médias sont restaurés, mais pas les comptes, les données des extensions ni les paquets.",
+      "packagesSummary": "Paquets de la sauvegarde, vérifiés à nouveau avant installation : {list}",
+      "unsigned": "non signé",
+      "usersSummary": {
+        "one": "{count} compte",
+        "other": "{count} comptes"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} enregistrement d'extension",
+        "other": "{count} enregistrements d'extensions"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} secret enregistré n'a pas pu être lu lors de la sauvegarde et sera restauré vide.",
+        "other": "{count} secrets enregistrés n'ont pas pu être lus lors de la sauvegarde et seront restaurés vides."
+      },
+      "primaryAddress": "Adresse",
+      "extraAddress": "Restaurer aussi cette adresse",
+      "addAddress": "Ajouter cette adresse au site racine",
+      "siteDatabase": "Base de données",
+      "dbWorkspace": "Base de l'espace de travail",
+      "dbFromBackup": "Comme dans la sauvegarde : {target}",
+      "dbCustom": "Une autre base",
+      "dbSite": "La base du site",
+      "pluginDatabase": "Base de l'extension {plugin}",
+      "dbDriver": "Type de base",
+      "dbHost": "Hôte",
+      "dbPort": "Port",
+      "dbName": "Nom de la base",
+      "dbUser": "Nom d'utilisateur",
+      "networkBlockedNotRoot": "Restaurez une sauvegarde réseau depuis le site racine de l'installation."
     },
     "performance": {
       "loadFailed": "Impossible de charger les paramètres de performance",

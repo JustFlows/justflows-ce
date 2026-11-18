@@ -9,6 +9,8 @@ import { getJustflowsVersion } from "../runtime/version.js";
 import { installationRootSiteId } from "../tenancy/registry.js";
 import { deliverBackup, type BackupDestination } from "./destinations.js";
 import { buildNetworkBackup, buildSiteBackup, buildSubsiteBackups, type BackupArtifact } from "./workspace-backup.js";
+import { assertPassphrase } from "./archive-crypto.js";
+import { decryptSecret, encryptSecret } from "../security/secret-box.js";
 
 export const AUTOMATIC_BACKUP_JOB = "backup.automatic";
 const AUTOMATIC_BACKUP_SCAN_JOB = "backup.schedule-scan";
@@ -27,7 +29,14 @@ export interface BackupScheduleInput {
   destination: BackupDestination;
 }
 
+/** What the schedule form sends: the passphrase only when it changes. */
+export interface BackupScheduleUpdate extends BackupScheduleInput {
+  passphrase?: string;
+}
+
 export interface BackupScheduleState extends BackupScheduleInput {
+  /** True when a passphrase is stored; the passphrase itself is never returned. */
+  passphraseSet: boolean;
   nextRunAt: string | null;
   lastJobId: string | null;
   lastStartedAt: string | null;
@@ -51,6 +60,7 @@ interface ScheduleRow {
   last_finished_at: Date | string | null;
   last_status: string | null;
   last_error: string | null;
+  passphrase_ciphertext?: string | null;
 }
 
 const defaults = (): BackupScheduleState => ({
@@ -67,6 +77,7 @@ const defaults = (): BackupScheduleState => ({
   lastFinishedAt: null,
   lastStatus: null,
   lastError: null,
+  passphraseSet: false,
 });
 
 function iso(value: Date | string | null): string | null {
@@ -91,6 +102,7 @@ function state(row?: ScheduleRow): BackupScheduleState {
     lastFinishedAt: iso(row.last_finished_at),
     lastStatus: row.last_status ? String(row.last_status) : null,
     lastError: row.last_error ? String(row.last_error) : null,
+    passphraseSet: Boolean(row.passphrase_ciphertext),
   };
 }
 
@@ -120,9 +132,13 @@ export async function backupScheduleSettings(siteId: string): Promise<BackupSche
   return state(await rowForSite(await getControlDb(), siteId));
 }
 
-export async function saveBackupSchedule(siteId: string, input: BackupScheduleInput): Promise<BackupScheduleState> {
+export async function saveBackupSchedule(siteId: string, update: BackupScheduleUpdate): Promise<BackupScheduleState> {
+  const { passphrase, ...input } = update;
   if (!TIME.test(input.timeUtc)) throw new Error("Backup time must use HH:mm UTC");
   const db = await getControlDb();
+  const stored = (await rowForSite(db, siteId))?.passphrase_ciphertext ?? null;
+  const cipher = passphrase ? encryptSecret(assertPassphrase(passphrase)) : stored;
+  if (input.enabled && !cipher) throw new Error("Set a backup passphrase before turning on automatic backups");
   const next = input.enabled ? nextBackupRun(input) : null;
   const stamp = new Date();
   const values: Array<string | number | boolean | null> = [
@@ -134,37 +150,43 @@ export async function saveBackupSchedule(siteId: string, input: BackupScheduleIn
     input.scope,
     input.destination,
     next ? sqlTime(next.getTime()) : null,
+    cipher,
     sqlTime(stamp.getTime()),
     siteId,
   ];
   const changed = await db.execute(
     `UPDATE backup_schedules SET enabled = ?, frequency = ?, time_utc = ?, weekday = ?, day_of_month = ?,
-       scope = ?, destination = ?, next_run_at = ?, updated_at = ? WHERE site_id = ?`,
+       scope = ?, destination = ?, next_run_at = ?, passphrase_ciphertext = ?, updated_at = ? WHERE site_id = ?`,
     values,
   );
   if (changed === 0) {
     await db.run(
       `INSERT INTO backup_schedules
-       (site_id, enabled, frequency, time_utc, weekday, day_of_month, scope, destination, next_run_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [siteId, ...values.slice(0, 9)],
+       (site_id, enabled, frequency, time_utc, weekday, day_of_month, scope, destination, next_run_at, passphrase_ciphertext, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [siteId, ...values.slice(0, 10)],
     );
   }
   return backupScheduleSettings(siteId);
 }
 
 async function artifactsForRun(siteId: string, settings: BackupScheduleInput): Promise<BackupArtifact[]> {
-  const createdAt = new Date().toISOString();
-  const driver = (process.env.DB_DRIVER ?? "postgres") as "postgres" | "mysql" | "mariadb";
-  if (settings.scope === "network") {
-    return [await buildNetworkBackup(siteId, createdAt, driver, getJustflowsVersion())];
-  }
+  const stored = (await rowForSite(await getControlDb(), siteId))?.passphrase_ciphertext;
+  const passphrase = decryptSecret(stored ?? "");
+  if (!passphrase) throw new Error("The automatic backup has no passphrase. Set one in Tools → Backup.");
+  const options = {
+    passphrase,
+    createdAt: new Date().toISOString(),
+    databaseDriver: (process.env.DB_DRIVER ?? "postgres") as "postgres" | "mysql" | "mariadb",
+    coreVersion: getJustflowsVersion(),
+  };
+  if (settings.scope === "network") return [await buildNetworkBackup(siteId, options)];
   const artifacts: BackupArtifact[] = [];
   if (settings.scope === "root" || settings.scope === "all") {
-    artifacts.push(await buildSiteBackup(siteId, createdAt, driver, getJustflowsVersion()));
+    artifacts.push(await buildSiteBackup(siteId, options, "root"));
   }
   if (settings.scope === "subsites" || settings.scope === "all") {
-    const subsites = await buildSubsiteBackups(siteId, createdAt, driver, getJustflowsVersion()).catch((error) => {
+    const subsites = await buildSubsiteBackups(siteId, options).catch((error) => {
       if (error instanceof Error && error.message === "This workspace has no subsites to back up" && settings.scope === "all") return [];
       throw error;
     });
@@ -267,6 +289,15 @@ export function startScheduledBackupJobs(): void {
   started = true;
   getDurableJobQueue().register(AUTOMATIC_BACKUP_JOB, { maxAttempts: 3, run: runAutomaticBackup });
   registerCoreJob({ name: AUTOMATIC_BACKUP_SCAN_JOB, schedule: "* * * * *", handler: scanDueBackups });
+  registerCoreJob({
+    name: "backup.job-cleanup",
+    schedule: "* * * * *",
+    handler: async () => {
+      const { cleanupBackupJobs } = await import("./backup-jobs.js");
+      await cleanupBackupJobs();
+      return { success: true, message: "Backup jobs checked" };
+    },
+  });
 }
 
 export async function automaticBackupHealth(): Promise<BackupScheduleState & { siteId: string | null }> {

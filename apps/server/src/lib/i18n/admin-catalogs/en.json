@@ -4668,10 +4668,7 @@
       },
       "networkRecords": "Data records: {count}",
       "networkHostname": "Address for {site}",
-      "networkHostnameHint": "Address in the backup: {hostname}",
       "networkRootHostnameHint": "The root site keeps this installation's address.",
-      "networkMissingPlugins": "Plugins to install from trusted packages first: {list}",
-      "networkMissingThemes": "Themes to install from trusted packages first: {list}",
       "networkBlockedNotClean": {
         "one": "Network restore needs a clean installation. This workspace already has {count} subsite.",
         "other": "Network restore needs a clean installation. This workspace already has {count} subsites."
@@ -4686,7 +4683,47 @@
         "one": "Network restored: {count} site. Reload the admin to see it.",
         "other": "Network restored: {count} sites. Reload the admin to see them."
       },
-      "networkRestoreFailed": "Could not restore the network"
+      "passphrase": "Backup passphrase",
+      "passphraseRepeat": "Repeat passphrase",
+      "passphraseHint": "The backup is encrypted with this passphrase, because it holds passwords, keys, and every site's data. Keep it in a password manager: without it the backup cannot be restored.",
+      "passphraseTooShort": "Use at least {count} characters.",
+      "passphraseMismatch": "The passphrases do not match.",
+      "cancelling": "Cancelling…",
+      "restoreTitle": "Restore a backup",
+      "restorePassphrase": "Passphrase of the backup file",
+      "restorePassphraseHint": "Enter it before choosing the file. Backups from Justflows 0.4 have no passphrase.",
+      "schedulePassphrase": "Passphrase for automatic backups",
+      "schedulePassphraseHint": "Stored encrypted on this server. Leave blank to keep the saved passphrase.",
+      "legacyHint": "This backup comes from Justflows 0.4. It restores content, settings and media, but not accounts, plugin data, or packages.",
+      "packagesSummary": "Packages in the backup, verified again before they are installed: {list}",
+      "unsigned": "not signed",
+      "usersSummary": {
+        "one": "{count} account",
+        "other": "{count} accounts"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} plugin record",
+        "other": "{count} plugin records"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} stored secret could not be read when the backup was made and is restored empty.",
+        "other": "{count} stored secrets could not be read when the backup was made and are restored empty."
+      },
+      "primaryAddress": "Address",
+      "extraAddress": "Also restore this address",
+      "addAddress": "Add this address to the root site",
+      "siteDatabase": "Database",
+      "dbWorkspace": "Workspace database",
+      "dbFromBackup": "As in the backup: {target}",
+      "dbCustom": "Another database",
+      "dbSite": "The site database",
+      "pluginDatabase": "Database of plugin {plugin}",
+      "dbDriver": "Database type",
+      "dbHost": "Host",
+      "dbPort": "Port",
+      "dbName": "Database name",
+      "dbUser": "Username",
+      "networkBlockedNotRoot": "Restore a network backup from the installation root site."
     },
     "manualRestartBody": "Restart Justflows on the server, then refresh this page.",
     "manualRestartBodyContainer": "Restart the Justflows container, then refresh this page.",

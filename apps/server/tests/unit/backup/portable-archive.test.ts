@@ -12,7 +12,15 @@ const input = {
   createdAt: "2026-11-04T10:00:00.000Z",
   source: { siteId: "site-1", siteName: "Example", databaseDriver: "postgres" as const },
   data: {
+    site: { id: "site-1", name: "Example" },
     tables: { content: [{ id: "page-1", title: "Home" }] },
+    quotaLimits: [],
+    pluginTables: [],
+    packages: [],
+    privateFiles: [],
+    themeFiles: [],
+    database: null,
+    undecryptableSecrets: 0,
     extensions: { plugins: [], themes: [] },
     files: [
       {
@@ -55,6 +63,32 @@ describe("portable backup archive", () => {
     expect(() => readPortableBackup(gzipSync(JSON.stringify(envelope)))).toThrow(
       "media integrity check failed",
     );
+  });
+
+  it("still reads a Justflows 0.4 archive, without its accounts", () => {
+    const legacy = {
+      createdAt: input.createdAt,
+      source: input.source,
+      data: {
+        tables: {
+          sites: [{ id: "site-1", name: "Example" }],
+          users: [{ id: "user-1", email: "a@example.com" }],
+          content: [{ id: "page-1", title: "Home", author_id: "user-1" }],
+        },
+        extensions: { plugins: [], themes: [] },
+        files: [],
+      },
+    };
+    const envelope = {
+      format: "justflows-portable-backup",
+      version: 1,
+      ...legacy,
+      integrity: { algorithm: "sha256", data: createHash("sha256").update(JSON.stringify(legacy)).digest("hex") },
+    };
+    const decoded = readPortableBackup(gzipSync(JSON.stringify(envelope)));
+    expect(decoded.data.site).toEqual({ id: "site-1", name: "Example" });
+    expect("users" in decoded.data.tables).toBe(false);
+    expect(decoded.data.tables.content?.[0]?.author_id).toBeNull();
   });
 
   it("rejects unknown and malformed archives", () => {
