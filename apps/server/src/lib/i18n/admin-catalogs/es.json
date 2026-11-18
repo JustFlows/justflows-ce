@@ -243,7 +243,33 @@
     "checkClean": "El comprobador de extensiones no encontró problemas.",
     "checkSummary": "Comprobador de extensiones: {errors} errores, {warnings} advertencias, {notes} notas",
     "checkFailed": "No se pudo comprobar el plugin",
-    "checkHelp": "Detalles"
+    "checkHelp": "Detalles",
+    "trust": {
+      "states": {
+        "verified": "Verificado por Justflows",
+        "operator": "De tu confianza",
+        "legacy": "Confianza heredada",
+        "unverified": "Sin verificar"
+      },
+      "reasons": {
+        "attested": "Esta versión exacta superó la revisión de Justflows. Eso no garantiza que sea segura.",
+        "operatorTrusted": "Has marcado como de confianza esta compilación exacta en este sitio.",
+        "legacy": "Se instaló antes de que existieran los estados de confianza. Seguirá funcionando como hasta ahora hasta el {date}.",
+        "revoked": "Justflows ha retirado esta versión. Actualízala o elimínala.",
+        "noDigest": "Se instaló desde el código fuente, así que no hay paquete que verificar.",
+        "noAttestation": "Justflows no ha verificado esta versión.",
+        "attestationsUnavailable": "No se pudo comprobar la lista de verificación, así que nada se considera verificado.",
+        "legacyExpired": "La confianza heredada terminó el {date} y Justflows no ha verificado esta versión."
+      },
+      "trust": "Confiar en esta compilación",
+      "untrust": "Dejar de confiar en esta compilación",
+      "trustHint": "Solo para código que hayas escrito o revisado tú. Se confía en el paquete exacto de abajo, no en actualizaciones posteriores. Cuando el entorno aislado de plugins esté disponible, una compilación de confianza se ejecutará fuera de él.",
+      "untrustHint": "El plugin vuelve a estar sin verificar.",
+      "password": "Tu contraseña",
+      "trustConfirm": "Confiar en esta compilación",
+      "untrustConfirm": "Dejar de confiar",
+      "failed": "No se pudo cambiar el ajuste de confianza."
+    }
   },
   "content": {
     "accountNotice": "Las páginas de cuenta requieren iniciar sesión. Justflows las excluye de las cachés, exportaciones, búsquedas públicas y mapas del sitio.",
@@ -3316,6 +3342,17 @@
           "lastFailed": "La última copia automática a {destination} ha fallado.",
           "overdue": "Las copias automáticas a {destination} han dejado de ejecutarse según lo programado.",
           "remediation": "Programa copias a un destino externo en Herramientas y ensaya una restauración en una instalación aislada."
+        },
+        "extensionsTrust": {
+          "title": "Verificación de plugins",
+          "unavailable": "No se pudieron leer los estados de confianza de los plugins.",
+          "clear": "Todos los plugins de este sitio están verificados por Justflows o son de tu confianza. Verificado es el resultado de una revisión, no una garantía de seguridad.",
+          "unverified": "Plugins que ni verificó Justflows ni son de tu confianza: {unverified}.",
+          "legacy": "Plugins con confianza heredada: {legacy}, hasta el {legacyUntil}.",
+          "remediationUnavailable": "Abre Plugins y vuelve a comprobarlo.",
+          "remediationClear": "Vuelve a comprobarlo después de instalar o actualizar un plugin.",
+          "remediationUnverified": "Sustitúyelos por versiones verificadas, elimínalos o confía en tu propia compilación en un único sitio autoalojado. Hoy por hoy, todos los plugins siguen teniendo acceso completo al sitio.",
+          "remediationLegacy": "Actualiza a una versión verificada antes de esa fecha o confía en tu propia compilación. Hoy por hoy, todos los plugins siguen teniendo acceso completo al sitio."
         }
       }
     },

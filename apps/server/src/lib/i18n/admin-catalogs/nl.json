@@ -243,7 +243,33 @@
     "checkClean": "De extensiecontrole vond geen problemen.",
     "checkSummary": "Extensiecontrole: {errors} fouten, {warnings} waarschuwingen, {notes} opmerkingen",
     "checkFailed": "De plugin kon niet worden gecontroleerd",
-    "checkHelp": "Details"
+    "checkHelp": "Details",
+    "trust": {
+      "states": {
+        "verified": "Geverifieerd door Justflows",
+        "operator": "Door jou vertrouwd",
+        "legacy": "Overgangsvertrouwen",
+        "unverified": "Niet geverifieerd"
+      },
+      "reasons": {
+        "attested": "Precies deze release heeft de beoordeling van Justflows doorstaan. Dat is geen garantie voor veiligheid.",
+        "operatorTrusted": "Je hebt precies deze build op deze site vertrouwd.",
+        "legacy": "Geïnstalleerd voordat er vertrouwensniveaus waren. Werkt tot {date} zoals voorheen.",
+        "revoked": "Justflows heeft deze release ingetrokken. Werk hem bij of verwijder hem.",
+        "noDigest": "Geïnstalleerd vanuit de broncode, dus er is geen pakket om te verifiëren.",
+        "noAttestation": "Justflows heeft deze release niet geverifieerd.",
+        "attestationsUnavailable": "De verificatielijst kon niet worden gecontroleerd, dus niets geldt als geverifieerd.",
+        "legacyExpired": "Het overgangsvertrouwen is op {date} afgelopen, en Justflows heeft deze release niet geverifieerd."
+      },
+      "trust": "Deze build vertrouwen",
+      "untrust": "Deze build niet meer vertrouwen",
+      "trustHint": "Alleen voor code die je zelf hebt geschreven of gecontroleerd. Je vertrouwt precies het pakket hieronder, geen latere updates. Zodra de plugin-sandbox beschikbaar is, draait een vertrouwde build daarbuiten.",
+      "untrustHint": "De plugin is weer niet geverifieerd.",
+      "password": "Je wachtwoord",
+      "trustConfirm": "Deze build vertrouwen",
+      "untrustConfirm": "Niet meer vertrouwen",
+      "failed": "De vertrouwensinstelling kon niet worden gewijzigd."
+    }
   },
   "content": {
     "accountNotice": "Accountpagina’s vereisen aanmelden. Justflows sluit ze uit van caches, exports, openbare zoekresultaten en sitemaps.",
@@ -3313,6 +3339,17 @@
           "lastFailed": "De laatste automatische back-up naar {destination} is mislukt.",
           "overdue": "Automatische back-ups naar {destination} draaien niet meer volgens schema.",
           "remediation": "Plan back-ups naar een externe bestemming in Gereedschap en oefen een herstel op een geïsoleerde installatie."
+        },
+        "extensionsTrust": {
+          "title": "Pluginverificatie",
+          "unavailable": "De vertrouwensniveaus van plugins konden niet worden gelezen.",
+          "clear": "Elke plugin op deze site is geverifieerd door Justflows of door jou vertrouwd. Geverifieerd is een beoordelingsresultaat, geen garantie voor veiligheid.",
+          "unverified": "Plugins die niet door Justflows geverifieerd of door jou vertrouwd zijn: {unverified}.",
+          "legacy": "Plugins met overgangsvertrouwen: {legacy}, tot {legacyUntil}.",
+          "remediationUnavailable": "Open Plugins en controleer opnieuw.",
+          "remediationClear": "Controleer opnieuw nadat je een plugin installeert of bijwerkt.",
+          "remediationUnverified": "Vervang ze door geverifieerde releases, verwijder ze of vertrouw je eigen build op één zelfgehoste site. Op dit moment heeft elke plugin nog volledige toegang tot de site.",
+          "remediationLegacy": "Werk vóór die datum bij naar een geverifieerde release of vertrouw je eigen build. Op dit moment heeft elke plugin nog volledige toegang tot de site."
         }
       }
     },

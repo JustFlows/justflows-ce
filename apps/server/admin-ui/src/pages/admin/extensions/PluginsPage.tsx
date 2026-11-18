@@ -39,6 +39,99 @@ const SEVERITY_VARIANT: Record<CheckReport["findings"][number]["severity"], stri
   info: " jf-badge--info",
 };
 
+type TrustState = "verified" | "operator" | "legacy" | "unverified";
+
+interface PluginTrust {
+  pluginId: string;
+  version: string;
+  state: TrustState;
+  reason: string;
+  archiveDigest: string | null;
+  legacyUntil?: string;
+}
+
+interface TrustPayload {
+  plugins: PluginTrust[];
+  operatorTrustAllowed: boolean;
+}
+
+const TRUST_VARIANT: Record<TrustState, string> = {
+  verified: " jf-badge--ok",
+  operator: " jf-badge--info",
+  legacy: " jf-badge--warn",
+  unverified: " jf-badge--warn",
+};
+
+/**
+ * A plugin's trust state (justflows-ce#270) and, on a single self-hosted site,
+ * the control to trust this exact build. Trusting asks for the password.
+ */
+function TrustRow({ trust, allowed, onChanged }: { trust: PluginTrust; allowed: boolean; onChanged: (next: PluginTrust) => void }) {
+  const { t } = useT();
+  const [confirming, setConfirming] = useState(false);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const date = trust.legacyUntil ? new Date(trust.legacyUntil).toLocaleDateString() : "";
+  const canTrust = allowed && trust.archiveDigest !== null && trust.state !== "verified";
+  const trusted = trust.state === "operator";
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const res = await fetch(`/api/plugins/${encodeURIComponent(trust.pluginId)}/trust`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ trusted: !trusted, password, archiveDigest: trust.archiveDigest }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { plugin?: PluginTrust; error?: string };
+    setBusy(false);
+    if (!res.ok || !data.plugin) {
+      setError(data.error ?? t("plugins.trust.failed"));
+      return;
+    }
+    setConfirming(false);
+    setPassword("");
+    onChanged(data.plugin);
+  }
+
+  return (
+    <div className="jf-stack jf-stack--sm">
+      <p className="jf-meta">
+        <span className={`jf-badge${TRUST_VARIANT[trust.state]}`}>{t(`plugins.trust.states.${trust.state}`)}</span>{" "}
+        {t(`plugins.trust.reasons.${trust.reason}`, { date })}
+      </p>
+      {canTrust && !confirming ? (
+        <div className="jf-row">
+          <button className="jf-btn jf-btn--ghost" type="button" onClick={() => setConfirming(true)}>
+            {trusted ? t("plugins.trust.untrust") : t("plugins.trust.trust")}
+          </button>
+        </div>
+      ) : null}
+      {confirming ? (
+        <form className="jf-stack jf-stack--sm" onSubmit={submit}>
+          <p className="jf-field__hint">{trusted ? t("plugins.trust.untrustHint") : t("plugins.trust.trustHint")}</p>
+          <p className="jf-meta"><code className="jf-code">{`sha256:${trust.archiveDigest}`}</code></p>
+          <label className="jf-field">
+            <span className="jf-field__label">{t("plugins.trust.password")}</span>
+            <input className="jf-input" type="password" autoComplete="current-password" value={password} required onChange={(e) => setPassword(e.target.value)} />
+          </label>
+          {error ? <p className="jf-status jf-status--error">{error}</p> : null}
+          <div className="jf-row">
+            <button className="jf-btn jf-btn--primary" type="submit" disabled={busy}>
+              {trusted ? t("plugins.trust.untrustConfirm") : t("plugins.trust.trustConfirm")}
+            </button>
+            <button className="jf-btn" type="button" onClick={() => { setConfirming(false); setPassword(""); setError(""); }}>
+              {t("common.cancel")}
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
 const STATUS_VARIANT: Record<Plugin["status"], string> = {
   active: " jf-badge--ok",
   inactive: "",
@@ -65,6 +158,7 @@ export default function PluginsPage() {
   // Installing, activating, or deleting a plugin changes which admin pages exist.
   const { refresh: refreshMenu } = usePluginMenu();
   const updates = useExtensionUpdates(canManage);
+  const [trust, setTrust] = useState<TrustPayload | null>(null);
 
   async function checkPlugin(id: string) {
     setChecks((current) => ({ ...current, [id]: { loading: true } }));
@@ -87,6 +181,16 @@ export default function PluginsPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!canManage) return;
+    fetch("/api/plugins/trust", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: TrustPayload | null) => {
+        if (data && Array.isArray(data.plugins)) setTrust(data);
+      })
+      .catch(() => {});
+  }, [canManage]);
 
   async function handleFile(file: File) {
     if (!file.name.endsWith(".jfpkg") && !file.name.endsWith(".zip")) {
@@ -282,6 +386,16 @@ export default function PluginsPage() {
                   </div>
                   {p.description && <p className="jf-list__desc">{p.description}</p>}
                   <p className="jf-meta">{t("ui.pluginsPage.by")}{p.publisher} · <code className="jf-code">{p.id}</code></p>
+                  {(() => {
+                    const row = trust?.plugins.find((item) => item.pluginId === p.id);
+                    return row ? (
+                      <TrustRow
+                        trust={row}
+                        allowed={trust!.operatorTrustAllowed}
+                        onChanged={(next) => setTrust((current) => current && { ...current, plugins: current.plugins.map((item) => (item.pluginId === next.pluginId ? next : item)) })}
+                      />
+                    ) : null;
+                  })()}
                   {canManage && installationRoot && (
                     <label className="jf-row" style={{ gap: "0.5rem" }}>
                       <input
