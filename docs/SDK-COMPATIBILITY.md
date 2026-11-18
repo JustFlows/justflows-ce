@@ -45,6 +45,43 @@ Plugins additionally receive executable runtime context and can inspect
 `SDK_API_VERSION` from `@justflows/sdk`. `ctx.version` continues to mean the
 plugin's own version.
 
+### In development — inline-editable block fields
+
+`PluginBlockDefinition.inline` is optional and additive. It lists the props an
+author may edit directly on the builder canvas, such as
+`{ title: { mode: "plain", maxLength: 80 } }`. Mark the element that shows the
+prop with `data-jf-inline="title"` in `render`. Plugin fields are plain text: a
+declared `rich` mode is treated as `plain`, and `render` must keep escaping the
+value. Blocks without `inline` behave as before. See
+[Blocks](BLOCKS.md#editing-text-on-the-canvas).
+
+### In development — block editor contract
+
+`PluginBlockDefinition` takes optional `apiVersion`, `keywords`, `parents`,
+`defaults`, `deprecated`, `actions`, `preview`, `supports` and `migrations`
+fields, and `BLOCK_API_VERSION` (1) is exported. All are additive; blocks
+without them behave as before. A block that declares an `apiVersion` the host
+does not support, or migrations that skip a version, is refused at activation.
+The members of `PluginBlockDefinition`, `PluginBlockField` and `BlockPattern`
+are now recorded in `packages/sdk/api-contracts.json`, and removing one or
+making one required fails `pnpm sdk:api:check`. See
+[Block editor contract](BLOCK-CONTRACT.md).
+
+### In development — reserved `document-history` API namespace
+
+Core now serves `/api/document-history` (version history of the header, footer,
+widget areas, and template overrides), so `document-history` is reserved and
+`apiNamespace` rejects it. A plugin that declared that namespace must pick
+another before upgrading.
+
+### In development — pattern block editor metadata
+
+`PatternBlock` takes an optional `editor` object (`label`, `lock`) that holds
+navigator labels and locks. `PatternBlockEditorMetaSchema` and the
+`PatternBlockEditorMeta` type are exported. Unknown keys inside `editor` are
+rejected, like the rest of a pattern block. Existing patterns are unaffected. See
+[Builder document architecture](BUILDER-DOCUMENT.md).
+
 ### In development — search
 
 `SearchBackend`, `SearchDocument`, and the permission-gated `search.backend`
@@ -75,6 +112,16 @@ All additive; existing plugins are unaffected.
   `adminApp.locales` catalogs before core's.
 - The `plugin.settings.schema` filter narrows a plugin's settings form per site.
 - `ctx.network.site(siteId?)` returns one live site and its public URL from any site.
+- `ctx.users.sendPasswordSetup(target, actor)` (permission `users:manage`; only users
+  holding a role the plugin registered) emails a three-day set-password link.
+- `ctx.users.delete(target, actor)` (permission `users:manage`; only users whose every role the
+  plugin registered) deletes an account the plugin is wholly responsible for, such as demo data.
+- `ctx.users.find` / `get` return `birthDate` (`YYYY-MM-DD` or null) when the member gave one.
+- `ctx.users.updateProfile(target, { birthDate }, actor)` (permission `users:manage`; only the acting
+  member's own account, or an account whose every role the plugin registered) keeps a value on the
+  account instead of in the plugin; audited without the value, fires `user.updated`.
+- `ctx.outbound.fetch(url, request?)` (permission `network:outbound`; absent without it
+  and on older hosts) makes SSRF-guarded HTTP requests and returns failures as values.
 - `ctx.captcha.verify` without an action expects the plugin's own name.
 - Block fields of type `images`; for `media` and `images` fields the host adds a
   `responsive` prop. `escapeHtml`, `sanitizeMediaSrc`, `safeMediaSrc`,

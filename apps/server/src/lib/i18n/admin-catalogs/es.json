@@ -21,6 +21,7 @@
     "widgets": "Widgets",
     "menus": "Menús",
     "users": "Usuarios",
+    "usersAccount": "Tu cuenta",
     "settings": "Ajustes",
     "emails": "Correos electrónicos",
     "comments": "Comentarios",
@@ -56,7 +57,10 @@
     "customDomains": "Dominios propios",
     "storage": "Almacenamiento",
     "taxonomies": "Categorías y etiquetas",
-    "securityPasskeys": "Llaves de acceso"
+    "securityPasskeys": "Llaves de acceso",
+    "dataRequests": "Solicitudes de datos",
+    "securityCustomCode": "Código personalizado",
+    "securitySignIn": "Inicio de sesión"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -67,7 +71,10 @@
     "url": "URL de destino",
     "events": "Eventos",
     "chooseEvents": "Elegir eventos…",
-    "selectedEvents": "{count} eventos seleccionados",
+    "selectedEvents": {
+      "one": "{count} evento seleccionado",
+      "other": "{count} eventos seleccionados"
+    },
     "selectAll": "Seleccionar todo",
     "clear": "Limpiar",
     "removeEvent": "Quitar {event}",
@@ -103,7 +110,10 @@
     "name": "Nombre",
     "capabilities": "Permisos",
     "chooseCapabilities": "Elegir permisos…",
-    "selectedCapabilities": "{count} permisos seleccionados",
+    "selectedCapabilities": {
+      "one": "{count} permiso seleccionado",
+      "other": "{count} permisos seleccionados"
+    },
     "selectAll": "Seleccionar todo",
     "clear": "Limpiar",
     "removeCapability": "Quitar {capability}",
@@ -172,7 +182,10 @@
     "selectAll": "Seleccionar todo",
     "deleteSelected": "Eliminar {count}",
     "bulkEdit": "Editar {count}",
-    "trashConfirm": "¿Mover {count} entradas a la papelera? Puedes restaurarlas durante el período de retención.",
+    "trashConfirm": {
+      "one": "¿Mover {count} entrada a la papelera? Puedes restaurarla durante el período de retención.",
+      "other": "¿Mover {count} entradas a la papelera? Puedes restaurarlas durante el período de retención."
+    },
     "listEmptyTitle": "Aún no hay elementos ({section})",
     "listEmptyBody": "Crea el primer elemento ({type}) para empezar.",
     "listError": "No se pudo cargar {section}.",
@@ -224,7 +237,42 @@
     "installedHeading": "Plugins instalados ({count})",
     "deactivateSiteConfirm": "¿Desactivar “{name}” en este sitio? Si sus opciones de borrado están activadas, se eliminan los datos, páginas y entradas del plugin de este sitio. Las tablas se conservan para otros sitios.",
     "deactivateFailed": "No se pudo desactivar el plugin.",
-    "activateFailed": "No se pudo activar el plugin."
+    "activateFailed": "No se pudo activar el plugin.",
+    "check": "Comprobar",
+    "checking": "Comprobando…",
+    "checkHint": "Ejecutar el comprobador de extensiones en los archivos instalados de este plugin",
+    "checkClean": "El comprobador de extensiones no encontró problemas.",
+    "checkSummary": "Comprobador de extensiones: {errors} errores, {warnings} advertencias, {notes} notas",
+    "checkFailed": "No se pudo comprobar el plugin",
+    "checkHelp": "Detalles",
+    "trust": {
+      "states": {
+        "verified": "Verificado por Justflows",
+        "operator": "De tu confianza",
+        "legacy": "Confianza heredada",
+        "unverified": "Sin verificar"
+      },
+      "reasons": {
+        "attested": "Esta versión exacta superó la revisión de Justflows. Eso no garantiza que sea segura.",
+        "operatorTrusted": "Has marcado como de confianza esta compilación exacta en este sitio.",
+        "legacy": "Se instaló antes de que existieran los estados de confianza. Seguirá funcionando como hasta ahora hasta el {date}.",
+        "revoked": "Justflows ha retirado esta versión. Actualízala o elimínala.",
+        "noDigest": "Se instaló desde el código fuente, así que no hay paquete que verificar.",
+        "noAttestation": "Justflows no ha verificado esta versión.",
+        "attestationsUnavailable": "No se pudo comprobar la lista de verificación, así que nada se considera verificado.",
+        "legacyExpired": "La confianza heredada terminó el {date} y Justflows no ha verificado esta versión."
+      },
+      "trust": "Confiar en esta compilación",
+      "untrust": "Dejar de confiar en esta compilación",
+      "trustHint": "Solo para código que hayas escrito o revisado tú. Se confía en el paquete exacto de abajo, no en actualizaciones posteriores. Cuando el entorno aislado de plugins esté disponible, una compilación de confianza se ejecutará fuera de él.",
+      "untrustHint": "El plugin vuelve a estar sin verificar.",
+      "password": "Tu contraseña",
+      "trustConfirm": "Confiar en esta compilación",
+      "untrustConfirm": "Dejar de confiar",
+      "failed": "No se pudo cambiar el ajuste de confianza.",
+      "sandboxed": "Se ejecuta en el entorno aislado de plugins, con acceso limitado al sitio.",
+      "notLoaded": "No se ha cargado: la versión de Node.js de este servidor no puede ejecutar el entorno aislado de plugins."
+    }
   },
   "content": {
     "accountNotice": "Las páginas de cuenta requieren iniciar sesión. Justflows las excluye de las cachés, exportaciones, búsquedas públicas y mapas del sitio.",
@@ -379,7 +427,10 @@
     "menuName": "Nombre del menú",
     "menuSlug": "Slug del menú (p. ej. footer)",
     "createMenuButton": "Crear menú",
-    "itemCount": "{count} elementos",
+    "itemCount": {
+      "one": "{count} elemento",
+      "other": "{count} elementos"
+    },
     "empty": "Aún no hay elementos en el menú.",
     "emptyHint": "Añade contenido publicado o enlaces personalizados desde el panel de la izquierda.",
     "type": {
@@ -394,7 +445,10 @@
     "outdent": "Quitar sangría",
     "expand": "Expandir",
     "collapse": "Contraer",
-    "collapsedCount": "{count} ocultos",
+    "collapsedCount": {
+      "one": "{count} oculto",
+      "other": "{count} ocultos"
+    },
     "duplicate": "Duplicar",
     "addSubItem": "Añadir subelemento",
     "newSubItem": "Subelemento",
@@ -479,7 +533,10 @@
       "linkUrl": "URL",
       "addLink": "+ Añadir enlace",
       "useAdvanced": "¿Necesitas algo distinto? Cambia al editor de bloques avanzado",
-      "summaryLinks": "{count} enlaces",
+      "summaryLinks": {
+        "one": "{count} enlace",
+        "other": "{count} enlaces"
+      },
       "summaryPromo": "Panel destacado",
       "summaryCustom": "Contenido personalizado",
       "promoBackground": "Fondo",
@@ -662,7 +719,10 @@
     "pageJson": {
       "title": "JSON de la página",
       "hint": "No hay nada seleccionado, así que esta es la página completa. Selecciona un bloque en el lienzo para editarlo por separado.",
-      "count": "{count} bloques",
+      "count": {
+        "one": "{count} bloque",
+        "other": "{count} bloques"
+      },
       "apply": "Aplicar",
       "reload": "Descartar",
       "applied": "Aplicado",
@@ -730,7 +790,60 @@
       "saveCopy": "Guardar una copia",
       "showing": "Muestra",
       "referenceHint": "Esto es una referencia. Los cambios en el bloque guardado aparecen en cada página que lo usa.",
-      "missing": "Ese bloque guardado ya no existe."
+      "missing": "Ese bloque guardado ya no existe.",
+      "linkedTitle": "Bloque reutilizable vinculado",
+      "usageLoading": "Comprobando dónde se usa…",
+      "usageNone": "Todavía no se usa en ningún otro sitio.",
+      "usage": {
+        "one": "Se usa en {count} lugar. Publicar un cambio lo actualiza.",
+        "other": "Se usa en {count} lugares. Publicar un cambio los actualiza todos."
+      },
+      "usageHidden": {
+        "one": "Se usa en {count} lugar, {hidden} de los cuales no puedes abrir. Publicar un cambio lo actualiza.",
+        "other": "Se usa en {count} lugares, {hidden} de los cuales no puedes abrir. Publicar un cambio los actualiza todos."
+      },
+      "hasDraft": "El origen tiene cambios sin publicar. El lienzo los muestra; los visitantes no los ven hasta que se publiquen.",
+      "editSource": "Editar el origen…",
+      "detach": "Desvincular (crear una copia local)",
+      "detachConfirm": "¿Sustituir este vínculo a «{name}» por una copia local? La copia ya no seguirá los cambios del origen.",
+      "detached": "Desvinculado: ahora es una copia local.",
+      "missingRecover": "El bloque reutilizable al que apunta ya no existe. Elige otro arriba o elimina este bloque.",
+      "notChosen": "Aún no se ha elegido un bloque reutilizable.",
+      "nestingStopped": "«{name}» no se vuelve a mostrar aquí: un bloque reutilizable no puede contenerse a sí mismo ni anidarse más de 4 niveles.",
+      "linkedChip": "Vinculado: {name}",
+      "draftChip": "cambios sin publicar",
+      "notFound": "Este bloque reutilizable no existe.",
+      "usageTitle": "Dónde se usa",
+      "open": "Abrir",
+      "inPart": "parte «{part}»",
+      "inTemplate": "plantilla «{slug}»",
+      "inMenu": "menú «{slug}»",
+      "inReusable": {
+        "one": "{count} bloque reutilizable más",
+        "other": "{count} bloques reutilizables más"
+      },
+      "inPatterns": {
+        "one": "{count} patrón",
+        "other": "{count} patrones"
+      },
+      "usageTruncated": "Solo se muestran las primeras coincidencias; puede haber más.",
+      "stateDraft": "cambios sin publicar",
+      "statePublished": "publicado, versión {revision}",
+      "publishConfirm": {
+        "one": "¿Publicar estos cambios? Aparecerán en el lugar ({count}) que usa este bloque reutilizable.",
+        "other": "¿Publicar estos cambios? Aparecerán en los {count} lugares que usan este bloque reutilizable."
+      },
+      "publishConfirmUnused": "¿Publicar estos cambios?",
+      "discard": "Descartar cambios",
+      "discardConfirm": "¿Descartar los cambios sin publicar? La versión publicada se mantiene.",
+      "rename": "Renombrar",
+      "deleteConfirm": "¿Eliminar el bloque reutilizable «{name}»?",
+      "deleteUsedConfirm": {
+        "one": "«{name}» se usa en {count} lugar. Eliminarlo lo quita de ahí. ¿Eliminar de todos modos?",
+        "other": "«{name}» se usa en {count} lugares. Eliminarlo lo quita de todos. ¿Eliminar de todos modos?"
+      },
+      "deleteFailed": "No se pudo eliminar el bloque reutilizable",
+      "restoreHint": "Carga esta versión en el editor. Guarda el borrador y publica para usarla."
     },
     "themeControls": {
       "title": "Estilo del tema",
@@ -751,7 +864,10 @@
       "search": "Buscar plantillas…",
       "category": "Categoría",
       "manage": "Gestionar",
-      "results": "{count} plantillas",
+      "results": {
+        "one": "{count} plantilla",
+        "other": "{count} plantillas"
+      },
       "noResults": "No hay plantillas que coincidan con estos filtros.",
       "loadDirectory": "Cargar catálogo",
       "choose": "Elige una plantilla para previsualizarla a ancho de página.",
@@ -768,7 +884,10 @@
       "manageExtensions": "Gestionar extensiones",
       "requires": "Requiere {types}.",
       "all": "todas",
-      "synced": "sincronizada"
+      "synced": "sincronizada",
+      "insertLinked": "Insertar vinculado",
+      "insertLinkedHint": "Patrón sincronizado: inserta un vínculo. Los cambios futuros del patrón también aparecerán aquí.",
+      "insertCopyHint": "Inserta una copia que puedes cambiar libremente. Los cambios futuros del patrón no la alcanzan."
     },
     "canvas": {
       "dragSectionHere": "Arrastra aquí una sección o un bloque hero",
@@ -795,7 +914,6 @@
         "subheading": "Subtítulo",
         "buttonLabel": "Texto del botón",
         "buttonUrl": "URL del botón",
-        "backgroundImageUrl": "URL de la imagen de fondo",
         "text": "Texto",
         "style": "Estilo",
         "headingText": "Texto del encabezado",
@@ -830,7 +948,8 @@
         "sections": "Secciones",
         "policies": "Políticas",
         "intro": "Intro",
-        "icon": "Icono"
+        "icon": "Icono",
+        "backgroundImage": "Imagen de fondo"
       },
       "option": {
         "backgroundMuted": "Atenuado",
@@ -986,7 +1105,10 @@
         "noOptions": "Todavía no hay nada que elegir.",
         "none": "— Ninguno —",
         "search": "Buscar…",
-        "selected": "{count} seleccionados"
+        "selected": {
+          "one": "{count} seleccionado",
+          "other": "{count} seleccionados"
+        }
       }
     },
     "blockLibrary": {
@@ -1028,7 +1150,14 @@
       "typeAParagraph": "Escribe un párrafo…",
       "youMayAlsoLike": "También te puede gustar",
       "html": "HTML",
-      "emptyParagraph": "Párrafo vacío"
+      "emptyParagraph": "Párrafo vacío",
+      "standIn": {
+        "label": "Vista previa",
+        "site": "Muestra el logotipo, el título, los menús o las migas de pan de tu sitio cuando se sirve la página.",
+        "query": "Muestra el contenido o los encabezados que se encuentran al servir la página.",
+        "visitor": "Depende del visitante (sesión iniciada, idioma, esquema de color o búsqueda), así que el constructor muestra una versión neutra.",
+        "external": "Carga contenido de terceros en la página publicada; el constructor no lo ejecuta."
+      }
     },
     "grid": {
       "dragBlockOntoGrid": "Arrastra un bloque a la cuadrícula",
@@ -1118,10 +1247,49 @@
         "mathLatex": "Matemáticas (LaTeX)",
         "subscript": "Subíndice",
         "superscript": "Superíndice"
-      }
+      },
+      "linkRejected": "Ese enlace no está permitido. Usa una dirección web (https://…), una ruta (/pagina) o mailto:.",
+      "linkPlaceholder": "https://ejemplo.com o /pagina",
+      "attribution": "Autoría",
+      "buttonLabel": "Texto del botón",
+      "buttonLink": "Enlace del botón",
+      "supportingText": "Texto de apoyo",
+      "caption": "Pie de foto",
+      "altText": "Texto alternativo",
+      "altPlaceholder": "Describe la imagen para quien no pueda verla",
+      "replaceImage": "Reemplazar imagen",
+      "replaceImageHint": "Doble clic para reemplazar la imagen",
+      "chooseImage": "Doble clic para elegir una imagen",
+      "listItem": "Elemento de lista",
+      "pluginField": "Editar {field}",
+      "mediaUrlRejected": "Esa dirección no se puede usar. Usa un enlace https:// o un archivo de la biblioteca de medios.",
+      "mediaUrl": "Dirección del medio",
+      "mediaUrlPlaceholder": "https://… o /uploads/…",
+      "libraryEmpty": "Todavía no hay nada de este tipo en la biblioteca de medios.",
+      "pick": {
+        "image": "Elegir una imagen",
+        "video": "Elegir un vídeo",
+        "audio": "Elegir audio",
+        "file": "Elegir un archivo"
+      },
+      "upload": {
+        "image": "Subir imagen",
+        "video": "Subir vídeo",
+        "audio": "Subir audio",
+        "file": "Subir archivo"
+      },
+      "replace": {
+        "video": "Reemplazar vídeo",
+        "audio": "Reemplazar audio",
+        "file": "Reemplazar archivo"
+      },
+      "replaceMediaHint": "Doble clic para reemplazar",
+      "choosePoster": "Elegir imagen de portada",
+      "changePoster": "Cambiar imagen de portada",
+      "removePoster": "Quitar portada",
+      "linkText": "Texto del enlace",
+      "linkTextPlaceholder": "Por defecto, el nombre del archivo"
     },
-    "blockCountOne": "{count} bloque",
-    "blockCountMany": "{count} bloques",
     "previewLight": "Claro",
     "previewDark": "Oscuro",
     "previewSchemeHint": "Ver el sitio en modo claro u oscuro",
@@ -1142,7 +1310,8 @@
       "label": "Link label",
       "download": "Download file",
       "autoplayHelp": "Browsers usually require muted playback for autoplay. The editor preview always shows controls and does not autoplay.",
-      "downloadHelp": "Download links work best for files hosted on this site. External files may open in the browser."
+      "downloadHelp": "Download links work best for files hosted on this site. External files may open in the browser.",
+      "source": "Archivo multimedia"
     },
     "functional": {
       "fields": {
@@ -1344,6 +1513,600 @@
         "click": "Click"
       },
       "checklistItem": "Checklist item"
+    },
+    "shell": {
+      "toolbar": "Herramientas del constructor",
+      "library": "Bloques",
+      "inspector": "Ajustes",
+      "canvas": "Lienzo",
+      "breadcrumbs": "Ubicación del bloque seleccionado",
+      "history": "Historial",
+      "breakpoint": "Ancho de vista previa",
+      "zoom": "Zoom",
+      "unsaved": "Cambios sin guardar",
+      "saveFailed": "No se pudo guardar",
+      "retry": "Reintentar",
+      "leaveUnsaved": "Hay cambios sin guardar. ¿Salir del constructor de todos modos?",
+      "breakpointLabel": {
+        "desktop": "Escritorio",
+        "tablet": "Tableta",
+        "mobile": "Móvil"
+      },
+      "context": {
+        "page": "Página",
+        "post": "Entrada",
+        "header": "Cabecera global",
+        "footer": "Pie de página global",
+        "template": "Plantilla",
+        "reusable": "Bloque reutilizable",
+        "pattern": "Patrón",
+        "fragment": "Contenido"
+      },
+      "impact": {
+        "header": "Los cambios aparecen en cada página que usa esta cabecera.",
+        "footer": "Los cambios aparecen en todas las páginas.",
+        "template": "Los cambios afectan a cada página que muestra esta plantilla.",
+        "reusable": "Los cambios aparecen en todos los lugares donde se usa este bloque."
+      },
+      "tab": {
+        "content": "Contenido",
+        "style": "Estilo",
+        "layout": "Diseño",
+        "responsive": "Adaptable",
+        "interactions": "Interacciones",
+        "advanced": "Avanzado"
+      },
+      "site": "Sitio",
+      "siteParts": "Partes del sitio",
+      "autosaving": "Guardando automáticamente…",
+      "conflict": "Sin guardar: hay una versión más reciente",
+      "conflictDraft": "Otra persona cambió el borrador de esta página después de que la abrieras. Tus cambios siguen aquí y no se han guardado.",
+      "conflictDraftBy": "{name} cambió el borrador de esta página después de que la abrieras. Tus cambios siguen aquí y no se han guardado.",
+      "conflictLive": "Esta página se cambió o publicó en otro lugar después de que la abrieras. Tus cambios siguen aquí y no se han guardado.",
+      "loadLatest": "Cargar la última versión",
+      "overwrite": "Guardar la mía encima",
+      "overwriteConfirm": "¿Reemplazar la versión más reciente por la tuya? Los otros cambios se conservan en las revisiones de la página.",
+      "recoveryFound": "Este navegador guardó cambios sin guardar del {time}.",
+      "restore": "Restaurarlos",
+      "discard": "Descartar",
+      "sessionExpired": "Tu sesión ha caducado. Vuelve a iniciar sesión en otra pestaña y guarda. Tus cambios se conservan en este navegador.",
+      "conflictPart": "Otra persona guardó esto después de que lo abrieras. Tus cambios siguen aquí y no se han guardado.",
+      "overwritePartConfirm": "¿Reemplazar la versión más reciente por la tuya? Los cambios de la otra persona se perderán.",
+      "revisions": "Revisiones",
+      "revisionsLoading": "Cargando versiones…",
+      "revisionsEmpty": "Aún no hay versiones anteriores. Cada guardado añade una.",
+      "revisionsPick": "Elige una versión para ver qué cambiaría al restaurarla.",
+      "revisionsSame": "Esta versión tiene los mismos bloques que lo que estás editando.",
+      "revisionsCompare": "Comparado con lo que estás editando, restaurar esta versión:",
+      "revisionsAdded": {
+        "one": "Añadiría {count} bloque",
+        "other": "Añadiría {count} bloques"
+      },
+      "revisionsRemoved": {
+        "one": "Quitaría {count} bloque",
+        "other": "Quitaría {count} bloques"
+      },
+      "revisionsChanged": {
+        "one": "Cambiaría {count} bloque",
+        "other": "Cambiaría {count} bloques"
+      },
+      "revisionsMoved": {
+        "one": "Movería {count} bloque",
+        "other": "Movería {count} bloques"
+      },
+      "revisionsRestore": "Restaurar esta versión",
+      "restoreHintPage": "Restaurar guarda esta versión como borrador de la página. La página publicada no cambia hasta que publiques.",
+      "restoreHintPart": "Restaurar carga esta versión en el editor. Guarda un borrador o publica para conservarla.",
+      "restoreUnsavedConfirm": "Restaurar reemplaza tus cambios sin guardar. Se conservan en este navegador y puedes restaurarlos después. ¿Continuar?",
+      "stateDraft": "Borrador",
+      "statePublished": "Publicado",
+      "layers": "Capas",
+      "previewWidth": "Ancho de la vista previa en píxeles",
+      "canvasWidth": "{width} px · {breakpoint}",
+      "styles": "Estilos",
+      "checks": "Comprobaciones"
+    },
+    "drop": {
+      "rejectNesting": "{child} no puede ir dentro de {parent}.",
+      "rejectNestingRoot": "{child} no puede ir en este nivel. Colócalo dentro de un contenedor adecuado.",
+      "reject": {
+        "nesting": "Este bloque no puede ir aquí.",
+        "self": "Un bloque no se puede soltar sobre sí mismo.",
+        "descendant": "Un bloque no se puede mover dentro de su propio contenido.",
+        "region": "Aquí no se pueden mover bloques a esa zona.",
+        "missing": "Ese bloque ya no existe.",
+        "locked": "Este bloque está bloqueado en su sitio."
+      },
+      "noTarget": "No se movió: suelta sobre una zona de destino.",
+      "moved": "{block} movido.",
+      "inserted": "{block} añadido.",
+      "cancelled": "Movimiento cancelado. No ha cambiado nada.",
+      "releaseToMove": "Suelta para mover {block} aquí",
+      "releaseToInsert": "Suelta para añadir {block} aquí"
+    },
+    "navigator": {
+      "title": "Capas",
+      "search": "Buscar un bloque",
+      "keysHint": "Flechas para recorrer, Intro para seleccionar, Mayús+flechas para ampliar la selección, Alt+flechas para mover, F2 para renombrar, Mayús+F10 para acciones.",
+      "empty": "Aún no hay bloques.",
+      "noMatches": "Ningún bloque coincide.",
+      "root": "Nivel superior",
+      "moved": "{block} movido a la posición {position} en {parent}.",
+      "movedInto": "{block} movido a {parent}.",
+      "cannotMove": "No se puede mover más en esa dirección.",
+      "moveTo": "Mover «{block}» a…",
+      "chooseDestination": "Elige un contenedor",
+      "noDestinations": "Ningún otro lugar acepta este bloque",
+      "rename": "Nombre solo en este editor",
+      "badge": {
+        "reusable": "Bloque reutilizable: los cambios afectan a cada página que lo usa",
+        "hidden": "Oculto en algunos dispositivos",
+        "locked": "Bloqueado",
+        "unavailable": "Tipo de bloque no disponible: puede que su plugin esté desactivado",
+        "dynamic": "Muestra contenido de la página o del sitio"
+      }
+    },
+    "actions": {
+      "menu": "Acciones del bloque",
+      "blocks": {
+        "one": "{count} bloque",
+        "other": "{count} bloques"
+      },
+      "more": "Más acciones para {block}",
+      "duplicate": "Duplicar",
+      "copy": "Copiar",
+      "cut": "Cortar",
+      "paste": "Pegar",
+      "delete": "Eliminar",
+      "group": "Agrupar",
+      "ungroup": "Desagrupar",
+      "resetStyle": "Restablecer estilo",
+      "saveReusable": "Guardar como bloque reutilizable…",
+      "savePattern": "Guardar como patrón…",
+      "locks": "Bloqueos",
+      "lock": {
+        "move": "Impedir mover",
+        "remove": "Impedir eliminar",
+        "edit": "Impedir editar"
+      },
+      "lockedByPolicy": "Solo quien puede gestionar bloqueos puede cambiarlos.",
+      "blocked": {
+        "empty": "Selecciona primero un bloque.",
+        "mixedParents": "Selecciona bloques contiguos dentro del mismo contenedor.",
+        "lockedRemove": "Un bloque seleccionado, o algo que contiene, está protegido contra la eliminación.",
+        "lockedMove": "Un bloque seleccionado está bloqueado en su sitio.",
+        "lockedEdit": "Un bloque seleccionado está protegido contra la edición.",
+        "nesting": "El resultado no estaría permitido en este contenedor.",
+        "notGroup": "Solo se puede desagrupar un Grupo o un Contenedor.",
+        "noStyle": "No hay ningún estilo propio que restablecer.",
+        "clipboardEmpty": "Todavía no se ha copiado nada.",
+        "permission": "Solo administradores y editores pueden guardar en la biblioteca.",
+        "unsupported": "No disponible en este editor."
+      },
+      "done": {
+        "duplicate": "{what} duplicado.",
+        "copy": "{what} copiado.",
+        "cut": "{what} cortado.",
+        "paste": "{what} pegado.",
+        "delete": "{what} eliminado. Deshacer lo recupera.",
+        "group": "{what} agrupado.",
+        "ungroup": "{what} desagrupado.",
+        "resetStyle": "Estilo de {what} restablecido.",
+        "saveReusable": "{what} guardado como bloque reutilizable y vinculado aquí.",
+        "savePattern": "Patrón {what} guardado.",
+        "locked": "{what} bloqueado.",
+        "unlocked": "{what} desbloqueado."
+      },
+      "pasteFailed": {
+        "empty": "No hay nada que pegar.",
+        "too-large": "Es demasiado para pegarlo de una vez.",
+        "nesting": "Estos bloques no pueden ir aquí. Selecciona un contenedor adecuado y vuelve a pegar."
+      },
+      "selectRefused": {
+        "parent": "La selección múltiple solo funciona con bloques del mismo contenedor.",
+        "context": "Los bloques del encabezado y de la página no se pueden seleccionar juntos."
+      },
+      "editLocked": "Este bloque está protegido contra la edición. Pide a alguien que pueda gestionar bloqueos que lo desbloquee.",
+      "editLockedManage": "Este bloque está protegido contra la edición. Desbloquéalo desde el menú del bloque para cambiarlo.",
+      "multi": {
+        "title": {
+          "one": "{count} bloque seleccionado",
+          "other": "{count} bloques seleccionados"
+        },
+        "menuHint": "Haz clic derecho o pulsa Mayús+F10 para ver todas las acciones.",
+        "sharedStyle": "Estilo compartido",
+        "styleSubset": "Los cambios de estilo se aplican a {count} de {total} bloques. Se omiten los bloques bloqueados y los que tienen su propio ajuste de estilo.",
+        "noSharedStyle": "Estos bloques no tienen ajustes de estilo en común."
+      },
+      "save": {
+        "reusableTitle": "Guardar como bloque reutilizable",
+        "reusableHint": "La selección se guarda en la biblioteca y aquí se sustituye por una copia vinculada. Edita el bloque guardado y todas las páginas se actualizan.",
+        "patternTitle": "Guardar como patrón",
+        "patternHint": "Se añade una copia de la selección a la biblioteca de patrones. Esta página no cambia.",
+        "nameRequired": "Ponle un nombre al patrón.",
+        "cancel": "Cancelar",
+        "savePattern": "Guardar patrón"
+      },
+      "blockActions": "Acciones del bloque",
+      "blockActionDone": "Aplicado: {action}."
+    },
+    "container": {
+      "title": "Disposición",
+      "mode": "Organizar el contenido",
+      "modes": {
+        "stack": "Pila",
+        "row": "Fila",
+        "column": "Columna",
+        "grid": "Cuadrícula"
+      },
+      "modeHint": {
+        "stack": "Los bloques van uno debajo de otro, con el espaciado del tema.",
+        "row": "Los bloques van uno al lado de otro y pasan a otra línea cuando no caben.",
+        "column": "Los bloques van uno debajo de otro, con tu espaciado y alineación.",
+        "grid": "Los bloques llenan columnas iguales, fila a fila."
+      },
+      "columns": "Columnas",
+      "wrap": "Saltos de línea",
+      "wrapValue": {
+        "wrap": "Pasar a otra línea",
+        "nowrap": "Mantener en una línea"
+      },
+      "justify": "Horizontal",
+      "justifyColumn": "Vertical",
+      "justifyValue": {
+        "start": "Inicio",
+        "center": "Centro",
+        "end": "Final",
+        "between": "Espacio entre",
+        "around": "Espacio alrededor",
+        "evenly": "Espacio uniforme"
+      },
+      "align": "Vertical",
+      "alignColumn": "Horizontal",
+      "alignValue": {
+        "start": "Inicio",
+        "center": "Centro",
+        "end": "Final",
+        "stretch": "Estirar",
+        "baseline": "Línea base del texto"
+      },
+      "gap": "Separación",
+      "stackOnPhones": "Apilar en una columna en móviles",
+      "orderHint": "Los bloques siempre conservan su orden, en pantalla y para los lectores de pantalla. Para cambiarlo, muévelos en el panel Capas.",
+      "element": "Elemento HTML",
+      "elements": {
+        "div": "Simple (div)",
+        "section": "Sección",
+        "article": "Artículo",
+        "aside": "Lateral",
+        "header": "Encabezado",
+        "footer": "Pie",
+        "nav": "Navegación"
+      },
+      "elementNotHere": "no permitido aquí",
+      "elementHint": "Indica a los lectores de pantalla y a los buscadores qué es esta parte. No cambia su aspecto.",
+      "item": {
+        "title": "En esta fila",
+        "overflowTitle": "Desbordamiento",
+        "basis": "Parte de la fila",
+        "basisValue": {
+          "auto": "Según el contenido",
+          "25": "Un cuarto",
+          "33": "Un tercio",
+          "50": "La mitad",
+          "66": "Dos tercios",
+          "75": "Tres cuartos",
+          "100": "Toda la fila"
+        },
+        "grow": "Ocupar el espacio libre",
+        "overflow": "Contenido que no cabe",
+        "overflowValue": {
+          "visible": "Mostrar",
+          "hidden": "Recortar",
+          "auto": "Desplazar"
+        }
+      },
+      "handle": {
+        "padTop": "Relleno superior",
+        "padBottom": "Relleno inferior",
+        "minHeight": "Altura mínima"
+      },
+      "readingOrder": "Los bloques aparecen en un orden distinto al de lectura. Quienes usan el teclado o un lector de pantalla siguen el orden del panel Capas.",
+      "matchReadingOrder": "Igualar el orden de lectura a la disposición"
+    },
+    "responsive": {
+      "title": "Ajustes por tamaño de pantalla",
+      "editing": "Tamaño de pantalla que editar",
+      "hint": "Escritorio usa los ajustes normales del bloque. Tableta hereda de escritorio y móvil de tableta, hasta que definas un valor aquí.",
+      "previewMismatch": "Estás editando {breakpoint}, pero la vista previa es {previewing}.",
+      "previewAt": "Ver en {breakpoint}",
+      "warningsTitle": "Revisa antes de publicar",
+      "warning": {
+        "hidden": "Este bloque está oculto en este ancho.",
+        "order": "Un orden propio muestra este bloque en otro lugar del que se lee. Quienes usan el teclado o un lector de pantalla siguen el panel Capas.",
+        "tinyText": "El texto muy pequeño puede costar leerlo en el móvil.",
+        "tooWide": "El ancho máximo supera esta pantalla; el contenido puede desplazarse en horizontal.",
+        "nowrap": "Una fila en una sola línea puede desbordarse en este ancho.",
+        "tall": "Esta altura mínima supera la pantalla de un móvil.",
+        "bigSpacing": "Un espaciado muy grande ocupa mucho de una pantalla pequeña."
+      },
+      "spacing": "Espaciado",
+      "size": "Tamaño",
+      "text": "Texto",
+      "item": "En su disposición",
+      "fontSize": "Tamaño del texto",
+      "fontSizeValue": {
+        "xs": "XS",
+        "sm": "S",
+        "base": "M",
+        "lg": "L",
+        "xl": "XL",
+        "2xl": "2XL",
+        "3xl": "3XL",
+        "4xl": "4XL"
+      },
+      "span": "Columnas que ocupa",
+      "col": "Columna inicial",
+      "order": "Orden",
+      "direction": "Dirección",
+      "setHere": "Definido para este tamaño",
+      "inherited": "{value} · de {from}",
+      "notSet": "Sin definir",
+      "inherit": "Heredar ({value})",
+      "reset": "Restablecer",
+      "resetField": "Restablecer {field} en {breakpoint}"
+    },
+    "sources": {
+      "themeDefault": "Valor del tema",
+      "siteToken": "Cambiado para este sitio",
+      "theme": "Del tema",
+      "local": "Definido en este bloque",
+      "localOverPreset": "Definido en este bloque, sobre el ajuste «{name}»",
+      "preset": "Del ajuste «{name}»",
+      "breakpoint": "Definido para {breakpoint}",
+      "resetField": "Restablecer {field} a la capa inferior",
+      "resetToTheme": "Restablecer {field} al valor del tema",
+      "template": "De la plantilla «{name}». Edita la plantilla para cambiarlo."
+    },
+    "presets": {
+      "title": "Ajuste de estilo",
+      "use": "Ajuste",
+      "none": "Ninguno",
+      "missing": "Ajuste no encontrado: {id}",
+      "missingHint": "Este bloque apunta a un ajuste que ya no existe. Se muestra sin él.",
+      "using": "Usa el ajuste «{name}». Edítalo en Estilos para cambiar todos los bloques que lo usan.",
+      "usingWithLocal": "Usa el ajuste «{name}», con los valores propios de este bloque encima.",
+      "detach": "Desvincular (conservar valores)",
+      "updateFromBlock": "Pasar los valores de este bloque a «{name}»",
+      "saveAs": "Guardar estilo como ajuste…",
+      "name": "Nombre del ajuste",
+      "create": "Crear ajuste",
+      "library": "Ajustes de estilo",
+      "libraryHint": "Conjuntos con nombre de espaciado, tamaño, esquinas, sombras y colores. Cambiar uno cambia todos los bloques que lo usan, en todas las páginas.",
+      "empty": "Aún no hay ajustes. Da estilo a un bloque y elige «Guardar estilo como ajuste» en su pestaña Estilo.",
+      "edit": "Editar",
+      "done": "Listo",
+      "usageLoading": "Comprobando dónde se usa…",
+      "usageNone": "Todavía no se usa.",
+      "usage": "Usado por {count}: {where}",
+      "usageTemplates": {
+        "one": "{count} plantilla",
+        "other": "{count} plantillas"
+      },
+      "usageReusable": {
+        "one": "{count} bloque reutilizable",
+        "other": "{count} bloques reutilizables"
+      },
+      "usagePatterns": {
+        "one": "{count} patrón",
+        "other": "{count} patrones"
+      },
+      "deleteConfirm": "¿Eliminar el ajuste «{name}»?",
+      "deleteUsedConfirm": {
+        "one": "¿Eliminar el ajuste «{name}»? Lo usa {count} elemento, que perderá su estilo.",
+        "other": "¿Eliminar el ajuste «{name}»? Lo usan {count} elementos, que perderán su estilo."
+      }
+    },
+    "globalStyles": {
+      "title": "Estilos globales",
+      "impact": "Se aplican a todas las páginas, el encabezado, el pie, las plantillas y los bloques reutilizables. Los cambios se ven aquí y se publican cuando publicas.",
+      "draftState": "Cambios sin publicar",
+      "publishedState": "Todo publicado",
+      "revert": "Volver a lo publicado",
+      "unpublished": "sin publicar",
+      "changedCount": {
+        "one": "{count} cambiado",
+        "other": "{count} cambiados"
+      },
+      "saveError": "No se pudieron guardar los estilos",
+      "readOnly": "Solo administradores y editores pueden cambiar los estilos globales."
+    },
+    "templateDefaults": {
+      "title": "Valores por defecto del contenido",
+      "hint": "Estilos iniciales para el contenido que envuelve la plantilla {template}, por tipo de bloque. Los valores propios de un bloque siguen ganando.",
+      "empty": "Aún no hay valores por defecto. Elige un tipo de bloque abajo.",
+      "add": "Añadir un tipo de bloque",
+      "addPlaceholder": "Elige un tipo de bloque…",
+      "remove": "Quitar los valores por defecto de {type}"
+    },
+    "siteContext": {
+      "previewNote": "Vista previa del entorno de esta página. Su título y fecha son reales; los menús y otro contenido que depende de la petición son sustitutos. Los visitantes ven la página publicada.",
+      "region": {
+        "header": "Encabezado del sitio",
+        "footer": "Pie del sitio",
+        "template": "Plantilla"
+      },
+      "templateNamed": "Plantilla «{slug}»",
+      "source": {
+        "override-draft": "tu versión, borrador",
+        "override": "tu versión",
+        "theme": "del tema",
+        "plugin": "de un plugin",
+        "library": "de la biblioteca de encabezados",
+        "none": "sin definir"
+      },
+      "siteWide": "todo el sitio",
+      "edit": {
+        "header": "Editar el encabezado",
+        "footer": "Editar el pie",
+        "template": "Editar esta plantilla"
+      },
+      "hierarchy": "Orden de plantillas",
+      "hierarchyHint": "De la más específica a la más general. Se usa la primera que existe.",
+      "menu": "Menú",
+      "notPublished": "Aún sin publicar",
+      "headerHidden": "El encabezado está oculto en esta página.",
+      "footerEmpty": "Todavía no hay pie.",
+      "noTemplate": "Sin plantilla: se usa la vista de página integrada del tema.",
+      "panelTitle": "Entorno de esta página",
+      "panelHint": "El encabezado, la plantilla y el pie son compartidos por todo el sitio. Editarlos es un paso deliberado.",
+      "loading": "Cargando…"
+    },
+    "pluginPreview": {
+      "retry": "Reintentar",
+      "loading": "Cargando {title}…",
+      "placeholder": "Muestra contenido en vivo en la página publicada.",
+      "empty": "{title} no muestra nada con su configuración actual.",
+      "unavailable": "Bloque no disponible: {type}",
+      "unavailableHint": "Puede que su plugin o tema esté desactivado. El contenido se conserva y vuelve a mostrarse cuando regrese.",
+      "timeout": "La vista previa de {title} tardó demasiado.",
+      "failed": "No se pudo mostrar la vista previa de {title}."
+    },
+    "blockFailure": {
+      "title": "{type} no se puede mostrar en el constructor.",
+      "kept": "Su contenido se conserva y la página lo muestra tal como se guardó."
+    },
+    "blockStatus": {
+      "deprecated": "Este bloque está obsoleto. Sigue funcionando, pero ya no se ofrece para contenido nuevo.",
+      "deprecatedReplaced": "Este bloque está obsoleto. Usa {type} para contenido nuevo.",
+      "migrationFailed": "Este bloque no se pudo actualizar desde la versión {version}, así que muestra sus ajustes guardados."
+    },
+    "recovery": {
+      "unavailableTitle": "El plugin o tema de este bloque no está activo",
+      "deprecatedTitle": "Este bloque está obsoleto",
+      "unavailableText": "Ahora no se puede editar ni previsualizar. Su contenido se conserva y la página lo vuelve a mostrar cuando la extensión vuelva a estar activa.",
+      "deprecatedText": "Sigue funcionando, pero ya no se ofrece para contenido nuevo.",
+      "deprecatedReplaced": "Sigue funcionando. Su sustituto es {type}.",
+      "type": "Tipo",
+      "providedBy": "Proporcionado por",
+      "version": "Versión",
+      "deprecatedSince": "obsoleto desde {since}",
+      "id": "Id. del bloque",
+      "stored": "Guardado",
+      "copy": "Copiar datos",
+      "download": "Descargar datos",
+      "copied": "Datos del bloque copiados.",
+      "copyFailed": "El navegador no permitió copiar. Usa Descargar datos.",
+      "manageExtensions": "Gestionar extensiones",
+      "replaceWith": "Reemplazar por",
+      "chooseBlock": "Elige un bloque…",
+      "replace": "Reemplazar",
+      "remove": "Eliminar bloque",
+      "replaceConfirm": "¿Reemplazar este bloque por {title}? Conserva su id. y cada ajuste que {title} también tiene.",
+      "replaceDrops": {
+        "one": "Se eliminará {count} ajuste guardado que el nuevo bloque no tiene.",
+        "other": "Se eliminarán {count} ajustes guardados que el nuevo bloque no tiene."
+      },
+      "replaceDropsChildren": {
+        "one": "Se eliminará {count} bloque de su interior, porque el nuevo bloque no puede contener otros bloques.",
+        "other": "Se eliminarán {count} bloques de su interior, porque el nuevo bloque no puede contener otros bloques."
+      },
+      "downloadFirst": "Descarga primero los datos si podrías necesitarlos más adelante.",
+      "removeConfirm": "¿Eliminar este bloque de la página? Descarga primero sus datos si podrías necesitarlos más adelante.",
+      "removeConfirmChildren": {
+        "one": "¿Eliminar este bloque y el {count} bloque que contiene? Descarga primero sus datos si podrías necesitarlos más adelante.",
+        "other": "¿Eliminar este bloque y los {count} bloques que contiene? Descarga primero sus datos si podrías necesitarlos más adelante."
+      },
+      "keptHint": "Al guardar la página, este bloque se conserva exactamente como está guardado.",
+      "storedSettings": {
+        "one": "{count} ajuste",
+        "other": "{count} ajustes"
+      },
+      "storedBlocks": {
+        "one": "{count} bloque dentro",
+        "other": "{count} bloques dentro"
+      }
+    },
+    "blockCount": {
+      "one": "{count} bloque",
+      "other": "{count} bloques"
+    },
+    "checks": {
+      "title": "Comprobaciones de accesibilidad",
+      "disclaimer": "Estas comprobaciones detectan problemas habituales en lo que configuras aquí. No ven todo lo que cambia un tema, un plugin o el visitante, así que no demuestran que una página sea accesible.",
+      "none": "No se han encontrado problemas en lo que revisan estas comprobaciones.",
+      "errors": {
+        "one": "{count} problema",
+        "other": "{count} problemas"
+      },
+      "warnings": {
+        "one": "{count} para revisar",
+        "other": "{count} para revisar"
+      },
+      "unavailable": {
+        "one": "{count} sin comprobar",
+        "other": "{count} sin comprobar"
+      },
+      "problemCount": {
+        "one": "{count} problema",
+        "other": "{count} problemas"
+      },
+      "imageAlt": "Sin texto alternativo. Describe la imagen, o déjalo vacío solo si es decorativa.",
+      "linkText": "Este enlace o botón no tiene texto, así que los lectores de pantalla no pueden decir adónde lleva.",
+      "linkTextItem": "El enlace {item} no tiene texto, así que los lectores de pantalla no pueden decir adónde lleva.",
+      "linkTarget": "Este botón tiene texto pero no enlace, así que no hace nada.",
+      "headingEmpty": "Este encabezado está vacío.",
+      "headingSkip": "El nivel de encabezado salta de {from} a {to}. Los niveles saltados hacen difícil seguir la estructura de la página.",
+      "headingLevelOne": "El nivel 1 suele ser el título de la página. Usa el nivel 2 para las secciones.",
+      "contrast": "El contraste del texto es {ratio}:1. El texto normal necesita al menos 4,5:1.",
+      "contrastUnknown": "El contraste no se puede comprobar aquí porque uno de los colores viene del tema.",
+      "hiddenOnMobile": "Este encabezado o botón está oculto en los teléfonos.",
+      "readingOrder": "El orden en pantalla difiere del orden de lectura. Los lectores de pantalla y el teclado siguen el orden de Capas.",
+      "iconLabel": "Este icono no es decorativo pero no tiene etiqueta, así que se anuncia con el nombre del icono.",
+      "tableHeader": "Esta tabla no tiene fila de encabezado. Las tablas de datos la necesitan para que se entiendan sus columnas.",
+      "contentUnchecked": "El contenido de este bloque no se puede comprobar aquí."
+    },
+    "keyboard": {
+      "open": "Atajos",
+      "title": "Atajos de teclado",
+      "close": "Cerrar",
+      "or": "o",
+      "intro": "Todo lo que se hace con el ratón o el tacto se puede hacer con el teclado. Ctrl es ⌘ en un Mac.",
+      "area": {
+        "canvas": "Lienzo",
+        "layers": "Capas",
+        "library": "Bloques",
+        "text": "Texto y medios",
+        "layout": "Diseño",
+        "general": "General"
+      },
+      "path": {
+        "selectBlock": "Seleccionar un bloque (Tab hasta su nombre)",
+        "actionsMenu": "Abrir el menú de acciones del bloque",
+        "duplicate": "Duplicar",
+        "group": "Agrupar",
+        "ungroup": "Desagrupar",
+        "remove": "Eliminar",
+        "copyPaste": "Copiar, cortar y pegar",
+        "undoRedo": "Deshacer y rehacer",
+        "clearSelection": "Dejar solo un bloque seleccionado",
+        "moveBlock": "Subir o bajar",
+        "nestBlock": "Meter en el bloque de arriba, o sacar del contenedor",
+        "extendSelection": "Añadir bloques a la selección",
+        "renameBlock": "Cambiar el nombre",
+        "moveTo": "Mover a otro contenedor",
+        "addBlock": "Añadir el bloque enfocado",
+        "editText": "Terminar o cancelar la edición del texto",
+        "replaceMedia": "Reemplazar una imagen o archivo seleccionado",
+        "resizeSpacing": "Cambiar el espaciado y la altura con un tirador enfocado",
+        "gridPlacement": "Colocar y dimensionar un elemento en una cuadrícula",
+        "cancelDrag": "Cancelar un arrastre",
+        "shortcuts": "Mostrar esta lista"
+      },
+      "how": {
+        "moveTo": "«Mover a…» en Capas",
+        "gridPlacement": "Campos de posición en la cuadrícula, en la pestaña Diseño"
+      }
     }
   },
   "dashboard": {
@@ -1396,7 +2159,10 @@
     "description": "Elige las estructuras de URL públicas para tu contenido y los archivos de taxonomía.",
     "failed": "No se pudieron cargar ni guardar los ajustes de enlaces permanentes.",
     "retry": "Reintentar",
-    "saved": "Enlaces permanentes guardados. Se registraron {count} URLs de contenido anteriores para redirecciones 301.",
+    "saved": {
+      "one": "Enlaces permanentes guardados. Se registró {count} URL de contenido anterior para redirecciones 301.",
+      "other": "Enlaces permanentes guardados. Se registraron {count} URL de contenido anteriores para redirecciones 301."
+    },
     "warning": "Cambiar las URLs puede afectar al posicionamiento en buscadores y a los enlaces externos. Las URLs publicadas conocidas se redirigen automáticamente. Las URLs importadas, las URLs ambiguas compartidas por varios elementos, el contenido eliminado, los enlaces escritos a mano y las URLs históricas no registradas no se pueden asignar automáticamente. Revisa las redirecciones después de guardar.",
     "preset": "Preajuste de URL de entradas",
     "plain": "Simple (consulta por ID de contenido)",
@@ -1586,7 +2352,10 @@
     "save": "Guardar ajustes",
     "saved": "Ajustes de búsqueda guardados.",
     "rebuild": "Reconstruir índice de búsqueda",
-    "rebuilt": "{count} entradas indexadas.",
+    "rebuilt": {
+      "one": "{count} entrada indexada.",
+      "other": "{count} entradas indexadas."
+    },
     "working": "Procesando…",
     "label": "Etiqueta de búsqueda",
     "scope": "Tipos de contenido en los que buscar",
@@ -1632,7 +2401,10 @@
     "remove": "Quitar",
     "mediaLibraryAriaLabel": "Biblioteca de medios",
     "noImagesYet": "Aún no hay imágenes. Sube una o añade archivos en Medios.",
-    "pasteUrl": "Pegar URL"
+    "pasteUrl": "Pegar URL",
+    "selectFile": "Elegir archivo",
+    "noFileSelected": "Ningún archivo seleccionado",
+    "noFilesYet": "Todavía no hay archivos de este tipo. Sube uno o añade archivos en Medios."
   },
   "auth": {
     "forgotPassword": {
@@ -1664,7 +2436,10 @@
       "recoveryLabel": "Código de recuperación",
       "recoveryHint": "Tu rol inicia sesión con una llave de acceso. Si la perdiste, escribe uno de tus códigos de recuperación.",
       "or": "o",
-      "passkeyHint": "Con tu huella, tu cara, el bloqueo de pantalla o una llave de seguridad."
+      "passkeyHint": "Con tu huella, tu cara, el bloqueo de pantalla o una llave de seguridad.",
+      "continueWith": "Continuar con {name}",
+      "federatedFailed": "El inicio de sesión único no ha funcionado. Inténtalo de nuevo o inicia sesión con tu contraseña.",
+      "federatedStepUp": "Tu proveedor de inicio de sesión ha confirmado tu identidad. Termina con tu propio segundo factor."
     },
     "passwordLabel": "Contraseña",
     "signInCta": "Iniciar sesión →",
@@ -1759,6 +2534,10 @@
       "setupKeyStep3": "Copia la clave de ese archivo y pégala arriba.",
       "setupKeyNote1": "Así Justflows sabe que quien configura el sitio es su propietario: nadie que simplemente encuentre tu dirección puede reclamarlo antes que tú. La carpeta se elimina automáticamente cuando termina la instalación.",
       "setupKeyNote2": "¿Tienes tu propio servidor? La clave también aparece en el registro de inicio.",
+      "hostKeyTitle": "Tu clave de instalación está en {host}",
+      "hostKeyBody": "En {host}, abre Justflows en este dominio y elige Finish setup. Ahí aparece la clave: cópiala en el campo de arriba.",
+      "hostKeyPrefilled": "Clave de instalación rellenada desde {host}.",
+      "hostKeyFallback": "¿No la encuentras? Obtenla de los archivos del sitio",
       "emailLabel": "Tu correo electrónico",
       "usernameLabel": "Nombre de usuario",
       "displayNameLabel": "Nombre visible",
@@ -1787,15 +2566,24 @@
     }
   },
   "comments": {
-    "reasonLinks": "{count} enlace{plural} en el comentario",
-    "reasonKeywords": "{count} palabra{plural} clave de spam detectada{plural}",
+    "reasonLinks": {
+      "one": "{count} enlace en el comentario",
+      "other": "{count} enlaces en el comentario"
+    },
+    "reasonKeywords": {
+      "one": "{count} palabra clave de spam detectada",
+      "other": "{count} palabras clave de spam detectadas"
+    },
     "reasonDisposableEmail": "dominio de correo electrónico desechable",
     "reasonRepetitive": "texto repetitivo",
     "reasonNoToken": "sin token de tiempo de envío (parece un bot)",
     "reasonTooFast": "enviado demasiado rápido tras cargar la página",
     "reasonTrained": "coincide con términos aprendidos de acciones anteriores de «marcar como spam»: {detail}",
     "reasonRule": "coincidió con una regla de bloqueo del administrador ({field})",
-    "deleteConfirm": "¿Eliminar permanentemente {count} comentario(s)?",
+    "deleteConfirm": {
+      "one": "¿Eliminar permanentemente {count} comentario?",
+      "other": "¿Eliminar permanentemente {count} comentarios?"
+    },
     "editCommentPrompt": "Editar comentario",
     "replyToPrompt": "Responder a {name}",
     "blockConfirm": "¿Bloquear todos los comentarios futuros que coincidan con este {field}?\n\n{pattern}",
@@ -1814,7 +2602,10 @@
     "blockEmail": "Bloquear correo electrónico",
     "blockDomain": "Bloquear dominio",
     "blockIp": "Bloquear IP",
-    "selectedCount": "{count} seleccionado(s)",
+    "selectedCount": {
+      "one": "{count} seleccionado",
+      "other": "{count} seleccionados"
+    },
     "onContent": "en: {title}",
     "spamScore": "Puntuación de spam {score}/100",
     "pageOf": "Página {page} de {totalPages}",
@@ -1962,8 +2753,14 @@
     "referencedByContent": "Usado en contenido",
     "restore": "Restaurar",
     "deletePermanently": "Eliminar permanentemente",
-    "emptyConfirm": "¿Eliminar permanentemente los {count} elementos?",
-    "emptyConfirmReferencedSuffix": " También se eliminarán {count} archivo(s) multimedia que todavía se usan."
+    "emptyConfirm": {
+      "one": "¿Eliminar permanentemente {count} elemento?",
+      "other": "¿Eliminar permanentemente los {count} elementos?"
+    },
+    "emptyConfirmReferencedSuffix": {
+      "one": " También se eliminará {count} archivo multimedia que todavía se usa.",
+      "other": " También se eliminarán {count} archivos multimedia que todavía se usan."
+    }
   },
   "headerLibrary": {
     "renamePrompt": "Nombre de la cabecera",
@@ -2065,6 +2862,9 @@
     "blankCanvasHint": "Empieza con un lienzo en blanco; al publicar se crea la versión personalizada.",
     "pickTemplateHint": "Elige una plantilla a la izquierda para editarla.",
     "errorPagesHint": "Elige qué se muestra para cada tipo de error: el diseño propio del tema, la página integrada de Justflows o una página publicada concreta. Cada página aparece una sola vez aunque tenga varias traducciones: los visitantes ven automáticamente la traducción de su idioma, igual que con la página de inicio. Las páginas de error 500 y de mantenimiento siempre usan el diseño integrado para seguir funcionando aunque la base de datos del sitio no esté disponible; edita su texto en Ajustes → Visibilidad del sitio.",
+    "websiteNotFoundLabel": "Sitio web no encontrado (multisitio)",
+    "websiteNotFoundHint": "Se muestra para un nombre de host que no está asignado a un sitio web. El valor predeterminado es una página independiente de Justflows; una página seleccionada usa su diseño de tema habitual. Solo está disponible en el sitio raíz mientras el multisitio está activado.",
+    "websiteNotFoundDefaultOption": "Predeterminado de Justflows",
     "themeLayoutOptionShort": "Diseño del tema",
     "themeProvidesOneSuffix": " (este tema incluye una)",
     "builtinDefaultOption": "Predeterminada integrada",
@@ -2109,7 +2909,11 @@
     "slotErrorLabel": "Error (genérico)",
     "slotErrorHint": "Plantilla de respaldo común para 403, 410 y 429 cuando no existe una plantilla específica",
     "slotIndexLabel": "Plantilla general (index)",
-    "slotIndexHint": "Solo se usa cuando no existe una plantilla más específica"
+    "slotIndexHint": "Solo se usa cuando no existe una plantilla más específica",
+    "compareTheme": "Comparar con la versión del tema",
+    "themeVersion": "Versión del tema",
+    "copyThemeHint": "Copia la versión del tema al editor. No se guarda nada hasta que guardes o publiques.",
+    "fromTheme": "tema"
   },
   "widgets": {
     "loading": "Cargando widgets…",
@@ -2206,7 +3010,10 @@
     "install": "Instalar",
     "installOnMainSite": "Instalar en el sitio principal",
     "versionBy": "v{version} · por {publisher}",
-    "resultsCount": "{count} resultados",
+    "resultsCount": {
+      "one": "{count} resultado",
+      "other": "{count} resultados"
+    },
     "categories": {
       "all": "Todos",
       "plugins": "Plugins",
@@ -2228,7 +3035,10 @@
     "checking": "Buscando actualizaciones…",
     "checkNow": "Buscar actualizaciones",
     "checkFailed": "No se pudieron buscar actualizaciones en el Marketplace.",
-    "availableCount": "{count} actualización(es) disponible(s)",
+    "availableCount": {
+      "one": "{count} actualización disponible",
+      "other": "{count} actualizaciones disponibles"
+    },
     "upToDate": "Todo está actualizado.",
     "badge": "Actualización disponible: v{version}",
     "updateTo": "Actualizar a v{version}",
@@ -2289,7 +3099,10 @@
     "captionLabel": "Leyenda",
     "regenerateFinished": "✓ Regeneración terminada: {processed} regeneradas, {skipped} omitidas, {failed} con error.",
     "focalPointHintAfter": "incluidos) mantienen este punto a la vista. Al guardar un nuevo punto focal se regeneran las variantes de esta imagen.",
-    "fileCount": "{count} archivos",
+    "fileCount": {
+      "one": "{count} archivo",
+      "other": "{count} archivos"
+    },
     "regeneratingProgress": "Regenerando… {done}/{total}",
     "focalPointLabel": "Punto focal: {x}% / {y}%",
     "originalDimensions": "original {width}×{height}"
@@ -2508,8 +3321,14 @@
         "runtimeAdvisories": {
           "title": "Avisos de seguridad",
           "clear": "Ningún aviso publicado afecta a esta instalación. Fuente emitida el {issuedAt}.",
-          "affected": "{count} avisos publicados afectan a esta instalación: {ids}.",
-          "revoked": "El editor retiró al menos una versión instalada. Se aplican {count} avisos: {ids}.",
+          "affected": {
+            "one": "{count} aviso publicado afecta a esta instalación: {ids}.",
+            "other": "{count} avisos publicados afectan a esta instalación: {ids}."
+          },
+          "revoked": {
+            "one": "El editor retiró al menos una versión instalada. Se aplica {count} aviso: {ids}.",
+            "other": "El editor retiró al menos una versión instalada. Se aplican {count} avisos: {ids}."
+          },
           "unavailable": "No hay una fuente de avisos verificada, así que esta instalación no se ha comprobado.",
           "stale": "La fuente de avisos caducó el {expiresAt}, así que pueden faltar avisos recientes.",
           "otherSite": "Los avisos se comprueban en el sitio de la plataforma.",
@@ -2526,6 +3345,17 @@
           "lastFailed": "La última copia automática a {destination} ha fallado.",
           "overdue": "Las copias automáticas a {destination} han dejado de ejecutarse según lo programado.",
           "remediation": "Programa copias a un destino externo en Herramientas y ensaya una restauración en una instalación aislada."
+        },
+        "extensionsTrust": {
+          "title": "Verificación de plugins",
+          "unavailable": "No se pudieron leer los estados de confianza de los plugins.",
+          "clear": "Todos los plugins de este sitio están verificados por Justflows o son de tu confianza. Verificado es el resultado de una revisión, no una garantía de seguridad.",
+          "unverified": "Plugins que ni verificó Justflows ni son de tu confianza: {unverified}.",
+          "legacy": "Plugins con confianza heredada: {legacy}, hasta el {legacyUntil}.",
+          "remediationUnavailable": "Abre Plugins y vuelve a comprobarlo.",
+          "remediationClear": "Vuelve a comprobarlo después de instalar o actualizar un plugin.",
+          "remediationUnverified": "Sustitúyelos por versiones verificadas, elimínalos o confía en tu propia compilación en un único sitio autoalojado. Hoy por hoy, todos los plugins siguen teniendo acceso completo al sitio.",
+          "remediationLegacy": "Actualiza a una versión verificada antes de esa fecha o confía en tu propia compilación. Hoy por hoy, todos los plugins siguen teniendo acceso completo al sitio."
         }
       }
     },
@@ -2567,7 +3397,10 @@
         "starting": "Iniciando…",
         "setUp": "Configurar la verificación en dos pasos",
         "loadError": "No se pudo cargar el estado: {message}",
-        "recoveryCodesLeft": "Quedan {count} códigos de recuperación sin usar."
+        "recoveryCodesLeft": {
+          "one": "Queda {count} código de recuperación sin usar.",
+          "other": "Quedan {count} códigos de recuperación sin usar."
+        }
       },
       "sessions": {
         "loadError": "No se pudieron cargar las sesiones.",
@@ -2579,7 +3412,10 @@
         "thisDevice": "Este dispositivo",
         "unknownDevice": "Dispositivo desconocido",
         "unknownIp": "IP desconocida",
-        "othersRevoked": "Se cerraron {count} sesiones más.",
+        "othersRevoked": {
+          "one": "Se cerró {count} sesión más.",
+          "other": "Se cerraron {count} sesiones más."
+        },
         "lastActive": "última actividad {date}",
         "revoke": "Cerrar",
         "revokeAllOthers": "Cerrar todas las demás sesiones"
@@ -2626,7 +3462,10 @@
         "removeConfirm": "Quitar llave de acceso",
         "signOutOthers": "Cerrar también la sesión en todos los demás dispositivos",
         "removed": "Llave de acceso quitada.",
-        "removedSignedOut": "Llave de acceso quitada. Se cerraron {count} sesiones más.",
+        "removedSignedOut": {
+          "one": "Llave de acceso quitada. Se cerró {count} sesión más.",
+          "other": "Llave de acceso quitada. Se cerraron {count} sesiones más."
+        },
         "removeError": "No se pudo quitar la llave de acceso.",
         "loadError": "No se pudieron cargar las llaves de acceso: {message}",
         "recoveryBody": "Cada código sirve una vez. Guárdalos donde puedas consultarlos sin este dispositivo: junto con tu contraseña, un código te permite entrar si pierdes tus llaves de acceso.",
@@ -2634,7 +3473,10 @@
         "lostBody": "Quítala aquí y cierra la sesión en tus otros dispositivos. Si no puedes iniciar sesión de ninguna forma, usa tu contraseña con un código de recuperación. ¿También olvidaste la contraseña? Restablécela por correo y luego usa un código de recuperación. Un administrador también puede quitar tus llaves de acceso.",
         "recovery": {
           "title": "Códigos de recuperación",
-          "remaining": "Quedan {count} códigos de recuperación sin usar.",
+          "remaining": {
+            "one": "Queda {count} código de recuperación sin usar.",
+            "other": "Quedan {count} códigos de recuperación sin usar."
+          },
           "none": "Todavía no hay códigos de recuperación. Se crean con tu primera llave de acceso o al activar la autenticación en dos pasos.",
           "unknown": "No se pudieron leer los códigos de recuperación.",
           "regenerate": "Crear nuevos códigos de recuperación",
@@ -2642,6 +3484,20 @@
           "regenerateHint": "Los códigos nuevos sustituyen a todos los que no se han usado.",
           "error": "No se pudieron crear nuevos códigos de recuperación."
         }
+      },
+      "mfaRequired": {
+        "title": "Activa la verificación en dos pasos",
+        "body": "Tu rol debe usar una app de autenticación o una llave de acceso en este sitio. Hasta que añadas una, el resto del panel no estará disponible.",
+        "action": "Configurarla ahora"
+      },
+      "identities": {
+        "title": "Inicio de sesión único",
+        "intro": "Proveedores de inicio de sesión vinculados a tu cuenta. Al desvincular uno se elimina el vínculo; el siguiente inicio de sesión con ese proveedor lo vuelve a crear si tu dirección verificada sigue coincidiendo.",
+        "linked": "vinculado el {date}",
+        "lastUsed": "usado por última vez el {date}",
+        "unlink": "Desvincular",
+        "unlinked": "Desvinculado.",
+        "unlinkError": "No se pudo desvincular."
       }
     },
     "adminPath": {
@@ -2753,10 +3609,16 @@
       "settingsSubtitle": "Notificaciones, retención, exportación y eliminación.",
       "settingsTitle": "Ajustes de auditoría",
       "lifecycle": {
-        "bound": "El almacenamiento está limitado a {count} filas de auditoría por sitio; primero se eliminan las más antiguas.",
+        "bound": {
+          "one": "El almacenamiento está limitado a {count} fila de auditoría por sitio; primero se eliminan las más antiguas.",
+          "other": "El almacenamiento está limitado a {count} filas de auditoría por sitio; primero se eliminan las más antiguas."
+        },
         "confirmLabel": "Escribe DELETE SECURITY EVENTS para eliminar permanentemente los eventos de seguridad de este sitio.",
         "deleteButton": "Eliminar eventos de seguridad",
-        "deleted": "Se eliminaron {count} eventos. Se conservó un marcador que solo contiene la cantidad.",
+        "deleted": {
+          "one": "Se eliminó {count} evento. Se conservó un marcador que solo contiene la cantidad.",
+          "other": "Se eliminaron {count} eventos. Se conservó un marcador que solo contiene la cantidad."
+        },
         "exportButton": "Exportar eventos de seguridad censurados",
         "localWarning": "Los registros locales ayudan a investigar, pero pueden alterarse si el servidor está comprometido. Esta función no configura un destino externo.",
         "writeFailed": "Las escrituras de auditoría fallaron a las {time}. Pueden faltar acciones recientes.",
@@ -2935,7 +3797,10 @@
         "customHeaders": "Cabeceras personalizadas e importación"
       },
       "findings": {
-        "title": "Hallazgos ({count} abiertos)",
+        "title": {
+          "one": "Hallazgos ({count} abierto)",
+          "other": "Hallazgos ({count} abiertos)"
+        },
         "review": "Revisar",
         "fix": "Corregir"
       },
@@ -3006,6 +3871,118 @@
         "warnTitle": "Cambiar el RP ID deja inservibles las llaves de acceso existentes",
         "warn": "Una llave de acceso pertenece al RP ID para el que se creó. Tras un cambio, hay que iniciar sesión con la contraseña y un código de recuperación y después añadir una nueva llave de acceso."
       }
+    },
+    "customCode": {
+      "title": "Código personalizado",
+      "subtitle": "Añade analítica, widgets y otros scripts a tus páginas públicas, en todo el sitio o en páginas elegidas. Solo quien puede gestionar código personalizado abre esta página.",
+      "loadFailed": "No se pudo cargar el código personalizado",
+      "saveFailed": "No se pudo guardar el código personalizado",
+      "disabledByEnvironment": "El código personalizado está desactivado en esta instalación (JF_CUSTOM_CODE=off). Nada de esto se ejecuta hasta que se quite ese ajuste.",
+      "safeModeConfirm": "¿Desactivar ahora todo el código personalizado en todas las páginas?",
+      "safeMode": {
+        "title": "Modo seguro",
+        "on": "Activar el modo seguro",
+        "off": "Desactivar el modo seguro",
+        "active": "El modo seguro está activado: no se ejecuta código personalizado en ninguna página. Tus fragmentos se conservan.",
+        "hint": "Si un fragmento rompe el sitio, el modo seguro desactiva todos a la vez sin borrarlos."
+      },
+      "snippets": {
+        "title": "Fragmentos",
+        "add": "Añadir fragmento",
+        "hint": "Esta instalación funciona como «{environment}». Un fragmento limitado a otros entornos no se ejecuta aquí.",
+        "empty": "Todavía no hay código personalizado."
+      },
+      "snippet": {
+        "enabled": "Activado",
+        "untitled": "Fragmento sin nombre",
+        "close": "Cerrar",
+        "edit": "Editar",
+        "name": "Nombre",
+        "kind": "Tipo",
+        "placement": "Lugar en la página",
+        "consent": "Consentimiento",
+        "consentHint": "Un fragmento que necesita consentimiento espera a que el visitante acepte en tu banner. Sin una herramienta de consentimiento instalada, nunca se ejecuta.",
+        "library": "Servicio",
+        "optional": "opcional",
+        "src": "URL del script",
+        "script": "JavaScript",
+        "markup": "Marcado",
+        "scriptHint": "Solo JavaScript, sin etiquetas <script>. Se permite por su hash exacto en la Content Security Policy.",
+        "markupHint": "Etiquetas meta, píxeles y marcos. Se eliminan scripts, estilos y manejadores de eventos.",
+        "scope": "Páginas",
+        "scopeSite": "Todas las páginas",
+        "scopePages": "Solo estas páginas",
+        "environments": "Entornos",
+        "environmentsHint": "Déjalo vacío para ejecutarlo en todas partes, o indica entornos como production."
+      },
+      "kinds": {
+        "library": "De la biblioteca",
+        "inline": "Script en línea",
+        "external": "Script externo",
+        "markup": "Marcado"
+      },
+      "placements": {
+        "head": "Head",
+        "bodyStart": "Inicio del body",
+        "bodyEnd": "Final del body"
+      },
+      "consent": {
+        "necessary": "Siempre (sin consentimiento)",
+        "preferences": "Consentimiento de preferencias",
+        "analytics": "Consentimiento de analítica",
+        "marketing": "Consentimiento de marketing"
+      },
+      "origins": {
+        "title": "Orígenes permitidos",
+        "hint": "Los scripts, píxeles y marcos externos solo pueden cargarse desde estos orígenes https, uno por línea (https://cdn.example.com o https://*.example.com). Solo se añaden a la Content Security Policy mientras haya un fragmento activado."
+      },
+      "warnings": "Revisa esto antes de guardar:",
+      "history": {
+        "title": "Historial",
+        "empty": "Todavía no hay cambios guardados.",
+        "entry": "Versión {version} · {date}",
+        "hint": "Cada cambio también queda en el registro de auditoría, con qué cambió y quién lo hizo."
+      }
+    },
+    "signIn": {
+      "title": "Inicio de sesión",
+      "subtitle": "Quién debe usar un segundo factor y qué proveedores de inicio de sesión único puede usar el equipo.",
+      "errors": {
+        "loadFailed": "No se pudieron cargar los ajustes de inicio de sesión.",
+        "saveFailed": "No se pudieron guardar los ajustes de inicio de sesión."
+      },
+      "mfa": {
+        "title": "Segundo factor obligatorio",
+        "hint": "Las personas con estos roles deben usar una app de autenticación o una llave de acceso. Hasta que añadan una, solo pueden configurarla, cambiar su contraseña o cerrar sesión.",
+        "legend": "Exigir un segundo factor para",
+        "warnTitle": "Revisa primero tu propia cuenta",
+        "warn": "Las cuentas con estos roles sin segundo factor pierden el acceso al panel hasta que añadan uno, y no pueden eliminar su último factor mientras esta regla se aplique."
+      },
+      "providers": {
+        "title": "Inicio de sesión único (OpenID Connect)",
+        "hint": "El equipo puede iniciar sesión con tu proveedor de identidad. Solo se inicia sesión en cuentas que ya existen: por el ID de cuenta del proveedor una vez vinculadas, o la primera vez por un correo verificado. No se crea ninguna cuenta y el inicio de sesión con contraseña sigue funcionando.",
+        "none": "Aún no hay proveedores.",
+        "newProvider": "Nuevo proveedor",
+        "enabled": "Mostrar en la página de acceso del equipo",
+        "name": "Texto del botón",
+        "nameHint": "Se muestra como «Continuar con …».",
+        "id": "ID",
+        "callback": "URI de redirección que debes registrar en el proveedor:",
+        "issuer": "URL del emisor",
+        "issuerHint": "El emisor (issuer) del proveedor; su /.well-known/openid-configuration se lee desde aquí. Debe usar https.",
+        "clientId": "ID de cliente",
+        "clientSecret": "Secreto de cliente",
+        "secretStored": "Guardado: déjalo vacío para conservarlo",
+        "clientSecretHint": "Se guarda cifrado. Déjalo vacío para un cliente público.",
+        "scopes": "Scopes",
+        "allowedDomains": "Dominios de correo permitidos",
+        "allowedDomainsHint": "Uno por línea. Vacío permite cualquier dirección verificada que coincida con una cuenta existente.",
+        "mfaAmr": "Valores amr que cuentan como MFA",
+        "mfaAcr": "Valores acr que cuentan como MFA",
+        "mfaHint": "Si el token de ID del proveedor demuestra uno de estos valores, el inicio de sesión cuenta como de dos factores. Si no, a quienes tengan aquí su propio segundo factor también se les pedirá.",
+        "remove": "Eliminar proveedor",
+        "add": "Añadir proveedor"
+      }
     }
   },
   "emails": {
@@ -3036,8 +4013,10 @@
     "brandLayoutHint": "Presentación común para todos los correos del sistema.",
     "designField": {
       "companyName": "Nombre de la empresa / del sitio",
-      "logoUrl": "URL del logotipo",
-      "darkLogoUrl": "URL del logotipo para fondos oscuros",
+      "logoUrl": "Logotipo",
+      "darkLogoUrl": "Logotipo para el modo oscuro",
+      "logoHint": "Una imagen de la biblioteca de medios, o sube una nueva. Los correos enviados la cargan desde la dirección del sitio. PNG y JPG se muestran en la mayoría de los programas de correo.",
+      "darkLogoHint": "Opcional. Los programas de correo que siguen el modo oscuro muestran este logotipo; los demás muestran el logotipo normal.",
       "supportContact": "Contacto de soporte",
       "address": "Dirección de la empresa",
       "fontFamily": "Familia de fuentes segura",
@@ -3442,7 +4421,10 @@
       "slow": "Lenta",
       "responsive": "Rápida",
       "percentOf": "{percent}% de {total}",
-      "requestsObserved": "{count} solicitudes observadas",
+      "requestsObserved": {
+        "one": "{count} solicitud observada",
+        "other": "{count} solicitudes observadas"
+      },
       "driverConnected": "{driver} · conectado",
       "connected": "conectado",
       "unavailable": "no disponible",
@@ -3465,7 +4447,10 @@
       "latency": "Latencia",
       "migrations": "Migraciones",
       "current": "Al día",
-      "pendingCount": "{count} pendientes",
+      "pendingCount": {
+        "one": "{count} pendiente",
+        "other": "{count} pendientes"
+      },
       "objectCache": "Caché de objetos",
       "enabled": "Activada",
       "disabled": "Desactivada",
@@ -3481,7 +4466,10 @@
       "colCheck": "Comprobación",
       "colStatus": "Estado",
       "colSummary": "Resumen",
-      "count": "{count} comprobaciones"
+      "count": {
+        "one": "{count} comprobación",
+        "other": "{count} comprobaciones"
+      }
     },
     "cli": {
       "title": "Reproducir desde el servidor",
@@ -3500,10 +4488,22 @@
       "colDatabase": "Base de datos",
       "colHooks": "Hooks",
       "colResolution": "Resolución",
-      "retained": "{count} conservadas",
-      "errorsCount": "{count} errores",
-      "opsCount": "{count} operaciones",
-      "runsCount": "{count} ejecuciones"
+      "retained": {
+        "one": "{count} conservada",
+        "other": "{count} conservadas"
+      },
+      "errorsCount": {
+        "one": "{count} error",
+        "other": "{count} errores"
+      },
+      "opsCount": {
+        "one": "{count} operación",
+        "other": "{count} operaciones"
+      },
+      "runsCount": {
+        "one": "{count} ejecución",
+        "other": "{count} ejecuciones"
+      }
     },
     "hooks": {
       "title": "Inspector de hooks",
@@ -3517,9 +4517,32 @@
       "colStatus": "Estado",
       "core": "Núcleo",
       "disabled": "Desactivado",
-      "errorsCount": "{count} errores",
+      "errorsCount": {
+        "one": "{count} error",
+        "other": "{count} errores"
+      },
       "healthy": "Correcto",
-      "handlersCount": "{count} manejadores"
+      "handlersCount": {
+        "one": "{count} manejador",
+        "other": "{count} manejadores"
+      }
+    },
+    "blockRenders": {
+      "title": "Bloques lentos",
+      "hint": "Bloques de plugins que tardaron {slow} ms o más en dibujarse. Un bloque que tarda más de {limit} ms se detiene y queda en pausa un tiempo; las páginas públicas lo omiten y el editor muestra un error en su lugar.",
+      "none": "Ningún bloque de plugin ha sido lento desde que se inició el servidor.",
+      "colType": "Tipo de bloque",
+      "colRenders": "Dibujados",
+      "colSlow": "Lentos",
+      "colTimeouts": "Detenidos",
+      "colMax": "Más lento",
+      "colStatus": "Estado",
+      "paused": "En pausa hasta las {time}",
+      "running": "Activo",
+      "slowTypes": {
+        "one": "{count} tipo de bloque lento",
+        "other": "{count} tipos de bloque lentos"
+      }
     },
     "plugins": {
       "title": "Plugins",
@@ -3535,7 +4558,10 @@
       "notRegistered": "No está registrado",
       "present": "Presente",
       "missing": "Falta",
-      "foundCount": "{count} encontrado(s)"
+      "foundCount": {
+        "one": "{count} encontrado",
+        "other": "{count} encontrados"
+      }
     },
     "themes": {
       "title": "Temas",
@@ -3546,7 +4572,10 @@
       "colVersion": "Versión",
       "colDatabase": "Base de datos",
       "colFiles": "Archivos",
-      "foundCount": "{count} encontrado(s)"
+      "foundCount": {
+        "one": "{count} encontrado",
+        "other": "{count} encontrados"
+      }
     },
     "recentErrors": {
       "title": "Errores recientes",
@@ -3557,7 +4586,10 @@
       "colMessage": "Mensaje",
       "colRequestId": "ID de solicitud",
       "backgroundTask": "Tarea en segundo plano",
-      "capturedCount": "{count} capturadas"
+      "capturedCount": {
+        "one": "{count} capturado",
+        "other": "{count} capturados"
+      }
     },
     "footer": {
       "safeTitle": "Se puede compartir con el soporte sin riesgo",
@@ -3578,7 +4610,10 @@
       "creating": "Creando copia…",
       "description": "Descarga una copia portátil y verificada de este sitio.",
       "download": "Descargar copia del sitio",
-      "mediaSummary": "{count} archivos multimedia originales · {size}",
+      "mediaSummary": {
+        "one": "{count} archivo multimedia original · {size}",
+        "other": "{count} archivos multimedia originales · {size}"
+      },
       "restore": "Restaurar en un sitio limpio",
       "restoreComplete": "Copia restaurada correctamente. Recarga la administración.",
       "restoreFailed": "No se pudo restaurar la copia",
@@ -3587,12 +4622,8 @@
       "scope": "Alcance de la copia",
       "scopeSite": "Solo el sitio actual",
       "scopeRoot": "Sitio raíz",
-      "scopeNetwork": "Sitio raíz y todos los subsitios",
-      "scopeNetworkHint": "Crea un archivo con todos los sitios registrados, incluidos los que usan una base de datos separada.",
-      "networkSites": "Archivo de red: {{count}} sitios",
-      "networkContent": "elementos de contenido",
-      "networkMedia": "archivos multimedia",
-      "networkRestoreWarning": "La restauración de red requiere una instalación limpia que solo contenga el sitio raíz. Revisa las direcciones antes de restaurar.",
+      "scopeNetwork": "Sitio raíz y todos los subsitios (un archivo)",
+      "scopeNetworkHint": "Crea un archivo con el sitio raíz y todos los subsitios de su espacio de trabajo, incluidos los que usan una base de datos separada. Restáuralo en una instalación limpia para reconstruir toda la red.",
       "scopeSubsites": "Subsitios (archivos separados)",
       "scopeSubsitesHint": "Crea un archivo .jfbackup independiente para cada subsitio. Restaura cada archivo en el subsitio correspondiente.",
       "restoreTarget": "Restaurar en",
@@ -3657,7 +4688,75 @@
       "secureFtp": "Exigir FTP seguro (FTPS)",
       "s3Endpoint": "Endpoint S3 (opcional)",
       "s3Prefix": "Prefijo de carpeta S3",
-      "s3PathStyle": "Usar direccionamiento S3 por ruta"
+      "s3PathStyle": "Usar direccionamiento S3 por ruta",
+      "networkValidTitle": "Integridad de la copia de red verificada.",
+      "networkSummary": {
+        "one": "{site} · {date} · {count} sitio",
+        "other": "{site} · {date} · {count} sitios"
+      },
+      "networkRecords": "Registros de datos: {count}",
+      "networkHostname": "Dirección para {site}",
+      "networkRootHostnameHint": "El sitio raíz conserva la dirección de esta instalación.",
+      "networkBlockedNotClean": {
+        "one": "La restauración de red necesita una instalación limpia. Este espacio de trabajo ya tiene {count} subsitio.",
+        "other": "La restauración de red necesita una instalación limpia. Este espacio de trabajo ya tiene {count} subsitios."
+      },
+      "networkBlockedMultisite": "Activa multisitio (JF_MULTISITE=true) y reinicia antes de restaurar subsitios.",
+      "networkBlockedOperator": "Solo un operador de la plataforma puede restaurar una red con subsitios.",
+      "networkRestoreHint": "Primero se restaura el sitio raíz. Los subsitios nuevos siguen sin conexión hasta que se restauran todos los sitios. Si un paso falla o cancelas, se eliminan los subsitios nuevos y el sitio raíz vuelve a quedar como estaba.",
+      "networkConfirmationPhrase": "RESTORE NETWORK",
+      "networkRestore": "Restaurar red",
+      "networkRestoring": "Restaurando la red…",
+      "networkRestoreComplete": {
+        "one": "Red restaurada: {count} sitio. Recarga la administración para verlo.",
+        "other": "Red restaurada: {count} sitios. Recarga la administración para verlos."
+      },
+      "passphrase": "Frase de contraseña de la copia",
+      "passphraseRepeat": "Repite la frase de contraseña",
+      "passphraseHint": "La copia se cifra con esta frase, porque contiene contraseñas, claves y todos los datos de los sitios. Guárdala en un gestor de contraseñas: sin ella no se puede restaurar la copia.",
+      "passphraseTooShort": "Usa al menos {count} caracteres.",
+      "passphraseMismatch": "Las frases no coinciden.",
+      "cancelling": "Cancelando…",
+      "restoreTitle": "Restaurar una copia",
+      "restorePassphrase": "Frase de contraseña del archivo de copia",
+      "restorePassphraseHint": "Escríbela antes de elegir el archivo. Las copias de Justflows 0.4 no tienen frase de contraseña.",
+      "schedulePassphrase": "Frase de contraseña de las copias automáticas",
+      "schedulePassphraseHint": "Se guarda cifrada en este servidor. Déjala en blanco para conservar la guardada.",
+      "legacyHint": "Esta copia es de Justflows 0.4. Se restauran el contenido, los ajustes y los archivos multimedia, pero no las cuentas, los datos de los plugins ni los paquetes.",
+      "packagesSummary": "Paquetes de la copia, que se verifican de nuevo antes de instalarlos: {list}",
+      "unsigned": "sin firmar",
+      "usersSummary": {
+        "one": "{count} cuenta",
+        "other": "{count} cuentas"
+      },
+      "pluginRowsSummary": {
+        "one": "{count} registro de plugin",
+        "other": "{count} registros de plugins"
+      },
+      "undecryptableSecrets": {
+        "one": "{count} secreto guardado no se pudo leer al crear la copia y se restaura vacío.",
+        "other": "{count} secretos guardados no se pudieron leer al crear la copia y se restauran vacíos."
+      },
+      "primaryAddress": "Dirección",
+      "extraAddress": "Restaurar también esta dirección",
+      "addAddress": "Añadir esta dirección al sitio raíz",
+      "siteDatabase": "Base de datos",
+      "dbWorkspace": "Base de datos del espacio de trabajo",
+      "dbFromBackup": "Como en la copia: {target}",
+      "dbCustom": "Otra base de datos",
+      "dbSite": "La base de datos del sitio",
+      "pluginDatabase": "Base de datos del plugin {plugin}",
+      "dbDriver": "Tipo de base de datos",
+      "dbHost": "Host",
+      "dbPort": "Puerto",
+      "dbName": "Nombre de la base de datos",
+      "dbUser": "Usuario",
+      "networkBlockedNotRoot": "Restaura una copia de red desde el sitio raíz de la instalación.",
+      "unavailableExtensions": "No están instaladas en este servidor, así que se restauran desactivadas: {list}. Instálalas y luego actívalas.",
+      "networkSites": "Archivo de red: {{count}} sitios",
+      "networkContent": "elementos de contenido",
+      "networkMedia": "archivos multimedia",
+      "networkRestoreWarning": "La restauración de red requiere una instalación limpia que solo contenga el sitio raíz. Revisa las direcciones antes de restaurar."
     },
     "performance": {
       "loadFailed": "No se pudieron cargar los ajustes de rendimiento",
@@ -3719,7 +4818,10 @@
       "clearing": "Vaciando…",
       "clearObjectCache": "Vaciar caché de objetos",
       "logLabel": "Registro de rendimiento",
-      "keysStorage": "{count} claves · {size}",
+      "keysStorage": {
+        "one": "{count} clave · {size}",
+        "other": "{count} claves · {size}"
+      },
       "sampleCacheFiles": "Archivos de caché de muestra ({count})",
       "revalidateHint2": "para los plugins.",
       "browserCacheHint1": "Establece",
@@ -3841,7 +4943,10 @@
       "importing": "Importando…",
       "uploadButton": "Subir WordPress .xml",
       "importFailed": "La importación falló:",
-      "itemsHadErrors": "{count} elemento(s) tuvieron errores. Revisa los registros del servidor.",
+      "itemsHadErrors": {
+        "one": "{count} elemento tuvo errores. Revisa los registros del servidor.",
+        "other": "{count} elementos tuvieron errores. Revisa los registros del servidor."
+      },
       "importComplete": "Importación completa",
       "postsImported": "Entradas importadas: {count}",
       "pagesImported": "Páginas importadas: {count}",
@@ -3889,7 +4994,10 @@
   },
   "updates": {
     "log": {
-      "foundUpdates": "Se encontraron {count} actualización(es)",
+      "foundUpdates": {
+        "one": "Se encontró {count} actualización",
+        "other": "Se encontraron {count} actualizaciones"
+      },
       "upToDate": "Todo está actualizado",
       "alreadyRunning": "Ya hay una actualización en curso",
       "updateFailed": "Error en la actualización",
@@ -4046,7 +5154,9 @@
       "resetFactorsHint": "Para quien haya perdido su llave de acceso y sus códigos de recuperación. Quita sus llaves de acceso, su aplicación de autenticación y sus códigos de recuperación, y cierra su sesión en todas partes. Después inicia sesión solo con la contraseña hasta que vuelva a configurarlos.",
       "resetFactorsConfirm": "¿Quitar todas las llaves de acceso, la aplicación de autenticación y los códigos de recuperación de {name} y cerrar su sesión en todas partes?",
       "resetFactorsFailed": "No se pudieron quitar los factores de inicio de sesión.",
-      "resetFactorsNotice": "Llaves de acceso, aplicación de autenticación y códigos de recuperación quitados. Se ha cerrado la sesión de la cuenta en todas partes."
+      "resetFactorsNotice": "Llaves de acceso, aplicación de autenticación y códigos de recuperación quitados. Se ha cerrado la sesión de la cuenta en todas partes.",
+      "birthDate": "Fecha de nacimiento",
+      "birthDateHint": "Opcional. Los complementos la usan para comprobar límites de edad. Solo la ven los administradores y el miembro."
     },
     "roles": {
       "failedToLoadRoles": "No se pudieron cargar los roles",
@@ -4068,9 +5178,26 @@
       "description": "Descripción",
       "descriptionPlaceholder": "¿Para qué sirve este rol?",
       "saveRole": "Guardar rol",
-      "capabilitiesCount": "{count} permisos",
-      "selectedCount": "{count} seleccionado(s)",
-      "createRole": "Crear rol"
+      "capabilitiesCount": {
+        "one": "{count} permiso",
+        "other": "{count} permisos"
+      },
+      "selectedCount": {
+        "one": "{count} seleccionado",
+        "other": "{count} seleccionados"
+      },
+      "createRole": "Crear rol",
+      "capabilityGroup": {
+        "design": "Diseño"
+      },
+      "capabilityLabel": {
+        "design:read": "Ver el diseño del sitio",
+        "design:manage": "Cambiar el diseño del sitio"
+      },
+      "capabilityHint": {
+        "design:read": "Abrir plantillas, cabecera y pie de página, áreas de widgets, menús, patrones, bloques reutilizables, ajustes de estilo y estilos globales.",
+        "design:manage": "Cambiar y publicar plantillas, cabecera y pie de página, áreas de widgets, menús, patrones, bloques reutilizables, ajustes de estilo y estilos globales. Los cambios llegan a todas las páginas que los usan."
+      }
     },
     "failedToLoadUsers": "No se pudieron cargar los usuarios",
     "failedToInviteUser": "No se pudo invitar al usuario",
@@ -4296,7 +5423,10 @@
       "lastUsed": "Último uso",
       "never": "Nunca",
       "empty": "No hay apps de IA conectadas.",
-      "permissionCount": "{count} permisos",
+      "permissionCount": {
+        "one": "{count} permiso",
+        "other": "{count} permisos"
+      },
       "userTools": "Herramientas de usuarios y roles",
       "revoke": "Revocar",
       "revokeConfirm": "¿Revocar el acceso de {name}? Dejará de funcionar de inmediato."
@@ -4402,7 +5532,10 @@
       "enabled": "Activado",
       "test": "Probar conexión",
       "testing": "Probando…",
-      "testOk": "La conexión funciona. {count} modelos disponibles.",
+      "testOk": {
+        "one": "La conexión funciona. {count} modelo disponible.",
+        "other": "La conexión funciona. {count} modelos disponibles."
+      },
       "saved": "Guardado.",
       "remove": "Quitar",
       "removeConfirm": "¿Quitar la clave de {provider}?"
@@ -4642,7 +5775,8 @@
     "featureCustomDomains": "Dominios propios",
     "featureManagedDns": "Alojamiento DNS",
     "featureOwnMail": "Ajustes de correo propios",
-    "meterCustomDomains": "Dominios conectados"
+    "meterCustomDomains": "Dominios conectados",
+    "featureCustomCode": "Código personalizado"
   },
   "signup": {
     "title": "Crea tu sitio",
@@ -4771,7 +5905,10 @@
       "local": "El disco del servidor, en una carpeta privada fuera de los archivos públicos."
     },
     "publicBucket": "El bucket S3 de la instalación es público (STORAGE_S3_PUBLIC_URL está definido), así que los archivos privados se guardan en el disco del servidor. Añade un bucket privado abajo para usar S3.",
-    "copying": "Copiando {count} archivos al almacenamiento actual. Se hace en segundo plano; las descargas siguen funcionando.",
+    "copying": {
+      "one": "Copiando {count} archivo al almacenamiento actual. Se hace en segundo plano; las descargas siguen funcionando.",
+      "other": "Copiando {count} archivos al almacenamiento actual. Se hace en segundo plano; las descargas siguen funcionando."
+    },
     "filesUsage": "Archivos privados",
     "bytesUsage": "Almacenamiento de archivos privados",
     "usageUnlimited": "{used} (sin límite)",
@@ -4933,5 +6070,69 @@
       "rule_invalid": "Una regla de plugin devolvió una respuesta no válida."
     },
     "pluginReason": "La regla de plugin {rule} respondió: {reason}"
+  },
+  "privacy": {
+    "title": "Datos personales",
+    "requestsTitle": "Solicitudes de datos",
+    "requestsIntro": "Busca a una persona por el correo electrónico que usó, también sin cuenta: invitados que reservaron, compraron o rellenaron un formulario. La descarga y el borrado abarcan el sitio y todos los plugins activos.",
+    "email": "Correo electrónico",
+    "lookUp": "Buscar",
+    "intro": "Todo lo que el sitio y sus plugins guardan sobre esta persona. Descárgalo para una solicitud de acceso o bórralo. Al borrar se eliminan o anonimizan los datos personales; los registros de los que dependen otras cosas, como reservas y pedidos, se conservan sin ellos.",
+    "download": "Descargar todos los datos",
+    "erase": "Borrar datos personales",
+    "confirmErase": "¿Borrar los datos personales de {who} en el sitio y en todos los plugins? No se puede deshacer.",
+    "failed": "La solicitud ha fallado. Inténtalo de nuevo.",
+    "foundTitle": "Incluido en la descarga",
+    "core": "Sitio: contenidos {content}, comentarios {comments}, entradas de auditoría {audit}",
+    "pluginFound": {
+      "one": "{name}: {count} registro",
+      "other": "{name}: {count} registros"
+    },
+    "pluginFailed": "{name}: error ({error})",
+    "erasedTitle": "Borrado",
+    "coreErased": "Sitio: contenidos reasignados {content}, comentarios anonimizados {comments}, entradas de auditoría anonimizadas {audit}",
+    "pluginErased": {
+      "one": "{name}: {count} registro eliminado o anonimizado",
+      "other": "{name}: {count} registros eliminados o anonimizados"
+    },
+    "retry": "Algunos plugins no terminaron. Vuelve a borrar para reintentarlo; lo ya hecho se mantiene.",
+    "adminOnly": "Solo los administradores gestionan las solicitudes de datos.",
+    "kept": "Conservado por ley hasta el {until}: {kind} ({count}). {reason}",
+    "retentionTitle": "Datos que la ley obliga a conservar",
+    "retentionHint": "Los registros financieros (pedidos, facturas, pagos, reembolsos) deben conservarse varios años por ley. Ante una solicitud, los plugins solo guardan lo que ese registro exige legalmente, como importes, impuestos y el nombre y la dirección de facturación, eliminan todo lo demás de inmediato y el resto al terminar el plazo. Comprueba el plazo que te aplica.",
+    "retentionYears": "Conservar registros financieros (años)",
+    "save": "Guardar",
+    "retentionSaved": "Guardado.",
+    "lookUpTitle": "Buscar a una persona",
+    "openTitle": "Solicitudes de eliminación",
+    "handledTitle": "Solicitudes atendidas",
+    "showHandled": "Mostrar solicitudes atendidas",
+    "showOpen": "Mostrar solicitudes abiertas",
+    "openIntro": "Los miembros piden la eliminación en su página Tus datos. Al completar una solicitud se borran sus datos en el sitio y en cada plugin, se conserva solo lo que exige la ley, se elimina la cuenta y se avisa al miembro por correo. Responde en un plazo de 30 días.",
+    "noneOpen": "No hay solicitudes abiertas.",
+    "noneHandled": "Todavía no hay solicitudes atendidas.",
+    "requestedOn": "Solicitado el {date}",
+    "dueBy": "responder antes del {date}",
+    "overdue": "vencida desde el {date}",
+    "memberNote": "Su nota: {note}",
+    "unfinished": "No se terminó la última vez: {outcome}",
+    "complete": "Completar",
+    "confirmComplete": "¿Borrar los datos de {who} en el sitio y en cada plugin, y eliminar la cuenta? No se puede deshacer.",
+    "completed": "Hecho. Se borraron los datos de {who}, se eliminó la cuenta y se avisó al miembro por correo.",
+    "decline": "Rechazar",
+    "declineReason": "Motivo, se envía al miembro",
+    "sendDecline": "Rechazar y enviar",
+    "cancel": "Cancelar",
+    "declined": "Rechazada. El miembro recibió el motivo por correo.",
+    "deletedAccount": "Cuenta eliminada",
+    "status": {
+      "completed": "Completada",
+      "declined": "Rechazada",
+      "cancelled": "Retirada por el miembro"
+    },
+    "selfServiceTitle": "Página Tus datos",
+    "selfServiceHint": "Los miembros con sesión iniciada gestionan sus propios datos en la página de cuenta Tus datos. Elige qué ofrece. Si ambas opciones están desactivadas, la página pide a los miembros que te contacten.",
+    "selfDownload": "Los miembros pueden descargar sus datos",
+    "selfErasure": "Los miembros pueden pedir que se eliminen sus datos"
   }
 }

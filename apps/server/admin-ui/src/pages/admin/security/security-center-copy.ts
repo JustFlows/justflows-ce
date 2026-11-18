@@ -246,6 +246,11 @@ export function securityCenterCopy(id: string, summary: string): { detail: strin
             remediation: "security.center.checks.extensionsIntegrity.remediation",
           };
       }
+    case "extensions.trust":
+      return {
+        detail: `security.center.checks.extensionsTrust.${summary === "clear" || summary === "unverified" || summary === "legacy" ? summary : "unavailable"}`,
+        remediation: `security.center.checks.extensionsTrust.remediation${summary === "unverified" ? "Unverified" : summary === "legacy" ? "Legacy" : summary === "clear" ? "Clear" : "Unavailable"}`,
+      };
     case "runtime.advisories":
       return {
         detail: `security.center.checks.runtimeAdvisories.${summary}`,

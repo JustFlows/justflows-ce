@@ -89,7 +89,7 @@ describe("MegaRegionEditor — collapsing", () => {
 
     await user.click(screen.getByRole("button", { name: "Collapse" }));
     expect(screen.queryByPlaceholderText("Link text")).not.toBeInTheDocument();
-    expect(screen.getByText("1 links")).toBeInTheDocument();
+    expect(screen.getByText("1 link")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Region heading")).toHaveValue("Products");
 
     await user.click(screen.getByRole("button", { name: "Expand" }));

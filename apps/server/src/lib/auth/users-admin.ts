@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { validBirthDate } from "../account/personal.js";
 import { getDb, type DbClient } from "../database/db.js";
 import { hashPassword } from "./password.js";
 import { getGeneralSettings } from "../settings/general-settings.js";
@@ -164,7 +165,7 @@ export async function getUserWithAccess(
 ): Promise<UserAdminResult> {
   const db = await getDb();
   const rows = await db.query<Record<string, unknown>>(
-    "SELECT id, email, username, display_name, role, created_at, updated_at, totp_confirmed_at FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+    "SELECT id, email, username, display_name, birth_date, role, created_at, updated_at, totp_confirmed_at FROM users WHERE id = ? AND site_id = ? LIMIT 1",
     [userId, siteId],
   );
   if (!rows[0]) return { status: 404, body: { error: "User not found" } };
@@ -205,6 +206,7 @@ export async function getUserWithAccess(
         email: row.email,
         username: row.username,
         display_name: row.display_name,
+        birth_date: row.birth_date ? String(row.birth_date) : null,
         role: row.role,
         created_at: row.created_at,
         updated_at: row.updated_at ?? null,
@@ -297,6 +299,8 @@ export const PatchUserSchema = z.object({
     )
     .optional(),
   displayName: z.string().min(1).optional(),
+  /** Date of birth, YYYY-MM-DD, or null to remove it. Checked again by validBirthDate(). */
+  birthDate: z.string().max(10).nullable().optional(),
   /** Replaces the user's additional roles. See validateAdditionalRoles(). */
   additionalRoles: z.array(z.string().regex(STORED_ROLE_ID)).max(20).optional(),
 });
@@ -308,6 +312,8 @@ export async function updateUser(
   actor: UserAdminActor,
 ): Promise<UserAdminResult> {
   const { role, roleId, grants, denies, scopes, displayName, additionalRoles } = patch;
+  const birthDate = patch.birthDate === undefined ? undefined : validBirthDate(patch.birthDate);
+  if (patch.birthDate !== undefined && birthDate === undefined) return { status: 400, body: { error: "Enter a date of birth as a real date, not in the future." } };
   const db = await getDb();
 
   const policyChanged =
@@ -422,6 +428,10 @@ export async function updateUser(
     fields.push("display_name = ?");
     values.push(displayName);
   }
+  if (birthDate !== undefined) {
+    fields.push("birth_date = ?");
+    values.push(birthDate);
+  }
 
   if (fields.length === 0 && !accessChanged) {
     return { status: 400, body: { error: "No fields to update" } };
@@ -494,11 +504,11 @@ export async function updateUser(
 export async function getUserRoles(
   siteId: string,
   userId: string,
-): Promise<{ id: string; email: string; username: string; displayName: string; role: string; roles: string[] } | null> {
+): Promise<{ id: string; email: string; username: string; displayName: string; birthDate: string | null; role: string; roles: string[] } | null> {
   const db = await getDb();
   const row = (
     await db.query<Record<string, unknown>>(
-      "SELECT id, email, username, display_name, role FROM users WHERE id = ? AND site_id = ? LIMIT 1",
+      "SELECT id, email, username, display_name, birth_date, role FROM users WHERE id = ? AND site_id = ? LIMIT 1",
       [userId, siteId],
     )
   )[0];
@@ -509,12 +519,54 @@ export async function getUserRoles(
     email: String(row.email),
     username: String(row.username),
     displayName: String(row.display_name),
+    birthDate: row.birth_date ? String(row.birth_date) : null,
     role: String(row.role),
     roles: [String(row.role), ...extra],
   };
 }
 
 export type AdditionalRoleTarget = { userId: string } | { email: string };
+
+/** Site users matching `query` in email, username, or display name, case-insensitively. */
+export async function searchUsers(
+  siteId: string,
+  query: string,
+  limit = 20,
+): Promise<Array<{ id: string; email: string; username: string; displayName: string; role: string }>> {
+  const db = await getDb();
+  const take = Math.max(1, Math.min(50, Math.trunc(limit) || 20));
+  const needle = query.trim().toLowerCase().slice(0, 100).replace(/[\\%_]/g, (char) => `\\${char}`);
+  const pattern = `%${needle}%`;
+  const rows = await db.query<Record<string, unknown>>(
+    "SELECT id, email, username, display_name, role FROM users WHERE site_id = ? AND (LOWER(email) LIKE ? OR LOWER(username) LIKE ? OR LOWER(display_name) LIKE ?) ORDER BY display_name, email LIMIT " + take,
+    [siteId, pattern, pattern, pattern],
+  );
+  return rows.map((row) => ({
+    id: String(row.id),
+    email: String(row.email),
+    username: String(row.username),
+    displayName: String(row.display_name ?? ""),
+    role: String(row.role),
+  }));
+}
+
+/** One site user by id or sign-in email, with every role; null when there is none. */
+export async function findUserRoles(
+  siteId: string,
+  target: AdditionalRoleTarget,
+): Promise<{ id: string; email: string; username: string; displayName: string; birthDate: string | null; role: string; roles: string[] } | null> {
+  if ("userId" in target) return getUserRoles(siteId, target.userId);
+  const email = target.email.trim().toLowerCase();
+  if (!email) return null;
+  const db = await getDb();
+  const row = (
+    await db.query<Record<string, unknown>>(
+      "SELECT id FROM users WHERE email = ? AND site_id = ? LIMIT 1",
+      [email, siteId],
+    )
+  )[0];
+  return row ? getUserRoles(siteId, String(row.id)) : null;
+}
 
 export type AddRoleResult =
   | {

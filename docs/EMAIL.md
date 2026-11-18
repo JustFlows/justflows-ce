@@ -14,6 +14,16 @@ Design and template changes remain drafts until explicitly published. Publishing
 creates an immutable version; restoring creates a new draft from the built-in
 safe default instead of deleting history.
 
+The logo and the dark-mode logo are picked from the media library, uploaded
+into it, or pasted as an address. Only library addresses (`/uploads/…`) and
+external `https://` addresses are accepted. The admin preview shows library
+logos from the admin's own address. Sent mail (including test emails) and the
+management API's preview use a full address on the site's primary domain,
+falling back to the address of the current request or `APP_URL`, because email
+clients cannot load relative images; any other address is dropped. Mail apps
+that follow dark mode and support `<picture>` show the dark logo; the others
+show the regular one.
+
 Each template has a subject, hidden preheader, sanitized HTML body, and editable
 plain-text companion. Previews use clearly marked synthetic values and support
 desktop, mobile, and plain-text views. Test delivery only goes to the explicitly

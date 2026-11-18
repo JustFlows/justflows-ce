@@ -20,6 +20,7 @@ import { sendServerError } from "../../lib/http/send-error.js";
 import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import { ensureKeyCan, relay, sendJson } from "./envelope.js";
 import type { Request } from "express";
+import { blockRenderReport } from "../../lib/rendering/plugin-render-guard.js";
 
 const router = Router();
 
@@ -181,6 +182,8 @@ router.get("/diagnostics", async (req, res) => {
       debug: debugMode(),
       migrations: MIGRATION_ORDER,
       recentErrorCount: recentDiagnosticErrors().length,
+      /** Plugin block types that were slow or stopped for taking too long (justflows-ce#316). */
+      blockRenders: blockRenderReport(),
     });
   } catch (err) {
     sendServerError(res, "manage.diagnostics", err);

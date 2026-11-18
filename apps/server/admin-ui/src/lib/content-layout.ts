@@ -10,8 +10,15 @@ export function isEmptyBlockDocument(blocks: { blocks?: unknown } | null | undef
 export function shouldSeedTypePattern(item: {
   id?: string;
   translationGroupId?: string | null;
+  status?: string;
 }): boolean {
   if (!item.id) return true;
+  /**
+   * Only a draft starts from the type's pattern. A published entry with no
+   * blocks (one a plugin created, say) opens as it is stored; seeding it would
+   * count as an edit, and autosave would turn it into a new draft.
+   */
+  if (item.status && item.status !== "draft") return false;
   return !item.translationGroupId || item.translationGroupId === item.id;
 }
 

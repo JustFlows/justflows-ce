@@ -6,6 +6,7 @@ import { App, loadConfig } from "@justflows/core";
 import { PluginLoader } from "@justflows/plugin-api";
 import type { PluginModule } from "@justflows/sdk";
 import { getDb } from "../database/db.js";
+import { withRootPluginManifests } from "./plugin-root-manifest.js";
 import { getHooks } from "../runtime/hooks.js";
 import {
   mergeLoadedPluginManifest,
@@ -23,6 +24,7 @@ import { createPluginCaptchaApi } from "./plugin-captcha.js";
 import { createPluginAiApi } from "./plugin-ai.js";
 import { createPluginTenancyApi } from "./plugin-tenancy.js";
 import { createPluginNetworkApi } from "./plugin-network.js";
+import { createPluginOutboundApi } from "./plugin-outbound.js";
 import { createPluginQuotasApi } from "./plugin-quotas.js";
 import { unregisterPluginMeters } from "../tenancy/quotas.js";
 import { createPluginContentApi } from "./plugin-content.js";
@@ -78,6 +80,53 @@ async function refuseUnverifiedPlugin(manifest: Record<string, unknown>): Promis
   return true;
 }
 
+/**
+ * With `JF_PLUGIN_SANDBOX=on`, a plugin that Justflows has not verified, that
+ * the operator has not trusted, and that has no legacy grace runs in the
+ * sandbox. Its code is not imported here. Where Node cannot sandbox, it is not
+ * loaded at all: an unverified plugin never falls back to full access.
+ */
+async function sandboxedPluginModule(
+  manifest: Record<string, unknown>,
+  basePath: string,
+  relativeCandidates: string[],
+): Promise<PluginModule | null | "in-process"> {
+  const trust = await import("../extensions/plugin-trust.js");
+  if (trust.pluginSandboxMode() !== "on") return "in-process";
+  const manifestPath = resolvePathUnderBase(basePath, "justflows.json");
+  let fileManifest: Record<string, unknown> | null = null;
+  try {
+    fileManifest = manifestPath ? (JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Record<string, unknown>) : null;
+  } catch {
+    fileManifest = null;
+  }
+  const pluginId = String(fileManifest?.id ?? manifest.id ?? "");
+  const version = String(fileManifest?.version ?? manifest.version ?? "");
+  if (!pluginId || !version) return "in-process";
+  const hasRow = typeof manifest.installedPath === "string" || "id" in manifest;
+  const state = await trust.trustForInstalledManifest(pluginId, version, manifest, hasRow).catch(() => null);
+  if (state && state.state !== "unverified") return "in-process";
+  const { sandboxSupported } = await import("./sandbox/sandbox-host.js");
+  if (!sandboxSupported()) {
+    console.error("[plugins] unverified plugin not loaded: this Node.js cannot sandbox it", JSON.stringify(pluginId));
+    return null;
+  }
+  const entry = relativeCandidates
+    .map((relative) => resolvePathUnderBase(basePath, relative))
+    .find((candidate): candidate is string => !!candidate && fs.existsSync(candidate) && isSafePluginEntry(candidate) && !fs.lstatSync(candidate).isSymbolicLink());
+  if (!entry || !fileManifest) return null;
+  const { createSandboxedPluginModule } = await import("./sandbox/sandboxed-plugin.js");
+  const { getTenantContext } = await import("../tenancy/context.js");
+  return createSandboxedPluginModule({
+    manifest: fileManifest as unknown as PluginModule["manifest"],
+    pluginDir: basePath,
+    entry,
+    currentSiteId: () => getTenantContext()?.siteId ?? null,
+    defaultSiteId: runtimeSiteId,
+    report: (context, error) => recordDiagnosticError(`plugin:${pluginId} ${context}`, error),
+  });
+}
+
 async function resolvePluginModule(
   manifest: Record<string, unknown>,
 ): Promise<PluginModule | null> {
@@ -97,6 +146,10 @@ async function resolvePluginModule(
   const relativeCandidates = [serverEntry, "dist/index.js", "index.js"].filter(
     (value): value is string => typeof value === "string" && value.length > 0,
   );
+
+  /** An unverified plugin runs in the sandbox, or not at all, when sandboxing is on (justflows-ce#270). */
+  const sandboxed = await sandboxedPluginModule(manifest, basePath, relativeCandidates);
+  if (sandboxed !== "in-process") return sandboxed;
 
   for (const relative of relativeCandidates) {
     const entry = resolvePathUnderBase(basePath, relative);
@@ -151,10 +204,11 @@ async function registerKnownPlugins(): Promise<void> {
   // Only active plugins. Importing a module runs its top-level code, so loading
   // every installed row meant "installed but not activated" already executed the
   // package — leaving no safe state in which to inspect one before enabling it.
-  const rows = await db.query<{ plugin_id: string; manifest: string | Record<string, unknown> }>(
+  const siteRows = await db.query<{ plugin_id: string; manifest: string | Record<string, unknown> }>(
     "SELECT plugin_id, manifest FROM plugins WHERE site_id = ? AND status = 'active'",
     [siteId],
   );
+  const rows = await withRootPluginManifests(siteId, siteRows);
 
   for (const row of rows) {
     if (loader.getPlugin(row.plugin_id)) continue;
@@ -198,10 +252,11 @@ async function activateActivePlugins(): Promise<void> {
   if (!siteId) return;
 
   const db = await getDb();
-  const rows = await db.query<{ plugin_id: string; manifest: unknown }>(
+  const siteRows = await db.query<{ plugin_id: string; manifest: unknown }>(
     "SELECT plugin_id, manifest FROM plugins WHERE site_id = ? AND status = 'active'",
     [siteId],
   );
+  const rows = await withRootPluginManifests(siteId, siteRows);
 
   for (const row of rows) {
     try {
@@ -310,6 +365,7 @@ export async function ensurePluginRuntime(): Promise<void> {
           createPluginDatabasesApi(pluginId, siteId, permissions),
         tenancyFactory: (pluginId, permissions) => createPluginTenancyApi(pluginId, permissions),
         networkFactory: (pluginId) => createPluginNetworkApi(pluginId),
+        outboundFactory: (pluginId) => createPluginOutboundApi(pluginId),
         runForSite: async (siteId, fn) => {
           const { runPluginCallForSite } = await import("./plugin-call-site.js");
           return runPluginCallForSite(siteId, fn);
@@ -317,7 +373,7 @@ export async function ensurePluginRuntime(): Promise<void> {
         quotasFactory: (pluginId, permissions, siteId) => createPluginQuotasApi(pluginId, permissions, siteId),
         quotasCleanup: unregisterPluginMeters,
         filesFactory: (pluginId, siteId) => createPluginFilesApi(pluginId, siteId),
-        usersFactory: (_pluginId, siteId) => ({
+        usersFactory: (pluginId, siteId) => ({
           create: async (input, actor) => {
             const { createUser, CreateUserSchema } = await import("../auth/users-admin.js");
             const parsed = CreateUserSchema.safeParse(input);
@@ -366,9 +422,59 @@ export async function ensurePluginRuntime(): Promise<void> {
             const { removeAdditionalRole } = await import("../auth/users-admin.js");
             return removeAdditionalRole(siteId, target, role, actor);
           },
+          sendPasswordSetup: async (target, actor) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { findUserRoles } = await import("../auth/users-admin.js");
+            const { sendPasswordSetup } = await import("../auth/password-reset.js");
+            const site = pluginCallSiteId(siteId);
+            const user = await findUserRoles(site, target);
+            if (!user) return { ok: false, status: 404, error: "User not found." };
+            return sendPasswordSetup(site, user.id, actor);
+          },
+          /** The loader has already checked that the actor is the member, or that the account is wholly the plugin's. */
+          updateProfile: async (target, fields, actor) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { emitUserEvent, findUserRoles } = await import("../auth/users-admin.js");
+            const { validBirthDate } = await import("../account/personal.js");
+            const { auditLog } = await import("../security/audit-log.js");
+            const { getDb } = await import("../database/db.js");
+            const site = pluginCallSiteId(siteId);
+            const user = await findUserRoles(site, target);
+            if (!user) return { ok: false, status: 404, error: "User not found." };
+            if (fields.birthDate === undefined) return { ok: true };
+            const birthDate = validBirthDate(fields.birthDate);
+            if (birthDate === undefined) return { ok: false, status: 400, error: "Enter a date of birth as a real date, not in the future." };
+            if ((user.birthDate ?? null) === birthDate) return { ok: true };
+            const db = await getDb();
+            await db.run("UPDATE users SET birth_date = ?, updated_at = ? WHERE id = ? AND site_id = ?", [birthDate, new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, ""), user.id, site]);
+            await auditLog({ siteId: site, action: "user.birth_date_changed", actorId: actor.userId, actorRole: actor.role, target: user.id, detail: `${birthDate ? "set" : "cleared"} by plugin ${pluginId}` });
+            await emitUserEvent("user.updated", user.id, site);
+            return { ok: true };
+          },
+          /** The loader has already checked that every role of the user is the calling plugin's. */
+          delete: async (target, actor) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { deleteUser, findUserRoles } = await import("../auth/users-admin.js");
+            const site = pluginCallSiteId(siteId);
+            const user = await findUserRoles(site, target);
+            if (!user) return { ok: false, status: 404, error: "User not found." };
+            const result = await deleteUser(user.id, { siteId: site, userId: actor.userId, role: actor.role });
+            return result.status < 400 ? { ok: true } : { ok: false, status: result.status, error: String((result.body as { error?: string }).error ?? "Could not delete the user.") };
+          },
           get: async (userId) => {
             const { getUserRoles } = await import("../auth/users-admin.js");
             return getUserRoles(siteId, userId);
+          },
+          /** The request's site, like the i18n facade: a shared plugin module may have been loaded by another site. */
+          find: async (target) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { findUserRoles } = await import("../auth/users-admin.js");
+            return findUserRoles(pluginCallSiteId(siteId), target);
+          },
+          search: async (input) => {
+            const { pluginCallSiteId } = await import("./request-site.js");
+            const { searchUsers } = await import("../auth/users-admin.js");
+            return searchUsers(pluginCallSiteId(siteId), input.query, input.limit);
           },
         }),
         contentFactory: (pluginId, siteId) => createPluginContentApi(pluginId, siteId),
@@ -457,10 +563,11 @@ async function ensureRegistered(siteId: string, pluginId: string): Promise<void>
   if (loader.getPlugin(pluginId)) return;
 
   const db = await getDb();
-  const rows = await db.query<{ manifest: string | Record<string, unknown> }>(
-    "SELECT manifest FROM plugins WHERE site_id = ? AND plugin_id = ? LIMIT 1",
+  const siteRows = await db.query<{ plugin_id: string; manifest: string | Record<string, unknown> }>(
+    "SELECT plugin_id, manifest FROM plugins WHERE site_id = ? AND plugin_id = ? LIMIT 1",
     [siteId, pluginId],
   );
+  const rows = await withRootPluginManifests(siteId, siteRows);
   const manifest =
     rows[0]?.manifest && typeof rows[0].manifest === "string"
       ? JSON.parse(rows[0].manifest)

@@ -55,6 +55,7 @@ defineCore("feature.securityAdvanced", "site", "Advanced security", "flag");
 defineCore("feature.securityHeaders", "site", "Security headers", "flag");
 defineCore("feature.securityAdminPath", "site", "Admin address", "flag");
 defineCore("feature.securityAudit", "site", "Audit log", "flag");
+defineCore("feature.customCode", "site", "Custom code", "flag");
 defineCore("feature.pwa", "site", "PWA", "flag");
 defineCore("feature.redirects", "site", "Redirects", "flag");
 defineCore("feature.permalinks", "site", "Permalinks", "flag");

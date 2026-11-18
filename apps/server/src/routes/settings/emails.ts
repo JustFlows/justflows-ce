@@ -148,7 +148,7 @@ router.post("/:key/test", testLimit, requireCapability("email-templates:manage")
     if (!definition) { res.status(404).json({ error: "Email template not found" }); return; }
     const body = z.object({ to: z.string().email(), locale: localeSchema.optional() }).parse(req.body);
     if (body.locale && !(await isConfiguredLocale(siteId, body.locale))) { res.status(400).json({ error: "Select an active language configured under Admin → Languages" }); return; }
-    const rendered = await renderEmailTemplate({ siteId, key, locale: body.locale, values: previewValues(definition), mode: "draft" });
+    const rendered = await renderEmailTemplate({ siteId, key, locale: body.locale, values: previewValues(definition), mode: "draft", absoluteAssets: true });
     const result = await sendMail({ to: body.to, subject: `[TEST] ${rendered.subject}`, html: rendered.html, text: rendered.text, type: `${key}:test` });
     auditFromRequest(req, "email.template_tested", { target: key, outcome: result.ok ? "success" : "failure" });
     res.status(result.ok ? 200 : 502).json(result);

@@ -207,7 +207,8 @@ describe("capability filtering", () => {
       "analytics:read",
       "site:admin",
     ];
-    access.capabilities = all;
+    /** The owner is an administrator, who holds the design capabilities; the key predates them (justflows-ce#314). */
+    access.capabilities = [...all, "design:read", "design:manage"];
     const names = (await toolsForPrincipal(principal(all, true))).map((tool) => tool.name);
     expect(names).toContain("headers_get");
     expect(names).toContain("headers_update");
@@ -254,6 +255,44 @@ describe("capability filtering", () => {
     dispatch.mockResolvedValueOnce({ status: 404, body: { error: "Not found" } });
     const result = await callTool(principal(["content:read"]), "content_get", { id: "missing" });
     expect(result.outcome).toMatchObject({ ok: false, status: 404 });
+  });
+});
+
+/** Accessibility checks for agents (justflows-ce#313). */
+describe("accessibility checks", () => {
+  const blocks = [
+    { id: "img", type: "core.image", version: 1, props: { src: "/uploads/a.png", alt: "" } },
+    { id: "h", type: "core.heading", version: 1, props: { text: "Details", level: 4 } },
+  ];
+
+  it("offers content_accessibility_check to anyone who can read content, through the API endpoint", async () => {
+    access.capabilities = ["content:read"];
+    const p = principal(["content:read"]);
+    expect((await toolsForPrincipal(p)).map((t) => t.name)).toContain("content_accessibility_check");
+    await callTool(p, "content_accessibility_check", { id: "c1", lang: "nl" });
+    expect(dispatch).toHaveBeenCalledWith(p, expect.objectContaining({ method: "GET", path: "/content/c1/accessibility", query: { lang: "nl" } }));
+  });
+
+  it("returns the issues of the saved blocks with content_update", async () => {
+    access.capabilities = ["content:read", "content:update"];
+    dispatch.mockResolvedValueOnce({ status: 200, body: { id: "c1", version: 2 } });
+    const result = await callTool(principal(["content:read", "content:update"]), "content_update", { id: "c1", expectedVersion: 1, blocks: { version: 1, blocks } });
+    expect(result.outcome.ok).toBe(true);
+    const data = (result.outcome as { data: { id: string; accessibility: { counts: Record<string, number>; issues: Array<{ code: string; blockId: string }> } } }).data;
+    expect(data.id).toBe("c1");
+    expect(data.accessibility.counts).toEqual({ error: 0, warning: 2, unavailable: 0 });
+    expect(data.accessibility.issues.map((i) => `${i.code}:${i.blockId}`)).toEqual(["image-alt:img", "heading-skip:h"]);
+  });
+
+  it("adds nothing when the update did not change blocks or failed", async () => {
+    access.capabilities = ["content:read", "content:update"];
+    const p = principal(["content:read", "content:update"]);
+    dispatch.mockResolvedValueOnce({ status: 200, body: { id: "c1" } });
+    const titleOnly = await callTool(p, "content_update", { id: "c1", expectedVersion: 1, title: "New" });
+    expect((titleOnly.outcome as { data: Record<string, unknown> }).data).not.toHaveProperty("accessibility");
+    dispatch.mockResolvedValueOnce({ status: 409, body: { error: "stale" } });
+    const failed = await callTool(p, "content_update", { id: "c1", expectedVersion: 1, blocks: { version: 1, blocks } });
+    expect(failed.outcome.ok).toBe(false);
   });
 });
 

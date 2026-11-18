@@ -12,6 +12,8 @@ export const USER_CAPABILITIES = [
   "content:revisions:read",
   "content:revisions:restore",
   "content:revisions:discard",
+  /** Lock and unlock blocks; without it, locked blocks cannot be moved, removed, or edited (justflows-ce#298). */
+  "content:locks:manage",
   "media:read",
   "media:upload",
   "media:delete",
@@ -32,7 +34,21 @@ export const USER_CAPABILITIES = [
   "mail:manage",
   "email-templates:read",
   "email-templates:manage",
+  /**
+   * Read site design: templates, template parts, the header library, widget
+   * areas, menus, patterns, reusable blocks, style presets and global styles
+   * (justflows-ce#314).
+   */
+  "design:read",
+  /** Change and publish site design (justflows-ce#314). */
+  "design:manage",
   "updates:manage",
+  /**
+   * Add, change, and switch off custom JavaScript and markup on public pages
+   * (justflows-ce#94). Administrators only by default; not part of any other
+   * built-in role, because custom code runs in every visitor's browser.
+   */
+  "code:manage",
   "site:admin",
   "ai:use",
 ] as const;
@@ -95,11 +111,14 @@ export const ROLE_CAPABILITIES: Record<string, UserCapability[]> = {
     "content:revisions:read",
     "content:revisions:restore",
     "content:revisions:discard",
+    "content:locks:manage",
     "media:read",
     "media:upload",
     "media:delete",
     "comments:moderate",
     "users:read",
+    "design:read",
+    "design:manage",
     "ai:use",
   ],
   author: [
@@ -111,8 +130,9 @@ export const ROLE_CAPABILITIES: Record<string, UserCapability[]> = {
     "content:revisions:discard",
     "media:read",
     "media:upload",
+    "design:read",
   ],
-  contributor: ["content:read", "content:create", "content:revisions:read"],
+  contributor: ["content:read", "content:create", "content:revisions:read", "design:read"],
   subscriber: ["content:read"],
 };
 

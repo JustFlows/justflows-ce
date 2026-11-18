@@ -13,6 +13,8 @@ import {
   PICKER_ERROR_CLASSES,
   setErrorPageConfig,
 } from "../../lib/rendering/error-pages.js";
+import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
+import { multisiteEnabled } from "../../lib/tenancy/multisite.js";
 
 const router = Router();
 
@@ -34,7 +36,7 @@ async function activeTheme(): Promise<{
 router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
   const ctx = await activeTheme();
   if (!ctx) {
-    res.json({ config: {}, themeSlots: [], pages: [] });
+    res.json({ config: {}, themeSlots: [], pages: [], websiteNotFoundAvailable: false });
     return;
   }
   const config = await getErrorPageConfig(ctx.siteId);
@@ -43,7 +45,12 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
     .filter((slot) => (PICKER_ERROR_CLASSES as readonly string[]).includes(slot.slug) || slot.slug === "error")
     .map((slot) => slot.slug);
   const pages = await listErrorPagePickerOptions(ctx.siteId);
-  res.json({ config, themeSlots, pages });
+  res.json({
+    config,
+    themeSlots,
+    pages,
+    websiteNotFoundAvailable: multisiteEnabled() && isInstallationRootRequest(),
+  });
 });
 
 router.put("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {

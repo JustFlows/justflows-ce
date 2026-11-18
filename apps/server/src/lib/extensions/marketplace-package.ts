@@ -10,6 +10,7 @@ import { ARCHIVE_LIMITS, type InstallResult } from "@justflows/installer";
 import { assertPackageIsTrusted } from "./package-trust.js";
 import { packagesInstalledDir } from "./packages-dir.js";
 import { recordInstalledPackageBaseline } from "../security/extension-integrity.js";
+import { retainPackageArchive } from "../backup/package-archives.js";
 import {
   MARKETPLACE_ALLOW_BETA_SETTING,
   marketplaceListingIsBeta,
@@ -22,6 +23,19 @@ import { getSiteSetting } from "../settings/site-settings.js";
 import { compareCoreVersions, parseCoreVersion } from "../updates/core-release-check.js";
 
 export const JUSTFLOWS_API_BASE = "https://api.justflows.com";
+
+export function marketplaceRequestHeaders(): Record<string, string> {
+  const token = process.env.JUSTFLOWS_PLATFORM_INSTALL_TOKEN?.trim();
+  if (!token) return {};
+  return {
+    "x-justflows-site-domain": "justflows.com",
+    "x-justflows-platform-token": token,
+  };
+}
+
+function hasOfficialPlatformEarlyAccess(): boolean {
+  return Boolean(process.env.JUSTFLOWS_PLATFORM_INSTALL_TOKEN?.trim());
+}
 
 /**
  * A registry that hangs or answers forever is still a dependency failure.
@@ -113,7 +127,10 @@ export async function fetchMarketplaceListing(
 ): Promise<MarketplaceListing> {
   const versionSegment = version ? `/versions/${encodeURIComponent(version)}` : "/versions/latest";
   const metaUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kindSegment(type)}/${encodeURIComponent(id)}${versionSegment}`;
-  const metaRes = await fetch(metaUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  const metaRes = await fetch(metaUrl, {
+    headers: marketplaceRequestHeaders(),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
   if (!metaRes.ok) {
     throw new MarketplaceRequestError(metaRes.status, { error: `Listing not found (${id})` });
   }
@@ -133,7 +150,8 @@ export async function assertListingInstallable(
     throw new MarketplaceRequestError(404, { error: `Listing not found (${id})` });
   }
 
-  if (marketplaceListingIsComingSoon(listing)) {
+  const officialEarlyAccess = hasOfficialPlatformEarlyAccess();
+  if (marketplaceListingIsComingSoon(listing) && !officialEarlyAccess) {
     throw new MarketplaceRequestError(403, {
       error: "This listing is coming soon and cannot be installed yet.",
     });
@@ -141,7 +159,7 @@ export async function assertListingInstallable(
 
   // Beta builds stay uninstallable until an administrator opts the site in
   // under Settings.
-  if (marketplaceListingIsBeta(listing)) {
+  if (marketplaceListingIsBeta(listing) && !officialEarlyAccess) {
     const allowBeta = siteId
       ? (await getSiteSetting<boolean>(siteId, MARKETPLACE_ALLOW_BETA_SETTING)) === true
       : false;
@@ -165,6 +183,32 @@ export async function assertListingInstallable(
  * Resolve, gate, download, verify, and extract a Marketplace package into
  * `packages-installed/`. Registering it in the database is the caller's job.
  */
+/**
+ * Download one exact marketplace release with its published digest and
+ * signature. Callers still verify both before using the bytes.
+ */
+export async function downloadMarketplacePackage(
+  type: MarketplacePackageType,
+  id: string,
+  version: string,
+): Promise<{ buffer: Buffer; digest: string; signature: string }> {
+  /** Always download via the public API; the registry downloadUrl is an internal path. */
+  const downloadUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kindSegment(type)}/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}/download`;
+  const download = await fetch(downloadUrl, {
+    headers: marketplaceRequestHeaders(),
+    signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+  });
+  if (!download.ok) {
+    throw new MarketplaceRequestError(download.status, { error: "Download failed" });
+  }
+  const buffer = await readBounded(download, ARCHIVE_LIMITS.maxCompressedBytes);
+  return {
+    buffer,
+    digest: download.headers.get("x-justflows-digest") ?? "",
+    signature: download.headers.get("x-justflows-signature") ?? "",
+  };
+}
+
 export async function installMarketplacePackage(options: {
   type: MarketplacePackageType;
   id: string;
@@ -189,19 +233,7 @@ export async function installMarketplacePackage(options: {
     assertMarketplaceUpgrade(options.expectedNewerThan, resolvedVersion);
   }
 
-  // Always download via the public API. Registry downloadUrl is an internal
-  // path (e.g. /v1/plugins/...) which Node fetch cannot resolve.
-  const downloadUrl = `${JUSTFLOWS_API_BASE}/v1/marketplace/${kindSegment(type)}/${encodeURIComponent(id)}/versions/${encodeURIComponent(resolvedVersion)}/download`;
-  const download = await fetch(downloadUrl, {
-    signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
-  });
-  if (!download.ok) {
-    throw new MarketplaceRequestError(download.status, { error: "Download failed" });
-  }
-
-  const buffer = await readBounded(download, ARCHIVE_LIMITS.maxCompressedBytes);
-  const digest = download.headers.get("x-justflows-digest") ?? "";
-  const signature = download.headers.get("x-justflows-signature") ?? "";
+  const { buffer, digest, signature } = await downloadMarketplacePackage(type, id, resolvedVersion);
 
   const { PackageInstaller } = await import("@justflows/installer");
   const installer = new PackageInstaller();
@@ -247,6 +279,14 @@ export async function installMarketplacePackage(options: {
     packageType: result.manifest.type,
     version: result.manifest.version,
     archiveDigest: result.digest,
+  });
+  await retainPackageArchive(buffer, {
+    digest: result.digest,
+    type: result.manifest.type,
+    id: result.manifest.id,
+    version: result.manifest.version,
+    source: "marketplace",
+    signature: signature || undefined,
   });
   return { ...result, approvedPermissions };
 }

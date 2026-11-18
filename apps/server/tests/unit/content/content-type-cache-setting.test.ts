@@ -12,6 +12,8 @@ describe("content-type cache settings", () => {
   beforeEach(() => {
     vi.clearAllMocks(); mocks.purge.mockResolvedValue(undefined); mocks.clear.mockResolvedValue(undefined);
     mocks.query.mockImplementation(async (sql: string, params: unknown[]) => {
+      /** Both account pages are already seeded. */
+      if (sql.includes("type = 'account' OR slug")) return [{ type: "account", slug: "account" }, { type: "account", slug: "account-data" }];
       if (sql.includes("type = 'auth'")) return ["login", "register", "forgot-password", "reset-password"].map(slug => ({ slug }));
       if (sql.startsWith("SELECT slug")) return [{ slug: "page" }, { slug: "post" }, { slug: "account" }, { slug: "auth" }];
       if (sql.startsWith("SELECT * FROM content_types")) return [{ id: "type", site_id: params[0], slug: params[1], fields: [], is_builtin: 1, cache_control: null }];

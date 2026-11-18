@@ -28,8 +28,8 @@ import {
 } from "../../lib/navigation/menus-db.js";
 import type { BlockNode } from "../../lib/runtime/types.js";
 import { listMenuDesignPresets } from "../../lib/navigation/menu-design-presets.js";
-import { requireRole } from "../../middleware/auth.js";
-import { CONTENT_READ_ROLES, MENU_WRITE_ROLES, STORED_ROLE_ID } from "../../lib/auth/rbac.js";
+import { requireCapability } from "../../middleware/auth.js";
+import { STORED_ROLE_ID } from "../../lib/auth/rbac.js";
 import { param } from "../../lib/http/params.js";
 import { assertAllowedNavUrl } from "../../lib/navigation/nav-url.js";
 import { isSafeAssetUrl } from "../../lib/media/favicon.js";
@@ -42,6 +42,11 @@ const router = Router();
 
 const STYLE_PRESET_RE = /^[a-z][a-z0-9-]{0,39}$/;
 const REL_TOKEN_RE = /^[a-z][a-z0-9-]{0,39}$/;
+
+/** Database UUID columns accept canonical UUID text regardless of version or variant bits. */
+export const MenuContentIdSchema = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID");
 
 const MenuItemVisibilitySchema = z.object({
   auth: z.enum(["any", "guest", "authenticated"]).optional(),
@@ -108,7 +113,7 @@ const MenuItemSchema: z.ZodType<MenuItem> = z.lazy(() =>
     label: z.string(),
     type: ContentTypeSlugSchema,
     url: z.string().optional(),
-    contentId: z.string().uuid().optional(),
+    contentId: MenuContentIdSchema.optional(),
     target: z.enum(["_blank"]).optional(),
     rel: z
       .string()
@@ -162,6 +167,23 @@ const CreateMenuSchema = z.object({
   name: z.string().min(1).max(255),
 });
 
+/**
+ * A refused menu save says what to fix; anything unexpected is logged and
+ * answered with a generic message, so database and stack details never reach
+ * the browser (justflows-ce#309).
+ */
+function sendMenuError(res: import("express").Response, err: unknown): void {
+  if (err instanceof z.ZodError) {
+    res.status(400).json({ error: err.issues[0]?.message ?? "Invalid menu" });
+    return;
+  }
+  if (err instanceof Error && err.message.startsWith("Invalid menu URL")) {
+    res.status(400).json({ error: "A menu link uses an address that is not allowed." });
+    return;
+  }
+  sendServerError(res, "menus", err);
+}
+
 function validateMenuItems(items: MenuItem[]): void {
   for (const item of items) {
     if (item.type === "custom") {
@@ -174,7 +196,7 @@ function validateMenuItems(items: MenuItem[]): void {
   }
 }
 
-router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/", requireCapability("design:read"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     const menus = await listMenus(siteId);
@@ -184,7 +206,7 @@ router.get("/", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
   }
 });
 
-router.get("/design-presets", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/design-presets", requireCapability("design:read"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     const presets = await listMenuDesignPresets(siteId);
@@ -194,7 +216,7 @@ router.get("/design-presets", requireRole(...CONTENT_READ_ROLES), async (req, re
   }
 });
 
-router.get("/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/:slug", requireCapability("design:read"), async (req, res) => {
   try {
     const siteId = req.session!.siteId;
     const preview = req.query.preview === "1";
@@ -216,7 +238,7 @@ router.get("/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
   }
 });
 
-router.put("/:slug", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
+router.put("/:slug", requireCapability("design:manage"), async (req, res) => {
   try {
     const body = UpdateMenuSchema.parse(req.body);
     if (body.items) validateMenuItems(body.items);
@@ -253,13 +275,14 @@ router.put("/:slug", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
     // The JF cache prefix wipe below covers both — the preview render path
     // reads draft columns directly, live requests never do.
     await revalidateOnUpdate("menus");
+    if (!body.draft) auditFromRequest(req, "design.menu_saved", { target: slug });
     res.json({ menu, draft: Boolean(body.draft) });
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    sendMenuError(res, err);
   }
 });
 
-router.post("/", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
+router.post("/", requireCapability("design:manage"), async (req, res) => {
   try {
     const body = CreateMenuSchema.parse(req.body);
     const siteId = req.session!.siteId;
@@ -272,13 +295,14 @@ router.post("/", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
 
     const menu = await createMenu(siteId, body.slug, body.name);
     await revalidateOnUpdate("menus");
+    auditFromRequest(req, "design.menu_saved", { target: body.slug, detail: "create" });
     res.json({ menu });
   } catch (err) {
-    res.status(400).json({ error: String(err) });
+    sendMenuError(res, err);
   }
 });
 
-router.delete("/:slug", requireRole(...MENU_WRITE_ROLES), async (req, res) => {
+router.delete("/:slug", requireCapability("design:manage"), async (req, res) => {
   try {
     const slug = param(req.params.slug);
     if (slug === PRIMARY_MENU_SLUG) {

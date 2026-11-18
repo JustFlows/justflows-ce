@@ -149,6 +149,11 @@ describe("LocalStorageAdapter", () => {
       expect((await store.read("site/.trash/m1/a.webp"))?.body.toString()).toBe("a");
       expect(await store.move("site/m1/", "site/x/")).toBe(false);
       await expect(store.read("../escape")).rejects.toThrow(/escapes/);
+      await expect(store.read("site/unsafe name.webp")).rejects.toThrow(/escapes/);
+      const outside = await fs.mkdtemp(path.join(os.tmpdir(), "jf-outside-"));
+      await fs.symlink(outside, path.join(root, "linked"));
+      await expect(store.save("linked/escape.webp", Buffer.from("x"), "image/webp")).rejects.toThrow(/escapes/);
+      await fs.rm(outside, { recursive: true, force: true });
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

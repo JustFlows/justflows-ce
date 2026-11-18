@@ -1,5 +1,16 @@
 // SPDX-License-Identifier: MIT
 
+import { getEffectiveAccess } from "../../lib/auth/access-policy.js";
+import { STYLE_PRESET_NAME_MAX } from "@justflows/blocks";
+import {
+  deleteStylePreset,
+  discardStylePresetDraft,
+  listStylePresets,
+  publishStylePresets,
+  saveStylePreset,
+  stylePresetUsage,
+  stylePresetsHaveDraft,
+} from "../../lib/themes/style-presets.js";
 import { Router, type Request } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -11,7 +22,7 @@ import { listContentTypes } from "../../lib/content/content-types-db.js";
 import { getBlogPageId, setBlogPageId } from "../../lib/content/blog-page.js";
 import { getHomePageId, setHomePageId } from "../../lib/content/home-page.js";
 import { normalizeBlocks } from "../../lib/content/content-api.js";
-import { sendServerError } from "../../lib/http/send-error.js";
+import { describeZodError, sendInputOrServerError, sendServerError } from "../../lib/http/send-error.js";
 import { param } from "../../lib/http/params.js";
 import { getActiveLocaleCodes, getDefaultLocale } from "../../lib/i18n/languages-db.js";
 import {
@@ -33,7 +44,13 @@ import {
   deleteReusableBlock,
   listReusableBlocks,
   saveReusableBlock,
+  ReusableSaveError,
+  asReusableId,
+  discardReusableDraft,
+  getReusableBlock,
+  publishReusableDraft,
 } from "../../lib/rendering/reusable-blocks.js";
+import { reusableUsageFor } from "../../lib/rendering/reusable-usage.js";
 import {
   deleteSitePattern,
   exportPatternSet,
@@ -70,7 +87,7 @@ import {
   WIDGET_AREA_POSITIONS,
 } from "../../lib/rendering/widget-areas.js";
 import { listLayoutScopes } from "../../lib/themes/layout-scopes.js";
-import { loadThemeDemoFooter, listThemePatterns, loadThemePattern, loadThemeTemplate } from "../../lib/themes/theme-files.js";
+import { loadThemeDemoFooter, listThemePatterns, loadThemePattern, loadThemeTemplateDoc } from "../../lib/themes/theme-files.js";
 import {
   clearThemeBlogDraft,
   defaultBlogBlocksFromTheme,
@@ -113,12 +130,14 @@ import {
   publishStoredTemplate,
   resetStoredTemplate,
   saveStoredTemplate,
+  writeStoredTemplate,
 } from "../../lib/themes/theme-templates-store.js";
 import { TEMPLATE_SLOTS } from "../../lib/rendering/template-hierarchy.js";
 import { validateTemplateBlocks } from "../../lib/rendering/template-validate.js";
-import { auditFromRequest } from "../../lib/security/audit-log.js";
+import { auditFromRequest, auditLog } from "../../lib/security/audit-log.js";
 import { clientIp } from "../../lib/security/rate-limit.js";
-import { badRequest, ensureKeyCan, sendJson } from "./envelope.js";
+import { badRequest, ensureKeyCan, sendJson, notFound } from "./envelope.js";
+import { accessibilityReport } from "../../lib/content/accessibility-report.js";
 
 /**
  * Site chrome the admin edits outside a content entry: the header library,
@@ -158,12 +177,23 @@ const PartSchema = z.object({
 const TemplateSaveSchema = z.object({
   blocks: z.array(z.record(z.string(), z.unknown())),
   draft: z.boolean().default(false),
+  /** Style defaults for the content this template wraps, by block type (justflows-ce#301). Omitted keeps the stored ones; null clears them. */
+  templateDefaults: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
+const StylePresetSaveSchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/),
+  name: z.string().min(1).max(STYLE_PRESET_NAME_MAX),
+  style: z.record(z.string(), z.unknown()),
 });
 
 const ReusableSaveSchema = z.object({
   id: z.string().max(64).optional(),
   name: z.string().max(120).optional(),
   blocks: z.array(z.record(z.string(), z.unknown())),
+  /** Save the draft of an existing entry instead of publishing (justflows-ce#304). */
+  draft: z.boolean().optional(),
+  expectedRevision: z.number().int().min(0).optional(),
 });
 
 const PatternSaveSchema = z.object({ synced: z.boolean().default(false) }).catchall(z.unknown());
@@ -230,7 +260,7 @@ function localeQuery(value: unknown): string | undefined {
 /* -------------------------------- headers ------------------------------- */
 
 router.get("/headers", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     sendJson(req, res, {
@@ -243,7 +273,7 @@ router.get("/headers", async (req, res) => {
 });
 
 router.get("/headers/options", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     const preview = req.query.preview === "1" || req.query.preview === "true";
@@ -259,7 +289,7 @@ router.get("/headers/options", async (req, res) => {
 });
 
 router.put("/headers", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = LibrarySchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid header library");
   try {
@@ -271,14 +301,14 @@ router.put("/headers", async (req, res) => {
     if (!body.data.draft) await revalidateOnUpdate("theme");
     res.json({ library });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "manage.design", err);
   }
 });
 
 /* ----------------------------- template parts --------------------------- */
 
 router.get("/template-parts/:part", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   const part = param(req.params.part);
   if (!isTemplatePart(part)) {
     res.status(404).json({ error: "Unknown template part" });
@@ -303,8 +333,36 @@ router.get("/template-parts/:part", fileLimit, async (req, res) => {
   }
 });
 
+/** Which copy of a site-wide document the checks read: the draft when there is one, unless the caller asks. */
+function pickVersion(req: import("express").Request, draft: unknown[] | null | undefined, published: unknown[] | null | undefined): { version: "draft" | "published"; blocks: unknown[] } {
+  const asked = req.query.version === "draft" || req.query.version === "published" ? req.query.version : null;
+  if (asked === "draft" || (!asked && draft?.length)) return { version: "draft", blocks: draft ?? [] };
+  return { version: "published", blocks: published ?? [] };
+}
+
+function reportLang(req: import("express").Request): string {
+  return typeof req.query.lang === "string" ? req.query.lang : "en";
+}
+
+/** The builder's accessibility checks for a template part (justflows-ce#313). */
+router.get("/template-parts/:part/accessibility", fileLimit, async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
+  const part = param(req.params.part);
+  if (!isTemplatePart(part)) {
+    res.status(404).json({ error: "Unknown template part" });
+    return;
+  }
+  try {
+    const id = siteId(req);
+    const picked = pickVersion(req, await getTemplatePart(id, part, true), await getTemplatePart(id, part, false));
+    sendJson(req, res, { part, version: picked.version, ...(await accessibilityReport(picked.blocks, reportLang(req))) });
+  } catch (err) {
+    sendServerError(res, "manage.template-parts", err);
+  }
+});
+
 router.put("/template-parts/:part", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const part = param(req.params.part);
   if (!isTemplatePart(part)) {
     res.status(404).json({ error: "Unknown template part" });
@@ -320,7 +378,7 @@ router.put("/template-parts/:part", async (req, res) => {
     if (!body.data.draft) await revalidateOnUpdate("theme");
     res.json({ blocks });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "manage.design", err);
   }
 });
 
@@ -346,7 +404,7 @@ const WidgetLayoutSchema = z.object({
 });
 
 router.get("/widgets", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     const [areas, layout, types] = await Promise.all([
@@ -366,7 +424,7 @@ router.get("/widgets", fileLimit, async (req, res) => {
 });
 
 router.put("/widgets/layout", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = WidgetLayoutSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid widget layout");
   try {
@@ -385,7 +443,7 @@ const WidgetAreaCreateSchema = z.object({
 });
 
 router.post("/widgets/areas", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = WidgetAreaCreateSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid widget area");
   try {
@@ -400,7 +458,7 @@ router.post("/widgets/areas", fileLimit, async (req, res) => {
 });
 
 router.delete("/widgets/areas/:key", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     await deleteSiteWidgetArea(siteId(req), param(req.params.key));
     await revalidateOnUpdate("theme");
@@ -415,7 +473,7 @@ router.delete("/widgets/areas/:key", fileLimit, async (req, res) => {
 });
 
 router.get("/widgets/areas/:key", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const found = await readWidgetAreaForEditor(siteId(req), param(req.params.key));
     if (!found) {
@@ -429,7 +487,7 @@ router.get("/widgets/areas/:key", fileLimit, async (req, res) => {
 });
 
 router.put("/widgets/areas/:key", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = WidgetAreaSaveSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid widget area");
   try {
@@ -449,7 +507,7 @@ router.put("/widgets/areas/:key", fileLimit, async (req, res) => {
 });
 
 router.post("/widgets/areas/:key/discard-draft", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     const id = siteId(req);
     const key = param(req.params.key);
@@ -467,7 +525,7 @@ router.post("/widgets/areas/:key/discard-draft", fileLimit, async (req, res) => 
 /* ------------------------------- templates ------------------------------ */
 
 router.get("/templates", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     const theme = await activeTheme(id);
@@ -487,8 +545,28 @@ router.get("/templates", fileLimit, async (req, res) => {
   }
 });
 
+/** The builder's accessibility checks for a page template (justflows-ce#313). */
+router.get("/templates/:slug/accessibility", fileLimit, async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
+  const slug = param(req.params.slug);
+  if (!isTemplateSlug(slug)) {
+    res.status(404).json({ error: "Unknown template slug" });
+    return;
+  }
+  try {
+    const id = siteId(req);
+    const theme = await activeTheme(id);
+    const stored = theme ? await getStoredTemplateDocs(id, theme.themeId, slug) : null;
+    const themeFile = theme && !stored?.published?.length ? loadThemeTemplateDoc(theme.themeId, slug, theme.installedPath)?.blocks : undefined;
+    const picked = pickVersion(req, stored?.draft, stored?.published?.length ? stored.published : themeFile);
+    sendJson(req, res, { slug, version: picked.version, ...(await accessibilityReport(picked.blocks, reportLang(req))) });
+  } catch (err) {
+    sendServerError(res, "manage.templates", err);
+  }
+});
+
 router.get("/templates/:slug", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -501,25 +579,36 @@ router.get("/templates/:slug", fileLimit, async (req, res) => {
       sendJson(req, res, { blocks: [], draft: [] });
       return;
     }
-    const { published, draft } = await getStoredTemplateDocs(id, theme.themeId, slug);
+    const { published, draft, publishedDefaults, draftDefaults } = await getStoredTemplateDocs(id, theme.themeId, slug);
     if (published?.length || draft?.length) {
-      sendJson(req, res, { blocks: published ?? [], draft: draft ?? [] });
+      sendJson(req, res, {
+        blocks: published ?? [],
+        draft: draft ?? [],
+        templateDefaults: (draft?.length ? draftDefaults : publishedDefaults) ?? {},
+        publishedTemplateDefaults: publishedDefaults ?? {},
+      });
       return;
     }
-    const themeBlocks = loadThemeTemplate(theme.themeId, slug, theme.installedPath);
-    if (themeBlocks?.length) {
-      const seeded = sanitizeBlockDocument({ version: 1, blocks: themeBlocks }).blocks;
-      sendJson(req, res, { blocks: seeded, draft: [], fromThemeDefault: true });
+    const themeDoc = loadThemeTemplateDoc(theme.themeId, slug, theme.installedPath);
+    if (themeDoc?.blocks.length) {
+      const seeded = sanitizeBlockDocument({ version: 1, blocks: themeDoc.blocks }).blocks;
+      sendJson(req, res, {
+        blocks: seeded,
+        draft: [],
+        fromThemeDefault: true,
+        templateDefaults: themeDoc.templateDefaults ?? {},
+        publishedTemplateDefaults: themeDoc.templateDefaults ?? {},
+      });
       return;
     }
-    sendJson(req, res, { blocks: [], draft: [], fromThemeDefault: true });
+    sendJson(req, res, { blocks: [], draft: [], fromThemeDefault: true, templateDefaults: {}, publishedTemplateDefaults: {} });
   } catch (err) {
     sendServerError(res, "manage.templates", err);
   }
 });
 
 router.put("/templates/:slug", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -534,19 +623,22 @@ router.put("/templates/:slug", async (req, res) => {
       res.status(503).json({ error: "No site found" });
       return;
     }
-    const blocks = body.data.draft
-      ? await saveStoredTemplate(id, theme.themeId, slug, body.data.blocks, true)
-      : await publishStoredTemplate(id, theme.themeId, slug, body.data.blocks);
+    const { blocks, templateDefaults } = await writeStoredTemplate(id, theme.themeId, slug, body.data.blocks, {
+      draft: body.data.draft,
+      actorId: req.apiKeyOwner?.userId ?? null,
+      /** `null` clears the defaults; omitted keeps them (justflows-ce#301). */
+      templateDefaults: body.data.templateDefaults === null ? {} : body.data.templateDefaults,
+    });
     if (!body.data.draft) await revalidateOnUpdate("theme");
     const { unknownBlockTypes } = validateTemplateBlocks(blocks);
-    res.json({ blocks, unknownBlockTypes });
+    res.json({ blocks, unknownBlockTypes, templateDefaults: templateDefaults ?? {} });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "manage.design", err);
   }
 });
 
 router.post("/templates/:slug/discard-draft", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -567,7 +659,7 @@ router.post("/templates/:slug/discard-draft", async (req, res) => {
 });
 
 router.delete("/templates/:slug", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const slug = param(req.params.slug);
   if (!isTemplateSlug(slug)) {
     res.status(404).json({ error: "Unknown template slug" });
@@ -591,7 +683,7 @@ router.delete("/templates/:slug", async (req, res) => {
 /* ---------------------------- theme customize --------------------------- */
 
 router.get("/themes/customize", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     await ensureThemesTable();
     const id = siteId(req);
@@ -648,7 +740,7 @@ router.get("/themes/customize", fileLimit, async (req, res) => {
 });
 
 router.patch("/themes/customize", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = CustomizePatchSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid theme settings");
   try {
@@ -689,13 +781,12 @@ router.patch("/themes/customize", async (req, res) => {
     await revalidateOnUpdate("theme");
     res.json({ ok: true, published: false, mods, blocks, homePageId, blogBlocks, blogPageId });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Could not save";
-    res.status(message.includes("Custom CSS") ? 400 : 500).json({ error: message });
+    sendInputOrServerError(res, "manage.themes.customize", err);
   }
 });
 
 router.delete("/themes/customize", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     const id = siteId(req);
     const theme = await getActiveTheme(id);
@@ -715,7 +806,7 @@ router.delete("/themes/customize", async (req, res) => {
 /* ---------------------------- reusable blocks --------------------------- */
 
 router.get("/reusable-blocks", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     sendJson(req, res, { items: await listReusableBlocks(siteId(req)) });
   } catch (err) {
@@ -724,22 +815,76 @@ router.get("/reusable-blocks", async (req, res) => {
 });
 
 router.put("/reusable-blocks", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = ReusableSaveSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid reusable block");
   try {
-    const item = await saveReusableBlock(siteId(req), body.data);
-    await revalidateOnUpdate("content");
+    const item = await saveReusableBlock(siteId(req), body.data, {
+      draft: body.data.draft,
+      expectedRevision: body.data.expectedRevision,
+      actorId: req.apiKeyOwner?.userId ?? null,
+    });
+    if (!(body.data.draft && item.draft)) await revalidateOnUpdate("content");
     res.json({ item });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendReusableError(res, err);
   }
 });
 
-router.delete("/reusable-blocks/:id", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+router.get("/reusable-blocks/:id/usage", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
+  const id = asReusableId(param(req.params.id));
+  if (!id) return notFound(res);
   try {
-    await deleteReusableBlock(siteId(req), param(req.params.id));
+    const owner = req.apiKeyOwner!;
+    const access = await getEffectiveAccess(owner.userId, owner.siteId, owner.role);
+    sendJson(req, res, await reusableUsageFor(siteId(req), id, { userId: owner.userId, access }));
+  } catch (err) {
+    sendServerError(res, "manage.reusable-blocks", err);
+  }
+});
+
+router.post("/reusable-blocks/:id/publish", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
+  try {
+    const expectedRevision = typeof req.body?.expectedRevision === "number" ? req.body.expectedRevision : undefined;
+    const item = await publishReusableDraft(siteId(req), param(req.params.id), { expectedRevision, actorId: req.apiKeyOwner?.userId ?? null });
+    if (!item) {
+      res.status(409).json({ error: "Nothing to publish", code: "no_draft" });
+      return;
+    }
+    await revalidateOnUpdate("content");
+    res.json({ item });
+  } catch (err) {
+    sendReusableError(res, err);
+  }
+});
+
+router.post("/reusable-blocks/:id/discard", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
+  try {
+    await discardReusableDraft(siteId(req), param(req.params.id));
+    res.json({ item: await getReusableBlock(siteId(req), param(req.params.id)) });
+  } catch (err) {
+    sendServerError(res, "manage.reusable-blocks", err);
+  }
+});
+
+/** A block still in use needs `?confirm=1`, since deleting it empties it on every page that uses it. */
+router.delete("/reusable-blocks/:id", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
+  try {
+    const id = param(req.params.id);
+    if (req.query.confirm !== "1" && (req.body as { confirm?: unknown } | undefined)?.confirm !== "1") {
+      const owner = req.apiKeyOwner!;
+      const access = await getEffectiveAccess(owner.userId, owner.siteId, owner.role);
+      const usage = await reusableUsageFor(siteId(req), asReusableId(id) || "-", { userId: owner.userId, access });
+      if (usage.total > 0) {
+        res.status(409).json({ error: "This reusable block is still used; repeat with confirm=1 to delete it anyway", code: "in_use", usage });
+        return;
+      }
+    }
+    await deleteReusableBlock(siteId(req), id);
     await revalidateOnUpdate("content");
     res.json({ ok: true });
   } catch (err) {
@@ -747,10 +892,98 @@ router.delete("/reusable-blocks/:id", async (req, res) => {
   }
 });
 
+function sendReusableError(res: import("express").Response, err: unknown): void {
+  if (err instanceof ReusableSaveError) {
+    const status = err.code === "revision_conflict" ? 409 : err.code === "not_found" ? 404 : 400;
+    res.status(status).json({ error: err.message, code: err.code });
+    return;
+  }
+  sendInputOrServerError(res, "manage.reusable-blocks", err);
+}
+
+/* ----------------------------- style presets ----------------------------- */
+
+router.get("/style-presets", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
+  try {
+    const id = siteId(req);
+    const [items, published, hasDraft] = await Promise.all([
+      listStylePresets(id, { draft: true }),
+      listStylePresets(id),
+      stylePresetsHaveDraft(id),
+    ]);
+    sendJson(req, res, { items, published, hasDraft });
+  } catch (err) {
+    sendServerError(res, "manage.style-presets", err);
+  }
+});
+
+router.put("/style-presets", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
+  const body = StylePresetSaveSchema.safeParse(req.body);
+  if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid style preset");
+  try {
+    res.json({ item: await saveStylePreset(siteId(req), body.data) });
+  } catch (err) {
+    sendInputOrServerError(res, "manage.design", err);
+  }
+});
+
+router.delete("/style-presets/:id", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
+  try {
+    await deleteStylePreset(siteId(req), param(req.params.id));
+    res.json({ ok: true });
+  } catch (err) {
+    sendServerError(res, "manage.style-presets", err);
+  }
+});
+
+router.get("/style-presets/:id/usage", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
+  const id = param(req.params.id);
+  if (!/^[a-z][a-z0-9-]{0,63}$/.test(id)) return notFound(res);
+  try {
+    sendJson(req, res, await stylePresetUsage(siteId(req), id));
+  } catch (err) {
+    sendServerError(res, "manage.style-presets", err);
+  }
+});
+
+router.post("/style-presets/publish", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
+  try {
+    const items = await publishStylePresets(siteId(req));
+    await revalidateOnUpdate("theme");
+    void auditLog({
+      siteId: siteId(req),
+      action: "design.presets_published",
+      actorId: req.apiKeyOwner!.userId,
+      actorRole: req.apiKeyOwner!.role,
+      target: "style-presets",
+      detail: `count=${items.length}`,
+    });
+    res.json({ items, published: items, hasDraft: false });
+  } catch (err) {
+    sendServerError(res, "manage.style-presets", err);
+  }
+});
+
+router.post("/style-presets/discard", async (req, res) => {
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
+  try {
+    await discardStylePresetDraft(siteId(req));
+    const items = await listStylePresets(siteId(req));
+    res.json({ items, published: items, hasDraft: false });
+  } catch (err) {
+    sendServerError(res, "manage.style-presets", err);
+  }
+});
+
 /* -------------------------------- patterns ------------------------------ */
 
 router.get("/patterns", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   try {
     const id = siteId(req);
     const locale = localeQuery(req.query.locale);
@@ -774,7 +1007,7 @@ router.get("/patterns", fileLimit, async (req, res) => {
 });
 
 router.get("/patterns/export", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     sendJson(req, res, await exportPatternSet(siteId(req)));
   } catch (err) {
@@ -783,29 +1016,29 @@ router.get("/patterns/export", async (req, res) => {
 });
 
 router.post("/patterns/import", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = PatternSetSchema.safeParse(req.body);
-  if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Invalid pattern set");
+  if (!body.success) return badRequest(res, describeZodError(body.error));
   try {
     res.json({ patterns: await importPatternSet(siteId(req), body.data) });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Invalid pattern set" });
+    sendInputOrServerError(res, "manage.patterns.import", err);
   }
 });
 
 router.put("/patterns", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   const body = PatternSaveSchema.safeParse(req.body);
   if (!body.success) return badRequest(res, body.error.issues[0]?.message ?? "Could not save pattern");
   try {
     res.json({ pattern: await saveSitePattern(siteId(req), body.data) });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save pattern" });
+    sendInputOrServerError(res, "manage.patterns", err);
   }
 });
 
 router.get("/patterns/:source/:id", fileLimit, async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "content:read"))) return;
+  if (!(await ensureKeyCan(req, res, "design:read"))) return;
   const source = param(req.params.source);
   const patternId = param(req.params.id);
   const locale = localeQuery(req.query.locale);
@@ -853,7 +1086,7 @@ router.get("/patterns/:source/:id", fileLimit, async (req, res) => {
 });
 
 router.delete("/patterns/:id", async (req, res) => {
-  if (!(await ensureKeyCan(req, res, "settings:manage"))) return;
+  if (!(await ensureKeyCan(req, res, "design:manage"))) return;
   try {
     await deleteSitePattern(siteId(req), param(req.params.id));
     res.json({ ok: true });
@@ -874,7 +1107,14 @@ router.get("/error-pages", fileLimit, async (req, res) => {
     const themeSlots = slots
       .filter((slot) => (PICKER_ERROR_CLASSES as readonly string[]).includes(slot.slug) || slot.slug === "error")
       .map((slot) => slot.slug);
-    sendJson(req, res, { config, themeSlots, pages: await listErrorPagePickerOptions(id) });
+    const { isInstallationRootSite } = await import("../../lib/tenancy/registry.js");
+    const { multisiteEnabled } = await import("../../lib/tenancy/multisite.js");
+    sendJson(req, res, {
+      config,
+      themeSlots,
+      pages: await listErrorPagePickerOptions(id),
+      websiteNotFoundAvailable: multisiteEnabled() && await isInstallationRootSite(id),
+    });
   } catch (err) {
     sendServerError(res, "manage.error-pages", err);
   }
@@ -888,7 +1128,7 @@ router.put("/error-pages", async (req, res) => {
     const config = await setErrorPageConfig(siteId(req), body.data);
     res.json({ ok: true, config });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Could not save" });
+    sendInputOrServerError(res, "manage.design", err);
   }
 });
 

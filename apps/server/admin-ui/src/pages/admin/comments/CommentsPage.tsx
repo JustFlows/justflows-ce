@@ -38,10 +38,11 @@ const HELD_REASON_LABEL_KEYS: Record<string, string> = {
 function describeReason(reason: string, t: (key: string, vars?: Record<string, string | number>) => string): string {
   const [code, detail] = reason.split(/:(.*)/s);
   switch (code) {
+    /** The stored detail is the number; a plural group picks its form from it (justflows-ce#312). */
     case "links":
-      return t("comments.reasonLinks", { count: detail, plural: detail === "1" ? "" : "s" });
+      return t("comments.reasonLinks", { count: Number(detail) || 0 });
     case "keywords":
-      return t("comments.reasonKeywords", { count: detail, plural: detail === "1" ? "" : "s" });
+      return t("comments.reasonKeywords", { count: Number(detail) || 0 });
     case "disposable_email":
       return t("comments.reasonDisposableEmail");
     case "repetitive":

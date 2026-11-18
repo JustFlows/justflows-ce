@@ -26,6 +26,7 @@ const client = vi.hoisted(() => ({
       const role = db.users.get(String(params[0]));
       return role ? [{ role }] : [];
     }
+    if (sql.startsWith("SELECT id, email, username, display_name, birth_date")) return [{ id: params[0], email: "noah@example.com", username: "noah", display_name: "Noah", birth_date: "2014-08-12", role: "subscriber", created_at: "2026-11-17", updated_at: null, totp_confirmed_at: null }];
     if (sql.includes("COUNT(*)")) return [{ count: 2 }];
     return [];
   },
@@ -50,7 +51,7 @@ vi.mock("../../../src/lib/settings/general-settings.js", () => ({
 vi.mock("../../../src/lib/tenancy/quotas.js", () => ({ enforceQuota: async () => null }));
 vi.mock("../../../src/lib/http/webhooks.js", () => ({ emitWebhookEvent: async () => undefined }));
 
-import { createUser, deleteUser, updateUser } from "../../../src/lib/auth/users-admin.js";
+import { createUser, deleteUser, getUserWithAccess, updateUser } from "../../../src/lib/auth/users-admin.js";
 import { createRole, updateRole } from "../../../src/lib/auth/roles-admin.js";
 
 const manager = { siteId: "site-1", userId: "mgr", role: "subscriber" };
@@ -138,5 +139,18 @@ describe("delegated user management", () => {
   it("does not turn the default role into grantable capabilities", async () => {
     // subscriber is the default role; its capabilities are not the manager's own.
     expect((await updateUser("other", { grants: ["content:read"] }, manager)).status).toBe(403);
+  });
+});
+
+describe("date of birth on the user page", () => {
+  it("is returned with the user and saved when an administrator changes it", async () => {
+    const shown = await getUserWithAccess("site-1", "u-noah", { includeActivity: false });
+    expect((shown.body as { user: { birth_date: string | null } }).user.birth_date).toBe("2014-08-12");
+    db.users.set("u-noah", "subscriber");
+    const admin = { siteId: "site-1", userId: "admin", role: "administrator" };
+    expect((await updateUser("u-noah", { birthDate: "2030-01-01" }, admin)).status).toBe(400);
+    db.run.mockClear();
+    expect((await updateUser("u-noah", { birthDate: "2014-08-13" }, admin)).status).toBe(200);
+    expect(db.run).toHaveBeenCalledWith(expect.stringContaining("birth_date = ?"), expect.arrayContaining(["2014-08-13"]));
   });
 });

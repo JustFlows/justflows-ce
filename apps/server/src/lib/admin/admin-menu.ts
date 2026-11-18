@@ -38,6 +38,12 @@ export interface AdminMenuEntry extends Omit<PluginAdminMenuItem, "path"> {
    * links to that page only when this is not `false`.
    */
   hasSettings?: boolean;
+  /**
+   * Capabilities the owning plugin declares. The admin shows the plugin's
+   * pages to a custom role that holds any of them; the plugin's own routes
+   * still check every request.
+   */
+  capabilities?: string[];
 }
 
 /** A plugin's own sidebar section as the admin receives it. */
@@ -226,7 +232,7 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
     }
   }
 
-  const { ensurePluginRuntime, getRuntimeHooks } = await import("../plugins/plugin-runtime.js");
+  const { ensurePluginRuntime, getPluginLoader, getRuntimeHooks } = await import("../plugins/plugin-runtime.js");
   await ensurePluginRuntime();
   const filtered = await getRuntimeHooks().applyFilter(
     "admin.menu",
@@ -253,7 +259,15 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
     () => new Map<string, Record<string, string>>(),
   );
 
-  return stampHasSettings(
+  /** Capabilities per plugin, so a custom role holding one sees that plugin's pages. */
+  const capabilitiesByPlugin = new Map<string, string[]>();
+  for (const definition of getPluginLoader()?.capabilityRegistry.all() ?? []) {
+    const list = capabilitiesByPlugin.get(definition.pluginId) ?? [];
+    list.push(definition.id);
+    capabilitiesByPlugin.set(definition.pluginId, list);
+  }
+
+  return stampPluginCapabilities(stampHasSettings(
     stampSections(
       stampCatalogLabels(
         stampAdminAppUrls(stampSetupPaths(menu, setupByPlugin), adminAppRoutes),
@@ -263,7 +277,18 @@ export async function listPluginAdminMenu(siteId: string): Promise<AdminMenuEntr
       catalogFiles,
     ),
     withSchema,
-  );
+  ), capabilitiesByPlugin);
+}
+
+/** Attach the capabilities each plugin declares to its menu entries. */
+export function stampPluginCapabilities(
+  items: AdminMenuEntry[],
+  byPlugin: ReadonlyMap<string, readonly string[]>,
+): AdminMenuEntry[] {
+  return items.map((item) => {
+    const capabilities = byPlugin.get(item.pluginId);
+    return capabilities?.length ? { ...item, capabilities: [...capabilities] } : item;
+  });
 }
 
 /**

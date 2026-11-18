@@ -36,6 +36,11 @@ export type {
   AccountCard,
   AccountAction,
   AccountSectionContext,
+  PrivacyErasePart,
+  PrivacyExportPart,
+  PrivacyProvider,
+  PrivacyRequestContext,
+  PrivacySubject,
   HookContext,
   HookActor,
   HookSource,
@@ -149,6 +154,7 @@ export {
   PLUGIN_DELETE_CONTENT_SETTING,
   pluginShouldDeleteData,
   pluginShouldDeleteContent,
+  BLOCK_API_VERSION,
 } from "./plugin.js";
 export {
   RegistryListingSchema,
@@ -218,6 +224,10 @@ export type {
   PluginTenancyApi,
   PluginNetworkApi,
   PluginNetworkSite,
+  PluginOutboundApi,
+  PluginPasswordSetupResult,
+  PluginOutboundRequest,
+  PluginOutboundResponse,
   PluginNetworkSiteAddress,
   PluginSettingsField,
   PluginEditorPanel,
@@ -346,6 +356,7 @@ export {
   PATTERN_SLUG_RE,
   BLOCK_TYPE_RE,
   PatternBlockSchema,
+  PatternBlockEditorMetaSchema,
   PatternLocaleSchema,
   BlockPatternSchema,
   PatternSetSchema,
@@ -353,6 +364,7 @@ export {
 } from "./patterns.js";
 export type {
   PatternBlock,
+  PatternBlockEditorMeta,
   BlockPattern,
   PatternSet,
   ThemePatternRegistration,

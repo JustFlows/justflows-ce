@@ -1,4 +1,5 @@
 import { DEFAULT_ACCOUNT_BLOCKS, DEFAULT_AUTH_BLOCKS } from "@justflows/content";
+import { retainPackageArchive } from "../../lib/backup/package-archives.js";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
@@ -63,8 +64,7 @@ import {
   themeInstalledPath,
 } from "../../lib/themes/themes-db.js";
 import { activateThemeAdmin } from "../../lib/themes/themes-admin.js";
-import { requireRole } from "../../middleware/auth.js";
-import { CONTENT_READ_ROLES, THEME_CUSTOMIZE_ROLES } from "../../lib/auth/rbac.js";
+import { requireRole, requireCapability } from "../../middleware/auth.js";
 import { param } from "../../lib/http/params.js";
 import multer from "multer";
 import { assertPackageIsTrusted } from "../../lib/extensions/package-trust.js";
@@ -73,7 +73,7 @@ import { packagesInstalledDir, siteThemesDir } from "../../lib/extensions/packag
 import { recordInstalledPackageBaseline } from "../../lib/security/extension-integrity.js";
 import { getJustflowsVersion } from "../../lib/runtime/version.js";
 import { auditFromRequest } from "../../lib/security/audit-log.js";
-import { sendServerError } from "../../lib/http/send-error.js";
+import { sendInputOrServerError, sendServerError } from "../../lib/http/send-error.js";
 import { resolvePathUnderBase } from "../../lib/security/safe-path.js";
 import { isInstallationRootRequest } from "../../lib/tenancy/access.js";
 import { admitPackageUpload, multipartLimits, PACKAGE_UPLOAD_BYTES, withMultipartErrors } from "../../lib/security/upload-admission.js";
@@ -95,7 +95,7 @@ const themeDeleteRequestLimit = rateLimit({
   legacyHeaders: false,
 });
 
-router.get("/", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
+router.get("/", requireCapability("design:manage"), async (_req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -158,6 +158,13 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
       version: result.manifest.version,
       archiveDigest: result.digest,
     });
+    await retainPackageArchive(file.buffer, {
+      digest: result.digest,
+      type: "theme",
+      id: result.manifest.id,
+      version: result.manifest.version,
+      source: "upload",
+    });
 
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -197,7 +204,7 @@ router.post("/", packageUploadRequestLimit, requireRole("administrator"), admitP
   }
 });
 
-router.get("/patterns", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+router.get("/patterns", requireCapability("design:read"), async (_req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -209,7 +216,7 @@ router.get("/patterns", requireRole(...CONTENT_READ_ROLES), async (_req, res) =>
   }
 });
 
-router.get("/patterns/:slug", requireRole(...CONTENT_READ_ROLES), async (req, res) => {
+router.get("/patterns/:slug", requireCapability("design:read"), async (req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -251,6 +258,9 @@ interface StyleTokenDto {
   description?: string;
   type: string;
   value: string;
+  /** The theme's own value, and whether the site changed it (justflows-ce#301). */
+  defaultValue?: string;
+  overridden?: boolean;
   presets?: { label: string; value: string }[];
   min?: number;
   max?: number;
@@ -322,7 +332,7 @@ const BLOCK_LEVEL_TOKENS: StyleTokenDto[] = [
   },
 ];
 
-router.get("/style-tokens", requireRole(...CONTENT_READ_ROLES), async (_req, res) => {
+router.get("/style-tokens", requireCapability("design:read"), async (_req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -338,6 +348,12 @@ router.get("/style-tokens", requireRole(...CONTENT_READ_ROLES), async (_req, res
     const vars = modsToCssVariables(
       (theme?.css_variables as Record<string, string> | undefined) ?? {},
       mods,
+      schema,
+    );
+    /** What the theme alone gives, so the editor can say whether a token was changed for this site (justflows-ce#301). */
+    const defaultVars = modsToCssVariables(
+      (theme?.css_variables as Record<string, string> | undefined) ?? {},
+      defaultModsFromSchema(schema, theme?.css_variables),
       schema,
     );
 
@@ -364,6 +380,8 @@ router.get("/style-tokens", requireRole(...CONTENT_READ_ROLES), async (_req, res
           description: control.description,
           type: control.type,
           value: vars[key] ?? String(control.default),
+          defaultValue: defaultVars[key] ?? String(control.default),
+          overridden: (vars[key] ?? String(control.default)) !== (defaultVars[key] ?? String(control.default)),
           presets: control.options?.map((o) => ({ label: o.label, value: o.value })),
           min: control.min,
           max: control.max,
@@ -474,7 +492,12 @@ async function themeFilesStillUsed(themeId: string, version: string, folder: str
   }
 }
 
-router.delete("/:id", requireRole("administrator"), themeDeleteRequestLimit, async (req, res) => {
+/**
+ * `DELETE /customize` is declared further down; without this, it matched
+ * `/:id` first, so editors could not discard customizer drafts and an
+ * administrator's request looked for a theme named "customize".
+ */
+router.delete("/:id", (req, _res, next) => next(req.params.id === "customize" ? "route" : undefined), requireRole("administrator"), themeDeleteRequestLimit, async (req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -580,7 +603,7 @@ const PatchSchema = z.object({
   publish: z.boolean().default(false),
 });
 
-router.get("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
+router.get("/customize", requireCapability("design:manage"), async (_req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -635,6 +658,8 @@ router.get("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res
     res.json({
       theme: { id: theme.theme_id, name: theme.name, version: theme.version },
       schema: await getCustomizeSchema(siteId),
+      /** The theme's own values, so a control can say it was changed and reset to exactly this (justflows-ce#301). */
+      defaults,
       mods: effective,
       blocks: effectiveBlocks,
       defaultBlocks,
@@ -663,7 +688,7 @@ router.get("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res
   }
 });
 
-router.patch("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.patch("/customize", requireCapability("design:manage"), async (req, res) => {
   try {
     const body = PatchSchema.parse(req.body);
     await ensureThemesTable();
@@ -707,6 +732,8 @@ router.patch("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, re
       await publishThemeHomeBlocks(theme.theme_id, blocks);
       await publishThemeBlogBlocks(theme.theme_id, blogBlocks);
       await revalidateOnUpdate("theme");
+      /** Global styles reach every page; the entry names the theme, never the values (justflows-ce#309). */
+      auditFromRequest(req, "design.styles_published", { siteId, target: theme.theme_id, detail: "publish" });
       res.json({ ok: true, published: true, mods, blocks, homePageId, blogBlocks, blogPageId });
       return;
     }
@@ -715,15 +742,14 @@ router.patch("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, re
     await saveThemeHomeBlocks(theme.theme_id, blocks, body.draft);
     await saveThemeBlogBlocks(theme.theme_id, blogBlocks, body.draft);
     await revalidateOnUpdate("theme");
+    if (!body.draft) auditFromRequest(req, "design.styles_published", { siteId, target: theme.theme_id, detail: "save" });
     res.json({ ok: true, published: false, mods, blocks, homePageId, blogBlocks, blogPageId });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const status = message.includes("Custom CSS") ? 400 : 500;
-    res.status(status).json({ error: message });
+    sendInputOrServerError(res, "themes.customize", err);
   }
 });
 
-router.post("/customize/promote-home", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.post("/customize/promote-home", requireCapability("design:manage"), async (req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -793,12 +819,11 @@ router.post("/customize/promote-home", requireRole(...THEME_CUSTOMIZE_ROLES), as
     );
     res.status(201).json({ ok: true, homePageId: id, page: serializeContentRow(created[0]!) });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    sendServerError(res, "themes.pages", err);
   }
 });
 
-router.post("/customize/promote-blog", requireRole(...THEME_CUSTOMIZE_ROLES), async (req, res) => {
+router.post("/customize/promote-blog", requireCapability("design:manage"), async (req, res) => {
   try {
     await ensureThemesTable();
     const siteId = await getSiteId();
@@ -868,12 +893,11 @@ router.post("/customize/promote-blog", requireRole(...THEME_CUSTOMIZE_ROLES), as
     );
     res.status(201).json({ ok: true, blogPageId: id, page: serializeContentRow(created[0]!) });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    sendServerError(res, "themes.pages", err);
   }
 });
 
-router.delete("/customize", requireRole(...THEME_CUSTOMIZE_ROLES), async (_req, res) => {
+router.delete("/customize", requireCapability("design:manage"), async (_req, res) => {
   try {
     const siteId = await getSiteId();
     if (!siteId) {

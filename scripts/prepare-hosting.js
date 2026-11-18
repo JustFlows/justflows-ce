@@ -14,6 +14,7 @@ const PACKAGE_DIRS = [
   "apps/server",
   "packages/blocks",
   "packages/installer",
+  "packages/check",
   "packages/core",
   "packages/cache",
   "packages/auth",

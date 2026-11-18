@@ -18,6 +18,7 @@ pnpm --filter @justflows/cache build
 pnpm --filter @justflows/database build
 pnpm --filter @justflows/auth build
 pnpm --filter @justflows/installer build
+pnpm --filter @justflows/check build
 pnpm --filter @justflows/plugin-api build
 pnpm --filter @justflows/content build
 pnpm --filter @justflows/jobs build
