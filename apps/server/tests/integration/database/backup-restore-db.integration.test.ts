@@ -209,11 +209,6 @@ describe.skipIf(!enabled)("network backup and restore on a real database", () =>
     await db.run("INSERT INTO content (id, site_id, type, title, slug, status, blocks, fields) VALUES (?, ?, 'page', 'Sub home', 'home', 'published', '[]', '{}')", [randomUUID(), sourceSub]);
   }, 180_000);
 
-  /** Last suite in the file: close the shared pool and remove the scratch folders. */
-  afterAll(async () => {
-    await (await getDb()).close().catch(() => undefined);
-    fs.rmSync(scratch, { recursive: true, force: true });
-  });
 
   it("rebuilds the root and every subsite on a clean workspace at the reviewed address", async () => {
     const { buildNetworkBackup } = await import("../../../src/lib/backup/workspace-backup.js");
@@ -246,5 +241,181 @@ describe.skipIf(!enabled)("network backup and restore on a real database", () =>
     expect(rootUsers.find((row) => row.email === "op@example.com")!.id).toBe(operator);
     const tenant = await db.query<{ name: string }>("SELECT name FROM tenants WHERE id = ?", [targetTenant]);
     expect(tenant[0]!.name).toBe("Source workspace");
+  }, 180_000);
+});
+
+const extraDatabases = (process.env.BACKUP_TEST_DATABASE_EXTRA ?? "").split(",").filter(Boolean);
+
+/**
+ * Network restores that change several databases: a subsite on a separate
+ * database, a restore that fails part-way, and one that is cancelled. The
+ * failed and cancelled restores must leave the target exactly as it was.
+ */
+describe.skipIf(!enabled || extraDatabases.length < 2)("network restore across databases, failure, and cancellation", () => {
+  const tag = randomUUID().slice(0, 8);
+  const passphrase = "network rollback passphrase";
+  const sourceTenant = randomUUID();
+  const sourceRoot = randomUUID();
+  const sourceAdmin = randomUUID();
+  let separateSub = "";
+  let workspaceSub = "";
+  const connection = (database: string) => ({
+    host: process.env.DB_HOST ?? "127.0.0.1",
+    port: Number(process.env.DB_PORT),
+    database,
+    username: process.env.DB_USER ?? "",
+    password: process.env.DB_PASSWORD ?? "",
+  });
+
+  async function cleanWorkspace(name: string, limitSites?: number) {
+    const db = await getDb();
+    const tenant = randomUUID();
+    const root = randomUUID();
+    const operator = randomUUID();
+    await db.run("INSERT INTO tenants (id, slug, name, status) VALUES (?, ?, ?, 'active')", [tenant, `${name}-${tag}`, `Before ${name}`]);
+    await db.run("INSERT INTO sites (id, tenant_id, name, url, status) VALUES (?, ?, ?, ?, 'active')", [root, tenant, `Root ${name}`, `https://${name}-${tag}.example`]);
+    await db.run("INSERT INTO site_domains (id, site_id, hostname, kind, verified, is_primary) VALUES (?, ?, ?, 'primary', ?, ?)", [randomUUID(), root, `${name}-${tag}.example`, true, true]);
+    await db.run("INSERT INTO users (id, site_id, email, username, display_name, password_hash, role) VALUES (?, ?, 'op@example.com', ?, 'Operator', 'hash-op', 'administrator')", [operator, root, `op-${name}-${tag}`]);
+    await db.run("INSERT INTO content (id, site_id, type, title, slug, status, blocks, fields) VALUES (?, ?, 'page', 'Before', 'before', 'published', '[]', '{}')", [randomUUID(), root]);
+    if (limitSites) await db.run("INSERT INTO quota_limits (scope, scope_id, meter_key, limit_value) VALUES ('workspace', ?, 'sites', ?)", [tenant, limitSites]);
+    return { tenant, root, operator };
+  }
+
+  async function reader() {
+    const { buildNetworkBackup } = await import("../../../src/lib/backup/workspace-backup.js");
+    const { openBackup } = await import("../../../src/lib/backup/archive-crypto.js");
+    const { openBackupContainer } = await import("../../../src/lib/backup/backup-container.js");
+    const artifact = await buildNetworkBackup(sourceRoot, { passphrase, createdAt: new Date().toISOString(), databaseDriver: driver, coreVersion: "0.4.4" });
+    return openBackupContainer(openBackup(artifact.archive, passphrase).plaintext);
+  }
+
+  async function workspaceState(tenant: string, root: string) {
+    const db = await getDb();
+    return {
+      sites: (await db.query<{ id: string }>("SELECT id FROM sites WHERE tenant_id = ? AND id <> ?", [tenant, root])).length,
+      content: (await db.query<{ title: string }>("SELECT title FROM content WHERE site_id = ? ORDER BY title", [root])).map((row) => row.title),
+      users: (await db.query<{ email: string }>("SELECT email FROM users WHERE site_id = ? ORDER BY email", [root])).map((row) => row.email),
+      tenant: (await db.query<{ name: string }>("SELECT name FROM tenants WHERE id = ?", [tenant]))[0]?.name,
+      domains: (await db.query<{ hostname: string }>("SELECT hostname FROM site_domains WHERE site_id = ? ORDER BY hostname", [root])).map((row) => row.hostname),
+    };
+  }
+
+  beforeAll(async () => {
+    const db = await getDb();
+    await runAllMigrations(db, driver);
+    await db.run("INSERT INTO tenants (id, slug, name, status) VALUES (?, ?, ?, 'active')", [sourceTenant, `multi-${tag}`, "Multi source"]);
+    await db.run("INSERT INTO sites (id, tenant_id, name, url, status) VALUES (?, ?, 'Multi root', ?, 'active')", [sourceRoot, sourceTenant, `https://multi-${tag}.example`]);
+    await db.run("INSERT INTO site_domains (id, site_id, hostname, kind, verified, is_primary) VALUES (?, ?, ?, 'primary', ?, ?)", [randomUUID(), sourceRoot, `multi-${tag}.example`, true, true]);
+    await db.run("INSERT INTO users (id, site_id, email, username, display_name, password_hash, role) VALUES (?, ?, 'owner@example.com', ?, 'Owner', 'hash-owner', 'administrator')", [sourceAdmin, sourceRoot, `owner-multi-${tag}`]);
+    await db.run("INSERT INTO content (id, site_id, type, title, slug, status, blocks, fields) VALUES (?, ?, 'page', 'Multi home', 'home', 'published', '[]', '{}')", [randomUUID(), sourceRoot]);
+    const { createAdditionalSite } = await import("../../../src/lib/tenancy/provision.js");
+    const separate = await createAdditionalSite({
+      tenantId: sourceTenant,
+      name: "Separate sub",
+      hostname: `separate-${tag}.example`,
+      databaseChoice: "separate",
+      database: connection(extraDatabases[0]!),
+      adminFrom: { siteId: sourceRoot, userId: sourceAdmin },
+      actorId: sourceAdmin,
+    });
+    if (!separate.ok) throw new Error(separate.error);
+    separateSub = separate.siteId;
+    const workspace = await createAdditionalSite({
+      tenantId: sourceTenant,
+      name: "Workspace sub",
+      hostname: `workspace-${tag}.example`,
+      databaseChoice: "inherit",
+      adminFrom: { siteId: sourceRoot, userId: sourceAdmin },
+      actorId: sourceAdmin,
+    });
+    if (!workspace.ok) throw new Error(workspace.error);
+    workspaceSub = workspace.siteId;
+    const { withBackupSiteDatabase } = await import("../../../src/lib/backup/workspace-backup.js");
+    await withBackupSiteDatabase(separateSub, async () => {
+      await (await getDb()).run("DELETE FROM content WHERE site_id = ?", [separateSub]);
+      await (await getDb()).run("INSERT INTO content (id, site_id, type, title, slug, status, blocks, fields) VALUES (?, ?, 'page', 'Separate home', 'home', 'published', '[]', '{}')", [randomUUID(), separateSub]);
+    });
+  }, 180_000);
+
+  /** Last suite in the file: close the shared pool and remove the scratch folders. */
+  afterAll(async () => {
+    await (await getDb()).close().catch(() => undefined);
+    fs.rmSync(scratch, { recursive: true, force: true });
+  });
+
+  it("reads a subsite from its separate database and restores it into the database the operator chose", async () => {
+    const { restoreNetwork } = await import("../../../src/lib/backup/restore-backup.js");
+    const { withBackupSiteDatabase } = await import("../../../src/lib/backup/workspace-backup.js");
+    const target = await cleanWorkspace("target-separate");
+    const backup = await reader();
+    const result = await restoreNetwork({
+      rootSiteId: target.root,
+      actorId: target.operator,
+      reader: backup,
+      plan: {
+        hostnames: {
+          [separateSub]: [{ hostname: `separate-restored-${tag}.example`, primary: true }],
+          [workspaceSub]: [{ hostname: `workspace-restored-${tag}.example`, primary: true }],
+        },
+        siteDatabases: { [separateSub]: { mode: "custom", connection: connection(extraDatabases[1]!) }, [workspaceSub]: { mode: "workspace" } },
+      },
+    });
+    const restored = result.sites.find((site) => site.sourceSiteId === separateSub)!;
+    const db = await getDb();
+    const placement = await db.query<{ database_name: string }>("SELECT database_name FROM tenant_databases WHERE site_id = ?", [restored.siteId]);
+    expect(placement.map((row) => row.database_name)).toEqual([extraDatabases[1]]);
+    const titles = await withBackupSiteDatabase(restored.siteId, async () =>
+      (await getDb()).query<{ title: string }>("SELECT title FROM content WHERE site_id = ?", [restored.siteId]),
+    );
+    expect(titles.map((row) => row.title)).toEqual(["Separate home"]);
+    expect((await db.query<{ id: string }>("SELECT id FROM content WHERE site_id = ?", [restored.siteId])).length).toBe(0);
+  }, 180_000);
+
+  it("removes the new subsites and puts the root and workspace back when a later subsite cannot be created", async () => {
+    const { restoreNetwork } = await import("../../../src/lib/backup/restore-backup.js");
+    const target = await cleanWorkspace("failing", 2);
+    const before = await workspaceState(target.tenant, target.root);
+    await expect(
+      restoreNetwork({
+        rootSiteId: target.root,
+        actorId: target.operator,
+        reader: await reader(),
+        plan: {
+          hostnames: {
+            [sourceRoot]: [{ hostname: `extra-failing-${tag}.example` }],
+            [separateSub]: [{ hostname: `separate-failing-${tag}.example`, primary: true }],
+            [workspaceSub]: [{ hostname: `workspace-failing-${tag}.example`, primary: true }],
+          },
+          siteDatabases: { [separateSub]: { mode: "workspace" }, [workspaceSub]: { mode: "workspace" } },
+        },
+      }),
+    ).rejects.toThrow(/new subsites were removed and the root site was put back/);
+    expect(await workspaceState(target.tenant, target.root)).toEqual(before);
+  }, 180_000);
+
+  it("rolls everything back when cancelled after the root site was restored", async () => {
+    const { restoreNetwork } = await import("../../../src/lib/backup/restore-backup.js");
+    const target = await cleanWorkspace("cancelled");
+    const before = await workspaceState(target.tenant, target.root);
+    const controller = new AbortController();
+    await expect(
+      restoreNetwork({
+        rootSiteId: target.root,
+        actorId: target.operator,
+        reader: await reader(),
+        plan: {
+          hostnames: {
+            [separateSub]: [{ hostname: `separate-cancelled-${tag}.example`, primary: true }],
+            [workspaceSub]: [{ hostname: `workspace-cancelled-${tag}.example`, primary: true }],
+          },
+          siteDatabases: { [separateSub]: { mode: "workspace" }, [workspaceSub]: { mode: "workspace" } },
+        },
+        signal: controller.signal,
+        progress: (_done, _total, message) => {
+          if (message === "Restored Multi root") controller.abort();
+        },
+      }),
+    ).rejects.toThrow(/Restore cancelled/);
+    expect(await workspaceState(target.tenant, target.root)).toEqual(before);
   }, 180_000);
 });

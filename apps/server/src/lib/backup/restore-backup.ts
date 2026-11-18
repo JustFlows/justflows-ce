@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { getControlDb, getDb } from "../database/db.js";
 import { getUploadStore } from "../media/upload-store.js";
+import { sqlTime } from "../jobs/job-queue-db.js";
 import { isValidHostname, normalizeHostname, siteDomainKind } from "../tenancy/host.js";
 import { multisiteEnabled } from "../tenancy/multisite.js";
 import { validateDatabaseTarget, type DatabaseTarget } from "../tenancy/choice.js";
@@ -391,7 +392,7 @@ async function discardCreatedSite(siteId: string): Promise<boolean> {
 
 async function addHostnames(siteId: string, hosts: MappedHost[], skipPrimary: boolean): Promise<void> {
   const control = await getControlDb();
-  const stamp = new Date().toISOString();
+  const stamp = sqlTime(Date.now());
   for (const host of hosts) {
     if (skipPrimary && host.primary) continue;
     const routable = host.kind !== "custom";
@@ -438,7 +439,7 @@ async function writeInstallation(
       if (existing.has(userId)) continue;
       const present = await tx.query<{ id: string }>("SELECT id FROM users WHERE id = ? LIMIT 1", [userId]);
       if (!present[0]) continue;
-      await tx.run("INSERT INTO platform_operators (user_id, created_at) VALUES (?, ?)", [userId, new Date().toISOString()]);
+      await tx.run("INSERT INTO platform_operators (user_id, created_at) VALUES (?, ?)", [userId, sqlTime(Date.now())]);
       existing.add(userId);
     }
   });
@@ -534,8 +535,9 @@ export async function restoreNetwork(input: {
         installationBefore.settings,
         installationBefore.operators,
         null,
-      ).catch(() => {
+      ).catch((error: unknown) => {
         complete = false;
+        problems.push(`the installation settings (${error instanceof Error ? error.message : String(error)})`);
       });
     }
     const reason = (cause instanceof Error ? cause.message : "Network restore failed").replace(/\.$/, "");

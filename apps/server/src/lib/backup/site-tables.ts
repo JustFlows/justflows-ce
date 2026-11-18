@@ -231,6 +231,7 @@ export function importValue(
   driver: BackupDriver,
 ): string | number | boolean | null {
   if (value === null || value === undefined) return null;
+  if (value instanceof Date) return importValue(Number.isNaN(value.getTime()) ? null : value.toISOString(), column, driver);
   /** The app writes JSON columns as JSON.stringify(value) on every driver. */
   if (column.json) return JSON.stringify(value);
   if (isBooleanColumn(column, driver)) {
