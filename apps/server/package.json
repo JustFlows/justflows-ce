@@ -21,7 +21,7 @@
   "dependencies": {
     "@justflows/blocks": "file:../../packages/blocks",
     "@justflows/cache": "file:../../packages/cache",
-    "@justflows/check": "file:../../packages/check",
+    "@justflows/check": "workspace:*",
     "@justflows/content": "file:../../packages/content",
     "@justflows/core": "file:../../packages/core",
     "@justflows/installer": "file:../../packages/installer",

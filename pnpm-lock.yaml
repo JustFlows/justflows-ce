@@ -263,8 +263,8 @@ importers:
         specifier: file:../../packages/cache
         version: link:../../packages/cache
       '@justflows/check':
-        specifier: file:../../packages/check
-        version: file:packages/check
+        specifier: workspace:*
+        version: link:../../packages/check
       '@justflows/content':
         specifier: file:../../packages/content
         version: link:../../packages/content
