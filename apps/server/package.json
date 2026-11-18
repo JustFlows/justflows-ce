@@ -2,7 +2,7 @@
   "name": "@justflows/server",
   "version": "0.1.5",
   "private": true,
-  "description": "Justflows — unified Express server (API + admin + public site)",
+  "description": "Justflows \u2014 unified Express server (API + admin + public site)",
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=../../.env src/server.ts",
@@ -21,6 +21,7 @@
   "dependencies": {
     "@justflows/blocks": "file:../../packages/blocks",
     "@justflows/cache": "file:../../packages/cache",
+    "@justflows/check": "file:../../packages/check",
     "@justflows/content": "file:../../packages/content",
     "@justflows/core": "file:../../packages/core",
     "@justflows/installer": "file:../../packages/installer",

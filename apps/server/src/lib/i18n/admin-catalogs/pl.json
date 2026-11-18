@@ -240,7 +240,14 @@
     "activate": "Aktywuj",
     "deactivateSiteConfirm": "Wyłączyć „{name}” na tej witrynie? Jeśli ustawienia usuwania są włączone, dane, strony i wpisy wtyczki tej witryny zostaną usunięte. Tabele pozostaną dla innych witryn.",
     "deactivateFailed": "Nie udało się wyłączyć wtyczki.",
-    "activateFailed": "Nie udało się włączyć wtyczki."
+    "activateFailed": "Nie udało się włączyć wtyczki.",
+    "check": "Sprawdź",
+    "checking": "Sprawdzanie…",
+    "checkHint": "Uruchom kontrolę rozszerzeń na zainstalowanych plikach tej wtyczki",
+    "checkClean": "Kontrola rozszerzeń nie znalazła problemów.",
+    "checkSummary": "Kontrola rozszerzeń: błędy {errors}, ostrzeżenia {warnings}, uwagi {notes}",
+    "checkFailed": "Nie udało się sprawdzić wtyczki",
+    "checkHelp": "Szczegóły"
   },
   "content": {
     "accountNotice": "Strony konta wymagają logowania. Justflows wyklucza je z pamięci podręcznej, eksportów, wyszukiwania publicznego i map witryny.",

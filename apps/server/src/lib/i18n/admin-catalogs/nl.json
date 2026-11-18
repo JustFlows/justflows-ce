@@ -234,7 +234,14 @@
     "installedHeading": "Geïnstalleerde plugins ({count})",
     "deactivateSiteConfirm": "“{name}” uitzetten op deze site? Als de verwijderinstellingen aan staan, worden de plugingegevens, pagina’s en berichten van deze site verwijderd. Tabellen blijven voor andere sites.",
     "deactivateFailed": "De plugin kon niet worden uitgezet.",
-    "activateFailed": "De plugin kon niet worden aangezet."
+    "activateFailed": "De plugin kon niet worden aangezet.",
+    "check": "Controleren",
+    "checking": "Controleren…",
+    "checkHint": "Voer de extensiecontrole uit op de geïnstalleerde bestanden van deze plugin",
+    "checkClean": "De extensiecontrole vond geen problemen.",
+    "checkSummary": "Extensiecontrole: {errors} fouten, {warnings} waarschuwingen, {notes} opmerkingen",
+    "checkFailed": "De plugin kon niet worden gecontroleerd",
+    "checkHelp": "Details"
   },
   "content": {
     "accountNotice": "Accountpagina’s vereisen aanmelden. Justflows sluit ze uit van caches, exports, openbare zoekresultaten en sitemaps.",
